@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Minimal Nuclear Option mod targeting BepInEx 5.
+    This is deliberately stripped down: no Tacview/ACMI output, no config, no UI.
+    It just reads live telemetry from the game and logs it.
+
+    >>> ONE THING YOU MUST EDIT <<<
+    Set GameDir below to wherever Nuclear Option is installed ON THE MACHINE
+    THAT BUILDS THIS (your Windows box). The default is the standard Steam path.
+  -->
+  <PropertyGroup>
+    <GameDir>C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option</GameDir>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- netstandard2.1 is what Unity Mono games expect from a BepInEx plugin. -->
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>NOTelemetryReader</AssemblyName>
+    <Product>NOTelemetryReader</Product>
+    <Description>Minimal telemetry reader for Nuclear Option</Description>
+    <Version>0.1.0</Version>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <RootNamespace>NOTelemetryReader</RootNamespace>
+    <DebugType>portable</DebugType>
+    <NoWarn>BepInEx002</NoWarn>
+    <!-- Lets the BepInEx.PluginInfoProps package generate MyPluginInfo for us. -->
+    <RestoreAdditionalProjectSources>
+      https://api.nuget.org/v3/index.json;
+      https://nuget.bepinex.dev/v3/index.json;
+      https://nuget.samboy.dev/v3/index.json
+    </RestoreAdditionalProjectSources>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- BepInEx 5 runtime (the modding framework that loads this DLL). -->
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" />
+    <PackageReference Include="BepInEx.PluginInfoProps" Version="2.1.0" />
+    <!-- Compile-time Unity reference assemblies (Transform, Vector3, MonoBehaviour, ...). -->
+    <PackageReference Include="UnityEngine.Modules" Version="2022.3.6" IncludeAssets="compile" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The game itself. Assembly-CSharp.dll IS the compiled game code; referencing it
+         lets us call MissionManager, GameManager, Unit, Aircraft, etc. directly. -->
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(GameDir)\NuclearOption_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>
