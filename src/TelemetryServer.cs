@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Net;
@@ -22,6 +23,10 @@ namespace NOTelemetryReader
         // Captured in-game map image (PNG), set from the Unity main thread.
         private static byte[]?          _mapPng;
         private static readonly object  _mapLock = new object();
+
+        // Per-aircraft-type map icons (PNG), keyed by unitName.
+        private static readonly Dictionary<string, byte[]> _icons    = new Dictionary<string, byte[]>();
+        private static readonly object                     _iconLock = new object();
 
         // ── Lifecycle ──────────────────────────────────────────────────────────
 
@@ -63,6 +68,22 @@ namespace NOTelemetryReader
             Plugin.Log?.LogInfo($"[NOTelemetry] In-game map image ready ({png.Length} bytes) — serving at /map.");
         }
 
+        // Called from Unity main thread once an aircraft type's map icon has been extracted.
+        public static void SetIcon(string unitName, byte[] png)
+        {
+            if (string.IsNullOrEmpty(unitName)) return;
+            lock (_iconLock) _icons[unitName] = png;
+        }
+
+        // Called from Unity main thread when a mission ends — clears all per-mission state so
+        // the client drops back to "no mission" and wipes its display. Icons are static
+        // per-type assets and stay cached across missions.
+        public static void Reset()
+        {
+            lock (_lock)    _latest = default;
+            lock (_mapLock) _mapPng = null;
+        }
+
         // ── Accept loop ────────────────────────────────────────────────────────
 
         private static void AcceptLoop()
@@ -78,6 +99,8 @@ namespace NOTelemetryReader
                         _ = Task.Run(() => HandleSseAsync(ctx, _cts.Token));
                     else if (path == "/map" || path == "/map.png" || path == "/map.jpg")
                         ServeMap(ctx);
+                    else if (path == "/icon")
+                        ServeIcon(ctx);
                     else
                         ServeHtml(ctx);
                 }
@@ -164,6 +187,33 @@ namespace NOTelemetryReader
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
+        // ── Icon handler ───────────────────────────────────────────────────────
+
+        private static void ServeIcon(HttpListenerContext ctx)
+        {
+            string type = ctx.Request.QueryString["type"] ?? string.Empty;
+            byte[]? png = null;
+            if (type.Length > 0)
+                lock (_iconLock) _icons.TryGetValue(type, out png);
+
+            if (png == null)
+            {
+                ctx.Response.StatusCode = 404;
+                try { ctx.Response.Close(); } catch { }
+                return;
+            }
+
+            try
+            {
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "image/png";
+                ctx.Response.ContentLength64 = png.Length;
+                ctx.Response.OutputStream.Write(png, 0, png.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
         // ── SSE handler ────────────────────────────────────────────────────────
 
         private static async Task HandleSseAsync(HttpListenerContext ctx, CancellationToken ct)
@@ -205,22 +255,44 @@ namespace NOTelemetryReader
 
         // ── Serialization ──────────────────────────────────────────────────────
 
-        private static string Serialize(TelemetrySnapshot s) =>
-            string.Format(CultureInfo.InvariantCulture,
+        private static string Serialize(TelemetrySnapshot s)
+        {
+            string head = string.Format(CultureInfo.InvariantCulture,
                 "{{\"ping\":false,\"t\":{0:0.000},\"name\":\"{1}\"," +
-                "\"world\":{{\"x\":{2:0.0},\"y\":{3:0.0},\"z\":{4:0.0}}}," +
-                "\"hdg\":{5:0.0},\"tas\":{6:0.0},\"agl\":{7:0.0},\"gear\":\"{8}\"," +
-                "\"units\":{9},\"aircraft\":{10}," +
-                "\"map\":{{\"valid\":{11},\"w\":{12:0.0},\"h\":{13:0.0},\"ox\":{14},\"oy\":{15}}}}}",
+                "\"mission\":\"{2}\",\"mapName\":\"{3}\"," +
+                "\"world\":{{\"x\":{4:0.0},\"y\":{5:0.0},\"z\":{6:0.0}}}," +
+                "\"hdg\":{7:0.0},\"tas\":{8:0.0},\"agl\":{9:0.0},\"gear\":\"{10}\"," +
+                "\"units\":{11},\"aircraft\":{12}," +
+                "\"map\":{{\"valid\":{13},\"w\":{14:0.0},\"h\":{15:0.0},\"ox\":{16},\"oy\":{17}}}," +
+                "\"iconOrient\":{18},\"iconScale\":{19:0.000},",
                 s.Time,
                 EscapeJson(s.PlaneName ?? string.Empty),
+                EscapeJson(s.MissionName ?? string.Empty),
+                EscapeJson(s.MapName ?? string.Empty),
                 s.WorldX, s.WorldY, s.WorldZ,
                 s.Heading, s.TAS, s.AGL,
                 s.GearDown ? "down" : "up",
                 s.TotalUnits, s.TotalAircraft,
                 s.MapValid ? "true" : "false",
                 s.MapW, s.MapH,
-                s.GridOffsetX, s.GridOffsetY);
+                s.GridOffsetX, s.GridOffsetY,
+                s.IconOrient ? "true" : "false",
+                s.IconScale);
+
+            return head + "\"loadout\":" + JsonArray(s.Loadout) + "}";
+        }
+
+        private static string JsonArray(string[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append('"').Append(EscapeJson(items[i] ?? string.Empty)).Append('"');
+            }
+            return sb.Append(']').ToString();
+        }
 
         private static string EscapeJson(string s) =>
             s.Replace("\\", "\\\\").Replace("\"", "\\\"");

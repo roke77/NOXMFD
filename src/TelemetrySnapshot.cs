@@ -5,6 +5,9 @@ namespace NOTelemetryReader
         public bool   Valid;
         public float  Time;
         public string PlaneName;
+        public string MissionName;
+        public string MapName;
+        public string[] Loadout;      // weapon loadout display names, aggregated
 
         // True world position (floating-origin corrected): pos - Datum.originPosition.
         public float  WorldX, WorldY, WorldZ;
@@ -15,6 +18,10 @@ namespace NOTelemetryReader
         public float  TAS;
         public float  AGL;
         public bool   GearDown;
+
+        // Aircraft map-icon hints (the icon PNG itself is served separately at /icon).
+        public bool   IconOrient;   // whether the icon rotates with heading
+        public float  IconScale;    // relative size multiplier (default 1)
         public int    TotalUnits;
         public int    TotalAircraft;
 

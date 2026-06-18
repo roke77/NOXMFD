@@ -66,7 +66,23 @@ namespace NOTelemetryReader
   }
   #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 
+  #mission-bar {
+    position: absolute;
+    top: 10px; left: 12px;
+    background: rgba(6,10,6,0.78);
+    border: 1px solid #1a3a1a;
+    padding: 6px 11px;
+    line-height: 1.5;
+    pointer-events: none;
+  }
+  #mission-bar .map-name { font-size: 15px; font-weight: bold; color: #39ff14; }
+  #mission-bar .mission-name { font-size: 11px; color: #4aaa4a; }
+  #mission-bar.empty { display: none; }
+
   #hud { width: 210px; display: flex; flex-direction: column; flex-shrink: 0; }
+  #loadout { font-size: 12px; line-height: 1.8; color: #39ff14; }
+  #loadout .none { color: #1a4a1a; }
+  #loadout div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .panel  { border-bottom: 1px solid #1a3a1a; padding: 9px 12px; }
   .label  { font-size: 9px; letter-spacing: 2px; color: #4aaa4a; margin-bottom: 3px; }
   .big    { font-size: 26px; font-weight: bold; letter-spacing: 1px; }
@@ -97,6 +113,10 @@ namespace NOTelemetryReader
       <small>The real map is pulled from the game when a mission loads.</small>
     </div>
     <canvas id="overlay"></canvas>
+    <div id="mission-bar" class="empty">
+      <div class="map-name" id="map-name">—</div>
+      <div class="mission-name" id="mission-name">—</div>
+    </div>
   </div>
 
   <div id="hud">
@@ -126,6 +146,10 @@ namespace NOTelemetryReader
       <div id="world" class="dim">—</div>
     </div>
     <div class="panel" style="flex:1">
+      <div class="label">LOADOUT</div>
+      <div id="loadout"><span class="none">—</span></div>
+    </div>
+    <div class="panel">
       <div class="label">POSITION (WORLD)</div>
       <div id="raw-pos" class="dim">—</div>
     </div>
@@ -134,11 +158,13 @@ namespace NOTelemetryReader
 
 <script>
 // ── State (declared first so callbacks never hit a temporal dead zone) ──────────
-const TRAIL_MAX = 600;
-const trail     = [];          // { x, z } world coords
 let   lastData  = null;
 let   mapMeta   = null;        // { w, h, ox, oy }
 let   lastMsgAt = 0;
+let   hadData   = false;       // true once a mission has delivered telemetry
+
+const ICON_BASE = 30;          // base icon size in px (scaled by iconScale)
+const icons     = {};          // unitName -> { ready, canvas }  (pre-tinted to HUD green)
 
 // ── DOM refs ────────────────────────────────────────────────────────────────────
 const mapImg   = document.getElementById('map-img');
@@ -189,41 +215,69 @@ function gridLabel(wx, wz) {
   return vert + `${majX}${minX}`;
 }
 
+// Loads the game's map icon for an aircraft type and pre-tints it to the HUD green.
+function ensureIcon(name) {
+  if (!name || icons[name]) return;
+  const entry = { ready: false, canvas: null };
+  icons[name] = entry;
+
+  const img = new Image();
+  img.onload = function() {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const cx = c.getContext('2d');
+    cx.drawImage(img, 0, 0);
+    cx.globalCompositeOperation = 'source-in';   // tint opaque pixels green, keep alpha
+    cx.fillStyle = '#39ff14';
+    cx.fillRect(0, 0, c.width, c.height);
+    entry.canvas = c;
+    entry.ready  = true;
+    drawOverlay();
+  };
+  img.onerror = function() { /* no icon for this type — triangle fallback stays */ };
+  img.src = '/icon?type=' + encodeURIComponent(name);
+}
+
 // ── Drawing ──────────────────────────────────────────────────────────────────────
 function drawOverlay() {
   oc.clearRect(0, 0, overlay.width, overlay.height);
   if (!lastData || !mapMeta) return;
 
-  // Trail
-  for (let i = 1; i < trail.length; i++) {
-    const a = worldToOverlay(trail[i-1].x, trail[i-1].z);
-    const b = worldToOverlay(trail[i].x,   trail[i].z);
-    if (!a || !b) continue;
-    const alpha = 0.05 + 0.75 * (i / trail.length);
-    oc.strokeStyle = `rgba(57,255,20,${alpha.toFixed(2)})`;
-    oc.lineWidth   = 2;
-    oc.beginPath(); oc.moveTo(a.cx, a.cy); oc.lineTo(b.cx, b.cy); oc.stroke();
-  }
-
-  // Plane icon — pointed by true heading from the game.
   const pos = worldToOverlay(lastData.world.x, lastData.world.z);
   if (!pos) return;
 
-  const s = 11;
-  oc.save();
-  oc.translate(pos.cx, pos.cy);
-  oc.rotate(lastData.hdg * Math.PI / 180);
-  oc.shadowColor = '#39ff14';
-  oc.shadowBlur  = 10;
-  oc.fillStyle   = '#39ff14';
-  oc.beginPath();
-  oc.moveTo( 0,       -s * 1.7);
-  oc.lineTo(-s * 0.7,  s * 0.9);
-  oc.lineTo( 0,        s * 0.35);
-  oc.lineTo( s * 0.7,  s * 0.9);
-  oc.closePath();
-  oc.fill();
-  oc.restore();
+  const icon = icons[lastData.name];
+  if (icon && icon.ready) {
+    // The game's own map icon, tinted green, oriented to heading if the type orients.
+    const cv  = icon.canvas;
+    const sc  = (lastData.iconScale || 1);
+    const h   = ICON_BASE * sc;
+    const w   = h * (cv.width / cv.height);
+    oc.save();
+    oc.translate(pos.cx, pos.cy);
+    if (lastData.iconOrient) oc.rotate(lastData.hdg * Math.PI / 180);
+    oc.shadowColor = '#39ff14';
+    oc.shadowBlur  = 8;
+    oc.drawImage(cv, -w / 2, -h / 2, w, h);
+    oc.restore();
+  } else {
+    // Fallback: green triangle pointed by heading.
+    const s = 11;
+    oc.save();
+    oc.translate(pos.cx, pos.cy);
+    oc.rotate(lastData.hdg * Math.PI / 180);
+    oc.shadowColor = '#39ff14';
+    oc.shadowBlur  = 10;
+    oc.fillStyle   = '#39ff14';
+    oc.beginPath();
+    oc.moveTo( 0,       -s * 1.7);
+    oc.lineTo(-s * 0.7,  s * 0.9);
+    oc.lineTo( 0,        s * 0.35);
+    oc.lineTo( s * 0.7,  s * 0.9);
+    oc.closePath();
+    oc.fill();
+    oc.restore();
+  }
 
   oc.shadowBlur   = 0;
   oc.font         = 'bold 11px Courier New';
@@ -253,10 +307,16 @@ es.onmessage = function(e) {
   lastMsgAt = performance.now();
   const d = JSON.parse(e.data);
 
-  if (d.ping) { setStatus('waiting', '● CONNECTED — no mission'); return; }
+  if (d.ping) {
+    setStatus('waiting', '● CONNECTED — no mission');
+    if (hadData) clearMission();   // mission ended — wipe the display once
+    return;
+  }
 
   setStatus('connected', '● CONNECTED');
   lastData = d;
+  hadData  = true;
+  ensureIcon(d.name);
 
   if (d.map && d.map.valid) {
     mapMeta = { w: d.map.w, h: d.map.h, ox: d.map.ox, oy: d.map.oy };
@@ -264,12 +324,32 @@ es.onmessage = function(e) {
     if (!mapWasValid) { mapWasValid = true; mapImg.src = '/map?t=' + Date.now(); }
   }
 
-  trail.push({ x: d.world.x, z: d.world.z });
-  if (trail.length > TRAIL_MAX) trail.shift();
-
   updateHUD(d);
   drawOverlay();
 };
+
+// Wipe everything when a mission/map exits, so stale data never lingers on screen.
+function clearMission() {
+  hadData = false;
+  lastData = null;
+  mapMeta = null;
+  mapWasValid = false;
+  oc.clearRect(0, 0, overlay.width, overlay.height);
+  mapImg.src = '/map?t=' + Date.now();   // 404 now → falls back to the placeholder
+
+  document.getElementById('mission-bar').className = 'empty';
+  dim('plane-name'); dim('grid'); dim('tas'); dim('agl'); dim('hdg');
+  const gEl = document.getElementById('gear'); gEl.textContent = '—'; gEl.className = '';
+  const wEl = document.getElementById('world'); wEl.textContent = '—'; wEl.className = 'dim';
+  const rEl = document.getElementById('raw-pos'); rEl.textContent = '—'; rEl.className = 'dim';
+  document.getElementById('loadout').innerHTML = '<span class="none">—</span>';
+}
+
+function dim(id) {
+  const el = document.getElementById(id);
+  el.textContent = '—';
+  if (!el.className.includes('dim')) el.className = (el.className + ' dim').trim();
+}
 
 es.onerror = function() {
   // EventSource auto-reconnects; the watchdog decides when to actually show DISCONNECTED.
@@ -288,11 +368,34 @@ setInterval(function() {
 
 // ── HUD ──────────────────────────────────────────────────────────────────────────
 function updateHUD(d) {
+  // Mission / map name bar
+  const bar = document.getElementById('mission-bar');
+  if (d.mapName || d.mission) {
+    bar.className = '';
+    document.getElementById('map-name').textContent     = d.mapName || '—';
+    document.getElementById('mission-name').textContent = d.mission || '';
+  } else {
+    bar.className = 'empty';
+  }
+
   set('plane-name', d.name);
   set('grid', gridLabel(d.world.x, d.world.z));
   set('tas', d.tas.toFixed(1));
   set('agl', d.agl.toFixed(0));
   set('hdg', d.hdg.toFixed(0));
+
+  // Weapon loadout
+  const loEl = document.getElementById('loadout');
+  if (d.loadout && d.loadout.length) {
+    loEl.innerHTML = '';
+    for (const w of d.loadout) {
+      const row = document.createElement('div');
+      row.textContent = w;
+      loEl.appendChild(row);
+    }
+  } else {
+    loEl.innerHTML = '<span class="none">— none —</span>';
+  }
 
   const gEl = document.getElementById('gear');
   gEl.textContent = d.gear.toUpperCase();

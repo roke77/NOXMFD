@@ -52,6 +52,7 @@ namespace NOTelemetryReader
             if (_readerObject != null)
                 Destroy(_readerObject);
             _readerObject = null;
+            TelemetryServer.Reset();   // clear per-mission data so the client wipes its display
             Log?.LogInfo("Mission ended -> telemetry reader OFF.");
         }
     }
