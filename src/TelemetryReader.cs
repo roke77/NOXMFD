@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 
 namespace NOTelemetryReader
@@ -29,9 +30,14 @@ namespace NOTelemetryReader
         private Unit[] _units = Array.Empty<Unit>();
 
         // Slowly-changing context, refreshed in the 1 Hz scan.
-        private string   _missionName = string.Empty;
-        private string   _mapName     = string.Empty;
-        private string[] _loadout     = Array.Empty<string>();
+        private string         _missionName = string.Empty;
+        private string         _mapName     = string.Empty;
+        private LoadoutEntry[]  _loadout     = Array.Empty<LoadoutEntry>();
+
+        // Weapon-type icons we've already extracted (keyed by weapon display name).
+        private readonly HashSet<string> _capturedWeaponIcons = new HashSet<string>();
+
+        private int _flares = -1;   // IR flares remaining (refreshed in the 1 Hz scan)
 
         // The game's HUD faction colors, read once from GameAssets.
         private string _colFriendly = "#39ff14";
@@ -98,7 +104,59 @@ namespace NOTelemetryReader
             // 10 Hz push allocation-free.
             GameManager.GetLocalAircraft(out Aircraft ac);
             if (ac != null)
+            {
                 _loadout = BuildLoadout(ac);
+                _flares  = CountFlares(ac);
+            }
+        }
+
+        // Sums remaining IR flares across all flare ejectors (-1 if the aircraft has none).
+        private static int CountFlares(Aircraft ac)
+        {
+            FlareEjector[] ejectors = ac.GetComponentsInChildren<FlareEjector>();
+            if (ejectors == null || ejectors.Length == 0) return -1;
+            int total = 0;
+            foreach (FlareEjector fe in ejectors)
+                if (fe != null) total += fe.ammo;
+            return total;
+        }
+
+        // The active countermeasure index points into CountermeasureManager's private station
+        // list, so we reflect into it once (cached) and check the active station's type.
+        private static FieldInfo?  _cmStationsField;
+        private static MethodInfo? _cmGetFirstMethod;
+
+        private static byte GetSelectedCmCategory(Aircraft ac)
+        {
+            CountermeasureManager mgr = ac.countermeasureManager;
+            if (mgr == null) return 0;
+
+            try
+            {
+                if (_cmStationsField == null)
+                    _cmStationsField = typeof(CountermeasureManager)
+                        .GetField("countermeasureStations", BindingFlags.NonPublic | BindingFlags.Instance);
+
+                if (_cmStationsField?.GetValue(mgr) is not System.Collections.IList list || list.Count == 0)
+                    return 0;
+
+                int idx = mgr.activeIndex;
+                if (idx < 0 || idx >= list.Count) return 0;
+
+                object station = list[idx];
+                if (station == null) return 0;
+
+                if (_cmGetFirstMethod == null)
+                    _cmGetFirstMethod = station.GetType()
+                        .GetMethod("GetFirstCountermeasure", BindingFlags.Public | BindingFlags.Instance);
+
+                if (_cmGetFirstMethod?.Invoke(station, null) is not Countermeasure cm) return 0;
+                if (cm is FlareEjector) return 1;
+                if (cm is RadarJammer)  return 2;
+                if (cm is ChaffEjector) return 3;
+                return 0;
+            }
+            catch { return 0; }
         }
 
         // Reads the game's HUD faction colors once (constant for the session).
@@ -133,32 +191,56 @@ namespace NOTelemetryReader
             return name.Trim();
         }
 
-        // Aggregates the aircraft's weapon mounts into display strings like "2x AGM-65".
-        private static string[] BuildLoadout(Aircraft aircraft)
+        // Aggregates the aircraft's live weapon stations by type (summing remaining/total ammo),
+        // and extracts each weapon's icon. Uses weaponStations rather than the static loadout so
+        // ammo counts reflect what's actually left.
+        private readonly Dictionary<string, int> _loIndex = new Dictionary<string, int>();
+        private readonly List<string> _loNames = new List<string>();
+        private readonly List<int>    _loCur   = new List<int>();
+        private readonly List<int>    _loMax   = new List<int>();
+
+        private LoadoutEntry[] BuildLoadout(Aircraft aircraft)
         {
-            var lo = aircraft.loadout;
-            if (lo == null || lo.weapons == null) return Array.Empty<string>();
+            var stations = aircraft.weaponStations;
+            if (stations == null) return Array.Empty<LoadoutEntry>();
 
-            var counts = new Dictionary<string, int>();
-            var order  = new List<string>();
+            _loIndex.Clear(); _loNames.Clear(); _loCur.Clear(); _loMax.Clear();
 
-            foreach (WeaponMount m in lo.weapons)
+            foreach (WeaponStation st in stations)
             {
-                if (m == null || m.info == null || m.info.hideInDisplay) continue;
+                if (st == null) continue;
+                WeaponInfo info = st.WeaponInfo;
+                if (info == null || info.hideInDisplay) continue;
 
-                string name = !string.IsNullOrEmpty(m.info.weaponName) ? m.info.weaponName
-                            : !string.IsNullOrEmpty(m.mountName)        ? m.mountName
-                            : m.info.shortName;
+                string name = !string.IsNullOrEmpty(info.weaponName) ? info.weaponName : info.shortName;
                 if (string.IsNullOrEmpty(name)) continue;
 
-                if (!counts.ContainsKey(name)) { counts[name] = 0; order.Add(name); }
-                counts[name]++;
+                if (!_loIndex.TryGetValue(name, out int i))
+                {
+                    i = _loNames.Count;
+                    _loIndex[name] = i;
+                    _loNames.Add(name); _loCur.Add(0); _loMax.Add(0);
+                }
+                _loCur[i] += st.Ammo;
+                _loMax[i] += st.FullAmmo;
+                TryCaptureWeaponIcon(name, info.weaponIcon);
             }
 
-            var result = new string[order.Count];
-            for (int i = 0; i < order.Count; i++)
-                result[i] = counts[order[i]] > 1 ? $"{counts[order[i]]}x {order[i]}" : order[i];
+            var result = new LoadoutEntry[_loNames.Count];
+            for (int i = 0; i < _loNames.Count; i++)
+                result[i] = new LoadoutEntry { Name = _loNames[i], Ammo = _loCur[i], FullAmmo = _loMax[i] };
             return result;
+        }
+
+        // Extracts a weapon type's icon to PNG, once per name, and registers it.
+        private void TryCaptureWeaponIcon(string name, Sprite icon)
+        {
+            if (string.IsNullOrEmpty(name) || _capturedWeaponIcons.Contains(name)) return;
+            _capturedWeaponIcons.Add(name);
+            if (icon == null) return;
+
+            byte[]? png = SpriteToPng(icon, isIcon: true);
+            if (png != null) TelemetryServer.SetWeaponIcon(name, png);
         }
 
         private void PushSnapshot()
@@ -171,6 +253,17 @@ namespace NOTelemetryReader
             // zero as the world re-centers. The true world coordinate is pos - Datum.originPosition.
             Vector3 world   = aircraft.transform.position - Datum.originPosition;
             float   heading = aircraft.transform.eulerAngles.y;
+
+            PowerSupply ps  = aircraft.GetPowerSupply();
+            float       ewKJ = ps != null ? ps.GetChargeKJ() : -1f;
+
+            string selWeapon = string.Empty;
+            WeaponManager wm = aircraft.weaponManager;
+            WeaponInfo selInfo = wm != null && wm.currentWeaponStation != null ? wm.currentWeaponStation.WeaponInfo : null;
+            if (selInfo != null)
+                selWeapon = !string.IsNullOrEmpty(selInfo.weaponName) ? selInfo.weaponName : selInfo.shortName;
+
+            byte cmCategory = GetSelectedCmCategory(aircraft);
 
             TryCaptureIcon(aircraft.definition);
 
@@ -191,6 +284,10 @@ namespace NOTelemetryReader
                 TAS            = aircraft.speed,
                 AGL            = Mathf.Max(0f, aircraft.radarAlt),
                 GearDown       = aircraft.gearDeployed,
+                Flares         = _flares,
+                EwKJ           = ewKJ,
+                SelWeapon      = selWeapon,
+                CmCategory     = cmCategory,
                 TotalUnits     = _totalUnits,
                 TotalAircraft  = _totalAircraft,
                 MapValid       = _mapValid,

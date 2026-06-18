@@ -28,6 +28,10 @@ namespace NOTelemetryReader
         private static readonly Dictionary<string, byte[]> _icons    = new Dictionary<string, byte[]>();
         private static readonly object                     _iconLock = new object();
 
+        // Per-weapon-type icons (PNG), keyed by weapon display name.
+        private static readonly Dictionary<string, byte[]> _weaponIcons = new Dictionary<string, byte[]>();
+        private static readonly object                     _weaponLock  = new object();
+
         // ── Lifecycle ──────────────────────────────────────────────────────────
 
         public static void Start()
@@ -75,6 +79,13 @@ namespace NOTelemetryReader
             lock (_iconLock) _icons[unitName] = png;
         }
 
+        // Called from Unity main thread once a weapon type's icon has been extracted.
+        public static void SetWeaponIcon(string name, byte[] png)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+            lock (_weaponLock) _weaponIcons[name] = png;
+        }
+
         // Called from Unity main thread when a mission ends — clears all per-mission state so
         // the client drops back to "no mission" and wipes its display. Icons are static
         // per-type assets and stay cached across missions.
@@ -100,7 +111,9 @@ namespace NOTelemetryReader
                     else if (path == "/map" || path == "/map.png" || path == "/map.jpg")
                         ServeMap(ctx);
                     else if (path == "/icon")
-                        ServeIcon(ctx);
+                        ServePng(ctx, _icons, _iconLock, "type");
+                    else if (path == "/weapon")
+                        ServePng(ctx, _weaponIcons, _weaponLock, "name");
                     else
                         ServeHtml(ctx);
                 }
@@ -187,14 +200,14 @@ namespace NOTelemetryReader
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
-        // ── Icon handler ───────────────────────────────────────────────────────
+        // ── Icon / weapon-image handler ──────────────────────────────────────────
 
-        private static void ServeIcon(HttpListenerContext ctx)
+        private static void ServePng(HttpListenerContext ctx, Dictionary<string, byte[]> dict, object dictLock, string queryKey)
         {
-            string type = ctx.Request.QueryString["type"] ?? string.Empty;
+            string key = ctx.Request.QueryString[queryKey] ?? string.Empty;
             byte[]? png = null;
-            if (type.Length > 0)
-                lock (_iconLock) _icons.TryGetValue(type, out png);
+            if (key.Length > 0)
+                lock (dictLock) dict.TryGetValue(key, out png);
 
             if (png == null)
             {
@@ -264,7 +277,9 @@ namespace NOTelemetryReader
                 "\"hdg\":{7:0.0},\"tas\":{8:0.0},\"agl\":{9:0.0},\"gear\":\"{10}\"," +
                 "\"units\":{11},\"aircraft\":{12}," +
                 "\"map\":{{\"valid\":{13},\"w\":{14:0.0},\"h\":{15:0.0},\"ox\":{16},\"oy\":{17}}}," +
-                "\"iconOrient\":{18},\"iconScale\":{19:0.000},",
+                "\"iconOrient\":{18},\"iconScale\":{19:0.000}," +
+                "\"flares\":{20},\"ewKJ\":{21:0.0}," +
+                "\"selWeapon\":\"{22}\",\"cmCat\":{23},",
                 s.Time,
                 EscapeJson(s.PlaneName ?? string.Empty),
                 EscapeJson(s.MissionName ?? string.Empty),
@@ -277,9 +292,11 @@ namespace NOTelemetryReader
                 s.MapW, s.MapH,
                 s.GridOffsetX, s.GridOffsetY,
                 s.IconOrient ? "true" : "false",
-                s.IconScale);
+                s.IconScale,
+                s.Flares, s.EwKJ,
+                EscapeJson(s.SelWeapon ?? string.Empty), s.CmCategory);
 
-            return head + "\"loadout\":" + JsonArray(s.Loadout)
+            return head + "\"loadout\":" + LoadoutArray(s.Loadout)
                         + ",\"colors\":{"
                         +   "\"f\":\"" + EscapeJson(s.ColFriendly ?? "#39ff14") + "\","
                         +   "\"e\":\"" + EscapeJson(s.ColHostile  ?? "#ff4040") + "\","
@@ -304,14 +321,16 @@ namespace NOTelemetryReader
             return sb.Append(']').ToString();
         }
 
-        private static string JsonArray(string[]? items)
+        private static string LoadoutArray(LoadoutEntry[]? items)
         {
             if (items == null || items.Length == 0) return "[]";
             var sb = new StringBuilder("[");
             for (int i = 0; i < items.Length; i++)
             {
                 if (i > 0) sb.Append(',');
-                sb.Append('"').Append(EscapeJson(items[i] ?? string.Empty)).Append('"');
+                sb.AppendFormat(CultureInfo.InvariantCulture,
+                    "{{\"n\":\"{0}\",\"a\":{1},\"f\":{2}}}",
+                    EscapeJson(items[i].Name ?? string.Empty), items[i].Ammo, items[i].FullAmmo);
             }
             return sb.Append(']').ToString();
         }

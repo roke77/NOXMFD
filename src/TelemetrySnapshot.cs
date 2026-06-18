@@ -7,7 +7,7 @@ namespace NOTelemetryReader
         public string PlaneName;
         public string MissionName;
         public string MapName;
-        public string[] Loadout;      // weapon loadout display names, aggregated
+        public LoadoutEntry[] Loadout;   // weapon loadout, aggregated by type
 
         // True world position (floating-origin corrected): pos - Datum.originPosition.
         public float  WorldX, WorldY, WorldZ;
@@ -18,6 +18,14 @@ namespace NOTelemetryReader
         public float  TAS;
         public float  AGL;
         public bool   GearDown;
+
+        // Countermeasures (-1 = the aircraft has no such system).
+        public int    Flares;   // IR flare rounds remaining
+        public float  EwKJ;     // EW capacitor charge, kilojoules
+
+        // Currently selected systems (for highlighting).
+        public string SelWeapon;   // weaponName of the selected weapon
+        public byte   CmCategory;  // selected countermeasure: 0 none, 1 flares, 2 EW, 3 chaff
 
         // Aircraft map-icon hints (the icon PNG itself is served separately at /icon).
         public bool   IconOrient;   // whether the icon rotates with heading
@@ -38,6 +46,14 @@ namespace NOTelemetryReader
         public string ColFriendly;
         public string ColHostile;
         public string ColNeutral;
+    }
+
+    // One weapon type in the loadout. The icon PNG is served separately at /weapon?name=.
+    internal struct LoadoutEntry
+    {
+        public string Name;
+        public int    Ammo;       // rounds/missiles remaining (summed across stations)
+        public int    FullAmmo;   // capacity (summed across stations)
     }
 
     // One tracked unit, in the same global coordinate space as WorldX/WorldZ.

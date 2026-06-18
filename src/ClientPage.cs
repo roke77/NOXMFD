@@ -80,9 +80,14 @@ namespace NOTelemetryReader
   #mission-bar.empty { display: none; }
 
   #hud { width: 210px; display: flex; flex-direction: column; flex-shrink: 0; }
-  #loadout { font-size: 12px; line-height: 1.8; color: #39ff14; }
+  #loadout { font-size: 12px; color: #39ff14; overflow-y: auto; height: 100%; }
   #loadout .none { color: #1a4a1a; }
-  #loadout div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .witem { margin-bottom: 9px; }
+  .wname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wammo { font-size: 11px; color: #4aaa4a; }
+  .wammo span { color: #39ff14; }
+  .witem.sel .wname, .witem.sel .wammo, .witem.sel .wammo span { color: #ffaa00; }  /* selected weapon */
+  .wicon { height: 60px; max-width: 100%; margin-top: 2px; display: block; }
   .panel  { border-bottom: 1px solid #1a3a1a; padding: 9px 12px; }
   .label  { font-size: 9px; letter-spacing: 2px; color: #4aaa4a; margin-bottom: 3px; }
   .big    { font-size: 26px; font-weight: bold; letter-spacing: 1px; }
@@ -91,8 +96,11 @@ namespace NOTelemetryReader
   #grid   { font-size: 22px; font-weight: bold; letter-spacing: 2px; }
   #gear.down  { color: #ffaa00; }
   #gear.up    { color: #39ff14; }
-  #world      { font-size: 12px; line-height: 1.9; color: #4aaa4a; }
-  #world span { color: #39ff14; }
+  #cm { font-size: 13px; }
+  .cm-row { display: flex; justify-content: space-between; line-height: 1.9; color: #4aaa4a; }
+  .cm-row .cm-val { color: #39ff14; font-weight: bold; }
+  .cm-row .cm-val.dim { color: #1a4a1a; font-weight: normal; }
+  .cm-row.cm-sel, .cm-row.cm-sel .cm-val { color: #ffaa00; }   /* currently selected */
   #raw-pos    { font-size: 11px; line-height: 1.8; color: #4aaa4a; }
   #raw-pos span { color: #39ff14; }
   .dim { color: #1a4a1a; }
@@ -129,8 +137,8 @@ namespace NOTelemetryReader
       <div id="grid" class="dim">—</div>
     </div>
     <div class="panel">
-      <div class="label">TRUE AIRSPEED</div>
-      <div class="big"><span id="tas" class="dim">—</span><span class="unit">m/s</span></div>
+      <div class="label">SPEED</div>
+      <div class="big"><span id="tas" class="dim">—</span><span class="unit">km/h</span></div>
     </div>
     <div class="panel">
       <div class="label">AGL ALTITUDE</div>
@@ -142,10 +150,13 @@ namespace NOTelemetryReader
         &nbsp; <span id="gear" style="font-size:16px">—</span></div>
     </div>
     <div class="panel">
-      <div class="label">WORLD</div>
-      <div id="world" class="dim">—</div>
+      <div class="label">COUNTERMEASURES</div>
+      <div id="cm">
+        <div class="cm-row" id="cm-row-flares"><span>IR Flares</span><span id="cm-flares" class="cm-val dim">—</span></div>
+        <div class="cm-row" id="cm-row-ew"><span>EW Capacitor</span><span id="cm-ew" class="cm-val dim">—</span></div>
+      </div>
     </div>
-    <div class="panel" style="flex:1">
+    <div class="panel" style="flex:1; min-height:0; display:flex; flex-direction:column">
       <div class="label">LOADOUT</div>
       <div id="loadout"><span class="none">—</span></div>
     </div>
@@ -162,10 +173,13 @@ let   lastData  = null;
 let   mapMeta   = null;        // { w, h, ox, oy }
 let   lastMsgAt = 0;
 let   hadData   = false;       // true once a mission has delivered telemetry
+let   loadoutNames = null;     // weapon-name signature; rebuild DOM only when it changes
+let   ammoEls = [];            // ammo text elements, aligned with loadout order
+let   witemEls = [];           // weapon item containers, aligned with loadout order
 
 const ICON_BASE = 15;          // base icon size in px for the player (scaled by iconScale)
 const UNIT_BASE = 15;          // base icon size in px for other units
-const FALLBACK_SIZE = 10;      // square symbol size in px for units without a game icon
+const FALLBACK_SIZE = 5;       // square symbol size in px for units without a game icon
 const PLAYER_COLOR = '#39ff14';                     // player stays HUD green
 let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors
 const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
@@ -297,13 +311,6 @@ function drawOverlay() {
   const pos = worldToOverlay(lastData.world.x, lastData.world.z);
   if (!pos) return;
   drawIcon(lastData.name, PLAYER_COLOR, pos.cx, pos.cy, lastData.hdg, lastData.iconOrient, ICON_BASE, lastData.iconScale);
-
-  oc.shadowBlur   = 0;
-  oc.font         = 'bold 11px Courier New';
-  oc.fillStyle    = '#39ff14';
-  oc.textAlign    = 'left';
-  oc.textBaseline = 'middle';
-  oc.fillText(lastData.name, pos.cx + 16, pos.cy - 4);
 }
 
 // ── Image load / error ─────────────────────────────────────────────────────────
@@ -360,9 +367,15 @@ function clearMission() {
   document.getElementById('mission-bar').className = 'empty';
   dim('plane-name'); dim('grid'); dim('tas'); dim('agl'); dim('hdg');
   const gEl = document.getElementById('gear'); gEl.textContent = '—'; gEl.className = '';
-  const wEl = document.getElementById('world'); wEl.textContent = '—'; wEl.className = 'dim';
+  const fEl = document.getElementById('cm-flares'); fEl.textContent = '—'; fEl.className = 'cm-val dim';
+  const eEl = document.getElementById('cm-ew'); eEl.textContent = '—'; eEl.className = 'cm-val dim';
+  document.getElementById('cm-row-flares').classList.remove('cm-sel');
+  document.getElementById('cm-row-ew').classList.remove('cm-sel');
   const rEl = document.getElementById('raw-pos'); rEl.textContent = '—'; rEl.className = 'dim';
   document.getElementById('loadout').innerHTML = '<span class="none">—</span>';
+  loadoutNames = null;
+  ammoEls = [];
+  witemEls = [];
 }
 
 function dim(id) {
@@ -400,30 +413,27 @@ function updateHUD(d) {
 
   set('plane-name', d.name);
   set('grid', gridLabel(d.world.x, d.world.z));
-  set('tas', d.tas.toFixed(1));
+  set('tas', (d.tas * 3.6).toFixed(0));   // m/s → km/h
   set('agl', d.agl.toFixed(0));
   set('hdg', d.hdg.toFixed(0));
 
-  // Weapon loadout
-  const loEl = document.getElementById('loadout');
-  if (d.loadout && d.loadout.length) {
-    loEl.innerHTML = '';
-    for (const w of d.loadout) {
-      const row = document.createElement('div');
-      row.textContent = w;
-      loEl.appendChild(row);
-    }
-  } else {
-    loEl.innerHTML = '<span class="none">— none —</span>';
-  }
+  updateLoadout(d);
 
   const gEl = document.getElementById('gear');
   gEl.textContent = d.gear.toUpperCase();
   gEl.className   = d.gear;
 
-  const wEl = document.getElementById('world');
-  wEl.innerHTML  = '<span>' + d.units + '</span> units &nbsp;(<span>' + d.aircraft + '</span> a/c)';
-  wEl.className  = '';
+  // Countermeasures (-1 = the aircraft has no such system)
+  const fEl = document.getElementById('cm-flares');
+  fEl.textContent = (d.flares >= 0) ? d.flares : '—';
+  fEl.className   = 'cm-val' + (d.flares >= 0 ? '' : ' dim');
+  const eEl = document.getElementById('cm-ew');
+  eEl.textContent = (d.ewKJ >= 0) ? (Math.round(d.ewKJ) + ' kJ') : '—';
+  eEl.className   = 'cm-val' + (d.ewKJ >= 0 ? '' : ' dim');
+
+  // Highlight the currently selected countermeasure line (1 = flares, 2 = EW)
+  document.getElementById('cm-row-flares').classList.toggle('cm-sel', d.cmCat === 1);
+  document.getElementById('cm-row-ew').classList.toggle('cm-sel', d.cmCat === 2);
 
   const rEl = document.getElementById('raw-pos');
   rEl.innerHTML = 'X <span>' + d.world.x.toFixed(0) + '</span><br>' +
@@ -436,6 +446,58 @@ function set(id, text) {
   const el = document.getElementById(id);
   el.textContent = text;
   el.className   = el.className.replace('dim', '').trim();
+}
+
+// Renders the loadout: each weapon's name, remaining/total ammo, and its game icon.
+// The DOM (and icon fetches) are rebuilt only when the set of weapons changes; ammo text
+// is refreshed in place every frame so firing doesn't re-fetch the icons.
+function updateLoadout(d) {
+  const list = d.loadout;
+  const loEl = document.getElementById('loadout');
+
+  if (!list || !list.length) {
+    if (loadoutNames !== '') { loadoutNames = ''; ammoEls = []; witemEls = []; loEl.innerHTML = '<span class="none">— none —</span>'; }
+    return;
+  }
+
+  const key = list.map(function(w) { return w.n; }).join('|');
+  if (key !== loadoutNames) {
+    loadoutNames = key;
+    ammoEls = [];
+    witemEls = [];
+    loEl.innerHTML = '';
+    for (const w of list) {
+      const item = document.createElement('div');
+      item.className = 'witem';
+      witemEls.push(item);
+
+      const name = document.createElement('div');
+      name.className = 'wname';
+      name.textContent = w.n;
+      item.appendChild(name);
+
+      const ammo = document.createElement('div');
+      ammo.className = 'wammo';
+      item.appendChild(ammo);
+      ammoEls.push(ammo);
+
+      const img = document.createElement('img');
+      img.className = 'wicon';
+      img.alt = '';
+      img.onerror = function() { img.remove(); };   // no icon for this weapon
+      img.src = '/weapon?name=' + encodeURIComponent(w.n);
+      item.appendChild(img);
+
+      loEl.appendChild(item);
+    }
+  }
+
+  // Refresh ammo text and the selected-weapon highlight in place (cheap, no DOM rebuild).
+  for (let i = 0; i < list.length && i < ammoEls.length; i++) {
+    const w = list[i];
+    ammoEls[i].innerHTML = (w.f > 0) ? ('<span>' + w.a + '</span> / ' + w.f) : '';
+    witemEls[i].classList.toggle('sel', w.n === d.selWeapon);
+  }
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────────
