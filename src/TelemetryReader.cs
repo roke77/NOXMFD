@@ -23,11 +23,21 @@ namespace NOTelemetryReader
 
         // Aircraft-type map icons we've already extracted (keyed by unitName).
         private readonly HashSet<string> _capturedIcons = new HashSet<string>();
+        private const int IconsPerScan = 16;  // cap new icon extractions per scan to avoid a frame hitch
+
+        // Cached unit list from the 1 Hz scan; positions are read from it at 10 Hz.
+        private Unit[] _units = Array.Empty<Unit>();
 
         // Slowly-changing context, refreshed in the 1 Hz scan.
         private string   _missionName = string.Empty;
         private string   _mapName     = string.Empty;
         private string[] _loadout     = Array.Empty<string>();
+
+        // The game's HUD faction colors, read once from GameAssets.
+        private string _colFriendly = "#39ff14";
+        private string _colHostile  = "#ff4040";
+        private string _colNeutral  = "#9aa0a6";
+        private bool   _colorsRead;
 
         private void Update()
         {
@@ -50,9 +60,17 @@ namespace NOTelemetryReader
         private void ScanWorld()
         {
             Unit[] units = UnityEngine.Object.FindObjectsByType<Unit>(FindObjectsSortMode.None);
+            _units = units;
+
             int aircraft = 0;
+            int iconBudget = IconsPerScan;
             foreach (Unit u in units)
+            {
+                if (u == null) continue;
                 if (u is Aircraft) aircraft++;
+                // Pre-extract each unit type's map icon (a few per scan so it doesn't hitch).
+                if (iconBudget > 0 && TryCaptureIcon(u.definition)) iconBudget--;
+            }
             _totalUnits    = units.Length;
             _totalAircraft = aircraft;
 
@@ -74,11 +92,37 @@ namespace NOTelemetryReader
 
             _missionName = MissionManager.CurrentMission?.Name ?? string.Empty;
 
+            ReadFactionColors();
+
             // Loadout changes rarely (only on rearm) — building it here at 1 Hz keeps the
             // 10 Hz push allocation-free.
             GameManager.GetLocalAircraft(out Aircraft ac);
             if (ac != null)
                 _loadout = BuildLoadout(ac);
+        }
+
+        // Reads the game's HUD faction colors once (constant for the session).
+        private void ReadFactionColors()
+        {
+            if (_colorsRead) return;
+            try
+            {
+                GameAssets ga = GameAssets.i;
+                if (ga == null) return;
+                _colFriendly = ColorHex(ga.HUDFriendly);
+                _colHostile  = ColorHex(ga.HUDHostile);
+                _colNeutral  = ColorHex(ga.HUDNeutral);
+                _colorsRead  = true;
+            }
+            catch { /* fall back to defaults */ }
+        }
+
+        private static string ColorHex(Color c)
+        {
+            int r = Mathf.Clamp((int)(c.r * 255f + 0.5f), 0, 255);
+            int g = Mathf.Clamp((int)(c.g * 255f + 0.5f), 0, 255);
+            int b = Mathf.Clamp((int)(c.b * 255f + 0.5f), 0, 255);
+            return $"#{r:x2}{g:x2}{b:x2}";
         }
 
         private static string CleanName(string name)
@@ -153,7 +197,11 @@ namespace NOTelemetryReader
                 MapW           = _mapW,
                 MapH           = _mapH,
                 GridOffsetX    = _gridOffsetX,
-                GridOffsetY    = _gridOffsetY
+                GridOffsetY    = _gridOffsetY,
+                Units          = BuildUnits(aircraft),
+                ColFriendly    = _colFriendly,
+                ColHostile     = _colHostile,
+                ColNeutral     = _colNeutral
             });
         }
 
@@ -177,27 +225,65 @@ namespace NOTelemetryReader
             }
         }
 
-        // Extracts an aircraft type's top-down map icon to PNG, once per type, and registers it.
-        private void TryCaptureIcon(UnitDefinition def)
+        // Extracts a unit type's top-down map icon to PNG, once per type, and registers it.
+        // Returns true if it attempted a (costly) extraction this call, so callers can budget.
+        private bool TryCaptureIcon(UnitDefinition def)
         {
             if (def == null || string.IsNullOrEmpty(def.unitName) || _capturedIcons.Contains(def.unitName))
-                return;
-            if (def.mapIcon == null) { _capturedIcons.Add(def.unitName); return; }
+                return false;
 
-            byte[]? png = SpriteToPng(def.mapIcon);
-            _capturedIcons.Add(def.unitName); // don't retry this type regardless of outcome
+            _capturedIcons.Add(def.unitName); // mark regardless so we never retry this type
+            if (def.mapIcon == null) return false;
 
+            byte[]? png = SpriteToPng(def.mapIcon, isIcon: true);
             if (png != null)
-            {
                 TelemetryServer.SetIcon(def.unitName, png);
-                Plugin.Log?.LogInfo($"[NOTelemetry] Captured icon for '{def.unitName}' ({png.Length} bytes).");
+            return true;
+        }
+
+        // Builds the list of units the player's faction can see. Friendlies appear at their
+        // true position; enemies only when tracked, at their last-known position (fog of war).
+        private readonly List<UnitInfo> _unitBuf = new List<UnitInfo>(256);
+
+        private UnitInfo[] BuildUnits(Aircraft player)
+        {
+            var playerHQ = player.NetworkHQ;
+            if (playerHQ == null) return Array.Empty<UnitInfo>();
+
+            _unitBuf.Clear();
+            foreach (Unit u in _units)
+            {
+                if (u == null || u.disabled || ReferenceEquals(u, player)) continue;
+
+                UnitDefinition def = u.definition;
+                if (def == null) continue;
+
+                // One call resolves both visibility and position under fog of war.
+                if (!playerHQ.TryGetKnownPosition(u, out GlobalPosition gp)) continue;
+
+                var hq = u.NetworkHQ;
+                byte faction = hq == null ? (byte)0 : (hq == playerHQ ? (byte)1 : (byte)2);
+
+                _unitBuf.Add(new UnitInfo
+                {
+                    Type    = def.unitName,
+                    X       = gp.x,
+                    Z       = gp.z,
+                    Heading = u.transform.eulerAngles.y,
+                    Faction = faction,
+                    Orient  = def.mapOrient,
+                    Scale   = def.mapIconSize
+                });
             }
+            return _unitBuf.ToArray();
         }
 
         // Renders a sprite (atlas-safe via textureRect) to PNG bytes. Uses a Blit→RenderTexture
         // round-trip so it works even when the source texture isn't CPU-readable. Must run on the
         // Unity main thread (Graphics/ReadPixels/EncodeToPNG).
-        private static byte[]? SpriteToPng(Sprite sprite)
+        // When 'isIcon' is true and the result is fully opaque (e.g. alpha-less DXT1 ship icons),
+        // the alpha channel is rebuilt from luminance so the silhouette isn't a solid square.
+        private static byte[]? SpriteToPng(Sprite sprite, bool isIcon = false)
         {
             if (sprite == null || sprite.texture == null) return null;
 
@@ -226,6 +312,8 @@ namespace NOTelemetryReader
                 RenderTexture.active = prev;
                 RenderTexture.ReleaseTemporary(rt);
 
+                if (isIcon) SynthesizeAlphaIfOpaque(readable);
+
                 byte[] png = ImageConversion.EncodeToPNG(readable);
                 Destroy(readable);
                 return png;
@@ -235,6 +323,28 @@ namespace NOTelemetryReader
                 Plugin.Log?.LogWarning($"[NOTelemetry] Sprite capture failed: {ex.Message}");
                 return null;
             }
+        }
+
+        // Icons stored without an alpha channel (DXT1, RGB24, …) read as fully opaque, so a
+        // straight tint produces a solid square. The game draws them as light-on-dark
+        // silhouettes, so when an icon comes back with no transparency we derive alpha from
+        // luminance — dark background → transparent, bright shape → opaque.
+        private static void SynthesizeAlphaIfOpaque(Texture2D readable)
+        {
+            Color32[] px = readable.GetPixels32();
+            byte minA = 255;
+            for (int i = 0; i < px.Length; i++)
+                if (px[i].a < minA) { minA = px[i].a; if (minA == 0) break; }
+            if (minA < 250) return; // already has real transparency — leave it alone
+
+            for (int i = 0; i < px.Length; i++)
+            {
+                Color32 c = px[i];
+                c.a = (byte)((c.r * 77 + c.g * 150 + c.b * 29) >> 8); // ~Rec.601 luminance
+                px[i] = c;
+            }
+            readable.SetPixels32(px);
+            readable.Apply();
         }
     }
 }

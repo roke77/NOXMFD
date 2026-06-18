@@ -30,5 +30,24 @@ namespace NOTelemetryReader
         public bool   MapValid;
         public float  MapW, MapH;               // world units spanned by the map (centered on origin)
         public int    GridOffsetX, GridOffsetY; // grid label offsets from MapSettings
+
+        // Other units the player's faction can see (fog-of-war respected).
+        public UnitInfo[] Units;
+
+        // The game's own HUD faction colors (hex), so the web map matches the game.
+        public string ColFriendly;
+        public string ColHostile;
+        public string ColNeutral;
+    }
+
+    // One tracked unit, in the same global coordinate space as WorldX/WorldZ.
+    internal struct UnitInfo
+    {
+        public string Type;     // unitName — keys the /icon endpoint
+        public float  X, Z;     // known world position (true for friendlies, last-seen for enemies)
+        public float  Heading;  // degrees
+        public byte   Faction;  // 0 = neutral/unknown, 1 = friendly, 2 = enemy
+        public bool   Orient;   // icon rotates with heading
+        public float  Scale;    // icon size multiplier
     }
 }

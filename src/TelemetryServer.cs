@@ -279,7 +279,29 @@ namespace NOTelemetryReader
                 s.IconOrient ? "true" : "false",
                 s.IconScale);
 
-            return head + "\"loadout\":" + JsonArray(s.Loadout) + "}";
+            return head + "\"loadout\":" + JsonArray(s.Loadout)
+                        + ",\"colors\":{"
+                        +   "\"f\":\"" + EscapeJson(s.ColFriendly ?? "#39ff14") + "\","
+                        +   "\"e\":\"" + EscapeJson(s.ColHostile  ?? "#ff4040") + "\","
+                        +   "\"n\":\"" + EscapeJson(s.ColNeutral  ?? "#9aa0a6") + "\"}"
+                        + ",\"contacts\":" + UnitsArray(s.Units) + "}";
+        }
+
+        private static string UnitsArray(UnitInfo[]? units)
+        {
+            if (units == null || units.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < units.Length; i++)
+            {
+                UnitInfo u = units[i];
+                if (i > 0) sb.Append(',');
+                sb.AppendFormat(CultureInfo.InvariantCulture,
+                    "{{\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000}}}",
+                    EscapeJson(u.Type ?? string.Empty),
+                    u.X, u.Z, u.Heading, u.Faction,
+                    u.Orient ? "true" : "false", u.Scale);
+            }
+            return sb.Append(']').ToString();
         }
 
         private static string JsonArray(string[]? items)

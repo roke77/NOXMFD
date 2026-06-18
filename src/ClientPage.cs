@@ -163,8 +163,13 @@ let   mapMeta   = null;        // { w, h, ox, oy }
 let   lastMsgAt = 0;
 let   hadData   = false;       // true once a mission has delivered telemetry
 
-const ICON_BASE = 30;          // base icon size in px (scaled by iconScale)
-const icons     = {};          // unitName -> { ready, canvas }  (pre-tinted to HUD green)
+const ICON_BASE = 15;          // base icon size in px for the player (scaled by iconScale)
+const UNIT_BASE = 15;          // base icon size in px for other units
+const FALLBACK_SIZE = 10;      // square symbol size in px for units without a game icon
+const PLAYER_COLOR = '#39ff14';                     // player stays HUD green
+let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors
+const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
+const iconTints  = {};         // "unitName|#hex" -> canvas    (pre-tinted variant)
 
 // ── DOM refs ────────────────────────────────────────────────────────────────────
 const mapImg   = document.getElementById('map-img');
@@ -215,27 +220,62 @@ function gridLabel(wx, wz) {
   return vert + `${majX}${minX}`;
 }
 
-// Loads the game's map icon for an aircraft type and pre-tints it to the HUD green.
-function ensureIcon(name) {
-  if (!name || icons[name]) return;
-  const entry = { ready: false, canvas: null };
-  icons[name] = entry;
+// Fetches a unit type's map icon. The mod extracts icons gradually, so a type's icon may
+// 404 the first time we ask — retry with backoff until it's ready (or give up after a while
+// for types that genuinely have no icon, leaving the square fallback).
+function ensureIconImage(type) {
+  if (!type) return;
+  let e = iconImages[type];
+  if (!e) e = iconImages[type] = { img: null, ready: false, pending: false, tries: 0, lastTry: 0 };
+  if (e.ready || e.pending || e.tries >= 8) return;
+  const now = performance.now();
+  if (e.tries > 0 && now - e.lastTry < 1500) return;   // back off between retries
 
+  e.pending = true; e.tries++; e.lastTry = now;
   const img = new Image();
-  img.onload = function() {
-    const c = document.createElement('canvas');
-    c.width = img.naturalWidth; c.height = img.naturalHeight;
+  img.onload  = function() { e.img = img; e.ready = true; e.pending = false; drawOverlay(); };
+  img.onerror = function() { e.pending = false; };      // not captured yet — retry on a later frame
+  img.src = '/icon?type=' + encodeURIComponent(type) + '&v=' + e.tries;
+}
+
+// Returns the icon for a type pre-tinted to a faction color (cached), or null if not loaded.
+function tintedIcon(type, hex) {
+  const base = iconImages[type];
+  if (!base || !base.ready) return null;
+  const key = type + '|' + hex;
+  let c = iconTints[key];
+  if (!c) {
+    c = document.createElement('canvas');
+    c.width = base.img.naturalWidth; c.height = base.img.naturalHeight;
     const cx = c.getContext('2d');
-    cx.drawImage(img, 0, 0);
-    cx.globalCompositeOperation = 'source-in';   // tint opaque pixels green, keep alpha
-    cx.fillStyle = '#39ff14';
+    cx.drawImage(base.img, 0, 0);
+    cx.globalCompositeOperation = 'source-in';   // tint opaque pixels, keep alpha
+    cx.fillStyle = hex;
     cx.fillRect(0, 0, c.width, c.height);
-    entry.canvas = c;
-    entry.ready  = true;
-    drawOverlay();
-  };
-  img.onerror = function() { /* no icon for this type — triangle fallback stays */ };
-  img.src = '/icon?type=' + encodeURIComponent(name);
+    iconTints[key] = c;
+  }
+  return c;
+}
+
+// Draws one icon at a screen position. When no game icon is available, falls back to a
+// square symbol — the same generic marker the game uses for units without a specific icon.
+function drawIcon(type, hex, cx, cy, hdg, orient, basePx, scale) {
+  const cv = tintedIcon(type, hex);
+  oc.save();
+  oc.translate(cx, cy);
+  oc.shadowColor = hex;
+  oc.shadowBlur  = 8;
+  if (cv) {
+    if (orient) oc.rotate(hdg * Math.PI / 180);
+    const h = basePx * (scale || 1);
+    const w = h * (cv.width / cv.height);
+    oc.drawImage(cv, -w / 2, -h / 2, w, h);
+  } else {
+    const s = FALLBACK_SIZE;
+    oc.fillStyle = hex;
+    oc.fillRect(-s / 2, -s / 2, s, s);
+  }
+  oc.restore();
 }
 
 // ── Drawing ──────────────────────────────────────────────────────────────────────
@@ -243,41 +283,20 @@ function drawOverlay() {
   oc.clearRect(0, 0, overlay.width, overlay.height);
   if (!lastData || !mapMeta) return;
 
+  // Other units first, so the player's icon and label sit on top.
+  if (lastData.contacts) {
+    for (const u of lastData.contacts) {
+      const p = worldToOverlay(u.x, u.z);
+      if (!p) continue;
+      ensureIconImage(u.t);
+      drawIcon(u.t, factionColors[u.f] || factionColors[0], p.cx, p.cy, u.h, u.o, UNIT_BASE, u.s);
+    }
+  }
+
+  // Player plane (kept green regardless of faction colors)
   const pos = worldToOverlay(lastData.world.x, lastData.world.z);
   if (!pos) return;
-
-  const icon = icons[lastData.name];
-  if (icon && icon.ready) {
-    // The game's own map icon, tinted green, oriented to heading if the type orients.
-    const cv  = icon.canvas;
-    const sc  = (lastData.iconScale || 1);
-    const h   = ICON_BASE * sc;
-    const w   = h * (cv.width / cv.height);
-    oc.save();
-    oc.translate(pos.cx, pos.cy);
-    if (lastData.iconOrient) oc.rotate(lastData.hdg * Math.PI / 180);
-    oc.shadowColor = '#39ff14';
-    oc.shadowBlur  = 8;
-    oc.drawImage(cv, -w / 2, -h / 2, w, h);
-    oc.restore();
-  } else {
-    // Fallback: green triangle pointed by heading.
-    const s = 11;
-    oc.save();
-    oc.translate(pos.cx, pos.cy);
-    oc.rotate(lastData.hdg * Math.PI / 180);
-    oc.shadowColor = '#39ff14';
-    oc.shadowBlur  = 10;
-    oc.fillStyle   = '#39ff14';
-    oc.beginPath();
-    oc.moveTo( 0,       -s * 1.7);
-    oc.lineTo(-s * 0.7,  s * 0.9);
-    oc.lineTo( 0,        s * 0.35);
-    oc.lineTo( s * 0.7,  s * 0.9);
-    oc.closePath();
-    oc.fill();
-    oc.restore();
-  }
+  drawIcon(lastData.name, PLAYER_COLOR, pos.cx, pos.cy, lastData.hdg, lastData.iconOrient, ICON_BASE, lastData.iconScale);
 
   oc.shadowBlur   = 0;
   oc.font         = 'bold 11px Courier New';
@@ -316,7 +335,8 @@ es.onmessage = function(e) {
   setStatus('connected', '● CONNECTED');
   lastData = d;
   hadData  = true;
-  ensureIcon(d.name);
+  ensureIconImage(d.name);
+  if (d.colors) factionColors = { 0: d.colors.n, 1: d.colors.f, 2: d.colors.e };
 
   if (d.map && d.map.valid) {
     mapMeta = { w: d.map.w, h: d.map.h, ox: d.map.ox, oy: d.map.oy };
