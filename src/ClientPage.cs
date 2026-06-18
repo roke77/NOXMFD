@@ -66,19 +66,6 @@ namespace NOTelemetryReader
   }
   #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 
-  #tools {
-    position: absolute;
-    bottom: 10px; left: 10px;
-    background: rgba(6,10,6,0.85);
-    border: 1px solid #1a3a1a;
-    padding: 7px 11px;
-    font-size: 10px;
-    color: #4aaa4a;
-    line-height: 1.7;
-  }
-  #tools label { cursor: pointer; user-select: none; margin-right: 10px; }
-  #tools .src { color: #39ff14; }
-
   #hud { width: 210px; display: flex; flex-direction: column; flex-shrink: 0; }
   .panel  { border-bottom: 1px solid #1a3a1a; padding: 9px 12px; }
   .label  { font-size: 9px; letter-spacing: 2px; color: #4aaa4a; margin-bottom: 3px; }
@@ -110,11 +97,6 @@ namespace NOTelemetryReader
       <small>The real map is pulled from the game when a mission loads.</small>
     </div>
     <canvas id="overlay"></canvas>
-    <div id="tools">
-      <div>MAP: <span id="map-src" class="src">in-game (auto)</span></div>
-      <label><input type="checkbox" id="flip-ns"> flip N/S</label>
-      <label><input type="checkbox" id="flip-ew"> flip E/W</label>
-    </div>
   </div>
 
   <div id="hud">
@@ -158,18 +140,11 @@ let   lastData  = null;
 let   mapMeta   = null;        // { w, h, ox, oy }
 let   lastMsgAt = 0;
 
-let flipNS = sessionStorage.getItem('noFlipNS') === '1';
-let flipEW = sessionStorage.getItem('noFlipEW') === '1';
-
 // ── DOM refs ────────────────────────────────────────────────────────────────────
 const mapImg   = document.getElementById('map-img');
 const overlay  = document.getElementById('overlay');
 const oc       = overlay.getContext('2d');
 const statusEl = document.getElementById('status');
-const flipNSEl = document.getElementById('flip-ns');
-const flipEWEl = document.getElementById('flip-ew');
-flipNSEl.checked = flipNS;
-flipEWEl.checked = flipEW;
 
 // ── Canvas geometry ──────────────────────────────────────────────────────────────
 function resizeOverlay() {
@@ -193,14 +168,13 @@ function imgRect() {
 
 // World (X east, Z north) → overlay pixel. The map is a square centered on the world
 // origin spanning mapMeta.w × mapMeta.h, so this is a direct mapping — no calibration.
+// The extracted map image is north-up, so screen Y is inverted relative to Z.
 function worldToOverlay(wx, wz) {
   if (!mapMeta || mapMeta.w <= 0 || mapMeta.h <= 0) return null;
-  let relX = (wx + mapMeta.w * 0.5) / mapMeta.w;   // 0 = west,  1 = east
-  let relY = (wz + mapMeta.h * 0.5) / mapMeta.h;   // 0 = south, 1 = north
+  const relX = (wx + mapMeta.w * 0.5) / mapMeta.w;   // 0 = west,  1 = east
+  const relY = (wz + mapMeta.h * 0.5) / mapMeta.h;   // 0 = south, 1 = north
   const r = imgRect();
-  const fx = flipEW ? (1 - relX) : relX;
-  const fy = flipNS ? relY : (1 - relY);           // image is north-up by default
-  return { cx: r.dx + fx * r.dw, cy: r.dy + fy * r.dh };
+  return { cx: r.dx + relX * r.dw, cy: r.dy + (1 - relY) * r.dh };
 }
 
 // Reproduces the game's grid label (e.g. "Hc87") from world coords + map offsets.
@@ -235,14 +209,10 @@ function drawOverlay() {
   const pos = worldToOverlay(lastData.world.x, lastData.world.z);
   if (!pos) return;
 
-  let rot = lastData.hdg;
-  if (flipEW) rot = -rot;
-  if (flipNS) rot = 180 - rot;
-
   const s = 11;
   oc.save();
   oc.translate(pos.cx, pos.cy);
-  oc.rotate(rot * Math.PI / 180);
+  oc.rotate(lastData.hdg * Math.PI / 180);
   oc.shadowColor = '#39ff14';
   oc.shadowBlur  = 10;
   oc.fillStyle   = '#39ff14';
@@ -344,18 +314,6 @@ function set(id, text) {
   el.textContent = text;
   el.className   = el.className.replace('dim', '').trim();
 }
-
-// ── Flip toggles (orientation fallback, persisted) ────────────────────────────────
-flipNSEl.onchange = function() {
-  flipNS = flipNSEl.checked;
-  sessionStorage.setItem('noFlipNS', flipNS ? '1' : '0');
-  drawOverlay();
-};
-flipEWEl.onchange = function() {
-  flipEW = flipEWEl.checked;
-  sessionStorage.setItem('noFlipEW', flipEW ? '1' : '0');
-  drawOverlay();
-};
 
 // ── Init ──────────────────────────────────────────────────────────────────────────
 window.addEventListener('resize', resizeOverlay);
