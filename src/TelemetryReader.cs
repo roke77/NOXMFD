@@ -1,69 +1,148 @@
-using System.Globalization;
+using System;
 using UnityEngine;
 
 namespace NOTelemetryReader
 {
-    // A MonoBehaviour: Unity calls Update() on this every frame once it's attached
-    // to a GameObject (which Plugin does when a mission starts).
-    //
-    // This is the whole point of the mod: read the game's live in-memory objects
-    // and print their telemetry. There is no special "telemetry API" in the game --
-    // we just read public fields off the same objects the game uses to fly the plane.
     internal class TelemetryReader : MonoBehaviour
     {
-        // Throttle: log roughly once per second instead of every frame (~60/s).
-        private const float LogIntervalSeconds = 1f;
-        private float _timer;
+        private const float FastInterval = 0.1f; // 10 Hz — position / speed
+        private const float SlowInterval = 1.0f; // 1 Hz  — world scan + map metadata (FindObjectsByType is expensive)
+
+        private float _fastTimer;
+        private float _slowTimer;
+        private int   _totalUnits;
+        private int   _totalAircraft;
+
+        // Map metadata, resolved once LevelInfo is available.
+        private LevelInfo? _level;
+        private bool  _mapValid;
+        private float _mapW, _mapH;
+        private int   _gridOffsetX, _gridOffsetY;
+        private bool  _mapCaptured;
 
         private void Update()
         {
-            // Time.deltaTime is the seconds elapsed since the last frame.
-            _timer += Time.deltaTime;
-            if (_timer < LogIntervalSeconds)
-                return;
-            _timer = 0f;
+            _fastTimer += Time.deltaTime;
+            _slowTimer += Time.deltaTime;
 
-            LogLocalAircraft();
-            LogWorldSummary();
+            if (_slowTimer >= SlowInterval)
+            {
+                _slowTimer = 0f;
+                ScanWorld();
+            }
+
+            if (_fastTimer >= FastInterval)
+            {
+                _fastTimer = 0f;
+                PushSnapshot();
+            }
         }
 
-        // The player's own aircraft. GameManager hands it to us via an out-parameter.
-        private void LogLocalAircraft()
+        private void ScanWorld()
+        {
+            Unit[] units = UnityEngine.Object.FindObjectsByType<Unit>(FindObjectsSortMode.None);
+            int aircraft = 0;
+            foreach (Unit u in units)
+                if (u is Aircraft) aircraft++;
+            _totalUnits    = units.Length;
+            _totalAircraft = aircraft;
+
+            // Resolve the map bounds + grid offsets and capture the real in-game map image.
+            if (_level == null)
+                _level = UnityEngine.Object.FindObjectOfType<LevelInfo>();
+
+            MapSettings? ms = _level != null ? _level.LoadedMapSettings : null;
+            if (ms != null)
+            {
+                _mapW        = ms.MapSize.x;
+                _mapH        = ms.MapSize.y;
+                _gridOffsetX = ms.OffsetX;
+                _gridOffsetY = ms.OffsetY;
+                _mapValid    = _mapW > 0f && _mapH > 0f;
+                TryCaptureMap(ms);
+            }
+        }
+
+        private void PushSnapshot()
         {
             GameManager.GetLocalAircraft(out Aircraft aircraft);
             if (aircraft == null)
                 return;
 
-            // World position. Note: the game uses a "floating origin", so for a real
-            // mod you'd convert to global coords (see NOBlackBox's transform.GlobalX()).
-            // For a hello-world, the raw transform position is plenty.
-            Vector3 pos = aircraft.transform.position;
+            // The game uses a floating-origin system: transform.position drifts back toward
+            // zero as the world re-centers. The true world coordinate is pos - Datum.originPosition.
+            Vector3 world   = aircraft.transform.position - Datum.originPosition;
+            float   heading = aircraft.transform.eulerAngles.y;
 
-            Plugin.Log?.LogInfo(string.Format(
-                CultureInfo.InvariantCulture,
-                "[ME] {0} | pos=({1:0.0}, {2:0.0}, {3:0.0}) | TAS={4:0.0} m/s | AGL={5:0.0} m | gear={6}",
-                aircraft.definition.unitName,
-                pos.x, pos.y, pos.z,
-                aircraft.speed,
-                Mathf.Max(0f, aircraft.radarAlt),
-                aircraft.gearDeployed ? "down" : "up"));
+            TelemetryServer.Push(new TelemetrySnapshot
+            {
+                Valid          = true,
+                Time           = Time.time,
+                PlaneName      = aircraft.definition.unitName,
+                WorldX         = world.x,
+                WorldY         = world.y,
+                WorldZ         = world.z,
+                Heading        = heading,
+                TAS            = aircraft.speed,
+                AGL            = Mathf.Max(0f, aircraft.radarAlt),
+                GearDown       = aircraft.gearDeployed,
+                TotalUnits     = _totalUnits,
+                TotalAircraft  = _totalAircraft,
+                MapValid       = _mapValid,
+                MapW           = _mapW,
+                MapH           = _mapH,
+                GridOffsetX    = _gridOffsetX,
+                GridOffsetY    = _gridOffsetY
+            });
         }
 
-        // Everything in the world right now. This is the same discovery call
-        // NOBlackBox uses (Recorder_mono.cs) -- it returns every aircraft, ship,
-        // missile, ground vehicle, building, etc. currently spawned.
-        private void LogWorldSummary()
+        // Pulls MapSettings.MapImage (the actual in-game map sprite) into PNG bytes and hands
+        // them to the server. Must run on the Unity main thread (Graphics/ReadPixels/EncodeToPNG).
+        private void TryCaptureMap(MapSettings ms)
         {
-            Unit[] units = Object.FindObjectsByType<Unit>(FindObjectsSortMode.None);
-            int aircraftCount = 0;
-            foreach (Unit unit in units)
-                if (unit is Aircraft)
-                    aircraftCount++;
+            if (_mapCaptured) return;
 
-            Plugin.Log?.LogInfo(string.Format(
-                CultureInfo.InvariantCulture,
-                "[WORLD] {0} units total ({1} aircraft)",
-                units.Length, aircraftCount));
+            Sprite sprite = ms.MapImage;
+            if (sprite == null || sprite.texture == null) return;
+
+            try
+            {
+                Texture2D tex = sprite.texture;
+                Rect r = sprite.textureRect;
+                int w = Mathf.RoundToInt(r.width);
+                int h = Mathf.RoundToInt(r.height);
+                if (w <= 0 || h <= 0)
+                {
+                    w = tex.width;
+                    h = tex.height;
+                    r = new Rect(0f, 0f, w, h);
+                }
+
+                // Blit into a RenderTexture so we can read it back even if the source isn't readable.
+                RenderTexture rt = RenderTexture.GetTemporary(
+                    tex.width, tex.height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+                Graphics.Blit(tex, rt);
+
+                RenderTexture prev = RenderTexture.active;
+                RenderTexture.active = rt;
+                Texture2D readable = new Texture2D(w, h, TextureFormat.RGBA32, false);
+                readable.ReadPixels(new Rect(r.x, r.y, w, h), 0, 0);
+                readable.Apply();
+                RenderTexture.active = prev;
+                RenderTexture.ReleaseTemporary(rt);
+
+                byte[] png = ImageConversion.EncodeToPNG(readable);
+                Destroy(readable);
+
+                TelemetryServer.SetMapImage(png);
+                _mapCaptured = true;
+                Plugin.Log?.LogInfo($"[NOTelemetry] Captured in-game map '{sprite.name}' {w}x{h} -> {png.Length} bytes.");
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogWarning($"[NOTelemetry] Map capture failed ({ex.Message}); falling back to map file.");
+                _mapCaptured = true; // don't retry every second
+            }
         }
     }
 }

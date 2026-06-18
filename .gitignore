@@ -2,3 +2,6 @@ bin/
 obj/
 .vs/
 *.user
+
+# Decompiled game source — kept locally for reference only, not redistributable
+decompiled/

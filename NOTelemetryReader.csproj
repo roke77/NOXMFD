@@ -10,7 +10,7 @@
     THAT BUILDS THIS (your Windows box). The default is the standard Steam path.
   -->
   <PropertyGroup>
-    <GameDir>C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option</GameDir>
+    <GameDir>E:\SteamLibrary\steamapps\common\Nuclear Option</GameDir>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -34,6 +34,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Decompiled game source kept for reference only — never compiled into the plugin. -->
+    <Compile Remove="decompiled\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- BepInEx 5 runtime (the modding framework that loads this DLL). -->
     <PackageReference Include="BepInEx.Core" Version="5.4.21" />
     <PackageReference Include="BepInEx.PluginInfoProps" Version="2.1.0" />
@@ -48,6 +53,18 @@
       <HintPath>$(GameDir)\NuclearOption_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Mirage">
+      <HintPath>$(GameDir)\NuclearOption_Data\Managed\Mirage.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
+
+  <Target Name="DeployToGame" AfterTargets="Build">
+    <Copy
+      SourceFiles="$(OutputPath)$(AssemblyName).dll"
+      DestinationFolder="$(GameDir)\BepInEx\plugins"
+      OverwriteReadOnlyFiles="true" />
+    <Message Text="Deployed $(AssemblyName).dll to $(GameDir)\BepInEx\plugins" Importance="high" />
+  </Target>
 
 </Project>

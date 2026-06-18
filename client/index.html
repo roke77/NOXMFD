@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NO Telemetry</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #060a06;
+    color: #39ff14;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  header {
+    padding: 5px 12px;
+    border-bottom: 1px solid #1a3a1a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: #4aaa4a;
+    flex-shrink: 0;
+  }
+
+  #status { font-weight: bold; }
+  #status.connected    { color: #39ff14; }
+  #status.disconnected { color: #ff4040; }
+  #status.connecting   { color: #ffaa00; }
+
+  main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── Map ── */
+  #map-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    border-right: 1px solid #1a3a1a;
+  }
+  canvas { display: block; }
+
+  /* ── HUD sidebar ── */
+  #hud {
+    width: 200px;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .panel {
+    border-bottom: 1px solid #1a3a1a;
+    padding: 9px 12px;
+  }
+
+  .label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: #4aaa4a;
+    margin-bottom: 3px;
+  }
+
+  .big { font-size: 26px; font-weight: bold; letter-spacing: 1px; }
+  .unit { font-size: 10px; color: #4aaa4a; margin-left: 3px; }
+
+  #plane-name { font-size: 14px; font-weight: bold; word-break: break-all; }
+
+  #gear.down { color: #ffaa00; }
+  #gear.up   { color: #39ff14; }
+
+  #world { font-size: 12px; line-height: 1.9; color: #4aaa4a; }
+  #world span { color: #39ff14; }
+
+  #raw-pos { font-size: 11px; line-height: 1.8; color: #4aaa4a; }
+  #raw-pos span { color: #39ff14; }
+
+  .dim { color: #1a4a1a; }
+
+  /* zoom hint */
+  #zoom-hint {
+    font-size: 9px;
+    color: #1a4a1a;
+    text-align: center;
+    padding: 4px;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span>NO TELEMETRY &mdash; ws://localhost:5005</span>
+  <span id="status" class="disconnected">&#9679; DISCONNECTED</span>
+</header>
+
+<main>
+  <div id="map-wrap">
+    <canvas id="map"></canvas>
+  </div>
+
+  <div id="hud">
+    <div class="panel">
+      <div class="label">AIRCRAFT</div>
+      <div id="plane-name" class="dim">—</div>
+    </div>
+    <div class="panel">
+      <div class="label">TRUE AIRSPEED</div>
+      <div class="big"><span id="tas" class="dim">—</span><span class="unit">m/s</span></div>
+    </div>
+    <div class="panel">
+      <div class="label">AGL ALTITUDE</div>
+      <div class="big"><span id="agl" class="dim">—</span><span class="unit">m</span></div>
+    </div>
+    <div class="panel">
+      <div class="label">LANDING GEAR</div>
+      <div id="gear" class="big dim">—</div>
+    </div>
+    <div class="panel">
+      <div class="label">WORLD</div>
+      <div id="world" class="dim">—</div>
+    </div>
+    <div class="panel" style="flex:1">
+      <div class="label">POSITION (RAW)</div>
+      <div id="raw-pos" class="dim">—</div>
+    </div>
+    <div id="zoom-hint">scroll to zoom</div>
+  </div>
+</main>
+
+<script>
+// ── State ───────────────────────────────────────────────────────────────────
+const TRAIL_MAX  = 400;
+const trail      = [];   // { x, z }
+let   heading    = 0;    // degrees, computed from trail
+let   viewRadius = 3000; // game units visible from centre
+let   lastData   = null;
+
+// ── Canvas setup ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('map');
+const ctx    = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const wrap = document.getElementById('map-wrap');
+  const size = Math.min(wrap.clientWidth, wrap.clientHeight) - 16;
+  canvas.width  = size;
+  canvas.height = size;
+  lastData ? drawMap(lastData) : drawIdle();
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  viewRadius *= e.deltaY > 0 ? 1.25 : 0.8;
+  viewRadius  = Math.max(200, Math.min(100000, viewRadius));
+  lastData ? drawMap(lastData) : drawIdle();
+}, { passive: false });
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+const statusEl = document.getElementById('status');
+let ws;
+
+function connect() {
+  statusEl.textContent = '● CONNECTING…';
+  statusEl.className   = 'connecting';
+
+  ws = new WebSocket('ws://localhost:5005/');
+
+  ws.onopen = () => {
+    statusEl.textContent = '● CONNECTED';
+    statusEl.className   = 'connected';
+  };
+
+  ws.onmessage = e => {
+    const d = JSON.parse(e.data);
+    lastData = d;
+
+    // trail
+    trail.push({ x: d.pos.x, z: d.pos.z });
+    if (trail.length > TRAIL_MAX) trail.shift();
+
+    // heading from last two points
+    if (trail.length >= 2) {
+      const a = trail[trail.length - 2];
+      const b = trail[trail.length - 1];
+      const dx = b.x - a.x, dz = b.z - a.z;
+      if (Math.abs(dx) > 0.5 || Math.abs(dz) > 0.5)
+        heading = Math.atan2(dx, dz) * 180 / Math.PI;
+    }
+
+    updateHUD(d);
+    drawMap(d);
+  };
+
+  ws.onclose = () => {
+    statusEl.textContent = '● DISCONNECTED — retrying…';
+    statusEl.className   = 'disconnected';
+    setTimeout(connect, 3000);
+  };
+
+  ws.onerror = () => {};
+}
+connect();
+
+// ── HUD ───────────────────────────────────────────────────────────────────────
+function updateHUD(d) {
+  document.getElementById('plane-name').textContent = d.name;
+  document.getElementById('plane-name').className   = '';
+
+  document.getElementById('tas').textContent = d.tas.toFixed(1);
+  document.getElementById('tas').className   = '';
+
+  document.getElementById('agl').textContent = d.agl.toFixed(0);
+  document.getElementById('agl').className   = '';
+
+  const gearEl = document.getElementById('gear');
+  gearEl.textContent = d.gear.toUpperCase();
+  gearEl.className   = 'big ' + d.gear;
+
+  document.getElementById('world').innerHTML =
+    `<span>${d.units}</span> units &nbsp;(<span>${d.aircraft}</span> a/c)`;
+  document.getElementById('world').className = '';
+
+  document.getElementById('raw-pos').innerHTML =
+    `X <span>${d.pos.x.toFixed(0)}</span><br>` +
+    `Y <span>${d.pos.y.toFixed(0)}</span><br>` +
+    `Z <span>${d.pos.z.toFixed(0)}</span>`;
+}
+
+// ── Map drawing ───────────────────────────────────────────────────────────────
+function worldToCanvas(wx, wz, originX, originZ) {
+  const W = canvas.width, H = canvas.height;
+  const scale = (W / 2) / viewRadius;
+  return {
+    cx: W / 2 + (wx - originX) * scale,
+    cy: H / 2 - (wz - originZ) * scale,   // Z up → canvas Y down
+  };
+}
+
+function drawMap(d) {
+  const W = canvas.width, H = canvas.height;
+  const CX = W / 2, CY = H / 2;
+  const scale = CX / viewRadius;
+
+  ctx.fillStyle = '#060a06';
+  ctx.fillRect(0, 0, W, H);
+
+  // Range rings
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#0d280d';
+  const rings = [500, 1000, 2000, 5000, 10000, 20000];
+  rings.forEach(r => {
+    const pr = r * scale;
+    if (pr < 4 || pr > W) return;
+    ctx.beginPath();
+    ctx.arc(CX, CY, pr, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#1a4a1a';
+    ctx.font = '9px Courier New';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${r}u`, CX + pr + 2, CY - 2);
+  });
+
+  // Cardinal directions
+  ctx.fillStyle = '#1e4a1e';
+  ctx.font = '11px Courier New';
+  ctx.textAlign = 'center';
+  const edge = CX - 10;
+  ctx.fillText('N', CX,        12);
+  ctx.fillText('S', CX,        H - 4);
+  ctx.fillText('W', 12,        CY + 4);
+  ctx.fillText('E', W - 8,     CY + 4);
+
+  // Trail — draw each segment with increasing opacity
+  if (trail.length > 1) {
+    for (let i = 1; i < trail.length; i++) {
+      const alpha = 0.05 + 0.85 * (i / trail.length);
+      const a = worldToCanvas(trail[i-1].x, trail[i-1].z, d.pos.x, d.pos.z);
+      const b = worldToCanvas(trail[i].x,   trail[i].z,   d.pos.x, d.pos.z);
+      ctx.strokeStyle = `rgba(57,255,20,${alpha.toFixed(2)})`;
+      ctx.lineWidth   = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(a.cx, a.cy);
+      ctx.lineTo(b.cx, b.cy);
+      ctx.stroke();
+    }
+  }
+
+  // Plane icon — arrow pointing in heading direction
+  const s = Math.max(8, W * 0.022);
+  ctx.save();
+  ctx.translate(CX, CY);
+  ctx.rotate(heading * Math.PI / 180);
+  ctx.fillStyle   = '#39ff14';
+  ctx.strokeStyle = '#39ff14';
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  ctx.moveTo(0,        -s * 1.6);  // nose
+  ctx.lineTo(-s * 0.7,  s * 0.8);  // left
+  ctx.lineTo(0,         s * 0.3);  // tail notch
+  ctx.lineTo( s * 0.7,  s * 0.8);  // right
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Scale bar (bottom-right)
+  const barUnits = pickNiceRadius(viewRadius * 0.3);
+  const barPx    = barUnits * scale;
+  const bx = W - 14 - barPx, by = H - 12;
+  ctx.strokeStyle = '#4aaa4a';
+  ctx.lineWidth   = 2;
+  ctx.beginPath();
+  ctx.moveTo(bx,       by); ctx.lineTo(bx + barPx, by);
+  ctx.moveTo(bx,       by - 4); ctx.lineTo(bx,       by + 4);
+  ctx.moveTo(bx + barPx, by - 4); ctx.lineTo(bx + barPx, by + 4);
+  ctx.stroke();
+  ctx.fillStyle   = '#4aaa4a';
+  ctx.font        = '9px Courier New';
+  ctx.textAlign   = 'center';
+  ctx.fillText(`${barUnits}u`, bx + barPx / 2, by - 6);
+}
+
+function drawIdle() {
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#060a06';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#0d280d';
+  ctx.lineWidth = 1;
+  [1, 2, 3, 4].forEach(i => {
+    ctx.beginPath();
+    ctx.arc(W / 2, H / 2, i * W / 8, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+  ctx.fillStyle   = '#1a4a1a';
+  ctx.font        = '12px Courier New';
+  ctx.textAlign   = 'center';
+  ctx.fillText('AWAITING TELEMETRY…', W / 2, H / 2 + 4);
+}
+
+// Pick a round number for the scale bar
+function pickNiceRadius(target) {
+  const steps = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+  return steps.reduce((best, v) => Math.abs(v - target) < Math.abs(best - target) ? v : best);
+}
+</script>
+</body>
+</html>
