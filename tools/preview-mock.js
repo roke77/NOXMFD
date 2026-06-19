@@ -111,16 +111,10 @@
   }
   window.EventSource = MockEventSource;
 
-  // Show the map immediately (avoids the initial /map 404 flash) and flag the source.
+  // Show the map immediately (avoids the initial /map 404 flash).
   window.addEventListener('DOMContentLoaded', () => {
     const mi = document.getElementById('map-img');
     if (mi) mi.src = '/map';                          // routed by the setter above
-
-    const badge = document.createElement('div');
-    badge.textContent = CAPTURE ? 'PREVIEW · GAME CAPTURE' : 'PREVIEW · MOCK DATA';
-    badge.style.cssText = 'position:fixed;bottom:8px;left:12px;z-index:99;font:11px monospace;'
-      + 'color:#ffaa00;background:rgba(6,10,6,.8);border:1px solid #ffaa00;padding:3px 7px;letter-spacing:1px;';
-    document.body.appendChild(badge);
   });
 })();
 </script>
