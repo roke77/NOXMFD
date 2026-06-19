@@ -51,7 +51,7 @@ namespace NOTelemetryReader
         // TGP feed — captured from aircraft.targetCam at TgpInterval, encoded JPEG, pushed to
         // the server's MJPEG endpoint. Buffers are allocated lazily so the cost is zero until
         // the player first opens the TGP page.
-        private const float TgpInterval = 1f / 24f;      // 24 Hz
+        private const float TgpInterval = 1f / 30f;      // 30 Hz
         private const int   TgpMaxDim   = 384;           // longest side of the captured frame
         private float        _tgpTimer;
         private RenderTexture? _tgpRT;                    // Blit destination (sized to source aspect, capped at TgpMaxDim)

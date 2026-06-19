@@ -353,9 +353,9 @@ namespace NOTelemetryReader
                         ctx.Response.OutputStream.Flush();
                     }
 
-                    // Source publishes at 24 Hz (~42 ms/frame); 25 ms polls stay ahead so we
+                    // Source publishes at 30 Hz (~33 ms/frame); 20 ms polls stay ahead so we
                     // don't drop alternate frames waiting for the next wake-up.
-                    await Task.Delay(25, ct).ConfigureAwait(false);
+                    await Task.Delay(20, ct).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) { }

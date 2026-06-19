@@ -240,9 +240,17 @@ namespace NOTelemetryReader
   /* TGP page — fills the screen with the live MJPEG feed from the player's targeting cam.
      The empty placeholder mirrors the .wpn-empty style so it reads the same as the WPN
      page's NO LOADOUT state. */
+  /* Centred 3:2 box sized to the source (TargetCam renders 360×240). Shrinking the panel
+     drops the upscale ratio, which cuts the bilinear blur from #1. The surrounding screen
+     stays black because the parent .overlay is opaque on this page. */
   .tgp-panel {
     position: absolute;
-    inset: 0;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    aspect-ratio: 3 / 2;
+    max-width: 100%;
+    max-height: 100%;
     display: none;
     background: #000;
   }
