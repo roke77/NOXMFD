@@ -51,13 +51,23 @@ namespace NOTelemetryReader
         // TGP feed — captured from aircraft.targetCam at TgpInterval, encoded JPEG, pushed to
         // the server's MJPEG endpoint. Buffers are allocated lazily so the cost is zero until
         // the player first opens the TGP page.
-        private const float TgpInterval = 1f / 30f;      // 30 Hz
-        private const int   TgpMaxDim   = 384;           // longest side of the captured frame
+        // The game's prefab renders the TargetCam to a 360×240 RT. We swap in our own
+        // larger RT and let the cam + UICam render scene + overlays into it; the captured
+        // feed (and the in-cockpit display, mirrored each frame via a downscale blit) both
+        // run at TgpCamWidth × TgpCamHeight instead.
+        private const float TgpInterval   = 1f / 30f;      // 30 Hz
+        private const int   TgpMaxDim     = 720;           // longest side of the encoded frame (matches our cam RT)
+        private const int   TgpCamWidth   = 720;
+        private const int   TgpCamHeight  = 480;
         private float        _tgpTimer;
-        private RenderTexture? _tgpRT;                    // Blit destination (sized to source aspect, capped at TgpMaxDim)
+        private RenderTexture? _tgpRT;                    // Blit destination for the JPEG encode (sized to source aspect, capped at TgpMaxDim)
+        private RenderTexture? _tgpCamRT;                 // our high-res RT swapped onto the TargetCam (allocated once per TargetCam)
+        private RenderTexture? _tgpOrigCockpitRT;         // game's original cam RT — we blit into it each frame to keep the in-cockpit screen live
         private Texture2D?     _tgpTex;                   // CPU-side buffer for ReadPixels + EncodeToJPG
         private FieldInfo?     _tcCamField;               // TargetCam.cam (Camera) — private, cached
+        private FieldInfo?     _tcUICamField;             // TargetCam.UICam (Camera) — private, cached
         private FieldInfo?     _tcScreenRendererField;    // TargetCam.targetScreenRenderer — private, cached
+        private TargetCam?     _tgpSetupForTc;            // identity of the TargetCam we've already swapped for
         private bool           _tcReflectionTried;
         private bool           _tgpActive;                // last capture pushed a frame — mirrored into the snapshot
         private bool           _tgpSrcLogged;             // logged the source texture dimensions once
@@ -532,18 +542,54 @@ namespace NOTelemetryReader
             TargetCam? tc = ac != null ? ac.targetCam : null;
             if (tc == null) { TelemetryServer.ClearTgpFrame(); _tgpActive = false; return; }
 
-            // Cache the two private fields once. cam = scene camera, targetScreenRenderer =
-            // the in-cockpit display whose material is bound to the camera's render texture.
+            // Cache the three private fields once. cam = scene camera, UICam = overlay canvas
+            // camera, targetScreenRenderer = the in-cockpit display whose material is bound
+            // to the camera's render texture.
             if (!_tcReflectionTried)
             {
                 _tcReflectionTried = true;
                 var t = typeof(TargetCam);
                 _tcCamField            = t.GetField("cam",                  BindingFlags.NonPublic | BindingFlags.Instance);
                 _tcScreenRendererField = t.GetField("targetScreenRenderer", BindingFlags.NonPublic | BindingFlags.Instance);
+                _tcUICamField          = t.GetField("UICam",                BindingFlags.NonPublic | BindingFlags.Instance);
                 if (_tcCamField == null || _tcScreenRendererField == null)
                     Plugin.Log?.LogWarning("[NOTelemetry] TGP: could not locate TargetCam private fields — feed disabled.");
             }
             if (_tcCamField == null || _tcScreenRendererField == null) { TelemetryServer.ClearTgpFrame(); _tgpActive = false; return; }
+
+            // Redirect the TargetCam's scene+UI rendering to our own larger RT, and remember
+            // the original RT the cockpit screen material is sampling. Each capture we'll
+            // blit our high-res RT into the original one so the in-cockpit display keeps
+            // showing live frames (a downscale of what the web sees) without us having to
+            // rebind the screen material — URP shaders sample from _BaseMap and ignore
+            // mainTexture, so a material swap is fragile.
+            if (!ReferenceEquals(_tgpSetupForTc, tc))
+            {
+                Camera camForSwap = _tcCamField.GetValue(tc) as Camera;
+                if (camForSwap != null)
+                {
+                    if (_tgpCamRT != null) { _tgpCamRT.Release(); UnityEngine.Object.Destroy(_tgpCamRT); _tgpCamRT = null; }
+                    _tgpCamRT = new RenderTexture(TgpCamWidth, TgpCamHeight, 24, RenderTextureFormat.ARGB32);
+                    _tgpCamRT.Create();
+
+                    // Remember the original RT before we steal the cam's targetTexture, so we
+                    // can blit our composite back into it each frame for the cockpit display.
+                    _tgpOrigCockpitRT = camForSwap.targetTexture;
+
+                    camForSwap.targetTexture = _tgpCamRT;
+                    camForSwap.rect = new Rect(0f, 0f, 1f, 1f);   // make sure the viewport covers the whole RT
+                    camForSwap.ResetAspect();                     // re-derive aspect from the new RT (Unity doesn't always do this on its own)
+                    if (_tcUICamField?.GetValue(tc) is Camera uiCam)
+                    {
+                        uiCam.targetTexture = _tgpCamRT;
+                        uiCam.rect = new Rect(0f, 0f, 1f, 1f);
+                        uiCam.ResetAspect();
+                    }
+
+                    _tgpSetupForTc = tc;
+                    Plugin.Log?.LogInfo($"[NOTelemetry] TGP: cam+UICam redirected to a {TgpCamWidth}x{TgpCamHeight} RT; cockpit display mirrored via blit.");
+                }
+            }
 
             // Only refresh the camTimeout while a target is actually locked — SetTargetCam
             // would crash on an empty list, and not calling it is what gives us the 3-second
@@ -621,6 +667,11 @@ namespace NOTelemetryReader
                 _tgpTex = new Texture2D(targetW, targetH, TextureFormat.RGB24, false);
             }
 
+            // Mirror the high-res composite back into the game's original RT so the
+            // in-cockpit TGP screen (whose material still samples that RT) keeps updating.
+            if (_tgpOrigCockpitRT != null && _tgpOrigCockpitRT != src)
+                Graphics.Blit(src, _tgpOrigCockpitRT);
+
             // GPU downscale → CPU readback → JPEG.
             Graphics.Blit(src, _tgpRT);
             var prevActive = RenderTexture.active;
@@ -639,8 +690,9 @@ namespace NOTelemetryReader
 
         private void OnDestroy()
         {
-            if (_tgpRT  != null) { _tgpRT.Release();  UnityEngine.Object.Destroy(_tgpRT);  _tgpRT  = null; }
-            if (_tgpTex != null) {                    UnityEngine.Object.Destroy(_tgpTex); _tgpTex = null; }
+            if (_tgpRT    != null) { _tgpRT.Release();    UnityEngine.Object.Destroy(_tgpRT);    _tgpRT    = null; }
+            if (_tgpTex   != null) {                      UnityEngine.Object.Destroy(_tgpTex);   _tgpTex   = null; }
+            if (_tgpCamRT != null) { _tgpCamRT.Release(); UnityEngine.Object.Destroy(_tgpCamRT); _tgpCamRT = null; }
         }
     }
 }
