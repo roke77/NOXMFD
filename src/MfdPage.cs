@@ -29,7 +29,7 @@ namespace NOTelemetryReader
     overflow: hidden;
   }
 
-  .mfd { position: fixed; inset: 0; display: flex; padding: 14px; }
+  .mfd { position: fixed; inset: 0; display: flex; padding: 0; }
 
   /* Bezel: top strip / [left · screen · right] / bottom strip */
   .bezel {
