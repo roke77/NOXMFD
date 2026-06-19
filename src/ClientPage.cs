@@ -92,11 +92,11 @@ namespace NOTelemetryReader
   #loadout { font-size: 12px; color: #39ff14; overflow-y: auto; height: 100%; }
   #loadout .none { color: #1a4a1a; }
   .witem { margin-bottom: 9px; }
-  .wname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wname { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .wammo { font-size: 11px; color: #4aaa4a; }
   .wammo span { color: #39ff14; }
   .witem.sel .wname, .witem.sel .wammo, .witem.sel .wammo span { color: #ffaa00; }  /* selected weapon */
-  .wicon { height: 60px; max-width: 100%; margin-top: 2px; display: block; }
+  .wicon { height: 80px; max-width: 100%; margin-top: 2px; display: block; }
   .panel  { border-bottom: 1px solid #1a3a1a; padding: 9px 12px; }
   .label  { font-size: 9px; letter-spacing: 2px; color: #4aaa4a; margin-bottom: 3px; }
   .big    { font-size: 26px; font-weight: bold; letter-spacing: 1px; }
@@ -110,8 +110,6 @@ namespace NOTelemetryReader
   .cm-row .cm-val { color: #39ff14; font-weight: bold; }
   .cm-row .cm-val.dim { color: #1a4a1a; font-weight: normal; }
   .cm-row.cm-sel, .cm-row.cm-sel .cm-val { color: #ffaa00; }   /* currently selected */
-  #raw-pos    { font-size: 11px; line-height: 1.8; color: #4aaa4a; }
-  #raw-pos span { color: #39ff14; }
   .dim { color: #1a4a1a; }
 </style>
 </head>
@@ -169,10 +167,6 @@ namespace NOTelemetryReader
     <div class="panel" style="flex:1; min-height:0; display:flex; flex-direction:column">
       <div class="label">LOADOUT</div>
       <div id="loadout"><span class="none">—</span></div>
-    </div>
-    <div class="panel">
-      <div class="label">POSITION (WORLD)</div>
-      <div id="raw-pos" class="dim">—</div>
     </div>
   </div>
 </main>
@@ -442,7 +436,6 @@ function clearMission() {
   const eEl = document.getElementById('cm-ew'); eEl.textContent = '—'; eEl.className = 'cm-val dim';
   document.getElementById('cm-row-flares').classList.remove('cm-sel');
   document.getElementById('cm-row-ew').classList.remove('cm-sel');
-  const rEl = document.getElementById('raw-pos'); rEl.textContent = '—'; rEl.className = 'dim';
   document.getElementById('loadout').innerHTML = '<span class="none">—</span>';
   loadoutNames = null;
   ammoEls = [];
@@ -505,12 +498,6 @@ function updateHUD(d) {
   // Highlight the currently selected countermeasure line (1 = flares, 2 = EW)
   document.getElementById('cm-row-flares').classList.toggle('cm-sel', d.cmCat === 1);
   document.getElementById('cm-row-ew').classList.toggle('cm-sel', d.cmCat === 2);
-
-  const rEl = document.getElementById('raw-pos');
-  rEl.innerHTML = 'X <span>' + d.world.x.toFixed(0) + '</span><br>' +
-                  'Y <span>' + d.world.y.toFixed(0) + '</span><br>' +
-                  'Z <span>' + d.world.z.toFixed(0) + '</span>';
-  rEl.className = '';
 }
 
 function set(id, text) {
