@@ -252,8 +252,14 @@ namespace NOTelemetryReader
     width: 100%;
     height: 100%;
     object-fit: contain;
-    image-rendering: pixelated;     /* the source is 256×256 — let the upscale crisp up */
+    /* Browser-default bilinear upscale — the source is 360×240 native, so without smoothing
+       the blocky nearest-neighbour pixels are obvious at MFD size. */
+    image-rendering: auto;
   }
+  /* Hide the <img> when the feed is dead — MJPEG keeps the last frame buffered in the
+     element, so without this the player would see a frozen stale picture instead of the
+     NO TARGET placeholder. */
+  .tgp-panel:not(.has-feed) .tgp-img { visibility: hidden; }
   .tgp-empty {
     position: absolute;
     top: 50%; left: 50%;
@@ -531,7 +537,9 @@ const wpnPanel  = document.getElementById('wpn-panel');
 const wpnEmptyEl= document.getElementById('wpn-empty');
 const tgpPanel  = document.getElementById('tgp-panel');
 const tgpImg    = document.getElementById('tgp-img');
-tgpImg.addEventListener('load',  function() { tgpPanel.classList.add('has-feed'); });
+// has-feed is driven by the SSE tgpActive flag (mirrored from the map iframe) — MJPEG only
+// fires 'load' once, so we can't use it to detect frame stalls. The 'error' handler still
+// covers the hard case where the MJPEG connection breaks outright.
 tgpImg.addEventListener('error', function() { tgpPanel.classList.remove('has-feed'); });
 const sepEls    = document.querySelectorAll('#keys-left .sep');   // 0 = above key[0], i+1 = below key[i]
 const cmPanel       = document.getElementById('cm-panel');
@@ -594,6 +602,10 @@ let wpnItemEls   = [];       // .wp-item containers, aligned with wpnData.items
 // Latest countermeasures snapshot mirrored from the map iframe.
 let cmData = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 
+// Latest TGP feed state mirrored from the map iframe. False until the first frame is
+// produced, and back to false during the 3-second post-loss hold's expiry.
+let tgpActive = false;
+
 // Render a page: set the overlay background, (re)assign the left keys' actions, and
 // position each item label next to its key.
 function showPage(name) {
@@ -607,6 +619,9 @@ function showPage(name) {
   // long-lived multipart connection so the mod can stop encoding frames if no one's watching.
   if (name === 'tgp') {
     if (!tgpImg.src) tgpImg.src = '/tgp.mjpg';
+    // Reflect whatever the latest SSE flag said — opening the page mid-loss-hold should
+    // show the live feed, opening it with no target should show NO TARGET immediately.
+    tgpPanel.classList.toggle('has-feed', tgpActive);
   } else {
     tgpImg.removeAttribute('src');
     tgpPanel.classList.remove('has-feed');
@@ -775,6 +790,10 @@ window.addEventListener('message', function(e) {
       cmCat:     m.cmCat || 0
     };
     if (currentPage === 'wpn') renderCm();
+  } else if (m.type === 'tgp') {
+    tgpActive = !!m.active;
+    // Only matters while the TGP page is in view — outside it the panel is hidden anyway.
+    if (currentPage === 'tgp') tgpPanel.classList.toggle('has-feed', tgpActive);
   }
 });
 

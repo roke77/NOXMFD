@@ -51,14 +51,16 @@ namespace NOTelemetryReader
         // TGP feed — captured from aircraft.targetCam at TgpInterval, encoded JPEG, pushed to
         // the server's MJPEG endpoint. Buffers are allocated lazily so the cost is zero until
         // the player first opens the TGP page.
-        private const float TgpInterval = 0.1f;          // 10 Hz
-        private const int   TgpSize     = 256;           // square output for the MFD tile
+        private const float TgpInterval = 1f / 24f;      // 24 Hz
+        private const int   TgpMaxDim   = 384;           // longest side of the captured frame
         private float        _tgpTimer;
-        private RenderTexture? _tgpRT;                    // Blit destination (matches encode size)
+        private RenderTexture? _tgpRT;                    // Blit destination (sized to source aspect, capped at TgpMaxDim)
         private Texture2D?     _tgpTex;                   // CPU-side buffer for ReadPixels + EncodeToJPG
         private FieldInfo?     _tcCamField;               // TargetCam.cam (Camera) — private, cached
         private FieldInfo?     _tcScreenRendererField;    // TargetCam.targetScreenRenderer — private, cached
         private bool           _tcReflectionTried;
+        private bool           _tgpActive;                // last capture pushed a frame — mirrored into the snapshot
+        private bool           _tgpSrcLogged;             // logged the source texture dimensions once
 
         private void Update()
         {
@@ -362,7 +364,8 @@ namespace NOTelemetryReader
                 Units          = BuildUnits(aircraft),
                 ColFriendly    = _colFriendly,
                 ColHostile     = _colHostile,
-                ColNeutral     = _colNeutral
+                ColNeutral     = _colNeutral,
+                TgpActive      = _tgpActive
             });
         }
 
@@ -516,18 +519,18 @@ namespace NOTelemetryReader
 
         // ── TGP camera feed ────────────────────────────────────────────────────
         // The game's own TargetCam tracks the player's current target, including IR mode and
-        // zoom-on-target FOV. We just nudge it active every tick, read back the render
-        // texture, and ship a JPEG to /tgp.mjpg.
+        // zoom-on-target FOV. While a target is locked we nudge it active each tick; when the
+        // last target disappears we STOP calling SetTargetCam — the TargetCam's own Update()
+        // keeps the cam aimed at the final target position for ~3 s via its camTimeout, then
+        // disables itself. We mirror that lifetime by reading frames while cam.enabled is true
+        // and clearing as soon as it goes false. Net effect: the feed lingers exactly as long
+        // as the in-cockpit screen does.
         private void CaptureTgpFrame()
         {
             // No mission / no aircraft / no TGP component → drop any cached frame and bail.
             GameManager.GetLocalAircraft(out Aircraft ac);
             TargetCam? tc = ac != null ? ac.targetCam : null;
-            if (tc == null) { TelemetryServer.ClearTgpFrame(); return; }
-
-            // No target locked → no TGP feed. SetTargetCam would crash on an empty list.
-            var targets = ac!.weaponManager != null ? ac.weaponManager.GetTargetList() : null;
-            if (targets == null || targets.Count == 0) { TelemetryServer.ClearTgpFrame(); return; }
+            if (tc == null) { TelemetryServer.ClearTgpFrame(); _tgpActive = false; return; }
 
             // Cache the two private fields once. cam = scene camera, targetScreenRenderer =
             // the in-cockpit display whose material is bound to the camera's render texture.
@@ -540,38 +543,83 @@ namespace NOTelemetryReader
                 if (_tcCamField == null || _tcScreenRendererField == null)
                     Plugin.Log?.LogWarning("[NOTelemetry] TGP: could not locate TargetCam private fields — feed disabled.");
             }
-            if (_tcCamField == null || _tcScreenRendererField == null) { TelemetryServer.ClearTgpFrame(); return; }
+            if (_tcCamField == null || _tcScreenRendererField == null) { TelemetryServer.ClearTgpFrame(); _tgpActive = false; return; }
 
-            try { tc.SetTargetCam(); }
-            catch (Exception ex)
+            // Only refresh the camTimeout while a target is actually locked — SetTargetCam
+            // would crash on an empty list, and not calling it is what gives us the 3-second
+            // post-loss hold (game's Update keeps aiming at the last targetPosition until
+            // camTimeout expires).
+            List<Unit> targets = ac!.weaponManager != null ? ac.weaponManager.GetTargetList() : null;
+            if (targets != null && targets.Count > 0)
             {
-                // SetTargetCam touches a lot of game state. If anything throws (e.g. the player
-                // just disabled / detached), skip this tick rather than killing Update.
-                Plugin.Log?.LogDebug($"[NOTelemetry] TGP SetTargetCam threw: {ex.Message}");
-                return;
+                try { tc.SetTargetCam(); }
+                catch (Exception ex)
+                {
+                    // SetTargetCam touches a lot of game state. If anything throws (e.g. the player
+                    // just disabled / detached), skip this tick rather than killing Update.
+                    Plugin.Log?.LogDebug($"[NOTelemetry] TGP SetTargetCam threw: {ex.Message}");
+                    return;
+                }
             }
+
+            // After the game's 3-second timeout expires, cam.enabled flips to false. Stop
+            // pushing then so MJPEG clients see "no feed" and fall back to NO TARGET.
+            Camera cam = _tcCamField.GetValue(tc) as Camera;
+            if (cam == null || !cam.enabled) { TelemetryServer.ClearTgpFrame(); _tgpActive = false; return; }
 
             // Prefer the camera's own targetTexture; fall back to the cockpit renderer's
             // material (which the game points at the same RT) if the prefab puts the
             // assignment there instead of on the Camera.
-            Camera? cam = _tcCamField.GetValue(tc) as Camera;
-            if (cam == null) return;
-            Texture? src = cam.targetTexture;
+            Texture src = cam.targetTexture;
             if (src == null)
             {
                 if (_tcScreenRendererField.GetValue(tc) is Renderer rend && rend.material != null)
                     src = rend.material.mainTexture;
             }
-            if (src == null) return;
+            if (src == null) { TelemetryServer.ClearTgpFrame(); _tgpActive = false; return; }
 
-            // Lazy-allocate the small downscale RT + readback texture once.
-            if (_tgpRT == null)
+            // Match the captured frame to the source's aspect ratio. Forcing a square output
+            // squashed the in-game (wider-than-tall) feed; capturing at the native aspect lets
+            // the MFD's object-fit:contain letterbox naturally, so the visible cam rectangle
+            // shrinks and pixelation drops without distorting the picture. Cap at source size
+            // — upsampling here adds no detail, just bytes.
+            int sw = Mathf.Max(1, src.width);
+            int sh = Mathf.Max(1, src.height);
+            int targetW, targetH;
+            int maxSide = Mathf.Max(sw, sh);
+            if (maxSide <= TgpMaxDim)
             {
-                _tgpRT = new RenderTexture(TgpSize, TgpSize, 0, RenderTextureFormat.ARGB32);
+                targetW = sw; targetH = sh;
+            }
+            else if (sw >= sh)
+            {
+                targetW = TgpMaxDim;
+                targetH = Mathf.Max(1, Mathf.RoundToInt(TgpMaxDim * (float)sh / sw));
+            }
+            else
+            {
+                targetH = TgpMaxDim;
+                targetW = Mathf.Max(1, Mathf.RoundToInt(TgpMaxDim * (float)sw / sh));
+            }
+
+            if (!_tgpSrcLogged)
+            {
+                _tgpSrcLogged = true;
+                Plugin.Log?.LogInfo($"[NOTelemetry] TGP source texture {sw}x{sh} (aspect {(float)sw/sh:0.000}); capturing at {targetW}x{targetH}.");
+            }
+
+            // (Re)allocate the downscale RT + readback texture when the source dimensions change.
+            if (_tgpRT == null || _tgpRT.width != targetW || _tgpRT.height != targetH)
+            {
+                if (_tgpRT != null) { _tgpRT.Release(); UnityEngine.Object.Destroy(_tgpRT); }
+                _tgpRT = new RenderTexture(targetW, targetH, 0, RenderTextureFormat.ARGB32);
                 _tgpRT.Create();
             }
-            if (_tgpTex == null)
-                _tgpTex = new Texture2D(TgpSize, TgpSize, TextureFormat.RGB24, false);
+            if (_tgpTex == null || _tgpTex.width != targetW || _tgpTex.height != targetH)
+            {
+                if (_tgpTex != null) UnityEngine.Object.Destroy(_tgpTex);
+                _tgpTex = new Texture2D(targetW, targetH, TextureFormat.RGB24, false);
+            }
 
             // GPU downscale → CPU readback → JPEG.
             Graphics.Blit(src, _tgpRT);
@@ -579,13 +627,14 @@ namespace NOTelemetryReader
             RenderTexture.active = _tgpRT;
             try
             {
-                _tgpTex.ReadPixels(new Rect(0, 0, TgpSize, TgpSize), 0, 0, false);
+                _tgpTex.ReadPixels(new Rect(0, 0, targetW, targetH), 0, 0, false);
                 _tgpTex.Apply(false, false);
             }
             finally { RenderTexture.active = prevActive; }
 
             byte[] jpg = _tgpTex.EncodeToJPG(70);
             TelemetryServer.PushTgpFrame(jpg);
+            _tgpActive = true;
         }
 
         private void OnDestroy()

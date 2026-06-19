@@ -48,6 +48,10 @@ namespace NOTelemetryReader
         public string ColFriendly;
         public string ColHostile;
         public string ColNeutral;
+
+        // True while the targeting-pod feed is producing frames (a target is locked, or the
+        // game's 3-second post-loss hold is still running). Drives the MFD's NO TARGET fallback.
+        public bool   TgpActive;
     }
 
     // One weapon type in the loadout. The icon PNG is served separately at /weapon?name=.

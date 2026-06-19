@@ -513,6 +513,7 @@ function clearMission() {
   if (window.parent !== window) {
     window.parent.postMessage({ mfd: true, type: 'loadout', items: [], selWeapon: null }, '*');
     window.parent.postMessage({ mfd: true, type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 }, '*');
+    window.parent.postMessage({ mfd: true, type: 'tgp', active: false }, '*');
   }
 }
 
@@ -575,6 +576,9 @@ function updateHUD(d) {
       ewKJMax:   typeof d.ewKJMax   === 'number' ? d.ewKJMax   : -1,
       cmCat:     d.cmCat || 0
     }, '*');
+    // Mirror the TGP feed state so the MFD's TGP page can swap to NO TARGET when the feed
+    // stops (after the in-game 3-second post-loss hold expires).
+    window.parent.postMessage({ mfd: true, type: 'tgp', active: !!d.tgpActive }, '*');
   }
 
   const gEl = document.getElementById('gear');

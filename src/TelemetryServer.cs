@@ -353,8 +353,9 @@ namespace NOTelemetryReader
                         ctx.Response.OutputStream.Flush();
                     }
 
-                    // Source publishes at ~10 Hz; 50 ms keeps latency low without spinning hot.
-                    await Task.Delay(50, ct).ConfigureAwait(false);
+                    // Source publishes at 24 Hz (~42 ms/frame); 25 ms polls stay ahead so we
+                    // don't drop alternate frames waiting for the next wake-up.
+                    await Task.Delay(25, ct).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) { }
@@ -414,7 +415,7 @@ namespace NOTelemetryReader
                 "\"map\":{{\"valid\":{13},\"w\":{14:0.0},\"h\":{15:0.0},\"ox\":{16},\"oy\":{17}}}," +
                 "\"iconOrient\":{18},\"iconScale\":{19:0.000}," +
                 "\"flares\":{20},\"flaresMax\":{21},\"ewKJ\":{22:0.0},\"ewKJMax\":{23:0.0}," +
-                "\"selWeapon\":\"{24}\",\"cmCat\":{25},",
+                "\"selWeapon\":\"{24}\",\"cmCat\":{25},\"tgpActive\":{26},",
                 s.Time,
                 EscapeJson(s.PlaneName ?? string.Empty),
                 EscapeJson(s.MissionName ?? string.Empty),
@@ -429,7 +430,8 @@ namespace NOTelemetryReader
                 s.IconOrient ? "true" : "false",
                 s.IconScale,
                 s.Flares, s.FlaresMax, s.EwKJ, s.EwKJMax,
-                EscapeJson(s.SelWeapon ?? string.Empty), s.CmCategory);
+                EscapeJson(s.SelWeapon ?? string.Empty), s.CmCategory,
+                s.TgpActive ? "true" : "false");
 
             return head + "\"loadout\":" + LoadoutArray(s.Loadout)
                         + ",\"colors\":{"
