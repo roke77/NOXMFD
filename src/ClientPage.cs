@@ -46,14 +46,9 @@ namespace NOTelemetryReader
     border-right: 1px solid #1a3a1a;
     overflow: hidden;
   }
-  #map-img {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    object-fit: contain;
-    opacity: 0.92;
-  }
-  #map-img.missing { display: none; }
+  #map-panel.has-map { background: #000; }   /* black letterbox once a map is loaded */
+  /* Source sprite only — the map is blitted into #overlay so it shares the icons' transform. */
+  #map-img { display: none; }
   #map-missing {
     display: none;
     position: absolute;
@@ -78,6 +73,20 @@ namespace NOTelemetryReader
   #mission-bar .map-name { font-size: 15px; font-weight: bold; color: #39ff14; }
   #mission-bar .mission-name { font-size: 11px; color: #4aaa4a; }
   #mission-bar.empty { display: none; }
+
+  #follow-btn {
+    position: absolute;
+    top: 10px; right: 12px;
+    background: rgba(6,10,6,0.78);
+    border: 1px solid #1a3a1a;
+    padding: 5px 9px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #4aaa4a;
+    cursor: pointer;
+    user-select: none;
+  }
+  #follow-btn.on { color: #ffaa00; border-color: #ffaa00; }   /* active */
 
   #hud { width: 210px; display: flex; flex-direction: column; flex-shrink: 0; }
   #loadout { font-size: 12px; color: #39ff14; overflow-y: auto; height: 100%; }
@@ -125,6 +134,7 @@ namespace NOTelemetryReader
       <div class="map-name" id="map-name">—</div>
       <div class="mission-name" id="mission-name">—</div>
     </div>
+    <div id="follow-btn" class="off">FOLLOW: OFF</div>
   </div>
 
   <div id="hud">
@@ -180,6 +190,9 @@ let   witemEls = [];           // weapon item containers, aligned with loadout o
 const ICON_BASE = 15;          // base icon size in px for the player (scaled by iconScale)
 const UNIT_BASE = 15;          // base icon size in px for other units
 const FALLBACK_SIZE = 5;       // square symbol size in px for units without a game icon
+let   view = { zoom: 1, panX: 0, panY: 0 };   // map view: pan in screen px, zoom about canvas centre
+const MIN_ZOOM = 1, MAX_ZOOM = 8;
+let   followPlayer = false;    // when on (and zoomed in), keep the player icon centred
 const PLAYER_COLOR = '#39ff14';                     // player stays HUD green
 let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors
 const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
@@ -190,12 +203,14 @@ const mapImg   = document.getElementById('map-img');
 const overlay  = document.getElementById('overlay');
 const oc       = overlay.getContext('2d');
 const statusEl = document.getElementById('status');
+const followBtn = document.getElementById('follow-btn');
 
 // ── Canvas geometry ──────────────────────────────────────────────────────────────
 function resizeOverlay() {
   const panel = document.getElementById('map-panel');
   overlay.width  = panel.clientWidth;
   overlay.height = panel.clientHeight;
+  clampPan();          // pan limits depend on canvas size; keep the view valid after a resize
   drawOverlay();
 }
 
@@ -211,15 +226,41 @@ function imgRect() {
   return { dx, dy, dw, dh };
 }
 
+// Apply the zoom/pan view transform to a base (zoom=1) overlay pixel. Zoom is about the
+// canvas centre, so pan=0 reproduces today's centred framing exactly.
+function viewTransform(px, py) {
+  const ox = overlay.width / 2, oy = overlay.height / 2;
+  return { x: ox + (px - ox) * view.zoom + view.panX,
+           y: oy + (py - oy) * view.zoom + view.panY };
+}
+
+// Keep the scaled map covering its zoom=1 footprint: pan can't expose blank background, and
+// at zoom=1 this pins pan to 0 (framing unchanged from before zoom existed).
+function clampPan() {
+  const r = imgRect();
+  const maxX = r.dw * (view.zoom - 1) / 2;
+  const maxY = r.dh * (view.zoom - 1) / 2;
+  view.panX = Math.max(-maxX, Math.min(maxX, view.panX));
+  view.panY = Math.max(-maxY, Math.min(maxY, view.panY));
+}
+
 // World (X east, Z north) → overlay pixel. The map is a square centered on the world
 // origin spanning mapMeta.w × mapMeta.h, so this is a direct mapping — no calibration.
 // The extracted map image is north-up, so screen Y is inverted relative to Z.
-function worldToOverlay(wx, wz) {
+// World coord → base (zoom=1) overlay pixel, before the view transform.
+function worldToBase(wx, wz) {
   if (!mapMeta || mapMeta.w <= 0 || mapMeta.h <= 0) return null;
   const relX = (wx + mapMeta.w * 0.5) / mapMeta.w;   // 0 = west,  1 = east
   const relY = (wz + mapMeta.h * 0.5) / mapMeta.h;   // 0 = south, 1 = north
   const r = imgRect();
-  return { cx: r.dx + relX * r.dw, cy: r.dy + (1 - relY) * r.dh };
+  return { x: r.dx + relX * r.dw, y: r.dy + (1 - relY) * r.dh };
+}
+
+function worldToOverlay(wx, wz) {
+  const b = worldToBase(wx, wz);
+  if (!b) return null;
+  const v = viewTransform(b.x, b.y);
+  return { cx: v.x, cy: v.y };
 }
 
 // Reproduces the game's grid label (e.g. "Hc87") from world coords + map offsets.
@@ -297,6 +338,29 @@ function drawOverlay() {
   oc.clearRect(0, 0, overlay.width, overlay.height);
   if (!lastData || !mapMeta) return;
 
+  // Follow mode: re-derive pan each frame so the player icon stays centred. clampPan then keeps
+  // the map edges honest, so near a border the player drifts off-centre instead of exposing blank
+  // background — same as the in-game map.
+  if (followPlayer && view.zoom > MIN_ZOOM && lastData.world) {
+    const b = worldToBase(lastData.world.x, lastData.world.z);
+    if (b) {
+      view.panX = -(b.x - overlay.width  / 2) * view.zoom;
+      view.panY = -(b.y - overlay.height / 2) * view.zoom;
+      clampPan();
+    }
+  }
+
+  // Blit the map sprite into the canvas under the same transform the icons use, so the map and
+  // icons share one coordinate system and can never drift apart when zoomed or panned.
+  if (mapImg.complete && mapImg.naturalWidth > 0) {
+    const r = imgRect();
+    const tl = viewTransform(r.dx, r.dy);
+    oc.save();
+    oc.globalAlpha = 0.92;   // preserves the map's former CSS opacity
+    oc.drawImage(mapImg, tl.x, tl.y, r.dw * view.zoom, r.dh * view.zoom);
+    oc.restore();
+  }
+
   // Other units first, so the player's icon and label sit on top.
   if (lastData.contacts) {
     for (const u of lastData.contacts) {
@@ -348,7 +412,11 @@ es.onmessage = function(e) {
   if (d.map && d.map.valid) {
     mapMeta = { w: d.map.w, h: d.map.h, ox: d.map.ox, oy: d.map.oy };
     // The game's map image becomes available shortly after the mission loads; refresh once.
-    if (!mapWasValid) { mapWasValid = true; mapImg.src = '/map?t=' + Date.now(); }
+    if (!mapWasValid) {
+      mapWasValid = true;
+      mapImg.src = '/map?t=' + Date.now();
+      document.getElementById('map-panel').classList.add('has-map');
+    }
   }
 
   updateHUD(d);
@@ -361,7 +429,10 @@ function clearMission() {
   lastData = null;
   mapMeta = null;
   mapWasValid = false;
+  view.zoom = 1; view.panX = 0; view.panY = 0;   // next mission starts at full extent
+  followPlayer = false; followBtn.className = 'off'; followBtn.textContent = 'FOLLOW: OFF';
   oc.clearRect(0, 0, overlay.width, overlay.height);
+  document.getElementById('map-panel').classList.remove('has-map');
   mapImg.src = '/map?t=' + Date.now();   // 404 now → falls back to the placeholder
 
   document.getElementById('mission-bar').className = 'empty';
@@ -499,6 +570,70 @@ function updateLoadout(d) {
     witemEls[i].classList.toggle('sel', w.n === d.selWeapon);
   }
 }
+
+// ── Map zoom / pan ───────────────────────────────────────────────────────────────
+function resetView() { view.zoom = 1; view.panX = 0; view.panY = 0; overlay.style.cursor = ''; setFollow(false); }
+
+// Toggle follow mode (keyboard F or the on-screen button). drawOverlay does the centring.
+function setFollow(on) {
+  followPlayer = on;
+  followBtn.className   = on ? 'on' : 'off';
+  followBtn.textContent = 'FOLLOW: ' + (on ? 'ON' : 'OFF');
+  drawOverlay();
+}
+followBtn.addEventListener('click', function() { if (mapMeta) setFollow(!followPlayer); });
+window.addEventListener('keydown', function(e) {
+  if ((e.key === 'f' || e.key === 'F') && mapMeta) setFollow(!followPlayer);
+});
+
+let dragging = false, lastX = 0, lastY = 0;
+
+// Scroll to zoom toward the cursor: keep the world point under the pointer fixed while scaling.
+overlay.addEventListener('wheel', function(e) {
+  if (!mapMeta) return;
+  e.preventDefault();
+  const rect = overlay.getBoundingClientRect();
+  const sx = e.clientX - rect.left, sy = e.clientY - rect.top;   // cursor in canvas px
+  const ox = overlay.width / 2, oy = overlay.height / 2;
+  const z0 = view.zoom;
+  const z1 = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z0 * Math.exp(-e.deltaY * 0.0015)));
+  if (z1 === z0) return;
+  // While following, zoom about the player (drawOverlay re-centres) rather than the cursor.
+  if (followPlayer) { view.zoom = z1; clampPan(); drawOverlay(); return; }
+  // pan1 = d - (z1/z0)(d - pan0), with d = cursor − centre — holds the cursor's point in place.
+  view.panX = (sx - ox) - (z1 / z0) * ((sx - ox) - view.panX);
+  view.panY = (sy - oy) - (z1 / z0) * ((sy - oy) - view.panY);
+  view.zoom = z1;
+  clampPan();
+  if (!dragging) overlay.style.cursor = view.zoom > MIN_ZOOM ? 'grab' : '';
+  drawOverlay();
+}, { passive: false });
+
+// Drag to pan (only meaningful once zoomed in).
+overlay.addEventListener('pointerdown', function(e) {
+  if (!mapMeta || view.zoom <= MIN_ZOOM) return;
+  if (followPlayer) setFollow(false);   // dragging hands control to free-look
+  dragging = true; lastX = e.clientX; lastY = e.clientY;
+  overlay.setPointerCapture(e.pointerId);
+  overlay.style.cursor = 'grabbing';
+});
+overlay.addEventListener('pointermove', function(e) {
+  if (!dragging) return;
+  view.panX += e.clientX - lastX;
+  view.panY += e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+  clampPan();
+  drawOverlay();
+});
+function endDrag(e) {
+  if (!dragging) return;
+  dragging = false;
+  try { overlay.releasePointerCapture(e.pointerId); } catch (_) {}
+  overlay.style.cursor = view.zoom > MIN_ZOOM ? 'grab' : '';
+}
+overlay.addEventListener('pointerup', endDrag);
+overlay.addEventListener('pointercancel', endDrag);
+overlay.addEventListener('dblclick', function() { if (mapMeta) resetView(); });   // reset to full map
 
 // ── Init ──────────────────────────────────────────────────────────────────────────
 window.addEventListener('resize', resizeOverlay);
