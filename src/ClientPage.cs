@@ -47,7 +47,7 @@ namespace NOTelemetryReader
   #map-panel {
     flex: 1;
     position: relative;
-    background: #0a0f0a;
+    background: #000;
     border-right: 1px solid #1a3a1a;
     overflow: hidden;
     /* Custom HUD-green crosshair, constant regardless of zoom/drag state. */
