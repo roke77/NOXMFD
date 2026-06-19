@@ -36,6 +36,8 @@
   <ItemGroup>
     <!-- Decompiled game source kept for reference only — never compiled into the plugin. -->
     <Compile Remove="decompiled\**\*.cs" />
+    <!-- _scratch holds ad-hoc research dumps (full decompiles, etc.) — never built. -->
+    <Compile Remove="_scratch\**\*.cs" />
   </ItemGroup>
 
   <ItemGroup>

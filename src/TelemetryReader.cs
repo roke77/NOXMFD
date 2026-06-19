@@ -48,10 +48,23 @@ namespace NOTelemetryReader
         private string _colNeutral  = "#9aa0a6";
         private bool   _colorsRead;
 
+        // TGP feed — captured from aircraft.targetCam at TgpInterval, encoded JPEG, pushed to
+        // the server's MJPEG endpoint. Buffers are allocated lazily so the cost is zero until
+        // the player first opens the TGP page.
+        private const float TgpInterval = 0.1f;          // 10 Hz
+        private const int   TgpSize     = 256;           // square output for the MFD tile
+        private float        _tgpTimer;
+        private RenderTexture? _tgpRT;                    // Blit destination (matches encode size)
+        private Texture2D?     _tgpTex;                   // CPU-side buffer for ReadPixels + EncodeToJPG
+        private FieldInfo?     _tcCamField;               // TargetCam.cam (Camera) — private, cached
+        private FieldInfo?     _tcScreenRendererField;    // TargetCam.targetScreenRenderer — private, cached
+        private bool           _tcReflectionTried;
+
         private void Update()
         {
             _fastTimer += Time.deltaTime;
             _slowTimer += Time.deltaTime;
+            _tgpTimer  += Time.deltaTime;
 
             if (_slowTimer >= SlowInterval)
             {
@@ -63,6 +76,12 @@ namespace NOTelemetryReader
             {
                 _fastTimer = 0f;
                 PushSnapshot();
+            }
+
+            if (_tgpTimer >= TgpInterval)
+            {
+                _tgpTimer = 0f;
+                CaptureTgpFrame();
             }
         }
 
@@ -493,6 +512,86 @@ namespace NOTelemetryReader
             }
             readable.SetPixels32(px);
             readable.Apply();
+        }
+
+        // ── TGP camera feed ────────────────────────────────────────────────────
+        // The game's own TargetCam tracks the player's current target, including IR mode and
+        // zoom-on-target FOV. We just nudge it active every tick, read back the render
+        // texture, and ship a JPEG to /tgp.mjpg.
+        private void CaptureTgpFrame()
+        {
+            // No mission / no aircraft / no TGP component → drop any cached frame and bail.
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            TargetCam? tc = ac != null ? ac.targetCam : null;
+            if (tc == null) { TelemetryServer.ClearTgpFrame(); return; }
+
+            // No target locked → no TGP feed. SetTargetCam would crash on an empty list.
+            var targets = ac!.weaponManager != null ? ac.weaponManager.GetTargetList() : null;
+            if (targets == null || targets.Count == 0) { TelemetryServer.ClearTgpFrame(); return; }
+
+            // Cache the two private fields once. cam = scene camera, targetScreenRenderer =
+            // the in-cockpit display whose material is bound to the camera's render texture.
+            if (!_tcReflectionTried)
+            {
+                _tcReflectionTried = true;
+                var t = typeof(TargetCam);
+                _tcCamField            = t.GetField("cam",                  BindingFlags.NonPublic | BindingFlags.Instance);
+                _tcScreenRendererField = t.GetField("targetScreenRenderer", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (_tcCamField == null || _tcScreenRendererField == null)
+                    Plugin.Log?.LogWarning("[NOTelemetry] TGP: could not locate TargetCam private fields — feed disabled.");
+            }
+            if (_tcCamField == null || _tcScreenRendererField == null) { TelemetryServer.ClearTgpFrame(); return; }
+
+            try { tc.SetTargetCam(); }
+            catch (Exception ex)
+            {
+                // SetTargetCam touches a lot of game state. If anything throws (e.g. the player
+                // just disabled / detached), skip this tick rather than killing Update.
+                Plugin.Log?.LogDebug($"[NOTelemetry] TGP SetTargetCam threw: {ex.Message}");
+                return;
+            }
+
+            // Prefer the camera's own targetTexture; fall back to the cockpit renderer's
+            // material (which the game points at the same RT) if the prefab puts the
+            // assignment there instead of on the Camera.
+            Camera? cam = _tcCamField.GetValue(tc) as Camera;
+            if (cam == null) return;
+            Texture? src = cam.targetTexture;
+            if (src == null)
+            {
+                if (_tcScreenRendererField.GetValue(tc) is Renderer rend && rend.material != null)
+                    src = rend.material.mainTexture;
+            }
+            if (src == null) return;
+
+            // Lazy-allocate the small downscale RT + readback texture once.
+            if (_tgpRT == null)
+            {
+                _tgpRT = new RenderTexture(TgpSize, TgpSize, 0, RenderTextureFormat.ARGB32);
+                _tgpRT.Create();
+            }
+            if (_tgpTex == null)
+                _tgpTex = new Texture2D(TgpSize, TgpSize, TextureFormat.RGB24, false);
+
+            // GPU downscale → CPU readback → JPEG.
+            Graphics.Blit(src, _tgpRT);
+            var prevActive = RenderTexture.active;
+            RenderTexture.active = _tgpRT;
+            try
+            {
+                _tgpTex.ReadPixels(new Rect(0, 0, TgpSize, TgpSize), 0, 0, false);
+                _tgpTex.Apply(false, false);
+            }
+            finally { RenderTexture.active = prevActive; }
+
+            byte[] jpg = _tgpTex.EncodeToJPG(70);
+            TelemetryServer.PushTgpFrame(jpg);
+        }
+
+        private void OnDestroy()
+        {
+            if (_tgpRT  != null) { _tgpRT.Release();  UnityEngine.Object.Destroy(_tgpRT);  _tgpRT  = null; }
+            if (_tgpTex != null) {                    UnityEngine.Object.Destroy(_tgpTex); _tgpTex = null; }
         }
     }
 }

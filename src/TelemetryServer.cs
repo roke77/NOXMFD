@@ -37,6 +37,12 @@ namespace NOTelemetryReader
         private static readonly Dictionary<string, byte[]> _cmIcons = new Dictionary<string, byte[]>();
         private static readonly object                     _cmLock  = new object();
 
+        // Latest TGP camera frame as a JPEG, refreshed ~10 Hz from TelemetryReader.
+        // The frame id lets each MJPEG client only send when it changes.
+        private static byte[]? _tgpJpg;
+        private static long    _tgpFrameId;
+        private static readonly object _tgpLock = new object();
+
         // ── Lifecycle ──────────────────────────────────────────────────────────
 
         // Local-network URL (e.g. http://192.168.1.42:5005) — empty if the listener fell back
@@ -151,6 +157,19 @@ namespace NOTelemetryReader
             lock (_cmLock) _cmIcons[key] = png;
         }
 
+        // Called from Unity main thread with each captured TGP camera frame.
+        public static void PushTgpFrame(byte[] jpg)
+        {
+            if (jpg == null || jpg.Length == 0) return;
+            lock (_tgpLock) { _tgpJpg = jpg; _tgpFrameId++; }
+        }
+
+        // Drops the cached TGP frame so MJPEG clients see "no frame" again.
+        public static void ClearTgpFrame()
+        {
+            lock (_tgpLock) { _tgpJpg = null; _tgpFrameId++; }
+        }
+
         // Called from Unity main thread when a mission ends — clears all per-mission state so
         // the client drops back to "no mission" and wipes its display. Icons are static
         // per-type assets and stay cached across missions.
@@ -173,6 +192,8 @@ namespace NOTelemetryReader
 
                     if (path == "/stream")
                         _ = Task.Run(() => HandleSseAsync(ctx, _cts.Token));
+                    else if (path == "/tgp.mjpg")
+                        _ = Task.Run(() => HandleMjpegAsync(ctx, _cts.Token));
                     else if (path == "/map" || path == "/map.png" || path == "/map.jpg")
                         ServeMap(ctx);
                     else if (path == "/icon")
@@ -298,6 +319,46 @@ namespace NOTelemetryReader
                 ctx.Response.OutputStream.Write(png, 0, png.Length);
             }
             catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // ── MJPEG handler ──────────────────────────────────────────────────────
+
+        // Long-lived multipart/x-mixed-replace response. Browsers render this directly in
+        // an <img> tag — when a new JPEG is written, the image swaps in place.
+        private static async Task HandleMjpegAsync(HttpListenerContext ctx, CancellationToken ct)
+        {
+            const string boundary = "tgpframe";
+            ctx.Response.StatusCode  = 200;
+            ctx.Response.ContentType = "multipart/x-mixed-replace; boundary=" + boundary;
+            ctx.Response.SendChunked = true;
+            ctx.Response.Headers.Add("Cache-Control", "no-cache");
+            ctx.Response.Headers.Add("X-Accel-Buffering", "no");
+
+            long lastSeen = -1;
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    byte[]? jpg; long id;
+                    lock (_tgpLock) { jpg = _tgpJpg; id = _tgpFrameId; }
+
+                    if (jpg != null && id != lastSeen)
+                    {
+                        lastSeen = id;
+                        string head = "\r\n--" + boundary + "\r\nContent-Type: image/jpeg\r\nContent-Length: " + jpg.Length + "\r\n\r\n";
+                        byte[] headBytes = Encoding.ASCII.GetBytes(head);
+                        await ctx.Response.OutputStream.WriteAsync(headBytes, 0, headBytes.Length, ct).ConfigureAwait(false);
+                        await ctx.Response.OutputStream.WriteAsync(jpg, 0, jpg.Length, ct).ConfigureAwait(false);
+                        ctx.Response.OutputStream.Flush();
+                    }
+
+                    // Source publishes at ~10 Hz; 50 ms keeps latency low without spinning hot.
+                    await Task.Delay(50, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception) { /* client disconnected, normal */ }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 

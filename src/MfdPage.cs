@@ -236,6 +236,36 @@ namespace NOTelemetryReader
     font-family: 'Share Tech Mono', 'Courier New', monospace;
   }
   .wpn-panel.show { display: block; }
+
+  /* TGP page — fills the screen with the live MJPEG feed from the player's targeting cam.
+     The empty placeholder mirrors the .wpn-empty style so it reads the same as the WPN
+     page's NO LOADOUT state. */
+  .tgp-panel {
+    position: absolute;
+    inset: 0;
+    display: none;
+    background: #000;
+  }
+  .tgp-panel.show { display: block; }
+  .tgp-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;     /* the source is 256×256 — let the upscale crisp up */
+  }
+  .tgp-empty {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    color: #1a4a1a;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    font-size: 22px;
+    letter-spacing: 3px;
+    pointer-events: none;
+  }
+  .tgp-panel.has-feed .tgp-empty { display: none; }
+
   .wpn-empty {
     position: absolute;
     top: 50%; left: 50%;
@@ -454,6 +484,10 @@ namespace NOTelemetryReader
               <div class="cm-big" id="cm-jammer-val">&mdash;</div>
             </div>
           </div>
+          <div class="tgp-panel" id="tgp-panel">
+            <div class="tgp-empty">&mdash; NO TARGET &mdash;</div>
+            <img class="tgp-img" id="tgp-img" alt="">
+          </div>
         </div>
       </div>
       <div class="keys v" id="keys-right"></div>
@@ -495,6 +529,10 @@ const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 const wpnPanel  = document.getElementById('wpn-panel');
 const wpnEmptyEl= document.getElementById('wpn-empty');
+const tgpPanel  = document.getElementById('tgp-panel');
+const tgpImg    = document.getElementById('tgp-img');
+tgpImg.addEventListener('load',  function() { tgpPanel.classList.add('has-feed'); });
+tgpImg.addEventListener('error', function() { tgpPanel.classList.remove('has-feed'); });
 const sepEls    = document.querySelectorAll('#keys-left .sep');   // 0 = above key[0], i+1 = below key[i]
 const cmPanel       = document.getElementById('cm-panel');
 const cmFlaresTitle = document.getElementById('cm-flares-title');
@@ -537,6 +575,12 @@ const PAGES = {
       { label: 'MAIN', key: 0, action: 'main' },    // ← back to MAIN
     ],
   },
+  tgp: {
+    opaque: true,
+    items: [
+      { label: 'MAIN', key: 0, action: 'main' },    // ← back to MAIN
+    ],
+  },
 };
 let currentPage = 'map';
 
@@ -558,6 +602,15 @@ function showPage(name) {
   overlayEl.classList.toggle('opaque', page.opaque);
   infoBox.classList.toggle('show', name === 'main');
   wpnPanel.classList.toggle('show', name === 'wpn');
+  tgpPanel.classList.toggle('show', name === 'tgp');
+  // Start the MJPEG fetch only while the TGP page is in view; clearing src closes the
+  // long-lived multipart connection so the mod can stop encoding frames if no one's watching.
+  if (name === 'tgp') {
+    if (!tgpImg.src) tgpImg.src = '/tgp.mjpg';
+  } else {
+    tgpImg.removeAttribute('src');
+    tgpPanel.classList.remove('has-feed');
+  }
   if (name === 'wpn') { renderWpn(); renderCm(); }
 
   leftKeys.forEach(function(k) { delete k.dataset.action; });
@@ -740,6 +793,7 @@ function mfdButton(el) {
     case 'main': showPage('main'); mapSend('status-request'); break;   // pull fresh status on open
     case 'map':  showPage('map');  break;
     case 'wpn':  showPage('wpn');  break;
+    case 'tgp':  showPage('tgp');  break;
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;
