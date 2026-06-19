@@ -77,7 +77,6 @@ namespace NOTelemetryReader
     line-height: 1.5;
     pointer-events: none;
   }
-  #mission-bar .map-name { font-size: 15px; font-weight: bold; color: #39ff14; }
   #mission-bar .mission-name { font-size: 11px; color: #4aaa4a; }
   #mission-bar.empty { display: none; }
 
@@ -150,7 +149,6 @@ namespace NOTelemetryReader
     </div>
     <canvas id="overlay"></canvas>
     <div id="mission-bar" class="empty">
-      <div class="map-name" id="map-name">—</div>
       <div class="mission-name" id="mission-name">—</div>
     </div>
     <div id="follow-btn" class="off">FOLLOW: OFF</div>
@@ -524,10 +522,9 @@ setInterval(function() {
 function updateHUD(d) {
   // Mission / map name bar
   const bar = document.getElementById('mission-bar');
-  if (d.mapName || d.mission) {
+  if (d.mission) {
     bar.className = '';
-    document.getElementById('map-name').textContent     = d.mapName || '—';
-    document.getElementById('mission-name').textContent = d.mission || '';
+    document.getElementById('mission-name').textContent = d.mission;
   } else {
     bar.className = 'empty';
   }
