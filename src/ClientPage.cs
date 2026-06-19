@@ -45,6 +45,8 @@ namespace NOTelemetryReader
     background: #0a0f0a;
     border-right: 1px solid #1a3a1a;
     overflow: hidden;
+    /* Custom HUD-green crosshair, constant regardless of zoom/drag state. */
+    cursor: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48ZyBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAiIHN0cm9rZS1vcGFjaXR5PSIuNTUiIHN0cm9rZS13aWR0aD0iMy40IiBzdHJva2UtbGluZWNhcD0icm91bmQiPjxsaW5lIHgxPSIxMiIgeTE9IjIiIHgyPSIxMiIgeTI9IjgiLz48bGluZSB4MT0iMTIiIHkxPSIxNiIgeDI9IjEyIiB5Mj0iMjIiLz48bGluZSB4MT0iMiIgeTE9IjEyIiB4Mj0iOCIgeTI9IjEyIi8+PGxpbmUgeDE9IjE2IiB5MT0iMTIiIHgyPSIyMiIgeTI9IjEyIi8+PC9nPjxnIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzM5ZmYxNCIgc3Ryb2tlLXdpZHRoPSIxLjciIHN0cm9rZS1saW5lY2FwPSJyb3VuZCI+PGxpbmUgeDE9IjEyIiB5MT0iMiIgeDI9IjEyIiB5Mj0iOCIvPjxsaW5lIHgxPSIxMiIgeTE9IjE2IiB4Mj0iMTIiIHkyPSIyMiIvPjxsaW5lIHgxPSIyIiB5MT0iMTIiIHgyPSI4IiB5Mj0iMTIiLz48bGluZSB4MT0iMTYiIHkxPSIxMiIgeDI9IjIyIiB5Mj0iMTIiLz48L2c+PC9zdmc+) 12 12, crosshair;
   }
   #map-panel.has-map { background: #000; }   /* black letterbox once a map is loaded */
   /* Source sprite only — the map is blitted into #overlay so it shares the icons' transform. */
@@ -87,6 +89,20 @@ namespace NOTelemetryReader
     user-select: none;
   }
   #follow-btn.on { color: #ffaa00; border-color: #ffaa00; }   /* active */
+
+  #unit-label {
+    position: absolute;
+    display: none;
+    transform: translate(12px, 12px);   /* sit just off the cursor */
+    background: rgba(6,10,6,0.78);
+    border: 1px solid #1a3a1a;
+    color: #39ff14;
+    font-size: 11px;
+    padding: 2px 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 50;
+  }
 
   #hud { width: 210px; display: flex; flex-direction: column; flex-shrink: 0; }
   #loadout { font-size: 12px; color: #39ff14; overflow-y: auto; height: 100%; }
@@ -133,6 +149,7 @@ namespace NOTelemetryReader
       <div class="mission-name" id="mission-name">—</div>
     </div>
     <div id="follow-btn" class="off">FOLLOW: OFF</div>
+    <div id="unit-label"></div>
   </div>
 
   <div id="hud">
@@ -184,6 +201,8 @@ let   witemEls = [];           // weapon item containers, aligned with loadout o
 const ICON_BASE = 15;          // base icon size in px for the player (scaled by iconScale)
 const UNIT_BASE = 15;          // base icon size in px for other units
 const FALLBACK_SIZE = 5;       // square symbol size in px for units without a game icon
+const HIT_PAD = 4;             // extra px around an icon that still counts as a hover hit
+let   hitTargets = [];         // [{cx, cy, r, label}] rebuilt every drawOverlay() for hover
 let   view = { zoom: 1, panX: 0, panY: 0 };   // map view: pan in screen px, zoom about canvas centre
 const MIN_ZOOM = 1, MAX_ZOOM = 8;
 let   followPlayer = false;    // when on (and zoomed in), keep the player icon centred
@@ -198,6 +217,7 @@ const overlay  = document.getElementById('overlay');
 const oc       = overlay.getContext('2d');
 const statusEl = document.getElementById('status');
 const followBtn = document.getElementById('follow-btn');
+const unitLabel = document.getElementById('unit-label');
 
 // ── Canvas geometry ──────────────────────────────────────────────────────────────
 function resizeOverlay() {
@@ -308,28 +328,34 @@ function tintedIcon(type, hex) {
 
 // Draws one icon at a screen position. When no game icon is available, falls back to a
 // square symbol — the same generic marker the game uses for units without a specific icon.
+// Returns the icon's on-screen half-extent (in px) so callers can record a hover hotspot.
 function drawIcon(type, hex, cx, cy, hdg, orient, basePx, scale) {
   const cv = tintedIcon(type, hex);
   oc.save();
   oc.translate(cx, cy);
   oc.shadowColor = hex;
   oc.shadowBlur  = 8;
+  let r;
   if (cv) {
     if (orient) oc.rotate(hdg * Math.PI / 180);
     const h = basePx * (scale || 1);
     const w = h * (cv.width / cv.height);
     oc.drawImage(cv, -w / 2, -h / 2, w, h);
+    r = Math.max(w, h) / 2;
   } else {
     const s = FALLBACK_SIZE;
     oc.fillStyle = hex;
     oc.fillRect(-s / 2, -s / 2, s, s);
+    r = s / 2;
   }
   oc.restore();
+  return r;
 }
 
 // ── Drawing ──────────────────────────────────────────────────────────────────────
 function drawOverlay() {
   oc.clearRect(0, 0, overlay.width, overlay.height);
+  hitTargets.length = 0;
   if (!lastData || !mapMeta) return;
 
   // Follow mode: re-derive pan each frame so the player icon stays centred. clampPan then keeps
@@ -361,14 +387,17 @@ function drawOverlay() {
       const p = worldToOverlay(u.x, u.z);
       if (!p) continue;
       ensureIconImage(u.t);
-      drawIcon(u.t, factionColors[u.f] || factionColors[0], p.cx, p.cy, u.h, u.o, UNIT_BASE, u.s);
+      const hex = factionColors[u.f] || factionColors[0];
+      const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, UNIT_BASE, u.s);
+      hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex });
     }
   }
 
-  // Player plane (kept green regardless of faction colors)
+  // Player plane (kept green regardless of faction colors), drawn and hit-tested last = on top.
   const pos = worldToOverlay(lastData.world.x, lastData.world.z);
   if (!pos) return;
-  drawIcon(lastData.name, PLAYER_COLOR, pos.cx, pos.cy, lastData.hdg, lastData.iconOrient, ICON_BASE, lastData.iconScale);
+  const pr = drawIcon(lastData.name, PLAYER_COLOR, pos.cx, pos.cy, lastData.hdg, lastData.iconOrient, ICON_BASE, lastData.iconScale);
+  hitTargets.push({ cx: pos.cx, cy: pos.cy, r: pr + HIT_PAD, label: lastData.name, color: PLAYER_COLOR });
 }
 
 // ── Image load / error ─────────────────────────────────────────────────────────
@@ -559,7 +588,7 @@ function updateLoadout(d) {
 }
 
 // ── Map zoom / pan ───────────────────────────────────────────────────────────────
-function resetView() { view.zoom = 1; view.panX = 0; view.panY = 0; overlay.style.cursor = ''; setFollow(false); }
+function resetView() { view.zoom = 1; view.panX = 0; view.panY = 0; setFollow(false); }
 
 // Toggle follow mode (keyboard F or the on-screen button). drawOverlay does the centring.
 function setFollow(on) {
@@ -592,7 +621,6 @@ overlay.addEventListener('wheel', function(e) {
   view.panY = (sy - oy) - (z1 / z0) * ((sy - oy) - view.panY);
   view.zoom = z1;
   clampPan();
-  if (!dragging) overlay.style.cursor = view.zoom > MIN_ZOOM ? 'grab' : '';
   drawOverlay();
 }, { passive: false });
 
@@ -602,7 +630,6 @@ overlay.addEventListener('pointerdown', function(e) {
   if (followPlayer) setFollow(false);   // dragging hands control to free-look
   dragging = true; lastX = e.clientX; lastY = e.clientY;
   overlay.setPointerCapture(e.pointerId);
-  overlay.style.cursor = 'grabbing';
 });
 overlay.addEventListener('pointermove', function(e) {
   if (!dragging) return;
@@ -616,11 +643,36 @@ function endDrag(e) {
   if (!dragging) return;
   dragging = false;
   try { overlay.releasePointerCapture(e.pointerId); } catch (_) {}
-  overlay.style.cursor = view.zoom > MIN_ZOOM ? 'grab' : '';
 }
 overlay.addEventListener('pointerup', endDrag);
 overlay.addEventListener('pointercancel', endDrag);
 overlay.addEventListener('dblclick', function() { if (mapMeta) resetView(); });   // reset to full map
+
+// ── Hover-to-label ───────────────────────────────────────────────────────────────
+// Icons are canvas pixels, so we hit-test the cursor against the per-frame hitTargets
+// (positions are post-zoom/pan, so this stays correct at any view). Cursor-anchored.
+const mapPanel = document.getElementById('map-panel');
+mapPanel.addEventListener('mousemove', function(e) {
+  if (dragging) { unitLabel.style.display = 'none'; return; }   // don't flicker while panning
+  const rect = overlay.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  let hit = null;
+  for (let i = hitTargets.length - 1; i >= 0; i--) {   // topmost (last-drawn) first
+    const t = hitTargets[i];
+    const dx = mx - t.cx, dy = my - t.cy;
+    if (dx * dx + dy * dy <= t.r * t.r) { hit = t; break; }
+  }
+  if (hit) {
+    unitLabel.textContent   = hit.label;
+    unitLabel.style.color   = hit.color;   // match the hovered unit's icon color
+    unitLabel.style.left    = mx + 'px';
+    unitLabel.style.top     = my + 'px';
+    unitLabel.style.display = 'block';
+  } else {
+    unitLabel.style.display = 'none';
+  }
+});
+mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = 'none'; });
 
 // ── Init ──────────────────────────────────────────────────────────────────────────
 window.addEventListener('resize', resizeOverlay);
