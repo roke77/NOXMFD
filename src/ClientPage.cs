@@ -61,10 +61,10 @@ namespace NOTelemetryReader
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%,-50%);
-    text-align: center;
     color: #1a4a1a;
-    font-size: 12px;
-    line-height: 2;
+    font-size: 22px;
+    letter-spacing: 3px;
+    white-space: nowrap;
   }
   #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 
@@ -79,6 +79,21 @@ namespace NOTelemetryReader
   }
   #mission-bar .mission-name { font-size: 11px; color: #4aaa4a; }
   #mission-bar.empty { display: none; }
+
+  /* Bottom-right twin of the mission bar — current grid square (e.g. "GRID: Kg48"). */
+  #grid-bar {
+    position: absolute;
+    bottom: 10px; right: 12px;
+    background: rgba(6,10,6,0.78);
+    border: 1px solid #1a3a1a;
+    padding: 5px 9px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #4aaa4a;
+    pointer-events: none;
+    user-select: none;
+  }
+  #grid-bar.empty { display: none; }
 
   #follow-btn {
     position: absolute;
@@ -143,15 +158,13 @@ namespace NOTelemetryReader
 <main>
   <div id="map-panel">
     <img id="map-img" src="/map" alt="">
-    <div id="map-missing">
-      Map image not available yet<br>
-      <small>The real map is pulled from the game when a mission loads.</small>
-    </div>
+    <div id="map-missing">&mdash; NO SIGNAL &mdash;</div>
     <canvas id="overlay"></canvas>
     <div id="mission-bar" class="empty">
       <div class="mission-name" id="mission-name">—</div>
     </div>
     <div id="follow-btn" class="off">FOLLOW: OFF</div>
+    <div id="grid-bar" class="empty">GRID: &mdash;</div>
     <div id="unit-label"></div>
   </div>
 
@@ -221,6 +234,7 @@ const overlay  = document.getElementById('overlay');
 const oc       = overlay.getContext('2d');
 const statusEl = document.getElementById('status');
 const followBtn = document.getElementById('follow-btn');
+const gridBar   = document.getElementById('grid-bar');
 const unitLabel = document.getElementById('unit-label');
 
 // ── Canvas geometry ──────────────────────────────────────────────────────────────
@@ -485,6 +499,7 @@ function clearMission() {
   mapImg.src = '/map?t=' + Date.now();   // 404 now → falls back to the placeholder
 
   document.getElementById('mission-bar').className = 'empty';
+  document.getElementById('grid-bar').className = 'empty';
   dim('plane-name'); dim('grid'); dim('tas'); dim('agl'); dim('hdg');
   const gEl = document.getElementById('gear'); gEl.textContent = '—'; gEl.className = '';
   const fEl = document.getElementById('cm-flares'); fEl.textContent = '—'; fEl.className = 'cm-val dim';
@@ -498,7 +513,6 @@ function clearMission() {
   if (window.parent !== window) {
     window.parent.postMessage({ mfd: true, type: 'loadout', items: [], selWeapon: null }, '*');
     window.parent.postMessage({ mfd: true, type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 }, '*');
-    window.parent.postMessage({ mfd: true, type: 'grid', text: '' }, '*');
   }
 }
 
@@ -542,11 +556,8 @@ function updateHUD(d) {
   set('plane-name', d.name);
   const gridText = gridLabel(d.world.x, d.world.z);
   set('grid', gridText);
-  // Mirror the grid label to an embedder (the MFD MAP page) so it can display it in its
-  // bottom-right corner readout without opening its own /stream.
-  if (window.parent !== window) {
-    window.parent.postMessage({ mfd: true, type: 'grid', text: gridText }, '*');
-  }
+  gridBar.textContent = 'GRID: ' + gridText;
+  gridBar.className = '';
   set('tas', (d.tas * 3.6).toFixed(0));   // m/s → km/h
   set('agl', d.agl.toFixed(0));
   set('hdg', d.hdg.toFixed(0));

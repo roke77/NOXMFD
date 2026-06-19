@@ -279,13 +279,13 @@ namespace NOTelemetryReader
     max-width: 100%;
     padding: 0 6px;
     margin-left: -6px;
-    font-size: 18px; font-weight: 900; letter-spacing: 1px;
+    font-size: 28px; font-weight: 900; letter-spacing: 1px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .wp-ammo {
     grid-column: 2; grid-row: 2;
     align-self: start;                     /* anchor to top of row 2, near the centreline */
-    font-size: 13px; color: #4aaa4a; letter-spacing: 1px; margin-top: 1px;
+    font-size: 20px; color: #4aaa4a; letter-spacing: 1px; margin-top: 2px;
   }
   .wp-ammo span { color: #39ff14; font-weight: 900; }
 
@@ -301,7 +301,7 @@ namespace NOTelemetryReader
     font-family: 'Share Tech Mono', 'Courier New', monospace;
     display: grid;
     grid-template-columns: 1fr 1px 1fr;
-    grid-template-rows: auto 1fr 1fr;
+    grid-template-rows: auto 1fr auto;
     column-gap: 14px;
     row-gap: 3px;
   }
@@ -330,9 +330,12 @@ namespace NOTelemetryReader
   }
   .cm-flares-icon.empty { color: #ff4040; }
   .cm-flares-svg { display: block; width: 100%; height: 100%; }
+  /* Spent flare slot — stays hollow, but the ring goes muted green.
+     Reading order (top-left → bottom-right) is "first spent". */
+  .cm-flares-svg .flare-dot.spent { stroke: #1a4a1a; }
   .cm-sep          { grid-column: 2; grid-row: 1 / span 3; width: 1px; background: #1a4a1a; }   /* muted green */
   .cm-jammer-title { grid-column: 3; grid-row: 1; }
-  .cm-jammer-bar   { grid-column: 3; grid-row: 2; align-self: center; }
+  .cm-jammer-bar   { grid-column: 3; grid-row: 3; align-self: center; }
   /* Big-text readouts (flares count, jammer kJ). The font-size is set by renderCm() so
      the glyphs fill the available cell height. */
   .cm-big {
@@ -346,7 +349,7 @@ namespace NOTelemetryReader
     white-space: nowrap;
   }
   #cm-flares-val { flex: 0 0 auto; justify-content: flex-end; }
-  #cm-jammer-val { grid-column: 3; grid-row: 3; align-self: stretch; justify-content: flex-start; }
+  #cm-jammer-val { grid-column: 3; grid-row: 2; align-self: stretch; justify-content: flex-start; }
 
   /* Depleted countermeasure (count === 0 with a positive capacity) — label + value go red. */
   .cm-title.empty .cm-label,
@@ -381,29 +384,6 @@ namespace NOTelemetryReader
      text would otherwise be. Depleted + selected uses red as the bar color. */
   .wp-item.sel .wp-name             { background: #39ff14; color: #060a06; }
   .wp-item.empty.sel .wp-name       { background: #ff4040; color: #060a06; }
-
-  /* Non-interactive readout in a corner — same gunmetal bezel as the line-select keys. */
-  .cnr-box {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 30px;
-    padding: 0 12px;
-    border: 1px solid #202225;
-    border-radius: 4px;
-    background: linear-gradient(#4b4f56, #313438);
-    box-shadow: inset 0 1px 0 #62666d, inset 0 -2px 3px rgba(0,0,0,0.4);
-    color: #c8ccd0;
-    font-family: inherit;
-    font-size: 13px;
-    letter-spacing: 1px;
-    user-select: none;
-    white-space: nowrap;
-  }
-  /* Page-scoped corner readouts (e.g. grid label) — kept in layout via visibility so the
-     bottom strip's column widths stay stable across pages. */
-  .cnr-box.page-only            { visibility: hidden; }
-  .cnr-box.page-only.show       { visibility: visible; }
 
   /* Decorative corner screws */
   .screw {
@@ -459,10 +439,10 @@ namespace NOTelemetryReader
                 <div class="cm-flares-icon" id="cm-flares-icon">
                   <svg class="cm-flares-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
                     <g fill="none" stroke="currentColor" stroke-width="3">
-                      <circle cx="12.5" cy="12.5" r="9"/><circle cx="37.5" cy="12.5" r="9"/><circle cx="62.5" cy="12.5" r="9"/><circle cx="87.5" cy="12.5" r="9"/>
-                      <circle cx="12.5" cy="37.5" r="9"/><circle cx="37.5" cy="37.5" r="9"/><circle cx="62.5" cy="37.5" r="9"/><circle cx="87.5" cy="37.5" r="9"/>
-                      <circle cx="12.5" cy="62.5" r="9"/><circle cx="37.5" cy="62.5" r="9"/><circle cx="62.5" cy="62.5" r="9"/><circle cx="87.5" cy="62.5" r="9"/>
-                      <circle cx="12.5" cy="87.5" r="9"/><circle cx="37.5" cy="87.5" r="9"/><circle cx="62.5" cy="87.5" r="9"/><circle cx="87.5" cy="87.5" r="9"/>
+                      <circle class="flare-dot" cx="12.5" cy="12.5" r="9"/><circle class="flare-dot" cx="37.5" cy="12.5" r="9"/><circle class="flare-dot" cx="62.5" cy="12.5" r="9"/><circle class="flare-dot" cx="87.5" cy="12.5" r="9"/>
+                      <circle class="flare-dot" cx="12.5" cy="37.5" r="9"/><circle class="flare-dot" cx="37.5" cy="37.5" r="9"/><circle class="flare-dot" cx="62.5" cy="37.5" r="9"/><circle class="flare-dot" cx="87.5" cy="37.5" r="9"/>
+                      <circle class="flare-dot" cx="12.5" cy="62.5" r="9"/><circle class="flare-dot" cx="37.5" cy="62.5" r="9"/><circle class="flare-dot" cx="62.5" cy="62.5" r="9"/><circle class="flare-dot" cx="87.5" cy="62.5" r="9"/>
+                      <circle class="flare-dot" cx="12.5" cy="87.5" r="9"/><circle class="flare-dot" cx="37.5" cy="87.5" r="9"/><circle class="flare-dot" cx="62.5" cy="87.5" r="9"/><circle class="flare-dot" cx="87.5" cy="87.5" r="9"/>
                     </g>
                   </svg>
                 </div>
@@ -522,6 +502,7 @@ const cmFlaresVal   = document.getElementById('cm-flares-val');
 const cmJammerVal   = document.getElementById('cm-jammer-val');
 const cmFlaresIcon  = document.getElementById('cm-flares-icon');
 const cmBarFill     = document.getElementById('cm-bar-fill');
+const flareDots     = cmFlaresIcon.querySelectorAll('.flare-dot');
 
 // ── Pages ─────────────────────────────────────────────────────────────────────────
 // Which page is in view (MAP, MAIN, WPN…) and the line-select items each page shows.
@@ -697,6 +678,14 @@ function renderCm() {
   cmFlaresTitle.classList.toggle('empty', flaresEmpty);
   cmFlaresVal  .classList.toggle('empty', flaresEmpty);
   cmFlaresIcon .classList.toggle('empty', flaresEmpty);
+
+  // Mute the first N dots to visualise spent flares (1 dot = 1/16th of flaresMax).
+  // When fully depleted, leave all dots hollow — the .empty state already reds out the icon.
+  const knowFlares = !flaresEmpty && cmData.flaresMax > 0 && cmData.flares >= 0;
+  const spentDots  = knowFlares
+    ? Math.floor((cmData.flaresMax - cmData.flares) * flareDots.length / cmData.flaresMax)
+    : 0;
+  flareDots.forEach(function(d, i) { d.classList.toggle('spent', i < spentDots); });
   cmJammerTitle.classList.toggle('sel',   cmData.cmCat === 2);
   cmJammerTitle.classList.toggle('empty', jammerEmpty);
   cmJammerVal  .classList.toggle('empty', jammerEmpty);
