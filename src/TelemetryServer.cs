@@ -313,10 +313,11 @@ namespace NOTelemetryReader
                 UnitInfo u = units[i];
                 if (i > 0) sb.Append(',');
                 sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000}}}",
+                    "{{\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7}}}",
                     EscapeJson(u.Type ?? string.Empty),
                     u.X, u.Z, u.Heading, u.Faction,
-                    u.Orient ? "true" : "false", u.Scale);
+                    u.Orient ? "true" : "false", u.Scale,
+                    u.Targeted ? 1 : 0);
             }
             return sb.Append(']').ToString();
         }

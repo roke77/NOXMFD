@@ -65,5 +65,6 @@ namespace NOTelemetryReader
         public byte   Faction;  // 0 = neutral/unknown, 1 = friendly, 2 = enemy
         public bool   Orient;   // icon rotates with heading
         public float  Scale;    // icon size multiplier
+        public bool   Targeted; // true when this unit is one of the player's current targets
     }
 }

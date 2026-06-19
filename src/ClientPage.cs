@@ -207,6 +207,7 @@ let   view = { zoom: 1, panX: 0, panY: 0 };   // map view: pan in screen px, zoo
 const MIN_ZOOM = 1, MAX_ZOOM = 8;
 let   followPlayer = false;    // when on (and zoomed in), keep the player icon centred
 const PLAYER_COLOR = '#39ff14';                     // player stays HUD green
+const TARGET_COLOR = '#ff8000';                     // orange ring on the player's targeted unit(s)
 let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors
 const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
 const iconTints  = {};         // "unitName|#hex" -> canvas    (pre-tinted variant)
@@ -352,6 +353,27 @@ function drawIcon(type, hex, cx, cy, hdg, orient, basePx, scale) {
   return r;
 }
 
+// Draws a square target box (corner brackets) around an icon to mark one of the player's
+// locked targets. Faction colour stays on the icon underneath; the box conveys "targeted".
+function drawTargetBox(cx, cy, half) {
+  oc.save();
+  oc.translate(cx, cy);
+  oc.strokeStyle = TARGET_COLOR;
+  oc.shadowColor = TARGET_COLOR;
+  oc.shadowBlur  = 8;
+  oc.lineWidth   = 1.5;
+  oc.lineCap     = 'round';
+  const s = half;
+  const k = Math.max(3, s * 0.5);   // corner arm length
+  oc.beginPath();
+  oc.moveTo(-s, -s + k); oc.lineTo(-s, -s); oc.lineTo(-s + k, -s);   // top-left
+  oc.moveTo( s - k, -s); oc.lineTo( s, -s); oc.lineTo( s, -s + k);   // top-right
+  oc.moveTo( s,  s - k); oc.lineTo( s,  s); oc.lineTo( s - k,  s);   // bottom-right
+  oc.moveTo(-s + k,  s); oc.lineTo(-s,  s); oc.lineTo(-s,  s - k);   // bottom-left
+  oc.stroke();
+  oc.restore();
+}
+
 // ── Drawing ──────────────────────────────────────────────────────────────────────
 function drawOverlay() {
   oc.clearRect(0, 0, overlay.width, overlay.height);
@@ -389,6 +411,7 @@ function drawOverlay() {
       ensureIconImage(u.t);
       const hex = factionColors[u.f] || factionColors[0];
       const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, UNIT_BASE, u.s);
+      if (u.tg) drawTargetBox(p.cx, p.cy, r + 4);
       hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex });
     }
   }

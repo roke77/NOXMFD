@@ -347,6 +347,11 @@ namespace NOTelemetryReader
             var playerHQ = player.NetworkHQ;
             if (playerHQ == null) return Array.Empty<UnitInfo>();
 
+            // The player's current target(s): the live weapon target list (public API, no
+            // reflection). Reference-matched against each scanned unit below.
+            List<Unit> targets = player.weaponManager != null ? player.weaponManager.GetTargetList() : null;
+            bool hasTargets = targets != null && targets.Count > 0;
+
             _unitBuf.Clear();
             foreach (Unit u in _units)
             {
@@ -363,13 +368,14 @@ namespace NOTelemetryReader
 
                 _unitBuf.Add(new UnitInfo
                 {
-                    Type    = def.unitName,
-                    X       = gp.x,
-                    Z       = gp.z,
-                    Heading = u.transform.eulerAngles.y,
-                    Faction = faction,
-                    Orient  = def.mapOrient,
-                    Scale   = def.mapIconSize
+                    Type     = def.unitName,
+                    X        = gp.x,
+                    Z        = gp.z,
+                    Heading  = u.transform.eulerAngles.y,
+                    Faction  = faction,
+                    Orient   = def.mapOrient,
+                    Scale    = def.mapIconSize,
+                    Targeted = hasTargets && targets.Contains(u)
                 });
             }
             return _unitBuf.ToArray();
