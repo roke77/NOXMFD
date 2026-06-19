@@ -39,6 +39,11 @@ namespace NOTelemetryReader
 
   main { flex: 1; display: flex; overflow: hidden; }
 
+  /* "bare" mode (e.g. embedded in the MFD frame at /?bare): map only, no chrome. */
+  body.bare > header,
+  body.bare #hud { display: none; }
+  body.bare #map-panel { border-right: none; }
+
   #map-panel {
     flex: 1;
     position: relative;
@@ -698,6 +703,8 @@ mapPanel.addEventListener('mousemove', function(e) {
 mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = 'none'; });
 
 // ── Init ──────────────────────────────────────────────────────────────────────────
+// "bare" mode: hide header + HUD sidebar so just the map shows (used by the MFD frame).
+if (location.search.indexOf('bare') >= 0) document.body.classList.add('bare');
 window.addEventListener('resize', resizeOverlay);
 resizeOverlay();
 </script>

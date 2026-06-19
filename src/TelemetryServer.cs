@@ -114,8 +114,10 @@ namespace NOTelemetryReader
                         ServePng(ctx, _icons, _iconLock, "type");
                     else if (path == "/weapon")
                         ServePng(ctx, _weaponIcons, _weaponLock, "name");
+                    else if (path == "/mfd")
+                        ServePage(ctx, MfdPage.Html);
                     else
-                        ServeHtml(ctx);
+                        ServePage(ctx, ClientPage.Html);
                 }
                 catch (HttpListenerException) { break; }
                 catch (ObjectDisposedException) { break; }
@@ -129,11 +131,11 @@ namespace NOTelemetryReader
 
         // ── HTML handler ───────────────────────────────────────────────────────
 
-        private static void ServeHtml(HttpListenerContext ctx)
+        private static void ServePage(HttpListenerContext ctx, string html)
         {
             try
             {
-                byte[] body = Encoding.UTF8.GetBytes(ClientPage.Html);
+                byte[] body = Encoding.UTF8.GetBytes(html);
                 ctx.Response.StatusCode      = 200;
                 ctx.Response.ContentType     = "text/html; charset=utf-8";
                 ctx.Response.ContentLength64 = body.Length;

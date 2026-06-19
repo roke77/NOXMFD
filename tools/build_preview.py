@@ -12,10 +12,11 @@ icons, weapon names/icons, contacts and loadout. Otherwise the mock's built-in
 synthetic scenario is used.
 
 Usage:
-    python tools/build_preview.py            # writes preview/index.html
-    python tools/build_preview.py --open     # ...and opens it in your browser
+    python tools/build_preview.py            # writes preview/index.html (+ preview/mfd.html)
+    python tools/build_preview.py --open     # ...and opens the HUD in your browser
+    python tools/build_preview.py --mfd      # ...and opens the MFD-framed page instead
 
-Re-run after editing ClientPage.cs (or the mock, or re-capturing) to refresh.
+Re-run after editing ClientPage.cs / MfdPage.cs (or the mock, or re-capturing) to refresh.
 """
 import json
 import pathlib
@@ -24,9 +25,11 @@ import webbrowser
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CLIENT = ROOT / "src" / "ClientPage.cs"
+MFD = ROOT / "src" / "MfdPage.cs"
 MOCK = ROOT / "tools" / "preview-mock.js"
 MANIFEST = ROOT / "preview" / "assets" / "manifest.json"
 OUT = ROOT / "preview" / "index.html"
+OUT_MFD = ROOT / "preview" / "mfd.html"
 
 DELIM = '"""'
 
@@ -72,7 +75,18 @@ def main() -> None:
     print(f"Wrote {OUT.relative_to(ROOT)}  ({len(page):,} bytes)")
     print(f"Data source: {source}")
 
-    if "--open" in sys.argv:
+    # MFD page: same idea, but its central screen is an iframe at /?bare. Over file://
+    # that won't resolve, so point it at the generated bare map preview instead. No mock
+    # needed here — the iframe loads index.html, which already has the mock.
+    if MFD.exists():
+        mfd = extract_html(MFD.read_text(encoding="utf-8"))
+        mfd = mfd.replace('src="/?bare"', 'src="index.html?bare"')
+        OUT_MFD.write_text(mfd, encoding="utf-8")
+        print(f"Wrote {OUT_MFD.relative_to(ROOT)}  ({len(mfd):,} bytes)")
+
+    if "--mfd" in sys.argv:
+        webbrowser.open(OUT_MFD.as_uri())
+    elif "--open" in sys.argv:
         webbrowser.open(OUT.as_uri())
 
 
