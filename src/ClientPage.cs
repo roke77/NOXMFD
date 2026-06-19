@@ -70,7 +70,7 @@ namespace NOTelemetryReader
 
   #mission-bar {
     position: absolute;
-    top: 10px; left: 12px;
+    bottom: 10px; left: 12px;
     background: rgba(6,10,6,0.78);
     border: 1px solid #1a3a1a;
     padding: 6px 11px;
@@ -89,8 +89,8 @@ namespace NOTelemetryReader
     font-size: 11px;
     letter-spacing: 1px;
     color: #4aaa4a;
-    cursor: pointer;
     user-select: none;
+    pointer-events: none;
   }
   #follow-btn.on { color: #ffaa00; border-color: #ffaa00; }   /* active */
 
@@ -510,6 +510,11 @@ es.onerror = function() {
 function setStatus(cls, text) {
   statusEl.className   = cls;
   statusEl.textContent = text;
+  // Mirror state to an embedder (e.g. the MFD), so it can show the connection
+  // status on its menu page without opening its own /stream.
+  if (window.parent !== window) {
+    window.parent.postMessage({ mfd: true, type: 'status', cls: cls, text: text }, '*');
+  }
 }
 
 // Watchdog — tolerate transient SSE blips, only flag disconnect after a real gap.
@@ -615,14 +620,14 @@ function updateLoadout(d) {
 // ── Map zoom / pan ───────────────────────────────────────────────────────────────
 function resetView() { view.zoom = 1; view.panX = 0; view.panY = 0; setFollow(false); }
 
-// Toggle follow mode (keyboard F or the on-screen button). drawOverlay does the centring.
+// Toggle follow mode (keyboard F or the MFD's FLW key). The on-screen badge is a status
+// indicator only — drawOverlay does the centring.
 function setFollow(on) {
   followPlayer = on;
   followBtn.className   = on ? 'on' : 'off';
   followBtn.textContent = 'FOLLOW: ' + (on ? 'ON' : 'OFF');
   drawOverlay();
 }
-followBtn.addEventListener('click', function() { if (mapMeta) setFollow(!followPlayer); });
 window.addEventListener('keydown', function(e) {
   if ((e.key === 'f' || e.key === 'F') && mapMeta) setFollow(!followPlayer);
 });
@@ -717,6 +722,11 @@ window.addEventListener('message', function(e) {
     case 'toggle-follow': if (mapMeta) setFollow(!followPlayer); break;
     case 'zoom-in':       zoomStep(1.5);   break;
     case 'zoom-out':      zoomStep(1 / 1.5); break;
+    case 'status-request':                                      // re-broadcast current status
+      if (window.parent !== window) {
+        window.parent.postMessage({ mfd: true, type: 'status', cls: statusEl.className, text: statusEl.textContent }, '*');
+      }
+      break;
   }
 });
 

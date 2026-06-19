@@ -104,15 +104,45 @@ namespace NOTelemetryReader
     color: #39ff14;
   }
   .key.icon { width: 36px; height: 30px; }
-  .key.sun  { color: #ffcc66; }
+  .key.sun  { color: #ffffff; }
 
-  /* Burger (menu) icon: three stacked bars, drawn from one bar + two shadows */
-  .ic-burger {
-    width: 16px; height: 2px;
-    background: currentColor;
-    box-shadow: 0 -5px 0 currentColor, 0 5px 0 currentColor;
+  /* Plain square outline */
+  .ic-square {
+    width: 14px; height: 14px;
+    border: 1px solid currentColor;
+    border-radius: 1px;
   }
-  /* 2x1 layout icon: a box split into a wide (2/3) left pane and a narrow (1/3) right pane */
+  /* 2x1 icon: square split top/bottom (two stacked rows) */
+  .ic-2x1 {
+    position: relative;
+    width: 14px; height: 14px;
+    border: 1px solid currentColor;
+    border-radius: 1px;
+  }
+  .ic-2x1::before {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: 50%;
+    height: 1px;
+    background: currentColor;
+  }
+  /* 1x2 icon: square split left/right (two side-by-side columns) */
+  .ic-1x2 {
+    position: relative;
+    width: 14px; height: 14px;
+    border: 1px solid currentColor;
+    border-radius: 1px;
+  }
+  .ic-1x2::before {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 50%;
+    width: 1px;
+    background: currentColor;
+  }
+  /* Wide layout icon: box split into a wide left pane and a narrow right pane */
   .ic-split {
     position: relative;
     width: 18px; height: 12px;
@@ -127,16 +157,6 @@ namespace NOTelemetryReader
     width: 1px;
     background: currentColor;
   }
-  /* 2x2 grid icon: a square split into four equal cells */
-  .ic-grid {
-    position: relative;
-    width: 16px; height: 16px;
-    border: 1px solid currentColor;
-    border-radius: 1px;
-  }
-  .ic-grid::before, .ic-grid::after { content: ''; position: absolute; background: currentColor; }
-  .ic-grid::before { left: 50%; top: 0; bottom: 0; width: 1px; }
-  .ic-grid::after  { top: 50%; left: 0; right: 0; height: 1px; }
 
   /* Inset screen recess holding the map iframe */
   .screen {
@@ -179,6 +199,30 @@ namespace NOTelemetryReader
     letter-spacing: 2px;
   }
 
+  /* MENU page "about" card — name + URL + live connection status. Hidden on MAP page. */
+  .info-box {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+    min-width: 280px;
+    padding: 22px 36px;
+    border: 1px solid #39ff14;
+    background: rgba(6, 10, 6, 0.9);
+    color: #39ff14;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    text-align: center;
+    letter-spacing: 2px;
+    box-shadow: 0 0 12px rgba(57, 255, 20, 0.25);
+  }
+  .info-box.show       { display: block; }
+  .info-box .ib-title  { font-size: 28px; font-weight: 900; margin-bottom: 14px; }
+  .info-box .ib-url    { font-size: 14px; color: #4aaa4a; margin-bottom: 14px; }
+  .info-box .ib-status { font-size: 14px; font-weight: bold; }
+  .info-box .ib-status.connected    { color: #39ff14; }
+  .info-box .ib-status.disconnected { color: #ff4040; }
+  .info-box .ib-status.waiting      { color: #ffaa00; }
+
   /* Decorative corner screws */
   .screw {
     position: absolute;
@@ -202,7 +246,7 @@ namespace NOTelemetryReader
 
     <div class="strip top">
       <div class="corner">
-        <button class="key icon" type="button" title="Menu" data-action="menu"><span class="ic-burger"></span></button>
+        <button class="key icon" type="button" title="Menu"><span class="ic-square"></span></button>
       </div>
       <div class="center right">
         <button class="key icon" type="button" title="Brightness down">&minus;</button>
@@ -210,7 +254,7 @@ namespace NOTelemetryReader
         <button class="key icon" type="button" title="Brightness up">+</button>
       </div>
       <div class="corner">
-        <button class="key icon" type="button" title="Grid layout"><span class="ic-grid"></span></button>
+        <button class="key icon" type="button" title="Layout"><span class="ic-1x2"></span></button>
       </div>
     </div>
 
@@ -218,14 +262,20 @@ namespace NOTelemetryReader
       <div class="keys v" id="keys-left"></div>
       <div class="screen">
         <iframe src="/?bare" title="map"></iframe>
-        <div class="overlay" id="overlay"></div>
+        <div class="overlay" id="overlay">
+          <div class="info-box" id="info-box">
+            <div class="ib-title">NO TELEMETRY</div>
+            <div class="ib-url">http://localhost:5005</div>
+            <div class="ib-status disconnected" id="ib-status">&#9679; DISCONNECTED</div>
+          </div>
+        </div>
       </div>
       <div class="keys v" id="keys-right"></div>
     </div>
 
     <div class="strip bottom">
       <div class="corner">
-        <button class="key icon" type="button" title="Display">&#9744;</button>
+        <button class="key icon" type="button" title="Layout"><span class="ic-2x1"></span></button>
       </div>
       <div class="center"></div>
       <div class="corner">
@@ -255,6 +305,8 @@ for (const id in COUNTS) {
 const leftKeys = document.querySelectorAll('#keys-left .key');
 const overlayEl = document.getElementById('overlay');
 const mapFrame  = document.querySelector('.screen iframe');
+const infoBox   = document.getElementById('info-box');
+const ibStatus  = document.getElementById('ib-status');
 
 // ── Pages ─────────────────────────────────────────────────────────────────────────
 // Which page is in view (MAP or MENU) and the line-select items each page shows. Every
@@ -287,9 +339,11 @@ function showPage(name) {
   currentPage = name;
   const page = PAGES[name];
   overlayEl.classList.toggle('opaque', page.opaque);
+  infoBox.classList.toggle('show', name === 'menu');
 
   leftKeys.forEach(function(k) { delete k.dataset.action; });
-  overlayEl.innerHTML = '';
+  // Only wipe dynamic line-select labels; static children (info-box) stay put.
+  overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
 
   const oRect = overlayEl.getBoundingClientRect();
   page.items.forEach(function(item) {
@@ -305,6 +359,15 @@ function showPage(name) {
   });
 }
 
+// The map iframe broadcasts its connection status via postMessage; mirror it onto the
+// info-box so the MENU page always shows live state.
+window.addEventListener('message', function(e) {
+  const m = e.data;
+  if (!m || m.mfd !== true || m.type !== 'status') return;
+  ibStatus.className = 'ib-status ' + m.cls;
+  ibStatus.textContent = m.text;
+});
+
 // Drive the map iframe without reaching into it (keeps the map a standalone component;
 // also works cross-origin under file://).
 function mapSend(action) {
@@ -317,7 +380,7 @@ function mfdButton(el) {
   setTimeout(function() { el.classList.remove('lit'); }, 150);
 
   switch (el.dataset.action) {
-    case 'menu': showPage('menu'); break;
+    case 'menu': showPage('menu'); mapSend('status-request'); break;   // pull fresh status on open
     case 'map':  showPage('map');  break;
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
