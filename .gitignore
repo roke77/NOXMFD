@@ -3,5 +3,11 @@ obj/
 .vs/
 *.user
 
+# Generated frontend preview (rebuild with tools/build_preview.py) + captured game assets
+preview/
+
+# Editor / agent tooling config
+.claude/
+
 # Decompiled game source — kept locally for reference only, not redistributable
 decompiled/
