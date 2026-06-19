@@ -40,7 +40,15 @@
 
   const WEAPON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="96" viewBox="0 0 40 96"><rect x="16" y="12" width="8" height="62" rx="4" fill="#5a7a5a"/><polygon points="20,2 26,16 14,16" fill="#7aa07a"/><polygon points="14,70 8,90 16,82" fill="#5a7a5a"/><polygon points="26,70 32,90 24,82" fill="#5a7a5a"/></svg>`;
 
+  // 4x4 dot grid for IR flares — mostly lit, one dim
+  const CM_FLARES_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">${
+    Array.from({length:16},(_,i)=>{const x=(i%4)*16+8,y=Math.floor(i/4)*16+8;const dim=i===0;return `<circle cx="${x}" cy="${y}" r="4" fill="${dim?'#1a4a1a':'#39ff14'}"/>`;}).join('')
+  }</svg>`;
+  // Stylised radar wave for the radar jammer
+  const CM_JAMMER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="48" viewBox="0 0 64 48"><path d="M8,40 L16,8 L24,40 L32,8 L40,40 L48,8 L56,40" stroke="#39ff14" stroke-width="3" fill="none" stroke-linejoin="round"/></svg>`;
+
   const MOCK_MAP = svg(MAP_SVG), MOCK_ICON = svg(ICON_SVG), MOCK_WEAPON = svg(WEAPON_SVG);
+  const MOCK_CM = { flares: svg(CM_FLARES_SVG), jammer: svg(CM_JAMMER_SVG) };
 
   // ── Reroute the page's image fetches ─────────────────────────────────────────
   const qp = (v, k) => new URLSearchParams(v.split('?')[1] || '').get(k);
@@ -52,12 +60,14 @@
       if (v.indexOf('/map') === 0)    return CAPTURE['map'] || v;
       if (v.indexOf('/icon') === 0)   return CAPTURE['icon:' + qp(v, 'type')] || v;
       if (v.indexOf('/weapon') === 0) return CAPTURE['weapon:' + qp(v, 'name')] || v;
+      if (v.indexOf('/cm') === 0)     return CAPTURE['cm:' + qp(v, 'type')] || MOCK_CM[qp(v, 'type')] || v;
       return v;
     }
     // Synthetic fallback.
     if (v.indexOf('/map') === 0)    return MOCK_MAP;
     if (v.indexOf('/icon') === 0)   return MOCK_ICON;
     if (v.indexOf('/weapon') === 0) return MOCK_WEAPON;
+    if (v.indexOf('/cm') === 0)     return MOCK_CM[qp(v, 'type')] || v;
     return v;
   }
   const desc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
@@ -76,7 +86,7 @@
     mapName: 'PREVIEW ISLAND', mission: 'Frontline Patrol — MOCK DATA',
     world: { x: -3000, y: 2500, z: 2000 },
     tas: 248, agl: 2500, hdg: 45,
-    gear: 'up', flares: 60, ewKJ: 820, cmCat: 1,
+    gear: 'up', flares: 60, flaresMax: 64, ewKJ: 820, ewKJMax: 1000, cmCat: 1,
     iconOrient: true, iconScale: 1.1, selWeapon: 'AIM-9X',
     loadout: [
       { n: 'AIM-9X',   a: 2, f: 2 },

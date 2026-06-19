@@ -20,8 +20,10 @@ namespace NOTelemetryReader
         public bool   GearDown;
 
         // Countermeasures (-1 = the aircraft has no such system).
-        public int    Flares;   // IR flare rounds remaining
-        public float  EwKJ;     // EW capacitor charge, kilojoules
+        public int    Flares;     // IR flare rounds remaining
+        public int    FlaresMax;  // IR flare capacity
+        public float  EwKJ;       // EW capacitor charge, kilojoules
+        public float  EwKJMax;    // EW capacitor capacity, kilojoules
 
         // Currently selected systems (for highlighting).
         public string SelWeapon;   // weaponName of the selected weapon

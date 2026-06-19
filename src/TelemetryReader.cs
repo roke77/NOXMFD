@@ -36,8 +36,11 @@ namespace NOTelemetryReader
 
         // Weapon-type icons we've already extracted (keyed by weapon display name).
         private readonly HashSet<string> _capturedWeaponIcons = new HashSet<string>();
+        private bool _capturedFlareIcon  = false;
+        private bool _capturedJammerIcon = false;
 
-        private int _flares = -1;   // IR flares remaining (refreshed in the 1 Hz scan)
+        private int _flares    = -1;   // IR flares remaining (refreshed in the 1 Hz scan)
+        private int _flaresMax = -1;   // IR flares capacity   (refreshed in the 1 Hz scan)
 
         // The game's HUD faction colors, read once from GameAssets.
         private string _colFriendly = "#39ff14";
@@ -106,19 +109,58 @@ namespace NOTelemetryReader
             if (ac != null)
             {
                 _loadout = BuildLoadout(ac);
-                _flares  = CountFlares(ac);
+                CountFlares(ac, out _flares, out _flaresMax);
+                TryCaptureCmIcons(ac);
             }
         }
 
-        // Sums remaining IR flares across all flare ejectors (-1 if the aircraft has none).
-        private static int CountFlares(Aircraft ac)
+        // Sums IR flares (remaining + capacity) across all flare ejectors. Returns (-1, -1)
+        // if the aircraft has no flare system.
+        private static void CountFlares(Aircraft ac, out int ammo, out int max)
         {
+            ammo = -1; max = -1;
             FlareEjector[] ejectors = ac.GetComponentsInChildren<FlareEjector>();
-            if (ejectors == null || ejectors.Length == 0) return -1;
-            int total = 0;
+            if (ejectors == null || ejectors.Length == 0) return;
+            int total = 0, totalMax = 0;
             foreach (FlareEjector fe in ejectors)
-                if (fe != null) total += fe.ammo;
-            return total;
+                if (fe != null) { total += fe.GetAmmo(); totalMax += fe.GetMaxAmmo(); }
+            ammo = total; max = totalMax;
+        }
+
+        // Extracts the flares + radar jammer Sprites from any matching component on the
+        // aircraft, once each. Saves them as PNGs so /cm?type=flares|jammer can serve them.
+        private void TryCaptureCmIcons(Aircraft ac)
+        {
+            if (!_capturedFlareIcon)
+            {
+                FlareEjector? fe = ac.GetComponentInChildren<FlareEjector>();
+                if (fe != null && fe.displayImage != null)
+                {
+                    byte[]? png = SpriteToPng(fe.displayImage, isIcon: true);
+                    if (png != null) { TelemetryServer.SetCmIcon("flares", png); _capturedFlareIcon = true; }
+                }
+            }
+            if (!_capturedJammerIcon)
+            {
+                RadarJammer? rj = ac.GetComponentInChildren<RadarJammer>();
+                if (rj != null && rj.displayImage != null)
+                {
+                    byte[]? png = SpriteToPng(rj.displayImage, isIcon: true);
+                    if (png != null) { TelemetryServer.SetCmIcon("jammer", png); _capturedJammerIcon = true; }
+                }
+            }
+        }
+
+        // PowerSupply.maxCharge is private; cache the FieldInfo and read it via reflection.
+        private static FieldInfo? _powerMaxField;
+        private static float GetEwMaxKJ(PowerSupply ps)
+        {
+            if (ps == null) return -1f;
+            if (_powerMaxField == null)
+                _powerMaxField = typeof(PowerSupply).GetField("maxCharge", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (_powerMaxField == null) return -1f;
+            try { return _powerMaxField.GetValue(ps) is float f ? f : -1f; }
+            catch { return -1f; }
         }
 
         // The active countermeasure index points into CountermeasureManager's private station
@@ -254,8 +296,9 @@ namespace NOTelemetryReader
             Vector3 world   = aircraft.transform.position - Datum.originPosition;
             float   heading = aircraft.transform.eulerAngles.y;
 
-            PowerSupply ps  = aircraft.GetPowerSupply();
-            float       ewKJ = ps != null ? ps.GetChargeKJ() : -1f;
+            PowerSupply ps     = aircraft.GetPowerSupply();
+            float       ewKJ   = ps != null ? ps.GetChargeKJ() : -1f;
+            float       ewKJMax = ps != null ? GetEwMaxKJ(ps)  : -1f;
 
             string selWeapon = string.Empty;
             WeaponManager wm = aircraft.weaponManager;
@@ -285,7 +328,9 @@ namespace NOTelemetryReader
                 AGL            = Mathf.Max(0f, aircraft.radarAlt),
                 GearDown       = aircraft.gearDeployed,
                 Flares         = _flares,
+                FlaresMax      = _flaresMax,
                 EwKJ           = ewKJ,
+                EwKJMax        = ewKJMax,
                 SelWeapon      = selWeapon,
                 CmCategory     = cmCategory,
                 TotalUnits     = _totalUnits,

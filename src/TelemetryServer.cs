@@ -32,6 +32,10 @@ namespace NOTelemetryReader
         private static readonly Dictionary<string, byte[]> _weaponIcons = new Dictionary<string, byte[]>();
         private static readonly object                     _weaponLock  = new object();
 
+        // Per-countermeasure icons (PNG), keyed by short name ("flares", "jammer").
+        private static readonly Dictionary<string, byte[]> _cmIcons = new Dictionary<string, byte[]>();
+        private static readonly object                     _cmLock  = new object();
+
         // ── Lifecycle ──────────────────────────────────────────────────────────
 
         public static void Start()
@@ -86,6 +90,13 @@ namespace NOTelemetryReader
             lock (_weaponLock) _weaponIcons[name] = png;
         }
 
+        // Called from Unity main thread once a countermeasure's display sprite has been extracted.
+        public static void SetCmIcon(string key, byte[] png)
+        {
+            if (string.IsNullOrEmpty(key)) return;
+            lock (_cmLock) _cmIcons[key] = png;
+        }
+
         // Called from Unity main thread when a mission ends — clears all per-mission state so
         // the client drops back to "no mission" and wipes its display. Icons are static
         // per-type assets and stay cached across missions.
@@ -114,6 +125,8 @@ namespace NOTelemetryReader
                         ServePng(ctx, _icons, _iconLock, "type");
                     else if (path == "/weapon")
                         ServePng(ctx, _weaponIcons, _weaponLock, "name");
+                    else if (path == "/cm")
+                        ServePng(ctx, _cmIcons, _cmLock, "type");
                     else if (path == "/mfd")
                         ServePage(ctx, MfdPage.Html);
                     else
@@ -280,8 +293,8 @@ namespace NOTelemetryReader
                 "\"units\":{11},\"aircraft\":{12}," +
                 "\"map\":{{\"valid\":{13},\"w\":{14:0.0},\"h\":{15:0.0},\"ox\":{16},\"oy\":{17}}}," +
                 "\"iconOrient\":{18},\"iconScale\":{19:0.000}," +
-                "\"flares\":{20},\"ewKJ\":{21:0.0}," +
-                "\"selWeapon\":\"{22}\",\"cmCat\":{23},",
+                "\"flares\":{20},\"flaresMax\":{21},\"ewKJ\":{22:0.0},\"ewKJMax\":{23:0.0}," +
+                "\"selWeapon\":\"{24}\",\"cmCat\":{25},",
                 s.Time,
                 EscapeJson(s.PlaneName ?? string.Empty),
                 EscapeJson(s.MissionName ?? string.Empty),
@@ -295,7 +308,7 @@ namespace NOTelemetryReader
                 s.GridOffsetX, s.GridOffsetY,
                 s.IconOrient ? "true" : "false",
                 s.IconScale,
-                s.Flares, s.EwKJ,
+                s.Flares, s.FlaresMax, s.EwKJ, s.EwKJMax,
                 EscapeJson(s.SelWeapon ?? string.Empty), s.CmCategory);
 
             return head + "\"loadout\":" + LoadoutArray(s.Loadout)

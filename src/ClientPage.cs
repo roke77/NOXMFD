@@ -495,6 +495,11 @@ function clearMission() {
   loadoutNames = null;
   ammoEls = [];
   witemEls = [];
+  if (window.parent !== window) {
+    window.parent.postMessage({ mfd: true, type: 'loadout', items: [], selWeapon: null }, '*');
+    window.parent.postMessage({ mfd: true, type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 }, '*');
+    window.parent.postMessage({ mfd: true, type: 'grid', text: '' }, '*');
+  }
 }
 
 function dim(id) {
@@ -511,7 +516,7 @@ function setStatus(cls, text) {
   statusEl.className   = cls;
   statusEl.textContent = text;
   // Mirror state to an embedder (e.g. the MFD), so it can show the connection
-  // status on its menu page without opening its own /stream.
+  // status on its MAIN page without opening its own /stream.
   if (window.parent !== window) {
     window.parent.postMessage({ mfd: true, type: 'status', cls: cls, text: text }, '*');
   }
@@ -535,12 +540,31 @@ function updateHUD(d) {
   }
 
   set('plane-name', d.name);
-  set('grid', gridLabel(d.world.x, d.world.z));
+  const gridText = gridLabel(d.world.x, d.world.z);
+  set('grid', gridText);
+  // Mirror the grid label to an embedder (the MFD MAP page) so it can display it in its
+  // bottom-right corner readout without opening its own /stream.
+  if (window.parent !== window) {
+    window.parent.postMessage({ mfd: true, type: 'grid', text: gridText }, '*');
+  }
   set('tas', (d.tas * 3.6).toFixed(0));   // m/s → km/h
   set('agl', d.agl.toFixed(0));
   set('hdg', d.hdg.toFixed(0));
 
   updateLoadout(d);
+
+  // Mirror countermeasure state to an embedder (e.g. the MFD WPN page) so it can show the
+  // flares / radar-jammer panel without opening its own /stream.
+  if (window.parent !== window) {
+    window.parent.postMessage({
+      mfd: true, type: 'cm',
+      flares:    typeof d.flares    === 'number' ? d.flares    : -1,
+      flaresMax: typeof d.flaresMax === 'number' ? d.flaresMax : -1,
+      ewKJ:      typeof d.ewKJ      === 'number' ? d.ewKJ      : -1,
+      ewKJMax:   typeof d.ewKJMax   === 'number' ? d.ewKJMax   : -1,
+      cmCat:     d.cmCat || 0
+    }, '*');
+  }
 
   const gEl = document.getElementById('gear');
   gEl.textContent = d.gear.toUpperCase();
@@ -571,6 +595,15 @@ function set(id, text) {
 function updateLoadout(d) {
   const list = d.loadout;
   const loEl = document.getElementById('loadout');
+
+  // Mirror loadout to an embedder (e.g. the MFD's WPN page) so it doesn't open its own /stream.
+  if (window.parent !== window) {
+    window.parent.postMessage({
+      mfd: true, type: 'loadout',
+      items: list || [],
+      selWeapon: d.selWeapon || null
+    }, '*');
+  }
 
   if (!list || !list.length) {
     if (loadoutNames !== '') { loadoutNames = ''; ammoEls = []; witemEls = []; loEl.innerHTML = '<span class="none">— none —</span>'; }

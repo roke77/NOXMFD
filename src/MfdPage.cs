@@ -179,7 +179,7 @@ namespace NOTelemetryReader
 
   /* Per-page line-select overlay inside the screen. Item labels are positioned by JS to
      line up with the left side keys. Transparent on the MAP page (overlays the map, which
-     stays interactive), opaque black on the MENU page (covers the map). pointer-events:none
+     stays interactive), opaque black on the MAIN page (covers the map). pointer-events:none
      because the physical bezel keys are the controls — the labels are purely visual. */
   .overlay {
     position: absolute;
@@ -199,7 +199,7 @@ namespace NOTelemetryReader
     letter-spacing: 2px;
   }
 
-  /* MENU page "about" card — name + URL + live connection status. Hidden on MAP page. */
+  /* MAIN page "about" card — name + URL + live connection status. Hidden on MAP page. */
   .info-box {
     position: absolute;
     top: 50%; left: 50%;
@@ -222,6 +222,188 @@ namespace NOTelemetryReader
   .info-box .ib-status.connected    { color: #39ff14; }
   .info-box .ib-status.disconnected { color: #ff4040; }
   .info-box .ib-status.waiting      { color: #ffaa00; }
+
+  /* WPN page — stacks the player's loadout one weapon per line-select key (keys 1..N;
+     key 0 is the MAIN back button). Each row is positioned + sized to fit the slot
+     between the two separator ridges flanking its key, so the icon fills the maximum
+     vertical space after the name + ammo lines. The countermeasures panel sits at the
+     top centre, aligned vertically with key[0]'s slot. */
+  .wpn-panel {
+    position: absolute;
+    inset: 0;
+    display: none;
+    color: #39ff14;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+  }
+  .wpn-panel.show { display: block; }
+  .wpn-empty {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    color: #1a4a1a;
+    font-size: 22px;
+    letter-spacing: 3px;
+  }
+  /* Two-column grid: the weapon icon spans both rows on the left (taking the full slot
+     height); the name and ammo stack on the right, one per row. Game weapon icons are
+     2:1 — the aspect-ratio constraint sizes the icon column off the row height. */
+  .wp-item {
+    position: absolute;
+    left: 90px;          /* clear the left line-select label gutter */
+    right: 30px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: 1fr 1fr;
+    column-gap: 14px;
+    padding: 4px 0;
+    box-sizing: border-box;
+    min-height: 0;
+  }
+  .wp-icon-wrap {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    height: 100%;
+    aspect-ratio: 2 / 1;
+    min-height: 0;
+  }
+  .wp-icon {
+    display: block;
+    width: 100%; height: 100%;
+    object-fit: contain;
+    object-position: left center;
+  }
+  .wp-name {
+    grid-column: 2; grid-row: 1;
+    justify-self: start;                   /* hug text so .sel background is tight */
+    align-self: end;                       /* anchor to bottom of row 1, near the centreline */
+    max-width: 100%;
+    padding: 0 6px;
+    margin-left: -6px;
+    font-size: 18px; font-weight: 900; letter-spacing: 1px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .wp-ammo {
+    grid-column: 2; grid-row: 2;
+    align-self: start;                     /* anchor to top of row 2, near the centreline */
+    font-size: 13px; color: #4aaa4a; letter-spacing: 1px; margin-top: 1px;
+  }
+  .wp-ammo span { color: #39ff14; font-weight: 900; }
+
+  /* Countermeasures panel — centred at the top of the WPN page, in key[0]'s slot.
+     Two columns (IR Flares | Radar Jammer) separated by a thin green vertical line. */
+  .cm-panel {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    max-width: 520px;
+    color: #39ff14;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr;
+    grid-template-rows: auto 1fr 1fr;
+    column-gap: 14px;
+    row-gap: 3px;
+  }
+  /* Match the weapon-name font (.wp-name) so the heading line reads at the same weight. */
+  .cm-title { font-size: 18px; font-weight: 900; letter-spacing: 1px; white-space: nowrap; }
+  .cm-title .cm-label { padding: 0 6px; }
+  .cm-flares-title { grid-column: 1; grid-row: 1; text-align: right; }
+  .cm-flares-body  {
+    grid-column: 1; grid-row: 2 / span 2;
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;     /* icon hugs the right edge; the count sits left of it */
+    gap: 10px;
+  }
+  /* IR flare icon: 4×4 grid of hollow circles drawn inline as SVG, so it never depends on
+     a server-served image. currentColor lets the empty-state class re-tint to red. */
+  .cm-flares-icon  {
+    flex: 0 0 auto;
+    min-height: 0; min-width: 0;
+    height: 100%;
+    aspect-ratio: 1 / 1;
+    color: #39ff14;
+    display: flex;
+    align-items: center;
+  }
+  .cm-flares-icon.empty { color: #ff4040; }
+  .cm-flares-svg { display: block; width: 100%; height: 100%; }
+  .cm-sep          { grid-column: 2; grid-row: 1 / span 3; width: 1px; background: #1a4a1a; }   /* muted green */
+  .cm-jammer-title { grid-column: 3; grid-row: 1; }
+  .cm-jammer-bar   { grid-column: 3; grid-row: 2; align-self: center; }
+  /* Big-text readouts (flares count, jammer kJ). The font-size is set by renderCm() so
+     the glyphs fill the available cell height. */
+  .cm-big {
+    min-height: 0; min-width: 0;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: #39ff14;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+  #cm-flares-val { flex: 0 0 auto; justify-content: flex-end; }
+  #cm-jammer-val { grid-column: 3; grid-row: 3; align-self: stretch; justify-content: flex-start; }
+
+  /* Depleted countermeasure (count === 0 with a positive capacity) — label + value go red. */
+  .cm-title.empty .cm-label,
+  .cm-big.empty             { color: #ff4040; }
+
+  /* Currently selected — invert the label bar. Depleted + selected uses red as the bar. */
+  .cm-title.sel       .cm-label { background: #39ff14; color: #060a06; }
+  .cm-title.empty.sel .cm-label { background: #ff4040; color: #060a06; }
+  /* Capacitor bar — thin green outline + green fill keyed to ewKJ / ewKJMax. */
+  .cm-bar {
+    width: 100%;
+    height: 12px;
+    border: 1px solid #39ff14;
+    border-radius: 3px;
+    background: rgba(57, 255, 20, 0.08);
+    box-sizing: border-box;
+    overflow: hidden;          /* clip the fill to the rounded outline */
+  }
+  .cm-bar-fill {
+    width: 0%;
+    height: 100%;
+    background: #39ff14;
+    transition: width 120ms linear;
+  }
+
+  /* Depleted ammo (a === 0 && f > 0) — name + ammo go red. */
+  .wp-item.empty .wp-name,
+  .wp-item.empty .wp-ammo,
+  .wp-item.empty .wp-ammo span { color: #ff4040; }
+
+  /* Currently selected — invert the name (text on a solid bar) in the same color as the
+     text would otherwise be. Depleted + selected uses red as the bar color. */
+  .wp-item.sel .wp-name             { background: #39ff14; color: #060a06; }
+  .wp-item.empty.sel .wp-name       { background: #ff4040; color: #060a06; }
+
+  /* Non-interactive readout in a corner — same gunmetal bezel as the line-select keys. */
+  .cnr-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    padding: 0 12px;
+    border: 1px solid #202225;
+    border-radius: 4px;
+    background: linear-gradient(#4b4f56, #313438);
+    box-shadow: inset 0 1px 0 #62666d, inset 0 -2px 3px rgba(0,0,0,0.4);
+    color: #c8ccd0;
+    font-family: inherit;
+    font-size: 13px;
+    letter-spacing: 1px;
+    user-select: none;
+    white-space: nowrap;
+  }
+  /* Page-scoped corner readouts (e.g. grid label) — kept in layout via visibility so the
+     bottom strip's column widths stay stable across pages. */
+  .cnr-box.page-only            { visibility: hidden; }
+  .cnr-box.page-only.show       { visibility: visible; }
 
   /* Decorative corner screws */
   .screw {
@@ -246,7 +428,7 @@ namespace NOTelemetryReader
 
     <div class="strip top">
       <div class="corner">
-        <button class="key icon" type="button" title="Menu"><span class="ic-square"></span></button>
+        <button class="key icon" type="button" title="Main"><span class="ic-square"></span></button>
       </div>
       <div class="center right">
         <button class="key icon" type="button" title="Brightness down">&minus;</button>
@@ -267,6 +449,29 @@ namespace NOTelemetryReader
             <div class="ib-title">NO TELEMETRY</div>
             <div class="ib-url">http://localhost:5005</div>
             <div class="ib-status disconnected" id="ib-status">&#9679; DISCONNECTED</div>
+          </div>
+          <div class="wpn-panel" id="wpn-panel">
+            <div class="wpn-empty" id="wpn-empty">&mdash; NO LOADOUT &mdash;</div>
+            <div class="cm-panel" id="cm-panel">
+              <div class="cm-title cm-flares-title" id="cm-flares-title"><span class="cm-label">IR Flares</span></div>
+              <div class="cm-flares-body">
+                <div class="cm-big" id="cm-flares-val">&mdash;</div>
+                <div class="cm-flares-icon" id="cm-flares-icon">
+                  <svg class="cm-flares-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                    <g fill="none" stroke="currentColor" stroke-width="3">
+                      <circle cx="12.5" cy="12.5" r="9"/><circle cx="37.5" cy="12.5" r="9"/><circle cx="62.5" cy="12.5" r="9"/><circle cx="87.5" cy="12.5" r="9"/>
+                      <circle cx="12.5" cy="37.5" r="9"/><circle cx="37.5" cy="37.5" r="9"/><circle cx="62.5" cy="37.5" r="9"/><circle cx="87.5" cy="37.5" r="9"/>
+                      <circle cx="12.5" cy="62.5" r="9"/><circle cx="37.5" cy="62.5" r="9"/><circle cx="62.5" cy="62.5" r="9"/><circle cx="87.5" cy="62.5" r="9"/>
+                      <circle cx="12.5" cy="87.5" r="9"/><circle cx="37.5" cy="87.5" r="9"/><circle cx="62.5" cy="87.5" r="9"/><circle cx="87.5" cy="87.5" r="9"/>
+                    </g>
+                  </svg>
+                </div>
+              </div>
+              <div class="cm-sep"></div>
+              <div class="cm-title cm-jammer-title" id="cm-jammer-title"><span class="cm-label">EW Jammer</span></div>
+              <div class="cm-jammer-bar"><div class="cm-bar"><div class="cm-bar-fill" id="cm-bar-fill"></div></div></div>
+              <div class="cm-big" id="cm-jammer-val">&mdash;</div>
+            </div>
           </div>
         </div>
       </div>
@@ -307,31 +512,60 @@ const overlayEl = document.getElementById('overlay');
 const mapFrame  = document.querySelector('.screen iframe');
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
+const wpnPanel  = document.getElementById('wpn-panel');
+const wpnEmptyEl= document.getElementById('wpn-empty');
+const sepEls    = document.querySelectorAll('#keys-left .sep');   // 0 = above key[0], i+1 = below key[i]
+const cmPanel       = document.getElementById('cm-panel');
+const cmFlaresTitle = document.getElementById('cm-flares-title');
+const cmJammerTitle = document.getElementById('cm-jammer-title');
+const cmFlaresVal   = document.getElementById('cm-flares-val');
+const cmJammerVal   = document.getElementById('cm-jammer-val');
+const cmFlaresIcon  = document.getElementById('cm-flares-icon');
+const cmBarFill     = document.getElementById('cm-bar-fill');
 
 // ── Pages ─────────────────────────────────────────────────────────────────────────
-// Which page is in view (MAP or MENU) and the line-select items each page shows. Every
-// item names a label, the left key it aligns to (0 = topmost), and the action its key
-// fires. The MAP page overlays its items on top of the (still-interactive) map; the MENU
-// page draws an opaque panel over it.
+// Which page is in view (MAP, MAIN, WPN…) and the line-select items each page shows.
+// Every item names a label, the left key it aligns to (0 = topmost), and the action its
+// key fires. The MAP page overlays its items on top of the (still-interactive) map; the
+// MAIN page draws an opaque panel over it.
 const PAGES = {
   map: {
     opaque: false,
     items: [
-      { label: 'MENU', key: 0, action: 'menu' },   // → MENU page
+      { label: 'MAIN', key: 0, action: 'main' },   // → MAIN page
       { label: 'FLW',  key: 1, action: 'flw'  },   // → toggle map follow
       { label: 'Z+',   key: 2, action: 'zin'  },   // → map zoom in
       { label: 'Z-',   key: 3, action: 'zout' },   // → map zoom out
     ],
   },
-  menu: {
+  main: {
     opaque: true,
     items: [
       { label: 'MAP', key: 0, action: 'map' },      // → MAP page
-      { label: 'WPN', key: 1, action: 'wpn' },      // → (placeholder)
+      { label: 'WPN', key: 1, action: 'wpn' },      // → WPN page
+      { label: 'AVN', key: 2, action: 'avn' },      // → AVN page
+      { label: 'RWR', key: 3, action: 'rwr' },      // → RWR page
+      { label: 'TGP', key: 4, action: 'tgp' },      // → TGP page
+    ],
+  },
+  wpn: {
+    opaque: true,
+    items: [
+      { label: 'MAIN', key: 0, action: 'main' },    // ← back to MAIN
     ],
   },
 };
 let currentPage = 'map';
+
+// Latest loadout snapshot mirrored from the map iframe (postMessage). Even when WPN isn't
+// in view we keep it fresh, so opening the page renders immediately without a round-trip.
+let wpnData      = { items: [], selWeapon: null };
+let wpnNamesKey  = null;     // weapon-name signature — only rebuild the DOM when it changes
+let wpnAmmoEls   = [];       // ammo text nodes, aligned with wpnData.items
+let wpnItemEls   = [];       // .wp-item containers, aligned with wpnData.items
+
+// Latest countermeasures snapshot mirrored from the map iframe.
+let cmData = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 
 // Render a page: set the overlay background, (re)assign the left keys' actions, and
 // position each item label next to its key.
@@ -339,7 +573,9 @@ function showPage(name) {
   currentPage = name;
   const page = PAGES[name];
   overlayEl.classList.toggle('opaque', page.opaque);
-  infoBox.classList.toggle('show', name === 'menu');
+  infoBox.classList.toggle('show', name === 'main');
+  wpnPanel.classList.toggle('show', name === 'wpn');
+  if (name === 'wpn') { renderWpn(); renderCm(); }
 
   leftKeys.forEach(function(k) { delete k.dataset.action; });
   // Only wipe dynamic line-select labels; static children (info-box) stay put.
@@ -359,13 +595,143 @@ function showPage(name) {
   });
 }
 
-// The map iframe broadcasts its connection status via postMessage; mirror it onto the
-// info-box so the MENU page always shows live state.
+// Render the WPN page from the cached loadout. Each weapon row is absolutely positioned
+// to fill the slot of one line-select key (starting at key[1] — key[0] is the MAIN back
+// button), so the icon stretches to the maximum height available below name + ammo.
+// Rebuilds the DOM (and refetches icons) only when the set of weapons changes; ammo
+// text + selected highlight refresh in place.
+function renderWpn() {
+  const list    = wpnData.items || [];
+  // Weapons fill keys 1..N (key 0 reserved for the MAIN back button). Each slot is the
+  // gap between sep[i+1] (above) and sep[i+2] (below) — sep[0] is above key[0].
+  const maxSlots = Math.max(0, sepEls.length - 2);
+  const trimmed  = list.slice(0, maxSlots);
+
+  if (!trimmed.length) {
+    wpnEmptyEl.style.display = '';
+    if (wpnNamesKey !== '') {
+      wpnNamesKey = ''; wpnAmmoEls = []; wpnItemEls = [];
+      wpnPanel.querySelectorAll('.wp-item').forEach(function(el) { el.remove(); });
+    }
+    return;
+  }
+  wpnEmptyEl.style.display = 'none';
+
+  const key = trimmed.map(function(w) { return w.n; }).join('|');
+  if (key !== wpnNamesKey) {
+    wpnNamesKey = key;
+    wpnAmmoEls = [];
+    wpnItemEls = [];
+    wpnPanel.querySelectorAll('.wp-item').forEach(function(el) { el.remove(); });
+    for (const w of trimmed) {
+      const item = document.createElement('div');
+      item.className = 'wp-item';
+
+      const name = document.createElement('div');
+      name.className = 'wp-name';
+      name.textContent = w.n;
+      item.appendChild(name);
+
+      const ammo = document.createElement('div');
+      ammo.className = 'wp-ammo';
+      item.appendChild(ammo);
+      wpnAmmoEls.push(ammo);
+
+      const wrap = document.createElement('div');
+      wrap.className = 'wp-icon-wrap';
+      const img = document.createElement('img');
+      img.className = 'wp-icon';
+      img.alt = '';
+      img.onerror = function() { img.style.visibility = 'hidden'; };   // no icon for this weapon
+      img.src = '/weapon?name=' + encodeURIComponent(w.n);
+      wrap.appendChild(img);
+      item.appendChild(wrap);
+
+      wpnItemEls.push(item);
+      wpnPanel.appendChild(item);
+    }
+  }
+
+  // Position each row to span between the separators flanking its line-select key.
+  const panelRect = wpnPanel.getBoundingClientRect();
+  for (let i = 0; i < wpnItemEls.length; i++) {
+    const top = sepEls[i + 1].getBoundingClientRect();
+    const bot = sepEls[i + 2].getBoundingClientRect();
+    wpnItemEls[i].style.top    = (top.bottom - panelRect.top) + 'px';
+    wpnItemEls[i].style.height = (bot.top - top.bottom) + 'px';
+  }
+
+  // Refresh ammo text + selected/depleted highlights in place (cheap, no DOM rebuild).
+  for (let i = 0; i < trimmed.length && i < wpnAmmoEls.length; i++) {
+    const w = trimmed[i];
+    wpnAmmoEls[i].innerHTML = (w.f > 0) ? ('<span>' + w.a + '</span> / ' + w.f) : '';
+    wpnItemEls[i].classList.toggle('sel',   w.n === wpnData.selWeapon);
+    wpnItemEls[i].classList.toggle('empty', w.f > 0 && w.a === 0);
+  }
+}
+
+// Renders the countermeasures panel: positions it in key[0]'s slot and refreshes the
+// flares count, capacitor bar, and EW kJ text.
+function renderCm() {
+  // Position: top = bottom of sep[0] (above key[0]), height = top of sep[1] (below key[0]).
+  if (sepEls.length >= 2) {
+    const sep0 = sepEls[0].getBoundingClientRect();
+    const sep1 = sepEls[1].getBoundingClientRect();
+    const panelRect = wpnPanel.getBoundingClientRect();
+    cmPanel.style.top    = (sep0.bottom - panelRect.top) + 'px';
+    cmPanel.style.height = (sep1.top - sep0.bottom) + 'px';
+  }
+
+  cmFlaresVal.textContent = (cmData.flares >= 0) ? cmData.flares : '—';
+  cmJammerVal.textContent = (cmData.ewKJ   >= 0) ? (Math.round(cmData.ewKJ) + ' kJ') : '—';
+
+  const pct = (cmData.ewKJMax > 0 && cmData.ewKJ >= 0)
+            ? Math.max(0, Math.min(1, cmData.ewKJ / cmData.ewKJMax))
+            : 0;
+  cmBarFill.style.width = (pct * 100) + '%';
+
+  // Selection + depletion highlights (mirror the weapon-row treatment).
+  const flaresEmpty = cmData.flaresMax > 0 && cmData.flares === 0;
+  const jammerEmpty = cmData.ewKJMax  > 0 && cmData.ewKJ   === 0;
+  cmFlaresTitle.classList.toggle('sel',   cmData.cmCat === 1);
+  cmFlaresTitle.classList.toggle('empty', flaresEmpty);
+  cmFlaresVal  .classList.toggle('empty', flaresEmpty);
+  cmFlaresIcon .classList.toggle('empty', flaresEmpty);
+  cmJammerTitle.classList.toggle('sel',   cmData.cmCat === 2);
+  cmJammerTitle.classList.toggle('empty', jammerEmpty);
+  cmJammerVal  .classList.toggle('empty', jammerEmpty);
+
+  // Size the big readouts so the glyphs fill their cells' available height. Measure each
+  // value's containing cell (the parent that's sized by the grid track) and scale to ~80%
+  // of that — leaves some breathing room and accounts for line-height.
+  function fitTextHeight(el, h) {
+    if (h > 4) el.style.fontSize = Math.floor(h * 0.8) + 'px';
+  }
+  fitTextHeight(cmFlaresVal, cmFlaresVal.parentElement.getBoundingClientRect().height);
+  fitTextHeight(cmJammerVal, cmJammerVal.getBoundingClientRect().height);
+}
+
+// The map iframe broadcasts status + loadout + cm via postMessage; mirror onto the
+// info-box (MAIN page), the cached wpnData + cmData (WPN page).
 window.addEventListener('message', function(e) {
   const m = e.data;
-  if (!m || m.mfd !== true || m.type !== 'status') return;
-  ibStatus.className = 'ib-status ' + m.cls;
-  ibStatus.textContent = m.text;
+  if (!m || m.mfd !== true) return;
+  if (m.type === 'status') {
+    ibStatus.className = 'ib-status ' + m.cls;
+    ibStatus.textContent = m.text;
+  } else if (m.type === 'loadout') {
+    wpnData = { items: m.items || [], selWeapon: m.selWeapon || null };
+    if (currentPage === 'wpn') renderWpn();
+  } else if (m.type === 'cm') {
+    cmData = {
+      flares:    typeof m.flares    === 'number' ? m.flares    : -1,
+      flaresMax: typeof m.flaresMax === 'number' ? m.flaresMax : -1,
+      ewKJ:      typeof m.ewKJ      === 'number' ? m.ewKJ      : -1,
+      ewKJMax:   typeof m.ewKJMax   === 'number' ? m.ewKJMax   : -1,
+      cmCat:     m.cmCat || 0
+    };
+    if (currentPage === 'wpn') renderCm();
+  }
 });
 
 // Drive the map iframe without reaching into it (keeps the map a standalone component;
@@ -380,12 +746,12 @@ function mfdButton(el) {
   setTimeout(function() { el.classList.remove('lit'); }, 150);
 
   switch (el.dataset.action) {
-    case 'menu': showPage('menu'); mapSend('status-request'); break;   // pull fresh status on open
+    case 'main': showPage('main'); mapSend('status-request'); break;   // pull fresh status on open
     case 'map':  showPage('map');  break;
+    case 'wpn':  showPage('wpn');  break;
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;
-    // 'wpn' → no-op for now (weapons component is a later task)
   }
 }
 
@@ -396,7 +762,7 @@ document.querySelector('.mfd').addEventListener('click', function(e) {
 });
 
 window.addEventListener('resize', function() { showPage(currentPage); });   // re-align labels
-showPage('map');   // start on the map page with its overlay menu
+showPage('main');   // start on the MAIN page
 </script>
 </body>
 </html>

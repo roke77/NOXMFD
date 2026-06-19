@@ -76,11 +76,12 @@ def main() -> None:
     print(f"Data source: {source}")
 
     # MFD page: same idea, but its central screen is an iframe at /?bare. Over file://
-    # that won't resolve, so point it at the generated bare map preview instead. No mock
-    # needed here — the iframe loads index.html, which already has the mock.
+    # that won't resolve, so point it at the generated bare map preview instead. The mock
+    # is also injected so the MFD's own /weapon fetches (used by the WPN page) resolve.
     if MFD.exists():
         mfd = extract_html(MFD.read_text(encoding="utf-8"))
         mfd = mfd.replace('src="/?bare"', 'src="index.html?bare"')
+        mfd = mfd.replace("</head>", injection + mock + "\n</head>", 1)
         OUT_MFD.write_text(mfd, encoding="utf-8")
         print(f"Wrote {OUT_MFD.relative_to(ROOT)}  ({len(mfd):,} bytes)")
 
