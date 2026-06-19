@@ -12,6 +12,9 @@ namespace NOTelemetryReader
 <head>
 <meta charset="UTF-8">
 <title>NO Telemetry — MFD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
@@ -132,6 +135,7 @@ namespace NOTelemetryReader
 
   /* Inset screen recess holding the map iframe */
   .screen {
+    position: relative;
     border-radius: 6px;
     background: #05080a;
     padding: 6px;
@@ -146,6 +150,27 @@ namespace NOTelemetryReader
     display: block;
     border-radius: 3px;
     background: #060a06;
+  }
+
+  /* Menu view: opaque black overlay inside the screen (covers the map iframe).
+     Items are positioned by JS to line up with the side line-select keys. */
+  .menu {
+    position: absolute;
+    inset: 6px;
+    display: none;
+    background: #000;
+    border-radius: 3px;
+  }
+  .menu.show { display: block; }
+  .menu-item {
+    position: absolute;
+    left: 16px;
+    transform: translateY(-50%);
+    color: #d4d8dc;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: 2px;
   }
 
   /* Decorative corner screws */
@@ -171,7 +196,7 @@ namespace NOTelemetryReader
 
     <div class="strip top">
       <div class="corner">
-        <button class="key icon" type="button" title="Menu"><span class="ic-burger"></span></button>
+        <button class="key icon" type="button" title="Menu" data-action="menu"><span class="ic-burger"></span></button>
       </div>
       <div class="center right">
         <button class="key icon" type="button" title="Brightness down">&minus;</button>
@@ -185,7 +210,13 @@ namespace NOTelemetryReader
 
     <div class="mid">
       <div class="keys v" id="keys-left"></div>
-      <div class="screen"><iframe src="/?bare" title="map"></iframe></div>
+      <div class="screen">
+        <iframe src="/?bare" title="map"></iframe>
+        <div class="menu" id="menu">
+          <div class="menu-item" id="mi-map">MAP</div>
+          <div class="menu-item" id="mi-wpn">WPN</div>
+        </div>
+      </div>
       <div class="keys v" id="keys-right"></div>
     </div>
 
@@ -218,11 +249,46 @@ for (const id in COUNTS) {
   }
 }
 
-// Buttons are clickable but do nothing yet — just a brief "lit" press feedback.
+// The first two left-side keys select the first two menu items.
+const leftKeys = document.querySelectorAll('#keys-left .key');
+if (leftKeys[0]) leftKeys[0].dataset.action = 'map';
+if (leftKeys[1]) leftKeys[1].dataset.action = 'wpn';
+
+// ── View switching: the screen shows either the map (iframe) or the menu overlay ──
+const menuEl = document.getElementById('menu');
+const menuItems = [
+  { el: document.getElementById('mi-map'), keyIndex: 0 },   // MAP  → left key 1
+  { el: document.getElementById('mi-wpn'), keyIndex: 1 },   // WPN  → left key 2
+];
+let view = 'map';
+
+function setView(v) {
+  view = v;
+  menuEl.classList.toggle('show', v === 'menu');
+  if (v === 'menu') layoutMenu();
+}
+
+// Align each menu item vertically with its corresponding left key.
+function layoutMenu() {
+  const menuRect = menuEl.getBoundingClientRect();
+  menuItems.forEach(function(item) {
+    const k = leftKeys[item.keyIndex];
+    if (!k) { item.el.style.display = 'none'; return; }
+    const kr = k.getBoundingClientRect();
+    item.el.style.top = (kr.top + kr.height / 2 - menuRect.top) + 'px';
+    item.el.style.display = 'block';
+  });
+}
+
 function mfdButton(el) {
-  el.classList.add('lit');
+  el.classList.add('lit');                                   // brief press feedback
   setTimeout(function() { el.classList.remove('lit'); }, 150);
-  // TODO: wire real actions here.
+
+  switch (el.dataset.action) {
+    case 'menu': setView('menu'); break;   // burger → show the menu
+    case 'map':  setView('map');  break;   // MAP    → show the map
+    // 'wpn' → no-op for now (weapons component is a later task)
+  }
 }
 
 // Event delegation covers both generated keys and the corner controls.
@@ -230,6 +296,8 @@ document.querySelector('.mfd').addEventListener('click', function(e) {
   const k = e.target.closest('.key');
   if (k) mfdButton(k);
 });
+
+window.addEventListener('resize', function() { if (view === 'menu') layoutMenu(); });
 </script>
 </body>
 </html>
