@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,12 +39,35 @@ namespace NOTelemetryReader
 
         // ── Lifecycle ──────────────────────────────────────────────────────────
 
+        // Local-network URL (e.g. http://192.168.1.42:5005) — empty if the listener fell back
+        // to localhost-only. Embedded into the MFD page's MAIN card so the user can read it
+        // from a tablet on the same Wi-Fi.
+        internal static string LanUrl { get; private set; } = "";
+
         public static void Start()
         {
             _cts = new CancellationTokenSource();
+
+            // Prefer binding to all interfaces so a tablet on the LAN can reach us. On
+            // Windows that requires either Administrator or a one-time URL ACL:
+            //   netsh http add urlacl url=http://+:5005/ user=Everyone
+            // If that bind fails (access denied), fall back to localhost-only — same as
+            // the original behaviour.
             _listener = new HttpListener();
-            _listener.Prefixes.Add($"http://localhost:{Port}/");
-            try { _listener.Start(); }
+            _listener.Prefixes.Add($"http://+:{Port}/");
+            bool boundAll = false;
+            try { _listener.Start(); boundAll = true; }
+            catch (HttpListenerException)
+            {
+                _listener = new HttpListener();
+                _listener.Prefixes.Add($"http://localhost:{Port}/");
+                try { _listener.Start(); }
+                catch (Exception ex)
+                {
+                    Plugin.Log?.LogError($"[NOTelemetry] Failed to start on port {Port}: {ex.Message}");
+                    return;
+                }
+            }
             catch (Exception ex)
             {
                 Plugin.Log?.LogError($"[NOTelemetry] Failed to start on port {Port}: {ex.Message}");
@@ -52,7 +76,37 @@ namespace NOTelemetryReader
 
             _acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "NOTelemetry-Accept" };
             _acceptThread.Start();
+
             Plugin.Log?.LogInfo($"[NOTelemetry] Server listening on http://localhost:{Port}/");
+            if (boundAll)
+            {
+                string lanIp = DetectLanIp();
+                if (!string.IsNullOrEmpty(lanIp))
+                {
+                    LanUrl = $"http://{lanIp}:{Port}";
+                    Plugin.Log?.LogInfo($"[NOTelemetry] LAN access:  {LanUrl}/");
+                }
+            }
+            else
+            {
+                Plugin.Log?.LogInfo("[NOTelemetry] LAN access disabled — to enable, run once in an elevated shell:  netsh http add urlacl url=http://+:" + Port + "/ user=Everyone");
+            }
+        }
+
+        // Find the local IPv4 that would be used to reach the LAN. The UDP "connect" doesn't
+        // actually send any packets — it just resolves the outbound interface via the routing
+        // table, which gives us the same address the tablet will see.
+        private static string DetectLanIp()
+        {
+            try
+            {
+                using (var sock = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
+                {
+                    sock.Connect("8.8.8.8", 65530);
+                    return ((IPEndPoint?)sock.LocalEndPoint)?.Address.ToString() ?? "";
+                }
+            }
+            catch { return ""; }
         }
 
         public static void Stop()
@@ -128,7 +182,12 @@ namespace NOTelemetryReader
                     else if (path == "/cm")
                         ServePng(ctx, _cmIcons, _cmLock, "type");
                     else if (path == "/mfd")
-                        ServePage(ctx, MfdPage.Html);
+                    {
+                        string lanBlock = string.IsNullOrEmpty(LanUrl)
+                            ? ""
+                            : $"<div class=\"ib-url\">{LanUrl}</div>";
+                        ServePage(ctx, MfdPage.Html.Replace("{{LAN_URL_BLOCK}}", lanBlock));
+                    }
                     else
                         ServePage(ctx, ClientPage.Html);
                 }

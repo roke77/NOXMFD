@@ -81,6 +81,12 @@ def main() -> None:
     if MFD.exists():
         mfd = extract_html(MFD.read_text(encoding="utf-8"))
         mfd = mfd.replace('src="/?bare"', 'src="index.html?bare"')
+        # The LAN URL block is substituted by the live server; the file:// preview has no
+        # server, so substitute a mock URL so the line still renders.
+        mfd = mfd.replace(
+            "{{LAN_URL_BLOCK}}",
+            '<div class="ib-url">http://192.168.1.42:5005</div>',
+        )
         mfd = mfd.replace("</head>", injection + mock + "\n</head>", 1)
         OUT_MFD.write_text(mfd, encoding="utf-8")
         print(f"Wrote {OUT_MFD.relative_to(ROOT)}  ({len(mfd):,} bytes)")

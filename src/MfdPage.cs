@@ -426,8 +426,9 @@ namespace NOTelemetryReader
         <iframe src="/?bare" title="map"></iframe>
         <div class="overlay" id="overlay">
           <div class="info-box" id="info-box">
-            <div class="ib-title">NO TELEMETRY</div>
+            <div class="ib-title">NO ROKS MFD</div>
             <div class="ib-url">http://localhost:5005</div>
+            {{LAN_URL_BLOCK}}
             <div class="ib-status disconnected" id="ib-status">&#9679; DISCONNECTED</div>
           </div>
           <div class="wpn-panel" id="wpn-panel">
@@ -527,6 +528,7 @@ const PAGES = {
       { label: 'AVN', key: 2, action: 'avn' },      // → AVN page
       { label: 'RWR', key: 3, action: 'rwr' },      // → RWR page
       { label: 'TGP', key: 4, action: 'tgp' },      // → TGP page
+      { label: 'FLL', key: 5, action: 'fll' },      // → toggle browser fullscreen
     ],
   },
   wpn: {
@@ -741,6 +743,17 @@ function mfdButton(el) {
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;
+    case 'fll':  toggleFullscreen(); break;
+  }
+}
+
+// Toggle the browser's fullscreen mode on the whole page. Webkit prefix is for older Safari.
+function toggleFullscreen() {
+  const d = document, el = d.documentElement;
+  if (!d.fullscreenElement && !d.webkitFullscreenElement) {
+    (el.requestFullscreen || el.webkitRequestFullscreen || function(){}).call(el);
+  } else {
+    (d.exitFullscreen || d.webkitExitFullscreen || function(){}).call(d);
   }
 }
 
