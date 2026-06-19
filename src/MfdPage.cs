@@ -157,17 +157,18 @@ namespace NOTelemetryReader
     background: #060a06;
   }
 
-  /* Menu view: opaque black overlay inside the screen (covers the map iframe).
-     Items are positioned by JS to line up with the side line-select keys. */
-  .menu {
+  /* Per-page line-select overlay inside the screen. Item labels are positioned by JS to
+     line up with the left side keys. Transparent on the MAP page (overlays the map, which
+     stays interactive), opaque black on the MENU page (covers the map). pointer-events:none
+     because the physical bezel keys are the controls — the labels are purely visual. */
+  .overlay {
     position: absolute;
     inset: 6px;
-    display: none;
-    background: #000;
     border-radius: 3px;
+    pointer-events: none;
   }
-  .menu.show { display: block; }
-  .menu-item {
+  .overlay.opaque { background: #000; }
+  .overlay-item {
     position: absolute;
     left: 16px;
     transform: translateY(-50%);
@@ -217,10 +218,7 @@ namespace NOTelemetryReader
       <div class="keys v" id="keys-left"></div>
       <div class="screen">
         <iframe src="/?bare" title="map"></iframe>
-        <div class="menu" id="menu">
-          <div class="menu-item" id="mi-map">MAP</div>
-          <div class="menu-item" id="mi-wpn">WPN</div>
-        </div>
+        <div class="overlay" id="overlay"></div>
       </div>
       <div class="keys v" id="keys-right"></div>
     </div>
@@ -254,35 +252,64 @@ for (const id in COUNTS) {
   }
 }
 
-// The first two left-side keys select the first two menu items.
 const leftKeys = document.querySelectorAll('#keys-left .key');
-if (leftKeys[0]) leftKeys[0].dataset.action = 'map';
-if (leftKeys[1]) leftKeys[1].dataset.action = 'wpn';
+const overlayEl = document.getElementById('overlay');
+const mapFrame  = document.querySelector('.screen iframe');
 
-// ── View switching: the screen shows either the map (iframe) or the menu overlay ──
-const menuEl = document.getElementById('menu');
-const menuItems = [
-  { el: document.getElementById('mi-map'), keyIndex: 0 },   // MAP  → left key 1
-  { el: document.getElementById('mi-wpn'), keyIndex: 1 },   // WPN  → left key 2
-];
-let view = 'map';
+// ── Pages ─────────────────────────────────────────────────────────────────────────
+// Which page is in view (MAP or MENU) and the line-select items each page shows. Every
+// item names a label, the left key it aligns to (0 = topmost), and the action its key
+// fires. The MAP page overlays its items on top of the (still-interactive) map; the MENU
+// page draws an opaque panel over it.
+const PAGES = {
+  map: {
+    opaque: false,
+    items: [
+      { label: 'MENU', key: 0, action: 'menu' },   // → MENU page
+      { label: 'FLW',  key: 1, action: 'flw'  },   // → toggle map follow
+      { label: 'Z+',   key: 2, action: 'zin'  },   // → map zoom in
+      { label: 'Z-',   key: 3, action: 'zout' },   // → map zoom out
+    ],
+  },
+  menu: {
+    opaque: true,
+    items: [
+      { label: 'MAP', key: 0, action: 'map' },      // → MAP page
+      { label: 'WPN', key: 1, action: 'wpn' },      // → (placeholder)
+    ],
+  },
+};
+let currentPage = 'map';
 
-function setView(v) {
-  view = v;
-  menuEl.classList.toggle('show', v === 'menu');
-  if (v === 'menu') layoutMenu();
+// Render a page: set the overlay background, (re)assign the left keys' actions, and
+// position each item label next to its key.
+function showPage(name) {
+  currentPage = name;
+  const page = PAGES[name];
+  overlayEl.classList.toggle('opaque', page.opaque);
+
+  leftKeys.forEach(function(k) { delete k.dataset.action; });
+  overlayEl.innerHTML = '';
+
+  const oRect = overlayEl.getBoundingClientRect();
+  page.items.forEach(function(item) {
+    const k = leftKeys[item.key];
+    if (!k) return;
+    k.dataset.action = item.action;
+    const el = document.createElement('div');
+    el.className = 'overlay-item';
+    el.textContent = item.label;
+    const kr = k.getBoundingClientRect();
+    el.style.top = (kr.top + kr.height / 2 - oRect.top) + 'px';
+    overlayEl.appendChild(el);
+  });
 }
 
-// Align each menu item vertically with its corresponding left key.
-function layoutMenu() {
-  const menuRect = menuEl.getBoundingClientRect();
-  menuItems.forEach(function(item) {
-    const k = leftKeys[item.keyIndex];
-    if (!k) { item.el.style.display = 'none'; return; }
-    const kr = k.getBoundingClientRect();
-    item.el.style.top = (kr.top + kr.height / 2 - menuRect.top) + 'px';
-    item.el.style.display = 'block';
-  });
+// Drive the map iframe without reaching into it (keeps the map a standalone component;
+// also works cross-origin under file://).
+function mapSend(action) {
+  if (mapFrame && mapFrame.contentWindow)
+    mapFrame.contentWindow.postMessage({ mfd: true, action: action }, '*');
 }
 
 function mfdButton(el) {
@@ -290,8 +317,11 @@ function mfdButton(el) {
   setTimeout(function() { el.classList.remove('lit'); }, 150);
 
   switch (el.dataset.action) {
-    case 'menu': setView('menu'); break;   // burger → show the menu
-    case 'map':  setView('map');  break;   // MAP    → show the map
+    case 'menu': showPage('menu'); break;
+    case 'map':  showPage('map');  break;
+    case 'flw':  mapSend('toggle-follow'); break;
+    case 'zin':  mapSend('zoom-in');  break;
+    case 'zout': mapSend('zoom-out'); break;
     // 'wpn' → no-op for now (weapons component is a later task)
   }
 }
@@ -302,7 +332,8 @@ document.querySelector('.mfd').addEventListener('click', function(e) {
   if (k) mfdButton(k);
 });
 
-window.addEventListener('resize', function() { if (view === 'menu') layoutMenu(); });
+window.addEventListener('resize', function() { showPage(currentPage); });   // re-align labels
+showPage('map');   // start on the map page with its overlay menu
 </script>
 </body>
 </html>

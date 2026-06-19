@@ -699,6 +699,27 @@ mapPanel.addEventListener('mousemove', function(e) {
 });
 mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = 'none'; });
 
+// ── Remote control ────────────────────────────────────────────────────────────────
+// Lets an embedder (the MFD frame) drive the map without reaching into it directly, so
+// the map stays a self-contained component. Works same-origin and cross-origin (file://).
+function zoomStep(factor) {   // zoom about the canvas centre (the wheel zooms at the cursor)
+  if (!mapMeta) return;
+  const z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, view.zoom * factor));
+  if (z === view.zoom) return;
+  view.zoom = z;
+  clampPan();
+  drawOverlay();
+}
+window.addEventListener('message', function(e) {
+  const m = e.data;
+  if (!m || m.mfd !== true) return;
+  switch (m.action) {
+    case 'toggle-follow': if (mapMeta) setFollow(!followPlayer); break;
+    case 'zoom-in':       zoomStep(1.5);   break;
+    case 'zoom-out':      zoomStep(1 / 1.5); break;
+  }
+});
+
 // ── Init ──────────────────────────────────────────────────────────────────────────
 // "bare" mode: hide header + HUD sidebar so just the map shows (used by the MFD frame).
 if (location.search.indexOf('bare') >= 0) document.body.classList.add('bare');
