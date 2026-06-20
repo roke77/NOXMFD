@@ -1,6 +1,7 @@
 using BepInEx;
 using BepInEx.Logging;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace NOTelemetryReader
 {
@@ -11,53 +12,37 @@ namespace NOTelemetryReader
     {
         internal static ManualLogSource? Log;
 
-        private GameObject? _readerObject;
-        private bool        _readerActive;
+        // BepInEx puts our Plugin on its own GameObject and tries to mark it DontDestroyOnLoad,
+        // but in Nuclear Option / Unity 2022.3 that doesn't stick — the GameObject dies on the
+        // boot -> MainMenu scene transition, taking the HTTP server with it. We sidestep by:
+        //   * starting the server (already static) in Awake,
+        //   * subscribing statically to the FIRST scene load,
+        //   * then spawning OUR OWN GameObject (and marking IT persistent) from that callback,
+        //     when a real scene exists and DontDestroyOnLoad actually works.
+        // Plugin itself can be torn down — the static state and the Worker GameObject survive.
+
+        private static Worker? _worker;
+        private static bool    _sceneSubscribed;
 
         private void Awake()
         {
             Log = Logger;
-            // BepInEx normally hosts plugins on a DontDestroyOnLoad GameObject, but in this
-            // Unity 2022.3 / Nuclear Option combo something tears it down on the boot ->
-            // MainMenu transition. Re-assert persistence so the HTTP server survives.
-            DontDestroyOnLoad(gameObject);
             TelemetryServer.Start();
+            if (!_sceneSubscribed)
+            {
+                SceneManager.sceneLoaded += OnSceneLoaded;
+                _sceneSubscribed = true;
+            }
             Log.LogInfo("NOTelemetryReader loaded. Waiting for a mission to start...");
         }
 
-        private void OnDestroy()
+        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            StopReader();
-            TelemetryServer.Stop();
-        }
-
-        private void Update()
-        {
-            bool missionRunning = MissionManager.IsRunning;
-
-            if (missionRunning && !_readerActive)
-                StartReader();
-            else if (!missionRunning && _readerActive)
-                StopReader();
-        }
-
-        private void StartReader()
-        {
-            _readerActive  = true;
-            _readerObject  = new GameObject("NOTelemetryReader_Runner");
-            _readerObject.AddComponent<TelemetryReader>();
-            Log?.LogInfo("Mission started -> telemetry reader ON.");
-        }
-
-        private void StopReader()
-        {
-            if (!_readerActive) return;
-            _readerActive = false;
-            if (_readerObject != null)
-                Destroy(_readerObject);
-            _readerObject = null;
-            TelemetryServer.Reset();   // clear per-mission data so the client wipes its display
-            Log?.LogInfo("Mission ended -> telemetry reader OFF.");
+            if (_worker != null) return;
+            var go = new GameObject("NOTelemetry_Worker");
+            Object.DontDestroyOnLoad(go);
+            _worker = go.AddComponent<Worker>();
+            Log?.LogInfo("[NOTelemetry] Worker attached (scene='" + scene.name + "').");
         }
     }
 }
