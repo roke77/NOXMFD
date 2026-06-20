@@ -17,6 +17,10 @@ namespace NOTelemetryReader
         private void Awake()
         {
             Log = Logger;
+            // BepInEx normally hosts plugins on a DontDestroyOnLoad GameObject, but in this
+            // Unity 2022.3 / Nuclear Option combo something tears it down on the boot ->
+            // MainMenu transition. Re-assert persistence so the HTTP server survives.
+            DontDestroyOnLoad(gameObject);
             TelemetryServer.Start();
             Log.LogInfo("NOTelemetryReader loaded. Waiting for a mission to start...");
         }
