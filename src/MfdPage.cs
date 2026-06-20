@@ -206,6 +206,9 @@ namespace NOTelemetryReader
     font-weight: 900;
     letter-spacing: 2px;
   }
+  /* Right-column variant — aligns the label to the right edge instead of left,
+     used for the TGL page's NEXT pagination button on right key 0. */
+  .overlay-item.right { left: auto; right: 16px; }
   /* On portrait viewports (mobile rotated upright) the screen grows much taller, which
      spreads the line-select keys further apart and makes a fixed 32px label look small
      in the now-bigger empty space. Scale the label with viewport height so it keeps the
@@ -602,7 +605,8 @@ for (const id in COUNTS) {
   }
 }
 
-const leftKeys = document.querySelectorAll('#keys-left .key');
+const leftKeys  = document.querySelectorAll('#keys-left .key');
+const rightKeys = document.querySelectorAll('#keys-right .key');
 const overlayEl = document.getElementById('overlay');
 const mapFrame  = document.querySelector('.screen iframe');
 const infoBox   = document.getElementById('info-box');
@@ -667,9 +671,9 @@ const PAGES = {
   },
   tgl: {
     opaque: true,
-    items: [
-      { label: 'MAIN', key: 0, action: 'main' },    // ← back to MAIN
-    ],
+    // No static items: renderTgl() owns left-key-0 (MAIN on page 0, PREV after)
+    // and right-key-0 (NEXT when overflow), since both depend on the live page state.
+    items: [],
   },
 };
 let currentPage = 'map';
@@ -688,10 +692,11 @@ let cmData = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 // produced, and back to false during the 3-second post-loss hold's expiry.
 let tgpActive = false;
 
-// Latest target list mirrored from the map iframe. Whole list is kept in memory; only the
-// first 10 are displayed (left key 1..5, then right key 1..5). The MAIN back button owns
-// left key 0; the future NEXT button will own right key 0.
+// Latest target list mirrored from the map iframe. Whole list is kept in memory; the
+// renderer shows TGL_MAX_DISPLAY per page (left key 1..5 then right key 1..5) and
+// pages through them with PREV/NEXT on the corner keys. tglPage = 0-indexed page.
 let tglData = { targets: [] };
+let tglPage = 0;
 const TGL_MAX_DISPLAY = 10;
 
 // Render a page: set the overlay background, (re)assign the left keys' actions, and
@@ -716,9 +721,9 @@ function showPage(name) {
     tgpPanel.classList.remove('has-feed');
   }
   if (name === 'wpn') { renderWpn(); renderCm(); }
-  if (name === 'tgl') { renderTgl(); }
 
-  leftKeys.forEach(function(k) { delete k.dataset.action; });
+  leftKeys .forEach(function(k) { delete k.dataset.action; });
+  rightKeys.forEach(function(k) { delete k.dataset.action; });
   // Only wipe dynamic line-select labels; static children (info-box) stay put.
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
 
@@ -734,6 +739,10 @@ function showPage(name) {
     el.style.top = (kr.top + kr.height / 2 - oRect.top) + 'px';
     overlayEl.appendChild(el);
   });
+
+  // TGL owns its own labels (PREV/MAIN + NEXT) because they depend on tglPage;
+  // run after the generic label sweep so it doesn't clobber what we just placed.
+  if (name === 'tgl') { renderTgl(); }
 }
 
 // Render the WPN page from the cached loadout. Each weapon row is absolutely positioned
@@ -860,16 +869,41 @@ function renderCm() {
   fitTextHeight(cmJammerVal, cmJammerVal.getBoundingClientRect().height);
 }
 
-// Renders the TGL page from the cached target list. The first 10 targets are displayed,
-// 1..5 down the left column (key 0 reserved for MAIN) and 6..10 down the right column
-// (key 0 reserved for the future NEXT button). Anything past 10 stays in tglData.targets
-// and is ignored until a displayed target drops out.
+// Renders the TGL page from the cached target list. Each page shows up to TGL_MAX_DISPLAY
+// targets — 1..5 down the left column, 6..10 down the right. Left key 0 is MAIN on the
+// first page and PREV on later pages; right key 0 is NEXT when there are more targets
+// past the current page. Also owns those nav labels (showPage skips them for TGL).
 function renderTgl() {
-  // Tear down any previously-rendered rows; the list is small, so rebuild beats diffing.
+  // Tear down any previously-rendered rows + nav labels; small enough to rebuild from scratch.
   tglPanel.querySelectorAll('.tg-item').forEach(function(el) { el.remove(); });
+  overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
+  delete leftKeys[0].dataset.action;
+  delete rightKeys[0].dataset.action;
 
-  const list = (tglData.targets || []).slice(0, TGL_MAX_DISPLAY);
+  const targets = tglData.targets || [];
+  const total   = targets.length;
+  const maxPage = Math.max(0, Math.ceil(total / TGL_MAX_DISPLAY) - 1);
+  if (tglPage > maxPage) tglPage = maxPage;
+  if (tglPage < 0)       tglPage = 0;
+
+  const start = tglPage * TGL_MAX_DISPLAY;
+  const list  = targets.slice(start, start + TGL_MAX_DISPLAY);
   tglPanel.classList.toggle('has-targets', list.length > 0);
+
+  // Place the corner nav labels (PREV/MAIN on left key 0, NEXT on right key 0 when overflowing).
+  const oRect = overlayEl.getBoundingClientRect();
+  function navLabel(key, text, action, onRight) {
+    key.dataset.action = action;
+    const el = document.createElement('div');
+    el.className = 'overlay-item' + (onRight ? ' right' : '');
+    el.textContent = text;
+    const kr = key.getBoundingClientRect();
+    el.style.top = (kr.top + kr.height / 2 - oRect.top) + 'px';
+    overlayEl.appendChild(el);
+  }
+  navLabel(leftKeys[0], tglPage > 0 ? 'PREV' : 'MAIN', tglPage > 0 ? 'tgl-prev' : 'main', false);
+  if (start + list.length < total) navLabel(rightKeys[0], 'NEXT', 'tgl-next', true);
+
   if (!list.length) return;
 
   // Format range as "8,4 km" (European decimal comma) when given a number; pass strings through.
@@ -989,7 +1023,9 @@ function mfdButton(el) {
     case 'map':  showPage('map');  break;
     case 'wpn':  showPage('wpn');  break;
     case 'tgp':  showPage('tgp');  break;
-    case 'tgl':  showPage('tgl');  break;
+    case 'tgl':       tglPage = 0; showPage('tgl'); break;   // fresh entry — always start on page 0
+    case 'tgl-prev':  tglPage--;   showPage('tgl'); break;   // renderTgl clamps if we overshoot
+    case 'tgl-next':  tglPage++;   showPage('tgl'); break;
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;
