@@ -645,12 +645,12 @@ const PAGES = {
   main: {
     opaque: true,
     items: [
-      { label: 'MAP', key: 0, action: 'map' },      // → MAP page
-      { label: 'WPN', key: 1, action: 'wpn' },      // → WPN page
-      { label: 'AVN', key: 2, action: 'avn' },      // → AVN page
-      { label: 'RWR', key: 3, action: 'rwr' },      // → RWR page
+      { label: 'AVN', key: 0, action: 'avn' },      // → AVN page
+      { label: 'MAP', key: 1, action: 'map' },      // → MAP page
+      { label: 'RWR', key: 2, action: 'rwr' },      // → RWR page
+      { label: 'TGL', key: 3, action: 'tgl' },      // → TGL page (target list)
       { label: 'TGP', key: 4, action: 'tgp' },      // → TGP page
-      { label: 'TGL', key: 5, action: 'tgl' },      // → TGL page (target list)
+      { label: 'WPN', key: 5, action: 'wpn' },      // → WPN page
     ],
   },
   wpn: {
