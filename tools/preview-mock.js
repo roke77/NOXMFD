@@ -102,20 +102,21 @@
       { t: 'Vessel',  f: 0, x: -14000, z: -4000,  h: 0,   o: false, s: 1 },
     ],
     // 12 mock target locks — the MFD's TGL page displays the first 10, the last 2 stay
-    // queued in memory until one of the visible ones is deselected.
+    // queued in memory until one of the visible ones is deselected. `f` matches the contact
+    // faction code (0 = neutral, 1 = friendly, 2 = enemy) and drives the row colour.
     targets: [
-      { n: 'HLT Flatbed',   g: 'Kg53', r: 8.4  },
-      { n: 'BMP-2',         g: 'Kh54', r: 9.1  },
-      { n: 'T-72B',         g: 'Kh55', r: 9.6  },
-      { n: 'ZSU-23-4',      g: 'Lh55', r: 10.3 },
-      { n: 'BTR-80',        g: 'Lh56', r: 11.0 },
-      { n: 'SA-15 Tor',     g: 'Lj57', r: 12.4 },
-      { n: 'MTLB',          g: 'Lj58', r: 12.9 },
-      { n: 'Truck',         g: 'Mj58', r: 13.5 },
-      { n: 'Su-25 (gnd)',   g: 'Mj59', r: 14.2 },
-      { n: 'Pantsir-S1',    g: 'Mk59', r: 15.0 },
-      { n: 'KamAZ Fuel',    g: 'Mk60', r: 16.1 },
-      { n: 'Radar Mast',    g: 'Nk60', r: 17.3 },
+      { n: 'HLT Flatbed',   g: 'Kg53', r: 8.4,  f: 2 },
+      { n: 'BMP-2',         g: 'Kh54', r: 9.1,  f: 2 },
+      { n: 'F-18',          g: 'Kh55', r: 9.6,  f: 1 },
+      { n: 'ZSU-23-4',      g: 'Lh55', r: 10.3, f: 2 },
+      { n: 'Vessel',        g: 'Lh56', r: 11.0, f: 0 },
+      { n: 'SA-15 Tor',     g: 'Lj57', r: 12.4, f: 2 },
+      { n: 'Airbase',       g: 'Lj58', r: 12.9, f: 1 },
+      { n: 'Truck',         g: 'Mj58', r: 13.5, f: 0 },
+      { n: 'Su-25 (gnd)',   g: 'Mj59', r: 14.2, f: 2 },
+      { n: 'Pantsir-S1',    g: 'Mk59', r: 15.0, f: 2 },
+      { n: 'KamAZ Fuel',    g: 'Mk60', r: 16.1, f: 2 },
+      { n: 'Radar Mast',    g: 'Nk60', r: 17.3, f: 2 },
     ],
   };
   // Prefer the captured frame when present, but layer DEFAULT_FRAME on top for any field the

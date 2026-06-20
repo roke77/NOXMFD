@@ -581,11 +581,30 @@ function updateHUD(d) {
     // stops (after the in-game 3-second post-loss hold expires).
     window.parent.postMessage({ mfd: true, type: 'tgp', active: !!d.tgpActive }, '*');
     // Mirror the player's selected target list so the MFD's TGL page can render it.
-    // Each item: { n: name, g: grid, r: rangeKm }. Empty array if the frame omits the field.
-    window.parent.postMessage({
-      mfd: true, type: 'targets',
-      items: Array.isArray(d.targets) ? d.targets : []
-    }, '*');
+    // The mod doesn't emit a dedicated `targets` field — each targeted unit is flagged on
+    // its contact entry (same `tg` flag that draws the orange target box on the map). So
+    // derive the list from contacts; preview mocks can still supply an explicit `d.targets`
+    // to override (used for showing 12+ entries without spawning 12 contacts).
+    let targets;
+    if (Array.isArray(d.targets)) {
+      targets = d.targets;
+    } else if (Array.isArray(d.contacts) && d.world) {
+      targets = [];
+      for (const u of d.contacts) {
+        if (!u.tg) continue;
+        const dx = u.x - d.world.x;
+        const dz = u.z - d.world.z;
+        targets.push({
+          n: u.t,
+          g: gridLabel(u.x, u.z),
+          r: Math.hypot(dx, dz) / 1000,
+          f: u.f,
+        });
+      }
+    } else {
+      targets = [];
+    }
+    window.parent.postMessage({ mfd: true, type: 'targets', items: targets }, '*');
   }
 
   const gEl = document.getElementById('gear');

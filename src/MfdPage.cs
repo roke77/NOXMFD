@@ -340,13 +340,19 @@ namespace NOTelemetryReader
   }
   .tg-item.left  { left: 0;  text-align: left;  align-items: flex-start; }
   .tg-item.right { right: 0; text-align: right; align-items: flex-end;   }
+  /* Per-row faction palette via CSS variables. Default = enemy (orange — matches the
+     map's TARGET_COLOR ring). Friendly / neutral classes override; name takes the bright
+     tone, GRID/RNG the dim tone. */
+  .tg-item              { --tg-name: #ff8000; --tg-meta: #8a4818; }
+  .tg-item.f-friendly   { --tg-name: #4da6ff; --tg-meta: #2a5a8a; }
+  .tg-item.f-neutral    { --tg-name: #ffffff; --tg-meta: #888888; }
   /* Font sizes are set inline by renderTgl() so the row fills its slot height; the name
      ends up 5/3 the meta size (i.e. "2/3 bigger"). Line-height is tight so the two lines
      reach the slot's top and bottom. */
-  .tg-name { font-weight: bold; white-space: nowrap; line-height: 1.0; }
+  .tg-name { font-weight: bold; white-space: nowrap; line-height: 1.0; color: var(--tg-name); }
   /* GRID and RNG are stacked below the name and dimmed to de-emphasise vs the bright name. */
   .tg-grid,
-  .tg-rng  { white-space: nowrap; line-height: 1.0; color: #2a8a2a; }
+  .tg-rng  { white-space: nowrap; line-height: 1.0; color: var(--tg-meta); }
 
   .wpn-empty {
     position: absolute;
@@ -1003,7 +1009,10 @@ function renderTgl() {
     const sideW = Math.max(40, panelRect.width * 0.5);
 
     const row = document.createElement('div');
-    row.className = 'tg-item ' + (onLeft ? 'left' : 'right');
+    // Faction class drives the palette: 1 = friendly (blue), 0 = neutral (white), anything
+    // else (including missing) defaults to enemy (green).
+    const factionCls = t.f === 1 ? ' f-friendly' : t.f === 0 ? ' f-neutral' : '';
+    row.className = 'tg-item ' + (onLeft ? 'left' : 'right') + factionCls;
     row.style.top    = (top.bottom - panelRect.top) + 'px';
     row.style.height = slotH + 'px';
     row.style.width  = sideW + 'px';
