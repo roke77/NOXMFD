@@ -340,10 +340,10 @@ namespace NOTelemetryReader
   }
   .tg-item.left  { left: 0;  text-align: left;  align-items: flex-start; }
   .tg-item.right { right: 0; text-align: right; align-items: flex-end;   }
-  /* Per-row faction palette via CSS variables. Default = enemy (orange — matches the
-     map's TARGET_COLOR ring). Friendly / neutral classes override; name takes the bright
-     tone, GRID/RNG the dim tone. */
-  .tg-item              { --tg-name: #ff8000; --tg-meta: #8a4818; }
+  /* Per-row faction palette via CSS variables. Default = enemy (red — matches the
+     factionColors[2] used on the map). Friendly / neutral classes override; name takes
+     the bright tone, GRID/RNG the dim tone. */
+  .tg-item              { --tg-name: #ff4040; --tg-meta: #8a2828; }
   .tg-item.f-friendly   { --tg-name: #4da6ff; --tg-meta: #2a5a8a; }
   .tg-item.f-neutral    { --tg-name: #ffffff; --tg-meta: #888888; }
   /* Font sizes are set inline by renderTgl() so the row fills its slot height; the name
