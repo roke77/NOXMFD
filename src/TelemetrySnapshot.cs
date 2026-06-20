@@ -1,4 +1,4 @@
-namespace NOTelemetryReader
+namespace NORoksMFD
 {
     internal struct TelemetrySnapshot
     {

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NOTelemetryReader
+namespace NORoksMFD
 {
     // Persistent mission-polling host. Lives on a DontDestroyOnLoad GameObject we create
     // ourselves once a real scene exists (see Plugin.OnSceneLoaded). Spawns the
@@ -30,7 +30,7 @@ namespace NOTelemetryReader
         private void StartReader()
         {
             _readerActive  = true;
-            _readerObject  = new GameObject("NOTelemetryReader_Runner");
+            _readerObject  = new GameObject("NORoksMFD_Runner");
             _readerObject.AddComponent<TelemetryReader>();
             Plugin.Log?.LogInfo("Mission started -> telemetry reader ON.");
         }

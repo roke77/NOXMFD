@@ -1,4 +1,4 @@
-namespace NOTelemetryReader
+namespace NORoksMFD
 {
     internal static class ClientPage
     {
@@ -7,7 +7,7 @@ namespace NOTelemetryReader
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>NO Telemetry</title>
+<title>NO Roks MFD</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 

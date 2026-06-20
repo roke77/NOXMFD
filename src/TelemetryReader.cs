@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
 
-namespace NOTelemetryReader
+namespace NORoksMFD
 {
     internal class TelemetryReader : MonoBehaviour
     {
@@ -188,7 +188,7 @@ namespace NOTelemetryReader
                 _sdBackgroundField = typeof(StatusDisplay).GetField("aircraftBackground", BindingFlags.NonPublic | BindingFlags.Instance);
             if (_sdStatusDisplaysField == null || _sdBackgroundField == null)
             {
-                Plugin.Log?.LogWarning("[NOTelemetry] AVN: StatusDisplay reflection fields not found — airframe capture disabled.");
+                Plugin.Log?.LogWarning("[NORoksMFD] AVN: StatusDisplay reflection fields not found — airframe capture disabled.");
                 _capturedAirframes.Add(key);
                 return;
             }
@@ -216,7 +216,7 @@ namespace NOTelemetryReader
             Vector3 bgU  = bgRT.up;
             Vector3 bgEu = bgRT.eulerAngles;
             Plugin.Log?.LogInfo(
-                $"[NOTelemetry] AVN bg lossyScale=({bgLs.x:0.000},{bgLs.y:0.000},{bgLs.z:0.000})  " +
+                $"[NORoksMFD] AVN bg lossyScale=({bgLs.x:0.000},{bgLs.y:0.000},{bgLs.z:0.000})  " +
                 $"rectSize=({bgRT.rect.width:0.0},{bgRT.rect.height:0.0})  " +
                 $"right=({bgR.x:0.00},{bgR.y:0.00},{bgR.z:0.00})  up=({bgU.x:0.00},{bgU.y:0.00},{bgU.z:0.00})  " +
                 $"euler=({bgEu.x:0.0},{bgEu.y:0.0},{bgEu.z:0.0})");
@@ -269,7 +269,7 @@ namespace NOTelemetryReader
             sb.Append("]}");
             TelemetryServer.SetAirframeLayout(key, sb.ToString());
 
-            Plugin.Log?.LogInfo($"[NOTelemetry] Captured airframe silhouette '{key}' (bg + {partCount} parts, {flippedCount} flipped).");
+            Plugin.Log?.LogInfo($"[NORoksMFD] Captured airframe silhouette '{key}' (bg + {partCount} parts, {flippedCount} flipped).");
         }
 
         // Computes a part's placement relative to the background's local rect, in normalized
@@ -366,7 +366,7 @@ namespace NOTelemetryReader
             if (parts == null) return;
 
             _loggedPartLayouts.Add(key);
-            Plugin.Log?.LogInfo($"[NOTelemetry] AVN parts for '{key}' (count={parts.Count}):");
+            Plugin.Log?.LogInfo($"[NORoksMFD] AVN parts for '{key}' (count={parts.Count}):");
             for (int i = 0; i < parts.Count; i++)
             {
                 UnitPart p = parts[i];
@@ -643,11 +643,11 @@ namespace NOTelemetryReader
             if (png != null)
             {
                 TelemetryServer.SetMapImage(png);
-                Plugin.Log?.LogInfo($"[NOTelemetry] Captured in-game map ({png.Length} bytes).");
+                Plugin.Log?.LogInfo($"[NORoksMFD] Captured in-game map ({png.Length} bytes).");
             }
             else
             {
-                Plugin.Log?.LogWarning("[NOTelemetry] Map capture unavailable; falling back to map file.");
+                Plugin.Log?.LogWarning("[NORoksMFD] Map capture unavailable; falling back to map file.");
             }
         }
 
@@ -752,7 +752,7 @@ namespace NOTelemetryReader
             }
             catch (Exception ex)
             {
-                Plugin.Log?.LogWarning($"[NOTelemetry] Sprite capture failed: {ex.Message}");
+                Plugin.Log?.LogWarning($"[NORoksMFD] Sprite capture failed: {ex.Message}");
                 return null;
             }
         }
@@ -814,7 +814,7 @@ namespace NOTelemetryReader
                 _tcCamField            = t.GetField("cam",                  BindingFlags.NonPublic | BindingFlags.Instance);
                 _tcScreenRendererField = t.GetField("targetScreenRenderer", BindingFlags.NonPublic | BindingFlags.Instance);
                 if (_tcCamField == null || _tcScreenRendererField == null)
-                    Plugin.Log?.LogWarning("[NOTelemetry] TGP: could not locate TargetCam private fields — feed disabled.");
+                    Plugin.Log?.LogWarning("[NORoksMFD] TGP: could not locate TargetCam private fields — feed disabled.");
             }
             if (_tcCamField == null || _tcScreenRendererField == null) { TelemetryServer.ClearTgpFrame(); _tgpActive = false; return; }
 
@@ -830,7 +830,7 @@ namespace NOTelemetryReader
                 {
                     // SetTargetCam touches a lot of game state. If anything throws (e.g. the player
                     // just disabled / detached), skip this tick rather than killing Update.
-                    Plugin.Log?.LogDebug($"[NOTelemetry] TGP SetTargetCam threw: {ex.Message}");
+                    Plugin.Log?.LogDebug($"[NORoksMFD] TGP SetTargetCam threw: {ex.Message}");
                     return;
                 }
             }
@@ -878,7 +878,7 @@ namespace NOTelemetryReader
             if (!_tgpSrcLogged)
             {
                 _tgpSrcLogged = true;
-                Plugin.Log?.LogInfo($"[NOTelemetry] TGP source texture {sw}x{sh} (aspect {(float)sw/sh:0.000}); capturing at {targetW}x{targetH}.");
+                Plugin.Log?.LogInfo($"[NORoksMFD] TGP source texture {sw}x{sh} (aspect {(float)sw/sh:0.000}); capturing at {targetW}x{targetH}.");
             }
 
             // Don't stack readbacks if the GPU is still working on the previous one — drop
@@ -947,7 +947,7 @@ namespace NOTelemetryReader
             _tgpSrcLogged         = false;
             _tgpReadbackInFlight  = false;   // any in-flight callback will see !WantsTgpFrames and bail
             TelemetryServer.ClearTgpFrame();
-            if (wasEngaged) Plugin.Log?.LogInfo("[NOTelemetry] TGP: disengaged (no subscribers).");
+            if (wasEngaged) Plugin.Log?.LogInfo("[NORoksMFD] TGP: disengaged (no subscribers).");
         }
 
         private void OnDestroy()

@@ -1,4 +1,4 @@
-namespace NOTelemetryReader
+namespace NORoksMFD
 {
     // A hardware-style Multi-Function Display: a rugged bezel with clickable (no-op) buttons
     // on all four sides plus corner controls, wrapping the existing map (served at /?bare) in
@@ -11,7 +11,7 @@ namespace NOTelemetryReader
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>NO Telemetry — MFD</title>
+<title>NO Roks MFD</title>
 <style>
   /* Self-hosted Share Tech Mono (embedded woff2) so the MFD needs no internet. */
   @font-face {

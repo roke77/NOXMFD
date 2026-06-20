@@ -3,9 +3,9 @@ using BepInEx.Logging;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace NOTelemetryReader
+namespace NORoksMFD
 {
-    [BepInPlugin("com.roque.NOTelemetryReader", "NOTelemetryReader", "0.1.0")]
+    [BepInPlugin("com.roque.NORoksMFD", "NO Roks MFD", "0.1.0")]
     [BepInProcess("NuclearOption.exe")]
     [BepInProcess("NuclearOptionServer.exe")]
     public class Plugin : BaseUnityPlugin
@@ -33,16 +33,16 @@ namespace NOTelemetryReader
                 SceneManager.sceneLoaded += OnSceneLoaded;
                 _sceneSubscribed = true;
             }
-            Log.LogInfo("NOTelemetryReader loaded. Waiting for a mission to start...");
+            Log.LogInfo("NO Roks MFD loaded. Waiting for a mission to start...");
         }
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             if (_worker != null) return;
-            var go = new GameObject("NOTelemetry_Worker");
+            var go = new GameObject("NORoksMFD_Worker");
             Object.DontDestroyOnLoad(go);
             _worker = go.AddComponent<Worker>();
-            Log?.LogInfo("[NOTelemetry] Worker attached (scene='" + scene.name + "').");
+            Log?.LogInfo("[NORoksMFD] Worker attached (scene='" + scene.name + "').");
         }
     }
 }

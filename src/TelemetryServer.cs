@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace NOTelemetryReader
+namespace NORoksMFD
 {
     internal static class TelemetryServer
     {
@@ -84,32 +84,32 @@ namespace NOTelemetryReader
                 try { _listener.Start(); }
                 catch (Exception ex)
                 {
-                    Plugin.Log?.LogError($"[NOTelemetry] Failed to start on port {Port}: {ex.Message}");
+                    Plugin.Log?.LogError($"[NORoksMFD] Failed to start on port {Port}: {ex.Message}");
                     return;
                 }
             }
             catch (Exception ex)
             {
-                Plugin.Log?.LogError($"[NOTelemetry] Failed to start on port {Port}: {ex.Message}");
+                Plugin.Log?.LogError($"[NORoksMFD] Failed to start on port {Port}: {ex.Message}");
                 return;
             }
 
-            _acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "NOTelemetry-Accept" };
+            _acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "NORoksMFD-Accept" };
             _acceptThread.Start();
 
-            Plugin.Log?.LogInfo($"[NOTelemetry] Server listening on http://localhost:{Port}/");
+            Plugin.Log?.LogInfo($"[NORoksMFD] Server listening on http://localhost:{Port}/");
             if (boundAll)
             {
                 string lanIp = DetectLanIp();
                 if (!string.IsNullOrEmpty(lanIp))
                 {
                     LanUrl = $"http://{lanIp}:{Port}";
-                    Plugin.Log?.LogInfo($"[NOTelemetry] LAN access:  {LanUrl}/");
+                    Plugin.Log?.LogInfo($"[NORoksMFD] LAN access:  {LanUrl}/");
                 }
             }
             else
             {
-                Plugin.Log?.LogInfo("[NOTelemetry] LAN access disabled — to enable, run once in an elevated shell:  netsh http add urlacl url=http://+:" + Port + "/ user=Everyone");
+                Plugin.Log?.LogInfo("[NORoksMFD] LAN access disabled — to enable, run once in an elevated shell:  netsh http add urlacl url=http://+:" + Port + "/ user=Everyone");
             }
         }
 
@@ -134,7 +134,7 @@ namespace NOTelemetryReader
             _cts.Cancel();
             try { _listener?.Stop(); } catch { }
             _listener = null;
-            Plugin.Log?.LogInfo("[NOTelemetry] Server stopped.");
+            Plugin.Log?.LogInfo("[NORoksMFD] Server stopped.");
         }
 
         // Called from Unity main thread — just stores the latest snapshot.
@@ -147,7 +147,7 @@ namespace NOTelemetryReader
         public static void SetMapImage(byte[] png)
         {
             lock (_mapLock) _mapPng = png;
-            Plugin.Log?.LogInfo($"[NOTelemetry] In-game map image ready ({png.Length} bytes) — serving at /map.");
+            Plugin.Log?.LogInfo($"[NORoksMFD] In-game map image ready ({png.Length} bytes) — serving at /map.");
         }
 
         // Called from Unity main thread once an aircraft type's map icon has been extracted.
@@ -250,7 +250,7 @@ namespace NOTelemetryReader
                 catch (Exception ex)
                 {
                     if (!_cts.IsCancellationRequested)
-                        Plugin.Log?.LogError($"[NOTelemetry] Accept error: {ex.Message}");
+                        Plugin.Log?.LogError($"[NORoksMFD] Accept error: {ex.Message}");
                 }
             }
         }
@@ -312,7 +312,7 @@ namespace NOTelemetryReader
             {
                 ctx.Response.StatusCode = 404;
                 try { ctx.Response.Close(); } catch { }
-                Plugin.Log?.LogWarning($"[NOTelemetry] Map not found in: {dir}");
+                Plugin.Log?.LogWarning($"[NORoksMFD] Map not found in: {dir}");
                 return;
             }
 
@@ -453,7 +453,7 @@ namespace NOTelemetryReader
             ctx.Response.Headers.Add("Cache-Control", "no-cache");
             ctx.Response.Headers.Add("X-Accel-Buffering", "no");
 
-            Plugin.Log?.LogInfo($"[NOTelemetry] Client connected from {ctx.Request.RemoteEndPoint}");
+            Plugin.Log?.LogInfo($"[NORoksMFD] Client connected from {ctx.Request.RemoteEndPoint}");
 
             try
             {
@@ -474,11 +474,11 @@ namespace NOTelemetryReader
                 }
             }
             catch (OperationCanceledException) { }
-            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOTelemetry] Client error: {ex.Message}"); }
+            catch (Exception ex) { Plugin.Log?.LogWarning($"[NORoksMFD] Client error: {ex.Message}"); }
             finally
             {
                 try { ctx.Response.Close(); } catch { }
-                Plugin.Log?.LogInfo($"[NOTelemetry] Client disconnected from {ctx.Request.RemoteEndPoint}");
+                Plugin.Log?.LogInfo($"[NORoksMFD] Client disconnected from {ctx.Request.RemoteEndPoint}");
             }
         }
 

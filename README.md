@@ -1,4 +1,4 @@
-# NOTelemetryReader
+# NO Roks MFD
 
 A [Nuclear Option](https://store.steampowered.com/app/2168680/) mod that streams live
 telemetry from the running game and renders it in a browser — a real map with your plane
@@ -57,7 +57,7 @@ offsets the game uses, which doubles as a correctness check against the in-game 
 
 ## Build
 
-1. Open `NOTelemetryReader.csproj` and set `<GameDir>` to your Nuclear Option install
+1. Open `NORoksMFD.csproj` and set `<GameDir>` to your Nuclear Option install
    path if it isn't the default Steam location.
 2. From this folder:
 
@@ -65,13 +65,13 @@ offsets the game uses, which doubles as a correctness check against the in-game 
    dotnet build -c Release
    ```
 
-   This builds `bin/Release/netstandard2.1/NOTelemetryReader.dll` and, via a post-build
+   This builds `bin/Release/netstandard2.1/NORoksMFD.dll` and, via a post-build
    step, copies it into `<GameDir>/BepInEx/plugins/`.
 
 ## Install & run
 
 1. Build (the DLL is auto-deployed to the plugins folder), or copy
-   `NOTelemetryReader.dll` into `Nuclear Option/BepInEx/plugins/` manually.
+   `NORoksMFD.dll` into `Nuclear Option/BepInEx/plugins/` manually.
 2. Launch the game. (Restart the game after any rebuild to load the new DLL.)
 3. Open `http://localhost:5005/` in a browser. You'll see "CONNECTED — no mission".
 4. Start a mission and spawn in — your plane appears on the map immediately.
