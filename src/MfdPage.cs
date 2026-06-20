@@ -142,6 +142,14 @@ namespace NOTelemetryReader
     width: 1px;
     background: currentColor;
   }
+  /* Fullscreen icon: four corner brackets pointing outward (inline SVG) */
+  .ic-fullscreen {
+    display: inline-block;
+    width: 14px; height: 14px;
+    background-color: currentColor;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' d='M1 5V1H5 M9 1H13V5 M13 9V13H9 M5 13H1V9'/></svg>") center/contain no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' d='M1 5V1H5 M9 1H13V5 M13 9V13H9 M5 13H1V9'/></svg>") center/contain no-repeat;
+  }
   /* Wide layout icon: box split into a wide left pane and a narrow right pane */
   .ic-split {
     position: relative;
@@ -279,6 +287,46 @@ namespace NOTelemetryReader
     pointer-events: none;
   }
   .tgp-panel.has-feed .tgp-empty { display: none; }
+
+  /* TGL page — target list. Rows are positioned over the left & right key columns by JS. */
+  .tgl-panel {
+    position: absolute;
+    inset: 0;
+    display: none;
+    color: #39ff14;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+  }
+  .tgl-panel.show { display: block; }
+  .tgl-empty {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    color: #1a4a1a;
+    font-size: 22px;
+    letter-spacing: 3px;
+    pointer-events: none;
+  }
+  .tgl-panel.has-targets .tgl-empty { display: none; }
+  .tg-item {
+    position: absolute;
+    padding: 2px 6px;
+    line-height: 1.15;
+    overflow: hidden;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .tg-item.left  { left: 0;  text-align: left;  align-items: flex-start; }
+  .tg-item.right { right: 0; text-align: right; align-items: flex-end;   }
+  /* Font sizes are set inline by renderTgl() so the row fills its slot height; the name
+     ends up 5/3 the meta size (i.e. "2/3 bigger"). Line-height is tight so the two lines
+     reach the slot's top and bottom. */
+  .tg-name { font-weight: bold; white-space: nowrap; line-height: 1.0; }
+  /* Meta is dimmed vs the bright-green name to de-emphasise grid/range; the inner sep stays
+     even dimmer so the GRID / RNG groups still read as distinct. */
+  .tg-meta { white-space: nowrap; line-height: 1.0; color: #2a8a2a; }
+  .tg-sep  { color: #1a4a1a; padding: 0 6px; }
 
   .wpn-empty {
     position: absolute;
@@ -455,9 +503,7 @@ namespace NOTelemetryReader
         <button class="key icon" type="button" title="Main"><span class="ic-square"></span></button>
       </div>
       <div class="center right">
-        <button class="key icon" type="button" title="Brightness down">&minus;</button>
-        <button class="key icon sun" type="button" title="Brightness">&#9728;</button>
-        <button class="key icon" type="button" title="Brightness up">+</button>
+        <button class="key icon" type="button" data-action="fll" title="Fullscreen"><span class="ic-fullscreen" aria-hidden="true"></span></button>
       </div>
       <div class="corner">
         <button class="key icon" type="button" title="Layout"><span class="ic-1x2"></span></button>
@@ -501,6 +547,9 @@ namespace NOTelemetryReader
           <div class="tgp-panel" id="tgp-panel">
             <div class="tgp-empty">&mdash; NO TARGET &mdash;</div>
             <img class="tgp-img" id="tgp-img" alt="">
+          </div>
+          <div class="tgl-panel" id="tgl-panel">
+            <div class="tgl-empty">&mdash; NO TARGETS &mdash;</div>
           </div>
         </div>
       </div>
@@ -549,7 +598,9 @@ const tgpImg    = document.getElementById('tgp-img');
 // fires 'load' once, so we can't use it to detect frame stalls. The 'error' handler still
 // covers the hard case where the MJPEG connection breaks outright.
 tgpImg.addEventListener('error', function() { tgpPanel.classList.remove('has-feed'); });
-const sepEls    = document.querySelectorAll('#keys-left .sep');   // 0 = above key[0], i+1 = below key[i]
+const sepEls      = document.querySelectorAll('#keys-left .sep');   // 0 = above key[0], i+1 = below key[i]
+const rightSepEls = document.querySelectorAll('#keys-right .sep');  // same indexing, right column
+const tglPanel    = document.getElementById('tgl-panel');
 const cmPanel       = document.getElementById('cm-panel');
 const cmFlaresTitle = document.getElementById('cm-flares-title');
 const cmJammerTitle = document.getElementById('cm-jammer-title');
@@ -582,7 +633,7 @@ const PAGES = {
       { label: 'AVN', key: 2, action: 'avn' },      // → AVN page
       { label: 'RWR', key: 3, action: 'rwr' },      // → RWR page
       { label: 'TGP', key: 4, action: 'tgp' },      // → TGP page
-      { label: 'FLL', key: 5, action: 'fll' },      // → toggle browser fullscreen
+      { label: 'TGL', key: 5, action: 'tgl' },      // → TGL page (target list)
     ],
   },
   wpn: {
@@ -592,6 +643,12 @@ const PAGES = {
     ],
   },
   tgp: {
+    opaque: true,
+    items: [
+      { label: 'MAIN', key: 0, action: 'main' },    // ← back to MAIN
+    ],
+  },
+  tgl: {
     opaque: true,
     items: [
       { label: 'MAIN', key: 0, action: 'main' },    // ← back to MAIN
@@ -614,6 +671,12 @@ let cmData = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 // produced, and back to false during the 3-second post-loss hold's expiry.
 let tgpActive = false;
 
+// Latest target list mirrored from the map iframe. Whole list is kept in memory; only the
+// first 10 are displayed (left key 1..5, then right key 1..5). The MAIN back button owns
+// left key 0; the future NEXT button will own right key 0.
+let tglData = { targets: [] };
+const TGL_MAX_DISPLAY = 10;
+
 // Render a page: set the overlay background, (re)assign the left keys' actions, and
 // position each item label next to its key.
 function showPage(name) {
@@ -623,6 +686,7 @@ function showPage(name) {
   infoBox.classList.toggle('show', name === 'main');
   wpnPanel.classList.toggle('show', name === 'wpn');
   tgpPanel.classList.toggle('show', name === 'tgp');
+  tglPanel.classList.toggle('show', name === 'tgl');
   // Start the MJPEG fetch only while the TGP page is in view; clearing src closes the
   // long-lived multipart connection so the mod can stop encoding frames if no one's watching.
   if (name === 'tgp') {
@@ -635,6 +699,7 @@ function showPage(name) {
     tgpPanel.classList.remove('has-feed');
   }
   if (name === 'wpn') { renderWpn(); renderCm(); }
+  if (name === 'tgl') { renderTgl(); }
 
   leftKeys.forEach(function(k) { delete k.dataset.action; });
   // Only wipe dynamic line-select labels; static children (info-box) stay put.
@@ -778,6 +843,90 @@ function renderCm() {
   fitTextHeight(cmJammerVal, cmJammerVal.getBoundingClientRect().height);
 }
 
+// Renders the TGL page from the cached target list. The first 10 targets are displayed,
+// 1..5 down the left column (key 0 reserved for MAIN) and 6..10 down the right column
+// (key 0 reserved for the future NEXT button). Anything past 10 stays in tglData.targets
+// and is ignored until a displayed target drops out.
+function renderTgl() {
+  // Tear down any previously-rendered rows; the list is small, so rebuild beats diffing.
+  tglPanel.querySelectorAll('.tg-item').forEach(function(el) { el.remove(); });
+
+  const list = (tglData.targets || []).slice(0, TGL_MAX_DISPLAY);
+  tglPanel.classList.toggle('has-targets', list.length > 0);
+  if (!list.length) return;
+
+  // Format range as "8,4 km" (European decimal comma) when given a number; pass strings through.
+  function fmtRng(r) {
+    if (typeof r === 'number' && isFinite(r)) return r.toFixed(1).replace('.', ',') + ' km';
+    return (r != null ? String(r) : '—') + (typeof r === 'string' && /km$/i.test(r) ? '' : '');
+  }
+
+  const panelRect = tglPanel.getBoundingClientRect();
+  for (let i = 0; i < list.length; i++) {
+    const onLeft = i < 5;
+    const slot   = onLeft ? (i + 1) : (i - 5 + 1);   // key index inside the column (1..5)
+    const col    = onLeft ? sepEls : rightSepEls;
+    if (slot + 1 >= col.length) continue;            // safety, shouldn't trigger with 5 slots
+
+    const t   = list[i];
+    const top = col[slot].getBoundingClientRect();
+    const bot = col[slot + 1].getBoundingClientRect();
+
+    const slotH = bot.top - top.bottom;
+    // Each side gets ~45% of the panel width, leaving a ~10% gap down the centre so left
+    // and right rows never collide even at the widest meta text ("GRID: xxxx | RNG: xx,x km").
+    const sideW = Math.max(40, panelRect.width * 0.45);
+
+    const row = document.createElement('div');
+    row.className = 'tg-item ' + (onLeft ? 'left' : 'right');
+    row.style.top    = (top.bottom - panelRect.top) + 'px';
+    row.style.height = slotH + 'px';
+    row.style.width  = sideW + 'px';
+
+    // Initial sizes by slot height. Name is 5/3 the meta size ("2/3 bigger"). Tuned to
+    // roughly half-fill the slot vertically — leaves comfortable margin around each row.
+    // If the text overflows the column width, we shrink both proportionally below.
+    let metaPx = Math.max(8, slotH * 0.1725);
+    let namePx = metaPx * (5 / 3);
+
+    const name = document.createElement('div');
+    name.className = 'tg-name';
+    name.style.fontSize = namePx.toFixed(1) + 'px';
+    name.textContent = t.n || '—';
+    row.appendChild(name);
+
+    const meta = document.createElement('div');
+    meta.className = 'tg-meta';
+    meta.style.fontSize = metaPx.toFixed(1) + 'px';
+    const grid = (t.g != null ? String(t.g) : '—');
+    meta.innerHTML = 'GRID: ' + escapeHtml(grid) +
+                     '<span class="tg-sep">|</span>' +
+                     'RNG: ' + escapeHtml(fmtRng(t.r));
+    row.appendChild(meta);
+
+    tglPanel.appendChild(row);
+
+    // Shrink to fit horizontally: measure the rendered widths and scale both sizes by the
+    // tightest ratio. Padding (left/right 6px) is already accounted for by clientWidth.
+    const avail = row.clientWidth;
+    if (avail > 0) {
+      const widest = Math.max(name.scrollWidth, meta.scrollWidth);
+      if (widest > avail) {
+        const k = avail / widest;
+        namePx *= k; metaPx *= k;
+        name.style.fontSize = namePx.toFixed(1) + 'px';
+        meta.style.fontSize = metaPx.toFixed(1) + 'px';
+      }
+    }
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function(c) {
+    return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c];
+  });
+}
+
 // The map iframe broadcasts status + loadout + cm via postMessage; mirror onto the
 // info-box (MAIN page), the cached wpnData + cmData (WPN page).
 window.addEventListener('message', function(e) {
@@ -802,6 +951,11 @@ window.addEventListener('message', function(e) {
     tgpActive = !!m.active;
     // Only matters while the TGP page is in view — outside it the panel is hidden anyway.
     if (currentPage === 'tgp') tgpPanel.classList.toggle('has-feed', tgpActive);
+  } else if (m.type === 'targets') {
+    // Mirror the full target list. The renderer slices to TGL_MAX_DISPLAY; if any of the
+    // first 10 got deselected, the next held-back targets slide in on the next render.
+    tglData = { targets: Array.isArray(m.items) ? m.items : [] };
+    if (currentPage === 'tgl') renderTgl();
   }
 });
 
@@ -821,6 +975,7 @@ function mfdButton(el) {
     case 'map':  showPage('map');  break;
     case 'wpn':  showPage('wpn');  break;
     case 'tgp':  showPage('tgp');  break;
+    case 'tgl':  showPage('tgl');  break;
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;

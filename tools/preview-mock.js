@@ -101,8 +101,29 @@
       { t: 'SAM',     f: 2, x: -2000,  z: -15000, h: 0,   o: false, s: 1 },
       { t: 'Vessel',  f: 0, x: -14000, z: -4000,  h: 0,   o: false, s: 1 },
     ],
+    // 12 mock target locks — the MFD's TGL page displays the first 10, the last 2 stay
+    // queued in memory until one of the visible ones is deselected.
+    targets: [
+      { n: 'HLT Flatbed',   g: 'Kg53', r: 8.4  },
+      { n: 'BMP-2',         g: 'Kh54', r: 9.1  },
+      { n: 'T-72B',         g: 'Kh55', r: 9.6  },
+      { n: 'ZSU-23-4',      g: 'Lh55', r: 10.3 },
+      { n: 'BTR-80',        g: 'Lh56', r: 11.0 },
+      { n: 'SA-15 Tor',     g: 'Lj57', r: 12.4 },
+      { n: 'MTLB',          g: 'Lj58', r: 12.9 },
+      { n: 'Truck',         g: 'Mj58', r: 13.5 },
+      { n: 'Su-25 (gnd)',   g: 'Mj59', r: 14.2 },
+      { n: 'Pantsir-S1',    g: 'Mk59', r: 15.0 },
+      { n: 'KamAZ Fuel',    g: 'Mk60', r: 16.1 },
+      { n: 'Radar Mast',    g: 'Nk60', r: 17.3 },
+    ],
   };
-  const FRAME = window.__PREVIEW_FRAME__ || DEFAULT_FRAME;
+  // Prefer the captured frame when present, but layer DEFAULT_FRAME on top for any field the
+  // capture doesn't carry (e.g. older captures predating the `targets` list).
+  const FRAME = window.__PREVIEW_FRAME__
+    ? Object.assign({}, DEFAULT_FRAME, window.__PREVIEW_FRAME__,
+        { targets: window.__PREVIEW_FRAME__.targets || DEFAULT_FRAME.targets })
+    : DEFAULT_FRAME;
 
   // ── Stand-in EventSource: drives the page exactly like the real /stream ───────
   class MockEventSource {

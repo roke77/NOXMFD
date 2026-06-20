@@ -514,6 +514,7 @@ function clearMission() {
     window.parent.postMessage({ mfd: true, type: 'loadout', items: [], selWeapon: null }, '*');
     window.parent.postMessage({ mfd: true, type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 }, '*');
     window.parent.postMessage({ mfd: true, type: 'tgp', active: false }, '*');
+    window.parent.postMessage({ mfd: true, type: 'targets', items: [] }, '*');
   }
 }
 
@@ -579,6 +580,12 @@ function updateHUD(d) {
     // Mirror the TGP feed state so the MFD's TGP page can swap to NO TARGET when the feed
     // stops (after the in-game 3-second post-loss hold expires).
     window.parent.postMessage({ mfd: true, type: 'tgp', active: !!d.tgpActive }, '*');
+    // Mirror the player's selected target list so the MFD's TGL page can render it.
+    // Each item: { n: name, g: grid, r: rangeKm }. Empty array if the frame omits the field.
+    window.parent.postMessage({
+      mfd: true, type: 'targets',
+      items: Array.isArray(d.targets) ? d.targets : []
+    }, '*');
   }
 
   const gEl = document.getElementById('gear');
