@@ -356,38 +356,22 @@ namespace NOTelemetryReader
     font-size: 22px;
     letter-spacing: 3px;
   }
-  /* Two-column grid: the weapon icon spans both rows on the left (taking the full slot
-     height); the name and ammo stack on the right, one per row. Game weapon icons are
-     2:1 — the aspect-ratio constraint sizes the icon column off the row height. */
+  /* Weapon row — name on top, ammo below. Constrained to the LEFT HALF of the screen;
+     the RIGHT HALF is reserved for the .wp-sel-icon image of the currently-selected
+     weapon (see below). Each row is positioned by JS to span its line-select key slot. */
   .wp-item {
     position: absolute;
-    left: 90px;          /* clear the left line-select label gutter */
-    right: 30px;
-    display: grid;
-    grid-template-columns: auto 1fr;
-    grid-template-rows: 1fr 1fr;
-    column-gap: 14px;
+    left: 90px;                            /* clear the left line-select label gutter */
+    right: calc(50% + 10px);               /* stop before the panel's vertical midline */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     padding: 4px 0;
     box-sizing: border-box;
     min-height: 0;
   }
-  .wp-icon-wrap {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-    height: 100%;
-    aspect-ratio: 2 / 1;
-    min-height: 0;
-  }
-  .wp-icon {
-    display: block;
-    width: 100%; height: 100%;
-    object-fit: contain;
-    object-position: left center;
-  }
   .wp-name {
-    grid-column: 2; grid-row: 1;
-    justify-self: start;                   /* hug text so .sel background is tight */
-    align-self: end;                       /* anchor to bottom of row 1, near the centreline */
+    align-self: flex-start;
     max-width: 100%;
     padding: 0 6px;
     margin-left: -6px;
@@ -395,11 +379,41 @@ namespace NOTelemetryReader
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .wp-ammo {
-    grid-column: 2; grid-row: 2;
-    align-self: start;                     /* anchor to top of row 2, near the centreline */
     font-size: 20px; color: #4aaa4a; letter-spacing: 1px; margin-top: 2px;
   }
   .wp-ammo span { color: #39ff14; font-weight: 900; }
+
+  /* Big icon of the currently-selected weapon. Sits in the RIGHT HALF of the screen
+     and spans the full vertical area covered by line-select keys 1..5 (sized by JS to
+     match the same separator gaps the rows use). Game weapon icons are 2:1 horizontal;
+     object-fit:contain lets them grow to the largest size that fits without crop. */
+  .wp-sel-icon-wrap {
+    position: absolute;
+    /* 10px outer margin from the panel midline / right edge (JS adds the same gap top/bottom). */
+    left: calc(50% + 20px);
+    right: 40px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    overflow: hidden;
+    padding: 10px;            /* inner breathing room between the icon and the border */
+    box-sizing: border-box;
+    border: 1px solid #d4d8dc;   /* same off-white as the line-select labels */
+    /* Establishes a CSS-size container so the rotated image can size off cqw / cqh. */
+    container-type: size;
+  }
+  .wp-sel-icon-wrap.show { display: flex; }
+  /* Source icons are 2:1 horizontal. Rotate 90deg so the long axis runs vertically and
+     fills the tall right half; swap the image's logical width/height (via cqh/cqw of the
+     wrap) so object-fit:contain has the right "rotated" box to fit into. */
+  .wp-sel-icon {
+    display: block;
+    width:  100cqh;
+    height: 100cqw;
+    object-fit: contain;
+    transform: rotate(90deg);
+  }
 
   /* Countermeasures panel — centred at the top of the WPN page, in key[0]'s slot.
      Two columns (IR Flares | Radar Jammer) separated by a thin green vertical line. */
@@ -659,9 +673,9 @@ const PAGES = {
   },
   wpn: {
     opaque: true,
-    items: [
-      { label: 'MAIN', key: 0, action: 'main' },    // ← back to MAIN
-    ],
+    // No static items: renderWpn() owns left-key-0 (MAIN on page 0, PREV after) and
+    // right-key-0 (NEXT when more than WPN_MAX_DISPLAY weapons exist).
+    items: [],
   },
   tgp: {
     opaque: true,
@@ -684,6 +698,11 @@ let wpnData      = { items: [], selWeapon: null };
 let wpnNamesKey  = null;     // weapon-name signature — only rebuild the DOM when it changes
 let wpnAmmoEls   = [];       // ammo text nodes, aligned with wpnData.items
 let wpnItemEls   = [];       // .wp-item containers, aligned with wpnData.items
+let wpnSelIconWrap = null;   // .wp-sel-icon-wrap holder (right-half big icon)
+let wpnSelIconImg  = null;   // <img> inside the wrap; src tracks wpnData.selWeapon
+let wpnSelIconKey  = null;   // last src we set, so we don't trigger no-op reloads
+let wpnPage = 0;             // 0-indexed page for the weapon list pagination
+const WPN_MAX_DISPLAY = 5;   // weapons per page = 5 line-select slots (keys 1..5)
 
 // Latest countermeasures snapshot mirrored from the map iframe.
 let cmData = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
@@ -720,7 +739,7 @@ function showPage(name) {
     tgpImg.removeAttribute('src');
     tgpPanel.classList.remove('has-feed');
   }
-  if (name === 'wpn') { renderWpn(); renderCm(); }
+  if (name === 'wpn') { renderCm(); }   // cm-panel positions itself; doesn't need overlay-items
 
   leftKeys .forEach(function(k) { delete k.dataset.action; });
   rightKeys.forEach(function(k) { delete k.dataset.action; });
@@ -740,8 +759,9 @@ function showPage(name) {
     overlayEl.appendChild(el);
   });
 
-  // TGL owns its own labels (PREV/MAIN + NEXT) because they depend on tglPage;
-  // run after the generic label sweep so it doesn't clobber what we just placed.
+  // TGL and WPN own their own labels (PREV/MAIN + NEXT) because they depend on the
+  // page state; run after the generic label sweep so they don't get clobbered.
+  if (name === 'wpn') { renderWpn(); }
   if (name === 'tgl') { renderTgl(); }
 }
 
@@ -751,11 +771,33 @@ function showPage(name) {
 // Rebuilds the DOM (and refetches icons) only when the set of weapons changes; ammo
 // text + selected highlight refresh in place.
 function renderWpn() {
+  // Clear any nav labels from a prior render; we rebuild them below based on wpnPage.
+  overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
+  delete leftKeys [0].dataset.action;
+  delete rightKeys[0].dataset.action;
+
   const list    = wpnData.items || [];
-  // Weapons fill keys 1..N (key 0 reserved for the MAIN back button). Each slot is the
-  // gap between sep[i+1] (above) and sep[i+2] (below) — sep[0] is above key[0].
-  const maxSlots = Math.max(0, sepEls.length - 2);
-  const trimmed  = list.slice(0, maxSlots);
+  const total   = list.length;
+  const maxPage = Math.max(0, Math.ceil(total / WPN_MAX_DISPLAY) - 1);
+  if (wpnPage > maxPage) wpnPage = maxPage;
+  if (wpnPage < 0)       wpnPage = 0;
+
+  const start   = wpnPage * WPN_MAX_DISPLAY;
+  const trimmed = list.slice(start, start + WPN_MAX_DISPLAY);
+
+  // Nav buttons: MAIN/PREV on left key 0, NEXT on right key 0 when there's overflow.
+  const oRect = overlayEl.getBoundingClientRect();
+  function navLabel(key, text, action, onRight) {
+    key.dataset.action = action;
+    const el = document.createElement('div');
+    el.className = 'overlay-item' + (onRight ? ' right' : '');
+    el.textContent = text;
+    const kr = key.getBoundingClientRect();
+    el.style.top = (kr.top + kr.height / 2 - oRect.top) + 'px';
+    overlayEl.appendChild(el);
+  }
+  navLabel(leftKeys[0], wpnPage > 0 ? 'PREV' : 'MAIN', wpnPage > 0 ? 'wpn-prev' : 'main', false);
+  if (start + trimmed.length < total) navLabel(rightKeys[0], 'NEXT', 'wpn-next', true);
 
   if (!trimmed.length) {
     wpnEmptyEl.style.display = '';
@@ -763,6 +805,8 @@ function renderWpn() {
       wpnNamesKey = ''; wpnAmmoEls = []; wpnItemEls = [];
       wpnPanel.querySelectorAll('.wp-item').forEach(function(el) { el.remove(); });
     }
+    if (wpnSelIconWrap) wpnSelIconWrap.classList.remove('show');
+    wpnSelIconKey = null;
     return;
   }
   wpnEmptyEl.style.display = 'none';
@@ -787,19 +831,23 @@ function renderWpn() {
       item.appendChild(ammo);
       wpnAmmoEls.push(ammo);
 
-      const wrap = document.createElement('div');
-      wrap.className = 'wp-icon-wrap';
-      const img = document.createElement('img');
-      img.className = 'wp-icon';
-      img.alt = '';
-      img.onerror = function() { img.style.visibility = 'hidden'; };   // no icon for this weapon
-      img.src = '/weapon?name=' + encodeURIComponent(w.n);
-      wrap.appendChild(img);
-      item.appendChild(wrap);
-
       wpnItemEls.push(item);
       wpnPanel.appendChild(item);
     }
+  }
+
+  // Lazy-build the big selected-weapon icon on the right half (one image, swapped src
+  // whenever the selected weapon changes). The wrap is reused across rebuilds.
+  if (!wpnSelIconWrap) {
+    wpnSelIconWrap = document.createElement('div');
+    wpnSelIconWrap.className = 'wp-sel-icon-wrap';
+    wpnSelIconImg = document.createElement('img');
+    wpnSelIconImg.className = 'wp-sel-icon';
+    wpnSelIconImg.alt = '';
+    wpnSelIconImg.onerror = function() { wpnSelIconImg.style.visibility = 'hidden'; };
+    wpnSelIconImg.onload  = function() { wpnSelIconImg.style.visibility = ''; };
+    wpnSelIconWrap.appendChild(wpnSelIconImg);
+    wpnPanel.appendChild(wpnSelIconWrap);
   }
 
   // Position each row to span between the separators flanking its line-select key.
@@ -811,12 +859,38 @@ function renderWpn() {
     wpnItemEls[i].style.height = (bot.top - top.bottom) + 'px';
   }
 
+  // Position the big icon over the full vertical span of the side keys (sep[1] just
+  // below key 0 → sep[last] just above the bottom strip). Always spans the whole keys-1..5
+  // area regardless of how many weapons the player actually has, so the icon gets all the
+  // available height even when only a few rows are populated. +10/-20 mirrors the 10px
+  // horizontal outer margin on the wrap so the bordered box sits inset on all four sides.
+  if (sepEls.length >= 3) {
+    const topRect = sepEls[1].getBoundingClientRect();
+    const botRect = sepEls[sepEls.length - 1].getBoundingClientRect();
+    wpnSelIconWrap.style.top    = (topRect.bottom - panelRect.top + 10) + 'px';
+    wpnSelIconWrap.style.height = (botRect.top - topRect.bottom - 20) + 'px';
+  }
+
   // Refresh ammo text + selected/depleted highlights in place (cheap, no DOM rebuild).
   for (let i = 0; i < trimmed.length && i < wpnAmmoEls.length; i++) {
     const w = trimmed[i];
     wpnAmmoEls[i].innerHTML = (w.f > 0) ? ('<span>' + w.a + '</span> / ' + w.f) : '';
     wpnItemEls[i].classList.toggle('sel',   w.n === wpnData.selWeapon);
     wpnItemEls[i].classList.toggle('empty', w.f > 0 && w.a === 0);
+  }
+
+  // Update the right-side icon src when the selection changes (no-op if same).
+  const sel = wpnData.selWeapon;
+  if (sel) {
+    if (sel !== wpnSelIconKey) {
+      wpnSelIconKey = sel;
+      wpnSelIconImg.style.visibility = '';            // un-hide before the new load resolves
+      wpnSelIconImg.src = '/weapon?name=' + encodeURIComponent(sel);
+    }
+    wpnSelIconWrap.classList.add('show');
+  } else {
+    wpnSelIconWrap.classList.remove('show');
+    wpnSelIconKey = null;
   }
 }
 
@@ -1021,7 +1095,9 @@ function mfdButton(el) {
   switch (el.dataset.action) {
     case 'main': showPage('main'); mapSend('status-request'); break;   // pull fresh status on open
     case 'map':  showPage('map');  break;
-    case 'wpn':  showPage('wpn');  break;
+    case 'wpn':       wpnPage = 0; showPage('wpn'); break;   // fresh entry — start on page 0
+    case 'wpn-prev':  wpnPage--;   showPage('wpn'); break;   // renderWpn clamps on overshoot
+    case 'wpn-next':  wpnPage++;   showPage('wpn'); break;
     case 'tgp':  showPage('tgp');  break;
     case 'tgl':       tglPage = 0; showPage('tgl'); break;   // fresh entry — always start on page 0
     case 'tgl-prev':  tglPage--;   showPage('tgl'); break;   // renderTgl clamps if we overshoot
