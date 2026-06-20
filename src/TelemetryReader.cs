@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Reflection;
+using System.Text;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.UI;
 
 namespace NOTelemetryReader
 {
@@ -26,6 +29,21 @@ namespace NOTelemetryReader
         // Aircraft-type map icons we've already extracted (keyed by unitName).
         private readonly HashSet<string> _capturedIcons = new HashSet<string>();
         private const int IconsPerScan = 16;  // cap new icon extractions per scan to avoid a frame hitch
+
+        // Aircraft definition names whose part layout has already been dumped to the log.
+        // One-shot per session; used to inform the AVN page silhouette design.
+        private readonly HashSet<string> _loggedPartLayouts = new HashSet<string>();
+
+        // Aircraft definition names whose airframe silhouette assets have been captured
+        // (background + per-part PNGs + JSON layout). One-shot per type per session.
+        private readonly HashSet<string> _capturedAirframes = new HashSet<string>();
+
+        // Cached reflection handles into StatusDisplay's private serialized fields.
+        private static FieldInfo? _sdStatusDisplaysField;
+        private static FieldInfo? _sdBackgroundField;
+
+        // Reusable buffer for per-part HP snapshots; resized only when the part count changes.
+        private PartHp[] _partsBuf = Array.Empty<PartHp>();
 
         // Cached unit list from the 1 Hz scan; positions are read from it at 10 Hz.
         private Unit[] _units = Array.Empty<Unit>();
@@ -143,6 +161,218 @@ namespace NOTelemetryReader
                 _loadout = BuildLoadout(ac);
                 CountFlares(ac, out _flares, out _flaresMax);
                 TryCaptureCmIcons(ac);
+                TryLogPartLayout(ac);
+                TryCaptureAirframe(ac);
+            }
+        }
+
+        // One-shot per aircraft type: walk the cockpit's StatusDisplay, capture the
+        // aircraft-background silhouette + every per-part Image sprite to PNG, and emit a JSON
+        // layout descriptor so the AVN page can re-compose the same picture on the web.
+        //
+        // The StatusDisplay's `statusDisplays` and `aircraftBackground` are private serialized
+        // fields, so we reflect into them once and cache the FieldInfos. Part layouts are
+        // normalized 0..1 in the background's local UI rect, so the web side just multiplies
+        // by its rendered silhouette size.
+        private void TryCaptureAirframe(Aircraft ac)
+        {
+            string key = ac.definition != null ? ac.definition.unitName : null;
+            if (string.IsNullOrEmpty(key) || _capturedAirframes.Contains(key)) return;
+
+            StatusDisplay sd = UnityEngine.Object.FindObjectOfType<StatusDisplay>(includeInactive: true);
+            if (sd == null) return;   // not built yet — try again next slow scan
+
+            if (_sdStatusDisplaysField == null)
+                _sdStatusDisplaysField = typeof(StatusDisplay).GetField("statusDisplays", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (_sdBackgroundField == null)
+                _sdBackgroundField = typeof(StatusDisplay).GetField("aircraftBackground", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (_sdStatusDisplaysField == null || _sdBackgroundField == null)
+            {
+                Plugin.Log?.LogWarning("[NOTelemetry] AVN: StatusDisplay reflection fields not found — airframe capture disabled.");
+                _capturedAirframes.Add(key);
+                return;
+            }
+
+            Image bgImage     = _sdBackgroundField.GetValue(sd)     as Image;
+            System.Collections.IList partsList = _sdStatusDisplaysField.GetValue(sd) as System.Collections.IList;
+            if (bgImage == null || partsList == null)
+            {
+                _capturedAirframes.Add(key);
+                return;
+            }
+
+            _capturedAirframes.Add(key);
+
+            RectTransform bgRT = bgImage.rectTransform;
+
+            // Diagnostic: dump the bg's full orientation in world space so we can see
+            // exactly what flip / rotation the cockpit canvas applies. The .right/.up
+            // axes give the world direction of the bg's local +X / +Y; if either points
+            // the "wrong" way, GetPartPlacement below mirrors cx/cy to match the visible
+            // orientation. Scale alone misses 180° rotation flips (rotation negates an
+            // axis without changing lossyScale), which is why we check directions too.
+            Vector3 bgLs = bgRT.lossyScale;
+            Vector3 bgR  = bgRT.right;
+            Vector3 bgU  = bgRT.up;
+            Vector3 bgEu = bgRT.eulerAngles;
+            Plugin.Log?.LogInfo(
+                $"[NOTelemetry] AVN bg lossyScale=({bgLs.x:0.000},{bgLs.y:0.000},{bgLs.z:0.000})  " +
+                $"rectSize=({bgRT.rect.width:0.0},{bgRT.rect.height:0.0})  " +
+                $"right=({bgR.x:0.00},{bgR.y:0.00},{bgR.z:0.00})  up=({bgU.x:0.00},{bgU.y:0.00},{bgU.z:0.00})  " +
+                $"euler=({bgEu.x:0.0},{bgEu.y:0.0},{bgEu.z:0.0})");
+
+            // Background silhouette — one PNG, served at /airframe?type=<key>&part=__bg
+            if (bgImage.sprite != null)
+            {
+                byte[]? bgPng = SpriteToPng(bgImage.sprite, isIcon: false);
+                if (bgPng != null) TelemetryServer.SetAirframeImage(key, "__bg", bgPng);
+            }
+
+            // Per-part PNGs + layout entries.
+            var sb = new StringBuilder();
+            sb.Append("{\"type\":\"").Append(EscapeJson(key)).Append("\",\"parts\":[");
+            int partCount = 0;
+            int flippedCount = 0;
+            for (int i = 0; i < partsList.Count; i++)
+            {
+                PartStatusDisplay psd = partsList[i] as PartStatusDisplay;
+                if (psd == null || psd.partImage == null) continue;
+
+                Image img = psd.partImage;
+                string name = img.gameObject != null ? img.gameObject.name : null;
+                if (string.IsNullOrEmpty(name)) continue;
+
+                if (img.sprite != null)
+                {
+                    byte[]? png = SpriteToPng(img.sprite, isIcon: false);
+                    if (png != null) TelemetryServer.SetAirframeImage(key, name, png);
+                }
+
+                if (!GetPartPlacement(img.rectTransform, bgRT, out float cx, out float cy, out float w, out float h, out float rotZ, out int sx, out int sy))
+                    continue;
+
+                if (partCount > 0) sb.Append(',');
+                partCount++;
+                if (sx < 0 || sy < 0) flippedCount++;
+                sb.Append('{')
+                  .Append("\"n\":\"").Append(EscapeJson(name)).Append("\",")
+                  .Append("\"cx\":").Append(cx.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
+                  .Append("\"cy\":").Append(cy.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
+                  .Append("\"w\":").Append(w.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
+                  .Append("\"h\":").Append(h.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
+                  .Append("\"r\":").Append(rotZ.ToString("0.0", CultureInfo.InvariantCulture)).Append(',')
+                  .Append("\"sx\":").Append(sx).Append(',')
+                  .Append("\"sy\":").Append(sy).Append(',')
+                  .Append("\"rt\":").Append(psd.redStatusThreshold.ToString("0.0", CultureInfo.InvariantCulture))
+                  .Append('}');
+            }
+            sb.Append("]}");
+            TelemetryServer.SetAirframeLayout(key, sb.ToString());
+
+            Plugin.Log?.LogInfo($"[NOTelemetry] Captured airframe silhouette '{key}' (bg + {partCount} parts, {flippedCount} flipped).");
+        }
+
+        // Computes a part's placement relative to the background's local rect, in normalized
+        // 0..1 coords (origin top-left to match web layout). All math is done in the bg's
+        // LOCAL space (via InverseTransformPoint), so any parent transforms — including
+        // mirroring flips applied by the cockpit canvas — are handled cleanly, and the cx/cy
+        // values match what the player sees on the cockpit screen.
+        // sx/sy report per-part flips relative to the bg's coordinate frame: ±1 each. The
+        // cockpit prefab often re-uses a single sprite for symmetric parts and flips one
+        // via the RectTransform's scale (e.g. wing1_R = wing1_L sprite with scale.x = -1).
+        // Our /airframe endpoint returns the raw sprite so the renderer can apply the same
+        // flip via CSS transform: scale(sx, sy) — otherwise the R parts would render mirror-
+        // reversed and look out of place.
+        // Returns false if the bg rect has zero size (silhouette not laid out yet).
+        private static bool GetPartPlacement(RectTransform partRT, RectTransform bgRT,
+            out float cx, out float cy, out float w, out float h, out float rotZ,
+            out int sx, out int sy)
+        {
+            cx = cy = w = h = rotZ = 0f;
+            sx = sy = 1;
+            if (partRT == null || bgRT == null) return false;
+
+            Rect bgRect = bgRT.rect;
+            if (bgRect.width <= 0.0001f || bgRect.height <= 0.0001f) return false;
+
+            // Part's centre in BG-local coords. World ↔ local round-trip absorbs any
+            // intermediate transforms (offsets, rotations, scales), so what we read is
+            // strictly "where the part sits inside the bg's own rect".
+            Vector3 partWorldCenter = partRT.TransformPoint(partRT.rect.center);
+            Vector3 partBgLocal     = bgRT.InverseTransformPoint(partWorldCenter);
+
+            cx = (partBgLocal.x - bgRect.xMin) / bgRect.width;
+            cy = (partBgLocal.y - bgRect.yMin) / bgRect.height;
+            cy = 1f - cy;                                       // origin top-left for web
+
+            // Mirror to match what the player actually sees. Two cases produce a mirror:
+            //   (a) A negative lossyScale on the axis (the obvious flip), or
+            //   (b) A 180° rotation around the orthogonal axis (rotation negates the axis
+            //       direction without touching lossyScale).
+            // We check the bg's world-space "right" / "up" axis directions instead of
+            // scale because that covers both cases — if local +X ends up pointing in
+            // world -X, the visual is mirrored regardless of *how* it got there.
+            if (bgRT.right.x < 0f) cx = 1f - cx;
+            if (bgRT.up.y    < 0f) cy = 1f - cy;
+
+            // Size in fractions of bg width/height. The part's lossy-scale ratio against
+            // the bg accounts for any chain of scales between them.
+            float bgSx   = bgRT.lossyScale.x   == 0f ? 1f : Mathf.Abs(bgRT.lossyScale.x);
+            float bgSy   = bgRT.lossyScale.y   == 0f ? 1f : Mathf.Abs(bgRT.lossyScale.y);
+            float partSx = Mathf.Abs(partRT.lossyScale.x);
+            float partSy = Mathf.Abs(partRT.lossyScale.y);
+            w = partRT.rect.width  * (partSx / bgSx) / bgRect.width;
+            h = partRT.rect.height * (partSy / bgSy) / bgRect.height;
+
+            // Z rotation: report local so it survives the bg-local re-frame. CCW positive.
+            rotZ = partRT.localEulerAngles.z;
+            if (rotZ > 180f) rotZ -= 360f;
+
+            // Per-part flip sign, expressed relative to the bg's frame. If the part and
+            // bg have opposite-sign lossy-scale on an axis, the part is mirrored on that
+            // axis. The renderer applies CSS transform: scale(sx, sy) to match.
+            float pSx = partRT.lossyScale.x, pSy = partRT.lossyScale.y;
+            float bSx = bgRT.lossyScale.x,   bSy = bgRT.lossyScale.y;
+            sx = (pSx == 0f || bSx == 0f) ? 1 : ((pSx * bSx) < 0f ? -1 : 1);
+            sy = (pSy == 0f || bSy == 0f) ? 1 : ((pSy * bSy) < 0f ? -1 : 1);
+            return true;
+        }
+
+        private static string EscapeJson(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return string.Empty;
+            var sb = new StringBuilder(s.Length);
+            foreach (char c in s)
+            {
+                if      (c == '"')  sb.Append("\\\"");
+                else if (c == '\\') sb.Append("\\\\");
+                else if (c < 0x20)  sb.Append("\\u").Append(((int)c).ToString("x4"));
+                else                sb.Append(c);
+            }
+            return sb.ToString();
+        }
+
+        // One-shot debug aid for the AVN-page silhouette design: walks Aircraft.partLookup and
+        // logs every UnitPart's name + HP + critical flag + detached state. Fires once per
+        // aircraft definition name per session. Mirrors the data the game's own StatusDisplay
+        // uses to colour its silhouette segments (StatusDisplay matches Image.gameObject.name
+        // against UnitPart.gameObject.name — see decompiled/StatusDisplay.decompiled.cs).
+        private void TryLogPartLayout(Aircraft ac)
+        {
+            string key = ac.definition != null ? ac.definition.unitName : null;
+            if (string.IsNullOrEmpty(key) || _loggedPartLayouts.Contains(key)) return;
+
+            var parts = ac.partLookup;
+            if (parts == null) return;
+
+            _loggedPartLayouts.Add(key);
+            Plugin.Log?.LogInfo($"[NOTelemetry] AVN parts for '{key}' (count={parts.Count}):");
+            for (int i = 0; i < parts.Count; i++)
+            {
+                UnitPart p = parts[i];
+                if (p == null) { Plugin.Log?.LogInfo($"  [{i}] <null>"); continue; }
+                string n = p.gameObject != null ? p.gameObject.name : "<no-go>";
+                Plugin.Log?.LogInfo($"  [{i}] {n}  hp={p.hitPoints:0.#}  detached={p.IsDetached()}");
             }
         }
 
@@ -376,8 +606,29 @@ namespace NOTelemetryReader
                 ColFriendly    = _colFriendly,
                 ColHostile     = _colHostile,
                 ColNeutral     = _colNeutral,
-                TgpActive      = _tgpActive
+                TgpActive      = _tgpActive,
+                Parts          = BuildParts(aircraft)
             });
+        }
+
+        // Snapshots every UnitPart in the player aircraft's partLookup. Allocates only when
+        // the part count changes (so steady-state cost is N copies into a cached array).
+        private PartHp[] BuildParts(Aircraft ac)
+        {
+            var parts = ac.partLookup;
+            if (parts == null || parts.Count == 0) return Array.Empty<PartHp>();
+
+            if (_partsBuf.Length != parts.Count) _partsBuf = new PartHp[parts.Count];
+
+            for (int i = 0; i < parts.Count; i++)
+            {
+                UnitPart p = parts[i];
+                if (p == null) { _partsBuf[i] = default; continue; }
+                _partsBuf[i].Name     = p.gameObject != null ? p.gameObject.name : string.Empty;
+                _partsBuf[i].Hp       = p.hitPoints;
+                _partsBuf[i].Detached = p.IsDetached();
+            }
+            return _partsBuf;
         }
 
         // Pulls MapSettings.MapImage (the actual in-game map sprite) into PNG bytes and hands

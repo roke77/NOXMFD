@@ -52,6 +52,18 @@ namespace NOTelemetryReader
         // True while the targeting-pod feed is producing frames (a target is locked, or the
         // game's 3-second post-loss hold is still running). Drives the MFD's NO TARGET fallback.
         public bool   TgpActive;
+
+        // Per-part HP for the AVN page. Built from Aircraft.partLookup, one entry per
+        // damageable UnitPart. Names match the silhouette layout served at /airframe-layout.
+        public PartHp[] Parts;
+    }
+
+    // One UnitPart's live damage state.
+    internal struct PartHp
+    {
+        public string Name;     // UnitPart.gameObject.name (matches the airframe-layout key)
+        public float  Hp;       // 0..100
+        public bool   Detached; // true once the part has been blown off the aircraft
     }
 
     // One weapon type in the loadout. The icon PNG is served separately at /weapon?name=.

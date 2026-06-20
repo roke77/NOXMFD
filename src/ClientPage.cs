@@ -515,6 +515,7 @@ function clearMission() {
     window.parent.postMessage({ mfd: true, type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 }, '*');
     window.parent.postMessage({ mfd: true, type: 'tgp', active: false }, '*');
     window.parent.postMessage({ mfd: true, type: 'targets', items: [] }, '*');
+    window.parent.postMessage({ mfd: true, type: 'avn', name: null, parts: null }, '*');
   }
 }
 
@@ -605,6 +606,14 @@ function updateHUD(d) {
       targets = [];
     }
     window.parent.postMessage({ mfd: true, type: 'targets', items: targets }, '*');
+    // Mirror the player's aircraft name + per-part HP so the MFD's AVN page can render
+    // the live damage silhouette. The silhouette assets (background PNG, per-part PNGs,
+    // layout JSON) live behind /airframe and /airframe-layout — the MFD fetches them on demand.
+    window.parent.postMessage({
+      mfd: true, type: 'avn',
+      name: d.name || null,
+      parts: Array.isArray(d.parts) ? d.parts : null,
+    }, '*');
   }
 
   const gEl = document.getElementById('gear');

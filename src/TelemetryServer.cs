@@ -37,6 +37,13 @@ namespace NOTelemetryReader
         private static readonly Dictionary<string, byte[]> _cmIcons = new Dictionary<string, byte[]>();
         private static readonly object                     _cmLock  = new object();
 
+        // Airframe silhouette assets. Images keyed by "unitName|partName" — partName is the
+        // GameObject name from Aircraft.partLookup (e.g. "wing1_L") or "__bg" for the background
+        // silhouette. Layouts keyed by unitName, value is a JSON descriptor of part placements.
+        private static readonly Dictionary<string, byte[]> _airframeImages = new Dictionary<string, byte[]>();
+        private static readonly Dictionary<string, string> _airframeLayouts = new Dictionary<string, string>();
+        private static readonly object                     _airframeLock    = new object();
+
         // Latest TGP camera frame as a JPEG, refreshed ~10 Hz from TelemetryReader.
         // The frame id lets each MJPEG client only send when it changes.
         private static byte[]? _tgpJpg;
@@ -164,6 +171,21 @@ namespace NOTelemetryReader
             lock (_cmLock) _cmIcons[key] = png;
         }
 
+        // Called from Unity main thread once a part of an airframe silhouette has been extracted.
+        // partName == "__bg" for the aircraftBackground image.
+        public static void SetAirframeImage(string unitName, string partName, byte[] png)
+        {
+            if (string.IsNullOrEmpty(unitName) || string.IsNullOrEmpty(partName) || png == null) return;
+            lock (_airframeLock) _airframeImages[unitName + "|" + partName] = png;
+        }
+
+        // Called from Unity main thread once an airframe's part-layout descriptor is built.
+        public static void SetAirframeLayout(string unitName, string json)
+        {
+            if (string.IsNullOrEmpty(unitName) || json == null) return;
+            lock (_airframeLock) _airframeLayouts[unitName] = json;
+        }
+
         // Called from Unity main thread with each captured TGP camera frame.
         public static void PushTgpFrame(byte[] jpg)
         {
@@ -209,6 +231,10 @@ namespace NOTelemetryReader
                         ServePng(ctx, _weaponIcons, _weaponLock, "name");
                     else if (path == "/cm")
                         ServePng(ctx, _cmIcons, _cmLock, "type");
+                    else if (path == "/airframe")
+                        ServeAirframeImage(ctx);
+                    else if (path == "/airframe-layout")
+                        ServeAirframeLayout(ctx);
                     else if (path == "/mfd")
                     {
                         string lanBlock = string.IsNullOrEmpty(LanUrl)
@@ -324,6 +350,48 @@ namespace NOTelemetryReader
                 ctx.Response.ContentType     = "image/png";
                 ctx.Response.ContentLength64 = png.Length;
                 ctx.Response.OutputStream.Write(png, 0, png.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // ── Airframe handlers ───────────────────────────────────────────────────
+
+        private static void ServeAirframeImage(HttpListenerContext ctx)
+        {
+            string type = ctx.Request.QueryString["type"] ?? string.Empty;
+            string part = ctx.Request.QueryString["part"] ?? string.Empty;
+            byte[]? png = null;
+            if (type.Length > 0 && part.Length > 0)
+                lock (_airframeLock) _airframeImages.TryGetValue(type + "|" + part, out png);
+
+            if (png == null) { ctx.Response.StatusCode = 404; try { ctx.Response.Close(); } catch { } return; }
+            try
+            {
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "image/png";
+                ctx.Response.ContentLength64 = png.Length;
+                ctx.Response.OutputStream.Write(png, 0, png.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        private static void ServeAirframeLayout(HttpListenerContext ctx)
+        {
+            string type = ctx.Request.QueryString["type"] ?? string.Empty;
+            string? json = null;
+            if (type.Length > 0)
+                lock (_airframeLock) _airframeLayouts.TryGetValue(type, out json);
+
+            if (json == null) { ctx.Response.StatusCode = 404; try { ctx.Response.Close(); } catch { } return; }
+            try
+            {
+                byte[] body = Encoding.UTF8.GetBytes(json);
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -450,7 +518,24 @@ namespace NOTelemetryReader
                         +   "\"f\":\"" + EscapeJson(s.ColFriendly ?? "#39ff14") + "\","
                         +   "\"e\":\"" + EscapeJson(s.ColHostile  ?? "#ff4040") + "\","
                         +   "\"n\":\"" + EscapeJson(s.ColNeutral  ?? "#9aa0a6") + "\"}"
-                        + ",\"contacts\":" + UnitsArray(s.Units) + "}";
+                        + ",\"contacts\":" + UnitsArray(s.Units)
+                        + ",\"parts\":" + PartsArray(s.Parts) + "}";
+        }
+
+        private static string PartsArray(PartHp[]? parts)
+        {
+            if (parts == null || parts.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.AppendFormat(CultureInfo.InvariantCulture,
+                    "{{\"n\":\"{0}\",\"hp\":{1:0.#},\"d\":{2}}}",
+                    EscapeJson(parts[i].Name ?? string.Empty),
+                    parts[i].Hp,
+                    parts[i].Detached ? 1 : 0);
+            }
+            return sb.Append(']').ToString();
         }
 
         private static string UnitsArray(UnitInfo[]? units)

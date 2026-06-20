@@ -59,6 +59,11 @@
       <HintPath>$(GameDir)\NuclearOption_Data\Managed\Mirage.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- UnityEngine.UI provides Image / RectTransform — needed for the AVN silhouette capture. -->
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(GameDir)\NuclearOption_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <Target Name="DeployToGame" AfterTargets="Build">

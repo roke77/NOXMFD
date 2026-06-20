@@ -309,6 +309,76 @@ namespace NOTelemetryReader
   }
   .tgp-panel.has-feed .tgp-empty { display: none; }
 
+  /* AVN page — avionics. Aircraft name pinned to key[0]'s row at the top centre; the
+     damage silhouette fills the rest. The silhouette is composed of:
+       (a) .avn-bg  — a transparent PNG of the white aircraft outline from the cockpit's
+                      StatusDisplay (served at /airframe?type=...&part=__bg)
+       (b) .avn-part — one per UnitPart with a UI segment. Each is a CSS-masked div tinted
+                      by the game's exact damage formula (see renderAvnParts). The mask
+                      image is the part's solid silhouette PNG so transparency = no draw. */
+  .avn-panel {
+    position: absolute;
+    inset: 0;
+    display: none;
+    color: #39ff14;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+  }
+  .avn-panel.show { display: block; }
+  .avn-name {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #ffffff;
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    white-space: nowrap;
+    z-index: 2;
+  }
+  @media (orientation: portrait) {
+    .avn-name { font-size: clamp(32px, 3.6vh, 51px); }
+  }
+  /* Silhouette frame: positioned by JS to sit just under the name (top edge = sep[1])
+     and stretch down to the bottom strip (bottom edge = last sep). object-fit: contain
+     preserves aspect ratio inside whatever frame we give it; child parts are positioned
+     against the .avn-frame so their normalized layout (cx,cy,w,h) is unaffected by the
+     letterboxing the contain produces — they overlap the same pixels as the bg. */
+  .avn-frame {
+    position: absolute;
+    left: 0; right: 0;
+    overflow: hidden;
+  }
+  .avn-bg, .avn-parts {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  /* The bg is sized to fit (contain) the frame; .avn-parts is sized to MATCH the bg's
+     rendered box so per-part placement still aligns when letterboxing kicks in. */
+  .avn-bg     { max-width: 100%; max-height: 100%; display: block; }
+  .avn-parts  { display: block; }
+  /* One per UnitPart segment. The CSS mask is the per-part silhouette PNG; the background
+     colour is what we tint it with — set per-render so we can match the game's formula.
+     The source PNGs come straight from the game's UI Image sprites: a white silhouette on
+     an opaque dark background. There's no alpha channel to mask against, so we use
+     luminance mode — white pixels reveal the tint, dark pixels stay hidden. That keeps
+     the parts shaped like their actual airframe segment instead of square boxes. */
+  .avn-part {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    background-color: #ffffff;            /* overridden inline per part */
+    -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+            mask-size: 100% 100%;
+    -webkit-mask-position: center;
+            mask-position: center;
+    -webkit-mask-source-type: luminance;  /* Safari / older Chromium */
+            mask-mode: luminance;          /* Standard */
+    pointer-events: none;
+  }
+
   /* TGL page — target list. Rows are positioned over the left & right key columns by JS. */
   .tgl-panel {
     position: absolute;
@@ -591,6 +661,13 @@ namespace NOTelemetryReader
           <div class="tgl-panel" id="tgl-panel">
             <div class="tgl-empty">&mdash; NO TARGETS &mdash;</div>
           </div>
+          <div class="avn-panel" id="avn-panel">
+            <div class="avn-name" id="avn-name">&mdash;</div>
+            <div class="avn-frame" id="avn-frame">
+              <img class="avn-bg" id="avn-bg" alt="">
+              <div class="avn-parts" id="avn-parts"></div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="keys v" id="keys-right"></div>
@@ -642,6 +719,11 @@ tgpImg.addEventListener('error', function() { tgpPanel.classList.remove('has-fee
 const sepEls      = document.querySelectorAll('#keys-left .sep');   // 0 = above key[0], i+1 = below key[i]
 const rightSepEls = document.querySelectorAll('#keys-right .sep');  // same indexing, right column
 const tglPanel    = document.getElementById('tgl-panel');
+const avnPanel    = document.getElementById('avn-panel');
+const avnNameEl   = document.getElementById('avn-name');
+const avnFrame    = document.getElementById('avn-frame');
+const avnBg       = document.getElementById('avn-bg');
+const avnPartsEl  = document.getElementById('avn-parts');
 const cmPanel       = document.getElementById('cm-panel');
 const cmFlaresTitle = document.getElementById('cm-flares-title');
 const cmJammerTitle = document.getElementById('cm-jammer-title');
@@ -695,6 +777,12 @@ const PAGES = {
     // and right-key-0 (NEXT when overflow), since both depend on the live page state.
     items: [],
   },
+  avn: {
+    opaque: true,
+    items: [
+      { label: 'MAIN', key: 0, action: 'main' },     // ← back to MAIN
+    ],
+  },
 };
 let currentPage = 'map';
 
@@ -724,6 +812,17 @@ let tglData = { targets: [] };
 let tglPage = 0;
 const TGL_MAX_DISPLAY = 10;
 
+// Latest avionics snapshot mirrored from the map iframe. name = aircraft display name (also
+// the key for /airframe + /airframe-layout); parts = the live HP list from the snapshot.
+let avnData = { name: null, parts: null };
+
+// Per-aircraft-type layout descriptor + part-name → DOM element map. Layouts are fetched
+// once per aircraft type (and cached forever) since they're static prefab data; the part
+// elements are rebuilt whenever the layout changes (i.e. the player swaps aircraft).
+let avnLayoutType  = null;                    // type string the current DOM is built for
+let avnLayoutCache = Object.create(null);     // type → {bg, parts: [{n,cx,cy,w,h,r,rt}]} | 'pending' | 'fail'
+let avnPartEls     = Object.create(null);     // partName → .avn-part DOM element
+
 // Render a page: set the overlay background, (re)assign the left keys' actions, and
 // position each item label next to its key.
 function showPage(name) {
@@ -734,6 +833,7 @@ function showPage(name) {
   wpnPanel.classList.toggle('show', name === 'wpn');
   tgpPanel.classList.toggle('show', name === 'tgp');
   tglPanel.classList.toggle('show', name === 'tgl');
+  avnPanel.classList.toggle('show', name === 'avn');
   // Start the MJPEG fetch only while the TGP page is in view; clearing src closes the
   // long-lived multipart connection so the mod can stop encoding frames if no one's watching.
   if (name === 'tgp') {
@@ -769,6 +869,154 @@ function showPage(name) {
   // page state; run after the generic label sweep so they don't get clobbered.
   if (name === 'wpn') { renderWpn(); }
   if (name === 'tgl') { renderTgl(); }
+  if (name === 'avn') { renderAvn(); }
+}
+
+// Renders the AVN page. Three layers:
+//   - .avn-name pinned to the vertical centre of left key[0] (top row).
+//   - .avn-frame stretched from just below the name (sep[1]) to just above the bottom
+//     strip (last sep), spanning the full screen width.
+//   - .avn-bg + .avn-parts inside the frame; bg fits with object-fit:contain, parts are
+//     positioned + sized against the bg's rendered box so cx/cy/w/h stay aligned.
+// Re-runs on resize via showPage(currentPage) — re-positioning is the main reason.
+function renderAvn() {
+  avnNameEl.textContent = avnData.name || '—';
+
+  // Vertical placement: name aligned with key[0]'s centre; frame top under sep[1].
+  const k = leftKeys[0];
+  if (!k) return;
+  const panelRect = avnPanel.getBoundingClientRect();
+  const kr = k.getBoundingClientRect();
+  avnNameEl.style.top = (kr.top + kr.height / 2 - panelRect.top) + 'px';
+
+  if (sepEls.length >= 2) {
+    const frameTopSep = sepEls[1].getBoundingClientRect();   // sep below key[0]
+    const frameBotSep = sepEls[sepEls.length - 1].getBoundingClientRect();
+    avnFrame.style.top    = (frameTopSep.bottom - panelRect.top) + 'px';
+    avnFrame.style.height = (frameBotSep.top - frameTopSep.bottom) + 'px';
+  }
+
+  // Hide artwork until we know the aircraft type. The name above still updates.
+  const type = avnData.name;
+  if (!type) {
+    avnBg.style.display = 'none';
+    avnPartsEl.style.display = 'none';
+    return;
+  }
+  avnBg.style.display = '';
+  avnPartsEl.style.display = '';
+
+  // Kick off / re-use the layout fetch. Once loaded, build the part DOM and start tinting.
+  ensureAvnLayout(type);
+  const layout = avnLayoutCache[type];
+  if (!layout || typeof layout === 'string') return;     // pending or failed
+  if (avnLayoutType !== type) buildAvnParts(type, layout);
+
+  // Size the .avn-parts container to match the bg's *rendered* box (object-fit:contain
+  // leaves letterboxing — we want parts to land on the bg pixels, not the letterbox).
+  fitAvnPartsToBg();
+
+  // Apply the live HP tint per part.
+  paintAvnDamage();
+}
+
+// Fetch the silhouette layout for an aircraft type, if not already cached / in flight.
+function ensureAvnLayout(type) {
+  if (avnLayoutCache[type] !== undefined) return;
+  avnLayoutCache[type] = 'pending';
+
+  // Background PNG comes from the same endpoint, swap immediately so the player sees
+  // the outline as soon as it loads even before the parts arrive.
+  avnBg.src = '/airframe?type=' + encodeURIComponent(type) + '&part=__bg';
+
+  fetch('/airframe-layout?type=' + encodeURIComponent(type))
+    .then(function(r) { if (!r.ok) throw new Error('layout ' + r.status); return r.json(); })
+    .then(function(j) { avnLayoutCache[type] = j; if (currentPage === 'avn') renderAvn(); })
+    .catch(function()  { avnLayoutCache[type] = 'fail'; });
+}
+
+// Build one .avn-part div per layout entry. The CSS mask is the part's silhouette PNG —
+// background-color sets the tint, mask alpha sets the shape. Reused across renders; only
+// rebuilt when the aircraft type changes.
+function buildAvnParts(type, layout) {
+  avnPartsEl.innerHTML = '';
+  avnPartEls = Object.create(null);
+  if (!layout || !Array.isArray(layout.parts)) { avnLayoutType = type; return; }
+
+  for (const p of layout.parts) {
+    const el = document.createElement('div');
+    el.className = 'avn-part';
+    el.dataset.rt = p.rt;                                    // red threshold from the prefab
+    el.style.left   = (p.cx * 100).toFixed(3) + '%';
+    el.style.top    = (p.cy * 100).toFixed(3) + '%';
+    el.style.width  = (p.w  * 100).toFixed(3) + '%';
+    el.style.height = (p.h  * 100).toFixed(3) + '%';
+    // Compose the transform: centre on (left, top), then apply per-part scale flip
+    // (so symmetric sprites reused across L/R parts get drawn mirrored to match the
+    // game's RectTransform.scale), then rotate. Unity Z rotation is CCW positive, CSS
+    // rotate() is CW positive, so we negate.
+    const sx = (p.sx === -1) ? -1 : 1;
+    const sy = (p.sy === -1) ? -1 : 1;
+    const parts = ['translate(-50%, -50%)'];
+    if (sx !== 1 || sy !== 1) parts.push('scale(' + sx + ',' + sy + ')');
+    if (p.r)                   parts.push('rotate(' + (-p.r).toFixed(1) + 'deg)');
+    el.style.transform = parts.join(' ');
+    const url = '/airframe?type=' + encodeURIComponent(type) + '&part=' + encodeURIComponent(p.n);
+    el.style.webkitMaskImage = 'url("' + url + '")';
+    el.style.maskImage       = 'url("' + url + '")';
+    avnPartsEl.appendChild(el);
+    avnPartEls[p.n] = el;
+  }
+  avnLayoutType = type;
+}
+
+// .avn-bg uses max-width/height: 100% (object-fit:contain on an <img>), so its rendered
+// box is at most the frame. Mirror that box onto .avn-parts so children placed by % land
+// on the bg pixels, not on the letterbox border.
+function fitAvnPartsToBg() {
+  const fr = avnFrame.getBoundingClientRect();
+  if (!fr.width || !fr.height || !avnBg.naturalWidth || !avnBg.naturalHeight) {
+    avnPartsEl.style.width = fr.width + 'px';
+    avnPartsEl.style.height = fr.height + 'px';
+    return;
+  }
+  const imgAspect = avnBg.naturalWidth / avnBg.naturalHeight;
+  const frAspect  = fr.width / fr.height;
+  let w, h;
+  if (imgAspect > frAspect) { w = fr.width;  h = fr.width  / imgAspect; }
+  else                      { h = fr.height; w = fr.height * imgAspect; }
+  avnPartsEl.style.width  = w + 'px';
+  avnPartsEl.style.height = h + 'px';
+}
+// Trigger a re-fit once the bg PNG resolves (naturalWidth becomes known then).
+avnBg.addEventListener('load', function() { if (currentPage === 'avn') fitAvnPartsToBg(); });
+
+// Apply the game's damage formula per part:
+//   condition = max((hp - redThreshold) / (100 - redThreshold), 0)
+//   color = rgb(255, 255*min(condition*2,1), 0)  → green→yellow→red as hp drops
+//   alpha = 1 - condition                         → undamaged parts fade out
+//   detached → rgb(178, 0, 64)                    → the "lost part" magenta
+// (See decompiled/PartStatusDisplay.cs StatusDisplay_OnDamage.)
+function paintAvnDamage() {
+  const map = Object.create(null);
+  if (Array.isArray(avnData.parts)) {
+    for (const p of avnData.parts) map[p.n] = p;
+  }
+  for (const name in avnPartEls) {
+    const el = avnPartEls[name];
+    const data = map[name];
+    const rt = +el.dataset.rt || 30;
+    if (data && data.d) {
+      el.style.backgroundColor = 'rgb(178, 0, 64)';
+      el.style.opacity = '1';
+      continue;
+    }
+    const hp = data ? data.hp : 100;
+    const cond = Math.max((hp - rt) / (100 - rt), 0);
+    const g = Math.min(cond * 2, 1);
+    el.style.backgroundColor = 'rgb(255,' + Math.round(g * 255) + ',0)';
+    el.style.opacity = (1 - cond).toFixed(3);     // 0 (healthy) → invisible; 1 (red zone) → fully tinted
+  }
 }
 
 // Render the WPN page from the cached loadout. Each weapon row is absolutely positioned
@@ -1082,6 +1330,13 @@ window.addEventListener('message', function(e) {
     tgpActive = !!m.active;
     // Only matters while the TGP page is in view — outside it the panel is hidden anyway.
     if (currentPage === 'tgp') tgpPanel.classList.toggle('has-feed', tgpActive);
+  } else if (m.type === 'avn') {
+    avnData = { name: m.name || null, parts: Array.isArray(m.parts) ? m.parts : null };
+    if (currentPage === 'avn') {
+      // Live HP repaint is cheap; only run a full re-layout when the aircraft type changes.
+      if (avnLayoutType !== avnData.name) renderAvn();
+      else paintAvnDamage();
+    }
   } else if (m.type === 'targets') {
     // Mirror the full target list. The renderer slices to TGL_MAX_DISPLAY; if any of the
     // first 10 got deselected, the next held-back targets slide in on the next render.
@@ -1111,6 +1366,7 @@ function mfdButton(el) {
     case 'tgl':       tglPage = 0; showPage('tgl'); break;   // fresh entry — always start on page 0
     case 'tgl-prev':  tglPage--;   showPage('tgl'); break;   // renderTgl clamps if we overshoot
     case 'tgl-next':  tglPage++;   showPage('tgl'); break;
+    case 'avn':  showPage('avn');  break;
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;
