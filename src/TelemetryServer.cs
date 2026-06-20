@@ -43,6 +43,13 @@ namespace NOTelemetryReader
         private static long    _tgpFrameId;
         private static readonly object _tgpLock = new object();
 
+        // Number of HTTP clients currently subscribed to /tgp.mjpg. The reader checks this
+        // each tick and skips the entire capture pipeline (cam swap, GPU readback, JPEG
+        // encode) while nobody is watching — that's where most of the per-target FPS hit
+        // comes from. Counter is bumped in HandleMjpegAsync's try and decremented in finally.
+        private static int _tgpSubscribers;
+        public static bool WantsTgpFrames => Volatile.Read(ref _tgpSubscribers) > 0;
+
         // ── Lifecycle ──────────────────────────────────────────────────────────
 
         // Local-network URL (e.g. http://192.168.1.42:5005) — empty if the listener fell back
@@ -336,6 +343,7 @@ namespace NOTelemetryReader
             ctx.Response.Headers.Add("X-Accel-Buffering", "no");
 
             long lastSeen = -1;
+            Interlocked.Increment(ref _tgpSubscribers);
             try
             {
                 while (!ct.IsCancellationRequested)
@@ -353,14 +361,18 @@ namespace NOTelemetryReader
                         ctx.Response.OutputStream.Flush();
                     }
 
-                    // Source publishes at 30 Hz (~33 ms/frame); 20 ms polls stay ahead so we
+                    // Source publishes at 15 Hz (~66 ms/frame); 40 ms polls stay ahead so we
                     // don't drop alternate frames waiting for the next wake-up.
-                    await Task.Delay(20, ct).ConfigureAwait(false);
+                    await Task.Delay(40, ct).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) { }
             catch (Exception) { /* client disconnected, normal */ }
-            finally { try { ctx.Response.Close(); } catch { } }
+            finally
+            {
+                Interlocked.Decrement(ref _tgpSubscribers);
+                try { ctx.Response.Close(); } catch { }
+            }
         }
 
         // ── SSE handler ────────────────────────────────────────────────────────
