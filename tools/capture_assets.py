@@ -73,14 +73,18 @@ def fetch(path):
 
 
 def main():
-    # Start clean so stale assets from a previous capture don't linger.
     ASSETS.mkdir(parents=True, exist_ok=True)
+
+    # Grab the live frame FIRST. If the server is unreachable / no mission loaded,
+    # we bail before touching any existing assets — otherwise a failed capture would
+    # wipe the previous good one, leaving the preview with nothing to render.
+    frame = grab_frame()
+    print(f"\nCaptured frame: {frame.get('name')}  —  {frame.get('mapName')} / {frame.get('mission')}")
+
+    # We've confirmed the game is reachable — safe to clear stale assets now.
     for old in ASSETS.glob("*.png"):
         old.unlink()
     (ASSETS / "manifest.json").unlink(missing_ok=True)
-
-    frame = grab_frame()
-    print(f"\nCaptured frame: {frame.get('name')}  —  {frame.get('mapName')} / {frame.get('mission')}")
 
     assets = {}
 
@@ -114,6 +118,42 @@ def main():
         (ASSETS / fn).write_bytes(data)
         assets["weapon:" + n] = "assets/" + fn
         print(f"  weapon  saved   {n}")
+
+    # AVN airframe silhouette: background PNG + one PNG per UI segment + the layout JSON.
+    # All one-shot per aircraft type — keyed by frame.name. If the layout 404s the airframe
+    # capture is silently skipped (e.g. capturing during the brief window before the cockpit
+    # StatusDisplay has been built).
+    af_type = frame.get("name", "")
+    if af_type:
+        layout_bytes = fetch("/airframe-layout?type=" + urllib.parse.quote(af_type))
+        if layout_bytes:
+            try:
+                layout = json.loads(layout_bytes.decode("utf-8"))
+            except json.JSONDecodeError:
+                layout = None
+        else:
+            layout = None
+        if layout:
+            assets["airframe-layout:" + af_type] = layout      # inlined JSON, not a file
+            bg = fetch(f"/airframe?type={urllib.parse.quote(af_type)}&part=__bg")
+            if bg:
+                fn = "airframe_bg.png"
+                (ASSETS / fn).write_bytes(bg)
+                assets[f"airframe:{af_type}|__bg"] = "assets/" + fn
+                print(f"  airframe bg     saved   ({len(bg):,} bytes)")
+            saved = 0
+            for i, p in enumerate(layout.get("parts", [])):
+                name = p.get("n")
+                if not name: continue
+                data = fetch(f"/airframe?type={urllib.parse.quote(af_type)}&part={urllib.parse.quote(name)}")
+                if not data: continue
+                fn = f"airframe_part_{i}.png"
+                (ASSETS / fn).write_bytes(data)
+                assets[f"airframe:{af_type}|{name}"] = "assets/" + fn
+                saved += 1
+            print(f"  airframe parts  saved   {saved} for '{af_type}'")
+        else:
+            print(f"  airframe layout (none)  for '{af_type}' — capture again once you're in the cockpit")
 
     (ASSETS / "manifest.json").write_text(
         json.dumps({"frame": frame, "assets": assets}, indent=2), encoding="utf-8")

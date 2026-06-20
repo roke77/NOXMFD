@@ -57,10 +57,11 @@
     if (CAPTURE) {
       // Real capture: serve the saved asset, or fall through to the original URL so a
       // missing icon 404s and the page shows its square fallback — exactly like the game.
-      if (v.indexOf('/map') === 0)    return CAPTURE['map'] || v;
-      if (v.indexOf('/icon') === 0)   return CAPTURE['icon:' + qp(v, 'type')] || v;
-      if (v.indexOf('/weapon') === 0) return CAPTURE['weapon:' + qp(v, 'name')] || v;
-      if (v.indexOf('/cm') === 0)     return CAPTURE['cm:' + qp(v, 'type')] || MOCK_CM[qp(v, 'type')] || v;
+      if (v.indexOf('/map') === 0)             return CAPTURE['map'] || v;
+      if (v.indexOf('/icon') === 0)            return CAPTURE['icon:' + qp(v, 'type')] || v;
+      if (v.indexOf('/weapon') === 0)          return CAPTURE['weapon:' + qp(v, 'name')] || v;
+      if (v.indexOf('/cm') === 0)              return CAPTURE['cm:' + qp(v, 'type')] || MOCK_CM[qp(v, 'type')] || v;
+      if (v.indexOf('/airframe?') === 0)       return CAPTURE['airframe:' + qp(v, 'type') + '|' + qp(v, 'part')] || v;
       return v;
     }
     // Synthetic fallback.
@@ -76,6 +77,22 @@
     get() { return desc.get.call(this); },
     set(v) { desc.set.call(this, rewrite(v)); },
   });
+
+  // ── Reroute the page's fetch() calls ────────────────────────────────────────
+  // The AVN page fetches /airframe-layout via fetch(). With a real capture we serve
+  // the inlined JSON from the manifest; without one, we synthesise a tiny layout so
+  // the page still has something to render (no silhouette images, just empty rects).
+  const origFetch = window.fetch.bind(window);
+  window.fetch = function(input, init) {
+    const u = typeof input === 'string' ? input : (input && input.url) || '';
+    if (u.indexOf('/airframe-layout') === 0) {
+      const type = qp(u, 'type');
+      const j = (CAPTURE && CAPTURE['airframe-layout:' + type]) || null;
+      if (j) return Promise.resolve(new Response(JSON.stringify(j), { status: 200, headers: { 'content-type': 'application/json' } }));
+      return Promise.resolve(new Response('', { status: 404 }));
+    }
+    return origFetch(input, init);
+  };
 
   // ── Static telemetry frame ───────────────────────────────────────────────────
   // Prefer a real captured frame; otherwise this hand-written synthetic one.
