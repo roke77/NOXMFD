@@ -206,6 +206,14 @@ namespace NOTelemetryReader
     font-weight: 900;
     letter-spacing: 2px;
   }
+  /* On portrait viewports (mobile rotated upright) the screen grows much taller, which
+     spreads the line-select keys further apart and makes a fixed 32px label look small
+     in the now-bigger empty space. Scale the label with viewport height so it keeps the
+     same visual prominence as in landscape. Clamped 32-64px so it never goes below the
+     landscape baseline or grows absurdly large. */
+  @media (orientation: portrait) {
+    .overlay-item { font-size: clamp(32px, 3.6vh, 51px); }
+  }
 
   /* MAIN page "about" card — name + URL + live connection status. Hidden on MAP page. */
   .info-box {
@@ -230,6 +238,16 @@ namespace NOTelemetryReader
   .info-box .ib-status.connected    { color: #39ff14; }
   .info-box .ib-status.disconnected { color: #ff4040; }
   .info-box .ib-status.waiting      { color: #ffaa00; }
+  /* Portrait: scale the MAIN-page info card with viewport height so the box stays
+     readable on tall screens. The three text rows scale in lockstep (preserves the
+     original 28/14/14 ratio); padding scales too so the card grows proportionally,
+     not just the text. */
+  @media (orientation: portrait) {
+    .info-box            { padding: clamp(22px, 2.4vh, 35px) clamp(36px, 4vh, 58px); }
+    .info-box .ib-title  { font-size: clamp(28px, 3.12vh, 45px); margin-bottom: clamp(14px, 1.6vh, 22px); }
+    .info-box .ib-url    { font-size: clamp(14px, 1.6vh, 22px); margin-bottom: clamp(14px, 1.6vh, 22px); }
+    .info-box .ib-status { font-size: clamp(14px, 1.6vh, 22px); }
+  }
 
   /* WPN page — stacks the player's loadout one weapon per line-select key (keys 1..N;
      key 0 is the MAIN back button). Each row is positioned + sized to fit the slot
@@ -323,10 +341,9 @@ namespace NOTelemetryReader
      ends up 5/3 the meta size (i.e. "2/3 bigger"). Line-height is tight so the two lines
      reach the slot's top and bottom. */
   .tg-name { font-weight: bold; white-space: nowrap; line-height: 1.0; }
-  /* Meta is dimmed vs the bright-green name to de-emphasise grid/range; the inner sep stays
-     even dimmer so the GRID / RNG groups still read as distinct. */
-  .tg-meta { white-space: nowrap; line-height: 1.0; color: #2a8a2a; }
-  .tg-sep  { color: #1a4a1a; padding: 0 6px; }
+  /* GRID and RNG are stacked below the name and dimmed to de-emphasise vs the bright name. */
+  .tg-grid,
+  .tg-rng  { white-space: nowrap; line-height: 1.0; color: #2a8a2a; }
 
   .wpn-empty {
     position: absolute;
@@ -545,7 +562,7 @@ namespace NOTelemetryReader
             </div>
           </div>
           <div class="tgp-panel" id="tgp-panel">
-            <div class="tgp-empty">&mdash; NO TARGET &mdash;</div>
+            <div class="tgp-empty">&mdash; NO LOCK &mdash;</div>
             <img class="tgp-img" id="tgp-img" alt="">
           </div>
           <div class="tgl-panel" id="tgl-panel">
@@ -873,9 +890,9 @@ function renderTgl() {
     const bot = col[slot + 1].getBoundingClientRect();
 
     const slotH = bot.top - top.bottom;
-    // Each side gets ~45% of the panel width, leaving a ~10% gap down the centre so left
-    // and right rows never collide even at the widest meta text ("GRID: xxxx | RNG: xx,x km").
-    const sideW = Math.max(40, panelRect.width * 0.45);
+    // Each side gets half the panel width. Left and right meet (or overlap) at the centre —
+    // user explicitly accepts overlap in exchange for losing the dead black band.
+    const sideW = Math.max(40, panelRect.width * 0.5);
 
     const row = document.createElement('div');
     row.className = 'tg-item ' + (onLeft ? 'left' : 'right');
@@ -883,9 +900,8 @@ function renderTgl() {
     row.style.height = slotH + 'px';
     row.style.width  = sideW + 'px';
 
-    // Initial sizes by slot height. Name is 5/3 the meta size ("2/3 bigger"). Tuned to
-    // roughly half-fill the slot vertically — leaves comfortable margin around each row.
-    // If the text overflows the column width, we shrink both proportionally below.
+    // Initial sizes by slot height. Name is 5/3 the meta size ("2/3 bigger"). Three lines
+    // stacked (name + GRID + RNG) — shrunk below if any line overflows the column width.
     let metaPx = Math.max(8, slotH * 0.1725);
     let namePx = metaPx * (5 / 3);
 
@@ -895,37 +911,35 @@ function renderTgl() {
     name.textContent = t.n || '—';
     row.appendChild(name);
 
-    const meta = document.createElement('div');
-    meta.className = 'tg-meta';
-    meta.style.fontSize = metaPx.toFixed(1) + 'px';
-    const grid = (t.g != null ? String(t.g) : '—');
-    meta.innerHTML = 'GRID: ' + escapeHtml(grid) +
-                     '<span class="tg-sep">|</span>' +
-                     'RNG: ' + escapeHtml(fmtRng(t.r));
-    row.appendChild(meta);
+    const grid = document.createElement('div');
+    grid.className = 'tg-grid';
+    grid.style.fontSize = metaPx.toFixed(1) + 'px';
+    grid.textContent = 'GRID: ' + (t.g != null ? String(t.g) : '—');
+    row.appendChild(grid);
+
+    const rng = document.createElement('div');
+    rng.className = 'tg-rng';
+    rng.style.fontSize = metaPx.toFixed(1) + 'px';
+    rng.textContent = 'RNG: ' + fmtRng(t.r);
+    row.appendChild(rng);
 
     tglPanel.appendChild(row);
 
-    // Shrink to fit horizontally: measure the rendered widths and scale both sizes by the
-    // tightest ratio. Padding (left/right 6px) is already accounted for by clientWidth.
+    // Shrink to fit horizontally: scale both sizes by the tightest line.
     const avail = row.clientWidth;
     if (avail > 0) {
-      const widest = Math.max(name.scrollWidth, meta.scrollWidth);
+      const widest = Math.max(name.scrollWidth, grid.scrollWidth, rng.scrollWidth);
       if (widest > avail) {
         const k = avail / widest;
         namePx *= k; metaPx *= k;
         name.style.fontSize = namePx.toFixed(1) + 'px';
-        meta.style.fontSize = metaPx.toFixed(1) + 'px';
+        grid.style.fontSize = metaPx.toFixed(1) + 'px';
+        rng .style.fontSize = metaPx.toFixed(1) + 'px';
       }
     }
   }
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, function(c) {
-    return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c];
-  });
-}
 
 // The map iframe broadcasts status + loadout + cm via postMessage; mirror onto the
 // info-box (MAIN page), the cached wpnData + cmData (WPN page).
