@@ -49,17 +49,29 @@
 
   const MOCK_MAP = svg(MAP_SVG), MOCK_ICON = svg(ICON_SVG), MOCK_WEAPON = svg(WEAPON_SVG);
   const MOCK_CM = { flares: svg(CM_FLARES_SVG), jammer: svg(CM_JAMMER_SVG) };
+  // Zero-byte GIF data URI: the browser parses it, fails to decode, and fires the
+  // <img>'s `error` event WITHOUT a network request. Used to mimic a 404 response
+  // for assets a real capture doesn't include — same client-side effect (onerror →
+  // retry → square fallback) but no console-visible HTTP 404.
+  const SILENT_FAIL_IMG = 'data:image/gif;base64,';
 
   // ── Reroute the page's image fetches ─────────────────────────────────────────
   const qp = (v, k) => new URLSearchParams(v.split('?')[1] || '').get(k);
   function rewrite(v) {
     if (typeof v !== 'string') return v;
     if (CAPTURE) {
-      // Real capture: serve the saved asset, or fall through to the original URL so a
-      // missing icon 404s and the page shows its square fallback — exactly like the game.
+      // Real capture: serve the saved asset, or fall through to a silent-error data URI
+      // so the page's onerror path still fires (→ square fallback for missing icons),
+      // but the browser console doesn't get spammed with 404s against the preview server.
+      // The game-side mod retries until the asset exists; in offline preview it never
+      // will, but that's fine — the page handles the missing state gracefully.
       if (v.indexOf('/map') === 0)             return CAPTURE['map'] || v;
-      if (v.indexOf('/icon') === 0)            return CAPTURE['icon:' + qp(v, 'type')] || v;
-      if (v.indexOf('/weapon') === 0)          return CAPTURE['weapon:' + qp(v, 'name')] || v;
+      if (v.indexOf('/icon') === 0)            return CAPTURE['icon:' + qp(v, 'type')] || SILENT_FAIL_IMG;
+      if (v.indexOf('/weapon') === 0)          return CAPTURE['weapon:' + qp(v, 'name')] || SILENT_FAIL_IMG;
+      // TGP MJPEG stream — there's no static asset to capture for a live video feed,
+      // so silently fail the request. The TGP page's error handler clears .has-feed
+      // → the panel shows its "NO LOCK" empty state, matching the game's no-target case.
+      if (v.indexOf('/tgp.mjpg') === 0)        return SILENT_FAIL_IMG;
       if (v.indexOf('/cm') === 0)              return CAPTURE['cm:' + qp(v, 'type')] || MOCK_CM[qp(v, 'type')] || v;
       if (v.indexOf('/airframe?') === 0)       return CAPTURE['airframe:' + qp(v, 'type') + '|' + qp(v, 'part')] || v;
       return v;

@@ -160,7 +160,12 @@ namespace NORoksMFD
 
 <main>
   <div id="map-panel">
-    <img id="map-img" src="/map" alt="">
+    <!-- src is intentionally empty: the HTML parser fetches static src= attributes
+         directly (bypassing the preview-mock's <img>.src setter override), which
+         would 404 against the static preview server. The img is display:none and
+         only used as a canvas source — the first telemetry frame assigns the real
+         /map URL via JS, which both the game server and the mock can satisfy. -->
+    <img id="map-img" alt="">
     <div id="map-missing">&mdash; NO SIGNAL &mdash;</div>
     <canvas id="overlay"></canvas>
     <div id="mission-bar" class="empty">
