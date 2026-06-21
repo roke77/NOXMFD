@@ -41,9 +41,17 @@ namespace NORoksMFD
         // Cached reflection handles into StatusDisplay's private serialized fields.
         private static FieldInfo? _sdStatusDisplaysField;
         private static FieldInfo? _sdBackgroundField;
+        private static FieldInfo? _sdFailureIndicatorsField;
 
         // Reusable buffer for per-part HP snapshots; resized only when the part count changes.
         private PartHp[] _partsBuf = Array.Empty<PartHp>();
+
+        // Cached failure-indicator GameObjects from the cockpit StatusDisplay. Polled per
+        // tick: any GO with activeSelf=true means the game has fired its OnReportDamage
+        // event for the matching message (e.g. "L ENG FIRE" when the left Turbofan dies).
+        // The GO name IS the failure message — that's how the prefab matches them up.
+        private GameObject[] _failureGOs = Array.Empty<GameObject>();
+        private readonly List<string> _failureScratch = new List<string>();
 
         // Cached unit list from the 1 Hz scan; positions are read from it at 10 Hz.
         private Unit[] _units = Array.Empty<Unit>();
@@ -186,6 +194,8 @@ namespace NORoksMFD
                 _sdStatusDisplaysField = typeof(StatusDisplay).GetField("statusDisplays", BindingFlags.NonPublic | BindingFlags.Instance);
             if (_sdBackgroundField == null)
                 _sdBackgroundField = typeof(StatusDisplay).GetField("aircraftBackground", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (_sdFailureIndicatorsField == null)
+                _sdFailureIndicatorsField = typeof(StatusDisplay).GetField("failureIndicators", BindingFlags.NonPublic | BindingFlags.Instance);
             if (_sdStatusDisplaysField == null || _sdBackgroundField == null)
             {
                 Plugin.Log?.LogWarning("[NORoksMFD] AVN: StatusDisplay reflection fields not found — airframe capture disabled.");
@@ -269,7 +279,23 @@ namespace NORoksMFD
             sb.Append("]}");
             TelemetryServer.SetAirframeLayout(key, sb.ToString());
 
-            Plugin.Log?.LogInfo($"[NORoksMFD] Captured airframe silhouette '{key}' (bg + {partCount} parts, {flippedCount} flipped).");
+            // Cache the cockpit's failure-indicator GameObjects (e.g. "LEFT ENGINE FIRE",
+            // "FUEL LOW"). We don't capture their positions or rendered text — visual
+            // styling is the AVN page's concern. The cached references just let us poll
+            // activeSelf each tick to know which messages are currently firing.
+            var failureGOs = new List<GameObject>();
+            System.Collections.IList failureList = _sdFailureIndicatorsField?.GetValue(sd) as System.Collections.IList;
+            if (failureList != null)
+            {
+                for (int i = 0; i < failureList.Count; i++)
+                {
+                    GameObject go = failureList[i] as GameObject;
+                    if (go != null) failureGOs.Add(go);
+                }
+            }
+            _failureGOs = failureGOs.ToArray();
+
+            Plugin.Log?.LogInfo($"[NORoksMFD] Captured airframe silhouette '{key}' (bg + {partCount} parts, {flippedCount} flipped, {_failureGOs.Length} failure messages: {string.Join(", ", System.Linq.Enumerable.Select(_failureGOs, g => g.name))}).");
         }
 
         // Computes a part's placement relative to the background's local rect, in normalized
@@ -607,8 +633,25 @@ namespace NORoksMFD
                 ColHostile     = _colHostile,
                 ColNeutral     = _colNeutral,
                 TgpActive      = _tgpActive,
-                Parts          = BuildParts(aircraft)
+                Parts          = BuildParts(aircraft),
+                Failures       = BuildFailures()
             });
+        }
+
+        // Returns the names of all currently-active failure indicators (e.g. "L ENG FIRE",
+        // "FUEL LOW"). The cached list of GameObjects comes from StatusDisplay's
+        // failureIndicators field captured at airframe-capture time; the game flips activeSelf
+        // on the matching GO when an IReportDamage event fires.
+        private string[] BuildFailures()
+        {
+            if (_failureGOs == null || _failureGOs.Length == 0) return Array.Empty<string>();
+            _failureScratch.Clear();
+            for (int i = 0; i < _failureGOs.Length; i++)
+            {
+                GameObject go = _failureGOs[i];
+                if (go != null && go.activeSelf) _failureScratch.Add(go.name);
+            }
+            return _failureScratch.Count == 0 ? Array.Empty<string>() : _failureScratch.ToArray();
         }
 
         // Snapshots every UnitPart in the player aircraft's partLookup. Allocates only when

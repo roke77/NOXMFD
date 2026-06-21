@@ -56,6 +56,11 @@ namespace NORoksMFD
         // Per-part HP for the AVN page. Built from Aircraft.partLookup, one entry per
         // damageable UnitPart. Names match the silhouette layout served at /airframe-layout.
         public PartHp[] Parts;
+
+        // Names of currently-active failure indicators (e.g. "L ENG FIRE", "FUEL LOW").
+        // Polled from the cockpit StatusDisplay's failureIndicators list each tick; the
+        // game sets the matching GameObject active when an IReportDamage event fires.
+        public string[] Failures;
     }
 
     // One UnitPart's live damage state.

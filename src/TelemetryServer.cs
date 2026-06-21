@@ -519,7 +519,20 @@ namespace NORoksMFD
                         +   "\"e\":\"" + EscapeJson(s.ColHostile  ?? "#ff4040") + "\","
                         +   "\"n\":\"" + EscapeJson(s.ColNeutral  ?? "#9aa0a6") + "\"}"
                         + ",\"contacts\":" + UnitsArray(s.Units)
-                        + ",\"parts\":" + PartsArray(s.Parts) + "}";
+                        + ",\"parts\":" + PartsArray(s.Parts)
+                        + ",\"failures\":" + StringArray(s.Failures) + "}";
+        }
+
+        private static string StringArray(string[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append('"').Append(EscapeJson(items[i] ?? string.Empty)).Append('"');
+            }
+            return sb.Append(']').ToString();
         }
 
         private static string PartsArray(PartHp[]? parts)

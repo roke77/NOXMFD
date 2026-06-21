@@ -328,7 +328,7 @@ namespace NORoksMFD
     position: absolute;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: #ffffff;
+    color: #39ff14;
     font-size: 32px;
     font-weight: 900;
     letter-spacing: 2px;
@@ -378,6 +378,24 @@ namespace NORoksMFD
             mask-mode: luminance;          /* Standard */
     pointer-events: none;
   }
+
+  /* Failure-indicator labels (L ENG FIRE, R ENG FIRE, FUEL LOW…). One per entry in the
+     captured layout's `failures` array, positioned by cx/cy against the silhouette frame.
+     The DOM nodes are always there; visibility flips per snapshot based on which messages
+     are in avnData.failures (i.e. the matching GameObject is activeSelf in the cockpit). */
+  .avn-failure {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: none;
+    color: #ff4040;
+    font-weight: 900;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    text-align: center;
+    pointer-events: none;
+    text-shadow: 0 0 4px rgba(255, 64, 64, 0.5);
+  }
+  .avn-failure.active { display: block; }
 
   /* TGL page — target list. Rows are positioned over the left & right key columns by JS. */
   .tgl-panel {
@@ -813,15 +831,29 @@ let tglPage = 0;
 const TGL_MAX_DISPLAY = 10;
 
 // Latest avionics snapshot mirrored from the map iframe. name = aircraft display name (also
-// the key for /airframe + /airframe-layout); parts = the live HP list from the snapshot.
-let avnData = { name: null, parts: null };
+// the key for /airframe + /airframe-layout); parts = the live HP list from the snapshot;
+// failures = list of failure-message strings currently active (e.g. ["LEFT ENGINE FIRE"]).
+let avnData = { name: null, parts: null, failures: null };
+
+// Known failure messages and how to render them on the AVN page. Keys MUST match the
+// GameObject name in the cockpit's StatusDisplay.failureIndicators list — that's the
+// string the server emits in snapshot.failures. The displayed text + position imitate
+// the in-cockpit prefab visually but aren't read from it: keeping styling and layout in
+// the frontend means new aircraft don't need any server-side change to render correctly.
+// cx/cy are normalized (0..1) against the silhouette frame; cy > 1 lets the label sit
+// just below the silhouette, matching where the cockpit places L/R engine fire warnings.
+const AVN_FAILURE_DEFS = {
+  'LEFT ENGINE FIRE':  { text: 'L ENG FIRE', cx: 0.20, cy: 0.78 },
+  'RIGHT ENGINE FIRE': { text: 'R ENG FIRE', cx: 0.80, cy: 0.78 },
+};
 
 // Per-aircraft-type layout descriptor + part-name → DOM element map. Layouts are fetched
 // once per aircraft type (and cached forever) since they're static prefab data; the part
 // elements are rebuilt whenever the layout changes (i.e. the player swaps aircraft).
-let avnLayoutType  = null;                    // type string the current DOM is built for
-let avnLayoutCache = Object.create(null);     // type → {bg, parts: [{n,cx,cy,w,h,r,rt}]} | 'pending' | 'fail'
-let avnPartEls     = Object.create(null);     // partName → .avn-part DOM element
+let avnLayoutType    = null;                    // type string the current DOM is built for
+let avnLayoutCache   = Object.create(null);     // type → {bg, parts:[...], failures:[...]} | 'pending' | 'fail'
+let avnPartEls       = Object.create(null);     // partName → .avn-part DOM element
+let avnFailureEls    = Object.create(null);     // failureMessage → .avn-failure DOM element
 
 // Render a page: set the overlay background, (re)assign the left keys' actions, and
 // position each item label next to its key.
@@ -915,9 +947,12 @@ function renderAvn() {
   // Size the .avn-parts container to match the bg's *rendered* box (object-fit:contain
   // leaves letterboxing — we want parts to land on the bg pixels, not the letterbox).
   fitAvnPartsToBg();
+  sizeAvnFailures();
 
   // Apply the live HP tint per part.
   paintAvnDamage();
+  // Toggle failure labels (e.g. L/R ENG FIRE) according to the latest snapshot.
+  paintAvnFailures();
 }
 
 // Fetch the silhouette layout for an aircraft type, if not already cached / in flight.
@@ -967,7 +1002,36 @@ function buildAvnParts(type, layout) {
     avnPartsEl.appendChild(el);
     avnPartEls[p.n] = el;
   }
+  // Failure labels are positioned + styled here by the frontend, not driven by the
+  // captured layout. The server sends just a list of currently-active message strings
+  // (the GameObject names — e.g. "LEFT ENGINE FIRE") and we render them faithfully to
+  // the in-cockpit display. AVN_FAILURE_DEFS (above the page script) defines what to
+  // draw for each known message: the displayed text and the position relative to the
+  // silhouette. Messages without a def are ignored — add new ones there as we
+  // encounter them.
+  avnFailureEls = Object.create(null);
+  for (const key in AVN_FAILURE_DEFS) {
+    const def = AVN_FAILURE_DEFS[key];
+    const el = document.createElement('div');
+    el.className = 'avn-failure';
+    el.textContent = def.text;
+    el.style.left = (def.cx * 100).toFixed(3) + '%';
+    el.style.top  = (def.cy * 100).toFixed(3) + '%';
+    avnPartsEl.appendChild(el);
+    avnFailureEls[key] = el;
+  }
   avnLayoutType = type;
+}
+
+// Font size for failure labels — scales with the silhouette so they stay legible at
+// any MFD size. Re-run on resize / silhouette refit.
+function sizeAvnFailures() {
+  const h = avnPartsEl.getBoundingClientRect().height;
+  if (h <= 0) return;
+  const px = Math.max(11, h * 0.045);             // ~4.5% of silhouette height
+  for (const name in avnFailureEls) {
+    avnFailureEls[name].style.fontSize = px.toFixed(1) + 'px';
+  }
 }
 
 // .avn-bg uses max-width/height: 100% (object-fit:contain on an <img>), so its rendered
@@ -989,7 +1053,11 @@ function fitAvnPartsToBg() {
   avnPartsEl.style.height = h + 'px';
 }
 // Trigger a re-fit once the bg PNG resolves (naturalWidth becomes known then).
-avnBg.addEventListener('load', function() { if (currentPage === 'avn') fitAvnPartsToBg(); });
+avnBg.addEventListener('load', function() {
+  if (currentPage !== 'avn') return;
+  fitAvnPartsToBg();
+  sizeAvnFailures();
+});
 
 // Apply the game's damage formula per part:
 //   condition = max((hp - redThreshold) / (100 - redThreshold), 0)
@@ -997,6 +1065,17 @@ avnBg.addEventListener('load', function() { if (currentPage === 'avn') fitAvnPar
 //   alpha = 1 - condition                         → undamaged parts fade out
 //   detached → rgb(178, 0, 64)                    → the "lost part" magenta
 // (See decompiled/PartStatusDisplay.cs StatusDisplay_OnDamage.)
+// Toggle the .active class on each failure-label DOM node from avnData.failures (the
+// live list of currently-active failure messages reported by the snapshot).
+function paintAvnFailures() {
+  const set = Object.create(null);
+  if (Array.isArray(avnData.failures))
+    for (const name of avnData.failures) set[name] = true;
+  for (const name in avnFailureEls) {
+    avnFailureEls[name].classList.toggle('active', !!set[name]);
+  }
+}
+
 function paintAvnDamage() {
   const map = Object.create(null);
   if (Array.isArray(avnData.parts)) {
@@ -1331,11 +1410,15 @@ window.addEventListener('message', function(e) {
     // Only matters while the TGP page is in view — outside it the panel is hidden anyway.
     if (currentPage === 'tgp') tgpPanel.classList.toggle('has-feed', tgpActive);
   } else if (m.type === 'avn') {
-    avnData = { name: m.name || null, parts: Array.isArray(m.parts) ? m.parts : null };
+    avnData = {
+      name: m.name || null,
+      parts: Array.isArray(m.parts) ? m.parts : null,
+      failures: Array.isArray(m.failures) ? m.failures : null,
+    };
     if (currentPage === 'avn') {
-      // Live HP repaint is cheap; only run a full re-layout when the aircraft type changes.
+      // Live repaint is cheap; only run a full re-layout when the aircraft type changes.
       if (avnLayoutType !== avnData.name) renderAvn();
-      else paintAvnDamage();
+      else { paintAvnDamage(); paintAvnFailures(); }
     }
   } else if (m.type === 'targets') {
     // Mirror the full target list. The renderer slices to TGL_MAX_DISPLAY; if any of the
