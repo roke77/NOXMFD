@@ -83,7 +83,7 @@ built React app, add **static-file serving** to the `HttpListener`:
 Then a **deploy step** to put `dist/` where the server can read it:
 
 - **Option A (simpler first):** post-build copy `dist/` into
-  `BepInEx/plugins/notelemetry-web/`; the server reads from disk.
+  `BepInEx/plugins/noroksmfd-web/`; the server reads from disk.
 - **Option B (single-file, neat):** embed `dist/` as embedded resources
   in the DLL and serve from a resource stream. Cleaner deploy, bigger
   DLL, extra resource-reading code path. Defer unless single-file
