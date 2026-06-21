@@ -94,6 +94,35 @@
     return origFetch(input, init);
   };
 
+  // ── Rewrite CSS mask URLs on the AVN page ──────────────────────────────────
+  // The MFD's AVN renderer sets el.style.maskImage = 'url("/airframe?type=...")'.
+  // CSS mask images are fetched by the browser directly (not via HTMLImageElement),
+  // so the <img>.src rewrite above doesn't catch them — they'd 404 against the
+  // preview server. We watch for newly-attached .avn-part elements and rewrite
+  // their inline mask URLs to the captured paths before paint.
+  function rewriteMaskUrlsOn(el) {
+    if (!el || el.nodeType !== 1) return;
+    const parts = el.classList && el.classList.contains('avn-part')
+      ? [el]
+      : (el.querySelectorAll ? el.querySelectorAll('.avn-part') : []);
+    for (const p of parts) {
+      for (const prop of ['maskImage', 'webkitMaskImage']) {
+        const v = p.style[prop];
+        if (!v || v.indexOf('/airframe') === -1) continue;
+        const rewritten = v.replace(/url\(["']?([^)"']+)["']?\)/g, function(m, u) {
+          return 'url("' + rewrite(u) + '")';
+        });
+        if (rewritten !== v) p.style[prop] = rewritten;
+      }
+    }
+  }
+  const mo = new MutationObserver(function(records) {
+    for (const r of records) {
+      for (const n of r.addedNodes) rewriteMaskUrlsOn(n);
+    }
+  });
+  mo.observe(document.documentElement, { childList: true, subtree: true });
+
   // ── Static telemetry frame ───────────────────────────────────────────────────
   // Prefer a real captured frame; otherwise this hand-written synthetic one.
   const DEFAULT_FRAME = {
