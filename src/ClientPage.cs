@@ -8,6 +8,7 @@ namespace NORoksMFD
 <head>
 <meta charset="UTF-8">
 <title>NO Roks MFD</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='1' y='1' width='30' height='30' rx='4' fill='%233b3f45'/><rect x='6' y='6' width='20' height='20' rx='1' fill='%23050a05'/><g fill='%23c8ccd0'><rect x='2.5' y='8' width='2' height='2.5'/><rect x='2.5' y='14.75' width='2' height='2.5'/><rect x='2.5' y='21.5' width='2' height='2.5'/><rect x='27.5' y='8' width='2' height='2.5'/><rect x='27.5' y='14.75' width='2' height='2.5'/><rect x='27.5' y='21.5' width='2' height='2.5'/></g><path d='M11 16h10' stroke='%2339ff14' stroke-width='2' stroke-linecap='square'/></svg>">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -95,19 +96,21 @@ namespace NORoksMFD
   }
   #grid-bar.empty { display: none; }
 
+  /* FOLLOW indicator — only rendered when follow mode is ON (orange box).
+     OFF state is hidden entirely so the corner stays clean. */
   #follow-btn {
     position: absolute;
     top: 10px; right: 12px;
     background: rgba(6,10,6,0.78);
-    border: 1px solid #1a3a1a;
+    border: 1px solid #ffaa00;
     padding: 5px 9px;
     font-size: 11px;
     letter-spacing: 1px;
-    color: #4aaa4a;
+    color: #ffaa00;
     user-select: none;
     pointer-events: none;
   }
-  #follow-btn.on { color: #ffaa00; border-color: #ffaa00; }   /* active */
+  #follow-btn.off { display: none; }
 
   #unit-label {
     position: absolute;
@@ -163,7 +166,7 @@ namespace NORoksMFD
     <div id="mission-bar" class="empty">
       <div class="mission-name" id="mission-name">—</div>
     </div>
-    <div id="follow-btn" class="off">FOLLOW: OFF</div>
+    <div id="follow-btn" class="off">FOLLOW</div>
     <div id="grid-bar" class="empty">GRID: &mdash;</div>
     <div id="unit-label"></div>
   </div>
@@ -493,7 +496,7 @@ function clearMission() {
   mapMeta = null;
   mapWasValid = false;
   view.zoom = 1; view.panX = 0; view.panY = 0;   // next mission starts at full extent
-  followPlayer = false; followBtn.className = 'off'; followBtn.textContent = 'FOLLOW: OFF';
+  followPlayer = false; followBtn.className = 'off'; followBtn.textContent = 'FOLLOW';
   oc.clearRect(0, 0, overlay.width, overlay.height);
   document.getElementById('map-panel').classList.remove('has-map');
   mapImg.src = '/map?t=' + Date.now();   // 404 now → falls back to the placeholder
@@ -709,7 +712,7 @@ function resetView() { view.zoom = 1; view.panX = 0; view.panY = 0; setFollow(fa
 function setFollow(on) {
   followPlayer = on;
   followBtn.className   = on ? 'on' : 'off';
-  followBtn.textContent = 'FOLLOW: ' + (on ? 'ON' : 'OFF');
+  followBtn.textContent = 'FOLLOW';
   drawOverlay();
 }
 window.addEventListener('keydown', function(e) {

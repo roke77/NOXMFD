@@ -12,6 +12,7 @@ namespace NORoksMFD
 <head>
 <meta charset="UTF-8">
 <title>NO Roks MFD</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='1' y='1' width='30' height='30' rx='4' fill='%233b3f45'/><rect x='6' y='6' width='20' height='20' rx='1' fill='%23050a05'/><g fill='%23c8ccd0'><rect x='2.5' y='8' width='2' height='2.5'/><rect x='2.5' y='14.75' width='2' height='2.5'/><rect x='2.5' y='21.5' width='2' height='2.5'/><rect x='27.5' y='8' width='2' height='2.5'/><rect x='27.5' y='14.75' width='2' height='2.5'/><rect x='27.5' y='21.5' width='2' height='2.5'/></g><path d='M11 16h10' stroke='%2339ff14' stroke-width='2' stroke-linecap='square'/></svg>">
 <style>
   /* Self-hosted Share Tech Mono (embedded woff2) so the MFD needs no internet. */
   @font-face {
@@ -397,6 +398,20 @@ namespace NORoksMFD
   }
   .avn-failure.active { display: block; }
 
+  /* Shown when no aircraft data is available (no name in the latest snapshot).
+     Mirrors .tgl-empty / .tgp-empty / .wpn-empty so all "no data" placeholders
+     read identically across MFD pages. */
+  .avn-empty {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    color: #1a4a1a;
+    font-size: 22px;
+    letter-spacing: 3px;
+    text-align: center;
+    pointer-events: none;
+  }
+
   /* TGL page — target list. Rows are positioned over the left & right key columns by JS. */
   .tgl-panel {
     position: absolute;
@@ -555,7 +570,9 @@ namespace NORoksMFD
   .cm-flares-svg .flare-dot.spent { stroke: #1a4a1a; }
   .cm-sep          { grid-column: 2; grid-row: 1 / span 3; width: 1px; background: #1a4a1a; }   /* muted green */
   .cm-jammer-title { grid-column: 3; grid-row: 1; }
-  .cm-jammer-bar   { grid-column: 3; grid-row: 3; align-self: center; }
+  /* justify-self: start prevents the cell from stretching — its width is driven by the
+     inner .cm-bar, whose width is set in JS to match the kJ readout above. */
+  .cm-jammer-bar   { grid-column: 3; grid-row: 3; align-self: center; justify-self: start; }
   /* Big-text readouts (flares count, jammer kJ). The font-size is set by renderCm() so
      the glyphs fill the available cell height. */
   .cm-big {
@@ -569,7 +586,16 @@ namespace NORoksMFD
     white-space: nowrap;
   }
   #cm-flares-val { flex: 0 0 auto; justify-content: flex-end; }
-  #cm-jammer-val { grid-column: 3; grid-row: 2; align-self: stretch; justify-content: flex-start; }
+  /* Jammer readout: hug its own content (number + "kJ") so the capacitor bar below can
+     width-match it. gap = fixed px separation between number and unit (so the space
+     between "400" and "kJ" stays constant as the font scales). */
+  #cm-jammer-val {
+    grid-column: 3; grid-row: 2;
+    align-self: stretch;
+    justify-content: flex-start;
+    width: fit-content;
+    gap: 8px;
+  }
 
   /* Depleted countermeasure (count === 0 with a positive capacity) — label + value go red. */
   .cm-title.empty .cm-label,
@@ -680,11 +706,12 @@ namespace NORoksMFD
             <div class="tgl-empty">&mdash; NO TARGETS &mdash;</div>
           </div>
           <div class="avn-panel" id="avn-panel">
-            <div class="avn-name" id="avn-name">&mdash;</div>
+            <div class="avn-name" id="avn-name"></div>
             <div class="avn-frame" id="avn-frame">
               <img class="avn-bg" id="avn-bg" alt="">
               <div class="avn-parts" id="avn-parts"></div>
             </div>
+            <div class="avn-empty" id="avn-empty">&mdash; NO DATA &mdash;</div>
           </div>
         </div>
       </div>
@@ -742,6 +769,7 @@ const avnNameEl   = document.getElementById('avn-name');
 const avnFrame    = document.getElementById('avn-frame');
 const avnBg       = document.getElementById('avn-bg');
 const avnPartsEl  = document.getElementById('avn-parts');
+const avnEmptyEl  = document.getElementById('avn-empty');
 const cmPanel       = document.getElementById('cm-panel');
 const cmFlaresTitle = document.getElementById('cm-flares-title');
 const cmJammerTitle = document.getElementById('cm-jammer-title');
@@ -912,7 +940,20 @@ function showPage(name) {
 //     positioned + sized against the bg's rendered box so cx/cy/w/h stay aligned.
 // Re-runs on resize via showPage(currentPage) — re-positioning is the main reason.
 function renderAvn() {
-  avnNameEl.textContent = avnData.name || '—';
+  const type = avnData.name;
+
+  // No-data state: hide the aircraft name + silhouette frame entirely and show the
+  // centered "— NO DATA —" placeholder (matches WPN / TGL / TGP empty states).
+  if (!type) {
+    avnNameEl.style.display = 'none';
+    avnFrame.style.display  = 'none';
+    avnEmptyEl.style.display = '';
+    return;
+  }
+  avnNameEl.style.display  = '';
+  avnFrame.style.display   = '';
+  avnEmptyEl.style.display = 'none';
+  avnNameEl.textContent = type;
 
   // Vertical placement: name aligned with key[0]'s centre; frame top under sep[1].
   const k = leftKeys[0];
@@ -928,13 +969,6 @@ function renderAvn() {
     avnFrame.style.height = (frameBotSep.top - frameTopSep.bottom) + 'px';
   }
 
-  // Hide artwork until we know the aircraft type. The name above still updates.
-  const type = avnData.name;
-  if (!type) {
-    avnBg.style.display = 'none';
-    avnPartsEl.style.display = 'none';
-    return;
-  }
   avnBg.style.display = '';
   avnPartsEl.style.display = '';
 
@@ -1240,7 +1274,13 @@ function renderCm() {
   }
 
   cmFlaresVal.textContent = (cmData.flares >= 0) ? cmData.flares : '—';
-  cmJammerVal.textContent = (cmData.ewKJ   >= 0) ? (Math.round(cmData.ewKJ) + ' kJ') : '—';
+  // Split the kJ readout into two spans so the gap between number and unit stays at a
+  // fixed pixel value (set via the flex gap on #cm-jammer-val), independent of font size.
+  if (cmData.ewKJ >= 0) {
+    cmJammerVal.innerHTML = '<span>' + Math.round(cmData.ewKJ) + '</span><span>kJ</span>';
+  } else {
+    cmJammerVal.textContent = '—';
+  }
 
   const pct = (cmData.ewKJMax > 0 && cmData.ewKJ >= 0)
             ? Math.max(0, Math.min(1, cmData.ewKJ / cmData.ewKJMax))
@@ -1274,6 +1314,11 @@ function renderCm() {
   }
   fitTextHeight(cmFlaresVal, cmFlaresVal.parentElement.getBoundingClientRect().height);
   fitTextHeight(cmJammerVal, cmJammerVal.getBoundingClientRect().height);
+
+  // Match the capacitor bar's width to the kJ readout so they read as one grouped unit.
+  // Measured after fitTextHeight so the readout's font is already at its final size.
+  const cmBarEl = cmBarFill.parentElement;
+  cmBarEl.style.width = Math.ceil(cmJammerVal.getBoundingClientRect().width) + 'px';
 }
 
 // Renders the TGL page from the cached target list. Each page shows up to TGL_MAX_DISPLAY
