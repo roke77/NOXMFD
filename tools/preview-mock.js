@@ -155,6 +155,7 @@
     world: { x: -3000, y: 2500, z: 2000 },
     tas: 248, agl: 2500, hdg: 45,
     gear: 'up', flares: 60, flaresMax: 64, ewKJ: 820, ewKJMax: 1000, cmCat: 1,
+    fuel: 0.94, thr: 0.60,
     iconOrient: true, iconScale: 1.1, selWeapon: 'AIM-9X',
     loadout: [
       { n: 'AIM-9X',   a: 2, f: 2 },

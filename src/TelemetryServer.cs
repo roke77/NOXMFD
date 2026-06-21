@@ -510,7 +510,8 @@ namespace NORoksMFD
                 "\"map\":{{\"valid\":{13},\"w\":{14:0.0},\"h\":{15:0.0},\"ox\":{16},\"oy\":{17}}}," +
                 "\"iconOrient\":{18},\"iconScale\":{19:0.000}," +
                 "\"flares\":{20},\"flaresMax\":{21},\"ewKJ\":{22:0.0},\"ewKJMax\":{23:0.0}," +
-                "\"selWeapon\":\"{24}\",\"cmCat\":{25},\"tgpActive\":{26},",
+                "\"selWeapon\":\"{24}\",\"cmCat\":{25},\"tgpActive\":{26}," +
+                "\"fuel\":{27:0.000},\"thr\":{28:0.000},",
                 s.Time,
                 EscapeJson(s.PlaneName ?? string.Empty),
                 EscapeJson(s.MissionName ?? string.Empty),
@@ -526,7 +527,8 @@ namespace NORoksMFD
                 s.IconScale,
                 s.Flares, s.FlaresMax, s.EwKJ, s.EwKJMax,
                 EscapeJson(s.SelWeapon ?? string.Empty), s.CmCategory,
-                s.TgpActive ? "true" : "false");
+                s.TgpActive ? "true" : "false",
+                s.Fuel, s.Throttle);
 
             return head + "\"loadout\":" + LoadoutArray(s.Loadout)
                         + ",\"colors\":{"

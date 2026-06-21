@@ -526,7 +526,7 @@ function clearMission() {
     window.parent.postMessage({ mfd: true, type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 }, '*');
     window.parent.postMessage({ mfd: true, type: 'tgp', active: false }, '*');
     window.parent.postMessage({ mfd: true, type: 'targets', items: [] }, '*');
-    window.parent.postMessage({ mfd: true, type: 'avn', name: null, parts: null, failures: null }, '*');
+    window.parent.postMessage({ mfd: true, type: 'avn', name: null, parts: null, failures: null, fuel: -1, throttle: -1 }, '*');
     window.parent.postMessage({ mfd: true, type: 'follow', on: false }, '*');
   }
 }
@@ -626,6 +626,8 @@ function updateHUD(d) {
       name: d.name || null,
       parts: Array.isArray(d.parts) ? d.parts : null,
       failures: Array.isArray(d.failures) ? d.failures : null,
+      fuel:     typeof d.fuel === 'number' ? d.fuel : -1,
+      throttle: typeof d.thr  === 'number' ? d.thr  : -1,
     }, '*');
   }
 

@@ -25,6 +25,13 @@ namespace NORoksMFD
         public float  EwKJ;       // EW capacitor charge, kilojoules
         public float  EwKJMax;    // EW capacitor capacity, kilojoules
 
+        // Avionics gauges (-1 = unavailable / no aircraft yet). Both are normalized 0..1.
+        // Fuel comes from Aircraft.GetFuelLevel() (aggregated across all tanks). Throttle
+        // is the pilot's commanded throttle from Aircraft.GetInputs().throttle — all
+        // engines consume the same commanded value, so no per-engine averaging needed.
+        public float  Fuel;       // 0..1 fuel fraction across all tanks
+        public float  Throttle;   // 0..1 commanded throttle
+
         // Currently selected systems (for highlighting).
         public string SelWeapon;   // weaponName of the selected weapon
         public byte   CmCategory;  // selected countermeasure: 0 none, 1 flares, 2 EW, 3 chaff

@@ -619,6 +619,8 @@ namespace NORoksMFD
                 FlaresMax      = _flaresMax,
                 EwKJ           = ewKJ,
                 EwKJMax        = ewKJMax,
+                Fuel           = aircraft.GetFuelLevel(),
+                Throttle       = aircraft.GetInputs() != null ? aircraft.GetInputs().throttle : -1f,
                 SelWeapon      = selWeapon,
                 CmCategory     = cmCategory,
                 TotalUnits     = _totalUnits,

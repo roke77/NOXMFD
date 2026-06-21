@@ -460,6 +460,127 @@ namespace NORoksMFD
   }
   .avn-failure.active { display: block; }
 
+  /* AVN side bars — FUEL (left) and THROTTLE (right). Live outside .avn-frame so they
+     can sit in the panel's horizontal letterbox space without being clipped by the
+     frame's overflow:hidden. JS (layoutAvnBars) positions them flush against the
+     silhouette's measured edges and matches their height to the silhouette's height,
+     so they always read as "tied to" the aircraft visual rather than the full screen. */
+  .avn-vbar {
+    position: absolute;
+    display: none;        /* shown only once layoutAvnBars has placed it */
+    flex-direction: column;
+    align-items: center;
+    width: 42px;
+    color: #39ff14;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    text-shadow: 0 0 4px rgba(57, 255, 20, 0.35);
+    pointer-events: none;
+    z-index: 3;
+  }
+  .avn-vbar.placed { display: flex; }
+  /* Label + value share the same scale — half the aircraft-name text so both read at a
+     glance from across the cockpit. Mirrors the name's portrait clamp. The tube-facing
+     edge of each gets 20px of breathing room so the text isn't crowded against the
+     border. */
+  .avn-vbar-label,
+  .avn-vbar-value {
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .avn-vbar-value { padding: 0 0 20px 0; }
+  .avn-vbar-label { padding: 20px 0 0 0; }
+  @media (orientation: portrait) {
+    .avn-vbar-label,
+    .avn-vbar-value { font-size: clamp(16px, 1.8vh, 25.5px); }
+  }
+  /* Tube: thin bordered column, fill grows from the bottom. Black background gives the fill
+     a strong silhouette; the inner 1px box-shadow adds the recessed-instrument look. */
+  .avn-vbar-tube {
+    position: relative;
+    flex: 1 1 auto;
+    width: 16px;
+    border: 1px solid #39ff14;
+    background: #050a05;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+  }
+  /* Solid fill base; the segmented avionics look comes from the overlay below it, not from
+     the fill itself, so the dividers stay aligned to the tube no matter how full it is. */
+  .avn-vbar-fill {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 0%;
+    background: #39ff14;
+    transition: height 200ms linear, background-color 150ms linear;
+  }
+  /* Horizontal dividers every ~10% of the tube height — drawn on top of the fill via a
+     repeating-gradient overlay. */
+  .avn-vbar-tube::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      to top,
+      transparent 0,
+      transparent calc(10% - 1px),
+      rgba(0, 0, 0, 0.85) calc(10% - 1px),
+      rgba(0, 0, 0, 0.85) 10%
+    );
+    pointer-events: none;
+  }
+  /* Side tick marks at 0/25/50/75/100% — small green notches outside the tube on the
+     bar's outer side, drawn via gradients on the tube's left/right wrapper. */
+  .avn-vbar-ticks {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 5px;
+    pointer-events: none;
+  }
+  .avn-vbar.fuel .avn-vbar-ticks { right: 100%; margin-right: 2px; }
+  .avn-vbar.thr  .avn-vbar-ticks { left:  100%; margin-left:  2px; }
+  .avn-vbar-ticks::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(#39ff14, #39ff14),
+      linear-gradient(#39ff14, #39ff14),
+      linear-gradient(#39ff14, #39ff14),
+      linear-gradient(#39ff14, #39ff14),
+      linear-gradient(#39ff14, #39ff14);
+    background-repeat: no-repeat;
+    background-size: 100% 1px;
+    background-position:
+      0 0%,
+      0 25%,
+      0 50%,
+      0 75%,
+      0 100%;
+  }
+  /* State colours. Caution = amber, critical = red. The dividers (::after) stay dark and
+     readable on top of any fill colour because they're drawn black with high alpha. */
+  .avn-vbar.caution  .avn-vbar-fill { background: #ffaa00; }
+  .avn-vbar.critical .avn-vbar-fill { background: #ff4040; }
+  .avn-vbar.caution  { color: #ffaa00; }
+  .avn-vbar.critical { color: #ff4040; }
+  /* No-data state: dimmed frame + label, empty tube, em-dash value. Mirrors the colour
+     scheme used by .avn-empty so dim states read consistently across the AVN page. */
+  .avn-vbar.na {
+    color: #1a4a1a;
+    text-shadow: none;
+  }
+  .avn-vbar.na .avn-vbar-tube { border-color: #1a4a1a; }
+  .avn-vbar.na .avn-vbar-ticks::before { background-image:
+      linear-gradient(#1a4a1a, #1a4a1a),
+      linear-gradient(#1a4a1a, #1a4a1a),
+      linear-gradient(#1a4a1a, #1a4a1a),
+      linear-gradient(#1a4a1a, #1a4a1a),
+      linear-gradient(#1a4a1a, #1a4a1a); }
+  .avn-vbar.na .avn-vbar-fill { display: none; }
+
   /* Shown when no aircraft data is available (no name in the latest snapshot).
      Mirrors .tgl-empty / .tgp-empty / .wpn-empty so all "no data" placeholders
      read identically across MFD pages. */
@@ -771,6 +892,22 @@ namespace NORoksMFD
               <div class="avn-parts" id="avn-parts"></div>
             </div>
             <div class="avn-empty" id="avn-empty">&mdash; NO DATA &mdash;</div>
+            <div class="avn-vbar fuel" id="avn-fuel-bar">
+              <div class="avn-vbar-value" id="avn-fuel-val">&mdash;</div>
+              <div class="avn-vbar-tube">
+                <div class="avn-vbar-fill" id="avn-fuel-fill"></div>
+                <div class="avn-vbar-ticks"></div>
+              </div>
+              <div class="avn-vbar-label">FUEL</div>
+            </div>
+            <div class="avn-vbar thr" id="avn-thr-bar">
+              <div class="avn-vbar-value" id="avn-thr-val">&mdash;</div>
+              <div class="avn-vbar-tube">
+                <div class="avn-vbar-fill" id="avn-thr-fill"></div>
+                <div class="avn-vbar-ticks"></div>
+              </div>
+              <div class="avn-vbar-label">THRL</div>
+            </div>
           </div>
         </div>
       </div>
@@ -849,6 +986,12 @@ const avnFrame    = document.getElementById('avn-frame');
 const avnBg       = document.getElementById('avn-bg');
 const avnPartsEl  = document.getElementById('avn-parts');
 const avnEmptyEl  = document.getElementById('avn-empty');
+const avnFuelBar  = document.getElementById('avn-fuel-bar');
+const avnFuelFill = document.getElementById('avn-fuel-fill');
+const avnFuelVal  = document.getElementById('avn-fuel-val');
+const avnThrBar   = document.getElementById('avn-thr-bar');
+const avnThrFill  = document.getElementById('avn-thr-fill');
+const avnThrVal   = document.getElementById('avn-thr-val');
 const cmPanel       = document.getElementById('cm-panel');
 const cmFlaresTitle = document.getElementById('cm-flares-title');
 const cmJammerTitle = document.getElementById('cm-jammer-title');
@@ -971,7 +1114,7 @@ const TGL_MAX_DISPLAY = 10;
 // Latest avionics snapshot mirrored from the map iframe. name = aircraft display name (also
 // the key for /airframe + /airframe-layout); parts = the live HP list from the snapshot;
 // failures = list of failure-message strings currently active (e.g. ["LEFT ENGINE FIRE"]).
-let avnData = { name: null, parts: null, failures: null };
+let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1 };
 
 // Known failure messages and how to render them on the AVN page. Keys MUST match the
 // GameObject name in the cockpit's StatusDisplay.failureIndicators list — that's the
@@ -1081,6 +1224,8 @@ function renderAvn() {
     avnNameEl.style.display = 'none';
     avnFrame.style.display  = 'none';
     avnEmptyEl.style.display = '';
+    avnFuelBar.classList.remove('placed');
+    avnThrBar .classList.remove('placed');
     return;
   }
   avnNameEl.style.display  = '';
@@ -1120,6 +1265,9 @@ function renderAvn() {
   paintAvnDamage();
   // Toggle failure labels (e.g. L/R ENG FIRE) according to the latest snapshot.
   paintAvnFailures();
+  // Side bars (FUEL / THROTTLE) — placement re-reads the silhouette's measured bounds.
+  layoutAvnBars();
+  paintAvnBars();
 }
 
 // Fetch the silhouette layout for an aircraft type, if not already cached / in flight.
@@ -1224,6 +1372,8 @@ avnBg.addEventListener('load', function() {
   if (currentPage !== 'avn') return;
   fitAvnPartsToBg();
   sizeAvnFailures();
+  layoutAvnBars();
+  paintAvnBars();
 });
 
 // Apply the game's damage formula per part:
@@ -1263,6 +1413,57 @@ function paintAvnDamage() {
     el.style.backgroundColor = 'rgb(255,' + Math.round(g * 255) + ',0)';
     el.style.opacity = (1 - cond).toFixed(3);     // 0 (healthy) → invisible; 1 (red zone) → fully tinted
   }
+}
+
+// Position the FUEL and THROTTLE bars beside the silhouette. Horizontal anchor uses the
+// silhouette's measured edges (partsRect) so the bars sit flush against the aircraft
+// graphic; vertical extent uses the frame's full height instead — silhouette height can
+// shrink dramatically on portrait viewports (object-fit:contain letterboxes top/bottom),
+// which would otherwise make the tube look short and almost horizontal. Frame height
+// stays tall on every viewport, keeping the bars unmistakably vertical.
+function layoutAvnBars() {
+  const partsRect = avnPartsEl.getBoundingClientRect();
+  const frameRect = avnFrame.getBoundingClientRect();
+  if (!partsRect.width || !partsRect.height || !frameRect.height) {
+    avnFuelBar.classList.remove('placed');
+    avnThrBar .classList.remove('placed');
+    return;
+  }
+  const panelRect = avnPanel.getBoundingClientRect();
+  const gap = Math.max(8, Math.round(panelRect.width * 0.012));
+  const topInPanel = frameRect.top - panelRect.top;
+
+  avnFuelBar.style.right  = (panelRect.right - (partsRect.left - gap)) + 'px';
+  avnFuelBar.style.top    = topInPanel + 'px';
+  avnFuelBar.style.height = frameRect.height + 'px';
+  avnFuelBar.classList.add('placed');
+
+  avnThrBar.style.left   = ((partsRect.right + gap) - panelRect.left) + 'px';
+  avnThrBar.style.top    = topInPanel + 'px';
+  avnThrBar.style.height = frameRect.height + 'px';
+  avnThrBar.classList.add('placed');
+}
+
+// Paint both bars from the latest snapshot. paintAvnBar handles the -1 sentinel by
+// switching the bar into its dim .na state, so no extra guard is needed here.
+function paintAvnBars() {
+  paintAvnBar(avnFuelBar, avnFuelFill, avnFuelVal, avnData.fuel,     0.25, 0.10);
+  paintAvnBar(avnThrBar,  avnThrFill,  avnThrVal,  avnData.throttle, null, null);
+}
+
+function paintAvnBar(barEl, fillEl, valEl, value01, cautionAt, criticalAt) {
+  barEl.classList.remove('na', 'caution', 'critical');
+  if (typeof value01 !== 'number' || value01 < 0) {
+    barEl.classList.add('na');
+    fillEl.style.height = '0%';
+    valEl.textContent = '--';
+    return;
+  }
+  const v = Math.max(0, Math.min(1, value01));
+  if      (criticalAt !== null && v <= criticalAt) barEl.classList.add('critical');
+  else if (cautionAt  !== null && v <= cautionAt)  barEl.classList.add('caution');
+  fillEl.style.height = (v * 100).toFixed(1) + '%';
+  valEl.textContent = Math.round(v * 100) + '%';
 }
 
 // Render the WPN page from the cached loadout. Each weapon row is absolutely positioned
@@ -1588,11 +1789,13 @@ window.addEventListener('message', function(e) {
       name: m.name || null,
       parts: Array.isArray(m.parts) ? m.parts : null,
       failures: Array.isArray(m.failures) ? m.failures : null,
+      fuel:     typeof m.fuel     === 'number' ? m.fuel     : -1,
+      throttle: typeof m.throttle === 'number' ? m.throttle : -1,
     };
     if (currentPage === 'avn') {
       // Live repaint is cheap; only run a full re-layout when the aircraft type changes.
       if (avnLayoutType !== avnData.name) renderAvn();
-      else { paintAvnDamage(); paintAvnFailures(); }
+      else { paintAvnDamage(); paintAvnFailures(); paintAvnBars(); }
     }
   } else if (m.type === 'follow') {
     // Map iframe broadcasts its follow state on toggle / mission clear. Tracked at the
