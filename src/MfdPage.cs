@@ -178,8 +178,8 @@ namespace NORoksMFD
     display: inline-block;
     width: 14px; height: 14px;
     background-color: currentColor;
-    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path d='M5 1H9V2L8 3V6L11 9V10H8V13H6V10H3V9L6 6V3L5 2Z'/></svg>") center/contain no-repeat;
-            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path d='M5 1H9V2L8 3V6L11 9V10H8V13H6V10H3V9L6 6V3L5 2Z'/></svg>") center/contain no-repeat;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='miter' d='M12 2.8 19.2 10 12 17.2 4.8 10Z'/><path fill='none' stroke='black' stroke-width='1.8' stroke-linecap='square' d='M12 17.2V22.4'/></svg>") center/contain no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='miter' d='M12 2.8 19.2 10 12 17.2 4.8 10Z'/><path fill='none' stroke='black' stroke-width='1.8' stroke-linecap='square' d='M12 17.2V22.4'/></svg>") center/contain no-repeat;
   }
   .ic-swap {
     display: inline-block;
@@ -788,8 +788,8 @@ const bottomIcons = [
   { cls: 'ic-pin',    title: 'Pin' },
   { cls: 'ic-swap',   title: 'Swap' },
   { cls: 'ic-square', title: 'Main' },
-  { cls: 'ic-1x2',    title: 'Layout' },
   { cls: 'ic-2x1',    title: 'Layout' },
+  { cls: 'ic-1x2',    title: 'Layout' },
   { cls: 'ic-split',  title: 'Layout' },
 ];
 bottomIcons.forEach(function(icon, i) {
