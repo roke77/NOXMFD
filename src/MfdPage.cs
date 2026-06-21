@@ -234,6 +234,30 @@ namespace NORoksMFD
     pointer-events: none;
   }
   .overlay.opaque { background: #000; }
+
+  /* Top-right indicator stack (PINNED, FOLLOW…). flex-direction:row-reverse means the
+     first DOM child sits at the right edge and subsequent children stack to its left —
+     so renderIndicators() appends chips in activation order and the second activated
+     ends up to the LEFT of the first. */
+  .mfd-indicators {
+    position: absolute;
+    top: 10px; right: 12px;
+    display: flex;
+    flex-direction: row-reverse;
+    gap: 6px;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .mfd-indicator {
+    background: rgba(6,10,6,0.78);
+    border: 1px solid #ffaa00;
+    padding: 5px 9px;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #ffaa00;
+    user-select: none;
+  }
   .overlay-item {
     position: absolute;
     color: #d4d8dc;
@@ -703,6 +727,7 @@ namespace NORoksMFD
       <div class="screen">
         <iframe src="/map-view?bare" title="map"></iframe>
         <div class="overlay" id="overlay">
+          <div class="mfd-indicators" id="mfd-indicators"></div>
           <div class="info-box" id="info-box">
             <div class="ib-title">NO ROKS MFD</div>
             <div class="ib-url">http://localhost:5005</div>
@@ -785,8 +810,8 @@ const keyBanks = {
 const leftKeys  = keyBanks.left;    // compatibility aliases for side-specific renderers
 const rightKeys = keyBanks.right;
 const bottomIcons = [
-  { cls: 'ic-pin',    title: 'Pin' },
-  { cls: 'ic-swap',   title: 'Swap' },
+  { cls: 'ic-pin',    title: 'Pin', action: 'pin' },
+  { cls: 'ic-swap',   title: 'Swap', action: 'swap' },
   { cls: 'ic-square', title: 'Main' },
   { cls: 'ic-2x1',    title: 'Layout' },
   { cls: 'ic-1x2',    title: 'Layout' },
@@ -797,6 +822,7 @@ bottomIcons.forEach(function(icon, i) {
   if (!key) return;
   key.classList.add('icon');
   key.title = icon.title;
+  if (icon.action) key.dataset.action = icon.action;
   const span = document.createElement('span');
   span.className = icon.cls;
   span.setAttribute('aria-hidden', 'true');
@@ -885,6 +911,37 @@ const PAGES = {
 };
 let currentPage = 'map';
 
+// Top-right indicator stack (PINNED + FOLLOW). pinnedPage tracks which page (if any)
+// is currently pinned; followOn mirrors the map iframe's follow state (broadcast via
+// postMessage). indicatorOrder records the chronological order indicators were turned
+// on — the first activated stays at the right edge and later arrivals stack to its
+// left, matching how chips render with flex-direction:row-reverse on #mfd-indicators.
+const indicatorsEl = document.getElementById('mfd-indicators');
+let pinnedPage    = null;
+let followOn      = false;
+let indicatorOrder = [];   // subset of ['pinned','follow'] in activation order
+// Last non-pinned page we left to jump to pinnedPage via SWAP. Lets the second SWAP
+// press return there. Cleared whenever the pin itself changes (re-pin or unpin) since
+// the partner relationship is tied to the current pin.
+let swapPartner   = null;
+
+function indicatorVisible(name) {
+  if (name === 'pinned') return pinnedPage !== null && currentPage === pinnedPage;
+  if (name === 'follow') return currentPage === 'map' && followOn;
+  return false;
+}
+
+function renderIndicators() {
+  indicatorsEl.innerHTML = '';
+  indicatorOrder.forEach(function(name) {
+    if (!indicatorVisible(name)) return;
+    const el = document.createElement('div');
+    el.className = 'mfd-indicator';
+    el.textContent = name === 'pinned' ? 'PINNED' : 'FOLLOW';
+    indicatorsEl.appendChild(el);
+  });
+}
+
 // Latest loadout snapshot mirrored from the map iframe (postMessage). Even when WPN isn't
 // in view we keep it fresh, so opening the page renders immediately without a round-trip.
 let wpnData      = { items: [], selWeapon: null };
@@ -937,7 +994,10 @@ let avnPartEls       = Object.create(null);     // partName → .avn-part DOM el
 let avnFailureEls    = Object.create(null);     // failureMessage → .avn-failure DOM element
 
 function clearKeyActions() {
-  Object.keys(keyBanks).forEach(function(bank) {
+  // Only the page-dynamic banks (left/right/top) get cleared between pages — the bottom
+  // bank holds page-independent controls (PIN, SWAP, layout…) whose actions are wired
+  // once at startup and must survive page switches.
+  ['left', 'right', 'top'].forEach(function(bank) {
     keyBanks[bank].forEach(function(k) { delete k.dataset.action; });
   });
 }
@@ -1001,6 +1061,8 @@ function showPage(name) {
   if (name === 'wpn') { renderWpn(); }
   if (name === 'tgl') { renderTgl(); }
   if (name === 'avn') { renderAvn(); }
+
+  renderIndicators();
 }
 
 // Renders the AVN page. Three layers:
@@ -1532,6 +1594,16 @@ window.addEventListener('message', function(e) {
       if (avnLayoutType !== avnData.name) renderAvn();
       else { paintAvnDamage(); paintAvnFailures(); }
     }
+  } else if (m.type === 'follow') {
+    // Map iframe broadcasts its follow state on toggle / mission clear. Tracked at the
+    // MFD level so the FOLLOW chip lives in the same stack as PINNED instead of being
+    // anchored to the iframe's own top-right corner.
+    const on = !!m.on;
+    if (on === followOn) return;
+    followOn = on;
+    if (on) { if (indicatorOrder.indexOf('follow') === -1) indicatorOrder.push('follow'); }
+    else    { indicatorOrder = indicatorOrder.filter(function(x) { return x !== 'follow'; }); }
+    renderIndicators();
   } else if (m.type === 'targets') {
     // Mirror the full target list. The renderer slices to TGL_MAX_DISPLAY; if any of the
     // first 10 got deselected, the next held-back targets slide in on the next render.
@@ -1566,6 +1638,39 @@ function mfdButton(el) {
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;
     case 'fll':  toggleFullscreen(); break;
+    case 'swap':
+      // Toggle between the pinned page and the last page we swapped from.
+      //   - On a non-pinned page: remember it as the partner, jump to pinned.
+      //   - On the pinned page with a known partner: jump back to the partner.
+      //   - Otherwise (nothing pinned, or on pinned with no partner yet): no-op.
+      if (pinnedPage === null) break;
+      if (currentPage === pinnedPage) {
+        if (swapPartner === null) break;
+        showPage(swapPartner);
+      } else {
+        swapPartner = currentPage;
+        showPage(pinnedPage);
+      }
+      break;
+    case 'pin':
+      // MENU ('main') page is not pinnable per design.
+      if (currentPage === 'main') break;
+      if (pinnedPage === currentPage) {
+        // Toggle off: unpin and drop the chip from the activation order.
+        pinnedPage = null;
+        indicatorOrder = indicatorOrder.filter(function(x) { return x !== 'pinned'; });
+      } else {
+        // First time on, or switching the pin to a new page: append so we land to the
+        // LEFT of any chip that was activated earlier (FOLLOW), and to the right of any
+        // chip activated later in the same session.
+        pinnedPage = currentPage;
+        if (indicatorOrder.indexOf('pinned') === -1) indicatorOrder.push('pinned');
+      }
+      // The partner is tied to the previous pin — drop it whenever the pin itself
+      // changes so a fresh SWAP cycle starts from the next non-pinned page.
+      swapPartner = null;
+      renderIndicators();
+      break;
   }
 }
 

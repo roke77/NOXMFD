@@ -111,6 +111,9 @@ namespace NORoksMFD
     pointer-events: none;
   }
   #follow-btn.off { display: none; }
+  /* Embedded inside the MFD frame: the MFD shell renders its own FOLLOW indicator
+     (so it can stack alongside the PINNED indicator), so hide the iframe's local one. */
+  body.bare #follow-btn { display: none; }
 
   #unit-label {
     position: absolute;
@@ -524,6 +527,7 @@ function clearMission() {
     window.parent.postMessage({ mfd: true, type: 'tgp', active: false }, '*');
     window.parent.postMessage({ mfd: true, type: 'targets', items: [] }, '*');
     window.parent.postMessage({ mfd: true, type: 'avn', name: null, parts: null, failures: null }, '*');
+    window.parent.postMessage({ mfd: true, type: 'follow', on: false }, '*');
   }
 }
 
@@ -719,6 +723,9 @@ function setFollow(on) {
   followBtn.className   = on ? 'on' : 'off';
   followBtn.textContent = 'FOLLOW';
   drawOverlay();
+  if (window.parent !== window) {
+    window.parent.postMessage({ mfd: true, type: 'follow', on: !!on }, '*');
+  }
 }
 window.addEventListener('keydown', function(e) {
   if ((e.key === 'f' || e.key === 'F') && mapMeta) setFollow(!followPlayer);
