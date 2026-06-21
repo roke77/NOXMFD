@@ -71,6 +71,11 @@ window.addEventListener('message', function(e) {
   if (!m || m.mfd !== true) return;
   if (m.type === 'tgp') {
     tgpPanel.classList.toggle('has-feed', !!m.active);
+  } else if (m.type === 'orient') {
+    // App-wide orientation forwarded by the shell — drives body.portrait/.landscape so
+    // any orientation rules track the device, not the (wide+short) pane box.
+    document.body.classList.toggle('portrait',  m.orientation === 'portrait');
+    document.body.classList.toggle('landscape', m.orientation !== 'portrait');
   }
 });
 </script>

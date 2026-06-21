@@ -111,10 +111,10 @@ namespace NORoksMFD
   }
   .avn-vbar-value { padding: 0 0 20px 0; }
   .avn-vbar-label { padding: 20px 0 0 0; }
-  @media (orientation: portrait) {
-    .avn-vbar-label,
-    .avn-vbar-value { font-size: clamp(16px, 1.8vh, 25.5px); }
-  }
+  /* Orientation driven by the shell (body.portrait), not @media — a pane iframe's box
+     is wide+short and would wrongly read landscape in split mode. */
+  body.portrait .avn-vbar-label,
+  body.portrait .avn-vbar-value { font-size: clamp(16px, 1.8vh, 25.5px); }
   .avn-vbar-tube {
     position: relative;
     flex: 1 1 auto;
@@ -463,6 +463,11 @@ window.addEventListener('message', function(e) {
     };
     if (avnLayoutType !== avnData.name) renderAvn();
     else { paintAvnDamage(); paintAvnFailures(); paintAvnBars(); }
+  } else if (m.type === 'orient') {
+    // App-wide orientation forwarded by the shell (see body.portrait rules above).
+    document.body.classList.toggle('portrait',  m.orientation === 'portrait');
+    document.body.classList.toggle('landscape', m.orientation !== 'portrait');
+    renderAvn();   // re-layout in case orientation-dependent sizing changed
   }
 });
 

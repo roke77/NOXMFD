@@ -60,6 +60,11 @@ window.addEventListener('message', function(e) {
   if (m.type === 'status') {
     ibStatus.className = 'ib-status ' + m.cls;
     ibStatus.textContent = m.text;
+  } else if (m.type === 'orient') {
+    // App-wide orientation forwarded by the shell — a pane iframe can't read it from its
+    // own (wide+short) box, so the shell tells it. Drives body.portrait/.landscape rules.
+    document.body.classList.toggle('portrait',  m.orientation === 'portrait');
+    document.body.classList.toggle('landscape', m.orientation !== 'portrait');
   }
 });
 </script>

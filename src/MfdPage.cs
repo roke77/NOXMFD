@@ -317,9 +317,7 @@ namespace NORoksMFD
      in the now-bigger empty space. Scale the label with viewport height so it keeps the
      same visual prominence as in landscape. Clamped 32-64px so it never goes below the
      landscape baseline or grows absurdly large. */
-  @media (orientation: portrait) {
-    .overlay-item { font-size: clamp(21px, 2.4vh, 34px); }
-  }
+  body.portrait .overlay-item { font-size: clamp(21px, 2.4vh, 34px); }
 
   /* MAIN page "about" card — name + URL + live connection status. Hidden on MAP page. */
   .info-box {
@@ -348,12 +346,10 @@ namespace NORoksMFD
      readable on tall screens. The three text rows scale in lockstep (preserves the
      original 28/14/14 ratio); padding scales too so the card grows proportionally,
      not just the text. */
-  @media (orientation: portrait) {
-    .info-box            { padding: clamp(22px, 2.4vh, 35px) clamp(36px, 4vh, 58px); }
-    .info-box .ib-title  { font-size: clamp(28px, 3.12vh, 45px); margin-bottom: clamp(14px, 1.6vh, 22px); }
-    .info-box .ib-url    { font-size: clamp(14px, 1.6vh, 22px); margin-bottom: clamp(14px, 1.6vh, 22px); }
-    .info-box .ib-status { font-size: clamp(14px, 1.6vh, 22px); }
-  }
+  body.portrait .info-box            { padding: clamp(22px, 2.4vh, 35px) clamp(36px, 4vh, 58px); }
+  body.portrait .info-box .ib-title  { font-size: clamp(28px, 3.12vh, 45px); margin-bottom: clamp(14px, 1.6vh, 22px); }
+  body.portrait .info-box .ib-url    { font-size: clamp(14px, 1.6vh, 22px); margin-bottom: clamp(14px, 1.6vh, 22px); }
+  body.portrait .info-box .ib-status { font-size: clamp(14px, 1.6vh, 22px); }
 
   /* WPN page — stacks the player's loadout one weapon per line-select key (keys 1..N;
      key 0 is the MAIN back button). Each row is positioned + sized to fit the slot
@@ -438,9 +434,7 @@ namespace NORoksMFD
     white-space: nowrap;
     z-index: 2;
   }
-  @media (orientation: portrait) {
-    .avn-name { font-size: clamp(32px, 3.6vh, 51px); }
-  }
+  body.portrait .avn-name { font-size: clamp(32px, 3.6vh, 51px); }
   /* Silhouette frame: positioned by JS to sit just under the name (top edge = sep[1])
      and stretch down to the bottom strip (bottom edge = last sep). object-fit: contain
      preserves aspect ratio inside whatever frame we give it; child parts are positioned
@@ -532,10 +526,8 @@ namespace NORoksMFD
   }
   .avn-vbar-value { padding: 0 0 20px 0; }
   .avn-vbar-label { padding: 20px 0 0 0; }
-  @media (orientation: portrait) {
-    .avn-vbar-label,
-    .avn-vbar-value { font-size: clamp(16px, 1.8vh, 25.5px); }
-  }
+  body.portrait .avn-vbar-label,
+  body.portrait .avn-vbar-value { font-size: clamp(16px, 1.8vh, 25.5px); }
   /* Tube: thin bordered column, fill grows from the bottom. Black background gives the fill
      a strong silhouette; the inner 1px box-shadow adds the recessed-instrument look. */
   /* Tube is a 3-sided box: top + bottom + the outside edge facing away from the silhouette
@@ -739,7 +731,7 @@ namespace NORoksMFD
   .wp-item {
     position: absolute;
     left: 90px;                            /* clear the left line-select label gutter */
-    right: calc(50% + 10px);               /* stop before the panel's vertical midline */
+    right: calc(45% + 10px);               /* name list takes the left 55%; image the right 45% */
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -766,17 +758,17 @@ namespace NORoksMFD
      object-fit:contain lets them grow to the largest size that fits without crop. */
   .wp-sel-icon-wrap {
     position: absolute;
-    /* 10px outer margin from the panel midline / right edge (JS adds the same gap top/bottom). */
-    left: calc(50% + 20px);
-    right: 40px;
+    /* No horizontal margin; occupies the right 45% of the panel (55% goes to the name
+       list). (JS still adds a 20px gap top/bottom.) */
+    left: 55%;
+    right: 0;
     display: none;
     align-items: center;
     justify-content: center;
     pointer-events: none;
     overflow: hidden;
-    padding: 10px;            /* inner breathing room between the icon and the border */
+    padding: 10px;            /* inner breathing room so the icon doesn't touch the edges */
     box-sizing: border-box;
-    border: 1px solid #d4d8dc;   /* same off-white as the line-select labels */
     /* Establishes a CSS-size container so the rotated image can size off cqw / cqh. */
     container-type: size;
   }
@@ -791,6 +783,20 @@ namespace NORoksMFD
     object-fit: contain;
     transform: rotate(90deg);
   }
+  /* Landscape: the right pane is wide and short, so show the weapon icon in its native
+     horizontal orientation — undo the portrait rotate-to-fit-vertical trick (and the
+     cqh/cqw axis swap that paired with it). */
+  body.landscape .wp-sel-icon {
+    width:  100cqw;
+    height: 100cqh;
+    transform: none;
+  }
+  /* Portrait: the screen is tall + narrow, so the weapon names crammed against the 50%
+     midline and ellipsised. Keep the 50/50 name/image split, but reclaim the wasted left
+     gutter — the 90px offset clears the line-select label column, which the weapon rows
+     (keys 1..5) don't actually overlap, so in portrait we pull the names flush-left to
+     match the MAIN label's left edge, giving them the full left half. */
+  body.portrait .wp-item { left: 18px; }
 
   /* Countermeasures panel — centred at the top of the WPN page, in key[0]'s slot.
      Two columns (IR Flares | Radar Jammer) separated by a thin green vertical line. */
@@ -1276,12 +1282,36 @@ function forwardTgpToPanes() {
     iframe.contentWindow.postMessage({ mfd: true, type: 'tgp', active: tgpActive }, '*');
   });
 }
+
+// ── App-wide orientation ─────────────────────────────────────────────────────────────
+// A media query INSIDE an iframe evaluates against that iframe's own box, so a split
+// pane (wide + short) would wrongly read landscape even when the device is portrait.
+// To keep portrait/landscape rules tied to the WHOLE APP regardless of split state, the
+// shell is the single source of truth: it reads the window orientation, tags its own
+// <body class="portrait|landscape">, and forwards the value to each pane iframe so they
+// tag their own <body> identically. Bare pages key their orientation CSS off that class
+// instead of @media (orientation).
+const orientMq = window.matchMedia('(orientation: portrait)');
+function appOrientation() { return orientMq.matches ? 'portrait' : 'landscape'; }
+function applyShellOrientation() {
+  document.body.classList.toggle('portrait',  orientMq.matches);
+  document.body.classList.toggle('landscape', !orientMq.matches);
+}
+function forwardOrientationToPane(iframe) {
+  if (iframe && iframe.contentWindow)
+    iframe.contentWindow.postMessage({ mfd: true, type: 'orient', orientation: appOrientation() }, '*');
+}
+function broadcastOrientation() { paneIframes.forEach(forwardOrientationToPane); }
+orientMq.addEventListener('change', function() { applyShellOrientation(); broadcastOrientation(); });
+applyShellOrientation();
+
 // On pane iframe load, push the latest snapshot for whichever page that pane is
 // rendering — the page may have been mid-update at the moment its iframe started
-// loading.
+// loading — plus the current app orientation (every bare page can use it).
 paneIframes.forEach(function(iframe, idx) {
   iframe.addEventListener('load', function() {
     if (!splitMode) return;
+    forwardOrientationToPane(iframe);
     const page = panePages[idx];
     if      (page === 'main') forwardStatusToPanes();
     else if (page === 'avn')  forwardAvnToPanes();
@@ -2166,6 +2196,10 @@ document.querySelector('.mfd').addEventListener('click', function(e) {
 });
 
 window.addEventListener('resize', function() {
+  // Orientation can flip on resize without matchMedia's 'change' always firing in every
+  // environment, so refresh + re-broadcast here too (resize is guaranteed to fire).
+  applyShellOrientation();
+  broadcastOrientation();
   // Re-align labels to the (moved) bezel keys. In split mode the labels belong to the
   // per-pane layout, so re-run renderSplitLabels — calling showPage(currentPage) here
   // would clobber the split bezel with the single-pane page's full 6-item layout.
