@@ -498,26 +498,53 @@ namespace NORoksMFD
   }
   /* Tube: thin bordered column, fill grows from the bottom. Black background gives the fill
      a strong silhouette; the inner 1px box-shadow adds the recessed-instrument look. */
+  /* Tube is a 3-sided box: top + bottom + the outside edge facing away from the silhouette
+     are drawn; the inside edge (facing the silhouette) is left open. Mirrors the in-game
+     cockpit fuel-bar style where the container hugs the gauge label and opens toward the
+     cockpit centre. .fuel opens to the right, .thr opens to the left — assignments live
+     in the per-side blocks below. */
+  /* Tube is a 3-sided box: top + bottom + the outside edge facing away from the silhouette
+     are drawn; the inside edge (facing the silhouette) is left open. Mirrors the in-game
+     cockpit fuel-bar style where the container hugs the gauge label and opens toward the
+     cockpit centre. .fuel opens to the right, .thr opens to the left — assignments live
+     in the per-side blocks below. */
   .avn-vbar-tube {
     position: relative;
     flex: 1 1 auto;
-    width: 16px;
-    border: 1px solid #39ff14;
+    width: 28px;
     background: #050a05;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+    box-sizing: border-box;
+    padding: 6px;        /* insets the fill so segments don't touch the borders */
     overflow: hidden;
   }
-  /* Solid fill base; the segmented avionics look comes from the overlay below it, not from
-     the fill itself, so the dividers stay aligned to the tube no matter how full it is. */
+  .avn-vbar.fuel .avn-vbar-tube {
+    border: 2px solid #39ff14;
+    border-right: none;
+  }
+  .avn-vbar.thr .avn-vbar-tube {
+    border: 2px solid #39ff14;
+    border-left: none;
+  }
+  /* Throttle reads as a continuous analogue gauge — no segmented tile pattern and no
+     midpoint marker. The fill grows as one solid green column inside the inset region. */
+  .avn-vbar.thr .avn-vbar-tube::after,
+  .avn-vbar.thr .avn-vbar-tube::before { content: none; }
+  /* Solid fill base, inset 6px from each border to match the .avn-vbar-tube padding so
+     the green segments float inside the container with generous breathing room. Height
+     % is set inline by paintAvnBar(). The segmented look comes from the divider overlay
+     below — keeping the fill solid lets the dividers stay aligned to the tube regardless
+     of how full it is. */
   .avn-vbar-fill {
     position: absolute;
-    left: 0; right: 0; bottom: 0;
+    left: 6px; right: 6px; bottom: 6px;
     height: 0%;
     background: #39ff14;
     transition: height 200ms linear, background-color 150ms linear;
   }
-  /* Horizontal dividers every ~10% of the tube height — drawn on top of the fill via a
-     repeating-gradient overlay. */
+  /* Horizontal dividers every ~10% of the tube height, 6px thick so each green segment
+     reads as a distinct tile with clear separation from its neighbours. The overlay
+     covers the tube's full padding box (inset:0) so the dividers stay anchored to the
+     tube even though the fill is inset. */
   .avn-vbar-tube::after {
     content: '';
     position: absolute;
@@ -525,10 +552,27 @@ namespace NORoksMFD
     background-image: repeating-linear-gradient(
       to top,
       transparent 0,
-      transparent calc(10% - 1px),
-      rgba(0, 0, 0, 0.85) calc(10% - 1px),
-      rgba(0, 0, 0, 0.85) 10%
+      transparent calc(10% - 6px),
+      #050a05 calc(10% - 6px),
+      #050a05 10%
     );
+    pointer-events: none;
+  }
+  /* Brighter horizontal line marking the midpoint. The repeating gradient direction is
+     "to top", so each segment gap sits ABOVE its 10% mark from the bottom — equivalent
+     to BELOW the corresponding mark in CSS top-coords. The gap that brackets the 50%
+     midpoint therefore spans top:50% → top:50% + 6px. We centre the bright line inside
+     that gap rather than at exactly 50%, so it doesn't visually touch the segment
+     immediately above. Thin (1.5px) to leave clean breathing space within the 6px gap. */
+  .avn-vbar-tube::before {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: 50%;
+    height: 1.5px;
+    margin-top: 2.25px;      /* gap centre at top:50%+3px, line centred there */
+    background: #39ff14;
+    z-index: 2;
     pointer-events: none;
   }
   /* Side tick marks at 0/25/50/75/100% — small green notches outside the tube on the
@@ -573,6 +617,7 @@ namespace NORoksMFD
     text-shadow: none;
   }
   .avn-vbar.na .avn-vbar-tube { border-color: #1a4a1a; }
+  .avn-vbar.na .avn-vbar-tube::before { background: #1a4a1a; }
   .avn-vbar.na .avn-vbar-ticks::before { background-image:
       linear-gradient(#1a4a1a, #1a4a1a),
       linear-gradient(#1a4a1a, #1a4a1a),
