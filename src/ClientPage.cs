@@ -63,6 +63,7 @@ namespace NORoksMFD
     top: 50%; left: 50%;
     transform: translate(-50%,-50%);
     color: #1a4a1a;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
     font-size: 22px;
     letter-spacing: 3px;
     white-space: nowrap;
