@@ -73,7 +73,11 @@
       // → the panel shows its "NO LOCK" empty state, matching the game's no-target case.
       if (v.indexOf('/tgp.mjpg') === 0)        return SILENT_FAIL_IMG;
       if (v.indexOf('/cm') === 0)              return CAPTURE['cm:' + qp(v, 'type')] || MOCK_CM[qp(v, 'type')] || v;
-      if (v.indexOf('/airframe?') === 0)       return CAPTURE['airframe:' + qp(v, 'type') + '|' + qp(v, 'part')] || v;
+      // Same silent-fail trick as /icon and /weapon — captures rarely cover every
+      // (aircraft × part) combo, and the AVN page tolerates missing parts (a failed
+      // mask just means that part's silhouette doesn't render). Returning the 0-byte
+      // data URI keeps the console clean instead of spamming 404s for each part.
+      if (v.indexOf('/airframe?') === 0)       return CAPTURE['airframe:' + qp(v, 'type') + '|' + qp(v, 'part')] || SILENT_FAIL_IMG;
       return v;
     }
     // Synthetic fallback.
@@ -107,11 +111,13 @@
   };
 
   // ── Rewrite CSS mask URLs on the AVN page ──────────────────────────────────
-  // The MFD's AVN renderer sets el.style.maskImage = 'url("/airframe?type=...")'.
-  // CSS mask images are fetched by the browser directly (not via HTMLImageElement),
-  // so the <img>.src rewrite above doesn't catch them — they'd 404 against the
-  // preview server. We watch for newly-attached .avn-part elements and rewrite
-  // their inline mask URLs to the captured paths before paint.
+  // The MFD's AVN renderer sets el.style.maskImage = 'url("/airframe?...")' on a
+  // *detached* element, then appendChild()s it. CSS resources aren't fetched until
+  // the element is in the document, so intercepting attach is the right hook: we
+  // rewrite mask URLs synchronously inside appendChild/insertBefore, before the
+  // browser ever sees the original /airframe URL.
+  // (CSSStyleDeclaration.prototype doesn't expose a maskImage setter we can wrap
+  // in Chromium, and a MutationObserver runs too late — the 404 already fired.)
   function rewriteMaskUrlsOn(el) {
     if (!el || el.nodeType !== 1) return;
     const parts = el.classList && el.classList.contains('avn-part')
@@ -128,12 +134,16 @@
       }
     }
   }
-  const mo = new MutationObserver(function(records) {
-    for (const r of records) {
-      for (const n of r.addedNodes) rewriteMaskUrlsOn(n);
-    }
-  });
-  mo.observe(document.documentElement, { childList: true, subtree: true });
+  const origAppendChild  = Node.prototype.appendChild;
+  const origInsertBefore = Node.prototype.insertBefore;
+  Node.prototype.appendChild = function(node) {
+    rewriteMaskUrlsOn(node);
+    return origAppendChild.call(this, node);
+  };
+  Node.prototype.insertBefore = function(node, ref) {
+    rewriteMaskUrlsOn(node);
+    return origInsertBefore.call(this, node, ref);
+  };
 
   // ── Static telemetry frame ───────────────────────────────────────────────────
   // Prefer a real captured frame; otherwise this hand-written synthetic one.
