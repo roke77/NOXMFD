@@ -1,7 +1,7 @@
 namespace NORoksMFD
 {
-    // A hardware-style Multi-Function Display: a rugged bezel with clickable (no-op) buttons
-    // on all four sides plus corner controls, wrapping the existing map (served at /?bare) in
+    // A hardware-style Multi-Function Display: a rugged bezel with clickable buttons
+    // on all four sides, wrapping the existing map (served at /?bare) in
     // the central screen. Served at /mfd. The bezel is hardware-gray; the screen inside keeps
     // the green HUD theme because it's the existing page in an iframe.
     internal static class MfdPage
@@ -45,11 +45,13 @@ namespace NORoksMFD
     box-shadow: inset 0 1px 0 #5a5f66, inset 0 -2px 8px #15161a, 0 6px 22px rgba(0,0,0,0.55);
   }
 
-  /* Strips share the screen's 3-column grid, so corner controls align with the side
-     columns and the centre cell lines up exactly with the map screen. */
-  .strip { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+  /* Strips share the screen's 3-column grid: side-key-width gutter / screen / side-key-width
+     gutter. The generated top/bottom key banks live in the centre cell so they align with
+     the screen, while standalone controls can sit in the side gutter. */
+  .strip { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; gap: 10px; align-items: center; }
   .strip .center { display: flex; gap: 6px; min-width: 0; }
-  .strip .center.right { justify-content: flex-end; }   /* pin cluster to the map's right edge */
+  .strip .center { grid-column: 2; }
+  .strip-action.right { grid-column: 3; justify-self: center; }
   .mid   { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; min-height: 0; }
 
   .keys   { display: flex; gap: 6px; }
@@ -57,7 +59,11 @@ namespace NORoksMFD
      padding so the first/last ridge line up with the map (iframe) top/bottom edges. */
   .keys.v { flex-direction: column; justify-content: space-between; gap: 0; padding: 6px 0; }
   .keys.v .key { flex: 0 0 auto; width: 36px; height: 46px; }   /* generic line-select keys */
-  .corner { display: flex; gap: 6px; }
+  /* Horizontal row: same separator/key/separator pattern, rotated to spread across
+     the screen width. */
+  .keys.h { flex: 1 1 auto; justify-content: space-between; gap: 0; padding: 0 6px; min-width: 0; }
+  .keys.h .key { flex: 0 0 auto; width: 46px; height: 36px; }
+  .keys.h .key.icon { width: 46px; height: 36px; }
 
   /* White horizontal line marking inside each generic (side) key */
   .keys.v .key::before {
@@ -67,6 +73,15 @@ namespace NORoksMFD
     box-shadow: 0 0 2px rgba(255,255,255,0.35);
     border-radius: 1px;
   }
+  /* White vertical line marking inside each generic top/bottom key. Icon keys suppress it. */
+  .keys.h .key::before {
+    content: '';
+    width: 2px; height: 16px;
+    background: #e8eaed;
+    box-shadow: 0 0 2px rgba(255,255,255,0.35);
+    border-radius: 1px;
+  }
+  .keys.h .key.icon::before { display: none; }
 
   /* Engraved separator ridge between side keys (visual only, not clickable) */
   .keys.v .sep { display: flex; align-items: center; }
@@ -75,6 +90,14 @@ namespace NORoksMFD
     width: 100%; height: 2px;
     background: #16181b;
     box-shadow: 0 1px 0 rgba(255,255,255,0.06), 0 -1px 0 rgba(0,0,0,0.45);
+    border-radius: 1px;
+  }
+  .keys.h .sep { display: flex; align-items: center; }
+  .keys.h .sep::before {
+    content: '';
+    width: 2px; height: 100%;
+    background: #16181b;
+    box-shadow: 1px 0 0 rgba(255,255,255,0.06), -1px 0 0 rgba(0,0,0,0.45);
     border-radius: 1px;
   }
 
@@ -151,6 +174,20 @@ namespace NORoksMFD
     -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' d='M1 5V1H5 M9 1H13V5 M13 9V13H9 M5 13H1V9'/></svg>") center/contain no-repeat;
             mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' d='M1 5V1H5 M9 1H13V5 M13 9V13H9 M5 13H1V9'/></svg>") center/contain no-repeat;
   }
+  .ic-pin {
+    display: inline-block;
+    width: 14px; height: 14px;
+    background-color: currentColor;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path d='M5 1H9V2L8 3V6L11 9V10H8V13H6V10H3V9L6 6V3L5 2Z'/></svg>") center/contain no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path d='M5 1H9V2L8 3V6L11 9V10H8V13H6V10H3V9L6 6V3L5 2Z'/></svg>") center/contain no-repeat;
+  }
+  .ic-swap {
+    display: inline-block;
+    width: 14px; height: 14px;
+    background-color: currentColor;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='black' stroke-width='1.5' stroke-linecap='square' stroke-linejoin='round' d='M3 4H10 M8 2L10 4L8 6 M11 10H4 M6 8L4 10L6 12'/></svg>") center/contain no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='black' stroke-width='1.5' stroke-linecap='square' stroke-linejoin='round' d='M3 4H10 M8 2L10 4L8 6 M11 10H4 M6 8L4 10L6 12'/></svg>") center/contain no-repeat;
+  }
   /* Wide layout icon: box split into a wide left pane and a narrow right pane */
   .ic-split {
     position: relative;
@@ -187,7 +224,7 @@ namespace NORoksMFD
   }
 
   /* Per-page line-select overlay inside the screen. Item labels are positioned by JS to
-     line up with the left side keys. Transparent on the MAP page (overlays the map, which
+     line up with their assigned bezel keys. Transparent on the MAP page (overlays the map, which
      stays interactive), opaque black on the MAIN page (covers the map). pointer-events:none
      because the physical bezel keys are the controls — the labels are purely visual. */
   .overlay {
@@ -199,17 +236,18 @@ namespace NORoksMFD
   .overlay.opaque { background: #000; }
   .overlay-item {
     position: absolute;
-    left: 16px;
-    transform: translateY(-50%);
     color: #d4d8dc;
     font-family: 'Share Tech Mono', 'Courier New', monospace;
     font-size: 32px;
     font-weight: 900;
     letter-spacing: 2px;
+    white-space: nowrap;
   }
-  /* Right-column variant — aligns the label to the right edge instead of left,
-     used for the TGL page's NEXT pagination button on right key 0. */
-  .overlay-item.right { left: auto; right: 16px; }
+  /* Bank-specific label anchors; JS supplies the cross-axis coordinate. */
+  .overlay-item.left  { left: 16px; transform: translateY(-50%); }
+  .overlay-item.right { right: 16px; transform: translateY(-50%); }
+  .overlay-item.top { transform: translate(-50%, 0); }
+  .overlay-item.bottom { transform: translate(-50%, -100%); }
   /* On portrait viewports (mobile rotated upright) the screen grows much taller, which
      spreads the line-select keys further apart and makes a fixed 32px label look small
      in the now-bigger empty space. Scale the label with viewport height so it keeps the
@@ -654,15 +692,10 @@ namespace NORoksMFD
     <span class="screw bl"></span><span class="screw br"></span>
 
     <div class="strip top">
-      <div class="corner">
-        <button class="key icon" type="button" title="Main"><span class="ic-square"></span></button>
+      <div class="center">
+        <div class="keys h" id="keys-top"></div>
       </div>
-      <div class="center right">
-        <button class="key icon" type="button" data-action="fll" title="Fullscreen"><span class="ic-fullscreen" aria-hidden="true"></span></button>
-      </div>
-      <div class="corner">
-        <button class="key icon" type="button" title="Layout"><span class="ic-1x2"></span></button>
-      </div>
+      <button class="key icon strip-action right" type="button" data-action="fll" title="Fullscreen"><span class="ic-fullscreen" aria-hidden="true"></span></button>
     </div>
 
     <div class="mid">
@@ -720,21 +753,16 @@ namespace NORoksMFD
     </div>
 
     <div class="strip bottom">
-      <div class="corner">
-        <button class="key icon" type="button" title="Layout"><span class="ic-2x1"></span></button>
-      </div>
-      <div class="center"></div>
-      <div class="corner">
-        <button class="key icon" type="button" title="Layout"><span class="ic-split"></span></button>
+      <div class="center">
+        <div class="keys h" id="keys-bottom"></div>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-// Generate the line-select keys down the left and right sides (easy to tune).
-// The top strip keeps only the labelled corner controls; there is no bottom strip.
-const COUNTS = { 'keys-left': 6, 'keys-right': 6 };
+// Generate the line-select keys around the screen (easy to tune).
+const COUNTS = { 'keys-left': 6, 'keys-right': 6, 'keys-top': 6, 'keys-bottom': 6 };
 function addSep(c) { const s = document.createElement('div'); s.className = 'sep'; c.appendChild(s); }
 function addKey(c) { const b = document.createElement('button'); b.className = 'key'; b.type = 'button'; c.appendChild(b); }
 
@@ -748,8 +776,32 @@ for (const id in COUNTS) {
   }
 }
 
-const leftKeys  = document.querySelectorAll('#keys-left .key');
-const rightKeys = document.querySelectorAll('#keys-right .key');
+const keyBanks = {
+  left:   document.querySelectorAll('#keys-left .key'),
+  right:  document.querySelectorAll('#keys-right .key'),
+  top:    document.querySelectorAll('#keys-top .key'),
+  bottom: document.querySelectorAll('#keys-bottom .key'),
+};
+const leftKeys  = keyBanks.left;    // compatibility aliases for side-specific renderers
+const rightKeys = keyBanks.right;
+const bottomIcons = [
+  { cls: 'ic-pin',    title: 'Pin' },
+  { cls: 'ic-swap',   title: 'Swap' },
+  { cls: 'ic-square', title: 'Main' },
+  { cls: 'ic-1x2',    title: 'Layout' },
+  { cls: 'ic-2x1',    title: 'Layout' },
+  { cls: 'ic-split',  title: 'Layout' },
+];
+bottomIcons.forEach(function(icon, i) {
+  const key = keyBanks.bottom[i];
+  if (!key) return;
+  key.classList.add('icon');
+  key.title = icon.title;
+  const span = document.createElement('span');
+  span.className = icon.cls;
+  span.setAttribute('aria-hidden', 'true');
+  key.appendChild(span);
+});
 const overlayEl = document.getElementById('overlay');
 const mapFrame  = document.querySelector('.screen iframe');
 const infoBox   = document.getElementById('info-box');
@@ -782,8 +834,8 @@ const flareDots     = cmFlaresIcon.querySelectorAll('.flare-dot');
 
 // ── Pages ─────────────────────────────────────────────────────────────────────────
 // Which page is in view (MAP, MAIN, WPN…) and the line-select items each page shows.
-// Every item names a label, the left key it aligns to (0 = topmost), and the action its
-// key fires. The MAP page overlays its items on top of the (still-interactive) map; the
+// Every item names a label, the key bank/slot it aligns to, and the action its key
+// fires. The MAP page overlays its items on top of the (still-interactive) map; the
 // MAIN page draws an opaque panel over it.
 const PAGES = {
   map: {
@@ -854,7 +906,7 @@ let tgpActive = false;
 
 // Latest target list mirrored from the map iframe. Whole list is kept in memory; the
 // renderer shows TGL_MAX_DISPLAY per page (left key 1..5 then right key 1..5) and
-// pages through them with PREV/NEXT on the corner keys. tglPage = 0-indexed page.
+// pages through them with PREV/NEXT on the side keys. tglPage = 0-indexed page.
 let tglData = { targets: [] };
 let tglPage = 0;
 const TGL_MAX_DISPLAY = 10;
@@ -884,8 +936,36 @@ let avnLayoutCache   = Object.create(null);     // type → {bg, parts:[...], fa
 let avnPartEls       = Object.create(null);     // partName → .avn-part DOM element
 let avnFailureEls    = Object.create(null);     // failureMessage → .avn-failure DOM element
 
-// Render a page: set the overlay background, (re)assign the left keys' actions, and
-// position each item label next to its key.
+function clearKeyActions() {
+  Object.keys(keyBanks).forEach(function(bank) {
+    keyBanks[bank].forEach(function(k) { delete k.dataset.action; });
+  });
+}
+
+function placeOverlayLabel(bankName, keyIndex, label, action) {
+  const side = bankName || 'left';
+  const bank = keyBanks[side];
+  const k = bank && bank[keyIndex];
+  if (!k) return;
+
+  if (action) k.dataset.action = action;
+  const el = document.createElement('div');
+  el.className = 'overlay-item ' + side;
+  el.textContent = label;
+
+  const oRect = overlayEl.getBoundingClientRect();
+  const kr = k.getBoundingClientRect();
+  if (side === 'top' || side === 'bottom') {
+    el.style.left = (kr.left + kr.width / 2 - oRect.left) + 'px';
+    el.style.top = (side === 'top' ? 16 : oRect.height - 16) + 'px';
+  } else {
+    el.style.top = (kr.top + kr.height / 2 - oRect.top) + 'px';
+  }
+  overlayEl.appendChild(el);
+}
+
+// Render a page: set the overlay background, (re)assign key actions, and position
+// each item label next to its physical key.
 function showPage(name) {
   currentPage = name;
   const page = PAGES[name];
@@ -908,22 +988,12 @@ function showPage(name) {
   }
   if (name === 'wpn') { renderCm(); }   // cm-panel positions itself; doesn't need overlay-items
 
-  leftKeys .forEach(function(k) { delete k.dataset.action; });
-  rightKeys.forEach(function(k) { delete k.dataset.action; });
+  clearKeyActions();
   // Only wipe dynamic line-select labels; static children (info-box) stay put.
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
 
-  const oRect = overlayEl.getBoundingClientRect();
   page.items.forEach(function(item) {
-    const k = leftKeys[item.key];
-    if (!k) return;
-    k.dataset.action = item.action;
-    const el = document.createElement('div');
-    el.className = 'overlay-item';
-    el.textContent = item.label;
-    const kr = k.getBoundingClientRect();
-    el.style.top = (kr.top + kr.height / 2 - oRect.top) + 'px';
-    overlayEl.appendChild(el);
+    placeOverlayLabel(item.side || 'left', item.key, item.label, item.action);
   });
 
   // TGL and WPN own their own labels (PREV/MAIN + NEXT) because they depend on the
@@ -1154,18 +1224,8 @@ function renderWpn() {
   const trimmed = list.slice(start, start + WPN_MAX_DISPLAY);
 
   // Nav buttons: MAIN/PREV on left key 0, NEXT on right key 0 when there's overflow.
-  const oRect = overlayEl.getBoundingClientRect();
-  function navLabel(key, text, action, onRight) {
-    key.dataset.action = action;
-    const el = document.createElement('div');
-    el.className = 'overlay-item' + (onRight ? ' right' : '');
-    el.textContent = text;
-    const kr = key.getBoundingClientRect();
-    el.style.top = (kr.top + kr.height / 2 - oRect.top) + 'px';
-    overlayEl.appendChild(el);
-  }
-  navLabel(leftKeys[0], wpnPage > 0 ? 'PREV' : 'MAIN', wpnPage > 0 ? 'wpn-prev' : 'main', false);
-  if (start + trimmed.length < total) navLabel(rightKeys[0], 'NEXT', 'wpn-next', true);
+  placeOverlayLabel('left', 0, wpnPage > 0 ? 'PREV' : 'MAIN', wpnPage > 0 ? 'wpn-prev' : 'main');
+  if (start + trimmed.length < total) placeOverlayLabel('right', 0, 'NEXT', 'wpn-next');
 
   if (!trimmed.length) {
     wpnEmptyEl.style.display = '';
@@ -1359,19 +1419,9 @@ function renderTgl() {
   const list  = targets.slice(start, start + TGL_MAX_DISPLAY);
   tglPanel.classList.toggle('has-targets', list.length > 0);
 
-  // Place the corner nav labels (PREV/MAIN on left key 0, NEXT on right key 0 when overflowing).
-  const oRect = overlayEl.getBoundingClientRect();
-  function navLabel(key, text, action, onRight) {
-    key.dataset.action = action;
-    const el = document.createElement('div');
-    el.className = 'overlay-item' + (onRight ? ' right' : '');
-    el.textContent = text;
-    const kr = key.getBoundingClientRect();
-    el.style.top = (kr.top + kr.height / 2 - oRect.top) + 'px';
-    overlayEl.appendChild(el);
-  }
-  navLabel(leftKeys[0], tglPage > 0 ? 'PREV' : 'MAIN', tglPage > 0 ? 'tgl-prev' : 'main', false);
-  if (start + list.length < total) navLabel(rightKeys[0], 'NEXT', 'tgl-next', true);
+  // Place the nav labels (PREV/MAIN on left key 0, NEXT on right key 0 when overflowing).
+  placeOverlayLabel('left', 0, tglPage > 0 ? 'PREV' : 'MAIN', tglPage > 0 ? 'tgl-prev' : 'main');
+  if (start + list.length < total) placeOverlayLabel('right', 0, 'NEXT', 'tgl-next');
 
   if (!list.length) return;
 
@@ -1529,7 +1579,7 @@ function toggleFullscreen() {
   }
 }
 
-// Event delegation covers both generated keys and the corner controls.
+// Event delegation covers both generated keys and standalone controls.
 document.querySelector('.mfd').addEventListener('click', function(e) {
   const k = e.target.closest('.key');
   if (k) mfdButton(k);
