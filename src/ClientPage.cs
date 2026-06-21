@@ -40,7 +40,7 @@ namespace NORoksMFD
 
   main { flex: 1; display: flex; overflow: hidden; }
 
-  /* "bare" mode (e.g. embedded in the MFD frame at /?bare): map only, no chrome. */
+  /* "bare" mode (e.g. embedded in the MFD frame at /map-view?bare): map only, no chrome. */
   body.bare > header,
   body.bare #hud { display: none; }
   body.bare #map-panel { border-right: none; }

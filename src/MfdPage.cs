@@ -1,8 +1,8 @@
 namespace NORoksMFD
 {
     // A hardware-style Multi-Function Display: a rugged bezel with clickable buttons
-    // on all four sides, wrapping the existing map (served at /?bare) in
-    // the central screen. Served at /mfd. The bezel is hardware-gray; the screen inside keeps
+    // on all four sides, wrapping the existing map (served at /map-view?bare) in
+    // the central screen. Served at /. The bezel is hardware-gray; the screen inside keeps
     // the green HUD theme because it's the existing page in an iframe.
     internal static class MfdPage
     {
@@ -701,7 +701,7 @@ namespace NORoksMFD
     <div class="mid">
       <div class="keys v" id="keys-left"></div>
       <div class="screen">
-        <iframe src="/?bare" title="map"></iframe>
+        <iframe src="/map-view?bare" title="map"></iframe>
         <div class="overlay" id="overlay">
           <div class="info-box" id="info-box">
             <div class="ib-title">NO ROKS MFD</div>

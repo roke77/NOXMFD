@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve the generated preview/ folder over HTTP so the HUD / MFD page can be opened in
+"""Serve the generated preview/ folder over HTTP so the MFD page can be opened in
 a browser without `file://` security quirks (CSS mask-image and other subresource
 fetches between sibling file:// URLs are blocked in Chromium).
 
@@ -27,9 +27,10 @@ def main() -> None:
     ap.add_argument("--open", action="store_true", help="open MFD page in browser on start")
     args = ap.parse_args()
 
-    if not (PREVIEW / "mfd.html").exists():
+    missing = [name for name in ("index.html", "map-view.html") if not (PREVIEW / name).exists()]
+    if missing:
         sys.exit(
-            f"ERROR: {PREVIEW / 'mfd.html'} not found.\n"
+            f"ERROR: missing generated preview file(s): {', '.join(missing)}\n"
             f"  Run `python tools/build_preview.py` first."
         )
 
@@ -41,11 +42,11 @@ def main() -> None:
     url = f"http://localhost:{args.port}"
     with socketserver.TCPServer(("", args.port), handler) as srv:
         print(f"Serving {PREVIEW.relative_to(ROOT)} at {url}/")
-        print(f"  HUD :  {url}/index.html")
-        print(f"  MFD :  {url}/mfd.html")
+        print(f"  MFD      :  {url}/index.html")
+        print(f"  Map view :  {url}/map-view.html?bare")
         print("Press Ctrl+C to stop.")
         if args.open:
-            webbrowser.open(f"{url}/mfd.html")
+            webbrowser.open(f"{url}/index.html")
         try:
             srv.serve_forever()
         except KeyboardInterrupt:

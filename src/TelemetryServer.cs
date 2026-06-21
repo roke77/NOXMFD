@@ -235,7 +235,11 @@ namespace NORoksMFD
                         ServeAirframeImage(ctx);
                     else if (path == "/airframe-layout")
                         ServeAirframeLayout(ctx);
+                    else if (path == "/map-view")
+                        ServePage(ctx, ClientPage.Html);
                     else if (path == "/mfd")
+                        Redirect(ctx, "/");
+                    else if (path == "/" || path == "/index.html")
                     {
                         string lanBlock = string.IsNullOrEmpty(LanUrl)
                             ? ""
@@ -243,7 +247,7 @@ namespace NORoksMFD
                         ServePage(ctx, MfdPage.Html.Replace("{{LAN_URL_BLOCK}}", lanBlock));
                     }
                     else
-                        ServePage(ctx, ClientPage.Html);
+                        Redirect(ctx, "/");
                 }
                 catch (HttpListenerException) { break; }
                 catch (ObjectDisposedException) { break; }
@@ -272,6 +276,17 @@ namespace NORoksMFD
         }
 
         // ── Map image handler ──────────────────────────────────────────────────
+
+        private static void Redirect(HttpListenerContext ctx, string location)
+        {
+            try
+            {
+                ctx.Response.StatusCode = 302;
+                ctx.Response.RedirectLocation = location;
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
 
         private static void ServeMap(HttpListenerContext ctx)
         {
