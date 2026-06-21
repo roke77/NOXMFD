@@ -237,6 +237,17 @@ namespace NORoksMFD
                         ServeAirframeLayout(ctx);
                     else if (path == "/map-view")
                         ServePage(ctx, ClientPage.Html);
+                    else if (path == "/main")
+                    {
+                        string lanBlock = string.IsNullOrEmpty(LanUrl)
+                            ? ""
+                            : $"<div class=\"ib-url\">{LanUrl}</div>";
+                        ServePage(ctx, MainPage.Html.Replace("{{LAN_URL_BLOCK}}", lanBlock));
+                    }
+                    else if (path == "/avn")
+                        ServePage(ctx, AvnPage.Html);
+                    else if (path == "/tgp")
+                        ServePage(ctx, TgpPage.Html);
                     else if (path == "/mfd")
                         Redirect(ctx, "/");
                     else if (path == "/" || path == "/index.html")

@@ -39,7 +39,7 @@ namespace NORoksMFD
     display: grid;
     grid-template-rows: auto 1fr auto;
     gap: 10px;
-    padding: 18px;
+    padding: 10px;
     border-radius: 14px;
     background: linear-gradient(160deg, #3b3f45, #26282c);
     box-shadow: inset 0 1px 0 #5a5f66, inset 0 -2px 8px #15161a, 0 6px 22px rgba(0,0,0,0.55);
@@ -223,6 +223,46 @@ namespace NORoksMFD
     background: #060a06;
   }
 
+  /* Split layout: when .screen.split is on, the single map iframe + overlay (the
+     normal single-pane stack) are hidden and we render two stacked iframes with a
+     3px white divider between them. Each pane is its own iframe per the Strategy A
+     plan in todo/mfd-split-screen.md — pages live inside iframes; the shell still
+     owns bezel labels and click dispatch. */
+  .split-container {
+    position: absolute;
+    inset: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+    display: none;
+    flex-direction: column;
+  }
+  .screen.split > iframe[title="map"] { display: none; }
+  .screen.split > .split-container { display: flex; }
+  /* In split mode the overlay stays visible — it's where the per-pane bezel labels
+     paint on top of the pane iframes. Its OPAQUE background and per-page content
+     panels (info-box, wpn-panel, …) must NOT show, though; the panes own that
+     content now. We disable the opaque background regardless of class, and any
+     direct content child is force-hidden. */
+  .screen.split > .overlay { background: transparent !important; }
+  .screen.split > .overlay > .info-box,
+  .screen.split > .overlay > .wpn-panel,
+  .screen.split > .overlay > .tgp-panel,
+  .screen.split > .overlay > .tgl-panel,
+  .screen.split > .overlay > .avn-panel { display: none !important; }
+  .split-pane {
+    flex: 1 1 50%;
+    min-height: 0;
+    width: 100%;
+    border: 0;
+    display: block;
+    background: #000;
+  }
+  .split-divider {
+    flex: 0 0 2px;
+    width: 100%;
+    background: #ffffff;
+  }
+
   /* Per-page line-select overlay inside the screen. Item labels are positioned by JS to
      line up with their assigned bezel keys. Transparent on the MAP page (overlays the map, which
      stays interactive), opaque black on the MAIN page (covers the map). pointer-events:none
@@ -262,7 +302,7 @@ namespace NORoksMFD
     position: absolute;
     color: #d4d8dc;
     font-family: 'Share Tech Mono', 'Courier New', monospace;
-    font-size: 32px;
+    font-size: 21px;
     font-weight: 900;
     letter-spacing: 2px;
     white-space: nowrap;
@@ -278,7 +318,7 @@ namespace NORoksMFD
      same visual prominence as in landscape. Clamped 32-64px so it never goes below the
      landscape baseline or grows absurdly large. */
   @media (orientation: portrait) {
-    .overlay-item { font-size: clamp(32px, 3.6vh, 51px); }
+    .overlay-item { font-size: clamp(21px, 2.4vh, 34px); }
   }
 
   /* MAIN page "about" card — name + URL + live connection status. Hidden on MAP page. */
@@ -890,8 +930,13 @@ namespace NORoksMFD
 
     <div class="mid">
       <div class="keys v" id="keys-left"></div>
-      <div class="screen">
+      <div class="screen" id="screen">
         <iframe src="/map-view?bare" title="map"></iframe>
+        <div class="split-container" id="split-container">
+          <iframe class="split-pane" id="pane-top" title="top pane"></iframe>
+          <div class="split-divider"></div>
+          <iframe class="split-pane" id="pane-bot" title="bottom pane"></iframe>
+        </div>
         <div class="overlay" id="overlay">
           <div class="mfd-indicators" id="mfd-indicators"></div>
           <div class="info-box" id="info-box">
@@ -994,8 +1039,8 @@ const rightKeys = keyBanks.right;
 const bottomIcons = [
   { cls: 'ic-pin',    title: 'Pin', action: 'pin' },
   { cls: 'ic-swap',   title: 'Swap', action: 'swap' },
-  { cls: 'ic-square', title: 'Main' },
-  { cls: 'ic-2x1',    title: 'Layout' },
+  { cls: 'ic-square', title: 'Full-screen 1×1', action: 'unsplit' },
+  { cls: 'ic-2x1',    title: 'Layout 2×1', action: 'split' },
   { cls: 'ic-1x2',    title: 'Layout' },
   { cls: 'ic-split',  title: 'Layout' },
 ];
@@ -1011,7 +1056,9 @@ bottomIcons.forEach(function(icon, i) {
   key.appendChild(span);
 });
 const overlayEl = document.getElementById('overlay');
-const mapFrame  = document.querySelector('.screen iframe');
+const mapFrame  = document.querySelector('.screen > iframe[title="map"]');
+const screenEl  = document.getElementById('screen');
+const paneIframes = [document.getElementById('pane-top'), document.getElementById('pane-bot')];
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 const wpnPanel  = document.getElementById('wpn-panel');
@@ -1098,6 +1145,149 @@ const PAGES = {
   },
 };
 let currentPage = 'map';
+
+// ── Split-screen state ──────────────────────────────────────────────────────────────
+// When splitMode is on, the screen renders two stacked iframes (the panes) instead
+// of the single map iframe + overlay panels. Each pane has its own currentPage;
+// the shell still owns the bezel labels and dispatches clicks to the right pane.
+// See todo/mfd-split-screen.md — Strategy A, implementation sequence steps 1-4.
+let splitMode = false;
+// [topPage, botPage]. Step 3 of the implementation sequence seeds both panes with
+// MAIN on entry; per-pane navigation updates this from MAIN's L0..L2 / R0..R2 keys.
+let panePages = ['main', 'main'];
+
+// Latest connection status mirrored from the map iframe — kept so we can push the
+// current value to a freshly-loaded pane iframe (its onload may fire AFTER the
+// shell has already received and forwarded the last status broadcast).
+let lastStatusCls  = 'disconnected';
+let lastStatusText = '● DISCONNECTED';
+
+// Split-mode line-select layouts per page. Each entry is one pane-local label;
+// physical key index = slot + paneOffset (paneOffset = 0 for top, 3 for bottom).
+// Only pages we've remapped via the interview in todo/mfd-split-screen.md appear
+// here. Pages without an entry render no labels in split mode (yet).
+const SPLIT_PAGES = {
+  main: {
+    // Initial mapping scope per the user — only AVN and TGP are wired today. Other
+    // destinations (MAP/RWR/TGL/WPN) come in subsequent interview rounds and stay
+    // hidden until their bare pages exist.
+    items: [
+      { side: 'left',  slot: 0, label: 'AVN', action: 'avn' },
+      { side: 'right', slot: 1, label: 'TGP', action: 'tgp' },
+    ],
+  },
+  // AVN / TGP in a split pane each expose a single MAIN back-button on their pane's
+  // top-left slot (L0 for top, physically L3 for bottom). Clicking it navigates ONLY
+  // that pane back to MAIN, leaving the other pane untouched.
+  avn: {
+    items: [
+      { side: 'left', slot: 0, label: 'MAIN', action: 'main' },
+    ],
+  },
+  tgp: {
+    items: [
+      { side: 'left', slot: 0, label: 'MAIN', action: 'main' },
+    ],
+  },
+};
+
+// URL for each iframe-served page. Only MAIN is wired today (interview step 4);
+// other entries land as we remap each page. Pages without an entry render
+// 'about:blank' on navigation — a no-op signal rather than a crash.
+const PAGE_URL = {
+  main: '/main?bare',
+  avn:  '/avn?bare',
+  tgp:  '/tgp?bare',
+};
+function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
+
+function applySplitMode() {
+  screenEl.classList.toggle('split', splitMode);
+  if (splitMode) {
+    paneIframes[0].src = paneUrl(panePages[0]);
+    paneIframes[1].src = paneUrl(panePages[1]);
+    renderSplitLabels();
+    renderIndicators();
+  } else {
+    // Drop iframe sources so they stop holding resources while hidden.
+    paneIframes[0].removeAttribute('src');
+    paneIframes[1].removeAttribute('src');
+    // Re-render the single-pane layout for whatever page was current before.
+    showPage(currentPage);
+  }
+}
+
+// Place per-pane labels for both panes' current pages. The top pane occupies
+// physical keys L0..L2 / R0..R2 (paneOffset = 0); the bottom pane occupies
+// L3..L5 / R3..R5 (paneOffset = 3). Labels are tagged with data-pane so the
+// click dispatcher knows which pane to update.
+function renderSplitLabels() {
+  clearKeyActions();
+  overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
+  for (let paneIdx = 0; paneIdx < 2; paneIdx++) {
+    const page = panePages[paneIdx];
+    const def = SPLIT_PAGES[page];
+    if (!def) continue;
+    const paneOffset = paneIdx === 0 ? 0 : 3;
+    const paneTag = paneIdx === 0 ? 'top' : 'bot';
+    def.items.forEach(function(item) {
+      placeOverlayLabel(item.side, item.slot + paneOffset, item.label, item.action);
+      const physicalKey = keyBanks[item.side][item.slot + paneOffset];
+      if (physicalKey) physicalKey.dataset.pane = paneTag;
+    });
+  }
+}
+
+function paneNavigate(paneIdx, page) {
+  panePages[paneIdx] = page;
+  paneIframes[paneIdx].src = paneUrl(page);
+  renderSplitLabels();
+}
+
+// Forwarding from shell → pane iframes. The shell already mirrors all the data
+// streams from the map iframe (status, avn, tgp, etc.); this just relays the
+// latest snapshot to whichever pane needs it.
+function forwardStatusToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'main') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(
+      { mfd: true, type: 'status', cls: lastStatusCls, text: lastStatusText }, '*');
+  });
+}
+function forwardAvnToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'avn') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage({
+      mfd: true, type: 'avn',
+      name: avnData.name,
+      parts: avnData.parts,
+      failures: avnData.failures,
+      fuel: avnData.fuel,
+      throttle: avnData.throttle,
+    }, '*');
+  });
+}
+function forwardTgpToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'tgp') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage({ mfd: true, type: 'tgp', active: tgpActive }, '*');
+  });
+}
+// On pane iframe load, push the latest snapshot for whichever page that pane is
+// rendering — the page may have been mid-update at the moment its iframe started
+// loading.
+paneIframes.forEach(function(iframe, idx) {
+  iframe.addEventListener('load', function() {
+    if (!splitMode) return;
+    const page = panePages[idx];
+    if      (page === 'main') forwardStatusToPanes();
+    else if (page === 'avn')  forwardAvnToPanes();
+    else if (page === 'tgp')  forwardTgpToPanes();
+  });
+});
 
 // Top-right indicator stack (PINNED + FOLLOW). pinnedPage tracks which page (if any)
 // is currently pinned; followOn mirrors the map iframe's follow state (broadcast via
@@ -1186,7 +1376,10 @@ function clearKeyActions() {
   // bank holds page-independent controls (PIN, SWAP, layout…) whose actions are wired
   // once at startup and must survive page switches.
   ['left', 'right', 'top'].forEach(function(bank) {
-    keyBanks[bank].forEach(function(k) { delete k.dataset.action; });
+    keyBanks[bank].forEach(function(k) {
+      delete k.dataset.action;
+      delete k.dataset.pane;     // split-mode tag; harmless to clear unconditionally
+    });
   });
 }
 
@@ -1766,7 +1959,9 @@ function renderTgl() {
 
     // Initial sizes by slot height. Name is 5/3 the meta size ("2/3 bigger"). Three lines
     // stacked (name + GRID + RNG) — shrunk below if any line overflows the column width.
-    let metaPx = Math.max(8, slotH * 0.1725);
+    // The 0.115 factor is 2/3 of the original 0.1725 — matches the reduction applied to
+    // the white line-select labels so target text reads at the same relative scale.
+    let metaPx = Math.max(8, slotH * 0.115);
     let namePx = metaPx * (5 / 3);
 
     const name = document.createElement('div');
@@ -1811,8 +2006,11 @@ window.addEventListener('message', function(e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
   if (m.type === 'status') {
+    lastStatusCls  = m.cls;
+    lastStatusText = m.text;
     ibStatus.className = 'ib-status ' + m.cls;
     ibStatus.textContent = m.text;
+    if (splitMode) forwardStatusToPanes();
   } else if (m.type === 'loadout') {
     wpnData = { items: m.items || [], selWeapon: m.selWeapon || null };
     if (currentPage === 'wpn') renderWpn();
@@ -1829,6 +2027,7 @@ window.addEventListener('message', function(e) {
     tgpActive = !!m.active;
     // Only matters while the TGP page is in view — outside it the panel is hidden anyway.
     if (currentPage === 'tgp') tgpPanel.classList.toggle('has-feed', tgpActive);
+    if (splitMode) forwardTgpToPanes();
   } else if (m.type === 'avn') {
     avnData = {
       name: m.name || null,
@@ -1842,6 +2041,7 @@ window.addEventListener('message', function(e) {
       if (avnLayoutType !== avnData.name) renderAvn();
       else { paintAvnDamage(); paintAvnFailures(); paintAvnBars(); }
     }
+    if (splitMode) forwardAvnToPanes();
   } else if (m.type === 'follow') {
     // Map iframe broadcasts its follow state on toggle / mission clear. Tracked at the
     // MFD level so the FOLLOW chip lives in the same stack as PINNED instead of being
@@ -1871,6 +2071,14 @@ function mfdButton(el) {
   el.classList.add('lit');                                   // brief press feedback
   setTimeout(function() { el.classList.remove('lit'); }, 150);
 
+  // Split-mode line-select keys carry a data-pane tag (top/bot). The action on
+  // them names a destination page; clicking navigates ONLY that pane.
+  if (splitMode && el.dataset.pane && el.dataset.action) {
+    const paneIdx = el.dataset.pane === 'top' ? 0 : 1;
+    paneNavigate(paneIdx, el.dataset.action);
+    return;
+  }
+
   switch (el.dataset.action) {
     case 'main': showPage('main'); mapSend('status-request'); break;   // pull fresh status on open
     case 'map':  showPage('map');  break;
@@ -1886,6 +2094,25 @@ function mfdButton(el) {
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;
     case 'fll':  toggleFullscreen(); break;
+    case 'split':
+      // One-way: enter split if not already. Pressing 2×1 while already split is a no-op.
+      // Collapse back to single uses the dedicated square (1×1) button below.
+      if (splitMode) break;
+      splitMode = true;
+      // Carry the full-view page into the TOP pane; the BOTTOM pane defaults to MAIN.
+      // Pages without a bare iframe version yet (no PAGE_URL entry) fall back to MAIN
+      // so the top pane is never blank.
+      panePages = [PAGE_URL[currentPage] ? currentPage : 'main', 'main'];
+      applySplitMode();
+      break;
+    case 'unsplit':
+      // One-way: collapse split back to single. No-op if already in single mode.
+      // The full-screen pane adopts whatever the TOP pane was showing.
+      if (!splitMode) break;
+      splitMode = false;
+      currentPage = panePages[0];
+      applySplitMode();
+      break;
     case 'swap':
       // Toggle between the pinned page and the last page we swapped from.
       //   - On a non-pinned page: remember it as the partner, jump to pinned.
@@ -1938,7 +2165,13 @@ document.querySelector('.mfd').addEventListener('click', function(e) {
   if (k) mfdButton(k);
 });
 
-window.addEventListener('resize', function() { showPage(currentPage); });   // re-align labels
+window.addEventListener('resize', function() {
+  // Re-align labels to the (moved) bezel keys. In split mode the labels belong to the
+  // per-pane layout, so re-run renderSplitLabels — calling showPage(currentPage) here
+  // would clobber the split bezel with the single-pane page's full 6-item layout.
+  if (splitMode) renderSplitLabels();
+  else           showPage(currentPage);
+});
 showPage('main');   // start on the MAIN page
 </script>
 </body>

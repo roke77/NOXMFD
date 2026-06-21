@@ -31,10 +31,16 @@ import webbrowser
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CLIENT = ROOT / "src" / "ClientPage.cs"
 MFD = ROOT / "src" / "MfdPage.cs"
+MAIN = ROOT / "src" / "MainPage.cs"
+AVN = ROOT / "src" / "AvnPage.cs"
+TGP = ROOT / "src" / "TgpPage.cs"
 MOCK = ROOT / "tools" / "preview-mock.js"
 MANIFEST = ROOT / "preview" / "assets" / "manifest.json"
 OUT = ROOT / "preview" / "index.html"
 OUT_MAP = ROOT / "preview" / "map-view.html"
+OUT_MAIN = ROOT / "preview" / "main.html"
+OUT_AVN = ROOT / "preview" / "avn.html"
+OUT_TGP = ROOT / "preview" / "tgp.html"
 OLD_OUT_MFD = ROOT / "preview" / "mfd.html"
 
 DELIM = '"""'
@@ -81,12 +87,18 @@ def main() -> None:
     print(f"Wrote {OUT_MAP.relative_to(ROOT)}  ({len(map_page):,} bytes)")
     print(f"Data source: {source}")
 
-    # MFD index page: its central screen is an iframe at /map-view?bare. Over file://
-    # that won't resolve, so point it at the generated bare map preview instead. The mock
-    # is also injected so the MFD's own /weapon fetches (used by the WPN page) resolve.
+    # MFD index page: its central screen embeds /map-view?bare (always) and, in split
+    # mode, /main?bare for the pane iframes. Over file:// neither resolves, so we point
+    # them at the generated bare previews instead. The mock is also injected so the
+    # MFD's own /weapon fetches (used by the WPN page) resolve.
     if MFD.exists():
         mfd = extract_html(MFD.read_text(encoding="utf-8"))
         mfd = mfd.replace('src="/map-view?bare"', 'src="map-view.html?bare"')
+        # The split-mode pane iframes set their src to /main?bare in JS; rewrite the
+        # string literals so the file:// preview points at the generated bare pages.
+        mfd = mfd.replace("'/main?bare'", "'main.html?bare'")
+        mfd = mfd.replace("'/avn?bare'",  "'avn.html?bare'")
+        mfd = mfd.replace("'/tgp?bare'",  "'tgp.html?bare'")
         # The LAN URL block is substituted by the live server; the file:// preview has no
         # server, so substitute a mock URL so the line still renders.
         mfd = mfd.replace(
@@ -96,6 +108,32 @@ def main() -> None:
         mfd = mfd.replace("</head>", injection + mock + "\n</head>", 1)
         OUT.write_text(mfd, encoding="utf-8")
         print(f"Wrote {OUT.relative_to(ROOT)}  ({len(mfd):,} bytes)")
+
+    # MAIN page (split-mode pane content). Pure static — no mock injection needed.
+    if MAIN.exists():
+        main_html = extract_html(MAIN.read_text(encoding="utf-8"))
+        main_html = main_html.replace(
+            "{{LAN_URL_BLOCK}}",
+            '<div class="ib-url">http://192.168.1.42:5005</div>',
+        )
+        OUT_MAIN.write_text(main_html, encoding="utf-8")
+        print(f"Wrote {OUT_MAIN.relative_to(ROOT)}  ({len(main_html):,} bytes)")
+
+    # AVN bare page (split-mode pane content). Needs the mock injected so the page's
+    # /airframe + /airframe-layout fetches resolve against captured assets in preview.
+    if AVN.exists():
+        avn_html = extract_html(AVN.read_text(encoding="utf-8"))
+        avn_html = avn_html.replace("</head>", injection + mock + "\n</head>", 1)
+        OUT_AVN.write_text(avn_html, encoding="utf-8")
+        print(f"Wrote {OUT_AVN.relative_to(ROOT)}  ({len(avn_html):,} bytes)")
+
+    # TGP bare page (split-mode pane content). The mock intercepts /tgp.mjpg so the
+    # in-browser preview shows the NO LOCK placeholder cleanly.
+    if TGP.exists():
+        tgp_html = extract_html(TGP.read_text(encoding="utf-8"))
+        tgp_html = tgp_html.replace("</head>", injection + mock + "\n</head>", 1)
+        OUT_TGP.write_text(tgp_html, encoding="utf-8")
+        print(f"Wrote {OUT_TGP.relative_to(ROOT)}  ({len(tgp_html):,} bytes)")
 
     if OLD_OUT_MFD.exists():
         OLD_OUT_MFD.unlink()

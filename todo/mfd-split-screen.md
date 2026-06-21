@@ -140,46 +140,214 @@ duplication and special-casing.
 - Both panes share the existing `.screen` background and the recessed
   `box-shadow` look. The divider lives **between** them, not on top.
 
-## Pane→bezel key mapping (open question)
+## Pane→bezel key mapping (resolved)
 
-Splitting the screen vertically halves the available rows for line-
-select labels. The bezel keys themselves don't move — they still
-flank the full screen height — but the page renderers expect their
-labels to land next to specific keys.
+The bezel is physically halved per pane: each pane is driven by the
+6 line-select keys that flank it. Both vertical key columns
+(left and right) each have 6 keys; on split, the top 3 of each
+column drive the top pane (6 keys total) and the bottom 3 of each
+column drive the bottom pane (6 keys total).
 
-Options:
+```
+left col       right col
+─────────      ─────────
+L0  ──┐        ┌──  R0     ┐
+L1  ──┤  TOP   ├──  R1     │  top pane: 6 slots
+L2  ──┘  PANE  └──  R2     ┘
+       ── DIVIDER ──
+L3  ──┐        ┌──  R3     ┐
+L4  ──┤  BOT   ├──  R4     │  bottom pane: 6 slots
+L5  ──┘  PANE  └──  R5     ┘
+```
 
-1. **Each pane addresses the full bezel.** Bezel keys 0..5 left and
-   0..5 right are claimed by whichever pane is "focused." Player
-   selects which pane the bezel drives via PIN/SWAP-like control or
-   by clicking inside the pane. Other pane shows its labels in a
-   dimmed/static way.
-2. **Halve the bezel per pane.** Left keys 0..2 + right keys 0..2 →
-   top pane; left keys 3..5 + right keys 3..5 → bottom pane. The
-   bezel is physically split too. Most legible at-a-glance; but each
-   page's renderer only has 3 left + 3 right slots instead of 6+6,
-   which doesn't fit pages like MAIN (6 items) or WPN/TGL (5+ items
-   plus PREV/NEXT).
-3. **Hide line-select labels in split mode.** Pane navigation moves to
-   the bottom bezel row (or to a header inside each pane). The pages
-   render content-only.
+Consequence: every page must define a **split-mode layout** that
+fits within 6 slots (vs the 12 available in single-pane mode). The
+single-pane layout is unchanged; the split-mode layout is a new,
+explicit configuration the page renderer reads when its pane is in
+split context. We'll work out the split-mode layout for each page
+together — see the interview section below.
 
-Decision punted to implementation time; option 1 is the most likely
-fit because it preserves the existing page renderers unchanged and
-matches how real-aircraft MFDs handle multi-pane modes.
+The bottom-bezel and top-bezel rows (generic buttons including
+PIN/SWAP/2×1) are NOT split — they stay at the shell level and keep
+their current behavior.
 
 ## Toggle behavior (2×1 button)
 
-- First click on 2×1 from single-pane mode: split. The current page
-  goes into the top pane. The bottom pane defaults to MAP
-  (rationale: the map is the most universally useful "secondary"
-  context — same default as the boot screen).
+- First click on 2×1 from single-pane mode (entering split):
+  - **Top pane** = whatever page was being displayed at the moment
+    2×1 was clicked.
+  - **Bottom pane** = the currently PINNED page.
+  - **Bottom pane fallback** = if no page is pinned, render `MAIN`.
 - Click 2×1 again from split mode: collapse back to single pane,
   keeping whichever pane was last interacted with (the "focused" one
   per option 1 above).
 - The `data-action` for 2×1 should be `split` or `layout-2x1`.
 - The generic icon already has class `ic-2x1` and renders correctly —
   no glyph changes needed.
+
+### Edge cases for the entry rule
+
+- **Current page IS the pinned page** (top == bottom would be a
+  duplicate): same rules still apply, but bottom falls through to
+  `MAIN` since rendering the same page twice on entry is unhelpful.
+  After entering split, the player can manually move either pane to
+  any page via the bezel — duplicates ARE allowed at that point
+  (Strategy A makes that work for free).
+- **Entering split from MAIN**: top is `MAIN`, bottom is pinned (or
+  `MAIN` again with the duplicate fallback above → in that combo
+  case, default bottom to `MAP` since MAIN+MAIN with no pin is the
+  only state where neither rule gives us anything useful).
+
+## Implementation sequence
+
+To keep each step small and verifiable, the work is staged:
+
+1. **Wire the `split` action.** Give `bottomIcons[3]` (the 2×1 icon)
+   a `data-action="split"` and add a `case 'split'` to the bezel
+   click dispatcher in `MfdPage.cs`. No layout yet — just toggle a
+   shell-level `splitMode` flag and log it.
+2. **Implement the split layout.** Update `.screen` to render two
+   stacked panes with a 3px white horizontal divider between them
+   when `splitMode` is on. Use Strategy A: each pane is its own
+   `<iframe>`. Single-pane behavior is preserved when `splitMode` is
+   off — the existing `<iframe src="/map-view?bare">` becomes the
+   single-pane case of the same iframe shell.
+3. **Seed both panes with MAIN.** As a dev checkpoint, on split
+   entry render the MAIN page in BOTH the top and bottom panes,
+   regardless of the eventual entry rule. This proves the split
+   layout works and surfaces every constraint the 6-slot bezel
+   imposes on the MAIN renderer.
+4. **Remap MAIN for split mode** (first interview entry below).
+   Once MAIN renders cleanly in 6 slots, this becomes our reference
+   for how per-page remap is structured.
+5. **Apply the real entry rule.** Replace the "MAIN on both" seed
+   with the actual rule from the Toggle-behavior section: top =
+   current page, bottom = pinned page (or `MAIN` fallback).
+6. **Remap each remaining page** in the order defined by the
+   interview section. Ship each one as a small, independent change.
+7. **Collapse-back semantics + indicator chips.** Carry the focused
+   pane's page back to single mode; resolve PIN/SWAP/FOLLOW in
+   split mode per the section below.
+
+## Per-page line-select remap (interview)
+
+Each page's single-pane line-select layout is defined in `PAGES`
+(in `MfdPage.cs`) plus, for the dynamic pages (WPN/TGL/AVN), in
+their `render*` functions. We need a parallel **split-mode layout**
+per page that fits within the 6 slots the pane controls (3 left +
+3 right, indexed `L0..L2` and `R0..R2` against the pane's bezel
+half).
+
+The remap is decided page by page as an interview with the user.
+Each page gets a short discussion covering:
+
+- Which actions on the page can stay (highest-value navigation +
+  controls).
+- Which actions get dropped, hidden, or moved behind a
+  page-internal control.
+- How PREV/NEXT (for WPN/TGL) is preserved with fewer slots.
+- Whether the page needs to grow a new "more" / overflow control.
+
+### Interview order
+
+The order is implementation order — earlier entries unblock later
+entries (MAIN unblocks all navigation across the split panes; AVN's
+remap will inform similar layouts for static-content pages).
+
+1. **MAIN** (6 items today: AVN, MAP, RWR, TGL, TGP, WPN — slots
+   L0..L5). Perfect candidate to start: it's the navigation hub
+   and exactly fills 6 single-pane slots, so the question becomes
+   how to fit 6 items into the new 3L + 3R split layout. Resolved
+   here first because both panes need MAIN to be navigable in
+   split mode for any later remap to be reachable.
+2. **MAP** (4 items today: MAIN, FLW, Z+, Z−). Fewest items —
+   should fit naturally. Confirm slot assignment and whether
+   FOLLOW chip placement needs to change inside a pane.
+3. **AVN** (1 item today: MAIN). Trivial in terms of items, but
+   the silhouette + side bars need to render correctly at half
+   the vertical space — a layout-only conversation.
+4. **TGP** (1 item today: MAIN). MJPEG viewport at half vertical
+   space — confirm aspect-ratio behavior and NO LOCK placement.
+5. **TGL** (dynamic; 5 entries per page + PREV/NEXT/MAIN). The
+   single-pane layout uses 10 slots (5 left + 5 right) for entries
+   plus side keys for paging. Split mode forces fewer entries per
+   page or a different pagination scheme.
+6. **WPN** (dynamic; 5 entries per page + PREV/NEXT/MAIN +
+   countermeasures panel). Same constraint as TGL plus the CM
+   panel sizing question.
+
+### Interview entry template
+
+For each page, when we get to it, we'll fill out:
+
+- **Single-pane items today**: list, with their current
+  key/side/action.
+- **Split-mode items kept**: list, with new
+  key/side/action.
+- **Items dropped or moved**: list, with rationale.
+- **Page-internal UI changes**: layout tweaks needed to fit half
+  the vertical space.
+- **Notes / open follow-ups**.
+
+We append a filled-in entry here as each interview completes.
+
+### MAIN — resolved
+
+**Single-pane items today** (6 items, all on left bezel):
+
+| Slot | Label | Action |
+|------|-------|--------|
+| L0   | AVN   | navigate → AVN |
+| L1   | MAP   | navigate → MAP |
+| L2   | RWR   | navigate → RWR (stub — page not built yet) |
+| L3   | TGL   | navigate → TGL |
+| L4   | TGP   | navigate → TGP |
+| L5   | WPN   | navigate → WPN |
+
+**Split-mode items kept** (6 items, 3 left + 3 right per pane —
+mirrors the single-pane order, split in half):
+
+| Slot | Label | Action |
+|------|-------|--------|
+| L0   | AVN   | navigate this pane → AVN |
+| L1   | MAP   | navigate this pane → MAP |
+| L2   | RWR   | navigate this pane → RWR (stub) |
+| R0   | TGL   | navigate this pane → TGL |
+| R1   | TGP   | navigate this pane → TGP |
+| R2   | WPN   | navigate this pane → WPN |
+
+**Navigation scope:** clicking a destination on MAIN-in-a-pane
+navigates ONLY that pane to the destination. The other pane is
+untouched. So both panes have independent "what page am I showing"
+state, and MAIN is each pane's local navigation hub.
+
+**Items dropped or moved:** none. All 6 destinations carry over.
+RWR remains as a stub (matching single-pane behavior) — it'll be
+fleshed out as its own future work and the slot is reserved for it.
+
+**Page-internal UI changes:**
+
+- The `.info-box` card (the "NO ROKS MFD" / URL / connection-status
+  card) stays centered in the pane in split mode, but shrinks to
+  fit the half-height vertical space. Keep the existing portrait
+  scaling logic; layer the split-mode case on top of it so the
+  card scales down further when its pane is half the screen's
+  height.
+- Empty / unconnected-state visuals (the disconnected status
+  pill) remain visible — the card is the primary signal of MFD
+  health and shouldn't disappear in split mode.
+
+**Notes / open follow-ups:**
+
+- The renderer will need to know which pane it's drawing into so
+  `placeOverlayLabel` resolves the right physical bezel key (L0
+  in the top pane = the actual L0 key; L0 in the bottom pane =
+  the actual L3 key). The pane→physical-key offset is the cleanest
+  way to keep the per-page item lists (`L0..L2 / R0..R2`)
+  pane-agnostic.
+- Confirm during implementation that the info-box's shrunken
+  layout still reads at the smallest expected pane size (portrait
+  viewport split in half is the tightest case).
 
 ## Interaction with PIN / SWAP / indicator chips
 
@@ -223,8 +391,5 @@ matches how real-aircraft MFDs handle multi-pane modes.
 
 - Strategy A vs B (recommend A, but worth one more pass before
   starting the refactor).
-- Bezel key mapping in split mode (option 1 / 2 / 3 above).
 - PIN behavior with two panes — one shared pin, or per-pane pins?
 - SWAP behavior in split mode.
-- Should the bottom pane's default on first entry be MAP, or the
-  last non-current page the player visited?
