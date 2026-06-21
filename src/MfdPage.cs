@@ -1735,8 +1735,9 @@ function layoutAvnBars() {
   // Portrait: the silhouette fills the width (and is inset to clear the bars — see
   // applyAvnFrameInset), so pin the bars to the panel edges. Landscape: flank the narrow
   // silhouette, anchoring to its measured edges, clamped so a bar can never spill outside.
+  const portrait = document.body.classList.contains('portrait');
   let fuelRight, thrLeft;
-  if (document.body.classList.contains('portrait')) {
+  if (portrait) {
     fuelRight = edgePos;
     thrLeft   = edgePos;
   } else {
@@ -1744,14 +1745,19 @@ function layoutAvnBars() {
     thrLeft   = Math.max(edgeInset, Math.min((partsRect.right + gap) - panelRect.left, edgePos));
   }
 
+  // Portrait: shorten the bars to 80% of the frame height and re-center them vertically so
+  // they read tighter against the aircraft. Landscape keeps the full silhouette height.
+  const barH   = portrait ? frameRect.height * 0.8 : frameRect.height;
+  const barTop = topInPanel + (frameRect.height - barH) / 2;
+
   avnFuelBar.style.right  = fuelRight + 'px';
-  avnFuelBar.style.top    = topInPanel + 'px';
-  avnFuelBar.style.height = frameRect.height + 'px';
+  avnFuelBar.style.top    = barTop + 'px';
+  avnFuelBar.style.height = barH + 'px';
   avnFuelBar.classList.add('placed');
 
   avnThrBar.style.left   = thrLeft + 'px';
-  avnThrBar.style.top    = topInPanel + 'px';
-  avnThrBar.style.height = frameRect.height + 'px';
+  avnThrBar.style.top    = barTop + 'px';
+  avnThrBar.style.height = barH + 'px';
   avnThrBar.classList.add('placed');
 }
 
