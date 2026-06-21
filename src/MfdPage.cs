@@ -536,9 +536,10 @@ namespace NORoksMFD
     font-family: 'Share Tech Mono', 'Courier New', monospace;
     display: grid;
     grid-template-columns: 1fr 1px 1fr;
-    grid-template-rows: auto 1fr auto;
+    grid-template-rows: auto auto auto;
+    align-content: center;       /* cluster the three rows in the middle of the slot */
     column-gap: 14px;
-    row-gap: 3px;
+    row-gap: 4px;
   }
   /* Match the weapon-name font (.wp-name) so the heading line reads at the same weight. */
   .cm-title { font-size: 18px; font-weight: 900; letter-spacing: 1px; white-space: nowrap; }
@@ -1229,13 +1230,14 @@ function renderWpn() {
   // Position the big icon over the full vertical span of the side keys (sep[1] just
   // below key 0 → sep[last] just above the bottom strip). Always spans the whole keys-1..5
   // area regardless of how many weapons the player actually has, so the icon gets all the
-  // available height even when only a few rows are populated. +10/-20 mirrors the 10px
-  // horizontal outer margin on the wrap so the bordered box sits inset on all four sides.
+  // available height even when only a few rows are populated. +20/-40 = 20px outer margin
+  // top + bottom (mirrors the 10px horizontal outer margin on the wrap but with extra
+  // breathing room above and below the bordered box).
   if (sepEls.length >= 3) {
     const topRect = sepEls[1].getBoundingClientRect();
     const botRect = sepEls[sepEls.length - 1].getBoundingClientRect();
-    wpnSelIconWrap.style.top    = (topRect.bottom - panelRect.top + 10) + 'px';
-    wpnSelIconWrap.style.height = (botRect.top - topRect.bottom - 20) + 'px';
+    wpnSelIconWrap.style.top    = (topRect.bottom - panelRect.top + 20) + 'px';
+    wpnSelIconWrap.style.height = (botRect.top - topRect.bottom - 40) + 'px';
   }
 
   // Refresh ammo text + selected/depleted highlights in place (cheap, no DOM rebuild).
@@ -1306,14 +1308,29 @@ function renderCm() {
   cmJammerTitle.classList.toggle('empty', jammerEmpty);
   cmJammerVal  .classList.toggle('empty', jammerEmpty);
 
-  // Size the big readouts so the glyphs fill their cells' available height. Measure each
-  // value's containing cell (the parent that's sized by the grid track) and scale to ~80%
-  // of that — leaves some breathing room and accounts for line-height.
-  function fitTextHeight(el, h) {
-    if (h > 4) el.style.fontSize = Math.floor(h * 0.8) + 'px';
+  // Size the big readouts + IR icon. Grid rows are auto-sized (no 1fr), so cells no
+  // longer stretch — derive a target glyph height from the slot height directly. This
+  // keeps the title/value/bar visually clustered instead of spread across the slot.
+  // Grid is `1fr 1px 1fr` with 14px column-gap, so each column track is:
+  const colW = Math.max(0, (cmPanel.clientWidth - 1 - 14 * 2) / 2);
+  const slotH = cmPanel.getBoundingClientRect().height;
+  const targetH = slotH * 0.55;
+  const iconSize = Math.max(0, Math.min(targetH, colW * 0.5));
+  cmFlaresIcon.style.width  = iconSize + 'px';
+  cmFlaresIcon.style.height = iconSize + 'px';
+  function fitText(el, maxH, maxW) {
+    if (maxH < 4 || maxW < 4) return;
+    let size = Math.floor(maxH * 0.8);
+    el.style.fontSize = size + 'px';
+    const w = el.scrollWidth;
+    if (w > maxW && w > 0) {
+      size = Math.max(8, Math.floor(size * maxW / w));
+      el.style.fontSize = size + 'px';
+    }
   }
-  fitTextHeight(cmFlaresVal, cmFlaresVal.parentElement.getBoundingClientRect().height);
-  fitTextHeight(cmJammerVal, cmJammerVal.getBoundingClientRect().height);
+  const flaresUsableW = Math.max(0, colW - iconSize - 10);  // 10 = CSS gap
+  fitText(cmFlaresVal, targetH, flaresUsableW);
+  fitText(cmJammerVal, targetH, colW);
 
   // Match the capacitor bar's width to the kJ readout so they read as one grouped unit.
   // Measured after fitTextHeight so the readout's font is already at its final size.
