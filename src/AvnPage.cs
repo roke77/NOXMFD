@@ -353,7 +353,32 @@ function sizeAvnFailures() {
   }
 }
 
+// Bar geometry shared by the placement (layoutAvnBars) and the portrait frame inset
+// (applyAvnFrameInset) so they always agree on where the bars sit. .avn-vbar has a fixed
+// 42px CSS width; edgeInset matches the clamp in layoutAvnBars. AVN_BAR_SILHOUETTE_GAP is
+// the breathing room kept between a bar's inner edge and the silhouette in portrait.
+const AVN_BAR_W = 42;
+const AVN_BAR_SILHOUETTE_GAP = 15;
+function avnBarGap() { return Math.max(8, Math.round(avnPanel.getBoundingClientRect().width * 0.012)); }
+function avnBarEdgeInset() { return avnBarGap() + 7; }   // 7 ≈ tick gutter (5px) + 2px margin
+
+// In portrait the silhouette would fill the full frame width and slide under the FUEL/
+// THROTTLE bars pinned at the panel edges. Pull the frame in on each side by the bar zone
+// plus AVN_BAR_SILHOUETTE_GAP so the silhouette (bg + part masks, both sized to the frame)
+// stays clear of the bars. Cleared in landscape, which flanks a narrow silhouette.
+function applyAvnFrameInset() {
+  if (document.body.classList.contains('portrait')) {
+    const inset = avnBarEdgeInset() + AVN_BAR_W + AVN_BAR_SILHOUETTE_GAP;
+    avnFrame.style.left  = inset + 'px';
+    avnFrame.style.right = inset + 'px';
+  } else {
+    avnFrame.style.left  = '';
+    avnFrame.style.right = '';
+  }
+}
+
 function fitAvnPartsToBg() {
+  applyAvnFrameInset();
   const fr = avnFrame.getBoundingClientRect();
   if (!fr.width || !fr.height || !avnBg.naturalWidth || !avnBg.naturalHeight) {
     avnPartsEl.style.width = fr.width + 'px';
@@ -415,15 +440,31 @@ function layoutAvnBars() {
     return;
   }
   const panelRect = avnPanel.getBoundingClientRect();
-  const gap = Math.max(8, Math.round(panelRect.width * 0.012));
+  const gap = avnBarGap();
   const topInPanel = frameRect.top - panelRect.top;
 
-  avnFuelBar.style.right  = (panelRect.right - (partsRect.left - gap)) + 'px';
+  const barW = avnFuelBar.offsetWidth || AVN_BAR_W;
+  const edgeInset = avnBarEdgeInset();             // 7 ≈ tick gutter width (5px) + its 2px margin
+  const edgePos = panelRect.width - barW - edgeInset;   // flush against the panel edge
+
+  // Portrait: the silhouette fills the width (and is inset to clear the bars — see
+  // applyAvnFrameInset), so pin the bars to the panel edges. Landscape: flank the narrow
+  // silhouette, anchoring to its measured edges, clamped so a bar can never spill outside.
+  let fuelRight, thrLeft;
+  if (document.body.classList.contains('portrait')) {
+    fuelRight = edgePos;
+    thrLeft   = edgePos;
+  } else {
+    fuelRight = Math.max(edgeInset, Math.min(panelRect.right - (partsRect.left - gap), edgePos));
+    thrLeft   = Math.max(edgeInset, Math.min((partsRect.right + gap) - panelRect.left, edgePos));
+  }
+
+  avnFuelBar.style.right  = fuelRight + 'px';
   avnFuelBar.style.top    = topInPanel + 'px';
   avnFuelBar.style.height = frameRect.height + 'px';
   avnFuelBar.classList.add('placed');
 
-  avnThrBar.style.left   = ((partsRect.right + gap) - panelRect.left) + 'px';
+  avnThrBar.style.left   = thrLeft + 'px';
   avnThrBar.style.top    = topInPanel + 'px';
   avnThrBar.style.height = frameRect.height + 'px';
   avnThrBar.classList.add('placed');
