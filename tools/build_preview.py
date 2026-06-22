@@ -25,10 +25,16 @@ Re-run after editing ClientPage.cs / MfdPage.cs (or the mock, or re-capturing) t
 """
 import json
 import pathlib
+import socket
 import sys
 import webbrowser
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+# Port the preview is served on (tools/serve_preview.py / launch.json default). The live
+# server uses 5005, but in dev mode the pages are served from here, so the info-box URLs
+# are rewritten to this port so they actually resolve in the browser / from a tablet.
+PREVIEW_PORT = 8777
 CLIENT = ROOT / "src" / "ClientPage.cs"
 MFD = ROOT / "src" / "MfdPage.cs"
 MAIN = ROOT / "src" / "MainPage.cs"
@@ -44,6 +50,30 @@ OUT_TGP = ROOT / "preview" / "tgp.html"
 OLD_OUT_MFD = ROOT / "preview" / "mfd.html"
 
 DELIM = '"""'
+
+
+def detect_lan_ip() -> str:
+    """Resolve the LAN IPv4 this machine would use to reach the network — the same address
+    a tablet on the same Wi-Fi sees. Mirrors the server's DetectLanIp: the UDP "connect"
+    sends no packets, it just picks the outbound interface from the routing table. Returns
+    "" when offline or on a loopback-only setup."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 65530))
+            ip = sock.getsockname()[0]
+        return "" if not ip or ip.startswith("127.") or ip.startswith("0.") else ip
+    except OSError:
+        return ""
+
+
+def fill_preview_urls(html: str, localhost_url: str, lan_url: str) -> str:
+    """Rewrite the MAIN info-box URLs for the preview: the hardcoded localhost:5005 line and
+    the {{LAN_URL_BLOCK}} placeholder the live server fills. Uses the real detected LAN IP +
+    preview port so the LAN line actually works from another device; drops the LAN line when
+    no LAN IP is available (matching the server's empty-LanUrl behaviour)."""
+    html = html.replace("http://localhost:5005", localhost_url)
+    lan_block = f'<div class="ib-url">{lan_url}</div>' if lan_url else ""
+    return html.replace("{{LAN_URL_BLOCK}}", lan_block)
 
 
 def capture_injection() -> str:
@@ -87,6 +117,13 @@ def main() -> None:
     print(f"Wrote {OUT_MAP.relative_to(ROOT)}  ({len(map_page):,} bytes)")
     print(f"Data source: {source}")
 
+    # Real URLs for the MAIN info-box, so the preview shows the actual addresses you'd use in
+    # dev (and the LAN one works from a tablet on the same Wi-Fi) instead of a baked-in mock.
+    lan_ip = detect_lan_ip()
+    localhost_url = f"http://localhost:{PREVIEW_PORT}"
+    lan_url = f"http://{lan_ip}:{PREVIEW_PORT}" if lan_ip else ""
+    print(f"Info-box URLs: {localhost_url}" + (f"  +  {lan_url}" if lan_url else "  (no LAN IP detected)"))
+
     # MFD index page: its central screen embeds /map-view?bare (always) and, in split
     # mode, /main?bare for the pane iframes. Over file:// neither resolves, so we point
     # them at the generated bare previews instead. The mock is also injected so the
@@ -99,12 +136,9 @@ def main() -> None:
         mfd = mfd.replace("'/main?bare'", "'main.html?bare'")
         mfd = mfd.replace("'/avn?bare'",  "'avn.html?bare'")
         mfd = mfd.replace("'/tgp?bare'",  "'tgp.html?bare'")
-        # The LAN URL block is substituted by the live server; the file:// preview has no
-        # server, so substitute a mock URL so the line still renders.
-        mfd = mfd.replace(
-            "{{LAN_URL_BLOCK}}",
-            '<div class="ib-url">http://192.168.1.42:5005</div>',
-        )
+        # The localhost line + LAN URL block are filled by the live server in-game; for the
+        # preview, point them at the real detected LAN IP on the preview port.
+        mfd = fill_preview_urls(mfd, localhost_url, lan_url)
         mfd = mfd.replace("</head>", injection + mock + "\n</head>", 1)
         OUT.write_text(mfd, encoding="utf-8")
         print(f"Wrote {OUT.relative_to(ROOT)}  ({len(mfd):,} bytes)")
@@ -112,10 +146,7 @@ def main() -> None:
     # MAIN page (split-mode pane content). Pure static — no mock injection needed.
     if MAIN.exists():
         main_html = extract_html(MAIN.read_text(encoding="utf-8"))
-        main_html = main_html.replace(
-            "{{LAN_URL_BLOCK}}",
-            '<div class="ib-url">http://192.168.1.42:5005</div>',
-        )
+        main_html = fill_preview_urls(main_html, localhost_url, lan_url)
         OUT_MAIN.write_text(main_html, encoding="utf-8")
         print(f"Wrote {OUT_MAIN.relative_to(ROOT)}  ({len(main_html):,} bytes)")
 
