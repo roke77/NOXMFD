@@ -248,6 +248,8 @@ namespace NORoksMFD
                         ServePage(ctx, AvnPage.Html);
                     else if (path == "/tgp")
                         ServePage(ctx, TgpPage.Html);
+                    else if (path == "/wpn")
+                        ServePage(ctx, WpnPage.Html);
                     else if (path == "/mfd")
                         Redirect(ctx, "/");
                     else if (path == "/" || path == "/index.html")

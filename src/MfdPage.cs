@@ -1200,6 +1200,14 @@ let splitMode = false;
 // [topPage, botPage]. Step 3 of the implementation sequence seeds both panes with
 // MAIN on entry; per-pane navigation updates this from MAIN's L0..L2 / R0..R2 keys.
 let panePages = ['main', 'main'];
+// Per-pane WPN pagination index. WPN's weapon list can exceed one split page; each pane
+// scrolls independently via its PREV/NEXT bezel labels. Reset to 0 when a pane (re)enters
+// WPN. The bare WPN page is a pure renderer — the shell slices the list here.
+//
+// A split pane shows at most 4 weapons (slots L1, L2, R1, R2). The top band's keys are
+// reserved: L0 = MAIN/PREV back-button, R0 = NEXT (shown only when the loadout exceeds 4).
+let paneWpnPage = [0, 0];
+const WPN_SPLIT_MAX = 4;
 
 // Latest connection status mirrored from the map iframe — kept so we can push the
 // current value to a freshly-loaded pane iframe (its onload may fire AFTER the
@@ -1219,6 +1227,7 @@ const SPLIT_PAGES = {
     items: [
       { side: 'left',  slot: 0, label: 'AVN', action: 'avn' },
       { side: 'right', slot: 1, label: 'TGP', action: 'tgp' },
+      { side: 'right', slot: 2, label: 'WPN', action: 'wpn' },
     ],
   },
   // AVN / TGP in a split pane each expose a single MAIN back-button on their pane's
@@ -1234,15 +1243,19 @@ const SPLIT_PAGES = {
       { side: 'left', slot: 0, label: 'MAIN', action: 'main' },
     ],
   },
+  // WPN's pane labels are dynamic — MAIN/PREV on the pane's L0 and NEXT on R0 depend on the
+  // pane's pagination state — so renderSplitLabels special-cases it instead of reading a
+  // static item list here. This marker just records that WPN is a valid split page.
+  wpn: { dynamic: true },
 };
 
-// URL for each iframe-served page. Only MAIN is wired today (interview step 4);
-// other entries land as we remap each page. Pages without an entry render
-// 'about:blank' on navigation — a no-op signal rather than a crash.
+// URL for each iframe-served page. Pages without an entry render 'about:blank' on
+// navigation — a no-op signal rather than a crash.
 const PAGE_URL = {
   main: '/main?bare',
   avn:  '/avn?bare',
   tgp:  '/tgp?bare',
+  wpn:  '/wpn?bare',
 };
 function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 
@@ -1275,7 +1288,19 @@ function renderSplitLabels() {
     if (!def) continue;
     const paneOffset = paneIdx === 0 ? 0 : 3;
     const paneTag = paneIdx === 0 ? 'top' : 'bot';
-    def.items.forEach(function(item) {
+    // WPN's labels are pagination-dependent: MAIN (or PREV once scrolled) on the pane's L0,
+    // NEXT on the pane's R0 when more weapons remain. Mirrors single-pane renderWpn.
+    let items;
+    if (page === 'wpn') {
+      const sl = wpnPaneSlice(paneIdx);
+      items = [{ side: 'left', slot: 0,
+                 label:  sl.hasPrev ? 'PREV' : 'MAIN',
+                 action: sl.hasPrev ? 'wpn-prev' : 'main' }];
+      if (sl.hasNext) items.push({ side: 'right', slot: 0, label: 'NEXT', action: 'wpn-next' });
+    } else {
+      items = def.items;
+    }
+    items.forEach(function(item) {
       placeOverlayLabel(item.side, item.slot + paneOffset, item.label, item.action);
       const physicalKey = keyBanks[item.side][item.slot + paneOffset];
       if (physicalKey) physicalKey.dataset.pane = paneTag;
@@ -1285,6 +1310,7 @@ function renderSplitLabels() {
 
 function paneNavigate(paneIdx, page) {
   panePages[paneIdx] = page;
+  if (page === 'wpn') paneWpnPage[paneIdx] = 0;   // fresh entry — start on the first page
   paneIframes[paneIdx].src = paneUrl(page);
   renderSplitLabels();
 }
@@ -1321,6 +1347,64 @@ function forwardTgpToPanes() {
     iframe.contentWindow.postMessage({ mfd: true, type: 'tgp', active: tgpActive }, '*');
   });
 }
+// Slice the full loadout to the page a given pane is scrolled to. Returns the visible rows
+// plus whether PREV/NEXT exist, so renderSplitLabels can place the right nav labels. Clamps
+// a stale page index (e.g. the loadout shrank) back into range as a side effect.
+function wpnPaneSlice(idx) {
+  const list = wpnData.items || [];
+  const total = list.length;
+  const maxPage = Math.max(0, Math.ceil(total / WPN_SPLIT_MAX) - 1);
+  if (paneWpnPage[idx] > maxPage) paneWpnPage[idx] = maxPage;
+  if (paneWpnPage[idx] < 0)       paneWpnPage[idx] = 0;
+  const start = paneWpnPage[idx] * WPN_SPLIT_MAX;
+  const items = list.slice(start, start + WPN_SPLIT_MAX);
+  return { items: items, hasPrev: paneWpnPage[idx] > 0, hasNext: start + items.length < total };
+}
+function forwardWpnToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'wpn') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(
+      { mfd: true, type: 'wpn', items: wpnPaneSlice(idx).items, selWeapon: wpnData.selWeapon }, '*');
+  });
+}
+function forwardCmToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'wpn') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage({
+      mfd: true, type: 'cm',
+      flares: cmData.flares, flaresMax: cmData.flaresMax,
+      ewKJ: cmData.ewKJ, ewKJMax: cmData.ewKJMax, cmCat: cmData.cmCat,
+    }, '*');
+  });
+}
+// Tell each WPN pane where its weapon-row slots should sit so the rows line up with the
+// physical bezel keys flanking that pane. Slot order matches the pane's fill order:
+// L1, L2 (the two left keys below MAIN at L0), then R0, R1, R2. Positions are the keys'
+// vertical centres in the pane iframe's own coordinate space, recomputed on load + resize.
+function forwardWpnLayoutToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'wpn') return;
+    if (!iframe.contentWindow) return;
+    const paneTop = iframe.getBoundingClientRect().top;
+    const off = idx === 0 ? 0 : 3;
+    function cy(key) { const r = key.getBoundingClientRect(); return r.top + r.height / 2 - paneTop; }
+    // Weapon slots skip the top band (R0 is reserved for NEXT): L1, L2 then R1, R2.
+    const slotYs = [
+      cy(keyBanks.left[off + 1]),   // L1
+      cy(keyBanks.left[off + 2]),   // L2
+      cy(keyBanks.right[off + 1]),  // R1
+      cy(keyBanks.right[off + 2]),  // R2
+    ];
+    // CM band = the first key slot (between the separators flanking L0 / MAIN), so the CM
+    // panel can fill that exact height — the same band single-pane WPN parks the CM panel in.
+    const bandTop = sepEls[off].getBoundingClientRect().bottom - paneTop;
+    const bandBot = sepEls[off + 1].getBoundingClientRect().top - paneTop;
+    iframe.contentWindow.postMessage(
+      { mfd: true, type: 'wpn-layout', slotYs: slotYs, cmTop: bandTop, cmHeight: bandBot - bandTop }, '*');
+  });
+}
 
 // ── App-wide orientation ─────────────────────────────────────────────────────────────
 // A media query INSIDE an iframe evaluates against that iframe's own box, so a split
@@ -1355,6 +1439,7 @@ paneIframes.forEach(function(iframe, idx) {
     if      (page === 'main') forwardStatusToPanes();
     else if (page === 'avn')  forwardAvnToPanes();
     else if (page === 'tgp')  forwardTgpToPanes();
+    else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
   });
 });
 
@@ -2132,6 +2217,8 @@ window.addEventListener('message', function(e) {
   } else if (m.type === 'loadout') {
     wpnData = { items: m.items || [], selWeapon: m.selWeapon || null };
     if (currentPage === 'wpn') renderWpn();
+    // Loadout change can add/remove pages, so refresh the panes' slices + NEXT/PREV labels.
+    if (splitMode) { forwardWpnToPanes(); renderSplitLabels(); }
   } else if (m.type === 'cm') {
     cmData = {
       flares:    typeof m.flares    === 'number' ? m.flares    : -1,
@@ -2141,6 +2228,7 @@ window.addEventListener('message', function(e) {
       cmCat:     m.cmCat || 0
     };
     if (currentPage === 'wpn') renderCm();
+    if (splitMode) forwardCmToPanes();
   } else if (m.type === 'tgp') {
     tgpActive = !!m.active;
     // Only matters while the TGP page is in view — outside it the panel is hidden anyway.
@@ -2193,7 +2281,16 @@ function mfdButton(el) {
   // them names a destination page; clicking navigates ONLY that pane.
   if (splitMode && el.dataset.pane && el.dataset.action) {
     const paneIdx = el.dataset.pane === 'top' ? 0 : 1;
-    paneNavigate(paneIdx, el.dataset.action);
+    const act = el.dataset.action;
+    // WPN paging stays within the pane — bump its page index and re-send the slice + labels
+    // rather than navigating. Everything else is a destination page for that pane.
+    if (act === 'wpn-prev' || act === 'wpn-next') {
+      paneWpnPage[paneIdx] += (act === 'wpn-next' ? 1 : -1);
+      forwardWpnToPanes();
+      renderSplitLabels();
+    } else {
+      paneNavigate(paneIdx, act);
+    }
     return;
   }
 
@@ -2291,7 +2388,7 @@ window.addEventListener('resize', function() {
   // Re-align labels to the (moved) bezel keys. In split mode the labels belong to the
   // per-pane layout, so re-run renderSplitLabels — calling showPage(currentPage) here
   // would clobber the split bezel with the single-pane page's full 6-item layout.
-  if (splitMode) renderSplitLabels();
+  if (splitMode) { renderSplitLabels(); forwardWpnLayoutToPanes(); }
   else           showPage(currentPage);
 });
 showPage('main');   // start on the MAIN page
