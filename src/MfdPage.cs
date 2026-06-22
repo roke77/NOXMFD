@@ -203,6 +203,29 @@ namespace NORoksMFD
     width: 1px;
     background: currentColor;
   }
+  /* Left/right 2/3 icon: square split into a wide left pane and a narrow right pane */
+  .ic-lr23 {
+    position: relative;
+    width: 14px; height: 14px;
+    border: 1px solid currentColor;
+    border-radius: 1px;
+  }
+  .ic-lr23::before {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 66%;
+    width: 1px;
+    background: currentColor;
+  }
+  /* Power icon: broken ring + top stroke (IEC standby symbol) */
+  .ic-power {
+    display: inline-block;
+    width: 14px; height: 14px;
+    background-color: currentColor;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' d='M6 7a9 9 0 1 0 12 0 M12 3v9'/></svg>") center/contain no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' d='M6 7a9 9 0 1 0 12 0 M12 3v9'/></svg>") center/contain no-repeat;
+  }
 
   /* Inset screen recess holding the map iframe */
   .screen {
@@ -1021,7 +1044,7 @@ namespace NORoksMFD
 
 <script>
 // Generate the line-select keys around the screen (easy to tune).
-const COUNTS = { 'keys-left': 6, 'keys-right': 6, 'keys-top': 6, 'keys-bottom': 6 };
+const COUNTS = { 'keys-left': 6, 'keys-right': 6, 'keys-top': 4, 'keys-bottom': 4 };
 function addSep(c) { const s = document.createElement('div'); s.className = 'sep'; c.appendChild(s); }
 function addKey(c) { const b = document.createElement('button'); b.className = 'key'; b.type = 'button'; c.appendChild(b); }
 
@@ -1043,42 +1066,37 @@ const keyBanks = {
 };
 const leftKeys  = keyBanks.left;    // compatibility aliases for side-specific renderers
 const rightKeys = keyBanks.right;
-const bottomIcons = [
-  { cls: 'ic-pin',    title: 'Pin', action: 'pin' },
-  { cls: 'ic-swap',   title: 'Swap', action: 'swap' },
-  { cls: 'ic-square', title: 'Full-screen 1×1', action: 'unsplit' },
-  { cls: 'ic-2x1',    title: 'Layout 2×1', action: 'split' },
-  { cls: 'ic-1x2',    title: 'Layout' },
-  { cls: 'ic-split',  title: 'Layout' },
+// Fixed-control icon banks. The top row holds layout controls; the bottom row holds
+// page-independent functions. Both are wired once at startup and excluded from
+// clearKeyActions, so they survive page switches. Entries without an `action` render the
+// icon but do nothing yet — placeholders to be wired later (left/right splits, power).
+const topIcons = [
+  { cls: 'ic-square', title: 'Full view',            action: 'unsplit' },
+  { cls: 'ic-2x1',    title: 'Split top/bottom',     action: 'split' },
+  { cls: 'ic-1x2',    title: 'Split left/right' },
+  { cls: 'ic-lr23',   title: 'Split left/right 2/3' },
 ];
-bottomIcons.forEach(function(icon, i) {
-  const key = keyBanks.bottom[i];
-  if (!key) return;
-  key.classList.add('icon');
-  key.title = icon.title;
-  if (icon.action) key.dataset.action = icon.action;
-  const span = document.createElement('span');
-  span.className = icon.cls;
-  span.setAttribute('aria-hidden', 'true');
-  key.appendChild(span);
-});
-
-// The last top generic key is a fixed control — toggle browser fullscreen. It lives in the
-// top bank (rather than a standalone strip button) so it reads as one of the bezel keys.
-// Like the bottom icons it's wired once and is excluded from clearKeyActions, so it survives
-// page switches. No page maps a label onto the top bank, so claiming this key is conflict-free.
-(function () {
-  const fkey = keyBanks.top[keyBanks.top.length - 1];
-  if (fkey) {
-    fkey.classList.add('icon');
-    fkey.title = 'Fullscreen';
-    fkey.dataset.action = 'fll';
+const bottomIcons = [
+  { cls: 'ic-pin',        title: 'Pin',        action: 'pin' },
+  { cls: 'ic-swap',       title: 'Swap',       action: 'swap' },
+  { cls: 'ic-fullscreen', title: 'Fullscreen', action: 'fll' },
+  { cls: 'ic-power',      title: 'Power' },
+];
+function applyIconBank(bankName, icons) {
+  icons.forEach(function(icon, i) {
+    const key = keyBanks[bankName][i];
+    if (!key) return;
+    key.classList.add('icon');
+    key.title = icon.title;
+    if (icon.action) key.dataset.action = icon.action;
     const span = document.createElement('span');
-    span.className = 'ic-fullscreen';
+    span.className = icon.cls;
     span.setAttribute('aria-hidden', 'true');
-    fkey.appendChild(span);
-  }
-})();
+    key.appendChild(span);
+  });
+}
+applyIconBank('top', topIcons);
+applyIconBank('bottom', bottomIcons);
 const overlayEl = document.getElementById('overlay');
 const mapFrame  = document.querySelector('.screen > iframe[title="map"]');
 const screenEl  = document.getElementById('screen');
