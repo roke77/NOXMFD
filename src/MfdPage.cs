@@ -312,12 +312,12 @@ namespace NORoksMFD
   .overlay-item.right { right: 16px; transform: translateY(-50%); }
   .overlay-item.top { transform: translate(-50%, 0); }
   .overlay-item.bottom { transform: translate(-50%, -100%); }
-  /* On portrait viewports (mobile rotated upright) the screen grows much taller, which
-     spreads the line-select keys further apart and makes a fixed 32px label look small
-     in the now-bigger empty space. Scale the label with viewport height so it keeps the
-     same visual prominence as in landscape. Clamped 32-64px so it never goes below the
-     landscape baseline or grows absurdly large. */
-  body.portrait .overlay-item { font-size: clamp(21px, 2.4vh, 34px); }
+  /* Keep the reduced menu-item size in portrait too. Earlier this scaled the label up with
+     viewport height (clamp(21px, 2.4vh, 34px)), but on a tall portrait screen that grew the
+     text well past the 21px landscape size — so the 2/3 reduction only looked applied in
+     landscape. Pin portrait to the same 21px so menu items read identically in both
+     orientations. */
+  body.portrait .overlay-item { font-size: 21px; }
 
   /* MAIN page "about" card — name + URL + live connection status. Hidden on MAP page. */
   .info-box {
@@ -326,7 +326,9 @@ namespace NORoksMFD
     transform: translate(-50%, -50%);
     display: none;
     min-width: 280px;
-    padding: 22px 36px;
+    /* Sized off vmax (the longer viewport edge) so the card stays the same physical size
+       whether the device is portrait or landscape — it no longer resizes on rotation. */
+    padding: clamp(22px, 2.4vmax, 35px) clamp(36px, 4vmax, 58px);
     border: 1px solid #39ff14;
     background: rgba(6, 10, 6, 0.9);
     color: #39ff14;
@@ -336,20 +338,12 @@ namespace NORoksMFD
     box-shadow: 0 0 12px rgba(57, 255, 20, 0.25);
   }
   .info-box.show       { display: block; }
-  .info-box .ib-title  { font-size: 28px; font-weight: 900; margin-bottom: 14px; }
-  .info-box .ib-url    { font-size: 14px; color: #4aaa4a; margin-bottom: 14px; }
-  .info-box .ib-status { font-size: 14px; font-weight: bold; }
+  .info-box .ib-title  { font-size: clamp(28px, 3.12vmax, 45px); font-weight: 900; margin-bottom: clamp(14px, 1.6vmax, 22px); }
+  .info-box .ib-url    { font-size: clamp(14px, 1.6vmax, 22px); color: #4aaa4a; margin-bottom: clamp(14px, 1.6vmax, 22px); }
+  .info-box .ib-status { font-size: clamp(14px, 1.6vmax, 22px); font-weight: bold; }
   .info-box .ib-status.connected    { color: #39ff14; }
   .info-box .ib-status.disconnected { color: #ff4040; }
   .info-box .ib-status.waiting      { color: #ffaa00; }
-  /* Portrait: scale the MAIN-page info card with viewport height so the box stays
-     readable on tall screens. The three text rows scale in lockstep (preserves the
-     original 28/14/14 ratio); padding scales too so the card grows proportionally,
-     not just the text. */
-  body.portrait .info-box            { padding: clamp(22px, 2.4vh, 35px) clamp(36px, 4vh, 58px); }
-  body.portrait .info-box .ib-title  { font-size: clamp(28px, 3.12vh, 45px); margin-bottom: clamp(14px, 1.6vh, 22px); }
-  body.portrait .info-box .ib-url    { font-size: clamp(14px, 1.6vh, 22px); margin-bottom: clamp(14px, 1.6vh, 22px); }
-  body.portrait .info-box .ib-status { font-size: clamp(14px, 1.6vh, 22px); }
 
   /* WPN page — stacks the player's loadout one weapon per line-select key (keys 1..N;
      key 0 is the MAIN back button). Each row is positioned + sized to fit the slot
