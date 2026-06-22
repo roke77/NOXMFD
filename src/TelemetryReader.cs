@@ -704,11 +704,17 @@ namespace NORoksMFD
                 return false;
 
             _capturedIcons.Add(def.unitName); // mark regardless so we never retry this type
-            if (def.mapIcon == null) return false;
+            if (def.mapIcon == null)
+            {
+                // No icon for this type (buildings, etc.) — register the transparent sentinel so
+                // /icon answers 200 and the client stops re-requesting (it draws its square instead).
+                TelemetryServer.SetIcon(def.unitName, TelemetryServer.NoIconPng);
+                return false;
+            }
 
             byte[]? png = SpriteToPng(def.mapIcon, isIcon: true);
-            if (png != null)
-                TelemetryServer.SetIcon(def.unitName, png);
+            // Fall back to the sentinel if extraction failed, so this type never 404s either.
+            TelemetryServer.SetIcon(def.unitName, png ?? TelemetryServer.NoIconPng);
             return true;
         }
 

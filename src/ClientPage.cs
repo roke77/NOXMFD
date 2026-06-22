@@ -333,14 +333,18 @@ function gridLabel(wx, wz) {
 function ensureIconImage(type) {
   if (!type) return;
   let e = iconImages[type];
-  if (!e) e = iconImages[type] = { img: null, ready: false, pending: false, tries: 0, lastTry: 0 };
-  if (e.ready || e.pending || e.tries >= 8) return;
+  if (!e) e = iconImages[type] = { img: null, ready: false, pending: false, none: false, tries: 0, lastTry: 0 };
+  if (e.ready || e.pending || e.none || e.tries >= 8) return;
   const now = performance.now();
   if (e.tries > 0 && now - e.lastTry < 1500) return;   // back off between retries
 
   e.pending = true; e.tries++; e.lastTry = now;
   const img = new Image();
-  img.onload  = function() { e.img = img; e.ready = true; e.pending = false; drawOverlay(); };
+  img.onload  = function() {
+    // 1×1 = the server's "no icon" sentinel (buildings etc.): stop asking, keep the square fallback.
+    if (img.naturalWidth <= 1 && img.naturalHeight <= 1) { e.none = true; e.pending = false; return; }
+    e.img = img; e.ready = true; e.pending = false; drawOverlay();
+  };
   img.onerror = function() { e.pending = false; };      // not captured yet — retry on a later frame
   img.src = '/icon?type=' + encodeURIComponent(type) + '&v=' + e.tries;
 }

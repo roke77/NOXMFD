@@ -29,6 +29,13 @@ namespace NORoksMFD
         private static readonly Dictionary<string, byte[]> _icons    = new Dictionary<string, byte[]>();
         private static readonly object                     _iconLock = new object();
 
+        // A 1×1 fully-transparent PNG registered for types that have no map icon (buildings, etc.).
+        // Serving this with HTTP 200 — instead of 404 — stops the client re-requesting icon-less
+        // types and keeps the browser console clean; the client spots the 1×1 size and falls back
+        // to its generic square marker.
+        internal static readonly byte[] NoIconPng = Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC");
+
         // Per-weapon-type icons (PNG), keyed by weapon display name.
         private static readonly Dictionary<string, byte[]> _weaponIcons = new Dictionary<string, byte[]>();
         private static readonly object                     _weaponLock  = new object();

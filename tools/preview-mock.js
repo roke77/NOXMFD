@@ -54,6 +54,11 @@
   // for assets a real capture doesn't include — same client-side effect (onerror →
   // retry → square fallback) but no console-visible HTTP 404.
   const SILENT_FAIL_IMG = 'data:image/gif;base64,';
+  // 1×1 transparent PNG — mirrors the mod's "no icon" sentinel (TelemetryServer.NoIconPng).
+  // For icon-less types the game serves this with HTTP 200; the HUD detects the 1×1 size,
+  // stops re-requesting, and draws its square fallback. Used here so the preview exercises
+  // that same onload path instead of the onerror/retry one.
+  const NO_ICON_IMG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
 
   // ── Reroute the page's image fetches ─────────────────────────────────────────
   const qp = (v, k) => new URLSearchParams(v.split('?')[1] || '').get(k);
@@ -66,7 +71,7 @@
       // The game-side mod retries until the asset exists; in offline preview it never
       // will, but that's fine — the page handles the missing state gracefully.
       if (v.indexOf('/map') === 0)             return CAPTURE['map'] || v;
-      if (v.indexOf('/icon') === 0)            return CAPTURE['icon:' + qp(v, 'type')] || SILENT_FAIL_IMG;
+      if (v.indexOf('/icon') === 0)            return CAPTURE['icon:' + qp(v, 'type')] || NO_ICON_IMG;
       if (v.indexOf('/weapon') === 0)          return CAPTURE['weapon:' + qp(v, 'name')] || SILENT_FAIL_IMG;
       // TGP MJPEG stream — there's no static asset to capture for a live video feed,
       // so silently fail the request. The TGP page's error handler clears .has-feed
