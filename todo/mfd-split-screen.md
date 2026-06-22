@@ -349,6 +349,66 @@ fleshed out as its own future work and the slot is reserved for it.
   layout still reads at the smallest expected pane size (portrait
   viewport split in half is the tightest case).
 
+### AVN / TGP — resolved
+
+Each exposes a single **MAIN** back-button on the pane's `L0` slot
+(physically `L3` for the bottom pane). Clicking navigates ONLY that
+pane back to MAIN. Both are bare iframe pages (`/avn?bare`, `/tgp?bare`)
+driven by shell→pane postMessage (`avn` / `tgp` snapshots + `orient`);
+positioning uses fixed pixel offsets since there are no bezel keys to
+anchor against inside the pane. MAIN's split menu wires them at `L0`
+(AVN) and `R1` (TGP).
+
+### WPN — resolved
+
+Bare iframe page (`/wpn?bare`, `src/WpnPage.cs`), used ONLY in split
+mode (single-pane WPN stays the shell's overlay panel). Reached from
+MAIN's split menu at `R2`.
+
+**Single-pane items today:** MAIN/PREV on `left[0]`, NEXT on `right[0]`
+when the loadout overflows one 5-weapon page; weapon rows + the big
+selected-weapon icon + the CM panel are page content, not bezel keys.
+
+**Split-mode bezel (per pane, 6 slots):**
+
+| Slot | Use |
+|------|-----|
+| L0   | MAIN (back to MAIN), or PREV once scrolled |
+| R0   | NEXT — reserved, shown only when the loadout exceeds 4 |
+| L1, L2 | weapon rows (left column, left-aligned) |
+| R1, R2 | weapon rows (right column, right-aligned) |
+
+Weapons fill **left column first, then right**: `items[0..1] → L1, L2`,
+`items[2..3] → R1, R2`. Max **4 weapons per page** in split (vs 5
+single-pane), because the top band is reserved (MAIN + NEXT + the CM
+panel). The shell owns pagination — it slices `wpnData` to ≤4 and
+forwards just that slice; PREV/NEXT bump a per-pane `paneWpnPage`.
+
+**Items dropped or moved:**
+
+- **Selected-weapon image dropped** — the pane is too short; removing it
+  frees the centre/right.
+- Weapon rows moved from a flowed list to **edge-pinned absolute rows**,
+  vertically aligned to the physical bezel keys. The shell forwards each
+  slot's key-centre Y (and the CM band geometry) via a `wpn-layout`
+  message; the pane positions rows to match, with an even-spacing
+  fallback.
+
+**Page-internal UI changes:**
+
+- CM panel fills the **first band** (the key slot beside MAIN) — its
+  top + height come from the separators flanking `L0`, the same band
+  single-pane WPN parks the CM panel in.
+- Forwarding wired on pane load, on loadout/cm updates, and on resize
+  (key positions shift with size).
+
+**Notes / open follow-ups:**
+
+- Pagination in the edge layout (NEXT at `R0`, >4 weapons) is wired but
+  only lightly exercised — most loadouts are ≤4.
+- Visual polish (CM band fill, weapon-name font sizes in the narrower
+  edge columns) is iterative.
+
 ## Interaction with PIN / SWAP / indicator chips
 
 - The PIN chip is per-page today. In split mode it should track the
