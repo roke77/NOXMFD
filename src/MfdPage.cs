@@ -1066,21 +1066,21 @@ const keyBanks = {
 };
 const leftKeys  = keyBanks.left;    // compatibility aliases for side-specific renderers
 const rightKeys = keyBanks.right;
-// Fixed-control icon banks. The top row holds layout controls; the bottom row holds
-// page-independent functions. Both are wired once at startup and excluded from
-// clearKeyActions, so they survive page switches. Entries without an `action` render the
-// icon but do nothing yet — placeholders to be wired later (left/right splits, power).
-const topIcons = [
+// Fixed-control icon banks. The top row holds page-independent functions; the bottom row
+// holds layout controls. Both are wired once at startup and excluded from clearKeyActions,
+// so they survive page switches. Entries without an `action` render the icon but do nothing
+// yet — placeholders to be wired later (left/right splits, power).
+const layoutIcons = [
   { cls: 'ic-square', title: 'Full view',            action: 'unsplit' },
   { cls: 'ic-2x1',    title: 'Split top/bottom',     action: 'split' },
   { cls: 'ic-1x2',    title: 'Split left/right' },
   { cls: 'ic-lr23',   title: 'Split left/right 2/3' },
 ];
-const bottomIcons = [
-  { cls: 'ic-pin',        title: 'Pin',        action: 'pin' },
-  { cls: 'ic-swap',       title: 'Swap',       action: 'swap' },
-  { cls: 'ic-fullscreen', title: 'Fullscreen', action: 'fll' },
+const functionIcons = [
   { cls: 'ic-power',      title: 'Power' },
+  { cls: 'ic-fullscreen', title: 'Fullscreen', action: 'fll' },
+  { cls: 'ic-swap',       title: 'Swap',       action: 'swap' },
+  { cls: 'ic-pin',        title: 'Pin',        action: 'pin' },
 ];
 function applyIconBank(bankName, icons) {
   icons.forEach(function(icon, i) {
@@ -1095,8 +1095,8 @@ function applyIconBank(bankName, icons) {
     key.appendChild(span);
   });
 }
-applyIconBank('top', topIcons);
-applyIconBank('bottom', bottomIcons);
+applyIconBank('top', functionIcons);
+applyIconBank('bottom', layoutIcons);
 const overlayEl = document.getElementById('overlay');
 const mapFrame  = document.querySelector('.screen > iframe[title="map"]');
 const screenEl  = document.getElementById('screen');
