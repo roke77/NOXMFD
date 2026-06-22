@@ -166,6 +166,22 @@ namespace NORoksMFD
   .wp-item.empty .wp-ammo span { color: #ff4040; }
   .wp-item.sel .wp-name             { background: #39ff14; color: #060a06; }
   .wp-item.empty.sel .wp-name       { background: #ff4040; color: #060a06; }
+
+  /* Bottom-right page indicator (e.g. "PAGE 1/2") — same boxed style as the map's GRID box.
+     Only shown when the loadout spans more than one page (> 4 weapons); see updatePageInd. */
+  #page-ind {
+    position: absolute;
+    bottom: 10px; right: 12px;
+    background: rgba(6,10,6,0.78);
+    border: 1px solid #1a3a1a;
+    padding: 5px 9px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #4aaa4a;
+    pointer-events: none;
+    user-select: none;
+  }
+  #page-ind.empty { display: none; }
 </style>
 </head>
 <body>
@@ -192,6 +208,7 @@ namespace NORoksMFD
       <div class="cm-jammer-bar"><div class="cm-bar"><div class="cm-bar-fill" id="cm-bar-fill"></div></div></div>
     </div>
   </div>
+  <div id="page-ind" class="empty">PAGE 1/1</div>
 <script>
 // ── DOM refs ───────────────────────────────────────────────────────────────────────
 const wpnPanel    = document.getElementById('wpn-panel');
@@ -203,6 +220,7 @@ const cmJammerVal   = document.getElementById('cm-jammer-val');
 const cmFlaresIcon  = document.getElementById('cm-flares-icon');
 const cmBarFill     = document.getElementById('cm-bar-fill');
 const flareDots     = Array.prototype.slice.call(document.querySelectorAll('.flare-dot'));
+const pageInd       = document.getElementById('page-ind');
 
 // ── State ──────────────────────────────────────────────────────────────────────────
 // wpnData.items is already the shell-sliced page (<= 4 weapons); this page never paginates.
@@ -303,6 +321,17 @@ function repositionRows() {
   for (let i = 0; i < wpnItemEls.length; i++) wpnItemEls[i].item.style.top = slotY(i) + 'px';
 }
 
+// Bottom-right "PAGE x/y" box. Hidden unless the loadout spans more than one page (> 4
+// weapons) — a single-page loadout has nowhere to navigate, so no indicator is shown.
+function updatePageInd(page, pages) {
+  if (pages > 1) {
+    pageInd.textContent = 'PAGE ' + page + '/' + pages;
+    pageInd.classList.remove('empty');
+  } else {
+    pageInd.classList.add('empty');
+  }
+}
+
 // ── Countermeasures renderer ─────────────────────────────────────────────────────────
 function renderCm() {
   cmFlaresVal.textContent = (cmData.flares >= 0) ? cmData.flares : '—';
@@ -342,6 +371,7 @@ window.addEventListener('message', function(e) {
   if (!m || m.mfd !== true) return;
   if (m.type === 'wpn') {
     wpnData = { items: Array.isArray(m.items) ? m.items : [], selWeapon: m.selWeapon || null };
+    updatePageInd(typeof m.page === 'number' ? m.page : 1, typeof m.pages === 'number' ? m.pages : 1);
     renderWpn();
   } else if (m.type === 'wpn-layout') {
     slotYs = Array.isArray(m.slotYs) ? m.slotYs : null;

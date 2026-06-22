@@ -1310,7 +1310,7 @@ function renderSplitLabels() {
 
 function paneNavigate(paneIdx, page) {
   panePages[paneIdx] = page;
-  if (page === 'wpn') paneWpnPage[paneIdx] = 0;   // fresh entry — start on the first page
+  if (page === 'wpn') paneWpnPage[paneIdx] = Math.max(0, selWeaponPage());   // open on the selected weapon's page
   paneIframes[paneIdx].src = paneUrl(page);
   renderSplitLabels();
 }
@@ -1358,14 +1358,36 @@ function wpnPaneSlice(idx) {
   if (paneWpnPage[idx] < 0)       paneWpnPage[idx] = 0;
   const start = paneWpnPage[idx] * WPN_SPLIT_MAX;
   const items = list.slice(start, start + WPN_SPLIT_MAX);
-  return { items: items, hasPrev: paneWpnPage[idx] > 0, hasNext: start + items.length < total };
+  return { items: items, hasPrev: paneWpnPage[idx] > 0, hasNext: start + items.length < total,
+           page: maxPage > 0 ? paneWpnPage[idx] + 1 : 1, pages: maxPage + 1 };
 }
 function forwardWpnToPanes() {
   paneIframes.forEach(function(iframe, idx) {
     if (panePages[idx] !== 'wpn') return;
     if (!iframe.contentWindow) return;
+    const sl = wpnPaneSlice(idx);
     iframe.contentWindow.postMessage(
-      { mfd: true, type: 'wpn', items: wpnPaneSlice(idx).items, selWeapon: wpnData.selWeapon }, '*');
+      { mfd: true, type: 'wpn', items: sl.items, selWeapon: wpnData.selWeapon,
+        page: sl.page, pages: sl.pages }, '*');
+  });
+}
+// 0-indexed page that holds the currently selected weapon, or -1 if there's no selection
+// (or it isn't in the loadout).
+function selWeaponPage() {
+  const list = wpnData.items || [];
+  const sel  = wpnData.selWeapon;
+  if (!sel) return -1;
+  const i = list.findIndex(function(w) { return w.n === sel; });
+  return i < 0 ? -1 : Math.floor(i / WPN_SPLIT_MAX);
+}
+// Jump every visible WPN pane to the page containing the selected weapon. Called only when the
+// selection actually changes (not on every ammo/loadout tick), so a pane the user has manually
+// paged elsewhere is left alone until the in-game weapon selection moves off its page.
+function autoPageToSelection() {
+  const page = selWeaponPage();
+  if (page < 0) return;
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] === 'wpn') paneWpnPage[idx] = page;
   });
 }
 function forwardCmToPanes() {
@@ -2215,10 +2237,17 @@ window.addEventListener('message', function(e) {
     ibStatus.textContent = m.text;
     if (splitMode) forwardStatusToPanes();
   } else if (m.type === 'loadout') {
+    const prevSel = wpnData.selWeapon;
     wpnData = { items: m.items || [], selWeapon: m.selWeapon || null };
     if (currentPage === 'wpn') renderWpn();
     // Loadout change can add/remove pages, so refresh the panes' slices + NEXT/PREV labels.
-    if (splitMode) { forwardWpnToPanes(); renderSplitLabels(); }
+    if (splitMode) {
+      // Follow the in-game selection: when it moves to a weapon off a pane's current page,
+      // jump that pane to where it is. Only on an actual change, so manual paging is preserved.
+      if (wpnData.selWeapon && wpnData.selWeapon !== prevSel) autoPageToSelection();
+      forwardWpnToPanes();
+      renderSplitLabels();
+    }
   } else if (m.type === 'cm') {
     cmData = {
       flares:    typeof m.flares    === 'number' ? m.flares    : -1,
