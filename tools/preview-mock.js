@@ -195,6 +195,22 @@
         { targets: window.__PREVIEW_FRAME__.targets || DEFAULT_FRAME.targets })
     : DEFAULT_FRAME;
 
+  // Preview-only: pad the loadout to 5 weapons so the WPN page (and especially the split
+  // pane, which caps at WPN_SPLIT_MAX=4 and paginates beyond it) can be exercised even when
+  // the capture carried fewer. These synthetic rows have no captured weapon icon, so the
+  // single-pane selected-weapon image silently falls back; split mode shows no image anyway.
+  // One row is left depleted (a:0) to exercise the empty/red treatment.
+  const PREVIEW_EXTRA_WEAPONS = [
+    { n: 'AGR-24 Kingpin', a: 6, f: 6 },
+    { n: 'AGM-68',         a: 0, f: 2 },
+  ];
+  if (Array.isArray(FRAME.loadout)) {
+    for (const w of PREVIEW_EXTRA_WEAPONS) {
+      if (FRAME.loadout.length >= 5) break;
+      if (!FRAME.loadout.some(x => x.n === w.n)) FRAME.loadout.push(w);
+    }
+  }
+
   // ── Stand-in EventSource: drives the page exactly like the real /stream ───────
   class MockEventSource {
     constructor(url) {
