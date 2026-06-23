@@ -245,6 +245,45 @@ namespace NORoksMFD
     border-radius: 3px;
     background: #060a06;
   }
+  /* Powered-off black-out. Sits above everything inside the recess (iframe, split
+     panes, overlay) and paints it pure black, leaving the surrounding bezel alone.
+     inset:0 so even the screen's 6px padding goes dark for a uniform black panel. */
+  .screen-off {
+    position: absolute;
+    inset: 0;
+    border-radius: 6px;
+    background: #000;
+    display: none;
+    z-index: 50;
+  }
+  .screen.power-off > .screen-off { display: block; }
+  /* CRT power-on warm-up, DE-SYNCED. Instead of one veil over the whole recess, the two
+     content layers boot independently: the white menu labels (.overlay-item) strike first,
+     and the green centre info box lags ~0.15s behind — so they "warm up" out of sync. Both
+     ease in with a wobble and settle to opacity 1. Driven by .screen.powering-on; the black
+     .overlay/.screen background underneath supplies the dark backdrop they appear over. */
+  .screen.powering-on .overlay-item {
+    animation: warmup-white 0.8s ease-out both;
+  }
+  .screen.powering-on .info-box {
+    animation: warmup-green 0.85s ease-out 0.15s both;
+  }
+  @keyframes warmup-white {
+    0%   { opacity: 0; }
+    12%  { opacity: 0.32; }
+    22%  { opacity: 0.06; }
+    36%  { opacity: 0.6; }
+    48%  { opacity: 0.34; }
+    100% { opacity: 1; }
+  }
+  @keyframes warmup-green {
+    0%   { opacity: 0; }
+    16%  { opacity: 0.18; }
+    30%  { opacity: 0.5; }
+    44%  { opacity: 0.1; }
+    60%  { opacity: 0.62; }
+    100% { opacity: 1; }
+  }
 
   /* Split layout: when .screen.split is on, the single map iframe + overlay (the
      normal single-pane stack) are hidden and we render two stacked iframes with a
@@ -367,6 +406,30 @@ namespace NORoksMFD
   .info-box .ib-status.connected    { color: #39ff14; }
   .info-box .ib-status.disconnected { color: #ff4040; }
   .info-box .ib-status.waiting      { color: #ffaa00; }
+  /* Boot loader: while .info-box.booting, the title stays put but the data rows give way
+     to a LOADING… line + a fill bar. The data is hidden with height:0 (not display:none) so
+     it still contributes its full width — the box keeps the same width it has with data, and
+     nothing wraps. runBootLoading() drives the fill and drops .booting at 100%. */
+  .info-box .ib-loading { display: none; }
+  .info-box.booting .ib-loading { display: block; }
+  .info-box.booting .ib-data { visibility: hidden; height: 0; overflow: hidden; }
+  .info-box .ib-loading-label { font-size: clamp(14px, 1.6vmax, 22px); font-weight: bold; margin-bottom: clamp(10px, 1.2vmax, 16px); }
+  /* Fill bar styled like the WPN page's EW Jammer capacitor bar (.cm-bar). */
+  .info-box .ib-bar {
+    width: 100%;
+    height: clamp(12px, 1.5vmax, 18px);
+    border: 1px solid #39ff14;
+    border-radius: 3px;
+    background: rgba(57, 255, 20, 0.08);
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  .info-box .ib-bar-fill {
+    width: 0%;
+    height: 100%;
+    background: #39ff14;
+    transition: width 60ms linear;
+  }
 
   /* WPN page — stacks the player's loadout one weapon per line-select key (keys 1..N;
      key 0 is the MAIN back button). Each row is positioned + sized to fit the slot
@@ -983,6 +1046,9 @@ namespace NORoksMFD
       <div class="keys v" id="keys-left"></div>
       <div class="screen" id="screen">
         <iframe src="/map-view?bare" title="map"></iframe>
+        <!-- Powered-off black-out: covers the whole recess (iframe, panes, overlay) but
+             never the bezel. Toggled by the top-strip power key (.screen.power-off). -->
+        <div class="screen-off" id="screen-off"></div>
         <div class="split-container" id="split-container">
           <iframe class="split-pane" id="pane-top" title="top pane"></iframe>
           <div class="split-divider"></div>
@@ -992,9 +1058,15 @@ namespace NORoksMFD
           <div class="mfd-indicators" id="mfd-indicators"></div>
           <div class="info-box" id="info-box">
             <div class="ib-title">NO ROKS MFD</div>
-            <div class="ib-url">http://localhost:5005</div>
-            {{LAN_URL_BLOCK}}
-            <div class="ib-status disconnected" id="ib-status">&#9679; DISCONNECTED</div>
+            <div class="ib-loading" id="ib-loading">
+              <div class="ib-loading-label">LOADING...</div>
+              <div class="ib-bar"><div class="ib-bar-fill" id="ib-bar-fill"></div></div>
+            </div>
+            <div class="ib-data" id="ib-data">
+              <div class="ib-url">http://localhost:5005</div>
+              {{LAN_URL_BLOCK}}
+              <div class="ib-status disconnected" id="ib-status">&#9679; DISCONNECTED</div>
+            </div>
           </div>
           <div class="wpn-panel" id="wpn-panel">
             <div class="wpn-empty" id="wpn-empty">&mdash; NO LOADOUT &mdash;</div>
@@ -1100,7 +1172,7 @@ const layoutIcons = [
   { cls: 'ic-lr23',   title: 'Split left/right 2/3' },
 ];
 const functionIcons = [
-  { cls: 'ic-power',      title: 'Power' },
+  { cls: 'ic-power',      title: 'Power',      action: 'power' },
   { cls: 'ic-fullscreen', title: 'Fullscreen', action: 'fll' },
   { cls: 'ic-swap',       title: 'Swap',       action: 'swap' },
   { cls: 'ic-pin',        title: 'Pin',        action: 'pin' },
@@ -2425,6 +2497,37 @@ function mapSend(action) {
     mapFrame.contentWindow.postMessage({ mfd: true, action: action }, '*');
 }
 
+// Replay the CRT power-on flicker (≤2s, capped by the 1.6s animation). Re-arming requires
+// clearing the class and forcing a reflow so the animation restarts from 0% each time.
+function flickerScreen() {
+  screenEl.classList.remove('powering-on');
+  void screenEl.offsetWidth;                 // reflow — restart the animation
+  screenEl.classList.add('powering-on');
+  setTimeout(function() { screenEl.classList.remove('powering-on'); }, 1100);
+}
+
+// Boot loader for the centre info box: shows a LOADING… line + a fill bar, keeps the title
+// visible, hides the data rows until the bar hits 100%. Runs alongside the power-on /
+// first-load flicker. Fills in 5% steps every 50ms = 1.0s (the 60ms CSS transition on the
+// fill smooths each step into a continuous sweep, like the EW Jammer bar).
+let bootTimer = null;
+function runBootLoading() {
+  const fill = document.getElementById('ib-bar-fill');
+  if (!infoBox || !fill) return;
+  if (bootTimer) { clearInterval(bootTimer); bootTimer = null; }
+  let pct = 0;
+  infoBox.classList.add('booting');            // CSS swaps data rows → loading block
+  fill.style.width = '0%';
+  bootTimer = setInterval(function() {
+    pct += 5;
+    fill.style.width = Math.min(pct, 100) + '%';
+    if (pct >= 100) {
+      clearInterval(bootTimer); bootTimer = null;
+      infoBox.classList.remove('booting');     // reveal the data rows
+    }
+  }, 50);
+}
+
 function mfdButton(el) {
   el.classList.add('lit');                                   // brief press feedback
   setTimeout(function() { el.classList.remove('lit'); }, 150);
@@ -2464,6 +2567,23 @@ function mfdButton(el) {
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;
+    case 'power': {
+      // Black out the screen recess (bezel stays lit). Powering back ON always boots
+      // into full view — never resumes a split that was active when it went dark.
+      const turningOn = screenEl.classList.contains('power-off');
+      screenEl.classList.toggle('power-off');
+      if (turningOn) {
+        // Power-on always boots into full-view MAIN — never resumes a split or the page
+        // that was showing when it went dark.
+        if (splitMode) { splitMode = false; applySplitMode(); }
+        currentPage = 'main';
+        showPage('main');
+        mapSend('status-request');
+        flickerScreen();
+        runBootLoading();
+      }
+      break;
+    }
     case 'fll':  toggleFullscreen(); break;
     case 'split':
       // One-way: enter split if not already. Pressing 2×1 while already split is a no-op.
@@ -2548,7 +2668,8 @@ window.addEventListener('resize', function() {
   else           showPage(currentPage);
 });
 showPage('main');   // start on the MAIN page
-</script>
+flickerScreen();    // CRT power-on flicker on first load
+runBootLoading();   // boot loader in the centre info box on first load</script>
 </body>
 </html>
 """;
