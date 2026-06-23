@@ -138,6 +138,7 @@ def main() -> None:
         # The split-mode pane iframes set their src to /main?bare in JS; rewrite the
         # string literals so the file:// preview points at the generated bare pages.
         mfd = mfd.replace("'/main?bare'", "'main.html?bare'")
+        mfd = mfd.replace("'/map-view?bare'", "'map-view.html?bare'")
         mfd = mfd.replace("'/avn?bare'",  "'avn.html?bare'")
         mfd = mfd.replace("'/tgp?bare'",  "'tgp.html?bare'")
         mfd = mfd.replace("'/wpn?bare'",  "'wpn.html?bare'")

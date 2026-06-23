@@ -360,6 +360,19 @@ namespace NORoksMFD
     color: #ffaa00;
     user-select: none;
   }
+  /* Per-pane FOLLOW chips (split mode). Each sits at the top-right of its own pane: the
+     top pane mirrors the shell stack's corner; the bottom pane sits just below the 50%
+     divider. Hidden until renderPaneFollow() flags the pane's map as following. */
+  .pane-follow {
+    position: absolute;
+    right: 12px;
+    display: none;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .pane-follow.top { top: 10px; }
+  .pane-follow.bot { top: calc(50% + 8px); }
+  .pane-follow.show { display: block; }
   .overlay-item {
     position: absolute;
     color: #d4d8dc;
@@ -1056,6 +1069,8 @@ namespace NORoksMFD
         </div>
         <div class="overlay" id="overlay">
           <div class="mfd-indicators" id="mfd-indicators"></div>
+          <div class="pane-follow top" id="follow-top"></div>
+          <div class="pane-follow bot" id="follow-bot"></div>
           <div class="info-box" id="info-box">
             <div class="ib-title">NO ROKS MFD</div>
             <div class="ib-loading" id="ib-loading">
@@ -1326,13 +1341,24 @@ const SPLIT_PAGES = {
     // hidden until their bare pages exist.
     items: [
       { side: 'left',  slot: 0, label: 'AVN', action: 'avn' },
-      // MAP / RWR are placeholders for now — no bare page yet, so no action: they render as
-      // labels (filling the left column to mirror the full-view menu) but don't navigate.
-      { side: 'left',  slot: 1, label: 'MAP' },
+      { side: 'left',  slot: 1, label: 'MAP', action: 'map' },
+      // RWR is a placeholder for now — no bare page yet, so no action: it renders as a label
+      // (filling the left column to mirror the full-view menu) but doesn't navigate.
       { side: 'left',  slot: 2, label: 'RWR' },
       { side: 'right', slot: 0, label: 'TGL', action: 'tgl' },
       { side: 'right', slot: 1, label: 'TGP', action: 'tgp' },
       { side: 'right', slot: 2, label: 'WPN', action: 'wpn' },
+    ],
+  },
+  // MAP pane is the bare map iframe (/map-view?bare) — it self-connects to the SSE stream,
+  // so the shell forwards no data, only routes these controls to the pane's own map. Left
+  // column = nav (MAIN back) + follow; right column = zoom rocker (Z+ over Z-).
+  map: {
+    items: [
+      { side: 'left',  slot: 0, label: 'MAIN', action: 'main' },   // ← back to MAIN (this pane)
+      { side: 'left',  slot: 1, label: 'FLW',  action: 'flw'  },   // toggle follow on this pane's map
+      { side: 'right', slot: 0, label: 'Z+',   action: 'zin'  },   // zoom this pane's map in
+      { side: 'right', slot: 1, label: 'Z-',   action: 'zout' },   // zoom this pane's map out
     ],
   },
   // AVN / TGP in a split pane each expose a single MAIN back-button on their pane's
@@ -1361,6 +1387,7 @@ const SPLIT_PAGES = {
 // navigation — a no-op signal rather than a crash.
 const PAGE_URL = {
   main: '/main?bare',
+  map:  '/map-view?bare',
   avn:  '/avn?bare',
   tgp:  '/tgp?bare',
   wpn:  '/wpn?bare',
@@ -1371,16 +1398,18 @@ function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 function applySplitMode() {
   screenEl.classList.toggle('split', splitMode);
   if (splitMode) {
+    paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
     paneIframes[0].src = paneUrl(panePages[0]);
     paneIframes[1].src = paneUrl(panePages[1]);
     renderSplitLabels();
-    renderIndicators();
+    refreshFollowIndicator();
   } else {
     // Drop iframe sources so they stop holding resources while hidden.
     paneIframes[0].removeAttribute('src');
     paneIframes[1].removeAttribute('src');
     // Re-render the single-pane layout for whatever page was current before.
     showPage(currentPage);
+    refreshFollowIndicator();        // prune any split-mode FOLLOW chip; single-mode recompute
   }
 }
 
@@ -1423,12 +1452,21 @@ function renderSplitLabels() {
   }
 }
 
+// Send a map action (toggle-follow / zoom-in / zoom-out) to a single pane's map iframe.
+// Same protocol the shell uses for the full-view map (mapSend), but targeted at one pane.
+function paneMapSend(paneIdx, action) {
+  const w = paneIframes[paneIdx].contentWindow;
+  if (w) w.postMessage({ mfd: true, action: action }, '*');
+}
+
 function paneNavigate(paneIdx, page) {
   panePages[paneIdx] = page;
   if (page === 'wpn') paneWpnPage[paneIdx] = Math.max(0, selWeaponPage());   // open on the selected weapon's page
   if (page === 'tgl') paneTglPage[paneIdx] = 0;                              // fresh entry — first page
+  paneFollowOn[paneIdx] = false;   // iframe reloads; follow restarts off (re-reported on load)
   paneIframes[paneIdx].src = paneUrl(page);
   renderSplitLabels();
+  refreshFollowIndicator();        // entering/leaving MAP changes whether the chip shows
 }
 
 // Forwarding from shell → pane iframes. The shell already mirrors all the data
@@ -1632,6 +1670,9 @@ paneIframes.forEach(function(iframe, idx) {
 const indicatorsEl = document.getElementById('mfd-indicators');
 let pinnedPage    = null;
 let followOn      = false;
+// Per-pane map follow state for split mode — each MAP pane's iframe broadcasts its own
+// follow. The FOLLOW chip shows whenever a currently-visible MAP pane is following.
+let paneFollowOn  = [false, false];
 let indicatorOrder = [];   // subset of ['pinned','follow'] in activation order
 // Last non-pinned page we left to jump to pinnedPage via SWAP. Lets the second SWAP
 // press return there. Cleared whenever the pin itself changes (re-pin or unpin) since
@@ -1640,8 +1681,30 @@ let swapPartner   = null;
 
 function indicatorVisible(name) {
   if (name === 'pinned') return pinnedPage !== null && currentPage === pinnedPage;
-  if (name === 'follow') return currentPage === 'map' && followOn;
+  // Shell-stack FOLLOW is single-mode only (one map fills the screen). Split mode renders
+  // a FOLLOW chip per pane instead — see renderPaneFollow().
+  if (name === 'follow') return !splitMode && currentPage === 'map' && followOn;
   return false;
+}
+// Paint a FOLLOW chip in the top-right of each pane that's showing a following MAP. Split
+// mode only; in single mode both per-pane boxes are cleared (the shell stack handles it).
+function renderPaneFollow() {
+  [0, 1].forEach(function(i) {
+    const box = document.getElementById(i === 0 ? 'follow-top' : 'follow-bot');
+    const on  = splitMode && panePages[i] === 'map' && paneFollowOn[i];
+    box.innerHTML = on ? '<div class="mfd-indicator">FOLLOW</div>' : '';
+    box.classList.toggle('show', on);
+  });
+}
+// Recompute both FOLLOW surfaces: the single-mode shell-stack chip and the split-mode
+// per-pane chips. Called whenever follow state, pane pages, or split mode change.
+function refreshFollowIndicator() {
+  const single = !splitMode && currentPage === 'map' && followOn;
+  const has = indicatorOrder.indexOf('follow') !== -1;
+  if (single && !has) indicatorOrder.push('follow');
+  else if (!single && has) indicatorOrder = indicatorOrder.filter(function(x) { return x !== 'follow'; });
+  renderIndicators();
+  renderPaneFollow();
 }
 
 function renderIndicators() {
@@ -2471,15 +2534,16 @@ window.addEventListener('message', function(e) {
     }
     if (splitMode) forwardAvnToPanes();
   } else if (m.type === 'follow') {
-    // Map iframe broadcasts its follow state on toggle / mission clear. Tracked at the
-    // MFD level so the FOLLOW chip lives in the same stack as PINNED instead of being
-    // anchored to the iframe's own top-right corner.
+    // Map iframe broadcasts its follow state on toggle / mission clear. Route by source: the
+    // canonical full-view map drives single-mode follow; each split MAP pane drives its own.
+    // The FOLLOW chip (refreshFollowIndicator → followActive) reflects whichever map context
+    // is currently visible, so it lives in the same stack as PINNED.
     const on = !!m.on;
-    if (on === followOn) return;
-    followOn = on;
-    if (on) { if (indicatorOrder.indexOf('follow') === -1) indicatorOrder.push('follow'); }
-    else    { indicatorOrder = indicatorOrder.filter(function(x) { return x !== 'follow'; }); }
-    renderIndicators();
+    if      (e.source === mapFrame.contentWindow)       followOn = on;
+    else if (e.source === paneIframes[0].contentWindow) paneFollowOn[0] = on;
+    else if (e.source === paneIframes[1].contentWindow) paneFollowOn[1] = on;
+    else return;
+    refreshFollowIndicator();
   } else if (m.type === 'targets') {
     // Mirror the full target list. The renderer slices to TGL_MAX_DISPLAY; if any of the
     // first 10 got deselected, the next held-back targets slide in on the next render.
@@ -2547,6 +2611,9 @@ function mfdButton(el) {
       paneTglPage[paneIdx] += (act === 'tgl-next' ? 1 : -1);
       forwardTglToPanes();
       renderSplitLabels();
+    } else if (act === 'flw' || act === 'zin' || act === 'zout') {
+      // MAP controls act on the pane's own map iframe — they don't navigate it away.
+      paneMapSend(paneIdx, act === 'flw' ? 'toggle-follow' : act === 'zin' ? 'zoom-in' : 'zoom-out');
     } else {
       paneNavigate(paneIdx, act);
     }
