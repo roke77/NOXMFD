@@ -419,14 +419,26 @@ namespace NORoksMFD
   .info-box .ib-status.connected    { color: #39ff14; }
   .info-box .ib-status.disconnected { color: #ff4040; }
   .info-box .ib-status.waiting      { color: #ffaa00; }
-  /* Boot loader: while .info-box.booting, the title stays put but the data rows give way
-     to a LOADING… line + a fill bar. The data is hidden with height:0 (not display:none) so
-     it still contributes its full width — the box keeps the same width it has with data, and
-     nothing wraps. runBootLoading() drives the fill and drops .booting at 100%. */
-  .info-box .ib-loading { display: none; }
-  .info-box.booting .ib-loading { display: block; }
-  .info-box.booting .ib-data { visibility: hidden; height: 0; overflow: hidden; }
+  /* Boot loader: while .info-box.booting, the title stays put but the data rows give way to
+     a LOADING… line + a fill bar. The loading block and the data block are stacked in the
+     SAME grid cell, so the cell always sizes to the taller (the data) — toggling between them
+     with visibility (not display) keeps both occupying the cell, so the box never changes
+     width or height across the transition. runBootLoading() drives the fill, drops .booting
+     at 100%. */
+  .info-box .ib-body { display: grid; }
+  .info-box .ib-body > .ib-loading,
+  .info-box .ib-body > .ib-data { grid-area: 1 / 1; align-self: center; }
+  .info-box .ib-loading { visibility: hidden; }
+  .info-box.booting .ib-loading { visibility: visible; }
+  .info-box.booting .ib-data    { visibility: hidden; }
   .info-box .ib-loading-label { font-size: clamp(14px, 1.6vmax, 22px); font-weight: bold; margin-bottom: clamp(10px, 1.2vmax, 16px); }
+  /* Typewriter for the URL lines (typewriterUrls). 'rest' holds the not-yet-typed tail,
+     hidden but still occupying space so the line never reflows; the cursor blinks. */
+  .info-box .tw-rest { visibility: hidden; }
+  /* Zero-width so the cursor glyph never adds to the line's layout width (it overflows over
+     the hidden 'rest'); keeps the box frame from shifting as the caret moves. */
+  .info-box .tw-cursor { display: inline-block; width: 0; overflow: visible; color: #4aaa4a; animation: tw-blink 0.7s steps(1, end) infinite; }
+  @keyframes tw-blink { 50% { opacity: 0; } }
   /* Fill bar styled like the WPN page's EW Jammer capacitor bar (.cm-bar). */
   .info-box .ib-bar {
     width: 100%;
@@ -1073,14 +1085,16 @@ namespace NORoksMFD
           <div class="pane-follow bot" id="follow-bot"></div>
           <div class="info-box" id="info-box">
             <div class="ib-title">NO ROKS MFD</div>
-            <div class="ib-loading" id="ib-loading">
-              <div class="ib-loading-label">LOADING...</div>
-              <div class="ib-bar"><div class="ib-bar-fill" id="ib-bar-fill"></div></div>
-            </div>
-            <div class="ib-data" id="ib-data">
-              <div class="ib-url">http://localhost:5005</div>
-              {{LAN_URL_BLOCK}}
-              <div class="ib-status disconnected" id="ib-status">&#9679; DISCONNECTED</div>
+            <div class="ib-body">
+              <div class="ib-loading" id="ib-loading">
+                <div class="ib-loading-label">LOADING...</div>
+                <div class="ib-bar"><div class="ib-bar-fill" id="ib-bar-fill"></div></div>
+              </div>
+              <div class="ib-data" id="ib-data">
+                <div class="ib-url">http://localhost:5005</div>
+                {{LAN_URL_BLOCK}}
+                <div class="ib-status disconnected" id="ib-status">&#9679; DISCONNECTED</div>
+              </div>
             </div>
           </div>
           <div class="wpn-panel" id="wpn-panel">
@@ -2588,8 +2602,61 @@ function runBootLoading() {
     if (pct >= 100) {
       clearInterval(bootTimer); bootTimer = null;
       infoBox.classList.remove('booting');     // reveal the data rows
+      typewriterUrls();                        // then type the URL lines out
     }
   }, 50);
+}
+
+// Type the info box's URL line(s) out character-by-character with a blinking cursor, one
+// line after the other. Called once the boot loader reveals the data. Each line keeps its
+// FULL text laid out the whole time — a visible "done" prefix + an invisible "rest" suffix
+// (visibility:hidden, so it still reserves space) — so neither width nor height shifts as
+// the text appears, and a not-yet-typed line stays blank-but-reserved. We also freeze
+// .ib-body's width as belt-and-suspenders (the cursor glyph aside). A token guards against
+// overlap if another boot starts mid-type.
+let twToken = 0;
+function typewriterUrls() {
+  if (!infoBox) return;
+  const body  = infoBox.querySelector('.ib-body');
+  const lines = [].slice.call(infoBox.querySelectorAll('.ib-data .ib-url'));
+  if (!body || !lines.length) return;
+  const myToken = ++twToken;
+  // Pin the body to a FIXED width (not just a floor) for the duration, so neither the cursor
+  // nor sub-pixel kerning at the typed/untyped split can nudge the centred box's frame.
+  body.style.width = body.getBoundingClientRect().width + 'px';
+  // Set every line up front: full text in the hidden 'rest', nothing typed, cursor parked.
+  lines.forEach(function(el) {
+    // Cache the ORIGINAL text once. A re-run (new boot superseding an in-flight type) must
+    // read this, not the cursor/partial spans a prior run left in the DOM.
+    if (el.dataset.url === undefined) el.dataset.url = el.textContent;
+    const full = el.dataset.url;
+    el.textContent = '';
+    const done = document.createElement('span'); done.className = 'tw-done';
+    const cur  = document.createElement('span'); cur.className  = 'tw-cursor'; cur.textContent = '▌'; cur.style.display = 'none';
+    const rest = document.createElement('span'); rest.className = 'tw-rest';  rest.textContent = full;
+    el.appendChild(done); el.appendChild(cur); el.appendChild(rest);
+  });
+  function typeLine(idx) {
+    if (myToken !== twToken) return;                 // superseded by a newer boot
+    if (idx >= lines.length) { body.style.width = ''; return; }
+    const el = lines[idx];
+    const done = el.children[0], cur = el.children[1], rest = el.children[2];
+    const full = rest.textContent;
+    cur.style.display = '';                           // reveal the blinking cursor on this line
+    let i = 0;
+    const timer = setInterval(function() {
+      if (myToken !== twToken) { clearInterval(timer); return; }
+      i++;
+      done.textContent = full.slice(0, i);
+      rest.textContent = full.slice(i);
+      if (i >= full.length) {
+        clearInterval(timer);
+        el.textContent = full;                       // collapse spans back to plain text
+        typeLine(idx + 1);                           // chain to the next line
+      }
+    }, 32);
+  }
+  typeLine(0);
 }
 
 function mfdButton(el) {
