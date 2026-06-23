@@ -132,19 +132,71 @@ Bearing is computed client-side from contact position + player position +
 the existing floating-origin-resolved contract. Serialize into the SSE
 `/stream` frame next to `Units`.
 
-### Work item 3 — Frontend: the RWR display
+### Work item 3 — Frontend: two views of the same feed
 
-**Decided: a dedicated RWR scope** (not a map overlay) — it's the feature
-users mean by "RWR," and reads as a proper instrument. The map overlay is
-demoted to a possible follow-on (see Open questions).
+The same `RwrContact[]` feed drives **two** presentations:
 
-The scope: centered aircraft, polar grid, each contact at its bearing;
-color by tier (grey/yellow/red ladder above), ring size by `Power`, symbol
-by `Kind`, label from `Type`. The "most-locked" contact (tier 2) gets the
-launch-warning emphasis. Bearing is nose-up (rotate by `Heading`) unless we
-decide otherwise.
+1. **Dedicated RWR scope** (Option C, below) — a polar, nose-up instrument.
+2. **MAP-page bearing lines** — replicate the in-game look (the grey /
+   yellow / red spokes from ownship to each emitter).
+
+Both read the identical data; no extra reader work for view 2.
+
+#### View 1 — dedicated RWR scope
+
+**Mask: Option C — minimal scope** (smoked white on black, nose-up).
+Chosen for v1 for its restraint, matching the project's clean MFD
+aesthetic. The mask graticule is drawn in **smoked white** — a soft,
+slightly translucent off-white (e.g. `rgba(255,255,255,0.55)`), not pure
+white — so the static reticle recedes and the colored threat blips (the
+grey/yellow/red ladder) read as the foreground. Elements:
+
+- A solid **outer ring** (the scope boundary).
+- Two **dashed concentric range rings** inside it (≈0.66R and ≈0.33R) — soft
+  proximity references, dashed so they stay subordinate to the solid rim and
+  the blips.
+- Short **cardinal tick marks** at N/E/S/W on the rim + a small center
+  cross — orientation cues.
+- An **ownship caret** at the center (small up-pointing aircraft wedge).
+- A **heading triangle** at 12 o'clock just outside the ring (top = current
+  heading; the display is nose-up, rotated by `Heading`).
+
+Each contact is drawn as a **bearing spoke** radiating from ownship (the
+scope center) out to the contact's plotted position — the same spoke
+metaphor as the MAP view (View 2), brought onto the polar scope so the two
+views feel consistent. Spoke properties:
+
+- **Opacity: 50%** (`stroke-opacity` 0.5) — so overlapping spokes layer
+  cleanly and the smoked-white mask stays readable underneath.
+- **Color** = the grey/yellow/red tier ladder.
+- **Length** = closeness: map `Power` → radius from center, clamped to the
+  outer ring; the dashed rings give the eye soft range bands to judge
+  against. **Angle** = bearing (nose-up).
+- A **tip marker** at the spoke end carries `Kind` (symbol) and is labelled
+  from `Type`. The most-locked contact (tier 2) gets the launch-warning
+  emphasis — launch brackets + blink/brighten.
 
 Slots into the MFD page system like AVN/TGP/WPN, including split-view.
+
+#### View 2 — in-game bearing lines on the MAP page
+
+Reproduce the stock map look (the spokes in the reference screenshot). For
+each active contact, draw a line **anchored at the emitter's map position,
+pointing back to the ownship icon, length = distance between them** —
+exactly `DynamicMap`'s `RadarMapVis` (`DynamicMap.cs:38`). Specifics to
+mirror:
+
+- **Color** = the tier ladder: grey (search) / yellow (track) / red (lock).
+- **Fade**: alpha decays toward 0 over the contact's lifetime (the game
+  lerps `a → 0`), so older pings dim out rather than vanishing abruptly.
+- Endpoints come from data we already have: emitter `X,Z` (from
+  `OnRadarWarning.emitter.GlobalPosition()`, even for fog-of-war SAMs the
+  player can't otherwise see) and ownship `WorldX,WorldZ`. The MAP page
+  already owns the world→screen transform, so this is purely a new draw
+  pass over `RwrContact[]` — **no new telemetry**.
+
+This is the lowest-effort half of the feature and gives the authentic
+in-game presentation; the dedicated scope (View 1) is the value-add on top.
 
 ## Caveats / decisions to make
 
@@ -163,9 +215,10 @@ Slots into the MFD page system like AVN/TGP/WPN, including split-view.
 
 ## Open questions
 
-- A map-overlay RWR (draw the game's emitter→player lines on the MAP page,
-  reusing its world→screen transform) as a *later* addition alongside the
-  dedicated scope — worth it, or redundant once the scope exists?
+- Build order: ship the MAP bearing lines (View 2) first as the quick win,
+  then the dedicated scope (View 1)? Or build the scope first as the
+  headline feature? (Lean: View 2 first — it's nearly free once the reader
+  exists, and validates the data end-to-end before the scope work.)
 - Symbol set for `Kind` — reuse `/icon` art, or draw RWR-style glyphs
   (▽ for SAM, etc.)?
 - Audio: the game plays distinct new/existing radar-warning tones
