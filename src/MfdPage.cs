@@ -310,6 +310,7 @@ namespace NORoksMFD
   .screen.split > .overlay > .wpn-panel,
   .screen.split > .overlay > .tgp-panel,
   .screen.split > .overlay > .tgl-panel,
+  .screen.split > .overlay > .rwr-panel,
   .screen.split > .overlay > .avn-panel { display: none !important; }
   .split-pane {
     flex: 1 1 50%;
@@ -530,6 +531,25 @@ namespace NORoksMFD
     pointer-events: none;
   }
   .tgp-panel.has-feed .tgp-empty { display: none; }
+
+  /* RWR page — radar warning receiver. A polar, nose-up scope drawn as a responsive SVG
+     (Option C from todo/rwr-radar-warning.md): a smoked-white mask — solid rim + two dashed
+     range rings + cardinal ticks + ownship caret + heading caret — with contacts drawn as
+     50%-opacity bearing spokes from ownship out to each emitter, tier-coloured (grey search /
+     yellow track / red lock). Contacts are placeholder/fake until the backend feed lands.
+     The SVG keeps a 1000×1000 viewBox; preserveAspectRatio centres it square inside the
+     (letterboxed) panel, so the scope stays circular at any screen aspect. */
+  .rwr-panel {
+    position: absolute;
+    inset: 0;
+    display: none;
+    background: #000;
+  }
+  .rwr-panel.show { display: block; }
+  .rwr-scope { display: block; width: 100%; height: 100%; }
+  .rwr-scope text { font-family: 'Share Tech Mono', 'Courier New', monospace; font-size: 30px; }
+  @keyframes rwr-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .rwr-scope .rwr-lock { animation: rwr-blink 1s ease-in-out infinite; }
 
   /* AVN page — avionics. Aircraft name pinned to key[0]'s row at the top centre; the
      damage silhouette fills the rest. The silhouette is composed of:
@@ -1153,6 +1173,22 @@ namespace NORoksMFD
               <div class="avn-vbar-label">THRL</div>
             </div>
           </div>
+          <div class="rwr-panel" id="rwr-panel">
+            <svg class="rwr-scope" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+              <g fill="none" stroke="rgba(255,255,255,0.5)">
+                <circle cx="500" cy="500" r="460" stroke-width="4"/>
+                <circle cx="500" cy="500" r="304" stroke-width="2.5" stroke-dasharray="12 16"/>
+                <circle cx="500" cy="500" r="152" stroke-width="2.5" stroke-dasharray="10 16"/>
+                <line x1="500" y1="40"  x2="500" y2="78"  stroke-width="3"/>
+                <line x1="500" y1="922" x2="500" y2="960" stroke-width="3"/>
+                <line x1="40"  y1="500" x2="78"  y2="500" stroke-width="3"/>
+                <line x1="922" y1="500" x2="960" y2="500" stroke-width="3"/>
+              </g>
+              <polygon points="480,18 520,18 500,50" fill="rgba(255,255,255,0.6)"/>
+              <polygon points="500,460 475,548 500,528 525,548" fill="none" stroke="rgba(255,255,255,0.65)" stroke-width="4"/>
+              <g class="rwr-contacts" id="rwr-contacts"></g>
+            </svg>
+          </div>
         </div>
       </div>
       <div class="keys v" id="keys-right"></div>
@@ -1241,6 +1277,7 @@ const rightSepEls = document.querySelectorAll('#keys-right .sep');  // same inde
 const tglPanel    = document.getElementById('tgl-panel');
 const tglPageInd  = document.getElementById('tgl-page-ind');
 const avnPanel    = document.getElementById('avn-panel');
+const rwrPanel    = document.getElementById('rwr-panel');
 const avnNameEl   = document.getElementById('avn-name');
 const avnFrame    = document.getElementById('avn-frame');
 const avnBg       = document.getElementById('avn-bg');
@@ -1311,6 +1348,12 @@ const PAGES = {
       { label: 'MAIN', key: 0, action: 'main' },     // ← back to MAIN
     ],
   },
+  rwr: {
+    opaque: true,
+    items: [
+      { label: 'MAIN', key: 0, action: 'main' },     // ← back to MAIN
+    ],
+  },
 };
 let currentPage = 'map';
 
@@ -1356,9 +1399,7 @@ const SPLIT_PAGES = {
     items: [
       { side: 'left',  slot: 0, label: 'AVN', action: 'avn' },
       { side: 'left',  slot: 1, label: 'MAP', action: 'map' },
-      // RWR is a placeholder for now — no bare page yet, so no action: it renders as a label
-      // (filling the left column to mirror the full-view menu) but doesn't navigate.
-      { side: 'left',  slot: 2, label: 'RWR' },
+      { side: 'left',  slot: 2, label: 'RWR', action: 'rwr' },
       { side: 'right', slot: 0, label: 'TGL', action: 'tgl' },
       { side: 'right', slot: 1, label: 'TGP', action: 'tgp' },
       { side: 'right', slot: 2, label: 'WPN', action: 'wpn' },
@@ -1388,6 +1429,13 @@ const SPLIT_PAGES = {
       { side: 'left', slot: 0, label: 'MAIN', action: 'main' },
     ],
   },
+  // RWR pane is the bare /rwr iframe — a self-contained stub (fake contacts, no fetches), so
+  // the shell forwards no data. Just a MAIN back-button on the pane's top-left slot.
+  rwr: {
+    items: [
+      { side: 'left', slot: 0, label: 'MAIN', action: 'main' },
+    ],
+  },
   // WPN's pane labels are dynamic — MAIN/PREV on the pane's L0 and NEXT on R0 depend on the
   // pane's pagination state — so renderSplitLabels special-cases it instead of reading a
   // static item list here. This marker just records that WPN is a valid split page.
@@ -1406,6 +1454,7 @@ const PAGE_URL = {
   tgp:  '/tgp?bare',
   wpn:  '/wpn?bare',
   tgl:  '/tgl?bare',
+  rwr:  '/rwr?bare',
 };
 function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 
@@ -1838,6 +1887,7 @@ function showPage(name) {
   tgpPanel.classList.toggle('show', name === 'tgp');
   tglPanel.classList.toggle('show', name === 'tgl');
   avnPanel.classList.toggle('show', name === 'avn');
+  rwrPanel.classList.toggle('show', name === 'rwr');
   // Start the MJPEG fetch only while the TGP page is in view; clearing src closes the
   // long-lived multipart connection so the mod can stop encoding frames if no one's watching.
   if (name === 'tgp') {
@@ -1864,8 +1914,65 @@ function showPage(name) {
   if (name === 'wpn') { renderWpn(); }
   if (name === 'tgl') { renderTgl(); }
   if (name === 'avn') { renderAvn(); }
+  if (name === 'rwr') { renderRwr(); }
 
   renderIndicators();
+}
+
+// ── RWR page ──────────────────────────────────────────────────────────────────────
+// Polar, nose-up radar-warning scope. The mask (rim + dashed range rings + ticks +
+// ownship/heading carets) is static SVG in the markup; this only paints the contacts
+// layer. Each contact is a 50%-opacity bearing spoke from ownship (scope centre) out to
+// the emitter, tier-coloured, with a diamond tip marker (+ launch brackets on a lock).
+//
+// Geometry: viewBox is 1000×1000, centre (500,500), rim radius 460. az is the bearing in
+// degrees clockwise from straight up (nose); dist is 0..1 of the rim radius, where SMALLER
+// = closer/more lethal (lethal threats sit nearer the centre, classic RWR convention).
+//
+// FAKE_RWR is placeholder data so the design can be reviewed before the backend feed lands.
+// Swapping to live data = replace FAKE_RWR with the parsed RwrContact[] and re-run renderRwr.
+const RWR_TIER = { search: '#dcdcdc', track: '#ffd21e', lock: '#ff3b30' };
+const FAKE_RWR = [
+  { az: 28,  dist: 0.34, tier: 'lock',   label: 'SA-10' },
+  { az: 104, dist: 0.60, tier: 'track',  label: 'SA-11' },
+  { az: 312, dist: 0.86, tier: 'search', label: 'EWR'   },
+  { az: 200, dist: 0.72, tier: 'search', label: 'MIG-29'},
+];
+function renderRwr() {
+  const g = document.getElementById('rwr-contacts');
+  if (!g) return;
+  const cx = 500, cy = 500, R = 460;
+  let out = '';
+  FAKE_RWR.forEach(function(c) {
+    const a   = c.az * Math.PI / 180;
+    const d   = Math.max(0, Math.min(1, c.dist));
+    const px  = cx + Math.sin(a) * d * R;
+    const py  = cy - Math.cos(a) * d * R;
+    const col = RWR_TIER[c.tier] || '#dcdcdc';
+    const lw  = c.tier === 'lock' ? 7 : 5;
+    const s   = 17;
+    out += '<line x1="' + cx + '" y1="' + cy + '" x2="' + px.toFixed(1) + '" y2="' + py.toFixed(1) +
+           '" stroke="' + col + '" stroke-opacity="0.5" stroke-width="' + lw + '" stroke-linecap="round"/>';
+    const isLock = c.tier === 'lock';
+    out += '<g' + (isLock ? ' class="rwr-lock"' : '') + '>';
+    out += '<polygon points="' + px + ',' + (py - s) + ' ' + (px + s) + ',' + py + ' ' +
+           px + ',' + (py + s) + ' ' + (px - s) + ',' + py + '" fill="' + col + '"/>';
+    if (isLock) {
+      const b = 31, t = 11;
+      out += '<g fill="none" stroke="' + col + '" stroke-width="4">';
+      out += '<path d="M' + (px - b) + ' ' + (py - b + t) + ' V' + (py - b) + ' H' + (px - b + t) + '"/>';
+      out += '<path d="M' + (px + b - t) + ' ' + (py - b) + ' H' + (px + b) + ' V' + (py - b + t) + '"/>';
+      out += '<path d="M' + (px + b) + ' ' + (py + b - t) + ' V' + (py + b) + ' H' + (px + b - t) + '"/>';
+      out += '<path d="M' + (px - b + t) + ' ' + (py + b) + ' H' + (px - b) + ' V' + (py + b - t) + '"/>';
+      out += '</g>';
+    }
+    out += '</g>';
+    const right = px >= cx;
+    const lx = px + (right ? 26 : -26);
+    out += '<text x="' + lx.toFixed(1) + '" y="' + (py + 10).toFixed(1) + '" fill="' + col +
+           '" text-anchor="' + (right ? 'start' : 'end') + '">' + c.label + '</text>';
+  });
+  g.innerHTML = out;
 }
 
 // Renders the AVN page. Three layers:
@@ -2698,6 +2805,7 @@ function mfdButton(el) {
     case 'tgl-prev':  tglPage--;   showPage('tgl'); break;   // renderTgl clamps if we overshoot
     case 'tgl-next':  tglPage++;   showPage('tgl'); break;
     case 'avn':  showPage('avn');  break;
+    case 'rwr':  showPage('rwr');  break;
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;
