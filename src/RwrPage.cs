@@ -59,30 +59,26 @@ namespace NORoksMFD
     </svg>
   </div>
 <script>
-  // Tier colours + placeholder contacts. az = bearing degrees clockwise from nose-up;
-  // dist = 0..1 of the rim radius, smaller = closer/more lethal (nearer the centre).
-  var RWR_TIER = { search: '#dcdcdc', track: '#ffd21e', lock: '#ff3b30' };
-  var FAKE_RWR = [
-    { az: 28,  dist: 0.34, tier: 'lock',   label: 'SA-10' },
-    { az: 104, dist: 0.60, tier: 'track',  label: 'SA-11' },
-    { az: 312, dist: 0.86, tier: 'search', label: 'EWR'   },
-    { az: 200, dist: 0.72, tier: 'search', label: 'MIG-29'}
-  ];
+  // Driven by the shell in split mode: each 'rwr' postMessage carries nose-up plot data,
+  // already converted by ClientPage — { az (deg clockwise from nose), d (0..1 radius),
+  // tr (tier 0 search / 1 track / 2 lock), n (label), k (kind) }.
+  var RWR_COL = ['#dcdcdc', '#ffd21e', '#ff3b30'];
+  var rwrItems = [];
   function renderRwr() {
     var g = document.getElementById('rwr-contacts');
     if (!g) return;
     var cx = 500, cy = 500, R = 460, out = '';
-    FAKE_RWR.forEach(function(c) {
+    (rwrItems || []).forEach(function(c) {
       var a   = c.az * Math.PI / 180;
-      var d   = Math.max(0, Math.min(1, c.dist));
+      var d   = Math.max(0, Math.min(1, c.d));
       var px  = cx + Math.sin(a) * d * R;
       var py  = cy - Math.cos(a) * d * R;
-      var col = RWR_TIER[c.tier] || '#dcdcdc';
-      var lw  = c.tier === 'lock' ? 7 : 5;
+      var col = RWR_COL[c.tr] || RWR_COL[0];
+      var lw  = c.tr === 2 ? 7 : 5;
       var s   = 17;
       out += '<line x1="' + cx + '" y1="' + cy + '" x2="' + px.toFixed(1) + '" y2="' + py.toFixed(1) +
              '" stroke="' + col + '" stroke-opacity="0.5" stroke-width="' + lw + '" stroke-linecap="round"/>';
-      var isLock = c.tier === 'lock';
+      var isLock = c.tr === 2;
       out += '<g' + (isLock ? ' class="rwr-lock"' : '') + '>';
       out += '<polygon points="' + px + ',' + (py - s) + ' ' + (px + s) + ',' + py + ' ' +
              px + ',' + (py + s) + ' ' + (px - s) + ',' + py + '" fill="' + col + '"/>';
@@ -99,10 +95,16 @@ namespace NORoksMFD
       var right = px >= cx;
       var lx = px + (right ? 26 : -26);
       out += '<text x="' + lx.toFixed(1) + '" y="' + (py + 10).toFixed(1) + '" fill="' + col +
-             '" text-anchor="' + (right ? 'start' : 'end') + '">' + c.label + '</text>';
+             '" text-anchor="' + (right ? 'start' : 'end') + '">' + c.n + '</text>';
     });
     g.innerHTML = out;
   }
+  window.addEventListener('message', function(e) {
+    var m = e.data;
+    if (!m || !m.mfd || m.type !== 'rwr') return;
+    rwrItems = Array.isArray(m.items) ? m.items : [];
+    renderRwr();
+  });
   renderRwr();
 </script>
 </body>

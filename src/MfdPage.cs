@@ -1564,6 +1564,13 @@ function forwardTgpToPanes() {
     iframe.contentWindow.postMessage({ mfd: true, type: 'tgp', active: tgpActive }, '*');
   });
 }
+function forwardRwrToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'rwr') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage({ mfd: true, type: 'rwr', items: rwrData.items || [] }, '*');
+  });
+}
 // Slice the full loadout to the page a given pane is scrolled to. Returns the visible rows
 // plus whether PREV/NEXT exist, so renderSplitLabels can place the right nav labels. Clamps
 // a stale page index (e.g. the loadout shrank) back into range as a side effect.
@@ -1720,6 +1727,7 @@ paneIframes.forEach(function(iframe, idx) {
     if      (page === 'main') forwardStatusToPanes();
     else if (page === 'avn')  forwardAvnToPanes();
     else if (page === 'tgp')  forwardTgpToPanes();
+    else if (page === 'rwr')  forwardRwrToPanes();
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
     else if (page === 'tgl')  { forwardTglToPanes(); forwardTglLayoutToPanes(); }
   });
@@ -1929,31 +1937,28 @@ function showPage(name) {
 // degrees clockwise from straight up (nose); dist is 0..1 of the rim radius, where SMALLER
 // = closer/more lethal (lethal threats sit nearer the centre, classic RWR convention).
 //
-// FAKE_RWR is placeholder data so the design can be reviewed before the backend feed lands.
-// Swapping to live data = replace FAKE_RWR with the parsed RwrContact[] and re-run renderRwr.
-const RWR_TIER = { search: '#dcdcdc', track: '#ffd21e', lock: '#ff3b30' };
-const FAKE_RWR = [
-  { az: 28,  dist: 0.34, tier: 'lock',   label: 'SA-10' },
-  { az: 104, dist: 0.60, tier: 'track',  label: 'SA-11' },
-  { az: 312, dist: 0.86, tier: 'search', label: 'EWR'   },
-  { az: 200, dist: 0.72, tier: 'search', label: 'MIG-29'},
-];
+// rwrData holds the latest emitters mirrored from the map iframe — each already converted by
+// ClientPage to a nose-up plot: { az (deg clockwise from nose), d (0..1 radius), tr (tier),
+// n (label), k (kind) }. renderRwr just plots them. Empty until the first 'rwr' broadcast
+// arrives (or whenever nothing is painting the player).
+let rwrData = { items: [] };
+const RWR_COL = ['#dcdcdc', '#ffd21e', '#ff3b30'];   // tier: 0 search, 1 track, 2 lock
 function renderRwr() {
   const g = document.getElementById('rwr-contacts');
   if (!g) return;
   const cx = 500, cy = 500, R = 460;
   let out = '';
-  FAKE_RWR.forEach(function(c) {
+  (rwrData.items || []).forEach(function(c) {
     const a   = c.az * Math.PI / 180;
-    const d   = Math.max(0, Math.min(1, c.dist));
+    const d   = Math.max(0, Math.min(1, c.d));
     const px  = cx + Math.sin(a) * d * R;
     const py  = cy - Math.cos(a) * d * R;
-    const col = RWR_TIER[c.tier] || '#dcdcdc';
-    const lw  = c.tier === 'lock' ? 7 : 5;
+    const col = RWR_COL[c.tr] || RWR_COL[0];
+    const lw  = c.tr === 2 ? 7 : 5;
     const s   = 17;
     out += '<line x1="' + cx + '" y1="' + cy + '" x2="' + px.toFixed(1) + '" y2="' + py.toFixed(1) +
            '" stroke="' + col + '" stroke-opacity="0.5" stroke-width="' + lw + '" stroke-linecap="round"/>';
-    const isLock = c.tier === 'lock';
+    const isLock = c.tr === 2;
     out += '<g' + (isLock ? ' class="rwr-lock"' : '') + '>';
     out += '<polygon points="' + px + ',' + (py - s) + ' ' + (px + s) + ',' + py + ' ' +
            px + ',' + (py + s) + ' ' + (px - s) + ',' + py + '" fill="' + col + '"/>';
@@ -1970,7 +1975,7 @@ function renderRwr() {
     const right = px >= cx;
     const lx = px + (right ? 26 : -26);
     out += '<text x="' + lx.toFixed(1) + '" y="' + (py + 10).toFixed(1) + '" fill="' + col +
-           '" text-anchor="' + (right ? 'start' : 'end') + '">' + c.label + '</text>';
+           '" text-anchor="' + (right ? 'start' : 'end') + '">' + c.n + '</text>';
   });
   g.innerHTML = out;
 }
@@ -2672,6 +2677,12 @@ window.addEventListener('message', function(e) {
     if (currentPage === 'tgl') renderTgl();
     // Target count can add/remove pages, so refresh each TGL pane's slice + PREV/NEXT labels.
     if (splitMode) { forwardTglToPanes(); renderSplitLabels(); }
+  } else if (m.type === 'rwr') {
+    // Mirror the radar-warning emitters (already nose-up plot data from ClientPage) for the
+    // RWR scope. Live repaint while it's the visible page; relay to a split RWR pane.
+    rwrData = { items: Array.isArray(m.items) ? m.items : [] };
+    if (currentPage === 'rwr') renderRwr();
+    if (splitMode) forwardRwrToPanes();
   }
 });
 

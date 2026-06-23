@@ -547,6 +547,7 @@ function clearMission() {
     window.parent.postMessage({ mfd: true, type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 }, '*');
     window.parent.postMessage({ mfd: true, type: 'tgp', active: false }, '*');
     window.parent.postMessage({ mfd: true, type: 'targets', items: [] }, '*');
+    window.parent.postMessage({ mfd: true, type: 'rwr', items: [] }, '*');
     window.parent.postMessage({ mfd: true, type: 'avn', name: null, parts: null, failures: null, fuel: -1, throttle: -1 }, '*');
     window.parent.postMessage({ mfd: true, type: 'follow', on: false }, '*');
   }
@@ -639,6 +640,24 @@ function updateHUD(d) {
       targets = [];
     }
     window.parent.postMessage({ mfd: true, type: 'targets', items: targets }, '*');
+    // Mirror the radar-warning emitters so the MFD's RWR page can render its scope. The wire
+    // shape carries each emitter's world position (x,z) + tier (tr) + power (pw); we turn that
+    // into a nose-up plot here, where the data + ownship state live: az = bearing relative to
+    // heading (clockwise from the nose), dist = radius from centre 0..1 (higher power = closer,
+    // so 1 - pw). The shell + bare RWR pane just plot {az, d, tr, n, k}.
+    let rwr = [];
+    if (Array.isArray(d.rwr) && d.world) {
+      const hdg = d.hdg || 0;
+      for (const c of d.rwr) {
+        const dx = c.x - d.world.x;
+        const dz = c.z - d.world.z;
+        let az = Math.atan2(dx, dz) * 180 / Math.PI - hdg;
+        az = ((az % 360) + 360) % 360;
+        const pw = Math.max(0, Math.min(1, typeof c.pw === 'number' ? c.pw : 0));
+        rwr.push({ az: az, d: Math.max(0.06, Math.min(1, 1 - pw)), tr: c.tr || 0, n: c.n || '', k: c.k || 0 });
+      }
+    }
+    window.parent.postMessage({ mfd: true, type: 'rwr', items: rwr }, '*');
     // Mirror the player's aircraft name + per-part HP so the MFD's AVN page can render
     // the live damage silhouette. The silhouette assets (background PNG, per-part PNGs,
     // layout JSON) live behind /airframe and /airframe-layout — the MFD fetches them on demand.

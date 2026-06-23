@@ -2,10 +2,17 @@
 
 ## Status
 
-Planning only. No code yet. This documents the game-side data available
-for a Radar Warning Receiver display and the work needed to surface it
-through the existing telemetry pipeline and a new MFD page (or map
-overlay). Findings come from the full decompile in `_scratch/full/`.
+**Frontend done (on synthetic data); backend reader pending.** The RWR
+scope (View 1) is built and wired end-to-end through the data path:
+full-view page in `MfdPage`, split-pane bare page `RwrPage`, the `rwr`
+broadcast in `ClientPage`, and synthetic emitters in `tools/preview-mock.js`
+(authored as bearing+power, converted to world `x,z` against the active
+ownship). The approved wire shape is below (Work item 2). **Remaining: the
+backend reader** — subscribe to `Aircraft.onRadarWarning`, aggregate with
+decay, and emit the `rwr` array in the SSE frame (Work item 1). Once the
+server emits `rwr`, the existing frontend renders it with no further change.
+View 2 (MAP bearing lines) and the capture "wait-for-rwr" tweak are still
+to do. Rest of this doc is the original research + plan.
 
 ## Goal
 
@@ -131,6 +138,29 @@ Bearing is computed client-side from contact position + player position +
 `Heading` (already exported), so the server stays geometry-light, matching
 the existing floating-origin-resolved contract. Serialize into the SSE
 `/stream` frame next to `Units`.
+
+**Wire shape (APPROVED + implemented on the frontend).** Each frame carries
+an `rwr` array of terse entries, matching the existing frame style
+(`contacts` use `t,f,x,z,…`; `targets` use `n,g,r,f`):
+
+```jsonc
+rwr: [ { "x": 8476, "z": 5508, "tr": 2, "pw": 0.66, "n": "SA-10", "k": 1 } ]
+```
+
+| key | meaning |
+|-----|---------|
+| `x`,`z` | emitter world position (same space as `contacts`) |
+| `tr` | tier: `0` search / `1` track / `2` lock |
+| `pw` | signal power `0..1` (→ closeness; higher = nearer centre) |
+| `n` | display name / label |
+| `k` | kind: `0` unknown / `1` ground-SAM / `2` air |
+
+The map client (`ClientPage`) converts each entry to a nose-up plot
+`{ az, d, tr, n, k }` — `az` = bearing minus heading (deg clockwise from
+nose), `d` = `1 - pw` clamped (radius from centre) — and broadcasts
+`{type:'rwr', items}` to the shell, exactly like `targets`/`avn`. The
+backend just needs to emit the `rwr` array; **all the geometry + rendering
+already exist.**
 
 ### Work item 3 — Frontend: two views of the same feed
 

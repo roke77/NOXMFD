@@ -192,6 +192,9 @@
       { n: 'KamAZ Fuel',    g: 'Mk60', r: 16.1, f: 2 },
       { n: 'Radar Mast',    g: 'Nk60', r: 17.3, f: 2 },
     ],
+    // Radar-warning emitters (rwr) aren't listed here as fixed world positions — they're
+    // synthesised below against the ACTIVE frame's ownship, so they sit at the intended
+    // bearings whether this synthetic frame or a real capture (different ownship) is in use.
   };
   // Prefer the captured frame when present, but layer DEFAULT_FRAME on top for any field the
   // capture doesn't carry (e.g. older captures predating the `targets` list).
@@ -215,6 +218,28 @@
       if (FRAME.loadout.length >= 6) break;
       if (!FRAME.loadout.some(x => x.n === w.n)) FRAME.loadout.push(w);
     }
+  }
+
+  // Synthetic radar emitters for the RWR page, authored as design intent (bearing relative to
+  // the nose + signal power) and converted to world x,z against the active frame's ownship —
+  // so they land at the intended bearings/ranges whether the frame is the synthetic one above
+  // or a real capture (which carries a different world/hdg). This also round-trips the real
+  // wire shape: we emit x,z + tr/pw, and ClientPage converts it right back to az + radius.
+  // A real capture that already includes its own `rwr` is left untouched.
+  const SYNTH_RWR = [
+    { az: 28,  pw: 0.66, tr: 2, n: 'SA-10',  k: 1 },   // lock,   close, ground-SAM
+    { az: 104, pw: 0.40, tr: 1, n: 'SA-11',  k: 1 },   // track,  mid
+    { az: 312, pw: 0.14, tr: 0, n: 'EWR',    k: 1 },   // search, far
+    { az: 200, pw: 0.28, tr: 0, n: 'MIG-29', k: 2 },   // search, mid-far, air
+  ];
+  if (!Array.isArray(FRAME.rwr) || !FRAME.rwr.length) {
+    const ow = FRAME.world || { x: 0, z: 0 }, hdg = FRAME.hdg || 0;
+    FRAME.rwr = SYNTH_RWR.map(c => {
+      const rng = 8000 + (1 - c.pw) * 38000;            // closer (higher power) = shorter range
+      const ab = (c.az + hdg) * Math.PI / 180;
+      return { x: Math.round(ow.x + Math.sin(ab) * rng), z: Math.round(ow.z + Math.cos(ab) * rng),
+               tr: c.tr, pw: c.pw, n: c.n, k: c.k };
+    });
   }
 
   // ── Stand-in EventSource: drives the page exactly like the real /stream ───────
