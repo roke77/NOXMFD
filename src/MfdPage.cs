@@ -382,6 +382,22 @@ namespace NORoksMFD
   }
   .wpn-panel.show { display: block; }
 
+  /* Bottom-right page indicator for full-view WPN (e.g. "PAGE 1/2") — same boxed style as the
+     map's GRID box and the split pane's indicator. Shown only for multi-page loadouts. */
+  .wpn-panel .page-ind {
+    position: absolute;
+    bottom: 10px; right: 12px;
+    background: rgba(6,10,6,0.78);
+    border: 1px solid #1a3a1a;
+    padding: 5px 9px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #4aaa4a;
+    pointer-events: none;
+    user-select: none;
+  }
+  .wpn-panel .page-ind.empty { display: none; }
+
   /* TGP page — fills the screen with the live MJPEG feed from the player's targeting cam.
      The empty placeholder mirrors the .wpn-empty style so it reads the same as the WPN
      page's NO LOADOUT state. */
@@ -1000,6 +1016,7 @@ namespace NORoksMFD
               <div class="cm-jammer-bar"><div class="cm-bar"><div class="cm-bar-fill" id="cm-bar-fill"></div></div></div>
               <div class="cm-big" id="cm-jammer-val">&mdash;</div>
             </div>
+            <div class="page-ind empty" id="wpn-page-ind">PAGE 1/1</div>
           </div>
           <div class="tgp-panel" id="tgp-panel">
             <div class="tgp-empty">&mdash; NO LOCK &mdash;</div>
@@ -1108,6 +1125,7 @@ const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 const wpnPanel  = document.getElementById('wpn-panel');
 const wpnEmptyEl= document.getElementById('wpn-empty');
+const wpnPageInd= document.getElementById('wpn-page-ind');
 const tgpPanel  = document.getElementById('tgp-panel');
 const tgpImg    = document.getElementById('tgp-img');
 // has-feed is driven by the SSE tgpActive flag (mirrored from the map iframe) — MJPEG only
@@ -1507,6 +1525,16 @@ let wpnSelIconImg  = null;   // <img> inside the wrap; src tracks wpnData.selWea
 let wpnSelIconKey  = null;   // last src we set, so we don't trigger no-op reloads
 let wpnPage = 0;             // 0-indexed page for the weapon list pagination
 const WPN_MAX_DISPLAY = 5;   // weapons per page = 5 line-select slots (keys 1..5)
+
+// 0-indexed full-view page (WPN_MAX_DISPLAY per page) holding the selected weapon, or -1 if
+// there's no selection (or it isn't in the loadout). Full-view twin of selWeaponPage().
+function selWpnPageFull() {
+  const list = wpnData.items || [];
+  const sel  = wpnData.selWeapon;
+  if (!sel) return -1;
+  const i = list.findIndex(function(w) { return w.n === sel; });
+  return i < 0 ? -1 : Math.floor(i / WPN_MAX_DISPLAY);
+}
 
 // Latest countermeasures snapshot mirrored from the map iframe.
 let cmData = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
@@ -1946,6 +1974,15 @@ function renderWpn() {
   if (wpnPage > maxPage) wpnPage = maxPage;
   if (wpnPage < 0)       wpnPage = 0;
 
+  // Bottom-right "PAGE x/y" box — shown only when the loadout spans more than one page.
+  const pages = maxPage + 1;
+  if (pages > 1) {
+    wpnPageInd.textContent = 'PAGE ' + (wpnPage + 1) + '/' + pages;
+    wpnPageInd.classList.remove('empty');
+  } else {
+    wpnPageInd.classList.add('empty');
+  }
+
   const start   = wpnPage * WPN_MAX_DISPLAY;
   const trimmed = list.slice(start, start + WPN_MAX_DISPLAY);
 
@@ -2239,12 +2276,18 @@ window.addEventListener('message', function(e) {
   } else if (m.type === 'loadout') {
     const prevSel = wpnData.selWeapon;
     wpnData = { items: m.items || [], selWeapon: m.selWeapon || null };
+    const selChanged = wpnData.selWeapon && wpnData.selWeapon !== prevSel;
+    // Full-view: follow the in-game selection to its page when it moves off the current page.
+    // Only on an actual change, so manual paging is preserved on ammo/loadout ticks.
+    if (selChanged) {
+      const p = selWpnPageFull();
+      if (p >= 0) wpnPage = p;
+    }
     if (currentPage === 'wpn') renderWpn();
     // Loadout change can add/remove pages, so refresh the panes' slices + NEXT/PREV labels.
     if (splitMode) {
-      // Follow the in-game selection: when it moves to a weapon off a pane's current page,
-      // jump that pane to where it is. Only on an actual change, so manual paging is preserved.
-      if (wpnData.selWeapon && wpnData.selWeapon !== prevSel) autoPageToSelection();
+      // Split-pane twin of the above: jump each visible WPN pane to the selection's page.
+      if (selChanged) autoPageToSelection();
       forwardWpnToPanes();
       renderSplitLabels();
     }
@@ -2326,7 +2369,7 @@ function mfdButton(el) {
   switch (el.dataset.action) {
     case 'main': showPage('main'); mapSend('status-request'); break;   // pull fresh status on open
     case 'map':  showPage('map');  break;
-    case 'wpn':       wpnPage = 0; showPage('wpn'); break;   // fresh entry — start on page 0
+    case 'wpn':       wpnPage = Math.max(0, selWpnPageFull()); showPage('wpn'); break;   // open on the selected weapon's page
     case 'wpn-prev':  wpnPage--;   showPage('wpn'); break;   // renderWpn clamps on overshoot
     case 'wpn-next':  wpnPage++;   showPage('wpn'); break;
     case 'tgp':  showPage('tgp');  break;
