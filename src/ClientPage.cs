@@ -234,13 +234,21 @@ let   loadoutNames = null;     // weapon-name signature; rebuild DOM only when i
 let   ammoEls = [];            // ammo text elements, aligned with loadout order
 let   witemEls = [];           // weapon item containers, aligned with loadout order
 
-const ICON_BASE = 15;          // base icon size in px for the player (scaled by iconScale)
-const UNIT_BASE = 15;          // base icon size in px for other units
-const FALLBACK_SIZE = 5;       // square symbol size in px for units without a game icon
+// Map-icon sizes switch with zoom: larger when zoomed in, smaller when zoomed out — so icons
+// stay legible up close without cluttering the full-extent view. Picked by iconBase() /
+// fallbackSize() against the zoom threshold defined below.
+const ICON_BASE_IN  = 20, ICON_BASE_OUT  = 15;   // player + unit base size (px), scaled by iconScale
+const FALLBACK_IN   = 10, FALLBACK_OUT   = 7;    // icon-less square size (px)
 const HIT_PAD = 4;             // extra px around an icon that still counts as a hover hit
 let   hitTargets = [];         // [{cx, cy, r, label}] rebuilt every drawOverlay() for hover
 let   view = { zoom: 1, panX: 0, panY: 0 };   // map view: pan in screen px, zoom about canvas centre
 const MIN_ZOOM = 1, MAX_ZOOM = 8;
+// Icons grow once the map is zoomed in to 4x or more (zoom range is MIN..MAX = 1..8): zoom
+// 1–3 uses the small OUT sizes, 4–8 the larger IN sizes.
+const ICON_ZOOM_THRESHOLD = 4;
+function zoomedIn()     { return view.zoom >= ICON_ZOOM_THRESHOLD; }
+function iconBase()     { return zoomedIn() ? ICON_BASE_IN : ICON_BASE_OUT; }
+function fallbackSize() { return zoomedIn() ? FALLBACK_IN  : FALLBACK_OUT; }
 let   followPlayer = false;    // when on (and zoomed in), keep the player icon centred
 const PLAYER_COLOR = '#39ff14';                     // player stays HUD green
 const TARGET_COLOR = '#ff8000';                     // orange ring on the player's targeted unit(s)
@@ -385,7 +393,7 @@ function drawIcon(type, hex, cx, cy, hdg, orient, basePx, scale) {
     oc.drawImage(cv, -w / 2, -h / 2, w, h);
     r = Math.max(w, h) / 2;
   } else {
-    const s = FALLBACK_SIZE;
+    const s = fallbackSize();
     oc.fillStyle = hex;
     oc.fillRect(-s / 2, -s / 2, s, s);
     r = s / 2;
@@ -451,7 +459,7 @@ function drawOverlay() {
       if (!p) continue;
       ensureIconImage(u.t);
       const hex = factionColors[u.f] || factionColors[0];
-      const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, UNIT_BASE, u.s);
+      const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, iconBase(), u.s);
       if (u.tg) drawTargetBox(p.cx, p.cy, r + 4);
       hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex });
     }
@@ -460,7 +468,7 @@ function drawOverlay() {
   // Player plane (kept green regardless of faction colors), drawn and hit-tested last = on top.
   const pos = worldToOverlay(lastData.world.x, lastData.world.z);
   if (!pos) return;
-  const pr = drawIcon(lastData.name, PLAYER_COLOR, pos.cx, pos.cy, lastData.hdg, lastData.iconOrient, ICON_BASE, lastData.iconScale);
+  const pr = drawIcon(lastData.name, PLAYER_COLOR, pos.cx, pos.cy, lastData.hdg, lastData.iconOrient, iconBase(), lastData.iconScale);
   hitTargets.push({ cx: pos.cx, cy: pos.cy, r: pr + HIT_PAD, label: lastData.name, color: PLAYER_COLOR });
 }
 
