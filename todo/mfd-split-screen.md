@@ -409,6 +409,56 @@ forwards just that slice; PREV/NEXT bump a per-pane `paneWpnPage`.
 - Visual polish (CM band fill, weapon-name font sizes in the narrower
   edge columns) is iterative.
 
+### TGL — resolved
+
+Bare iframe page (`/tgl?bare`, `src/TglPage.cs`), used ONLY in split
+mode (single-pane TGL stays the shell's overlay panel). Reached from
+MAIN's split menu at `R0`. Mirrors the WPN split machinery almost
+exactly — a pure reactive renderer driven by shell→pane postMessage
+(`tgl` slice + `tgl-layout` geometry + `orient`).
+
+**Single-pane items today:** MAIN/PREV on `left[0]`, NEXT on `right[0]`
+when the target list overflows one 10-target page (5 left + 5 right);
+target rows (name + GRID + RNG, faction-coloured) are page content.
+
+**Split-mode bezel (per pane, 6 slots):**
+
+| Slot | Use |
+|------|-----|
+| L0   | MAIN (back to MAIN), or PREV once scrolled |
+| R0   | NEXT — shown only when the list exceeds 4 |
+| L1, L2 | target rows (left column, left-aligned) |
+| R1, R2 | target rows (right column, right-aligned) |
+
+Targets fill **left column first, then right**: `items[0..1] → L1, L2`,
+`items[2..3] → R1, R2`. Max **4 targets per page** in split (vs 10
+single-pane), because the top band is reserved (MAIN + NEXT). The shell
+owns pagination — it slices `tglData.targets` to ≤4 and forwards just
+that slice; PREV/NEXT bump a per-pane `paneTglPage`.
+
+**Items dropped or moved:**
+
+- Target rows moved from a flowed list to **edge-pinned absolute rows**,
+  vertically aligned to the physical bezel keys. The shell forwards each
+  slot's key-centre Y via a `tgl-layout` message; the pane positions rows
+  to match, with an even-spacing fallback.
+- Faction palette carried over verbatim (enemy red default, friendly
+  blue, neutral white; name bright, GRID/RNG dim).
+
+**Page-internal UI changes:**
+
+- A bottom-right **"PAGE x/y" indicator** (same boxed GRID-box style as
+  the map) was added to TGL in BOTH views — full-view (`#tgl-page-ind`,
+  10/page) and the split pane (`#page-ind`, 4/page). Hidden for
+  single-page lists. The same indicator was retrofitted onto WPN.
+- Forwarding wired on pane load, on `targets` updates, and on resize.
+
+**Notes / open follow-ups:**
+
+- MAP and RWR now appear in MAIN's split menu (slots `L1` / `L2`) as
+  inert placeholders (label only, no action) until their bare pages
+  exist — the next split-view pages to build.
+
 ## Interaction with PIN / SWAP / indicator chips
 
 - The PIN chip is per-page today. In split mode it should track the
