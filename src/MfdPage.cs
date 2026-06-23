@@ -382,9 +382,10 @@ namespace NORoksMFD
   }
   .wpn-panel.show { display: block; }
 
-  /* Bottom-right page indicator for full-view WPN (e.g. "PAGE 1/2") — same boxed style as the
-     map's GRID box and the split pane's indicator. Shown only for multi-page loadouts. */
-  .wpn-panel .page-ind {
+  /* Bottom-right page indicator for full-view WPN / TGL (e.g. "PAGE 1/2") — same boxed style as
+     the map's GRID box and the split panes' indicators. Shown only for multi-page lists. */
+  .wpn-panel .page-ind,
+  .tgl-panel .page-ind {
     position: absolute;
     bottom: 10px; right: 12px;
     background: rgba(6,10,6,0.78);
@@ -396,7 +397,8 @@ namespace NORoksMFD
     pointer-events: none;
     user-select: none;
   }
-  .wpn-panel .page-ind.empty { display: none; }
+  .wpn-panel .page-ind.empty,
+  .tgl-panel .page-ind.empty { display: none; }
 
   /* TGP page — fills the screen with the live MJPEG feed from the player's targeting cam.
      The empty placeholder mirrors the .wpn-empty style so it reads the same as the WPN
@@ -1024,6 +1026,7 @@ namespace NORoksMFD
           </div>
           <div class="tgl-panel" id="tgl-panel">
             <div class="tgl-empty">&mdash; NO TARGETS &mdash;</div>
+            <div class="page-ind empty" id="tgl-page-ind">PAGE 1/1</div>
           </div>
           <div class="avn-panel" id="avn-panel">
             <div class="avn-name" id="avn-name"></div>
@@ -1135,6 +1138,7 @@ tgpImg.addEventListener('error', function() { tgpPanel.classList.remove('has-fee
 const sepEls      = document.querySelectorAll('#keys-left .sep');   // 0 = above key[0], i+1 = below key[i]
 const rightSepEls = document.querySelectorAll('#keys-right .sep');  // same indexing, right column
 const tglPanel    = document.getElementById('tgl-panel');
+const tglPageInd  = document.getElementById('tgl-page-ind');
 const avnPanel    = document.getElementById('avn-panel');
 const avnNameEl   = document.getElementById('avn-name');
 const avnFrame    = document.getElementById('avn-frame');
@@ -1227,6 +1231,12 @@ let panePages = ['main', 'main'];
 let paneWpnPage = [0, 0];
 const WPN_SPLIT_MAX = 4;
 
+// Per-pane TGL pagination index. The target list can exceed one split page (4 slots: L1, L2,
+// R1, R2); each pane scrolls independently via PREV/NEXT, with MAIN/PREV on L0 and NEXT on R0.
+// The bare TGL page is a pure renderer — the shell slices the list here. Reset to 0 on entry.
+let paneTglPage = [0, 0];
+const TGL_SPLIT_MAX = 4;
+
 // Latest connection status mirrored from the map iframe — kept so we can push the
 // current value to a freshly-loaded pane iframe (its onload may fire AFTER the
 // shell has already received and forwarded the last status broadcast).
@@ -1244,6 +1254,11 @@ const SPLIT_PAGES = {
     // hidden until their bare pages exist.
     items: [
       { side: 'left',  slot: 0, label: 'AVN', action: 'avn' },
+      // MAP / RWR are placeholders for now — no bare page yet, so no action: they render as
+      // labels (filling the left column to mirror the full-view menu) but don't navigate.
+      { side: 'left',  slot: 1, label: 'MAP' },
+      { side: 'left',  slot: 2, label: 'RWR' },
+      { side: 'right', slot: 0, label: 'TGL', action: 'tgl' },
       { side: 'right', slot: 1, label: 'TGP', action: 'tgp' },
       { side: 'right', slot: 2, label: 'WPN', action: 'wpn' },
     ],
@@ -1265,6 +1280,9 @@ const SPLIT_PAGES = {
   // pane's pagination state — so renderSplitLabels special-cases it instead of reading a
   // static item list here. This marker just records that WPN is a valid split page.
   wpn: { dynamic: true },
+  // TGL is likewise pagination-driven (MAIN/PREV on L0, NEXT on R0); renderSplitLabels
+  // special-cases it. Marker records it as a valid split page.
+  tgl: { dynamic: true },
 };
 
 // URL for each iframe-served page. Pages without an entry render 'about:blank' on
@@ -1274,6 +1292,7 @@ const PAGE_URL = {
   avn:  '/avn?bare',
   tgp:  '/tgp?bare',
   wpn:  '/wpn?bare',
+  tgl:  '/tgl?bare',
 };
 function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 
@@ -1315,6 +1334,12 @@ function renderSplitLabels() {
                  label:  sl.hasPrev ? 'PREV' : 'MAIN',
                  action: sl.hasPrev ? 'wpn-prev' : 'main' }];
       if (sl.hasNext) items.push({ side: 'right', slot: 0, label: 'NEXT', action: 'wpn-next' });
+    } else if (page === 'tgl') {
+      const sl = tglPaneSlice(paneIdx);
+      items = [{ side: 'left', slot: 0,
+                 label:  sl.hasPrev ? 'PREV' : 'MAIN',
+                 action: sl.hasPrev ? 'tgl-prev' : 'main' }];
+      if (sl.hasNext) items.push({ side: 'right', slot: 0, label: 'NEXT', action: 'tgl-next' });
     } else {
       items = def.items;
     }
@@ -1329,6 +1354,7 @@ function renderSplitLabels() {
 function paneNavigate(paneIdx, page) {
   panePages[paneIdx] = page;
   if (page === 'wpn') paneWpnPage[paneIdx] = Math.max(0, selWeaponPage());   // open on the selected weapon's page
+  if (page === 'tgl') paneTglPage[paneIdx] = 0;                              // fresh entry — first page
   paneIframes[paneIdx].src = paneUrl(page);
   renderSplitLabels();
 }
@@ -1446,6 +1472,48 @@ function forwardWpnLayoutToPanes() {
   });
 }
 
+// Slice the full target list to the page a given pane is scrolled to. Returns the visible rows
+// plus whether PREV/NEXT exist, so renderSplitLabels can place the right nav labels. Clamps a
+// stale page index (e.g. the target list shrank) back into range as a side effect.
+function tglPaneSlice(idx) {
+  const list = tglData.targets || [];
+  const total = list.length;
+  const maxPage = Math.max(0, Math.ceil(total / TGL_SPLIT_MAX) - 1);
+  if (paneTglPage[idx] > maxPage) paneTglPage[idx] = maxPage;
+  if (paneTglPage[idx] < 0)       paneTglPage[idx] = 0;
+  const start = paneTglPage[idx] * TGL_SPLIT_MAX;
+  const items = list.slice(start, start + TGL_SPLIT_MAX);
+  return { items: items, hasPrev: paneTglPage[idx] > 0, hasNext: start + items.length < total,
+           page: maxPage > 0 ? paneTglPage[idx] + 1 : 1, pages: maxPage + 1 };
+}
+function forwardTglToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'tgl') return;
+    if (!iframe.contentWindow) return;
+    const sl = tglPaneSlice(idx);
+    iframe.contentWindow.postMessage(
+      { mfd: true, type: 'tgl', items: sl.items, page: sl.page, pages: sl.pages }, '*');
+  });
+}
+// Tell each TGL pane where its row slots should sit so the rows line up with the physical bezel
+// keys flanking that pane. Slot order matches the pane's fill order: L1, L2 then R1, R2.
+function forwardTglLayoutToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'tgl') return;
+    if (!iframe.contentWindow) return;
+    const paneTop = iframe.getBoundingClientRect().top;
+    const off = idx === 0 ? 0 : 3;
+    function cy(key) { const r = key.getBoundingClientRect(); return r.top + r.height / 2 - paneTop; }
+    const slotYs = [
+      cy(keyBanks.left[off + 1]),   // L1
+      cy(keyBanks.left[off + 2]),   // L2
+      cy(keyBanks.right[off + 1]),  // R1
+      cy(keyBanks.right[off + 2]),  // R2
+    ];
+    iframe.contentWindow.postMessage({ mfd: true, type: 'tgl-layout', slotYs: slotYs }, '*');
+  });
+}
+
 // ── App-wide orientation ─────────────────────────────────────────────────────────────
 // A media query INSIDE an iframe evaluates against that iframe's own box, so a split
 // pane (wide + short) would wrongly read landscape even when the device is portrait.
@@ -1480,6 +1548,7 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'avn')  forwardAvnToPanes();
     else if (page === 'tgp')  forwardTgpToPanes();
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
+    else if (page === 'tgl')  { forwardTglToPanes(); forwardTglLayoutToPanes(); }
   });
 });
 
@@ -2178,6 +2247,15 @@ function renderTgl() {
   if (tglPage > maxPage) tglPage = maxPage;
   if (tglPage < 0)       tglPage = 0;
 
+  // Bottom-right "PAGE x/y" box — shown only when the target list spans more than one page.
+  const pages = maxPage + 1;
+  if (pages > 1) {
+    tglPageInd.textContent = 'PAGE ' + (tglPage + 1) + '/' + pages;
+    tglPageInd.classList.remove('empty');
+  } else {
+    tglPageInd.classList.add('empty');
+  }
+
   const start = tglPage * TGL_MAX_DISPLAY;
   const list  = targets.slice(start, start + TGL_MAX_DISPLAY);
   tglPanel.classList.toggle('has-targets', list.length > 0);
@@ -2335,6 +2413,8 @@ window.addEventListener('message', function(e) {
     // first 10 got deselected, the next held-back targets slide in on the next render.
     tglData = { targets: Array.isArray(m.items) ? m.items : [] };
     if (currentPage === 'tgl') renderTgl();
+    // Target count can add/remove pages, so refresh each TGL pane's slice + PREV/NEXT labels.
+    if (splitMode) { forwardTglToPanes(); renderSplitLabels(); }
   }
 });
 
@@ -2359,6 +2439,10 @@ function mfdButton(el) {
     if (act === 'wpn-prev' || act === 'wpn-next') {
       paneWpnPage[paneIdx] += (act === 'wpn-next' ? 1 : -1);
       forwardWpnToPanes();
+      renderSplitLabels();
+    } else if (act === 'tgl-prev' || act === 'tgl-next') {
+      paneTglPage[paneIdx] += (act === 'tgl-next' ? 1 : -1);
+      forwardTglToPanes();
       renderSplitLabels();
     } else {
       paneNavigate(paneIdx, act);
@@ -2460,7 +2544,7 @@ window.addEventListener('resize', function() {
   // Re-align labels to the (moved) bezel keys. In split mode the labels belong to the
   // per-pane layout, so re-run renderSplitLabels — calling showPage(currentPage) here
   // would clobber the split bezel with the single-pane page's full 6-item layout.
-  if (splitMode) { renderSplitLabels(); forwardWpnLayoutToPanes(); }
+  if (splitMode) { renderSplitLabels(); forwardWpnLayoutToPanes(); forwardTglLayoutToPanes(); }
   else           showPage(currentPage);
 });
 showPage('main');   // start on the MAIN page

@@ -41,6 +41,7 @@ MAIN = ROOT / "src" / "MainPage.cs"
 AVN = ROOT / "src" / "AvnPage.cs"
 TGP = ROOT / "src" / "TgpPage.cs"
 WPN = ROOT / "src" / "WpnPage.cs"
+TGL = ROOT / "src" / "TglPage.cs"
 MOCK = ROOT / "tools" / "preview-mock.js"
 MANIFEST = ROOT / "preview" / "assets" / "manifest.json"
 OUT = ROOT / "preview" / "index.html"
@@ -49,6 +50,7 @@ OUT_MAIN = ROOT / "preview" / "main.html"
 OUT_AVN = ROOT / "preview" / "avn.html"
 OUT_TGP = ROOT / "preview" / "tgp.html"
 OUT_WPN = ROOT / "preview" / "wpn.html"
+OUT_TGL = ROOT / "preview" / "tgl.html"
 OLD_OUT_MFD = ROOT / "preview" / "mfd.html"
 
 DELIM = '"""'
@@ -139,6 +141,7 @@ def main() -> None:
         mfd = mfd.replace("'/avn?bare'",  "'avn.html?bare'")
         mfd = mfd.replace("'/tgp?bare'",  "'tgp.html?bare'")
         mfd = mfd.replace("'/wpn?bare'",  "'wpn.html?bare'")
+        mfd = mfd.replace("'/tgl?bare'",  "'tgl.html?bare'")
         # The localhost line + LAN URL block are filled by the live server in-game; for the
         # preview, point them at the real detected LAN IP on the preview port.
         mfd = fill_preview_urls(mfd, localhost_url, lan_url)
@@ -176,6 +179,13 @@ def main() -> None:
         wpn_html = wpn_html.replace("</head>", injection + mock + "\n</head>", 1)
         OUT_WPN.write_text(wpn_html, encoding="utf-8")
         print(f"Wrote {OUT_WPN.relative_to(ROOT)}  ({len(wpn_html):,} bytes)")
+
+    # TGL bare page (split-mode pane content). Pure reactive renderer driven by shell
+    # postMessage — no fetches — so no mock injection is needed (like the MAIN pane).
+    if TGL.exists():
+        tgl_html = extract_html(TGL.read_text(encoding="utf-8"))
+        OUT_TGL.write_text(tgl_html, encoding="utf-8")
+        print(f"Wrote {OUT_TGL.relative_to(ROOT)}  ({len(tgl_html):,} bytes)")
 
     if OLD_OUT_MFD.exists():
         OLD_OUT_MFD.unlink()
