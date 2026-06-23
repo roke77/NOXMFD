@@ -37,8 +37,6 @@ namespace NORoksMFD
   .rwr-panel { position: absolute; inset: 0; }
   .rwr-scope { display: block; width: 100%; height: 100%; }
   .rwr-scope text { font-family: 'Share Tech Mono', 'Courier New', monospace; font-size: 30px; }
-  @keyframes rwr-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-  .rwr-scope .rwr-lock { animation: rwr-blink 1s ease-in-out infinite; }
 </style>
 </head>
 <body>
@@ -61,9 +59,14 @@ namespace NORoksMFD
 <script>
   // Driven by the shell in split mode: each 'rwr' postMessage carries nose-up plot data,
   // already converted by ClientPage — { az (deg clockwise from nose), d (0..1 radius),
-  // tr (tier 0 search / 1 track / 2 lock), n (label), k (kind) }.
+  // tr (tier 0 search / 1 track / 2 lock), fr (0..1 ping freshness), n (label), k (kind) }.
   var RWR_COL = ['#dcdcdc', '#ffd21e', '#ff3b30'];
   var rwrItems = [];
+  function rwrShort(n) {
+    if (!n) return '';
+    var s = String(n).split(/\s+/)[0].toUpperCase();
+    return s.length > 7 ? s.slice(0, 7) : s;
+  }
   function renderRwr() {
     var g = document.getElementById('rwr-contacts');
     if (!g) return;
@@ -74,12 +77,10 @@ namespace NORoksMFD
       var px  = cx + Math.sin(a) * d * R;
       var py  = cy - Math.cos(a) * d * R;
       var col = RWR_COL[c.tr] || RWR_COL[0];
-      var lw  = c.tr === 2 ? 7 : 5;
-      var s   = 17;
-      out += '<line x1="' + cx + '" y1="' + cy + '" x2="' + px.toFixed(1) + '" y2="' + py.toFixed(1) +
-             '" stroke="' + col + '" stroke-opacity="0.5" stroke-width="' + lw + '" stroke-linecap="round"/>';
       var isLock = c.tr === 2;
-      out += '<g' + (isLock ? ' class="rwr-lock"' : '') + '>';
+      var s   = 17;
+      var op  = (typeof c.fr === 'number' ? Math.max(0, Math.min(1, c.fr)) : 1);
+      out += '<g opacity="' + op.toFixed(3) + '">';
       out += '<polygon points="' + px + ',' + (py - s) + ' ' + (px + s) + ',' + py + ' ' +
              px + ',' + (py + s) + ' ' + (px - s) + ',' + py + '" fill="' + col + '"/>';
       if (isLock) {
@@ -91,11 +92,11 @@ namespace NORoksMFD
         out += '<path d="M' + (px - b + t) + ' ' + (py + b) + ' H' + (px - b) + ' V' + (py + b - t) + '"/>';
         out += '</g>';
       }
-      out += '</g>';
       var right = px >= cx;
       var lx = px + (right ? 26 : -26);
       out += '<text x="' + lx.toFixed(1) + '" y="' + (py + 10).toFixed(1) + '" fill="' + col +
-             '" text-anchor="' + (right ? 'start' : 'end') + '">' + c.n + '</text>';
+             '" text-anchor="' + (right ? 'start' : 'end') + '">' + rwrShort(c.n) + '</text>';
+      out += '</g>';
     });
     g.innerHTML = out;
   }

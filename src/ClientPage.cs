@@ -654,7 +654,8 @@ function updateHUD(d) {
         let az = Math.atan2(dx, dz) * 180 / Math.PI - hdg;
         az = ((az % 360) + 360) % 360;
         const pw = Math.max(0, Math.min(1, typeof c.pw === 'number' ? c.pw : 0));
-        rwr.push({ az: az, d: Math.max(0.06, Math.min(1, 1 - pw)), tr: c.tr || 0, n: c.n || '', k: c.k || 0 });
+        const fr = typeof c.fr === 'number' ? Math.max(0, Math.min(1, c.fr)) : 1;
+        rwr.push({ az: az, d: Math.max(0.06, Math.min(1, 1 - pw)), tr: c.tr || 0, fr: fr, n: c.n || '', k: c.k || 0 });
       }
     }
     window.parent.postMessage({ mfd: true, type: 'rwr', items: rwr }, '*');

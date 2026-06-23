@@ -573,8 +573,8 @@ namespace NORoksMFD
             {
                 if (i > 0) sb.Append(',');
                 sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"x\":{0:0.0},\"z\":{1:0.0},\"tr\":{2},\"pw\":{3:0.000},\"n\":\"{4}\",\"k\":{5}}}",
-                    items[i].X, items[i].Z, items[i].Tier, items[i].Power,
+                    "{{\"x\":{0:0.0},\"z\":{1:0.0},\"tr\":{2},\"pw\":{3:0.000},\"fr\":{4:0.000},\"n\":\"{5}\",\"k\":{6}}}",
+                    items[i].X, items[i].Z, items[i].Tier, items[i].Power, items[i].Fresh,
                     EscapeJson(items[i].Name ?? string.Empty), items[i].Kind);
             }
             return sb.Append(']').ToString();

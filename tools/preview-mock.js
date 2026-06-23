@@ -227,31 +227,45 @@
   // wire shape: we emit x,z + tr/pw, and ClientPage converts it right back to az + radius.
   // A real capture that already includes its own `rwr` is left untouched.
   const SYNTH_RWR = [
-    { az: 28,  pw: 0.66, tr: 2, n: 'SA-10',  k: 1 },   // lock,   close, ground-SAM
-    { az: 104, pw: 0.40, tr: 1, n: 'SA-11',  k: 1 },   // track,  mid
-    { az: 312, pw: 0.14, tr: 0, n: 'EWR',    k: 1 },   // search, far
-    { az: 200, pw: 0.28, tr: 0, n: 'MIG-29', k: 2 },   // search, mid-far, air
+    { az: 28,  pw: 0.66, tr: 2, n: 'SA-10',  k: 1, period: 2.4 },   // lock,   close, ground-SAM
+    { az: 104, pw: 0.40, tr: 1, n: 'SA-11',  k: 1, period: 1.6 },   // track,  mid
+    { az: 312, pw: 0.14, tr: 0, n: 'EWR',    k: 1, period: 4.0 },   // search, far, slow sweep
+    { az: 200, pw: 0.28, tr: 0, n: 'MIG-29', k: 2, period: 3.0 },   // search, mid-far, air
   ];
+  const RWR_TTL = [1, 2, 4];   // per-tier ping lifetime (matches the backend decay)
   if (!Array.isArray(FRAME.rwr) || !FRAME.rwr.length) {
     const ow = FRAME.world || { x: 0, z: 0 }, hdg = FRAME.hdg || 0;
     FRAME.rwr = SYNTH_RWR.map(c => {
       const rng = 8000 + (1 - c.pw) * 38000;            // closer (higher power) = shorter range
       const ab = (c.az + hdg) * Math.PI / 180;
       return { x: Math.round(ow.x + Math.sin(ab) * rng), z: Math.round(ow.z + Math.cos(ab) * rng),
-               tr: c.tr, pw: c.pw, n: c.n, k: c.k };
+               tr: c.tr, pw: c.pw, fr: 1, n: c.n, k: c.k, _p: c.period };
     });
+  }
+  // Animate each synthetic emitter's ping freshness (fr): bright on each sweep (every _p
+  // seconds), fading to 0 over its tier lifetime — so the preview shows the diamonds "ping"
+  // without a live game. A real capture carries its own fr and has no _p marker, so it's left
+  // alone. Called each frame send below.
+  function rwrTickFreshness() {
+    if (!Array.isArray(FRAME.rwr)) return;
+    const now = performance.now() / 1000;
+    for (const e of FRAME.rwr) {
+      if (typeof e._p !== 'number') continue;
+      e.fr = Math.max(0, 1 - (now % e._p) / (RWR_TTL[e.tr] || 1));
+    }
   }
 
   // ── Stand-in EventSource: drives the page exactly like the real /stream ───────
   class MockEventSource {
     constructor(url) {
       this.url = url; this.onmessage = null; this.onerror = null; this.onopen = null;
-      const json = JSON.stringify(FRAME);
-      // Send the static frame once, then resend every 1 s purely to keep the page's
-      // connection watchdog happy (2.5 s timeout). The data never changes.
+      // The frame is static EXCEPT the RWR ping freshness, which we re-tick each send so the
+      // diamonds visibly pulse; ~6.7 Hz approximates the real 10 Hz stream (and keeps the
+      // page's 2.5 s connection watchdog happy).
+      const tick = () => { rwrTickFreshness(); this._send(JSON.stringify(FRAME)); };
       setTimeout(() => {
-        this._send(json);
-        this._timer = setInterval(() => this._send(json), 1000);
+        tick();
+        this._timer = setInterval(tick, 150);
       }, 30);
     }
     _send(data) { if (this.onmessage) this.onmessage({ data }); }

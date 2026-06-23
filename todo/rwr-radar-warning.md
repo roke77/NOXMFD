@@ -150,7 +150,7 @@ an `rwr` array of terse entries, matching the existing frame style
 (`contacts` use `t,f,x,z,…`; `targets` use `n,g,r,f`):
 
 ```jsonc
-rwr: [ { "x": 8476, "z": 5508, "tr": 2, "pw": 0.66, "n": "SA-10", "k": 1 } ]
+rwr: [ { "x": 8476, "z": 5508, "tr": 2, "pw": 0.66, "fr": 0.9, "n": "SA-10", "k": 1 } ]
 ```
 
 | key | meaning |
@@ -158,7 +158,8 @@ rwr: [ { "x": 8476, "z": 5508, "tr": 2, "pw": 0.66, "n": "SA-10", "k": 1 } ]
 | `x`,`z` | emitter world position (same space as `contacts`) |
 | `tr` | tier: `0` search / `1` track / `2` lock |
 | `pw` | signal power `0..1` (→ closeness; higher = nearer centre) |
-| `n` | display name / label |
+| `fr` | ping freshness `0..1` (`1` = just pinged, fades to `0` over the tier TTL) → diamond opacity |
+| `n` | display name / label (frontend compresses to ≤7-char code for display) |
 | `k` | kind: `0` unknown / `1` ground-SAM / `2` air |
 
 The map client (`ClientPage`) converts each entry to a nose-up plot
@@ -197,20 +198,20 @@ grey/yellow/red ladder) read as the foreground. Elements:
 - A **heading triangle** at 12 o'clock just outside the ring (top = current
   heading; the display is nose-up, rotated by `Heading`).
 
-Each contact is drawn as a **bearing spoke** radiating from ownship (the
-scope center) out to the contact's plotted position — the same spoke
-metaphor as the MAP view (View 2), brought onto the polar scope so the two
-views feel consistent. Spoke properties:
+Each contact is a **diamond** plotted at its bearing + closeness (no spokes —
+they were tried, then dropped as too busy):
 
-- **Opacity: 50%** (`stroke-opacity` 0.5) — so overlapping spokes layer
-  cleanly and the smoked-white mask stays readable underneath.
-- **Color** = the grey/yellow/red tier ladder.
-- **Length** = closeness: map `Power` → radius from center, clamped to the
-  outer ring; the dashed rings give the eye soft range bands to judge
-  against. **Angle** = bearing (nose-up).
-- A **tip marker** at the spoke end carries `Kind` (symbol) and is labelled
-  from `Type`. The most-locked contact (tier 2) gets the launch-warning
-  emphasis — launch brackets + blink/brighten.
+- **Position**: **angle** = bearing (nose-up); **radius** = closeness, from
+  `pw` (`d = 1 - pw`, clamped), judged against the dashed range rings.
+- **Color** = the grey/yellow/red tier ladder (`tr`).
+- **Opacity = ping freshness** (`fr`): the diamond is 100% bright on a fresh
+  sweep and fades to 0 over the tier lifetime, so it "pings" with the radar.
+  A continuously-painting radar stays bright; a single sweep fades and
+  expires. (Driven by `fr` from the backend, re-rendered each frame.)
+- **Label**: `n`, compressed to a ≤7-char code (`rwrShort`) so it doesn't
+  crowd the scope.
+- The most-locked contact (tier 2 / red) gets **launch brackets** around the
+  diamond.
 
 Slots into the MFD page system like AVN/TGP/WPN, including split-view.
 

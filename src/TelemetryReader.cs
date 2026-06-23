@@ -709,7 +709,13 @@ namespace NORoksMFD
                 RwrEmitter em = kv.Value;
                 Unit u = em.Unit;
                 float ttl = em.Tier == 2 ? 4f : (em.Tier == 1 ? 2f : 1f);
-                if (u == null || u.disabled || now - em.LastSeen > ttl) { _rwrExpireScratch.Add(kv.Key); continue; }
+                float age = now - em.LastSeen;
+                if (u == null || u.disabled || age > ttl) { _rwrExpireScratch.Add(kv.Key); continue; }
+
+                // Freshness: 1 right after a ping, fading to 0 over the tier lifetime — drives
+                // the diamond's "ping" pulse on the scope. A new sweep refreshes LastSeen, so a
+                // continuously-painting radar stays bright; a single sweep fades out and expires.
+                float fr = Mathf.Clamp01(1f - age / ttl);
 
                 float pw;
                 if (em.Range > 0f)
@@ -729,6 +735,7 @@ namespace NORoksMFD
                     Z     = gp.z,
                     Tier  = em.Tier,
                     Power = pw,
+                    Fresh = fr,
                     Name  = RwrLabel(u),
                     Kind  = ClassifyEmitter(u)
                 });

@@ -548,8 +548,6 @@ namespace NORoksMFD
   .rwr-panel.show { display: block; }
   .rwr-scope { display: block; width: 100%; height: 100%; }
   .rwr-scope text { font-family: 'Share Tech Mono', 'Courier New', monospace; font-size: 30px; }
-  @keyframes rwr-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-  .rwr-scope .rwr-lock { animation: rwr-blink 1s ease-in-out infinite; }
 
   /* AVN page — avionics. Aircraft name pinned to key[0]'s row at the top centre; the
      damage silhouette fills the rest. The silhouette is composed of:
@@ -1943,6 +1941,13 @@ function showPage(name) {
 // arrives (or whenever nothing is painting the player).
 let rwrData = { items: [] };
 const RWR_COL = ['#dcdcdc', '#ffd21e', '#ff3b30'];   // tier: 0 search, 1 track, 2 lock
+// Compresses an emitter label to a short code so it doesn't crowd the scope: first token,
+// uppercased, capped at 7 chars (e.g. "FS-12 Revoker" -> "FS-12", "Pantsir-S1" -> "PANTSIR").
+function rwrShort(n) {
+  if (!n) return '';
+  const s = String(n).split(/\s+/)[0].toUpperCase();
+  return s.length > 7 ? s.slice(0, 7) : s;
+}
 function renderRwr() {
   const g = document.getElementById('rwr-contacts');
   if (!g) return;
@@ -1954,12 +1959,12 @@ function renderRwr() {
     const px  = cx + Math.sin(a) * d * R;
     const py  = cy - Math.cos(a) * d * R;
     const col = RWR_COL[c.tr] || RWR_COL[0];
-    const lw  = c.tr === 2 ? 7 : 5;
-    const s   = 17;
-    out += '<line x1="' + cx + '" y1="' + cy + '" x2="' + px.toFixed(1) + '" y2="' + py.toFixed(1) +
-           '" stroke="' + col + '" stroke-opacity="0.5" stroke-width="' + lw + '" stroke-linecap="round"/>';
     const isLock = c.tr === 2;
-    out += '<g' + (isLock ? ' class="rwr-lock"' : '') + '>';
+    const s   = 17;
+    // Whole contact (diamond + brackets + label) fades with the ping freshness: bright on a
+    // fresh sweep, fading to 0 over the tier lifetime (the diamonds "ping").
+    const op  = (typeof c.fr === 'number' ? Math.max(0, Math.min(1, c.fr)) : 1);
+    out += '<g opacity="' + op.toFixed(3) + '">';
     out += '<polygon points="' + px + ',' + (py - s) + ' ' + (px + s) + ',' + py + ' ' +
            px + ',' + (py + s) + ' ' + (px - s) + ',' + py + '" fill="' + col + '"/>';
     if (isLock) {
@@ -1971,11 +1976,11 @@ function renderRwr() {
       out += '<path d="M' + (px - b + t) + ' ' + (py + b) + ' H' + (px - b) + ' V' + (py + b - t) + '"/>';
       out += '</g>';
     }
-    out += '</g>';
     const right = px >= cx;
     const lx = px + (right ? 26 : -26);
     out += '<text x="' + lx.toFixed(1) + '" y="' + (py + 10).toFixed(1) + '" fill="' + col +
-           '" text-anchor="' + (right ? 'start' : 'end') + '">' + c.n + '</text>';
+           '" text-anchor="' + (right ? 'start' : 'end') + '">' + rwrShort(c.n) + '</text>';
+    out += '</g>';
   });
   g.innerHTML = out;
 }

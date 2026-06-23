@@ -81,6 +81,7 @@ namespace NORoksMFD
         public float  X, Z;    // emitter world position (GlobalPosition, same space as UnitInfo)
         public byte   Tier;    // 0 search, 1 track (detected), 2 lock (we are its target)
         public float  Power;   // 0..1 closeness (1 = closest); -> radius from scope centre
+        public float  Fresh;   // 0..1 ping freshness (1 = just pinged, fades to 0 over the tier TTL)
         public string Name;    // display label
         public byte   Kind;    // 0 unknown, 1 ground-SAM, 2 air (from typeIdentity)
     }
