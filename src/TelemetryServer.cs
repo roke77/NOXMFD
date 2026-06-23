@@ -561,7 +561,23 @@ namespace NORoksMFD
                         +   "\"n\":\"" + EscapeJson(s.ColNeutral  ?? "#9aa0a6") + "\"}"
                         + ",\"contacts\":" + UnitsArray(s.Units)
                         + ",\"parts\":" + PartsArray(s.Parts)
+                        + ",\"rwr\":" + RwrArray(s.Rwr)
                         + ",\"failures\":" + StringArray(s.Failures) + "}";
+        }
+
+        private static string RwrArray(RwrContact[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.AppendFormat(CultureInfo.InvariantCulture,
+                    "{{\"x\":{0:0.0},\"z\":{1:0.0},\"tr\":{2},\"pw\":{3:0.000},\"n\":\"{4}\",\"k\":{5}}}",
+                    items[i].X, items[i].Z, items[i].Tier, items[i].Power,
+                    EscapeJson(items[i].Name ?? string.Empty), items[i].Kind);
+            }
+            return sb.Append(']').ToString();
         }
 
         private static string StringArray(string[]? items)

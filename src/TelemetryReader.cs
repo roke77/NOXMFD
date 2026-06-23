@@ -99,6 +99,23 @@ namespace NORoksMFD
         private bool           _tgpSrcLogged;            // logged the source texture dimensions once
         private bool           _tgpReadbackInFlight;     // an AsyncGPUReadback is outstanding — skip new captures until it completes
 
+        // ── RWR (radar warning) ───────────────────────────────────────────────────
+        // The game raises Aircraft.onRadarWarning once per radar sweep that paints the player
+        // (a Mirage ClientRpc, so on the main thread — same as our Update). It's a transient
+        // ping, not a standing list, so we aggregate active emitters here with per-tier decay
+        // (mirroring DynamicMap: search 1 s, track 2 s, lock 4 s) and snapshot the survivors.
+        private sealed class RwrEmitter
+        {
+            public Unit  Unit;
+            public byte  Tier;       // 0 search, 1 track (detected), 2 lock (we are its target)
+            public float Range;      // emitting radar's max range, for closeness normalisation
+            public float LastSeen;   // Time.time of the most recent ping
+        }
+        private readonly Dictionary<Unit, RwrEmitter> _rwrEmitters = new Dictionary<Unit, RwrEmitter>();
+        private readonly List<Unit> _rwrExpireScratch = new List<Unit>();
+        private readonly List<RwrContact> _rwrBuf = new List<RwrContact>(32);
+        private Aircraft _rwrSubscribed;   // the aircraft whose onRadarWarning we're hooked to
+
         private void Update()
         {
             _fastTimer += Time.deltaTime;
@@ -579,6 +596,10 @@ namespace NORoksMFD
             if (aircraft == null)
                 return;
 
+            // Keep the radar-warning hook attached to the current local aircraft (re-attaches on
+            // aircraft change; clears the emitter table so a fresh airframe starts clean).
+            EnsureRwrSubscription(aircraft);
+
             // The game uses a floating-origin system: transform.position drifts back toward
             // zero as the world re-centers. The true world coordinate is pos - Datum.originPosition.
             Vector3 world   = aircraft.transform.position - Datum.originPosition;
@@ -636,8 +657,105 @@ namespace NORoksMFD
                 ColNeutral     = _colNeutral,
                 TgpActive      = _tgpActive,
                 Parts          = BuildParts(aircraft),
-                Failures       = BuildFailures()
+                Failures       = BuildFailures(),
+                Rwr            = BuildRwr(aircraft)
             });
+        }
+
+        // Attaches OnRadarWarning to the current local aircraft, detaching from the previous one
+        // on a swap (eject/respawn) and clearing the emitter table so stale threats don't carry
+        // over to a new airframe.
+        private void EnsureRwrSubscription(Aircraft ac)
+        {
+            if (ReferenceEquals(ac, _rwrSubscribed)) return;
+            if (_rwrSubscribed != null) _rwrSubscribed.onRadarWarning -= OnRadarWarning;
+            _rwrEmitters.Clear();
+            _rwrSubscribed = ac;
+            if (ac != null) ac.onRadarWarning += OnRadarWarning;
+        }
+
+        // One radar sweep painted us: record/refresh the emitter with its current threat tier.
+        // A later ping can raise or lower the tier (search → track → lock and back).
+        private void OnRadarWarning(Aircraft.OnRadarWarning e)
+        {
+            Unit emitter = e.emitter;
+            if (emitter == null) return;
+            byte tier = e.isTarget ? (byte)2 : (e.detected ? (byte)1 : (byte)0);
+            float range = e.radar != null ? e.radar.RadarParameters.maxRange : 0f;
+            if (_rwrEmitters.TryGetValue(emitter, out RwrEmitter em))
+            {
+                em.Tier = tier;
+                em.Range = range;
+                em.LastSeen = Time.time;
+            }
+            else
+            {
+                _rwrEmitters[emitter] = new RwrEmitter { Unit = emitter, Tier = tier, Range = range, LastSeen = Time.time };
+            }
+        }
+
+        // Expires stale emitters (per-tier lifetime, matching the game's own map pings) and
+        // snapshots the survivors. Position comes from the emitter's GlobalPosition (same world
+        // space as Units); pw is closeness 0..1, normalised against the radar's range so a
+        // close lock sits near the scope centre.
+        private RwrContact[] BuildRwr(Aircraft player)
+        {
+            if (_rwrEmitters.Count == 0) return Array.Empty<RwrContact>();
+            float now = Time.time;
+            _rwrExpireScratch.Clear();
+            _rwrBuf.Clear();
+            foreach (var kv in _rwrEmitters)
+            {
+                RwrEmitter em = kv.Value;
+                Unit u = em.Unit;
+                float ttl = em.Tier == 2 ? 4f : (em.Tier == 1 ? 2f : 1f);
+                if (u == null || u.disabled || now - em.LastSeen > ttl) { _rwrExpireScratch.Add(kv.Key); continue; }
+
+                float pw;
+                if (em.Range > 0f)
+                {
+                    float dist = Vector3.Distance(player.transform.position, u.transform.position);
+                    pw = Mathf.Clamp01(1f - dist / em.Range);
+                }
+                else
+                {
+                    pw = em.Tier == 2 ? 0.7f : (em.Tier == 1 ? 0.45f : 0.2f);
+                }
+
+                GlobalPosition gp = u.GlobalPosition();
+                _rwrBuf.Add(new RwrContact
+                {
+                    X     = gp.x,
+                    Z     = gp.z,
+                    Tier  = em.Tier,
+                    Power = pw,
+                    Name  = RwrLabel(u),
+                    Kind  = ClassifyEmitter(u)
+                });
+            }
+            for (int i = 0; i < _rwrExpireScratch.Count; i++) _rwrEmitters.Remove(_rwrExpireScratch[i]);
+            return _rwrBuf.Count == 0 ? Array.Empty<RwrContact>() : _rwrBuf.ToArray();
+        }
+
+        // RWR label: the unit's display name (bogeyName is the generic fallback).
+        private static string RwrLabel(Unit u)
+        {
+            UnitDefinition def = u.definition;
+            if (def == null) return "?";
+            if (!string.IsNullOrEmpty(def.unitName))  return def.unitName;
+            if (!string.IsNullOrEmpty(def.bogeyName)) return def.bogeyName;
+            return "?";
+        }
+
+        // Emitter kind from the unit's typeIdentity: 2 = air, 1 = ground/SAM, 0 = unknown.
+        private static byte ClassifyEmitter(Unit u)
+        {
+            UnitDefinition def = u.definition;
+            if (def == null) return 0;
+            TypeIdentity ti = def.typeIdentity;
+            if (ti.air > 0.5f) return 2;
+            if (ti.surface > 0.5f || ti.radar > 0.5f) return 1;
+            return 0;
         }
 
         // Returns the names of all currently-active failure indicators (e.g. "L ENG FIRE",
@@ -1004,6 +1122,7 @@ namespace NORoksMFD
         private void OnDestroy()
         {
             DisengageTgp();
+            if (_rwrSubscribed != null) { _rwrSubscribed.onRadarWarning -= OnRadarWarning; _rwrSubscribed = null; }
         }
     }
 }

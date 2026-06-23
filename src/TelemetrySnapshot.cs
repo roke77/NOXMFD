@@ -68,6 +68,21 @@ namespace NORoksMFD
         // Polled from the cockpit StatusDisplay's failureIndicators list each tick; the
         // game sets the matching GameObject active when an IReportDamage event fires.
         public string[] Failures;
+
+        // Radar emitters currently painting the player (drives the RWR page). Aggregated from
+        // Aircraft.onRadarWarning pings with per-tier decay; positions are in the same world
+        // space as Units. Empty when nothing is painting the player.
+        public RwrContact[] Rwr;
+    }
+
+    // One radar emitter on the RWR scope. Serialized terse as {x,z,tr,pw,n,k}.
+    internal struct RwrContact
+    {
+        public float  X, Z;    // emitter world position (GlobalPosition, same space as UnitInfo)
+        public byte   Tier;    // 0 search, 1 track (detected), 2 lock (we are its target)
+        public float  Power;   // 0..1 closeness (1 = closest); -> radius from scope centre
+        public string Name;    // display label
+        public byte   Kind;    // 0 unknown, 1 ground-SAM, 2 air (from typeIdentity)
     }
 
     // One UnitPart's live damage state.

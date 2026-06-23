@@ -2,17 +2,23 @@
 
 ## Status
 
-**Frontend done (on synthetic data); backend reader pending.** The RWR
-scope (View 1) is built and wired end-to-end through the data path:
-full-view page in `MfdPage`, split-pane bare page `RwrPage`, the `rwr`
-broadcast in `ClientPage`, and synthetic emitters in `tools/preview-mock.js`
-(authored as bearing+power, converted to world `x,z` against the active
-ownship). The approved wire shape is below (Work item 2). **Remaining: the
-backend reader** — subscribe to `Aircraft.onRadarWarning`, aggregate with
-decay, and emit the `rwr` array in the SSE frame (Work item 1). Once the
-server emits `rwr`, the existing frontend renders it with no further change.
-View 2 (MAP bearing lines) and the capture "wait-for-rwr" tweak are still
-to do. Rest of this doc is the original research + plan.
+**Frontend + backend reader done (compile-verified); live test pending.**
+End-to-end path is built:
+
+- Frontend (View 1): full-view page in `MfdPage`, split bare page `RwrPage`,
+  the `rwr` broadcast in `ClientPage`, synthetic emitters in
+  `tools/preview-mock.js`. Verified in preview.
+- Backend reader: `TelemetryReader` subscribes to `Aircraft.onRadarWarning`,
+  aggregates emitters with per-tier decay (search 1 s / track 2 s / lock 4 s,
+  matching the game's map pings), and serializes the `rwr` array
+  (`TelemetrySnapshot.RwrContact` → `TelemetryServer.RwrArray`). Compiles
+  against the game assemblies; **not yet runtime-tested** (needs a live game
+  while under threat).
+
+`pw` (closeness) is currently a heuristic: `clamp01(1 - dist / radarMaxRange)`
+— tune once the live capture shows real values. **Remaining:** live in-game
+test + capture (with the "wait-for-rwr" tweak), then View 2 (MAP bearing
+lines). Rest of this doc is the original research + plan.
 
 ## Goal
 
