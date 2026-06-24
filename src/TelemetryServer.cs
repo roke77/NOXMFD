@@ -562,7 +562,22 @@ namespace NORoksMFD
                         + ",\"contacts\":" + UnitsArray(s.Units)
                         + ",\"parts\":" + PartsArray(s.Parts)
                         + ",\"rwr\":" + RwrArray(s.Rwr)
+                        + ",\"mw\":" + MwArray(s.Mw)
                         + ",\"failures\":" + StringArray(s.Failures) + "}";
+        }
+
+        private static string MwArray(MwContact[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.AppendFormat(CultureInfo.InvariantCulture,
+                    "{{\"x\":{0:0.0},\"z\":{1:0.0},\"st\":\"{2}\"}}",
+                    items[i].X, items[i].Z, EscapeJson(items[i].Seeker ?? string.Empty));
+            }
+            return sb.Append(']').ToString();
         }
 
         private static string RwrArray(RwrContact[]? items)

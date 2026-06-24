@@ -20,6 +20,17 @@ End-to-end path is built:
 test + capture (with the "wait-for-rwr" tweak), then View 2 (MAP bearing
 lines). Rest of this doc is the original research + plan.
 
+**Incoming-missile indicator (added).** Separate from the radar feed: the
+reader polls `MissileWarning.knownMissiles` each tick → `mw` array
+(`{x,z,st}`) → `ClientPage` converts to `{az, rng, st}` → the scope draws a
+**slender missile triangle** at a proximity radius (closer = nearer centre)
+pointing at the player, a **thin static-red line** from the triangle to the
+player that shortens as it closes, and a **range label** that rides the
+triangle. Only the triangle flickers red↔yellow (a JS timer, ~3.8 Hz);
+the line + label stay red. Mirrors the game's map missile cue. Radar-warning
+tier colours confirmed working live; the missile path is compile-verified,
+live test pending.
+
 ## Goal
 
 Give the player a classic RWR scope: a polar (centered-aircraft) display

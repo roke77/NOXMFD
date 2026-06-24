@@ -73,6 +73,11 @@ namespace NORoksMFD
         // Aircraft.onRadarWarning pings with per-tier decay; positions are in the same world
         // space as Units. Empty when nothing is painting the player.
         public RwrContact[] Rwr;
+
+        // Incoming missiles currently warning the player (drives the RWR's missile-launch
+        // indicator). Polled from the aircraft's MissileWarning.knownMissiles each tick;
+        // positions are in the same world space as Units. Empty when nothing is inbound.
+        public MwContact[] Mw;
     }
 
     // One radar emitter on the RWR scope. Serialized terse as {x,z,tr,pw,n,k}.
@@ -84,6 +89,13 @@ namespace NORoksMFD
         public float  Fresh;   // 0..1 ping freshness (1 = just pinged, fades to 0 over the tier TTL)
         public string Name;    // display label
         public byte   Kind;    // 0 unknown, 1 ground-SAM, 2 air (from typeIdentity)
+    }
+
+    // One incoming missile on the RWR. Serialized terse as {x,z,st}.
+    internal struct MwContact
+    {
+        public float  X, Z;    // missile world position (GlobalPosition, same space as UnitInfo)
+        public string Seeker;  // seeker type code (e.g. "ARH", "IR") — short, used as the label
     }
 
     // One UnitPart's live damage state.

@@ -116,6 +116,10 @@ namespace NORoksMFD
         private readonly List<RwrContact> _rwrBuf = new List<RwrContact>(32);
         private Aircraft _rwrSubscribed;   // the aircraft whose onRadarWarning we're hooked to
 
+        // Incoming missiles — polled straight from MissileWarning.knownMissiles (a public list),
+        // so no event hook needed. Reused buffer to keep the 10 Hz push allocation-light.
+        private readonly List<MwContact> _mwBuf = new List<MwContact>(8);
+
         private void Update()
         {
             _fastTimer += Time.deltaTime;
@@ -658,8 +662,30 @@ namespace NORoksMFD
                 TgpActive      = _tgpActive,
                 Parts          = BuildParts(aircraft),
                 Failures       = BuildFailures(),
-                Rwr            = BuildRwr(aircraft)
+                Rwr            = BuildRwr(aircraft),
+                Mw             = BuildMw(aircraft)
             });
+        }
+
+        // Snapshots the missiles currently warning the player. MissileWarning.knownMissiles is a
+        // public list the game maintains (a missile lands here once it's inbound and tracking us),
+        // so we just poll it — no event hook. Position is the missile's GlobalPosition (same world
+        // space as Units); the seeker type is the label.
+        private MwContact[] BuildMw(Aircraft player)
+        {
+            MissileWarning mw = player.GetMissileWarningSystem();
+            List<Missile> known = mw != null ? mw.knownMissiles : null;
+            if (known == null || known.Count == 0) return Array.Empty<MwContact>();
+
+            _mwBuf.Clear();
+            for (int i = 0; i < known.Count; i++)
+            {
+                Missile m = known[i];
+                if (m == null || m.disabled) continue;
+                GlobalPosition gp = m.GlobalPosition();
+                _mwBuf.Add(new MwContact { X = gp.x, Z = gp.z, Seeker = m.GetSeekerType() ?? string.Empty });
+            }
+            return _mwBuf.Count == 0 ? Array.Empty<MwContact>() : _mwBuf.ToArray();
         }
 
         // Attaches OnRadarWarning to the current local aircraft, detaching from the previous one

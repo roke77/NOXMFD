@@ -242,6 +242,25 @@
                tr: c.tr, pw: c.pw, fr: 1, n: c.n, k: c.k, _p: c.period };
     });
   }
+  // Synthetic incoming missile for the RWR launch indicator. Authored as a bearing + an
+  // animated range that closes from _r0 to _r1 km over _period s (then loops), so the preview
+  // shows the connecting line shortening as it bears in. mwTickApproach below recomputes its
+  // world x,z each send. A real frame's own `mw` is left alone.
+  if (!Array.isArray(FRAME.mw)) {
+    FRAME.mw = [{ x: 0, z: 0, st: 'ARH', _az: 150, _r0: 6.0, _r1: 0.4, _period: 6 }];
+  }
+  function mwTickApproach() {
+    if (!Array.isArray(FRAME.mw)) return;
+    const ow = FRAME.world || { x: 0, z: 0 }, hdg = FRAME.hdg || 0, now = performance.now() / 1000;
+    for (const e of FRAME.mw) {
+      if (typeof e._az !== 'number') continue;
+      const t = (now % e._period) / e._period;
+      const rng = (e._r0 + t * (e._r1 - e._r0)) * 1000;   // km -> m
+      const ab = (e._az + hdg) * Math.PI / 180;
+      e.x = Math.round(ow.x + Math.sin(ab) * rng);
+      e.z = Math.round(ow.z + Math.cos(ab) * rng);
+    }
+  }
   // Animate each synthetic emitter's ping freshness (fr): bright on each sweep (every _p
   // seconds), fading to 0 over its tier lifetime — so the preview shows the diamonds "ping"
   // without a live game. A real capture carries its own fr and has no _p marker, so it's left
@@ -262,7 +281,7 @@
       // The frame is static EXCEPT the RWR ping freshness, which we re-tick each send so the
       // diamonds visibly pulse; ~6.7 Hz approximates the real 10 Hz stream (and keeps the
       // page's 2.5 s connection watchdog happy).
-      const tick = () => { rwrTickFreshness(); this._send(JSON.stringify(FRAME)); };
+      const tick = () => { rwrTickFreshness(); mwTickApproach(); this._send(JSON.stringify(FRAME)); };
       setTimeout(() => {
         tick();
         this._timer = setInterval(tick, 150);

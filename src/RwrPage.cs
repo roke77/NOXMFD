@@ -37,6 +37,7 @@ namespace NORoksMFD
   .rwr-panel { position: absolute; inset: 0; }
   .rwr-scope { display: block; width: 100%; height: 100%; }
   .rwr-scope text { font-family: 'Share Tech Mono', 'Courier New', monospace; font-size: 30px; }
+  .rwr-scope .rwr-threats { color: #ff3b30; }
 </style>
 </head>
 <body>
@@ -54,6 +55,7 @@ namespace NORoksMFD
       <polygon points="480,18 520,18 500,50" fill="rgba(255,255,255,0.6)"/>
       <polygon points="500,460 475,548 500,528 525,548" fill="none" stroke="rgba(255,255,255,0.65)" stroke-width="4"/>
       <g class="rwr-contacts" id="rwr-contacts"></g>
+      <g class="rwr-threats" id="rwr-threats"></g>
     </svg>
   </div>
 <script>
@@ -100,13 +102,50 @@ namespace NORoksMFD
     });
     g.innerHTML = out;
   }
+  // Incoming missiles: { az, rng (km), st (seeker) }. A flickering spear (currentColor +
+  // the #rwr-threats CSS animation) points from the missile's bearing in toward the player.
+  var mwItems = [];
+  function renderThreats() {
+    var g = document.getElementById('rwr-threats');
+    if (!g) return;
+    var cx = 500, cy = 500, R = 460, RIN = 60, RMAX = 6, out = '';   // RMAX = km mapped to the rim
+    (mwItems || []).forEach(function(m) {
+      var a = m.az * Math.PI / 180, sn = Math.sin(a), cs = Math.cos(a);
+      // Missile at a proximity radius (closer -> nearer centre), so the line shortens as it closes.
+      var frac = Math.max(0, Math.min(1, (typeof m.rng === 'number' ? m.rng : RMAX) / RMAX));
+      var tr = RIN + 35 + frac * (R - (RIN + 35));
+      var mx = cx + sn * tr,  my = cy - cs * tr;
+      var ix = cx + sn * RIN, iy = cy - cs * RIN;
+      out += '<line x1="' + mx.toFixed(1) + '" y1="' + my.toFixed(1) + '" x2="' + ix.toFixed(1) +
+             '" y2="' + iy.toFixed(1) + '" stroke="#ff3b30" stroke-width="3" stroke-linecap="round"/>';
+      var ux = -sn, uy = cs, qx = cs, qy = sn, HL = 36, HB = 8, HW = 10;   // slender dart (currentColor, flickers)
+      out += '<polygon points="' + (mx + ux * HL).toFixed(1) + ',' + (my + uy * HL).toFixed(1) + ' ' +
+             (mx - ux * HB + qx * HW).toFixed(1) + ',' + (my - uy * HB + qy * HW).toFixed(1) + ' ' +
+             (mx - ux * HB - qx * HW).toFixed(1) + ',' + (my - uy * HB - qy * HW).toFixed(1) + '" fill="currentColor"/>';
+      var lr = tr + 34, lx = cx + sn * lr, ly = cy - cs * lr;
+      var label = (m.st ? m.st + ' ' : '') + (typeof m.rng === 'number' ? m.rng.toFixed(1) : '');
+      out += '<text x="' + lx.toFixed(1) + '" y="' + (ly + 10).toFixed(1) + '" fill="#ff3b30" text-anchor="' +
+             (sn >= 0 ? 'start' : 'end') + '">' + label + '</text>';
+    });
+    g.innerHTML = out;
+  }
   window.addEventListener('message', function(e) {
     var m = e.data;
-    if (!m || !m.mfd || m.type !== 'rwr') return;
-    rwrItems = Array.isArray(m.items) ? m.items : [];
-    renderRwr();
+    if (!m || !m.mfd) return;
+    if (m.type === 'rwr') { rwrItems = Array.isArray(m.items) ? m.items : []; renderRwr(); }
+    else if (m.type === 'mw') { mwItems = Array.isArray(m.items) ? m.items : []; renderThreats(); }
   });
+  // Flicker the missile layer red<->yellow on its own timer (~3.8 Hz), independent of the data
+  // rate; only writes when a missile is present (children use currentColor).
+  var mwFlip = false;
+  setInterval(function() {
+    var g = document.getElementById('rwr-threats');
+    if (!g || !g.firstChild) return;
+    mwFlip = !mwFlip;
+    g.style.color = mwFlip ? '#ffd21e' : '#ff3b30';
+  }, 130);
   renderRwr();
+  renderThreats();
 </script>
 </body>
 </html>

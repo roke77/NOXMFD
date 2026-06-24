@@ -548,6 +548,7 @@ function clearMission() {
     window.parent.postMessage({ mfd: true, type: 'tgp', active: false }, '*');
     window.parent.postMessage({ mfd: true, type: 'targets', items: [] }, '*');
     window.parent.postMessage({ mfd: true, type: 'rwr', items: [] }, '*');
+    window.parent.postMessage({ mfd: true, type: 'mw', items: [] }, '*');
     window.parent.postMessage({ mfd: true, type: 'avn', name: null, parts: null, failures: null, fuel: -1, throttle: -1 }, '*');
     window.parent.postMessage({ mfd: true, type: 'follow', on: false }, '*');
   }
@@ -659,6 +660,21 @@ function updateHUD(d) {
       }
     }
     window.parent.postMessage({ mfd: true, type: 'rwr', items: rwr }, '*');
+    // Mirror incoming missiles for the RWR's missile-launch indicator. Same idea as rwr: turn
+    // each missile's world position into a nose-up bearing (az) + range in km (rng) for the
+    // label; the scope draws a flickering line from that bearing in toward the player.
+    let mw = [];
+    if (Array.isArray(d.mw) && d.world) {
+      const hdg = d.hdg || 0;
+      for (const m of d.mw) {
+        const dx = m.x - d.world.x;
+        const dz = m.z - d.world.z;
+        let az = Math.atan2(dx, dz) * 180 / Math.PI - hdg;
+        az = ((az % 360) + 360) % 360;
+        mw.push({ az: az, rng: Math.hypot(dx, dz) / 1000, st: m.st || '' });
+      }
+    }
+    window.parent.postMessage({ mfd: true, type: 'mw', items: mw }, '*');
     // Mirror the player's aircraft name + per-part HP so the MFD's AVN page can render
     // the live damage silhouette. The silhouette assets (background PNG, per-part PNGs,
     // layout JSON) live behind /airframe and /airframe-layout — the MFD fetches them on demand.

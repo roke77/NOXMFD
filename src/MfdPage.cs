@@ -548,6 +548,10 @@ namespace NORoksMFD
   .rwr-panel.show { display: block; }
   .rwr-scope { display: block; width: 100%; height: 100%; }
   .rwr-scope text { font-family: 'Share Tech Mono', 'Courier New', monospace; font-size: 30px; }
+  /* Incoming-missile layer: its shapes use currentColor; renderThreats toggles the group's
+     colour red<->yellow each frame (JS-driven, since the live stream re-renders it ~10 Hz) so
+     the launch lines flicker like the game's map missile cue. */
+  .rwr-scope .rwr-threats { color: #ff3b30; }
 
   /* AVN page — avionics. Aircraft name pinned to key[0]'s row at the top centre; the
      damage silhouette fills the rest. The silhouette is composed of:
@@ -1185,6 +1189,7 @@ namespace NORoksMFD
               <polygon points="480,18 520,18 500,50" fill="rgba(255,255,255,0.6)"/>
               <polygon points="500,460 475,548 500,528 525,548" fill="none" stroke="rgba(255,255,255,0.65)" stroke-width="4"/>
               <g class="rwr-contacts" id="rwr-contacts"></g>
+              <g class="rwr-threats" id="rwr-threats"></g>
             </svg>
           </div>
         </div>
@@ -1569,6 +1574,13 @@ function forwardRwrToPanes() {
     iframe.contentWindow.postMessage({ mfd: true, type: 'rwr', items: rwrData.items || [] }, '*');
   });
 }
+function forwardMwToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'rwr') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage({ mfd: true, type: 'mw', items: mwData.items || [] }, '*');
+  });
+}
 // Slice the full loadout to the page a given pane is scrolled to. Returns the visible rows
 // plus whether PREV/NEXT exist, so renderSplitLabels can place the right nav labels. Clamps
 // a stale page index (e.g. the loadout shrank) back into range as a side effect.
@@ -1725,7 +1737,7 @@ paneIframes.forEach(function(iframe, idx) {
     if      (page === 'main') forwardStatusToPanes();
     else if (page === 'avn')  forwardAvnToPanes();
     else if (page === 'tgp')  forwardTgpToPanes();
-    else if (page === 'rwr')  forwardRwrToPanes();
+    else if (page === 'rwr')  { forwardRwrToPanes(); forwardMwToPanes(); }
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
     else if (page === 'tgl')  { forwardTglToPanes(); forwardTglLayoutToPanes(); }
   });
@@ -1920,7 +1932,7 @@ function showPage(name) {
   if (name === 'wpn') { renderWpn(); }
   if (name === 'tgl') { renderTgl(); }
   if (name === 'avn') { renderAvn(); }
-  if (name === 'rwr') { renderRwr(); }
+  if (name === 'rwr') { renderRwr(); renderThreats(); }
 
   renderIndicators();
 }
@@ -1984,6 +1996,54 @@ function renderRwr() {
   });
   g.innerHTML = out;
 }
+
+// Incoming missiles: each { az (deg clockwise from nose), rng (km), st (seeker type) }, mirrored
+// from the map iframe. renderThreats draws, per missile: a static thin red line from the player
+// out to the missile triangle (which sits at a proximity radius, so the line shortens as it
+// closes), the triangle pointing in at the player, and a label riding the triangle. Only the
+// triangle uses currentColor (the group timer flickers it red<->yellow — the game's launch cue);
+// the line and label stay static red.
+let mwData = { items: [] };
+function renderThreats() {
+  const g = document.getElementById('rwr-threats');
+  if (!g) return;
+  const cx = 500, cy = 500, R = 460, RIN = 60, RMAX = 6;   // RMAX = km mapped to the rim
+  let out = '';
+  (mwData.items || []).forEach(function(m) {
+    const a = m.az * Math.PI / 180, sn = Math.sin(a), cs = Math.cos(a);
+    // Missile sits at a proximity radius from the player: closer range -> nearer the centre,
+    // so the connecting line shortens as it bears in. RMAX km maps to the rim.
+    const frac = Math.max(0, Math.min(1, (typeof m.rng === 'number' ? m.rng : RMAX) / RMAX));
+    const tr = RIN + 35 + frac * (R - (RIN + 35));
+    const mx = cx + sn * tr,  my = cy - cs * tr;     // missile position
+    const ix = cx + sn * RIN, iy = cy - cs * RIN;    // player-side end (just off the caret)
+    // Static thin red line missile -> player; shortens as the missile closes.
+    out += '<line x1="' + mx.toFixed(1) + '" y1="' + my.toFixed(1) + '" x2="' + ix.toFixed(1) +
+           '" y2="' + iy.toFixed(1) + '" stroke="#ff3b30" stroke-width="3" stroke-linecap="round"/>';
+    // Triangle at the missile, tip pointing in at the player. Only this uses currentColor, so
+    // only it flickers red<->yellow (driven by the group timer); the line + label stay red.
+    const ux = -sn, uy = cs, qx = cs, qy = sn, HL = 36, HB = 8, HW = 10;   // slender dart: base ~half the sides
+    out += '<polygon points="' + (mx + ux * HL).toFixed(1) + ',' + (my + uy * HL).toFixed(1) + ' ' +
+           (mx - ux * HB + qx * HW).toFixed(1) + ',' + (my - uy * HB + qy * HW).toFixed(1) + ' ' +
+           (mx - ux * HB - qx * HW).toFixed(1) + ',' + (my - uy * HB - qy * HW).toFixed(1) + '" fill="currentColor"/>';
+    // Label rides just outside the triangle (static red).
+    const lr = tr + 34, lx = cx + sn * lr, ly = cy - cs * lr;
+    const label = (m.st ? m.st + ' ' : '') + (typeof m.rng === 'number' ? m.rng.toFixed(1) : '');
+    out += '<text x="' + lx.toFixed(1) + '" y="' + (ly + 10).toFixed(1) + '" fill="#ff3b30" text-anchor="' +
+           (sn >= 0 ? 'start' : 'end') + '">' + label + '</text>';
+  });
+  g.innerHTML = out;
+}
+// Flicker the missile layer red<->yellow on its own timer — toggles every 130 ms (~3.8 Hz),
+// independent of the data rate so it stays smooth and snappy like the game's launch cue. Only
+// writes when a missile is present; children use currentColor, so recolouring the group is enough.
+let mwFlip = false;
+setInterval(function() {
+  const g = document.getElementById('rwr-threats');
+  if (!g || !g.firstChild) return;
+  mwFlip = !mwFlip;
+  g.style.color = mwFlip ? '#ffd21e' : '#ff3b30';
+}, 130);
 
 // Renders the AVN page. Three layers:
 //   - .avn-name pinned to the vertical centre of left key[0] (top row).
@@ -2688,6 +2748,11 @@ window.addEventListener('message', function(e) {
     rwrData = { items: Array.isArray(m.items) ? m.items : [] };
     if (currentPage === 'rwr') renderRwr();
     if (splitMode) forwardRwrToPanes();
+  } else if (m.type === 'mw') {
+    // Mirror incoming missiles for the RWR's launch indicator (same plumbing as 'rwr').
+    mwData = { items: Array.isArray(m.items) ? m.items : [] };
+    if (currentPage === 'rwr') renderThreats();
+    if (splitMode) forwardMwToPanes();
   }
 });
 
