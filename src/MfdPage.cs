@@ -2011,6 +2011,14 @@ function renderThreats() {
   let out = '';
   (mwData.items || []).forEach(function(m) {
     const a = m.az * Math.PI / 180, sn = Math.sin(a), cs = Math.cos(a);
+    // Notch line (radar-guided seekers only): a static dashed-yellow beam axis through the
+    // player — the heading to fly to Doppler-notch the missile. Drawn as a full diameter.
+    if (typeof m.nb === 'number') {
+      const na = m.nb * Math.PI / 180, ns = Math.sin(na), nc = Math.cos(na);
+      out += '<line x1="' + (cx + ns * R).toFixed(1) + '" y1="' + (cy - nc * R).toFixed(1) +
+             '" x2="' + (cx - ns * R).toFixed(1) + '" y2="' + (cy + nc * R).toFixed(1) +
+             '" stroke="#ffd21e" stroke-width="3" stroke-dasharray="14 12"/>';
+    }
     // Missile sits at a proximity radius from the player: closer range -> nearer the centre,
     // so the connecting line shortens as it bears in. RMAX km maps to the rim.
     const frac = Math.max(0, Math.min(1, (typeof m.rng === 'number' ? m.rng : RMAX) / RMAX));

@@ -671,7 +671,12 @@ function updateHUD(d) {
         const dz = m.z - d.world.z;
         let az = Math.atan2(dx, dz) * 180 / Math.PI - hdg;
         az = ((az % 360) + 360) % 360;
-        mw.push({ az: az, rng: Math.hypot(dx, dz) / 1000, st: m.st || '' });
+        const item = { az: az, rng: Math.hypot(dx, dz) / 1000, st: m.st || '' };
+        // Beam-notch line (radar seekers only): nb is a world heading; rotate it nose-up too.
+        if (typeof m.nb === 'number' && m.nb >= 0) {
+          item.nb = (((m.nb - hdg) % 360) + 360) % 360;
+        }
+        mw.push(item);
       }
     }
     window.parent.postMessage({ mfd: true, type: 'mw', items: mw }, '*');

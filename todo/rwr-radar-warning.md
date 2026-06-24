@@ -31,6 +31,14 @@ the line + label stay red. Mirrors the game's map missile cue. Radar-warning
 tier colours confirmed working live; the missile path is compile-verified,
 live test pending.
 
+**Notch line (added).** For radar-guided seekers (ARH/SARH), the reader
+replicates the game's map notch cue (`ThreatItem.AlignNotchLine`):
+`NotchHeading` computes the beam-notch direction from the missile's
+`GetEvasionPoint()`, the player's `rb.velocity` and nose, and serializes it
+as `nb` (world heading; `-1` for non-radar). The scope draws a **dashed
+yellow diameter** through the player at that heading — the way to fly to
+Doppler-notch the missile. Static yellow (doesn't flicker with the triangle).
+
 ## Goal
 
 Give the player a classic RWR scope: a polar (centered-aircraft) display

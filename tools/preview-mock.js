@@ -247,7 +247,10 @@
   // shows the connecting line shortening as it bears in. mwTickApproach below recomputes its
   // world x,z each send. A real frame's own `mw` is left alone.
   if (!Array.isArray(FRAME.mw)) {
-    FRAME.mw = [{ x: 0, z: 0, st: 'ARH', _az: 150, _r0: 6.0, _r1: 0.4, _period: 6 }];
+    // nb = world notch heading; for the mock just put it ~perpendicular to the missile bearing
+    // (a radar-guided ARH gets a notch line; an IR one would set nb: -1).
+    const nb0 = ((150 + (FRAME.hdg || 0) + 90) % 360 + 360) % 360;
+    FRAME.mw = [{ x: 0, z: 0, st: 'ARH', nb: nb0, _az: 150, _r0: 6.0, _r1: 0.4, _period: 6 }];
   }
   function mwTickApproach() {
     if (!Array.isArray(FRAME.mw)) return;

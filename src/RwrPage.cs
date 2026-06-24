@@ -111,6 +111,13 @@ namespace NORoksMFD
     var cx = 500, cy = 500, R = 460, RIN = 60, RMAX = 6, out = '';   // RMAX = km mapped to the rim
     (mwItems || []).forEach(function(m) {
       var a = m.az * Math.PI / 180, sn = Math.sin(a), cs = Math.cos(a);
+      // Notch line (radar seekers): static dashed-yellow beam axis (diameter) through the player.
+      if (typeof m.nb === 'number') {
+        var na = m.nb * Math.PI / 180, ns = Math.sin(na), nc = Math.cos(na);
+        out += '<line x1="' + (cx + ns * R).toFixed(1) + '" y1="' + (cy - nc * R).toFixed(1) +
+               '" x2="' + (cx - ns * R).toFixed(1) + '" y2="' + (cy + nc * R).toFixed(1) +
+               '" stroke="#ffd21e" stroke-width="3" stroke-dasharray="14 12"/>';
+      }
       // Missile at a proximity radius (closer -> nearer centre), so the line shortens as it closes.
       var frac = Math.max(0, Math.min(1, (typeof m.rng === 'number' ? m.rng : RMAX) / RMAX));
       var tr = RIN + 35 + frac * (R - (RIN + 35));

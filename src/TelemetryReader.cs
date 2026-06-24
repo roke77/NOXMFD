@@ -683,9 +683,33 @@ namespace NORoksMFD
                 Missile m = known[i];
                 if (m == null || m.disabled) continue;
                 GlobalPosition gp = m.GlobalPosition();
-                _mwBuf.Add(new MwContact { X = gp.x, Z = gp.z, Seeker = m.GetSeekerType() ?? string.Empty });
+                string seeker = m.GetSeekerType() ?? string.Empty;
+                _mwBuf.Add(new MwContact
+                {
+                    X = gp.x,
+                    Z = gp.z,
+                    Seeker = seeker,
+                    Notch = NotchHeading(player, m, seeker)
+                });
             }
             return _mwBuf.Count == 0 ? Array.Empty<MwContact>() : _mwBuf.ToArray();
+        }
+
+        // Beam-notch heading for a radar-guided seeker (ARH/SARH), replicating the game's map
+        // notch line (ThreatItem.AlignNotchLine): the horizontal direction to fly to put the
+        // missile on the beam (Doppler-notch it). Returns a world compass heading in degrees, or
+        // -1 when the missile isn't radar-guided or the geometry is degenerate.
+        private static float NotchHeading(Aircraft player, Missile missile, string seeker)
+        {
+            if (seeker != "ARH" && seeker != "SARH") return -1f;
+            if (player.rb == null) return -1f;
+            Vector3 evasionVector = missile.GetEvasionPoint() - player.GlobalPosition();
+            Vector3 rhs = Vector3.Cross(evasionVector, player.rb.velocity);
+            Vector3 v   = Vector3.Cross(evasionVector, rhs);
+            if (Vector3.Dot(player.transform.forward, v) < 0f) v *= -1f;
+            v.y = 0f;
+            if (v.sqrMagnitude < 1e-4f) return -1f;
+            return Quaternion.LookRotation(v, Vector3.up).eulerAngles.y;
         }
 
         // Attaches OnRadarWarning to the current local aircraft, detaching from the previous one
