@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
 
-namespace NORoksMFD
+namespace NOXMFD
 {
     internal class TelemetryReader : MonoBehaviour
     {
@@ -219,7 +219,7 @@ namespace NORoksMFD
                 _sdFailureIndicatorsField = typeof(StatusDisplay).GetField("failureIndicators", BindingFlags.NonPublic | BindingFlags.Instance);
             if (_sdStatusDisplaysField == null || _sdBackgroundField == null)
             {
-                Plugin.Log?.LogWarning("[NORoksMFD] AVN: StatusDisplay reflection fields not found — airframe capture disabled.");
+                Plugin.Log?.LogWarning("[NOXMFD] AVN: StatusDisplay reflection fields not found — airframe capture disabled.");
                 _capturedAirframes.Add(key);
                 return;
             }
@@ -247,7 +247,7 @@ namespace NORoksMFD
             Vector3 bgU  = bgRT.up;
             Vector3 bgEu = bgRT.eulerAngles;
             Plugin.Log?.LogInfo(
-                $"[NORoksMFD] AVN bg lossyScale=({bgLs.x:0.000},{bgLs.y:0.000},{bgLs.z:0.000})  " +
+                $"[NOXMFD] AVN bg lossyScale=({bgLs.x:0.000},{bgLs.y:0.000},{bgLs.z:0.000})  " +
                 $"rectSize=({bgRT.rect.width:0.0},{bgRT.rect.height:0.0})  " +
                 $"right=({bgR.x:0.00},{bgR.y:0.00},{bgR.z:0.00})  up=({bgU.x:0.00},{bgU.y:0.00},{bgU.z:0.00})  " +
                 $"euler=({bgEu.x:0.0},{bgEu.y:0.0},{bgEu.z:0.0})");
@@ -316,7 +316,7 @@ namespace NORoksMFD
             }
             _failureGOs = failureGOs.ToArray();
 
-            Plugin.Log?.LogInfo($"[NORoksMFD] Captured airframe silhouette '{key}' (bg + {partCount} parts, {flippedCount} flipped, {_failureGOs.Length} failure messages: {string.Join(", ", System.Linq.Enumerable.Select(_failureGOs, g => g.name))}).");
+            Plugin.Log?.LogInfo($"[NOXMFD] Captured airframe silhouette '{key}' (bg + {partCount} parts, {flippedCount} flipped, {_failureGOs.Length} failure messages: {string.Join(", ", System.Linq.Enumerable.Select(_failureGOs, g => g.name))}).");
         }
 
         // Computes a part's placement relative to the background's local rect, in normalized
@@ -413,7 +413,7 @@ namespace NORoksMFD
             if (parts == null) return;
 
             _loggedPartLayouts.Add(key);
-            Plugin.Log?.LogInfo($"[NORoksMFD] AVN parts for '{key}' (count={parts.Count}):");
+            Plugin.Log?.LogInfo($"[NOXMFD] AVN parts for '{key}' (count={parts.Count}):");
             for (int i = 0; i < parts.Count; i++)
             {
                 UnitPart p = parts[i];
@@ -863,11 +863,11 @@ namespace NORoksMFD
             if (png != null)
             {
                 TelemetryServer.SetMapImage(png);
-                Plugin.Log?.LogInfo($"[NORoksMFD] Captured in-game map ({png.Length} bytes).");
+                Plugin.Log?.LogInfo($"[NOXMFD] Captured in-game map ({png.Length} bytes).");
             }
             else
             {
-                Plugin.Log?.LogWarning("[NORoksMFD] Map capture unavailable; falling back to map file.");
+                Plugin.Log?.LogWarning("[NOXMFD] Map capture unavailable; falling back to map file.");
             }
         }
 
@@ -978,7 +978,7 @@ namespace NORoksMFD
             }
             catch (Exception ex)
             {
-                Plugin.Log?.LogWarning($"[NORoksMFD] Sprite capture failed: {ex.Message}");
+                Plugin.Log?.LogWarning($"[NOXMFD] Sprite capture failed: {ex.Message}");
                 return null;
             }
         }
@@ -1040,7 +1040,7 @@ namespace NORoksMFD
                 _tcCamField            = t.GetField("cam",                  BindingFlags.NonPublic | BindingFlags.Instance);
                 _tcScreenRendererField = t.GetField("targetScreenRenderer", BindingFlags.NonPublic | BindingFlags.Instance);
                 if (_tcCamField == null || _tcScreenRendererField == null)
-                    Plugin.Log?.LogWarning("[NORoksMFD] TGP: could not locate TargetCam private fields — feed disabled.");
+                    Plugin.Log?.LogWarning("[NOXMFD] TGP: could not locate TargetCam private fields — feed disabled.");
             }
             if (_tcCamField == null || _tcScreenRendererField == null) { TelemetryServer.ClearTgpFrame(); _tgpActive = false; return; }
 
@@ -1056,7 +1056,7 @@ namespace NORoksMFD
                 {
                     // SetTargetCam touches a lot of game state. If anything throws (e.g. the player
                     // just disabled / detached), skip this tick rather than killing Update.
-                    Plugin.Log?.LogDebug($"[NORoksMFD] TGP SetTargetCam threw: {ex.Message}");
+                    Plugin.Log?.LogDebug($"[NOXMFD] TGP SetTargetCam threw: {ex.Message}");
                     return;
                 }
             }
@@ -1104,7 +1104,7 @@ namespace NORoksMFD
             if (!_tgpSrcLogged)
             {
                 _tgpSrcLogged = true;
-                Plugin.Log?.LogInfo($"[NORoksMFD] TGP source texture {sw}x{sh} (aspect {(float)sw/sh:0.000}); capturing at {targetW}x{targetH}.");
+                Plugin.Log?.LogInfo($"[NOXMFD] TGP source texture {sw}x{sh} (aspect {(float)sw/sh:0.000}); capturing at {targetW}x{targetH}.");
             }
 
             // Don't stack readbacks if the GPU is still working on the previous one — drop
@@ -1173,7 +1173,7 @@ namespace NORoksMFD
             _tgpSrcLogged         = false;
             _tgpReadbackInFlight  = false;   // any in-flight callback will see !WantsTgpFrames and bail
             TelemetryServer.ClearTgpFrame();
-            if (wasEngaged) Plugin.Log?.LogInfo("[NORoksMFD] TGP: disengaged (no subscribers).");
+            if (wasEngaged) Plugin.Log?.LogInfo("[NOXMFD] TGP: disengaged (no subscribers).");
         }
 
         private void OnDestroy()

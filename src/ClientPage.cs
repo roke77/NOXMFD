@@ -1,4 +1,4 @@
-namespace NORoksMFD
+namespace NOXMFD
 {
     internal static class ClientPage
     {
@@ -7,7 +7,7 @@ namespace NORoksMFD
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>NO Roks MFD</title>
+<title>NO XMFD</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='1' y='1' width='30' height='30' rx='4' fill='%233b3f45'/><rect x='6' y='6' width='20' height='20' rx='1' fill='%23050a05'/><g fill='%23c8ccd0'><rect x='2.5' y='8' width='2' height='2.5'/><rect x='2.5' y='14.75' width='2' height='2.5'/><rect x='2.5' y='21.5' width='2' height='2.5'/><rect x='27.5' y='8' width='2' height='2.5'/><rect x='27.5' y='14.75' width='2' height='2.5'/><rect x='27.5' y='21.5' width='2' height='2.5'/></g><path d='M11 16h10' stroke='%2339ff14' stroke-width='2' stroke-linecap='square'/></svg>">
 <style>
   /* Self-hosted Share Tech Mono (embedded woff2) so the MFD needs no internet. */

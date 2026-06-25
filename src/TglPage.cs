@@ -1,4 +1,4 @@
-namespace NORoksMFD
+namespace NOXMFD
 {
     // Bare TGL page served at /tgl. Used ONLY by the split-screen layout (single-pane TGL is
     // rendered by the shell's own overlay panel), so its layout is tuned for a half-height pane:
@@ -19,7 +19,7 @@ namespace NORoksMFD
 <html>
 <head>
 <meta charset="utf-8">
-<title>NO Roks MFD — TGL</title>
+<title>NO XMFD — TGL</title>
 <style>
   /* Self-hosted Share Tech Mono (embedded woff2) so the MFD needs no internet. */
   @font-face {

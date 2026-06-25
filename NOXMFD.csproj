@@ -16,13 +16,13 @@
   <PropertyGroup>
     <!-- netstandard2.1 is what Unity Mono games expect from a BepInEx plugin. -->
     <TargetFramework>netstandard2.1</TargetFramework>
-    <AssemblyName>NORoksMFD</AssemblyName>
-    <Product>NORoksMFD</Product>
-    <Description>NO Roks MFD: live Nuclear Option telemetry (HUD + MFD)</Description>
+    <AssemblyName>NOXMFD</AssemblyName>
+    <Product>NOXMFD</Product>
+    <Description>NO XMFD: live Nuclear Option telemetry (HUD + MFD)</Description>
     <Version>0.1.0</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
-    <RootNamespace>NORoksMFD</RootNamespace>
+    <RootNamespace>NOXMFD</RootNamespace>
     <DebugType>portable</DebugType>
     <NoWarn>BepInEx002</NoWarn>
     <!-- Lets the BepInEx.PluginInfoProps package generate MyPluginInfo for us. -->

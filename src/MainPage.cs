@@ -1,7 +1,7 @@
-namespace NORoksMFD
+namespace NOXMFD
 {
     // Bare MAIN page served at /main. Renders only the centred info-box card
-    // (NO ROKS MFD / URL / connection-status placard). Used by the split-screen
+    // (NO XMFD / URL / connection-status placard). Used by the split-screen
     // layout so MAIN can be embedded in either pane via an <iframe>; the shell
     // handles bezel labels + navigation, so this page only needs to display the
     // card and listen for status updates the shell pushes via postMessage.
@@ -12,7 +12,7 @@ namespace NORoksMFD
 <html>
 <head>
 <meta charset="utf-8">
-<title>NO Roks MFD — MAIN</title>
+<title>NO XMFD — MAIN</title>
 <style>
   /* Self-hosted Share Tech Mono (embedded woff2) so the MFD needs no internet. */
   @font-face {
@@ -51,7 +51,7 @@ namespace NORoksMFD
 </head>
 <body>
   <div class="info-box">
-    <div class="ib-title">NO ROKS MFD</div>
+    <div class="ib-title">NO XMFD</div>
     <div class="ib-url">http://localhost:5005</div>
     {{LAN_URL_BLOCK}}
     <div class="ib-status disconnected" id="ib-status">&#9679; DISCONNECTED</div>

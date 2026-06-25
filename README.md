@@ -1,7 +1,7 @@
-# NO Roks MFD
+# NO XMFD
 
 A live glass-cockpit display for [Nuclear Option](https://store.steampowered.com/app/2168680/).
-While you fly, NO Roks MFD streams your aircraft's telemetry to a real-time
+While you fly, NO XMFD streams your aircraft's telemetry to a real-time
 map and multi-function display you can open in any web browser — on the same
 PC, or on a tablet or phone beside you as a second screen.
 

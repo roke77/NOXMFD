@@ -3,9 +3,9 @@ using BepInEx.Logging;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace NORoksMFD
+namespace NOXMFD
 {
-    [BepInPlugin("com.roque.NORoksMFD", "NO Roks MFD", "0.1.0")]
+    [BepInPlugin("com.roque.NOXMFD", "NO XMFD", "0.1.0")]
     [BepInProcess("NuclearOption.exe")]
     [BepInProcess("NuclearOptionServer.exe")]
     public class Plugin : BaseUnityPlugin
@@ -33,16 +33,16 @@ namespace NORoksMFD
                 SceneManager.sceneLoaded += OnSceneLoaded;
                 _sceneSubscribed = true;
             }
-            Log.LogInfo("NO Roks MFD loaded. Waiting for a mission to start...");
+            Log.LogInfo("NO XMFD loaded. Waiting for a mission to start...");
         }
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             if (_worker != null) return;
-            var go = new GameObject("NORoksMFD_Worker");
+            var go = new GameObject("NOXMFD_Worker");
             Object.DontDestroyOnLoad(go);
             _worker = go.AddComponent<Worker>();
-            Log?.LogInfo("[NORoksMFD] Worker attached (scene='" + scene.name + "').");
+            Log?.LogInfo("[NOXMFD] Worker attached (scene='" + scene.name + "').");
         }
     }
 }

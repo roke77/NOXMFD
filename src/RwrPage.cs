@@ -1,4 +1,4 @@
-namespace NORoksMFD
+namespace NOXMFD
 {
     // Bare RWR page served at /rwr. Used ONLY by the split-screen layout (single-pane RWR is
     // rendered by the shell's own overlay panel in MfdPage). It mirrors that scope: a polar,
@@ -18,7 +18,7 @@ namespace NORoksMFD
 <html>
 <head>
 <meta charset="utf-8">
-<title>NO Roks MFD — RWR</title>
+<title>NO XMFD — RWR</title>
 <style>
   /* Self-hosted Share Tech Mono (embedded woff2) so the MFD needs no internet. */
   @font-face {

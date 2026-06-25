@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace NORoksMFD
+namespace NOXMFD
 {
     internal static class TelemetryServer
     {
@@ -91,32 +91,32 @@ namespace NORoksMFD
                 try { _listener.Start(); }
                 catch (Exception ex)
                 {
-                    Plugin.Log?.LogError($"[NORoksMFD] Failed to start on port {Port}: {ex.Message}");
+                    Plugin.Log?.LogError($"[NOXMFD] Failed to start on port {Port}: {ex.Message}");
                     return;
                 }
             }
             catch (Exception ex)
             {
-                Plugin.Log?.LogError($"[NORoksMFD] Failed to start on port {Port}: {ex.Message}");
+                Plugin.Log?.LogError($"[NOXMFD] Failed to start on port {Port}: {ex.Message}");
                 return;
             }
 
-            _acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "NORoksMFD-Accept" };
+            _acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "NOXMFD-Accept" };
             _acceptThread.Start();
 
-            Plugin.Log?.LogInfo($"[NORoksMFD] Server listening on http://localhost:{Port}/");
+            Plugin.Log?.LogInfo($"[NOXMFD] Server listening on http://localhost:{Port}/");
             if (boundAll)
             {
                 string lanIp = DetectLanIp();
                 if (!string.IsNullOrEmpty(lanIp))
                 {
                     LanUrl = $"http://{lanIp}:{Port}";
-                    Plugin.Log?.LogInfo($"[NORoksMFD] LAN access:  {LanUrl}/");
+                    Plugin.Log?.LogInfo($"[NOXMFD] LAN access:  {LanUrl}/");
                 }
             }
             else
             {
-                Plugin.Log?.LogInfo("[NORoksMFD] LAN access disabled — to enable, run once in an elevated shell:  netsh http add urlacl url=http://+:" + Port + "/ user=Everyone");
+                Plugin.Log?.LogInfo("[NOXMFD] LAN access disabled — to enable, run once in an elevated shell:  netsh http add urlacl url=http://+:" + Port + "/ user=Everyone");
             }
         }
 
@@ -141,7 +141,7 @@ namespace NORoksMFD
             _cts.Cancel();
             try { _listener?.Stop(); } catch { }
             _listener = null;
-            Plugin.Log?.LogInfo("[NORoksMFD] Server stopped.");
+            Plugin.Log?.LogInfo("[NOXMFD] Server stopped.");
         }
 
         // Called from Unity main thread — just stores the latest snapshot.
@@ -154,7 +154,7 @@ namespace NORoksMFD
         public static void SetMapImage(byte[] png)
         {
             lock (_mapLock) _mapPng = png;
-            Plugin.Log?.LogInfo($"[NORoksMFD] In-game map image ready ({png.Length} bytes) — serving at /map.");
+            Plugin.Log?.LogInfo($"[NOXMFD] In-game map image ready ({png.Length} bytes) — serving at /map.");
         }
 
         // Called from Unity main thread once an aircraft type's map icon has been extracted.
@@ -278,7 +278,7 @@ namespace NORoksMFD
                 catch (Exception ex)
                 {
                     if (!_cts.IsCancellationRequested)
-                        Plugin.Log?.LogError($"[NORoksMFD] Accept error: {ex.Message}");
+                        Plugin.Log?.LogError($"[NOXMFD] Accept error: {ex.Message}");
                 }
             }
         }
@@ -351,7 +351,7 @@ namespace NORoksMFD
             {
                 ctx.Response.StatusCode = 404;
                 try { ctx.Response.Close(); } catch { }
-                Plugin.Log?.LogWarning($"[NORoksMFD] Map not found in: {dir}");
+                Plugin.Log?.LogWarning($"[NOXMFD] Map not found in: {dir}");
                 return;
             }
 
@@ -492,7 +492,7 @@ namespace NORoksMFD
             ctx.Response.Headers.Add("Cache-Control", "no-cache");
             ctx.Response.Headers.Add("X-Accel-Buffering", "no");
 
-            Plugin.Log?.LogInfo($"[NORoksMFD] Client connected from {ctx.Request.RemoteEndPoint}");
+            Plugin.Log?.LogInfo($"[NOXMFD] Client connected from {ctx.Request.RemoteEndPoint}");
 
             try
             {
@@ -513,11 +513,11 @@ namespace NORoksMFD
                 }
             }
             catch (OperationCanceledException) { }
-            catch (Exception ex) { Plugin.Log?.LogWarning($"[NORoksMFD] Client error: {ex.Message}"); }
+            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] Client error: {ex.Message}"); }
             finally
             {
                 try { ctx.Response.Close(); } catch { }
-                Plugin.Log?.LogInfo($"[NORoksMFD] Client disconnected from {ctx.Request.RemoteEndPoint}");
+                Plugin.Log?.LogInfo($"[NOXMFD] Client disconnected from {ctx.Request.RemoteEndPoint}");
             }
         }
 

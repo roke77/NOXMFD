@@ -1,4 +1,4 @@
-namespace NORoksMFD
+namespace NOXMFD
 {
     // Bare AVN page served at /avn. Renders the live damage silhouette + failure labels
     // + FUEL/THROTTLE side bars, sized to fill the iframe. Used by the split-screen
@@ -17,7 +17,7 @@ namespace NORoksMFD
 <html>
 <head>
 <meta charset="utf-8">
-<title>NO Roks MFD — AVN</title>
+<title>NO XMFD — AVN</title>
 <style>
   /* Self-hosted Share Tech Mono (embedded woff2) so the MFD needs no internet. */
   @font-face {

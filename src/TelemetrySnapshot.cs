@@ -1,4 +1,4 @@
-namespace NORoksMFD
+namespace NOXMFD
 {
     internal struct TelemetrySnapshot
     {

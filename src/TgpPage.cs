@@ -1,4 +1,4 @@
-namespace NORoksMFD
+namespace NOXMFD
 {
     // Bare TGP page served at /tgp. Renders the targeting-pod MJPEG feed full-iframe
     // with the "NO LOCK" placeholder when no target is being tracked. Used by the
@@ -12,7 +12,7 @@ namespace NORoksMFD
 <html>
 <head>
 <meta charset="utf-8">
-<title>NO Roks MFD — TGP</title>
+<title>NO XMFD — TGP</title>
 <style>
   /* Self-hosted Share Tech Mono (embedded woff2) so the MFD needs no internet. */
   @font-face {
