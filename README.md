@@ -34,6 +34,17 @@ PC, or on a tablet or phone beside you as a second screen.
 - A device with a modern web browser — the same PC, or a tablet/phone on the
   same local network.
 
+### Required BepInEx setting
+
+Set `HideManagerGameObject = true` under `[Chainloader]` in
+`BepInEx/config/BepInEx.cfg`. Nuclear Option's scene cleanup destroys BepInEx's
+manager GameObject on the boot → main-menu transition; hiding it keeps the
+manager (and any plugin that lives on it) alive. NO XMFD has its own workaround
+and runs either way, but **ConfigurationManager** (the in-game config menu used
+for the HUD-declutter toggles) only survives — and therefore only opens — with
+this set. Default config key is `Insert`; rebind it in that menu's *General*
+section (avoid `F1`, which is a camera-view key in-game).
+
 ## Installing
 
 > **🚧 Work in progress.** Packaged releases and step-by-step install
