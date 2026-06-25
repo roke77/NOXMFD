@@ -669,7 +669,45 @@ namespace NOXMFD
     line-height: 1;
     white-space: nowrap;
   }
-  .avn-vbar-value { padding: 0 0 20px 0; }
+  /* The % readout floats to the inner side of its bar (toward the silhouette) and tracks
+     the top tip of the fill — paintAvnBar sets its `top` in px each paint. fuel sits on the
+     left, so its number opens to the right; thr sits on the right, opening to the left. */
+  .avn-vbar-value {
+    position: absolute;
+    padding: 2px 3px 0;
+    transform: translateY(-50%);
+    transition: top 200ms linear;
+    border-top: 2px solid currentColor;   /* corner bracket: top cap + the edge facing the bar */
+    z-index: 4;
+  }
+  .avn-vbar.fuel .avn-vbar-value { left:  calc(100% - 4px); text-align: left;  }
+  .avn-vbar.thr  .avn-vbar-value { right: calc(100% - 4px); text-align: right; }
+  /* Vertical bracket edge on the bar side — only the upper half, from the top cap down to
+     the fill-tip (the box's vertical centre, where the stem meets it). */
+  .avn-vbar-value::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    height: 50%;
+    width: 2px;
+    background: currentColor;
+    pointer-events: none;
+  }
+  .avn-vbar.fuel .avn-vbar-value::before { left:  0; }
+  .avn-vbar.thr  .avn-vbar-value::before { right: 0; }
+  /* Stem joining that edge to the bar at the fill-tip level (box is centred on the tip). */
+  .avn-vbar-value::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 2px;
+    background: currentColor;
+    pointer-events: none;
+  }
+  .avn-vbar.fuel .avn-vbar-value::after { right: 100%; }
+  .avn-vbar.thr  .avn-vbar-value::after { left:  100%; }
   .avn-vbar-label { padding: 20px 0 0 0; }
   body.portrait .avn-vbar-label,
   body.portrait .avn-vbar-value { font-size: clamp(16px, 1.8vh, 25.5px); }
@@ -2351,6 +2389,7 @@ function paintAvnBar(barEl, fillEl, valEl, value01, cautionAt, criticalAt) {
     barEl.classList.add('na');
     fillEl.style.height = '0%';
     valEl.textContent = '--';
+    positionAvnBarValue(barEl, valEl, 0);
     return;
   }
   const v = Math.max(0, Math.min(1, value01));
@@ -2358,6 +2397,22 @@ function paintAvnBar(barEl, fillEl, valEl, value01, cautionAt, criticalAt) {
   else if (cautionAt  !== null && v <= cautionAt)  barEl.classList.add('caution');
   fillEl.style.height = (v * 100).toFixed(1) + '%';
   valEl.textContent = Math.round(v * 100) + '%';
+  positionAvnBarValue(barEl, valEl, v);
+}
+
+// Slide the % readout so its vertical centre sits on the fill's top tip. Derived from the
+// tube's box (not the fill's animated rect) so it tracks the target level immediately; the
+// CSS `top` transition then carries it in step with the fill's height animation.
+function positionAvnBarValue(barEl, valEl, v) {
+  const tube = barEl.querySelector('.avn-vbar-tube');
+  if (!tube) return;
+  const tubeRect = tube.getBoundingClientRect();
+  if (!tubeRect.height) return;
+  const PAD = 6, BORDER = 2;                          // mirror .avn-vbar-tube padding + border
+  const fillBottomY = tubeRect.bottom - BORDER - PAD; // viewport y of the fill's base
+  const innerH      = tubeRect.height - 2 * BORDER;   // padding-box height the fill % spans
+  const tipY        = fillBottomY - v * innerH;       // viewport y of the fill's top tip
+  valEl.style.top = (tipY - barEl.getBoundingClientRect().top) + 'px';
 }
 
 // Render the WPN page from the cached loadout. Each weapon row is absolutely positioned
