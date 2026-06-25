@@ -459,36 +459,26 @@ function drawRwrLines() {
   oc.restore();
 }
 
-// Incoming missiles: a triangle at the missile's map position that flashes red<->yellow and
-// points toward the player — matching the game's flashing missile-warning map icon. Drawn last
-// (on top) since it's the most urgent cue. Self-animated via the threat rAF loop (see below).
+// Incoming missiles: the game's actual missile-warning sprite (served at /icon?type=__missilewarn)
+// at each missile's map position, oriented to its travel heading and flashing red<->yellow
+// (color = (1, sin(t·20)·0.5+0.5, 0), matching UnitMapIcon.SetMissileWarning). Drawn last (on
+// top) since it's the most urgent cue; self-animated via the threat timer.
+const MISSILE_ICON = '__missilewarn';
+const MISSILE_BASE_IN = 15, MISSILE_BASE_OUT = 11;   // full icon height (px) by zoom level
 function drawMissiles() {
   if (!lastData || !Array.isArray(lastData.mw) || !lastData.world) return;
-  const pp = worldToOverlay(lastData.world.x, lastData.world.z);
-  const t  = performance.now() / 1000;
-  const g  = Math.round((Math.sin(t * 20) * 0.5 + 0.5) * 255);   // game: color = (1, g, 0)
-  const col = 'rgb(255,' + g + ',0)';
+  const t = performance.now() / 1000;
+  let g = Math.round((Math.sin(t * 20) * 0.5 + 0.5) * 255);   // game flash: red (0) <-> yellow (255)
+  g = Math.min(255, Math.round(g / 32) * 32);                 // quantise so tintedIcon's cache stays small
+  const hex = '#ff' + ('0' + g.toString(16)).slice(-2) + '00';
+  const base = zoomedIn() ? MISSILE_BASE_IN : MISSILE_BASE_OUT;
   for (const m of lastData.mw) {
     const mp = worldToOverlay(m.x, m.z);
     if (!mp) continue;
-    // Rotate an up-pointing triangle to aim its nose at the player: up=(0,-1) rotated by θ
-    // (canvas clockwise) → (sinθ,-cosθ); match the missile→player screen vector ⇒ θ=atan2(dx,-dy).
-    const ang = pp ? Math.atan2(pp.cx - mp.cx, -(pp.cy - mp.cy)) : 0;
-    const s = (zoomedIn() ? 13 : 10) * 1.2;   // 1.2× boost like the game's flashing icon
-    oc.save();
-    oc.translate(mp.cx, mp.cy);
-    oc.rotate(ang);
-    oc.shadowColor = col;
-    oc.shadowBlur  = 10;
-    oc.fillStyle   = col;
-    oc.beginPath();
-    oc.moveTo(0, -s);                 // nose toward the player
-    oc.lineTo( s * 0.72, s * 0.7);
-    oc.lineTo(-s * 0.72, s * 0.7);
-    oc.closePath();
-    oc.fill();
-    oc.restore();
-    hitTargets.push({ cx: mp.cx, cy: mp.cy, r: s + HIT_PAD,
+    ensureIconImage(MISSILE_ICON);
+    // Orient to the missile's travel heading (like the game's map icon); 1.2× flash boost.
+    const r = drawIcon(MISSILE_ICON, hex, mp.cx, mp.cy, m.h || 0, typeof m.h === 'number', base, 1.2);
+    hitTargets.push({ cx: mp.cx, cy: mp.cy, r: r + HIT_PAD,
                       label: (m.st ? m.st + ' MISSILE' : 'MISSILE'), color: '#ff3b30' });
   }
 }

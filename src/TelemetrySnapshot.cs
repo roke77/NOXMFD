@@ -91,12 +91,13 @@ namespace NOXMFD
         public byte   Kind;    // 0 unknown, 1 ground-SAM, 2 air (from typeIdentity)
     }
 
-    // One incoming missile on the RWR. Serialized terse as {x,z,st,nb}.
+    // One incoming missile on the RWR. Serialized terse as {x,z,st,nb,h}.
     internal struct MwContact
     {
         public float  X, Z;    // missile world position (GlobalPosition, same space as UnitInfo)
         public string Seeker;  // seeker type code (e.g. "ARH", "IR") — short, used as the label
         public float  Notch;   // beam-notch heading (world deg) for radar seekers; -1 = none
+        public float  Heading; // missile travel heading (world deg) — orients the map icon
     }
 
     // One UnitPart's live damage state.

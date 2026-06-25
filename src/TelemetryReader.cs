@@ -162,6 +162,8 @@ namespace NOXMFD
             _totalUnits    = units.Length;
             _totalAircraft = aircraft;
 
+            CaptureMissileWarningIcon();   // one-time: the real missile-warning sprite for the MAP page
+
             // Resolve the map bounds + grid offsets and capture the real in-game map image.
             if (_level == null)
                 _level = UnityEngine.Object.FindObjectOfType<LevelInfo>();
@@ -689,7 +691,8 @@ namespace NOXMFD
                     X = gp.x,
                     Z = gp.z,
                     Seeker = seeker,
-                    Notch = NotchHeading(player, m, seeker)
+                    Notch = NotchHeading(player, m, seeker),
+                    Heading = m.transform.eulerAngles.y
                 });
             }
             return _mwBuf.Count == 0 ? Array.Empty<MwContact>() : _mwBuf.ToArray();
@@ -872,6 +875,27 @@ namespace NOXMFD
         }
 
         // Extracts a unit type's top-down map icon to PNG, once per type, and registers it.
+        // Reserved /icon key for the game's missile-warning sprite (GameAssets.missileWarningSprite).
+        // The MAP page draws incoming missiles with this real in-game shape (tinted + flashed
+        // client-side) instead of a hand-drawn triangle. Captured once, then reused.
+        internal const string MissileIconKey = "__missilewarn";
+        private bool _missileIconCaptured;
+
+        private void CaptureMissileWarningIcon()
+        {
+            if (_missileIconCaptured) return;
+            try
+            {
+                GameAssets ga = GameAssets.i;
+                if (ga == null || ga.missileWarningSprite == null) return;
+                byte[]? png = SpriteToPng(ga.missileWarningSprite, isIcon: true);
+                if (png == null) return;                       // texture not ready yet — retry next scan
+                TelemetryServer.SetIcon(MissileIconKey, png);
+                _missileIconCaptured = true;
+            }
+            catch { /* retry on a later scan */ }
+        }
+
         // Returns true if it attempted a (costly) extraction this call, so callers can budget.
         private bool TryCaptureIcon(UnitDefinition def)
         {

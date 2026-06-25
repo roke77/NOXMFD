@@ -23,9 +23,12 @@ original research + plan.
 same `d.rwr` / `d.mw` feeds on the map itself, replicating the game's
 `DynamicMap` cues: `drawRwrLines()` renders a spoke from each emitter toward
 the player, tier-coloured (grey search / yellow track / red lock) with alpha
-scaled by ping freshness `fr`; `drawMissiles()` renders a triangle at each
-incoming missile that flashes red↔yellow (`color = (1, sin(t·20)·0.5+0.5, 0)`,
-matching `UnitMapIcon.SetMissileWarning`) and points at the player. A 50 ms
+scaled by ping freshness `fr`; `drawMissiles()` renders the game's real
+missile-warning sprite (`GameAssets.missileWarningSprite`, captured once by
+the reader and served at `/icon?type=__missilewarn`) at each incoming missile,
+oriented to its travel heading (`mw[].h`) and flashing red↔yellow
+(`color = (1, sin(t·20)·0.5+0.5, 0)`, matching `UnitMapIcon.SetMissileWarning`;
+flash hex quantised so the tint cache stays small). A 50 ms
 timer (`ensureThreatAnimation`) redraws while any missile is inbound and
 self-stops when the feed clears. Verified in preview via canvas pixel
 sampling (tier colours + flash); live in-game test still pending alongside the

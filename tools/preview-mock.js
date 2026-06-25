@@ -39,6 +39,10 @@
   const ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><polygon points="12,2 20,21 12,16 4,21" fill="#ffffff"/></svg>`;
 
   const WEAPON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="96" viewBox="0 0 40 96"><rect x="16" y="12" width="8" height="62" rx="4" fill="#5a7a5a"/><polygon points="20,2 26,16 14,16" fill="#7aa07a"/><polygon points="14,70 8,90 16,82" fill="#5a7a5a"/><polygon points="26,70 32,90 24,82" fill="#5a7a5a"/></svg>`;
+  // Stand-in for the game's missile-warning sprite (/icon?type=__missilewarn), only used in
+  // preview — live, the mod serves the real GameAssets.missileWarningSprite. A slim white dart
+  // (nose up) so the page can tint it to the flash colour and orient it to the missile heading.
+  const MISSILE_WARN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="28" viewBox="0 0 20 28"><polygon points="10,1 15,26 10,20 5,26" fill="#ffffff"/></svg>`;
 
   // 4x4 dot grid for IR flares — mostly lit, one dim
   const CM_FLARES_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">${
@@ -48,6 +52,7 @@
   const CM_JAMMER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="48" viewBox="0 0 64 48"><path d="M8,40 L16,8 L24,40 L32,8 L40,40 L48,8 L56,40" stroke="#39ff14" stroke-width="3" fill="none" stroke-linejoin="round"/></svg>`;
 
   const MOCK_MAP = svg(MAP_SVG), MOCK_ICON = svg(ICON_SVG), MOCK_WEAPON = svg(WEAPON_SVG);
+  const MOCK_MISSILE = svg(MISSILE_WARN_SVG);
   const MOCK_CM = { flares: svg(CM_FLARES_SVG), jammer: svg(CM_JAMMER_SVG) };
   // Zero-byte GIF data URI: the browser parses it, fails to decode, and fires the
   // <img>'s `error` event WITHOUT a network request. Used to mimic a 404 response
@@ -64,6 +69,9 @@
   const qp = (v, k) => new URLSearchParams(v.split('?')[1] || '').get(k);
   function rewrite(v) {
     if (typeof v !== 'string') return v;
+    // The missile-warning icon is a new reserved key no capture has — always serve the stand-in
+    // (both with and without a real capture) so the MAP page's incoming-missile cue renders.
+    if (v.indexOf('/icon') === 0 && qp(v, 'type') === '__missilewarn') return MOCK_MISSILE;
     if (CAPTURE) {
       // Real capture: serve the saved asset, or fall through to a silent-error data URI
       // so the page's onerror path still fires (→ square fallback for missing icons),
@@ -262,6 +270,9 @@
       const ab = (e._az + hdg) * Math.PI / 180;
       e.x = Math.round(ow.x + Math.sin(ab) * rng);
       e.z = Math.round(ow.z + Math.cos(ab) * rng);
+      // Travel heading (world deg): the missile bears in toward the player, i.e. the reverse of
+      // the player->missile bearing. The backend sends the real missile heading as `h`.
+      e.h = ((e._az + hdg + 180) % 360 + 360) % 360;
     }
   }
   // Animate each synthetic emitter's ping freshness (fr): bright on each sweep (every _p
