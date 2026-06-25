@@ -2734,6 +2734,12 @@ function renderTgl() {
 window.addEventListener('message', function(e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
+  // Telemetry-mirror messages come only from the canonical map iframe (mapFrame). In split mode
+  // a MAP *pane* is a second map iframe that also streams to the shell; ignoring its duplicate
+  // data posts keeps the RWR/AVN/etc. mirrors on a single source — otherwise two out-of-phase
+  // feeds drive them (jumpy in preview, redundant live). 'follow' is per-pane and routes by
+  // e.source itself, so it must pass through from any map source.
+  if (m.type !== 'follow' && e.source !== mapFrame.contentWindow) return;
   if (m.type === 'status') {
     lastStatusCls  = m.cls;
     lastStatusText = m.text;
