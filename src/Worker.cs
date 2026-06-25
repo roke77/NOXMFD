@@ -32,6 +32,7 @@ namespace NOXMFD
             _readerActive  = true;
             _readerObject  = new GameObject("NOXMFD_Runner");
             _readerObject.AddComponent<TelemetryReader>();
+            _readerObject.AddComponent<HudController>();   // hides native HUD elements per HudConfig
             Plugin.Log?.LogInfo("Mission started -> telemetry reader ON.");
         }
 
