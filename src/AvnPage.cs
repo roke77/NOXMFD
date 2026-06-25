@@ -122,20 +122,20 @@ namespace NOXMFD
      left, so its number opens to the right; thr sits on the right, opening to the left. */
   .avn-vbar-value {
     position: absolute;
-    padding: 2px 3px 0;
+    padding: 0 3px 2px;
     transform: translateY(-50%);
     transition: top 200ms linear;
-    border-top: 2px solid currentColor;   /* corner bracket: top cap + the edge facing the bar */
+    border-bottom: 2px solid currentColor;   /* corner bracket: bottom cap + the edge facing the bar */
     z-index: 4;
   }
   .avn-vbar.fuel .avn-vbar-value { left:  calc(100% - 4px); text-align: left;  }
   .avn-vbar.thr  .avn-vbar-value { right: calc(100% - 4px); text-align: right; }
-  /* Vertical bracket edge on the bar side — only the upper half, from the top cap down to
+  /* Vertical bracket edge on the bar side — only the lower half, from the bottom cap up to
      the fill-tip (the box's vertical centre, where the stem meets it). */
   .avn-vbar-value::before {
     content: '';
     position: absolute;
-    top: 0;
+    bottom: 0;
     height: 50%;
     width: 2px;
     background: currentColor;
