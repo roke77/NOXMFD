@@ -16,9 +16,23 @@ End-to-end path is built:
   while under threat).
 
 `pw` (closeness) is currently a heuristic: `clamp01(1 - dist / radarMaxRange)`
-— tune once the live capture shows real values. **Remaining:** live in-game
-test + capture (with the "wait-for-rwr" tweak), then View 2 (MAP bearing
-lines). Rest of this doc is the original research + plan.
+— tune once the live capture shows real values. Rest of this doc is the
+original research + plan.
+
+**View 2 — MAP threat overlay (DONE).** `ClientPage.drawOverlay` now draws the
+same `d.rwr` / `d.mw` feeds on the map itself, replicating the game's
+`DynamicMap` cues: `drawRwrLines()` renders a spoke from each emitter toward
+the player, tier-coloured (grey search / yellow track / red lock) with alpha
+scaled by ping freshness `fr`; `drawMissiles()` renders a triangle at each
+incoming missile that flashes red↔yellow (`color = (1, sin(t·20)·0.5+0.5, 0)`,
+matching `UnitMapIcon.SetMissileWarning`) and points at the player. A 50 ms
+timer (`ensureThreatAnimation`) redraws while any missile is inbound and
+self-stops when the feed clears. Verified in preview via canvas pixel
+sampling (tier colours + flash); live in-game test still pending alongside the
+`pw` tuning above.
+
+**Remaining:** live in-game test + capture (with the "wait-for-rwr" tweak)
+and `pw` tuning.
 
 **Incoming-missile indicator (added).** Separate from the radar feed: the
 reader polls `MissileWarning.knownMissiles` each tick → `mw` array

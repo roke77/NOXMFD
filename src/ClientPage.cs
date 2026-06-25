@@ -256,6 +256,13 @@ let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated 
 const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
 const iconTints  = {};         // "unitName|#hex" -> canvas    (pre-tinted variant)
 
+// Map threat overlay — replicates the game's DynamicMap radar pings (DynamicMap.ShowRadarPing):
+// a spoke from each emitter toward the player, tier-coloured (white search / yellow track /
+// red lock) with alpha fading as the ping ages (fr). And the incoming-missile cue
+// (UnitMapIcon.SetMissileWarning): a triangle flashing red<->yellow that points at the player.
+const RWR_LINE_RGB   = ['220,220,220', '255,210,30', '255,59,48'];  // search / track / lock
+const RWR_LINE_ALPHA = [0.5, 0.7, 0.95];                            // base alpha per tier, scaled by fr
+
 // ── DOM refs ────────────────────────────────────────────────────────────────────
 const mapImg   = document.getElementById('map-img');
 const overlay  = document.getElementById('overlay');
@@ -423,6 +430,69 @@ function drawTargetBox(cx, cy, half) {
   oc.restore();
 }
 
+// Radar-warning spokes: a line from each emitter toward the player, coloured by tier and
+// fading with ping freshness — the same grey/yellow/red lines the game draws on its map.
+// Drawn under the unit icons so the icons stay readable on top.
+function drawRwrLines() {
+  if (!lastData || !Array.isArray(lastData.rwr) || !lastData.world) return;
+  const pp = worldToOverlay(lastData.world.x, lastData.world.z);
+  if (!pp) return;
+  oc.save();
+  oc.lineCap = 'round';
+  for (const c of lastData.rwr) {
+    const ep = worldToOverlay(c.x, c.z);
+    if (!ep) continue;
+    const tr  = c.tr || 0;
+    const fr  = (typeof c.fr === 'number') ? Math.max(0, Math.min(1, c.fr)) : 1;
+    const rgb = RWR_LINE_RGB[tr]   || RWR_LINE_RGB[0];
+    const a   = (RWR_LINE_ALPHA[tr] || RWR_LINE_ALPHA[0]) * Math.max(0.15, fr);
+    const col = 'rgba(' + rgb + ',' + a.toFixed(3) + ')';
+    oc.strokeStyle = col;
+    oc.shadowColor = col;
+    oc.shadowBlur  = 6;
+    oc.lineWidth   = (tr === 2) ? 2.4 : 1.8;   // lock a touch bolder
+    oc.beginPath();
+    oc.moveTo(ep.cx, ep.cy);
+    oc.lineTo(pp.cx, pp.cy);
+    oc.stroke();
+  }
+  oc.restore();
+}
+
+// Incoming missiles: a triangle at the missile's map position that flashes red<->yellow and
+// points toward the player — matching the game's flashing missile-warning map icon. Drawn last
+// (on top) since it's the most urgent cue. Self-animated via the threat rAF loop (see below).
+function drawMissiles() {
+  if (!lastData || !Array.isArray(lastData.mw) || !lastData.world) return;
+  const pp = worldToOverlay(lastData.world.x, lastData.world.z);
+  const t  = performance.now() / 1000;
+  const g  = Math.round((Math.sin(t * 20) * 0.5 + 0.5) * 255);   // game: color = (1, g, 0)
+  const col = 'rgb(255,' + g + ',0)';
+  for (const m of lastData.mw) {
+    const mp = worldToOverlay(m.x, m.z);
+    if (!mp) continue;
+    // Rotate an up-pointing triangle to aim its nose at the player: up=(0,-1) rotated by θ
+    // (canvas clockwise) → (sinθ,-cosθ); match the missile→player screen vector ⇒ θ=atan2(dx,-dy).
+    const ang = pp ? Math.atan2(pp.cx - mp.cx, -(pp.cy - mp.cy)) : 0;
+    const s = (zoomedIn() ? 13 : 10) * 1.2;   // 1.2× boost like the game's flashing icon
+    oc.save();
+    oc.translate(mp.cx, mp.cy);
+    oc.rotate(ang);
+    oc.shadowColor = col;
+    oc.shadowBlur  = 10;
+    oc.fillStyle   = col;
+    oc.beginPath();
+    oc.moveTo(0, -s);                 // nose toward the player
+    oc.lineTo( s * 0.72, s * 0.7);
+    oc.lineTo(-s * 0.72, s * 0.7);
+    oc.closePath();
+    oc.fill();
+    oc.restore();
+    hitTargets.push({ cx: mp.cx, cy: mp.cy, r: s + HIT_PAD,
+                      label: (m.st ? m.st + ' MISSILE' : 'MISSILE'), color: '#ff3b30' });
+  }
+}
+
 // ── Drawing ──────────────────────────────────────────────────────────────────────
 function drawOverlay() {
   oc.clearRect(0, 0, overlay.width, overlay.height);
@@ -452,6 +522,9 @@ function drawOverlay() {
     oc.restore();
   }
 
+  // Radar-warning spokes under the icons (icons stay readable on top).
+  drawRwrLines();
+
   // Other units first, so the player's icon and label sit on top.
   if (lastData.contacts) {
     for (const u of lastData.contacts) {
@@ -470,6 +543,25 @@ function drawOverlay() {
   if (!pos) return;
   const pr = drawIcon(lastData.name, PLAYER_COLOR, pos.cx, pos.cy, lastData.hdg, lastData.iconOrient, iconBase(), lastData.iconScale);
   hitTargets.push({ cx: pos.cx, cy: pos.cy, r: pr + HIT_PAD, label: lastData.name, color: PLAYER_COLOR });
+
+  // Incoming-missile triangles last = on top of everything (most urgent cue).
+  drawMissiles();
+}
+
+// Missiles flash faster than the data rate, so while any are inbound we redraw on a ~20 fps
+// timer (the sine reads performance.now(), so it stays smooth); it self-stops once the feed
+// clears or the mission ends. Timer-driven (like RwrPage) rather than a perpetual rAF loop.
+let threatTimer = null;
+function ensureThreatAnimation() {
+  const active = lastData && Array.isArray(lastData.mw) && lastData.mw.length;
+  if (active && !threatTimer) {
+    threatTimer = setInterval(function() {
+      if (lastData && Array.isArray(lastData.mw) && lastData.mw.length) drawOverlay();
+      else { clearInterval(threatTimer); threatTimer = null; }
+    }, 50);
+  } else if (!active && threatTimer) {
+    clearInterval(threatTimer); threatTimer = null;
+  }
 }
 
 // ── Image load / error ─────────────────────────────────────────────────────────
@@ -516,6 +608,7 @@ es.onmessage = function(e) {
 
   updateHUD(d);
   drawOverlay();
+  ensureThreatAnimation();   // start/keep the missile-flash loop while any missile is inbound
 };
 
 // Wipe everything when a mission/map exits, so stale data never lingers on screen.
@@ -523,6 +616,7 @@ function clearMission() {
   hadData = false;
   lastData = null;
   mapMeta = null;
+  if (threatTimer) { clearInterval(threatTimer); threatTimer = null; }   // stop the missile-flash loop
   mapWasValid = false;
   view.zoom = 1; view.panX = 0; view.panY = 0;   // next mission starts at full extent
   followPlayer = false; followBtn.className = 'off'; followBtn.textContent = 'FOLLOW';
