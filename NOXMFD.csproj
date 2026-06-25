@@ -64,6 +64,12 @@
       <HintPath>$(GameDir)\NuclearOption_Data\Managed\UnityEngine.UI.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- New Input System: the game runs on it with legacy Input inactive, so we read the
+         config-menu hotkey through UnityEngine.InputSystem.Keyboard (see ConfigMenuHotkey). -->
+    <Reference Include="Unity.InputSystem">
+      <HintPath>$(GameDir)\NuclearOption_Data\Managed\Unity.InputSystem.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <Target Name="DeployToGame" AfterTargets="Build">

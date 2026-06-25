@@ -43,6 +43,7 @@ namespace NOXMFD
             var go = new GameObject("NOXMFD_Worker");
             Object.DontDestroyOnLoad(go);
             _worker = go.AddComponent<Worker>();
+            go.AddComponent<ConfigMenuHotkey>();   // Ctrl+H opens the ConfigurationManager menu
             Log?.LogInfo("[NOXMFD] Worker attached (scene='" + scene.name + "').");
         }
     }
