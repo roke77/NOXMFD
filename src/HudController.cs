@@ -49,12 +49,27 @@ namespace NOXMFD
 
             // Boxed top readouts (heading / airspeed / altitude). Only the copies with an assigned
             // 'border' are hidden; the borderless boresight-following center readouts are kept.
+            // The else branch restores them when the flag is flipped off at runtime (e.g. via the
+            // in-game config menu) — the HMD never re-enables graphics we disabled, so we must.
             if (master && HudConfig.HideTopBoxes)
             {
                 HideBoxedReadout<Bearing>();
                 HideBoxedReadout<SpeedGauge>();
                 HideBoxedReadout<Altitude>();
             }
+            else if (_hiddenGraphics.Count > 0)
+            {
+                RestoreBoxedReadouts();
+            }
+        }
+
+        // Re-enable every boxed-readout graphic we disabled and forget them. Symmetric with the
+        // weapon-panel / minimap restore paths so the HideTopBoxes toggle is fully reversible.
+        private void RestoreBoxedReadouts()
+        {
+            foreach (Graphic g in _hiddenGraphics)
+                if (g != null) g.enabled = true;
+            _hiddenGraphics.Clear();
         }
 
         // Top-right weapon / ammo / countermeasure / capacitor cluster = CombatHUD's private

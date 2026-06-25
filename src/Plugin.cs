@@ -27,6 +27,7 @@ namespace NOXMFD
         private void Awake()
         {
             Log = Logger;
+            HudConfig.Bind(Config);   // bind HUD-declutter toggles (persisted + shown in the in-game config menu)
             TelemetryServer.Start();
             if (!_sceneSubscribed)
             {
