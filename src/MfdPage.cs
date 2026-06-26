@@ -1895,8 +1895,10 @@ const AVN_FAILURE_DEFS = {
 // elements are rebuilt whenever the layout changes (i.e. the player swaps aircraft).
 let avnLayoutType    = null;                    // type string the current DOM is built for
 let avnLayoutCache   = Object.create(null);     // type → {bg, parts:[...], failures:[...]} | 'pending' | 'fail'
+let avnLayoutTries   = Object.create(null);     // type → layout-fetch retry count
 let avnPartEls       = Object.create(null);     // partName → .avn-part DOM element
 let avnFailureEls    = Object.create(null);     // failureMessage → .avn-failure DOM element
+let avnBgType = null, avnBgTries = 0;           // background-image retry state
 
 function clearKeyActions() {
   // Only the page-dynamic banks (left/right) get cleared between pages. The top and bottom
@@ -2109,7 +2111,8 @@ function renderAvn() {
     avnEmptyEl.style.display = '';
     avnFuelBar.classList.remove('placed');
     avnThrBar .classList.remove('placed');
-    return;
+    avnLayoutType = type;   // record the empty state so returning to a plane (even the SAME
+    return;                 // type, e.g. a respawn) re-triggers a render instead of staying blank
   }
   avnNameEl.style.display  = '';
   avnFrame.style.display   = '';
@@ -2155,17 +2158,53 @@ function renderAvn() {
 
 // Fetch the silhouette layout for an aircraft type, if not already cached / in flight.
 function ensureAvnLayout(type) {
-  if (avnLayoutCache[type] !== undefined) return;
+  const cached = avnLayoutCache[type];
+  if (cached && typeof cached === 'object') return;   // already loaded
+  if (cached === 'pending') return;                   // fetch in flight
   avnLayoutCache[type] = 'pending';
 
-  // Background PNG comes from the same endpoint, swap immediately so the player sees
-  // the outline as soon as it loads even before the parts arrive.
-  avnBg.src = '/airframe?type=' + encodeURIComponent(type) + '&part=__bg';
+  setAvnBg(type);   // (re)request the background silhouette so the outline shows ASAP
 
   fetch('/airframe-layout?type=' + encodeURIComponent(type))
     .then(function(r) { if (!r.ok) throw new Error('layout ' + r.status); return r.json(); })
-    .then(function(j) { avnLayoutCache[type] = j; if (currentPage === 'avn') renderAvn(); })
-    .catch(function()  { avnLayoutCache[type] = 'fail'; });
+    .then(function(j) { avnLayoutCache[type] = j; avnLayoutTries[type] = 0; if (currentPage === 'avn') renderAvn(); })
+    .catch(function() {
+      // The airframe is captured ~1 Hz AFTER the plane loads (images stream in async, see #A),
+      // so right after a respawn / plane change the layout can 404 for a beat. Retry until it
+      // lands instead of permanently failing — giving up was the "AVN stays black" bug.
+      const n = (avnLayoutTries[type] || 0) + 1;
+      avnLayoutTries[type] = n;
+      avnLayoutCache[type] = (n <= 20) ? undefined : 'fail';
+      if (n <= 20) setTimeout(function() { if (avnData.name === type) ensureAvnLayout(type); }, 500);
+    });
+}
+
+// Set the background silhouette image, retrying on error (its capture is async, so it can
+// 404 for a moment right after a plane change). Cache-busts each retry so a 404 doesn't stick.
+function setAvnBg(type) {
+  avnBgType = type; avnBgTries = 0;
+  avnBg.src = '/airframe?type=' + encodeURIComponent(type) + '&part=__bg';
+}
+avnBg.onerror = function() {
+  if (!avnBgType || avnBgTries >= 20 || avnData.name !== avnBgType) return;
+  avnBgTries++;
+  const t = avnBgType, v = avnBgTries;
+  setTimeout(function() {
+    if (avnData.name === t) avnBg.src = '/airframe?type=' + encodeURIComponent(t) + '&part=__bg&v=' + v;
+  }, 500);
+};
+
+// Point a part's CSS mask at its sprite, preloading via Image() first so a not-yet-ready
+// (async) sprite is retried rather than sticking as an empty mask. Cache-busts each retry.
+function setPartMask(el, type, partName) {
+  let tries = 0;
+  (function attempt() {
+    const url = '/airframe?type=' + encodeURIComponent(type) + '&part=' + encodeURIComponent(partName) + (tries ? '&v=' + tries : '');
+    const img = new Image();
+    img.onload  = function() { el.style.webkitMaskImage = 'url("' + url + '")'; el.style.maskImage = 'url("' + url + '")'; };
+    img.onerror = function() { if (tries < 20 && avnData.name === type) { tries++; setTimeout(attempt, 500); } };
+    img.src = url;
+  })();
 }
 
 // Build one .avn-part div per layout entry. The CSS mask is the part's silhouette PNG —
@@ -2194,9 +2233,7 @@ function buildAvnParts(type, layout) {
     if (sx !== 1 || sy !== 1) parts.push('scale(' + sx + ',' + sy + ')');
     if (p.r)                   parts.push('rotate(' + (-p.r).toFixed(1) + 'deg)');
     el.style.transform = parts.join(' ');
-    const url = '/airframe?type=' + encodeURIComponent(type) + '&part=' + encodeURIComponent(p.n);
-    el.style.webkitMaskImage = 'url("' + url + '")';
-    el.style.maskImage       = 'url("' + url + '")';
+    setPartMask(el, type, p.n);
     avnPartsEl.appendChild(el);
     avnPartEls[p.n] = el;
   }
