@@ -41,6 +41,52 @@ A 50-unit furball tanks FPS even with no mod loaded. We must isolate our
 Do not start the structural fixes (#3/#4 below) until these numbers say
 the main thread is actually the bottleneck.
 
+## Measured — Step 0 results (2026-06-26)
+
+First instrumented run: ~10 min busy match, **228 units**, 70–138 visible
+contacts, **2 web clients** (MAP + RWR open). Decimal comma in the log is
+locale formatting (`16,870ms` = 16.87 ms).
+
+**Steady state (103 of 119 rollup windows) — our mod is nearly free:**
+
+| Path | avg | per-second |
+|------|-----|-----------|
+| `ScanWorld` (1 Hz) | ~1.5 ms | ~1.5 ms/s |
+| `PushSnapshot` (10 Hz) | ~0.16 ms | ~1.6 ms/s |
+| `BuildUnits` (10 Hz) | **~0.08 ms** | negligible |
+| `Serialize` (~20/s, 2 clients) | ~0.18 ms | background thread, ~8–13 KB payload |
+
+Total steady main-thread cost ≈ **3 ms/sec** — under 0.3% of a 60 fps
+frame. **Our steady-state cost does NOT explain a sustained FPS drop;**
+the sustained part of the in-game FPS hit in a 228-unit match is
+overwhelmingly the game itself rendering that many units, not us.
+
+**The spikes (16 of 119 windows) — this IS our cost:**
+
+- **Mission load: a single 673 ms freeze** = encoding the **16 MB**
+  in-game map PNG on the main thread (`SpriteToPng`: `Graphics.Blit` →
+  `ReadPixels` → `EncodeToPNG`, all synchronous).
+- **Recurring mid-combat: 17–78 ms scan spikes, ~1–2×/min**, tracking
+  rising contact counts. Cause: when a *new unit/aircraft type* first
+  appears, `ScanWorld` synchronously extracts its icon (and, for new
+  airframes, the 32-part silhouette). A steady drip of single-frame
+  stutters in an evolving battle — this is the "FPS hit" feel.
+
+### What this changes about the plan
+
+1. **RWR/MAP lag is client-side.** Server cost is tiny, payloads are
+   8–13 KB → the lag is in the browser canvas redraw. **#1 (shadowBlur)
+   is confirmed as the right lead** for the lag symptom.
+2. **The FPS hitches are the synchronous capture path, not per-tick
+   work.** Original **#3 (BuildUnits / 10 Hz buffer churn) is
+   effectively dead** — BuildUnits is 0.08 ms. The real FPS target is a
+   new item (**#A** below): move icon/map/airframe captures off the
+   synchronous main thread (we already solved this for TGP with
+   `AsyncGPUReadback`), and shrink the 16 MB map.
+
+Still worth doing: the A/B (DLL pulled) to put a number on the sustained
+game-vs-mod split, but the instrumentation already makes the case.
+
 ## Hot paths identified (code-anchored)
 
 ### Game main thread → FPS hit
@@ -96,16 +142,34 @@ today only because `BuildUnits` does `.ToArray()`. Serializing
 once-per-tick (item #2) is the clean fix for both the duplicate work and
 the race.
 
-## Plan, in priority order
+## Plan, in priority order (revised after Step 0)
 
-| # | Change | Layer | Effort | Payoff |
-|---|--------|-------|--------|--------|
-| 0 | Measure: A/B mod, instrument hot paths | — | XS | Confirms targets |
-| 1 | Pre-bake icon/line glow; kill live `shadowBlur` | client | S | **Biggest MAP/RWR win** |
-| 2 | Serialize once per tick, cache by version, all SSE clients write the same bytes | server | M | Kills N×-per-client cost + boxing; also fixes the data race |
-| 3 | Reuse buffers / eliminate 10 Hz `.ToArray()` churn | main thread | M | Kills GC stutter |
-| 4 | Split rates: contacts ~3–4 Hz; RWR/MW + own-ship 10 Hz | both | M | Cuts main-thread, serialize, AND redraw cost together |
-| 5 | rAF-coalesce client redraw + off-screen contact cull | client | S | Smoother when zoomed in |
+| # | Change | Layer | Effort | Payoff | Status |
+|---|--------|-------|--------|--------|--------|
+| 0 | Measure: A/B mod, instrument hot paths | — | XS | Confirms targets | **done** (instrumented; A/B pending) |
+| A | Async-ify captures (`AsyncGPUReadback`) + shrink the 16 MB map | main thread | M | **Kills the 673 ms load freeze + the mid-combat hitches — the real FPS cost** | top FPS target |
+| 1 | Pre-bake icon/line glow; kill live `shadowBlur` | client | S | **Biggest MAP/RWR lag win** (confirmed client-side) | top lag target |
+| 2 | Serialize once per tick, cache by version, all SSE clients write the same bytes | server | M | Kills N×-per-client cost + boxing; fixes the data race | minor (3.6 ms/s @ 2 clients); scales with client count |
+| 4 | Split rates: contacts ~3–4 Hz; RWR/MW + own-ship 10 Hz | both | M | Cuts redraw cost; modest server win | optional |
+| 5 | rAF-coalesce client redraw + off-screen contact cull | client | S | Smoother when zoomed in | optional |
+| ~~3~~ | ~~Reuse buffers / eliminate 10 Hz `.ToArray()` churn~~ | — | — | **Dropped** — BuildUnits measured at 0.08 ms; not a bottleneck | dropped |
+
+### Item #A — async/shrink the capture path (new top FPS target)
+
+The spikes all come from `SpriteToPng` (`TelemetryReader.cs:968`) doing a
+synchronous `Graphics.Blit` → `ReadPixels` → `EncodeToPNG` on the main
+thread, called from `ScanWorld` for icons (`TryCaptureIcon`), the map
+(`TryCaptureMap`), and airframes (`TryCaptureAirframe`).
+
+- **Map (the 673 ms freeze):** 16 MB PNG is absurd for a map sprite.
+  Downscale to a sane max dimension and/or encode JPEG; this also cuts
+  the tablet's first map-load from 16 MB to ~hundreds of KB. Optionally
+  move the encode off-thread.
+- **Icons/airframes (the mid-combat hitches):** reuse the TGP path's
+  `AsyncGPUReadback` pattern (`CaptureTgpFrame` / `OnTgpReadbackComplete`,
+  `TelemetryReader.cs:1040`+) so the GPU readback doesn't stall the main
+  thread, and encode PNG/JPEG on a background thread. Keep the existing
+  per-scan budget (`IconsPerScan`) as a backstop.
 
 ### Notes per item
 
@@ -129,14 +193,17 @@ the race.
   single rAF redraw. Add a visible-bounds check before drawing each
   contact.
 
-## Recommended sequencing
+## Recommended sequencing (revised after Step 0)
 
-1. **#0 measurement** — ~1 hour, produces the numbers that justify
-   everything else.
-2. **#1 and #2** — highest payoff-to-risk, roughly independent, safe to
-   ship and live-test incrementally.
-3. **#3 / #4** — structural follow-up, only if the numbers still show the
-   main thread as the bottleneck after #1/#2.
+1. **#0 measurement** — done. Numbers say: lag is client-side, FPS cost
+   is the synchronous capture spikes (not per-tick work).
+2. **#A + #1** — the two real targets, independent and both
+   high-payoff/low-risk. #A kills the load freeze and combat hitches;
+   #1 kills the RWR/MAP lag. Ship and live-test each separately.
+   - Quickest single win inside #A: shrink the 16 MB map (downscale/JPEG)
+     — removes the 673 ms load freeze with a small, contained change.
+3. **#2 / #4 / #5** — only if still warranted after #A/#1, or if the user
+   routinely opens many web clients (which multiplies #2).
 
 ## Out of scope
 

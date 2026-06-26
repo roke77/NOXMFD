@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
@@ -18,6 +19,7 @@ namespace NOXMFD
         private float _slowTimer;
         private int   _totalUnits;
         private int   _totalAircraft;
+        private int   _lastContactCount;   // contacts pushed last tick (for the perf rollup)
 
         // Map metadata, resolved once LevelInfo is available.
         private LevelInfo? _level;
@@ -122,20 +124,25 @@ namespace NOXMFD
 
         private void Update()
         {
-            _fastTimer += Time.deltaTime;
-            _slowTimer += Time.deltaTime;
-            _tgpTimer  += Time.deltaTime;
+            float dt = Time.deltaTime;
+            _fastTimer += dt;
+            _slowTimer += dt;
+            _tgpTimer  += dt;
 
             if (_slowTimer >= SlowInterval)
             {
                 _slowTimer = 0f;
+                long t0 = Diag.Enabled ? Stopwatch.GetTimestamp() : 0L;
                 ScanWorld();
+                if (Diag.Enabled) Diag.RecordSince("ScanWorld", t0);
             }
 
             if (_fastTimer >= FastInterval)
             {
                 _fastTimer = 0f;
+                long t0 = Diag.Enabled ? Stopwatch.GetTimestamp() : 0L;
                 PushSnapshot();
+                if (Diag.Enabled) Diag.RecordSince("PushSnapshot", t0);
             }
 
             if (_tgpTimer >= TgpInterval)
@@ -143,6 +150,9 @@ namespace NOXMFD
                 _tgpTimer = 0f;
                 CaptureTgpFrame();
             }
+
+            // Step 0 instrumentation: roll up the timing samples every few seconds (todo/performance.md).
+            Diag.Tick(dt, _totalUnits, _lastContactCount);
         }
 
         private void ScanWorld()
@@ -625,6 +635,13 @@ namespace NOXMFD
 
             TryCaptureIcon(aircraft.definition);
 
+            // Built here (not in the initializer) so we can time it — BuildUnits is the
+            // suspected per-unit hot path at 10 Hz (todo/performance.md, item #3).
+            long tUnits = Diag.Enabled ? Stopwatch.GetTimestamp() : 0L;
+            UnitInfo[] units = BuildUnits(aircraft);
+            if (Diag.Enabled) Diag.RecordSince("BuildUnits", tUnits);
+            _lastContactCount = units.Length;
+
             TelemetryServer.Push(new TelemetrySnapshot
             {
                 Valid          = true,
@@ -657,7 +674,7 @@ namespace NOXMFD
                 MapH           = _mapH,
                 GridOffsetX    = _gridOffsetX,
                 GridOffsetY    = _gridOffsetY,
-                Units          = BuildUnits(aircraft),
+                Units          = units,
                 ColFriendly    = _colFriendly,
                 ColHostile     = _colHostile,
                 ColNeutral     = _colNeutral,

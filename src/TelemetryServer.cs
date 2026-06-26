@@ -502,8 +502,15 @@ namespace NOXMFD
                     lock (_lock) snap = _latest;
 
                     // Always send something — real data during a mission, a ping otherwise.
-                    string payload = snap.Valid ? Serialize(snap) : "{\"ping\":true}";
-                    byte[] bytes   = Encoding.UTF8.GetBytes("data: " + payload + "\n\n");
+                    string payload;
+                    if (snap.Valid)
+                    {
+                        long t0 = Diag.Enabled ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
+                        payload = Serialize(snap);
+                        if (Diag.Enabled) Diag.RecordSince("Serialize", t0, Encoding.UTF8.GetByteCount(payload));
+                    }
+                    else payload = "{\"ping\":true}";
+                    byte[] bytes = Encoding.UTF8.GetBytes("data: " + payload + "\n\n");
 
                     await ctx.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct).ConfigureAwait(false);
                     ctx.Response.OutputStream.Flush();
