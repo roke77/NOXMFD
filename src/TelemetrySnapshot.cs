@@ -119,6 +119,8 @@ namespace NOXMFD
     // One tracked unit, in the same global coordinate space as WorldX/WorldZ.
     internal struct UnitInfo
     {
+        public uint   Id;       // Unit.persistentID.Id — stable network identity; lets the client
+                                //   POST a click back to /select so the game can target this unit.
         public string Type;     // unitName — keys the /icon endpoint
         public float  X, Z;     // known world position (true for friendlies, last-seen for enemies)
         public float  Heading;  // degrees

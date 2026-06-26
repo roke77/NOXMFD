@@ -543,7 +543,7 @@ function drawOverlay() {
       const hex = factionColors[u.f] || factionColors[0];
       const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, iconBase(), u.s);
       if (u.tg) drawTargetBox(p.cx, p.cy, r + 4);
-      hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex });
+      hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex, id: u.id });
     }
   }
 
@@ -555,7 +555,36 @@ function drawOverlay() {
 
   // Incoming-missile triangles last = on top of everything (most urgent cue).
   drawMissiles();
+
+  // Click-to-select feedback: a brief fading ring on the just-selected unit. Anchored by id so
+  // it stays on the contact as the view pans/follows. The persistent confirmation is the target
+  // box, which appears once the game echoes the selection back in the next telemetry frame.
+  if (clickFlash) {
+    const now = performance.now();
+    if (now >= clickFlash.until) { clickFlash = null; }
+    else {
+      for (let i = 0; i < hitTargets.length; i++) {
+        if (hitTargets[i].id === clickFlash.id) {
+          const t = hitTargets[i];
+          oc.save();
+          oc.globalAlpha = Math.max(0, (clickFlash.until - now) / 450);
+          oc.strokeStyle = '#ffffff';
+          oc.lineWidth   = 2;
+          oc.beginPath();
+          oc.arc(t.cx, t.cy, t.r + 6, 0, Math.PI * 2);
+          oc.stroke();
+          oc.restore();
+          break;
+        }
+      }
+    }
+  }
 }
+
+// Drives the click-flash fade between telemetry frames (which only arrive ~10 Hz).
+let clickFlash = null;
+function pumpFlash() { if (!clickFlash) return; drawOverlay(); requestAnimationFrame(pumpFlash); }
+function flashSelect(id) { clickFlash = { id: id, until: performance.now() + 450 }; requestAnimationFrame(pumpFlash); }
 
 // Missiles flash faster than the data rate, so while any are inbound we redraw on a ~20 fps
 // timer (the sine reads performance.now(), so it stays smooth); it self-stops once the feed
@@ -969,6 +998,32 @@ mapPanel.addEventListener('mousemove', function(e) {
   }
 });
 mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = 'none'; });
+
+// ── Click-to-select (POC write path) ──────────────────────────────────────────────
+// A click on a contact POSTs its id to /select; the mod targets it in-game. We reuse the
+// per-frame hitTargets (same as hover) and guard against pan-drags via a small move threshold,
+// so dragging the map never fires a select. The player icon has no id, so it's not selectable.
+let pressX = 0, pressY = 0, pressMoved = false;
+overlay.addEventListener('pointerdown', function(e) { pressX = e.clientX; pressY = e.clientY; pressMoved = false; });
+overlay.addEventListener('pointermove', function(e) {
+  if (Math.abs(e.clientX - pressX) > 4 || Math.abs(e.clientY - pressY) > 4) pressMoved = true;
+});
+overlay.addEventListener('click', function(e) {
+  if (pressMoved) return;   // that was a pan-drag, not a select
+  const rect = overlay.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  let hit = null;
+  for (let i = hitTargets.length - 1; i >= 0; i--) {   // topmost (last-drawn) first
+    const t = hitTargets[i];
+    if (t.id == null) continue;
+    const dx = mx - t.cx, dy = my - t.cy;
+    if (dx * dx + dy * dy <= t.r * t.r) { hit = t; break; }
+  }
+  if (!hit) return;
+  fetch('/select', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: String(hit.id) })
+    .then(function(r) { if (r.ok) flashSelect(hit.id); })
+    .catch(function() {});
+});
 
 // ── Remote control ────────────────────────────────────────────────────────────────
 // Lets an embedder (the MFD frame) drive the map without reaching into it directly, so

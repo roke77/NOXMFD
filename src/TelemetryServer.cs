@@ -294,6 +294,8 @@ namespace NOXMFD
                         ServePage(ctx, TglPage.Html);
                     else if (path == "/rwr")
                         ServePage(ctx, RwrPage.Html);
+                    else if (path == "/select")
+                        HandleSelect(ctx);
                     else if (path == "/mfd")
                         Redirect(ctx, "/");
                     else if (path == "/" || path == "/index.html")
@@ -314,6 +316,59 @@ namespace NOXMFD
                         Plugin.Log?.LogError($"[NOXMFD] Accept error: {ex.Message}");
                 }
             }
+        }
+
+        // ── Input command channel (POC) ─────────────────────────────────────────
+        // The first INBOUND path: the MAP page POSTs a unit's persistentID to /select to
+        // request targeting it. HttpListener dispatches this on a threadpool thread, where
+        // touching Unity/game state is illegal — so we only validate + ENQUEUE here, and the
+        // Unity main thread (TelemetryReader.Update) drains the queue and calls the game's own
+        // weaponManager.AddTargetList, which replicates over the network like native targeting.
+        // Gated by AllowInput (config "Experimental > MapClickTargeting", default OFF) so the
+        // write path stays dark unless explicitly enabled.
+        internal static volatile bool AllowInput;
+        private static readonly Queue<uint> _selectQueue = new Queue<uint>();
+        private static readonly object      _selectLock  = new object();
+
+        private static void HandleSelect(HttpListenerContext ctx)
+        {
+            try
+            {
+                if (!AllowInput) { ctx.Response.StatusCode = 403; ctx.Response.Close(); return; }
+
+                // POC wire format: the request body is the unit id as plain decimal text. A
+                // future structured command channel will replace this with a JSON envelope.
+                string body;
+                using (var r = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
+                    body = r.ReadToEnd();
+
+                if (uint.TryParse(body?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out uint id) && id != 0)
+                {
+                    lock (_selectLock) _selectQueue.Enqueue(id);
+                    ctx.Response.StatusCode = 204;   // accepted; the main thread acts on it next frame
+                }
+                else
+                {
+                    ctx.Response.StatusCode = 400;
+                }
+                ctx.Response.Close();
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogDebug($"[NOXMFD] /select error: {ex.Message}");
+                try { ctx.Response.Abort(); } catch { /* client gone */ }
+            }
+        }
+
+        // Drained by the Unity main thread once per frame. Returns false when the queue is empty.
+        internal static bool TryDequeueSelect(out uint id)
+        {
+            lock (_selectLock)
+            {
+                if (_selectQueue.Count > 0) { id = _selectQueue.Dequeue(); return true; }
+            }
+            id = 0;
+            return false;
         }
 
         // ── HTML handler ───────────────────────────────────────────────────────
@@ -664,11 +719,12 @@ namespace NOXMFD
                 UnitInfo u = units[i];
                 if (i > 0) sb.Append(',');
                 sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7}}}",
+                    "{{\"id\":{8},\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7}}}",
                     EscapeJson(u.Type ?? string.Empty),
                     u.X, u.Z, u.Heading, u.Faction,
                     u.Orient ? "true" : "false", u.Scale,
-                    u.Targeted ? 1 : 0);
+                    u.Targeted ? 1 : 0,
+                    u.Id);
             }
             return sb.Append(']').ToString();
         }

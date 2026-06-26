@@ -128,6 +128,9 @@ namespace NOXMFD
 
         private void Update()
         {
+            // Drain any inbound map-select commands first (main thread — safe to touch game state).
+            DrainInputCommands();
+
             float dt = Time.deltaTime;
             _fastTimer += dt;
             _slowTimer += dt;
@@ -157,6 +160,31 @@ namespace NOXMFD
 
             // Step 0 instrumentation: roll up the timing samples every few seconds (todo/performance.md).
             Diag.Tick(dt, _totalUnits, _lastContactCount);
+        }
+
+        // Applies map-click selections from the web client. Each command is a unit persistentID
+        // (queued on a server thread, drained here on the main thread). We resolve it through the
+        // game's UnitRegistry and set it as the player's primary weapon target via the game's own
+        // public API — which, for a networked aircraft, replicates the assignment over the network
+        // exactly as in-cockpit targeting does. POC: Clear+Add makes the click a single-select.
+        private void DrainInputCommands()
+        {
+            while (TelemetryServer.TryDequeueSelect(out uint id))
+            {
+                if (!UnitRegistry.TryGetUnit(new PersistentID { Id = id }, out Unit unit) || unit == null || unit.disabled)
+                {
+                    Plugin.Log?.LogInfo($"[NOXMFD] Map-select id={id}: no live unit (stale click) — ignored.");
+                    continue;
+                }
+
+                GameManager.GetLocalAircraft(out Aircraft ac);
+                if (ac == null || ac.weaponManager == null) continue;
+                if (ReferenceEquals(unit, ac)) continue;   // can't target yourself
+
+                ac.weaponManager.ClearTargetList();
+                ac.weaponManager.AddTargetList(unit);
+                Plugin.Log?.LogInfo($"[NOXMFD] Map-select → target '{unit.definition?.unitName ?? "?"}' (id={id}).");
+            }
         }
 
         private void ScanWorld()
@@ -990,6 +1018,7 @@ namespace NOXMFD
 
                 _unitBuf.Add(new UnitInfo
                 {
+                    Id       = u.persistentID.Id,
                     Type     = def.unitName,
                     X        = gp.x,
                     Z        = gp.z,
