@@ -185,30 +185,27 @@ namespace NOXMFD
 
                 WeaponManager wm = ac.weaponManager;
                 string name = unit.definition?.unitName ?? "?";
-                bool isTarget = wm.CheckIsTarget(unit);
 
-                // Route through the game's own CombatHUD select/deselect so we get everything that
-                // in-cockpit targeting does — not just the raw target-list entry. SelectUnit /
-                // DeSelectUnit each flip the cockpit marker colour (green ↔ faction) via the
-                // marker's `selected` flag, play the select/deselect beep, and sync the DynamicMap
-                // icon. The bare weaponManager ops we used before skipped all of that, which is why
-                // a deselected enemy stayed painted green. Fall back to the raw ops for a contact
-                // the HUD isn't tracking (no marker to recolour and no sound, but still targetable).
+                // Map-select only ever ADDS a target — it never deselects (the client picks the
+                // nearest not-yet-targeted contact, so deselect isn't a map gesture). If the unit
+                // is somehow already targeted (e.g. a latency race), no-op rather than re-adding:
+                // AddTargetList inserts without de-duping, so a re-add would stack a duplicate.
+                if (wm.CheckIsTarget(unit))
+                {
+                    Plugin.Log?.LogInfo($"[NOXMFD] Map-select '{name}' (id={id}): already targeted — no-op.");
+                    continue;
+                }
+
+                // Route through the game's own CombatHUD.SelectUnit so we get everything in-cockpit
+                // targeting does — not just the raw target-list entry: the cockpit marker recolour
+                // (faction → green) via the marker's `selected` flag, the select beep, and the
+                // DynamicMap icon sync. Fall back to the bare weaponManager op for a contact the
+                // HUD isn't tracking (no marker to recolour and no sound, but still targetable).
                 CombatHUD hud = SceneSingleton<CombatHUD>.i;
                 bool viaHud = hud != null && ReferenceEquals(hud.aircraft, ac) && hud.MarkerExists(unit);
-
-                if (isTarget)
-                {
-                    if (viaHud) hud.DeSelectUnit(unit);
-                    else        wm.RemoveTargetList(unit);
-                    Plugin.Log?.LogInfo($"[NOXMFD] Map-select ← untarget '{name}' (id={id}, viaHud={viaHud}).");
-                }
-                else
-                {
-                    if (viaHud) hud.SelectUnit(unit);
-                    else        wm.AddTargetList(unit);
-                    Plugin.Log?.LogInfo($"[NOXMFD] Map-select → target '{name}' (id={id}, viaHud={viaHud}).");
-                }
+                if (viaHud) hud.SelectUnit(unit);
+                else        wm.AddTargetList(unit);
+                Plugin.Log?.LogInfo($"[NOXMFD] Map-select → target '{name}' (id={id}, viaHud={viaHud}).");
             }
         }
 

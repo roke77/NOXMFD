@@ -542,8 +542,8 @@ function drawOverlay() {
       ensureIconImage(u.t);
       const hex = factionColors[u.f] || factionColors[0];
       const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, iconBase(), u.s);
-      if (u.tg) drawTargetBox(p.cx, p.cy, r + 4);
-      hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex, id: u.id });
+      if (u.tg) { drawTargetBox(p.cx, p.cy, r + 4); pendingSel.delete(u.id); }   // telemetry confirms selection
+      hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex, id: u.id, tg: !!u.tg });
     }
   }
 
@@ -1039,34 +1039,41 @@ mapPanel.addEventListener('mousemove', function(e) {
 });
 mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = 'none'; });
 
-// ── Tap-to-select (POC write path), with stacked-target cycling ─────────────────────
-// A tap on a contact POSTs its id to /select; the mod targets it in-game. We reuse the
-// per-frame hitTargets (same as hover) and ignore taps that were really a pan/pinch
-// (gestureMoved). When several contacts stack under one point, repeated taps at the same spot
-// cycle through them — like clicking a cluster on the in-game map. The player icon has no id,
-// so it's never selectable.
-let cycleKey = '', cycleX = -1, cycleY = -1, cycleIdx = 0;
+// ── Tap-to-select (POC write path) ──────────────────────────────────────────────────
+// A tap on a contact POSTs its id to /select; the mod targets it in-game. Map-select only ever
+// ADDS targets — it never deselects. So a tap picks the nearest NOT-yet-selected contact under
+// the cursor: tapping an already-selected unit selects the next nearby one instead, and when
+// every nearby contact is already selected the tap is a no-op. Taps that were really a pan/pinch
+// (gestureMoved) are ignored, and the player icon has no id so it's never selectable.
+//
+// Selection state comes from each contact's tg flag (telemetry), but that lags a tap by ~100 ms.
+// pendingSel optimistically marks a just-tapped id as selected until telemetry confirms it (the
+// contact loop clears it on tg, and entries self-expire), so rapid taps advance through a stack
+// instead of re-hitting the same unit.
+const pendingSel = new Map();   // id -> expiry ts
+function isSelected(t) {
+  if (t.tg) return true;
+  const exp = pendingSel.get(t.id);
+  if (exp === undefined) return false;
+  if (performance.now() >= exp) { pendingSel.delete(t.id); return false; }
+  return true;
+}
 overlay.addEventListener('click', function(e) {
   if (gestureMoved) return;   // that was a pan/pinch, not a select
   const rect = overlay.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-  const cands = [];
+  let hit = null;
   for (let i = hitTargets.length - 1; i >= 0; i--) {   // topmost (last-drawn) first
     const t = hitTargets[i];
     if (t.id == null) continue;
     const dx = mx - t.cx, dy = my - t.cy;
-    if (dx * dx + dy * dy <= t.r * t.r) cands.push(t);
+    if (dx * dx + dy * dy <= t.r * t.r && !isSelected(t)) { hit = t; break; }   // first unselected under the cursor
   }
-  if (!cands.length) return;
-  // Repeated taps at ~the same spot over the same cluster advance to the next contact.
-  const key = cands.map(function(c) { return c.id; }).join(',');
-  const samePlace = Math.abs(mx - cycleX) <= 8 && Math.abs(my - cycleY) <= 8;
-  cycleIdx = (samePlace && key === cycleKey) ? (cycleIdx + 1) % cands.length : 0;
-  cycleKey = key; cycleX = mx; cycleY = my;
-  const hit = cands[cycleIdx];
+  if (!hit) return;   // nothing nearby, or everything nearby already selected → no-op (never deselects)
+  pendingSel.set(hit.id, performance.now() + 1500);
   fetch('/select', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: String(hit.id) })
-    .then(function(r) { if (r.ok) flashSelect(hit.id); })
-    .catch(function() {});
+    .then(function(r) { if (r.ok) flashSelect(hit.id); else pendingSel.delete(hit.id); })
+    .catch(function() { pendingSel.delete(hit.id); });
 });
 
 // ── Remote control ────────────────────────────────────────────────────────────────
