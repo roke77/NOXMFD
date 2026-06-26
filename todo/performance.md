@@ -149,7 +149,7 @@ the race.
 | 0 | Measure: A/B mod, instrument hot paths | — | XS | Confirms targets | **done** (instrumented; A/B pending) |
 | A | Async-ify captures (`AsyncGPUReadback`) + shrink the 16 MB map | main thread | M | **Kills the 673 ms load freeze + the mid-combat hitches — the real FPS cost** | **DONE** (commit eb2ecc7) |
 | 1 | Pre-bake icon/line glow; kill live `shadowBlur` | client | S | **Biggest MAP/RWR lag win** (confirmed client-side) | **DONE** — glow baked into the tinted-icon cache; RWR lines use a 2-stroke glow. Verified in browser + in-game |
-| 2 | Serialize once per tick, cache by version, all SSE clients write the same bytes | server | M | Kills N×-per-client cost + boxing; fixes the data race | **implemented** (GetFrameBytes version cache; BuildParts now owned). Pending multi-screen in-game verification (expect Serialize ≈10/s regardless of client count) |
+| 2 | Serialize once per tick, cache by version, all SSE clients write the same bytes | server | M | Kills N×-per-client cost + boxing; fixes the data race | **DONE** — GetFrameBytes version cache; BuildParts now owned. Verified in-game: 3 clients → Serialize ≈47/5 s window (≈10/s), not 3×. |
 | 4 | Split rates: contacts ~3–4 Hz; RWR/MW + own-ship 10 Hz | both | M | Cuts redraw cost; modest server win | optional |
 | 5 | rAF-coalesce client redraw + off-screen contact cull | client | S | Smoother when zoomed in | optional |
 | ~~3~~ | ~~Reuse buffers / eliminate 10 Hz `.ToArray()` churn~~ | — | — | **Dropped** — BuildUnits measured at 0.08 ms; not a bottleneck | dropped |
@@ -219,6 +219,60 @@ thread, called from `ScanWorld` for icons (`TryCaptureIcon`), the map
      — removes the 673 ms load freeze with a small, contained change.
 3. **#2 / #4 / #5** — only if still warranted after #A/#1, or if the user
    routinely opens many web clients (which multiplies #2).
+
+## Status (as of the #A/#1/#2 work)
+
+The three measured targets are shipped: **#A** (async captures), **#1**
+(pre-baked glow), **#2** (serialize-once). PerfLogging now defaults OFF
+(toggle on in the F1 menu to re-measure). Per Step 0, the mod's
+steady-state main-thread cost is ~3 ms/sec — under 0.3% of a 60 fps
+frame — so there is **no remaining 10×-type win in the mod's CPU path**;
+the sustained FPS hit in a busy match is the game rendering N units, not
+us. The items below are what's left to *evaluate* before declaring the
+floor, plus the marginal polish we deliberately deferred.
+
+## Next steps to evaluate (blind spots our instrumentation can't see)
+
+`Diag` only measures **main-thread CPU time**. Three things it doesn't
+capture, ordered by value:
+
+1. **True A/B (mod fully removed) — do this first.** We *inferred* ~3 ms/s
+   from per-path timers but never measured the real FPS delta with the DLL
+   gone. Method: same busy mission, FPS with `NOXMFD.dll` in `plugins/`
+   vs. pulled out. Small delta → we're at the floor, stop. Surprising gap
+   → something the CPU timers miss (GPU, render thread, the game reacting
+   to our HUD-hiding) is at play and becomes the next target.
+
+2. **GPU cost, especially the TGP feed.** `Diag` is CPU-only. The TGP feed
+   does a `Blit` + `AsyncGPUReadback` every frame *while a TGP pane is
+   open* — real GPU work invisible to our timers. Method: FPS with a TGP
+   pane open vs. closed in the same scene. If there's a gap: drop the TGP
+   capture rate, or render-on-demand, or cap resolution further. (The
+   capture is already gated on subscribers and async — see
+   `CaptureTgpFrame` / `OnTgpReadbackComplete`.)
+
+3. **GC allocation rate.** No GC spikes showed in `PushSnapshot`, but the
+   10 Hz `.ToArray()` churn (units/rwr/mw) + the now-owned parts array do
+   allocate. Method: log a `GC.CollectionCount(0/1/2)` delta over a match
+   (cheap to add to the Diag rollup). If high → pool/double-buffer those
+   per-tick arrays (the old #3 idea, dropped because BuildUnits *CPU* was
+   0.08 ms — but GC pause cost is a separate axis we didn't measure). If
+   low → ignore.
+
+If #1 shows a gap, a quick **frame-time 1%-low / GC-count readout** added
+to the Diag rollup would quantify #2/#3 directly. Not worth adding
+speculatively.
+
+## Marginal polish (deferred — data doesn't justify it yet)
+
+- **#4 — split rates.** Contacts at map scale don't need 10 Hz; own-ship
+  motion and threat cues do. Would cut redraw + serialize cost, but with
+  #1/#2 done the remaining cost is already low. Revisit only if a future
+  measurement shows client redraw still hurting.
+- **#5 — rAF-coalesce + off-screen cull.** Coalesce redraws to one per
+  frame (set `lastData` on message, request a single rAF) and skip
+  contacts outside the visible canvas. Smoother when zoomed in with many
+  contacts; small win post-#1.
 
 ## Out of scope
 
