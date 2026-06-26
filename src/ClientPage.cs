@@ -254,7 +254,7 @@ const PLAYER_COLOR = '#39ff14';                     // player stays HUD green
 const TARGET_COLOR = '#ff8000';                     // orange ring on the player's targeted unit(s)
 let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors
 const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
-const iconTints  = {};         // "unitName|#hex" -> canvas    (pre-tinted variant)
+const iconTints  = {};         // "unitName|#hex" -> { cv, iw, ih }  (pre-tinted + pre-glowed)
 
 // Map threat overlay — replicates the game's DynamicMap radar pings (DynamicMap.ShowRadarPing):
 // a spoke from each emitter toward the player, tier-coloured (white search / yellow track /
@@ -364,40 +364,57 @@ function ensureIconImage(type) {
   img.src = '/icon?type=' + encodeURIComponent(type) + '&v=' + e.tries;
 }
 
-// Returns the icon for a type pre-tinted to a faction color (cached), or null if not loaded.
+// Pre-tinted + pre-glowed icon for a (type,color), cached. We bake the faction-colour glow
+// into the canvas ONCE here instead of setting canvas shadowBlur on every draw — per-draw
+// shadowBlur is the single most expensive 2D op, and with dozens of contacts redrawn at 10 Hz
+// it was the main source of MAP/RWR redraw lag. Returns { cv, iw, ih } or null if not loaded;
+// cv is padded by GLOW_PAD on every side so the baked glow has room to bleed.
+const GLOW_BLUR = 8;    // matches the old per-draw shadowBlur
+const GLOW_PAD  = 12;   // canvas padding (source px) to contain the blur spread
 function tintedIcon(type, hex) {
   const base = iconImages[type];
   if (!base || !base.ready) return null;
   const key = type + '|' + hex;
-  let c = iconTints[key];
-  if (!c) {
-    c = document.createElement('canvas');
-    c.width = base.img.naturalWidth; c.height = base.img.naturalHeight;
-    const cx = c.getContext('2d');
-    cx.drawImage(base.img, 0, 0);
-    cx.globalCompositeOperation = 'source-in';   // tint opaque pixels, keep alpha
-    cx.fillStyle = hex;
-    cx.fillRect(0, 0, c.width, c.height);
-    iconTints[key] = c;
+  let e = iconTints[key];
+  if (!e) {
+    const iw = base.img.naturalWidth, ih = base.img.naturalHeight;
+    // Tint first (source-in recolours opaque pixels, keeps the icon's alpha).
+    const tint = document.createElement('canvas');
+    tint.width = iw; tint.height = ih;
+    const tcx = tint.getContext('2d');
+    tcx.drawImage(base.img, 0, 0);
+    tcx.globalCompositeOperation = 'source-in';
+    tcx.fillStyle = hex;
+    tcx.fillRect(0, 0, iw, ih);
+    // Bake the glow: one shadowed draw paints both the sharp icon and its blurred halo.
+    const cv = document.createElement('canvas');
+    cv.width = iw + GLOW_PAD * 2; cv.height = ih + GLOW_PAD * 2;
+    const cx = cv.getContext('2d');
+    cx.shadowColor = hex;
+    cx.shadowBlur  = GLOW_BLUR;
+    cx.drawImage(tint, GLOW_PAD, GLOW_PAD);
+    e = iconTints[key] = { cv: cv, iw: iw, ih: ih };
   }
-  return c;
+  return e;
 }
 
 // Draws one icon at a screen position. When no game icon is available, falls back to a
 // square symbol — the same generic marker the game uses for units without a specific icon.
 // Returns the icon's on-screen half-extent (in px) so callers can record a hover hotspot.
 function drawIcon(type, hex, cx, cy, hdg, orient, basePx, scale) {
-  const cv = tintedIcon(type, hex);
+  const t = tintedIcon(type, hex);
   oc.save();
   oc.translate(cx, cy);
-  oc.shadowColor = hex;
-  oc.shadowBlur  = 8;
   let r;
-  if (cv) {
+  if (t) {
     if (orient) oc.rotate(hdg * Math.PI / 180);
-    const h = basePx * (scale || 1);
-    const w = h * (cv.width / cv.height);
-    oc.drawImage(cv, -w / 2, -h / 2, w, h);
+    // Size the ICON to h (its on-screen size is unchanged); the padded glow canvas is drawn
+    // larger by the pad ratio so the baked glow bleeds symmetrically around the icon.
+    const h  = basePx * (scale || 1);
+    const w  = h * (t.iw / t.ih);
+    const pw = w * (t.cv.width  / t.iw);
+    const ph = h * (t.cv.height / t.ih);
+    oc.drawImage(t.cv, -pw / 2, -ph / 2, pw, ph);
     r = Math.max(w, h) / 2;
   } else {
     const s = fallbackSize();
@@ -446,14 +463,16 @@ function drawRwrLines() {
     const fr  = (typeof c.fr === 'number') ? Math.max(0, Math.min(1, c.fr)) : 1;
     const rgb = RWR_LINE_RGB[tr]   || RWR_LINE_RGB[0];
     const a   = (RWR_LINE_ALPHA[tr] || RWR_LINE_ALPHA[0]) * Math.max(0.15, fr);
-    const col = 'rgba(' + rgb + ',' + a.toFixed(3) + ')';
-    oc.strokeStyle = col;
-    oc.shadowColor = col;
-    oc.shadowBlur  = 6;
-    oc.lineWidth   = (tr === 2) ? 2.4 : 1.8;   // lock a touch bolder
-    oc.beginPath();
-    oc.moveTo(ep.cx, ep.cy);
-    oc.lineTo(pp.cx, pp.cy);
+    const core = (tr === 2) ? 2.4 : 1.8;   // lock a touch bolder
+    // Cheap glow: a wider, fainter underlay then the bright core — replaces a per-line
+    // shadowBlur pass (two thin strokes are far cheaper than a blur).
+    oc.beginPath(); oc.moveTo(ep.cx, ep.cy); oc.lineTo(pp.cx, pp.cy);
+    oc.strokeStyle = 'rgba(' + rgb + ',' + (a * 0.35).toFixed(3) + ')';
+    oc.lineWidth   = core + 3;
+    oc.stroke();
+    oc.beginPath(); oc.moveTo(ep.cx, ep.cy); oc.lineTo(pp.cx, pp.cy);
+    oc.strokeStyle = 'rgba(' + rgb + ',' + a.toFixed(3) + ')';
+    oc.lineWidth   = core;
     oc.stroke();
   }
   oc.restore();

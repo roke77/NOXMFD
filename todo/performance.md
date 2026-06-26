@@ -147,14 +147,29 @@ the race.
 | # | Change | Layer | Effort | Payoff | Status |
 |---|--------|-------|--------|--------|--------|
 | 0 | Measure: A/B mod, instrument hot paths | — | XS | Confirms targets | **done** (instrumented; A/B pending) |
-| A | Async-ify captures (`AsyncGPUReadback`) + shrink the 16 MB map | main thread | M | **Kills the 673 ms load freeze + the mid-combat hitches — the real FPS cost** | top FPS target |
-| 1 | Pre-bake icon/line glow; kill live `shadowBlur` | client | S | **Biggest MAP/RWR lag win** (confirmed client-side) | top lag target |
-| 2 | Serialize once per tick, cache by version, all SSE clients write the same bytes | server | M | Kills N×-per-client cost + boxing; fixes the data race | minor (3.6 ms/s @ 2 clients); scales with client count |
+| A | Async-ify captures (`AsyncGPUReadback`) + shrink the 16 MB map | main thread | M | **Kills the 673 ms load freeze + the mid-combat hitches — the real FPS cost** | **DONE** (commit eb2ecc7) |
+| 1 | Pre-bake icon/line glow; kill live `shadowBlur` | client | S | **Biggest MAP/RWR lag win** (confirmed client-side) | **DONE** — glow baked into the tinted-icon cache; RWR lines use a 2-stroke glow. Verified in browser + in-game |
+| 2 | Serialize once per tick, cache by version, all SSE clients write the same bytes | server | M | Kills N×-per-client cost + boxing; fixes the data race | bumped up — a later run showed 4 clients (~40 serialize/s); scales with client count |
 | 4 | Split rates: contacts ~3–4 Hz; RWR/MW + own-ship 10 Hz | both | M | Cuts redraw cost; modest server win | optional |
 | 5 | rAF-coalesce client redraw + off-screen contact cull | client | S | Smoother when zoomed in | optional |
 | ~~3~~ | ~~Reuse buffers / eliminate 10 Hz `.ToArray()` churn~~ | — | — | **Dropped** — BuildUnits measured at 0.08 ms; not a bottleneck | dropped |
 
-### Item #A — async/shrink the capture path (new top FPS target)
+### Item #A — RESULT (done, commit eb2ecc7)
+
+Replaced synchronous `SpriteToPng` with `Capture.Request` (`src/Capture.cs`):
+atlas-safe Blit → `AsyncGPUReadback` → background-thread `EncodeArray*`.
+Map also downscales to 4096 + JPEG (16 MB → 3.3 MB served). Measured at
+228 units:
+
+- Map-load freeze (first `ScanWorld` max): **673 ms → 5.8 ms**.
+- Mid-combat `ScanWorld` spikes: **17–78 ms (16/119 windows) → ≤12 ms
+  (2/63)**. No capture errors; icons/map/airframe verified correct in-game.
+
+Steady-state was already ~1.4 ms and is unchanged. Note: a later run had
+**4 web clients** (≈40 `Serialize`/s) — still background-thread, but it
+raises the value of #2.
+
+### Item #A — async/shrink the capture path (implementation notes, for reference)
 
 The spikes all come from `SpriteToPng` (`TelemetryReader.cs:968`) doing a
 synchronous `Graphics.Blit` → `ReadPixels` → `EncodeToPNG` on the main
