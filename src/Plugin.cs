@@ -29,10 +29,10 @@ namespace NOXMFD
             Log = Logger;
             HudConfig.Bind(Config);   // bind HUD-declutter toggles (persisted + shown in the in-game config menu)
 
-            // Step 0 perf measurement (todo/performance.md). Defaults ON so the next busy match
-            // captures timings to LogOutput.log; toggle off live in the F1 menu for normal play.
-            var perfLog = Config.Bind("Diagnostics", "PerfLogging", true,
-                "Temporary: every 5 s, log avg/max ms for ScanWorld, BuildUnits, PushSnapshot and Serialize (with payload size + unit/contact counts). For performance measurement — turn OFF for normal play.");
+            // Perf measurement (todo/performance.md). Defaults OFF for normal play; flip it on
+            // live in the F1 menu to re-capture timings to LogOutput.log when investigating perf.
+            var perfLog = Config.Bind("Diagnostics", "PerfLogging", false,
+                "When on, every 5 s logs avg/max ms for ScanWorld, BuildUnits, PushSnapshot and Serialize (with payload size + unit/contact counts). For performance measurement — leave OFF for normal play.");
             Diag.Enabled = perfLog.Value;
             perfLog.SettingChanged += (_, __) => Diag.Enabled = perfLog.Value;
 
