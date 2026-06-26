@@ -1011,7 +1011,20 @@ function dropPointer(e) {
 }
 overlay.addEventListener('pointerup', dropPointer);
 overlay.addEventListener('pointercancel', dropPointer);
-overlay.addEventListener('dblclick', function() { if (mapMeta) resetView(); });   // reset to full map
+// Double-click empty map = reset to full view. But a double-click ON a contact is a selection
+// gesture (two taps), so ignore it there — otherwise selecting a unit would zoom out + drop FLW.
+overlay.addEventListener('dblclick', function(e) {
+  if (!mapMeta) return;
+  const rect = overlay.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  for (let i = 0; i < hitTargets.length; i++) {
+    const t = hitTargets[i];
+    if (t.id == null) continue;
+    const dx = mx - t.cx, dy = my - t.cy;
+    if (dx * dx + dy * dy <= t.r * t.r) return;   // over a contact → not a reset
+  }
+  resetView();
+});
 
 // ── Hover-to-label ───────────────────────────────────────────────────────────────
 // Icons are canvas pixels, so we hit-test the cursor against the per-frame hitTargets
@@ -1050,14 +1063,15 @@ mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = '
 // pendingSel optimistically marks a just-tapped id as selected until telemetry confirms it (the
 // contact loop clears it on tg, and entries self-expire), so rapid taps advance through a stack
 // instead of re-hitting the same unit.
-// Shared sender for the inbound command channel (POST /command). Fire-and-forget: resolves with
-// the response so callers can react to !ok, but we don't wait on an ack. See ClientPage's tap
-// handler and todo/write-command-channel.md.
+// Shared sender for the inbound command channel (POST /command). The wire envelope is FLAT —
+// { cmd, ...args } — because the game's JsonUtility reliably parses top-level fields but not
+// nested objects. Fire-and-forget: resolves with the response so callers can react to !ok, but
+// we don't wait on an ack. See ClientPage's tap handler and todo/write-command-channel.md.
 function sendCommand(cmd, args) {
   return fetch('/command', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cmd: cmd, args: args || {} })
+    body: JSON.stringify(Object.assign({ cmd: cmd }, args || {}))
   });
 }
 

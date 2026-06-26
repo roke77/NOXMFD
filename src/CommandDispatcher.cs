@@ -13,26 +13,22 @@ namespace NOXMFD
     // (e.g. CombatHUD.SelectUnit) over low-level setters so the in-cockpit side effects — marker
     // colour, audio, map sync — come along for free.
 
-    // Wire envelope: { "cmd": "target.select", "args": { "id": 1234 } }. JsonUtility-friendly
-    // ([Serializable] classes, lowercase fields). args is a flat union of every command's params —
-    // each handler reads the fields it cares about; absent ones default to 0.
+    // Wire envelope: { "cmd": "target.select", "id": 1234 }. Deliberately FLAT — every field is a
+    // top-level primitive. Unity's JsonUtility reliably populates top-level fields of a
+    // [Serializable] class but is flaky deserializing nested [Serializable] objects in the game's
+    // Mono runtime (it silently left a nested args.id at 0). So all command params live here as a
+    // flat union; each handler reads the fields it cares about and absent ones default to 0.
     [Serializable]
     internal class CommandEnvelope
     {
-        public string      cmd;
-        public CommandArgs args;
-    }
-
-    [Serializable]
-    internal class CommandArgs
-    {
-        public long id;   // target unit persistentID (target.select)
+        public string cmd;
+        public long   id;   // target unit persistentID (target.select)
     }
 
     internal static class CommandDispatcher
     {
-        private static readonly Dictionary<string, Action<CommandArgs>> _handlers =
-            new Dictionary<string, Action<CommandArgs>>(StringComparer.Ordinal)
+        private static readonly Dictionary<string, Action<CommandEnvelope>> _handlers =
+            new Dictionary<string, Action<CommandEnvelope>>(StringComparer.Ordinal)
             {
                 { "target.select", TargetSelect },
             };
@@ -47,9 +43,9 @@ namespace NOXMFD
             while (TelemetryServer.TryDequeueCommand(out CommandEnvelope env))
             {
                 if (env == null) continue;
-                if (_handlers.TryGetValue(env.cmd ?? string.Empty, out Action<CommandArgs> handler))
+                if (_handlers.TryGetValue(env.cmd ?? string.Empty, out Action<CommandEnvelope> handler))
                 {
-                    try { handler(env.args ?? new CommandArgs()); }
+                    try { handler(env); }
                     catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] command '{env.cmd}' threw: {ex.Message}"); }
                 }
                 else
@@ -66,10 +62,10 @@ namespace NOXMFD
         // Routes through CombatHUD.SelectUnit so the cockpit marker recolours (faction → green),
         // the select beep plays, and the DynamicMap icon syncs; falls back to the bare
         // weaponManager op for a contact the HUD isn't tracking.
-        private static void TargetSelect(CommandArgs args)
+        private static void TargetSelect(CommandEnvelope env)
         {
-            uint id = unchecked((uint)args.id);
-            if (id == 0) return;
+            uint id = unchecked((uint)env.id);
+            if (id == 0) { Plugin.Log?.LogInfo("[NOXMFD] target.select: id=0 (missing/unparsed) — ignored."); return; }
 
             if (!UnitRegistry.TryGetUnit(new PersistentID { Id = id }, out Unit unit) || unit == null || unit.disabled)
             {

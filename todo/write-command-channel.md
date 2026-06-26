@@ -36,7 +36,7 @@ The end-to-end path, after the v1 refactor:
   serialized into the SSE contacts so a tap can name a specific unit back.
 
 Adding a command is now: register a handler in `CommandDispatcher._handlers`,
-add any new fields to `CommandArgs`, and call `sendCommand(...)` from the client.
+add any new fields to `CommandEnvelope`, and call `sendCommand(...)` from the client.
 
 ## Principles (learned building the POC)
 
@@ -62,15 +62,20 @@ add any new fields to `CommandArgs`, and call `sendCommand(...)` from the client
 
 ### Command envelope
 
-Replace the plain-text body with a small JSON envelope:
+A small **flat** JSON envelope:
 
 ```json
-{ "cmd": "target.select", "args": { "id": 1234 } }
+{ "cmd": "target.select", "id": 1234 }
 ```
 
 - `cmd` — namespaced verb (`target.*`, `weapon.*`, `cm.*`).
-- `args` — per-command payload.
+- everything else — flat top-level params; each handler reads what it needs.
 - (later) optional `seq` for client-side correlation / acks.
+
+**Why flat, not `{cmd, args:{…}}`:** the game's `JsonUtility` reliably populates
+top-level fields of a `[Serializable]` class but silently fails to deserialize
+nested `[Serializable]` objects in the Mono runtime (it left a nested `args.id`
+at 0, so commands parsed but did nothing). Flat side-steps that entirely.
 
 ### Transport
 
