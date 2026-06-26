@@ -1,6 +1,8 @@
 # Inbound command channel — architecture
 
-Status: **design** (the map tap-to-target POC is shipped; this generalizes it).
+Status: **landed (v1)** — the generic channel is in place and tap-to-target rides
+it as `target.select`. Single master gate, fire-and-forget, dedicated dispatcher.
+Remaining items below are the command roadmap and the open questions.
 
 ## Why
 
@@ -12,22 +14,29 @@ we add more write features (deselect gestures, weapon selection, countermeasure
 selection, …) we want a single, well-shaped command channel they all ride, so we
 solve marshaling/validation/gating/auth *once*.
 
-## What exists today (the POC)
+## What exists today (the channel)
 
-The shipped tap-to-target path, end to end:
+The end-to-end path, after the v1 refactor:
 
-- **Client** (`ClientPage.cs`, MAP page): a tap picks the nearest not-yet-selected
-  contact and `POST`s its unit id to `/select` (body is the decimal id as text).
-- **Endpoint** (`TelemetryServer.HandleSelect`): gated by `AllowInput` (config
-  `Experimental > MapClickTargeting`); returns 403 when off. Validates the id and
-  enqueues it under a lock into `Queue<uint> _selectQueue`. Runs on an
-  `HttpListener` threadpool thread — must not touch game state here.
-- **Main-thread drain** (`TelemetryReader.Update → DrainInputCommands`): dequeues,
-  resolves the id via `UnitRegistry.TryGetUnit`, and acts through
-  `CombatHUD.SelectUnit` (the game's own high-level targeting), falling back to
-  `weaponManager.AddTargetList` when the HUD isn't tracking that contact.
+- **Client** (`ClientPage.cs`): `sendCommand(cmd, args)` `POST`s a JSON envelope to
+  `/command`. The MAP tap handler picks the nearest not-yet-selected contact and
+  sends `target.select { id }`.
+- **Endpoint** (`TelemetryServer.HandleCommand`): gated by `AllowInput` (config
+  `Experimental > MapClickTargeting`). Runs on an `HttpListener` threadpool thread,
+  so it only parses (`JsonUtility.FromJson<CommandEnvelope>`) + validates +
+  enqueues — never touches game state. Responses: 204 accepted · 400 malformed ·
+  403 disabled · 422 unknown cmd. Queue is depth-capped (`MaxQueuedCommands`).
+- **Dispatcher** (`CommandDispatcher`, drained from `TelemetryReader.Update`):
+  on the main thread, looks up the `cmd` in its handler registry and runs it.
+  Unknown → logged + dropped; handler exceptions are caught + logged. The
+  `target.select` handler resolves the id via `UnitRegistry.TryGetUnit` and acts
+  through `CombatHUD.SelectUnit` (the game's own high-level targeting), falling
+  back to `weaponManager.AddTargetList` when the HUD isn't tracking that contact.
 - **Identity**: every `UnitInfo` carries `Unit.persistentID.Id` (a `uint`),
-  serialized into the SSE contacts so a click can name a specific unit back.
+  serialized into the SSE contacts so a tap can name a specific unit back.
+
+Adding a command is now: register a handler in `CommandDispatcher._handlers`,
+add any new fields to `CommandArgs`, and call `sendCommand(...)` from the client.
 
 ## Principles (learned building the POC)
 
@@ -130,7 +139,7 @@ handler + a client trigger.
 
 A pure refactor first (behaviour identical), then new commands layer on:
 
-1. Generalize `Queue<uint>` → a typed command queue; `/select` → `/command`.
-2. Move the select logic into a `target.select` handler behind the dispatcher.
+1. ~~Generalize `Queue<uint>` → a typed command queue; `/select` → `/command`.~~ **done**
+2. ~~Move the select logic into a `target.select` handler behind the dispatcher.~~ **done**
 3. Add the next command (likely `target.clear` or a weapon-station cycle) as the
-   first *new* feature proving the channel generalizes.
+   first *new* feature proving the channel generalizes. **← next**

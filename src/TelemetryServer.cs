@@ -294,8 +294,8 @@ namespace NOXMFD
                         ServePage(ctx, TglPage.Html);
                     else if (path == "/rwr")
                         ServePage(ctx, RwrPage.Html);
-                    else if (path == "/select")
-                        HandleSelect(ctx);
+                    else if (path == "/command")
+                        HandleCommand(ctx);
                     else if (path == "/mfd")
                         Redirect(ctx, "/");
                     else if (path == "/" || path == "/index.html")
@@ -318,56 +318,67 @@ namespace NOXMFD
             }
         }
 
-        // ── Input command channel (POC) ─────────────────────────────────────────
-        // The first INBOUND path: the MAP page POSTs a unit's persistentID to /select to
-        // request targeting it. HttpListener dispatches this on a threadpool thread, where
-        // touching Unity/game state is illegal — so we only validate + ENQUEUE here, and the
-        // Unity main thread (TelemetryReader.Update) drains the queue and calls the game's own
-        // weaponManager.AddTargetList, which replicates over the network like native targeting.
-        // Gated by AllowInput (config "Experimental > MapClickTargeting", default OFF) so the
-        // write path stays dark unless explicitly enabled.
+        // ── Inbound command channel ──────────────────────────────────────────────
+        // The web client POSTs JSON commands to /command (e.g. tap-to-target). HttpListener
+        // dispatches this on a threadpool thread, where touching Unity/game state is illegal — so
+        // we only parse + validate + ENQUEUE here, and the Unity main thread (CommandDispatcher,
+        // drained from TelemetryReader.Update) executes each command. Gated by AllowInput (config
+        // "Experimental > MapClickTargeting", default OFF) so the whole write path stays dark
+        // unless explicitly enabled. See todo/write-command-channel.md.
         internal static volatile bool AllowInput;
-        private static readonly Queue<uint> _selectQueue = new Queue<uint>();
-        private static readonly object      _selectLock  = new object();
+        private const int MaxQueuedCommands = 64;   // bound the queue so a misbehaving client can't grow it unbounded
+        private static readonly Queue<CommandEnvelope> _cmdQueue = new Queue<CommandEnvelope>();
+        private static readonly object                 _cmdLock  = new object();
 
-        private static void HandleSelect(HttpListenerContext ctx)
+        private static void HandleCommand(HttpListenerContext ctx)
         {
             try
             {
                 if (!AllowInput) { ctx.Response.StatusCode = 403; ctx.Response.Close(); return; }
 
-                // POC wire format: the request body is the unit id as plain decimal text. A
-                // future structured command channel will replace this with a JSON envelope.
                 string body;
                 using (var r = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
                     body = r.ReadToEnd();
 
-                if (uint.TryParse(body?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out uint id) && id != 0)
+                CommandEnvelope env = null;
+                try { env = UnityEngine.JsonUtility.FromJson<CommandEnvelope>(body); }
+                catch { /* malformed JSON → handled below as 400 */ }
+
+                if (env == null || string.IsNullOrEmpty(env.cmd))
                 {
-                    lock (_selectLock) _selectQueue.Enqueue(id);
-                    ctx.Response.StatusCode = 204;   // accepted; the main thread acts on it next frame
+                    ctx.Response.StatusCode = 400;   // malformed / no cmd
+                }
+                else if (!CommandDispatcher.IsKnown(env.cmd))
+                {
+                    ctx.Response.StatusCode = 422;   // well-formed but no handler
                 }
                 else
                 {
-                    ctx.Response.StatusCode = 400;
+                    bool queued = false;
+                    lock (_cmdLock)
+                    {
+                        if (_cmdQueue.Count < MaxQueuedCommands) { _cmdQueue.Enqueue(env); queued = true; }
+                    }
+                    if (!queued) Plugin.Log?.LogDebug("[NOXMFD] command queue full — dropped.");
+                    ctx.Response.StatusCode = 204;   // accepted (fire-and-forget); main thread acts next frame
                 }
                 ctx.Response.Close();
             }
             catch (Exception ex)
             {
-                Plugin.Log?.LogDebug($"[NOXMFD] /select error: {ex.Message}");
+                Plugin.Log?.LogDebug($"[NOXMFD] /command error: {ex.Message}");
                 try { ctx.Response.Abort(); } catch { /* client gone */ }
             }
         }
 
-        // Drained by the Unity main thread once per frame. Returns false when the queue is empty.
-        internal static bool TryDequeueSelect(out uint id)
+        // Drained by the Unity main thread (CommandDispatcher) once per frame. False when empty.
+        internal static bool TryDequeueCommand(out CommandEnvelope env)
         {
-            lock (_selectLock)
+            lock (_cmdLock)
             {
-                if (_selectQueue.Count > 0) { id = _selectQueue.Dequeue(); return true; }
+                if (_cmdQueue.Count > 0) { env = _cmdQueue.Dequeue(); return true; }
             }
-            id = 0;
+            env = null;
             return false;
         }
 

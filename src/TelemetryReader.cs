@@ -128,8 +128,8 @@ namespace NOXMFD
 
         private void Update()
         {
-            // Drain any inbound map-select commands first (main thread — safe to touch game state).
-            DrainInputCommands();
+            // Drain any inbound web-client commands first (main thread — safe to touch game state).
+            CommandDispatcher.Drain();
 
             float dt = Time.deltaTime;
             _fastTimer += dt;
@@ -160,53 +160,6 @@ namespace NOXMFD
 
             // Step 0 instrumentation: roll up the timing samples every few seconds (todo/performance.md).
             Diag.Tick(dt, _totalUnits, _lastContactCount);
-        }
-
-        // Applies map-click selections from the web client. Each command is a unit persistentID
-        // (queued on a server thread, drained here on the main thread). We resolve it through the
-        // game's UnitRegistry and toggle it in the player's weapon target list via the game's own
-        // public API — which, for a networked aircraft, replicates the assignment over the network
-        // exactly as in-cockpit targeting does. Targets ACCUMULATE like the in-game map: tapping a
-        // new unit adds it (alongside the others), tapping an already-targeted unit drops just that
-        // one. (AddTargetList inserts without de-duping, so we gate on CheckIsTarget to toggle.)
-        private void DrainInputCommands()
-        {
-            while (TelemetryServer.TryDequeueSelect(out uint id))
-            {
-                if (!UnitRegistry.TryGetUnit(new PersistentID { Id = id }, out Unit unit) || unit == null || unit.disabled)
-                {
-                    Plugin.Log?.LogInfo($"[NOXMFD] Map-select id={id}: no live unit (stale click) — ignored.");
-                    continue;
-                }
-
-                GameManager.GetLocalAircraft(out Aircraft ac);
-                if (ac == null || ac.weaponManager == null) continue;
-                if (ReferenceEquals(unit, ac)) continue;   // can't target yourself
-
-                WeaponManager wm = ac.weaponManager;
-                string name = unit.definition?.unitName ?? "?";
-
-                // Map-select only ever ADDS a target — it never deselects (the client picks the
-                // nearest not-yet-targeted contact, so deselect isn't a map gesture). If the unit
-                // is somehow already targeted (e.g. a latency race), no-op rather than re-adding:
-                // AddTargetList inserts without de-duping, so a re-add would stack a duplicate.
-                if (wm.CheckIsTarget(unit))
-                {
-                    Plugin.Log?.LogInfo($"[NOXMFD] Map-select '{name}' (id={id}): already targeted — no-op.");
-                    continue;
-                }
-
-                // Route through the game's own CombatHUD.SelectUnit so we get everything in-cockpit
-                // targeting does — not just the raw target-list entry: the cockpit marker recolour
-                // (faction → green) via the marker's `selected` flag, the select beep, and the
-                // DynamicMap icon sync. Fall back to the bare weaponManager op for a contact the
-                // HUD isn't tracking (no marker to recolour and no sound, but still targetable).
-                CombatHUD hud = SceneSingleton<CombatHUD>.i;
-                bool viaHud = hud != null && ReferenceEquals(hud.aircraft, ac) && hud.MarkerExists(unit);
-                if (viaHud) hud.SelectUnit(unit);
-                else        wm.AddTargetList(unit);
-                Plugin.Log?.LogInfo($"[NOXMFD] Map-select → target '{name}' (id={id}, viaHud={viaHud}).");
-            }
         }
 
         private void ScanWorld()

@@ -1050,6 +1050,17 @@ mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = '
 // pendingSel optimistically marks a just-tapped id as selected until telemetry confirms it (the
 // contact loop clears it on tg, and entries self-expire), so rapid taps advance through a stack
 // instead of re-hitting the same unit.
+// Shared sender for the inbound command channel (POST /command). Fire-and-forget: resolves with
+// the response so callers can react to !ok, but we don't wait on an ack. See ClientPage's tap
+// handler and todo/write-command-channel.md.
+function sendCommand(cmd, args) {
+  return fetch('/command', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cmd: cmd, args: args || {} })
+  });
+}
+
 const pendingSel = new Map();   // id -> expiry ts
 function isSelected(t) {
   if (t.tg) return true;
@@ -1071,7 +1082,7 @@ overlay.addEventListener('click', function(e) {
   }
   if (!hit) return;   // nothing nearby, or everything nearby already selected → no-op (never deselects)
   pendingSel.set(hit.id, performance.now() + 1500);
-  fetch('/select', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: String(hit.id) })
+  sendCommand('target.select', { id: hit.id })
     .then(function(r) { if (r.ok) flashSelect(hit.id); else pendingSel.delete(hit.id); })
     .catch(function() { pendingSel.delete(hit.id); });
 });
