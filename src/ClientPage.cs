@@ -76,7 +76,7 @@ namespace NOXMFD
     letter-spacing: 3px;
     white-space: nowrap;
   }
-  #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+  #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
 
   #mission-bar {
     position: absolute;
@@ -927,7 +927,18 @@ window.addEventListener('keydown', function(e) {
   if ((e.key === 'f' || e.key === 'F') && mapMeta) setFollow(!followPlayer);
 });
 
-let dragging = false, lastX = 0, lastY = 0;
+// ── Map gestures (mouse + touch) ──────────────────────────────────────────────────
+// One pointer set drives pan, pinch-zoom, and tap-select so single-finger and two-finger
+// gestures never fight each other.
+const pointers = new Map();          // active pointerId -> {x,y}
+let panId = null, lastX = 0, lastY = 0;
+let pinching = false, pinchStartDist = 0, pinchStartZoom = 1;
+let gestureMoved = false, downX = 0, downY = 0;
+function pinchGeom() {
+  const p = [...pointers.values()];
+  return { dist: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y),
+           mx: (p[0].x + p[1].x) / 2, my: (p[0].y + p[1].y) / 2 };
+}
 
 // Scroll to zoom toward the cursor: keep the world point under the pointer fixed while scaling.
 overlay.addEventListener('wheel', function(e) {
@@ -949,28 +960,57 @@ overlay.addEventListener('wheel', function(e) {
   drawOverlay();
 }, { passive: false });
 
-// Drag to pan (only meaningful once zoomed in).
+// Pan (single pointer, once zoomed in) and pinch-zoom (two pointers). Follow mode stays
+// LOCKED: neither a pan-drag nor a pinch disengages it, matching the in-game followed map —
+// only the FLW button / 'f' key toggles it.
 overlay.addEventListener('pointerdown', function(e) {
-  if (!mapMeta || view.zoom <= MIN_ZOOM) return;
-  if (followPlayer) setFollow(false);   // dragging hands control to free-look
-  dragging = true; lastX = e.clientX; lastY = e.clientY;
-  overlay.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  downX = e.clientX; downY = e.clientY; gestureMoved = false;
+  if (pointers.size === 2 && mapMeta) {                 // second finger → start a pinch
+    if (panId !== null) { try { overlay.releasePointerCapture(panId); } catch (_) {} panId = null; }
+    const g = pinchGeom();
+    pinching = true; pinchStartDist = g.dist; pinchStartZoom = view.zoom;
+    return;
+  }
+  if (mapMeta && view.zoom > MIN_ZOOM && !followPlayer) {
+    panId = e.pointerId; lastX = e.clientX; lastY = e.clientY;
+    overlay.setPointerCapture(e.pointerId);
+  }
 });
 overlay.addEventListener('pointermove', function(e) {
-  if (!dragging) return;
-  view.panX += e.clientX - lastX;
-  view.panY += e.clientY - lastY;
-  lastX = e.clientX; lastY = e.clientY;
-  clampPan();
-  drawOverlay();
-});
-function endDrag(e) {
-  if (!dragging) return;
-  dragging = false;
-  try { overlay.releasePointerCapture(e.pointerId); } catch (_) {}
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (Math.abs(e.clientX - downX) > 4 || Math.abs(e.clientY - downY) > 4) gestureMoved = true;
+
+  if (pinching && pointers.size >= 2 && mapMeta) {       // pinch-zoom about the finger midpoint
+    e.preventDefault();
+    if (pinchStartDist <= 0) return;
+    const g = pinchGeom();
+    const z0 = view.zoom;
+    const z1 = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pinchStartZoom * (g.dist / pinchStartDist)));
+    if (z1 === z0) return;
+    if (followPlayer) { view.zoom = z1; clampPan(); drawOverlay(); return; }   // follow re-centres
+    const rect = overlay.getBoundingClientRect();
+    const sx = g.mx - rect.left, sy = g.my - rect.top, ox = overlay.width / 2, oy = overlay.height / 2;
+    view.panX = (sx - ox) - (z1 / z0) * ((sx - ox) - view.panX);
+    view.panY = (sy - oy) - (z1 / z0) * ((sy - oy) - view.panY);
+    view.zoom = z1; clampPan(); drawOverlay();
+    return;
+  }
+  if (e.pointerId === panId) {                            // single-finger / mouse pan
+    view.panX += e.clientX - lastX;
+    view.panY += e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    clampPan(); drawOverlay();
+  }
+}, { passive: false });
+function dropPointer(e) {
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinching = false;
+  if (e.pointerId === panId) { try { overlay.releasePointerCapture(e.pointerId); } catch (_) {} panId = null; }
 }
-overlay.addEventListener('pointerup', endDrag);
-overlay.addEventListener('pointercancel', endDrag);
+overlay.addEventListener('pointerup', dropPointer);
+overlay.addEventListener('pointercancel', dropPointer);
 overlay.addEventListener('dblclick', function() { if (mapMeta) resetView(); });   // reset to full map
 
 // ── Hover-to-label ───────────────────────────────────────────────────────────────
@@ -978,7 +1018,7 @@ overlay.addEventListener('dblclick', function() { if (mapMeta) resetView(); }); 
 // (positions are post-zoom/pan, so this stays correct at any view). Cursor-anchored.
 const mapPanel = document.getElementById('map-panel');
 mapPanel.addEventListener('mousemove', function(e) {
-  if (dragging) { unitLabel.style.display = 'none'; return; }   // don't flicker while panning
+  if (panId !== null) { unitLabel.style.display = 'none'; return; }   // don't flicker while panning
   const rect = overlay.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
   let hit = null;
@@ -999,27 +1039,31 @@ mapPanel.addEventListener('mousemove', function(e) {
 });
 mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = 'none'; });
 
-// ── Click-to-select (POC write path) ──────────────────────────────────────────────
-// A click on a contact POSTs its id to /select; the mod targets it in-game. We reuse the
-// per-frame hitTargets (same as hover) and guard against pan-drags via a small move threshold,
-// so dragging the map never fires a select. The player icon has no id, so it's not selectable.
-let pressX = 0, pressY = 0, pressMoved = false;
-overlay.addEventListener('pointerdown', function(e) { pressX = e.clientX; pressY = e.clientY; pressMoved = false; });
-overlay.addEventListener('pointermove', function(e) {
-  if (Math.abs(e.clientX - pressX) > 4 || Math.abs(e.clientY - pressY) > 4) pressMoved = true;
-});
+// ── Tap-to-select (POC write path), with stacked-target cycling ─────────────────────
+// A tap on a contact POSTs its id to /select; the mod targets it in-game. We reuse the
+// per-frame hitTargets (same as hover) and ignore taps that were really a pan/pinch
+// (gestureMoved). When several contacts stack under one point, repeated taps at the same spot
+// cycle through them — like clicking a cluster on the in-game map. The player icon has no id,
+// so it's never selectable.
+let cycleKey = '', cycleX = -1, cycleY = -1, cycleIdx = 0;
 overlay.addEventListener('click', function(e) {
-  if (pressMoved) return;   // that was a pan-drag, not a select
+  if (gestureMoved) return;   // that was a pan/pinch, not a select
   const rect = overlay.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-  let hit = null;
+  const cands = [];
   for (let i = hitTargets.length - 1; i >= 0; i--) {   // topmost (last-drawn) first
     const t = hitTargets[i];
     if (t.id == null) continue;
     const dx = mx - t.cx, dy = my - t.cy;
-    if (dx * dx + dy * dy <= t.r * t.r) { hit = t; break; }
+    if (dx * dx + dy * dy <= t.r * t.r) cands.push(t);
   }
-  if (!hit) return;
+  if (!cands.length) return;
+  // Repeated taps at ~the same spot over the same cluster advance to the next contact.
+  const key = cands.map(function(c) { return c.id; }).join(',');
+  const samePlace = Math.abs(mx - cycleX) <= 8 && Math.abs(my - cycleY) <= 8;
+  cycleIdx = (samePlace && key === cycleKey) ? (cycleIdx + 1) % cands.length : 0;
+  cycleKey = key; cycleX = mx; cycleY = my;
+  const hit = cands[cycleIdx];
   fetch('/select', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: String(hit.id) })
     .then(function(r) { if (r.ok) flashSelect(hit.id); })
     .catch(function() {});
