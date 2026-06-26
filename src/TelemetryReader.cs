@@ -15,6 +15,13 @@ namespace NOXMFD
         private const float FastInterval = 0.1f; // 10 Hz — position / speed
         private const float SlowInterval = 1.0f; // 1 Hz  — world scan + map metadata (FindObjectsByType is expensive)
 
+        // Map capture: the in-game map sprite can be huge (measured: a 16 MB PNG → a ~670 ms
+        // main-thread freeze on mission load, from the ReadPixels + EncodeToPNG of a multi-K
+        // texture). We GPU-downscale to a sane cap and encode JPEG instead — typically a
+        // ~10-50× size cut (also much lighter for a tablet to fetch) for one one-time capture.
+        private const int MapMaxDim      = 4096; // cap the longer side; preserves aspect
+        private const int MapJpegQuality = 85;   // JPEG quality 0–100; 85 keeps grid/coast detail readable
+
         private float _fastTimer;
         private float _slowTimer;
         private int   _totalUnits;
@@ -267,8 +274,9 @@ namespace NOXMFD
             // Background silhouette — one PNG, served at /airframe?type=<key>&part=__bg
             if (bgImage.sprite != null)
             {
-                byte[]? bgPng = SpriteToPng(bgImage.sprite, isIcon: false);
-                if (bgPng != null) TelemetryServer.SetAirframeImage(key, "__bg", bgPng);
+                string bgKey = key;
+                Capture.Request(bgImage.sprite, Capture.Encoding.Png, synthAlpha: false, quality: 0, maxDim: 0,
+                    bgPng => { if (bgPng != null) TelemetryServer.SetAirframeImage(bgKey, "__bg", bgPng); });
             }
 
             // Per-part PNGs + layout entries.
@@ -287,8 +295,9 @@ namespace NOXMFD
 
                 if (img.sprite != null)
                 {
-                    byte[]? png = SpriteToPng(img.sprite, isIcon: false);
-                    if (png != null) TelemetryServer.SetAirframeImage(key, name, png);
+                    string partKey = key, partName = name;
+                    Capture.Request(img.sprite, Capture.Encoding.Png, synthAlpha: false, quality: 0, maxDim: 0,
+                        png => { if (png != null) TelemetryServer.SetAirframeImage(partKey, partName, png); });
                 }
 
                 if (!GetPartPlacement(img.rectTransform, bgRT, out float cx, out float cy, out float w, out float h, out float rotZ, out int sx, out int sy))
@@ -457,8 +466,9 @@ namespace NOXMFD
                 FlareEjector? fe = ac.GetComponentInChildren<FlareEjector>();
                 if (fe != null && fe.displayImage != null)
                 {
-                    byte[]? png = SpriteToPng(fe.displayImage, isIcon: true);
-                    if (png != null) { TelemetryServer.SetCmIcon("flares", png); _capturedFlareIcon = true; }
+                    _capturedFlareIcon = true;   // got the sprite; capture once (async)
+                    Capture.Request(fe.displayImage, Capture.Encoding.Png, synthAlpha: true,
+                        quality: 0, maxDim: 0, png => { if (png != null) TelemetryServer.SetCmIcon("flares", png); });
                 }
             }
             if (!_capturedJammerIcon)
@@ -466,8 +476,9 @@ namespace NOXMFD
                 RadarJammer? rj = ac.GetComponentInChildren<RadarJammer>();
                 if (rj != null && rj.displayImage != null)
                 {
-                    byte[]? png = SpriteToPng(rj.displayImage, isIcon: true);
-                    if (png != null) { TelemetryServer.SetCmIcon("jammer", png); _capturedJammerIcon = true; }
+                    _capturedJammerIcon = true;  // got the sprite; capture once (async)
+                    Capture.Request(rj.displayImage, Capture.Encoding.Png, synthAlpha: true,
+                        quality: 0, maxDim: 0, png => { if (png != null) TelemetryServer.SetCmIcon("jammer", png); });
                 }
             }
         }
@@ -602,8 +613,9 @@ namespace NOXMFD
             _capturedWeaponIcons.Add(name);
             if (icon == null) return;
 
-            byte[]? png = SpriteToPng(icon, isIcon: true);
-            if (png != null) TelemetryServer.SetWeaponIcon(name, png);
+            string weaponName = name;
+            Capture.Request(icon, Capture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
+                png => { if (png != null) TelemetryServer.SetWeaponIcon(weaponName, png); });
         }
 
         private void PushSnapshot()
@@ -871,24 +883,37 @@ namespace NOXMFD
             return _partsBuf;
         }
 
-        // Pulls MapSettings.MapImage (the actual in-game map sprite) into PNG bytes and hands
-        // them to the server.
+        // Pulls MapSettings.MapImage (the actual in-game map sprite) into JPEG bytes and hands
+        // them to the server. GPU-downscaled to MapMaxDim and JPEG-encoded so this one-time
+        // capture doesn't freeze the main thread (the old full-res PNG path cost ~670 ms) and
+        // so a tablet isn't fetching a 16 MB map.
         private void TryCaptureMap(MapSettings ms)
         {
             if (_mapCaptured) return;
+            Sprite mapSprite = ms.MapImage;
+            if (mapSprite == null) return;   // not ready yet — retry next scan
 
-            byte[]? png = SpriteToPng(ms.MapImage);
-            _mapCaptured = true; // whether it worked or not, don't retry every second
+            _mapCaptured = true;             // got a sprite; capture once (async), don't retry
 
-            if (png != null)
-            {
-                TelemetryServer.SetMapImage(png);
-                Plugin.Log?.LogInfo($"[NOXMFD] Captured in-game map ({png.Length} bytes).");
-            }
-            else
-            {
-                Plugin.Log?.LogWarning("[NOXMFD] Map capture unavailable; falling back to map file.");
-            }
+            Texture src = mapSprite.texture;
+            int sw = src != null ? src.width : 0;
+            int sh = src != null ? src.height : 0;
+
+            // Async + JPEG: removes the ~670 ms / 222 ms main-thread freeze the synchronous
+            // full-res PNG path caused on mission load. Downscaled to MapMaxDim and JPEG-encoded
+            // (maps are opaque) so the tablet also fetches a few hundred KB, not 16 MB.
+            bool started = Capture.Request(mapSprite, Capture.Encoding.Jpg, synthAlpha: false,
+                quality: MapJpegQuality, maxDim: MapMaxDim, jpg =>
+                {
+                    if (jpg != null)
+                    {
+                        TelemetryServer.SetMapImage(jpg);
+                        Plugin.Log?.LogInfo($"[NOXMFD] Captured in-game map ({jpg.Length} bytes, JPEG; source {sw}x{sh}).");
+                    }
+                    else
+                        Plugin.Log?.LogWarning("[NOXMFD] Map capture failed; falling back to map file.");
+                });
+            if (!started) _mapCaptured = false;   // sprite unusable — allow a later retry
         }
 
         // Extracts a unit type's top-down map icon to PNG, once per type, and registers it.
@@ -904,16 +929,15 @@ namespace NOXMFD
             try
             {
                 GameAssets ga = GameAssets.i;
-                if (ga == null || ga.missileWarningSprite == null) return;
-                byte[]? png = SpriteToPng(ga.missileWarningSprite, isIcon: true);
-                if (png == null) return;                       // texture not ready yet — retry next scan
-                TelemetryServer.SetIcon(MissileIconKey, png);
-                _missileIconCaptured = true;
+                if (ga == null || ga.missileWarningSprite == null) return;   // not ready — retry next scan
+                _missileIconCaptured = true;                                  // got the sprite; capture once
+                Capture.Request(ga.missileWarningSprite, Capture.Encoding.Png, synthAlpha: true,
+                    quality: 0, maxDim: 0, png => { if (png != null) TelemetryServer.SetIcon(MissileIconKey, png); });
             }
             catch { /* retry on a later scan */ }
         }
 
-        // Returns true if it attempted a (costly) extraction this call, so callers can budget.
+        // Returns true if it kicked off a (costly) extraction this call, so callers can budget.
         private bool TryCaptureIcon(UnitDefinition def)
         {
             if (def == null || string.IsNullOrEmpty(def.unitName) || _capturedIcons.Contains(def.unitName))
@@ -928,10 +952,12 @@ namespace NOXMFD
                 return false;
             }
 
-            byte[]? png = SpriteToPng(def.mapIcon, isIcon: true);
-            // Fall back to the sentinel if extraction failed, so this type never 404s either.
-            TelemetryServer.SetIcon(def.unitName, png ?? TelemetryServer.NoIconPng);
-            return true;
+            // Fall back to the sentinel if extraction fails, so this type never 404s either.
+            string name = def.unitName;
+            bool started = Capture.Request(def.mapIcon, Capture.Encoding.Png, synthAlpha: true,
+                quality: 0, maxDim: 0, png => TelemetryServer.SetIcon(name, png ?? TelemetryServer.NoIconPng));
+            if (!started) TelemetryServer.SetIcon(name, TelemetryServer.NoIconPng);
+            return started;
         }
 
         // Builds the list of units the player's faction can see. Friendlies appear at their
@@ -977,74 +1003,9 @@ namespace NOXMFD
             return _unitBuf.ToArray();
         }
 
-        // Renders a sprite (atlas-safe via textureRect) to PNG bytes. Uses a Blit→RenderTexture
-        // round-trip so it works even when the source texture isn't CPU-readable. Must run on the
-        // Unity main thread (Graphics/ReadPixels/EncodeToPNG).
-        // When 'isIcon' is true and the result is fully opaque (e.g. alpha-less DXT1 ship icons),
-        // the alpha channel is rebuilt from luminance so the silhouette isn't a solid square.
-        private static byte[]? SpriteToPng(Sprite sprite, bool isIcon = false)
-        {
-            if (sprite == null || sprite.texture == null) return null;
-
-            try
-            {
-                Texture2D tex = sprite.texture;
-                Rect r = sprite.textureRect;
-                int w = Mathf.RoundToInt(r.width);
-                int h = Mathf.RoundToInt(r.height);
-                if (w <= 0 || h <= 0)
-                {
-                    w = tex.width;
-                    h = tex.height;
-                    r = new Rect(0f, 0f, w, h);
-                }
-
-                RenderTexture rt = RenderTexture.GetTemporary(
-                    tex.width, tex.height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
-                Graphics.Blit(tex, rt);
-
-                RenderTexture prev = RenderTexture.active;
-                RenderTexture.active = rt;
-                Texture2D readable = new Texture2D(w, h, TextureFormat.RGBA32, false);
-                readable.ReadPixels(new Rect(r.x, r.y, w, h), 0, 0);
-                readable.Apply();
-                RenderTexture.active = prev;
-                RenderTexture.ReleaseTemporary(rt);
-
-                if (isIcon) SynthesizeAlphaIfOpaque(readable);
-
-                byte[] png = ImageConversion.EncodeToPNG(readable);
-                Destroy(readable);
-                return png;
-            }
-            catch (Exception ex)
-            {
-                Plugin.Log?.LogWarning($"[NOXMFD] Sprite capture failed: {ex.Message}");
-                return null;
-            }
-        }
-
-        // Icons stored without an alpha channel (DXT1, RGB24, …) read as fully opaque, so a
-        // straight tint produces a solid square. The game draws them as light-on-dark
-        // silhouettes, so when an icon comes back with no transparency we derive alpha from
-        // luminance — dark background → transparent, bright shape → opaque.
-        private static void SynthesizeAlphaIfOpaque(Texture2D readable)
-        {
-            Color32[] px = readable.GetPixels32();
-            byte minA = 255;
-            for (int i = 0; i < px.Length; i++)
-                if (px[i].a < minA) { minA = px[i].a; if (minA == 0) break; }
-            if (minA < 250) return; // already has real transparency — leave it alone
-
-            for (int i = 0; i < px.Length; i++)
-            {
-                Color32 c = px[i];
-                c.a = (byte)((c.r * 77 + c.g * 150 + c.b * 29) >> 8); // ~Rec.601 luminance
-                px[i] = c;
-            }
-            readable.SetPixels32(px);
-            readable.Apply();
-        }
+        // Sprite → PNG/JPEG capture now lives in Capture.Request (async readback + background
+        // encode). See todo/performance.md item #A — the old synchronous SpriteToPng here was
+        // the source of the map-load freeze and the mid-combat icon/airframe FPS hitches.
 
         // ── TGP camera feed ────────────────────────────────────────────────────
         // The game's own TargetCam tracks the player's current target, including IR mode and

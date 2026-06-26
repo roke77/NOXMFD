@@ -322,8 +322,9 @@ namespace NOXMFD
             {
                 try
                 {
+                    // The captured map is JPEG (downscaled in TelemetryReader.MapSpriteToJpg).
                     ctx.Response.StatusCode      = 200;
-                    ctx.Response.ContentType     = "image/png";
+                    ctx.Response.ContentType     = "image/jpeg";
                     ctx.Response.ContentLength64 = captured.Length;
                     ctx.Response.OutputStream.Write(captured, 0, captured.Length);
                 }
