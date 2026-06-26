@@ -19,7 +19,15 @@ namespace NOXMFD
         private static CancellationTokenSource _cts = new CancellationTokenSource();
 
         private static TelemetrySnapshot _latest;
+        private static long              _snapVersion;   // bumped on every Push/Reset
         private static readonly object   _lock = new object();
+
+        // Shared serialized SSE frame, built at most once per snapshot version and reused by
+        // every connected client (#2 in todo/performance.md). Without this, each of N clients
+        // re-serialized the full snapshot every tick — wasteful with 3+ screens open.
+        private static long             _frameVersion = -1;
+        private static byte[]?          _frameBytes;
+        private static readonly object  _frameLock = new object();
 
         // Captured in-game map image (PNG), set from the Unity main thread.
         private static byte[]?          _mapPng;
@@ -147,7 +155,32 @@ namespace NOXMFD
         // Called from Unity main thread — just stores the latest snapshot.
         public static void Push(in TelemetrySnapshot snap)
         {
-            lock (_lock) _latest = snap;
+            lock (_lock) { _latest = snap; _snapVersion++; }
+        }
+
+        // Returns the SSE frame bytes for the current snapshot, serializing at most once per
+        // version. The first client to ask after a new Push builds it (under _frameLock, so a
+        // second concurrent client waits rather than duplicating the work); everyone else reuses
+        // the cached bytes. `valid` mirrors the snapshot's Valid flag (drives the 10 Hz vs 1 Hz
+        // ping cadence). Runs on background SSE threads — never the Unity main thread.
+        private static byte[] GetFrameBytes(out bool valid)
+        {
+            lock (_frameLock)
+            {
+                long v;
+                TelemetrySnapshot snap;
+                lock (_lock) { v = _snapVersion; snap = _latest; }
+                valid = snap.Valid;
+
+                if (_frameVersion == v && _frameBytes != null) return _frameBytes;
+
+                long t0 = Diag.Enabled ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
+                string payload = snap.Valid ? Serialize(snap) : "{\"ping\":true}";
+                _frameBytes   = Encoding.UTF8.GetBytes("data: " + payload + "\n\n");
+                _frameVersion = v;
+                if (Diag.Enabled) Diag.RecordSince("Serialize", t0, _frameBytes.Length);
+                return _frameBytes;
+            }
         }
 
         // Called from Unity main thread once the map image has been extracted.
@@ -211,7 +244,7 @@ namespace NOXMFD
         // per-type assets and stay cached across missions.
         public static void Reset()
         {
-            lock (_lock)    _latest = default;
+            lock (_lock)    { _latest = default; _snapVersion++; }
             lock (_mapLock) _mapPng = null;
         }
 
@@ -499,25 +532,16 @@ namespace NOXMFD
             {
                 while (!ct.IsCancellationRequested)
                 {
-                    TelemetrySnapshot snap;
-                    lock (_lock) snap = _latest;
-
-                    // Always send something — real data during a mission, a ping otherwise.
-                    string payload;
-                    if (snap.Valid)
-                    {
-                        long t0 = Diag.Enabled ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
-                        payload = Serialize(snap);
-                        if (Diag.Enabled) Diag.RecordSince("Serialize", t0, Encoding.UTF8.GetByteCount(payload));
-                    }
-                    else payload = "{\"ping\":true}";
-                    byte[] bytes = Encoding.UTF8.GetBytes("data: " + payload + "\n\n");
+                    // Shared frame: serialized at most once per snapshot version, regardless of
+                    // how many clients are connected. Always send something — real data during a
+                    // mission, a ping otherwise.
+                    byte[] bytes = GetFrameBytes(out bool valid);
 
                     await ctx.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct).ConfigureAwait(false);
                     ctx.Response.OutputStream.Flush();
 
                     // 10 Hz during a mission, 1 Hz ping otherwise.
-                    await Task.Delay(snap.Valid ? 100 : 1000, ct).ConfigureAwait(false);
+                    await Task.Delay(valid ? 100 : 1000, ct).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) { }

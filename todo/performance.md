@@ -149,7 +149,7 @@ the race.
 | 0 | Measure: A/B mod, instrument hot paths | — | XS | Confirms targets | **done** (instrumented; A/B pending) |
 | A | Async-ify captures (`AsyncGPUReadback`) + shrink the 16 MB map | main thread | M | **Kills the 673 ms load freeze + the mid-combat hitches — the real FPS cost** | **DONE** (commit eb2ecc7) |
 | 1 | Pre-bake icon/line glow; kill live `shadowBlur` | client | S | **Biggest MAP/RWR lag win** (confirmed client-side) | **DONE** — glow baked into the tinted-icon cache; RWR lines use a 2-stroke glow. Verified in browser + in-game |
-| 2 | Serialize once per tick, cache by version, all SSE clients write the same bytes | server | M | Kills N×-per-client cost + boxing; fixes the data race | bumped up — a later run showed 4 clients (~40 serialize/s); scales with client count |
+| 2 | Serialize once per tick, cache by version, all SSE clients write the same bytes | server | M | Kills N×-per-client cost + boxing; fixes the data race | **implemented** (GetFrameBytes version cache; BuildParts now owned). Pending multi-screen in-game verification (expect Serialize ≈10/s regardless of client count) |
 | 4 | Split rates: contacts ~3–4 Hz; RWR/MW + own-ship 10 Hz | both | M | Cuts redraw cost; modest server win | optional |
 | 5 | rAF-coalesce client redraw + off-screen contact cull | client | S | Smoother when zoomed in | optional |
 | ~~3~~ | ~~Reuse buffers / eliminate 10 Hz `.ToArray()` churn~~ | — | — | **Dropped** — BuildUnits measured at 0.08 ms; not a bottleneck | dropped |

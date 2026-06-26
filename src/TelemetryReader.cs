@@ -52,9 +52,6 @@ namespace NOXMFD
         private static FieldInfo? _sdBackgroundField;
         private static FieldInfo? _sdFailureIndicatorsField;
 
-        // Reusable buffer for per-part HP snapshots; resized only when the part count changes.
-        private PartHp[] _partsBuf = Array.Empty<PartHp>();
-
         // Cached failure-indicator GameObjects from the cockpit StatusDisplay. Polled per
         // tick: any GO with activeSelf=true means the game has fired its OnReportDamage
         // event for the matching message (e.g. "L ENG FIRE" when the left Turbofan dies).
@@ -863,24 +860,27 @@ namespace NOXMFD
             return _failureScratch.Count == 0 ? Array.Empty<string>() : _failureScratch.ToArray();
         }
 
-        // Snapshots every UnitPart in the player aircraft's partLookup. Allocates only when
-        // the part count changes (so steady-state cost is N copies into a cached array).
+        // Snapshots every UnitPart in the player aircraft's partLookup into a FRESH array each
+        // tick. We used to reuse a cached buffer, but the snapshot is serialized on a background
+        // SSE thread (now once per version, see TelemetryServer.GetFrameBytes), so a buffer the
+        // main thread overwrites next tick could tear mid-serialize. A per-tick alloc of a small
+        // (~36-entry) struct array is negligible next to the units/rwr/mw arrays already built
+        // here, and it makes the snapshot's arrays owned/immutable — no data race.
         private PartHp[] BuildParts(Aircraft ac)
         {
             var parts = ac.partLookup;
             if (parts == null || parts.Count == 0) return Array.Empty<PartHp>();
 
-            if (_partsBuf.Length != parts.Count) _partsBuf = new PartHp[parts.Count];
-
+            var buf = new PartHp[parts.Count];
             for (int i = 0; i < parts.Count; i++)
             {
                 UnitPart p = parts[i];
-                if (p == null) { _partsBuf[i] = default; continue; }
-                _partsBuf[i].Name     = p.gameObject != null ? p.gameObject.name : string.Empty;
-                _partsBuf[i].Hp       = p.hitPoints;
-                _partsBuf[i].Detached = p.IsDetached();
+                if (p == null) continue;
+                buf[i].Name     = p.gameObject != null ? p.gameObject.name : string.Empty;
+                buf[i].Hp       = p.hitPoints;
+                buf[i].Detached = p.IsDetached();
             }
-            return _partsBuf;
+            return buf;
         }
 
         // Pulls MapSettings.MapImage (the actual in-game map sprite) into JPEG bytes and hands
