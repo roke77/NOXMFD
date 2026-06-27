@@ -26,12 +26,12 @@ PC, or on a tablet or phone beside you as a second screen.
 - **Second-screen ready** — open it on a tablet or phone on the same Wi-Fi
   and use it as a physical MFD next to your setup.
 - **Fullscreen mode** — go edge-to-edge for a clean cockpit display.
-- **Tap-to-target** *(experimental)* — tap a contact on the MAP to set it as
-  your weapon target in-game, with the same cockpit marker highlight and audio
-  cue as native targeting. Targets accumulate like the in-game map (tap stacked
-  contacts to add the next one); deselection stays a cockpit action. Off by
-  default — enable *Experimental → MapClickTargeting* in the config menu. This
-  is the first feature that sends input *to* the game; the others are read-only.
+- **Tap-to-target** — tap a contact on the MAP to set it as your weapon target
+  in-game, with the same cockpit marker highlight and audio cue as native
+  targeting. Targets accumulate like the in-game map (tap stacked contacts to add
+  the next one). On the **TGL** page, the bezel key beside a listed target drops
+  it. These send input *to* the game (everything else is read-only) using its own
+  targeting API, so they replicate over the network like in-cockpit targeting.
 
 ## Requirements
 

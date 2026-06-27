@@ -36,15 +36,6 @@ namespace NOXMFD
             Diag.Enabled = perfLog.Value;
             perfLog.SettingChanged += (_, __) => Diag.Enabled = perfLog.Value;
 
-            // POC write-path: clicking a contact on the external MAP page sets it as your weapon
-            // target (replicated over the network via the game's own target API). This is the
-            // mod's first INBOUND command channel, so it ships dark — flip it on in the F1 menu
-            // to test. Toggle takes effect live (the /select endpoint checks this each request).
-            var mapClick = Config.Bind("Experimental", "MapClickTargeting", false,
-                "When on, clicking a unit on the external MAP page targets it in-game (sends a select command to the game). Experimental write feature — leave OFF unless testing.");
-            TelemetryServer.AllowInput = mapClick.Value;
-            mapClick.SettingChanged += (_, __) => TelemetryServer.AllowInput = mapClick.Value;
-
             TelemetryServer.Start();
             if (!_sceneSubscribed)
             {

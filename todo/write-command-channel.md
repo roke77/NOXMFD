@@ -21,11 +21,12 @@ The end-to-end path, after the v1 refactor:
 - **Client** (`ClientPage.cs`): `sendCommand(cmd, args)` `POST`s a JSON envelope to
   `/command`. The MAP tap handler picks the nearest not-yet-selected contact and
   sends `target.select { id }`.
-- **Endpoint** (`TelemetryServer.HandleCommand`): gated by `AllowInput` (config
-  `Experimental > MapClickTargeting`). Runs on an `HttpListener` threadpool thread,
-  so it only parses (`JsonUtility.FromJson<CommandEnvelope>`) + validates +
-  enqueues — never touches game state. Responses: 204 accepted · 400 malformed ·
-  403 disabled · 422 unknown cmd. Queue is depth-capped (`MaxQueuedCommands`).
+- **Endpoint** (`TelemetryServer.HandleCommand`): runs on an `HttpListener`
+  threadpool thread, so it only parses (`JsonUtility.FromJson<CommandEnvelope>`) +
+  validates + enqueues — never touches game state. Responses: 204 accepted · 400
+  malformed · 422 unknown cmd. Queue is depth-capped (`MaxQueuedCommands`). The
+  channel is **built-in / always live** (no config gate) — every command maps to
+  a legitimate player action on their own aircraft.
 - **Dispatcher** (`CommandDispatcher`, drained from `TelemetryReader.Update`):
   on the main thread, looks up the `cmd` in its handler registry and runs it.
   Unknown → logged + dropped; handler exceptions are caught + logged. The
@@ -51,7 +52,10 @@ add any new fields to `CommandEnvelope`, and call `sendCommand(...)` from the cl
 3. **Validate at the boundary, act idempotently.** Resolve ids to live units;
    no-op on stale/invalid; never produce duplicate state (e.g. `AddTargetList`
    has no de-dup, so we gate on `CheckIsTarget`).
-4. **Gate behind explicit config; ship dark.** Inbound write paths default OFF.
+4. **Prove behind a gate, then graduate.** A new write path can ship behind a
+   config toggle while unproven; once validated it becomes built-in (the
+   tap-to-target toggle was removed once it was solid). Don't keep a permanent
+   blanket switch — gate per-command only if a command needs it (principle 5).
 5. **Stay legitimate.** Only act on what the player already legitimately knows
    (fog-of-war respected) and only via sanctioned game APIs that replicate through
    the game's own netcode. We never inject network messages or do anything the
@@ -101,11 +105,13 @@ at 0, so commands parsed but did nothing). Flat side-steps that entirely.
 
 ### Authority / gating
 
-- Today: one master switch (`AllowInput`). Decide whether to keep a single gate
-  or split per-capability (targeting vs. weapon control vs. countermeasures).
+- **No gate.** The channel started behind a config toggle (`AllowInput`) while it
+  was unproven; now that tap-to-target and TGL deselect are validated, it's a
+  built-in feature, always live. The toggle was removed.
 - The legitimacy boundary (principle 5) is the real safety model: every command
   must map to an action the player could perform from their own cockpit, on their
-  own aircraft. Document this per command.
+  own aircraft. Document this per command. If a future command ever falls outside
+  that boundary, gate *that* command — don't re-add a blanket switch.
 
 ### Client side
 
@@ -130,7 +136,8 @@ handler + a client trigger.
 
 ## Open questions / decisions
 
-1. **Gating** — single master switch, or per-capability flags?
+1. ~~**Gating** — single master switch, or per-capability flags?~~ **resolved:**
+   no blanket gate; built-in, gate per-command only if ever needed.
 2. **Acks** — keep fire-and-forget, or add a result channel (HTTP response body,
    or a `cmdAck` event over the SSE stream) for commands that can fail visibly?
 3. **Deselect UX** — add a map gesture (long-press / right-click → `target.deselect`)
