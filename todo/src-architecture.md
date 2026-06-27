@@ -207,14 +207,61 @@ The DLL keeps building and the UI keeps working after every step.
    **MAIN: deferred to step 5** — decided (see Open questions #4): its full view is the shell's
    info-box + boot loader (startup chrome, not page content), and the LAN-URL injection is unsolved,
    so MAIN migrates *with* the shell rather than as a standalone page. Step 4's five real pages done.
-5. **Convert the shell itself** (`MfdPage.cs` → `web/shell/mfd.*`), **MAP** (`ClientPage.cs` →
-   `web/pages/map.*`), and **MAIN** (`MainPage.cs` + the shell info-box/boot-loader → `web/pages/main.*`)
-   once the page pattern is proven. Resolve the LAN-URL injection here (open question #4) — it feeds
-   both the info-box and MAIN, so solve it once (a runtime `/config` fetch or a small templating pass).
+5. **Convert MAP, MAIN, and the shell** (`ClientPage.cs`, `MainPage.cs` + shell info-box/boot-loader,
+   `MfdPage.cs`). **Planned 2026-06-27** — see the "Step 5 execution plan" section below for the
+   locked decisions (/config endpoint; info-box stays shell chrome; MAP→MAIN→shell sequencing) and
+   the sub-steps 5a/5b/5c.
 6. **Extract shared JS** (`sse-client`, `mfd-protocol`, `sendCommand`) and
    de-duplicate the now-parallel copies across pages.
 7. **Simplify `build_preview.py`** to serve `web/` directly; update the workflow
    note + memory.
+
+## Step 5 execution plan (MAP + MAIN + shell)
+
+Scoped 2026-06-27. Step 5 is the highest-blast-radius work: MAP is the **single SSE tap** and
+the shell **is** everything, so a regression breaks the whole MFD (not one page). Hence: split
+into shippable sub-steps, lowest-risk first, and keep the preview harness green before each
+in-game check.
+
+**The data flow to preserve (do not break):** `/stream` → the **map iframe** (`ClientPage`, the
+only `EventSource('/stream')`) → it parses + `parent.postMessage`-es derived state up
+(`status`/`loadout`/`cm`/`tgp`/`targets`/`rwr`/`mw`/`avn`/`follow`) → the **shell** caches it and
+re-forwards to the `#page-frame` (full) or panes (split). MAP is the always-on **base layer**
+(`iframe[title=map]` under `#page-frame` + `.overlay`), **not** a `#page-frame` page — moving its
+file must keep it as that base data-tap. The shell's relay guard `e.source === mapFrame.contentWindow`
+must survive the move intact.
+
+**Locked decisions:**
+- **D1 — LAN URLs → `/config` endpoint.** Add `GET /config` → JSON `{ localhost, lanUrl, port }`.
+  The shell + the MAIN card `fetch('/config')` on load and fill `.ib-url`. `TelemetryServer` drops
+  the `{{LAN_URL_BLOCK}}`/localhost string-replace (resolves open question #4). No HTML templating.
+- **D2 — the info-box + boot loader stay SHELL chrome** (in `web/shell/mfd.*`). They're power-on
+  furniture (`flickerScreen`/`runBootLoading`/`typewriterUrls`), not page content. `web/pages/main/`
+  is only the **split-pane card** (shares `theme.css`). Accept the minor card duplication; the boot
+  animation never has to run inside an iframe. (So MAIN is NOT hosted in `#page-frame` — full-view
+  MAIN remains the shell's `#info-box`.)
+- **D3 — faithful move first, dedup later.** Do step 5 as a behaviour-preserving move; the shared-JS
+  extraction (`sendCommand`/SSE/postMessage) is step 6, after.
+
+**Sub-steps (each builds + verifies in the harness, then in-game):**
+- **5a — MAP** → `web/pages/map/{map.html,map.css,map.js}`; point `/map-view` at `ServeAssetRel`;
+  delete `ClientPage.cs`. It stays the base data-tap iframe. Biggest single file (~1161 lines) but
+  mechanically a move — no overlay twin to delete. Highest leverage to de-risk early.
+- **5b — `/config` + MAIN.** Add the `/config` endpoint (D1); move the split-pane card to
+  `web/pages/main/`; both shell + card fetch `/config`. Drop the string-replace. (Shell info-box
+  stays put for now — it converts with the shell in 5c.)
+- **5c — the shell** → `web/shell/{mfd.html,mfd.css,mfd.js}` (~1849 lines: bezel/keys, split logic,
+  all `forwardX*` relays, `showPage`, `mfdButton`, indicators, orientation, power-on/boot, the SSE
+  relay handler, the info-box markup). **This forces the preview-harness rework** (step 7 pulled
+  forward): `build_preview.py`'s core job is extracting the shell+map blobs — once they're real
+  files that disappears. Pair 5c with updating `serve_web.py` to serve the shell from
+  `web/shell/mfd.html` and mock `/stream` + `/config` (and finally `/airframe[-layout]` to close
+  the AVN harness gap).
+
+**Risks / watch-items:** blast radius (MAP=feed, shell=everything → harness-green-first); the
+`mapFrame` source guard; ES modules over http if/when shared JS is extracted (Q#6 — fine over the
+http harness + live server, but the shell is served at `/`); the AVN `/airframe` harness gap (close
+it during 5a/5c so the harness can finally exercise every page).
 
 ## Implementation playbook (for an agent continuing this work)
 
@@ -341,11 +388,10 @@ a browser**. The proven loop, no game required:
    two; one more is negligible. Confirm on the lowest-spec target (tablet).
 3. **Content-type + caching map.** Need a small, explicit path→(resource,mime)
    resolver in `TelemetryServer`; decide on cache headers for static assets.
-4. **`{{LAN_URL_BLOCK}}` & other server-injected bits.** Currently string-replaced
-   into `MfdPage.Html`/`MainPage.Html`. Decide: keep a tiny replace pass, or move
-   to a runtime `/config` JSON the shell fetches. **Deferred to step 5** (decided 2026-06-27):
-   it feeds both the shell info-box and MAIN, so it's resolved once when the shell + MAIN migrate
-   together — not piecemeal. This is why MAIN is the one step-4 page left unmigrated.
+4. **`{{LAN_URL_BLOCK}}` & other server-injected bits.** ~~Currently string-replaced into
+   `MfdPage.Html`/`MainPage.Html`.~~ **RESOLVED (2026-06-27): runtime `GET /config`** → JSON
+   `{ localhost, lanUrl, port }` that the shell + MAIN `fetch()` and inject into `.ib-url`;
+   `TelemetryServer` drops the string-replace. Implemented in step 5b (see Step 5 execution plan).
 5. **Softkey contract for write actions.** `target.deselect` posts to `/command`;
    define whether the shell or the page owns the POST (lean: page emits intent,
    shell dispatches — keeps `/command` knowledge in one place).
