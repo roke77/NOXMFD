@@ -245,6 +245,19 @@ namespace NOXMFD
     border-radius: 3px;
     background: #060a06;
   }
+  /* Full-view host iframe for migrated pages (WPN). Covers the recess like the map iframe;
+     shown via .screen.page-on, hidden in split (panes take over). It sits below the .overlay
+     (a later sibling), so the shell's bezel labels still paint on top, and below .screen-off
+     (z-index 50) so power-off still blacks it out. */
+  #page-frame {
+    position: absolute;
+    inset: 6px;
+    border-radius: 3px;
+    display: none;
+    background: #060a06;
+  }
+  .screen.page-on > #page-frame { display: block; }
+  .screen.split   > #page-frame { display: none; }
   /* Powered-off black-out. Sits above everything inside the recess (iframe, split
      panes, overlay) and paints it pure black, leaving the surrounding bezel alone.
      inset:0 so even the screen's 6px padding goes dark for a uniform black panel. */
@@ -1131,6 +1144,10 @@ namespace NOXMFD
       <div class="keys v" id="keys-left"></div>
       <div class="screen" id="screen">
         <iframe src="/map-view?bare" title="map"></iframe>
+        <!-- Full-view host for migrated pages (currently WPN). Shown via .screen.page-on in
+             single-pane view; covers the map iframe (which keeps running behind as the SSE
+             data source). Hidden in split view, where the panes take over. -->
+        <iframe id="page-frame" title="page"></iframe>
         <!-- Powered-off black-out: covers the whole recess (iframe, panes, overlay) but
              never the bezel. Toggled by the top-strip power key (.screen.power-off). -->
         <div class="screen-off" id="screen-off"></div>
@@ -1302,6 +1319,7 @@ const overlayEl = document.getElementById('overlay');
 const mapFrame  = document.querySelector('.screen > iframe[title="map"]');
 const screenEl  = document.getElementById('screen');
 const paneIframes = [document.getElementById('pane-top'), document.getElementById('pane-bot')];
+const pageFrame = document.getElementById('page-frame');   // full-view host for migrated pages (WPN)
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 const wpnPanel  = document.getElementById('wpn-panel');
@@ -1366,9 +1384,10 @@ const PAGES = {
     ],
   },
   wpn: {
-    opaque: true,
-    // No static items: renderWpn() owns left-key-0 (MAIN on page 0, PREV after) and
+    // Hosted in #page-frame (an iframe), not the overlay — so the overlay stays transparent
+    // and only carries the nav labels. placeWpnNavLabels() owns left-key-0 (MAIN/PREV) and
     // right-key-0 (NEXT when more than WPN_MAX_DISPLAY weapons exist).
+    opaque: false,
     items: [],
   },
   tgp: {
@@ -1708,6 +1727,65 @@ function forwardWpnLayoutToPanes() {
   });
 }
 
+// ── Full-view WPN frame (single-pane) ──────────────────────────────────────────────────
+// Full-view WPN is hosted in #page-frame (the migrated web/pages/wpn page in its 'full'
+// profile) rather than the old overlay. These mirror the split forwarders but compute the
+// full-screen geometry (5 left-column slots + the right-half image area + the CM band) from
+// the bezel separators, and slice the loadout to the full-view page (WPN_MAX_DISPLAY, wpnPage).
+function frameWin() { return pageFrame && pageFrame.contentWindow; }
+
+function forwardWpnToFrame() {
+  const w = frameWin(); if (!w) return;
+  const list = wpnData.items || [];
+  const total = list.length;
+  const maxPage = Math.max(0, Math.ceil(total / WPN_MAX_DISPLAY) - 1);
+  if (wpnPage > maxPage) wpnPage = maxPage;
+  if (wpnPage < 0) wpnPage = 0;
+  const start = wpnPage * WPN_MAX_DISPLAY;
+  const items = list.slice(start, start + WPN_MAX_DISPLAY);
+  w.postMessage({ mfd: true, type: 'wpn', items: items, selWeapon: wpnData.selWeapon,
+                  page: maxPage > 0 ? wpnPage + 1 : 1, pages: maxPage + 1 }, '*');
+}
+function forwardCmToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage({ mfd: true, type: 'cm', flares: cmData.flares, flaresMax: cmData.flaresMax,
+                  ewKJ: cmData.ewKJ, ewKJMax: cmData.ewKJMax, cmCat: cmData.cmCat }, '*');
+}
+// Full-view geometry, mapped into the frame's own coordinate space (sepEls are shell-side, so
+// subtract the frame's top). sepEls: index 0 = above key0, i+1 = below key i (7 separators for
+// 6 keys). Weapon slot k (0..4) = key k+1, spanning sep[k+1].bottom → sep[k+2].top; CM band =
+// key-0 slot (sep[0].bottom → sep[1].top); the image area spans keys 1..5 (sep[1] → sep[6])
+// with a 20px inset top+bottom — matching the former overlay renderWpn/renderCm.
+function forwardWpnLayoutToFrame() {
+  const w = frameWin(); if (!w) return;
+  const frameTop = pageFrame.getBoundingClientRect().top;
+  function bot(i) { return sepEls[i].getBoundingClientRect().bottom - frameTop; }
+  function top(i) { return sepEls[i].getBoundingClientRect().top - frameTop; }
+  const slots = [];
+  for (let k = 0; k < WPN_MAX_DISPLAY; k++) {
+    const t = bot(k + 1), b = top(k + 2);
+    slots.push({ top: t, height: Math.max(0, b - t) });
+  }
+  const cmTop = bot(0), cmBot = top(1);
+  const icoTop = bot(1) + 20, icoBot = top(sepEls.length - 1) - 20;
+  w.postMessage({ mfd: true, type: 'wpn-layout', layout: 'full', slots: slots,
+                  cmTop: cmTop, cmHeight: cmBot - cmTop,
+                  iconTop: icoTop, iconHeight: icoBot - icoTop }, '*');
+}
+// Full-view WPN nav labels (shell-owned, since pagination is shell state): left key-0 is MAIN
+// on page 0 / PREV after; right key-0 is NEXT when the loadout overflows the page. WPN has no
+// other overlay labels, so we can safely clear all overlay-items before re-placing.
+function placeWpnNavLabels() {
+  overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
+  delete keyBanks.left[0].dataset.action;
+  delete keyBanks.right[0].dataset.action;
+  const total = (wpnData.items || []).length;
+  const maxPage = Math.max(0, Math.ceil(total / WPN_MAX_DISPLAY) - 1);
+  const cur = Math.min(Math.max(wpnPage, 0), maxPage);
+  placeOverlayLabel('left', 0, cur > 0 ? 'PREV' : 'MAIN', cur > 0 ? 'wpn-prev' : 'main');
+  if (cur < maxPage) placeOverlayLabel('right', 0, 'NEXT', 'wpn-next');
+}
+
 // Slice the full target list to the page a given pane is scrolled to. Returns the visible rows
 // plus whether PREV/NEXT exist, so renderSplitLabels can place the right nav labels. Clamps a
 // stale page index (e.g. the target list shrank) back into range as a side effect.
@@ -1768,7 +1846,7 @@ function forwardOrientationToPane(iframe) {
   if (iframe && iframe.contentWindow)
     iframe.contentWindow.postMessage({ mfd: true, type: 'orient', orientation: appOrientation() }, '*');
 }
-function broadcastOrientation() { paneIframes.forEach(forwardOrientationToPane); }
+function broadcastOrientation() { paneIframes.forEach(forwardOrientationToPane); forwardOrientationToPane(pageFrame); }
 orientMq.addEventListener('change', function() { applyShellOrientation(); broadcastOrientation(); });
 applyShellOrientation();
 
@@ -1787,6 +1865,16 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
     else if (page === 'tgl')  { forwardTglToPanes(); forwardTglLayoutToPanes(); }
   });
+});
+
+// Full-view WPN frame load: push the current snapshot once it's ready (it may have started
+// loading mid-update), plus orientation + the full-screen layout geometry.
+pageFrame.addEventListener('load', function() {
+  if (splitMode || currentPage !== 'wpn') return;
+  forwardOrientationToPane(pageFrame);
+  forwardWpnLayoutToFrame();
+  forwardWpnToFrame();
+  forwardCmToFrame();
 });
 
 // Top-right indicator stack (PINNED + FOLLOW). pinnedPage tracks which page (if any)
@@ -1950,7 +2038,8 @@ function showPage(name) {
   const page = PAGES[name];
   overlayEl.classList.toggle('opaque', page.opaque);
   infoBox.classList.toggle('show', name === 'main');
-  wpnPanel.classList.toggle('show', name === 'wpn');
+  wpnPanel.classList.remove('show');   // full-view WPN is hosted in #page-frame, not this overlay
+  screenEl.classList.toggle('page-on', name === 'wpn');
   tgpPanel.classList.toggle('show', name === 'tgp');
   tglPanel.classList.toggle('show', name === 'tgl');
   avnPanel.classList.toggle('show', name === 'avn');
@@ -1966,8 +2055,6 @@ function showPage(name) {
     tgpImg.removeAttribute('src');
     tgpPanel.classList.remove('has-feed');
   }
-  if (name === 'wpn') { renderCm(); }   // cm-panel positions itself; doesn't need overlay-items
-
   clearKeyActions();
   // Only wipe dynamic line-select labels; static children (info-box) stay put.
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
@@ -1978,7 +2065,11 @@ function showPage(name) {
 
   // TGL and WPN own their own labels (PREV/MAIN + NEXT) because they depend on the
   // page state; run after the generic label sweep so they don't get clobbered.
-  if (name === 'wpn') { renderWpn(); }
+  if (name === 'wpn') {
+    if (!pageFrame.getAttribute('src')) pageFrame.src = '/wpn';   // lazy-load the WPN page once
+    placeWpnNavLabels();                                          // MAIN/PREV/NEXT (shell-owned)
+    forwardWpnLayoutToFrame(); forwardWpnToFrame(); forwardCmToFrame();
+  }
   if (name === 'tgl') { renderTgl(); }
   if (name === 'avn') { renderAvn(); }
   if (name === 'rwr') { renderRwr(); renderThreats(); }
@@ -2813,7 +2904,9 @@ window.addEventListener('message', function(e) {
       const p = selWpnPageFull();
       if (p >= 0) wpnPage = p;
     }
-    if (currentPage === 'wpn') renderWpn();
+    // Full-view: re-forward the slice to the frame + refresh the nav labels (loadout change
+    // can add/remove pages, changing PREV/NEXT visibility).
+    if (currentPage === 'wpn' && !splitMode) { forwardWpnToFrame(); placeWpnNavLabels(); }
     // Loadout change can add/remove pages, so refresh the panes' slices + NEXT/PREV labels.
     if (splitMode) {
       // Split-pane twin of the above: jump each visible WPN pane to the selection's page.
@@ -2829,7 +2922,7 @@ window.addEventListener('message', function(e) {
       ewKJMax:   typeof m.ewKJMax   === 'number' ? m.ewKJMax   : -1,
       cmCat:     m.cmCat || 0
     };
-    if (currentPage === 'wpn') renderCm();
+    if (currentPage === 'wpn' && !splitMode) forwardCmToFrame();
     if (splitMode) forwardCmToPanes();
   } else if (m.type === 'tgp') {
     tgpActive = !!m.active;
