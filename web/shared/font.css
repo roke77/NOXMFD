@@ -1,0 +1,11 @@
+/* Self-hosted Share Tech Mono so the MFD needs no internet.
+   Externalised from the per-page inline @font-face (was duplicated as a ~18 KB base64
+   blob in 8 .cs files); the woff2 binary now lives once at web/shared/share-tech-mono.woff2
+   and is served under /assets/. Pages link this before theme.css. */
+@font-face {
+  font-family: 'Share Tech Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/assets/shared/share-tech-mono.woff2) format('woff2');
+}

@@ -292,7 +292,7 @@ namespace NOXMFD
                     else if (path == "/tgp")
                         ServePage(ctx, TgpPage.Html);
                     else if (path == "/wpn")
-                        ServePage(ctx, WpnPage.Html);
+                        ServeAssetRel(ctx, "pages/wpn.html");   // migrated to web/pages/wpn.* (was WpnPage.Html)
                     else if (path == "/tgl")
                         ServePage(ctx, TglPage.Html);
                     else if (path == "/rwr")
@@ -411,11 +411,16 @@ namespace NOXMFD
         private static string[] ResourceNames => _resourceNames ??= _asm.GetManifestResourceNames();
 
         private static void ServeAsset(HttpListenerContext ctx, string path)
+            => ServeAssetRel(ctx, path.Substring("/assets/".Length).Trim('/'));
+
+        // Serve an embedded web asset by its repo-relative path under web/ (e.g.
+        // "pages/wpn.html"). Used both by the /assets/ route and by migrated page routes
+        // (e.g. /wpn) that serve a file directly while the rest still use XxxPage.Html.
+        private static void ServeAssetRel(HttpListenerContext ctx, string rel)
         {
             try
             {
-                // "/assets/shared/theme.css" -> suffix ".web.shared.theme.css"
-                string rel    = path.Substring("/assets/".Length).Trim('/');
+                // "shared/theme.css" -> suffix ".web.shared.theme.css"
                 string suffix = "." + ("web/" + rel).Replace('/', '.');
 
                 string? resourceName = null;

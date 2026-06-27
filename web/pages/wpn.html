@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — WPN</title>
+<!--
+  Bare WPN page served at /wpn. Used by the split-screen layout (and, once the shell
+  surgery lands, by full view too) — a pure reactive renderer fed by the shell over
+  postMessage. This is the compact/half-height profile: the countermeasures panel fills
+  the top "first band" (the key slot beside MAIN), and the weapon rows hug the left/right
+  edges aligned to the side bezel keys. There is NO selected-weapon image here (the pane
+  is too short); the rich full-view layout with the weapon image is a separate profile to
+  be added during the full/split unification (todo/src-architecture.md).
+
+  Shell -> page messages (all {mfd:true, ...}):
+    'wpn'        : the (already-sliced, <= 4) weapon list + selected weapon.
+    'wpn-layout' : geometry from the shell — slotYs (vertical centre of each weapon slot,
+                   fill order L1, L2, R1, R2) and the CM band (cmTop + cmHeight).
+    'cm'         : countermeasures snapshot (flares + jammer).
+    'orient'     : app-wide orientation (kept for parity).
+
+  L0 (top-left) is the shell-owned MAIN back-button; R0 (top-right) the shell-owned NEXT
+  label when the loadout has more than 4 weapons — so weapons never use the top band,
+  leaving it entirely to the CM panel.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/wpn.css">
+</head>
+<body>
+  <div class="wpn-panel" id="wpn-panel">
+    <div class="wpn-empty" id="wpn-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">WPN</span>&mdash; NO LOADOUT &mdash;</div>
+    <div class="cm-panel" id="cm-panel">
+      <div class="cm-title cm-flares-title" id="cm-flares-title"><span class="cm-label">IR Flares</span></div>
+      <div class="cm-flares-body">
+        <div class="cm-big" id="cm-flares-val">&mdash;</div>
+        <div class="cm-flares-icon" id="cm-flares-icon">
+          <svg class="cm-flares-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <g fill="none" stroke="currentColor" stroke-width="3">
+              <circle class="flare-dot" cx="12.5" cy="12.5" r="9"/><circle class="flare-dot" cx="37.5" cy="12.5" r="9"/><circle class="flare-dot" cx="62.5" cy="12.5" r="9"/><circle class="flare-dot" cx="87.5" cy="12.5" r="9"/>
+              <circle class="flare-dot" cx="12.5" cy="37.5" r="9"/><circle class="flare-dot" cx="37.5" cy="37.5" r="9"/><circle class="flare-dot" cx="62.5" cy="37.5" r="9"/><circle class="flare-dot" cx="87.5" cy="37.5" r="9"/>
+              <circle class="flare-dot" cx="12.5" cy="62.5" r="9"/><circle class="flare-dot" cx="37.5" cy="62.5" r="9"/><circle class="flare-dot" cx="62.5" cy="62.5" r="9"/><circle class="flare-dot" cx="87.5" cy="62.5" r="9"/>
+              <circle class="flare-dot" cx="12.5" cy="87.5" r="9"/><circle class="flare-dot" cx="37.5" cy="87.5" r="9"/><circle class="flare-dot" cx="62.5" cy="87.5" r="9"/><circle class="flare-dot" cx="87.5" cy="87.5" r="9"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+      <div class="cm-sep"></div>
+      <div class="cm-title cm-jammer-title" id="cm-jammer-title"><span class="cm-label">EW Jammer</span></div>
+      <div class="cm-big" id="cm-jammer-val">&mdash;</div>
+      <div class="cm-jammer-bar"><div class="cm-bar"><div class="cm-bar-fill" id="cm-bar-fill"></div></div></div>
+    </div>
+  </div>
+  <div id="page-ind" class="empty">PAGE 1/1</div>
+<script src="/assets/pages/wpn.js"></script>
+</body>
+</html>

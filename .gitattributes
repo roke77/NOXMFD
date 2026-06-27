@@ -1,0 +1,6 @@
+# Binary web assets — never apply EOL/text normalisation (would corrupt them).
+*.woff2 binary
+*.woff  binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary

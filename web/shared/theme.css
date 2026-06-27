@@ -1,0 +1,20 @@
+/* Shared MFD theme — base reset, colour tokens, and the mono font stack used by every
+   page. Extracted from the per-page inline <style> blocks. Pages link this after font.css.
+   Colour tokens are provided for future use; pages may still use literal colours until
+   they are migrated onto the tokens. */
+:root {
+  --no-green:      #39ff14;  /* primary text / icons */
+  --no-green-dim:  #4aaa4a;  /* secondary text (ammo, page-ind) */
+  --no-green-dark: #1a4a1a;  /* depleted / hollow / borders */
+  --no-green-deep: #2e7a2e;  /* page-name placeholder heading */
+  --no-red:        #ff4040;  /* empty / alert state */
+  --no-bg:         #000;
+  --no-ink:        #060a06;  /* text on a green fill */
+  --no-font: 'Share Tech Mono', 'Courier New', monospace;
+}
+html, body { margin: 0; height: 100%; background: var(--no-bg); overflow: hidden; }
+body {
+  color: var(--no-green);
+  font-family: var(--no-font);
+  position: relative;
+}

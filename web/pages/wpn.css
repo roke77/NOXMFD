@@ -1,0 +1,144 @@
+/* WPN page — split/compact layout (half-height pane). Transcribed verbatim from the
+   former WpnPage.cs <style>; the @font-face and html/body base now come from the shared
+   font.css + theme.css this page links first. See wpn.html header for the layout contract. */
+.wpn-panel { position: absolute; inset: 0; }
+.wpn-empty {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: #1a4a1a;
+  font-size: 22px;
+  letter-spacing: 3px;
+  pointer-events: none;
+}
+.wpn-panel.has-loadout .wpn-empty { display: none; }
+
+/* Countermeasures panel — fills the top "first band" (key slot beside MAIN). top + height
+   are set by JS from the shell-forwarded band geometry; the middle grid row (1fr) grows so
+   the flares count/icon and jammer readout fill the band's height. */
+.cm-panel {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 8px;                       /* overridden by JS once the band geometry arrives */
+  width: 58%;
+  max-width: 460px;
+  display: none;
+  grid-template-columns: 1fr 1px 1fr;
+  grid-template-rows: auto auto auto;
+  align-content: center;          /* cluster the three rows in the middle of the band */
+  column-gap: 14px;
+  row-gap: 4px;
+  box-sizing: border-box;
+  padding: 4px 0;
+}
+.wpn-panel.has-loadout .cm-panel { display: grid; }
+.cm-title { font-size: clamp(13px, 2.2vh, 20px); font-weight: 900; letter-spacing: 1px; white-space: nowrap; }
+.cm-title .cm-label { padding: 0 6px; }
+.cm-flares-title { grid-column: 1; grid-row: 1; text-align: right; }
+.cm-flares-body {
+  grid-column: 1; grid-row: 2 / span 2;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;     /* icon hugs the right edge; count sits left of it */
+  gap: 10px;
+}
+/* width/height are set by sizeCm() so the count + icon fill the band height. */
+.cm-flares-icon {
+  flex: 0 0 auto;
+  min-height: 0; min-width: 0;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  color: #39ff14;
+  display: flex;
+  align-items: center;
+}
+.cm-flares-icon.empty { color: #ff4040; }
+.cm-flares-svg { display: block; width: 100%; height: 100%; }
+.cm-flares-svg .flare-dot.spent { stroke: #1a4a1a; }
+.cm-sep { grid-column: 2; grid-row: 1 / span 3; width: 1px; background: #1a4a1a; }
+.cm-jammer-title { grid-column: 3; grid-row: 1; }
+.cm-jammer-bar { grid-column: 3; grid-row: 3; align-self: center; justify-self: start; }
+/* Big-text readouts (flares count, jammer kJ). font-size is set by sizeCm() so the
+   glyphs fill the band height — matching single-pane WPN. */
+.cm-big {
+  min-height: 0; min-width: 0;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: #39ff14;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+#cm-flares-val { flex: 0 0 auto; justify-content: flex-end; }
+#cm-jammer-val {
+  grid-column: 3; grid-row: 2;
+  align-self: stretch;
+  justify-content: flex-start;
+  width: fit-content;
+  gap: 8px;
+}
+.cm-title.empty .cm-label,
+.cm-big.empty             { color: #ff4040; }
+.cm-title.sel       .cm-label { background: #39ff14; color: #060a06; }
+.cm-title.empty.sel .cm-label { background: #ff4040; color: #060a06; }
+.cm-bar {
+  width: 100%;
+  height: 12px;
+  border: 1px solid #39ff14;
+  border-radius: 3px;
+  background: rgba(57, 255, 20, 0.08);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.cm-bar-fill {
+  width: 0%;
+  height: 100%;
+  background: #39ff14;
+  transition: width 120ms linear;
+}
+
+/* Weapon rows — absolutely positioned, vertical centre set by JS to the matching bezel
+   key. .left hugs the left edge (left-aligned), .right hugs the right edge (right-aligned). */
+.wp-item {
+  position: absolute;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  max-width: 46%;
+}
+.wp-item.left  { left: 16px;  align-items: flex-start; text-align: left; }
+.wp-item.right { right: 16px; align-items: flex-end;   text-align: right; }
+.wp-name {
+  max-width: 100%;
+  padding: 0 6px;
+  font-size: clamp(16px, 8vh, 25px); font-weight: 900; letter-spacing: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wp-item.left .wp-name { margin-left: -6px; }
+.wp-item.right .wp-name { margin-right: -6px; }
+.wp-ammo { font-size: clamp(12px, 5.5vh, 18px); color: #4aaa4a; letter-spacing: 1px; margin-top: 3px; padding: 0 6px; }
+.wp-ammo span { color: #39ff14; font-weight: 900; }
+.wp-item.empty .wp-name,
+.wp-item.empty .wp-ammo,
+.wp-item.empty .wp-ammo span { color: #ff4040; }
+.wp-item.sel .wp-name             { background: #39ff14; color: #060a06; }
+.wp-item.empty.sel .wp-name       { background: #ff4040; color: #060a06; }
+
+/* Bottom-right page indicator (e.g. "PAGE 1/2") — same boxed style as the map's GRID box.
+   Only shown when the loadout spans more than one page (> 4 weapons); see updatePageInd. */
+#page-ind {
+  position: absolute;
+  bottom: 10px; right: 12px;
+  background: rgba(6,10,6,0.78);
+  border: 1px solid #1a3a1a;
+  padding: 5px 9px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #4aaa4a;
+  pointer-events: none;
+  user-select: none;
+}
+#page-ind.empty { display: none; }
