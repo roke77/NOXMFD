@@ -320,7 +320,6 @@ namespace NOXMFD
      direct content child is force-hidden. */
   .screen.split > .overlay { background: transparent !important; }
   .screen.split > .overlay > .info-box,
-  .screen.split > .overlay > .wpn-panel,
   .screen.split > .overlay > .tgp-panel,
   .screen.split > .overlay > .tgl-panel,
   .screen.split > .overlay > .rwr-panel,
@@ -470,23 +469,9 @@ namespace NOXMFD
     transition: width 60ms linear;
   }
 
-  /* WPN page — stacks the player's loadout one weapon per line-select key (keys 1..N;
-     key 0 is the MAIN back button). Each row is positioned + sized to fit the slot
-     between the two separator ridges flanking its key, so the icon fills the maximum
-     vertical space after the name + ammo lines. The countermeasures panel sits at the
-     top centre, aligned vertically with key[0]'s slot. */
-  .wpn-panel {
-    position: absolute;
-    inset: 0;
-    display: none;
-    color: #39ff14;
-    font-family: 'Share Tech Mono', 'Courier New', monospace;
-  }
-  .wpn-panel.show { display: block; }
-
-  /* Bottom-right page indicator for full-view WPN / TGL (e.g. "PAGE 1/2") — same boxed style as
-     the map's GRID box and the split panes' indicators. Shown only for multi-page lists. */
-  .wpn-panel .page-ind,
+  /* Bottom-right page indicator for the full-view TGL page (e.g. "PAGE 1/2") — same boxed
+     style as the map's GRID box and the split panes' indicators. Multi-page lists only.
+     (WPN's content + indicator now live in the #page-frame iframe, web/pages/wpn/.) */
   .tgl-panel .page-ind {
     position: absolute;
     bottom: 10px; right: 12px;
@@ -499,7 +484,6 @@ namespace NOXMFD
     pointer-events: none;
     user-select: none;
   }
-  .wpn-panel .page-ind.empty,
   .tgl-panel .page-ind.empty { display: none; }
 
   /* TGP page — fills the screen with the live MJPEG feed from the player's targeting cam.
@@ -913,195 +897,6 @@ namespace NOXMFD
   .tg-grid,
   .tg-rng  { white-space: nowrap; line-height: 1.0; color: var(--tg-meta); }
 
-  .wpn-empty {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    color: #1a4a1a;
-    font-size: 22px;
-    letter-spacing: 3px;
-  }
-  /* Weapon row — name on top, ammo below. Constrained to the LEFT HALF of the screen;
-     the RIGHT HALF is reserved for the .wp-sel-icon image of the currently-selected
-     weapon (see below). Each row is positioned by JS to span its line-select key slot. */
-  .wp-item {
-    position: absolute;
-    left: 90px;                            /* clear the left line-select label gutter */
-    right: calc(45% + 10px);               /* name list takes the left 55%; image the right 45% */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 4px 0;
-    box-sizing: border-box;
-    min-height: 0;
-  }
-  .wp-name {
-    align-self: flex-start;
-    max-width: 100%;
-    padding: 0 6px;
-    margin-left: -6px;
-    font-size: 28px; font-weight: 900; letter-spacing: 1px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .wp-ammo {
-    font-size: 20px; color: #4aaa4a; letter-spacing: 1px; margin-top: 2px;
-  }
-  .wp-ammo span { color: #39ff14; font-weight: 900; }
-
-  /* Big icon of the currently-selected weapon. Sits in the RIGHT HALF of the screen
-     and spans the full vertical area covered by line-select keys 1..5 (sized by JS to
-     match the same separator gaps the rows use). Game weapon icons are 2:1 horizontal;
-     object-fit:contain lets them grow to the largest size that fits without crop. */
-  .wp-sel-icon-wrap {
-    position: absolute;
-    /* No horizontal margin; occupies the right 45% of the panel (55% goes to the name
-       list). (JS still adds a 20px gap top/bottom.) */
-    left: 55%;
-    right: 0;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-    overflow: hidden;
-    padding: 10px;            /* inner breathing room so the icon doesn't touch the edges */
-    box-sizing: border-box;
-    /* Establishes a CSS-size container so the rotated image can size off cqw / cqh. */
-    container-type: size;
-  }
-  .wp-sel-icon-wrap.show { display: flex; }
-  /* Source icons are 2:1 horizontal. Rotate 90deg so the long axis runs vertically and
-     fills the tall right half; swap the image's logical width/height (via cqh/cqw of the
-     wrap) so object-fit:contain has the right "rotated" box to fit into. */
-  .wp-sel-icon {
-    display: block;
-    width:  100cqh;
-    height: 100cqw;
-    object-fit: contain;
-    transform: rotate(90deg);
-  }
-  /* Landscape: the right pane is wide and short, so show the weapon icon in its native
-     horizontal orientation — undo the portrait rotate-to-fit-vertical trick (and the
-     cqh/cqw axis swap that paired with it). */
-  body.landscape .wp-sel-icon {
-    width:  100cqw;
-    height: 100cqh;
-    transform: none;
-  }
-  /* Portrait: the screen is tall + narrow, so the weapon names crammed against the 50%
-     midline and ellipsised. Keep the 50/50 name/image split, but reclaim the wasted left
-     gutter — the 90px offset clears the line-select label column, which the weapon rows
-     (keys 1..5) don't actually overlap, so in portrait we pull the names flush-left to
-     match the MAIN label's left edge, giving them the full left half. */
-  body.portrait .wp-item { left: 18px; }
-
-  /* Countermeasures panel — centred at the top of the WPN page, in key[0]'s slot.
-     Two columns (IR Flares | Radar Jammer) separated by a thin green vertical line. */
-  .cm-panel {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 60%;
-    max-width: 520px;
-    color: #39ff14;
-    font-family: 'Share Tech Mono', 'Courier New', monospace;
-    display: grid;
-    grid-template-columns: 1fr 1px 1fr;
-    grid-template-rows: auto auto auto;
-    align-content: center;       /* cluster the three rows in the middle of the slot */
-    column-gap: 14px;
-    row-gap: 4px;
-  }
-  /* Match the weapon-name font (.wp-name) so the heading line reads at the same weight. */
-  .cm-title { font-size: 18px; font-weight: 900; letter-spacing: 1px; white-space: nowrap; }
-  .cm-title .cm-label { padding: 0 6px; }
-  .cm-flares-title { grid-column: 1; grid-row: 1; text-align: right; }
-  .cm-flares-body  {
-    grid-column: 1; grid-row: 2 / span 2;
-    min-height: 0;
-    display: flex;
-    align-items: stretch;
-    justify-content: flex-end;     /* icon hugs the right edge; the count sits left of it */
-    gap: 10px;
-  }
-  /* IR flare icon: 4×4 grid of hollow circles drawn inline as SVG, so it never depends on
-     a server-served image. currentColor lets the empty-state class re-tint to red. */
-  .cm-flares-icon  {
-    flex: 0 0 auto;
-    min-height: 0; min-width: 0;
-    height: 100%;
-    aspect-ratio: 1 / 1;
-    color: #39ff14;
-    display: flex;
-    align-items: center;
-  }
-  .cm-flares-icon.empty { color: #ff4040; }
-  .cm-flares-svg { display: block; width: 100%; height: 100%; }
-  /* Spent flare slot — stays hollow, but the ring goes muted green.
-     Reading order (top-left → bottom-right) is "first spent". */
-  .cm-flares-svg .flare-dot.spent { stroke: #1a4a1a; }
-  .cm-sep          { grid-column: 2; grid-row: 1 / span 3; width: 1px; background: #1a4a1a; }   /* muted green */
-  .cm-jammer-title { grid-column: 3; grid-row: 1; }
-  /* justify-self: start prevents the cell from stretching — its width is driven by the
-     inner .cm-bar, whose width is set in JS to match the kJ readout above. */
-  .cm-jammer-bar   { grid-column: 3; grid-row: 3; align-self: center; justify-self: start; }
-  /* Big-text readouts (flares count, jammer kJ). The font-size is set by renderCm() so
-     the glyphs fill the available cell height. */
-  .cm-big {
-    min-height: 0; min-width: 0;
-    font-weight: 900;
-    letter-spacing: 1px;
-    color: #39ff14;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    white-space: nowrap;
-  }
-  #cm-flares-val { flex: 0 0 auto; justify-content: flex-end; }
-  /* Jammer readout: hug its own content (number + "kJ") so the capacitor bar below can
-     width-match it. gap = fixed px separation between number and unit (so the space
-     between "400" and "kJ" stays constant as the font scales). */
-  #cm-jammer-val {
-    grid-column: 3; grid-row: 2;
-    align-self: stretch;
-    justify-content: flex-start;
-    width: fit-content;
-    gap: 8px;
-  }
-
-  /* Depleted countermeasure (count === 0 with a positive capacity) — label + value go red. */
-  .cm-title.empty .cm-label,
-  .cm-big.empty             { color: #ff4040; }
-
-  /* Currently selected — invert the label bar. Depleted + selected uses red as the bar. */
-  .cm-title.sel       .cm-label { background: #39ff14; color: #060a06; }
-  .cm-title.empty.sel .cm-label { background: #ff4040; color: #060a06; }
-  /* Capacitor bar — thin green outline + green fill keyed to ewKJ / ewKJMax. */
-  .cm-bar {
-    width: 100%;
-    height: 12px;
-    border: 1px solid #39ff14;
-    border-radius: 3px;
-    background: rgba(57, 255, 20, 0.08);
-    box-sizing: border-box;
-    overflow: hidden;          /* clip the fill to the rounded outline */
-  }
-  .cm-bar-fill {
-    width: 0%;
-    height: 100%;
-    background: #39ff14;
-    transition: width 120ms linear;
-  }
-
-  /* Depleted ammo (a === 0 && f > 0) — name + ammo go red. */
-  .wp-item.empty .wp-name,
-  .wp-item.empty .wp-ammo,
-  .wp-item.empty .wp-ammo span { color: #ff4040; }
-
-  /* Currently selected — invert the name (text on a solid bar) in the same color as the
-     text would otherwise be. Depleted + selected uses red as the bar color. */
-  .wp-item.sel .wp-name             { background: #39ff14; color: #060a06; }
-  .wp-item.empty.sel .wp-name       { background: #ff4040; color: #060a06; }
-
   /* Decorative Phillips-head corner screws. The artwork is a photo of a real screw (white
      background knocked out to transparency), embedded as a base64 data URI so it ships with
      the page — no separate asset request, works in-game and in the dev preview alike. This
@@ -1174,30 +969,8 @@ namespace NOXMFD
               </div>
             </div>
           </div>
-          <div class="wpn-panel" id="wpn-panel">
-            <div class="wpn-empty" id="wpn-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">WPN</span>&mdash; NO LOADOUT &mdash;</div>
-            <div class="cm-panel" id="cm-panel">
-              <div class="cm-title cm-flares-title" id="cm-flares-title"><span class="cm-label">IR Flares</span></div>
-              <div class="cm-flares-body">
-                <div class="cm-big" id="cm-flares-val">&mdash;</div>
-                <div class="cm-flares-icon" id="cm-flares-icon">
-                  <svg class="cm-flares-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-                    <g fill="none" stroke="currentColor" stroke-width="3">
-                      <circle class="flare-dot" cx="12.5" cy="12.5" r="9"/><circle class="flare-dot" cx="37.5" cy="12.5" r="9"/><circle class="flare-dot" cx="62.5" cy="12.5" r="9"/><circle class="flare-dot" cx="87.5" cy="12.5" r="9"/>
-                      <circle class="flare-dot" cx="12.5" cy="37.5" r="9"/><circle class="flare-dot" cx="37.5" cy="37.5" r="9"/><circle class="flare-dot" cx="62.5" cy="37.5" r="9"/><circle class="flare-dot" cx="87.5" cy="37.5" r="9"/>
-                      <circle class="flare-dot" cx="12.5" cy="62.5" r="9"/><circle class="flare-dot" cx="37.5" cy="62.5" r="9"/><circle class="flare-dot" cx="62.5" cy="62.5" r="9"/><circle class="flare-dot" cx="87.5" cy="62.5" r="9"/>
-                      <circle class="flare-dot" cx="12.5" cy="87.5" r="9"/><circle class="flare-dot" cx="37.5" cy="87.5" r="9"/><circle class="flare-dot" cx="62.5" cy="87.5" r="9"/><circle class="flare-dot" cx="87.5" cy="87.5" r="9"/>
-                    </g>
-                  </svg>
-                </div>
-              </div>
-              <div class="cm-sep"></div>
-              <div class="cm-title cm-jammer-title" id="cm-jammer-title"><span class="cm-label">EW Jammer</span></div>
-              <div class="cm-jammer-bar"><div class="cm-bar"><div class="cm-bar-fill" id="cm-bar-fill"></div></div></div>
-              <div class="cm-big" id="cm-jammer-val">&mdash;</div>
-            </div>
-            <div class="page-ind empty" id="wpn-page-ind">PAGE 1/1</div>
-          </div>
+          <!-- WPN content (weapon rows + CM panel) now lives in the #page-frame iframe
+               (web/pages/wpn/), not here. The overlay only carries WPN's nav labels. -->
           <div class="tgp-panel" id="tgp-panel">
             <div class="tgp-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">TGP</span>&mdash; NO LOCK &mdash;</div>
             <img class="tgp-img" id="tgp-img" alt="">
@@ -1322,9 +1095,6 @@ const paneIframes = [document.getElementById('pane-top'), document.getElementByI
 const pageFrame = document.getElementById('page-frame');   // full-view host for migrated pages (WPN)
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
-const wpnPanel  = document.getElementById('wpn-panel');
-const wpnEmptyEl= document.getElementById('wpn-empty');
-const wpnPageInd= document.getElementById('wpn-page-ind');
 const tgpPanel  = document.getElementById('tgp-panel');
 const tgpImg    = document.getElementById('tgp-img');
 // has-feed is driven by the SSE tgpActive flag (mirrored from the map iframe) — MJPEG only
@@ -1348,14 +1118,8 @@ const avnFuelVal  = document.getElementById('avn-fuel-val');
 const avnThrBar   = document.getElementById('avn-thr-bar');
 const avnThrFill  = document.getElementById('avn-thr-fill');
 const avnThrVal   = document.getElementById('avn-thr-val');
-const cmPanel       = document.getElementById('cm-panel');
-const cmFlaresTitle = document.getElementById('cm-flares-title');
-const cmJammerTitle = document.getElementById('cm-jammer-title');
-const cmFlaresVal   = document.getElementById('cm-flares-val');
-const cmJammerVal   = document.getElementById('cm-jammer-val');
-const cmFlaresIcon  = document.getElementById('cm-flares-icon');
-const cmBarFill     = document.getElementById('cm-bar-fill');
-const flareDots     = cmFlaresIcon.querySelectorAll('.flare-dot');
+// (WPN/CM overlay element refs removed — full-view WPN is hosted in #page-frame, which owns
+//  its own weapon rows + CM panel; see web/pages/wpn/.)
 
 // ── Pages ─────────────────────────────────────────────────────────────────────────
 // Which page is in view (MAP, MAIN, WPN…) and the line-select items each page shows.
@@ -1936,13 +1700,7 @@ function renderIndicators() {
 // Latest loadout snapshot mirrored from the map iframe (postMessage). Even when WPN isn't
 // in view we keep it fresh, so opening the page renders immediately without a round-trip.
 let wpnData      = { items: [], selWeapon: null };
-let wpnNamesKey  = null;     // weapon-name signature — only rebuild the DOM when it changes
-let wpnAmmoEls   = [];       // ammo text nodes, aligned with wpnData.items
-let wpnItemEls   = [];       // .wp-item containers, aligned with wpnData.items
-let wpnSelIconWrap = null;   // .wp-sel-icon-wrap holder (right-half big icon)
-let wpnSelIconImg  = null;   // <img> inside the wrap; src tracks wpnData.selWeapon
-let wpnSelIconKey  = null;   // last src we set, so we don't trigger no-op reloads
-let wpnPage = 0;             // 0-indexed page for the weapon list pagination
+let wpnPage = 0;             // 0-indexed page for the weapon list pagination (full-view nav state)
 const WPN_MAX_DISPLAY = 5;   // weapons per page = 5 line-select slots (keys 1..5)
 
 // 0-indexed full-view page (WPN_MAX_DISPLAY per page) holding the selected weapon, or -1 if
@@ -2038,7 +1796,6 @@ function showPage(name) {
   const page = PAGES[name];
   overlayEl.classList.toggle('opaque', page.opaque);
   infoBox.classList.toggle('show', name === 'main');
-  wpnPanel.classList.remove('show');   // full-view WPN is hosted in #page-frame, not this overlay
   screenEl.classList.toggle('page-on', name === 'wpn');
   tgpPanel.classList.toggle('show', name === 'tgp');
   tglPanel.classList.toggle('show', name === 'tgl');
@@ -2550,210 +2307,6 @@ function positionAvnBarValue(barEl, valEl, v) {
   const innerH      = tubeRect.height - 2 * BORDER;   // padding-box height the fill % spans
   const tipY        = fillBottomY - v * innerH;       // viewport y of the fill's top tip
   valEl.style.top = (tipY - barEl.getBoundingClientRect().top) + 'px';
-}
-
-// Render the WPN page from the cached loadout. Each weapon row is absolutely positioned
-// to fill the slot of one line-select key (starting at key[1] — key[0] is the MAIN back
-// button), so the icon stretches to the maximum height available below name + ammo.
-// Rebuilds the DOM (and refetches icons) only when the set of weapons changes; ammo
-// text + selected highlight refresh in place.
-function renderWpn() {
-  // Clear any nav labels from a prior render; we rebuild them below based on wpnPage.
-  overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
-  delete leftKeys [0].dataset.action;
-  delete rightKeys[0].dataset.action;
-
-  const list    = wpnData.items || [];
-  const total   = list.length;
-  const maxPage = Math.max(0, Math.ceil(total / WPN_MAX_DISPLAY) - 1);
-  if (wpnPage > maxPage) wpnPage = maxPage;
-  if (wpnPage < 0)       wpnPage = 0;
-
-  // Bottom-right "PAGE x/y" box — shown only when the loadout spans more than one page.
-  const pages = maxPage + 1;
-  if (pages > 1) {
-    wpnPageInd.textContent = 'PAGE ' + (wpnPage + 1) + '/' + pages;
-    wpnPageInd.classList.remove('empty');
-  } else {
-    wpnPageInd.classList.add('empty');
-  }
-
-  const start   = wpnPage * WPN_MAX_DISPLAY;
-  const trimmed = list.slice(start, start + WPN_MAX_DISPLAY);
-
-  // Nav buttons: MAIN/PREV on left key 0, NEXT on right key 0 when there's overflow.
-  placeOverlayLabel('left', 0, wpnPage > 0 ? 'PREV' : 'MAIN', wpnPage > 0 ? 'wpn-prev' : 'main');
-  if (start + trimmed.length < total) placeOverlayLabel('right', 0, 'NEXT', 'wpn-next');
-
-  if (!trimmed.length) {
-    wpnEmptyEl.style.display = '';
-    if (wpnNamesKey !== '') {
-      wpnNamesKey = ''; wpnAmmoEls = []; wpnItemEls = [];
-      wpnPanel.querySelectorAll('.wp-item').forEach(function(el) { el.remove(); });
-    }
-    if (wpnSelIconWrap) wpnSelIconWrap.classList.remove('show');
-    wpnSelIconKey = null;
-    return;
-  }
-  wpnEmptyEl.style.display = 'none';
-
-  const key = trimmed.map(function(w) { return w.n; }).join('|');
-  if (key !== wpnNamesKey) {
-    wpnNamesKey = key;
-    wpnAmmoEls = [];
-    wpnItemEls = [];
-    wpnPanel.querySelectorAll('.wp-item').forEach(function(el) { el.remove(); });
-    for (const w of trimmed) {
-      const item = document.createElement('div');
-      item.className = 'wp-item';
-
-      const name = document.createElement('div');
-      name.className = 'wp-name';
-      name.textContent = w.n;
-      item.appendChild(name);
-
-      const ammo = document.createElement('div');
-      ammo.className = 'wp-ammo';
-      item.appendChild(ammo);
-      wpnAmmoEls.push(ammo);
-
-      wpnItemEls.push(item);
-      wpnPanel.appendChild(item);
-    }
-  }
-
-  // Lazy-build the big selected-weapon icon on the right half (one image, swapped src
-  // whenever the selected weapon changes). The wrap is reused across rebuilds.
-  if (!wpnSelIconWrap) {
-    wpnSelIconWrap = document.createElement('div');
-    wpnSelIconWrap.className = 'wp-sel-icon-wrap';
-    wpnSelIconImg = document.createElement('img');
-    wpnSelIconImg.className = 'wp-sel-icon';
-    wpnSelIconImg.alt = '';
-    wpnSelIconImg.onerror = function() { wpnSelIconImg.style.visibility = 'hidden'; };
-    wpnSelIconImg.onload  = function() { wpnSelIconImg.style.visibility = ''; };
-    wpnSelIconWrap.appendChild(wpnSelIconImg);
-    wpnPanel.appendChild(wpnSelIconWrap);
-  }
-
-  // Position each row to span between the separators flanking its line-select key.
-  const panelRect = wpnPanel.getBoundingClientRect();
-  for (let i = 0; i < wpnItemEls.length; i++) {
-    const top = sepEls[i + 1].getBoundingClientRect();
-    const bot = sepEls[i + 2].getBoundingClientRect();
-    wpnItemEls[i].style.top    = (top.bottom - panelRect.top) + 'px';
-    wpnItemEls[i].style.height = (bot.top - top.bottom) + 'px';
-  }
-
-  // Position the big icon over the full vertical span of the side keys (sep[1] just
-  // below key 0 → sep[last] just above the bottom strip). Always spans the whole keys-1..5
-  // area regardless of how many weapons the player actually has, so the icon gets all the
-  // available height even when only a few rows are populated. +20/-40 = 20px outer margin
-  // top + bottom (mirrors the 10px horizontal outer margin on the wrap but with extra
-  // breathing room above and below the bordered box).
-  if (sepEls.length >= 3) {
-    const topRect = sepEls[1].getBoundingClientRect();
-    const botRect = sepEls[sepEls.length - 1].getBoundingClientRect();
-    wpnSelIconWrap.style.top    = (topRect.bottom - panelRect.top + 20) + 'px';
-    wpnSelIconWrap.style.height = (botRect.top - topRect.bottom - 40) + 'px';
-  }
-
-  // Refresh ammo text + selected/depleted highlights in place (cheap, no DOM rebuild).
-  for (let i = 0; i < trimmed.length && i < wpnAmmoEls.length; i++) {
-    const w = trimmed[i];
-    wpnAmmoEls[i].innerHTML = (w.f > 0) ? ('<span>' + w.a + '</span> / ' + w.f) : '';
-    wpnItemEls[i].classList.toggle('sel',   w.n === wpnData.selWeapon);
-    wpnItemEls[i].classList.toggle('empty', w.f > 0 && w.a === 0);
-  }
-
-  // Update the right-side icon src when the selection changes (no-op if same).
-  const sel = wpnData.selWeapon;
-  if (sel) {
-    if (sel !== wpnSelIconKey) {
-      wpnSelIconKey = sel;
-      wpnSelIconImg.style.visibility = '';            // un-hide before the new load resolves
-      wpnSelIconImg.src = '/weapon?name=' + encodeURIComponent(sel);
-    }
-    wpnSelIconWrap.classList.add('show');
-  } else {
-    wpnSelIconWrap.classList.remove('show');
-    wpnSelIconKey = null;
-  }
-}
-
-// Renders the countermeasures panel: positions it in key[0]'s slot and refreshes the
-// flares count, capacitor bar, and EW kJ text.
-function renderCm() {
-  // Position: top = bottom of sep[0] (above key[0]), height = top of sep[1] (below key[0]).
-  if (sepEls.length >= 2) {
-    const sep0 = sepEls[0].getBoundingClientRect();
-    const sep1 = sepEls[1].getBoundingClientRect();
-    const panelRect = wpnPanel.getBoundingClientRect();
-    cmPanel.style.top    = (sep0.bottom - panelRect.top) + 'px';
-    cmPanel.style.height = (sep1.top - sep0.bottom) + 'px';
-  }
-
-  cmFlaresVal.textContent = (cmData.flares >= 0) ? cmData.flares : '—';
-  // Split the kJ readout into two spans so the gap between number and unit stays at a
-  // fixed pixel value (set via the flex gap on #cm-jammer-val), independent of font size.
-  if (cmData.ewKJ >= 0) {
-    cmJammerVal.innerHTML = '<span>' + Math.round(cmData.ewKJ) + '</span><span>kJ</span>';
-  } else {
-    cmJammerVal.textContent = '—';
-  }
-
-  const pct = (cmData.ewKJMax > 0 && cmData.ewKJ >= 0)
-            ? Math.max(0, Math.min(1, cmData.ewKJ / cmData.ewKJMax))
-            : 0;
-  cmBarFill.style.width = (pct * 100) + '%';
-
-  // Selection + depletion highlights (mirror the weapon-row treatment).
-  const flaresEmpty = cmData.flaresMax > 0 && cmData.flares === 0;
-  const jammerEmpty = cmData.ewKJMax  > 0 && cmData.ewKJ   === 0;
-  cmFlaresTitle.classList.toggle('sel',   cmData.cmCat === 1);
-  cmFlaresTitle.classList.toggle('empty', flaresEmpty);
-  cmFlaresVal  .classList.toggle('empty', flaresEmpty);
-  cmFlaresIcon .classList.toggle('empty', flaresEmpty);
-
-  // Mute the first N dots to visualise spent flares (1 dot = 1/16th of flaresMax).
-  // When fully depleted, leave all dots hollow — the .empty state already reds out the icon.
-  const knowFlares = !flaresEmpty && cmData.flaresMax > 0 && cmData.flares >= 0;
-  const spentDots  = knowFlares
-    ? Math.floor((cmData.flaresMax - cmData.flares) * flareDots.length / cmData.flaresMax)
-    : 0;
-  flareDots.forEach(function(d, i) { d.classList.toggle('spent', i < spentDots); });
-  cmJammerTitle.classList.toggle('sel',   cmData.cmCat === 2);
-  cmJammerTitle.classList.toggle('empty', jammerEmpty);
-  cmJammerVal  .classList.toggle('empty', jammerEmpty);
-
-  // Size the big readouts + IR icon. Grid rows are auto-sized (no 1fr), so cells no
-  // longer stretch — derive a target glyph height from the slot height directly. This
-  // keeps the title/value/bar visually clustered instead of spread across the slot.
-  // Grid is `1fr 1px 1fr` with 14px column-gap, so each column track is:
-  const colW = Math.max(0, (cmPanel.clientWidth - 1 - 14 * 2) / 2);
-  const slotH = cmPanel.getBoundingClientRect().height;
-  const targetH = slotH * 0.55;
-  const iconSize = Math.max(0, Math.min(targetH, colW * 0.5));
-  cmFlaresIcon.style.width  = iconSize + 'px';
-  cmFlaresIcon.style.height = iconSize + 'px';
-  function fitText(el, maxH, maxW) {
-    if (maxH < 4 || maxW < 4) return;
-    let size = Math.floor(maxH * 0.8);
-    el.style.fontSize = size + 'px';
-    const w = el.scrollWidth;
-    if (w > maxW && w > 0) {
-      size = Math.max(8, Math.floor(size * maxW / w));
-      el.style.fontSize = size + 'px';
-    }
-  }
-  const flaresUsableW = Math.max(0, colW - iconSize - 10);  // 10 = CSS gap
-  fitText(cmFlaresVal, targetH, flaresUsableW);
-  fitText(cmJammerVal, targetH, colW);
-
-  // Match the capacitor bar's width to the kJ readout so they read as one grouped unit.
-  // Measured after fitTextHeight so the readout's font is already at its final size.
-  const cmBarEl = cmBarFill.parentElement;
-  cmBarEl.style.width = Math.ceil(cmJammerVal.getBoundingClientRect().width) + 'px';
 }
 
 // Renders the TGL page from the cached target list. Each page shows up to TGL_MAX_DISPLAY
