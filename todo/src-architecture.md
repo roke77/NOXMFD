@@ -1,9 +1,11 @@
 # src/ web-frontend architecture — design & refactor plan
 
-Status: **in progress** — steps 1–3 done (resource plumbing, shared font/theme, and
-**WPN fully migrated** as the proof page: one file, two layout profiles, full view hosted
-in an iframe, overlay deleted). Steps 4–7 remain (roll to the other pages, starting with
-TGL + the softkey contract; then the shell + MAP; then shared JS + the preview rework).
+Status: **in progress** — steps 1–3 done, **step 4 underway (TGL migrated)**. Resource
+plumbing, shared font/theme, **WPN** as the proof page, then **TGL** — one file, two layout
+profiles, full view hosted in an iframe, overlay deleted, and the **declarative softkey
+contract** introduced on TGL (full view; split deselect still on the legacy binding).
+Remaining: step 4's TGP/AVN/RWR/MAIN; then the shell + MAP (step 5); then shared JS (step 6)
++ the preview rework (step 7).
 
 ## Goal
 
@@ -171,9 +173,13 @@ The DLL keeps building and the UI keeps working after every step.
    shell-owned because pagination is shell state. The softkey contract arrives with TGL
    (step 4), which has per-target (deselect) keys. Verified in a shell harness over http.
 4. **Roll the pattern to TGL, TGP, AVN, RWR, MAIN.** Each: file split (into `web/pages/<x>/`),
-   drop the overlay, host full-view in `#page-frame`. **TGL introduces the declarative
-   softkey contract** (page emits `{side,slot,label,action,data}`; shell maps `slot+paneOffset`),
-   bringing `target.deselect` onto it and removing its current double-binding.
+   drop the overlay, host full-view in `#page-frame`. **TGL: DONE** —
+   `web/pages/tgl/{tgl.html,tgl.css,tgl.js}`, overlay + `renderTgl` deleted, and the
+   **declarative softkey contract** landed (page emits `{side,slot,label,
+   action:'target.deselect',data:{id}}`; shell `applyFrameSoftkeys` maps `slot+paneOffset`).
+   **Caveat:** full view uses the contract; **split-mode deselect still rides the legacy
+   `renderSplitLabels` hand-binding** (`mfdButton`'s `tgl-deselect` case) — folding split onto
+   the contract is the remaining contract work. **TGP, AVN, RWR, MAIN still to do.**
 5. **Convert the shell itself** (`MfdPage.cs` → `web/shell/mfd.*`) and **MAP**
    (`ClientPage.cs` → `web/pages/map.*`) once the page pattern is proven.
 6. **Extract shared JS** (`sse-client`, `mfd-protocol`, `sendCommand`) and
@@ -192,18 +198,19 @@ web/
   shared/  font.css  theme.css  share-tech-mono.woff2   # font.css → /assets/shared/...woff2
   pages/
     wpn/   wpn.html  wpn.css  wpn.js                     # DONE: one file, two profiles
+    tgl/   tgl.html  tgl.css  tgl.js                     # DONE: + declarative softkey contract
 src/
   TelemetryServer.cs   # ServeAsset (/assets/ route) + ServeAssetRel(ctx,"pages/x/x.html");
                        #   per-page routes (e.g. /wpn) call ServeAssetRel. /assets suffix-matches
                        #   the embedded-resource manifest "<RootNamespace>.web.<dotted path>".
   MfdPage.cs           # the shell (still a const-string blob). Hosts pages; see hooks below.
   ClientPage.cs        # MAP page (/map-view) — still a blob; migrate in step 5.
-  {Avn,Tgp,Tgl,Rwr,Main}Page.cs   # still blobs (split-only bare pages) + overlay twins in MfdPage
+  {Avn,Tgp,Rwr,Main}Page.cs   # still blobs (split-only bare pages) + overlay twins in MfdPage
 NOXMFD.csproj          # <EmbeddedResource Include="web\**\*" />
 .gitattributes         # *.woff2/png/jpg = binary (don't let git mangle EOLs)
 ```
 
-### The per-page migration recipe (what WPN did — repeat for TGL, TGP, AVN, RWR, MAIN)
+### The per-page migration recipe (what WPN + TGL did — repeat for TGP, AVN, RWR, MAIN)
 1. **Move the bare page** `XxxPage.cs` → `web/pages/xxx/{xxx.html,xxx.css,xxx.js}`. Link
    `/assets/shared/font.css` + `theme.css` (kills that page's inline font copy). Point its
    route in `TelemetryServer` at `ServeAssetRel(ctx,"pages/xxx/xxx.html")`; delete the `.cs`.
@@ -245,15 +252,16 @@ Shell → page (data **down**): `'<page>'` (the sliced rows + selection), `'<pag
 `'orient'`. Page → shell (**up**, only where needed): the `'softkeys'` contract (section B).
 A page is a pure reactive renderer: it renders to its own container and never knows full-vs-split.
 
-### TGL next (step 4) — it introduces the softkey contract
-TGL's full overlay (`renderTgl` in `MfdPage.cs`) binds `tgl-deselect` on the bezel key beside
-each listed target; split (`renderSplitLabels`) binds it again — the double-binding section B
-removes. Plan: the TGL page emits per-target softkeys `{side, slot, label, action:'target.deselect',
-data:{id}}`; the shell maps `slot+paneOffset`→physical key, places the label, and on click
-dispatches (the shell already owns `sendCommand('target.deselect',{id})`). **Watch the slot
-range:** split panes use slots 0–2/side (+`paneOffset` 0/3); full view has 6 keys/side (nav on
-0, targets on 1–5). The page learns which via the `layout` field, same as WPN. `target.select`
-(MAP tap) and `target.deselect` live in `todo/write-command-channel.md` + `CommandDispatcher.cs`.
+### The softkey contract (landed on TGL — reference for the remaining pages)
+**DONE on TGL.** The TGL page emits per-target softkeys `{side, slot, label, action:'target.deselect',
+data:{id}}`; the shell's `applyFrameSoftkeys` maps `slot+paneOffset`→physical key, places the
+label, and `mfdButton`'s `target.deselect` case dispatches (the shell owns
+`sendCommand('target.deselect',{id})`). **Slot range:** the page emits a pane-local **1-based**
+row slot; full view maps 1:1 (`paneOffset 0`, row keys 1–5/side; nav on slot 0 stays shell-owned).
+**Remaining contract work:** split-mode deselect is **not** on the contract yet — `renderSplitLabels`
+still hand-binds `tgl-deselect` (the shell ignores emitted softkeys when `splitMode`). Fold split
+onto this path when convenient. `target.select` (MAP tap) and `target.deselect` live in
+`todo/write-command-channel.md` + `CommandDispatcher.cs`.
 
 ### Verifying without the game (critical — the C# build does NOT check the JS)
 `dotnet build` only validates the C# **raw-string-literal integrity** (an accidental `"""` or
@@ -261,11 +269,11 @@ broken literal fails it); it never parses the embedded JS/CSS. So **always verif
 a browser**. The proven loop, no game required:
 1. Edit `web/pages/...` and/or `MfdPage.cs` → `dotnet build` (catches literal breakage).
 2. `python tools/build_preview.py` → regenerates `preview/index.html` from the edited shell.
-3. Run a **shell harness over http** (a scratchpad `serve_web.py`): serves `preview/index.html`
-   at `/`, `/wpn`→`web/pages/wpn/wpn.html`, `/assets/*`→`web/*`, `/weapon?…`→a mock SVG, and
-   everything else from `preview/` (so `map-view.html` etc. + the injected `preview-mock.js`
-   resolve). `preview-mock.js` supplies a 6-weapon loadout + CM, so the shell drives the frame
-   end-to-end.
+3. Run the **shell harness over http** (`tools/serve_web.py`, or launch.json config `hud-web`):
+   serves `preview/index.html` at `/`, `/<page>`→`web/pages/<page>/<page>.html` (any migrated
+   page), `/assets/*`→`web/*`, `/weapon?…`→a mock SVG, and everything else from `preview/` (so
+   `map-view.html` etc. + the injected `preview-mock.js` resolve). `preview-mock.js` supplies a
+   6-weapon loadout + CM + target list (with ids), so the shell drives the frame end-to-end.
 4. Drive it with the Preview MCP: `preview_eval` `window.location.href='http://127.0.0.1:<port>/'`,
    click a bezel key (`[...document.querySelectorAll('.key')].find(k=>k.dataset.action==='wpn').click()`),
    then probe `#page-frame.contentDocument`. **Gotchas:** `preview_screenshot` reliably times
