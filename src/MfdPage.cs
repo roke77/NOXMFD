@@ -1545,6 +1545,14 @@ function renderSplitLabels() {
                  label:  sl.hasPrev ? 'PREV' : 'MAIN',
                  action: sl.hasPrev ? 'tgl-prev' : 'main' }];
       if (sl.hasNext) items.push({ side: 'right', slot: 0, label: 'NEXT', action: 'tgl-next' });
+      // Bind each visible target's flanking bezel key to deselect it. Fill order matches
+      // forwardTglLayoutToPanes: L1, L2, R1, R2 (slots 1,2 on each side within this pane).
+      sl.items.forEach(function(t, i) {
+        if (t.id == null) return;
+        const side = i < 2 ? 'left' : 'right';
+        const key  = keyBanks[side][paneOffset + (i < 2 ? i + 1 : i - 1)];   // 0→L1,1→L2,2→R1,3→R2
+        if (key) { key.dataset.action = 'tgl-deselect'; key.dataset.id = t.id; key.dataset.pane = paneTag; }
+      });
     } else {
       items = def.items;
     }
@@ -2997,6 +3005,9 @@ function mfdButton(el) {
     } else if (act === 'flw' || act === 'zin' || act === 'zout') {
       // MAP controls act on the pane's own map iframe — they don't navigate it away.
       paneMapSend(paneIdx, act === 'flw' ? 'toggle-follow' : act === 'zin' ? 'zoom-in' : 'zoom-out');
+    } else if (act === 'tgl-deselect') {
+      // A TGL pane's target key drops that target — same command as full view, no navigation.
+      if (el.dataset.id) sendCommand('target.deselect', { id: +el.dataset.id });
     } else {
       paneNavigate(paneIdx, act);
     }

@@ -123,7 +123,7 @@ at 0, so commands parsed but did nothing). Flat side-steps that entirely.
 | Command | Game API | Notes |
 |---|---|---|
 | `target.select { id }` | `CombatHUD.SelectUnit` | **DONE** (POC) — MAP tap |
-| `target.deselect { id }` | `CombatHUD.DeSelectUnit` | **DONE** — TGL page bezel key beside a target (full MFD view; split mode TBD) |
+| `target.deselect { id }` | `CombatHUD.DeSelectUnit` | **DONE** — TGL page bezel key beside a target (full view + split mode) |
 | `target.clear` | `CombatHUD.DeselectAll(true)` | clears all targets, with audio |
 | `target.deselectLast` | `CombatHUD.DeselectLast` | drops most-recent target |
 | `weapon.next` / `weapon.prev` | `WeaponManager.NextWeaponStation` / `Previous…` | cycle stations |
