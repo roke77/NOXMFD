@@ -1,6 +1,12 @@
-// WPN page (split/compact profile) — a pure reactive renderer driven by the shell over
-// postMessage. Transcribed verbatim from the former WpnPage.cs <script>. See wpn.html for
-// the message contract (wpn / wpn-layout / cm / orient).
+// WPN page — a pure reactive renderer driven by the shell over postMessage. Two layout
+// profiles share this one file:
+//   compact : split-pane / half-height. Weapons in 4 corners (L1,L2,R1,R2), no weapon image.
+//             Positioned by the forwarded slotYs (vertical centres). The default.
+//   full    : single full-screen iframe. Weapons as one left column spanning each line-select
+//             key (slot top+height forwarded as `slots`), with a big selected-weapon image on
+//             the right ~45% (geometry forwarded as `iconTop`/`iconHeight`). Enabled by
+//             layout:'full' in the wpn-layout message (adds body.full).
+// See wpn.html for the message contract (wpn / wpn-layout / cm / orient).
 
 // ── DOM refs ───────────────────────────────────────────────────────────────────────
 const wpnPanel    = document.getElementById('wpn-panel');
@@ -13,21 +19,31 @@ const cmFlaresIcon  = document.getElementById('cm-flares-icon');
 const cmBarFill     = document.getElementById('cm-bar-fill');
 const flareDots     = Array.prototype.slice.call(document.querySelectorAll('.flare-dot'));
 const pageInd       = document.getElementById('page-ind');
+const wpSelIconWrap = document.getElementById('wp-sel-icon-wrap');
+const wpSelIconImg  = document.getElementById('wp-sel-icon');
 
 // ── State ──────────────────────────────────────────────────────────────────────────
-// wpnData.items is already the shell-sliced page (<= 4 weapons); this page never paginates.
-// slotYs[i] is the pane-local vertical centre for weapon slot i, fill order L1, L2, R1, R2.
-// side(i) = 'left' for i < 2, else 'right'. cmBand = {top, height} of the first key band.
+// wpnData.items is already the shell-sliced page; this page never paginates.
+// compact: slotYs[i] = pane-local vertical centre, fill order L1,L2,R1,R2; side(i)='left' i<2.
+// full:    fullSlots[i] = {top,height} of weapon slot i down the left column (L1..L5);
+//          iconArea = {top,height} of the right-half weapon-image box.
+// cmBand = {top,height} of the first key band (both profiles).
 let wpnData = { items: [], selWeapon: null };
 let cmData  = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
+let layout  = 'compact';
 let slotYs  = null;
+let fullSlots = null;
+let iconArea  = null;
 let cmBand  = null;
-let wpnNamesKey = '';
+let wpnKey  = '';            // layout + names; rebuild rows when either changes
 let wpnItemEls  = [];
+let wpSelIconKey = null;     // last weapon name pushed to the image src
+
+const isFull = function() { return layout === 'full'; };
 
 function slotSide(i) { return i < 2 ? 'left' : 'right'; }
-// Fallback positions used until the shell forwards real geometry. The weapon keys flanking a
-// pane (skipping the top band) sit at ~1/2 and ~5/6 of pane height; slot order L1, L2, R1, R2.
+// Compact fallback positions used until the shell forwards real geometry. The weapon keys
+// flanking a pane (skipping the top band) sit at ~1/2 and ~5/6 of pane height; L1,L2,R1,R2.
 function fallbackY(i) {
   const h = window.innerHeight;
   return h * [0.5, 0.833, 0.5, 0.833][i];
@@ -43,10 +59,18 @@ function applyCmBand() {
   }
 }
 
+// Position the full-profile weapon-image box over the keys-1..5 span (full view only).
+function applyIconArea() {
+  if (iconArea && typeof iconArea.top === 'number') {
+    wpSelIconWrap.style.top    = iconArea.top + 'px';
+    wpSelIconWrap.style.height = Math.max(0, iconArea.height) + 'px';
+  }
+}
+
 // Size the big readouts + IR icon to the band height so the count/kJ read big and stay
-// clustered — mirrors single-pane WPN's renderCm. Grid rows are auto-sized (no 1fr), so the
-// glyph height is derived from the slot directly. Only runs once the band height is known
-// (set by applyCmBand) to avoid a font-size/height feedback loop on the auto-height fallback.
+// clustered. Grid rows are auto-sized (no 1fr), so the glyph height is derived from the slot
+// directly. Only runs once the band height is known (set by applyCmBand) to avoid a
+// font-size/height feedback loop on the auto-height fallback.
 function sizeCm() {
   if (!cmPanel.style.height) return;
   // Columns: `1fr 1px 1fr` with 14px column-gap, so each column track is:
@@ -74,19 +98,33 @@ function sizeCm() {
   cmBarFill.parentElement.style.width = Math.ceil(cmJammerVal.getBoundingClientRect().width) + 'px';
 }
 
+// Place weapon row i: compact pins its vertical centre to slotY(i); full spans the
+// forwarded slot rectangle (top+height) so the row fills its line-select key band.
+function positionRow(i, el) {
+  if (isFull()) {
+    const s = (fullSlots && fullSlots[i]) || null;
+    if (s) { el.style.top = s.top + 'px'; el.style.height = Math.max(0, s.height) + 'px'; }
+  } else {
+    el.style.top = slotY(i) + 'px';
+    el.style.height = '';
+  }
+}
+
 // ── Weapon list renderer ─────────────────────────────────────────────────────────────
 function renderWpn() {
   const list = wpnData.items || [];
   wpnPanel.classList.toggle('has-loadout', list.length > 0);
 
-  const key = list.map(function(w) { return w.n; }).join('|');
-  if (key !== wpnNamesKey) {
-    wpnNamesKey = key;
+  // Rebuild rows when the layout profile or the name list changes (the side class differs
+  // between profiles, so a profile flip must rebuild even if the names are identical).
+  const key = layout + '||' + list.map(function(w) { return w.n; }).join('|');
+  if (key !== wpnKey) {
+    wpnKey = key;
     wpnItemEls = [];
     wpnPanel.querySelectorAll('.wp-item').forEach(function(el) { el.remove(); });
     list.forEach(function(w, i) {
       const item = document.createElement('div');
-      item.className = 'wp-item ' + slotSide(i);
+      item.className = isFull() ? 'wp-item' : ('wp-item ' + slotSide(i));
       const name = document.createElement('div');
       name.className = 'wp-name';
       name.textContent = w.n;
@@ -102,19 +140,40 @@ function renderWpn() {
   for (let i = 0; i < list.length && i < wpnItemEls.length; i++) {
     const w = list[i];
     const el = wpnItemEls[i];
-    el.item.style.top = slotY(i) + 'px';
+    positionRow(i, el.item);
     el.ammo.innerHTML = (w.f > 0) ? ('<span>' + w.a + '</span> / ' + w.f) : '';
     el.item.classList.toggle('sel',   w.n === wpnData.selWeapon);
     el.item.classList.toggle('empty', w.f > 0 && w.a === 0);
   }
+
+  renderSelIcon();
 }
+
+// Full-profile only: the big image of the selected weapon on the right half. Swaps src only
+// when the selection changes; hidden in compact and whenever nothing is selected.
+function renderSelIcon() {
+  const sel = wpnData.selWeapon;
+  if (isFull() && sel && (wpnData.items || []).length) {
+    if (sel !== wpSelIconKey) {
+      wpSelIconKey = sel;
+      wpSelIconImg.style.visibility = '';
+      wpSelIconImg.src = '/weapon?name=' + encodeURIComponent(sel);
+    }
+    wpSelIconWrap.classList.add('show');
+  } else {
+    wpSelIconWrap.classList.remove('show');
+    wpSelIconKey = null;
+  }
+}
+wpSelIconImg.onerror = function() { wpSelIconImg.style.visibility = 'hidden'; };
+wpSelIconImg.onload  = function() { wpSelIconImg.style.visibility = ''; };
 
 function repositionRows() {
-  for (let i = 0; i < wpnItemEls.length; i++) wpnItemEls[i].item.style.top = slotY(i) + 'px';
+  for (let i = 0; i < wpnItemEls.length; i++) positionRow(i, wpnItemEls[i].item);
 }
 
-// Bottom-right "PAGE x/y" box. Hidden unless the loadout spans more than one page (> 4
-// weapons) — a single-page loadout has nowhere to navigate, so no indicator is shown.
+// Bottom-right "PAGE x/y" box. Hidden unless the loadout spans more than one page — a
+// single-page loadout has nowhere to navigate, so no indicator is shown.
 function updatePageInd(page, pages) {
   if (pages > 1) {
     pageInd.textContent = 'PAGE ' + page + '/' + pages;
@@ -157,7 +216,7 @@ function renderCm() {
   sizeCm();   // re-fit the readouts now that their text content has changed
 }
 
-// ── Shell → pane forwarding ────────────────────────────────────────────────────────
+// ── Shell → page forwarding ────────────────────────────────────────────────────────
 window.addEventListener('message', function(e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
@@ -166,10 +225,15 @@ window.addEventListener('message', function(e) {
     updatePageInd(typeof m.page === 'number' ? m.page : 1, typeof m.pages === 'number' ? m.pages : 1);
     renderWpn();
   } else if (m.type === 'wpn-layout') {
-    slotYs = Array.isArray(m.slotYs) ? m.slotYs : null;
-    cmBand = (typeof m.cmTop === 'number') ? { top: m.cmTop, height: m.cmHeight } : null;
+    layout = (m.layout === 'full') ? 'full' : 'compact';
+    document.body.classList.toggle('full', isFull());
+    slotYs    = Array.isArray(m.slotYs) ? m.slotYs : null;
+    fullSlots = Array.isArray(m.slots)  ? m.slots  : null;
+    iconArea  = (typeof m.iconTop === 'number') ? { top: m.iconTop, height: m.iconHeight } : null;
+    cmBand    = (typeof m.cmTop  === 'number') ? { top: m.cmTop,  height: m.cmHeight } : null;
     applyCmBand();
-    repositionRows();
+    applyIconArea();
+    renderWpn();   // re-render: a profile flip changes row classes + the image
   } else if (m.type === 'cm') {
     cmData = {
       flares:    typeof m.flares    === 'number' ? m.flares    : -1,
@@ -185,7 +249,7 @@ window.addEventListener('message', function(e) {
   }
 });
 
-window.addEventListener('resize', function() { repositionRows(); sizeCm(); });
+window.addEventListener('resize', function() { repositionRows(); applyIconArea(); sizeCm(); });
 
 renderWpn();   // initial empty-state paint
 renderCm();

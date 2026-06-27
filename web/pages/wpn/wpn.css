@@ -142,3 +142,57 @@
   user-select: none;
 }
 #page-ind.empty { display: none; }
+
+/* ── Full-screen profile ──────────────────────────────────────────────────────────────
+   Used when the shell hosts WPN as a single iframe filling the whole screen recess (full
+   view). Weapons run as one left column spanning each line-select key (slot top+height
+   forwarded by the shell); the right ~45% shows a big image of the selected weapon. The
+   shell sets layout:'full' in the wpn-layout message, which adds body.full. These rules
+   override the compact base by specificity; compact (no .full class) is unaffected.
+   Transcribed from the former MfdPage.cs full-view WPN <style>. */
+body.full .wp-item {
+  left: 90px;                      /* clear the left line-select label gutter */
+  right: calc(45% + 10px);         /* name list takes the left 55%; image the right 45% */
+  transform: none;                 /* full positions by top+height span, not centre */
+  flex-direction: column;
+  justify-content: center;
+  padding: 4px 0;
+  box-sizing: border-box;
+  min-height: 0;
+  max-width: none;
+}
+body.full .wp-name { align-self: flex-start; max-width: 100%; font-size: 28px; }
+body.full .wp-ammo { font-size: 20px; margin-top: 2px; }
+body.full.portrait .wp-item { left: 18px; }
+
+/* Big icon of the currently-selected weapon, right ~45%, spanning the keys-1..5 area
+   (top+height set by JS from the forwarded icon geometry). Source icons are 2:1 horizontal;
+   rotate 90deg in portrait so the long axis runs vertically and object-fit:contain fills the
+   tall right half (cqh/cqw axis-swap pairs with the rotate). */
+.wp-sel-icon-wrap {
+  position: absolute;
+  left: 55%; right: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  overflow: hidden;
+  padding: 10px;
+  box-sizing: border-box;
+  container-type: size;
+}
+body.full .wp-sel-icon-wrap.show { display: flex; }
+.wp-sel-icon {
+  display: block;
+  width: 100cqh;
+  height: 100cqw;
+  object-fit: contain;
+  transform: rotate(90deg);
+}
+body.landscape .wp-sel-icon { width: 100cqw; height: 100cqh; transform: none; }
+
+/* CM panel: full view gives it a touch more width and a fixed heading size (matching the
+   weapon-name weight) versus the compact pane's clamp. Position (top/height) is still set
+   by JS from the forwarded CM band. */
+body.full .cm-panel { width: 60%; max-width: 520px; }
+body.full .cm-title { font-size: 18px; }
