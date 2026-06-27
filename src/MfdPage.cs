@@ -321,7 +321,6 @@ namespace NOXMFD
   .screen.split > .overlay { background: transparent !important; }
   .screen.split > .overlay > .info-box,
   .screen.split > .overlay > .tgp-panel,
-  .screen.split > .overlay > .tgl-panel,
   .screen.split > .overlay > .rwr-panel,
   .screen.split > .overlay > .avn-panel { display: none !important; }
   .split-pane {
@@ -469,22 +468,8 @@ namespace NOXMFD
     transition: width 60ms linear;
   }
 
-  /* Bottom-right page indicator for the full-view TGL page (e.g. "PAGE 1/2") — same boxed
-     style as the map's GRID box and the split panes' indicators. Multi-page lists only.
-     (WPN's content + indicator now live in the #page-frame iframe, web/pages/wpn/.) */
-  .tgl-panel .page-ind {
-    position: absolute;
-    bottom: 10px; right: 12px;
-    background: rgba(6,10,6,0.78);
-    border: 1px solid #1a3a1a;
-    padding: 5px 9px;
-    font-size: 11px;
-    letter-spacing: 1px;
-    color: #4aaa4a;
-    pointer-events: none;
-    user-select: none;
-  }
-  .tgl-panel .page-ind.empty { display: none; }
+  /* (WPN's + TGL's content and page indicators now live in the #page-frame iframe —
+     web/pages/wpn/ and web/pages/tgl/ — not in any overlay panel here.) */
 
   /* TGP page — fills the screen with the live MJPEG feed from the player's targeting cam.
      The empty placeholder mirrors the .wpn-empty style so it reads the same as the WPN
@@ -852,50 +837,8 @@ namespace NOXMFD
     pointer-events: none;
   }
 
-  /* TGL page — target list. Rows are positioned over the left & right key columns by JS. */
-  .tgl-panel {
-    position: absolute;
-    inset: 0;
-    display: none;
-    color: #39ff14;
-    font-family: 'Share Tech Mono', 'Courier New', monospace;
-  }
-  .tgl-panel.show { display: block; }
-  .tgl-empty {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    color: #1a4a1a;
-    font-size: 22px;
-    letter-spacing: 3px;
-    pointer-events: none;
-  }
-  .tgl-panel.has-targets .tgl-empty { display: none; }
-  .tg-item {
-    position: absolute;
-    padding: 2px 6px;
-    line-height: 1.15;
-    overflow: hidden;
-    pointer-events: none;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-  .tg-item.left  { left: 0;  text-align: left;  align-items: flex-start; }
-  .tg-item.right { right: 0; text-align: right; align-items: flex-end;   }
-  /* Per-row faction palette via CSS variables. Default = enemy (red — matches the
-     factionColors[2] used on the map). Friendly / neutral classes override; name takes
-     the bright tone, GRID/RNG the dim tone. */
-  .tg-item              { --tg-name: #ff4040; --tg-meta: #8a2828; }
-  .tg-item.f-friendly   { --tg-name: #4da6ff; --tg-meta: #2a5a8a; }
-  .tg-item.f-neutral    { --tg-name: #ffffff; --tg-meta: #888888; }
-  /* Font sizes are set inline by renderTgl() so the row fills its slot height; the name
-     ends up 5/3 the meta size (i.e. "2/3 bigger"). Line-height is tight so the two lines
-     reach the slot's top and bottom. */
-  .tg-name { font-weight: bold; white-space: nowrap; line-height: 1.0; color: var(--tg-name); }
-  /* GRID and RNG are stacked below the name and dimmed to de-emphasise vs the bright name. */
-  .tg-grid,
-  .tg-rng  { white-space: nowrap; line-height: 1.0; color: var(--tg-meta); }
+  /* (TGL page — target list — now renders in the #page-frame iframe, web/pages/tgl/, in both
+     full and split views. Its panel/row/faction CSS moved there.) */
 
   /* Decorative Phillips-head corner screws. The artwork is a photo of a real screw (white
      background knocked out to transparency), embedded as a base64 data URI so it ships with
@@ -975,10 +918,8 @@ namespace NOXMFD
             <div class="tgp-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">TGP</span>&mdash; NO LOCK &mdash;</div>
             <img class="tgp-img" id="tgp-img" alt="">
           </div>
-          <div class="tgl-panel" id="tgl-panel">
-            <div class="tgl-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">TGL</span>&mdash; NO TARGETS &mdash;</div>
-            <div class="page-ind empty" id="tgl-page-ind">PAGE 1/1</div>
-          </div>
+          <!-- TGL content (target rows + indicator) now lives in the #page-frame iframe
+               (web/pages/tgl/), not here. The overlay only carries TGL's nav labels. -->
           <div class="avn-panel" id="avn-panel">
             <div class="avn-name" id="avn-name"></div>
             <div class="avn-frame" id="avn-frame">
@@ -1092,7 +1033,10 @@ const overlayEl = document.getElementById('overlay');
 const mapFrame  = document.querySelector('.screen > iframe[title="map"]');
 const screenEl  = document.getElementById('screen');
 const paneIframes = [document.getElementById('pane-top'), document.getElementById('pane-bot')];
-const pageFrame = document.getElementById('page-frame');   // full-view host for migrated pages (WPN)
+const pageFrame = document.getElementById('page-frame');   // full-view host for migrated pages (WPN, TGL)
+// Pages that render in #page-frame in full view (migrated out of overlay renderers). Maps the
+// page name to its bare URL; showPage switches the frame's src as you move between them.
+const FRAME_PAGES = { wpn: '/wpn', tgl: '/tgl' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 const tgpPanel  = document.getElementById('tgp-panel');
@@ -1102,9 +1046,6 @@ const tgpImg    = document.getElementById('tgp-img');
 // covers the hard case where the MJPEG connection breaks outright.
 tgpImg.addEventListener('error', function() { tgpPanel.classList.remove('has-feed'); });
 const sepEls      = document.querySelectorAll('#keys-left .sep');   // 0 = above key[0], i+1 = below key[i]
-const rightSepEls = document.querySelectorAll('#keys-right .sep');  // same indexing, right column
-const tglPanel    = document.getElementById('tgl-panel');
-const tglPageInd  = document.getElementById('tgl-page-ind');
 const avnPanel    = document.getElementById('avn-panel');
 const rwrPanel    = document.getElementById('rwr-panel');
 const avnNameEl   = document.getElementById('avn-name');
@@ -1161,9 +1102,10 @@ const PAGES = {
     ],
   },
   tgl: {
-    opaque: true,
-    // No static items: renderTgl() owns left-key-0 (MAIN on page 0, PREV after)
-    // and right-key-0 (NEXT when overflow), since both depend on the live page state.
+    // Hosted in #page-frame (the migrated web/pages/tgl page), not the overlay — so the overlay
+    // stays transparent and only carries the nav labels + the deselect softkeys the page emits.
+    // placeTglNavLabels() owns left-key-0 (MAIN/PREV) and right-key-0 (NEXT when overflow).
+    opaque: false,
     items: [],
   },
   avn: {
@@ -1497,6 +1439,12 @@ function forwardWpnLayoutToPanes() {
 // full-screen geometry (5 left-column slots + the right-half image area + the CM band) from
 // the bezel separators, and slice the loadout to the full-view page (WPN_MAX_DISPLAY, wpnPage).
 function frameWin() { return pageFrame && pageFrame.contentWindow; }
+// Point #page-frame at a migrated page, switching its src when moving between frame pages
+// (WPN ↔ TGL) and lazy-loading on first entry. No-op if it already shows that page.
+function showFramePage(name) {
+  const url = FRAME_PAGES[name];
+  if (url && pageFrame.getAttribute('src') !== url) pageFrame.src = url;
+}
 
 function forwardWpnToFrame() {
   const w = frameWin(); if (!w) return;
@@ -1548,6 +1496,72 @@ function placeWpnNavLabels() {
   const cur = Math.min(Math.max(wpnPage, 0), maxPage);
   placeOverlayLabel('left', 0, cur > 0 ? 'PREV' : 'MAIN', cur > 0 ? 'wpn-prev' : 'main');
   if (cur < maxPage) placeOverlayLabel('right', 0, 'NEXT', 'wpn-next');
+}
+
+// ── Full-view TGL (#page-frame) ──────────────────────────────────────────────────────
+// Full-view TGL is hosted in #page-frame (web/pages/tgl in its 'full' profile), mirroring WPN.
+// The shell slices the target list to TGL_MAX_DISPLAY (10/page, tglPage) and forwards it; the
+// page renders the rows AND posts its deselect softkeys up (handled by applyFrameSoftkeys). Nav
+// (MAIN/PREV/NEXT) stays shell-owned via placeTglNavLabels.
+function forwardTglToFrame() {
+  const w = frameWin(); if (!w) return;
+  const list = tglData.targets || [];
+  const total = list.length;
+  const maxPage = Math.max(0, Math.ceil(total / TGL_MAX_DISPLAY) - 1);
+  if (tglPage > maxPage) tglPage = maxPage;
+  if (tglPage < 0) tglPage = 0;
+  const start = tglPage * TGL_MAX_DISPLAY;
+  const items = list.slice(start, start + TGL_MAX_DISPLAY);
+  w.postMessage({ mfd: true, type: 'tgl', items: items,
+                  page: maxPage > 0 ? tglPage + 1 : 1, pages: maxPage + 1 }, '*');
+}
+// Full-view row geometry: the 5 vertical key bands (keys 1..5), shared by both columns. Same
+// sepEls model as forwardWpnLayoutToFrame: key s spans sep[s].bottom → sep[s+1].top.
+function forwardTglLayoutToFrame() {
+  const w = frameWin(); if (!w) return;
+  const frameTop = pageFrame.getBoundingClientRect().top;
+  function bot(i) { return sepEls[i].getBoundingClientRect().bottom - frameTop; }
+  function top(i) { return sepEls[i].getBoundingClientRect().top - frameTop; }
+  const slots = [];
+  for (let s = 1; s <= 5; s++) {                 // row keys 1..5
+    const t = bot(s), b = top(s + 1);
+    slots.push({ top: t, height: Math.max(0, b - t) });
+  }
+  w.postMessage({ mfd: true, type: 'tgl-layout', layout: 'full', slots: slots }, '*');
+}
+// Full-view TGL nav labels (shell-owned, since pagination is shell state): left key-0 is MAIN on
+// page 0 / PREV after; right key-0 is NEXT when the list overflows. Mirrors placeWpnNavLabels.
+function placeTglNavLabels() {
+  overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
+  delete keyBanks.left[0].dataset.action;
+  delete keyBanks.right[0].dataset.action;
+  const total = (tglData.targets || []).length;
+  const maxPage = Math.max(0, Math.ceil(total / TGL_MAX_DISPLAY) - 1);
+  if (tglPage > maxPage) tglPage = maxPage;
+  if (tglPage < 0) tglPage = 0;
+  placeOverlayLabel('left', 0, tglPage > 0 ? 'PREV' : 'MAIN', tglPage > 0 ? 'tgl-prev' : 'main');
+  if (tglPage < maxPage) placeOverlayLabel('right', 0, 'NEXT', 'tgl-next');
+}
+
+// Apply a full-view page's declared softkeys to the physical bezel (the declarative contract).
+// The page emits pane-local 1-based row slots; full view maps them 1:1 (paneOffset 0). Clears
+// the row-key zone (slots 1..5 both sides — nav on slot 0 is shell-owned) first, so a shrinking
+// list releases its keys. An empty label binds the key with no visible overlay label (TGL's
+// target row in the frame is the visual). Split-mode still binds these via renderSplitLabels;
+// folding split onto this contract is the next step (todo/src-architecture.md).
+function applyFrameSoftkeys(keys) {
+  for (let s = 1; s <= 5; s++) {
+    if (keyBanks.left[s])  { delete keyBanks.left[s].dataset.action;  delete keyBanks.left[s].dataset.id; }
+    if (keyBanks.right[s]) { delete keyBanks.right[s].dataset.action; delete keyBanks.right[s].dataset.id; }
+  }
+  (keys || []).forEach(function(sk) {
+    const bank = keyBanks[sk.side];
+    const key = bank && bank[sk.slot];
+    if (!key) return;
+    key.dataset.action = sk.action;
+    if (sk.data && sk.data.id != null) key.dataset.id = sk.data.id;
+    if (sk.label) placeOverlayLabel(sk.side, sk.slot, sk.label, sk.action);
+  });
 }
 
 // Slice the full target list to the page a given pane is scrolled to. Returns the visible rows
@@ -1631,14 +1645,13 @@ paneIframes.forEach(function(iframe, idx) {
   });
 });
 
-// Full-view WPN frame load: push the current snapshot once it's ready (it may have started
-// loading mid-update), plus orientation + the full-screen layout geometry.
+// Full-view frame load: push the current snapshot once it's ready (it may have started loading
+// mid-update, or its src just switched between WPN/TGL), plus orientation + layout geometry.
 pageFrame.addEventListener('load', function() {
-  if (splitMode || currentPage !== 'wpn') return;
+  if (splitMode || !FRAME_PAGES[currentPage]) return;
   forwardOrientationToPane(pageFrame);
-  forwardWpnLayoutToFrame();
-  forwardWpnToFrame();
-  forwardCmToFrame();
+  if (currentPage === 'wpn')      { forwardWpnLayoutToFrame(); forwardWpnToFrame(); forwardCmToFrame(); }
+  else if (currentPage === 'tgl') { forwardTglLayoutToFrame(); forwardTglToFrame(); }
 });
 
 // Top-right indicator stack (PINNED + FOLLOW). pinnedPage tracks which page (if any)
@@ -1720,9 +1733,10 @@ let cmData = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 // produced, and back to false during the 3-second post-loss hold's expiry.
 let tgpActive = false;
 
-// Latest target list mirrored from the map iframe. Whole list is kept in memory; the
-// renderer shows TGL_MAX_DISPLAY per page (left key 1..5 then right key 1..5) and
-// pages through them with PREV/NEXT on the side keys. tglPage = 0-indexed page.
+// Latest target list mirrored from the map iframe. Whole list is kept in memory; the shell
+// slices it to TGL_MAX_DISPLAY per page (the #page-frame TGL page renders the slice — left key
+// 1..5 then right key 1..5) and pages through them with PREV/NEXT on the side keys (shell-owned
+// nav, placeTglNavLabels). tglPage = 0-indexed full-view page.
 let tglData = { targets: [] };
 let tglPage = 0;
 const TGL_MAX_DISPLAY = 10;
@@ -1796,9 +1810,8 @@ function showPage(name) {
   const page = PAGES[name];
   overlayEl.classList.toggle('opaque', page.opaque);
   infoBox.classList.toggle('show', name === 'main');
-  screenEl.classList.toggle('page-on', name === 'wpn');
+  screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGL render in #page-frame
   tgpPanel.classList.toggle('show', name === 'tgp');
-  tglPanel.classList.toggle('show', name === 'tgl');
   avnPanel.classList.toggle('show', name === 'avn');
   rwrPanel.classList.toggle('show', name === 'rwr');
   // Start the MJPEG fetch only while the TGP page is in view; clearing src closes the
@@ -1820,14 +1833,21 @@ function showPage(name) {
     placeOverlayLabel(item.side || 'left', item.key, item.label, item.action);
   });
 
-  // TGL and WPN own their own labels (PREV/MAIN + NEXT) because they depend on the
-  // page state; run after the generic label sweep so they don't get clobbered.
+  // TGL and WPN own their own nav labels (PREV/MAIN + NEXT) because they depend on the page
+  // state; run after the generic label sweep so they don't get clobbered. Both render in
+  // #page-frame: point it at the page (switching src as needed) then forward layout + data.
+  // Their per-item keys differ: WPN has none (nav only); TGL's per-target deselect keys arrive
+  // via the softkey contract the frame posts up (see the 'softkeys' handler).
   if (name === 'wpn') {
-    if (!pageFrame.getAttribute('src')) pageFrame.src = '/wpn';   // lazy-load the WPN page once
+    showFramePage('wpn');
     placeWpnNavLabels();                                          // MAIN/PREV/NEXT (shell-owned)
     forwardWpnLayoutToFrame(); forwardWpnToFrame(); forwardCmToFrame();
   }
-  if (name === 'tgl') { renderTgl(); }
+  if (name === 'tgl') {
+    showFramePage('tgl');
+    placeTglNavLabels();                                          // MAIN/PREV/NEXT (shell-owned)
+    forwardTglLayoutToFrame(); forwardTglToFrame();
+  }
   if (name === 'avn') { renderAvn(); }
   if (name === 'rwr') { renderRwr(); renderThreats(); }
 
@@ -2309,132 +2329,20 @@ function positionAvnBarValue(barEl, valEl, v) {
   valEl.style.top = (tipY - barEl.getBoundingClientRect().top) + 'px';
 }
 
-// Renders the TGL page from the cached target list. Each page shows up to TGL_MAX_DISPLAY
-// targets — 1..5 down the left column, 6..10 down the right. Left key 0 is MAIN on the
-// first page and PREV on later pages; right key 0 is NEXT when there are more targets
-// past the current page. Also owns those nav labels (showPage skips them for TGL).
-function renderTgl() {
-  // Tear down any previously-rendered rows + nav labels; small enough to rebuild from scratch.
-  tglPanel.querySelectorAll('.tg-item').forEach(function(el) { el.remove(); });
-  overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
-  delete leftKeys[0].dataset.action;
-  delete rightKeys[0].dataset.action;
-  // Clear any target-deselect bindings from a previous render (target list shrank / page change).
-  // renderTgl can be called on a telemetry refresh without going through clearKeyActions.
-  for (let s = 1; s <= 5; s++) {
-    if (leftKeys[s])  { delete leftKeys[s].dataset.action;  delete leftKeys[s].dataset.id; }
-    if (rightKeys[s]) { delete rightKeys[s].dataset.action; delete rightKeys[s].dataset.id; }
-  }
-
-  const targets = tglData.targets || [];
-  const total   = targets.length;
-  const maxPage = Math.max(0, Math.ceil(total / TGL_MAX_DISPLAY) - 1);
-  if (tglPage > maxPage) tglPage = maxPage;
-  if (tglPage < 0)       tglPage = 0;
-
-  // Bottom-right "PAGE x/y" box — shown only when the target list spans more than one page.
-  const pages = maxPage + 1;
-  if (pages > 1) {
-    tglPageInd.textContent = 'PAGE ' + (tglPage + 1) + '/' + pages;
-    tglPageInd.classList.remove('empty');
-  } else {
-    tglPageInd.classList.add('empty');
-  }
-
-  const start = tglPage * TGL_MAX_DISPLAY;
-  const list  = targets.slice(start, start + TGL_MAX_DISPLAY);
-  tglPanel.classList.toggle('has-targets', list.length > 0);
-
-  // Place the nav labels (PREV/MAIN on left key 0, NEXT on right key 0 when overflowing).
-  placeOverlayLabel('left', 0, tglPage > 0 ? 'PREV' : 'MAIN', tglPage > 0 ? 'tgl-prev' : 'main');
-  if (start + list.length < total) placeOverlayLabel('right', 0, 'NEXT', 'tgl-next');
-
-  if (!list.length) return;
-
-  // Format range as "8,4 km" (European decimal comma) when given a number; pass strings through.
-  function fmtRng(r) {
-    if (typeof r === 'number' && isFinite(r)) return r.toFixed(1).replace('.', ',') + ' km';
-    return (r != null ? String(r) : '—') + (typeof r === 'string' && /km$/i.test(r) ? '' : '');
-  }
-
-  const panelRect = tglPanel.getBoundingClientRect();
-  for (let i = 0; i < list.length; i++) {
-    const onLeft = i < 5;
-    const slot   = onLeft ? (i + 1) : (i - 5 + 1);   // key index inside the column (1..5)
-    const col    = onLeft ? sepEls : rightSepEls;
-    if (slot + 1 >= col.length) continue;            // safety, shouldn't trigger with 5 slots
-
-    const t   = list[i];
-    const top = col[slot].getBoundingClientRect();
-    const bot = col[slot + 1].getBoundingClientRect();
-
-    // Bind the bezel key aligned with this target's slot to deselect it (full-view only;
-    // split mode renders TGL in a bare pane via a separate path).
-    const dkey = (onLeft ? leftKeys : rightKeys)[slot];
-    if (dkey && t.id != null) { dkey.dataset.action = 'tgl-deselect'; dkey.dataset.id = t.id; }
-
-    const slotH = bot.top - top.bottom;
-    // Each side gets half the panel width. Left and right meet (or overlap) at the centre —
-    // user explicitly accepts overlap in exchange for losing the dead black band.
-    const sideW = Math.max(40, panelRect.width * 0.5);
-
-    const row = document.createElement('div');
-    // Faction class drives the palette: 1 = friendly (blue), 0 = neutral (white), anything
-    // else (including missing) defaults to enemy (green).
-    const factionCls = t.f === 1 ? ' f-friendly' : t.f === 0 ? ' f-neutral' : '';
-    row.className = 'tg-item ' + (onLeft ? 'left' : 'right') + factionCls;
-    row.style.top    = (top.bottom - panelRect.top) + 'px';
-    row.style.height = slotH + 'px';
-    row.style.width  = sideW + 'px';
-
-    // Initial sizes by slot height. Name is 5/3 the meta size ("2/3 bigger"). Three lines
-    // stacked (name + GRID + RNG) — shrunk below if any line overflows the column width.
-    // The 0.115 factor is 2/3 of the original 0.1725 — matches the reduction applied to
-    // the white line-select labels so target text reads at the same relative scale.
-    let metaPx = Math.max(8, slotH * 0.115);
-    let namePx = metaPx * (5 / 3);
-
-    const name = document.createElement('div');
-    name.className = 'tg-name';
-    name.style.fontSize = namePx.toFixed(1) + 'px';
-    name.textContent = t.n || '—';
-    row.appendChild(name);
-
-    const grid = document.createElement('div');
-    grid.className = 'tg-grid';
-    grid.style.fontSize = metaPx.toFixed(1) + 'px';
-    grid.textContent = 'GRID: ' + (t.g != null ? String(t.g) : '—');
-    row.appendChild(grid);
-
-    const rng = document.createElement('div');
-    rng.className = 'tg-rng';
-    rng.style.fontSize = metaPx.toFixed(1) + 'px';
-    rng.textContent = 'RNG: ' + fmtRng(t.r);
-    row.appendChild(rng);
-
-    tglPanel.appendChild(row);
-
-    // Shrink to fit horizontally: scale both sizes by the tightest line.
-    const avail = row.clientWidth;
-    if (avail > 0) {
-      const widest = Math.max(name.scrollWidth, grid.scrollWidth, rng.scrollWidth);
-      if (widest > avail) {
-        const k = avail / widest;
-        namePx *= k; metaPx *= k;
-        name.style.fontSize = namePx.toFixed(1) + 'px';
-        grid.style.fontSize = metaPx.toFixed(1) + 'px';
-        rng .style.fontSize = metaPx.toFixed(1) + 'px';
-      }
-    }
-  }
-}
-
 
 // The map iframe broadcasts status + loadout + cm via postMessage; mirror onto the
 // info-box (MAIN page), the cached wpnData + cmData (WPN page).
 window.addEventListener('message', function(e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
+  // Softkeys come UP from a hosted page frame (not the map), so handle them before the mapFrame
+  // source guard. Full view only for now — the page emits pane-local slots, mapped at offset 0.
+  // (Split-mode softkeys are still bound by renderSplitLabels; folding split onto this contract
+  // is the next step — see todo/src-architecture.md.)
+  if (m.type === 'softkeys') {
+    if (!splitMode && e.source === pageFrame.contentWindow && FRAME_PAGES[currentPage]) applyFrameSoftkeys(m.keys);
+    return;
+  }
   // Telemetry-mirror messages come only from the canonical map iframe (mapFrame). In split mode
   // a MAP *pane* is a second map iframe that also streams to the shell; ignoring its duplicate
   // data posts keeps the RWR/AVN/etc. mirrors on a single source — otherwise two out-of-phase
@@ -2508,10 +2416,12 @@ window.addEventListener('message', function(e) {
     else return;
     refreshFollowIndicator();
   } else if (m.type === 'targets') {
-    // Mirror the full target list. The renderer slices to TGL_MAX_DISPLAY; if any of the
-    // first 10 got deselected, the next held-back targets slide in on the next render.
+    // Mirror the full target list. The frame slices to TGL_MAX_DISPLAY; if any of the first 10
+    // got deselected, the next held-back targets slide in on the next render.
     tglData = { targets: Array.isArray(m.items) ? m.items : [] };
-    if (currentPage === 'tgl') renderTgl();
+    // Full-view: re-forward the slice to the frame (it re-renders + re-emits its softkeys) and
+    // refresh the nav labels (target count can add/remove pages, changing PREV/NEXT visibility).
+    if (currentPage === 'tgl' && !splitMode) { forwardTglToFrame(); placeTglNavLabels(); }
     // Target count can add/remove pages, so refresh each TGL pane's slice + PREV/NEXT labels.
     if (splitMode) { forwardTglToPanes(); renderSplitLabels(); }
   } else if (m.type === 'rwr') {
@@ -2668,9 +2578,10 @@ function mfdButton(el) {
     case 'wpn-next':  wpnPage++;   showPage('wpn'); break;
     case 'tgp':  showPage('tgp');  break;
     case 'tgl':       tglPage = 0; showPage('tgl'); break;   // fresh entry — always start on page 0
-    case 'tgl-prev':  tglPage--;   showPage('tgl'); break;   // renderTgl clamps if we overshoot
+    case 'tgl-prev':  tglPage--;   showPage('tgl'); break;   // forwardTglToFrame clamps overshoot
     case 'tgl-next':  tglPage++;   showPage('tgl'); break;
-    case 'tgl-deselect':                                     // bezel key beside a target → drop it
+    case 'tgl-deselect':                                     // split-pane target key → drop it
+    case 'target.deselect':                                  // full-view softkey-contract action
       if (el.dataset.id) sendCommand('target.deselect', { id: +el.dataset.id });
       break;
     case 'avn':  showPage('avn');  break;
