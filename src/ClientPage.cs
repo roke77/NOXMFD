@@ -603,11 +603,25 @@ function ensureThreatAnimation() {
 }
 
 // ── Image load / error ─────────────────────────────────────────────────────────
+// The captured map image is produced asynchronously on the server, so it can lag the first
+// telemetry frame that reports map.valid (and a mission/map change re-captures it). A single
+// early /map fetch then 404s and sticks as NO SIGNAL until a manual page reload. So on error we
+// retry — while a mission is active — until the image loads, cache-busting each attempt.
+let mapRetryTimer = null, mapRetries = 0;
+const MAP_MAX_RETRIES = 30;   // ~24 s at 800 ms — covers a slow capture, then gives up
 mapImg.onerror = function() {
   mapImg.classList.add('missing');
   document.getElementById('map-missing').style.display = 'block';
+  if (mapMeta && !mapRetryTimer && mapRetries < MAP_MAX_RETRIES) {
+    mapRetryTimer = setTimeout(function() {
+      mapRetryTimer = null;
+      if (mapMeta) { mapRetries++; mapImg.src = '/map?t=' + Date.now(); }   // mission still active → try again
+    }, 800);
+  }
 };
 mapImg.onload = function() {
+  if (mapRetryTimer) { clearTimeout(mapRetryTimer); mapRetryTimer = null; }
+  mapRetries = 0;
   mapImg.classList.remove('missing');
   document.getElementById('map-missing').style.display = 'none';
   resizeOverlay();
@@ -636,9 +650,12 @@ es.onmessage = function(e) {
 
   if (d.map && d.map.valid) {
     mapMeta = { w: d.map.w, h: d.map.h, ox: d.map.ox, oy: d.map.oy };
-    // The game's map image becomes available shortly after the mission loads; refresh once.
+    // The game's map image becomes available shortly after the mission loads; refresh once (the
+    // onerror retry covers the case where the capture isn't ready yet at this first attempt).
     if (!mapWasValid) {
       mapWasValid = true;
+      mapRetries = 0;
+      if (mapRetryTimer) { clearTimeout(mapRetryTimer); mapRetryTimer = null; }
       mapImg.src = '/map?t=' + Date.now();
       document.getElementById('map-panel').classList.add('has-map');
     }
