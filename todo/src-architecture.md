@@ -1,10 +1,10 @@
 # src/ web-frontend architecture — design & refactor plan
 
-Status: **in progress** — steps 1–5 done, with step 6 shared-JS extraction remaining. Step 4 has
-one known follow-up: split-mode TGL deselect still uses the legacy hand-binding. Resource plumbing,
-shared font/theme, **WPN** as the proof page, then **TGL** (which
-introduced the **declarative softkey contract** — full view; split deselect still on the legacy
-binding), **TGP** (the targeting-pod feed — no softkeys/geometry, one profile for both layouts),
+Status: **in progress** — steps 1–5 done, with step 6 shared-JS extraction remaining. Resource
+plumbing, shared font/theme, **WPN** as the proof page, then **TGL** (which introduced the
+**declarative softkey contract**, now applied in **both** full view and split — the per-target
+deselect keys ride one path), **TGP** (the targeting-pod feed — no softkeys/geometry, one profile
+for both layouts),
 **AVN** (avionics silhouette + FUEL/THROTTLE bars — two profiles; full anchors name/frame to the
 bezel geometry the shell forwards), and **RWR** (radar-warning scope — one responsive SVG, one
 profile, two streams). **Step 5 is done:** MAP, MAIN, and the shell now live under `web/`, `/config`
@@ -124,8 +124,9 @@ Replace the twice-hand-coded bezel binding with a one-way contract:
   `target.deselect`). One protocol, computed once per page, mapped once by the
   shell. Split falls out for free.
 
-This subsumes today's `tgl-deselect` bezel binding (which is hand-wired in both
+This subsumed the old `tgl-deselect` bezel binding (formerly hand-wired in both
 the overlay `renderTgl` and `renderSplitLabels`) into a single declarative path.
+**Realized:** see the *softkey contract* note in the playbook below.
 
 ### C. Proposed file layout
 ```
@@ -178,10 +179,12 @@ The DLL keeps building and the UI keeps working after every step.
    drop the overlay, host full-view in `#page-frame`. **TGL: DONE** —
    `web/pages/tgl/{tgl.html,tgl.css,tgl.js}`, overlay + `renderTgl` deleted, and the
    **declarative softkey contract** landed (page emits `{side,slot,label,
-   action:'target.deselect',data:{id}}`; shell `applyFrameSoftkeys` maps `slot+paneOffset`).
-   **Caveat:** full view uses the contract; **split-mode deselect still rides the legacy
-   `renderSplitLabels` hand-binding** (`mfdButton`'s `tgl-deselect` case) — folding split onto
-   the contract is the remaining contract work.
+   action:'target.deselect',data:{id}}`; shell `applySoftkeys` maps `slot+paneOffset`). The
+   contract now drives **both** full view (offset 0, rows 1–5) **and split** (offset 0/3, rows
+   1–2): each split pane's emitted set is cached (`paneSoftkeys`) so `renderSplitLabels` re-applies
+   it after clearing the bezel. The legacy `renderSplitLabels` hand-binding + `tgl-deselect`
+   dispatch are gone; deselect keys carry no `data-pane` and fall through to the shared
+   `target.deselect` switch case.
    **TGP: DONE** — `web/pages/tgp/{tgp.html,tgp.css,tgp.js}`, overlay (`.tgp-panel` markup/CSS +
    `tgpPanel`/`tgpImg` refs + MJPEG handling) deleted, hosted in `#page-frame` via
    `forwardTgpToFrame`. The simplest page: no key-band geometry, no pagination, no softkeys, so
@@ -330,15 +333,26 @@ Shell → page (data **down**): `'<page>'` (the sliced rows + selection), `'<pag
 A page is a pure reactive renderer: it renders to its own container and never knows full-vs-split.
 
 ### The softkey contract (landed on TGL — reference for the remaining pages)
-**DONE on TGL.** The TGL page emits per-target softkeys `{side, slot, label, action:'target.deselect',
-data:{id}}`; the shell's `applyFrameSoftkeys` maps `slot+paneOffset`→physical key, places the
-label, and `mfdButton`'s `target.deselect` case dispatches (the shell owns
-`sendCommand('target.deselect',{id})`). **Slot range:** the page emits a pane-local **1-based**
-row slot; full view maps 1:1 (`paneOffset 0`, row keys 1–5/side; nav on slot 0 stays shell-owned).
-**Remaining contract work:** split-mode deselect is **not** on the contract yet — `renderSplitLabels`
-still hand-binds `tgl-deselect` (the shell ignores emitted softkeys when `splitMode`). Fold split
-onto this path when convenient. `target.select` (MAP tap) and `target.deselect` live in
-`todo/write-command-channel.md` + `CommandDispatcher.cs`.
+**DONE on TGL, full + split.** The TGL page emits per-target softkeys `{side, slot, label,
+action:'target.deselect', data:{id}}` on every render (pane-agnostic). The shell's
+`applySoftkeys(keys, paneOffset, maxRow)` maps each pane-local **1-based** slot to
+`keyBanks[side][paneOffset+slot]`, places any label, and `mfdButton`'s `target.deselect` case
+dispatches (`sendCommand('target.deselect',{id})`).
+- **Full view:** the `#page-frame` posts up; shell applies at `paneOffset 0, maxRow 5` (row keys
+  1–5/side; nav on slot 0 stays shell-owned).
+- **Split:** each pane posts up; shell applies at `paneOffset 0/3, maxRow 2`, keyed off `e.source`.
+  Each pane's set is cached in `paneSoftkeys[idx]` and **re-applied by `renderSplitLabels`** (which
+  `clearKeyActions()`s the whole bezel and can fire for the *other* pane without this one
+  re-emitting). Reset on `paneNavigate` / split entry.
+- Deselect keys carry **no `data-pane`** (the command is pane-independent), so split clicks skip
+  `mfdButton`'s pane-routing block and fall through to the shared switch case.
+
+**For the next page that needs softkeys:** emit the contract from the page; the shell side is now
+generic (`applySoftkeys` + the `paneSoftkeys` cache handle both layouts). If a softkey needs a
+*visible* label, note that `renderSplitLabels`/`placeXNavLabels` currently wipe all overlay-items —
+labelled softkeys would need the same cache-and-re-apply treatment as the bindings.
+`target.select` (MAP tap) and `target.deselect` live in `todo/write-command-channel.md` +
+`CommandDispatcher.cs`.
 
 ### Verifying without the game (critical — the C# build does NOT check the JS/CSS)
 `dotnet build` verifies the C# routes and embedded-resource inclusion, but it never parses the
