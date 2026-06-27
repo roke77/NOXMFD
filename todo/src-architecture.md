@@ -31,6 +31,11 @@ TGL + the softkey contract; then the shell + MAP; then shared JS + the preview r
 
 ## Current state (the problem, with evidence)
 
+> **Note (historical baseline):** this section describes the *pre-migration* state and its
+> line numbers are from before any work landed. WPN is now migrated (see the Migration plan
+> and the **Implementation playbook** below); treat the line numbers here as approximate
+> history, and `grep` for the real current locations.
+
 Three layers of duplication, all stemming from "HTML lives in C# strings":
 
 ### 1. Everything is a `const string Html` blob
@@ -128,10 +133,12 @@ web/
   shell/
     mfd.html  mfd.css  mfd.js     # the shell (was MfdPage.cs)
   pages/
-    map.html  map.css  map.js     # was ClientPage.cs
-    wpn.html  wpn.css  wpn.js     # was WpnPage.cs (now full + split)
-    tgl.* tgp.* avn.* rwr.* main.*
+    wpn/ wpn.html wpn.css wpn.js  # DONE (was WpnPage.cs; now full + split in one file)
+    tgl/ tgp/ avn/ rwr/ main/ map/   # one folder per page (map was ClientPage.cs)
 ```
+**Convention (adopted):** one folder per page, `web/pages/<x>/<x>.{html,css,js}`. The page
+links `/assets/shared/font.css` + `theme.css` then `/assets/pages/<x>/<x>.css`, and ends with
+`<script src="/assets/pages/<x>/<x>.js">`. Served at `/<x>` via `ServeAssetRel`.
 `.csproj`: one `<EmbeddedResource Include="web/**/*" />`. `TelemetryServer`
 resolves a request path → resource stream (a small static-asset map / convention)
 and serves with the right content-type, replacing the per-page `XxxPage.Html`
@@ -173,6 +180,115 @@ The DLL keeps building and the UI keeps working after every step.
    de-duplicate the now-parallel copies across pages.
 7. **Simplify `build_preview.py`** to serve `web/` directly; update the workflow
    note + memory.
+
+## Implementation playbook (for an agent continuing this work)
+
+Concrete, learned-by-doing guidance. **WPN is the reference implementation — copy its
+pattern.** Read `web/pages/wpn/*` and the WPN-specific hooks in `MfdPage.cs` first.
+
+### File map (current, post-WPN)
+```
+web/
+  shared/  font.css  theme.css  share-tech-mono.woff2   # font.css → /assets/shared/...woff2
+  pages/
+    wpn/   wpn.html  wpn.css  wpn.js                     # DONE: one file, two profiles
+src/
+  TelemetryServer.cs   # ServeAsset (/assets/ route) + ServeAssetRel(ctx,"pages/x/x.html");
+                       #   per-page routes (e.g. /wpn) call ServeAssetRel. /assets suffix-matches
+                       #   the embedded-resource manifest "<RootNamespace>.web.<dotted path>".
+  MfdPage.cs           # the shell (still a const-string blob). Hosts pages; see hooks below.
+  ClientPage.cs        # MAP page (/map-view) — still a blob; migrate in step 5.
+  {Avn,Tgp,Tgl,Rwr,Main}Page.cs   # still blobs (split-only bare pages) + overlay twins in MfdPage
+NOXMFD.csproj          # <EmbeddedResource Include="web\**\*" />
+.gitattributes         # *.woff2/png/jpg = binary (don't let git mangle EOLs)
+```
+
+### The per-page migration recipe (what WPN did — repeat for TGL, TGP, AVN, RWR, MAIN)
+1. **Move the bare page** `XxxPage.cs` → `web/pages/xxx/{xxx.html,xxx.css,xxx.js}`. Link
+   `/assets/shared/font.css` + `theme.css` (kills that page's inline font copy). Point its
+   route in `TelemetryServer` at `ServeAssetRel(ctx,"pages/xxx/xxx.html")`; delete the `.cs`.
+2. **Add the `full` profile** to the same page files, gated by a `layout:'full'` field in the
+   page's layout message (adds `body.full`). Scope full-only CSS under `body.full` so the
+   verified compact layout is untouched. Transcribe the full layout from the overlay renderer
+   + CSS in `MfdPage.cs`.
+3. **Host full-view in `#page-frame`** (see shell hooks). 4. **Delete the overlay** (renderer,
+   markup, element refs/state, CSS) from `MfdPage.cs`.
+
+### Shell hooks in `MfdPage.cs` (grep these — they are the integration points)
+- **`#page-frame`** — the full-view host iframe in the `.screen` recess (after the map iframe).
+  CSS: `#page-frame{position:absolute;inset:6px;display:none}`, shown via `.screen.page-on`,
+  hidden in `.screen.split`. It sits **below** `.overlay` (so bezel labels paint on top) and
+  below `.screen-off` (so power-off blacks it out). `const pageFrame = …`.
+- **`showPage(name)`** — for an iframe-hosted page: `screenEl.classList.toggle('page-on', …)`,
+  lazy-set `pageFrame.src` once, then forward layout+data+labels. **Set `PAGES.<name>.opaque
+  = false`** (the iframe is the opaque content; an opaque overlay would cover the frame).
+- **`forwardXToFrame()` functions** — mirror the split `forwardXToPanes` but (a) target
+  `pageFrame.contentWindow`, (b) compute **full-screen geometry from the bezel separators**.
+  `sepEls = document.querySelectorAll('#keys-left .sep')` indexes as **0 = above key0,
+  i+1 = below key i** (7 separators for 6 keys). Map shell-viewport coords into the frame by
+  subtracting `pageFrame.getBoundingClientRect().top`. WPN's `forwardWpnLayoutToFrame` is the
+  worked example (key-slot spans + an image area).
+- **`pageFrame.addEventListener('load', …)`** — re-push the snapshot once the frame loads
+  (it may start loading mid-update). Guard `if (splitMode || currentPage !== '<page>') return`.
+- **SSE update handler** (the `else if (m.type === 'loadout'|'cm'|…)` chain) — when data
+  changes, forward to the frame: `if (currentPage==='<page>' && !splitMode) forwardXToFrame()`.
+- **Nav vs softkeys.** Pagination/navigation (MAIN/PREV/NEXT) is **shell state** → keep it
+  shell-owned (`placeWpnNavLabels` is the pattern; `mfdButton`'s `wpn-prev/next` cases just
+  bump `wpnPage` and call `showPage`). Only **per-item action keys** (TGL's per-target
+  deselect) need the softkey contract (section B).
+- **`broadcastOrientation()`** forwards `orient` to panes — also forward to `pageFrame` (for
+  CSS that keys off `body.portrait/landscape`, e.g. WPN's image rotation).
+
+### The shell⇄page postMessage protocol (envelope: `{ mfd:true, type, … }`)
+Shell → page (data **down**): `'<page>'` (the sliced rows + selection), `'<page>-layout'`
+(geometry; include `layout:'full'|'compact'` + the slots/bands the page needs), `'cm'`,
+`'orient'`. Page → shell (**up**, only where needed): the `'softkeys'` contract (section B).
+A page is a pure reactive renderer: it renders to its own container and never knows full-vs-split.
+
+### TGL next (step 4) — it introduces the softkey contract
+TGL's full overlay (`renderTgl` in `MfdPage.cs`) binds `tgl-deselect` on the bezel key beside
+each listed target; split (`renderSplitLabels`) binds it again — the double-binding section B
+removes. Plan: the TGL page emits per-target softkeys `{side, slot, label, action:'target.deselect',
+data:{id}}`; the shell maps `slot+paneOffset`→physical key, places the label, and on click
+dispatches (the shell already owns `sendCommand('target.deselect',{id})`). **Watch the slot
+range:** split panes use slots 0–2/side (+`paneOffset` 0/3); full view has 6 keys/side (nav on
+0, targets on 1–5). The page learns which via the `layout` field, same as WPN. `target.select`
+(MAP tap) and `target.deselect` live in `todo/write-command-channel.md` + `CommandDispatcher.cs`.
+
+### Verifying without the game (critical — the C# build does NOT check the JS)
+`dotnet build` only validates the C# **raw-string-literal integrity** (an accidental `"""` or
+broken literal fails it); it never parses the embedded JS/CSS. So **always verify rendering in
+a browser**. The proven loop, no game required:
+1. Edit `web/pages/...` and/or `MfdPage.cs` → `dotnet build` (catches literal breakage).
+2. `python tools/build_preview.py` → regenerates `preview/index.html` from the edited shell.
+3. Run a **shell harness over http** (a scratchpad `serve_web.py`): serves `preview/index.html`
+   at `/`, `/wpn`→`web/pages/wpn/wpn.html`, `/assets/*`→`web/*`, `/weapon?…`→a mock SVG, and
+   everything else from `preview/` (so `map-view.html` etc. + the injected `preview-mock.js`
+   resolve). `preview-mock.js` supplies a 6-weapon loadout + CM, so the shell drives the frame
+   end-to-end.
+4. Drive it with the Preview MCP: `preview_eval` `window.location.href='http://127.0.0.1:<port>/'`,
+   click a bezel key (`[...document.querySelectorAll('.key')].find(k=>k.dataset.action==='wpn').click()`),
+   then probe `#page-frame.contentDocument`. **Gotchas:** `preview_screenshot` reliably times
+   out here — use `preview_eval` structured probes instead (also the *preferred* way to check
+   exact values). The preview viewport can glitch to ~2px wide (everything collapses to width 0)
+   — fix with `preview_resize` to e.g. 1280×860, then re-feed.
+5. Then verify **in-game** (the user does this): build auto-deploys the DLL to
+   `<GameDir>\BepInEx\plugins`; restart the game. Check full view, split view, the *other*
+   pages (shared `showPage` is touched), power-off blackout, portrait/landscape.
+
+### Editing `MfdPage.cs` (a ~3000-line `"""…"""` blob) — gotchas
+- For **large block deletions** use `sed -i 'A,Bd'` after confirming the exact boundaries with
+  `sed -n`; for small/anchored changes use `Edit`. **After any `sed`/external change you must
+  re-`Read` before `Edit`** (the tool guards on a stale read). `git mv` also resets read state.
+- JS identifiers like `paneWpnPage`, `selWpnPageFull`, `wpnPage` contain "Wpn" but are **not**
+  the C# `WpnPage` class — grep precisely before deleting anything.
+- When deleting a page's overlay: remove the renderer(s), the markup, the element `const`s +
+  state vars, **and** the CSS — but **trim shared rules, don't drop them** (e.g. the WPN/TGL
+  `.page-ind` rule, and the `.screen.split > .overlay > .<x>-panel` hide list). Keep `xxxData`
+  / `xxxPage` state the forwarders still use.
+- `build_preview.py` guards each page with `if XXX.exists()`; when a page's `.cs` is deleted,
+  remove its `XXX`/`OUT_XXX`/`/xxx?bare` references there too (its file:// preview returns with
+  the step-7 rework). CRLF warnings on `git commit` are benign.
 
 ## Open questions / risks
 
