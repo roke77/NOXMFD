@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -275,6 +276,8 @@ namespace NOXMFD
                         ServeAirframeImage(ctx);
                     else if (path == "/airframe-layout")
                         ServeAirframeLayout(ctx);
+                    else if (path.StartsWith("/assets/", StringComparison.Ordinal))
+                        ServeAsset(ctx, path);
                     else if (path == "/map-view")
                         ServePage(ctx, ClientPage.Html);
                     else if (path == "/main")
@@ -393,6 +396,76 @@ namespace NOXMFD
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // ── Embedded web-asset serving ─────────────────────────────────────────
+        // Step 1 of the src/ frontend refactor (todo/src-architecture.md): real files
+        // under web/ are baked into the DLL as embedded resources and served here under
+        // /assets/. This coexists with the legacy XxxPage.Html const serving while pages
+        // are migrated one at a time. MSBuild names a resource "<RootNamespace>.web.<dotted
+        // path>" (and may mangle odd characters), so we match by suffix against the actual
+        // manifest rather than reconstruct the name. Path traversal is moot — the manifest
+        // is a flat, fixed set baked at build time, not a filesystem.
+        private static readonly Assembly _asm = typeof(TelemetryServer).Assembly;
+        private static string[]? _resourceNames;
+        private static string[] ResourceNames => _resourceNames ??= _asm.GetManifestResourceNames();
+
+        private static void ServeAsset(HttpListenerContext ctx, string path)
+        {
+            try
+            {
+                // "/assets/shared/theme.css" -> suffix ".web.shared.theme.css"
+                string rel    = path.Substring("/assets/".Length).Trim('/');
+                string suffix = "." + ("web/" + rel).Replace('/', '.');
+
+                string? resourceName = null;
+                foreach (string n in ResourceNames)
+                {
+                    if (n.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) { resourceName = n; break; }
+                }
+
+                using Stream? s = resourceName != null ? _asm.GetManifestResourceStream(resourceName) : null;
+                if (s == null)
+                {
+                    ctx.Response.StatusCode = 404;
+                    return;
+                }
+
+                byte[] body;
+                using (var ms = new MemoryStream())
+                {
+                    s.CopyTo(ms);
+                    body = ms.ToArray();
+                }
+
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = ContentTypeFor(rel);
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        private static string ContentTypeFor(string path)
+        {
+            int dot = path.LastIndexOf('.');
+            string ext = dot >= 0 ? path.Substring(dot).ToLowerInvariant() : "";
+            switch (ext)
+            {
+                case ".html": return "text/html; charset=utf-8";
+                case ".css":  return "text/css; charset=utf-8";
+                case ".js":   return "text/javascript; charset=utf-8";
+                case ".json": return "application/json; charset=utf-8";
+                case ".svg":  return "image/svg+xml";
+                case ".woff2": return "font/woff2";
+                case ".woff": return "font/woff";
+                case ".png":  return "image/png";
+                case ".jpg":
+                case ".jpeg": return "image/jpeg";
+                case ".txt":  return "text/plain; charset=utf-8";
+                default:      return "application/octet-stream";
+            }
         }
 
         // ── Map image handler ──────────────────────────────────────────────────

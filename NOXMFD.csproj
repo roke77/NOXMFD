@@ -41,6 +41,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Web frontend (todo/src-architecture.md): real .html/.css/.js files under web/
+         baked into the DLL and served by TelemetryServer.ServeAsset under /assets/.
+         Resource names are "<RootNamespace>.web.<dotted path>", matched by suffix. -->
+    <EmbeddedResource Include="web\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- BepInEx 5 runtime (the modding framework that loads this DLL). -->
     <PackageReference Include="BepInEx.Core" Version="5.4.21" />
     <PackageReference Include="BepInEx.PluginInfoProps" Version="2.1.0" />
