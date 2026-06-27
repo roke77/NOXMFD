@@ -1,0 +1,234 @@
+/* AVN page — avionics (damage silhouette + failure labels + FUEL/THROTTLE bars). Single
+   source of truth for BOTH layouts. Base reset / colour tokens / font come from theme.css.
+   compact (split pane, the default) uses the fixed name/frame offsets below; the full profile
+   (body.full, single full-screen iframe) overrides name/frame placement at the bottom — the
+   shell forwards the bezel-anchored pixel geometry. */
+.avn-panel {
+  position: absolute;
+  inset: 0;
+  color: #39ff14;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+}
+.avn-name {
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  transform: translateX(-50%);
+  color: #39ff14;
+  font-size: clamp(20px, 4vh, 32px);
+  font-weight: 900;
+  letter-spacing: 2px;
+  white-space: nowrap;
+  z-index: 2;
+}
+.avn-frame {
+  position: absolute;
+  left: 0; right: 0;
+  top: 56px;
+  bottom: 12px;
+  overflow: hidden;
+}
+.avn-bg, .avn-parts {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.avn-bg     { max-width: 100%; max-height: 100%; display: block; }
+.avn-parts  { display: block; }
+.avn-part {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background-color: #ffffff;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+          mask-size: 100% 100%;
+  -webkit-mask-position: center;
+          mask-position: center;
+  -webkit-mask-source-type: luminance;
+          mask-mode: luminance;
+  pointer-events: none;
+}
+.avn-failure {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: none;
+  color: #ff4040;
+  font-weight: 900;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  text-align: center;
+  pointer-events: none;
+  text-shadow: 0 0 4px rgba(255, 64, 64, 0.5);
+}
+.avn-failure.active { display: block; }
+
+/* FUEL + THROTTLE side bars. */
+.avn-vbar {
+  position: absolute;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  width: 42px;
+  color: #39ff14;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  text-shadow: 0 0 4px rgba(57, 255, 20, 0.35);
+  pointer-events: none;
+  z-index: 3;
+}
+.avn-vbar.placed { display: flex; }
+.avn-vbar-label,
+.avn-vbar-value {
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  line-height: 1;
+  white-space: nowrap;
+}
+/* The % readout floats to the inner side of its bar (toward the silhouette) and tracks the
+   top tip of the fill — paintAvnBar sets its `top` in px each paint. fuel sits on the left,
+   so its number opens to the right; thr sits on the right, opening to the left. */
+.avn-vbar-value {
+  position: absolute;
+  padding: 0 3px 2px;
+  transform: translateY(-50%);
+  transition: top 200ms linear;
+  border-bottom: 2px solid currentColor;   /* corner bracket: bottom cap + the edge facing the bar */
+  z-index: 4;
+}
+.avn-vbar.fuel .avn-vbar-value { left:  calc(100% - 4px); text-align: left;  }
+.avn-vbar.thr  .avn-vbar-value { right: calc(100% - 4px); text-align: right; }
+/* Vertical bracket edge on the bar side — only the lower half, from the bottom cap up to the
+   fill-tip (the box's vertical centre, where the stem meets it). */
+.avn-vbar-value::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  height: 50%;
+  width: 2px;
+  background: currentColor;
+  pointer-events: none;
+}
+.avn-vbar.fuel .avn-vbar-value::before { left:  0; }
+.avn-vbar.thr  .avn-vbar-value::before { right: 0; }
+/* Stem joining that edge to the bar at the fill-tip level (box is centred on the tip). */
+.avn-vbar-value::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 2px;
+  background: currentColor;
+  pointer-events: none;
+}
+.avn-vbar.fuel .avn-vbar-value::after { right: 100%; }
+.avn-vbar.thr  .avn-vbar-value::after { left:  100%; }
+.avn-vbar-label { padding: 20px 0 0 0; }
+/* Orientation driven by the shell (body.portrait), not @media — a pane iframe's box is
+   wide+short and would wrongly read landscape in split mode. */
+body.portrait .avn-vbar-label,
+body.portrait .avn-vbar-value { font-size: clamp(16px, 1.8vh, 25.5px); }
+.avn-vbar-tube {
+  position: relative;
+  flex: 1 1 auto;
+  width: 28px;
+  background: #050a05;
+  box-sizing: border-box;
+  padding: 6px;
+  overflow: hidden;
+}
+.avn-vbar.fuel .avn-vbar-tube { border: 2px solid #39ff14; border-right: none; }
+.avn-vbar.thr  .avn-vbar-tube { border: 2px solid #39ff14; border-left:  none; }
+.avn-vbar.thr  .avn-vbar-tube::after,
+.avn-vbar.thr  .avn-vbar-tube::before { content: none; }
+.avn-vbar-fill {
+  position: absolute;
+  left: 6px; right: 6px; bottom: 6px;
+  height: 0%;
+  background: #39ff14;
+  transition: height 200ms linear, background-color 150ms linear;
+}
+.avn-vbar-tube::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to top,
+    transparent 0,
+    transparent calc(10% - 6px),
+    #050a05 calc(10% - 6px),
+    #050a05 10%
+  );
+  pointer-events: none;
+}
+.avn-vbar-tube::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%;
+  height: 1.5px;
+  margin-top: 2.25px;
+  background: #39ff14;
+  z-index: 2;
+  pointer-events: none;
+}
+.avn-vbar-ticks {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 5px;
+  pointer-events: none;
+}
+.avn-vbar.fuel .avn-vbar-ticks { right: 100%; margin-right: 2px; }
+.avn-vbar.thr  .avn-vbar-ticks { left:  100%; margin-left:  2px; }
+.avn-vbar-ticks::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(#39ff14, #39ff14),
+    linear-gradient(#39ff14, #39ff14),
+    linear-gradient(#39ff14, #39ff14),
+    linear-gradient(#39ff14, #39ff14),
+    linear-gradient(#39ff14, #39ff14);
+  background-repeat: no-repeat;
+  background-size: 100% 1px;
+  background-position: 0 0%, 0 25%, 0 50%, 0 75%, 0 100%;
+}
+.avn-vbar.caution  .avn-vbar-fill { background: #ffaa00; }
+.avn-vbar.critical .avn-vbar-fill { background: #ff4040; }
+.avn-vbar.caution  { color: #ffaa00; }
+.avn-vbar.critical { color: #ff4040; }
+.avn-vbar.na { color: #1a4a1a; text-shadow: none; }
+.avn-vbar.na .avn-vbar-tube { border-color: #1a4a1a; }
+.avn-vbar.na .avn-vbar-tube::before { background: #1a4a1a; }
+.avn-vbar.na .avn-vbar-ticks::before { background-image:
+    linear-gradient(#1a4a1a, #1a4a1a),
+    linear-gradient(#1a4a1a, #1a4a1a),
+    linear-gradient(#1a4a1a, #1a4a1a),
+    linear-gradient(#1a4a1a, #1a4a1a),
+    linear-gradient(#1a4a1a, #1a4a1a); }
+.avn-vbar.na .avn-vbar-fill { display: none; }
+
+.avn-empty {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: #1a4a1a;
+  font-size: 22px;
+  letter-spacing: 3px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* full profile (single full-screen iframe): name vertical-centred on the bezel key[0] row and
+   sized up; frame top/height come from the shell's bezel geometry (set inline by avn.js, so
+   only `bottom` needs clearing here to avoid over-constraining the box). compact (split pane)
+   keeps the fixed offsets above. */
+body.full .avn-name {
+  transform: translate(-50%, -50%);
+  font-size: 32px;
+}
+body.full.portrait .avn-name { font-size: clamp(32px, 3.6vh, 51px); }
+body.full .avn-frame { bottom: auto; }

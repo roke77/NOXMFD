@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — AVN</title>
+<!--
+  Bare AVN page served at /avn. Single source of truth for the avionics page (damage
+  silhouette + failure labels + FUEL/THROTTLE bars) in BOTH layouts — a pure reactive
+  renderer fed by the shell over postMessage. The full-view overlay twin in MfdPage.cs is
+  gone. Two profiles share this one file:
+    compact : split-pane / half-height. Name + frame use fixed pixel offsets from the iframe
+              edges (no bezel keys to anchor against). The default.
+    full    : single full-screen iframe. Name is vertical-centred on the bezel key[0] row and
+              sized up; the frame spans from below the name (sep[1]) to the bottom strip — the
+              shell forwards those pixel positions. Enabled by layout:'full' in avn-layout.
+
+  Shell -> page messages (all {mfd:true, ...}):
+    'avn'        : { name, parts, failures, fuel, throttle } — the live snapshot.
+    'avn-layout' : geometry — layout:'full' + geom {nameTop, frameTop, frameHeight} in full;
+                   omitted in compact (the page defaults to the CSS fixed offsets).
+    'orient'     : app-wide orientation (drives body.portrait/.landscape).
+  The silhouette bg + part masks + per-type layout are fetched directly from /airframe[-layout].
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/avn/avn.css">
+</head>
+<body>
+  <div class="avn-panel" id="avn-panel">
+    <div class="avn-name" id="avn-name"></div>
+    <div class="avn-frame" id="avn-frame">
+      <img class="avn-bg" id="avn-bg" alt="">
+      <div class="avn-parts" id="avn-parts"></div>
+    </div>
+    <div class="avn-empty" id="avn-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">AVN</span>&mdash; NO DATA &mdash;</div>
+    <div class="avn-vbar fuel" id="avn-fuel-bar">
+      <div class="avn-vbar-value" id="avn-fuel-val">&mdash;</div>
+      <div class="avn-vbar-tube">
+        <div class="avn-vbar-fill" id="avn-fuel-fill"></div>
+        <div class="avn-vbar-ticks"></div>
+      </div>
+      <div class="avn-vbar-label">FUEL</div>
+    </div>
+    <div class="avn-vbar thr" id="avn-thr-bar">
+      <div class="avn-vbar-value" id="avn-thr-val">&mdash;</div>
+      <div class="avn-vbar-tube">
+        <div class="avn-vbar-fill" id="avn-thr-fill"></div>
+        <div class="avn-vbar-ticks"></div>
+      </div>
+      <div class="avn-vbar-label">THRL</div>
+    </div>
+  </div>
+<script src="/assets/pages/avn/avn.js"></script>
+</body>
+</html>

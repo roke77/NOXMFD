@@ -288,7 +288,7 @@ namespace NOXMFD
                         ServePage(ctx, MainPage.Html.Replace("{{LAN_URL_BLOCK}}", lanBlock));
                     }
                     else if (path == "/avn")
-                        ServePage(ctx, AvnPage.Html);
+                        ServeAssetRel(ctx, "pages/avn/avn.html");   // migrated to web/pages/avn/ (was AvnPage.Html)
                     else if (path == "/tgp")
                         ServeAssetRel(ctx, "pages/tgp/tgp.html");   // migrated to web/pages/tgp/ (was TgpPage.Html)
                     else if (path == "/wpn")

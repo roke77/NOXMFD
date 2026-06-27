@@ -38,16 +38,15 @@ PREVIEW_PORT = 8777
 CLIENT = ROOT / "src" / "ClientPage.cs"
 MFD = ROOT / "src" / "MfdPage.cs"
 MAIN = ROOT / "src" / "MainPage.cs"
-AVN = ROOT / "src" / "AvnPage.cs"
-# WPN + TGL + TGP migrated to web/pages/{wpn,tgl,tgp}/ (http-served via /assets); no longer C#
-# const blobs. Their file:// preview returns with the step-7 web/ rework (todo/src-architecture.md).
+# WPN + TGL + TGP + AVN migrated to web/pages/{wpn,tgl,tgp,avn}/ (http-served via /assets); no
+# longer C# const blobs. Their file:// preview returns with the step-7 web/ rework
+# (todo/src-architecture.md); use tools/serve_web.py to drive them over http meanwhile.
 RWR = ROOT / "src" / "RwrPage.cs"
 MOCK = ROOT / "tools" / "preview-mock.js"
 MANIFEST = ROOT / "preview" / "assets" / "manifest.json"
 OUT = ROOT / "preview" / "index.html"
 OUT_MAP = ROOT / "preview" / "map-view.html"
 OUT_MAIN = ROOT / "preview" / "main.html"
-OUT_AVN = ROOT / "preview" / "avn.html"
 OUT_RWR = ROOT / "preview" / "rwr.html"
 OLD_OUT_MFD = ROOT / "preview" / "mfd.html"
 
@@ -137,10 +136,9 @@ def main() -> None:
         # string literals so the file:// preview points at the generated bare pages.
         mfd = mfd.replace("'/main?bare'", "'main.html?bare'")
         mfd = mfd.replace("'/map-view?bare'", "'map-view.html?bare'")
-        mfd = mfd.replace("'/avn?bare'",  "'avn.html?bare'")
-        # '/wpn?bare' + '/tgl?bare' + '/tgp?bare' intentionally not rewritten — WPN, TGL and TGP
-        # are http-served from web/ now, so their panes stay blank in the file:// MFD preview
-        # until step 7 (use tools/serve_web.py to exercise them over http).
+        # '/wpn?bare' + '/tgl?bare' + '/tgp?bare' + '/avn?bare' intentionally not rewritten — WPN,
+        # TGL, TGP and AVN are http-served from web/ now, so their panes stay blank in the file://
+        # MFD preview until step 7 (use tools/serve_web.py to exercise them over http).
         mfd = mfd.replace("'/rwr?bare'",  "'rwr.html?bare'")
         # The localhost line + LAN URL block are filled by the live server in-game; for the
         # preview, point them at the real detected LAN IP on the preview port.
@@ -156,16 +154,8 @@ def main() -> None:
         OUT_MAIN.write_text(main_html, encoding="utf-8")
         print(f"Wrote {OUT_MAIN.relative_to(ROOT)}  ({len(main_html):,} bytes)")
 
-    # AVN bare page (split-mode pane content). Needs the mock injected so the page's
-    # /airframe + /airframe-layout fetches resolve against captured assets in preview.
-    if AVN.exists():
-        avn_html = extract_html(AVN.read_text(encoding="utf-8"))
-        avn_html = avn_html.replace("</head>", injection + mock + "\n</head>", 1)
-        OUT_AVN.write_text(avn_html, encoding="utf-8")
-        print(f"Wrote {OUT_AVN.relative_to(ROOT)}  ({len(avn_html):,} bytes)")
-
-    # (WPN + TGL + TGP bare pages removed — migrated to web/pages/{wpn,tgl,tgp}/, served over
-    #  http via /assets, so they are no longer extracted into the file:// preview. Return with
+    # (WPN + TGL + TGP + AVN bare pages removed — migrated to web/pages/{wpn,tgl,tgp,avn}/, served
+    #  over http via /assets, so they are no longer extracted into the file:// preview. Return with
     #  step 7. Use tools/serve_web.py to drive them over http in the meantime.)
 
     # RWR bare page (split-mode pane content). Self-contained stub — fake contacts rendered
