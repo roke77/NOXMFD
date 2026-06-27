@@ -7,10 +7,15 @@ full-view surgery (WPN, TGL, …) can be driven end-to-end. The shell's mocked /
 shell forwards to the #page-frame iframe.
 
   /                  -> preview/index.html         (the build_preview shell)
+  /map-view[?bare]   -> web/pages/map/map.html      (the base map iframe; mock injected here)
   /<page>            -> web/pages/<page>/<page>.html  (any migrated page, e.g. /wpn /tgl)
   /weapon?...        -> a mock 2:1 weapon icon      (the frame fetches this directly)
   /assets/<x>        -> web/<x>                     (font.css, theme.css, woff2, page css/js)
-  else               -> preview/<x>                 (map-view.html, *.js, manifest, ...)
+  else               -> preview/<x>                 (main.html, *.js, manifest, ...)
+
+The MAP page is the only EventSource('/stream') consumer, so the mock (which stubs /stream,
+/map, /icon, /weapon) is injected into it here — exactly what build_preview used to do when the
+map was a generated preview/map-view.html. The shell loads /map-view?bare absolutely.
 
 Usage:
     python tools/serve_web.py            # serve on http://127.0.0.1:8782
@@ -20,6 +25,7 @@ Run `python tools/build_preview.py` first to populate preview/. Ctrl+C to stop.
 """
 import argparse
 import http.server
+import json
 import os
 import pathlib
 import posixpath
@@ -28,6 +34,8 @@ import socketserver
 REPO = pathlib.Path(__file__).resolve().parent.parent
 WEB = REPO / "web"
 PREV = REPO / "preview"
+MOCK = REPO / "tools" / "preview-mock.js"
+MANIFEST = PREV / "assets" / "manifest.json"
 
 WEAPON_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">'
               '<rect width="200" height="100" fill="none" stroke="#39ff14" stroke-width="3"/>'
@@ -44,11 +52,38 @@ def _mime(rel):
     return MIME.get(os.path.splitext(rel)[1], 'application/octet-stream')
 
 
+def _capture_injection():
+    """If a capture exists, a <script> exposing the real frame + assets (mirrors build_preview)."""
+    if not MANIFEST.exists():
+        return ""
+    m = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    frame = json.dumps(m.get("frame", {})).replace("</", "<\\/")
+    assets = json.dumps(m.get("assets", {})).replace("</", "<\\/")
+    return ("<script>\n"
+            f"window.__PREVIEW_FRAME__ = {frame};\n"
+            f"window.__PREVIEW_ASSETS__ = {assets};\n"
+            "</script>\n")
+
+
+def _map_page():
+    """The MAP page (web/pages/map/map.html) with the mock (+ any capture) injected before
+    </head>, so its EventSource('/stream') and /map,/icon,/weapon fetches resolve in the browser.
+    Built fresh per request so edits to map.html / the mock show up on reload."""
+    html = (WEB / "pages" / "map" / "map.html").read_text(encoding="utf-8")
+    mock = MOCK.read_text(encoding="utf-8").strip()
+    return html.replace("</head>", _capture_injection() + mock + "\n</head>", 1).encode("utf-8")
+
+
 class H(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split('?', 1)[0]
         if path in ('/', '/index.html'):
             return self._file(PREV / 'index.html', 'text/html; charset=utf-8')
+        if path == '/map-view':
+            try:
+                return self._send(_map_page(), 'text/html; charset=utf-8')
+            except OSError as e:
+                return self.send_error(404, str(e))
         if path == '/weapon':
             return self._send(WEAPON_SVG.encode('utf-8'), 'image/svg+xml')
         if path.startswith('/assets/'):

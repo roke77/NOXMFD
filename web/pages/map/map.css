@@ -1,0 +1,147 @@
+/* MAP page styles. Extracted from ClientPage.cs's inline <style>; the embedded @font-face
+   moved to web/shared/font.css (linked before this). Body font stays 'Courier New' (the map
+   only uses Share Tech Mono for the NO SIGNAL placeholder), so the theme.css body font is
+   overridden here on purpose. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #060a06;
+  color: #39ff14;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+header {
+  padding: 5px 12px;
+  border-bottom: 1px solid #1a3a1a;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #4aaa4a;
+  flex-shrink: 0;
+}
+#status { font-weight: bold; }
+#status.connected    { color: #39ff14; }
+#status.disconnected { color: #ff4040; }
+#status.waiting      { color: #ffaa00; }
+
+main { flex: 1; display: flex; overflow: hidden; }
+
+/* "bare" mode (e.g. embedded in the MFD frame at /map-view?bare): map only, no chrome. */
+body.bare > header,
+body.bare #hud { display: none; }
+body.bare #map-panel { border-right: none; }
+
+#map-panel {
+  flex: 1;
+  position: relative;
+  background: #000;
+  border-right: 1px solid #1a3a1a;
+  overflow: hidden;
+  /* Custom HUD-green crosshair, constant regardless of zoom/drag state. */
+  cursor: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48ZyBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAiIHN0cm9rZS1vcGFjaXR5PSIuNTUiIHN0cm9rZS13aWR0aD0iMy40IiBzdHJva2UtbGluZWNhcD0icm91bmQiPjxsaW5lIHgxPSIxMiIgeTE9IjIiIHgyPSIxMiIgeTI9IjgiLz48bGluZSB4MT0iMTIiIHkxPSIxNiIgeDI9IjEyIiB5Mj0iMjIiLz48bGluZSB4MT0iMiIgeTE9IjEyIiB4Mj0iOCIgeTI9IjEyIi8+PGxpbmUgeDE9IjE2IiB5MT0iMTIiIHgyPSIyMiIgeTI9IjEyIi8+PC9nPjxnIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzM5ZmYxNCIgc3Ryb2tlLXdpZHRoPSIxLjciIHN0cm9rZS1saW5lY2FwPSJyb3VuZCI+PGxpbmUgeDE9IjEyIiB5MT0iMiIgeDI9IjEyIiB5Mj0iOCIvPjxsaW5lIHgxPSIxMiIgeTE9IjE2IiB4Mj0iMTIiIHkyPSIyMiIvPjxsaW5lIHgxPSIyIiB5MT0iMTIiIHgyPSI4IiB5Mj0iMTIiLz48bGluZSB4MT0iMTYiIHkxPSIxMiIgeDI9IjIyIiB5Mj0iMTIiLz48L2c+PC9zdmc+) 12 12, crosshair;
+}
+#map-panel.has-map { background: #000; }   /* black letterbox once a map is loaded */
+/* Source sprite only — the map is blitted into #overlay so it shares the icons' transform. */
+#map-img { display: none; }
+#map-missing {
+  display: block;   /* shown by default (no mission / no map yet); hidden once a map loads */
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  color: #1a4a1a;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 22px;
+  letter-spacing: 3px;
+  white-space: nowrap;
+}
+#overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
+
+#mission-bar {
+  position: absolute;
+  bottom: 10px; left: 12px;
+  background: rgba(6,10,6,0.78);
+  border: 1px solid #1a3a1a;
+  padding: 6px 11px;
+  line-height: 1.5;
+  pointer-events: none;
+}
+#mission-bar .mission-name { font-size: 11px; color: #4aaa4a; }
+#mission-bar.empty { display: none; }
+
+/* Bottom-right twin of the mission bar — current grid square (e.g. "GRID: Kg48"). */
+#grid-bar {
+  position: absolute;
+  bottom: 10px; right: 12px;
+  background: rgba(6,10,6,0.78);
+  border: 1px solid #1a3a1a;
+  padding: 5px 9px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #4aaa4a;
+  pointer-events: none;
+  user-select: none;
+}
+#grid-bar.empty { display: none; }
+
+/* FOLLOW indicator — only rendered when follow mode is ON (orange box).
+   OFF state is hidden entirely so the corner stays clean. */
+#follow-btn {
+  position: absolute;
+  top: 10px; right: 12px;
+  background: rgba(6,10,6,0.78);
+  border: 1px solid #ffaa00;
+  padding: 5px 9px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #ffaa00;
+  user-select: none;
+  pointer-events: none;
+}
+#follow-btn.off { display: none; }
+/* Embedded inside the MFD frame: the MFD shell renders its own FOLLOW indicator
+   (so it can stack alongside the PINNED indicator), so hide the iframe's local one. */
+body.bare #follow-btn { display: none; }
+
+#unit-label {
+  position: absolute;
+  display: none;
+  transform: translate(12px, 12px);   /* sit just off the cursor */
+  background: rgba(6,10,6,0.78);
+  border: 1px solid #1a3a1a;
+  color: #39ff14;
+  font-size: 11px;
+  padding: 2px 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+}
+
+#hud { width: 210px; display: flex; flex-direction: column; flex-shrink: 0; }
+#loadout { font-size: 12px; color: #39ff14; overflow-y: auto; height: 100%; }
+#loadout .none { color: #1a4a1a; }
+.witem { margin-bottom: 9px; }
+.wname { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wammo { font-size: 11px; color: #4aaa4a; }
+.wammo span { color: #39ff14; }
+.witem.sel .wname, .witem.sel .wammo, .witem.sel .wammo span { color: #ffaa00; }  /* selected weapon */
+.wicon { height: 80px; max-width: 100%; margin-top: 2px; display: block; }
+.panel  { border-bottom: 1px solid #1a3a1a; padding: 9px 12px; }
+.label  { font-size: 9px; letter-spacing: 2px; color: #4aaa4a; margin-bottom: 3px; }
+.big    { font-size: 26px; font-weight: bold; letter-spacing: 1px; }
+.unit   { font-size: 10px; color: #4aaa4a; margin-left: 3px; }
+#plane-name { font-size: 14px; font-weight: bold; word-break: break-all; }
+#grid   { font-size: 22px; font-weight: bold; letter-spacing: 2px; }
+#gear.down  { color: #ffaa00; }
+#gear.up    { color: #39ff14; }
+#cm { font-size: 13px; }
+.cm-row { display: flex; justify-content: space-between; line-height: 1.9; color: #4aaa4a; }
+.cm-row .cm-val { color: #39ff14; font-weight: bold; }
+.cm-row .cm-val.dim { color: #1a4a1a; font-weight: normal; }
+.cm-row.cm-sel, .cm-row.cm-sel .cm-val { color: #ffaa00; }   /* currently selected */
+.dim { color: #1a4a1a; }

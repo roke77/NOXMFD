@@ -279,7 +279,7 @@ namespace NOXMFD
                     else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                         ServeAsset(ctx, path);
                     else if (path == "/map-view")
-                        ServePage(ctx, ClientPage.Html);
+                        ServeAssetRel(ctx, "pages/map/map.html");   // migrated to web/pages/map/ (was ClientPage.Html)
                     else if (path == "/main")
                     {
                         string lanBlock = string.IsNullOrEmpty(LanUrl)
