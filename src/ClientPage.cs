@@ -66,7 +66,7 @@ namespace NOXMFD
   /* Source sprite only — the map is blitted into #overlay so it shares the icons' transform. */
   #map-img { display: none; }
   #map-missing {
-    display: none;
+    display: block;   /* shown by default (no mission / no map yet); hidden once a map loads */
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%,-50%);
@@ -609,9 +609,10 @@ function ensureThreatAnimation() {
 // retry — while a mission is active — until the image loads, cache-busting each attempt.
 let mapRetryTimer = null, mapRetries = 0;
 const MAP_MAX_RETRIES = 30;   // ~24 s at 800 ms — covers a slow capture, then gives up
+function setNoSignal(on) { document.getElementById('map-missing').style.display = on ? 'block' : 'none'; }
 mapImg.onerror = function() {
   mapImg.classList.add('missing');
-  document.getElementById('map-missing').style.display = 'block';
+  setNoSignal(true);
   if (mapMeta && !mapRetryTimer && mapRetries < MAP_MAX_RETRIES) {
     mapRetryTimer = setTimeout(function() {
       mapRetryTimer = null;
@@ -623,7 +624,7 @@ mapImg.onload = function() {
   if (mapRetryTimer) { clearTimeout(mapRetryTimer); mapRetryTimer = null; }
   mapRetries = 0;
   mapImg.classList.remove('missing');
-  document.getElementById('map-missing').style.display = 'none';
+  setNoSignal(false);
   resizeOverlay();
 };
 
@@ -639,6 +640,7 @@ es.onmessage = function(e) {
   if (d.ping) {
     setStatus('waiting', '● CONNECTED — no mission');
     if (hadData) clearMission();   // mission ended — wipe the display once
+    setNoSignal(true);             // no mission selected → NO SIGNAL
     return;
   }
 
@@ -677,6 +679,7 @@ function clearMission() {
   followPlayer = false; followBtn.className = 'off'; followBtn.textContent = 'FOLLOW';
   oc.clearRect(0, 0, overlay.width, overlay.height);
   document.getElementById('map-panel').classList.remove('has-map');
+  setNoSignal(true);                     // no map until the next mission loads one
   mapImg.src = '/map?t=' + Date.now();   // 404 now → falls back to the placeholder
 
   document.getElementById('mission-bar').className = 'empty';
