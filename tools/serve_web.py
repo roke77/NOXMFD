@@ -7,11 +7,12 @@ full-view surgery (WPN, TGL, …) can be driven end-to-end. The shell's mocked /
 shell forwards to the #page-frame iframe.
 
   /                  -> preview/index.html         (the build_preview shell)
+  /config            -> preview runtime URLs        (localhost/LAN URL for this harness port)
   /map-view[?bare]   -> web/pages/map/map.html      (the base map iframe; mock injected here)
   /<page>            -> web/pages/<page>/<page>.html  (any migrated page, e.g. /wpn /tgl)
   /weapon?...        -> a mock 2:1 weapon icon      (the frame fetches this directly)
   /assets/<x>        -> web/<x>                     (font.css, theme.css, woff2, page css/js)
-  else               -> preview/<x>                 (main.html, *.js, manifest, ...)
+  else               -> preview/<x>                 (*.js, manifest, ...)
 
 The MAP page is the only EventSource('/stream') consumer, so the mock (which stubs /stream,
 /map, /icon, /weapon) is injected into it here — exactly what build_preview used to do when the
@@ -29,6 +30,7 @@ import json
 import os
 import pathlib
 import posixpath
+import socket
 import socketserver
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
@@ -74,11 +76,32 @@ def _map_page():
     return html.replace("</head>", _capture_injection() + mock + "\n</head>", 1).encode("utf-8")
 
 
+def _detect_lan_ip():
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 65530))
+            ip = sock.getsockname()[0]
+        return "" if not ip or ip.startswith("127.") or ip.startswith("0.") else ip
+    except OSError:
+        return ""
+
+
+def _config(port):
+    lan_ip = _detect_lan_ip()
+    return json.dumps({
+        "localhost": f"http://localhost:{port}",
+        "lanUrl": f"http://{lan_ip}:{port}" if lan_ip else "",
+        "port": port,
+    }).encode("utf-8")
+
+
 class H(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split('?', 1)[0]
         if path in ('/', '/index.html'):
             return self._file(PREV / 'index.html', 'text/html; charset=utf-8')
+        if path == '/config':
+            return self._send(_config(self.server.server_address[1]), 'application/json; charset=utf-8')
         if path == '/map-view':
             try:
                 return self._send(_map_page(), 'text/html; charset=utf-8')

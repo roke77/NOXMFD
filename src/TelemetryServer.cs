@@ -76,8 +76,7 @@ namespace NOXMFD
         // ── Lifecycle ──────────────────────────────────────────────────────────
 
         // Local-network URL (e.g. http://192.168.1.42:5005) — empty if the listener fell back
-        // to localhost-only. Embedded into the MFD page's MAIN card so the user can read it
-        // from a tablet on the same Wi-Fi.
+        // to localhost-only. Exposed through /config so the shell and MAIN pane can render it.
         internal static string LanUrl { get; private set; } = "";
 
         public static void Start()
@@ -276,17 +275,14 @@ namespace NOXMFD
                         ServeAirframeImage(ctx);
                     else if (path == "/airframe-layout")
                         ServeAirframeLayout(ctx);
+                    else if (path == "/config")
+                        ServeConfig(ctx);
                     else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                         ServeAsset(ctx, path);
                     else if (path == "/map-view")
                         ServeAssetRel(ctx, "pages/map/map.html");   // migrated to web/pages/map/ (was ClientPage.Html)
                     else if (path == "/main")
-                    {
-                        string lanBlock = string.IsNullOrEmpty(LanUrl)
-                            ? ""
-                            : $"<div class=\"ib-url\">{LanUrl}</div>";
-                        ServePage(ctx, MainPage.Html.Replace("{{LAN_URL_BLOCK}}", lanBlock));
-                    }
+                        ServeAssetRel(ctx, "pages/main/main.html");  // migrated to web/pages/main/ (was MainPage.Html)
                     else if (path == "/avn")
                         ServeAssetRel(ctx, "pages/avn/avn.html");   // migrated to web/pages/avn/ (was AvnPage.Html)
                     else if (path == "/tgp")
@@ -302,12 +298,7 @@ namespace NOXMFD
                     else if (path == "/mfd")
                         Redirect(ctx, "/");
                     else if (path == "/" || path == "/index.html")
-                    {
-                        string lanBlock = string.IsNullOrEmpty(LanUrl)
-                            ? ""
-                            : $"<div class=\"ib-url\">{LanUrl}</div>";
-                        ServePage(ctx, MfdPage.Html.Replace("{{LAN_URL_BLOCK}}", lanBlock));
-                    }
+                        ServePage(ctx, MfdPage.Html);
                     else
                         Redirect(ctx, "/");
                 }
@@ -392,6 +383,24 @@ namespace NOXMFD
                 ctx.Response.StatusCode      = 200;
                 ctx.Response.ContentType     = "text/html; charset=utf-8";
                 ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        private static void ServeConfig(HttpListenerContext ctx)
+        {
+            try
+            {
+                string json = string.Format(CultureInfo.InvariantCulture,
+                    "{{\"localhost\":\"http://localhost:{0}\",\"lanUrl\":\"{1}\",\"port\":{0}}}",
+                    Port, EscapeJson(LanUrl ?? string.Empty));
+                byte[] body = Encoding.UTF8.GetBytes(json);
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
                 ctx.Response.OutputStream.Write(body, 0, body.Length);
             }
             catch { }

@@ -550,7 +550,6 @@ namespace NOXMFD
               </div>
               <div class="ib-data" id="ib-data">
                 <div class="ib-url">http://localhost:5005</div>
-                {{LAN_URL_BLOCK}}
                 <div class="ib-status disconnected" id="ib-status">&#9679; DISCONNECTED</div>
               </div>
             </div>
@@ -1679,6 +1678,34 @@ function typewriterUrls() {
   typeLine(0);
 }
 
+function setInfoUrls(cfg) {
+  if (!infoBox) return;
+  const status = document.getElementById('ib-status');
+  if (!status || !status.parentNode) return;
+
+  const urls = [cfg && cfg.localhost ? cfg.localhost : 'http://localhost:5005'];
+  if (cfg && cfg.lanUrl) urls.push(cfg.lanUrl);
+
+  [].slice.call(infoBox.querySelectorAll('.ib-data .ib-url')).forEach(function(el) { el.remove(); });
+  urls.forEach(function(url) {
+    const el = document.createElement('div');
+    el.className = 'ib-url';
+    el.textContent = url;
+    status.parentNode.insertBefore(el, status);
+  });
+
+  // If /config arrives after the boot loader has revealed the rows, replay the typewriter
+  // against the fresh URL nodes. During boot, runBootLoading() will call typewriterUrls().
+  if (!infoBox.classList.contains('booting')) typewriterUrls();
+}
+
+function loadConfigUrls() {
+  fetch('/config', { cache: 'no-store' })
+    .then(function(r) { if (!r.ok) throw new Error('config'); return r.json(); })
+    .then(setInfoUrls)
+    .catch(function() {});
+}
+
 // Inbound command channel (POST /command), same flat envelope the MAP page uses. Fire-and-forget;
 // state changes (e.g. a deselected target dropping off the TGL list) arrive via normal telemetry.
 function sendCommand(cmd, args) {
@@ -1839,6 +1866,7 @@ window.addEventListener('resize', function() {
   if (splitMode) { renderSplitLabels(); forwardWpnLayoutToPanes(); forwardTglLayoutToPanes(); }
   else           showPage(currentPage);
 });
+loadConfigUrls();
 showPage('main');   // start on the MAIN page
 flickerScreen();    // CRT power-on flicker on first load
 runBootLoading();   // boot loader in the centre info box on first load</script>

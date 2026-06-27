@@ -9,7 +9,7 @@ bezel geometry the shell forwards), and **RWR** (radar-warning scope — one res
 profile, two streams). Each is one page file, full view hosted in an iframe, overlay deleted.
 **MAIN is deferred to step 5** — its full view *is* shell chrome (the info-box + boot loader) and
 its LAN-URL injection is open question #4, so it migrates with the shell, not as a standalone page.
-Remaining: the shell + MAP + MAIN (step 5); then shared JS (step 6) + the preview rework (step 7).
+Remaining: the shell (step 5c); then shared JS (step 6) + the preview rework (step 7).
 
 ## Goal
 
@@ -208,9 +208,8 @@ The DLL keeps building and the UI keeps working after every step.
    info-box + boot loader (startup chrome, not page content), and the LAN-URL injection is unsolved,
    so MAIN migrates *with* the shell rather than as a standalone page. Step 4's five real pages done.
 5. **Convert MAP, MAIN, and the shell** (`ClientPage.cs`, `MainPage.cs` + shell info-box/boot-loader,
-   `MfdPage.cs`). **Planned 2026-06-27** — see the "Step 5 execution plan" section below for the
-   locked decisions (/config endpoint; info-box stays shell chrome; MAP→MAIN→shell sequencing) and
-   the sub-steps 5a/5b/5c.
+   `MfdPage.cs`). **In progress 2026-06-27** — **5a MAP DONE** and **5b `/config` + MAIN DONE**;
+   5c shell remains.
 6. **Extract shared JS** (`sse-client`, `mfd-protocol`, `sendCommand`) and
    de-duplicate the now-parallel copies across pages.
 7. **Simplify `build_preview.py`** to serve `web/` directly; update the workflow
@@ -244,12 +243,13 @@ must survive the move intact.
   extraction (`sendCommand`/SSE/postMessage) is step 6, after.
 
 **Sub-steps (each builds + verifies in the harness, then in-game):**
-- **5a — MAP** → `web/pages/map/{map.html,map.css,map.js}`; point `/map-view` at `ServeAssetRel`;
+- **5a — MAP: DONE.** `web/pages/map/{map.html,map.css,map.js}`; point `/map-view` at `ServeAssetRel`;
   delete `ClientPage.cs`. It stays the base data-tap iframe. Biggest single file (~1161 lines) but
   mechanically a move — no overlay twin to delete. Highest leverage to de-risk early.
-- **5b — `/config` + MAIN.** Add the `/config` endpoint (D1); move the split-pane card to
-  `web/pages/main/`; both shell + card fetch `/config`. Drop the string-replace. (Shell info-box
-  stays put for now — it converts with the shell in 5c.)
+- **5b — `/config` + MAIN: DONE.** `/config` serves `{ localhost, lanUrl, port }`;
+  `web/pages/main/{main.html,main.css,main.js}` is the split-pane card; shell + card fetch
+  `/config`; the `{{LAN_URL_BLOCK}}`/`MainPage.cs` string-replace path is gone. Shell info-box
+  stays put for now — it converts with the shell in 5c.
 - **5c — the shell** → `web/shell/{mfd.html,mfd.css,mfd.js}` (~1849 lines: bezel/keys, split logic,
   all `forwardX*` relays, `showPage`, `mfdButton`, indicators, orientation, power-on/boot, the SSE
   relay handler, the info-box markup). **This forces the preview-harness rework** (step 7 pulled
@@ -268,7 +268,7 @@ it during 5a/5c so the harness can finally exercise every page).
 Concrete, learned-by-doing guidance. **WPN is the reference implementation — copy its
 pattern.** Read `web/pages/wpn/*` and the WPN-specific hooks in `MfdPage.cs` first.
 
-### File map (current, post-WPN)
+### File map (current, post-step 5b)
 ```
 web/
   shared/  font.css  theme.css  share-tech-mono.woff2   # font.css → /assets/shared/...woff2
@@ -278,14 +278,13 @@ web/
     tgp/   tgp.html  tgp.css  tgp.js                     # DONE: one profile (feed, like MAP)
     avn/   avn.html  avn.css  avn.js                     # DONE: two profiles (full anchors to bezel geom)
     rwr/   rwr.html  rwr.css  rwr.js                     # DONE: one profile (responsive SVG), 2 streams
+    map/   map.html  map.css  map.js                     # DONE: base map + only /stream consumer
+    main/  main.html main.css main.js                    # DONE: split-pane card; full MAIN is shell chrome
 src/
   TelemetryServer.cs   # ServeAsset (/assets/ route) + ServeAssetRel(ctx,"pages/x/x.html");
                        #   per-page routes (e.g. /wpn) call ServeAssetRel. /assets suffix-matches
                        #   the embedded-resource manifest "<RootNamespace>.web.<dotted path>".
   MfdPage.cs           # the shell (still a const-string blob). Hosts pages; see hooks below.
-  ClientPage.cs        # MAP page (/map-view) — still a blob; migrate in step 5.
-  MainPage.cs          # MAIN card — still a blob; migrates WITH the shell in step 5 (its full
-                       #   view is the shell's info-box + boot loader; LAN-URL injection = Q#4)
 NOXMFD.csproj          # <EmbeddedResource Include="web\**\*" />
 .gitattributes         # *.woff2/png/jpg = binary (don't let git mangle EOLs)
 ```
