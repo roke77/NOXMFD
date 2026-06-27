@@ -292,7 +292,7 @@ namespace NOXMFD
                     else if (path == "/tgp")
                         ServePage(ctx, TgpPage.Html);
                     else if (path == "/wpn")
-                        ServeAssetRel(ctx, "pages/wpn.html");   // migrated to web/pages/wpn.* (was WpnPage.Html)
+                        ServeAssetRel(ctx, "pages/wpn/wpn.html");   // migrated to web/pages/wpn/ (was WpnPage.Html)
                     else if (path == "/tgl")
                         ServePage(ctx, TglPage.Html);
                     else if (path == "/rwr")
