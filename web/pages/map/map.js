@@ -924,5 +924,15 @@ window.addEventListener('message', function(e) {
 // ── Init ──────────────────────────────────────────────────────────────────────────
 // "bare" mode: hide header + HUD sidebar so just the map shows (used by the MFD frame).
 if (location.search.indexOf('bare') >= 0) document.body.classList.add('bare');
-window.addEventListener('resize', resizeOverlay);
 resizeOverlay();
+// Keep the canvas sized to its panel. A ResizeObserver — not just window 'resize' — is essential:
+// in split mode the shell sets this map iframe to display:none, so #map-panel collapses to 0×0
+// (and any stray resize while hidden zeroes the canvas). When the pane is shown again the panel
+// grows 0→N but no window 'resize' fires inside the iframe, so the canvas would stay 0×0 and the
+// map renders black until a manual reload. Observing the panel catches that 0→N transition and
+// re-sizes + redraws. (resizeOverlay is idempotent; the observer subsumes the window listener.)
+if (window.ResizeObserver) {
+  new ResizeObserver(resizeOverlay).observe(document.getElementById('map-panel'));
+} else {
+  window.addEventListener('resize', resizeOverlay);
+}
