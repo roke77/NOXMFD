@@ -40,7 +40,8 @@ MFD = ROOT / "src" / "MfdPage.cs"
 MAIN = ROOT / "src" / "MainPage.cs"
 AVN = ROOT / "src" / "AvnPage.cs"
 TGP = ROOT / "src" / "TgpPage.cs"
-WPN = ROOT / "src" / "WpnPage.cs"
+# WPN migrated to web/pages/wpn/ (http-served via /assets); no longer a C# const blob.
+# Its file:// preview returns with the step-7 web/ preview rework (todo/src-architecture.md).
 TGL = ROOT / "src" / "TglPage.cs"
 RWR = ROOT / "src" / "RwrPage.cs"
 MOCK = ROOT / "tools" / "preview-mock.js"
@@ -50,7 +51,6 @@ OUT_MAP = ROOT / "preview" / "map-view.html"
 OUT_MAIN = ROOT / "preview" / "main.html"
 OUT_AVN = ROOT / "preview" / "avn.html"
 OUT_TGP = ROOT / "preview" / "tgp.html"
-OUT_WPN = ROOT / "preview" / "wpn.html"
 OUT_TGL = ROOT / "preview" / "tgl.html"
 OUT_RWR = ROOT / "preview" / "rwr.html"
 OLD_OUT_MFD = ROOT / "preview" / "mfd.html"
@@ -143,7 +143,8 @@ def main() -> None:
         mfd = mfd.replace("'/map-view?bare'", "'map-view.html?bare'")
         mfd = mfd.replace("'/avn?bare'",  "'avn.html?bare'")
         mfd = mfd.replace("'/tgp?bare'",  "'tgp.html?bare'")
-        mfd = mfd.replace("'/wpn?bare'",  "'wpn.html?bare'")
+        # '/wpn?bare' intentionally not rewritten — WPN is http-served from web/ now,
+        # so its pane stays blank in the file:// MFD preview until the step-7 rework.
         mfd = mfd.replace("'/tgl?bare'",  "'tgl.html?bare'")
         mfd = mfd.replace("'/rwr?bare'",  "'rwr.html?bare'")
         # The localhost line + LAN URL block are filled by the live server in-game; for the
@@ -176,13 +177,8 @@ def main() -> None:
         OUT_TGP.write_text(tgp_html, encoding="utf-8")
         print(f"Wrote {OUT_TGP.relative_to(ROOT)}  ({len(tgp_html):,} bytes)")
 
-    # WPN bare page (split-mode pane content). Needs the mock injected so the page's
-    # /weapon selected-icon fetch resolves against captured assets in preview.
-    if WPN.exists():
-        wpn_html = extract_html(WPN.read_text(encoding="utf-8"))
-        wpn_html = wpn_html.replace("</head>", injection + mock + "\n</head>", 1)
-        OUT_WPN.write_text(wpn_html, encoding="utf-8")
-        print(f"Wrote {OUT_WPN.relative_to(ROOT)}  ({len(wpn_html):,} bytes)")
+    # (WPN bare page removed — migrated to web/pages/wpn/, served over http via /assets,
+    #  so it is no longer extracted into the file:// preview. Returns with the step-7 rework.)
 
     # TGL bare page (split-mode pane content). Pure reactive renderer driven by shell
     # postMessage — no fetches — so no mock injection is needed (like the MAIN pane).

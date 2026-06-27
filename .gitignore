@@ -3,6 +3,10 @@ obj/
 .vs/
 *.user
 
+# Python bytecode cache (tools/)
+__pycache__/
+*.pyc
+
 # Generated frontend preview (rebuild with tools/build_preview.py) + captured game assets
 preview/
 
