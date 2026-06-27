@@ -1,11 +1,13 @@
 # src/ web-frontend architecture — design & refactor plan
 
-Status: **in progress** — steps 1–3 done, **step 4 underway (WPN, TGL, TGP migrated)**.
+Status: **in progress** — steps 1–3 done, **step 4 underway (WPN, TGL, TGP, AVN migrated)**.
 Resource plumbing, shared font/theme, **WPN** as the proof page, then **TGL** (which introduced
 the **declarative softkey contract** — full view; split deselect still on the legacy binding),
-then **TGP** (the targeting-pod feed — no softkeys/geometry, one profile for both layouts).
-Each is one page file, full view hosted in an iframe, overlay deleted. Remaining: step 4's
-AVN/RWR/MAIN; then the shell + MAP (step 5); then shared JS (step 6) + the preview rework (step 7).
+**TGP** (the targeting-pod feed — no softkeys/geometry, one profile for both layouts), and
+**AVN** (avionics silhouette + FUEL/THROTTLE bars — two profiles; full anchors name/frame to the
+bezel geometry the shell forwards). Each is one page file, full view hosted in an iframe, overlay
+deleted. Remaining: step 4's RWR/MAIN; then the shell + MAP (step 5); then shared JS (step 6)
++ the preview rework (step 7).
 
 ## Goal
 
@@ -185,7 +187,17 @@ The DLL keeps building and the UI keeps working after every step.
    `forwardTgpToFrame`. The simplest page: no key-band geometry, no pagination, no softkeys, so
    **no separate `full` profile** — the centred 3:2 feed renders identically in both layouts
    (like MAP). `PAGES.tgp` flipped to `opaque:false`; its only key is the static MAIN label.
-   **AVN, RWR, MAIN still to do.**
+   **AVN: DONE** (verified in-game) — `web/pages/avn/{avn.html,avn.css,avn.js}`, the largest
+   page (shell shed ~660 lines: ~300 CSS + ~360 JS + markup/refs/state). **Two profiles:**
+   compact (split pane) keeps the fixed name/frame pixel offsets; full (`body.full`) overrides
+   them — name vertical-centred on the bezel `key[0]` row + sized up, frame spanning
+   `sep[1]`..last-sep. The shell forwards that geometry via a new `avn-layout` message
+   (`forwardAvnLayoutToFrame`, translated into frame coords); the page applies it or falls back
+   to the compact CSS. `forwardAvnToFrame` mirrors `forwardAvnToPanes`. Kept `avnData` (forwarders
+   read it); deleted `AVN_FAILURE_DEFS` + the `/airframe` layout cache/retry state + all
+   `renderAvn..positionAvnBarValue`. **Harness note:** `serve_web.py` doesn't serve
+   `/airframe[-layout]`, so the silhouette only renders in-game (not in preview) for now.
+   **RWR, MAIN still to do.**
 5. **Convert the shell itself** (`MfdPage.cs` → `web/shell/mfd.*`) and **MAP**
    (`ClientPage.cs` → `web/pages/map.*`) once the page pattern is proven.
 6. **Extract shared JS** (`sse-client`, `mfd-protocol`, `sendCommand`) and
@@ -206,18 +218,19 @@ web/
     wpn/   wpn.html  wpn.css  wpn.js                     # DONE: one file, two profiles
     tgl/   tgl.html  tgl.css  tgl.js                     # DONE: + declarative softkey contract
     tgp/   tgp.html  tgp.css  tgp.js                     # DONE: one profile (feed, like MAP)
+    avn/   avn.html  avn.css  avn.js                     # DONE: two profiles (full anchors to bezel geom)
 src/
   TelemetryServer.cs   # ServeAsset (/assets/ route) + ServeAssetRel(ctx,"pages/x/x.html");
                        #   per-page routes (e.g. /wpn) call ServeAssetRel. /assets suffix-matches
                        #   the embedded-resource manifest "<RootNamespace>.web.<dotted path>".
   MfdPage.cs           # the shell (still a const-string blob). Hosts pages; see hooks below.
   ClientPage.cs        # MAP page (/map-view) — still a blob; migrate in step 5.
-  {Avn,Rwr,Main}Page.cs   # still blobs (split-only bare pages) + overlay twins in MfdPage
+  {Rwr,Main}Page.cs   # still blobs (split-only bare pages) + overlay twins in MfdPage
 NOXMFD.csproj          # <EmbeddedResource Include="web\**\*" />
 .gitattributes         # *.woff2/png/jpg = binary (don't let git mangle EOLs)
 ```
 
-### The per-page migration recipe (what WPN + TGL + TGP did — repeat for AVN, RWR, MAIN)
+### The per-page migration recipe (what WPN + TGL + TGP + AVN did — repeat for RWR, MAIN)
 1. **Move the bare page** `XxxPage.cs` → `web/pages/xxx/{xxx.html,xxx.css,xxx.js}`. Link
    `/assets/shared/font.css` + `theme.css` (kills that page's inline font copy). Point its
    route in `TelemetryServer` at `ServeAssetRel(ctx,"pages/xxx/xxx.html")`; delete the `.cs`.
