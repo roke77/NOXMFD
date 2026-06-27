@@ -1,11 +1,11 @@
 # src/ web-frontend architecture — design & refactor plan
 
-Status: **in progress** — steps 1–3 done, **step 4 underway (TGL migrated)**. Resource
-plumbing, shared font/theme, **WPN** as the proof page, then **TGL** — one file, two layout
-profiles, full view hosted in an iframe, overlay deleted, and the **declarative softkey
-contract** introduced on TGL (full view; split deselect still on the legacy binding).
-Remaining: step 4's TGP/AVN/RWR/MAIN; then the shell + MAP (step 5); then shared JS (step 6)
-+ the preview rework (step 7).
+Status: **in progress** — steps 1–3 done, **step 4 underway (WPN, TGL, TGP migrated)**.
+Resource plumbing, shared font/theme, **WPN** as the proof page, then **TGL** (which introduced
+the **declarative softkey contract** — full view; split deselect still on the legacy binding),
+then **TGP** (the targeting-pod feed — no softkeys/geometry, one profile for both layouts).
+Each is one page file, full view hosted in an iframe, overlay deleted. Remaining: step 4's
+AVN/RWR/MAIN; then the shell + MAP (step 5); then shared JS (step 6) + the preview rework (step 7).
 
 ## Goal
 
@@ -179,7 +179,13 @@ The DLL keeps building and the UI keeps working after every step.
    action:'target.deselect',data:{id}}`; shell `applyFrameSoftkeys` maps `slot+paneOffset`).
    **Caveat:** full view uses the contract; **split-mode deselect still rides the legacy
    `renderSplitLabels` hand-binding** (`mfdButton`'s `tgl-deselect` case) — folding split onto
-   the contract is the remaining contract work. **TGP, AVN, RWR, MAIN still to do.**
+   the contract is the remaining contract work.
+   **TGP: DONE** — `web/pages/tgp/{tgp.html,tgp.css,tgp.js}`, overlay (`.tgp-panel` markup/CSS +
+   `tgpPanel`/`tgpImg` refs + MJPEG handling) deleted, hosted in `#page-frame` via
+   `forwardTgpToFrame`. The simplest page: no key-band geometry, no pagination, no softkeys, so
+   **no separate `full` profile** — the centred 3:2 feed renders identically in both layouts
+   (like MAP). `PAGES.tgp` flipped to `opaque:false`; its only key is the static MAIN label.
+   **AVN, RWR, MAIN still to do.**
 5. **Convert the shell itself** (`MfdPage.cs` → `web/shell/mfd.*`) and **MAP**
    (`ClientPage.cs` → `web/pages/map.*`) once the page pattern is proven.
 6. **Extract shared JS** (`sse-client`, `mfd-protocol`, `sendCommand`) and
@@ -199,18 +205,19 @@ web/
   pages/
     wpn/   wpn.html  wpn.css  wpn.js                     # DONE: one file, two profiles
     tgl/   tgl.html  tgl.css  tgl.js                     # DONE: + declarative softkey contract
+    tgp/   tgp.html  tgp.css  tgp.js                     # DONE: one profile (feed, like MAP)
 src/
   TelemetryServer.cs   # ServeAsset (/assets/ route) + ServeAssetRel(ctx,"pages/x/x.html");
                        #   per-page routes (e.g. /wpn) call ServeAssetRel. /assets suffix-matches
                        #   the embedded-resource manifest "<RootNamespace>.web.<dotted path>".
   MfdPage.cs           # the shell (still a const-string blob). Hosts pages; see hooks below.
   ClientPage.cs        # MAP page (/map-view) — still a blob; migrate in step 5.
-  {Avn,Tgp,Rwr,Main}Page.cs   # still blobs (split-only bare pages) + overlay twins in MfdPage
+  {Avn,Rwr,Main}Page.cs   # still blobs (split-only bare pages) + overlay twins in MfdPage
 NOXMFD.csproj          # <EmbeddedResource Include="web\**\*" />
 .gitattributes         # *.woff2/png/jpg = binary (don't let git mangle EOLs)
 ```
 
-### The per-page migration recipe (what WPN + TGL did — repeat for TGP, AVN, RWR, MAIN)
+### The per-page migration recipe (what WPN + TGL + TGP did — repeat for AVN, RWR, MAIN)
 1. **Move the bare page** `XxxPage.cs` → `web/pages/xxx/{xxx.html,xxx.css,xxx.js}`. Link
    `/assets/shared/font.css` + `theme.css` (kills that page's inline font copy). Point its
    route in `TelemetryServer` at `ServeAssetRel(ctx,"pages/xxx/xxx.html")`; delete the `.cs`.
