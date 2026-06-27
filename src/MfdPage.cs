@@ -319,8 +319,7 @@ namespace NOXMFD
      content now. We disable the opaque background regardless of class, and any
      direct content child is force-hidden. */
   .screen.split > .overlay { background: transparent !important; }
-  .screen.split > .overlay > .info-box,
-  .screen.split > .overlay > .rwr-panel { display: none !important; }
+  .screen.split > .overlay > .info-box { display: none !important; }
   .split-pane {
     flex: 1 1 50%;
     min-height: 0;
@@ -475,26 +474,8 @@ namespace NOXMFD
   /* (TGP page — targeting-pod feed — now renders in the #page-frame iframe, web/pages/tgp/,
      in both full and split views. Its panel/img/empty CSS moved there.) */
 
-  /* RWR page — radar warning receiver. A polar, nose-up scope drawn as a responsive SVG
-     (Option C from todo/rwr-radar-warning.md): a smoked-white mask — solid rim + two dashed
-     range rings + cardinal ticks + ownship caret + heading caret — with contacts drawn as
-     50%-opacity bearing spokes from ownship out to each emitter, tier-coloured (grey search /
-     yellow track / red lock). Contacts are placeholder/fake until the backend feed lands.
-     The SVG keeps a 1000×1000 viewBox; preserveAspectRatio centres it square inside the
-     (letterboxed) panel, so the scope stays circular at any screen aspect. */
-  .rwr-panel {
-    position: absolute;
-    inset: 0;
-    display: none;
-    background: #000;
-  }
-  .rwr-panel.show { display: block; }
-  .rwr-scope { display: block; width: 100%; height: 100%; }
-  .rwr-scope text { font-family: 'Share Tech Mono', 'Courier New', monospace; font-size: 30px; }
-  /* Incoming-missile layer: its shapes use currentColor; renderThreats toggles the group's
-     colour red<->yellow each frame (JS-driven, since the live stream re-renders it ~10 Hz) so
-     the launch lines flicker like the game's map missile cue. */
-  .rwr-scope .rwr-threats { color: #ff3b30; }
+  /* (RWR page — radar-warning scope — now renders in the #page-frame iframe, web/pages/rwr/,
+     in both full and split views. Its panel/scope SVG CSS moved there.) */
 
   /* (AVN page — avionics silhouette + FUEL/THROTTLE bars — now renders in the #page-frame
      iframe, web/pages/avn/, in both full and split views. Its panel/frame/bar CSS moved there.) */
@@ -583,23 +564,8 @@ namespace NOXMFD
           <!-- AVN content (silhouette + failure labels + FUEL/THROTTLE bars) now lives in the
                #page-frame iframe (web/pages/avn/), not here. The overlay only carries AVN's
                MAIN nav label. -->
-          <div class="rwr-panel" id="rwr-panel">
-            <svg class="rwr-scope" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-              <g fill="none" stroke="rgba(255,255,255,0.5)">
-                <circle cx="500" cy="500" r="460" stroke-width="4"/>
-                <circle cx="500" cy="500" r="304" stroke-width="2.5" stroke-dasharray="12 16"/>
-                <circle cx="500" cy="500" r="152" stroke-width="2.5" stroke-dasharray="10 16"/>
-                <line x1="500" y1="40"  x2="500" y2="78"  stroke-width="3"/>
-                <line x1="500" y1="922" x2="500" y2="960" stroke-width="3"/>
-                <line x1="40"  y1="500" x2="78"  y2="500" stroke-width="3"/>
-                <line x1="922" y1="500" x2="960" y2="500" stroke-width="3"/>
-              </g>
-              <polygon points="480,18 520,18 500,50" fill="rgba(255,255,255,0.6)"/>
-              <polygon points="500,460 475,548 500,528 525,548" fill="none" stroke="rgba(255,255,255,0.65)" stroke-width="4"/>
-              <g class="rwr-contacts" id="rwr-contacts"></g>
-              <g class="rwr-threats" id="rwr-threats"></g>
-            </svg>
-          </div>
+          <!-- RWR content (radar-warning scope SVG) now lives in the #page-frame iframe
+               (web/pages/rwr/), not here. The overlay only carries RWR's MAIN nav label. -->
         </div>
       </div>
       <div class="keys v" id="keys-right"></div>
@@ -675,12 +641,13 @@ const paneIframes = [document.getElementById('pane-top'), document.getElementByI
 const pageFrame = document.getElementById('page-frame');   // full-view host for migrated pages (WPN, TGL, TGP)
 // Pages that render in #page-frame in full view (migrated out of overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
-const FRAME_PAGES = { wpn: '/wpn', tgl: '/tgl', tgp: '/tgp', avn: '/avn' };
+const FRAME_PAGES = { wpn: '/wpn', tgl: '/tgl', tgp: '/tgp', avn: '/avn', rwr: '/rwr' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling now live in web/pages/tgp/, hosted in #page-frame.)
 const sepEls      = document.querySelectorAll('#keys-left .sep');   // 0 = above key[0], i+1 = below key[i]
-const rwrPanel    = document.getElementById('rwr-panel');
+// (RWR element refs removed — full-view RWR is hosted in #page-frame, web/pages/rwr/, which
+//  owns the scope SVG. The shell keeps only rwrData + mwData + the forwarders below.)
 // (AVN element refs removed — full-view AVN is hosted in #page-frame, web/pages/avn/, which
 //  owns the silhouette/bars DOM. The shell keeps only avnData + the forwarders below.)
 // (WPN/CM overlay element refs removed — full-view WPN is hosted in #page-frame, which owns
@@ -743,7 +710,9 @@ const PAGES = {
     ],
   },
   rwr: {
-    opaque: true,
+    // Hosted in #page-frame (the migrated web/pages/rwr page), not the overlay — so the overlay
+    // stays transparent and only carries the MAIN nav label below.
+    opaque: false,
     items: [
       { label: 'MAIN', key: 0, action: 'main' },     // ← back to MAIN
     ],
@@ -1002,6 +971,16 @@ function forwardRwrToPanes() {
     if (!iframe.contentWindow) return;
     iframe.contentWindow.postMessage({ mfd: true, type: 'rwr', items: rwrData.items || [] }, '*');
   });
+}
+// Full-view RWR: forward the contact + missile streams to the #page-frame iframe (same payloads
+// as the panes). RWR is one responsive SVG, so there's no geometry to forward.
+function forwardRwrToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage({ mfd: true, type: 'rwr', items: rwrData.items || [] }, '*');
+}
+function forwardMwToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage({ mfd: true, type: 'mw', items: mwData.items || [] }, '*');
 }
 function forwardMwToPanes() {
   paneIframes.forEach(function(iframe, idx) {
@@ -1312,6 +1291,7 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'tgl') { forwardTglLayoutToFrame(); forwardTglToFrame(); }
   else if (currentPage === 'tgp') { forwardTgpToFrame(); }
   else if (currentPage === 'avn') { forwardAvnLayoutToFrame(); forwardAvnToFrame(); }
+  else if (currentPage === 'rwr') { forwardRwrToFrame(); forwardMwToFrame(); }
 });
 
 // Top-right indicator stack (PINNED + FOLLOW). pinnedPage tracks which page (if any)
@@ -1409,6 +1389,11 @@ const TGL_MAX_DISPLAY = 10;
 // bars, the AVN_FAILURE_DEFS table, the /airframe layout cache — lives in web/pages/avn/.
 let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1 };
 
+// Latest RWR emitters + incoming missiles, mirrored from the map iframe's SSE feed. The shell
+// keeps only this state (the forwarders read it); all scope SVG rendering lives in web/pages/rwr/.
+let rwrData = { items: [] };
+let mwData  = { items: [] };
+
 function clearKeyActions() {
   // Only the page-dynamic banks (left/right) get cleared between pages. The top and bottom
   // banks hold page-independent controls (fullscreen on top; PIN, SWAP, layout… on bottom)
@@ -1452,7 +1437,6 @@ function showPage(name) {
   overlayEl.classList.toggle('opaque', page.opaque);
   infoBox.classList.toggle('show', name === 'main');
   screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGL/TGP/AVN render in #page-frame
-  rwrPanel.classList.toggle('show', name === 'rwr');
   clearKeyActions();
   // Only wipe dynamic line-select labels; static children (info-box) stay put.
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
@@ -1489,126 +1473,15 @@ function showPage(name) {
     showFramePage('avn');
     forwardAvnLayoutToFrame(); forwardAvnToFrame();
   }
-  if (name === 'rwr') { renderRwr(); renderThreats(); }
+  // RWR renders in #page-frame too. Its only key is the static MAIN label (PAGES.rwr.items,
+  // placed by the generic sweep above); forward the contact + missile snapshots.
+  if (name === 'rwr') {
+    showFramePage('rwr');
+    forwardRwrToFrame(); forwardMwToFrame();
+  }
 
   renderIndicators();
 }
-
-// ── RWR page ──────────────────────────────────────────────────────────────────────
-// Polar, nose-up radar-warning scope. The mask (rim + dashed range rings + ticks +
-// ownship/heading carets) is static SVG in the markup; this only paints the contacts
-// layer. Each contact is a 50%-opacity bearing spoke from ownship (scope centre) out to
-// the emitter, tier-coloured, with a diamond tip marker (+ launch brackets on a lock).
-//
-// Geometry: viewBox is 1000×1000, centre (500,500), rim radius 460. az is the bearing in
-// degrees clockwise from straight up (nose); dist is 0..1 of the rim radius, where SMALLER
-// = closer/more lethal (lethal threats sit nearer the centre, classic RWR convention).
-//
-// rwrData holds the latest emitters mirrored from the map iframe — each already converted by
-// ClientPage to a nose-up plot: { az (deg clockwise from nose), d (0..1 radius), tr (tier),
-// n (label), k (kind) }. renderRwr just plots them. Empty until the first 'rwr' broadcast
-// arrives (or whenever nothing is painting the player).
-let rwrData = { items: [] };
-const RWR_COL = ['#dcdcdc', '#ffd21e', '#ff3b30'];   // tier: 0 search, 1 track, 2 lock
-// Compresses an emitter label to a short code so it doesn't crowd the scope: first token,
-// uppercased, capped at 7 chars (e.g. "FS-12 Revoker" -> "FS-12", "Pantsir-S1" -> "PANTSIR").
-function rwrShort(n) {
-  if (!n) return '';
-  const s = String(n).split(/\s+/)[0].toUpperCase();
-  return s.length > 7 ? s.slice(0, 7) : s;
-}
-function renderRwr() {
-  const g = document.getElementById('rwr-contacts');
-  if (!g) return;
-  const cx = 500, cy = 500, R = 460;
-  let out = '';
-  (rwrData.items || []).forEach(function(c) {
-    const a   = c.az * Math.PI / 180;
-    const d   = Math.max(0, Math.min(1, c.d));
-    const px  = cx + Math.sin(a) * d * R;
-    const py  = cy - Math.cos(a) * d * R;
-    const col = RWR_COL[c.tr] || RWR_COL[0];
-    const isLock = c.tr === 2;
-    const s   = 17;
-    // Whole contact (diamond + brackets + label) fades with the ping freshness: bright on a
-    // fresh sweep, fading to 0 over the tier lifetime (the diamonds "ping").
-    const op  = (typeof c.fr === 'number' ? Math.max(0, Math.min(1, c.fr)) : 1);
-    out += '<g opacity="' + op.toFixed(3) + '">';
-    out += '<polygon points="' + px + ',' + (py - s) + ' ' + (px + s) + ',' + py + ' ' +
-           px + ',' + (py + s) + ' ' + (px - s) + ',' + py + '" fill="' + col + '"/>';
-    if (isLock) {
-      const b = 31, t = 11;
-      out += '<g fill="none" stroke="' + col + '" stroke-width="4">';
-      out += '<path d="M' + (px - b) + ' ' + (py - b + t) + ' V' + (py - b) + ' H' + (px - b + t) + '"/>';
-      out += '<path d="M' + (px + b - t) + ' ' + (py - b) + ' H' + (px + b) + ' V' + (py - b + t) + '"/>';
-      out += '<path d="M' + (px + b) + ' ' + (py + b - t) + ' V' + (py + b) + ' H' + (px + b - t) + '"/>';
-      out += '<path d="M' + (px - b + t) + ' ' + (py + b) + ' H' + (px - b) + ' V' + (py + b - t) + '"/>';
-      out += '</g>';
-    }
-    const right = px >= cx;
-    const lx = px + (right ? 26 : -26);
-    out += '<text x="' + lx.toFixed(1) + '" y="' + (py + 10).toFixed(1) + '" fill="' + col +
-           '" text-anchor="' + (right ? 'start' : 'end') + '">' + rwrShort(c.n) + '</text>';
-    out += '</g>';
-  });
-  g.innerHTML = out;
-}
-
-// Incoming missiles: each { az (deg clockwise from nose), rng (km), st (seeker type) }, mirrored
-// from the map iframe. renderThreats draws, per missile: a static thin red line from the player
-// out to the missile triangle (which sits at a proximity radius, so the line shortens as it
-// closes), the triangle pointing in at the player, and a label riding the triangle. Only the
-// triangle uses currentColor (the group timer flickers it red<->yellow — the game's launch cue);
-// the line and label stay static red.
-let mwData = { items: [] };
-function renderThreats() {
-  const g = document.getElementById('rwr-threats');
-  if (!g) return;
-  const cx = 500, cy = 500, R = 460, RIN = 60, RMAX = 6;   // RMAX = km mapped to the rim
-  let out = '';
-  (mwData.items || []).forEach(function(m) {
-    const a = m.az * Math.PI / 180, sn = Math.sin(a), cs = Math.cos(a);
-    // Notch line (radar-guided seekers only): a static dashed-yellow beam axis through the
-    // player — the heading to fly to Doppler-notch the missile. Drawn as a full diameter.
-    if (typeof m.nb === 'number') {
-      const na = m.nb * Math.PI / 180, ns = Math.sin(na), nc = Math.cos(na);
-      out += '<line x1="' + (cx + ns * R).toFixed(1) + '" y1="' + (cy - nc * R).toFixed(1) +
-             '" x2="' + (cx - ns * R).toFixed(1) + '" y2="' + (cy + nc * R).toFixed(1) +
-             '" stroke="#ffd21e" stroke-width="3" stroke-dasharray="14 12"/>';
-    }
-    // Missile sits at a proximity radius from the player: closer range -> nearer the centre,
-    // so the connecting line shortens as it bears in. RMAX km maps to the rim.
-    const frac = Math.max(0, Math.min(1, (typeof m.rng === 'number' ? m.rng : RMAX) / RMAX));
-    const tr = RIN + 35 + frac * (R - (RIN + 35));
-    const mx = cx + sn * tr,  my = cy - cs * tr;     // missile position
-    const ix = cx + sn * RIN, iy = cy - cs * RIN;    // player-side end (just off the caret)
-    // Static thin red line missile -> player; shortens as the missile closes.
-    out += '<line x1="' + mx.toFixed(1) + '" y1="' + my.toFixed(1) + '" x2="' + ix.toFixed(1) +
-           '" y2="' + iy.toFixed(1) + '" stroke="#ff3b30" stroke-width="3" stroke-linecap="round"/>';
-    // Triangle at the missile, tip pointing in at the player. Only this uses currentColor, so
-    // only it flickers red<->yellow (driven by the group timer); the line + label stay red.
-    const ux = -sn, uy = cs, qx = cs, qy = sn, HL = 36, HB = 8, HW = 10;   // slender dart: base ~half the sides
-    out += '<polygon points="' + (mx + ux * HL).toFixed(1) + ',' + (my + uy * HL).toFixed(1) + ' ' +
-           (mx - ux * HB + qx * HW).toFixed(1) + ',' + (my - uy * HB + qy * HW).toFixed(1) + ' ' +
-           (mx - ux * HB - qx * HW).toFixed(1) + ',' + (my - uy * HB - qy * HW).toFixed(1) + '" fill="currentColor"/>';
-    // Label rides just outside the triangle (static red).
-    const lr = tr + 34, lx = cx + sn * lr, ly = cy - cs * lr;
-    const label = (m.st ? m.st + ' ' : '') + (typeof m.rng === 'number' ? m.rng.toFixed(1) : '');
-    out += '<text x="' + lx.toFixed(1) + '" y="' + (ly + 10).toFixed(1) + '" fill="#ff3b30" text-anchor="' +
-           (sn >= 0 ? 'start' : 'end') + '">' + label + '</text>';
-  });
-  g.innerHTML = out;
-}
-// Flicker the missile layer red<->yellow on its own timer — toggles every 130 ms (~3.8 Hz),
-// independent of the data rate so it stays smooth and snappy like the game's launch cue. Only
-// writes when a missile is present; children use currentColor, so recolouring the group is enough.
-let mwFlip = false;
-setInterval(function() {
-  const g = document.getElementById('rwr-threats');
-  if (!g || !g.firstChild) return;
-  mwFlip = !mwFlip;
-  g.style.color = mwFlip ? '#ffd21e' : '#ff3b30';
-}, 130);
 
 // The map iframe broadcasts status + loadout + cm via postMessage; mirror onto the
 // info-box (MAIN page), the cached wpnData + cmData (WPN page).
@@ -1702,15 +1575,15 @@ window.addEventListener('message', function(e) {
     // Target count can add/remove pages, so refresh each TGL pane's slice + PREV/NEXT labels.
     if (splitMode) { forwardTglToPanes(); renderSplitLabels(); }
   } else if (m.type === 'rwr') {
-    // Mirror the radar-warning emitters (already nose-up plot data from ClientPage) for the
-    // RWR scope. Live repaint while it's the visible page; relay to a split RWR pane.
+    // Mirror the radar-warning emitters (already nose-up plot data from ClientPage) for the RWR
+    // scope, which renders in the #page-frame iframe (full) or a pane (split); forward it on.
     rwrData = { items: Array.isArray(m.items) ? m.items : [] };
-    if (currentPage === 'rwr') renderRwr();
+    if (currentPage === 'rwr' && !splitMode) forwardRwrToFrame();
     if (splitMode) forwardRwrToPanes();
   } else if (m.type === 'mw') {
     // Mirror incoming missiles for the RWR's launch indicator (same plumbing as 'rwr').
     mwData = { items: Array.isArray(m.items) ? m.items : [] };
-    if (currentPage === 'rwr') renderThreats();
+    if (currentPage === 'rwr' && !splitMode) forwardMwToFrame();
     if (splitMode) forwardMwToPanes();
   }
 });

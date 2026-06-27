@@ -38,16 +38,14 @@ PREVIEW_PORT = 8777
 CLIENT = ROOT / "src" / "ClientPage.cs"
 MFD = ROOT / "src" / "MfdPage.cs"
 MAIN = ROOT / "src" / "MainPage.cs"
-# WPN + TGL + TGP + AVN migrated to web/pages/{wpn,tgl,tgp,avn}/ (http-served via /assets); no
-# longer C# const blobs. Their file:// preview returns with the step-7 web/ rework
+# WPN + TGL + TGP + AVN + RWR migrated to web/pages/{wpn,tgl,tgp,avn,rwr}/ (http-served via
+# /assets); no longer C# const blobs. Their file:// preview returns with the step-7 web/ rework
 # (todo/src-architecture.md); use tools/serve_web.py to drive them over http meanwhile.
-RWR = ROOT / "src" / "RwrPage.cs"
 MOCK = ROOT / "tools" / "preview-mock.js"
 MANIFEST = ROOT / "preview" / "assets" / "manifest.json"
 OUT = ROOT / "preview" / "index.html"
 OUT_MAP = ROOT / "preview" / "map-view.html"
 OUT_MAIN = ROOT / "preview" / "main.html"
-OUT_RWR = ROOT / "preview" / "rwr.html"
 OLD_OUT_MFD = ROOT / "preview" / "mfd.html"
 
 DELIM = '"""'
@@ -136,10 +134,9 @@ def main() -> None:
         # string literals so the file:// preview points at the generated bare pages.
         mfd = mfd.replace("'/main?bare'", "'main.html?bare'")
         mfd = mfd.replace("'/map-view?bare'", "'map-view.html?bare'")
-        # '/wpn?bare' + '/tgl?bare' + '/tgp?bare' + '/avn?bare' intentionally not rewritten — WPN,
-        # TGL, TGP and AVN are http-served from web/ now, so their panes stay blank in the file://
-        # MFD preview until step 7 (use tools/serve_web.py to exercise them over http).
-        mfd = mfd.replace("'/rwr?bare'",  "'rwr.html?bare'")
+        # '/wpn?bare' etc. intentionally not rewritten — WPN, TGL, TGP, AVN and RWR are http-served
+        # from web/ now, so their panes stay blank in the file:// MFD preview until step 7 (use
+        # tools/serve_web.py to exercise them over http).
         # The localhost line + LAN URL block are filled by the live server in-game; for the
         # preview, point them at the real detected LAN IP on the preview port.
         mfd = fill_preview_urls(mfd, localhost_url, lan_url)
@@ -157,13 +154,6 @@ def main() -> None:
     # (WPN + TGL + TGP + AVN bare pages removed — migrated to web/pages/{wpn,tgl,tgp,avn}/, served
     #  over http via /assets, so they are no longer extracted into the file:// preview. Return with
     #  step 7. Use tools/serve_web.py to drive them over http in the meantime.)
-
-    # RWR bare page (split-mode pane content). Self-contained stub — fake contacts rendered
-    # on load, no fetches — so no mock injection is needed (like the TGL / MAIN panes).
-    if RWR.exists():
-        rwr_html = extract_html(RWR.read_text(encoding="utf-8"))
-        OUT_RWR.write_text(rwr_html, encoding="utf-8")
-        print(f"Wrote {OUT_RWR.relative_to(ROOT)}  ({len(rwr_html):,} bytes)")
 
     if OLD_OUT_MFD.exists():
         OLD_OUT_MFD.unlink()

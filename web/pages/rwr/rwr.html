@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — RWR</title>
+<!--
+  Bare RWR page served at /rwr. Single source of truth for the radar-warning scope in BOTH
+  layouts — a pure reactive renderer fed by the shell over postMessage. The full-view overlay
+  twin in MfdPage.cs is gone. No 'full' profile is needed: the scope is one responsive SVG
+  (1000x1000 viewBox, preserveAspectRatio xMidYMid meet) that stays circular at any container
+  size (like MAP/TGP).
+
+  A polar, nose-up scope: a smoked-white mask (rim + two dashed range rings + cardinal ticks +
+  ownship caret + heading caret) with contacts drawn as bearing spokes from ownship out to each
+  emitter, tier-coloured (grey search / yellow track / red lock), plus an incoming-missile layer.
+
+  Shell -> page messages (all {mfd:true, ...}):
+    'rwr' : { items:[{ az, d, tr, fr, n, k }] } — nose-up plot data (converted by ClientPage).
+    'mw'  : { items:[{ az, rng, st, nb }] }     — incoming missiles for the launch indicator.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/rwr/rwr.css">
+</head>
+<body>
+  <div class="rwr-panel">
+    <svg class="rwr-scope" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <g fill="none" stroke="rgba(255,255,255,0.5)">
+        <circle cx="500" cy="500" r="460" stroke-width="4"/>
+        <circle cx="500" cy="500" r="304" stroke-width="2.5" stroke-dasharray="12 16"/>
+        <circle cx="500" cy="500" r="152" stroke-width="2.5" stroke-dasharray="10 16"/>
+        <line x1="500" y1="40"  x2="500" y2="78"  stroke-width="3"/>
+        <line x1="500" y1="922" x2="500" y2="960" stroke-width="3"/>
+        <line x1="40"  y1="500" x2="78"  y2="500" stroke-width="3"/>
+        <line x1="922" y1="500" x2="960" y2="500" stroke-width="3"/>
+      </g>
+      <polygon points="480,18 520,18 500,50" fill="rgba(255,255,255,0.6)"/>
+      <polygon points="500,460 475,548 500,528 525,548" fill="none" stroke="rgba(255,255,255,0.65)" stroke-width="4"/>
+      <g class="rwr-contacts" id="rwr-contacts"></g>
+      <g class="rwr-threats" id="rwr-threats"></g>
+    </svg>
+  </div>
+<script src="/assets/pages/rwr/rwr.js"></script>
+</body>
+</html>

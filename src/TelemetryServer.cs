@@ -296,7 +296,7 @@ namespace NOXMFD
                     else if (path == "/tgl")
                         ServeAssetRel(ctx, "pages/tgl/tgl.html");   // migrated to web/pages/tgl/ (was TglPage.Html)
                     else if (path == "/rwr")
-                        ServePage(ctx, RwrPage.Html);
+                        ServeAssetRel(ctx, "pages/rwr/rwr.html");   // migrated to web/pages/rwr/ (was RwrPage.Html)
                     else if (path == "/command")
                         HandleCommand(ctx);
                     else if (path == "/mfd")
