@@ -1,15 +1,18 @@
 # src/ web-frontend architecture — design & refactor plan
 
-Status: **in progress** — steps 1–5 done, with step 6 shared-JS extraction remaining. Resource
-plumbing, shared font/theme, **WPN** as the proof page, then **TGL** (which introduced the
-**declarative softkey contract**, now applied in **both** full view and split — the per-target
-deselect keys ride one path), **TGP** (the targeting-pod feed — no softkeys/geometry, one profile
-for both layouts),
+Status: **COMPLETE (2026-06-27)** — all seven steps done. Resource plumbing, shared font/theme,
+**WPN** as the proof page, then **TGL** (which introduced the **declarative softkey contract**, now
+applied in **both** full view and split — the per-target deselect keys ride one path), **TGP** (the
+targeting-pod feed — no softkeys/geometry, one profile for both layouts),
 **AVN** (avionics silhouette + FUEL/THROTTLE bars — two profiles; full anchors name/frame to the
 bezel geometry the shell forwards), and **RWR** (radar-warning scope — one responsive SVG, one
-profile, two streams). **Step 5 is done:** MAP, MAIN, and the shell now live under `web/`, `/config`
-replaced URL templating, and the preview harness serves the real files directly. Remaining: shared
-JS extraction (step 6).
+profile, two streams). **Step 5:** MAP, MAIN, and the shell live under `web/`, `/config`
+replaced URL templating, and the preview harness serves the real files directly. **Step 6 (shared
+JS):** scoped to its one real win — `sendCommand` extracted to `web/shared/send-command.js`;
+`sse-client` was moot (MAP is the sole `/stream` consumer post-step-5) and a shared `mfd-protocol`
+helper was deliberately skipped (the inbound guard is 7 trivial one-liners and the outbound
+envelope literals sit almost entirely in the shell + map — no cross-page win to justify touching
+~16 files + a single point of failure). All three architecture goals are met.
 
 ## Goal
 
@@ -212,8 +215,15 @@ The DLL keeps building and the UI keeps working after every step.
 5. ~~**Convert MAP, MAIN, and the shell**~~ **DONE.** `web/pages/map/`, `web/pages/main/`, and
    `web/shell/` are the live frontend sources; `ClientPage.cs`, `MainPage.cs`, and `MfdPage.cs`
    are deleted.
-6. **Extract shared JS** (`sse-client`, `mfd-protocol`, `sendCommand`) and
-   de-duplicate the now-parallel copies across pages.
+6. ~~**Extract shared JS**~~ **DONE (scoped).** Only `sendCommand` was a real duplicate (map.js +
+   mfd.js, near-identical) → extracted to `web/shared/send-command.js`, linked as a classic
+   `<script>` before each consumer's own script; it returns the raw fetch promise so the MAP tap
+   keeps inspecting `r.ok` and the shell's fire-and-forget call adds its own `.catch`. `sse-client`
+   was **moot** (after step 5 MAP is the sole `EventSource('/stream')` consumer). A shared
+   `mfd-protocol` helper was **deliberately skipped**: the inbound `{mfd:true}` guard is 7 trivial
+   one-liners and the outbound envelope literals are concentrated in the shell + map, so a shared
+   module would touch ~16 files (every page's js + html) for cosmetic savings while adding a single
+   point of failure across all pages. The per-page `message` listeners stay local.
 7. ~~**Simplify preview tooling**~~ **DONE (pulled into 5c).** `serve_web.py` serves `web/`
    directly; `build_preview.py` only removes stale generated files.
 
@@ -389,11 +399,12 @@ browser JS/CSS. So **always verify rendering in a browser**. The proven loop, no
    already uses multiple iframes. Confirm on the lowest-spec target (tablet) after the shell migration.
 3. **Content-type + caching map.** The embedded-resource resolver and suffix lookup are in place;
    cache headers for static assets are still undecided.
-4. **Softkey contract for write actions.** `target.deselect` posts to `/command`;
-   define whether the shell or the page owns the POST (lean: page emits intent,
-   shell dispatches — keeps `/command` knowledge in one place).
-5. **Shared JS extraction.** Step 5 intentionally preserved duplicated helpers; step 6 should extract
-   `sse-client`, `mfd-protocol`, and `sendCommand` without changing behavior.
+4. ~~**Softkey contract for write actions.**~~ **RESOLVED.** Bezel write actions follow "page emits
+   intent (softkey) → shell dispatches"; the shell and the MAP page both call the shared
+   `sendCommand` (`web/shared/send-command.js`), so `/command` knowledge lives in one helper.
+5. ~~**Shared JS extraction.**~~ **RESOLVED (step 6).** `sendCommand` extracted; `sse-client` moot
+   (single consumer); `mfd-protocol` deliberately skipped (not worth ~16 file touches for cosmetic
+   savings). See step 6 in the migration plan.
 
 ## Related
 
