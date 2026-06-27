@@ -147,6 +147,10 @@ let splitMode = false;
 // [topPage, botPage]. Step 3 of the implementation sequence seeds both panes with
 // MAIN on entry; per-pane navigation updates this from MAIN's L0..L2 / R0..R2 keys.
 let panePages = ['main', 'main'];
+// Per-pane softkeys last emitted by each pane's page (the declarative contract — currently only
+// TGL emits any). Cached so renderSplitLabels can re-apply them: it clears ALL keys, and a pane
+// that didn't re-render won't re-emit. Reset when a pane navigates / on split entry.
+let paneSoftkeys = [[], []];
 // Per-pane WPN pagination index. WPN's weapon list can exceed one split page; each pane
 // scrolls independently via its PREV/NEXT bezel labels. Reset to 0 when a pane (re)enters
 // WPN. The bare WPN page is a pure renderer — the shell slices the list here.
@@ -241,6 +245,7 @@ function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 
 function applySplitMode() {
   screenEl.classList.toggle('split', splitMode);
+  paneSoftkeys = [[], []];          // fresh panes re-emit their softkeys on load
   if (splitMode) {
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
     paneIframes[0].src = paneUrl(panePages[0]);
@@ -285,14 +290,8 @@ function renderSplitLabels() {
                  label:  sl.hasPrev ? 'PREV' : 'MAIN',
                  action: sl.hasPrev ? 'tgl-prev' : 'main' }];
       if (sl.hasNext) items.push({ side: 'right', slot: 0, label: 'NEXT', action: 'tgl-next' });
-      // Bind each visible target's flanking bezel key to deselect it. Fill order matches
-      // forwardTglLayoutToPanes: L1, L2, R1, R2 (slots 1,2 on each side within this pane).
-      sl.items.forEach(function(t, i) {
-        if (t.id == null) return;
-        const side = i < 2 ? 'left' : 'right';
-        const key  = keyBanks[side][paneOffset + (i < 2 ? i + 1 : i - 1)];   // 0→L1,1→L2,2→R1,3→R2
-        if (key) { key.dataset.action = 'tgl-deselect'; key.dataset.id = t.id; key.dataset.pane = paneTag; }
-      });
+      // The per-target deselect keys are NOT bound here — the TGL page emits them via the softkey
+      // contract; they're re-applied from paneSoftkeys[paneIdx] below.
     } else {
       items = def.items;
     }
@@ -301,6 +300,9 @@ function renderSplitLabels() {
       const physicalKey = keyBanks[item.side][item.slot + paneOffset];
       if (physicalKey) physicalKey.dataset.pane = paneTag;
     });
+    // Re-apply this pane's contract softkeys (clearKeyActions above wiped them). Empty for panes
+    // whose page emits none; only TGL populates it. Nav (slot 0) is untouched (rows are 1..2).
+    applySoftkeys(paneSoftkeys[paneIdx], paneOffset, 2);
   }
 }
 
@@ -313,6 +315,7 @@ function paneMapSend(paneIdx, action) {
 
 function paneNavigate(paneIdx, page) {
   panePages[paneIdx] = page;
+  paneSoftkeys[paneIdx] = [];   // drop the old page's softkeys; the new page re-emits on load if any
   if (page === 'wpn') paneWpnPage[paneIdx] = Math.max(0, selWeaponPage());   // open on the selected weapon's page
   if (page === 'tgl') paneTglPage[paneIdx] = 0;                              // fresh entry — first page
   paneFollowOn[paneIdx] = false;   // iframe reloads; follow restarts off (re-reported on load)
@@ -556,7 +559,7 @@ function placeWpnNavLabels() {
 // ── Full-view TGL (#page-frame) ──────────────────────────────────────────────────────
 // Full-view TGL is hosted in #page-frame (web/pages/tgl in its 'full' profile), mirroring WPN.
 // The shell slices the target list to TGL_MAX_DISPLAY (10/page, tglPage) and forwards it; the
-// page renders the rows AND posts its deselect softkeys up (handled by applyFrameSoftkeys). Nav
+// page renders the rows AND posts its deselect softkeys up (handled by applySoftkeys). Nav
 // (MAIN/PREV/NEXT) stays shell-owned via placeTglNavLabels.
 function forwardTglToFrame() {
   const w = frameWin(); if (!w) return;
@@ -598,24 +601,27 @@ function placeTglNavLabels() {
   if (tglPage < maxPage) placeOverlayLabel('right', 0, 'NEXT', 'tgl-next');
 }
 
-// Apply a full-view page's declared softkeys to the physical bezel (the declarative contract).
-// The page emits pane-local 1-based row slots; full view maps them 1:1 (paneOffset 0). Clears
-// the row-key zone (slots 1..5 both sides — nav on slot 0 is shell-owned) first, so a shrinking
-// list releases its keys. An empty label binds the key with no visible overlay label (TGL's
-// target row in the frame is the visual). Split-mode still binds these via renderSplitLabels;
-// folding split onto this contract is the next step (todo/src-architecture.md).
-function applyFrameSoftkeys(keys) {
-  for (let s = 1; s <= 5; s++) {
-    if (keyBanks.left[s])  { delete keyBanks.left[s].dataset.action;  delete keyBanks.left[s].dataset.id; }
-    if (keyBanks.right[s]) { delete keyBanks.right[s].dataset.action; delete keyBanks.right[s].dataset.id; }
+// Apply a page's declared softkeys to one bezel zone (the declarative contract). The page emits
+// pane-local 1-based row slots; the shell maps each to a physical key as
+// keyBanks[side][paneOffset + slot] — paneOffset 0 = full view / split-top, 3 = split-bottom.
+// Clears the row-key zone first (slots 1..maxRow both sides — nav on slot 0 is shell-owned) so a
+// shrinking list releases its keys; maxRow = 5 in full view, 2 per split pane. An empty label
+// binds the key with no visible overlay label (TGL's target row in the frame is the visual).
+// Deselect needs no pane routing (it just sends a command), so no data-pane tag is set — split's
+// dispatch falls through mfdButton's split branch to the shared 'target.deselect' switch case.
+function applySoftkeys(keys, paneOffset, maxRow) {
+  for (let s = 1; s <= maxRow; s++) {
+    const lk = keyBanks.left[paneOffset + s], rk = keyBanks.right[paneOffset + s];
+    if (lk) { delete lk.dataset.action; delete lk.dataset.id; }
+    if (rk) { delete rk.dataset.action; delete rk.dataset.id; }
   }
   (keys || []).forEach(function(sk) {
     const bank = keyBanks[sk.side];
-    const key = bank && bank[sk.slot];
+    const key = bank && bank[paneOffset + sk.slot];
     if (!key) return;
     key.dataset.action = sk.action;
     if (sk.data && sk.data.id != null) key.dataset.id = sk.data.id;
-    if (sk.label) placeOverlayLabel(sk.side, sk.slot, sk.label, sk.action);
+    if (sk.label) placeOverlayLabel(sk.side, paneOffset + sk.slot, sk.label, sk.action);
   });
 }
 
@@ -907,11 +913,18 @@ window.addEventListener('message', function(e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
   // Softkeys come UP from a hosted page frame (not the map), so handle them before the mapFrame
-  // source guard. Full view only for now — the page emits pane-local slots, mapped at offset 0.
-  // (Split-mode softkeys are still bound by renderSplitLabels; folding split onto this contract
-  // is the next step — see todo/src-architecture.md.)
+  // source guard. The page emits pane-local slots; the shell maps them to physical keys per zone.
+  //   full view  → the #page-frame, offset 0, rows on slots 1..5.
+  //   split view → the emitting pane, offset 0 (top) / 3 (bot), rows on slots 1..2. Each pane's
+  //                set is cached so renderSplitLabels can re-apply it (a re-render of the OTHER
+  //                pane clears all keys; this pane may not re-emit).
   if (m.type === 'softkeys') {
-    if (!splitMode && e.source === pageFrame.contentWindow && FRAME_PAGES[currentPage]) applyFrameSoftkeys(m.keys);
+    if (!splitMode && e.source === pageFrame.contentWindow && FRAME_PAGES[currentPage]) {
+      applySoftkeys(m.keys, 0, 5);
+    } else if (splitMode) {
+      const idx = paneIframes.findIndex(function(f) { return f.contentWindow === e.source; });
+      if (idx >= 0) { paneSoftkeys[idx] = m.keys || []; applySoftkeys(paneSoftkeys[idx], idx === 0 ? 0 : 3, 2); }
+    }
     return;
   }
   // Telemetry-mirror messages come only from the canonical map iframe (mapFrame). In split mode
@@ -1157,14 +1170,13 @@ function mfdButton(el) {
     } else if (act === 'flw' || act === 'zin' || act === 'zout') {
       // MAP controls act on the pane's own map iframe — they don't navigate it away.
       paneMapSend(paneIdx, act === 'flw' ? 'toggle-follow' : act === 'zin' ? 'zoom-in' : 'zoom-out');
-    } else if (act === 'tgl-deselect') {
-      // A TGL pane's target key drops that target — same command as full view, no navigation.
-      if (el.dataset.id) sendCommand('target.deselect', { id: +el.dataset.id });
     } else {
       paneNavigate(paneIdx, act);
     }
     return;
   }
+  // Note: TGL deselect keys (action 'target.deselect') carry NO data-pane tag, so they skip the
+  // block above and fall through to the switch below — the deselect command is pane-independent.
 
   switch (el.dataset.action) {
     case 'main': showPage('main'); mapSend('status-request'); break;   // pull fresh status on open
@@ -1176,8 +1188,7 @@ function mfdButton(el) {
     case 'tgl':       tglPage = 0; showPage('tgl'); break;   // fresh entry — always start on page 0
     case 'tgl-prev':  tglPage--;   showPage('tgl'); break;   // forwardTglToFrame clamps overshoot
     case 'tgl-next':  tglPage++;   showPage('tgl'); break;
-    case 'tgl-deselect':                                     // split-pane target key → drop it
-    case 'target.deselect':                                  // full-view softkey-contract action
+    case 'target.deselect':                                  // softkey-contract deselect (full + split)
       if (el.dataset.id) sendCommand('target.deselect', { id: +el.dataset.id });
       break;
     case 'avn':  showPage('avn');  break;
