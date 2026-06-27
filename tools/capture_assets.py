@@ -13,7 +13,7 @@ mod). It pulls, from http://localhost:5005:
 
 ...and writes preview/assets/manifest.json describing them. Then run:
 
-    python tools/build_preview.py --open
+    python tools/serve_web.py --open
 
 Units/weapons that have no icon in-game simply 404 and are skipped — the preview
 shows the same square fallback the real HUD uses for them.
@@ -158,7 +158,7 @@ def main():
     (ASSETS / "manifest.json").write_text(
         json.dumps({"frame": frame, "assets": assets}, indent=2), encoding="utf-8")
     print(f"\nWrote {len(assets)} assets + manifest to {ASSETS.relative_to(ROOT)}")
-    print("Now run:  python tools/build_preview.py --open")
+    print("Now run:  python tools/serve_web.py --open")
 
 
 if __name__ == "__main__":

@@ -1,15 +1,15 @@
 # src/ web-frontend architecture — design & refactor plan
 
-Status: **in progress** — steps 1–3 done, **step 4 essentially done (WPN, TGL, TGP, AVN, RWR
-migrated)**. Resource plumbing, shared font/theme, **WPN** as the proof page, then **TGL** (which
+Status: **in progress** — steps 1–5 done, with step 6 shared-JS extraction remaining. Step 4 has
+one known follow-up: split-mode TGL deselect still uses the legacy hand-binding. Resource plumbing,
+shared font/theme, **WPN** as the proof page, then **TGL** (which
 introduced the **declarative softkey contract** — full view; split deselect still on the legacy
 binding), **TGP** (the targeting-pod feed — no softkeys/geometry, one profile for both layouts),
 **AVN** (avionics silhouette + FUEL/THROTTLE bars — two profiles; full anchors name/frame to the
 bezel geometry the shell forwards), and **RWR** (radar-warning scope — one responsive SVG, one
-profile, two streams). Each is one page file, full view hosted in an iframe, overlay deleted.
-**MAIN is deferred to step 5** — its full view *is* shell chrome (the info-box + boot loader) and
-its LAN-URL injection is open question #4, so it migrates with the shell, not as a standalone page.
-Remaining: the shell (step 5c); then shared JS (step 6) + the preview rework (step 7).
+profile, two streams). **Step 5 is done:** MAP, MAIN, and the shell now live under `web/`, `/config`
+replaced URL templating, and the preview harness serves the real files directly. Remaining: shared
+JS extraction (step 6).
 
 ## Goal
 
@@ -35,21 +35,21 @@ Remaining: the shell (step 5c); then shared JS (step 6) + the preview rework (st
   consumer of the same telemetry/command HTTP API and is out of scope here; this
   refactor cleans up the in-mod UI, it doesn't replace it.)*
 
-## Current state (the problem, with evidence)
+## Historical baseline (the original problem, with evidence)
 
 > **Note (historical baseline):** this section describes the *pre-migration* state and its
 > line numbers are from before any work landed. WPN is now migrated (see the Migration plan
 > and the **Implementation playbook** below); treat the line numbers here as approximate
 > history, and `grep` for the real current locations.
 
-Three layers of duplication, all stemming from "HTML lives in C# strings":
+Three layers of duplication, all stemming from the old "HTML lives in C# strings" model:
 
 ### 1. Everything is a `const string Html` blob
 Each page is `internal static class XxxPage { public const string Html = """ …
 HTML + <style> + <script> … """; }`, served by `TelemetryServer` via `ServePage`
 (`TelemetryServer.cs:279-306`). No highlighting, no linting, no formatting, no
-reuse. Editing requires `tools/build_preview.py` to extract the blob back out to
-a browser-testable file. Sizes today:
+reuse. Editing required `tools/build_preview.py` to extract the blob back out to
+a browser-testable file. Pre-migration sizes:
 
 | File | Lines | Role |
 |---|---|---|
@@ -152,12 +152,10 @@ constants and the `{{LAN_URL_BLOCK}}` string replace (becomes a runtime inject o
 a tiny templating pass).
 
 ### D. Build / preview impact
-`tools/build_preview.py` currently extracts `const string` blobs → `preview/*.html`
-and injects `tools/preview-mock.js`. After the move, the real `web/` files are
-directly servable, so the preview tool **simplifies** to: serve `web/` over
-`http.server` with the mock layer for `/stream`, `/map`, `/icon`, etc. No more
-C#-string extraction step. (The "run `build_preview.py` after editing the
-frontend" workflow rule becomes "just refresh".)
+The real `web/` files are directly servable. `tools/serve_web.py` serves the shell,
+pages, `/config`, captured assets, and the MAP mock layer. `tools/build_preview.py`
+is now only a compatibility cleanup helper that removes stale generated preview
+HTML; no C# string extraction remains.
 
 ## Migration plan (incremental, each step shippable)
 
@@ -197,23 +195,24 @@ The DLL keeps building and the UI keeps working after every step.
    (`forwardAvnLayoutToFrame`, translated into frame coords); the page applies it or falls back
    to the compact CSS. `forwardAvnToFrame` mirrors `forwardAvnToPanes`. Kept `avnData` (forwarders
    read it); deleted `AVN_FAILURE_DEFS` + the `/airframe` layout cache/retry state + all
-   `renderAvn..positionAvnBarValue`. **Harness note:** `serve_web.py` doesn't serve
-   `/airframe[-layout]`, so the silhouette only renders in-game (not in preview) for now.
+   `renderAvn..positionAvnBarValue`. **Harness note:** `serve_web.py` now serves captured
+   `/airframe[-layout]` data from `preview/assets/manifest.json`, so silhouettes render in the
+   HTTP harness when a capture exists (otherwise the page uses its normal no-silhouette fallback).
    **RWR: DONE** — `web/pages/rwr/{rwr.html,rwr.css,rwr.js}`. Like TGP, one responsive SVG
    (1000×1000 viewBox, `preserveAspectRatio` meet) → **no separate `full` profile**. Two data
    streams: `forwardRwrToFrame` (contacts) + `forwardMwToFrame` (incoming missiles); kept
    `rwrData` + `mwData` (the forwarders read them); deleted `RWR_COL`/`rwrShort`/`renderRwr`/
    `renderThreats` + the missile-flicker timer. `opaque:false`; only key is the static MAIN label.
-   **MAIN: deferred to step 5** — decided (see Open questions #4): its full view is the shell's
-   info-box + boot loader (startup chrome, not page content), and the LAN-URL injection is unsolved,
-   so MAIN migrates *with* the shell rather than as a standalone page. Step 4's five real pages done.
-5. **Convert MAP, MAIN, and the shell** (`ClientPage.cs`, `MainPage.cs` + shell info-box/boot-loader,
-   `MfdPage.cs`). **In progress 2026-06-27** — **5a MAP DONE** and **5b `/config` + MAIN DONE**;
-   5c shell remains.
+   **MAIN: DONE in step 5b/5c** — its split-pane card lives in `web/pages/main/`; its full view
+   is the shell's info-box + boot loader in `web/shell/` (startup chrome, not page content).
+   LAN URLs now come from runtime `/config`, so there is no server-side HTML templating path left.
+5. ~~**Convert MAP, MAIN, and the shell**~~ **DONE.** `web/pages/map/`, `web/pages/main/`, and
+   `web/shell/` are the live frontend sources; `ClientPage.cs`, `MainPage.cs`, and `MfdPage.cs`
+   are deleted.
 6. **Extract shared JS** (`sse-client`, `mfd-protocol`, `sendCommand`) and
    de-duplicate the now-parallel copies across pages.
-7. **Simplify `build_preview.py`** to serve `web/` directly; update the workflow
-   note + memory.
+7. ~~**Simplify preview tooling**~~ **DONE (pulled into 5c).** `serve_web.py` serves `web/`
+   directly; `build_preview.py` only removes stale generated files.
 
 ## Step 5 execution plan (MAP + MAIN + shell)
 
@@ -231,8 +230,8 @@ file must keep it as that base data-tap. The shell's relay guard `e.source === m
 must survive the move intact.
 
 **Locked decisions:**
-- **D1 — LAN URLs → `/config` endpoint.** Add `GET /config` → JSON `{ localhost, lanUrl, port }`.
-  The shell + the MAIN card `fetch('/config')` on load and fill `.ib-url`. `TelemetryServer` drops
+- **D1 — LAN URLs → `/config` endpoint: DONE.** `GET /config` returns JSON `{ localhost, lanUrl, port }`.
+  The shell + the MAIN card `fetch('/config')` on load and fill `.ib-url`. `TelemetryServer` dropped
   the `{{LAN_URL_BLOCK}}`/localhost string-replace (resolves open question #4). No HTML templating.
 - **D2 — the info-box + boot loader stay SHELL chrome** (in `web/shell/mfd.*`). They're power-on
   furniture (`flickerScreen`/`runBootLoading`/`typewriterUrls`), not page content. `web/pages/main/`
@@ -248,30 +247,28 @@ must survive the move intact.
   mechanically a move — no overlay twin to delete. Highest leverage to de-risk early.
 - **5b — `/config` + MAIN: DONE.** `/config` serves `{ localhost, lanUrl, port }`;
   `web/pages/main/{main.html,main.css,main.js}` is the split-pane card; shell + card fetch
-  `/config`; the `{{LAN_URL_BLOCK}}`/`MainPage.cs` string-replace path is gone. Shell info-box
-  stays put for now — it converts with the shell in 5c.
-- **5c — the shell** → `web/shell/{mfd.html,mfd.css,mfd.js}` (~1849 lines: bezel/keys, split logic,
+  `/config`; the `{{LAN_URL_BLOCK}}`/`MainPage.cs` string-replace path is gone. The full MAIN
+  info-box stayed shell chrome and moved with the shell in 5c.
+- **5c — the shell: DONE.** `web/shell/{mfd.html,mfd.css,mfd.js}` (~1849 lines: bezel/keys, split logic,
   all `forwardX*` relays, `showPage`, `mfdButton`, indicators, orientation, power-on/boot, the SSE
-  relay handler, the info-box markup). **This forces the preview-harness rework** (step 7 pulled
-  forward): `build_preview.py`'s core job is extracting the shell+map blobs — once they're real
-  files that disappears. Pair 5c with updating `serve_web.py` to serve the shell from
-  `web/shell/mfd.html` and mock `/stream` + `/config` (and finally `/airframe[-layout]` to close
-  the AVN harness gap).
+  relay handler, the info-box markup). `TelemetryServer` serves it from `/`; `serve_web.py` serves
+  it from `/`, injects the MAP mock at `/map-view`, serves `/config`, and serves captured
+  `/airframe[-layout]` assets for AVN when available.
 
 **Risks / watch-items:** blast radius (MAP=feed, shell=everything → harness-green-first); the
-`mapFrame` source guard; ES modules over http if/when shared JS is extracted (Q#6 — fine over the
-http harness + live server, but the shell is served at `/`); the AVN `/airframe` harness gap (close
-it during 5a/5c so the harness can finally exercise every page).
+`mapFrame` source guard; ES modules over http if/when shared JS is extracted (step 6 — fine over the
+http harness + live server, but the shell is served at `/`).
 
 ## Implementation playbook (for an agent continuing this work)
 
 Concrete, learned-by-doing guidance. **WPN is the reference implementation — copy its
-pattern.** Read `web/pages/wpn/*` and the WPN-specific hooks in `MfdPage.cs` first.
+pattern.** Read `web/pages/wpn/*` and the WPN-specific hooks in `web/shell/mfd.js` first.
 
-### File map (current, post-step 5b)
+### File map (current, post-step 5c)
 ```
 web/
   shared/  font.css  theme.css  share-tech-mono.woff2   # font.css → /assets/shared/...woff2
+  shell/   mfd.html  mfd.css  mfd.js                    # DONE: bezel shell + split/page hosting
   pages/
     wpn/   wpn.html  wpn.css  wpn.js                     # DONE: one file, two profiles
     tgl/   tgl.html  tgl.css  tgl.js                     # DONE: + declarative softkey contract
@@ -284,23 +281,24 @@ src/
   TelemetryServer.cs   # ServeAsset (/assets/ route) + ServeAssetRel(ctx,"pages/x/x.html");
                        #   per-page routes (e.g. /wpn) call ServeAssetRel. /assets suffix-matches
                        #   the embedded-resource manifest "<RootNamespace>.web.<dotted path>".
-  MfdPage.cs           # the shell (still a const-string blob). Hosts pages; see hooks below.
 NOXMFD.csproj          # <EmbeddedResource Include="web\**\*" />
 .gitattributes         # *.woff2/png/jpg = binary (don't let git mangle EOLs)
 ```
 
-### The per-page migration recipe (what WPN + TGL + TGP + AVN + RWR did — reuse for step-5 MAP/MAIN)
+### The per-page migration recipe (historical; reuse for future pages)
 1. **Move the bare page** `XxxPage.cs` → `web/pages/xxx/{xxx.html,xxx.css,xxx.js}`. Link
    `/assets/shared/font.css` + `theme.css` (kills that page's inline font copy). Point its
    route in `TelemetryServer` at `ServeAssetRel(ctx,"pages/xxx/xxx.html")`; delete the `.cs`.
-2. **Add the `full` profile** to the same page files, gated by a `layout:'full'` field in the
-   page's layout message (adds `body.full`). Scope full-only CSS under `body.full` so the
-   verified compact layout is untouched. Transcribe the full layout from the overlay renderer
-   + CSS in `MfdPage.cs`.
-3. **Host full-view in `#page-frame`** (see shell hooks). 4. **Delete the overlay** (renderer,
-   markup, element refs/state, CSS) from `MfdPage.cs`.
+2. **Add the `full` profile** to the same page files when the page has a distinct full layout,
+   gated by a `layout:'full'` field in the page's layout message (adds `body.full`). Scope
+   full-only CSS under `body.full` so the verified compact layout is untouched. Historically,
+   this came from the old shell overlay renderer + CSS; future work should use the current
+   `web/shell/mfd.js` hooks as the integration point.
+3. **Host full-view in `#page-frame`** (see shell hooks).
+4. **Delete the old overlay path** (renderer, markup, element refs/state, CSS) once the iframe
+   version is driving full view.
 
-### Shell hooks in `MfdPage.cs` (grep these — they are the integration points)
+### Shell hooks in `web/shell/mfd.js` (grep these — they are the integration points)
 - **`#page-frame`** — the full-view host iframe in the `.screen` recess (after the map iframe).
   CSS: `#page-frame{position:absolute;inset:6px;display:none}`, shown via `.screen.page-on`,
   hidden in `.screen.split`. It sits **below** `.overlay` (so bezel labels paint on top) and
@@ -342,60 +340,46 @@ still hand-binds `tgl-deselect` (the shell ignores emitted softkeys when `splitM
 onto this path when convenient. `target.select` (MAP tap) and `target.deselect` live in
 `todo/write-command-channel.md` + `CommandDispatcher.cs`.
 
-### Verifying without the game (critical — the C# build does NOT check the JS)
-`dotnet build` only validates the C# **raw-string-literal integrity** (an accidental `"""` or
-broken literal fails it); it never parses the embedded JS/CSS. So **always verify rendering in
-a browser**. The proven loop, no game required:
-1. Edit `web/pages/...` and/or `MfdPage.cs` → `dotnet build` (catches literal breakage).
-2. `python tools/build_preview.py` → regenerates `preview/index.html` from the edited shell.
-3. Run the **shell harness over http** (`tools/serve_web.py`, or launch.json config `hud-web`):
-   serves `preview/index.html` at `/`, `/<page>`→`web/pages/<page>/<page>.html` (any migrated
-   page), `/assets/*`→`web/*`, `/weapon?…`→a mock SVG, and everything else from `preview/` (so
-   `map-view.html` etc. + the injected `preview-mock.js` resolve). `preview-mock.js` supplies a
-   6-weapon loadout + CM + target list (with ids), so the shell drives the frame end-to-end.
-4. Drive it with the Preview MCP: `preview_eval` `window.location.href='http://127.0.0.1:<port>/'`,
+### Verifying without the game (critical — the C# build does NOT check the JS/CSS)
+`dotnet build` verifies the C# routes and embedded-resource inclusion, but it never parses the
+browser JS/CSS. So **always verify rendering in a browser**. The proven loop, no game required:
+1. Edit `web/shell/...` and/or `web/pages/...` → `dotnet build` (verifies the server still builds
+   and the embedded-resource manifest is valid).
+2. Run the **shell harness over http** (`tools/serve_web.py --open`, or launch.json config `hud-web`):
+   serves `web/shell/mfd.html` at `/`, `/<page>`→`web/pages/<page>/<page>.html`, `/assets/*`→`web/*`
+   with fallback to `preview/assets/*` captures, `/weapon?…`→captured or mock icons, `/config`, and
+   `/airframe[-layout]` captures for AVN. `preview-mock.js` is injected into the MAP page and supplies
+   a synthetic or captured frame, so the shell drives the frame end-to-end.
+3. Drive it with the Preview MCP: `preview_eval` `window.location.href='http://127.0.0.1:<port>/'`,
    click a bezel key (`[...document.querySelectorAll('.key')].find(k=>k.dataset.action==='wpn').click()`),
    then probe `#page-frame.contentDocument`. **Gotchas:** `preview_screenshot` reliably times
    out here — use `preview_eval` structured probes instead (also the *preferred* way to check
    exact values). The preview viewport can glitch to ~2px wide (everything collapses to width 0)
    — fix with `preview_resize` to e.g. 1280×860, then re-feed.
-5. Then verify **in-game** (the user does this): build auto-deploys the DLL to
+4. Then verify **in-game** (the user does this): build auto-deploys the DLL to
    `<GameDir>\BepInEx\plugins`; restart the game. Check full view, split view, the *other*
    pages (shared `showPage` is touched), power-off blackout, portrait/landscape.
 
-### Editing `MfdPage.cs` (a ~3000-line `"""…"""` blob) — gotchas
-- For **large block deletions** use `sed -i 'A,Bd'` after confirming the exact boundaries with
-  `sed -n`; for small/anchored changes use `Edit`. **After any `sed`/external change you must
-  re-`Read` before `Edit`** (the tool guards on a stale read). `git mv` also resets read state.
-- JS identifiers like `paneWpnPage`, `selWpnPageFull`, `wpnPage` contain "Wpn" but are **not**
-  the C# `WpnPage` class — grep precisely before deleting anything.
-- When deleting a page's overlay: remove the renderer(s), the markup, the element `const`s +
-  state vars, **and** the CSS — but **trim shared rules, don't drop them** (e.g. the WPN/TGL
-  `.page-ind` rule, and the `.screen.split > .overlay > .<x>-panel` hide list). Keep `xxxData`
-  / `xxxPage` state the forwarders still use.
-- `build_preview.py` guards each page with `if XXX.exists()`; when a page's `.cs` is deleted,
-  remove its `XXX`/`OUT_XXX`/`/xxx?bare` references there too (its file:// preview returns with
-  the step-7 rework). CRLF warnings on `git commit` are benign.
+### Editing the shell — gotchas
+- `web/shell/mfd.js` is the single shell source. The `mapFrame` source guard in the message handler
+  is critical: telemetry mirror messages should only come from the canonical MAP iframe.
+- JS identifiers like `paneWpnPage`, `selWpnPageFull`, and `wpnPage` are shell state, not page files.
+  Grep precisely before deleting or renaming.
+- `build_preview.py` no longer builds anything; use `tools/serve_web.py --open` for browser checks.
 
 ## Open questions / risks
 
-1. **Per-page CSS isolation.** Iframes already give natural style isolation — good.
-   But the full-view single iframe must fill the recess exactly like the overlay
-   did; verify no regressions in sizing/letterbox vs the current overlay.
-2. **Iframe count / perf.** Full view goes from "overlay (no iframe)" to "one
-   iframe". MAP already runs an iframe in full view with no issue, and split runs
-   two; one more is negligible. Confirm on the lowest-spec target (tablet).
-3. **Content-type + caching map.** Need a small, explicit path→(resource,mime)
-   resolver in `TelemetryServer`; decide on cache headers for static assets.
-4. **`{{LAN_URL_BLOCK}}` & other server-injected bits.** ~~Currently string-replaced into
-   `MfdPage.Html`/`MainPage.Html`.~~ **RESOLVED (2026-06-27): runtime `GET /config`** → JSON
-   `{ localhost, lanUrl, port }` that the shell + MAIN `fetch()` and inject into `.ib-url`;
-   `TelemetryServer` drops the string-replace. Implemented in step 5b (see Step 5 execution plan).
-5. **Softkey contract for write actions.** `target.deselect` posts to `/command`;
+1. **Per-page CSS isolation.** Iframes already give natural style isolation. The remaining check is
+   practical: verify full-view iframe sizing after broad shared CSS or shell-frame changes.
+2. **Iframe count / perf.** Full view now uses a page iframe over the always-on MAP iframe; split
+   already uses multiple iframes. Confirm on the lowest-spec target (tablet) after the shell migration.
+3. **Content-type + caching map.** The embedded-resource resolver and suffix lookup are in place;
+   cache headers for static assets are still undecided.
+4. **Softkey contract for write actions.** `target.deselect` posts to `/command`;
    define whether the shell or the page owns the POST (lean: page emits intent,
    shell dispatches — keeps `/command` knowledge in one place).
-6. **ES modules over `file://`.** The preview serves over `http.server` (fine for
-   modules); just ensure nothing assumes `file://`.
+5. **Shared JS extraction.** Step 5 intentionally preserved duplicated helpers; step 6 should extract
+   `sse-client`, `mfd-protocol`, and `sendCommand` without changing behavior.
 
 ## Related
 
@@ -405,5 +389,5 @@ a browser**. The proven loop, no game required:
   of the HTTP API, out of scope for this in-mod refactor (see *Decisions*).
 - The split-screen design (Strategy A: iframe per pane) that this unifies around
   shipped already; its `todo/` doc was removed per the done-doc convention. The
-  iframe-per-pane model survives in `MfdPage.cs` (`applySplitMode`,
+  iframe-per-pane model survives in `web/shell/mfd.js` (`applySplitMode`,
   `renderSplitLabels`).

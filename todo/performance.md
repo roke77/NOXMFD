@@ -285,7 +285,7 @@ speculatively.
 ## Pre-flight before implementing
 
 - Run Step 0 and record the numbers in this doc before touching #1+.
-- After editing the embedded frontend (`ClientPage.cs` / `MfdPage.cs`),
-  run `python tools/build_preview.py`.
+- After editing the embedded frontend (`web/shell/*` / `web/pages/*`),
+  run `python tools/serve_web.py --open` and verify over HTTP.
 - Live-test each shipped item in a busy match; the symptom is only
   reproducible under load.

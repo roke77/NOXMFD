@@ -1,6 +1,6 @@
 <script>
 /* ───────────────────────────────────────────────────────────────────────────
-   PREVIEW MOCK — injected into the page by tools/build_preview.py.
+   PREVIEW MOCK — injected into the MAP page by tools/serve_web.py.
    NOT part of the shipped HUD. It stands in for the game + mod so the frontend
    can be previewed in any browser (file://) with no Nuclear Option running:
      • window.EventSource  → a synthetic /stream serving one STATIC frame

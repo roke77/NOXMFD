@@ -298,7 +298,7 @@ namespace NOXMFD
                     else if (path == "/mfd")
                         Redirect(ctx, "/");
                     else if (path == "/" || path == "/index.html")
-                        ServePage(ctx, MfdPage.Html);
+                        ServeAssetRel(ctx, "shell/mfd.html");        // migrated to web/shell/ (was MfdPage.Html)
                     else
                         Redirect(ctx, "/");
                 }
@@ -371,22 +371,6 @@ namespace NOXMFD
             }
             env = null;
             return false;
-        }
-
-        // ── HTML handler ───────────────────────────────────────────────────────
-
-        private static void ServePage(HttpListenerContext ctx, string html)
-        {
-            try
-            {
-                byte[] body = Encoding.UTF8.GetBytes(html);
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "text/html; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
         }
 
         private static void ServeConfig(HttpListenerContext ctx)

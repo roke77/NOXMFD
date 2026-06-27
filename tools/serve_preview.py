@@ -1,56 +1,18 @@
 #!/usr/bin/env python3
-"""Serve the generated preview/ folder over HTTP so the MFD page can be opened in
-a browser without `file://` security quirks (CSS mask-image and other subresource
-fetches between sibling file:// URLs are blocked in Chromium).
+"""Backward-compatible wrapper for the old preview server command.
 
-Usage:
-    python tools/serve_preview.py            # serve on http://localhost:8777
-    python tools/serve_preview.py --open     # ...and open the MFD page in your browser
-    python tools/serve_preview.py --port 9000
-
-Run tools/build_preview.py first to actually populate preview/. Ctrl+C to stop.
+The preview now serves the real web/ frontend through tools/serve_web.py. This
+wrapper keeps `python tools/serve_preview.py` usable for existing notes and
+launch habits, defaulting to the old 8777 port unless --port is supplied.
 """
-import argparse
-import http.server
-import pathlib
-import socketserver
+import os
 import sys
-import webbrowser
-
-ROOT = pathlib.Path(__file__).resolve().parent.parent
-PREVIEW = ROOT / "preview"
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--port", type=int, default=8777, help="port to bind (default 8777)")
-    ap.add_argument("--open", action="store_true", help="open MFD page in browser on start")
-    args = ap.parse_args()
+os.environ.setdefault("PORT", "8777")
+sys.path.insert(0, os.path.dirname(__file__))
 
-    missing = [name for name in ("index.html", "map-view.html") if not (PREVIEW / name).exists()]
-    if missing:
-        sys.exit(
-            f"ERROR: missing generated preview file(s): {', '.join(missing)}\n"
-            f"  Run `python tools/build_preview.py` first."
-        )
-
-    # Handler must serve from preview/, not the cwd.
-    handler = lambda *a, **kw: http.server.SimpleHTTPRequestHandler(
-        *a, directory=str(PREVIEW), **kw
-    )
-
-    url = f"http://localhost:{args.port}"
-    with socketserver.TCPServer(("", args.port), handler) as srv:
-        print(f"Serving {PREVIEW.relative_to(ROOT)} at {url}/")
-        print(f"  MFD      :  {url}/index.html")
-        print(f"  Map view :  {url}/map-view.html?bare")
-        print("Press Ctrl+C to stop.")
-        if args.open:
-            webbrowser.open(f"{url}/index.html")
-        try:
-            srv.serve_forever()
-        except KeyboardInterrupt:
-            print("\nStopped.")
+from serve_web import main
 
 
 if __name__ == "__main__":

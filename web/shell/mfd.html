@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NO XMFD</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='1' y='1' width='30' height='30' rx='4' fill='%233b3f45'/><rect x='6' y='6' width='20' height='20' rx='1' fill='%23050a05'/><g fill='%23c8ccd0'><rect x='2.5' y='8' width='2' height='2.5'/><rect x='2.5' y='14.75' width='2' height='2.5'/><rect x='2.5' y='21.5' width='2' height='2.5'/><rect x='27.5' y='8' width='2' height='2.5'/><rect x='27.5' y='14.75' width='2' height='2.5'/><rect x='27.5' y='21.5' width='2' height='2.5'/></g><path d='M11 16h10' stroke='%2339ff14' stroke-width='2' stroke-linecap='square'/></svg>">
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/shell/mfd.css">
+</head>
+<body>
+
+<div class="mfd">
+  <div class="bezel">
+    <!-- Decorative corner screws — background image set in CSS (.screw). -->
+    <span class="screw tl"></span><span class="screw tr"></span>
+    <span class="screw bl"></span><span class="screw br"></span>
+
+    <div class="strip top">
+      <div class="center">
+        <div class="keys h" id="keys-top"></div>
+      </div>
+    </div>
+
+    <div class="mid">
+      <div class="keys v" id="keys-left"></div>
+      <div class="screen" id="screen">
+        <iframe src="/map-view?bare" title="map"></iframe>
+        <!-- Full-view host for migrated pages (currently WPN). Shown via .screen.page-on in
+             single-pane view; covers the map iframe (which keeps running behind as the SSE
+             data source). Hidden in split view, where the panes take over. -->
+        <iframe id="page-frame" title="page"></iframe>
+        <!-- Powered-off black-out: covers the whole recess (iframe, panes, overlay) but
+             never the bezel. Toggled by the top-strip power key (.screen.power-off). -->
+        <div class="screen-off" id="screen-off"></div>
+        <div class="split-container" id="split-container">
+          <iframe class="split-pane" id="pane-top" title="top pane"></iframe>
+          <div class="split-divider"></div>
+          <iframe class="split-pane" id="pane-bot" title="bottom pane"></iframe>
+        </div>
+        <div class="overlay" id="overlay">
+          <div class="mfd-indicators" id="mfd-indicators"></div>
+          <div class="pane-follow top" id="follow-top"></div>
+          <div class="pane-follow bot" id="follow-bot"></div>
+          <div class="info-box" id="info-box">
+            <div class="ib-title">NO XMFD</div>
+            <div class="ib-body">
+              <div class="ib-loading" id="ib-loading">
+                <div class="ib-loading-label">LOADING...</div>
+                <div class="ib-bar"><div class="ib-bar-fill" id="ib-bar-fill"></div></div>
+              </div>
+              <div class="ib-data" id="ib-data">
+                <div class="ib-url">http://localhost:5005</div>
+                <div class="ib-status disconnected" id="ib-status">&#9679; DISCONNECTED</div>
+              </div>
+            </div>
+          </div>
+          <!-- WPN content (weapon rows + CM panel) now lives in the #page-frame iframe
+               (web/pages/wpn/), not here. The overlay only carries WPN's nav labels. -->
+          <!-- TGP content (targeting-pod feed) now lives in the #page-frame iframe
+               (web/pages/tgp/), not here. The overlay only carries TGP's MAIN nav label. -->
+          <!-- TGL content (target rows + indicator) now lives in the #page-frame iframe
+               (web/pages/tgl/), not here. The overlay only carries TGL's nav labels. -->
+          <!-- AVN content (silhouette + failure labels + FUEL/THROTTLE bars) now lives in the
+               #page-frame iframe (web/pages/avn/), not here. The overlay only carries AVN's
+               MAIN nav label. -->
+          <!-- RWR content (radar-warning scope SVG) now lives in the #page-frame iframe
+               (web/pages/rwr/), not here. The overlay only carries RWR's MAIN nav label. -->
+        </div>
+      </div>
+      <div class="keys v" id="keys-right"></div>
+    </div>
+
+    <div class="strip bottom">
+      <div class="center">
+        <div class="keys h" id="keys-bottom"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/shell/mfd.js"></script>
+</body>
+</html>

@@ -1,28 +1,29 @@
 #!/usr/bin/env python3
 """Shell harness over HTTP — verify migrated web/ pages in a browser without the game.
 
-Serves the real (build_preview-generated) MFD shell plus the migrated web/ assets, so the
-full-view surgery (WPN, TGL, …) can be driven end-to-end. The shell's mocked /stream
-(preview-mock.js, injected by build_preview) supplies the loadout / CM / targets, which the
-shell forwards to the #page-frame iframe.
+Serves the real web/ MFD shell plus the migrated web/ assets, so the UI can be driven
+end-to-end without extracting C# blobs. The MAP iframe receives tools/preview-mock.js,
+which supplies the synthetic/captured /stream data that the shell forwards to page iframes.
 
-  /                  -> preview/index.html         (the build_preview shell)
+  /                  -> web/shell/mfd.html
   /config            -> preview runtime URLs        (localhost/LAN URL for this harness port)
   /map-view[?bare]   -> web/pages/map/map.html      (the base map iframe; mock injected here)
   /<page>            -> web/pages/<page>/<page>.html  (any migrated page, e.g. /wpn /tgl)
-  /weapon?...        -> a mock 2:1 weapon icon      (the frame fetches this directly)
-  /assets/<x>        -> web/<x>                     (font.css, theme.css, woff2, page css/js)
+  /weapon?...        -> captured weapon icon, or a mock 2:1 icon
+  /airframe[-layout] -> captured AVN silhouette assets when available
+  /assets/<x>        -> web/<x>, falling back to preview/assets/<x> captures
   else               -> preview/<x>                 (*.js, manifest, ...)
 
 The MAP page is the only EventSource('/stream') consumer, so the mock (which stubs /stream,
-/map, /icon, /weapon) is injected into it here — exactly what build_preview used to do when the
-map was a generated preview/map-view.html. The shell loads /map-view?bare absolutely.
+/map, /icon, /weapon) is injected into it here. The shell loads /map-view?bare absolutely.
 
 Usage:
     python tools/serve_web.py            # serve on http://127.0.0.1:8782
     python tools/serve_web.py --port N
+    python tools/serve_web.py --open
 
-Run `python tools/build_preview.py` first to populate preview/. Ctrl+C to stop.
+Run tools/capture_assets.py while in-game to populate preview/assets/ with real assets.
+Ctrl+C to stop.
 """
 import argparse
 import http.server
@@ -32,6 +33,8 @@ import pathlib
 import posixpath
 import socket
 import socketserver
+import urllib.parse
+import webbrowser
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 WEB = REPO / "web"
@@ -55,7 +58,7 @@ def _mime(rel):
 
 
 def _capture_injection():
-    """If a capture exists, a <script> exposing the real frame + assets (mirrors build_preview)."""
+    """If a capture exists, a <script> exposing the real frame + assets."""
     if not MANIFEST.exists():
         return ""
     m = json.loads(MANIFEST.read_text(encoding="utf-8"))
@@ -65,6 +68,35 @@ def _capture_injection():
             f"window.__PREVIEW_FRAME__ = {frame};\n"
             f"window.__PREVIEW_ASSETS__ = {assets};\n"
             "</script>\n")
+
+
+def _manifest():
+    if not MANIFEST.exists():
+        return {}
+    try:
+        return json.loads(MANIFEST.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _asset_ref(key):
+    ref = (_manifest().get("assets") or {}).get(key)
+    return ref if isinstance(ref, str) else None
+
+
+def _asset_json(key):
+    val = (_manifest().get("assets") or {}).get(key)
+    return val if isinstance(val, dict) else None
+
+
+def _preview_asset_path(ref):
+    rel = posixpath.normpath(ref).lstrip('/\\')
+    fp = (PREV / pathlib.Path(*rel.split('/'))).resolve()
+    try:
+        fp.relative_to(PREV.resolve())
+    except ValueError:
+        return None
+    return fp
 
 
 def _map_page():
@@ -99,7 +131,7 @@ class H(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split('?', 1)[0]
         if path in ('/', '/index.html'):
-            return self._file(PREV / 'index.html', 'text/html; charset=utf-8')
+            return self._file(WEB / 'shell' / 'mfd.html', 'text/html; charset=utf-8')
         if path == '/config':
             return self._send(_config(self.server.server_address[1]), 'application/json; charset=utf-8')
         if path == '/map-view':
@@ -107,11 +139,51 @@ class H(http.server.SimpleHTTPRequestHandler):
                 return self._send(_map_page(), 'text/html; charset=utf-8')
             except OSError as e:
                 return self.send_error(404, str(e))
+        if path in ('/map', '/map.png', '/map.jpg'):
+            ref = _asset_ref('map')
+            if ref:
+                fp = _preview_asset_path(ref)
+                if fp and fp.exists():
+                    return self._file(fp, _mime(str(fp)))
+            return self.send_error(404, 'no captured map')
+        if path == '/icon':
+            typ = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('type', [''])[0]
+            ref = _asset_ref('icon:' + typ)
+            if ref:
+                fp = _preview_asset_path(ref)
+                if fp and fp.exists():
+                    return self._file(fp, 'image/png')
+            return self.send_error(404, 'no captured icon')
         if path == '/weapon':
+            name = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('name', [''])[0]
+            ref = _asset_ref('weapon:' + name)
+            if ref:
+                fp = _preview_asset_path(ref)
+                if fp and fp.exists():
+                    return self._file(fp, 'image/png')
             return self._send(WEAPON_SVG.encode('utf-8'), 'image/svg+xml')
+        if path == '/airframe-layout':
+            typ = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('type', [''])[0]
+            layout = _asset_json('airframe-layout:' + typ)
+            if layout:
+                return self._send(json.dumps(layout).encode('utf-8'), 'application/json; charset=utf-8')
+            return self.send_error(404, 'no captured airframe layout')
+        if path == '/airframe':
+            qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            typ = qs.get('type', [''])[0]
+            part = qs.get('part', [''])[0]
+            ref = _asset_ref('airframe:' + typ + '|' + part)
+            if ref:
+                fp = _preview_asset_path(ref)
+                if fp and fp.exists():
+                    return self._file(fp, 'image/png')
+            return self.send_error(404, 'no captured airframe part')
         if path.startswith('/assets/'):
             rel = posixpath.normpath(path[len('/assets/'):]).lstrip('/\\')
-            return self._file(WEB.joinpath(*rel.split('/')), _mime(rel))
+            web_fp = WEB.joinpath(*rel.split('/'))
+            if web_fp.exists():
+                return self._file(web_fp, _mime(rel))
+            return self._file(PREV.joinpath('assets', *rel.split('/')), _mime(rel))
         # Any migrated page: /<name> -> web/pages/<name>/<name>.html (wpn, tgl, ...).
         name = path.lstrip('/')
         page = WEB / 'pages' / name / f'{name}.html'
@@ -142,11 +214,15 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8782)),
                     help="port to bind (default $PORT or 8782)")
+    ap.add_argument("--open", action="store_true", help="open the shell in a browser on start")
     args = ap.parse_args()
-    if not (PREV / "index.html").exists():
-        raise SystemExit("ERROR: preview/index.html missing — run `python tools/build_preview.py` first.")
+    if not (WEB / "shell" / "mfd.html").exists():
+        raise SystemExit("ERROR: web/shell/mfd.html missing — run the step-5c shell migration first.")
     with socketserver.TCPServer(("127.0.0.1", args.port), H) as s:
-        print(f"serving on http://127.0.0.1:{args.port}")
+        url = f"http://127.0.0.1:{args.port}/"
+        print(f"serving on {url}")
+        if args.open:
+            webbrowser.open(url)
         try:
             s.serve_forever()
         except KeyboardInterrupt:
