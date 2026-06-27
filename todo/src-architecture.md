@@ -1,13 +1,15 @@
 # src/ web-frontend architecture — design & refactor plan
 
-Status: **in progress** — steps 1–3 done, **step 4 underway (WPN, TGL, TGP, AVN migrated)**.
-Resource plumbing, shared font/theme, **WPN** as the proof page, then **TGL** (which introduced
-the **declarative softkey contract** — full view; split deselect still on the legacy binding),
-**TGP** (the targeting-pod feed — no softkeys/geometry, one profile for both layouts), and
+Status: **in progress** — steps 1–3 done, **step 4 essentially done (WPN, TGL, TGP, AVN, RWR
+migrated)**. Resource plumbing, shared font/theme, **WPN** as the proof page, then **TGL** (which
+introduced the **declarative softkey contract** — full view; split deselect still on the legacy
+binding), **TGP** (the targeting-pod feed — no softkeys/geometry, one profile for both layouts),
 **AVN** (avionics silhouette + FUEL/THROTTLE bars — two profiles; full anchors name/frame to the
-bezel geometry the shell forwards). Each is one page file, full view hosted in an iframe, overlay
-deleted. Remaining: step 4's RWR/MAIN; then the shell + MAP (step 5); then shared JS (step 6)
-+ the preview rework (step 7).
+bezel geometry the shell forwards), and **RWR** (radar-warning scope — one responsive SVG, one
+profile, two streams). Each is one page file, full view hosted in an iframe, overlay deleted.
+**MAIN is deferred to step 5** — its full view *is* shell chrome (the info-box + boot loader) and
+its LAN-URL injection is open question #4, so it migrates with the shell, not as a standalone page.
+Remaining: the shell + MAP + MAIN (step 5); then shared JS (step 6) + the preview rework (step 7).
 
 ## Goal
 
@@ -197,9 +199,18 @@ The DLL keeps building and the UI keeps working after every step.
    read it); deleted `AVN_FAILURE_DEFS` + the `/airframe` layout cache/retry state + all
    `renderAvn..positionAvnBarValue`. **Harness note:** `serve_web.py` doesn't serve
    `/airframe[-layout]`, so the silhouette only renders in-game (not in preview) for now.
-   **RWR, MAIN still to do.**
-5. **Convert the shell itself** (`MfdPage.cs` → `web/shell/mfd.*`) and **MAP**
-   (`ClientPage.cs` → `web/pages/map.*`) once the page pattern is proven.
+   **RWR: DONE** — `web/pages/rwr/{rwr.html,rwr.css,rwr.js}`. Like TGP, one responsive SVG
+   (1000×1000 viewBox, `preserveAspectRatio` meet) → **no separate `full` profile**. Two data
+   streams: `forwardRwrToFrame` (contacts) + `forwardMwToFrame` (incoming missiles); kept
+   `rwrData` + `mwData` (the forwarders read them); deleted `RWR_COL`/`rwrShort`/`renderRwr`/
+   `renderThreats` + the missile-flicker timer. `opaque:false`; only key is the static MAIN label.
+   **MAIN: deferred to step 5** — decided (see Open questions #4): its full view is the shell's
+   info-box + boot loader (startup chrome, not page content), and the LAN-URL injection is unsolved,
+   so MAIN migrates *with* the shell rather than as a standalone page. Step 4's five real pages done.
+5. **Convert the shell itself** (`MfdPage.cs` → `web/shell/mfd.*`), **MAP** (`ClientPage.cs` →
+   `web/pages/map.*`), and **MAIN** (`MainPage.cs` + the shell info-box/boot-loader → `web/pages/main.*`)
+   once the page pattern is proven. Resolve the LAN-URL injection here (open question #4) — it feeds
+   both the info-box and MAIN, so solve it once (a runtime `/config` fetch or a small templating pass).
 6. **Extract shared JS** (`sse-client`, `mfd-protocol`, `sendCommand`) and
    de-duplicate the now-parallel copies across pages.
 7. **Simplify `build_preview.py`** to serve `web/` directly; update the workflow
@@ -219,18 +230,20 @@ web/
     tgl/   tgl.html  tgl.css  tgl.js                     # DONE: + declarative softkey contract
     tgp/   tgp.html  tgp.css  tgp.js                     # DONE: one profile (feed, like MAP)
     avn/   avn.html  avn.css  avn.js                     # DONE: two profiles (full anchors to bezel geom)
+    rwr/   rwr.html  rwr.css  rwr.js                     # DONE: one profile (responsive SVG), 2 streams
 src/
   TelemetryServer.cs   # ServeAsset (/assets/ route) + ServeAssetRel(ctx,"pages/x/x.html");
                        #   per-page routes (e.g. /wpn) call ServeAssetRel. /assets suffix-matches
                        #   the embedded-resource manifest "<RootNamespace>.web.<dotted path>".
   MfdPage.cs           # the shell (still a const-string blob). Hosts pages; see hooks below.
   ClientPage.cs        # MAP page (/map-view) — still a blob; migrate in step 5.
-  {Rwr,Main}Page.cs   # still blobs (split-only bare pages) + overlay twins in MfdPage
+  MainPage.cs          # MAIN card — still a blob; migrates WITH the shell in step 5 (its full
+                       #   view is the shell's info-box + boot loader; LAN-URL injection = Q#4)
 NOXMFD.csproj          # <EmbeddedResource Include="web\**\*" />
 .gitattributes         # *.woff2/png/jpg = binary (don't let git mangle EOLs)
 ```
 
-### The per-page migration recipe (what WPN + TGL + TGP + AVN did — repeat for RWR, MAIN)
+### The per-page migration recipe (what WPN + TGL + TGP + AVN + RWR did — reuse for step-5 MAP/MAIN)
 1. **Move the bare page** `XxxPage.cs` → `web/pages/xxx/{xxx.html,xxx.css,xxx.js}`. Link
    `/assets/shared/font.css` + `theme.css` (kills that page's inline font copy). Point its
    route in `TelemetryServer` at `ServeAssetRel(ctx,"pages/xxx/xxx.html")`; delete the `.cs`.
@@ -330,7 +343,9 @@ a browser**. The proven loop, no game required:
    resolver in `TelemetryServer`; decide on cache headers for static assets.
 4. **`{{LAN_URL_BLOCK}}` & other server-injected bits.** Currently string-replaced
    into `MfdPage.Html`/`MainPage.Html`. Decide: keep a tiny replace pass, or move
-   to a runtime `/config` JSON the shell fetches.
+   to a runtime `/config` JSON the shell fetches. **Deferred to step 5** (decided 2026-06-27):
+   it feeds both the shell info-box and MAIN, so it's resolved once when the shell + MAIN migrate
+   together — not piecemeal. This is why MAIN is the one step-4 page left unmigrated.
 5. **Softkey contract for write actions.** `target.deselect` posts to `/command`;
    define whether the shell or the page owns the POST (lean: page emits intent,
    shell dispatches — keeps `/command` knowledge in one place).
