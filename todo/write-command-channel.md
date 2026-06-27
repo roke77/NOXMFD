@@ -116,8 +116,8 @@ at 0, so commands parsed but did nothing). Flat side-steps that entirely.
 
 | Command | Game API | Notes |
 |---|---|---|
-| `target.select { id }` | `CombatHUD.SelectUnit` | **DONE** (POC) |
-| `target.deselect { id }` | `CombatHUD.DeSelectUnit` | needs a deselect gesture (see Q3) |
+| `target.select { id }` | `CombatHUD.SelectUnit` | **DONE** (POC) — MAP tap |
+| `target.deselect { id }` | `CombatHUD.DeSelectUnit` | **DONE** — TGL page bezel key beside a target (full MFD view; split mode TBD) |
 | `target.clear` | `CombatHUD.DeselectAll(true)` | clears all targets, with audio |
 | `target.deselectLast` | `CombatHUD.DeselectLast` | drops most-recent target |
 | `weapon.next` / `weapon.prev` | `WeaponManager.NextWeaponStation` / `Previous…` | cycle stations |
@@ -146,5 +146,7 @@ A pure refactor first (behaviour identical), then new commands layer on:
 
 1. ~~Generalize `Queue<uint>` → a typed command queue; `/select` → `/command`.~~ **done**
 2. ~~Move the select logic into a `target.select` handler behind the dispatcher.~~ **done**
-3. Add the next command (likely `target.clear` or a weapon-station cycle) as the
-   first *new* feature proving the channel generalizes. **← next**
+3. ~~Add the next command as the first *new* feature proving the channel
+   generalizes.~~ **done** — `target.deselect` on the TGL page bezel keys: a
+   second command, a second client surface (the MFD shell now has its own
+   `sendCommand`), reusing the channel unchanged.

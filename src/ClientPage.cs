@@ -783,6 +783,7 @@ function updateHUD(d) {
         const dx = u.x - d.world.x;
         const dz = u.z - d.world.z;
         targets.push({
+          id: u.id,
           n: u.t,
           g: gridLabel(u.x, u.z),
           r: Math.hypot(dx, dz) / 1000,

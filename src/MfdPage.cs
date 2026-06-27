@@ -1908,6 +1908,7 @@ function clearKeyActions() {
     keyBanks[bank].forEach(function(k) {
       delete k.dataset.action;
       delete k.dataset.pane;     // split-mode tag; harmless to clear unconditionally
+      delete k.dataset.id;       // target-deselect id (TGL page); clear so it never lingers
     });
   });
 }
@@ -2666,6 +2667,12 @@ function renderTgl() {
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
   delete leftKeys[0].dataset.action;
   delete rightKeys[0].dataset.action;
+  // Clear any target-deselect bindings from a previous render (target list shrank / page change).
+  // renderTgl can be called on a telemetry refresh without going through clearKeyActions.
+  for (let s = 1; s <= 5; s++) {
+    if (leftKeys[s])  { delete leftKeys[s].dataset.action;  delete leftKeys[s].dataset.id; }
+    if (rightKeys[s]) { delete rightKeys[s].dataset.action; delete rightKeys[s].dataset.id; }
+  }
 
   const targets = tglData.targets || [];
   const total   = targets.length;
@@ -2708,6 +2715,11 @@ function renderTgl() {
     const t   = list[i];
     const top = col[slot].getBoundingClientRect();
     const bot = col[slot + 1].getBoundingClientRect();
+
+    // Bind the bezel key aligned with this target's slot to deselect it (full-view only;
+    // split mode renders TGL in a bare pane via a separate path).
+    const dkey = (onLeft ? leftKeys : rightKeys)[slot];
+    if (dkey && t.id != null) { dkey.dataset.action = 'tgl-deselect'; dkey.dataset.id = t.id; }
 
     const slotH = bot.top - top.bottom;
     // Each side gets half the panel width. Left and right meet (or overlap) at the centre —
@@ -2953,6 +2965,16 @@ function typewriterUrls() {
   typeLine(0);
 }
 
+// Inbound command channel (POST /command), same flat envelope the MAP page uses. Fire-and-forget;
+// state changes (e.g. a deselected target dropping off the TGL list) arrive via normal telemetry.
+function sendCommand(cmd, args) {
+  return fetch('/command', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ cmd: cmd }, args || {}))
+  }).catch(function() {});
+}
+
 function mfdButton(el) {
   el.classList.add('lit');                                   // brief press feedback
   setTimeout(function() { el.classList.remove('lit'); }, 150);
@@ -2991,6 +3013,9 @@ function mfdButton(el) {
     case 'tgl':       tglPage = 0; showPage('tgl'); break;   // fresh entry — always start on page 0
     case 'tgl-prev':  tglPage--;   showPage('tgl'); break;   // renderTgl clamps if we overshoot
     case 'tgl-next':  tglPage++;   showPage('tgl'); break;
+    case 'tgl-deselect':                                     // bezel key beside a target → drop it
+      if (el.dataset.id) sendCommand('target.deselect', { id: +el.dataset.id });
+      break;
     case 'avn':  showPage('avn');  break;
     case 'rwr':  showPage('rwr');  break;
     case 'flw':  mapSend('toggle-follow'); break;

@@ -30,7 +30,8 @@ namespace NOXMFD
         private static readonly Dictionary<string, Action<CommandEnvelope>> _handlers =
             new Dictionary<string, Action<CommandEnvelope>>(StringComparer.Ordinal)
             {
-                { "target.select", TargetSelect },
+                { "target.select",   TargetSelect },
+                { "target.deselect", TargetDeselect },
             };
 
         // True for a cmd we have a handler for — lets the server reject unknown commands at the
@@ -90,6 +91,39 @@ namespace NOXMFD
             if (viaHud) hud.SelectUnit(unit);
             else        wm.AddTargetList(unit);
             Plugin.Log?.LogInfo($"[NOXMFD] target.select → '{name}' (id={id}, viaHud={viaHud}).");
+        }
+
+        // Drop a unit from the player's weapon target list (TGL page bezel button). Mirrors the
+        // in-cockpit deselect via CombatHUD.DeSelectUnit, which reverts the marker colour, plays
+        // the deselect beep, and syncs the DynamicMap icon; falls back to the bare weaponManager
+        // op when the HUD isn't tracking the contact. No-ops if it isn't currently a target.
+        private static void TargetDeselect(CommandEnvelope env)
+        {
+            uint id = unchecked((uint)env.id);
+            if (id == 0) { Plugin.Log?.LogInfo("[NOXMFD] target.deselect: id=0 (missing/unparsed) — ignored."); return; }
+
+            if (!UnitRegistry.TryGetUnit(new PersistentID { Id = id }, out Unit unit) || unit == null)
+            {
+                Plugin.Log?.LogInfo($"[NOXMFD] target.deselect id={id}: no such unit — ignored.");
+                return;
+            }
+
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            if (ac == null || ac.weaponManager == null) return;
+
+            WeaponManager wm = ac.weaponManager;
+            string name = unit.definition?.unitName ?? "?";
+            if (!wm.CheckIsTarget(unit))
+            {
+                Plugin.Log?.LogInfo($"[NOXMFD] target.deselect '{name}' (id={id}): not targeted — no-op.");
+                return;
+            }
+
+            CombatHUD hud = SceneSingleton<CombatHUD>.i;
+            bool viaHud = hud != null && ReferenceEquals(hud.aircraft, ac) && hud.MarkerExists(unit);
+            if (viaHud) hud.DeSelectUnit(unit);
+            else        wm.RemoveTargetList(unit);
+            Plugin.Log?.LogInfo($"[NOXMFD] target.deselect ← '{name}' (id={id}, viaHud={viaHud}).");
         }
     }
 }
