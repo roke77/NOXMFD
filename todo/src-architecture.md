@@ -1,8 +1,9 @@
 # src/ web-frontend architecture — design & refactor plan
 
-Status: **design (not started)**. This doc plans how to reorganise the web
-frontend that currently lives inside `src/*.cs` as embedded string blobs. Two
-decisions are already settled (see *Decisions*); the rest is the migration plan.
+Status: **in progress** — steps 1–3 done (resource plumbing, shared font/theme, and
+**WPN fully migrated** as the proof page: one file, two layout profiles, full view hosted
+in an iframe, overlay deleted). Steps 4–7 remain (roll to the other pages, starting with
+TGL + the softkey contract; then the shell + MAP; then shared JS + the preview rework).
 
 ## Goal
 
@@ -149,22 +150,23 @@ frontend" workflow rule becomes "just refresh".)
 
 The DLL keeps building and the UI keeps working after every step.
 
-1. **Resource plumbing.** Add `web/`, wire `<EmbeddedResource>`, teach
-   `TelemetryServer` to serve a file from `web/` by path + content-type. Prove it
-   with **one** throwaway asset. No behaviour change yet.
-2. **Extract shared font + theme.** Move the `@font-face` to `web/shared/font.css`
-   and the common theme to `theme.css`; have ONE existing page reference them
-   instead of its inline copy. Kills the 8× font dup incrementally.
-3. **Convert one page end-to-end as the proof:** pick **WPN** (it already has a
-   bare/split version *and* an overlay version — the cleanest before/after).
-   - Move `WpnPage.cs` → `web/pages/wpn.{html,css,js}`.
-   - Make the shell host WPN in a **full-size iframe** in full view; delete the
-     `wpn-panel` overlay markup + `renderWpn`/`renderCm` from `MfdPage.cs`.
-   - Add the **softkey contract** for WPN (NEXT / page nav) and have the shell map
-     it. Verify full + split in preview, then in-game.
-4. **Roll the pattern to TGL, TGP, AVN, RWR, MAIN.** Each: file split, drop the
-   overlay, adopt the softkey contract. TGL brings `target.deselect` onto the new
-   contract (removing its double-binding).
+1. ~~**Resource plumbing.**~~ **DONE.** `web/` + `<EmbeddedResource>`; `TelemetryServer`
+   serves `web/` files via `ServeAsset`/`ServeAssetRel` under `/assets/` (suffix-matched).
+2. ~~**Extract shared font + theme.**~~ **DONE.** `web/shared/font.css` (woff2 externalised
+   to one binary), `theme.css` (base + colour tokens). WPN references them; other pages
+   de-dup as they migrate.
+3. ~~**Convert one page end-to-end as the proof (WPN).**~~ **DONE.** WPN now lives in
+   `web/pages/wpn/{wpn.html,wpn.css,wpn.js}` with two layout profiles in one file
+   (compact = split pane, full = full screen). The shell hosts full-view WPN in a
+   `#page-frame` iframe (forwarding full-screen geometry from the bezel separators) and the
+   old `wpn-panel` overlay + `renderWpn`/`renderCm` + their markup/CSS are deleted. Note:
+   WPN needs **no softkey contract** — its only keys are nav (MAIN/PREV/NEXT), which stay
+   shell-owned because pagination is shell state. The softkey contract arrives with TGL
+   (step 4), which has per-target (deselect) keys. Verified in a shell harness over http.
+4. **Roll the pattern to TGL, TGP, AVN, RWR, MAIN.** Each: file split (into `web/pages/<x>/`),
+   drop the overlay, host full-view in `#page-frame`. **TGL introduces the declarative
+   softkey contract** (page emits `{side,slot,label,action,data}`; shell maps `slot+paneOffset`),
+   bringing `target.deselect` onto it and removing its current double-binding.
 5. **Convert the shell itself** (`MfdPage.cs` → `web/shell/mfd.*`) and **MAP**
    (`ClientPage.cs` → `web/pages/map.*`) once the page pattern is proven.
 6. **Extract shared JS** (`sse-client`, `mfd-protocol`, `sendCommand`) and
