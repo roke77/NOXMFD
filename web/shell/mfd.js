@@ -1138,15 +1138,10 @@ function loadConfigUrls() {
     .catch(function() {});
 }
 
-// Inbound command channel (POST /command), same flat envelope the MAP page uses. Fire-and-forget;
-// state changes (e.g. a deselected target dropping off the TGL list) arrive via normal telemetry.
-function sendCommand(cmd, args) {
-  return fetch('/command', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(Object.assign({ cmd: cmd }, args || {}))
-  }).catch(function() {});
-}
+// sendCommand(cmd, args) — POST /command — is provided by the shared web/shared/send-command.js
+// (linked before this script in mfd.html). State changes (e.g. a deselected target dropping off
+// the TGL list) come back via normal telemetry, so the shell's calls are fire-and-forget: add
+// .catch() at the call site since the shared sender returns the raw promise.
 
 function mfdButton(el) {
   el.classList.add('lit');                                   // brief press feedback
@@ -1189,7 +1184,7 @@ function mfdButton(el) {
     case 'tgl-prev':  tglPage--;   showPage('tgl'); break;   // forwardTglToFrame clamps overshoot
     case 'tgl-next':  tglPage++;   showPage('tgl'); break;
     case 'target.deselect':                                  // softkey-contract deselect (full + split)
-      if (el.dataset.id) sendCommand('target.deselect', { id: +el.dataset.id });
+      if (el.dataset.id) sendCommand('target.deselect', { id: +el.dataset.id }).catch(function() {});
       break;
     case 'avn':  showPage('avn');  break;
     case 'rwr':  showPage('rwr');  break;

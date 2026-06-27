@@ -857,17 +857,9 @@ mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = '
 // pendingSel optimistically marks a just-tapped id as selected until telemetry confirms it (the
 // contact loop clears it on tg, and entries self-expire), so rapid taps advance through a stack
 // instead of re-hitting the same unit.
-// Shared sender for the inbound command channel (POST /command). The wire envelope is FLAT —
-// { cmd, ...args } — because the game's JsonUtility reliably parses top-level fields but not
-// nested objects. Fire-and-forget: resolves with the response so callers can react to !ok, but
-// we don't wait on an ack. See ClientPage's tap handler and todo/write-command-channel.md.
-function sendCommand(cmd, args) {
-  return fetch('/command', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(Object.assign({ cmd: cmd }, args || {}))
-  });
-}
+// sendCommand(cmd, args) — POST /command — is provided by the shared web/shared/send-command.js
+// (linked before this script in map.html). Returns the raw fetch promise; the tap handler below
+// reacts to r.ok and attaches its own .catch.
 
 const pendingSel = new Map();   // id -> expiry ts
 function isSelected(t) {
