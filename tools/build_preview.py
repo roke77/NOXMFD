@@ -39,9 +39,8 @@ CLIENT = ROOT / "src" / "ClientPage.cs"
 MFD = ROOT / "src" / "MfdPage.cs"
 MAIN = ROOT / "src" / "MainPage.cs"
 AVN = ROOT / "src" / "AvnPage.cs"
-TGP = ROOT / "src" / "TgpPage.cs"
-# WPN + TGL migrated to web/pages/{wpn,tgl}/ (http-served via /assets); no longer C# const blobs.
-# Their file:// preview returns with the step-7 web/ preview rework (todo/src-architecture.md).
+# WPN + TGL + TGP migrated to web/pages/{wpn,tgl,tgp}/ (http-served via /assets); no longer C#
+# const blobs. Their file:// preview returns with the step-7 web/ rework (todo/src-architecture.md).
 RWR = ROOT / "src" / "RwrPage.cs"
 MOCK = ROOT / "tools" / "preview-mock.js"
 MANIFEST = ROOT / "preview" / "assets" / "manifest.json"
@@ -49,7 +48,6 @@ OUT = ROOT / "preview" / "index.html"
 OUT_MAP = ROOT / "preview" / "map-view.html"
 OUT_MAIN = ROOT / "preview" / "main.html"
 OUT_AVN = ROOT / "preview" / "avn.html"
-OUT_TGP = ROOT / "preview" / "tgp.html"
 OUT_RWR = ROOT / "preview" / "rwr.html"
 OLD_OUT_MFD = ROOT / "preview" / "mfd.html"
 
@@ -140,9 +138,9 @@ def main() -> None:
         mfd = mfd.replace("'/main?bare'", "'main.html?bare'")
         mfd = mfd.replace("'/map-view?bare'", "'map-view.html?bare'")
         mfd = mfd.replace("'/avn?bare'",  "'avn.html?bare'")
-        mfd = mfd.replace("'/tgp?bare'",  "'tgp.html?bare'")
-        # '/wpn?bare' + '/tgl?bare' intentionally not rewritten — WPN and TGL are http-served
-        # from web/ now, so their panes stay blank in the file:// MFD preview until step 7.
+        # '/wpn?bare' + '/tgl?bare' + '/tgp?bare' intentionally not rewritten — WPN, TGL and TGP
+        # are http-served from web/ now, so their panes stay blank in the file:// MFD preview
+        # until step 7 (use tools/serve_web.py to exercise them over http).
         mfd = mfd.replace("'/rwr?bare'",  "'rwr.html?bare'")
         # The localhost line + LAN URL block are filled by the live server in-game; for the
         # preview, point them at the real detected LAN IP on the preview port.
@@ -166,16 +164,9 @@ def main() -> None:
         OUT_AVN.write_text(avn_html, encoding="utf-8")
         print(f"Wrote {OUT_AVN.relative_to(ROOT)}  ({len(avn_html):,} bytes)")
 
-    # TGP bare page (split-mode pane content). The mock intercepts /tgp.mjpg so the
-    # in-browser preview shows the NO LOCK placeholder cleanly.
-    if TGP.exists():
-        tgp_html = extract_html(TGP.read_text(encoding="utf-8"))
-        tgp_html = tgp_html.replace("</head>", injection + mock + "\n</head>", 1)
-        OUT_TGP.write_text(tgp_html, encoding="utf-8")
-        print(f"Wrote {OUT_TGP.relative_to(ROOT)}  ({len(tgp_html):,} bytes)")
-
-    # (WPN + TGL bare pages removed — migrated to web/pages/{wpn,tgl}/, served over http via
-    #  /assets, so they are no longer extracted into the file:// preview. Return with step 7.)
+    # (WPN + TGL + TGP bare pages removed — migrated to web/pages/{wpn,tgl,tgp}/, served over
+    #  http via /assets, so they are no longer extracted into the file:// preview. Return with
+    #  step 7. Use tools/serve_web.py to drive them over http in the meantime.)
 
     # RWR bare page (split-mode pane content). Self-contained stub — fake contacts rendered
     # on load, no fetches — so no mock injection is needed (like the TGL / MAIN panes).

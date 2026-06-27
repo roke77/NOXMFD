@@ -320,7 +320,6 @@ namespace NOXMFD
      direct content child is force-hidden. */
   .screen.split > .overlay { background: transparent !important; }
   .screen.split > .overlay > .info-box,
-  .screen.split > .overlay > .tgp-panel,
   .screen.split > .overlay > .rwr-panel,
   .screen.split > .overlay > .avn-panel { display: none !important; }
   .split-pane {
@@ -474,45 +473,8 @@ namespace NOXMFD
   /* TGP page — fills the screen with the live MJPEG feed from the player's targeting cam.
      The empty placeholder mirrors the .wpn-empty style so it reads the same as the WPN
      page's NO LOADOUT state. */
-  /* Centred 3:2 box sized to the source (TargetCam renders 360×240). Shrinking the panel
-     drops the upscale ratio, which cuts the bilinear blur from #1. The surrounding screen
-     stays black because the parent .overlay is opaque on this page. */
-  .tgp-panel {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 100%;
-    aspect-ratio: 3 / 2;
-    max-width: 100%;
-    max-height: 100%;
-    display: none;
-    background: #000;
-  }
-  .tgp-panel.show { display: block; }
-  .tgp-img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    /* Browser-default bilinear upscale — the source is 360×240 native, so without smoothing
-       the blocky nearest-neighbour pixels are obvious at MFD size. */
-    image-rendering: auto;
-  }
-  /* Hide the <img> when the feed is dead — MJPEG keeps the last frame buffered in the
-     element, so without this the player would see a frozen stale picture instead of the
-     NO TARGET placeholder. */
-  .tgp-panel:not(.has-feed) .tgp-img { visibility: hidden; }
-  .tgp-empty {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    color: #1a4a1a;
-    font-family: 'Share Tech Mono', 'Courier New', monospace;
-    font-size: 22px;
-    letter-spacing: 3px;
-    pointer-events: none;
-  }
-  .tgp-panel.has-feed .tgp-empty { display: none; }
+  /* (TGP page — targeting-pod feed — now renders in the #page-frame iframe, web/pages/tgp/,
+     in both full and split views. Its panel/img/empty CSS moved there.) */
 
   /* RWR page — radar warning receiver. A polar, nose-up scope drawn as a responsive SVG
      (Option C from todo/rwr-radar-warning.md): a smoked-white mask — solid rim + two dashed
@@ -914,10 +876,8 @@ namespace NOXMFD
           </div>
           <!-- WPN content (weapon rows + CM panel) now lives in the #page-frame iframe
                (web/pages/wpn/), not here. The overlay only carries WPN's nav labels. -->
-          <div class="tgp-panel" id="tgp-panel">
-            <div class="tgp-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">TGP</span>&mdash; NO LOCK &mdash;</div>
-            <img class="tgp-img" id="tgp-img" alt="">
-          </div>
+          <!-- TGP content (targeting-pod feed) now lives in the #page-frame iframe
+               (web/pages/tgp/), not here. The overlay only carries TGP's MAIN nav label. -->
           <!-- TGL content (target rows + indicator) now lives in the #page-frame iframe
                (web/pages/tgl/), not here. The overlay only carries TGL's nav labels. -->
           <div class="avn-panel" id="avn-panel">
@@ -1033,18 +993,13 @@ const overlayEl = document.getElementById('overlay');
 const mapFrame  = document.querySelector('.screen > iframe[title="map"]');
 const screenEl  = document.getElementById('screen');
 const paneIframes = [document.getElementById('pane-top'), document.getElementById('pane-bot')];
-const pageFrame = document.getElementById('page-frame');   // full-view host for migrated pages (WPN, TGL)
+const pageFrame = document.getElementById('page-frame');   // full-view host for migrated pages (WPN, TGL, TGP)
 // Pages that render in #page-frame in full view (migrated out of overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
-const FRAME_PAGES = { wpn: '/wpn', tgl: '/tgl' };
+const FRAME_PAGES = { wpn: '/wpn', tgl: '/tgl', tgp: '/tgp' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
-const tgpPanel  = document.getElementById('tgp-panel');
-const tgpImg    = document.getElementById('tgp-img');
-// has-feed is driven by the SSE tgpActive flag (mirrored from the map iframe) — MJPEG only
-// fires 'load' once, so we can't use it to detect frame stalls. The 'error' handler still
-// covers the hard case where the MJPEG connection breaks outright.
-tgpImg.addEventListener('error', function() { tgpPanel.classList.remove('has-feed'); });
+// (TGP's panel/img + has-feed handling now live in web/pages/tgp/, hosted in #page-frame.)
 const sepEls      = document.querySelectorAll('#keys-left .sep');   // 0 = above key[0], i+1 = below key[i]
 const avnPanel    = document.getElementById('avn-panel');
 const rwrPanel    = document.getElementById('rwr-panel');
@@ -1096,7 +1051,9 @@ const PAGES = {
     items: [],
   },
   tgp: {
-    opaque: true,
+    // Hosted in #page-frame (the migrated web/pages/tgp page), not the overlay — so the overlay
+    // stays transparent and only carries the MAIN nav label below.
+    opaque: false,
     items: [
       { label: 'MAIN', key: 0, action: 'main' },    // ← back to MAIN
     ],
@@ -1337,6 +1294,12 @@ function forwardTgpToPanes() {
     if (!iframe.contentWindow) return;
     iframe.contentWindow.postMessage({ mfd: true, type: 'tgp', active: tgpActive }, '*');
   });
+}
+// Full-view TGP: forward the lock flag to the #page-frame iframe (the page toggles its feed).
+// No geometry to forward — the feed is a single centred box, not key-band rows.
+function forwardTgpToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage({ mfd: true, type: 'tgp', active: tgpActive }, '*');
 }
 function forwardRwrToPanes() {
   paneIframes.forEach(function(iframe, idx) {
@@ -1652,6 +1615,7 @@ pageFrame.addEventListener('load', function() {
   forwardOrientationToPane(pageFrame);
   if (currentPage === 'wpn')      { forwardWpnLayoutToFrame(); forwardWpnToFrame(); forwardCmToFrame(); }
   else if (currentPage === 'tgl') { forwardTglLayoutToFrame(); forwardTglToFrame(); }
+  else if (currentPage === 'tgp') { forwardTgpToFrame(); }
 });
 
 // Top-right indicator stack (PINNED + FOLLOW). pinnedPage tracks which page (if any)
@@ -1810,21 +1774,9 @@ function showPage(name) {
   const page = PAGES[name];
   overlayEl.classList.toggle('opaque', page.opaque);
   infoBox.classList.toggle('show', name === 'main');
-  screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGL render in #page-frame
-  tgpPanel.classList.toggle('show', name === 'tgp');
+  screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGL/TGP render in #page-frame
   avnPanel.classList.toggle('show', name === 'avn');
   rwrPanel.classList.toggle('show', name === 'rwr');
-  // Start the MJPEG fetch only while the TGP page is in view; clearing src closes the
-  // long-lived multipart connection so the mod can stop encoding frames if no one's watching.
-  if (name === 'tgp') {
-    if (!tgpImg.src) tgpImg.src = '/tgp.mjpg';
-    // Reflect whatever the latest SSE flag said — opening the page mid-loss-hold should
-    // show the live feed, opening it with no target should show NO TARGET immediately.
-    tgpPanel.classList.toggle('has-feed', tgpActive);
-  } else {
-    tgpImg.removeAttribute('src');
-    tgpPanel.classList.remove('has-feed');
-  }
   clearKeyActions();
   // Only wipe dynamic line-select labels; static children (info-box) stay put.
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
@@ -1847,6 +1799,13 @@ function showPage(name) {
     showFramePage('tgl');
     placeTglNavLabels();                                          // MAIN/PREV/NEXT (shell-owned)
     forwardTglLayoutToFrame(); forwardTglToFrame();
+  }
+  // TGP renders in #page-frame too. Its only key is the static MAIN label (PAGES.tgp.items,
+  // placed by the generic sweep above), so there's no nav/softkey wiring — just forward the
+  // lock flag. The page connects to /tgp.mjpg itself once loaded.
+  if (name === 'tgp') {
+    showFramePage('tgp');
+    forwardTgpToFrame();
   }
   if (name === 'avn') { renderAvn(); }
   if (name === 'rwr') { renderRwr(); renderThreats(); }
@@ -2387,8 +2346,8 @@ window.addEventListener('message', function(e) {
     if (splitMode) forwardCmToPanes();
   } else if (m.type === 'tgp') {
     tgpActive = !!m.active;
-    // Only matters while the TGP page is in view — outside it the panel is hidden anyway.
-    if (currentPage === 'tgp') tgpPanel.classList.toggle('has-feed', tgpActive);
+    // Only matters while the TGP page is in view — outside it the frame/pane isn't shown.
+    if (currentPage === 'tgp' && !splitMode) forwardTgpToFrame();
     if (splitMode) forwardTgpToPanes();
   } else if (m.type === 'avn') {
     avnData = {

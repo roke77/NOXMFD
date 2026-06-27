@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — TGP</title>
+<!--
+  Bare TGP page served at /tgp. Single source of truth for the targeting-pod feed in BOTH
+  layouts (full-screen iframe + split pane) — a pure reactive renderer fed by the shell over
+  postMessage. The full-view overlay twin in MfdPage.cs is gone. No 'full' profile is needed:
+  the centred 3:2 feed renders identically at any container size (like MAP).
+
+  Shell -> page messages (all {mfd:true, ...}):
+    'tgp'    : { active } — whether a target is locked (mirrored from the map iframe's SSE).
+               Toggles .has-feed, swapping the live MJPEG for the NO LOCK placeholder.
+    'orient' : app-wide orientation (kept for parity).
+  The MJPEG <img> connects to /tgp.mjpg directly; the server only emits frames while a target
+  is locked, so it stays hidden (NO LOCK shown) until 'tgp' active flips true.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/tgp/tgp.css">
+</head>
+<body>
+  <div class="tgp-panel" id="tgp-panel">
+    <div class="tgp-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">TGP</span>&mdash; NO LOCK &mdash;</div>
+    <img class="tgp-img" id="tgp-img" alt="">
+  </div>
+<script src="/assets/pages/tgp/tgp.js"></script>
+</body>
+</html>

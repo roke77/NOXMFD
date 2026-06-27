@@ -290,7 +290,7 @@ namespace NOXMFD
                     else if (path == "/avn")
                         ServePage(ctx, AvnPage.Html);
                     else if (path == "/tgp")
-                        ServePage(ctx, TgpPage.Html);
+                        ServeAssetRel(ctx, "pages/tgp/tgp.html");   // migrated to web/pages/tgp/ (was TgpPage.Html)
                     else if (path == "/wpn")
                         ServeAssetRel(ctx, "pages/wpn/wpn.html");   // migrated to web/pages/wpn/ (was WpnPage.Html)
                     else if (path == "/tgl")
