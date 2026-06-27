@@ -178,7 +178,7 @@ namespace NOXMFD
          only used as a canvas source — the first telemetry frame assigns the real
          /map URL via JS, which both the game server and the mock can satisfy. -->
     <img id="map-img" alt="">
-    <div id="map-missing">&mdash; NO SIGNAL &mdash;</div>
+    <div id="map-missing" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">MAP</span>&mdash; NO SIGNAL &mdash;</div>
     <canvas id="overlay"></canvas>
     <div id="mission-bar" class="empty">
       <div class="mission-name" id="mission-name">—</div>

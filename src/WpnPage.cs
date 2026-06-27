@@ -186,7 +186,7 @@ namespace NOXMFD
 </head>
 <body>
   <div class="wpn-panel" id="wpn-panel">
-    <div class="wpn-empty" id="wpn-empty">&mdash; NO LOADOUT &mdash;</div>
+    <div class="wpn-empty" id="wpn-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">WPN</span>&mdash; NO LOADOUT &mdash;</div>
     <div class="cm-panel" id="cm-panel">
       <div class="cm-title cm-flares-title" id="cm-flares-title"><span class="cm-label">IR Flares</span></div>
       <div class="cm-flares-body">

@@ -262,7 +262,7 @@ namespace NOXMFD
       <img class="avn-bg" id="avn-bg" alt="">
       <div class="avn-parts" id="avn-parts"></div>
     </div>
-    <div class="avn-empty" id="avn-empty">&mdash; NO DATA &mdash;</div>
+    <div class="avn-empty" id="avn-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">AVN</span>&mdash; NO DATA &mdash;</div>
     <div class="avn-vbar fuel" id="avn-fuel-bar">
       <div class="avn-vbar-value" id="avn-fuel-val">&mdash;</div>
       <div class="avn-vbar-tube">

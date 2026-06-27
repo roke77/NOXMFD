@@ -97,7 +97,7 @@ namespace NOXMFD
 </head>
 <body>
   <div class="tgl-panel" id="tgl-panel">
-    <div class="tgl-empty" id="tgl-empty">&mdash; NO TARGETS &mdash;</div>
+    <div class="tgl-empty" id="tgl-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">TGL</span>&mdash; NO TARGETS &mdash;</div>
   </div>
   <div id="page-ind" class="empty">PAGE 1/1</div>
 <script>

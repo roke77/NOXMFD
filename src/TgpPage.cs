@@ -64,7 +64,7 @@ namespace NOXMFD
 </head>
 <body>
   <div class="tgp-panel" id="tgp-panel">
-    <div class="tgp-empty">&mdash; NO LOCK &mdash;</div>
+    <div class="tgp-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">TGP</span>&mdash; NO LOCK &mdash;</div>
     <img class="tgp-img" id="tgp-img" alt="">
   </div>
 <script>

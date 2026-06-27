@@ -1158,7 +1158,7 @@ namespace NOXMFD
             </div>
           </div>
           <div class="wpn-panel" id="wpn-panel">
-            <div class="wpn-empty" id="wpn-empty">&mdash; NO LOADOUT &mdash;</div>
+            <div class="wpn-empty" id="wpn-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">WPN</span>&mdash; NO LOADOUT &mdash;</div>
             <div class="cm-panel" id="cm-panel">
               <div class="cm-title cm-flares-title" id="cm-flares-title"><span class="cm-label">IR Flares</span></div>
               <div class="cm-flares-body">
@@ -1182,11 +1182,11 @@ namespace NOXMFD
             <div class="page-ind empty" id="wpn-page-ind">PAGE 1/1</div>
           </div>
           <div class="tgp-panel" id="tgp-panel">
-            <div class="tgp-empty">&mdash; NO LOCK &mdash;</div>
+            <div class="tgp-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">TGP</span>&mdash; NO LOCK &mdash;</div>
             <img class="tgp-img" id="tgp-img" alt="">
           </div>
           <div class="tgl-panel" id="tgl-panel">
-            <div class="tgl-empty">&mdash; NO TARGETS &mdash;</div>
+            <div class="tgl-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">TGL</span>&mdash; NO TARGETS &mdash;</div>
             <div class="page-ind empty" id="tgl-page-ind">PAGE 1/1</div>
           </div>
           <div class="avn-panel" id="avn-panel">
@@ -1195,7 +1195,7 @@ namespace NOXMFD
               <img class="avn-bg" id="avn-bg" alt="">
               <div class="avn-parts" id="avn-parts"></div>
             </div>
-            <div class="avn-empty" id="avn-empty">&mdash; NO DATA &mdash;</div>
+            <div class="avn-empty" id="avn-empty" style="text-align:center"><span style="display:block;font-size:30px;letter-spacing:4px;color:#2e7a2e;margin-bottom:.35em">AVN</span>&mdash; NO DATA &mdash;</div>
             <div class="avn-vbar fuel" id="avn-fuel-bar">
               <div class="avn-vbar-value" id="avn-fuel-val">&mdash;</div>
               <div class="avn-vbar-tube">
