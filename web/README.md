@@ -13,7 +13,7 @@ web/
   shared/   font.css  theme.css  share-tech-mono.woff2  send-command.js   # cross-page resources
   shell/    mfd.html  mfd.css  mfd.js                     # the bezel shell (host + router)
   pages/
-    map/    map.html  map.css  map.js     # the live map — AND the telemetry tap (see below)
+    map/    map.html  map.css  map.js  telemetry-source.js   # the live map view + the telemetry tap
     wpn/  tgl/  tgp/  avn/  rwr/           # reactive MFD pages, one folder each
     main/                                  # the split-pane MAIN card (full-view MAIN is shell chrome)
 ```
@@ -32,9 +32,12 @@ a reactive sink.
    mod /stream (SSE, ~10 Hz)
           │
           ▼
-   ┌──────────────┐  The ONLY EventSource('/stream') consumer. Renders the live map itself AND
-   │  MAP iframe  │  parses each frame into derived slices it posts UP to the shell:
-   │  (map.js)    │  status · loadout · cm · tgp · targets · rwr · mw · avn · follow
+   ┌──────────────┐  The ONLY EventSource('/stream') consumer. Internally split (SRP) into
+   │  MAP iframe  │  TelemetrySource (telemetry-source.js — owns the SSE connection, derives the
+   │ source +view │  slices below, posts them UP) and the map view (map.js — renders the live
+   │              │  map/HUD from the frames the source hands back). One iframe on purpose:
+   │              │  the view needs the full frame every tick, so the parse stays in-process.
+   │              │  Slices posted up: status·loadout·cm·tgp·targets·rwr·mw·avn·follow
    └──────┬───────┘
           │  postMessage  ▲ UP   ({ mfd:true, type, … })
           ▼
