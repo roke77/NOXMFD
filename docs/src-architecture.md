@@ -8,7 +8,7 @@ targeting-pod feed — no softkeys/geometry, one profile for both layouts),
 bezel geometry the shell forwards), and **RWR** (radar-warning scope — one responsive SVG, one
 profile, two streams). **Step 5:** MAP, MAIN, and the shell live under `web/`, `/config`
 replaced URL templating, and the preview harness serves the real files directly. **Step 6 (shared
-JS):** scoped to its one real win — `sendCommand` extracted to `web/shared/send-command.js`;
+JS):** scoped to its one real win — `sendCommand` extracted to `web/services/send-command.js`;
 `sse-client` was moot (MAP is the sole `/stream` consumer post-step-5) and a shared `mfd-protocol`
 helper was deliberately skipped (the inbound guard is 7 trivial one-liners and the outbound
 envelope literals sit almost entirely in the shell + map — no cross-page win to justify touching
@@ -225,7 +225,7 @@ The DLL keeps building and the UI keeps working after every step.
    `web/shell/` are the live frontend sources; `ClientPage.cs`, `MainPage.cs`, and `MfdPage.cs`
    are deleted.
 6. ~~**Extract shared JS**~~ **DONE (scoped).** Only `sendCommand` was a real duplicate (map.js +
-   mfd.js, near-identical) → extracted to `web/shared/send-command.js`, linked as a classic
+   mfd.js, near-identical) → extracted to `web/services/send-command.js`, linked as a classic
    `<script>` before each consumer's own script; it returns the raw fetch promise so the MAP tap
    keeps inspecting `r.ok` and the shell's fire-and-forget call adds its own `.catch`. `sse-client`
    was **moot** (after step 5 MAP is the sole `EventSource('/stream')` consumer). A shared
@@ -410,7 +410,7 @@ browser JS/CSS. So **always verify rendering in a browser**. The proven loop, no
    cache headers for static assets are still undecided.
 4. ~~**Softkey contract for write actions.**~~ **RESOLVED.** Bezel write actions follow "page emits
    intent (softkey) → shell dispatches"; the shell and the MAP page both call the shared
-   `sendCommand` (`web/shared/send-command.js`), so `/command` knowledge lives in one helper.
+   `sendCommand` (`web/services/send-command.js`), so `/command` knowledge lives in one helper.
 5. ~~**Shared JS extraction.**~~ **RESOLVED (step 6).** `sendCommand` extracted; `sse-client` moot
    (single consumer); `mfd-protocol` deliberately skipped (not worth ~16 file touches for cosmetic
    savings). See step 6 in the migration plan.

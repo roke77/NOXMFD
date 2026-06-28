@@ -1138,7 +1138,7 @@ function loadConfigUrls() {
     .catch(function() {});
 }
 
-// sendCommand(cmd, args) — POST /command — is provided by the shared web/shared/send-command.js
+// sendCommand(cmd, args) — POST /command — is provided by web/services/send-command.js
 // (linked before this script in mfd.html). State changes (e.g. a deselected target dropping off
 // the TGL list) come back via normal telemetry, so the shell's calls are fire-and-forget: add
 // .catch() at the call site since the shared sender returns the raw promise.

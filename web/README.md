@@ -10,10 +10,11 @@ Full design history and decisions: [`docs/src-architecture.md`](../docs/src-arch
 
 ```
 web/
-  shared/   font.css  theme.css  share-tech-mono.woff2  send-command.js   # cross-page resources
+  shared/   font.css  theme.css  share-tech-mono.woff2   # passive cross-page assets
+  services/ telemetry-source.js  send-command.js          # active shared code (the providers)
   shell/    mfd.html  mfd.css  mfd.js                     # the bezel shell (host + router)
   pages/
-    map/    map.html  map.css  map.js  telemetry-source.js   # the live map view + the telemetry tap
+    map/    map.html  map.css  map.js     # the live map view (imports services/telemetry-source.js)
     wpn/  tgl/  tgp/  avn/  rwr/           # reactive MFD pages, one folder each
     main/                                  # the split-pane MAIN card (full-view MAIN is shell chrome)
 ```
@@ -33,8 +34,8 @@ a reactive sink.
           │
           ▼
    ┌──────────────┐  The ONLY EventSource('/stream') consumer. Internally split (SRP) into
-   │  MAP iframe  │  TelemetrySource (telemetry-source.js — owns the SSE connection, derives the
-   │ source +view │  slices below, posts them UP) and the map view (map.js — renders the live
+   │  MAP iframe  │  TelemetrySource (services/telemetry-source.js — owns the SSE connection, derives
+   │ source +view │  the slices below, posts them UP) and the map view (map.js — renders the live
    │              │  map/HUD from the frames the source hands back). One iframe on purpose:
    │              │  the view needs the full frame every tick, so the parse stays in-process.
    │              │  Slices posted up: status·loadout·cm·tgp·targets·rwr·mw·avn·follow
@@ -79,7 +80,7 @@ posts — only the base `mapFrame`'s posts drive the caches.)
   label, action, data }] }`; the shell's `applySoftkeys(keys, paneOffset, maxRow)` maps each
   pane-local slot to a physical bezel key. Currently only TGL emits any (per-target
   `target.deselect`); the shell caches each pane's set so it survives a re-render of the other pane.
-- **Write commands:** `web/shared/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
+- **Write commands:** `web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
   (MAP tap → `target.select`; shell bezel → `target.deselect`).
 
 ## Verifying without the game
