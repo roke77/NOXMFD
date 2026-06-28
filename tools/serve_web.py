@@ -131,7 +131,7 @@ class H(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split('?', 1)[0]
         if path in ('/', '/index.html'):
-            return self._file(WEB / 'shell' / 'mfd.html', 'text/html; charset=utf-8')
+            return self._file(WEB / 'shell' / 'mfd.html', 'text/html; charset=utf-8', cache=True)
         if path == '/config':
             return self._send(_config(self.server.server_address[1]), 'application/json; charset=utf-8')
         if path == '/map-view':
@@ -182,27 +182,51 @@ class H(http.server.SimpleHTTPRequestHandler):
             rel = posixpath.normpath(path[len('/assets/'):]).lstrip('/\\')
             web_fp = WEB.joinpath(*rel.split('/'))
             if web_fp.exists():
-                return self._file(web_fp, _mime(rel))
+                return self._file(web_fp, _mime(rel), cache=True)
             return self._file(PREV.joinpath('assets', *rel.split('/')), _mime(rel))
         # Any migrated page: /<name> -> web/pages/<name>/<name>.html (wpn, tgl, ...).
         name = path.lstrip('/')
         page = WEB / 'pages' / name / f'{name}.html'
         if name and '/' not in name and page.exists():
-            return self._file(page, 'text/html; charset=utf-8')
+            return self._file(page, 'text/html; charset=utf-8', cache=True)
         rel = posixpath.normpath(path.lstrip('/')).lstrip('/\\')
         return self._file(PREV.joinpath(*rel.split('/')), _mime(rel))
 
-    def _file(self, fp, mime):
+    @staticmethod
+    def _etag(fp):
+        st = pathlib.Path(fp).stat()
+        return '"%x-%x"' % (int(st.st_mtime), st.st_size)
+
+    def _file(self, fp, mime, cache=False):
+        fp = pathlib.Path(fp)
+        # Mirror the mod's ServeAssetRel caching for the real web/ assets: ETag + revalidate each
+        # load (Cache-Control: no-cache), returning a bodiless 304 when the client's validator still
+        # matches. The harness validates per file (mtime+size) — handy while live-editing, so an
+        # edited file busts on its own — where the mod uses one build MVID across all embedded
+        # assets; the browser behaviour (200 then 304) is identical either way.
+        if cache:
+            try:
+                etag = self._etag(fp)
+            except OSError:
+                return self.send_error(404, str(fp))
+            if self.headers.get('If-None-Match') == etag:
+                self.send_response(304)
+                self.send_header('ETag', etag)
+                self.send_header('Cache-Control', 'no-cache')
+                self.end_headers()
+                return
         try:
-            body = pathlib.Path(fp).read_bytes()
+            body = fp.read_bytes()
         except OSError:
             return self.send_error(404, str(fp))
-        self._send(body, mime)
+        self._send(body, mime, {'ETag': etag, 'Cache-Control': 'no-cache'} if cache else None)
 
-    def _send(self, body, mime):
+    def _send(self, body, mime, extra=None):
         self.send_response(200)
         self.send_header('Content-Type', mime)
         self.send_header('Content-Length', str(len(body)))
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
 
