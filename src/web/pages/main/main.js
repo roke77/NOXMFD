@@ -33,7 +33,7 @@ window.addEventListener('message', function(e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
   if (m.type === 'status') {
-    ibStatus.className = 'ib-status ' + m.cls;
+    ibStatus.className = 'ib-status mfd-status ' + m.cls;
     ibStatus.textContent = m.text;
   } else if (m.type === 'orient') {
     // App-wide orientation forwarded by the shell — a pane iframe can't read it from its

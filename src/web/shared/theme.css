@@ -1,14 +1,15 @@
-/* Shared MFD theme — base reset, colour tokens, and the mono font stack used by every
-   page. Extracted from the per-page inline <style> blocks. Pages link this after font.css.
-   Colour tokens are provided for future use; pages may still use literal colours until
-   they are migrated onto the tokens. */
+/* Shared MFD theme — base reset, colour tokens, common utility classes, and the mono
+   font stack used by every page. Pages link this after font.css. */
 :root {
   --no-green:      #39ff14;  /* primary text / icons */
   --no-green-dim:  #4aaa4a;  /* secondary text (ammo, page-ind) */
   --no-green-dark: #1a4a1a;  /* depleted / hollow / borders */
   --no-green-deep: #2e7a2e;  /* page-name placeholder heading */
   --no-red:        #ff4040;  /* empty / alert state */
+  --no-amber:      #ffaa00;  /* selected / waiting state */
   --no-bg:         #000;
+  --no-panel-bg:   rgba(6,10,6,0.78);
+  --no-panel-border: #1a3a1a;
   --no-ink:        #060a06;  /* text on a green fill */
   --no-font: 'Share Tech Mono', 'Courier New', monospace;
 }
@@ -18,3 +19,36 @@ body {
   font-family: var(--no-font);
   position: relative;
 }
+.mfd-empty {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--no-green-dark);
+  font-family: var(--no-font);
+  font-size: 22px;
+  letter-spacing: 3px;
+  text-align: center;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.mfd-empty-title {
+  display: block;
+  color: var(--no-green-deep);
+  font-size: 30px;
+  letter-spacing: 4px;
+  margin-bottom: .35em;
+}
+.mfd-chip {
+  background: var(--no-panel-bg);
+  border: 1px solid var(--no-panel-border);
+  padding: 5px 9px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--no-green-dim);
+  pointer-events: none;
+  user-select: none;
+}
+.mfd-chip.empty { display: none; }
+.mfd-status.connected    { color: var(--no-green); }
+.mfd-status.disconnected { color: var(--no-red); }
+.mfd-status.waiting      { color: var(--no-amber); }

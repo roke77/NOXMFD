@@ -6,15 +6,15 @@
 .avn-panel {
   position: absolute;
   inset: 0;
-  color: #39ff14;
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  color: var(--no-green);
+  font-family: var(--no-font);
 }
 .avn-name {
   position: absolute;
   left: 50%;
   top: 18px;
   transform: translateX(-50%);
-  color: #39ff14;
+  color: var(--no-green);
   font-size: clamp(20px, 4vh, 32px);
   font-weight: 900;
   letter-spacing: 2px;
@@ -54,7 +54,7 @@
   position: absolute;
   transform: translate(-50%, -50%);
   display: none;
-  color: #ff4040;
+  color: var(--no-red);
   font-weight: 900;
   letter-spacing: 1px;
   white-space: nowrap;
@@ -71,8 +71,8 @@
   flex-direction: column;
   align-items: center;
   width: 42px;
-  color: #39ff14;
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  color: var(--no-green);
+  font-family: var(--no-font);
   text-shadow: 0 0 4px rgba(57, 255, 20, 0.35);
   pointer-events: none;
   z-index: 3;
@@ -139,15 +139,15 @@ body.portrait .avn-vbar-value { font-size: clamp(16px, 1.8vh, 25.5px); }
   padding: 6px;
   overflow: hidden;
 }
-.avn-vbar.fuel .avn-vbar-tube { border: 2px solid #39ff14; border-right: none; }
-.avn-vbar.thr  .avn-vbar-tube { border: 2px solid #39ff14; border-left:  none; }
+.avn-vbar.fuel .avn-vbar-tube { border: 2px solid var(--no-green); border-right: none; }
+.avn-vbar.thr  .avn-vbar-tube { border: 2px solid var(--no-green); border-left:  none; }
 .avn-vbar.thr  .avn-vbar-tube::after,
 .avn-vbar.thr  .avn-vbar-tube::before { content: none; }
 .avn-vbar-fill {
   position: absolute;
   left: 6px; right: 6px; bottom: 6px;
   height: 0%;
-  background: #39ff14;
+  background: var(--no-green);
   transition: height 200ms linear, background-color 150ms linear;
 }
 .avn-vbar-tube::after {
@@ -170,7 +170,7 @@ body.portrait .avn-vbar-value { font-size: clamp(16px, 1.8vh, 25.5px); }
   top: 50%;
   height: 1.5px;
   margin-top: 2.25px;
-  background: #39ff14;
+  background: var(--no-green);
   z-index: 2;
   pointer-events: none;
 }
@@ -187,40 +187,29 @@ body.portrait .avn-vbar-value { font-size: clamp(16px, 1.8vh, 25.5px); }
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(#39ff14, #39ff14),
-    linear-gradient(#39ff14, #39ff14),
-    linear-gradient(#39ff14, #39ff14),
-    linear-gradient(#39ff14, #39ff14),
-    linear-gradient(#39ff14, #39ff14);
+    linear-gradient(var(--no-green), var(--no-green)),
+    linear-gradient(var(--no-green), var(--no-green)),
+    linear-gradient(var(--no-green), var(--no-green)),
+    linear-gradient(var(--no-green), var(--no-green)),
+    linear-gradient(var(--no-green), var(--no-green));
   background-repeat: no-repeat;
   background-size: 100% 1px;
   background-position: 0 0%, 0 25%, 0 50%, 0 75%, 0 100%;
 }
-.avn-vbar.caution  .avn-vbar-fill { background: #ffaa00; }
-.avn-vbar.critical .avn-vbar-fill { background: #ff4040; }
-.avn-vbar.caution  { color: #ffaa00; }
-.avn-vbar.critical { color: #ff4040; }
-.avn-vbar.na { color: #1a4a1a; text-shadow: none; }
-.avn-vbar.na .avn-vbar-tube { border-color: #1a4a1a; }
-.avn-vbar.na .avn-vbar-tube::before { background: #1a4a1a; }
+.avn-vbar.caution  .avn-vbar-fill { background: var(--no-amber); }
+.avn-vbar.critical .avn-vbar-fill { background: var(--no-red); }
+.avn-vbar.caution  { color: var(--no-amber); }
+.avn-vbar.critical { color: var(--no-red); }
+.avn-vbar.na { color: var(--no-green-dark); text-shadow: none; }
+.avn-vbar.na .avn-vbar-tube { border-color: var(--no-green-dark); }
+.avn-vbar.na .avn-vbar-tube::before { background: var(--no-green-dark); }
 .avn-vbar.na .avn-vbar-ticks::before { background-image:
-    linear-gradient(#1a4a1a, #1a4a1a),
-    linear-gradient(#1a4a1a, #1a4a1a),
-    linear-gradient(#1a4a1a, #1a4a1a),
-    linear-gradient(#1a4a1a, #1a4a1a),
-    linear-gradient(#1a4a1a, #1a4a1a); }
+    linear-gradient(var(--no-green-dark), var(--no-green-dark)),
+    linear-gradient(var(--no-green-dark), var(--no-green-dark)),
+    linear-gradient(var(--no-green-dark), var(--no-green-dark)),
+    linear-gradient(var(--no-green-dark), var(--no-green-dark)),
+    linear-gradient(var(--no-green-dark), var(--no-green-dark)); }
 .avn-vbar.na .avn-vbar-fill { display: none; }
-
-.avn-empty {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  color: #1a4a1a;
-  font-size: 22px;
-  letter-spacing: 3px;
-  text-align: center;
-  pointer-events: none;
-}
 
 /* full profile (single full-screen iframe): name vertical-centred on the bezel key[0] row and
    sized up; frame top/height come from the shell's bezel geometry (set inline by avn.js, so

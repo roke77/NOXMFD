@@ -432,7 +432,7 @@ function handleNoMission(didEnd) {
 
 // Reflect the connection status in the readout. (The source mirrors it up to the shell.)
 function setStatusDom(cls, text) {
-  statusEl.className   = cls;
+  statusEl.className   = 'mfd-status ' + cls;
   statusEl.textContent = text;
 }
 
@@ -455,7 +455,7 @@ function clearViewState() {
   mapImg.src = '/map?t=' + Date.now();   // 404 now → falls back to the placeholder
 
   document.getElementById('mission-bar').className = 'empty';
-  document.getElementById('grid-bar').className = 'empty';
+  document.getElementById('grid-bar').className = 'mfd-chip empty';
   dim('plane-name'); dim('grid'); dim('tas'); dim('agl'); dim('hdg');
   const gEl = document.getElementById('gear'); gEl.textContent = '—'; gEl.className = '';
   const fEl = document.getElementById('cm-flares'); fEl.textContent = '—'; fEl.className = 'cm-val dim';
@@ -489,7 +489,7 @@ function updateHUD(d) {
   const gridText = gridLabel(d.world.x, d.world.z, mapMeta);
   set('grid', gridText);
   gridBar.textContent = 'GRID: ' + gridText;
-  gridBar.className = '';
+  gridBar.className = 'mfd-chip';
   set('tas', (d.tas * 3.6).toFixed(0));   // m/s → km/h
   set('agl', d.agl.toFixed(0));
   set('hdg', d.hdg.toFixed(0));

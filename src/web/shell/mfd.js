@@ -936,7 +936,7 @@ window.addEventListener('message', function(e) {
   if (m.type === 'status') {
     lastStatusCls  = m.cls;
     lastStatusText = m.text;
-    ibStatus.className = 'ib-status ' + m.cls;
+    ibStatus.className = 'ib-status mfd-status ' + m.cls;
     ibStatus.textContent = m.text;
     if (splitMode) forwardStatusToPanes();
   } else if (m.type === 'loadout') {

@@ -26,13 +26,4 @@
 /* Hide the <img> when the feed is dead — MJPEG keeps the last frame buffered in the element,
    so without this the player would see a frozen stale picture instead of NO LOCK. */
 .tgp-panel:not(.has-feed) .tgp-img { visibility: hidden; }
-.tgp-empty {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  color: var(--no-green-dark);
-  font-size: 22px;
-  letter-spacing: 3px;
-  pointer-events: none;
-}
 .tgp-panel.has-feed .tgp-empty { display: none; }
