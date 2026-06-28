@@ -209,7 +209,7 @@
   .screen {
     position: relative;
     border-radius: 6px;
-    background: #000;
+    background: var(--no-bg);
     padding: 6px;
     box-shadow: inset 0 0 0 1px #000, inset 0 0 14px rgba(0,0,0,0.85);
     min-width: 0;
@@ -221,7 +221,7 @@
     border: 0;
     display: block;
     border-radius: 3px;
-    background: #000;
+    background: var(--no-bg);
   }
   /* Full-view host iframe for migrated pages (WPN). Covers the recess like the map iframe;
      shown via .screen.page-on, hidden in split (panes take over). It sits below the .overlay
@@ -232,7 +232,7 @@
     inset: 6px;
     border-radius: 3px;
     display: none;
-    background: #000;
+    background: var(--no-bg);
   }
   .screen.page-on > #page-frame { display: block; }
   .screen.split   > #page-frame { display: none; }
@@ -304,7 +304,7 @@
     width: 100%;
     border: 0;
     display: block;
-    background: #000;
+    background: var(--no-bg);
   }
   .split-divider {
     flex: 0 0 2px;
@@ -322,7 +322,7 @@
     border-radius: 3px;
     pointer-events: none;
   }
-  .overlay.opaque { background: #000; }
+  .overlay.opaque { background: var(--no-bg); }
 
   /* Top-right indicator stack (PINNED, FOLLOW…). flex-direction:row-reverse means the
      first DOM child sits at the right edge and subsequent children stack to its left —

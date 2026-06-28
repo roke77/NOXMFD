@@ -5,7 +5,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: #000;
+  background: var(--no-bg);
   color: var(--no-green);
   font-family: 'Courier New', monospace;
   font-size: 13px;
@@ -20,12 +20,12 @@ main { flex: 1; display: flex; overflow: hidden; }
 #map-panel {
   flex: 1;
   position: relative;
-  background: #000;
+  background: var(--no-bg);
   overflow: hidden;
   /* Custom HUD-green crosshair, constant regardless of zoom/drag state. */
   cursor: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48ZyBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAiIHN0cm9rZS1vcGFjaXR5PSIuNTUiIHN0cm9rZS13aWR0aD0iMy40IiBzdHJva2UtbGluZWNhcD0icm91bmQiPjxsaW5lIHgxPSIxMiIgeTE9IjIiIHgyPSIxMiIgeTI9IjgiLz48bGluZSB4MT0iMTIiIHkxPSIxNiIgeDI9IjEyIiB5Mj0iMjIiLz48bGluZSB4MT0iMiIgeTE9IjEyIiB4Mj0iOCIgeTI9IjEyIi8+PGxpbmUgeDE9IjE2IiB5MT0iMTIiIHgyPSIyMiIgeTI9IjEyIi8+PC9nPjxnIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzM5ZmYxNCIgc3Ryb2tlLXdpZHRoPSIxLjciIHN0cm9rZS1saW5lY2FwPSJyb3VuZCI+PGxpbmUgeDE9IjEyIiB5MT0iMiIgeDI9IjEyIiB5Mj0iOCIvPjxsaW5lIHgxPSIxMiIgeTE9IjE2IiB4Mj0iMTIiIHkyPSIyMiIvPjxsaW5lIHgxPSIyIiB5MT0iMTIiIHgyPSI4IiB5Mj0iMTIiLz48bGluZSB4MT0iMTYiIHkxPSIxMiIgeDI9IjIyIiB5Mj0iMTIiLz48L2c+PC9zdmc+) 12 12, crosshair;
 }
-#map-panel.has-map { background: #000; }   /* black letterbox once a map is loaded */
+#map-panel.has-map { background: var(--no-bg); }   /* black letterbox once a map is loaded */
 /* Source sprite only — the map is blitted into #overlay so it shares the icons' transform. */
 #map-img { display: none; }
 #map-missing {
