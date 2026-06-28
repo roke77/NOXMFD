@@ -403,6 +403,14 @@ namespace NOXMFD
         private static string[]? _resourceNames;
         private static string[] ResourceNames => _resourceNames ??= _asm.GetManifestResourceNames();
 
+        // ETag for all embedded web assets. They're baked into the DLL, so they're immutable for a
+        // given build and ALL change together on rebuild — so one build-stamped tag (the module's
+        // MVID, which changes every compile) validates every asset. Served with Cache-Control:
+        // no-cache, so the browser caches but revalidates each load via If-None-Match; an unchanged
+        // asset gets a tiny 304 (no body), and a new build's MVID busts the whole set automatically.
+        private static readonly string AssetETag =
+            "\"" + _asm.ManifestModule.ModuleVersionId.ToString("N") + "\"";
+
         private static void ServeAsset(HttpListenerContext ctx, string path)
             => ServeAssetRel(ctx, path.Substring("/assets/".Length).Trim('/'));
 
@@ -422,7 +430,24 @@ namespace NOXMFD
                     if (n.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) { resourceName = n; break; }
                 }
 
-                using Stream? s = resourceName != null ? _asm.GetManifestResourceStream(resourceName) : null;
+                if (resourceName == null)
+                {
+                    ctx.Response.StatusCode = 404;
+                    return;
+                }
+
+                // Conditional GET: assets cache but revalidate. If the client's cached validator
+                // still matches this build's tag, the asset is unchanged → 304 with no body.
+                ctx.Response.Headers["ETag"]          = AssetETag;
+                ctx.Response.Headers["Cache-Control"] = "no-cache";
+                if (ctx.Request.Headers["If-None-Match"] == AssetETag)
+                {
+                    ctx.Response.StatusCode      = 304;
+                    ctx.Response.ContentLength64 = 0;
+                    return;
+                }
+
+                using Stream? s = _asm.GetManifestResourceStream(resourceName);
                 if (s == null)
                 {
                     ctx.Response.StatusCode = 404;
