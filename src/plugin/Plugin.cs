@@ -19,22 +19,22 @@ namespace NOXMFD
         //   * subscribing statically to the FIRST scene load,
         //   * then spawning OUR OWN GameObject (and marking IT persistent) from that callback,
         //     when a real scene exists and DontDestroyOnLoad actually works.
-        // Plugin itself can be torn down — the static state and the Worker GameObject survive.
+        // Plugin itself can be torn down — the static state and the MissionLifecycle GameObject survive.
 
-        private static Worker? _worker;
+        private static MissionLifecycle? _lifecycle;
         private static bool    _sceneSubscribed;
 
         private void Awake()
         {
             Log = Logger;
-            HudConfig.Bind(Config);   // bind HUD-declutter toggles (persisted + shown in the in-game config menu)
+            HudDeclutterConfig.Bind(Config);   // bind HUD-declutter toggles (persisted + shown in the in-game config menu)
 
             // Perf measurement (docs/performance.md). Defaults OFF for normal play; flip it on
             // live in the F1 menu to re-capture timings to LogOutput.log when investigating perf.
             var perfLog = Config.Bind("Diagnostics", "PerfLogging", false,
                 "When on, every 5 s logs avg/max ms for ScanWorld, BuildUnits, PushSnapshot and Serialize (with payload size + unit/contact counts). For performance measurement — leave OFF for normal play.");
-            Diag.Enabled = perfLog.Value;
-            perfLog.SettingChanged += (_, __) => Diag.Enabled = perfLog.Value;
+            PerfDiag.Enabled = perfLog.Value;
+            perfLog.SettingChanged += (_, __) => PerfDiag.Enabled = perfLog.Value;
 
             TelemetryServer.Start();
             if (!_sceneSubscribed)
@@ -47,11 +47,11 @@ namespace NOXMFD
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (_worker != null) return;
-            var go = new GameObject("NOXMFD_Worker");
+            if (_lifecycle != null) return;
+            var go = new GameObject("NOXMFD_Lifecycle");
             Object.DontDestroyOnLoad(go);
-            _worker = go.AddComponent<Worker>();
-            Log?.LogInfo("[NOXMFD] Worker attached (scene='" + scene.name + "').");
+            _lifecycle = go.AddComponent<MissionLifecycle>();
+            Log?.LogInfo("[NOXMFD] MissionLifecycle attached (scene='" + scene.name + "').");
         }
     }
 }

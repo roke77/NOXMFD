@@ -5,7 +5,7 @@ namespace NOXMFD
     // Persistent mission-polling host. Lives on a DontDestroyOnLoad GameObject we create
     // ourselves once a real scene exists (see Plugin.OnSceneLoaded). Spawns the
     // TelemetryReader when a mission is running and tears it down when it ends.
-    internal class Worker : MonoBehaviour
+    internal class MissionLifecycle : MonoBehaviour
     {
         private GameObject? _readerObject;
         private bool        _readerActive;
@@ -32,7 +32,7 @@ namespace NOXMFD
             _readerActive  = true;
             _readerObject  = new GameObject("NOXMFD_Runner");
             _readerObject.AddComponent<TelemetryReader>();
-            _readerObject.AddComponent<HudController>();   // hides native HUD elements per HudConfig
+            _readerObject.AddComponent<HudDeclutter>();   // hides native HUD elements per HudDeclutterConfig
             Plugin.Log?.LogInfo("Mission started -> telemetry reader ON.");
         }
 

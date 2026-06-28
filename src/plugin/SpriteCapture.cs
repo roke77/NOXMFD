@@ -23,7 +23,7 @@ namespace NOXMFD
     // onEncoded is invoked on a BACKGROUND thread (TelemetryServer's setters are lock-guarded,
     // so registering there is safe); it receives null on any failure so callers can register a
     // fallback. Falls back to a fully synchronous path on the rare GPU without async readback.
-    internal static class Capture
+    internal static class SpriteCapture
     {
         internal enum Encoding { Png, Jpg }
 
@@ -91,7 +91,7 @@ namespace NOXMFD
             }
             catch (Exception ex)
             {
-                Plugin.Log?.LogWarning($"[NOXMFD] Capture readback failed: {ex.Message}");
+                Plugin.Log?.LogWarning($"[NOXMFD] SpriteCapture readback failed: {ex.Message}");
                 onEncoded(null);
             }
             finally
@@ -122,7 +122,7 @@ namespace NOXMFD
             }
             catch (Exception ex)
             {
-                Plugin.Log?.LogWarning($"[NOXMFD] Capture (sync) failed: {ex.Message}");
+                Plugin.Log?.LogWarning($"[NOXMFD] SpriteCapture (sync) failed: {ex.Message}");
                 onEncoded(null);
                 return false;
             }
@@ -144,7 +144,7 @@ namespace NOXMFD
             }
             catch (Exception ex)
             {
-                Plugin.Log?.LogWarning($"[NOXMFD] Capture encode failed: {ex.Message}");
+                Plugin.Log?.LogWarning($"[NOXMFD] SpriteCapture encode failed: {ex.Message}");
                 onEncoded(null);
             }
         }

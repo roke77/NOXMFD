@@ -9,16 +9,16 @@ namespace NOXMFD
     //   * registers them with BepInEx so any config UI can edit them in-game. The de-facto one is
     //     ConfigurationManager (the F1 settings menu, also surfaced by NOMM): our entries appear
     //     under a "NO XMFD" section with a checkbox each, no NOMM-specific code required,
-    //   * lets the values be flipped at runtime — HudController reads these properties every tick,
+    //   * lets the values be flipped at runtime — HudDeclutter reads these properties every tick,
     //     so a toggle in the F1 menu hides-or-restores the affected elements within ~0.5s.
     //
     // ConfigurationManager is a soft dependency: if it isn't installed the settings still persist
     // and still work, they just lack the in-game UI. Until Bind() runs the properties fall back to
-    // the defaults, so HudController behaves correctly even before/without binding.
+    // the defaults, so HudDeclutter behaves correctly even before/without binding.
     //
     // DeclutterHud is the master switch for the whole set; the per-element flags below let you
     // carve out individual pieces. Effective hide = DeclutterHud && Hide<Element>.
-    internal static class HudConfig
+    internal static class HudDeclutterConfig
     {
         private static ConfigEntry<bool>? _declutterHud;
         private static ConfigEntry<bool>? _hideWeaponAmmo;

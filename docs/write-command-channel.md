@@ -101,7 +101,7 @@ at 0, so commands parsed but did nothing). Flat side-steps that entirely.
 - A registry mapping `cmd` → handler delegate. Each handler runs on the main
   thread, re-validates against live state, performs the action via the highest-
   level game API, and logs the outcome. Unknown cmd → logged + dropped.
-- Open: keep this in `TelemetryReader`/`Worker`, or a dedicated component.
+- Open: keep this in `TelemetryReader`/`MissionLifecycle`, or a dedicated component.
 
 ### Authority / gating
 
@@ -142,7 +142,7 @@ handler + a client trigger.
    or a `cmdAck` event over the SSE stream) for commands that can fail visibly?
 3. **Deselect UX** — add a map gesture (long-press / right-click → `target.deselect`)
    or keep deselection a cockpit-only action?
-4. **Dispatcher home** — `TelemetryReader`/`Worker`, or a dedicated `CommandDispatcher`
+4. **Dispatcher home** — `TelemetryReader`/`MissionLifecycle`, or a dedicated `CommandDispatcher`
    component?
 5. **Envelope versioning** — do we version `/command` now for the planned React
    client, or add versioning when it's actually needed?

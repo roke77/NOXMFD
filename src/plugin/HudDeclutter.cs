@@ -12,9 +12,9 @@ namespace NOXMFD
     //
     // Re-applied on a slow interval because the game rebuilds the HUD per aircraft spawn and (for
     // the boxed readouts) the HeadMountedDisplay toggles their GameObjects active/inactive every
-    // frame. Reading HudConfig each tick lets a future keybind/UI flip a flag and have us hide or
+    // frame. Reading HudDeclutterConfig each tick lets a future keybind/UI flip a flag and have us hide or
     // restore within one interval.
-    internal class HudController : MonoBehaviour
+    internal class HudDeclutter : MonoBehaviour
     {
         private const float Interval = 0.5f;
         private float _timer = Interval; // apply immediately on first Update
@@ -40,18 +40,18 @@ namespace NOXMFD
 
         private void ApplyHudApps()
         {
-            bool master = HudConfig.DeclutterHud;
+            bool master = HudDeclutterConfig.DeclutterHud;
 
             // Top-right weapon / ammo / countermeasure / capacitor cluster. This is CombatHUD's
             // private 'topRightPanel' GameObject — NOT the WeaponIndicator/CountermeasureIndicator
             // HUDApps (those are a separate, off-screen copy). Same target NO_Tactitools uses.
-            UpdateWeaponPanel(master && HudConfig.HideWeaponAmmo);
+            UpdateWeaponPanel(master && HudDeclutterConfig.HideWeaponAmmo);
 
             // Boxed top readouts (heading / airspeed / altitude). Only the copies with an assigned
             // 'border' are hidden; the borderless boresight-following center readouts are kept.
             // The else branch restores them when the flag is flipped off at runtime (e.g. via the
             // in-game config menu) — the HMD never re-enables graphics we disabled, so we must.
-            if (master && HudConfig.HideTopBoxes)
+            if (master && HudDeclutterConfig.HideTopBoxes)
             {
                 HideBoxedReadout<Bearing>();
                 HideBoxedReadout<SpeedGauge>();
@@ -133,7 +133,7 @@ namespace NOXMFD
             DynamicMap map = SceneSingleton<DynamicMap>.i;
             if (map == null) return;
 
-            bool hide = HudConfig.DeclutterHud && HudConfig.HideMinimap && !DynamicMap.mapMaximized;
+            bool hide = HudDeclutterConfig.DeclutterHud && HudDeclutterConfig.HideMinimap && !DynamicMap.mapMaximized;
             if (hide)
             {
                 DynamicMap.EnableCanvas(false);       // idempotent; re-asserts after Minimize()

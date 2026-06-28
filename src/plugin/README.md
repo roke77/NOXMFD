@@ -1,0 +1,26 @@
+# `src/plugin/` — the BepInEx mod (C#)
+
+The data-source half of NOXMFD: a BepInEx plugin that runs inside Nuclear Option, reads live
+telemetry from the game, and serves it over local HTTP/SSE to the web frontend in
+[`../web/`](../web/). It also receives commands back from the frontend (e.g. target select/deselect).
+
+**Flow in one line:** `Plugin` boots → `MissionLifecycle` watches missions → `TelemetryReader` reads
+the game each frame (with `AssetCapture` for one-shot images and `TgpFeed` for the targeting-pod
+video, `HudDeclutter` hiding the native HUD) → fills a `TelemetrySnapshot` → `TelemetryServer`
+streams it over SSE to the browser and routes browser `/command`s back through `CommandDispatcher`.
+`SpriteCapture` is the shared encode primitive; `PerfDiag` measures; `HudDeclutterConfig` configures.
+
+| File | Responsibility |
+|------|----------------|
+| [Plugin.cs](Plugin.cs) | **Entry point.** The `BaseUnityPlugin` BepInEx loads: binds config (HUD declutter + perf logging), starts `TelemetryServer`, and spawns a persistent `MissionLifecycle` — working around a Unity 2022.3 quirk where BepInEx's own GameObject dies on the boot→MainMenu scene transition. |
+| [MissionLifecycle.cs](MissionLifecycle.cs) | **Mission lifecycle host.** A `DontDestroyOnLoad` behaviour that polls `MissionManager.IsRunning`; spawns the `TelemetryReader` + `HudDeclutter` when a mission starts and tears them down (and resets the server) when it ends. |
+| [TelemetryReader.cs](TelemetryReader.cs) | **Per-frame telemetry engine.** Per-mission behaviour that scans the world — fast 10 Hz (position/heading/speed) + slow 1 Hz (`FindObjectsByType`, map metadata, loadout, failures) — builds the `TelemetrySnapshot` (units, parts, RWR, incoming missiles) and pushes it to the server, and drains the inbound command queue each frame. |
+| [AssetCapture.cs](AssetCapture.cs) | **One-shot game-asset extraction.** Turns live game Sprites/cockpit widgets into PNG/JPEG (or a JSON layout) once per type/session and hands them to the server: the map image, unit/weapon/CM/missile icons, and the airframe silhouette. Owns its dedupe sets + `StatusDisplay` reflection; exposes the cockpit failure-indicator GameObjects the reader polls. |
+| [TgpFeed.cs](TgpFeed.cs) | **Targeting-pod camera feed.** The continuous capture of the game's `TargetCam`: GPU-downscale → async readback → JPEG → MJPEG push, lazily allocating buffers only while a TGP subscriber is connected. Owns its own cadence; the reader drives it via `Tick(dt)` and tears it down on destroy. |
+| [SpriteCapture.cs](SpriteCapture.cs) | **Async sprite→PNG/JPEG primitive.** Shared encode pipeline used by `AssetCapture`: Blit → `AsyncGPUReadback` → background-thread encode, keeping the GPU readback and encode off the frame's critical path (the old synchronous path froze the main thread ~670 ms on map load). |
+| [TelemetrySnapshot.cs](TelemetrySnapshot.cs) | **Data contract.** The plain struct carrying one frame's worth of state (world position, heading/speed/altitude, loadout, countermeasures, fuel/throttle, map metadata, visible units, faction colors, TGP/RWR state). The shared vocabulary between reader and server. |
+| [TelemetryServer.cs](TelemetryServer.cs) | **HTTP/SSE transport.** Static `HttpListener` on port 5005 (background threads): serves the embedded web assets (with ETag caching), `/stream` (SSE telemetry, one shared serialized frame per snapshot), and the captured `/map`, `/icon`, `/weapon`, `/cm`, `/airframe` images + the `/tgp.mjpg` feed. Receives `POST /command`, validates, and queues it for the dispatcher. |
+| [CommandDispatcher.cs](CommandDispatcher.cs) | **Inbound command channel.** Defines the flat `CommandEnvelope` wire format and a handler table (`target.select`, `target.deselect`); `Drain()` runs queued commands on the main thread (from the reader) using the game's high-level `CombatHUD` methods so cockpit side effects (marker color, audio, map sync) come for free. |
+| [HudDeclutter.cs](HudDeclutter.cs) | **Native-HUD declutter.** Mission-scoped behaviour (rides with the reader) that hides native in-game HUD elements so the web MFD can replace them without on-screen clutter. Re-applies on a 0.5 s interval since the game rebuilds the HUD per aircraft spawn. |
+| [HudDeclutterConfig.cs](HudDeclutterConfig.cs) | **Declutter config flags.** BepInEx `ConfigEntry` toggles (master switch + per-element: weapon/ammo, minimap, top boxes), persisted to `.cfg` and editable live in the F1 ConfigurationManager menu; read by `HudDeclutter` each tick. |
+| [PerfDiag.cs](PerfDiag.cs) | **Perf instrumentation.** Thread-safe labeled-timing accumulator that logs an avg/max rollup every 5 s (ScanWorld / BuildUnits / PushSnapshot / Serialize), gated by a live-toggle config flag so it costs nothing when off. |

@@ -12,7 +12,7 @@ namespace NOXMFD
     // per-frame telemetry. Everything here turns a live game Sprite / cockpit widget into PNG/JPEG
     // bytes (or a JSON layout) ONCE per type/session and hands it to TelemetryServer for serving at
     // /map, /icon, /weapon, /cm, /airframe. Each method dedupes via its own captured-set, so the
-    // reader can call them every scan cheaply; the actual encode is async (Capture.Request — GPU
+    // reader can call them every scan cheaply; the actual encode is async (SpriteCapture.Request — GPU
     // readback + background encode) so none of this runs on the frame's critical path.
     //
     // The lone piece of live state produced here is FailureIndicators: the cockpit StatusDisplay's
@@ -124,7 +124,7 @@ namespace NOXMFD
             if (bgImage.sprite != null)
             {
                 string bgKey = key;
-                Capture.Request(bgImage.sprite, Capture.Encoding.Png, synthAlpha: false, quality: 0, maxDim: 0,
+                SpriteCapture.Request(bgImage.sprite, SpriteCapture.Encoding.Png, synthAlpha: false, quality: 0, maxDim: 0,
                     bgPng => { if (bgPng != null) TelemetryServer.SetAirframeImage(bgKey, "__bg", bgPng); });
             }
 
@@ -145,7 +145,7 @@ namespace NOXMFD
                 if (img.sprite != null)
                 {
                     string partKey = key, partName = name;
-                    Capture.Request(img.sprite, Capture.Encoding.Png, synthAlpha: false, quality: 0, maxDim: 0,
+                    SpriteCapture.Request(img.sprite, SpriteCapture.Encoding.Png, synthAlpha: false, quality: 0, maxDim: 0,
                         png => { if (png != null) TelemetryServer.SetAirframeImage(partKey, partName, png); });
                 }
 
@@ -303,7 +303,7 @@ namespace NOXMFD
                 if (fe != null && fe.displayImage != null)
                 {
                     _capturedFlareIcon = true;   // got the sprite; capture once (async)
-                    Capture.Request(fe.displayImage, Capture.Encoding.Png, synthAlpha: true,
+                    SpriteCapture.Request(fe.displayImage, SpriteCapture.Encoding.Png, synthAlpha: true,
                         quality: 0, maxDim: 0, png => { if (png != null) TelemetryServer.SetCmIcon("flares", png); });
                 }
             }
@@ -313,7 +313,7 @@ namespace NOXMFD
                 if (rj != null && rj.displayImage != null)
                 {
                     _capturedJammerIcon = true;  // got the sprite; capture once (async)
-                    Capture.Request(rj.displayImage, Capture.Encoding.Png, synthAlpha: true,
+                    SpriteCapture.Request(rj.displayImage, SpriteCapture.Encoding.Png, synthAlpha: true,
                         quality: 0, maxDim: 0, png => { if (png != null) TelemetryServer.SetCmIcon("jammer", png); });
                 }
             }
@@ -328,7 +328,7 @@ namespace NOXMFD
             if (icon == null) return;
 
             string weaponName = name;
-            Capture.Request(icon, Capture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
+            SpriteCapture.Request(icon, SpriteCapture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
                 png => { if (png != null) TelemetryServer.SetWeaponIcon(weaponName, png); });
         }
 
@@ -351,7 +351,7 @@ namespace NOXMFD
             // Async + JPEG: removes the ~670 ms / 222 ms main-thread freeze the synchronous
             // full-res PNG path caused on mission load. Downscaled to MapMaxDim and JPEG-encoded
             // (maps are opaque) so the tablet also fetches a few hundred KB, not 16 MB.
-            bool started = Capture.Request(mapSprite, Capture.Encoding.Jpg, synthAlpha: false,
+            bool started = SpriteCapture.Request(mapSprite, SpriteCapture.Encoding.Jpg, synthAlpha: false,
                 quality: MapJpegQuality, maxDim: MapMaxDim, jpg =>
                 {
                     if (jpg != null)
@@ -375,7 +375,7 @@ namespace NOXMFD
                 GameAssets ga = GameAssets.i;
                 if (ga == null || ga.missileWarningSprite == null) return;   // not ready — retry next scan
                 _missileIconCaptured = true;                                  // got the sprite; capture once
-                Capture.Request(ga.missileWarningSprite, Capture.Encoding.Png, synthAlpha: true,
+                SpriteCapture.Request(ga.missileWarningSprite, SpriteCapture.Encoding.Png, synthAlpha: true,
                     quality: 0, maxDim: 0, png => { if (png != null) TelemetryServer.SetIcon(MissileIconKey, png); });
             }
             catch { /* retry on a later scan */ }
@@ -399,7 +399,7 @@ namespace NOXMFD
 
             // Fall back to the sentinel if extraction fails, so this type never 404s either.
             string name = def.unitName;
-            bool started = Capture.Request(def.mapIcon, Capture.Encoding.Png, synthAlpha: true,
+            bool started = SpriteCapture.Request(def.mapIcon, SpriteCapture.Encoding.Png, synthAlpha: true,
                 quality: 0, maxDim: 0, png => TelemetryServer.SetIcon(name, png ?? TelemetryServer.NoIconPng));
             if (!started) TelemetryServer.SetIcon(name, TelemetryServer.NoIconPng);
             return started;

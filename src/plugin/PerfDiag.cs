@@ -19,7 +19,7 @@ namespace NOXMFD
     // To turn per-second main-thread cost into a number: PushSnapshot avg × 10 (10 Hz)
     // + ScanWorld avg × 1 (1 Hz). Serialize runs on background threads (per client), so
     // its n reflects clients × 10 Hz — useful for seeing the per-client duplication.
-    internal static class Diag
+    internal static class PerfDiag
     {
         // Set from the "Diagnostics > PerfLogging" ConfigEntry in Plugin.Awake.
         internal static bool Enabled;

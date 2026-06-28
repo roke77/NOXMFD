@@ -156,7 +156,7 @@ the race.
 
 ### Item #A — RESULT (done, commit eb2ecc7)
 
-Replaced synchronous `SpriteToPng` with `Capture.Request` (`src/plugin/Capture.cs`):
+Replaced synchronous `SpriteToPng` with `SpriteCapture.Request` (`src/plugin/SpriteCapture.cs`):
 atlas-safe Blit → `AsyncGPUReadback` → background-thread `EncodeArray*`.
 Map also downscales to 4096 + JPEG (16 MB → 3.3 MB served). Measured at
 228 units:
@@ -233,7 +233,7 @@ floor, plus the marginal polish we deliberately deferred.
 
 ## Next steps to evaluate (blind spots our instrumentation can't see)
 
-`Diag` only measures **main-thread CPU time**. Three things it doesn't
+`PerfDiag` only measures **main-thread CPU time**. Three things it doesn't
 capture, ordered by value:
 
 1. **True A/B (mod fully removed) — do this first.** We *inferred* ~3 ms/s
@@ -243,24 +243,24 @@ capture, ordered by value:
    → something the CPU timers miss (GPU, render thread, the game reacting
    to our HUD-hiding) is at play and becomes the next target.
 
-2. **GPU cost, especially the TGP feed.** `Diag` is CPU-only. The TGP feed
+2. **GPU cost, especially the TGP feed.** `PerfDiag` is CPU-only. The TGP feed
    does a `Blit` + `AsyncGPUReadback` every frame *while a TGP pane is
    open* — real GPU work invisible to our timers. Method: FPS with a TGP
    pane open vs. closed in the same scene. If there's a gap: drop the TGP
    capture rate, or render-on-demand, or cap resolution further. (The
    capture is already gated on subscribers and async — see
-   `CaptureTgpFrame` / `OnTgpReadbackComplete`.)
+   `TgpFeed.CaptureFrame` / `OnReadbackComplete`.)
 
 3. **GC allocation rate.** No GC spikes showed in `PushSnapshot`, but the
    10 Hz `.ToArray()` churn (units/rwr/mw) + the now-owned parts array do
    allocate. Method: log a `GC.CollectionCount(0/1/2)` delta over a match
-   (cheap to add to the Diag rollup). If high → pool/double-buffer those
+   (cheap to add to the PerfDiag rollup). If high → pool/double-buffer those
    per-tick arrays (the old #3 idea, dropped because BuildUnits *CPU* was
    0.08 ms — but GC pause cost is a separate axis we didn't measure). If
    low → ignore.
 
 If #1 shows a gap, a quick **frame-time 1%-low / GC-count readout** added
-to the Diag rollup would quantify #2/#3 directly. Not worth adding
+to the PerfDiag rollup would quantify #2/#3 directly. Not worth adding
 speculatively.
 
 ## Marginal polish (deferred — data doesn't justify it yet)

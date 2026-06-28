@@ -86,23 +86,23 @@ namespace NOXMFD
             if (_slowTimer >= SlowInterval)
             {
                 _slowTimer = 0f;
-                long t0 = Diag.Enabled ? Stopwatch.GetTimestamp() : 0L;
+                long t0 = PerfDiag.Enabled ? Stopwatch.GetTimestamp() : 0L;
                 ScanWorld();
-                if (Diag.Enabled) Diag.RecordSince("ScanWorld", t0);
+                if (PerfDiag.Enabled) PerfDiag.RecordSince("ScanWorld", t0);
             }
 
             if (_fastTimer >= FastInterval)
             {
                 _fastTimer = 0f;
-                long t0 = Diag.Enabled ? Stopwatch.GetTimestamp() : 0L;
+                long t0 = PerfDiag.Enabled ? Stopwatch.GetTimestamp() : 0L;
                 PushSnapshot();
-                if (Diag.Enabled) Diag.RecordSince("PushSnapshot", t0);
+                if (PerfDiag.Enabled) PerfDiag.RecordSince("PushSnapshot", t0);
             }
 
             _tgp.Tick(dt);   // TGP feed cadence is owned by TgpFeed (captures at its own interval)
 
             // Step 0 instrumentation: roll up the timing samples every few seconds (docs/performance.md).
-            Diag.Tick(dt, _totalUnits, _lastContactCount);
+            PerfDiag.Tick(dt, _totalUnits, _lastContactCount);
         }
 
         private void ScanWorld()
@@ -324,9 +324,9 @@ namespace NOXMFD
 
             // Built here (not in the initializer) so we can time it — BuildUnits is the
             // suspected per-unit hot path at 10 Hz (docs/performance.md, item #3).
-            long tUnits = Diag.Enabled ? Stopwatch.GetTimestamp() : 0L;
+            long tUnits = PerfDiag.Enabled ? Stopwatch.GetTimestamp() : 0L;
             UnitInfo[] units = BuildUnits(aircraft);
-            if (Diag.Enabled) Diag.RecordSince("BuildUnits", tUnits);
+            if (PerfDiag.Enabled) PerfDiag.RecordSince("BuildUnits", tUnits);
             _lastContactCount = units.Length;
 
             TelemetryServer.Push(new TelemetrySnapshot
