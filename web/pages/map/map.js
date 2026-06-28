@@ -1,8 +1,12 @@
+// MAP page — the VIEW half: canvas rendering, the HUD readout, and pan/zoom/follow/select
+// interactions. The telemetry transport + the derive-and-broadcast "provider" role live in
+// TelemetrySource (telemetry-source.js); this file instantiates it and renders the frames it
+// hands back. See web/README.md for why MAP is the telemetry tap.
+import { TelemetrySource, gridLabel } from './telemetry-source.js';
+
 // ── State (declared first so callbacks never hit a temporal dead zone) ──────────
-let   lastData  = null;
-let   mapMeta   = null;        // { w, h, ox, oy }
-let   lastMsgAt = 0;
-let   hadData   = false;       // true once a mission has delivered telemetry
+let   lastData  = null;        // last rendered frame (the source hands it to renderFrame)
+let   mapMeta   = null;        // { w, h, ox, oy } — the view's copy, for worldToBase / gridLabel
 let   loadoutNames = null;     // weapon-name signature; rebuild DOM only when it changes
 let   ammoEls = [];            // ammo text elements, aligned with loadout order
 let   witemEls = [];           // weapon item containers, aligned with loadout order
@@ -103,17 +107,7 @@ function worldToOverlay(wx, wz) {
   return { cx: v.x, cy: v.y };
 }
 
-// Reproduces the game's grid label (e.g. "Hc87") from world coords + map offsets.
-function gridLabel(wx, wz) {
-  if (!mapMeta) return '—';
-  const vx = mapMeta.ox + wx;
-  const vz = mapMeta.oy - wz;
-  const majX = Math.floor(vx / 10000), minX = Math.floor((vx - 10000 * majX) / 1000);
-  const majZ = Math.floor(vz / 10000), minZ = Math.floor((vz - 10000 * majZ) / 1000);
-  if (majX < 0 || majZ < 0) return '—';
-  const vert  = String.fromCharCode(65 + majZ) + String.fromCharCode(97 + minZ);
-  return vert + `${majX}${minX}`;
-}
+// gridLabel(wx, wz, meta) is imported from telemetry-source.js (shared with the target derive).
 
 // Fetches a unit type's map icon. The mod extracts icons gradually, so a type's icon may
 // 404 the first time we ask — retry with backoff until it's ready (or give up after a while
@@ -401,25 +395,13 @@ mapImg.onload = function() {
   resizeOverlay();
 };
 
-// ── SSE ────────────────────────────────────────────────────────────────────────
+// ── Frame rendering (driven by TelemetrySource) ──────────────────────────────────
 let mapWasValid = false;
 
-const es = new EventSource('/stream');
-
-es.onmessage = function(e) {
-  lastMsgAt = performance.now();
-  const d = JSON.parse(e.data);
-
-  if (d.ping) {
-    setStatus('waiting', '● CONNECTED — no mission');
-    if (hadData) clearMission();   // mission ended — wipe the display once
-    setNoSignal(true);             // no mission selected → NO SIGNAL
-    return;
-  }
-
-  setStatus('connected', '● CONNECTED');
+// A real telemetry frame arrived — render the map + HUD. The provider slices were already derived
+// and posted up to the shell by the source; this is purely the local render.
+function renderFrame(d) {
   lastData = d;
-  hadData  = true;
   ensureIconImage(d.name);
   if (d.colors) factionColors = { 0: d.colors.n, 1: d.colors.f, 2: d.colors.e };
 
@@ -439,11 +421,29 @@ es.onmessage = function(e) {
   updateHUD(d);
   drawOverlay();
   ensureThreatAnimation();   // start/keep the missile-flash loop while any missile is inbound
-};
+}
 
-// Wipe everything when a mission/map exits, so stale data never lingers on screen.
-function clearMission() {
-  hadData = false;
+// A no-mission ping. didEnd is true on the mission→no-mission transition, so wipe the view once;
+// every ping shows NO SIGNAL (idempotent).
+function handleNoMission(didEnd) {
+  if (didEnd) clearViewState();
+  setNoSignal(true);
+}
+
+// Reflect the connection status in the readout. (The source mirrors it up to the shell.)
+function setStatusDom(cls, text) {
+  statusEl.className   = cls;
+  statusEl.textContent = text;
+}
+
+// The single telemetry provider for the whole MFD: it owns /stream, derives the per-page slices,
+// and broadcasts them up. We just render the frames it hands back. connect() is called from init.
+const source = new TelemetrySource({ onFrame: renderFrame, onNoMission: handleNoMission, onStatus: setStatusDom });
+
+// Wipe the view when a mission/map exits, so stale data never lingers on screen. The matching
+// "everything is empty" broadcast to the shell is the source's job (_emitEmpties); NO SIGNAL is
+// set by handleNoMission, which calls this.
+function clearViewState() {
   lastData = null;
   mapMeta = null;
   if (threatTimer) { clearInterval(threatTimer); threatTimer = null; }   // stop the missile-flash loop
@@ -452,7 +452,6 @@ function clearMission() {
   followPlayer = false; followBtn.className = 'off'; followBtn.textContent = 'FOLLOW';
   oc.clearRect(0, 0, overlay.width, overlay.height);
   document.getElementById('map-panel').classList.remove('has-map');
-  setNoSignal(true);                     // no map until the next mission loads one
   mapImg.src = '/map?t=' + Date.now();   // 404 now → falls back to the placeholder
 
   document.getElementById('mission-bar').className = 'empty';
@@ -467,16 +466,6 @@ function clearMission() {
   loadoutNames = null;
   ammoEls = [];
   witemEls = [];
-  if (window.parent !== window) {
-    window.parent.postMessage({ mfd: true, type: 'loadout', items: [], selWeapon: null }, '*');
-    window.parent.postMessage({ mfd: true, type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 }, '*');
-    window.parent.postMessage({ mfd: true, type: 'tgp', active: false }, '*');
-    window.parent.postMessage({ mfd: true, type: 'targets', items: [] }, '*');
-    window.parent.postMessage({ mfd: true, type: 'rwr', items: [] }, '*');
-    window.parent.postMessage({ mfd: true, type: 'mw', items: [] }, '*');
-    window.parent.postMessage({ mfd: true, type: 'avn', name: null, parts: null, failures: null, fuel: -1, throttle: -1 }, '*');
-    window.parent.postMessage({ mfd: true, type: 'follow', on: false }, '*');
-  }
 }
 
 function dim(id) {
@@ -484,26 +473,6 @@ function dim(id) {
   el.textContent = '—';
   if (!el.className.includes('dim')) el.className = (el.className + ' dim').trim();
 }
-
-es.onerror = function() {
-  // EventSource auto-reconnects; the watchdog decides when to actually show DISCONNECTED.
-};
-
-function setStatus(cls, text) {
-  statusEl.className   = cls;
-  statusEl.textContent = text;
-  // Mirror state to an embedder (e.g. the MFD), so it can show the connection
-  // status on its MAIN page without opening its own /stream.
-  if (window.parent !== window) {
-    window.parent.postMessage({ mfd: true, type: 'status', cls: cls, text: text }, '*');
-  }
-}
-
-// Watchdog — tolerate transient SSE blips, only flag disconnect after a real gap.
-setInterval(function() {
-  if (performance.now() - lastMsgAt > 2500)
-    setStatus('disconnected', '● DISCONNECTED — retrying…');
-}, 700);
 
 // ── HUD ──────────────────────────────────────────────────────────────────────────
 function updateHUD(d) {
@@ -517,7 +486,7 @@ function updateHUD(d) {
   }
 
   set('plane-name', d.name);
-  const gridText = gridLabel(d.world.x, d.world.z);
+  const gridText = gridLabel(d.world.x, d.world.z, mapMeta);
   set('grid', gridText);
   gridBar.textContent = 'GRID: ' + gridText;
   gridBar.className = '';
@@ -526,98 +495,8 @@ function updateHUD(d) {
   set('hdg', d.hdg.toFixed(0));
 
   updateLoadout(d);
-
-  // Mirror countermeasure state to an embedder (e.g. the MFD WPN page) so it can show the
-  // flares / radar-jammer panel without opening its own /stream.
-  if (window.parent !== window) {
-    window.parent.postMessage({
-      mfd: true, type: 'cm',
-      flares:    typeof d.flares    === 'number' ? d.flares    : -1,
-      flaresMax: typeof d.flaresMax === 'number' ? d.flaresMax : -1,
-      ewKJ:      typeof d.ewKJ      === 'number' ? d.ewKJ      : -1,
-      ewKJMax:   typeof d.ewKJMax   === 'number' ? d.ewKJMax   : -1,
-      cmCat:     d.cmCat || 0
-    }, '*');
-    // Mirror the TGP feed state so the MFD's TGP page can swap to NO TARGET when the feed
-    // stops (after the in-game 3-second post-loss hold expires).
-    window.parent.postMessage({ mfd: true, type: 'tgp', active: !!d.tgpActive }, '*');
-    // Mirror the player's selected target list so the MFD's TGL page can render it.
-    // The mod doesn't emit a dedicated `targets` field — each targeted unit is flagged on
-    // its contact entry (same `tg` flag that draws the orange target box on the map). So
-    // derive the list from contacts; preview mocks can still supply an explicit `d.targets`
-    // to override (used for showing 12+ entries without spawning 12 contacts).
-    let targets;
-    if (Array.isArray(d.targets)) {
-      targets = d.targets;
-    } else if (Array.isArray(d.contacts) && d.world) {
-      targets = [];
-      for (const u of d.contacts) {
-        if (!u.tg) continue;
-        const dx = u.x - d.world.x;
-        const dz = u.z - d.world.z;
-        targets.push({
-          id: u.id,
-          n: u.t,
-          g: gridLabel(u.x, u.z),
-          r: Math.hypot(dx, dz) / 1000,
-          f: u.f,
-        });
-      }
-    } else {
-      targets = [];
-    }
-    window.parent.postMessage({ mfd: true, type: 'targets', items: targets }, '*');
-    // Mirror the radar-warning emitters so the MFD's RWR page can render its scope. The wire
-    // shape carries each emitter's world position (x,z) + tier (tr) + power (pw); we turn that
-    // into a nose-up plot here, where the data + ownship state live: az = bearing relative to
-    // heading (clockwise from the nose), dist = radius from centre 0..1 (higher power = closer,
-    // so 1 - pw). The shell + bare RWR pane just plot {az, d, tr, n, k}.
-    let rwr = [];
-    if (Array.isArray(d.rwr) && d.world) {
-      const hdg = d.hdg || 0;
-      for (const c of d.rwr) {
-        const dx = c.x - d.world.x;
-        const dz = c.z - d.world.z;
-        let az = Math.atan2(dx, dz) * 180 / Math.PI - hdg;
-        az = ((az % 360) + 360) % 360;
-        const pw = Math.max(0, Math.min(1, typeof c.pw === 'number' ? c.pw : 0));
-        const fr = typeof c.fr === 'number' ? Math.max(0, Math.min(1, c.fr)) : 1;
-        rwr.push({ az: az, d: Math.max(0.06, Math.min(1, 1 - pw)), tr: c.tr || 0, fr: fr, n: c.n || '', k: c.k || 0 });
-      }
-    }
-    window.parent.postMessage({ mfd: true, type: 'rwr', items: rwr }, '*');
-    // Mirror incoming missiles for the RWR's missile-launch indicator. Same idea as rwr: turn
-    // each missile's world position into a nose-up bearing (az) + range in km (rng) for the
-    // label; the scope draws a flickering line from that bearing in toward the player.
-    let mw = [];
-    if (Array.isArray(d.mw) && d.world) {
-      const hdg = d.hdg || 0;
-      for (const m of d.mw) {
-        const dx = m.x - d.world.x;
-        const dz = m.z - d.world.z;
-        let az = Math.atan2(dx, dz) * 180 / Math.PI - hdg;
-        az = ((az % 360) + 360) % 360;
-        const item = { az: az, rng: Math.hypot(dx, dz) / 1000, st: m.st || '' };
-        // Beam-notch line (radar seekers only): nb is a world heading; rotate it nose-up too.
-        if (typeof m.nb === 'number' && m.nb >= 0) {
-          item.nb = (((m.nb - hdg) % 360) + 360) % 360;
-        }
-        mw.push(item);
-      }
-    }
-    window.parent.postMessage({ mfd: true, type: 'mw', items: mw }, '*');
-    // Mirror the player's aircraft name + per-part HP so the MFD's AVN page can render
-    // the live damage silhouette. The silhouette assets (background PNG, per-part PNGs,
-    // layout JSON) live behind /airframe and /airframe-layout — the MFD fetches them on demand.
-    window.parent.postMessage({
-      mfd: true, type: 'avn',
-      name: d.name || null,
-      parts: Array.isArray(d.parts) ? d.parts : null,
-      failures: Array.isArray(d.failures) ? d.failures : null,
-      fuel:     typeof d.fuel === 'number' ? d.fuel : -1,
-      throttle: typeof d.thr  === 'number' ? d.thr  : -1,
-    }, '*');
-  }
+  // (The cm / tgp / targets / rwr / mw / avn slices for the other MFD pages are derived and
+  //  broadcast up by TelemetrySource._emit — not here. This function only renders MAP's own HUD.)
 
   const gEl = document.getElementById('gear');
   gEl.textContent = d.gear.toUpperCase();
@@ -648,15 +527,8 @@ function set(id, text) {
 function updateLoadout(d) {
   const list = d.loadout;
   const loEl = document.getElementById('loadout');
-
-  // Mirror loadout to an embedder (e.g. the MFD's WPN page) so it doesn't open its own /stream.
-  if (window.parent !== window) {
-    window.parent.postMessage({
-      mfd: true, type: 'loadout',
-      items: list || [],
-      selWeapon: d.selWeapon || null
-    }, '*');
-  }
+  // (The loadout broadcast to the WPN page is done by TelemetrySource._emit; this only renders
+  //  MAP's own loadout sidebar.)
 
   if (!list || !list.length) {
     if (loadoutNames !== '') { loadoutNames = ''; ammoEls = []; witemEls = []; loEl.innerHTML = '<span class="none">— none —</span>'; }
@@ -713,9 +585,7 @@ function setFollow(on) {
   followBtn.className   = on ? 'on' : 'off';
   followBtn.textContent = 'FOLLOW';
   drawOverlay();
-  if (window.parent !== window) {
-    window.parent.postMessage({ mfd: true, type: 'follow', on: !!on }, '*');
-  }
+  source.emitFollow(on);   // mirror the follow state up to the shell (FOLLOW chip)
 }
 window.addEventListener('keydown', function(e) {
   if ((e.key === 'f' || e.key === 'F') && mapMeta) setFollow(!followPlayer);
@@ -905,18 +775,25 @@ window.addEventListener('message', function(e) {
     case 'toggle-follow': if (mapMeta) setFollow(!followPlayer); break;
     case 'zoom-in':       zoomStep(1.5);   break;
     case 'zoom-out':      zoomStep(1 / 1.5); break;
-    case 'status-request':                                      // re-broadcast current status
-      if (window.parent !== window) {
-        window.parent.postMessage({ mfd: true, type: 'status', cls: statusEl.className, text: statusEl.textContent }, '*');
-      }
-      break;
+    case 'status-request': source.rebroadcastStatus(); break;   // shell asked for the current status
   }
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────────
 // "bare" mode: hide header + HUD sidebar so just the map shows (used by the MFD frame).
 if (location.search.indexOf('bare') >= 0) document.body.classList.add('bare');
-resizeOverlay();
+
+// Size the canvas to its panel. This module is deferred (type="module"), so init can run while
+// the shell's power-on boot still has the recess mid-layout (panel width 0). Retry on the next
+// frame until the panel has a real width, so the first sizing isn't stuck on a transient 0 — the
+// ResizeObserver below handles every later change.
+function syncSizeWhenReady() {
+  resizeOverlay();
+  if (document.getElementById('map-panel').clientWidth === 0) requestAnimationFrame(syncSizeWhenReady);
+}
+syncSizeWhenReady();
+source.connect();   // open /stream now that the renderer + interaction handlers are wired
+
 // Keep the canvas sized to its panel. A ResizeObserver — not just window 'resize' — is essential:
 // in split mode the shell sets this map iframe to display:none, so #map-panel collapses to 0×0
 // (and any stray resize while hidden zeroes the canvas). When the pane is shown again the panel
