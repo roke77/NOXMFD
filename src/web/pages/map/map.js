@@ -24,6 +24,28 @@ function zoomedIn()     { return view.zoom >= ICON_ZOOM_THRESHOLD; }
 function iconBase()     { return zoomedIn() ? ICON_BASE_IN : ICON_BASE_OUT; }
 function fallbackSize() { return zoomedIn() ? FALLBACK_IN  : FALLBACK_OUT; }
 let   followPlayer = false;    // when on (and zoomed in), keep the player icon centred
+
+// ── Persisted view (FLW + ZOOM) ───────────────────────────────────────────────────
+// FLW and ZOOM persist across navigation in sessionStorage, shared same-origin by the shell
+// and every map iframe (full view, both split panes). In full view the map iframe stays alive
+// behind the page frame, so its state already survives a page switch; this also covers the
+// cases where the iframe DOES reload (a split pane, a shell reload) and the mission-exit reset —
+// so coming back to MAP always restores the last FLW + ZOOM. First run (no stored value) seeds
+// the defaults: follow ON and a medium zoom, so MAP opens centred on the player and zoomed in
+// enough for follow to bite (it only re-centres while view.zoom > MIN_ZOOM).
+const VIEW_STORE_KEY = 'noxmfd.map.view';
+const DEFAULT_FOLLOW = true;
+const DEFAULT_ZOOM   = 4;     // medium point of the MIN_ZOOM..MAX_ZOOM (1..8) range — tune here
+function loadPersistedView() {
+  let saved = null;
+  try { saved = JSON.parse(sessionStorage.getItem(VIEW_STORE_KEY) || 'null'); } catch (_) {}
+  const z = saved && typeof saved.zoom === 'number' ? saved.zoom : DEFAULT_ZOOM;
+  view.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
+  followPlayer = saved && typeof saved.follow === 'boolean' ? saved.follow : DEFAULT_FOLLOW;
+}
+function savePersistedView() {
+  try { sessionStorage.setItem(VIEW_STORE_KEY, JSON.stringify({ zoom: view.zoom, follow: followPlayer })); } catch (_) {}
+}
 const PLAYER_COLOR = '#39ff14';                     // player stays HUD green
 const TARGET_COLOR = '#ff8000';                     // orange ring on the player's targeted unit(s)
 let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors
@@ -410,6 +432,10 @@ function renderFrame(d) {
       if (mapRetryTimer) { clearTimeout(mapRetryTimer); mapRetryTimer = null; }
       mapImg.src = '/map?t=' + Date.now();
       document.getElementById('map-panel').classList.add('has-map');
+      // A freshly-loaded map (split pane / reload) or a new mission after the no-signal reset adopts
+      // the persisted FLW + ZOOM here, and setFollow reports it up so the shell paints the chip.
+      loadPersistedView();
+      setFollow(followPlayer);
     }
   }
 
@@ -474,6 +500,7 @@ function resetView() { view.zoom = 1; view.panX = 0; view.panY = 0; setFollow(fa
 // indicator only — drawOverlay does the centring.
 function setFollow(on) {
   followPlayer = on;
+  savePersistedView();
   drawOverlay();
   source.emitFollow(on);   // mirror the follow state up to the shell, which renders the FOLLOW chip
 }
@@ -505,11 +532,12 @@ overlay.addEventListener('wheel', function(e) {
   const z1 = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z0 * Math.exp(-e.deltaY * 0.0015)));
   if (z1 === z0) return;
   // While following, zoom about the player (drawOverlay re-centres) rather than the cursor.
-  if (followPlayer) { view.zoom = z1; clampPan(); drawOverlay(); return; }
+  if (followPlayer) { view.zoom = z1; savePersistedView(); clampPan(); drawOverlay(); return; }
   // pan1 = d - (z1/z0)(d - pan0), with d = cursor − centre — holds the cursor's point in place.
   view.panX = (sx - ox) - (z1 / z0) * ((sx - ox) - view.panX);
   view.panY = (sy - oy) - (z1 / z0) * ((sy - oy) - view.panY);
   view.zoom = z1;
+  savePersistedView();
   clampPan();
   drawOverlay();
 }, { passive: false });
@@ -543,12 +571,12 @@ overlay.addEventListener('pointermove', function(e) {
     const z0 = view.zoom;
     const z1 = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pinchStartZoom * (g.dist / pinchStartDist)));
     if (z1 === z0) return;
-    if (followPlayer) { view.zoom = z1; clampPan(); drawOverlay(); return; }   // follow re-centres
+    if (followPlayer) { view.zoom = z1; savePersistedView(); clampPan(); drawOverlay(); return; }   // follow re-centres
     const rect = overlay.getBoundingClientRect();
     const sx = g.mx - rect.left, sy = g.my - rect.top, ox = overlay.width / 2, oy = overlay.height / 2;
     view.panX = (sx - ox) - (z1 / z0) * ((sx - ox) - view.panX);
     view.panY = (sy - oy) - (z1 / z0) * ((sy - oy) - view.panY);
-    view.zoom = z1; clampPan(); drawOverlay();
+    view.zoom = z1; savePersistedView(); clampPan(); drawOverlay();
     return;
   }
   if (e.pointerId === panId) {                            // single-finger / mouse pan
@@ -655,6 +683,7 @@ function zoomStep(factor) {   // zoom about the canvas centre (the wheel zooms a
   const z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, view.zoom * factor));
   if (z === view.zoom) return;
   view.zoom = z;
+  savePersistedView();
   clampPan();
   drawOverlay();
 }
@@ -678,7 +707,9 @@ function syncSizeWhenReady() {
   resizeOverlay();
   if (document.getElementById('map-panel').clientWidth === 0) requestAnimationFrame(syncSizeWhenReady);
 }
+loadPersistedView();       // adopt the persisted FLW + ZOOM (or the defaults) before the first paint
 syncSizeWhenReady();
+setFollow(followPlayer);    // report the restored follow up to the shell (paints the FOLLOW chip)
 source.connect();   // open /stream now that the renderer + interaction handlers are wired
 
 // Keep the canvas sized to its panel. A ResizeObserver — not just window 'resize' — is essential:
