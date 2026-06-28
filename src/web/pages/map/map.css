@@ -87,8 +87,9 @@ main { flex: 1; display: flex; overflow: hidden; }
 }
 #follow-btn.off { display: none; }
 /* Embedded inside the MFD frame: the MFD shell renders its own FOLLOW indicator
-   (so it can stack alongside the PINNED indicator), so hide the iframe's local one. */
-body.bare #follow-btn { display: none; }
+   (so it can stack alongside the PINNED indicator), so hide the iframe's local one.
+   .bare is on <html> (set by the head script), so this is a descendant selector. */
+.bare #follow-btn { display: none; }
 
 #unit-label {
   position: absolute;
