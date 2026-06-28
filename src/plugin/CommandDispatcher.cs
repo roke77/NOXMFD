@@ -6,7 +6,7 @@ namespace NOXMFD
     // ── Inbound command channel ──────────────────────────────────────────────────
     // The web client POSTs JSON commands to /command; TelemetryServer parses + queues them on a
     // server thread, and this dispatcher drains the queue on the Unity main thread (called from
-    // TelemetryReader.Update) and runs the matching handler. See docs/write-command-channel.md.
+    // TelemetryReader.Update) and runs the matching handler.
     //
     // Handlers MUST only run on the main thread (they touch game state), keep themselves
     // idempotent, validate against live state, and prefer the game's own high-level input methods

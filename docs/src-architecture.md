@@ -376,8 +376,8 @@ dispatches (`sendCommand('target.deselect',{id})`).
 generic (`applySoftkeys` + the `paneSoftkeys` cache handle both layouts). If a softkey needs a
 *visible* label, note that `renderSplitLabels`/`placeXNavLabels` currently wipe all overlay-items —
 labelled softkeys would need the same cache-and-re-apply treatment as the bindings.
-`target.select` (MAP tap) and `target.deselect` live in `docs/write-command-channel.md` +
-`CommandDispatcher.cs`.
+`target.select` (MAP tap) and `target.deselect` are implemented in `src/plugin/CommandDispatcher.cs`
+(+ `src/web/services/send-command.js` on the client).
 
 ### Verifying without the game (critical — the C# build does NOT check the JS/CSS)
 `dotnet build` verifies the C# routes and embedded-resource inclusion, but it never parses the
@@ -423,8 +423,10 @@ browser JS/CSS. So **always verify rendering in a browser**. The proven loop, no
 
 ## Related
 
-- `docs/write-command-channel.md` — the `/command` channel the softkey contract
-  rides for write actions (`target.deselect`).
+- The `/command` write channel the softkey contract rides for write actions
+  (`target.select` / `target.deselect`) shipped already; its `docs/` doc was removed per the
+  done-doc convention. It lives in `src/plugin/{TelemetryServer.cs,CommandDispatcher.cs}` +
+  `src/web/services/send-command.js`.
 - `docs/react-client*.md` — the planned external React client; a separate consumer
   of the HTTP API, out of scope for this in-mod refactor (see *Decisions*).
 - The split-screen design (Strategy A: iframe per pane) that this unifies around

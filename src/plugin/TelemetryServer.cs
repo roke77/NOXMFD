@@ -318,7 +318,7 @@ namespace NOXMFD
         // illegal — so we only parse + validate + ENQUEUE here, and the Unity main thread
         // (CommandDispatcher, drained from TelemetryReader.Update) executes each command. This is a
         // built-in feature, always live; commands only invoke the player's own legitimate cockpit
-        // actions on their own aircraft. See docs/write-command-channel.md.
+        // actions on their own aircraft.
         private const int MaxQueuedCommands = 64;   // bound the queue so a misbehaving client can't grow it unbounded
         private static readonly Queue<CommandEnvelope> _cmdQueue = new Queue<CommandEnvelope>();
         private static readonly object                 _cmdLock  = new object();
