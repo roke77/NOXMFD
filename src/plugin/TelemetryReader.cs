@@ -1,12 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.Reflection;
-using System.Text;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.UI;
 
 namespace NOXMFD
 {
@@ -15,12 +11,9 @@ namespace NOXMFD
         private const float FastInterval = 0.1f; // 10 Hz — position / speed
         private const float SlowInterval = 1.0f; // 1 Hz  — world scan + map metadata (FindObjectsByType is expensive)
 
-        // Map capture: the in-game map sprite can be huge (measured: a 16 MB PNG → a ~670 ms
-        // main-thread freeze on mission load, from the ReadPixels + EncodeToPNG of a multi-K
-        // texture). We GPU-downscale to a sane cap and encode JPEG instead — typically a
-        // ~10-50× size cut (also much lighter for a tablet to fetch) for one one-time capture.
-        private const int MapMaxDim      = 4096; // cap the longer side; preserves aspect
-        private const int MapJpegQuality = 85;   // JPEG quality 0–100; 85 keeps grid/coast detail readable
+        // One-shot game-asset extraction (map / unit icons / weapon + CM icons / airframe silhouette).
+        // Owned here; driven from ScanWorld / PushSnapshot. See AssetCapture.cs.
+        private readonly AssetCapture _assets = new AssetCapture();
 
         private float _fastTimer;
         private float _slowTimer;
@@ -33,30 +26,9 @@ namespace NOXMFD
         private bool  _mapValid;
         private float _mapW, _mapH;
         private int   _gridOffsetX, _gridOffsetY;
-        private bool  _mapCaptured;
 
-        // Aircraft-type map icons we've already extracted (keyed by unitName).
-        private readonly HashSet<string> _capturedIcons = new HashSet<string>();
-        private const int IconsPerScan = 16;  // cap new icon extractions per scan to avoid a frame hitch
-
-        // Aircraft definition names whose part layout has already been dumped to the log.
-        // One-shot per session; used to inform the AVN page silhouette design.
-        private readonly HashSet<string> _loggedPartLayouts = new HashSet<string>();
-
-        // Aircraft definition names whose airframe silhouette assets have been captured
-        // (background + per-part PNGs + JSON layout). One-shot per type per session.
-        private readonly HashSet<string> _capturedAirframes = new HashSet<string>();
-
-        // Cached reflection handles into StatusDisplay's private serialized fields.
-        private static FieldInfo? _sdStatusDisplaysField;
-        private static FieldInfo? _sdBackgroundField;
-        private static FieldInfo? _sdFailureIndicatorsField;
-
-        // Cached failure-indicator GameObjects from the cockpit StatusDisplay. Polled per
-        // tick: any GO with activeSelf=true means the game has fired its OnReportDamage
-        // event for the matching message (e.g. "L ENG FIRE" when the left Turbofan dies).
-        // The GO name IS the failure message — that's how the prefab matches them up.
-        private GameObject[] _failureGOs = Array.Empty<GameObject>();
+        // Scratch for BuildFailures (the failure-indicator GameObjects themselves are captured by
+        // AssetCapture and read back via _assets.FailureIndicators).
         private readonly List<string> _failureScratch = new List<string>();
 
         // Cached unit list from the 1 Hz scan; positions are read from it at 10 Hz.
@@ -67,11 +39,6 @@ namespace NOXMFD
         private string         _mapName     = string.Empty;
         private LoadoutEntry[]  _loadout     = Array.Empty<LoadoutEntry>();
 
-        // Weapon-type icons we've already extracted (keyed by weapon display name).
-        private readonly HashSet<string> _capturedWeaponIcons = new HashSet<string>();
-        private bool _capturedFlareIcon  = false;
-        private bool _capturedJammerIcon = false;
-
         private int _flares    = -1;   // IR flares remaining (refreshed in the 1 Hz scan)
         private int _flaresMax = -1;   // IR flares capacity   (refreshed in the 1 Hz scan)
 
@@ -81,29 +48,10 @@ namespace NOXMFD
         private string _colNeutral  = "#9aa0a6";
         private bool   _colorsRead;
 
-        // TGP feed — captured from aircraft.targetCam at TgpInterval, encoded JPEG, pushed to
-        // the server's MJPEG endpoint. Buffers are allocated lazily and freed on disengage,
-        // so the cost is zero until the MFD's TGP page actually opens a subscriber.
-        //
-        // We let the game render the TargetCam at its prefab-native resolution (~360×240)
-        // and just READ that RT. Earlier we tried swapping in a 720×480 RT to get a higher-
-        // quality feed, but it (a) quadrupled per-frame render cost for cam + UICam, and
-        // (b) repositioned UI canvas-anchored elements (the targeting box/crosshair) on the
-        // in-cockpit screen because the canvas snapped to the new RT edges. Reading the
-        // native RT side-steps both — the cockpit screen is undisturbed.
-        private const float TgpInterval    = 1f / 15f;   // 15 Hz — halved from 30 Hz to cut readback+encode rate
-        private const int   TgpMaxDim      = 720;        // cap for the encoded frame (native source is smaller, so this is a no-op today)
-        private const int   TgpJpegQuality = 50;         // JPEG quality 0–100; 50 is visually fine for a small MFD pane
-        private float        _tgpTimer;
-        private RenderTexture? _tgpRT;                   // Blit destination, source for AsyncGPUReadback
-        private Texture2D?     _tgpTex;                  // CPU-side buffer the readback writes into via LoadRawTextureData
-        private FieldInfo?     _tcCamField;              // TargetCam.cam (Camera) — private, cached
-        private FieldInfo?     _tcScreenRendererField;   // TargetCam.targetScreenRenderer — private, cached
-        private bool           _tcReflectionTried;
-        private bool           _tgpEngaged;              // true while we're actively capturing (for clean disengage logging)
-        private bool           _tgpActive;               // last capture pushed a frame — mirrored into the snapshot
-        private bool           _tgpSrcLogged;            // logged the source texture dimensions once
-        private bool           _tgpReadbackInFlight;     // an AsyncGPUReadback is outstanding — skip new captures until it completes
+        // TGP (targeting-pod) camera feed — the continuous capture of aircraft.targetCam, pushed to
+        // the server's MJPEG endpoint. Owned here; driven from Update via Tick(dt), its Active flag
+        // mirrored into the snapshot, and torn down from OnDestroy. See TgpFeed.cs.
+        private readonly TgpFeed _tgp = new TgpFeed();
 
         // ── RWR (radar warning) ───────────────────────────────────────────────────
         // The game raises Aircraft.onRadarWarning once per radar sweep that paints the player
@@ -134,7 +82,6 @@ namespace NOXMFD
             float dt = Time.deltaTime;
             _fastTimer += dt;
             _slowTimer += dt;
-            _tgpTimer  += dt;
 
             if (_slowTimer >= SlowInterval)
             {
@@ -152,11 +99,7 @@ namespace NOXMFD
                 if (Diag.Enabled) Diag.RecordSince("PushSnapshot", t0);
             }
 
-            if (_tgpTimer >= TgpInterval)
-            {
-                _tgpTimer = 0f;
-                CaptureTgpFrame();
-            }
+            _tgp.Tick(dt);   // TGP feed cadence is owned by TgpFeed (captures at its own interval)
 
             // Step 0 instrumentation: roll up the timing samples every few seconds (docs/performance.md).
             Diag.Tick(dt, _totalUnits, _lastContactCount);
@@ -168,18 +111,18 @@ namespace NOXMFD
             _units = units;
 
             int aircraft = 0;
-            int iconBudget = IconsPerScan;
+            int iconBudget = AssetCapture.IconsPerScan;
             foreach (Unit u in units)
             {
                 if (u == null) continue;
                 if (u is Aircraft) aircraft++;
                 // Pre-extract each unit type's map icon (a few per scan so it doesn't hitch).
-                if (iconBudget > 0 && TryCaptureIcon(u.definition)) iconBudget--;
+                if (iconBudget > 0 && _assets.TryCaptureIcon(u.definition)) iconBudget--;
             }
             _totalUnits    = units.Length;
             _totalAircraft = aircraft;
 
-            CaptureMissileWarningIcon();   // one-time: the real missile-warning sprite for the MAP page
+            _assets.CaptureMissileWarningIcon();   // one-time: the real missile-warning sprite for the MAP page
 
             // Resolve the map bounds + grid offsets and capture the real in-game map image.
             if (_level == null)
@@ -194,7 +137,7 @@ namespace NOXMFD
                 _gridOffsetY = ms.OffsetY;
                 _mapValid    = _mapW > 0f && _mapH > 0f;
                 _mapName     = CleanName(ms.name);
-                TryCaptureMap(ms);
+                _assets.TryCaptureMap(ms);
             }
 
             _missionName = MissionManager.CurrentMission?.Name ?? string.Empty;
@@ -208,239 +151,9 @@ namespace NOXMFD
             {
                 _loadout = BuildLoadout(ac);
                 CountFlares(ac, out _flares, out _flaresMax);
-                TryCaptureCmIcons(ac);
-                TryLogPartLayout(ac);
-                TryCaptureAirframe(ac);
-            }
-        }
-
-        // One-shot per aircraft type: walk the cockpit's StatusDisplay, capture the
-        // aircraft-background silhouette + every per-part Image sprite to PNG, and emit a JSON
-        // layout descriptor so the AVN page can re-compose the same picture on the web.
-        //
-        // The StatusDisplay's `statusDisplays` and `aircraftBackground` are private serialized
-        // fields, so we reflect into them once and cache the FieldInfos. Part layouts are
-        // normalized 0..1 in the background's local UI rect, so the web side just multiplies
-        // by its rendered silhouette size.
-        private void TryCaptureAirframe(Aircraft ac)
-        {
-            string key = ac.definition != null ? ac.definition.unitName : null;
-            if (string.IsNullOrEmpty(key) || _capturedAirframes.Contains(key)) return;
-
-            StatusDisplay sd = UnityEngine.Object.FindObjectOfType<StatusDisplay>(includeInactive: true);
-            if (sd == null) return;   // not built yet — try again next slow scan
-
-            if (_sdStatusDisplaysField == null)
-                _sdStatusDisplaysField = typeof(StatusDisplay).GetField("statusDisplays", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (_sdBackgroundField == null)
-                _sdBackgroundField = typeof(StatusDisplay).GetField("aircraftBackground", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (_sdFailureIndicatorsField == null)
-                _sdFailureIndicatorsField = typeof(StatusDisplay).GetField("failureIndicators", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (_sdStatusDisplaysField == null || _sdBackgroundField == null)
-            {
-                Plugin.Log?.LogWarning("[NOXMFD] AVN: StatusDisplay reflection fields not found — airframe capture disabled.");
-                _capturedAirframes.Add(key);
-                return;
-            }
-
-            Image bgImage     = _sdBackgroundField.GetValue(sd)     as Image;
-            System.Collections.IList partsList = _sdStatusDisplaysField.GetValue(sd) as System.Collections.IList;
-            if (bgImage == null || partsList == null)
-            {
-                _capturedAirframes.Add(key);
-                return;
-            }
-
-            _capturedAirframes.Add(key);
-
-            RectTransform bgRT = bgImage.rectTransform;
-
-            // Diagnostic: dump the bg's full orientation in world space so we can see
-            // exactly what flip / rotation the cockpit canvas applies. The .right/.up
-            // axes give the world direction of the bg's local +X / +Y; if either points
-            // the "wrong" way, GetPartPlacement below mirrors cx/cy to match the visible
-            // orientation. Scale alone misses 180° rotation flips (rotation negates an
-            // axis without changing lossyScale), which is why we check directions too.
-            Vector3 bgLs = bgRT.lossyScale;
-            Vector3 bgR  = bgRT.right;
-            Vector3 bgU  = bgRT.up;
-            Vector3 bgEu = bgRT.eulerAngles;
-            Plugin.Log?.LogInfo(
-                $"[NOXMFD] AVN bg lossyScale=({bgLs.x:0.000},{bgLs.y:0.000},{bgLs.z:0.000})  " +
-                $"rectSize=({bgRT.rect.width:0.0},{bgRT.rect.height:0.0})  " +
-                $"right=({bgR.x:0.00},{bgR.y:0.00},{bgR.z:0.00})  up=({bgU.x:0.00},{bgU.y:0.00},{bgU.z:0.00})  " +
-                $"euler=({bgEu.x:0.0},{bgEu.y:0.0},{bgEu.z:0.0})");
-
-            // Background silhouette — one PNG, served at /airframe?type=<key>&part=__bg
-            if (bgImage.sprite != null)
-            {
-                string bgKey = key;
-                Capture.Request(bgImage.sprite, Capture.Encoding.Png, synthAlpha: false, quality: 0, maxDim: 0,
-                    bgPng => { if (bgPng != null) TelemetryServer.SetAirframeImage(bgKey, "__bg", bgPng); });
-            }
-
-            // Per-part PNGs + layout entries.
-            var sb = new StringBuilder();
-            sb.Append("{\"type\":\"").Append(EscapeJson(key)).Append("\",\"parts\":[");
-            int partCount = 0;
-            int flippedCount = 0;
-            for (int i = 0; i < partsList.Count; i++)
-            {
-                PartStatusDisplay psd = partsList[i] as PartStatusDisplay;
-                if (psd == null || psd.partImage == null) continue;
-
-                Image img = psd.partImage;
-                string name = img.gameObject != null ? img.gameObject.name : null;
-                if (string.IsNullOrEmpty(name)) continue;
-
-                if (img.sprite != null)
-                {
-                    string partKey = key, partName = name;
-                    Capture.Request(img.sprite, Capture.Encoding.Png, synthAlpha: false, quality: 0, maxDim: 0,
-                        png => { if (png != null) TelemetryServer.SetAirframeImage(partKey, partName, png); });
-                }
-
-                if (!GetPartPlacement(img.rectTransform, bgRT, out float cx, out float cy, out float w, out float h, out float rotZ, out int sx, out int sy))
-                    continue;
-
-                if (partCount > 0) sb.Append(',');
-                partCount++;
-                if (sx < 0 || sy < 0) flippedCount++;
-                sb.Append('{')
-                  .Append("\"n\":\"").Append(EscapeJson(name)).Append("\",")
-                  .Append("\"cx\":").Append(cx.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
-                  .Append("\"cy\":").Append(cy.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
-                  .Append("\"w\":").Append(w.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
-                  .Append("\"h\":").Append(h.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
-                  .Append("\"r\":").Append(rotZ.ToString("0.0", CultureInfo.InvariantCulture)).Append(',')
-                  .Append("\"sx\":").Append(sx).Append(',')
-                  .Append("\"sy\":").Append(sy).Append(',')
-                  .Append("\"rt\":").Append(psd.redStatusThreshold.ToString("0.0", CultureInfo.InvariantCulture))
-                  .Append('}');
-            }
-            sb.Append("]}");
-            TelemetryServer.SetAirframeLayout(key, sb.ToString());
-
-            // Cache the cockpit's failure-indicator GameObjects (e.g. "LEFT ENGINE FIRE",
-            // "FUEL LOW"). We don't capture their positions or rendered text — visual
-            // styling is the AVN page's concern. The cached references just let us poll
-            // activeSelf each tick to know which messages are currently firing.
-            var failureGOs = new List<GameObject>();
-            System.Collections.IList failureList = _sdFailureIndicatorsField?.GetValue(sd) as System.Collections.IList;
-            if (failureList != null)
-            {
-                for (int i = 0; i < failureList.Count; i++)
-                {
-                    GameObject go = failureList[i] as GameObject;
-                    if (go != null) failureGOs.Add(go);
-                }
-            }
-            _failureGOs = failureGOs.ToArray();
-
-            Plugin.Log?.LogInfo($"[NOXMFD] Captured airframe silhouette '{key}' (bg + {partCount} parts, {flippedCount} flipped, {_failureGOs.Length} failure messages: {string.Join(", ", System.Linq.Enumerable.Select(_failureGOs, g => g.name))}).");
-        }
-
-        // Computes a part's placement relative to the background's local rect, in normalized
-        // 0..1 coords (origin top-left to match web layout). All math is done in the bg's
-        // LOCAL space (via InverseTransformPoint), so any parent transforms — including
-        // mirroring flips applied by the cockpit canvas — are handled cleanly, and the cx/cy
-        // values match what the player sees on the cockpit screen.
-        // sx/sy report per-part flips relative to the bg's coordinate frame: ±1 each. The
-        // cockpit prefab often re-uses a single sprite for symmetric parts and flips one
-        // via the RectTransform's scale (e.g. wing1_R = wing1_L sprite with scale.x = -1).
-        // Our /airframe endpoint returns the raw sprite so the renderer can apply the same
-        // flip via CSS transform: scale(sx, sy) — otherwise the R parts would render mirror-
-        // reversed and look out of place.
-        // Returns false if the bg rect has zero size (silhouette not laid out yet).
-        private static bool GetPartPlacement(RectTransform partRT, RectTransform bgRT,
-            out float cx, out float cy, out float w, out float h, out float rotZ,
-            out int sx, out int sy)
-        {
-            cx = cy = w = h = rotZ = 0f;
-            sx = sy = 1;
-            if (partRT == null || bgRT == null) return false;
-
-            Rect bgRect = bgRT.rect;
-            if (bgRect.width <= 0.0001f || bgRect.height <= 0.0001f) return false;
-
-            // Part's centre in BG-local coords. World ↔ local round-trip absorbs any
-            // intermediate transforms (offsets, rotations, scales), so what we read is
-            // strictly "where the part sits inside the bg's own rect".
-            Vector3 partWorldCenter = partRT.TransformPoint(partRT.rect.center);
-            Vector3 partBgLocal     = bgRT.InverseTransformPoint(partWorldCenter);
-
-            cx = (partBgLocal.x - bgRect.xMin) / bgRect.width;
-            cy = (partBgLocal.y - bgRect.yMin) / bgRect.height;
-            cy = 1f - cy;                                       // origin top-left for web
-
-            // Mirror to match what the player actually sees. Two cases produce a mirror:
-            //   (a) A negative lossyScale on the axis (the obvious flip), or
-            //   (b) A 180° rotation around the orthogonal axis (rotation negates the axis
-            //       direction without touching lossyScale).
-            // We check the bg's world-space "right" / "up" axis directions instead of
-            // scale because that covers both cases — if local +X ends up pointing in
-            // world -X, the visual is mirrored regardless of *how* it got there.
-            if (bgRT.right.x < 0f) cx = 1f - cx;
-            if (bgRT.up.y    < 0f) cy = 1f - cy;
-
-            // Size in fractions of bg width/height. The part's lossy-scale ratio against
-            // the bg accounts for any chain of scales between them.
-            float bgSx   = bgRT.lossyScale.x   == 0f ? 1f : Mathf.Abs(bgRT.lossyScale.x);
-            float bgSy   = bgRT.lossyScale.y   == 0f ? 1f : Mathf.Abs(bgRT.lossyScale.y);
-            float partSx = Mathf.Abs(partRT.lossyScale.x);
-            float partSy = Mathf.Abs(partRT.lossyScale.y);
-            w = partRT.rect.width  * (partSx / bgSx) / bgRect.width;
-            h = partRT.rect.height * (partSy / bgSy) / bgRect.height;
-
-            // Z rotation: report local so it survives the bg-local re-frame. CCW positive.
-            rotZ = partRT.localEulerAngles.z;
-            if (rotZ > 180f) rotZ -= 360f;
-
-            // Per-part flip sign, expressed relative to the bg's frame. If the part and
-            // bg have opposite-sign lossy-scale on an axis, the part is mirrored on that
-            // axis. The renderer applies CSS transform: scale(sx, sy) to match.
-            float pSx = partRT.lossyScale.x, pSy = partRT.lossyScale.y;
-            float bSx = bgRT.lossyScale.x,   bSy = bgRT.lossyScale.y;
-            sx = (pSx == 0f || bSx == 0f) ? 1 : ((pSx * bSx) < 0f ? -1 : 1);
-            sy = (pSy == 0f || bSy == 0f) ? 1 : ((pSy * bSy) < 0f ? -1 : 1);
-            return true;
-        }
-
-        private static string EscapeJson(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return string.Empty;
-            var sb = new StringBuilder(s.Length);
-            foreach (char c in s)
-            {
-                if      (c == '"')  sb.Append("\\\"");
-                else if (c == '\\') sb.Append("\\\\");
-                else if (c < 0x20)  sb.Append("\\u").Append(((int)c).ToString("x4"));
-                else                sb.Append(c);
-            }
-            return sb.ToString();
-        }
-
-        // One-shot debug aid for the AVN-page silhouette design: walks Aircraft.partLookup and
-        // logs every UnitPart's name + HP + critical flag + detached state. Fires once per
-        // aircraft definition name per session. Mirrors the data the game's own StatusDisplay
-        // uses to colour its silhouette segments (StatusDisplay matches Image.gameObject.name
-        // against UnitPart.gameObject.name — see decompiled/StatusDisplay.decompiled.cs).
-        private void TryLogPartLayout(Aircraft ac)
-        {
-            string key = ac.definition != null ? ac.definition.unitName : null;
-            if (string.IsNullOrEmpty(key) || _loggedPartLayouts.Contains(key)) return;
-
-            var parts = ac.partLookup;
-            if (parts == null) return;
-
-            _loggedPartLayouts.Add(key);
-            Plugin.Log?.LogInfo($"[NOXMFD] AVN parts for '{key}' (count={parts.Count}):");
-            for (int i = 0; i < parts.Count; i++)
-            {
-                UnitPart p = parts[i];
-                if (p == null) { Plugin.Log?.LogInfo($"  [{i}] <null>"); continue; }
-                string n = p.gameObject != null ? p.gameObject.name : "<no-go>";
-                Plugin.Log?.LogInfo($"  [{i}] {n}  hp={p.hitPoints:0.#}  detached={p.IsDetached()}");
+                _assets.TryCaptureCmIcons(ac);
+                _assets.TryLogPartLayout(ac);
+                _assets.TryCaptureAirframe(ac);
             }
         }
 
@@ -455,32 +168,6 @@ namespace NOXMFD
             foreach (FlareEjector fe in ejectors)
                 if (fe != null) { total += fe.GetAmmo(); totalMax += fe.GetMaxAmmo(); }
             ammo = total; max = totalMax;
-        }
-
-        // Extracts the flares + radar jammer Sprites from any matching component on the
-        // aircraft, once each. Saves them as PNGs so /cm?type=flares|jammer can serve them.
-        private void TryCaptureCmIcons(Aircraft ac)
-        {
-            if (!_capturedFlareIcon)
-            {
-                FlareEjector? fe = ac.GetComponentInChildren<FlareEjector>();
-                if (fe != null && fe.displayImage != null)
-                {
-                    _capturedFlareIcon = true;   // got the sprite; capture once (async)
-                    Capture.Request(fe.displayImage, Capture.Encoding.Png, synthAlpha: true,
-                        quality: 0, maxDim: 0, png => { if (png != null) TelemetryServer.SetCmIcon("flares", png); });
-                }
-            }
-            if (!_capturedJammerIcon)
-            {
-                RadarJammer? rj = ac.GetComponentInChildren<RadarJammer>();
-                if (rj != null && rj.displayImage != null)
-                {
-                    _capturedJammerIcon = true;  // got the sprite; capture once (async)
-                    Capture.Request(rj.displayImage, Capture.Encoding.Png, synthAlpha: true,
-                        quality: 0, maxDim: 0, png => { if (png != null) TelemetryServer.SetCmIcon("jammer", png); });
-                }
-            }
         }
 
         // PowerSupply.maxCharge is private; cache the FieldInfo and read it via reflection.
@@ -597,25 +284,13 @@ namespace NOXMFD
                 }
                 _loCur[i] += st.Ammo;
                 _loMax[i] += st.FullAmmo;
-                TryCaptureWeaponIcon(name, info.weaponIcon);
+                _assets.TryCaptureWeaponIcon(name, info.weaponIcon);
             }
 
             var result = new LoadoutEntry[_loNames.Count];
             for (int i = 0; i < _loNames.Count; i++)
                 result[i] = new LoadoutEntry { Name = _loNames[i], Ammo = _loCur[i], FullAmmo = _loMax[i] };
             return result;
-        }
-
-        // Extracts a weapon type's icon to PNG, once per name, and registers it.
-        private void TryCaptureWeaponIcon(string name, Sprite icon)
-        {
-            if (string.IsNullOrEmpty(name) || _capturedWeaponIcons.Contains(name)) return;
-            _capturedWeaponIcons.Add(name);
-            if (icon == null) return;
-
-            string weaponName = name;
-            Capture.Request(icon, Capture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
-                png => { if (png != null) TelemetryServer.SetWeaponIcon(weaponName, png); });
         }
 
         private void PushSnapshot()
@@ -645,7 +320,7 @@ namespace NOXMFD
 
             byte cmCategory = GetSelectedCmCategory(aircraft);
 
-            TryCaptureIcon(aircraft.definition);
+            _assets.TryCaptureIcon(aircraft.definition);
 
             // Built here (not in the initializer) so we can time it — BuildUnits is the
             // suspected per-unit hot path at 10 Hz (docs/performance.md, item #3).
@@ -690,7 +365,7 @@ namespace NOXMFD
                 ColFriendly    = _colFriendly,
                 ColHostile     = _colHostile,
                 ColNeutral     = _colNeutral,
-                TgpActive      = _tgpActive,
+                TgpActive      = _tgp.Active,
                 Parts          = BuildParts(aircraft),
                 Failures       = BuildFailures(),
                 Rwr            = BuildRwr(aircraft),
@@ -853,11 +528,12 @@ namespace NOXMFD
         // on the matching GO when an IReportDamage event fires.
         private string[] BuildFailures()
         {
-            if (_failureGOs == null || _failureGOs.Length == 0) return Array.Empty<string>();
+            GameObject[] indicators = _assets.FailureIndicators;
+            if (indicators == null || indicators.Length == 0) return Array.Empty<string>();
             _failureScratch.Clear();
-            for (int i = 0; i < _failureGOs.Length; i++)
+            for (int i = 0; i < indicators.Length; i++)
             {
-                GameObject go = _failureGOs[i];
+                GameObject go = indicators[i];
                 if (go != null && go.activeSelf) _failureScratch.Add(go.name);
             }
             return _failureScratch.Count == 0 ? Array.Empty<string>() : _failureScratch.ToArray();
@@ -884,83 +560,6 @@ namespace NOXMFD
                 buf[i].Detached = p.IsDetached();
             }
             return buf;
-        }
-
-        // Pulls MapSettings.MapImage (the actual in-game map sprite) into JPEG bytes and hands
-        // them to the server. GPU-downscaled to MapMaxDim and JPEG-encoded so this one-time
-        // capture doesn't freeze the main thread (the old full-res PNG path cost ~670 ms) and
-        // so a tablet isn't fetching a 16 MB map.
-        private void TryCaptureMap(MapSettings ms)
-        {
-            if (_mapCaptured) return;
-            Sprite mapSprite = ms.MapImage;
-            if (mapSprite == null) return;   // not ready yet — retry next scan
-
-            _mapCaptured = true;             // got a sprite; capture once (async), don't retry
-
-            Texture src = mapSprite.texture;
-            int sw = src != null ? src.width : 0;
-            int sh = src != null ? src.height : 0;
-
-            // Async + JPEG: removes the ~670 ms / 222 ms main-thread freeze the synchronous
-            // full-res PNG path caused on mission load. Downscaled to MapMaxDim and JPEG-encoded
-            // (maps are opaque) so the tablet also fetches a few hundred KB, not 16 MB.
-            bool started = Capture.Request(mapSprite, Capture.Encoding.Jpg, synthAlpha: false,
-                quality: MapJpegQuality, maxDim: MapMaxDim, jpg =>
-                {
-                    if (jpg != null)
-                    {
-                        TelemetryServer.SetMapImage(jpg);
-                        Plugin.Log?.LogInfo($"[NOXMFD] Captured in-game map ({jpg.Length} bytes, JPEG; source {sw}x{sh}).");
-                    }
-                    else
-                        Plugin.Log?.LogWarning("[NOXMFD] Map capture failed; falling back to map file.");
-                });
-            if (!started) _mapCaptured = false;   // sprite unusable — allow a later retry
-        }
-
-        // Extracts a unit type's top-down map icon to PNG, once per type, and registers it.
-        // Reserved /icon key for the game's missile-warning sprite (GameAssets.missileWarningSprite).
-        // The MAP page draws incoming missiles with this real in-game shape (tinted + flashed
-        // client-side) instead of a hand-drawn triangle. Captured once, then reused.
-        internal const string MissileIconKey = "__missilewarn";
-        private bool _missileIconCaptured;
-
-        private void CaptureMissileWarningIcon()
-        {
-            if (_missileIconCaptured) return;
-            try
-            {
-                GameAssets ga = GameAssets.i;
-                if (ga == null || ga.missileWarningSprite == null) return;   // not ready — retry next scan
-                _missileIconCaptured = true;                                  // got the sprite; capture once
-                Capture.Request(ga.missileWarningSprite, Capture.Encoding.Png, synthAlpha: true,
-                    quality: 0, maxDim: 0, png => { if (png != null) TelemetryServer.SetIcon(MissileIconKey, png); });
-            }
-            catch { /* retry on a later scan */ }
-        }
-
-        // Returns true if it kicked off a (costly) extraction this call, so callers can budget.
-        private bool TryCaptureIcon(UnitDefinition def)
-        {
-            if (def == null || string.IsNullOrEmpty(def.unitName) || _capturedIcons.Contains(def.unitName))
-                return false;
-
-            _capturedIcons.Add(def.unitName); // mark regardless so we never retry this type
-            if (def.mapIcon == null)
-            {
-                // No icon for this type (buildings, etc.) — register the transparent sentinel so
-                // /icon answers 200 and the client stops re-requesting (it draws its square instead).
-                TelemetryServer.SetIcon(def.unitName, TelemetryServer.NoIconPng);
-                return false;
-            }
-
-            // Fall back to the sentinel if extraction fails, so this type never 404s either.
-            string name = def.unitName;
-            bool started = Capture.Request(def.mapIcon, Capture.Encoding.Png, synthAlpha: true,
-                quality: 0, maxDim: 0, png => TelemetryServer.SetIcon(name, png ?? TelemetryServer.NoIconPng));
-            if (!started) TelemetryServer.SetIcon(name, TelemetryServer.NoIconPng);
-            return started;
         }
 
         // Builds the list of units the player's faction can see. Friendlies appear at their
@@ -1007,184 +606,9 @@ namespace NOXMFD
             return _unitBuf.ToArray();
         }
 
-        // Sprite → PNG/JPEG capture now lives in Capture.Request (async readback + background
-        // encode). See docs/performance.md item #A — the old synchronous SpriteToPng here was
-        // the source of the map-load freeze and the mid-combat icon/airframe FPS hitches.
-
-        // ── TGP camera feed ────────────────────────────────────────────────────
-        // The game's own TargetCam tracks the player's current target, including IR mode and
-        // zoom-on-target FOV. While a target is locked we nudge it active each tick; when the
-        // last target disappears we STOP calling SetTargetCam — the TargetCam's own Update()
-        // keeps the cam aimed at the final target position for ~3 s via its camTimeout, then
-        // disables itself. We mirror that lifetime by reading frames while cam.enabled is true
-        // and clearing as soon as it goes false. Net effect: the feed lingers exactly as long
-        // as the in-cockpit screen does.
-        private void CaptureTgpFrame()
-        {
-            // Gate on /tgp.mjpg subscribers. When the MFD's TGP page is not open, no client
-            // is subscribed, and there's no point running the capture pipeline (or calling
-            // SetTargetCam, which keeps the in-cockpit TargetCam alive). Free our buffers
-            // on the transition out so we leave nothing allocated while idle.
-            if (!TelemetryServer.WantsTgpFrames)
-            {
-                if (_tgpEngaged) DisengageTgp();
-                return;
-            }
-
-            // No mission / no aircraft / no TGP component → drop any cached frame and bail.
-            GameManager.GetLocalAircraft(out Aircraft ac);
-            TargetCam? tc = ac != null ? ac.targetCam : null;
-            if (tc == null) { TelemetryServer.ClearTgpFrame(); _tgpActive = false; return; }
-
-            // Cache the three private fields once. cam = scene camera, UICam = overlay canvas
-            // camera, targetScreenRenderer = the in-cockpit display whose material is bound
-            // to the camera's render texture.
-            if (!_tcReflectionTried)
-            {
-                _tcReflectionTried = true;
-                var t = typeof(TargetCam);
-                _tcCamField            = t.GetField("cam",                  BindingFlags.NonPublic | BindingFlags.Instance);
-                _tcScreenRendererField = t.GetField("targetScreenRenderer", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (_tcCamField == null || _tcScreenRendererField == null)
-                    Plugin.Log?.LogWarning("[NOXMFD] TGP: could not locate TargetCam private fields — feed disabled.");
-            }
-            if (_tcCamField == null || _tcScreenRendererField == null) { TelemetryServer.ClearTgpFrame(); _tgpActive = false; return; }
-
-            // Only refresh the camTimeout while a target is actually locked — SetTargetCam
-            // would crash on an empty list, and not calling it is what gives us the 3-second
-            // post-loss hold (game's Update keeps aiming at the last targetPosition until
-            // camTimeout expires).
-            List<Unit> targets = ac!.weaponManager != null ? ac.weaponManager.GetTargetList() : null;
-            if (targets != null && targets.Count > 0)
-            {
-                try { tc.SetTargetCam(); }
-                catch (Exception ex)
-                {
-                    // SetTargetCam touches a lot of game state. If anything throws (e.g. the player
-                    // just disabled / detached), skip this tick rather than killing Update.
-                    Plugin.Log?.LogDebug($"[NOXMFD] TGP SetTargetCam threw: {ex.Message}");
-                    return;
-                }
-            }
-
-            // After the game's 3-second timeout expires, cam.enabled flips to false. Stop
-            // pushing then so MJPEG clients see "no feed" and fall back to NO TARGET.
-            Camera cam = _tcCamField.GetValue(tc) as Camera;
-            if (cam == null || !cam.enabled) { TelemetryServer.ClearTgpFrame(); _tgpActive = false; return; }
-
-            // Prefer the camera's own targetTexture; fall back to the cockpit renderer's
-            // material (which the game points at the same RT) if the prefab puts the
-            // assignment there instead of on the Camera.
-            Texture src = cam.targetTexture;
-            if (src == null)
-            {
-                if (_tcScreenRendererField.GetValue(tc) is Renderer rend && rend.material != null)
-                    src = rend.material.mainTexture;
-            }
-            if (src == null) { TelemetryServer.ClearTgpFrame(); _tgpActive = false; return; }
-
-            // Match the captured frame to the source's aspect ratio. Forcing a square output
-            // squashed the in-game (wider-than-tall) feed; capturing at the native aspect lets
-            // the MFD's object-fit:contain letterbox naturally, so the visible cam rectangle
-            // shrinks and pixelation drops without distorting the picture. Cap at source size
-            // — upsampling here adds no detail, just bytes.
-            int sw = Mathf.Max(1, src.width);
-            int sh = Mathf.Max(1, src.height);
-            int targetW, targetH;
-            int maxSide = Mathf.Max(sw, sh);
-            if (maxSide <= TgpMaxDim)
-            {
-                targetW = sw; targetH = sh;
-            }
-            else if (sw >= sh)
-            {
-                targetW = TgpMaxDim;
-                targetH = Mathf.Max(1, Mathf.RoundToInt(TgpMaxDim * (float)sh / sw));
-            }
-            else
-            {
-                targetH = TgpMaxDim;
-                targetW = Mathf.Max(1, Mathf.RoundToInt(TgpMaxDim * (float)sw / sh));
-            }
-
-            if (!_tgpSrcLogged)
-            {
-                _tgpSrcLogged = true;
-                Plugin.Log?.LogInfo($"[NOXMFD] TGP source texture {sw}x{sh} (aspect {(float)sw/sh:0.000}); capturing at {targetW}x{targetH}.");
-            }
-
-            // Don't stack readbacks if the GPU is still working on the previous one — drop
-            // this tick instead. With AsyncGPUReadback completing in 1–3 frames we'll only
-            // skip one or two ticks per second under load, no visible stutter on the feed.
-            if (_tgpReadbackInFlight) return;
-
-            // (Re)allocate the downscale RT + readback texture when the source dimensions change.
-            // RGBA32 on both sides so the bytes from AsyncGPUReadback can be fed straight into
-            // LoadRawTextureData without a format conversion.
-            if (_tgpRT == null || _tgpRT.width != targetW || _tgpRT.height != targetH)
-            {
-                if (_tgpRT != null) { _tgpRT.Release(); UnityEngine.Object.Destroy(_tgpRT); }
-                _tgpRT = new RenderTexture(targetW, targetH, 0, RenderTextureFormat.ARGB32);
-                _tgpRT.Create();
-            }
-            if (_tgpTex == null || _tgpTex.width != targetW || _tgpTex.height != targetH)
-            {
-                if (_tgpTex != null) UnityEngine.Object.Destroy(_tgpTex);
-                _tgpTex = new Texture2D(targetW, targetH, TextureFormat.RGBA32, false);
-            }
-
-            // GPU downscale, then ASYNC readback. AsyncGPUReadback dispatches the readback to
-            // the GPU and returns immediately — no main-thread stall waiting on a pipeline
-            // flush, which was the dominant per-frame cost of the synchronous ReadPixels path.
-            // The callback fires on the main thread once the GPU has the bytes ready (typically
-            // 1–3 frames later); we then copy into _tgpTex, encode, and push.
-            Graphics.Blit(src, _tgpRT);
-            _tgpReadbackInFlight = true;
-            int captureW = targetW;
-            int captureH = targetH;
-            AsyncGPUReadback.Request(_tgpRT, 0, request => OnTgpReadbackComplete(request, captureW, captureH));
-        }
-
-        // Async readback callback — runs on the Unity main thread. Bail cleanly if the worker
-        // was destroyed, the GPU errored, or the user disengaged the TGP page mid-flight.
-        private void OnTgpReadbackComplete(AsyncGPUReadbackRequest request, int w, int h)
-        {
-            _tgpReadbackInFlight = false;
-            if (this == null) return;                                // MonoBehaviour destroyed
-            if (request.hasError) return;
-            if (!TelemetryServer.WantsTgpFrames) return;              // disengaged while in flight
-            if (_tgpTex == null || _tgpTex.width != w || _tgpTex.height != h) return;
-
-            var data = request.GetData<byte>();
-            _tgpTex.LoadRawTextureData(data);
-            _tgpTex.Apply(false, false);
-
-            byte[] jpg = _tgpTex.EncodeToJPG(TgpJpegQuality);
-            TelemetryServer.PushTgpFrame(jpg);
-            _tgpActive  = true;
-            _tgpEngaged = true;
-        }
-
-        // Release the buffers we lazily allocate during capture and clear the published
-        // frame. Safe to call from the gating fast-path or from OnDestroy. We never swap
-        // any game-side RTs, so there's nothing to restore.
-        private void DisengageTgp()
-        {
-            if (_tgpRT  != null) { _tgpRT.Release();  UnityEngine.Object.Destroy(_tgpRT);  _tgpRT  = null; }
-            if (_tgpTex != null) {                    UnityEngine.Object.Destroy(_tgpTex); _tgpTex = null; }
-
-            bool wasEngaged       = _tgpEngaged;
-            _tgpEngaged           = false;
-            _tgpActive            = false;
-            _tgpSrcLogged         = false;
-            _tgpReadbackInFlight  = false;   // any in-flight callback will see !WantsTgpFrames and bail
-            TelemetryServer.ClearTgpFrame();
-            if (wasEngaged) Plugin.Log?.LogInfo("[NOXMFD] TGP: disengaged (no subscribers).");
-        }
-
         private void OnDestroy()
         {
-            DisengageTgp();
+            _tgp.Disengage();
             if (_rwrSubscribed != null) { _rwrSubscribed.onRadarWarning -= OnRadarWarning; _rwrSubscribed = null; }
         }
     }
