@@ -24,7 +24,7 @@ namespace NOXMFD
         private static readonly object   _lock = new object();
 
         // Shared serialized SSE frame, built at most once per snapshot version and reused by
-        // every connected client (#2 in todo/performance.md). Without this, each of N clients
+        // every connected client (#2 in docs/performance.md). Without this, each of N clients
         // re-serialized the full snapshot every tick — wasteful with 3+ screens open.
         private static long             _frameVersion = -1;
         private static byte[]?          _frameBytes;
@@ -318,7 +318,7 @@ namespace NOXMFD
         // illegal — so we only parse + validate + ENQUEUE here, and the Unity main thread
         // (CommandDispatcher, drained from TelemetryReader.Update) executes each command. This is a
         // built-in feature, always live; commands only invoke the player's own legitimate cockpit
-        // actions on their own aircraft. See todo/write-command-channel.md.
+        // actions on their own aircraft. See docs/write-command-channel.md.
         private const int MaxQueuedCommands = 64;   // bound the queue so a misbehaving client can't grow it unbounded
         private static readonly Queue<CommandEnvelope> _cmdQueue = new Queue<CommandEnvelope>();
         private static readonly object                 _cmdLock  = new object();
@@ -392,7 +392,7 @@ namespace NOXMFD
         }
 
         // ── Embedded web-asset serving ─────────────────────────────────────────
-        // Step 1 of the src/ frontend refactor (todo/src-architecture.md): real files
+        // Step 1 of the src/ frontend refactor (docs/src-architecture.md): real files
         // under web/ are baked into the DLL as embedded resources and served here under
         // /assets/. This coexists with the legacy XxxPage.Html const serving while pages
         // are migrated one at a time. MSBuild names a resource "<RootNamespace>.web.<dotted

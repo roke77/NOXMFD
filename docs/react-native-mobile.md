@@ -2,8 +2,8 @@
 
 ## Status
 
-Planning only. No code yet. Builds on `todo/react-client.md` (the
-mock-driven React frontend) and `todo/react-client-backend.md` (the real
+Planning only. No code yet. Builds on `docs/react-client.md` (the
+mock-driven React frontend) and `docs/react-client-backend.md` (the real
 data transport served by the plugin). This doc is intentionally light —
 it sketches a mobile app, it doesn't fully spec it.
 
@@ -93,7 +93,7 @@ re-port), `react-native-sse` (SSE), a WebView/MJPEG view for TGP.
 
 - iOS / other devices — Android tablet only for now.
 - Any change to the plugin server beyond what
-  `todo/react-client-backend.md` already covers (it serves the app +
+  `docs/react-client-backend.md` already covers (it serves the app +
   advertises the LAN URL; that's enough for the WebView path).
 - A native Path B port — not until Path A proves the concept on-device.
 

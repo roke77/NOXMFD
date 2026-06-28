@@ -34,7 +34,7 @@ envelope literals sit almost entirely in the shell + map — no cross-page win t
   preserved; full editor tooling during authoring.
 - **No JS framework / bundler.** Stay vanilla JS + ES modules + the existing
   `postMessage` protocol. No Node toolchain. *(This is about the mod-served
-  frontend. The planned React client — `todo/react-client*.md` — is a separate
+  frontend. The planned React client — `docs/react-client*.md` — is a separate
   consumer of the same telemetry/command HTTP API and is out of scope here; this
   refactor cleans up the in-mod UI, it doesn't replace it.)*
 
@@ -106,6 +106,15 @@ entirely. (This generalises what MAP/`ClientPage` + the bare pages already do.)
 Net deletion: all overlay panel markup + `renderWpn/renderCm/renderTgl/renderAvn`
 in `MfdPage.cs`. The shell shrinks substantially; each page keeps exactly one
 renderer (the bare page, promoted to the single source of truth).
+
+> **The one asymmetry — MAP is the telemetry tap, not a sink.** "Pages are pure
+> reactive renderers fed by the shell" holds for WPN/TGL/TGP/AVN/RWR, but **not**
+> MAP. MAP is the single `EventSource('/stream')` consumer: it parses each frame and
+> posts derived slices (`status`/`loadout`/`cm`/`tgp`/`targets`/`rwr`/`mw`/`avn`/
+> `follow`) **up** to the shell, which caches and re-forwards them **down** to the
+> other pages. So the data flow is `/stream → MAP → shell → pages`, and MAP is the
+> always-on **base** iframe (not a `#page-frame` page) so it stays connected behind
+> whatever page is in view. Rationale + diagram: [`web/README.md`](../web/README.md).
 
 ### B. Declarative bezel-softkey contract
 Replace the twice-hand-coded bezel binding with a one-way contract:
@@ -361,7 +370,7 @@ dispatches (`sendCommand('target.deselect',{id})`).
 generic (`applySoftkeys` + the `paneSoftkeys` cache handle both layouts). If a softkey needs a
 *visible* label, note that `renderSplitLabels`/`placeXNavLabels` currently wipe all overlay-items —
 labelled softkeys would need the same cache-and-re-apply treatment as the bindings.
-`target.select` (MAP tap) and `target.deselect` live in `todo/write-command-channel.md` +
+`target.select` (MAP tap) and `target.deselect` live in `docs/write-command-channel.md` +
 `CommandDispatcher.cs`.
 
 ### Verifying without the game (critical — the C# build does NOT check the JS/CSS)
@@ -408,11 +417,11 @@ browser JS/CSS. So **always verify rendering in a browser**. The proven loop, no
 
 ## Related
 
-- `todo/write-command-channel.md` — the `/command` channel the softkey contract
+- `docs/write-command-channel.md` — the `/command` channel the softkey contract
   rides for write actions (`target.deselect`).
-- `todo/react-client*.md` — the planned external React client; a separate consumer
+- `docs/react-client*.md` — the planned external React client; a separate consumer
   of the HTTP API, out of scope for this in-mod refactor (see *Decisions*).
 - The split-screen design (Strategy A: iframe per pane) that this unifies around
-  shipped already; its `todo/` doc was removed per the done-doc convention. The
+  shipped already; its `docs/` doc was removed per the done-doc convention. The
   iframe-per-pane model survives in `web/shell/mfd.js` (`applySplitMode`,
   `renderSplitLabels`).

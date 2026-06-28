@@ -4,7 +4,7 @@ using System.Text;
 
 namespace NOXMFD
 {
-    // Temporary performance instrumentation (Step 0 of todo/performance.md).
+    // Temporary performance instrumentation (Step 0 of docs/performance.md).
     //
     // Accumulates labeled timing samples from ANY thread (the Unity main thread for
     // ScanWorld/BuildUnits/PushSnapshot, the background SSE threads for Serialize) and

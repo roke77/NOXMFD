@@ -142,7 +142,7 @@ let currentPage = 'map';
 // When splitMode is on, the screen renders two stacked iframes (the panes) instead
 // of the single map iframe + overlay panels. Each pane has its own currentPage;
 // the shell still owns the bezel labels and dispatches clicks to the right pane.
-// See todo/mfd-split-screen.md — Strategy A, implementation sequence steps 1-4.
+// See docs/mfd-split-screen.md — Strategy A, implementation sequence steps 1-4.
 let splitMode = false;
 // [topPage, botPage]. Step 3 of the implementation sequence seeds both panes with
 // MAIN on entry; per-pane navigation updates this from MAIN's L0..L2 / R0..R2 keys.
@@ -174,7 +174,7 @@ let lastStatusText = '● DISCONNECTED';
 
 // Split-mode line-select layouts per page. Each entry is one pane-local label;
 // physical key index = slot + paneOffset (paneOffset = 0 for top, 3 for bottom).
-// Only pages we've remapped via the interview in todo/mfd-split-screen.md appear
+// Only pages we've remapped via the interview in docs/mfd-split-screen.md appear
 // here. Pages without an entry render no labels in split mode (yet).
 const SPLIT_PAGES = {
   main: {

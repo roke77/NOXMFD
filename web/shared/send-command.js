@@ -4,7 +4,7 @@
 //
 // The wire envelope is FLAT — { cmd, ...args } — because the game's JsonUtility reliably parses
 // top-level fields but NOT nested objects in Mono (a nested args.id silently stayed 0). See
-// todo/write-command-channel.md and src/CommandDispatcher.cs.
+// docs/write-command-channel.md and src/CommandDispatcher.cs.
 //
 // Returns the raw fetch promise (no built-in .catch) so callers can inspect the response
 // (e.g. the MAP tap reacts to !ok) and attach their own rejection handling. Fire-and-forget

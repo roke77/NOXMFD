@@ -3,14 +3,14 @@
 ## Status
 
 Planning only. No code yet. This is the **follow-on** to
-`todo/react-client.md`: it describes the work needed to point the
+`docs/react-client.md`: it describes the work needed to point the
 mock-driven React client (`react-client/`) at real data and have the
 plugin serve the built app. The frontend plan deliberately isolates the
 mock layer so this swap stays small — this doc enumerates everything
 that swap actually touches.
 
 Prerequisite: the React client exists and reaches feature parity on
-mocked data first (see `todo/react-client.md`).
+mocked data first (see `docs/react-client.md`).
 
 ## The key framing: the backend mostly already exists
 
@@ -137,7 +137,7 @@ cite, plus a frame-version field so a mismatch is detectable at runtime.
   without the in-process game server — not a near-term need.
 - Changing the telemetry data itself or adding new endpoints beyond
   `/config`.
-- Anything in `todo/react-client.md` (the frontend build) — that lands
+- Anything in `docs/react-client.md` (the frontend build) — that lands
   first; this doc assumes it's done.
 
 ## Pre-flight before implementing

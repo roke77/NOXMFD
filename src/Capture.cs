@@ -6,7 +6,7 @@ using UnityEngine.Rendering;
 
 namespace NOXMFD
 {
-    // Async sprite → PNG/JPEG capture (todo/performance.md item #A).
+    // Async sprite → PNG/JPEG capture (docs/performance.md item #A).
     //
     // Replaces the old synchronous SpriteToPng (Blit → ReadPixels → EncodeToPNG, all on the
     // Unity main thread), which measured as the source of every capture FPS hitch: a ~670 ms

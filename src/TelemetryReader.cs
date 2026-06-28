@@ -158,7 +158,7 @@ namespace NOXMFD
                 CaptureTgpFrame();
             }
 
-            // Step 0 instrumentation: roll up the timing samples every few seconds (todo/performance.md).
+            // Step 0 instrumentation: roll up the timing samples every few seconds (docs/performance.md).
             Diag.Tick(dt, _totalUnits, _lastContactCount);
         }
 
@@ -648,7 +648,7 @@ namespace NOXMFD
             TryCaptureIcon(aircraft.definition);
 
             // Built here (not in the initializer) so we can time it — BuildUnits is the
-            // suspected per-unit hot path at 10 Hz (todo/performance.md, item #3).
+            // suspected per-unit hot path at 10 Hz (docs/performance.md, item #3).
             long tUnits = Diag.Enabled ? Stopwatch.GetTimestamp() : 0L;
             UnitInfo[] units = BuildUnits(aircraft);
             if (Diag.Enabled) Diag.RecordSince("BuildUnits", tUnits);
@@ -1008,7 +1008,7 @@ namespace NOXMFD
         }
 
         // Sprite → PNG/JPEG capture now lives in Capture.Request (async readback + background
-        // encode). See todo/performance.md item #A — the old synchronous SpriteToPng here was
+        // encode). See docs/performance.md item #A — the old synchronous SpriteToPng here was
         // the source of the map-load freeze and the mid-combat icon/airframe FPS hitches.
 
         // ── TGP camera feed ────────────────────────────────────────────────────
