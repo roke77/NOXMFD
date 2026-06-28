@@ -5,29 +5,20 @@
 <title>NO XMFD</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='1' y='1' width='30' height='30' rx='4' fill='%233b3f45'/><rect x='6' y='6' width='20' height='20' rx='1' fill='%23050a05'/><g fill='%23c8ccd0'><rect x='2.5' y='8' width='2' height='2.5'/><rect x='2.5' y='14.75' width='2' height='2.5'/><rect x='2.5' y='21.5' width='2' height='2.5'/><rect x='27.5' y='8' width='2' height='2.5'/><rect x='27.5' y='14.75' width='2' height='2.5'/><rect x='27.5' y='21.5' width='2' height='2.5'/></g><path d='M11 16h10' stroke='%2339ff14' stroke-width='2' stroke-linecap='square'/></svg>">
 <!--
-  MAP page — the live map + HUD. Served at /map-view. In the MFD it is the always-on
-  base layer (iframe[title=map], loaded as /map-view?bare): the ONLY EventSource('/stream')
-  in the whole MFD. It parses each telemetry frame and re-broadcasts derived state up to the
-  shell via parent.postMessage ({mfd:true, type:'status'|'loadout'|'cm'|'tgp'|'targets'|
-  'rwr'|'mw'|'avn'|'follow'}); the shell caches it and re-forwards to the #page-frame (full)
-  or the split panes. Standalone (non-bare) it shows its own header + HUD sidebar.
-
-  "bare" mode (?bare): hides the header + HUD sidebar so just the map shows (the MFD frame).
+  MAP page — the live map. Served at /map-view (the MFD loads it as the always-on base layer,
+  iframe[title=map], /map-view?bare). It is the ONLY EventSource('/stream') in the whole MFD:
+  TelemetrySource parses each frame and re-broadcasts the derived per-page slices up to the shell
+  via parent.postMessage ({mfd:true, type:'status'|'loadout'|'cm'|'tgp'|'targets'|'rwr'|'mw'|
+  'avn'|'follow'}); the shell caches them and re-forwards to the #page-frame (full) or the split
+  panes. This page renders ONLY the map: the silhouette + unit icons, the mission-name bar, and
+  the GRID chip. (The old standalone header + telemetry sidebar were removed — the dedicated MFD
+  pages own that data now, and the shell renders connection status + the FOLLOW indicator.)
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
 <link rel="stylesheet" href="/assets/pages/map/map.css">
-<!-- Set "bare" on <html> SYNCHRONOUSLY here (not from the deferred module below): the CSS that
-     hides the header + HUD chrome then applies before the body first paints, so the MFD never
-     flashes the standalone layout for a frame while map.js loads. -->
-<script>if (location.search.indexOf('bare') >= 0) document.documentElement.classList.add('bare');</script>
 </head>
 <body>
-
-<header>
-  <span>NO TELEMETRY &mdash; http://localhost:5005</span>
-  <span id="status" class="mfd-status disconnected">&#9679; DISCONNECTED</span>
-</header>
 
 <main>
   <div id="map-panel">
@@ -42,44 +33,8 @@
     <div id="mission-bar" class="empty">
       <div class="mission-name" id="mission-name">—</div>
     </div>
-    <div id="follow-btn" class="off">FOLLOW</div>
     <div id="grid-bar" class="mfd-chip empty">GRID: &mdash;</div>
     <div id="unit-label"></div>
-  </div>
-
-  <div id="hud">
-    <div class="panel">
-      <div class="label">AIRCRAFT</div>
-      <div id="plane-name" class="dim">—</div>
-    </div>
-    <div class="panel">
-      <div class="label">GRID</div>
-      <div id="grid" class="dim">—</div>
-    </div>
-    <div class="panel">
-      <div class="label">SPEED</div>
-      <div class="big"><span id="tas" class="dim">—</span><span class="unit">km/h</span></div>
-    </div>
-    <div class="panel">
-      <div class="label">AGL ALTITUDE</div>
-      <div class="big"><span id="agl" class="dim">—</span><span class="unit">m</span></div>
-    </div>
-    <div class="panel">
-      <div class="label">HEADING / GEAR</div>
-      <div class="big"><span id="hdg" class="dim">—</span><span class="unit">°</span>
-        &nbsp; <span id="gear" style="font-size:16px">—</span></div>
-    </div>
-    <div class="panel">
-      <div class="label">COUNTERMEASURES</div>
-      <div id="cm">
-        <div class="cm-row" id="cm-row-flares"><span>IR Flares</span><span id="cm-flares" class="cm-val dim">—</span></div>
-        <div class="cm-row" id="cm-row-ew"><span>EW Capacitor</span><span id="cm-ew" class="cm-val dim">—</span></div>
-      </div>
-    </div>
-    <div class="panel" style="flex:1; min-height:0; display:flex; flex-direction:column">
-      <div class="label">LOADOUT</div>
-      <div id="loadout"><span class="none">—</span></div>
-    </div>
   </div>
 </main>
 

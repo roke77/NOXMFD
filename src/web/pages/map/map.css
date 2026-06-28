@@ -15,32 +15,12 @@ body {
   overflow: hidden;
 }
 
-header {
-  padding: 5px 12px;
-  border-bottom: 1px solid var(--no-panel-border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 11px;
-  color: var(--no-green-dim);
-  flex-shrink: 0;
-}
-#status { font-weight: bold; }
-
 main { flex: 1; display: flex; overflow: hidden; }
-
-/* "bare" mode (e.g. embedded in the MFD frame at /map-view?bare): map only, no chrome. The
-   .bare class is set on <html> by the synchronous head script (see map.html), so these match
-   before the body first paints — no flash of the standalone header/HUD in the MFD frame. */
-.bare header,
-.bare #hud { display: none; }
-.bare #map-panel { border-right: none; }
 
 #map-panel {
   flex: 1;
   position: relative;
   background: #000;
-  border-right: 1px solid var(--no-panel-border);
   overflow: hidden;
   /* Custom HUD-green crosshair, constant regardless of zoom/drag state. */
   cursor: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48ZyBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAiIHN0cm9rZS1vcGFjaXR5PSIuNTUiIHN0cm9rZS13aWR0aD0iMy40IiBzdHJva2UtbGluZWNhcD0icm91bmQiPjxsaW5lIHgxPSIxMiIgeTE9IjIiIHgyPSIxMiIgeTI9IjgiLz48bGluZSB4MT0iMTIiIHkxPSIxNiIgeDI9IjEyIiB5Mj0iMjIiLz48bGluZSB4MT0iMiIgeTE9IjEyIiB4Mj0iOCIgeTI9IjEyIi8+PGxpbmUgeDE9IjE2IiB5MT0iMTIiIHgyPSIyMiIgeTI9IjEyIi8+PC9nPjxnIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzM5ZmYxNCIgc3Ryb2tlLXdpZHRoPSIxLjciIHN0cm9rZS1saW5lY2FwPSJyb3VuZCI+PGxpbmUgeDE9IjEyIiB5MT0iMiIgeDI9IjEyIiB5Mj0iOCIvPjxsaW5lIHgxPSIxMiIgeTE9IjE2IiB4Mj0iMTIiIHkyPSIyMiIvPjxsaW5lIHgxPSIyIiB5MT0iMTIiIHgyPSI4IiB5Mj0iMTIiLz48bGluZSB4MT0iMTYiIHkxPSIxMiIgeDI9IjIyIiB5Mj0iMTIiLz48L2c+PC9zdmc+) 12 12, crosshair;
@@ -71,25 +51,8 @@ main { flex: 1; display: flex; overflow: hidden; }
   bottom: 10px; right: 12px;
 }
 
-/* FOLLOW indicator — only rendered when follow mode is ON (orange box).
-   OFF state is hidden entirely so the corner stays clean. */
-#follow-btn {
-  position: absolute;
-  top: 10px; right: 12px;
-  background: var(--no-panel-bg);
-  border: 1px solid var(--no-amber);
-  padding: 5px 9px;
-  font-size: 11px;
-  letter-spacing: 1px;
-  color: var(--no-amber);
-  user-select: none;
-  pointer-events: none;
-}
-#follow-btn.off { display: none; }
-/* Embedded inside the MFD frame: the MFD shell renders its own FOLLOW indicator
-   (so it can stack alongside the PINNED indicator), so hide the iframe's local one.
-   .bare is on <html> (set by the head script), so this is a descendant selector. */
-.bare #follow-btn { display: none; }
+/* FOLLOW is shown by the MFD shell's own indicator (stacked alongside PINNED), not here —
+   MAP just mirrors its follow state up via source.emitFollow(). */
 
 #unit-label {
   position: absolute;
@@ -105,26 +68,3 @@ main { flex: 1; display: flex; overflow: hidden; }
   z-index: 50;
 }
 
-#hud { width: 210px; display: flex; flex-direction: column; flex-shrink: 0; }
-#loadout { font-size: 12px; color: var(--no-green); overflow-y: auto; height: 100%; }
-#loadout .none { color: var(--no-green-dark); }
-.witem { margin-bottom: 9px; }
-.wname { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wammo { font-size: 11px; color: var(--no-green-dim); }
-.wammo span { color: var(--no-green); }
-.witem.sel .wname, .witem.sel .wammo, .witem.sel .wammo span { color: var(--no-amber); }  /* selected weapon */
-.wicon { height: 80px; max-width: 100%; margin-top: 2px; display: block; }
-.panel  { border-bottom: 1px solid var(--no-panel-border); padding: 9px 12px; }
-.label  { font-size: 9px; letter-spacing: 2px; color: var(--no-green-dim); margin-bottom: 3px; }
-.big    { font-size: 26px; font-weight: bold; letter-spacing: 1px; }
-.unit   { font-size: 10px; color: var(--no-green-dim); margin-left: 3px; }
-#plane-name { font-size: 14px; font-weight: bold; word-break: break-all; }
-#grid   { font-size: 22px; font-weight: bold; letter-spacing: 2px; }
-#gear.down  { color: var(--no-amber); }
-#gear.up    { color: var(--no-green); }
-#cm { font-size: 13px; }
-.cm-row { display: flex; justify-content: space-between; line-height: 1.9; color: var(--no-green-dim); }
-.cm-row .cm-val { color: var(--no-green); font-weight: bold; }
-.cm-row .cm-val.dim { color: var(--no-green-dark); font-weight: normal; }
-.cm-row.cm-sel, .cm-row.cm-sel .cm-val { color: var(--no-amber); }   /* currently selected */
-.dim { color: var(--no-green-dark); }

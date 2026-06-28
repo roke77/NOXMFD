@@ -7,9 +7,6 @@ import { TelemetrySource, gridLabel } from '/assets/services/telemetry-source.js
 // ── State (declared first so callbacks never hit a temporal dead zone) ──────────
 let   lastData  = null;        // last rendered frame (the source hands it to renderFrame)
 let   mapMeta   = null;        // { w, h, ox, oy } — the view's copy, for worldToBase / gridLabel
-let   loadoutNames = null;     // weapon-name signature; rebuild DOM only when it changes
-let   ammoEls = [];            // ammo text elements, aligned with loadout order
-let   witemEls = [];           // weapon item containers, aligned with loadout order
 
 // Map-icon sizes switch with zoom: larger when zoomed in, smaller when zoomed out — so icons
 // stay legible up close without cluttering the full-extent view. Picked by iconBase() /
@@ -44,8 +41,6 @@ const RWR_LINE_ALPHA = [0.5, 0.7, 0.95];                            // base alph
 const mapImg   = document.getElementById('map-img');
 const overlay  = document.getElementById('overlay');
 const oc       = overlay.getContext('2d');
-const statusEl = document.getElementById('status');
-const followBtn = document.getElementById('follow-btn');
 const gridBar   = document.getElementById('grid-bar');
 const unitLabel = document.getElementById('unit-label');
 
@@ -430,15 +425,11 @@ function handleNoMission(didEnd) {
   setNoSignal(true);
 }
 
-// Reflect the connection status in the readout. (The source mirrors it up to the shell.)
-function setStatusDom(cls, text) {
-  statusEl.className   = 'mfd-status ' + cls;
-  statusEl.textContent = text;
-}
-
 // The single telemetry provider for the whole MFD: it owns /stream, derives the per-page slices,
-// and broadcasts them up. We just render the frames it hands back. connect() is called from init.
-const source = new TelemetrySource({ onFrame: renderFrame, onNoMission: handleNoMission, onStatus: setStatusDom });
+// and broadcasts them up — including the connection status, which the shell renders on MAIN (MAP
+// no longer has its own status readout). We just render the frames it hands back; connect() is
+// called from init.
+const source = new TelemetrySource({ onFrame: renderFrame, onNoMission: handleNoMission });
 
 // Wipe the view when a mission/map exits, so stale data never lingers on screen. The matching
 // "everything is empty" broadcast to the shell is the source's job (_emitEmpties); NO SIGNAL is
@@ -449,34 +440,20 @@ function clearViewState() {
   if (threatTimer) { clearInterval(threatTimer); threatTimer = null; }   // stop the missile-flash loop
   mapWasValid = false;
   view.zoom = 1; view.panX = 0; view.panY = 0;   // next mission starts at full extent
-  followPlayer = false; followBtn.className = 'off'; followBtn.textContent = 'FOLLOW';
+  followPlayer = false;                           // follow resets for the next mission
   oc.clearRect(0, 0, overlay.width, overlay.height);
   document.getElementById('map-panel').classList.remove('has-map');
   mapImg.src = '/map?t=' + Date.now();   // 404 now → falls back to the placeholder
 
   document.getElementById('mission-bar').className = 'empty';
   document.getElementById('grid-bar').className = 'mfd-chip empty';
-  dim('plane-name'); dim('grid'); dim('tas'); dim('agl'); dim('hdg');
-  const gEl = document.getElementById('gear'); gEl.textContent = '—'; gEl.className = '';
-  const fEl = document.getElementById('cm-flares'); fEl.textContent = '—'; fEl.className = 'cm-val dim';
-  const eEl = document.getElementById('cm-ew'); eEl.textContent = '—'; eEl.className = 'cm-val dim';
-  document.getElementById('cm-row-flares').classList.remove('cm-sel');
-  document.getElementById('cm-row-ew').classList.remove('cm-sel');
-  document.getElementById('loadout').innerHTML = '<span class="none">—</span>';
-  loadoutNames = null;
-  ammoEls = [];
-  witemEls = [];
-}
-
-function dim(id) {
-  const el = document.getElementById(id);
-  el.textContent = '—';
-  if (!el.className.includes('dim')) el.className = (el.className + ' dim').trim();
 }
 
 // ── HUD ──────────────────────────────────────────────────────────────────────────
+// MAP's own on-map chrome: the mission-name bar (top-left) and the GRID chip (bottom-right).
+// Every other telemetry slice (status / loadout / cm / tgp / targets / rwr / mw / avn) is derived
+// and broadcast to the shell by TelemetrySource._emit — the dedicated MFD pages render those.
 function updateHUD(d) {
-  // Mission / map name bar
   const bar = document.getElementById('mission-bar');
   if (d.mission) {
     bar.className = '';
@@ -485,94 +462,9 @@ function updateHUD(d) {
     bar.className = 'empty';
   }
 
-  set('plane-name', d.name);
   const gridText = gridLabel(d.world.x, d.world.z, mapMeta);
-  set('grid', gridText);
   gridBar.textContent = 'GRID: ' + gridText;
   gridBar.className = 'mfd-chip';
-  set('tas', (d.tas * 3.6).toFixed(0));   // m/s → km/h
-  set('agl', d.agl.toFixed(0));
-  set('hdg', d.hdg.toFixed(0));
-
-  updateLoadout(d);
-  // (The cm / tgp / targets / rwr / mw / avn slices for the other MFD pages are derived and
-  //  broadcast up by TelemetrySource._emit — not here. This function only renders MAP's own HUD.)
-
-  const gEl = document.getElementById('gear');
-  gEl.textContent = d.gear.toUpperCase();
-  gEl.className   = d.gear;
-
-  // Countermeasures (-1 = the aircraft has no such system)
-  const fEl = document.getElementById('cm-flares');
-  fEl.textContent = (d.flares >= 0) ? d.flares : '—';
-  fEl.className   = 'cm-val' + (d.flares >= 0 ? '' : ' dim');
-  const eEl = document.getElementById('cm-ew');
-  eEl.textContent = (d.ewKJ >= 0) ? (Math.round(d.ewKJ) + ' kJ') : '—';
-  eEl.className   = 'cm-val' + (d.ewKJ >= 0 ? '' : ' dim');
-
-  // Highlight the currently selected countermeasure line (1 = flares, 2 = EW)
-  document.getElementById('cm-row-flares').classList.toggle('cm-sel', d.cmCat === 1);
-  document.getElementById('cm-row-ew').classList.toggle('cm-sel', d.cmCat === 2);
-}
-
-function set(id, text) {
-  const el = document.getElementById(id);
-  el.textContent = text;
-  el.className   = el.className.replace('dim', '').trim();
-}
-
-// Renders the loadout: each weapon's name, remaining/total ammo, and its game icon.
-// The DOM (and icon fetches) are rebuilt only when the set of weapons changes; ammo text
-// is refreshed in place every frame so firing doesn't re-fetch the icons.
-function updateLoadout(d) {
-  const list = d.loadout;
-  const loEl = document.getElementById('loadout');
-  // (The loadout broadcast to the WPN page is done by TelemetrySource._emit; this only renders
-  //  MAP's own loadout sidebar.)
-
-  if (!list || !list.length) {
-    if (loadoutNames !== '') { loadoutNames = ''; ammoEls = []; witemEls = []; loEl.innerHTML = '<span class="none">— none —</span>'; }
-    return;
-  }
-
-  const key = list.map(function(w) { return w.n; }).join('|');
-  if (key !== loadoutNames) {
-    loadoutNames = key;
-    ammoEls = [];
-    witemEls = [];
-    loEl.innerHTML = '';
-    for (const w of list) {
-      const item = document.createElement('div');
-      item.className = 'witem';
-      witemEls.push(item);
-
-      const name = document.createElement('div');
-      name.className = 'wname';
-      name.textContent = w.n;
-      item.appendChild(name);
-
-      const ammo = document.createElement('div');
-      ammo.className = 'wammo';
-      item.appendChild(ammo);
-      ammoEls.push(ammo);
-
-      const img = document.createElement('img');
-      img.className = 'wicon';
-      img.alt = '';
-      img.onerror = function() { img.remove(); };   // no icon for this weapon
-      img.src = '/weapon?name=' + encodeURIComponent(w.n);
-      item.appendChild(img);
-
-      loEl.appendChild(item);
-    }
-  }
-
-  // Refresh ammo text and the selected-weapon highlight in place (cheap, no DOM rebuild).
-  for (let i = 0; i < list.length && i < ammoEls.length; i++) {
-    const w = list[i];
-    ammoEls[i].innerHTML = (w.f > 0) ? ('<span>' + w.a + '</span> / ' + w.f) : '';
-    witemEls[i].classList.toggle('sel', w.n === d.selWeapon);
-  }
 }
 
 // ── Map zoom / pan ───────────────────────────────────────────────────────────────
@@ -582,10 +474,8 @@ function resetView() { view.zoom = 1; view.panX = 0; view.panY = 0; setFollow(fa
 // indicator only — drawOverlay does the centring.
 function setFollow(on) {
   followPlayer = on;
-  followBtn.className   = on ? 'on' : 'off';
-  followBtn.textContent = 'FOLLOW';
   drawOverlay();
-  source.emitFollow(on);   // mirror the follow state up to the shell (FOLLOW chip)
+  source.emitFollow(on);   // mirror the follow state up to the shell, which renders the FOLLOW chip
 }
 window.addEventListener('keydown', function(e) {
   if ((e.key === 'f' || e.key === 'F') && mapMeta) setFollow(!followPlayer);
@@ -780,9 +670,6 @@ window.addEventListener('message', function(e) {
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────────
-// "bare" mode (hide header + HUD chrome for the MFD frame) is set on <html> by the synchronous
-// head script in map.html — early enough that the chrome never paints. Nothing to do here.
-
 // Size the canvas to its panel. This module is deferred (type="module"), so init can run while
 // the shell's power-on boot still has the recess mid-layout (panel width 0). Retry on the next
 // frame until the panel has a real width, so the first sizing isn't stuck on a transient 0 — the
