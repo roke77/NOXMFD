@@ -5,7 +5,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: #060a06;
+  background: #000;
   color: var(--no-green);
   font-family: 'Courier New', monospace;
   font-size: 13px;
