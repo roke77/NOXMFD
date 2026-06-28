@@ -64,6 +64,12 @@ is why MAP is the **always-on base iframe** (under `#page-frame` + the overlay) 
 flowing to them. (In split, a MAP *pane* also opens `/stream`, but the shell ignores its mirror
 posts — only the base `mapFrame`'s posts drive the caches.)
 
+**MAP view state (FLW + ZOOM)** persists in `sessionStorage` under `noxmfd.map.view`, shared
+same-origin across the base map iframe and any split-pane map — so it survives page navigation,
+split-pane reloads, and the mission-exit reset, and follow is mirrored up to the shell's FOLLOW
+chip on (re)entry. First run seeds the defaults (follow **on**, a medium zoom). It's view-local —
+not part of the data path; `map.js` owns it (`loadPersistedView` / `savePersistedView`).
+
 ## Hosting model
 
 - **Full view:** the visible page renders in the shell's single `#page-frame` iframe
