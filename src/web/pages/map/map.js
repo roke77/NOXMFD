@@ -780,8 +780,8 @@ window.addEventListener('message', function(e) {
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────────
-// "bare" mode: hide header + HUD sidebar so just the map shows (used by the MFD frame).
-if (location.search.indexOf('bare') >= 0) document.body.classList.add('bare');
+// "bare" mode (hide header + HUD chrome for the MFD frame) is set on <html> by the synchronous
+// head script in map.html — early enough that the chrome never paints. Nothing to do here.
 
 // Size the canvas to its panel. This module is deferred (type="module"), so init can run while
 // the shell's power-on boot still has the recess mid-layout (panel width 0). Retry on the next

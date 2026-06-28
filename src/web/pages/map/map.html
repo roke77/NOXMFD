@@ -17,6 +17,10 @@
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
 <link rel="stylesheet" href="/assets/pages/map/map.css">
+<!-- Set "bare" on <html> SYNCHRONOUSLY here (not from the deferred module below): the CSS that
+     hides the header + HUD chrome then applies before the body first paints, so the MFD never
+     flashes the standalone layout for a frame while map.js loads. -->
+<script>if (location.search.indexOf('bare') >= 0) document.documentElement.classList.add('bare');</script>
 </head>
 <body>
 
