@@ -295,14 +295,17 @@ function renderSplitLabels() {
     } else {
       items = def.items;
     }
+    // Apply this pane's contract softkeys FIRST: applySoftkeys clears the row-key zone (slots
+    // 1..2 both sides) before re-applying any softkeys the page emitted (only TGL does). Static
+    // nav items are placed AFTER, so a page like MAIN — whose nav fills slots 1..2 (MAP/RWR on
+    // the left, TGP/WPN on the right), not just slot 0 — isn't clobbered by that zone-clear.
+    // Softkeys (TGL deselect, slots 1..2) and the slot-0 nav are disjoint, so order is safe.
+    applySoftkeys(paneSoftkeys[paneIdx], paneOffset, 2);
     items.forEach(function(item) {
       placeOverlayLabel(item.side, item.slot + paneOffset, item.label, item.action);
       const physicalKey = keyBanks[item.side][item.slot + paneOffset];
       if (physicalKey) physicalKey.dataset.pane = paneTag;
     });
-    // Re-apply this pane's contract softkeys (clearKeyActions above wiped them). Empty for panes
-    // whose page emits none; only TGL populates it. Nav (slot 0) is untouched (rows are 1..2).
-    applySoftkeys(paneSoftkeys[paneIdx], paneOffset, 2);
   }
 }
 
