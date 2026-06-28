@@ -1,5 +1,5 @@
 /* MAIN split-pane card styles. Extracted from MainPage.cs's inline <style>; the
-   embedded @font-face moved to web/shared/font.css (linked before this). */
+   embedded @font-face moved to src/web/shared/font.css (linked before this). */
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   body {
     display: flex;

@@ -139,9 +139,9 @@ Fits the existing pipeline cleanly:
 
 - The reader already grabs the local aircraft each tick via
   `GameManager.GetLocalAircraft(out Aircraft ac)`
-  ([TelemetryReader.cs:166](../src/TelemetryReader.cs)) and already exports
+  ([TelemetryReader.cs:166](../src/plugin/TelemetryReader.cs)) and already exports
   tracked units (`UnitInfo[]` in
-  [TelemetrySnapshot.cs](../src/TelemetrySnapshot.cs)). RWR emitters are
+  [TelemetrySnapshot.cs](../src/plugin/TelemetrySnapshot.cs)). RWR emitters are
   the same kind of object in the same world space.
 
 ### Work item 1 — Reader: subscribe and aggregate

@@ -1,4 +1,4 @@
-# src/ web-frontend architecture — design & refactor plan
+# src/web frontend architecture — design & refactor plan
 
 Status: **COMPLETE (2026-06-27)** — all seven steps done. Resource plumbing, shared font/theme,
 **WPN** as the proof page, then **TGL** (which introduced the **declarative softkey contract**, now
@@ -6,9 +6,9 @@ applied in **both** full view and split — the per-target deselect keys ride on
 targeting-pod feed — no softkeys/geometry, one profile for both layouts),
 **AVN** (avionics silhouette + FUEL/THROTTLE bars — two profiles; full anchors name/frame to the
 bezel geometry the shell forwards), and **RWR** (radar-warning scope — one responsive SVG, one
-profile, two streams). **Step 5:** MAP, MAIN, and the shell live under `web/`, `/config`
+profile, two streams). **Step 5:** MAP, MAIN, and the shell live under `src/web/`, `/config`
 replaced URL templating, and the preview harness serves the real files directly. **Step 6 (shared
-JS):** scoped to its one real win — `sendCommand` extracted to `web/services/send-command.js`;
+JS):** scoped to its one real win — `sendCommand` extracted to `src/web/services/send-command.js`;
 `sse-client` was moot (MAP is the sole `/stream` consumer post-step-5) and a shared `mfd-protocol`
 helper was deliberately skipped (the inbound guard is 7 trivial one-liners and the outbound
 envelope literals sit almost entirely in the shell + map — no cross-page win to justify touching
@@ -114,7 +114,7 @@ renderer (the bare page, promoted to the single source of truth).
 > `follow`) **up** to the shell, which caches and re-forwards them **down** to the
 > other pages. So the data flow is `/stream → MAP → shell → pages`, and MAP is the
 > always-on **base** iframe (not a `#page-frame` page) so it stays connected behind
-> whatever page is in view. Rationale + diagram: [`web/README.md`](../web/README.md).
+> whatever page is in view. Rationale + diagram: [`src/web/README.md`](../src/web/README.md).
 
 ### B. Declarative bezel-softkey contract
 Replace the twice-hand-coded bezel binding with a one-way contract:
@@ -142,30 +142,32 @@ the overlay `renderTgl` and `renderSplitLabels`) into a single declarative path.
 
 ### C. Proposed file layout
 ```
-web/
-  shared/
-    theme.css            # green theme, colours, layout primitives
-    font.css             # the @font-face (the woff2 lives here, ONCE)
-    sse-client.js        # SSE connect/parse (today duplicated in ClientPage + panes)
-    mfd-protocol.js      # postMessage envelope helpers (data down, softkeys up)
-    sendCommand.js       # flat /command POST helper (today in ClientPage + MfdPage)
-  shell/
-    mfd.html  mfd.css  mfd.js     # the shell (was MfdPage.cs)
-  pages/
-    wpn/ wpn.html wpn.css wpn.js  # DONE (was WpnPage.cs; now full + split in one file)
-    tgl/ tgp/ avn/ rwr/ main/ map/   # one folder per page (map was ClientPage.cs)
+src/
+  plugin/                         # BepInEx plugin, telemetry reader, HTTP server
+  web/
+    shared/
+      theme.css            # green theme, colours, layout primitives
+      font.css             # the @font-face (the woff2 lives here, ONCE)
+    services/
+      telemetry-source.js  # MAP-owned stream provider
+      send-command.js      # flat /command POST helper
+    shell/
+      mfd.html  mfd.css  mfd.js
+    pages/
+      wpn/ wpn.html wpn.css wpn.js
+      tgl/ tgp/ avn/ rwr/ main/ map/
 ```
-**Convention (adopted):** one folder per page, `web/pages/<x>/<x>.{html,css,js}`. The page
+**Convention (adopted):** one folder per page, `src/web/pages/<x>/<x>.{html,css,js}`. The page
 links `/assets/shared/font.css` + `theme.css` then `/assets/pages/<x>/<x>.css`, and ends with
 `<script src="/assets/pages/<x>/<x>.js">`. Served at `/<x>` via `ServeAssetRel`.
-`.csproj`: one `<EmbeddedResource Include="web/**/*" />`. `TelemetryServer`
+`.csproj`: one `<EmbeddedResource Include="src/web/**/*" />`. `TelemetryServer`
 resolves a request path → resource stream (a small static-asset map / convention)
 and serves with the right content-type, replacing the per-page `XxxPage.Html`
 constants and the `{{LAN_URL_BLOCK}}` string replace (becomes a runtime inject or
 a tiny templating pass).
 
 ### D. Build / preview impact
-The real `web/` files are directly servable. `tools/serve_web.py` serves the shell,
+The real `src/web/` files are directly servable. `tools/serve_web.py` serves the shell,
 pages, `/config`, captured assets, and the MAP mock layer. `tools/build_preview.py`
 is now only a compatibility cleanup helper that removes stale generated preview
 HTML; no C# string extraction remains.
@@ -174,22 +176,22 @@ HTML; no C# string extraction remains.
 
 The DLL keeps building and the UI keeps working after every step.
 
-1. ~~**Resource plumbing.**~~ **DONE.** `web/` + `<EmbeddedResource>`; `TelemetryServer`
-   serves `web/` files via `ServeAsset`/`ServeAssetRel` under `/assets/` (suffix-matched).
-2. ~~**Extract shared font + theme.**~~ **DONE.** `web/shared/font.css` (woff2 externalised
+1. ~~**Resource plumbing.**~~ **DONE.** `src/web/` + `<EmbeddedResource>`; `TelemetryServer`
+   serves `src/web/` files via `ServeAsset`/`ServeAssetRel` under `/assets/` (suffix-matched).
+2. ~~**Extract shared font + theme.**~~ **DONE.** `src/web/shared/font.css` (woff2 externalised
    to one binary), `theme.css` (base + colour tokens). WPN references them; other pages
    de-dup as they migrate.
 3. ~~**Convert one page end-to-end as the proof (WPN).**~~ **DONE.** WPN now lives in
-   `web/pages/wpn/{wpn.html,wpn.css,wpn.js}` with two layout profiles in one file
+   `src/web/pages/wpn/{wpn.html,wpn.css,wpn.js}` with two layout profiles in one file
    (compact = split pane, full = full screen). The shell hosts full-view WPN in a
    `#page-frame` iframe (forwarding full-screen geometry from the bezel separators) and the
    old `wpn-panel` overlay + `renderWpn`/`renderCm` + their markup/CSS are deleted. Note:
    WPN needs **no softkey contract** — its only keys are nav (MAIN/PREV/NEXT), which stay
    shell-owned because pagination is shell state. The softkey contract arrives with TGL
    (step 4), which has per-target (deselect) keys. Verified in a shell harness over http.
-4. **Roll the pattern to TGL, TGP, AVN, RWR, MAIN.** Each: file split (into `web/pages/<x>/`),
+4. **Roll the pattern to TGL, TGP, AVN, RWR, MAIN.** Each: file split (into `src/web/pages/<x>/`),
    drop the overlay, host full-view in `#page-frame`. **TGL: DONE** —
-   `web/pages/tgl/{tgl.html,tgl.css,tgl.js}`, overlay + `renderTgl` deleted, and the
+   `src/web/pages/tgl/{tgl.html,tgl.css,tgl.js}`, overlay + `renderTgl` deleted, and the
    **declarative softkey contract** landed (page emits `{side,slot,label,
    action:'target.deselect',data:{id}}`; shell `applySoftkeys` maps `slot+paneOffset`). The
    contract now drives **both** full view (offset 0, rows 1–5) **and split** (offset 0/3, rows
@@ -197,12 +199,12 @@ The DLL keeps building and the UI keeps working after every step.
    it after clearing the bezel. The legacy `renderSplitLabels` hand-binding + `tgl-deselect`
    dispatch are gone; deselect keys carry no `data-pane` and fall through to the shared
    `target.deselect` switch case.
-   **TGP: DONE** — `web/pages/tgp/{tgp.html,tgp.css,tgp.js}`, overlay (`.tgp-panel` markup/CSS +
+   **TGP: DONE** — `src/web/pages/tgp/{tgp.html,tgp.css,tgp.js}`, overlay (`.tgp-panel` markup/CSS +
    `tgpPanel`/`tgpImg` refs + MJPEG handling) deleted, hosted in `#page-frame` via
    `forwardTgpToFrame`. The simplest page: no key-band geometry, no pagination, no softkeys, so
    **no separate `full` profile** — the centred 3:2 feed renders identically in both layouts
    (like MAP). `PAGES.tgp` flipped to `opaque:false`; its only key is the static MAIN label.
-   **AVN: DONE** (verified in-game) — `web/pages/avn/{avn.html,avn.css,avn.js}`, the largest
+   **AVN: DONE** (verified in-game) — `src/web/pages/avn/{avn.html,avn.css,avn.js}`, the largest
    page (shell shed ~660 lines: ~300 CSS + ~360 JS + markup/refs/state). **Two profiles:**
    compact (split pane) keeps the fixed name/frame pixel offsets; full (`body.full`) overrides
    them — name vertical-centred on the bezel `key[0]` row + sized up, frame spanning
@@ -213,19 +215,19 @@ The DLL keeps building and the UI keeps working after every step.
    `renderAvn..positionAvnBarValue`. **Harness note:** `serve_web.py` now serves captured
    `/airframe[-layout]` data from `preview/assets/manifest.json`, so silhouettes render in the
    HTTP harness when a capture exists (otherwise the page uses its normal no-silhouette fallback).
-   **RWR: DONE** — `web/pages/rwr/{rwr.html,rwr.css,rwr.js}`. Like TGP, one responsive SVG
+   **RWR: DONE** — `src/web/pages/rwr/{rwr.html,rwr.css,rwr.js}`. Like TGP, one responsive SVG
    (1000×1000 viewBox, `preserveAspectRatio` meet) → **no separate `full` profile**. Two data
    streams: `forwardRwrToFrame` (contacts) + `forwardMwToFrame` (incoming missiles); kept
    `rwrData` + `mwData` (the forwarders read them); deleted `RWR_COL`/`rwrShort`/`renderRwr`/
    `renderThreats` + the missile-flicker timer. `opaque:false`; only key is the static MAIN label.
-   **MAIN: DONE in step 5b/5c** — its split-pane card lives in `web/pages/main/`; its full view
-   is the shell's info-box + boot loader in `web/shell/` (startup chrome, not page content).
+   **MAIN: DONE in step 5b/5c** — its split-pane card lives in `src/web/pages/main/`; its full view
+   is the shell's info-box + boot loader in `src/web/shell/` (startup chrome, not page content).
    LAN URLs now come from runtime `/config`, so there is no server-side HTML templating path left.
-5. ~~**Convert MAP, MAIN, and the shell**~~ **DONE.** `web/pages/map/`, `web/pages/main/`, and
-   `web/shell/` are the live frontend sources; `ClientPage.cs`, `MainPage.cs`, and `MfdPage.cs`
+5. ~~**Convert MAP, MAIN, and the shell**~~ **DONE.** `src/web/pages/map/`, `src/web/pages/main/`, and
+   `src/web/shell/` are the live frontend sources; `ClientPage.cs`, `MainPage.cs`, and `MfdPage.cs`
    are deleted.
 6. ~~**Extract shared JS**~~ **DONE (scoped).** Only `sendCommand` was a real duplicate (map.js +
-   mfd.js, near-identical) → extracted to `web/services/send-command.js`, linked as a classic
+   mfd.js, near-identical) → extracted to `src/web/services/send-command.js`, linked as a classic
    `<script>` before each consumer's own script; it returns the raw fetch promise so the MAP tap
    keeps inspecting `r.ok` and the shell's fire-and-forget call adds its own `.catch`. `sse-client`
    was **moot** (after step 5 MAP is the sole `EventSource('/stream')` consumer). A shared
@@ -233,7 +235,7 @@ The DLL keeps building and the UI keeps working after every step.
    one-liners and the outbound envelope literals are concentrated in the shell + map, so a shared
    module would touch ~16 files (every page's js + html) for cosmetic savings while adding a single
    point of failure across all pages. The per-page `message` listeners stay local.
-7. ~~**Simplify preview tooling**~~ **DONE (pulled into 5c).** `serve_web.py` serves `web/`
+7. ~~**Simplify preview tooling**~~ **DONE (pulled into 5c).** `serve_web.py` serves `src/web/`
    directly; `build_preview.py` only removes stale generated files.
 
 ## Step 5 execution plan (MAP + MAIN + shell)
@@ -255,8 +257,8 @@ must survive the move intact.
 - **D1 — LAN URLs → `/config` endpoint: DONE.** `GET /config` returns JSON `{ localhost, lanUrl, port }`.
   The shell + the MAIN card `fetch('/config')` on load and fill `.ib-url`. `TelemetryServer` dropped
   the `{{LAN_URL_BLOCK}}`/localhost string-replace (resolves open question #4). No HTML templating.
-- **D2 — the info-box + boot loader stay SHELL chrome** (in `web/shell/mfd.*`). They're power-on
-  furniture (`flickerScreen`/`runBootLoading`/`typewriterUrls`), not page content. `web/pages/main/`
+- **D2 — the info-box + boot loader stay SHELL chrome** (in `src/web/shell/mfd.*`). They're power-on
+  furniture (`flickerScreen`/`runBootLoading`/`typewriterUrls`), not page content. `src/web/pages/main/`
   is only the **split-pane card** (shares `theme.css`). Accept the minor card duplication; the boot
   animation never has to run inside an iframe. (So MAIN is NOT hosted in `#page-frame` — full-view
   MAIN remains the shell's `#info-box`.)
@@ -264,14 +266,14 @@ must survive the move intact.
   extraction (`sendCommand`/SSE/postMessage) is step 6, after.
 
 **Sub-steps (each builds + verifies in the harness, then in-game):**
-- **5a — MAP: DONE.** `web/pages/map/{map.html,map.css,map.js}`; point `/map-view` at `ServeAssetRel`;
+- **5a — MAP: DONE.** `src/web/pages/map/{map.html,map.css,map.js}`; point `/map-view` at `ServeAssetRel`;
   delete `ClientPage.cs`. It stays the base data-tap iframe. Biggest single file (~1161 lines) but
   mechanically a move — no overlay twin to delete. Highest leverage to de-risk early.
 - **5b — `/config` + MAIN: DONE.** `/config` serves `{ localhost, lanUrl, port }`;
-  `web/pages/main/{main.html,main.css,main.js}` is the split-pane card; shell + card fetch
+  `src/web/pages/main/{main.html,main.css,main.js}` is the split-pane card; shell + card fetch
   `/config`; the `{{LAN_URL_BLOCK}}`/`MainPage.cs` string-replace path is gone. The full MAIN
   info-box stayed shell chrome and moved with the shell in 5c.
-- **5c — the shell: DONE.** `web/shell/{mfd.html,mfd.css,mfd.js}` (~1849 lines: bezel/keys, split logic,
+- **5c — the shell: DONE.** `src/web/shell/{mfd.html,mfd.css,mfd.js}` (~1849 lines: bezel/keys, split logic,
   all `forwardX*` relays, `showPage`, `mfdButton`, indicators, orientation, power-on/boot, the SSE
   relay handler, the info-box markup). `TelemetryServer` serves it from `/`; `serve_web.py` serves
   it from `/`, injects the MAP mock at `/map-view`, serves `/config`, and serves captured
@@ -284,43 +286,47 @@ http harness + live server, but the shell is served at `/`).
 ## Implementation playbook (for an agent continuing this work)
 
 Concrete, learned-by-doing guidance. **WPN is the reference implementation — copy its
-pattern.** Read `web/pages/wpn/*` and the WPN-specific hooks in `web/shell/mfd.js` first.
+pattern.** Read `src/web/pages/wpn/*` and the WPN-specific hooks in `src/web/shell/mfd.js` first.
 
 ### File map (current, post-step 5c)
 ```
-web/
-  shared/  font.css  theme.css  share-tech-mono.woff2   # font.css → /assets/shared/...woff2
-  shell/   mfd.html  mfd.css  mfd.js                    # DONE: bezel shell + split/page hosting
-  pages/
-    wpn/   wpn.html  wpn.css  wpn.js                     # DONE: one file, two profiles
-    tgl/   tgl.html  tgl.css  tgl.js                     # DONE: + declarative softkey contract
-    tgp/   tgp.html  tgp.css  tgp.js                     # DONE: one profile (feed, like MAP)
-    avn/   avn.html  avn.css  avn.js                     # DONE: two profiles (full anchors to bezel geom)
-    rwr/   rwr.html  rwr.css  rwr.js                     # DONE: one profile (responsive SVG), 2 streams
-    map/   map.html  map.css  map.js                     # DONE: base map + only /stream consumer
-    main/  main.html main.css main.js                    # DONE: split-pane card; full MAIN is shell chrome
 src/
-  TelemetryServer.cs   # ServeAsset (/assets/ route) + ServeAssetRel(ctx,"pages/x/x.html");
-                       #   per-page routes (e.g. /wpn) call ServeAssetRel. /assets suffix-matches
-                       #   the embedded-resource manifest "<RootNamespace>.web.<dotted path>".
-NOXMFD.csproj          # <EmbeddedResource Include="web\**\*" />
+  plugin/
+    TelemetryServer.cs # ServeAsset (/assets/ route) + ServeAssetRel(ctx,"pages/x/x.html");
+                       # per-page routes (e.g. /wpn) call ServeAssetRel. /assets suffix-matches
+                       # the embedded-resource manifest "<RootNamespace>.src.web.<dotted path>".
+    TelemetryReader.cs
+    TelemetrySnapshot.cs
+  web/
+    shared/  font.css  theme.css  share-tech-mono.woff2 # font.css → /assets/shared/...woff2
+    services/ telemetry-source.js  send-command.js
+    shell/   mfd.html  mfd.css  mfd.js                  # bezel shell + split/page hosting
+    pages/
+      wpn/   wpn.html  wpn.css  wpn.js                  # one file, two profiles
+      tgl/   tgl.html  tgl.css  tgl.js                  # + declarative softkey contract
+      tgp/   tgp.html  tgp.css  tgp.js                  # one profile (feed, like MAP)
+      avn/   avn.html  avn.css  avn.js                  # two profiles (full anchors to bezel geom)
+      rwr/   rwr.html  rwr.css  rwr.js                  # one profile (responsive SVG), 2 streams
+      map/   map.html  map.css  map.js                  # base map + only /stream consumer
+      main/  main.html main.css main.js                 # split-pane card; full MAIN is shell chrome
+NOXMFD.csproj          # <EmbeddedResource Include="src\web\**\*" />
 .gitattributes         # *.woff2/png/jpg = binary (don't let git mangle EOLs)
 ```
 
 ### The per-page migration recipe (historical; reuse for future pages)
-1. **Move the bare page** `XxxPage.cs` → `web/pages/xxx/{xxx.html,xxx.css,xxx.js}`. Link
+1. **Move the bare page** `XxxPage.cs` → `src/web/pages/xxx/{xxx.html,xxx.css,xxx.js}`. Link
    `/assets/shared/font.css` + `theme.css` (kills that page's inline font copy). Point its
    route in `TelemetryServer` at `ServeAssetRel(ctx,"pages/xxx/xxx.html")`; delete the `.cs`.
 2. **Add the `full` profile** to the same page files when the page has a distinct full layout,
    gated by a `layout:'full'` field in the page's layout message (adds `body.full`). Scope
    full-only CSS under `body.full` so the verified compact layout is untouched. Historically,
    this came from the old shell overlay renderer + CSS; future work should use the current
-   `web/shell/mfd.js` hooks as the integration point.
+   `src/web/shell/mfd.js` hooks as the integration point.
 3. **Host full-view in `#page-frame`** (see shell hooks).
 4. **Delete the old overlay path** (renderer, markup, element refs/state, CSS) once the iframe
    version is driving full view.
 
-### Shell hooks in `web/shell/mfd.js` (grep these — they are the integration points)
+### Shell hooks in `src/web/shell/mfd.js` (grep these — they are the integration points)
 - **`#page-frame`** — the full-view host iframe in the `.screen` recess (after the map iframe).
   CSS: `#page-frame{position:absolute;inset:6px;display:none}`, shown via `.screen.page-on`,
   hidden in `.screen.split`. It sits **below** `.overlay` (so bezel labels paint on top) and
@@ -376,10 +382,10 @@ labelled softkeys would need the same cache-and-re-apply treatment as the bindin
 ### Verifying without the game (critical — the C# build does NOT check the JS/CSS)
 `dotnet build` verifies the C# routes and embedded-resource inclusion, but it never parses the
 browser JS/CSS. So **always verify rendering in a browser**. The proven loop, no game required:
-1. Edit `web/shell/...` and/or `web/pages/...` → `dotnet build` (verifies the server still builds
+1. Edit `src/web/shell/...` and/or `src/web/pages/...` → `dotnet build` (verifies the server still builds
    and the embedded-resource manifest is valid).
 2. Run the **shell harness over http** (`tools/serve_web.py --open`, or launch.json config `hud-web`):
-   serves `web/shell/mfd.html` at `/`, `/<page>`→`web/pages/<page>/<page>.html`, `/assets/*`→`web/*`
+   serves `src/web/shell/mfd.html` at `/`, `/<page>`→`src/web/pages/<page>/<page>.html`, `/assets/*`→`src/web/*`
    with fallback to `preview/assets/*` captures, `/weapon?…`→captured or mock icons, `/config`, and
    `/airframe[-layout]` captures for AVN. `preview-mock.js` is injected into the MAP page and supplies
    a synthetic or captured frame, so the shell drives the frame end-to-end.
@@ -394,7 +400,7 @@ browser JS/CSS. So **always verify rendering in a browser**. The proven loop, no
    pages (shared `showPage` is touched), power-off blackout, portrait/landscape.
 
 ### Editing the shell — gotchas
-- `web/shell/mfd.js` is the single shell source. The `mapFrame` source guard in the message handler
+- `src/web/shell/mfd.js` is the single shell source. The `mapFrame` source guard in the message handler
   is critical: telemetry mirror messages should only come from the canonical MAP iframe.
 - JS identifiers like `paneWpnPage`, `selWpnPageFull`, and `wpnPage` are shell state, not page files.
   Grep precisely before deleting or renaming.
@@ -410,7 +416,7 @@ browser JS/CSS. So **always verify rendering in a browser**. The proven loop, no
    cache headers for static assets are still undecided.
 4. ~~**Softkey contract for write actions.**~~ **RESOLVED.** Bezel write actions follow "page emits
    intent (softkey) → shell dispatches"; the shell and the MAP page both call the shared
-   `sendCommand` (`web/services/send-command.js`), so `/command` knowledge lives in one helper.
+   `sendCommand` (`src/web/services/send-command.js`), so `/command` knowledge lives in one helper.
 5. ~~**Shared JS extraction.**~~ **RESOLVED (step 6).** `sendCommand` extracted; `sse-client` moot
    (single consumer); `mfd-protocol` deliberately skipped (not worth ~16 file touches for cosmetic
    savings). See step 6 in the migration plan.
@@ -423,5 +429,5 @@ browser JS/CSS. So **always verify rendering in a browser**. The proven loop, no
   of the HTTP API, out of scope for this in-mod refactor (see *Decisions*).
 - The split-screen design (Strategy A: iframe per pane) that this unifies around
   shipped already; its `docs/` doc was removed per the done-doc convention. The
-  iframe-per-pane model survives in `web/shell/mfd.js` (`applySplitMode`,
+  iframe-per-pane model survives in `src/web/shell/mfd.js` (`applySplitMode`,
   `renderSplitLabels`).

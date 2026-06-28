@@ -253,7 +253,8 @@ react-client/
 
 - Re-read `tools/preview-mock.js` — it is the mock contract; the React
   mock layer should be a typed port of it.
-- Skim `src/ClientPage.cs` (overlay draw maths, `worldToOverlay`,
-  `gridLabel`, pan/zoom) and `src/MfdPage.cs` (page list, key actions,
-  AVN silhouette layout) for behavioural detail the doc summarises.
+- Skim `src/web/pages/map/map.js` (overlay draw maths, `worldToOverlay`,
+  `gridLabel`, pan/zoom), `src/web/shell/mfd.js` (page list, key actions),
+  and `src/web/pages/avn/avn.js` (AVN silhouette layout) for behavioural detail
+  the doc summarises.
 - Decide the open questions above (at least: animated mock, strictness).

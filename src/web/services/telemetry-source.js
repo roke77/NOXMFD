@@ -7,7 +7,7 @@
 // It knows nothing about canvas, DOM, zoom/pan, or gestures — that all lives in map.js (the view),
 // which instantiates this and consumes it. Co-located in the same iframe on purpose: the view
 // needs the full frame every tick, so keeping the parse in-process avoids serializing it across an
-// iframe boundary (see web/README.md — MAP is the telemetry tap, deliberately).
+// iframe boundary (see src/web/README.md — MAP is the telemetry tap, deliberately).
 //
 // View → source:  new TelemetrySource({ onFrame, onNoMission, onStatus }).connect()
 //                 .emitFollow(on)        — the view's FLW toggle, mirrored up

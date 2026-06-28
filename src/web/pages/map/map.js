@@ -1,7 +1,7 @@
 // MAP page — the VIEW half: canvas rendering, the HUD readout, and pan/zoom/follow/select
 // interactions. The telemetry transport + the derive-and-broadcast "provider" role live in
 // TelemetrySource (telemetry-source.js); this file instantiates it and renders the frames it
-// hands back. See web/README.md for why MAP is the telemetry tap.
+// hands back. See src/web/README.md for why MAP is the telemetry tap.
 import { TelemetrySource, gridLabel } from '/assets/services/telemetry-source.js';
 
 // ── State (declared first so callbacks never hit a temporal dead zone) ──────────
@@ -727,7 +727,7 @@ mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = '
 // pendingSel optimistically marks a just-tapped id as selected until telemetry confirms it (the
 // contact loop clears it on tg, and entries self-expire), so rapid taps advance through a stack
 // instead of re-hitting the same unit.
-// sendCommand(cmd, args) — POST /command — is provided by web/services/send-command.js (linked as
+// sendCommand(cmd, args) — POST /command — is provided by src/web/services/send-command.js (linked as
 // a classic <script> before this module in map.html, so it's a plain global). Returns the raw
 // fetch promise; the tap handler below reacts to r.ok and attaches its own .catch.
 

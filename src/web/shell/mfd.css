@@ -1,5 +1,5 @@
 /* MFD shell styles. Extracted from MfdPage.cs's inline <style>; the
-   embedded @font-face moved to web/shared/font.css (linked before this). */
+   embedded @font-face moved to src/web/shared/font.css (linked before this). */
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
@@ -444,21 +444,21 @@
   }
 
   /* (WPN's + TGL's content and page indicators now live in the #page-frame iframe —
-     web/pages/wpn/ and web/pages/tgl/ — not in any overlay panel here.) */
+     src/web/pages/wpn/ and src/web/pages/tgl/ — not in any overlay panel here.) */
 
   /* TGP page — fills the screen with the live MJPEG feed from the player's targeting cam.
      The empty placeholder mirrors the .wpn-empty style so it reads the same as the WPN
      page's NO LOADOUT state. */
-  /* (TGP page — targeting-pod feed — now renders in the #page-frame iframe, web/pages/tgp/,
+  /* (TGP page — targeting-pod feed — now renders in the #page-frame iframe, src/web/pages/tgp/,
      in both full and split views. Its panel/img/empty CSS moved there.) */
 
-  /* (RWR page — radar-warning scope — now renders in the #page-frame iframe, web/pages/rwr/,
+  /* (RWR page — radar-warning scope — now renders in the #page-frame iframe, src/web/pages/rwr/,
      in both full and split views. Its panel/scope SVG CSS moved there.) */
 
   /* (AVN page — avionics silhouette + FUEL/THROTTLE bars — now renders in the #page-frame
-     iframe, web/pages/avn/, in both full and split views. Its panel/frame/bar CSS moved there.) */
+     iframe, src/web/pages/avn/, in both full and split views. Its panel/frame/bar CSS moved there.) */
 
-  /* (TGL page — target list — now renders in the #page-frame iframe, web/pages/tgl/, in both
+  /* (TGL page — target list — now renders in the #page-frame iframe, src/web/pages/tgl/, in both
      full and split views. Its panel/row/faction CSS moved there.) */
 
   /* Decorative Phillips-head corner screws. The artwork is a photo of a real screw (white

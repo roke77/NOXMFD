@@ -41,10 +41,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Web frontend (todo/src-architecture.md): real .html/.css/.js files under web/
+    <!-- Embedded web frontend: real .html/.css/.js files under src/web/
          baked into the DLL and served by TelemetryServer.ServeAsset under /assets/.
-         Resource names are "<RootNamespace>.web.<dotted path>", matched by suffix. -->
-    <EmbeddedResource Include="web\**\*" />
+         Resource names include ".src.web.<dotted path>", matched by ".web.<dotted path>"
+         suffix so the public /assets/ paths stay unchanged. -->
+    <EmbeddedResource Include="src\web\**\*" />
   </ItemGroup>
 
   <ItemGroup>

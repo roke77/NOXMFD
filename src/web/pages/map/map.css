@@ -1,5 +1,5 @@
 /* MAP page styles. Extracted from ClientPage.cs's inline <style>; the embedded @font-face
-   moved to web/shared/font.css (linked before this). Body font stays 'Courier New' (the map
+   moved to src/web/shared/font.css (linked before this). Body font stays 'Courier New' (the map
    only uses Share Tech Mono for the NO SIGNAL placeholder), so the theme.css body font is
    overridden here on purpose. */
 * { box-sizing: border-box; margin: 0; padding: 0; }

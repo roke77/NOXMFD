@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compatibility helper for the old generated-preview workflow.
 
-The MFD frontend now lives in real files under web/ and is served directly by
+The MFD frontend now lives in real files under src/web/ and is served directly by
 tools/serve_web.py. There are no C# page blobs left to extract into preview/.
 This script removes stale generated HTML files so old previews are not mistaken
 for the current UI, then points you at the live HTTP harness.

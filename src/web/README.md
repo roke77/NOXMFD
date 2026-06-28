@@ -1,15 +1,16 @@
-# `web/` — the MFD frontend
+# `src/web/` — the MFD frontend
 
 The whole in-mod UI lives here as real `.html` / `.css` / `.js` files, baked into the DLL as
-embedded resources and served by `src/TelemetryServer.cs` (`ServeAssetRel`, suffix-matched against
-the resource manifest). No C# string blobs, no bundler, no framework — vanilla JS + `postMessage`.
+embedded resources and served by `src/plugin/TelemetryServer.cs` (`ServeAssetRel`, suffix-matched
+against the resource manifest). No C# string blobs, no bundler, no framework — vanilla JS +
+`postMessage`.
 
-Full design history and decisions: [`docs/src-architecture.md`](../docs/src-architecture.md).
+Full design history and decisions: [`docs/src-architecture.md`](../../docs/src-architecture.md).
 
 ## Layout
 
 ```
-web/
+src/web/
   shared/   font.css  theme.css  share-tech-mono.woff2   # passive cross-page assets
   services/ telemetry-source.js  send-command.js          # active shared code (the providers)
   shell/    mfd.html  mfd.css  mfd.js                     # the bezel shell (host + router)
@@ -19,9 +20,9 @@ web/
     main/                                  # the split-pane MAIN card (full-view MAIN is shell chrome)
 ```
 
-Convention per page: `web/pages/<x>/<x>.{html,css,js}`, served at `/<x>`. The HTML links
+Convention per page: `src/web/pages/<x>/<x>.{html,css,js}`, served at `/<x>`. The HTML links
 `/assets/shared/font.css` + `theme.css`, then its own `<x>.css`, and ends with `<script
-src="/assets/pages/<x>/<x>.js">`. Add files freely — the csproj embeds `web/**/*`.
+src="/assets/pages/<x>/<x>.js">`. Add files freely — the csproj embeds `src/web/**/*`.
 
 ## Component roles — read this before touching the data path
 
@@ -80,13 +81,13 @@ posts — only the base `mapFrame`'s posts drive the caches.)
   label, action, data }] }`; the shell's `applySoftkeys(keys, paneOffset, maxRow)` maps each
   pane-local slot to a physical bezel key. Currently only TGL emits any (per-target
   `target.deselect`); the shell caches each pane's set so it survives a re-render of the other pane.
-- **Write commands:** `web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
+- **Write commands:** `src/web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
   (MAP tap → `target.select`; shell bezel → `target.deselect`).
 
 ## Verifying without the game
 
 `dotnet build` checks the C# routes + embedded-resource manifest but never parses the JS/CSS. Run
 the browser harness instead: `python tools/serve_web.py --open` (launch.json `hud-web`, port 8782)
-serves the real `web/` files, mocks `/stream` (`tools/preview-mock.js` feeds the MAP iframe), and
-serves `/config` + captured assets. Drive it with the Preview MCP (`preview_eval` probes;
+serves the real `src/web/` files, mocks `/stream` (`tools/preview-mock.js` feeds the MAP iframe),
+and serves `/config` + captured assets. Drive it with the Preview MCP (`preview_eval` probes;
 `preview_screenshot` times out). Then confirm in-game on the next DLL build.

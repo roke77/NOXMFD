@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Shell harness over HTTP — verify migrated web/ pages in a browser without the game.
+"""Shell harness over HTTP — verify migrated src/web/ pages in a browser without the game.
 
-Serves the real web/ MFD shell plus the migrated web/ assets, so the UI can be driven
+Serves the real src/web/ MFD shell plus the migrated web assets, so the UI can be driven
 end-to-end without extracting C# blobs. The MAP iframe receives tools/preview-mock.js,
 which supplies the synthetic/captured /stream data that the shell forwards to page iframes.
 
-  /                  -> web/shell/mfd.html
+  /                  -> src/web/shell/mfd.html
   /config            -> preview runtime URLs        (localhost/LAN URL for this harness port)
-  /map-view[?bare]   -> web/pages/map/map.html      (the base map iframe; mock injected here)
-  /<page>            -> web/pages/<page>/<page>.html  (any migrated page, e.g. /wpn /tgl)
+  /map-view[?bare]   -> src/web/pages/map/map.html      (the base map iframe; mock injected here)
+  /<page>            -> src/web/pages/<page>/<page>.html  (any migrated page, e.g. /wpn /tgl)
   /weapon?...        -> captured weapon icon, or a mock 2:1 icon
   /airframe[-layout] -> captured AVN silhouette assets when available
-  /assets/<x>        -> web/<x>, falling back to preview/assets/<x> captures
+  /assets/<x>        -> src/web/<x>, falling back to preview/assets/<x> captures
   else               -> preview/<x>                 (*.js, manifest, ...)
 
 The MAP page is the only EventSource('/stream') consumer, so the mock (which stubs /stream,
@@ -37,7 +37,7 @@ import urllib.parse
 import webbrowser
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
-WEB = REPO / "web"
+WEB = REPO / "src" / "web"
 PREV = REPO / "preview"
 MOCK = REPO / "tools" / "preview-mock.js"
 MANIFEST = PREV / "assets" / "manifest.json"
@@ -100,7 +100,7 @@ def _preview_asset_path(ref):
 
 
 def _map_page():
-    """The MAP page (web/pages/map/map.html) with the mock (+ any capture) injected before
+    """The MAP page (src/web/pages/map/map.html) with the mock (+ any capture) injected before
     </head>, so its EventSource('/stream') and /map,/icon,/weapon fetches resolve in the browser.
     Built fresh per request so edits to map.html / the mock show up on reload."""
     html = (WEB / "pages" / "map" / "map.html").read_text(encoding="utf-8")
@@ -184,7 +184,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             if web_fp.exists():
                 return self._file(web_fp, _mime(rel), cache=True)
             return self._file(PREV.joinpath('assets', *rel.split('/')), _mime(rel))
-        # Any migrated page: /<name> -> web/pages/<name>/<name>.html (wpn, tgl, ...).
+        # Any migrated page: /<name> -> src/web/pages/<name>/<name>.html (wpn, tgl, ...).
         name = path.lstrip('/')
         page = WEB / 'pages' / name / f'{name}.html'
         if name and '/' not in name and page.exists():
@@ -199,7 +199,7 @@ class H(http.server.SimpleHTTPRequestHandler):
 
     def _file(self, fp, mime, cache=False):
         fp = pathlib.Path(fp)
-        # Mirror the mod's ServeAssetRel caching for the real web/ assets: ETag + revalidate each
+        # Mirror the mod's ServeAssetRel caching for the real src/web assets: ETag + revalidate each
         # load (Cache-Control: no-cache), returning a bodiless 304 when the client's validator still
         # matches. The harness validates per file (mtime+size) — handy while live-editing, so an
         # edited file busts on its own — where the mod uses one build MVID across all embedded
@@ -241,7 +241,7 @@ def main():
     ap.add_argument("--open", action="store_true", help="open the shell in a browser on start")
     args = ap.parse_args()
     if not (WEB / "shell" / "mfd.html").exists():
-        raise SystemExit("ERROR: web/shell/mfd.html missing — run the step-5c shell migration first.")
+        raise SystemExit("ERROR: src/web/shell/mfd.html missing.")
     with socketserver.TCPServer(("127.0.0.1", args.port), H) as s:
         url = f"http://127.0.0.1:{args.port}/"
         print(f"serving on {url}")

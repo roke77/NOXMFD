@@ -91,11 +91,11 @@ game-vs-mod split, but the instrumentation already makes the case.
 
 ### Game main thread → FPS hit
 
-Everything in `TelemetryReader.Update` (`src/TelemetryReader.cs:123`)
+Everything in `TelemetryReader.Update` (`src/plugin/TelemetryReader.cs:123`)
 runs on Unity's main thread.
 
 - **10 Hz allocation churn (GC stutter).** Every 100 ms,
-  `PushSnapshot` (`src/TelemetryReader.cs:599`) allocates fresh arrays:
+  `PushSnapshot` (`src/plugin/TelemetryReader.cs:599`) allocates fresh arrays:
   `BuildUnits` does `_unitBuf.ToArray()` (`:960`), plus `BuildRwr`,
   `BuildMw`, `BuildFailures` each allocate. In a busy match that's KBs
   of garbage 10×/sec → GC spikes → the "stutter" feel. `BuildParts`
@@ -108,11 +108,11 @@ runs on Unity's main thread.
 
 ### Browser → RWR & MAP lag
 
-Redraw happens in `drawOverlay` (`src/ClientPage.cs:487`), invoked on
+Redraw happens in `drawOverlay` (`src/web/pages/map/map.js`), invoked on
 every SSE message (~10 Hz).
 
 - **`shadowBlur` on every draw call — the prime suspect.** Each icon
-  sets `shadowBlur=8` (`src/ClientPage.cs:393`), each RWR line
+  sets `shadowBlur=8` (historically `ClientPage.cs`; now `src/web/pages/map/map.js`), each RWR line
   `shadowBlur=6` (`:451`), each missile likewise. Canvas `shadowBlur`
   is one of the most expensive 2D ops — a per-draw-call blur pass. With
   40+ contacts that's 40+ blur passes 10×/sec. Almost certainly the
@@ -127,7 +127,7 @@ every SSE message (~10 Hz).
 ### Server → wasted CPU (indirect FPS pressure)
 
 - **`Serialize` re-runs in full, per client, every 100 ms**
-  (`src/TelemetryServer.cs:526`, called from `HandleSseAsync` `:505`),
+  (`src/plugin/TelemetryServer.cs:526`, called from `HandleSseAsync` `:505`),
   and `string.Format` boxes every float/int/bool. Open the combined MFD
   + a separate RWR tab + a tablet = the entire contact list serialized
   3× independently, 10×/sec. Should be serialized **once per tick** and
@@ -136,7 +136,7 @@ every SSE message (~10 Hz).
 ### Latent data race (fix opportunistically with #2/#3)
 
 `BuildParts` hands the shared `_partsBuf` reference into the snapshot
-(`src/TelemetryReader.cs:854`); the background SSE thread serializes it
+(`src/plugin/TelemetryReader.cs:854`); the background SSE thread serializes it
 while the main thread overwrites it in place next tick. Units avoid this
 today only because `BuildUnits` does `.ToArray()`. Serializing
 once-per-tick (item #2) is the clean fix for both the duplicate work and
@@ -156,7 +156,7 @@ the race.
 
 ### Item #A — RESULT (done, commit eb2ecc7)
 
-Replaced synchronous `SpriteToPng` with `Capture.Request` (`src/Capture.cs`):
+Replaced synchronous `SpriteToPng` with `Capture.Request` (`src/plugin/Capture.cs`):
 atlas-safe Blit → `AsyncGPUReadback` → background-thread `EncodeArray*`.
 Map also downscales to 4096 + JPEG (16 MB → 3.3 MB served). Measured at
 228 units:
@@ -285,7 +285,7 @@ speculatively.
 ## Pre-flight before implementing
 
 - Run Step 0 and record the numbers in this doc before touching #1+.
-- After editing the embedded frontend (`web/shell/*` / `web/pages/*`),
+- After editing the embedded frontend (`src/web/shell/*` / `src/web/pages/*`),
   run `python tools/serve_web.py --open` and verify over HTTP.
 - Live-test each shipped item in a busy match; the symptom is only
   reproducible under load.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Backward-compatible wrapper for the old preview server command.
 
-The preview now serves the real web/ frontend through tools/serve_web.py. This
+The preview now serves the real src/web/ frontend through tools/serve_web.py. This
 wrapper keeps `python tools/serve_preview.py` usable for existing notes and
 launch habits, defaulting to the old 8777 port unless --port is supplied.
 """

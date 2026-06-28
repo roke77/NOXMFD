@@ -280,25 +280,25 @@ namespace NOXMFD
                     else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                         ServeAsset(ctx, path);
                     else if (path == "/map-view")
-                        ServeAssetRel(ctx, "pages/map/map.html");   // migrated to web/pages/map/ (was ClientPage.Html)
+                        ServeAssetRel(ctx, "pages/map/map.html");   // migrated to src/web/pages/map/ (was ClientPage.Html)
                     else if (path == "/main")
-                        ServeAssetRel(ctx, "pages/main/main.html");  // migrated to web/pages/main/ (was MainPage.Html)
+                        ServeAssetRel(ctx, "pages/main/main.html");  // migrated to src/web/pages/main/ (was MainPage.Html)
                     else if (path == "/avn")
-                        ServeAssetRel(ctx, "pages/avn/avn.html");   // migrated to web/pages/avn/ (was AvnPage.Html)
+                        ServeAssetRel(ctx, "pages/avn/avn.html");   // migrated to src/web/pages/avn/ (was AvnPage.Html)
                     else if (path == "/tgp")
-                        ServeAssetRel(ctx, "pages/tgp/tgp.html");   // migrated to web/pages/tgp/ (was TgpPage.Html)
+                        ServeAssetRel(ctx, "pages/tgp/tgp.html");   // migrated to src/web/pages/tgp/ (was TgpPage.Html)
                     else if (path == "/wpn")
-                        ServeAssetRel(ctx, "pages/wpn/wpn.html");   // migrated to web/pages/wpn/ (was WpnPage.Html)
+                        ServeAssetRel(ctx, "pages/wpn/wpn.html");   // migrated to src/web/pages/wpn/ (was WpnPage.Html)
                     else if (path == "/tgl")
-                        ServeAssetRel(ctx, "pages/tgl/tgl.html");   // migrated to web/pages/tgl/ (was TglPage.Html)
+                        ServeAssetRel(ctx, "pages/tgl/tgl.html");   // migrated to src/web/pages/tgl/ (was TglPage.Html)
                     else if (path == "/rwr")
-                        ServeAssetRel(ctx, "pages/rwr/rwr.html");   // migrated to web/pages/rwr/ (was RwrPage.Html)
+                        ServeAssetRel(ctx, "pages/rwr/rwr.html");   // migrated to src/web/pages/rwr/ (was RwrPage.Html)
                     else if (path == "/command")
                         HandleCommand(ctx);
                     else if (path == "/mfd")
                         Redirect(ctx, "/");
                     else if (path == "/" || path == "/index.html")
-                        ServeAssetRel(ctx, "shell/mfd.html");        // migrated to web/shell/ (was MfdPage.Html)
+                        ServeAssetRel(ctx, "shell/mfd.html");        // migrated to src/web/shell/ (was MfdPage.Html)
                     else
                         Redirect(ctx, "/");
                 }
@@ -392,13 +392,12 @@ namespace NOXMFD
         }
 
         // ── Embedded web-asset serving ─────────────────────────────────────────
-        // Step 1 of the src/ frontend refactor (docs/src-architecture.md): real files
-        // under web/ are baked into the DLL as embedded resources and served here under
-        // /assets/. This coexists with the legacy XxxPage.Html const serving while pages
-        // are migrated one at a time. MSBuild names a resource "<RootNamespace>.web.<dotted
-        // path>" (and may mangle odd characters), so we match by suffix against the actual
-        // manifest rather than reconstruct the name. Path traversal is moot — the manifest
-        // is a flat, fixed set baked at build time, not a filesystem.
+        // Real files under src/web/ are baked into the DLL as embedded resources and served
+        // here under /assets/. MSBuild names a resource like
+        // "<RootNamespace>.src.web.<dotted path>" (and may mangle odd characters), so we
+        // match by the stable ".web.<dotted path>" suffix against the actual manifest rather
+        // than reconstruct the whole name. Path traversal is moot — the manifest is a flat,
+        // fixed set baked at build time, not a filesystem.
         private static readonly Assembly _asm = typeof(TelemetryServer).Assembly;
         private static string[]? _resourceNames;
         private static string[] ResourceNames => _resourceNames ??= _asm.GetManifestResourceNames();
@@ -414,9 +413,9 @@ namespace NOXMFD
         private static void ServeAsset(HttpListenerContext ctx, string path)
             => ServeAssetRel(ctx, path.Substring("/assets/".Length).Trim('/'));
 
-        // Serve an embedded web asset by its repo-relative path under web/ (e.g.
+        // Serve an embedded web asset by its source-relative path under src/web/ (e.g.
         // "pages/wpn.html"). Used both by the /assets/ route and by migrated page routes
-        // (e.g. /wpn) that serve a file directly while the rest still use XxxPage.Html.
+        // (e.g. /wpn) that serve a file directly.
         private static void ServeAssetRel(HttpListenerContext ctx, string rel)
         {
             try

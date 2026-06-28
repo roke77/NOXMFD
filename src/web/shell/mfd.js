@@ -62,14 +62,14 @@ const pageFrame = document.getElementById('page-frame');   // full-view host for
 const FRAME_PAGES = { wpn: '/wpn', tgl: '/tgl', tgp: '/tgp', avn: '/avn', rwr: '/rwr' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
-// (TGP's panel/img + has-feed handling now live in web/pages/tgp/, hosted in #page-frame.)
+// (TGP's panel/img + has-feed handling now live in src/web/pages/tgp/, hosted in #page-frame.)
 const sepEls      = document.querySelectorAll('#keys-left .sep');   // 0 = above key[0], i+1 = below key[i]
-// (RWR element refs removed — full-view RWR is hosted in #page-frame, web/pages/rwr/, which
+// (RWR element refs removed — full-view RWR is hosted in #page-frame, src/web/pages/rwr/, which
 //  owns the scope SVG. The shell keeps only rwrData + mwData + the forwarders below.)
-// (AVN element refs removed — full-view AVN is hosted in #page-frame, web/pages/avn/, which
+// (AVN element refs removed — full-view AVN is hosted in #page-frame, src/web/pages/avn/, which
 //  owns the silhouette/bars DOM. The shell keeps only avnData + the forwarders below.)
 // (WPN/CM overlay element refs removed — full-view WPN is hosted in #page-frame, which owns
-//  its own weapon rows + CM panel; see web/pages/wpn/.)
+//  its own weapon rows + CM panel; see src/web/pages/wpn/.)
 
 // ── Pages ─────────────────────────────────────────────────────────────────────────
 // Which page is in view (MAP, MAIN, WPN…) and the line-select items each page shows.
@@ -105,7 +105,7 @@ const PAGES = {
     items: [],
   },
   tgp: {
-    // Hosted in #page-frame (the migrated web/pages/tgp page), not the overlay — so the overlay
+    // Hosted in #page-frame (the migrated src/web/pages/tgp page), not the overlay — so the overlay
     // stays transparent and only carries the MAIN nav label below.
     opaque: false,
     items: [
@@ -113,14 +113,14 @@ const PAGES = {
     ],
   },
   tgl: {
-    // Hosted in #page-frame (the migrated web/pages/tgl page), not the overlay — so the overlay
+    // Hosted in #page-frame (the migrated src/web/pages/tgl page), not the overlay — so the overlay
     // stays transparent and only carries the nav labels + the deselect softkeys the page emits.
     // placeTglNavLabels() owns left-key-0 (MAIN/PREV) and right-key-0 (NEXT when overflow).
     opaque: false,
     items: [],
   },
   avn: {
-    // Hosted in #page-frame (the migrated web/pages/avn page), not the overlay — so the overlay
+    // Hosted in #page-frame (the migrated src/web/pages/avn page), not the overlay — so the overlay
     // stays transparent and only carries the MAIN nav label below.
     opaque: false,
     items: [
@@ -128,7 +128,7 @@ const PAGES = {
     ],
   },
   rwr: {
-    // Hosted in #page-frame (the migrated web/pages/rwr page), not the overlay — so the overlay
+    // Hosted in #page-frame (the migrated src/web/pages/rwr page), not the overlay — so the overlay
     // stays transparent and only carries the MAIN nav label below.
     opaque: false,
     items: [
@@ -492,7 +492,7 @@ function forwardWpnLayoutToPanes() {
 }
 
 // ── Full-view WPN frame (single-pane) ──────────────────────────────────────────────────
-// Full-view WPN is hosted in #page-frame (the migrated web/pages/wpn page in its 'full'
+// Full-view WPN is hosted in #page-frame (the migrated src/web/pages/wpn page in its 'full'
 // profile) rather than the old overlay. These mirror the split forwarders but compute the
 // full-screen geometry (5 left-column slots + the right-half image area + the CM band) from
 // the bezel separators, and slice the loadout to the full-view page (WPN_MAX_DISPLAY, wpnPage).
@@ -557,7 +557,7 @@ function placeWpnNavLabels() {
 }
 
 // ── Full-view TGL (#page-frame) ──────────────────────────────────────────────────────
-// Full-view TGL is hosted in #page-frame (web/pages/tgl in its 'full' profile), mirroring WPN.
+// Full-view TGL is hosted in #page-frame (src/web/pages/tgl in its 'full' profile), mirroring WPN.
 // The shell slices the target list to TGL_MAX_DISPLAY (10/page, tglPage) and forwards it; the
 // page renders the rows AND posts its deselect softkeys up (handled by applySoftkeys). Nav
 // (MAIN/PREV/NEXT) stays shell-owned via placeTglNavLabels.
@@ -810,11 +810,11 @@ const TGL_MAX_DISPLAY = 10;
 // failures = list of failure-message strings currently active (e.g. ["LEFT ENGINE FIRE"]).
 // Latest AVN snapshot, mirrored from the map iframe's SSE feed. The shell keeps only this
 // state (the forwarders read it); all rendering — silhouette, failure labels, FUEL/THROTTLE
-// bars, the AVN_FAILURE_DEFS table, the /airframe layout cache — lives in web/pages/avn/.
+// bars, the AVN_FAILURE_DEFS table, the /airframe layout cache — lives in src/web/pages/avn/.
 let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1 };
 
 // Latest RWR emitters + incoming missiles, mirrored from the map iframe's SSE feed. The shell
-// keeps only this state (the forwarders read it); all scope SVG rendering lives in web/pages/rwr/.
+// keeps only this state (the forwarders read it); all scope SVG rendering lives in src/web/pages/rwr/.
 let rwrData = { items: [] };
 let mwData  = { items: [] };
 
@@ -1138,7 +1138,7 @@ function loadConfigUrls() {
     .catch(function() {});
 }
 
-// sendCommand(cmd, args) — POST /command — is provided by web/services/send-command.js
+// sendCommand(cmd, args) — POST /command — is provided by src/web/services/send-command.js
 // (linked before this script in mfd.html). State changes (e.g. a deselected target dropping off
 // the TGL list) come back via normal telemetry, so the shell's calls are fire-and-forget: add
 // .catch() at the call site since the shared sender returns the raw promise.
