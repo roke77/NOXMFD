@@ -26,7 +26,8 @@ namespace NOXMFD
     // Both keys are ConfigEntry<KeyboardShortcut>, bound from Plugin.Awake, so they persist to the
     // plugin .cfg and are rebindable in the F1 (ConfigurationManager) menu. Default UNBOUND
     // (KeyboardShortcut.Empty) so they never clash with a stock bind until the player sets them.
-    // Polled once per frame from TelemetryReader.Update — input is only valid on the Unity main thread.
+    // Polled once per frame from MissionLifecycle.Update (the persistent host, so the joystick-button
+    // capture works at the main menu before a mission exists) — input is only valid on the main thread.
     //
     // Joystick/HOTAS support: Nuclear Option drives input through Rewired, which owns the joystick, so
     // joystick buttons are invisible to the Unity legacy Input that KeyboardShortcut polls — and the
@@ -44,7 +45,10 @@ namespace NOXMFD
         private static ConfigEntry<int>? _flareJoyBtn;
         private static ConfigEntry<int>? _jammerJoyBtn;
         private static ConfigEntry<int>? _joyNumber;
-        private static ConfigEntry<bool>? _logJoyButtons;
+
+        // The joystick-button entry currently armed for capture (set by its "Set" drawer button), or null.
+        // While non-null, the next joystick button pressed is written into it (see CaptureJoyButton).
+        private static ConfigEntry<int>? _capturing;
 
         // Called once from Plugin.Awake. Section + descriptions become the labels/tooltips in the menu.
         public static void Bind(ConfigFile config)
@@ -55,13 +59,17 @@ namespace NOXMFD
             _jammerKey = config.Bind(section, "DispenseRadarJammer", new KeyboardShortcut(),
                 "Keyboard/mouse key: select + activate the radar jammer. HOLD to jam (a tap only jams ~0.1s). No-op if the aircraft has no jammer.");
             _flareJoyBtn = config.Bind(section, "DispenseFlaresJoystickButton", -1,
-                "Joystick/HOTAS button for flares, as a Rewired button INDEX (-1 = off). To find it: turn on LogJoystickButtons below, press the button in a mission, and read the index from the NOXMFD log line 'joy[..] button N DOWN'. Fires the same as the keyboard key above; set either or both.");
+                new ConfigDescription(
+                    "Joystick/HOTAS button for flares, as a Rewired button INDEX (-1 = off). Click Set, then press the button on your stick to capture it. Fires the same as the keyboard key above; set either or both.",
+                    null, JoyCaptureDrawer()));
             _jammerJoyBtn = config.Bind(section, "DispenseRadarJammerJoystickButton", -1,
-                "Joystick/HOTAS button for the radar jammer, as a Rewired button INDEX (-1 = off). See DispenseFlaresJoystickButton for how to find the index.");
+                new ConfigDescription(
+                    "Joystick/HOTAS button for the radar jammer, as a Rewired button INDEX (-1 = off). Click Set, then press the button on your stick to capture it.",
+                    null, JoyCaptureDrawer()));
             _joyNumber = config.Bind(section, "JoystickNumber", 0,
-                "Which joystick the button indices above refer to: 0 = any joystick, 1 = first, 2 = second, ...");
-            _logJoyButtons = config.Bind(section, "LogJoystickButtons", false,
-                "When on, logs every joystick button index as you press it — use it to find your HOTAS button index for the fields above, then turn it back off.");
+                new ConfigDescription(
+                    "Which joystick the button indices above refer to (0 = any, 1 = first, ...). Set automatically to the device you captured from — hidden because you never need to touch it by hand.",
+                    null, new ConfigurationManagerAttributes { Browsable = false }));
             Plugin.Log?.LogInfo($"[NOXMFD] CM keybinds bound: flares=key:{_flareKey.Value} joyBtn:{_flareJoyBtn.Value}, " +
                 $"jammer=key:{_jammerKey.Value} joyBtn:{_jammerJoyBtn.Value}, joystick#{_joyNumber.Value}.");
         }
@@ -73,7 +81,9 @@ namespace NOXMFD
         {
             if (_flareKey == null) return;   // not bound yet
 
-            if (_logJoyButtons!.Value) LogJoystickButtons();   // discovery aid for HOTAS button indices
+            // While the F1 menu has a joy field armed for capture, swallow the next button into it
+            // (and don't let that same press also deploy a countermeasure this frame).
+            if (_capturing != null) { CaptureJoyButton(); return; }
 
             bool fHeld = Held(_flareKey, _flareJoyBtn!);
             bool jHeld = Held(_jammerKey!, _jammerJoyBtn!);
@@ -88,10 +98,33 @@ namespace NOXMFD
             if (jHeld) Drive(ac, mgr, Jammer);
         }
 
-        // Logs the Rewired joystick + button index for every button that goes down, so a HOTAS user can
-        // discover the index to put in the *JoystickButton fields (Unity's JoystickButton* numbering and
-        // Rewired's button index don't always agree). Gated by LogJoystickButtons — off for normal play.
-        private static void LogJoystickButtons()
+        // CustomDrawer for a *JoystickButton entry: renders the current index plus Set/Clear buttons in the
+        // F1 (ConfigurationManager) menu. "Set" arms this entry for capture; the actual button read happens
+        // in CaptureJoyButton on the main-thread Poll (OnGUI fires multiple times per frame, so polling the
+        // edge there is unreliable). Tagged onto the entry via ConfigurationManagerAttributes — a no-op if
+        // ConfigurationManager isn't installed. Returns a fresh attribute bag per entry (each needs its own).
+        private static ConfigurationManagerAttributes JoyCaptureDrawer() =>
+            new ConfigurationManagerAttributes { HideDefaultButton = true, CustomDrawer = DrawJoyCapture };
+
+        private static void DrawJoyCapture(ConfigEntryBase entry)
+        {
+            var e = (ConfigEntry<int>)entry;
+            bool armed = ReferenceEquals(_capturing, e);
+            GUILayout.Label(armed ? "press a button…" : (e.Value < 0 ? "(off)" : "button " + e.Value),
+                GUILayout.Width(110));
+            if (GUILayout.Button(armed ? "cancel" : "Set", GUILayout.ExpandWidth(true)))
+                _capturing = armed ? null : e;
+            if (GUILayout.Button("Clear", GUILayout.ExpandWidth(false)))
+            {
+                e.Value = -1;
+                if (armed) _capturing = null;
+            }
+        }
+
+        // Runs on the main-thread Poll while a joy field is armed. Writes the first joystick button that goes
+        // down into the armed entry, records which joystick it came from (JoystickNumber), and disarms. The
+        // captured index is exactly what JoyBtn() reads back, so capture and live-poll use the same numbering.
+        private static void CaptureJoyButton()
         {
             if (!ReInput.isReady) return;
             IList<Joystick> joys = ReInput.controllers.Joysticks;
@@ -100,7 +133,13 @@ namespace NOXMFD
                 Joystick joy = joys[i];
                 for (int b = 0; b < joy.buttonCount; b++)
                     if (joy.GetButtonDown(b))
-                        Plugin.Log?.LogInfo($"[NOXMFD] joy[{i}] '{joy.name}' button {b} DOWN (buttonCount={joy.buttonCount}).");
+                    {
+                        _capturing!.Value = b;
+                        if (_joyNumber != null) _joyNumber.Value = i + 1;   // pin to the device it came from
+                        Plugin.Log?.LogInfo($"[NOXMFD] captured joy[{i}] '{joy.name}' button {b} for {_capturing.Definition.Key}.");
+                        _capturing = null;
+                        return;
+                    }
             }
         }
 
@@ -114,7 +153,7 @@ namespace NOXMFD
             return kbd || JoyBtn(joyBtn.Value);
         }
 
-        // Reads an explicit Rewired joystick button index (the number LogJoystickButtons prints),
+        // Reads an explicit Rewired joystick button index (the number the Set drawer captures),
         // honoring JoystickNumber (0 = any).
         private static bool JoyBtn(int button)
         {
