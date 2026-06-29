@@ -26,34 +26,34 @@ namespace NOXMFD
         private static ConfigEntry<bool>? _hideTopBoxes;
 
         // Master switch for the whole declutter set.
-        public static bool DeclutterHud => _declutterHud?.Value ?? true;
+        public static bool DeclutterHud => _declutterHud?.Value ?? false;
 
         // Top-right readouts: weapon name + ammo (WeaponIndicator) and the countermeasure
         // count "48 / IR Flares" (CountermeasureIndicator). Both hidden by this one flag.
-        public static bool HideWeaponAmmo => _hideWeaponAmmo?.Value ?? true;
+        public static bool HideWeaponAmmo => _hideWeaponAmmo?.Value ?? false;
 
         // Bottom-left corner minimap only (game class: DynamicMap). The full-screen M-key map and
         // the airbase-selection map at spawn are the same object maximized, and stay available.
-        public static bool HideMinimap => _hideMinimap?.Value ?? true;
+        public static bool HideMinimap => _hideMinimap?.Value ?? false;
 
         // The boxed numeric readouts flanking the heading tape: heading (Bearing, "188°"),
         // airspeed (SpeedGauge, "1km/h") and radar/abs altitude (Altitude, "R[0,0m]").
         // Only the BOXED copies are hidden (the ones with an assigned 'border' Image); the
         // borderless boresight-following center readouts and the heading tape itself are kept.
-        public static bool HideTopBoxes => _hideTopBoxes?.Value ?? true;
+        public static bool HideTopBoxes => _hideTopBoxes?.Value ?? false;
 
         // Called once from Plugin.Awake with the plugin's ConfigFile. The section + description
         // strings become the labels/tooltips shown in the in-game config menu.
         public static void Bind(ConfigFile config)
         {
             const string section = "HUD Declutter";
-            _declutterHud = config.Bind(section, "DeclutterHud", true,
+            _declutterHud = config.Bind(section, "DeclutterHud", false,
                 "Master switch — hide native in-game HUD elements so the web MFD can replace them. Turn off to restore the stock HUD.");
-            _hideWeaponAmmo = config.Bind(section, "HideWeaponAmmo", true,
+            _hideWeaponAmmo = config.Bind(section, "HideWeaponAmmo", false,
                 "Hide the top-right weapon name / ammo and countermeasure count readouts.");
-            _hideMinimap = config.Bind(section, "HideMinimap", true,
+            _hideMinimap = config.Bind(section, "HideMinimap", false,
                 "Hide the bottom-left corner minimap. The full-screen M-key map and airbase-selection map stay available.");
-            _hideTopBoxes = config.Bind(section, "HideTopBoxes", true,
+            _hideTopBoxes = config.Bind(section, "HideTopBoxes", false,
                 "Hide the boxed heading / airspeed / altitude readouts flanking the heading tape. The center boresight readouts are kept.");
         }
     }
