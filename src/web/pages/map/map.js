@@ -515,6 +515,10 @@ const pointers = new Map();          // active pointerId -> {x,y}
 let panId = null, lastX = 0, lastY = 0;
 let pinching = false, pinchStartDist = 0, pinchStartZoom = 1;
 let gestureMoved = false, downX = 0, downY = 0;
+// Touch taps are imprecise (fat finger), so a tap-select reaches this many extra px beyond an
+// icon's hit circle and grabs the nearest contact in range. Mouse clicks stay pixel-precise.
+const TOUCH_HIT_PAD = 22;
+let lastPointerType = 'mouse';
 function pinchGeom() {
   const p = [...pointers.values()];
   return { dist: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y),
@@ -548,6 +552,7 @@ overlay.addEventListener('wheel', function(e) {
 overlay.addEventListener('pointerdown', function(e) {
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   downX = e.clientX; downY = e.clientY; gestureMoved = false;
+  lastPointerType = e.pointerType || 'mouse';   // drives the tap-select reach (touch = fat finger)
   if (pointers.size === 2 && mapMeta) {                 // second finger → start a pinch
     if (panId !== null) { try { overlay.releasePointerCapture(panId); } catch (_) {} panId = null; }
     const g = pinchGeom();
@@ -593,10 +598,13 @@ function dropPointer(e) {
 }
 overlay.addEventListener('pointerup', dropPointer);
 overlay.addEventListener('pointercancel', dropPointer);
-// Double-click empty map = reset to full view. But a double-click ON a contact is a selection
-// gesture (two taps), so ignore it there — otherwise selecting a unit would zoom out + drop FLW.
+// Double-click empty map = reset to full view (a mouse affordance). Skip it entirely for touch:
+// players tap rapidly to select stacked/nearby contacts, and a fat-finger double-tap on near-empty
+// map would otherwise zoom all the way out mid-selection. Pinch still zooms out on touch. A
+// double-click ON a contact is a selection gesture (two taps), so ignore it there too — otherwise
+// selecting a unit would zoom out + drop FLW.
 overlay.addEventListener('dblclick', function(e) {
-  if (!mapMeta) return;
+  if (!mapMeta || lastPointerType === 'touch') return;
   const rect = overlay.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
   for (let i = 0; i < hitTargets.length; i++) {
@@ -661,14 +669,19 @@ overlay.addEventListener('click', function(e) {
   if (gestureMoved) return;   // that was a pan/pinch, not a select
   const rect = overlay.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-  let hit = null;
-  for (let i = hitTargets.length - 1; i >= 0; i--) {   // topmost (last-drawn) first
+  // Touch taps reach past the icon (fat finger); a mouse stays precise. Pick the NEAREST
+  // unselected contact within reach so a fat tap grabs whatever's closest, not just the
+  // topmost icon its centre happened to land in.
+  const pad = lastPointerType === 'touch' ? TOUCH_HIT_PAD : 0;
+  let hit = null, bestD2 = Infinity;
+  for (let i = hitTargets.length - 1; i >= 0; i--) {
     const t = hitTargets[i];
-    if (t.id == null) continue;
-    const dx = mx - t.cx, dy = my - t.cy;
-    if (dx * dx + dy * dy <= t.r * t.r && !isSelected(t)) { hit = t; break; }   // first unselected under the cursor
+    if (t.id == null || isSelected(t)) continue;
+    const dx = mx - t.cx, dy = my - t.cy, d2 = dx * dx + dy * dy;
+    const reach = t.r + pad;
+    if (d2 <= reach * reach && d2 < bestD2) { bestD2 = d2; hit = t; }
   }
-  if (!hit) return;   // nothing nearby, or everything nearby already selected → no-op (never deselects)
+  if (!hit) return;   // nothing in reach, or everything in reach already selected → no-op (never deselects)
   pendingSel.set(hit.id, performance.now() + 1500);
   sendCommand('target.select', { id: hit.id })
     .then(function(r) { if (r.ok) flashSelect(hit.id); else pendingSel.delete(hit.id); })
