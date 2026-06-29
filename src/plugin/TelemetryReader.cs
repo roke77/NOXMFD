@@ -465,7 +465,7 @@ namespace NOXMFD
             {
                 RwrEmitter em = kv.Value;
                 Unit u = em.Unit;
-                float ttl = em.Tier == 2 ? 4f : (em.Tier == 1 ? 2f : 1f);
+                float ttl = em.Tier == 2 ? 6f : (em.Tier == 1 ? 3f : 1.5f);
                 float age = now - em.LastSeen;
                 if (u == null || u.disabled || age > ttl) { _rwrExpireScratch.Add(kv.Key); continue; }
 
