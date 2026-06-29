@@ -8,34 +8,42 @@ using UnityEngine;
 
 namespace NOXMFD
 {
-    // Dedicated countermeasure keybinds. Each key SELECTS its countermeasure and DEPLOYS it in one
-    // press — no separate "cycle to it first" step — pinned to a fixed countermeasure instead of
-    // whatever is currently cycled in:
+    // The plugin's gameplay keybinds. Two groups today, each rebindable in the F1 (ConfigurationManager)
+    // menu and persisted to the plugin .cfg, default UNBOUND so they never clash with a stock bind:
+    //
+    // Countermeasure keys — each SELECTS its countermeasure and DEPLOYS it in one press, pinned to a
+    // fixed CM instead of whatever is currently cycled in (HELD-driven):
     //   * Flares  — a tap pops one set; holding pops repeatedly (FlareEjector rate-limits itself).
     //   * Radar jammer — HOLD to jam. RadarJammer.Fire() only jams ~0.1s before auto-disabling, so we
     //     re-fire it every frame the key is held; a single tap is a brief blip.
+    //   We deploy DIRECTLY (set activeIndex, then CountermeasureManager.DeployCountermeasure) rather than
+    //   via the game's countermeasureTrigger. That trigger is solely owned by the stock input loop
+    //   (PilotPlayerState), which force-clears it every frame its OWN "Countermeasures" button isn't held
+    //   — so setting it from here gets stomped before FixedUpdate can deploy. DeployCountermeasure is
+    //   exactly what the game's FixedUpdate calls while the trigger is on; we just call it ourselves.
+    //   ponytail: this fires on the local sim (host/single-player). In multiplayer a non-host client's
+    //   deploy may not replicate — the networked path is the trigger SyncVar we deliberately bypass.
     //
-    // We deploy DIRECTLY (set activeIndex, then CountermeasureManager.DeployCountermeasure) rather than
-    // via the game's countermeasureTrigger. That trigger is solely owned by the stock input loop
-    // (PilotPlayerState), which force-clears it every frame its OWN "Countermeasures" button isn't
-    // held — so setting it from here gets stomped before FixedUpdate can deploy. DeployCountermeasure
-    // is exactly what the game's FixedUpdate calls while the trigger is on; we just call it ourselves.
-    // ponytail: this fires on the local sim (host/single-player). In multiplayer a non-host client's
-    // deploy may not replicate — the networked path is the trigger SyncVar we deliberately bypass.
+    // Gear up / gear down keys — dedicated raise/lower (the stock bind is a single toggle), EDGE-driven
+    // (one action per press). Each mirrors the stock gear logic (PilotPlayerState): act only on a fully
+    // locked gear and only while airborne (radarAlt > 0.2, the game's anti-ground-collapse guard), via
+    // the canonical Aircraft.SetGear(bool) — which is network-correct (it sends the ServerRpc), and gear
+    // is edge-driven so there's no per-frame stomp to fight. A gear mid-transition matches neither locked
+    // state, so the key no-ops; pressing GearUp when already up (or GearDown when already down) no-ops too.
     //
-    // Both keys are ConfigEntry<KeyboardShortcut>, bound from Plugin.Awake, so they persist to the
-    // plugin .cfg and are rebindable in the F1 (ConfigurationManager) menu. Default UNBOUND
-    // (KeyboardShortcut.Empty) so they never clash with a stock bind until the player sets them.
     // Polled once per frame from MissionLifecycle.Update (the persistent host, so the joystick-button
     // capture works at the main menu before a mission exists) — input is only valid on the main thread.
     //
     // Joystick/HOTAS support: Nuclear Option drives input through Rewired, which owns the joystick, so
     // joystick buttons are invisible to the Unity legacy Input that KeyboardShortcut polls — and the
     // F1 menu's captured Unity JoystickButton* number doesn't line up with Rewired's own button index
-    // anyway (XInput, for one, is offset). So a HOTAS button is configured as an explicit Rewired
-    // button INDEX (the *JoystickButton ints below, -1 = off) read straight from Rewired, while the
-    // keyboard/mouse key stays on the KeyboardShortcut. A countermeasure fires if EITHER source is on.
-    internal static class CmKeybinds
+    // anyway (XInput, for one, is offset). So a HOTAS button is configured as an explicit Rewired button
+    // INDEX (the *JoystickButton ints, -1 = off) read straight from Rewired, captured live via the Set
+    // button in the menu, while the keyboard/mouse key stays on the KeyboardShortcut. A bind fires if
+    // EITHER source is on. ponytail: JoystickNumber is shared across all binds (pinned on capture), so a
+    // multi-device HOTAS with binds on different physical sticks is unsupported — upgrade path is a
+    // per-bind joystick number. Single stick (the common case) works.
+    internal static class Keybinds
     {
         private const byte Flare  = 1;   // same category mapping as TelemetryReader.GetSelectedCmCategory
         private const byte Jammer = 2;
@@ -44,6 +52,10 @@ namespace NOXMFD
         private static ConfigEntry<KeyboardShortcut>? _jammerKey;
         private static ConfigEntry<int>? _flareJoyBtn;
         private static ConfigEntry<int>? _jammerJoyBtn;
+        private static ConfigEntry<KeyboardShortcut>? _gearUpKey;
+        private static ConfigEntry<KeyboardShortcut>? _gearDownKey;
+        private static ConfigEntry<int>? _gearUpJoyBtn;
+        private static ConfigEntry<int>? _gearDownJoyBtn;
         private static ConfigEntry<int>? _joyNumber;
 
         // The joystick-button entry currently armed for capture (set by its "Set" drawer button), or null.
@@ -53,49 +65,84 @@ namespace NOXMFD
         // Called once from Plugin.Awake. Section + descriptions become the labels/tooltips in the menu.
         public static void Bind(ConfigFile config)
         {
-            const string section = "Countermeasure Keybinds";
-            _flareKey = config.Bind(section, "DispenseFlares", new KeyboardShortcut(),
+            const string cm = "Countermeasure Keybinds";
+            _flareKey = config.Bind(cm, "DispenseFlares", new KeyboardShortcut(),
                 "Keyboard/mouse key: select + deploy IR flares. Tap to pop a set, hold to keep popping. No-op if the aircraft has no flares.");
-            _jammerKey = config.Bind(section, "DispenseRadarJammer", new KeyboardShortcut(),
+            _jammerKey = config.Bind(cm, "DispenseRadarJammer", new KeyboardShortcut(),
                 "Keyboard/mouse key: select + activate the radar jammer. HOLD to jam (a tap only jams ~0.1s). No-op if the aircraft has no jammer.");
-            _flareJoyBtn = config.Bind(section, "DispenseFlaresJoystickButton", -1,
+            _flareJoyBtn = config.Bind(cm, "DispenseFlaresJoystickButton", -1,
                 new ConfigDescription(
                     "Joystick/HOTAS button for flares, as a Rewired button INDEX (-1 = off). Click Set, then press the button on your stick to capture it. Fires the same as the keyboard key above; set either or both.",
                     null, JoyCaptureDrawer()));
-            _jammerJoyBtn = config.Bind(section, "DispenseRadarJammerJoystickButton", -1,
+            _jammerJoyBtn = config.Bind(cm, "DispenseRadarJammerJoystickButton", -1,
                 new ConfigDescription(
                     "Joystick/HOTAS button for the radar jammer, as a Rewired button INDEX (-1 = off). Click Set, then press the button on your stick to capture it.",
                     null, JoyCaptureDrawer()));
-            _joyNumber = config.Bind(section, "JoystickNumber", 0,
+
+            const string gear = "Landing Gear Keybinds";
+            _gearUpKey = config.Bind(gear, "GearUp", new KeyboardShortcut(),
+                "Keyboard/mouse key: raise the landing gear (tap). No-op if the gear is already up, still moving, or while on the ground.");
+            _gearDownKey = config.Bind(gear, "GearDown", new KeyboardShortcut(),
+                "Keyboard/mouse key: lower the landing gear (tap). No-op if the gear is already down, still moving, or while on the ground.");
+            _gearUpJoyBtn = config.Bind(gear, "GearUpJoystickButton", -1,
                 new ConfigDescription(
-                    "Which joystick the button indices above refer to (0 = any, 1 = first, ...). Set automatically to the device you captured from — hidden because you never need to touch it by hand.",
+                    "Joystick/HOTAS button to raise the gear, as a Rewired button INDEX (-1 = off). Click Set, then press the button on your stick to capture it.",
+                    null, JoyCaptureDrawer()));
+            _gearDownJoyBtn = config.Bind(gear, "GearDownJoystickButton", -1,
+                new ConfigDescription(
+                    "Joystick/HOTAS button to lower the gear, as a Rewired button INDEX (-1 = off). Click Set, then press the button on your stick to capture it.",
+                    null, JoyCaptureDrawer()));
+
+            _joyNumber = config.Bind(cm, "JoystickNumber", 0,
+                new ConfigDescription(
+                    "Which joystick the button indices refer to (0 = any, 1 = first, ...). Set automatically to the device you captured from — hidden because you never need to touch it by hand.",
                     null, new ConfigurationManagerAttributes { Browsable = false }));
-            Plugin.Log?.LogInfo($"[NOXMFD] CM keybinds bound: flares=key:{_flareKey.Value} joyBtn:{_flareJoyBtn.Value}, " +
-                $"jammer=key:{_jammerKey.Value} joyBtn:{_jammerJoyBtn.Value}, joystick#{_joyNumber.Value}.");
+            Plugin.Log?.LogInfo($"[NOXMFD] Keybinds bound: flares={_flareKey.Value}/joy{_flareJoyBtn.Value}, " +
+                $"jammer={_jammerKey.Value}/joy{_jammerJoyBtn.Value}, gearUp={_gearUpKey.Value}/joy{_gearUpJoyBtn.Value}, " +
+                $"gearDown={_gearDownKey.Value}/joy{_gearDownJoyBtn.Value}, joystick#{_joyNumber.Value}.");
         }
 
-        // Once per frame on the main thread. Held-driven: every frame a key is down we select that
-        // countermeasure and deploy it. Flares self-throttle (one set per ejectionInterval); the
-        // jammer needs the per-frame re-fire to stay active.
+        // Once per frame on the main thread. CM keys are held-driven (deploy every frame held); gear keys
+        // are edge-driven (act once per press). The local aircraft is fetched only if something fired.
         public static void Poll()
         {
             if (_flareKey == null) return;   // not bound yet
 
             // While the F1 menu has a joy field armed for capture, swallow the next button into it
-            // (and don't let that same press also deploy a countermeasure this frame).
+            // (and don't let that same press also trigger an action this frame).
             if (_capturing != null) { CaptureJoyButton(); return; }
 
-            bool fHeld = Held(_flareKey, _flareJoyBtn!);
-            bool jHeld = Held(_jammerKey!, _jammerJoyBtn!);
-            if (!(fHeld || jHeld)) return;   // the common case — nothing held this frame
+            bool fHeld    = Active(_flareKey,     _flareJoyBtn!,    edge: false);
+            bool jHeld    = Active(_jammerKey!,   _jammerJoyBtn!,   edge: false);
+            bool gearUp   = Active(_gearUpKey!,   _gearUpJoyBtn!,   edge: true);
+            bool gearDown = Active(_gearDownKey!, _gearDownJoyBtn!, edge: true);
+            if (!(fHeld || jHeld || gearUp || gearDown)) return;   // common case — nothing this frame
 
             GameManager.GetLocalAircraft(out Aircraft ac);
             if (ac == null || ac.disabled) return;
-            CountermeasureManager mgr = ac.countermeasureManager;
-            if (mgr == null) return;
 
-            if (fHeld) Drive(ac, mgr, Flare);
-            if (jHeld) Drive(ac, mgr, Jammer);
+            if (fHeld || jHeld)
+            {
+                CountermeasureManager mgr = ac.countermeasureManager;
+                if (mgr != null)
+                {
+                    if (fHeld) Drive(ac, mgr, Flare);
+                    if (jHeld) Drive(ac, mgr, Jammer);
+                }
+            }
+
+            if (gearUp || gearDown) DriveGear(ac, gearUp, gearDown);
+        }
+
+        // Dedicated gear raise/lower, mirroring the stock toggle (PilotPlayerState.cs): only changes a
+        // fully locked gear, and only while airborne (radarAlt > 0.2 — the game's anti-ground-collapse
+        // guard). SetGear is the canonical, network-correct entry. A gear mid-transition (Extending/
+        // Retracting) matches neither locked state and is left alone — exactly the requested no-op spec.
+        private static void DriveGear(Aircraft ac, bool up, bool down)
+        {
+            if (ac.radarAlt <= 0.2f) return;
+            if (up   && ac.gearState == LandingGear.GearState.LockedExtended)  ac.SetGear(false);   // raise if down
+            if (down && ac.gearState == LandingGear.GearState.LockedRetracted) ac.SetGear(true);    // lower if up
         }
 
         // CustomDrawer for a *JoystickButton entry: renders the current index plus Set/Clear buttons in the
@@ -143,19 +190,21 @@ namespace NOXMFD
             }
         }
 
-        // Is this countermeasure's bind currently held? A keyboard/mouse key (KeyboardShortcut, Unity
-        // input) OR an explicit Rewired joystick button index. Joystick KeyCodes in the KeyboardShortcut
-        // are ignored — those go through the Rewired index instead.
-        private static bool Held(ConfigEntry<KeyboardShortcut> kb, ConfigEntry<int> joyBtn)
+        // Is this bind active this frame? A keyboard/mouse key (KeyboardShortcut, Unity input) OR an explicit
+        // Rewired joystick button index. edge=false → held (IsPressed/GetButton, the CM keys); edge=true →
+        // pressed-this-frame (IsDown/GetButtonDown, the gear keys). Joystick KeyCodes inside the
+        // KeyboardShortcut are ignored — those go through the Rewired index instead.
+        private static bool Active(ConfigEntry<KeyboardShortcut> kb, ConfigEntry<int> joyBtn, bool edge)
         {
             KeyCode k = kb.Value.MainKey;
-            bool kbd = k != KeyCode.None && k < KeyCode.JoystickButton0 && kb.Value.IsPressed();
-            return kbd || JoyBtn(joyBtn.Value);
+            bool kbd = k != KeyCode.None && k < KeyCode.JoystickButton0 &&
+                       (edge ? kb.Value.IsDown() : kb.Value.IsPressed());
+            return kbd || JoyBtn(joyBtn.Value, edge);
         }
 
-        // Reads an explicit Rewired joystick button index (the number the Set drawer captures),
-        // honoring JoystickNumber (0 = any).
-        private static bool JoyBtn(int button)
+        // Reads an explicit Rewired joystick button index (the number the Set drawer captures), honoring
+        // JoystickNumber (0 = any). edge selects GetButtonDown (tap) vs GetButton (held).
+        private static bool JoyBtn(int button, bool edge)
         {
             if (button < 0 || !ReInput.isReady) return false;
             IList<Joystick> joys = ReInput.controllers.Joysticks;
@@ -164,15 +213,16 @@ namespace NOXMFD
             if (joyNum <= 0)   // any joystick
             {
                 for (int i = 0; i < joys.Count; i++)
-                    if (ButtonState(joys[i], button)) return true;
+                    if (ButtonState(joys[i], button, edge)) return true;
                 return false;
             }
             int idx = joyNum - 1;
-            return idx < joys.Count && ButtonState(joys[idx], button);
+            return idx < joys.Count && ButtonState(joys[idx], button, edge);
         }
 
-        private static bool ButtonState(Joystick joy, int button) =>
-            joy != null && button >= 0 && button < joy.buttonCount && joy.GetButton(button);
+        private static bool ButtonState(Joystick joy, int button, bool edge) =>
+            joy != null && button >= 0 && button < joy.buttonCount &&
+            (edge ? joy.GetButtonDown(button) : joy.GetButton(button));
 
         // Select this countermeasure (activeIndex; the game's UpdateHUD syncs the readout) and fire the
         // active station now. No-op if the airframe carries no countermeasure of that category.
