@@ -78,6 +78,7 @@ namespace NOXMFD
         {
             // Drain any inbound web-client commands first (main thread — safe to touch game state).
             CommandDispatcher.Drain();
+            CmKeybinds.Poll();   // dedicated countermeasure keybinds (main-thread input poll)
 
             float dt = Time.deltaTime;
             _fastTimer += dt;

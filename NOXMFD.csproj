@@ -67,6 +67,12 @@
       <HintPath>$(GameDir)\NuclearOption_Data\Managed\Mirage.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- Rewired is the game's input system; it owns the joystick/HOTAS, so Unity's legacy Input never
+         sees those buttons. We read them through Rewired for the countermeasure keybinds. -->
+    <Reference Include="Rewired_Core">
+      <HintPath>$(GameDir)\NuclearOption_Data\Managed\Rewired_Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <!-- UnityEngine.UI provides Image / RectTransform — needed for the AVN silhouette capture. -->
     <Reference Include="UnityEngine.UI">
       <HintPath>$(GameDir)\NuclearOption_Data\Managed\UnityEngine.UI.dll</HintPath>
