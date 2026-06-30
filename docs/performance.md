@@ -233,15 +233,33 @@ floor, plus the marginal polish we deliberately deferred.
 
 ## Next steps to evaluate (blind spots our instrumentation can't see)
 
-`PerfDiag` only measures **main-thread CPU time**. Three things it doesn't
-capture, ordered by value:
+**Update (2026-06-30):** the PerfDiag rollup now also logs **avg / 1%-low /
+min FPS** (`Time.deltaTime` sampled every frame; 1%-low = reciprocal of the
+99th-percentile frame time) and **GC collection-count deltas** (`d0/d1/d2`
+per gen, per window). This folds the frame-time readout flagged below and
+blind-spot #3 into the log itself, so a comparative session is
+self-documenting — no external FPS overlay needed. FPS is only logged while
+a mission is running (the reader drives the per-frame `Tick`). Caveat: FPS is
+*capped by VSync / target framerate* — if the game is VSync-locked at 60, the
+A/B "win" shows up as a higher 1%-low / fewer dips, not a higher avg.
 
-1. **True A/B (mod fully removed) — do this first.** We *inferred* ~3 ms/s
-   from per-path timers but never measured the real FPS delta with the DLL
-   gone. Method: same busy mission, FPS with `NOXMFD.dll` in `plugins/`
-   vs. pulled out. Small delta → we're at the floor, stop. Surprising gap
-   → something the CPU timers miss (GPU, render thread, the game reacting
-   to our HUD-hiding) is at play and becomes the next target.
+`PerfDiag` measures **main-thread CPU time** (plus FPS/GC as of the update
+above). Things it still doesn't capture, ordered by value:
+
+1. **A/B the mod's marginal cost — do this first.** Two methods, different
+   things measured:
+   - **In-mission toggle (easiest, logs FPS):** `Diagnostics > FeaturesActive`
+     off idles the reader (no scan/build/serve/capture/declutter) but keeps
+     sampling FPS, so PerfLogging records a no-features baseline *in the same
+     mission*. Flip it on/off between rounds and compare the `fps` lines.
+     This isolates the mod's **active per-frame cost** — but NOT the static
+     cost of the DLL being loaded (the idle HTTP listener thread, the
+     persistent MissionLifecycle Update, JIT/assemblies). Those are tiny.
+   - **DLL fully removed (gold standard, no log):** same busy mission, FPS
+     (external overlay — Steam/RTSS) with `NOXMFD.dll` in `plugins/` vs.
+     pulled out. Catches the static costs the toggle can't. Small delta →
+     we're at the floor, stop. Surprising gap → something the CPU timers miss
+     (GPU, render thread, the game reacting to our HUD-hiding) is at play.
 
 2. **GPU cost, especially the TGP feed.** `PerfDiag` is CPU-only. The TGP feed
    does a `Blit` + `AsyncGPUReadback` every frame *while a TGP pane is
@@ -253,15 +271,17 @@ capture, ordered by value:
 
 3. **GC allocation rate.** No GC spikes showed in `PushSnapshot`, but the
    10 Hz `.ToArray()` churn (units/rwr/mw) + the now-owned parts array do
-   allocate. Method: log a `GC.CollectionCount(0/1/2)` delta over a match
-   (cheap to add to the PerfDiag rollup). If high → pool/double-buffer those
-   per-tick arrays (the old #3 idea, dropped because BuildUnits *CPU* was
-   0.08 ms — but GC pause cost is a separate axis we didn't measure). If
-   low → ignore.
+   allocate. **Now logged** as `gc d0/d1/d2` deltas per 5 s window. Read it:
+   high `d0` with `d1`/`d2` ≈ 0 is cheap gen-0 churn (mostly harmless); rising
+   `d1`/`d2` means objects surviving to older gens → longer pauses → worth
+   pooling/double-buffering those per-tick arrays (the old #3 idea, dropped
+   on *CPU* grounds — BuildUnits was 0.08 ms — but GC pause is a separate
+   axis). Low across the board → ignore.
 
-If #1 shows a gap, a quick **frame-time 1%-low / GC-count readout** added
-to the PerfDiag rollup would quantify #2/#3 directly. Not worth adding
-speculatively.
+The frame-time 1%-low and GC-count readouts this section asked for are now
+in the rollup, so #1's FPS delta and #3's allocation pressure read straight
+off the log. #2 (GPU/TGP) remains the one axis the rollup can't see — for
+that, A/B a TGP pane open vs. closed and compare the logged FPS.
 
 ## Marginal polish (deferred — data doesn't justify it yet)
 

@@ -76,10 +76,21 @@ namespace NOXMFD
 
         private void Update()
         {
+            float dt = Time.deltaTime;
+
+            // Baseline mode: when the mod's active features are switched off (Diagnostics >
+            // FeaturesActive), do NONE of the telemetry/capture/serve work — but still sample FPS
+            // each frame so PerfLogging captures a no-features baseline in the SAME mission. Lets
+            // you A/B the mod's marginal cost without pulling the DLL (which takes PerfDiag with it).
+            if (!Plugin.FeaturesActive)
+            {
+                PerfDiag.Tick(dt, 0, 0);
+                return;
+            }
+
             // Drain any inbound web-client commands first (main thread — safe to touch game state).
             CommandDispatcher.Drain();
 
-            float dt = Time.deltaTime;
             _fastTimer += dt;
             _slowTimer += dt;
 

@@ -40,7 +40,7 @@ namespace NOXMFD
 
         private void ApplyHudApps()
         {
-            bool master = HudDeclutterConfig.DeclutterHud;
+            bool master = HudDeclutterConfig.DeclutterHud && Plugin.FeaturesActive;
 
             // Top-right weapon / ammo / countermeasure / capacitor cluster. This is CombatHUD's
             // private 'topRightPanel' GameObject — NOT the WeaponIndicator/CountermeasureIndicator
@@ -133,7 +133,7 @@ namespace NOXMFD
             DynamicMap map = SceneSingleton<DynamicMap>.i;
             if (map == null) return;
 
-            bool hide = HudDeclutterConfig.DeclutterHud && HudDeclutterConfig.HideMinimap && !DynamicMap.mapMaximized;
+            bool hide = HudDeclutterConfig.DeclutterHud && Plugin.FeaturesActive && HudDeclutterConfig.HideMinimap && !DynamicMap.mapMaximized;
             if (hide)
             {
                 DynamicMap.EnableCanvas(false);       // idempotent; re-asserts after Minimize()
