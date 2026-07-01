@@ -69,7 +69,8 @@ pilot, with HOTAS-friendly keybinds to match.
 
 ### Declutter HUD
 
-_TODO: short description._
+Optional toggles to hide native in-game HUD elements, available in the BepInEx
+configuration menu.
 
 - **Master switch** — hide the native in-game HUD elements as a set.
 - **Weapon & ammo** — hide the top-right weapon name / ammo and countermeasure count readouts.
@@ -78,7 +79,8 @@ _TODO: short description._
 
 ### Extended Keybinds
 
-_TODO: short description._
+Optional dedicated keybinds, available in the BepInEx configuration menu
+(keyboard/mouse or HOTAS button).
 
 - **Dispense flares** — select + deploy IR flares (tap to pop, hold to keep popping).
 - **Activate radar jammer** — select + activate the radar jammer (hold to jam).
