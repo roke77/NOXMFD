@@ -49,6 +49,15 @@ namespace NOXMFD
             FeaturesActive = featuresActive.Value;
             featuresActive.SettingChanged += (_, __) => FeaturesActive = featuresActive.Value;
 
+            // Network: the port the tablet connects to, and whether to auto-open the Windows LAN
+            // gates when the wildcard bind is denied (see docs/networking.md). Read once here —
+            // the server binds at startup, so changing these needs a game restart.
+            var netPort = Config.Bind("Network", "Port", 5005,
+                "TCP port the mod's HTTP/SSE server listens on; the tablet connects to http://<pc-ip>:<port>/. Change only if 5005 is taken. Requires a game restart, and must match the URL you open on the tablet.");
+            var autoLan = Config.Bind("Network", "AutoSetupLanAccess", true,
+                "On first launch, if binding the LAN port is denied, automatically add the Windows URL reservation + firewall rule so a tablet can connect — ONLY works when the game is run as Administrator. Turn OFF to manage them yourself (see docs/networking.md). No effect once configured. Localhost always works regardless.");
+            TelemetryServer.Configure(netPort.Value, autoLan.Value);
+
             TelemetryServer.Start();
             if (!_sceneSubscribed)
             {

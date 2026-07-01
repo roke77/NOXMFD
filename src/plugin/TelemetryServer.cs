@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Net;
@@ -13,7 +14,18 @@ namespace NOXMFD
 {
     internal static class TelemetryServer
     {
-        private const int Port = 5005;
+        // TCP port the HTTP/SSE server listens on, and whether to auto-add the Windows LAN
+        // gates (URL reservation + firewall rule) when the wildcard bind is denied. Both are
+        // set from config by Configure() before Start(); the defaults match a fresh .cfg.
+        internal static int Port { get; private set; } = 5005;
+        private static bool _autoSetupLan = true;
+
+        // Called from Plugin.Awake before Start(), with the values from the plugin .cfg.
+        internal static void Configure(int port, bool autoSetupLan)
+        {
+            if (port > 0 && port <= 65535) Port = port;
+            _autoSetupLan = autoSetupLan;
+        }
 
         private static HttpListener?           _listener;
         private static Thread?                 _acceptThread;
@@ -83,15 +95,17 @@ namespace NOXMFD
         {
             _cts = new CancellationTokenSource();
 
-            // Prefer binding to all interfaces so a tablet on the LAN can reach us. On
-            // Windows that requires either Administrator or a one-time URL ACL:
-            //   netsh http add urlacl url=http://+:5005/ user=Everyone
-            // If that bind fails (access denied), fall back to localhost-only.
-            _listener = new HttpListener();
-            _listener.Prefixes.Add($"http://+:{Port}/");
-            bool boundAll = false;
-            try { _listener.Start(); boundAll = true; }
-            catch (HttpListenerException)
+            // Prefer binding all interfaces so a tablet on the LAN can reach us. Windows guards
+            // that with two gates (see docs/networking.md): HTTP.sys needs a URL reservation for
+            // the wildcard prefix, and the firewall needs an inbound allow for the port. If the
+            // bind is denied we try to add both ourselves (works only when the game is elevated;
+            // they persist, so it's one-time); otherwise we fall back to localhost-only and log
+            // the manual fix.
+            bool boundAll = TryBindWildcard();
+            if (!boundAll && _autoSetupLan && TryAutoSetupLanAccess())
+                boundAll = TryBindWildcard();
+
+            if (!boundAll)
             {
                 _listener = new HttpListener();
                 _listener.Prefixes.Add($"http://localhost:{Port}/");
@@ -101,11 +115,6 @@ namespace NOXMFD
                     Plugin.Log?.LogError($"[NOXMFD] Failed to start on port {Port}: {ex.Message}");
                     return;
                 }
-            }
-            catch (Exception ex)
-            {
-                Plugin.Log?.LogError($"[NOXMFD] Failed to start on port {Port}: {ex.Message}");
-                return;
             }
 
             _acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "NOXMFD-Accept" };
@@ -123,7 +132,67 @@ namespace NOXMFD
             }
             else
             {
-                Plugin.Log?.LogInfo("[NOXMFD] LAN access disabled — to enable, run once in an elevated shell:  netsh http add urlacl url=http://+:" + Port + "/ user=Everyone");
+                Plugin.Log?.LogWarning($"[NOXMFD] LAN access disabled (localhost only). To enable it, run the game as Administrator once (auto-setup), or run these once in an elevated shell — see docs/networking.md:");
+                Plugin.Log?.LogWarning($"[NOXMFD]   netsh http add urlacl url=http://+:{Port}/ user=Everyone");
+                Plugin.Log?.LogWarning($"[NOXMFD]   netsh advfirewall firewall add rule name=\"NOXMFD ({Port})\" dir=in action=allow protocol=TCP localport={Port}");
+            }
+        }
+
+        // Try to bind the wildcard prefix (all interfaces). Returns false on the access-denied
+        // HttpListenerException that a missing URL reservation raises; rethrows nothing else so
+        // the caller can decide whether to attempt setup or fall back.
+        private static bool TryBindWildcard()
+        {
+            var listener = new HttpListener();
+            listener.Prefixes.Add($"http://+:{Port}/");
+            try { listener.Start(); _listener = listener; return true; }
+            catch (HttpListenerException) { return false; }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogWarning($"[NOXMFD] Wildcard bind on port {Port} failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        // Add the two Windows LAN gates via netsh: a URL reservation for the wildcard prefix and
+        // an inbound firewall allow for the port. Both persist, so this runs only on the first
+        // launch where the bind is denied. Both need admin; when the game isn't elevated they
+        // fail cleanly (non-zero exit, and no UAC prompt under UseShellExecute=false) and we fall
+        // back to localhost. Returns true if the URL reservation succeeded — that's what unblocks
+        // the bind; a failed firewall rule only means a tablet may not reach us yet.
+        private static bool TryAutoSetupLanAccess()
+        {
+            // sddl D:(A;;GX;;;WD): grant the generic-execute right a URL reservation needs to the
+            // Everyone/World SID (WD). SDDL aliases are locale-independent, unlike `user=Everyone`.
+            bool acl = RunNetsh($"http add urlacl url=http://+:{Port}/ sddl=D:(A;;GX;;;WD)");
+            bool fw  = RunNetsh($"advfirewall firewall add rule name=\"NOXMFD ({Port})\" dir=in action=allow protocol=TCP localport={Port}");
+            if (acl) Plugin.Log?.LogInfo($"[NOXMFD] LAN auto-setup: urlacl=ok, firewall={(fw ? "ok" : "failed")}.");
+            else     Plugin.Log?.LogInfo("[NOXMFD] LAN auto-setup couldn't add the URL reservation (needs the game run as Administrator once).");
+            return acl;
+        }
+
+        private static bool RunNetsh(string args)
+        {
+            try
+            {
+                var psi = new ProcessStartInfo("netsh", args)
+                {
+                    UseShellExecute        = false,
+                    CreateNoWindow         = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError  = true,
+                };
+                using (var p = Process.Start(psi))
+                {
+                    if (p == null) return false;
+                    p.WaitForExit(5000);
+                    return p.HasExited && p.ExitCode == 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogWarning($"[NOXMFD] netsh '{args}' failed to run: {ex.Message}");
+                return false;
             }
         }
 
