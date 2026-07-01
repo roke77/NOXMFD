@@ -1,4 +1,4 @@
-# Nuclear Option eXternal MFD
+# <img src="docs/images/icon.svg" alt="" width="32" height="32"> Nuclear Option eXternal MFD
 
 ![NO XMFD running on a flight-sim rig](docs/images/SIM.png)
 
