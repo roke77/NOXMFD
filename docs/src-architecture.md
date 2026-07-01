@@ -168,9 +168,8 @@ a tiny templating pass).
 
 ### D. Build / preview impact
 The real `src/web/` files are directly servable. `tools/serve_web.py` serves the shell,
-pages, `/config`, captured assets, and the MAP mock layer. `tools/build_preview.py`
-is now only a compatibility cleanup helper that removes stale generated preview
-HTML; no C# string extraction remains.
+pages, `/config`, captured assets, and the MAP mock layer directly — no build/extract step
+and no C# string extraction remains.
 
 ## Migration plan (incremental, each step shippable)
 
@@ -236,7 +235,7 @@ The DLL keeps building and the UI keeps working after every step.
    module would touch ~16 files (every page's js + html) for cosmetic savings while adding a single
    point of failure across all pages. The per-page `message` listeners stay local.
 7. ~~**Simplify preview tooling**~~ **DONE (pulled into 5c).** `serve_web.py` serves `src/web/`
-   directly; `build_preview.py` only removes stale generated files.
+   directly — no generate/extract step remains.
 
 ## Step 5 execution plan (MAP + MAIN + shell)
 
@@ -404,7 +403,7 @@ browser JS/CSS. So **always verify rendering in a browser**. The proven loop, no
   is critical: telemetry mirror messages should only come from the canonical MAP iframe.
 - JS identifiers like `paneWpnPage`, `selWpnPageFull`, and `wpnPage` are shell state, not page files.
   Grep precisely before deleting or renaming.
-- `build_preview.py` no longer builds anything; use `tools/serve_web.py --open` for browser checks.
+- Use `tools/serve_web.py --open` for browser checks — there is no build or extract step.
 
 ## Open questions / risks
 
