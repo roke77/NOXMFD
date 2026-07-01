@@ -5,7 +5,7 @@ using UnityEngine.SceneManagement;
 
 namespace NOXMFD
 {
-    [BepInPlugin("com.roque.NOXMFD", "NO XMFD", "0.1.0")]
+    [BepInPlugin("com.roque.NOXMFD", "NO XMFD", MyPluginInfo.PLUGIN_VERSION)]
     [BepInProcess("NuclearOption.exe")]
     [BepInProcess("NuclearOptionServer.exe")]
     public class Plugin : BaseUnityPlugin
