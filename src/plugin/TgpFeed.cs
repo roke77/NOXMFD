@@ -13,17 +13,17 @@ namespace NOXMFD
     // disengage, so the cost is zero until the MFD's TGP page actually opens a subscriber.
     //
     // We let the game render the TargetCam at its prefab-native resolution (~360×240) and just READ
-    // that RT. Earlier we tried swapping in a 720×480 RT to get a higher-quality feed, but it (a)
-    // quadrupled per-frame render cost for cam + UICam, and (b) repositioned UI canvas-anchored
-    // elements (the targeting box/crosshair) on the in-cockpit screen because the canvas snapped to
-    // the new RT edges. Reading the native RT side-steps both — the cockpit screen is undisturbed.
+    // that RT, rather than swapping in a larger RT for a higher-quality feed. A bigger RT would (a)
+    // quadruple per-frame render cost for cam + UICam, and (b) reposition UI canvas-anchored
+    // elements (the targeting box/crosshair) on the in-cockpit screen, since the canvas snaps to
+    // the RT edges. Reading the native RT avoids both — the cockpit screen is undisturbed.
     //
     // A plain object (not a MonoBehaviour): TelemetryReader owns one, drives it via Tick(dt) each
     // frame, reads Active for the snapshot, and calls Disengage() from its OnDestroy. Disengage()
     // nulls the buffers, so a readback callback that lands after teardown bails on its own guards.
     internal class TgpFeed
     {
-        internal const float Interval    = 1f / 15f;   // 15 Hz — halved from 30 Hz to cut readback+encode rate
+        internal const float Interval    = 1f / 15f;   // 15 Hz — enough for a small MFD pane, keeps readback+encode rate low
         private  const int   MaxDim      = 720;        // cap for the encoded frame (native source is smaller, so this is a no-op today)
         private  const int   JpegQuality = 50;         // JPEG quality 0–100; 50 is visually fine for a small MFD pane
 
@@ -173,7 +173,7 @@ namespace NOXMFD
 
             // GPU downscale, then ASYNC readback. AsyncGPUReadback dispatches the readback to
             // the GPU and returns immediately — no main-thread stall waiting on a pipeline
-            // flush, which was the dominant per-frame cost of the synchronous ReadPixels path.
+            // flush (a synchronous ReadPixels here would be the dominant per-frame cost).
             // The callback fires on the main thread once the GPU has the bytes ready (typically
             // 1–3 frames later); we then copy into _tex, encode, and push.
             Graphics.Blit(src, _rt);

@@ -56,19 +56,19 @@ const overlayEl = document.getElementById('overlay');
 const mapFrame  = document.querySelector('.screen > iframe[title="map"]');
 const screenEl  = document.getElementById('screen');
 const paneIframes = [document.getElementById('pane-top'), document.getElementById('pane-bot')];
-const pageFrame = document.getElementById('page-frame');   // full-view host for migrated pages (WPN, TGL, TGP)
-// Pages that render in #page-frame in full view (migrated out of overlay renderers). Maps the
+const pageFrame = document.getElementById('page-frame');   // full-view host for the frame-hosted pages (WPN, TGL, TGP)
+// Pages that render in #page-frame in full view (rather than as overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
 const FRAME_PAGES = { wpn: '/wpn', tgl: '/tgl', tgp: '/tgp', avn: '/avn', rwr: '/rwr' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
-// (TGP's panel/img + has-feed handling now live in src/web/pages/tgp/, hosted in #page-frame.)
+// (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
 const sepEls      = document.querySelectorAll('#keys-left .sep');   // 0 = above key[0], i+1 = below key[i]
-// (RWR element refs removed — full-view RWR is hosted in #page-frame, src/web/pages/rwr/, which
+// (No RWR element refs here — full-view RWR is hosted in #page-frame, src/web/pages/rwr/, which
 //  owns the scope SVG. The shell keeps only rwrData + mwData + the forwarders below.)
-// (AVN element refs removed — full-view AVN is hosted in #page-frame, src/web/pages/avn/, which
+// (No AVN element refs here — full-view AVN is hosted in #page-frame, src/web/pages/avn/, which
 //  owns the silhouette/bars DOM. The shell keeps only avnData + the forwarders below.)
-// (WPN/CM overlay element refs removed — full-view WPN is hosted in #page-frame, which owns
+// (No WPN/CM overlay element refs here — full-view WPN is hosted in #page-frame, which owns
 //  its own weapon rows + CM panel; see src/web/pages/wpn/.)
 
 // ── Pages ─────────────────────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ const PAGES = {
     items: [],
   },
   tgp: {
-    // Hosted in #page-frame (the migrated src/web/pages/tgp page), not the overlay — so the overlay
+    // Hosted in #page-frame (the src/web/pages/tgp page), not the overlay — so the overlay
     // stays transparent and only carries the MAIN nav label below.
     opaque: false,
     items: [
@@ -113,14 +113,14 @@ const PAGES = {
     ],
   },
   tgl: {
-    // Hosted in #page-frame (the migrated src/web/pages/tgl page), not the overlay — so the overlay
+    // Hosted in #page-frame (the src/web/pages/tgl page), not the overlay — so the overlay
     // stays transparent and only carries the nav labels + the deselect softkeys the page emits.
     // placeTglNavLabels() owns left-key-0 (MAIN/PREV) and right-key-0 (NEXT when overflow).
     opaque: false,
     items: [],
   },
   avn: {
-    // Hosted in #page-frame (the migrated src/web/pages/avn page), not the overlay — so the overlay
+    // Hosted in #page-frame (the src/web/pages/avn page), not the overlay — so the overlay
     // stays transparent and only carries the MAIN nav label below.
     opaque: false,
     items: [
@@ -128,7 +128,7 @@ const PAGES = {
     ],
   },
   rwr: {
-    // Hosted in #page-frame (the migrated src/web/pages/rwr page), not the overlay — so the overlay
+    // Hosted in #page-frame (the src/web/pages/rwr page), not the overlay — so the overlay
     // stays transparent and only carries the MAIN nav label below.
     opaque: false,
     items: [
@@ -360,8 +360,8 @@ function forwardAvnToFrame() {
 }
 // Forward the full-view geometry: AVN's name aligns to the vertical centre of left key[0], and
 // the silhouette frame spans from below the name (sep[1]) to the bottom strip (last sep). Map
-// the shell-viewport coords into the frame by subtracting its top. Mirrors the old overlay
-// renderAvn placement; the page's full profile applies it (compact uses CSS fixed offsets).
+// the shell-viewport coords into the frame by subtracting its top. The page's full profile
+// applies this placement (compact uses CSS fixed offsets).
 function forwardAvnLayoutToFrame() {
   const w = frameWin(); if (!w) return;
   const k = leftKeys[0]; if (!k) return;
@@ -495,12 +495,12 @@ function forwardWpnLayoutToPanes() {
 }
 
 // ── Full-view WPN frame (single-pane) ──────────────────────────────────────────────────
-// Full-view WPN is hosted in #page-frame (the migrated src/web/pages/wpn page in its 'full'
-// profile) rather than the old overlay. These mirror the split forwarders but compute the
-// full-screen geometry (5 left-column slots + the right-half image area + the CM band) from
-// the bezel separators, and slice the loadout to the full-view page (WPN_MAX_DISPLAY, wpnPage).
+// Full-view WPN is hosted in #page-frame (the src/web/pages/wpn page in its 'full' profile).
+// These mirror the split forwarders but compute the full-screen geometry (5 left-column slots
+// + the right-half image area + the CM band) from the bezel separators, and slice the loadout
+// to the full-view page (WPN_MAX_DISPLAY, wpnPage).
 function frameWin() { return pageFrame && pageFrame.contentWindow; }
-// Point #page-frame at a migrated page, switching its src when moving between frame pages
+// Point #page-frame at a frame-hosted page, switching its src when moving between frame pages
 // (WPN ↔ TGL) and lazy-loading on first entry. No-op if it already shows that page.
 function showFramePage(name) {
   const url = FRAME_PAGES[name];

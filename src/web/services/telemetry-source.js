@@ -167,7 +167,7 @@ export class TelemetrySource {
     this._postUp({ type: 'loadout', items: d.loadout || [], selWeapon: d.selWeapon || null });
   }
 
-  // On mission exit, tell every consumer the data is gone (matches the old clearMission post-up).
+  // On mission exit, tell every consumer the data is gone so no page renders stale state.
   _emitEmpties() {
     this._postUp({ type: 'loadout', items: [], selWeapon: null });
     this._postUp({ type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 });

@@ -26,9 +26,9 @@
       <div class="keys v" id="keys-left"></div>
       <div class="screen" id="screen">
         <iframe src="/map-view?bare" title="map"></iframe>
-        <!-- Full-view host for migrated pages (currently WPN). Shown via .screen.page-on in
-             single-pane view; covers the map iframe (which keeps running behind as the SSE
-             data source). Hidden in split view, where the panes take over. -->
+        <!-- Full-view host for the frame-hosted pages (WPN, TGL, TGP, RWR, AVN). Shown via
+             .screen.page-on in single-pane view; covers the map iframe (which keeps running
+             behind as the SSE data source). Hidden in split view, where the panes take over. -->
         <iframe id="page-frame" title="page"></iframe>
         <!-- Powered-off black-out: covers the whole recess (iframe, panes, overlay) but
              never the bezel. Toggled by the top-strip power key (.screen.power-off). -->

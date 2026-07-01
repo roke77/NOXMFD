@@ -21,10 +21,10 @@ namespace NOXMFD
     // the reader owns one instance and drives it from ScanWorld / PushSnapshot.
     internal class AssetCapture
     {
-        // Map capture: the in-game map sprite can be huge (measured: a 16 MB PNG → a ~670 ms
-        // main-thread freeze on mission load, from the ReadPixels + EncodeToPNG of a multi-K
-        // texture). We GPU-downscale to a sane cap and encode JPEG instead — typically a
-        // ~10-50× size cut (also much lighter for a tablet to fetch) for one one-time capture.
+        // Map capture: the in-game map sprite can be huge — a multi-K texture whose full-res
+        // ReadPixels + EncodeToPNG would freeze the main thread ~670 ms on mission load (a 16 MB
+        // PNG). So we GPU-downscale to a sane cap and encode JPEG instead — typically a ~10-50×
+        // size cut (also much lighter for a tablet to fetch) for one one-time capture.
         private const int MapMaxDim      = 4096; // cap the longer side; preserves aspect
         private const int MapJpegQuality = 85;   // JPEG quality 0–100; 85 keeps grid/coast detail readable
 
@@ -334,7 +334,7 @@ namespace NOXMFD
 
         // Pulls MapSettings.MapImage (the actual in-game map sprite) into JPEG bytes and hands
         // them to the server. GPU-downscaled to MapMaxDim and JPEG-encoded so this one-time
-        // capture doesn't freeze the main thread (the old full-res PNG path cost ~670 ms) and
+        // capture doesn't freeze the main thread (a full-res PNG capture costs ~670 ms) and
         // so a tablet isn't fetching a 16 MB map.
         public void TryCaptureMap(MapSettings ms)
         {

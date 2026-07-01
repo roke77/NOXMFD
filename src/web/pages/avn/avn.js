@@ -97,7 +97,7 @@ function ensureAvnLayout(type) {
     .catch(function() {
       // The airframe is captured ~1 Hz AFTER the plane loads (and its images stream in async),
       // so right after a respawn / plane change the layout can 404 for a beat. Retry until it
-      // lands instead of giving up — giving up permanently was the "AVN stays black" bug.
+      // lands rather than giving up on the first miss, which would leave AVN stuck black.
       const n = (avnLayoutTries[type] || 0) + 1;
       avnLayoutTries[type] = n;
       avnLayoutCache[type] = (n <= 20) ? undefined : 'fail';

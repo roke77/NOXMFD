@@ -223,7 +223,7 @@
     border-radius: 3px;
     background: var(--no-bg);
   }
-  /* Full-view host iframe for migrated pages (WPN). Covers the recess like the map iframe;
+  /* Full-view host iframe for the frame-hosted pages (WPN). Covers the recess like the map iframe;
      shown via .screen.page-on, hidden in split (panes take over). It sits below the .overlay
      (a later sibling), so the shell's bezel labels still paint on top, and below .screen-off
      (z-index 50) so power-off still blacks it out. */
@@ -374,11 +374,10 @@
   .overlay-item.right { right: 16px; transform: translateY(-50%); }
   .overlay-item.top { transform: translate(-50%, 0); }
   .overlay-item.bottom { transform: translate(-50%, -100%); }
-  /* Keep the reduced menu-item size in portrait too. Earlier this scaled the label up with
-     viewport height (clamp(21px, 2.4vh, 34px)), but on a tall portrait screen that grew the
-     text well past the 21px landscape size — so the 2/3 reduction only looked applied in
-     landscape. Pin portrait to the same 21px so menu items read identically in both
-     orientations. */
+  /* Pin the menu-item size in portrait to the same 21px as landscape, so items read
+     identically in both orientations. A viewport-height clamp (e.g. clamp(21px, 2.4vh, 34px))
+     would grow the text well past 21px on a tall portrait screen, making the size look
+     inconsistent between orientations. */
   body.portrait .overlay-item { font-size: 21px; }
 
   /* MAIN page "about" card — name + URL + live connection status. Hidden on MAP page. */
@@ -440,23 +439,9 @@
     transition: width 60ms linear;
   }
 
-  /* (WPN's + TGL's content and page indicators now live in the #page-frame iframe —
-     src/web/pages/wpn/ and src/web/pages/tgl/ — not in any overlay panel here.) */
-
-  /* TGP page — fills the screen with the live MJPEG feed from the player's targeting cam.
-     The empty placeholder mirrors the .wpn-empty style so it reads the same as the WPN
-     page's NO LOADOUT state. */
-  /* (TGP page — targeting-pod feed — now renders in the #page-frame iframe, src/web/pages/tgp/,
-     in both full and split views. Its panel/img/empty CSS moved there.) */
-
-  /* (RWR page — radar-warning scope — now renders in the #page-frame iframe, src/web/pages/rwr/,
-     in both full and split views. Its panel/scope SVG CSS moved there.) */
-
-  /* (AVN page — avionics silhouette + FUEL/THROTTLE bars — now renders in the #page-frame
-     iframe, src/web/pages/avn/, in both full and split views. Its panel/frame/bar CSS moved there.) */
-
-  /* (TGL page — target list — now renders in the #page-frame iframe, src/web/pages/tgl/, in both
-     full and split views. Its panel/row/faction CSS moved there.) */
+  /* The WPN, TGL, TGP, RWR and AVN pages render inside the #page-frame iframe (in both full
+     and split views), so each owns its own CSS under src/web/pages/<page>/ — there are no
+     panel/row/scope/bar styles for them here. */
 
   /* Decorative Phillips-head corner screws. The artwork is a photo of a real screw (white
      background knocked out to transparency), embedded as a base64 data URI so it ships with

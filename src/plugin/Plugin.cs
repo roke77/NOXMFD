@@ -17,13 +17,14 @@ namespace NOXMFD
         // but the reader still samples FPS, so PerfLogging can capture a no-features baseline.
         internal static bool FeaturesActive = true;
 
-        // BepInEx puts our Plugin on its own GameObject and tries to mark it DontDestroyOnLoad,
-        // but in Nuclear Option / Unity 2022.3 that doesn't stick — the GameObject dies on the
-        // boot -> MainMenu scene transition, taking the HTTP server with it. We sidestep by:
-        //   * starting the server (already static) in Awake,
-        //   * subscribing statically to the FIRST scene load,
-        //   * then spawning OUR OWN GameObject (and marking IT persistent) from that callback,
-        //     when a real scene exists and DontDestroyOnLoad actually works.
+        // BepInEx hosts the Plugin on its own GameObject and marks it DontDestroyOnLoad, but in
+        // Nuclear Option / Unity 2022.3 that flag doesn't hold — the GameObject dies on the
+        // boot -> MainMenu scene transition, and would take the HTTP server with it. So the
+        // durable state lives off the Plugin GameObject:
+        //   * the server is static and starts in Awake,
+        //   * a static handler subscribes to the FIRST scene load,
+        //   * from that callback (a real scene exists, so DontDestroyOnLoad holds here) we spawn
+        //     our own GameObject and mark IT persistent.
         // Plugin itself can be torn down — the static state and the MissionLifecycle GameObject survive.
 
         private static MissionLifecycle? _lifecycle;

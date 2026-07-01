@@ -8,10 +8,10 @@ namespace NOXMFD
 {
     // Async sprite → PNG/JPEG capture (docs/performance.md item #A).
     //
-    // Replaces the old synchronous SpriteToPng (Blit → ReadPixels → EncodeToPNG, all on the
-    // Unity main thread), which measured as the source of every capture FPS hitch: a ~670 ms
-    // map-load freeze and recurring 17–78 ms stutters whenever a new unit/aircraft type first
-    // appears in a busy match.
+    // Capturing a sprite means Blit → read the pixels back off the GPU → encode. Done
+    // synchronously on the Unity main thread that stalls the frame hard (~670 ms on map load,
+    // plus recurring 17–78 ms stutters whenever a new unit/aircraft type first appears in a
+    // busy match), so the readback and encode are kept off the critical path:
     //
     // Pipeline:
     //   1. (main) Blit the sprite's atlas sub-rect into a temp RT (optionally downscaled).
@@ -57,7 +57,7 @@ namespace NOXMFD
             }
 
             // Atlas-safe sub-rect blit: scale/offset are in normalized source-texture coords, so
-            // we copy exactly the sprite's region (same region the old textureRect path read).
+            // we copy exactly the sprite's region out of the shared atlas texture.
             Vector2 scale  = new Vector2(r.width / tex.width, r.height / tex.height);
             Vector2 offset = new Vector2(r.x / tex.width,     r.y / tex.height);
 

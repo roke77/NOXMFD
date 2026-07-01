@@ -86,8 +86,7 @@ namespace NOXMFD
             // Prefer binding to all interfaces so a tablet on the LAN can reach us. On
             // Windows that requires either Administrator or a one-time URL ACL:
             //   netsh http add urlacl url=http://+:5005/ user=Everyone
-            // If that bind fails (access denied), fall back to localhost-only — same as
-            // the original behaviour.
+            // If that bind fails (access denied), fall back to localhost-only.
             _listener = new HttpListener();
             _listener.Prefixes.Add($"http://+:{Port}/");
             bool boundAll = false;
@@ -280,25 +279,25 @@ namespace NOXMFD
                     else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                         ServeAsset(ctx, path);
                     else if (path == "/map-view")
-                        ServeAssetRel(ctx, "pages/map/map.html");   // migrated to src/web/pages/map/ (was ClientPage.Html)
+                        ServeAssetRel(ctx, "pages/map/map.html");
                     else if (path == "/main")
-                        ServeAssetRel(ctx, "pages/main/main.html");  // migrated to src/web/pages/main/ (was MainPage.Html)
+                        ServeAssetRel(ctx, "pages/main/main.html");
                     else if (path == "/avn")
-                        ServeAssetRel(ctx, "pages/avn/avn.html");   // migrated to src/web/pages/avn/ (was AvnPage.Html)
+                        ServeAssetRel(ctx, "pages/avn/avn.html");
                     else if (path == "/tgp")
-                        ServeAssetRel(ctx, "pages/tgp/tgp.html");   // migrated to src/web/pages/tgp/ (was TgpPage.Html)
+                        ServeAssetRel(ctx, "pages/tgp/tgp.html");
                     else if (path == "/wpn")
-                        ServeAssetRel(ctx, "pages/wpn/wpn.html");   // migrated to src/web/pages/wpn/ (was WpnPage.Html)
+                        ServeAssetRel(ctx, "pages/wpn/wpn.html");
                     else if (path == "/tgl")
-                        ServeAssetRel(ctx, "pages/tgl/tgl.html");   // migrated to src/web/pages/tgl/ (was TglPage.Html)
+                        ServeAssetRel(ctx, "pages/tgl/tgl.html");
                     else if (path == "/rwr")
-                        ServeAssetRel(ctx, "pages/rwr/rwr.html");   // migrated to src/web/pages/rwr/ (was RwrPage.Html)
+                        ServeAssetRel(ctx, "pages/rwr/rwr.html");
                     else if (path == "/command")
                         HandleCommand(ctx);
                     else if (path == "/mfd")
                         Redirect(ctx, "/");
                     else if (path == "/" || path == "/index.html")
-                        ServeAssetRel(ctx, "shell/mfd.html");        // migrated to src/web/shell/ (was MfdPage.Html)
+                        ServeAssetRel(ctx, "shell/mfd.html");
                     else
                         Redirect(ctx, "/");
                 }
@@ -414,7 +413,7 @@ namespace NOXMFD
             => ServeAssetRel(ctx, path.Substring("/assets/".Length).Trim('/'));
 
         // Serve an embedded web asset by its source-relative path under src/web/ (e.g.
-        // "pages/wpn.html"). Used both by the /assets/ route and by migrated page routes
+        // "pages/wpn.html"). Used both by the /assets/ route and by the page routes
         // (e.g. /wpn) that serve a file directly.
         private static void ServeAssetRel(HttpListenerContext ctx, string rel)
         {

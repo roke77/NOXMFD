@@ -151,9 +151,9 @@ function ensureIconImage(type) {
 // Pre-tinted + pre-glowed icon for a (type,color), cached. We bake the faction-colour glow
 // into the canvas ONCE here instead of setting canvas shadowBlur on every draw — per-draw
 // shadowBlur is the single most expensive 2D op, and with dozens of contacts redrawn at 10 Hz
-// it was the main source of MAP/RWR redraw lag. Returns { cv, iw, ih } or null if not loaded;
+// it would dominate MAP/RWR redraw cost. Returns { cv, iw, ih } or null if not loaded;
 // cv is padded by GLOW_PAD on every side so the baked glow has room to bleed.
-const GLOW_BLUR = 8;    // matches the old per-draw shadowBlur
+const GLOW_BLUR = 8;    // blur radius baked into the icon glow
 const GLOW_PAD  = 12;   // canvas padding (source px) to contain the blur spread
 function tintedIcon(type, hex) {
   const base = iconImages[type];
@@ -453,7 +453,7 @@ function handleNoMission(didEnd) {
 
 // The single telemetry provider for the whole MFD: it owns /stream, derives the per-page slices,
 // and broadcasts them up — including the connection status, which the shell renders on MAIN (MAP
-// no longer has its own status readout). We just render the frames it hands back; connect() is
+// itself has no status readout). We just render the frames it hands back; connect() is
 // called from init.
 const source = new TelemetrySource({ onFrame: renderFrame, onNoMission: handleNoMission });
 

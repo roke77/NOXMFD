@@ -551,11 +551,11 @@ namespace NOXMFD
         }
 
         // Snapshots every UnitPart in the player aircraft's partLookup into a FRESH array each
-        // tick. We used to reuse a cached buffer, but the snapshot is serialized on a background
-        // SSE thread (now once per version, see TelemetryServer.GetFrameBytes), so a buffer the
-        // main thread overwrites next tick could tear mid-serialize. A per-tick alloc of a small
-        // (~36-entry) struct array is negligible next to the units/rwr/mw arrays already built
-        // here, and it makes the snapshot's arrays owned/immutable — no data race.
+        // tick — not a reused buffer. The snapshot is serialized on a background SSE thread (once
+        // per version, see TelemetryServer.GetFrameBytes), so a buffer the main thread overwrites
+        // next tick could tear mid-serialize. A per-tick alloc of a small (~36-entry) struct array
+        // is negligible next to the units/rwr/mw arrays already built here, and it makes the
+        // snapshot's arrays owned/immutable — no data race.
         private PartHp[] BuildParts(Aircraft ac)
         {
             var parts = ac.partLookup;
