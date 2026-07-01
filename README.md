@@ -124,6 +124,20 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
+### MFD shell
+
+The shell frames the active page with dedicated bezel buttons — function
+controls along the top, layout presets along the bottom.
+
+- **PWR** — screen on/off.
+- **FULL** — fullscreen toggle.
+- **PIN** — pin a page.
+- **SWAP** — jump to/from pin.
+- **FULL VIEW** — single page.
+- **H_SPLIT** — top/bottom split.
+- **V_SPLIT** — left/right split.
+- **V_WIDE_SPLIT** — left/right 2:1 split.
+
 ### Declutter HUD
 
 Optional toggles to hide native in-game HUD elements, available in the BepInEx
