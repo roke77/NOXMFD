@@ -39,13 +39,33 @@ pilot, with HOTAS-friendly keybinds to match.
 
 ### MFD pages
 
-- MAIN
-- AVN
-- MAP
-- RWR
-- TGL
-- TGP
-- WPN
+- **MAIN** — menu and connection.
+
+  _Screenshot: TODO_
+
+- **AVN** — avionics.
+
+  _Screenshot: TODO_
+
+- **MAP** — full screen live map.
+
+  _Screenshot: TODO_
+
+- **RWR** — radar-warning receiver.
+
+  _Screenshot: TODO_
+
+- **TGL** — targets list.
+
+  _Screenshot: TODO_
+
+- **TGP** — targeting pod.
+
+  _Screenshot: TODO_
+
+- **WPN** — loadout and countermeasure status.
+
+  _Screenshot: TODO_
 
 ### Declutter HUD
 
