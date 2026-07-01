@@ -31,7 +31,11 @@ camera-view key in-game).
 
 ## Features
 
-_TODO: short description of the feature set._
+NO XMFD's features are built around flight immersion. It declutters Nuclear
+Option's in-game HUD instruments and relocates those readouts onto external
+displays — a second monitor, tablet, or phone — the way a physical flight-sim
+rig spreads its instrumentation across dedicated screens and panels around the
+pilot, with HOTAS-friendly keybinds to match.
 
 ### MFD pages
 
