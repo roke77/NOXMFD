@@ -4,10 +4,11 @@
 
 Planning only. No code yet. This describes a **new sibling subproject**
 that re-implements the project's browser frontend in React, driven
-entirely by **mocked data**. The existing C# frontend (`ClientPage.cs`,
-`MfdPage.cs`, served by `TelemetryServer`) stays as-is and remains the
-shipping implementation for now. The React app is a parallel,
-backend-free rebuild that uses the C# pages only as a reference.
+entirely by **mocked data** — a **future alternative** to the in-mod
+frontend, not a replacement for it. The shipping frontend now lives as
+real `.html`/`.css`/`.js` files under `src/web/` (served by
+`TelemetryServer`) and stays the shipping implementation; the React app is
+a parallel, backend-free rebuild that uses those pages only as a reference.
 
 ## Goal
 
@@ -22,17 +23,22 @@ Non-goal (this phase): wiring the React app to the real `/stream`,
 `/map`, `/tgp.mjpg`, etc. That's a later phase — the mock layer is
 designed so swapping in a real transport is a single-module change.
 
-## Why a separate subproject (not a rewrite of the C# pages)
+## Why a separate subproject (not a rewrite of the in-mod frontend)
 
-- The C# pages emit HTML/JS as giant string literals (`MfdPage.cs` is
-  ~79 KB, `ClientPage.cs` ~35 KB). They work and ship today; we don't
-  want to destabilise them.
-- React gives us a component model, real state, and a dev loop
-  (HMR) that the string-literal approach can't. Iterating on the MFD in
-  the C# strings is painful; iterating in React is fast.
-- Keeping it in the same repo (sibling folder) means the C# project
-  stays the single source of truth for the **data contract** and visual
-  design, and the two can diverge intentionally rather than by accident.
+- The in-mod frontend under `src/web/` works and ships today (real
+  `.html`/`.css`/`.js`, one source of truth per page). This subproject is
+  a **future alternative**, not a fix for it — so it stays isolated and
+  doesn't destabilise what ships.
+- React gives a component model, real shared state, and an HMR dev loop
+  that the vanilla-JS-over-`postMessage` shell can't — and it collapses
+  the iframe/`postMessage` plumbing into a component tree (see the
+  architecture section).
+- It's the natural base for the **mobile/native path**
+  (`docs/react-native-mobile.md`) and any standalone consumer that runs
+  outside the game process.
+- Keeping it in the same repo (sibling folder) means the mod stays the
+  single source of truth for the **data contract** and visual design, and
+  the two can diverge intentionally rather than by accident.
 
 ## The data contract to mock
 
@@ -86,17 +92,18 @@ Notes that matter for faithful mocking:
 
 ## Architecture: collapse the iframe into shared state
 
-The single biggest structural change from the C# design. Today:
+The single biggest structural change from the current design. Today:
 
-- `MfdPage` is the shell; it embeds `ClientPage` at `/?bare` in an
-  **iframe** and drives it via `postMessage` (`zoom-in`, `toggle-follow`,
-  `status-request`, …). The map iframe broadcasts status / loadout / cm /
-  tgp / targets / avionics back up via `postMessage`.
+- the shell (`src/web/shell/mfd.js`) hosts the map page
+  (`src/web/pages/map/map.js`) at `/map-view?bare` in an **iframe** and
+  drives it via `postMessage`. The map iframe is the single `/stream`
+  consumer and broadcasts status / loadout / cm / tgp / targets / avionics
+  back up via `postMessage`, which the shell re-forwards to the other pages.
 
 In React this becomes a **component tree with shared context** — no
 iframe, no postMessage:
 
-- `<MapView>` is a plain component (the former `ClientPage` map+overlay).
+- `<MapView>` is a plain component (the current map page's map+overlay).
 - `<MfdShell>` renders the bezel, keys, and the active MFD page, and
   renders `<MapView>` directly in its screen recess for the MAP page.
 - Telemetry + view state (zoom/pan/follow, selected weapon, target list,
@@ -113,7 +120,8 @@ so the standalone map page is still reachable on its own.
   format wired from the first commit so the codebase stays clean.
 - **Plain CSS (CSS Modules) matching the existing green-CRT theme** —
   port the existing hand-written styles rather than introducing Tailwind/
-  a UI kit. The look is bespoke and already defined in the C# strings.
+  a UI kit. The look is bespoke and already defined in `src/web/shared/theme.css`
+  + the per-page CSS.
   **Faithful port + light cleanup:** match the theme closely, but tidy
   spacing/typography/responsiveness as we go where the original is rough
   (small intentional deviations allowed; a full redesign is out of scope).
@@ -128,7 +136,7 @@ so the standalone map page is still reachable on its own.
 
 ## Feature inventory to replicate
 
-### Map / HUD surface (from `ClientPage.cs`)
+### Map / HUD surface (from `src/web/pages/map/`)
 - In-game map image background + NO SIGNAL empty state.
 - Own-aircraft icon: positioned by `world`, rotated by `hdg`, scaled by
   `iconScale`, with a fading **trail**.
@@ -145,7 +153,7 @@ so the standalone map page is still reachable on its own.
 - Connection status + watchdog (CONNECTED / DISCONNECTED / no mission).
 - Mission bar (mission name).
 
-### MFD surface (from `MfdPage.cs`)
+### MFD surface (from `src/web/shell/` + `src/web/pages/`)
 - Bezel with corner keys + info box; responsive re-layout on resize.
 - **MAIN** — alphabetised menu, LAN-URL card, mirrored connection status.
 - **MAP** — hosts `<MapView>`; keys forward zoom in/out + follow.

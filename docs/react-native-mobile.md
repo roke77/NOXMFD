@@ -13,8 +13,16 @@ A native Android app, installable on a **Samsung Galaxy Tab S9 FE**
 (landscape, cockpit-side-display use), that shows the same HUD + MFD as
 the React web client — consuming the plugin's telemetry server over the
 **LAN** (the `LanUrl` the server already advertises, e.g.
-`http://192.168.1.42:5005`). The tablet sits next to the player as a
+`http://192.168.1.42:5005`; the port is configurable via `Network.Port`
+and readable from `/config`). The tablet sits next to the player as a
 glass MFD while the game runs on the PC.
+
+**Security note:** the plugin's LAN server is **unauthenticated** — any
+device on the network that can reach the port sees the telemetry and can
+issue the same tap-to-target commands (see `SECURITY.md` and
+`docs/networking.md`). Fine on a trusted home Wi-Fi, which is the intended
+use; a mobile app doesn't change that model, so don't expose the port to
+untrusted networks.
 
 Depends on both prior subprojects: the data contract, frame types, and
 visual design are settled there first; this app reuses them on a mobile

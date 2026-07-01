@@ -112,7 +112,7 @@ Redraw happens in `drawOverlay` (`src/web/pages/map/map.js`), invoked on
 every SSE message (~10 Hz).
 
 - **`shadowBlur` on every draw call — the prime suspect.** Each icon
-  sets `shadowBlur=8` (historically `ClientPage.cs`; now `src/web/pages/map/map.js`), each RWR line
+  sets `shadowBlur=8` (in `src/web/pages/map/map.js`), each RWR line
   `shadowBlur=6` (`:451`), each missile likewise. Canvas `shadowBlur`
   is one of the most expensive 2D ops — a per-draw-call blur pass. With
   40+ contacts that's 40+ blur passes 10×/sec. Almost certainly the

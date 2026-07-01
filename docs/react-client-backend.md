@@ -26,10 +26,18 @@ real one*. What already works, unchanged:
 | `/map`                  | PNG       | Ready                          |
 | `/icon` `/weapon` `/cm` | PNG       | Ready (keyed by query param)   |
 | `/airframe` `/airframe-layout` | PNG / JSON | Ready                  |
+| `/config`               | JSON      | Ready — `{ localhost, lanUrl, port }` |
 
 Floating-origin is already resolved server-side, so no client-side world
 maths is added. The data contract the mock layer was built against is the
 real one.
+
+Two pieces this doc used to call "work to do" already exist: `TelemetryServer`
+now serves the in-mod frontend as **real static files** (`ServeAsset`/
+`ServeAssetRel` — MIME mapping, ETag caching, embedded-resource manifest), and
+the **`/config`** endpoint already returns `{ localhost, lanUrl, port }`. So the
+remaining backend work is mostly *reusing* that machinery for a React build,
+not building it (see work items 3–4).
 
 ## Work item 1 — Client: swap the mock module for a real transport
 
@@ -43,7 +51,8 @@ By design the mock lives behind one boundary (`mock/mockEngine`,
 - TGP page placeholder → `<img src="/tgp.mjpg">`, gated by the same
   `tgpActive` flag and NO TARGET fallback the mock already drives.
 - Add a base-URL config (`VITE_API_BASE`) so dev can point at
-  `http://localhost:5005` while prod is same-origin.
+  `http://localhost:5005` (or a custom `Network.Port`) while prod is
+  same-origin. The client can also read the live port from `/config`.
 
 Because the rest of the app only ever talked to `useTelemetry()` and the
 asset resolver, nothing else should change. Keep the mock modules around
@@ -66,39 +75,42 @@ different origins. Prefer the option that doesn't touch the C# server:
 In production the app is served same-origin (work item 3), so CORS is a
 non-issue there.
 
-## Work item 3 — Serve the React build from the plugin (the bulk)
+## Work item 3 — Serve the React build from the plugin (now mostly reuse)
 
-Today `TelemetryServer` serves `ClientPage.Html` / `MfdPage.Html` as
-string literals (`TelemetryServer.cs` AcceptLoop, ~L238-246). To serve a
-built React app, add **static-file serving** to the `HttpListener`:
+`TelemetryServer` **already** serves the in-mod frontend as static files —
+`ServeAsset`/`ServeAssetRel` resolve a request path to an embedded-resource
+stream with MIME mapping and ETag caching. Serving a built React app extends
+that path rather than adding it from scratch:
 
-- Serve `index.html` + hashed JS/CSS/asset files out of the Vite `dist/`.
-- MIME-type mapping (`.js`, `.css`, `.png`, `.svg`, `.json`, …) and
-  sensible cache headers (immutable for hashed assets, no-cache for
-  `index.html`).
+- Serve `index.html` + hashed JS/CSS/asset files out of the Vite `dist/`
+  through the same resolver.
+- MIME-type mapping already exists; add any types the Vite build emits
+  (`.svg`, `.woff2`, source maps) and cache headers (immutable for hashed
+  assets, no-cache for `index.html`).
 - **SPA fallback:** any unknown path — and `/mfd` — returns `index.html`
   so the React router handles routing client-side. The existing
   data-endpoint routes must be matched *before* the fallback.
 
-Then a **deploy step** to put `dist/` where the server can read it:
+Then a **deploy step** to get `dist/` into the DLL/plugin:
 
 - **Option A (simpler first):** post-build copy `dist/` into
   `BepInEx/plugins/noxmfd-web/`; the server reads from disk.
-- **Option B (single-file, neat):** embed `dist/` as embedded resources
-  in the DLL and serve from a resource stream. Cleaner deploy, bigger
-  DLL, extra resource-reading code path. Defer unless single-file
-  shipping matters.
+- **Option B (single-file, neat):** embed `dist/` as embedded resources —
+  **exactly how the in-mod `src/web/` frontend already ships** (`<EmbeddedResource>`
+  + the manifest resolver), so the code path is proven. Bigger DLL; preferred
+  if single-file shipping matters.
 
-## Work item 4 — The LAN-URL detail (small but easy to miss)
+## Work item 4 — The LAN-URL detail — DONE
 
-The MFD MAIN card currently gets the LAN URL by **server-side string
-substitution** of `{{LAN_URL_BLOCK}}` (`TelemetryServer.cs` ~L240-243).
-A static React bundle can't be string-substituted at serve time, so:
+This is already solved. `GET /config` returns `{ localhost, lanUrl, port }`
+at runtime; the in-mod shell + MAIN card fetch it on load (the old
+`{{LAN_URL_BLOCK}}` string-substitution path is gone). A React client does
+the same:
 
-- Add a tiny **`/config` JSON endpoint** returning `LanUrl` (and any
-  other server-known dynamics — port, version, feature flags later).
-- The React app fetches `/config` on load and renders the LAN URL from
-  it. Include `/config` in the dev proxy list (work item 2).
+- Fetch `/config` on load; render the LAN URL and use `port` as needed.
+- Include `/config` in the dev proxy list (work item 2).
+- Only net-new work here is any *additional* fields React wants (version,
+  feature flags) — add them to the existing `/config` payload.
 
 ## Work item 5 — Data-contract sync (ongoing discipline)
 
@@ -116,19 +128,22 @@ cite, plus a frame-version field so a mismatch is detectable at runtime.
 
 ## Work item 6 — Cleanup once parity is reached (optional)
 
-- Retire `ClientPage.cs` / `MfdPage.cs` once the React app fully
-  replaces them — removes the large HTML-in-C# string literals and
-  shrinks the plugin. Or keep them as a no-JS fallback.
-- Pairs naturally with the README's already-listed "BepInEx config for
-  tunable port/rates" next step.
+- The old HTML-in-C# pages (`ClientPage.cs` / `MfdPage.cs`) are **already
+  gone** — the in-mod frontend is real `src/web/` files. So the choice here
+  is whether the React app *replaces* that `src/web/` frontend or ships
+  **alongside** it (e.g. React at `/mfd`, the current frontend at `/`) as a
+  selectable alternative. Keeping both is cheap and hedges the rewrite.
+- The tunable **port** part of the README's "config for tunable port/rates"
+  next step is **done** (`Network.Port`); tunable *rates* remain open.
 
 ## Rough effort ranking
 
-1. **Static-file serving + deploy step** (work item 3) — the bulk.
-2. **Client transport swap** (work item 1) — small, by design.
+1. **Client transport swap** (work item 1) — small, by design.
+2. **Serve the React build** (work item 3) — now mostly reuse of the
+   existing static-file serving; the deploy step is the real work.
 3. **Dev proxy** (work item 2) — small; main risk is SSE/MJPEG passthrough.
-4. **`/config` endpoint** (work item 4) — tiny.
-5. **Contract sync** (work item 5) — discipline, not one-time effort.
+4. **Contract sync** (work item 5) — discipline, not one-time effort.
+5. ~~**`/config` endpoint** (work item 4)~~ — **done** (already served).
 
 ## Out of scope
 

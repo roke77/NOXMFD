@@ -37,7 +37,7 @@ cost, they shouldn't lose their in-cockpit targeting reticle to opt
 into a sharper web feed. So if we add this mode at all, it has to be
 done a different way.
 
-## Approach: mirror camera (Path B from `tgp-camera-feed.md`)
+## Approach: mirror camera
 
 Instead of redirecting the game's existing TargetCam, spawn **our
 own** `Camera` as a sibling on the same mount point.
@@ -165,10 +165,9 @@ is shared.
 4. **Disengage releases the mirror cam too** — extend the existing
    `DisengageTgp()` to call into the mirror cam controller's
    teardown.
-5. **Preview build.** `tools/build_preview.py` can fake a quality
-   field if we want to show a mock toggle, but the preview doesn't
-   need to render anything different — the MFD pane treats both modes
-   the same.
+5. **Preview harness.** The `tools/serve_web.py` http harness can supply a
+   mock quality field if we want to show a mock toggle, but it doesn't need
+   to render anything different — the MFD pane treats both modes the same.
 
 ## Open questions to settle while implementing (not now)
 
@@ -196,7 +195,9 @@ is shared.
 
 ## Pre-flight before implementing
 
-- Re-read `tgp-camera-feed.md` (the original feasibility doc) — it
-  has the relevant `TargetCam` internals already mapped out.
-- Re-read `tgp-feature-gating.md` — the gating model has to carry over.
+- Read `src/plugin/TgpFeed.cs` — it maps the relevant `TargetCam`
+  internals (cam / mount / fov reflection) and implements the subscriber
+  gating + async readback this mode has to carry over. (The original
+  `tgp-camera-feed.md` / `tgp-feature-gating.md` design docs were removed
+  once the feed shipped — `TgpFeed.cs` is the source of truth now.)
 - Re-read this doc and pick a toggle option before writing any code.
