@@ -31,7 +31,35 @@ camera-view key in-game).
 
 ## Features
 
-> **🚧 Work in progress.** A detailed feature list is coming.
+_TODO: short description of the feature set._
+
+### MFD pages
+
+- MAIN
+- AVN
+- MAP
+- RWR
+- TGL
+- TGP
+- WPN
+
+### Declutter HUD
+
+_TODO: short description._
+
+- **Master switch** — hide the native in-game HUD elements as a set.
+- **Weapon & ammo** — hide the top-right weapon name / ammo and countermeasure count readouts.
+- **Minimap** — hide the bottom-left corner minimap.
+- **Top boxes** — hide the boxed heading / airspeed / altitude readouts flanking the heading tape.
+
+### Extended Keybinds
+
+_TODO: short description._
+
+- **Dispense flares** — select + deploy IR flares (tap to pop, hold to keep popping).
+- **Dispense radar jammer** — select + activate the radar jammer (hold to jam).
+- **Gear up** — raise the landing gear.
+- **Gear down** — lower the landing gear.
 
 ## Security & privacy
 
