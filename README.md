@@ -61,7 +61,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
 ### MFD pages
 
-- **MAIN** — menu and connection status.
+- **MAIN** — landing page: connection status and the URL(s) to open the display.
 
   <details>
   <summary>Show screenshot</summary>
@@ -70,7 +70,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **AVN** — avionics.
+- **AVN** — aircraft status at a glance: airframe damage, fuel, throttle, and engine-fire warnings.
 
   <details>
   <summary>Show screenshot</summary>
@@ -79,7 +79,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **MAP** — full screen live map.
+- **MAP** — full-screen tactical map with friendly/hostile units and your own position; click a unit to target it, FLW toggles follow, Z+/Z− zoom.
 
   <details>
   <summary>Show screenshot</summary>
@@ -88,7 +88,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **RWR** — radar-warning receiver.
+- **RWR** — radar threats around you by bearing, with incoming-missile warnings.
 
   <details>
   <summary>Show screenshot</summary>
@@ -97,7 +97,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **TGL** — targets list.
+- **TGL** — scrollable list of detected targets with type, map grid, and range; tap a target to deselect it.
 
   <details>
   <summary>Show screenshot</summary>
@@ -106,7 +106,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **TGP** — targeting pod.
+- **TGP** — targeting-pod camera feed zoomed on the locked target, with range and bearing.
 
   <details>
   <summary>Show screenshot</summary>
@@ -115,7 +115,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **WPN** — loadout and countermeasure status.
+- **WPN** — weapon loadout and rounds remaining, plus IR-flare count and jammer charge.
 
   <details>
   <summary>Show screenshot</summary>
@@ -133,7 +133,7 @@ controls along the top, layout presets along the bottom.
 - **FULL** — fullscreen toggle.
 - **PIN** — pin a page.
 - **SWAP** — jump to/from pin.
-- **FULL VIEW** — single page.
+- **F_VIEW** — single page.
 - **H_SPLIT** — top/bottom split.
 - **V_SPLIT** — left/right split.
 - **V_WIDE_SPLIT** — left/right 2:1 split.
