@@ -57,7 +57,7 @@ _TODO: short description._
 _TODO: short description._
 
 - **Dispense flares** — select + deploy IR flares (tap to pop, hold to keep popping).
-- **Dispense radar jammer** — select + activate the radar jammer (hold to jam).
+- **Activate radar jammer** — select + activate the radar jammer (hold to jam).
 - **Gear up** — raise the landing gear.
 - **Gear down** — lower the landing gear.
 

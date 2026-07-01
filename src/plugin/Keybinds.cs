@@ -68,13 +68,13 @@ namespace NOXMFD
             const string cm = "Countermeasure Keybinds";
             _flareKey = config.Bind(cm, "DispenseFlares", new KeyboardShortcut(),
                 "Keyboard/mouse key: select + deploy IR flares. Tap to pop a set, hold to keep popping. No-op if the aircraft has no flares.");
-            _jammerKey = config.Bind(cm, "DispenseRadarJammer", new KeyboardShortcut(),
+            _jammerKey = config.Bind(cm, "ActivateRadarJammer", new KeyboardShortcut(),
                 "Keyboard/mouse key: select + activate the radar jammer. HOLD to jam (a tap only jams ~0.1s). No-op if the aircraft has no jammer.");
             _flareJoyBtn = config.Bind(cm, "DispenseFlaresJoystickButton", -1,
                 new ConfigDescription(
                     "Joystick/HOTAS button for flares, as a Rewired button INDEX (-1 = off). Click Set, then press the button on your stick to capture it. Fires the same as the keyboard key above; set either or both.",
                     null, JoyCaptureDrawer()));
-            _jammerJoyBtn = config.Bind(cm, "DispenseRadarJammerJoystickButton", -1,
+            _jammerJoyBtn = config.Bind(cm, "ActivateRadarJammerJoystickButton", -1,
                 new ConfigDescription(
                     "Joystick/HOTAS button for the radar jammer, as a Rewired button INDEX (-1 = off). Click Set, then press the button on your stick to capture it.",
                     null, JoyCaptureDrawer()));
