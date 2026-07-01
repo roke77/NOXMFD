@@ -27,23 +27,44 @@ camera-view key in-game).
 
 NO XMFD ships as a single BepInEx plugin (the web display is bundled inside the DLL).
 
+### With a mod manager (NOMM)
+
+[NOMM](https://github.com/Combat787/NOMM), the Nuclear Option Mod Manager, installs
+BepInEx and resolves dependencies for you.
+
+1. Download and run **NOMM** from its
+   [latest release](https://github.com/Combat787/NOMM/releases/latest) (Windows
+   installer/portable, or Linux packages).
+2. Search for **NO XMFD** and install it. BepInEx and any dependencies are handled
+   automatically.
+3. **Launch the game.** Open `http://localhost:5005/` in a browser to see the
+   display; for a tablet or phone on your network, see
+   [docs/networking.md](docs/networking.md).
+
+### Manual
+
 1. **Install BepInEx 5** (x64) into Nuclear Option — grab it from the
    [BepInEx releases](https://github.com/BepInEx/BepInEx/releases). Run the game
    once so BepInEx creates its folders.
-2. **Download the latest NO XMFD release** from the
+2. **(Optional) Install ConfigurationManager** — the in-game settings editor, much
+   friendlier than editing the config file by hand. Download the **BepInEx 5** build
+   from its [releases](https://github.com/BepInEx/BepInEx.ConfigurationManager/releases)
+   and extract the DLL into `BepInEx/plugins/`.
+3. **Download the latest NO XMFD release** from the
    [Releases page](https://github.com/roke77/NOXMFD/releases).
-3. **Extract it** into a subfolder of BepInEx's plugins directory:
+4. **Extract it** into a subfolder of BepInEx's plugins directory:
 
    ```
    BepInEx/plugins/NOXMFD/
    ```
 
-4. **Launch the game.** Open `http://localhost:5005/` in a browser to see the
+5. **Launch the game.** Open `http://localhost:5005/` in a browser to see the
    display. To reach it from a tablet or phone on your network, see
    [docs/networking.md](docs/networking.md).
 
-To use the in-game settings menu (Declutter HUD toggles, keybinds), also set
-`HideManagerGameObject = true` — see [BepInEx setting](#bepinex-setting) above.
+The in-game settings menu (Declutter HUD toggles, keybinds) needs ConfigurationManager
+installed **and** `HideManagerGameObject = true` (see [BepInEx setting](#bepinex-setting)).
+Without it the settings still work — edit them in `BepInEx/config/com.roque.NOXMFD.cfg`.
 
 ## Features
 
