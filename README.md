@@ -61,31 +61,31 @@ pilot, with HOTAS-friendly keybinds to match.
 
 - **MAIN** — menu and connection.
 
-  _Screenshot: TODO_
+  ![MAIN page](docs/images/MAIN.png)
 
 - **AVN** — avionics.
 
-  _Screenshot: TODO_
+  ![AVN page](docs/images/AVN.png)
 
 - **MAP** — full screen live map.
 
-  _Screenshot: TODO_
+  ![MAP page](docs/images/MAP.png)
 
 - **RWR** — radar-warning receiver.
 
-  _Screenshot: TODO_
+  ![RWR page](docs/images/RWR.png)
 
 - **TGL** — targets list.
 
-  _Screenshot: TODO_
+  ![TGL page](docs/images/TGL.png)
 
 - **TGP** — targeting pod.
 
-  _Screenshot: TODO_
+  ![TGP page](docs/images/TGP.png)
 
 - **WPN** — loadout and countermeasure status.
 
-  _Screenshot: TODO_
+  ![WPN page](docs/images/WPN.png)
 
 ### Declutter HUD
 
