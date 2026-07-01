@@ -12,7 +12,7 @@ any web browser, on the same PC or on another device on the same network.
 - A device with a modern web browser — the same PC, or a tablet/phone on the
   same local network.
 
-### Required BepInEx setting
+### BepInEx setting
 
 Set `HideManagerGameObject = true` under `[Chainloader]` in
 `BepInEx/config/BepInEx.cfg`. The plugin itself runs without it, but the in-game
