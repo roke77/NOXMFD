@@ -2,9 +2,8 @@
 
 NO XMFD is a BepInEx plugin for [Nuclear Option](https://store.steampowered.com/app/2168680/)
 that reads live flight telemetry from the game and serves it over the local
-network as a browser-based multi-function display (MFD) and moving map. The
-display opens in any web browser, on the same PC or on another device on the
-same network.
+network as a browser-based multi-function display (MFD). The display opens in
+any web browser, on the same PC or on another device on the same network.
 
 ## Requirements
 
