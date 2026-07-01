@@ -1,5 +1,7 @@
 # Nuclear Option eXternal MFD
 
+![NO XMFD running on a flight-sim rig](docs/images/SIM.png)
+
 NO XMFD is a BepInEx plugin for [Nuclear Option](https://store.steampowered.com/app/2168680/)
 that reads live flight telemetry from the game and serves it over the local
 network as a browser-based multi-function display (MFD). The display opens in
@@ -59,7 +61,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
 ### MFD pages
 
-- **MAIN** — menu and connection.
+- **MAIN** — menu and connection status.
 
   ![MAIN page](docs/images/MAIN.png)
 
