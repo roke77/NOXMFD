@@ -5,12 +5,20 @@
     This is deliberately stripped down: no Tacview/ACMI output, no config, no UI.
     It just reads live telemetry from the game and logs it.
 
-    >>> ONE THING YOU MUST EDIT <<<
-    Set GameDir below to wherever Nuclear Option is installed ON THE MACHINE
-    THAT BUILDS THIS (your Windows box). The default is the standard Steam path.
+    >>> SET YOUR GAME PATH <<<
+    GameDir must point at your Nuclear Option install on the machine that BUILDS
+    this. The default below is the standard Steam path. If yours differs, DON'T edit
+    it here — create a local, gitignored GameDir.props next to this file so your path
+    stays out of source control:
+
+      <Project><PropertyGroup>
+        <GameDir>D:\SteamLibrary\steamapps\common\Nuclear Option</GameDir>
+      </PropertyGroup></Project>
   -->
+  <Import Project="GameDir.props" Condition="Exists('GameDir.props')" />
+
   <PropertyGroup>
-    <GameDir>E:\SteamLibrary\steamapps\common\Nuclear Option</GameDir>
+    <GameDir Condition="'$(GameDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Nuclear Option</GameDir>
   </PropertyGroup>
 
   <PropertyGroup>

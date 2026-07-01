@@ -3,6 +3,9 @@ obj/
 .vs/
 *.user
 
+# Local machine-specific game path override (see NOXMFD.csproj)
+GameDir.props
+
 # Python bytecode cache (tools/)
 __pycache__/
 *.pyc
