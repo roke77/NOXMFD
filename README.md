@@ -63,31 +63,66 @@ pilot, with HOTAS-friendly keybinds to match.
 
 - **MAIN** — menu and connection status.
 
+  <details>
+  <summary>Show screenshot</summary>
+
   ![MAIN page](docs/images/MAIN.png)
+
+  </details>
 
 - **AVN** — avionics.
 
+  <details>
+  <summary>Show screenshot</summary>
+
   ![AVN page](docs/images/AVN.png)
+
+  </details>
 
 - **MAP** — full screen live map.
 
+  <details>
+  <summary>Show screenshot</summary>
+
   ![MAP page](docs/images/MAP.png)
+
+  </details>
 
 - **RWR** — radar-warning receiver.
 
+  <details>
+  <summary>Show screenshot</summary>
+
   ![RWR page](docs/images/RWR.png)
+
+  </details>
 
 - **TGL** — targets list.
 
+  <details>
+  <summary>Show screenshot</summary>
+
   ![TGL page](docs/images/TGL.png)
+
+  </details>
 
 - **TGP** — targeting pod.
 
+  <details>
+  <summary>Show screenshot</summary>
+
   ![TGP page](docs/images/TGP.png)
+
+  </details>
 
 - **WPN** — loadout and countermeasure status.
 
+  <details>
+  <summary>Show screenshot</summary>
+
   ![WPN page](docs/images/WPN.png)
+
+  </details>
 
 ### Declutter HUD
 
