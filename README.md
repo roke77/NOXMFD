@@ -20,8 +20,7 @@ Set `HideManagerGameObject = true` under `[Chainloader]` in
 unless it is set: Nuclear Option destroys BepInEx's manager GameObject on the
 boot → main-menu transition, and ConfigurationManager lives on it. (Settings can
 still be edited by hand in the `.cfg` file either way.) Its default open key is
-`Insert`; rebind it in that menu's *General* section (avoid `F1`, which is a
-camera-view key in-game).
+`F1`, rebindable in that menu's *General* section.
 
 ## Installation
 
