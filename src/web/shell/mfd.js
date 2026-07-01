@@ -34,8 +34,8 @@ const layoutIcons = [
 const functionIcons = [
   { cls: 'ic-power',      title: 'Power',      action: 'power' },
   { cls: 'ic-fullscreen', title: 'Fullscreen', action: 'fll' },
-  { cls: 'ic-swap',       title: 'Swap',       action: 'swap' },
   { cls: 'ic-pin',        title: 'Pin',        action: 'pin' },
+  { cls: 'ic-swap',       title: 'Swap',       action: 'swap' },
 ];
 function applyIconBank(bankName, icons) {
   icons.forEach(function(icon, i) {
