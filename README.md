@@ -56,3 +56,14 @@ section (avoid `F1`, which is a camera-view key in-game).
 > **🚧 Work in progress.** Packaged releases and step-by-step install
 > instructions are coming. This section will be filled in once a proper
 > release build is available.
+
+## Security & privacy
+
+NO XMFD is open source and runs entirely on your machine and local network — it
+makes **no internet connections** and collects nothing. It does run a local web
+server (so a tablet can connect) and can optionally add a Windows firewall rule
+for its own port. Like all BepInEx mods it runs unsandboxed, so it's worth
+knowing exactly what it can access: see **[SECURITY.md](SECURITY.md)** for the
+full capability disclosure, the one network caveat (the LAN server is
+unauthenticated), and how to verify the build yourself. Network/firewall setup
+is covered in [docs/networking.md](docs/networking.md).
