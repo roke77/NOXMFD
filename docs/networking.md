@@ -10,10 +10,10 @@ MFD web UI from it. You open that UI in a browser:
 The game PC's LAN URL is shown on the MFD **MAIN** page. If it's blank, the wildcard bind was
 denied and only localhost is served — work through the steps below.
 
-## Why two gates (this is the part people miss)
+## Why two gates
 
 For a tablet to reach the server, **two independent** Windows permissions must both be granted.
-Granting one and not the other is the usual reason "it still doesn't work":
+Granting one but not the other leaves the connection broken:
 
 | Gate | What it controls | Symptom if missing |
 |------|------------------|--------------------|
