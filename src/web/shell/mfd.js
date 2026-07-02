@@ -278,12 +278,13 @@ function renderSplitLabels() {
     // WPN's labels are pagination-dependent: MAIN (or PREV once scrolled) on the pane's L0,
     // NEXT on the pane's R0 when more weapons remain. Mirrors single-pane renderWpn.
     let items;
+    let wpnSlice = null;
     if (page === 'wpn') {
-      const sl = wpnPaneSlice(paneIdx);
+      wpnSlice = wpnPaneSlice(paneIdx);
       items = [{ side: 'left', slot: 0,
-                 label:  sl.hasPrev ? 'PREV' : 'MAIN',
-                 action: sl.hasPrev ? 'wpn-prev' : 'main' }];
-      if (sl.hasNext) items.push({ side: 'right', slot: 0, label: 'NEXT', action: 'wpn-next' });
+                 label:  wpnSlice.hasPrev ? 'PREV' : 'MAIN',
+                 action: wpnSlice.hasPrev ? 'wpn-prev' : 'main' }];
+      if (wpnSlice.hasNext) items.push({ side: 'right', slot: 0, label: 'NEXT', action: 'wpn-next' });
     } else if (page === 'tgl') {
       const sl = tglPaneSlice(paneIdx);
       items = [{ side: 'left', slot: 0,
@@ -306,6 +307,10 @@ function renderSplitLabels() {
       const physicalKey = keyBanks[item.side][item.slot + paneOffset];
       if (physicalKey) physicalKey.dataset.pane = paneTag;
     });
+    // WPN: wire this pane's weapon rows (slots 1,2 both sides) to weapon.select, AFTER applySoftkeys
+    // has cleared that zone. No data-pane tag — weapon selection is aircraft-global, so the press
+    // falls through the pane dispatcher to the shared weapon.select case (same as TGL deselect).
+    if (wpnSlice) wireWpnPaneWeaponKeys(wpnSlice.items, paneOffset);
   }
 }
 
@@ -492,6 +497,20 @@ function forwardWpnLayoutToPanes() {
     iframe.contentWindow.postMessage(
       { mfd: true, type: 'wpn-layout', slotYs: slotYs, cmTop: bandTop, cmHeight: bandBot - bandTop }, '*');
   });
+}
+
+// Wire a split WPN pane's up-to-4 weapon rows to weapon.select. Fill order matches the pane
+// renderer (wpn.js compact) and forwardWpnLayoutToPanes' slotYs: items → L1, L2, R1, R2. Sets the
+// aligned physical key's action + weapon name so a bezel press selects that weapon. No data-pane
+// tag: selection is aircraft-global, so the press falls through to the shared weapon.select case.
+// Called from renderSplitLabels after clearKeyActions + applySoftkeys have cleared the slot 1..2
+// zone, so only occupied rows are set and empty ones stay clean.
+const WPN_PANE_SLOTS = [['left', 1], ['left', 2], ['right', 1], ['right', 2]];
+function wireWpnPaneWeaponKeys(items, paneOffset) {
+  for (let i = 0; i < WPN_PANE_SLOTS.length && i < items.length; i++) {
+    const key = keyBanks[WPN_PANE_SLOTS[i][0]][WPN_PANE_SLOTS[i][1] + paneOffset];
+    if (key) { key.dataset.action = 'weapon.select'; key.dataset.wname = items[i].n; }
+  }
 }
 
 // ── Full-view WPN frame (single-pane) ──────────────────────────────────────────────────
