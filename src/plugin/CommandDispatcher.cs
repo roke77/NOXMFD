@@ -22,7 +22,8 @@ namespace NOXMFD
     internal class CommandEnvelope
     {
         public string cmd;
-        public long   id;   // target unit persistentID (target.select)
+        public long   id;      // target unit persistentID (target.select / target.deselect)
+        public string wname;   // weapon type name (weapon.select) — matches LoadoutEntry.Name
     }
 
     internal static class CommandDispatcher
@@ -32,6 +33,7 @@ namespace NOXMFD
             {
                 { "target.select",   TargetSelect },
                 { "target.deselect", TargetDeselect },
+                { "weapon.select",   WeaponSelect },
             };
 
         // True for a cmd we have a handler for — lets the server reject unknown commands at the
@@ -124,6 +126,46 @@ namespace NOXMFD
             if (viaHud) hud.DeSelectUnit(unit);
             else        wm.RemoveTargetList(unit);
             Plugin.Log?.LogInfo($"[NOXMFD] target.deselect ← '{name}' (id={id}, viaHud={viaHud}).");
+        }
+
+        // Make the aircraft's active weapon the first station of the requested type (WPN page bezel
+        // key → the weapon aligned with it). The loadout aggregates stations by name, so we match on
+        // the same weaponName/shortName BuildLoadout uses and pick the first visible station of that
+        // type; the game cycles any duplicate stations of the same type with its own next/prev.
+        // Replays the game's own NextWeaponStation() sequence — point the manager at the station,
+        // activate it (networked-aware), sync the cockpit HUD — so the marker + select beep come
+        // along. No-ops if that weapon is already selected.
+        private static void WeaponSelect(CommandEnvelope env)
+        {
+            string wname = env.wname;
+            if (string.IsNullOrEmpty(wname)) { Plugin.Log?.LogInfo("[NOXMFD] weapon.select: empty name — ignored."); return; }
+
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            if (ac == null || ac.weaponManager == null || ac.weaponStations == null) return;
+            WeaponManager wm = ac.weaponManager;
+
+            WeaponStation target = null;
+            foreach (WeaponStation st in ac.weaponStations)
+            {
+                if (st == null) continue;
+                WeaponInfo info = st.WeaponInfo;
+                if (info == null || info.hideInDisplay) continue;
+                string name = !string.IsNullOrEmpty(info.weaponName) ? info.weaponName : info.shortName;
+                if (string.Equals(name, wname, StringComparison.Ordinal)) { target = st; break; }
+            }
+            if (target == null) { Plugin.Log?.LogInfo($"[NOXMFD] weapon.select '{wname}': no matching station — ignored."); return; }
+
+            if (ReferenceEquals(wm.currentWeaponStation, target))
+            {
+                Plugin.Log?.LogInfo($"[NOXMFD] weapon.select '{wname}': already selected — no-op.");
+                return;
+            }
+
+            wm.currentWeaponStation = target;
+            ac.SetActiveStation(target.Number);
+            CombatHUD hud = SceneSingleton<CombatHUD>.i;
+            if (hud != null && ReferenceEquals(hud.aircraft, ac)) hud.ShowWeaponStation(target);
+            Plugin.Log?.LogInfo($"[NOXMFD] weapon.select → '{wname}' (station {target.Number}).");
         }
     }
 }
