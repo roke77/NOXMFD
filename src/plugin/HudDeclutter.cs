@@ -53,14 +53,35 @@ namespace NOXMFD
             // in-game config menu) — the HMD never re-enables graphics we disabled, so we must.
             if (master && HudDeclutterConfig.HideTopBoxes)
             {
-                HideBoxedReadout<Bearing>();
-                HideBoxedReadout<SpeedGauge>();
-                HideBoxedReadout<Altitude>();
+                // Only pay for the 3x FindObjectsByType scene scan when there's something to (re)find:
+                // nothing hidden yet, or a tracked graphic was destroyed because the HUD was rebuilt on
+                // aircraft respawn. Otherwise the graphics we disabled stay disabled — the HMD re-toggles
+                // the GameObject's active state each frame but never re-enables the graphic.enabled we
+                // set — so re-scanning every tick is pure waste (it was the mod's one real per-frame cost).
+                // ponytail: assumes new bordered readouts only appear via a respawn that destroys the old
+                // ones (true for NO's single-aircraft HUD). If a bordered copy could ever appear WITHOUT
+                // the tracked set losing an entry, it'd stay visible until the next respawn.
+                if (_hiddenGraphics.Count == 0 || AnyHiddenDestroyed())
+                {
+                    _hiddenGraphics.RemoveWhere(g => g == null);
+                    HideBoxedReadout<Bearing>();
+                    HideBoxedReadout<SpeedGauge>();
+                    HideBoxedReadout<Altitude>();
+                }
             }
             else if (_hiddenGraphics.Count > 0)
             {
                 RestoreBoxedReadouts();
             }
+        }
+
+        // True once any boxed-readout graphic we hid has been destroyed (Unity fake-null) — the signal
+        // that the HUD was rebuilt on an aircraft respawn, so we must re-scan for the fresh instances.
+        private bool AnyHiddenDestroyed()
+        {
+            foreach (Graphic g in _hiddenGraphics)
+                if (g == null) return true;
+            return false;
         }
 
         // Re-enable every boxed-readout graphic we disabled and forget them. Symmetric with the
