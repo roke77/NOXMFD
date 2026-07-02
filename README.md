@@ -135,8 +135,8 @@ controls along the top, layout presets along the bottom.
 - **SWAP** — jump to/from pin.
 - **F_VIEW** — single page.
 - **H_SPLIT** — top/bottom split.
-- **V_SPLIT** — left/right split.
-- **V_WIDE_SPLIT** — left/right 2:1 split.
+- **V_SPLIT** — left/right split _(to be implemented)_.
+- **V_WIDE_SPLIT** — left/right 2:1 split _(to be implemented)_.
 
 ### Declutter HUD
 
