@@ -16,17 +16,12 @@ namespace NOXMFD
     // and still work, they just lack the in-game UI. Until Bind() runs the properties fall back to
     // the defaults, so HudDeclutter behaves correctly even before/without binding.
     //
-    // DeclutterHud is the master switch for the whole set; the per-element flags below let you
-    // carve out individual pieces. Effective hide = DeclutterHud && Hide<Element>.
+    // Each per-element flag stands alone — hiding that element = FeaturesActive && Hide<Element>.
     internal static class HudDeclutterConfig
     {
-        private static ConfigEntry<bool>? _declutterHud;
         private static ConfigEntry<bool>? _hideWeaponAmmo;
         private static ConfigEntry<bool>? _hideMinimap;
         private static ConfigEntry<bool>? _hideTopBoxes;
-
-        // Master switch for the whole declutter set.
-        public static bool DeclutterHud => _declutterHud?.Value ?? false;
 
         // Top-right readouts: weapon name + ammo (WeaponIndicator) and the countermeasure
         // count "48 / IR Flares" (CountermeasureIndicator). Both hidden by this one flag.
@@ -47,8 +42,6 @@ namespace NOXMFD
         public static void Bind(ConfigFile config)
         {
             const string section = "HUD Declutter";
-            _declutterHud = config.Bind(section, "DeclutterHud", false,
-                "Master switch — hide native in-game HUD elements so the web MFD can replace them. Turn off to restore the stock HUD.");
             _hideWeaponAmmo = config.Bind(section, "HideWeaponAmmo", false,
                 "Hide the top-right weapon name / ammo and countermeasure count readouts.");
             _hideMinimap = config.Bind(section, "HideMinimap", false,

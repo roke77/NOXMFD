@@ -143,7 +143,6 @@ controls along the top, layout presets along the bottom.
 Optional toggles to hide native in-game HUD elements, available in the BepInEx
 configuration menu.
 
-- **Master switch** — hide the native in-game HUD elements as a set.
 - **Weapon & ammo** — hide the top-right weapon name / ammo and countermeasure count readouts.
 - **Minimap** — hide the bottom-left corner minimap.
 - **Top boxes** — hide the boxed heading / airspeed / altitude readouts flanking the heading tape.
