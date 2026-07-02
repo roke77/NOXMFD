@@ -518,6 +518,18 @@ function forwardWpnToFrame() {
   const items = list.slice(start, start + WPN_MAX_DISPLAY);
   w.postMessage({ mfd: true, type: 'wpn', items: items, selWeapon: wpnData.selWeapon,
                   page: maxPage > 0 ? wpnPage + 1 : 1, pages: maxPage + 1 }, '*');
+
+  // Wire each visible weapon's LEFT line-select key (keys 1..5) to select that weapon: a bezel
+  // press sends weapon.select with the row's name. The labels live inside the frame — here we
+  // only attach the action to the aligned physical key. Clear the unused row keys so a shorter
+  // loadout leaves no stale action. Full view only (forwardWpnToFrame runs solely on the WPN
+  // page); split-mode weapon rows aren't wired yet.
+  for (let k = 0; k < WPN_MAX_DISPLAY; k++) {
+    const key = keyBanks.left[k + 1];
+    if (!key) continue;
+    if (k < items.length) { key.dataset.action = 'weapon.select'; key.dataset.wname = items[k].n; }
+    else                  { delete key.dataset.action; delete key.dataset.wname; }
+  }
 }
 function forwardCmToFrame() {
   const w = frameWin(); if (!w) return;
@@ -830,6 +842,7 @@ function clearKeyActions() {
       delete k.dataset.action;
       delete k.dataset.pane;     // split-mode tag; harmless to clear unconditionally
       delete k.dataset.id;       // target-deselect id (TGL page); clear so it never lingers
+      delete k.dataset.wname;    // weapon.select name (WPN page); clear so it never lingers
     });
   });
 }
@@ -1182,6 +1195,9 @@ function mfdButton(el) {
     case 'wpn':       wpnPage = Math.max(0, selWpnPageFull()); showPage('wpn'); break;   // open on the selected weapon's page
     case 'wpn-prev':  wpnPage--;   showPage('wpn'); break;   // renderWpn clamps on overshoot
     case 'wpn-next':  wpnPage++;   showPage('wpn'); break;
+    case 'weapon.select':                                    // WPN bezel key → select the aligned weapon
+      if (el.dataset.wname) sendCommand('weapon.select', { wname: el.dataset.wname }).catch(function() {});
+      break;
     case 'tgp':  showPage('tgp');  break;
     case 'tgl':       tglPage = 0; showPage('tgl'); break;   // fresh entry — always start on page 0
     case 'tgl-prev':  tglPage--;   showPage('tgl'); break;   // forwardTglToFrame clamps overshoot
