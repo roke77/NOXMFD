@@ -28,7 +28,8 @@ let avnLayoutCache = Object.create(null);
 let avnLayoutTries = Object.create(null);   // per-type layout-fetch retry counts
 let avnPartEls     = Object.create(null);
 let avnFailureEls  = Object.create(null);
-let avnBgType = null, avnBgTries = 0;        // background-image retry state
+let avnBgType = null, avnBgTries = 0, avnBgLoaded = false;   // background-image request/retry state
+const AVN_BG_RETRY_CAP = 120;                // ~60 s @ 500 ms — safety bound; the async server capture lands far sooner
 
 // Known failure messages and how to render them on the silhouette. Mirrors the server's
 // failure-message strings; same keys, same positions, so the silhouette reads identically in
@@ -73,6 +74,7 @@ function renderAvn() {
   avnPartsEl.style.display = '';
 
   ensureAvnLayout(type);
+  ensureAvnBg(type);   // request the silhouette independently of the layout cache (see avn-bg-policy)
   const layoutDef = avnLayoutCache[type];
   if (!layoutDef || typeof layoutDef === 'string') return;
   if (avnLayoutType !== type) buildAvnParts(type, layoutDef);
@@ -90,7 +92,6 @@ function ensureAvnLayout(type) {
   if (cached && typeof cached === 'object') return;   // already loaded
   if (cached === 'pending') return;                   // fetch in flight
   avnLayoutCache[type] = 'pending';
-  setAvnBg(type);                                      // (re)request the background silhouette
   fetch('/airframe-layout?type=' + encodeURIComponent(type))
     .then(function(r) { if (!r.ok) throw new Error('layout ' + r.status); return r.json(); })
     .then(function(j) { avnLayoutCache[type] = j; avnLayoutTries[type] = 0; renderAvn(); })
@@ -105,19 +106,27 @@ function ensureAvnLayout(type) {
     });
 }
 
-// Set the background silhouette image. Retries on error because its capture is async (#A), so
-// it can 404 for a moment right after a plane change; cache-busts each retry so a prior 404
-// doesn't stick in the browser cache.
+// (Re)request the silhouette iff the type we're showing differs from the wanted one. Decoupled
+// from the layout cache (unlike before) so switching to an aircraft whose layout is already
+// cached — or whose bg PNG lagged the async server capture — still refreshes the silhouette
+// instead of leaving it stuck on the previous plane. See avn-bg-policy.js.
+function ensureAvnBg(type) {
+  if (AvnBgPolicy.shouldRequestBg(avnBgType, type)) setAvnBg(type);
+}
+
+// Set the background silhouette image. Retries on error because its capture is async, so it can
+// 404 for a moment right after a plane change; cache-busts each retry so a prior 404 doesn't
+// stick in the browser cache.
 function setAvnBg(type) {
-  avnBgType = type; avnBgTries = 0;
+  avnBgType = type; avnBgTries = 0; avnBgLoaded = false;
   avnBg.src = '/airframe?type=' + encodeURIComponent(type) + '&part=__bg';
 }
 avnBg.onerror = function() {
-  if (!avnBgType || avnBgTries >= 20 || avnData.name !== avnBgType) return;
+  if (!AvnBgPolicy.shouldRetryBg(avnData.name, avnBgType, avnBgLoaded, avnBgTries, AVN_BG_RETRY_CAP)) return;
   avnBgTries++;
   const t = avnBgType, v = avnBgTries;
   setTimeout(function() {
-    if (avnData.name === t) avnBg.src = '/airframe?type=' + encodeURIComponent(t) + '&part=__bg&v=' + v;
+    if (avnData.name === t && !avnBgLoaded) avnBg.src = '/airframe?type=' + encodeURIComponent(t) + '&part=__bg&v=' + v;
   }, 500);
 };
 
@@ -220,6 +229,7 @@ function fitAvnPartsToBg() {
   avnPartsEl.style.height = h + 'px';
 }
 avnBg.addEventListener('load', function() {
+  avnBgLoaded = true;   // silhouette for avnBgType is up — stop the retry loop
   fitAvnPartsToBg();
   sizeAvnFailures();
   layoutAvnBars();

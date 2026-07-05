@@ -95,14 +95,20 @@ namespace NOXMFD
             Image bgImage     = _sdBackgroundField.GetValue(sd)     as Image;
             System.Collections.IList partsList = _sdStatusDisplaysField.GetValue(sd) as System.Collections.IList;
             if (bgImage == null || partsList == null)
-            {
-                _capturedAirframes.Add(key);
-                return;
-            }
-
-            _capturedAirframes.Add(key);
+                return;   // StatusDisplay found but not populated yet — retry next slow scan (don't cache a miss)
 
             RectTransform bgRT = bgImage.rectTransform;
+
+            // Wait for the silhouette to have its sprite AND be laid out before we commit the capture.
+            // Right after a respawn / plane change the StatusDisplay can exist for a beat with a zero-size
+            // rect; capturing then makes GetPartPlacement reject every part (its zero-rect guard) and we'd
+            // cache an EMPTY layout for this type forever (key added to _capturedAirframes, never retried,
+            // so the AVN page shows a bare or stale silhouette). Returning here re-tries on the next slow
+            // scan until the cockpit panel is measured.
+            if (bgImage.sprite == null || bgRT.rect.width <= 0.0001f || bgRT.rect.height <= 0.0001f)
+                return;
+
+            _capturedAirframes.Add(key);
 
             // Diagnostic: dump the bg's full orientation in world space so we can see
             // exactly what flip / rotation the cockpit canvas applies. The .right/.up
