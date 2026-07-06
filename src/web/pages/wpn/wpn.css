@@ -173,6 +173,14 @@ body.full .wp-sel-icon-wrap.show { display: flex; }
 }
 body.landscape .wp-sel-icon { width: 100cqw; height: 100cqh; transform: none; }
 
+/* Left/right split (V_SPLIT / V_WIDE_SPLIT): the single-column list hugs one side (max 46% wide),
+   so show the selected-weapon image in the opposite half. The image box is tall + narrow here, so
+   keep the rotated fit regardless of app orientation (silhouettes are 2:1 horizontal). */
+body.vsplit .wp-sel-icon-wrap.show { display: flex; }
+body.vsplit.list-left  .wp-sel-icon-wrap { left: 54%; right: 0; }
+body.vsplit.list-right .wp-sel-icon-wrap { left: 0; right: 54%; }
+body.vsplit .wp-sel-icon { width: 100cqh; height: 100cqw; transform: rotate(90deg); }
+
 /* CM panel: full view gives it a touch more width and a fixed heading size (matching the
    weapon-name weight) versus the compact pane's clamp. Position (top/height) is still set
    by JS from the forwarded CM band. */

@@ -36,6 +36,8 @@ let sides   = null;          // compact: per-row side class forwarded by the she
 let fullSlots = null;
 let iconArea  = null;
 let cmBand  = null;
+let listSide = null;         // in V_SPLIT: the side the single-column list sits on ('left'/'right'); null otherwise
+const isVsplit = function() { return listSide != null; };
 let wpnKey  = '';            // layout + names; rebuild rows when either changes
 let wpnItemEls  = [];
 let wpSelIconKey = null;     // last weapon name pushed to the image src
@@ -157,7 +159,7 @@ function renderWpn() {
 // when the selection changes; hidden in compact and whenever nothing is selected.
 function renderSelIcon() {
   const sel = wpnData.selWeapon;
-  if (isFull() && sel && (wpnData.items || []).length) {
+  if ((isFull() || isVsplit()) && sel && (wpnData.items || []).length) {
     if (sel !== wpSelIconKey) {
       wpSelIconKey = sel;
       wpSelIconImg.style.visibility = '';
@@ -236,6 +238,11 @@ window.addEventListener('message', function(e) {
     fullSlots = Array.isArray(m.slots)  ? m.slots  : null;
     iconArea  = (typeof m.iconTop === 'number') ? { top: m.iconTop, height: m.iconHeight } : null;
     cmBand    = (typeof m.cmTop  === 'number') ? { top: m.cmTop,  height: m.cmHeight } : null;
+    listSide  = (m.listSide === 'left' || m.listSide === 'right') ? m.listSide : null;
+    // V_SPLIT shows the weapon image opposite the list (body.vsplit + list-<side>); cleared otherwise.
+    document.body.classList.toggle('vsplit', isVsplit());
+    document.body.classList.toggle('list-left',  listSide === 'left');
+    document.body.classList.toggle('list-right', listSide === 'right');
     applyCmBand();
     applyIconArea();
     renderWpn();   // re-render: a profile flip changes row classes + the image

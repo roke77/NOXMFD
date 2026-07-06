@@ -62,7 +62,8 @@ const FRAME_PAGES = { wpn: '/wpn', tgl: '/tgl', tgp: '/tgp', avn: '/avn', rwr: '
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
-const sepEls      = document.querySelectorAll('#keys-left .sep');   // 0 = above key[0], i+1 = below key[i]
+const sepEls      = document.querySelectorAll('#keys-left .sep');    // 0 = above key[0], i+1 = below key[i]
+const sepElsRight = document.querySelectorAll('#keys-right .sep');   // same structure for the right column
 // (No RWR element refs here — full-view RWR is hosted in #page-frame, src/web/pages/rwr/, which
 //  owns the scope SVG. The shell keeps only rwrData + mwData + the forwarders below.)
 // (No AVN element refs here — full-view AVN is hosted in #page-frame, src/web/pages/avn/, which
@@ -267,6 +268,10 @@ function setSplit(variant) {
   if (splitMode) {
     applySplitClasses();
     renderSplitLabels();            // key mapping is orientation-dependent
+    // Re-forward list-page geometry so WPN/TGL panes re-lay-out for the new orientation (else
+    // they keep the previous layout's row arrangement — e.g. H's 2-column grid in a V column).
+    forwardWpnLayoutToPanes();
+    forwardTglLayoutToPanes();
     return;
   }
   splitMode = true;
@@ -547,26 +552,27 @@ function forwardWpnLayoutToPanes() {
     if (!iframe.contentWindow) return;
     const paneTop = iframe.getBoundingClientRect().top;
     const L = listPaneLayout(idx);
-    function cyOf(m) { const r = keyBanks[m.bank][m.index].getBoundingClientRect(); return r.top + r.height / 2 - paneTop; }
+    function rectOf(m) { return keyBanks[m.bank][m.index].getBoundingClientRect(); }
+    function cyOf(m) { const r = rectOf(m); return r.top + r.height / 2 - paneTop; }
     // Weapon-row vertical centres + their per-item side class (both from the orientation layout):
     // H = L1,L2,R1,R2 across the pane; V/VW = keys 1..4 down the pane's own column.
     const slotYs = L.items.map(cyOf);
-    // CM band = the top-of-column key slot (MAIN's key). H: between the separators flanking L0 (the
-    // same band single-pane WPN parks the CM panel in). V/VW: from that key's top to the first
-    // weapon key's top (the separators only cover the left column, so measure the keys directly).
-    let bandTop, bandHeight;
-    if (splitVariant === 'h') {
-      const off = idx * 3;
-      bandTop = sepEls[off].getBoundingClientRect().bottom - paneTop;
-      bandHeight = (sepEls[off + 1].getBoundingClientRect().top - paneTop) - bandTop;
-    } else {
-      const mk = keyBanks[L.main.bank][L.main.index].getBoundingClientRect();
-      const i0 = keyBanks[L.items[0].bank][L.items[0].index].getBoundingClientRect();
-      bandTop = mk.top - paneTop;
-      bandHeight = i0.top - mk.top;
+    // CM band = MAIN's key slot, between its flanking separators — measured on the pane's OWN column
+    // (each column has the same sep structure) so the CM panel hugs the top the same in every layout.
+    const seps = L.main.bank === 'right' ? sepElsRight : sepEls;
+    const bandTop = seps[L.main.index].getBoundingClientRect().bottom - paneTop;
+    const bandHeight = (seps[L.main.index + 1].getBoundingClientRect().top - paneTop) - bandTop;
+    const msg = { mfd: true, type: 'wpn-layout', slotYs: slotYs, sides: L.itemSides, cmTop: bandTop, cmHeight: bandHeight };
+    // Left/right split has the horizontal room top/bottom lacks, so show the selected-weapon image
+    // in the pane half OPPOSITE the list (like full view). Forward the list side + the image's
+    // vertical span (the weapon-row band). H_SPLIT sends no image geometry, so it stays suppressed.
+    if (splitVariant !== 'h') {
+      const first = rectOf(L.items[0]), last = rectOf(L.items[L.items.length - 1]);
+      msg.listSide = L.itemSides[0];
+      msg.iconTop = first.top - paneTop;
+      msg.iconHeight = last.bottom - first.top;
     }
-    iframe.contentWindow.postMessage(
-      { mfd: true, type: 'wpn-layout', slotYs: slotYs, sides: L.itemSides, cmTop: bandTop, cmHeight: bandHeight }, '*');
+    iframe.contentWindow.postMessage(msg, '*');
   });
 }
 
