@@ -24,6 +24,7 @@ const pageInd  = document.getElementById('page-ind');
 let tglData   = { targets: [] };
 let layout    = 'compact';
 let slotYs    = null;
+let sides     = null;          // compact: per-row side class forwarded by the shell (H = L,L,R,R; V = one side)
 let fullSlots = null;
 let tglKey    = '';
 let tgItemEls = [];
@@ -32,6 +33,10 @@ const isFull = function() { return layout === 'full'; };
 function rowsPerSide() { return isFull() ? 5 : 2; }
 function slotSide(i)   { return i < rowsPerSide() ? 'left' : 'right'; }
 function localIdx(i)   { return i < rowsPerSide() ? i : i - rowsPerSide(); }   // 0-based slot in column
+// The side a row is DRAWN on: the shell-forwarded per-row side when present (V_SPLIT puts every row
+// on the pane's own column), else the default 2×2 fill. Note emitSoftkeys still keys off slotSide —
+// the shell maps that pane-local (side, slot) to the right physical key per orientation.
+function itemSide(i)   { return (sides && sides[i]) ? sides[i] : slotSide(i); }
 
 // Compact fallback positions used until the shell forwards real geometry. The row keys flanking
 // a pane (skipping the top band) sit at ~1/2 and ~5/6 of pane height; slot order L1, L2, R1, R2.
@@ -94,7 +99,7 @@ function renderTgl() {
 
   // Rebuild rows when the layout profile or the set of target names changes (the side class
   // depends on rowsPerSide(), so a profile flip must rebuild even if the names match).
-  const key = layout + '||' + list.map(function(t) { return t.n; }).join('|');
+  const key = layout + '|' + (sides ? sides.join(',') : '') + '||' + list.map(function(t) { return t.n; }).join('|');
   if (key !== tglKey) {
     tglKey = key;
     tgItemEls = [];
@@ -114,7 +119,7 @@ function renderTgl() {
     const el = tgItemEls[i];
     // Faction class: 1 = friendly (blue), 0 = neutral (white), anything else = enemy (red).
     const factionCls = t.f === 1 ? ' f-friendly' : t.f === 0 ? ' f-neutral' : '';
-    el.item.className   = 'tg-item ' + slotSide(i) + factionCls;
+    el.item.className   = 'tg-item ' + itemSide(i) + factionCls;
     el.name.textContent = t.n || '—';
     el.grid.textContent = 'GRID: ' + (t.g != null ? String(t.g) : '—');
     el.rng.textContent  = 'RNG: ' + fmtRng(t.r);
@@ -166,6 +171,7 @@ window.addEventListener('message', function(e) {
     layout    = (m.layout === 'full') ? 'full' : 'compact';
     document.body.classList.toggle('full', isFull());
     slotYs    = Array.isArray(m.slotYs) ? m.slotYs : null;
+    sides     = Array.isArray(m.sides)  ? m.sides  : null;
     fullSlots = Array.isArray(m.slots)  ? m.slots  : null;
     renderTgl();   // re-render: a profile flip changes row classes + sizing
   } else if (m.type === 'orient') {

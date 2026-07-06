@@ -32,6 +32,7 @@ let wpnData = { items: [], selWeapon: null };
 let cmData  = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 let layout  = 'compact';
 let slotYs  = null;
+let sides   = null;          // compact: per-row side class forwarded by the shell (H = L,L,R,R; V = one side)
 let fullSlots = null;
 let iconArea  = null;
 let cmBand  = null;
@@ -42,6 +43,9 @@ let wpSelIconKey = null;     // last weapon name pushed to the image src
 const isFull = function() { return layout === 'full'; };
 
 function slotSide(i) { return i < 2 ? 'left' : 'right'; }
+// The side a row is drawn on: the shell-forwarded per-row side when present (so V_SPLIT can put
+// every row on the pane's own column), else the default 2×2 fill.
+function itemSide(i) { return (sides && sides[i]) ? sides[i] : slotSide(i); }
 // Compact fallback positions used until the shell forwards real geometry. The weapon keys
 // flanking a pane (skipping the top band) sit at ~1/2 and ~5/6 of pane height; L1,L2,R1,R2.
 function fallbackY(i) {
@@ -115,16 +119,16 @@ function renderWpn() {
   const list = wpnData.items || [];
   wpnPanel.classList.toggle('has-loadout', list.length > 0);
 
-  // Rebuild rows when the layout profile or the name list changes (the side class differs
-  // between profiles, so a profile flip must rebuild even if the names are identical).
-  const key = layout + '||' + list.map(function(w) { return w.n; }).join('|');
+  // Rebuild rows when the layout profile, per-row sides, or the name list changes (the side class
+  // differs between profiles/orientations, so a flip must rebuild even if the names are identical).
+  const key = layout + '|' + (sides ? sides.join(',') : '') + '||' + list.map(function(w) { return w.n; }).join('|');
   if (key !== wpnKey) {
     wpnKey = key;
     wpnItemEls = [];
     wpnPanel.querySelectorAll('.wp-item').forEach(function(el) { el.remove(); });
     list.forEach(function(w, i) {
       const item = document.createElement('div');
-      item.className = isFull() ? 'wp-item' : ('wp-item ' + slotSide(i));
+      item.className = isFull() ? 'wp-item' : ('wp-item ' + itemSide(i));
       const name = document.createElement('div');
       name.className = 'wp-name';
       name.textContent = w.n;
@@ -228,6 +232,7 @@ window.addEventListener('message', function(e) {
     layout = (m.layout === 'full') ? 'full' : 'compact';
     document.body.classList.toggle('full', isFull());
     slotYs    = Array.isArray(m.slotYs) ? m.slotYs : null;
+    sides     = Array.isArray(m.sides)  ? m.sides  : null;
     fullSlots = Array.isArray(m.slots)  ? m.slots  : null;
     iconArea  = (typeof m.iconTop === 'number') ? { top: m.iconTop, height: m.iconHeight } : null;
     cmBand    = (typeof m.cmTop  === 'number') ? { top: m.cmTop,  height: m.cmHeight } : null;

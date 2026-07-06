@@ -301,6 +301,7 @@
   .split-pane {
     flex: 1 1 50%;
     min-height: 0;
+    min-width: 0;
     width: 100%;
     border: 0;
     display: block;
@@ -311,6 +312,18 @@
     width: 100%;
     background: #ffffff;
   }
+  /* Left/right variants (V_SPLIT 50/50, V_WIDE_SPLIT 2:1): lay the panes side by side and
+     stand the divider up vertically. The base rules above (column, full-width panes/divider)
+     serve the top/bottom H_SPLIT unchanged. */
+  .screen.split-v  > .split-container,
+  .screen.split-vw > .split-container { flex-direction: row; }
+  .screen.split-v  .split-pane,
+  .screen.split-vw .split-pane { width: auto; height: 100%; }
+  .screen.split-v  .split-divider,
+  .screen.split-vw .split-divider { width: 2px; height: 100%; }
+  /* V_WIDE_SPLIT: left pane (pane-top, first child) twice the right pane — 2:1. */
+  .screen.split-vw #pane-top { flex: 2 1 0; }
+  .screen.split-vw #pane-bot { flex: 1 1 0; }
 
   /* Per-page line-select overlay inside the screen. Item labels are positioned by JS to
      line up with their assigned bezel keys. Transparent on the MAP page (overlays the map, which

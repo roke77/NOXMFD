@@ -23,13 +23,12 @@ const leftKeys  = keyBanks.left;    // compatibility aliases for side-specific r
 const rightKeys = keyBanks.right;
 // Fixed-control icon banks. The top row holds page-independent functions; the bottom row
 // holds layout controls. Both are wired once at startup and excluded from clearKeyActions,
-// so they survive page switches. Entries without an `action` render the icon but do nothing
-// yet — placeholders to be wired later (left/right splits, power).
+// so they survive page switches.
 const layoutIcons = [
   { cls: 'ic-square', title: 'Full view',            action: 'unsplit' },
-  { cls: 'ic-2x1',    title: 'Split top/bottom',     action: 'split' },
-  { cls: 'ic-1x2',    title: 'Split left/right' },
-  { cls: 'ic-lr23',   title: 'Split left/right 2/3' },
+  { cls: 'ic-2x1',    title: 'Split top/bottom',     action: 'split'   },   // H_SPLIT
+  { cls: 'ic-1x2',    title: 'Split left/right',     action: 'vsplit'  },   // V_SPLIT (50/50)
+  { cls: 'ic-lr23',   title: 'Split left/right 2:1', action: 'vwsplit' },   // V_WIDE_SPLIT (2:1)
 ];
 const functionIcons = [
   { cls: 'ic-power',      title: 'Power',      action: 'power' },
@@ -144,6 +143,10 @@ let currentPage = 'map';
 // the shell still owns the bezel labels and dispatches clicks to the right pane.
 // See docs/mfd-split-screen.md — Strategy A, implementation sequence steps 1-4.
 let splitMode = false;
+// Split orientation: 'h' = top/bottom (H_SPLIT), 'v' = left/right 50/50 (V_SPLIT),
+// 'vw' = left/right 2:1 (V_WIDE_SPLIT). Drives the .split-<variant> CSS class and the
+// bezel key mapping (SplitKeymap.paneKey). Meaningful only while splitMode is on.
+let splitVariant = 'h';
 // [topPage, botPage]. Step 3 of the implementation sequence seeds both panes with
 // MAIN on entry; per-pane navigation updates this from MAIN's L0..L2 / R0..R2 keys.
 let panePages = ['main', 'main'];
@@ -172,10 +175,9 @@ const TGL_SPLIT_MAX = 4;
 let lastStatusCls  = 'disconnected';
 let lastStatusText = '● DISCONNECTED';
 
-// Split-mode line-select layouts per page. Each entry is one pane-local label;
-// physical key index = slot + paneOffset (paneOffset = 0 for top, 3 for bottom).
-// Only pages we've remapped via the interview in docs/mfd-split-screen.md appear
-// here. Pages without an entry render no labels in split mode (yet).
+// Split-mode line-select layouts per page. Each entry is one pane-local label
+// { side, slot }; SplitKeymap.paneKey resolves it to a physical bezel key per the split
+// orientation (top/bottom vs left/right). Pages without an entry render no labels in split mode.
 const SPLIT_PAGES = {
   main: {
     // Initial mapping scope per the user — only AVN and TGP are wired today. Other
@@ -243,8 +245,37 @@ const PAGE_URL = {
 };
 function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 
-function applySplitMode() {
+// Map a pane's pane-local (side, slot) label position to the physical bezel key {bank, index}
+// for the current split orientation (see split-keymap.js). Used by every split-mode key placer.
+function paneKey(paneIdx, side, slot) { return SplitKeymap.paneKey(splitVariant, paneIdx, side, slot); }
+// Full-view mapper: a page uses both bezel columns directly, slots 0..5, no pane offset.
+function fullKey(side, slot) { return { bank: side, index: slot }; }
+
+// Apply the split CSS classes: `.split` gates the shared split rules; `.split-<variant>` picks
+// the orientation (h = top/bottom, v = left/right 50/50, vw = left/right 2:1).
+function applySplitClasses() {
   screenEl.classList.toggle('split', splitMode);
+  screenEl.classList.remove('split-h', 'split-v', 'split-vw');
+  if (splitMode) screenEl.classList.add('split-' + splitVariant);
+}
+
+// Enter a split (seeding the top/left pane from the current full-view page, the other from MAIN),
+// or — if already split — just switch orientation, keeping each pane's page + scroll state and
+// only re-laying the container (CSS) and re-mapping the bezel labels to the new key columns.
+function setSplit(variant) {
+  splitVariant = variant;
+  if (splitMode) {
+    applySplitClasses();
+    renderSplitLabels();            // key mapping is orientation-dependent
+    return;
+  }
+  splitMode = true;
+  panePages = [PAGE_URL[currentPage] ? currentPage : 'main', 'main'];
+  applySplitMode();
+}
+
+function applySplitMode() {
+  applySplitClasses();
   paneSoftkeys = [[], []];          // fresh panes re-emit their softkeys on load
   if (splitMode) {
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
@@ -262,10 +293,57 @@ function applySplitMode() {
   }
 }
 
-// Place per-pane labels for both panes' current pages. The top pane occupies
-// physical keys L0..L2 / R0..R2 (paneOffset = 0); the bottom pane occupies
-// L3..L5 / R3..R5 (paneOffset = 3). Labels are tagged with data-pane so the
-// click dispatcher knows which pane to update.
+// Place per-pane labels for both panes' current pages. Each pane-local (side, slot) resolves to
+// a physical key via paneKey, which depends on the split orientation: top/bottom (H) gives each
+// pane both columns (pane 1 offset +3); left/right (V/VW) gives each pane its own column. Labels
+// are tagged with data-pane so the click dispatcher knows which pane to update.
+function isListPage(page) { return page === 'wpn' || page === 'tgl'; }
+
+// Physical keys for a paginated list page (WPN/TGL) in split pane paneIdx, per orientation:
+//   h    → MAIN at the pane's L0, NEXT at R0, the 4 rows at L1,L2,R1,R2 (the 2×2 grid).
+//   v/vw → one column: MAIN at key 0 (top), the 4 rows at keys 1..4, NEXT at key 5 (bottom).
+// Returns {bank,index} for main/next/each item, plus the per-item side class the page renders with.
+// The 'h' branch is identical to the pre-vertical-split behaviour, so H_SPLIT is unchanged.
+function listPaneLayout(paneIdx) {
+  if (splitVariant === 'h') {
+    const off = paneIdx * 3;
+    return {
+      main: { bank: 'left', index: off }, next: { bank: 'right', index: off },
+      items: [{ bank: 'left', index: off + 1 }, { bank: 'left', index: off + 2 },
+              { bank: 'right', index: off + 1 }, { bank: 'right', index: off + 2 }],
+      itemSides: ['left', 'left', 'right', 'right'],
+    };
+  }
+  const side = paneIdx === 0 ? 'left' : 'right';   // left/right pane owns its adjacent column
+  return {
+    main: { bank: side, index: 0 }, next: { bank: side, index: 5 },
+    items: [{ bank: side, index: 1 }, { bank: side, index: 2 },
+            { bank: side, index: 3 }, { bank: side, index: 4 }],
+    itemSides: [side, side, side, side],
+  };
+}
+
+// applySoftkeys mapper for a split pane: list pages (WPN/TGL) route the page's pane-local
+// (side, slot) emission — compact fill L1,L2,R1,R2 — onto listPaneLayout.items by row index, so a
+// page can stay orientation-agnostic; other pages use the plain per-column paneKey.
+function paneSoftkeyMapper(paneIdx) {
+  if (!isListPage(panePages[paneIdx])) {
+    return function(side, slot) { return paneKey(paneIdx, side, slot); };
+  }
+  const L = listPaneLayout(paneIdx);
+  return function(side, slot) {
+    const row = (side === 'left' ? 0 : 2) + (slot - 1);
+    return (row >= 0 && row < L.items.length) ? L.items[row] : { bank: side, index: -1 };
+  };
+}
+
+// Place an overlay label on a physical key {bank,index} and tag it with the owning pane.
+function placeSplitKey(m, label, action, paneTag) {
+  placeOverlayLabel(m.bank, m.index, label, action);
+  const k = keyBanks[m.bank] && keyBanks[m.bank][m.index];
+  if (k) k.dataset.pane = paneTag;
+}
+
 function renderSplitLabels() {
   clearKeyActions();
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
@@ -273,44 +351,31 @@ function renderSplitLabels() {
     const page = panePages[paneIdx];
     const def = SPLIT_PAGES[page];
     if (!def) continue;
-    const paneOffset = paneIdx === 0 ? 0 : 3;
-    const paneTag = paneIdx === 0 ? 'top' : 'bot';
-    // WPN's labels are pagination-dependent: MAIN (or PREV once scrolled) on the pane's L0,
-    // NEXT on the pane's R0 when more weapons remain. Mirrors single-pane renderWpn.
-    let items;
-    let wpnSlice = null;
-    if (page === 'wpn') {
-      wpnSlice = wpnPaneSlice(paneIdx);
-      items = [{ side: 'left', slot: 0,
-                 label:  wpnSlice.hasPrev ? 'PREV' : 'MAIN',
-                 action: wpnSlice.hasPrev ? 'wpn-prev' : 'main' }];
-      if (wpnSlice.hasNext) items.push({ side: 'right', slot: 0, label: 'NEXT', action: 'wpn-next' });
-    } else if (page === 'tgl') {
-      const sl = tglPaneSlice(paneIdx);
-      items = [{ side: 'left', slot: 0,
-                 label:  sl.hasPrev ? 'PREV' : 'MAIN',
-                 action: sl.hasPrev ? 'tgl-prev' : 'main' }];
-      if (sl.hasNext) items.push({ side: 'right', slot: 0, label: 'NEXT', action: 'tgl-next' });
-      // The per-target deselect keys are NOT bound here — the TGL page emits them via the softkey
-      // contract; they're re-applied from paneSoftkeys[paneIdx] below.
+    const paneTag = paneIdx === 0 ? 'top' : 'bot';   // pane identity for click dispatch (orientation-agnostic)
+
+    // Apply this pane's contract softkeys FIRST: applySoftkeys clears the row-key zone before
+    // re-applying any softkeys the page emitted (only TGL does). Nav labels are placed AFTER, on
+    // keys the zone-clear leaves alone.
+    applySoftkeys(paneSoftkeys[paneIdx], paneSoftkeyMapper(paneIdx), 2);
+
+    if (isListPage(page)) {
+      // Paginated list: MAIN (or PREV once scrolled) on the pane's top key, NEXT on its bottom key
+      // — positions per orientation via listPaneLayout. The 4 rows sit on listPaneLayout.items:
+      // WPN wires its weapons there (below); TGL's deselect softkeys land there via the mapper above.
+      const L = listPaneLayout(paneIdx);
+      const slice = page === 'wpn' ? wpnPaneSlice(paneIdx) : tglPaneSlice(paneIdx);
+      placeSplitKey(L.main, slice.hasPrev ? 'PREV' : 'MAIN',
+                    slice.hasPrev ? (page === 'wpn' ? 'wpn-prev' : 'tgl-prev') : 'main', paneTag);
+      if (slice.hasNext) placeSplitKey(L.next, 'NEXT', page === 'wpn' ? 'wpn-next' : 'tgl-next', paneTag);
+      // WPN: wire this pane's weapon rows to weapon.select. No data-pane tag — weapon selection is
+      // aircraft-global, so the press falls through the pane dispatcher to the shared case.
+      if (page === 'wpn') wireWpnPaneWeaponKeys(slice.items, paneIdx);
     } else {
-      items = def.items;
+      // Static nav (MAIN/MAP/AVN/RWR/TGP): place each pane-local (side, slot) via paneKey.
+      def.items.forEach(function(item) {
+        placeSplitKey(paneKey(paneIdx, item.side, item.slot), item.label, item.action, paneTag);
+      });
     }
-    // Apply this pane's contract softkeys FIRST: applySoftkeys clears the row-key zone (slots
-    // 1..2 both sides) before re-applying any softkeys the page emitted (only TGL does). Static
-    // nav items are placed AFTER, so a page like MAIN — whose nav fills slots 1..2 (MAP/RWR on
-    // the left, TGP/WPN on the right), not just slot 0 — isn't clobbered by that zone-clear.
-    // Softkeys (TGL deselect, slots 1..2) and the slot-0 nav are disjoint, so order is safe.
-    applySoftkeys(paneSoftkeys[paneIdx], paneOffset, 2);
-    items.forEach(function(item) {
-      placeOverlayLabel(item.side, item.slot + paneOffset, item.label, item.action);
-      const physicalKey = keyBanks[item.side][item.slot + paneOffset];
-      if (physicalKey) physicalKey.dataset.pane = paneTag;
-    });
-    // WPN: wire this pane's weapon rows (slots 1,2 both sides) to weapon.select, AFTER applySoftkeys
-    // has cleared that zone. No data-pane tag — weapon selection is aircraft-global, so the press
-    // falls through the pane dispatcher to the shared weapon.select case (same as TGL deselect).
-    if (wpnSlice) wireWpnPaneWeaponKeys(wpnSlice.items, paneOffset);
   }
 }
 
@@ -481,21 +546,27 @@ function forwardWpnLayoutToPanes() {
     if (panePages[idx] !== 'wpn') return;
     if (!iframe.contentWindow) return;
     const paneTop = iframe.getBoundingClientRect().top;
-    const off = idx === 0 ? 0 : 3;
-    function cy(key) { const r = key.getBoundingClientRect(); return r.top + r.height / 2 - paneTop; }
-    // Weapon slots skip the top band (R0 is reserved for NEXT): L1, L2 then R1, R2.
-    const slotYs = [
-      cy(keyBanks.left[off + 1]),   // L1
-      cy(keyBanks.left[off + 2]),   // L2
-      cy(keyBanks.right[off + 1]),  // R1
-      cy(keyBanks.right[off + 2]),  // R2
-    ];
-    // CM band = the first key slot (between the separators flanking L0 / MAIN), so the CM
-    // panel can fill that exact height — the same band single-pane WPN parks the CM panel in.
-    const bandTop = sepEls[off].getBoundingClientRect().bottom - paneTop;
-    const bandBot = sepEls[off + 1].getBoundingClientRect().top - paneTop;
+    const L = listPaneLayout(idx);
+    function cyOf(m) { const r = keyBanks[m.bank][m.index].getBoundingClientRect(); return r.top + r.height / 2 - paneTop; }
+    // Weapon-row vertical centres + their per-item side class (both from the orientation layout):
+    // H = L1,L2,R1,R2 across the pane; V/VW = keys 1..4 down the pane's own column.
+    const slotYs = L.items.map(cyOf);
+    // CM band = the top-of-column key slot (MAIN's key). H: between the separators flanking L0 (the
+    // same band single-pane WPN parks the CM panel in). V/VW: from that key's top to the first
+    // weapon key's top (the separators only cover the left column, so measure the keys directly).
+    let bandTop, bandHeight;
+    if (splitVariant === 'h') {
+      const off = idx * 3;
+      bandTop = sepEls[off].getBoundingClientRect().bottom - paneTop;
+      bandHeight = (sepEls[off + 1].getBoundingClientRect().top - paneTop) - bandTop;
+    } else {
+      const mk = keyBanks[L.main.bank][L.main.index].getBoundingClientRect();
+      const i0 = keyBanks[L.items[0].bank][L.items[0].index].getBoundingClientRect();
+      bandTop = mk.top - paneTop;
+      bandHeight = i0.top - mk.top;
+    }
     iframe.contentWindow.postMessage(
-      { mfd: true, type: 'wpn-layout', slotYs: slotYs, cmTop: bandTop, cmHeight: bandBot - bandTop }, '*');
+      { mfd: true, type: 'wpn-layout', slotYs: slotYs, sides: L.itemSides, cmTop: bandTop, cmHeight: bandHeight }, '*');
   });
 }
 
@@ -505,11 +576,11 @@ function forwardWpnLayoutToPanes() {
 // tag: selection is aircraft-global, so the press falls through to the shared weapon.select case.
 // Called from renderSplitLabels after clearKeyActions + applySoftkeys have cleared the slot 1..2
 // zone, so only occupied rows are set and empty ones stay clean.
-const WPN_PANE_SLOTS = [['left', 1], ['left', 2], ['right', 1], ['right', 2]];
-function wireWpnPaneWeaponKeys(items, paneOffset) {
-  for (let i = 0; i < WPN_PANE_SLOTS.length && i < items.length; i++) {
-    const key = keyBanks[WPN_PANE_SLOTS[i][0]][WPN_PANE_SLOTS[i][1] + paneOffset];
-    if (key) { key.dataset.action = 'weapon.select'; key.dataset.wname = items[i].n; }
+function wireWpnPaneWeaponKeys(weapons, paneIdx) {
+  const items = listPaneLayout(paneIdx).items;
+  for (let i = 0; i < items.length && i < weapons.length; i++) {
+    const key = keyBanks[items[i].bank][items[i].index];
+    if (key) { key.dataset.action = 'weapon.select'; key.dataset.wname = weapons[i].n; }
   }
 }
 
@@ -636,26 +707,28 @@ function placeTglNavLabels() {
 }
 
 // Apply a page's declared softkeys to one bezel zone (the declarative contract). The page emits
-// pane-local 1-based row slots; the shell maps each to a physical key as
-// keyBanks[side][paneOffset + slot] — paneOffset 0 = full view / split-top, 3 = split-bottom.
-// Clears the row-key zone first (slots 1..maxRow both sides — nav on slot 0 is shell-owned) so a
-// shrinking list releases its keys; maxRow = 5 in full view, 2 per split pane. An empty label
-// binds the key with no visible overlay label (TGL's target row in the frame is the visual).
-// Deselect needs no pane routing (it just sends a command), so no data-pane tag is set — split's
-// dispatch falls through mfdButton's split branch to the shared 'target.deselect' switch case.
-function applySoftkeys(keys, paneOffset, maxRow) {
+// pane-local 1-based row slots; `map(side, slot)` resolves each to its physical key {bank, index}
+// — fullKey for the full view, or paneKey(paneIdx, …) for a split pane (orientation-aware). Clears
+// the row-key zone first (slots 1..maxRow both sides — nav on slot 0 is shell-owned) so a shrinking
+// list releases its keys; maxRow = 5 in full view, 2 per split pane. An empty label binds the key
+// with no visible overlay label (TGL's target row in the frame is the visual). Deselect needs no
+// pane routing (it just sends a command), so no data-pane tag is set — split's dispatch falls
+// through mfdButton's split branch to the shared 'target.deselect' switch case.
+function applySoftkeys(keys, map, maxRow) {
   for (let s = 1; s <= maxRow; s++) {
-    const lk = keyBanks.left[paneOffset + s], rk = keyBanks.right[paneOffset + s];
-    if (lk) { delete lk.dataset.action; delete lk.dataset.id; }
-    if (rk) { delete rk.dataset.action; delete rk.dataset.id; }
+    ['left', 'right'].forEach(function(side) {
+      const m = map(side, s);
+      const k = keyBanks[m.bank] && keyBanks[m.bank][m.index];
+      if (k) { delete k.dataset.action; delete k.dataset.id; }
+    });
   }
   (keys || []).forEach(function(sk) {
-    const bank = keyBanks[sk.side];
-    const key = bank && bank[paneOffset + sk.slot];
+    const m = map(sk.side, sk.slot);
+    const key = keyBanks[m.bank] && keyBanks[m.bank][m.index];
     if (!key) return;
     key.dataset.action = sk.action;
     if (sk.data && sk.data.id != null) key.dataset.id = sk.data.id;
-    if (sk.label) placeOverlayLabel(sk.side, paneOffset + sk.slot, sk.label, sk.action);
+    if (sk.label) placeOverlayLabel(m.bank, m.index, sk.label, sk.action);
   });
 }
 
@@ -689,15 +762,11 @@ function forwardTglLayoutToPanes() {
     if (panePages[idx] !== 'tgl') return;
     if (!iframe.contentWindow) return;
     const paneTop = iframe.getBoundingClientRect().top;
-    const off = idx === 0 ? 0 : 3;
-    function cy(key) { const r = key.getBoundingClientRect(); return r.top + r.height / 2 - paneTop; }
-    const slotYs = [
-      cy(keyBanks.left[off + 1]),   // L1
-      cy(keyBanks.left[off + 2]),   // L2
-      cy(keyBanks.right[off + 1]),  // R1
-      cy(keyBanks.right[off + 2]),  // R2
-    ];
-    iframe.contentWindow.postMessage({ mfd: true, type: 'tgl-layout', slotYs: slotYs }, '*');
+    const L = listPaneLayout(idx);
+    function cyOf(m) { const r = keyBanks[m.bank][m.index].getBoundingClientRect(); return r.top + r.height / 2 - paneTop; }
+    // Target-row vertical centres + per-item side (H = L1,L2,R1,R2; V/VW = keys 1..4 down the column).
+    const slotYs = L.items.map(cyOf);
+    iframe.contentWindow.postMessage({ mfd: true, type: 'tgl-layout', slotYs: slotYs, sides: L.itemSides }, '*');
   });
 }
 
@@ -953,16 +1022,16 @@ window.addEventListener('message', function(e) {
   if (!m || m.mfd !== true) return;
   // Softkeys come UP from a hosted page frame (not the map), so handle them before the mapFrame
   // source guard. The page emits pane-local slots; the shell maps them to physical keys per zone.
-  //   full view  → the #page-frame, offset 0, rows on slots 1..5.
-  //   split view → the emitting pane, offset 0 (top) / 3 (bot), rows on slots 1..2. Each pane's
-  //                set is cached so renderSplitLabels can re-apply it (a re-render of the OTHER
-  //                pane clears all keys; this pane may not re-emit).
+  //   full view  → the #page-frame, both columns, rows on slots 1..5 (fullKey).
+  //   split view → the emitting pane, mapped to its keys by paneKey (orientation-aware), rows on
+  //                slots 1..2. Each pane's set is cached so renderSplitLabels can re-apply it (a
+  //                re-render of the OTHER pane clears all keys; this pane may not re-emit).
   if (m.type === 'softkeys') {
     if (!splitMode && e.source === pageFrame.contentWindow && FRAME_PAGES[currentPage]) {
-      applySoftkeys(m.keys, 0, 5);
+      applySoftkeys(m.keys, fullKey, 5);
     } else if (splitMode) {
       const idx = paneIframes.findIndex(function(f) { return f.contentWindow === e.source; });
-      if (idx >= 0) { paneSoftkeys[idx] = m.keys || []; applySoftkeys(paneSoftkeys[idx], idx === 0 ? 0 : 3, 2); }
+      if (idx >= 0) { paneSoftkeys[idx] = m.keys || []; applySoftkeys(paneSoftkeys[idx], paneSoftkeyMapper(idx), 2); }
     }
     return;
   }
@@ -1251,17 +1320,12 @@ function mfdButton(el) {
       break;
     }
     case 'fll':  toggleFullscreen(); break;
-    case 'split':
-      // One-way: enter split if not already. Pressing 2×1 while already split is a no-op.
-      // Collapse back to single uses the dedicated square (1×1) button below.
-      if (splitMode) break;
-      splitMode = true;
-      // Carry the full-view page into the TOP pane; the BOTTOM pane defaults to MAIN.
-      // Pages without a bare iframe version yet (no PAGE_URL entry) fall back to MAIN
-      // so the top pane is never blank.
-      panePages = [PAGE_URL[currentPage] ? currentPage : 'main', 'main'];
-      applySplitMode();
-      break;
+    // Layout presets. Each enters split (carrying the full-view page into the top/left pane,
+    // MAIN into the other) or, if already split, switches orientation in place. The square
+    // (unsplit) below collapses back to single.
+    case 'split':   setSplit('h');  break;   // H_SPLIT — top/bottom
+    case 'vsplit':  setSplit('v');  break;   // V_SPLIT — left/right 50/50
+    case 'vwsplit': setSplit('vw'); break;   // V_WIDE_SPLIT — left/right 2:1
     case 'unsplit':
       // One-way: collapse split back to single. No-op if already in single mode.
       // The full-screen pane adopts whatever the TOP pane was showing.
