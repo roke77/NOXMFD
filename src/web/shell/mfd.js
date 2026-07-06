@@ -939,7 +939,11 @@ function showPage(name) {
     forwardRwrToFrame(); forwardMwToFrame();
   }
 
-  renderIndicators();
+  // refreshFollowIndicator (not just renderIndicators) because the FOLLOW chip's membership
+  // depends on currentPage, which just changed: entering MAP with follow already on must add the
+  // chip now (the map's follow state was reported earlier, while another page was in view), and
+  // leaving MAP must drop it. It renders the full indicator stack (incl. PINNED) internally.
+  refreshFollowIndicator();
 }
 
 // The map iframe broadcasts status + loadout + cm via postMessage; mirror onto the

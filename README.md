@@ -28,6 +28,20 @@ still be edited by hand in the `.cfg` file either way.) Its default open key is
 
 NO XMFD ships as a single BepInEx plugin (the web display is bundled inside the DLL).
 
+### With NOMM (recommended)
+
+[NOMM](https://github.com/Combat787/NOMM) (Nuclear Option Mod Manager) installs BepInEx and
+NO XMFD for you, and keeps it up to date.
+
+1. **Install NOMM** from its [latest release](https://github.com/Combat787/NOMM/releases/latest)
+   — on Windows, the `portable.exe` or the `.msi` installer.
+2. **Find "Nuclear Option eXternal MFD"** in NOMM's mod list and install it. NOMM pulls in
+   BepInEx automatically if it isn't already present.
+3. **Launch the game** and open `http://localhost:5005/` in a browser. To reach it from a
+   tablet or phone on your network, see [docs/networking.md](docs/networking.md).
+
+### Manually
+
 1. **Install BepInEx 5** (x64) into Nuclear Option — grab it from the
    [BepInEx releases](https://github.com/BepInEx/BepInEx/releases). Run the game
    once so BepInEx creates its folders.
