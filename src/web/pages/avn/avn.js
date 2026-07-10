@@ -18,11 +18,20 @@ const avnFuelVal  = document.getElementById('avn-fuel-val');
 const avnThrBar   = document.getElementById('avn-thr-bar');
 const avnThrFill  = document.getElementById('avn-thr-fill');
 const avnThrVal   = document.getElementById('avn-thr-val');
+const avnHeaderEl  = document.getElementById('avn-header');
+const avnTileGear  = document.getElementById('avn-tile-gear');
+const avnTileRadar = document.getElementById('avn-tile-radar');
+const avnTileGuns  = document.getElementById('avn-tile-guns');
+const avnTileEng    = document.getElementById('avn-tile-eng');
+const avnTileAssist = document.getElementById('avn-tile-assist');
+const avnTileNvg    = document.getElementById('avn-tile-nvg');
+const avnTileLights = document.getElementById('avn-tile-lights');
+const avnTileTurret = document.getElementById('avn-tile-turret');
 
 // ── State ──────────────────────────────────────────────────────────────────────────
-let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1 };
+let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
 let layout         = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)
-let avnFullGeom    = null;        // {nameTop, frameTop, frameHeight} forwarded by the shell in full
+let avnFullGeom    = null;        // {headerTop, headerHeight, frameTop, frameHeight} forwarded by the shell in full
 let avnLayoutType  = null;
 let avnLayoutCache = Object.create(null);
 let avnLayoutTries = Object.create(null);   // per-type layout-fetch retry counts
@@ -43,7 +52,7 @@ const AVN_FAILURE_DEFS = {
 function renderAvn() {
   const type = avnData.name;
   if (!type) {
-    avnNameEl.style.display = 'none';
+    avnHeaderEl.classList.remove('placed');
     avnFrame.style.display  = 'none';
     avnEmptyEl.style.display = '';
     avnFuelBar.classList.remove('placed');
@@ -51,24 +60,29 @@ function renderAvn() {
     avnLayoutType = type;   // record that the empty state is shown, so returning to a plane
     return;                 // (even the SAME type — e.g. respawn) re-triggers a render
   }
-  avnNameEl.style.display  = '';
+  avnHeaderEl.classList.add('placed');
   avnFrame.style.display   = '';
   avnEmptyEl.style.display = 'none';
   avnNameEl.textContent = type;
 
-  // full profile: apply the bezel-anchored name/frame geometry the shell forwards. compact
-  // (split pane) leaves these to CSS (fixed offsets) by clearing the inline overrides.
-  if (layout === 'full' && avnFullGeom) {
-    avnNameEl.style.top = avnFullGeom.nameTop + 'px';
-    if (typeof avnFullGeom.frameTop === 'number') {
-      avnFrame.style.top    = avnFullGeom.frameTop + 'px';
-      avnFrame.style.height = avnFullGeom.frameHeight + 'px';
-    }
+  // full profile: anchor the header to the top bezel row the shell forwards (headerTop), with the
+  // band height as a MIN so short content stays centred in the row but a wrapped 2-row status can
+  // grow past it. compact (split pane) uses the CSS band. The frame then follows the header's
+  // actual bottom (layoutAvnFrame) — so the silhouette starts below however tall the status ends up.
+  if (layout === 'full' && avnFullGeom && typeof avnFullGeom.headerTop === 'number') {
+    avnHeaderEl.style.top       = avnFullGeom.headerTop + 'px';
+    avnHeaderEl.style.minHeight = avnFullGeom.headerHeight + 'px';
+    avnHeaderEl.style.height    = 'auto';
   } else {
-    avnNameEl.style.top   = '';
-    avnFrame.style.top    = '';
-    avnFrame.style.height = '';
+    avnHeaderEl.style.top       = '';
+    avnHeaderEl.style.minHeight = '';
+    avnHeaderEl.style.height    = '';
   }
+
+  // Colour the status tiles here (alongside the name) so they update even while the silhouette
+  // layout is still fetching (the early return below). Placement is handled by the header flexbox.
+  paintAvnStatus();
+  layoutAvnFrame();   // position the silhouette frame just below the (possibly wrapped) header
 
   avnBg.style.display = '';
   avnPartsEl.style.display = '';
@@ -85,6 +99,39 @@ function renderAvn() {
   paintAvnFailures();
   layoutAvnBars();
   paintAvnBars();
+}
+
+// Position the silhouette frame directly below the header's actual bottom, so the status row can
+// wrap to two lines (8 tiles on a narrow screen) without ever overlapping the silhouette. The
+// frame's lower edge stays put: the forwarded bezel limit in full, or the CSS bottom in compact.
+const AVN_HDR_GAP = 6;
+function layoutAvnFrame() {
+  const panelTop = avnPanel.getBoundingClientRect().top;
+  const frameTop = (avnHeaderEl.getBoundingClientRect().bottom - panelTop) + AVN_HDR_GAP;
+  avnFrame.style.top = frameTop + 'px';
+  if (layout === 'full' && avnFullGeom && typeof avnFullGeom.frameTop === 'number') {
+    const frameBottom = avnFullGeom.frameTop + avnFullGeom.frameHeight;   // fixed lower limit (last bezel sep)
+    avnFrame.style.height = Math.max(0, frameBottom - frameTop) + 'px';
+  } else {
+    avnFrame.style.height = '';   // compact: CSS bottom:12px spans the rest
+  }
+}
+
+// Recolour each tile from the live booleans (avn-status-policy maps state -> the 'on'/'off'/
+// 'gear-down' modifier class; the CSS turns that into green/gray/red on label + icon).
+function setAvnTile(el, kind, active) {
+  el.classList.remove('on', 'off', 'gear-down');
+  el.classList.add(AvnStatusPolicy.tileClass(kind, active));
+}
+function paintAvnStatus() {
+  setAvnTile(avnTileGear,   'gear',   avnData.gearDown);
+  setAvnTile(avnTileRadar,  'radar',  avnData.radar);
+  setAvnTile(avnTileGuns,   'guns',   avnData.guns);
+  setAvnTile(avnTileEng,    'eng',    avnData.ignition);
+  setAvnTile(avnTileAssist, 'assist', avnData.assist);
+  setAvnTile(avnTileNvg,    'nvg',    avnData.nvg);
+  setAvnTile(avnTileLights, 'lights', avnData.navLights);
+  setAvnTile(avnTileTurret, 'turret', avnData.turret);
 }
 
 function ensureAvnLayout(type) {
@@ -360,9 +407,19 @@ window.addEventListener('message', function(e) {
       failures: Array.isArray(m.failures) ? m.failures : null,
       fuel:     typeof m.fuel     === 'number' ? m.fuel     : -1,
       throttle: typeof m.throttle === 'number' ? m.throttle : -1,
+      gearDown: m.gearDown === true,
+      radar:    m.radar    === true,
+      guns:     m.guns     === true,
+      ignition: m.ignition === true,
+      assist:   m.assist   === true,
+      turret:   m.turret   === true,
+      nvg:      m.nvg      === true,
+      navLights: m.navLights === true,
     };
-    if (avnLayoutType !== avnData.name) renderAvn();
-    else { paintAvnDamage(); paintAvnFailures(); paintAvnBars(); }
+    // Full render on aircraft change, or whenever there's no aircraft — the empty-state hide lives
+    // in renderAvn and must run even if a silhouette layout never cached (avnLayoutType stays null).
+    if (avnLayoutType !== avnData.name || !avnData.name) renderAvn();
+    else { paintAvnDamage(); paintAvnFailures(); paintAvnBars(); paintAvnStatus(); }
   } else if (m.type === 'avn-layout') {
     // Geometry profile from the shell. full forwards the bezel-anchored name/frame placement;
     // compact omits geom and the page falls back to the CSS fixed offsets.

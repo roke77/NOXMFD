@@ -18,6 +18,13 @@ namespace NOXMFD
         public float  TAS;
         public float  AGL;
         public bool   GearDown;
+        public bool   RadarOn;      // radar actively emitting (Unit.HasRadarEmission)
+        public bool   GunsLinked;   // multiple guns linked to fire together (WeaponManager.gunsLinked)
+        public bool   Ignition;     // engine ignition on (Aircraft.Ignition)
+        public bool   FlightAssist; // flight assist engaged (false if the airframe has none)
+        public bool   TurretAuto;   // turrets "engage at will" (false if the airframe has no turrets)
+        public bool   NightVision;  // NVG active (HUD-wide, NightVision.i)
+        public bool   NavLightsOn;  // nav lights on (Aircraft.navLights.isOn)
 
         // Countermeasures (-1 = the aircraft has no such system).
         public int    Flares;     // IR flare rounds remaining

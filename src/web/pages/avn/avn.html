@@ -15,9 +15,9 @@
               shell forwards those pixel positions. Enabled by layout:'full' in avn-layout.
 
   Shell -> page messages (all {mfd:true, ...}):
-    'avn'        : { name, parts, failures, fuel, throttle } — the live snapshot.
-    'avn-layout' : geometry — layout:'full' + geom {nameTop, frameTop, frameHeight} in full;
-                   omitted in compact (the page defaults to the CSS fixed offsets).
+    'avn'        : { name, parts, failures, fuel, throttle, gearDown, radar, guns } — the live snapshot.
+    'avn-layout' : geometry — layout:'full' + geom {headerTop, headerHeight, frameTop, frameHeight}
+                   in full; omitted in compact (the page defaults to the CSS fixed offsets).
     'orient'     : app-wide orientation (drives body.portrait/.landscape).
   The silhouette bg + part masks + per-type layout are fetched directly from /airframe[-layout].
 -->
@@ -27,7 +27,69 @@
 </head>
 <body>
   <div class="avn-panel" id="avn-panel">
+    <!-- Header band: aircraft name + status annunciators as one centered block (vertically and
+         horizontally). In the full profile the shell forwards the top bezel-row band (below the
+         first separator sep[0] → above the second sep[1]); the silhouette frame + bars start below
+         sep[1]. Compact (split pane) sizes the band via CSS. -->
+    <div class="avn-header" id="avn-header">
     <div class="avn-name" id="avn-name"></div>
+    <!-- Avionics status annunciators. Each tile is a label + icon; bright = active (GEAR DOWN is
+         red, RADAR/GUNS on are green), dim gray = off. State classes ('on' / 'off' / 'gear-down')
+         come from avn-status-policy.js. Icons use stroke="currentColor" so one color rule drives
+         both label and glyph. -->
+    <div class="avn-status" id="avn-status">
+      <div class="avn-tile off" id="avn-tile-gear">
+        <span class="avn-tile-label">GEAR</span>
+        <!-- Recolourable mask of the real in-game gear glyph, captured once from the game and baked
+             as gear-icon.png (--gear-mask in avn.css). Served by both the plugin and serve_web. -->
+        <div class="avn-tile-icon avn-mask-icon" id="avn-gear-icon"></div>
+      </div>
+      <div class="avn-tile off" id="avn-tile-radar">
+        <span class="avn-tile-label">RADAR</span>
+        <svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4.5 9.6a11 11 0 0 1 15 0"/><path d="M7.5 12.6a6.5 6.5 0 0 1 9 0"/>
+          <circle cx="12" cy="16.1" r="1.3" fill="currentColor" stroke="none"/>
+        </svg>
+      </div>
+      <div class="avn-tile off" id="avn-tile-guns">
+        <span class="avn-tile-label">GUNS</span>
+        <svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 12h6"/><path d="M10.5 8H8a4 4 0 0 0 0 8h2.5"/><path d="M13.5 8H16a4 4 0 0 1 0 8h-2.5"/>
+        </svg>
+      </div>
+      <div class="avn-tile off" id="avn-tile-eng">
+        <span class="avn-tile-label">ENG</span>
+        <svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 10v6"/><path d="M12 5v3"/><path d="M10 5h4"/><path d="M5 13h-2"/><path d="M6 10h2l2 -2h3.382a1 1 0 0 1 .894 .553l1.448 2.894a1 1 0 0 0 .894 .553h1.382v-2h2a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-2v-2h-3v2a1 1 0 0 1 -1 1h-3.465a1 1 0 0 1 -.832 -.445l-1.703 -2.555h-2v-6"/>
+        </svg>
+      </div>
+      <div class="avn-tile off" id="avn-tile-assist">
+        <span class="avn-tile-label">ASSIST</span>
+        <svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="8.5"/><path d="M3.7 12h16.6"/><path d="M8.5 12l1.5 1.6M15.5 12l-1.5 1.6"/>
+          <circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none"/>
+        </svg>
+      </div>
+      <div class="avn-tile off" id="avn-tile-nvg">
+        <span class="avn-tile-label">NVG</span>
+        <svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2.5 12s3.4-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.4 6.5-9.5 6.5-9.5-6.5-9.5-6.5z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+      </div>
+      <div class="avn-tile off" id="avn-tile-lights">
+        <span class="avn-tile-label">LIGHTS</span>
+        <svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4.2"/><path d="M12 3.2v2"/><path d="M12 18.8v2"/><path d="M3.2 12h2"/><path d="M18.8 12h2"/><path d="M5.5 5.5l1.6 1.6"/><path d="M16.9 16.9l1.6 1.6"/><path d="M18.5 5.5l-1.6 1.6"/><path d="M7.1 16.9l-1.6 1.6"/>
+        </svg>
+      </div>
+      <div class="avn-tile off" id="avn-tile-turret">
+        <span class="avn-tile-label">TURRET</span>
+        <svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7.5 13 L4 18.5 H20 L16.5 13"/><path d="M8 13 V11 Q8 8 12 8 Q16 8 16 11 V13"/><path d="M8 10.8 H3 V12.8 H8"/>
+        </svg>
+      </div>
+    </div>
+    </div>
     <div class="avn-frame" id="avn-frame">
       <img class="avn-bg" id="avn-bg" alt="">
       <div class="avn-parts" id="avn-parts"></div>
@@ -51,6 +113,7 @@
     </div>
   </div>
 <script src="/assets/pages/avn/avn-bg-policy.js"></script>
+<script src="/assets/pages/avn/avn-status-policy.js"></script>
 <script src="/assets/pages/avn/avn.js"></script>
 </body>
 </html>

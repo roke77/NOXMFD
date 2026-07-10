@@ -37,6 +37,7 @@ namespace NOXMFD
         // client-side) instead of a hand-drawn triangle. Captured once, then reused.
         internal const string MissileIconKey = "__missilewarn";
 
+
         // Aircraft-type map icons we've already extracted (keyed by unitName).
         private readonly HashSet<string> _capturedIcons = new HashSet<string>();
         // Aircraft definition names whose part layout has already been dumped to the log (one-shot).

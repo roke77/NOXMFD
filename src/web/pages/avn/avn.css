@@ -9,24 +9,80 @@
   color: var(--no-green);
   font-family: var(--no-font);
 }
-.avn-name {
+/* Header band — aircraft name + status annunciators as one centered block. Sits at the top bezel
+   row (min-height keeps short content centred there); the status row wraps to a 2nd line when the
+   tiles don't fit one row, growing the header downward. The silhouette frame follows the header's
+   actual bottom (layoutAvnFrame in avn.js). full overrides top/min-height from bezel geometry. */
+.avn-header {
   position: absolute;
-  left: 50%;
-  top: 18px;
-  transform: translateX(-50%);
+  left: 0; right: 0;
+  top: 0;
+  min-height: 112px;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  z-index: 4;
+  pointer-events: none;
+}
+.avn-header.placed { display: flex; }
+.avn-name {
   color: var(--no-green);
-  font-size: clamp(20px, 4vh, 32px);
+  font-size: clamp(20px, 3.6vh, 32px);
   font-weight: 900;
   letter-spacing: 2px;
   white-space: nowrap;
-  z-index: 2;
 }
 .avn-frame {
   position: absolute;
   left: 0; right: 0;
-  top: 56px;
+  top: 120px;   /* below the compact header band; full overrides from bezel geometry */
   bottom: 12px;
   overflow: hidden;
+}
+
+/* Avionics status annunciators — a centered row inside the header band. Wraps to a second line
+   when the 8 tiles don't fit one row (narrow / split-pane / portrait). */
+.avn-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  column-gap: 16px;
+  row-gap: 8px;
+  max-width: 96%;
+  pointer-events: none;
+}
+.avn-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--no-gray);   /* off / dim; on/gear-down override below. Drives label + icon. */
+}
+.avn-tile.on        { color: var(--no-green); }
+.avn-tile.gear-down { color: var(--no-red); }
+/* Name/label/icon top out at the "2×" sizes but scale down with viewport height so the whole
+   block always fits one bezel row (the band shrinks on shorter screens). */
+.avn-tile-label {
+  font-size: clamp(15px, 2.4vh, 20px);
+  font-weight: 900;
+  letter-spacing: 1px;
+  line-height: 1;
+}
+.avn-tile-icon {
+  width:  clamp(38px, 6.2vh, 52px);
+  height: clamp(38px, 6.2vh, 52px);
+  display: block;
+}
+/* GEAR uses a recolourable mask of the REAL in-game glyph — captured once from the game and baked
+   as gear-icon.png — rather than inline SVG, so it turns green/gray/red like the others.
+   background-color = currentColor drives the recolour; mask contain/center keeps it aligned. */
+:root { --gear-mask: url("/assets/pages/avn/gear-icon.png"); }
+.avn-mask-icon {
+  background-color: currentColor;
+  -webkit-mask: var(--gear-mask) no-repeat center / contain;
+          mask: var(--gear-mask) no-repeat center / contain;
 }
 .avn-bg, .avn-parts {
   position: absolute;
@@ -211,13 +267,9 @@ body.portrait .avn-vbar-value { font-size: clamp(16px, 1.8vh, 25.5px); }
     linear-gradient(var(--no-green-dark), var(--no-green-dark)); }
 .avn-vbar.na .avn-vbar-fill { display: none; }
 
-/* full profile (single full-screen iframe): name vertical-centred on the bezel key[0] row and
-   sized up; frame top/height come from the shell's bezel geometry (set inline by avn.js, so
-   only `bottom` needs clearing here to avoid over-constraining the box). compact (split pane)
-   keeps the fixed offsets above. */
-body.full .avn-name {
-  transform: translate(-50%, -50%);
-  font-size: 32px;
-}
+/* full profile (single full-screen iframe): the header band + frame top/height come from the
+   shell's bezel geometry (set inline by avn.js), so only `bottom` needs clearing here to avoid
+   over-constraining the frame box. compact (split pane) keeps the CSS band above. */
+/* Portrait full is tall, so the name may grow past the landscape 32px cap. */
 body.full.portrait .avn-name { font-size: clamp(32px, 3.6vh, 51px); }
 body.full .avn-frame { bottom: auto; }
