@@ -171,6 +171,17 @@ Optional dedicated keybinds, available in the BepInEx configuration menu
 - **Gear up** — raise the landing gear.
 - **Gear down** — lower the landing gear.
 
+## Reporting & collaboration
+
+Found a bug, or want a feature? Open an issue on the
+[issue tracker](https://github.com/roke77/NOXMFD/issues) — include your game and
+NO XMFD versions, and steps to reproduce for bugs. It's also where planned and
+in-progress work is tracked.
+
+Pull requests are welcome. For anything non-trivial, open an issue first so we
+can agree on the approach before you write code. Security issues have their own
+process — see [Verifying and reporting](SECURITY.md#verifying-and-reporting).
+
 ## Security & privacy
 
 NO XMFD is open source and runs entirely on your machine and local network — it
