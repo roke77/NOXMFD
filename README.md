@@ -28,7 +28,8 @@ still be edited by hand in the `.cfg` file either way.) Its default open key is
 
 NO XMFD ships as a single BepInEx plugin (the web display is bundled inside the DLL).
 
-### With NOMM (recommended)
+<details>
+<summary><strong>With NOMM (recommended)</strong></summary>
 
 [NOMM](https://github.com/Combat787/NOMM) (Nuclear Option Mod Manager) installs BepInEx and
 NO XMFD for you, and keeps it up to date.
@@ -40,7 +41,10 @@ NO XMFD for you, and keeps it up to date.
 3. **Launch the game** and open `http://localhost:5005/` in a browser. To reach it from a
    tablet or phone on your network, see [docs/networking.md](docs/networking.md).
 
-### Manually
+</details>
+
+<details>
+<summary><strong>Manually</strong></summary>
 
 1. **Install BepInEx 5** (x64) into Nuclear Option — grab it from the
    [BepInEx releases](https://github.com/BepInEx/BepInEx/releases). Run the game
@@ -60,6 +64,8 @@ NO XMFD for you, and keeps it up to date.
 5. **Launch the game.** Open `http://localhost:5005/` in a browser to see the
    display. To reach it from a tablet or phone on your network, see
    [docs/networking.md](docs/networking.md).
+
+</details>
 
 The in-game settings menu (Declutter HUD toggles, keybinds) needs ConfigurationManager
 installed **and** `HideManagerGameObject = true` (see [BepInEx setting](#bepinex-setting)).
