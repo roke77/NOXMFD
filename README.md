@@ -84,7 +84,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **AVN** — aircraft status at a glance: airframe damage, fuel, throttle, and engine-fire warnings.
+- **AVN** — aircraft status at a glance: airframe damage, fuel, throttle, engine-fire warnings, and a row of system annunciators (gear, radar, guns, engine, flight assist, night vision, nav lights, turret) that light up with each system's live state.
 
   <details>
   <summary>Show screenshot</summary>
