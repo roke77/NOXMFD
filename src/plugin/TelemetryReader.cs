@@ -193,6 +193,61 @@ namespace NOXMFD
             catch { return -1f; }
         }
 
+        // WeaponManager.gunsLinked is private; cache the FieldInfo and read it via reflection.
+        // "Linked" is only meaningful with multiple guns, so a single-gun airframe reports false
+        // (which the AVN tile renders as its dim/off state).
+        private static FieldInfo? _gunsLinkedField;
+        private static bool GetGunsLinked(WeaponManager? wm)
+        {
+            if (wm == null || !wm.HasMultipleGuns()) return false;
+            if (_gunsLinkedField == null)
+                _gunsLinkedField = typeof(WeaponManager).GetField("gunsLinked", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (_gunsLinkedField == null) return false;
+            try { return _gunsLinkedField.GetValue(wm) is bool b && b; }
+            catch { return false; }
+        }
+
+        // Turret auto-control ("engage at will") is a public CombatHUD property, but only meaningful
+        // when the airframe actually has turrets — a turret-less plane reports false (the AVN tile's
+        // dim/off state). CombatHUD is a scene singleton, so it can be null between missions.
+        private static bool GetTurretAuto(WeaponManager? wm)
+        {
+            if (wm == null || wm.StationsWithTurrets() == 0) return false;
+            CombatHUD hud = SceneSingleton<CombatHUD>.i;
+            return hud != null && hud.turretAutoControl;
+        }
+
+        // NightVision.nightVisActive is private on the (HUD-wide) singleton; reflect it (cached).
+        private static FieldInfo? _nvgActiveField;
+        private static bool GetNightVisionActive()
+        {
+            NightVision nv = NightVision.i;
+            if (nv == null) return false;
+            if (_nvgActiveField == null)
+                _nvgActiveField = typeof(NightVision).GetField("nightVisActive", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (_nvgActiveField == null) return false;
+            try { return _nvgActiveField.GetValue(nv) is bool b && b; }
+            catch { return false; }
+        }
+
+        // Nav-light state is Aircraft.navLights (private) -> NavLights.isOn (private); reflect both
+        // (cached). Nav lights auto-follow the gear plus a manual force-on toggle, so isOn is the
+        // authoritative "are they lit" flag.
+        private static FieldInfo? _navLightsField;
+        private static FieldInfo? _navLightsIsOnField;
+        private static bool GetNavLightsOn(Aircraft ac)
+        {
+            if (_navLightsField == null)
+                _navLightsField = typeof(Aircraft).GetField("navLights", BindingFlags.NonPublic | BindingFlags.Instance);
+            object? nl = _navLightsField?.GetValue(ac);
+            if (nl == null) return false;
+            if (_navLightsIsOnField == null)
+                _navLightsIsOnField = typeof(NavLights).GetField("isOn", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (_navLightsIsOnField == null) return false;
+            try { return _navLightsIsOnField.GetValue(nl) is bool b && b; }
+            catch { return false; }
+        }
+
         // The active countermeasure index points into CountermeasureManager's private station
         // list, so we reflect into it once (cached) and check the active station's type.
         private static FieldInfo?  _cmStationsField;
@@ -357,6 +412,13 @@ namespace NOXMFD
                 TAS            = aircraft.speed,
                 AGL            = Mathf.Max(0f, aircraft.radarAlt),
                 GearDown       = aircraft.gearDeployed,
+                RadarOn        = aircraft.HasRadarEmission(),
+                GunsLinked     = GetGunsLinked(wm),
+                Ignition       = aircraft.Ignition,
+                FlightAssist   = aircraft.flightAssist && (aircraft.GetControlsFilter()?.HasFlightAssist() ?? false),
+                TurretAuto     = GetTurretAuto(wm),
+                NightVision    = GetNightVisionActive(),
+                NavLightsOn    = GetNavLightsOn(aircraft),
                 Flares         = _flares,
                 FlaresMax      = _flaresMax,
                 EwKJ           = ewKJ,

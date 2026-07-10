@@ -161,6 +161,15 @@ export class TelemetrySource {
       failures: Array.isArray(d.failures) ? d.failures : null,
       fuel:     typeof d.fuel === 'number' ? d.fuel : -1,
       throttle: typeof d.thr  === 'number' ? d.thr  : -1,
+      // Avionics status tiles. gear arrives as 'up'|'down'; the rest are bools.
+      gearDown: d.gear === 'down',
+      radar:    d.radar === true,
+      guns:     d.guns  === true,
+      ignition: d.ign    === true,
+      assist:   d.assist === true,
+      turret:   d.turret === true,
+      nvg:      d.nvg    === true,
+      navLights: d.navlt === true,
     });
 
     // Loadout (the WPN page mirrors it without opening its own /stream).
@@ -175,7 +184,7 @@ export class TelemetrySource {
     this._postUp({ type: 'targets', items: [] });
     this._postUp({ type: 'rwr', items: [] });
     this._postUp({ type: 'mw', items: [] });
-    this._postUp({ type: 'avn', name: null, parts: null, failures: null, fuel: -1, throttle: -1 });
+    this._postUp({ type: 'avn', name: null, parts: null, failures: null, fuel: -1, throttle: -1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false });
     this._postUp({ type: 'follow', on: false });
   }
 }

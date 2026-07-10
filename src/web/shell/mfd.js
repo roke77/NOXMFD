@@ -424,6 +424,14 @@ function forwardAvnToPanes() {
       failures: avnData.failures,
       fuel: avnData.fuel,
       throttle: avnData.throttle,
+      gearDown: avnData.gearDown,
+      radar: avnData.radar,
+      guns: avnData.guns,
+      ignition: avnData.ignition,
+      assist: avnData.assist,
+      turret: avnData.turret,
+      nvg: avnData.nvg,
+      navLights: avnData.navLights,
     }, '*');
   });
 }
@@ -431,23 +439,27 @@ function forwardAvnToPanes() {
 function forwardAvnToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage({ mfd: true, type: 'avn', name: avnData.name, parts: avnData.parts,
-                  failures: avnData.failures, fuel: avnData.fuel, throttle: avnData.throttle }, '*');
+                  failures: avnData.failures, fuel: avnData.fuel, throttle: avnData.throttle,
+                  gearDown: avnData.gearDown, radar: avnData.radar, guns: avnData.guns,
+                  ignition: avnData.ignition, assist: avnData.assist, turret: avnData.turret,
+                  nvg: avnData.nvg, navLights: avnData.navLights }, '*');
 }
-// Forward the full-view geometry: AVN's name aligns to the vertical centre of left key[0], and
-// the silhouette frame spans from below the name (sep[1]) to the bottom strip (last sep). Map
-// the shell-viewport coords into the frame by subtracting its top. The page's full profile
-// applies this placement (compact uses CSS fixed offsets).
+// Forward the full-view geometry: AVN's header band (name + status) fills the top bezel row —
+// from below the first separator sep[0] to above the second sep[1] — and the silhouette frame
+// spans from below sep[1] to the bottom strip (last sep). Map the shell-viewport coords into the
+// frame by subtracting its top. The page's full profile applies this (compact uses CSS offsets).
 function forwardAvnLayoutToFrame() {
   const w = frameWin(); if (!w) return;
-  const k = leftKeys[0]; if (!k) return;
   const frameTop = pageFrame.getBoundingClientRect().top;
-  const kr = k.getBoundingClientRect();
-  const geom = { nameTop: kr.top + kr.height / 2 - frameTop };
+  const geom = {};
   if (sepEls.length >= 2) {
-    const topSep = sepEls[1].getBoundingClientRect();
+    const sep0 = sepEls[0].getBoundingClientRect();   // top separator (above key[0])
+    const sep1 = sepEls[1].getBoundingClientRect();   // below key[0] — bottom of the top bezel row
     const botSep = sepEls[sepEls.length - 1].getBoundingClientRect();
-    geom.frameTop    = topSep.bottom - frameTop;
-    geom.frameHeight = botSep.top - topSep.bottom;
+    geom.headerTop    = sep0.bottom - frameTop;       // name + status band …
+    geom.headerHeight = sep1.top - sep0.bottom;       // … the top bezel row
+    geom.frameTop     = sep1.bottom - frameTop;       // silhouette + bars start below sep[1]
+    geom.frameHeight  = botSep.top - sep1.bottom;
   }
   w.postMessage({ mfd: true, type: 'avn-layout', layout: 'full', geom: geom }, '*');
 }
@@ -920,7 +932,7 @@ const TGL_MAX_DISPLAY = 10;
 // Latest AVN snapshot, mirrored from the map iframe's SSE feed. The shell keeps only this
 // state (the forwarders read it); all rendering — silhouette, failure labels, FUEL/THROTTLE
 // bars, the AVN_FAILURE_DEFS table, the /airframe layout cache — lives in src/web/pages/avn/.
-let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1 };
+let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
 
 // Latest RWR emitters + incoming missiles, mirrored from the map iframe's SSE feed. The shell
 // keeps only this state (the forwarders read it); all scope SVG rendering lives in src/web/pages/rwr/.
@@ -1095,6 +1107,14 @@ window.addEventListener('message', function(e) {
       failures: Array.isArray(m.failures) ? m.failures : null,
       fuel:     typeof m.fuel     === 'number' ? m.fuel     : -1,
       throttle: typeof m.throttle === 'number' ? m.throttle : -1,
+      gearDown: m.gearDown === true,
+      radar:    m.radar    === true,
+      guns:     m.guns     === true,
+      ignition: m.ignition === true,
+      assist:   m.assist   === true,
+      turret:   m.turret   === true,
+      nvg:      m.nvg      === true,
+      navLights: m.navLights === true,
     };
     // AVN renders in the #page-frame iframe (full) or a pane (split); forward the snapshot.
     if (currentPage === 'avn' && !splitMode) forwardAvnToFrame();

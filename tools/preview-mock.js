@@ -167,7 +167,11 @@
     mapName: 'PREVIEW ISLAND', mission: 'Frontline Patrol — MOCK DATA',
     world: { x: -3000, y: 2500, z: 2000 },
     tas: 248, agl: 2500, hdg: 45,
-    gear: 'up', flares: 60, flaresMax: 64, ewKJ: 820, ewKJMax: 1000, cmCat: 1,
+    // AVN status tiles: a mix so the preview exercises on/off — gear down (red), radar emitting +
+    // engine + flight-assist + nav-lights on (green), guns/turret/nvg off (gray).
+    gear: 'down', radar: true, guns: false,
+    ign: true, assist: true, turret: false, nvg: false, navlt: true,
+    flares: 60, flaresMax: 64, ewKJ: 820, ewKJMax: 1000, cmCat: 1,
     fuel: 0.94, thr: 0.60,
     iconOrient: true, iconScale: 1.1, selWeapon: 'AIM-9X',
     loadout: [

@@ -821,6 +821,13 @@ namespace NOXMFD
                         + ",\"parts\":" + PartsArray(s.Parts)
                         + ",\"rwr\":" + RwrArray(s.Rwr)
                         + ",\"mw\":" + MwArray(s.Mw)
+                        + ",\"radar\":" + (s.RadarOn ? "true" : "false")
+                        + ",\"guns\":" + (s.GunsLinked ? "true" : "false")
+                        + ",\"ign\":" + (s.Ignition ? "true" : "false")
+                        + ",\"assist\":" + (s.FlightAssist ? "true" : "false")
+                        + ",\"turret\":" + (s.TurretAuto ? "true" : "false")
+                        + ",\"nvg\":" + (s.NightVision ? "true" : "false")
+                        + ",\"navlt\":" + (s.NavLightsOn ? "true" : "false")
                         + ",\"failures\":" + StringArray(s.Failures) + "}";
         }
 
