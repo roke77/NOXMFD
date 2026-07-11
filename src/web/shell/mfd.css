@@ -23,6 +23,51 @@
     box-shadow: inset 0 1px 0 #5a5f66, inset 0 -2px 8px #15161a, 0 6px 22px rgba(0,0,0,0.55);
   }
 
+  /* "Hide bezel" experiment: .bezel-hidden on .mfd collapses every frame element (strips,
+     side-key columns, screws, gunmetal chrome) so the screen recess fills the viewport.
+     The auto grid tracks that held the strips/side keys collapse to 0 once hidden. */
+  .mfd.bezel-hidden .bezel {
+    padding: 0; gap: 0; border-radius: 0;
+    background: none; box-shadow: none;
+  }
+  .mfd.bezel-hidden .strip,
+  .mfd.bezel-hidden .keys.v,
+  .mfd.bezel-hidden .screw { display: none; }
+  /* With the strips/side keys gone, the screen would otherwise land in the grids' leading
+     auto track and shrink to its content size. Collapse both grids to a single 1fr track so
+     the lone screen cell stretches to fill the viewport. */
+  .mfd.bezel-hidden .bezel { grid-template-rows: 1fr; }
+  .mfd.bezel-hidden .mid   { grid-template-columns: 1fr; }
+  .mfd.bezel-hidden .screen { border-radius: 0; }
+
+  /* Restore button: only visible while the bezel is hidden. Small gunmetal square (matching
+     the key look) pinned to the top-left; a bordered inset square hints at the frame it brings
+     back. Semi-transparent so it stays out of the way over the fullscreen page. */
+  .bezel-restore { display: none; }
+  .mfd.bezel-hidden .bezel-restore {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 8px; left: 8px;
+    width: 24px; height: 24px;
+    z-index: 100;
+    border: 1px solid #202225;
+    border-radius: 4px;
+    background: linear-gradient(#4b4f56, #313438);
+    box-shadow: inset 0 1px 0 #62666d, inset 0 -2px 3px rgba(0,0,0,0.4);
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 0.15s;
+  }
+  .mfd.bezel-hidden .bezel-restore:hover { opacity: 1; }
+  .bezel-restore::before {
+    content: '';
+    width: 12px; height: 12px;
+    border: 1.5px solid #c8ccd0;
+    border-radius: 2px;
+  }
+
   /* Strips share the screen's 3-column grid: side-key-width gutter / screen / side-key-width
      gutter. The generated top/bottom key banks live in the centre cell so they align with
      the screen, while standalone controls can sit in the side gutter. */

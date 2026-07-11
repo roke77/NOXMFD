@@ -31,7 +31,7 @@ const layoutIcons = [
   { cls: 'ic-lr23',   title: 'Split left/right 2:1', action: 'vwsplit' },   // V_WIDE_SPLIT (2:1)
 ];
 const functionIcons = [
-  { cls: 'ic-power',      title: 'Power',      action: 'power' },
+  { cls: 'ic-power',      title: 'Hide bezel', action: 'bezel' },
   { cls: 'ic-fullscreen', title: 'Fullscreen', action: 'fll' },
   { cls: 'ic-pin',        title: 'Pin',        action: 'pin' },
   { cls: 'ic-swap',       title: 'Swap',       action: 'swap' },
@@ -1358,23 +1358,11 @@ function mfdButton(el) {
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;
-    case 'power': {
-      // Black out the screen recess (bezel stays lit). Powering back ON always boots
-      // into full view — never resumes a split that was active when it went dark.
-      const turningOn = screenEl.classList.contains('power-off');
-      screenEl.classList.toggle('power-off');
-      if (turningOn) {
-        // Power-on always boots into full-view MAIN — never resumes a split or the page
-        // that was showing when it went dark.
-        if (splitMode) { splitMode = false; applySplitMode(); }
-        currentPage = 'main';
-        showPage('main');
-        mapSend('status-request');
-        flickerScreen();
-        runBootLoading();
-      }
+    case 'bezel':
+      // Experiment: collapse the whole bezel (frame + strips + side keys) so the screen
+      // fills the viewport. The restore button (top-left) brings it back.
+      setBezelHidden(true);
       break;
-    }
     case 'fll':  toggleFullscreen(); break;
     // Layout presets. Each enters split (carrying the full-view page into the top/left pane,
     // MAIN into the other) or, if already split, switches orientation in place. The square
@@ -1437,6 +1425,16 @@ function toggleFullscreen() {
     (d.exitFullscreen || d.webkitExitFullscreen || function(){}).call(d);
   }
 }
+
+// Hide/show the whole bezel (frame chrome + strips + side keys). Collapsing it lets the
+// screen fill the viewport; a resize event re-runs the page/pane layout for the new size.
+function setBezelHidden(hidden) {
+  document.querySelector('.mfd').classList.toggle('bezel-hidden', hidden);
+  window.dispatchEvent(new Event('resize'));
+}
+document.getElementById('bezel-restore').addEventListener('click', function() {
+  setBezelHidden(false);
+});
 
 // Event delegation covers both generated keys and standalone controls.
 document.querySelector('.mfd').addEventListener('click', function(e) {
