@@ -230,6 +230,12 @@
   #page-frame {
     position: absolute;
     inset: 6px;
+    /* This is a replaced <iframe>, so the broad `.screen iframe { width/height:100% }` rule
+       above wins over inset:6px's right/bottom and forces it to the padding-box size — 12px too
+       big, spilling past the recess bottom-right. Size it to the content box (padding-box minus
+       the 6px inset each side) so it overlays the map iframe exactly, matching the split panes. */
+    width: calc(100% - 12px);
+    height: calc(100% - 12px);
     border-radius: 3px;
     display: none;
     background: var(--no-bg);
