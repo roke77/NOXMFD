@@ -142,45 +142,48 @@
   line-height: 1;
   white-space: nowrap;
 }
-/* The % readout floats to the inner side of its bar (toward the silhouette) and tracks the
-   top tip of the fill — paintAvnBar sets its `top` in px each paint. fuel sits on the left,
-   so its number opens to the right; thr sits on the right, opening to the left. */
+/* The % readout floats to the inner side of its bar (toward the silhouette) and tracks the top
+   tip of the fill — paintAvnBar sets its `top` in px each paint. fuel sits on the left (opens
+   right); thr sits on the right (opens left). The container border is a single connected SVG
+   leader matching the game's ¯\___ geometry (tick off the bar → diagonal ramp → underline under
+   the number), so the strokes never gap. Fixed width keeps the leader proportions stable as the
+   digit count changes. */
 .avn-vbar-value {
   position: absolute;
-  padding: 0 3px 2px;
+  width: 4.6em;
+  height: 1.25em;
   transform: translateY(-50%);
   transition: top 200ms linear;
-  border-bottom: 2px solid currentColor;   /* corner bracket: bottom cap + the edge facing the bar */
   z-index: 4;
 }
-.avn-vbar.fuel .avn-vbar-value { left:  calc(100% - 4px); text-align: left;  }
-.avn-vbar.thr  .avn-vbar-value { right: calc(100% - 4px); text-align: right; }
-/* Vertical bracket edge on the bar side — only the lower half, from the bottom cap up to the
-   fill-tip (the box's vertical centre, where the stem meets it). */
-.avn-vbar-value::before {
-  content: '';
+.avn-vbar.fuel .avn-vbar-value { left:  calc(100% - 4px); }
+.avn-vbar.thr  .avn-vbar-value { right: calc(100% - 4px); }
+/* The ¯\___ leader, stretched over the box; non-scaling-stroke keeps the 2px line uniform. */
+.avn-vbar-frame {
   position: absolute;
-  bottom: 0;
-  height: 50%;
-  width: 2px;
-  background: currentColor;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
   pointer-events: none;
 }
-.avn-vbar.fuel .avn-vbar-value::before { left:  0; }
-.avn-vbar.thr  .avn-vbar-value::before { right: 0; }
-/* Stem joining that edge to the bar at the fill-tip level (box is centred on the tip). */
-.avn-vbar-value::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 2px;
-  background: currentColor;
-  pointer-events: none;
+.avn-vbar-frame path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: miter;
+  vector-effect: non-scaling-stroke;
 }
-.avn-vbar.fuel .avn-vbar-value::after { right: 100%; }
-.avn-vbar.thr  .avn-vbar-value::after { left:  100%; }
+.avn-vbar.thr .avn-vbar-frame { transform: scaleX(-1); }   /* mirror to ___/‾ */
+/* The digits sit above the underline portion of the leader. */
+.avn-vbar-num {
+  position: relative;
+  z-index: 1;
+  display: block;
+  line-height: 1;
+}
+.avn-vbar.fuel .avn-vbar-num { padding-left:  1.6em; text-align: left;  }
+.avn-vbar.thr  .avn-vbar-num { padding-right: 1.6em; text-align: right; }
 .avn-vbar-label { padding: 20px 0 0 0; }
 /* Orientation driven by the shell (body.portrait), not @media — a pane iframe's box is
    wide+short and would wrongly read landscape in split mode. */

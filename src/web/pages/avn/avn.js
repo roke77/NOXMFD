@@ -367,12 +367,16 @@ function paintAvnBars() {
   paintAvnBar(avnThrBar,  avnThrFill,  avnThrVal,  avnData.throttle, null, null);
 }
 
+// The digits live in a .avn-vbar-num span (sibling of the SVG leader frame); fall back to the
+// element itself so nothing breaks if the markup changes.
+function avnValNum(valEl) { return valEl.querySelector('.avn-vbar-num') || valEl; }
+
 function paintAvnBar(barEl, fillEl, valEl, value01, cautionAt, criticalAt) {
   barEl.classList.remove('na', 'caution', 'critical');
   if (typeof value01 !== 'number' || value01 < 0) {
     barEl.classList.add('na');
     fillEl.style.height = '0%';
-    valEl.textContent = '--';
+    avnValNum(valEl).textContent = '--';
     positionAvnBarValue(barEl, valEl, 0);
     return;
   }
@@ -380,7 +384,7 @@ function paintAvnBar(barEl, fillEl, valEl, value01, cautionAt, criticalAt) {
   if      (criticalAt !== null && v <= criticalAt) barEl.classList.add('critical');
   else if (cautionAt  !== null && v <= cautionAt)  barEl.classList.add('caution');
   fillEl.style.height = (v * 100).toFixed(1) + '%';
-  valEl.textContent = Math.round(v * 100) + '%';
+  avnValNum(valEl).textContent = Math.round(v * 100) + '%';
   positionAvnBarValue(barEl, valEl, v);
 }
 
