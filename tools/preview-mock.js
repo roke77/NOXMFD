@@ -171,6 +171,10 @@
     // engine + flight-assist + nav-lights on (green), guns/turret/nvg off (gray).
     gear: 'down', radar: true, guns: false,
     ign: true, assist: true, turret: false, nvg: false, navlt: true,
+    // AVN failure annunciators. A deliberate mix of the per-aircraft wordings the game emits, so
+    // the preview exercises side parsing (L→left col, R→right col) and the centre stack for a
+    // side-less failure. avn-failure-policy normalizes these to "L ENG FIRE" / "R ENG FAIL" / etc.
+    failures: ['ENGINE FIRE L', 'RIGHT ENGINE FAIL', 'MAIN ROTOR DAMAGE'],
     flares: 60, flaresMax: 64, ewKJ: 820, ewKJMax: 1000, cmCat: 1,
     fuel: 0.94, thr: 0.60,
     iconOrient: true, iconScale: 1.1, selWeapon: 'AIM-9X',

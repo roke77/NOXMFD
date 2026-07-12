@@ -36,17 +36,18 @@ let avnLayoutType  = null;
 let avnLayoutCache = Object.create(null);
 let avnLayoutTries = Object.create(null);   // per-type layout-fetch retry counts
 let avnPartEls     = Object.create(null);
-let avnFailureEls  = Object.create(null);
+let avnFailureEls  = [];   // current failure-label DOM nodes, rebuilt each paint (see paintAvnFailures)
 let avnBgType = null, avnBgTries = 0, avnBgLoaded = false;   // background-image request/retry state
 const AVN_BG_RETRY_CAP = 120;                // ~60 s @ 500 ms — safety bound; the async server capture lands far sooner
 
-// Known failure messages and how to render them on the silhouette. Mirrors the server's
-// failure-message strings; same keys, same positions, so the silhouette reads identically in
-// both single-pane and split-pane modes.
-const AVN_FAILURE_DEFS = {
-  'LEFT ENGINE FIRE':  { text: 'L ENG FIRE', cx: 0.20, cy: 0.78 },
-  'RIGHT ENGINE FIRE': { text: 'R ENG FIRE', cx: 0.80, cy: 0.78 },
-};
+// Failure-label placement on the silhouette. The strings themselves vary per aircraft and are
+// parsed by avn-failure-policy (side + display text); here we just decide where each column sits.
+// Sided failures cluster over their engine (left/right); side-less ones stack in a centre column.
+const AVN_FAIL_COL = { L: 0.20, R: 0.80, C: 0.50 };   // silhouette x per column (0..1)
+const AVN_FAIL_BASE_CY = 0.78;                        // first row y — over the engines / lower body
+const AVN_FAIL_ROW_DY  = 0.07;                        // vertical step when a column stacks
+// ponytail: naive upward stack — with many simultaneous failures in one column the labels could
+// climb off the top of the silhouette. Fine for the handful the game ever raises at once.
 
 // ── Renderer ───────────────────────────────────────────────────────────────────────
 function renderAvn() {
@@ -94,9 +95,8 @@ function renderAvn() {
   if (avnLayoutType !== type) buildAvnParts(type, layoutDef);
 
   fitAvnPartsToBg();
-  sizeAvnFailures();
   paintAvnDamage();
-  paintAvnFailures();
+  paintAvnFailures();   // rebuilds + sizes the failure labels
   layoutAvnBars();
   paintAvnBars();
 }
@@ -212,17 +212,9 @@ function buildAvnParts(type, layoutDef) {
     avnPartsEl.appendChild(el);
     avnPartEls[p.n] = el;
   }
-  avnFailureEls = Object.create(null);
-  for (const key in AVN_FAILURE_DEFS) {
-    const def = AVN_FAILURE_DEFS[key];
-    const el = document.createElement('div');
-    el.className = 'avn-failure';
-    el.textContent = def.text;
-    el.style.left = (def.cx * 100).toFixed(3) + '%';
-    el.style.top  = (def.cy * 100).toFixed(3) + '%';
-    avnPartsEl.appendChild(el);
-    avnFailureEls[key] = el;
-  }
+  // Failure labels are (re)built by paintAvnFailures from the live failure list — buildAvnParts
+  // just cleared them along with the parts (innerHTML = ''), so drop our stale references.
+  avnFailureEls = [];
   avnLayoutType = type;
 }
 
@@ -230,9 +222,7 @@ function sizeAvnFailures() {
   const h = avnPartsEl.getBoundingClientRect().height;
   if (h <= 0) return;
   const px = Math.max(11, h * 0.045);
-  for (const name in avnFailureEls) {
-    avnFailureEls[name].style.fontSize = px.toFixed(1) + 'px';
-  }
+  for (const el of avnFailureEls) el.style.fontSize = px.toFixed(1) + 'px';
 }
 
 // Bar geometry shared by the placement (layoutAvnBars) and the portrait frame inset
@@ -306,12 +296,25 @@ function paintAvnDamage() {
 }
 
 function paintAvnFailures() {
-  const set = Object.create(null);
-  if (Array.isArray(avnData.failures))
-    for (const name of avnData.failures) set[name] = true;
-  for (const name in avnFailureEls) {
-    avnFailureEls[name].classList.toggle('active', !!set[name]);
+  // Failures are arbitrary per-aircraft strings, so render whatever is active rather than
+  // matching a fixed table. Rebuild the labels each paint: side-column + stacked row per column.
+  for (const el of avnFailureEls) el.remove();
+  avnFailureEls = [];
+  const active = Array.isArray(avnData.failures) ? avnData.failures : null;
+  if (!active || !active.length) return;
+  const rowInCol = { L: 0, R: 0, C: 0 };
+  for (const name of active) {
+    const side = AvnFailurePolicy.failureSide(name) || 'C';
+    const row  = rowInCol[side]++;
+    const el = document.createElement('div');
+    el.className = 'avn-failure active';
+    el.textContent = AvnFailurePolicy.failureText(name);
+    el.style.left = (AVN_FAIL_COL[side] * 100).toFixed(3) + '%';
+    el.style.top  = ((AVN_FAIL_BASE_CY - row * AVN_FAIL_ROW_DY) * 100).toFixed(3) + '%';
+    avnPartsEl.appendChild(el);
+    avnFailureEls.push(el);
   }
+  sizeAvnFailures();
 }
 
 function layoutAvnBars() {

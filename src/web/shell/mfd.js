@@ -931,7 +931,7 @@ const TGL_MAX_DISPLAY = 10;
 // failures = list of failure-message strings currently active (e.g. ["LEFT ENGINE FIRE"]).
 // Latest AVN snapshot, mirrored from the map iframe's SSE feed. The shell keeps only this
 // state (the forwarders read it); all rendering — silhouette, failure labels, FUEL/THROTTLE
-// bars, the AVN_FAILURE_DEFS table, the /airframe layout cache — lives in src/web/pages/avn/.
+// bars, the failure-label parsing/placement, the /airframe layout cache — lives in src/web/pages/avn/.
 let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
 
 // Latest RWR emitters + incoming missiles, mirrored from the map iframe's SSE feed. The shell
