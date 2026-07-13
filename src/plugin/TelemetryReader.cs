@@ -70,6 +70,17 @@ namespace NOXMFD
         private readonly List<RwrContact> _rwrBuf = new List<RwrContact>(32);
         private Aircraft _rwrSubscribed;   // the aircraft whose onRadarWarning we're hooked to
 
+        // Afterburner gauge shape, resolved once per aircraft from the game's own ThrottleGauge
+        // (a HUDApp that owns the MIL/reheat region config). Static per airframe, so we cache it
+        // on aircraft change rather than reflecting every frame. See EnsureAfterburnerCache.
+        private Aircraft _abAircraft;          // aircraft the cache below was resolved for
+        private bool     _hasAfterburner;      // airframe has a reheat zone
+        private float    _abStart = 1f;        // throttle fraction where afterburner begins (1 = none)
+        private static readonly FieldInfo _tgAfterburnerField =
+            typeof(ThrottleGauge).GetField("afterburner", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo _tgRegionsField =
+            typeof(ThrottleGauge).GetField("throttleRegions", BindingFlags.Instance | BindingFlags.NonPublic);
+
         // Incoming missiles — polled straight from MissileWarning.knownMissiles (a public list),
         // so no event hook needed. Reused buffer to keep the 10 Hz push allocation-light.
         private readonly List<MwContact> _mwBuf = new List<MwContact>(8);
@@ -369,6 +380,9 @@ namespace NOXMFD
             // aircraft change; clears the emitter table so a fresh airframe starts clean).
             EnsureRwrSubscription(aircraft);
 
+            // Resolve the afterburner gauge shape when the aircraft changes (cached; static per airframe).
+            EnsureAfterburnerCache(aircraft);
+
             // The game uses a floating-origin system: transform.position drifts back toward
             // zero as the world re-centers. The true world coordinate is pos - Datum.originPosition.
             Vector3 world   = aircraft.transform.position - Datum.originPosition;
@@ -425,6 +439,8 @@ namespace NOXMFD
                 EwKJMax        = ewKJMax,
                 Fuel           = aircraft.GetFuelLevel(),
                 Throttle       = aircraft.GetInputs() != null ? aircraft.GetInputs().throttle : -1f,
+                HasAfterburner = _hasAfterburner,
+                AbStart        = _abStart,
                 SelWeapon      = selWeapon,
                 CmCategory     = cmCategory,
                 TotalUnits     = _totalUnits,
@@ -502,6 +518,50 @@ namespace NOXMFD
             _rwrEmitters.Clear();
             _rwrSubscribed = ac;
             if (ac != null) ac.onRadarWarning += OnRadarWarning;
+        }
+
+        // Resolve the airframe's afterburner gauge shape once per aircraft. The game's own
+        // ThrottleGauge (a cockpit HUDApp) owns the MIL/reheat split: `afterburner` flags whether
+        // the airframe has reheat, and the last throttleRegion's `start` is the MIL→AB boundary on
+        // the 0..1 axis. Both are prefab-serialized privates, so we reflect them (same approach as
+        // HudDeclutter's CombatHUD access) and cache — they never change for a given airframe.
+        // Any miss (no gauge, no regions, reflection failure) degrades to a plain non-AB bar.
+        private void EnsureAfterburnerCache(Aircraft ac)
+        {
+            if (ReferenceEquals(ac, _abAircraft)) return;
+            _abAircraft = ac;
+            _hasAfterburner = false;
+            _abStart = 1f;
+            if (ac == null || _tgAfterburnerField == null) return;
+
+            try
+            {
+                CombatHUD hud = SceneSingleton<CombatHUD>.i;
+                ThrottleGauge gauge = hud != null ? hud.GetComponentInChildren<ThrottleGauge>(true) : null;
+                if (gauge == null) gauge = UnityEngine.Object.FindObjectOfType<ThrottleGauge>(true);
+                if (gauge == null) return;
+
+                _hasAfterburner = (bool)_tgAfterburnerField.GetValue(gauge);
+                if (!_hasAfterburner) return;
+
+                // AbStart = the last region's start (the reheat zone). If a plane flags afterburner
+                // but ships no regions, the game only shows reheat at throttle == 1, so leave AbStart
+                // at 1 (no distinct zone until full).
+                var regions = _tgRegionsField?.GetValue(gauge) as Array;
+                if (regions != null && regions.Length > 0)
+                {
+                    object last = regions.GetValue(regions.Length - 1);
+                    FieldInfo startField = last?.GetType().GetField("start", BindingFlags.Instance | BindingFlags.NonPublic);
+                    if (startField != null)
+                        _abStart = Mathf.Clamp01((float)startField.GetValue(last));
+                }
+            }
+            catch (Exception)
+            {
+                // Game internals shifted or the gauge wasn't ready — fall back to a plain bar.
+                _hasAfterburner = false;
+                _abStart = 1f;
+            }
         }
 
         // One radar sweep painted us: record/refresh the emitter with its current threat tier.

@@ -176,7 +176,7 @@
     // side-less failure. avn-failure-policy normalizes these to "L ENG FIRE" / "R ENG FAIL" / etc.
     failures: ['ENGINE FIRE L', 'RIGHT ENGINE FAIL', 'MAIN ROTOR DAMAGE'],
     flares: 60, flaresMax: 64, ewKJ: 820, ewKJMax: 1000, cmCat: 1,
-    fuel: 0.94, thr: 0.60,
+    fuel: 0.94, thr: 0.90, hasAb: true, abStart: 0.8,   // afterburner airframe: 0.90 → reheat (AB 50%)
     iconOrient: true, iconScale: 1.1, selWeapon: 'AIM-9X',
     loadout: [
       { n: 'AIM-9X',   a: 2, f: 2 },

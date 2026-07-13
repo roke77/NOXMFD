@@ -104,6 +104,8 @@
       <div class="avn-vbar-label">FUEL</div>
     </div>
     <div class="avn-vbar thr" id="avn-thr-bar">
+      <!-- Reheat annunciator: sits above the tube, lit red only while throttle is in the AB zone. -->
+      <div class="avn-vbar-ab" id="avn-thr-ab" aria-hidden="true">AFTERBURNER</div>
       <div class="avn-vbar-value" id="avn-thr-val"><svg class="avn-vbar-frame" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M2,18 H20 L34,84 H98"/></svg><span class="avn-vbar-num">&mdash;</span></div>
       <div class="avn-vbar-tube">
         <div class="avn-vbar-fill" id="avn-thr-fill"></div>
@@ -115,6 +117,7 @@
 <script src="/assets/pages/avn/avn-bg-policy.js"></script>
 <script src="/assets/pages/avn/avn-status-policy.js"></script>
 <script src="/assets/pages/avn/avn-failure-policy.js"></script>
+<script src="/assets/pages/avn/avn-throttle-policy.js"></script>
 <script src="/assets/pages/avn/avn.js"></script>
 </body>
 </html>

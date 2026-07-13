@@ -184,6 +184,28 @@
 }
 .avn-vbar.fuel .avn-vbar-num { padding-left:  1.6em; text-align: left;  }
 .avn-vbar.thr  .avn-vbar-num { padding-right: 1.6em; text-align: right; }
+/* AFTERBURNER annunciator: vertical text running UP the tube, hugging its inner edge and starting
+   at the tube top (the reheat zone). Space above the bar is too tight for a horizontal word, so it
+   reads sideways like a real gauge label. Hidden unless the throttle is in the reheat zone
+   (.ab-active), then lit red. */
+.avn-vbar-ab {
+  position: absolute;
+  top: 6px;                           /* tube inner top = top of the reheat zone */
+  right: calc(100% - 5px);            /* just inside the tube's inner (silhouette-facing) edge */
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);          /* read bottom-to-top */
+  display: none;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--no-red);
+  text-shadow: 0 0 4px rgba(6, 10, 6, 0.95);
+  pointer-events: none;
+  z-index: 5;
+}
+.avn-vbar.thr.ab-active .avn-vbar-ab { display: block; }
 .avn-vbar-label { padding: 20px 0 0 0; }
 /* Orientation driven by the shell (body.portrait), not @media — a pane iframe's box is
    wide+short and would wrongly read landscape in split mode. */
@@ -269,6 +291,24 @@ body.portrait .avn-vbar-value { font-size: clamp(16px, 1.8vh, 25.5px); }
     linear-gradient(var(--no-green-dark), var(--no-green-dark)),
     linear-gradient(var(--no-green-dark), var(--no-green-dark)); }
 .avn-vbar.na .avn-vbar-fill { display: none; }
+
+/* Afterburner THROTTLE bar (ab-capable). The single fill is split at --ab-start: MIL green below,
+   reheat red above. The gradient is sized to the tube's inner height (--tube-inner-px, set each
+   paint by positionAvnBarValue) and anchored to the bottom, so the green→red boundary stays fixed
+   at abStart while the fill rises past it. Non-AB bars never get .ab-capable → plain green fill. */
+.avn-vbar.thr { --ab-start: 1; --tube-inner-px: 0px; }   /* safe defaults until first measurement */
+.avn-vbar.thr.ab-capable .avn-vbar-fill {
+  background: linear-gradient(to top,
+    var(--no-green) 0,
+    var(--no-green) calc(var(--ab-start) * var(--tube-inner-px)),
+    var(--no-red)   calc(var(--ab-start) * var(--tube-inner-px)),
+    var(--no-red)   var(--tube-inner-px));
+  background-repeat: no-repeat;
+  background-position: left bottom;
+  background-size: 100% var(--tube-inner-px);
+}
+/* Readout goes red while in the reheat zone; MIL keeps the bar's green. */
+.avn-vbar.thr.ab-active .avn-vbar-num { color: var(--no-red); }
 
 /* full profile (single full-screen iframe): the header band + frame top/height come from the
    shell's bezel geometry (set inline by avn.js), so only `bottom` needs clearing here to avoid

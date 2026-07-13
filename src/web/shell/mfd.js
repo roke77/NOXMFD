@@ -431,6 +431,8 @@ function forwardAvnToPanes() {
       failures: avnData.failures,
       fuel: avnData.fuel,
       throttle: avnData.throttle,
+      hasAb: avnData.hasAb,
+      abStart: avnData.abStart,
       gearDown: avnData.gearDown,
       radar: avnData.radar,
       guns: avnData.guns,
@@ -447,6 +449,7 @@ function forwardAvnToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage({ mfd: true, type: 'avn', name: avnData.name, parts: avnData.parts,
                   failures: avnData.failures, fuel: avnData.fuel, throttle: avnData.throttle,
+                  hasAb: avnData.hasAb, abStart: avnData.abStart,
                   gearDown: avnData.gearDown, radar: avnData.radar, guns: avnData.guns,
                   ignition: avnData.ignition, assist: avnData.assist, turret: avnData.turret,
                   nvg: avnData.nvg, navLights: avnData.navLights }, '*');
@@ -957,7 +960,7 @@ const TGL_MAX_DISPLAY = 10;
 // Latest AVN snapshot, mirrored from the map iframe's SSE feed. The shell keeps only this
 // state (the forwarders read it); all rendering — silhouette, failure labels, FUEL/THROTTLE
 // bars, the failure-label parsing/placement, the /airframe layout cache — lives in src/web/pages/avn/.
-let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
+let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
 
 // Latest RWR emitters + incoming missiles, mirrored from the map iframe's SSE feed. The shell
 // keeps only this state (the forwarders read it); all scope SVG rendering lives in src/web/pages/rwr/.
@@ -1132,6 +1135,8 @@ window.addEventListener('message', function(e) {
       failures: Array.isArray(m.failures) ? m.failures : null,
       fuel:     typeof m.fuel     === 'number' ? m.fuel     : -1,
       throttle: typeof m.throttle === 'number' ? m.throttle : -1,
+      hasAb:    m.hasAb === true,
+      abStart:  typeof m.abStart === 'number' ? m.abStart : 1,
       gearDown: m.gearDown === true,
       radar:    m.radar    === true,
       guns:     m.guns     === true,

@@ -161,6 +161,9 @@ export class TelemetrySource {
       failures: Array.isArray(d.failures) ? d.failures : null,
       fuel:     typeof d.fuel === 'number' ? d.fuel : -1,
       throttle: typeof d.thr  === 'number' ? d.thr  : -1,
+      // Afterburner gauge shape (static per airframe). hasAb splits the THRL bar at abStart.
+      hasAb:    d.hasAb === true,
+      abStart:  typeof d.abStart === 'number' ? d.abStart : 1,
       // Avionics status tiles. gear arrives as 'up'|'down'; the rest are bools.
       gearDown: d.gear === 'down',
       radar:    d.radar === true,

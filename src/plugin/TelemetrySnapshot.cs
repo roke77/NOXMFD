@@ -39,6 +39,12 @@ namespace NOXMFD
         public float  Fuel;       // 0..1 fuel fraction across all tanks
         public float  Throttle;   // 0..1 commanded throttle
 
+        // Afterburner gauge shape (static per airframe; read once from the game's own ThrottleGauge).
+        // HasAfterburner planes split the 0..1 throttle axis at AbStart: below = MIL, above = reheat.
+        // Compass / helicopters report false → the AVN page keeps the plain 0-100% bar.
+        public bool   HasAfterburner;  // airframe has a reheat zone
+        public float  AbStart;         // throttle fraction where MIL ends / afterburner begins (1 = none)
+
         // Currently selected systems (for highlighting).
         public string SelWeapon;   // weaponName of the selected weapon
         public byte   CmCategory;  // selected countermeasure: 0 none, 1 flares, 2 EW, 3 chaff

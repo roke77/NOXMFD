@@ -29,7 +29,7 @@ const avnTileLights = document.getElementById('avn-tile-lights');
 const avnTileTurret = document.getElementById('avn-tile-turret');
 
 // ── State ──────────────────────────────────────────────────────────────────────────
-let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
+let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
 let layout         = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)
 let avnFullGeom    = null;        // {headerTop, headerHeight, frameTop, frameHeight} forwarded by the shell in full
 let avnLayoutType  = null;
@@ -363,8 +363,24 @@ function layoutAvnBars() {
 }
 
 function paintAvnBars() {
-  paintAvnBar(avnFuelBar, avnFuelFill, avnFuelVal, avnData.fuel,     0.25, 0.10);
-  paintAvnBar(avnThrBar,  avnThrFill,  avnThrVal,  avnData.throttle, null, null);
+  paintAvnBar(avnFuelBar, avnFuelFill, avnFuelVal, avnData.fuel, 0.25, 0.10);
+  paintAvnThrottle();
+}
+
+// THROTTLE is its own paint: afterburner airframes split the bar at abStart (MIL below, reheat
+// above) per AvnThrottlePolicy, driving the fill's green→red gradient (via the --ab-start var),
+// the readout text ('MIL nn%' / red 'AB nn%'), and the zone classes. Non-AB airframes render a
+// plain 0-100% green bar, identical to before.
+function paintAvnThrottle() {
+  const r = AvnThrottlePolicy.throttleReadout(avnData.throttle, avnData.hasAb, avnData.abStart);
+  avnThrBar.classList.remove('caution', 'critical');
+  avnThrBar.classList.toggle('na', r.na);
+  avnThrBar.classList.toggle('ab-capable', r.boundary !== null);
+  avnThrBar.classList.toggle('ab-active', r.zone === 'ab');
+  if (r.boundary !== null) avnThrBar.style.setProperty('--ab-start', r.boundary);
+  avnThrFill.style.height = (r.fill * 100).toFixed(1) + '%';
+  avnValNum(avnThrVal).textContent = r.text;
+  positionAvnBarValue(avnThrBar, avnThrVal, r.fill);
 }
 
 // The digits live in a .avn-vbar-num span (sibling of the SVG leader frame); fall back to the
@@ -388,9 +404,13 @@ function paintAvnBar(barEl, fillEl, valEl, value01, cautionAt, criticalAt) {
   positionAvnBarValue(barEl, valEl, v);
 }
 
-// Slide the % readout so its vertical centre sits on the fill's top tip. Derived from the
+// Slide the % readout so the leader's bar-side line sits on the fill's top tip. Derived from the
 // tube's box (not the fill's animated rect) so it tracks the target level immediately; the
 // CSS `top` transition then carries it in step with the fill's height animation.
+// The value box carries `transform: translateY(-50%)`, so `top` sets its VERTICAL CENTRE. The
+// leader's near-bar horizontal line sits at y=18/100 of the box (AVN_LEADER_TIP), not the centre,
+// so nudge the centre down by (0.5 - tip)·height to land that line exactly on the fill top.
+const AVN_LEADER_TIP = 0.18;   // SVG y of the leader's bar-side line, as a fraction of box height
 function positionAvnBarValue(barEl, valEl, v) {
   const tube = barEl.querySelector('.avn-vbar-tube');
   if (!tube) return;
@@ -400,7 +420,11 @@ function positionAvnBarValue(barEl, valEl, v) {
   const fillBottomY = tubeRect.bottom - BORDER - PAD; // viewport y of the fill's base
   const innerH      = tubeRect.height - 2 * BORDER;   // padding-box height the fill % spans
   const tipY        = fillBottomY - v * innerH;       // viewport y of the fill's top tip
-  valEl.style.top = (tipY - barEl.getBoundingClientRect().top) + 'px';
+  const boxH        = valEl.getBoundingClientRect().height;
+  valEl.style.top = (tipY - barEl.getBoundingClientRect().top + (0.5 - AVN_LEADER_TIP) * boxH) + 'px';
+  // Track height for the throttle fill's MIL/AB gradient — it anchors the green→red split at
+  // --ab-start of the tube regardless of how full the bar is (harmless on the fuel bar).
+  barEl.style.setProperty('--tube-inner-px', innerH + 'px');
 }
 
 // ── Shell → page forwarding ──────────────────────────────────────────────────────────
@@ -414,6 +438,8 @@ window.addEventListener('message', function(e) {
       failures: Array.isArray(m.failures) ? m.failures : null,
       fuel:     typeof m.fuel     === 'number' ? m.fuel     : -1,
       throttle: typeof m.throttle === 'number' ? m.throttle : -1,
+      hasAb:    m.hasAb === true,
+      abStart:  typeof m.abStart === 'number' ? m.abStart : 1,
       gearDown: m.gearDown === true,
       radar:    m.radar    === true,
       guns:     m.guns     === true,
