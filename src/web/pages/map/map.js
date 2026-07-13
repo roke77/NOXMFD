@@ -621,6 +621,9 @@ overlay.addEventListener('dblclick', function(e) {
 // (positions are post-zoom/pan, so this stays correct at any view). Cursor-anchored.
 const mapPanel = document.getElementById('map-panel');
 mapPanel.addEventListener('mousemove', function(e) {
+  // Touch has no hover: a tap emits a synthetic mousemove but never a mouseleave, so the label
+  // would stick forever (even after the unit dies). Touch taps are select-only — mouse hovers label.
+  if (lastPointerType === 'touch') { unitLabel.style.display = 'none'; return; }
   if (panId !== null) { unitLabel.style.display = 'none'; return; }   // don't flicker while panning
   const rect = overlay.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
