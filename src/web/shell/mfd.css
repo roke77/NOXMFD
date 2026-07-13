@@ -379,6 +379,15 @@
   .pane-follow.top { top: 10px; }
   .pane-follow.bot { top: calc(50% + 8px); }
   .pane-follow.show { display: block; }
+  /* Left/right variants (V_SPLIT / V_WIDE_SPLIT): panes sit side by side, so BOTH are full-height
+     at the top — the 'bot' chip drops to the top, and each chip anchors to the top-right corner of
+     its own pane. 'top' chip = left pane (right edge = the centre divider); 'bot' chip = right pane
+     (right edge = the recess edge). The divider is at 50% for V_SPLIT, 1/3 from the right for the
+     2:1 V_WIDE_SPLIT. */
+  .screen.split-v  .pane-follow.bot,
+  .screen.split-vw .pane-follow.bot { top: 10px; right: 12px; }
+  .screen.split-v  .pane-follow.top { right: calc(50% + 12px); }
+  .screen.split-vw .pane-follow.top { right: calc(33.333% + 12px); }
   .overlay-item {
     position: absolute;
     color: #d4d8dc;
