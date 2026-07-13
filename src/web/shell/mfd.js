@@ -264,6 +264,9 @@ function applySplitClasses() {
 // or — if already split — just switch orientation, keeping each pane's page + scroll state and
 // only re-laying the container (CSS) and re-mapping the bezel labels to the new key columns.
 function setSplit(variant) {
+  // Flipping the split axis (H<->V family) moves which pane is top-right, so the pin no longer
+  // points at that corner — clear it. Staying within the V family (v<->vw) keeps the same pane.
+  if (splitMode && (splitVariant === 'h') !== (variant === 'h')) clearPin();
   splitVariant = variant;
   if (splitMode) {
     applySplitClasses();
@@ -280,6 +283,10 @@ function setSplit(variant) {
 }
 
 function applySplitMode() {
+  // Crossing the full<->split boundary changes what PIN/SWAP target (the single stack vs. the
+  // top-right pane), so the two contexts never share a pin — start each side clean. Same-axis
+  // and v<->vw reconfigs return early in setSplit and never reach here, so they keep their pin.
+  clearPin();
   applySplitClasses();
   paneSoftkeys = [[], []];          // fresh panes re-emit their softkeys on load
   if (splitMode) {
@@ -856,8 +863,26 @@ let indicatorOrder = [];   // subset of ['pinned','follow'] in activation order
 // the partner relationship is tied to the current pin.
 let swapPartner   = null;
 
+// Which pane sits in the screen's top-right corner — where PIN/SWAP act in split mode. H_SPLIT
+// stacks top/bottom so it's the top pane (0); the V splits sit left/right so it's the right pane (1).
+function topRightPane() { return splitVariant === 'h' ? 0 : 1; }
+
+// Drop the pin (and its SWAP partner) and pull the PINNED chip. Shared by the pin toggle-off and
+// the split-axis-flip reset.
+function clearPin() {
+  pinnedPage = null;
+  swapPartner = null;
+  indicatorOrder = indicatorOrder.filter(function(x) { return x !== 'pinned'; });
+  renderIndicators();
+}
+
 function indicatorVisible(name) {
-  if (name === 'pinned') return pinnedPage !== null && currentPage === pinnedPage;
+  // PINNED tracks the pinned page in whichever context owns PIN: the top-right pane in split
+  // mode, the single stack in full view.
+  if (name === 'pinned') {
+    return pinnedPage !== null &&
+      (splitMode ? panePages[topRightPane()] === pinnedPage : currentPage === pinnedPage);
+  }
   // Shell-stack FOLLOW is single-mode only (one map fills the screen). Split mode renders
   // a FOLLOW chip per pane instead — see renderPaneFollow().
   if (name === 'follow') return !splitMode && currentPage === 'map' && followOn;
@@ -1360,39 +1385,41 @@ function mfdButton(el) {
       currentPage = panePages[0];
       applySplitMode();
       break;
-    case 'swap':
+    case 'swap': {
       // Toggle between the pinned page and the last page we swapped from.
       //   - On a non-pinned page: remember it as the partner, jump to pinned.
       //   - On the pinned page with a known partner: jump back to the partner.
       //   - Otherwise (nothing pinned, or on pinned with no partner yet): no-op.
+      // In split mode this drives the top-right pane (paneNavigate) instead of the full stack.
       if (pinnedPage === null) break;
-      if (currentPage === pinnedPage) {
+      const tr = splitMode ? topRightPane() : -1;
+      const here = splitMode ? panePages[tr] : currentPage;
+      const goTo = splitMode ? function(p) { paneNavigate(tr, p); }
+                             : function(p) { showPage(p); };
+      if (here === pinnedPage) {
         if (swapPartner === null) break;
-        showPage(swapPartner);
+        goTo(swapPartner);
       } else {
-        swapPartner = currentPage;
-        showPage(pinnedPage);
+        swapPartner = here;
+        goTo(pinnedPage);
       }
+      renderIndicators();   // the page in the pinned context changed → PINNED chip visibility follows
       break;
-    case 'pin':
-      // MENU ('main') page is not pinnable per design.
-      if (currentPage === 'main') break;
-      if (pinnedPage === currentPage) {
-        // Toggle off: unpin and drop the chip from the activation order.
-        pinnedPage = null;
-        indicatorOrder = indicatorOrder.filter(function(x) { return x !== 'pinned'; });
-      } else {
-        // First time on, or switching the pin to a new page: append so we land to the
-        // LEFT of any chip that was activated earlier (FOLLOW), and to the right of any
-        // chip activated later in the same session.
-        pinnedPage = currentPage;
-        if (indicatorOrder.indexOf('pinned') === -1) indicatorOrder.push('pinned');
-      }
-      // The partner is tied to the previous pin — drop it whenever the pin itself
-      // changes so a fresh SWAP cycle starts from the next non-pinned page.
-      swapPartner = null;
+    }
+    case 'pin': {
+      // Pin/unpin the page in the active context: the top-right pane in split mode, else the
+      // full-view page. MENU ('main') is never pinnable.
+      const page = splitMode ? panePages[topRightPane()] : currentPage;
+      if (page === 'main') break;
+      if (pinnedPage === page) { clearPin(); break; }   // toggle off
+      // First time on, or switching the pin to a new page: append so we land to the LEFT of any
+      // chip activated earlier (FOLLOW), and to the right of any activated later this session.
+      pinnedPage = page;
+      swapPartner = null;   // the partner is tied to the pin — reset the SWAP cycle
+      if (indicatorOrder.indexOf('pinned') === -1) indicatorOrder.push('pinned');
       renderIndicators();
       break;
+    }
   }
 }
 
