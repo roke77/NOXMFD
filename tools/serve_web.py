@@ -242,7 +242,13 @@ def main():
     args = ap.parse_args()
     if not (WEB / "shell" / "mfd.html").exists():
         raise SystemExit("ERROR: src/web/shell/mfd.html missing.")
-    with socketserver.TCPServer(("127.0.0.1", args.port), H) as s:
+    # Threaded: the shell opens several connections at once (shell + map/page iframes + assets).
+    # A single-threaded server serialises them and stalls if any one handler blocks; ThreadingTCPServer
+    # keeps every reload responsive. daemon_threads so Ctrl+C exits without waiting on open sockets.
+    class Server(socketserver.ThreadingTCPServer):
+        daemon_threads = True
+        allow_reuse_address = True
+    with Server(("127.0.0.1", args.port), H) as s:
         url = f"http://127.0.0.1:{args.port}/"
         print(f"serving on {url}")
         if args.open:
