@@ -20,6 +20,9 @@ html, body {
   display: flex; flex-direction: column;
   gap: clamp(4px, 1.4vh, 12px);
   padding: clamp(6px, 1.8vmin, 16px);
+  /* Extra left inset: the shell's vertical MAIN bezel label hugs the left edge here, so keep the
+     clickable content clear of it. */
+  padding-left: clamp(30px, 5vw, 48px);
 }
 
 /* Header */
@@ -109,7 +112,8 @@ html, body {
 .tgt-veh.on .veh-icon { filter: none; }
 .tgt-veh .veh-label { font-size: clamp(8px, 1.4vmin, 13px); letter-spacing: 0.02em; white-space: pre; }
 
-/* Unavailable state (TargetListSelector not up / no mission) */
+/* Unavailable state (TargetListSelector not up / no mission). display:block (not flex) so the
+   shared .mfd-empty-title stacks above the text like the other pages' empty states. */
 .tgt-unavailable { display: none; }
 body.unavailable .tgt-panel { display: none; }
-body.unavailable .tgt-unavailable { display: flex; }
+body.unavailable .tgt-unavailable { display: block; }

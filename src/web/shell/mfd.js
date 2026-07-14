@@ -1032,6 +1032,9 @@ function showPage(name) {
   currentPage = name;
   const page = PAGES[name];
   overlayEl.classList.toggle('opaque', page.opaque);
+  // TGT keeps clickable content in the top-left where the MAIN bezel label sits; a class here lets
+  // mfd.css render that label vertically so it hugs the edge and clears the page's RESET button.
+  overlayEl.classList.toggle('tgt-page', name === 'tgt');
   infoBox.classList.toggle('show', name === 'main');
   screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGL/TGP/AVN render in #page-frame
   clearKeyActions();

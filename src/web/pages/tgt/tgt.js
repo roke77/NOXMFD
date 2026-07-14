@@ -58,8 +58,17 @@ function buildVehicles() {
     cell.className = 'tgt-veh'; cell.dataset.group = 'vehicle'; cell.dataset.index = i;
     const img = document.createElement('img');
     img.className = 'veh-icon'; img.alt = t.n;
-    img.src = '/tgt-icon?type=' + encodeURIComponent(t.n);
-    img.addEventListener('error', function () { img.style.visibility = 'hidden'; });
+    const iconUrl = '/tgt-icon?type=' + encodeURIComponent(t.n);
+    // The mod captures these sprites over the first few mission scans, so a request can 404 if the
+    // page is opened early. Retry a handful of times (hide meanwhile; the label carries it) and show
+    // once it lands — otherwise an early open would leave the icon hidden for the whole session.
+    let tries = 0;
+    img.addEventListener('error', function () {
+      img.style.visibility = 'hidden';
+      if (++tries <= 6) setTimeout(function () { img.src = iconUrl + '&r=' + tries; }, 1200);
+    });
+    img.addEventListener('load', function () { img.style.visibility = ''; });
+    img.src = iconUrl;
     const lbl = document.createElement('div');
     lbl.className = 'veh-label'; lbl.textContent = label(t.n);
     cell.appendChild(img); cell.appendChild(lbl);
