@@ -117,7 +117,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **TGT** — target-selection filter mirroring the in-cockpit TARGET SELECTION panel: toggle which factions, categories, and vehicle types can be targeted (plus LASER/HUD), with RESET and CLEAR, above your live selected-target list.
+- **TGT** — target-selection filter mirroring the in-cockpit TARGET SELECTION panel: toggle which factions, categories, and vehicle types can be targeted (plus LASER/HUD), with RESET and CLEAR, above your live selected-target list. Full-view only for the moment — selecting it from a split view switches back to full view.
 
   <details>
   <summary>Show screenshot</summary>
