@@ -89,7 +89,7 @@ html, body {
 
 /* Vehicle-type grid — icon over label */
 .tgt-vehicles {
-  flex: 1;
+  flex: 0 0 auto;
   display: grid;
   /* Keep all the icons on ONE row: auto-flow column lays them in a single track row and the cells
      shrink (down to a readable min) to fit the width, so they only "wrap" — really, run out of room
@@ -118,6 +118,65 @@ html, body {
 }
 .tgt-veh.on .veh-icon { filter: none; }
 .tgt-veh .veh-label { font-size: clamp(8px, 1.4vmin, 13px); letter-spacing: 0.02em; white-space: pre; }
+
+/* ── Selected-target list (below the filters) ─────────────────────────────────────────── */
+.tgt-list {
+  flex: 1 1 auto;
+  min-height: 0;                       /* let the rows area scroll inside the flex column */
+  display: flex; flex-direction: column;
+  border-top: 1px solid var(--no-green-dark);
+  padding-top: clamp(3px, 0.8vh, 7px);
+}
+/* Shared 4-column track: [checkbox] [name grows] [grid] [range]. Head + rows use the same grid so
+   the columns line up. */
+.tgt-list-head, .tl-row {
+  display: grid;
+  /* Viewport-based column widths (not auto) so the header and the rows — separate grids — compute
+     identical tracks and line up. minmax(0,1fr) lets the name shrink so its ellipsis kicks in. */
+  grid-template-columns: clamp(20px, 3.4vmin, 26px) minmax(0, 1fr) clamp(46px, 7vw, 76px) clamp(60px, 9vw, 96px);
+  gap: clamp(6px, 1.4vw, 14px);
+  align-items: center;
+}
+.tgt-list-head {
+  padding: 0 clamp(4px, 1vw, 10px) clamp(2px, 0.6vh, 5px);
+  color: var(--no-green-dim);
+  font-size: clamp(9px, 1.4vmin, 13px);
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--no-green-dark);
+}
+.tgt-list-rows { flex: 1 1 auto; overflow-y: auto; }
+.tl-row {
+  padding: clamp(4px, 1vh, 9px) clamp(4px, 1vw, 10px);
+  border-bottom: 1px solid rgba(57,255,20,0.10);
+  font-size: clamp(11px, 1.9vmin, 18px);
+}
+.tl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-grid, .tl-dist { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Faction tint on the name (mirrors the map/TGL colours): friendly blue, neutral white, enemy red. */
+.tl-row.f-friendly .tl-name { color: var(--tgt-blue); }
+.tl-row.f-neutral  .tl-name { color: #d4d8dc; }
+.tl-row.f-enemy    .tl-name { color: var(--no-red); }
+
+/* Checkbox: selected targets are all checked; tapping it deselects (the row drops on the next
+   telemetry frame). Sized for a comfortable touch target. */
+.tl-check {
+  width: clamp(18px, 3vmin, 24px); height: clamp(18px, 3vmin, 24px);
+  border: 1.5px solid var(--no-green); border-radius: 3px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--no-green); cursor: pointer;
+  font-size: clamp(12px, 2.2vmin, 18px); line-height: 1;
+  -webkit-user-select: none; user-select: none;
+}
+.tl-check::after { content: '\2713'; }          /* ✓ — always shown; the row IS the selection */
+.tl-check:active { background: rgba(57,255,20,0.15); }
+
+.tgt-list-empty {
+  flex: 1 1 auto;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--no-green-dark);
+  font-size: clamp(11px, 1.8vmin, 16px); letter-spacing: 0.08em;
+}
+.tgt-list-rows:not(:empty) + .tgt-list-empty { display: none; }   /* hide the empty note once rows exist */
 
 /* Unavailable state (TargetListSelector not up / no mission). display:block (not flex) so the
    shared .mfd-empty-title stacks above the text like the other pages' empty states. */

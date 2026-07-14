@@ -10,8 +10,11 @@ const rows = {
   vehicle:  document.getElementById('row-vehicle'),
 };
 const modeEls = { laser: document.getElementById('mode-laser'), hud: document.getElementById('mode-hud') };
+const listRows = document.getElementById('tgt-list-rows');
 
 let state = { present: false, laser: false, hud: false, faction: [], category: [], vehicle: [] };
+let targets = [];        // selected-target list (from 'tgt-targets'): [{ id, n, g, r, f }]
+let targetsKey = '';     // id-set signature; rebuild rows only when it changes
 // Cache of the built row signatures (names) so we only rebuild DOM when the set of toggles changes,
 // not on every 10 Hz frame — the per-frame work is just flipping the .on class.
 const builtKey = { faction: '', category: '', vehicle: '' };
@@ -90,6 +93,53 @@ function paint() {
   modeEls.hud.classList.toggle('on', !!state.hud);
 }
 
+// ── Selected-target list ──────────────────────────────────────────────────────────────
+// Range as "8,4 km" (European decimal comma, matching the TGL page); non-numbers pass through.
+function fmtRng(r) {
+  return (typeof r === 'number' && isFinite(r)) ? r.toFixed(1).replace('.', ',') + ' km' : '—';
+}
+
+function renderTargets() {
+  const list = targets || [];
+  // Rebuild the rows only when the set of target ids changes; otherwise just refresh the text
+  // (name/grid/range drift as targets move) so we don't thrash the DOM at 10 Hz.
+  const key = list.map(function (t) { return t.id; }).join(',');
+  if (key !== targetsKey) {
+    targetsKey = key;
+    listRows.innerHTML = '';
+    list.forEach(function (t) {
+      const row = document.createElement('div');
+      row.className = 'tl-row ' + (t.f === 1 ? 'f-friendly' : t.f === 0 ? 'f-neutral' : 'f-enemy');
+      row.dataset.id = t.id;
+      const chk = document.createElement('span');
+      chk.className = 'tl-check'; chk.setAttribute('role', 'checkbox');
+      chk.setAttribute('aria-checked', 'true'); chk.setAttribute('aria-label', 'deselect'); chk.tabIndex = 0;
+      const name = document.createElement('span'); name.className = 'tl-name';
+      const grid = document.createElement('span'); grid.className = 'tl-grid';
+      const dist = document.createElement('span'); dist.className = 'tl-dist';
+      row.appendChild(chk); row.appendChild(name); row.appendChild(grid); row.appendChild(dist);
+      listRows.appendChild(row);
+    });
+  }
+  const rowEls = listRows.children;
+  for (let i = 0; i < rowEls.length && i < list.length; i++) {
+    const t = list[i], el = rowEls[i];
+    el.querySelector('.tl-name').textContent = t.n || '—';
+    el.querySelector('.tl-grid').textContent = t.g != null ? String(t.g) : '—';
+    el.querySelector('.tl-dist').textContent = fmtRng(t.r);
+  }
+}
+
+// Tap a row's checkbox → deselect that target. The game drops it and the next 'tgt-targets' frame
+// no longer carries it, so the row disappears — telemetry-driven, same as the filter toggles.
+listRows.addEventListener('click', function (e) {
+  const chk = e.target.closest('.tl-check');
+  if (!chk) return;
+  const row = chk.closest('.tl-row');
+  const id = row && row.dataset.id;
+  if (id) send('target.deselect', { id: Number(id) });
+});
+
 // ── Interaction: tap = toggle, long-press = "only this" (filter cells only) ───────────
 const LONG_MS = 500;
 let press = null;   // { group, index, longFired, timer }
@@ -131,16 +181,22 @@ modeEls.hud.addEventListener('click', function () { send('tgt.hud', { on: !state
 // ── Shell → page ─────────────────────────────────────────────────────────────────────
 window.addEventListener('message', function (e) {
   const m = e.data;
-  if (!m || m.mfd !== true || m.type !== 'tgt') return;
-  state = {
-    present:  !!m.present,
-    laser:    !!m.laser,
-    hud:      !!m.hud,
-    faction:  Array.isArray(m.faction)  ? m.faction  : [],
-    category: Array.isArray(m.category) ? m.category : [],
-    vehicle:  Array.isArray(m.vehicle)  ? m.vehicle  : [],
-  };
-  paint();
+  if (!m || m.mfd !== true) return;
+  if (m.type === 'tgt') {
+    state = {
+      present:  !!m.present,
+      laser:    !!m.laser,
+      hud:      !!m.hud,
+      faction:  Array.isArray(m.faction)  ? m.faction  : [],
+      category: Array.isArray(m.category) ? m.category : [],
+      vehicle:  Array.isArray(m.vehicle)  ? m.vehicle  : [],
+    };
+    paint();
+  } else if (m.type === 'tgt-targets') {
+    targets = Array.isArray(m.items) ? m.items : [];
+    renderTargets();
+  }
 });
 
-paint();   // initial paint — UNAVAILABLE until the first frame arrives
+paint();          // initial paint — UNAVAILABLE until the first frame arrives
+renderTargets();  // initial empty list

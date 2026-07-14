@@ -11,16 +11,19 @@
   key is the shell-owned MAIN back label. See docs/tgt-page.md.
 
   Shell -> page messages (all {mfd:true, ...}):
-    'tgt'    : the whole filter block mirrored from the mod —
-               { present, laser, hud, faction:[{n,on}], category:[{n,on}], vehicle:[{n,on}] }.
-               present:false → the game's TargetListSelector isn't up; show UNAVAILABLE.
-    'orient' : app-wide orientation (kept for parity).
+    'tgt'         : the whole filter block mirrored from the mod —
+                    { present, laser, hud, faction:[{n,on}], category:[{n,on}], vehicle:[{n,on}] }.
+                    present:false → the game's TargetListSelector isn't up; show UNAVAILABLE.
+    'tgt-targets' : the selected-target list (same data the TGL page uses) —
+                    { items:[{ id, n, g, r, f }] } → the list under the filters.
+    'orient'      : app-wide orientation (kept for parity).
 
   Interaction (touch-friendly, mirrors the game):
     tap a filter        → toggle it (tgt.set {group,index,on})
     long-press a filter → "only this" (tgt.only {group,index}) — isolate it in its group
     RESET FILTER        → tgt.reset   (all filters back on)
     CLEAR TARGETS       → tgt.clear   (deselect every target)
+    tap a target's box  → deselect it (target.deselect {id})
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -49,6 +52,15 @@
     </div>
 
     <div class="tgt-vehicles" id="row-vehicle"></div>
+
+    <!-- Selected-target list: NAME / GRID / RNG per row, with a checkbox to deselect. -->
+    <div class="tgt-list" id="tgt-list">
+      <div class="tgt-list-head">
+        <span></span><span>NAME</span><span>GRID</span><span>RNG</span>
+      </div>
+      <div class="tgt-list-rows" id="tgt-list-rows"></div>
+      <div class="tgt-list-empty" id="tgt-list-empty">&mdash; NO TARGETS SELECTED &mdash;</div>
+    </div>
   </div>
 
   <div class="tgt-unavailable mfd-empty" id="tgt-unavailable">

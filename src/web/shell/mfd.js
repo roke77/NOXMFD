@@ -522,6 +522,12 @@ function forwardTgtToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage(Object.assign({ mfd: true, type: 'tgt' }, tgtData), '*');
 }
+// The TGT page also shows the selected-target list under its filters (same data the TGL page uses,
+// mirrored in tglData). No pagination — the page scrolls — so forward the whole list.
+function forwardTgtTargetsToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage({ mfd: true, type: 'tgt-targets', items: tglData.targets || [] }, '*');
+}
 function forwardMwToPanes() {
   paneIframes.forEach(function(iframe, idx) {
     if (panePages[idx] !== 'rwr') return;
@@ -866,7 +872,7 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'tgp') { forwardTgpToFrame(); }
   else if (currentPage === 'avn') { forwardAvnLayoutToFrame(); forwardAvnToFrame(); }
   else if (currentPage === 'rwr') { forwardRwrToFrame(); forwardMwToFrame(); }
-  else if (currentPage === 'tgt') { forwardTgtToFrame(); }
+  else if (currentPage === 'tgt') { forwardTgtToFrame(); forwardTgtTargetsToFrame(); }
 });
 
 // Top-right indicator stack (PINNED + FOLLOW). pinnedPage tracks which page (if any)
@@ -1085,6 +1091,7 @@ function showPage(name) {
   if (name === 'tgt') {
     showFramePage('tgt');
     forwardTgtToFrame();
+    forwardTgtTargetsToFrame();
   }
 
   // refreshFollowIndicator (not just renderIndicators) because the FOLLOW chip's membership
@@ -1200,6 +1207,8 @@ window.addEventListener('message', function(e) {
     // Full-view: re-forward the slice to the frame (it re-renders + re-emits its softkeys) and
     // refresh the nav labels (target count can add/remove pages, changing PREV/NEXT visibility).
     if (currentPage === 'tgl' && !splitMode) { forwardTglToFrame(); placeTglNavLabels(); }
+    // The TGT page shows the same list under its filters — keep it fed too.
+    if (currentPage === 'tgt' && !splitMode) forwardTgtTargetsToFrame();
     // Target count can add/remove pages, so refresh each TGL pane's slice + PREV/NEXT labels.
     if (splitMode) { forwardTglToPanes(); renderSplitLabels(); }
   } else if (m.type === 'rwr') {
