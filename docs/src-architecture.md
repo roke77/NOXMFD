@@ -93,7 +93,7 @@ source of truth; the shell just hosts one or two of them.
 ## Target architecture
 
 ### A. The shell hosts pages; pages don't know about modes
-`MfdPage` (the shell) owns: the bezel frame, the screen recess, power/black-out,
+`MfdPage` (the shell) owns: the bezel frame, the screen recess, the hide-shell collapse,
 the info-box, split divider, and **iframe hosting**. It renders:
 - **full view:** one full-size iframe → `/<page>?bare`
 - **split view:** two stacked iframes → `/<top>?bare` and `/<bot>?bare`
@@ -256,7 +256,7 @@ must survive the move intact.
 - **D1 — LAN URLs → `/config` endpoint: DONE.** `GET /config` returns JSON `{ localhost, lanUrl, port }`.
   The shell + the MAIN card `fetch('/config')` on load and fill `.ib-url`. `TelemetryServer` dropped
   the `{{LAN_URL_BLOCK}}`/localhost string-replace (resolves open question #4). No HTML templating.
-- **D2 — the info-box + boot loader stay SHELL chrome** (in `src/web/shell/mfd.*`). They're power-on
+- **D2 — the info-box + boot loader stay SHELL chrome** (in `src/web/shell/mfd.*`). They're boot
   furniture (`flickerScreen`/`runBootLoading`/`typewriterUrls`), not page content. `src/web/pages/main/`
   is only the **split-pane card** (shares `theme.css`). Accept the minor card duplication; the boot
   animation never has to run inside an iframe. (So MAIN is NOT hosted in `#page-frame` — full-view
@@ -273,7 +273,7 @@ must survive the move intact.
   `/config`; the `{{LAN_URL_BLOCK}}`/`MainPage.cs` string-replace path is gone. The full MAIN
   info-box stayed shell chrome and moved with the shell in 5c.
 - **5c — the shell: DONE.** `src/web/shell/{mfd.html,mfd.css,mfd.js}` (~1849 lines: bezel/keys, split logic,
-  all `forwardX*` relays, `showPage`, `mfdButton`, indicators, orientation, power-on/boot, the SSE
+  all `forwardX*` relays, `showPage`, `mfdButton`, indicators, orientation, boot, the SSE
   relay handler, the info-box markup). `TelemetryServer` serves it from `/`; `serve_web.py` serves
   it from `/`, injects the MAP mock at `/map-view`, serves `/config`, and serves captured
   `/airframe[-layout]` assets for AVN when available.
@@ -328,8 +328,8 @@ NOXMFD.csproj          # <EmbeddedResource Include="src\web\**\*" />
 ### Shell hooks in `src/web/shell/mfd.js` (grep these — they are the integration points)
 - **`#page-frame`** — the full-view host iframe in the `.screen` recess (after the map iframe).
   CSS: `#page-frame{position:absolute;inset:6px;display:none}`, shown via `.screen.page-on`,
-  hidden in `.screen.split`. It sits **below** `.overlay` (so bezel labels paint on top) and
-  below `.screen-off` (so power-off blacks it out). `const pageFrame = …`.
+  hidden in `.screen.split`. It sits **below** `.overlay` (so bezel labels paint on top).
+  `const pageFrame = …`.
 - **`showPage(name)`** — for an iframe-hosted page: `screenEl.classList.toggle('page-on', …)`,
   lazy-set `pageFrame.src` once, then forward layout+data+labels. **Set `PAGES.<name>.opaque
   = false`** (the iframe is the opaque content; an opaque overlay would cover the frame).
@@ -396,7 +396,7 @@ browser JS/CSS. So **always verify rendering in a browser**. The proven loop, no
    — fix with `preview_resize` to e.g. 1280×860, then re-feed.
 4. Then verify **in-game** (the user does this): build auto-deploys the DLL to
    `<GameDir>\BepInEx\plugins`; restart the game. Check full view, split view, the *other*
-   pages (shared `showPage` is touched), power-off blackout, portrait/landscape.
+   pages (shared `showPage` is touched), hide-shell, portrait/landscape.
 
 ### Editing the shell — gotchas
 - `src/web/shell/mfd.js` is the single shell source. The `mapFrame` source guard in the message handler
