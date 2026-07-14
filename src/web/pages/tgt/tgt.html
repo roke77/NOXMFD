@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — TGT</title>
+<!--
+  Bare TGT page served at /tgt — a fully-clickable replica of the game's in-cockpit
+  "TARGET SELECTION" panel (TargetListSelector). Unlike the other frame pages this one is NOT
+  bezel-driven: every filter is a clickable component, and the page POSTs the tgt.* commands
+  itself (see /assets/services/send-command.js + src/plugin/CommandDispatcher.cs). The only bezel
+  key is the shell-owned MAIN back label. See docs/tgt-page.md.
+
+  Shell -> page messages (all {mfd:true, ...}):
+    'tgt'    : the whole filter block mirrored from the mod —
+               { present, laser, hud, faction:[{n,on}], category:[{n,on}], vehicle:[{n,on}] }.
+               present:false → the game's TargetListSelector isn't up; show UNAVAILABLE.
+    'orient' : app-wide orientation (kept for parity).
+
+  Interaction (touch-friendly, mirrors the game):
+    tap a filter        → toggle it (tgt.set {group,index,on})
+    long-press a filter → "only this" (tgt.only {group,index}) — isolate it in its group
+    RESET FILTER        → tgt.reset   (all filters back on)
+    CLEAR TARGETS       → tgt.clear   (deselect every target)
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/tgt/tgt.css">
+</head>
+<body>
+  <div class="tgt-panel" id="tgt-panel">
+    <div class="tgt-head">
+      <span class="tgt-title">TARGET SELECTION</span>
+      <span class="tgt-hint">tap&nbsp;=&nbsp;toggle&nbsp;·&nbsp;hold&nbsp;=&nbsp;only</span>
+    </div>
+
+    <div class="tgt-top">
+      <div class="tgt-actions">
+        <button class="tgt-action reset" data-cmd="reset">RESET<br>FILTER</button>
+        <button class="tgt-action clear" data-cmd="clear">CLEAR<br>TARGETS</button>
+      </div>
+      <div class="tgt-filters">
+        <div class="tgt-row" id="row-faction"></div>
+        <div class="tgt-row" id="row-category"></div>
+      </div>
+      <div class="tgt-modes">
+        <button class="tgt-mode" id="mode-laser" data-mode="laser">LASER</button>
+        <button class="tgt-mode" id="mode-hud"   data-mode="hud">HUD</button>
+      </div>
+    </div>
+
+    <div class="tgt-vehicles" id="row-vehicle"></div>
+  </div>
+
+  <div class="tgt-unavailable mfd-empty" id="tgt-unavailable">
+    <span class="mfd-empty-title">TGT</span>&mdash; UNAVAILABLE &mdash;
+  </div>
+
+<script src="/assets/services/send-command.js"></script>
+<script src="/assets/pages/tgt/tgt.js"></script>
+</body>
+</html>

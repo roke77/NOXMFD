@@ -146,6 +146,7 @@ namespace NOXMFD
             _totalAircraft = aircraft;
 
             _assets.CaptureMissileWarningIcon();   // one-time: the real missile-warning sprite for the MAP page
+            _assets.TryCaptureVehicleTypeIcons();  // one-time per type: the TGT page's vehicle-filter icons
 
             // Resolve the map bounds + grid offsets and capture the real in-game map image.
             if (_level == null)

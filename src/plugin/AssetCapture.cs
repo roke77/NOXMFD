@@ -326,6 +326,33 @@ namespace NOXMFD
             }
         }
 
+        // TGT filter vehicle-type icons captured this session (keyed by typeName).
+        private readonly HashSet<string> _capturedTgtIcons = new HashSet<string>();
+
+        // Extracts the TGT filter panel's vehicle-type icons (TRUCK … RDR) to PNG once each, keyed
+        // by typeName so the web TGT page's /tgt-icon?type= requests match the "tgt" telemetry
+        // block's vehicle names. Source is Encyclopedia.i.vehicleTypes — the same list the game's
+        // TargetListSelector builds its toggle row from. Cheap to call every slow scan: it no-ops
+        // once all types are captured. synthAlpha because these icons ship opaque (light-on-dark).
+        public void TryCaptureVehicleTypeIcons()
+        {
+            Encyclopedia enc = Encyclopedia.i;
+            if (enc == null || enc.vehicleTypes == null) return;   // not ready — retry next scan
+
+            for (int i = 0; i < enc.vehicleTypes.Count; i++)
+            {
+                var vt = enc.vehicleTypes[i];
+                if (vt == null || string.IsNullOrEmpty(vt.typeName) || _capturedTgtIcons.Contains(vt.typeName))
+                    continue;
+                _capturedTgtIcons.Add(vt.typeName);   // mark regardless so we never retry this type
+                if (vt.typeSprite == null) continue;
+
+                string name = vt.typeName;
+                SpriteCapture.Request(vt.typeSprite, SpriteCapture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
+                    png => { if (png != null) TelemetryServer.SetTgtIcon(name, png); });
+            }
+        }
+
         // Extracts a weapon type's icon to PNG, once per name, and registers it. Called from the
         // reader's BuildLoadout as it iterates the live weapon stations.
         public void TryCaptureWeaponIcon(string name, Sprite icon)

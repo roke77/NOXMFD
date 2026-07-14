@@ -65,6 +65,11 @@ namespace NOXMFD
         private static readonly Dictionary<string, byte[]> _cmIcons = new Dictionary<string, byte[]>();
         private static readonly object                     _cmLock  = new object();
 
+        // TGT filter vehicle-type icons (PNG), keyed by vehicle typeName ("TRUCK" … "RDR") — the
+        // same names the "tgt" telemetry block's vehicle row carries. Served at /tgt-icon?type=.
+        private static readonly Dictionary<string, byte[]> _tgtIcons = new Dictionary<string, byte[]>();
+        private static readonly object                     _tgtLock  = new object();
+
         // Airframe silhouette assets. Images keyed by "unitName|partName" — partName is the
         // GameObject name from Aircraft.partLookup (e.g. "wing1_L") or "__bg" for the background
         // silhouette. Layouts keyed by unitName, value is a JSON descriptor of part placements.
@@ -272,6 +277,13 @@ namespace NOXMFD
             lock (_weaponLock) _weaponIcons[name] = png;
         }
 
+        // Called from Unity main thread once a TGT vehicle-type sprite has been extracted.
+        public static void SetTgtIcon(string name, byte[] png)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+            lock (_tgtLock) _tgtIcons[name] = png;
+        }
+
         // Called from Unity main thread once a countermeasure's display sprite has been extracted.
         public static void SetCmIcon(string key, byte[] png)
         {
@@ -339,6 +351,8 @@ namespace NOXMFD
                         ServePng(ctx, _weaponIcons, _weaponLock, "name");
                     else if (path == "/cm")
                         ServePng(ctx, _cmIcons, _cmLock, "type");
+                    else if (path == "/tgt-icon")
+                        ServePng(ctx, _tgtIcons, _tgtLock, "type");
                     else if (path == "/airframe")
                         ServeAirframeImage(ctx);
                     else if (path == "/airframe-layout")
@@ -361,6 +375,8 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/tgl/tgl.html");
                     else if (path == "/rwr")
                         ServeAssetRel(ctx, "pages/rwr/rwr.html");
+                    else if (path == "/tgt")
+                        ServeAssetRel(ctx, "pages/tgt/tgt.html");
                     else if (path == "/command")
                         HandleCommand(ctx);
                     else if (path == "/mfd")
