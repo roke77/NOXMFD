@@ -829,7 +829,36 @@ namespace NOXMFD
                         + ",\"turret\":" + (s.TurretAuto ? "true" : "false")
                         + ",\"nvg\":" + (s.NightVision ? "true" : "false")
                         + ",\"navlt\":" + (s.NavLightsOn ? "true" : "false")
-                        + ",\"failures\":" + StringArray(s.Failures) + "}";
+                        + ",\"failures\":" + StringArray(s.Failures)
+                        + ",\"tgt\":" + TgtBlock(s) + "}";
+        }
+
+        // TGT filter panel state (docs/tgt-page.md). {present:false} when the game's TargetListSelector
+        // isn't up; otherwise the three toggle groups (ordered as the tgt.* commands index them) plus
+        // the two standalone toggles.
+        private static string TgtBlock(TelemetrySnapshot s)
+        {
+            if (!s.TgtPresent) return "{\"present\":false}";
+            return "{\"present\":true"
+                 + ",\"laser\":" + (s.TgtLaser ? "true" : "false")
+                 + ",\"hud\":"   + (s.TgtHud   ? "true" : "false")
+                 + ",\"faction\":"  + TgtToggleArray(s.TgtFaction)
+                 + ",\"category\":" + TgtToggleArray(s.TgtCategory)
+                 + ",\"vehicle\":"  + TgtToggleArray(s.TgtVehicle)
+                 + "}";
+        }
+
+        private static string TgtToggleArray(TgtToggleInfo[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append("{\"n\":\"").Append(EscapeJson(items[i].Name ?? string.Empty))
+                  .Append("\",\"on\":").Append(items[i].On ? "true" : "false").Append('}');
+            }
+            return sb.Append(']').ToString();
         }
 
         private static string MwArray(MwContact[]? items)

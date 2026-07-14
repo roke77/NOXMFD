@@ -410,6 +410,12 @@ namespace NOXMFD
             if (PerfDiag.Enabled) PerfDiag.RecordSince("BuildUnits", tUnits);
             _lastContactCount = units.Length;
 
+            // TGT filter panel — read straight off the game's singleton (present all mission, but
+            // guard anyway). Unity's == handles a destroyed instance as null, so we take a plain
+            // reference + bool rather than ?. (which would sidestep that fake-null check).
+            TargetListSelector tgtSel = SceneSingleton<TargetListSelector>.i;
+            bool tgtOk = tgtSel != null;
+
             TelemetryServer.Push(new TelemetrySnapshot
             {
                 Valid          = true,
@@ -459,8 +465,34 @@ namespace NOXMFD
                 Parts          = BuildParts(aircraft),
                 Failures       = BuildFailures(),
                 Rwr            = BuildRwr(aircraft),
-                Mw             = BuildMw(aircraft)
+                Mw             = BuildMw(aircraft),
+                TgtPresent     = tgtOk,
+                TgtLaser       = tgtOk && tgtSel.toggleLaser      != null && tgtSel.toggleLaser.status,
+                TgtHud         = tgtOk && tgtSel.toggleFollowHUD  != null && tgtSel.toggleFollowHUD.status,
+                TgtFaction     = tgtOk ? ReadToggles(tgtSel.toggleFactionItems)      : Array.Empty<TgtToggleInfo>(),
+                TgtCategory    = tgtOk ? ReadToggles(tgtSel.toggleUnitTypesItems)    : Array.Empty<TgtToggleInfo>(),
+                TgtVehicle     = tgtOk ? ReadToggles(tgtSel.toggleVehicleTypesItems) : Array.Empty<TgtToggleInfo>()
             });
+        }
+
+        // Snapshots a TGT toggle group's labels + on/off states, preserving the game's ordering
+        // (which the tgt.set/tgt.only commands index by). The vehicle row's labels are the game's
+        // "_"→"\n"-wrapped typeNames; we reverse the wrap so the name is the canonical typeName that
+        // also keys the captured icon (e.g. "IR_SAM").
+        private static TgtToggleInfo[] ReadToggles(List<TargetListSelector_ToggleButton> list)
+        {
+            if (list == null || list.Count == 0) return Array.Empty<TgtToggleInfo>();
+            var arr = new TgtToggleInfo[list.Count];
+            for (int i = 0; i < list.Count; i++)
+            {
+                TargetListSelector_ToggleButton b = list[i];
+                arr[i] = new TgtToggleInfo
+                {
+                    Name = (b != null && b.label != null) ? b.label.text.Replace("\n", "_") : string.Empty,
+                    On   = b != null && b.status
+                };
+            }
+            return arr;
         }
 
         // Snapshots the missiles currently warning the player. MissileWarning.knownMissiles is a

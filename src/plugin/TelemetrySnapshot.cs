@@ -91,6 +91,25 @@ namespace NOXMFD
         // indicator). Polled from the aircraft's MissileWarning.knownMissiles each tick;
         // positions are in the same world space as Units. Empty when nothing is inbound.
         public MwContact[] Mw;
+
+        // TGT filter panel (docs/tgt-page.md), mirrored from the game's TargetListSelector so the
+        // web TGT page renders the real toggle states. TgtPresent=false when the singleton isn't up
+        // (the page then shows an unavailable state). The three arrays are ordered as the game holds
+        // them — the same order the tgt.set/tgt.only commands index by.
+        public bool            TgtPresent;
+        public bool            TgtLaser;
+        public bool            TgtHud;
+        public TgtToggleInfo[] TgtFaction;   // FRIENDLY, ENEMY
+        public TgtToggleInfo[] TgtCategory;  // AIR, MSL, GND, BLD, SHP
+        public TgtToggleInfo[] TgtVehicle;   // TRUCK … RDR (dynamic; names double as /icon keys)
+    }
+
+    // One TGT filter toggle: its label (the canonical typeName for the vehicle row — doubles as the
+    // icon key) and current on/off state. Serialized terse as {n,on}.
+    internal struct TgtToggleInfo
+    {
+        public string Name;
+        public bool   On;
     }
 
     // One radar emitter on the RWR scope. Serialized terse as {x,z,tr,pw,n,k}.
