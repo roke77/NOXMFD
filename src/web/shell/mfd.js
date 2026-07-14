@@ -300,6 +300,10 @@ function applySplitMode() {
   // and v<->vw reconfigs return early in setSplit and never reach here, so they keep their pin.
   clearPin();
   applySplitClasses();
+  // The vertical-MAIN overlay style is full-view-TGT only; split entry doesn't go through showPage,
+  // so drop it here or its label style would leak onto the split MAIN labels. Restored on unsplit
+  // (showPage re-toggles it). TGT itself isn't a pane page (not in PAGE_URL), so it never renders split.
+  overlayEl.classList.remove('tgt-page');
   paneSoftkeys = [[], []];          // fresh panes re-emit their softkeys on load
   if (splitMode) {
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
