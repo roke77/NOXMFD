@@ -91,10 +91,16 @@ html, body {
 .tgt-vehicles {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(clamp(52px, 9vw, 84px), 1fr));
-  gap: clamp(4px, 1vw, 10px);
+  /* Keep all the icons on ONE row: auto-flow column lays them in a single track row and the cells
+     shrink (down to a readable min) to fit the width, so they only "wrap" — really, run out of room
+     and overflow — when they'd be right up against each other. Capped max keeps them snug rather
+     than stretched across the whole width; centered so the row stays balanced. */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(34px, 84px);
+  justify-content: center;
+  gap: clamp(3px, 0.8vw, 9px);
   align-content: start;
-  overflow-y: auto;
+  overflow: hidden;
 }
 .tgt-veh {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -104,6 +110,7 @@ html, body {
 }
 .tgt-veh .veh-icon {
   width: clamp(22px, 4.4vmin, 44px); height: clamp(22px, 4.4vmin, 44px);
+  max-width: 100%;
   object-fit: contain;
   /* Icons ship light-on-dark with synthesized alpha; tint them to the cell's state colour. */
   filter: brightness(0.55);
