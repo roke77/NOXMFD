@@ -145,6 +145,7 @@ html, body {
   border-bottom: 1px solid var(--no-green-dark);
 }
 .tgt-list-rows { flex: 1 1 auto; overflow-y: auto; }
+.tgt-list-rows:empty { flex: 0 0 auto; }   /* collapse when empty so the empty-note fills + centers */
 .tl-row {
   padding: clamp(4px, 1vh, 9px) clamp(4px, 1vw, 10px);
   border-bottom: 1px solid rgba(57,255,20,0.10);
