@@ -1,14 +1,14 @@
-# TGT — target-selection MFD page (planning)
+# TGT — target-selection MFD page
 
 ## Status
 
-Planning + probe only. No page code yet. This is an **experiment**
-requested by an alpha tester: replicate the game's in-cockpit **TGT
-("TARGET SELECTION")** page as a new, fully-clickable MFD page in the
-web frontend. Approach chosen: **Option A — drive the game's own
-`TargetListSelector`** (see "The fork" below). The one runtime question
-that gated it — does the singleton exist unprompted? — is now
-**answered YES** (see "Probe result"), so the plan is unblocked.
+**Built on `feat/tgt-page`, verified in the `serve_web` harness; in-game
+pass pending.** This is an **experiment** requested by an alpha tester:
+replicate the game's in-cockpit **TGT ("TARGET SELECTION")** page as a
+new, fully-clickable MFD page in the web frontend. Approach: **Option A —
+drive the game's own `TargetListSelector`** (see "The fork" below). The
+one runtime question that gated it — does the singleton exist unprompted?
+— is **answered YES** (see "Probe result"). See "Plan" for what shipped.
 
 ## What the in-game TGT page is
 
@@ -141,31 +141,36 @@ Conclusions:
 - The 10 `vehType` names double as the keys for the icon capture (their
   sprites are `Encyclopedia.i.vehicleTypes[i].typeSprite`).
 
-## Plan (pending probe result)
+## Plan
+
+Built on the `feat/tgt-page` branch; verified in the `serve_web` harness.
+Only the in-game pass is outstanding (needs a game restart to load the DLL).
 
 1. **[done]** Land the probe; answer the singleton question in-game.
    Result: singleton present unprompted (see "Probe result").
-2. **Commands.** Extend `CommandDispatcher` with flat handlers that drive
-   the singleton on the main thread, mirroring the existing
-   `target.select` pattern (validate against live state, route through
-   the game's own methods): e.g. `tgt.toggle {group, index, on}`,
-   `tgt.only {group, index}`, `tgt.reset`, `tgt.clear`,
-   `tgt.laser {on}`, `tgt.hud {on}`. Exact param shape follows the
-   probe's array ordering.
-3. **Telemetry.** Add a small `tgt` block to the snapshot mirroring the
-   live toggle states (+ labels for the dynamic vehicle-type row) so the
-   page renders the real filter state, not a local guess. Guard for the
-   singleton being absent.
-4. **Frontend page.** New `src/web/pages/tgt/` (sibling of `tgl/`),
-   hosted in `#page-frame` like the other full-view pages. Fully
-   clickable — **no bezel keys except MAIN/back** — laid out to echo the
-   in-game panel (faction row, category row, vehicle-type grid, LASER /
-   HUD, RESET FILTER, CLEAR TARGETS). Left-click → `tgt.toggle`;
-   right-click → `tgt.only`. Reflects state from the `tgt` snapshot block.
-5. **Wire nav.** Add TGT to the page/softkey registry so MAIN can reach
-   it and it can return to MAIN.
-6. **Verify** in the `serve_web` harness (mock the `tgt` block), then a
-   `dotnet build -c Release --no-incremental` and in-game test.
+2. **[done] Commands.** `CommandDispatcher` gained flat handlers that drive
+   the singleton on the main thread (null-guarded, validated): `tgt.set
+   {group, index, on}`, `tgt.only {group, index}`, `tgt.reset`,
+   `tgt.clear`, `tgt.laser {on}`, `tgt.hud {on}`. `group` is
+   `faction | category | vehicle`, indexed as the probe reported.
+3. **[done] Telemetry.** A `tgt` block in the SSE frame mirrors the live
+   toggle states — the two standalone toggles plus the three groups, each
+   `{n, on}` in game order; `{present:false}` when the singleton is absent.
+4. **[done] Frontend page.** `src/web/pages/tgt/` — fully clickable, no
+   bezel keys but MAIN. Echoes the in-game panel (faction / category rows,
+   vehicle-type grid with captured icons, LASER / HUD, RESET / CLEAR).
+   Tap → `tgt.set`; **long-press → `tgt.only`** (chosen over a per-button
+   "ONLY" affordance for the touch tablet). State from the `tgt` block.
+   Vehicle icons captured from `Encyclopedia.i.vehicleTypes` and served at
+   `/tgt-icon?type=`.
+5. **[done] Wire nav.** TGT registered in `FRAME_PAGES` + `PAGES`; a TGT
+   entry added to MAIN (right column, since the left column was full).
+   Full-view only — not wired into split panes for v1.
+6. **[done in harness] Verify.** `serve_web` + `preview-mock` gained a mock
+   `tgt` block and `/tgt-icon`; confirmed the page renders the states and
+   that tap / long-press / RESET / CLEAR / LASER / HUD fire the right
+   commands, plus the `present:false` UNAVAILABLE path. **In-game pass
+   still pending** (restart to load the new DLL, then MAIN → TGT).
 
 ## Open questions
 
@@ -176,7 +181,9 @@ Conclusions:
 - Is the toggle-array ordering stable across missions / aircraft? Matched
   the panel on this run; wire format keeps labels as a guard in case a
   future build reorders them.
-- Right-click on the physical tablet — long-press, or a small "ONLY"
-  affordance per button? (design during step 4.)
-- Vehicle-type icon capture: which serving endpoint? (design alongside
-  the page in step 4, keyed by the `vehType` names above.)
+- ~~Right-click on the physical tablet — long-press or a per-button
+  affordance?~~ **Resolved: long-press** (500 ms) fires `tgt.only`; tap
+  toggles. Needs a real-tablet feel check during the in-game pass.
+- ~~Vehicle-type icon capture: which serving endpoint?~~ **Resolved:**
+  `/tgt-icon?type=<name>`, keyed by the `vehType` names, captured from
+  `Encyclopedia.i.vehicleTypes[i].typeSprite`.
