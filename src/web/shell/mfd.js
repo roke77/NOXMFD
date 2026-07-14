@@ -1190,7 +1190,7 @@ function mapSend(action) {
     mapFrame.contentWindow.postMessage({ mfd: true, action: action }, '*');
 }
 
-// Replay the CRT power-on flicker (≤2s, capped by the 1.6s animation). Re-arming requires
+// Replay the CRT boot flicker (≤2s, capped by the 1.6s animation). Re-arming requires
 // clearing the class and forcing a reflow so the animation restarts from 0% each time.
 function flickerScreen() {
   screenEl.classList.remove('powering-on');
@@ -1200,8 +1200,8 @@ function flickerScreen() {
 }
 
 // Boot loader for the centre info box: shows a LOADING… line + a fill bar, keeps the title
-// visible, hides the data rows until the bar hits 100%. Runs alongside the power-on /
-// first-load flicker. Fills in 5% steps every 50ms = 1.0s (the 60ms CSS transition on the
+// visible, hides the data rows until the bar hits 100%. Runs alongside the first-load
+// boot flicker. Fills in 5% steps every 50ms = 1.0s (the 60ms CSS transition on the
 // fill smooths each step into a continuous sweep, like the EW Jammer bar).
 let bootTimer = null;
 function runBootLoading() {
@@ -1455,5 +1455,5 @@ window.addEventListener('resize', function() {
 });
 loadConfigUrls();
 showPage('main');   // start on the MAIN page
-flickerScreen();    // CRT power-on flicker on first load
+flickerScreen();    // CRT boot flicker on first load
 runBootLoading();   // boot loader in the centre info box on first load

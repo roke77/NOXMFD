@@ -279,8 +279,7 @@
   }
   /* Full-view host iframe for the frame-hosted pages (WPN). Covers the recess like the map iframe;
      shown via .screen.page-on, hidden in split (panes take over). It sits below the .overlay
-     (a later sibling), so the shell's bezel labels still paint on top, and below .screen-off
-     (z-index 50) so power-off still blacks it out. */
+     (a later sibling), so the shell's bezel labels still paint on top. */
   #page-frame {
     position: absolute;
     inset: 6px;
@@ -296,19 +295,7 @@
   }
   .screen.page-on > #page-frame { display: block; }
   .screen.split   > #page-frame { display: none; }
-  /* Powered-off black-out. Sits above everything inside the recess (iframe, split
-     panes, overlay) and paints it pure black, leaving the surrounding bezel alone.
-     inset:0 so even the screen's 6px padding goes dark for a uniform black panel. */
-  .screen-off {
-    position: absolute;
-    inset: 0;
-    border-radius: 6px;
-    background: #000;
-    display: none;
-    z-index: 50;
-  }
-  .screen.power-off > .screen-off { display: block; }
-  /* CRT power-on warm-up, DE-SYNCED. Instead of one veil over the whole recess, the two
+  /* CRT boot warm-up, DE-SYNCED. Instead of one veil over the whole recess, the two
      content layers boot independently: the white menu labels (.overlay-item) strike first,
      and the green centre info box lags ~0.15s behind — so they "warm up" out of sync. Both
      ease in with a wobble and settle to opacity 1. Driven by .screen.powering-on; the black
