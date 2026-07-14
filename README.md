@@ -149,7 +149,7 @@ pilot, with HOTAS-friendly keybinds to match.
 The shell frames the active page with dedicated bezel buttons — function
 controls along the top, layout presets along the bottom.
 
-- **HIDE SHELL** — hide the bezel so the screen fills the viewport (for fitting behind a physical MFD frame).
+- **HIDE** — hide the bezel so the screen fills the viewport.
 - **FULL** — fullscreen toggle.
 - **PIN** — pin a page.
 - **SWAP** — jump to/from pin.
