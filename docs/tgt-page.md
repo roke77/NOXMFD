@@ -6,8 +6,9 @@ Planning + probe only. No page code yet. This is an **experiment**
 requested by an alpha tester: replicate the game's in-cockpit **TGT
 ("TARGET SELECTION")** page as a new, fully-clickable MFD page in the
 web frontend. Approach chosen: **Option A — drive the game's own
-`TargetListSelector`** (see "The fork" below). One runtime question
-gates the whole thing; a throwaway probe (already landed) answers it.
+`TargetListSelector`** (see "The fork" below). The one runtime question
+that gated it — does the singleton exist unprompted? — is now
+**answered YES** (see "Probe result"), so the plan is unblocked.
 
 ## What the in-game TGT page is
 
@@ -114,9 +115,36 @@ the Option-A command handlers will index into.
 `TelemetryReader.cs`) once the question is answered** — it reaches into
 game internals purely to learn them.
 
+### Probe result (resolved)
+
+Run in a live mission, **without** opening the in-cockpit TGT MFD and
+with **no targets selected**:
+
+```
+TargetListSelector.i PRESENT | screen=set
+  faction[2]:  FRIENDLY, ENEMY
+  unitType[5]: AIR, MSL, GND, BLD, SHP
+  vehType[10]: TRUCK, UGV, LCV, AFV, MBT, ART, AAA, IR_SAM, R_SAM, RDR
+  laser=set | hud=set
+```
+
+Conclusions:
+
+- **Option A is viable with no preconditions** — the singleton exists in
+  a mission with the cockpit TGT page never opened and no selection made.
+  The probe logs only on state change and only ever logged `PRESENT`, so
+  it was never null. No lazy-init trigger needed.
+- Every control group is wired (both factions, all 5 categories, all 10
+  vehicle types, laser, hud) and the **array ordering matches the
+  on-screen panel exactly** — handlers can index by position, with the
+  labels kept in the wire format as a sanity guard.
+- The 10 `vehType` names double as the keys for the icon capture (their
+  sprites are `Encyclopedia.i.vehicleTypes[i].typeSprite`).
+
 ## Plan (pending probe result)
 
 1. **[done]** Land the probe; answer the singleton question in-game.
+   Result: singleton present unprompted (see "Probe result").
 2. **Commands.** Extend `CommandDispatcher` with flat handlers that drive
    the singleton on the main thread, mirroring the existing
    `target.select` pattern (validate against live state, route through
@@ -141,11 +169,14 @@ game internals purely to learn them.
 
 ## Open questions
 
-- Does the singleton exist before the in-cockpit TGT page is opened?
-  (**the probe answers this — everything else is downstream.**)
-- If it is lazy: is force-instantiating it safe, or do we require the
-  player to have opened the page once per session?
-- Is the toggle-array ordering stable across missions / aircraft, or must
-  we key off labels? (probe dumps labels so we can decide.)
+- ~~Does the singleton exist before the in-cockpit TGT page is opened?~~
+  **Resolved: yes, unprompted (see "Probe result").**
+- ~~If it is lazy: force-instantiate or require the page opened once?~~
+  Moot — not lazy.
+- Is the toggle-array ordering stable across missions / aircraft? Matched
+  the panel on this run; wire format keeps labels as a guard in case a
+  future build reorders them.
 - Right-click on the physical tablet — long-press, or a small "ONLY"
   affordance per button? (design during step 4.)
+- Vehicle-type icon capture: which serving endpoint? (design alongside
+  the page in step 4, keyed by the `vehType` names above.)
