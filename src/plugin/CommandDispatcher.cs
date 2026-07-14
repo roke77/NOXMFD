@@ -24,6 +24,9 @@ namespace NOXMFD
         public string cmd;
         public long   id;      // target unit persistentID (target.select / target.deselect)
         public string wname;   // weapon type name (weapon.select) — matches LoadoutEntry.Name
+        public string group;   // tgt.set / tgt.only : "faction" | "category" | "vehicle"
+        public int    index;   // tgt.set / tgt.only : toggle index within the group
+        public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
     }
 
     internal static class CommandDispatcher
@@ -34,6 +37,12 @@ namespace NOXMFD
                 { "target.select",   TargetSelect },
                 { "target.deselect", TargetDeselect },
                 { "weapon.select",   WeaponSelect },
+                { "tgt.set",         TgtSet },
+                { "tgt.only",        TgtOnly },
+                { "tgt.reset",       TgtReset },
+                { "tgt.clear",       TgtClear },
+                { "tgt.laser",       TgtLaser },
+                { "tgt.hud",         TgtHud },
             };
 
         // True for a cmd we have a handler for — lets the server reject unknown commands at the
@@ -166,6 +175,103 @@ namespace NOXMFD
             CombatHUD hud = SceneSingleton<CombatHUD>.i;
             if (hud != null && ReferenceEquals(hud.aircraft, ac)) hud.ShowWeaponStation(target);
             Plugin.Log?.LogInfo($"[NOXMFD] weapon.select → '{wname}' (station {target.Number}).");
+        }
+
+        // ── TGT filter panel (docs/tgt-page.md) ──────────────────────────────────
+        // Option A: we don't reimplement the filter — we drive the game's own
+        // TargetListSelector singleton, so its prune of the current selection, its live gate on
+        // future selections, and the map-icon recolour all come along for free. The singleton is a
+        // SceneSingleton present for the whole mission (confirmed by TgtProbe), but every handler
+        // still null-guards so it no-ops rather than throws if the game hasn't built it.
+
+        private static List<TargetListSelector_ToggleButton> TgtGroup(TargetListSelector sel, string group)
+        {
+            switch (group)
+            {
+                case "faction":  return sel.toggleFactionItems;
+                case "category": return sel.toggleUnitTypesItems;
+                case "vehicle":  return sel.toggleVehicleTypesItems;
+                default:         return null;
+            }
+        }
+
+        // Resolve the live singleton + a validated toggle for {group, index}; logs and returns null
+        // on any miss (absent singleton, unknown group, out-of-range/null toggle). sel is always set.
+        private static TargetListSelector_ToggleButton TgtResolve(CommandEnvelope env, string op, out TargetListSelector sel)
+        {
+            sel = SceneSingleton<TargetListSelector>.i;
+            if (sel == null) { Plugin.Log?.LogInfo($"[NOXMFD] {op}: TargetListSelector absent — ignored."); return null; }
+
+            List<TargetListSelector_ToggleButton> list = TgtGroup(sel, env.group);
+            if (list == null) { Plugin.Log?.LogInfo($"[NOXMFD] {op}: unknown group '{env.group}' — ignored."); return null; }
+            if (env.index < 0 || env.index >= list.Count)
+            {
+                Plugin.Log?.LogInfo($"[NOXMFD] {op}: index {env.index} out of range for '{env.group}' [{list.Count}] — ignored.");
+                return null;
+            }
+            TargetListSelector_ToggleButton btn = list[env.index];
+            if (btn == null) { Plugin.Log?.LogInfo($"[NOXMFD] {op}: null toggle at {env.group}[{env.index}] — ignored."); return null; }
+            return btn;
+        }
+
+        // Set one filter toggle to an explicit state (not a blind flip — the page mirrors state, so an
+        // explicit target is idempotent and survives a dropped click). Set() fires the game's own
+        // NeedUpdateIcons → prune + recolour, and the toggle then gates future selections.
+        private static void TgtSet(CommandEnvelope env)
+        {
+            TargetListSelector_ToggleButton btn = TgtResolve(env, "tgt.set", out _);
+            if (btn == null) return;
+            if (btn.status == env.on) return;   // already there — no-op (avoids a needless prune pass)
+            btn.Set(env.on);
+            Plugin.Log?.LogInfo($"[NOXMFD] tgt.set {env.group}[{env.index}] = {env.on}.");
+        }
+
+        // Right-click "only this": turn every other toggle in the group off, this one on.
+        private static void TgtOnly(CommandEnvelope env)
+        {
+            TargetListSelector_ToggleButton btn = TgtResolve(env, "tgt.only", out TargetListSelector sel);
+            if (btn == null) return;
+            sel.SetOnlyItem(btn);
+            Plugin.Log?.LogInfo($"[NOXMFD] tgt.only {env.group}[{env.index}].");
+        }
+
+        // RESET FILTER — all toggles back on. Does NOT re-select anything already cleared.
+        private static void TgtReset(CommandEnvelope env)
+        {
+            TargetListSelector sel = SceneSingleton<TargetListSelector>.i;
+            if (sel == null) { Plugin.Log?.LogInfo("[NOXMFD] tgt.reset: TargetListSelector absent — ignored."); return; }
+            sel.ResetFilters();
+            Plugin.Log?.LogInfo("[NOXMFD] tgt.reset — all filters on.");
+        }
+
+        // CLEAR TARGETS — deselect the whole current target list.
+        private static void TgtClear(CommandEnvelope env)
+        {
+            TargetListSelector sel = SceneSingleton<TargetListSelector>.i;
+            if (sel == null) { Plugin.Log?.LogInfo("[NOXMFD] tgt.clear: TargetListSelector absent — ignored."); return; }
+            sel.DeselectAll();
+            Plugin.Log?.LogInfo("[NOXMFD] tgt.clear — deselected all targets.");
+        }
+
+        // LASER toggle — keep only lased targets when on.
+        private static void TgtLaser(CommandEnvelope env)
+        {
+            TargetListSelector sel = SceneSingleton<TargetListSelector>.i;
+            if (sel == null || sel.toggleLaser == null) { Plugin.Log?.LogInfo("[NOXMFD] tgt.laser: unavailable — ignored."); return; }
+            if (sel.toggleLaser.status == env.on) return;
+            sel.toggleLaser.Set(env.on);
+            Plugin.Log?.LogInfo($"[NOXMFD] tgt.laser = {env.on}.");
+        }
+
+        // HUD-follow toggle — mirror the filter to the HUD priority options. Set() fires the game's
+        // OnToggleFollowHUD, which applies (on) or resets (off) the whole filter set.
+        private static void TgtHud(CommandEnvelope env)
+        {
+            TargetListSelector sel = SceneSingleton<TargetListSelector>.i;
+            if (sel == null || sel.toggleFollowHUD == null) { Plugin.Log?.LogInfo("[NOXMFD] tgt.hud: unavailable — ignored."); return; }
+            if (sel.toggleFollowHUD.status == env.on) return;
+            sel.toggleFollowHUD.Set(env.on);
+            Plugin.Log?.LogInfo($"[NOXMFD] tgt.hud = {env.on}.");
         }
     }
 }

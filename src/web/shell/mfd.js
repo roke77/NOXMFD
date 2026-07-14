@@ -58,7 +58,7 @@ const paneIframes = [document.getElementById('pane-top'), document.getElementByI
 const pageFrame = document.getElementById('page-frame');   // full-view host for the frame-hosted pages (WPN, TGL, TGP)
 // Pages that render in #page-frame in full view (rather than as overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
-const FRAME_PAGES = { wpn: '/wpn', tgl: '/tgl', tgp: '/tgp', avn: '/avn', rwr: '/rwr' };
+const FRAME_PAGES = { wpn: '/wpn', tgl: '/tgl', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
@@ -92,7 +92,7 @@ const PAGES = {
       { label: 'AVN', key: 0, action: 'avn' },      // → AVN page
       { label: 'MAP', key: 1, action: 'map' },      // → MAP page
       { label: 'RWR', key: 2, action: 'rwr' },      // → RWR page
-      { label: 'TGL', key: 3, action: 'tgl' },      // → TGL page (target list)
+      { label: 'TGT', key: 3, action: 'tgt' },      // → TGT page (target-selection filter) — replaced TGL here
       { label: 'TGP', key: 4, action: 'tgp' },      // → TGP page
       { label: 'WPN', key: 5, action: 'wpn' },      // → WPN page
     ],
@@ -130,6 +130,15 @@ const PAGES = {
   rwr: {
     // Hosted in #page-frame (the src/web/pages/rwr page), not the overlay — so the overlay
     // stays transparent and only carries the MAIN nav label below.
+    opaque: false,
+    items: [
+      { label: 'MAIN', key: 0, action: 'main' },     // ← back to MAIN
+    ],
+  },
+  tgt: {
+    // Hosted in #page-frame (the src/web/pages/tgt page). Fully clickable — the page renders the
+    // target-selection filters as clickable components and POSTs tgt.* commands itself; the shell
+    // only carries the MAIN back label below (docs/tgt-page.md).
     opaque: false,
     items: [
       { label: 'MAIN', key: 0, action: 'main' },     // ← back to MAIN
@@ -288,6 +297,10 @@ function applySplitMode() {
   // and v<->vw reconfigs return early in setSplit and never reach here, so they keep their pin.
   clearPin();
   applySplitClasses();
+  // The vertical-MAIN overlay style is full-view-TGT only; split entry doesn't go through showPage,
+  // so drop it here or its label style would leak onto the split MAIN labels. Restored on unsplit
+  // (showPage re-toggles it). TGT itself isn't a pane page (not in PAGE_URL), so it never renders split.
+  overlayEl.classList.remove('tgt-page');
   paneSoftkeys = [[], []];          // fresh panes re-emit their softkeys on load
   if (splitMode) {
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
@@ -502,6 +515,18 @@ function forwardRwrToFrame() {
 function forwardMwToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage({ mfd: true, type: 'mw', items: mwData.items || [] }, '*');
+}
+// Full-view TGT: forward the whole filter-state block to the #page-frame iframe. It's a plain
+// state mirror (no geometry — the page is fully clickable, not bezel-anchored).
+function forwardTgtToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage(Object.assign({ mfd: true, type: 'tgt' }, tgtData), '*');
+}
+// The TGT page also shows the selected-target list under its filters (same data the TGL page uses,
+// mirrored in tglData). No pagination — the page scrolls — so forward the whole list.
+function forwardTgtTargetsToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage({ mfd: true, type: 'tgt-targets', items: tglData.targets || [] }, '*');
 }
 function forwardMwToPanes() {
   paneIframes.forEach(function(iframe, idx) {
@@ -847,6 +872,7 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'tgp') { forwardTgpToFrame(); }
   else if (currentPage === 'avn') { forwardAvnLayoutToFrame(); forwardAvnToFrame(); }
   else if (currentPage === 'rwr') { forwardRwrToFrame(); forwardMwToFrame(); }
+  else if (currentPage === 'tgt') { forwardTgtToFrame(); forwardTgtTargetsToFrame(); }
 });
 
 // Top-right indicator stack (PINNED + FOLLOW). pinnedPage tracks which page (if any)
@@ -967,6 +993,10 @@ let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1,
 let rwrData = { items: [] };
 let mwData  = { items: [] };
 
+// Latest TGT filter state, mirrored from the map iframe's SSE feed. The shell keeps only this
+// state and forwards it to the frame; the page renders the toggles + POSTs the tgt.* commands.
+let tgtData = { present: false };
+
 function clearKeyActions() {
   // Only the page-dynamic banks (left/right) get cleared between pages. The top and bottom
   // banks hold page-independent controls (fullscreen on top; PIN, SWAP, layout… on bottom)
@@ -1009,6 +1039,9 @@ function showPage(name) {
   currentPage = name;
   const page = PAGES[name];
   overlayEl.classList.toggle('opaque', page.opaque);
+  // TGT keeps clickable content in the top-left where the MAIN bezel label sits; a class here lets
+  // mfd.css render that label vertically so it hugs the edge and clears the page's RESET button.
+  overlayEl.classList.toggle('tgt-page', name === 'tgt');
   infoBox.classList.toggle('show', name === 'main');
   screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGL/TGP/AVN render in #page-frame
   clearKeyActions();
@@ -1052,6 +1085,13 @@ function showPage(name) {
   if (name === 'rwr') {
     showFramePage('rwr');
     forwardRwrToFrame(); forwardMwToFrame();
+  }
+  // TGT renders in #page-frame too. Its only bezel key is the static MAIN label (PAGES.tgt.items,
+  // placed by the generic sweep above); everything else is clickable in the page. Forward state.
+  if (name === 'tgt') {
+    showFramePage('tgt');
+    forwardTgtToFrame();
+    forwardTgtTargetsToFrame();
   }
 
   // refreshFollowIndicator (not just renderIndicators) because the FOLLOW chip's membership
@@ -1167,6 +1207,8 @@ window.addEventListener('message', function(e) {
     // Full-view: re-forward the slice to the frame (it re-renders + re-emits its softkeys) and
     // refresh the nav labels (target count can add/remove pages, changing PREV/NEXT visibility).
     if (currentPage === 'tgl' && !splitMode) { forwardTglToFrame(); placeTglNavLabels(); }
+    // The TGT page shows the same list under its filters — keep it fed too.
+    if (currentPage === 'tgt' && !splitMode) forwardTgtTargetsToFrame();
     // Target count can add/remove pages, so refresh each TGL pane's slice + PREV/NEXT labels.
     if (splitMode) { forwardTglToPanes(); renderSplitLabels(); }
   } else if (m.type === 'rwr') {
@@ -1180,6 +1222,11 @@ window.addEventListener('message', function(e) {
     mwData = { items: Array.isArray(m.items) ? m.items : [] };
     if (currentPage === 'rwr' && !splitMode) forwardMwToFrame();
     if (splitMode) forwardMwToPanes();
+  } else if (m.type === 'tgt') {
+    // Mirror the TGT filter state (present + toggle groups). Renders in the #page-frame iframe only
+    // (no split-pane variant); forward on when it's the page in view.
+    tgtData = m;
+    if (currentPage === 'tgt' && !splitMode) forwardTgtToFrame();
   }
 });
 
@@ -1355,6 +1402,7 @@ function mfdButton(el) {
       break;
     case 'avn':  showPage('avn');  break;
     case 'rwr':  showPage('rwr');  break;
+    case 'tgt':  showPage('tgt');  break;
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;

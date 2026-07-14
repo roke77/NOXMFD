@@ -1,0 +1,186 @@
+/* TGT page — fully-clickable replica of the game's TARGET SELECTION panel. Green-phosphor MFD
+   theme via the shared --no-* tokens; faction accents (friendly blue / enemy red) echo the game. */
+
+:root { --tgt-blue: #4aa3ff; }   /* theme has no blue; FRIENDLY uses this accent (matches the game) */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; height: 100%;
+  background: var(--no-bg);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.tgt-panel {
+  height: 100%;
+  display: flex; flex-direction: column;
+  gap: clamp(4px, 1.4vh, 12px);
+  padding: clamp(6px, 1.8vmin, 16px);
+  /* Extra left inset: the shell's vertical MAIN bezel label hugs the left edge here, so keep the
+     clickable content clear of it. */
+  padding-left: clamp(30px, 5vw, 48px);
+}
+
+/* Header */
+.tgt-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  border-bottom: 1px solid var(--no-green-dark);
+  padding-bottom: clamp(2px, 0.8vh, 6px);
+}
+.tgt-title { font-size: clamp(13px, 2.6vmin, 22px); letter-spacing: 0.08em; color: var(--no-green); }
+.tgt-hint  { font-size: clamp(8px, 1.4vmin, 12px); color: var(--no-green-dim); }
+
+/* Top block: actions | faction+category | modes */
+.tgt-top {
+  display: flex; gap: clamp(4px, 1.4vw, 14px);
+  align-items: stretch;
+}
+.tgt-actions, .tgt-modes { display: flex; flex-direction: column; gap: clamp(4px, 1vh, 10px); }
+.tgt-filters { flex: 1; display: flex; flex-direction: column; gap: clamp(4px, 1vh, 10px); justify-content: center; }
+.tgt-row { display: flex; gap: clamp(4px, 1vw, 10px); flex-wrap: wrap; }
+
+/* Generic clickable cell */
+.tgt-cell, .tgt-action, .tgt-mode {
+  font-family: var(--no-font);
+  background: var(--no-panel-bg);
+  color: var(--no-gray);
+  border: 1.5px solid var(--no-green-dark);
+  border-radius: 3px;
+  cursor: pointer;
+  text-align: center;
+  line-height: 1.05;
+  transition: color .08s, border-color .08s, box-shadow .08s, background .08s;
+}
+.tgt-cell:active, .tgt-action:active, .tgt-mode:active { background: rgba(57,255,20,0.08); }
+
+/* Toggle cells (faction / category / mode) — ON is lit, OFF is dim gray */
+.tgt-cell, .tgt-mode {
+  flex: 1 1 0; min-width: clamp(44px, 8vw, 90px);
+  padding: clamp(5px, 1.3vh, 12px) clamp(4px, 1vw, 10px);
+  font-size: clamp(10px, 1.9vmin, 17px);
+  letter-spacing: 0.04em;
+}
+.tgt-cell.on, .tgt-mode.on {
+  color: var(--no-green); border-color: var(--no-green);
+  box-shadow: 0 0 6px rgba(57,255,20,0.28), inset 0 0 6px rgba(57,255,20,0.10);
+}
+/* Faction accents when ON */
+#row-faction .tgt-cell.on[data-index="0"] { color: var(--tgt-blue); border-color: var(--tgt-blue);
+  box-shadow: 0 0 6px rgba(74,163,255,0.32), inset 0 0 6px rgba(74,163,255,0.12); }
+#row-faction .tgt-cell.on[data-index="1"] { color: var(--no-red); border-color: var(--no-red);
+  box-shadow: 0 0 6px rgba(255,64,64,0.30), inset 0 0 6px rgba(255,64,64,0.12); }
+
+/* Action buttons — momentary, always lit in their accent */
+.tgt-action {
+  flex: 1 1 0;
+  padding: clamp(5px, 1.2vh, 12px) clamp(6px, 1vw, 12px);
+  font-size: clamp(9px, 1.7vmin, 15px);
+  letter-spacing: 0.03em;
+  min-width: clamp(56px, 10vw, 108px);
+}
+.tgt-action.reset { color: var(--no-amber); border-color: var(--no-amber); }
+.tgt-action.clear { color: var(--no-red);   border-color: var(--no-red); }
+.tgt-action.reset:active { background: rgba(255,170,0,0.12); }
+.tgt-action.clear:active { background: rgba(255,64,64,0.12); }
+
+/* Vehicle-type grid — icon over label */
+.tgt-vehicles {
+  flex: 0 0 auto;
+  display: grid;
+  /* Keep all the icons on ONE row: auto-flow column lays them in a single track row and the cells
+     shrink (down to a readable min) to fit the width, so they only "wrap" — really, run out of room
+     and overflow — when they'd be right up against each other. Capped max keeps them snug rather
+     than stretched across the whole width; centered so the row stays balanced. */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(34px, 84px);
+  justify-content: center;
+  gap: clamp(3px, 0.8vw, 9px);
+  align-content: start;
+  overflow: hidden;
+}
+.tgt-veh {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: clamp(2px, 0.6vh, 5px);
+  padding: clamp(4px, 1vh, 10px) clamp(2px, 0.6vw, 6px);
+  min-height: clamp(48px, 10vh, 96px);
+}
+.tgt-veh .veh-icon {
+  width: clamp(22px, 4.4vmin, 44px); height: clamp(22px, 4.4vmin, 44px);
+  max-width: 100%;
+  object-fit: contain;
+  /* Icons ship light-on-dark with synthesized alpha; tint them to the cell's state colour. */
+  filter: brightness(0.55);
+  transition: filter .08s;
+}
+.tgt-veh.on .veh-icon { filter: none; }
+.tgt-veh .veh-label { font-size: clamp(8px, 1.4vmin, 13px); letter-spacing: 0.02em; white-space: pre; }
+
+/* ── Selected-target list (below the filters) ─────────────────────────────────────────── */
+.tgt-list {
+  flex: 1 1 auto;
+  min-height: 0;                       /* let the rows area scroll inside the flex column */
+  display: flex; flex-direction: column;
+  border-top: 1px solid var(--no-green-dark);
+  padding-top: clamp(3px, 0.8vh, 7px);
+}
+/* Shared 4-column track: [checkbox] [name grows] [grid] [range]. Head + rows use the same grid so
+   the columns line up. */
+.tgt-list-head, .tl-row {
+  display: grid;
+  /* Viewport-based column widths (not auto) so the header and the rows — separate grids — compute
+     identical tracks and line up. minmax(0,1fr) lets the name shrink so its ellipsis kicks in. */
+  grid-template-columns: clamp(20px, 3.4vmin, 26px) minmax(0, 1fr) clamp(46px, 7vw, 76px) clamp(60px, 9vw, 96px);
+  gap: clamp(6px, 1.4vw, 14px);
+  align-items: center;
+}
+.tgt-list-head {
+  padding: 0 clamp(4px, 1vw, 10px) clamp(2px, 0.6vh, 5px);
+  color: var(--no-green-dim);
+  font-size: clamp(9px, 1.4vmin, 13px);
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--no-green-dark);
+}
+.tgt-list-rows { flex: 1 1 auto; overflow-y: auto; }
+.tgt-list-rows:empty { flex: 0 0 auto; }   /* collapse when empty so the empty-note fills + centers */
+.tl-row {
+  padding: clamp(4px, 1vh, 9px) clamp(4px, 1vw, 10px);
+  border-bottom: 1px solid rgba(57,255,20,0.10);
+  font-size: clamp(11px, 1.9vmin, 18px);
+}
+.tl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-grid, .tl-dist { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Faction tint on the name (mirrors the map/TGL colours): friendly blue, neutral white, enemy red. */
+.tl-row.f-friendly .tl-name { color: var(--tgt-blue); }
+.tl-row.f-neutral  .tl-name { color: #d4d8dc; }
+.tl-row.f-enemy    .tl-name { color: var(--no-red); }
+
+/* Checkbox: selected targets are all checked; tapping it deselects (the row drops on the next
+   telemetry frame). Sized for a comfortable touch target. */
+.tl-check {
+  width: clamp(18px, 3vmin, 24px); height: clamp(18px, 3vmin, 24px);
+  border: 1.5px solid var(--no-green); border-radius: 3px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--no-green); cursor: pointer;
+  font-size: clamp(12px, 2.2vmin, 18px); line-height: 1;
+  -webkit-user-select: none; user-select: none;
+}
+.tl-check::after { content: '\2713'; }          /* ✓ — always shown; the row IS the selection */
+.tl-check:active { background: rgba(57,255,20,0.15); }
+
+.tgt-list-empty {
+  flex: 1 1 auto;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--no-green-dark);
+  font-size: clamp(11px, 1.8vmin, 16px); letter-spacing: 0.08em;
+}
+.tgt-list-rows:not(:empty) + .tgt-list-empty { display: none; }   /* hide the empty note once rows exist */
+
+/* Unavailable state (TargetListSelector not up / no mission). display:block (not flex) so the
+   shared .mfd-empty-title stacks above the text like the other pages' empty states. */
+.tgt-unavailable { display: none; }
+body.unavailable .tgt-panel { display: none; }
+body.unavailable .tgt-unavailable { display: block; }

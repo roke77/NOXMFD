@@ -208,6 +208,19 @@
       { id: 111, n: 'KamAZ Fuel',    g: 'Mk60', r: 16.1, f: 2 },
       { id: 112, n: 'Radar Mast',    g: 'Nk60', r: 17.3, f: 2 },
     ],
+    // TGT filter panel — mirrors the game's TargetListSelector so the TGT page renders real toggle
+    // states in preview. A couple flipped off to show the on/off styling; names + order match the
+    // in-game panel (vehicle names double as /tgt-icon keys).
+    tgt: {
+      present: true, laser: false, hud: false,
+      faction:  [{ n: 'FRIENDLY', on: false }, { n: 'ENEMY', on: true }],
+      category: [{ n: 'AIR', on: true }, { n: 'MSL', on: true }, { n: 'GND', on: true },
+                 { n: 'BLD', on: false }, { n: 'SHP', on: true }],
+      vehicle:  [{ n: 'TRUCK', on: true }, { n: 'UGV', on: true }, { n: 'LCV', on: true },
+                 { n: 'AFV', on: true }, { n: 'MBT', on: true }, { n: 'ART', on: false },
+                 { n: 'AAA', on: true }, { n: 'IR_SAM', on: true }, { n: 'R_SAM', on: true },
+                 { n: 'RDR', on: true }],
+    },
     // Radar-warning emitters (rwr) aren't listed here as fixed world positions — they're
     // synthesised below against the ACTIVE frame's ownship, so they sit at the intended
     // bearings whether this synthetic frame or a real capture (different ownship) is in use.

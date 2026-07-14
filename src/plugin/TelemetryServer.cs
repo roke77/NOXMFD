@@ -65,6 +65,11 @@ namespace NOXMFD
         private static readonly Dictionary<string, byte[]> _cmIcons = new Dictionary<string, byte[]>();
         private static readonly object                     _cmLock  = new object();
 
+        // TGT filter vehicle-type icons (PNG), keyed by vehicle typeName ("TRUCK" … "RDR") — the
+        // same names the "tgt" telemetry block's vehicle row carries. Served at /tgt-icon?type=.
+        private static readonly Dictionary<string, byte[]> _tgtIcons = new Dictionary<string, byte[]>();
+        private static readonly object                     _tgtLock  = new object();
+
         // Airframe silhouette assets. Images keyed by "unitName|partName" — partName is the
         // GameObject name from Aircraft.partLookup (e.g. "wing1_L") or "__bg" for the background
         // silhouette. Layouts keyed by unitName, value is a JSON descriptor of part placements.
@@ -272,6 +277,13 @@ namespace NOXMFD
             lock (_weaponLock) _weaponIcons[name] = png;
         }
 
+        // Called from Unity main thread once a TGT vehicle-type sprite has been extracted.
+        public static void SetTgtIcon(string name, byte[] png)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+            lock (_tgtLock) _tgtIcons[name] = png;
+        }
+
         // Called from Unity main thread once a countermeasure's display sprite has been extracted.
         public static void SetCmIcon(string key, byte[] png)
         {
@@ -339,6 +351,8 @@ namespace NOXMFD
                         ServePng(ctx, _weaponIcons, _weaponLock, "name");
                     else if (path == "/cm")
                         ServePng(ctx, _cmIcons, _cmLock, "type");
+                    else if (path == "/tgt-icon")
+                        ServePng(ctx, _tgtIcons, _tgtLock, "type");
                     else if (path == "/airframe")
                         ServeAirframeImage(ctx);
                     else if (path == "/airframe-layout")
@@ -361,6 +375,8 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/tgl/tgl.html");
                     else if (path == "/rwr")
                         ServeAssetRel(ctx, "pages/rwr/rwr.html");
+                    else if (path == "/tgt")
+                        ServeAssetRel(ctx, "pages/tgt/tgt.html");
                     else if (path == "/command")
                         HandleCommand(ctx);
                     else if (path == "/mfd")
@@ -829,7 +845,36 @@ namespace NOXMFD
                         + ",\"turret\":" + (s.TurretAuto ? "true" : "false")
                         + ",\"nvg\":" + (s.NightVision ? "true" : "false")
                         + ",\"navlt\":" + (s.NavLightsOn ? "true" : "false")
-                        + ",\"failures\":" + StringArray(s.Failures) + "}";
+                        + ",\"failures\":" + StringArray(s.Failures)
+                        + ",\"tgt\":" + TgtBlock(s) + "}";
+        }
+
+        // TGT filter panel state (docs/tgt-page.md). {present:false} when the game's TargetListSelector
+        // isn't up; otherwise the three toggle groups (ordered as the tgt.* commands index them) plus
+        // the two standalone toggles.
+        private static string TgtBlock(TelemetrySnapshot s)
+        {
+            if (!s.TgtPresent) return "{\"present\":false}";
+            return "{\"present\":true"
+                 + ",\"laser\":" + (s.TgtLaser ? "true" : "false")
+                 + ",\"hud\":"   + (s.TgtHud   ? "true" : "false")
+                 + ",\"faction\":"  + TgtToggleArray(s.TgtFaction)
+                 + ",\"category\":" + TgtToggleArray(s.TgtCategory)
+                 + ",\"vehicle\":"  + TgtToggleArray(s.TgtVehicle)
+                 + "}";
+        }
+
+        private static string TgtToggleArray(TgtToggleInfo[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append("{\"n\":\"").Append(EscapeJson(items[i].Name ?? string.Empty))
+                  .Append("\",\"on\":").Append(items[i].On ? "true" : "false").Append('}');
+            }
+            return sb.Append(']').ToString();
         }
 
         private static string MwArray(MwContact[]? items)

@@ -441,6 +441,14 @@
   /* Bank-specific label anchors; JS supplies the cross-axis coordinate. */
   .overlay-item.left  { left: 16px; transform: translateY(-50%); }
   .overlay-item.right { right: 16px; transform: translateY(-50%); }
+  /* TGT page: render the left-bank label (MAIN) as stacked upright letters so it hugs the left
+     edge and doesn't overlap the page's top-left RESET FILTER button. */
+  .overlay.tgt-page .overlay-item.left {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    letter-spacing: 0;
+    left: 4px;
+  }
   .overlay-item.top { transform: translate(-50%, 0); }
   .overlay-item.bottom { transform: translate(-50%, -100%); }
   /* Pin the menu-item size in portrait to the same 21px as landscape, so items read

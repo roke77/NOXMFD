@@ -2,8 +2,9 @@
 
 ## Status
 
-**Built on `feat/tgt-page`, verified in the `serve_web` harness; in-game
-pass pending.** This is an **experiment** requested by an alpha tester:
+**Shipped — merged to `main`. Built, `serve_web`-harness verified, and
+in-game tested (a first in-cockpit pass surfaced several issues, since
+fixed).** This is an **experiment** requested by an alpha tester:
 replicate the game's in-cockpit **TGT ("TARGET SELECTION")** page as a
 new, fully-clickable MFD page in the web frontend. Approach: **Option A —
 drive the game's own `TargetListSelector`** (see "The fork" below). The
@@ -143,8 +144,9 @@ Conclusions:
 
 ## Plan
 
-Built on the `feat/tgt-page` branch; verified in the `serve_web` harness.
-Only the in-game pass is outstanding (needs a game restart to load the DLL).
+Built on the `feat/tgt-page` branch, then merged to `main`. Verified in the
+`serve_web` harness and in-game (the first in-cockpit pass surfaced several
+issues — all fixed on the branch before the merge; see branch history).
 
 1. **[done]** Land the probe; answer the singleton question in-game.
    Result: singleton present unprompted (see "Probe result").
@@ -162,15 +164,21 @@ Only the in-game pass is outstanding (needs a game restart to load the DLL).
    Tap → `tgt.set`; **long-press → `tgt.only`** (chosen over a per-button
    "ONLY" affordance for the touch tablet). State from the `tgt` block.
    Vehicle icons captured from `Encyclopedia.i.vehicleTypes` and served at
-   `/tgt-icon?type=`.
-5. **[done] Wire nav.** TGT registered in `FRAME_PAGES` + `PAGES`; a TGT
-   entry added to MAIN (right column, since the left column was full).
-   Full-view only — not wired into split panes for v1.
-6. **[done in harness] Verify.** `serve_web` + `preview-mock` gained a mock
-   `tgt` block and `/tgt-icon`; confirmed the page renders the states and
-   that tap / long-press / RESET / CLEAR / LASER / HUD fire the right
-   commands, plus the `present:false` UNAVAILABLE path. **In-game pass
-   still pending** (restart to load the new DLL, then MAIN → TGT).
+   `/tgt-icon?type=`. Below the filters the page also shows the **live
+   selected-target list** (the same list TGL renders, mirrored from the
+   `targets` feed) — it scrolls rather than paginating, so no bezel nav. The
+   vehicle-type row is kept to a single row (icons shrink to fit); the target
+   list shows a centered placeholder when empty.
+5. **[done] Wire nav.** TGT registered in `FRAME_PAGES` + `PAGES`. On the
+   full-view MAIN menu **TGT takes TGL's slot** (key 3; MAIN keeps 6 items).
+   TGT is **full-view only** — not a split-pane page, so **TGL remains the
+   target-list page in split mode**. A vertical-MAIN label style keeps the
+   top-left MAIN bezel label clear of the page's RESET button.
+6. **[done] Verify.** `serve_web` + `preview-mock` gained a mock `tgt` block
+   and `/tgt-icon`; confirmed the page renders the states and that tap /
+   long-press / RESET / CLEAR / LASER / HUD fire the right commands, plus the
+   `present:false` UNAVAILABLE path. In-game pass completed (MAIN → TGT); the
+   issues it surfaced were fixed on the branch.
 
 ## Open questions
 
