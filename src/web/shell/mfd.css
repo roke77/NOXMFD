@@ -23,28 +23,36 @@
     box-shadow: inset 0 1px 0 #5a5f66, inset 0 -2px 8px #15161a, 0 6px 22px rgba(0,0,0,0.55);
   }
 
-  /* "Hide bezel" experiment: .bezel-hidden on .mfd collapses every frame element (strips,
-     side-key columns, screws, gunmetal chrome) so the screen recess fills the viewport.
-     The auto grid tracks that held the strips/side keys collapse to 0 once hidden. */
-  .mfd.bezel-hidden .bezel {
+  /* "Hide shell" mode: .shell-hidden on .mfd collapses the frame chrome (strips, screws,
+     gunmetal) so the screen recess fills the viewport — for fitting the display behind a
+     physical MFD frame (e.g. a Thrustmaster Cougar) whose own buttons surround the cutout.
+     Display-only: the on-screen line-select labels are hidden (non-functional here, and they'd
+     anchor to our key layout, not the frame's buttons) and the bezel keys are gone, so nothing
+     is clickable but the Restore button. The player resizes the browser to match the cutout. */
+  .mfd.shell-hidden .bezel {
     padding: 0; gap: 0; border-radius: 0;
     background: none; box-shadow: none;
+    grid-template-rows: 1fr;                /* strips collapse → the screen row fills the height */
   }
-  .mfd.bezel-hidden .strip,
-  .mfd.bezel-hidden .keys.v,
-  .mfd.bezel-hidden .screw { display: none; }
-  /* With the strips/side keys gone, the screen would otherwise land in the grids' leading
-     auto track and shrink to its content size. Collapse both grids to a single 1fr track so
-     the lone screen cell stretches to fill the viewport. */
-  .mfd.bezel-hidden .bezel { grid-template-rows: 1fr; }
-  .mfd.bezel-hidden .mid   { grid-template-columns: 1fr; }
-  .mfd.bezel-hidden .screen { border-radius: 0; }
+  .mfd.shell-hidden .strip,
+  .mfd.shell-hidden .screw { display: none; }
+  .mfd.shell-hidden .screen { border-radius: 0; }
+  /* Side key columns stay IN the layout (measurable) but zero-width and invisible. The frame-
+     hosted pages (AVN/WPN/TGL) derive their FULL-view geometry from the left column's separator
+     rows, so those rows must keep their vertical positions across the now-full-height screen;
+     display:none would zero those rects and collapse the pages. gap:0 so the two 0-width side
+     tracks add no margin and the 1fr screen cell fills the width.
+     ponytail: reuses the existing bezel-anchored geometry instead of a hidden-only layout path —
+     the coupling to .keys.v is the ceiling; a future square/5-per-side frame fit would replace it. */
+  .mfd.shell-hidden .mid    { grid-template-columns: 0 1fr 0; gap: 0; }
+  .mfd.shell-hidden .keys.v { visibility: hidden; overflow: hidden; }
+  .mfd.shell-hidden .overlay-item { display: none; }
 
-  /* Restore button: only visible while the bezel is hidden. Small gunmetal square (matching
+  /* Restore button: only visible while the shell is hidden. Small gunmetal square (matching
      the key look) pinned to the top-left; a bordered inset square hints at the frame it brings
      back. Semi-transparent so it stays out of the way over the fullscreen page. */
-  .bezel-restore { display: none; }
-  .mfd.bezel-hidden .bezel-restore {
+  .shell-restore { display: none; }
+  .mfd.shell-hidden .shell-restore {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -60,8 +68,8 @@
     opacity: 0.55;
     transition: opacity 0.15s;
   }
-  .mfd.bezel-hidden .bezel-restore:hover { opacity: 1; }
-  .bezel-restore::before {
+  .mfd.shell-hidden .shell-restore:hover { opacity: 1; }
+  .shell-restore::before {
     content: '';
     width: 12px; height: 12px;
     border: 1.5px solid #c8ccd0;
@@ -241,13 +249,14 @@
     width: 1px;
     background: currentColor;
   }
-  /* Power icon: broken ring + top stroke (IEC standby symbol) */
-  .ic-power {
+  /* Hide-shell icon: a square (the screen) with a diagonal stroke bottom-left→top-right —
+     the counterpart to the restore button's plain inset square. */
+  .ic-hide-shell {
     display: inline-block;
     width: 14px; height: 14px;
     background-color: currentColor;
-    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' d='M6 7a9 9 0 1 0 12 0 M12 3v9'/></svg>") center/contain no-repeat;
-            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' d='M6 7a9 9 0 1 0 12 0 M12 3v9'/></svg>") center/contain no-repeat;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round' d='M2 2 H22 V22 H2 Z M2 22 L22 2'/></svg>") center/contain no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round' d='M2 2 H22 V22 H2 Z M2 22 L22 2'/></svg>") center/contain no-repeat;
   }
 
   /* Inset screen recess holding the map iframe */

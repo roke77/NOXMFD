@@ -31,7 +31,7 @@ const layoutIcons = [
   { cls: 'ic-lr23',   title: 'Split left/right 2:1', action: 'vwsplit' },   // V_WIDE_SPLIT (2:1)
 ];
 const functionIcons = [
-  { cls: 'ic-power',      title: 'Hide bezel', action: 'bezel' },
+  { cls: 'ic-hide-shell', title: 'Hide shell', action: 'hide-shell' },
   { cls: 'ic-fullscreen', title: 'Fullscreen', action: 'fll' },
   { cls: 'ic-pin',        title: 'Pin',        action: 'pin' },
   { cls: 'ic-swap',       title: 'Swap',       action: 'swap' },
@@ -1358,10 +1358,10 @@ function mfdButton(el) {
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;
-    case 'bezel':
-      // Experiment: collapse the whole bezel (frame + strips + side keys) so the screen
-      // fills the viewport. The restore button (top-left) brings it back.
-      setBezelHidden(true);
+    case 'hide-shell':
+      // Collapse the whole shell (frame + strips + side keys) so the screen fills the
+      // viewport — for fitting behind a physical MFD frame. Restore button brings it back.
+      setShellHidden(true);
       break;
     case 'fll':  toggleFullscreen(); break;
     // Layout presets. Each enters split (carrying the full-view page into the top/left pane,
@@ -1426,14 +1426,14 @@ function toggleFullscreen() {
   }
 }
 
-// Hide/show the whole bezel (frame chrome + strips + side keys). Collapsing it lets the
+// Hide/show the whole shell (frame chrome + strips + side keys). Collapsing it lets the
 // screen fill the viewport; a resize event re-runs the page/pane layout for the new size.
-function setBezelHidden(hidden) {
-  document.querySelector('.mfd').classList.toggle('bezel-hidden', hidden);
+function setShellHidden(hidden) {
+  document.querySelector('.mfd').classList.toggle('shell-hidden', hidden);
   window.dispatchEvent(new Event('resize'));
 }
-document.getElementById('bezel-restore').addEventListener('click', function() {
-  setBezelHidden(false);
+document.getElementById('shell-restore').addEventListener('click', function() {
+  setShellHidden(false);
 });
 
 // Event delegation covers both generated keys and standalone controls.
