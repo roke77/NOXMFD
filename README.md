@@ -117,12 +117,12 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **TGL** — scrollable list of detected targets with type, map grid, and range; tap a target to deselect it.
+- **TGT** — target-selection filter mirroring the in-cockpit TARGET SELECTION panel: toggle which factions, categories, and vehicle types can be targeted (plus LASER/HUD), with RESET and CLEAR, above your live selected-target list.
 
   <details>
   <summary>Show screenshot</summary>
 
-  ![TGL page](docs/images/TGL.png)
+  ![TGT page](docs/images/TGT.png)
 
   </details>
 
