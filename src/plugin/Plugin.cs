@@ -49,6 +49,10 @@ namespace NOXMFD
             FeaturesActive = featuresActive.Value;
             featuresActive.SettingChanged += (_, __) => FeaturesActive = featuresActive.Value;
 
+            // Throwaway probe for the TGT-page plan (docs/tgt-page.md) — logs whether the game's
+            // TargetListSelector singleton exists. Remove once that question is answered.
+            TgtProbe.Bind(Config);
+
             // Network: the port the tablet connects to, and whether to auto-open the Windows LAN
             // gates when the wildcard bind is denied (see docs/networking.md). Read once here —
             // the server binds at startup, so changing these needs a game restart.

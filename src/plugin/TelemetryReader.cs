@@ -111,6 +111,7 @@ namespace NOXMFD
                 long t0 = PerfDiag.Enabled ? Stopwatch.GetTimestamp() : 0L;
                 ScanWorld();
                 if (PerfDiag.Enabled) PerfDiag.RecordSince("ScanWorld", t0);
+                TgtProbe.Tick();   // no-op unless Diagnostics > TgtProbe is on (docs/tgt-page.md)
             }
 
             if (_fastTimer >= FastInterval)
