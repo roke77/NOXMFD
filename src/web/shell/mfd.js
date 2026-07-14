@@ -92,12 +92,9 @@ const PAGES = {
       { label: 'AVN', key: 0, action: 'avn' },      // → AVN page
       { label: 'MAP', key: 1, action: 'map' },      // → MAP page
       { label: 'RWR', key: 2, action: 'rwr' },      // → RWR page
-      { label: 'TGL', key: 3, action: 'tgl' },      // → TGL page (target list)
+      { label: 'TGT', key: 3, action: 'tgt' },      // → TGT page (target-selection filter) — replaced TGL here
       { label: 'TGP', key: 4, action: 'tgp' },      // → TGP page
       { label: 'WPN', key: 5, action: 'wpn' },      // → WPN page
-      // Left column is full (0-5), so TGT (the target-selection filter page) sits on the right
-      // column's top key. Fully-clickable page — the bezel only carries this entry + its MAIN back.
-      { label: 'TGT', side: 'right', key: 0, action: 'tgt' },   // → TGT page (target-selection filter)
     ],
   },
   wpn: {
