@@ -197,7 +197,7 @@ const SPLIT_PAGES = {
       { side: 'left',  slot: 0, label: 'AVN', action: 'avn' },
       { side: 'left',  slot: 1, label: 'MAP', action: 'map' },
       { side: 'left',  slot: 2, label: 'RWR', action: 'rwr' },
-      { side: 'right', slot: 0, label: 'TGL', action: 'tgl' },
+      { side: 'right', slot: 0, label: 'TGT', action: 'tgt' },
       { side: 'right', slot: 1, label: 'TGP', action: 'tgp' },
       { side: 'right', slot: 2, label: 'WPN', action: 'wpn' },
     ],
@@ -1376,6 +1376,13 @@ function mfdButton(el) {
     } else if (act === 'flw' || act === 'zin' || act === 'zout') {
       // MAP controls act on the pane's own map iframe — they don't navigate it away.
       paneMapSend(paneIdx, act === 'flw' ? 'toggle-follow' : act === 'zin' ? 'zoom-in' : 'zoom-out');
+    } else if (act === 'tgt') {
+      // TGT is a full-view-only page (dense filter grid + target list; no pane layout).
+      // Selecting it from a split pane collapses split and opens TGT full-view — mirrors the
+      // 'unsplit' path but forces the page to TGT. (docs/tgt-page.md)
+      splitMode = false;
+      currentPage = 'tgt';
+      applySplitMode();
     } else {
       paneNavigate(paneIdx, act);
     }
