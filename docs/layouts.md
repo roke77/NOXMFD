@@ -31,17 +31,17 @@ behavior are what a layout owns.
 | **Bezel** (today) | metallic bezel   | 4/6/4/6 physical keys around screen | H/V bezel-key splits   |
 | **F-35** (future) | borderless       | clickable labels along page edges   | fixed 4-quadrant grid  |
 
-## What's already decoupled (the important part)
+## What's already decoupled
 
-Page content is already independent of the shell. Every page —
+Page *content* is already independent of the shell. Every page —
 AVN / MAP / RWR / TGT / TGP / WPN — is its own iframe under
 `src/web/pages/*`, served "bare" and mounted into `#screen`
 (`FRAME_PAGES` in `src/web/shell/mfd.js:61`; the map is a separate
 `/map-view?bare` iframe). The shell hosts the frame and streams SSE
 data; it does not know what's inside a page.
 
-So the thing a layout must keep constant is *already* constant. This is
-the hard part, and it's done.
+That covers *what* a page renders. It does **not** cover *where* a page
+renders it — some pages are handed bezel geometry. See the next section.
 
 ## What's coupled to the current (bezel) layout
 
@@ -60,6 +60,32 @@ Three files, coupling concentrated in `mfd.js`:
     resolve labels to physical bezel keys per split orientation
     (top/bottom vs left/right). This whole mechanism is written around
     bezel-key geometry.
+
+- **Page placement geometry (shell → page).** The exception to "pages are
+  decoupled": three pages are handed *bezel geometry*, not just data.
+  `forwardAvnLayoutToFrame` / `forwardWpnLayoutToFrame` /
+  `forwardTglLayoutToFrame` (`mfd.js:474`, `:687`, `:736`) read the bezel
+  key-separator rects (`sepEls`) and post `{avn,wpn,tgl}-layout` messages
+  so each page's rows align to the physical key bands:
+
+  ```js
+  // mfd.js:736 — forwardTglLayoutToFrame()
+  function bot(i) { return sepEls[i].getBoundingClientRect().bottom - frameTop; }
+  w.postMessage({ mfd: true, type: 'tgl-layout', layout: 'full', slots: slots }, '*');
+  ```
+
+  This is not theoretical. HIDE SHELL already has to keep the `.keys.v`
+  columns in the layout — zero-width and invisible — *purely* so those
+  separator rects stay valid; drop them and the AVN/WPN full-view geometry
+  collapses. That workaround exists today because of this coupling.
+
+  **Escape hatch (already built):** each of those pages also has a
+  `compact` profile that needs no bezel geometry at all (written for split
+  panes — AVN reverts to compact when `layout !== 'full'`; TGL falls back
+  to `fallbackY()`). A non-bezel layout can drive them in compact mode from
+  day one rather than inventing a new placement contract. TGT / RWR / TGP
+  need no geometry at all (TGT is fully clickable, RWR is a responsive SVG,
+  TGP is a video feed).
 
 ## The seam
 
@@ -86,14 +112,19 @@ and the frame differ.
                         │
           ┌─────────────┴─────────────┐
           ▼                           ▼
-   ┌──────────────┐            ┌──────────────┐
-   │ Bezel layout │            │ F-35 layout  │   (each owns frame +
-   │  renderer    │            │  renderer    │    label placement +
-   └──────┬───────┘            └──────┬───────┘    split behavior)
+   ┌──────────────┐            ┌──────────────┐   (each owns frame +
+   │ Bezel layout │            │ F-35 layout  │    label placement +
+   │  renderer    │            │  renderer    │    split behavior +
+   └──────┬───────┘            └──────┬───────┘    page geometry)
           └─────────────┬────────────┘
                         ▼
              shared action dispatch  →  page iframes (unchanged)
 ```
+
+Note the fourth item: a layout also owns the **page placement geometry**
+it feeds pages (the `*-layout` messages). The bezel renderer supplies
+key-band rects; a quadrant renderer would supply its own — or just drive
+the pages' existing `compact` profile and supply none.
 
 ## The honest caveat: a layout is not a stylesheet
 
@@ -103,8 +134,9 @@ vs left/right resolution) is written around bezel-key geometry and
 **will not carry over** — a quadrant layout needs its own split/placement
 behavior.
 
-So a layout owns: **frame + label placement + split behavior**, sharing
-only (a) page content and (b) action dispatch. The abstraction is "a
+So a layout owns: **frame + label placement + split behavior + page
+placement geometry**, sharing only (a) page content and (b) action
+dispatch. The abstraction is "a
 layout owns the shell and navigation rendering," *not* "a layout is a
 skin." Trying to make one parametric shell serve both a physical bezel
 and a borderless quadrant grid would be worse than two focused shell
@@ -164,5 +196,10 @@ not a Stage-3 requirement.
 - Read `src/web/shell/mfd.js` — `PAGES` (`:79`), `SPLIT_PAGES` (`:191`),
   `FRAME_PAGES` (`:61`), and `src/web/shell/split-keymap.js`. These are
   the coupling points Stage 1 has to tease apart.
+- Read the geometry forwarders too — `forwardAvnLayoutToFrame` (`:474`),
+  `forwardWpnLayoutToFrame` (`:687`), `forwardTglLayoutToFrame` (`:736`).
+  They're the coupling the "pages are decoupled" story misses, and they
+  decide whether Stage 2 needs a new placement contract or can just use
+  the pages' existing `compact` profile.
 - Do Stage 1 (navigation-model extraction) and confirm the bezel shell is
   visually unchanged before writing a single line of the F-35 layout.
