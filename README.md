@@ -14,26 +14,6 @@ any web browser, on the same PC or on another device on the same network.
 - A device with a modern web browser — the same PC, or a tablet/phone on the
   same local network.
 
-### BepInEx setting
-
-NO XMFD's own settings — the Declutter HUD toggles and the extended keybinds —
-are changed either in the in-game **ConfigurationManager** menu or by hand in
-`BepInEx/config/com.roque.NOXMFD.cfg`. The plugin runs fine without any of this;
-you only need it to adjust those settings.
-
-To use the in-game menu, install **ConfigurationManager** — the settings editor,
-much friendlier than editing the config file by hand. Download the **BepInEx 5**
-build from its
-[releases](https://github.com/BepInEx/BepInEx.ConfigurationManager/releases) and
-extract the DLL into `BepInEx/plugins/`. It also needs `HideManagerGameObject =
-true` under `[Chainloader]` in `BepInEx/config/BepInEx.cfg`: Nuclear Option
-destroys BepInEx's manager GameObject on the boot → main-menu transition, and
-ConfigurationManager lives on it, so the menu will not open unless the setting is
-on. Its default open key is `F1`, rebindable in that menu's *General* section.
-
-Either way the settings work — skip ConfigurationManager and edit the `.cfg` by
-hand.
-
 ## Installation
 
 NO XMFD ships as a single BepInEx plugin (the web display is bundled inside the DLL).
@@ -73,8 +53,28 @@ NO XMFD for you, and keeps it up to date.
 
 </details>
 
-To change NO XMFD's settings (Declutter HUD toggles, keybinds), see
-[BepInEx setting](#bepinex-setting) above.
+<details>
+<summary><strong>Changing settings (ConfigurationManager)</strong></summary>
+
+NO XMFD's own settings — the Declutter HUD toggles and the extended keybinds —
+are changed either in the in-game **ConfigurationManager** menu or by hand in
+`BepInEx/config/com.roque.NOXMFD.cfg`. The plugin runs fine without any of this;
+you only need it to adjust those settings.
+
+To use the in-game menu, install **ConfigurationManager** — the settings editor,
+much friendlier than editing the config file by hand. Download the **BepInEx 5**
+build from its
+[releases](https://github.com/BepInEx/BepInEx.ConfigurationManager/releases) and
+extract the DLL into `BepInEx/plugins/`. It also needs `HideManagerGameObject =
+true` under `[Chainloader]` in `BepInEx/config/BepInEx.cfg`: Nuclear Option
+destroys BepInEx's manager GameObject on the boot → main-menu transition, and
+ConfigurationManager lives on it, so the menu will not open unless the setting is
+on. Its default open key is `F1`, rebindable in that menu's *General* section.
+
+Either way the settings work — skip ConfigurationManager and edit the `.cfg` by
+hand.
+
+</details>
 
 ## Features
 
