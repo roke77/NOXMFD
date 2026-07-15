@@ -72,72 +72,23 @@ const sepElsRight = document.querySelectorAll('#keys-right .sep');   // same str
 //  its own weapon rows + CM panel; see src/web/pages/wpn/.)
 
 // ── Pages ─────────────────────────────────────────────────────────────────────────
-// Which page is in view (MAP, MAIN, WPN…) and the line-select items each page shows.
-// Every item names a label, the key bank/slot it aligns to, and the action its key
-// fires. The MAP page overlays its items on top of the (still-interactive) map; the
-// MAIN page draws an opaque panel over it.
-const PAGES = {
-  map: {
-    opaque: false,
-    items: [
-      { label: 'MAIN', key: 0, action: 'main' },   // → MAIN page
-      { label: 'FLW',  key: 1, action: 'flw'  },   // → toggle map follow
-      { label: 'Z+',   key: 2, action: 'zin'  },   // → map zoom in
-      { label: 'Z-',   key: 3, action: 'zout' },   // → map zoom out
-    ],
-  },
-  main: {
-    opaque: true,
-    items: [
-      { label: 'AVN', key: 0, action: 'avn' },      // → AVN page
-      { label: 'MAP', key: 1, action: 'map' },      // → MAP page
-      { label: 'RWR', key: 2, action: 'rwr' },      // → RWR page
-      { label: 'TGT', key: 3, action: 'tgt' },      // → TGT page (target-selection filter)
-      { label: 'TGP', key: 4, action: 'tgp' },      // → TGP page
-      { label: 'WPN', key: 5, action: 'wpn' },      // → WPN page
-    ],
-  },
-  wpn: {
-    // Hosted in #page-frame (an iframe), not the overlay — so the overlay stays transparent
-    // and only carries the nav labels. placeWpnNavLabels() owns left-key-0 (MAIN/PREV) and
-    // right-key-0 (NEXT when more than WPN_MAX_DISPLAY weapons exist).
-    opaque: false,
-    items: [],
-  },
-  tgp: {
-    // Hosted in #page-frame (the src/web/pages/tgp page), not the overlay — so the overlay
-    // stays transparent and only carries the MAIN nav label below.
-    opaque: false,
-    items: [
-      { label: 'MAIN', key: 0, action: 'main' },    // ← back to MAIN
-    ],
-  },
-  avn: {
-    // Hosted in #page-frame (the src/web/pages/avn page), not the overlay — so the overlay
-    // stays transparent and only carries the MAIN nav label below.
-    opaque: false,
-    items: [
-      { label: 'MAIN', key: 0, action: 'main' },     // ← back to MAIN
-    ],
-  },
-  rwr: {
-    // Hosted in #page-frame (the src/web/pages/rwr page), not the overlay — so the overlay
-    // stays transparent and only carries the MAIN nav label below.
-    opaque: false,
-    items: [
-      { label: 'MAIN', key: 0, action: 'main' },     // ← back to MAIN
-    ],
-  },
-  tgt: {
-    // Hosted in #page-frame (the src/web/pages/tgt page). Fully clickable — the page renders the
-    // target-selection filters as clickable components and POSTs tgt.* commands itself; the shell
-    // only carries the MAIN back label below (docs/tgt-page.md).
-    opaque: false,
-    items: [
-      { label: 'MAIN', key: 0, action: 'main' },     // ← back to MAIN
-    ],
-  },
-};
+// ── Navigation model ─────────────────────────────────────────────────────────────────
+// The layout-independent { label, action } list per page lives in nav-model.js (loaded before this
+// script) — see docs/layouts.md, "The seam". Everything below is the BEZEL layout renderer: how
+// this particular shell places that model on physical keys. A second layout would consume the same
+// NAV and bring its own placement.
+const NAV = NavModel.NAV;
+
+// ── Bezel layout renderer: full-view placement ───────────────────────────────────────
+// NAV item i lands on left-column key i. Uniform across every page today, so it's derived rather
+// than declared — the answer to layouts.md's "is placement derivable from the ordered list?" is
+// YES for full view (and no for split; see SPLIT_SLOTS). A future page needing a right-column
+// full-view label is the point at which this earns a placement table of its own.
+function fullViewSlot(i) { return { bank: 'left', index: i }; }
+
+// Which pages draw an OPAQUE full-view overlay. MAIN paints a panel over the still-running map;
+// every other page is transparent (its content is the map, or the #page-frame beneath).
+const OPAQUE_PAGES = { main: true };
 let currentPage = 'map';
 
 // ── Split-screen state ──────────────────────────────────────────────────────────────
@@ -168,58 +119,44 @@ const WPN_SPLIT_MAX = 4;
 let lastStatusCls  = 'disconnected';
 let lastStatusText = '● DISCONNECTED';
 
-// Split-mode line-select layouts per page. Each entry is one pane-local label
-// { side, slot }; SplitKeymap.paneKey resolves it to a physical bezel key per the split
-// orientation (top/bottom vs left/right). Pages without an entry render no labels in split mode.
-const SPLIT_PAGES = {
-  main: {
-    // Initial mapping scope per the user — only AVN and TGP are wired today. Other
-    // destinations (MAP/RWR/WPN) come in subsequent interview rounds and stay
-    // hidden until their bare pages exist.
-    items: [
-      { side: 'left',  slot: 0, label: 'AVN', action: 'avn' },
-      { side: 'left',  slot: 1, label: 'MAP', action: 'map' },
-      { side: 'left',  slot: 2, label: 'RWR', action: 'rwr' },
-      { side: 'right', slot: 0, label: 'TGT', action: 'tgt' },
-      { side: 'right', slot: 1, label: 'TGP', action: 'tgp' },
-      { side: 'right', slot: 2, label: 'WPN', action: 'wpn' },
-    ],
-  },
-  // MAP pane is the bare map iframe (/map-view?bare) — it self-connects to the SSE stream,
-  // so the shell forwards no data, only routes these controls to the pane's own map. Left
-  // column = nav (MAIN back) + follow; right column = zoom rocker (Z+ over Z-).
-  map: {
-    items: [
-      { side: 'left',  slot: 0, label: 'MAIN', action: 'main' },   // ← back to MAIN (this pane)
-      { side: 'left',  slot: 1, label: 'FLW',  action: 'flw'  },   // toggle follow on this pane's map
-      { side: 'right', slot: 0, label: 'Z+',   action: 'zin'  },   // zoom this pane's map in
-      { side: 'right', slot: 1, label: 'Z-',   action: 'zout' },   // zoom this pane's map out
-    ],
-  },
-  // AVN / TGP in a split pane each expose a single MAIN back-button on their pane's
-  // top-left slot (L0 for top, physically L3 for bottom). Clicking it navigates ONLY
-  // that pane back to MAIN, leaving the other pane untouched.
-  avn: {
-    items: [
-      { side: 'left', slot: 0, label: 'MAIN', action: 'main' },
-    ],
-  },
-  tgp: {
-    items: [
-      { side: 'left', slot: 0, label: 'MAIN', action: 'main' },
-    ],
-  },
-  // RWR pane is the bare /rwr iframe — a self-contained stub (fake contacts, no fetches), so
-  // the shell forwards no data. Just a MAIN back-button on the pane's top-left slot.
-  rwr: {
-    items: [
-      { side: 'left', slot: 0, label: 'MAIN', action: 'main' },
-    ],
-  },
-  // WPN's pane labels are dynamic — MAIN/PREV on the pane's L0 and NEXT on R0 depend on the
-  // pane's pagination state — so renderSplitLabels special-cases it instead of reading a
-  // static item list here. This marker just records that WPN is a valid split page.
-  wpn: { dynamic: true },
+// ── Bezel layout renderer: split placement ───────────────────────────────────────────
+// Where each NAV item lands in a split pane, as pane-local { side, slot } — index-aligned with
+// NAV[page], so entry i places NAV[page][i]. SplitKeymap.paneKey resolves the pane-local position
+// to a physical bezel key per orientation (top/bottom vs left/right).
+//
+// Unlike full view, split placement is NOT derivable from the ordered list: MAP deliberately
+// groups its zoom rocker (Z+ over Z-) on the RIGHT column instead of filling the left first, so
+// each split-capable page declares its own. (layouts.md flags this as the open question — the
+// answer is "a page can need a hint", and MAP is the page that needs one.)
+//
+// A page absent here cannot be a split pane: TGT is full-view only (dense filter grid + list), so
+// picking it from a pane collapses the split instead (see mfdButton's pane branch).
+const SPLIT_SLOTS = {
+  main: [
+    { side: 'left',  slot: 0 },   // AVN
+    { side: 'left',  slot: 1 },   // MAP
+    { side: 'left',  slot: 2 },   // RWR
+    { side: 'right', slot: 0 },   // TGT
+    { side: 'right', slot: 1 },   // TGP
+    { side: 'right', slot: 2 },   // WPN
+  ],
+  // MAP pane is the bare map iframe (/map-view?bare) — it self-connects to the SSE stream, so the
+  // shell forwards no data, only routes these controls to the pane's own map. Left column = nav
+  // (MAIN back) + follow; right column = the zoom rocker.
+  map: [
+    { side: 'left',  slot: 0 },   // MAIN — back to MAIN (this pane)
+    { side: 'left',  slot: 1 },   // FLW  — toggle follow on this pane's map
+    { side: 'right', slot: 0 },   // Z+
+    { side: 'right', slot: 1 },   // Z-
+  ],
+  // AVN / TGP / RWR in a split pane each expose their single MAIN back-button on the pane's
+  // top-left slot (L0 for top, physically L3 for bottom). It navigates ONLY that pane.
+  avn: [ { side: 'left', slot: 0 } ],
+  tgp: [ { side: 'left', slot: 0 } ],
+  rwr: [ { side: 'left', slot: 0 } ],
+  // WPN is a valid split page but places no NAV labels: its MAIN/PREV + NEXT depend on the pane's
+  // pagination state, so renderSplitLabels' list branch owns them (NAV.wpn is empty to match).
+  wpn: [],
 };
 
 // URL for each iframe-served page. Pages without an entry render 'about:blank' on
@@ -335,8 +272,8 @@ function renderSplitLabels() {
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
   for (let paneIdx = 0; paneIdx < 2; paneIdx++) {
     const page = panePages[paneIdx];
-    const def = SPLIT_PAGES[page];
-    if (!def) continue;
+    const slots = SPLIT_SLOTS[page];
+    if (!slots) continue;                            // not a split-capable page (e.g. TGT)
     const paneTag = paneIdx === 0 ? 'top' : 'bot';   // pane identity for click dispatch (orientation-agnostic)
 
     if (isListPage(page)) {
@@ -350,9 +287,14 @@ function renderSplitLabels() {
       // aircraft-global, so the press falls through the pane dispatcher to the shared case.
       wireWpnPaneWeaponKeys(slice.items, paneIdx);
     } else {
-      // Static nav (MAIN/MAP/AVN/RWR/TGP): place each pane-local (side, slot) via paneKey.
-      def.items.forEach(function(item) {
-        placeSplitKey(paneKey(paneIdx, item.side, item.slot), item.label, item.action, paneTag);
+      // Static nav (MAIN/MAP/AVN/RWR/TGP): render the navigation model at this page's declared
+      // pane-local slots — SPLIT_SLOTS[page][i] places NAV[page][i].
+      (NAV[page] || []).forEach(function(item, i) {
+        const s = slots[i];
+        // SPLIT_SLOTS is index-aligned with NAV, so a NAV item added without a matching slot would
+        // silently not render here — the exact failure the old duplicated tables produced. Say so.
+        if (!s) { console.warn('[mfd] NAV.' + page + '[' + i + '] "' + item.label + '" has no SPLIT_SLOTS entry — not placed'); return; }
+        placeSplitKey(paneKey(paneIdx, s.side, s.slot), item.label, item.action, paneTag);
       });
     }
   }
@@ -873,8 +815,7 @@ function placeOverlayLabel(bankName, keyIndex, label, action) {
 // each item label next to its physical key.
 function showPage(name) {
   currentPage = name;
-  const page = PAGES[name];
-  overlayEl.classList.toggle('opaque', page.opaque);
+  overlayEl.classList.toggle('opaque', !!OPAQUE_PAGES[name]);
   // TGT keeps clickable content in the top-left where the MAIN bezel label sits; a class here lets
   // mfd.css render that label vertically so it hugs the edge and clears the page's RESET button.
   overlayEl.classList.toggle('tgt-page', name === 'tgt');
@@ -884,8 +825,10 @@ function showPage(name) {
   // Only wipe dynamic line-select labels; static children (info-box) stay put.
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
 
-  page.items.forEach(function(item) {
-    placeOverlayLabel(item.side || 'left', item.key, item.label, item.action);
+  // Bezel full-view rendering of the navigation model: item i → left-column key i.
+  (NAV[name] || []).forEach(function(item, i) {
+    const m = fullViewSlot(i);
+    placeOverlayLabel(m.bank, m.index, item.label, item.action);
   });
 
   // WPN owns its own nav labels (PREV/MAIN + NEXT) because they depend on the page state; run
@@ -896,26 +839,26 @@ function showPage(name) {
     placeWpnNavLabels();                                          // MAIN/PREV/NEXT (shell-owned)
     forwardWpnLayoutToFrame(); forwardWpnToFrame(); forwardCmToFrame();
   }
-  // TGP renders in #page-frame too. Its only key is the static MAIN label (PAGES.tgp.items,
+  // TGP renders in #page-frame too. Its only key is the static MAIN label (NAV.tgp,
   // placed by the generic sweep above), so there's no extra nav wiring — just forward the
   // lock flag. The page connects to /tgp.mjpg itself once loaded.
   if (name === 'tgp') {
     showFramePage('tgp');
     forwardTgpToFrame();
   }
-  // AVN renders in #page-frame too. Its only key is the static MAIN label (PAGES.avn.items,
+  // AVN renders in #page-frame too. Its only key is the static MAIN label (NAV.avn,
   // placed by the generic sweep above); forward the bezel geometry (full profile) + snapshot.
   if (name === 'avn') {
     showFramePage('avn');
     forwardAvnLayoutToFrame(); forwardAvnToFrame();
   }
-  // RWR renders in #page-frame too. Its only key is the static MAIN label (PAGES.rwr.items,
+  // RWR renders in #page-frame too. Its only key is the static MAIN label (NAV.rwr,
   // placed by the generic sweep above); forward the contact + missile snapshots.
   if (name === 'rwr') {
     showFramePage('rwr');
     forwardRwrToFrame(); forwardMwToFrame();
   }
-  // TGT renders in #page-frame too. Its only bezel key is the static MAIN label (PAGES.tgt.items,
+  // TGT renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.tgt,
   // placed by the generic sweep above); everything else is clickable in the page. Forward state.
   if (name === 'tgt') {
     showFramePage('tgt');
