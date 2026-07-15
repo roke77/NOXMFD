@@ -158,6 +158,15 @@ controls along the top, layout presets along the bottom.
 - **V_SPLIT** — left/right split.
 - **V_WIDE_SPLIT** — left/right 2:1 split.
 
+<details>
+<summary>$\color{green}\textsf{See screenshots}$</summary>
+
+![V_SPLIT (left) and H_SPLIT (right)](docs/images/H_V_SPLIT.png)
+
+![V_WIDE_SPLIT](docs/images/V_WIDE_SPLIT.png)
+
+</details>
+
 ### Declutter HUD
 
 Optional toggles to hide native in-game HUD elements, available in the BepInEx
