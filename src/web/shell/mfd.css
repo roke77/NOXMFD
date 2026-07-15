@@ -431,7 +431,7 @@
   .screen.split-vw .pane-follow.top { right: calc(33.333% + 12px); }
   .overlay-item {
     position: absolute;
-    color: #d4d8dc;
+    color: var(--no-label);
     font-family: var(--no-font);
     font-size: 21px;
     font-weight: 900;

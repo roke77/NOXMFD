@@ -8,6 +8,7 @@
   --no-red:        #ff4040;  /* empty / alert state */
   --no-amber:      #ffaa00;  /* selected / waiting state */
   --no-gray:       #5a5a5a;  /* inactive / off annunciator (AVN status tiles) */
+  --no-label:      #d4d8dc;  /* nav key labels — off-white, not the screen's green (both layouts) */
   --no-bg:         #000;
   --no-panel-bg:   rgba(6,10,6,0.78);
   --no-panel-border: #1a3a1a;
