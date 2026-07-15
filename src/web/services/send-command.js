@@ -1,5 +1,5 @@
 // Shared sender for the inbound command channel (POST /command), used by the MAP page (target
-// select on a map tap) and the MFD shell (target deselect from a TGL bezel key). Linked as a
+// select on a map tap) and the TGT page (filter toggles + target deselect). Linked as a
 // classic <script> before each page's own script, so `sendCommand` is a plain global.
 //
 // The wire envelope is FLAT — { cmd, ...args } — because the game's JsonUtility reliably parses

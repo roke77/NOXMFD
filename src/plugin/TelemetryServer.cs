@@ -371,8 +371,6 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/tgp/tgp.html");
                     else if (path == "/wpn")
                         ServeAssetRel(ctx, "pages/wpn/wpn.html");
-                    else if (path == "/tgl")
-                        ServeAssetRel(ctx, "pages/tgl/tgl.html");
                     else if (path == "/rwr")
                         ServeAssetRel(ctx, "pages/rwr/rwr.html");
                     else if (path == "/tgt")
@@ -397,7 +395,7 @@ namespace NOXMFD
         }
 
         // ── Inbound command channel ──────────────────────────────────────────────
-        // The web client POSTs JSON commands to /command (e.g. tap-to-target, TGL deselect).
+        // The web client POSTs JSON commands to /command (e.g. tap-to-target, TGT deselect).
         // HttpListener dispatches this on a threadpool thread, where touching Unity/game state is
         // illegal — so we only parse + validate + ENQUEUE here, and the Unity main thread
         // (CommandDispatcher, drained from TelemetryReader.Update) executes each command. This is a

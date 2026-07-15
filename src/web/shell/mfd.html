@@ -26,7 +26,7 @@
       <div class="keys v" id="keys-left"></div>
       <div class="screen" id="screen">
         <iframe src="/map-view?bare" title="map"></iframe>
-        <!-- Full-view host for the frame-hosted pages (WPN, TGL, TGP, RWR, AVN). Shown via
+        <!-- Full-view host for the frame-hosted pages (WPN, TGT, TGP, RWR, AVN). Shown via
              .screen.page-on in single-pane view; covers the map iframe (which keeps running
              behind as the SSE data source). Hidden in split view, where the panes take over. -->
         <iframe id="page-frame" title="page"></iframe>
@@ -56,8 +56,6 @@
                (src/web/pages/wpn/), not here. The overlay only carries WPN's nav labels. -->
           <!-- TGP content (targeting-pod feed) now lives in the #page-frame iframe
                (src/web/pages/tgp/), not here. The overlay only carries TGP's MAIN nav label. -->
-          <!-- TGL content (target rows + indicator) now lives in the #page-frame iframe
-               (src/web/pages/tgl/), not here. The overlay only carries TGL's nav labels. -->
           <!-- AVN content (silhouette + failure labels + FUEL/THROTTLE bars) now lives in the
                #page-frame iframe (src/web/pages/avn/), not here. The overlay only carries AVN's
                MAIN nav label. -->

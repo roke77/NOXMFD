@@ -191,9 +191,9 @@
       { t: 'SAM',     f: 2, x: -2000,  z: -15000, h: 0,   o: false, s: 1 },
       { t: 'Vessel',  f: 0, x: -14000, z: -4000,  h: 0,   o: false, s: 1 },
     ],
-    // 12 mock target locks — the MFD's TGL page displays the first 10, the last 2 stay
-    // queued in memory until one of the visible ones is deselected. `f` matches the contact
-    // faction code (0 = neutral, 1 = friendly, 2 = enemy) and drives the row colour.
+    // 12 mock target locks — the MFD's TGT page lists them under its filters (it scrolls, so
+    // all 12 show). `f` matches the contact faction code (0 = neutral, 1 = friendly,
+    // 2 = enemy) and drives the row colour.
     targets: [
       { id: 101, n: 'HLT Flatbed',   g: 'Kg53', r: 8.4,  f: 2 },
       { id: 102, n: 'BMP-2',         g: 'Kh54', r: 9.1,  f: 2 },

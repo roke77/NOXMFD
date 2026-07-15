@@ -16,7 +16,7 @@ src/web/
   shell/    mfd.html  mfd.css  mfd.js                     # the bezel shell (host + router)
   pages/
     map/    map.html  map.css  map.js     # the live map view (imports services/telemetry-source.js)
-    wpn/  tgl/  tgp/  avn/  rwr/           # reactive MFD pages, one folder each
+    wpn/  tgt/  tgp/  avn/  rwr/           # reactive MFD pages, one folder each
     main/                                  # the split-pane MAIN card (full-view MAIN is shell chrome)
 ```
 
@@ -45,13 +45,13 @@ a reactive sink.
           ▼
    ┌──────────────┐  Caches each slice and re-forwards DOWN to whoever is visible:
    │  SHELL       │  forwardX*ToFrame (full view) / forwardX*ToPanes (split).
-   │  (mfd.js)    │  Owns the bezel, split logic, page hosting, the softkey contract.
+   │  (mfd.js)    │  Owns the bezel, split logic and page hosting.
    │              │  Guard: only trusts telemetry from the canonical MAP iframe
    │              │  (e.source === mapFrame.contentWindow).
    └──────┬───────┘
           │  postMessage  ▼ DOWN
           ▼
-   WPN · TGL · TGP · AVN · RWR   pure reactive renderers — render to their own container,
+   WPN · TGT · TGP · AVN · RWR   pure reactive renderers — render to their own container,
                                  never know full-vs-split, never touch /stream.
 ```
 
@@ -60,7 +60,7 @@ floating-origin math, contacts) and must be same-origin to pull the real map PNG
 holds the SSE connection. The mod's `HttpListener` SSE is happiest with **one** consumer, so rather
 than open a second connection from the shell, MAP parses once and broadcasts derived state up. That
 is why MAP is the **always-on base iframe** (under `#page-frame` + the overlay) and is **not** in
-`FRAME_PAGES` — it has to stay connected even while you're looking at WPN/TGL, or data stops
+`FRAME_PAGES` — it has to stay connected even while you're looking at WPN/TGT, or data stops
 flowing to them. (In split, a MAP *pane* also opens `/stream`, but the shell ignores its mirror
 posts — only the base `mapFrame`'s posts drive the caches.)
 
@@ -73,7 +73,7 @@ not part of the data path; `map.js` owns it (`loadPersistedView` / `savePersiste
 ## Hosting model
 
 - **Full view:** the visible page renders in the shell's single `#page-frame` iframe
-  (`FRAME_PAGES = {wpn, tgl, tgp, avn, rwr}`). MAP is the base iframe *under* it; MAIN's full view
+  (`FRAME_PAGES = {wpn, tgt, tgp, avn, rwr}`). MAP is the base iframe *under* it; MAIN's full view
   is the shell's own info-box chrome (not a hosted page).
 - **Split view:** two stacked pane iframes (`/<page>?bare` each). The shell forwards data to both.
 - A page is the **single source of truth** for both layouts — one file, with an optional `body.full`
@@ -83,12 +83,8 @@ not part of the data path; `map.js` owns it (`loadPersistedView` / `savePersiste
 
 - **Data down:** `'<page>'` (the sliced rows + selection), `'<page>-layout'` (geometry +
   `layout:'full'|'compact'`), `'cm'`, `'orient'`.
-- **Softkeys up (declarative bezel keys):** a page posts `{ type:'softkeys', keys:[{ side, slot,
-  label, action, data }] }`; the shell's `applySoftkeys(keys, paneOffset, maxRow)` maps each
-  pane-local slot to a physical bezel key. Currently only TGL emits any (per-target
-  `target.deselect`); the shell caches each pane's set so it survives a re-render of the other pane.
 - **Write commands:** `src/web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
-  (MAP tap → `target.select`; shell bezel → `target.deselect`).
+  (MAP tap → `target.select`; TGT page → `tgt.*` + `target.deselect`).
 
 ## Verifying without the game
 

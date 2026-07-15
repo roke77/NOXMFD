@@ -56,22 +56,22 @@ Three files, coupling concentrated in `mfd.js`:
   - `PAGES` (`mfd.js:79`) declares navigation as `{ label, key, action }`,
     where **`key` is a physical bezel-slot index**. The `label`/`action`
     pair is layout-independent; the `key` slot is bezel-specific.
-  - `SPLIT_PAGES` + `SplitKeymap` (`mfd.js:191`, `split-keymap.js`)
+  - `SPLIT_PAGES` + `SplitKeymap` (`mfd.js:178`, `split-keymap.js`)
     resolve labels to physical bezel keys per split orientation
     (top/bottom vs left/right). This whole mechanism is written around
     bezel-key geometry.
 
 - **Page placement geometry (shell → page).** The exception to "pages are
-  decoupled": three pages are handed *bezel geometry*, not just data.
-  `forwardAvnLayoutToFrame` / `forwardWpnLayoutToFrame` /
-  `forwardTglLayoutToFrame` (`mfd.js:474`, `:687`, `:736`) read the bezel
-  key-separator rects (`sepEls`) and post `{avn,wpn,tgl}-layout` messages
-  so each page's rows align to the physical key bands:
+  decoupled": two pages are handed *bezel geometry*, not just data.
+  `forwardAvnLayoutToFrame` (`mfd.js:453`) and `forwardWpnLayoutToFrame`
+  (`:666`) read the bezel key-separator rects (`sepEls`) and post
+  `{avn,wpn}-layout` messages so each page's rows align to the physical
+  key bands:
 
   ```js
-  // mfd.js:736 — forwardTglLayoutToFrame()
+  // mfd.js:666 — forwardWpnLayoutToFrame()
   function bot(i) { return sepEls[i].getBoundingClientRect().bottom - frameTop; }
-  w.postMessage({ mfd: true, type: 'tgl-layout', layout: 'full', slots: slots }, '*');
+  w.postMessage({ mfd: true, type: 'wpn-layout', layout: 'full', slots: slots }, '*');
   ```
 
   This is not theoretical. HIDE SHELL already has to keep the `.keys.v`
@@ -79,13 +79,12 @@ Three files, coupling concentrated in `mfd.js`:
   separator rects stay valid; drop them and the AVN/WPN full-view geometry
   collapses. That workaround exists today because of this coupling.
 
-  **Escape hatch (already built):** each of those pages also has a
-  `compact` profile that needs no bezel geometry at all (written for split
-  panes — AVN reverts to compact when `layout !== 'full'`; TGL falls back
-  to `fallbackY()`). A non-bezel layout can drive them in compact mode from
-  day one rather than inventing a new placement contract. TGT / RWR / TGP
-  need no geometry at all (TGT is fully clickable, RWR is a responsive SVG,
-  TGP is a video feed).
+  **Escape hatch (already built):** both pages also have a `compact`
+  profile that needs no bezel geometry at all (written for split panes —
+  AVN reverts to compact when `layout !== 'full'`). A non-bezel layout can
+  drive them in compact mode from day one rather than inventing a new
+  placement contract. TGT / RWR / TGP need no geometry at all (TGT is fully
+  clickable, RWR is a responsive SVG, TGP is a video feed).
 
 ## The seam
 
@@ -196,8 +195,8 @@ not a Stage-3 requirement.
 - Read `src/web/shell/mfd.js` — `PAGES` (`:79`), `SPLIT_PAGES` (`:191`),
   `FRAME_PAGES` (`:61`), and `src/web/shell/split-keymap.js`. These are
   the coupling points Stage 1 has to tease apart.
-- Read the geometry forwarders too — `forwardAvnLayoutToFrame` (`:474`),
-  `forwardWpnLayoutToFrame` (`:687`), `forwardTglLayoutToFrame` (`:736`).
+- Read the geometry forwarders too — `forwardAvnLayoutToFrame` (`:453`)
+  and `forwardWpnLayoutToFrame` (`:666`).
   They're the coupling the "pages are decoupled" story misses, and they
   decide whether Stage 2 needs a new placement contract or can just use
   the pages' existing `compact` profile.

@@ -104,7 +104,7 @@ namespace NOXMFD
             Plugin.Log?.LogInfo($"[NOXMFD] target.select → '{name}' (id={id}, viaHud={viaHud}).");
         }
 
-        // Drop a unit from the player's weapon target list (TGL page bezel button). Mirrors the
+        // Drop a unit from the player's weapon target list (TGT page's list checkbox). Mirrors the
         // in-cockpit deselect via CombatHUD.DeSelectUnit, which reverts the marker colour, plays
         // the deselect beep, and syncs the DynamicMap icon; falls back to the bare weaponManager
         // op when the HUD isn't tracking the contact. No-ops if it isn't currently a target.
