@@ -36,7 +36,7 @@ behavior are what a layout owns.
 Page *content* is already independent of the shell. Every page —
 AVN / MAP / RWR / TGT / TGP / WPN — is its own iframe under
 `src/web/pages/*`, served "bare" and mounted into `#screen`
-(`FRAME_PAGES` in `src/web/shell/mfd.js:61`; the map is a separate
+(`FRAME_PAGES` in `src/web/shell/mfd.js`; the map is a separate
 `/map-view?bare` iframe). The shell hosts the frame and streams SSE
 data; it does not know what's inside a page.
 
@@ -53,23 +53,23 @@ Three files, coupling concentrated in `mfd.js`:
 - **`src/web/shell/mfd.css`** (~56KB) — the metallic bezel look and its
   geometry.
 - **`src/web/shell/mfd.js`** (~79KB) — the real coupling:
-  - `PAGES` (`mfd.js:79`) declares navigation as `{ label, key, action }`,
+  - `PAGES` (in `mfd.js`) declares navigation as `{ label, key, action }`,
     where **`key` is a physical bezel-slot index**. The `label`/`action`
     pair is layout-independent; the `key` slot is bezel-specific.
-  - `SPLIT_PAGES` + `SplitKeymap` (`mfd.js:174`, `split-keymap.js`)
+  - `SPLIT_PAGES` + `SplitKeymap` (`mfd.js`, `split-keymap.js`)
     resolve labels to physical bezel keys per split orientation
     (top/bottom vs left/right). This whole mechanism is written around
     bezel-key geometry.
 
 - **Page placement geometry (shell → page).** The exception to "pages are
   decoupled": two pages are handed *bezel geometry*, not just data.
-  `forwardAvnLayoutToFrame` (`mfd.js:426`) and `forwardWpnLayoutToFrame`
-  (`:639`) read the bezel key-separator rects (`sepEls`) and post
+  `forwardAvnLayoutToFrame` and `forwardWpnLayoutToFrame` (both in `mfd.js`)
+  read the bezel key-separator rects (`sepEls`) and post
   `{avn,wpn}-layout` messages so each page's rows align to the physical
   key bands:
 
   ```js
-  // mfd.js:639 — forwardWpnLayoutToFrame()
+  // mfd.js — forwardWpnLayoutToFrame()
   function bot(i) { return sepEls[i].getBoundingClientRect().bottom - frameTop; }
   w.postMessage({ mfd: true, type: 'wpn-layout', layout: 'full', slots: slots }, '*');
   ```
@@ -192,11 +192,13 @@ not a Stage-3 requirement.
 
 ## Pre-flight before implementing
 
-- Read `src/web/shell/mfd.js` — `PAGES` (`:79`), `SPLIT_PAGES` (`:174`),
-  `FRAME_PAGES` (`:61`), and `src/web/shell/split-keymap.js`. These are
-  the coupling points Stage 1 has to tease apart.
-- Read the geometry forwarders too — `forwardAvnLayoutToFrame` (`:426`)
-  and `forwardWpnLayoutToFrame` (`:639`).
+- Read `src/web/shell/mfd.js` — `PAGES`, `SPLIT_PAGES`, `FRAME_PAGES`, and
+  `src/web/shell/split-keymap.js`. These are the coupling points Stage 1
+  has to tease apart. (Grep the symbol names — this doc deliberately cites
+  no line numbers: Stage 1 restructures `PAGES` and the shell, so any
+  number here would be wrong the moment the work starts.)
+- Read the geometry forwarders too — `forwardAvnLayoutToFrame` and
+  `forwardWpnLayoutToFrame`.
   They're the coupling the "pages are decoupled" story misses, and they
   decide whether Stage 2 needs a new placement contract or can just use
   the pages' existing `compact` profile.
