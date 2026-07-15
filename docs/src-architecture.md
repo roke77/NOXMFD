@@ -1,8 +1,8 @@
 # src/web frontend architecture — design & refactor plan
 
 Status: **COMPLETE (2026-06-27)** — all seven steps done. Resource plumbing, shared font/theme,
-**WPN** as the proof page, then **TGL** (which introduced the **declarative softkey contract**, now
-applied in **both** full view and split — the per-target deselect keys ride one path), **TGP** (the
+**WPN** as the proof page, then **TGL** (which introduced the **declarative softkey contract**, then
+applied in **both** full view and split — the per-target deselect keys rode one path), **TGP** (the
 targeting-pod feed — no softkeys/geometry, one profile for both layouts),
 **AVN** (avionics silhouette + FUEL/THROTTLE bars — two profiles; full anchors name/frame to the
 bezel geometry the shell forwards), and **RWR** (radar-warning scope — one responsive SVG, one
@@ -13,6 +13,15 @@ JS):** scoped to its one real win — `sendCommand` extracted to `src/web/servic
 helper was deliberately skipped (the inbound guard is 7 trivial one-liners and the outbound
 envelope literals sit almost entirely in the shell + map — no cross-page win to justify touching
 ~16 files + a single point of failure). All three architecture goals are met.
+
+> **Since then (2026-07-15) — TGL and the softkey contract are gone.** The **TGT** page subsumed
+> TGL (filter panel + the selected-target list with checkbox deselect), leaving TGL unreachable, so
+> it was removed. The **declarative bezel-softkey contract** (goal 3 / section B) went with it — TGL
+> was the only page that ever emitted it. A page needing a write action now POSTs it directly via
+> `send-command.js` (TGT does exactly this). This document records the refactor's 2026-06-27
+> end-state: the **playbook below is kept current**, but the historical sections (baseline,
+> migration plan, section B) are left as written. See [`tgt-page.md`](tgt-page.md) and
+> [`layouts.md`](layouts.md).
 
 ## Goal
 
@@ -108,7 +117,7 @@ in `MfdPage.cs`. The shell shrinks substantially; each page keeps exactly one
 renderer (the bare page, promoted to the single source of truth).
 
 > **The one asymmetry — MAP is the telemetry tap, not a sink.** "Pages are pure
-> reactive renderers fed by the shell" holds for WPN/TGL/TGP/AVN/RWR, but **not**
+> reactive renderers fed by the shell" holds for WPN/TGT/TGP/AVN/RWR, but **not**
 > MAP. MAP is the single `EventSource('/stream')` consumer: it parses each frame and
 > posts derived slices (`status`/`loadout`/`cm`/`tgp`/`targets`/`rwr`/`mw`/`avn`/
 > `follow`) **up** to the shell, which caches and re-forwards them **down** to the
@@ -138,7 +147,8 @@ Replace the twice-hand-coded bezel binding with a one-way contract:
 
 This subsumed the old `tgl-deselect` bezel binding (formerly hand-wired in both
 the overlay `renderTgl` and `renderSplitLabels`) into a single declarative path.
-**Realized:** see the *softkey contract* note in the playbook below.
+**Realized, then retired:** the contract shipped on TGL and was deleted along with it on
+2026-07-15 — TGL was its only emitter. See the playbook note below for what replaced it.
 
 ### C. Proposed file layout
 ```
@@ -302,7 +312,7 @@ src/
     shell/   mfd.html  mfd.css  mfd.js                  # bezel shell + split/page hosting
     pages/
       wpn/   wpn.html  wpn.css  wpn.js                  # one file, two profiles
-      tgl/   tgl.html  tgl.css  tgl.js                  # + declarative softkey contract
+      tgt/   tgt.html  tgt.css  tgt.js                  # full-view only; POSTs its own commands
       tgp/   tgp.html  tgp.css  tgp.js                  # one profile (feed, like MAP)
       avn/   avn.html  avn.css  avn.js                  # two profiles (full anchors to bezel geom)
       rwr/   rwr.html  rwr.css  rwr.js                  # one profile (responsive SVG), 2 streams
@@ -343,40 +353,41 @@ NOXMFD.csproj          # <EmbeddedResource Include="src\web\**\*" />
   (it may start loading mid-update). Guard `if (splitMode || currentPage !== '<page>') return`.
 - **SSE update handler** (the `else if (m.type === 'loadout'|'cm'|…)` chain) — when data
   changes, forward to the frame: `if (currentPage==='<page>' && !splitMode) forwardXToFrame()`.
-- **Nav vs softkeys.** Pagination/navigation (MAIN/PREV/NEXT) is **shell state** → keep it
+- **Nav is shell-owned.** Pagination/navigation (MAIN/PREV/NEXT) is **shell state** → keep it
   shell-owned (`placeWpnNavLabels` is the pattern; `mfdButton`'s `wpn-prev/next` cases just
-  bump `wpnPage` and call `showPage`). Only **per-item action keys** (TGL's per-target
-  deselect) need the softkey contract (section B).
+  bump `wpnPage` and call `showPage`). For a page's own **write actions**, don't route through the
+  bezel — POST straight from the page with `send-command.js` (TGT's filter toggles and its list's
+  `target.deselect` do this). The old softkey contract for this is gone; see the note below.
 - **`broadcastOrientation()`** forwards `orient` to panes — also forward to `pageFrame` (for
   CSS that keys off `body.portrait/landscape`, e.g. WPN's image rotation).
 
 ### The shell⇄page postMessage protocol (envelope: `{ mfd:true, type, … }`)
 Shell → page (data **down**): `'<page>'` (the sliced rows + selection), `'<page>-layout'`
 (geometry; include `layout:'full'|'compact'` + the slots/bands the page needs), `'cm'`,
-`'orient'`. Page → shell (**up**, only where needed): the `'softkeys'` contract (section B).
+`'orient'`. Page → shell (**up**): only MAP posts up — the telemetry slices it derives from
+`/stream` (see the MAP-asymmetry note above). No page posts softkeys any more.
 A page is a pure reactive renderer: it renders to its own container and never knows full-vs-split.
 
-### The softkey contract (landed on TGL — reference for the remaining pages)
-**DONE on TGL, full + split.** The TGL page emits per-target softkeys `{side, slot, label,
-action:'target.deselect', data:{id}}` on every render (pane-agnostic). The shell's
-`applySoftkeys(keys, paneOffset, maxRow)` maps each pane-local **1-based** slot to
-`keyBanks[side][paneOffset+slot]`, places any label, and `mfdButton`'s `target.deselect` case
-dispatches (`sendCommand('target.deselect',{id})`).
-- **Full view:** the `#page-frame` posts up; shell applies at `paneOffset 0, maxRow 5` (row keys
-  1–5/side; nav on slot 0 stays shell-owned).
-- **Split:** each pane posts up; shell applies at `paneOffset 0/3, maxRow 2`, keyed off `e.source`.
-  Each pane's set is cached in `paneSoftkeys[idx]` and **re-applied by `renderSplitLabels`** (which
-  `clearKeyActions()`s the whole bezel and can fire for the *other* pane without this one
-  re-emitting). Reset on `paneNavigate` / split entry.
-- Deselect keys carry **no `data-pane`** (the command is pane-independent), so split clicks skip
-  `mfdButton`'s pane-routing block and fall through to the shared switch case.
+### The softkey contract — REMOVED (2026-07-15)
 
-**For the next page that needs softkeys:** emit the contract from the page; the shell side is now
-generic (`applySoftkeys` + the `paneSoftkeys` cache handle both layouts). If a softkey needs a
-*visible* label, note that `renderSplitLabels`/`placeXNavLabels` currently wipe all overlay-items —
-labelled softkeys would need the same cache-and-re-apply treatment as the bindings.
-`target.select` (MAP tap) and `target.deselect` are implemented in `src/plugin/CommandDispatcher.cs`
-(+ `src/web/services/send-command.js` on the client).
+**Do not look for this mechanism; it no longer exists.** It shipped on TGL (per-target
+`target.deselect` keys posted up as `{type:'softkeys', …}`, mapped to physical keys by the shell's
+`applySoftkeys`). TGL was the only page that ever emitted it, so when TGT subsumed TGL both were
+deleted: `applySoftkeys`, `paneSoftkeys`, `paneSoftkeyMapper`, `fullKey`, the `'softkeys'` handler
+and the bezel `target.deselect` key case are all gone.
+
+**What to do instead — a page owns its own write actions.** TGT is the reference: it renders
+clickable controls and POSTs commands directly with `send-command.js`
+(`sendCommand('target.deselect', {id})`, `sendCommand('tgt.set', …)`), driven by state the shell
+forwards down. No bezel round-trip and no pane routing, and it works the same in any layout — which
+also means it adds nothing to the bezel coupling the layouts refactor has to unpick
+([`layouts.md`](layouts.md)).
+
+Bezel **navigation** stays shell-owned (`placeWpnNavLabels`, `PAGES[].items`) — that's shell state,
+not page state. If a future page genuinely needs a *page-driven bezel key*, read this section out of
+git history (`git log -p -- docs/src-architecture.md`) rather than assuming the machinery is still
+there. The commands themselves (`target.select`, `target.deselect`, `tgt.*`, `weapon.select`) live
+in `src/plugin/CommandDispatcher.cs` (+ `src/web/services/send-command.js` on the client).
 
 ### Verifying without the game (critical — the C# build does NOT check the JS/CSS)
 `dotnet build` verifies the C# routes and embedded-resource inclusion, but it never parses the

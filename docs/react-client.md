@@ -79,11 +79,12 @@ The SSE frame shape (from `TelemetryServer.Serialize` +
 ```
 
 Notes that matter for faithful mocking:
-- `contacts[].tg` (targeted) is the source of truth for the TGL list —
-  the C# TGL page derives targets from `tg`-flagged contacts and colours
+- `contacts[].tg` (targeted) is the source of truth for the **TGT** page's
+  target list — targets are derived from `tg`-flagged contacts and coloured
   by `f` (faction: 0 neutral, 1 friendly, 2 enemy). `preview-mock.js`
-  also carries a richer `targets[]` array (name/grid/range/faction) for
-  preview; replicate that as the mock's TGL source.
+  also carries a richer `targets[]` array (name/grid/range/faction) plus a
+  `tgt` block (the filter toggle states); replicate both as the mock's TGT
+  source.
 - Floating-origin is already resolved server-side: `world.x/z` are true
   world coords and map directly to a map fraction given `map.w/h`. The
   client just needs `worldToMapFraction`. No origin maths in React.
@@ -159,8 +160,12 @@ so the standalone map page is still reachable on its own.
 - **MAP** — hosts `<MapView>`; keys forward zoom in/out + follow.
 - **WPN** — loadout + countermeasures, paginated (PREV/NEXT), inline IR
   flares depletion grid.
-- **TGL** — target list derived from `tg` contacts, faction-coloured
-  (enemies red), paginated PREV/NEXT, NO TARGETS empty state.
+- **TGT** — target-selection page (replaced TGL). Fully clickable, no bezel
+  keys but MAIN: faction/category/vehicle filter toggles (tap = toggle,
+  long-press = only-this) driving the `tgt.*` commands, over a scrolling
+  selected-target list (name/grid/range, faction-coloured, checkbox to
+  deselect) with a NO TARGETS empty state. Full-view only — not a split
+  pane. See [`tgt-page.md`](tgt-page.md).
 - **TGP** — targeting-pod feed (mock), NO TARGET fallback driven by
   `tgpActive`.
 - **AVN** — airframe damage silhouette from `parts[]` HP + the
@@ -224,8 +229,9 @@ react-client/
    target boxes, hover labels.
 5. **MFD shell.** Bezel, keys, page switching, MAIN + MAP pages with
    shared state replacing postMessage.
-6. **WPN + TGL pages.** Loadout/CM with pagination + flares grid; target
-   list with pagination + faction colour.
+6. **WPN + TGT pages.** Loadout/CM with pagination + flares grid; TGT's
+   filter toggles + scrolling target list with faction colour and
+   checkbox-deselect.
 7. **AVN page.** Silhouette from parts HP + layout descriptor + part art.
 8. **TGP page.** Mock feed + NO TARGET fallback + fullscreen.
 9. **Mock polish.** Animation mode, alternate scenario frames, parity
