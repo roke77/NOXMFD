@@ -84,7 +84,7 @@ pilot, with HOTAS-friendly keybinds to match.
 - **MAIN** — landing page: connection status and the URL(s) to open the display.
 
   <details>
-  <summary>Show screenshot</summary>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
   ![MAIN page](docs/images/MAIN.png)
 
@@ -93,7 +93,7 @@ pilot, with HOTAS-friendly keybinds to match.
 - **AVN** — aircraft status at a glance: airframe damage, fuel, throttle, engine-fire warnings, and a row of system annunciators (gear, radar, guns, engine, flight assist, night vision, nav lights, turret) that light up with each system's live state.
 
   <details>
-  <summary>Show screenshot</summary>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
   ![AVN page](docs/images/AVN.png)
 
@@ -102,7 +102,7 @@ pilot, with HOTAS-friendly keybinds to match.
 - **MAP** — full-screen tactical map with friendly/hostile units and your own position; click a unit to target it, FLW toggles follow, Z+/Z− zoom.
 
   <details>
-  <summary>Show screenshot</summary>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
   ![MAP page](docs/images/MAP.png)
 
@@ -111,7 +111,7 @@ pilot, with HOTAS-friendly keybinds to match.
 - **RWR** — radar threats around you by bearing, with incoming-missile warnings.
 
   <details>
-  <summary>Show screenshot</summary>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
   ![RWR page](docs/images/RWR.png)
 
@@ -120,7 +120,7 @@ pilot, with HOTAS-friendly keybinds to match.
 - **TGT** — target-selection filter mirroring the in-cockpit TARGET SELECTION panel: toggle which factions, categories, and vehicle types can be targeted (plus LASER/HUD), with RESET and CLEAR, above your live selected-target list. Full-view only for the moment — selecting it from a split view switches back to full view.
 
   <details>
-  <summary>Show screenshot</summary>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
   ![TGT page](docs/images/TGT.png)
 
@@ -129,7 +129,7 @@ pilot, with HOTAS-friendly keybinds to match.
 - **TGP** — targeting-pod camera feed zoomed on the locked target, with range and bearing.
 
   <details>
-  <summary>Show screenshot</summary>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
   ![TGP page](docs/images/TGP.png)
 
@@ -138,7 +138,7 @@ pilot, with HOTAS-friendly keybinds to match.
 - **WPN** — weapon loadout and rounds remaining, plus IR-flare count and jammer charge.
 
   <details>
-  <summary>Show screenshot</summary>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
   ![WPN page](docs/images/WPN.png)
 
