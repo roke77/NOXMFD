@@ -90,7 +90,7 @@
   //          ordering a rendering choice: the bezel keeps NAV's order, where TGT precedes TGP.
   //   wpn  — nothing from NAV (it's empty by design); its labels are pagination, built below.
   function itemsFor(page) {
-    if (page === 'wpn') return wpnNavItems();
+    if (page === 'wpn') return wpnState().nav;
     const items = (NAV[page] || []).slice();
     if (page !== 'main') return items;
     return items.concat(MAIN_EXTRAS).sort(function (a, b) { return a.label.localeCompare(b.label); });
@@ -137,24 +137,11 @@
   //
   // So this layout supplies its own rects, from its grid instead of the bezel's separators. The
   // page is untouched and doesn't know the difference; the row bands ARE the key bands.
-  function wpnList()      { return (slices.loadout && slices.loadout.items) || []; }
-  function maxWpnPage()   { return Math.max(0, Math.ceil(wpnList().length / WPN_MAX_DISPLAY) - 1); }
-  function wpnPageNow()   { return Math.min(Math.max(wpnPage, 0), maxWpnPage()); }
-  function visibleWpn()   {
-    const start = wpnPageNow() * WPN_MAX_DISPLAY;
-    return wpnList().slice(start, start + WPN_MAX_DISPLAY);
-  }
-
-  // WPN's labels are pagination, not navigation — hence NAV.wpn being empty. Mirrors the bezel
-  // (placeWpnNavLabels): top-left is MAIN on page 0 and PREV after it, and NEXT shows only while
-  // pages remain. NEXT carries its own cell because it belongs top-RIGHT; NAV items never do (the
-  // self-check forbids placement in NAV), but these are the layout's own, so it may place them.
-  function wpnNavItems() {
-    const cur = wpnPageNow(), max = maxWpnPage();
-    const items = [cur > 0 ? { label: 'PREV', action: 'wpn-prev' } : { label: 'MAIN', action: 'main' }];
-    if (cur < max) items.push({ label: 'NEXT', action: 'wpn-next', cell: { row: 1, col: 2 } });
-    return items;
-  }
+  // The current page's slice + nav, from the loadout and the shell's page state. All the paging
+  // math (clamp, slice boundaries, MAIN/PREV/NEXT labels) lives in the pure f35-wpn-paging module
+  // so f35-wpn-paging.test.js can pin it; everything below just reads this.
+  function wpnList()  { return (slices.loadout && slices.loadout.items) || []; }
+  function wpnState() { return F35WpnPaging.wpnPaging(wpnList(), wpnPage, WPN_MAX_DISPLAY); }
 
   // Slice the loadout to this page and hand the page its five rows.
   //
@@ -167,11 +154,11 @@
   function forwardWpn() {
     const w = pageFrame.contentWindow, lo = slices.loadout;
     if (!w || !lo) return;
-    wpnPage = wpnPageNow();
-    const max = maxWpnPage(), items = visibleWpn();
-    w.postMessage({ mfd: true, type: 'wpn', items: items, selWeapon: lo.selWeapon,
-                    page: max > 0 ? wpnPage + 1 : 1, pages: max + 1 }, '*');
-    const key = wpnPage + '|' + max + '|' + items.map(function (it) { return it.n; }).join(',');
+    const st = wpnState();
+    wpnPage = st.page;
+    w.postMessage({ mfd: true, type: 'wpn', items: st.visible, selWeapon: lo.selWeapon,
+                    page: st.maxPage > 0 ? st.page + 1 : 1, pages: st.maxPage + 1 }, '*');
+    const key = st.page + '|' + st.maxPage + '|' + st.visible.map(function (it) { return it.n; }).join(',');
     if (currentPage === 'wpn' && key !== wpnNavKey) { wpnNavKey = key; renderNav(); }
   }
 
@@ -203,7 +190,7 @@
   // Invisible click targets over the weapon bands. The page draws the rows; this is the F-35's
   // line-select key — the same weapon.select the bezel sends, with no physical key to press.
   function addWeaponHits() {
-    visibleWpn().forEach(function (it, k) {
+    wpnState().visible.forEach(function (it, k) {
       const b = document.createElement('button');
       b.className = 'wpn-hit';
       b.style.gridRow = String(k + 2);   // rows 2..6, aligned to the slots forwarded above
@@ -217,7 +204,7 @@
   }
 
   function dispatch(action) {
-    if (action in PAGER) { wpnPage = wpnPageNow() + PAGER[action]; forwardWpn(); return; }
+    if (action in PAGER) { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
     if (has(action)) showPage(action);
   }
   function canDo(action) { return has(action) || (action in PAGER); }
