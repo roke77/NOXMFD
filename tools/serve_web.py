@@ -8,7 +8,7 @@ which supplies the synthetic/captured /stream data that the shell forwards to pa
   /                  -> src/web/shell/mfd.html
   /config            -> preview runtime URLs        (localhost/LAN URL for this harness port)
   /map-view[?bare]   -> src/web/pages/map/map.html      (the base map iframe; mock injected here)
-  /<page>            -> src/web/pages/<page>/<page>.html  (any migrated page, e.g. /wpn /tgl)
+  /<page>            -> src/web/pages/<page>/<page>.html  (any migrated page, e.g. /wpn /tgt)
   /weapon?...        -> captured weapon icon, or a mock 2:1 icon
   /airframe[-layout] -> captured AVN silhouette assets when available
   /assets/<x>        -> src/web/<x>, falling back to preview/assets/<x> captures
@@ -192,7 +192,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             if web_fp.exists():
                 return self._file(web_fp, _mime(rel), cache=True)
             return self._file(PREV.joinpath('assets', *rel.split('/')), _mime(rel))
-        # Any migrated page: /<name> -> src/web/pages/<name>/<name>.html (wpn, tgl, ...).
+        # Any migrated page: /<name> -> src/web/pages/<name>/<name>.html (wpn, tgt, ...).
         name = path.lstrip('/')
         page = WEB / 'pages' / name / f'{name}.html'
         if name and '/' not in name and page.exists():

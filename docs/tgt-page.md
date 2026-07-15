@@ -16,8 +16,8 @@ one runtime question that gated it — does the singleton exist unprompted?
 The game panel is `TargetListSelector` (decompile in
 `_scratch/full/TargetListSelector.cs`). It is **not** a contact/scope
 display — it is a stateful **filter + gate over the player's selected
-weapon target list** (the same `weaponManager.GetTargetList()` our
-**TGL** page already renders). It governs which targets you have
+weapon target list** (`weaponManager.GetTargetList()` — the same list the
+page now shows under its filters). It governs which targets you have
 committed to. That is why it is called TGT.
 
 Controls (from `TargetListSelector.cs` + `TargetListSelector_ToggleButton.cs`):
@@ -165,15 +165,16 @@ issues — all fixed on the branch before the merge; see branch history).
    "ONLY" affordance for the touch tablet). State from the `tgt` block.
    Vehicle icons captured from `Encyclopedia.i.vehicleTypes` and served at
    `/tgt-icon?type=`. Below the filters the page also shows the **live
-   selected-target list** (the same list TGL renders, mirrored from the
-   `targets` feed) — it scrolls rather than paginating, so no bezel nav. The
+   selected-target list** (mirrored from the `targets` feed) with a checkbox
+   to deselect — it scrolls rather than paginating, so no bezel nav. The
    vehicle-type row is kept to a single row (icons shrink to fit); the target
    list shows a centered placeholder when empty.
-5. **[done] Wire nav.** TGT registered in `FRAME_PAGES` + `PAGES`. On the
-   full-view MAIN menu **TGT takes TGL's slot** (key 3; MAIN keeps 6 items).
-   TGT is **full-view only** — not a split-pane page, so **TGL remains the
-   target-list page in split mode**. A vertical-MAIN label style keeps the
-   top-left MAIN bezel label clear of the page's RESET button.
+5. **[done] Wire nav.** TGT registered in `FRAME_PAGES` + `PAGES`, on the
+   MAIN menu at key 3 (MAIN keeps 6 items). TGT is **full-view only** — not a
+   split-pane page; picking it from a split pane collapses the split and opens
+   TGT full-view. Having subsumed the target list, TGT replaced TGL outright —
+   TGL is removed. A vertical-MAIN label style keeps the top-left MAIN bezel
+   label clear of the page's RESET button.
 6. **[done] Verify.** `serve_web` + `preview-mock` gained a mock `tgt` block
    and `/tgt-icon`; confirmed the page renders the states and that tap /
    long-press / RESET / CLEAR / LASER / HUD fire the right commands, plus the

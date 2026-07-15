@@ -38,7 +38,7 @@
   .mfd.shell-hidden .screw { display: none; }
   .mfd.shell-hidden .screen { border-radius: 0; }
   /* Side key columns stay IN the layout (measurable) but zero-width and invisible. The frame-
-     hosted pages (AVN/WPN/TGL) derive their FULL-view geometry from the left column's separator
+     hosted pages (AVN/WPN) derive their FULL-view geometry from the left column's separator
      rows, so those rows must keep their vertical positions across the now-full-height screen;
      display:none would zero those rects and collapse the pages. gap:0 so the two 0-width side
      tracks add no margin and the 1fr screen cell fills the width.
@@ -516,7 +516,7 @@
     transition: width 60ms linear;
   }
 
-  /* The WPN, TGL, TGP, RWR and AVN pages render inside the #page-frame iframe (in both full
+  /* The WPN, TGT, TGP, RWR and AVN pages render inside the #page-frame iframe (in both full
      and split views), so each owns its own CSS under src/web/pages/<page>/ — there are no
      panel/row/scope/bar styles for them here. */
 

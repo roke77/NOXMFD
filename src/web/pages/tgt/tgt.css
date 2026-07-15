@@ -153,7 +153,7 @@ html, body {
 }
 .tl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tl-grid, .tl-dist { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
-/* Faction tint on the name (mirrors the map/TGL colours): friendly blue, neutral white, enemy red. */
+/* Faction tint on the name (mirrors the map colours): friendly blue, neutral white, enemy red. */
 .tl-row.f-friendly .tl-name { color: var(--tgt-blue); }
 .tl-row.f-neutral  .tl-name { color: #d4d8dc; }
 .tl-row.f-enemy    .tl-name { color: var(--no-red); }

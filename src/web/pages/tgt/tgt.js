@@ -94,7 +94,7 @@ function paint() {
 }
 
 // ── Selected-target list ──────────────────────────────────────────────────────────────
-// Range as "8,4 km" (European decimal comma, matching the TGL page); non-numbers pass through.
+// Range as "8,4 km" (European decimal comma); non-numbers pass through.
 function fmtRng(r) {
   return (typeof r === 'number' && isFinite(r)) ? r.toFixed(1).replace('.', ',') + ' km' : '—';
 }
