@@ -153,10 +153,6 @@ let splitVariant = 'h';
 // [topPage, botPage]. Step 3 of the implementation sequence seeds both panes with
 // MAIN on entry; per-pane navigation updates this from MAIN's L0..L2 / R0..R2 keys.
 let panePages = ['main', 'main'];
-// Per-pane softkeys last emitted by each pane's page (the declarative contract — no page emits
-// any today). Cached so renderSplitLabels can re-apply them: it clears ALL keys, and a pane
-// that didn't re-render won't re-emit. Reset when a pane navigates / on split entry.
-let paneSoftkeys = [[], []];
 // Per-pane WPN pagination index. WPN's weapon list can exceed one split page; each pane
 // scrolls independently via its PREV/NEXT bezel labels. Reset to 0 when a pane (re)enters
 // WPN. The bare WPN page is a pure renderer — the shell slices the list here.
@@ -241,8 +237,6 @@ function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 // Map a pane's pane-local (side, slot) label position to the physical bezel key {bank, index}
 // for the current split orientation (see split-keymap.js). Used by every split-mode key placer.
 function paneKey(paneIdx, side, slot) { return SplitKeymap.paneKey(splitVariant, paneIdx, side, slot); }
-// Full-view mapper: a page uses both bezel columns directly, slots 0..5, no pane offset.
-function fullKey(side, slot) { return { bank: side, index: slot }; }
 
 // Apply the split CSS classes: `.split` gates the shared split rules; `.split-<variant>` picks
 // the orientation (h = top/bottom, v = left/right 50/50, vw = left/right 2:1).
@@ -283,7 +277,6 @@ function applySplitMode() {
   // so drop it here or its label style would leak onto the split MAIN labels. Restored on unsplit
   // (showPage re-toggles it). TGT itself isn't a pane page (not in PAGE_URL), so it never renders split.
   overlayEl.classList.remove('tgt-page');
-  paneSoftkeys = [[], []];          // fresh panes re-emit their softkeys on load
   if (splitMode) {
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
     paneIframes[0].src = paneUrl(panePages[0]);
@@ -330,20 +323,6 @@ function listPaneLayout(paneIdx) {
   };
 }
 
-// applySoftkeys mapper for a split pane: list pages (WPN) route the page's pane-local
-// (side, slot) emission — compact fill L1,L2,R1,R2 — onto listPaneLayout.items by row index, so a
-// page can stay orientation-agnostic; other pages use the plain per-column paneKey.
-function paneSoftkeyMapper(paneIdx) {
-  if (!isListPage(panePages[paneIdx])) {
-    return function(side, slot) { return paneKey(paneIdx, side, slot); };
-  }
-  const L = listPaneLayout(paneIdx);
-  return function(side, slot) {
-    const row = (side === 'left' ? 0 : 2) + (slot - 1);
-    return (row >= 0 && row < L.items.length) ? L.items[row] : { bank: side, index: -1 };
-  };
-}
-
 // Place an overlay label on a physical key {bank,index} and tag it with the owning pane.
 function placeSplitKey(m, label, action, paneTag) {
   placeOverlayLabel(m.bank, m.index, label, action);
@@ -359,11 +338,6 @@ function renderSplitLabels() {
     const def = SPLIT_PAGES[page];
     if (!def) continue;
     const paneTag = paneIdx === 0 ? 'top' : 'bot';   // pane identity for click dispatch (orientation-agnostic)
-
-    // Apply this pane's contract softkeys FIRST: applySoftkeys clears the row-key zone before
-    // re-applying any softkeys the page emitted. Nav labels are placed AFTER, on keys the
-    // zone-clear leaves alone.
-    applySoftkeys(paneSoftkeys[paneIdx], paneSoftkeyMapper(paneIdx), 2);
 
     if (isListPage(page)) {
       // Paginated list (WPN): MAIN (or PREV once scrolled) on the pane's top key, NEXT on its
@@ -393,7 +367,6 @@ function paneMapSend(paneIdx, action) {
 
 function paneNavigate(paneIdx, page) {
   panePages[paneIdx] = page;
-  paneSoftkeys[paneIdx] = [];   // drop the old page's softkeys; the new page re-emits on load if any
   if (page === 'wpn') paneWpnPage[paneIdx] = Math.max(0, selWeaponPage());   // open on the selected weapon's page
   paneFollowOn[paneIdx] = false;   // iframe reloads; follow restarts off (re-reported on load)
   paneIframes[paneIdx].src = paneUrl(page);
@@ -606,8 +579,8 @@ function forwardWpnLayoutToPanes() {
 // renderer (wpn.js compact) and forwardWpnLayoutToPanes' slotYs: items → L1, L2, R1, R2. Sets the
 // aligned physical key's action + weapon name so a bezel press selects that weapon. No data-pane
 // tag: selection is aircraft-global, so the press falls through to the shared weapon.select case.
-// Called from renderSplitLabels after clearKeyActions + applySoftkeys have cleared the slot 1..2
-// zone, so only occupied rows are set and empty ones stay clean.
+// Called from renderSplitLabels after clearKeyActions has cleared the key zone, so only occupied
+// rows are set and empty ones stay clean.
 function wireWpnPaneWeaponKeys(weapons, paneIdx) {
   const items = listPaneLayout(paneIdx).items;
   for (let i = 0; i < items.length && i < weapons.length; i++) {
@@ -691,32 +664,6 @@ function placeWpnNavLabels() {
   const cur = Math.min(Math.max(wpnPage, 0), maxPage);
   placeOverlayLabel('left', 0, cur > 0 ? 'PREV' : 'MAIN', cur > 0 ? 'wpn-prev' : 'main');
   if (cur < maxPage) placeOverlayLabel('right', 0, 'NEXT', 'wpn-next');
-}
-
-// Apply a page's declared softkeys to one bezel zone (the declarative contract). The page emits
-// pane-local 1-based row slots; `map(side, slot)` resolves each to its physical key {bank, index}
-// — fullKey for the full view, or paneKey(paneIdx, …) for a split pane (orientation-aware). Clears
-// the row-key zone first (slots 1..maxRow both sides — nav on slot 0 is shell-owned) so a shrinking
-// list releases its keys; maxRow = 5 in full view, 2 per split pane. An empty label binds the key
-// with no visible overlay label (the page's own row is the visual). Deselect needs no
-// pane routing (it just sends a command), so no data-pane tag is set — split's dispatch falls
-// through mfdButton's split branch to the shared 'target.deselect' switch case.
-function applySoftkeys(keys, map, maxRow) {
-  for (let s = 1; s <= maxRow; s++) {
-    ['left', 'right'].forEach(function(side) {
-      const m = map(side, s);
-      const k = keyBanks[m.bank] && keyBanks[m.bank][m.index];
-      if (k) { delete k.dataset.action; delete k.dataset.id; }
-    });
-  }
-  (keys || []).forEach(function(sk) {
-    const m = map(sk.side, sk.slot);
-    const key = keyBanks[m.bank] && keyBanks[m.bank][m.index];
-    if (!key) return;
-    key.dataset.action = sk.action;
-    if (sk.data && sk.data.id != null) key.dataset.id = sk.data.id;
-    if (sk.label) placeOverlayLabel(m.bank, m.index, sk.label, sk.action);
-  });
 }
 
 // ── App-wide orientation ─────────────────────────────────────────────────────────────
@@ -895,7 +842,6 @@ function clearKeyActions() {
     keyBanks[bank].forEach(function(k) {
       delete k.dataset.action;
       delete k.dataset.pane;     // split-mode tag; harmless to clear unconditionally
-      delete k.dataset.id;       // softkey target id; clear so it never lingers
       delete k.dataset.wname;    // weapon.select name (WPN page); clear so it never lingers
     });
   });
@@ -951,7 +897,7 @@ function showPage(name) {
     forwardWpnLayoutToFrame(); forwardWpnToFrame(); forwardCmToFrame();
   }
   // TGP renders in #page-frame too. Its only key is the static MAIN label (PAGES.tgp.items,
-  // placed by the generic sweep above), so there's no nav/softkey wiring — just forward the
+  // placed by the generic sweep above), so there's no extra nav wiring — just forward the
   // lock flag. The page connects to /tgp.mjpg itself once loaded.
   if (name === 'tgp') {
     showFramePage('tgp');
@@ -989,21 +935,6 @@ function showPage(name) {
 window.addEventListener('message', function(e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
-  // Softkeys come UP from a hosted page frame (not the map), so handle them before the mapFrame
-  // source guard. The page emits pane-local slots; the shell maps them to physical keys per zone.
-  //   full view  → the #page-frame, both columns, rows on slots 1..5 (fullKey).
-  //   split view → the emitting pane, mapped to its keys by paneKey (orientation-aware), rows on
-  //                slots 1..2. Each pane's set is cached so renderSplitLabels can re-apply it (a
-  //                re-render of the OTHER pane clears all keys; this pane may not re-emit).
-  if (m.type === 'softkeys') {
-    if (!splitMode && e.source === pageFrame.contentWindow && FRAME_PAGES[currentPage]) {
-      applySoftkeys(m.keys, fullKey, 5);
-    } else if (splitMode) {
-      const idx = paneIframes.findIndex(function(f) { return f.contentWindow === e.source; });
-      if (idx >= 0) { paneSoftkeys[idx] = m.keys || []; applySoftkeys(paneSoftkeys[idx], paneSoftkeyMapper(idx), 2); }
-    }
-    return;
-  }
   // Telemetry-mirror messages come only from the canonical map iframe (mapFrame). In split mode
   // a MAP *pane* is a second map iframe that also streams to the shell; ignoring its duplicate
   // data posts keeps the RWR/AVN/etc. mirrors on a single source — otherwise two out-of-phase
@@ -1260,8 +1191,6 @@ function mfdButton(el) {
     }
     return;
   }
-  // Note: softkey deselect keys (action 'target.deselect') carry NO data-pane tag, so they skip the
-  // block above and fall through to the switch below — the deselect command is pane-independent.
 
   switch (el.dataset.action) {
     case 'main': showPage('main'); mapSend('status-request'); break;   // pull fresh status on open
@@ -1273,9 +1202,6 @@ function mfdButton(el) {
       if (el.dataset.wname) sendCommand('weapon.select', { wname: el.dataset.wname }).catch(function() {});
       break;
     case 'tgp':  showPage('tgp');  break;
-    case 'target.deselect':                                  // softkey-contract deselect (no emitter today)
-      if (el.dataset.id) sendCommand('target.deselect', { id: +el.dataset.id }).catch(function() {});
-      break;
     case 'avn':  showPage('avn');  break;
     case 'rwr':  showPage('rwr');  break;
     case 'tgt':  showPage('tgt');  break;

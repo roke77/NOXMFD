@@ -45,7 +45,7 @@ a reactive sink.
           ▼
    ┌──────────────┐  Caches each slice and re-forwards DOWN to whoever is visible:
    │  SHELL       │  forwardX*ToFrame (full view) / forwardX*ToPanes (split).
-   │  (mfd.js)    │  Owns the bezel, split logic, page hosting, the softkey contract.
+   │  (mfd.js)    │  Owns the bezel, split logic and page hosting.
    │              │  Guard: only trusts telemetry from the canonical MAP iframe
    │              │  (e.source === mapFrame.contentWindow).
    └──────┬───────┘
@@ -83,10 +83,6 @@ not part of the data path; `map.js` owns it (`loadPersistedView` / `savePersiste
 
 - **Data down:** `'<page>'` (the sliced rows + selection), `'<page>-layout'` (geometry +
   `layout:'full'|'compact'`), `'cm'`, `'orient'`.
-- **Softkeys up (declarative bezel keys):** a page posts `{ type:'softkeys', keys:[{ side, slot,
-  label, action, data }] }`; the shell's `applySoftkeys(keys, paneOffset, maxRow)` maps each
-  pane-local slot to a physical bezel key. No page emits any today (TGT drives its own clicks);
-  the shell caches each pane's set so it survives a re-render of the other pane.
 - **Write commands:** `src/web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
   (MAP tap → `target.select`; TGT page → `tgt.*` + `target.deselect`).
 
