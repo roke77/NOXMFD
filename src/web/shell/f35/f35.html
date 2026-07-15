@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NO XMFD — F-35</title>
+<!--
+  F-35 layout — Stage 2 prototype, served at /f35 (the bezel shell at / is untouched).
+  See docs/layouts.md. Borderless panoramic display: no bezel, no key banks, the page fills the
+  glass. Deliberately renders ONE page (AVN) with no navigation labels yet — label placement is
+  the next decision and isn't made here.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/shell/f35/f35.css">
+</head>
+<body>
+
+<div class="pcd">
+  <!-- Telemetry tap. The MAP page owns the only EventSource('/stream') and posts the derived
+       per-page slices up to whatever shell hosts it, so EVERY layout has to embed it — even one
+       like this that never shows a map. Laid out full-size (opacity:0, not display:none) so the
+       iframe keeps ticking normally; the bezel shell keeps it running behind pages for the same
+       reason. -->
+  <iframe id="map-tap" src="/map-view?bare" title="telemetry"></iframe>
+
+  <div class="portal">
+    <iframe id="page-frame" src="/avn" title="AVN"></iframe>
+  </div>
+</div>
+
+<script src="/assets/shell/f35/f35.js"></script>
+</body>
+</html>

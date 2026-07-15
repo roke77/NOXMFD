@@ -1,0 +1,45 @@
+/* F-35 layout — Stage 2 prototype. The whole point of this file is what it does NOT contain:
+   no bezel, no screws, no key banks, no separators. The page is the display.
+   Palette comes from the shared theme tokens (var(--no-*)) so page content renders identically
+   here and under the bezel shell — a layout owns the frame, not the page's colours. */
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--no-bg);
+  overflow: hidden;
+  font-family: var(--no-font);
+}
+
+/* The glass: edge-to-edge, no frame of any kind. */
+.pcd {
+  position: absolute;
+  inset: 0;
+}
+
+/* Data source only — never seen. Full-size so the map view inside lays out and ticks normally
+   (a 1px or display:none iframe risks throttling or zero-size canvas math). */
+#map-tap {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* A portal = one page's region of the glass. Today there is exactly one and it fills the screen;
+   a future split gives each portal its own slice. */
+.portal {
+  position: absolute;
+  inset: 0;
+}
+
+#page-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--no-bg);
+}

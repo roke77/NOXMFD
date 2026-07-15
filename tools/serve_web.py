@@ -6,6 +6,7 @@ end-to-end without extracting C# blobs. The MAP iframe receives tools/preview-mo
 which supplies the synthetic/captured /stream data that the shell forwards to page iframes.
 
   /                  -> src/web/shell/mfd.html
+  /f35               -> src/web/shell/f35/f35.html      (the F-35 layout — see docs/layouts.md)
   /config            -> preview runtime URLs        (localhost/LAN URL for this harness port)
   /map-view[?bare]   -> src/web/pages/map/map.html      (the base map iframe; mock injected here)
   /<page>            -> src/web/pages/<page>/<page>.html  (any migrated page, e.g. /wpn /tgt)
@@ -138,6 +139,8 @@ class H(http.server.SimpleHTTPRequestHandler):
         path = self.path.split('?', 1)[0]
         if path in ('/', '/index.html'):
             return self._file(WEB / 'shell' / 'mfd.html', 'text/html; charset=utf-8', cache=True)
+        if path == '/f35':
+            return self._file(WEB / 'shell' / 'f35' / 'f35.html', 'text/html; charset=utf-8', cache=True)
         if path == '/config':
             return self._send(_config(self.server.server_address[1]), 'application/json; charset=utf-8')
         if path == '/map-view':
