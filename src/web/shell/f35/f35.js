@@ -78,6 +78,7 @@
   // unimplemented action — no special case needed.
   const MAIN_EXTRAS = [
     { label: 'HUD', action: 'hud' },
+    { label: 'LYT', action: 'lyt' },
     { label: 'PAL', action: 'pal' },
     { label: 'BDF', action: 'bdf' },
   ];
