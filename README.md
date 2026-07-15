@@ -16,13 +16,23 @@ any web browser, on the same PC or on another device on the same network.
 
 ### BepInEx setting
 
-Set `HideManagerGameObject = true` under `[Chainloader]` in
-`BepInEx/config/BepInEx.cfg`. The plugin itself runs without it, but the in-game
-**ConfigurationManager** menu — used to change settings live — will not open
-unless it is set: Nuclear Option destroys BepInEx's manager GameObject on the
-boot → main-menu transition, and ConfigurationManager lives on it. (Settings can
-still be edited by hand in the `.cfg` file either way.) Its default open key is
-`F1`, rebindable in that menu's *General* section.
+NO XMFD's own settings — the Declutter HUD toggles and the extended keybinds —
+are changed either in the in-game **ConfigurationManager** menu or by hand in
+`BepInEx/config/com.roque.NOXMFD.cfg`. The plugin runs fine without any of this;
+you only need it to adjust those settings.
+
+To use the in-game menu, install **ConfigurationManager** — the settings editor,
+much friendlier than editing the config file by hand. Download the **BepInEx 5**
+build from its
+[releases](https://github.com/BepInEx/BepInEx.ConfigurationManager/releases) and
+extract the DLL into `BepInEx/plugins/`. It also needs `HideManagerGameObject =
+true` under `[Chainloader]` in `BepInEx/config/BepInEx.cfg`: Nuclear Option
+destroys BepInEx's manager GameObject on the boot → main-menu transition, and
+ConfigurationManager lives on it, so the menu will not open unless the setting is
+on. Its default open key is `F1`, rebindable in that menu's *General* section.
+
+Either way the settings work — skip ConfigurationManager and edit the `.cfg` by
+hand.
 
 ## Installation
 
@@ -49,27 +59,22 @@ NO XMFD for you, and keeps it up to date.
 1. **Install BepInEx 5** (x64) into Nuclear Option — grab it from the
    [BepInEx releases](https://github.com/BepInEx/BepInEx/releases). Run the game
    once so BepInEx creates its folders.
-2. **(Optional) Install ConfigurationManager** — the in-game settings editor, much
-   friendlier than editing the config file by hand. Download the **BepInEx 5** build
-   from its [releases](https://github.com/BepInEx/BepInEx.ConfigurationManager/releases)
-   and extract the DLL into `BepInEx/plugins/`.
-3. **Download the latest NO XMFD release** from the
+2. **Download the latest NO XMFD release** from the
    [Releases page](https://github.com/roke77/NOXMFD/releases).
-4. **Extract it** into a subfolder of BepInEx's plugins directory:
+3. **Extract it** into a subfolder of BepInEx's plugins directory:
 
    ```
    BepInEx/plugins/NOXMFD/
    ```
 
-5. **Launch the game.** Open `http://localhost:5005/` in a browser to see the
+4. **Launch the game.** Open `http://localhost:5005/` in a browser to see the
    display. To reach it from a tablet or phone on your network, see
    [docs/networking.md](docs/networking.md).
 
 </details>
 
-The in-game settings menu (Declutter HUD toggles, keybinds) needs ConfigurationManager
-installed **and** `HideManagerGameObject = true` (see [BepInEx setting](#bepinex-setting)).
-Without it the settings still work — edit them in `BepInEx/config/com.roque.NOXMFD.cfg`.
+To change NO XMFD's settings (Declutter HUD toggles, keybinds), see
+[BepInEx setting](#bepinex-setting) above.
 
 ## Features
 
