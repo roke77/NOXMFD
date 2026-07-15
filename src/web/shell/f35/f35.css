@@ -94,6 +94,31 @@ html, body {
   margin-left: 16px;
 }
 
+/* Right-column labels (WPN's NEXT) mirror that against the far edge. */
+.nav-grid.edge .nav-item.col-right {
+  justify-self: end;
+  margin-left: 0;
+  margin-right: 16px;
+}
+
+/* WPN's weapon rows are drawn by the page, aligned to rows 2-6 by the rects we forward. These
+   invisible cells sit over them: with no physical key to press, the band itself is the
+   line-select key. They fill their cell rather than wrap a label — the label is in the page,
+   which we can't reach into. */
+.wpn-hit {
+  pointer-events: auto;
+  grid-column: 1;
+  justify-self: stretch;
+  align-self: stretch;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.wpn-hit:hover  { background: rgba(212, 216, 220, 0.08); }
+.wpn-hit:active { background: rgba(212, 216, 220, 0.16); }
+
 /* TGT packs clickable filter controls into its top-left, exactly where the edge label sits — and
    because this layout draws labels ON the page, a horizontal MAIN doesn't just look cramped, it
    covers RESET FILTER and eats its clicks. Standing the text up narrows the label to roughly one
