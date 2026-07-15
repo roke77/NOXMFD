@@ -4,10 +4,9 @@
 <meta charset="UTF-8">
 <title>NO XMFD — F-35</title>
 <!--
-  F-35 layout — Stage 2 prototype, served at /f35 (the bezel shell at / is untouched).
-  See docs/layouts.md. Borderless panoramic display: no bezel, no key banks, the page fills the
-  glass. Deliberately renders ONE page (AVN) with no navigation labels yet — label placement is
-  the next decision and isn't made here.
+  F-35 layout — Stage 2 (docs/layouts.md), served at /f35. The bezel shell at / is untouched.
+  Borderless panoramic display: no bezel, no key banks — the page fills the glass and the
+  navigation labels are drawn ON it, placed by a 6x2 grid (see f35.css).
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -24,10 +23,15 @@
   <iframe id="map-tap" src="/map-view?bare" title="telemetry"></iframe>
 
   <div class="portal">
-    <iframe id="page-frame" src="/avn" title="AVN"></iframe>
+    <!-- src is set by showPage(): the shell decides which page is up, not the markup. -->
+    <iframe id="page-frame" title="page"></iframe>
+    <!-- Labels are drawn OVER the page, not around it. The grid is pointer-transparent, so
+         clicks fall through to the page everywhere except on a label. -->
+    <div class="nav-grid" id="nav-grid"></div>
   </div>
 </div>
 
+<script src="/assets/shell/nav-model.js"></script>
 <script src="/assets/shell/f35/f35.js"></script>
 </body>
 </html>

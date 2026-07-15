@@ -1,5 +1,5 @@
-/* F-35 layout — Stage 2 prototype. The whole point of this file is what it does NOT contain:
-   no bezel, no screws, no key banks, no separators. The page is the display.
+/* F-35 layout — Stage 2. The whole point of this file is what it does NOT contain: no bezel,
+   no screws, no key banks, no separators. The page is the display.
    Palette comes from the shared theme tokens (var(--no-*)) so page content renders identically
    here and under the bezel shell — a layout owns the frame, not the page's colours. */
 
@@ -43,3 +43,67 @@ html, body {
   border: 0;
   background: var(--no-bg);
 }
+
+/* ── Nav labels ────────────────────────────────────────────────────────────────────────
+   Drawn over the page in one of two modes, set per screen by f35.js NAV_LAYOUT.
+   Pointer-transparent either way: only the labels take clicks, so a fully-clickable page
+   (TGT) keeps working underneath. */
+.nav-grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  pointer-events: none;
+}
+
+/* 'edge' — the bezel's key banks, minus the bezel. 6 rows x 2 columns is deliberately the
+   geometry the physical keys describe (6 keys down each of the left and right columns), so a
+   NAV item's index maps to a cell exactly as it maps to a key slot (f35.js cellOf). */
+.nav-grid.edge {
+  grid-template-rows: repeat(6, 1fr);
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* 'center' — for a screen whose labels ARE the content (MAIN: no page renders behind them).
+   Three columns; items flow in NAV order, so a 7th item starts a new row on its own. The whole
+   block is centred on the glass rather than pinned to an edge that frames nothing. */
+.nav-grid.center {
+  grid-template-columns: repeat(3, auto);
+  place-content: center;
+  gap: clamp(14px, 4vh, 40px) clamp(24px, 6vw, 88px);
+}
+
+.nav-item {
+  pointer-events: auto;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 20px;
+  letter-spacing: 1px;
+  color: var(--no-green);
+  cursor: pointer;
+}
+
+/* Edge: hug the outer edge, centred in the row's band — where the leftmost bezel key would sit. */
+.nav-grid.edge .nav-item {
+  justify-self: start;
+  align-self: center;
+  margin-left: 16px;
+}
+
+/* Centre: each label centred in its own cell, so the columns read as a block. */
+.nav-grid.center .nav-item {
+  justify-self: center;
+  font-size: clamp(20px, 3.4vh, 30px);
+}
+
+.nav-item:hover  { color: var(--no-ink); background: var(--no-green); }
+.nav-item:active { opacity: 0.7; }
+
+/* An action this layout does not implement yet. Rendered so the real NAV layout is visible,
+   dimmed and inert so it doesn't promise a page that won't come. */
+.nav-item.pending {
+  color: var(--no-green-dark);
+  cursor: default;
+}
+.nav-item.pending:hover { color: var(--no-green-dark); background: none; }
