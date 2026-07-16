@@ -6,12 +6,11 @@
 //   • label placement — a grid drawn over the page, in one of two modes (NAV_LAYOUT below):
 //                       'edge' hugs the left column like the bezel's key bank; 'center' puts the
 //                       labels in the middle of the glass for MAIN, which has no page behind them.
-//   • split behaviour — portals, paired. The glass is two pairs of two: four side-by-side MFDs,
-//                       each with its own page, labels and state. The corner grips let a pair's
-//                       members absorb each other, giving four portals, three or two — never one,
-//                       because nothing reaches across the centre. Nothing of the bezel's split
-//                       machinery (SplitKeymap, SPLIT_SLOTS) is reused: it resolves labels to
-//                       physical keys, and there are none here.
+//   • split behaviour — portals. Four side-by-side MFDs, each with its own page, labels and
+//                       state; the corner grips merge adjacent ones and split them back. The
+//                       arrangement rule is f35-glass.js. Nothing of the bezel's split machinery
+//                       (SplitKeymap, SPLIT_SLOTS) is reused: it resolves labels to physical keys,
+//                       and there are none here.
 //   • page geometry   — none, except WPN. See forwardWpnLayout.
 //
 // Shared with the bezel and unchanged: NAV (nav-model.js), the pages, and sendCommand.
@@ -104,7 +103,7 @@
   // Not the source of orientation — a portal measures its own box for that (forwardOrientation).
   // This only says "the glass turned", which is one of the things that resizes a portal.
   const orientMq = window.matchMedia('(orientation: portrait)');
-  let   pairs = [];   // the glass, left to right; livePortals() flattens them
+  let   portals = [];   // the glass, left to right
 
   function has(page) { return Object.prototype.hasOwnProperty.call(F35_PAGES, page); }
   function feedsFor(page) { return PAGE_FEEDS[page] || []; }
@@ -121,42 +120,35 @@
   // chrome, not navigation — it resizes the glass rather than choosing a page, so it lives outside
   // the label grid (which renderNav rebuilds).
   //
-  // A grip always sits in the corner facing the portal's pair partner, and only its DIRECTION
-  // says what it does:
-  //   * outward (away from the portal) — absorb the partner and take the whole pair.
-  //   * inward  (back over the portal) — give the half back, splitting the pair again.
-  // Slot 0 faces right, slot 1 faces left. No partner slot at all means no grip: nothing to
-  // absorb, nothing to give back. Everything else follows from that — portals 1 and 4 have no
-  // outward grip because only the screen edge lies that way, and 2 and 3 have none towards the
-  // centre because that is the other pair's half.
-  function gripCornerFor(slot)  { return slot === 0 ? 'right' : 'left'; }
-  function gripPointsFor(slot, expanded) {
-    const corner = gripCornerFor(slot);
-    const inward = corner === 'right' ? 'left' : 'right';
-    return expanded ? inward : corner;   // expanded → point back in, offering the half up
-  }
+  // A grip sits in the corner facing what it acts on, and only its DIRECTION says what that is:
+  //   * outward — take the neighbour on that side, becoming twice as wide.
+  //   * inward  — give back the slot it took, splitting in two again.
+  // Which grips a portal has is f35-glass's rule, not this file's: it depends on how the whole
+  // glass is currently divided, not on any one portal.
+  const GRIP_POINTS = { left: '2,50 98,2 98,98', right: '98,50 2,2 2,98' };
+  const GRIP_LABEL = {
+    'merge-left':  'Expand over the portal to the left',
+    'merge-right': 'Expand over the portal to the right',
+    'split':       'Split this portal in two',
+  };
 
   // Drawn as SVG because the reference's triangles are outlines, and the CSS border trick only
   // makes solid ones. The triangle fills its square button; non-scaling-stroke (in the CSS) keeps
   // the outline 2px however large that gets, and the 2-unit inset keeps the stroke inside the box.
-  const GRIP_POINTS = { left: '2,50 98,2 98,98', right: '98,50 2,2 2,98' };
-  function makeGrip(corner, onClick) {
+  function makeGrip(spec, onClick) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'portal-grip ' + corner;
+    b.className = 'portal-grip ' + spec.corner;
+    b.title = GRIP_LABEL[spec.action];
+    b.setAttribute('aria-label', GRIP_LABEL[spec.action]);
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 100 100');
     svg.setAttribute('aria-hidden', 'true');
     const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    poly.setAttribute('points', GRIP_POINTS[spec.aim]);
     svg.appendChild(poly);
     b.appendChild(svg);
-    b.addEventListener('click', onClick);
-    // Re-aim rather than rebuild: the corner never moves, so only the points and the label change.
-    b.aim = function (points, label) {
-      poly.setAttribute('points', GRIP_POINTS[points]);
-      b.setAttribute('aria-label', label);
-      b.title = label;
-    };
+    b.addEventListener('click', function () { onClick(spec.action); });
     return b;
   }
 
@@ -165,7 +157,7 @@
   // *this* screen rather than the shell — which page is up, where its WPN list is paged to, and
   // whether its map is following. Everything a second portal must not share lives in here; only
   // the telemetry cache and the tap are shell-wide.
-  function makePortal(pair, slot) {
+  function makePortal(onGrip) {
     const el    = document.createElement('div');
     const frame = document.createElement('iframe');
     const grid  = document.createElement('div');
@@ -176,22 +168,23 @@
     el.appendChild(frame);
     el.appendChild(grid);
 
-    // The grip exists only where a partner slot does. It never moves after that — expanding just
-    // turns the triangle around (refreshGrip).
-    const grip = pair.capacity > 1
-      ? makeGrip(gripCornerFor(slot), function () { pair.toggle(slot); })
-      : null;
-    if (grip) el.appendChild(grip);
-
     let currentPage = null;
     let wpnPage     = 0;    // 0-indexed pagination state
     let wpnNavKey   = '';   // what this grid last drew; guards a per-tick rebuild
     let followOn    = false;
 
-    function refreshGrip() {
-      if (!grip) return;
-      const expanded = pair.expandedBy() === slot;
-      grip.aim(gripPointsFor(slot, expanded), expanded ? 'Split this half' : 'Expand over the next portal');
+    // This portal's footprint on the glass: one slot, or two with a memory of which side it ate.
+    // f35-glass reads these to decide what the grips offer.
+    const cell = { span: 1 };
+
+    // Grips come and go with the arrangement — merging removes a neighbour and with it a divider —
+    // so they are rebuilt rather than re-aimed. `api` is passed back so the shell can find this
+    // portal's current index at click time, which merging shifts.
+    function setGrips(specs) {
+      el.querySelectorAll('.portal-grip').forEach(function (g) { g.remove(); });
+      specs.forEach(function (spec) {
+        el.appendChild(makeGrip(spec, function (action) { onGrip(api, action); }));
+      });
     }
 
     function frameWin() { return frame.contentWindow; }
@@ -380,15 +373,19 @@
     }
 
     frame.addEventListener('load', forwardToPage);
-    refreshGrip();
 
-    return {
+    const api = {
       el: el,
+      cell: cell,
       showPage: showPage,
       onSlice: onSlice,
       isMapWin: isMapWin,
       setFollow: setFollow,
-      refreshGrip: refreshGrip,
+      setGrips: setGrips,
+      // Flex-grow tracks the span, so a merged portal takes exactly the two slots it owns and its
+      // neighbours keep theirs. All four slots are the same width, so the arithmetic is just the
+      // span — no wrapper elements, no percentages.
+      applySpan: function () { el.style.flexGrow = String(cell.span); },
       // The portal's box just changed. WPN is the only page that cares, and it cares twice: its
       // rects come from the box, and its orientation IS the box's shape — a quarter is portrait, a
       // half may not be. Every other page reflows itself with CSS; the map notices via its own
@@ -399,87 +396,75 @@
       },
       destroy: function () { el.remove(); },
     };
-  }
-
-  // ── Pair ─────────────────────────────────────────────────────────────────────────────
-  // A pair owns an equal share of the glass and holds one or two portals. It owns the one piece of
-  // state neither portal can: whether they are sharing the half, or one has taken all of it.
-  //
-  // The share is the pair's, not the portals' — which is why the pairs are real elements. Four
-  // portals as flat siblings would give a survivor a THIRD of the glass when its partner went;
-  // nested, it grows to exactly the half its pair already held, and the other pair never moves.
-  function makePair(capacity) {
-    const el = document.createElement('div');
-    el.className = 'pair';
-    const members = [];        // by slot; a hole where a portal has been absorbed
-    let expandedBy = null;     // slot that took the whole pair, or null while sharing
-
-    function add(slot) {
-      const p = makePortal(api, slot);
-      members[slot] = p;
-      // Slot order is left-to-right, and a restored portal has to land back on its own side.
-      if (slot === 0) el.insertBefore(p.el, el.firstChild);
-      else            el.appendChild(p.el);
-      p.showPage('main');
-      return p;
-    }
-
-    // Absorb the partner, or give the half back. The survivor is left alone: it keeps its page and
-    // everything on it, and simply gets wider. The absorbed portal is destroyed — with it goes its
-    // iframe, and any map stream it was running — and comes back fresh on MAIN.
-    function toggle(slot) {
-      if (expandedBy === slot) {
-        expandedBy = null;
-        add(1 - slot);
-      } else {
-        const victim = members[1 - slot];
-        if (!victim) return;
-        victim.destroy();
-        members[1 - slot] = null;
-        expandedBy = slot;
-      }
-      // Both portals' boxes just changed, and so may the glass's only-portal count — which decides
-      // who owns the tap. Tell everyone, not just this pair.
-      livePortals().forEach(function (p) { p.refreshGrip(); p.resized(); });
-    }
-
-    const api = {
-      el: el,
-      capacity: capacity,
-      expandedBy: function () { return expandedBy; },
-      toggle: toggle,
-      members: function () { return members.filter(Boolean); },
-    };
-
-    for (let s = 0; s < capacity; s++) add(s);
     return api;
   }
 
   // ── The glass ────────────────────────────────────────────────────────────────────────
-  // Two pairs of two: the F-35's panoramic display is one wide sheet carrying four side-by-side
-  // portals, each an independent MFD — not a 2x2 grid (issue #8's reference shots). This is the
-  // whole layout, fixed, and the grips do the rest.
+  // The F-35's panoramic display is one wide sheet carrying four side-by-side portals, each an
+  // independent MFD — not a 2x2 grid (issue #8's reference shots). Four slots, and a portal fills
+  // one or two of them, so any two ADJACENT portals may merge. Which arrangements that allows, and
+  // which grips each portal gets, is f35-glass's rule (and f35-glass.test.js pins it): five
+  // layouts, no triples, and every merge reachable from either side.
   //
-  // The grips reach four portals, three, or two — never one. A pair's members can absorb each
-  // other, but nothing reaches across the centre: that is the same rule that denies portals 2 and
-  // 3 an inward grip, seen from the other end. So the centre divider is permanent and the glass is
-  // never a single screen — which is what the real PCD does.
+  // The glass is never one screen — a merge is a pair and nothing wider, so at least two portals
+  // always remain. The real PCD isn't one screen either.
   //
-  // The cost of never being solo: no portal can ever own the tap, so a MAP portal always mounts
-  // its own map and runs a stream the tap is already running. The bezel pays exactly this in split
-  // mode. Revealing the tap under a single portal is the only case that avoided it, and that case
-  // no longer exists.
-  const PAIRS = [2, 2];
+  // What that costs: no portal ever covers the glass, so none can borrow the tap, and a MAP portal
+  // always mounts its own map alongside the stream the tap is already running. The bezel pays the
+  // same in split mode.
+  function cells() { return portals.map(function (p) { return p.cell; }); }
+  function livePortals() { return portals; }
 
-  function livePortals() {
-    return pairs.reduce(function (acc, pr) { return acc.concat(pr.members()); }, []);
+  // Rebuild every portal's grips from the arrangement, and let each know its box moved. Called
+  // after anything that changes the glass — which is only ever a merge or a split.
+  function refreshGlass() {
+    const cs = cells();
+    portals.forEach(function (p, i) {
+      p.applySpan();
+      p.setGrips(F35Glass.gripsFor(cs, i));
+      p.resized();
+    });
+  }
+
+  function addPortal(at) {
+    const p = makePortal(onGrip);
+    portals.splice(at, 0, p);
+    portalsEl.insertBefore(p.el, portalsEl.children[at] || null);
+    p.applySpan();
+    p.showPage('main');   // every portal opens on the menu, as the bezel's landing page does
+    return p;
+  }
+
+  // A grip was pressed. The survivor is left alone — it keeps its page and everything on it, and
+  // just changes width. An absorbed portal is destroyed, taking its iframe and any map stream with
+  // it, and comes back fresh on MAIN.
+  function onGrip(portal, action) {
+    const i = portals.indexOf(portal);
+    if (i < 0) return;
+
+    if (action === 'split') {
+      const next = F35Glass.split(cells(), i);
+      if (!next) return;
+      portal.cell.span = 1;
+      delete portal.cell.ate;
+      addPortal(next.survivor === i ? i + 1 : i);   // the newcomer takes the slot that was eaten
+    } else {
+      const side = action === 'merge-left' ? 'left' : 'right';
+      if (!F35Glass.merge(cells(), i, side)) return;   // the rule refused; leave the glass alone
+      const victim = portals[side === 'left' ? i - 1 : i + 1];
+      victim.destroy();
+      portals.splice(portals.indexOf(victim), 1);
+      portal.cell.span = 2;
+      portal.cell.ate  = side;
+    }
+    refreshGlass();
   }
 
   function buildGlass() {
     portalsEl.textContent = '';
-    pairs = PAIRS.map(makePair);
-    pairs.forEach(function (pr) { portalsEl.appendChild(pr.el); });
-    livePortals().forEach(function (p) { p.refreshGrip(); });
+    portals = [];
+    for (let i = 0; i < F35Glass.SLOTS; i++) addPortal(i);
+    refreshGlass();
   }
 
   window.addEventListener('message', function (e) {

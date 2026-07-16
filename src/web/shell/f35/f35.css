@@ -32,20 +32,13 @@ html, body {
   pointer-events: none;
 }
 
-/* The glass divides into pairs, and a pair divides into portals. The nesting is what makes the
-   expand/retract arithmetic free: a pair holds its share of the glass no matter what happens
-   inside it, so when one portal absorbs its partner the survivor grows to exactly the pair's
-   half — not to a third of the glass, which is what four flat siblings would give. */
+/* The glass: one flat row of portals across four slots. A portal spans one slot or two, and
+   flex-grow carries the span (set by f35.js applySpan) — with flex-basis 0 every slot is the same
+   width, so growing a portal to 2 gives it exactly two of them and its neighbours keep theirs. No
+   wrappers, no percentages; any of the five arrangements falls out of the numbers. */
 .portals {
   position: absolute;
   inset: 0;
-  display: flex;
-  flex-direction: row;
-}
-
-.pair {
-  flex: 1 1 0;
-  min-width: 0;
   display: flex;
   flex-direction: row;
 }
@@ -60,19 +53,17 @@ html, body {
    (wpn.css sizes its weapon image in cqw/cqh for the same reason.) */
 .portal {
   position: relative;
-  flex: 1 1 0;
+  flex: 1 1 0;   /* grow is overwritten per portal with its span — see .portals above */
   min-width: 0;
   overflow: hidden;
   container-type: size;
 }
 
-/* The seam, matching the bezel's 2px divider. Drawn as a border on the element itself rather than
-   a spacer — portals and pairs are the only children of their rows, so there is nothing to keep
-   them apart but themselves. No split class needed: a lone child has no predecessor, so the rule
-   never matches in full view, and any arrangement divides correctly. Both levels need it: within a
-   pair the portals are adjacent, but portals 2 and 3 are not — they sit in different pairs. */
+/* The seam, matching the bezel's 2px divider. Drawn as a border on the portal itself rather than a
+   spacer element — the portals are the only children of the row, so there is nothing to keep them
+   apart but themselves. It needs no knowledge of the arrangement: a divider is simply wherever two
+   portals meet, and merging removes one, taking its seam with it. */
 .portal + .portal { border-left: 2px solid #ffffff; }
-.pair   + .pair   { border-left: 2px solid #ffffff; }
 
 .page-frame {
   display: block;
