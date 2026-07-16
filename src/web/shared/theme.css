@@ -8,7 +8,8 @@
   --no-red:        #ff4040;  /* empty / alert state */
   --no-amber:      #ffaa00;  /* selected / waiting state */
   --no-gray:       #5a5a5a;  /* inactive / off annunciator (AVN status tiles) */
-  --no-label:      #d4d8dc;  /* nav key labels — off-white, not the screen's green (the bezel's) */
+  --no-label:      #d4d8dc;  /* off-white, not the screen's green — the bezel's key labels, and
+                                the F-35 strip's URL lines */
   /* The F-35 layout's chrome: separators, the labels it draws on the glass, the corner grips, the
      master strip. Its real display frames itself in teal where the bezel uses --no-label above.
      A layout's colour, not a page's: only shell/f35/ may read it, so a page still renders the same

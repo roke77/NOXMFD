@@ -106,9 +106,11 @@ html, body {
   background: var(--no-green);
   transition: width 60ms linear;
 }
-/* Green like MAIN's URL lines (main.css .ib-url, --no-green-dim). */
+/* Off-white rather than the bezel MAIN's green (main.css .ib-url): an address you type somewhere
+   else is not instrument data, so it reads as chrome. --no-label is the theme's off-white; the
+   frame's teal is for what the layout draws, not for what it reports. */
 .ms-url {
-  color: var(--no-green-dim);
+  color: var(--no-label);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -406,13 +408,31 @@ html, body {
   min-width: 0;
   overflow: hidden;
   container-type: size;
+  /* Framed on all four sides, as the reference display frames each of its windows. Each portal is
+     a whole MFD, so it is drawn as a whole box rather than being merely divided from its
+     neighbour — which is also why this needs no knowledge of the arrangement: merging removes a
+     portal and its frame goes with it, and the survivor's own frame is already the right shape.
+     border-box so the frame comes out of the portal's width instead of adding to it, which would
+     put the flex spans out by 4px each. */
+  box-sizing: border-box;
+  border: 2px solid var(--no-teal);
 }
 
-/* The seam, matching the bezel's 2px divider. Drawn as a border on the portal itself rather than a
-   spacer element — the portals are the only children of the row, so there is nothing to keep them
-   apart but themselves. It needs no knowledge of the arrangement: a divider is simply wherever two
-   portals meet, and merging removes one, taking its seam with it. */
-.portal + .portal { border-left: 2px solid var(--no-teal); }
+/* Where two frames meet, they meet — 2px of seam, not 2px twice. The overlap is a negative margin
+   rather than a dropped border, so every portal keeps all four of its own edges and none is a
+   special case: the first portal, the last, and a merged pair are all just boxes.
+   The spans survive it: flex-basis is 0, so the margin is redistributed by grow and four portals
+   come out equal to the pixel. A merged one lands a shade under twice its neighbour (640 vs 322 at
+   1280) — it covers two slots but draws one frame, so it keeps the 4px the second frame would have
+   spent. Visually a seam's width; not worth a correction that would make every portal's width
+   depend on its span. */
+.portal + .portal { margin-left: -2px; }
+
+/* Same meeting, the other axis: the strip already draws a 2px bottom edge, and the portals' top
+   edges would stack a second one under it. Pull the row up so the two lines land on each other.
+   It stays on the row rather than on the strip because the strip must keep that edge when the
+   portals are away — the layout picker takes their place, and it draws no frame of its own. */
+.portals { margin-top: -2px; }
 
 .page-frame {
   display: block;
