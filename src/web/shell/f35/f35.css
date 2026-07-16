@@ -11,10 +11,26 @@ html, body {
   font-family: var(--no-font);
 }
 
-/* The glass: edge-to-edge, no frame of any kind. */
+/* The glass: edge-to-edge, no frame of any kind. A flex column of two stacked containers that
+   never overlap — the master strip, then the portals below it. #map-tap is absolute behind both
+   (a data source, never displayed), so it sits outside this flow. */
 .pcd {
   position: absolute;
   inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Master strip ──────────────────────────────────────────────────────────────────────
+   A fixed full-width bar across the top of the glass — the home for what belongs to the aircraft
+   rather than to any one portal (docs/layouts.md). The first child of the .pcd column, so the
+   portals below are pushed down to make room rather than sliding under it: the two never share
+   space, and no z-order or inset has to be reasoned about. One ninth of the glass tall; flex-basis
+   carries the height so flex-grow/shrink stay pinned. Empty for now — content is a later slice. */
+.master-strip {
+  flex: 0 0 calc(100% / 9);
+  box-sizing: border-box;
+  border-bottom: 2px solid #ffffff;   /* the same 2px seam the portal dividers use */
 }
 
 /* The telemetry tap. Never seen: the MAP page owns the only EventSource('/stream') and posts the
@@ -32,13 +48,17 @@ html, body {
   pointer-events: none;
 }
 
-/* The glass: one flat row of portals across four slots. A portal spans one slot or two, and
-   flex-grow carries the span (set by f35.js applySpan) — with flex-basis 0 every slot is the same
-   width, so growing a portal to 2 gives it exactly two of them and its neighbours keep theirs. No
-   wrappers, no percentages; any of the five arrangements falls out of the numbers. */
+/* One flat row of portals across four slots. A portal spans one slot or two, and flex-grow carries
+   the span (set by f35.js applySpan) — with flex-basis 0 every slot is the same width, so growing a
+   portal to 2 gives it exactly two of them and its neighbours keep theirs. No wrappers, no
+   percentages; any of the five arrangements falls out of the numbers.
+
+   The second child of the .pcd column: it takes the height the master strip leaves (flex: 1), and
+   min-height: 0 lets it actually shrink to that rather than to its content. */
 .portals {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: row;
 }

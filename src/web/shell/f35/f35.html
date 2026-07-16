@@ -22,6 +22,11 @@
        reason. -->
   <iframe id="map-tap" src="/map-view?bare" title="telemetry"></iframe>
 
+  <!-- Master strip: a fixed full-width bar across the top of the glass, the home for what belongs
+       to the aircraft rather than to any one portal (docs/layouts.md). Empty for now — its content
+       is a separate decision. Pure chrome, so no f35.js involvement. -->
+  <div class="master-strip"></div>
+
   <!-- Portals are built by f35.js, not declared here: full view is one portal and a split is
        several, so the count is state. Each holds a page iframe with a label grid over it. -->
   <div class="portals" id="portals"></div>
