@@ -26,13 +26,23 @@
        to the aircraft rather than to any one portal (docs/layouts.md). Left to right: the wordmark,
        the connection block (local + LAN URL and status, stacked), and the avionics flags. f35.js
        fills the live values from the /config fetch and the status/avn telemetry slices. -->
-  <div class="master-strip">
+  <!-- Starts .booting so the connection block is hidden until the loading bar finishes — the URLs
+       are typed in (f35.js), and must never flash fully-formed first. -->
+  <div class="master-strip booting">
     <div class="ms-logo">NO XMFD</div>
 
     <div class="ms-net">
-      <div class="ms-url" id="ms-local">http://localhost:5005</div>
-      <div class="ms-url" id="ms-lan"></div>
-      <div class="ms-status disconnected" id="ms-status">● DISCONNECTED</div>
+      <!-- Boot loader: a LOADING… bar (ported from the bezel MAIN's info box) shown while booting;
+           at 100% f35.js reveals the data block and types the URLs. -->
+      <div class="ms-loading">
+        <div class="ms-loading-label">LOADING...</div>
+        <div class="ms-bar"><div class="ms-bar-fill" id="ms-bar-fill"></div></div>
+      </div>
+      <div class="ms-data">
+        <div class="ms-url" id="ms-local"></div>
+        <div class="ms-url" id="ms-lan"></div>
+        <div class="ms-status disconnected" id="ms-status">● DISCONNECTED</div>
+      </div>
     </div>
 
     <!-- The eight avionics flags the AVN page shows, in one row — same labels and same glyphs

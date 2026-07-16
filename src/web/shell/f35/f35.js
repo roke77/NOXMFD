@@ -504,8 +504,12 @@
   // portal — the status/avn slices reach it from the message pump above, and the URLs come from the
   // server once (the same /config the bezel's MAIN reads). The flags reuse avn-status-policy so the
   // GEAR-down-is-red rule stays in one place, shared with the AVN page.
+  const stripEl     = document.querySelector('.master-strip');
   const stripFlags  = [].slice.call(document.querySelectorAll('.ms-flag'));
   const stripStatus = document.getElementById('ms-status');
+  // The URLs type in only once BOTH the loading bar has finished and /config has landed — whichever
+  // is last. maybeRevealUrls checks both flags so the order of the two async events doesn't matter.
+  let bootDone = false, urlsLoaded = false;
 
   function updateStripFlags(m) {
     stripFlags.forEach(function (el) {
@@ -517,15 +521,43 @@
     stripStatus.className = 'ms-status ' + m.cls;
     stripStatus.textContent = m.text;
   }
+  function setStripUrls(cfg) {
+    if (cfg && cfg.localhost) document.getElementById('ms-local').textContent = cfg.localhost;
+    document.getElementById('ms-lan').textContent = (cfg && cfg.lanUrl) || '';
+    urlsLoaded = true;
+    maybeRevealUrls();
+  }
   function loadStripUrls() {
     fetch('/config', { cache: 'no-store' })
       .then(function (r) { if (!r.ok) throw new Error('config'); return r.json(); })
-      .then(function (cfg) {
-        if (cfg.localhost) document.getElementById('ms-local').textContent = cfg.localhost;
-        document.getElementById('ms-lan').textContent = cfg.lanUrl || '';
-        typeStripUrls();
-      })
-      .catch(function () {});
+      .then(setStripUrls)
+      // Fall back to the default localhost URL (as the bezel MAIN does) so the reveal still fires.
+      .catch(function () { setStripUrls({ localhost: 'http://localhost:5005' }); });
+  }
+
+  // Boot loader: a LOADING… bar filling 0→100% over ~1s (5% every 50ms; the 60ms CSS transition on
+  // the fill smooths each step into a sweep), then the URLs type in. Ports the bezel MAIN's
+  // runBootLoading (mfd.js). The strip starts in .booting from the HTML so nothing flashes before
+  // the bar; this only drives the fill and lifts .booting at 100%.
+  function runStripBoot() {
+    const fill = document.getElementById('ms-bar-fill');
+    if (!stripEl || !fill) return;
+    fill.style.width = '0%';
+    let pct = 0;
+    const timer = setInterval(function () {
+      pct += 5;
+      fill.style.width = Math.min(pct, 100) + '%';
+      if (pct >= 100) {
+        clearInterval(timer);
+        stripEl.classList.remove('booting');   // reveal the connection block
+        bootDone = true;
+        maybeRevealUrls();
+      }
+    }, 50);
+  }
+
+  function maybeRevealUrls() {
+    if (bootDone && urlsLoaded) typeStripUrls();
   }
 
   // Type the URL lines out character by character with a blinking caret, the same reveal the bezel
@@ -561,5 +593,6 @@
   }
 
   loadStripUrls();
+  runStripBoot();
   buildGlass();
 })();

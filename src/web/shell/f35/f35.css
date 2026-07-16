@@ -51,13 +51,46 @@ html, body {
 
 /* Connection block: local + LAN URL and the live status, stacked. The bezel shows the same three
    on MAIN; the F-35's MAIN is navigation only, so they live here instead. */
-.ms-net {
+.ms-net { min-width: 0; }
+
+/* Boot: show the loading bar, hide the data block, until f35.js finishes the fill. .booting starts
+   in the HTML so the connection block never flashes before the bar. */
+.ms-loading { display: none; }
+.master-strip.booting .ms-loading { display: block; }
+.master-strip.booting .ms-data    { display: none; }
+
+.ms-data {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 0;
   font-size: 13px;
   line-height: 1.3;
+}
+
+/* Loading bar, styled like the bezel MAIN's .ib-bar (itself the WPN EW-jammer capacitor bar): a
+   green-bordered trough with a fill whose width f35.js steps 0→100%, the 60ms transition smoothing
+   each step into a sweep. */
+.ms-loading-label {
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: var(--no-green-dim);
+  margin-bottom: 6px;
+}
+.ms-bar {
+  width: 180px;
+  height: 12px;
+  border: 1px solid var(--no-green);
+  border-radius: 3px;
+  background: rgba(57, 255, 20, 0.08);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.ms-bar-fill {
+  width: 0%;
+  height: 100%;
+  background: var(--no-green);
+  transition: width 60ms linear;
 }
 /* Green like MAIN's URL lines (main.css .ib-url, --no-green-dim). */
 .ms-url {
@@ -96,8 +129,8 @@ html, body {
 }
 .ms-flag.on        { color: var(--no-green); }
 .ms-flag.gear-down { color: var(--no-red); }
-.ms-flag-label { font-size: 10px; font-weight: 900; letter-spacing: 1px; line-height: 1; }
-.ms-flag-icon  { width: 24px; height: 24px; display: block; }
+.ms-flag-label { font-size: 15px; font-weight: 900; letter-spacing: 1px; line-height: 1; }
+.ms-flag-icon  { width: 36px; height: 36px; display: block; }
 /* GEAR reuses the game-captured glyph as a recolourable mask (same asset and technique as
    avn.css .avn-mask-icon), so it turns green/gray/red with the rest. */
 .ms-flag-mask {
