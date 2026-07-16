@@ -112,6 +112,35 @@ html, body {
 .ms-status.waiting      { color: var(--no-amber); }
 .ms-status.disconnected { color: var(--no-red); }
 
+/* Mission name + ownship grid, stacked — the pair the map page draws on itself, for a glass that
+   may be showing no map at all. Each is an .mfd-chip, the theme's own boxed readout: the same
+   class the map page's GRID chip uses, so the two render identically here and there and the box
+   is described in exactly one place.
+
+   align-items keeps each chip the width of its own text rather than stretching both to the wider
+   one — a chip is sized by what it says, which is how the map page's read.
+
+   display:flex would beat the hidden attribute's own display:none, so the empty case says it
+   outright — the same pairing .portals and .layout-picker need. */
+.ms-map {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;   /* a flex item won't shrink below its content without this — see the name below */
+}
+.ms-map[hidden] { display: none; }
+
+/* The mission name is the only thing in the strip whose length the game decides. It gives way with
+   an ellipsis rather than pushing the flags and LAYOUT off the end of a bar that clips them. */
+#ms-map-name {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#ms-grid { white-space: nowrap; }
+
 /* Avionics flags — one row, pushed to the far right. Each is a label + icon like the AVN tile
    (avn.css .avn-tile), and the colour class (off = gray, on = green, GEAR-down = red, from the
    shared avn-status-policy) recolours label and glyph together via currentColor. */

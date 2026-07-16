@@ -336,6 +336,12 @@ Left to right:
 - **Connection block** — the local and LAN URL and the live connection status,
   stacked. The bezel shows these on MAIN; the F-35's MAIN is navigation only,
   so they live here instead.
+- **Mission block** — the mission name and the ownship's grid, stacked, each an
+  `.mfd-chip` (the theme's boxed readout, the same class the map page's GRID
+  chip uses, so the two render identically). Hidden entirely while no mission is
+  loaded, as the map page hides its own mission bar. The name is the only string
+  in the strip whose length the game decides, so it ellipsises rather than push
+  the flags and LAYOUT off a bar that clips them.
 - **Avionics flags** — the eight annunciators the AVN page shows
   (GEAR / RADAR / GUNS / ENG / ASSIST / NVG / LIGHTS / TURRET), in one row, each
   a label + icon.
@@ -369,13 +375,24 @@ its geometry from a box instead of reflowing itself with CSS.
 ### Telemetry — the first chrome that wants it
 
 The strip is the layout's first piece of chrome that needs live data, and it is
-not a portal, so it has no `PAGE_FEEDS` entry. The two slices it shows —
-`status` and `avn` — are handed to it straight from the shell's message pump;
+not a portal, so it has no `PAGE_FEEDS` entry. The slices it shows — `status`,
+`avn` and `mapinfo` — are handed to it straight from the shell's message pump;
 the URLs come from `/config` once (the same the bezel's MAIN reads). The flags
 reuse `avn-status-policy`, so the GEAR-down-is-red rule stays in one place
 shared with AVN, and their glyphs are the AVN page's own — inline SVGs, plus the
 game-captured `gear-icon.png` mask for GEAR. `data-kind` / `data-field` on each
 flag keep the update loop generic.
+
+`mapinfo` is new, and it is the first slice `TelemetrySource` emits that no page
+consumes. Every other one exists because a dedicated MFD page renders it; the
+mission name and the ownship grid were the map page's private HUD, derived from
+the raw frame and drawn on itself. A strip that shows no map has no way to reach
+them, so the tap now derives the pair once more and posts it up. The map page is
+untouched and still renders its own from `d` — the alternative, having it emit
+what it draws, would have made a page a data source for the shell hosting it.
+
+The stream also carries a `mapName` ("PREVIEW ISLAND") distinct from `mission`.
+Nothing renders it, here or on the map page.
 
 ### Boot
 

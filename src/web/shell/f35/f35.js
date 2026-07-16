@@ -488,10 +488,12 @@
     slices[m.type] = m;   // cache every slice: the screen that wants it may not be up yet
     livePortals().forEach(function (p) { p.onSlice(m.type); });
 
-    // The master strip isn't a portal, so it has no PAGE_FEEDS entry; the two slices it shows are
-    // handed to it straight from here. status → the connection line; avn → the flags.
+    // The master strip isn't a portal, so it has no PAGE_FEEDS entry; the slices it shows are
+    // handed to it straight from here. status → the connection line; avn → the flags;
+    // mapinfo → the mission name and grid.
     if (m.type === 'status') updateStripStatus(m);
     else if (m.type === 'avn') updateStripFlags(m);
+    else if (m.type === 'mapinfo') updateStripMap(m);
   });
 
   // WPN's rects are derived from its portal's box, so they go stale when it changes. The bezel
@@ -506,9 +508,12 @@
   // portal — the status/avn slices reach it from the message pump above, and the URLs come from the
   // server once (the same /config the bezel's MAIN reads). The flags reuse avn-status-policy so the
   // GEAR-down-is-red rule stays in one place, shared with the AVN page.
-  const stripEl     = document.querySelector('.master-strip');
-  const stripFlags  = [].slice.call(document.querySelectorAll('.ms-flag'));
-  const stripStatus = document.getElementById('ms-status');
+  const stripEl      = document.querySelector('.master-strip');
+  const stripFlags   = [].slice.call(document.querySelectorAll('.ms-flag'));
+  const stripStatus  = document.getElementById('ms-status');
+  const stripMap     = document.getElementById('ms-map');
+  const stripMapName = document.getElementById('ms-map-name');
+  const stripGrid    = document.getElementById('ms-grid');
   // The URLs type in only once BOTH the loading bar has finished and /config has landed — whichever
   // is last. maybeRevealUrls checks both flags so the order of the two async events doesn't matter.
   let bootDone = false, urlsLoaded = false;
@@ -522,6 +527,16 @@
   function updateStripStatus(m) {
     stripStatus.className = 'ms-status ' + m.cls;
     stripStatus.textContent = m.text;
+  }
+
+  // No mission → nothing to name and no grid to be in, so the block leaves rather than sitting
+  // there full of dashes. The map page hides its own mission bar the same way (map.css
+  // #mission-bar.empty). The tap sends mission:null on mission exit, so this un-shows itself.
+  function updateStripMap(m) {
+    stripMap.hidden = !m.mission;
+    if (!m.mission) return;
+    stripMapName.textContent = m.mission;
+    stripGrid.textContent = 'GRID: ' + (m.grid || '—');
   }
   function setStripUrls(cfg) {
     if (cfg && cfg.localhost) document.getElementById('ms-local').textContent = cfg.localhost;

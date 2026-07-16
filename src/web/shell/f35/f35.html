@@ -45,6 +45,15 @@
       </div>
     </div>
 
+    <!-- Mission name + ownship grid, stacked — the pair the map page draws on itself (its mission
+         bar and GRID chip), from the 'mapinfo' slice. Starts hidden and stays that way until a
+         mission is loaded: with none there is nothing to name and no grid to be in, so the block
+         leaves rather than sitting there full of dashes. -->
+    <div class="ms-map" id="ms-map" hidden>
+      <div class="mfd-chip" id="ms-map-name"></div>
+      <div class="mfd-chip" id="ms-grid"></div>
+    </div>
+
     <!-- The eight avionics flags the AVN page shows, in one row — same labels and same glyphs
          (the inline SVGs are copied from avn.html; GEAR reuses the game-captured gear-icon.png
          mask). data-field names the avn-slice boolean; data-kind drives the colour via
