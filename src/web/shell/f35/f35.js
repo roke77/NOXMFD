@@ -78,8 +78,9 @@
   // six physical keys for six items. Kept here, they stay F-35's business and the bezel is
   // unaffected. They have no F35_PAGES entry, so they render greyed and inert like any other
   // unimplemented action — no special case needed.
-  // (LYT is not among them: choosing a layout is the whole glass's business, so it moved to the
-  // master strip. On MAIN it would have been offered once per portal, four times over.)
+  // (The layout chooser used to be among them, as a greyed LYT. Choosing a layout is the whole
+  // glass's business, so it moved to the master strip — on MAIN it would have been offered once per
+  // portal, four times over.)
   const MAIN_EXTRAS = [
     { label: 'HUD', action: 'hud' },
     { label: 'PAL', action: 'pal' },
@@ -594,8 +595,9 @@
   }
 
   // ── Layout picker ──────────────────────────────────────────────────────────────────────
-  // LYT swaps the portals for a two-item chooser. It lives in the strip because a layout is the
-  // whole glass's business — the one thing on this shell that isn't any portal's to decide.
+  // LAYOUT swaps the portals for a two-item chooser. It lives in the strip because a layout is the
+  // whole glass's business — the one thing on this shell that isn't any portal's to decide. (Its
+  // id and class stay ms-lyt: the label grew, the control didn't change.)
   //
   // It replaces the portals CONTAINER, not their contents: hidden, the portals keep their pages,
   // their arrangement and their map streams, so coming back costs nothing and loses nothing.

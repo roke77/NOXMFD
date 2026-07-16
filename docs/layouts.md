@@ -296,7 +296,7 @@ The rule for anything added here: measure the portal, never the window.
 
 ### Stage 3 — selection 🟡 partial
 
-The F-35 can switch live: the strip's **LYT** replaces the portals with a
+The F-35 can switch live: the strip's **LAYOUT** replaces the portals with a
 two-item chooser (CLASSIC / F-35, the current one marked), and CLASSIC
 navigates to `/`. That is one direction only — the bezel has no way back, and
 neither shell remembers the choice, so a reload lands on whatever the URL says.
@@ -304,7 +304,7 @@ neither shell remembers the choice, so a reload lands on whatever the URL says.
 So the layout is still chosen by URL (`/` vs `/f35`), which is enough to
 develop against but is not a user-facing setting. What is left: a BepInEx
 `ConfigEntry` (we already ship ConfigurationManager) or a `?layout=` query
-param that makes `/` serve either shell — at which point LYT's CLASSIC sets
+param that makes `/` serve either shell — at which point LAYOUT's CLASSIC sets
 that preference rather than just navigating, and the bezel can grow the
 matching control.
 
@@ -339,9 +339,11 @@ Left to right:
 - **Avionics flags** — the eight annunciators the AVN page shows
   (GEAR / RADAR / GUNS / ENG / ASSIST / NVG / LIGHTS / TURRET), in one row, each
   a label + icon.
-- **LYT** — the layout chooser, last, at the far right.
+- **LAYOUT** — the layout chooser, last, at the far right. The only thing in the
+  strip you press, so it is drawn as a button — bordered, and its name spelled
+  out rather than clipped to the three characters a bezel key would have had.
 
-### LYT — why the strip and not MAIN
+### LAYOUT — why the strip and not MAIN
 
 Choosing a layout is the whole glass's business, and MAIN is per-portal: on the
 menu it would have offered the same choice up to four times, each press meaning

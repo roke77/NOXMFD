@@ -139,6 +139,20 @@ html, body {
           mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
 }
 
+/* LYT — the only thing in the strip you press; everything either side of it is a readout. So it is
+   drawn as a button rather than a label: its name spelled out, and a border to say it has an edge
+   to hit. currentColor ties that border to the item's own state, so it tracks the label it rings —
+   off-white at rest, amber while the picker is up, dark against the hover fill. */
+.master-strip .ms-lyt {
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 6px 12px;
+  white-space: nowrap;   /* the strip is one row; never let the name wrap into two */
+}
+/* The border already rings it, so .nav-item.on's amber outline would sit a second ring just
+   outside it. Same colour, same job — keep the border and drop the outline. */
+.master-strip .ms-lyt.on { outline: none; }
+
 /* The telemetry tap. Never seen: the MAP page owns the only EventSource('/stream') and posts the
    derived slices up to its host, so this shell carries a map iframe purely as a data source — even
    though a MAP portal mounts its own map to display. Full-size despite being invisible, so the
