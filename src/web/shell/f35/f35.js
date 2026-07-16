@@ -78,9 +78,10 @@
   // six physical keys for six items. Kept here, they stay F-35's business and the bezel is
   // unaffected. They have no F35_PAGES entry, so they render greyed and inert like any other
   // unimplemented action — no special case needed.
+  // (LYT is not among them: choosing a layout is the whole glass's business, so it moved to the
+  // master strip. On MAIN it would have been offered once per portal, four times over.)
   const MAIN_EXTRAS = [
     { label: 'HUD', action: 'hud' },
-    { label: 'LYT', action: 'lyt' },
     { label: 'PAL', action: 'pal' },
     { label: 'BDF', action: 'bdf' },
   ];
@@ -591,6 +592,36 @@
     }
     typeLine(0);
   }
+
+  // ── Layout picker ──────────────────────────────────────────────────────────────────────
+  // LYT swaps the portals for a two-item chooser. It lives in the strip because a layout is the
+  // whole glass's business — the one thing on this shell that isn't any portal's to decide.
+  //
+  // It replaces the portals CONTAINER, not their contents: hidden, the portals keep their pages,
+  // their arrangement and their map streams, so coming back costs nothing and loses nothing.
+  // #map-tap is absolute and outside the column, so telemetry keeps flowing the whole time.
+  //
+  // Which layout is current needs no state: this file IS the F-35 shell, so its item is marked in
+  // the HTML and CLASSIC is simply somewhere else.
+  const pickerEl = document.getElementById('layout-picker');
+  const lytBtn   = document.getElementById('ms-lyt');
+
+  function showPicker(on) {
+    pickerEl.hidden  = !on;
+    portalsEl.hidden = on;
+    lytBtn.classList.toggle('on', on);
+    // Hidden, a portal's box is 0x0 — and the resize listener below still fires into it, handing
+    // WPN a zero-height rect for every row. So rebuild on the way back: the glass may have changed
+    // size while it was away, and whatever WPN is holding was measured against nothing. Only WPN
+    // derives geometry from its box; every other page reflows itself with CSS.
+    if (!on) relayoutAll();
+  }
+
+  lytBtn.addEventListener('click', function () { showPicker(pickerEl.hidden); });
+  // F-35 is this document, so the way back is just showing the glass again. CLASSIC is a different
+  // one: the bezel shell at /, which lands on its own MAIN.
+  pickerEl.querySelector('[data-layout="f35"]').addEventListener('click', function () { showPicker(false); });
+  pickerEl.querySelector('[data-layout="classic"]').addEventListener('click', function () { location.href = '/'; });
 
   loadStripUrls();
   runStripBoot();

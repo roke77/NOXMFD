@@ -169,6 +169,27 @@ html, body {
   flex-direction: row;
 }
 
+/* ── Layout picker ─────────────────────────────────────────────────────────────────────
+   What the strip's LYT puts in the portals' place: the two layouts, centred on the glass. It takes
+   the same slot in the .pcd column, so the strip stays put and only what is under it changes.
+
+   Both this and .portals declare a display, which would beat the `hidden` attribute's own
+   display:none — so each needs saying explicitly. The attribute is the state: no class, no JS
+   styling, and the two can never both be up. */
+.layout-picker {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 88px;
+}
+.layout-picker[hidden] { display: none; }
+.portals[hidden]       { display: none; }
+
+/* Bigger than a label on a page: these are the only things on the glass. */
+.layout-picker .nav-item { font-size: 30px; }
+
 /* A portal = one independent MFD's region of the glass. position:relative so its page frame and
    label grid anchor to IT rather than the glass; overflow:hidden so a page can't paint into its
    neighbour.

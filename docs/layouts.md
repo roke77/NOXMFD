@@ -155,7 +155,7 @@ A layout also owns the **page placement geometry** it feeds pages (the
 `NAV` is shared, so a layout cannot grow it: the bezel has six physical keys
 for MAIN's six items, and `nav-model.test.js` pins that list. A layout that
 wants more puts them in its own table — the F-35 keeps `MAIN_EXTRAS`
-(HUD/LYT/PAL/BDF placeholders) beside `NAV` and merges the two when
+(HUD/PAL/BDF placeholders) beside `NAV` and merges the two when
 rendering. Consequently ordering is a *rendering* choice: the F-35 sorts its
 MAIN menu alphabetically (so TGP precedes TGT) while the bezel keeps `NAV`'s
 order (TGT, TGP).
@@ -296,11 +296,17 @@ The rule for anything added here: measure the portal, never the window.
 
 ### Stage 3 — selection 🟡 partial
 
-The layout is chosen by URL today (`/` vs `/f35`), which is enough to
-develop against but is not a user-facing setting. Smallest next step: a
-BepInEx `ConfigEntry` (we already ship ConfigurationManager) or a `?layout=`
-query param that makes `/` serve either shell. A softkey to switch live is a
-later nicety — the F-35's MAIN carries a greyed `LYT` placeholder for it.
+The F-35 can switch live: the strip's **LYT** replaces the portals with a
+two-item chooser (CLASSIC / F-35, the current one marked), and CLASSIC
+navigates to `/`. That is one direction only — the bezel has no way back, and
+neither shell remembers the choice, so a reload lands on whatever the URL says.
+
+So the layout is still chosen by URL (`/` vs `/f35`), which is enough to
+develop against but is not a user-facing setting. What is left: a BepInEx
+`ConfigEntry` (we already ship ConfigurationManager) or a `?layout=` query
+param that makes `/` serve either shell — at which point LYT's CLASSIC sets
+that preference rather than just navigating, and the bezel can grow the
+matching control.
 
 ## The master strip
 
@@ -333,6 +339,30 @@ Left to right:
 - **Avionics flags** — the eight annunciators the AVN page shows
   (GEAR / RADAR / GUNS / ENG / ASSIST / NVG / LIGHTS / TURRET), in one row, each
   a label + icon.
+- **LYT** — the layout chooser, last, at the far right.
+
+### LYT — why the strip and not MAIN
+
+Choosing a layout is the whole glass's business, and MAIN is per-portal: on the
+menu it would have offered the same choice up to four times, each press meaning
+the same thing. The strip is the one place on this shell that speaks for the
+aircraft rather than for a portal, so it is where the control belongs — and
+moving it there took it out of `MAIN_EXTRAS`, where it had been sitting greyed.
+
+Pressing it swaps the **container**, not the portals' contents: `#portals` and
+`#layout-picker` are siblings in the `.pcd` column and take the same slot below
+the strip, and the `hidden` attribute is the whole of the state. The portals
+keep their pages, their arrangement and their map streams while they wait, so
+coming back costs nothing and loses nothing.
+
+Which layout is current needs no state either — this document *is* the F-35, so
+its item is marked in the HTML, and CLASSIC is simply somewhere else (`/`).
+
+One thing the swap does owe the portals: hidden, a portal's box is 0×0, and the
+shell's resize listener still fires into it — handing WPN a zero-height rect per
+row. So restoring the glass reruns `relayoutAll()`. WPN is the only page that
+needs it, for the same reason it is the only one that ever needed it: it derives
+its geometry from a box instead of reflowing itself with CSS.
 
 ### Telemetry — the first chrome that wants it
 

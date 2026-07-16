@@ -100,11 +100,25 @@
         </svg>
       </div>
     </div>
+
+    <!-- LYT swaps the portals below for the layout chooser. It sits in the strip, not on a portal's
+         MAIN, because a layout is the whole glass's business — per portal it would have offered the
+         same choice four times. Last item, after the flags. -->
+    <button type="button" class="nav-item ms-lyt" id="ms-lyt"
+            title="Choose the display layout">LYT</button>
   </div>
 
   <!-- Portals are built by f35.js, not declared here: full view is one portal and a split is
        several, so the count is state. Each holds a page iframe with a label grid over it. -->
   <div class="portals" id="portals"></div>
+
+  <!-- The layout chooser, in the portals' place (f35.js showPicker toggles which of the two the
+       column holds). Static content, unlike the portals: the choice is always these two, and F-35
+       is marked as current here rather than in JS because this document IS the F-35 layout. -->
+  <div class="layout-picker" id="layout-picker" hidden>
+    <button type="button" class="nav-item" data-layout="classic">CLASSIC</button>
+    <button type="button" class="nav-item on" data-layout="f35">F-35</button>
+  </div>
 </div>
 
 <script src="/assets/services/send-command.js"></script>
