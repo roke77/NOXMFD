@@ -9,7 +9,8 @@ and on `feat/layouts`. The bezel remains the default and is unchanged.
 - The **F-35** layout is a working prototype, served at `/f35`: borderless,
   no keys, labels drawn on the glass. Every page renders on it (MAIN, MAP,
   AVN, RWR, TGT, TGP, WPN). The glass is four independent portals, and the
-  corner grips expand and retract them — four, three or two, never one.
+  corner grips merge adjacent ones and split them back — five arrangements,
+  never fewer than two portals.
 
 Both consume one shared navigation model. `NAV` has never been edited to
 serve the second layout, and no page has changed — which was this plan's
@@ -207,44 +208,74 @@ Built (`src/web/shell/f35/`, served at `/f35`):
 - the portal split, driven entirely by the corner grips
 - shared action dispatch; `NAV` unmodified
 
-#### Portals and pairs
+#### Portals
 
 A **portal** is an independent MFD: it owns everything two screens must not
 share — which page is up, where its WPN list is paged to, whether its map
 follows. The shell keeps only the telemetry cache and the tap.
 
-Portals come in **pairs**, and a pair owns an equal share of the glass. The
-layout is fixed at two pairs of two, so the glass is four portals wide. The
-nesting is what makes the resize arithmetic free: a pair keeps its half no
-matter what happens inside it, so a portal that absorbs its partner grows to
-exactly that half — not to a third of the glass, which four flat siblings
-would give.
+The glass is **four slots** wide, and a portal fills one slot or two — never
+three. So any two *adjacent* portals may merge, and nothing larger. `flex-grow`
+carries the span, which is the whole resize arithmetic: with `flex-basis: 0`
+every slot is the same width, so growing a portal to 2 gives it exactly two
+and its neighbours keep theirs. No wrapper elements, no percentages.
 
-The **corner grips** do the resizing, and there is no other control: no URL,
-no preset. A grip sits in the corner facing its partner and never moves; only
-its direction changes.
+Because a merge joins two and no more, at least two portals always remain:
+**the glass is never one screen.** The real PCD isn't either.
 
-- pointing **outward** — absorb the partner and take the whole pair.
-- pointing **inward** — give the half back, splitting the pair again.
-- **no partner slot, no grip** — nothing to absorb or give back.
+##### The arrangement rule
 
-Everything else follows from that. Portals 1 and 4 have no outward grip
-because only the screen edge lies that way; 2 and 3 have none towards the
-centre because that is the other pair's half. So the reachable states are
-four portals, three or two — **never one**: nothing crosses the centre, so
-the F-35's glass is never a single screen. The real PCD isn't either.
+Lives in `f35-glass.js`, pure and pinned by `f35-glass.test.js`. Every
+arrangement is some set of adjacent merges that don't overlap, which is
+exactly five:
 
-The survivor of an absorb keeps its page and everything on it, and simply
-gets wider. The absorbed portal is destroyed — its iframe and any map stream
-go with it — and comes back fresh on MAIN.
+```
+1 2 3 4      (1 2) 3 4      1 (2 3) 4      1 2 (3 4)      (1 2) (3 4)
+```
 
-**MAP costs a stream here.** The tap sits behind every portal, so it could
-only ever be *shown* to a portal covering the whole glass, and no portal ever
-does. Every MAP portal therefore mounts its own `/map-view?bare` and streams
-alongside the tap. The bezel pays exactly the same in split mode, and ignores
-the duplicate telemetry the same way (`event.source` must be the canonical
-map). `FLW`/`Z+`/`Z-` route to the portal's own map, and `follow` is
-per-portal — it routes by source, as the bezel's does.
+Nothing else is reachable: `(1 2)` and `(2 3)` would both want portal 2, and a
+triple would need a merged portal to merge again. So a portal beside a merged
+one has no grip at all, and simply waits — in `1 (2 3) 4`, portals 1 and 4
+both do.
+
+**Layout is not the whole story.** `(1 2)` merged from the left and from the
+right occupy the same slots but keep different pages — the survivor is
+whoever pressed. So the five layouts cover **six states**, and `ate` (which
+side a portal swallowed) is what tells them apart. A split needs it to put the
+newcomer back on the side that was eaten; getting that backwards silently
+swaps the pilot's screens.
+
+##### The grips
+
+The corner grips are the only control: no URL, no presets. A grip sits in the
+corner facing what it acts on, and its direction says what:
+
+- **outward** — take the neighbour on that side.
+- **inward** — give back the slot it took, splitting in two again.
+
+An unmerged portal gets **one** grip, and it faces the **centre of the glass**:
+portals 1 and 2 reach right, 3 and 4 reach left. Both neighbours of a divider
+could offer to merge across it, but the two offers differ only in which page
+survives — so one grip per divider costs a *choice*, never a layout, and all
+five arrangements stay reachable.
+
+The centre divider is the one place two grips meet, since the portals either
+side both face it. That makes `(2 3)` the only merge reachable from either
+direction — asymmetric, and deliberate.
+
+The survivor of a merge keeps its page and everything on it, and just gets
+wider. The absorbed portal is destroyed — its iframe and any map stream go
+with it — and comes back fresh on MAIN.
+
+##### MAP costs a stream here
+
+The tap sits behind every portal, so it could only ever be *shown* to a portal
+covering the whole glass, and no portal ever does. Every MAP portal therefore
+mounts its own `/map-view?bare` and streams alongside the tap. The bezel pays
+exactly the same in split mode, and ignores the duplicate telemetry the same
+way (`event.source` must be the canonical map). `FLW`/`Z+`/`Z-` route to the
+portal's own map, and `follow` is per-portal — it routes by source, as the
+bezel's does.
 
 #### A portal is not the glass
 
@@ -316,10 +347,14 @@ later nicety — the F-35's MAIN carries a greyed `LYT` placeholder for it.
 - **A portal's own page set.** Every portal currently offers all of `NAV`.
   Four portals showing four MAINs is a plausible default but not obviously
   the right one, and the reference shows each portal with a fixed role.
-- **Uneven portals.** A pair's members are always equal or absorbed —
-  50/50 or 100/0. The reference suggests fixed roles rather than dragged
-  widths, so this may never be wanted; noting it because the pair element
-  is where it would go.
+- **Uneven portals.** A portal is one slot wide or two, so the glass only ever
+  divides on slot boundaries — no dragging a divider to 30/70. The reference
+  suggests fixed roles rather than dragged widths, so this may never be
+  wanted; noting it because `SLOTS` and the span are where it would go.
+- **Triples.** Deliberately excluded: a merged portal offers no merge, so
+  `(1 2 3)` and a full-width portal are unreachable. Allowing them would bring
+  back full view, and with it the one case where a portal could show the tap
+  instead of running its own map.
 
 ## Out of scope
 
@@ -338,11 +373,18 @@ Symbol names, not line numbers — this code is actively moving.
 - **Bezel:** `src/web/shell/mfd.{html,css,js}`, `split-keymap.js`. Key
   symbols: `fullViewSlot`, `SPLIT_SLOTS`, `FRAME_PAGES`, `PAGE_URL`,
   `forwardAvnLayoutToFrame`, `forwardWpnLayoutToFrame`, `placeWpnNavLabels`.
-- **F-35:** `src/web/shell/f35/f35.{html,css,js}`, `f35-wpn-paging.js` (+ its
-  test). Key symbols: `makePortal` (everything per-screen lives in its
-  closure), `makePair` (`toggle` is absorb/give-back), `PAIRS`, `buildGlass`,
-  `livePortals`, `gripCornerFor` / `gripPointsFor` (the grip rule),
-  `F35_PAGES`, `PAGE_FEEDS`, `FEED_AS`, `DERIVED`, `NAV_LAYOUT`,
-  `MAIN_EXTRAS`, `cellOf`, `forwardWpnLayout`, `forwardOrientation`.
+- **F-35:** `src/web/shell/f35/f35.{html,css,js}`, plus two pure modules with
+  their tests — `f35-glass.js` (the arrangement rule: `gripsFor`, `merge`,
+  `split`, `SLOTS`) and `f35-wpn-paging.js`. Key symbols in `f35.js`:
+  `makePortal` (everything per-screen lives in its closure), `onGrip`
+  (merge/split, and the only thing that changes the glass), `refreshGlass`,
+  `buildGlass`, `cells`, `F35_PAGES`, `PAGE_FEEDS`, `FEED_AS`, `DERIVED`,
+  `NAV_LAYOUT`, `MAIN_EXTRAS`, `cellOf`, `forwardWpnLayout`,
+  `forwardOrientation`.
+
+  The split is worth knowing: `f35-glass.js` is *policy* (which grips exist,
+  what a merge would produce) and `f35.js` is *mechanism* (portals, iframes,
+  the DOM). Changing the grip rule touched only the module and its test —
+  `f35.js` asks rather than knows.
 - **Routes:** `/f35` is served by `TelemetryServer.cs` in-game and by
   `tools/serve_web.py` in the preview harness. Both need the entry.
