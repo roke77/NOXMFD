@@ -3,6 +3,25 @@
    Palette comes from the shared theme tokens (var(--no-*)) so page content renders identically
    here and under the bezel shell — a layout owns the frame, not the page's colours. */
 
+/* ── The layout's chrome colour ────────────────────────────────────────────────────────
+   The real F-35's panoramic display draws its frame and its labels in teal, so this layout does
+   too. It applies to what the LAYOUT owns — the separators between portals, the nav labels drawn
+   on the glass, the corner grips, the strip and its LAYOUT button — and stops there. Instrument
+   data keeps the theme's palette wherever it is: the gauges and flags stay green/amber/red, the
+   engaged state stays amber, and every page inside a portal is untouched, so a page renders
+   identically here and under the bezel.
+
+   Deliberately a variable of this file's own and NOT a new value for --no-label: that token lives
+   in theme.css, and mfd.css paints the bezel's key labels with it. Recolouring it would drag the
+   other layout along.
+
+   Kept as a triplet because the wash under a pressed WPN band needs the same colour with an alpha;
+   one source, so the two can't drift. Tune the teal here and the whole frame follows. */
+:root {
+  --f35-chrome-rgb: 78, 201, 201;
+  --f35-chrome: rgb(var(--f35-chrome-rgb));
+}
+
 html, body {
   height: 100%;
   margin: 0;
@@ -30,12 +49,12 @@ html, body {
 .master-strip {
   flex: 0 0 calc(100% / 9);
   box-sizing: border-box;
-  border-bottom: 2px solid #ffffff;   /* the same 2px seam the portal dividers use */
+  border-bottom: 2px solid var(--f35-chrome);   /* the same 2px seam the portal dividers use */
   display: flex;
   align-items: center;
   gap: 28px;
   padding: 0 16px;
-  color: var(--no-label);
+  color: var(--f35-chrome);
   overflow: hidden;
 }
 
@@ -398,7 +417,7 @@ html, body {
    spacer element — the portals are the only children of the row, so there is nothing to keep them
    apart but themselves. It needs no knowledge of the arrangement: a divider is simply wherever two
    portals meet, and merging removes one, taking its seam with it. */
-.portal + .portal { border-left: 2px solid #ffffff; }
+.portal + .portal { border-left: 2px solid var(--f35-chrome); }
 
 .page-frame {
   display: block;
@@ -425,7 +444,7 @@ html, body {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--no-label);
+  color: var(--f35-chrome);
   cursor: pointer;
 }
 .portal-grip.left  { left: 4px; }
@@ -484,10 +503,11 @@ html, body {
   font: inherit;
   font-size: 20px;
   letter-spacing: 1px;
-  /* Off-white, not the screen's green — a label names a control, it isn't instrument data. The
-     bezel draws that distinction by painting labels on the frame rather than the glass; with no
-     frame to paint on, colour is what carries it. Shared token, so the two layouts can't drift. */
-  color: var(--no-label);
+  /* The chrome teal, not the screen's green — a label names a control, it isn't instrument data.
+     The bezel draws that distinction by painting labels on the frame rather than the glass; with no
+     frame to paint on, colour is what carries it. This layout's own colour, so saying it here is
+     the point: the bezel keeps its off-white labels. */
+  color: var(--f35-chrome);
   cursor: pointer;
 }
 
@@ -520,10 +540,10 @@ html, body {
   background: none;
   cursor: pointer;
 }
-.wpn-hit:active { background: rgba(212, 216, 220, 0.16); }
+.wpn-hit:active { background: rgba(var(--f35-chrome-rgb), 0.16); }
 /* Mouse only — a touch tap would leave the band lit, reading as the selected weapon. */
 @media (hover: hover) {
-  .wpn-hit:hover { background: rgba(212, 216, 220, 0.08); }
+  .wpn-hit:hover { background: rgba(var(--f35-chrome-rgb), 0.08); }
 }
 
 /* TGT packs clickable filter controls into its top-left, exactly where the edge label sits — and
@@ -563,7 +583,7 @@ html, body {
    misleading on FLW, whose lit state MEANS something. Gate it on the pointer actually being able
    to hover: desktop keeps the highlight, touch gets :active alone. */
 @media (hover: hover) {
-  .nav-item:hover    { color: var(--no-ink); background: var(--no-label); }
+  .nav-item:hover    { color: var(--no-ink); background: var(--f35-chrome); }
   .nav-item.on:hover { color: var(--no-ink); background: var(--no-amber); }
   /* ...but not on a label that does nothing. */
   .nav-item.pending:hover { color: var(--no-gray); background: none; }
