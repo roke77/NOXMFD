@@ -485,6 +485,11 @@
     if (e.source !== mapTap.contentWindow) return;
     slices[m.type] = m;   // cache every slice: the screen that wants it may not be up yet
     livePortals().forEach(function (p) { p.onSlice(m.type); });
+
+    // The master strip isn't a portal, so it has no PAGE_FEEDS entry; the two slices it shows are
+    // handed to it straight from here. status → the connection line; avn → the flags.
+    if (m.type === 'status') updateStripStatus(m);
+    else if (m.type === 'avn') updateStripFlags(m);
   });
 
   // WPN's rects are derived from its portal's box, so they go stale when it changes. The bezel
@@ -494,5 +499,34 @@
   window.addEventListener('resize', relayoutAll);
   orientMq.addEventListener('change', relayoutAll);
 
+  // ── Master strip ───────────────────────────────────────────────────────────────────────
+  // Fixed chrome across the top (docs/layouts.md). It holds no page and no NAV, so it isn't a
+  // portal — the status/avn slices reach it from the message pump above, and the URLs come from the
+  // server once (the same /config the bezel's MAIN reads). The flags reuse avn-status-policy so the
+  // GEAR-down-is-red rule stays in one place, shared with the AVN page.
+  const stripFlags  = [].slice.call(document.querySelectorAll('.ms-flag'));
+  const stripStatus = document.getElementById('ms-status');
+
+  function updateStripFlags(m) {
+    stripFlags.forEach(function (el) {
+      el.classList.remove('on', 'off', 'gear-down');
+      el.classList.add(AvnStatusPolicy.tileClass(el.dataset.kind, !!m[el.dataset.field]));
+    });
+  }
+  function updateStripStatus(m) {
+    stripStatus.className = 'ms-status ' + m.cls;
+    stripStatus.textContent = m.text;
+  }
+  function loadStripUrls() {
+    fetch('/config', { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error('config'); return r.json(); })
+      .then(function (cfg) {
+        if (cfg.localhost) document.getElementById('ms-local').textContent = cfg.localhost;
+        document.getElementById('ms-lan').textContent = cfg.lanUrl || '';
+      })
+      .catch(function () {});
+  }
+
+  loadStripUrls();
   buildGlass();
 })();

@@ -31,7 +31,53 @@ html, body {
   flex: 0 0 calc(100% / 9);
   box-sizing: border-box;
   border-bottom: 2px solid #ffffff;   /* the same 2px seam the portal dividers use */
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 0 16px;
+  color: var(--no-label);
+  overflow: hidden;
 }
+
+/* The wordmark. Styled text rather than an image — there is no served logo asset — in the display's
+   primary green so it reads as the aircraft's own marking. */
+.ms-logo {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--no-green);
+  white-space: nowrap;
+}
+
+/* Connection block: local + LAN URL and the live status, stacked. The bezel shows the same three
+   on MAIN; the F-35's MAIN is navigation only, so they live here instead. */
+.ms-net {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.ms-url { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ms-url:empty { display: none; }   /* no LAN URL (no second NIC) → don't leave a blank line */
+.ms-status { letter-spacing: 1px; }
+.ms-status.connected    { color: var(--no-green); }
+.ms-status.waiting      { color: var(--no-amber); }
+.ms-status.disconnected { color: var(--no-red); }
+
+/* Avionics flags — one row, pushed to the far right. Same colours as the AVN tiles (off = gray,
+   on = green, GEAR-down = red), driven by the shared avn-status-policy classes. */
+.ms-flags {
+  margin-left: auto;
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+.ms-flag.off       { color: var(--no-gray); }
+.ms-flag.on        { color: var(--no-green); }
+.ms-flag.gear-down { color: var(--no-red); }
 
 /* The telemetry tap. Never seen: the MAP page owns the only EventSource('/stream') and posts the
    derived slices up to its host, so this shell carries a map iframe purely as a data source — even

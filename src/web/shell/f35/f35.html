@@ -23,9 +23,32 @@
   <iframe id="map-tap" src="/map-view?bare" title="telemetry"></iframe>
 
   <!-- Master strip: a fixed full-width bar across the top of the glass, the home for what belongs
-       to the aircraft rather than to any one portal (docs/layouts.md). Empty for now — its content
-       is a separate decision. Pure chrome, so no f35.js involvement. -->
-  <div class="master-strip"></div>
+       to the aircraft rather than to any one portal (docs/layouts.md). Left to right: the wordmark,
+       the connection block (local + LAN URL and status, stacked), and the avionics flags. f35.js
+       fills the live values from the /config fetch and the status/avn telemetry slices. -->
+  <div class="master-strip">
+    <div class="ms-logo">NO XMFD</div>
+
+    <div class="ms-net">
+      <div class="ms-url" id="ms-local">http://localhost:5005</div>
+      <div class="ms-url" id="ms-lan"></div>
+      <div class="ms-status disconnected" id="ms-status">● DISCONNECTED</div>
+    </div>
+
+    <!-- The eight avionics flags the AVN page shows, in one row. data-field names the avn-slice
+         boolean; data-kind drives the colour via avn-status-policy.js (so GEAR-down-is-red lives in
+         one place, shared with AVN). -->
+    <div class="ms-flags">
+      <span class="ms-flag off" data-kind="gear"   data-field="gearDown">GEAR</span>
+      <span class="ms-flag off" data-kind="radar"  data-field="radar">RADAR</span>
+      <span class="ms-flag off" data-kind="guns"   data-field="guns">GUNS</span>
+      <span class="ms-flag off" data-kind="eng"    data-field="ignition">ENG</span>
+      <span class="ms-flag off" data-kind="assist" data-field="assist">ASSIST</span>
+      <span class="ms-flag off" data-kind="nvg"    data-field="nvg">NVG</span>
+      <span class="ms-flag off" data-kind="lights" data-field="navLights">LIGHTS</span>
+      <span class="ms-flag off" data-kind="turret" data-field="turret">TURRET</span>
+    </div>
+  </div>
 
   <!-- Portals are built by f35.js, not declared here: full view is one portal and a split is
        several, so the count is state. Each holds a page iframe with a label grid over it. -->
@@ -36,6 +59,8 @@
 <script src="/assets/shell/nav-model.js"></script>
 <script src="/assets/shell/f35/f35-glass.js"></script>
 <script src="/assets/shell/f35/f35-wpn-paging.js"></script>
+<!-- Shared with the AVN page: the pure state->colour rule for the avionics flags in the strip. -->
+<script src="/assets/pages/avn/avn-status-policy.js"></script>
 <script src="/assets/shell/f35/f35.js"></script>
 </body>
 </html>
