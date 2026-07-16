@@ -147,6 +147,11 @@ html, body {
    (avn-throttle-policy, shared) and this strip's own horizontal bar — .ms-bar, already here for the
    boot loader, and the same trough the bezel MAIN and WPN's EW capacitor draw. */
 .ms-gauges {
+  /* Takes the strip's slack: everything between the mission block and the flags is the troughs'.
+     Deliberately no min-width:0 — a flex item floors at its min-content by default, which here is
+     label + the bar's own minimum + number, so a long mission name pushes .ms-map (which DOES set
+     min-width:0) into its ellipsis rather than squeezing the gauges away. */
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -155,11 +160,18 @@ html, body {
   color: var(--no-green-dim);
 }
 .ms-gauge { display: flex; align-items: center; gap: 7px; }
-/* THRL and FUEL are four glyphs of the same monospace face, so the troughs line up on their own. */
+/* THRL and FUEL are four glyphs of the same monospace face, and the number's width is fixed below,
+   so both troughs start and end on the same x without either being told a width. */
 .ms-gauge-label { font-weight: bold; }
-/* The loader's bar is 180px and alone on its line; these two share the row with a label and a
-   number, and the strip has ~225px of slack to spend. */
-.ms-gauge .ms-bar { width: 96px; height: 10px; }
+/* The loader's bar is a fixed 180px alone on its line; here the row decides. flex-basis 0 hands the
+   trough whatever the label and number don't take, and min-width floors it so a tight strip leaves
+   a readable bar rather than a sliver. */
+.ms-gauge .ms-bar {
+  flex: 1;
+  width: auto;
+  min-width: 40px;
+  height: 10px;
+}
 /* Fixed and right-aligned: '--' → '8%' → '100%' → 'MIL' must not shuffle the row as it ticks. */
 .ms-gauge-num { width: 3.2em; text-align: right; }
 
@@ -175,9 +187,14 @@ html, body {
 /* No value: the empty trough stays, so the gauge still reads as a gauge. AVN's .na does the same. */
 .ms-gauge.na .ms-bar-fill { display: none; }
 
-/* Avionics flags — one row, pushed to the far right. Each is a label + icon like the AVN tile
-   (avn.css .avn-tile), and the colour class (off = gray, on = green, GEAR-down = red, from the
-   shared avn-status-policy) recolours label and glyph together via currentColor. */
+/* Avionics flags — one row at the right. Each is a label + icon like the AVN tile (avn.css
+   .avn-tile), and the colour class (off = gray, on = green, GEAR-down = red, from the shared
+   avn-status-policy) recolours label and glyph together via currentColor.
+
+   The gauges are what hold them here now: flex-grow resolves before auto margins are offered any
+   free space, so with .ms-gauges growing into the slack there is none left and this margin does
+   nothing. It stays as the fallback — take the gauges out and it is the only thing keeping the
+   flags off the mission block. */
 .ms-flags {
   margin-left: auto;
   display: flex;

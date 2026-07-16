@@ -412,7 +412,21 @@ reads `50%`, because the fill is the raw axis while the text is rescaled within
 the zone, and at the detent it reads `MIL` rather than `100%`.
 
 The trough is `.ms-bar`, the boot loader's own bar, which is the same horizontal
-bar the bezel's MAIN and WPN's EW capacitor draw.
+bar the bezel's MAIN and WPN's EW capacitor draw — but sized by the row rather
+than the loader's fixed 180px: the gauge block takes all the slack between the
+mission block and the flags, and each trough takes whatever its label and number
+don't.
+
+That growth is also what now holds the flags right. `flex-grow` resolves before
+auto margins are offered any free space, so `.ms-flags`'s `margin-left: auto` no
+longer does anything while the gauges are there; it stays as the fallback for if
+they ever aren't.
+
+When the strip runs out of room the order of giving way is deliberate: the
+troughs floor at a `min-width` (a flex item's default `min-width: auto` stops
+the block at its min-content), so it is the mission name — the one item that
+sets `min-width: 0` — that ellipsises first. At an 87-character name the troughs
+sit exactly on that floor and the flags and LAYOUT have still not moved.
 
 Two things did have to be repeated. FUEL's warning levels (caution 0.25,
 critical 0.10) live at AVN's call site rather than in a policy module, so the
