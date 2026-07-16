@@ -2,19 +2,22 @@
 
 ## Status
 
-**In progress.** Stage 1 (the seam) and most of Stage 2 (a second layout)
-are built and on `feat/layouts`. The bezel remains the default and is
-unchanged.
+**In progress.** Stage 1 (the seam) and Stage 2 (a second layout) are built
+and on `feat/layouts`. The bezel remains the default and is unchanged.
 
 - The **bezel** layout ships: a metallic 4/6/4/6 button frame, served at `/`.
 - The **F-35** layout is a working prototype, served at `/f35`: borderless,
   no keys, labels drawn on the glass. Every page renders on it (MAIN, MAP,
-  AVN, RWR, TGT, TGP, WPN) in full view. **Splits are not built yet** — that
-  is the remaining Stage-2 work, and the hard part.
+  AVN, RWR, TGT, TGP, WPN), and the glass divides into 1, 2 or 4 independent
+  portals (`?split=v`, `?split=q`).
 
 Both consume one shared navigation model. `NAV` has never been edited to
 serve the second layout, and no page has changed — which was this plan's
 central claim.
+
+Outstanding: the **corner triangles** that expand and retract a portal (the
+F-35's real split control — `?split=` is scaffolding until they land), and
+Stage 3, making the layout a user-facing setting rather than a URL.
 
 See [issue #8](https://github.com/roke77/NOXMFD/issues/8) for the F-35
 reference screenshots that motivated this.
@@ -33,10 +36,10 @@ renders the exact same content. The page *content* is fixed; the
 *surrounding shell*, the navigation-label placement, and the split
 behavior are what a layout owns.
 
-| Layout            | Frame            | Nav labels                          | Split model              |
-|-------------------|------------------|-------------------------------------|--------------------------|
-| **Bezel** (today) | metallic bezel   | 4/6/4/6 physical keys around screen | H/V bezel-key splits     |
-| **F-35**          | borderless       | clickable labels drawn on the page  | 4 vertical portals (TBD) |
+| Layout            | Frame            | Nav labels                          | Split model            |
+|-------------------|------------------|-------------------------------------|------------------------|
+| **Bezel** (today) | metallic bezel   | 4/6/4/6 physical keys around screen | H/V bezel-key splits   |
+| **F-35**          | borderless       | clickable labels drawn on the page  | 1/2/4 vertical portals |
 
 The F-35's split model is **four side-by-side vertical portals**, not a 2×2
 quadrant grid — see the reference screenshots on issue #8. Each portal is
@@ -73,7 +76,8 @@ Two qualifications, both learned by building the second layout:
   structurally.
 - **Split behavior.** `SplitKeymap` (`split-keymap.js`) and `SPLIT_SLOTS`
   (`mfd.js`) resolve labels to physical bezel keys per orientation. Written
-  around bezel-key geometry; **will not carry over** to a portal model.
+  around bezel-key geometry, and **none of it carried over** to the portal
+  model: the F-35's split shares no code with it.
 - **Page placement geometry (shell → page).** The exception to "pages are
   decoupled": some pages are handed *layout geometry*, not just data.
   `forwardAvnLayoutToFrame` and `forwardWpnLayoutToFrame` (`mfd.js`) read the
@@ -161,9 +165,9 @@ because the shell built it.
 ## The honest caveat: a layout is not a stylesheet
 
 The F-35's portal screen is a *different layout engine* than the bezel's H/V
-splits. The current split logic (`SplitKeymap`, top/bottom vs left/right
-resolution) is written around bezel-key geometry and **will not carry over** —
-a portal layout needs its own split/placement behavior.
+splits. The bezel's split logic (`SplitKeymap`, top/bottom vs left/right
+resolution) is written around bezel-key geometry and **did not carry over** —
+the portal model needed its own split and placement behavior, and got it.
 
 So a layout owns: **frame + label placement + split behavior + page
 placement geometry**, sharing only (a) page content and (b) action dispatch.
@@ -173,9 +177,11 @@ physical bezel and a borderless portal grid would be worse than two focused
 shell implementations sharing the content and action layers.
 
 Building the second layout supports this. `f35.js` reimplements label
-placement, page hosting and WPN geometry from scratch, and shares `NAV`, the
-pages and `sendCommand` untouched. Nothing in the middle wanted to be
-abstracted.
+placement, page hosting, split behavior and WPN geometry from scratch, and
+shares `NAV`, the pages and `sendCommand` untouched. Nothing in the middle
+wanted to be abstracted. The split prediction held exactly: not one line of
+`SplitKeymap` or `SPLIT_SLOTS` was reusable, because both resolve labels to
+physical keys and the F-35 has none.
 
 ## Staged approach
 
@@ -191,20 +197,56 @@ by a data-equivalence check against the old tables before deleting them.
 It answered two of the open questions below, and removed a live duplication
 bug source: `label`/`action` had been declared twice for five pages.
 
-### Stage 2 — the F-35 layout 🟡 in progress
+### Stage 2 — the F-35 layout 🟡 nearly done
 
 Built (`src/web/shell/f35/`, served at `/f35`):
 
 - borderless frame, no bezel; labels drawn *on* the page
 - two placement modes: `edge` (the bezel's left key bank, minus the bezel)
   and `center` (MAIN's own 3-column block)
-- every page hosted in full view, including WPN with layout-supplied rects
-- MAP by revealing the always-running telemetry tap
+- every page hosted, including WPN with layout-supplied rects
+- MAP without loading a map — see the portals section below
+- the portal split: 1, 2 or 4 independent MFDs on one sheet of glass
 - shared action dispatch; `NAV` unmodified
 
-Remaining: **the 4-portal split model**. This is the genuinely hard part —
-placement stops being derivable, and none of the bezel's split machinery
-transfers.
+Remaining: the **corner triangles** — the F-35's own split control, which
+expand and retract a portal. `?split=v` / `?split=q` is scaffolding standing
+in for them; it should replace the query read, not the portal engine.
+
+#### Portals
+
+The unit of the split. Each is an independent MFD owning everything two
+screens must not share — which page is up, where its WPN list is paged to,
+whether its map follows. The shell keeps only the telemetry cache and the
+tap. **Full view is one portal**, not a special case, so 1/2/4 run identical
+code paths and the count is a lookup table (`SPLITS` in `f35.js`).
+
+MAP is the one screen a portal handles two ways, because the tap sits
+*behind* every portal and can only be revealed for one covering the whole
+glass:
+
+- **full view** — show the tap that is already running. One stream.
+- **split** — the portal mounts its own `/map-view?bare`.
+
+That duality is the bezel's own (one canonical map, plus per-pane maps whose
+duplicate telemetry it ignores). Extra streams are the price of two maps at
+once. `FLW`/`Z+`/`Z-` route to the portal's own map, and `follow` is
+per-portal — it routes by `event.source`, as the bezel's does.
+
+#### A portal is not the glass
+
+Two bugs, one mistake: something sized against the **viewport** while living
+in a **portal**. Both were correct until the portal stopped being the whole
+screen, and both only appeared at four.
+
+- MAIN's label grid used a `6vw` column gap — 77px of the *glass* inside a
+  320px portal, so seven of ten labels overflowed. The portal is now a CSS
+  container (`container-type: size`) and the grid sizes in `cqw`/`cqh`.
+  **There are no viewport units left in this layout**, deliberately.
+- WPN's weapon image collapsed to a sliver. See "Per-portal orientation"
+  below.
+
+The rule for anything added here: measure the portal, never the window.
 
 ### Stage 3 — selection 🟡 partial
 
@@ -221,36 +263,50 @@ later nicety — the F-35's MAIN carries a greyed `LYT` placeholder for it.
 - **Are labels derivable from the ordered list, or do they need placement
   hints?** Both, split by view. **Full view is derivable** — item *i* → slot
   *i* down the left column, identically for both layouts (`fullViewSlot`,
-  `cellOf`). **Split is not**: MAP deliberately groups its zoom rocker on the
-  right, so the bezel needs `SPLIT_SLOTS`. Expect the portal model to need
-  its own hints too.
+  `cellOf`). **Split is not** *for the bezel*: MAP deliberately groups its
+  zoom rocker on the right, so it needs `SPLIT_SLOTS`. The portal model turned
+  out to need no hints at all — a portal is a whole MFD, so it places labels
+  exactly as full view does. The problem was the bezel's, not the split's.
 - **Are HIDE SHELL / FULL / PIN / SWAP part of the navigation model?** No —
   layout-owned chrome. `nav-model.test.js` now enforces their absence.
 - **One CSS bundle or two?** Two. `f35.css` shares no structure with
   `mfd.css`; only the `theme.css` tokens are common (`--no-label` was
   promoted there when both layouts needed the same off-white).
+- **Where does split state live once splits differ per layout?** In the
+  portal. Everything two screens must not share (current page, WPN paging,
+  follow) belongs to the portal; the shell keeps the telemetry cache and the
+  tap. The navigation model carries no split geometry, as planned.
+- **Per-portal orientation** — confirmed, and now built. A quarter portal is
+  320×720: genuinely portrait on a landscape screen. Reporting the window's
+  orientation left WPN's 2:1 weapon image unrotated in a tall narrow box,
+  collapsed to a ~124×62 stripe. Each portal now measures its own box
+  (`forwardOrientation`), and the image turns 90° to fill the column.
+
+  **This is a deliberate divergence from the bezel, not a bug in it.** The
+  bezel reports the window's orientation on purpose: its panes are
+  wide-and-short, so a pane measuring itself would call a portrait device
+  landscape. Portals are the opposite shape and need the opposite rule. Full
+  view and halves are unaffected — a portal that *is* the window measures the
+  same as the window.
+- **Does a portal drive WPN's `compact` or `full` profile?** `full`, with
+  rects, at every portal count. Once the portal reports its own orientation,
+  `full` renders correctly at 320px wide, so `compact` isn't needed — the
+  profile split turned out to be about *shape*, which orientation already
+  carries, rather than about size.
 
 ### Still open
 
-- **Where does split state live once splits differ per layout?** Unchanged
-  from the original plan: the navigation model shouldn't carry split
-  geometry; each layout renderer should own its own.
-- **Per-portal orientation.** The bezel treats orientation as *app-wide* on
-  purpose: a media query inside an iframe evaluates against that iframe's own
-  box, so a split pane (wide + short) would wrongly read landscape on a
-  portrait device. The shell therefore reports the window's orientation as
-  the single source of truth. **The F-35's portals invert this**: a
-  quarter-width portal is *genuinely* portrait-shaped on a landscape screen,
-  and WPN — which keys its weapon image off `body.landscape` — will be one of
-  them. So the portal renderer likely needs per-portal orientation, diverging
-  from the bezel's rule rather than reusing it.
-- **Does a portal drive WPN's `compact` or `full` profile?** A quarter-width
-  portal is close to the pane shape `compact` was written for, so it may need
-  no rects at all — the opposite of the full-screen case above.
 - **Connection status.** The bezel surfaces it (and the server URLs) on MAIN.
   The F-35's MAIN is navigation only, so it currently shows neither. The
   reference cockpit puts that class of readout in a master strip across the
   top of the glass.
+- **Portal count and the corner triangles.** The reference has four fixed
+  portals; the engine takes any count. When the triangles land, does a portal
+  expand by *retracting its neighbours* (count stays 4, widths change) or by
+  changing the count? The current `SPLITS` table assumes equal widths.
+- **A portal's own page set.** Every portal currently offers all of `NAV`.
+  Four portals showing four MAINs is a plausible default but not obviously
+  the right one, and the reference shows each portal with a fixed role.
 
 ## Out of scope
 
@@ -270,7 +326,9 @@ Symbol names, not line numbers — this code is actively moving.
   symbols: `fullViewSlot`, `SPLIT_SLOTS`, `FRAME_PAGES`, `PAGE_URL`,
   `forwardAvnLayoutToFrame`, `forwardWpnLayoutToFrame`, `placeWpnNavLabels`.
 - **F-35:** `src/web/shell/f35/f35.{html,css,js}`, `f35-wpn-paging.js` (+ its
-  test). Key symbols: `F35_PAGES`, `PAGE_FEEDS`, `FEED_AS`, `FEED_DERIVE`,
-  `NAV_LAYOUT`, `MAIN_EXTRAS`, `cellOf`, `forwardWpnLayout`.
+  test). Key symbols: `makePortal` (the split's unit — everything per-screen
+  lives in its closure), `setSplit`, `SPLITS`, `F35_PAGES`, `PAGE_FEEDS`,
+  `FEED_AS`, `DERIVED`, `NAV_LAYOUT`, `MAIN_EXTRAS`, `cellOf`,
+  `forwardWpnLayout`, `forwardOrientation`, `mapUrl`.
 - **Routes:** `/f35` is served by `TelemetryServer.cs` in-game and by
   `tools/serve_web.py` in the preview harness. Both need the entry.
