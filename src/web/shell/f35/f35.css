@@ -186,6 +186,16 @@ html, body {
   overflow: hidden;
 }
 
+/* Each tube opens on the side facing the other, so the pair reads as one instrument rather than
+   two boxes. AVN's own frames are three-sided for the same reason — fuel drops its right border
+   and thr its left, both opening toward the silhouette they flank (avn.css). Stacked instead of
+   flanking, the sides that face each other are the bottom and the top.
+
+   Both lose exactly one horizontal edge, so both troughs stay the same height as each other; the
+   fill keeps its 3px inset from the open edge, as AVN's does. */
+.ms-gauge.thr  .ms-tube { border-bottom: none; }
+.ms-gauge.fuel .ms-tube { border-top: none; }
+
 /* The fill's box, inset from the frame the way AVN's padding insets its own. It exists so the
    fill's width:% is a percentage of the TROUGH rather than of the tube's padding box (which would
    overshoot by the inset), and — see the MIL/AB split below — so there is something to ask the
