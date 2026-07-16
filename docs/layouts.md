@@ -10,7 +10,9 @@ and on `feat/layouts`. The bezel remains the default and is unchanged.
   no keys, labels drawn on the glass. Every page renders on it (MAIN, MAP,
   AVN, RWR, TGT, TGP, WPN). The glass is four independent portals, and the
   corner grips merge adjacent ones and split them back — five arrangements,
-  never fewer than two portals.
+  never fewer than two portals. A fixed **master strip** runs across the top,
+  carrying the aircraft-level chrome the navigation-only MAIN has no room for:
+  the wordmark, the connection URLs and status, and the AVN avionics flags.
 
 Both consume one shared navigation model. `NAV` has never been edited to
 serve the second layout, and no page has changed — which was this plan's
@@ -300,89 +302,77 @@ BepInEx `ConfigEntry` (we already ship ConfigurationManager) or a `?layout=`
 query param that makes `/` serve either shell. A softkey to switch live is a
 later nicety — the F-35's MAIN carries a greyed `LYT` placeholder for it.
 
-## Planned — the master strip
+## The master strip
 
-A full-width bar across the top of the glass, collapsible upwards. The
-reference cockpit has one, and it is the natural home for anything that
-belongs to the aircraft rather than to any one portal — the connection status
-and server URLs this layout currently shows nowhere (see the open question
-below), plus warnings, comms, IFF.
-
-**First slice: the bar and its collapse, nothing in it.** One item only — the
-collapse control — so the geometry and the collapse can be seen before any
-content is designed. Content is a separate decision.
+A fixed full-width bar across the top of the glass — the home for what belongs
+to the aircraft rather than to any one portal, which the navigation-only MAIN
+has nowhere to put. The reference cockpit has one.
 
 ### Shape
 
-**Two containers, stacked, never overlapping.** The glass becomes a flex
-column: the bar, then the portals. The portals are *pushed down* to make room
-rather than sliding under the bar, so nothing the bar holds can reach a portal
-— they do not share space, and no z-order or inset has to be reasoned about.
+**Two containers, stacked, never overlapping.** `.pcd` is a flex column: the
+strip, then `#portals`. The portals are *pushed down* to make room rather than
+sliding under the strip, so nothing the strip holds can reach a portal — no
+z-order or inset to reason about. `#map-tap` stays `inset: 0` full-size behind
+both; it is a data source, never displayed, so its box only drives the map
+view's own layout.
 
-- The bar is full width, **one sixth of the glass tall**, at the top.
-- The portals take the remaining five sixths, in their own container. They keep
-  their widths and arrangement; only their height changes.
-- Collapsing **retracts the bar to a thin strip** (~24px) rather than removing
-  it. The portals grow into the space; the strip keeps the expand control.
+- The strip is full width, **one ninth of the glass tall**, at the top.
+- The portals take the rest, in their own container (`flex: 1`), and keep their
+  widths and arrangement — only their height changes. At 1280×720 they drop
+  from 720 to 640 tall.
 
-Retracting rather than vanishing is what keeps the two containers honest. A bar
-of zero height would leave the expand control homeless, and the only places to
-put it are on top of the glass — where portal 1's `edge` nav already has its
-`MAIN` label at `x: 16`, `y: 45–76`. A control there would eat that label's
-clicks, exactly as TGT's horizontal label ate `RESET FILTER`. Inside its own
-container the question never arises.
+### Content
 
-### The control
+Left to right:
 
-A triangle, in the same visual language as the corner grips: outline SVG,
-`--no-label` off-white, `non-scaling-stroke`. **Pointing up** to collapse —
-the same idea the grips use, where the triangle points the way the thing will
-move. First item in the bar, pushed to the left edge.
+- **Wordmark** — `NO XMFD`, styled text (there is no served logo asset yet).
+- **Connection block** — the local and LAN URL and the live connection status,
+  stacked. The bezel shows these on MAIN; the F-35's MAIN is navigation only,
+  so they live here instead.
+- **Avionics flags** — the eight annunciators the AVN page shows
+  (GEAR / RADAR / GUNS / ENG / ASSIST / NVG / LIGHTS / TURRET), in one row, each
+  a label + icon.
 
-`makeGrip` in `f35.js` already builds exactly this button; it needs `up` and
-`down` entries alongside `GRIP_POINTS`' `left`/`right`, and its class naming
-loosened from `portal-grip`. Worth reusing rather than re-drawing — the
-collapse control and the grips are the same gesture, and should not drift
-apart visually.
+### Telemetry — the first chrome that wants it
 
-### What it touches
+The strip is the layout's first piece of chrome that needs live data, and it is
+not a portal, so it has no `PAGE_FEEDS` entry. The two slices it shows —
+`status` and `avn` — are handed to it straight from the shell's message pump;
+the URLs come from `/config` once (the same the bezel's MAIN reads). The flags
+reuse `avn-status-policy`, so the GEAR-down-is-red rule stays in one place
+shared with AVN, and their glyphs are the AVN page's own — inline SVGs, plus the
+game-captured `gear-icon.png` mask for GEAR. `data-kind` / `data-field` on each
+flag keep the update loop generic.
 
-The bar is layout chrome, not a portal: it holds no page, has no `NAV`, and
-takes no telemetry in this slice.
+### Boot
 
-- **`.pcd` becomes a column.** Today `#portals` is `inset: 0` — it *is* the
-  glass. It becomes the second child of a flex column instead, sized by what
-  the bar leaves. `#map-tap` stays `inset: 0` and full-size, behind both: it is
-  a data source and never displayed, so its box only affects the map view's
-  own internal layout, not what is seen.
-- **Portals need `resized()` on every collapse and expand.** Their boxes
-  change height, and WPN derives its rects from the box. `onGrip` already does
-  this after a merge; the bar needs the same call. Without it, WPN's rows
-  keep the old bands.
-- **Watch the portrait/landscape flip.** Per-portal orientation compares a
-  portal's width against its height. At full height a merged portal is
-  640×720 — portrait. Under the bar it becomes 640×600 — **landscape**, which
-  turns WPN's weapon image. That is correct behaviour, not a bug: the box
-  really did change shape. But it means collapsing the bar can rotate a
-  weapon image, and it will look like a glitch to anyone who has not read
-  this.
-- **The nav grids need nothing.** `edge` is six rows of the portal's height
-  and `center` is sized in `cq` units, so both follow the portal's box
-  already. This is the "measure the portal, never the window" rule paying
-  off.
-- **The corner grips need nothing.** They sit at the portal's own bottom.
+The connection block boots like the bezel's MAIN info box: a `LOADING…` bar
+(ported from `runBootLoading`) fills 0→100% over ~1s, then the URL lines type
+out character by character with a blinking caret (a standalone port of
+`typewriterUrls`, minus the bezel-only boot-loader coupling). The strip starts
+`.booting` from the HTML with the connection block hidden and the URL nodes
+empty, so a fully-formed URL never flashes before the animation. The reveal is
+gated on *both* the bar finishing and `/config` landing, whichever is last.
 
-### Height, and what it costs
+### Collapse — deferred
 
-The bar spends glass. At 1280×720 the portals drop from 720 tall to 600
-expanded, and recover to ~696 when the bar retracts. Two knock-ons, both
-already handled by machinery that exists:
+The strip was first planned collapsible, retracting to a thin band with the
+portals growing into the space. That is **not built**: it is a fixed bar for
+now. Whenever collapse returns, the design question it raised stands — a bar
+that vanishes entirely leaves the expand control homeless, and the only place
+left for it is over portal 1's `edge` nav labels, where it would eat their
+clicks (as TGT's horizontal label once ate `RESET FILTER`). Retracting to a
+thin band rather than to nothing is one answer; a control elsewhere is another.
 
-- WPN's six row bands get shorter — its rects come from the portal's box, so
-  `resized()` covers it.
-- A merged portal's *shape* changes, and with it its orientation.
+### What it cost the portals
 
-Everything else is proportional and follows on its own.
+The strip spends glass: the portals are shorter (720→640 at 1280×720). A merged
+portal's *shape* — and with it its orientation and WPN's derived rects — comes
+from that smaller box, handled by the existing `resized()` path when the glass
+is built. Because the bar is fixed there is no per-toggle recompute; the nav
+grids need nothing (`edge` is rows of the portal's height, `center` is
+`cq`-sized), and the corner grips sit at the portal's own bottom.
 
 ## Open questions
 
@@ -424,13 +414,10 @@ Everything else is proportional and follows on its own.
 
 ### Still open
 
-- **Connection status.** The bezel surfaces it (and the server URLs) on MAIN.
-  The F-35's MAIN is navigation only, so it currently shows neither. The
-  master strip above is where it should go — but its first slice is the bar
-  and its collapse only, so what the strip actually *shows* is still open.
-  Note it would be this layout's first piece of chrome wanting telemetry: the
-  strip is not a portal, so it has no `PAGE_FEEDS` entry, and the `status`
-  slice would have to reach it some other way.
+- **What else the master strip carries.** Connection status and the server
+  URLs now live in the strip (see above), alongside the avionics flags — the
+  layout's first chrome wanting telemetry, settled. What *else* it should carry
+  (warnings, comms, IFF) is still open, as is the deferred collapse.
 - **A portal's own page set.** Every portal currently offers all of `NAV`.
   Four portals showing four MAINs is a plausible default but not obviously
   the right one, and the reference shows each portal with a fixed role.
@@ -457,6 +444,8 @@ Symbol names, not line numbers — this code is actively moving.
   `src/web/services/telemetry-source.js` — the one `EventSource`, inside the
   MAP page. `src/web/services/send-command.js` — `sendCommand`.
   `src/web/shared/theme.css` — the common tokens.
+  `src/web/pages/avn/avn-status-policy.js` — the state→colour rule for the
+  avionics flags, an AVN-page module the F-35 strip also loads.
 - **Bezel:** `src/web/shell/mfd.{html,css,js}`, `split-keymap.js`. Key
   symbols: `fullViewSlot`, `SPLIT_SLOTS`, `FRAME_PAGES`, `PAGE_URL`,
   `forwardAvnLayoutToFrame`, `forwardWpnLayoutToFrame`, `placeWpnNavLabels`.
@@ -467,7 +456,9 @@ Symbol names, not line numbers — this code is actively moving.
   (merge/split, and the only thing that changes the glass), `refreshGlass`,
   `buildGlass`, `cells`, `F35_PAGES`, `PAGE_FEEDS`, `FEED_AS`, `DERIVED`,
   `NAV_LAYOUT`, `MAIN_EXTRAS`, `cellOf`, `forwardWpnLayout`,
-  `forwardOrientation`.
+  `forwardOrientation`. The master strip is the same file: `runStripBoot`
+  (the loading bar), `typeStripUrls` (the URL typewriter), `updateStripFlags` /
+  `updateStripStatus` (fed from the message pump), and `loadStripUrls`.
 
   The split is worth knowing: `f35-glass.js` is *policy* (which grips exist,
   what a merge would produce) and `f35.js` is *mechanism* (portals, iframes,
