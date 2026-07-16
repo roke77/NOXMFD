@@ -138,6 +138,7 @@
   //
   // So this layout supplies its own rects, from its grid instead of the bezel's separators. The
   // page is untouched and doesn't know the difference; the row bands ARE the key bands.
+
   // The current page's slice + nav, from the loadout and the shell's page state. All the paging
   // math (clamp, slice boundaries, MAIN/PREV/NEXT labels) lives in the pure f35-wpn-paging module
   // so f35-wpn-paging.test.js can pin it; everything below just reads this.
