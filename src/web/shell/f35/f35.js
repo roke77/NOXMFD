@@ -514,13 +514,14 @@
   const stripMap     = document.getElementById('ms-map');
   const stripMapName = document.getElementById('ms-map-name');
   const stripGrid    = document.getElementById('ms-grid');
-  const stripThr  = gauge('ms-thr');
-  const stripFuel = gauge('ms-fuel');
+  const stripThr  = gauge('ms-thr', 'thr');
+  const stripFuel = gauge('ms-fuel', 'fuel');
 
-  function gauge(id) {
+  function gauge(id, kind) {
     return { el: document.getElementById(id),
              fill: document.getElementById(id + '-fill'),
-             num: document.getElementById(id + '-num') };
+             num: document.getElementById(id + '-num'),
+             kind: kind };
   }
 
   // FUEL's warning levels, as AVN calls them (avn.js paintAvnBars: cautionAt 0.25, criticalAt
@@ -548,22 +549,28 @@
   // string ('60%' / 'MIL' / the rescaled reheat %), and the zone all come from there, so the strip
   // can't drift from the gauge it is summarising.
   //
-  // ponytail: reheat paints the whole bar red, where AVN splits the fill green→red at abStart with
-  // a gradient. That gradient needs the tube's inner width in px (avn.css --tube-inner-px,
-  // remeasured every paint); across 96px the solid red says the same thing — you are in AB — for
-  // none of the measuring. Upgrade path: measure the trough and reuse AVN's linear-gradient.
+  // The fill's MIL/AB split is AVN's too, but it needs no measuring here: AVN sizes that gradient
+  // in px because its boundary must stay pinned to a fraction of the tube while the fill grows past
+  // it, and it remeasures every paint. The tube is a container query instead, so CSS resolves the
+  // same fraction on its own — see .ms-gauge.ab-capable in f35.css.
   function updateStripGauges(m) {
     const t = AvnThrottlePolicy.throttleReadout(m.throttle, m.hasAb, m.abStart);
-    setGauge(stripThr, t.na, t.fill, t.text, t.zone === 'ab' ? 'ab' : '');
+    // Where the fill turns from green to red. The CSS pins the boundary to a fraction of the tube
+    // (see .ms-gauge.ab-capable), so it stays put while the fill grows past it — as on AVN.
+    if (t.boundary !== null) stripThr.el.style.setProperty('--ab-start', t.boundary);
+    setGauge(stripThr, t.na, t.fill, t.text,
+             (t.boundary !== null ? ' ab-capable' : '') + (t.zone === 'ab' ? ' ab-active' : ''));
 
     const na = typeof m.fuel !== 'number' || m.fuel < 0;
     const v  = na ? 0 : Math.max(0, Math.min(1, m.fuel));
     setGauge(stripFuel, na, v, Math.round(v * 100) + '%',
-             v <= FUEL_CRITICAL ? 'critical' : v <= FUEL_CAUTION ? 'caution' : '');
+             v <= FUEL_CRITICAL ? ' critical' : v <= FUEL_CAUTION ? ' caution' : '');
   }
 
+  // `kind` is 'thr' or 'fuel' and is written back every time: the tube's styling keys off it (only
+  // FUEL is segmented), and this assigns className wholesale rather than toggling each state off.
   function setGauge(g, na, fill, text, state) {
-    g.el.className = 'ms-gauge' + (na ? ' na' : state ? ' ' + state : '');
+    g.el.className = 'ms-gauge ' + g.kind + (na ? ' na' : state);
     g.fill.style.width = (fill * 100).toFixed(1) + '%';
     g.num.textContent = na ? '--' : text;
   }

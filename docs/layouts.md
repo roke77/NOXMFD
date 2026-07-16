@@ -411,11 +411,22 @@ immediately — at 40% throttle against an 0.8 abStart the bar fills to 40% but
 reads `50%`, because the fill is the raw axis while the text is rescaled within
 the zone, and at the detent it reads `MIL` rather than `100%`.
 
-The trough is `.ms-bar`, the boot loader's own bar, which is the same horizontal
-bar the bezel's MAIN and WPN's EW capacitor draw — but sized by the row rather
-than the loader's fixed 180px: the gauge block takes all the slack between the
-mission block and the flags, and each trough takes whatever its label and number
-don't.
+The tube is AVN's own (`avn.css .avn-vbar-tube`), turned on its side: the 2px
+green frame around a near-black trough, the fill inset within it, and AVN's
+transition timings on width instead of height. The boot loader's `.ms-bar` is
+left to be a progress bar. Sizing is the row's: the gauge block takes all the
+slack between the mission block and the flags, and each trough takes whatever
+its label and number don't.
+
+Two details are carried over deliberately:
+
+- **Only FUEL is segmented.** The 10% segment gaps and the halfway marker are
+  `content: none` on AVN's throttle tube, which says what it has to say with the
+  MIL/AB split instead. The gaps are 3px rather than AVN's 6px — same 10% pitch,
+  but read across ~120px of width, 6px of every 12px is more gap than gauge.
+- **The leader lines don't come.** AVN's `¯\___` SVG tracks each fill's tip and
+  needs a per-paint measurement; there is no room for it in a one-ninth-tall bar,
+  and the `%` readout says the same thing sitting still.
 
 That growth is also what now holds the flags right. `flex-grow` resolves before
 auto margins are offered any free space, so `.ms-flags`'s `margin-left: auto` no
@@ -428,13 +439,20 @@ the block at its min-content), so it is the mission name — the one item that
 sets `min-width: 0` — that ellipsises first. At an 87-character name the troughs
 sit exactly on that floor and the flags and LAYOUT have still not moved.
 
-Two things did have to be repeated. FUEL's warning levels (caution 0.25,
+The MIL/AB split comes across too, and it is the one place the strip does better
+than the page it copies. AVN sizes that gradient in px (`--tube-inner-px`) so
+the green→red boundary stays pinned to a fraction of the tube while the fill
+grows past it — and it remeasures that width on every paint, inside
+`positionAvnBarValue`, the same function that places the leader lines this strip
+doesn't draw. So the strip asks CSS instead: `.ms-tube-inner` is a
+`container-type: inline-size` container and the gradient is sized in `100cqw`.
+The boundary lands identically with nothing measured and nothing to keep in step
+with a paint loop.
+
+One thing still has to be repeated: FUEL's warning levels (caution 0.25,
 critical 0.10) live at AVN's call site rather than in a policy module, so the
-strip states them again; they must agree, or the strip and the page would
-disagree about the same tank. And reheat paints the whole bar red where AVN
-splits the fill green→red at `abStart` with a gradient — that gradient needs the
-tube's inner width in px, remeasured each paint, and across 96px the solid red
-says the same thing for none of the measuring.
+strip states them again. They must agree, or the strip and the page would
+disagree about the same tank.
 
 ### Boot
 

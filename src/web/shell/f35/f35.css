@@ -141,11 +141,11 @@ html, body {
 }
 #ms-grid { white-space: nowrap; }
 
-/* THRL + FUEL, stacked, in the space between the mission block and the flags. AVN's own bars can't
-   come along: they are absolutely positioned, vertical, sized from rects the shell forwards, and
-   their % readout tracks the fill's tip in px on every paint. What travels instead is the rule
-   (avn-throttle-policy, shared) and this strip's own horizontal bar — .ms-bar, already here for the
-   boot loader, and the same trough the bezel MAIN and WPN's EW capacitor draw. */
+/* THRL + FUEL, stacked, in the space between the mission block and the flags. AVN's bars can't be
+   hosted as they are — absolutely positioned, vertical, sized from rects the shell forwards — so
+   what comes across is the rule (avn-throttle-policy, shared) and the LOOK, rebuilt sideways: see
+   the tube below. What stays behind is the ¯\___ leader that tracks each fill's tip, which needs a
+   per-paint measurement and has nowhere to go in a bar this short. */
 .ms-gauges {
   /* Takes the strip's slack: everything between the mission block and the flags is the troughs'.
      Deliberately no min-width:0 — a flex item floors at its min-content by default, which here is
@@ -163,29 +163,109 @@ html, body {
 /* THRL and FUEL are four glyphs of the same monospace face, and the number's width is fixed below,
    so both troughs start and end on the same x without either being told a width. */
 .ms-gauge-label { font-weight: bold; }
-/* The loader's bar is a fixed 180px alone on its line; here the row decides. flex-basis 0 hands the
-   trough whatever the label and number don't take, and min-width floors it so a tight strip leaves
-   a readable bar rather than a sliver. */
-.ms-gauge .ms-bar {
-  flex: 1;
-  width: auto;
-  min-width: 40px;
-  height: 10px;
-}
 /* Fixed and right-aligned: '--' → '8%' → '100%' → 'MIL' must not shuffle the row as it ticks. */
 .ms-gauge-num { width: 3.2em; text-align: right; }
 
-/* The gauge states, matching AVN's own (avn.css .avn-vbar.caution/.critical): amber under a
-   quarter tank, red under a tenth, red in reheat. The fill and the number turn together, so the
-   colour reads whether or not you can resolve the bar's length at a glance. */
+/* ── The tube ──────────────────────────────────────────────────────────────────────────
+   AVN's gauge tube (avn.css .avn-vbar-tube), turned on its side: the 2px green frame around a
+   near-black trough, and the fill inset within it. #050a05 is AVN's own literal — the trough is a
+   shade off the display's black and the theme has no token for it, so it is repeated here rather
+   than approximated with --no-bg.
+
+   The loader's .ms-bar is left alone: it is a progress bar, and these are instruments now.
+   flex-basis 0 hands the trough whatever the label and number don't take; min-width floors it so a
+   tight strip leaves a readable gauge rather than a sliver. */
+.ms-tube {
+  position: relative;
+  flex: 1;
+  min-width: 40px;
+  height: 20px;
+  box-sizing: border-box;
+  border: 2px solid var(--no-green);
+  background: #050a05;
+  overflow: hidden;
+}
+
+/* The fill's box, inset from the frame the way AVN's padding insets its own. It exists so the
+   fill's width:% is a percentage of the TROUGH rather than of the tube's padding box (which would
+   overshoot by the inset), and — see the MIL/AB split below — so there is something to ask the
+   width of. container-type makes it that: 100cqw is this box's width, from anything inside it. */
+.ms-tube-inner {
+  position: absolute;
+  inset: 3px;
+  overflow: hidden;
+  container-type: inline-size;
+}
+.ms-fill {
+  width: 0%;
+  height: 100%;
+  background: var(--no-green);
+  /* AVN's own timings, on width instead of height. */
+  transition: width 200ms linear, background-color 150ms linear;
+}
+
+/* Segments + the halfway marker, FUEL only. Not an omission: AVN gives its throttle tube
+   `content: none` for both (avn.css), because that bar says what it has to say with the MIL/AB
+   split instead. The gaps are 3px rather than AVN's 6px — the same 10% pitch, but read across
+   ~120px of width instead of a tall tube, 6px of every 12px would be more gap than gauge. */
+.ms-gauge.fuel .ms-tube::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(10% - 3px),
+    #050a05 calc(10% - 3px),
+    #050a05 10%
+  );
+  pointer-events: none;
+}
+.ms-gauge.fuel .ms-tube::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: calc(50% - 0.75px);
+  width: 1.5px;
+  background: var(--no-green);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* The MIL/AB split, as AVN paints it: one fill, green below --ab-start and red above, with the
+   boundary pinned to a fraction of the TUBE so it stays put while the fill grows past it.
+   AVN sizes that gradient in px (--tube-inner-px), remeasured every paint by the same function
+   that positions the leader lines — which this strip doesn't draw. 100cqw asks .ms-tube-inner its
+   width instead, so the boundary lands identically with nothing to measure and nothing to keep in
+   sync with a paint loop. */
+.ms-gauge.thr { --ab-start: 1; }
+.ms-gauge.ab-capable .ms-fill {
+  background: linear-gradient(to right,
+    var(--no-green) 0,
+    var(--no-green) calc(var(--ab-start) * 100cqw),
+    var(--no-red)   calc(var(--ab-start) * 100cqw),
+    var(--no-red)   100cqw);
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: 100cqw 100%;
+}
+/* Reheat reddens the readout; MIL keeps the bar's green. AVN's rule, verbatim in effect. */
+.ms-gauge.ab-active .ms-gauge-num { color: var(--no-red); }
+
+/* Fuel's warning levels (avn.css .avn-vbar.caution/.critical): amber under a quarter tank, red
+   under a tenth. The fill and the readout turn together, so the colour lands whether or not you
+   can resolve the bar's length at a glance. */
 .ms-gauge.caution  { color: var(--no-amber); }
-.ms-gauge.critical,
-.ms-gauge.ab       { color: var(--no-red); }
-.ms-gauge.caution  .ms-bar-fill { background: var(--no-amber); }
-.ms-gauge.critical .ms-bar-fill,
-.ms-gauge.ab       .ms-bar-fill { background: var(--no-red); }
-/* No value: the empty trough stays, so the gauge still reads as a gauge. AVN's .na does the same. */
-.ms-gauge.na .ms-bar-fill { display: none; }
+.ms-gauge.critical { color: var(--no-red); }
+.ms-gauge.caution  .ms-fill { background: var(--no-amber); }
+.ms-gauge.critical .ms-fill { background: var(--no-red); }
+
+/* No value: the frame dims and the fill goes, so the gauge still reads as a gauge with nothing in
+   it. AVN's .na, the same. */
+.ms-gauge.na { color: var(--no-green-dark); }
+.ms-gauge.na .ms-tube { border-color: var(--no-green-dark); }
+.ms-gauge.na .ms-fill { display: none; }
+.ms-gauge.na.fuel .ms-tube::before { background: var(--no-green-dark); }
 
 /* Avionics flags — one row at the right. Each is a label + icon like the AVN tile (avn.css
    .avn-tile), and the colour class (off = gray, on = green, GEAR-down = red, from the shared
