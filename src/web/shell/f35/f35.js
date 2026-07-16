@@ -103,6 +103,8 @@
   const NAV_LAYOUT = { main: 'center' };
 
   const slices  = Object.create(null);   // the tap's latest message, by type — shared by all portals
+  // Not the source of orientation — a portal measures its own box for that (forwardOrientation).
+  // This only says "the glass turned", which is one of the things that resizes a portal.
   const orientMq = window.matchMedia('(orientation: portrait)');
   let   portals = [];
 
@@ -215,18 +217,24 @@
                       iconHeight: (ROWS - 1) * rowH - 2 * WPN_ICON_INSET }, '*');
     }
 
-    // WPN is the only page here keying CSS off the orientation class: without body.landscape its
-    // weapon image renders rotated 90° with swapped dimensions. A page can't read this from its own
-    // box, so the shell tells it — the same reason the bezel forwards it.
+    // WPN is the only page here keying CSS off the orientation class: 'portrait' turns its weapon
+    // image 90° and swaps its dimensions, to fill a box that is taller than it is wide. A page
+    // can't read this from its own box — an iframe's media query sees only itself — so the host
+    // has to tell it.
     //
-    // ponytail: reports the WINDOW's orientation, as the bezel does. That is right while portals
-    // are full-height halves, but a narrow portal is portrait-shaped on a landscape screen, so
-    // this will read wrong once the glass carries 4 of them — see docs/layouts.md, "Per-portal
-    // orientation". The upgrade is to measure the portal's own box instead of the window's.
+    // This reports the PORTAL's shape, which is where the F-35 parts company with the bezel. The
+    // bezel reports the window's on purpose: its panes are wide-and-short, so a pane measuring
+    // itself would call a portrait device landscape, and the app's real orientation is the useful
+    // answer. Portals are the opposite — a quarter of a panoramic glass is 320x720, genuinely
+    // portrait on a landscape screen, and the page needs to know about the box it is actually in.
+    // Reporting the window there leaves the weapon image an unrotated sliver in a tall column.
+    // See docs/layouts.md, "Per-portal orientation".
     function forwardOrientation() {
       const w = frameWin();
-      if (w) w.postMessage({ mfd: true, type: 'orient',
-                             orientation: orientMq.matches ? 'portrait' : 'landscape' }, '*');
+      if (!w) return;
+      const r = el.getBoundingClientRect();
+      w.postMessage({ mfd: true, type: 'orient',
+                      orientation: r.width < r.height ? 'portrait' : 'landscape' }, '*');
     }
 
     // Invisible click targets over the weapon bands. The page draws the rows; this is the F-35's
@@ -342,12 +350,16 @@
   }
 
   // ── Split ────────────────────────────────────────────────────────────────────────────
+  // How many portals each split divides the glass into. The F-35's panoramic display is one wide
+  // sheet of glass carrying four side-by-side portals, each an independent MFD — not a 2x2 grid
+  // (issue #8's reference shots). So a split here is a column count and nothing more.
+  const SPLITS = { full: 1, v: 2, q: 4 };
+
   // Rebuild the glass with N portals. Full view is N=1, so it shares every code path — the only
   // thing a lone portal does differently is show the tap instead of loading a second map.
   function setSplit(mode) {
-    const n = mode === 'v' ? 2 : 1;
+    const n = SPLITS[mode] || 1;
     document.body.classList.remove('map-on');   // portals are gone; nothing owns the tap
-    document.body.classList.toggle('split-v', mode === 'v');
     portalsEl.textContent = '';
     portals = [];
     for (let i = 0; i < n; i++) {
@@ -387,7 +399,8 @@
   orientMq.addEventListener('change', relayoutAll);
 
   // ponytail: the split is chosen by URL while the real control is designed — the F-35's corner
-  // triangles, which expand and retract a portal. /f35?split=v for the half-and-half, /f35 for
-  // full view. Scaffolding: replace the query read, not the portal engine, when they land.
-  setSplit(new URLSearchParams(location.search).get('split') === 'v' ? 'v' : 'full');
+  // triangles, which expand and retract a portal. ?split=v for half-and-half, ?split=q for the
+  // four-portal panoramic, bare /f35 for full view. Scaffolding: replace the query read, not the
+  // portal engine, when they land.
+  setSplit(new URLSearchParams(location.search).get('split') || 'full');
 })();

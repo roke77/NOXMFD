@@ -50,18 +50,25 @@ body.map-on #map-tap { opacity: 1; pointer-events: auto; }
 
 /* A portal = one independent MFD's region of the glass. position:relative so its page frame and
    label grid anchor to IT rather than the glass; overflow:hidden so a page can't paint into its
-   neighbour. */
+   neighbour.
+
+   container-type makes it the size reference for everything inside it, so the labels can be sized
+   in cq units against THIS portal instead of the viewport. With four portals the two are wildly
+   different — a vw-sized gap is measured against the whole glass and blows a 320px portal apart.
+   (wpn.css sizes its weapon image in cqw/cqh for the same reason.) */
 .portal {
   position: relative;
   flex: 1 1 0;
   min-width: 0;
   overflow: hidden;
+  container-type: size;
 }
 
 /* The seam between portals, matching the bezel's 2px divider. Drawn as a border on the portal
    itself rather than a spacer element — the portals are the only children, so there is nothing to
-   keep them apart but themselves. */
-body.split-v .portal + .portal { border-left: 2px solid #ffffff; }
+   keep them apart but themselves. No split class needed: a lone portal has no predecessor, so the
+   rule simply never matches in full view, and any number of portals divides correctly. */
+.portal + .portal { border-left: 2px solid #ffffff; }
 
 .page-frame {
   display: block;
@@ -91,12 +98,13 @@ body.split-v .portal + .portal { border-left: 2px solid #ffffff; }
 }
 
 /* 'center' — for a screen whose labels ARE the content (MAIN: no page renders behind them).
-   Three columns; items flow in NAV order, so a 7th item starts a new row on its own. The whole
-   block is centred on the glass rather than pinned to an edge that frames nothing. */
+   Three columns; items flow in NAV order, so a 10th item starts a new row on its own. The block is
+   centred in the portal rather than pinned to an edge that frames nothing.
+   Sized in cq units, so the gaps shrink with the portal instead of with the glass. */
 .nav-grid.center {
   grid-template-columns: repeat(3, auto);
   place-content: center;
-  gap: clamp(14px, 4vh, 40px) clamp(24px, 6vw, 88px);
+  gap: clamp(10px, 4cqh, 40px) clamp(10px, 6cqw, 88px);
 }
 
 .nav-item {
@@ -165,7 +173,7 @@ body.split-v .portal + .portal { border-left: 2px solid #ffffff; }
 /* Centre: each label centred in its own cell, so the columns read as a block. */
 .nav-grid.center .nav-item {
   justify-self: center;
-  font-size: clamp(20px, 3.4vh, 30px);
+  font-size: clamp(15px, 3.4cqh, 30px);
 }
 
 /* These labels are clickable; the bezel's are painted beside a physical key, so they need no
