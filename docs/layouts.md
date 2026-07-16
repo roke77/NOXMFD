@@ -7,19 +7,24 @@ and on `feat/layouts`. The bezel remains the default and is unchanged.
 
 - The **bezel** layout ships: a metallic 4/6/4/6 button frame, served at `/`.
 - The **F-35** layout is a working prototype, served at `/f35`: borderless,
-  no keys, labels drawn on the glass. Every page renders on it (MAIN, MAP,
-  AVN, RWR, TGT, TGP, WPN). The glass is four independent portals, and the
-  corner grips merge adjacent ones and split them back — five arrangements,
-  never fewer than two portals. A fixed **master strip** runs across the top,
-  carrying the aircraft-level chrome the navigation-only MAIN has no room for:
-  the wordmark, the connection URLs and status, and the AVN avionics flags.
+  no keys, labels drawn on the glass, and framed in teal. Every page renders
+  on it (MAIN, MAP, AVN, RWR, TGT, TGP, WPN). The glass is four independent
+  portals, each framed as a whole box, and the corner grips merge adjacent
+  ones and split them back — five arrangements, never fewer than two portals.
+  A fixed **master strip** runs across the top, carrying the aircraft-level
+  chrome the navigation-only MAIN has no room for: the wordmark, the
+  connection URLs and status, the mission name and ownship grid, the THRL and
+  FUEL gauges, the AVN avionics flags, and the LAYOUT chooser.
 
 Both consume one shared navigation model. `NAV` has never been edited to
-serve the second layout, and no page has changed — which was this plan's
-central claim.
+serve the second layout, and **no page has changed** — which was this plan's
+central claim. The count so far: the whole F-35 layout, master strip included,
+lives in `shell/f35/` plus two lines of `theme.css` (its teal) and one added
+telemetry slice (`mapinfo`, for chrome that shows no map). Nothing else moved.
 
-Outstanding: Stage 3, making the layout a user-facing setting rather than a
-URL.
+Outstanding: Stage 3 is partly there — LAYOUT switches to the bezel live, but
+the choice isn't remembered and the bezel has no way back, so the layout is
+still chosen by URL rather than by a setting.
 
 See [issue #8](https://github.com/roke77/NOXMFD/issues/8) for the F-35
 reference screenshots that motivated this.
@@ -30,6 +35,12 @@ We call this **layout**, not "theme", on purpose. A theme implies a skin
 (colors, textures) over the same structure. What changes here is
 structural: the shell frame, where navigation labels live, and how
 splits work. Colors are the smallest part of it.
+
+A layout does own its colours — the F-35 frames itself in teal where the bezel
+uses off-white — but that turned out to be the cheap half: recolouring the
+entire frame was one token and a handful of `var()` swaps, while the portals,
+the grips and the arrangement rule are the layout. The naming holds: had this
+been a theme, the teal would have been all of it.
 
 ## Goal
 
@@ -278,6 +289,49 @@ exactly the same in split mode, and ignores the duplicate telemetry the same
 way (`event.source` must be the canonical map). `FLW`/`Z+`/`Z-` route to the
 portal's own map, and `follow` is per-portal — it routes by source, as the
 bezel's does.
+
+#### The frame
+
+Every portal is boxed on all four sides, as the reference display frames each
+of its windows. A portal is a whole MFD, so it is drawn as a whole box rather
+than merely divided from its neighbour — which is also what keeps the rule free
+of the arrangement: merging removes a portal and its frame goes with it, and the
+survivor's own frame is already the right shape. There is no "first portal has
+no border" case, and no separator elements: a portal's frame is its own.
+
+Where two frames meet they overlap, by a negative margin rather than a dropped
+border, so a seam is 2px and not 2px twice while every portal still owns all
+four of its edges. The same trick pulls the row up under the master strip, whose
+bottom edge the portals' top edges would otherwise double. That margin sits on
+the row, not the strip — the strip has to keep drawing that edge when the
+portals are away, since the layout picker takes their place and draws no frame.
+
+The spans survive it: `flex-basis: 0` means the margin is redistributed by grow,
+so four portals come out equal to the pixel. A merged one lands a shade under
+twice its neighbour (640 vs 322 at 1280) because it covers two slots but draws
+one frame, keeping the 4px the second would have spent — a seam's width, and not
+worth making a portal's size depend on its span.
+
+#### The palette — what the layout colours, and what it doesn't
+
+The line is **chrome versus instrument data**, and it is worth stating because
+it is not obvious from any one rule:
+
+- **Teal** (`--no-teal`) is what the layout *draws*: the portal frames, the nav
+  labels on the glass, the corner grips, the master strip and its LAYOUT button.
+- **The theme's palette** is what anything *reports*, wherever it sits. The
+  strip's gauges and avionics flags are green/amber/red exactly as on the AVN
+  page; the engaged state stays amber; the mission chips stay the map page's
+  green. The strip's URLs are off-white — an address you type somewhere else is
+  chrome, but it is reporting, not framing.
+- **Pages are untouched.** Nothing under `pages/` reads `--no-teal`, so a page
+  renders identically here and under the bezel.
+
+`--no-teal` lives in `theme.css` with every other colour, alongside
+`--no-label`, which is the bezel's equivalent: the two layouts frame themselves
+differently, so each names its own colour rather than one redefining the other's
+per document. Defining it in the shared theme costs nothing — what matters is
+that no page reads it, and that is a convention, not a mechanism.
 
 #### A portal is not the glass
 
