@@ -1,32 +1,31 @@
 // F-35 layout — Stage 2 (docs/layouts.md). A second layout renderer consuming the same NAV model
-// the bezel shell does. Full view only; splits are not attempted yet.
+// the bezel shell does.
 //
 // What this layout owns (the doc's four: frame + label placement + split behaviour + page geometry):
 //   • frame           — none. f35.html/css are borderless; the page IS the display.
 //   • label placement — a grid drawn over the page, in one of two modes (NAV_LAYOUT below):
 //                       'edge' hugs the left column like the bezel's key bank; 'center' puts the
 //                       labels in the middle of the glass for MAIN, which has no page behind them.
-//   • split behaviour — not yet.
-//   • page geometry   — none, deliberately. We never post '*-layout', so AVN stays in its
-//                       `compact` profile (its default) and places itself with CSS. That's the
-//                       escape hatch docs/layouts.md identified: a non-bezel layout owes pages no
-//                       placement contract at all.
+//   • split behaviour — portals. The glass divides into N side-by-side portals, each an
+//                       independent MFD with its own page, labels and state. Full view is simply
+//                       one portal, so it is not a special case. Nothing of the bezel's split
+//                       machinery (SplitKeymap, SPLIT_SLOTS) is reused: it resolves labels to
+//                       physical keys, and there are none here.
+//   • page geometry   — none, except WPN. See forwardWpnLayout.
 //
-// Shared with the bezel and unchanged: NAV (nav-model.js) and the page iframes. NAV needed no
-// edit to drive a structurally different shell — the point of the seam Stage 1 extracted.
+// Shared with the bezel and unchanged: NAV (nav-model.js), the pages, and sendCommand.
 //
-// Data path: the MAP iframe (#map-tap) owns the only EventSource('/stream') and posts derived
-// per-page slices up here; we cache the latest and forward the one the current page needs. Every
-// layout inherits this dependency, map or no map.
+// Data path: #map-tap owns the only EventSource('/stream') and posts the derived per-page slices
+// up here; the shell caches them and each portal replays what its page needs. Every layout
+// inherits this dependency, map or no map.
 (function () {
   const NAV       = NavModel.NAV;
   const mapTap    = document.getElementById('map-tap');
-  const pageFrame = document.getElementById('page-frame');
-  const navGrid   = document.getElementById('nav-grid');
+  const portalsEl = document.getElementById('portals');
 
   const ROWS = 6;   // 'edge' mode only — must match grid-template-rows in f35.css
 
-  // Screens this layout can show, and the page each mounts. Every NAV action now has an entry, so
+  // Screens this layout can show, and the page each mounts. Every NAV action has an entry, so
   // nothing renders dimmed except this layout's own placeholders (MAIN_EXTRAS).
   //
   // Two screens map to no page, for opposite reasons — `null` is meaningful either way, so test
@@ -36,12 +35,9 @@
   //          there is nothing left for a page to render. (The bezel needs MAIN twice: #info-box
   //          chrome in full view, /main in a split pane. Here it needs it zero times;
   //          src/web/pages/main/ is untouched and still serves the bezel.)
-  //   map  — the map is ALREADY loaded. #map-tap is the telemetry tap this shell has always
-  //          embedded, running invisibly because the MAP page owns the only EventSource. Showing
-  //          MAP just reveals it (body.map-on); loading a second map iframe would open a second
-  //          stream and drive every page from two out-of-phase feeds — the exact thing the bezel's
-  //          canonical-source guard exists to prevent. The bezel arrives here from the other
-  //          direction: it keeps the map running as the base layer and covers it with #page-frame.
+  //   map  — it depends on the portal; see mapUrl(). A lone portal covers the glass, so it shows
+  //          the tap that is already running rather than loading a second one. A portal that does
+  //          not cover the glass mounts its own.
   const F35_PAGES = {
     main: null,
     map:  null,
@@ -52,9 +48,11 @@
     wpn: '/wpn',
   };
 
+  const MAP_URL = '/map-view?bare';
+
   // The telemetry each screen needs, by the tap's own type names. A page that just mounted has
-  // missed whatever already arrived, and slices land while other screens are up — so we cache
-  // every slice and replay the relevant ones (forwardSlice).
+  // missed whatever already arrived, and slices land while other screens are up — so the shell
+  // caches every slice and each portal replays the relevant ones.
   //
   // TGT needs no command plumbing: it POSTs its own tgt.* via send-command.js.
   const PAGE_FEEDS = {
@@ -62,7 +60,7 @@
     rwr: ['rwr', 'mw'],       // scope contacts + incoming-missile warnings
     tgt: ['tgt', 'targets'],
     tgp: ['tgp'],
-    wpn: ['loadout', 'cm'],   // 'loadout' is derived, not forwarded as-is — see FEED_DERIVE
+    wpn: ['loadout', 'cm'],   // 'loadout' is derived, not forwarded as-is — see DERIVED
   };
 
   // The tap calls it 'targets'; TGT listens for 'tgt-targets'. The bezel renames it in exactly the
@@ -70,15 +68,13 @@
   // than inventing one. Every other slice forwards under its own name.
   const FEED_AS = { targets: 'tgt-targets' };
 
-  // Slices needing more than a rename. WPN is the only one: the page shows five rows, so the shell
-  // owns *which* five. Pagination is shell state — precisely why NAV.wpn is empty and why the bezel
-  // hand-rolls its WPN labels too.
-  const FEED_DERIVE = { loadout: forwardWpn };
+  // Slices needing more than a rename — the portal derives these itself. WPN is the only one: the
+  // page shows five rows, so the shell owns *which* five. Pagination is shell state, which is why
+  // NAV.wpn is empty and why the bezel hand-rolls its WPN labels too.
+  const DERIVED = { loadout: true };
 
   const WPN_MAX_DISPLAY = ROWS - 1;   // row 1 is the nav + CM band; rows 2..6 carry the weapons
   const WPN_ICON_INSET  = 20;         // keeps the image off its band edges, as the bezel does
-  let   wpnPage = 0;                  // 0-indexed pagination state, owned by the shell
-  let   wpnNavKey = '';               // what the WPN grid last drew; guards a per-tick rebuild
 
   // Screens this layout puts on MAIN beyond NAV's. They are placeholders for pages that don't
   // exist yet, which is exactly why they can't go in NAV: NAV is the bezel's menu too, and it has
@@ -92,23 +88,13 @@
     { label: 'BDF', action: 'bdf' },
   ];
 
-  // Paging actions, and the direction each moves. Not pages, so they dispatch separately (dispatch).
+  // Paging actions, and the direction each moves. Not pages, so they dispatch separately.
   const PAGER = { 'wpn-prev': -1, 'wpn-next': 1 };
 
   // MAP's own actions → the message the map view listens for. Also not pages: they drive the map
-  // in place rather than navigating. Same protocol the bezel uses (mfd.js mapSend).
+  // in place rather than navigating. Same protocol the bezel uses (mfd.js mapSend), but routed to
+  // the portal's OWN map — with several maps on the glass, "the map" is no longer unambiguous.
   const MAP_ACTIONS = { flw: 'toggle-follow', zin: 'zoom-in', zout: 'zoom-out' };
-
-  // What a screen puts on the grid.
-  //   main — NAV's items plus this layout's own, alphabetical. Sorting here (not in NAV) keeps
-  //          ordering a rendering choice: the bezel keeps NAV's order, where TGT precedes TGP.
-  //   wpn  — nothing from NAV (it's empty by design); its labels are pagination, built below.
-  function itemsFor(page) {
-    if (page === 'wpn') return wpnState().nav;
-    const items = (NAV[page] || []).slice();
-    if (page !== 'main') return items;
-    return items.concat(MAIN_EXTRAS).sort(function (a, b) { return a.label.localeCompare(b.label); });
-  }
 
   // Where a screen's NAV items sit. Default 'edge' = the bezel's left key bank, minus the bezel.
   // MAIN is 'center': its labels ARE the screen, so they own the middle of the glass instead of
@@ -116,199 +102,292 @@
   // which is exactly the split the seam predicts.
   const NAV_LAYOUT = { main: 'center' };
 
-  let currentPage = null;
-  const slices = Object.create(null);   // the tap's latest message, by type
+  const slices  = Object.create(null);   // the tap's latest message, by type — shared by all portals
+  const orientMq = window.matchMedia('(orientation: portrait)');
+  let   portals = [];
 
   function has(page) { return Object.prototype.hasOwnProperty.call(F35_PAGES, page); }
   function feedsFor(page) { return PAGE_FEEDS[page] || []; }
-
-  // 'edge' placement: a NAV item's index → its cell. The left column, top-down, IS the bezel's
-  // left key bank — the same derivation mfd.js fullViewSlot() uses, which is why NAV needs no
-  // placement hints for full view. ('center' needs no function: the items flow in NAV order and
-  // the grid's own columns arrange them.)
-  function cellOf(i) { return { row: i + 1, col: 1 }; }
-
-  // Push one cached slice into the page, under the name that page listens for.
-  function forwardSlice(type) {
-    if (FEED_DERIVE[type]) return FEED_DERIVE[type]();
-    const w = pageFrame.contentWindow, m = slices[type];
-    if (!w || !m) return;
-    w.postMessage(FEED_AS[type] ? Object.assign({}, m, { type: FEED_AS[type] }) : m, '*');
-  }
-
-  // Everything the current page needs — on its load, and whenever it changes.
-  function forwardToPage() {
-    feedsFor(currentPage).forEach(forwardSlice);
-    if (currentPage === 'wpn') { forwardWpnLayout(); forwardOrientation(); }
-  }
-
-  // ── WPN ──────────────────────────────────────────────────────────────────────────────
-  // The one page that needs geometry from this layout. Everything else places itself: AVN/TGP/RWR
-  // stay in their default profiles and TGT is fully clickable. WPN's `full` profile is the only
-  // thing that renders a weapon image, and it only lays out against forwarded rects — so the
-  // escape hatch docs/layouts.md banked on (drive the `compact` profile) can't serve this screen:
-  // compact scatters weapons into four corners and draws no image at all.
-  //
-  // So this layout supplies its own rects, from its grid instead of the bezel's separators. The
-  // page is untouched and doesn't know the difference; the row bands ARE the key bands.
-
-  // The current page's slice + nav, from the loadout and the shell's page state. All the paging
-  // math (clamp, slice boundaries, MAIN/PREV/NEXT labels) lives in the pure f35-wpn-paging module
-  // so f35-wpn-paging.test.js can pin it; everything below just reads this.
-  function wpnList()  { return (slices.loadout && slices.loadout.items) || []; }
-  function wpnState() { return F35WpnPaging.wpnPaging(wpnList(), wpnPage, WPN_MAX_DISPLAY); }
-
-  // Slice the loadout to this page and hand the page its five rows.
-  //
-  // The labels and hit targets depend on this slice, but a 'loadout' arrives on every tick and
-  // most carry nothing but an ammo count. Re-rendering on each would destroy and rebuild the very
-  // buttons under the pilot's cursor — the bezel never had to care, since its keys are static DOM
-  // and only their labels get replaced. So rebuild only when something the grid shows actually
-  // changes: the page, the page count, or the visible names. wpn.js keys its own row rebuild the
-  // same way (layout + names).
-  function forwardWpn() {
-    const w = pageFrame.contentWindow, lo = slices.loadout;
-    if (!w || !lo) return;
-    const st = wpnState();
-    wpnPage = st.page;
-    w.postMessage({ mfd: true, type: 'wpn', items: st.visible, selWeapon: lo.selWeapon,
-                    page: st.maxPage > 0 ? st.page + 1 : 1, pages: st.maxPage + 1 }, '*');
-    const key = st.page + '|' + st.maxPage + '|' + st.visible.map(function (it) { return it.n; }).join(',');
-    if (currentPage === 'wpn' && key !== wpnNavKey) { wpnNavKey = key; renderNav(); }
-  }
-
-  // Row 1 is the CM band; rows 2..6 are the weapon slots; the image spans rows 2..6. The grid and
-  // #page-frame are both inset:0 in .portal, so a row's offset is already the frame's own
-  // coordinate space — no frameTop to subtract, unlike the bezel reading shell-side separators.
-  function forwardWpnLayout() {
-    const w = pageFrame.contentWindow;
-    if (!w) return;
-    const rowH = pageFrame.getBoundingClientRect().height / ROWS;
-    const slots = [];
-    for (let k = 0; k < WPN_MAX_DISPLAY; k++) slots.push({ top: (k + 1) * rowH, height: rowH });
-    w.postMessage({ mfd: true, type: 'wpn-layout', layout: 'full', slots: slots,
-                    cmTop: 0, cmHeight: rowH,
-                    iconTop: rowH + WPN_ICON_INSET,
-                    iconHeight: (ROWS - 1) * rowH - 2 * WPN_ICON_INSET }, '*');
-  }
-
-  // WPN is the only page here that keys CSS off the orientation class: without body.landscape its
-  // weapon image renders rotated 90° with swapped dimensions. A page can't read this from its own
-  // box, so the shell is the source of truth — same reason the bezel forwards it.
-  const orientMq = window.matchMedia('(orientation: portrait)');
-  function forwardOrientation() {
-    const w = pageFrame.contentWindow;
-    if (w) w.postMessage({ mfd: true, type: 'orient',
-                           orientation: orientMq.matches ? 'portrait' : 'landscape' }, '*');
-  }
-
-  // Invisible click targets over the weapon bands. The page draws the rows; this is the F-35's
-  // line-select key — the same weapon.select the bezel sends, with no physical key to press.
-  function addWeaponHits() {
-    wpnState().visible.forEach(function (it, k) {
-      const b = document.createElement('button');
-      b.className = 'wpn-hit';
-      b.style.gridRow = String(k + 2);   // rows 2..6, aligned to the slots forwarded above
-      b.title = it.n;
-      b.setAttribute('aria-label', 'Select ' + it.n);
-      b.addEventListener('click', function () {
-        sendCommand('weapon.select', { wname: it.n }).catch(function () {});
-      });
-      navGrid.appendChild(b);
-    });
-  }
-
-  // Drive the map in place. It is the tap iframe — the same window the telemetry arrives from.
-  function mapSend(action) {
-    const w = mapTap.contentWindow;
-    if (w) w.postMessage({ mfd: true, action: action }, '*');
-  }
-
-  // FLW is a toggle, so it has to show its state. The bezel puts that in a separate FOLLOW chip
-  // over the screen; with no chrome to hang one on, the label carries it — it's the control
-  // itself. The map reports the state back (it also follows on its own when the player moves), so
-  // this reflects the map rather than assuming the click won.
-  function markFollow() {
-    const b = navGrid.querySelector('.nav-item[data-action="flw"]');
-    if (b) b.classList.toggle('on', !!(slices.follow && slices.follow.on));
-  }
-
-  function dispatch(action) {
-    if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
-    if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
-    if (has(action)) showPage(action);
-  }
   function canDo(action) { return has(action) || (action in PAGER) || (action in MAP_ACTIONS); }
 
-  function renderNav() {
-    const mode = NAV_LAYOUT[currentPage] || 'edge';
-    navGrid.className = 'nav-grid ' + mode;
-    navGrid.dataset.page = currentPage;   // lets f35.css special-case a page's labels (see TGT)
-    navGrid.textContent = '';
-    itemsFor(currentPage).forEach(function (item, i) {
-      // An item may name its own cell (WPN's NEXT sits top-right); otherwise it takes the
-      // index's. NAV items never carry placement — nav-model.test.js enforces that — so this only
-      // ever fires for items this layout built itself.
-      const cell = item.cell || cellOf(i);
-      if (mode === 'edge' && cell.row > ROWS) {
-        console.warn('[f35] ' + currentPage + '[' + i + '] "' + item.label +
-                     '" falls outside the ' + ROWS + '-row grid — not placed');
-        return;
-      }
-      const wired = canDo(item.action);
-      const b = document.createElement('button');
-      b.className   = 'nav-item' + (wired ? '' : ' pending') + (cell.col === 2 ? ' col-right' : '');
-      b.textContent = item.label;
-      b.dataset.action = item.action;   // markFollow finds FLW by this
-      if (mode === 'edge') {
-        b.style.gridRow    = String(cell.row);
-        b.style.gridColumn = String(cell.col);
-      }
-      if (wired) b.addEventListener('click', function () { dispatch(item.action); });
-      else       b.disabled = true;
-      navGrid.appendChild(b);
-    });
-    if (currentPage === 'wpn') addWeaponHits();
-    markFollow();   // the labels were just rebuilt; re-apply the cached state to the new FLW
+  // 'edge' placement: an item's index → its cell. The left column, top-down, IS the bezel's left
+  // key bank — the same derivation mfd.js fullViewSlot() uses, which is why NAV needs no placement
+  // hints for full view. ('center' needs no function: items flow in NAV order and the grid's own
+  // columns arrange them.)
+  function cellOf(i) { return { row: i + 1, col: 1 }; }
+
+  // ── Portal ───────────────────────────────────────────────────────────────────────────
+  // One independent MFD: a page iframe with a label grid over it, and the state that belongs to
+  // *this* screen rather than the shell — which page is up, where its WPN list is paged to, and
+  // whether its map is following. Everything a second portal must not share lives in here; only
+  // the telemetry cache and the tap are shell-wide.
+  function makePortal() {
+    const el    = document.createElement('div');
+    const frame = document.createElement('iframe');
+    const grid  = document.createElement('div');
+    el.className    = 'portal';
+    frame.className = 'page-frame';
+    frame.title     = 'page';
+    grid.className  = 'nav-grid';
+    el.appendChild(frame);
+    el.appendChild(grid);
+
+    let currentPage = null;
+    let wpnPage     = 0;    // 0-indexed pagination state
+    let wpnNavKey   = '';   // what this grid last drew; guards a per-tick rebuild
+    let followOn    = false;
+
+    // A lone portal covers the glass, so the tap — already loaded and running — is its map, and
+    // nothing more needs loading. Any other portal is a slice of the glass and mounts its own.
+    // The bezel does exactly this: one canonical map plus per-pane maps whose duplicate telemetry
+    // it ignores. Extra streams are the cost of showing two maps at once.
+    function ownsTap() { return portals.length === 1; }
+    function mapUrl()  { return ownsTap() ? null : MAP_URL; }
+    function frameWin() { return frame.contentWindow; }
+    // The window driving THIS portal's map: the tap if it owns it, else its own page.
+    function mapWin()  { return ownsTap() ? mapTap.contentWindow : frameWin(); }
+    function isMapWin(w) { return currentPage === 'map' && w === mapWin(); }
+
+    // ── Feeds ──────────────────────────────────────────────────────────────────────────
+    function forwardSlice(type) {
+      if (DERIVED[type]) return forwardWpn();
+      const w = frameWin(), m = slices[type];
+      if (!w || !m) return;
+      w.postMessage(FEED_AS[type] ? Object.assign({}, m, { type: FEED_AS[type] }) : m, '*');
+    }
+    function onSlice(type) {
+      if (feedsFor(currentPage).indexOf(type) !== -1) forwardSlice(type);
+    }
+    // Everything the current page needs — on its load, and whenever it changes.
+    function forwardToPage() {
+      feedsFor(currentPage).forEach(forwardSlice);
+      if (currentPage === 'wpn') { forwardWpnLayout(); forwardOrientation(); }
+    }
+
+    // ── WPN ────────────────────────────────────────────────────────────────────────────
+    // The one page needing geometry from this layout. Everything else places itself: AVN/TGP/RWR
+    // stay in their default profiles and TGT is fully clickable. WPN's `full` profile is the only
+    // one that renders a weapon image, and it lays out solely against forwarded rects — so the
+    // escape hatch docs/layouts.md banked on (drive the `compact` profile) can't serve a
+    // full-screen WPN: compact scatters weapons into four corners and draws no image at all.
+    //
+    // So this layout supplies its own rects, derived from its grid instead of the bezel's
+    // separators. The page is untouched and cannot tell the difference; the row bands ARE the key
+    // bands.
+
+    // This portal's slice + nav, from the loadout and its page state. All the paging math (clamp,
+    // slice boundaries, MAIN/PREV/NEXT labels) lives in the pure f35-wpn-paging module so
+    // f35-wpn-paging.test.js can pin it; everything below just reads this.
+    function wpnList()  { return (slices.loadout && slices.loadout.items) || []; }
+    function wpnState() { return F35WpnPaging.wpnPaging(wpnList(), wpnPage, WPN_MAX_DISPLAY); }
+
+    // Slice the loadout to this portal's page and hand the page its five rows.
+    //
+    // The labels and hit targets depend on this slice, but a 'loadout' arrives on every tick and
+    // most carry nothing but an ammo count. Re-rendering on each would destroy and rebuild the
+    // very buttons under the pilot's cursor — the bezel never had to care, since its keys are
+    // static DOM and only their labels get replaced. So rebuild only when something the grid shows
+    // actually changes: the page, the page count, or the visible names. wpn.js keys its own row
+    // rebuild the same way (layout + names).
+    function forwardWpn() {
+      const w = frameWin(), lo = slices.loadout;
+      if (!w || !lo) return;
+      const st = wpnState();
+      wpnPage = st.page;
+      w.postMessage({ mfd: true, type: 'wpn', items: st.visible, selWeapon: lo.selWeapon,
+                      page: st.maxPage > 0 ? st.page + 1 : 1, pages: st.maxPage + 1 }, '*');
+      const key = st.page + '|' + st.maxPage + '|' + st.visible.map(function (it) { return it.n; }).join(',');
+      if (currentPage === 'wpn' && key !== wpnNavKey) { wpnNavKey = key; renderNav(); }
+    }
+
+    // Row 1 is the CM band; rows 2..6 are the weapon slots; the image spans rows 2..6. The grid and
+    // the frame are both inset:0 in the portal, so a row's offset is already the frame's own
+    // coordinate space — no frameTop to subtract, unlike the bezel reading shell-side separators.
+    function forwardWpnLayout() {
+      const w = frameWin();
+      if (!w) return;
+      const rowH = frame.getBoundingClientRect().height / ROWS;
+      const slots = [];
+      for (let k = 0; k < WPN_MAX_DISPLAY; k++) slots.push({ top: (k + 1) * rowH, height: rowH });
+      w.postMessage({ mfd: true, type: 'wpn-layout', layout: 'full', slots: slots,
+                      cmTop: 0, cmHeight: rowH,
+                      iconTop: rowH + WPN_ICON_INSET,
+                      iconHeight: (ROWS - 1) * rowH - 2 * WPN_ICON_INSET }, '*');
+    }
+
+    // WPN is the only page here keying CSS off the orientation class: without body.landscape its
+    // weapon image renders rotated 90° with swapped dimensions. A page can't read this from its own
+    // box, so the shell tells it — the same reason the bezel forwards it.
+    //
+    // ponytail: reports the WINDOW's orientation, as the bezel does. That is right while portals
+    // are full-height halves, but a narrow portal is portrait-shaped on a landscape screen, so
+    // this will read wrong once the glass carries 4 of them — see docs/layouts.md, "Per-portal
+    // orientation". The upgrade is to measure the portal's own box instead of the window's.
+    function forwardOrientation() {
+      const w = frameWin();
+      if (w) w.postMessage({ mfd: true, type: 'orient',
+                             orientation: orientMq.matches ? 'portrait' : 'landscape' }, '*');
+    }
+
+    // Invisible click targets over the weapon bands. The page draws the rows; this is the F-35's
+    // line-select key — the same weapon.select the bezel sends, with no physical key to press.
+    function addWeaponHits() {
+      wpnState().visible.forEach(function (it, k) {
+        const b = document.createElement('button');
+        b.className = 'wpn-hit';
+        b.style.gridRow = String(k + 2);   // rows 2..6, aligned to the slots forwarded above
+        b.title = it.n;
+        b.setAttribute('aria-label', 'Select ' + it.n);
+        b.addEventListener('click', function () {
+          sendCommand('weapon.select', { wname: it.n }).catch(function () {});
+        });
+        grid.appendChild(b);
+      });
+    }
+
+    // ── Nav ────────────────────────────────────────────────────────────────────────────
+    // What this screen puts on the grid.
+    //   main — NAV's items plus this layout's own, alphabetical. Sorting here (not in NAV) keeps
+    //          ordering a rendering choice: the bezel keeps NAV's order, where TGT precedes TGP.
+    //   wpn  — nothing from NAV (it's empty by design); its labels are pagination.
+    function itemsFor(page) {
+      if (page === 'wpn') return wpnState().nav;
+      const items = (NAV[page] || []).slice();
+      if (page !== 'main') return items;
+      return items.concat(MAIN_EXTRAS).sort(function (a, b) { return a.label.localeCompare(b.label); });
+    }
+
+    function mapSend(action) {
+      const w = mapWin();
+      if (w) w.postMessage({ mfd: true, action: action }, '*');
+    }
+
+    // FLW is a toggle, so it has to show its state. The bezel puts that in a separate FOLLOW chip
+    // over the screen; with no chrome to hang one on, the label carries it — it's the control
+    // itself. Per-portal, since each map follows independently. The map reports the state back (it
+    // also follows on its own when the player moves), so this reflects the map rather than
+    // assuming the click won.
+    function setFollow(on) { followOn = on; markFollow(); }
+    function markFollow() {
+      const b = grid.querySelector('.nav-item[data-action="flw"]');
+      if (b) b.classList.toggle('on', followOn);
+    }
+
+    function dispatch(action) {
+      if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
+      if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
+      if (has(action)) showPage(action);
+    }
+
+    function renderNav() {
+      const mode = NAV_LAYOUT[currentPage] || 'edge';
+      grid.className = 'nav-grid ' + mode;
+      grid.dataset.page = currentPage;   // lets f35.css special-case a page's labels (see TGT)
+      grid.textContent = '';
+      itemsFor(currentPage).forEach(function (item, i) {
+        // An item may name its own cell (WPN's NEXT sits top-right); otherwise it takes the
+        // index's. NAV items never carry placement — nav-model.test.js enforces that — so this
+        // only ever fires for items this layout built itself.
+        const cell = item.cell || cellOf(i);
+        if (mode === 'edge' && cell.row > ROWS) {
+          console.warn('[f35] ' + currentPage + '[' + i + '] "' + item.label +
+                       '" falls outside the ' + ROWS + '-row grid — not placed');
+          return;
+        }
+        const wired = canDo(item.action);
+        const b = document.createElement('button');
+        b.className   = 'nav-item' + (wired ? '' : ' pending') + (cell.col === 2 ? ' col-right' : '');
+        b.textContent = item.label;
+        b.dataset.action = item.action;   // markFollow finds FLW by this
+        if (mode === 'edge') {
+          b.style.gridRow    = String(cell.row);
+          b.style.gridColumn = String(cell.col);
+        }
+        if (wired) b.addEventListener('click', function () { dispatch(item.action); });
+        else       b.disabled = true;
+        grid.appendChild(b);
+      });
+      if (currentPage === 'wpn') addWeaponHits();
+      markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
+    }
+
+    function showPage(name) {
+      if (!has(name)) return;
+      currentPage = name;
+      wpnNavKey = '';   // entering any page redraws the grid; don't let a stale key suppress it
+      // Showing the tap means revealing an iframe that is behind every portal, so it can only
+      // work for a portal covering the whole glass. The class is on <body> for that reason: it is
+      // a statement about the glass, not about this portal.
+      const showTap = name === 'map' && ownsTap();
+      document.body.classList.toggle('map-on', showTap);
+      // The frame's background is opaque, so a revealed tap needs it out of the way; every other
+      // screen blanks it instead, and a page with no content (MAIN) shows the grid on black.
+      el.classList.toggle('tap-map', showTap);
+      frame.src = (name === 'map' ? mapUrl() : F35_PAGES[name]) || 'about:blank';
+      renderNav();   // forwardToPage reruns on the frame's load
+    }
+
+    frame.addEventListener('load', forwardToPage);
+
+    return {
+      el: el,
+      showPage: showPage,
+      onSlice: onSlice,
+      isMapWin: isMapWin,
+      setFollow: setFollow,
+      relayout: function () {
+        if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); }
+      },
+    };
   }
 
-  function showPage(name) {
-    if (!has(name)) return;
-    currentPage = name;
-    wpnNavKey = '';   // entering any page redraws the grid; don't let a stale key suppress it
-    // MAP reveals the always-running tap underneath and hides the frame; #page-frame's background
-    // is opaque, so leaving it up would cover the map. Every other screen blanks the frame rather
-    // than hiding it — the iframe's own background is the glass colour, so a page with no content
-    // (MAIN) shows the grid on black.
-    document.body.classList.toggle('map-on', name === 'map');
-    pageFrame.src = F35_PAGES[name] || 'about:blank';   // forwardToPage reruns on the frame's load
-    renderNav();
+  // ── Split ────────────────────────────────────────────────────────────────────────────
+  // Rebuild the glass with N portals. Full view is N=1, so it shares every code path — the only
+  // thing a lone portal does differently is show the tap instead of loading a second map.
+  function setSplit(mode) {
+    const n = mode === 'v' ? 2 : 1;
+    document.body.classList.remove('map-on');   // portals are gone; nothing owns the tap
+    document.body.classList.toggle('split-v', mode === 'v');
+    portalsEl.textContent = '';
+    portals = [];
+    for (let i = 0; i < n; i++) {
+      const p = makePortal();
+      portals.push(p);
+      portalsEl.appendChild(p.el);
+    }
+    // Every portal opens on MAIN — the menu, same as the bezel shell's landing page.
+    portals.forEach(function (p) { p.showPage('main'); });
   }
 
   window.addEventListener('message', function (e) {
     const m = e.data;
-    if (!m || m.mfd !== true) return;
-    // Telemetry comes only from the tap. Same guard the bezel shell uses: a second map source
-    // would drive the page from two out-of-phase feeds.
+    if (!m || m.mfd !== true || typeof m.type !== 'string') return;
+
+    // 'follow' belongs to whichever map sent it, so it routes by source rather than coming from
+    // the canonical tap — with a map per portal, each follows independently. The bezel routes it
+    // the same way and for the same reason.
+    if (m.type === 'follow') {
+      portals.forEach(function (p) { if (p.isMapWin(e.source)) p.setFollow(!!m.on); });
+      return;
+    }
+
+    // Telemetry comes only from the tap. A portal's own map streams too, and its duplicate posts
+    // are ignored here — otherwise two out-of-phase feeds would drive the same page. This is the
+    // bezel's canonical-source guard, for the same reason.
     if (e.source !== mapTap.contentWindow) return;
-    if (typeof m.type !== 'string') return;
     slices[m.type] = m;   // cache every slice: the screen that wants it may not be up yet
-    if (m.type === 'follow') markFollow();
-    if (feedsFor(currentPage).indexOf(m.type) !== -1) forwardSlice(m.type);
+    portals.forEach(function (p) { p.onSlice(m.type); });
   });
 
-  pageFrame.addEventListener('load', forwardToPage);
-
-  // WPN's rects are derived from the viewport, so they go stale when it changes. The bezel
+  // WPN's rects are derived from its portal's box, so they go stale when it changes. The bezel
   // recomputes from its separators for the same reason. Only WPN cares — every other page here
   // lays itself out with CSS.
-  window.addEventListener('resize', function () {
-    if (currentPage === 'wpn') forwardWpnLayout();
-  });
-  orientMq.addEventListener('change', function () {
-    if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); }
-  });
+  function relayoutAll() { portals.forEach(function (p) { p.relayout(); }); }
+  window.addEventListener('resize', relayoutAll);
+  orientMq.addEventListener('change', relayoutAll);
 
-  // Land on MAIN — the menu, same as the bezel shell's landing page.
-  showPage('main');
+  // ponytail: the split is chosen by URL while the real control is designed — the F-35's corner
+  // triangles, which expand and retract a portal. /f35?split=v for the half-and-half, /f35 for
+  // full view. Scaffolding: replace the query read, not the portal engine, when they land.
+  setSplit(new URLSearchParams(location.search).get('split') === 'v' ? 'v' : 'full');
 })();

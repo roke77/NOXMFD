@@ -19,9 +19,10 @@ html, body {
 
 /* The map, and the telemetry tap — one iframe doing both jobs, because the MAP page owns the only
    EventSource('/stream') and posts the derived slices up to its host. It is always loaded and
-   always ticking, and normally invisible; MAP just reveals it (body.map-on). Full-size even when
-   hidden, so the view inside lays out and ticks normally — a 1px or display:none iframe risks
-   throttling or zero-size canvas math. */
+   always ticking, and normally invisible. Full-size even when hidden, so the view inside lays out
+   and ticks normally — a 1px or display:none iframe risks throttling or zero-size canvas math.
+   It sits behind every portal, so it can only be SHOWN for a portal that covers the whole glass;
+   a split portal mounts its own map instead (f35.js mapUrl). */
 #map-tap {
   position: absolute;
   inset: 0;
@@ -32,19 +33,37 @@ html, body {
   pointer-events: none;
 }
 
-/* MAP: show the tap and let it take the pan/zoom/tap-to-target gestures. #page-frame's background
-   is opaque, so it has to go — otherwise it covers the map it sits above. */
-body.map-on #map-tap   { opacity: 1; pointer-events: auto; }
-body.map-on #page-frame { display: none; }
+/* Full-view MAP: reveal the tap and let it take the pan/zoom/tap-to-target gestures. The portal's
+   own frame is opaque, so it has to go — otherwise it covers the map it sits above. The label grid
+   stays: it's a later sibling, so FLW/Z+/Z- still paint on top. */
+body.map-on #map-tap { opacity: 1; pointer-events: auto; }
+.portal.tap-map > .page-frame { display: none; }
 
-/* A portal = one page's region of the glass. Today there is exactly one and it fills the screen;
-   a future split gives each portal its own slice. */
-.portal {
+/* The portals divide the glass. One portal = full view, and it is not a special case: the same
+   flex row simply has a single child at 100%. */
+.portals {
   position: absolute;
   inset: 0;
+  display: flex;
+  flex-direction: row;
 }
 
-#page-frame {
+/* A portal = one independent MFD's region of the glass. position:relative so its page frame and
+   label grid anchor to IT rather than the glass; overflow:hidden so a page can't paint into its
+   neighbour. */
+.portal {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* The seam between portals, matching the bezel's 2px divider. Drawn as a border on the portal
+   itself rather than a spacer element — the portals are the only children, so there is nothing to
+   keep them apart but themselves. */
+body.split-v .portal + .portal { border-left: 2px solid #ffffff; }
+
+.page-frame {
   display: block;
   width: 100%;
   height: 100%;

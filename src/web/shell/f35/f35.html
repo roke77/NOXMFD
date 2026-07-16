@@ -22,13 +22,9 @@
        reason. -->
   <iframe id="map-tap" src="/map-view?bare" title="telemetry"></iframe>
 
-  <div class="portal">
-    <!-- src is set by showPage(): the shell decides which page is up, not the markup. -->
-    <iframe id="page-frame" title="page"></iframe>
-    <!-- Labels are drawn OVER the page, not around it. The grid is pointer-transparent, so
-         clicks fall through to the page everywhere except on a label. -->
-    <div class="nav-grid" id="nav-grid"></div>
-  </div>
+  <!-- Portals are built by f35.js, not declared here: full view is one portal and a split is
+       several, so the count is state. Each holds a page iframe with a label grid over it. -->
+  <div class="portals" id="portals"></div>
 </div>
 
 <script src="/assets/services/send-command.js"></script>
