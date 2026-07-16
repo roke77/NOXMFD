@@ -314,11 +314,23 @@ content is designed. Content is a separate decision.
 
 ### Shape
 
-- Full width, **one sixth of the glass tall**, at the top.
-- The portals take the remaining five sixths. They keep their own widths and
-  arrangement; only their height changes.
-- Collapses **upward**. Collapsed, an expand control appears at the **top-left
-  of the glass** and restores it.
+**Two containers, stacked, never overlapping.** The glass becomes a flex
+column: the bar, then the portals. The portals are *pushed down* to make room
+rather than sliding under the bar, so nothing the bar holds can reach a portal
+— they do not share space, and no z-order or inset has to be reasoned about.
+
+- The bar is full width, **one sixth of the glass tall**, at the top.
+- The portals take the remaining five sixths, in their own container. They keep
+  their widths and arrangement; only their height changes.
+- Collapsing **retracts the bar to a thin strip** (~24px) rather than removing
+  it. The portals grow into the space; the strip keeps the expand control.
+
+Retracting rather than vanishing is what keeps the two containers honest. A bar
+of zero height would leave the expand control homeless, and the only places to
+put it are on top of the glass — where portal 1's `edge` nav already has its
+`MAIN` label at `x: 16`, `y: 45–76`. A control there would eat that label's
+clicks, exactly as TGT's horizontal label ate `RESET FILTER`. Inside its own
+container the question never arises.
 
 ### The control
 
@@ -338,10 +350,11 @@ apart visually.
 The bar is layout chrome, not a portal: it holds no page, has no `NAV`, and
 takes no telemetry in this slice.
 
-- **`.pcd` becomes a column.** Today `#portals` is `inset: 0`. It would become
-  the second child of a flex column, under the bar. `#map-tap` stays
-  `inset: 0` and full-size — it is a data source and never displayed, and its
-  size only affects the map view's internal layout.
+- **`.pcd` becomes a column.** Today `#portals` is `inset: 0` — it *is* the
+  glass. It becomes the second child of a flex column instead, sized by what
+  the bar leaves. `#map-tap` stays `inset: 0` and full-size, behind both: it is
+  a data source and never displayed, so its box only affects the map view's
+  own internal layout, not what is seen.
 - **Portals need `resized()` on every collapse and expand.** Their boxes
   change height, and WPN derives its rects from the box. `onGrip` already does
   this after a merge; the bar needs the same call. Without it, WPN's rows
@@ -359,27 +372,17 @@ takes no telemetry in this slice.
   off.
 - **The corner grips need nothing.** They sit at the portal's own bottom.
 
-### The collision to settle first
+### Height, and what it costs
 
-The expand control wants the top-left of the glass. Portal 1's `edge` nav
-puts its first label (`MAIN`) at `x: 16`, vertically centred in the first of
-six row bands — around `y: 45–76` at full height. **A 50px control at the
-top-left corner lands on it**, and being later in the DOM it would eat the
-label's clicks. This is the same trap TGT's `RESET FILTER` sprang, and it is
-worth deciding before writing the CSS.
+The bar spends glass. At 1280×720 the portals drop from 720 tall to 600
+expanded, and recover to ~696 when the bar retracts. Two knock-ons, both
+already handled by machinery that exists:
 
-Options, cheapest first:
+- WPN's six row bands get shorter — its rects come from the portal's box, so
+  `resized()` covers it.
+- A merged portal's *shape* changes, and with it its orientation.
 
-1. **The bar never fully collapses** — it retracts to a thin strip (~24px)
-   that holds only the expand control. Portals gain 5/6 of the height back
-   rather than all of it, nothing overlaps, and the control has a home that
-   is already its own. Recommended.
-2. **The control overlays** the glass and portal 1 insets its nav grid while
-   the bar is collapsed. Gives back the full height, at the cost of a portal
-   knowing about the bar.
-3. **Put it somewhere without a label under it** — e.g. top-centre. Cheap,
-   but it is no longer where the bar went, and the grips' whole logic is that
-   a control sits where the thing it moves is.
+Everything else is proportional and follows on its own.
 
 ## Open questions
 
