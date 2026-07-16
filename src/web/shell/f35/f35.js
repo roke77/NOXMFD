@@ -6,9 +6,10 @@
 //   • label placement — a grid drawn over the page, in one of two modes (NAV_LAYOUT below):
 //                       'edge' hugs the left column like the bezel's key bank; 'center' puts the
 //                       labels in the middle of the glass for MAIN, which has no page behind them.
-//   • split behaviour — portals. The glass divides into N side-by-side portals, each an
-//                       independent MFD with its own page, labels and state. Full view is simply
-//                       one portal, so it is not a special case. Nothing of the bezel's split
+//   • split behaviour — portals, paired. The glass is two pairs of two: four side-by-side MFDs,
+//                       each with its own page, labels and state. The corner grips let a pair's
+//                       members absorb each other, giving four portals, three or two — never one,
+//                       because nothing reaches across the centre. Nothing of the bezel's split
 //                       machinery (SplitKeymap, SPLIT_SLOTS) is reused: it resolves labels to
 //                       physical keys, and there are none here.
 //   • page geometry   — none, except WPN. See forwardWpnLayout.
@@ -25,30 +26,27 @@
 
   const ROWS = 6;   // 'edge' mode only — must match grid-template-rows in f35.css
 
+  // A MAP portal mounts its own map. The tap is a data source only and is never shown — see
+  // #map-tap in f35.css, and "the glass" below for why no portal can ever borrow it.
+  const MAP_URL = '/map-view?bare';
+
   // Screens this layout can show, and the page each mounts. Every NAV action has an entry, so
   // nothing renders dimmed except this layout's own placeholders (MAIN_EXTRAS).
   //
-  // Two screens map to no page, for opposite reasons — `null` is meaningful either way, so test
-  // membership with `in`, not truthiness:
-  //
-  //   main — its whole content is its navigation, and this shell's grid already draws that, so
-  //          there is nothing left for a page to render. (The bezel needs MAIN twice: #info-box
-  //          chrome in full view, /main in a split pane. Here it needs it zero times;
-  //          src/web/pages/main/ is untouched and still serves the bezel.)
-  //   map  — it depends on the portal; see mapUrl(). A lone portal covers the glass, so it shows
-  //          the tap that is already running rather than loading a second one. A portal that does
-  //          not cover the glass mounts its own.
+  // MAIN maps to no page, and `null` is meaningful there — test membership with `in`, not
+  // truthiness. Its whole content is its navigation, and this shell's grid already draws that, so
+  // there is nothing left for a page to render. (The bezel needs MAIN twice: #info-box chrome in
+  // full view, /main in a split pane. Here it needs it zero times; src/web/pages/main/ is
+  // untouched and still serves the bezel.)
   const F35_PAGES = {
     main: null,
-    map:  null,
+    map: MAP_URL,
     avn: '/avn',
     rwr: '/rwr',
     tgt: '/tgt',
     tgp: '/tgp',
     wpn: '/wpn',
   };
-
-  const MAP_URL = '/map-view?bare';
 
   // The telemetry each screen needs, by the tap's own type names. A page that just mounted has
   // missed whatever already arrived, and slices land while other screens are up — so the shell
@@ -106,7 +104,7 @@
   // Not the source of orientation — a portal measures its own box for that (forwardOrientation).
   // This only says "the glass turned", which is one of the things that resizes a portal.
   const orientMq = window.matchMedia('(orientation: portrait)');
-  let   portals = [];
+  let   pairs = [];   // the glass, left to right; livePortals() flattens them
 
   function has(page) { return Object.prototype.hasOwnProperty.call(F35_PAGES, page); }
   function feedsFor(page) { return PAGE_FEEDS[page] || []; }
@@ -119,42 +117,46 @@
   function cellOf(i) { return { row: i + 1, col: 1 }; }
 
   // ── Corner grips ─────────────────────────────────────────────────────────────────────
-  // The F-35's expand/retract control: an outline triangle in a portal's bottom corner, pointing
-  // out towards that edge. Portal chrome, not navigation — they resize the glass rather than choose
-  // a page, so they live outside the label grid (which renderNav rebuilds) and are built once with
-  // the portal.
+  // The F-35's expand/retract control: an outline triangle in a portal's bottom corner. Portal
+  // chrome, not navigation — it resizes the glass rather than choosing a page, so it lives outside
+  // the label grid (which renderNav rebuilds).
   //
-  // A portal gets ONE grip, pointing at its pair partner: portals pair up (1,2) (3,4), so each
-  // PAIR owns half the glass and either member can absorb the other. That is the whole rule, and
-  // the constraints fall out of it rather than being enumerated:
-  //   * 1 and 4 have no outward grip — there is only the screen edge that way.
-  //   * 2 and 3 have none towards the centre — that is the other pair's half, not theirs.
-  //   * a lone portal has no partner, so no grip at all: nothing to absorb.
-  // Even index → partner on the right; odd → partner on the left.
-  function gripSideFor(idx, total) {
-    const partner = idx % 2 === 0 ? idx + 1 : idx - 1;
-    if (partner < 0 || partner >= total) return null;   // no partner, no grip
-    return idx % 2 === 0 ? 'right' : 'left';
+  // A grip always sits in the corner facing the portal's pair partner, and only its DIRECTION
+  // says what it does:
+  //   * outward (away from the portal) — absorb the partner and take the whole pair.
+  //   * inward  (back over the portal) — give the half back, splitting the pair again.
+  // Slot 0 faces right, slot 1 faces left. No partner slot at all means no grip: nothing to
+  // absorb, nothing to give back. Everything else follows from that — portals 1 and 4 have no
+  // outward grip because only the screen edge lies that way, and 2 and 3 have none towards the
+  // centre because that is the other pair's half.
+  function gripCornerFor(slot)  { return slot === 0 ? 'right' : 'left'; }
+  function gripPointsFor(slot, expanded) {
+    const corner = gripCornerFor(slot);
+    const inward = corner === 'right' ? 'left' : 'right';
+    return expanded ? inward : corner;   // expanded → point back in, offering the half up
   }
 
   // Drawn as SVG because the reference's triangles are outlines, and the CSS border trick only
   // makes solid ones. The triangle fills its square button; non-scaling-stroke (in the CSS) keeps
   // the outline 2px however large that gets, and the 2-unit inset keeps the stroke inside the box.
-  // ponytail: inert for now — drawn, not wired. Clicking does nothing until the expand/retract
-  // behaviour lands.
   const GRIP_POINTS = { left: '2,50 98,2 98,98', right: '98,50 2,2 2,98' };
-  function makeGrip(side) {
+  function makeGrip(corner, onClick) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'portal-grip ' + side;
-    b.setAttribute('aria-label', side === 'left' ? 'Expand left' : 'Expand right');
+    b.className = 'portal-grip ' + corner;
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 100 100');
     svg.setAttribute('aria-hidden', 'true');
     const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-    poly.setAttribute('points', GRIP_POINTS[side]);
     svg.appendChild(poly);
     b.appendChild(svg);
+    b.addEventListener('click', onClick);
+    // Re-aim rather than rebuild: the corner never moves, so only the points and the label change.
+    b.aim = function (points, label) {
+      poly.setAttribute('points', GRIP_POINTS[points]);
+      b.setAttribute('aria-label', label);
+      b.title = label;
+    };
     return b;
   }
 
@@ -163,7 +165,7 @@
   // *this* screen rather than the shell — which page is up, where its WPN list is paged to, and
   // whether its map is following. Everything a second portal must not share lives in here; only
   // the telemetry cache and the tap are shell-wide.
-  function makePortal(idx, total) {
+  function makePortal(pair, slot) {
     const el    = document.createElement('div');
     const frame = document.createElement('iframe');
     const grid  = document.createElement('div');
@@ -173,24 +175,28 @@
     grid.className  = 'nav-grid';
     el.appendChild(frame);
     el.appendChild(grid);
-    const gripSide = gripSideFor(idx, total);
-    if (gripSide) el.appendChild(makeGrip(gripSide));
+
+    // The grip exists only where a partner slot does. It never moves after that — expanding just
+    // turns the triangle around (refreshGrip).
+    const grip = pair.capacity > 1
+      ? makeGrip(gripCornerFor(slot), function () { pair.toggle(slot); })
+      : null;
+    if (grip) el.appendChild(grip);
 
     let currentPage = null;
     let wpnPage     = 0;    // 0-indexed pagination state
     let wpnNavKey   = '';   // what this grid last drew; guards a per-tick rebuild
     let followOn    = false;
 
-    // A lone portal covers the glass, so the tap — already loaded and running — is its map, and
-    // nothing more needs loading. Any other portal is a slice of the glass and mounts its own.
-    // The bezel does exactly this: one canonical map plus per-pane maps whose duplicate telemetry
-    // it ignores. Extra streams are the cost of showing two maps at once.
-    function ownsTap() { return portals.length === 1; }
-    function mapUrl()  { return ownsTap() ? null : MAP_URL; }
+    function refreshGrip() {
+      if (!grip) return;
+      const expanded = pair.expandedBy() === slot;
+      grip.aim(gripPointsFor(slot, expanded), expanded ? 'Split this half' : 'Expand over the next portal');
+    }
+
     function frameWin() { return frame.contentWindow; }
-    // The window driving THIS portal's map: the tap if it owns it, else its own page.
-    function mapWin()  { return ownsTap() ? mapTap.contentWindow : frameWin(); }
-    function isMapWin(w) { return currentPage === 'map' && w === mapWin(); }
+    // A portal showing MAP mounts its own, so its map IS its page — the tap is never displayed.
+    function isMapWin(w) { return currentPage === 'map' && w === frameWin(); }
 
     // ── Feeds ──────────────────────────────────────────────────────────────────────────
     function forwardSlice(type) {
@@ -307,8 +313,10 @@
       return items.concat(MAIN_EXTRAS).sort(function (a, b) { return a.label.localeCompare(b.label); });
     }
 
+    // Drive this portal's own map. Not the tap: several maps can be on the glass at once, so
+    // "the map" only means something per portal.
     function mapSend(action) {
-      const w = mapWin();
+      const w = frameWin();
       if (w) w.postMessage({ mfd: true, action: action }, '*');
     }
 
@@ -365,19 +373,14 @@
       if (!has(name)) return;
       currentPage = name;
       wpnNavKey = '';   // entering any page redraws the grid; don't let a stale key suppress it
-      // Showing the tap means revealing an iframe that is behind every portal, so it can only
-      // work for a portal covering the whole glass. The class is on <body> for that reason: it is
-      // a statement about the glass, not about this portal.
-      const showTap = name === 'map' && ownsTap();
-      document.body.classList.toggle('map-on', showTap);
-      // The frame's background is opaque, so a revealed tap needs it out of the way; every other
-      // screen blanks it instead, and a page with no content (MAIN) shows the grid on black.
-      el.classList.toggle('tap-map', showTap);
-      frame.src = (name === 'map' ? mapUrl() : F35_PAGES[name]) || 'about:blank';
+      // A page with no content of its own (MAIN) blanks the frame rather than hiding it: the
+      // iframe's background is the glass colour, so what shows through is the label grid on black.
+      frame.src = F35_PAGES[name] || 'about:blank';
       renderNav();   // forwardToPage reruns on the frame's load
     }
 
     frame.addEventListener('load', forwardToPage);
+    refreshGrip();
 
     return {
       el: el,
@@ -385,32 +388,98 @@
       onSlice: onSlice,
       isMapWin: isMapWin,
       setFollow: setFollow,
-      relayout: function () {
+      refreshGrip: refreshGrip,
+      // The portal's box just changed. WPN is the only page that cares, and it cares twice: its
+      // rects come from the box, and its orientation IS the box's shape — a quarter is portrait, a
+      // half may not be. Every other page reflows itself with CSS; the map notices via its own
+      // resize handling, and must not be re-entered here — that would reload the iframe and throw
+      // away the zoom and pan the pilot set.
+      resized: function () {
         if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); }
       },
+      destroy: function () { el.remove(); },
     };
   }
 
-  // ── Split ────────────────────────────────────────────────────────────────────────────
-  // How many portals each split divides the glass into. The F-35's panoramic display is one wide
-  // sheet of glass carrying four side-by-side portals, each an independent MFD — not a 2x2 grid
-  // (issue #8's reference shots). So a split here is a column count and nothing more.
-  const SPLITS = { full: 1, v: 2, q: 4 };
+  // ── Pair ─────────────────────────────────────────────────────────────────────────────
+  // A pair owns an equal share of the glass and holds one or two portals. It owns the one piece of
+  // state neither portal can: whether they are sharing the half, or one has taken all of it.
+  //
+  // The share is the pair's, not the portals' — which is why the pairs are real elements. Four
+  // portals as flat siblings would give a survivor a THIRD of the glass when its partner went;
+  // nested, it grows to exactly the half its pair already held, and the other pair never moves.
+  function makePair(capacity) {
+    const el = document.createElement('div');
+    el.className = 'pair';
+    const members = [];        // by slot; a hole where a portal has been absorbed
+    let expandedBy = null;     // slot that took the whole pair, or null while sharing
 
-  // Rebuild the glass with N portals. Full view is N=1, so it shares every code path — the only
-  // thing a lone portal does differently is show the tap instead of loading a second map.
-  function setSplit(mode) {
-    const n = SPLITS[mode] || 1;
-    document.body.classList.remove('map-on');   // portals are gone; nothing owns the tap
-    portalsEl.textContent = '';
-    portals = [];
-    for (let i = 0; i < n; i++) {
-      const p = makePortal(i, n);
-      portals.push(p);
-      portalsEl.appendChild(p.el);
+    function add(slot) {
+      const p = makePortal(api, slot);
+      members[slot] = p;
+      // Slot order is left-to-right, and a restored portal has to land back on its own side.
+      if (slot === 0) el.insertBefore(p.el, el.firstChild);
+      else            el.appendChild(p.el);
+      p.showPage('main');
+      return p;
     }
-    // Every portal opens on MAIN — the menu, same as the bezel shell's landing page.
-    portals.forEach(function (p) { p.showPage('main'); });
+
+    // Absorb the partner, or give the half back. The survivor is left alone: it keeps its page and
+    // everything on it, and simply gets wider. The absorbed portal is destroyed — with it goes its
+    // iframe, and any map stream it was running — and comes back fresh on MAIN.
+    function toggle(slot) {
+      if (expandedBy === slot) {
+        expandedBy = null;
+        add(1 - slot);
+      } else {
+        const victim = members[1 - slot];
+        if (!victim) return;
+        victim.destroy();
+        members[1 - slot] = null;
+        expandedBy = slot;
+      }
+      // Both portals' boxes just changed, and so may the glass's only-portal count — which decides
+      // who owns the tap. Tell everyone, not just this pair.
+      livePortals().forEach(function (p) { p.refreshGrip(); p.resized(); });
+    }
+
+    const api = {
+      el: el,
+      capacity: capacity,
+      expandedBy: function () { return expandedBy; },
+      toggle: toggle,
+      members: function () { return members.filter(Boolean); },
+    };
+
+    for (let s = 0; s < capacity; s++) add(s);
+    return api;
+  }
+
+  // ── The glass ────────────────────────────────────────────────────────────────────────
+  // Two pairs of two: the F-35's panoramic display is one wide sheet carrying four side-by-side
+  // portals, each an independent MFD — not a 2x2 grid (issue #8's reference shots). This is the
+  // whole layout, fixed, and the grips do the rest.
+  //
+  // The grips reach four portals, three, or two — never one. A pair's members can absorb each
+  // other, but nothing reaches across the centre: that is the same rule that denies portals 2 and
+  // 3 an inward grip, seen from the other end. So the centre divider is permanent and the glass is
+  // never a single screen — which is what the real PCD does.
+  //
+  // The cost of never being solo: no portal can ever own the tap, so a MAP portal always mounts
+  // its own map and runs a stream the tap is already running. The bezel pays exactly this in split
+  // mode. Revealing the tap under a single portal is the only case that avoided it, and that case
+  // no longer exists.
+  const PAIRS = [2, 2];
+
+  function livePortals() {
+    return pairs.reduce(function (acc, pr) { return acc.concat(pr.members()); }, []);
+  }
+
+  function buildGlass() {
+    portalsEl.textContent = '';
+    pairs = PAIRS.map(makePair);
+    pairs.forEach(function (pr) { portalsEl.appendChild(pr.el); });
+    livePortals().forEach(function (p) { p.refreshGrip(); });
   }
 
   window.addEventListener('message', function (e) {
@@ -421,7 +490,7 @@
     // the canonical tap — with a map per portal, each follows independently. The bezel routes it
     // the same way and for the same reason.
     if (m.type === 'follow') {
-      portals.forEach(function (p) { if (p.isMapWin(e.source)) p.setFollow(!!m.on); });
+      livePortals().forEach(function (p) { if (p.isMapWin(e.source)) p.setFollow(!!m.on); });
       return;
     }
 
@@ -430,19 +499,15 @@
     // bezel's canonical-source guard, for the same reason.
     if (e.source !== mapTap.contentWindow) return;
     slices[m.type] = m;   // cache every slice: the screen that wants it may not be up yet
-    portals.forEach(function (p) { p.onSlice(m.type); });
+    livePortals().forEach(function (p) { p.onSlice(m.type); });
   });
 
   // WPN's rects are derived from its portal's box, so they go stale when it changes. The bezel
   // recomputes from its separators for the same reason. Only WPN cares — every other page here
   // lays itself out with CSS.
-  function relayoutAll() { portals.forEach(function (p) { p.relayout(); }); }
+  function relayoutAll() { livePortals().forEach(function (p) { p.resized(); }); }
   window.addEventListener('resize', relayoutAll);
   orientMq.addEventListener('change', relayoutAll);
 
-  // ponytail: the split is chosen by URL while the real control is designed — the F-35's corner
-  // triangles, which expand and retract a portal. ?split=v for half-and-half, ?split=q for the
-  // four-portal panoramic, bare /f35 for full view. Scaffolding: replace the query read, not the
-  // portal engine, when they land.
-  setSplit(new URLSearchParams(location.search).get('split') || 'full');
+  buildGlass();
 })();

@@ -17,12 +17,11 @@ html, body {
   inset: 0;
 }
 
-/* The map, and the telemetry tap — one iframe doing both jobs, because the MAP page owns the only
-   EventSource('/stream') and posts the derived slices up to its host. It is always loaded and
-   always ticking, and normally invisible. Full-size even when hidden, so the view inside lays out
-   and ticks normally — a 1px or display:none iframe risks throttling or zero-size canvas math.
-   It sits behind every portal, so it can only be SHOWN for a portal that covers the whole glass;
-   a split portal mounts its own map instead (f35.js mapUrl). */
+/* The telemetry tap. Never seen: the MAP page owns the only EventSource('/stream') and posts the
+   derived slices up to its host, so this shell carries a map iframe purely as a data source — even
+   though a MAP portal mounts its own map to display. Full-size despite being invisible, so the
+   view inside lays out and ticks normally; a 1px or display:none iframe risks throttling or
+   zero-size canvas math. */
 #map-tap {
   position: absolute;
   inset: 0;
@@ -33,17 +32,20 @@ html, body {
   pointer-events: none;
 }
 
-/* Full-view MAP: reveal the tap and let it take the pan/zoom/tap-to-target gestures. The portal's
-   own frame is opaque, so it has to go — otherwise it covers the map it sits above. The label grid
-   stays: it's a later sibling, so FLW/Z+/Z- still paint on top. */
-body.map-on #map-tap { opacity: 1; pointer-events: auto; }
-.portal.tap-map > .page-frame { display: none; }
-
-/* The portals divide the glass. One portal = full view, and it is not a special case: the same
-   flex row simply has a single child at 100%. */
+/* The glass divides into pairs, and a pair divides into portals. The nesting is what makes the
+   expand/retract arithmetic free: a pair holds its share of the glass no matter what happens
+   inside it, so when one portal absorbs its partner the survivor grows to exactly the pair's
+   half — not to a third of the glass, which is what four flat siblings would give. */
 .portals {
   position: absolute;
   inset: 0;
+  display: flex;
+  flex-direction: row;
+}
+
+.pair {
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: row;
 }
@@ -64,11 +66,13 @@ body.map-on #map-tap { opacity: 1; pointer-events: auto; }
   container-type: size;
 }
 
-/* The seam between portals, matching the bezel's 2px divider. Drawn as a border on the portal
-   itself rather than a spacer element — the portals are the only children, so there is nothing to
-   keep them apart but themselves. No split class needed: a lone portal has no predecessor, so the
-   rule simply never matches in full view, and any number of portals divides correctly. */
+/* The seam, matching the bezel's 2px divider. Drawn as a border on the element itself rather than
+   a spacer — portals and pairs are the only children of their rows, so there is nothing to keep
+   them apart but themselves. No split class needed: a lone child has no predecessor, so the rule
+   never matches in full view, and any arrangement divides correctly. Both levels need it: within a
+   pair the portals are adjacent, but portals 2 and 3 are not — they sit in different pairs. */
 .portal + .portal { border-left: 2px solid #ffffff; }
+.pair   + .pair   { border-left: 2px solid #ffffff; }
 
 .page-frame {
   display: block;

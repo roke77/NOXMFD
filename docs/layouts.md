@@ -8,16 +8,15 @@ and on `feat/layouts`. The bezel remains the default and is unchanged.
 - The **bezel** layout ships: a metallic 4/6/4/6 button frame, served at `/`.
 - The **F-35** layout is a working prototype, served at `/f35`: borderless,
   no keys, labels drawn on the glass. Every page renders on it (MAIN, MAP,
-  AVN, RWR, TGT, TGP, WPN), and the glass divides into 1, 2 or 4 independent
-  portals (`?split=v`, `?split=q`).
+  AVN, RWR, TGT, TGP, WPN). The glass is four independent portals, and the
+  corner grips expand and retract them — four, three or two, never one.
 
 Both consume one shared navigation model. `NAV` has never been edited to
 serve the second layout, and no page has changed — which was this plan's
 central claim.
 
-Outstanding: the **corner triangles** that expand and retract a portal (the
-F-35's real split control — `?split=` is scaffolding until they land), and
-Stage 3, making the layout a user-facing setting rather than a URL.
+Outstanding: Stage 3, making the layout a user-facing setting rather than a
+URL.
 
 See [issue #8](https://github.com/roke77/NOXMFD/issues/8) for the F-35
 reference screenshots that motivated this.
@@ -197,7 +196,7 @@ by a data-equivalence check against the old tables before deleting them.
 It answered two of the open questions below, and removed a live duplication
 bug source: `label`/`action` had been declared twice for five pages.
 
-### Stage 2 — the F-35 layout 🟡 nearly done
+### Stage 2 — the F-35 layout ✅ done
 
 Built (`src/web/shell/f35/`, served at `/f35`):
 
@@ -205,33 +204,47 @@ Built (`src/web/shell/f35/`, served at `/f35`):
 - two placement modes: `edge` (the bezel's left key bank, minus the bezel)
   and `center` (MAIN's own 3-column block)
 - every page hosted, including WPN with layout-supplied rects
-- MAP without loading a map — see the portals section below
-- the portal split: 1, 2 or 4 independent MFDs on one sheet of glass
+- the portal split, driven entirely by the corner grips
 - shared action dispatch; `NAV` unmodified
 
-Remaining: the **corner triangles** — the F-35's own split control, which
-expand and retract a portal. `?split=v` / `?split=q` is scaffolding standing
-in for them; it should replace the query read, not the portal engine.
+#### Portals and pairs
 
-#### Portals
+A **portal** is an independent MFD: it owns everything two screens must not
+share — which page is up, where its WPN list is paged to, whether its map
+follows. The shell keeps only the telemetry cache and the tap.
 
-The unit of the split. Each is an independent MFD owning everything two
-screens must not share — which page is up, where its WPN list is paged to,
-whether its map follows. The shell keeps only the telemetry cache and the
-tap. **Full view is one portal**, not a special case, so 1/2/4 run identical
-code paths and the count is a lookup table (`SPLITS` in `f35.js`).
+Portals come in **pairs**, and a pair owns an equal share of the glass. The
+layout is fixed at two pairs of two, so the glass is four portals wide. The
+nesting is what makes the resize arithmetic free: a pair keeps its half no
+matter what happens inside it, so a portal that absorbs its partner grows to
+exactly that half — not to a third of the glass, which four flat siblings
+would give.
 
-MAP is the one screen a portal handles two ways, because the tap sits
-*behind* every portal and can only be revealed for one covering the whole
-glass:
+The **corner grips** do the resizing, and there is no other control: no URL,
+no preset. A grip sits in the corner facing its partner and never moves; only
+its direction changes.
 
-- **full view** — show the tap that is already running. One stream.
-- **split** — the portal mounts its own `/map-view?bare`.
+- pointing **outward** — absorb the partner and take the whole pair.
+- pointing **inward** — give the half back, splitting the pair again.
+- **no partner slot, no grip** — nothing to absorb or give back.
 
-That duality is the bezel's own (one canonical map, plus per-pane maps whose
-duplicate telemetry it ignores). Extra streams are the price of two maps at
-once. `FLW`/`Z+`/`Z-` route to the portal's own map, and `follow` is
-per-portal — it routes by `event.source`, as the bezel's does.
+Everything else follows from that. Portals 1 and 4 have no outward grip
+because only the screen edge lies that way; 2 and 3 have none towards the
+centre because that is the other pair's half. So the reachable states are
+four portals, three or two — **never one**: nothing crosses the centre, so
+the F-35's glass is never a single screen. The real PCD isn't either.
+
+The survivor of an absorb keeps its page and everything on it, and simply
+gets wider. The absorbed portal is destroyed — its iframe and any map stream
+go with it — and comes back fresh on MAIN.
+
+**MAP costs a stream here.** The tap sits behind every portal, so it could
+only ever be *shown* to a portal covering the whole glass, and no portal ever
+does. Every MAP portal therefore mounts its own `/map-view?bare` and streams
+alongside the tap. The bezel pays exactly the same in split mode, and ignores
+the duplicate telemetry the same way (`event.source` must be the canonical
+map). `FLW`/`Z+`/`Z-` route to the portal's own map, and `follow` is
+per-portal — it routes by source, as the bezel's does.
 
 #### A portal is not the glass
 
@@ -300,13 +313,13 @@ later nicety — the F-35's MAIN carries a greyed `LYT` placeholder for it.
   The F-35's MAIN is navigation only, so it currently shows neither. The
   reference cockpit puts that class of readout in a master strip across the
   top of the glass.
-- **Portal count and the corner triangles.** The reference has four fixed
-  portals; the engine takes any count. When the triangles land, does a portal
-  expand by *retracting its neighbours* (count stays 4, widths change) or by
-  changing the count? The current `SPLITS` table assumes equal widths.
 - **A portal's own page set.** Every portal currently offers all of `NAV`.
   Four portals showing four MAINs is a plausible default but not obviously
   the right one, and the reference shows each portal with a fixed role.
+- **Uneven portals.** A pair's members are always equal or absorbed —
+  50/50 or 100/0. The reference suggests fixed roles rather than dragged
+  widths, so this may never be wanted; noting it because the pair element
+  is where it would go.
 
 ## Out of scope
 
@@ -326,9 +339,10 @@ Symbol names, not line numbers — this code is actively moving.
   symbols: `fullViewSlot`, `SPLIT_SLOTS`, `FRAME_PAGES`, `PAGE_URL`,
   `forwardAvnLayoutToFrame`, `forwardWpnLayoutToFrame`, `placeWpnNavLabels`.
 - **F-35:** `src/web/shell/f35/f35.{html,css,js}`, `f35-wpn-paging.js` (+ its
-  test). Key symbols: `makePortal` (the split's unit — everything per-screen
-  lives in its closure), `setSplit`, `SPLITS`, `F35_PAGES`, `PAGE_FEEDS`,
-  `FEED_AS`, `DERIVED`, `NAV_LAYOUT`, `MAIN_EXTRAS`, `cellOf`,
-  `forwardWpnLayout`, `forwardOrientation`, `mapUrl`.
+  test). Key symbols: `makePortal` (everything per-screen lives in its
+  closure), `makePair` (`toggle` is absorb/give-back), `PAIRS`, `buildGlass`,
+  `livePortals`, `gripCornerFor` / `gripPointsFor` (the grip rule),
+  `F35_PAGES`, `PAGE_FEEDS`, `FEED_AS`, `DERIVED`, `NAV_LAYOUT`,
+  `MAIN_EXTRAS`, `cellOf`, `forwardWpnLayout`, `forwardOrientation`.
 - **Routes:** `/f35` is served by `TelemetryServer.cs` in-game and by
   `tools/serve_web.py` in the preview harness. Both need the entry.
