@@ -489,10 +489,10 @@
     livePortals().forEach(function (p) { p.onSlice(m.type); });
 
     // The master strip isn't a portal, so it has no PAGE_FEEDS entry; the slices it shows are
-    // handed to it straight from here. status → the connection line; avn → the flags;
-    // mapinfo → the mission name and grid.
+    // handed to it straight from here. status → the connection line; avn → the flags and the
+    // THRL/FUEL gauges; mapinfo → the mission name and grid.
     if (m.type === 'status') updateStripStatus(m);
-    else if (m.type === 'avn') updateStripFlags(m);
+    else if (m.type === 'avn') { updateStripFlags(m); updateStripGauges(m); }
     else if (m.type === 'mapinfo') updateStripMap(m);
   });
 
@@ -514,6 +514,21 @@
   const stripMap     = document.getElementById('ms-map');
   const stripMapName = document.getElementById('ms-map-name');
   const stripGrid    = document.getElementById('ms-grid');
+  const stripThr  = gauge('ms-thr');
+  const stripFuel = gauge('ms-fuel');
+
+  function gauge(id) {
+    return { el: document.getElementById(id),
+             fill: document.getElementById(id + '-fill'),
+             num: document.getElementById(id + '-num') };
+  }
+
+  // FUEL's warning levels, as AVN calls them (avn.js paintAvnBars: cautionAt 0.25, criticalAt
+  // 0.10). They live at that call site rather than in a policy module, so they are repeated here
+  // rather than imported — the two must agree, or the strip and the page it summarises would
+  // disagree about the same tank.
+  const FUEL_CAUTION  = 0.25;
+  const FUEL_CRITICAL = 0.10;
   // The URLs type in only once BOTH the loading bar has finished and /config has landed — whichever
   // is last. maybeRevealUrls checks both flags so the order of the two async events doesn't matter.
   let bootDone = false, urlsLoaded = false;
@@ -523,6 +538,34 @@
       el.classList.remove('on', 'off', 'gear-down');
       el.classList.add(AvnStatusPolicy.tileClass(el.dataset.kind, !!m[el.dataset.field]));
     });
+  }
+
+  // THRL + FUEL, off the same 'avn' slice as the flags — fuel and throttle were already in it, so
+  // the gauges cost no telemetry. Both values are 0..1, and < 0 means the airframe has no such
+  // system (or there is no data yet).
+  //
+  // THRL's rule is AvnThrottlePolicy, shared with the AVN page: the MIL/AB split, the readout
+  // string ('60%' / 'MIL' / the rescaled reheat %), and the zone all come from there, so the strip
+  // can't drift from the gauge it is summarising.
+  //
+  // ponytail: reheat paints the whole bar red, where AVN splits the fill green→red at abStart with
+  // a gradient. That gradient needs the tube's inner width in px (avn.css --tube-inner-px,
+  // remeasured every paint); across 96px the solid red says the same thing — you are in AB — for
+  // none of the measuring. Upgrade path: measure the trough and reuse AVN's linear-gradient.
+  function updateStripGauges(m) {
+    const t = AvnThrottlePolicy.throttleReadout(m.throttle, m.hasAb, m.abStart);
+    setGauge(stripThr, t.na, t.fill, t.text, t.zone === 'ab' ? 'ab' : '');
+
+    const na = typeof m.fuel !== 'number' || m.fuel < 0;
+    const v  = na ? 0 : Math.max(0, Math.min(1, m.fuel));
+    setGauge(stripFuel, na, v, Math.round(v * 100) + '%',
+             v <= FUEL_CRITICAL ? 'critical' : v <= FUEL_CAUTION ? 'caution' : '');
+  }
+
+  function setGauge(g, na, fill, text, state) {
+    g.el.className = 'ms-gauge' + (na ? ' na' : state ? ' ' + state : '');
+    g.fill.style.width = (fill * 100).toFixed(1) + '%';
+    g.num.textContent = na ? '--' : text;
   }
   function updateStripStatus(m) {
     stripStatus.className = 'ms-status ' + m.cls;

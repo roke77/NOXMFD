@@ -342,6 +342,8 @@ Left to right:
   loaded, as the map page hides its own mission bar. The name is the only string
   in the strip whose length the game decides, so it ellipsises rather than push
   the flags and LAYOUT off a bar that clips them.
+- **Gauges** — THRL and FUEL, stacked, horizontal, in the slack between the
+  mission block and the flags. See below.
 - **Avionics flags** — the eight annunciators the AVN page shows
   (GEAR / RADAR / GUNS / ENG / ASSIST / NVG / LIGHTS / TURRET), in one row, each
   a label + icon.
@@ -393,6 +395,32 @@ what it draws, would have made a page a data source for the shell hosting it.
 
 The stream also carries a `mapName` ("PREVIEW ISLAND") distinct from `mission`.
 Nothing renders it, here or on the map page.
+
+### The gauges — what travels and what doesn't
+
+THRL and FUEL cost no telemetry: `fuel` and `throttle` were already in the `avn`
+slice driving the flags.
+
+The AVN page's own bars could not come along. They are absolutely positioned and
+vertical, sized from rects the shell forwards, and their `%` readout tracks the
+fill's tip in pixels on every paint — none of which survives a 96px trough in a
+one-row bar. What travels instead is the **rule**, not the widget:
+`avn-throttle-policy` gives the MIL/AB split, the zone, and the readout string,
+so the strip cannot drift from the gauge it summarises. It earns its keep
+immediately — at 40% throttle against an 0.8 abStart the bar fills to 40% but
+reads `50%`, because the fill is the raw axis while the text is rescaled within
+the zone, and at the detent it reads `MIL` rather than `100%`.
+
+The trough is `.ms-bar`, the boot loader's own bar, which is the same horizontal
+bar the bezel's MAIN and WPN's EW capacitor draw.
+
+Two things did have to be repeated. FUEL's warning levels (caution 0.25,
+critical 0.10) live at AVN's call site rather than in a policy module, so the
+strip states them again; they must agree, or the strip and the page would
+disagree about the same tank. And reheat paints the whole bar red where AVN
+splits the fill green→red at `abStart` with a gradient — that gradient needs the
+tube's inner width in px, remeasured each paint, and across 96px the solid red
+says the same thing for none of the measuring.
 
 ### Boot
 

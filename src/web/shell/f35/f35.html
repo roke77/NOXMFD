@@ -54,6 +54,22 @@
       <div class="mfd-chip" id="ms-grid"></div>
     </div>
 
+    <!-- THRL + FUEL, stacked — the AVN page's two gauges, laid horizontally. They read the same
+         'avn' slice that drives the flags, so no new telemetry: fuel and throttle were already in
+         it. The trough is .ms-bar, the boot loader's own bar reused. -->
+    <div class="ms-gauges">
+      <div class="ms-gauge na" id="ms-thr">
+        <span class="ms-gauge-label">THRL</span>
+        <div class="ms-bar"><div class="ms-bar-fill" id="ms-thr-fill"></div></div>
+        <span class="ms-gauge-num" id="ms-thr-num">--</span>
+      </div>
+      <div class="ms-gauge na" id="ms-fuel">
+        <span class="ms-gauge-label">FUEL</span>
+        <div class="ms-bar"><div class="ms-bar-fill" id="ms-fuel-fill"></div></div>
+        <span class="ms-gauge-num" id="ms-fuel-num">--</span>
+      </div>
+    </div>
+
     <!-- The eight avionics flags the AVN page shows, in one row — same labels and same glyphs
          (the inline SVGs are copied from avn.html; GEAR reuses the game-captured gear-icon.png
          mask). data-field names the avn-slice boolean; data-kind drives the colour via
@@ -134,8 +150,10 @@
 <script src="/assets/shell/nav-model.js"></script>
 <script src="/assets/shell/f35/f35-glass.js"></script>
 <script src="/assets/shell/f35/f35-wpn-paging.js"></script>
-<!-- Shared with the AVN page: the pure state->colour rule for the avionics flags in the strip. -->
+<!-- Shared with the AVN page: the pure state->colour rule for the avionics flags in the strip, and
+     the MIL/AB split behind its THRL gauge. -->
 <script src="/assets/pages/avn/avn-status-policy.js"></script>
+<script src="/assets/pages/avn/avn-throttle-policy.js"></script>
 <script src="/assets/shell/f35/f35.js"></script>
 </body>
 </html>

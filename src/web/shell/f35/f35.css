@@ -141,6 +141,40 @@ html, body {
 }
 #ms-grid { white-space: nowrap; }
 
+/* THRL + FUEL, stacked, in the space between the mission block and the flags. AVN's own bars can't
+   come along: they are absolutely positioned, vertical, sized from rects the shell forwards, and
+   their % readout tracks the fill's tip in px on every paint. What travels instead is the rule
+   (avn-throttle-policy, shared) and this strip's own horizontal bar — .ms-bar, already here for the
+   boot loader, and the same trough the bezel MAIN and WPN's EW capacitor draw. */
+.ms-gauges {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--no-green-dim);
+}
+.ms-gauge { display: flex; align-items: center; gap: 7px; }
+/* THRL and FUEL are four glyphs of the same monospace face, so the troughs line up on their own. */
+.ms-gauge-label { font-weight: bold; }
+/* The loader's bar is 180px and alone on its line; these two share the row with a label and a
+   number, and the strip has ~225px of slack to spend. */
+.ms-gauge .ms-bar { width: 96px; height: 10px; }
+/* Fixed and right-aligned: '--' → '8%' → '100%' → 'MIL' must not shuffle the row as it ticks. */
+.ms-gauge-num { width: 3.2em; text-align: right; }
+
+/* The gauge states, matching AVN's own (avn.css .avn-vbar.caution/.critical): amber under a
+   quarter tank, red under a tenth, red in reheat. The fill and the number turn together, so the
+   colour reads whether or not you can resolve the bar's length at a glance. */
+.ms-gauge.caution  { color: var(--no-amber); }
+.ms-gauge.critical,
+.ms-gauge.ab       { color: var(--no-red); }
+.ms-gauge.caution  .ms-bar-fill { background: var(--no-amber); }
+.ms-gauge.critical .ms-bar-fill,
+.ms-gauge.ab       .ms-bar-fill { background: var(--no-red); }
+/* No value: the empty trough stays, so the gauge still reads as a gauge. AVN's .na does the same. */
+.ms-gauge.na .ms-bar-fill { display: none; }
+
 /* Avionics flags — one row, pushed to the far right. Each is a label + icon like the AVN tile
    (avn.css .avn-tile), and the colour class (off = gray, on = green, GEAR-down = red, from the
    shared avn-status-policy) recolours label and glyph together via currentColor. */
