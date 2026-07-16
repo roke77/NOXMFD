@@ -118,12 +118,52 @@
   // columns arrange them.)
   function cellOf(i) { return { row: i + 1, col: 1 }; }
 
+  // ── Corner grips ─────────────────────────────────────────────────────────────────────
+  // The F-35's expand/retract control: an outline triangle in a portal's bottom corner, pointing
+  // out towards that edge. Portal chrome, not navigation — they resize the glass rather than choose
+  // a page, so they live outside the label grid (which renderNav rebuilds) and are built once with
+  // the portal.
+  //
+  // A portal gets ONE grip, pointing at its pair partner: portals pair up (1,2) (3,4), so each
+  // PAIR owns half the glass and either member can absorb the other. That is the whole rule, and
+  // the constraints fall out of it rather than being enumerated:
+  //   * 1 and 4 have no outward grip — there is only the screen edge that way.
+  //   * 2 and 3 have none towards the centre — that is the other pair's half, not theirs.
+  //   * a lone portal has no partner, so no grip at all: nothing to absorb.
+  // Even index → partner on the right; odd → partner on the left.
+  function gripSideFor(idx, total) {
+    const partner = idx % 2 === 0 ? idx + 1 : idx - 1;
+    if (partner < 0 || partner >= total) return null;   // no partner, no grip
+    return idx % 2 === 0 ? 'right' : 'left';
+  }
+
+  // Drawn as SVG because the reference's triangles are outlines, and the CSS border trick only
+  // makes solid ones. The triangle fills its square button; non-scaling-stroke (in the CSS) keeps
+  // the outline 2px however large that gets, and the 2-unit inset keeps the stroke inside the box.
+  // ponytail: inert for now — drawn, not wired. Clicking does nothing until the expand/retract
+  // behaviour lands.
+  const GRIP_POINTS = { left: '2,50 98,2 98,98', right: '98,50 2,2 2,98' };
+  function makeGrip(side) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'portal-grip ' + side;
+    b.setAttribute('aria-label', side === 'left' ? 'Expand left' : 'Expand right');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('aria-hidden', 'true');
+    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    poly.setAttribute('points', GRIP_POINTS[side]);
+    svg.appendChild(poly);
+    b.appendChild(svg);
+    return b;
+  }
+
   // ── Portal ───────────────────────────────────────────────────────────────────────────
   // One independent MFD: a page iframe with a label grid over it, and the state that belongs to
   // *this* screen rather than the shell — which page is up, where its WPN list is paged to, and
   // whether its map is following. Everything a second portal must not share lives in here; only
   // the telemetry cache and the tap are shell-wide.
-  function makePortal() {
+  function makePortal(idx, total) {
     const el    = document.createElement('div');
     const frame = document.createElement('iframe');
     const grid  = document.createElement('div');
@@ -133,6 +173,8 @@
     grid.className  = 'nav-grid';
     el.appendChild(frame);
     el.appendChild(grid);
+    const gripSide = gripSideFor(idx, total);
+    if (gripSide) el.appendChild(makeGrip(gripSide));
 
     let currentPage = null;
     let wpnPage     = 0;    // 0-indexed pagination state
@@ -363,7 +405,7 @@
     portalsEl.textContent = '';
     portals = [];
     for (let i = 0; i < n; i++) {
-      const p = makePortal();
+      const p = makePortal(i, n);
       portals.push(p);
       portalsEl.appendChild(p.el);
     }

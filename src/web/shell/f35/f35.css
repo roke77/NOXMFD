@@ -78,6 +78,45 @@ body.map-on #map-tap { opacity: 1; pointer-events: auto; }
   background: var(--no-bg);
 }
 
+/* ── Corner grips ──────────────────────────────────────────────────────────────────────
+   The expand/retract control: an outline triangle in a portal's bottom corner, pointing out
+   towards that edge. Which corner (or none) is the pair rule — see f35.js gripSideFor. Portal
+   chrome rather than navigation, so it sits beside the label grid and survives a renderNav. Same
+   off-white as the labels: both name a control rather than report instrument data.
+
+   Square, and the triangle fills it: the whole square is the target, so there is no dead padding
+   around a small mark to tap and miss. */
+.portal-grip {
+  position: absolute;
+  bottom: 4px;
+  z-index: 1;                /* above the page frame, like the label grid */
+  width: 50px;
+  height: 50px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--no-label);
+  cursor: pointer;
+}
+.portal-grip.left  { left: 4px; }
+.portal-grip.right { right: 4px; }
+
+.portal-grip svg { display: block; width: 100%; height: 100%; }
+.portal-grip polygon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  /* stroke-width is in viewBox units, so it scales with the button. Pin it to 2 real pixels
+     instead, so resizing the grip changes the triangle and not the weight of its outline. */
+  vector-effect: non-scaling-stroke;
+}
+
+.portal-grip:active { opacity: 0.7; }
+/* Mouse only — a touch tap would leave the grip lit; see the nav-item note below. */
+@media (hover: hover) {
+  .portal-grip:hover { color: var(--no-green); }
+}
+
 /* ── Nav labels ────────────────────────────────────────────────────────────────────────
    Drawn over the page in one of two modes, set per screen by f35.js NAV_LAYOUT.
    Pointer-transparent either way: only the labels take clicks, so a fully-clickable page
