@@ -497,8 +497,13 @@ grids need nothing (`edge` is rows of the portal's height, `center` is
 - **Are HIDE SHELL / FULL / PIN / SWAP part of the navigation model?** No —
   layout-owned chrome. `nav-model.test.js` now enforces their absence.
 - **One CSS bundle or two?** Two. `f35.css` shares no structure with
-  `mfd.css`; only the `theme.css` tokens are common (`--no-label` was
-  promoted there when both layouts needed the same off-white).
+  `mfd.css`; only the `theme.css` tokens are common. That file is the palette
+  both layouts and every page draw from — including the colours only one of
+  them uses: `--no-label` is the bezel's off-white chrome and `--no-teal` the
+  F-35's, each named rather than one being redefined per layout, since the two
+  frame themselves differently. A layout's colour being *defined* in the shared
+  theme costs nothing; what matters is that no page reads it, which keeps a page
+  rendering the same under either shell. That is a convention, not a mechanism.
 - **Where does split state live once splits differ per layout?** In the
   portal. Everything two screens must not share (current page, WPN paging,
   follow) belongs to the portal; the shell keeps the telemetry cache and the

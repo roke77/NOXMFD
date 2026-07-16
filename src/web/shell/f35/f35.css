@@ -5,22 +5,17 @@
 
 /* ── The layout's chrome colour ────────────────────────────────────────────────────────
    The real F-35's panoramic display draws its frame and its labels in teal, so this layout does
-   too. It applies to what the LAYOUT owns — the separators between portals, the nav labels drawn
-   on the glass, the corner grips, the strip and its LAYOUT button — and stops there. Instrument
-   data keeps the theme's palette wherever it is: the gauges and flags stay green/amber/red, the
-   engaged state stays amber, and every page inside a portal is untouched, so a page renders
-   identically here and under the bezel.
+   too: --no-teal (theme.css) on the separators between portals, the nav labels drawn on the glass,
+   the corner grips, and the strip with its LAYOUT button.
 
-   Deliberately a variable of this file's own and NOT a new value for --no-label: that token lives
-   in theme.css, and mfd.css paints the bezel's key labels with it. Recolouring it would drag the
-   other layout along.
+   It stops at what the LAYOUT owns. Instrument data keeps the theme's palette wherever it sits —
+   the gauges and flags stay green/amber/red, the engaged state stays amber — and no page reads
+   --no-teal, so a page renders identically here and under the bezel. That is a convention, not a
+   mechanism: the token is in the shared theme, and only this directory may use it.
 
-   Kept as a triplet because the wash under a pressed WPN band needs the same colour with an alpha;
-   one source, so the two can't drift. Tune the teal here and the whole frame follows. */
-:root {
-  --f35-chrome-rgb: 78, 201, 201;
-  --f35-chrome: rgb(var(--f35-chrome-rgb));
-}
+   --no-teal is a token of its own rather than a new value for --no-label, which mfd.css paints the
+   bezel's key labels with: the two layouts frame themselves differently, so they name their own
+   colours. */
 
 html, body {
   height: 100%;
@@ -49,12 +44,12 @@ html, body {
 .master-strip {
   flex: 0 0 calc(100% / 9);
   box-sizing: border-box;
-  border-bottom: 2px solid var(--f35-chrome);   /* the same 2px seam the portal dividers use */
+  border-bottom: 2px solid var(--no-teal);   /* the same 2px seam the portal dividers use */
   display: flex;
   align-items: center;
   gap: 28px;
   padding: 0 16px;
-  color: var(--f35-chrome);
+  color: var(--no-teal);
   overflow: hidden;
 }
 
@@ -417,7 +412,7 @@ html, body {
    spacer element — the portals are the only children of the row, so there is nothing to keep them
    apart but themselves. It needs no knowledge of the arrangement: a divider is simply wherever two
    portals meet, and merging removes one, taking its seam with it. */
-.portal + .portal { border-left: 2px solid var(--f35-chrome); }
+.portal + .portal { border-left: 2px solid var(--no-teal); }
 
 .page-frame {
   display: block;
@@ -444,7 +439,7 @@ html, body {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--f35-chrome);
+  color: var(--no-teal);
   cursor: pointer;
 }
 .portal-grip.left  { left: 4px; }
@@ -507,7 +502,7 @@ html, body {
      The bezel draws that distinction by painting labels on the frame rather than the glass; with no
      frame to paint on, colour is what carries it. This layout's own colour, so saying it here is
      the point: the bezel keeps its off-white labels. */
-  color: var(--f35-chrome);
+  color: var(--no-teal);
   cursor: pointer;
 }
 
@@ -540,10 +535,10 @@ html, body {
   background: none;
   cursor: pointer;
 }
-.wpn-hit:active { background: rgba(var(--f35-chrome-rgb), 0.16); }
+.wpn-hit:active { background: rgba(var(--no-teal-rgb), 0.16); }
 /* Mouse only — a touch tap would leave the band lit, reading as the selected weapon. */
 @media (hover: hover) {
-  .wpn-hit:hover { background: rgba(var(--f35-chrome-rgb), 0.08); }
+  .wpn-hit:hover { background: rgba(var(--no-teal-rgb), 0.08); }
 }
 
 /* TGT packs clickable filter controls into its top-left, exactly where the edge label sits — and
@@ -583,7 +578,7 @@ html, body {
    misleading on FLW, whose lit state MEANS something. Gate it on the pointer actually being able
    to hover: desktop keeps the highlight, touch gets :active alone. */
 @media (hover: hover) {
-  .nav-item:hover    { color: var(--no-ink); background: var(--f35-chrome); }
+  .nav-item:hover    { color: var(--no-ink); background: var(--no-teal); }
   .nav-item.on:hover { color: var(--no-ink); background: var(--no-amber); }
   /* ...but not on a label that does nothing. */
   .nav-item.pending:hover { color: var(--no-gray); background: none; }
