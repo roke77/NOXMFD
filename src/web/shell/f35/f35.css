@@ -190,6 +190,21 @@ html, body {
 /* Bigger than a label on a page: these are the only things on the glass. */
 .layout-picker .nav-item { font-size: 30px; }
 
+/* The layout you are looking at: a solid fill with the ink inverted out of it — the way WPN marks
+   the selected weapon (wpn.css .wp-item.sel .wp-name), in the label's own off-white rather than
+   WPN's green. Scoped to the picker on purpose: bare .nav-item.on is amber, and that belongs to
+   MAP's FLW. The two states differ — FLW is a toggle reporting that follow is engaged, while this
+   reports a selection out of a set, which is exactly what WPN's fill means too.
+
+   Both selectors together so the fill survives a hover: .nav-item.on:hover below would otherwise
+   repaint it amber, and matching its specificity here settles it regardless of source order. */
+.layout-picker .nav-item.on,
+.layout-picker .nav-item.on:hover {
+  background: var(--no-label);
+  color: var(--no-ink);
+  outline: none;   /* a filled swatch needs no outline; amber's is for an unfilled label */
+}
+
 /* A portal = one independent MFD's region of the glass. position:relative so its page frame and
    label grid anchor to IT rather than the glass; overflow:hidden so a page can't paint into its
    neighbour.
