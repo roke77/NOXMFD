@@ -26,16 +26,25 @@
 
   const ROWS = 6;   // 'edge' mode only — must match grid-template-rows in f35.css
 
-  // Screens this layout can show, and the page each mounts. Anything else in NAV renders dimmed
-  // and inert (.pending) — today that's MAP, which needs its own iframe and gestures.
+  // Screens this layout can show, and the page each mounts. Every NAV action now has an entry, so
+  // nothing renders dimmed except this layout's own placeholders (MAIN_EXTRAS).
   //
-  // MAIN maps to no page on purpose. Its whole content is its navigation, and navigation is drawn
-  // by this shell's grid — so there is nothing left for a page to render and the frame stays
-  // blank. (The bezel needs MAIN twice — as #info-box chrome in full view and as /main in a split
-  // pane; here it needs it zero times. src/web/pages/main/ is untouched and still serves the
-  // bezel.) `null` is meaningful: use `in`, not truthiness, to test membership.
+  // Two screens map to no page, for opposite reasons — `null` is meaningful either way, so test
+  // membership with `in`, not truthiness:
+  //
+  //   main — its whole content is its navigation, and this shell's grid already draws that, so
+  //          there is nothing left for a page to render. (The bezel needs MAIN twice: #info-box
+  //          chrome in full view, /main in a split pane. Here it needs it zero times;
+  //          src/web/pages/main/ is untouched and still serves the bezel.)
+  //   map  — the map is ALREADY loaded. #map-tap is the telemetry tap this shell has always
+  //          embedded, running invisibly because the MAP page owns the only EventSource. Showing
+  //          MAP just reveals it (body.map-on); loading a second map iframe would open a second
+  //          stream and drive every page from two out-of-phase feeds — the exact thing the bezel's
+  //          canonical-source guard exists to prevent. The bezel arrives here from the other
+  //          direction: it keeps the map running as the base layer and covers it with #page-frame.
   const F35_PAGES = {
     main: null,
+    map:  null,
     avn: '/avn',
     rwr: '/rwr',
     tgt: '/tgt',
@@ -85,6 +94,10 @@
 
   // Paging actions, and the direction each moves. Not pages, so they dispatch separately (dispatch).
   const PAGER = { 'wpn-prev': -1, 'wpn-next': 1 };
+
+  // MAP's own actions → the message the map view listens for. Also not pages: they drive the map
+  // in place rather than navigating. Same protocol the bezel uses (mfd.js mapSend).
+  const MAP_ACTIONS = { flw: 'toggle-follow', zin: 'zoom-in', zout: 'zoom-out' };
 
   // What a screen puts on the grid.
   //   main — NAV's items plus this layout's own, alphabetical. Sorting here (not in NAV) keeps
@@ -205,11 +218,27 @@
     });
   }
 
+  // Drive the map in place. It is the tap iframe — the same window the telemetry arrives from.
+  function mapSend(action) {
+    const w = mapTap.contentWindow;
+    if (w) w.postMessage({ mfd: true, action: action }, '*');
+  }
+
+  // FLW is a toggle, so it has to show its state. The bezel puts that in a separate FOLLOW chip
+  // over the screen; with no chrome to hang one on, the label carries it — it's the control
+  // itself. The map reports the state back (it also follows on its own when the player moves), so
+  // this reflects the map rather than assuming the click won.
+  function markFollow() {
+    const b = navGrid.querySelector('.nav-item[data-action="flw"]');
+    if (b) b.classList.toggle('on', !!(slices.follow && slices.follow.on));
+  }
+
   function dispatch(action) {
-    if (action in PAGER) { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
+    if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
+    if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
     if (has(action)) showPage(action);
   }
-  function canDo(action) { return has(action) || (action in PAGER); }
+  function canDo(action) { return has(action) || (action in PAGER) || (action in MAP_ACTIONS); }
 
   function renderNav() {
     const mode = NAV_LAYOUT[currentPage] || 'edge';
@@ -230,6 +259,7 @@
       const b = document.createElement('button');
       b.className   = 'nav-item' + (wired ? '' : ' pending') + (cell.col === 2 ? ' col-right' : '');
       b.textContent = item.label;
+      b.dataset.action = item.action;   // markFollow finds FLW by this
       if (mode === 'edge') {
         b.style.gridRow    = String(cell.row);
         b.style.gridColumn = String(cell.col);
@@ -239,14 +269,18 @@
       navGrid.appendChild(b);
     });
     if (currentPage === 'wpn') addWeaponHits();
+    markFollow();   // the labels were just rebuilt; re-apply the cached state to the new FLW
   }
 
   function showPage(name) {
     if (!has(name)) return;
     currentPage = name;
     wpnNavKey = '';   // entering any page redraws the grid; don't let a stale key suppress it
-    // A screen with no page (MAIN) blanks the frame rather than hiding it — the iframe's own
-    // background is the glass colour, so what shows through is the grid on black.
+    // MAP reveals the always-running tap underneath and hides the frame; #page-frame's background
+    // is opaque, so leaving it up would cover the map. Every other screen blanks the frame rather
+    // than hiding it — the iframe's own background is the glass colour, so a page with no content
+    // (MAIN) shows the grid on black.
+    document.body.classList.toggle('map-on', name === 'map');
     pageFrame.src = F35_PAGES[name] || 'about:blank';   // forwardToPage reruns on the frame's load
     renderNav();
   }
@@ -259,6 +293,7 @@
     if (e.source !== mapTap.contentWindow) return;
     if (typeof m.type !== 'string') return;
     slices[m.type] = m;   // cache every slice: the screen that wants it may not be up yet
+    if (m.type === 'follow') markFollow();
     if (feedsFor(currentPage).indexOf(m.type) !== -1) forwardSlice(m.type);
   });
 

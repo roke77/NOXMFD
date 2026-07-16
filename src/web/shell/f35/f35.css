@@ -17,8 +17,11 @@ html, body {
   inset: 0;
 }
 
-/* Data source only — never seen. Full-size so the map view inside lays out and ticks normally
-   (a 1px or display:none iframe risks throttling or zero-size canvas math). */
+/* The map, and the telemetry tap — one iframe doing both jobs, because the MAP page owns the only
+   EventSource('/stream') and posts the derived slices up to its host. It is always loaded and
+   always ticking, and normally invisible; MAP just reveals it (body.map-on). Full-size even when
+   hidden, so the view inside lays out and ticks normally — a 1px or display:none iframe risks
+   throttling or zero-size canvas math. */
 #map-tap {
   position: absolute;
   inset: 0;
@@ -28,6 +31,11 @@ html, body {
   opacity: 0;
   pointer-events: none;
 }
+
+/* MAP: show the tap and let it take the pan/zoom/tap-to-target gestures. #page-frame's background
+   is opaque, so it has to go — otherwise it covers the map it sits above. */
+body.map-on #map-tap   { opacity: 1; pointer-events: auto; }
+body.map-on #page-frame { display: none; }
 
 /* A portal = one page's region of the glass. Today there is exactly one and it fills the screen;
    a future split gives each portal its own slice. */
@@ -116,8 +124,11 @@ html, body {
   background: none;
   cursor: pointer;
 }
-.wpn-hit:hover  { background: rgba(212, 216, 220, 0.08); }
 .wpn-hit:active { background: rgba(212, 216, 220, 0.16); }
+/* Mouse only — a touch tap would leave the band lit, reading as the selected weapon. */
+@media (hover: hover) {
+  .wpn-hit:hover { background: rgba(212, 216, 220, 0.08); }
+}
 
 /* TGT packs clickable filter controls into its top-left, exactly where the edge label sits — and
    because this layout draws labels ON the page, a horizontal MAIN doesn't just look cramped, it
@@ -139,9 +150,28 @@ html, body {
 }
 
 /* These labels are clickable; the bezel's are painted beside a physical key, so they need no
-   hover state of their own. Invert rather than tint — legible over whatever page is behind. */
-.nav-item:hover  { color: var(--no-ink); background: var(--no-label); }
+   press feedback of their own. :active is press-only and releases on both touch and mouse, so it
+   is the one that always applies — it's also all TGT uses, this codebase's other touch surface. */
 .nav-item:active { opacity: 0.7; }
+
+/* A toggle that is currently ON (MAP's FLW). The bezel reports follow in a separate FOLLOW chip;
+   here the label is the only place to say it, so it boxes itself in the theme's "engaged" amber —
+   the same colour the bezel's own FOLLOW chip uses. */
+.nav-item.on {
+  color: var(--no-amber);
+  outline: 1px solid var(--no-amber);
+}
+
+/* Hover is a mouse affordance, and only a mouse can take it back. A touch tap leaves :hover stuck
+   on the label until you tap elsewhere, which reads as "this button is still engaged" — actively
+   misleading on FLW, whose lit state MEANS something. Gate it on the pointer actually being able
+   to hover: desktop keeps the highlight, touch gets :active alone. */
+@media (hover: hover) {
+  .nav-item:hover    { color: var(--no-ink); background: var(--no-label); }
+  .nav-item.on:hover { color: var(--no-ink); background: var(--no-amber); }
+  /* ...but not on a label that does nothing. */
+  .nav-item.pending:hover { color: var(--no-gray); background: none; }
+}
 
 /* An action this layout does not implement yet. Rendered so the real NAV layout is visible,
    dimmed and inert so it doesn't promise a page that won't come. --no-gray is already the
@@ -150,4 +180,4 @@ html, body {
   color: var(--no-gray);
   cursor: default;
 }
-.nav-item.pending:hover { color: var(--no-gray); background: none; }
+.nav-item.pending:active { opacity: 1; }   /* no press feedback either — it isn't a button */
