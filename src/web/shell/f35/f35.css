@@ -59,25 +59,52 @@ html, body {
   font-size: 13px;
   line-height: 1.3;
 }
-.ms-url { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Green like MAIN's URL lines (main.css .ib-url, --no-green-dim). */
+.ms-url {
+  color: var(--no-green-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .ms-url:empty { display: none; }   /* no LAN URL (no second NIC) → don't leave a blank line */
+/* Typewriter reveal, the same the bezel MAIN gives its URLs (mfd.css): the untyped tail stays in
+   the flow but hidden so the caret never reflows the line, and the caret blinks. f35.js splits each
+   line into these three spans while typing (typeStripUrls). */
+.ms-url .tw-rest   { visibility: hidden; }
+.ms-url .tw-cursor { display: inline-block; width: 0; overflow: visible; animation: tw-blink 0.7s steps(1, end) infinite; }
+@keyframes tw-blink { 50% { opacity: 0; } }
+
 .ms-status { letter-spacing: 1px; }
 .ms-status.connected    { color: var(--no-green); }
 .ms-status.waiting      { color: var(--no-amber); }
 .ms-status.disconnected { color: var(--no-red); }
 
-/* Avionics flags — one row, pushed to the far right. Same colours as the AVN tiles (off = gray,
-   on = green, GEAR-down = red), driven by the shared avn-status-policy classes. */
+/* Avionics flags — one row, pushed to the far right. Each is a label + icon like the AVN tile
+   (avn.css .avn-tile), and the colour class (off = gray, on = green, GEAR-down = red, from the
+   shared avn-status-policy) recolours label and glyph together via currentColor. */
 .ms-flags {
   margin-left: auto;
   display: flex;
   gap: 14px;
-  font-size: 12px;
-  letter-spacing: 1px;
 }
-.ms-flag.off       { color: var(--no-gray); }
+.ms-flag {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--no-gray);   /* off / dim; on / gear-down override below */
+}
 .ms-flag.on        { color: var(--no-green); }
 .ms-flag.gear-down { color: var(--no-red); }
+.ms-flag-label { font-size: 10px; font-weight: 900; letter-spacing: 1px; line-height: 1; }
+.ms-flag-icon  { width: 24px; height: 24px; display: block; }
+/* GEAR reuses the game-captured glyph as a recolourable mask (same asset and technique as
+   avn.css .avn-mask-icon), so it turns green/gray/red with the rest. */
+.ms-flag-mask {
+  background-color: currentColor;
+  -webkit-mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
+          mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
+}
 
 /* The telemetry tap. Never seen: the MAP page owns the only EventSource('/stream') and posts the
    derived slices up to its host, so this shell carries a map iframe purely as a data source — even

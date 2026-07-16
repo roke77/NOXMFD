@@ -523,8 +523,41 @@
       .then(function (cfg) {
         if (cfg.localhost) document.getElementById('ms-local').textContent = cfg.localhost;
         document.getElementById('ms-lan').textContent = cfg.lanUrl || '';
+        typeStripUrls();
       })
       .catch(function () {});
+  }
+
+  // Type the URL lines out character by character with a blinking caret, the same reveal the bezel
+  // MAIN gives its URLs (mfd.js typewriterUrls) — minus the boot loader, which is bezel-only. Each
+  // line splits into typed / caret / hidden-rest so neither the caret nor the untyped tail ever
+  // changes the line's width as it fills. Runs once, when /config lands. (ponytail: single-shot;
+  // /config is fetched once at load, so no re-entrancy guard is needed.)
+  function typeStripUrls() {
+    const lines = [].slice.call(document.querySelectorAll('.ms-url'))
+      .filter(function (el) { return el.textContent; });
+    lines.forEach(function (el) {
+      const full = el.textContent;
+      el.textContent = '';
+      const done = document.createElement('span'); done.className = 'tw-done';
+      const cur  = document.createElement('span'); cur.className  = 'tw-cursor'; cur.textContent = '▌'; cur.style.display = 'none';
+      const rest = document.createElement('span'); rest.className = 'tw-rest';  rest.textContent = full;
+      el.appendChild(done); el.appendChild(cur); el.appendChild(rest);
+    });
+    function typeLine(idx) {
+      if (idx >= lines.length) return;
+      const el = lines[idx], done = el.children[0], cur = el.children[1], rest = el.children[2];
+      const full = rest.textContent;
+      cur.style.display = '';   // reveal the caret on the line being typed
+      let i = 0;
+      const timer = setInterval(function () {
+        i++;
+        done.textContent = full.slice(0, i);
+        rest.textContent = full.slice(i);
+        if (i >= full.length) { clearInterval(timer); el.textContent = full; typeLine(idx + 1); }
+      }, 32);
+    }
+    typeLine(0);
   }
 
   loadStripUrls();
