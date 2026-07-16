@@ -300,6 +300,87 @@ BepInEx `ConfigEntry` (we already ship ConfigurationManager) or a `?layout=`
 query param that makes `/` serve either shell. A softkey to switch live is a
 later nicety — the F-35's MAIN carries a greyed `LYT` placeholder for it.
 
+## Planned — the master strip
+
+A full-width bar across the top of the glass, collapsible upwards. The
+reference cockpit has one, and it is the natural home for anything that
+belongs to the aircraft rather than to any one portal — the connection status
+and server URLs this layout currently shows nowhere (see the open question
+below), plus warnings, comms, IFF.
+
+**First slice: the bar and its collapse, nothing in it.** One item only — the
+collapse control — so the geometry and the collapse can be seen before any
+content is designed. Content is a separate decision.
+
+### Shape
+
+- Full width, **one sixth of the glass tall**, at the top.
+- The portals take the remaining five sixths. They keep their own widths and
+  arrangement; only their height changes.
+- Collapses **upward**. Collapsed, an expand control appears at the **top-left
+  of the glass** and restores it.
+
+### The control
+
+A triangle, in the same visual language as the corner grips: outline SVG,
+`--no-label` off-white, `non-scaling-stroke`. **Pointing up** to collapse —
+the same idea the grips use, where the triangle points the way the thing will
+move. First item in the bar, pushed to the left edge.
+
+`makeGrip` in `f35.js` already builds exactly this button; it needs `up` and
+`down` entries alongside `GRIP_POINTS`' `left`/`right`, and its class naming
+loosened from `portal-grip`. Worth reusing rather than re-drawing — the
+collapse control and the grips are the same gesture, and should not drift
+apart visually.
+
+### What it touches
+
+The bar is layout chrome, not a portal: it holds no page, has no `NAV`, and
+takes no telemetry in this slice.
+
+- **`.pcd` becomes a column.** Today `#portals` is `inset: 0`. It would become
+  the second child of a flex column, under the bar. `#map-tap` stays
+  `inset: 0` and full-size — it is a data source and never displayed, and its
+  size only affects the map view's internal layout.
+- **Portals need `resized()` on every collapse and expand.** Their boxes
+  change height, and WPN derives its rects from the box. `onGrip` already does
+  this after a merge; the bar needs the same call. Without it, WPN's rows
+  keep the old bands.
+- **Watch the portrait/landscape flip.** Per-portal orientation compares a
+  portal's width against its height. At full height a merged portal is
+  640×720 — portrait. Under the bar it becomes 640×600 — **landscape**, which
+  turns WPN's weapon image. That is correct behaviour, not a bug: the box
+  really did change shape. But it means collapsing the bar can rotate a
+  weapon image, and it will look like a glitch to anyone who has not read
+  this.
+- **The nav grids need nothing.** `edge` is six rows of the portal's height
+  and `center` is sized in `cq` units, so both follow the portal's box
+  already. This is the "measure the portal, never the window" rule paying
+  off.
+- **The corner grips need nothing.** They sit at the portal's own bottom.
+
+### The collision to settle first
+
+The expand control wants the top-left of the glass. Portal 1's `edge` nav
+puts its first label (`MAIN`) at `x: 16`, vertically centred in the first of
+six row bands — around `y: 45–76` at full height. **A 50px control at the
+top-left corner lands on it**, and being later in the DOM it would eat the
+label's clicks. This is the same trap TGT's `RESET FILTER` sprang, and it is
+worth deciding before writing the CSS.
+
+Options, cheapest first:
+
+1. **The bar never fully collapses** — it retracts to a thin strip (~24px)
+   that holds only the expand control. Portals gain 5/6 of the height back
+   rather than all of it, nothing overlaps, and the control has a home that
+   is already its own. Recommended.
+2. **The control overlays** the glass and portal 1 insets its nav grid while
+   the bar is collapsed. Gives back the full height, at the cost of a portal
+   knowing about the bar.
+3. **Put it somewhere without a label under it** — e.g. top-centre. Cheap,
+   but it is no longer where the bar went, and the grips' whole logic is that
+   a control sits where the thing it moves is.
+
 ## Open questions
 
 ### Settled by building it
@@ -342,8 +423,11 @@ later nicety — the F-35's MAIN carries a greyed `LYT` placeholder for it.
 
 - **Connection status.** The bezel surfaces it (and the server URLs) on MAIN.
   The F-35's MAIN is navigation only, so it currently shows neither. The
-  reference cockpit puts that class of readout in a master strip across the
-  top of the glass.
+  master strip above is where it should go — but its first slice is the bar
+  and its collapse only, so what the strip actually *shows* is still open.
+  Note it would be this layout's first piece of chrome wanting telemetry: the
+  strip is not a portal, so it has no `PAGE_FEEDS` entry, and the `status`
+  slice would have to reach it some other way.
 - **A portal's own page set.** Every portal currently offers all of `NAV`.
   Four portals showing four MAINs is a plausible default but not obviously
   the right one, and the reference shows each portal with a fixed role.
