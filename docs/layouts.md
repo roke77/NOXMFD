@@ -367,20 +367,26 @@ in its own idiom rather than sharing a screen:
 
 - The F-35's strip has a bordered **LAYOUT** button; pressing it swaps the
   portals for a two-item chooser centred on the glass.
-- The bezel has an **LYT** key on MAIN, opening a LAYOUT page whose two items
-  sit top-left, drawn on the glass in the screen's green.
+- The bezel has an **LYT** key on MAIN, opening a LAYOUT page that is three
+  left-bank labels and nothing else: MAIN, CLASSIC, F-35. It draws no panel —
+  every page in this shell puts its items beside a physical key, and a chooser
+  is navigation, so it reads as one.
 
-Both mark the layout you are on in the theme's engaged amber, and neither needs
+Both mark the layout you are on in the theme's engaged amber. Neither needs
 state to do it: each document *is* one of the layouts, so its own item is marked
-in the HTML and the other is simply somewhere else.
+where it is declared and the other is simply somewhere else.
 
 Neither chooser is a page. Choosing a layout is the shell's business, and a page
 must render the same under either shell — so the F-35's lives in its strip and
-the bezel's is an overlay beside the info box. That also settles "full view
-only" for free: the bezel's LAYOUT has no `PAGE_URL` entry, so it cannot be a
-pane, and `setSplit`'s existing fall-back (`PAGE_URL[currentPage] ? … : 'main'`,
-written for TGT) lands both panes on MAIN if you split from it. Not one line
-enforces the rule.
+the bezel's is three labels its shell places. That also settles "full view only"
+for free: the bezel's LAYOUT has no `PAGE_URL` entry, so it cannot be a pane, and
+`setSplit`'s existing fall-back (`PAGE_URL[currentPage] ? … : 'main'`, written
+for TGT) lands both panes on MAIN if you split from it. Not one line enforces
+the rule.
+
+`.overlay-item.on` is the only state a bezel label has ever carried — the rest
+name a page, while CLASSIC and F-35 name a choice and one of them is already
+made.
 
 What LYT cost the bezel: it could not go in `NAV` — that list is shared, pinned
 at MAIN's six items, and the F-35 already offers this choice from its strip, so

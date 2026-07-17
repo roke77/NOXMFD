@@ -60,7 +60,6 @@ const pageFrame = document.getElementById('page-frame');   // full-view host for
 // page name to its bare URL; showPage switches the frame's src as you move between them.
 const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt' };
 const infoBox   = document.getElementById('info-box');
-const layoutBox = document.getElementById('layout-box');   // LAYOUT page (LYT) — shell chrome, full view only
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
 const sepEls      = document.querySelectorAll('#keys-left .sep');    // 0 = above key[0], i+1 = below key[i]
@@ -97,9 +96,16 @@ function fullViewSlot(i) { return { bank: 'left', index: i }; }
 // and MAIN's six fill it exactly, so LYT is the first label this shell has ever had to place
 // anywhere else. That is the case the note above predicted; it is one item, so it names its key
 // rather than earning a table of its own.
+// LAYOUT is three left-bank labels and nothing else — the way back, then the two layouts. It draws
+// no panel: every other page in this shell puts its items beside a physical key, and a chooser is
+// navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
   main: [{ label: 'LYT',  action: 'lyt',  bank: 'right', index: 0 }],
-  lyt:  [{ label: 'MAIN', action: 'main', bank: 'left',  index: 0 }],   // the way back, as NAV gives every page
+  lyt:  [
+    { label: 'MAIN',    action: 'main',       bank: 'left', index: 0 },   // the way back, as NAV gives every page
+    { label: 'CLASSIC', action: 'lyt-classic', bank: 'left', index: 1, mark: true },
+    { label: 'F-35',    action: 'lyt-f35',     bank: 'left', index: 2 },
+  ],
 };
 
 // Which pages draw an OPAQUE full-view overlay. MAIN paints a panel over the still-running map, and
@@ -806,7 +812,9 @@ function clearKeyActions() {
   });
 }
 
-function placeOverlayLabel(bankName, keyIndex, label, action) {
+// `mark` lights the label in the engaged amber — only LAYOUT's current item uses it; every other
+// label names a page rather than a state.
+function placeOverlayLabel(bankName, keyIndex, label, action, mark) {
   const side = bankName || 'left';
   const bank = keyBanks[side];
   const k = bank && bank[keyIndex];
@@ -814,7 +822,7 @@ function placeOverlayLabel(bankName, keyIndex, label, action) {
 
   if (action) k.dataset.action = action;
   const el = document.createElement('div');
-  el.className = 'overlay-item ' + side;
+  el.className = 'overlay-item ' + side + (mark ? ' on' : '');
   el.textContent = label;
 
   const oRect = overlayEl.getBoundingClientRect();
@@ -837,7 +845,6 @@ function showPage(name) {
   // mfd.css render that label vertically so it hugs the edge and clears the page's RESET button.
   overlayEl.classList.toggle('tgt-page', name === 'tgt');
   infoBox.classList.toggle('show', name === 'main');
-  layoutBox.classList.toggle('show', name === 'lyt');
   screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGT/TGP/AVN render in #page-frame
   clearKeyActions();
   // Only wipe dynamic line-select labels; static children (info-box) stay put.
@@ -852,7 +859,7 @@ function showPage(name) {
   // through here, so LYT never appears on a split pane's MAIN — which is what "full-view only"
   // means, with nothing to enforce it.
   (BEZEL_EXTRAS[name] || []).forEach(function(item) {
-    placeOverlayLabel(item.bank, item.index, item.label, item.action);
+    placeOverlayLabel(item.bank, item.index, item.label, item.action, item.mark);
   });
 
   // WPN owns its own nav labels (PREV/MAIN + NEXT) because they depend on the page state; run
@@ -1170,6 +1177,12 @@ function mfdButton(el) {
       break;
     case 'tgp':  showPage('tgp');  break;
     case 'lyt':  showPage('lyt');  break;
+    // The LAYOUT page's two choices. CLASSIC is this document, so choosing it is just leaving the
+    // menu — back to MAIN, where LYT was pressed, with a fresh status as MAIN's own key pulls.
+    // F-35 is a different document, so it is a real navigation; that shell lands on its own MAIN.
+    // (Neither is remembered — see docs/layouts.md, Stage 3.)
+    case 'lyt-classic': showPage('main'); mapSend('status-request'); break;
+    case 'lyt-f35':     location.href = '/f35'; break;
     case 'avn':  showPage('avn');  break;
     case 'rwr':  showPage('rwr');  break;
     case 'tgt':  showPage('tgt');  break;
@@ -1252,17 +1265,6 @@ function setShellHidden(hidden) {
 }
 document.getElementById('shell-restore').addEventListener('click', function() {
   setShellHidden(false);
-});
-
-// LAYOUT page. CLASSIC is this document, so choosing it is just leaving the menu — back to MAIN,
-// where LYT was pressed. F-35 is a different document, so it is a real navigation; that shell lands
-// on its own MAIN. (The choice isn't remembered either way — see docs/layouts.md, Stage 3.)
-layoutBox.querySelector('[data-layout="classic"]').addEventListener('click', function() {
-  showPage('main');
-  mapSend('status-request');   // MAIN shows the live status; pull a fresh one, as its key does
-});
-layoutBox.querySelector('[data-layout="f35"]').addEventListener('click', function() {
-  location.href = '/f35';
 });
 
 // Event delegation covers both generated keys and standalone controls.

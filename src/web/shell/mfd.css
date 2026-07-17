@@ -477,60 +477,16 @@
   }
   .info-box.show       { display: block; }
 
-  /* LAYOUT page — the same two choices the F-35 offers from its strip, in the bezel's own idiom:
-     top-left rather than centred, and drawn on the glass in the screen's green.
-
-     left: 90px clears the left key bank's label gutter. The labels sit at left:16px and this page's
-     own MAIN is one of them, at the very top — a box at left:16px would sit under it and eat its
-     clicks, which is the collision TGT hit with RESET FILTER. WPN's full profile insets by the same
-     90px for the same reason (wpn.css). */
-  .layout-box {
-    position: absolute;
-    top: 24px;
-    left: 90px;
-    display: none;
-    color: var(--no-green);
-    font-family: var(--no-font);
-    letter-spacing: 2px;
-    text-align: left;
-  }
-  .layout-box.show { display: block; }
-  .lb-title {
-    font-size: clamp(14px, 1.6vmax, 22px);
-    font-weight: 900;
-    color: var(--no-green-dim);
-    margin-bottom: clamp(10px, 1.2vmax, 16px);
-  }
-  /* A choice, not a readout — so it is a real button, sized like the bezel's own key labels. */
-  .lb-item {
-    display: block;
-    margin-bottom: clamp(8px, 1vmax, 14px);
-    padding: 6px 10px;
-    border: 0;
-    background: none;
-    font: inherit;
-    font-size: clamp(18px, 2.2vmax, 30px);
-    font-weight: 900;
-    letter-spacing: 2px;
-    color: var(--no-green);
-    cursor: pointer;
-  }
-  /* The layout you are looking at: the theme's "engaged" amber, boxed — the same mark the F-35's
-     picker gives its own current item, so the two chooser screens agree. */
-  .lb-item.on {
+  /* The LAYOUT page's current item (CLASSIC). The theme's "engaged" amber, boxed — the same mark
+     the F-35's picker gives its own, so the two chooser screens agree. This is the only overlay
+     label that ever carries a state: the rest name a page, while these two name a choice and one of
+     them is already made. padding+outline rather than a border so the label doesn't shift the 2px a
+     border would add, staying aligned with its key. */
+  .overlay-item.on {
     color: var(--no-amber);
     outline: 1px solid var(--no-amber);
+    padding: 2px 6px;
   }
-  .lb-item:active { opacity: 0.7; }
-  /* Hover is a mouse affordance and only a mouse can take it back; a touch tap would leave it stuck
-     lit, reading as the selected layout. Same gate the F-35's labels use. */
-  @media (hover: hover) {
-    .lb-item:hover    { color: var(--no-ink); background: var(--no-green); }
-    .lb-item.on:hover { color: var(--no-ink); background: var(--no-amber); }
-  }
-  /* Full-view only: it can never be a pane, but a split entered from it must not leave it painted
-     over the panes. Same guard the info-box has. */
-  .screen.split > .overlay > .layout-box { display: none !important; }
   .info-box .ib-title  { font-size: clamp(28px, 3.12vmax, 45px); font-weight: 900; margin-bottom: clamp(14px, 1.6vmax, 22px); }
   .info-box .ib-url    { font-size: clamp(14px, 1.6vmax, 22px); color: var(--no-green-dim); margin-bottom: clamp(14px, 1.6vmax, 22px); }
   .info-box .ib-status { font-size: clamp(14px, 1.6vmax, 22px); font-weight: bold; }
