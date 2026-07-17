@@ -1,13 +1,44 @@
-# Layouts — swappable shell/navigation designs (planning)
+# Layouts — swappable shell/navigation designs
 
 ## Status
 
-Planning only. No code yet. The one shell that ships today (a metallic
-bezel with a 4/6/4/6 button frame) is the only "layout." This document
-explores what it would take to support a second, structurally different
-layout — e.g. a borderless F-35-style widescreen split into quadrants,
-with clickable labels along each page's edges instead of bezel keys —
-without touching page content.
+**In progress.** Stage 1 (the seam) and Stage 2 (a second layout) are built
+and on `feat/layouts`. The bezel remains the default, and every page renders
+on it exactly as before.
+
+- The **bezel** layout ships: a metallic 4/6/4/6 button frame, served at `/`.
+  It has gained one thing from this branch: an **LYT** key on MAIN opening a
+  LAYOUT page, so the two layouts can reach each other (see Stage 3).
+- The **F-35** layout is a working prototype, served at `/f35`: borderless,
+  no keys, labels drawn on the glass, and framed in teal. Every page renders
+  on it (MAIN, MAP, AVN, RWR, TGT, TGP, WPN). The glass is four independent
+  portals, each framed as a whole box, and the corner grips merge adjacent
+  ones and split them back — five arrangements, never fewer than two portals.
+  A fixed **master strip** runs across the top, carrying the aircraft-level
+  chrome the navigation-only MAIN has no room for: the wordmark, the
+  connection URLs and status, the mission name and ownship grid, the THRL and
+  FUEL gauges, the AVN avionics flags, and the LAYOUT chooser.
+
+Both consume one shared navigation model. `NAV` has never been edited to serve
+the second layout, and **no page has a layout-specific implementation** — which
+was this plan's central claim, and it holds. Two pages now render *differently*
+under the F-35, which is a different thing: AVN and MAP each grew a `?nochrome`
+option of their own, and the F-35 is a host that asks for it (see "Decluttering"
+below). The page decides what its own option means; the layout only picks.
+Nothing under `pages/` knows a layout exists.
+
+What the F-35 cost outside its own `shell/f35/` directory, precisely: three
+tokens in `theme.css` (`--no-teal` and its rgb source; plus `--no-label`, which
+was promoted out of a hardcoded `#d4d8dc` in `mfd.css` when this layout wanted
+the same off-white — a one-line change to the bezel's stylesheet, same value);
+and one added telemetry slice, `mapinfo`, for chrome that shows no map. Stage 1
+is the other half of the branch's diff: extracting `NAV` out of `mfd.js` into
+`nav-model.js` moved ~200 lines of the bezel shell, which is the refactor the
+seam *is*, not a cost of the second layout.
+
+Outstanding: Stage 3 is partly there — LAYOUT switches to the bezel live, but
+the choice isn't remembered and the bezel has no way back, so the layout is
+still chosen by URL rather than by a setting.
 
 See [issue #8](https://github.com/roke77/NOXMFD/issues/8) for the F-35
 reference screenshots that motivated this.
@@ -19,54 +50,71 @@ We call this **layout**, not "theme", on purpose. A theme implies a skin
 structural: the shell frame, where navigation labels live, and how
 splits work. Colors are the smallest part of it.
 
+A layout does own its colours — the F-35 frames itself in teal where the bezel
+uses off-white — but that turned out to be the cheap half: recolouring the
+entire frame was one token and a handful of `var()` swaps, while the portals,
+the grips and the arrangement rule are the layout. The naming holds: had this
+been a theme, the teal would have been all of it.
+
 ## Goal
 
-Let a user pick a different shell/navigation design while every MFD page
-renders the exact same content. The page *content* is fixed; the
-*surrounding shell*, the navigation-label placement, and the split
-behavior are what a layout owns.
+Let a user pick a different shell/navigation design while every MFD page renders
+from one implementation. The page *is* fixed; the *surrounding shell*, the
+navigation-label placement, and the split behavior are what a layout owns.
+
+"One implementation" is the claim, not "one appearance" — a page may offer
+options and let its host choose between them, which it already did before there
+was a second layout: `avn-layout` carries a `full` or `compact` profile, and the
+bezel picks `compact` for a split pane. What a layout may never do is fork a
+page, or reach inside one.
 
 | Layout            | Frame            | Nav labels                          | Split model            |
 |-------------------|------------------|-------------------------------------|------------------------|
 | **Bezel** (today) | metallic bezel   | 4/6/4/6 physical keys around screen | H/V bezel-key splits   |
-| **F-35** (future) | borderless       | clickable labels along page edges   | fixed 4-quadrant grid  |
+| **F-35**          | borderless       | clickable labels drawn on the page  | 1/2/4 vertical portals |
+
+The F-35's split model is **four side-by-side vertical portals**, not a 2×2
+quadrant grid — see the reference screenshots on issue #8. Each portal is
+effectively an independent MFD with its own page and its own edge labels.
 
 ## What's already decoupled
 
-Page *content* is already independent of the shell. Every page —
-AVN / MAP / RWR / TGT / TGP / WPN — is its own iframe under
-`src/web/pages/*`, served "bare" and mounted into `#screen`
-(`FRAME_PAGES` in `src/web/shell/mfd.js`; the map is a separate
-`/map-view?bare` iframe). The shell hosts the frame and streams SSE
-data; it does not know what's inside a page.
+Page *content* is independent of the shell. Every page — AVN / MAP / RWR /
+TGT / TGP / WPN — is its own iframe under `src/web/pages/*`, served "bare"
+and mounted into a host frame. The shell hosts the frame and feeds it data;
+it does not know what's inside a page. The F-35 layout renders all of them
+without a single page edit.
 
-That covers *what* a page renders. It does **not** cover *where* a page
-renders it — some pages are handed bezel geometry. See the next section.
+Two qualifications, both learned by building the second layout:
 
-## What's coupled to the current (bezel) layout
+- It covers *what* a page renders, not always *where*. Some pages are handed
+  geometry — see the next section.
+- **The telemetry tap lives inside a page.** `TelemetrySource` owns the only
+  `EventSource('/stream')` and it lives in the MAP iframe, which parses each
+  frame and posts the derived per-page slices *up* to whatever shell hosts
+  it. So every layout must embed a map iframe as a data tap **even if it
+  never shows a map**. The F-35 does exactly that (`#map-tap`, `opacity: 0`),
+  and showing MAP just reveals the iframe already running. A second map
+  iframe would open a second stream and drive every page from two
+  out-of-phase feeds; the bezel guards against that explicitly by ignoring
+  posts from any window but its canonical map.
 
-Three files, coupling concentrated in `mfd.js`:
+## What's coupled to a layout
 
-- **`src/web/shell/mfd.html`** — hardcodes the bezel structure: four key
-  banks (`#keys-top` 4, `#keys-left` 6, `#keys-bottom` 4, `#keys-right`
-  6) framing `#screen`.
-- **`src/web/shell/mfd.css`** (~56KB) — the metallic bezel look and its
-  geometry.
-- **`src/web/shell/mfd.js`** (~79KB) — the real coupling:
-  - `PAGES` (in `mfd.js`) declares navigation as `{ label, key, action }`,
-    where **`key` is a physical bezel-slot index**. The `label`/`action`
-    pair is layout-independent; the `key` slot is bezel-specific.
-  - `SPLIT_PAGES` + `SplitKeymap` (`mfd.js`, `split-keymap.js`)
-    resolve labels to physical bezel keys per split orientation
-    (top/bottom vs left/right). This whole mechanism is written around
-    bezel-key geometry.
-
+- **Frame markup + CSS.** `mfd.html` hardcodes the bezel's four key banks
+  (`#keys-top` 4, `#keys-left` 6, `#keys-bottom` 4, `#keys-right` 6) around
+  `#screen`; `mfd.css` (~56KB) is its metallic look and geometry. The F-35's
+  equivalents are `f35.html` / `f35.css`, which share nothing with them
+  structurally.
+- **Split behavior.** `SplitKeymap` (`split-keymap.js`) and `SPLIT_SLOTS`
+  (`mfd.js`) resolve labels to physical bezel keys per orientation. Written
+  around bezel-key geometry, and **none of it carried over** to the portal
+  model: the F-35's split shares no code with it.
 - **Page placement geometry (shell → page).** The exception to "pages are
-  decoupled": two pages are handed *bezel geometry*, not just data.
-  `forwardAvnLayoutToFrame` and `forwardWpnLayoutToFrame` (both in `mfd.js`)
-  read the bezel key-separator rects (`sepEls`) and post
-  `{avn,wpn}-layout` messages so each page's rows align to the physical
-  key bands:
+  decoupled": some pages are handed *layout geometry*, not just data.
+  `forwardAvnLayoutToFrame` and `forwardWpnLayoutToFrame` (`mfd.js`) read the
+  bezel key-separator rects (`sepEls`) and post `{avn,wpn}-layout` messages so
+  each page's rows align to the physical key bands:
 
   ```js
   // mfd.js — forwardWpnLayoutToFrame()
@@ -74,34 +122,43 @@ Three files, coupling concentrated in `mfd.js`:
   w.postMessage({ mfd: true, type: 'wpn-layout', layout: 'full', slots: slots }, '*');
   ```
 
-  This is not theoretical. HIDE SHELL already has to keep the `.keys.v`
-  columns in the layout — zero-width and invisible — *purely* so those
-  separator rects stay valid; drop them and the AVN/WPN full-view geometry
-  collapses. That workaround exists today because of this coupling.
+  This is not theoretical. HIDE SHELL has to keep the `.keys.v` columns in the
+  layout — zero-width and invisible — *purely* so those separator rects stay
+  valid; drop them and the AVN/WPN full-view geometry collapses.
 
-  **Escape hatch (already built):** both pages also have a `compact`
-  profile that needs no bezel geometry at all (written for split panes —
-  AVN reverts to compact when `layout !== 'full'`). A non-bezel layout can
-  drive them in compact mode from day one rather than inventing a new
-  placement contract. TGT / RWR / TGP need no geometry at all (TGT is fully
-  clickable, RWR is a responsive SVG, TGP is a video feed).
+  **The `compact` escape hatch, and its limit.** AVN and WPN both have a
+  `compact` profile that needs no geometry at all (written for split panes;
+  it is also the default, so a layout that forwards nothing gets it for
+  free). AVN, TGT, RWR and TGP need nothing more than that: the F-35 sends
+  them no geometry and they place themselves.
+
+  **WPN is the exception.** Its `compact` profile scatters weapons into four
+  corners and draws *no weapon image*, so a full-screen WPN can't use it —
+  only the `full` profile renders the image, and `full` lays out solely
+  against forwarded rects. So the F-35 does owe WPN geometry, and supplies
+  its own: `forwardWpnLayout` in `f35.js` derives the row bands from its
+  own 6-row grid instead of bezel separators. The page is untouched and
+  cannot tell the difference. **A layout that hosts WPN full-screen must
+  supply rects.** WPN also keys CSS off `body.landscape`, so its host must
+  forward `orient` too.
 
 ## The seam
 
-Split `PAGES` into two layers:
+`PAGES` was split into two layers. Both are now real files:
 
-1. **Navigation model** — layout-independent data. Per page, an ordered
-   list of `{ label, action }`. No `key`, no `side`, no `slot`. This is
-   "what a pilot can do from this page," and it's identical on an F-35.
-2. **Layout renderer** — swappable. Consumes the navigation model plus
-   the active page and split state, and decides *where and how* labels
-   render and how the frame looks. The bezel layout maps labels to
-   4/6/4/6 physical slots; the F-35 layout renders them along the four
-   screen edges as clickable hotspots.
+1. **Navigation model** — `src/web/shell/nav-model.js`. Layout-independent
+   data: per page, an ordered list of `{ label, action }`. No `key`, no
+   `side`, no `slot`. This is "what a pilot can do from this page," and it is
+   identical on an F-35. `nav-model.test.js` enforces the invariant — an item
+   carrying placement fails the check.
+2. **Layout renderer** — swappable. Consumes the navigation model plus the
+   active page and split state, and decides *where and how* labels render and
+   how the frame looks. The bezel maps items to 4/6/4/6 physical slots
+   (`fullViewSlot`, `SPLIT_SLOTS`); the F-35 places them on a grid over the
+   page (`cellOf`, `NAV_LAYOUT`).
 
-`action` dispatch — what actually happens on click — stays shared. Both
-layouts call the same `send-command` handlers; only the label placement
-and the frame differ.
+`action` dispatch stays shared: both layouts call the same `send-command`
+handlers.
 
 ```
             ┌─────────────────────────┐
@@ -120,87 +177,538 @@ and the frame differ.
              shared action dispatch  →  page iframes (unchanged)
 ```
 
-Note the fourth item: a layout also owns the **page placement geometry**
-it feeds pages (the `*-layout` messages). The bezel renderer supplies
-key-band rects; a quadrant renderer would supply its own — or just drive
-the pages' existing `compact` profile and supply none.
+A layout also owns the **page placement geometry** it feeds pages (the
+`*-layout` messages) — the fourth item above.
+
+### What a layout may add on its own
+
+`NAV` is shared, so a layout cannot grow it: the bezel has six physical keys
+for MAIN's six items, and `nav-model.test.js` pins that list. A layout that
+wants more puts them in its own table — the F-35 keeps `MAIN_EXTRAS`
+(HUD/PAL/BDF placeholders) beside `NAV` and merges the two when rendering.
+Consequently ordering is a *rendering* choice: the F-35 sorts its MAIN menu
+alphabetically, interleaving those extras among the NAV items, while the bezel
+shows `NAV`'s six in their given order (itself alphabetical: AVN, MAP, RWR,
+TGP, TGT, WPN).
+
+The same asymmetry applies to placement. `NAV` items may never carry a cell,
+but a layout's own items may — WPN's `NEXT` names its top-right cell,
+because the shell built it.
 
 ## The honest caveat: a layout is not a stylesheet
 
-The F-35's 4-quadrant screen is a *different layout engine* than the
-bezel's H/V splits. The current split logic (`SplitKeymap`, top/bottom
-vs left/right resolution) is written around bezel-key geometry and
-**will not carry over** — a quadrant layout needs its own split/placement
-behavior.
+The F-35's portal screen is a *different layout engine* than the bezel's H/V
+splits. The bezel's split logic (`SplitKeymap`, top/bottom vs left/right
+resolution) is written around bezel-key geometry and **did not carry over** —
+the portal model needed its own split and placement behavior, and got it.
 
 So a layout owns: **frame + label placement + split behavior + page
-placement geometry**, sharing only (a) page content and (b) action
-dispatch. The abstraction is "a
-layout owns the shell and navigation rendering," *not* "a layout is a
-skin." Trying to make one parametric shell serve both a physical bezel
-and a borderless quadrant grid would be worse than two focused shell
-implementations sharing the content and action layers.
+placement geometry**, sharing only (a) page content and (b) action dispatch.
+The abstraction is "a layout owns the shell and navigation rendering," *not*
+"a layout is a skin." Trying to make one parametric shell serve both a
+physical bezel and a borderless portal grid would be worse than two focused
+shell implementations sharing the content and action layers.
+
+Building the second layout supports this. `f35.js` reimplements label
+placement, page hosting, split behavior and WPN geometry from scratch, and
+shares `NAV`, the pages and `sendCommand` untouched. Nothing in the middle
+wanted to be abstracted. The split prediction held exactly: not one line of
+`SplitKeymap` or `SPLIT_SLOTS` was reusable, because both resolve labels to
+physical keys and the F-35 has none.
 
 ## Staged approach
 
-Do **not** build a layout engine first. Prove the seam with a pure
-refactor, then add the second layout as a consumer.
+Prove the seam with a pure refactor, then add the second layout as a
+consumer.
 
-### Stage 1 (refactor, zero behavior change)
+### Stage 1 — the seam ✅ done
 
-Extract the navigation model out of `PAGES`: drop `key`/`slot`, keep
-`label`/`action`. Route the existing bezel shell through it — the bezel
-renderer re-attaches the physical slot mapping. Nothing the user sees
-changes. This proves the seam holds before anything is rewritten. If the
-extraction turns out ugly, we've learned the coupling is deeper than it
-looks, cheaply.
+Extracted the navigation model out of `PAGES`: dropped `key`/`slot`, kept
+`label`/`action`, routed the bezel through it. Zero behavior change, proven
+by a data-equivalence check against the old tables before deleting them.
 
-### Stage 2 (second layout)
+It answered two of the open questions below, and removed a live duplication
+bug source: `label`/`action` had been declared twice for five pages.
 
-Add the F-35 layout as a second renderer consuming the same navigation
-model: its own frame markup/CSS, its own edge-label placement, its own
-quadrant split behavior. Shared: page iframes, SSE, action dispatch.
+### Stage 2 — the F-35 layout ✅ done
 
-### Stage 3 (selection)
+Built (`src/web/shell/f35/`, served at `/f35`):
 
-Let the user pick the active layout. Smallest first: a BepInEx
-`ConfigEntry` (we already ship ConfigurationManager) or a `?layout=`
-query param on the shell URL. A softkey to switch live is a later nicety,
-not a Stage-3 requirement.
+- borderless frame, no bezel; labels drawn *on* the page
+- two placement modes: `edge` (the bezel's left key bank, minus the bezel)
+  and `center` (MAIN's own 3-column block)
+- every page hosted, including WPN with layout-supplied rects
+- the portal split, driven entirely by the corner grips
+- shared action dispatch; `NAV` unmodified
 
-## Open questions to settle while implementing (not now)
+#### Portals
 
-- Where does split state live once splits differ per layout? Today it's
-  bezel-shaped (`SplitKeymap`). The navigation model shouldn't carry
-  split geometry; each layout renderer should own its own.
-- Do the F-35 edge labels need per-page placement hints (which edge a
-  label sits on), or is edge assignment derivable from the ordered list?
-  Prefer derivable; add hints only if a page needs them.
-- HIDE SHELL, FULL, PIN/SWAP softkeys are function controls, not page
-  navigation. Are they part of the navigation model, or layout-owned
-  chrome? Leaning layout-owned chrome.
-- Asset/CSS split: does each layout get its own CSS bundle, or one file
-  gated by a layout class on `<body>`? Two focused files is probably
-  cleaner given how different the geometry is.
+A **portal** is an independent MFD: it owns everything two screens must not
+share — which page is up, where its WPN list is paged to, whether its map
+follows. The shell keeps only the telemetry cache and the tap.
+
+The glass is **four slots** wide, and a portal fills one slot or two — never
+three. So any two *adjacent* portals may merge, and nothing larger. `flex-grow`
+carries the span, which is the whole resize arithmetic: with `flex-basis: 0`
+every slot is the same width, so growing a portal to 2 gives it exactly two
+and its neighbours keep theirs. No wrapper elements, no percentages.
+
+Because a merge joins two and no more, at least two portals always remain:
+**the glass is never one screen.** The real PCD isn't either.
+
+##### The arrangement rule
+
+Lives in `f35-glass.js`, pure and pinned by `f35-glass.test.js`. Every
+arrangement is some set of adjacent merges that don't overlap, which is
+exactly five:
+
+```
+1 2 3 4      (1 2) 3 4      1 (2 3) 4      1 2 (3 4)      (1 2) (3 4)
+```
+
+Nothing else is reachable: `(1 2)` and `(2 3)` would both want portal 2, and a
+triple would need a merged portal to merge again. So a portal beside a merged
+one has no grip at all, and simply waits — in `1 (2 3) 4`, portals 1 and 4
+both do.
+
+**Layout is not the whole story.** `(1 2)` merged from the left and from the
+right occupy the same slots but keep different pages — the survivor is
+whoever pressed. So the five layouts cover **six states**, and `ate` (which
+side a portal swallowed) is what tells them apart. A split needs it to put the
+newcomer back on the side that was eaten; getting that backwards silently
+swaps the pilot's screens.
+
+##### The grips
+
+The corner grips are the only control: no URL, no presets. A grip sits in the
+corner facing what it acts on, and its direction says what:
+
+- **outward** — take the neighbour on that side.
+- **inward** — give back the slot it took, splitting in two again.
+
+An unmerged portal gets **one** grip, and it faces the **centre of the glass**:
+portals 1 and 2 reach right, 3 and 4 reach left. Both neighbours of a divider
+could offer to merge across it, but the two offers differ only in which page
+survives — so one grip per divider costs a *choice*, never a layout, and all
+five arrangements stay reachable.
+
+The centre divider is the one place two grips meet, since the portals either
+side both face it. That makes `(2 3)` the only merge reachable from either
+direction — asymmetric, and deliberate.
+
+The survivor of a merge keeps its page and everything on it, and just gets
+wider. The absorbed portal is destroyed — its iframe and any map stream go
+with it — and comes back fresh on MAIN.
+
+##### MAP costs a stream here
+
+The tap sits behind every portal, so it could only ever be *shown* to a portal
+covering the whole glass, and no portal ever does. Every MAP portal therefore
+mounts its own `/map-view?bare` and streams alongside the tap. The bezel pays
+exactly the same in split mode, and ignores the duplicate telemetry the same
+way (`event.source` must be the canonical map). `FLW`/`Z+`/`Z-` route to the
+portal's own map, and `follow` is per-portal — it routes by source, as the
+bezel's does.
+
+#### The frame
+
+Every portal is boxed on all four sides, as the reference display frames each
+of its windows. A portal is a whole MFD, so it is drawn as a whole box rather
+than merely divided from its neighbour — which is also what keeps the rule free
+of the arrangement: merging removes a portal and its frame goes with it, and the
+survivor's own frame is already the right shape. There is no "first portal has
+no border" case, and no separator elements: a portal's frame is its own.
+
+Where two frames meet they overlap, by a negative margin rather than a dropped
+border, so a seam is 2px and not 2px twice while every portal still owns all
+four of its edges. The same trick pulls the row up under the master strip, whose
+bottom edge the portals' top edges would otherwise double. That margin sits on
+the row, not the strip — the strip has to keep drawing that edge when the
+portals are away, since the layout picker takes their place and draws no frame.
+
+The spans survive it: `flex-basis: 0` means the margin is redistributed by grow,
+so four portals come out equal to the pixel. A merged one lands a shade under
+twice its neighbour (640 vs 322 at 1280) because it covers two slots but draws
+one frame, keeping the 4px the second would have spent — a seam's width, and not
+worth making a portal's size depend on its span.
+
+#### Decluttering — `?nochrome`
+
+The master strip carries the avionics flags, the THRL/FUEL gauges, the mission
+name and the ownship grid. AVN and MAP draw all four themselves, so on this
+layout they were drawn twice — and on a quarter-width portal the duplicates cost
+space the pages needed.
+
+So each of those two pages grew an option: `?nochrome` means *my host already
+shows my own-ship readouts, so I won't repeat them*. AVN drops its FUEL/THROTTLE
+bars and its status tiles, keeping the silhouette and failure labels that only it
+draws; MAP drops the mission bar and the GRID chip, keeping the map. The F-35
+sets it on both. The bezel sets it on nothing and renders exactly as before —
+which is the test that this is a page's option and not a layout's reach-in.
+
+**It is a URL flag, not a message.** Every other host→page instruction here is a
+postMessage (`avn-layout`, `orient`), but those adjust a page that is already
+painted, while this one decides *what to paint*. A message arriving after first
+paint would flash the readouts up and then pull them, on every mount — and a
+portal glass mounts pages constantly. An inline read in each page's `<head>`
+puts the class on `<html>` before the body parses, so they simply never appear.
+(`?bare`, the other flag in these URLs, is a convention no page has ever read.)
+
+**AVN's silhouette takes the freed space on its own.** The status tiles are
+inside the header, and `layoutAvnFrame` positions the frame below the header's
+*measured* bottom on every paint — so dropping them moved the silhouette 42px up
+and made it 42px taller at 320×640, with nothing told to do it. The bars are
+absolutely positioned and were never in anything's way; they just go.
+
+#### The palette — what the layout colours, and what it doesn't
+
+The line is **chrome versus instrument data**, and it is worth stating because
+it is not obvious from any one rule:
+
+- **Teal** (`--no-teal`) is what the layout *draws*: the portal frames, the nav
+  labels on the glass, the corner grips, the master strip and its LAYOUT button.
+- **The theme's palette** is what anything *reports*, wherever it sits. The
+  strip's gauges and avionics flags are green/amber/red exactly as on the AVN
+  page; the engaged state stays amber; the mission chips stay the map page's
+  green. The strip's URLs are off-white — an address you type somewhere else is
+  chrome, but it is reporting, not framing.
+- **Pages are untouched.** Nothing under `pages/` reads `--no-teal`, so a page
+  renders identically here and under the bezel.
+
+`--no-teal` lives in `theme.css` with every other colour, alongside
+`--no-label`, which is the bezel's equivalent: the two layouts frame themselves
+differently, so each names its own colour rather than one redefining the other's
+per document. Defining it in the shared theme costs nothing — what matters is
+that no page reads it, and that is a convention, not a mechanism.
+
+#### A portal is not the glass
+
+Two bugs, one mistake: something sized against the **viewport** while living
+in a **portal**. Both were correct until the portal stopped being the whole
+screen, and both only appeared at four.
+
+- MAIN's label grid used a `6vw` column gap — 77px of the *glass* inside a
+  320px portal, so seven of ten labels overflowed. The portal is now a CSS
+  container (`container-type: size`) and the grid sizes in `cqw`/`cqh`.
+  **There are no viewport units left in this layout**, deliberately.
+- WPN's weapon image collapsed to a sliver. See "Per-portal orientation"
+  below.
+
+The rule for anything added here: measure the portal, never the window.
+
+### Stage 3 — selection 🟡 partial
+
+**Both layouts can now switch to the other, live**, and each offers the choice
+in its own idiom rather than sharing a screen:
+
+- The F-35's strip has a bordered **LAYOUT** button; pressing it swaps the
+  portals for a two-item chooser centred on the glass.
+- The bezel has an **LYT** key on MAIN, opening a LAYOUT page that is three
+  left-bank labels and nothing else: MAIN, CLASSIC, F-35. It draws no panel —
+  every page in this shell puts its items beside a physical key, and a chooser
+  is navigation, so it reads as one.
+
+Both mark the layout you are on in the theme's engaged amber. Neither needs
+state to do it: each document *is* one of the layouts, so its own item is marked
+where it is declared and the other is simply somewhere else.
+
+Neither chooser is a page. Choosing a layout is the shell's business, and a page
+must render the same under either shell — so the F-35's lives in its strip and
+the bezel's is three labels its shell places. That also settles "full view only"
+for free: the bezel's LAYOUT has no `PAGE_URL` entry, so it cannot be a pane, and
+`setSplit`'s existing fall-back (`PAGE_URL[currentPage] ? … : 'main'`, written
+for TGT) lands both panes on MAIN if you split from it. Not one line enforces
+the rule.
+
+`.overlay-item.on` is the only state a bezel label has ever carried — the rest
+name a page, while CLASSIC and F-35 name a choice and one of them is already
+made.
+
+What LYT cost the bezel: it could not go in `NAV` — that list is shared, pinned
+at MAIN's six items, and the F-35 already offers this choice from its strip, so
+a `NAV` entry would put it on that layout's MAIN twice. The bezel therefore got
+its own `BEZEL_EXTRAS`, exactly as the F-35 keeps `MAIN_EXTRAS`. It also spent
+the prediction at `mfd.js:87`: `fullViewSlot` fills the left bank in order and
+MAIN's six fill it exactly, so **LYT is the first label this shell has had to
+place anywhere else** (right bank, key 0). One item, so it names its own key
+rather than earning a placement table.
+
+**Still missing: the choice doesn't stick.** Both directions work, but neither
+shell remembers, so a reload lands on whatever the URL says. The layout is still
+chosen by URL (`/` vs `/f35`). What is left: a BepInEx `ConfigEntry` (we already
+ship ConfigurationManager) or a `?layout=` query param that makes `/` serve
+either shell — at which point each chooser sets that preference instead of
+navigating.
+
+## The master strip
+
+A fixed full-width bar across the top of the glass — the home for what belongs
+to the aircraft rather than to any one portal, which the navigation-only MAIN
+has nowhere to put. The reference cockpit has one.
+
+### Shape
+
+**Two containers, stacked, never overlapping.** `.pcd` is a flex column: the
+strip, then `#portals`. The portals are *pushed down* to make room rather than
+sliding under the strip, so nothing the strip holds can reach a portal — no
+z-order or inset to reason about. `#map-tap` stays `inset: 0` full-size behind
+both; it is a data source, never displayed, so its box only drives the map
+view's own layout.
+
+- The strip is full width, **one ninth of the glass tall**, at the top.
+- The portals take the rest, in their own container (`flex: 1`), and keep their
+  widths and arrangement — only their height changes. At 1280×720 they drop
+  from 720 to 640 tall.
+
+### Content
+
+Left to right:
+
+- **Wordmark** — `NO XMFD`, styled text (there is no served logo asset yet).
+- **Connection block** — the local and LAN URL and the live connection status,
+  stacked. The bezel shows these on MAIN; the F-35's MAIN is navigation only,
+  so they live here instead.
+- **Mission block** — the mission name and the ownship's grid, stacked, each an
+  `.mfd-chip` (the theme's boxed readout, the same class the map page's GRID
+  chip uses, so the two render identically). Hidden entirely while no mission is
+  loaded, as the map page hides its own mission bar. The name is the only string
+  in the strip whose length the game decides, so it ellipsises rather than push
+  the flags and LAYOUT off a bar that clips them.
+- **Gauges** — THRL and FUEL, stacked, horizontal, in the slack between the
+  mission block and the flags. See below.
+- **Avionics flags** — the eight annunciators the AVN page shows
+  (GEAR / RADAR / GUNS / ENG / ASSIST / NVG / LIGHTS / TURRET), in one row, each
+  a label + icon.
+- **LAYOUT** — the layout chooser, last, at the far right. The only thing in the
+  strip you press, so it is drawn as a button — bordered, and its name spelled
+  out rather than clipped to the three characters a bezel key would have had.
+
+### LAYOUT — why the strip and not MAIN
+
+Choosing a layout is the whole glass's business, and MAIN is per-portal: on the
+menu it would have offered the same choice up to four times, each press meaning
+the same thing. The strip is the one place on this shell that speaks for the
+aircraft rather than for a portal, so it is where the control belongs — and
+moving it there took it out of `MAIN_EXTRAS`, where it had been sitting greyed.
+
+Pressing it swaps the **container**, not the portals' contents: `#portals` and
+`#layout-picker` are siblings in the `.pcd` column and take the same slot below
+the strip, and the `hidden` attribute is the whole of the state. The portals
+keep their pages, their arrangement and their map streams while they wait, so
+coming back costs nothing and loses nothing.
+
+Which layout is current needs no state either — this document *is* the F-35, so
+its item is marked in the HTML, and CLASSIC is simply somewhere else (`/`).
+
+One thing the swap does owe the portals: hidden, a portal's box is 0×0, and the
+shell's resize listener still fires into it — handing WPN a zero-height rect per
+row. So restoring the glass reruns `relayoutAll()`. WPN is the only page that
+needs it, for the same reason it is the only one that ever needed it: it derives
+its geometry from a box instead of reflowing itself with CSS.
+
+### Telemetry — the first chrome that wants it
+
+The strip is the layout's first piece of chrome that needs live data, and it is
+not a portal, so it has no `PAGE_FEEDS` entry. The slices it shows — `status`,
+`avn` and `mapinfo` — are handed to it straight from the shell's message pump;
+the URLs come from `/config` once (the same the bezel's MAIN reads). The flags
+reuse `avn-status-policy`, so the GEAR-down-is-red rule stays in one place
+shared with AVN, and their glyphs are the AVN page's own — inline SVGs, plus the
+game-captured `gear-icon.png` mask for GEAR. `data-kind` / `data-field` on each
+flag keep the update loop generic.
+
+`mapinfo` is new, and it is the first slice `TelemetrySource` emits that no page
+consumes. Every other one exists because a dedicated MFD page renders it; the
+mission name and the ownship grid were the map page's private HUD, derived from
+the raw frame and drawn on itself. A strip that shows no map has no way to reach
+them, so the tap now derives the pair once more and posts it up. The map page is
+untouched and still renders its own from `d` — the alternative, having it emit
+what it draws, would have made a page a data source for the shell hosting it.
+
+The stream also carries a `mapName` ("PREVIEW ISLAND") distinct from `mission`.
+Nothing renders it, here or on the map page.
+
+### The gauges — what travels and what doesn't
+
+THRL and FUEL cost no telemetry: `fuel` and `throttle` were already in the `avn`
+slice driving the flags.
+
+The AVN page's own bars could not come along. They are absolutely positioned and
+vertical, sized from rects the shell forwards, and their `%` readout tracks the
+fill's tip in pixels on every paint — none of which survives a ~120px trough in a
+one-row bar. What travels instead is the **rule**, not the widget:
+`avn-throttle-policy` gives the MIL/AB split, the zone, and the readout string,
+so the strip cannot drift from the gauge it summarises. It earns its keep
+immediately — at 40% throttle against an 0.8 abStart the bar fills to 40% but
+reads `50%`, because the fill is the raw axis while the text is rescaled within
+the zone, and at the detent it reads `MIL` rather than `100%`.
+
+The tube is AVN's own (`avn.css .avn-vbar-tube`), turned on its side: the 2px
+green frame around a near-black trough, the fill inset within it, and AVN's
+transition timings on width instead of height. The boot loader's `.ms-bar` is
+left to be a progress bar. Sizing is the row's: the gauge block takes all the
+slack between the mission block and the flags, and each trough takes whatever
+its label and number don't.
+
+Two details are carried over deliberately:
+
+- **Only FUEL is segmented.** The 10% segment gaps and the halfway marker are
+  `content: none` on AVN's throttle tube, which says what it has to say with the
+  MIL/AB split instead. The gaps are 3px rather than AVN's 6px — same 10% pitch,
+  but read across ~120px of width, 6px of every 12px is more gap than gauge.
+- **The leader lines don't come.** AVN's `¯\___` SVG tracks each fill's tip and
+  needs a per-paint measurement; there is no room for it in a one-ninth-tall bar,
+  and the `%` readout says the same thing sitting still.
+
+That growth is also what now holds the flags right. `flex-grow` resolves before
+auto margins are offered any free space, so `.ms-flags`'s `margin-left: auto` no
+longer does anything while the gauges are there; it stays as the fallback for if
+they ever aren't.
+
+When the strip runs out of room the order of giving way is deliberate: the
+troughs floor at a `min-width` (a flex item's default `min-width: auto` stops
+the block at its min-content), so it is the mission name — the one item that
+sets `min-width: 0` — that ellipsises first. At an 87-character name the troughs
+sit exactly on that floor and the flags and LAYOUT have still not moved.
+
+The MIL/AB split comes across too, and it is the one place the strip does better
+than the page it copies. AVN sizes that gradient in px (`--tube-inner-px`) so
+the green→red boundary stays pinned to a fraction of the tube while the fill
+grows past it — and it remeasures that width on every paint, inside
+`positionAvnBarValue`, the same function that places the leader lines this strip
+doesn't draw. So the strip asks CSS instead: `.ms-tube-inner` is a
+`container-type: inline-size` container and the gradient is sized in `100cqw`.
+The boundary lands identically with nothing measured and nothing to keep in step
+with a paint loop.
+
+One thing still has to be repeated: FUEL's warning levels (caution 0.25,
+critical 0.10) live at AVN's call site rather than in a policy module, so the
+strip states them again. They must agree, or the strip and the page would
+disagree about the same tank.
+
+### Boot
+
+The connection block boots like the bezel's MAIN info box: a `LOADING…` bar
+(ported from `runBootLoading`) fills 0→100% over ~1s, then the URL lines type
+out character by character with a blinking caret (a standalone port of
+`typewriterUrls`, minus the bezel-only boot-loader coupling). The strip starts
+`.booting` from the HTML with the connection block hidden and the URL nodes
+empty, so a fully-formed URL never flashes before the animation. The reveal is
+gated on *both* the bar finishing and `/config` landing, whichever is last.
+
+### Collapse — deferred
+
+The strip was first planned collapsible, retracting to a thin band with the
+portals growing into the space. That is **not built**: it is a fixed bar for
+now. Whenever collapse returns, the design question it raised stands — a bar
+that vanishes entirely leaves the expand control homeless, and the only place
+left for it is over portal 1's `edge` nav labels, where it would eat their
+clicks (as TGT's horizontal label once ate `RESET FILTER`). Retracting to a
+thin band rather than to nothing is one answer; a control elsewhere is another.
+
+### What it cost the portals
+
+The strip spends glass: the portals are shorter (720→640 at 1280×720). A merged
+portal's *shape* — and with it its orientation and WPN's derived rects — comes
+from that smaller box, handled by the existing `resized()` path when the glass
+is built. Because the bar is fixed there is no per-toggle recompute; the nav
+grids need nothing (`edge` is rows of the portal's height, `center` is
+`cq`-sized), and the corner grips sit at the portal's own bottom.
+
+## Open questions
+
+### Settled by building it
+
+- **Are labels derivable from the ordered list, or do they need placement
+  hints?** Both, split by view. **Full view is derivable** — item *i* → slot
+  *i* down the left column, identically for both layouts (`fullViewSlot`,
+  `cellOf`). **Split is not** *for the bezel*: MAP deliberately groups its
+  zoom rocker on the right, so it needs `SPLIT_SLOTS`. The portal model turned
+  out to need no hints at all — a portal is a whole MFD, so it places labels
+  exactly as full view does. The problem was the bezel's, not the split's.
+- **Are HIDE SHELL / FULL / PIN / SWAP part of the navigation model?** No —
+  layout-owned chrome. `nav-model.test.js` now enforces their absence.
+- **One CSS bundle or two?** Two. `f35.css` shares no structure with
+  `mfd.css`; only the `theme.css` tokens are common. That file is the palette
+  both layouts and every page draw from — including the colours only one of
+  them uses: `--no-label` is the bezel's off-white chrome and `--no-teal` the
+  F-35's, each named rather than one being redefined per layout, since the two
+  frame themselves differently. A layout's colour being *defined* in the shared
+  theme costs nothing; what matters is that no page reads it, which keeps a page
+  rendering the same under either shell. That is a convention, not a mechanism.
+- **Where does split state live once splits differ per layout?** In the
+  portal. Everything two screens must not share (current page, WPN paging,
+  follow) belongs to the portal; the shell keeps the telemetry cache and the
+  tap. The navigation model carries no split geometry, as planned.
+- **Per-portal orientation** — confirmed, and now built. A quarter portal is
+  320×720: genuinely portrait on a landscape screen. Reporting the window's
+  orientation left WPN's 2:1 weapon image unrotated in a tall narrow box,
+  collapsed to a ~124×62 stripe. Each portal now measures its own box
+  (`forwardOrientation`), and the image turns 90° to fill the column.
+
+  **This is a deliberate divergence from the bezel, not a bug in it.** The
+  bezel reports the window's orientation on purpose: its panes are
+  wide-and-short, so a pane measuring itself would call a portrait device
+  landscape. Portals are the opposite shape and need the opposite rule. Full
+  view and halves are unaffected — a portal that *is* the window measures the
+  same as the window.
+- **Does a portal drive WPN's `compact` or `full` profile?** `full`, with
+  rects, at every portal count. Once the portal reports its own orientation,
+  `full` renders correctly at 320px wide, so `compact` isn't needed — the
+  profile split turned out to be about *shape*, which orientation already
+  carries, rather than about size.
+
+### Still open
+
+- **What else the master strip carries.** Connection status and the server
+  URLs now live in the strip (see above), alongside the avionics flags — the
+  layout's first chrome wanting telemetry, settled. What *else* it should carry
+  (warnings, comms, IFF) is still open, as is the deferred collapse.
+- **A portal's own page set.** Every portal currently offers all of `NAV`.
+  Four portals showing four MAINs is a plausible default but not obviously
+  the right one, and the reference shows each portal with a fixed role.
+- **Uneven portals.** A portal is one slot wide or two, so the glass only ever
+  divides on slot boundaries — no dragging a divider to 30/70. The reference
+  suggests fixed roles rather than dragged widths, so this may never be
+  wanted; noting it because `SLOTS` and the span are where it would go.
+- **Triples.** Deliberately excluded: a merged portal offers no merge, so
+  `(1 2 3)` and a full-width portal are unreachable. Allowing them would bring
+  back full view, and with it the one case where a portal could show the tap
+  instead of running its own map.
 
 ## Out of scope
 
-- Actually building any of this. Plan-only.
 - Changing page content or the SSE/telemetry contract — both are
   layout-independent and stay as-is.
 - Removing or restyling the bezel layout. Bezel stays the default.
 
-## Pre-flight before implementing
+## Where the code lives
 
-- Read `src/web/shell/mfd.js` — `PAGES`, `SPLIT_PAGES`, `FRAME_PAGES`, and
-  `src/web/shell/split-keymap.js`. These are the coupling points Stage 1
-  has to tease apart. (Grep the symbol names — this doc deliberately cites
-  no line numbers: Stage 1 restructures `PAGES` and the shell, so any
-  number here would be wrong the moment the work starts.)
-- Read the geometry forwarders too — `forwardAvnLayoutToFrame` and
-  `forwardWpnLayoutToFrame`.
-  They're the coupling the "pages are decoupled" story misses, and they
-  decide whether Stage 2 needs a new placement contract or can just use
-  the pages' existing `compact` profile.
-- Do Stage 1 (navigation-model extraction) and confirm the bezel shell is
-  visually unchanged before writing a single line of the F-35 layout.
+Symbol names, not line numbers — this code is actively moving.
+
+- **Shared:** `src/web/shell/nav-model.js` (+ its test) — `NAV`.
+  `src/web/services/telemetry-source.js` — the one `EventSource`, inside the
+  MAP page. `src/web/services/send-command.js` — `sendCommand`.
+  `src/web/shared/theme.css` — the common tokens.
+  `src/web/pages/avn/avn-status-policy.js` — the state→colour rule for the
+  avionics flags, an AVN-page module the F-35 strip also loads.
+- **Bezel:** `src/web/shell/mfd.{html,css,js}`, `split-keymap.js`. Key
+  symbols: `fullViewSlot`, `SPLIT_SLOTS`, `FRAME_PAGES`, `PAGE_URL`,
+  `forwardAvnLayoutToFrame`, `forwardWpnLayoutToFrame`, `placeWpnNavLabels`.
+- **F-35:** `src/web/shell/f35/f35.{html,css,js}`, plus two pure modules with
+  their tests — `f35-glass.js` (the arrangement rule: `gripsFor`, `merge`,
+  `split`, `SLOTS`) and `f35-wpn-paging.js`. Key symbols in `f35.js`:
+  `makePortal` (everything per-screen lives in its closure), `onGrip`
+  (merge/split, and the only thing that changes the glass), `refreshGlass`,
+  `buildGlass`, `cells`, `F35_PAGES`, `PAGE_FEEDS`, `FEED_AS`, `DERIVED`,
+  `NAV_LAYOUT`, `MAIN_EXTRAS`, `cellOf`, `forwardWpnLayout`,
+  `forwardOrientation`. The master strip is the same file: `runStripBoot`
+  (the loading bar), `typeStripUrls` (the URL typewriter), `updateStripFlags` /
+  `updateStripStatus` (fed from the message pump), and `loadStripUrls`.
+
+  The split is worth knowing: `f35-glass.js` is *policy* (which grips exist,
+  what a merge would produce) and `f35.js` is *mechanism* (portals, iframes,
+  the DOM). Changing the grip rule touched only the module and its test —
+  `f35.js` asks rather than knows.
+- **Routes:** `/f35` is served by `TelemetryServer.cs` in-game and by
+  `tools/serve_web.py` in the preview harness. Both need the entry.

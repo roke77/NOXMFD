@@ -1,0 +1,614 @@
+/* F-35 layout — Stage 2. The whole point of this file is what it does NOT contain: no bezel,
+   no screws, no key banks, no separators. The page is the display.
+   Palette comes from the shared theme tokens (var(--no-*)) so page content renders identically
+   here and under the bezel shell — a layout owns the frame, not the page's colours. */
+
+/* ── The layout's chrome colour ────────────────────────────────────────────────────────
+   The real F-35's panoramic display draws its frame and its labels in teal, so this layout does
+   too: --no-teal (theme.css) on the frame around each portal, the nav labels drawn on the glass,
+   the corner grips, and the strip with its LAYOUT button.
+
+   It stops at what the LAYOUT owns. Instrument data keeps the theme's palette wherever it sits —
+   the gauges and flags stay green/amber/red, the engaged state stays amber — and no page reads
+   --no-teal, so a page renders identically here and under the bezel. That is a convention, not a
+   mechanism: the token is in the shared theme, and only this directory may use it.
+
+   --no-teal is a token of its own rather than a new value for --no-label, which mfd.css paints the
+   bezel's key labels with: the two layouts frame themselves differently, so they name their own
+   colours. */
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--no-bg);
+  overflow: hidden;
+  font-family: var(--no-font);
+}
+
+/* The glass: edge-to-edge, no frame of any kind. A flex column of two stacked containers that
+   never overlap — the master strip, then the portals below it. #map-tap is absolute behind both
+   (a data source, never displayed), so it sits outside this flow. */
+.pcd {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Master strip ──────────────────────────────────────────────────────────────────────
+   A fixed full-width bar across the top of the glass — the home for what belongs to the aircraft
+   rather than to any one portal (docs/layouts.md). The first child of the .pcd column, so the
+   portals below are pushed down to make room rather than sliding under it: the two never share
+   space, and no z-order or inset has to be reasoned about. One ninth of the glass tall; flex-basis
+   carries the height so flex-grow/shrink stay pinned. */
+.master-strip {
+  flex: 0 0 calc(100% / 9);
+  box-sizing: border-box;
+  border-bottom: 2px solid var(--no-teal);   /* the same 2px the portal frames below draw */
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 0 16px;
+  color: var(--no-teal);
+  overflow: hidden;
+}
+
+/* The wordmark. Styled text rather than an image — there is no served logo asset — in the display's
+   primary green so it reads as the aircraft's own marking. */
+.ms-logo {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--no-green);
+  white-space: nowrap;
+}
+
+/* Connection block: local + LAN URL and the live status, stacked. The bezel shows the same three
+   on MAIN; the F-35's MAIN is navigation only, so they live here instead. */
+.ms-net { min-width: 0; }
+
+/* Boot: show the loading bar, hide the data block, until f35.js finishes the fill. .booting starts
+   in the HTML so the connection block never flashes before the bar. */
+.ms-loading { display: none; }
+.master-strip.booting .ms-loading { display: block; }
+.master-strip.booting .ms-data    { display: none; }
+
+.ms-data {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+/* Loading bar, styled like the bezel MAIN's .ib-bar (itself the WPN EW-jammer capacitor bar): a
+   green-bordered trough with a fill whose width f35.js steps 0→100%, the 60ms transition smoothing
+   each step into a sweep. */
+.ms-loading-label {
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: var(--no-green-dim);
+  margin-bottom: 6px;
+}
+.ms-bar {
+  width: 180px;
+  height: 12px;
+  border: 1px solid var(--no-green);
+  border-radius: 3px;
+  background: rgba(57, 255, 20, 0.08);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.ms-bar-fill {
+  width: 0%;
+  height: 100%;
+  background: var(--no-green);
+  transition: width 60ms linear;
+}
+/* Off-white rather than the bezel MAIN's green (main.css .ib-url): an address you type somewhere
+   else is not instrument data, so it reads as chrome. --no-label is the theme's off-white; the
+   frame's teal is for what the layout draws, not for what it reports. */
+.ms-url {
+  color: var(--no-label);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ms-url:empty { display: none; }   /* no LAN URL (no second NIC) → don't leave a blank line */
+/* Typewriter reveal, the same the bezel MAIN gives its URLs (mfd.css): the untyped tail stays in
+   the flow but hidden so the caret never reflows the line, and the caret blinks. f35.js splits each
+   line into these three spans while typing (typeStripUrls). */
+.ms-url .tw-rest   { visibility: hidden; }
+.ms-url .tw-cursor { display: inline-block; width: 0; overflow: visible; animation: tw-blink 0.7s steps(1, end) infinite; }
+@keyframes tw-blink { 50% { opacity: 0; } }
+
+.ms-status { letter-spacing: 1px; }
+.ms-status.connected    { color: var(--no-green); }
+.ms-status.waiting      { color: var(--no-amber); }
+.ms-status.disconnected { color: var(--no-red); }
+
+/* Mission name + ownship grid, stacked — the pair the map page draws on itself, for a glass that
+   may be showing no map at all. Each is an .mfd-chip, the theme's own boxed readout: the same
+   class the map page's GRID chip uses, so the two render identically here and there and the box
+   is described in exactly one place.
+
+   align-items keeps each chip the width of its own text rather than stretching both to the wider
+   one — a chip is sized by what it says, which is how the map page's read.
+
+   display:flex would beat the hidden attribute's own display:none, so the empty case says it
+   outright — the same pairing .portals and .layout-picker need. */
+.ms-map {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;   /* a flex item won't shrink below its content without this — see the name below */
+}
+.ms-map[hidden] { display: none; }
+
+/* The mission name is the only thing in the strip whose length the game decides. It gives way with
+   an ellipsis rather than pushing the flags and LAYOUT off the end of a bar that clips them. */
+#ms-map-name {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#ms-grid { white-space: nowrap; }
+
+/* THRL + FUEL, stacked, in the space between the mission block and the flags. AVN's bars can't be
+   hosted as they are — absolutely positioned, vertical, sized from rects the shell forwards — so
+   what comes across is the rule (avn-throttle-policy, shared) and the LOOK, rebuilt sideways: see
+   the tube below. What stays behind is the ¯\___ leader that tracks each fill's tip, which needs a
+   per-paint measurement and has nowhere to go in a bar this short. */
+.ms-gauges {
+  /* Takes the strip's slack: everything between the mission block and the flags is the troughs'.
+     Deliberately no min-width:0 — a flex item floors at its min-content by default, which here is
+     label + the bar's own minimum + number, so a long mission name pushes .ms-map (which DOES set
+     min-width:0) into its ellipsis rather than squeezing the gauges away. */
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--no-green-dim);
+}
+.ms-gauge { display: flex; align-items: center; gap: 7px; }
+/* THRL and FUEL are four glyphs of the same monospace face, and the number's width is fixed below,
+   so both troughs start and end on the same x without either being told a width. */
+.ms-gauge-label { font-weight: bold; }
+/* Fixed and right-aligned: '--' → '8%' → '100%' → 'MIL' must not shuffle the row as it ticks. */
+.ms-gauge-num { width: 3.2em; text-align: right; }
+
+/* ── The tube ──────────────────────────────────────────────────────────────────────────
+   AVN's gauge tube (avn.css .avn-vbar-tube), turned on its side: the 2px green frame around a
+   near-black trough, and the fill inset within it. #050a05 is AVN's own literal — the trough is a
+   shade off the display's black and the theme has no token for it, so it is repeated here rather
+   than approximated with --no-bg.
+
+   The loader's .ms-bar is left alone: it is a progress bar, and these are instruments now.
+   flex-basis 0 hands the trough whatever the label and number don't take; min-width floors it so a
+   tight strip leaves a readable gauge rather than a sliver. */
+.ms-tube {
+  position: relative;
+  flex: 1;
+  min-width: 40px;
+  height: 20px;
+  box-sizing: border-box;
+  border: 2px solid var(--no-green);
+  background: #050a05;
+  overflow: hidden;
+}
+
+/* Each tube opens on the side facing the other, so the pair reads as one instrument rather than
+   two boxes. AVN's own frames are three-sided for the same reason — fuel drops its right border
+   and thr its left, both opening toward the silhouette they flank (avn.css). Stacked instead of
+   flanking, the sides that face each other are the bottom and the top.
+
+   Both lose exactly one horizontal edge, so both troughs stay the same height as each other; the
+   fill keeps its 3px inset from the open edge, as AVN's does. */
+.ms-gauge.thr  .ms-tube { border-bottom: none; }
+.ms-gauge.fuel .ms-tube { border-top: none; }
+
+/* The fill's box, inset from the frame the way AVN's padding insets its own. It exists so the
+   fill's width:% is a percentage of the TROUGH rather than of the tube's padding box (which would
+   overshoot by the inset), and — see the MIL/AB split below — so there is something to ask the
+   width of. container-type makes it that: 100cqw is this box's width, from anything inside it. */
+.ms-tube-inner {
+  position: absolute;
+  inset: 3px;
+  overflow: hidden;
+  container-type: inline-size;
+}
+.ms-fill {
+  width: 0%;
+  height: 100%;
+  background: var(--no-green);
+  /* AVN's own timings, on width instead of height. */
+  transition: width 200ms linear, background-color 150ms linear;
+}
+
+/* Segments + the halfway marker, FUEL only. Not an omission: AVN gives its throttle tube
+   `content: none` for both (avn.css), because that bar says what it has to say with the MIL/AB
+   split instead. The gaps are 3px rather than AVN's 6px — the same 10% pitch, but read across
+   ~120px of width instead of a tall tube, 6px of every 12px would be more gap than gauge. */
+.ms-gauge.fuel .ms-tube::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(10% - 3px),
+    #050a05 calc(10% - 3px),
+    #050a05 10%
+  );
+  pointer-events: none;
+}
+.ms-gauge.fuel .ms-tube::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: calc(50% - 0.75px);
+  width: 1.5px;
+  background: var(--no-green);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* The MIL/AB split, as AVN paints it: one fill, green below --ab-start and red above, with the
+   boundary pinned to a fraction of the TUBE so it stays put while the fill grows past it.
+   AVN sizes that gradient in px (--tube-inner-px), remeasured every paint by the same function
+   that positions the leader lines — which this strip doesn't draw. 100cqw asks .ms-tube-inner its
+   width instead, so the boundary lands identically with nothing to measure and nothing to keep in
+   sync with a paint loop. */
+.ms-gauge.thr { --ab-start: 1; }
+.ms-gauge.ab-capable .ms-fill {
+  background: linear-gradient(to right,
+    var(--no-green) 0,
+    var(--no-green) calc(var(--ab-start) * 100cqw),
+    var(--no-red)   calc(var(--ab-start) * 100cqw),
+    var(--no-red)   100cqw);
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: 100cqw 100%;
+}
+/* Reheat reddens the readout; MIL keeps the bar's green. AVN's rule, verbatim in effect. */
+.ms-gauge.ab-active .ms-gauge-num { color: var(--no-red); }
+
+/* Fuel's warning levels (avn.css .avn-vbar.caution/.critical): amber under a quarter tank, red
+   under a tenth. The fill and the readout turn together, so the colour lands whether or not you
+   can resolve the bar's length at a glance. */
+.ms-gauge.caution  { color: var(--no-amber); }
+.ms-gauge.critical { color: var(--no-red); }
+.ms-gauge.caution  .ms-fill { background: var(--no-amber); }
+.ms-gauge.critical .ms-fill { background: var(--no-red); }
+
+/* No value: the frame dims and the fill goes, so the gauge still reads as a gauge with nothing in
+   it. AVN's .na, the same. */
+.ms-gauge.na { color: var(--no-green-dark); }
+.ms-gauge.na .ms-tube { border-color: var(--no-green-dark); }
+.ms-gauge.na .ms-fill { display: none; }
+.ms-gauge.na.fuel .ms-tube::before { background: var(--no-green-dark); }
+
+/* Avionics flags — one row at the right. Each is a label + icon like the AVN tile (avn.css
+   .avn-tile), and the colour class (off = gray, on = green, GEAR-down = red, from the shared
+   avn-status-policy) recolours label and glyph together via currentColor.
+
+   The gauges are what hold them here now: flex-grow resolves before auto margins are offered any
+   free space, so with .ms-gauges growing into the slack there is none left and this margin does
+   nothing. It stays as the fallback — take the gauges out and it is the only thing keeping the
+   flags off the mission block. */
+.ms-flags {
+  margin-left: auto;
+  display: flex;
+  gap: 14px;
+}
+.ms-flag {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--no-gray);   /* off / dim; on / gear-down override below */
+}
+.ms-flag.on        { color: var(--no-green); }
+.ms-flag.gear-down { color: var(--no-red); }
+.ms-flag-label { font-size: 15px; font-weight: 900; letter-spacing: 1px; line-height: 1; }
+.ms-flag-icon  { width: 36px; height: 36px; display: block; }
+/* GEAR reuses the game-captured glyph as a recolourable mask (same asset and technique as
+   avn.css .avn-mask-icon), so it turns green/gray/red with the rest. */
+.ms-flag-mask {
+  background-color: currentColor;
+  -webkit-mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
+          mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
+}
+
+/* LYT — the only thing in the strip you press; everything either side of it is a readout. So it is
+   drawn as a button rather than a label: its name spelled out, and a border to say it has an edge
+   to hit. currentColor ties that border to the item's own state, so it tracks the label it rings —
+   teal at rest, amber while the picker is up, dark against the hover fill. */
+.master-strip .ms-lyt {
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 6px 12px;
+  white-space: nowrap;   /* the strip is one row; never let the name wrap into two */
+}
+/* The border already rings it, so .nav-item.on's amber outline would sit a second ring just
+   outside it. Same colour, same job — keep the border and drop the outline. */
+.master-strip .ms-lyt.on { outline: none; }
+
+/* The telemetry tap. Never seen: the MAP page owns the only EventSource('/stream') and posts the
+   derived slices up to its host, so this shell carries a map iframe purely as a data source — even
+   though a MAP portal mounts its own map to display. Full-size despite being invisible, so the
+   view inside lays out and ticks normally; a 1px or display:none iframe risks throttling or
+   zero-size canvas math. */
+#map-tap {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* One flat row of portals across four slots. A portal spans one slot or two, and flex-grow carries
+   the span (set by f35.js applySpan) — with flex-basis 0 every slot is the same width, so growing a
+   portal to 2 gives it exactly two of them and its neighbours keep theirs. No wrappers, no
+   percentages; any of the five arrangements falls out of the numbers.
+
+   The second child of the .pcd column: it takes the height the master strip leaves (flex: 1), and
+   min-height: 0 lets it actually shrink to that rather than to its content. */
+.portals {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+}
+
+/* ── Layout picker ─────────────────────────────────────────────────────────────────────
+   What the strip's LYT puts in the portals' place: the two layouts, centred on the glass. It takes
+   the same slot in the .pcd column, so the strip stays put and only what is under it changes.
+
+   Both this and .portals declare a display, which would beat the `hidden` attribute's own
+   display:none — so each needs saying explicitly. The attribute is the state: no class, no JS
+   styling, and the two can never both be up. */
+.layout-picker {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 88px;
+}
+.layout-picker[hidden] { display: none; }
+.portals[hidden]       { display: none; }
+
+/* Bigger than a label on a page: these are the only things on the glass. */
+.layout-picker .nav-item { font-size: 30px; }
+
+/* The current layout needs no rule of its own: .nav-item.on already boxes a label in amber, and
+   that is what this is — the same "engaged" the theme gives MAP's FLW. Hover stays the shared
+   white fill. */
+
+/* A portal = one independent MFD's region of the glass. position:relative so its page frame and
+   label grid anchor to IT rather than the glass; overflow:hidden so a page can't paint into its
+   neighbour.
+
+   container-type makes it the size reference for everything inside it, so the labels can be sized
+   in cq units against THIS portal instead of the viewport. With four portals the two are wildly
+   different — a vw-sized gap is measured against the whole glass and blows a 320px portal apart.
+   (wpn.css sizes its weapon image in cqw/cqh for the same reason.) */
+.portal {
+  position: relative;
+  flex: 1 1 0;   /* grow is overwritten per portal with its span — see .portals above */
+  min-width: 0;
+  overflow: hidden;
+  container-type: size;
+  /* Framed on all four sides, as the reference display frames each of its windows. Each portal is
+     a whole MFD, so it is drawn as a whole box rather than being merely divided from its
+     neighbour — which is also why this needs no knowledge of the arrangement: merging removes a
+     portal and its frame goes with it, and the survivor's own frame is already the right shape.
+     border-box so the frame comes out of the portal's width instead of adding to it, which would
+     put the flex spans out by 4px each. */
+  box-sizing: border-box;
+  border: 2px solid var(--no-teal);
+}
+
+/* Where two frames meet, they meet — 2px of seam, not 2px twice. The overlap is a negative margin
+   rather than a dropped border, so every portal keeps all four of its own edges and none is a
+   special case: the first portal, the last, and a merged pair are all just boxes.
+   The spans survive it: flex-basis is 0, so the margin is redistributed by grow and four portals
+   come out equal to the pixel. A merged one lands a shade under twice its neighbour (640 vs 322 at
+   1280) — it covers two slots but draws one frame, so it keeps the 4px the second frame would have
+   spent. Visually a seam's width; not worth a correction that would make every portal's width
+   depend on its span. */
+.portal + .portal { margin-left: -2px; }
+
+/* Same meeting, the other axis: the strip already draws a 2px bottom edge, and the portals' top
+   edges would stack a second one under it. Pull the row up so the two lines land on each other.
+   It stays on the row rather than on the strip because the strip must keep that edge when the
+   portals are away — the layout picker takes their place, and it draws no frame of its own. */
+.portals { margin-top: -2px; }
+
+.page-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--no-bg);
+}
+
+/* ── Corner grips ──────────────────────────────────────────────────────────────────────
+   The expand/retract control: an outline triangle in a portal's bottom corner, pointing out
+   towards that edge. Which corner (or none) is the arrangement's business — see f35-glass.js
+   gripsFor. Portal chrome rather than navigation, so it sits beside the label grid and survives a
+   renderNav. The same teal as the labels: both name a control rather than report instrument data.
+
+   Square, and the triangle fills it: the whole square is the target, so there is no dead padding
+   around a small mark to tap and miss. */
+.portal-grip {
+  position: absolute;
+  bottom: 4px;
+  z-index: 1;                /* above the page frame, like the label grid */
+  width: 50px;
+  height: 50px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--no-teal);
+  cursor: pointer;
+}
+.portal-grip.left  { left: 4px; }
+.portal-grip.right { right: 4px; }
+
+.portal-grip svg { display: block; width: 100%; height: 100%; }
+.portal-grip polygon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  /* stroke-width is in viewBox units, so it scales with the button. Pin it to 2 real pixels
+     instead, so resizing the grip changes the triangle and not the weight of its outline. */
+  vector-effect: non-scaling-stroke;
+}
+
+.portal-grip:active { opacity: 0.7; }
+/* Mouse only — a touch tap would leave the grip lit; see the nav-item note below. */
+@media (hover: hover) {
+  .portal-grip:hover { color: var(--no-green); }
+}
+
+/* ── Nav labels ────────────────────────────────────────────────────────────────────────
+   Drawn over the page in one of two modes, set per screen by f35.js NAV_LAYOUT.
+   Pointer-transparent either way: only the labels take clicks, so a fully-clickable page
+   (TGT) keeps working underneath. */
+.nav-grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  pointer-events: none;
+}
+
+/* 'edge' — the bezel's key banks, minus the bezel. 6 rows x 2 columns is deliberately the
+   geometry the physical keys describe (6 keys down each of the left and right columns), so a
+   NAV item's index maps to a cell exactly as it maps to a key slot (f35.js cellOf). */
+.nav-grid.edge {
+  grid-template-rows: repeat(6, 1fr);
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* 'center' — for a screen whose labels ARE the content (MAIN: no page renders behind them).
+   Three columns; items flow in NAV order, so a 10th item starts a new row on its own. The block is
+   centred in the portal rather than pinned to an edge that frames nothing.
+   Sized in cq units, so the gaps shrink with the portal instead of with the glass. */
+.nav-grid.center {
+  grid-template-columns: repeat(3, auto);
+  place-content: center;
+  gap: clamp(10px, 4cqh, 40px) clamp(10px, 6cqw, 88px);
+}
+
+.nav-item {
+  pointer-events: auto;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 20px;
+  letter-spacing: 1px;
+  /* The chrome teal, not the screen's green — a label names a control, it isn't instrument data.
+     The bezel draws that distinction by painting labels on the frame rather than the glass; with no
+     frame to paint on, colour is what carries it. This layout's own colour, so saying it here is
+     the point: the bezel keeps its off-white labels. */
+  color: var(--no-teal);
+  cursor: pointer;
+}
+
+/* Edge: hug the outer edge, centred in the row's band — where the leftmost bezel key would sit. */
+.nav-grid.edge .nav-item {
+  justify-self: start;
+  align-self: center;
+  margin-left: 16px;
+}
+
+/* Right-column labels (WPN's NEXT) mirror that against the far edge. */
+.nav-grid.edge .nav-item.col-right {
+  justify-self: end;
+  margin-left: 0;
+  margin-right: 16px;
+}
+
+/* WPN's weapon rows are drawn by the page, aligned to rows 2-6 by the rects we forward. These
+   invisible cells sit over them: with no physical key to press, the band itself is the
+   line-select key. They fill their cell rather than wrap a label — the label is in the page,
+   which we can't reach into. */
+.wpn-hit {
+  pointer-events: auto;
+  grid-column: 1;
+  justify-self: stretch;
+  align-self: stretch;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.wpn-hit:active { background: rgba(var(--no-teal-rgb), 0.16); }
+/* Mouse only — a touch tap would leave the band lit, reading as the selected weapon. */
+@media (hover: hover) {
+  .wpn-hit:hover { background: rgba(var(--no-teal-rgb), 0.08); }
+}
+
+/* TGT packs clickable filter controls into its top-left, exactly where the edge label sits — and
+   because this layout draws labels ON the page, a horizontal MAIN doesn't just look cramped, it
+   covers RESET FILTER and eats its clicks. Standing the text up narrows the label to roughly one
+   glyph so it clears them. Same fix, same properties, as the bezel's
+   .overlay.tgt-page .overlay-item.left in mfd.css — including pulling in to the edge, since 16px
+   of margin would still leave the label overlapping RESET. */
+.nav-grid.edge[data-page="tgt"] .nav-item {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  letter-spacing: 0;
+  margin-left: 4px;
+}
+
+/* Centre: each label centred in its own cell, so the columns read as a block. */
+.nav-grid.center .nav-item {
+  justify-self: center;
+  font-size: clamp(15px, 3.4cqh, 30px);
+}
+
+/* These labels are clickable; the bezel's are painted beside a physical key, so they need no
+   press feedback of their own. :active is press-only and releases on both touch and mouse, so it
+   is the one that always applies — it's also all TGT uses, this codebase's other touch surface. */
+.nav-item:active { opacity: 0.7; }
+
+/* A toggle that is currently ON (MAP's FLW). The bezel reports follow in a separate FOLLOW chip;
+   here the label is the only place to say it, so it boxes itself in the theme's "engaged" amber —
+   the same colour the bezel's own FOLLOW chip uses. */
+.nav-item.on {
+  color: var(--no-amber);
+  outline: 1px solid var(--no-amber);
+}
+
+/* Hover is a mouse affordance, and only a mouse can take it back. A touch tap leaves :hover stuck
+   on the label until you tap elsewhere, which reads as "this button is still engaged" — actively
+   misleading on FLW, whose lit state MEANS something. Gate it on the pointer actually being able
+   to hover: desktop keeps the highlight, touch gets :active alone. */
+@media (hover: hover) {
+  .nav-item:hover    { color: var(--no-ink); background: var(--no-teal); }
+  .nav-item.on:hover { color: var(--no-ink); background: var(--no-amber); }
+  /* ...but not on a label that does nothing. */
+  .nav-item.pending:hover { color: var(--no-gray); background: none; }
+}
+
+/* An action this layout does not implement yet. Rendered so the real NAV layout is visible,
+   dimmed and inert so it doesn't promise a page that won't come. --no-gray is already the
+   theme's "inactive" (AVN's off annunciators), and it dims the label without tinting it green. */
+.nav-item.pending {
+  color: var(--no-gray);
+  cursor: default;
+}
+.nav-item.pending:active { opacity: 1; }   /* no press feedback either — it isn't a button */

@@ -431,7 +431,7 @@
   .screen.split-vw .pane-follow.top { right: calc(33.333% + 12px); }
   .overlay-item {
     position: absolute;
-    color: #d4d8dc;
+    color: var(--no-label);
     font-family: var(--no-font);
     font-size: 21px;
     font-weight: 900;
@@ -476,6 +476,17 @@
     box-shadow: 0 0 12px rgba(57, 255, 20, 0.25);
   }
   .info-box.show       { display: block; }
+
+  /* The LAYOUT page's current item (CLASSIC). The theme's "engaged" amber, boxed — the same mark
+     the F-35's picker gives its own, so the two chooser screens agree. This is the only overlay
+     label that ever carries a state: the rest name a page, while these two name a choice and one of
+     them is already made. padding+outline rather than a border so the label doesn't shift the 2px a
+     border would add, staying aligned with its key. */
+  .overlay-item.on {
+    color: var(--no-amber);
+    outline: 1px solid var(--no-amber);
+    padding: 2px 6px;
+  }
   .info-box .ib-title  { font-size: clamp(28px, 3.12vmax, 45px); font-weight: 900; margin-bottom: clamp(14px, 1.6vmax, 22px); }
   .info-box .ib-url    { font-size: clamp(14px, 1.6vmax, 22px); color: var(--no-green-dim); margin-bottom: clamp(14px, 1.6vmax, 22px); }
   .info-box .ib-status { font-size: clamp(14px, 1.6vmax, 22px); font-weight: bold; }

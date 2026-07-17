@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NO XMFD — F-35</title>
+<!--
+  F-35 layout — Stage 2 (docs/layouts.md), served at /f35. The bezel shell at / is untouched.
+  Borderless panoramic display: no bezel, no key banks — the page fills the glass and the
+  navigation labels are drawn ON it, placed by a 6x2 grid (see f35.css).
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/shell/f35/f35.css">
+</head>
+<body>
+
+<div class="pcd">
+  <!-- Telemetry tap. The MAP page owns the only EventSource('/stream') and posts the derived
+       per-page slices up to whatever shell hosts it, so EVERY layout has to embed it — even one
+       like this that never shows a map. Laid out full-size (opacity:0, not display:none) so the
+       iframe keeps ticking normally; the bezel shell keeps it running behind pages for the same
+       reason. -->
+  <iframe id="map-tap" src="/map-view?bare" title="telemetry"></iframe>
+
+  <!-- Master strip: a fixed full-width bar across the top of the glass, the home for what belongs
+       to the aircraft rather than to any one portal (docs/layouts.md). Left to right: the wordmark,
+       the connection block (local + LAN URL and status, stacked), the mission block (name + grid),
+       the THRL/FUEL gauges, the avionics flags, and the LAYOUT chooser. f35.js fills the live
+       values from the /config fetch and the status/avn/mapinfo telemetry slices. -->
+  <!-- Starts .booting so the connection block is hidden until the loading bar finishes — the URLs
+       are typed in (f35.js), and must never flash fully-formed first. -->
+  <div class="master-strip booting">
+    <div class="ms-logo">NO XMFD</div>
+
+    <div class="ms-net">
+      <!-- Boot loader: a LOADING… bar (ported from the bezel MAIN's info box) shown while booting;
+           at 100% f35.js reveals the data block and types the URLs. -->
+      <div class="ms-loading">
+        <div class="ms-loading-label">LOADING...</div>
+        <div class="ms-bar"><div class="ms-bar-fill" id="ms-bar-fill"></div></div>
+      </div>
+      <div class="ms-data">
+        <div class="ms-url" id="ms-local"></div>
+        <div class="ms-url" id="ms-lan"></div>
+        <div class="ms-status disconnected" id="ms-status">● DISCONNECTED</div>
+      </div>
+    </div>
+
+    <!-- Mission name + ownship grid, stacked — the pair the map page draws on itself (its mission
+         bar and GRID chip), from the 'mapinfo' slice. Starts hidden and stays that way until a
+         mission is loaded: with none there is nothing to name and no grid to be in, so the block
+         leaves rather than sitting there full of dashes. -->
+    <div class="ms-map" id="ms-map" hidden>
+      <div class="mfd-chip" id="ms-map-name"></div>
+      <div class="mfd-chip" id="ms-grid"></div>
+    </div>
+
+    <!-- THRL + FUEL, stacked — the AVN page's two gauges, laid horizontally. They read the same
+         'avn' slice that drives the flags, so no new telemetry: fuel and throttle were already in
+         it. The trough is .ms-tube — AVN's own gauge tube turned on its side (f35.css). -->
+    <div class="ms-gauges">
+      <div class="ms-gauge thr na" id="ms-thr">
+        <span class="ms-gauge-label">THRL</span>
+        <div class="ms-tube"><div class="ms-tube-inner"><div class="ms-fill" id="ms-thr-fill"></div></div></div>
+        <span class="ms-gauge-num" id="ms-thr-num">--</span>
+      </div>
+      <div class="ms-gauge fuel na" id="ms-fuel">
+        <span class="ms-gauge-label">FUEL</span>
+        <div class="ms-tube"><div class="ms-tube-inner"><div class="ms-fill" id="ms-fuel-fill"></div></div></div>
+        <span class="ms-gauge-num" id="ms-fuel-num">--</span>
+      </div>
+    </div>
+
+    <!-- The eight avionics flags the AVN page shows, in one row — same labels and same glyphs
+         (the inline SVGs are copied from avn.html; GEAR reuses the game-captured gear-icon.png
+         mask). data-field names the avn-slice boolean; data-kind drives the colour via
+         avn-status-policy.js (so GEAR-down-is-red lives in one place, shared with AVN). Icons use
+         stroke/fill="currentColor", so the one colour class recolours label and glyph together. -->
+    <div class="ms-flags">
+      <div class="ms-flag off" data-kind="gear" data-field="gearDown">
+        <span class="ms-flag-label">GEAR</span>
+        <div class="ms-flag-icon ms-flag-mask"></div>
+      </div>
+      <div class="ms-flag off" data-kind="radar" data-field="radar">
+        <span class="ms-flag-label">RADAR</span>
+        <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4.5 9.6a11 11 0 0 1 15 0"/><path d="M7.5 12.6a6.5 6.5 0 0 1 9 0"/>
+          <circle cx="12" cy="16.1" r="1.3" fill="currentColor" stroke="none"/>
+        </svg>
+      </div>
+      <div class="ms-flag off" data-kind="guns" data-field="guns">
+        <span class="ms-flag-label">GUNS</span>
+        <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 12h6"/><path d="M10.5 8H8a4 4 0 0 0 0 8h2.5"/><path d="M13.5 8H16a4 4 0 0 1 0 8h-2.5"/>
+        </svg>
+      </div>
+      <div class="ms-flag off" data-kind="eng" data-field="ignition">
+        <span class="ms-flag-label">ENG</span>
+        <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 10v6"/><path d="M12 5v3"/><path d="M10 5h4"/><path d="M5 13h-2"/><path d="M6 10h2l2 -2h3.382a1 1 0 0 1 .894 .553l1.448 2.894a1 1 0 0 0 .894 .553h1.382v-2h2a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-2v-2h-3v2a1 1 0 0 1 -1 1h-3.465a1 1 0 0 1 -.832 -.445l-1.703 -2.555h-2v-6"/>
+        </svg>
+      </div>
+      <div class="ms-flag off" data-kind="assist" data-field="assist">
+        <span class="ms-flag-label">ASSIST</span>
+        <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="8.5"/>
+          <path d="M5.3 12.3 H7.5 L10 13.7 L12 12.5 L14 13.7 L16.5 12.3 H18.7"/>
+        </svg>
+      </div>
+      <div class="ms-flag off" data-kind="nvg" data-field="nvg">
+        <span class="ms-flag-label">NVG</span>
+        <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2.5 12s3.4-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.4 6.5-9.5 6.5-9.5-6.5-9.5-6.5z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+      </div>
+      <div class="ms-flag off" data-kind="lights" data-field="navLights">
+        <span class="ms-flag-label">LIGHTS</span>
+        <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4.2"/><path d="M12 3.2v2"/><path d="M12 18.8v2"/><path d="M3.2 12h2"/><path d="M18.8 12h2"/><path d="M5.5 5.5l1.6 1.6"/><path d="M16.9 16.9l1.6 1.6"/><path d="M18.5 5.5l-1.6 1.6"/><path d="M7.1 16.9l-1.6 1.6"/>
+        </svg>
+      </div>
+      <div class="ms-flag off" data-kind="turret" data-field="turret">
+        <span class="ms-flag-label">TURRET</span>
+        <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7.5 13 L4 18.5 H20 L16.5 13"/><path d="M8 13 V11 Q8 8 12 8 Q16 8 16 11 V13"/><path d="M8 10.8 H3 V12.8 H8"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- LYT swaps the portals below for the layout chooser. It sits in the strip, not on a portal's
+         MAIN, because a layout is the whole glass's business — per portal it would have offered the
+         same choice four times. Last item, after the flags. -->
+    <button type="button" class="nav-item ms-lyt" id="ms-lyt"
+            title="Choose the display layout">LAYOUT</button>
+  </div>
+
+  <!-- Portals are built by f35.js, not declared here: full view is one portal and a split is
+       several, so the count is state. Each holds a page iframe with a label grid over it. -->
+  <div class="portals" id="portals"></div>
+
+  <!-- The layout chooser, in the portals' place (f35.js showPicker toggles which of the two the
+       column holds). Static content, unlike the portals: the choice is always these two, and F-35
+       is marked as current here rather than in JS because this document IS the F-35 layout. -->
+  <div class="layout-picker" id="layout-picker" hidden>
+    <button type="button" class="nav-item" data-layout="classic">CLASSIC</button>
+    <button type="button" class="nav-item on" data-layout="f35">F-35</button>
+  </div>
+</div>
+
+<script src="/assets/services/send-command.js"></script>
+<script src="/assets/shell/nav-model.js"></script>
+<script src="/assets/shell/f35/f35-glass.js"></script>
+<script src="/assets/shell/f35/f35-wpn-paging.js"></script>
+<!-- Shared with the AVN page: the pure state->colour rule for the avionics flags in the strip, and
+     the MIL/AB split behind its THRL gauge. -->
+<script src="/assets/pages/avn/avn-status-policy.js"></script>
+<script src="/assets/pages/avn/avn-throttle-policy.js"></script>
+<script src="/assets/shell/f35/f35.js"></script>
+</body>
+</html>

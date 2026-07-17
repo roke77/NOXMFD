@@ -1,8 +1,9 @@
 // TelemetrySource — the MAP page's "data provider" half, split out from the map view so each has
 // a single responsibility (SRP). It owns the ONE EventSource('/stream') connection, parses each
 // frame, and is the source of truth for telemetry in the whole MFD:
-//   • derives the per-page slices (status/loadout/cm/tgp/targets/rwr/mw/avn/follow) and posts them
-//     UP to the shell, which re-forwards them to the other pages; and
+//   • derives the slices (status/loadout/cm/tgp/targets/rwr/mw/avn/follow, and mapinfo) and posts
+//     them UP to the shell, which re-forwards them to the other pages. All but the last are
+//     per-page; mapinfo is for shell chrome that shows no map — see _emit; and
 //   • hands the raw parsed frame to the local map view via callbacks so it can render.
 // It knows nothing about canvas, DOM, zoom/pan, or gestures — that all lives in map.js (the view),
 // which instantiates this and consumes it. Co-located in the same iframe on purpose: the view
@@ -103,6 +104,17 @@ export class TelemetrySource {
     // TGP feed state (so the MFD's TGP page can swap to NO TARGET when the feed stops).
     this._postUp({ type: 'tgp', active: !!d.tgpActive });
 
+    // The mission name and the ownship's grid — what the map page draws on itself (its mission bar
+    // and GRID chip). Unlike every other slice here, no page consumes it: it exists for chrome that
+    // shows NO map and so cannot reach what the map keeps to itself (the F-35's master strip). The
+    // map page still renders its own HUD straight from `d`; this is the same pair, derived once
+    // more for anyone outside the iframe.
+    this._postUp({
+      type: 'mapinfo',
+      mission: d.mission || null,
+      grid: d.world ? gridLabel(d.world.x, d.world.z, this._meta) : null,
+    });
+
     // Selected-target list. The mod flags each targeted unit on its contact (same `tg` that draws
     // the map's target box), so derive from contacts; a preview mock may override via d.targets.
     let targets;
@@ -188,6 +200,7 @@ export class TelemetrySource {
     this._postUp({ type: 'loadout', items: [], selWeapon: null });
     this._postUp({ type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 });
     this._postUp({ type: 'tgp', active: false });
+    this._postUp({ type: 'mapinfo', mission: null, grid: null });
     this._postUp({ type: 'targets', items: [] });
     this._postUp({ type: 'rwr', items: [] });
     this._postUp({ type: 'mw', items: [] });

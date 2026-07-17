@@ -3,6 +3,18 @@
 <head>
 <meta charset="utf-8">
 <title>NO XMFD — AVN</title>
+<!-- ?nochrome — the host already shows this aircraft's own-ship readouts, so don't repeat them:
+     the FUEL/THROTTLE bars and the status tiles go, leaving the silhouette and its failure labels
+     the whole panel (see avn.css .nochrome). The F-35 sets it because its master strip carries
+     both; the bezel doesn't, and renders exactly as before.
+
+     Read here, inline and before the body, rather than posted in by the host: this decides what to
+     paint, and a message arriving after first paint would flash the bars up and then pull them —
+     on every mount, and a portal glass mounts pages constantly. It costs the page nothing when
+     absent. -->
+<script>
+  if (new URLSearchParams(location.search).has('nochrome')) document.documentElement.classList.add('nochrome');
+</script>
 <!--
   Bare AVN page served at /avn. Single source of truth for the avionics page (damage
   silhouette + failure labels + FUEL/THROTTLE bars) in BOTH layouts — a pure reactive
