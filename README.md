@@ -149,7 +149,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **LYT** — layout chooser: switch the shell between CLASSIC and F-35, with the current layout highlighted. See [MFD layouts](#mfd-layouts) below.
+- **LYT** — layout chooser: switch the display to a different shell layout.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
