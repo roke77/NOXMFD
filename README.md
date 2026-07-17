@@ -149,6 +149,15 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
+- **LYT** — layout chooser: switch the shell between CLASSIC and F-35, with the current layout highlighted. See [MFD layouts](#mfd-layouts) below.
+
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![LYT page](docs/images/LYT.png)
+
+  </details>
+
 ### MFD shell
 
 The shell frames the active page with dedicated bezel buttons — function
@@ -169,6 +178,32 @@ controls along the top, layout presets along the bottom.
 ![V_SPLIT (left) and H_SPLIT (right)](docs/images/H_V_SPLIT.png)
 
 ![V_WIDE_SPLIT](docs/images/V_WIDE_SPLIT.png)
+
+</details>
+
+### MFD layouts
+
+NO XMFD can render in more than one shell layout — a different frame,
+navigation, and split model over the same pages. Two are supported for now:
+**CLASSIC** (the metallic bezel above) and **F-35**.
+
+#### F-35
+
+A borderless, touch-driven layout modelled on the real F-35's panoramic cockpit
+display: there are no bezel keys — the navigation labels are drawn on the glass
+and tapped directly, and the screen divides into side-by-side portals, each an
+independent MFD, that you merge and split with corner grips. A fixed strip
+across the top carries the aircraft-level readouts — connection, mission,
+throttle and fuel, and the avionics flags.
+
+<details>
+<summary>$\color{green}\textsf{See screenshots}$</summary>
+
+![F-35 layout — MAIN](docs/images/F-35%20MAIN.png)
+
+![F-35 layout — 1-2-1 portal split](docs/images/F-35%201-2-1.png)
+
+![F-35 layout — 2-2 portal split](docs/images/F-35%202-2.png)
 
 </details>
 
