@@ -28,7 +28,7 @@ for (const [page, items] of Object.entries(NAV)) {
 // ── Ordering is the contract ────────────────────────────────────────────────────────
 // A layout renderer places by INDEX (bezel full view: item i → left key i; bezel split:
 // SPLIT_SLOTS[i] places NAV[i]). So order is meaningful and reordering is a behaviour change.
-assert.deepStrictEqual(NAV.main.map(i => i.label), ['AVN', 'MAP', 'RWR', 'TGT', 'TGP', 'WPN']);
+assert.deepStrictEqual(NAV.main.map(i => i.label), ['AVN', 'MAP', 'RWR', 'TGP', 'TGT', 'WPN']);
 assert.deepStrictEqual(NAV.map.map(i => i.label), ['MAIN', 'FLW', 'Z+', 'Z-']);
 
 // ── Every frame-hosted page can get back to MAIN ────────────────────────────────────

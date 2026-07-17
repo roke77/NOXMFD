@@ -185,10 +185,11 @@ A layout also owns the **page placement geometry** it feeds pages (the
 `NAV` is shared, so a layout cannot grow it: the bezel has six physical keys
 for MAIN's six items, and `nav-model.test.js` pins that list. A layout that
 wants more puts them in its own table — the F-35 keeps `MAIN_EXTRAS`
-(HUD/PAL/BDF placeholders) beside `NAV` and merges the two when
-rendering. Consequently ordering is a *rendering* choice: the F-35 sorts its
-MAIN menu alphabetically (so TGP precedes TGT) while the bezel keeps `NAV`'s
-order (TGT, TGP).
+(HUD/PAL/BDF placeholders) beside `NAV` and merges the two when rendering.
+Consequently ordering is a *rendering* choice: the F-35 sorts its MAIN menu
+alphabetically, interleaving those extras among the NAV items, while the bezel
+shows `NAV`'s six in their given order (itself alphabetical: AVN, MAP, RWR,
+TGP, TGT, WPN).
 
 The same asymmetry applies to placement. `NAV` items may never carry a cell,
 but a layout's own items may — WPN's `NEXT` names its top-right cell,

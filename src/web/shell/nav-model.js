@@ -28,8 +28,8 @@
       { label: 'AVN', action: 'avn' },     // → AVN page
       { label: 'MAP', action: 'map' },     // → MAP page
       { label: 'RWR', action: 'rwr' },     // → RWR page
-      { label: 'TGT', action: 'tgt' },     // → TGT page (target-selection filter)
       { label: 'TGP', action: 'tgp' },     // → TGP page
+      { label: 'TGT', action: 'tgt' },     // → TGT page (target-selection filter)
       { label: 'WPN', action: 'wpn' },     // → WPN page
     ],
     tgp: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN

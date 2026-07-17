@@ -307,8 +307,9 @@
 
     // ── Nav ────────────────────────────────────────────────────────────────────────────
     // What this screen puts on the grid.
-    //   main — NAV's items plus this layout's own, alphabetical. Sorting here (not in NAV) keeps
-    //          ordering a rendering choice: the bezel keeps NAV's order, where TGT precedes TGP.
+    //   main — NAV's items plus this layout's own (MAIN_EXTRAS), alphabetical. Sorting here rather
+    //          than in NAV keeps ordering a rendering choice: it interleaves HUD/PAL/BDF among the
+    //          NAV items, where the bezel just shows NAV's six in their given order.
     //   wpn  — nothing from NAV (it's empty by design); its labels are pagination.
     function itemsFor(page) {
       if (page === 'wpn') return wpnState().nav;
