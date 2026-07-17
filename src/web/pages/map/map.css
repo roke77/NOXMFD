@@ -68,3 +68,15 @@ main { flex: 1; display: flex; overflow: hidden; }
   z-index: 50;
 }
 
+
+/* ── ?nochrome ─────────────────────────────────────────────────────────────────────────
+   The host already shows the mission name and the ownship grid, so the page stops drawing them over
+   the map and keeps only the map. The F-35 sets it — its master strip carries both, off the
+   'mapinfo' slice this page's own TelemetrySource emits (docs/layouts.md). The bezel never does.
+   The class lands on <html> from the inline read in map.html, before first paint.
+
+   Qualified with html so this outranks the runtime state classes rather than tying: updateHUD
+   rewrites className on both of these every frame ('' / 'empty' / 'mfd-chip'), and #mission-bar.empty
+   already matches at the same weight a bare .nochrome #mission-bar would. */
+html.nochrome #mission-bar,
+html.nochrome #grid-bar { display: none; }

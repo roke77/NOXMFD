@@ -26,8 +26,9 @@
   const ROWS = 6;   // 'edge' mode only — must match grid-template-rows in f35.css
 
   // A MAP portal mounts its own map. The tap is a data source only and is never shown — see
-  // #map-tap in f35.css, and "the glass" below for why no portal can ever borrow it.
-  const MAP_URL = '/map-view?bare';
+  // #map-tap in f35.css, and "the glass" below for why no portal can ever borrow it. (The tap keeps
+  // its own src in f35.html and needs no ?nochrome: nothing about it is ever looked at.)
+  const MAP_URL = '/map-view?bare&nochrome';
 
   // Screens this layout can show, and the page each mounts. Every NAV action has an entry, so
   // nothing renders dimmed except this layout's own placeholders (MAIN_EXTRAS).
@@ -37,10 +38,17 @@
   // there is nothing left for a page to render. (The bezel needs MAIN twice: #info-box chrome in
   // full view, /main in a split pane. Here it needs it zero times; src/web/pages/main/ is
   // untouched and still serves the bezel.)
+  //
+  // ?nochrome tells a page this shell already shows its own-ship readouts, so it should not draw
+  // them twice: AVN drops its FUEL/THROTTLE bars and status tiles, MAP drops the mission name and
+  // the grid chip — the master strip carries all four. Each page owns the option and decides what
+  // it means; this layout only picks it. It is a URL flag rather than a message because a page
+  // reads it before its first paint, and a message would show the readouts and then take them away
+  // on every mount. The bezel passes it to nothing and is unaffected.
   const F35_PAGES = {
     main: null,
     map: MAP_URL,
-    avn: '/avn',
+    avn: '/avn?nochrome',
     rwr: '/rwr',
     tgt: '/tgt',
     tgp: '/tgp',

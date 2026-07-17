@@ -19,11 +19,13 @@ on it exactly as before.
   connection URLs and status, the mission name and ownship grid, the THRL and
   FUEL gauges, the AVN avionics flags, and the LAYOUT chooser.
 
-Both consume one shared navigation model. `NAV` has never been edited to
-serve the second layout, and **no page's rendering has changed** — which was
-this plan's central claim. One page file was touched, and only to stop it
-lying: `map/map.js` has a comment listing the slices `TelemetrySource` derives,
-and `mapinfo` made it short by one. Not a line of page behaviour moved.
+Both consume one shared navigation model. `NAV` has never been edited to serve
+the second layout, and **no page has a layout-specific implementation** — which
+was this plan's central claim, and it holds. Two pages now render *differently*
+under the F-35, which is a different thing: AVN and MAP each grew a `?nochrome`
+option of their own, and the F-35 is a host that asks for it (see "Decluttering"
+below). The page decides what its own option means; the layout only picks.
+Nothing under `pages/` knows a layout exists.
 
 What the F-35 cost outside its own `shell/f35/` directory, precisely: three
 tokens in `theme.css` (`--no-teal` and its rgb source; plus `--no-label`, which
@@ -56,10 +58,15 @@ been a theme, the teal would have been all of it.
 
 ## Goal
 
-Let a user pick a different shell/navigation design while every MFD page
-renders the exact same content. The page *content* is fixed; the
-*surrounding shell*, the navigation-label placement, and the split
-behavior are what a layout owns.
+Let a user pick a different shell/navigation design while every MFD page renders
+from one implementation. The page *is* fixed; the *surrounding shell*, the
+navigation-label placement, and the split behavior are what a layout owns.
+
+"One implementation" is the claim, not "one appearance" — a page may offer
+options and let its host choose between them, which it already did before there
+was a second layout: `avn-layout` carries a `full` or `compact` profile, and the
+bezel picks `compact` for a split pane. What a layout may never do is fork a
+page, or reach inside one.
 
 | Layout            | Frame            | Nav labels                          | Split model            |
 |-------------------|------------------|-------------------------------------|------------------------|
@@ -323,6 +330,34 @@ so four portals come out equal to the pixel. A merged one lands a shade under
 twice its neighbour (640 vs 322 at 1280) because it covers two slots but draws
 one frame, keeping the 4px the second would have spent — a seam's width, and not
 worth making a portal's size depend on its span.
+
+#### Decluttering — `?nochrome`
+
+The master strip carries the avionics flags, the THRL/FUEL gauges, the mission
+name and the ownship grid. AVN and MAP draw all four themselves, so on this
+layout they were drawn twice — and on a quarter-width portal the duplicates cost
+space the pages needed.
+
+So each of those two pages grew an option: `?nochrome` means *my host already
+shows my own-ship readouts, so I won't repeat them*. AVN drops its FUEL/THROTTLE
+bars and its status tiles, keeping the silhouette and failure labels that only it
+draws; MAP drops the mission bar and the GRID chip, keeping the map. The F-35
+sets it on both. The bezel sets it on nothing and renders exactly as before —
+which is the test that this is a page's option and not a layout's reach-in.
+
+**It is a URL flag, not a message.** Every other host→page instruction here is a
+postMessage (`avn-layout`, `orient`), but those adjust a page that is already
+painted, while this one decides *what to paint*. A message arriving after first
+paint would flash the readouts up and then pull them, on every mount — and a
+portal glass mounts pages constantly. An inline read in each page's `<head>`
+puts the class on `<html>` before the body parses, so they simply never appear.
+(`?bare`, the other flag in these URLs, is a convention no page has ever read.)
+
+**AVN's silhouette takes the freed space on its own.** The status tiles are
+inside the header, and `layoutAvnFrame` positions the frame below the header's
+*measured* bottom on every paint — so dropping them moved the silhouette 42px up
+and made it 42px taller at 320×640, with nothing told to do it. The bars are
+absolutely positioned and were never in anything's way; they just go.
 
 #### The palette — what the layout colours, and what it doesn't
 

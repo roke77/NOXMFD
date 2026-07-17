@@ -316,3 +316,21 @@ body.portrait .avn-vbar-value { font-size: clamp(16px, 1.8vh, 25.5px); }
 /* Portrait full is tall, so the name may grow past the landscape 32px cap. */
 body.full.portrait .avn-name { font-size: clamp(32px, 3.6vh, 51px); }
 body.full .avn-frame { bottom: auto; }
+
+/* ── ?nochrome ─────────────────────────────────────────────────────────────────────────
+   The host already shows this aircraft's own-ship readouts, so the page drops its own copies: the
+   FUEL/THROTTLE bars and the status tiles. What is left is what only this page draws — the damage
+   silhouette and its failure labels — and it gets the whole panel.
+
+   The F-35 sets it, because its master strip carries both (docs/layouts.md). The bezel never does,
+   and renders exactly as before. The class lands on <html> from the inline read in avn.html, before
+   first paint, so nothing flashes up and then leaves.
+
+   Only these two rules are needed: the tiles are INSIDE the header, and layoutAvnFrame measures the
+   header's real bottom on every paint, so the silhouette takes the freed space on its own. The bars
+   are absolutely positioned and were never in anyone's way. */
+.nochrome #avn-status { display: none; }
+/* .placed is what reveals a bar once the shell has sized it — match its specificity, not just
+   .avn-vbar's, so this wins wherever it sits in the cascade. */
+.nochrome .avn-vbar,
+.nochrome .avn-vbar.placed { display: none; }
