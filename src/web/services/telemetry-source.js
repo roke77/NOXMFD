@@ -1,8 +1,9 @@
 // TelemetrySource — the MAP page's "data provider" half, split out from the map view so each has
 // a single responsibility (SRP). It owns the ONE EventSource('/stream') connection, parses each
 // frame, and is the source of truth for telemetry in the whole MFD:
-//   • derives the per-page slices (status/loadout/cm/tgp/targets/rwr/mw/avn/follow) and posts them
-//     UP to the shell, which re-forwards them to the other pages; and
+//   • derives the slices (status/loadout/cm/tgp/targets/rwr/mw/avn/follow, and mapinfo) and posts
+//     them UP to the shell, which re-forwards them to the other pages. All but the last are
+//     per-page; mapinfo is for shell chrome that shows no map — see _emit; and
 //   • hands the raw parsed frame to the local map view via callbacks so it can render.
 // It knows nothing about canvas, DOM, zoom/pan, or gestures — that all lives in map.js (the view),
 // which instantiates this and consumes it. Co-located in the same iframe on purpose: the view

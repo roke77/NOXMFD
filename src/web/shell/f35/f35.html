@@ -24,8 +24,9 @@
 
   <!-- Master strip: a fixed full-width bar across the top of the glass, the home for what belongs
        to the aircraft rather than to any one portal (docs/layouts.md). Left to right: the wordmark,
-       the connection block (local + LAN URL and status, stacked), and the avionics flags. f35.js
-       fills the live values from the /config fetch and the status/avn telemetry slices. -->
+       the connection block (local + LAN URL and status, stacked), the mission block (name + grid),
+       the THRL/FUEL gauges, the avionics flags, and the LAYOUT chooser. f35.js fills the live
+       values from the /config fetch and the status/avn/mapinfo telemetry slices. -->
   <!-- Starts .booting so the connection block is hidden until the loading bar finishes — the URLs
        are typed in (f35.js), and must never flash fully-formed first. -->
   <div class="master-strip booting">
@@ -56,7 +57,7 @@
 
     <!-- THRL + FUEL, stacked — the AVN page's two gauges, laid horizontally. They read the same
          'avn' slice that drives the flags, so no new telemetry: fuel and throttle were already in
-         it. The trough is .ms-bar, the boot loader's own bar reused. -->
+         it. The trough is .ms-tube — AVN's own gauge tube turned on its side (f35.css). -->
     <div class="ms-gauges">
       <div class="ms-gauge thr na" id="ms-thr">
         <span class="ms-gauge-label">THRL</span>

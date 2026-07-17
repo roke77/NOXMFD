@@ -246,8 +246,9 @@
     }
 
     // Row 1 is the CM band; rows 2..6 are the weapon slots; the image spans rows 2..6. The grid and
-    // the frame are both inset:0 in the portal, so a row's offset is already the frame's own
-    // coordinate space — no frameTop to subtract, unlike the bezel reading shell-side separators.
+    // the frame fill the same box — the grid is inset:0 in the portal, the frame is 100%/100% of it
+    // — so a row's offset is already the frame's own coordinate space, with no frameTop to subtract
+    // unlike the bezel reading shell-side separators. (The portal's border shrinks both together.)
     function forwardWpnLayout() {
       const w = frameWin();
       if (!w) return;
@@ -505,9 +506,10 @@
 
   // ── Master strip ───────────────────────────────────────────────────────────────────────
   // Fixed chrome across the top (docs/layouts.md). It holds no page and no NAV, so it isn't a
-  // portal — the status/avn slices reach it from the message pump above, and the URLs come from the
-  // server once (the same /config the bezel's MAIN reads). The flags reuse avn-status-policy so the
-  // GEAR-down-is-red rule stays in one place, shared with the AVN page.
+  // portal — the status/avn/mapinfo slices reach it from the message pump above, and the URLs come
+  // from the server once (the same /config the bezel's MAIN reads). The flags and the THRL gauge
+  // reuse avn-status-policy and avn-throttle-policy, so the GEAR-down-is-red rule and the MIL/AB
+  // split stay in one place each, shared with the AVN page.
   const stripEl      = document.querySelector('.master-strip');
   const stripFlags   = [].slice.call(document.querySelectorAll('.ms-flag'));
   const stripStatus  = document.getElementById('ms-status');

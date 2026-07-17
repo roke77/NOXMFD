@@ -17,10 +17,17 @@ and on `feat/layouts`. The bezel remains the default and is unchanged.
   FUEL gauges, the AVN avionics flags, and the LAYOUT chooser.
 
 Both consume one shared navigation model. `NAV` has never been edited to
-serve the second layout, and **no page has changed** — which was this plan's
-central claim. The count so far: the whole F-35 layout, master strip included,
-lives in `shell/f35/` plus two lines of `theme.css` (its teal) and one added
-telemetry slice (`mapinfo`, for chrome that shows no map). Nothing else moved.
+serve the second layout, and **not one file under `pages/` has changed** —
+which was this plan's central claim, and is the branch's cleanest fact.
+
+What the F-35 cost outside its own `shell/f35/` directory, precisely: three
+tokens in `theme.css` (`--no-teal` and its rgb source; plus `--no-label`, which
+was promoted out of a hardcoded `#d4d8dc` in `mfd.css` when this layout wanted
+the same off-white — a one-line change to the bezel's stylesheet, same value);
+and one added telemetry slice, `mapinfo`, for chrome that shows no map. Stage 1
+is the other half of the branch's diff: extracting `NAV` out of `mfd.js` into
+`nav-model.js` moved ~200 lines of the bezel shell, which is the refactor the
+seam *is*, not a cost of the second layout.
 
 Outstanding: Stage 3 is partly there — LAYOUT switches to the bezel live, but
 the choice isn't remembered and the bezel has no way back, so the layout is
@@ -457,7 +464,7 @@ slice driving the flags.
 
 The AVN page's own bars could not come along. They are absolutely positioned and
 vertical, sized from rects the shell forwards, and their `%` readout tracks the
-fill's tip in pixels on every paint — none of which survives a 96px trough in a
+fill's tip in pixels on every paint — none of which survives a ~120px trough in a
 one-row bar. What travels instead is the **rule**, not the widget:
 `avn-throttle-policy` gives the MIL/AB split, the zone, and the readout string,
 so the strip cannot drift from the gauge it summarises. It earns its keep

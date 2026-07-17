@@ -5,7 +5,7 @@
 
 /* ── The layout's chrome colour ────────────────────────────────────────────────────────
    The real F-35's panoramic display draws its frame and its labels in teal, so this layout does
-   too: --no-teal (theme.css) on the separators between portals, the nav labels drawn on the glass,
+   too: --no-teal (theme.css) on the frame around each portal, the nav labels drawn on the glass,
    the corner grips, and the strip with its LAYOUT button.
 
    It stops at what the LAYOUT owns. Instrument data keeps the theme's palette wherever it sits —
@@ -40,11 +40,11 @@ html, body {
    rather than to any one portal (docs/layouts.md). The first child of the .pcd column, so the
    portals below are pushed down to make room rather than sliding under it: the two never share
    space, and no z-order or inset has to be reasoned about. One ninth of the glass tall; flex-basis
-   carries the height so flex-grow/shrink stay pinned. Empty for now — content is a later slice. */
+   carries the height so flex-grow/shrink stay pinned. */
 .master-strip {
   flex: 0 0 calc(100% / 9);
   box-sizing: border-box;
-  border-bottom: 2px solid var(--no-teal);   /* the same 2px seam the portal dividers use */
+  border-bottom: 2px solid var(--no-teal);   /* the same 2px the portal frames below draw */
   display: flex;
   align-items: center;
   gap: 28px;
@@ -328,7 +328,7 @@ html, body {
 /* LYT — the only thing in the strip you press; everything either side of it is a readout. So it is
    drawn as a button rather than a label: its name spelled out, and a border to say it has an edge
    to hit. currentColor ties that border to the item's own state, so it tracks the label it rings —
-   off-white at rest, amber while the picker is up, dark against the hover fill. */
+   teal at rest, amber while the picker is up, dark against the hover fill. */
 .master-strip .ms-lyt {
   border: 1px solid currentColor;
   border-radius: 3px;
@@ -444,9 +444,9 @@ html, body {
 
 /* ── Corner grips ──────────────────────────────────────────────────────────────────────
    The expand/retract control: an outline triangle in a portal's bottom corner, pointing out
-   towards that edge. Which corner (or none) is the pair rule — see f35.js gripSideFor. Portal
-   chrome rather than navigation, so it sits beside the label grid and survives a renderNav. Same
-   off-white as the labels: both name a control rather than report instrument data.
+   towards that edge. Which corner (or none) is the arrangement's business — see f35-glass.js
+   gripsFor. Portal chrome rather than navigation, so it sits beside the label grid and survives a
+   renderNav. The same teal as the labels: both name a control rather than report instrument data.
 
    Square, and the triangle fills it: the whole square is the target, so there is no dead padding
    around a small mark to tap and miss. */
