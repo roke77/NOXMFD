@@ -479,6 +479,9 @@ function clearViewState() {
 // MAP's own on-map chrome: the mission-name bar (top-left) and the GRID chip (bottom-right).
 // Every other telemetry slice (status / loadout / cm / tgp / targets / rwr / mw / avn) is derived
 // and broadcast to the shell by TelemetrySource._emit — the dedicated MFD pages render those.
+// This pair is the exception both ways: it is drawn here from the raw frame, AND emitted (as
+// 'mapinfo') for shell chrome that shows no map — the F-35's master strip. The two derive the
+// same values independently; neither reads the other.
 function updateHUD(d) {
   const bar = document.getElementById('mission-bar');
   if (d.mission) {

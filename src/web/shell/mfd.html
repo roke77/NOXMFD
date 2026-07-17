@@ -52,6 +52,19 @@
               </div>
             </div>
           </div>
+
+          <!-- LAYOUT page (reached by LYT on MAIN). Shell chrome, not a page under pages/: choosing
+               a layout is the shell's business, and a page must render the same under either shell —
+               the F-35 keeps its own chooser in the master strip for exactly that reason. Full-view
+               only like TGT, which needs no rule: it has no PAGE_URL and no SPLIT_SLOTS entry, so it
+               can never be a pane.
+               CLASSIC is marked here rather than in JS — this document IS the bezel, so which layout
+               is current is a constant, not state. The F-35's picker marks its own the same way. -->
+          <div class="layout-box" id="layout-box">
+            <div class="lb-title">LAYOUT</div>
+            <button type="button" class="lb-item on" data-layout="classic">CLASSIC</button>
+            <button type="button" class="lb-item" data-layout="f35">F-35</button>
+          </div>
           <!-- WPN content (weapon rows + CM panel) now lives in the #page-frame iframe
                (src/web/pages/wpn/), not here. The overlay only carries WPN's nav labels. -->
           <!-- TGP content (targeting-pod feed) now lives in the #page-frame iframe

@@ -3,9 +3,12 @@
 ## Status
 
 **In progress.** Stage 1 (the seam) and Stage 2 (a second layout) are built
-and on `feat/layouts`. The bezel remains the default and is unchanged.
+and on `feat/layouts`. The bezel remains the default, and every page renders
+on it exactly as before.
 
 - The **bezel** layout ships: a metallic 4/6/4/6 button frame, served at `/`.
+  It has gained one thing from this branch: an **LYT** key on MAIN opening a
+  LAYOUT page, so the two layouts can reach each other (see Stage 3).
 - The **F-35** layout is a working prototype, served at `/f35`: borderless,
   no keys, labels drawn on the glass, and framed in teal. Every page renders
   on it (MAIN, MAP, AVN, RWR, TGT, TGP, WPN). The glass is four independent
@@ -17,8 +20,10 @@ and on `feat/layouts`. The bezel remains the default and is unchanged.
   FUEL gauges, the AVN avionics flags, and the LAYOUT chooser.
 
 Both consume one shared navigation model. `NAV` has never been edited to
-serve the second layout, and **not one file under `pages/` has changed** —
-which was this plan's central claim, and is the branch's cleanest fact.
+serve the second layout, and **no page's rendering has changed** — which was
+this plan's central claim. One page file was touched, and only to stop it
+lying: `map/map.js` has a comment listing the slices `TelemetrySource` derives,
+and `mapinfo` made it short by one. Not a line of page behaviour moved.
 
 What the F-35 cost outside its own `shell/f35/` directory, precisely: three
 tokens in `theme.css` (`--no-teal` and its rgb source; plus `--no-label`, which
@@ -357,17 +362,41 @@ The rule for anything added here: measure the portal, never the window.
 
 ### Stage 3 — selection 🟡 partial
 
-The F-35 can switch live: the strip's **LAYOUT** replaces the portals with a
-two-item chooser (CLASSIC / F-35, the current one marked), and CLASSIC
-navigates to `/`. That is one direction only — the bezel has no way back, and
-neither shell remembers the choice, so a reload lands on whatever the URL says.
+**Both layouts can now switch to the other, live**, and each offers the choice
+in its own idiom rather than sharing a screen:
 
-So the layout is still chosen by URL (`/` vs `/f35`), which is enough to
-develop against but is not a user-facing setting. What is left: a BepInEx
-`ConfigEntry` (we already ship ConfigurationManager) or a `?layout=` query
-param that makes `/` serve either shell — at which point LAYOUT's CLASSIC sets
-that preference rather than just navigating, and the bezel can grow the
-matching control.
+- The F-35's strip has a bordered **LAYOUT** button; pressing it swaps the
+  portals for a two-item chooser centred on the glass.
+- The bezel has an **LYT** key on MAIN, opening a LAYOUT page whose two items
+  sit top-left, drawn on the glass in the screen's green.
+
+Both mark the layout you are on in the theme's engaged amber, and neither needs
+state to do it: each document *is* one of the layouts, so its own item is marked
+in the HTML and the other is simply somewhere else.
+
+Neither chooser is a page. Choosing a layout is the shell's business, and a page
+must render the same under either shell — so the F-35's lives in its strip and
+the bezel's is an overlay beside the info box. That also settles "full view
+only" for free: the bezel's LAYOUT has no `PAGE_URL` entry, so it cannot be a
+pane, and `setSplit`'s existing fall-back (`PAGE_URL[currentPage] ? … : 'main'`,
+written for TGT) lands both panes on MAIN if you split from it. Not one line
+enforces the rule.
+
+What LYT cost the bezel: it could not go in `NAV` — that list is shared, pinned
+at MAIN's six items, and the F-35 already offers this choice from its strip, so
+a `NAV` entry would put it on that layout's MAIN twice. The bezel therefore got
+its own `BEZEL_EXTRAS`, exactly as the F-35 keeps `MAIN_EXTRAS`. It also spent
+the prediction at `mfd.js:87`: `fullViewSlot` fills the left bank in order and
+MAIN's six fill it exactly, so **LYT is the first label this shell has had to
+place anywhere else** (right bank, key 0). One item, so it names its own key
+rather than earning a placement table.
+
+**Still missing: the choice doesn't stick.** Both directions work, but neither
+shell remembers, so a reload lands on whatever the URL says. The layout is still
+chosen by URL (`/` vs `/f35`). What is left: a BepInEx `ConfigEntry` (we already
+ship ConfigurationManager) or a `?layout=` query param that makes `/` serve
+either shell — at which point each chooser sets that preference instead of
+navigating.
 
 ## The master strip
 
