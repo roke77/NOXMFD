@@ -27,7 +27,7 @@
     <AssemblyName>NOXMFD</AssemblyName>
     <Product>NOXMFD</Product>
     <Description>NO XMFD: live Nuclear Option telemetry (HUD + MFD)</Description>
-    <Version>0.13.0</Version>
+    <Version>0.14.0</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>NOXMFD</RootNamespace>
