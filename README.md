@@ -56,10 +56,11 @@ NO XMFD for you, and keeps it up to date.
 <details>
 <summary><strong>Changing settings (ConfigurationManager)</strong></summary>
 
-NO XMFD's own settings — the Declutter HUD toggles and the extended keybinds —
-are changed either in the in-game **ConfigurationManager** menu or by hand in
+NO XMFD's own settings — the extended keybinds — are changed either in the
+in-game **ConfigurationManager** menu or by hand in
 `BepInEx/config/com.roque.NOXMFD.cfg`. The plugin runs fine without any of this;
-you only need it to adjust those settings.
+you only need it to adjust those settings. (The HUD declutter toggles used to
+live here too; they moved onto the HUD MFD page.)
 
 To use the in-game menu, install **ConfigurationManager** — the settings editor,
 much friendlier than editing the config file by hand. Download the **BepInEx 5**
@@ -140,6 +141,8 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
+- **HUD** — a remote for the game's in-cockpit HUD OPTIONS: mode tabs (NAV/GUN/A2A/…) and per-category / per-type toggles for which unit icons show on the HUD, plus a declutter strip that hides native HUD widgets — the weapon panel, corner minimap, and boxed flight readouts. Full-view only for the moment.
+
 - **WPN** — weapon loadout and rounds remaining, plus IR-flare count and jammer charge.
 
   <details>
@@ -206,15 +209,6 @@ fuel, and the avionics flags.
 ![F-35 layout — 2-2 portal split](docs/images/F-35%202-2.png)
 
 </details>
-
-### Declutter HUD
-
-Optional toggles to hide native in-game HUD elements, available in the BepInEx
-configuration menu.
-
-- **Weapon & ammo** — hide the top-right weapon name / ammo and countermeasure count readouts.
-- **Minimap** — hide the bottom-left corner minimap.
-- **Top boxes** — hide the boxed heading / airspeed / altitude readouts flanking the heading tape.
 
 ### Extended Keybinds
 
