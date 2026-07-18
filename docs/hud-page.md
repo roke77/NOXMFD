@@ -118,7 +118,7 @@ mislabelled.
 ## The native-HUD declutter strip
 
 Above the HUDOptions replica sits a one-row strip of three toggles — WEAPONS,
-MINIMAP, TOP BOXES — that drive the mod's **own** `HudDeclutter` feature
+MINIMAP, FLIGHT — that drive the mod's **own** `HudDeclutter` feature
 ([HudDeclutter.cs](../src/plugin/HudDeclutter.cs)), not the game's `HUDOptions`.
 It is a separate axis: HUDOptions gates which *unit icons* draw on the HUD; these
 hide native HUD *widgets* (the top-right weapon/ammo/CM cluster, the corner
@@ -128,21 +128,25 @@ outline-only lit styling so they don't read as more mode tabs).
 
 The live-apply was already proven before this page existed: `HudDeclutter`
 re-reads its three `HudDeclutterConfig` flags every tick and hides/restores
-within ~0.5 s (the minimap within a frame), which is how the in-game F1
-ConfigurationManager checkboxes already worked. So integrating them was only
-wiring, no new game-integration risk:
+within ~0.5 s (the minimap within a frame). Those flags used to be flipped from
+the F1 ConfigurationManager menu; that path proved the live-apply, so wiring the
+page to the same flags carried no new game-integration risk:
 
 - **Command** — `declutter.set {group, on}`, `group` ∈ `weapon` | `minimap` |
   `boxes`, `on` = the desired **hide** state. The handler writes the matching
-  `ConfigEntry.Value`; that persists to the cfg and fires `SettingChanged`, so
-  the F1 checkbox stays in sync, and `HudDeclutter` applies it on its next tick —
-  nothing to apply in the handler.
+  `ConfigEntry.Value` (which persists to the .cfg); `HudDeclutter` applies it on
+  its next tick — nothing to apply in the handler.
 - **Read** — `/hud-options` gained a `declutter: {weapon, minimap, boxes}` object
   (each `true` = currently hidden), so the same 1.2 s poll that syncs the rest of
-  the page also reflects a flag flipped from the F1 menu.
+  the page also reflects a flag edited directly in the .cfg.
 - **Page** — the strip inverts the reported hide flag to a lit/gray "shown on
   HUD" state, matching the rest of the page (lit green = visible). A click flips
   optimistically and POSTs `declutter.set` with the inverse (`on` = hide).
+
+Once the page became the control surface, the three `ConfigEntry`s were marked
+`Browsable = false` so they no longer show in the F1 menu — otherwise they'd be a
+redundant second set of checkboxes. They still persist to the .cfg (so a declutter
+choice survives a restart) and stay hand-editable there.
 
 ## Matching the in-game look
 
