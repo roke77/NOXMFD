@@ -106,10 +106,11 @@ function fullViewSlot(i) { return { bank: 'left', index: i }; }
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
   main: [{ label: 'LYT',  action: 'lyt',  bank: 'right', index: 0 }],
+  // No MAIN back-item here — picking CLASSIC already navigates back to MAIN (this shell), so a
+  // separate way-back label would be redundant with it.
   lyt:  [
-    { label: 'MAIN',    action: 'main',       bank: 'left', index: 0 },   // the way back, as NAV gives every page
-    { label: 'CLASSIC', action: 'lyt-classic', bank: 'left', index: 1, mark: true },
-    { label: 'F-35',    action: 'lyt-f35',     bank: 'left', index: 2 },
+    { label: 'CLASSIC', action: 'lyt-classic', bank: 'left', index: 0, mark: true },
+    { label: 'F-35',    action: 'lyt-f35',     bank: 'left', index: 1 },
   ],
 };
 

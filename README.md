@@ -193,8 +193,8 @@ A borderless, touch-driven layout modelled on the real F-35's panoramic cockpit
 display: there are no bezel keys — the navigation labels are drawn on the glass
 and tapped directly, and the screen divides into side-by-side portals, each an
 independent MFD, that you merge and split with corner grips. A fixed strip
-across the top carries the aircraft-level readouts — connection, mission,
-throttle and fuel, and the avionics flags.
+across the top carries the aircraft-level readouts — connection, throttle and
+fuel, and the avionics flags.
 
 <details>
 <summary>$\color{green}\textsf{See screenshots}$</summary>

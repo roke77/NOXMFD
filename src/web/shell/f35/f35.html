@@ -28,9 +28,9 @@
 
   <!-- Master strip: a fixed full-width bar across the top of the glass, the home for what belongs
        to the aircraft rather than to any one portal (docs/layouts.md). Left to right: the wordmark,
-       the connection block (local + LAN URL and status, stacked), the mission block (name + grid),
-       the THRL/FUEL gauges, the avionics flags, and the LAYOUT chooser. f35.js fills the live
-       values from the /config fetch and the status/avn/mapinfo telemetry slices. -->
+       the connection block (local + LAN URL and status, stacked), the THRL/FUEL gauges, the avionics
+       flags, and the LAYOUT chooser (and FULLSCREEN beside it). f35.js fills the live values from
+       the /config fetch and the status/avn telemetry slices. -->
   <!-- Starts .booting so the connection block is hidden until the loading bar finishes — the URLs
        are typed in (f35.js), and must never flash fully-formed first. -->
   <div class="master-strip booting">
@@ -48,15 +48,6 @@
         <div class="ms-url" id="ms-lan"></div>
         <div class="ms-status disconnected" id="ms-status">● DISCONNECTED</div>
       </div>
-    </div>
-
-    <!-- Mission name + ownship grid, stacked — the pair the map page draws on itself (its mission
-         bar and GRID chip), from the 'mapinfo' slice. Starts hidden and stays that way until a
-         mission is loaded: with none there is nothing to name and no grid to be in, so the block
-         leaves rather than sitting there full of dashes. -->
-    <div class="ms-map" id="ms-map" hidden>
-      <div class="mfd-chip" id="ms-map-name"></div>
-      <div class="mfd-chip" id="ms-grid"></div>
     </div>
 
     <!-- THRL + FUEL, stacked — the AVN page's two gauges, laid horizontally. They read the same
@@ -136,6 +127,12 @@
          same choice four times. Last item, after the flags. -->
     <button type="button" class="nav-item ms-lyt" id="ms-lyt"
             title="Choose the display layout">LAYOUT</button>
+
+    <!-- Same fullscreen toggle as the bezel's top-key icon (mfd.css .ic-fullscreen), reused here
+         since the F-35 shell has no bezel key bank to carry it. -->
+    <button type="button" class="nav-item ms-fll" id="ms-fll" title="Fullscreen">
+      <span class="ms-fll-icon" aria-hidden="true"></span>
+    </button>
   </div>
 
   <!-- Portals are built by f35.js, not declared here: full view is one portal and a split is
