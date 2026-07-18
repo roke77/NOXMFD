@@ -59,8 +59,7 @@ NO XMFD for you, and keeps it up to date.
 NO XMFD's own settings — the extended keybinds — are changed either in the
 in-game **ConfigurationManager** menu or by hand in
 `BepInEx/config/com.roque.NOXMFD.cfg`. The plugin runs fine without any of this;
-you only need it to adjust those settings. (The HUD declutter toggles used to
-live here too; they moved onto the HUD MFD page.)
+you only need it to adjust those settings.
 
 To use the in-game menu, install **ConfigurationManager** — the settings editor,
 much friendlier than editing the config file by hand. Download the **BepInEx 5**
