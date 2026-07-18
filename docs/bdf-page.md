@@ -2,12 +2,15 @@
 
 ## Status
 
-**Planned — not started.** Branch `feat/bdf-page`. Replicate the game's
-in-cockpit faction/HQ status panel (screenshot supplied by the user) as a new
-MFD page: header (faction name, WARHEADS, SCORE, FUNDS) + a forces breakdown
-(SHIPS / BUILDINGS / VEHICLES / AIRCRAFT), always for **the player's own
-faction**. The enemy-faction view (the game's `SelectFaction.Other`) is
-explicitly out of scope — a separate branch/page later.
+**Shipped on `feat/bdf-page` — not yet merged, not `dotnet build`-verified.**
+Replicated the game's in-cockpit faction/HQ status panel as a new MFD page:
+header (faction name, WARHEADS, SCORE, FUNDS) + a forces breakdown (SHIPS /
+BUILDINGS / VEHICLES / AIRCRAFT), always for **the player's own faction**.
+The enemy-faction view (the game's `SelectFaction.Other`) is explicitly out
+of scope — a separate branch/page later. Verified end-to-end in the
+`serve_web` harness (both the CLASSIC bezel and the F-35 layout); the plugin
+side (C#) has no compiler available in this environment (no `dotnet`/game
+DLLs), so it needs a real build + in-game pass before merging.
 
 ## What the in-game BDF page is
 
@@ -69,7 +72,7 @@ per-aircraft blocks do when there's no local aircraft yet.
 
 ## Plan
 
-1. **Telemetry snapshot** (`src/plugin/TelemetrySnapshot.cs`) — add a `Bdf*`
+1. **[done] Telemetry snapshot** (`src/plugin/TelemetrySnapshot.cs`) — add a `Bdf*`
    block: `BdfPresent` (bool), `BdfFaction` (string), `BdfFunds` (float),
    `BdfScore` (float), `BdfWarheads` (int), and four arrays of a small
    `{Name, Count}` struct (mirrors `TgtToggleInfo`'s `{Name, On}` shape) —
@@ -79,54 +82,71 @@ per-aircraft blocks do when there's no local aircraft yet.
    is enumerated, the section total is just the sum of its array, derived
    client-side (one less thing to keep in sync).
 
-2. **TelemetryReader** — on the reader's slow tick (this doesn't need
+2. **[done] TelemetryReader** — on the reader's slow tick (this doesn't need
    60 Hz), resolve `aircraft.NetworkHQ`; if null, emit `BdfPresent = false`
    (mirrors TGT's `present:false` path) and skip the rest. Otherwise read
    the header scalars and bucket `missionStatsTracker.currentUnits` into the
    three type arrays via each definition's type enum, plus the aircraft list
    filtered by `IsAllowed(MissionManager.AllowEventContent)`.
 
-3. **AssetCapture** — add `TryCaptureShipTypeIcons()`, a straight mirror of
-   `TryCaptureVehicleTypeIcons()` (`src/plugin/AssetCapture.cs:337`) over
-   `Encyclopedia.i.shipTypes[i].typeSprite`. For aircraft, **no new capture
-   method** — reuse the existing generic `TryCaptureIcon(UnitDefinition)`
-   (`AssetCapture.cs:420`), but call it proactively over every
-   `Encyclopedia.i.aircraft` definition (not just units the world-scan has
-   sighted this mission), so the grid has an icon for airframes never
-   spotted yet.
+3. **[done] AssetCapture** — added `TryCaptureShipTypeIcons()`, a straight
+   mirror of `TryCaptureVehicleTypeIcons()` (`src/plugin/AssetCapture.cs:337`)
+   over `Encyclopedia.i.shipTypes[i].typeSprite`. For aircraft, **no new
+   capture method** — reuses the existing generic
+   `TryCaptureIcon(UnitDefinition)` (`AssetCapture.cs:420`), called
+   proactively over every `Encyclopedia.i.aircraft` definition (not just
+   units the world-scan has sighted this mission), so the grid has an icon
+   for airframes never spotted yet. Also added `TryCaptureFactionLogo(hq)`
+   (not in the original plan, added for visual fidelity with the
+   screenshot) — captures `Faction.factionColorLogo` once per faction name,
+   sharing the `/bdf-icon` store (no collision risk with the short
+   ship-type codes).
 
-4. **TelemetryServer** — serialize the `bdf` block into the SSE frame
-   (mirrors `tgt`'s serialization at `TelemetryServer.cs:861`). Add
-   `SetBdfIcon` / `/bdf-icon?type=` for ship-type icons, mirroring
-   `SetTgtIcon` / `/tgt-icon` exactly (`TelemetryServer.cs:281,354`).
-   Aircraft icons keep using the existing `/icon?type=<unitName>`.
+4. **[done] TelemetryServer** — serializes the `bdf` block into the SSE
+   frame (mirrors `tgt`'s serialization at `TelemetryServer.cs:861`). Added
+   `SetBdfIcon` / `/bdf-icon?type=` for ship-type icons (and the faction
+   logo), mirroring `SetTgtIcon` / `/tgt-icon` exactly
+   (`TelemetryServer.cs:281,354`). Aircraft icons keep using the existing
+   `/icon?type=<unitName>`.
 
-5. **Web frontend** — new `src/web/pages/bdf/{bdf.html,bdf.css,bdf.js}`,
+5. **[done] Web frontend** — new `src/web/pages/bdf/{bdf.html,bdf.css,bdf.js}`,
    styled like AVN/TGT (green monospace theme, matches the screenshot).
    Header block (faction name + logo + WARHEADS/SCORE/FUNDS), a static
    "FORCES" label (no dropdown — the other six `DisplayType` modes are out
    of scope and not rendered at all for this pass), then the four rows
-   exactly as laid out in the screenshot: SHIPS (icons only, no section
-   total shown), BUILDINGS / VEHICLES (text labels, bold section total),
-   AIRCRAFT (icons, bold section total). `BdfPresent:false` shows an
-   UNAVAILABLE placeholder (same pattern as TGT).
+   exactly as laid out in the screenshot: SHIPS (icon + label + count, no
+   section total shown), BUILDINGS / VEHICLES (label + count, bold section
+   total), AIRCRAFT (icon + count only, bold section total). `present:false`
+   shows an UNAVAILABLE placeholder (same pattern as TGT).
 
-6. **telemetry-source.js** — map the new `bdf` SSE block into a page-level
-   slice, same pattern as `tgt`.
+6. **[done] telemetry-source.js** — maps the new `bdf` SSE block into a
+   page-level slice, same pattern as `tgt`.
 
-7. **Wire nav** — `NAV.main` (`nav-model.js`) is pinned at exactly 6 items
-   (enforced by `nav-model.test.js`) and already full (AVN/MAP/RWR/TGP/TGT/
-   WPN), so BDF can't slot in there. It gets a `BEZEL_EXTRAS` entry
-   (`mfd.js`) instead, right after LYT: `{ label: 'BDF', action: 'bdf',
-   bank: 'right', index: 1 }` (LYT keeps `index: 0`).
+7. **[done] Wire nav** — `NAV.main` (`nav-model.js`) is pinned at exactly 6
+   items (enforced by `nav-model.test.js`) and already full (AVN/MAP/RWR/
+   TGP/TGT/WPN), so BDF couldn't slot in there. Added as a `BEZEL_EXTRAS`
+   entry (`mfd.js`) instead, right after LYT: `{ label: 'BDF', action: 'bdf',
+   bank: 'right', index: 1 }` (LYT keeps `index: 0`). **Also wired the F-35
+   layout** (`src/web/shell/f35/f35.js` — `F35_PAGES.bdf`, `PAGE_FEEDS.bdf`),
+   which wasn't in the original plan: BDF was already a greyed-out
+   `MAIN_EXTRAS` placeholder there (alongside HUD/PAL), so it lit up once
+   given a page. Both shells needed the same top-left collision fix TGT
+   already has — BDF's own WARHEADS readout sits where the bezel's/F-35's
+   MAIN back-label lands, so both got the `bdf-page` vertical-label
+   treatment (`mfd.css`/`mfd.js` and `f35.css`'s `[data-page="tgt"]` selector
+   extended to `bdf`) — found by actually clicking through the rendered page
+   in the browser, not by inspection.
 
-8. **tools/preview-mock.js** — add a mock `bdf` block + `/bdf-icon`
-   responses so the page can be iterated on in the `serve_web` harness
-   without the game running (same as TGT's mock).
+8. **[done] tools/preview-mock.js + serve_web.py** — added a mock `bdf`
+   block matching the reference screenshot's numbers 1:1, plus a
+   `/bdf-icon` placeholder route mirroring `/tgt-icon`.
 
-9. **Verify** — `serve_web` harness pass (renders, mock counts match the
-   screenshot's layout) + in-game pass (real `FactionHQ` data, icons
-   actually captured, bezel key reachable).
+9. **[partially done] Verify** — `serve_web` harness pass complete: rendered
+   and clicked through both the CLASSIC bezel and F-35 layouts, confirmed
+   against the reference screenshot's numbers, caught and fixed the label
+   collision above. **Not done**: `dotnet build` (no compiler in this
+   environment) and an in-game pass (real `FactionHQ` data, real captured
+   icons, bezel key reachable on the physical/virtual MFD).
 
 ## Open questions
 

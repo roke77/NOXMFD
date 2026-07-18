@@ -441,9 +441,10 @@
   /* Bank-specific label anchors; JS supplies the cross-axis coordinate. */
   .overlay-item.left  { left: 16px; transform: translateY(-50%); }
   .overlay-item.right { right: 16px; transform: translateY(-50%); }
-  /* TGT page: render the left-bank label (MAIN) as stacked upright letters so it hugs the left
-     edge and doesn't overlap the page's top-left RESET FILTER button. */
-  .overlay.tgt-page .overlay-item.left {
+  /* TGT/BDF pages: render the left-bank label (MAIN) as stacked upright letters so it hugs the
+     left edge and doesn't overlap TGT's top-left RESET FILTER button / BDF's WARHEADS readout. */
+  .overlay.tgt-page .overlay-item.left,
+  .overlay.bdf-page .overlay-item.left {
     writing-mode: vertical-rl;
     text-orientation: upright;
     letter-spacing: 0;

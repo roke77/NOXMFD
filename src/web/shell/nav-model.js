@@ -36,6 +36,7 @@
     avn: [ { label: 'MAIN', action: 'main' } ],
     rwr: [ { label: 'MAIN', action: 'main' } ],
     tgt: [ { label: 'MAIN', action: 'main' } ],
+    bdf: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN (docs/bdf-page.md)
     wpn: [],
   };
 

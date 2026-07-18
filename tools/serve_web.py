@@ -56,6 +56,13 @@ TGT_ICON_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
                 '<rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="#39ff14" '
                 'stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="#39ff14"/></svg>')
 
+# Mock BDF ship-type icon + faction logo (the real ones are captured from Encyclopedia.i.shipTypes /
+# Faction.factionColorLogo in-game — see docs/bdf-page.md). A diamond glyph so the preview shows the
+# icon slot filled for both the ship row and the header logo; labels/counts carry the real meaning.
+BDF_ICON_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+                '<polygon points="12,2 22,12 12,22 2,12" fill="none" stroke="#39ff14" '
+                'stroke-width="2"/></svg>')
+
 MIME = {'.css': 'text/css', '.js': 'text/javascript', '.woff2': 'font/woff2', '.html': 'text/html',
         '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg'}
 
@@ -173,6 +180,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(WEAPON_SVG.encode('utf-8'), 'image/svg+xml')
         if path == '/tgt-icon':
             return self._send(TGT_ICON_SVG.encode('utf-8'), 'image/svg+xml')
+        if path == '/bdf-icon':
+            return self._send(BDF_ICON_SVG.encode('utf-8'), 'image/svg+xml')
         if path == '/airframe-layout':
             typ = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('type', [''])[0]
             layout = _asset_json('airframe-layout:' + typ)

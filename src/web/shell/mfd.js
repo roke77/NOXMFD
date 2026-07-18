@@ -63,7 +63,7 @@ const paneIframes = [document.getElementById('pane-top'), document.getElementByI
 const pageFrame = document.getElementById('page-frame');   // full-view host for the frame-hosted pages (WPN, TGT, TGP)
 // Pages that render in #page-frame in full view (rather than as overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
-const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt' };
+const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt', bdf: '/bdf' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
@@ -105,7 +105,10 @@ function fullViewSlot(i) { return { bank: 'left', index: i }; }
 // no panel: every other page in this shell puts its items beside a physical key, and a chooser is
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
-  main: [{ label: 'LYT',  action: 'lyt',  bank: 'right', index: 0 }],
+  main: [
+    { label: 'LYT', action: 'lyt', bank: 'right', index: 0 },
+    { label: 'BDF', action: 'bdf', bank: 'right', index: 1 },   // docs/bdf-page.md
+  ],
   lyt:  [
     { label: 'MAIN',    action: 'main',       bank: 'left', index: 0 },   // the way back, as NAV gives every page
     { label: 'CLASSIC', action: 'lyt-classic', bank: 'left', index: 1, mark: true },
@@ -450,6 +453,12 @@ function forwardTgtTargetsToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage({ mfd: true, type: 'tgt-targets', items: targetsData.targets || [] }, '*');
 }
+// Full-view BDF: forward the whole faction-forces block to the #page-frame iframe (docs/bdf-page.md).
+// A plain state mirror, same shape as TGT — no geometry, the page isn't bezel-anchored.
+function forwardBdfToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage(Object.assign({ mfd: true, type: 'bdf' }, bdfData), '*');
+}
 function forwardMwToPanes() {
   paneIframes.forEach(function(iframe, idx) {
     if (panePages[idx] !== 'rwr') return;
@@ -684,6 +693,7 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'avn') { forwardAvnLayoutToFrame(); forwardAvnToFrame(); }
   else if (currentPage === 'rwr') { forwardRwrToFrame(); forwardMwToFrame(); }
   else if (currentPage === 'tgt') { forwardTgtToFrame(); forwardTgtTargetsToFrame(); }
+  else if (currentPage === 'bdf') { forwardBdfToFrame(); }
 });
 
 // Top-right indicator stack (PINNED + FOLLOW). pinnedPage tracks which page (if any)
@@ -804,6 +814,10 @@ let mwData  = { items: [] };
 // state and forwards it to the frame; the page renders the toggles + POSTs the tgt.* commands.
 let tgtData = { present: false };
 
+// Latest BDF faction-forces state, mirrored from the map iframe's SSE feed (docs/bdf-page.md).
+// Full-view only, like TGT — the shell keeps only this state and forwards it to the frame.
+let bdfData = { present: false };
+
 function clearKeyActions() {
   // Only the page-dynamic banks (left/right) get cleared between pages. The top and bottom
   // banks hold page-independent controls (fullscreen on top; PIN, SWAP, layout… on bottom)
@@ -846,9 +860,11 @@ function placeOverlayLabel(bankName, keyIndex, label, action, mark) {
 function showPage(name) {
   currentPage = name;
   overlayEl.classList.toggle('opaque', !!OPAQUE_PAGES[name]);
-  // TGT keeps clickable content in the top-left where the MAIN bezel label sits; a class here lets
-  // mfd.css render that label vertically so it hugs the edge and clears the page's RESET button.
+  // TGT and BDF both keep their own content in the top-left where the MAIN bezel label sits; a
+  // class here lets mfd.css render that label vertically so it hugs the edge and clears TGT's
+  // RESET button / BDF's WARHEADS readout (docs/bdf-page.md).
   overlayEl.classList.toggle('tgt-page', name === 'tgt');
+  overlayEl.classList.toggle('bdf-page', name === 'bdf');
   infoBox.classList.toggle('show', name === 'main');
   screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGT/TGP/AVN render in #page-frame
   clearKeyActions();
@@ -900,6 +916,13 @@ function showPage(name) {
     showFramePage('tgt');
     forwardTgtToFrame();
     forwardTgtTargetsToFrame();
+  }
+  // BDF renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.bdf, placed
+  // by the generic sweep above) — the right-bank BDF key itself lives in BEZEL_EXTRAS, not NAV, so
+  // it never appears on a split pane's MAIN (same as LYT). Forward the faction-forces state.
+  if (name === 'bdf') {
+    showFramePage('bdf');
+    forwardBdfToFrame();
   }
 
   // refreshFollowIndicator (not just renderIndicators) because the FOLLOW chip's membership
@@ -1013,6 +1036,11 @@ window.addEventListener('message', function(e) {
     // (no split-pane variant); forward on when it's the page in view.
     tgtData = m;
     if (currentPage === 'tgt' && !splitMode) forwardTgtToFrame();
+  } else if (m.type === 'bdf') {
+    // Mirror the BDF faction-forces state. Renders in the #page-frame iframe only (no split-pane
+    // variant, like TGT); forward on when it's the page in view.
+    bdfData = m;
+    if (currentPage === 'bdf' && !splitMode) forwardBdfToFrame();
   }
 });
 
@@ -1192,6 +1220,7 @@ function mfdButton(el) {
     case 'avn':  showPage('avn');  break;
     case 'rwr':  showPage('rwr');  break;
     case 'tgt':  showPage('tgt');  break;
+    case 'bdf':  showPage('bdf');  break;
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;

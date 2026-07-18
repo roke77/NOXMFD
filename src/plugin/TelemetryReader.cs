@@ -42,6 +42,18 @@ namespace NOXMFD
         private int _flares    = -1;   // IR flares remaining (refreshed in the 1 Hz scan)
         private int _flaresMax = -1;   // IR flares capacity   (refreshed in the 1 Hz scan)
 
+        // BDF faction-forces panel (docs/bdf-page.md), refreshed in the 1 Hz scan alongside the
+        // loadout — forces counts change on unit spawn/loss, not frame to frame.
+        private bool           _bdfPresent;
+        private string         _bdfFaction   = string.Empty;
+        private float          _bdfFunds;
+        private float          _bdfScore;
+        private int            _bdfWarheads;
+        private BdfCountInfo[] _bdfShips     = Array.Empty<BdfCountInfo>();
+        private BdfCountInfo[] _bdfVehicles  = Array.Empty<BdfCountInfo>();
+        private BdfCountInfo[] _bdfBuildings = Array.Empty<BdfCountInfo>();
+        private BdfCountInfo[] _bdfAircraft  = Array.Empty<BdfCountInfo>();
+
         // The game's HUD faction colors, read once from GameAssets.
         private string _colFriendly = "#39ff14";
         private string _colHostile  = "#ff4040";
@@ -146,6 +158,7 @@ namespace NOXMFD
 
             _assets.CaptureMissileWarningIcon();   // one-time: the real missile-warning sprite for the MAP page
             _assets.TryCaptureVehicleTypeIcons();  // one-time per type: the TGT page's vehicle-filter icons
+            _assets.TryCaptureShipTypeIcons();     // one-time per type: the BDF page's ship-row icons
 
             // Resolve the map bounds + grid offsets and capture the real in-game map image.
             if (_level == null)
@@ -177,7 +190,88 @@ namespace NOXMFD
                 _assets.TryCaptureCmIcons(ac);
                 _assets.TryLogPartLayout(ac);
                 _assets.TryCaptureAirframe(ac);
+                BuildBdf(ac);
             }
+            else
+            {
+                _bdfPresent = false;
+            }
+        }
+
+        // Faction-forces breakdown for the BDF page (docs/bdf-page.md). BdfPresent=false when the
+        // local aircraft has no FactionHQ yet (e.g. between missions) — the page then shows an
+        // unavailable state, same as TGT's present:false.
+        private void BuildBdf(Aircraft ac)
+        {
+            FactionHQ hq = ac.NetworkHQ;
+            MissionStatsTracker tracker = hq != null ? hq.missionStatsTracker : null;
+            if (hq == null || tracker == null)
+            {
+                _bdfPresent   = false;
+                _bdfFaction   = string.Empty;
+                _bdfFunds     = 0f;
+                _bdfScore     = 0f;
+                _bdfWarheads  = 0;
+                _bdfShips     = Array.Empty<BdfCountInfo>();
+                _bdfVehicles  = Array.Empty<BdfCountInfo>();
+                _bdfBuildings = Array.Empty<BdfCountInfo>();
+                _bdfAircraft  = Array.Empty<BdfCountInfo>();
+                return;
+            }
+
+            Encyclopedia enc = Encyclopedia.i;
+            _assets.TryCaptureFactionLogo(hq);
+
+            _bdfPresent   = true;
+            _bdfFaction   = hq.faction != null ? hq.faction.factionName : string.Empty;
+            _bdfFunds     = hq.factionFunds;
+            _bdfScore     = hq.factionScore;
+            _bdfWarheads  = hq.GetWarheadStockpile();
+            _bdfShips     = BdfTypeCounts(enc?.shipTypes,     enc?.ships,     tracker, d => ((ShipDefinition)d).shipType.ToString());
+            _bdfVehicles  = BdfTypeCounts(enc?.vehicleTypes,  enc?.vehicles,  tracker, d => ((VehicleDefinition)d).vehicleType.ToString());
+            _bdfBuildings = BdfTypeCounts(enc?.buildingTypes, enc?.buildings, tracker, d => ((BuildingDefinition)d).buildingType.ToString());
+            _bdfAircraft  = BdfAircraftCounts(enc, tracker);
+        }
+
+        // Sums current-unit counts per named type (SHIPS: CV/LHA/…, VEHICLES: TRUCK/UGV/…,
+        // BUILDINGS: CIV/FAC/…), mirroring the game's own InfoPanel_ItemPrefab.RefreshDefinition:
+        // one Encyclopedia.i.*Types entry per row, current count summed over every definition in
+        // that list whose type-enum name matches. Enum order comes from the *Types list itself
+        // (the same list the game builds its panel rows from), not a hardcoded enum dump.
+        private static BdfCountInfo[] BdfTypeCounts(
+            List<Encyclopedia.UnitType> types, IEnumerable<UnitDefinition> defs,
+            MissionStatsTracker tracker, Func<UnitDefinition, string> typeNameOf)
+        {
+            if (types == null) return Array.Empty<BdfCountInfo>();
+            var arr = new BdfCountInfo[types.Count];
+            for (int i = 0; i < types.Count; i++)
+            {
+                string typeName = types[i].typeName;
+                int count = 0;
+                if (defs != null)
+                    foreach (UnitDefinition d in defs)
+                        if (d != null && typeNameOf(d) == typeName)
+                            count += tracker.GetCurrentUnits(d);
+                arr[i] = new BdfCountInfo { Name = typeName, Count = count };
+            }
+            return arr;
+        }
+
+        // One entry per allowed AircraftDefinition — unlike ships/vehicles/buildings, aircraft
+        // aren't grouped by type in-game (each is its own icon). Name is the unitName, doubling as
+        // the /icon key. Also proactively captures each definition's icon here (not just ones the
+        // world-scan has spotted this mission), so the BDF grid has an icon for every airframe.
+        private BdfCountInfo[] BdfAircraftCounts(Encyclopedia enc, MissionStatsTracker tracker)
+        {
+            if (enc == null || enc.aircraft == null) return Array.Empty<BdfCountInfo>();
+            var list = new List<BdfCountInfo>(enc.aircraft.Count);
+            foreach (AircraftDefinition def in enc.aircraft)
+            {
+                if (def == null || !def.IsAllowed(MissionManager.AllowEventContent)) continue;
+                _assets.TryCaptureIcon(def);
+                list.Add(new BdfCountInfo { Name = def.unitName, Count = tracker.GetCurrentUnits(def) });
+            }
+            return list.ToArray();
         }
 
         // Sums IR flares (remaining + capacity) across all flare ejectors. Returns (-1, -1)
@@ -471,7 +565,16 @@ namespace NOXMFD
                 TgtHud         = tgtOk && tgtSel.toggleFollowHUD  != null && tgtSel.toggleFollowHUD.status,
                 TgtFaction     = tgtOk ? ReadToggles(tgtSel.toggleFactionItems)      : Array.Empty<TgtToggleInfo>(),
                 TgtCategory    = tgtOk ? ReadToggles(tgtSel.toggleUnitTypesItems)    : Array.Empty<TgtToggleInfo>(),
-                TgtVehicle     = tgtOk ? ReadToggles(tgtSel.toggleVehicleTypesItems) : Array.Empty<TgtToggleInfo>()
+                TgtVehicle     = tgtOk ? ReadToggles(tgtSel.toggleVehicleTypesItems) : Array.Empty<TgtToggleInfo>(),
+                BdfPresent     = _bdfPresent,
+                BdfFaction     = _bdfFaction,
+                BdfFunds       = _bdfFunds,
+                BdfScore       = _bdfScore,
+                BdfWarheads    = _bdfWarheads,
+                BdfShips       = _bdfShips,
+                BdfVehicles    = _bdfVehicles,
+                BdfBuildings   = _bdfBuildings,
+                BdfAircraft    = _bdfAircraft
             });
         }
 

@@ -53,6 +53,7 @@
     tgt: '/tgt',
     tgp: '/tgp',
     wpn: '/wpn',
+    bdf: '/bdf',
   };
 
   // The telemetry each screen needs, by the tap's own type names. A page that just mounted has
@@ -66,6 +67,7 @@
     tgt: ['tgt', 'targets'],
     tgp: ['tgp'],
     wpn: ['loadout', 'cm'],   // 'loadout' is derived, not forwarded as-is — see DERIVED
+    bdf: ['bdf'],             // read-only faction-forces block (docs/bdf-page.md)
   };
 
   // The tap calls it 'targets'; TGT listens for 'tgt-targets'. The bezel renames it in exactly the
@@ -81,11 +83,11 @@
   const WPN_MAX_DISPLAY = ROWS - 1;   // row 1 is the nav + CM band; rows 2..6 carry the weapons
   const WPN_ICON_INSET  = 20;         // keeps the image off its band edges, as the bezel does
 
-  // Screens this layout puts on MAIN beyond NAV's. They are placeholders for pages that don't
-  // exist yet, which is exactly why they can't go in NAV: NAV is the bezel's menu too, and it has
-  // six physical keys for six items. Kept here, they stay F-35's business and the bezel is
-  // unaffected. They have no F35_PAGES entry, so they render greyed and inert like any other
-  // unimplemented action — no special case needed.
+  // Screens this layout puts on MAIN beyond NAV's — can't go in NAV since NAV is the bezel's menu
+  // too, and it has six physical keys for six items. Kept here, they stay F-35's business and the
+  // bezel is unaffected (there BDF is its own BEZEL_EXTRAS key; the bezel has no HUD/PAL yet).
+  // HUD and PAL have no F35_PAGES entry, so they still render greyed and inert like any other
+  // unimplemented action — no special case needed. BDF does have one (docs/bdf-page.md) and is wired.
   // (The layout chooser used to be among them, as a greyed LYT. Choosing a layout is the whole
   // glass's business, so it moved to the master strip — on MAIN it would have been offered once per
   // portal, four times over.)
