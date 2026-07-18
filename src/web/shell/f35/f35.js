@@ -58,6 +58,7 @@
     tgt: '/tgt',
     tgp: '/tgp',
     wpn: '/wpn',
+    hud: '/hud',   // the HUD OPTIONS page — fetches /hud-options and POSTs its own hud.* commands
   };
 
   // The telemetry each screen needs, by the tap's own type names. A page that just mounted has

@@ -353,6 +353,72 @@ namespace NOXMFD
             }
         }
 
+        private readonly HashSet<string> _capturedBuildingIcons = new HashSet<string>();
+
+        // The HUD page's building-type icons — the same typeSprite capture as the vehicles above, on
+        // Encyclopedia.buildingTypes ("CIV" … "AMMO"). Served at /building-icon, keyed apart from the
+        // vehicle icons because "RDR" is both a vehicle and a building type. One-time per type.
+        public void TryCaptureBuildingTypeIcons()
+        {
+            Encyclopedia enc = Encyclopedia.i;
+            if (enc == null || enc.buildingTypes == null) return;   // not ready — retry next scan
+
+            for (int i = 0; i < enc.buildingTypes.Count; i++)
+            {
+                var bt = enc.buildingTypes[i];
+                if (bt == null || string.IsNullOrEmpty(bt.typeName) || _capturedBuildingIcons.Contains(bt.typeName))
+                    continue;
+                _capturedBuildingIcons.Add(bt.typeName);   // mark regardless so we never retry this type
+                if (bt.typeSprite == null) continue;
+
+                string name = bt.typeName;
+                SpriteCapture.Request(bt.typeSprite, SpriteCapture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
+                    png => { if (png != null) TelemetryServer.SetBuildingIcon(name, png); });
+            }
+        }
+
+        private readonly HashSet<string> _capturedHudCatIcons = new HashSet<string>();
+
+        // Category index -> the fixed HUD-page label used both as the display name (hud.js
+        // CATEGORY_LABELS) and this icon's server key — the game exposes no per-category name to key
+        // by instead (docs/hud-page.md). FRIENDLY (0) / ENEMY (1) are omitted: a one-shot hierarchy
+        // dump confirmed those two rows have no "TopContainer/Icon" child at all, matching the
+        // reference screen (no glyph on those rows).
+        private static readonly (int index, string key)[] HudCategoryIconSlots =
+        {
+            (2, "AIRCRAFT"), (3, "MISSILES"), (4, "VEHICLES"), (5, "BUILDINGS"), (6, "SHIPS"),
+        };
+
+        // The HUD page's category-row type glyph (AIRCRAFT/MISSILES/VEHICLES/BUILDINGS/SHIPS), centred
+        // in each row as in game. HUDOptions_Category exposes no Sprite field for it — unlike the
+        // vehicle/building buttons above, whose icon is HUDOptions_ToggleButton.image — so there was
+        // nothing to read by field name; a one-shot dump of each row's child Images found it as a
+        // plain "TopContainer/Icon" placed by hand in the prefab, the same way GearIndicator and
+        // StatusDisplay's parts were mined by reflection rather than a clean API. Served at
+        // /hud-cat-icon?cat=. One-time per category.
+        public void TryCaptureHudCategoryIcons()
+        {
+            HUDOptions opt = SceneSingleton<HUDOptions>.i;
+            if (opt == null || opt.listCategories == null) return;   // not built yet — retry next scan
+
+            foreach (var slot in HudCategoryIconSlots)
+            {
+                if (_capturedHudCatIcons.Contains(slot.key) || slot.index >= opt.listCategories.Count)
+                    continue;
+                HUDOptions_Category cat = opt.listCategories[slot.index];
+                if (cat == null) continue;   // retry — list still filling in
+
+                Transform iconT = cat.transform.Find("TopContainer/Icon");
+                Image img = iconT != null ? iconT.GetComponent<Image>() : null;
+                if (img == null || img.sprite == null) continue;   // not ready — retry next scan
+
+                _capturedHudCatIcons.Add(slot.key);   // mark regardless so we never retry this one
+                string key = slot.key;
+                SpriteCapture.Request(img.sprite, SpriteCapture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
+                    png => { if (png != null) TelemetryServer.SetHudCategoryIcon(key, png); });
+            }
+        }
+
         // Extracts a weapon type's icon to PNG, once per name, and registers it. Called from the
         // reader's BuildLoadout as it iterates the live weapon stations.
         public void TryCaptureWeaponIcon(string name, Sprite icon)

@@ -1,0 +1,202 @@
+/* HUD page — the HUD OPTIONS replica. Palette is the shared theme (var(--no-*)), so it renders the
+   same in the bezel's #page-frame and an F-35 portal. Maximized/shown = green (active); minimized/
+   hidden = gray (the theme's "off"), matching the in-game screen where lit means shown. */
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--no-bg);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  overflow: hidden;
+}
+
+/* The panel scrolls: the full list is taller than a portal, and often taller than the bezel frame. */
+.hud-panel {
+  box-sizing: border-box;
+  height: 100%;
+  overflow-y: auto;
+  padding: 12px 14px;
+  /* Extra left inset: both shells draw a vertical MAIN label hugging the left edge for this page
+     (mfd.css .overlay.vmain, f35.css [data-page="hud"]), so keep content clear of it — same fix as
+     the TGT page's .tgt-panel. */
+  padding-left: clamp(30px, 5vw, 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Native-HUD declutter strip ────────────────────────────────────────────────────────
+   Independent toggles that hide native game HUD widgets (top-right weapon panel, corner minimap,
+   boxed readouts) via the mod's own HudDeclutter flags — a different axis from the HUDOptions
+   unit-icon controls below, so it sits apart at the top with a divider. Lit green = the widget is
+   shown on the HUD; gray = hidden (decluttered). Outline-only even when lit, to read distinct from
+   the mode radio's filled current-tab just beneath it. */
+.hud-declutter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--no-gray);
+}
+.hud-dc {
+  flex: 1 1 auto;
+  min-width: 4.5em;
+  padding: 6px 4px;
+  border: 1px solid var(--no-gray);
+  background: none;
+  font: inherit;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: var(--no-gray);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.hud-dc.on {
+  border-color: var(--no-green);
+  color: var(--no-green);
+}
+.hud-dc:active { opacity: 0.7; }
+
+/* ── Mode tabs ─────────────────────────────────────────────────────────────────────────
+   NAV/GUN/A2A/A2G/EW/LOG — a radio row; the current mode is lit, the rest are dim outlines. */
+.hud-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+/* Inactive tabs are white outlines, the current one a green fill — as in game. */
+.hud-mode {
+  flex: 1 1 auto;
+  min-width: 3.2em;
+  padding: 6px 4px;
+  border: 1px solid var(--no-label);
+  background: none;
+  font: inherit;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: var(--no-label);
+  cursor: pointer;
+}
+.hud-mode.on {
+  border-color: var(--no-green);
+  color: var(--no-ink);
+  background: var(--no-green);
+}
+.hud-mode:active { opacity: 0.7; }
+
+/* ── Category rows ─────────────────────────────────────────────────────────────────────
+   Name on the left, MAXIMIZE toggle on the right. Each row carries an identity colour (--cat): the
+   green type categories, and cyan / red for the two faction rows, as the in-game screen colours
+   them. The row border, its name, and the lit MAXIMIZE all read in that colour. */
+.hud-cats { display: flex; flex-direction: column; gap: 6px; }
+/* A 3-column grid (name / icon / MAXIMIZE), not flex space-between: the icon must land dead centre
+   regardless of how wide the name or button are, and grid columns give it a fixed slot rather than
+   whatever space is left over. Columns are explicit (grid-column below) rather than relying on
+   auto-placement, since the middle column is skipped entirely on the two rows with no icon
+   (FRIENDLY / ENEMY) — auto-placement would then shove MAXIMIZE into the middle slot. */
+.hud-cat {
+  --cat: var(--no-green);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--cat);
+}
+.hud-cat.faction-friendly { --cat: #33ccff; }   /* friendly HUD cyan (this screen's own colour) */
+.hud-cat.faction-enemy    { --cat: var(--no-red); }
+.hud-cat-name {
+  grid-column: 1;
+  justify-self: start;
+  font-weight: 900;
+  letter-spacing: 1px;
+  font-size: clamp(12px, 3.2vw, 16px);
+  color: var(--cat);
+}
+/* The category's captured type glyph (AssetCapture.TryCaptureHudCategoryIcons) — AIRCRAFT/MISSILES/
+   VEHICLES/BUILDINGS/SHIPS only, centred between the name and MAXIMIZE, as the in-game screen shows.
+   FRIENDLY/ENEMY have none (see catIcon in hud.js); the column is simply empty for those rows. The
+   sprite ships already coloured (like the vehicle/building sub-icons below), so it renders as-is —
+   no recolour needed. */
+.hud-cat-icon {
+  grid-column: 2;
+  justify-self: center;
+  width: clamp(20px, 5vw, 30px);
+  height: clamp(20px, 5vw, 30px);
+  object-fit: contain;
+}
+.hud-max {
+  grid-column: 3;
+  justify-self: end;
+  padding: 5px 10px;
+  border: 1px solid var(--no-gray);
+  background: none;
+  font: inherit;
+  font-size: clamp(10px, 2.6vw, 13px);
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: var(--no-gray);
+  cursor: pointer;
+  white-space: nowrap;
+}
+/* Maximized = shown at full size on the HUD: lit in the row's colour. Minimized = dim gray. */
+.hud-max.on {
+  border-color: var(--cat);
+  color: var(--cat);
+}
+.hud-max:active { opacity: 0.7; }
+
+/* ── Sub-type chips (under VEHICLES / BUILDINGS) ───────────────────────────────────────
+   One toggle per unit type, wrapping. On = shown (green), off = hidden (gray). Sits indented so it
+   reads as belonging to the category row above it. */
+.hud-subs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: space-between;   /* stretch each row across the full width, as in game */
+  padding: 2px 10px 6px 20px;
+}
+/* Icon over label, like the TGT vehicle filter. On = shown (green + full-brightness icon), off =
+   hidden (gray + dimmed icon). */
+.hud-sub {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 3.4em;
+  padding: 4px 3px;
+  border: 1px solid var(--no-gray);
+  background: none;
+  font: inherit;
+  color: var(--no-gray);
+  cursor: pointer;
+}
+.hud-sub.on {
+  border-color: var(--no-green);
+  color: var(--no-green);
+}
+.hud-sub-icon {
+  width: clamp(18px, 5vw, 30px);
+  height: clamp(18px, 5vw, 30px);
+  object-fit: contain;
+  /* Icons ship light-on-dark with synthesized alpha; dim them when the type is off. */
+  filter: brightness(0.55);
+  transition: filter 0.08s;
+}
+.hud-sub.on .hud-sub-icon { filter: none; }
+.hud-sub-label {
+  font-size: clamp(9px, 2.2vw, 11px);
+  font-weight: bold;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.hud-sub:active { opacity: 0.7; }
+
+/* Unavailable (no mission / HUDOptions not up) — centred by the shared .mfd-empty rule alone
+   (theme.css), like every other page's empty state (avn-empty, tgt-unavailable, wpn-empty, …).
+   No page-specific override here: .mfd-empty already sets position/inset/transform to center
+   itself against <body>, and redeclaring any of that here fights its transform instead of adding
+   to it, pinning the placeholder to the top-left. */

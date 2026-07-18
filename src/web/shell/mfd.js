@@ -63,7 +63,7 @@ const paneIframes = [document.getElementById('pane-top'), document.getElementByI
 const pageFrame = document.getElementById('page-frame');   // full-view host for the frame-hosted pages (WPN, TGT, TGP)
 // Pages that render in #page-frame in full view (rather than as overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
-const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt' };
+const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt', hud: '/hud' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
@@ -105,9 +105,15 @@ function fullViewSlot(i) { return { bank: 'left', index: i }; }
 // no panel: every other page in this shell puts its items beside a physical key, and a chooser is
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
-  main: [{ label: 'LYT',  action: 'lyt',  bank: 'right', index: 0 }],
-  // No MAIN back-item here — picking CLASSIC already navigates back to MAIN (this shell), so a
-  // separate way-back label would be redundant with it.
+  // HUD and LYT down the right bank — the two layout-owned MAIN keys the six shared NAV items (left
+  // bank) leave no room for. HUD opens the HUD OPTIONS #page-frame page; its MAIN back comes from
+  // NAV.hud like every other frame page, so it needs no entry of its own here.
+  main: [
+    { label: 'HUD', action: 'hud', bank: 'right', index: 0 },
+    { label: 'LYT', action: 'lyt', bank: 'right', index: 1 },
+  ],
+  // No MAIN back-item under lyt here — picking CLASSIC already navigates back to MAIN (this shell),
+  // so a separate way-back label would be redundant with it.
   lyt:  [
     { label: 'CLASSIC', action: 'lyt-classic', bank: 'left', index: 0, mark: true },
     { label: 'F-35',    action: 'lyt-f35',     bank: 'left', index: 1 },
@@ -239,10 +245,10 @@ function applySplitMode() {
   // and v<->vw reconfigs return early in setSplit and never reach here, so they keep their pin.
   clearPin();
   applySplitClasses();
-  // The vertical-MAIN overlay style is full-view-TGT only; split entry doesn't go through showPage,
-  // so drop it here or its label style would leak onto the split MAIN labels. Restored on unsplit
-  // (showPage re-toggles it). TGT itself isn't a pane page (not in PAGE_URL), so it never renders split.
-  overlayEl.classList.remove('tgt-page');
+  // The vertical-MAIN overlay style is full-view only (TGT / HUD); split entry doesn't go through
+  // showPage, so drop it here or its label style would leak onto the split MAIN labels. Restored on
+  // unsplit (showPage re-toggles it). Neither is a pane page (not in PAGE_URL), so neither splits.
+  overlayEl.classList.remove('vmain');
   if (splitMode) {
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
     paneIframes[0].src = paneUrl(panePages[0]);
@@ -849,7 +855,9 @@ function showPage(name) {
   overlayEl.classList.toggle('opaque', !!OPAQUE_PAGES[name]);
   // TGT keeps clickable content in the top-left where the MAIN bezel label sits; a class here lets
   // mfd.css render that label vertically so it hugs the edge and clears the page's RESET button.
-  overlayEl.classList.toggle('tgt-page', name === 'tgt');
+  // Stand the MAIN label up for pages with clickable content in the top-left (TGT's RESET FILTER,
+  // HUD's mode/category rows), so a horizontal label doesn't cover it. See .overlay.vmain in mfd.css.
+  overlayEl.classList.toggle('vmain', name === 'tgt' || name === 'hud');
   infoBox.classList.toggle('show', name === 'main');
   screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGT/TGP/AVN render in #page-frame
   clearKeyActions();
@@ -902,6 +910,10 @@ function showPage(name) {
     forwardTgtToFrame();
     forwardTgtTargetsToFrame();
   }
+  // HUD renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.hud, placed by
+  // the generic sweep above); the page is otherwise self-driven — it fetches /hud-options and POSTs
+  // its own hud.* commands, so the shell forwards it nothing.
+  if (name === 'hud') showFramePage('hud');
 
   // refreshFollowIndicator (not just renderIndicators) because the FOLLOW chip's membership
   // depends on currentPage, which just changed: entering MAP with follow already on must add the
@@ -1182,6 +1194,7 @@ function mfdButton(el) {
       if (el.dataset.wname) sendCommand('weapon.select', { wname: el.dataset.wname }).catch(function() {});
       break;
     case 'tgp':  showPage('tgp');  break;
+    case 'hud':  showPage('hud');  break;
     case 'lyt':  showPage('lyt');  break;
     // The LAYOUT page's two choices. CLASSIC is this document, so choosing it is just leaving the
     // menu — back to MAIN, where LYT was pressed, with a fresh status as MAIN's own key pulls.

@@ -10,6 +10,8 @@ mod). It pulls, from http://localhost:5005:
   • the map image             (/map)            → assets/map.png
   • each unit type's icon      (/icon?type=...)  → assets/icon_*.png
   • each weapon's icon         (/weapon?name=..) → assets/weapon_*.png
+  • HUD vehicle/building icons (/tgt-icon, /building-icon) → assets/tgt_icon_*, building_icon_*
+  • HUD category-row glyphs   (/hud-cat-icon)              → assets/hud_cat_icon_*
 
 ...and writes preview/assets/manifest.json describing them. Then run:
 
@@ -118,6 +120,41 @@ def main():
         (ASSETS / fn).write_bytes(data)
         assets["weapon:" + n] = "assets/" + fn
         print(f"  weapon  saved   {n}")
+
+    # HUD OPTIONS type-sprite icons: one per vehicle type and per building type. The names come from
+    # /hud-options (the same endpoint the HUD page reads); vehicles are served at /tgt-icon (shared
+    # with the TGT filter), buildings at /building-icon (a separate keyspace — "RDR" is both).
+    hud = fetch("/hud-options")
+    if hud:
+        opts = json.loads(hud.decode("utf-8"))
+        for endpoint, group, key in (("/tgt-icon", "vehicles", "tgt-icon"),
+                                     ("/building-icon", "buildings", "building-icon")):
+            for i, item in enumerate(opts.get(group) or []):
+                name = item.get("n")
+                if not name:
+                    continue
+                data = fetch(endpoint + "?type=" + urllib.parse.quote(name))
+                if not data:
+                    print(f"  {key:12s} (none)  {name}")
+                    continue
+                fn = f"{key.replace('-', '_')}_{i}.png"
+                (ASSETS / fn).write_bytes(data)
+                assets[key + ":" + name] = "assets/" + fn
+                print(f"  {key:12s} saved   {name}")
+
+        # HUD OPTIONS category-row glyphs — AIRCRAFT/MISSILES/VEHICLES/BUILDINGS/SHIPS, keyed by the
+        # same fixed label the page and the plugin's capture both use. Unlike vehicles/buildings
+        # above, /hud-options carries no per-category name to discover these from (the game exposes
+        # none), so the five labels are hardcoded here too. FRIENDLY/ENEMY have no icon in game.
+        for i, label in enumerate(("AIRCRAFT", "MISSILES", "VEHICLES", "BUILDINGS", "SHIPS")):
+            data = fetch("/hud-cat-icon?cat=" + urllib.parse.quote(label))
+            if not data:
+                print(f"  hud-cat-icon (none)  {label}")
+                continue
+            fn = f"hud_cat_icon_{i}.png"
+            (ASSETS / fn).write_bytes(data)
+            assets["hud-cat-icon:" + label] = "assets/" + fn
+            print(f"  hud-cat-icon saved   {label}")
 
     # AVN airframe silhouette: background PNG + one PNG per UI segment + the layout JSON.
     # All one-shot per aircraft type — keyed by frame.name. If the layout 404s the airframe

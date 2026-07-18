@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — HUD</title>
+<!--
+  HUD page served at /hud — a clickable replica of the game's in-cockpit "HUD OPTIONS" screen
+  (HUDOptions). It controls how unit overlay icons appear on the HUD: a maximized category shows
+  its icons at full size, a minimized one shrinks them to a dot (enemy) or hides them (friendly).
+  See docs/hud-page.md.
+
+  Unlike the telemetry-pushed pages, this one is fetch-driven, not stream-driven: it POSTs hud.*
+  commands (send-command.js → CommandDispatcher) and polls /hud-options (TelemetryServer.
+  RefreshHudOptions) every 1.2s to read the current state back — the same loop catches a toggle
+  pressed in game instead of here, this page's own writes settling, and a new mission's state.
+
+  Controls (all mirror the in-game screen):
+    mode tab (NAV/GUN/A2A/A2G/EW/LOG) → hud.mode {index}  — applies that mode's saved preset
+    category MAXIMIZE                 → hud.set {group:'category', index, on}
+    vehicle / building type chip      → hud.set {group:'vehicle'|'building', index, on}
+
+  The seven category NAMES are the page's own, by index — the game exposes no per-category display
+  name (see docs/hud-page.md). Vehicle/building names come from /hud-options (the Encyclopedia).
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/hud/hud.css">
+</head>
+<body>
+
+<div class="hud-panel" id="hud-panel">
+  <!-- declutter strip + mode tabs + category rows are built by hud.js from /hud-options -->
+  <!-- native-HUD declutter toggles (the mod's own HudDeclutter flags): weapon panel / minimap / boxes -->
+  <div class="hud-declutter" id="hud-declutter"></div>
+  <div class="hud-modes" id="hud-modes"></div>
+  <div class="hud-cats" id="hud-cats"></div>
+  <!-- shown when /hud-options is empty (no mission / HUDOptions not up) -->
+  <div class="hud-empty mfd-empty" id="hud-empty"><span class="mfd-empty-title">HUD</span>&mdash; UNAVAILABLE &mdash;</div>
+</div>
+
+<script src="/assets/services/send-command.js"></script>
+<script src="/assets/pages/hud/hud.js"></script>
+</body>
+</html>
