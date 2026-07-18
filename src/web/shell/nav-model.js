@@ -36,6 +36,7 @@
     avn: [ { label: 'MAIN', action: 'main' } ],
     rwr: [ { label: 'MAIN', action: 'main' } ],
     tgt: [ { label: 'MAIN', action: 'main' } ],
+    hud: [ { label: 'MAIN', action: 'main' } ],   // HUD OPTIONS page — reached via a layout extra, not MAIN
     wpn: [],
   };
 

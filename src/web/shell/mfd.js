@@ -58,7 +58,7 @@ const paneIframes = [document.getElementById('pane-top'), document.getElementByI
 const pageFrame = document.getElementById('page-frame');   // full-view host for the frame-hosted pages (WPN, TGT, TGP)
 // Pages that render in #page-frame in full view (rather than as overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
-const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt' };
+const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt', hud: '/hud' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
@@ -100,7 +100,13 @@ function fullViewSlot(i) { return { bank: 'left', index: i }; }
 // no panel: every other page in this shell puts its items beside a physical key, and a chooser is
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
-  main: [{ label: 'LYT',  action: 'lyt',  bank: 'right', index: 0 }],
+  // HUD and LYT down the right bank — the two layout-owned MAIN keys the six shared NAV items (left
+  // bank) leave no room for. HUD opens the HUD OPTIONS #page-frame page; its MAIN back comes from
+  // NAV.hud like every other frame page, so it needs no entry of its own here.
+  main: [
+    { label: 'HUD', action: 'hud', bank: 'right', index: 0 },
+    { label: 'LYT', action: 'lyt', bank: 'right', index: 1 },
+  ],
   lyt:  [
     { label: 'MAIN',    action: 'main',       bank: 'left', index: 0 },   // the way back, as NAV gives every page
     { label: 'CLASSIC', action: 'lyt-classic', bank: 'left', index: 1, mark: true },
@@ -896,6 +902,10 @@ function showPage(name) {
     forwardTgtToFrame();
     forwardTgtTargetsToFrame();
   }
+  // HUD renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.hud, placed by
+  // the generic sweep above); the page is otherwise self-driven — it fetches /hud-options and POSTs
+  // its own hud.* commands, so the shell forwards it nothing.
+  if (name === 'hud') showFramePage('hud');
 
   // refreshFollowIndicator (not just renderIndicators) because the FOLLOW chip's membership
   // depends on currentPage, which just changed: entering MAP with follow already on must add the
@@ -1176,6 +1186,7 @@ function mfdButton(el) {
       if (el.dataset.wname) sendCommand('weapon.select', { wname: el.dataset.wname }).catch(function() {});
       break;
     case 'tgp':  showPage('tgp');  break;
+    case 'hud':  showPage('hud');  break;
     case 'lyt':  showPage('lyt');  break;
     // The LAYOUT page's two choices. CLASSIC is this document, so choosing it is just leaving the
     // menu — back to MAIN, where LYT was pressed, with a fresh status as MAIN's own key pulls.
