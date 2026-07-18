@@ -377,6 +377,8 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/rwr/rwr.html");
                     else if (path == "/tgt")
                         ServeAssetRel(ctx, "pages/tgt/tgt.html");
+                    else if (path == "/hud")
+                        ServeAssetRel(ctx, "pages/hud/hud.html");
                     else if (path == "/command")
                         HandleCommand(ctx);
                     else if (path == "/mfd")

@@ -1,0 +1,130 @@
+/* HUD page — the HUD OPTIONS replica. Palette is the shared theme (var(--no-*)), so it renders the
+   same in the bezel's #page-frame and an F-35 portal. Maximized/shown = green (active); minimized/
+   hidden = gray (the theme's "off"), matching the in-game screen where lit means shown. */
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--no-bg);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  overflow: hidden;
+}
+
+/* The panel scrolls: the full list is taller than a portal, and often taller than the bezel frame. */
+.hud-panel {
+  box-sizing: border-box;
+  height: 100%;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hud-title {
+  text-align: center;
+  font-size: clamp(16px, 4vw, 24px);
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: var(--no-green);
+}
+
+/* ── Mode tabs ─────────────────────────────────────────────────────────────────────────
+   NAV/GUN/A2A/A2G/EW/LOG — a radio row; the current mode is lit, the rest are dim outlines. */
+.hud-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+.hud-mode {
+  flex: 1 1 auto;
+  min-width: 3.2em;
+  padding: 6px 4px;
+  border: 1px solid var(--no-green-dark);
+  background: none;
+  font: inherit;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: var(--no-green-dim);
+  cursor: pointer;
+}
+.hud-mode.on {
+  border-color: var(--no-green);
+  color: var(--no-ink);
+  background: var(--no-green);
+}
+.hud-mode:active { opacity: 0.7; }
+
+/* ── Category rows ─────────────────────────────────────────────────────────────────────
+   Name on the left, MAXIMIZE toggle on the right. */
+.hud-cats { display: flex; flex-direction: column; gap: 6px; }
+.hud-cat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--no-green-dark);
+}
+.hud-cat-name {
+  font-weight: 900;
+  letter-spacing: 1px;
+  font-size: clamp(12px, 3.2vw, 16px);
+}
+.hud-max {
+  flex: none;
+  padding: 5px 10px;
+  border: 1px solid var(--no-gray);
+  background: none;
+  font: inherit;
+  font-size: clamp(10px, 2.6vw, 13px);
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: var(--no-gray);
+  cursor: pointer;
+  white-space: nowrap;
+}
+/* Maximized = shown at full size on the HUD: lit green. Minimized = dim (the default border/gray). */
+.hud-max.on {
+  border-color: var(--no-green);
+  color: var(--no-green);
+}
+.hud-max:active { opacity: 0.7; }
+
+/* ── Sub-type chips (under VEHICLES / BUILDINGS) ───────────────────────────────────────
+   One toggle per unit type, wrapping. On = shown (green), off = hidden (gray). Sits indented so it
+   reads as belonging to the category row above it. */
+.hud-subs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 2px 10px 6px 20px;
+}
+.hud-sub {
+  padding: 4px 8px;
+  border: 1px solid var(--no-gray);
+  background: none;
+  font: inherit;
+  font-size: clamp(10px, 2.4vw, 12px);
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  color: var(--no-gray);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.hud-sub.on {
+  border-color: var(--no-green);
+  color: var(--no-green);
+}
+.hud-sub:active { opacity: 0.7; }
+
+/* Unavailable (no mission / HUDOptions not up). Centred, dim — the shared mfd-empty look. */
+.hud-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

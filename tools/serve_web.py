@@ -134,6 +134,22 @@ def _config(port):
     }).encode("utf-8")
 
 
+# Mock of the plugin's /hud-options (TelemetryServer.RefreshHudOptions). A real in-game snapshot,
+# so the HUD page can be built and eyeballed in the harness. The write side (hud.set/hud.mode) has
+# no mock — commands POST and are swallowed — so toggles here won't change this response; that path
+# is only testable in game.
+def _hud_options():
+    veh = ["TRUCK", "UGV", "LCV", "AFV", "MBT", "ART", "AAA", "IR_SAM", "R_SAM", "RDR"]
+    bld = ["CIV", "FAC", "RDR", "DEP", "HGR", "DEF", "AMMO"]
+    return json.dumps({
+        "mode": 1,  # GUN
+        "modes": ["NAV", "GUN", "A2A", "A2G", "EW", "LOG"],
+        "categories": [False, True, False, False, True, False, False],
+        "vehicles":  [{"n": n, "on": True} for n in veh],
+        "buildings": [{"n": n, "on": True} for n in bld],
+    }).encode("utf-8")
+
+
 class H(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split('?', 1)[0]
@@ -143,6 +159,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._file(WEB / 'shell' / 'f35' / 'f35.html', 'text/html; charset=utf-8', cache=True)
         if path == '/config':
             return self._send(_config(self.server.server_address[1]), 'application/json; charset=utf-8')
+        if path == '/hud-options':
+            return self._send(_hud_options(), 'application/json; charset=utf-8')
         if path == '/map-view':
             try:
                 return self._send(_map_page(), 'text/html; charset=utf-8')
