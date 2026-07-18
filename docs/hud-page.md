@@ -2,15 +2,17 @@
 
 ## Status
 
-**In progress** on `feat/hud-declutter` (issue #20). The plugin foundation is
-built and proven in game; the page itself is not yet written.
+**Feature-complete in the harness** on `feat/hud-declutter` (issue #20); the end
+-to-end in-game test of the full page is the remaining check.
 
-- **Proven**: the plugin can drive the game's in-cockpit HUD OPTIONS live. A
-  toggle sent from the MFD re-renders the HUD immediately — no re-init.
-- **Built**: `hud.set` / `hud.mode` commands and a `GET /hud-options` read
-  endpoint (see "The plumbing").
-- **Next**: the `pages/hud/` page — a full replica of the in-game screen — and
-  its entry points in both layouts.
+- **Proven in game**: the plugin drives the in-cockpit HUD OPTIONS live — a
+  toggle from the MFD re-renders the HUD immediately, no re-init.
+- **Built**: `hud.set` / `hud.mode` commands, a `GET /hud-options` read endpoint,
+  the `pages/hud/` page (full replica), and its entry points in both layouts —
+  the F-35's MAIN HUD button and a bezel MAIN key.
+- **Next**: load the finished page in game and confirm every group toggles as
+  expected (only the live-apply of one category was tested in game; the rest is
+  the same command path, verified in the harness).
 
 ## What it is
 
@@ -98,14 +100,15 @@ mislabelled.
 2. **Plugin foundation** ✅ done. The generalized `hud.set` / `hud.mode`
    commands and `/hud-options`, replacing the PoC's single hardcoded toggle.
    Compiles against the real `HUDOptions` API.
-3. **The page** 🔲 — `pages/hud/`, a full replica: mode tabs, category toggles,
-   vehicle + building sub-types. Renders from `/hud-options`; each control POSTs
-   an `hud.*` command; re-fetches after a write (a mode change flips many
-   toggles at once). Full-view only, like TGT — it has clickable content, not a
-   pane layout.
-4. **Both layouts** 🔲 — the F-35's existing `hud` action opens `/hud` (replacing
-   the PoC stub); the bezel gets an HUD key on MAIN (`BEZEL_EXTRAS`, like LYT,
-   but a real `#page-frame` page rather than shell chrome).
+3. **The page** ✅ done — `pages/hud/`, a full replica: mode tabs, category
+   toggles, vehicle + building sub-types. Renders from `/hud-options`; each
+   control POSTs an `hud.*` command; re-fetches ~1.2 s after a write (a mode
+   change flips many toggles, and the plugin snapshots at 1 Hz). Clicks flip
+   optimistically for instant feedback. Full-view only, like TGT.
+4. **Both layouts** ✅ done — the F-35's `hud` action opens `/hud` (PoC stub
+   removed); the bezel has an HUD key on MAIN (`BEZEL_EXTRAS`, right bank) opening
+   the same `#page-frame` page. The MAIN back button comes from a new
+   `NAV.hud = [{MAIN}]`, so neither layout special-cases the way back.
 
 ## Open questions
 
