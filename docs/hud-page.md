@@ -149,7 +149,7 @@ clean sprite to capture. Left off rather than faked; an inline-SVG approximation
 - **Category label drift.** See "Why category names are the page's". If it ever
   bites, the fix is to derive names plugin-side (faction flag for the first two,
   unit-definition type for the rest) and emit them like vehicles/buildings.
-- **Reflecting in-game toggles.** If the pilot changes HUD options from the
-  in-cockpit screen, `/hud-options` will show it within 1 s (the refresh tick),
-  but the page only re-fetches on its own writes and on open. Whether to poll is
-  a stage-3 call.
+- **Reflecting in-game toggles.** Resolved — the page polls `/hud-options` every
+  1.2 s (stage 3), so a change made from the in-cockpit screen shows on the MFD
+  within ~1 s (the plugin's 1 Hz refresh tick), not only after the page's own
+  writes.
