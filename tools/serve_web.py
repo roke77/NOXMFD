@@ -11,6 +11,7 @@ which supplies the synthetic/captured /stream data that the shell forwards to pa
   /map-view[?bare]   -> src/web/pages/map/map.html      (the base map iframe; mock injected here)
   /<page>            -> src/web/pages/<page>/<page>.html  (any migrated page, e.g. /wpn /tgt)
   /weapon?...        -> captured weapon icon, or a mock 2:1 icon
+  /hud-cat-icon?cat= -> captured HUD OPTIONS category glyph, or a mock icon
   /airframe[-layout] -> captured AVN silhouette assets when available
   /assets/<x>        -> src/web/<x>, falling back to preview/assets/<x> captures
   else               -> preview/<x>                 (*.js, manifest, ...)
@@ -195,6 +196,17 @@ class H(http.server.SimpleHTTPRequestHandler):
             # building chips show *an* icon in the mock harness.
             typ = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('type', [''])[0]
             ref = _asset_ref(path.lstrip('/') + ':' + typ)
+            if ref:
+                fp = _preview_asset_path(ref)
+                if fp and fp.exists():
+                    return self._file(fp, 'image/png')
+            return self._send(TGT_ICON_SVG.encode('utf-8'), 'image/svg+xml')
+        if path == '/hud-cat-icon':
+            # Real captured category-row glyph if a capture ran (manifest key
+            # 'hud-cat-icon:<CAT>'); otherwise the same generic placeholder as the vehicle/building
+            # chips above, so the HUD page's category rows show *an* icon in the mock harness.
+            cat = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('cat', [''])[0]
+            ref = _asset_ref('hud-cat-icon:' + cat)
             if ref:
                 fp = _preview_asset_path(ref)
                 if fp and fp.exists():
