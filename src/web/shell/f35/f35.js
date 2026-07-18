@@ -100,10 +100,16 @@
 
   // ── HUD OPTIONS — proof of concept ──────────────────────────────────────────────────
   // Temporary: prove the plugin's hud.category command toggles the game's live HUD before building
-  // the real page. Pressing HUD flips the AIRCRAFT icon category (listCategories index 2) on the
-  // in-game HUD OPTIONS screen — aircraft icons should appear/vanish. One game HUD, so one shared
-  // state; every portal's HUD button drives the same toggle. To be replaced by an actual HUD page.
-  const HUD_POC_CATEGORY = 2;   // AIRCRAFT — see CommandDispatcher.HudCategory ponytail note
+  // the real page. Pressing HUD flips the VEHICLES icon category on the in-game HUD OPTIONS screen.
+  //
+  // Not AIRCRAFT: HUDUnitMarker sets alwaysMaximized = (unit is Aircraft), so aircraft icons ignore
+  // the category entirely — confirmed in game. Ground units go through the real path
+  // (UpdateMaximized): category off → CheckMaximizeIcon returns 0 → a friendly vehicle's icon
+  // sprite becomes null (hidden) and an enemy's shrinks to the minimizedHostile dot. Newly-spotted
+  // units stay maximized for ~4s regardless, so the effect lands on units already on the HUD.
+  //
+  // One game HUD, so one shared state; every portal's HUD button drives the same toggle.
+  const HUD_POC_CATEGORY = 4;   // VEHICLES — see CommandDispatcher.HudCategory ponytail note
   let   hudPocOn = true;        // categories start maximized in-game
 
   // MAP's own actions → the message the map view listens for. Also not pages: they drive the map
@@ -347,7 +353,7 @@
     function dispatch(action) {
       if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
       if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
-      // PoC: HUD flips the AIRCRAFT icon category on the game HUD. The button lights (amber .on)
+      // PoC: HUD flips the VEHICLES icon category on the game HUD. The button lights (amber .on)
       // while the category is hidden, so the toggle state is visible. Replace with the real HUD
       // page once live-apply is confirmed.
       if (action === 'hud') {

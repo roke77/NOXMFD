@@ -283,7 +283,7 @@ namespace NOXMFD
         // rather than after the ~1s idle refresh.
         //
         // ponytail: env.index is a raw index into listCategories, whose order is set in the game's
-        // Unity inspector, not by us — fine for the proof-of-concept (index 2 = AIRCRAFT), but the
+        // Unity inspector, not by us — fine for the proof-of-concept (index 4 = VEHICLES), but the
         // real page must read the categories' names/order at runtime rather than trust a constant.
         // Upgrade path: emit the category list as telemetry and address by name.
         private static void HudCategory(CommandEnvelope env)
