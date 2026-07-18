@@ -111,6 +111,9 @@ namespace NOXMFD
                 long t0 = PerfDiag.Enabled ? Stopwatch.GetTimestamp() : 0L;
                 ScanWorld();
                 if (PerfDiag.Enabled) PerfDiag.RecordSince("ScanWorld", t0);
+                // HUD OPTIONS snapshot for the /hud-options endpoint. Main thread, and cheap; options
+                // change only on a toggle, so 1 Hz is ample. Kept out of PushSnapshot's fast path.
+                TelemetryServer.RefreshHudOptions();
             }
 
             if (_fastTimer >= FastInterval)

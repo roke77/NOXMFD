@@ -359,6 +359,8 @@ namespace NOXMFD
                         ServeAirframeLayout(ctx);
                     else if (path == "/config")
                         ServeConfig(ctx);
+                    else if (path == "/hud-options")
+                        ServeHudOptions(ctx);
                     else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                         ServeAsset(ctx, path);
                     else if (path == "/map-view")
@@ -473,6 +475,91 @@ namespace NOXMFD
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // The in-game HUD OPTIONS state, as JSON, for the HUD page to render. Built on the main
+        // thread by RefreshHudOptions (below) and cached here — HUD options change only on a toggle,
+        // so this is fetched on demand rather than streamed, like /config. "{}" until a mission with
+        // a live HUDOptions is up; the page treats that as "unavailable".
+        internal static volatile string HudOptionsJson = "{}";
+
+        private static void ServeHudOptions(HttpListenerContext ctx)
+        {
+            try
+            {
+                byte[] body = Encoding.UTF8.GetBytes(HudOptionsJson ?? "{}");
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // Snapshot HUDOptions into HudOptionsJson. MAIN THREAD ONLY — reads live game objects; the
+        // reader calls it on the slow (1 Hz) tick, since options change only when the pilot toggles.
+        //   modes      : the HUDMode tab names, plus the current index.
+        //   categories : one bool per listCategories entry (FRIENDLY/ENEMY/AIRCRAFT/…). The names are
+        //                the page's, by index — the game assigns the category order in its inspector
+        //                and exposes no display name here, so the page carries the fixed labels and
+        //                this emits only their count + state. (Vehicles/buildings DO have names,
+        //                below, from the Encyclopedia the game built the toggles from.)
+        //   vehicles   : {n:name, on} per listVehicleTypes entry, name from Encyclopedia (parallel).
+        //   buildings  : {n:name, on} per listBuildingTypes entry.
+        public static void RefreshHudOptions()
+        {
+            HUDOptions opt = SceneSingleton<HUDOptions>.i;
+            if (opt == null) { HudOptionsJson = "{}"; return; }
+
+            var sb = new StringBuilder(512);
+            sb.Append('{');
+
+            // modes
+            sb.Append("\"mode\":").Append((int)opt.currentMode).Append(",\"modes\":[");
+            string[] modeNames = Enum.GetNames(typeof(HUDOptions.HUDMode));
+            for (int i = 0; i < modeNames.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append('"').Append(EscapeJson(modeNames[i])).Append('"');
+            }
+            sb.Append(']');
+
+            // categories — booleans only (names live in the page)
+            sb.Append(",\"categories\":[");
+            var cats = opt.listCategories;
+            for (int i = 0; cats != null && i < cats.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append(cats[i] != null && cats[i].maximized ? "true" : "false");
+            }
+            sb.Append(']');
+
+            // vehicles / buildings — {n,on}, names from the Encyclopedia the toggles were built from
+            AppendTypeList(sb, ",\"vehicles\":", opt.listVehicleTypes, Encyclopedia.i?.vehicleTypes);
+            AppendTypeList(sb, ",\"buildings\":", opt.listBuildingTypes, Encyclopedia.i?.buildingTypes);
+
+            sb.Append('}');
+            HudOptionsJson = sb.ToString();
+        }
+
+        private static void AppendTypeList(StringBuilder sb, string key,
+            System.Collections.Generic.List<HUDOptions_ToggleButton> toggles,
+            System.Collections.Generic.List<Encyclopedia.UnitType> types)
+        {
+            sb.Append(key).Append('[');
+            int n = toggles == null ? 0 : toggles.Count;
+            for (int i = 0; i < n; i++)
+            {
+                if (i > 0) sb.Append(',');
+                // Name from the parallel Encyclopedia list SetupList built the toggles from; fall
+                // back to the index if the lists ever disagree, so a mismatch degrades rather than throws.
+                string name = (types != null && i < types.Count && types[i] != null) ? types[i].typeName : ("#" + i);
+                bool on = toggles[i] != null && toggles[i].status;
+                sb.Append("{\"n\":\"").Append(EscapeJson(name)).Append("\",\"on\":").Append(on ? "true" : "false").Append('}');
+            }
+            sb.Append(']');
         }
 
         // ── Embedded web-asset serving ─────────────────────────────────────────

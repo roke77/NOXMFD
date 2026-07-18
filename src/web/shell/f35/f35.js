@@ -358,7 +358,7 @@
       // page once live-apply is confirmed.
       if (action === 'hud') {
         hudPocOn = !hudPocOn;
-        sendCommand('hud.category', { index: HUD_POC_CATEGORY, on: hudPocOn }).catch(function () {});
+        sendCommand('hud.set', { group: 'category', index: HUD_POC_CATEGORY, on: hudPocOn }).catch(function () {});
         const b = grid.querySelector('.nav-item[data-action="hud"]');
         if (b) b.classList.toggle('on', !hudPocOn);   // lit = aircraft icons hidden
         return;

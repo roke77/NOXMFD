@@ -43,7 +43,8 @@ namespace NOXMFD
                 { "tgt.clear",       TgtClear },
                 { "tgt.laser",       TgtLaser },
                 { "tgt.hud",         TgtHud },
-                { "hud.category",    HudCategory },
+                { "hud.set",         HudSet },
+                { "hud.mode",        HudMode },
             };
 
         // True for a cmd we have a handler for — lets the server reject unknown commands at the
@@ -275,32 +276,75 @@ namespace NOXMFD
             Plugin.Log?.LogInfo($"[NOXMFD] tgt.hud = {env.on}.");
         }
 
-        // HUD OPTIONS — maximize/minimize one of the icon categories (FRIENDLY / ENEMY / AIRCRAFT /
-        // MISSILES / VEHICLES / BUILDINGS / SHIPS). This is the in-game MFD "HUD OPTIONS" page:
-        // HUDOptions.CheckMaximizeIcon() scales a unit's HUD icon to 0 when its category isn't
-        // maximized, so toggling a category off hides those icons live. Category.Set() updates the
-        // maximize button; ApplyHUDSettings() fires OnApplyOptions so the change takes effect now
-        // rather than after the ~1s idle refresh.
+        // HUD OPTIONS — the in-game MFD "HUD OPTIONS" page (SceneSingleton<HUDOptions>). It gates
+        // each unit's HUD icon: CheckMaximizeIcon() returns 0 when a unit's category or type is off,
+        // so its marker shrinks to a minimized dot (enemy) or vanishes (friendly). Toggling any of
+        // these live, then ApplyHUDSettings() to fire OnApplyOptions so the HUD re-renders now
+        // rather than after the ~1s idle refresh. Proven in game (issue #20).
         //
-        // ponytail: env.index is a raw index into listCategories, whose order is set in the game's
-        // Unity inspector, not by us — fine for the proof-of-concept (index 4 = VEHICLES), but the
-        // real page must read the categories' names/order at runtime rather than trust a constant.
-        // Upgrade path: emit the category list as telemetry and address by name.
-        private static void HudCategory(CommandEnvelope env)
+        // hud.set flips one toggle within a group; the page reads the current state and names from
+        // /hud-options (TelemetryServer.RefreshHudOptions), so indices here are always paired with
+        // a list the page fetched from the same source — no hardcoded ordering.
+        //   group "category" → listCategories[i]   (FRIENDLY/ENEMY/AIRCRAFT/MISSILES/VEHICLES/…)
+        //   group "vehicle"  → listVehicleTypes[i] (TRUCK/UGV/LCV/…)
+        //   group "building" → listBuildingTypes[i](CIV/FAC/RDR/…)
+        private static void HudSet(CommandEnvelope env)
         {
             HUDOptions opt = SceneSingleton<HUDOptions>.i;
-            if (opt == null || opt.listCategories == null) { Plugin.Log?.LogInfo("[NOXMFD] hud.category: unavailable — ignored."); return; }
-            if (env.index < 0 || env.index >= opt.listCategories.Count)
+            if (opt == null) { Plugin.Log?.LogInfo("[NOXMFD] hud.set: HUDOptions unavailable — ignored."); return; }
+
+            switch (env.group)
             {
-                Plugin.Log?.LogInfo($"[NOXMFD] hud.category: index {env.index} out of range (0..{opt.listCategories.Count - 1}) — ignored.");
-                return;
+                case "category":
+                    if (!InList(opt.listCategories, env.index, "hud.set category")) return;
+                    HUDOptions_Category cat = opt.listCategories[env.index];
+                    if (cat == null || cat.maximized == env.on) return;   // null / already there
+                    cat.Set(env.on);
+                    break;
+                case "vehicle":
+                    if (!InList(opt.listVehicleTypes, env.index, "hud.set vehicle")) return;
+                    HUDOptions_ToggleButton veh = opt.listVehicleTypes[env.index];
+                    if (veh == null || veh.status == env.on) return;
+                    veh.Set(env.on);
+                    break;
+                case "building":
+                    if (!InList(opt.listBuildingTypes, env.index, "hud.set building")) return;
+                    HUDOptions_ToggleButton bld = opt.listBuildingTypes[env.index];
+                    if (bld == null || bld.status == env.on) return;
+                    bld.Set(env.on);
+                    break;
+                default:
+                    Plugin.Log?.LogInfo($"[NOXMFD] hud.set: unknown group '{env.group}' — ignored.");
+                    return;
             }
-            HUDOptions_Category cat = opt.listCategories[env.index];
-            if (cat == null) { Plugin.Log?.LogInfo($"[NOXMFD] hud.category[{env.index}] is null — ignored."); return; }
-            if (cat.maximized == env.on) return;   // already there
-            cat.Set(env.on);
             opt.ApplyHUDSettings();
-            Plugin.Log?.LogInfo($"[NOXMFD] hud.category[{env.index}].maximized = {env.on}.");
+            Plugin.Log?.LogInfo($"[NOXMFD] hud.set {env.group}[{env.index}] = {env.on}.");
+        }
+
+        // Mode tabs (NAV/GUN/A2A/A2G/EW/LOG) — radio buttons, each carrying a saved priority preset.
+        // ToggleButtons() does the radio flip and, via the button's own Set(), applies that preset's
+        // category/vehicle/building priorities; ApplyHUDSettings() then re-renders the HUD at once.
+        private static void HudMode(CommandEnvelope env)
+        {
+            HUDOptions opt = SceneSingleton<HUDOptions>.i;
+            if (opt == null) { Plugin.Log?.LogInfo("[NOXMFD] hud.mode: HUDOptions unavailable — ignored."); return; }
+            if (!InList(opt.listModes, env.index, "hud.mode")) return;
+            HUDOptions_ToggleButton btn = opt.listModes[env.index];
+            if (btn == null) { Plugin.Log?.LogInfo($"[NOXMFD] hud.mode[{env.index}] is null — ignored."); return; }
+            opt.ToggleButtons(btn);
+            opt.ApplyHUDSettings();
+            Plugin.Log?.LogInfo($"[NOXMFD] hud.mode = {env.index}.");
+        }
+
+        // Bounds guard shared by the HUD handlers: true when index addresses a live element.
+        private static bool InList<T>(System.Collections.Generic.List<T> list, int index, string who)
+        {
+            if (list == null || index < 0 || index >= list.Count)
+            {
+                Plugin.Log?.LogInfo($"[NOXMFD] {who}: index {index} out of range — ignored.");
+                return false;
+            }
+            return true;
         }
     }
 }
