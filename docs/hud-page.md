@@ -110,6 +110,27 @@ mislabelled.
    the same `#page-frame` page. The MAIN back button comes from a new
    `NAV.hud = [{MAIN}]`, so neither layout special-cases the way back.
 
+## Matching the in-game look
+
+The page mirrors the in-game screen's colours and icons:
+
+- **Colours.** Each category row carries an identity colour (`--cat`): green for
+  the type categories, cyan for FRIENDLY, red for ENEMY — the row border, its
+  name, and its lit MAXIMIZE all read in it, gray when minimized. Mode tabs are
+  white outlines, the current one a green fill.
+- **Sub-type icons.** The vehicle and building chips show the real captured type
+  sprite over the label, like the TGT vehicle filter. Vehicles reuse the mod's
+  existing `/tgt-icon` capture; buildings get their own `/building-icon` (a new
+  `AssetCapture.TryCaptureBuildingTypeIcons` + server map), keyed apart because a
+  name like `RDR` is both a vehicle and a building type. Both dim when their type
+  is off and retry a few times if the sprite hasn't been captured yet.
+
+**Not done: the category-row icons** (the plane / missile / tank / building /
+ship glyphs beside AIRCRAFT…SHIPS). The game draws these from a UI Image in the
+row prefab, not from anything `HUDOptions` exposes per category, so there is no
+clean sprite to capture. Left off rather than faked; an inline-SVG approximation
+(as the AVN flags do) is the fallback if they're wanted.
+
 ## Open questions
 
 - **Modes vs. manual toggles.** Selecting a mode applies a preset that

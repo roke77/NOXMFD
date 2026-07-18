@@ -70,6 +70,12 @@ namespace NOXMFD
         private static readonly Dictionary<string, byte[]> _tgtIcons = new Dictionary<string, byte[]>();
         private static readonly object                     _tgtLock  = new object();
 
+        // HUD-page building-type icons (PNG), keyed by building typeName ("CIV" … "AMMO"). A separate
+        // map from _tgtIcons on purpose: a name like "RDR" is BOTH a vehicle and a building type, so
+        // sharing one keyspace would collide. Served at /building-icon?type=.
+        private static readonly Dictionary<string, byte[]> _buildingIcons = new Dictionary<string, byte[]>();
+        private static readonly object                     _buildingLock  = new object();
+
         // Airframe silhouette assets. Images keyed by "unitName|partName" — partName is the
         // GameObject name from Aircraft.partLookup (e.g. "wing1_L") or "__bg" for the background
         // silhouette. Layouts keyed by unitName, value is a JSON descriptor of part placements.
@@ -284,6 +290,13 @@ namespace NOXMFD
             lock (_tgtLock) _tgtIcons[name] = png;
         }
 
+        // Called from Unity main thread once a HUD building-type sprite has been extracted.
+        public static void SetBuildingIcon(string name, byte[] png)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+            lock (_buildingLock) _buildingIcons[name] = png;
+        }
+
         // Called from Unity main thread once a countermeasure's display sprite has been extracted.
         public static void SetCmIcon(string key, byte[] png)
         {
@@ -353,6 +366,8 @@ namespace NOXMFD
                         ServePng(ctx, _cmIcons, _cmLock, "type");
                     else if (path == "/tgt-icon")
                         ServePng(ctx, _tgtIcons, _tgtLock, "type");
+                    else if (path == "/building-icon")
+                        ServePng(ctx, _buildingIcons, _buildingLock, "type");
                     else if (path == "/airframe")
                         ServeAirframeImage(ctx);
                     else if (path == "/airframe-layout")

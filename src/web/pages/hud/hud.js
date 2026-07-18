@@ -8,6 +8,12 @@
 const CATEGORY_LABELS = ['FRIENDLY', 'ENEMY', 'AIRCRAFT', 'MISSILES', 'VEHICLES', 'BUILDINGS', 'SHIPS'];
 // Which category rows own a sub-type chip grid, and the hud.set group that drives it.
 const SUBTYPE_GROUP = { 4: 'vehicle', 5: 'building' };
+// The mod's captured type sprites, by group — the real in-game icons. Vehicle names reuse the TGT
+// page's capture; buildings have their own (a name like RDR is in both, so they can't share).
+const ICON_BASE = { vehicle: '/tgt-icon', building: '/building-icon' };
+// The two faction categories are coloured apart from the green type categories, as in game — see
+// hud.css. Index into CATEGORY_LABELS.
+const FACTION_CLASS = { 0: 'friendly', 1: 'enemy' };
 
 const modesEl = document.getElementById('hud-modes');
 const catsEl  = document.getElementById('hud-cats');
@@ -81,10 +87,11 @@ function renderCats() {
   });
 }
 
-// One category row: name on the left, a MAXIMIZE toggle on the right.
+// One category row: name on the left, a MAXIMIZE toggle on the right. The two faction rows carry a
+// colour class so the row and its toggle read in the game's cyan/red instead of the type green.
 function catRow(label, on, index) {
   const row = document.createElement('div');
-  row.className = 'hud-cat';
+  row.className = 'hud-cat' + (FACTION_CLASS[index] ? ' faction-' + FACTION_CLASS[index] : '');
   const name = document.createElement('span');
   name.className = 'hud-cat-name';
   name.textContent = label;
@@ -102,14 +109,19 @@ function catRow(label, on, index) {
   return row;
 }
 
-// The chip grid under VEHICLES / BUILDINGS — one toggle per unit type.
+// The chip grid under VEHICLES / BUILDINGS — one toggle per unit type, the real captured icon over
+// its label (the same icon-over-label the TGT vehicle filter uses).
 function subGrid(group, items) {
   const grid = document.createElement('div');
   grid.className = 'hud-subs';
   items.forEach(function (it, i) {
     const chip = document.createElement('button');
     chip.className = 'hud-sub' + (it.on ? ' on' : '');
-    chip.textContent = pretty(it.n);
+    chip.appendChild(subIcon(group, it.n));
+    const lbl = document.createElement('span');
+    lbl.className = 'hud-sub-label';
+    lbl.textContent = pretty(it.n);
+    chip.appendChild(lbl);
     chip.addEventListener('click', function () {
       const next = !chip.classList.contains('on');
       chip.classList.toggle('on', next);    // optimistic
@@ -119,6 +131,24 @@ function subGrid(group, items) {
     grid.appendChild(chip);
   });
   return grid;
+}
+
+// The captured type sprite. The mod extracts these over the first few mission scans, so a request
+// can 404 if the page is opened early — hide and retry a handful of times, the label carries it
+// meanwhile. Exactly the TGT page's approach.
+function subIcon(group, name) {
+  const img = document.createElement('img');
+  img.className = 'hud-sub-icon';
+  img.alt = '';
+  const url = ICON_BASE[group] + '?type=' + encodeURIComponent(name);
+  let tries = 0;
+  img.addEventListener('error', function () {
+    img.style.visibility = 'hidden';
+    if (++tries <= 6) setTimeout(function () { img.src = url + '&r=' + tries; }, 1200);
+  });
+  img.addEventListener('load', function () { img.style.visibility = ''; });
+  img.src = url;
+  return img;
 }
 
 load();

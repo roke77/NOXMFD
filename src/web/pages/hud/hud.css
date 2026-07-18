@@ -38,16 +38,17 @@ html, body {
   gap: 6px;
   justify-content: center;
 }
+/* Inactive tabs are white outlines, the current one a green fill — as in game. */
 .hud-mode {
   flex: 1 1 auto;
   min-width: 3.2em;
   padding: 6px 4px;
-  border: 1px solid var(--no-green-dark);
+  border: 1px solid var(--no-label);
   background: none;
   font: inherit;
   font-weight: 900;
   letter-spacing: 1px;
-  color: var(--no-green-dim);
+  color: var(--no-label);
   cursor: pointer;
 }
 .hud-mode.on {
@@ -58,20 +59,26 @@ html, body {
 .hud-mode:active { opacity: 0.7; }
 
 /* ── Category rows ─────────────────────────────────────────────────────────────────────
-   Name on the left, MAXIMIZE toggle on the right. */
+   Name on the left, MAXIMIZE toggle on the right. Each row carries an identity colour (--cat): the
+   green type categories, and cyan / red for the two faction rows, as the in-game screen colours
+   them. The row border, its name, and the lit MAXIMIZE all read in that colour. */
 .hud-cats { display: flex; flex-direction: column; gap: 6px; }
 .hud-cat {
+  --cat: var(--no-green);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   padding: 8px 10px;
-  border: 1px solid var(--no-green-dark);
+  border: 1px solid var(--cat);
 }
+.hud-cat.faction-friendly { --cat: #33ccff; }   /* friendly HUD cyan (this screen's own colour) */
+.hud-cat.faction-enemy    { --cat: var(--no-red); }
 .hud-cat-name {
   font-weight: 900;
   letter-spacing: 1px;
   font-size: clamp(12px, 3.2vw, 16px);
+  color: var(--cat);
 }
 .hud-max {
   flex: none;
@@ -86,10 +93,10 @@ html, body {
   cursor: pointer;
   white-space: nowrap;
 }
-/* Maximized = shown at full size on the HUD: lit green. Minimized = dim (the default border/gray). */
+/* Maximized = shown at full size on the HUD: lit in the row's colour. Minimized = dim gray. */
 .hud-max.on {
-  border-color: var(--no-green);
-  color: var(--no-green);
+  border-color: var(--cat);
+  color: var(--cat);
 }
 .hud-max:active { opacity: 0.7; }
 
@@ -102,21 +109,39 @@ html, body {
   gap: 5px;
   padding: 2px 10px 6px 20px;
 }
+/* Icon over label, like the TGT vehicle filter. On = shown (green + full-brightness icon), off =
+   hidden (gray + dimmed icon). */
 .hud-sub {
-  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 3.4em;
+  padding: 4px 3px;
   border: 1px solid var(--no-gray);
   background: none;
   font: inherit;
-  font-size: clamp(10px, 2.4vw, 12px);
-  font-weight: bold;
-  letter-spacing: 0.5px;
   color: var(--no-gray);
   cursor: pointer;
-  white-space: nowrap;
 }
 .hud-sub.on {
   border-color: var(--no-green);
   color: var(--no-green);
+}
+.hud-sub-icon {
+  width: clamp(18px, 5vw, 30px);
+  height: clamp(18px, 5vw, 30px);
+  object-fit: contain;
+  /* Icons ship light-on-dark with synthesized alpha; dim them when the type is off. */
+  filter: brightness(0.55);
+  transition: filter 0.08s;
+}
+.hud-sub.on .hud-sub-icon { filter: none; }
+.hud-sub-label {
+  font-size: clamp(9px, 2.2vw, 11px);
+  font-weight: bold;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
 }
 .hud-sub:active { opacity: 0.7; }
 

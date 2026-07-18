@@ -353,6 +353,30 @@ namespace NOXMFD
             }
         }
 
+        private readonly HashSet<string> _capturedBuildingIcons = new HashSet<string>();
+
+        // The HUD page's building-type icons — the same typeSprite capture as the vehicles above, on
+        // Encyclopedia.buildingTypes ("CIV" … "AMMO"). Served at /building-icon, keyed apart from the
+        // vehicle icons because "RDR" is both a vehicle and a building type. One-time per type.
+        public void TryCaptureBuildingTypeIcons()
+        {
+            Encyclopedia enc = Encyclopedia.i;
+            if (enc == null || enc.buildingTypes == null) return;   // not ready — retry next scan
+
+            for (int i = 0; i < enc.buildingTypes.Count; i++)
+            {
+                var bt = enc.buildingTypes[i];
+                if (bt == null || string.IsNullOrEmpty(bt.typeName) || _capturedBuildingIcons.Contains(bt.typeName))
+                    continue;
+                _capturedBuildingIcons.Add(bt.typeName);   // mark regardless so we never retry this type
+                if (bt.typeSprite == null) continue;
+
+                string name = bt.typeName;
+                SpriteCapture.Request(bt.typeSprite, SpriteCapture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
+                    png => { if (png != null) TelemetryServer.SetBuildingIcon(name, png); });
+            }
+        }
+
         // Extracts a weapon type's icon to PNG, once per name, and registers it. Called from the
         // reader's BuildLoadout as it iterates the live weapon stations.
         public void TryCaptureWeaponIcon(string name, Sprite icon)
