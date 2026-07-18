@@ -98,6 +98,14 @@
   // Paging actions, and the direction each moves. Not pages, so they dispatch separately.
   const PAGER = { 'wpn-prev': -1, 'wpn-next': 1 };
 
+  // ── HUD OPTIONS — proof of concept ──────────────────────────────────────────────────
+  // Temporary: prove the plugin's hud.category command toggles the game's live HUD before building
+  // the real page. Pressing HUD flips the AIRCRAFT icon category (listCategories index 2) on the
+  // in-game HUD OPTIONS screen — aircraft icons should appear/vanish. One game HUD, so one shared
+  // state; every portal's HUD button drives the same toggle. To be replaced by an actual HUD page.
+  const HUD_POC_CATEGORY = 2;   // AIRCRAFT — see CommandDispatcher.HudCategory ponytail note
+  let   hudPocOn = true;        // categories start maximized in-game
+
   // MAP's own actions → the message the map view listens for. Also not pages: they drive the map
   // in place rather than navigating. Same protocol the bezel uses (mfd.js mapSend), but routed to
   // the portal's OWN map — with several maps on the glass, "the map" is no longer unambiguous.
@@ -117,7 +125,7 @@
 
   function has(page) { return Object.prototype.hasOwnProperty.call(F35_PAGES, page); }
   function feedsFor(page) { return PAGE_FEEDS[page] || []; }
-  function canDo(action) { return has(action) || (action in PAGER) || (action in MAP_ACTIONS); }
+  function canDo(action) { return has(action) || (action in PAGER) || (action in MAP_ACTIONS) || action === 'hud'; }
 
   // 'edge' placement: an item's index → its cell. The left column, top-down, IS the bezel's left
   // key bank — the same derivation mfd.js fullViewSlot() uses, which is why NAV needs no placement
@@ -339,6 +347,16 @@
     function dispatch(action) {
       if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
       if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
+      // PoC: HUD flips the AIRCRAFT icon category on the game HUD. The button lights (amber .on)
+      // while the category is hidden, so the toggle state is visible. Replace with the real HUD
+      // page once live-apply is confirmed.
+      if (action === 'hud') {
+        hudPocOn = !hudPocOn;
+        sendCommand('hud.category', { index: HUD_POC_CATEGORY, on: hudPocOn }).catch(function () {});
+        const b = grid.querySelector('.nav-item[data-action="hud"]');
+        if (b) b.classList.toggle('on', !hudPocOn);   // lit = aircraft icons hidden
+        return;
+      }
       if (has(action)) showPage(action);
     }
 

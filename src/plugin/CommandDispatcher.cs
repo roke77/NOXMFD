@@ -43,6 +43,7 @@ namespace NOXMFD
                 { "tgt.clear",       TgtClear },
                 { "tgt.laser",       TgtLaser },
                 { "tgt.hud",         TgtHud },
+                { "hud.category",    HudCategory },
             };
 
         // True for a cmd we have a handler for — lets the server reject unknown commands at the
@@ -272,6 +273,34 @@ namespace NOXMFD
             if (sel.toggleFollowHUD.status == env.on) return;
             sel.toggleFollowHUD.Set(env.on);
             Plugin.Log?.LogInfo($"[NOXMFD] tgt.hud = {env.on}.");
+        }
+
+        // HUD OPTIONS — maximize/minimize one of the icon categories (FRIENDLY / ENEMY / AIRCRAFT /
+        // MISSILES / VEHICLES / BUILDINGS / SHIPS). This is the in-game MFD "HUD OPTIONS" page:
+        // HUDOptions.CheckMaximizeIcon() scales a unit's HUD icon to 0 when its category isn't
+        // maximized, so toggling a category off hides those icons live. Category.Set() updates the
+        // maximize button; ApplyHUDSettings() fires OnApplyOptions so the change takes effect now
+        // rather than after the ~1s idle refresh.
+        //
+        // ponytail: env.index is a raw index into listCategories, whose order is set in the game's
+        // Unity inspector, not by us — fine for the proof-of-concept (index 2 = AIRCRAFT), but the
+        // real page must read the categories' names/order at runtime rather than trust a constant.
+        // Upgrade path: emit the category list as telemetry and address by name.
+        private static void HudCategory(CommandEnvelope env)
+        {
+            HUDOptions opt = SceneSingleton<HUDOptions>.i;
+            if (opt == null || opt.listCategories == null) { Plugin.Log?.LogInfo("[NOXMFD] hud.category: unavailable — ignored."); return; }
+            if (env.index < 0 || env.index >= opt.listCategories.Count)
+            {
+                Plugin.Log?.LogInfo($"[NOXMFD] hud.category: index {env.index} out of range (0..{opt.listCategories.Count - 1}) — ignored.");
+                return;
+            }
+            HUDOptions_Category cat = opt.listCategories[env.index];
+            if (cat == null) { Plugin.Log?.LogInfo($"[NOXMFD] hud.category[{env.index}] is null — ignored."); return; }
+            if (cat.maximized == env.on) return;   // already there
+            cat.Set(env.on);
+            opt.ApplyHUDSettings();
+            Plugin.Log?.LogInfo($"[NOXMFD] hud.category[{env.index}].maximized = {env.on}.");
         }
     }
 }
