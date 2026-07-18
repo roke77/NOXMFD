@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Sticky layout (docs/layouts.md, Stage 3): honor the last chosen layout on a fresh load.
+     Runs before paint so there's no glass flash before redirecting. This is the F-35 document,
+     so it steps aside only when the stored choice names CLASSIC. -->
+<script>try { if (localStorage.getItem('layout') === 'classic') location.replace('/'); } catch (e) {}</script>
 <title>NO XMFD — F-35</title>
 <!--
   F-35 layout — Stage 2 (docs/layouts.md), served at /f35. The bezel shell at / is untouched.

@@ -696,10 +696,14 @@
   }
 
   lytBtn.addEventListener('click', function () { showPicker(pickerEl.hidden); });
+  // Remember the choice so a fresh load honors it (docs/layouts.md, Stage 3); the head guard in each
+  // shell's HTML reads it and redirects before paint. Guarded — localStorage throws in some
+  // private-mode browsers, and a failed write just means the choice isn't sticky.
+  function setLayout(name) { try { localStorage.setItem('layout', name); } catch (e) {} }
   // F-35 is this document, so the way back is just showing the glass again. CLASSIC is a different
   // one: the bezel shell at /, which lands on its own MAIN.
-  pickerEl.querySelector('[data-layout="f35"]').addEventListener('click', function () { showPicker(false); });
-  pickerEl.querySelector('[data-layout="classic"]').addEventListener('click', function () { location.href = '/'; });
+  pickerEl.querySelector('[data-layout="f35"]').addEventListener('click', function () { setLayout('f35'); showPicker(false); });
+  pickerEl.querySelector('[data-layout="classic"]').addEventListener('click', function () { setLayout('classic'); location.href = '/'; });
 
   loadStripUrls();
   runStripBoot();
