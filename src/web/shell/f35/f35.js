@@ -28,7 +28,11 @@
   // A MAP portal mounts its own map. The tap is a data source only and is never shown — see
   // #map-tap in f35.css, and "the glass" below for why no portal can ever borrow it. (The tap keeps
   // its own src in f35.html and needs no ?nochrome: nothing about it is ever looked at.)
-  const MAP_URL = '/map-view?bare&nochrome';
+  //
+  // No ?nochrome here: the master strip no longer carries the mission name/grid (removed to give
+  // the THRL/FUEL gauges more room), so a MAP portal draws its own mission bar + GRID chip again,
+  // same as the bezel's MAP.
+  const MAP_URL = '/map-view?bare';
 
   // Screens this layout can show, and the page each mounts. Every NAV action has an entry, so
   // nothing renders dimmed except this layout's own placeholders (MAIN_EXTRAS).
@@ -40,11 +44,12 @@
   // untouched and still serves the bezel.)
   //
   // ?nochrome tells a page this shell already shows its own-ship readouts, so it should not draw
-  // them twice: AVN drops its FUEL/THROTTLE bars and status tiles, MAP drops the mission name and
-  // the grid chip — the master strip carries all four. Each page owns the option and decides what
-  // it means; this layout only picks it. It is a URL flag rather than a message because a page
-  // reads it before its first paint, and a message would show the readouts and then take them away
-  // on every mount. The bezel passes it to nothing and is unaffected.
+  // them twice: AVN drops its FUEL/THROTTLE bars and status tiles — the master strip carries both.
+  // MAP no longer gets the flag: the strip dropped its own mission name/grid chip (more room for
+  // the gauges), so MAP is the one place left to see them, same as the bezel. Each page owns the
+  // option and decides what it means; this layout only picks it. It is a URL flag rather than a
+  // message because a page reads it before its first paint, and a message would show the readouts
+  // and then take them away on every mount. The bezel passes it to nothing and is unaffected.
   const F35_PAGES = {
     main: null,
     map: MAP_URL,
@@ -501,10 +506,9 @@
 
     // The master strip isn't a portal, so it has no PAGE_FEEDS entry; the slices it shows are
     // handed to it straight from here. status → the connection line; avn → the flags and the
-    // THRL/FUEL gauges; mapinfo → the mission name and grid.
+    // THRL/FUEL gauges.
     if (m.type === 'status') updateStripStatus(m);
     else if (m.type === 'avn') { updateStripFlags(m); updateStripGauges(m); }
-    else if (m.type === 'mapinfo') updateStripMap(m);
   });
 
   // WPN's rects are derived from its portal's box, so they go stale when it changes. The bezel
@@ -523,9 +527,6 @@
   const stripEl      = document.querySelector('.master-strip');
   const stripFlags   = [].slice.call(document.querySelectorAll('.ms-flag'));
   const stripStatus  = document.getElementById('ms-status');
-  const stripMap     = document.getElementById('ms-map');
-  const stripMapName = document.getElementById('ms-map-name');
-  const stripGrid    = document.getElementById('ms-grid');
   const stripThr  = gauge('ms-thr', 'thr');
   const stripFuel = gauge('ms-fuel', 'fuel');
 
@@ -591,15 +592,6 @@
     stripStatus.textContent = m.text;
   }
 
-  // No mission → nothing to name and no grid to be in, so the block leaves rather than sitting
-  // there full of dashes. The map page hides its own mission bar the same way (map.css
-  // #mission-bar.empty). The tap sends mission:null on mission exit, so this un-shows itself.
-  function updateStripMap(m) {
-    stripMap.hidden = !m.mission;
-    if (!m.mission) return;
-    stripMapName.textContent = m.mission;
-    stripGrid.textContent = 'GRID: ' + (m.grid || '—');
-  }
   function setStripUrls(cfg) {
     if (cfg && cfg.localhost) document.getElementById('ms-local').textContent = cfg.localhost;
     document.getElementById('ms-lan').textContent = (cfg && cfg.lanUrl) || '';
@@ -697,10 +689,26 @@
   }
 
   lytBtn.addEventListener('click', function () { showPicker(pickerEl.hidden); });
+  // Remember the choice so a fresh load honors it (docs/layouts.md, Stage 3); the head guard in each
+  // shell's HTML reads it and redirects before paint. Guarded — localStorage throws in some
+  // private-mode browsers, and a failed write just means the choice isn't sticky.
+  function setLayout(name) { try { localStorage.setItem('layout', name); } catch (e) {} }
   // F-35 is this document, so the way back is just showing the glass again. CLASSIC is a different
   // one: the bezel shell at /, which lands on its own MAIN.
-  pickerEl.querySelector('[data-layout="f35"]').addEventListener('click', function () { showPicker(false); });
-  pickerEl.querySelector('[data-layout="classic"]').addEventListener('click', function () { location.href = '/'; });
+  pickerEl.querySelector('[data-layout="f35"]').addEventListener('click', function () { setLayout('f35'); showPicker(false); });
+  pickerEl.querySelector('[data-layout="classic"]').addEventListener('click', function () { setLayout('classic'); location.href = '/'; });
+
+  // ── Fullscreen ─────────────────────────────────────────────────────────────────────────
+  // Same toggle as the bezel's top-key icon (mfd.js toggleFullscreen) — this shell has no bezel key
+  // bank to carry it, so it gets its own button beside LAYOUT instead.
+  document.getElementById('ms-fll').addEventListener('click', function () {
+    const d = document, el = d.documentElement;
+    if (!d.fullscreenElement && !d.webkitFullscreenElement) {
+      (el.requestFullscreen || el.webkitRequestFullscreen || function () {}).call(el);
+    } else {
+      (d.exitFullscreen || d.webkitExitFullscreen || function () {}).call(d);
+    }
+  });
 
   loadStripUrls();
   runStripBoot();

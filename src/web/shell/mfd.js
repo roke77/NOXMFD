@@ -51,6 +51,11 @@ function applyIconBank(bankName, icons) {
 }
 applyIconBank('top', functionIcons);
 applyIconBank('bottom', layoutIcons);
+
+// Remember the chosen layout so a fresh load honors it (docs/layouts.md, Stage 3). The head guard
+// in each shell's HTML reads this value and redirects before paint. Guarded: localStorage throws
+// in some private-mode browsers, and a failed write just means the choice isn't sticky.
+function setLayout(name) { try { localStorage.setItem('layout', name); } catch (e) {} }
 const overlayEl = document.getElementById('overlay');
 const mapFrame  = document.querySelector('.screen > iframe[title="map"]');
 const screenEl  = document.getElementById('screen');
@@ -107,10 +112,11 @@ const BEZEL_EXTRAS = {
     { label: 'HUD', action: 'hud', bank: 'right', index: 0 },
     { label: 'LYT', action: 'lyt', bank: 'right', index: 1 },
   ],
+  // No MAIN back-item under lyt here — picking CLASSIC already navigates back to MAIN (this shell),
+  // so a separate way-back label would be redundant with it.
   lyt:  [
-    { label: 'MAIN',    action: 'main',       bank: 'left', index: 0 },   // the way back, as NAV gives every page
-    { label: 'CLASSIC', action: 'lyt-classic', bank: 'left', index: 1, mark: true },
-    { label: 'F-35',    action: 'lyt-f35',     bank: 'left', index: 2 },
+    { label: 'CLASSIC', action: 'lyt-classic', bank: 'left', index: 0, mark: true },
+    { label: 'F-35',    action: 'lyt-f35',     bank: 'left', index: 1 },
   ],
 };
 
@@ -1193,9 +1199,10 @@ function mfdButton(el) {
     // The LAYOUT page's two choices. CLASSIC is this document, so choosing it is just leaving the
     // menu — back to MAIN, where LYT was pressed, with a fresh status as MAIN's own key pulls.
     // F-35 is a different document, so it is a real navigation; that shell lands on its own MAIN.
-    // (Neither is remembered — see docs/layouts.md, Stage 3.)
-    case 'lyt-classic': showPage('main'); mapSend('status-request'); break;
-    case 'lyt-f35':     location.href = '/f35'; break;
+    // Either choice is remembered (setLayout → localStorage) so a fresh load honors it — the head
+    // guard in each shell's HTML redirects on that value (docs/layouts.md, Stage 3).
+    case 'lyt-classic': setLayout('classic'); showPage('main'); mapSend('status-request'); break;
+    case 'lyt-f35':     setLayout('f35'); location.href = '/f35'; break;
     case 'avn':  showPage('avn');  break;
     case 'rwr':  showPage('rwr');  break;
     case 'tgt':  showPage('tgt');  break;

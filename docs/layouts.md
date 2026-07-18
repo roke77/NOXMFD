@@ -2,9 +2,9 @@
 
 ## Status
 
-**In progress.** Stage 1 (the seam) and Stage 2 (a second layout) are built
-and on `feat/layouts`. The bezel remains the default, and every page renders
-on it exactly as before.
+**All three stages done and merged to `main` (shipped in 0.14.0).** Stage 1 (the
+seam), Stage 2 (a second layout), and Stage 3 (remembering the choice) are in. The
+bezel remains the default, and every page renders on it exactly as before.
 
 - The **bezel** layout ships: a metallic 4/6/4/6 button frame, served at `/`.
   It has gained one thing from this branch: an **LYT** key on MAIN opening a
@@ -36,9 +36,10 @@ is the other half of the branch's diff: extracting `NAV` out of `mfd.js` into
 `nav-model.js` moved ~200 lines of the bezel shell, which is the refactor the
 seam *is*, not a cost of the second layout.
 
-Outstanding: Stage 3 is partly there — LAYOUT switches to the bezel live, but
-the choice isn't remembered and the bezel has no way back, so the layout is
-still chosen by URL rather than by a setting.
+Stage 3 is now complete: both layouts reach each other live (LYT on the bezel's
+MAIN, LAYOUT in the F-35's strip), and the choice sticks across loads via
+`localStorage` + a before-paint redirect guard in each shell's `<head>`. A
+BepInEx-config default was consciously not built — see Stage 3 for that call.
 
 See [issue #8](https://github.com/roke77/NOXMFD/issues/8) for the F-35
 reference screenshots that motivated this.
@@ -396,17 +397,19 @@ screen, and both only appeared at four.
 
 The rule for anything added here: measure the portal, never the window.
 
-### Stage 3 — selection 🟡 partial
+### Stage 3 — selection ✅ done
 
 **Both layouts can now switch to the other, live**, and each offers the choice
 in its own idiom rather than sharing a screen:
 
 - The F-35's strip has a bordered **LAYOUT** button; pressing it swaps the
   portals for a two-item chooser centred on the glass.
-- The bezel has an **LYT** key on MAIN, opening a LAYOUT page that is three
-  left-bank labels and nothing else: MAIN, CLASSIC, F-35. It draws no panel —
-  every page in this shell puts its items beside a physical key, and a chooser
-  is navigation, so it reads as one.
+- The bezel has an **LYT** key on MAIN, opening a LAYOUT page that is two
+  left-bank labels and nothing else: CLASSIC, F-35. (No MAIN back-item —
+  picking CLASSIC already lands back on this shell's MAIN, so a separate way
+  back would be redundant with it.) It draws no panel — every page in this
+  shell puts its items beside a physical key, and a chooser is navigation, so
+  it reads as one.
 
 Both mark the layout you are on in the theme's engaged amber. Neither needs
 state to do it: each document *is* one of the layouts, so its own item is marked
@@ -433,12 +436,29 @@ MAIN's six fill it exactly, so **LYT is the first label this shell has had to
 place anywhere else** (right bank, key 0). One item, so it names its own key
 rather than earning a placement table.
 
-**Still missing: the choice doesn't stick.** Both directions work, but neither
-shell remembers, so a reload lands on whatever the URL says. The layout is still
-chosen by URL (`/` vs `/f35`). What is left: a BepInEx `ConfigEntry` (we already
-ship ConfigurationManager) or a `?layout=` query param that makes `/` serve
-either shell — at which point each chooser sets that preference instead of
-navigating.
+**The choice now sticks — client-side, not server-side.** Each chooser writes the
+picked layout to `localStorage.layout` (`setLayout` in `mfd.js` / `f35.js`) before
+navigating. A guard inline in each shell's HTML `<head>` reads that value on load
+and `location.replace`s to the other document when it names the layout this one is
+*not* — so a fresh load, a reload, or a tablet opening `/` all land on the last
+choice. The guard runs before paint, so there's no flash of the wrong shell.
+
+Two decisions worth recording:
+
+- **Client-side, not a BepInEx `ConfigEntry`.** We considered a server-side
+  preference that would make `/` serve either shell. localStorage is the smaller
+  diff, needs no plugin or route change, and matches where the rest of the client's
+  state already lives (map follow, zoom, WPN paging). The `ConfigEntry` path stays
+  open if the preference ever needs to be set from *outside* the browser (e.g. a
+  default baked into the mod), but nothing needs that today.
+- **Each document guards only against the *other* layout's value**, never its own.
+  The classic doc redirects only on `'f35'`, the F-35 doc only on `'classic'`; an
+  unset or unrecognised value redirects nowhere (root stays classic by default).
+  That asymmetry is what guarantees termination — resolving lands on a stable
+  document in one step and cannot ping-pong. Locked by `shell/layout-sticky.test.js`.
+
+The URL still names the layout (`/` vs `/f35`); localStorage only decides which one
+a bare load resolves to.
 
 ## The master strip
 
