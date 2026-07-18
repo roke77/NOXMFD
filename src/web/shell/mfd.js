@@ -239,10 +239,10 @@ function applySplitMode() {
   // and v<->vw reconfigs return early in setSplit and never reach here, so they keep their pin.
   clearPin();
   applySplitClasses();
-  // The vertical-MAIN overlay style is full-view-TGT only; split entry doesn't go through showPage,
-  // so drop it here or its label style would leak onto the split MAIN labels. Restored on unsplit
-  // (showPage re-toggles it). TGT itself isn't a pane page (not in PAGE_URL), so it never renders split.
-  overlayEl.classList.remove('tgt-page');
+  // The vertical-MAIN overlay style is full-view only (TGT / HUD); split entry doesn't go through
+  // showPage, so drop it here or its label style would leak onto the split MAIN labels. Restored on
+  // unsplit (showPage re-toggles it). Neither is a pane page (not in PAGE_URL), so neither splits.
+  overlayEl.classList.remove('vmain');
   if (splitMode) {
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
     paneIframes[0].src = paneUrl(panePages[0]);
@@ -849,7 +849,9 @@ function showPage(name) {
   overlayEl.classList.toggle('opaque', !!OPAQUE_PAGES[name]);
   // TGT keeps clickable content in the top-left where the MAIN bezel label sits; a class here lets
   // mfd.css render that label vertically so it hugs the edge and clears the page's RESET button.
-  overlayEl.classList.toggle('tgt-page', name === 'tgt');
+  // Stand the MAIN label up for pages with clickable content in the top-left (TGT's RESET FILTER,
+  // HUD's mode/category rows), so a horizontal label doesn't cover it. See .overlay.vmain in mfd.css.
+  overlayEl.classList.toggle('vmain', name === 'tgt' || name === 'hud');
   infoBox.classList.toggle('show', name === 'main');
   screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGT/TGP/AVN render in #page-frame
   clearKeyActions();

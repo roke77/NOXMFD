@@ -22,14 +22,6 @@ html, body {
   gap: 10px;
 }
 
-.hud-title {
-  text-align: center;
-  font-size: clamp(16px, 4vw, 24px);
-  font-weight: 900;
-  letter-spacing: 3px;
-  color: var(--no-green);
-}
-
 /* ── Mode tabs ─────────────────────────────────────────────────────────────────────────
    NAV/GUN/A2A/A2G/EW/LOG — a radio row; the current mode is lit, the rest are dim outlines. */
 .hud-modes {
