@@ -46,7 +46,7 @@ function catIcon(index) {
 const DECLUTTER = [
   { key: 'weapon',  label: 'WEAPONS' },
   { key: 'minimap', label: 'MINIMAP' },
-  { key: 'boxes',   label: 'TOP BOXES' },
+  { key: 'boxes',   label: 'FLIGHT' },
 ];
 
 const dcEl    = document.getElementById('hud-declutter');
