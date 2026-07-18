@@ -142,6 +142,13 @@ pilot, with HOTAS-friendly keybinds to match.
 
 - **HUD** — a remote for the game's in-cockpit HUD OPTIONS: mode tabs (NAV/GUN/A2A/…) and per-category / per-type toggles for which unit icons show on the HUD, plus a declutter strip that hides native HUD widgets — the weapon panel, corner minimap, and boxed flight readouts. Full-view only for the moment.
 
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![HUD page](docs/images/HUD.png)
+
+  </details>
+
 - **WPN** — weapon loadout and rounds remaining, plus IR-flare count and jammer charge.
 
   <details>
