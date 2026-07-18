@@ -17,6 +17,10 @@ html, body {
   height: 100%;
   overflow-y: auto;
   padding: 12px 14px;
+  /* Extra left inset: both shells draw a vertical MAIN label hugging the left edge for this page
+     (mfd.css .overlay.vmain, f35.css [data-page="hud"]), so keep content clear of it — same fix as
+     the TGT page's .tgt-panel. */
+  padding-left: clamp(30px, 5vw, 48px);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -55,11 +59,16 @@ html, body {
    green type categories, and cyan / red for the two faction rows, as the in-game screen colours
    them. The row border, its name, and the lit MAXIMIZE all read in that colour. */
 .hud-cats { display: flex; flex-direction: column; gap: 6px; }
+/* A 3-column grid (name / icon / MAXIMIZE), not flex space-between: the icon must land dead centre
+   regardless of how wide the name or button are, and grid columns give it a fixed slot rather than
+   whatever space is left over. Columns are explicit (grid-column below) rather than relying on
+   auto-placement, since the middle column is skipped entirely on the two rows with no icon
+   (FRIENDLY / ENEMY) — auto-placement would then shove MAXIMIZE into the middle slot. */
 .hud-cat {
   --cat: var(--no-green);
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
   padding: 8px 10px;
   border: 1px solid var(--cat);
@@ -67,13 +76,28 @@ html, body {
 .hud-cat.faction-friendly { --cat: #33ccff; }   /* friendly HUD cyan (this screen's own colour) */
 .hud-cat.faction-enemy    { --cat: var(--no-red); }
 .hud-cat-name {
+  grid-column: 1;
+  justify-self: start;
   font-weight: 900;
   letter-spacing: 1px;
   font-size: clamp(12px, 3.2vw, 16px);
   color: var(--cat);
 }
+/* The category's captured type glyph (AssetCapture.TryCaptureHudCategoryIcons) — AIRCRAFT/MISSILES/
+   VEHICLES/BUILDINGS/SHIPS only, centred between the name and MAXIMIZE, as the in-game screen shows.
+   FRIENDLY/ENEMY have none (see catIcon in hud.js); the column is simply empty for those rows. The
+   sprite ships already coloured (like the vehicle/building sub-icons below), so it renders as-is —
+   no recolour needed. */
+.hud-cat-icon {
+  grid-column: 2;
+  justify-self: center;
+  width: clamp(20px, 5vw, 30px);
+  height: clamp(20px, 5vw, 30px);
+  object-fit: contain;
+}
 .hud-max {
-  flex: none;
+  grid-column: 3;
+  justify-self: end;
   padding: 5px 10px;
   border: 1px solid var(--no-gray);
   background: none;
@@ -99,6 +123,7 @@ html, body {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
+  justify-content: space-between;   /* stretch each row across the full width, as in game */
   padding: 2px 10px 6px 20px;
 }
 /* Icon over label, like the TGT vehicle filter. On = shown (green + full-brightness icon), off =

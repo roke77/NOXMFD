@@ -76,6 +76,13 @@ namespace NOXMFD
         private static readonly Dictionary<string, byte[]> _buildingIcons = new Dictionary<string, byte[]>();
         private static readonly object                     _buildingLock  = new object();
 
+        // HUD OPTIONS category-row icons (PNG) — AIRCRAFT/MISSILES/VEHICLES/BUILDINGS/SHIPS, keyed by
+        // the same fixed label the HUD page's CATEGORY_LABELS carries (the game exposes no per-category
+        // name to key by instead). FRIENDLY/ENEMY have no entry — the game draws no glyph on those rows
+        // either. Served at /hud-cat-icon?cat=.
+        private static readonly Dictionary<string, byte[]> _hudCatIcons = new Dictionary<string, byte[]>();
+        private static readonly object                     _hudCatLock  = new object();
+
         // Airframe silhouette assets. Images keyed by "unitName|partName" — partName is the
         // GameObject name from Aircraft.partLookup (e.g. "wing1_L") or "__bg" for the background
         // silhouette. Layouts keyed by unitName, value is a JSON descriptor of part placements.
@@ -297,6 +304,13 @@ namespace NOXMFD
             lock (_buildingLock) _buildingIcons[name] = png;
         }
 
+        // Called from Unity main thread once a HUD OPTIONS category-row icon sprite has been extracted.
+        public static void SetHudCategoryIcon(string name, byte[] png)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+            lock (_hudCatLock) _hudCatIcons[name] = png;
+        }
+
         // Called from Unity main thread once a countermeasure's display sprite has been extracted.
         public static void SetCmIcon(string key, byte[] png)
         {
@@ -368,6 +382,8 @@ namespace NOXMFD
                         ServePng(ctx, _tgtIcons, _tgtLock, "type");
                     else if (path == "/building-icon")
                         ServePng(ctx, _buildingIcons, _buildingLock, "type");
+                    else if (path == "/hud-cat-icon")
+                        ServePng(ctx, _hudCatIcons, _hudCatLock, "cat");
                     else if (path == "/airframe")
                         ServeAirframeImage(ctx);
                     else if (path == "/airframe-layout")

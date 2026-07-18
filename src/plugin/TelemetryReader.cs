@@ -150,6 +150,7 @@ namespace NOXMFD
             _assets.CaptureMissileWarningIcon();   // one-time: the real missile-warning sprite for the MAP page
             _assets.TryCaptureVehicleTypeIcons();  // one-time per type: the TGT page's vehicle-filter icons
             _assets.TryCaptureBuildingTypeIcons(); // one-time per type: the HUD page's building-type icons
+            _assets.TryCaptureHudCategoryIcons();  // one-time per category: the HUD page's type-glyph icons
 
             // Resolve the map bounds + grid offsets and capture the real in-game map image.
             if (_level == null)

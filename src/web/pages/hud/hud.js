@@ -15,6 +15,31 @@ const ICON_BASE = { vehicle: '/tgt-icon', building: '/building-icon' };
 // hud.css. Index into CATEGORY_LABELS.
 const FACTION_CLASS = { 0: 'friendly', 1: 'enemy' };
 
+// The in-game screen centres a real type glyph on AIRCRAFT/MISSILES/VEHICLES/BUILDINGS/SHIPS (not the
+// two faction rows). HUDOptions exposes no per-category icon field for it, but it turned out to be a
+// plain child Image ("TopContainer/Icon") on each row, found by a one-shot hierarchy dump and captured
+// to /hud-cat-icon keyed by this label (docs/hud-page.md, AssetCapture.TryCaptureHudCategoryIcons).
+// FRIENDLY/ENEMY (0, 1) have no entry — the game draws no glyph on those rows either.
+const CAT_ICON_INDICES = new Set([2, 3, 4, 5, 6]);
+
+// The category's captured glyph, or null for a row with none. Same retry-on-404 approach as subIcon
+// below: the mod extracts these over the mission's first few scans, so an early request can 404.
+function catIcon(index) {
+  if (!CAT_ICON_INDICES.has(index)) return null;
+  const img = document.createElement('img');
+  img.className = 'hud-cat-icon';
+  img.alt = '';
+  const url = '/hud-cat-icon?cat=' + encodeURIComponent(CATEGORY_LABELS[index]);
+  let tries = 0;
+  img.addEventListener('error', function () {
+    img.style.visibility = 'hidden';
+    if (++tries <= 6) setTimeout(function () { img.src = url + '&r=' + tries; }, 1200);
+  });
+  img.addEventListener('load', function () { img.style.visibility = ''; });
+  img.src = url;
+  return img;
+}
+
 const modesEl = document.getElementById('hud-modes');
 const catsEl  = document.getElementById('hud-cats');
 const emptyEl = document.getElementById('hud-empty');
@@ -105,6 +130,8 @@ function catRow(label, on, index) {
     send('hud.set', { group: 'category', index: index, on: next });
   });
   row.appendChild(name);
+  const icon = catIcon(index);
+  if (icon) row.appendChild(icon);
   row.appendChild(btn);
   return row;
 }
