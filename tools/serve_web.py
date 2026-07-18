@@ -189,7 +189,16 @@ class H(http.server.SimpleHTTPRequestHandler):
                 if fp and fp.exists():
                     return self._file(fp, 'image/png')
             return self._send(WEAPON_SVG.encode('utf-8'), 'image/svg+xml')
-        if path == '/tgt-icon':
+        if path in ('/tgt-icon', '/building-icon'):
+            # Real captured type sprite if a capture ran (manifest key 'tgt-icon:<t>' /
+            # 'building-icon:<t>'); otherwise the generic placeholder, so both the vehicle and
+            # building chips show *an* icon in the mock harness.
+            typ = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('type', [''])[0]
+            ref = _asset_ref(path.lstrip('/') + ':' + typ)
+            if ref:
+                fp = _preview_asset_path(ref)
+                if fp and fp.exists():
+                    return self._file(fp, 'image/png')
             return self._send(TGT_ICON_SVG.encode('utf-8'), 'image/svg+xml')
         if path == '/airframe-layout':
             typ = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('type', [''])[0]
