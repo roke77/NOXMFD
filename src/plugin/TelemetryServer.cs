@@ -583,6 +583,13 @@ namespace NOXMFD
             AppendTypeList(sb, ",\"vehicles\":", opt.listVehicleTypes, Encyclopedia.i?.vehicleTypes);
             AppendTypeList(sb, ",\"buildings\":", opt.listBuildingTypes, Encyclopedia.i?.buildingTypes);
 
+            // declutter — the mod's OWN native-HUD hide flags (HudDeclutterConfig), a separate axis from
+            // the HUDOptions unit-icon toggles above. true = that native widget is currently hidden.
+            sb.Append(",\"declutter\":{\"weapon\":").Append(HudDeclutterConfig.HideWeaponAmmo ? "true" : "false")
+              .Append(",\"minimap\":").Append(HudDeclutterConfig.HideMinimap ? "true" : "false")
+              .Append(",\"boxes\":").Append(HudDeclutterConfig.HideTopBoxes ? "true" : "false")
+              .Append('}');
+
             sb.Append('}');
             HudOptionsJson = sb.ToString();
         }

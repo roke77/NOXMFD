@@ -148,6 +148,9 @@ def _hud_options():
         "categories": [False, True, False, False, True, False, False],
         "vehicles":  [{"n": n, "on": True} for n in veh],
         "buildings": [{"n": n, "on": True} for n in bld],
+        # native-HUD declutter flags (HudDeclutterConfig) — true = that widget is hidden. One hidden
+        # here so the off state is visible in the harness. The write side (declutter.set) has no mock.
+        "declutter": {"weapon": False, "minimap": True, "boxes": False},
     }).encode("utf-8")
 
 

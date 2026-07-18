@@ -37,6 +37,14 @@ namespace NOXMFD
         // borderless boresight-following center readouts and the heading tape itself are kept.
         public static bool HideTopBoxes => _hideTopBoxes?.Value ?? false;
 
+        // Runtime setters for the web MFD's declutter toggles (declutter.set command). Writing .Value
+        // persists to the cfg AND fires SettingChanged, so the in-game F1 checkbox stays in sync;
+        // HudDeclutter reads the property each tick and hides/restores within one interval. A no-op
+        // before Bind() (i.e. it can't be called meaningfully outside a mission anyway).
+        public static void SetHideWeaponAmmo(bool v) { if (_hideWeaponAmmo != null) _hideWeaponAmmo.Value = v; }
+        public static void SetHideMinimap(bool v)    { if (_hideMinimap    != null) _hideMinimap.Value    = v; }
+        public static void SetHideTopBoxes(bool v)   { if (_hideTopBoxes   != null) _hideTopBoxes.Value   = v; }
+
         // Called once from Plugin.Awake with the plugin's ConfigFile. The section + description
         // strings become the labels/tooltips shown in the in-game config menu.
         public static void Bind(ConfigFile config)

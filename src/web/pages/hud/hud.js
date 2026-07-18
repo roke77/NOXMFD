@@ -40,6 +40,16 @@ function catIcon(index) {
   return img;
 }
 
+// Native-HUD declutter toggles — the mod's own HudDeclutter flags (declutter.set), a separate axis
+// from the HUDOptions unit-icon controls: they hide native game HUD widgets. `key` is the group the
+// command carries; the /hud-options `declutter` object reports each flag's HIDE state (true = hidden).
+const DECLUTTER = [
+  { key: 'weapon',  label: 'WEAPONS' },
+  { key: 'minimap', label: 'MINIMAP' },
+  { key: 'boxes',   label: 'TOP BOXES' },
+];
+
+const dcEl    = document.getElementById('hud-declutter');
 const modesEl = document.getElementById('hud-modes');
 const catsEl  = document.getElementById('hud-cats');
 const emptyEl = document.getElementById('hud-empty');
@@ -64,12 +74,37 @@ function send(cmd, body) {
 function render(d) {
   data = d;
   const has = d && Array.isArray(d.categories) && d.categories.length > 0;
+  // The declutter object rides the same payload but is its own axis; guard it separately so an older
+  // plugin (or an empty payload) simply omits the strip rather than showing dead toggles.
+  const hasDc = has && d.declutter && typeof d.declutter === 'object';
   emptyEl.style.display = has ? 'none' : '';
+  dcEl.style.display    = hasDc ? '' : 'none';
   modesEl.style.display = has ? '' : 'none';
   catsEl.style.display  = has ? '' : 'none';
   if (!has) return;
+  if (hasDc) renderDeclutter();
   renderModes();
   renderCats();
+}
+
+// The declutter strip: one toggle per native widget. Lit = the widget is SHOWN on the HUD (flag off);
+// gray = hidden/decluttered. Inverts the reported HIDE flag so it reads like the rest of the page
+// (lit green = visible on the HUD). The command's `on` is the HIDE state, so it's the inverse of lit.
+function renderDeclutter() {
+  dcEl.textContent = '';
+  const dc = data.declutter;
+  DECLUTTER.forEach(function (item) {
+    const b = document.createElement('button');
+    b.className = 'hud-dc' + (dc[item.key] ? '' : ' on');   // flag true = hidden = not lit
+    b.textContent = item.label;
+    b.addEventListener('click', function () {
+      const nextShown = !b.classList.contains('on');
+      b.classList.toggle('on', nextShown);                  // optimistic
+      dc[item.key] = !nextShown;                            // store HIDE state back
+      send('declutter.set', { group: item.key, on: !nextShown });
+    });
+    dcEl.appendChild(b);
+  });
 }
 
 function renderModes() {

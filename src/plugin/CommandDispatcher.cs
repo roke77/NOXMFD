@@ -45,6 +45,7 @@ namespace NOXMFD
                 { "tgt.hud",         TgtHud },
                 { "hud.set",         HudSet },
                 { "hud.mode",        HudMode },
+                { "declutter.set",   DeclutterSet },
             };
 
         // True for a cmd we have a handler for — lets the server reject unknown commands at the
@@ -334,6 +335,26 @@ namespace NOXMFD
             opt.ToggleButtons(btn);
             opt.ApplyHUDSettings();
             Plugin.Log?.LogInfo($"[NOXMFD] hud.mode = {env.index}.");
+        }
+
+        // Native-HUD declutter — the mod's OWN HudDeclutter flags (HudDeclutterConfig), not the game's
+        // HUDOptions. These hide native HUD widgets: env.group is "weapon" (top-right weapon/ammo/CM
+        // cluster), "minimap" (bottom-left corner map) or "boxes" (boxed heading/speed/alt readouts).
+        // Writing the ConfigEntry persists it and fires SettingChanged, so the in-game F1 checkbox
+        // follows; HudDeclutter reads the flag each tick and hides/restores within ~0.5s (the minimap
+        // within a frame), so there's nothing to apply here. env.on is the desired HIDE state.
+        private static void DeclutterSet(CommandEnvelope env)
+        {
+            switch (env.group)
+            {
+                case "weapon":  HudDeclutterConfig.SetHideWeaponAmmo(env.on); break;
+                case "minimap": HudDeclutterConfig.SetHideMinimap(env.on);    break;
+                case "boxes":   HudDeclutterConfig.SetHideTopBoxes(env.on);   break;
+                default:
+                    Plugin.Log?.LogInfo($"[NOXMFD] declutter.set: unknown group '{env.group}' — ignored.");
+                    return;
+            }
+            Plugin.Log?.LogInfo($"[NOXMFD] declutter.set {env.group} hide={env.on}.");
         }
 
         // Bounds guard shared by the HUD handlers: true when index addresses a live element.

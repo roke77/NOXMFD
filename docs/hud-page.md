@@ -115,6 +115,35 @@ mislabelled.
    the same `#page-frame` page. The MAIN back button comes from a new
    `NAV.hud = [{MAIN}]`, so neither layout special-cases the way back.
 
+## The native-HUD declutter strip
+
+Above the HUDOptions replica sits a one-row strip of three toggles — WEAPONS,
+MINIMAP, TOP BOXES — that drive the mod's **own** `HudDeclutter` feature
+([HudDeclutter.cs](../src/plugin/HudDeclutter.cs)), not the game's `HUDOptions`.
+It is a separate axis: HUDOptions gates which *unit icons* draw on the HUD; these
+hide native HUD *widgets* (the top-right weapon/ammo/CM cluster, the corner
+minimap, the boxed heading/speed/alt readouts). They share the page because both
+are "declutter the HUD," but sit visually apart (their own row + divider, and
+outline-only lit styling so they don't read as more mode tabs).
+
+The live-apply was already proven before this page existed: `HudDeclutter`
+re-reads its three `HudDeclutterConfig` flags every tick and hides/restores
+within ~0.5 s (the minimap within a frame), which is how the in-game F1
+ConfigurationManager checkboxes already worked. So integrating them was only
+wiring, no new game-integration risk:
+
+- **Command** — `declutter.set {group, on}`, `group` ∈ `weapon` | `minimap` |
+  `boxes`, `on` = the desired **hide** state. The handler writes the matching
+  `ConfigEntry.Value`; that persists to the cfg and fires `SettingChanged`, so
+  the F1 checkbox stays in sync, and `HudDeclutter` applies it on its next tick —
+  nothing to apply in the handler.
+- **Read** — `/hud-options` gained a `declutter: {weapon, minimap, boxes}` object
+  (each `true` = currently hidden), so the same 1.2 s poll that syncs the rest of
+  the page also reflects a flag flipped from the F1 menu.
+- **Page** — the strip inverts the reported hide flag to a lit/gray "shown on
+  HUD" state, matching the rest of the page (lit green = visible). A click flips
+  optimistically and POSTs `declutter.set` with the inverse (`on` = hide).
+
 ## Matching the in-game look
 
 The page mirrors the in-game screen's colours and icons:

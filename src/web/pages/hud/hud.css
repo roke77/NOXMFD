@@ -26,6 +26,39 @@ html, body {
   gap: 10px;
 }
 
+/* ── Native-HUD declutter strip ────────────────────────────────────────────────────────
+   Independent toggles that hide native game HUD widgets (top-right weapon panel, corner minimap,
+   boxed readouts) via the mod's own HudDeclutter flags — a different axis from the HUDOptions
+   unit-icon controls below, so it sits apart at the top with a divider. Lit green = the widget is
+   shown on the HUD; gray = hidden (decluttered). Outline-only even when lit, to read distinct from
+   the mode radio's filled current-tab just beneath it. */
+.hud-declutter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--no-gray);
+}
+.hud-dc {
+  flex: 1 1 auto;
+  min-width: 4.5em;
+  padding: 6px 4px;
+  border: 1px solid var(--no-gray);
+  background: none;
+  font: inherit;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: var(--no-gray);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.hud-dc.on {
+  border-color: var(--no-green);
+  color: var(--no-green);
+}
+.hud-dc:active { opacity: 0.7; }
+
 /* ── Mode tabs ─────────────────────────────────────────────────────────────────────────
    NAV/GUN/A2A/A2G/EW/LOG — a radio row; the current mode is lit, the rest are dim outlines. */
 .hud-modes {
