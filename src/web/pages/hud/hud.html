@@ -9,10 +9,10 @@
   its icons at full size, a minimized one shrinks them to a dot (enemy) or hides them (friendly).
   See docs/hud-page.md.
 
-  Unlike the telemetry-pushed pages, this one is fetch-driven: HUD options change only on a toggle,
-  so the page GETs the current state from /hud-options (TelemetryServer.RefreshHudOptions) and POSTs
-  hud.* commands back (send-command.js → CommandDispatcher). It re-fetches after a write, since a
-  mode press rewrites many toggles at once.
+  Unlike the telemetry-pushed pages, this one is fetch-driven, not stream-driven: it POSTs hud.*
+  commands (send-command.js → CommandDispatcher) and polls /hud-options (TelemetryServer.
+  RefreshHudOptions) every 1.2s to read the current state back — the same loop catches a toggle
+  pressed in game instead of here, this page's own writes settling, and a new mission's state.
 
   Controls (all mirror the in-game screen):
     mode tab (NAV/GUN/A2A/A2G/EW/LOG) → hud.mode {index}  — applies that mode's saved preset

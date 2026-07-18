@@ -549,8 +549,18 @@ namespace NOXMFD
             var sb = new StringBuilder(512);
             sb.Append('{');
 
-            // modes
-            sb.Append("\"mode\":").Append((int)opt.currentMode).Append(",\"modes\":[");
+            // modes — currentMode only tracks AutomaticToggle's weapon-driven switches, not a manual
+            // tab click (ToggleButtons never touches it — confirmed in HUDOptions.decompiled.cs), so a
+            // player-selected mode would otherwise never show here. The lit tab (listModes[i].status)
+            // is the one state a manual click always updates; fall back to currentMode only if for some
+            // reason no tab is lit.
+            var modes = opt.listModes;
+            int modeIndex = (int)opt.currentMode;
+            for (int i = 0; modes != null && i < modes.Count; i++)
+            {
+                if (modes[i] != null && modes[i].status) { modeIndex = i; break; }
+            }
+            sb.Append("\"mode\":").Append(modeIndex).Append(",\"modes\":[");
             string[] modeNames = Enum.GetNames(typeof(HUDOptions.HUDMode));
             for (int i = 0; i < modeNames.Length; i++)
             {

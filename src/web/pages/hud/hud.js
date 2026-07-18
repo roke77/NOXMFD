@@ -45,7 +45,6 @@ const catsEl  = document.getElementById('hud-cats');
 const emptyEl = document.getElementById('hud-empty');
 
 let data = null;          // last /hud-options snapshot
-let resyncTimer = null;   // pending reconcile fetch after a write
 
 // The game builds the toggles from the Encyclopedia with underscored names (IR_SAM); the in-game
 // screen shows them spaced. Match that.
@@ -58,17 +57,8 @@ function load() {
     .catch(function () { render({}); });
 }
 
-// A write applied in game shows up in /hud-options only on the plugin's next 1 Hz refresh, so a
-// reconcile fetch waits for it. Optimistic local flips (below) keep the UI instant meanwhile; this
-// catches drift and the many toggles a mode press rewrites.
-function resyncSoon() {
-  if (resyncTimer) clearTimeout(resyncTimer);
-  resyncTimer = setTimeout(load, 1200);
-}
-
 function send(cmd, body) {
   sendCommand(cmd, body).catch(function () {});
-  resyncSoon();
 }
 
 function render(d) {
@@ -178,4 +168,11 @@ function subIcon(group, name) {
   return img;
 }
 
+// Unlike the telemetry-pushed pages (which get a live stream and just react to it), HUD OPTIONS
+// has no push channel — the plugin refreshes /hud-options on its own 1 Hz tick (TelemetryServer.
+// RefreshHudOptions), so this page polls at the same cadence. One poll loop covers three cases at
+// once: a toggle pressed in game rather than here, this page's own optimistic writes settling to
+// the real state, and a mission starting/ending (render() already treats an empty payload as
+// "unavailable", so the next poll after a new mission loads just repaints with the fresh state).
 load();
+setInterval(load, 1200);

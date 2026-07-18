@@ -35,8 +35,10 @@ marker. Zero means the marker minimizes. Four kinds of control feed it:
 - **Modes** — `listModes`, the tabs NAV / GUN / A2A / A2G / EW / LOG. Radio
   buttons; each carries a saved priority preset (`HUDOptions_Priorities`).
   Selecting one applies that preset's whole category/type configuration.
-  `currentMode` tracks the enum; the game also auto-switches mode with the
-  selected weapon (`AutomaticToggle`).
+  `currentMode` only tracks `AutomaticToggle`'s weapon-driven auto-switches —
+  a manual tab click (`ToggleButtons`) never sets it, so it desyncs the
+  moment a player picks a mode by hand. The lit tab (`listModes[i].status`)
+  is the state a manual click always updates, and what `/hud-options` reads.
 - **Categories** — `listCategories`: FRIENDLY UNITS, ENEMY UNITS, AIRCRAFT,
   MISSILES, VEHICLES, BUILDINGS, SHIPS. Each has `maximized` + `Set(bool)`.
 - **Vehicle types** — `listVehicleTypes`: TRUCK, UGV, LCV, AFV, MBT, ART, AAA,
@@ -102,8 +104,11 @@ mislabelled.
    Compiles against the real `HUDOptions` API.
 3. **The page** ✅ done — `pages/hud/`, a full replica: mode tabs, category
    toggles, vehicle + building sub-types. Renders from `/hud-options`; each
-   control POSTs an `hud.*` command; re-fetches ~1.2 s after a write (a mode
-   change flips many toggles, and the plugin snapshots at 1 Hz). Clicks flip
+   control POSTs an `hud.*` command. Unlike the telemetry-pushed pages, HUD
+   OPTIONS has no push channel, so the page polls `/hud-options` every 1.2 s
+   (matching the plugin's own 1 Hz snapshot) instead of re-fetching only after
+   its own writes — one loop catches a toggle pressed in game, a mode press
+   rewriting many toggles at once, and a mission starting/ending. Clicks flip
    optimistically for instant feedback. Full-view only, like TGT.
 4. **Both layouts** ✅ done — the F-35's `hud` action opens `/hud` (PoC stub
    removed); the bezel has an HUD key on MAIN (`BEZEL_EXTRAS`, right bank) opening
@@ -133,10 +138,10 @@ clean sprite to capture. Left off rather than faked; an inline-SVG approximation
 
 ## Open questions
 
-- **Modes vs. manual toggles.** Selecting a mode applies a preset that
-  overwrites the category/type toggles. The page must re-read state after a mode
-  press so its toggles reflect the preset. Whether to also show which toggles a
-  mode changed, or just resync, is a UI call for stage 3.
+- **Modes vs. manual toggles.** Resolved — the page just resyncs (no per-toggle
+  diff shown). Selecting a mode applies a preset that overwrites the category/
+  type toggles; the continuous 1.2 s poll picks up the resulting state on its
+  own, same as any other externally-driven change.
 - **Persistence.** `HUDOptions.SaveSettings()` writes the current mode's preset
   to JSON. The page does not need to call it — toggles apply live and the game
   owns persistence — but a "save this as the mode default" control is a possible

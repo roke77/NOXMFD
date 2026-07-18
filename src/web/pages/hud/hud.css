@@ -162,11 +162,8 @@ html, body {
 }
 .hud-sub:active { opacity: 0.7; }
 
-/* Unavailable (no mission / HUDOptions not up). Centred, dim — the shared mfd-empty look. */
-.hud-empty {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+/* Unavailable (no mission / HUDOptions not up) — centred by the shared .mfd-empty rule alone
+   (theme.css), like every other page's empty state (avn-empty, tgt-unavailable, wpn-empty, …).
+   No page-specific override here: .mfd-empty already sets position/inset/transform to center
+   itself against <body>, and redeclaring any of that here fights its transform instead of adding
+   to it, pinning the placeholder to the top-left. */
