@@ -11,6 +11,7 @@ which supplies the synthetic/captured /stream data that the shell forwards to pa
   /map-view[?bare]   -> src/web/pages/map/map.html      (the base map iframe; mock injected here)
   /<page>            -> src/web/pages/<page>/<page>.html  (any migrated page, e.g. /wpn /tgt)
   /weapon?...        -> captured weapon icon, or a mock 2:1 icon
+  /hud-cat-icon?cat= -> captured HUD OPTIONS category glyph, or a mock icon
   /airframe[-layout] -> captured AVN silhouette assets when available
   /assets/<x>        -> src/web/<x>, falling back to preview/assets/<x> captures
   else               -> preview/<x>                 (*.js, manifest, ...)
@@ -141,6 +142,25 @@ def _config(port):
     }).encode("utf-8")
 
 
+# Mock of the plugin's /hud-options (TelemetryServer.RefreshHudOptions). A real in-game snapshot,
+# so the HUD page can be built and eyeballed in the harness. The write side (hud.set/hud.mode) has
+# no mock — commands POST and are swallowed — so toggles here won't change this response; that path
+# is only testable in game.
+def _hud_options():
+    veh = ["TRUCK", "UGV", "LCV", "AFV", "MBT", "ART", "AAA", "IR_SAM", "R_SAM", "RDR"]
+    bld = ["CIV", "FAC", "RDR", "DEP", "HGR", "DEF", "AMMO"]
+    return json.dumps({
+        "mode": 1,  # GUN
+        "modes": ["NAV", "GUN", "A2A", "A2G", "EW", "LOG"],
+        "categories": [False, True, False, False, True, False, False],
+        "vehicles":  [{"n": n, "on": True} for n in veh],
+        "buildings": [{"n": n, "on": True} for n in bld],
+        # native-HUD declutter flags (HudDeclutterConfig) — true = that widget is hidden. One hidden
+        # here so the off state is visible in the harness. The write side (declutter.set) has no mock.
+        "declutter": {"weapon": False, "minimap": True, "boxes": False},
+    }).encode("utf-8")
+
+
 class H(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split('?', 1)[0]
@@ -150,6 +170,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._file(WEB / 'shell' / 'f35' / 'f35.html', 'text/html; charset=utf-8', cache=True)
         if path == '/config':
             return self._send(_config(self.server.server_address[1]), 'application/json; charset=utf-8')
+        if path == '/hud-options':
+            return self._send(_hud_options(), 'application/json; charset=utf-8')
         if path == '/map-view':
             try:
                 return self._send(_map_page(), 'text/html; charset=utf-8')
@@ -178,7 +200,27 @@ class H(http.server.SimpleHTTPRequestHandler):
                 if fp and fp.exists():
                     return self._file(fp, 'image/png')
             return self._send(WEAPON_SVG.encode('utf-8'), 'image/svg+xml')
-        if path == '/tgt-icon':
+        if path in ('/tgt-icon', '/building-icon'):
+            # Real captured type sprite if a capture ran (manifest key 'tgt-icon:<t>' /
+            # 'building-icon:<t>'); otherwise the generic placeholder, so both the vehicle and
+            # building chips show *an* icon in the mock harness.
+            typ = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('type', [''])[0]
+            ref = _asset_ref(path.lstrip('/') + ':' + typ)
+            if ref:
+                fp = _preview_asset_path(ref)
+                if fp and fp.exists():
+                    return self._file(fp, 'image/png')
+            return self._send(TGT_ICON_SVG.encode('utf-8'), 'image/svg+xml')
+        if path == '/hud-cat-icon':
+            # Real captured category-row glyph if a capture ran (manifest key
+            # 'hud-cat-icon:<CAT>'); otherwise the same generic placeholder as the vehicle/building
+            # chips above, so the HUD page's category rows show *an* icon in the mock harness.
+            cat = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('cat', [''])[0]
+            ref = _asset_ref('hud-cat-icon:' + cat)
+            if ref:
+                fp = _preview_asset_path(ref)
+                if fp and fp.exists():
+                    return self._file(fp, 'image/png')
             return self._send(TGT_ICON_SVG.encode('utf-8'), 'image/svg+xml')
         if path == '/bdf-icon':
             return self._send(BDF_ICON_SVG.encode('utf-8'), 'image/svg+xml')

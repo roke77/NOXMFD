@@ -123,6 +123,9 @@ namespace NOXMFD
                 long t0 = PerfDiag.Enabled ? Stopwatch.GetTimestamp() : 0L;
                 ScanWorld();
                 if (PerfDiag.Enabled) PerfDiag.RecordSince("ScanWorld", t0);
+                // HUD OPTIONS snapshot for the /hud-options endpoint. Main thread, and cheap; options
+                // change only on a toggle, so 1 Hz is ample. Kept out of PushSnapshot's fast path.
+                TelemetryServer.RefreshHudOptions();
             }
 
             if (_fastTimer >= FastInterval)
@@ -159,6 +162,8 @@ namespace NOXMFD
             _assets.CaptureMissileWarningIcon();   // one-time: the real missile-warning sprite for the MAP page
             _assets.TryCaptureVehicleTypeIcons();  // one-time per type: the TGT page's vehicle-filter icons
             _assets.TryCaptureShipTypeIcons();     // one-time per type: the BDF page's ship-row icons
+            _assets.TryCaptureBuildingTypeIcons(); // one-time per type: the HUD page's building-type icons
+            _assets.TryCaptureHudCategoryIcons();  // one-time per category: the HUD page's type-glyph icons
 
             // Resolve the map bounds + grid offsets and capture the real in-game map image.
             if (_level == null)

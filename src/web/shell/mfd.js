@@ -63,7 +63,7 @@ const paneIframes = [document.getElementById('pane-top'), document.getElementByI
 const pageFrame = document.getElementById('page-frame');   // full-view host for the frame-hosted pages (WPN, TGT, TGP)
 // Pages that render in #page-frame in full view (rather than as overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
-const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt', bdf: '/bdf' };
+const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt', hud: '/hud', bdf: '/bdf' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
@@ -105,14 +105,20 @@ function fullViewSlot(i) { return { bank: 'left', index: i }; }
 // no panel: every other page in this shell puts its items beside a physical key, and a chooser is
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
+  // HUD, LYT and BDF down the right bank — the layout-owned MAIN keys the six shared NAV items (left
+  // bank) leave no room for. HUD opens the HUD OPTIONS #page-frame page and BDF the faction-forces
+  // one (docs/bdf-page.md); each gets its MAIN back from NAV like every other frame page, so neither
+  // needs an entry of its own here.
   main: [
-    { label: 'LYT', action: 'lyt', bank: 'right', index: 0 },
-    { label: 'BDF', action: 'bdf', bank: 'right', index: 1 },   // docs/bdf-page.md
+    { label: 'HUD', action: 'hud', bank: 'right', index: 0 },
+    { label: 'LYT', action: 'lyt', bank: 'right', index: 1 },
+    { label: 'BDF', action: 'bdf', bank: 'right', index: 2 },
   ],
+  // No MAIN back-item under lyt here — picking CLASSIC already navigates back to MAIN (this shell),
+  // so a separate way-back label would be redundant with it.
   lyt:  [
-    { label: 'MAIN',    action: 'main',       bank: 'left', index: 0 },   // the way back, as NAV gives every page
-    { label: 'CLASSIC', action: 'lyt-classic', bank: 'left', index: 1, mark: true },
-    { label: 'F-35',    action: 'lyt-f35',     bank: 'left', index: 2 },
+    { label: 'CLASSIC', action: 'lyt-classic', bank: 'left', index: 0, mark: true },
+    { label: 'F-35',    action: 'lyt-f35',     bank: 'left', index: 1 },
   ],
 };
 
@@ -160,8 +166,8 @@ let lastStatusText = '● DISCONNECTED';
 // each split-capable page declares its own. (layouts.md flags this as the open question — the
 // answer is "a page can need a hint", and MAP is the page that needs one.)
 //
-// A page absent here cannot be a split pane: TGT is full-view only (dense filter grid + list), so
-// picking it from a pane collapses the split instead (see mfdButton's pane branch).
+// A page absent here cannot be a split pane: HUD is full-view only (dense mode/category/type grid),
+// so picking it from a pane collapses the split instead (see mfdButton's pane branch).
 const SPLIT_SLOTS = {
   main: [
     { side: 'left',  slot: 0 },   // AVN
@@ -180,11 +186,14 @@ const SPLIT_SLOTS = {
     { side: 'right', slot: 0 },   // Z+
     { side: 'right', slot: 1 },   // Z-
   ],
-  // AVN / TGP / RWR in a split pane each expose their single MAIN back-button on the pane's
-  // top-left slot (L0 for top, physically L3 for bottom). It navigates ONLY that pane.
+  // AVN / TGP / RWR / TGT in a split pane each expose their single MAIN back-button on the pane's
+  // top-left slot (L0 for top, physically L3 for bottom). It navigates ONLY that pane. TGT's own
+  // filter toggles are clickable inside the pane iframe, so like the others it needs no key labels
+  // beyond MAIN.
   avn: [ { side: 'left', slot: 0 } ],
   tgp: [ { side: 'left', slot: 0 } ],
   rwr: [ { side: 'left', slot: 0 } ],
+  tgt: [ { side: 'left', slot: 0 } ],
   // WPN is a valid split page but places no NAV labels: its MAIN/PREV + NEXT depend on the pane's
   // pagination state, so renderSplitLabels' list branch owns them (NAV.wpn is empty to match).
   wpn: [],
@@ -199,6 +208,7 @@ const PAGE_URL = {
   tgp:  '/tgp?bare',
   wpn:  '/wpn?bare',
   rwr:  '/rwr?bare',
+  tgt:  '/tgt?bare',
 };
 function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 
@@ -241,10 +251,11 @@ function applySplitMode() {
   // and v<->vw reconfigs return early in setSplit and never reach here, so they keep their pin.
   clearPin();
   applySplitClasses();
-  // The vertical-MAIN overlay style is full-view-TGT only; split entry doesn't go through showPage,
-  // so drop it here or its label style would leak onto the split MAIN labels. Restored on unsplit
-  // (showPage re-toggles it). TGT itself isn't a pane page (not in PAGE_URL), so it never renders split.
-  overlayEl.classList.remove('tgt-page');
+  // The vertical-MAIN overlay style is full-view only (TGT / HUD); split entry doesn't go through
+  // showPage, so drop it here or its label style would leak onto the split MAIN labels. Restored on
+  // unsplit (showPage re-toggles it). TGT splits into a pane like the other frame pages; HUD does
+  // not (not in PAGE_URL), so picking it from a pane collapses the split instead.
+  overlayEl.classList.remove('vmain');
   if (splitMode) {
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
     paneIframes[0].src = paneUrl(panePages[0]);
@@ -291,12 +302,20 @@ function listPaneLayout(paneIdx) {
   };
 }
 
-// Place an overlay label on a physical key {bank,index} and tag it with the owning pane.
+// Place an overlay label on a physical key {bank,index} and tag it with the owning pane. Returns the
+// label element so the caller can style it (e.g. the vertical MAIN for a TGT pane).
 function placeSplitKey(m, label, action, paneTag) {
-  placeOverlayLabel(m.bank, m.index, label, action);
+  const el = placeOverlayLabel(m.bank, m.index, label, action);
   const k = keyBanks[m.bank] && keyBanks[m.bank][m.index];
   if (k) k.dataset.pane = paneTag;
+  return el;
 }
+
+// Pages whose own content sits in the top-left where the MAIN bezel label lands, so that label is
+// stood upright to clear it — in full view via .overlay.vmain, in a split pane via a per-label class
+// (renderSplitLabels). TGT's RESET FILTER and HUD's mode/category rows are that content; HUD is
+// full-view only, so only TGT actually reaches the split path.
+function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf'; }
 
 function renderSplitLabels() {
   clearKeyActions();
@@ -325,7 +344,10 @@ function renderSplitLabels() {
         // SPLIT_SLOTS is index-aligned with NAV, so a NAV item added without a matching slot would
         // silently not render here — the exact failure the old duplicated tables produced. Say so.
         if (!s) { console.warn('[mfd] NAV.' + page + '[' + i + '] "' + item.label + '" has no SPLIT_SLOTS entry — not placed'); return; }
-        placeSplitKey(paneKey(paneIdx, s.side, s.slot), item.label, item.action, paneTag);
+        const el = placeSplitKey(paneKey(paneIdx, s.side, s.slot), item.label, item.action, paneTag);
+        // TGT keeps clickable content (RESET FILTER) under its MAIN label; stand it upright in the
+        // pane too, the way full view does via .overlay.vmain. Only the MAIN back-item of a vmain page.
+        if (el && isVmainPage(page) && item.action === 'main') el.classList.add('vlabel');
       });
     }
   }
@@ -458,6 +480,22 @@ function forwardTgtTargetsToFrame() {
 function forwardBdfToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage(Object.assign({ mfd: true, type: 'bdf' }, bdfData), '*');
+}
+// Split-pane twins of the two TGT forwarders — same payloads, sent to any pane showing TGT. The
+// page is fully clickable inside the pane, so nothing else (no bezel-key wiring) is needed.
+function forwardTgtToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'tgt') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'tgt' }, tgtData), '*');
+  });
+}
+function forwardTgtTargetsToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'tgt') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage({ mfd: true, type: 'tgt-targets', items: targetsData.targets || [] }, '*');
+  });
 }
 function forwardMwToPanes() {
   paneIframes.forEach(function(iframe, idx) {
@@ -679,6 +717,7 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'avn')  forwardAvnToPanes();
     else if (page === 'tgp')  forwardTgpToPanes();
     else if (page === 'rwr')  { forwardRwrToPanes(); forwardMwToPanes(); }
+    else if (page === 'tgt')  { forwardTgtToPanes(); forwardTgtTargetsToPanes(); }
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
   });
 });
@@ -837,7 +876,7 @@ function placeOverlayLabel(bankName, keyIndex, label, action, mark) {
   const side = bankName || 'left';
   const bank = keyBanks[side];
   const k = bank && bank[keyIndex];
-  if (!k) return;
+  if (!k) return null;
 
   if (action) k.dataset.action = action;
   const el = document.createElement('div');
@@ -853,6 +892,7 @@ function placeOverlayLabel(bankName, keyIndex, label, action, mark) {
     el.style.top = (kr.top + kr.height / 2 - oRect.top) + 'px';
   }
   overlayEl.appendChild(el);
+  return el;
 }
 
 // Render a page: set the overlay background, (re)assign key actions, and position
@@ -860,11 +900,10 @@ function placeOverlayLabel(bankName, keyIndex, label, action, mark) {
 function showPage(name) {
   currentPage = name;
   overlayEl.classList.toggle('opaque', !!OPAQUE_PAGES[name]);
-  // TGT and BDF both keep their own content in the top-left where the MAIN bezel label sits; a
-  // class here lets mfd.css render that label vertically so it hugs the edge and clears TGT's
-  // RESET button / BDF's WARHEADS readout (docs/bdf-page.md).
-  overlayEl.classList.toggle('tgt-page', name === 'tgt');
-  overlayEl.classList.toggle('bdf-page', name === 'bdf');
+  // Stand the MAIN label up for pages with their own content in the top-left (TGT's RESET FILTER,
+  // HUD's mode/category rows, BDF's WARHEADS readout), so a horizontal label doesn't cover it.
+  // See .overlay.vmain in mfd.css and isVmainPage below.
+  overlayEl.classList.toggle('vmain', isVmainPage(name));
   infoBox.classList.toggle('show', name === 'main');
   screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGT/TGP/AVN render in #page-frame
   clearKeyActions();
@@ -924,6 +963,10 @@ function showPage(name) {
     showFramePage('bdf');
     forwardBdfToFrame();
   }
+  // HUD renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.hud, placed by
+  // the generic sweep above); the page is otherwise self-driven — it fetches /hud-options and POSTs
+  // its own hud.* commands, so the shell forwards it nothing.
+  if (name === 'hud') showFramePage('hud');
 
   // refreshFollowIndicator (not just renderIndicators) because the FOLLOW chip's membership
   // depends on currentPage, which just changed: entering MAP with follow already on must add the
@@ -1020,6 +1063,7 @@ window.addEventListener('message', function(e) {
     // Mirror the selected-target list; the TGT page renders it under its filters.
     targetsData = { targets: Array.isArray(m.items) ? m.items : [] };
     if (currentPage === 'tgt' && !splitMode) forwardTgtTargetsToFrame();
+    if (splitMode) forwardTgtTargetsToPanes();
   } else if (m.type === 'rwr') {
     // Mirror the radar-warning emitters (already nose-up plot data from ClientPage) for the RWR
     // scope, which renders in the #page-frame iframe (full) or a pane (split); forward it on.
@@ -1032,10 +1076,11 @@ window.addEventListener('message', function(e) {
     if (currentPage === 'rwr' && !splitMode) forwardMwToFrame();
     if (splitMode) forwardMwToPanes();
   } else if (m.type === 'tgt') {
-    // Mirror the TGT filter state (present + toggle groups). Renders in the #page-frame iframe only
-    // (no split-pane variant); forward on when it's the page in view.
+    // Mirror the TGT filter state (present + toggle groups). Renders in the #page-frame iframe (full)
+    // or a pane (split); forward on when it's the page in view.
     tgtData = m;
     if (currentPage === 'tgt' && !splitMode) forwardTgtToFrame();
+    if (splitMode) forwardTgtToPanes();
   } else if (m.type === 'bdf') {
     // Mirror the BDF faction-forces state. Renders in the #page-frame iframe only (no split-pane
     // variant, like TGT); forward on when it's the page in view.
@@ -1186,13 +1231,6 @@ function mfdButton(el) {
     } else if (act === 'flw' || act === 'zin' || act === 'zout') {
       // MAP controls act on the pane's own map iframe — they don't navigate it away.
       paneMapSend(paneIdx, act === 'flw' ? 'toggle-follow' : act === 'zin' ? 'zoom-in' : 'zoom-out');
-    } else if (act === 'tgt') {
-      // TGT is a full-view-only page (dense filter grid + target list; no pane layout).
-      // Selecting it from a split pane collapses split and opens TGT full-view — mirrors the
-      // 'unsplit' path but forces the page to TGT. (docs/tgt-page.md)
-      splitMode = false;
-      currentPage = 'tgt';
-      applySplitMode();
     } else {
       paneNavigate(paneIdx, act);
     }
@@ -1209,6 +1247,7 @@ function mfdButton(el) {
       if (el.dataset.wname) sendCommand('weapon.select', { wname: el.dataset.wname }).catch(function() {});
       break;
     case 'tgp':  showPage('tgp');  break;
+    case 'hud':  showPage('hud');  break;
     case 'lyt':  showPage('lyt');  break;
     // The LAYOUT page's two choices. CLASSIC is this document, so choosing it is just leaving the
     // menu — back to MAIN, where LYT was pressed, with a fresh status as MAIN's own key pulls.

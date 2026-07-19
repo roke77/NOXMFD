@@ -32,7 +32,7 @@ assert.deepStrictEqual(NAV.main.map(i => i.label), ['AVN', 'MAP', 'RWR', 'TGP', 
 assert.deepStrictEqual(NAV.map.map(i => i.label), ['MAIN', 'FLW', 'Z+', 'Z-']);
 
 // ── Every frame-hosted page can get back to MAIN ────────────────────────────────────
-for (const page of ['avn', 'rwr', 'tgp', 'tgt', 'bdf']) {
+for (const page of ['avn', 'rwr', 'tgp', 'tgt', 'bdf', 'hud']) {
   assert.deepStrictEqual(NAV[page], [{ label: 'MAIN', action: 'main' }], `${page} should be just a MAIN back-button`);
 }
 

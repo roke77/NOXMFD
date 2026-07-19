@@ -56,8 +56,8 @@ NO XMFD for you, and keeps it up to date.
 <details>
 <summary><strong>Changing settings (ConfigurationManager)</strong></summary>
 
-NO XMFD's own settings — the Declutter HUD toggles and the extended keybinds —
-are changed either in the in-game **ConfigurationManager** menu or by hand in
+NO XMFD's own settings — the extended keybinds — are changed either in the
+in-game **ConfigurationManager** menu or by hand in
 `BepInEx/config/com.roque.NOXMFD.cfg`. The plugin runs fine without any of this;
 you only need it to adjust those settings.
 
@@ -122,7 +122,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **TGT** — target-selection filter mirroring the in-cockpit TARGET SELECTION panel: toggle which factions, categories, and vehicle types can be targeted (plus LASER/HUD), with RESET and CLEAR, above your live selected-target list. Full-view only for the moment — selecting it from a split view switches back to full view.
+- **TGT** — target-selection filter mirroring the in-cockpit TARGET SELECTION panel: toggle which factions, categories, and vehicle types can be targeted (plus LASER/HUD), with RESET and CLEAR, above your live selected-target list.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
@@ -137,6 +137,15 @@ pilot, with HOTAS-friendly keybinds to match.
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
   ![TGP page](docs/images/TGP.png)
+
+  </details>
+
+- **HUD** — a remote for the game's in-cockpit HUD OPTIONS: mode tabs (NAV/GUN/A2A/…) and per-category / per-type toggles for which unit icons show on the HUD, plus a declutter strip that hides native HUD widgets — the weapon panel, corner minimap, and boxed flight readouts. Full-view only for the moment.
+
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![HUD page](docs/images/HUD.png)
 
   </details>
 
@@ -193,8 +202,8 @@ A borderless, touch-driven layout modelled on the real F-35's panoramic cockpit
 display: there are no bezel keys — the navigation labels are drawn on the glass
 and tapped directly, and the screen divides into side-by-side portals, each an
 independent MFD, that you merge and split with corner grips. A fixed strip
-across the top carries the aircraft-level readouts — connection, mission,
-throttle and fuel, and the avionics flags.
+across the top carries the aircraft-level readouts — connection, throttle and
+fuel, and the avionics flags.
 
 <details>
 <summary>$\color{green}\textsf{See screenshots}$</summary>
@@ -206,15 +215,6 @@ throttle and fuel, and the avionics flags.
 ![F-35 layout — 2-2 portal split](docs/images/F-35%202-2.png)
 
 </details>
-
-### Declutter HUD
-
-Optional toggles to hide native in-game HUD elements, available in the BepInEx
-configuration menu.
-
-- **Weapon & ammo** — hide the top-right weapon name / ammo and countermeasure count readouts.
-- **Minimap** — hide the bottom-left corner minimap.
-- **Top boxes** — hide the boxed heading / airspeed / altitude readouts flanking the heading tape.
 
 ### Extended Keybinds
 

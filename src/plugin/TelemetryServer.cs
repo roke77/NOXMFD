@@ -75,6 +75,19 @@ namespace NOXMFD
         private static readonly Dictionary<string, byte[]> _bdfIcons = new Dictionary<string, byte[]>();
         private static readonly object                     _bdfLock  = new object();
 
+        // HUD-page building-type icons (PNG), keyed by building typeName ("CIV" … "AMMO"). A separate
+        // map from _tgtIcons on purpose: a name like "RDR" is BOTH a vehicle and a building type, so
+        // sharing one keyspace would collide. Served at /building-icon?type=.
+        private static readonly Dictionary<string, byte[]> _buildingIcons = new Dictionary<string, byte[]>();
+        private static readonly object                     _buildingLock  = new object();
+
+        // HUD OPTIONS category-row icons (PNG) — AIRCRAFT/MISSILES/VEHICLES/BUILDINGS/SHIPS, keyed by
+        // the same fixed label the HUD page's CATEGORY_LABELS carries (the game exposes no per-category
+        // name to key by instead). FRIENDLY/ENEMY have no entry — the game draws no glyph on those rows
+        // either. Served at /hud-cat-icon?cat=.
+        private static readonly Dictionary<string, byte[]> _hudCatIcons = new Dictionary<string, byte[]>();
+        private static readonly object                     _hudCatLock  = new object();
+
         // Airframe silhouette assets. Images keyed by "unitName|partName" — partName is the
         // GameObject name from Aircraft.partLookup (e.g. "wing1_L") or "__bg" for the background
         // silhouette. Layouts keyed by unitName, value is a JSON descriptor of part placements.
@@ -296,6 +309,20 @@ namespace NOXMFD
             lock (_bdfLock) _bdfIcons[name] = png;
         }
 
+        // Called from Unity main thread once a HUD building-type sprite has been extracted.
+        public static void SetBuildingIcon(string name, byte[] png)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+            lock (_buildingLock) _buildingIcons[name] = png;
+        }
+
+        // Called from Unity main thread once a HUD OPTIONS category-row icon sprite has been extracted.
+        public static void SetHudCategoryIcon(string name, byte[] png)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+            lock (_hudCatLock) _hudCatIcons[name] = png;
+        }
+
         // Called from Unity main thread once a countermeasure's display sprite has been extracted.
         public static void SetCmIcon(string key, byte[] png)
         {
@@ -367,12 +394,18 @@ namespace NOXMFD
                         ServePng(ctx, _tgtIcons, _tgtLock, "type");
                     else if (path == "/bdf-icon")
                         ServePng(ctx, _bdfIcons, _bdfLock, "type");
+                    else if (path == "/building-icon")
+                        ServePng(ctx, _buildingIcons, _buildingLock, "type");
+                    else if (path == "/hud-cat-icon")
+                        ServePng(ctx, _hudCatIcons, _hudCatLock, "cat");
                     else if (path == "/airframe")
                         ServeAirframeImage(ctx);
                     else if (path == "/airframe-layout")
                         ServeAirframeLayout(ctx);
                     else if (path == "/config")
                         ServeConfig(ctx);
+                    else if (path == "/hud-options")
+                        ServeHudOptions(ctx);
                     else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                         ServeAsset(ctx, path);
                     else if (path == "/map-view")
@@ -391,6 +424,8 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/tgt/tgt.html");
                     else if (path == "/bdf")
                         ServeAssetRel(ctx, "pages/bdf/bdf.html");
+                    else if (path == "/hud")
+                        ServeAssetRel(ctx, "pages/hud/hud.html");
                     else if (path == "/command")
                         HandleCommand(ctx);
                     else if (path == "/mfd")
@@ -489,6 +524,108 @@ namespace NOXMFD
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // The in-game HUD OPTIONS state, as JSON, for the HUD page to render. Built on the main
+        // thread by RefreshHudOptions (below) and cached here — HUD options change only on a toggle,
+        // so this is fetched on demand rather than streamed, like /config. "{}" until a mission with
+        // a live HUDOptions is up; the page treats that as "unavailable".
+        internal static volatile string HudOptionsJson = "{}";
+
+        private static void ServeHudOptions(HttpListenerContext ctx)
+        {
+            try
+            {
+                byte[] body = Encoding.UTF8.GetBytes(HudOptionsJson ?? "{}");
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // Snapshot HUDOptions into HudOptionsJson. MAIN THREAD ONLY — reads live game objects; the
+        // reader calls it on the slow (1 Hz) tick, since options change only when the pilot toggles.
+        //   modes      : the HUDMode tab names, plus the current index.
+        //   categories : one bool per listCategories entry (FRIENDLY/ENEMY/AIRCRAFT/…). The names are
+        //                the page's, by index — the game assigns the category order in its inspector
+        //                and exposes no display name here, so the page carries the fixed labels and
+        //                this emits only their count + state. (Vehicles/buildings DO have names,
+        //                below, from the Encyclopedia the game built the toggles from.)
+        //   vehicles   : {n:name, on} per listVehicleTypes entry, name from Encyclopedia (parallel).
+        //   buildings  : {n:name, on} per listBuildingTypes entry.
+        public static void RefreshHudOptions()
+        {
+            HUDOptions opt = SceneSingleton<HUDOptions>.i;
+            if (opt == null) { HudOptionsJson = "{}"; return; }
+
+            var sb = new StringBuilder(512);
+            sb.Append('{');
+
+            // modes — currentMode only tracks AutomaticToggle's weapon-driven switches, not a manual
+            // tab click (ToggleButtons never touches it — confirmed in HUDOptions.decompiled.cs), so a
+            // player-selected mode would otherwise never show here. The lit tab (listModes[i].status)
+            // is the one state a manual click always updates; fall back to currentMode only if for some
+            // reason no tab is lit.
+            var modes = opt.listModes;
+            int modeIndex = (int)opt.currentMode;
+            for (int i = 0; modes != null && i < modes.Count; i++)
+            {
+                if (modes[i] != null && modes[i].status) { modeIndex = i; break; }
+            }
+            sb.Append("\"mode\":").Append(modeIndex).Append(",\"modes\":[");
+            string[] modeNames = Enum.GetNames(typeof(HUDOptions.HUDMode));
+            for (int i = 0; i < modeNames.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append('"').Append(EscapeJson(modeNames[i])).Append('"');
+            }
+            sb.Append(']');
+
+            // categories — booleans only (names live in the page)
+            sb.Append(",\"categories\":[");
+            var cats = opt.listCategories;
+            for (int i = 0; cats != null && i < cats.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append(cats[i] != null && cats[i].maximized ? "true" : "false");
+            }
+            sb.Append(']');
+
+            // vehicles / buildings — {n,on}, names from the Encyclopedia the toggles were built from
+            AppendTypeList(sb, ",\"vehicles\":", opt.listVehicleTypes, Encyclopedia.i?.vehicleTypes);
+            AppendTypeList(sb, ",\"buildings\":", opt.listBuildingTypes, Encyclopedia.i?.buildingTypes);
+
+            // declutter — the mod's OWN native-HUD hide flags (HudDeclutterConfig), a separate axis from
+            // the HUDOptions unit-icon toggles above. true = that native widget is currently hidden.
+            sb.Append(",\"declutter\":{\"weapon\":").Append(HudDeclutterConfig.HideWeaponAmmo ? "true" : "false")
+              .Append(",\"minimap\":").Append(HudDeclutterConfig.HideMinimap ? "true" : "false")
+              .Append(",\"boxes\":").Append(HudDeclutterConfig.HideTopBoxes ? "true" : "false")
+              .Append('}');
+
+            sb.Append('}');
+            HudOptionsJson = sb.ToString();
+        }
+
+        private static void AppendTypeList(StringBuilder sb, string key,
+            System.Collections.Generic.List<HUDOptions_ToggleButton> toggles,
+            System.Collections.Generic.List<Encyclopedia.UnitType> types)
+        {
+            sb.Append(key).Append('[');
+            int n = toggles == null ? 0 : toggles.Count;
+            for (int i = 0; i < n; i++)
+            {
+                if (i > 0) sb.Append(',');
+                // Name from the parallel Encyclopedia list SetupList built the toggles from; fall
+                // back to the index if the lists ever disagree, so a mismatch degrades rather than throws.
+                string name = (types != null && i < types.Count && types[i] != null) ? types[i].typeName : ("#" + i);
+                bool on = toggles[i] != null && toggles[i].status;
+                sb.Append("{\"n\":\"").Append(EscapeJson(name)).Append("\",\"on\":").Append(on ? "true" : "false").Append('}');
+            }
+            sb.Append(']');
         }
 
         // ── Embedded web-asset serving ─────────────────────────────────────────

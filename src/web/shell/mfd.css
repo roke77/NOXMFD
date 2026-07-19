@@ -441,15 +441,27 @@
   /* Bank-specific label anchors; JS supplies the cross-axis coordinate. */
   .overlay-item.left  { left: 16px; transform: translateY(-50%); }
   .overlay-item.right { right: 16px; transform: translateY(-50%); }
-  /* TGT/BDF pages: render the left-bank label (MAIN) as stacked upright letters so it hugs the
-     left edge and doesn't overlap TGT's top-left RESET FILTER button / BDF's WARHEADS readout. */
-  .overlay.tgt-page .overlay-item.left,
-  .overlay.bdf-page .overlay-item.left {
+  /* TGT / HUD / BDF: render the left-bank label (MAIN) as stacked upright letters so it hugs the
+     left edge and doesn't overlap the page's top-left content (TGT's RESET FILTER, HUD's
+     mode/category rows, BDF's WARHEADS readout). */
+  .overlay.vmain .overlay-item.left {
     writing-mode: vertical-rl;
     text-orientation: upright;
     letter-spacing: 0;
     left: 4px;
   }
+  /* Split mode: a single pane showing TGT stands its own MAIN back-label upright the same way, so it
+     clears that pane's RESET button. The label carries the class directly (not the overlay) because
+     only one pane's label should turn — the other pane keeps its horizontal labels. It can sit on
+     either bank: the left/top pane's MAIN lands on the left column, the V-split right pane's on the
+     right, so hug whichever edge it's anchored to. */
+  .overlay-item.vlabel {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    letter-spacing: 0;
+  }
+  .overlay-item.left.vlabel  { left: 4px; }
+  .overlay-item.right.vlabel { right: 4px; }
   .overlay-item.top { transform: translate(-50%, 0); }
   .overlay-item.bottom { transform: translate(-50%, -100%); }
   /* Pin the menu-item size in portrait to the same 21px as landscape, so items read

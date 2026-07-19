@@ -404,10 +404,12 @@ in its own idiom rather than sharing a screen:
 
 - The F-35's strip has a bordered **LAYOUT** button; pressing it swaps the
   portals for a two-item chooser centred on the glass.
-- The bezel has an **LYT** key on MAIN, opening a LAYOUT page that is three
-  left-bank labels and nothing else: MAIN, CLASSIC, F-35. It draws no panel —
-  every page in this shell puts its items beside a physical key, and a chooser
-  is navigation, so it reads as one.
+- The bezel has an **LYT** key on MAIN, opening a LAYOUT page that is two
+  left-bank labels and nothing else: CLASSIC, F-35. (No MAIN back-item —
+  picking CLASSIC already lands back on this shell's MAIN, so a separate way
+  back would be redundant with it.) It draws no panel — every page in this
+  shell puts its items beside a physical key, and a chooser is navigation, so
+  it reads as one.
 
 Both mark the layout you are on in the theme's engaged amber. Neither needs
 state to do it: each document *is* one of the layouts, so its own item is marked

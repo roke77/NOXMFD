@@ -128,45 +128,14 @@ html, body {
 .ms-status.waiting      { color: var(--no-amber); }
 .ms-status.disconnected { color: var(--no-red); }
 
-/* Mission name + ownship grid, stacked — the pair the map page draws on itself, for a glass that
-   may be showing no map at all. Each is an .mfd-chip, the theme's own boxed readout: the same
-   class the map page's GRID chip uses, so the two render identically here and there and the box
-   is described in exactly one place.
-
-   align-items keeps each chip the width of its own text rather than stretching both to the wider
-   one — a chip is sized by what it says, which is how the map page's read.
-
-   display:flex would beat the hidden attribute's own display:none, so the empty case says it
-   outright — the same pairing .portals and .layout-picker need. */
-.ms-map {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  min-width: 0;   /* a flex item won't shrink below its content without this — see the name below */
-}
-.ms-map[hidden] { display: none; }
-
-/* The mission name is the only thing in the strip whose length the game decides. It gives way with
-   an ellipsis rather than pushing the flags and LAYOUT off the end of a bar that clips them. */
-#ms-map-name {
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-#ms-grid { white-space: nowrap; }
-
-/* THRL + FUEL, stacked, in the space between the mission block and the flags. AVN's bars can't be
-   hosted as they are — absolutely positioned, vertical, sized from rects the shell forwards — so
-   what comes across is the rule (avn-throttle-policy, shared) and the LOOK, rebuilt sideways: see
-   the tube below. What stays behind is the ¯\___ leader that tracks each fill's tip, which needs a
-   per-paint measurement and has nowhere to go in a bar this short. */
+/* THRL + FUEL, stacked, in the space between the connection block and the flags. AVN's bars can't
+   be hosted as they are — absolutely positioned, vertical, sized from rects the shell forwards —
+   so what comes across is the rule (avn-throttle-policy, shared) and the LOOK, rebuilt sideways:
+   see the tube below. What stays behind is the ¯\___ leader that tracks each fill's tip, which
+   needs a per-paint measurement and has nowhere to go in a bar this short. */
 .ms-gauges {
-  /* Takes the strip's slack: everything between the mission block and the flags is the troughs'.
-     Deliberately no min-width:0 — a flex item floors at its min-content by default, which here is
-     label + the bar's own minimum + number, so a long mission name pushes .ms-map (which DOES set
-     min-width:0) into its ellipsis rather than squeezing the gauges away. */
+  /* Takes the strip's slack: everything between the connection block and the flags is the
+     troughs'. */
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
@@ -338,6 +307,29 @@ html, body {
 /* The border already rings it, so .nav-item.on's amber outline would sit a second ring just
    outside it. Same colour, same job — keep the border and drop the outline. */
 .master-strip .ms-lyt.on { outline: none; }
+
+/* FULLSCREEN — same border-and-button treatment as LYT beside it, but square and icon-only rather
+   than a spelled-out label, since there's nothing to read out. */
+.master-strip .ms-fll {
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* The bezel's own fullscreen glyph (mfd.css .ic-fullscreen) — same mask, so both shells show the
+   identical icon. currentColor lets it recolour with the button, same as the flag icons above. */
+.ms-fll-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' d='M1 5V1H5 M9 1H13V5 M13 9V13H9 M5 13H1V9'/></svg>") center/contain no-repeat;
+          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' d='M1 5V1H5 M9 1H13V5 M13 9V13H9 M5 13H1V9'/></svg>") center/contain no-repeat;
+}
 
 /* The telemetry tap. Never seen: the MAP page owns the only EventSource('/stream') and posts the
    derived slices up to its host, so this shell carries a map iframe purely as a data source — even
@@ -561,15 +553,15 @@ html, body {
   .wpn-hit:hover { background: rgba(var(--no-teal-rgb), 0.08); }
 }
 
-/* TGT and BDF both pack their own content into the top-left, exactly where the edge label sits —
-   and because this layout draws labels ON the page, a horizontal MAIN doesn't just look cramped,
-   it covers TGT's RESET FILTER / BDF's WARHEADS readout and eats their clicks (TGT) or just
-   overlaps the text (BDF). Standing the text up narrows the label to roughly one glyph so it
-   clears them. Same fix, same properties, as the bezel's .overlay.tgt-page .overlay-item.left in
-   mfd.css (TGT only there — BDF's bezel content already clears its own vertical MAIN label via
-   bdf.css's left inset) — including pulling in to the edge, since 16px of margin would still leave
-   the label overlapping. */
+/* TGT, HUD and BDF all pack their own content into the top-left, exactly where the edge label sits
+   — and because this layout draws labels ON the page, a horizontal MAIN doesn't just look cramped,
+   it covers that content (TGT's RESET FILTER, HUD's first mode/category row, BDF's WARHEADS readout)
+   and eats its clicks (TGT/HUD) or just overlaps the text (BDF). Standing the text up narrows the
+   label to roughly one glyph so it clears them. Same fix, same properties, as the bezel's
+   .overlay.vmain .overlay-item.left in mfd.css — including pulling in to the edge, since 16px of
+   margin would still leave the label overlapping. */
 .nav-grid.edge[data-page="tgt"] .nav-item,
+.nav-grid.edge[data-page="hud"] .nav-item,
 .nav-grid.edge[data-page="bdf"] .nav-item {
   writing-mode: vertical-rl;
   text-orientation: upright;

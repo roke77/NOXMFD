@@ -37,6 +37,7 @@
     rwr: [ { label: 'MAIN', action: 'main' } ],
     tgt: [ { label: 'MAIN', action: 'main' } ],
     bdf: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN (docs/bdf-page.md)
+    hud: [ { label: 'MAIN', action: 'main' } ],   // HUD OPTIONS page — reached via a layout extra, not MAIN
     wpn: [],
   };
 
