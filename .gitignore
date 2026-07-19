@@ -19,3 +19,6 @@ preview/
 # Decompiled game source — kept locally for reference only, not redistributable
 decompiled/
 _scratch/
+
+# Release zips (built + uploaded manually, never tracked)
+NOXMFD_*.zip

@@ -164,8 +164,8 @@ let lastStatusText = '● DISCONNECTED';
 // each split-capable page declares its own. (layouts.md flags this as the open question — the
 // answer is "a page can need a hint", and MAP is the page that needs one.)
 //
-// A page absent here cannot be a split pane: TGT is full-view only (dense filter grid + list), so
-// picking it from a pane collapses the split instead (see mfdButton's pane branch).
+// A page absent here cannot be a split pane: HUD is full-view only (dense mode/category/type grid),
+// so picking it from a pane collapses the split instead (see mfdButton's pane branch).
 const SPLIT_SLOTS = {
   main: [
     { side: 'left',  slot: 0 },   // AVN
@@ -184,11 +184,14 @@ const SPLIT_SLOTS = {
     { side: 'right', slot: 0 },   // Z+
     { side: 'right', slot: 1 },   // Z-
   ],
-  // AVN / TGP / RWR in a split pane each expose their single MAIN back-button on the pane's
-  // top-left slot (L0 for top, physically L3 for bottom). It navigates ONLY that pane.
+  // AVN / TGP / RWR / TGT in a split pane each expose their single MAIN back-button on the pane's
+  // top-left slot (L0 for top, physically L3 for bottom). It navigates ONLY that pane. TGT's own
+  // filter toggles are clickable inside the pane iframe, so like the others it needs no key labels
+  // beyond MAIN.
   avn: [ { side: 'left', slot: 0 } ],
   tgp: [ { side: 'left', slot: 0 } ],
   rwr: [ { side: 'left', slot: 0 } ],
+  tgt: [ { side: 'left', slot: 0 } ],
   // WPN is a valid split page but places no NAV labels: its MAIN/PREV + NEXT depend on the pane's
   // pagination state, so renderSplitLabels' list branch owns them (NAV.wpn is empty to match).
   wpn: [],
@@ -203,6 +206,7 @@ const PAGE_URL = {
   tgp:  '/tgp?bare',
   wpn:  '/wpn?bare',
   rwr:  '/rwr?bare',
+  tgt:  '/tgt?bare',
 };
 function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 
@@ -247,7 +251,8 @@ function applySplitMode() {
   applySplitClasses();
   // The vertical-MAIN overlay style is full-view only (TGT / HUD); split entry doesn't go through
   // showPage, so drop it here or its label style would leak onto the split MAIN labels. Restored on
-  // unsplit (showPage re-toggles it). Neither is a pane page (not in PAGE_URL), so neither splits.
+  // unsplit (showPage re-toggles it). TGT splits into a pane like the other frame pages; HUD does
+  // not (not in PAGE_URL), so picking it from a pane collapses the split instead.
   overlayEl.classList.remove('vmain');
   if (splitMode) {
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
@@ -456,6 +461,22 @@ function forwardTgtToFrame() {
 function forwardTgtTargetsToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage({ mfd: true, type: 'tgt-targets', items: targetsData.targets || [] }, '*');
+}
+// Split-pane twins of the two TGT forwarders — same payloads, sent to any pane showing TGT. The
+// page is fully clickable inside the pane, so nothing else (no bezel-key wiring) is needed.
+function forwardTgtToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'tgt') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'tgt' }, tgtData), '*');
+  });
+}
+function forwardTgtTargetsToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'tgt') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage({ mfd: true, type: 'tgt-targets', items: targetsData.targets || [] }, '*');
+  });
 }
 function forwardMwToPanes() {
   paneIframes.forEach(function(iframe, idx) {
@@ -677,6 +698,7 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'avn')  forwardAvnToPanes();
     else if (page === 'tgp')  forwardTgpToPanes();
     else if (page === 'rwr')  { forwardRwrToPanes(); forwardMwToPanes(); }
+    else if (page === 'tgt')  { forwardTgtToPanes(); forwardTgtTargetsToPanes(); }
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
   });
 });
@@ -1010,6 +1032,7 @@ window.addEventListener('message', function(e) {
     // Mirror the selected-target list; the TGT page renders it under its filters.
     targetsData = { targets: Array.isArray(m.items) ? m.items : [] };
     if (currentPage === 'tgt' && !splitMode) forwardTgtTargetsToFrame();
+    if (splitMode) forwardTgtTargetsToPanes();
   } else if (m.type === 'rwr') {
     // Mirror the radar-warning emitters (already nose-up plot data from ClientPage) for the RWR
     // scope, which renders in the #page-frame iframe (full) or a pane (split); forward it on.
@@ -1022,10 +1045,11 @@ window.addEventListener('message', function(e) {
     if (currentPage === 'rwr' && !splitMode) forwardMwToFrame();
     if (splitMode) forwardMwToPanes();
   } else if (m.type === 'tgt') {
-    // Mirror the TGT filter state (present + toggle groups). Renders in the #page-frame iframe only
-    // (no split-pane variant); forward on when it's the page in view.
+    // Mirror the TGT filter state (present + toggle groups). Renders in the #page-frame iframe (full)
+    // or a pane (split); forward on when it's the page in view.
     tgtData = m;
     if (currentPage === 'tgt' && !splitMode) forwardTgtToFrame();
+    if (splitMode) forwardTgtToPanes();
   }
 });
 
@@ -1171,13 +1195,6 @@ function mfdButton(el) {
     } else if (act === 'flw' || act === 'zin' || act === 'zout') {
       // MAP controls act on the pane's own map iframe — they don't navigate it away.
       paneMapSend(paneIdx, act === 'flw' ? 'toggle-follow' : act === 'zin' ? 'zoom-in' : 'zoom-out');
-    } else if (act === 'tgt') {
-      // TGT is a full-view-only page (dense filter grid + target list; no pane layout).
-      // Selecting it from a split pane collapses split and opens TGT full-view — mirrors the
-      // 'unsplit' path but forces the page to TGT. (docs/tgt-page.md)
-      splitMode = false;
-      currentPage = 'tgt';
-      applySplitMode();
     } else {
       paneNavigate(paneIdx, act);
     }

@@ -170,11 +170,13 @@ issues — all fixed on the branch before the merge; see branch history).
    vehicle-type row is kept to a single row (icons shrink to fit); the target
    list shows a centered placeholder when empty.
 5. **[done] Wire nav.** TGT registered in `FRAME_PAGES` + `PAGES`, on the
-   MAIN menu at key 3 (MAIN keeps 6 items). TGT is **full-view only** — not a
-   split-pane page; picking it from a split pane collapses the split and opens
-   TGT full-view. Having subsumed the target list, TGT replaced TGL outright —
-   TGL is removed. A vertical-MAIN label style keeps the top-left MAIN bezel
-   label clear of the page's RESET button.
+   MAIN menu at key 3 (MAIN keeps 6 items). TGT renders full-view in
+   `#page-frame` and as a split pane in both layouts: the bezel forwards its
+   `tgt` + `tgt-targets` state per pane (`SPLIT_SLOTS.tgt` gives it a single
+   MAIN back-key, the filter toggles stay clickable in the pane), and the F-35
+   carries it as a portal page. Having subsumed the target list, TGT replaced
+   TGL outright — TGL is removed. A vertical-MAIN label style keeps the top-left
+   MAIN bezel label clear of the page's RESET button in full view.
 6. **[done] Verify.** `serve_web` + `preview-mock` gained a mock `tgt` block
    and `/tgt-icon`; confirmed the page renders the states and that tap /
    long-press / RESET / CLEAR / LASER / HUD fire the right commands, plus the
