@@ -553,14 +553,16 @@ html, body {
   .wpn-hit:hover { background: rgba(var(--no-teal-rgb), 0.08); }
 }
 
-/* TGT and HUD both pack clickable content into their top-left, exactly where the edge label sits —
-   and because this layout draws labels ON the page, a horizontal MAIN doesn't just look cramped, it
-   covers that content (TGT's RESET FILTER, HUD's first mode/category row) and eats its clicks.
-   Standing the text up narrows the label to roughly one glyph so it clears them. Same fix, same
-   properties, as the bezel's .overlay.vmain .overlay-item.left in mfd.css — including pulling in to
-   the edge, since 16px of margin would still leave the label overlapping. */
+/* TGT, HUD and BDF all pack their own content into the top-left, exactly where the edge label sits
+   — and because this layout draws labels ON the page, a horizontal MAIN doesn't just look cramped,
+   it covers that content (TGT's RESET FILTER, HUD's first mode/category row, BDF's WARHEADS readout)
+   and eats its clicks (TGT/HUD) or just overlaps the text (BDF). Standing the text up narrows the
+   label to roughly one glyph so it clears them. Same fix, same properties, as the bezel's
+   .overlay.vmain .overlay-item.left in mfd.css — including pulling in to the edge, since 16px of
+   margin would still leave the label overlapping. */
 .nav-grid.edge[data-page="tgt"] .nav-item,
-.nav-grid.edge[data-page="hud"] .nav-item {
+.nav-grid.edge[data-page="hud"] .nav-item,
+.nav-grid.edge[data-page="bdf"] .nav-item {
   writing-mode: vertical-rl;
   text-orientation: upright;
   letter-spacing: 0;

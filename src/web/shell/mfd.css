@@ -441,8 +441,9 @@
   /* Bank-specific label anchors; JS supplies the cross-axis coordinate. */
   .overlay-item.left  { left: 16px; transform: translateY(-50%); }
   .overlay-item.right { right: 16px; transform: translateY(-50%); }
-  /* TGT / HUD: render the left-bank label (MAIN) as stacked upright letters so it hugs the left edge
-     and doesn't overlap the page's top-left content (TGT's RESET FILTER, HUD's mode/category rows). */
+  /* TGT / HUD / BDF: render the left-bank label (MAIN) as stacked upright letters so it hugs the
+     left edge and doesn't overlap the page's top-left content (TGT's RESET FILTER, HUD's
+     mode/category rows, BDF's WARHEADS readout). */
   .overlay.vmain .overlay-item.left {
     writing-mode: vertical-rl;
     text-orientation: upright;

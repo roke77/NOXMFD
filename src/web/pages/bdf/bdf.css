@@ -1,0 +1,172 @@
+/* BDF page — read-only replica of the game's faction/HQ status panel (InfoPanel_Faction, Forces
+   display only). Green-phosphor MFD theme via the shared --no-* tokens; no interaction. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; height: 100%;
+  background: var(--no-bg);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+}
+
+.bdf-panel {
+  height: 100%;
+  display: flex; flex-direction: column;
+  gap: clamp(4px, 1.4vh, 12px);
+  padding: clamp(6px, 1.8vmin, 16px);
+  /* Extra side inset: the shell's vertical MAIN bezel label hugs an edge here. Both sides get the
+     inset because the label can land on either edge — the left in full view and the left/top split
+     pane, the right in a V-split's right pane — and the page can't know which, so it clears both.
+     The 34px floor matters in a half-width split pane, where 5vw collapses below the label's fixed
+     ~28px footprint; full view stays at the 48px cap. Matches TGT's own inset. */
+  padding-left: clamp(34px, 5vw, 48px);
+  padding-right: clamp(34px, 5vw, 48px);
+}
+
+/* Header */
+.bdf-header {
+  text-align: center;
+  border-bottom: 1px solid var(--no-green-dark);
+  padding-bottom: clamp(2px, 0.8vh, 6px);
+}
+.bdf-faction {
+  font-size: clamp(14px, 2.8vmin, 24px);
+  letter-spacing: 0.1em;
+  color: var(--no-green);
+}
+
+/* Top block: WARHEADS + FORCES label | logo | SCORE + FUNDS */
+.bdf-top {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: clamp(6px, 2vw, 20px);
+  padding: clamp(4px, 1vh, 10px) 0;
+}
+.bdf-col-left, .bdf-col-right {
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column;
+  gap: clamp(4px, 1vh, 10px);
+}
+.bdf-col-right { align-items: flex-end; text-align: right; }
+.bdf-stat { display: flex; flex-direction: column; gap: clamp(1px, 0.3vh, 3px); }
+.bdf-stat-label {
+  font-size: clamp(9px, 1.5vmin, 13px);
+  letter-spacing: 0.08em;
+  color: var(--no-green-dim);
+}
+.bdf-stat-value {
+  font-size: clamp(15px, 2.6vmin, 22px);
+  font-variant-numeric: tabular-nums;
+}
+#bdf-funds.negative { color: var(--no-red); }
+
+/* Static label — visual parity with the game's FORCES dropdown; not a control (see docs/bdf-page.md). */
+.bdf-forces-label {
+  border: 1.5px solid var(--no-green-dark);
+  border-radius: 3px;
+  padding: clamp(3px, 0.8vh, 7px) clamp(8px, 1.6vw, 14px);
+  font-size: clamp(9px, 1.6vmin, 13px);
+  letter-spacing: 0.06em;
+  color: var(--no-green);
+  align-self: flex-start;
+}
+
+.bdf-logo-wrap {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+}
+.bdf-logo {
+  width: clamp(48px, 9vmin, 96px); height: clamp(48px, 9vmin, 96px);
+  object-fit: contain;
+  visibility: hidden;   /* shown once the mod has captured this faction's logo (see bdf.js) */
+}
+.bdf-logo.ready { visibility: visible; }
+
+/* ── Forces breakdown ─────────────────────────────────────────────────────────────────── */
+.bdf-sections {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex; flex-direction: column;
+  gap: clamp(4px, 1.2vh, 12px);
+  overflow-y: auto;
+  /* Match the thin overlay scrollbar a touch device draws, not the desktop default's chunky bar with
+     its light track: a slim grey thumb on a transparent track. scrollbar-* covers Firefox + the
+     standard; the ::-webkit rules below cover Chrome / Edge / Safari. Same treatment as TGT's list. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
+}
+.bdf-sections::-webkit-scrollbar { width: 6px; height: 6px; }
+.bdf-sections::-webkit-scrollbar-track { background: transparent; }
+.bdf-sections::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
+.bdf-section {
+  display: flex; align-items: flex-start;
+  gap: clamp(6px, 1.6vw, 16px);
+  border-top: 1px solid var(--no-green-dark);
+  padding-top: clamp(4px, 1vh, 9px);
+}
+.bdf-section-head {
+  flex: 0 0 auto;
+  min-width: clamp(56px, 9vw, 100px);
+  display: flex; flex-direction: column;
+  font-size: clamp(10px, 1.8vmin, 15px);
+  letter-spacing: 0.05em;
+  color: var(--no-label);
+}
+.bdf-section-total {
+  font-size: clamp(13px, 2.2vmin, 19px);
+  font-weight: bold;
+  color: var(--no-green);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Type-cell grid — icon-or-label over count. One row that shrinks to fit rather than wrapping
+   (mirrors TGT's vehicle-type grid), except AIRCRAFT which is allowed to wrap since the game's own
+   panel shows it as two rows. */
+.bdf-section-grid {
+  flex: 1 1 auto;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(30px, 76px);
+  justify-content: start;
+  gap: clamp(3px, 0.8vw, 9px);
+  overflow: hidden;
+}
+#grid-aircraft {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(auto-fill, minmax(30px, 56px));
+  justify-content: start;
+}
+
+.bdf-cell {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  gap: clamp(1px, 0.4vh, 4px);
+  padding: clamp(2px, 0.6vh, 6px) clamp(1px, 0.4vw, 4px);
+}
+.bdf-cell .bdf-icon {
+  width: clamp(18px, 3.6vmin, 36px); height: clamp(18px, 3.6vmin, 36px);
+  max-width: 100%;
+  object-fit: contain;
+  visibility: hidden;   /* shown once its icon lands, same reveal pattern as TGT's vehicle icons */
+}
+.bdf-cell .bdf-icon.ready { visibility: visible; }
+.bdf-cell .bdf-label {
+  font-size: clamp(8px, 1.3vmin, 12px);
+  letter-spacing: 0.02em;
+  color: var(--no-label);
+  white-space: pre;
+}
+.bdf-cell .bdf-count {
+  font-size: clamp(11px, 1.9vmin, 17px);
+  font-variant-numeric: tabular-nums;
+}
+/* Zero counts read as dim/hollow, matching the game's zero-vs-positive colouring. */
+.bdf-cell.zero .bdf-count { color: var(--no-gray); }
+.bdf-cell:not(.zero) .bdf-count { color: var(--no-green); }
+
+/* Unavailable state (no local FactionHQ / no mission). */
+.bdf-unavailable { display: none; }
+body.unavailable .bdf-panel { display: none; }
+body.unavailable .bdf-unavailable { display: block; }

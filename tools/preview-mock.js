@@ -221,6 +221,40 @@
                  { n: 'AAA', on: true }, { n: 'IR_SAM', on: true }, { n: 'R_SAM', on: true },
                  { n: 'RDR', on: true }],
     },
+    // BDF faction-forces panel (docs/bdf-page.md) — mirrors the numbers from the reference
+    // screenshot (BOSCALI) so the preview matches it 1:1. Ship-type icons come from /bdf-icon
+    // (mocked below to a placeholder glyph); aircraft icons reuse the generic /icon mock.
+    bdf: {
+      present: true, faction: 'BOSCALI', funds: -13.1, score: 34.4, warheads: 0,
+      ships: [{ n: 'CV', c: 0 }, { n: 'LHA', c: 0 }, { n: 'LFD', c: 0 }, { n: 'DDG', c: 0 },
+              { n: 'FFG', c: 0 }, { n: 'FFL', c: 0 }, { n: 'LC', c: 0 }],
+      buildings: [{ n: 'CIV', c: 0 }, { n: 'FAC', c: 0 }, { n: 'RDR', c: 1 }, { n: 'DEP', c: 0 },
+                  { n: 'HGR', c: 6 }, { n: 'DEF', c: 0 }, { n: 'AMMO', c: 1 }],
+      vehicles: [{ n: 'TRUCK', c: 6 }, { n: 'UGV', c: 0 }, { n: 'LCV', c: 0 }, { n: 'AFV', c: 0 },
+                 { n: 'MBT', c: 0 }, { n: 'ART', c: 0 }, { n: 'AAA', c: 0 }, { n: 'IR_SAM', c: 0 },
+                 { n: 'R_SAM', c: 0 }, { n: 'RDR', c: 0 }],
+      aircraft: [{ n: 'AH-Mk1', c: 0 }, { n: 'F/A-26B', c: 1 }, { n: 'EA-1', c: 0 }, { n: 'A-8', c: 1 },
+                 { n: 'AV-42C', c: 0 }, { n: 'F-45A', c: 0 }, { n: 'F-22', c: 0 }, { n: 'FA-45E', c: 0 },
+                 { n: 'F-16', c: 0 }, { n: 'F-18', c: 0 }, { n: 'Su-57', c: 0 }, { n: 'AWACS', c: 0 },
+                 { n: 'T-55', c: 0 }, { n: 'C-101', c: 0 }, { n: 'AV-A', c: 0 }, { n: 'B-1', c: 0 }],
+    },
+    // PAL — the same panel for the ENEMY faction (docs/bdf-page.md), mirroring a reference
+    // screenshot of the game's PRIMEVA side 1:1. Shares /bdf-icon with bdf's ship-type icons and
+    // both factions' logos (mocked below to a placeholder glyph, keyed by faction name).
+    pal: {
+      present: true, faction: 'PRIMEVA', funds: 0, score: 0, warheads: 0,
+      ships: [{ n: 'CV', c: 0 }, { n: 'LHA', c: 0 }, { n: 'LFD', c: 0 }, { n: 'DDG', c: 0 },
+              { n: 'FFG', c: 0 }, { n: 'FFL', c: 0 }, { n: 'LC', c: 0 }],
+      buildings: [{ n: 'CIV', c: 1 }, { n: 'FAC', c: 0 }, { n: 'RDR', c: 0 }, { n: 'DEP', c: 0 },
+                  { n: 'HGR', c: 8 }, { n: 'DEF', c: 0 }, { n: 'AMMO', c: 3 }],
+      vehicles: [{ n: 'TRUCK', c: 7 }, { n: 'UGV', c: 0 }, { n: 'LCV', c: 0 }, { n: 'AFV', c: 0 },
+                 { n: 'MBT', c: 0 }, { n: 'ART', c: 0 }, { n: 'AAA', c: 0 }, { n: 'IR_SAM', c: 0 },
+                 { n: 'R_SAM', c: 0 }, { n: 'RDR', c: 0 }],
+      aircraft: [{ n: 'AH-Mk1', c: 2 }, { n: 'F/A-26B', c: 0 }, { n: 'EA-1', c: 0 }, { n: 'A-8', c: 0 },
+                 { n: 'AV-42C', c: 0 }, { n: 'F-45A', c: 0 }, { n: 'F-22', c: 0 }, { n: 'FA-45E', c: 0 },
+                 { n: 'F-16', c: 0 }, { n: 'F-18', c: 0 }, { n: 'Su-57', c: 0 }, { n: 'AWACS', c: 0 },
+                 { n: 'T-55', c: 0 }, { n: 'C-101', c: 0 }, { n: 'AV-A', c: 0 }, { n: 'B-1', c: 0 }],
+    },
     // Radar-warning emitters (rwr) aren't listed here as fixed world positions — they're
     // synthesised below against the ACTIVE frame's ownship, so they sit at the intended
     // bearings whether this synthetic frame or a real capture (different ownship) is in use.

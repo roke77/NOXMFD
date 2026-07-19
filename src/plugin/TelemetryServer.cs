@@ -70,6 +70,11 @@ namespace NOXMFD
         private static readonly Dictionary<string, byte[]> _tgtIcons = new Dictionary<string, byte[]>();
         private static readonly object                     _tgtLock  = new object();
 
+        // BDF ship-type icons (PNG), keyed by ship typeName ("CV" … "LC") — the same names the
+        // "bdf" telemetry block's ship row carries (docs/bdf-page.md). Served at /bdf-icon?type=.
+        private static readonly Dictionary<string, byte[]> _bdfIcons = new Dictionary<string, byte[]>();
+        private static readonly object                     _bdfLock  = new object();
+
         // HUD-page building-type icons (PNG), keyed by building typeName ("CIV" … "AMMO"). A separate
         // map from _tgtIcons on purpose: a name like "RDR" is BOTH a vehicle and a building type, so
         // sharing one keyspace would collide. Served at /building-icon?type=.
@@ -297,6 +302,13 @@ namespace NOXMFD
             lock (_tgtLock) _tgtIcons[name] = png;
         }
 
+        // Called from Unity main thread once a BDF ship-type sprite has been extracted.
+        public static void SetBdfIcon(string name, byte[] png)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+            lock (_bdfLock) _bdfIcons[name] = png;
+        }
+
         // Called from Unity main thread once a HUD building-type sprite has been extracted.
         public static void SetBuildingIcon(string name, byte[] png)
         {
@@ -380,6 +392,8 @@ namespace NOXMFD
                         ServePng(ctx, _cmIcons, _cmLock, "type");
                     else if (path == "/tgt-icon")
                         ServePng(ctx, _tgtIcons, _tgtLock, "type");
+                    else if (path == "/bdf-icon")
+                        ServePng(ctx, _bdfIcons, _bdfLock, "type");
                     else if (path == "/building-icon")
                         ServePng(ctx, _buildingIcons, _buildingLock, "type");
                     else if (path == "/hud-cat-icon")
@@ -408,6 +422,8 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/rwr/rwr.html");
                     else if (path == "/tgt")
                         ServeAssetRel(ctx, "pages/tgt/tgt.html");
+                    else if (path == "/bdf")
+                        ServeAssetRel(ctx, "pages/bdf/bdf.html");
                     else if (path == "/hud")
                         ServeAssetRel(ctx, "pages/hud/hud.html");
                     else if (path == "/command")
@@ -983,7 +999,9 @@ namespace NOXMFD
                         + ",\"nvg\":" + (s.NightVision ? "true" : "false")
                         + ",\"navlt\":" + (s.NavLightsOn ? "true" : "false")
                         + ",\"failures\":" + StringArray(s.Failures)
-                        + ",\"tgt\":" + TgtBlock(s) + "}";
+                        + ",\"tgt\":" + TgtBlock(s)
+                        + ",\"bdf\":" + BdfBlock(s)
+                        + ",\"pal\":" + PalBlock(s) + "}";
         }
 
         // TGT filter panel state (docs/tgt-page.md). {present:false} when the game's TargetListSelector
@@ -1010,6 +1028,49 @@ namespace NOXMFD
                 if (i > 0) sb.Append(',');
                 sb.Append("{\"n\":\"").Append(EscapeJson(items[i].Name ?? string.Empty))
                   .Append("\",\"on\":").Append(items[i].On ? "true" : "false").Append('}');
+            }
+            return sb.Append(']').ToString();
+        }
+
+        // BDF faction-forces panel (docs/bdf-page.md). {present:false} when the local aircraft has
+        // no FactionHQ yet; otherwise the header scalars plus the four breakdown rows.
+        private static string BdfBlock(TelemetrySnapshot s)
+        {
+            if (!s.BdfPresent) return "{\"present\":false}";
+            return string.Format(CultureInfo.InvariantCulture,
+                "{{\"present\":true,\"faction\":\"{0}\",\"funds\":{1:0.000},\"score\":{2:0.0},\"warheads\":{3},",
+                EscapeJson(s.BdfFaction ?? string.Empty), s.BdfFunds, s.BdfScore, s.BdfWarheads)
+                + "\"ships\":"     + BdfCountArray(s.BdfShips)
+                + ",\"vehicles\":"  + BdfCountArray(s.BdfVehicles)
+                + ",\"buildings\":" + BdfCountArray(s.BdfBuildings)
+                + ",\"aircraft\":"  + BdfCountArray(s.BdfAircraft)
+                + "}";
+        }
+
+        // PAL — the same faction-forces panel as BDF, for the ENEMY faction (docs/bdf-page.md).
+        // {present:false} when there's no local faction yet to resolve "the other one" against.
+        private static string PalBlock(TelemetrySnapshot s)
+        {
+            if (!s.PalPresent) return "{\"present\":false}";
+            return string.Format(CultureInfo.InvariantCulture,
+                "{{\"present\":true,\"faction\":\"{0}\",\"funds\":{1:0.000},\"score\":{2:0.0},\"warheads\":{3},",
+                EscapeJson(s.PalFaction ?? string.Empty), s.PalFunds, s.PalScore, s.PalWarheads)
+                + "\"ships\":"     + BdfCountArray(s.PalShips)
+                + ",\"vehicles\":"  + BdfCountArray(s.PalVehicles)
+                + ",\"buildings\":" + BdfCountArray(s.PalBuildings)
+                + ",\"aircraft\":"  + BdfCountArray(s.PalAircraft)
+                + "}";
+        }
+
+        private static string BdfCountArray(BdfCountInfo[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append("{\"n\":\"").Append(EscapeJson(items[i].Name ?? string.Empty))
+                  .Append("\",\"c\":").Append(items[i].Count).Append('}');
             }
             return sb.Append(']').ToString();
         }

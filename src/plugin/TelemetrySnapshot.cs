@@ -102,6 +102,34 @@ namespace NOXMFD
         public TgtToggleInfo[] TgtFaction;   // FRIENDLY, ENEMY
         public TgtToggleInfo[] TgtCategory;  // AIR, MSL, GND, BLD, SHP
         public TgtToggleInfo[] TgtVehicle;   // TRUCK … RDR (dynamic; names double as /icon keys)
+
+        // BDF faction-forces panel (docs/bdf-page.md), mirroring the game's InfoPanel_Faction
+        // (Forces display only). BdfPresent=false when the player has no FactionHQ yet (no local
+        // aircraft) — the page then shows an unavailable state. Section totals aren't sent
+        // separately; they're just the sum of each array (every type is enumerated, so no
+        // duplicate source of truth). Arrays are in the game's own enum order.
+        public bool           BdfPresent;
+        public string         BdfFaction;   // faction display name, e.g. "BOSCALI"
+        public float          BdfFunds;     // millions (UnitConverter.ValueReading scale)
+        public float          BdfScore;
+        public int            BdfWarheads;
+        public BdfCountInfo[] BdfShips;     // CV, LHA, LFD, DDG, FFG, FFL, LC
+        public BdfCountInfo[] BdfVehicles;  // TRUCK, UGV, LCV, AFV, MBT, ART, AAA, IR_SAM, R_SAM, RDR
+        public BdfCountInfo[] BdfBuildings; // CIV, FAC, RDR, DEP, HGR, DEF, AMMO
+        public BdfCountInfo[] BdfAircraft;  // one per AircraftDefinition; Name doubles as the /icon key
+
+        // PAL — the same faction-forces panel, for the ENEMY faction instead of the player's own
+        // (docs/bdf-page.md). Shares BdfCountInfo's shape; PalPresent=false when there's no local
+        // faction yet to resolve "the other one" against (mirrors BdfPresent's guard).
+        public bool           PalPresent;
+        public string         PalFaction;
+        public float          PalFunds;
+        public float          PalScore;
+        public int            PalWarheads;
+        public BdfCountInfo[] PalShips;
+        public BdfCountInfo[] PalVehicles;
+        public BdfCountInfo[] PalBuildings;
+        public BdfCountInfo[] PalAircraft;
     }
 
     // One TGT filter toggle: its label (the canonical typeName for the vehicle row — doubles as the
@@ -110,6 +138,14 @@ namespace NOXMFD
     {
         public string Name;
         public bool   On;
+    }
+
+    // One BDF forces-breakdown row: a type label (or unitName, for aircraft) and its current count.
+    // Serialized terse as {n,c}.
+    internal struct BdfCountInfo
+    {
+        public string Name;
+        public int    Count;
     }
 
     // One radar emitter on the RWR scope. Serialized terse as {x,z,tr,pw,n,k}.

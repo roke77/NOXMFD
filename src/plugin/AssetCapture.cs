@@ -353,6 +353,51 @@ namespace NOXMFD
             }
         }
 
+        private readonly HashSet<string> _capturedBdfShipIcons = new HashSet<string>();
+
+        // Extracts the BDF page's ship-type icons (CV … LC) to PNG once each, keyed by typeName so
+        // the web BDF page's /bdf-icon?type= requests match the "bdf" telemetry block's ship-row
+        // names. Source is Encyclopedia.i.shipTypes — the same list the game's InfoPanel_Faction
+        // builds its Ships row from (docs/bdf-page.md). Straight mirror of
+        // TryCaptureVehicleTypeIcons above; a dedicated /bdf-icon keeps the key space separate from
+        // the generic /icon (aircraft unitNames) rather than risking a collision.
+        public void TryCaptureShipTypeIcons()
+        {
+            Encyclopedia enc = Encyclopedia.i;
+            if (enc == null || enc.shipTypes == null) return;   // not ready — retry next scan
+
+            for (int i = 0; i < enc.shipTypes.Count; i++)
+            {
+                var st = enc.shipTypes[i];
+                if (st == null || string.IsNullOrEmpty(st.typeName) || _capturedBdfShipIcons.Contains(st.typeName))
+                    continue;
+                _capturedBdfShipIcons.Add(st.typeName);   // mark regardless so we never retry this type
+                if (st.typeSprite == null) continue;
+
+                string name = st.typeName;
+                SpriteCapture.Request(st.typeSprite, SpriteCapture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
+                    png => { if (png != null) TelemetryServer.SetBdfIcon(name, png); });
+            }
+        }
+
+        private readonly HashSet<string> _capturedBdfLogos = new HashSet<string>();
+
+        // Extracts a faction's header logo (Faction.factionColorLogo) to PNG once per faction name,
+        // sharing the /bdf-icon store with the ship-type icons — faction names ("BOSCALI") never
+        // collide with the short ship-type codes ("CV" … "LC").
+        public void TryCaptureFactionLogo(FactionHQ hq)
+        {
+            Faction faction = hq != null ? hq.faction : null;
+            if (faction == null || string.IsNullOrEmpty(faction.factionName)) return;
+            string name = faction.factionName;
+            if (_capturedBdfLogos.Contains(name)) return;
+            _capturedBdfLogos.Add(name);
+            if (faction.factionColorLogo == null) return;
+
+            SpriteCapture.Request(faction.factionColorLogo, SpriteCapture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
+                png => { if (png != null) TelemetryServer.SetBdfIcon(name, png); });
+        }
+
         private readonly HashSet<string> _capturedBuildingIcons = new HashSet<string>();
 
         // The HUD page's building-type icons — the same typeSprite capture as the vehicles above, on

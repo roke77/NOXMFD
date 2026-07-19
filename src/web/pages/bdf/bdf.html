@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — BDF</title>
+<!--
+  Bare BDF page served at /bdf — a read-only replica of the game's in-cockpit faction/HQ status
+  panel (InfoPanel_Faction, Forces display only). Renders full-view in #page-frame and as a split
+  pane, like TGT — its only bezel key is the shell-owned MAIN back label; the BDF key itself lives
+  in the shell's BEZEL_EXTRAS (right bank), not the per-page NAV table, so it is reached in full
+  view and carried into a split by splitting from there. See docs/bdf-page.md.
+
+  This same page doubles as PAL — the identical panel for the ENEMY faction — via a `?enemy` URL
+  flag (bdf.js), the same idiom AVN/MAP use `?nochrome` for: the shell picks a mode by how it embeds
+  the URL, the page reads it before its first paint. Everything on screen is already data-driven
+  from the incoming message, so the flag only has to pick which message type to listen for and swap
+  the title/UNAVAILABLE label — see bdf.js. PAL is reached the same way BDF is (its own BEZEL_EXTRAS/
+  MAIN_EXTRAS entry), not a separate page directory.
+
+  Shell -> page messages (all {mfd:true, ...}):
+    'bdf' : the player's own faction-forces block (plain /bdf) —
+            { present, faction, funds, score, warheads,
+              ships:[{n,c}], vehicles:[{n,c}], buildings:[{n,c}], aircraft:[{n,c}] }.
+            present:false -> the local aircraft has no FactionHQ yet; show UNAVAILABLE.
+    'pal' : the same shape, for the ENEMY faction (/bdf?enemy) — present:false -> no local faction
+            yet to resolve "the other one" against.
+    'orient' : app-wide orientation (kept for parity).
+
+  Read-only: no commands, no interaction. Only the other six DisplayType modes (Players, Airbases,
+  Reserves, Losses, Value, Manpower) are out of scope for this pass — see docs/bdf-page.md's "FORCES
+  dropdown" open question. The FORCES label below is static (no control).
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/bdf/bdf.css">
+</head>
+<body>
+  <div class="bdf-panel" id="bdf-panel">
+    <div class="bdf-header">
+      <span class="bdf-faction" id="bdf-faction">—</span>
+    </div>
+
+    <div class="bdf-top">
+      <div class="bdf-col-left">
+        <div class="bdf-stat">
+          <span class="bdf-stat-label">WARHEADS</span>
+          <span class="bdf-stat-value" id="bdf-warheads">0</span>
+        </div>
+        <div class="bdf-forces-label">FORCES</div>
+      </div>
+      <div class="bdf-logo-wrap">
+        <img class="bdf-logo" id="bdf-logo" alt="">
+      </div>
+      <div class="bdf-col-right">
+        <div class="bdf-stat">
+          <span class="bdf-stat-label">SCORE</span>
+          <span class="bdf-stat-value" id="bdf-score">0.0</span>
+        </div>
+        <div class="bdf-stat">
+          <span class="bdf-stat-label">FUNDS</span>
+          <span class="bdf-stat-value" id="bdf-funds">$0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bdf-sections">
+      <div class="bdf-section" id="section-ships">
+        <div class="bdf-section-head"><span class="bdf-section-name">SHIPS</span></div>
+        <div class="bdf-section-grid" id="grid-ships"></div>
+      </div>
+      <div class="bdf-section" id="section-buildings">
+        <div class="bdf-section-head">
+          <span class="bdf-section-name">BUILDINGS</span>
+          <span class="bdf-section-total" id="total-buildings">0</span>
+        </div>
+        <div class="bdf-section-grid" id="grid-buildings"></div>
+      </div>
+      <div class="bdf-section" id="section-vehicles">
+        <div class="bdf-section-head">
+          <span class="bdf-section-name">VEHICLES</span>
+          <span class="bdf-section-total" id="total-vehicles">0</span>
+        </div>
+        <div class="bdf-section-grid" id="grid-vehicles"></div>
+      </div>
+      <div class="bdf-section" id="section-aircraft">
+        <div class="bdf-section-head">
+          <span class="bdf-section-name">AIRCRAFT</span>
+          <span class="bdf-section-total" id="total-aircraft">0</span>
+        </div>
+        <div class="bdf-section-grid" id="grid-aircraft"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bdf-unavailable mfd-empty" id="bdf-unavailable">
+    <span class="mfd-empty-title" id="bdf-empty-title">BDF</span>&mdash; UNAVAILABLE &mdash;
+  </div>
+
+<script src="/assets/pages/bdf/bdf.js"></script>
+</body>
+</html>
