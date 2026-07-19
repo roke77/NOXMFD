@@ -2,15 +2,16 @@
 
 ## Status
 
-**Shipped on `feat/bdf-page` — not yet merged, not `dotnet build`-verified.**
-Replicated the game's in-cockpit faction/HQ status panel as a new MFD page:
-header (faction name, WARHEADS, SCORE, FUNDS) + a forces breakdown (SHIPS /
-BUILDINGS / VEHICLES / AIRCRAFT), always for **the player's own faction**.
-The enemy-faction view (the game's `SelectFaction.Other`) is explicitly out
-of scope — a separate branch/page later. Verified end-to-end in the
-`serve_web` harness (both the CLASSIC bezel and the F-35 layout); the plugin
-side (C#) has no compiler available in this environment (no `dotnet`/game
-DLLs), so it needs a real build + in-game pass before merging.
+**On `feat/bdf-page`, up to date with `main`, `dotnet build`-verified and
+deployed — not yet merged, no in-game pass yet.** Replicated the game's
+in-cockpit faction/HQ status panel as a new MFD page: header (faction name,
+WARHEADS, SCORE, FUNDS) + a forces breakdown (SHIPS / BUILDINGS / VEHICLES /
+AIRCRAFT), always for **the player's own faction**. The enemy-faction view
+(the game's `SelectFaction.Other`) is explicitly out of scope — a separate
+branch/page later. Renders full-view in `#page-frame` and, like TGT, as a
+split pane in both the CLASSIC bezel and the F-35 layout. Verified end-to-end
+in the `serve_web` harness; a real in-game pass (live `FactionHQ` data, real
+captured icons) is still outstanding before merge.
 
 ## What the in-game BDF page is
 
@@ -125,28 +126,38 @@ per-aircraft blocks do when there's no local aircraft yet.
 7. **[done] Wire nav** — `NAV.main` (`nav-model.js`) is pinned at exactly 6
    items (enforced by `nav-model.test.js`) and already full (AVN/MAP/RWR/
    TGP/TGT/WPN), so BDF couldn't slot in there. Added as a `BEZEL_EXTRAS`
-   entry (`mfd.js`) instead, right after LYT: `{ label: 'BDF', action: 'bdf',
-   bank: 'right', index: 1 }` (LYT keeps `index: 0`). **Also wired the F-35
-   layout** (`src/web/shell/f35/f35.js` — `F35_PAGES.bdf`, `PAGE_FEEDS.bdf`),
-   which wasn't in the original plan: BDF was already a greyed-out
-   `MAIN_EXTRAS` placeholder there (alongside HUD/PAL), so it lit up once
-   given a page. Both shells needed the same top-left collision fix TGT
-   already has — BDF's own WARHEADS readout sits where the bezel's/F-35's
-   MAIN back-label lands, so both got the `bdf-page` vertical-label
-   treatment (`mfd.css`/`mfd.js` and `f35.css`'s `[data-page="tgt"]` selector
-   extended to `bdf`) — found by actually clicking through the rendered page
-   in the browser, not by inspection.
+   entry (`mfd.js`) instead, down the right bank after HUD and LYT:
+   `{ label: 'BDF', action: 'bdf', bank: 'right', index: 2 }`. **Also wired
+   the F-35 layout** (`src/web/shell/f35/f35.js` — `F35_PAGES.bdf`,
+   `PAGE_FEEDS.bdf`), which wasn't in the original plan: BDF was already a
+   greyed-out `MAIN_EXTRAS` placeholder there (alongside HUD/PAL), so it lit
+   up once given a page. Both shells needed the same top-left collision fix
+   TGT already has — BDF's own WARHEADS readout sits where the bezel's/F-35's
+   MAIN back-label lands, so BDF joins the shell's shared vertical-MAIN
+   treatment (`isVmainPage` + `.overlay.vmain` in `mfd.js`/`mfd.css`, and
+   `f35.css`'s `[data-page]` selector) — found by clicking through the
+   rendered page in the browser, not by inspection.
+
+   **Split panes** (added after the `main` merge, mirroring TGT): `SPLIT_SLOTS.bdf`
+   (a single MAIN back-key), `PAGE_URL.bdf = '/bdf?bare'`, and a
+   `forwardBdfToPanes()` twin of the full-view forwarder, wired into the
+   pane-load and telemetry handlers. In a split the pane's MAIN back-label
+   stands upright via the per-label `vlabel` class (BDF is in `isVmainPage`),
+   and the page carries a symmetric side inset so that label clears the
+   header on whichever edge it lands (left/top pane vs. a V-split's right
+   pane). BDF is reached in full view (its `BEZEL_EXTRAS` key is full-view
+   only, like LYT/HUD) and carried into a split by splitting from there.
 
 8. **[done] tools/preview-mock.js + serve_web.py** — added a mock `bdf`
    block matching the reference screenshot's numbers 1:1, plus a
    `/bdf-icon` placeholder route mirroring `/tgt-icon`.
 
 9. **[partially done] Verify** — `serve_web` harness pass complete: rendered
-   and clicked through both the CLASSIC bezel and F-35 layouts, confirmed
-   against the reference screenshot's numbers, caught and fixed the label
-   collision above. **Not done**: `dotnet build` (no compiler in this
-   environment) and an in-game pass (real `FactionHQ` data, real captured
-   icons, bezel key reachable on the physical/virtual MFD).
+   and clicked through both the CLASSIC bezel and F-35 layouts (full view and
+   split), confirmed against the reference screenshot's numbers, caught and
+   fixed the label collision above. `dotnet build -c Release` clean (0 errors)
+   and deployed. **Not done**: an in-game pass (real `FactionHQ` data, real
+   captured icons, bezel key reachable on the physical/virtual MFD).
 
 ## Open questions
 

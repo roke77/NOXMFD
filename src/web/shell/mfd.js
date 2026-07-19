@@ -186,14 +186,15 @@ const SPLIT_SLOTS = {
     { side: 'right', slot: 0 },   // Z+
     { side: 'right', slot: 1 },   // Z-
   ],
-  // AVN / TGP / RWR / TGT in a split pane each expose their single MAIN back-button on the pane's
-  // top-left slot (L0 for top, physically L3 for bottom). It navigates ONLY that pane. TGT's own
-  // filter toggles are clickable inside the pane iframe, so like the others it needs no key labels
-  // beyond MAIN.
+  // AVN / TGP / RWR / TGT / BDF in a split pane each expose their single MAIN back-button on the
+  // pane's top-left slot (L0 for top, physically L3 for bottom). It navigates ONLY that pane. TGT's
+  // filter toggles are clickable inside the pane iframe, and BDF is read-only, so like the others
+  // they need no key labels beyond MAIN.
   avn: [ { side: 'left', slot: 0 } ],
   tgp: [ { side: 'left', slot: 0 } ],
   rwr: [ { side: 'left', slot: 0 } ],
   tgt: [ { side: 'left', slot: 0 } ],
+  bdf: [ { side: 'left', slot: 0 } ],
   // WPN is a valid split page but places no NAV labels: its MAIN/PREV + NEXT depend on the pane's
   // pagination state, so renderSplitLabels' list branch owns them (NAV.wpn is empty to match).
   wpn: [],
@@ -209,6 +210,7 @@ const PAGE_URL = {
   wpn:  '/wpn?bare',
   rwr:  '/rwr?bare',
   tgt:  '/tgt?bare',
+  bdf:  '/bdf?bare',
 };
 function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 
@@ -251,10 +253,11 @@ function applySplitMode() {
   // and v<->vw reconfigs return early in setSplit and never reach here, so they keep their pin.
   clearPin();
   applySplitClasses();
-  // The vertical-MAIN overlay style is full-view only (TGT / HUD); split entry doesn't go through
-  // showPage, so drop it here or its label style would leak onto the split MAIN labels. Restored on
-  // unsplit (showPage re-toggles it). TGT splits into a pane like the other frame pages; HUD does
-  // not (not in PAGE_URL), so picking it from a pane collapses the split instead.
+  // The vertical-MAIN overlay style is full-view only (TGT / HUD / BDF); split entry doesn't go
+  // through showPage, so drop it here or its label style would leak onto the split MAIN labels.
+  // Restored on unsplit (showPage re-toggles it). TGT and BDF split into a pane like the other frame
+  // pages (they get their upright pane MAIN via the per-label vlabel class instead); HUD does not
+  // (not in PAGE_URL), so picking it from a pane collapses the split instead.
   overlayEl.classList.remove('vmain');
   if (splitMode) {
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
@@ -504,6 +507,15 @@ function forwardMwToPanes() {
     iframe.contentWindow.postMessage({ mfd: true, type: 'mw', items: mwData.items || [] }, '*');
   });
 }
+// Split-pane twin of forwardBdfToFrame — same faction-forces payload, sent to any pane showing BDF.
+// Read-only, so like TGT nothing else (no bezel-key wiring) is needed beyond the pane's MAIN.
+function forwardBdfToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'bdf') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'bdf' }, bdfData), '*');
+  });
+}
 // Slice the full loadout to the page a given pane is scrolled to. Returns the visible rows
 // plus whether PREV/NEXT exist, so renderSplitLabels can place the right nav labels. Clamps
 // a stale page index (e.g. the loadout shrank) back into range as a side effect.
@@ -718,6 +730,7 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'tgp')  forwardTgpToPanes();
     else if (page === 'rwr')  { forwardRwrToPanes(); forwardMwToPanes(); }
     else if (page === 'tgt')  { forwardTgtToPanes(); forwardTgtTargetsToPanes(); }
+    else if (page === 'bdf')  forwardBdfToPanes();
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
   });
 });
@@ -1082,10 +1095,11 @@ window.addEventListener('message', function(e) {
     if (currentPage === 'tgt' && !splitMode) forwardTgtToFrame();
     if (splitMode) forwardTgtToPanes();
   } else if (m.type === 'bdf') {
-    // Mirror the BDF faction-forces state. Renders in the #page-frame iframe only (no split-pane
-    // variant, like TGT); forward on when it's the page in view.
+    // Mirror the BDF faction-forces state. Renders in the #page-frame iframe (full) or a pane
+    // (split); forward on when it's the page in view.
     bdfData = m;
     if (currentPage === 'bdf' && !splitMode) forwardBdfToFrame();
+    if (splitMode) forwardBdfToPanes();
   }
 });
 

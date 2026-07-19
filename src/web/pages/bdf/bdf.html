@@ -5,9 +5,10 @@
 <title>NO XMFD — BDF</title>
 <!--
   Bare BDF page served at /bdf — a read-only replica of the game's in-cockpit faction/HQ status
-  panel (InfoPanel_Faction, Forces display only). Full-view only (no split-pane profile), same as
-  TGT — its only bezel key is the shell-owned MAIN back label; the BDF key itself lives in the
-  shell's BEZEL_EXTRAS (right bank, after LYT), not the per-page NAV table. See docs/bdf-page.md.
+  panel (InfoPanel_Faction, Forces display only). Renders full-view in #page-frame and as a split
+  pane, like TGT — its only bezel key is the shell-owned MAIN back label; the BDF key itself lives
+  in the shell's BEZEL_EXTRAS (right bank), not the per-page NAV table, so it is reached in full
+  view and carried into a split by splitting from there. See docs/bdf-page.md.
 
   Shell -> page messages (all {mfd:true, ...}):
     'bdf' : the whole faction-forces block mirrored from the mod —

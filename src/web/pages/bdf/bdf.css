@@ -17,9 +17,13 @@ html, body {
   display: flex; flex-direction: column;
   gap: clamp(4px, 1.4vh, 12px);
   padding: clamp(6px, 1.8vmin, 16px);
-  /* Extra left inset: the shell's vertical MAIN bezel label sits at the left edge of every
-     frame-hosted page — keep the header/sections clear of it (matches TGT's own inset). */
-  padding-left: clamp(30px, 5vw, 48px);
+  /* Extra side inset: the shell's vertical MAIN bezel label hugs an edge here. Both sides get the
+     inset because the label can land on either edge — the left in full view and the left/top split
+     pane, the right in a V-split's right pane — and the page can't know which, so it clears both.
+     The 34px floor matters in a half-width split pane, where 5vw collapses below the label's fixed
+     ~28px footprint; full view stays at the 48px cap. Matches TGT's own inset. */
+  padding-left: clamp(34px, 5vw, 48px);
+  padding-right: clamp(34px, 5vw, 48px);
 }
 
 /* Header */
