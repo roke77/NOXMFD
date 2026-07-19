@@ -92,7 +92,15 @@ html, body {
   display: flex; flex-direction: column;
   gap: clamp(4px, 1.2vh, 12px);
   overflow-y: auto;
+  /* Match the thin overlay scrollbar a touch device draws, not the desktop default's chunky bar with
+     its light track: a slim grey thumb on a transparent track. scrollbar-* covers Firefox + the
+     standard; the ::-webkit rules below cover Chrome / Edge / Safari. Same treatment as TGT's list. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
 }
+.bdf-sections::-webkit-scrollbar { width: 6px; height: 6px; }
+.bdf-sections::-webkit-scrollbar-track { background: transparent; }
+.bdf-sections::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
 .bdf-section {
   display: flex; align-items: flex-start;
   gap: clamp(6px, 1.6vw, 16px);
