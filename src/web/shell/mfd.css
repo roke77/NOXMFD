@@ -449,6 +449,18 @@
     letter-spacing: 0;
     left: 4px;
   }
+  /* Split mode: a single pane showing TGT stands its own MAIN back-label upright the same way, so it
+     clears that pane's RESET button. The label carries the class directly (not the overlay) because
+     only one pane's label should turn — the other pane keeps its horizontal labels. It can sit on
+     either bank: the left/top pane's MAIN lands on the left column, the V-split right pane's on the
+     right, so hug whichever edge it's anchored to. */
+  .overlay-item.vlabel {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    letter-spacing: 0;
+  }
+  .overlay-item.left.vlabel  { left: 4px; }
+  .overlay-item.right.vlabel { right: 4px; }
   .overlay-item.top { transform: translate(-50%, 0); }
   .overlay-item.bottom { transform: translate(-50%, -100%); }
   /* Pin the menu-item size in portrait to the same 21px as landscape, so items read
