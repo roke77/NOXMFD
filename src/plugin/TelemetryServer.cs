@@ -1000,7 +1000,8 @@ namespace NOXMFD
                         + ",\"navlt\":" + (s.NavLightsOn ? "true" : "false")
                         + ",\"failures\":" + StringArray(s.Failures)
                         + ",\"tgt\":" + TgtBlock(s)
-                        + ",\"bdf\":" + BdfBlock(s) + "}";
+                        + ",\"bdf\":" + BdfBlock(s)
+                        + ",\"pal\":" + PalBlock(s) + "}";
         }
 
         // TGT filter panel state (docs/tgt-page.md). {present:false} when the game's TargetListSelector
@@ -1043,6 +1044,21 @@ namespace NOXMFD
                 + ",\"vehicles\":"  + BdfCountArray(s.BdfVehicles)
                 + ",\"buildings\":" + BdfCountArray(s.BdfBuildings)
                 + ",\"aircraft\":"  + BdfCountArray(s.BdfAircraft)
+                + "}";
+        }
+
+        // PAL — the same faction-forces panel as BDF, for the ENEMY faction (docs/bdf-page.md).
+        // {present:false} when there's no local faction yet to resolve "the other one" against.
+        private static string PalBlock(TelemetrySnapshot s)
+        {
+            if (!s.PalPresent) return "{\"present\":false}";
+            return string.Format(CultureInfo.InvariantCulture,
+                "{{\"present\":true,\"faction\":\"{0}\",\"funds\":{1:0.000},\"score\":{2:0.0},\"warheads\":{3},",
+                EscapeJson(s.PalFaction ?? string.Empty), s.PalFunds, s.PalScore, s.PalWarheads)
+                + "\"ships\":"     + BdfCountArray(s.PalShips)
+                + ",\"vehicles\":"  + BdfCountArray(s.PalVehicles)
+                + ",\"buildings\":" + BdfCountArray(s.PalBuildings)
+                + ",\"aircraft\":"  + BdfCountArray(s.PalAircraft)
                 + "}";
         }
 

@@ -63,7 +63,7 @@ const paneIframes = [document.getElementById('pane-top'), document.getElementByI
 const pageFrame = document.getElementById('page-frame');   // full-view host for the frame-hosted pages (WPN, TGT, TGP)
 // Pages that render in #page-frame in full view (rather than as overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
-const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt', hud: '/hud', bdf: '/bdf' };
+const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt', hud: '/hud', bdf: '/bdf', pal: '/bdf?enemy' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
@@ -105,14 +105,16 @@ function fullViewSlot(i) { return { bank: 'left', index: i }; }
 // no panel: every other page in this shell puts its items beside a physical key, and a chooser is
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
-  // HUD, LYT and BDF down the right bank — the layout-owned MAIN keys the six shared NAV items (left
-  // bank) leave no room for. HUD opens the HUD OPTIONS #page-frame page and BDF the faction-forces
-  // one (docs/bdf-page.md); each gets its MAIN back from NAV like every other frame page, so neither
-  // needs an entry of its own here.
+  // HUD, LYT, BDF and PAL down the right bank — the layout-owned MAIN keys the six shared NAV items
+  // (left bank) leave no room for. HUD opens the HUD OPTIONS #page-frame page, BDF the faction-forces
+  // one for the player's own faction, and PAL the same panel for the ENEMY faction (docs/bdf-page.md);
+  // each gets its MAIN back from NAV like every other frame page, so none needs an entry of its own
+  // here.
   main: [
     { label: 'HUD', action: 'hud', bank: 'right', index: 0 },
     { label: 'LYT', action: 'lyt', bank: 'right', index: 1 },
     { label: 'BDF', action: 'bdf', bank: 'right', index: 2 },
+    { label: 'PAL', action: 'pal', bank: 'right', index: 3 },
   ],
   // No MAIN back-item under lyt here — picking CLASSIC already navigates back to MAIN (this shell),
   // so a separate way-back label would be redundant with it.
@@ -186,15 +188,16 @@ const SPLIT_SLOTS = {
     { side: 'right', slot: 0 },   // Z+
     { side: 'right', slot: 1 },   // Z-
   ],
-  // AVN / TGP / RWR / TGT / BDF in a split pane each expose their single MAIN back-button on the
-  // pane's top-left slot (L0 for top, physically L3 for bottom). It navigates ONLY that pane. TGT's
-  // filter toggles are clickable inside the pane iframe, and BDF is read-only, so like the others
-  // they need no key labels beyond MAIN.
+  // AVN / TGP / RWR / TGT / BDF / PAL in a split pane each expose their single MAIN back-button on
+  // the pane's top-left slot (L0 for top, physically L3 for bottom). It navigates ONLY that pane.
+  // TGT's filter toggles are clickable inside the pane iframe, and BDF/PAL are read-only, so like
+  // the others they need no key labels beyond MAIN.
   avn: [ { side: 'left', slot: 0 } ],
   tgp: [ { side: 'left', slot: 0 } ],
   rwr: [ { side: 'left', slot: 0 } ],
   tgt: [ { side: 'left', slot: 0 } ],
   bdf: [ { side: 'left', slot: 0 } ],
+  pal: [ { side: 'left', slot: 0 } ],
   // WPN is a valid split page but places no NAV labels: its MAIN/PREV + NEXT depend on the pane's
   // pagination state, so renderSplitLabels' list branch owns them (NAV.wpn is empty to match).
   wpn: [],
@@ -211,6 +214,7 @@ const PAGE_URL = {
   rwr:  '/rwr?bare',
   tgt:  '/tgt?bare',
   bdf:  '/bdf?bare',
+  pal:  '/bdf?bare&enemy',
 };
 function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 
@@ -253,11 +257,11 @@ function applySplitMode() {
   // and v<->vw reconfigs return early in setSplit and never reach here, so they keep their pin.
   clearPin();
   applySplitClasses();
-  // The vertical-MAIN overlay style is full-view only (TGT / HUD / BDF); split entry doesn't go
-  // through showPage, so drop it here or its label style would leak onto the split MAIN labels.
-  // Restored on unsplit (showPage re-toggles it). TGT and BDF split into a pane like the other frame
-  // pages (they get their upright pane MAIN via the per-label vlabel class instead); HUD does not
-  // (not in PAGE_URL), so picking it from a pane collapses the split instead.
+  // The vertical-MAIN overlay style is full-view only (TGT / HUD / BDF / PAL); split entry doesn't
+  // go through showPage, so drop it here or its label style would leak onto the split MAIN labels.
+  // Restored on unsplit (showPage re-toggles it). TGT, BDF and PAL split into a pane like the other
+  // frame pages (they get their upright pane MAIN via the per-label vlabel class instead); HUD does
+  // not (not in PAGE_URL), so picking it from a pane collapses the split instead.
   overlayEl.classList.remove('vmain');
   if (splitMode) {
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
@@ -316,9 +320,9 @@ function placeSplitKey(m, label, action, paneTag) {
 
 // Pages whose own content sits in the top-left where the MAIN bezel label lands, so that label is
 // stood upright to clear it — in full view via .overlay.vmain, in a split pane via a per-label class
-// (renderSplitLabels). TGT's RESET FILTER and HUD's mode/category rows are that content; HUD is
-// full-view only, so only TGT actually reaches the split path.
-function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf'; }
+// (renderSplitLabels). TGT's RESET FILTER, HUD's mode/category rows, and BDF/PAL's WARHEADS readout
+// are that content; HUD is full-view only, so only TGT and BDF/PAL actually reach the split path.
+function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal'; }
 
 function renderSplitLabels() {
   clearKeyActions();
@@ -484,6 +488,11 @@ function forwardBdfToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage(Object.assign({ mfd: true, type: 'bdf' }, bdfData), '*');
 }
+// Full-view PAL: same as forwardBdfToFrame, for the enemy-faction block (docs/bdf-page.md).
+function forwardPalToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage(Object.assign({ mfd: true, type: 'pal' }, palData), '*');
+}
 // Split-pane twins of the two TGT forwarders — same payloads, sent to any pane showing TGT. The
 // page is fully clickable inside the pane, so nothing else (no bezel-key wiring) is needed.
 function forwardTgtToPanes() {
@@ -514,6 +523,14 @@ function forwardBdfToPanes() {
     if (panePages[idx] !== 'bdf') return;
     if (!iframe.contentWindow) return;
     iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'bdf' }, bdfData), '*');
+  });
+}
+// Split-pane twin of forwardPalToFrame — same as forwardBdfToPanes, for PAL panes.
+function forwardPalToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'pal') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'pal' }, palData), '*');
   });
 }
 // Slice the full loadout to the page a given pane is scrolled to. Returns the visible rows
@@ -731,6 +748,7 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'rwr')  { forwardRwrToPanes(); forwardMwToPanes(); }
     else if (page === 'tgt')  { forwardTgtToPanes(); forwardTgtTargetsToPanes(); }
     else if (page === 'bdf')  forwardBdfToPanes();
+    else if (page === 'pal')  forwardPalToPanes();
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
   });
 });
@@ -746,6 +764,7 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'rwr') { forwardRwrToFrame(); forwardMwToFrame(); }
   else if (currentPage === 'tgt') { forwardTgtToFrame(); forwardTgtTargetsToFrame(); }
   else if (currentPage === 'bdf') { forwardBdfToFrame(); }
+  else if (currentPage === 'pal') { forwardPalToFrame(); }
 });
 
 // Top-right indicator stack (PINNED + FOLLOW). pinnedPage tracks which page (if any)
@@ -867,8 +886,10 @@ let mwData  = { items: [] };
 let tgtData = { present: false };
 
 // Latest BDF faction-forces state, mirrored from the map iframe's SSE feed (docs/bdf-page.md).
-// Full-view only, like TGT — the shell keeps only this state and forwards it to the frame.
+// The shell keeps only this state and forwards it to the frame or the pane showing it.
 let bdfData = { present: false };
+// Same, for the ENEMY faction's PAL panel (docs/bdf-page.md).
+let palData = { present: false };
 
 function clearKeyActions() {
   // Only the page-dynamic banks (left/right) get cleared between pages. The top and bottom
@@ -971,10 +992,16 @@ function showPage(name) {
   }
   // BDF renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.bdf, placed
   // by the generic sweep above) — the right-bank BDF key itself lives in BEZEL_EXTRAS, not NAV, so
-  // it never appears on a split pane's MAIN (same as LYT). Forward the faction-forces state.
+  // it's reached in full view and carried into a split by splitting from there (SPLIT_SLOTS.bdf).
+  // Forward the faction-forces state.
   if (name === 'bdf') {
     showFramePage('bdf');
     forwardBdfToFrame();
+  }
+  // PAL renders in #page-frame too — same as BDF, for the enemy-faction block.
+  if (name === 'pal') {
+    showFramePage('pal');
+    forwardPalToFrame();
   }
   // HUD renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.hud, placed by
   // the generic sweep above); the page is otherwise self-driven — it fetches /hud-options and POSTs
@@ -1100,6 +1127,11 @@ window.addEventListener('message', function(e) {
     bdfData = m;
     if (currentPage === 'bdf' && !splitMode) forwardBdfToFrame();
     if (splitMode) forwardBdfToPanes();
+  } else if (m.type === 'pal') {
+    // Same as 'bdf', for the enemy-faction block.
+    palData = m;
+    if (currentPage === 'pal' && !splitMode) forwardPalToFrame();
+    if (splitMode) forwardPalToPanes();
   }
 });
 
@@ -1274,6 +1306,7 @@ function mfdButton(el) {
     case 'rwr':  showPage('rwr');  break;
     case 'tgt':  showPage('tgt');  break;
     case 'bdf':  showPage('bdf');  break;
+    case 'pal':  showPage('pal');  break;
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;

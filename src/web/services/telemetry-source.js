@@ -197,6 +197,10 @@ export class TelemetrySource {
     // BDF faction-forces panel (docs/bdf-page.md) — pass the mod's "bdf" block straight through
     // (present:false when the local aircraft has no FactionHQ yet). Read-only, no commands.
     this._postUp(Object.assign({ type: 'bdf' }, d.bdf || { present: false }));
+
+    // PAL — the same panel for the ENEMY faction (docs/bdf-page.md). present:false when there's no
+    // local faction yet to resolve "the other one" against.
+    this._postUp(Object.assign({ type: 'pal' }, d.pal || { present: false }));
   }
 
   // On mission exit, tell every consumer the data is gone so no page renders stale state.
@@ -211,6 +215,7 @@ export class TelemetrySource {
     this._postUp({ type: 'avn', name: null, parts: null, failures: null, fuel: -1, throttle: -1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false });
     this._postUp({ type: 'tgt', present: false });
     this._postUp({ type: 'bdf', present: false });
+    this._postUp({ type: 'pal', present: false });
     this._postUp({ type: 'follow', on: false });
   }
 }

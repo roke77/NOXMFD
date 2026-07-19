@@ -54,6 +54,17 @@ namespace NOXMFD
         private BdfCountInfo[] _bdfBuildings = Array.Empty<BdfCountInfo>();
         private BdfCountInfo[] _bdfAircraft  = Array.Empty<BdfCountInfo>();
 
+        // PAL — same panel, enemy faction (docs/bdf-page.md). Refreshed alongside BDF.
+        private bool           _palPresent;
+        private string         _palFaction   = string.Empty;
+        private float          _palFunds;
+        private float          _palScore;
+        private int            _palWarheads;
+        private BdfCountInfo[] _palShips     = Array.Empty<BdfCountInfo>();
+        private BdfCountInfo[] _palVehicles  = Array.Empty<BdfCountInfo>();
+        private BdfCountInfo[] _palBuildings = Array.Empty<BdfCountInfo>();
+        private BdfCountInfo[] _palAircraft  = Array.Empty<BdfCountInfo>();
+
         // The game's HUD faction colors, read once from GameAssets.
         private string _colFriendly = "#39ff14";
         private string _colHostile  = "#ff4040";
@@ -201,6 +212,9 @@ namespace NOXMFD
             {
                 _bdfPresent = false;
             }
+            // Unlike BDF, PAL needs no local aircraft — GameManager.GetLocalFaction resolves straight
+            // from the local player, so it's built unconditionally here.
+            BuildPal();
         }
 
         // Faction-forces breakdown for the BDF page (docs/bdf-page.md). BdfPresent=false when the
@@ -236,6 +250,52 @@ namespace NOXMFD
             _bdfVehicles  = BdfTypeCounts(enc?.vehicleTypes,  enc?.vehicles,  tracker, d => ((VehicleDefinition)d).vehicleType.ToString());
             _bdfBuildings = BdfTypeCounts(enc?.buildingTypes, enc?.buildings, tracker, d => ((BuildingDefinition)d).buildingType.ToString());
             _bdfAircraft  = BdfAircraftCounts(enc, tracker);
+        }
+
+        // Faction-forces breakdown for the PAL page (docs/bdf-page.md) — the same panel as BDF, but
+        // for the ENEMY faction. Needs no local aircraft: GameManager.GetLocalFaction resolves
+        // straight from the local player, and FactionRegistry holds every faction's HQ. "The other
+        // one" is just registry membership that isn't ours — the game currently never has more than
+        // two factions, so no further tie-break is needed. (InfoPanel_Faction.cs makes the same
+        // two-faction assumption, but hardcodes the two literal faction names to find "the other";
+        // reading the registry instead means this doesn't depend on those names.)
+        private void BuildPal()
+        {
+            if (!GameManager.GetLocalFaction(out Faction localFaction)) { ClearPal(); return; }
+
+            Faction enemyFaction = null;
+            foreach (Faction f in FactionRegistry.factions)
+                if (f != null && f != localFaction) { enemyFaction = f; break; }
+
+            FactionHQ hq = enemyFaction != null ? FactionRegistry.HQFromFaction(enemyFaction) : null;
+            MissionStatsTracker tracker = hq != null ? hq.missionStatsTracker : null;
+            if (hq == null || tracker == null) { ClearPal(); return; }
+
+            Encyclopedia enc = Encyclopedia.i;
+            _assets.TryCaptureFactionLogo(hq);
+
+            _palPresent   = true;
+            _palFaction   = hq.faction != null ? hq.faction.factionName : string.Empty;
+            _palFunds     = hq.factionFunds;
+            _palScore     = hq.factionScore;
+            _palWarheads  = hq.GetWarheadStockpile();
+            _palShips     = BdfTypeCounts(enc?.shipTypes,     enc?.ships,     tracker, d => ((ShipDefinition)d).shipType.ToString());
+            _palVehicles  = BdfTypeCounts(enc?.vehicleTypes,  enc?.vehicles,  tracker, d => ((VehicleDefinition)d).vehicleType.ToString());
+            _palBuildings = BdfTypeCounts(enc?.buildingTypes, enc?.buildings, tracker, d => ((BuildingDefinition)d).buildingType.ToString());
+            _palAircraft  = BdfAircraftCounts(enc, tracker);
+        }
+
+        private void ClearPal()
+        {
+            _palPresent   = false;
+            _palFaction   = string.Empty;
+            _palFunds     = 0f;
+            _palScore     = 0f;
+            _palWarheads  = 0;
+            _palShips     = Array.Empty<BdfCountInfo>();
+            _palVehicles  = Array.Empty<BdfCountInfo>();
+            _palBuildings = Array.Empty<BdfCountInfo>();
+            _palAircraft  = Array.Empty<BdfCountInfo>();
         }
 
         // Sums current-unit counts per named type (SHIPS: CV/LHA/…, VEHICLES: TRUCK/UGV/…,
@@ -579,7 +639,16 @@ namespace NOXMFD
                 BdfShips       = _bdfShips,
                 BdfVehicles    = _bdfVehicles,
                 BdfBuildings   = _bdfBuildings,
-                BdfAircraft    = _bdfAircraft
+                BdfAircraft    = _bdfAircraft,
+                PalPresent     = _palPresent,
+                PalFaction     = _palFaction,
+                PalFunds       = _palFunds,
+                PalScore       = _palScore,
+                PalWarheads    = _palWarheads,
+                PalShips       = _palShips,
+                PalVehicles    = _palVehicles,
+                PalBuildings   = _palBuildings,
+                PalAircraft    = _palAircraft
             });
         }
 

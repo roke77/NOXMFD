@@ -117,6 +117,19 @@ namespace NOXMFD
         public BdfCountInfo[] BdfVehicles;  // TRUCK, UGV, LCV, AFV, MBT, ART, AAA, IR_SAM, R_SAM, RDR
         public BdfCountInfo[] BdfBuildings; // CIV, FAC, RDR, DEP, HGR, DEF, AMMO
         public BdfCountInfo[] BdfAircraft;  // one per AircraftDefinition; Name doubles as the /icon key
+
+        // PAL — the same faction-forces panel, for the ENEMY faction instead of the player's own
+        // (docs/bdf-page.md). Shares BdfCountInfo's shape; PalPresent=false when there's no local
+        // faction yet to resolve "the other one" against (mirrors BdfPresent's guard).
+        public bool           PalPresent;
+        public string         PalFaction;
+        public float          PalFunds;
+        public float          PalScore;
+        public int            PalWarheads;
+        public BdfCountInfo[] PalShips;
+        public BdfCountInfo[] PalVehicles;
+        public BdfCountInfo[] PalBuildings;
+        public BdfCountInfo[] PalAircraft;
     }
 
     // One TGT filter toggle: its label (the canonical typeName for the vehicle row — doubles as the

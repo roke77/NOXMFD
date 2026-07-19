@@ -2,16 +2,18 @@
 
 ## Status
 
-**On `feat/bdf-page`, up to date with `main`, `dotnet build`-verified and
-deployed — not yet merged, no in-game pass yet.** Replicated the game's
-in-cockpit faction/HQ status panel as a new MFD page: header (faction name,
-WARHEADS, SCORE, FUNDS) + a forces breakdown (SHIPS / BUILDINGS / VEHICLES /
-AIRCRAFT), always for **the player's own faction**. The enemy-faction view
-(the game's `SelectFaction.Other`) is explicitly out of scope — a separate
-branch/page later. Renders full-view in `#page-frame` and, like TGT, as a
-split pane in both the CLASSIC bezel and the F-35 layout. Verified end-to-end
-in the `serve_web` harness; a real in-game pass (live `FactionHQ` data, real
-captured icons) is still outstanding before merge.
+**On `feat/bdf-page`, up to date with `main` — not yet merged, no in-game pass
+yet.** Replicated the game's in-cockpit faction/HQ status panel as a new MFD
+page: header (faction name, WARHEADS, SCORE, FUNDS) + a forces breakdown
+(SHIPS / BUILDINGS / VEHICLES / AIRCRAFT). Renders full-view in `#page-frame`
+and, like TGT, as a split pane in both the CLASSIC bezel and the F-35 layout.
+
+**Now covers both factions.** BDF shows the player's own faction; **PAL**
+(a plain `?enemy` URL flag on the same page — see "PAL" below) shows the
+other one (the game's `SelectFaction.Other`, originally out of scope for this
+branch). Verified end-to-end in the `serve_web` harness; a real in-game pass
+(live `FactionHQ` data for both factions, real captured icons) is still
+outstanding before merge.
 
 ## What the in-game BDF page is
 
@@ -60,6 +62,49 @@ Same pattern already used in `TelemetryReader.cs:376`
 **is** the player's `FactionHQ` (inherited from `Unit` — no
 `FactionRegistry` name lookup needed). Null-guard the same way other
 per-aircraft blocks do when there's no local aircraft yet.
+
+## PAL — the enemy-faction variant
+
+Same panel, same page, for `SelectFaction.Other` instead of `SelectFaction.
+Current`. Reused rather than forked, the way AVN/MAP reuse one page for two
+looks via `?nochrome` (docs/layouts.md):
+
+- **Plugin.** `aircraft.NetworkHQ` (what BDF uses) has no equivalent for "the
+  other faction" — it's a local-player accessor, not a registry lookup. PAL
+  instead resolves `GameManager.GetLocalFaction(out Faction localFaction)`
+  (`GameManager.cs`), then scans `FactionRegistry.factions` (`FactionRegistry.
+  cs`) for the one entry that isn't `localFaction`, then `FactionRegistry.
+  HQFromFaction(...)` for its `FactionHQ`. The game currently never has more
+  than two factions — `InfoPanel_Faction.cs` makes the same assumption but
+  hardcodes the two literal faction names ("Boscali/Primeva") to find "the
+  other"; reading the registry instead means the plugin isn't tied to those
+  names. `PalPresent = false` when there's no local faction yet to resolve
+  against (`TelemetrySnapshot.cs`, `TelemetryReader.BuildPal`). Needs no local
+  aircraft, unlike BDF — built unconditionally alongside it each slow tick.
+  Every other step (bucketing ships/vehicles/buildings/aircraft, capturing
+  icons) is the exact same code BDF already uses, called a second time against
+  the enemy's `FactionHQ`/`MissionStatsTracker` — ship/vehicle/building/
+  aircraft type icons aren't faction-specific, so nothing new to capture there
+  except the enemy's own logo (`TryCaptureFactionLogo` already takes any `HQ`
+  and keys by faction name). A new `pal` SSE block mirrors `bdf`'s shape
+  exactly (`TelemetryServer.PalBlock`).
+- **Page.** `src/web/pages/bdf/` serves both. `bdf.js` reads a `new
+  URLSearchParams(location.search).has('enemy')` flag: it picks which message
+  type to listen for (`'bdf'` vs `'pal'`) and swaps the two hardcoded "BDF"
+  strings (the `<title>` and the UNAVAILABLE label) — everything else
+  (faction name, logo, counts) is already driven purely by the incoming
+  message, so there was nothing else BDF-specific to change. No new page
+  directory, no new CSS.
+- **Shell wiring.** Both shells reach PAL exactly as they reach BDF — a
+  `BEZEL_EXTRAS.main` key (bezel, right bank, index 3) and an `F35_PAGES`/
+  `PAGE_FEEDS` entry (F-35 — this lit up the `PAL` `MAIN_EXTRAS` placeholder
+  that was already sitting there, greyed, since the original BDF work). Both
+  point at `/bdf?bare&enemy` (bezel) / `/bdf?enemy` (F-35). PAL joins BDF in
+  `isVmainPage` (its WARHEADS readout sits in the same top-left spot) and gets
+  the same split-pane treatment (`SPLIT_SLOTS.pal`, `PAGE_URL.pal`,
+  `forwardPalToFrame`/`forwardPalToPanes`) — the F-35 side needs none of that
+  bespoke plumbing since its portal feed forwarding is fully generic over
+  `PAGE_FEEDS`.
 
 ## Formatting
 

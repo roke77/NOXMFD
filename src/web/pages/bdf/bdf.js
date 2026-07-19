@@ -1,6 +1,17 @@
 // BDF page — a read-only reactive replica of the game's faction/HQ status panel, driven by the
 // shell over postMessage (docs/bdf-page.md). No interaction, no commands — pure render of the
 // 'bdf' block. See bdf.html for the message contract.
+//
+// This same script doubles as PAL (the enemy faction's panel) when the page is embedded with an
+// `?enemy` URL flag — everything below is already driven purely by the incoming message, so the
+// flag only has to pick which message type to listen for and swap the two hardcoded "BDF" strings
+// (the title and the UNAVAILABLE label); the faction name/logo/counts are data, not identity.
+const ENEMY    = new URLSearchParams(location.search).has('enemy');
+const MSG_TYPE = ENEMY ? 'pal' : 'bdf';
+if (ENEMY) {
+  document.title = 'NO XMFD — PAL';
+  document.getElementById('bdf-empty-title').textContent = 'PAL';
+}
 
 const factionEl  = document.getElementById('bdf-faction');
 const logoEl     = document.getElementById('bdf-logo');
@@ -127,7 +138,7 @@ function paint() {
 
 window.addEventListener('message', function (e) {
   const m = e.data;
-  if (!m || m.mfd !== true || m.type !== 'bdf') return;
+  if (!m || m.mfd !== true || m.type !== MSG_TYPE) return;
   state = {
     present:   !!m.present,
     faction:   m.faction || '',

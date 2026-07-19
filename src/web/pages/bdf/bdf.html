@@ -10,11 +10,20 @@
   in the shell's BEZEL_EXTRAS (right bank), not the per-page NAV table, so it is reached in full
   view and carried into a split by splitting from there. See docs/bdf-page.md.
 
+  This same page doubles as PAL — the identical panel for the ENEMY faction — via a `?enemy` URL
+  flag (bdf.js), the same idiom AVN/MAP use `?nochrome` for: the shell picks a mode by how it embeds
+  the URL, the page reads it before its first paint. Everything on screen is already data-driven
+  from the incoming message, so the flag only has to pick which message type to listen for and swap
+  the title/UNAVAILABLE label — see bdf.js. PAL is reached the same way BDF is (its own BEZEL_EXTRAS/
+  MAIN_EXTRAS entry), not a separate page directory.
+
   Shell -> page messages (all {mfd:true, ...}):
-    'bdf' : the whole faction-forces block mirrored from the mod —
+    'bdf' : the player's own faction-forces block (plain /bdf) —
             { present, faction, funds, score, warheads,
               ships:[{n,c}], vehicles:[{n,c}], buildings:[{n,c}], aircraft:[{n,c}] }.
             present:false -> the local aircraft has no FactionHQ yet; show UNAVAILABLE.
+    'pal' : the same shape, for the ENEMY faction (/bdf?enemy) — present:false -> no local faction
+            yet to resolve "the other one" against.
     'orient' : app-wide orientation (kept for parity).
 
   Read-only: no commands, no interaction. Only the other six DisplayType modes (Players, Airbases,
@@ -84,7 +93,7 @@
   </div>
 
   <div class="bdf-unavailable mfd-empty" id="bdf-unavailable">
-    <span class="mfd-empty-title">BDF</span>&mdash; UNAVAILABLE &mdash;
+    <span class="mfd-empty-title" id="bdf-empty-title">BDF</span>&mdash; UNAVAILABLE &mdash;
   </div>
 
 <script src="/assets/pages/bdf/bdf.js"></script>
