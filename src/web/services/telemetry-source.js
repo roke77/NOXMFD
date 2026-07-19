@@ -194,12 +194,13 @@ export class TelemetrySource {
     // TargetListSelector isn't up). The TGT page renders the toggle states and drives the tgt.* cmds.
     this._postUp(Object.assign({ type: 'tgt' }, d.tgt || { present: false }));
 
-    // BDF faction-forces panel (docs/bdf-page.md) — pass the mod's "bdf" block straight through
-    // (present:false when the local aircraft has no FactionHQ yet). Read-only, no commands.
+    // BDF faction-forces panel (docs/bdf-page.md) — always BOSCALI, a fixed identity. Pass the
+    // mod's "bdf" block straight through (present:false when Boscali has no FactionHQ yet).
+    // Read-only, no commands.
     this._postUp(Object.assign({ type: 'bdf' }, d.bdf || { present: false }));
 
-    // PAL — the same panel for the ENEMY faction (docs/bdf-page.md). present:false when there's no
-    // local faction yet to resolve "the other one" against.
+    // PAL — the same panel, always PRIMEVA (docs/bdf-page.md). present:false when Primeva has no
+    // FactionHQ yet.
     this._postUp(Object.assign({ type: 'pal' }, d.pal || { present: false }));
   }
 

@@ -8,12 +8,14 @@ page: header (faction name, WARHEADS, SCORE, FUNDS) + a forces breakdown
 (SHIPS / BUILDINGS / VEHICLES / AIRCRAFT). Renders full-view in `#page-frame`
 and, like TGT, as a split pane in both the CLASSIC bezel and the F-35 layout.
 
-**Now covers both factions.** BDF shows the player's own faction; **PAL**
-(a plain `?enemy` URL flag on the same page — see "PAL" below) shows the
-other one (the game's `SelectFaction.Other`, originally out of scope for this
-branch). Verified end-to-end in the `serve_web` harness; a real in-game pass
-(live `FactionHQ` data for both factions, real captured icons) is still
-outstanding before merge.
+**Now covers both factions.** BDF always shows BOSCALI; **PAL** (a plain
+`?pal` URL flag on the same page — see "PAL" below) always shows PRIMEVA.
+Both are fixed identities, not "mine vs the enemy's" — an earlier "current vs
+other" design was tried first and shipped in 0.16.0, but an in-game test
+playing as Primeva showed it swapped BDF/PAL's content with the side you're
+on, which reads as a bug against labels that name a specific faction. Fixed
+to resolve both by fixed name instead; verified in the `serve_web` harness,
+a real in-game re-test (as Primeva) still outstanding.
 
 ## What the in-game BDF page is
 
@@ -57,39 +59,42 @@ SHIPS, plane silhouettes over AIRCRAFT, plain text elsewhere).
 
 ## Access path from the plugin
 
-Same pattern already used in `TelemetryReader.cs:376`
-(`GameManager.GetLocalAircraft(out Aircraft aircraft)`): `aircraft.NetworkHQ`
-**is** the player's `FactionHQ` (inherited from `Unit` — no
-`FactionRegistry` name lookup needed). Null-guard the same way other
-per-aircraft blocks do when there's no local aircraft yet.
+**Fixed by faction name, not by the local player.** `FactionRegistry.
+HqFromName(FactionHelper.Boscali)` (`FactionRegistry.cs`, `FactionHelper.cs`)
+— the game's own two literal faction-name constants, the same ones
+`InfoPanel_Faction.cs` hardcodes to resolve its own faction-identity keys.
+Needs no local aircraft (`aircraft.NetworkHQ`, used elsewhere in this file,
+was the first approach tried — see "PAL" below for why it was wrong here).
+Null-guard the same way other blocks do when that faction has no `FactionHQ`
+yet (`TelemetryReader.BuildBdf`/`ClearBdf`).
 
-## PAL — the enemy-faction variant
+## PAL — the PRIMEVA variant
 
-Same panel, same page, for `SelectFaction.Other` instead of `SelectFaction.
-Current`. Reused rather than forked, the way AVN/MAP reuse one page for two
-looks via `?nochrome` (docs/layouts.md):
+Same panel, same page, always for the PRIMEVA faction (`FactionHelper.
+Primeva`) rather than BOSCALI. Reused rather than forked, the way AVN/MAP
+reuse one page for two looks via `?nochrome` (docs/layouts.md):
 
-- **Plugin.** `aircraft.NetworkHQ` (what BDF uses) has no equivalent for "the
-  other faction" — it's a local-player accessor, not a registry lookup. PAL
-  instead resolves `GameManager.GetLocalFaction(out Faction localFaction)`
-  (`GameManager.cs`), then scans `FactionRegistry.factions` (`FactionRegistry.
-  cs`) for the one entry that isn't `localFaction`, then `FactionRegistry.
-  HQFromFaction(...)` for its `FactionHQ`. The game currently never has more
-  than two factions — `InfoPanel_Faction.cs` makes the same assumption but
-  hardcodes the two literal faction names ("Boscali/Primeva") to find "the
-  other"; reading the registry instead means the plugin isn't tied to those
-  names. `PalPresent = false` when there's no local faction yet to resolve
-  against (`TelemetrySnapshot.cs`, `TelemetryReader.BuildPal`). Needs no local
-  aircraft, unlike BDF — built unconditionally alongside it each slow tick.
-  Every other step (bucketing ships/vehicles/buildings/aircraft, capturing
-  icons) is the exact same code BDF already uses, called a second time against
-  the enemy's `FactionHQ`/`MissionStatsTracker` — ship/vehicle/building/
-  aircraft type icons aren't faction-specific, so nothing new to capture there
-  except the enemy's own logo (`TryCaptureFactionLogo` already takes any `HQ`
-  and keys by faction name). A new `pal` SSE block mirrors `bdf`'s shape
-  exactly (`TelemetryServer.PalBlock`).
+- **Plugin — got this wrong once, worth recording why.** The first version
+  resolved PAL as "whichever faction isn't the local player's" —
+  `GameManager.GetLocalFaction` then a `FactionRegistry.factions` scan for the
+  other entry — mirroring `SelectFaction.Current`/`Other` on the game's own
+  `InfoPanel_Faction`. That shipped in 0.16.0, and an in-game test playing as
+  Primeva showed the bug it causes: BDF (labelled for Boscali) showed the
+  player's own Primeva data, and PAL showed Boscali — content swapping with
+  whichever side you're on, under labels that name one faction specifically.
+  Confirmed the fix should mirror `BuildBdf` exactly: `FactionRegistry.
+  HqFromName(FactionHelper.Primeva)`, a fixed lookup with no "local faction"
+  involved (`TelemetryReader.BuildPal`/`ClearPal`). `PalPresent = false` when
+  Primeva has no `FactionHQ` yet. Needs no local aircraft, same as BDF — both
+  built unconditionally each slow tick. Every other step (bucketing ships/
+  vehicles/buildings/aircraft, capturing icons) is the exact same code BDF
+  already uses, called a second time against Primeva's `FactionHQ`/
+  `MissionStatsTracker` — ship/vehicle/building/aircraft type icons aren't
+  faction-specific, so nothing new to capture there except Primeva's own logo
+  (`TryCaptureFactionLogo` already takes any `HQ` and keys by faction name). A
+  `pal` SSE block mirrors `bdf`'s shape exactly (`TelemetryServer.PalBlock`).
 - **Page.** `src/web/pages/bdf/` serves both. `bdf.js` reads a `new
-  URLSearchParams(location.search).has('enemy')` flag: it picks which message
+  URLSearchParams(location.search).has('pal')` flag: it picks which message
   type to listen for (`'bdf'` vs `'pal'`) and swaps the two hardcoded "BDF"
   strings (the `<title>` and the UNAVAILABLE label) — everything else
   (faction name, logo, counts) is already driven purely by the incoming
@@ -99,7 +104,7 @@ looks via `?nochrome` (docs/layouts.md):
   `BEZEL_EXTRAS.main` key (bezel, right bank, index 3) and an `F35_PAGES`/
   `PAGE_FEEDS` entry (F-35 — this lit up the `PAL` `MAIN_EXTRAS` placeholder
   that was already sitting there, greyed, since the original BDF work). Both
-  point at `/bdf?bare&enemy` (bezel) / `/bdf?enemy` (F-35). PAL joins BDF in
+  point at `/bdf?bare&pal` (bezel) / `/bdf?pal` (F-35). PAL joins BDF in
   `isVmainPage` (its WARHEADS readout sits in the same top-left spot) and gets
   the same split-pane treatment (`SPLIT_SLOTS.pal`, `PAGE_URL.pal`,
   `forwardPalToFrame`/`forwardPalToPanes`) — the F-35 side needs none of that

@@ -2,13 +2,14 @@
 // shell over postMessage (docs/bdf-page.md). No interaction, no commands — pure render of the
 // 'bdf' block. See bdf.html for the message contract.
 //
-// This same script doubles as PAL (the enemy faction's panel) when the page is embedded with an
-// `?enemy` URL flag — everything below is already driven purely by the incoming message, so the
-// flag only has to pick which message type to listen for and swap the two hardcoded "BDF" strings
-// (the title and the UNAVAILABLE label); the faction name/logo/counts are data, not identity.
-const ENEMY    = new URLSearchParams(location.search).has('enemy');
-const MSG_TYPE = ENEMY ? 'pal' : 'bdf';
-if (ENEMY) {
+// This same script doubles as PAL (the PRIMEVA faction's panel — BDF is always BOSCALI, a fixed
+// identity, not "the enemy": see docs/bdf-page.md) when the page is embedded with a `?pal` URL
+// flag — everything below is already driven purely by the incoming message, so the flag only has
+// to pick which message type to listen for and swap the two hardcoded "BDF" strings (the title and
+// the UNAVAILABLE label); the faction name/logo/counts are data, not identity.
+const IS_PAL   = new URLSearchParams(location.search).has('pal');
+const MSG_TYPE = IS_PAL ? 'pal' : 'bdf';
+if (IS_PAL) {
   document.title = 'NO XMFD — PAL';
   document.getElementById('bdf-empty-title').textContent = 'PAL';
 }

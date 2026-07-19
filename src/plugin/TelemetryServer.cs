@@ -1032,8 +1032,9 @@ namespace NOXMFD
             return sb.Append(']').ToString();
         }
 
-        // BDF faction-forces panel (docs/bdf-page.md). {present:false} when the local aircraft has
-        // no FactionHQ yet; otherwise the header scalars plus the four breakdown rows.
+        // BDF faction-forces panel (docs/bdf-page.md) — always BOSCALI, a fixed identity.
+        // {present:false} when Boscali has no FactionHQ yet; otherwise the header scalars plus the
+        // four breakdown rows.
         private static string BdfBlock(TelemetrySnapshot s)
         {
             if (!s.BdfPresent) return "{\"present\":false}";
@@ -1047,8 +1048,8 @@ namespace NOXMFD
                 + "}";
         }
 
-        // PAL — the same faction-forces panel as BDF, for the ENEMY faction (docs/bdf-page.md).
-        // {present:false} when there's no local faction yet to resolve "the other one" against.
+        // PAL — the same faction-forces panel as BDF, always PRIMEVA (a fixed identity, like BDF is
+        // always BOSCALI — docs/bdf-page.md). {present:false} when Primeva has no FactionHQ yet.
         private static string PalBlock(TelemetrySnapshot s)
         {
             if (!s.PalPresent) return "{\"present\":false}";

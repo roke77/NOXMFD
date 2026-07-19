@@ -63,7 +63,7 @@ const paneIframes = [document.getElementById('pane-top'), document.getElementByI
 const pageFrame = document.getElementById('page-frame');   // full-view host for the frame-hosted pages (WPN, TGT, TGP)
 // Pages that render in #page-frame in full view (rather than as overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
-const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt', hud: '/hud', bdf: '/bdf', pal: '/bdf?enemy' };
+const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt', hud: '/hud', bdf: '/bdf', pal: '/bdf?pal' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
@@ -106,10 +106,10 @@ function fullViewSlot(i) { return { bank: 'left', index: i }; }
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
   // HUD, LYT, BDF and PAL down the right bank — the layout-owned MAIN keys the six shared NAV items
-  // (left bank) leave no room for. HUD opens the HUD OPTIONS #page-frame page, BDF the faction-forces
-  // one for the player's own faction, and PAL the same panel for the ENEMY faction (docs/bdf-page.md);
-  // each gets its MAIN back from NAV like every other frame page, so none needs an entry of its own
-  // here.
+  // (left bank) leave no room for. HUD opens the HUD OPTIONS #page-frame page; BDF and PAL open the
+  // same faction-forces panel for the two fixed identities BOSCALI/PRIMEVA — not "mine vs the
+  // enemy's" (docs/bdf-page.md); each gets its MAIN back from NAV like every other frame page, so
+  // none needs an entry of its own here.
   main: [
     { label: 'HUD', action: 'hud', bank: 'right', index: 0 },
     { label: 'LYT', action: 'lyt', bank: 'right', index: 1 },
@@ -214,7 +214,7 @@ const PAGE_URL = {
   rwr:  '/rwr?bare',
   tgt:  '/tgt?bare',
   bdf:  '/bdf?bare',
-  pal:  '/bdf?bare&enemy',
+  pal:  '/bdf?bare&pal',
 };
 function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 
@@ -488,7 +488,7 @@ function forwardBdfToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage(Object.assign({ mfd: true, type: 'bdf' }, bdfData), '*');
 }
-// Full-view PAL: same as forwardBdfToFrame, for the enemy-faction block (docs/bdf-page.md).
+// Full-view PAL: same as forwardBdfToFrame, for the PRIMEVA block (docs/bdf-page.md).
 function forwardPalToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage(Object.assign({ mfd: true, type: 'pal' }, palData), '*');
@@ -888,7 +888,7 @@ let tgtData = { present: false };
 // Latest BDF faction-forces state, mirrored from the map iframe's SSE feed (docs/bdf-page.md).
 // The shell keeps only this state and forwards it to the frame or the pane showing it.
 let bdfData = { present: false };
-// Same, for the ENEMY faction's PAL panel (docs/bdf-page.md).
+// Same, for PAL — the PRIMEVA faction's panel (docs/bdf-page.md).
 let palData = { present: false };
 
 function clearKeyActions() {
@@ -998,7 +998,7 @@ function showPage(name) {
     showFramePage('bdf');
     forwardBdfToFrame();
   }
-  // PAL renders in #page-frame too — same as BDF, for the enemy-faction block.
+  // PAL renders in #page-frame too — same as BDF, for the PRIMEVA block.
   if (name === 'pal') {
     showFramePage('pal');
     forwardPalToFrame();
@@ -1128,7 +1128,7 @@ window.addEventListener('message', function(e) {
     if (currentPage === 'bdf' && !splitMode) forwardBdfToFrame();
     if (splitMode) forwardBdfToPanes();
   } else if (m.type === 'pal') {
-    // Same as 'bdf', for the enemy-faction block.
+    // Same as 'bdf', for the PRIMEVA block.
     palData = m;
     if (currentPage === 'pal' && !splitMode) forwardPalToFrame();
     if (splitMode) forwardPalToPanes();

@@ -54,7 +54,7 @@ namespace NOXMFD
         private BdfCountInfo[] _bdfBuildings = Array.Empty<BdfCountInfo>();
         private BdfCountInfo[] _bdfAircraft  = Array.Empty<BdfCountInfo>();
 
-        // PAL — same panel, enemy faction (docs/bdf-page.md). Refreshed alongside BDF.
+        // PAL — same panel, always PRIMEVA (docs/bdf-page.md). Refreshed alongside BDF.
         private bool           _palPresent;
         private string         _palFaction   = string.Empty;
         private float          _palFunds;
@@ -206,37 +206,22 @@ namespace NOXMFD
                 _assets.TryCaptureCmIcons(ac);
                 _assets.TryLogPartLayout(ac);
                 _assets.TryCaptureAirframe(ac);
-                BuildBdf(ac);
             }
-            else
-            {
-                _bdfPresent = false;
-            }
-            // Unlike BDF, PAL needs no local aircraft — GameManager.GetLocalFaction resolves straight
-            // from the local player, so it's built unconditionally here.
+            // BDF/PAL need no local aircraft — each resolves a fixed faction identity straight from
+            // FactionRegistry, so both are built unconditionally.
+            BuildBdf();
             BuildPal();
         }
 
-        // Faction-forces breakdown for the BDF page (docs/bdf-page.md). BdfPresent=false when the
-        // local aircraft has no FactionHQ yet (e.g. between missions) — the page then shows an
-        // unavailable state, same as TGT's present:false.
-        private void BuildBdf(Aircraft ac)
+        // Faction-forces breakdown for the BDF page (docs/bdf-page.md) — always the BOSCALI faction,
+        // a fixed identity (like the game's own BDF key), not "whichever faction the player is on".
+        // Confirmed in-game: switching sides did not change which faction this key opens. BdfPresent
+        // =false when that faction has no FactionHQ yet (e.g. between missions).
+        private void BuildBdf()
         {
-            FactionHQ hq = ac.NetworkHQ;
+            FactionHQ hq = FactionRegistry.HqFromName(FactionHelper.Boscali);
             MissionStatsTracker tracker = hq != null ? hq.missionStatsTracker : null;
-            if (hq == null || tracker == null)
-            {
-                _bdfPresent   = false;
-                _bdfFaction   = string.Empty;
-                _bdfFunds     = 0f;
-                _bdfScore     = 0f;
-                _bdfWarheads  = 0;
-                _bdfShips     = Array.Empty<BdfCountInfo>();
-                _bdfVehicles  = Array.Empty<BdfCountInfo>();
-                _bdfBuildings = Array.Empty<BdfCountInfo>();
-                _bdfAircraft  = Array.Empty<BdfCountInfo>();
-                return;
-            }
+            if (hq == null || tracker == null) { ClearBdf(); return; }
 
             Encyclopedia enc = Encyclopedia.i;
             _assets.TryCaptureFactionLogo(hq);
@@ -252,22 +237,27 @@ namespace NOXMFD
             _bdfAircraft  = BdfAircraftCounts(enc, tracker);
         }
 
-        // Faction-forces breakdown for the PAL page (docs/bdf-page.md) — the same panel as BDF, but
-        // for the ENEMY faction. Needs no local aircraft: GameManager.GetLocalFaction resolves
-        // straight from the local player, and FactionRegistry holds every faction's HQ. "The other
-        // one" is just registry membership that isn't ours — the game currently never has more than
-        // two factions, so no further tie-break is needed. (InfoPanel_Faction.cs makes the same
-        // two-faction assumption, but hardcodes the two literal faction names to find "the other";
-        // reading the registry instead means this doesn't depend on those names.)
+        private void ClearBdf()
+        {
+            _bdfPresent   = false;
+            _bdfFaction   = string.Empty;
+            _bdfFunds     = 0f;
+            _bdfScore     = 0f;
+            _bdfWarheads  = 0;
+            _bdfShips     = Array.Empty<BdfCountInfo>();
+            _bdfVehicles  = Array.Empty<BdfCountInfo>();
+            _bdfBuildings = Array.Empty<BdfCountInfo>();
+            _bdfAircraft  = Array.Empty<BdfCountInfo>();
+        }
+
+        // Faction-forces breakdown for the PAL page (docs/bdf-page.md) — same panel as BDF, always
+        // the PRIMEVA faction (the fixed "other" identity, like the game's own PALA key), regardless
+        // of which faction the player is on. FactionHelper.Boscali/Primeva are the game's own two
+        // literal faction-name constants (FactionHelper.cs) — InfoPanel_Faction.cs resolves its BDF/
+        // PALA-equivalent keys the same fixed-name way, not by "current vs other faction".
         private void BuildPal()
         {
-            if (!GameManager.GetLocalFaction(out Faction localFaction)) { ClearPal(); return; }
-
-            Faction enemyFaction = null;
-            foreach (Faction f in FactionRegistry.factions)
-                if (f != null && f != localFaction) { enemyFaction = f; break; }
-
-            FactionHQ hq = enemyFaction != null ? FactionRegistry.HQFromFaction(enemyFaction) : null;
+            FactionHQ hq = FactionRegistry.HqFromName(FactionHelper.Primeva);
             MissionStatsTracker tracker = hq != null ? hq.missionStatsTracker : null;
             if (hq == null || tracker == null) { ClearPal(); return; }
 

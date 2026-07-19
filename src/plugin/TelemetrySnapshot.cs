@@ -104,8 +104,9 @@ namespace NOXMFD
         public TgtToggleInfo[] TgtVehicle;   // TRUCK … RDR (dynamic; names double as /icon keys)
 
         // BDF faction-forces panel (docs/bdf-page.md), mirroring the game's InfoPanel_Faction
-        // (Forces display only). BdfPresent=false when the player has no FactionHQ yet (no local
-        // aircraft) — the page then shows an unavailable state. Section totals aren't sent
+        // (Forces display only) — always BOSCALI, a fixed identity, not "whichever faction the
+        // player is on". BdfPresent=false when Boscali has no FactionHQ yet (e.g. between
+        // missions) — the page then shows an unavailable state. Section totals aren't sent
         // separately; they're just the sum of each array (every type is enumerated, so no
         // duplicate source of truth). Arrays are in the game's own enum order.
         public bool           BdfPresent;
@@ -118,9 +119,9 @@ namespace NOXMFD
         public BdfCountInfo[] BdfBuildings; // CIV, FAC, RDR, DEP, HGR, DEF, AMMO
         public BdfCountInfo[] BdfAircraft;  // one per AircraftDefinition; Name doubles as the /icon key
 
-        // PAL — the same faction-forces panel, for the ENEMY faction instead of the player's own
-        // (docs/bdf-page.md). Shares BdfCountInfo's shape; PalPresent=false when there's no local
-        // faction yet to resolve "the other one" against (mirrors BdfPresent's guard).
+        // PAL — the same faction-forces panel, always PRIMEVA instead of BOSCALI (docs/bdf-page.md).
+        // Shares BdfCountInfo's shape; PalPresent=false when Primeva has no FactionHQ yet (mirrors
+        // BdfPresent's guard).
         public bool           PalPresent;
         public string         PalFaction;
         public float          PalFunds;

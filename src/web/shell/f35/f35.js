@@ -59,7 +59,7 @@
     tgp: '/tgp',
     wpn: '/wpn',
     bdf: '/bdf',
-    pal: '/bdf?enemy',   // same page, ENEMY faction (docs/bdf-page.md) — a URL flag, not a separate page
+    pal: '/bdf?pal',   // same page, PRIMEVA (docs/bdf-page.md) — a URL flag, not a separate page
     hud: '/hud',   // the HUD OPTIONS page — fetches /hud-options and POSTs its own hud.* commands
   };
 
@@ -75,7 +75,7 @@
     tgp: ['tgp'],
     wpn: ['loadout', 'cm'],   // 'loadout' is derived, not forwarded as-is — see DERIVED
     bdf: ['bdf'],             // read-only faction-forces block (docs/bdf-page.md)
-    pal: ['pal'],             // same, for the enemy faction
+    pal: ['pal'],             // same, for PRIMEVA
   };
 
   // The tap calls it 'targets'; TGT listens for 'tgt-targets'. The bezel renames it in exactly the

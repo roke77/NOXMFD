@@ -238,9 +238,9 @@
                  { n: 'F-16', c: 0 }, { n: 'F-18', c: 0 }, { n: 'Su-57', c: 0 }, { n: 'AWACS', c: 0 },
                  { n: 'T-55', c: 0 }, { n: 'C-101', c: 0 }, { n: 'AV-A', c: 0 }, { n: 'B-1', c: 0 }],
     },
-    // PAL — the same panel for the ENEMY faction (docs/bdf-page.md), mirroring a reference
-    // screenshot of the game's PRIMEVA side 1:1. Shares /bdf-icon with bdf's ship-type icons and
-    // both factions' logos (mocked below to a placeholder glyph, keyed by faction name).
+    // PAL — the same panel, always PRIMEVA instead of BOSCALI (docs/bdf-page.md), mirroring a
+    // reference screenshot of the game's Primeva side 1:1. Shares /bdf-icon with bdf's ship-type
+    // icons and both factions' logos (mocked below to a placeholder glyph, keyed by faction name).
     pal: {
       present: true, faction: 'PRIMEVA', funds: 0, score: 0, warheads: 0,
       ships: [{ n: 'CV', c: 0 }, { n: 'LHA', c: 0 }, { n: 'LFD', c: 0 }, { n: 'DDG', c: 0 },
