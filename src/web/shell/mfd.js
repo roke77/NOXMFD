@@ -300,12 +300,20 @@ function listPaneLayout(paneIdx) {
   };
 }
 
-// Place an overlay label on a physical key {bank,index} and tag it with the owning pane.
+// Place an overlay label on a physical key {bank,index} and tag it with the owning pane. Returns the
+// label element so the caller can style it (e.g. the vertical MAIN for a TGT pane).
 function placeSplitKey(m, label, action, paneTag) {
-  placeOverlayLabel(m.bank, m.index, label, action);
+  const el = placeOverlayLabel(m.bank, m.index, label, action);
   const k = keyBanks[m.bank] && keyBanks[m.bank][m.index];
   if (k) k.dataset.pane = paneTag;
+  return el;
 }
+
+// Pages whose own content sits in the top-left where the MAIN bezel label lands, so that label is
+// stood upright to clear it — in full view via .overlay.vmain, in a split pane via a per-label class
+// (renderSplitLabels). TGT's RESET FILTER and HUD's mode/category rows are that content; HUD is
+// full-view only, so only TGT actually reaches the split path.
+function isVmainPage(p) { return p === 'tgt' || p === 'hud'; }
 
 function renderSplitLabels() {
   clearKeyActions();
@@ -334,7 +342,10 @@ function renderSplitLabels() {
         // SPLIT_SLOTS is index-aligned with NAV, so a NAV item added without a matching slot would
         // silently not render here — the exact failure the old duplicated tables produced. Say so.
         if (!s) { console.warn('[mfd] NAV.' + page + '[' + i + '] "' + item.label + '" has no SPLIT_SLOTS entry — not placed'); return; }
-        placeSplitKey(paneKey(paneIdx, s.side, s.slot), item.label, item.action, paneTag);
+        const el = placeSplitKey(paneKey(paneIdx, s.side, s.slot), item.label, item.action, paneTag);
+        // TGT keeps clickable content (RESET FILTER) under its MAIN label; stand it upright in the
+        // pane too, the way full view does via .overlay.vmain. Only the MAIN back-item of a vmain page.
+        if (el && isVmainPage(page) && item.action === 'main') el.classList.add('vlabel');
       });
     }
   }
@@ -852,7 +863,7 @@ function placeOverlayLabel(bankName, keyIndex, label, action, mark) {
   const side = bankName || 'left';
   const bank = keyBanks[side];
   const k = bank && bank[keyIndex];
-  if (!k) return;
+  if (!k) return null;
 
   if (action) k.dataset.action = action;
   const el = document.createElement('div');
@@ -868,6 +879,7 @@ function placeOverlayLabel(bankName, keyIndex, label, action, mark) {
     el.style.top = (kr.top + kr.height / 2 - oRect.top) + 'px';
   }
   overlayEl.appendChild(el);
+  return el;
 }
 
 // Render a page: set the overlay background, (re)assign key actions, and position
@@ -879,7 +891,7 @@ function showPage(name) {
   // mfd.css render that label vertically so it hugs the edge and clears the page's RESET button.
   // Stand the MAIN label up for pages with clickable content in the top-left (TGT's RESET FILTER,
   // HUD's mode/category rows), so a horizontal label doesn't cover it. See .overlay.vmain in mfd.css.
-  overlayEl.classList.toggle('vmain', name === 'tgt' || name === 'hud');
+  overlayEl.classList.toggle('vmain', isVmainPage(name));
   infoBox.classList.toggle('show', name === 'main');
   screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGT/TGP/AVN render in #page-frame
   clearKeyActions();
