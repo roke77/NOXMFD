@@ -140,7 +140,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **HUD** — a remote for the game's in-cockpit HUD OPTIONS: mode tabs (NAV/GUN/A2A/…) and per-category / per-type toggles for which unit icons show on the HUD, plus a declutter strip that hides native HUD widgets — the weapon panel, corner minimap, and boxed flight readouts. Full-view only for the moment.
+- **HUD** — a remote for the game's in-cockpit HUD OPTIONS: mode tabs (NAV/GUN/A2A/…) and per-category / per-type toggles for which unit icons show on the HUD, plus a declutter strip that hides native HUD widgets — the weapon panel, corner minimap, and boxed flight readouts.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
@@ -155,6 +155,15 @@ pilot, with HOTAS-friendly keybinds to match.
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
   ![WPN page](docs/images/WPN.png)
+
+  </details>
+
+- **BDF / PAL** — read-only replicas of the game's faction Forces panel, one per fixed identity: BDF for BOSCALI, PAL for PRIMEVA. Warheads, score, and funds, plus a ships/buildings/vehicles/aircraft breakdown.
+
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![BDF page](docs/images/BDF.png)
 
   </details>
 
