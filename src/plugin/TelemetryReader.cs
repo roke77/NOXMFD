@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Reflection;
 using UnityEngine;
 
@@ -19,7 +18,6 @@ namespace NOXMFD
         private float _slowTimer;
         private int   _totalUnits;
         private int   _totalAircraft;
-        private int   _lastContactCount;   // contacts pushed last tick (for the perf rollup)
 
         // Map metadata, resolved once LevelInfo is available.
         private LevelInfo? _level;
@@ -112,16 +110,6 @@ namespace NOXMFD
         {
             float dt = Time.deltaTime;
 
-            // Baseline mode: when the mod's active features are switched off (Diagnostics >
-            // FeaturesActive), do NONE of the telemetry/capture/serve work — but still sample FPS
-            // each frame so PerfLogging captures a no-features baseline in the SAME mission. Lets
-            // you A/B the mod's marginal cost without pulling the DLL (which takes PerfDiag with it).
-            if (!Plugin.FeaturesActive)
-            {
-                PerfDiag.Tick(dt, 0, 0);
-                return;
-            }
-
             // Drain any inbound web-client commands first (main thread — safe to touch game state).
             CommandDispatcher.Drain();
 
@@ -131,9 +119,7 @@ namespace NOXMFD
             if (_slowTimer >= SlowInterval)
             {
                 _slowTimer = 0f;
-                long t0 = PerfDiag.Enabled ? Stopwatch.GetTimestamp() : 0L;
                 ScanWorld();
-                if (PerfDiag.Enabled) PerfDiag.RecordSince("ScanWorld", t0);
                 // HUD OPTIONS snapshot for the /hud-options endpoint. Main thread, and cheap; options
                 // change only on a toggle, so 1 Hz is ample. Kept out of PushSnapshot's fast path.
                 TelemetryServer.RefreshHudOptions();
@@ -142,15 +128,10 @@ namespace NOXMFD
             if (_fastTimer >= FastInterval)
             {
                 _fastTimer = 0f;
-                long t0 = PerfDiag.Enabled ? Stopwatch.GetTimestamp() : 0L;
                 PushSnapshot();
-                if (PerfDiag.Enabled) PerfDiag.RecordSince("PushSnapshot", t0);
             }
 
             _tgp.Tick(dt);   // TGP feed cadence is owned by TgpFeed (captures at its own interval)
-
-            // Step 0 instrumentation: roll up the timing samples every few seconds (docs/performance.md).
-            PerfDiag.Tick(dt, _totalUnits, _lastContactCount);
         }
 
         private void ScanWorld()
@@ -552,12 +533,7 @@ namespace NOXMFD
 
             _assets.TryCaptureIcon(aircraft.definition);
 
-            // Built here (not in the initializer) so we can time it — BuildUnits is the
-            // suspected per-unit hot path at 10 Hz (docs/performance.md, item #3).
-            long tUnits = PerfDiag.Enabled ? Stopwatch.GetTimestamp() : 0L;
             UnitInfo[] units = BuildUnits(aircraft);
-            if (PerfDiag.Enabled) PerfDiag.RecordSince("BuildUnits", tUnits);
-            _lastContactCount = units.Length;
 
             // TGT filter panel — read straight off the game's singleton (present all mission, but
             // guard anyway). Unity's == handles a destroyed instance as null, so we take a plain

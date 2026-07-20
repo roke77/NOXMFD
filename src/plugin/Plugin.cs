@@ -12,11 +12,6 @@ namespace NOXMFD
     {
         internal static ManualLogSource? Log;
 
-        // Master switch for the mod's active per-frame work (telemetry scan/serve, asset capture,
-        // HUD declutter). Read by TelemetryReader + HudDeclutter each tick. When false they idle
-        // but the reader still samples FPS, so PerfLogging can capture a no-features baseline.
-        internal static bool FeaturesActive = true;
-
         // BepInEx hosts the Plugin on its own GameObject and marks it DontDestroyOnLoad, but in
         // Nuclear Option / Unity 2022.3 that flag doesn't hold — the GameObject dies on the
         // boot -> MainMenu scene transition, and would take the HTTP server with it. So the
@@ -35,19 +30,6 @@ namespace NOXMFD
             Log = Logger;
             HudDeclutterConfig.Bind(Config);   // bind HUD-declutter toggles (persisted + shown in the in-game config menu)
             Keybinds.Bind(Config);             // bind the gameplay keybinds (countermeasures + gear) — rebindable in the F1 menu
-
-            // Perf measurement (docs/performance.md). Defaults OFF for normal play; flip it on
-            // live in the F1 menu to re-capture timings to LogOutput.log when investigating perf.
-            var perfLog = Config.Bind("Diagnostics", "PerfLogging", false,
-                "When on, every 5 s logs avg/1%-low/min FPS, GC collection deltas, and avg/max ms for ScanWorld, BuildUnits, PushSnapshot and Serialize (with payload size + unit/contact counts). For performance measurement — leave OFF for normal play.");
-            PerfDiag.Enabled = perfLog.Value;
-            perfLog.SettingChanged += (_, __) => PerfDiag.Enabled = perfLog.Value;
-
-            // Master switch to idle the mod's active work for a no-features FPS baseline (see field).
-            var featuresActive = Config.Bind("Diagnostics", "FeaturesActive", true,
-                "Master switch for the mod's active work (telemetry scan/serve, asset capture, HUD declutter). Turn OFF to capture a no-features FPS baseline with PerfLogging in the SAME mission — the reader still samples FPS but does no mod work, and the native HUD is left intact. Leave ON for normal play.");
-            FeaturesActive = featuresActive.Value;
-            featuresActive.SettingChanged += (_, __) => FeaturesActive = featuresActive.Value;
 
             // Network: the port the tablet connects to, and whether to auto-open the Windows LAN
             // gates when the wildcard bind is denied (see docs/networking.md). Read once here —

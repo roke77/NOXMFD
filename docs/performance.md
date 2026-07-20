@@ -223,47 +223,54 @@ thread, called from `ScanWorld` for icons (`TryCaptureIcon`), the map
 ## Status (as of the #A/#1/#2 work)
 
 The three measured targets are shipped: **#A** (async captures), **#1**
-(pre-baked glow), **#2** (serialize-once). PerfLogging now defaults OFF
-(toggle on in the F1 menu to re-measure). Per Step 0, the mod's
+(pre-baked glow), **#2** (serialize-once). Per Step 0, the mod's
 steady-state main-thread cost is ~3 ms/sec — under 0.3% of a 60 fps
 frame — so there is **no remaining 10×-type win in the mod's CPU path**;
 the sustained FPS hit in a busy match is the game rendering N units, not
 us. The items below are what's left to *evaluate* before declaring the
 floor, plus the marginal polish we deliberately deferred.
 
+> **The instrumentation is no longer in the build.** `PerfDiag` and its two
+> `Diagnostics` toggles (`PerfLogging`, `FeaturesActive`) were removed once the
+> measurements above were banked and the CPU path was shown to be at its floor —
+> they had no value during normal play. Everything below records what those
+> measurements found and what remains unmeasured; to re-measure, restore
+> `src/plugin/PerfDiag.cs` and its call sites from the history (they were dropped
+> in one commit, so `git revert` brings back the whole apparatus).
+
 ## Next steps to evaluate (blind spots our instrumentation can't see)
 
-**Update (2026-06-30):** the PerfDiag rollup now also logs **avg / 1%-low /
-min FPS** (`Time.deltaTime` sampled every frame; 1%-low = reciprocal of the
+By the end of its life the `PerfDiag` rollup also logged **avg / 1%-low / min
+FPS** (`Time.deltaTime` sampled every frame; 1%-low = reciprocal of the
 99th-percentile frame time) and **GC collection-count deltas** (`d0/d1/d2`
-per gen, per window). This folds the frame-time readout flagged below and
-blind-spot #3 into the log itself, so a comparative session is
-self-documenting — no external FPS overlay needed. FPS is only logged while
-a mission is running (the reader drives the per-frame `Tick`). Caveat: FPS is
-*capped by VSync / target framerate* — if the game is VSync-locked at 60, the
-A/B "win" shows up as a higher 1%-low / fewer dips, not a higher avg.
+per gen, per window), folding the frame-time readout and blind-spot #3 into
+the log itself — a comparative session needed no external FPS overlay. FPS was
+only logged while a mission ran (the reader drove the per-frame `Tick`).
+Caveat worth keeping in mind for any future session: FPS is *capped by VSync /
+target framerate* — if the game is VSync-locked at 60, an A/B "win" shows up as
+a higher 1%-low / fewer dips, not a higher avg.
 
-`PerfDiag` measures **main-thread CPU time** (plus FPS/GC as of the update
-above). Things it still doesn't capture, ordered by value:
+`PerfDiag` measured **main-thread CPU time**, plus FPS/GC. Things it never
+captured, ordered by value:
 
-1. **A/B the mod's marginal cost — do this first.** Two methods, different
-   things measured:
-   - **In-mission toggle (easiest, logs FPS):** `Diagnostics > FeaturesActive`
-     off idles the reader (no scan/build/serve/capture/declutter) but keeps
-     sampling FPS, so PerfLogging records a no-features baseline *in the same
-     mission*. Flip it on/off between rounds and compare the `fps` lines.
-     This isolates the mod's **active per-frame cost** — but NOT the static
-     cost of the DLL being loaded (the idle HTTP listener thread, the
-     persistent MissionLifecycle Update, JIT/assemblies). Those are tiny.
-   - **DLL fully removed (gold standard, no log):** same busy mission, FPS
-     (external overlay — Steam/RTSS) with `NOXMFD.dll` in `plugins/` vs.
-     pulled out. Catches the static costs the toggle can't. Small delta →
-     we're at the floor, stop. Surprising gap → something the CPU timers miss
-     (GPU, render thread, the game reacting to our HUD-hiding) is at play.
+1. **A/B the mod's marginal cost — do this first.** With the in-mission toggle
+   gone, the remaining method is the gold-standard one, which never depended on
+   the mod's own instrumentation:
+   - **DLL fully removed:** same busy mission, FPS (external overlay —
+     Steam/RTSS) with `NOXMFD.dll` in `plugins/` vs. pulled out. This measures
+     the mod's **total** cost — active per-frame work *and* the static cost of
+     being loaded (idle HTTP listener thread, persistent MissionLifecycle
+     Update, JIT/assemblies). Small delta → we're at the floor, stop.
+     Surprising gap → something the CPU timers missed (GPU, render thread, the
+     game reacting to our HUD-hiding) is at play.
+   - The old `FeaturesActive` toggle split that delta in two by idling the
+     reader while keeping the DLL loaded, isolating *active* from *static*
+     cost. If a future investigation needs that split again, restore it from
+     history rather than re-deriving it.
 
-2. **GPU cost, especially the TGP feed.** `PerfDiag` is CPU-only. The TGP feed
+2. **GPU cost, especially the TGP feed.** `PerfDiag` was CPU-only. The TGP feed
    does a `Blit` + `AsyncGPUReadback` every frame *while a TGP pane is
-   open* — real GPU work invisible to our timers. Method: FPS with a TGP
+   open* — real GPU work that was invisible to those timers. Method: FPS with a TGP
    pane open vs. closed in the same scene. If there's a gap: drop the TGP
    capture rate, or render-on-demand, or cap resolution further. (The
    capture is already gated on subscribers and async — see
@@ -304,7 +311,9 @@ that, A/B a TGP pane open vs. closed and compare the logged FPS.
 
 ## Pre-flight before implementing
 
-- Run Step 0 and record the numbers in this doc before touching #1+.
+- Step 0 is done and its numbers are recorded above. If perf work reopens,
+  restore the `PerfDiag` instrumentation from history first and re-measure —
+  don't optimize against the old figures, the code has moved on since.
 - After editing the embedded frontend (`src/web/shell/*` / `src/web/pages/*`),
   run `python tools/serve_web.py --open` and verify over HTTP.
 - Live-test each shipped item in a busy match; the symptom is only

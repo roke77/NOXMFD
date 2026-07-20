@@ -40,18 +40,16 @@ namespace NOXMFD
 
         private void ApplyHudApps()
         {
-            bool active = Plugin.FeaturesActive;
-
             // Top-right weapon / ammo / countermeasure / capacitor cluster. This is CombatHUD's
             // private 'topRightPanel' GameObject — NOT the WeaponIndicator/CountermeasureIndicator
             // HUDApps (those are a separate, off-screen copy). Same target NO_Tactitools uses.
-            UpdateWeaponPanel(active && HudDeclutterConfig.HideWeaponAmmo);
+            UpdateWeaponPanel(HudDeclutterConfig.HideWeaponAmmo);
 
             // Boxed top readouts (heading / airspeed / altitude). Only the copies with an assigned
             // 'border' are hidden; the borderless boresight-following center readouts are kept.
             // The else branch restores them when the flag is flipped off at runtime (e.g. via the
             // in-game config menu) — the HMD never re-enables graphics we disabled, so we must.
-            if (active && HudDeclutterConfig.HideTopBoxes)
+            if (HudDeclutterConfig.HideTopBoxes)
             {
                 // Only pay for the 3x FindObjectsByType scene scan when there's something to (re)find:
                 // nothing hidden yet, or a tracked graphic was destroyed because the HUD was rebuilt on
@@ -154,7 +152,7 @@ namespace NOXMFD
             DynamicMap map = SceneSingleton<DynamicMap>.i;
             if (map == null) return;
 
-            bool hide = Plugin.FeaturesActive && HudDeclutterConfig.HideMinimap && !DynamicMap.mapMaximized;
+            bool hide = HudDeclutterConfig.HideMinimap && !DynamicMap.mapMaximized;
             if (hide)
             {
                 DynamicMap.EnableCanvas(false);       // idempotent; re-asserts after Minimize()

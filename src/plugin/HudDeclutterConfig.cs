@@ -16,8 +16,8 @@ namespace NOXMFD
     // redundant second one. The .cfg stays hand-editable for anyone who wants it.
     //
     // Until Bind() runs the properties fall back to the defaults, so HudDeclutter behaves correctly
-    // even before/without binding. Each per-element flag stands alone — hiding that element =
-    // FeaturesActive && Hide<Element>.
+    // even before/without binding. Each per-element flag stands alone: Hide<Element> is the whole
+    // condition for hiding that element.
     internal static class HudDeclutterConfig
     {
         // ConfigurationManager reads this tag off a ConfigEntry's description (by duck-typed field

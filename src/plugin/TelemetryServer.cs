@@ -265,11 +265,9 @@ namespace NOXMFD
 
                 if (_frameVersion == v && _frameBytes != null) return _frameBytes;
 
-                long t0 = PerfDiag.Enabled ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
                 string payload = snap.Valid ? Serialize(snap) : "{\"ping\":true}";
                 _frameBytes   = Encoding.UTF8.GetBytes("data: " + payload + "\n\n");
                 _frameVersion = v;
-                if (PerfDiag.Enabled) PerfDiag.RecordSince("Serialize", t0, _frameBytes.Length);
                 return _frameBytes;
             }
         }
