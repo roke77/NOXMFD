@@ -429,6 +429,26 @@
   .screen.split-vw .pane-follow.bot { top: 10px; right: 12px; }
   .screen.split-v  .pane-follow.top { right: calc(50% + 12px); }
   .screen.split-vw .pane-follow.top { right: calc(33.333% + 12px); }
+  /* Per-pane "PAGE x/y" chip for MAIN's own pagination (mfd.js renderPaneMainPageInd) — same
+     bottom-right spot WPN's #page-ind sits in inside its own framed page, but drawn on the shared
+     overlay instead: MAIN's split pagination is bezel/shell state (paneMainPage), not the /main
+     page's own, so there's nothing to forward into that iframe. Mirrors .pane-follow's anchoring,
+     flipped to the bottom edge of each pane instead of the top. Hidden until
+     renderPaneMainPageInd() flags a pane showing MAIN with more than one page. */
+  .pane-mainpage {
+    position: absolute;
+    right: 12px;
+    display: none;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .pane-mainpage.top { bottom: calc(50% + 8px); }
+  .pane-mainpage.bot { bottom: 10px; }
+  .pane-mainpage.show { display: block; }
+  .screen.split-v  .pane-mainpage.bot,
+  .screen.split-vw .pane-mainpage.bot { bottom: 10px; right: 12px; }
+  .screen.split-v  .pane-mainpage.top { bottom: 10px; right: calc(50% + 12px); }
+  .screen.split-vw .pane-mainpage.top { bottom: 10px; right: calc(33.333% + 12px); }
   .overlay-item {
     position: absolute;
     color: var(--no-label);
@@ -498,6 +518,14 @@
   .overlay-item.on {
     color: var(--no-amber);
     outline: 1px solid var(--no-amber);
+    padding: 2px 6px;
+  }
+  /* PREV/NEXT paging controls (WPN's and MAIN's — mfd.js PAGING_ACTIONS), bordered so a paging
+     control reads as distinct from a destination label. Same white as the label text itself
+     (var(--no-label)) — it's a shape hint, not a second state color like .on's amber. Outline, not
+     border, for the same reason as .on above: it doesn't shift the label off its key. */
+  .overlay-item.paging {
+    outline: 1px solid var(--no-label);
     padding: 2px 6px;
   }
   .info-box .ib-title  { font-size: clamp(28px, 3.12vmax, 45px); font-weight: 900; margin-bottom: clamp(14px, 1.6vmax, 22px); }

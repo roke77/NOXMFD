@@ -109,7 +109,8 @@ mislabelled.
    (matching the plugin's own 1 Hz snapshot) instead of re-fetching only after
    its own writes — one loop catches a toggle pressed in game, a mode press
    rewriting many toggles at once, and a mission starting/ending. Clicks flip
-   optimistically for instant feedback. Full-view only, like TGT.
+   optimistically for instant feedback. Split-capable, like TGT/BDF/PAL — the page is self-driven
+   (it polls `/hud-options` itself), so a split pane needs no shell forwarding.
 4. **Both layouts** ✅ done — the F-35's `hud` action opens `/hud` (PoC stub
    removed); the bezel has an HUD key on MAIN (`BEZEL_EXTRAS`, right bank) opening
    the same `#page-frame` page. The MAIN back button comes from a new

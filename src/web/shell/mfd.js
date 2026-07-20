@@ -91,30 +91,28 @@ const NAV = NavModel.NAV;
 // full-view label is the point at which this earns a placement table of its own.
 function fullViewSlot(i) { return { bank: 'left', index: i }; }
 
-// Screens this layout puts on the glass beyond NAV's, with the key each takes. The mirror of the
-// F-35's own MAIN_EXTRAS, and here for the same reason: NAV is shared and pinned at MAIN's six
-// items (nav-model.test.js), one per left-bank key, so a layout that wants more names them itself.
-// LYT could not go in NAV even if there were room — the F-35 already offers this choice from its
-// master strip, so a NAV entry would put it on that layout's MAIN a second time.
+// Screens this layout puts on the glass beyond NAV's. The mirror of the F-35's own MAIN_EXTRAS, and
+// here for the same reason: NAV is shared and pinned at MAIN's six items (nav-model.test.js), one
+// per left-bank key, so a layout that wants more names them itself. LYT could not go in NAV even if
+// there were room — the F-35 already offers this choice from its master strip, so a NAV entry would
+// put it on that layout's MAIN a second time.
 //
-// These carry their own key, which NAV items never may: fullViewSlot fills the left bank in order
-// and MAIN's six fill it exactly, so LYT is the first label this shell has ever had to place
-// anywhere else. That is the case the note above predicted; it is one item, so it names its key
-// rather than earning a table of its own.
 // LAYOUT is three left-bank labels and nothing else — the way back, then the two layouts. It draws
 // no panel: every other page in this shell puts its items beside a physical key, and a chooser is
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
-  // HUD, LYT, BDF and PAL down the right bank — the layout-owned MAIN keys the six shared NAV items
-  // (left bank) leave no room for. HUD opens the HUD OPTIONS #page-frame page; BDF and PAL open the
-  // same faction-forces panel for the two fixed identities BOSCALI/PRIMEVA — not "mine vs the
-  // enemy's" (docs/bdf-page.md); each gets its MAIN back from NAV like every other frame page, so
-  // none needs an entry of its own here.
+  // HUD, LYT, BDF and PAL — the layout-owned MAIN items the six shared NAV items don't cover. HUD
+  // opens the HUD OPTIONS #page-frame page; BDF and PAL open the same faction-forces panel for the
+  // two fixed identities BOSCALI/PRIMEVA — not "mine vs the enemy's" (docs/bdf-page.md); each gets
+  // its MAIN back from NAV like every other frame page, so none needs an entry of its own here.
+  // No bank/index/mark here (unlike lyt below): MAIN_SPLIT_ITEMS is the only consumer, in both full
+  // view and split (showPage / renderSplitLabels' 'main' branch), and it places by alphabetical
+  // order, not a fixed key.
   main: [
-    { label: 'HUD', action: 'hud', bank: 'right', index: 0 },
-    { label: 'LYT', action: 'lyt', bank: 'right', index: 1 },
-    { label: 'BDF', action: 'bdf', bank: 'right', index: 2 },
-    { label: 'PAL', action: 'pal', bank: 'right', index: 3 },
+    { label: 'HUD', action: 'hud' },
+    { label: 'LYT', action: 'lyt' },
+    { label: 'BDF', action: 'bdf' },
+    { label: 'PAL', action: 'pal' },
   ],
   // No MAIN back-item under lyt here — picking CLASSIC already navigates back to MAIN (this shell),
   // so a separate way-back label would be redundant with it.
@@ -123,6 +121,16 @@ const BEZEL_EXTRAS = {
     { label: 'F-35',    action: 'lyt-f35',     bank: 'left', index: 1 },
   ],
 };
+
+// All ten MAIN destinations, alphabetically — the single ordering both full view (showPage) and a
+// split pane's paginated list (renderSplitLabels' 'main' branch) place from. Full view has room for
+// all ten at once (six left-bank keys, four right-bank); a split pane's budget is 6 physical keys,
+// too few for all ten at once — including HUD/LYT/BDF/PAL, which a split pane couldn't reach at all
+// before (the right bank is the pane's own column there, not BEZEL_EXTRAS) — so MAIN becomes a
+// paginated list there, the same idea as WPN's weapon list.
+const MAIN_SPLIT_ITEMS = NAV.main.concat(BEZEL_EXTRAS.main)
+  .slice()
+  .sort(function (a, b) { return a.label.localeCompare(b.label); });
 
 // Which pages draw an OPAQUE full-view overlay. MAIN paints a panel over the still-running map, and
 // LAYOUT is a menu with nothing of its own behind it; every other page is transparent (its content
@@ -151,6 +159,10 @@ let panePages = ['main', 'main'];
 // reserved: L0 = MAIN/PREV back-button, R0 = NEXT (shown only when the loadout exceeds 4).
 let paneWpnPage = [0, 0];
 const WPN_SPLIT_MAX = 4;
+// Per-pane MAIN pagination index — MAIN_SPLIT_ITEMS sliced MAIN_PANE_SIZE-per-page (mainPaneSlice).
+// Reset to 0 when a pane (re)enters MAIN (paneNavigate), same as paneWpnPage for WPN.
+let paneMainPage = [0, 0];
+const MAIN_PANE_SIZE = 5;
 
 // Latest connection status mirrored from the map iframe — kept so we can push the
 // current value to a freshly-loaded pane iframe (its onload may fire AFTER the
@@ -168,17 +180,11 @@ let lastStatusText = '● DISCONNECTED';
 // each split-capable page declares its own. (layouts.md flags this as the open question — the
 // answer is "a page can need a hint", and MAP is the page that needs one.)
 //
-// A page absent here cannot be a split pane: HUD is full-view only (dense mode/category/type grid),
-// so picking it from a pane collapses the split instead (see mfdButton's pane branch).
+// MAIN isn't here: its split placement is the MAIN_SPLIT_ITEMS pagination in renderSplitLabels,
+// not a fixed slot table (there are ten destinations and six keys). A page absent here entirely
+// cannot be a split pane: LYT is a whole-document layout switch, not per-pane content, so picking
+// it from a pane collapses the split instead (see mfdButton's pane branch).
 const SPLIT_SLOTS = {
-  main: [
-    { side: 'left',  slot: 0 },   // AVN
-    { side: 'left',  slot: 1 },   // MAP
-    { side: 'left',  slot: 2 },   // RWR
-    { side: 'right', slot: 0 },   // TGT
-    { side: 'right', slot: 1 },   // TGP
-    { side: 'right', slot: 2 },   // WPN
-  ],
   // MAP pane is the bare map iframe (/map-view?bare) — it self-connects to the SSE stream, so the
   // shell forwards no data, only routes these controls to the pane's own map. Left column = nav
   // (MAIN back) + follow; right column = the zoom rocker.
@@ -188,16 +194,17 @@ const SPLIT_SLOTS = {
     { side: 'right', slot: 0 },   // Z+
     { side: 'right', slot: 1 },   // Z-
   ],
-  // AVN / TGP / RWR / TGT / BDF / PAL in a split pane each expose their single MAIN back-button on
-  // the pane's top-left slot (L0 for top, physically L3 for bottom). It navigates ONLY that pane.
-  // TGT's filter toggles are clickable inside the pane iframe, and BDF/PAL are read-only, so like
-  // the others they need no key labels beyond MAIN.
+  // AVN / TGP / RWR / TGT / BDF / PAL / HUD in a split pane each expose their single MAIN back-button
+  // on the pane's top-left slot (L0 for top, physically L3 for bottom). It navigates ONLY that pane.
+  // TGT's filter toggles and HUD's toggles are clickable inside the pane iframe, and BDF/PAL are
+  // read-only, so like the others they need no key labels beyond MAIN.
   avn: [ { side: 'left', slot: 0 } ],
   tgp: [ { side: 'left', slot: 0 } ],
   rwr: [ { side: 'left', slot: 0 } ],
   tgt: [ { side: 'left', slot: 0 } ],
   bdf: [ { side: 'left', slot: 0 } ],
   pal: [ { side: 'left', slot: 0 } ],
+  hud: [ { side: 'left', slot: 0 } ],
   // WPN is a valid split page but places no NAV labels: its MAIN/PREV + NEXT depend on the pane's
   // pagination state, so renderSplitLabels' list branch owns them (NAV.wpn is empty to match).
   wpn: [],
@@ -215,6 +222,7 @@ const PAGE_URL = {
   tgt:  '/tgt?bare',
   bdf:  '/bdf?bare',
   pal:  '/bdf?bare&pal',
+  hud:  '/hud?bare',
 };
 function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 
@@ -259,9 +267,10 @@ function applySplitMode() {
   applySplitClasses();
   // The vertical-MAIN overlay style is full-view only (TGT / HUD / BDF / PAL); split entry doesn't
   // go through showPage, so drop it here or its label style would leak onto the split MAIN labels.
-  // Restored on unsplit (showPage re-toggles it). TGT, BDF and PAL split into a pane like the other
-  // frame pages (they get their upright pane MAIN via the per-label vlabel class instead); HUD does
-  // not (not in PAGE_URL), so picking it from a pane collapses the split instead.
+  // Restored on unsplit (showPage re-toggles it). TGT, HUD, BDF and PAL split into a pane like the
+  // other frame pages (they get their upright pane MAIN via the per-label vlabel class instead);
+  // LYT does not (not in PAGE_URL — it's a whole-document layout switch, not per-pane content), so
+  // picking it from a pane collapses the split instead (mfdButton's pane branch).
   overlayEl.classList.remove('vmain');
   if (splitMode) {
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
@@ -285,18 +294,28 @@ function applySplitMode() {
 // are tagged with data-pane so the click dispatcher knows which pane to update.
 function isListPage(page) { return page === 'wpn'; }
 
-// Physical keys for a paginated list page (WPN) in split pane paneIdx, per orientation:
-//   h    → MAIN at the pane's L0, NEXT at R0, the 4 rows at L1,L2,R1,R2 (the 2×2 grid).
-//   v/vw → one column: MAIN at key 0 (top), the 4 rows at keys 1..4, NEXT at key 5 (bottom).
+// Physical keys for a paginated list page (WPN, MAIN) in split pane paneIdx, per orientation:
+//   h    → MAIN at the pane's L0, the 4 rows at L1,L2 + 2 of R0-R2, NEXT at the remaining R slot.
+//          WPN keeps its long-standing NEXT at R0 (top-right); every other list (MAIN's own)
+//          puts NEXT at R2 (bottom-right) instead, so it doesn't read as if it were the way back.
+//   v/vw → one column: MAIN at key 0 (top), the 4 rows at keys 1..4, NEXT at key 5 (bottom) —
+//          same for every list page, so `page` only matters to the 'h' branch.
 // Returns {bank,index} for main/next/each item, plus the per-item side class the page renders with.
-// The 'h' branch is identical to the pre-vertical-split behaviour, so H_SPLIT is unchanged.
-function listPaneLayout(paneIdx) {
+function listPaneLayout(paneIdx, page) {
   if (splitVariant === 'h') {
     const off = paneIdx * 3;
+    if (page === 'wpn') {
+      return {
+        main: { bank: 'left', index: off }, next: { bank: 'right', index: off },
+        items: [{ bank: 'left', index: off + 1 }, { bank: 'left', index: off + 2 },
+                { bank: 'right', index: off + 1 }, { bank: 'right', index: off + 2 }],
+        itemSides: ['left', 'left', 'right', 'right'],
+      };
+    }
     return {
-      main: { bank: 'left', index: off }, next: { bank: 'right', index: off },
+      main: { bank: 'left', index: off }, next: { bank: 'right', index: off + 2 },
       items: [{ bank: 'left', index: off + 1 }, { bank: 'left', index: off + 2 },
-              { bank: 'right', index: off + 1 }, { bank: 'right', index: off + 2 }],
+              { bank: 'right', index: off }, { bank: 'right', index: off + 1 }],
       itemSides: ['left', 'left', 'right', 'right'],
     };
   }
@@ -321,22 +340,57 @@ function placeSplitKey(m, label, action, paneTag) {
 // Pages whose own content sits in the top-left where the MAIN bezel label lands, so that label is
 // stood upright to clear it — in full view via .overlay.vmain, in a split pane via a per-label class
 // (renderSplitLabels). TGT's RESET FILTER, HUD's mode/category rows, and BDF/PAL's WARHEADS readout
-// are that content; HUD is full-view only, so only TGT and BDF/PAL actually reach the split path.
+// are that content, and all four are split-capable, so all of them reach the split path.
 function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal'; }
+
+// MAIN's own paginated nav list in a split pane: all ten MAIN_SPLIT_ITEMS, alphabetically, sliced
+// MAIN_PANE_SIZE-per-page. Reuses WPN's PREV/NEXT idiom — same "one page can't fit everything, chain
+// pages together" shape — but sized differently: WPN always reserves its back-slot for MAIN/PREV
+// (never mixed with content), where MAIN's own list only needs PREV once you've paged forward, so
+// the first page's would-be-PREV slot holds a fifth item instead.
+// ponytail: assumes exactly two pages (today's ten items / five). A middle page needing BOTH PREV
+// and NEXT at once would overflow six slots by one — if MAIN ever grows past ten items, drop to
+// WPN's stricter always-reserved-back-slot + four-items-per-page shape (see wpnPaneSlice) instead.
+function mainPaneSlice(idx) {
+  const list = MAIN_SPLIT_ITEMS;
+  const total = list.length;
+  const maxPage = Math.max(0, Math.ceil(total / MAIN_PANE_SIZE) - 1);
+  if (paneMainPage[idx] > maxPage) paneMainPage[idx] = maxPage;
+  if (paneMainPage[idx] < 0) paneMainPage[idx] = 0;
+  const start = paneMainPage[idx] * MAIN_PANE_SIZE;
+  const items = list.slice(start, start + MAIN_PANE_SIZE);
+  return { items: items, hasPrev: paneMainPage[idx] > 0, hasNext: start + items.length < total };
+}
 
 function renderSplitLabels() {
   clearKeyActions();
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
   for (let paneIdx = 0; paneIdx < 2; paneIdx++) {
     const page = panePages[paneIdx];
-    const slots = SPLIT_SLOTS[page];
-    if (!slots) continue;                            // not a split-capable page (e.g. TGT)
     const paneTag = paneIdx === 0 ? 'top' : 'bot';   // pane identity for click dispatch (orientation-agnostic)
+
+    if (page === 'main') {
+      // MAIN_SPLIT_ITEMS instead of SPLIT_SLOTS/NAV.main — see mainPaneSlice. Reuses listPaneLayout's
+      // six physical positions (the same shape WPN's pagination already occupies): main-or-prev slot,
+      // four middle slots, next slot — in that visual order.
+      const L = listPaneLayout(paneIdx, 'main');
+      const positions = [L.main, L.items[0], L.items[1], L.items[2], L.items[3], L.next];
+      const slice = mainPaneSlice(paneIdx);
+      const cells = [];
+      if (slice.hasPrev) cells.push({ label: 'PREV', action: 'main-prev' });
+      slice.items.forEach(function (item) { cells.push({ label: item.label, action: item.action }); });
+      if (slice.hasNext) cells.push({ label: 'NEXT', action: 'main-next' });
+      cells.forEach(function (cell, i) { placeSplitKey(positions[i], cell.label, cell.action, paneTag); });
+      continue;
+    }
+
+    const slots = SPLIT_SLOTS[page];
+    if (!slots) continue;                            // not a split-capable page (e.g. LYT)
 
     if (isListPage(page)) {
       // Paginated list (WPN): MAIN (or PREV once scrolled) on the pane's top key, NEXT on its
       // bottom key — positions per orientation via listPaneLayout; the 4 rows sit on .items.
-      const L = listPaneLayout(paneIdx);
+      const L = listPaneLayout(paneIdx, page);
       const slice = wpnPaneSlice(paneIdx);
       placeSplitKey(L.main, slice.hasPrev ? 'PREV' : 'MAIN', slice.hasPrev ? 'wpn-prev' : 'main', paneTag);
       if (slice.hasNext) placeSplitKey(L.next, 'NEXT', 'wpn-next', paneTag);
@@ -344,7 +398,7 @@ function renderSplitLabels() {
       // aircraft-global, so the press falls through the pane dispatcher to the shared case.
       wireWpnPaneWeaponKeys(slice.items, paneIdx);
     } else {
-      // Static nav (MAIN/MAP/AVN/RWR/TGP): render the navigation model at this page's declared
+      // Static nav (MAP/AVN/RWR/TGP/…): render the navigation model at this page's declared
       // pane-local slots — SPLIT_SLOTS[page][i] places NAV[page][i].
       (NAV[page] || []).forEach(function(item, i) {
         const s = slots[i];
@@ -358,6 +412,8 @@ function renderSplitLabels() {
       });
     }
   }
+  renderPaneMainPageInd();   // main-prev/next (mfdButton) calls renderSplitLabels directly, not
+                             // refreshFollowIndicator, so the chip needs its own call here too.
 }
 
 // Send a map action (toggle-follow / zoom-in / zoom-out) to a single pane's map iframe.
@@ -370,6 +426,7 @@ function paneMapSend(paneIdx, action) {
 function paneNavigate(paneIdx, page) {
   panePages[paneIdx] = page;
   if (page === 'wpn') paneWpnPage[paneIdx] = Math.max(0, selWeaponPage());   // open on the selected weapon's page
+  if (page === 'main') paneMainPage[paneIdx] = 0;   // fresh pane always opens on MAIN's first page
   paneFollowOn[paneIdx] = false;   // iframe reloads; follow restarts off (re-reported on load)
   paneIframes[paneIdx].src = paneUrl(page);
   renderSplitLabels();
@@ -596,7 +653,7 @@ function forwardWpnLayoutToPanes() {
     if (panePages[idx] !== 'wpn') return;
     if (!iframe.contentWindow) return;
     const paneTop = iframe.getBoundingClientRect().top;
-    const L = listPaneLayout(idx);
+    const L = listPaneLayout(idx, 'wpn');
     function rectOf(m) { return keyBanks[m.bank][m.index].getBoundingClientRect(); }
     function cyOf(m) { const r = rectOf(m); return r.top + r.height / 2 - paneTop; }
     // Weapon-row vertical centres + their per-item side class (both from the orientation layout):
@@ -628,7 +685,7 @@ function forwardWpnLayoutToPanes() {
 // Called from renderSplitLabels after clearKeyActions has cleared the key zone, so only occupied
 // rows are set and empty ones stay clean.
 function wireWpnPaneWeaponKeys(weapons, paneIdx) {
-  const items = listPaneLayout(paneIdx).items;
+  const items = listPaneLayout(paneIdx, 'wpn').items;
   for (let i = 0; i < items.length && i < weapons.length; i++) {
     const key = keyBanks[items[i].bank][items[i].index];
     if (key) { key.dataset.action = 'weapon.select'; key.dataset.wname = weapons[i].n; }
@@ -819,6 +876,20 @@ function renderPaneFollow() {
     box.classList.toggle('show', on);
   });
 }
+// Paint a "PAGE x/y" chip in the bottom-right of each pane showing MAIN with more than one page
+// (mainPaneSlice / MAIN_PANE_SIZE) — the split twin of WPN's #page-ind, but drawn on the shared
+// overlay rather than inside the /main iframe: MAIN's pagination is bezel/shell state, not
+// anything the page itself knows, so there's nothing to forward in. Split mode only, like
+// renderPaneFollow.
+function renderPaneMainPageInd() {
+  const pages = Math.ceil(MAIN_SPLIT_ITEMS.length / MAIN_PANE_SIZE);
+  [0, 1].forEach(function(i) {
+    const box = document.getElementById(i === 0 ? 'mainpage-top' : 'mainpage-bot');
+    const on = splitMode && panePages[i] === 'main' && pages > 1;
+    box.innerHTML = on ? '<div class="mfd-chip">PAGE ' + (paneMainPage[i] + 1) + '/' + pages + '</div>' : '';
+    box.classList.toggle('show', on);
+  });
+}
 // Recompute both FOLLOW surfaces: the single-mode shell-stack chip and the split-mode
 // per-pane chips. Called whenever follow state, pane pages, or split mode change.
 function refreshFollowIndicator() {
@@ -828,6 +899,7 @@ function refreshFollowIndicator() {
   else if (!single && has) indicatorOrder = indicatorOrder.filter(function(x) { return x !== 'follow'; });
   renderIndicators();
   renderPaneFollow();
+  renderPaneMainPageInd();
 }
 
 function renderIndicators() {
@@ -904,6 +976,10 @@ function clearKeyActions() {
   });
 }
 
+// PREV/NEXT actions across every paginated list (WPN's, MAIN's) — bordered (.overlay-item.paging)
+// so a paging control reads as distinct from a destination label, in both full view and split.
+const PAGING_ACTIONS = { 'wpn-prev': true, 'wpn-next': true, 'main-prev': true, 'main-next': true };
+
 // `mark` lights the label in the engaged amber — only LAYOUT's current item uses it; every other
 // label names a page rather than a state.
 function placeOverlayLabel(bankName, keyIndex, label, action, mark) {
@@ -914,7 +990,7 @@ function placeOverlayLabel(bankName, keyIndex, label, action, mark) {
 
   if (action) k.dataset.action = action;
   const el = document.createElement('div');
-  el.className = 'overlay-item ' + side + (mark ? ' on' : '');
+  el.className = 'overlay-item ' + side + (mark ? ' on' : '') + (PAGING_ACTIONS[action] ? ' paging' : '');
   el.textContent = label;
 
   const oRect = overlayEl.getBoundingClientRect();
@@ -944,17 +1020,27 @@ function showPage(name) {
   // Only wipe dynamic line-select labels; static children (info-box) stay put.
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
 
-  // Bezel full-view rendering of the navigation model: item i → left-column key i.
-  (NAV[name] || []).forEach(function(item, i) {
-    const m = fullViewSlot(i);
-    placeOverlayLabel(m.bank, m.index, item.label, item.action);
-  });
-  // ...then this layout's own, which name their own key (see BEZEL_EXTRAS). Only full view runs
-  // through here, so LYT never appears on a split pane's MAIN — which is what "full-view only"
-  // means, with nothing to enforce it.
-  (BEZEL_EXTRAS[name] || []).forEach(function(item) {
-    placeOverlayLabel(item.bank, item.index, item.label, item.action, item.mark);
-  });
+  if (name === 'main') {
+    // MAIN_SPLIT_ITEMS — all ten destinations, alphabetically — rather than NAV.main +
+    // BEZEL_EXTRAS.main separately: full view has room for all ten at once (six left-bank keys,
+    // four right-bank), so it's the same ordering a split pane pages through, just unpaginated.
+    MAIN_SPLIT_ITEMS.forEach(function (item, i) {
+      const bank = i < 6 ? 'left' : 'right';
+      placeOverlayLabel(bank, i < 6 ? i : i - 6, item.label, item.action);
+    });
+  } else {
+    // Bezel full-view rendering of the navigation model: item i → left-column key i.
+    (NAV[name] || []).forEach(function(item, i) {
+      const m = fullViewSlot(i);
+      placeOverlayLabel(m.bank, m.index, item.label, item.action);
+    });
+    // ...then this layout's own, which name their own key (see BEZEL_EXTRAS). Only full view runs
+    // through here, so LYT never appears on a split pane's MAIN — which is what "full-view only"
+    // means, with nothing to enforce it.
+    (BEZEL_EXTRAS[name] || []).forEach(function(item) {
+      placeOverlayLabel(item.bank, item.index, item.label, item.action, item.mark);
+    });
+  }
 
   // WPN owns its own nav labels (PREV/MAIN + NEXT) because they depend on the page state; run
   // after the generic label sweep so they don't get clobbered. It renders in #page-frame: point
@@ -1274,6 +1360,17 @@ function mfdButton(el) {
       paneWpnPage[paneIdx] += (act === 'wpn-next' ? 1 : -1);
       forwardWpnToPanes();
       renderSplitLabels();
+    } else if (act === 'main-prev' || act === 'main-next') {
+      // MAIN's own list paging — same idea as WPN's, but bumping paneMainPage (mainPaneSlice).
+      paneMainPage[paneIdx] += (act === 'main-next' ? 1 : -1);
+      renderSplitLabels();
+    } else if (act === 'lyt') {
+      // LYT is a whole-document layout switch, not per-pane content (no PAGE_URL entry) — leaving
+      // split is the only sensible destination, same as the 'unsplit' case below but landing on LYT
+      // instead of the top/left pane's page.
+      splitMode = false;
+      currentPage = 'lyt';
+      applySplitMode();
     } else if (act === 'flw' || act === 'zin' || act === 'zout') {
       // MAP controls act on the pane's own map iframe — they don't navigate it away.
       paneMapSend(paneIdx, act === 'flw' ? 'toggle-follow' : act === 'zin' ? 'zoom-in' : 'zoom-out');
