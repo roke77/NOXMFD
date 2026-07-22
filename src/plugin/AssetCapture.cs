@@ -149,15 +149,28 @@ namespace NOXMFD
                 string name = img.gameObject != null ? img.gameObject.name : null;
                 if (string.IsNullOrEmpty(name)) continue;
 
+                if (!GetPartPlacement(img.rectTransform, bgRT, out float cx, out float cy, out float w, out float h, out float rotZ, out int sx, out int sy))
+                    continue;
+
+                // Skip degenerate "full-frame" parts: rect == the whole bg, centred (w/h ≈ 1, cx/cy ≈ 0.5).
+                // These come from mods that author each part as a full-canvas overlay sprite instead of a
+                // small positioned one (FS-3 Ternion: all 32 parts; F-99 Shrike: its intake/strake/belly
+                // text-label parts). Our per-part mask stacks those into a frame-filling blob / mirror-
+                // reversed labels over the silhouette; dropping them leaves the clean bg outline plus any
+                // normally-placed parts. No stock aircraft has a part remotely this large (max ~0.26), and
+                // mods that place large overlay parts CORRECTLY sit off-centre (MC-260 Chimera's are w≈0.87,
+                // cx≈0.44), so the centred-AND-full-frame test can't catch a part that would render right.
+                // ponytail: heuristic on placement, not intent — a genuinely frame-sized, centred, meaningful
+                // part (none known) would be dropped too. Ceiling: revisit if such an aircraft appears.
+                if (w >= 0.98f && h >= 0.98f && Mathf.Abs(cx - 0.5f) < 0.02f && Mathf.Abs(cy - 0.5f) < 0.02f)
+                    continue;
+
                 if (img.sprite != null)
                 {
                     string partKey = key, partName = name;
                     SpriteCapture.Request(img.sprite, SpriteCapture.Encoding.Png, synthAlpha: false, quality: 0, maxDim: 0,
                         png => { if (png != null) TelemetryServer.SetAirframeImage(partKey, partName, png); });
                 }
-
-                if (!GetPartPlacement(img.rectTransform, bgRT, out float cx, out float cy, out float w, out float h, out float rotZ, out int sx, out int sy))
-                    continue;
 
                 if (partCount > 0) sb.Append(',');
                 partCount++;
