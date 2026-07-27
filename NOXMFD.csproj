@@ -27,7 +27,7 @@
     <AssemblyName>NOXMFD</AssemblyName>
     <Product>NOXMFD</Product>
     <Description>NO XMFD: live Nuclear Option telemetry (HUD + MFD)</Description>
-    <Version>0.17.0</Version>
+    <Version>0.16.3</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>NOXMFD</RootNamespace>
@@ -87,6 +87,13 @@
     <!-- UnityEngine.UI provides Image / RectTransform — needed for the AVN silhouette capture. -->
     <Reference Include="UnityEngine.UI">
       <HintPath>$(GameDir)\NuclearOption_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Unity.TextMeshPro provides TextMeshProUGUI — the game's 0.34 update switched several UI
+         labels (e.g. TargetListSelector_ToggleButton.label) from UnityEngine.UI.Text to TMP, so
+         reading their .text now needs this reference. -->
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(GameDir)\NuclearOption_Data\Managed\Unity.TextMeshPro.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
