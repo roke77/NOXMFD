@@ -71,8 +71,10 @@
   line-height: 1;
 }
 .avn-tile-icon {
-  width:  clamp(38px, 6.2vh, 52px);
-  height: clamp(38px, 6.2vh, 52px);
+  /* 80% of the former clamp(38px, 6.2vh, 52px) — smaller glyphs, shorter header band, more room
+     for the silhouette below (the label size is unchanged). */
+  width:  clamp(30px, 5vh, 42px);
+  height: clamp(30px, 5vh, 42px);
   display: block;
 }
 /* GEAR uses a recolourable mask of the REAL in-game glyph — captured once from the game and baked

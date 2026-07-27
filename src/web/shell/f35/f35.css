@@ -285,7 +285,7 @@ html, body {
 .ms-flag.on        { color: var(--no-green); }
 .ms-flag.gear-down { color: var(--no-red); }
 .ms-flag-label { font-size: 15px; font-weight: 900; letter-spacing: 1px; line-height: 1; }
-.ms-flag-icon  { width: 36px; height: 36px; display: block; }
+.ms-flag-icon  { width: 29px; height: 29px; display: block; }   /* 80% of the former 36px */
 /* GEAR reuses the game-captured glyph as a recolourable mask (same asset and technique as
    avn.css .avn-mask-icon), so it turns green/gray/red with the rest. */
 .ms-flag-mask {
