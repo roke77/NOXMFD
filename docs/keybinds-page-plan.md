@@ -8,8 +8,9 @@ it becomes a normal feature doc (like `hud-page.md`) once the page ships.
 A full standalone page at **`/keybinds`** (same level as `/f35` — a page you open directly,
 not an MFD split pane) where the user configures the mod's *extended keybinds*: bindings for
 cockpit functionality the game itself has no keybind for. Today these can only be configured
-through the F1 (ConfigurationManager) menu; the page replaces that with a proper UI, styled
-like the in-game menus.
+through the F1 (ConfigurationManager) menu; the page **replaces** that — the F1 menu is no
+longer the keybind UI, new binds never get F1 entries, and the existing four binds' F1
+plumbing goes away.
 
 ## What exists already
 
@@ -72,7 +73,11 @@ Capture responsibilities are deliberately split:
    fields with a table of bind definitions
    (`{ id, section, label, edge, keyEntry, joyEntry, drive(Aircraft) }`). `Poll()` iterates
    it; the JSON endpoint serializes it; adding a future keybind becomes one table row.
-   The F1 menu keeps working unchanged (same entries, same drawers).
+   **The F1 menu is retired for keybinds**: delete the `JoyCaptureDrawer`/`DrawJoyCapture`
+   custom-drawer machinery and mark every keybind entry `Browsable = false` so it disappears
+   from the F1 menu entirely. The `ConfigEntry`s themselves stay — they're still the
+   persistence layer (`.cfg` file), just no longer a UI. Existing user `.cfg` values carry
+   over untouched since the entry keys don't change.
 2. **`GET /keybinds-config`** — JSON: for each bind `{ id, section, label, description,
    key, joyButton }`, plus `capturing` (id currently armed, or null). The page polls this
    (~4 Hz while open, matching how other pages refresh non-stream data) — it's also how
@@ -84,6 +89,9 @@ Capture responsibilities are deliberately split:
    - `keybind-clear-joy { id }` — set the joy entry to `-1`.
 
    Persistence is free: writing a `ConfigEntry.Value` saves the `.cfg`.
+4. **Keyboard capture moves fully to the page too** — with the F1 menu retired there is no
+   ConfigurationManager key-capture widget anymore; the browser `keydown` flow above is the
+   only way to set a keyboard bind, which is fine since it's also the better one.
 
 ## Risks / open questions
 
@@ -100,7 +108,8 @@ Capture responsibilities are deliberately split:
 
 ## Milestones
 
-1. Bind registry refactor in `Keybinds.cs` (no behaviour change; F1 menu still works).
+1. Bind registry refactor in `Keybinds.cs` + F1 menu retirement (drawers deleted, entries
+   hidden; playback behaviour unchanged, `.cfg` values preserved).
 2. `GET /keybinds-config` + the three `/command` handlers.
 3. `/keybinds` page: table rendering from the JSON, keyboard capture + KeyCode mapping.
 4. Joystick capture wiring + the background-input test on real hardware.
