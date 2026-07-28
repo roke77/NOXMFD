@@ -168,15 +168,7 @@ namespace NOXMFD
             if (ac == null || ac.weaponManager == null || ac.weaponStations == null) return;
             WeaponManager wm = ac.weaponManager;
 
-            WeaponStation target = null;
-            foreach (WeaponStation st in ac.weaponStations)
-            {
-                if (st == null) continue;
-                WeaponInfo info = st.WeaponInfo;
-                if (info == null || info.hideInDisplay) continue;
-                string name = !string.IsNullOrEmpty(info.weaponName) ? info.weaponName : info.shortName;
-                if (string.Equals(name, wname, StringComparison.Ordinal)) { target = st; break; }
-            }
+            WeaponStation target = WeaponSelectors.FindStationByName(ac, wname);
             if (target == null) { Plugin.Log?.LogInfo($"[NOXMFD] weapon.select '{wname}': no matching station — ignored."); return; }
 
             if (ReferenceEquals(wm.currentWeaponStation, target))
@@ -185,10 +177,7 @@ namespace NOXMFD
                 return;
             }
 
-            wm.currentWeaponStation = target;
-            ac.SetActiveStation(target.Number);
-            CombatHUD hud = SceneSingleton<CombatHUD>.i;
-            if (hud != null && ReferenceEquals(hud.aircraft, ac)) hud.ShowWeaponStation(target);
+            WeaponSelectors.SelectStation(ac, target);
             Plugin.Log?.LogInfo($"[NOXMFD] weapon.select → '{wname}' (station {target.Number}).");
         }
 

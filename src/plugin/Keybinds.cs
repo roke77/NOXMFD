@@ -99,6 +99,25 @@ namespace NOXMFD
                 "Lower the landing gear. No-op if the gear is already down, still moving, or while on the ground.",
                 ac => DriveGear(ac, up: false, down: true));
 
+            // Weapon soft-selector binds — see WeaponSelectors.cs for the model (two background
+            // selections: one gun, one missile-or-bomb; cycle keys move them, fire keys commit them).
+            const string wpn = "Weapon Keybinds";
+            Def(config, "cycle-guns", wpn, "CycleGuns", "Cycle Guns", edge: true,
+                "Move the gun soft-selection to the next gun in the loadout. The fire happens on Gun Trigger.",
+                WeaponSelectors.CycleGun);
+            Def(config, "cycle-missiles", wpn, "CycleMissiles", "Cycle Missiles", edge: true,
+                "Move the release soft-selection to the next missile or rocket in the loadout. The launch happens on Weapon Release.",
+                WeaponSelectors.CycleMissile);
+            Def(config, "cycle-bombs", wpn, "CycleBombs", "Cycle Bombs", edge: true,
+                "Move the release soft-selection to the next bomb in the loadout. The drop happens on Weapon Release.",
+                WeaponSelectors.CycleBomb);
+            Def(config, "gun-trigger", wpn, "GunTrigger", "Gun Trigger", edge: false,
+                "Select the soft-selected gun (or the first gun found) and fire it. HOLD for continuous fire.",
+                WeaponSelectors.FireGun);
+            Def(config, "weapon-release", wpn, "WeaponRelease", "Weapon Release", edge: true,
+                "Select the soft-selected missile or bomb (or the first found) and release it. One press, one release.",
+                WeaponSelectors.FireRelease);
+
             foreach (var b in _binds)
                 Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value}, joy={b.JoyEntry.Value} (stick {b.JoyNumEntry.Value}).");
         }

@@ -177,6 +177,16 @@ KEYBINDS = [
      "description": "Raise the landing gear.", "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "gear-down", "section": "Landing Gear Keybinds", "label": "Gear Down",
      "description": "Lower the landing gear.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cycle-guns", "section": "Weapon Keybinds", "label": "Cycle Guns",
+     "description": "Move the gun soft-selection to the next gun.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cycle-missiles", "section": "Weapon Keybinds", "label": "Cycle Missiles",
+     "description": "Move the release soft-selection to the next missile or rocket.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cycle-bombs", "section": "Weapon Keybinds", "label": "Cycle Bombs",
+     "description": "Move the release soft-selection to the next bomb.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "gun-trigger", "section": "Weapon Keybinds", "label": "Gun Trigger",
+     "description": "Select the soft-selected gun and fire it. HOLD for continuous fire.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "weapon-release", "section": "Weapon Keybinds", "label": "Weapon Release",
+     "description": "Select the soft-selected missile or bomb and release it.", "key": "", "joyButton": -1, "joyNum": 0},
 ]
 KB_STATE = {"capturing": None, "armed_at": 0.0}
 
