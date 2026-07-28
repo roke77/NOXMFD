@@ -149,20 +149,65 @@ namespace NOXMFD
         // ── Joystick capture (driven by the /keybinds page) ─────────────────────────────────────────
         // Arm capture for a bind id: the next joystick button pressed is written into its joy entry.
         // Returns false for an unknown id. Called from the main thread (CommandDispatcher).
+        //
+        // The pilot is focused on the BROWSER while arming, so the game window is unfocused — and by
+        // default both Unity (runInBackground) and Rewired (ignoreInputWhenAppNotInFocus) drop input
+        // for an unfocused app, which made capture silently see nothing. While armed, both are
+        // overridden so stick input keeps flowing; the previous values are restored on disarm.
+        private static bool _prevRunInBackground;
+        private static bool _prevIgnoreUnfocused;
+
         internal static bool ArmJoyCapture(string id)
         {
             foreach (var b in _binds)
-                if (b.Id == id) { _capturing = b; return true; }
+            {
+                if (b.Id != id) continue;
+                if (_capturing == null) EnableBackgroundInput();
+                _capturing = b;
+                LogJoysticks();
+                return true;
+            }
             return false;
         }
 
-        internal static void CancelJoyCapture() => _capturing = null;
+        internal static void CancelJoyCapture() => Disarm();
 
         internal static bool ClearJoyBind(string id)
         {
             foreach (var b in _binds)
-                if (b.Id == id) { b.JoyEntry.Value = -1; if (_capturing == b) _capturing = null; return true; }
+                if (b.Id == id) { b.JoyEntry.Value = -1; if (_capturing == b) Disarm(); return true; }
             return false;
+        }
+
+        private static void EnableBackgroundInput()
+        {
+            _prevRunInBackground = Application.runInBackground;
+            Application.runInBackground = true;
+            if (ReInput.isReady)
+            {
+                _prevIgnoreUnfocused = ReInput.configuration.ignoreInputWhenAppNotInFocus;
+                ReInput.configuration.ignoreInputWhenAppNotInFocus = false;
+            }
+        }
+
+        private static void Disarm()
+        {
+            if (_capturing == null) return;
+            _capturing = null;
+            Application.runInBackground = _prevRunInBackground;
+            if (ReInput.isReady)
+                ReInput.configuration.ignoreInputWhenAppNotInFocus = _prevIgnoreUnfocused;
+        }
+
+        // One log line per arm: what Rewired can see right now — if the stick is missing here, the
+        // problem is device-level (not connected / not recognized), not the capture flow.
+        private static void LogJoysticks()
+        {
+            if (!ReInput.isReady) { Plugin.Log?.LogWarning("[NOXMFD] joy capture armed but Rewired is not ready."); return; }
+            IList<Joystick> joys = ReInput.controllers.Joysticks;
+            var names = new List<string>(joys.Count);
+            foreach (Joystick j in joys) names.Add($"'{j.name}' ({j.buttonCount} buttons)");
+            Plugin.Log?.LogInfo($"[NOXMFD] joy capture armed for '{_capturing?.Id}': {joys.Count} joystick(s): {string.Join(", ", names)}");
         }
 
         // Once per frame on the main thread. CM keys are held-driven (deploy every frame held); gear keys
@@ -218,7 +263,7 @@ namespace NOXMFD
                         _capturing!.JoyEntry.Value = b;
                         if (_joyNumber != null) _joyNumber.Value = i + 1;   // pin to the device it came from
                         Plugin.Log?.LogInfo($"[NOXMFD] captured joy[{i}] '{joy.name}' button {b} for keybind '{_capturing.Id}'.");
-                        _capturing = null;
+                        Disarm();   // also restores the background-input overrides
                         return;
                     }
             }
