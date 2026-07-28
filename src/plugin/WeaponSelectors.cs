@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace NOXMFD
 {
-    // The two weapon "soft selectors" behind the weapon keybinds (docs/keybinds-page-plan.md):
+    // The two weapon "soft selectors" behind the weapon keybinds (docs/keybinds-page.md):
     // alongside the game's single active-weapon selection, the mod remembers a GUN and a
     // MISSILE-OR-BOMB choice per class. Cycle keys select within their class (first press from
     // another class recalls where you left it, further presses advance); fire keys are two-stage

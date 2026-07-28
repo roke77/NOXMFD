@@ -1,7 +1,7 @@
 // Extended-keybinds page. Renders the plugin's bind registry (/keybinds-config) as a table and
 // writes changes back over keybind.* commands. Keyboard capture happens here in the browser
 // (KeyboardEvent.code → Unity KeyCode name); joystick capture is armed plugin-side and the result
-// arrives via the poll. See keybinds.html header + docs/keybinds-page-plan.md.
+// arrives via the poll. See keybinds.html header + docs/keybinds-page.md.
 
 var rowsEl  = document.getElementById('kb-rows');
 var panelEl = document.getElementById('kb-panel');

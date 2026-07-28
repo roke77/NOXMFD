@@ -227,13 +227,23 @@ fuel, and the avionics flags.
 
 ### Extended Keybinds
 
-Optional dedicated keybinds, available in the BepInEx configuration menu
-(keyboard/mouse or HOTAS button).
+Optional dedicated keybinds for cockpit functions the game has no native bind for,
+configured on the **`/keybinds`** page (open it like any other page, e.g.
+`http://localhost:5005/keybinds`). Each function takes a keyboard/mouse key, a
+joystick/HOTAS button, or both — click a cell and press the key or button to bind it.
+Multi-stick HOTAS setups are supported; each bind remembers which stick it came from.
 
-- **Dispense flares** — select + deploy IR flares (tap to pop, hold to keep popping).
-- **Activate radar jammer** — select + activate the radar jammer (hold to jam).
-- **Gear up** — raise the landing gear.
-- **Gear down** — lower the landing gear.
+- **Flares** — select + deploy IR flares (tap to pop, hold to keep popping).
+- **Jammer** — select + activate the radar jammer (hold to jam).
+- **Gear up / Gear down** — dedicated raise/lower (the stock bind is a single toggle).
+- **Cycle guns / missiles / bombs** — select within a weapon class; pressing from another
+  class first returns to the weapon you last used there. Depleted weapons are skipped.
+- **Gun trigger / Weapon release** — per-class fire keys (hold for continuous fire). If the
+  active weapon is from the other class, the first press only switches — bringing up the
+  right reticle — and the next press fires. The current gun and missile/bomb choices show
+  as outlines on the WPN page.
+
+See [docs/keybinds-page.md](docs/keybinds-page.md) for the full behaviour.
 
 ## Reporting & collaboration
 
