@@ -86,10 +86,10 @@ namespace NOXMFD
             const string cm   = "Countermeasure Keybinds";
             const string gear = "Landing Gear Keybinds";
 
-            Def(config, "flares", cm, "DispenseFlares", "Dispense Flares", edge: false,
+            Def(config, "flares", cm, "DispenseFlares", "Flares", edge: false,
                 "Select + deploy IR flares. Tap to pop a set, hold to keep popping. No-op if the aircraft has no flares.",
                 ac => { var mgr = ac.countermeasureManager; if (mgr != null) Drive(ac, mgr, Flare); });
-            Def(config, "jammer", cm, "ActivateRadarJammer", "Activate Radar Jammer", edge: false,
+            Def(config, "jammer", cm, "ActivateRadarJammer", "Jammer", edge: false,
                 "Select + activate the radar jammer. HOLD to jam (a tap only jams ~0.1s). No-op if the aircraft has no jammer.",
                 ac => { var mgr = ac.countermeasureManager; if (mgr != null) Drive(ac, mgr, Jammer); });
             Def(config, "gear-up", gear, "GearUp", "Gear Up", edge: true,

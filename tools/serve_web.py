@@ -167,10 +167,10 @@ def _hud_options():
 # joystick capture "captures" a fake button ~1.5s later (simulated on the next poll after the
 # deadline — no threads).
 KEYBINDS = [
-    {"id": "flares", "section": "Countermeasure Keybinds", "label": "Dispense Flares",
+    {"id": "flares", "section": "Countermeasure Keybinds", "label": "Flares",
      "description": "Select + deploy IR flares. Tap to pop a set, hold to keep popping.",
      "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "jammer", "section": "Countermeasure Keybinds", "label": "Activate Radar Jammer",
+    {"id": "jammer", "section": "Countermeasure Keybinds", "label": "Jammer",
      "description": "Select + activate the radar jammer. HOLD to jam.",
      "key": "J", "joyButton": 3, "joyNum": 2},
     {"id": "gear-up", "section": "Landing Gear Keybinds", "label": "Gear Up",

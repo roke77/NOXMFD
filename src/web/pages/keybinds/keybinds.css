@@ -14,13 +14,7 @@ html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this
   letter-spacing: 4px;
   color: var(--no-green);
   text-align: center;
-}
-.kb-sub {
-  font-size: 11px;
-  letter-spacing: 1px;
-  color: var(--no-green-dim);
-  text-align: center;
-  margin: 6px 0 22px;
+  margin-bottom: 22px;
 }
 
 /* header + rows share one grid template so the columns line up */
@@ -39,12 +33,6 @@ html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this
 }
 .kb-head span:not(:first-child) { text-align: center; }
 
-.kb-section {
-  margin: 18px 10px 6px;
-  font-size: 12px;
-  letter-spacing: 2px;
-  color: var(--no-green-deep);
-}
 
 .kb-row {
   padding: 7px 10px;
@@ -95,6 +83,5 @@ html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this
 
 #kb-empty { display: none; }
 .kb-panel.unavailable .kb-head,
-.kb-panel.unavailable .kb-rows,
-.kb-panel.unavailable .kb-sub { display: none; }
+.kb-panel.unavailable .kb-rows { display: none; }
 .kb-panel.unavailable #kb-empty { display: block; }

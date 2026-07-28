@@ -84,15 +84,7 @@ function cell(bind, kind) {
 
 function render() {
   rowsEl.textContent = '';
-  var section = null;
   binds.forEach(function (b) {
-    if (b.section !== section) {
-      section = b.section;
-      var h = document.createElement('div');
-      h.className = 'kb-section';
-      h.textContent = section.toUpperCase();
-      rowsEl.appendChild(h);
-    }
     var row = document.createElement('div');
     row.className = 'kb-row';
     var name = document.createElement('div');
