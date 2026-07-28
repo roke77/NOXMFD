@@ -244,8 +244,6 @@ Multi-stick HOTAS setups are supported; each bind remembers which stick it came 
   right reticle — and the next press fires. The current gun and missile/bomb choices show
   as outlines on the WPN page.
 
-See [docs/keybinds-page.md](docs/keybinds-page.md) for the full behaviour.
-
 ## Reporting & collaboration
 
 Found a bug, or want a feature? Open an issue on the
