@@ -236,8 +236,9 @@ Multi-stick HOTAS setups are supported; each bind remembers which stick it came 
 - **Flares** — select + deploy IR flares (tap to pop, hold to keep popping).
 - **Jammer** — select + activate the radar jammer (hold to jam).
 - **Gear up / Gear down** — dedicated raise/lower (the stock bind is a single toggle).
-- **Cycle guns / missiles / bombs** — select within a weapon class; pressing from another
-  class first returns to the weapon you last used there. Depleted weapons are skipped.
+- **Cycle guns / missiles / bombs** — select the last soft-selected weapon of that type, or
+  the first in the list; repeated presses cycle to the next one, skipping depleted weapons.
+  Cycling to a different type leaves the current one soft-selected.
 - **Gun trigger / Weapon release** — per-class fire keys (hold for continuous fire). If the
   active weapon is from the other class, the first press only switches — bringing up the
   right reticle — and the next press fires. The current gun and missile/bomb choices show
