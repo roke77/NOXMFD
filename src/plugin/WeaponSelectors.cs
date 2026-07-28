@@ -4,10 +4,11 @@ using System.Collections.Generic;
 namespace NOXMFD
 {
     // The two weapon "soft selectors" behind the weapon keybinds (docs/keybinds-page-plan.md):
-    // independent of the game's single active-weapon selection, the mod keeps a background pointer
-    // over a GUN and another over a MISSILE-OR-BOMB. Cycle keys move them; the fire keys commit them
-    // (make that weapon active, then fire) — so a pilot can keep e.g. a bomb selected on the HUD while
-    // still having the gun trigger mean "the gun I chose".
+    // alongside the game's single active-weapon selection, the mod remembers a GUN and a
+    // MISSILE-OR-BOMB choice per class. Cycle keys select within their class (first press from
+    // another class recalls where you left it, further presses advance); fire keys are two-stage
+    // across classes (a press first switches to the class's weapon, the next press fires) — so the
+    // gun trigger always means "my gun" and weapon release "my missile/bomb", from anywhere.
     //
     // Selectors point at LOADOUT ENTRIES (stations aggregated by display name — the same list the WPN
     // page shows, see TelemetryReader.BuildLoadout), stored as the entry name. Everything else is
@@ -53,29 +54,53 @@ namespace NOXMFD
             !string.IsNullOrEmpty(info.weaponName) ? info.weaponName : info.shortName;
 
         // ── Cycle keys ───────────────────────────────────────────────────────────────────────────
-        public static void CycleGun(Aircraft ac)     => _softGun = CycleIn(ac, IsGun,     _softGun);
-        public static void CycleMissile(Aircraft ac) => _softRel = CycleIn(ac, IsMissile, _softRel);
-        public static void CycleBomb(Aircraft ac)    => _softRel = CycleIn(ac, IsBomb,    _softRel);
+        // Each cycle key SELECTS (not just highlights): with the active weapon already in this class
+        // it advances to the next entry and makes it active; with another class active it recalls the
+        // class's remembered soft selection (or the first entry) and makes THAT active — so the first
+        // press is "switch into this class where I left it", the second press cycles.
+        public static void CycleGun(Aircraft ac)     => _softGun = CycleAndSelect(ac, IsGun,     _softGun);
+        public static void CycleMissile(Aircraft ac) => _softRel = CycleAndSelect(ac, IsMissile, _softRel);
+        public static void CycleBomb(Aircraft ac)    => _softRel = CycleAndSelect(ac, IsBomb,    _softRel);
 
-        // Advance within the class's entry list: the entry after `current`, wrapping; the first entry
-        // when current isn't in this class (or is stale). Returns current unchanged if the class is
-        // empty so a stale-but-displayable name isn't wiped by pressing the wrong cycle key.
-        private static string CycleIn(Aircraft ac, Func<WeaponInfo, bool> cls, string current)
+        private static string CycleAndSelect(Aircraft ac, Func<WeaponInfo, bool> cls, string soft)
         {
             Follow(ac);
             BuildEntries(ac, cls);
-            if (_entries.Count == 0) return current;
-            int idx = _entries.IndexOf(current);
-            return _entries[idx < 0 ? 0 : (idx + 1) % _entries.Count];
+            if (_entries.Count == 0) return soft;   // wrong-class press: keep the remembered name
+
+            WeaponManager wm = ac.weaponManager;
+            WeaponStation cur = wm != null ? wm.currentWeaponStation : null;
+            string curName = cur != null && cur.WeaponInfo != null ? EntryName(cur.WeaponInfo) : null;
+
+            int idx = curName != null ? _entries.IndexOf(curName) : -1;
+            string next = idx >= 0
+                ? _entries[(idx + 1) % _entries.Count]                                  // in-class: advance
+                : (soft != null && _entries.Contains(soft) ? soft : _entries[0]);       // cross-class: recall
+
+            WeaponStation target = FindStationByName(ac, next);
+            if (target != null && !ReferenceEquals(cur, target))
+            {
+                SelectStation(ac, target);
+                _lastActive = target;   // our own commit is not a pilot change — don't re-snap on it
+            }
+            return next;
         }
 
         // ── Fire keys ────────────────────────────────────────────────────────────────────────────
-        // Gun Trigger: held — commit the effective gun and fire every frame (WeaponStation.Ready()
-        // rate-limits, so this behaves like the stock gun trigger, guns-linked included via Fire()).
-        public static void FireGun(Aircraft ac)     => CommitAndFire(ac, EffectiveGun(ac));
+        // Both are HELD-driven with a two-stage cross-class press: if the active weapon isn't this
+        // key's effective selection, the press only SWITCHES to it (bringing up the right reticle) and
+        // that same hold never fires — release and press again to fire, then hold to keep firing
+        // (WeaponManager.Fire() every frame; WeaponStation.Ready() rate-limits, matching the stock
+        // trigger's hold behaviour, guns-linked included).
+        //
+        // Press-vs-hold is derived from Time.frameCount continuity: the drive runs every held frame,
+        // so a gap in frames = a fresh press. ponytail: misses a release+re-press within one frame —
+        // physically impossible on a real key.
+        private static int  _gunFrame = -10, _relFrame = -10;
+        private static bool _gunSwitchHold,  _relSwitchHold;
 
-        // Weapon Release: edge — commit the effective missile/bomb, one press = one release.
-        public static void FireRelease(Aircraft ac) => CommitAndFire(ac, EffectiveRelease(ac));
+        public static void FireGun(Aircraft ac)     => Fire(ac, EffectiveGun(ac),     ref _gunFrame, ref _gunSwitchHold);
+        public static void FireRelease(Aircraft ac) => Fire(ac, EffectiveRelease(ac), ref _relFrame, ref _relSwitchHold);
 
         // The entry a fire key would commit right now: the soft selection if it's still a live entry
         // of the class, else the first entry of the class, else null. Also what the WPN page outlines.
@@ -90,8 +115,12 @@ namespace NOXMFD
             return soft != null && _entries.Contains(soft) ? soft : _entries[0];
         }
 
-        private static void CommitAndFire(Aircraft ac, string name)
+        private static void Fire(Aircraft ac, string name, ref int lastFrame, ref bool switchHold)
         {
+            bool fresh = UnityEngine.Time.frameCount != lastFrame + 1;   // gap = new press
+            lastFrame = UnityEngine.Time.frameCount;
+            if (fresh) switchHold = false;
+
             WeaponManager wm = ac.weaponManager;
             if (wm == null || name == null) return;
 
@@ -103,8 +132,11 @@ namespace NOXMFD
                 if (target == null) return;
                 SelectStation(ac, target);
                 _lastActive = target;   // our own commit is not a pilot change — don't re-snap on it
+                switchHold = true;      // stage 1: this press switched; it must not also fire
+                return;
             }
-            wm.Fire();   // the stock trigger's entry: safety, guns-linked, salvo, network path
+            if (switchHold) return;     // still the hold that did the switch
+            wm.Fire();                  // the stock trigger's entry: safety, guns-linked, salvo, network path
         }
 
         // ── Follow the active selection ──────────────────────────────────────────────────────────

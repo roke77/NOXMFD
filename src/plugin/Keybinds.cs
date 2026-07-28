@@ -103,19 +103,19 @@ namespace NOXMFD
             // selections: one gun, one missile-or-bomb; cycle keys move them, fire keys commit them).
             const string wpn = "Weapon Keybinds";
             Def(config, "cycle-guns", wpn, "CycleGuns", "Cycle Guns", edge: true,
-                "Move the gun soft-selection to the next gun in the loadout. The fire happens on Gun Trigger.",
+                "Select the next gun. From another weapon class, the first press selects the gun you last had (or the first).",
                 WeaponSelectors.CycleGun);
             Def(config, "cycle-missiles", wpn, "CycleMissiles", "Cycle Missiles", edge: true,
-                "Move the release soft-selection to the next missile or rocket in the loadout. The launch happens on Weapon Release.",
+                "Select the next missile or rocket. From another weapon class, the first press selects the one you last had (or the first).",
                 WeaponSelectors.CycleMissile);
             Def(config, "cycle-bombs", wpn, "CycleBombs", "Cycle Bombs", edge: true,
-                "Move the release soft-selection to the next bomb in the loadout. The drop happens on Weapon Release.",
+                "Select the next bomb. From another weapon class, the first press selects the one you last had (or the first).",
                 WeaponSelectors.CycleBomb);
             Def(config, "gun-trigger", wpn, "GunTrigger", "Gun Trigger", edge: false,
-                "Select the soft-selected gun (or the first gun found) and fire it. HOLD for continuous fire.",
+                "Fire your gun; HOLD for continuous fire. With a non-gun selected, the first press only switches to the gun — press again to fire.",
                 WeaponSelectors.FireGun);
-            Def(config, "weapon-release", wpn, "WeaponRelease", "Weapon Release", edge: true,
-                "Select the soft-selected missile or bomb (or the first found) and release it. One press, one release.",
+            Def(config, "weapon-release", wpn, "WeaponRelease", "Weapon Release", edge: false,
+                "Release your missile/bomb; HOLD to keep releasing. With a gun selected, the first press only switches to it — press again to release.",
                 WeaponSelectors.FireRelease);
 
             foreach (var b in _binds)

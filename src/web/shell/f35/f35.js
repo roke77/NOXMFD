@@ -190,6 +190,7 @@
     let currentPage = null;
     let wpnPage     = 0;    // 0-indexed pagination state
     let wpnNavKey   = '';   // what this grid last drew; guards a per-tick rebuild
+    let wpnSelSeen  = null; // last selWeapon this portal followed; guards the page jump below
     let followOn    = false;
 
     // This portal's footprint on the glass: one slot, or two with a memory of which side it ate.
@@ -254,6 +255,14 @@
     function forwardWpn() {
       const w = frameWin(), lo = slices.loadout;
       if (!w || !lo) return;
+      // Follow the in-game selection to its page when it CHANGES (the weapon keybinds' cycle keys
+      // select, possibly onto another page) — the bezel shell does the same. Change-gated so manual
+      // paging survives the per-tick ammo loadouts.
+      if (lo.selWeapon && lo.selWeapon !== wpnSelSeen) {
+        wpnSelSeen = lo.selWeapon;
+        const i = wpnList().findIndex(function (it) { return it.n === lo.selWeapon; });
+        if (i >= 0) wpnPage = Math.floor(i / WPN_MAX_DISPLAY);
+      }
       const st = wpnState();
       wpnPage = st.page;
       w.postMessage({ mfd: true, type: 'wpn', items: st.visible, selWeapon: lo.selWeapon,
