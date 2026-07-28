@@ -39,6 +39,7 @@ namespace NOXMFD
         private static WeaponStation _lastActive;
 
         private static readonly List<string> _entries = new List<string>(8);   // reused scratch
+        private static readonly List<int>    _ammo    = new List<int>(8);      // remaining ammo per entry (parallel)
 
         // ── Classification ───────────────────────────────────────────────────────────────────────
         private static bool IsGun(WeaponInfo i)  => i.gun;
@@ -72,10 +73,29 @@ namespace NOXMFD
             WeaponStation cur = wm != null ? wm.currentWeaponStation : null;
             string curName = cur != null && cur.WeaponInfo != null ? EntryName(cur.WeaponInfo) : null;
 
+            // Cycling never lands on a depleted entry (fire keys can still commit one — the game
+            // allows selecting an empty weapon; Ready() just won't fire it).
+            string next;
             int idx = curName != null ? _entries.IndexOf(curName) : -1;
-            string next = idx >= 0
-                ? _entries[(idx + 1) % _entries.Count]                                  // in-class: advance
-                : (soft != null && _entries.Contains(soft) ? soft : _entries[0]);       // cross-class: recall
+            if (idx >= 0)
+            {
+                // in-class: advance to the next entry with ammo, wrapping past depleted ones
+                next = null;
+                for (int k = 1; k <= _entries.Count; k++)
+                {
+                    int cand = (idx + k) % _entries.Count;
+                    if (_ammo[cand] > 0) { next = _entries[cand]; break; }
+                }
+            }
+            else
+            {
+                // cross-class: recall the remembered entry if it still has ammo, else the first with ammo
+                int si = soft != null ? _entries.IndexOf(soft) : -1;
+                next = si >= 0 && _ammo[si] > 0 ? soft : null;
+                for (int k = 0; next == null && k < _entries.Count; k++)
+                    if (_ammo[k] > 0) next = _entries[k];
+            }
+            if (next == null) return soft;   // whole class depleted — no-op
 
             WeaponStation target = FindStationByName(ac, next);
             if (target != null && !ReferenceEquals(cur, target))
@@ -180,10 +200,12 @@ namespace NOXMFD
         }
 
         // Entry names of the class, aggregated by name in first-appearance order (BuildLoadout's
-        // order), into the reused _entries scratch list.
+        // order), into the reused _entries scratch list, with per-entry remaining ammo summed across
+        // stations into the parallel _ammo list (so cycling can skip depleted entries).
         private static void BuildEntries(Aircraft ac, Func<WeaponInfo, bool> cls)
         {
             _entries.Clear();
+            _ammo.Clear();
             if (ac.weaponStations == null) return;
             foreach (WeaponStation st in ac.weaponStations)
             {
@@ -191,8 +213,10 @@ namespace NOXMFD
                 WeaponInfo info = st.WeaponInfo;
                 if (info == null || info.hideInDisplay || !cls(info)) continue;
                 string name = EntryName(info);
-                if (string.IsNullOrEmpty(name) || _entries.Contains(name)) continue;
-                _entries.Add(name);
+                if (string.IsNullOrEmpty(name)) continue;
+                int i = _entries.IndexOf(name);
+                if (i < 0) { _entries.Add(name); _ammo.Add(st.Ammo); }
+                else _ammo[i] += st.Ammo;
             }
         }
     }
