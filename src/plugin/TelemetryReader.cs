@@ -110,8 +110,8 @@ namespace NOXMFD
         {
             float dt = Time.deltaTime;
 
-            // Drain any inbound web-client commands first (main thread — safe to touch game state).
-            CommandDispatcher.Drain();
+            // Inbound web-client commands are drained by MissionLifecycle.Update (the persistent host),
+            // so the /keybinds page works at the main menu too — not here.
 
             _fastTimer += dt;
             _slowTimer += dt;

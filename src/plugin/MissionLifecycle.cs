@@ -14,8 +14,13 @@ namespace NOXMFD
         {
             // Poll the countermeasure keybinds here (not in the mission-scoped TelemetryReader) so input
             // works at the main menu too — the joystick-button CAPTURE flow needs to run while you're in
-            // the F1 config menu before a mission exists. Deploy no-ops when there's no local aircraft.
+            // the /keybinds page before a mission exists. Deploy no-ops when there's no local aircraft.
             Keybinds.Poll();
+
+            // Drain inbound web commands here too (main thread, persistent) — the /keybinds page writes
+            // binds from the main menu, where no mission-scoped reader exists to drain the queue. Every
+            // handler validates against live state, so gameplay commands just no-op without a mission.
+            CommandDispatcher.Drain();
 
             bool missionRunning = MissionManager.IsRunning;
 

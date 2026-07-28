@@ -66,9 +66,13 @@ function cell(bind, kind) {
   clear.title = 'clear';
   clear.onclick = function (e) {
     e.stopPropagation();
-    if (kind === 'key') sendCommand('keybind.set-key', { bind: bind.id, key: '' }).catch(function () {});
-    else                sendCommand('keybind.clear-joy', { bind: bind.id }).catch(function () {});
-    refresh();
+    if (kbCapture === bind.id) kbCapture = null;
+    var cmd  = kind === 'key' ? 'keybind.set-key' : 'keybind.clear-joy';
+    var args = kind === 'key' ? { bind: bind.id, key: '' } : { bind: bind.id };
+    sendCommand(cmd, args).then(refresh).catch(function () {});
+    // optimistic: show the cleared state now, the poll confirms
+    if (kind === 'key') bind.key = ''; else bind.joyButton = -1;
+    render();
   };
 
   wrap.appendChild(val); wrap.appendChild(clear);
@@ -114,11 +118,10 @@ document.addEventListener('keydown', function (e) {
   if (e.code === 'Escape') { render(); return; }
   var key = codeToKey(e.code);
   if (!key) { flashRejected(id); return; }   // unmappable (media keys, ...)
-  sendCommand('keybind.set-key', { bind: id, key: key }).catch(function () {});
-  // optimistic: show it now, the next poll confirms
+  sendCommand('keybind.set-key', { bind: id, key: key }).then(refresh).catch(function () {});
+  // optimistic: show it now, the poll confirms
   binds.forEach(function (b) { if (b.id === id) b.key = key; });
   render();
-  refresh();
 });
 
 // brief red flash on the keyboard cell of a bind whose captured key can't be mapped
@@ -147,10 +150,11 @@ function joyCellClick(id) {
 function refresh() {
   fetch('/keybinds-config').then(function (r) { return r.json(); }).then(function (cfg) {
     panelEl.classList.remove('unavailable');
+    // never clobber an in-progress keyboard capture cell with a re-render; deliberately do NOT
+    // record lastJson here, so the first poll after capture ends re-renders whatever changed
+    if (kbCapture) return;
     var json = JSON.stringify(cfg);
-    if (json === lastJson && !kbCapture) return;
-    // never clobber an in-progress keyboard capture cell with a re-render
-    if (kbCapture) { lastJson = json; return; }
+    if (json === lastJson) return;
     lastJson  = json;
     binds     = cfg.binds || [];
     capturing = cfg.capturing || null;
