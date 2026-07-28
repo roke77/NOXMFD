@@ -57,7 +57,10 @@ function cell(bind, kind) {
   if (kind === 'key' && kbCapture === bind.id)      { val.textContent = 'PRESS A KEY…';    val.className += ' capturing'; }
   else if (kind === 'joy' && capturing === bind.id) { val.textContent = 'PRESS A BUTTON…'; val.className += ' capturing'; }
   else if (!bound)                                  { val.textContent = '—';               val.className += ' unbound'; }
-  else val.textContent = kind === 'key' ? displayKey(bind.key) : 'JOY ' + bind.joyButton;
+  // joystick display carries the device number when pinned ("J2 B55") — with a multi-stick
+  // HOTAS the button index alone is ambiguous
+  else val.textContent = kind === 'key' ? displayKey(bind.key)
+    : (bind.joyNum > 0 ? 'J' + bind.joyNum + ' B' + bind.joyButton : 'JOY ' + bind.joyButton);
   val.onclick = function () { (kind === 'key' ? keyCellClick : joyCellClick)(bind.id); };
 
   var clear = document.createElement('button');

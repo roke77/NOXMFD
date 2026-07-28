@@ -47,9 +47,9 @@ namespace NOXMFD
     // browser Gamepad API button number doesn't line up with Rewired's own button index anyway (XInput,
     // for one, is offset). So a HOTAS button is configured as an explicit Rewired button INDEX read
     // straight from Rewired, captured live plugin-side (ArmJoyCapture → next button pressed wins), while
-    // the keyboard/mouse key stays on the KeyboardShortcut. ponytail: JoystickNumber is shared across all
-    // binds (pinned on capture), so a multi-device HOTAS with binds on different physical sticks is
-    // unsupported — upgrade path is a per-bind joystick number. Single stick (the common case) works.
+    // the keyboard/mouse key stays on the KeyboardShortcut. Each bind carries its own joystick number
+    // (pinned to the device the button was captured from; 0 = any), so a multi-device HOTAS can spread
+    // binds across physical sticks.
     internal static class Keybinds
     {
         private const byte Flare  = 1;   // same category mapping as TelemetryReader.GetSelectedCmCategory
@@ -67,13 +67,12 @@ namespace NOXMFD
             public Action<Aircraft> Drive;                     // the action, run on the main thread with a live aircraft
             public ConfigEntry<KeyboardShortcut> KeyEntry;     // keyboard/mouse source
             public ConfigEntry<int> JoyEntry;                  // Rewired joystick button index source (-1 = off)
+            public ConfigEntry<int> JoyNumEntry;               // which joystick the index refers to (0 = any; pinned on capture)
             public bool ActiveNow;                             // per-frame scratch, valid only inside Poll()
         }
 
         private static readonly List<BindDef> _binds = new List<BindDef>();
         internal static IReadOnlyList<BindDef> Binds => _binds;   // for the /keybinds page JSON
-
-        private static ConfigEntry<int>? _joyNumber;
 
         // The bind whose joystick entry is currently armed for capture (via ArmJoyCapture), or null.
         // While non-null, the next joystick button pressed is written into it (see CaptureJoyButton).
@@ -100,13 +99,8 @@ namespace NOXMFD
                 "Lower the landing gear. No-op if the gear is already down, still moving, or while on the ground.",
                 ac => DriveGear(ac, up: false, down: true));
 
-            _joyNumber = config.Bind(cm, "JoystickNumber", 0,
-                new ConfigDescription(
-                    "Which joystick the button indices refer to (0 = any, 1 = first, ...). Set automatically to the device you captured from.",
-                    null, Hidden()));
-
             foreach (var b in _binds)
-                Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value}, joy={b.JoyEntry.Value}.");
+                Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value}, joy={b.JoyEntry.Value} (stick {b.JoyNumEntry.Value}).");
         }
 
         // Registers one functionality: binds its two config entries (keyboard + joystick, both hidden
@@ -121,6 +115,8 @@ namespace NOXMFD
                     new ConfigDescription("Keyboard/mouse key: " + description, null, Hidden())),
                 JoyEntry = config.Bind(section, key + "JoystickButton", -1,
                     new ConfigDescription("Joystick/HOTAS button (Rewired index, -1 = off): " + description, null, Hidden())),
+                JoyNumEntry = config.Bind(section, key + "JoystickNumber", 0,
+                    new ConfigDescription("Which joystick the button index refers to (0 = any; pinned to the captured device).", null, Hidden())),
             });
         }
 
@@ -157,6 +153,15 @@ namespace NOXMFD
         private static bool _prevRunInBackground;
         private static bool _prevIgnoreUnfocused;
 
+        // Latched physical switches (VPC toggles, mode selectors) read as freshly-pressed buttons the
+        // moment input resumes, which instantly "captured" whatever switch happened to be ON. So after
+        // arming we ignore a few settle frames, snapshot every button already held into _latched, and
+        // only accept a press of a button that was seen up first. A latched button released and pressed
+        // again while armed becomes capturable (it leaves _latched on release).
+        private const int SettleFrames = 3;
+        private static int _captureSettle;
+        private static readonly HashSet<(int joy, int btn)> _latched = new HashSet<(int, int)>();
+
         internal static bool ArmJoyCapture(string id)
         {
             foreach (var b in _binds)
@@ -164,6 +169,8 @@ namespace NOXMFD
                 if (b.Id != id) continue;
                 if (_capturing == null) EnableBackgroundInput();
                 _capturing = b;
+                _captureSettle = SettleFrames;
+                _latched.Clear();
                 LogJoysticks();
                 return true;
             }
@@ -175,7 +182,7 @@ namespace NOXMFD
         internal static bool ClearJoyBind(string id)
         {
             foreach (var b in _binds)
-                if (b.Id == id) { b.JoyEntry.Value = -1; if (_capturing == b) Disarm(); return true; }
+                if (b.Id == id) { b.JoyEntry.Value = -1; b.JoyNumEntry.Value = 0; if (_capturing == b) Disarm(); return true; }
             return false;
         }
 
@@ -223,7 +230,7 @@ namespace NOXMFD
             bool any = false;
             foreach (var b in _binds)
             {
-                b.ActiveNow = Active(b.KeyEntry, b.JoyEntry, b.Edge);
+                b.ActiveNow = Active(b);
                 any |= b.ActiveNow;
             }
             if (!any) return;   // common case — nothing this frame
@@ -254,18 +261,31 @@ namespace NOXMFD
         {
             if (!ReInput.isReady) return;
             IList<Joystick> joys = ReInput.controllers.Joysticks;
+
+            // Settle window: give Rewired a few frames after the background-input flip, then record
+            // every button already held (latched switches) as excluded.
+            if (_captureSettle > 0)
+            {
+                if (--_captureSettle == 0)
+                    for (int i = 0; i < joys.Count; i++)
+                        for (int b = 0; b < joys[i].buttonCount; b++)
+                            if (joys[i].GetButton(b)) _latched.Add((i, b));
+                return;
+            }
+
             for (int i = 0; i < joys.Count; i++)
             {
                 Joystick joy = joys[i];
                 for (int b = 0; b < joy.buttonCount; b++)
-                    if (joy.GetButtonDown(b))
-                    {
-                        _capturing!.JoyEntry.Value = b;
-                        if (_joyNumber != null) _joyNumber.Value = i + 1;   // pin to the device it came from
-                        Plugin.Log?.LogInfo($"[NOXMFD] captured joy[{i}] '{joy.name}' button {b} for keybind '{_capturing.Id}'.");
-                        Disarm();   // also restores the background-input overrides
-                        return;
-                    }
+                {
+                    if (!joy.GetButton(b)) { _latched.Remove((i, b)); continue; }   // seen up → capturable again
+                    if (_latched.Contains((i, b)) || !joy.GetButtonDown(b)) continue;
+                    _capturing!.JoyEntry.Value = b;
+                    _capturing.JoyNumEntry.Value = i + 1;   // pin to the device it came from
+                    Plugin.Log?.LogInfo($"[NOXMFD] captured joy[{i}] '{joy.name}' button {b} for keybind '{_capturing.Id}'.");
+                    Disarm();   // also restores the background-input overrides
+                    return;
+                }
             }
         }
 
@@ -273,22 +293,21 @@ namespace NOXMFD
         // Rewired joystick button index. edge=false → held (IsPressed/GetButton, the CM keys); edge=true →
         // pressed-this-frame (IsDown/GetButtonDown, the gear keys). Joystick KeyCodes inside the
         // KeyboardShortcut are ignored — those go through the Rewired index instead.
-        private static bool Active(ConfigEntry<KeyboardShortcut> kb, ConfigEntry<int> joyBtn, bool edge)
+        private static bool Active(BindDef bind)
         {
-            KeyCode k = kb.Value.MainKey;
+            KeyCode k = bind.KeyEntry.Value.MainKey;
             bool kbd = k != KeyCode.None && k < KeyCode.JoystickButton0 &&
-                       (edge ? kb.Value.IsDown() : kb.Value.IsPressed());
-            return kbd || JoyBtn(joyBtn.Value, edge);
+                       (bind.Edge ? bind.KeyEntry.Value.IsDown() : bind.KeyEntry.Value.IsPressed());
+            return kbd || JoyBtn(bind.JoyEntry.Value, bind.JoyNumEntry.Value, bind.Edge);
         }
 
-        // Reads an explicit Rewired joystick button index (the number capture writes), honoring
-        // JoystickNumber (0 = any). edge selects GetButtonDown (tap) vs GetButton (held).
-        private static bool JoyBtn(int button, bool edge)
+        // Reads an explicit Rewired joystick button index (the number capture writes), honoring the
+        // bind's joystick number (0 = any). edge selects GetButtonDown (tap) vs GetButton (held).
+        private static bool JoyBtn(int button, int joyNum, bool edge)
         {
             if (button < 0 || !ReInput.isReady) return false;
             IList<Joystick> joys = ReInput.controllers.Joysticks;
             if (joys == null || joys.Count == 0) return false;
-            int joyNum = _joyNumber?.Value ?? 0;
             if (joyNum <= 0)   // any joystick
             {
                 for (int i = 0; i < joys.Count; i++)

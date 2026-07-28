@@ -551,6 +551,7 @@ namespace NOXMFD
                       .Append("\",\"description\":\"").Append(EscapeJson(b.Description))
                       .Append("\",\"key\":\"").Append(key == UnityEngine.KeyCode.None ? string.Empty : EscapeJson(key.ToString()))
                       .Append("\",\"joyButton\":").Append(b.JoyEntry.Value.ToString(CultureInfo.InvariantCulture))
+                      .Append(",\"joyNum\":").Append(b.JoyNumEntry.Value.ToString(CultureInfo.InvariantCulture))
                       .Append('}');
                 }
                 string cap = Keybinds.CapturingId;

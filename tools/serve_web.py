@@ -169,14 +169,14 @@ def _hud_options():
 KEYBINDS = [
     {"id": "flares", "section": "Countermeasure Keybinds", "label": "Dispense Flares",
      "description": "Select + deploy IR flares. Tap to pop a set, hold to keep popping.",
-     "key": "", "joyButton": -1},
+     "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "jammer", "section": "Countermeasure Keybinds", "label": "Activate Radar Jammer",
      "description": "Select + activate the radar jammer. HOLD to jam.",
-     "key": "J", "joyButton": 3},
+     "key": "J", "joyButton": 3, "joyNum": 2},
     {"id": "gear-up", "section": "Landing Gear Keybinds", "label": "Gear Up",
-     "description": "Raise the landing gear.", "key": "", "joyButton": -1},
+     "description": "Raise the landing gear.", "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "gear-down", "section": "Landing Gear Keybinds", "label": "Gear Down",
-     "description": "Lower the landing gear.", "key": "", "joyButton": -1},
+     "description": "Lower the landing gear.", "key": "", "joyButton": -1, "joyNum": 0},
 ]
 KB_STATE = {"capturing": None, "armed_at": 0.0}
 
@@ -187,6 +187,7 @@ def _keybinds_config():
         for b in KEYBINDS:
             if b["id"] == KB_STATE["capturing"]:
                 b["joyButton"] = 7
+                b["joyNum"] = 1
         KB_STATE["capturing"] = None
     return json.dumps({"binds": KEYBINDS, "capturing": KB_STATE["capturing"]}).encode("utf-8")
 
@@ -203,6 +204,7 @@ def _keybinds_command(env):
         KB_STATE["capturing"] = None
     elif cmd == "keybind.clear-joy" and row is not None:
         row["joyButton"] = -1
+        row["joyNum"] = 0
     else:
         return False
     return True
