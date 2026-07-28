@@ -426,6 +426,8 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/bdf/bdf.html");
                     else if (path == "/hud")
                         ServeAssetRel(ctx, "pages/hud/hud.html");
+                    else if (path == "/keybinds")
+                        ServeAssetRel(ctx, "pages/keybinds/keybinds.html");
                     else if (path == "/command")
                         HandleCommand(ctx);
                     else if (path == "/mfd")

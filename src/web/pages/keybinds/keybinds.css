@@ -1,0 +1,100 @@
+/* Extended-keybinds page — an in-game-menu style table: function | keyboard | joystick.
+   Colors from theme.css tokens only. */
+
+html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this is a full page */
+
+.kb-panel {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 26px 18px 40px;
+}
+
+.kb-title {
+  font-size: 24px;
+  letter-spacing: 4px;
+  color: var(--no-green);
+  text-align: center;
+}
+.kb-sub {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--no-green-dim);
+  text-align: center;
+  margin: 6px 0 22px;
+}
+
+/* header + rows share one grid template so the columns line up */
+.kb-head, .kb-row {
+  display: grid;
+  grid-template-columns: 1fr 170px 170px;
+  gap: 8px;
+  align-items: center;
+}
+.kb-head {
+  padding: 0 10px 6px;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--no-green-dim);
+  border-bottom: 1px solid var(--no-panel-border);
+}
+.kb-head span:not(:first-child) { text-align: center; }
+
+.kb-section {
+  margin: 18px 10px 6px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--no-green-deep);
+}
+
+.kb-row {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--no-panel-border);
+}
+.kb-row:hover { background: var(--no-panel-bg); }
+
+.kb-name  { font-size: 14px; letter-spacing: 1px; color: var(--no-green); }
+
+/* a bind cell: the clickable current-value box + its clear button */
+.kb-cell { display: flex; align-items: center; gap: 5px; }
+.kb-val {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--no-green-dark);
+  background: none;
+  color: var(--no-green);
+  font-family: var(--no-font);
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-align: center;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.kb-val:hover { border-color: var(--no-green-dim); }
+.kb-val.unbound { color: var(--no-green-dark); }
+.kb-val.capturing {
+  color: var(--no-amber);
+  border-color: var(--no-amber);
+  animation: kb-blink 1s step-end infinite;
+}
+.kb-val.rejected { color: var(--no-red); border-color: var(--no-red); }
+@keyframes kb-blink { 50% { opacity: 0.45; } }
+
+.kb-clear {
+  border: none;
+  background: none;
+  color: var(--no-green-dark);
+  font-family: var(--no-font);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  visibility: hidden;
+}
+.kb-row:hover .kb-clear.bound { visibility: visible; }
+.kb-clear:hover { color: var(--no-red); }
+
+#kb-empty { display: none; }
+.kb-panel.unavailable .kb-head,
+.kb-panel.unavailable .kb-rows,
+.kb-panel.unavailable .kb-sub { display: none; }
+.kb-panel.unavailable #kb-empty { display: block; }

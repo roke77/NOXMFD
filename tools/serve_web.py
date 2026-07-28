@@ -35,6 +35,7 @@ import pathlib
 import posixpath
 import socket
 import socketserver
+import time
 import urllib.parse
 import webbrowser
 
@@ -161,7 +162,68 @@ def _hud_options():
     }).encode("utf-8")
 
 
+# Stateful mock of the plugin's /keybinds-config + keybind.* commands, so the /keybinds page's
+# whole flow (render, keyboard set, joystick arm-capture) is drivable in the harness. Arming a
+# joystick capture "captures" a fake button ~1.5s later (simulated on the next poll after the
+# deadline — no threads).
+KEYBINDS = [
+    {"id": "flares", "section": "Countermeasure Keybinds", "label": "Dispense Flares",
+     "description": "Select + deploy IR flares. Tap to pop a set, hold to keep popping.",
+     "key": "", "joyButton": -1},
+    {"id": "jammer", "section": "Countermeasure Keybinds", "label": "Activate Radar Jammer",
+     "description": "Select + activate the radar jammer. HOLD to jam.",
+     "key": "J", "joyButton": 3},
+    {"id": "gear-up", "section": "Landing Gear Keybinds", "label": "Gear Up",
+     "description": "Raise the landing gear.", "key": "", "joyButton": -1},
+    {"id": "gear-down", "section": "Landing Gear Keybinds", "label": "Gear Down",
+     "description": "Lower the landing gear.", "key": "", "joyButton": -1},
+]
+KB_STATE = {"capturing": None, "armed_at": 0.0}
+
+
+def _keybinds_config():
+    # simulate the plugin capturing a stick button 1.5s after arming
+    if KB_STATE["capturing"] and time.monotonic() - KB_STATE["armed_at"] > 1.5:
+        for b in KEYBINDS:
+            if b["id"] == KB_STATE["capturing"]:
+                b["joyButton"] = 7
+        KB_STATE["capturing"] = None
+    return json.dumps({"binds": KEYBINDS, "capturing": KB_STATE["capturing"]}).encode("utf-8")
+
+
+def _keybinds_command(env):
+    cmd, bind = env.get("cmd", ""), env.get("bind", "")
+    row = next((b for b in KEYBINDS if b["id"] == bind), None)
+    if cmd == "keybind.set-key" and row is not None:
+        key = env.get("key", "")
+        row["key"] = "" if key in ("", "None") else key
+    elif cmd == "keybind.arm-joy" and row is not None:
+        KB_STATE.update(capturing=bind, armed_at=time.monotonic())
+    elif cmd == "keybind.cancel-joy":
+        KB_STATE["capturing"] = None
+    elif cmd == "keybind.clear-joy" and row is not None:
+        row["joyButton"] = -1
+    else:
+        return False
+    return True
+
+
 class H(http.server.SimpleHTTPRequestHandler):
+    def do_POST(self):
+        # /command mock: keybind.* commands mutate the keybind mock state; everything else is
+        # swallowed with 204, mirroring the plugin's fire-and-forget contract.
+        if self.path.split('?', 1)[0] == '/command':
+            try:
+                n = int(self.headers.get('Content-Length') or 0)
+                env = json.loads(self.rfile.read(n) or b'{}')
+            except (ValueError, OSError):
+                env = {}
+            _keybinds_command(env)
+            self.send_response(204)
+            self.end_headers()
+            return
+        self.send_error(404)
+
     def do_GET(self):
         path = self.path.split('?', 1)[0]
         if path in ('/', '/index.html'):
@@ -172,6 +234,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(_config(self.server.server_address[1]), 'application/json; charset=utf-8')
         if path == '/hud-options':
             return self._send(_hud_options(), 'application/json; charset=utf-8')
+        if path == '/keybinds-config':
+            return self._send(_keybinds_config(), 'application/json; charset=utf-8')
         if path == '/map-view':
             try:
                 return self._send(_map_page(), 'text/html; charset=utf-8')
