@@ -40,7 +40,24 @@ html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this
 }
 .kb-row:hover { background: var(--no-panel-bg); }
 
+.kb-section {
+  margin: 18px 10px 6px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--no-green-deep);
+}
+
+/* shared-behaviour note under a section header (e.g. how the WEAPONS cycle keys work) */
+.kb-note {
+  margin: 0 10px 8px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--no-green-dim);
+  max-width: 620px;
+}
+
 .kb-name  { font-size: 14px; letter-spacing: 1px; color: var(--no-green); }
+.kb-desc  { font-size: 10px; letter-spacing: 0.5px; color: var(--no-green-dim); margin-top: 3px; padding-right: 8px; }
 
 /* a bind cell: the clickable current-value box + its clear button */
 .kb-cell { display: flex; align-items: center; gap: 5px; }

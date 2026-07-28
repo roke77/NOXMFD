@@ -5,11 +5,13 @@ mod's *extended keybinds*: cockpit functions the game has no native keybind for.
 only keybind UI — the F1 (ConfigurationManager) menu shows none of these entries, though
 the values still persist in the plugin `.cfg`.
 
-One flat table, one row per function:
+One table, one row per function, grouped under three section headers — COUNTERMEASURES,
+GEAR, WEAPONS. A section can carry a note under its header for behaviour shared by its
+binds (WEAPONS uses it for how the cycle keys work), keeping the per-row text short.
 
 | column | content |
 |---|---|
-| **Function** | the function name; hover for a description |
+| **Function** | the function name with a one-line description beneath it |
 | **Keyboard** | current key; click to capture, `Esc` cancels, `×` clears |
 | **Joystick / HOTAS** | current button as `J<stick> B<button>`; click to arm capture, `×` clears |
 
@@ -68,9 +70,11 @@ Capture is split by source, because each side can only see its own input:
 
 ## Plumbing
 
-- `GET /keybinds-config` — the bind registry (id, label, description, current key + joy
-  button/stick) plus which bind is armed for capture. The page polls it at 600 ms; the
-  poll is also how a capture result arrives.
+- `GET /keybinds-config` — the bind registry (id, section title, label, description,
+  current key + joy button/stick), the per-section `notes`, and which bind is armed for
+  capture. The page polls it at 600 ms; the poll is also how a capture result arrives.
+  Section display titles and notes come from `Keybinds.SectionTitle`/`SectionNote` — the
+  `.cfg` section names underneath are persistence identity and never change.
 - `POST /command`: `keybind.set-key { bind, key }` (`""`/`"None"` clears),
   `keybind.arm-joy { bind }`, `keybind.cancel-joy`, `keybind.clear-joy { bind }`. Commands
   drain on the main thread from `MissionLifecycle.Update` (persistent), so the page works

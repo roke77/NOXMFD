@@ -167,26 +167,28 @@ def _hud_options():
 # joystick capture "captures" a fake button ~1.5s later (simulated on the next poll after the
 # deadline — no threads).
 KEYBINDS = [
-    {"id": "flares", "section": "Countermeasure Keybinds", "label": "Flares",
+    {"id": "flares", "section": "COUNTERMEASURES", "label": "Flares",
      "description": "Select + deploy IR flares. Tap to pop a set, hold to keep popping.",
      "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "jammer", "section": "Countermeasure Keybinds", "label": "Jammer",
+    {"id": "jammer", "section": "COUNTERMEASURES", "label": "Jammer",
      "description": "Select + activate the radar jammer. HOLD to jam.",
      "key": "J", "joyButton": 3, "joyNum": 2},
-    {"id": "gear-up", "section": "Landing Gear Keybinds", "label": "Gear Up",
+    {"id": "gear-up", "section": "GEAR", "label": "Gear Up",
      "description": "Raise the landing gear.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "gear-down", "section": "Landing Gear Keybinds", "label": "Gear Down",
+    {"id": "gear-down", "section": "GEAR", "label": "Gear Down",
      "description": "Lower the landing gear.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "cycle-guns", "section": "Weapon Keybinds", "label": "Cycle Guns",
-     "description": "Move the gun soft-selection to the next gun.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "cycle-missiles", "section": "Weapon Keybinds", "label": "Cycle Missiles",
-     "description": "Move the release soft-selection to the next missile or rocket.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "cycle-bombs", "section": "Weapon Keybinds", "label": "Cycle Bombs",
-     "description": "Move the release soft-selection to the next bomb.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "gun-trigger", "section": "Weapon Keybinds", "label": "Gun Trigger",
-     "description": "Select the soft-selected gun and fire it. HOLD for continuous fire.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "weapon-release", "section": "Weapon Keybinds", "label": "Weapon Release",
-     "description": "Select the soft-selected missile or bomb and release it.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cycle-guns", "section": "WEAPONS", "label": "Cycle Guns",
+     "description": "Select a gun.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cycle-missiles", "section": "WEAPONS", "label": "Cycle Missiles",
+     "description": "Select a missile or rocket.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cycle-bombs", "section": "WEAPONS", "label": "Cycle Bombs",
+     "description": "Select a bomb.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "gun-trigger", "section": "WEAPONS", "label": "Gun Trigger",
+     "description": "Fire your gun; HOLD for continuous fire. With a non-gun selected, the first press only switches to the gun — press again to fire.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "weapon-release", "section": "WEAPONS", "label": "Weapon Release",
+     "description": "Release your missile/bomb; HOLD to keep releasing. With a gun selected, the first press only switches to it — press again to release.",
+     "key": "", "joyButton": -1, "joyNum": 0},
 ]
 KB_STATE = {"capturing": None, "armed_at": 0.0}
 
@@ -199,7 +201,11 @@ def _keybinds_config():
                 b["joyButton"] = 7
                 b["joyNum"] = 1
         KB_STATE["capturing"] = None
-    return json.dumps({"binds": KEYBINDS, "capturing": KB_STATE["capturing"]}).encode("utf-8")
+    notes = {"WEAPONS": "Cycle keys select the last soft-selected weapon of their type, or the first "
+                        "in the list. Repeated presses cycle to the next one, skipping depleted "
+                        "weapons. Cycling to a different type leaves the current one soft-selected."}
+    return json.dumps({"binds": KEYBINDS, "notes": notes,
+                       "capturing": KB_STATE["capturing"]}).encode("utf-8")
 
 
 def _keybinds_command(env):

@@ -103,13 +103,13 @@ namespace NOXMFD
             // selections: one gun, one missile-or-bomb; cycle keys move them, fire keys commit them).
             const string wpn = "Weapon Keybinds";
             Def(config, "cycle-guns", wpn, "CycleGuns", "Cycle Guns", edge: true,
-                "Select the next gun. From another weapon class, the first press selects the gun you last had (or the first).",
+                "Select a gun.",
                 WeaponSelectors.CycleGun);
             Def(config, "cycle-missiles", wpn, "CycleMissiles", "Cycle Missiles", edge: true,
-                "Select the next missile or rocket. From another weapon class, the first press selects the one you last had (or the first).",
+                "Select a missile or rocket.",
                 WeaponSelectors.CycleMissile);
             Def(config, "cycle-bombs", wpn, "CycleBombs", "Cycle Bombs", edge: true,
-                "Select the next bomb. From another weapon class, the first press selects the one you last had (or the first).",
+                "Select a bomb.",
                 WeaponSelectors.CycleBomb);
             Def(config, "gun-trigger", wpn, "GunTrigger", "Gun Trigger", edge: false,
                 "Fire your gun; HOLD for continuous fire. With a non-gun selected, the first press only switches to the gun — press again to fire.",
@@ -142,6 +142,27 @@ namespace NOXMFD
         // Keybind entries persist in the .cfg but never show in the F1 menu — the page owns the UI.
         private static ConfigurationManagerAttributes Hidden() =>
             new ConfigurationManagerAttributes { Browsable = false };
+
+        // Display titles for the page's section headers, keyed by .cfg section (the cfg names are
+        // persistence identity and can't change).
+        internal static string SectionTitle(string section) => section switch
+        {
+            "Countermeasure Keybinds" => "COUNTERMEASURES",
+            "Landing Gear Keybinds"   => "GEAR",
+            "Weapon Keybinds"         => "WEAPONS",
+            _ => section,
+        };
+
+        // Optional note rendered under a section header — behaviour shared by the section's binds,
+        // so the per-bind descriptions stay short. Keyed by .cfg section like SectionTitle.
+        internal static string SectionNote(string section) => section switch
+        {
+            "Weapon Keybinds" =>
+                "Cycle keys select the last soft-selected weapon of their type, or the first in the list. " +
+                "Repeated presses cycle to the next one, skipping depleted weapons. " +
+                "Cycling to a different type leaves the current one soft-selected.",
+            _ => null,
+        };
 
         // ── Bind writes (driven by the /keybinds page via CommandDispatcher, main thread) ───────────
         // Set a bind's keyboard key from its Unity KeyCode name; "" / "None" clears. Rejects unknown

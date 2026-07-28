@@ -7,6 +7,7 @@ var rowsEl  = document.getElementById('kb-rows');
 var panelEl = document.getElementById('kb-panel');
 
 var binds     = [];      // last /keybinds-config payload
+var notes     = {};      // per-section shared-behaviour note, keyed by section title
 var capturing = null;    // plugin-side joy capture: bind id or null (server state, mirrored)
 var kbCapture = null;    // browser-side keyboard capture: bind id or null (local state)
 var lastJson  = '';      // skip re-render when nothing changed
@@ -84,14 +85,33 @@ function cell(bind, kind) {
 
 function render() {
   rowsEl.textContent = '';
+  var section = null;
   binds.forEach(function (b) {
+    if (b.section !== section) {
+      section = b.section;
+      var h = document.createElement('div');
+      h.className = 'kb-section';
+      h.textContent = section;
+      rowsEl.appendChild(h);
+      if (notes[section]) {
+        var note = document.createElement('div');
+        note.className = 'kb-note';
+        note.textContent = notes[section];
+        rowsEl.appendChild(note);
+      }
+    }
     var row = document.createElement('div');
     row.className = 'kb-row';
+    var fn = document.createElement('div');
     var name = document.createElement('div');
     name.className = 'kb-name';
     name.textContent = b.label.toUpperCase();
-    name.title = b.description || '';
-    row.appendChild(name);
+    fn.appendChild(name);
+    var desc = document.createElement('div');
+    desc.className = 'kb-desc';
+    desc.textContent = b.description || '';
+    fn.appendChild(desc);
+    row.appendChild(fn);
     row.appendChild(cell(b, 'key'));
     row.appendChild(cell(b, 'joy'));
     rowsEl.appendChild(row);
@@ -152,6 +172,7 @@ function refresh() {
     if (json === lastJson) return;
     lastJson  = json;
     binds     = cfg.binds || [];
+    notes     = cfg.notes || {};
     capturing = cfg.capturing || null;
     render();
   }).catch(function () { panelEl.classList.add('unavailable'); });

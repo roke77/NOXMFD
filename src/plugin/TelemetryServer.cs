@@ -546,7 +546,7 @@ namespace NOXMFD
                     first = false;
                     var key = b.KeyEntry.Value.MainKey;
                     sb.Append("{\"id\":\"").Append(EscapeJson(b.Id))
-                      .Append("\",\"section\":\"").Append(EscapeJson(b.Section))
+                      .Append("\",\"section\":\"").Append(EscapeJson(Keybinds.SectionTitle(b.Section)))
                       .Append("\",\"label\":\"").Append(EscapeJson(b.Label))
                       .Append("\",\"description\":\"").Append(EscapeJson(b.Description))
                       .Append("\",\"key\":\"").Append(key == UnityEngine.KeyCode.None ? string.Empty : EscapeJson(key.ToString()))
@@ -554,8 +554,24 @@ namespace NOXMFD
                       .Append(",\"joyNum\":").Append(b.JoyNumEntry.Value.ToString(CultureInfo.InvariantCulture))
                       .Append('}');
                 }
+                // Per-section notes (shared behaviour text under a section header), keyed by the
+                // display title the binds carry in "section".
+                sb.Append("],\"notes\":{");
+                bool firstNote = true;
+                var seen = new List<string>(4);
+                foreach (var b in Keybinds.Binds)
+                {
+                    if (seen.Contains(b.Section)) continue;
+                    seen.Add(b.Section);
+                    string note = Keybinds.SectionNote(b.Section);
+                    if (note == null) continue;
+                    if (!firstNote) sb.Append(',');
+                    firstNote = false;
+                    sb.Append('"').Append(EscapeJson(Keybinds.SectionTitle(b.Section)))
+                      .Append("\":\"").Append(EscapeJson(note)).Append('"');
+                }
                 string cap = Keybinds.CapturingId;
-                sb.Append("],\"capturing\":").Append(cap == null ? "null" : "\"" + EscapeJson(cap) + "\"").Append('}');
+                sb.Append("},\"capturing\":").Append(cap == null ? "null" : "\"" + EscapeJson(cap) + "\"").Append('}');
 
                 byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
                 ctx.Response.StatusCode      = 200;
