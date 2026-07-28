@@ -404,6 +404,8 @@ namespace NOXMFD
                         ServeConfig(ctx);
                     else if (path == "/hud-options")
                         ServeHudOptions(ctx);
+                    else if (path == "/keybinds-config")
+                        ServeKeybindsConfig(ctx);
                     else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                         ServeAsset(ctx, path);
                     else if (path == "/map-view")
@@ -514,6 +516,45 @@ namespace NOXMFD
                     "{{\"localhost\":\"http://localhost:{0}\",\"lanUrl\":\"{1}\",\"port\":{0}}}",
                     Port, EscapeJson(LanUrl ?? string.Empty));
                 byte[] body = Encoding.UTF8.GetBytes(json);
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // The keybind registry as JSON for the /keybinds page: every bind's identity + current values,
+        // plus which bind (if any) is armed for joystick capture — the page polls this while open, and
+        // it's also how a capture result comes back. Safe off the main thread: the registry list is
+        // built once at Awake and never mutated, and ConfigEntry/CapturingId reads are plain field reads
+        // (worst case one poll stale).
+        private static void ServeKeybindsConfig(HttpListenerContext ctx)
+        {
+            try
+            {
+                var sb = new StringBuilder(512);
+                sb.Append("{\"binds\":[");
+                bool first = true;
+                foreach (var b in Keybinds.Binds)
+                {
+                    if (!first) sb.Append(',');
+                    first = false;
+                    var key = b.KeyEntry.Value.MainKey;
+                    sb.Append("{\"id\":\"").Append(EscapeJson(b.Id))
+                      .Append("\",\"section\":\"").Append(EscapeJson(b.Section))
+                      .Append("\",\"label\":\"").Append(EscapeJson(b.Label))
+                      .Append("\",\"description\":\"").Append(EscapeJson(b.Description))
+                      .Append("\",\"key\":\"").Append(key == UnityEngine.KeyCode.None ? string.Empty : EscapeJson(key.ToString()))
+                      .Append("\",\"joyButton\":").Append(b.JoyEntry.Value.ToString(CultureInfo.InvariantCulture))
+                      .Append('}');
+                }
+                string cap = Keybinds.CapturingId;
+                sb.Append("],\"capturing\":").Append(cap == null ? "null" : "\"" + EscapeJson(cap) + "\"").Append('}');
+
+                byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
                 ctx.Response.StatusCode      = 200;
                 ctx.Response.ContentType     = "application/json; charset=utf-8";
                 ctx.Response.ContentLength64 = body.Length;

@@ -138,10 +138,10 @@ Capture responsibilities are deliberately split:
    (~4 Hz while open, matching how other pages refresh non-stream data) — it's also how
    the joystick-capture result comes back.
 3. **`/command` additions** (main-thread via `CommandDispatcher`):
-   - `keybind-set-key { id, keyCode }` — validate the KeyCode name, write the entry
-     (`KeyCode.None` clears).
-   - `keybind-arm-joy { id }` / `keybind-cancel-joy` — arm/disarm the existing capture.
-   - `keybind-clear-joy { id }` — set the joy entry to `-1`.
+   - `keybind.set-key { bind, key }` — validate the KeyCode name, write the entry
+     (`""`/`"None"` clears).
+   - `keybind.arm-joy { bind }` / `keybind.cancel-joy` — arm/disarm the existing capture.
+   - `keybind.clear-joy { bind }` — set the joy entry to `-1`.
 
    Persistence is free: writing a `ConfigEntry.Value` saves the `.cfg`.
 4. **Keyboard capture moves fully to the page too** — with the F1 menu retired there is no

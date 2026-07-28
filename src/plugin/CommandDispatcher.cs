@@ -27,6 +27,8 @@ namespace NOXMFD
         public string group;   // tgt.set / tgt.only : "faction" | "category" | "vehicle"
         public int    index;   // tgt.set / tgt.only : toggle index within the group
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
+        public string bind;    // keybind.* : BindDef id ("flares", "gear-up", ...)
+        public string key;     // keybind.set-key : Unity KeyCode name ("" or "None" clears)
     }
 
     internal static class CommandDispatcher
@@ -46,7 +48,17 @@ namespace NOXMFD
                 { "hud.set",         HudSet },
                 { "hud.mode",        HudMode },
                 { "declutter.set",   DeclutterSet },
+                { "keybind.set-key",    e => Log("set-key",    e.bind, Keybinds.SetKeyBind(e.bind, e.key)) },
+                { "keybind.arm-joy",    e => Log("arm-joy",    e.bind, Keybinds.ArmJoyCapture(e.bind)) },
+                { "keybind.cancel-joy", e => Keybinds.CancelJoyCapture() },
+                { "keybind.clear-joy",  e => Log("clear-joy",  e.bind, Keybinds.ClearJoyBind(e.bind)) },
             };
+
+        // Keybind writes just delegate to the Keybinds registry; log rejections (unknown id / bad key).
+        private static void Log(string op, string bind, bool ok)
+        {
+            if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] keybind.{op} '{bind}': rejected.");
+        }
 
         // True for a cmd we have a handler for — lets the server reject unknown commands at the
         // boundary (422) instead of silently queueing them.

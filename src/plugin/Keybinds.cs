@@ -62,6 +62,7 @@ namespace NOXMFD
             public string Id;                                  // stable id for the web API ("flares", "gear-up", ...)
             public string Section;                             // grouping header on the page (and .cfg section)
             public string Label;                               // row name on the page
+            public string Description;                         // row tooltip on the page
             public bool Edge;                                  // true = fire once per press; false = fire every frame held
             public Action<Aircraft> Drive;                     // the action, run on the main thread with a live aircraft
             public ConfigEntry<KeyboardShortcut> KeyEntry;     // keyboard/mouse source
@@ -115,7 +116,7 @@ namespace NOXMFD
         {
             _binds.Add(new BindDef
             {
-                Id = id, Section = section, Label = label, Edge = edge, Drive = drive,
+                Id = id, Section = section, Label = label, Description = description, Edge = edge, Drive = drive,
                 KeyEntry = config.Bind(section, key, new KeyboardShortcut(),
                     new ConfigDescription("Keyboard/mouse key: " + description, null, Hidden())),
                 JoyEntry = config.Bind(section, key + "JoystickButton", -1,
@@ -126,6 +127,24 @@ namespace NOXMFD
         // Keybind entries persist in the .cfg but never show in the F1 menu — the page owns the UI.
         private static ConfigurationManagerAttributes Hidden() =>
             new ConfigurationManagerAttributes { Browsable = false };
+
+        // ── Bind writes (driven by the /keybinds page via CommandDispatcher, main thread) ───────────
+        // Set a bind's keyboard key from its Unity KeyCode name; "" / "None" clears. Rejects unknown
+        // ids, unparseable names, and joystick KeyCodes (those go through the Rewired index instead).
+        internal static bool SetKeyBind(string id, string keyName)
+        {
+            KeyCode key = KeyCode.None;
+            bool clear = string.IsNullOrEmpty(keyName) || keyName == "None";
+            if (!clear && (!Enum.TryParse(keyName, ignoreCase: true, out key) || key >= KeyCode.JoystickButton0))
+                return false;
+            foreach (var b in _binds)
+                if (b.Id == id)
+                {
+                    b.KeyEntry.Value = clear ? new KeyboardShortcut() : new KeyboardShortcut(key);
+                    return true;
+                }
+            return false;
+        }
 
         // ── Joystick capture (driven by the /keybinds page) ─────────────────────────────────────────
         // Arm capture for a bind id: the next joystick button pressed is written into its joy entry.
