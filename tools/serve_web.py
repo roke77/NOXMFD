@@ -385,7 +385,10 @@ def main():
     # keeps every reload responsive. daemon_threads so Ctrl+C exits without waiting on open sockets.
     class Server(socketserver.ThreadingTCPServer):
         daemon_threads = True
-        allow_reuse_address = True
+        # On Windows SO_REUSEADDR lets a SECOND instance bind the same port while the first is
+        # alive — stale servers then keep answering with old code. Windows doesn't need the flag
+        # to rebind after a normal exit, so only use it on POSIX (where it just skips TIME_WAIT).
+        allow_reuse_address = os.name != "nt"
     with Server(("127.0.0.1", args.port), H) as s:
         url = f"http://127.0.0.1:{args.port}/"
         print(f"serving on {url}")
