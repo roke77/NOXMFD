@@ -28,7 +28,7 @@ const wpSelIconImg  = document.getElementById('wp-sel-icon');
 // full:    fullSlots[i] = {top,height} of weapon slot i down the left column (L1..L5);
 //          iconArea = {top,height} of the right-half weapon-image box.
 // cmBand = {top,height} of the first key band (both profiles).
-let wpnData = { items: [], selWeapon: null };
+let wpnData = { items: [], selWeapon: null, softGun: null, softRel: null };
 let cmData  = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 let layout  = 'compact';
 let slotYs  = null;
@@ -149,6 +149,10 @@ function renderWpn() {
     positionRow(i, el.item);
     el.ammo.innerHTML = (w.f > 0) ? ('<span>' + w.a + '</span> / ' + w.f) : '';
     el.item.classList.toggle('sel',   w.n === wpnData.selWeapon);
+    // weapon-keybind soft selections (gun + missile/bomb): outline, suppressed when the entry is
+    // the actively selected weapon — the filled box already says it
+    el.item.classList.toggle('soft',  w.n !== wpnData.selWeapon &&
+                                      (w.n === wpnData.softGun || w.n === wpnData.softRel));
     el.item.classList.toggle('empty', w.f > 0 && w.a === 0);
   }
 
@@ -227,7 +231,8 @@ window.addEventListener('message', function(e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
   if (m.type === 'wpn') {
-    wpnData = { items: Array.isArray(m.items) ? m.items : [], selWeapon: m.selWeapon || null };
+    wpnData = { items: Array.isArray(m.items) ? m.items : [], selWeapon: m.selWeapon || null,
+                softGun: m.softGun || null, softRel: m.softRel || null };
     updatePageInd(typeof m.page === 'number' ? m.page : 1, typeof m.pages === 'number' ? m.pages : 1);
     renderWpn();
   } else if (m.type === 'wpn-layout') {

@@ -611,6 +611,7 @@ function forwardWpnToPanes() {
     const sl = wpnPaneSlice(idx);
     iframe.contentWindow.postMessage(
       { mfd: true, type: 'wpn', items: sl.items, selWeapon: wpnData.selWeapon,
+        softGun: wpnData.softGun, softRel: wpnData.softRel,
         page: sl.page, pages: sl.pages }, '*');
   });
 }
@@ -715,6 +716,7 @@ function forwardWpnToFrame() {
   const start = wpnPage * WPN_MAX_DISPLAY;
   const items = list.slice(start, start + WPN_MAX_DISPLAY);
   w.postMessage({ mfd: true, type: 'wpn', items: items, selWeapon: wpnData.selWeapon,
+                  softGun: wpnData.softGun, softRel: wpnData.softRel,
                   page: maxPage > 0 ? wpnPage + 1 : 1, pages: maxPage + 1 }, '*');
 
   // Wire each visible weapon's LEFT line-select key (keys 1..5) to select that weapon: a bezel
@@ -915,7 +917,7 @@ function renderIndicators() {
 
 // Latest loadout snapshot mirrored from the map iframe (postMessage). Even when WPN isn't
 // in view we keep it fresh, so opening the page renders immediately without a round-trip.
-let wpnData      = { items: [], selWeapon: null };
+let wpnData      = { items: [], selWeapon: null, softGun: null, softRel: null };
 let wpnPage = 0;             // 0-indexed page for the weapon list pagination (full-view nav state)
 const WPN_MAX_DISPLAY = 5;   // weapons per page = 5 line-select slots (keys 1..5)
 
@@ -1120,7 +1122,8 @@ window.addEventListener('message', function(e) {
     if (splitMode) forwardStatusToPanes();
   } else if (m.type === 'loadout') {
     const prevSel = wpnData.selWeapon;
-    wpnData = { items: m.items || [], selWeapon: m.selWeapon || null };
+    wpnData = { items: m.items || [], selWeapon: m.selWeapon || null,
+                softGun: m.softGun || null, softRel: m.softRel || null };
     const selChanged = wpnData.selWeapon && wpnData.selWeapon !== prevSel;
     // Full-view: follow the in-game selection to its page when it moves off the current page.
     // Only on an actual change, so manual paging is preserved on ammo/loadout ticks.

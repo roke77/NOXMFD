@@ -257,6 +257,7 @@
       const st = wpnState();
       wpnPage = st.page;
       w.postMessage({ mfd: true, type: 'wpn', items: st.visible, selWeapon: lo.selWeapon,
+                      softGun: lo.softGun || null, softRel: lo.softRel || null,
                       page: st.maxPage > 0 ? st.page + 1 : 1, pages: st.maxPage + 1 }, '*');
       const key = st.page + '|' + st.maxPage + '|' + st.visible.map(function (it) { return it.n; }).join(',');
       if (currentPage === 'wpn' && key !== wpnNavKey) { wpnNavKey = key; renderNav(); }

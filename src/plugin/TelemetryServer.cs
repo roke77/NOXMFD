@@ -1004,7 +1004,8 @@ namespace NOXMFD
                 "\"iconOrient\":{18},\"iconScale\":{19:0.000}," +
                 "\"flares\":{20},\"flaresMax\":{21},\"ewKJ\":{22:0.0},\"ewKJMax\":{23:0.0}," +
                 "\"selWeapon\":\"{24}\",\"cmCat\":{25},\"tgpActive\":{26}," +
-                "\"fuel\":{27:0.000},\"thr\":{28:0.000},\"hasAb\":{29},\"abStart\":{30:0.000},",
+                "\"fuel\":{27:0.000},\"thr\":{28:0.000},\"hasAb\":{29},\"abStart\":{30:0.000}," +
+                "\"softGun\":\"{31}\",\"softRel\":\"{32}\",",
                 s.Time,
                 EscapeJson(s.PlaneName ?? string.Empty),
                 EscapeJson(s.MissionName ?? string.Empty),
@@ -1022,7 +1023,8 @@ namespace NOXMFD
                 EscapeJson(s.SelWeapon ?? string.Empty), s.CmCategory,
                 s.TgpActive ? "true" : "false",
                 s.Fuel, s.Throttle,
-                s.HasAfterburner ? "true" : "false", s.AbStart);
+                s.HasAfterburner ? "true" : "false", s.AbStart,
+                EscapeJson(s.SoftGun ?? string.Empty), EscapeJson(s.SoftRel ?? string.Empty));
 
             return head + "\"loadout\":" + LoadoutArray(s.Loadout)
                         + ",\"colors\":{"

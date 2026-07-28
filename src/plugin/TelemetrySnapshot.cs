@@ -47,6 +47,8 @@ namespace NOXMFD
 
         // Currently selected systems (for highlighting).
         public string SelWeapon;   // weaponName of the selected weapon
+        public string SoftGun;     // gun soft-selection (WeaponSelectors) — WPN page outline
+        public string SoftRel;     // missile/bomb soft-selection — WPN page outline
         public byte   CmCategory;  // selected countermeasure: 0 none, 1 flares, 2 EW, 3 chaff
 
         // Aircraft map-icon hints (the icon PNG itself is served separately at /icon).

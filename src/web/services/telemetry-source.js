@@ -188,7 +188,8 @@ export class TelemetrySource {
     });
 
     // Loadout (the WPN page mirrors it without opening its own /stream).
-    this._postUp({ type: 'loadout', items: d.loadout || [], selWeapon: d.selWeapon || null });
+    this._postUp({ type: 'loadout', items: d.loadout || [], selWeapon: d.selWeapon || null,
+                   softGun: d.softGun || null, softRel: d.softRel || null });
 
     // TGT filter panel — pass the mod's "tgt" block straight through (present:false when the game's
     // TargetListSelector isn't up). The TGT page renders the toggle states and drives the tgt.* cmds.
@@ -206,7 +207,7 @@ export class TelemetrySource {
 
   // On mission exit, tell every consumer the data is gone so no page renders stale state.
   _emitEmpties() {
-    this._postUp({ type: 'loadout', items: [], selWeapon: null });
+    this._postUp({ type: 'loadout', items: [], selWeapon: null, softGun: null, softRel: null });
     this._postUp({ type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 });
     this._postUp({ type: 'tgp', active: false });
     this._postUp({ type: 'mapinfo', mission: null, grid: null });

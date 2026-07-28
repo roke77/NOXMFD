@@ -117,6 +117,9 @@
 .wp-item.empty .wp-ammo span { color: var(--no-red); }
 .wp-item.sel .wp-name             { background: var(--no-green); color: var(--no-ink); }
 .wp-item.empty.sel .wp-name       { background: var(--no-red); color: var(--no-ink); }
+/* weapon-keybind soft selection (see WeaponSelectors.cs): stroked twin of the .sel filled box */
+.wp-item.soft .wp-name            { outline: 1px solid var(--no-green); outline-offset: 1px; }
+.wp-item.empty.soft .wp-name      { outline-color: var(--no-red); }
 
 /* Bottom-right page indicator (e.g. "PAGE 1/2") — same boxed style as the map's GRID box.
    Only shown when the loadout spans more than one page (> 4 weapons); see updatePageInd. */
