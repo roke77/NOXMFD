@@ -33,6 +33,61 @@ The binds that exist today — these seed the page's table:
 | Gear Up | raise gear (no-op if up / moving / on ground) | edge |
 | Gear Down | lower gear (no-op if down / moving / on ground) | edge |
 
+## New binds: weapon cycling + firing (the two soft selectors)
+
+Five new functions ship with the page, all built on one idea: the mod keeps **two background
+("soft") selections** alive at all times — one over a *gun*, one over a *missile-or-bomb* —
+independent of the game's single active-weapon selection. Cycle keys move the soft
+selections; the fire keys commit them (select + activate in one press):
+
+| Functionality | Behaviour | Driven |
+|---|---|---|
+| Cycle Guns | advance the gun soft-selector through the loadout's guns | edge |
+| Cycle Missiles | advance the release soft-selector through missiles **and rockets** | edge |
+| Cycle Bombs | advance the release soft-selector through bombs | edge |
+| Gun Trigger | make the soft-selected gun (or the first gun found) the active weapon and fire it; hold for continuous fire | held |
+| Weapon Release | make the soft-selected missile/bomb (or the first found) the active weapon and release it | edge |
+
+Design decisions:
+
+- **Two selectors, three cycle keys.** The gun selector is moved only by Cycle Guns. The
+  *release* selector is a single pointer moved by two keys, each constraining it to its
+  class: Cycle Missiles walks the missile/rocket entries, Cycle Bombs walks the bomb
+  entries. Whichever was cycled last is what Weapon Release fires.
+- **Classification comes from the game's own `WeaponInfo` public bools** (no reflection):
+  `gun`, `missile`, `bomb` (+`glideBomb`). Rockets carry none of the guided flags — the
+  release bucket is `missile || bomb || glideBomb ||` *unclassified ordnance* (not gun, not
+  jammer/cargo/troops/sling/hideInDisplay). Verify a stock rocket pod's flags in-game
+  before locking the rule (investigation item).
+- **Selectors point at loadout entries, not stations** — the same aggregated-by-name list
+  the WPN page shows (`BuildLoadout`). Committing a selection resolves name → first live
+  station, reusing the exact station-resolution + `SetActiveStation` + `ShowWeaponStation`
+  sequence `CommandDispatcher.WeaponSelect` already implements (extract it to a shared
+  helper rather than duplicating).
+- **Firing goes through `WeaponManager.Fire()`**, the same public entry the stock trigger
+  drives — it already handles safety (`SafetyIsOn`), guns-linked (`FireGuns`), salvo, and
+  the network-correct launch path. Gun Trigger calls it every frame held (`Ready()`
+  rate-limits, matching stock gun behaviour); Weapon Release is one press = one release.
+- **Selectors follow the active selection.** When the game's active weapon is (or becomes)
+  a gun, the gun selector snaps to it; likewise a missile/bomb snaps the release selector.
+  So the fire keys always commit what the pilot most recently chose — by cycle key *or* by
+  the stock weapon-cycle — and never surprise-switch away from a manually selected weapon.
+- **Lifecycle:** selectors reset to "first of class" on aircraft change / loadout change,
+  and clamp when an entry disappears. Cycling doesn't skip empty weapons (`Ready()` simply
+  won't fire them), same as the stock cycle.
+
+### WPN page: soft-selection display
+
+Both soft selections are visible on the WPN page as an **outline box** over the
+corresponding weapon entry label — same geometry as the active-weapon box but stroked, not
+filled. When a soft selection coincides with the actively selected weapon (the filled green
+box), the outline is suppressed — the filled box already says it.
+
+Plumbing: the telemetry snapshot gains the two soft-selected entry names next to
+`SelWeapon`; the shell mirrors them into the existing `{type:'wpn', items, selWeapon}`
+message it posts to WPN iframes; `wpn.js` adds an outline class to matching entries. Colors
+from theme tokens (`--no-green` for the outline, matching the filled box's stroke).
+
 Relevant web plumbing that already exists (`TelemetryServer.cs`):
 
 - Per-page routes (`/avn`, `/hud`, …) serving embedded assets via `ServeAssetRel`.
@@ -105,6 +160,11 @@ Capture responsibilities are deliberately split:
   have to be diffed). Out of scope for v1; the defaults stay unbound, same as today.
 - Multi-stick HOTAS: unchanged known ceiling — `JoystickNumber` is shared across binds
   (pinned on capture); per-bind device support stays the documented upgrade path.
+- **Rocket classification**: confirm what flags a stock unguided rocket pod carries on
+  `WeaponInfo` (expected: none of gun/missile/bomb) so the release-bucket rule is right.
+- **Stock trigger path**: confirm `PilotPlayerState` drives `WeaponManager.Fire()` for the
+  stock fire button (decompile it into `decompiled/`) so Gun Trigger / Weapon Release are
+  byte-for-byte the same behaviour, including multiplayer correctness.
 
 ## Milestones
 
@@ -113,8 +173,11 @@ Capture responsibilities are deliberately split:
 2. `GET /keybinds-config` + the three `/command` handlers.
 3. `/keybinds` page: table rendering from the JSON, keyboard capture + KeyCode mapping.
 4. Joystick capture wiring + the background-input test on real hardware.
-5. Polish: grouping headers, clear controls, unsupported-key feedback, README entry.
+5. Soft-selector engine: classification, the two selectors, follow-active-selection,
+   lifecycle resets; then the five new binds as registry rows driving it.
+6. WPN page outline display (snapshot fields → shell mirror → `wpn.js` outline class).
+7. Polish: grouping headers, clear controls, unsupported-key feedback, README entry.
 
-Future keybinds (not in this branch, but the registry must make them one-row additions):
+Future keybinds (beyond this branch, but the registry must make them one-row additions):
 whatever comes next — e.g. dedicated autopilot modes, lights, canopy — each is a new
 `drive()` + two config entries in the table, zero page changes.
