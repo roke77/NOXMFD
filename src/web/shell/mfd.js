@@ -377,15 +377,20 @@ function renderSplitLabels() {
     const paneTag = paneIdx === 0 ? 'top' : 'bot';   // pane identity for click dispatch (orientation-agnostic)
 
     if (page === 'main') {
-      // MAIN_SPLIT_ITEMS instead of SPLIT_SLOTS/NAV.main — see mainPaneSlice. Reuses listPaneLayout's
-      // six physical positions (the same shape WPN's pagination already occupies): the back slot
-      // holds PREV, the four middle slots the items, and the last slot NEXT — each placed on its own
-      // position rather than flowed, so a missing PREV doesn't shift the items up a slot.
+      // MAIN_SPLIT_ITEMS instead of SPLIT_SLOTS/NAV.main — see mainPaneSlice. Unlike WPN, MAIN has no
+      // back-button, so nothing reserves the first slot: the cells — PREV (only past page one), the
+      // page's items, then NEXT (only before the last page) — FLOW into the six physical positions in
+      // visual order. Four items per page means a middle page's PREV + 4 + NEXT is exactly six, and
+      // page one's items start in the FIRST slot rather than leaving it empty behind a phantom PREV.
+      // (main-paging.test.js locks the six-slot budget.)
       const L = listPaneLayout(paneIdx, 'main');
+      const positions = [L.main, L.items[0], L.items[1], L.items[2], L.items[3], L.next];
       const slice = mainPaneSlice(paneIdx);
-      if (slice.hasPrev) placeSplitKey(L.main, 'PREV', 'main-prev', paneTag);
-      slice.items.forEach(function (item, i) { placeSplitKey(L.items[i], item.label, item.action, paneTag); });
-      if (slice.hasNext) placeSplitKey(L.next, 'NEXT', 'main-next', paneTag);
+      const cells = [];
+      if (slice.hasPrev) cells.push({ label: 'PREV', action: 'main-prev' });
+      slice.items.forEach(function (item) { cells.push({ label: item.label, action: item.action }); });
+      if (slice.hasNext) cells.push({ label: 'NEXT', action: 'main-next' });
+      cells.forEach(function (cell, i) { placeSplitKey(positions[i], cell.label, cell.action, paneTag); });
       continue;
     }
 
