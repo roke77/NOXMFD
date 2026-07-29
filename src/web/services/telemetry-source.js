@@ -32,6 +32,29 @@ export function gridLabel(wx, wz, meta) {
   return vert + `${majX}${minX}`;
 }
 
+// This document's MFD-instance id, for the server's instance registry (SOI — docs/keybinds-page.md).
+// sessionStorage, NOT localStorage: sessionStorage is scoped to the browsing context, so it is the
+// same across a reload (a tablet that refreshes stays the instance it was) and different in a second
+// tab (two displays on one PC are two instances). localStorage is per-origin and every tab would
+// have claimed the same id. Read from an iframe, it resolves to the TAB's store — which is what we
+// want, since the instance is the whole document, not this tap.
+//
+// Guarded on every hop: sessionStorage throws in some private-mode browsers, and randomUUID needs a
+// secure context — plain http:// over the LAN is exactly how this mod is used. A per-load fallback
+// id still identifies the instance while it is connected; it just doesn't survive a reload.
+function instanceId() {
+  const fresh = () =>
+    (crypto.randomUUID ? crypto.randomUUID()
+                       : 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+  try {
+    let id = sessionStorage.getItem('noxmfd-cid');
+    if (!id) { id = fresh(); sessionStorage.setItem('noxmfd-cid', id); }
+    return id;
+  } catch (e) {
+    return fresh();
+  }
+}
+
 export class TelemetrySource {
   constructor({ onFrame, onNoMission, onStatus } = {}) {
     this._onFrame = onFrame;
@@ -44,7 +67,7 @@ export class TelemetrySource {
   }
 
   connect() {
-    const es = new EventSource('/stream');
+    const es = new EventSource('/stream?cid=' + encodeURIComponent(instanceId()));
     es.onmessage = (e) => this._onMessage(e);
     es.onerror = () => {};   // EventSource auto-reconnects; the watchdog decides when to flag DISCONNECTED
     // Watchdog — tolerate transient SSE blips, only flag disconnect after a real gap.

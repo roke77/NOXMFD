@@ -108,6 +108,50 @@ namespace NOXMFD
         private static int _tgpSubscribers;
         public static bool WantsTgpFrames => Volatile.Read(ref _tgpSubscribers) > 0;
 
+        // ── Connected MFD instances (SOI — docs/keybinds-page.md) ──────────────
+        // One /stream connection IS one MFD instance: HandleSseAsync runs for exactly as long as a
+        // browser sits on the display, so registering on entry and dropping in its existing finally
+        // is the whole of the registry. Nothing else needs to track anything.
+        //
+        // Keyed by a server-side connection number, not by the client's cid. A duplicated browser tab
+        // copies its sessionStorage and so claims a cid that is already in use — keying on that would
+        // let the copy evict a live connection from the list, and let either one's disconnect remove
+        // the other. The connection number is unique by construction; the cid rides along as data.
+        internal sealed class MfdInstance
+        {
+            public long     Conn;
+            public string   Cid    = string.Empty;
+            public string   Remote = string.Empty;
+            public DateTime ConnectedUtc;
+        }
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<long, MfdInstance>
+            _instances = new System.Collections.Concurrent.ConcurrentDictionary<long, MfdInstance>();
+        private static long _nextConn;
+
+        // Snapshot of the live instances, oldest connection first — a stable order to cycle SOI
+        // through, unlike the dictionary's own.
+        internal static List<MfdInstance> Instances()
+        {
+            var all = new List<MfdInstance>(_instances.Values);
+            all.Sort((a, b) => a.Conn.CompareTo(b.Conn));
+            return all;
+        }
+
+        // The cid arrives over the network, so it is untrusted: it lands in JSON and, later, in an
+        // SOI target comparison. Keep it to what the client is supposed to send — a UUID or the
+        // fallback id — and drop anything else rather than escaping it downstream. An empty cid is
+        // legal and means "this instance has no durable identity" (private mode, storage blocked).
+        private const int MaxCidLength = 64;
+        private static string SanitizeCid(string? raw)
+        {
+            if (string.IsNullOrEmpty(raw) || raw!.Length > MaxCidLength) return string.Empty;
+            foreach (char c in raw)
+                if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                      (c >= '0' && c <= '9') || c == '-'))
+                    return string.Empty;
+            return raw;
+        }
+
         // ── Lifecycle ──────────────────────────────────────────────────────────
 
         // Local-network URL (e.g. http://192.168.1.42:5005) — empty if the listener fell back
@@ -406,6 +450,8 @@ namespace NOXMFD
                         ServeHudOptions(ctx);
                     else if (path == "/keybinds-config")
                         ServeKeybindsConfig(ctx);
+                    else if (path == "/soi-instances")
+                        ServeSoiInstances(ctx);
                     else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                         ServeAsset(ctx, path);
                     else if (path == "/map-view")
@@ -518,6 +564,38 @@ namespace NOXMFD
                     "{{\"localhost\":\"http://localhost:{0}\",\"lanUrl\":\"{1}\",\"port\":{0}}}",
                     Port, EscapeJson(LanUrl ?? string.Empty));
                 byte[] body = Encoding.UTF8.GetBytes(json);
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // The live MFD instances as JSON — the SOI instance registry made visible. Diagnostic for now:
+        // it is what proves the registry tracks connects, disconnects and reloads correctly before any
+        // of SOI is wired to it, and it stays useful afterwards for "which displays does the server
+        // think are open?". Safe off the main thread — the dictionary is concurrent and touches no
+        // Unity state.
+        private static void ServeSoiInstances(HttpListenerContext ctx)
+        {
+            try
+            {
+                var sb = new StringBuilder("{\"instances\":[");
+                var all = Instances();
+                for (int i = 0; i < all.Count; i++)
+                {
+                    var it = all[i];
+                    if (i > 0) sb.Append(',');
+                    sb.AppendFormat(CultureInfo.InvariantCulture,
+                        "{{\"conn\":{0},\"cid\":\"{1}\",\"remote\":\"{2}\",\"upSec\":{3:0.0}}}",
+                        it.Conn, EscapeJson(it.Cid), EscapeJson(it.Remote),
+                        (DateTime.UtcNow - it.ConnectedUtc).TotalSeconds);
+                }
+                sb.Append("]}");
+                byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
                 ctx.Response.StatusCode      = 200;
                 ctx.Response.ContentType     = "application/json; charset=utf-8";
                 ctx.Response.ContentLength64 = body.Length;
@@ -979,7 +1057,18 @@ namespace NOXMFD
             ctx.Response.Headers.Add("Cache-Control", "no-cache");
             ctx.Response.Headers.Add("X-Accel-Buffering", "no");
 
-            Plugin.Log?.LogInfo($"[NOXMFD] Client connected from {ctx.Request.RemoteEndPoint}");
+            // Register this instance for its whole lifetime — see MfdInstance. The cid is the
+            // client's own durable id (telemetry-source.js), empty when its storage is unavailable.
+            long conn = Interlocked.Increment(ref _nextConn);
+            _instances[conn] = new MfdInstance
+            {
+                Conn         = conn,
+                Cid          = SanitizeCid(ctx.Request.QueryString["cid"]),
+                Remote       = ctx.Request.RemoteEndPoint?.ToString() ?? string.Empty,
+                ConnectedUtc = DateTime.UtcNow,
+            };
+
+            Plugin.Log?.LogInfo($"[NOXMFD] Client connected from {ctx.Request.RemoteEndPoint} (instance {conn})");
 
             try
             {
@@ -1001,8 +1090,9 @@ namespace NOXMFD
             catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] Client error: {ex.Message}"); }
             finally
             {
+                _instances.TryRemove(conn, out _);
                 try { ctx.Response.Close(); } catch { }
-                Plugin.Log?.LogInfo($"[NOXMFD] Client disconnected from {ctx.Request.RemoteEndPoint}");
+                Plugin.Log?.LogInfo($"[NOXMFD] Client disconnected from {ctx.Request.RemoteEndPoint} (instance {conn})");
             }
         }
 

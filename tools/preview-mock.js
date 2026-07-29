@@ -349,6 +349,11 @@
   class MockEventSource {
     constructor(url) {
       this.url = url; this.onmessage = null; this.onerror = null; this.onopen = null;
+      // No request leaves the browser here, so the URL the client asked for is otherwise
+      // unobservable. Park it where the harness can read it — that query string carries the
+      // SOI instance id (telemetry-source.js), and "is the cid stable across a reload?" is
+      // the one thing about it worth checking without the game.
+      window.__PREVIEW_STREAM_URL = url;
       // The frame is static EXCEPT the RWR ping freshness, which we re-tick each send so the
       // diamonds visibly pulse; ~6.7 Hz approximates the real 10 Hz stream (and keeps the
       // page's 2.5 s connection watchdog happy).
