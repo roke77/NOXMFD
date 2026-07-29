@@ -6,6 +6,14 @@
 var rowsEl  = document.getElementById('kb-rows');
 var panelEl = document.getElementById('kb-panel');
 
+// Embedded in a shell (classic #page-frame or an F-35 portal) rather than opened standalone? Then
+// the shell's own MAIN key is the way back, so drop the in-page back link — it's redundant, and it
+// points at '/', which would reload the whole shell instead of just closing the page.
+if (window.parent !== window) {
+  var back = document.querySelector('.kb-back');
+  if (back) back.remove();
+}
+
 var binds     = [];      // last /keybinds-config payload
 var notes     = {};      // per-section shared-behaviour note, keyed by section title
 var capturing = null;    // plugin-side joy capture: bind id or null (server state, mirrored)

@@ -68,7 +68,7 @@ const paneIframes = [document.getElementById('pane-top'), document.getElementByI
 const pageFrame = document.getElementById('page-frame');   // full-view host for the frame-hosted pages (WPN, TGT, TGP)
 // Pages that render in #page-frame in full view (rather than as overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
-const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt', hud: '/hud', bdf: '/bdf', pal: '/bdf?pal' };
+const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt', hud: '/hud', bdf: '/bdf', pal: '/bdf?pal', keys: '/keybinds' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
@@ -107,11 +107,11 @@ function fullViewSlot(i) { return { bank: 'left', index: i }; }
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
   // HUD, KEY, LYT, BDF and PAL — the layout-owned MAIN items the six shared NAV items don't cover.
-  // HUD opens the HUD OPTIONS #page-frame page; BDF and PAL open the same faction-forces panel for
-  // the two fixed identities BOSCALI/PRIMEVA — not "mine vs the enemy's" (docs/bdf-page.md); each
-  // gets its MAIN back from NAV like every other frame page, so none needs an entry of its own here.
-  // KEY is not a page at all: it leaves this document for the standalone /keybinds page, the way
-  // LYT's F-35 choice leaves for /f35 (see mfdButton).
+  // HUD opens the HUD OPTIONS #page-frame page; KEY the extended-keybinds page; BDF and PAL the same
+  // faction-forces panel for the two fixed identities BOSCALI/PRIMEVA — not "mine vs the enemy's"
+  // (docs/bdf-page.md). All four are frame-hosted pages that get their MAIN back from NAV like every
+  // other, so none needs an entry of its own here. Only LYT differs — it's a layout switch, not a
+  // page (see mfdButton).
   // No bank/index/mark here (unlike lyt below): MAIN_SPLIT_ITEMS is the only consumer, in both full
   // view and split (showPage / renderSplitLabels' 'main' branch), and it places by alphabetical
   // order, not a fixed key.
@@ -213,6 +213,7 @@ const SPLIT_SLOTS = {
   bdf: [ { side: 'left', slot: 0 } ],
   pal: [ { side: 'left', slot: 0 } ],
   hud: [ { side: 'left', slot: 0 } ],
+  keys: [ { side: 'left', slot: 0 } ],   // extended-keybinds page — self-driven, only its MAIN back-key
   // WPN is a valid split page but places no NAV labels: its MAIN/PREV + NEXT depend on the pane's
   // pagination state, so renderSplitLabels' list branch owns them (NAV.wpn is empty to match).
   wpn: [],
@@ -231,6 +232,7 @@ const PAGE_URL = {
   bdf:  '/bdf?bare',
   pal:  '/bdf?bare&pal',
   hud:  '/hud?bare',
+  keys: '/keybinds?bare',
 };
 function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 
@@ -347,9 +349,10 @@ function placeSplitKey(m, label, action, paneTag) {
 
 // Pages whose own content sits in the top-left where the MAIN bezel label lands, so that label is
 // stood upright to clear it — in full view via .overlay.vmain, in a split pane via a per-label class
-// (renderSplitLabels). TGT's RESET FILTER, HUD's mode/category rows, and BDF/PAL's WARHEADS readout
-// are that content, and all four are split-capable, so all of them reach the split path.
-function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal'; }
+// (renderSplitLabels). TGT's RESET FILTER, HUD's mode/category rows, BDF/PAL's WARHEADS readout, and
+// KEY's FUNCTION/KEYBOARD/JOYSTICK table header are that content — on a narrow display the panel
+// widens to the edge and a horizontal MAIN would sit over that header. All are split-capable.
+function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal' || p === 'keys'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
@@ -1127,6 +1130,9 @@ function showPage(name) {
   // the generic sweep above); the page is otherwise self-driven — it fetches /hud-options and POSTs
   // its own hud.* commands, so the shell forwards it nothing.
   if (name === 'hud') showFramePage('hud');
+  // KEY (extended keybinds) renders in #page-frame too. Like HUD it's self-driven — it polls
+  // /keybinds-config and POSTs its own keybind.* commands — so the shell forwards it nothing.
+  if (name === 'keys') showFramePage('keys');
 
   // refreshFollowIndicator (not just renderIndicators) because the FOLLOW chip's membership
   // depends on currentPage, which just changed: entering MAP with follow already on must add the
@@ -1468,13 +1474,6 @@ function mfdButton(el) {
   el.classList.add('lit');                                   // brief press feedback
   setTimeout(function() { el.classList.remove('lit'); }, 150);
 
-  // KEY leaves this document for the standalone /keybinds page (like LYT's F-35 choice below), so
-  // it is not a destination page in either mode — handled before the pane branch, which would
-  // otherwise try to mount it in a pane that has no PAGE_URL for it. No setLayout: the layout
-  // choice is unchanged, and /keybinds' own way back is a link to '/', which the sticky-layout
-  // head guard resolves to whichever shell is current (docs/layouts.md, Stage 3).
-  if (el.dataset.action === 'keys') { location.href = '/keybinds'; return; }
-
   // Split-mode line-select keys carry a data-pane tag (top/bot). The action on
   // them names a destination page; clicking navigates ONLY that pane.
   if (splitMode && el.dataset.pane && el.dataset.action) {
@@ -1517,6 +1516,7 @@ function mfdButton(el) {
       break;
     case 'tgp':  showPage('tgp');  break;
     case 'hud':  showPage('hud');  break;
+    case 'keys': showPage('keys'); break;
     case 'lyt':  showPage('lyt');  break;
     // The LAYOUT page's two choices. CLASSIC is this document, so choosing it is just leaving the
     // menu — back to MAIN, where LYT was pressed, with a fresh status as MAIN's own key pulls.

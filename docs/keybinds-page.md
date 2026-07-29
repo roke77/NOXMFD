@@ -1,15 +1,20 @@
 # Extended Keybinds page (/keybinds)
 
-A standalone page (like `/f35` — opened directly, not an MFD split pane) for binding the
-mod's *extended keybinds*: cockpit functions the game has no native keybind for. It is the
-only keybind UI — the F1 (ConfigurationManager) menu shows none of these entries, though
-the values still persist in the plugin `.cfg`.
+An MFD page for binding the mod's *extended keybinds*: cockpit functions the game has no native
+keybind for. It is the only keybind UI — the F1 (ConfigurationManager) menu shows none of these
+entries, though the values still persist in the plugin `.cfg`.
 
-Reached from **KEY** on MAIN in both layouts (`BEZEL_EXTRAS.main` / the F-35's `MAIN_EXTRAS`),
-or by opening `/keybinds` directly. KEY is not a page either shell can host — clicking it leaves
-the document, the way LYT's F-35 choice does, so it is dispatched ahead of the bezel's split-pane
-branch and sits in the F-35's `LINKS` table rather than `F35_PAGES`. The page's `< MAIN` link goes
-back to `/`, which the sticky-layout head guard resolves to whichever shell is current.
+Reached from **KEY** on MAIN in both layouts. It is a frame-hosted page exactly like HUD — self
+-driven (it polls `/keybinds-config` and POSTs its own `keybind.*` commands, so the shell forwards
+it nothing), and reached the same way: `FRAME_PAGES`/`PAGE_URL`/`SPLIT_SLOTS` in the bezel,
+`F35_PAGES` in the F-35, with a MAIN back-key from `NAV.keys` in both. So it renders in the classic
+`#page-frame` (and as a split pane), and in an F-35 portal, without leaving the shell. `KEY` lives
+in `BEZEL_EXTRAS.main` / the F-35's `MAIN_EXTRAS` since `NAV`'s six items don't cover it.
+
+Opening `/keybinds` directly (typed, bookmarked) still serves the same page standalone; there it
+shows a `< MAIN` link back to `/` (the sticky-layout head guard resolves that to whichever shell is
+current). Embedded in a shell the link is redundant with the shell's own MAIN key, so `keybinds.js`
+removes it when `window.parent !== window`.
 
 One table, one row per function, grouped under three section headers — COUNTERMEASURES,
 GEAR, WEAPONS. A section can carry a note under its header for behaviour shared by its

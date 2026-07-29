@@ -61,6 +61,7 @@
     bdf: '/bdf',
     pal: '/bdf?pal',   // same page, PRIMEVA (docs/bdf-page.md) — a URL flag, not a separate page
     hud: '/hud',   // the HUD OPTIONS page — fetches /hud-options and POSTs its own hud.* commands
+    keys: '/keybinds',   // extended-keybinds page — polls /keybinds-config and POSTs keybind.* itself
   };
 
   // The telemetry each screen needs, by the tap's own type names. A page that just mounted has
@@ -95,10 +96,10 @@
   // too, and it has six physical keys for six items. Kept here, they stay F-35's business and the
   // bezel is unaffected (there HUD, BDF and PAL are their own BEZEL_EXTRAS keys). HUD, BDF and PAL
   // each have an F35_PAGES entry (docs/bdf-page.md) and render as real pages.
-  // Two of them are not pages: KEY is a whole-document navigation (LINKS), and LYT opens the layout
-  // chooser over the whole glass (GLASS_ACTIONS). Both match where the bezel keeps them — MAIN — so
-  // a pilot finds the same names in the same place in either layout. LYT is offered once per portal
-  // and answers for all of them, the way the bezel offers it in each split pane.
+  // HUD, KEY, BDF and PAL are frame pages with an F35_PAGES entry; only LYT is not a page — it opens
+  // the layout chooser over the whole glass (GLASS_ACTIONS). All match where the bezel keeps them —
+  // MAIN — so a pilot finds the same names in the same place in either layout. LYT is offered once
+  // per portal and answers for all of them, the way the bezel offers it in each split pane.
   const MAIN_EXTRAS = [
     { label: 'HUD', action: 'hud' },
     { label: 'KEY', action: 'keys' },
@@ -109,11 +110,6 @@
 
   // Paging actions, and the direction each moves. Not pages, so they dispatch separately.
   const PAGER = { 'wpn-prev': -1, 'wpn-next': 1 };
-
-  // Actions that leave this document entirely — a standalone page, not a portal's content, so no
-  // F35_PAGES entry and no portal state to keep. /keybinds links back to '/', which the sticky
-  // -layout head guard resolves to this shell again (docs/layouts.md, Stage 3).
-  const LINKS = { keys: '/keybinds' };
 
   // Actions that act on the whole glass rather than the portal they were pressed from. LYT is the
   // only one: the chooser takes the portals' place entirely (showPicker), so which portal offered
@@ -141,8 +137,7 @@
   function has(page) { return Object.prototype.hasOwnProperty.call(F35_PAGES, page); }
   function feedsFor(page) { return PAGE_FEEDS[page] || []; }
   function canDo(action) {
-    return has(action) || (action in PAGER) || (action in MAP_ACTIONS) ||
-           (action in LINKS) || (action in GLASS_ACTIONS);
+    return has(action) || (action in PAGER) || (action in MAP_ACTIONS) || (action in GLASS_ACTIONS);
   }
 
   // 'edge' placement: an item's index → its cell. The left column, top-down, IS the bezel's left
@@ -375,7 +370,6 @@
     function dispatch(action) {
       if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
       if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
-      if (action in LINKS)       { location.href = LINKS[action]; return; }
       if (action in GLASS_ACTIONS) { GLASS_ACTIONS[action](); return; }
       if (has(action)) showPage(action);
     }

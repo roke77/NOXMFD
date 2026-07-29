@@ -168,8 +168,8 @@ pilot, with HOTAS-friendly keybinds to match.
   </details>
 
 - **KEY** — extended-keybinds editor: bind a keyboard key and a joystick/HOTAS button to each of
-  the mod's own cockpit functions. Opens as a full page rather than a split pane; see
-  [Extended Keybinds](#extended-keybinds) below for the functions themselves.
+  the mod's own cockpit functions. See [Extended Keybinds](#extended-keybinds) below for the
+  functions themselves.
 
 - **LYT** — layout chooser: switch the display to a different shell layout.
 

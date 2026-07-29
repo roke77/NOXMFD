@@ -28,8 +28,10 @@
 <body>
 
 <div class="kb-panel" id="kb-panel">
-  <!-- Way back to the display, reached from MAIN's KEY item in either layout. '/' rather than a
-       remembered shell: the sticky-layout head guard there redirects to whichever one is current. -->
+  <!-- Way back to the display, for when this page is opened standalone (typed /keybinds, bookmarked).
+       Hidden when embedded in a shell (classic #page-frame or an F-35 portal), where the shell's own
+       MAIN key is the way back — see keybinds.js. '/' rather than a remembered shell: the
+       sticky-layout head guard there redirects to whichever one is current. -->
   <a class="kb-back" href="/">&lt; MAIN</a>
   <div class="kb-title">EXTENDED KEYBINDS</div>
   <div class="kb-head">
