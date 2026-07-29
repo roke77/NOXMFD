@@ -161,11 +161,11 @@
   /* The SOI cursor, on the physical key. Not only on the label: WPN's weapon rows are keys with an
      action whose text is drawn INSIDE the page iframe, so there is no overlay label to mark and a
      label-only cursor would vanish exactly where it is most useful. The key is always there.
-     Amber, the theme's engaged colour, and a steady glow so it reads apart from .lit's green
-     press-flash. */
+     White (--no-label) to match the label mark and the focus ring, with a steady glow so it reads
+     apart from .lit's green press-flash. */
   .key.cursor {
-    border-color: var(--no-amber);
-    box-shadow: inset 0 1px 0 #62666d, inset 0 -2px 3px rgba(0,0,0,0.4), 0 0 8px var(--no-amber);
+    border-color: var(--no-label);
+    box-shadow: inset 0 1px 0 #62666d, inset 0 -2px 3px rgba(0,0,0,0.4), 0 0 8px var(--no-label);
   }
   .key.icon { width: 36px; height: 30px; }
   .key.sun  { color: #ffffff; }
@@ -555,13 +555,14 @@
   }
   /* The SOI cursor — the label SELECT will press. Filled rather than outlined: .on and .paging have
      both outline idioms already, and a cursor is a position rather than a property of the label, so
-     it has to read at a glance from across the cockpit. Amber is the theme's engaged colour and
-     --no-ink is its text-on-a-fill partner. Padding matches the other two so the label doesn't
-     shift off its key when the cursor lands on it. */
+     it has to read at a glance from across the cockpit. White (--no-label), the same colour as the
+     SOI focus ring, so the two read as one system: this display is focused, and this is the item on
+     it. --no-ink is the dark text-on-a-fill partner. Padding matches the other two so the label
+     doesn't shift off its key when the cursor lands on it. */
   .overlay-item.cursor {
     color: var(--no-ink);
-    background: var(--no-amber);
-    outline: 1px solid var(--no-amber);
+    background: var(--no-label);
+    outline: 1px solid var(--no-label);
     padding: 2px 6px;
   }
   .info-box .ib-title  { font-size: clamp(28px, 3.12vmax, 45px); font-weight: 900; margin-bottom: clamp(14px, 1.6vmax, 22px); }
