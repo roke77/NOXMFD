@@ -209,19 +209,21 @@ of, which is worse than a pane with a one-item cursor.
 
 ## Showing focus — **built** (classic)
 
-The focused instance draws a small boxed **SOI** label in its **top right**; unfocused
-instances draw nothing. That corner already holds the shell's indicator stack (PINNED,
-FOLLOW), so SOI is one more chip in it rather than new chrome — `indicatorOrder` even gets the
-stacking right for free, since it records activation order.
+The focused display rings its whole screen in off-white, the way a real MFD says it — DCS
+draws a bright box around the display area, and so does this. Unfocused displays draw nothing.
 
-It is off-white (`--no-label`) where the other two are amber. PINNED and FOLLOW report a
-control *this* screen has engaged; SOI reports which screen the controls are pointed at, which
-is chrome, and `--no-label` is the token the bezel already uses for that distinction.
+The ring traces the recess exactly: a `::after` on `.screen`, inset by the 6px padding and
+sharing the iframes' 3px corner radius, so it lands on the boundary between bezel and glass. No
+markup, no layout effect, and `pointer-events: none` so it can never eat a tap. It is drawn
+above the overlay, so bezel labels and chips sit inside it rather than over it.
 
-The chip is the whole indication for now. A per-pane marker — which of a split's two panes
-holds the cursor — can wait until the cursor exists, because the cursor highlight already says
-it. Top right is provisional in the sense that the F-35 has no indicator stack to put it in,
-so that layout's answer may end up elsewhere.
+Off-white (`--no-label`) rather than the theme's green: green is what instruments report in,
+and this is chrome saying where the controls are pointed — the same distinction the bezel's key
+labels already make.
+
+It frames the display, not a pane, so it is unchanged by a split. A per-pane marker — which of
+a split's two panes holds the cursor — can wait until the cursor exists, because the cursor
+highlight will already say it.
 
 The telemetry tap owns the comparison: it is the only part of the frontend that knows this
 instance's cid, so it posts a `soi` slice up to the shell as a plain boolean, and only when it

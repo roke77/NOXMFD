@@ -277,6 +277,22 @@
     border-radius: 3px;
     background: var(--no-bg);
   }
+  /* SOI — this display is the sensor of interest, drawn the way a real MFD says it: a bright ring
+     around the whole display area rather than a label somewhere in it. Traced on the recess itself
+     (inset 6px = .screen's padding, matching the iframes' 3px corner), so it reads as the screen
+     being lit rather than as content, and no page or pane has to leave room for it.
+     A ::after on .screen so it costs no markup, and pointer-events:none so it never eats a tap.
+     Off-white --no-label, not the theme's green: the green is what instruments report in, and this
+     is chrome saying where the controls are pointed. */
+  .screen.soi::after {
+    content: '';
+    position: absolute;
+    inset: 6px;
+    border: 2px solid var(--no-label);
+    border-radius: 3px;
+    pointer-events: none;
+    z-index: 4;   /* above .overlay and its chips, which sit at 2 */
+  }
   /* Full-view host iframe for the frame-hosted pages (WPN). Covers the recess like the map iframe;
      shown via .screen.page-on, hidden in split (panes take over). It sits below the .overlay
      (a later sibling), so the shell's bezel labels still paint on top. */
@@ -406,14 +422,6 @@
     letter-spacing: 1px;
     color: var(--no-amber);
     user-select: none;
-  }
-  /* SOI — this display is the sensor of interest. Off-white rather than the stack's amber:
-     PINNED and FOLLOW report a control the pilot engaged on this screen, while SOI reports which
-     screen the controls are pointed AT, which is shell chrome. --no-label is the token the bezel
-     already uses for exactly that distinction. */
-  .mfd-indicator.soi {
-    border-color: var(--no-label);
-    color: var(--no-label);
   }
   /* Per-pane FOLLOW chips (split mode). Each sits at the top-right of its own pane: the
      top pane mirrors the shell stack's corner; the bottom pane sits just below the 50%
