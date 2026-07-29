@@ -294,22 +294,10 @@ html, body {
           mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
 }
 
-/* LYT — the only thing in the strip you press; everything either side of it is a readout. So it is
-   drawn as a button rather than a label: its name spelled out, and a border to say it has an edge
-   to hit. currentColor ties that border to the item's own state, so it tracks the label it rings —
-   teal at rest, amber while the picker is up, dark against the hover fill. */
-.master-strip .ms-lyt {
-  border: 1px solid currentColor;
-  border-radius: 3px;
-  padding: 6px 12px;
-  white-space: nowrap;   /* the strip is one row; never let the name wrap into two */
-}
-/* The border already rings it, so .nav-item.on's amber outline would sit a second ring just
-   outside it. Same colour, same job — keep the border and drop the outline. */
-.master-strip .ms-lyt.on { outline: none; }
-
-/* FULLSCREEN — same border-and-button treatment as LYT beside it, but square and icon-only rather
-   than a spelled-out label, since there's nothing to read out. */
+/* FULLSCREEN — the only thing in the strip you press; everything else in it is a readout. So it is
+   drawn as a button rather than a label: a border to say it has an edge to hit, square and
+   icon-only since there's nothing to read out. currentColor ties that border to the item's own
+   state, so it tracks the icon it rings — teal at rest, dark against the hover fill. */
 .master-strip .ms-fll {
   border: 1px solid currentColor;
   border-radius: 3px;
@@ -553,16 +541,18 @@ html, body {
   .wpn-hit:hover { background: rgba(var(--no-teal-rgb), 0.08); }
 }
 
-/* TGT, HUD and BDF all pack their own content into the top-left, exactly where the edge label sits
-   — and because this layout draws labels ON the page, a horizontal MAIN doesn't just look cramped,
-   it covers that content (TGT's RESET FILTER, HUD's first mode/category row, BDF's WARHEADS readout)
-   and eats its clicks (TGT/HUD) or just overlaps the text (BDF). Standing the text up narrows the
-   label to roughly one glyph so it clears them. Same fix, same properties, as the bezel's
-   .overlay.vmain .overlay-item.left in mfd.css — including pulling in to the edge, since 16px of
-   margin would still leave the label overlapping. */
+/* TGT, HUD and BDF/PAL all pack their own content into the top-left, exactly where the edge label
+   sits — and because this layout draws labels ON the page, a horizontal MAIN doesn't just look
+   cramped, it covers that content (TGT's RESET FILTER, HUD's first mode/category row, BDF/PAL's
+   WARHEADS readout) and eats its clicks (TGT/HUD) or just overlaps the text (BDF/PAL). Standing the
+   text up narrows the label to roughly one glyph so it clears them. Same fix, same properties, as
+   the bezel's .overlay.vmain .overlay-item.left in mfd.css — including pulling in to the edge, since
+   16px of margin would still leave the label overlapping. PAL is the same page as BDF for the other
+   faction, so it needs the same treatment; the bezel's isVmainPage() lists the same four. */
 .nav-grid.edge[data-page="tgt"] .nav-item,
 .nav-grid.edge[data-page="hud"] .nav-item,
-.nav-grid.edge[data-page="bdf"] .nav-item {
+.nav-grid.edge[data-page="bdf"] .nav-item,
+.nav-grid.edge[data-page="pal"] .nav-item {
   writing-mode: vertical-rl;
   text-orientation: upright;
   letter-spacing: 0;

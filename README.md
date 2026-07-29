@@ -167,6 +167,10 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
+- **KEY** — extended-keybinds editor: bind a keyboard key and a joystick/HOTAS button to each of
+  the mod's own cockpit functions. Opens as a full page rather than a split pane; see
+  [Extended Keybinds](#extended-keybinds) below for the functions themselves.
+
 - **LYT** — layout chooser: switch the display to a different shell layout.
 
   <details>
@@ -228,7 +232,7 @@ fuel, and the avionics flags.
 ### Extended Keybinds
 
 Optional dedicated keybinds for cockpit functions the game has no native bind for,
-configured on the **`/keybinds`** page (open it like any other page, e.g.
+configured on the **KEY** page, reached from MAIN in either layout (or opened directly at
 `http://localhost:5005/keybinds`). Each function takes a keyboard/mouse key, a
 joystick/HOTAS button, or both — click a cell and press the key or button to bind it.
 Multi-stick HOTAS setups are supported; each bind remembers which stick it came from.

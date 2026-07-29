@@ -9,6 +9,19 @@ html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this
   padding: 26px 18px 40px;
 }
 
+/* Way back to the display. Floated rather than absolutely placed so it reserves space on the
+   title's line — the centered title then shrinks into what's left instead of overlapping it on a
+   narrow screen. */
+.kb-back {
+  float: left;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--no-green-dim);
+  text-decoration: none;
+  padding: 6px 2px;
+}
+.kb-back:hover { color: var(--no-green); }
+
 .kb-title {
   font-size: 24px;
   letter-spacing: 4px;

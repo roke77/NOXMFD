@@ -17,7 +17,7 @@ bezel remains the default, and every page renders on it exactly as before.
   A fixed **master strip** runs across the top, carrying the aircraft-level
   chrome the navigation-only MAIN has no room for: the wordmark, the
   connection URLs and status, the mission name and ownship grid, the THRL and
-  FUEL gauges, the AVN avionics flags, and the LAYOUT chooser.
+  FUEL gauges, the AVN avionics flags, and the fullscreen toggle.
 
 Both consume one shared navigation model. `NAV` has never been edited to serve
 the second layout, and **no page has a layout-specific implementation** — which
@@ -36,8 +36,8 @@ is the other half of the branch's diff: extracting `NAV` out of `mfd.js` into
 `nav-model.js` moved ~200 lines of the bezel shell, which is the refactor the
 seam *is*, not a cost of the second layout.
 
-Stage 3 is now complete: both layouts reach each other live (LYT on the bezel's
-MAIN, LAYOUT in the F-35's strip), and the choice sticks across loads via
+Stage 3 is now complete: both layouts reach each other live (LYT on MAIN, in
+either layout), and the choice sticks across loads via
 `localStorage` + a before-paint redirect guard in each shell's `<head>`. A
 BepInEx-config default was consciously not built — see Stage 3 for that call.
 
@@ -186,7 +186,10 @@ A layout also owns the **page placement geometry** it feeds pages (the
 `NAV` is shared, so a layout cannot grow it: the bezel has six physical keys
 for MAIN's six items, and `nav-model.test.js` pins that list. A layout that
 wants more puts them in its own table — the F-35 keeps `MAIN_EXTRAS`
-(HUD/PAL/BDF placeholders) beside `NAV` and merges the two when rendering.
+(HUD/KEY/LYT/PAL/BDF) beside `NAV` and merges the two when rendering. Not all of
+them are pages: `KEY` leaves the document for `/keybinds` (`LINKS`) and `LYT`
+opens the layout chooser over the whole glass (`GLASS_ACTIONS`), so `canDo`
+counts those tables too — an action in none of them renders dimmed.
 Consequently ordering is a *rendering* choice: the F-35 sorts its MAIN menu
 alphabetically, interleaving those extras among the NAV items, while the bezel
 shows `NAV`'s six in their given order (itself alphabetical: AVN, MAP, RWR,
@@ -367,7 +370,8 @@ The line is **chrome versus instrument data**, and it is worth stating because
 it is not obvious from any one rule:
 
 - **Teal** (`--no-teal`) is what the layout *draws*: the portal frames, the nav
-  labels on the glass, the corner grips, the master strip and its LAYOUT button.
+  labels on the glass, the corner grips, the master strip and its fullscreen
+  button.
 - **The theme's palette** is what anything *reports*, wherever it sits. The
   strip's gauges and avionics flags are green/amber/red exactly as on the AVN
   page; the engaged state stays amber; the mission chips stay the map page's
@@ -399,26 +403,29 @@ The rule for anything added here: measure the portal, never the window.
 
 ### Stage 3 — selection ✅ done
 
-**Both layouts can now switch to the other, live**, and each offers the choice
-in its own idiom rather than sharing a screen:
+**Both layouts can now switch to the other, live.** Both offer it as **LYT** on
+MAIN — the same name in the same place, so the way across doesn't have to be
+learned twice — and each then draws the chooser in its own idiom rather than
+sharing a screen:
 
-- The F-35's strip has a bordered **LAYOUT** button; pressing it swaps the
-  portals for a two-item chooser centred on the glass.
-- The bezel has an **LYT** key on MAIN, opening a LAYOUT page that is two
-  left-bank labels and nothing else: CLASSIC, F-35. (No MAIN back-item —
-  picking CLASSIC already lands back on this shell's MAIN, so a separate way
-  back would be redundant with it.) It draws no panel — every page in this
-  shell puts its items beside a physical key, and a chooser is navigation, so
-  it reads as one.
+- The bezel's LYT opens a LAYOUT page that is two left-bank labels and nothing
+  else: CLASSIC, F-35. (No MAIN back-item — picking CLASSIC already lands back
+  on this shell's MAIN, so a separate way back would be redundant with it.) It
+  draws no panel — every page in this shell puts its items beside a physical
+  key, and a chooser is navigation, so it reads as one.
+- The F-35's LYT swaps the portals for a two-item chooser centred on the glass.
+  Picking F-35, the layout you are already on, is how you leave it — the mirror
+  of CLASSIC on the bezel's page.
 
 Both mark the layout you are on in the theme's engaged amber. Neither needs
 state to do it: each document *is* one of the layouts, so its own item is marked
 where it is declared and the other is simply somewhere else.
 
 Neither chooser is a page. Choosing a layout is the shell's business, and a page
-must render the same under either shell — so the F-35's lives in its strip and
-the bezel's is three labels its shell places. That also settles "full view only"
-for free: the bezel's LAYOUT has no `PAGE_URL` entry, so it cannot be a pane, and
+must render the same under either shell — so the F-35's takes over the whole
+portal column and the bezel's is three labels its shell places. That also settles
+"full view only" for free: the bezel's LYT has no `PAGE_URL` entry, so it cannot
+be a pane, and
 `setSplit`'s existing fall-back (`PAGE_URL[currentPage] ? … : 'main'`, written
 for TGT) lands both panes on MAIN if you split from it. Not one line enforces
 the rule.
@@ -427,14 +434,14 @@ the rule.
 name a page, while CLASSIC and F-35 name a choice and one of them is already
 made.
 
-What LYT cost the bezel: it could not go in `NAV` — that list is shared, pinned
-at MAIN's six items, and the F-35 already offers this choice from its strip, so
-a `NAV` entry would put it on that layout's MAIN twice. The bezel therefore got
-its own `BEZEL_EXTRAS`, exactly as the F-35 keeps `MAIN_EXTRAS`. It also spent
-the prediction at `mfd.js:87`: `fullViewSlot` fills the left bank in order and
-MAIN's six fill it exactly, so **LYT is the first label this shell has had to
-place anywhere else** (right bank, key 0). One item, so it names its own key
-rather than earning a placement table.
+LYT cannot live in `NAV` even though both layouts show it: that list is shared
+and pinned at MAIN's six items, one per bezel left-bank key. Each layout names it
+in its own extras table instead — `BEZEL_EXTRAS.main` and `MAIN_EXTRAS` — which
+is the same arrangement HUD, KEY, BDF and PAL have. It also spent the prediction
+at `mfd.js:87`: `fullViewSlot` fills the left bank in order and MAIN's six fill it
+exactly, so MAIN is **the first screen this shell has had to place labels
+anywhere else**. It does that by count rather than by a placement table: the
+merged list is sorted alphabetically and dealt out left bank first, then right.
 
 **The choice now sticks — client-side, not server-side.** Each chooser writes the
 picked layout to `localStorage.layout` (`setLayout` in `mfd.js` / `f35.js`) before
@@ -493,23 +500,22 @@ Left to right:
   chip uses, so the two render identically). Hidden entirely while no mission is
   loaded, as the map page hides its own mission bar. The name is the only string
   in the strip whose length the game decides, so it ellipsises rather than push
-  the flags and LAYOUT off a bar that clips them.
+  the flags and FULLSCREEN off a bar that clips them.
 - **Gauges** — THRL and FUEL, stacked, horizontal, in the slack between the
   mission block and the flags. See below.
 - **Avionics flags** — the eight annunciators the AVN page shows
   (GEAR / RADAR / GUNS / ENG / ASSIST / NVG / LIGHTS / TURRET), in one row, each
   a label + icon.
-- **LAYOUT** — the layout chooser, last, at the far right. The only thing in the
-  strip you press, so it is drawn as a button — bordered, and its name spelled
-  out rather than clipped to the three characters a bezel key would have had.
+- **FULLSCREEN** — last, at the far right. The only thing in the strip you
+  press, so it is drawn as a button — bordered, square and icon-only, the same
+  toggle the bezel carries on a top-bank key.
 
-### LAYOUT — why the strip and not MAIN
+### LYT — the layout chooser
 
-Choosing a layout is the whole glass's business, and MAIN is per-portal: on the
-menu it would have offered the same choice up to four times, each press meaning
-the same thing. The strip is the one place on this shell that speaks for the
-aircraft rather than for a portal, so it is where the control belongs — and
-moving it there took it out of `MAIN_EXTRAS`, where it had been sitting greyed.
+`LYT` sits on MAIN, in `MAIN_EXTRAS`, where the bezel also keeps it: a pilot
+finds the same name in the same place in either layout. Being per-portal costs
+nothing — every portal offers the same choice and any of them answers for the
+whole glass, exactly as the bezel offers LYT in each split pane.
 
 Pressing it swaps the **container**, not the portals' contents: `#portals` and
 `#layout-picker` are siblings in the `.pcd` column and take the same slot below
@@ -589,7 +595,7 @@ When the strip runs out of room the order of giving way is deliberate: the
 troughs floor at a `min-width` (a flex item's default `min-width: auto` stops
 the block at its min-content), so it is the mission name — the one item that
 sets `min-width: 0` — that ellipsises first. At an 87-character name the troughs
-sit exactly on that floor and the flags and LAYOUT have still not moved.
+sit exactly on that floor and the flags and FULLSCREEN have still not moved.
 
 The MIL/AB split comes across too, and it is the one place the strip does better
 than the page it copies. AVN sizes that gradient in px (`--tube-inner-px`) so

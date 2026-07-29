@@ -101,15 +101,18 @@ function fullViewSlot(i) { return { bank: 'left', index: i }; }
 // no panel: every other page in this shell puts its items beside a physical key, and a chooser is
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
-  // HUD, LYT, BDF and PAL — the layout-owned MAIN items the six shared NAV items don't cover. HUD
-  // opens the HUD OPTIONS #page-frame page; BDF and PAL open the same faction-forces panel for the
-  // two fixed identities BOSCALI/PRIMEVA — not "mine vs the enemy's" (docs/bdf-page.md); each gets
-  // its MAIN back from NAV like every other frame page, so none needs an entry of its own here.
+  // HUD, KEY, LYT, BDF and PAL — the layout-owned MAIN items the six shared NAV items don't cover.
+  // HUD opens the HUD OPTIONS #page-frame page; BDF and PAL open the same faction-forces panel for
+  // the two fixed identities BOSCALI/PRIMEVA — not "mine vs the enemy's" (docs/bdf-page.md); each
+  // gets its MAIN back from NAV like every other frame page, so none needs an entry of its own here.
+  // KEY is not a page at all: it leaves this document for the standalone /keybinds page, the way
+  // LYT's F-35 choice leaves for /f35 (see mfdButton).
   // No bank/index/mark here (unlike lyt below): MAIN_SPLIT_ITEMS is the only consumer, in both full
   // view and split (showPage / renderSplitLabels' 'main' branch), and it places by alphabetical
   // order, not a fixed key.
   main: [
     { label: 'HUD', action: 'hud' },
+    { label: 'KEY', action: 'keys' },
     { label: 'LYT', action: 'lyt' },
     { label: 'BDF', action: 'bdf' },
     { label: 'PAL', action: 'pal' },
@@ -122,10 +125,10 @@ const BEZEL_EXTRAS = {
   ],
 };
 
-// All ten MAIN destinations, alphabetically — the single ordering both full view (showPage) and a
+// All eleven MAIN destinations, alphabetically — the single ordering both full view (showPage) and a
 // split pane's paginated list (renderSplitLabels' 'main' branch) place from. Full view has room for
-// all ten at once (six left-bank keys, four right-bank); a split pane's budget is 6 physical keys,
-// too few for all ten at once — including HUD/LYT/BDF/PAL, which a split pane couldn't reach at all
+// all of them at once (six left-bank keys, five of the right bank's six); a split pane's budget is 6
+// physical keys, too few — including HUD/KEY/LYT/BDF/PAL, which a split pane couldn't reach at all
 // before (the right bank is the pane's own column there, not BEZEL_EXTRAS) — so MAIN becomes a
 // paginated list there, the same idea as WPN's weapon list.
 const MAIN_SPLIT_ITEMS = NAV.main.concat(BEZEL_EXTRAS.main)
@@ -162,7 +165,7 @@ const WPN_SPLIT_MAX = 4;
 // Per-pane MAIN pagination index — MAIN_SPLIT_ITEMS sliced MAIN_PANE_SIZE-per-page (mainPaneSlice).
 // Reset to 0 when a pane (re)enters MAIN (paneNavigate), same as paneWpnPage for WPN.
 let paneMainPage = [0, 0];
-const MAIN_PANE_SIZE = 5;
+const MAIN_PANE_SIZE = 4;
 
 // Latest connection status mirrored from the map iframe — kept so we can push the
 // current value to a freshly-loaded pane iframe (its onload may fire AFTER the
@@ -343,14 +346,13 @@ function placeSplitKey(m, label, action, paneTag) {
 // are that content, and all four are split-capable, so all of them reach the split path.
 function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal'; }
 
-// MAIN's own paginated nav list in a split pane: all ten MAIN_SPLIT_ITEMS, alphabetically, sliced
-// MAIN_PANE_SIZE-per-page. Reuses WPN's PREV/NEXT idiom — same "one page can't fit everything, chain
-// pages together" shape — but sized differently: WPN always reserves its back-slot for MAIN/PREV
-// (never mixed with content), where MAIN's own list only needs PREV once you've paged forward, so
-// the first page's would-be-PREV slot holds a fifth item instead.
-// ponytail: assumes exactly two pages (today's ten items / five). A middle page needing BOTH PREV
-// and NEXT at once would overflow six slots by one — if MAIN ever grows past ten items, drop to
-// WPN's stricter always-reserved-back-slot + four-items-per-page shape (see wpnPaneSlice) instead.
+// MAIN's own paginated nav list in a split pane: all MAIN_SPLIT_ITEMS, alphabetically, sliced
+// MAIN_PANE_SIZE-per-page. Same shape as WPN's (wpnPaneSlice): the back-slot is reserved for PREV
+// and never holds content, so any page — first, middle or last — fits its PREV + four items + NEXT
+// in the six physical slots. (An earlier five-per-page version let the first page's would-be-PREV
+// slot carry a fifth item, which only worked while the list was short enough to make exactly two
+// pages; the KEY item made three.) On the first page the reserved slot simply stays empty — unlike
+// WPN there is no MAIN back-label to put there, MAIN *is* the page.
 function mainPaneSlice(idx) {
   const list = MAIN_SPLIT_ITEMS;
   const total = list.length;
@@ -371,16 +373,14 @@ function renderSplitLabels() {
 
     if (page === 'main') {
       // MAIN_SPLIT_ITEMS instead of SPLIT_SLOTS/NAV.main — see mainPaneSlice. Reuses listPaneLayout's
-      // six physical positions (the same shape WPN's pagination already occupies): main-or-prev slot,
-      // four middle slots, next slot — in that visual order.
+      // six physical positions (the same shape WPN's pagination already occupies): the back slot
+      // holds PREV, the four middle slots the items, and the last slot NEXT — each placed on its own
+      // position rather than flowed, so a missing PREV doesn't shift the items up a slot.
       const L = listPaneLayout(paneIdx, 'main');
-      const positions = [L.main, L.items[0], L.items[1], L.items[2], L.items[3], L.next];
       const slice = mainPaneSlice(paneIdx);
-      const cells = [];
-      if (slice.hasPrev) cells.push({ label: 'PREV', action: 'main-prev' });
-      slice.items.forEach(function (item) { cells.push({ label: item.label, action: item.action }); });
-      if (slice.hasNext) cells.push({ label: 'NEXT', action: 'main-next' });
-      cells.forEach(function (cell, i) { placeSplitKey(positions[i], cell.label, cell.action, paneTag); });
+      if (slice.hasPrev) placeSplitKey(L.main, 'PREV', 'main-prev', paneTag);
+      slice.items.forEach(function (item, i) { placeSplitKey(L.items[i], item.label, item.action, paneTag); });
+      if (slice.hasNext) placeSplitKey(L.next, 'NEXT', 'main-next', paneTag);
       continue;
     }
 
@@ -1023,9 +1023,9 @@ function showPage(name) {
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
 
   if (name === 'main') {
-    // MAIN_SPLIT_ITEMS — all ten destinations, alphabetically — rather than NAV.main +
-    // BEZEL_EXTRAS.main separately: full view has room for all ten at once (six left-bank keys,
-    // four right-bank), so it's the same ordering a split pane pages through, just unpaginated.
+    // MAIN_SPLIT_ITEMS — all eleven destinations, alphabetically — rather than NAV.main +
+    // BEZEL_EXTRAS.main separately: full view has room for all of them at once (six left-bank keys,
+    // then the right bank), so it's the same ordering a split pane pages through, just unpaginated.
     MAIN_SPLIT_ITEMS.forEach(function (item, i) {
       const bank = i < 6 ? 'left' : 'right';
       placeOverlayLabel(bank, i < 6 ? i : i - 6, item.label, item.action);
@@ -1351,6 +1351,13 @@ function loadConfigUrls() {
 function mfdButton(el) {
   el.classList.add('lit');                                   // brief press feedback
   setTimeout(function() { el.classList.remove('lit'); }, 150);
+
+  // KEY leaves this document for the standalone /keybinds page (like LYT's F-35 choice below), so
+  // it is not a destination page in either mode — handled before the pane branch, which would
+  // otherwise try to mount it in a pane that has no PAGE_URL for it. No setLayout: the layout
+  // choice is unchanged, and /keybinds' own way back is a link to '/', which the sticky-layout
+  // head guard resolves to whichever shell is current (docs/layouts.md, Stage 3).
+  if (el.dataset.action === 'keys') { location.href = '/keybinds'; return; }
 
   // Split-mode line-select keys carry a data-pane tag (top/bot). The action on
   // them names a destination page; clicking navigates ONLY that pane.
