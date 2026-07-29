@@ -64,7 +64,11 @@ namespace NOXMFD
             public string Label;                               // row name on the page
             public string Description;                         // row tooltip on the page
             public bool Edge;                                  // true = fire once per press; false = fire every frame held
-            public Action<Aircraft> Drive;                     // the action, run on the main thread with a live aircraft
+            // Exactly one of these is set. Drive needs a live aircraft and is skipped without one;
+            // DriveFree runs regardless, for binds that act on the mod rather than on the aeroplane
+            // (SOI) and so must work at the main menu, where there is no aircraft at all.
+            public Action<Aircraft>? Drive;
+            public Action? DriveFree;
             public ConfigEntry<KeyboardShortcut> KeyEntry;     // keyboard/mouse source
             public ConfigEntry<int> JoyEntry;                  // Rewired joystick button index source (-1 = off)
             public ConfigEntry<int> JoyNumEntry;               // which joystick the index refers to (0 = any; pinned on capture)
@@ -118,6 +122,25 @@ namespace NOXMFD
                 "Release your missile/bomb; HOLD to keep releasing. With a gun selected, the first press only switches to it — press again to release.",
                 WeaponSelectors.FireRelease);
 
+            // SOI binds — they drive the mod's own displays rather than the aeroplane, so they are
+            // DefFree (no aircraft needed) and work at the main menu. See docs/keybinds-page.md.
+            const string soi = "SOI Keybinds";
+            DefFree(config, "soi-next", soi, "SoiNext", "SOI Next", edge: true,
+                "Move focus to the next display.",
+                () => TelemetryServer.SoiCycle(1));
+            DefFree(config, "soi-prev", soi, "SoiPrev", "SOI Prev", edge: true,
+                "Move focus to the previous display.",
+                () => TelemetryServer.SoiCycle(-1));
+            DefFree(config, "soi-nav-up", soi, "SoiNavUp", "Nav Up", edge: true,
+                "Move the cursor up the focused display's key labels.",
+                () => TelemetryServer.SoiAction("up"));
+            DefFree(config, "soi-nav-down", soi, "SoiNavDown", "Nav Down", edge: true,
+                "Move the cursor down the focused display's key labels.",
+                () => TelemetryServer.SoiAction("down"));
+            DefFree(config, "soi-select", soi, "SoiSelect", "Select", edge: true,
+                "Press the label the cursor is on, as if you had clicked that key.",
+                () => TelemetryServer.SoiAction("select"));
+
             foreach (var b in _binds)
                 Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value}, joy={b.JoyEntry.Value} (stick {b.JoyNumEntry.Value}).");
         }
@@ -126,10 +149,21 @@ namespace NOXMFD
         // from the F1 menu — the /keybinds page is the UI) and adds the registry row.
         private static void Def(ConfigFile config, string id, string section, string key, string label,
                                 bool edge, string description, Action<Aircraft> drive)
+            => Add(config, id, section, key, label, edge, description, drive, null);
+
+        // A bind that acts on the mod rather than on the aeroplane, so it needs no aircraft and works
+        // at the main menu. Same row on the page — the difference is only which Poll() pass runs it.
+        private static void DefFree(ConfigFile config, string id, string section, string key, string label,
+                                    bool edge, string description, Action drive)
+            => Add(config, id, section, key, label, edge, description, null, drive);
+
+        private static void Add(ConfigFile config, string id, string section, string key, string label,
+                                bool edge, string description, Action<Aircraft>? drive, Action? driveFree)
         {
             _binds.Add(new BindDef
             {
-                Id = id, Section = section, Label = label, Description = description, Edge = edge, Drive = drive,
+                Id = id, Section = section, Label = label, Description = description, Edge = edge,
+                Drive = drive, DriveFree = driveFree,
                 KeyEntry = config.Bind(section, key, new KeyboardShortcut(),
                     new ConfigDescription("Keyboard/mouse key: " + description, null, Hidden())),
                 JoyEntry = config.Bind(section, key + "JoystickButton", -1,
@@ -150,6 +184,7 @@ namespace NOXMFD
             "Countermeasure Keybinds" => "COUNTERMEASURES",
             "Landing Gear Keybinds"   => "GEAR",
             "Weapon Keybinds"         => "WEAPONS",
+            "SOI Keybinds"            => "SOI",
             _ => section,
         };
 
@@ -161,6 +196,10 @@ namespace NOXMFD
                 "Cycle keys select the last soft-selected weapon of their type, or the first in the list. " +
                 "Repeated presses cycle to the next one, skipping depleted weapons. " +
                 "Cycling to a different type leaves the current one soft-selected.",
+            "SOI Keybinds" =>
+                "One display at a time is the sensor of interest — it rings itself in white, and these " +
+                "keys drive it. Focus starts on the first display opened and wraps through the rest. " +
+                "These are the only keys that work without an aircraft.",
             _ => null,
         };
 
@@ -275,11 +314,16 @@ namespace NOXMFD
             }
             if (!any) return;   // common case — nothing this frame
 
+            // Aircraft-free binds first (SOI): they drive the mod's own displays, so they have to work
+            // at the main menu — the aircraft check below would otherwise swallow them.
+            foreach (var b in _binds)
+                if (b.ActiveNow && b.DriveFree != null) b.DriveFree();
+
             GameManager.GetLocalAircraft(out Aircraft ac);
             if (ac == null || ac.disabled) return;
 
             foreach (var b in _binds)
-                if (b.ActiveNow) b.Drive(ac);
+                if (b.ActiveNow && b.Drive != null) b.Drive(ac);
         }
 
         // Dedicated gear raise/lower, mirroring the stock toggle (PilotPlayerState.cs): only changes a

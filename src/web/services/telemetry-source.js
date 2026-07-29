@@ -66,6 +66,7 @@ export class TelemetrySource {
     this._lastStatus = { cls: 'disconnected', text: '● DISCONNECTED' };
     this._cid = '';                     // this instance's SOI id — settled by the server's hello
     this._soiFocused = null;            // null = never reported; forces the first post either way
+    this._soiSeq = null;                // null = the first frame's counter is a starting point, not a press
   }
 
   connect() {
@@ -112,6 +113,16 @@ export class TelemetrySource {
     if (focused !== this._soiFocused) {
       this._soiFocused = focused;
       this._postUp({ type: 'soi', focused });
+    }
+
+    // A SOI key press. The counter is what makes this safe to broadcast: act only when it CHANGES,
+    // so a repeated frame can't double-press and a dropped one costs nothing. The first frame only
+    // records where the counter is — presses made before this display connected are history, not
+    // input. Unfocused displays see the same fields and ignore them.
+    if (typeof d.soiSeq === 'number' && d.soiSeq !== this._soiSeq) {
+      const first = this._soiSeq === null;
+      this._soiSeq = d.soiSeq;
+      if (!first && focused && d.soiAct) this._postUp({ type: 'soi-act', act: d.soiAct });
     }
 
     if (d.ping) {

@@ -164,6 +164,25 @@ namespace NOXMFD
             Interlocked.Increment(ref _soiVersion);
         }
 
+        // The last SOI key pressed, and a counter that makes it idempotent to broadcast. A client acts
+        // when the counter CHANGES and ignores the field otherwise, so a duplicated frame can't
+        // double-press and a dropped one costs at most a repeat of the same value. The plugin has no
+        // idea what "up" means on a page — it only says a key was pressed.
+        private static long   _soiSeq;
+        private static string _soiAct = string.Empty;
+        internal static long   SoiSeq => Interlocked.Read(ref _soiSeq);
+        internal static string SoiAct => Volatile.Read(ref _soiAct);
+
+        internal static void SoiAction(string act)
+        {
+            lock (_soiLock)
+            {
+                Volatile.Write(ref _soiAct, act);
+                Interlocked.Increment(ref _soiSeq);
+                Interlocked.Increment(ref _soiVersion);   // rebuild the cached frame so the press ships
+            }
+        }
+
         // A display connects: it takes focus if nothing has it. So the first display up is the SOI
         // without anyone pressing anything, and focus is only ever unset when no display is open.
         private static void SoiClaimIfUnfocused(string cid)
@@ -380,7 +399,7 @@ namespace NOXMFD
 
                 string payload = snap.Valid
                     ? Serialize(snap)
-                    : "{\"ping\":true,\"soiTarget\":\"" + EscapeJson(SoiTarget) + "\"}";
+                    : "{\"ping\":true," + SoiJson() + "}";
                 _frameBytes   = Encoding.UTF8.GetBytes("data: " + payload + "\n\n");
                 _frameVersion = v;
                 return _frameBytes;
@@ -1199,7 +1218,7 @@ namespace NOXMFD
                 "\"flares\":{20},\"flaresMax\":{21},\"ewKJ\":{22:0.0},\"ewKJMax\":{23:0.0}," +
                 "\"selWeapon\":\"{24}\",\"cmCat\":{25},\"tgpActive\":{26}," +
                 "\"fuel\":{27:0.000},\"thr\":{28:0.000},\"hasAb\":{29},\"abStart\":{30:0.000}," +
-                "\"softGun\":\"{31}\",\"softRel\":\"{32}\",\"soiTarget\":\"{33}\",",
+                "\"softGun\":\"{31}\",\"softRel\":\"{32}\",{33},",
                 s.Time,
                 EscapeJson(s.PlaneName ?? string.Empty),
                 EscapeJson(s.MissionName ?? string.Empty),
@@ -1219,7 +1238,7 @@ namespace NOXMFD
                 s.Fuel, s.Throttle,
                 s.HasAfterburner ? "true" : "false", s.AbStart,
                 EscapeJson(s.SoftGun ?? string.Empty), EscapeJson(s.SoftRel ?? string.Empty),
-                EscapeJson(SoiTarget));   // server state, not the snapshot's — see SetSoiTarget
+                SoiJson());   // server state, not the snapshot's — see SetSoiTarget
 
             return head + "\"loadout\":" + LoadoutArray(s.Loadout)
                         + ",\"colors\":{"
@@ -1404,6 +1423,12 @@ namespace NOXMFD
             }
             return sb.Append(']').ToString();
         }
+
+        // SOI's slice of a frame. Shared by the real payload and the no-mission ping, because a display
+        // is focusable and drivable at the main menu, where the ping is the only frame there is.
+        private static string SoiJson() => string.Format(CultureInfo.InvariantCulture,
+            "\"soiTarget\":\"{0}\",\"soiSeq\":{1},\"soiAct\":\"{2}\"",
+            EscapeJson(SoiTarget), SoiSeq, EscapeJson(SoiAct));
 
         private static string EscapeJson(string s) =>
             s.Replace("\\", "\\\\").Replace("\"", "\\\"");

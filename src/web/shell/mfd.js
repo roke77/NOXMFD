@@ -21,6 +21,11 @@ const keyBanks = {
 };
 const leftKeys  = keyBanks.left;    // compatibility aliases for side-specific renderers
 const rightKeys = keyBanks.right;
+// Name every key by its bank+index. placeOverlayLabel stamps the same string on the label it puts
+// there, which is what lets the SOI cursor go from a physical key to the label riding on it.
+['left', 'right', 'top', 'bottom'].forEach(function(side) {
+  keyBanks[side].forEach(function(k, i) { k.dataset.pos = side + i; });
+});
 // Fixed-control icon banks. The top row holds page-independent functions; the bottom row
 // holds layout controls. Both are wired once at startup and excluded from clearKeyActions,
 // so they survive page switches.
@@ -414,6 +419,7 @@ function renderSplitLabels() {
   }
   renderPaneMainPageInd();   // main-prev/next (mfdButton) calls renderSplitLabels directly, not
                              // refreshFollowIndicator, so the chip needs its own call here too.
+  renderSoiCursor();         // same reason: the labels this just rebuilt carry the cursor mark
 }
 
 // Send a map action (toggle-follow / zoom-in / zoom-out) to a single pane's map iframe.
@@ -769,6 +775,9 @@ function placeWpnNavLabels() {
   const cur = Math.min(Math.max(wpnPage, 0), maxPage);
   placeOverlayLabel('left', 0, cur > 0 ? 'PREV' : 'MAIN', cur > 0 ? 'wpn-prev' : 'main');
   if (cur < maxPage) placeOverlayLabel('right', 0, 'NEXT', 'wpn-next');
+  // This runs on every loadout tick, not only on a page change, so the SOI cursor's mark has to be
+  // re-applied here too — it lives on a label this function just threw away.
+  renderSoiCursor();
 }
 
 // ── App-wide orientation ─────────────────────────────────────────────────────────────
@@ -994,6 +1003,7 @@ function placeOverlayLabel(bankName, keyIndex, label, action, mark) {
   const el = document.createElement('div');
   el.className = 'overlay-item ' + side + (mark ? ' on' : '') + (PAGING_ACTIONS[action] ? ' paging' : '');
   el.textContent = label;
+  el.dataset.key = side + keyIndex;   // ties the label to its physical key, so the SOI cursor can mark it
 
   const oRect = overlayEl.getBoundingClientRect();
   const kr = k.getBoundingClientRect();
@@ -1101,6 +1111,7 @@ function showPage(name) {
   // chip now (the map's follow state was reported earlier, while another page was in view), and
   // leaving MAP must drop it. It renders the full indicator stack (incl. PINNED) internally.
   refreshFollowIndicator();
+  renderSoiCursor();   // the labels were just rebuilt; re-mark the cursored one (and clamp it)
 }
 
 // The map iframe broadcasts status + loadout + cm via postMessage; mirror onto the
@@ -1125,6 +1136,9 @@ window.addEventListener('message', function(e) {
     // Reported by the telemetry tap, the only part that knows this instance's cid. Shell-wide
     // rather than per-pane: focus addresses the whole display for now.
     screenEl.classList.toggle('soi', !!m.focused);
+    if (!m.focused) setSoiCursor(-1);   // losing focus takes the cursor with it
+  } else if (m.type === 'soi-act') {
+    soiAct(m.act);
   } else if (m.type === 'loadout') {
     const prevSel = wpnData.selWeapon;
     wpnData = { items: m.items || [], selWeapon: m.selWeapon || null,
@@ -1352,6 +1366,72 @@ function loadConfigUrls() {
 // (linked before this script in mfd.html). State changes (e.g. a deselected target dropping off
 // the target list) come back via normal telemetry, so the shell's calls are fire-and-forget: add
 // .catch() at the call site since the shared sender returns the raw promise.
+
+// ── SOI cursor ───────────────────────────────────────────────────────────────────────
+// NAV UP/DOWN walk a cursor over this display's line-select keys and SELECT presses the one it
+// stops on — reaching out and touching a bezel key, for a screen you are not touching. Only ever
+// driven while this display is the SOI; the tap forwards nothing otherwise (docs/keybinds-page.md).
+//
+// The list is DERIVED, never maintained: everything navigable in this shell is already a label on a
+// physical key carrying a data-action, and mfdButton() is already the single activation entry. So
+// the cursor needs no per-page knowledge and every page with keys gets it at once — MAIN's menu,
+// WPN's weapon list and paging, MAP's zoom rocker, LYT. Pages whose controls live inside their
+// iframe (TGT, HUD) expose only their MAIN key here; operating those needs a page-level cursor
+// protocol, which is the MVP limit the doc names.
+//
+// Left bank then right, top to bottom — how the bezel reads. The top/bottom banks stay out: they
+// are fixed chrome (fullscreen, PIN, the split presets), not page navigation.
+let soiCursor = -1;   // index into soiKeys(); -1 = no cursor
+
+function soiKeys() {
+  const out = [];
+  ['left', 'right'].forEach(function(side) {
+    keyBanks[side].forEach(function(k) { if (k.dataset.action) out.push(k); });
+  });
+  return out;
+}
+
+// Paint the cursor on the KEY, and on its label when it has one. Marking only the label would lose
+// the cursor exactly where it matters most: WPN's weapon rows are keys with an action whose text is
+// drawn inside the page iframe, so no overlay label exists to mark. Every action key has a key.
+//
+// Re-run after anything that rebuilds labels — they are thrown away and recreated on each page
+// change. The index is CLAMPED rather than reset, so paging (WPN's PREV/NEXT, MAIN's) keeps the
+// cursor roughly where it was instead of snapping back to the top on every press.
+function renderSoiCursor() {
+  overlayEl.querySelectorAll('.overlay-item.cursor').forEach(function(el) { el.classList.remove('cursor'); });
+  ['left', 'right'].forEach(function(side) {
+    keyBanks[side].forEach(function(k) { k.classList.remove('cursor'); });
+  });
+  if (soiCursor < 0) return;
+  const keys = soiKeys();
+  if (!keys.length) { soiCursor = -1; return; }
+  if (soiCursor >= keys.length) soiCursor = keys.length - 1;
+  const k = keys[soiCursor];
+  k.classList.add('cursor');
+  const el = overlayEl.querySelector('.overlay-item[data-key="' + k.dataset.pos + '"]');
+  if (el) el.classList.add('cursor');
+}
+
+function setSoiCursor(i) { soiCursor = i; renderSoiCursor(); }
+
+function soiAct(act) {
+  const keys = soiKeys();
+  if (!keys.length) return;
+
+  if (act === 'select') {
+    if (soiCursor >= 0 && soiCursor < keys.length) mfdButton(keys[soiCursor]);
+    renderSoiCursor();   // the press may have changed the page, and with it the label set
+    return;
+  }
+
+  const dir = act === 'up' ? -1 : 1;
+  // The first NAV press only reveals the cursor — landing it somewhere unannounced and moving it in
+  // the same press would make the first press of a session unpredictable. Entering from the end the
+  // key came from, as SOI NEXT/PREV do from no focus.
+  if (soiCursor < 0) setSoiCursor(dir > 0 ? 0 : keys.length - 1);
+  else setSoiCursor(((soiCursor + dir) % keys.length + keys.length) % keys.length);
+}
 
 function mfdButton(el) {
   el.classList.add('lit');                                   // brief press feedback

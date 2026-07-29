@@ -189,6 +189,19 @@ KEYBINDS = [
     {"id": "weapon-release", "section": "WEAPONS", "label": "Weapon Release",
      "description": "Release your missile/bomb; HOLD to keep releasing. With a gun selected, the first press only switches to it — press again to release.",
      "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "soi-next", "section": "SOI", "label": "SOI Next",
+     "description": "Move focus to the next display.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "soi-prev", "section": "SOI", "label": "SOI Prev",
+     "description": "Move focus to the previous display.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "soi-nav-up", "section": "SOI", "label": "Nav Up",
+     "description": "Move the cursor up the focused display's key labels.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "soi-nav-down", "section": "SOI", "label": "Nav Down",
+     "description": "Move the cursor down the focused display's key labels.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "soi-select", "section": "SOI", "label": "Select",
+     "description": "Press the label the cursor is on, as if you had clicked that key.",
+     "key": "", "joyButton": -1, "joyNum": 0},
 ]
 KB_STATE = {"capturing": None, "armed_at": 0.0}
 
@@ -203,7 +216,10 @@ def _keybinds_config():
         KB_STATE["capturing"] = None
     notes = {"WEAPONS": "Cycle keys select the last soft-selected weapon of their type, or the first "
                         "in the list. Repeated presses cycle to the next one, skipping depleted "
-                        "weapons. Cycling to a different type leaves the current one soft-selected."}
+                        "weapons. Cycling to a different type leaves the current one soft-selected.",
+             "SOI": "One display at a time is the sensor of interest — it rings itself in white, and "
+                    "these keys drive it. Focus starts on the first display opened and wraps through "
+                    "the rest. These are the only keys that work without an aircraft."}
     return json.dumps({"binds": KEYBINDS, "notes": notes,
                        "capturing": KB_STATE["capturing"]}).encode("utf-8")
 

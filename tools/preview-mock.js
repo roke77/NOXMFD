@@ -380,9 +380,18 @@
   }
   window.EventSource = MockEventSource;
 
-  // Drive SOI focus by hand: no game, so nothing moves the target on its own. Pass this instance's
-  // own cid (window.__PREVIEW_STREAM_URL carries it) to see the display take focus, '' to drop it.
+  // Drive SOI by hand: no game, so nothing moves the target or presses a key on its own. Pass this
+  // instance's own cid (window.__PREVIEW_STREAM_URL carries it) to see the display take focus, ''
+  // to drop it; __soiPress stands in for one SOI keybind press, counter and all.
+  // Present from the first frame, as the server has them — a client treats the first counter it
+  // sees as a starting point rather than a press, so a field that only appears once it is pressed
+  // would make that first press look like history and be ignored.
+  FRAME.soiTarget = FRAME.soiTarget || '';
+  FRAME.soiSeq    = FRAME.soiSeq    || 0;
+  FRAME.soiAct    = FRAME.soiAct    || '';
+
   window.__setSoiTarget = (cid) => { FRAME.soiTarget = cid || ''; };
+  window.__soiPress = (act) => { FRAME.soiAct = act; FRAME.soiSeq = (FRAME.soiSeq || 0) + 1; };
 
   // Show the map immediately (avoids the initial /map 404 flash).
   window.addEventListener('DOMContentLoaded', () => {

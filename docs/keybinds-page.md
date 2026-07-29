@@ -93,11 +93,11 @@ Capture is split by source, because each side can only see its own input:
 
 ---
 
-# Exploring: SOI (sensor of interest)
+# SOI (sensor of interest)
 
-**Status: in progress on the `soi` branch.** The instance registry and the focus target are
-built; the binds and the cursor are not. Kept in this doc because its whole user-facing surface is
-five more rows on this page. Sections below are marked where they describe working code.
+**Status: working on the `soi` branch, classic layout.** All five binds, the focus ring and the
+cursor are in. Not done: focus is per display rather than per pane, pages whose controls live
+inside their iframe can be reached but not operated, and the F-35 has no cursor of its own.
 
 Borrowed from DCS: one display at a time is the *sensor of interest*, and a fixed set of
 HOTAS keys drives whichever display that is. Here a "display" is one MFD instance — a
@@ -105,13 +105,17 @@ browser somewhere on the network — and, within it, one pane. Focus moves; the 
 The point is to work a screen you are not touching: a tablet clamped to the rig, a second
 monitor, a phone velcroed to the throttle.
 
-Five binds:
+Five binds, in the page's own SOI section:
 
-| Bind | Effect on the focused pane |
+| Bind | Effect |
 |---|---|
-| `NAV UP` / `NAV DOWN` | move a cursor through the pane's line-select labels |
-| `SELECT` | activate the cursored label — the same thing clicking that bezel key does |
-| `SOI NEXT` / `SOI PREV` | move focus to the next/previous pane, wrapping across instances |
+| `NAV UP` / `NAV DOWN` | move a cursor through the focused display's line-select keys |
+| `SELECT` | press the cursored key — the same thing clicking it does |
+| `SOI NEXT` / `SOI PREV` | move focus to the next/previous display, wrapping |
+
+They are the only binds that act on the mod rather than on the aeroplane, which is why they are
+registered with `DefFree` and run in `Poll()`'s aircraft-free pass — every other bind is skipped
+when `GetLocalAircraft` comes back empty, and these have to work at the main menu.
 
 ## The instance registry — **built**
 
@@ -152,10 +156,13 @@ Deliberately almost nothing. The plugin does not know what a page contains, and 
   id; the match draws itself as focused, the rest draw normally. It is server state rather than
   snapshot state, so it versions the frame cache separately — otherwise a target moving between
   two identical pings would never ship.
-- `soiSeq` + `soiAct` — a counter and the last action (`up`/`down`/`select`). Not built. A
-  client applies the action when the counter changes and ignores it otherwise, which makes the
-  transport idempotent: a dropped or duplicated frame can't double-press a key, and the 10 Hz
-  frame rate caps the input lag at ~100 ms.
+- `soiSeq` + `soiAct` — a counter and the last key pressed (`up`/`down`/`select`) — **built.** A
+  client acts when the counter changes and ignores the fields otherwise, which makes the transport
+  idempotent: a dropped or duplicated frame can't double-press a key, and the 10 Hz frame rate caps
+  the input lag at ~100 ms (1 Hz at the main menu). The first counter a client sees is recorded
+  without acting — presses made before it connected are history, not input. Both fields are present
+  in every frame from the first, ping included, precisely so that rule can tell "no presses yet"
+  from "a press just happened".
 
 Focus is never left unset while a display is open:
 
@@ -174,21 +181,32 @@ target, so every change takes one lock — "is anything focused?" and the write 
 have to be a single step, or two displays connecting together both see nothing focused and the
 second silently steals it. `tools/soi-focus.test.js` models these rules and locks them.
 
-Until the binds exist, `POST /command` `soi.next` / `soi.prev` drive focus — which is also how
-it is exercised without a controller.
+`POST /command` `soi.next` / `soi.prev` drive focus as well as the binds do, which is how it is
+exercised without a controller.
 
 **Focus is per instance, not yet per pane.** Pane count is something only the client knows (a
 split has two, full view one), so cycling panes needs the client to report its panes first —
 that arrives with the cursor, which is the thing that makes a pane distinguishable anyway.
 
-## What the cursor moves over
+## What the cursor moves over — **built** (classic)
 
-The bezel already answers this. Every navigable thing in the classic shell is a label placed
-on a physical key, `mfdButton(key)` is the single activation entry, and in split mode each
-key already carries `data-pane`. So the cursor is an index into "keys of this pane that
-currently have a `data-action`", `SELECT` is `mfdButton(k)` on it, and the highlight is one
-more class on the overlay label. No page needs to know SOI exists, and every page that has
-bezel keys gets it at once: MAIN's menu, WPN's weapon list, MAP's zoom rocker, LYT.
+The bezel already answered this. Every navigable thing in the classic shell is a key carrying a
+`data-action`, and `mfdButton(key)` is the single activation entry. So the cursor is an index into
+"keys that currently have a `data-action`", left bank then right, and `SELECT` is `mfdButton()` on
+the one it stops on. The list is derived on every press, never maintained. No page knows SOI
+exists, and every page with keys got it at once: MAIN's menu, WPN's weapon list and paging, MAP's
+zoom rocker, LYT. In split mode the keys already carry `data-pane`, so a press lands on the right
+pane without SOI knowing panes exist.
+
+The cursor marks the **key**, and its overlay label when it has one. Marking only the label loses
+the cursor exactly where it is most useful: WPN's weapon rows are keys with an action whose text is
+drawn *inside* the page iframe, so no label exists to mark. Every action key has a key. Two things
+rebuild labels without a page change — WPN's per-tick `placeWpnNavLabels` and `renderSplitLabels` —
+so both re-apply the mark; the index is clamped rather than reset, so paging keeps the cursor
+roughly where it was.
+
+The first `NAV` press only reveals the cursor rather than also moving it: entering from the end the
+key came from (`DOWN` → first, `UP` → last), so the first press of a session is predictable.
 
 The flip side: controls that live *inside* a page iframe are invisible to it. TGT's filter
 toggles and HUD's category rows are clicked, not keyed, and BDF/PAL are read-only panels — none
@@ -196,16 +214,14 @@ of them offer the shell anything but the single MAIN back-label. Fixing that mea
 cursor protocol (the shell forwards `up`/`down`/`select` into the iframe and the page decides
 what it has), which is a second stage, not this one.
 
-**So the MVP does not focus them at all.** `SOI NEXT`/`PREV` skip any pane whose page has
-nothing to cursor over — which is derivable rather than a hand-kept list of page names: a pane
-is eligible when its page offers more than the one MAIN back-label. That admits MAIN, MAP, WPN
-and LYT, and excludes TGT, HUD, BDF, PAL, TGP, AVN and RWR by the same rule, with no per-page
-knowledge anywhere.
+In practice they degrade rather than break: such a page contributes only its MAIN back-key, so a
+display sitting on one has a one-item cursor and `SELECT` gets you out of it. That is the right
+behaviour to keep even once the gap is closed — dropping focus off a page you can no longer key
+your way out of would be worse.
 
-Focus is only *tested* when SOI moves it, though, not held continuously — if you SOI into a
-pane and then navigate that pane onto TGT, focus stays, with MAIN as the one thing the cursor
-can reach. Dropping focus there would strand you on a page you can no longer key your way out
-of, which is worse than a pane with a one-item cursor.
+Skipping them entirely, so `SOI NEXT` never lands on one, needs focus to be per *pane* rather than
+per display: a display isn't skippable when the pilot may want the pane beside it. That waits on
+pane reporting.
 
 ## Showing focus — **built** (classic)
 
@@ -221,37 +237,44 @@ Off-white (`--no-label`) rather than the theme's green: green is what instrument
 and this is chrome saying where the controls are pointed — the same distinction the bezel's key
 labels already make.
 
-It frames the display, not a pane, so it is unchanged by a split. A per-pane marker — which of
-a split's two panes holds the cursor — can wait until the cursor exists, because the cursor
-highlight will already say it.
+It frames the display, not a pane, so a split doesn't change it — the cursor's own amber mark is
+what says which pane you are working in.
 
 The telemetry tap owns the comparison: it is the only part of the frontend that knows this
 instance's cid, so it posts a `soi` slice up to the shell as a plain boolean, and only when it
-changes — otherwise the indicator stack would rebuild ten times a second to say the same thing.
+changes rather than ten times a second. Losing focus takes the cursor with it.
 
-## MVP scope
+## The cursor mark
 
-Classic layout only, and only the panes with something to cursor over (above). It is the
-layout whose navigation is already a flat, ordered,
-shell-owned list of keys, so the cursor is nearly free there; the F-35's portals would need
-their own cursor over `.nav-item` labels, and it has up to four portals per instance rather
-than two panes. Everything above that is server-side (instance registry, target, action
-counter) is layout-agnostic and would carry over unchanged.
+Amber, the theme's engaged colour: a filled label (`--no-ink` on amber) and a steady glow on the
+key itself. Filled rather than outlined because `.overlay-item.on` and `.paging` already use both
+outline idioms, and a cursor is a *position* rather than a property of the label — it has to read
+at a glance from across the cockpit. The glow is distinguishable from `.key.lit`'s green
+press-flash, which is momentary.
 
-## Open questions
+## Scope
 
-- **`Poll()` is aircraft-gated.** It returns early when `GetLocalAircraft` gives nothing, so
-  today no bind fires at the main menu. SOI keys must work there — navigating MAIN is the
-  obvious thing to do while waiting for a mission. `BindDef` needs a "doesn't need an
-  aircraft" flag, or `Drive` needs to take a nullable one.
-- **Does focus survive a reload?** Only with the client-supplied `cid`. Worth doing up front;
-  retrofitting identity is worse than starting with it.
-- **Does an unfocused instance need to say anything?** It shows nothing today, which is the
-  right default — but a rig with four displays wants to see *where* focus went without looking
-  away from the one it just left. A brief marker on every instance when the target changes is
-  cheap, if it turns out to be missed.
-- **Ordering of `SOI NEXT`.** Connection order is what the server has, and it is neither
-  stable nor spatial — reconnect a tablet and it moves to the end of the ring. A named or
-  user-ordered instance list is the fix, and it needs somewhere to live.
-- **Key repeat.** Held `NAV DOWN` should walk the list, so these are held binds with a repeat
-  interval rather than edge binds — the plugin owns that cadence, since the counter is its own.
+Classic layout only. It is the layout whose navigation is already a flat, ordered, shell-owned
+list of keys, so the cursor was nearly free there; the F-35's portals would need their own cursor
+over `.nav-item` labels, and it has up to four portals per instance rather than two panes.
+Everything server-side — the instance registry, the target, the action counter — is
+layout-agnostic and carries over unchanged.
+
+## Still open
+
+- **Focus is per display, not per pane.** The cursor spans both panes of a split, which works
+  (each key carries its own `data-pane`, so a press lands on the right pane) but means `SOI NEXT`
+  can't skip a pane, or step between the two panes of one display. Needs the client to report its
+  panes.
+- **Pages with in-iframe controls can be reached but not operated** — see above. Needs a
+  page-level cursor protocol.
+- **Ordering of `SOI NEXT`.** Connection order is what the server has, and it is neither stable
+  nor spatial — reconnect a tablet and it moves to the end of the ring. A named or user-ordered
+  instance list is the fix, and it needs somewhere to live.
+- **Key repeat.** The binds are edge-driven, so `NAV DOWN` is one step per press. Holding it to
+  walk a long list would need a repeat cadence, which the plugin would own since the counter is
+  its own. Edge-only is deliberate for now: it can't overshoot.
+- **Does an unfocused display need to say anything?** It shows nothing, which is the right
+  default — but a rig with four displays wants to see *where* focus went without looking away
+  from the one it just left. A brief marker on every display when the target changes is cheap, if
+  it turns out to be missed.
