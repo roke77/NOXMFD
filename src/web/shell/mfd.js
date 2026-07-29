@@ -1420,8 +1420,17 @@ function soiAct(act) {
   if (!keys.length) return;
 
   if (act === 'select') {
-    if (soiCursor >= 0 && soiCursor < keys.length) mfdButton(keys[soiCursor]);
-    renderSoiCursor();   // the press may have changed the page, and with it the label set
+    if (soiCursor >= 0 && soiCursor < keys.length) {
+      // A SELECT that navigates to a new screen drops the cursor, so the destination shows nothing
+      // highlighted until the pilot summons it again with NAV — landing pre-parked on the new page's
+      // first key (usually MAIN) reads as a selection nobody made. A SELECT that stays put (a weapon
+      // pick, a page-turn) keeps the cursor, so you can act again without re-summoning it. The nav
+      // signature covers both full view (currentPage) and a split pane (panePages).
+      const navBefore = currentPage + '|' + panePages.join(',');
+      mfdButton(keys[soiCursor]);
+      if (currentPage + '|' + panePages.join(',') !== navBefore) { setSoiCursor(-1); return; }
+    }
+    renderSoiCursor();   // stayed put: re-apply the mark to the (possibly rebuilt) label set
     return;
   }
 
