@@ -837,7 +837,11 @@ let followOn      = false;
 // Per-pane map follow state for split mode — each MAP pane's iframe broadcasts its own
 // follow. The FOLLOW chip shows whenever a currently-visible MAP pane is following.
 let paneFollowOn  = [false, false];
-let indicatorOrder = [];   // subset of ['pinned','follow'] in activation order
+let indicatorOrder = [];   // subset of ['pinned','follow','soi'] in activation order
+// This instance is the SOI (sensor of interest) — the display the SOI keys drive. Reported by the
+// telemetry tap, which is the only thing that knows this instance's cid (docs/keybinds-page.md).
+// Shell-wide, not per-pane: focus addresses the whole display for now.
+let soiFocused = false;
 // Last non-pinned page we left to jump to pinnedPage via SWAP. Lets the second SWAP
 // press return there. Cleared whenever the pin itself changes (re-pin or unpin) since
 // the partner relationship is tied to the current pin.
@@ -866,7 +870,19 @@ function indicatorVisible(name) {
   // Shell-stack FOLLOW is single-mode only (one map fills the screen). Split mode renders
   // a FOLLOW chip per pane instead — see renderPaneFollow().
   if (name === 'follow') return !splitMode && currentPage === 'map' && followOn;
+  // SOI is a property of the whole display, so unlike the other two it doesn't depend on the page.
+  if (name === 'soi') return soiFocused;
   return false;
+}
+
+// Add/remove SOI from the indicator stack as focus arrives and leaves. Same shape as
+// refreshFollowIndicator — the stack records activation order, so a chip must be pushed once when
+// it turns on rather than rebuilt from scratch.
+function refreshSoiIndicator() {
+  const has = indicatorOrder.indexOf('soi') !== -1;
+  if (soiFocused && !has) indicatorOrder.push('soi');
+  else if (!soiFocused && has) indicatorOrder = indicatorOrder.filter(function(x) { return x !== 'soi'; });
+  renderIndicators();
 }
 // Paint a FOLLOW chip in the top-right of each pane that's showing a following MAP. Split
 // mode only; in single mode both per-pane boxes are cleared (the shell stack handles it).
@@ -904,13 +920,17 @@ function refreshFollowIndicator() {
   renderPaneMainPageInd();
 }
 
+const INDICATOR_LABEL = { pinned: 'PINNED', follow: 'FOLLOW', soi: 'SOI' };
+
 function renderIndicators() {
   indicatorsEl.innerHTML = '';
   indicatorOrder.forEach(function(name) {
     if (!indicatorVisible(name)) return;
     const el = document.createElement('div');
-    el.className = 'mfd-indicator';
-    el.textContent = name === 'pinned' ? 'PINNED' : 'FOLLOW';
+    // The name doubles as a modifier class — only SOI styles itself differently (it reports the
+    // shell's own state, not an engaged control, so it isn't amber). See .mfd-indicator.soi.
+    el.className = 'mfd-indicator ' + name;
+    el.textContent = INDICATOR_LABEL[name] || name.toUpperCase();
     indicatorsEl.appendChild(el);
   });
 }
@@ -1120,6 +1140,9 @@ window.addEventListener('message', function(e) {
     ibStatus.className = 'ib-status mfd-status ' + m.cls;
     ibStatus.textContent = m.text;
     if (splitMode) forwardStatusToPanes();
+  } else if (m.type === 'soi') {
+    soiFocused = !!m.focused;
+    refreshSoiIndicator();
   } else if (m.type === 'loadout') {
     const prevSel = wpnData.selWeapon;
     wpnData = { items: m.items || [], selWeapon: m.selWeapon || null,

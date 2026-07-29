@@ -64,10 +64,20 @@ export class TelemetrySource {
     this._inMission = false;            // true between the first frame and the next no-mission ping
     this._meta = null;                  // { w, h, ox, oy } — for target grid labels; persists until reset
     this._lastStatus = { cls: 'disconnected', text: '● DISCONNECTED' };
+    this._cid = '';                     // this instance's SOI id — settled by the server's hello
+    this._soiFocused = null;            // null = never reported; forces the first post either way
   }
 
   connect() {
-    const es = new EventSource('/stream?cid=' + encodeURIComponent(instanceId()));
+    this._cid = instanceId();
+    const es = new EventSource('/stream?cid=' + encodeURIComponent(this._cid));
+    // The server answers with the id it actually filed us under. Normally that's the one we just
+    // sent; when our storage is unavailable we sent nothing and it named us itself. Either way this
+    // is the id SOI focus is broadcast by, so it is the one to compare against — and it is not
+    // persisted, since a server-named id belongs to this connection only.
+    es.addEventListener('hello', (e) => {
+      try { this._cid = JSON.parse(e.data).cid || this._cid; } catch (err) { /* keep ours */ }
+    });
     es.onmessage = (e) => this._onMessage(e);
     es.onerror = () => {};   // EventSource auto-reconnects; the watchdog decides when to flag DISCONNECTED
     // Watchdog — tolerate transient SSE blips, only flag disconnect after a real gap.
@@ -93,6 +103,16 @@ export class TelemetrySource {
   _onMessage(e) {
     this._lastMsgAt = performance.now();
     const d = JSON.parse(e.data);
+
+    // SOI focus rides in every frame kind, ping included — a display is focusable at the main menu,
+    // where a ping is all there is — so this sits ahead of the ping branch's early return rather
+    // than in _emit with the per-page slices. Posted only on a change: it would otherwise rebuild
+    // the shell's indicator stack ten times a second to say the same thing.
+    const focused = !!d.soiTarget && d.soiTarget === this._cid;
+    if (focused !== this._soiFocused) {
+      this._soiFocused = focused;
+      this._postUp({ type: 'soi', focused });
+    }
 
     if (d.ping) {
       this._setStatus('waiting', '● CONNECTED — no mission');

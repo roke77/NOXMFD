@@ -95,8 +95,8 @@ Capture is split by source, because each side can only see its own input:
 
 # Exploring: SOI (sensor of interest)
 
-**Status: in progress on the `soi` branch.** The instance registry is built; the binds, the
-focus target and the cursor are not. Kept in this doc because its whole user-facing surface is
+**Status: in progress on the `soi` branch.** The instance registry and the focus target are
+built; the binds and the cursor are not. Kept in this doc because its whole user-facing surface is
 five more rows on this page. Sections below are marked where they describe working code.
 
 Borrowed from DCS: one display at a time is the *sensor of interest*, and a fixed set of
@@ -147,16 +147,26 @@ needs a private channel.
 
 Deliberately almost nothing. The plugin does not know what a page contains, and shouldn't:
 
-- `soiTarget` — the focused `cid` (and pane index). Every client sees it; the one that
-  matches draws itself as focused, the rest draw normally.
-- `soiSeq` + `soiAct` — a counter and the last action (`up`/`down`/`select`). A client
-  applies the action when the counter changes and ignores it otherwise, which makes the
-  transport idempotent: a dropped or duplicated frame can't double-press a key, and the
-  10 Hz frame rate caps the input lag at ~100 ms.
+- `soiTarget` — the focused `cid` — **built.** In every frame including the 1 Hz ping, so a
+  display is focusable at the main menu. Every client sees it and compares it against its own
+  id; the match draws itself as focused, the rest draw normally. It is server state rather than
+  snapshot state, so it versions the frame cache separately — otherwise a target moving between
+  two identical pings would never ship.
+- `soiSeq` + `soiAct` — a counter and the last action (`up`/`down`/`select`). Not built. A
+  client applies the action when the counter changes and ignores it otherwise, which makes the
+  transport idempotent: a dropped or duplicated frame can't double-press a key, and the 10 Hz
+  frame rate caps the input lag at ~100 ms.
 
-`SOI NEXT`/`PREV` never leave the plugin — they just move `soiTarget` along the registered
-instance list. Pane count per instance has to come from the client (a split has two panes,
-full view one), which is one more thing the client reports on connect or in a `/command`.
+`SOI NEXT`/`PREV` never leave the plugin — they move `soiTarget` along the registered instance
+list, oldest connection first. From no focus, NEXT takes the first and PREV the last, so either
+key lights something up on the first press. When the focused display disconnects the target
+clears rather than advancing: "next" measured from a position that no longer exists is a guess,
+and starting from the top again is predictable. Until the binds exist, `POST /command`
+`soi.next` / `soi.prev` drive it — which is also how focus is exercised without a controller.
+
+**Focus is per instance, not yet per pane.** Pane count is something only the client knows (a
+split has two, full view one), so cycling panes needs the client to report its panes first —
+that arrives with the cursor, which is the thing that makes a pane distinguishable anyway.
 
 ## What the cursor moves over
 
@@ -184,17 +194,25 @@ pane and then navigate that pane onto TGT, focus stays, with MAIN as the one thi
 can reach. Dropping focus there would strand you on a page you can no longer key your way out
 of, which is worse than a pane with a one-item cursor.
 
-## Showing focus
+## Showing focus — **built** (classic)
 
-The focused instance draws a small boxed **SOI** label in its **top right**, in the theme's
-off-white `--no-label` — the colour the bezel already uses for chrome that frames rather than
-reports, which is what this is. The unfocused instances draw nothing. The box is the whole
-indication for now; a per-pane marker (which of a split's two panes holds the cursor) can wait
-until the cursor highlight itself proves out, since the highlight already says it.
+The focused instance draws a small boxed **SOI** label in its **top right**; unfocused
+instances draw nothing. That corner already holds the shell's indicator stack (PINNED,
+FOLLOW), so SOI is one more chip in it rather than new chrome — `indicatorOrder` even gets the
+stacking right for free, since it records activation order.
 
-Top right is provisional: it is clear of the classic shell's key labels and of MAIN's info
-box, but the layouts don't share a corner convention yet, so it may move once the F-35 gets
-the same treatment.
+It is off-white (`--no-label`) where the other two are amber. PINNED and FOLLOW report a
+control *this* screen has engaged; SOI reports which screen the controls are pointed at, which
+is chrome, and `--no-label` is the token the bezel already uses for that distinction.
+
+The chip is the whole indication for now. A per-pane marker — which of a split's two panes
+holds the cursor — can wait until the cursor exists, because the cursor highlight already says
+it. Top right is provisional in the sense that the F-35 has no indicator stack to put it in,
+so that layout's answer may end up elsewhere.
+
+The telemetry tap owns the comparison: it is the only part of the frontend that knows this
+instance's cid, so it posts a `soi` slice up to the shell as a plain boolean, and only when it
+changes — otherwise the indicator stack would rebuild ten times a second to say the same thing.
 
 ## MVP scope
 

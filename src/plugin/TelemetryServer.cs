@@ -39,6 +39,7 @@ namespace NOXMFD
         // every connected client (#2 in docs/performance.md). Without this, each of N clients
         // re-serialized the full snapshot every tick — wasteful with 3+ screens open.
         private static long             _frameVersion = -1;
+        private static long             _frameSoiVersion = -1;   // see SetSoiTarget — the target moves independently of the snapshot
         private static byte[]?          _frameBytes;
         private static readonly object  _frameLock = new object();
 
@@ -135,6 +136,40 @@ namespace NOXMFD
             var all = new List<MfdInstance>(_instances.Values);
             all.Sort((a, b) => a.Conn.CompareTo(b.Conn));
             return all;
+        }
+
+        // ── SOI focus ──────────────────────────────────────────────────────────
+        // Which instance the SOI keys drive, as its cid. Broadcast in every frame so each client can
+        // compare it against its own — see the shared-frame note on GetFrameBytes. Empty = nothing
+        // focused, which is the state at startup and after the focused display disconnects.
+        //
+        // _soiVersion is what keeps the frame cache honest: the cache is keyed on the snapshot
+        // version, and the target can change without a new snapshot — at the main menu, where frames
+        // are 1 Hz pings, a stale cached frame would otherwise hide the change indefinitely.
+        private static string _soiTargetCid = string.Empty;
+        private static long   _soiVersion;
+        internal static string SoiTarget => Volatile.Read(ref _soiTargetCid);
+
+        private static void SetSoiTarget(string cid)
+        {
+            if (string.Equals(Volatile.Read(ref _soiTargetCid), cid, StringComparison.Ordinal)) return;
+            Volatile.Write(ref _soiTargetCid, cid);
+            Interlocked.Increment(ref _soiVersion);
+        }
+
+        // Move focus along the registered instances, oldest connection first. From no focus, NEXT
+        // takes the first and PREV the last, so either key lights something up on the first press.
+        internal static void SoiCycle(int dir)
+        {
+            var all = Instances();
+            if (all.Count == 0) { SetSoiTarget(string.Empty); return; }
+
+            string cur = SoiTarget;
+            int i = all.FindIndex(x => string.Equals(x.Cid, cur, StringComparison.Ordinal));
+            int next = i < 0
+                ? (dir >= 0 ? 0 : all.Count - 1)
+                : ((i + dir) % all.Count + all.Count) % all.Count;
+            SetSoiTarget(all[next].Cid);
         }
 
         // The cid arrives over the network, so it is untrusted: it lands in JSON and, later, in an
@@ -307,9 +342,15 @@ namespace NOXMFD
                 lock (_lock) { v = _snapVersion; snap = _latest; }
                 valid = snap.Valid;
 
-                if (_frameVersion == v && _frameBytes != null) return _frameBytes;
+                // SOI focus can move without a new snapshot, so it versions the cache too — a ping
+                // frame at the main menu is otherwise identical forever and the change never ships.
+                long sv = Interlocked.Read(ref _soiVersion);
+                if (_frameVersion == v && _frameSoiVersion == sv && _frameBytes != null) return _frameBytes;
+                _frameSoiVersion = sv;
 
-                string payload = snap.Valid ? Serialize(snap) : "{\"ping\":true}";
+                string payload = snap.Valid
+                    ? Serialize(snap)
+                    : "{\"ping\":true,\"soiTarget\":\"" + EscapeJson(SoiTarget) + "\"}";
                 _frameBytes   = Encoding.UTF8.GetBytes("data: " + payload + "\n\n");
                 _frameVersion = v;
                 return _frameBytes;
@@ -1060,10 +1101,18 @@ namespace NOXMFD
             // Register this instance for its whole lifetime — see MfdInstance. The cid is the
             // client's own durable id (telemetry-source.js), empty when its storage is unavailable.
             long conn = Interlocked.Increment(ref _nextConn);
+            // A client with no usable storage sends nothing; give it a connection-scoped id anyway so
+            // that every instance is addressable. It is told which id it got (the hello event below),
+            // because focus is broadcast BY cid and a client that doesn't know its own can never
+            // recognise itself. Such an id lasts only as long as the connection — which is exactly
+            // what "no durable identity" means.
+            string cid = SanitizeCid(ctx.Request.QueryString["cid"]);
+            if (cid.Length == 0) cid = "conn-" + conn.ToString(CultureInfo.InvariantCulture);
+
             _instances[conn] = new MfdInstance
             {
                 Conn         = conn,
-                Cid          = SanitizeCid(ctx.Request.QueryString["cid"]),
+                Cid          = cid,
                 Remote       = ctx.Request.RemoteEndPoint?.ToString() ?? string.Empty,
                 ConnectedUtc = DateTime.UtcNow,
             };
@@ -1072,6 +1121,13 @@ namespace NOXMFD
 
             try
             {
+                // Tell this client which id it is known by, once, before the stream proper. A named
+                // SSE event so it can't be mistaken for a telemetry frame, and written to this one
+                // connection only — the shared frame stays shared.
+                byte[] hello = Encoding.UTF8.GetBytes(
+                    "event: hello\ndata: {\"cid\":\"" + EscapeJson(cid) + "\"}\n\n");
+                await ctx.Response.OutputStream.WriteAsync(hello, 0, hello.Length, ct).ConfigureAwait(false);
+
                 while (!ct.IsCancellationRequested)
                 {
                     // Shared frame: serialized at most once per snapshot version, regardless of
@@ -1091,6 +1147,10 @@ namespace NOXMFD
             finally
             {
                 _instances.TryRemove(conn, out _);
+                // The focused display just went away. Clear rather than advance: "next" is measured
+                // from a position that no longer exists, so the next SOI press starting from the top
+                // is both simpler and more predictable than guessing where the pilot meant to be.
+                if (string.Equals(SoiTarget, cid, StringComparison.Ordinal)) SetSoiTarget(string.Empty);
                 try { ctx.Response.Close(); } catch { }
                 Plugin.Log?.LogInfo($"[NOXMFD] Client disconnected from {ctx.Request.RemoteEndPoint} (instance {conn})");
             }
@@ -1111,7 +1171,7 @@ namespace NOXMFD
                 "\"flares\":{20},\"flaresMax\":{21},\"ewKJ\":{22:0.0},\"ewKJMax\":{23:0.0}," +
                 "\"selWeapon\":\"{24}\",\"cmCat\":{25},\"tgpActive\":{26}," +
                 "\"fuel\":{27:0.000},\"thr\":{28:0.000},\"hasAb\":{29},\"abStart\":{30:0.000}," +
-                "\"softGun\":\"{31}\",\"softRel\":\"{32}\",",
+                "\"softGun\":\"{31}\",\"softRel\":\"{32}\",\"soiTarget\":\"{33}\",",
                 s.Time,
                 EscapeJson(s.PlaneName ?? string.Empty),
                 EscapeJson(s.MissionName ?? string.Empty),
@@ -1130,7 +1190,8 @@ namespace NOXMFD
                 s.TgpActive ? "true" : "false",
                 s.Fuel, s.Throttle,
                 s.HasAfterburner ? "true" : "false", s.AbStart,
-                EscapeJson(s.SoftGun ?? string.Empty), EscapeJson(s.SoftRel ?? string.Empty));
+                EscapeJson(s.SoftGun ?? string.Empty), EscapeJson(s.SoftRel ?? string.Empty),
+                EscapeJson(SoiTarget));   // server state, not the snapshot's — see SetSoiTarget
 
             return head + "\"loadout\":" + LoadoutArray(s.Loadout)
                         + ",\"colors\":{"

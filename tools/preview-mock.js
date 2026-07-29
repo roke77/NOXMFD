@@ -354,19 +354,35 @@
       // SOI instance id (telemetry-source.js), and "is the cid stable across a reload?" is
       // the one thing about it worth checking without the game.
       window.__PREVIEW_STREAM_URL = url;
+      this._listeners = {};
+      // The server answers a new connection with the id it filed the client under, echoing the cid
+      // the client sent. Same here, so telemetry-source settles on an id in the harness too.
+      const cid = decodeURIComponent((/[?&]cid=([^&]*)/.exec(url) || [, ''])[1]);
       // The frame is static EXCEPT the RWR ping freshness, which we re-tick each send so the
       // diamonds visibly pulse; ~6.7 Hz approximates the real 10 Hz stream (and keeps the
       // page's 2.5 s connection watchdog happy).
       const tick = () => { rwrTickFreshness(); mwTickApproach(); this._send(JSON.stringify(FRAME)); };
       setTimeout(() => {
+        this._fire('hello', JSON.stringify({ cid }));
         tick();
         this._timer = setInterval(tick, 150);
       }, 30);
     }
+    addEventListener(type, fn) { (this._listeners[type] = this._listeners[type] || []).push(fn); }
+    removeEventListener(type, fn) {
+      const l = this._listeners[type] || [];
+      const i = l.indexOf(fn);
+      if (i >= 0) l.splice(i, 1);
+    }
+    _fire(type, data) { (this._listeners[type] || []).forEach(fn => fn({ data })); }
     _send(data) { if (this.onmessage) this.onmessage({ data }); }
     close() { clearInterval(this._timer); }
   }
   window.EventSource = MockEventSource;
+
+  // Drive SOI focus by hand: no game, so nothing moves the target on its own. Pass this instance's
+  // own cid (window.__PREVIEW_STREAM_URL carries it) to see the display take focus, '' to drop it.
+  window.__setSoiTarget = (cid) => { FRAME.soiTarget = cid || ''; };
 
   // Show the map immediately (avoids the initial /map 404 flash).
   window.addEventListener('DOMContentLoaded', () => {

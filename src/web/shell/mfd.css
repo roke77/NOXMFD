@@ -407,6 +407,14 @@
     color: var(--no-amber);
     user-select: none;
   }
+  /* SOI — this display is the sensor of interest. Off-white rather than the stack's amber:
+     PINNED and FOLLOW report a control the pilot engaged on this screen, while SOI reports which
+     screen the controls are pointed AT, which is shell chrome. --no-label is the token the bezel
+     already uses for exactly that distinction. */
+  .mfd-indicator.soi {
+    border-color: var(--no-label);
+    color: var(--no-label);
+  }
   /* Per-pane FOLLOW chips (split mode). Each sits at the top-right of its own pane: the
      top pane mirrors the shell stack's corner; the bottom pane sits just below the 50%
      divider. Hidden until renderPaneFollow() flags the pane's map as following. */

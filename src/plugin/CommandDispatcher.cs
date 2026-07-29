@@ -52,6 +52,10 @@ namespace NOXMFD
                 { "keybind.arm-joy",    e => Log("arm-joy",    e.bind, Keybinds.ArmJoyCapture(e.bind)) },
                 { "keybind.cancel-joy", e => Keybinds.CancelJoyCapture() },
                 { "keybind.clear-joy",  e => Log("clear-joy",  e.bind, Keybinds.ClearJoyBind(e.bind)) },
+                // SOI focus. These will get HOTAS binds of their own; as commands they are how focus
+                // is driven (and tested) from a browser, with no controller and no aircraft.
+                { "soi.next",           e => TelemetryServer.SoiCycle(1) },
+                { "soi.prev",           e => TelemetryServer.SoiCycle(-1) },
             };
 
         // Keybind writes just delegate to the Keybinds registry; log rejections (unknown id / bad key).
