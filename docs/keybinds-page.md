@@ -95,8 +95,9 @@ Capture is split by source, because each side can only see its own input:
 
 # Exploring: SOI (sensor of interest)
 
-**Status: not built.** A design sketch, kept here because its whole user-facing surface is
-five more rows on this page.
+**Status: in progress on the `soi` branch.** The instance registry is built; the binds, the
+focus target and the cursor are not. Kept in this doc because its whole user-facing surface is
+five more rows on this page. Sections below are marked where they describe working code.
 
 Borrowed from DCS: one display at a time is the *sensor of interest*, and a fixed set of
 HOTAS keys drives whichever display that is. Here a "display" is one MFD instance — a
@@ -112,30 +113,35 @@ Five binds:
 | `SELECT` | activate the cursored label — the same thing clicking that bezel key does |
 | `SOI NEXT` / `SOI PREV` | move focus to the next/previous pane, wrapping across instances |
 
-## Can the server see every instance?
+## The instance registry — **built**
 
-Yes, and it already does — it just doesn't keep the list. Each frontend document opens
-exactly one `EventSource('/stream')` (`telemetry-source.js` owns the only one; the shell and
-every page read it second-hand), and each of those lands in its own `HandleSseAsync` task
-that lives as long as the browser stays on the page. One live task = one instance. Today
-they are fired off with `_ = Task.Run(...)` and never collected; registering each in a
-concurrent set on entry and dropping it in the existing `finally` is the whole of it. The
-disconnect log line already fires in the right place.
+Each frontend document opens exactly one `EventSource('/stream')` (`telemetry-source.js` owns
+the only one; the shell and every page read it second-hand), and each of those lands in its
+own `HandleSseAsync` task that lives as long as the browser stays on the page. One live task
+= one instance, so the server registers on entry and drops the entry in that method's existing
+`finally`. `GET /soi-instances` lists them (`conn`, `cid`, `remote`, `upSec`) — a diagnostic,
+and the way the registry was proven before anything was wired to it.
 
-Two constraints the current server imposes on what comes next:
+A document identifies itself with a **cid** it sends as `/stream?cid=…`: `crypto.randomUUID()`
+kept in **`sessionStorage`**. Not `localStorage` — the id has to be the *same* across a reload
+(a tablet that refreshes should stay the instance it was, and get its focus back rather than
+becoming a stranger) and *different* in a second tab (two displays on one PC are two
+instances). `localStorage` is per-origin and gets the second half exactly wrong. Read from the
+map-tap iframe, `sessionStorage` resolves to the tab's store, which is the document we mean.
+Both hops are guarded: `sessionStorage` throws in some private-mode browsers, and
+`randomUUID` needs a secure context, which plain `http://` over the LAN is not — the fallback
+id identifies the instance while it is connected but does not survive a reload.
 
-- **The frame is shared, deliberately.** `GetFrameBytes` serializes each snapshot version
-  once and every client writes the same bytes (docs/performance.md #2). Per-client payloads
-  would throw that away at exactly the moment there are several clients. So SOI state has to
-  ride in the *broadcast*: the frame names which instance is focused, and each client decides
-  for itself whether that is them. Nothing about the design needs a private channel.
-- **Clients therefore need an identity they can compare against.** The connection is the
-  server's handle, but the client can't see its own connection. The cheap version is a
-  server-assigned id written once to that one connection before the loop starts (legal SSE,
-  and it doesn't touch the shared frame). The better version is a client-supplied id —
-  `crypto.randomUUID()` kept in `localStorage`, passed as `/stream?cid=…` — because it
-  survives a reload, and a tablet that reconnects should get its focus back rather than
-  becoming a stranger.
+The registry keys on a server-side connection number, not the cid. A duplicated browser tab
+copies its `sessionStorage`, and so its cid; keying on that would let the copy evict a live
+connection from the list, and let either one's disconnect remove the other.
+
+One constraint this imposes on everything after it: **the frame is shared, deliberately.**
+`GetFrameBytes` serializes each snapshot version once and every client writes the same bytes
+(docs/performance.md #2). Per-client payloads would throw that away at exactly the moment
+there are several clients. So SOI state rides in the *broadcast*: the frame names which
+instance is focused, and each client compares that against its own cid. Nothing in the design
+needs a private channel.
 
 ## What the plugin sends
 
