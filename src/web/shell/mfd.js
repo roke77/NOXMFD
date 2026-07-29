@@ -167,10 +167,10 @@ let panePages = ['main', 'main'];
 // reserved: L0 = MAIN/PREV back-button, R0 = NEXT (shown only when the loadout exceeds 4).
 let paneWpnPage = [0, 0];
 const WPN_SPLIT_MAX = 4;
-// Per-pane MAIN pagination index — MAIN_SPLIT_ITEMS sliced MAIN_PANE_SIZE-per-page (mainPaneSlice).
+// Per-pane MAIN pagination index — MAIN_SPLIT_ITEMS paged across the pane's keys (mainPaneSlice).
 // Reset to 0 when a pane (re)enters MAIN (paneNavigate), same as paneWpnPage for WPN.
 let paneMainPage = [0, 0];
-const MAIN_PANE_SIZE = 4;
+const MAIN_PANE_SLOTS = 6;   // physical keys a split pane exposes for the MAIN list
 
 // Latest connection status mirrored from the map iframe — kept so we can push the
 // current value to a freshly-loaded pane iframe (its onload may fire AFTER the
@@ -351,22 +351,35 @@ function placeSplitKey(m, label, action, paneTag) {
 // are that content, and all four are split-capable, so all of them reach the split path.
 function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal'; }
 
-// MAIN's own paginated nav list in a split pane: all MAIN_SPLIT_ITEMS, alphabetically, sliced
-// MAIN_PANE_SIZE-per-page. Same shape as WPN's (wpnPaneSlice): the back-slot is reserved for PREV
-// and never holds content, so any page — first, middle or last — fits its PREV + four items + NEXT
-// in the six physical slots. (An earlier five-per-page version let the first page's would-be-PREV
-// slot carry a fifth item, which only worked while the list was short enough to make exactly two
-// pages; the KEY item made three.) On the first page the reserved slot simply stays empty — unlike
-// WPN there is no MAIN back-label to put there, MAIN *is* the page.
+// The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
+// the first key only on pages past the first, NEXT the last key only on pages before the last, and
+// items fill every slot in between — INCLUDING the first when there's no PREV and the last when
+// there's no NEXT. So the page sizes are chosen to fill all six keys: the first page holds five (no
+// PREV), a middle page four (PREV + NEXT both eat a slot), and the last page up to five (no NEXT).
+// The first page a split opens on is therefore full, not four items with two empty keys.
+function mainPageSizes() {
+  const total = MAIN_SPLIT_ITEMS.length;
+  const sizes = [];
+  let placed = 0;
+  while (placed < total) {
+    const room = MAIN_PANE_SLOTS - (sizes.length === 0 ? 0 : 1);   // minus PREV on every page but the first
+    if (total - placed <= room) { sizes.push(total - placed); break; }   // the rest fits, no NEXT needed
+    sizes.push(room - 1);                                          // reserve the last key for NEXT
+    placed += room - 1;
+  }
+  return sizes;
+}
+
+// This pane's slice of the MAIN list, with the page clamped in range.
 function mainPaneSlice(idx) {
-  const list = MAIN_SPLIT_ITEMS;
-  const total = list.length;
-  const maxPage = Math.max(0, Math.ceil(total / MAIN_PANE_SIZE) - 1);
-  if (paneMainPage[idx] > maxPage) paneMainPage[idx] = maxPage;
+  const sizes = mainPageSizes();
+  if (paneMainPage[idx] > sizes.length - 1) paneMainPage[idx] = sizes.length - 1;
   if (paneMainPage[idx] < 0) paneMainPage[idx] = 0;
-  const start = paneMainPage[idx] * MAIN_PANE_SIZE;
-  const items = list.slice(start, start + MAIN_PANE_SIZE);
-  return { items: items, hasPrev: paneMainPage[idx] > 0, hasNext: start + items.length < total };
+  const p = paneMainPage[idx];
+  let start = 0;
+  for (let k = 0; k < p; k++) start += sizes[k];
+  const items = MAIN_SPLIT_ITEMS.slice(start, start + sizes[p]);
+  return { items: items, hasPrev: p > 0, hasNext: p < sizes.length - 1 };
 }
 
 function renderSplitLabels() {
@@ -377,20 +390,25 @@ function renderSplitLabels() {
     const paneTag = paneIdx === 0 ? 'top' : 'bot';   // pane identity for click dispatch (orientation-agnostic)
 
     if (page === 'main') {
-      // MAIN_SPLIT_ITEMS instead of SPLIT_SLOTS/NAV.main — see mainPaneSlice. Unlike WPN, MAIN has no
-      // back-button, so nothing reserves the first slot: the cells — PREV (only past page one), the
-      // page's items, then NEXT (only before the last page) — FLOW into the six physical positions in
-      // visual order. Four items per page means a middle page's PREV + 4 + NEXT is exactly six, and
-      // page one's items start in the FIRST slot rather than leaving it empty behind a phantom PREV.
-      // (main-paging.test.js locks the six-slot budget.)
+      // MAIN_SPLIT_ITEMS instead of SPLIT_SLOTS/NAV.main — see mainPaneSlice/mainPageSizes. PREV
+      // anchors the first physical key, NEXT the last, and the page's items fill every key in between
+      // — and the first key too when there's no PREV, the last when there's no NEXT. The page sizes
+      // keep those free keys exactly filled, so the first page shows NEXT in the last slot with no
+      // gaps, a middle page has PREV first and NEXT last, and the last page has PREV first and no NEXT.
       const L = listPaneLayout(paneIdx, 'main');
       const positions = [L.main, L.items[0], L.items[1], L.items[2], L.items[3], L.next];
       const slice = mainPaneSlice(paneIdx);
-      const cells = [];
-      if (slice.hasPrev) cells.push({ label: 'PREV', action: 'main-prev' });
-      slice.items.forEach(function (item) { cells.push({ label: item.label, action: item.action }); });
-      if (slice.hasNext) cells.push({ label: 'NEXT', action: 'main-next' });
-      cells.forEach(function (cell, i) { placeSplitKey(positions[i], cell.label, cell.action, paneTag); });
+      const cells = new Array(positions.length).fill(null);
+      if (slice.hasPrev) cells[0] = { label: 'PREV', action: 'main-prev' };
+      if (slice.hasNext) cells[cells.length - 1] = { label: 'NEXT', action: 'main-next' };
+      let it = 0;
+      for (let p = 0; p < cells.length; p++) {
+        if (cells[p] === null && it < slice.items.length) {
+          cells[p] = { label: slice.items[it].label, action: slice.items[it].action };
+          it++;
+        }
+      }
+      cells.forEach(function (cell, i) { if (cell) placeSplitKey(positions[i], cell.label, cell.action, paneTag); });
       continue;
     }
 
@@ -893,12 +911,11 @@ function renderPaneFollow() {
   });
 }
 // Paint a "PAGE x/y" chip in the bottom-right of each pane showing MAIN with more than one page
-// (mainPaneSlice / MAIN_PANE_SIZE) — the split twin of WPN's #page-ind, but drawn on the shared
-// overlay rather than inside the /main iframe: MAIN's pagination is bezel/shell state, not
-// anything the page itself knows, so there's nothing to forward in. Split mode only, like
-// renderPaneFollow.
+// (mainPageSizes) — the split twin of WPN's #page-ind, but drawn on the shared overlay rather than
+// inside the /main iframe: MAIN's pagination is bezel/shell state, not anything the page itself
+// knows, so there's nothing to forward in. Split mode only, like renderPaneFollow.
 function renderPaneMainPageInd() {
-  const pages = Math.ceil(MAIN_SPLIT_ITEMS.length / MAIN_PANE_SIZE);
+  const pages = mainPageSizes().length;
   [0, 1].forEach(function(i) {
     const box = document.getElementById(i === 0 ? 'mainpage-top' : 'mainpage-bot');
     const on = splitMode && panePages[i] === 'main' && pages > 1;
