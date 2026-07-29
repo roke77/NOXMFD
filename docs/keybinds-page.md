@@ -5,6 +5,12 @@ mod's *extended keybinds*: cockpit functions the game has no native keybind for.
 only keybind UI — the F1 (ConfigurationManager) menu shows none of these entries, though
 the values still persist in the plugin `.cfg`.
 
+Reached from **KEY** on MAIN in both layouts (`BEZEL_EXTRAS.main` / the F-35's `MAIN_EXTRAS`),
+or by opening `/keybinds` directly. KEY is not a page either shell can host — clicking it leaves
+the document, the way LYT's F-35 choice does, so it is dispatched ahead of the bezel's split-pane
+branch and sits in the F-35's `LINKS` table rather than `F35_PAGES`. The page's `< MAIN` link goes
+back to `/`, which the sticky-layout head guard resolves to whichever shell is current.
+
 One table, one row per function, grouped under three section headers — COUNTERMEASURES,
 GEAR, WEAPONS. A section can carry a note under its header for behaviour shared by its
 binds (WEAPONS uses it for how the cycle keys work), keeping the per-row text short.
@@ -84,3 +90,129 @@ Capture is split by source, because each side can only see its own input:
   JSON, and the polling all pick it up from the registry.
 - `tools/serve_web.py` carries a stateful mock of the endpoint and commands (including a
   simulated stick capture), so the whole page is drivable in the harness without the game.
+
+---
+
+# Exploring: SOI (sensor of interest)
+
+**Status: not built.** A design sketch, kept here because its whole user-facing surface is
+five more rows on this page.
+
+Borrowed from DCS: one display at a time is the *sensor of interest*, and a fixed set of
+HOTAS keys drives whichever display that is. Here a "display" is one MFD instance — a
+browser somewhere on the network — and, within it, one pane. Focus moves; the keys don't.
+The point is to work a screen you are not touching: a tablet clamped to the rig, a second
+monitor, a phone velcroed to the throttle.
+
+Five binds:
+
+| Bind | Effect on the focused pane |
+|---|---|
+| `NAV UP` / `NAV DOWN` | move a cursor through the pane's line-select labels |
+| `SELECT` | activate the cursored label — the same thing clicking that bezel key does |
+| `SOI NEXT` / `SOI PREV` | move focus to the next/previous pane, wrapping across instances |
+
+## Can the server see every instance?
+
+Yes, and it already does — it just doesn't keep the list. Each frontend document opens
+exactly one `EventSource('/stream')` (`telemetry-source.js` owns the only one; the shell and
+every page read it second-hand), and each of those lands in its own `HandleSseAsync` task
+that lives as long as the browser stays on the page. One live task = one instance. Today
+they are fired off with `_ = Task.Run(...)` and never collected; registering each in a
+concurrent set on entry and dropping it in the existing `finally` is the whole of it. The
+disconnect log line already fires in the right place.
+
+Two constraints the current server imposes on what comes next:
+
+- **The frame is shared, deliberately.** `GetFrameBytes` serializes each snapshot version
+  once and every client writes the same bytes (docs/performance.md #2). Per-client payloads
+  would throw that away at exactly the moment there are several clients. So SOI state has to
+  ride in the *broadcast*: the frame names which instance is focused, and each client decides
+  for itself whether that is them. Nothing about the design needs a private channel.
+- **Clients therefore need an identity they can compare against.** The connection is the
+  server's handle, but the client can't see its own connection. The cheap version is a
+  server-assigned id written once to that one connection before the loop starts (legal SSE,
+  and it doesn't touch the shared frame). The better version is a client-supplied id —
+  `crypto.randomUUID()` kept in `localStorage`, passed as `/stream?cid=…` — because it
+  survives a reload, and a tablet that reconnects should get its focus back rather than
+  becoming a stranger.
+
+## What the plugin sends
+
+Deliberately almost nothing. The plugin does not know what a page contains, and shouldn't:
+
+- `soiTarget` — the focused `cid` (and pane index). Every client sees it; the one that
+  matches draws itself as focused, the rest draw normally.
+- `soiSeq` + `soiAct` — a counter and the last action (`up`/`down`/`select`). A client
+  applies the action when the counter changes and ignores it otherwise, which makes the
+  transport idempotent: a dropped or duplicated frame can't double-press a key, and the
+  10 Hz frame rate caps the input lag at ~100 ms.
+
+`SOI NEXT`/`PREV` never leave the plugin — they just move `soiTarget` along the registered
+instance list. Pane count per instance has to come from the client (a split has two panes,
+full view one), which is one more thing the client reports on connect or in a `/command`.
+
+## What the cursor moves over
+
+The bezel already answers this. Every navigable thing in the classic shell is a label placed
+on a physical key, `mfdButton(key)` is the single activation entry, and in split mode each
+key already carries `data-pane`. So the cursor is an index into "keys of this pane that
+currently have a `data-action`", `SELECT` is `mfdButton(k)` on it, and the highlight is one
+more class on the overlay label. No page needs to know SOI exists, and every page that has
+bezel keys gets it at once: MAIN's menu, WPN's weapon list, MAP's zoom rocker, LYT.
+
+The flip side: controls that live *inside* a page iframe are invisible to it. TGT's filter
+toggles and HUD's category rows are clicked, not keyed, and BDF/PAL are read-only panels — none
+of them offer the shell anything but the single MAIN back-label. Fixing that means a page-level
+cursor protocol (the shell forwards `up`/`down`/`select` into the iframe and the page decides
+what it has), which is a second stage, not this one.
+
+**So the MVP does not focus them at all.** `SOI NEXT`/`PREV` skip any pane whose page has
+nothing to cursor over — which is derivable rather than a hand-kept list of page names: a pane
+is eligible when its page offers more than the one MAIN back-label. That admits MAIN, MAP, WPN
+and LYT, and excludes TGT, HUD, BDF, PAL, TGP, AVN and RWR by the same rule, with no per-page
+knowledge anywhere.
+
+Focus is only *tested* when SOI moves it, though, not held continuously — if you SOI into a
+pane and then navigate that pane onto TGT, focus stays, with MAIN as the one thing the cursor
+can reach. Dropping focus there would strand you on a page you can no longer key your way out
+of, which is worse than a pane with a one-item cursor.
+
+## Showing focus
+
+The focused instance draws a small boxed **SOI** label in its **top right**, in the theme's
+off-white `--no-label` — the colour the bezel already uses for chrome that frames rather than
+reports, which is what this is. The unfocused instances draw nothing. The box is the whole
+indication for now; a per-pane marker (which of a split's two panes holds the cursor) can wait
+until the cursor highlight itself proves out, since the highlight already says it.
+
+Top right is provisional: it is clear of the classic shell's key labels and of MAIN's info
+box, but the layouts don't share a corner convention yet, so it may move once the F-35 gets
+the same treatment.
+
+## MVP scope
+
+Classic layout only, and only the panes with something to cursor over (above). It is the
+layout whose navigation is already a flat, ordered,
+shell-owned list of keys, so the cursor is nearly free there; the F-35's portals would need
+their own cursor over `.nav-item` labels, and it has up to four portals per instance rather
+than two panes. Everything above that is server-side (instance registry, target, action
+counter) is layout-agnostic and would carry over unchanged.
+
+## Open questions
+
+- **`Poll()` is aircraft-gated.** It returns early when `GetLocalAircraft` gives nothing, so
+  today no bind fires at the main menu. SOI keys must work there — navigating MAIN is the
+  obvious thing to do while waiting for a mission. `BindDef` needs a "doesn't need an
+  aircraft" flag, or `Drive` needs to take a nullable one.
+- **Does focus survive a reload?** Only with the client-supplied `cid`. Worth doing up front;
+  retrofitting identity is worse than starting with it.
+- **Does an unfocused instance need to say anything?** It shows nothing today, which is the
+  right default — but a rig with four displays wants to see *where* focus went without looking
+  away from the one it just left. A brief marker on every instance when the target changes is
+  cheap, if it turns out to be missed.
+- **Ordering of `SOI NEXT`.** Connection order is what the server has, and it is neither
+  stable nor spatial — reconnect a tablet and it moves to the end of the ring. A named or
+  user-ordered instance list is the fix, and it needs somewhere to live.
+- **Key repeat.** Held `NAV DOWN` should walk the list, so these are held binds with a repeat
+  interval rather than edge binds — the plugin owns that cadence, since the counter is its own.
