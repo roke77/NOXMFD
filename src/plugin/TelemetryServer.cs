@@ -1183,13 +1183,16 @@ namespace NOXMFD
                     // Shared frame: serialized at most once per snapshot version, regardless of
                     // how many clients are connected. Always send something — real data during a
                     // mission, a ping otherwise.
-                    byte[] bytes = GetFrameBytes(out bool valid);
+                    byte[] bytes = GetFrameBytes(out _);   // valid flag no longer gates the cadence — 10 Hz always
 
                     await ctx.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct).ConfigureAwait(false);
                     ctx.Response.OutputStream.Flush();
 
-                    // 10 Hz during a mission, 1 Hz ping otherwise.
-                    await Task.Delay(valid ? 100 : 1000, ct).ConfigureAwait(false);
+                    // 10 Hz always — during a mission for live telemetry, and at the main menu too so
+                    // SOI focus/cursor changes there feel immediate rather than lagging up to a second
+                    // behind the keypress. The menu frame is a tiny cached ping (GetFrameBytes only
+                    // re-serializes when SOI moves), so 10 Hz of it is near-free.
+                    await Task.Delay(100, ct).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) { }
