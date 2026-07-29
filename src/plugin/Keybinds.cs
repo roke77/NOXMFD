@@ -198,8 +198,8 @@ namespace NOXMFD
                 "Cycling to a different type leaves the current one soft-selected.",
             "SOI Keybinds" =>
                 "One display at a time is the sensor of interest — it rings itself in white, and these " +
-                "keys drive it. Focus starts on the first display opened and wraps through the rest. " +
-                "These are the only keys that work without an aircraft.",
+                "keys drive it. Nothing is focused until you press SOI Next or Prev; from there they " +
+                "cycle through the open displays. These are the only keys that work without an aircraft.",
             _ => null,
         };
 

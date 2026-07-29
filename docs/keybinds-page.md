@@ -164,22 +164,24 @@ Deliberately almost nothing. The plugin does not know what a page contains, and 
   in every frame from the first, ping included, precisely so that rule can tell "no presses yet"
   from "a press just happened".
 
-Focus is never left unset while a display is open:
+**SOI is opt-in.** Focus is empty until the pilot presses a SOI key, and never moves on its own
+— so a mouse/touch user who never touches the keys never sees the ring, and the MFD pages stay
+uncluttered.
 
-- **The first display up takes it**, with no key pressed. A later one never steals it.
-- **`SOI NEXT`/`PREV`** move it along the registered instances, oldest connection first, wrapping
-  at both ends. From no focus at all — only possible with nothing connected — either key still
-  lights up the first or last it finds.
-- **A display dropping only moves focus if it held it**, and then to the oldest still connected;
-  leaving the pilot unfocused because a screen they weren't looking at went away would be worse
-  than picking the obvious survivor. Focus goes empty only when the last display closes.
+- **A fresh display does not take focus.** Connecting changes nothing; the ring only appears once
+  `SOI NEXT`/`PREV` is pressed.
+- **`SOI NEXT`/`PREV`** move focus along the registered instances, oldest connection first,
+  wrapping at both ends. From empty, either key picks the first (`NEXT`) or last (`PREV`) — that
+  press is what activates SOI in the first place.
+- **A display dropping only affects focus if it held it**, and then focus *clears* — it never
+  jumps to another display, because that would be the ring appearing on a screen the pilot didn't
+  pick. The next `SOI NEXT`/`PREV` re-picks from what is left.
 - A duplicated tab copies its `sessionStorage`, so two connections can carry one cid. If a twin
   is still connected the display is still there, and focus stays put.
 
-Connects and disconnects each arrive on their own threadpool thread and both can move the
-target, so every change takes one lock — "is anything focused?" and the write that answers it
-have to be a single step, or two displays connecting together both see nothing focused and the
-second silently steals it. `tools/soi-focus.test.js` models these rules and locks them.
+Connects and disconnects each arrive on their own threadpool thread and both can touch the
+target, so every change takes one lock. `tools/soi-focus.test.js` models these rules and locks
+them.
 
 `POST /command` `soi.next` / `soi.prev` drive focus as well as the binds do, which is how it is
 exercised without a controller.

@@ -183,26 +183,21 @@ namespace NOXMFD
             }
         }
 
-        // A display connects: it takes focus if nothing has it. So the first display up is the SOI
-        // without anyone pressing anything, and focus is only ever unset when no display is open.
-        private static void SoiClaimIfUnfocused(string cid)
-        {
-            lock (_soiLock)
-                if (_soiTargetCid.Length == 0) SetSoiTargetLocked(cid);
-        }
-
-        // A display drops. Focus only moves if it was the focused one, and then to the oldest display
-        // still connected — leaving the pilot unfocused because a screen they weren't looking at went
-        // away would be worse than picking the obvious survivor.
+        // A display drops. If it was the focused one, focus clears — it does NOT move to another
+        // display on its own. SOI is opt-in: the ring only ever appears once the pilot presses a SOI
+        // key (SoiCycle from empty), so it must never re-appear on a display they didn't pick. A
+        // mouse/touch user who never touches the keys therefore never sees it. Nothing to do unless
+        // the dropped display held focus.
         private static void SoiReleaseOnDisconnect(string cid)
         {
             lock (_soiLock)
             {
                 if (!string.Equals(_soiTargetCid, cid, StringComparison.Ordinal)) return;
                 var all = Instances();   // the disconnecting one is already out of the registry
-                // A duplicated tab copies its cid, so a twin may still be holding that display open.
+                // A duplicated tab copies its cid, so a twin may still be holding that display open —
+                // keep focus if so, otherwise clear it (the next SOI keypress re-picks a display).
                 if (all.Exists(x => string.Equals(x.Cid, cid, StringComparison.Ordinal))) return;
-                SetSoiTargetLocked(all.Count > 0 ? all[0].Cid : string.Empty);
+                SetSoiTargetLocked(string.Empty);
             }
         }
 
@@ -1165,7 +1160,8 @@ namespace NOXMFD
                 Remote       = ctx.Request.RemoteEndPoint?.ToString() ?? string.Empty,
                 ConnectedUtc = DateTime.UtcNow,
             };
-            SoiClaimIfUnfocused(cid);
+            // No auto-claim: a fresh display does NOT become the SOI on its own. Focus stays empty
+            // until the pilot presses a SOI key, so mouse/touch users never get the ring.
 
             Plugin.Log?.LogInfo($"[NOXMFD] Client connected from {ctx.Request.RemoteEndPoint} (instance {conn})");
 

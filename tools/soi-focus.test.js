@@ -17,17 +17,16 @@ function makeServer() {
     connect(cid) {
       const conn = ++next;
       instances.push({ conn, cid: cid || 'conn-' + conn });   // no cid sent -> connection-scoped one
-      if (target === '') target = instances[instances.length - 1].cid;   // first display up takes focus
-      return conn;
+      return conn;                                            // NO auto-claim — focus is opt-in
     },
 
     disconnect(conn) {
       const gone = instances.find(i => i.conn === conn);
       if (!gone) return;
       instances = instances.filter(i => i.conn !== conn);
-      if (gone.cid !== target) return;                                   // wasn't focused; nothing moves
-      if (instances.some(i => i.cid === gone.cid)) return;               // a twin still holds that cid
-      target = instances.length ? oldestFirst()[0].cid : '';             // fall back to the oldest left
+      if (gone.cid !== target) return;                        // wasn't focused; nothing moves
+      if (instances.some(i => i.cid === gone.cid)) return;    // a twin still holds that cid
+      target = '';                                            // clear — never jump to another display
     },
 
     cycle(dir) {
@@ -41,37 +40,35 @@ function makeServer() {
   };
 }
 
-// ── Claiming ────────────────────────────────────────────────────────────────────────
+// ── No default focus (opt-in) ─────────────────────────────────────────────────────────
 {
   const s = makeServer();
   assert.strictEqual(s.target, '', 'nothing connected, nothing focused');
   s.connect('a');
-  assert.strictEqual(s.target, 'a', 'the first display up becomes the SOI on its own');
+  assert.strictEqual(s.target, '', 'the first display up does NOT take focus on its own');
   s.connect('b');
-  assert.strictEqual(s.target, 'a', 'a later display must not steal focus');
+  assert.strictEqual(s.target, '', 'and neither does a second — SOI is opt-in');
+  s.cycle(1);
+  assert.strictEqual(s.target, 'a', 'a SOI keypress is what activates it');
 }
 
-// ── Releasing ───────────────────────────────────────────────────────────────────────
+// ── Releasing (never jumps) ───────────────────────────────────────────────────────────
 {
   const s = makeServer();
   const a = s.connect('a'), b = s.connect('b'); s.connect('c');
+  s.cycle(1);                                                        // opt in — focus 'a'
   s.disconnect(b);
   assert.strictEqual(s.target, 'a', 'an unfocused display dropping changes nothing');
   s.disconnect(a);
-  assert.strictEqual(s.target, 'c', 'the focused display dropping falls back to the oldest left');
-}
-{
-  const s = makeServer();
-  const a = s.connect('a');
-  s.disconnect(a);
-  assert.strictEqual(s.target, '', 'the last display dropping leaves nothing focused');
-  s.connect('d');
-  assert.strictEqual(s.target, 'd', 'and the next display up claims it again');
+  assert.strictEqual(s.target, '', 'the focused display dropping CLEARS focus, never jumps');
+  s.cycle(1);
+  assert.strictEqual(s.target, 'c', 'the next SOI keypress re-picks from what is left');
 }
 {
   // A duplicated browser tab copies its sessionStorage, so both connections carry the same cid.
   const s = makeServer();
   const first = s.connect('twin'); s.connect('twin'); s.connect('other');
+  s.cycle(1);                                                        // focus 'twin'
   s.disconnect(first);
   assert.strictEqual(s.target, 'twin', 'a surviving twin still holds that display open');
 }
@@ -80,19 +77,23 @@ function makeServer() {
 {
   const s = makeServer();
   s.connect('a'); s.connect('b'); s.connect('c');
+  s.cycle(1);  assert.strictEqual(s.target, 'a', 'NEXT from no focus takes the first');
   s.cycle(1);  assert.strictEqual(s.target, 'b');
   s.cycle(1);  assert.strictEqual(s.target, 'c');
   s.cycle(1);  assert.strictEqual(s.target, 'a', 'NEXT wraps past the end');
   s.cycle(-1); assert.strictEqual(s.target, 'c', 'PREV wraps past the start');
 }
 {
-  // From no focus at all, either key must light something up rather than doing nothing.
+  // From no focus, either key must light something up rather than doing nothing.
   const s = makeServer();
   s.connect('a'); s.connect('b');
-  const from = (dir) => { const t = makeServer(); t.connect('a'); t.connect('b');
-                          t.disconnect(1); t.disconnect(2); t.cycle(dir); return t.target; };
-  assert.strictEqual(from(1), '', 'with no displays at all there is nothing to focus');
-  s.cycle(-1); assert.strictEqual(s.target, 'b', 'PREV from the first goes to the last');
+  assert.strictEqual(s.target, '', 'still nothing focused until a key is pressed');
+  s.cycle(-1); assert.strictEqual(s.target, 'b', 'PREV from no focus takes the last');
+}
+{
+  // With nothing connected at all, a keypress has nothing to focus.
+  const s = makeServer();
+  s.cycle(1);  assert.strictEqual(s.target, '', 'no displays, nothing to focus');
 }
 
 console.log('soi-focus: ok');
