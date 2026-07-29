@@ -157,12 +157,25 @@ Deliberately almost nothing. The plugin does not know what a page contains, and 
   transport idempotent: a dropped or duplicated frame can't double-press a key, and the 10 Hz
   frame rate caps the input lag at ~100 ms.
 
-`SOI NEXT`/`PREV` never leave the plugin — they move `soiTarget` along the registered instance
-list, oldest connection first. From no focus, NEXT takes the first and PREV the last, so either
-key lights something up on the first press. When the focused display disconnects the target
-clears rather than advancing: "next" measured from a position that no longer exists is a guess,
-and starting from the top again is predictable. Until the binds exist, `POST /command`
-`soi.next` / `soi.prev` drive it — which is also how focus is exercised without a controller.
+Focus is never left unset while a display is open:
+
+- **The first display up takes it**, with no key pressed. A later one never steals it.
+- **`SOI NEXT`/`PREV`** move it along the registered instances, oldest connection first, wrapping
+  at both ends. From no focus at all — only possible with nothing connected — either key still
+  lights up the first or last it finds.
+- **A display dropping only moves focus if it held it**, and then to the oldest still connected;
+  leaving the pilot unfocused because a screen they weren't looking at went away would be worse
+  than picking the obvious survivor. Focus goes empty only when the last display closes.
+- A duplicated tab copies its `sessionStorage`, so two connections can carry one cid. If a twin
+  is still connected the display is still there, and focus stays put.
+
+Connects and disconnects each arrive on their own threadpool thread and both can move the
+target, so every change takes one lock — "is anything focused?" and the write that answers it
+have to be a single step, or two displays connecting together both see nothing focused and the
+second silently steals it. `tools/soi-focus.test.js` models these rules and locks them.
+
+Until the binds exist, `POST /command` `soi.next` / `soi.prev` drive focus — which is also how
+it is exercised without a controller.
 
 **Focus is per instance, not yet per pane.** Pane count is something only the client knows (a
 split has two, full view one), so cycling panes needs the client to report its panes first —

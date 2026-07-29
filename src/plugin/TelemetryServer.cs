@@ -148,13 +148,43 @@ namespace NOXMFD
         // are 1 Hz pings, a stale cached frame would otherwise hide the change indefinitely.
         private static string _soiTargetCid = string.Empty;
         private static long   _soiVersion;
+        // Guards every change of focus. Connects and disconnects arrive on their own threadpool
+        // threads and both can move the target, so "is anything focused?" and the write that follows
+        // it have to be one step — otherwise two displays connecting together both see no focus and
+        // the second silently steals it.
+        private static readonly object _soiLock = new object();
         internal static string SoiTarget => Volatile.Read(ref _soiTargetCid);
 
-        private static void SetSoiTarget(string cid)
+        private static void SetSoiTarget(string cid) { lock (_soiLock) SetSoiTargetLocked(cid); }
+
+        private static void SetSoiTargetLocked(string cid)
         {
-            if (string.Equals(Volatile.Read(ref _soiTargetCid), cid, StringComparison.Ordinal)) return;
+            if (string.Equals(_soiTargetCid, cid, StringComparison.Ordinal)) return;
             Volatile.Write(ref _soiTargetCid, cid);
             Interlocked.Increment(ref _soiVersion);
+        }
+
+        // A display connects: it takes focus if nothing has it. So the first display up is the SOI
+        // without anyone pressing anything, and focus is only ever unset when no display is open.
+        private static void SoiClaimIfUnfocused(string cid)
+        {
+            lock (_soiLock)
+                if (_soiTargetCid.Length == 0) SetSoiTargetLocked(cid);
+        }
+
+        // A display drops. Focus only moves if it was the focused one, and then to the oldest display
+        // still connected — leaving the pilot unfocused because a screen they weren't looking at went
+        // away would be worse than picking the obvious survivor.
+        private static void SoiReleaseOnDisconnect(string cid)
+        {
+            lock (_soiLock)
+            {
+                if (!string.Equals(_soiTargetCid, cid, StringComparison.Ordinal)) return;
+                var all = Instances();   // the disconnecting one is already out of the registry
+                // A duplicated tab copies its cid, so a twin may still be holding that display open.
+                if (all.Exists(x => string.Equals(x.Cid, cid, StringComparison.Ordinal))) return;
+                SetSoiTargetLocked(all.Count > 0 ? all[0].Cid : string.Empty);
+            }
         }
 
         // Move focus along the registered instances, oldest connection first. From no focus, NEXT
@@ -1116,6 +1146,7 @@ namespace NOXMFD
                 Remote       = ctx.Request.RemoteEndPoint?.ToString() ?? string.Empty,
                 ConnectedUtc = DateTime.UtcNow,
             };
+            SoiClaimIfUnfocused(cid);
 
             Plugin.Log?.LogInfo($"[NOXMFD] Client connected from {ctx.Request.RemoteEndPoint} (instance {conn})");
 
@@ -1147,10 +1178,7 @@ namespace NOXMFD
             finally
             {
                 _instances.TryRemove(conn, out _);
-                // The focused display just went away. Clear rather than advance: "next" is measured
-                // from a position that no longer exists, so the next SOI press starting from the top
-                // is both simpler and more predictable than guessing where the pilot meant to be.
-                if (string.Equals(SoiTarget, cid, StringComparison.Ordinal)) SetSoiTarget(string.Empty);
+                SoiReleaseOnDisconnect(cid);
                 try { ctx.Response.Close(); } catch { }
                 Plugin.Log?.LogInfo($"[NOXMFD] Client disconnected from {ctx.Request.RemoteEndPoint} (instance {conn})");
             }
