@@ -124,6 +124,11 @@ namespace NOXMFD
             public string   Cid    = string.Empty;
             public string   Remote = string.Empty;
             public DateTime ConnectedUtc;
+            // How many independently-focusable SURFACES this instance shows right now — 1 in full
+            // view, 2 in a classic split, up to 4 F-35 portals. The client reports it (soi.panes) and
+            // re-reports on every layout change; SOI cycles surfaces, not whole documents. Defaults to
+            // 1 so a client that never reports behaves exactly as before (whole-instance focus).
+            public int      PaneCount = 1;
         }
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<long, MfdInstance>
             _instances = new System.Collections.Concurrent.ConcurrentDictionary<long, MfdInstance>();
@@ -146,21 +151,29 @@ namespace NOXMFD
         // _soiVersion is what keeps the frame cache honest: the cache is keyed on the snapshot
         // version, and the target can change without a new snapshot — at the main menu, where frames
         // are 1 Hz pings, a stale cached frame would otherwise hide the change indefinitely.
-        private static string _soiTargetCid = string.Empty;
+        // Focus is a SURFACE, not a whole document: a cid PLUS which of that instance's surfaces
+        // (panes/portals) is focused. An instance shows 1 surface in full view, 2 in a classic split,
+        // up to 4 F-35 portals — the client reports the count (soi.panes). _soiTargetPane is -1 when
+        // nothing is focused.
+        private static string _soiTargetCid  = string.Empty;
+        private static int    _soiTargetPane = -1;
         private static long   _soiVersion;
         // Guards every change of focus. Connects and disconnects arrive on their own threadpool
         // threads and both can move the target, so "is anything focused?" and the write that follows
         // it have to be one step — otherwise two displays connecting together both see no focus and
         // the second silently steals it.
         private static readonly object _soiLock = new object();
-        internal static string SoiTarget => Volatile.Read(ref _soiTargetCid);
+        internal static string SoiTarget     => Volatile.Read(ref _soiTargetCid);
+        internal static int    SoiTargetPane => Volatile.Read(ref _soiTargetPane);
 
-        private static void SetSoiTarget(string cid) { lock (_soiLock) SetSoiTargetLocked(cid); }
+        private static void SetSoiTarget(string cid, int pane) { lock (_soiLock) SetSoiTargetLocked(cid, pane); }
 
-        private static void SetSoiTargetLocked(string cid)
+        private static void SetSoiTargetLocked(string cid, int pane)
         {
-            if (string.Equals(_soiTargetCid, cid, StringComparison.Ordinal)) return;
+            if (cid.Length == 0) pane = -1;   // "nothing focused" has no surface
+            if (string.Equals(_soiTargetCid, cid, StringComparison.Ordinal) && _soiTargetPane == pane) return;
             Volatile.Write(ref _soiTargetCid, cid);
+            Volatile.Write(ref _soiTargetPane, pane);
             Interlocked.Increment(ref _soiVersion);
         }
 
@@ -197,23 +210,61 @@ namespace NOXMFD
                 // A duplicated tab copies its cid, so a twin may still be holding that display open —
                 // keep focus if so, otherwise clear it (the next SOI keypress re-picks a display).
                 if (all.Exists(x => string.Equals(x.Cid, cid, StringComparison.Ordinal))) return;
-                SetSoiTargetLocked(string.Empty);
+                SetSoiTargetLocked(string.Empty, -1);
             }
         }
 
-        // Move focus along the registered instances, oldest connection first. From no focus, NEXT
-        // takes the first and PREV the last, so either key lights something up on the first press.
+        // The flat ring SOI cycles through: every instance's every surface, instance-major and
+        // surface-minor, oldest connection first. Deduped by cid so a twin (same cid, second
+        // connection) doesn't put the same document in the ring twice. Built under _soiLock by the
+        // callers that need it.
+        private static List<(string cid, int pane)> SoiRingLocked()
+        {
+            var ring = new List<(string, int)>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var inst in Instances())
+            {
+                if (!seen.Add(inst.Cid)) continue;
+                for (int p = 0; p < inst.PaneCount; p++) ring.Add((inst.Cid, p));
+            }
+            return ring;
+        }
+
+        // Move focus one step along that ring. From no focus, NEXT takes the first surface and PREV
+        // the last, so either key lights something up on the first press.
         internal static void SoiCycle(int dir)
         {
-            var all = Instances();
-            if (all.Count == 0) { SetSoiTarget(string.Empty); return; }
+            lock (_soiLock)
+            {
+                var ring = SoiRingLocked();
+                if (ring.Count == 0) { SetSoiTargetLocked(string.Empty, -1); return; }
 
-            string cur = SoiTarget;
-            int i = all.FindIndex(x => string.Equals(x.Cid, cur, StringComparison.Ordinal));
-            int next = i < 0
-                ? (dir >= 0 ? 0 : all.Count - 1)
-                : ((i + dir) % all.Count + all.Count) % all.Count;
-            SetSoiTarget(all[next].Cid);
+                int i = ring.FindIndex(s => string.Equals(s.cid, _soiTargetCid, StringComparison.Ordinal)
+                                            && s.pane == _soiTargetPane);
+                int next = i < 0
+                    ? (dir >= 0 ? 0 : ring.Count - 1)
+                    : ((i + dir) % ring.Count + ring.Count) % ring.Count;
+                SetSoiTargetLocked(ring[next].cid, ring[next].pane);
+            }
+        }
+
+        // A client reports how many surfaces it now shows (soi.panes). Update every instance on that
+        // cid (twins share one), and if that display is the focused one and a merge has shrunk it
+        // below the focused surface, clamp — the pilot stays on the glass they were driving rather
+        // than being dropped. This is the one focus move not caused by a keypress, and it never
+        // leaves the instance.
+        internal static void SetPaneCount(string cid, int n)
+        {
+            if (cid.Length == 0) return;
+            if (n < 1) n = 1;
+            lock (_soiLock)
+            {
+                foreach (var inst in Instances())
+                    if (string.Equals(inst.Cid, cid, StringComparison.Ordinal)) inst.PaneCount = n;
+
+                if (string.Equals(_soiTargetCid, cid, StringComparison.Ordinal) && _soiTargetPane >= n)
+                    SetSoiTargetLocked(cid, n - 1);
+            }
         }
 
         // The cid arrives over the network, so it is untrusted: it lands in JSON and, later, in an
@@ -1426,8 +1477,8 @@ namespace NOXMFD
         // SOI's slice of a frame. Shared by the real payload and the no-mission ping, because a display
         // is focusable and drivable at the main menu, where the ping is the only frame there is.
         private static string SoiJson() => string.Format(CultureInfo.InvariantCulture,
-            "\"soiTarget\":\"{0}\",\"soiSeq\":{1},\"soiAct\":\"{2}\"",
-            EscapeJson(SoiTarget), SoiSeq, EscapeJson(SoiAct));
+            "\"soiTarget\":\"{0}\",\"soiPane\":{1},\"soiSeq\":{2},\"soiAct\":\"{3}\"",
+            EscapeJson(SoiTarget), SoiTargetPane, SoiSeq, EscapeJson(SoiAct));
 
         private static string EscapeJson(string s) =>
             s.Replace("\\", "\\\\").Replace("\"", "\\\"");

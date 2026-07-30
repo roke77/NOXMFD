@@ -29,6 +29,8 @@ namespace NOXMFD
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
         public string bind;    // keybind.* : BindDef id ("flares", "gear-up", ...)
         public string key;     // keybind.set-key : Unity KeyCode name ("" or "None" clears)
+        public string cid;     // soi.panes : which instance is reporting (a POST isn't tied to its /stream)
+        public int    n;       // soi.panes : how many focusable surfaces that instance now shows
     }
 
     internal static class CommandDispatcher
@@ -56,6 +58,10 @@ namespace NOXMFD
                 // is driven (and tested) from a browser, with no controller and no aircraft.
                 { "soi.next",           e => TelemetryServer.SoiCycle(1) },
                 { "soi.prev",           e => TelemetryServer.SoiCycle(-1) },
+                // A client reports its current surface count so SOI can cycle surfaces, not documents
+                // (docs/keybinds-page.md, "surface-level focus"). Carries its own cid — a POST isn't
+                // tied to the /stream connection the count belongs to.
+                { "soi.panes",          e => TelemetryServer.SetPaneCount(e.cid ?? string.Empty, e.n) },
             };
 
         // Keybind writes just delegate to the Keybinds registry; log rejections (unknown id / bad key).
