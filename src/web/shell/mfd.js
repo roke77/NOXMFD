@@ -65,6 +65,7 @@ const overlayEl = document.getElementById('overlay');
 const mapFrame  = document.querySelector('.screen > iframe[title="map"]');
 const screenEl  = document.getElementById('screen');
 const paneIframes = [document.getElementById('pane-top'), document.getElementById('pane-bot')];
+const soiRingEl = document.getElementById('soi-ring');
 const pageFrame = document.getElementById('page-frame');   // full-view host for the frame-hosted pages (WPN, TGT, TGP)
 // Pages that render in #page-frame in full view (rather than as overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
@@ -262,6 +263,7 @@ function setSplit(variant) {
     // Re-forward list-page geometry so WPN panes re-lay-out for the new orientation (else they
     // keep the previous layout's row arrangement — e.g. H's 2-column grid in a V column).
     forwardWpnLayoutToPanes();
+    positionSoiRing();              // the panes moved (axis flip / v↔vw); re-frame the focused one
     return;
   }
   splitMode = true;
@@ -296,6 +298,10 @@ function applySplitMode() {
     showPage(currentPage);
     refreshFollowIndicator();        // prune any split-mode FOLLOW chip; single-mode recompute
   }
+  // The surface count just changed (1 full view ↔ 2 split); tell the server so SOI cycles the right
+  // surfaces, and re-place the ring, which now frames a pane instead of the whole recess (or back).
+  reportPanes();
+  positionSoiRing();
 }
 
 // Place per-pane labels for both panes' current pages. Each pane-local (side, slot) resolves to
@@ -1159,12 +1165,20 @@ window.addEventListener('message', function(e) {
     ibStatus.className = 'ib-status mfd-status ' + m.cls;
     ibStatus.textContent = m.text;
     if (splitMode) forwardStatusToPanes();
+  } else if (m.type === 'soi-cid') {
+    // The tap learned this instance's cid — remember it and report the surface count under it (this
+    // also fires after an SSE reconnect, when the server has reset the count to 1).
+    myCid = m.cid || '';
+    reportPanes();
   } else if (m.type === 'soi') {
-    // This display is the sensor of interest — ring the whole screen (.screen.soi in mfd.css).
-    // Reported by the telemetry tap, the only part that knows this instance's cid. Shell-wide
-    // rather than per-pane: focus addresses the whole display for now.
-    screenEl.classList.toggle('soi', !!m.focused);
-    if (!m.focused) setSoiCursor(-1);   // losing focus takes the cursor with it
+    // Which of this instance's surfaces (if any) is the sensor of interest. Reported by the tap, the
+    // only part that knows this instance's cid. Ring frames the focused pane; the cursor scopes to
+    // it. Moving to a different surface (or losing focus) drops the cursor — the destination reveals
+    // it fresh on the next NAV, like a first focus.
+    const prevPane = soiPane;
+    soiPane = m.focused ? (typeof m.pane === 'number' ? m.pane : 0) : -1;
+    if (soiPane !== prevPane) setSoiCursor(-1);
+    positionSoiRing();
   } else if (m.type === 'soi-act') {
     soiAct(m.act);
   } else if (m.type === 'loadout') {
@@ -1409,12 +1423,50 @@ function loadConfigUrls() {
 //
 // Left bank then right, top to bottom — how the bezel reads. The top/bottom banks stay out: they
 // are fixed chrome (fullscreen, PIN, the split presets), not page navigation.
+//
+// Focus is a SURFACE, not the whole display (docs/keybinds-page.md): full view is one surface, a
+// split is two panes. soiPane says which of THIS instance's surfaces is focused (-1 = none), so the
+// cursor scopes to that pane's keys and the ring frames just it — SOI NEXT steps top→bottom→next
+// display, and the cursor no longer spans both panes.
 let soiCursor = -1;   // index into soiKeys(); -1 = no cursor
+let soiPane   = -1;   // focused surface index of this instance, from the tap; -1 = not the SOI
+let myCid     = '';   // this instance's cid, for soi.panes reports (from the tap's soi-cid)
 
+// Report how many focusable surfaces this display shows now — 1 in full view, 2 in a split — so the
+// server cycles surfaces, not whole documents. Needs the cid, which arrives from the tap; until then
+// this no-ops and the soi-cid handler re-invokes it. Re-sent on every split change and reconnect.
+function reportPanes() {
+  if (!myCid) return;
+  sendCommand('soi.panes', { cid: myCid, n: splitMode ? 2 : 1 }).catch(function() {});
+}
+
+// Position the SOI ring over the focused surface: the whole recess in full view (the map iframe
+// fills it), one pane's box in a split. Measured rather than CSS-placed so a flex-sized pane
+// (V_WIDE is 2:1) is framed exactly. Hidden when this display isn't the SOI.
+function positionSoiRing() {
+  if (soiPane < 0) { soiRingEl.style.display = 'none'; return; }
+  const target = splitMode ? paneIframes[soiPane === 1 ? 1 : 0] : mapFrame;
+  if (!target) { soiRingEl.style.display = 'none'; return; }
+  const s = screenEl.getBoundingClientRect();
+  const t = target.getBoundingClientRect();
+  soiRingEl.style.left   = (t.left - s.left) + 'px';
+  soiRingEl.style.top    = (t.top  - s.top ) + 'px';
+  soiRingEl.style.width  = t.width  + 'px';
+  soiRingEl.style.height = t.height + 'px';
+  soiRingEl.style.display = 'block';
+}
+
+// The focused surface's keys. In a split, only the focused pane's — each split key carries its
+// data-pane, so the cursor stops spanning both panes. In full view (one surface) it's every key.
 function soiKeys() {
   const out = [];
+  const paneTag = splitMode ? (soiPane === 1 ? 'bot' : 'top') : null;
   ['left', 'right'].forEach(function(side) {
-    keyBanks[side].forEach(function(k) { if (k.dataset.action) out.push(k); });
+    keyBanks[side].forEach(function(k) {
+      if (!k.dataset.action) return;
+      if (paneTag && k.dataset.pane !== paneTag) return;
+      out.push(k);
+    });
   });
   return out;
 }
@@ -1627,6 +1679,7 @@ window.addEventListener('resize', function() {
   // would clobber the split bezel with the single-pane page's full 6-item layout.
   if (splitMode) { renderSplitLabels(); forwardWpnLayoutToPanes(); }
   else           showPage(currentPage);
+  positionSoiRing();   // the recess/panes resized — keep the ring on the focused surface
 });
 loadConfigUrls();
 showPage('main');   // start on the MAIN page

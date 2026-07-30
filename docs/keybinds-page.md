@@ -232,6 +232,10 @@ pane reporting.
 
 ## Showing focus — **built** (classic)
 
+> On the `soi-surfaces` branch this ring became per-**surface** (per pane in a split), a
+> JS-positioned `#soi-ring` div — see "Planned: surface-level focus" below. The description here is
+> the original whole-screen instance ring.
+
 The focused display rings its whole screen in off-white, the way a real MFD says it — DCS
 draws a bright box around the display area, and so does this. Unfocused displays draw nothing.
 
@@ -288,7 +292,8 @@ layout-agnostic and carries over unchanged.
 
 ## Planned: surface-level focus (Option B) — the F-35, and the split done right
 
-**Status: in progress on the `soi-surfaces` branch.** Step 1 (server) is the first target.
+**Status: in progress on the `soi-surfaces` branch.** Steps 1 (server) and 2 (classic client) are
+**built**; step 3 (F-35 client) is next.
 
 Today the unit of SOI focus is an *instance* (a `cid` = one document). That already strains the
 classic split — the whole screen rings and the cursor walks *both* panes as one flat list — and it
@@ -303,7 +308,7 @@ the cursor is scoped to that surface's nav.
 The server change is **backward-compatible**: a client that never reports its surface count stays
 at `PaneCount = 1` and behaves exactly as today (whole-instance focus). So it lands in three stages.
 
-### Step 1 — server (`TelemetryServer.cs`, `CommandDispatcher.cs`) — *first*
+### Step 1 — server (`TelemetryServer.cs`, `CommandDispatcher.cs`) — **built**
 
 - `MfdInstance` gains `int PaneCount = 1`.
 - Focus state gains `_soiTargetPane` (int, `-1` = none) beside `_soiTargetCid`, under the same
@@ -320,12 +325,19 @@ at `PaneCount = 1` and behaves exactly as today (whole-instance focus). So it la
 - `soi-focus.test.js` extends its model to the flat surface ring: cycling, wrap, clamp-on-shrink,
   clear-on-disconnect.
 
-### Step 2 — classic client (`mfd.js`, `telemetry-source.js`) — the split upgrade
+### Step 2 — classic client (`mfd.js`, `telemetry-source.js`) — **built** (the split upgrade)
 
-The tap posts its cid up once (`soi-cid`) and carries `pane` on the `soi`/`soi-act` messages. The
-shell reports `soi.panes {cid, n: splitMode ? 2 : 1}` on load and split toggle; `soiKeys()` scopes
-to the focused pane (`data-pane` 'top'/'bot'), so the cursor stops spanning both panes; the ring
-moves from the whole `.screen` to the focused pane's box.
+The tap posts its cid up on every `hello` (`soi-cid` — including after an SSE reconnect, when the
+server has reset the count) and carries `pane` on the `soi`/`soi-act` messages. The shell remembers
+that cid and reports `soi.panes {cid, n: splitMode ? 2 : 1}` on load and split toggle. `soiKeys()`
+scopes to the focused pane (`data-pane` 'top'/'bot'), so the cursor stops spanning both panes;
+moving to a different surface drops the cursor, revealed fresh on the next NAV.
+
+The ring is no longer `.screen.soi::after` (whole screen) — it's a JS-positioned `#soi-ring` div
+(`positionSoiRing`) sized to the focused surface's measured box: the recess (the map iframe) in full
+view, one pane in a split. Measured, not CSS-placed, because a split pane is flex-sized — V_WIDE is
+2:1 — and only reading its box rings it exactly. Repositioned on the `soi` message, split
+enter/exit, axis flip, and window resize.
 
 ### Step 3 — F-35 client (`f35.js`, `f35.css`) — the new surface
 

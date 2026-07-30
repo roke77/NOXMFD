@@ -293,10 +293,13 @@
      A ::after on .screen so it costs no markup, and pointer-events:none so it never eats a tap.
      Off-white --no-label, not the theme's green: the green is what instruments report in, and this
      is chrome saying where the controls are pointed. */
-  .screen.soi::after {
-    content: '';
+  /* SOI focus ring. JS positions it over the focused surface (mfd.js positionSoiRing) and toggles
+     display — the whole recess in full view, one pane in a split. box-sizing:border-box so the 2px
+     border draws inside the measured box and hugs the pane edge exactly. Hidden until positioned. */
+  #soi-ring {
     position: absolute;
-    inset: 6px;
+    display: none;
+    box-sizing: border-box;
     border: 2px solid var(--no-label);
     border-radius: 3px;
     pointer-events: none;

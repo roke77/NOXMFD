@@ -66,6 +66,7 @@ export class TelemetrySource {
     this._lastStatus = { cls: 'disconnected', text: '● DISCONNECTED' };
     this._cid = '';                     // this instance's SOI id — settled by the server's hello
     this._soiFocused = null;            // null = never reported; forces the first post either way
+    this._soiPane = -1;                 // which of this instance's surfaces is focused (-1 = none)
     this._soiSeq = null;                // null = the first frame's counter is a starting point, not a press
   }
 
@@ -78,6 +79,10 @@ export class TelemetrySource {
     // persisted, since a server-named id belongs to this connection only.
     es.addEventListener('hello', (e) => {
       try { this._cid = JSON.parse(e.data).cid || this._cid; } catch (err) { /* keep ours */ }
+      // Tell the shell which id it is, so it can report its surface count (soi.panes) under it. Fires
+      // on every hello, including an SSE reconnect — the server assigns a fresh connection (pane
+      // count back to 1) each time, so the shell must re-report, and this is its cue.
+      this._postUp({ type: 'soi-cid', cid: this._cid });
     });
     es.onmessage = (e) => this._onMessage(e);
     es.onerror = () => {};   // EventSource auto-reconnects; the watchdog decides when to flag DISCONNECTED
@@ -107,22 +112,26 @@ export class TelemetrySource {
 
     // SOI focus rides in every frame kind, ping included — a display is focusable at the main menu,
     // where a ping is all there is — so this sits ahead of the ping branch's early return rather
-    // than in _emit with the per-page slices. Posted only on a change: it would otherwise rebuild
-    // the shell's indicator stack ten times a second to say the same thing.
+    // than in _emit with the per-page slices. Focus is a SURFACE: whether this instance is the
+    // target AND which of its panes/portals. Posted only on a change (of either), so the shell isn't
+    // rebuilt ten times a second to say the same thing; pane travels so it can ring the right pane.
     const focused = !!d.soiTarget && d.soiTarget === this._cid;
-    if (focused !== this._soiFocused) {
+    const pane = focused && typeof d.soiPane === 'number' ? d.soiPane : -1;
+    if (focused !== this._soiFocused || pane !== this._soiPane) {
       this._soiFocused = focused;
-      this._postUp({ type: 'soi', focused });
+      this._soiPane = pane;
+      this._postUp({ type: 'soi', focused, pane });
     }
 
     // A SOI key press. The counter is what makes this safe to broadcast: act only when it CHANGES,
     // so a repeated frame can't double-press and a dropped one costs nothing. The first frame only
     // records where the counter is — presses made before this display connected are history, not
-    // input. Unfocused displays see the same fields and ignore them.
+    // input. Unfocused displays see the same fields and ignore them. `pane` rides along so the shell
+    // acts on the focused surface.
     if (typeof d.soiSeq === 'number' && d.soiSeq !== this._soiSeq) {
       const first = this._soiSeq === null;
       this._soiSeq = d.soiSeq;
-      if (!first && focused && d.soiAct) this._postUp({ type: 'soi-act', act: d.soiAct });
+      if (!first && focused && d.soiAct) this._postUp({ type: 'soi-act', act: d.soiAct, pane });
     }
 
     if (d.ping) {

@@ -387,10 +387,12 @@
   // sees as a starting point rather than a press, so a field that only appears once it is pressed
   // would make that first press look like history and be ignored.
   FRAME.soiTarget = FRAME.soiTarget || '';
+  FRAME.soiPane   = ('soiPane' in FRAME) ? FRAME.soiPane : -1;   // which surface is focused (-1 = none)
   FRAME.soiSeq    = FRAME.soiSeq    || 0;
   FRAME.soiAct    = FRAME.soiAct    || '';
 
-  window.__setSoiTarget = (cid) => { FRAME.soiTarget = cid || ''; };
+  // Focus a surface: cid + which pane (0 = full view / top / left, 1 = the second pane). '' clears.
+  window.__setSoiTarget = (cid, pane = 0) => { FRAME.soiTarget = cid || ''; FRAME.soiPane = cid ? pane : -1; };
   window.__soiPress = (act) => { FRAME.soiAct = act; FRAME.soiSeq = (FRAME.soiSeq || 0) + 1; };
 
   // Show the map immediately (avoids the initial /map 404 flash).
