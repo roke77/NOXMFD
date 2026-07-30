@@ -285,3 +285,59 @@ layout-agnostic and carries over unchanged.
   default — but a rig with four displays wants to see *where* focus went without looking away
   from the one it just left. A brief marker on every display when the target changes is cheap, if
   it turns out to be missed.
+
+## Planned: surface-level focus (Option B) — the F-35, and the split done right
+
+**Status: in progress on the `soi-surfaces` branch.** Step 1 (server) is the first target.
+
+Today the unit of SOI focus is an *instance* (a `cid` = one document). That already strains the
+classic split — the whole screen rings and the cursor walks *both* panes as one flat list — and it
+doesn't fit the F-35 at all, whose glass is up to four independently-navigable portals. The fix is
+to make the unit of focus a **surface**: an instance contributes 1 surface in full view, 2 in a
+split, and N = its live `portals.length` on the F-35. Focus addresses **(cid, paneIndex)**; `SOI
+NEXT`/`PREV` walk a flat ring **instance-major, surface-minor** — instances in connection order,
+and within each, its surfaces in visual order (classic top→bottom, F-35 left→right) — so a
+3-portal F-35 steps portal 0 → 1 → 2 → next instance, wrapping. Only the focused surface rings, and
+the cursor is scoped to that surface's nav.
+
+The server change is **backward-compatible**: a client that never reports its surface count stays
+at `PaneCount = 1` and behaves exactly as today (whole-instance focus). So it lands in three stages.
+
+### Step 1 — server (`TelemetryServer.cs`, `CommandDispatcher.cs`) — *first*
+
+- `MfdInstance` gains `int PaneCount = 1`.
+- Focus state gains `_soiTargetPane` (int, `-1` = none) beside `_soiTargetCid`, under the same
+  `_soiLock` / `_soiVersion`. `SetSoiTarget(cid, pane)` replaces the string-only setter.
+- `SoiCycle(dir)` walks the flat ring built from `Instances()` × `0..PaneCount-1` (deduped by cid so
+  twins collapse), instance-major/surface-minor, wrapping; from empty, `NEXT`→first, `PREV`→last.
+- New `soi.panes { cid, n }` command (`CommandEnvelope` gains `n`): a `POST /command` isn't tied to
+  the SSE connection, so it carries the `cid`; the handler sets that instance's `PaneCount`. If that
+  cid is focused and `_soiTargetPane >= n` (a merge shrank the glass), **clamp** to `n-1` — the one
+  sanctioned focus move without a keypress, confined to the same instance.
+- `SoiJson()` gains `"soiPane":<int>` (`-1` when unfocused), in the ping too.
+- `SoiReleaseOnDisconnect` is unchanged in spirit: a focused instance dropping (no twin) clears;
+  focus never hops to another display.
+- `soi-focus.test.js` extends its model to the flat surface ring: cycling, wrap, clamp-on-shrink,
+  clear-on-disconnect.
+
+### Step 2 — classic client (`mfd.js`, `telemetry-source.js`) — the split upgrade
+
+The tap posts its cid up once (`soi-cid`) and carries `pane` on the `soi`/`soi-act` messages. The
+shell reports `soi.panes {cid, n: splitMode ? 2 : 1}` on load and split toggle; `soiKeys()` scopes
+to the focused pane (`data-pane` 'top'/'bot'), so the cursor stops spanning both panes; the ring
+moves from the whole `.screen` to the focused pane's box.
+
+### Step 3 — F-35 client (`f35.js`, `f35.css`) — the new surface
+
+`f35.js` grows the SOI handling it lacks entirely: listen for `soi-cid`/`soi`/`soi-act`, report
+`soi.panes {cid, n: portals.length}` on load and every grip merge/split, cursor over the focused
+portal's `.nav-item`s (a class on the div — no physical keys), ring the focused portal's box, and
+`SELECT` clicks the cursored item through the portal's existing `dispatch`. Rebuilds re-clamp the
+cursor and re-report the count, the same discipline `renderSoiCursor` already uses.
+
+### Deferred
+
+Surface **identity is by index** (`0..n-1`) for now — simplest, and the server already thinks in
+ordered lists. The soft spot: a merge that removes a portal *left of* the focused one shifts indices
+for a frame until the re-report + clamp settle. If that ever reads wrong, upgrade to client-reported
+stable surface IDs (`(cid, surfaceId)`), strictly more protocol.
