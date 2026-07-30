@@ -248,6 +248,20 @@ Multi-stick HOTAS setups are supported; each bind remembers which stick it came 
   right reticle — and the next press fires. The current gun and missile/bomb choices show
   as outlines on the WPN page.
 
+#### Sensor of Interest (SOI)
+
+Drive a screen you aren't touching. Borrowed from DCS: one display is the *sensor of interest*,
+and a fixed set of HOTAS keys navigates whatever that is — so a tablet clamped to the rig or a
+second monitor can be worked from the throttle, no reaching for the glass. It is opt-in: nothing is
+focused until you press a SOI key, so a mouse/touch setup that never uses it is unaffected. The
+focused screen rings itself in white. Focus is per *screen*, not per device — in a split it lands
+on one pane, and on the F-35 on one portal. Five binds, on the same **KEY** page:
+
+- **SOI Next / SOI Prev** — move focus to the next/previous screen, cycling through every open
+  display (and, on the F-35, each portal of the glass).
+- **Nav Up / Nav Down** — move a cursor over the focused screen's on-screen buttons.
+- **Select** — press the button the cursor is on, exactly as tapping it would.
+
 ## Reporting & collaboration
 
 Found a bug, or want a feature? Open an issue on the
