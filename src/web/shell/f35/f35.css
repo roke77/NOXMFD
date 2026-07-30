@@ -398,6 +398,20 @@ html, body {
   border: 2px solid var(--no-teal);
 }
 
+/* SOI focus ring — this portal is the sensor of interest (f35.js renderSoiRing toggles .soi). A
+   white inner ring just inside the teal frame, the DCS way of saying "this screen is live", and the
+   same off-white the bezel's ring uses. ::after inset:0 sits inside the border (border-box), so
+   overflow:hidden doesn't clip it; pointer-events:none so it never eats a tap; above the label grid
+   (z-index 1) but only at the perimeter, so it never covers a label. */
+.portal.soi::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--no-label);
+  pointer-events: none;
+  z-index: 3;
+}
+
 /* Where two frames meet, they meet — 2px of seam, not 2px twice. The overlap is a negative margin
    rather than a dropped border, so every portal keeps all four of its own edges and none is a
    special case: the first portal, the last, and a merged pair are all just boxes.
@@ -576,6 +590,14 @@ html, body {
 .nav-item.on {
   color: var(--no-amber);
   outline: 1px solid var(--no-amber);
+}
+
+/* The SOI cursor — the label SELECT will press. A filled white chip (--no-label on --no-ink), the
+   same mark the bezel's cursor uses, so the two layouts read as one. SOI drives a screen nobody is
+   touching, so the mouse-hover fill below doesn't compete in practice. */
+.nav-item.cursor {
+  color: var(--no-ink);
+  background: var(--no-label);
 }
 
 /* Hover is a mouse affordance, and only a mouse can take it back. A touch tap leaves :hover stuck

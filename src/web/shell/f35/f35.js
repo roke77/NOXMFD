@@ -188,7 +188,7 @@
   // *this* screen rather than the shell — which page is up, where its WPN list is paged to, and
   // whether its map is following. Everything a second portal must not share lives in here; only
   // the telemetry cache and the tap are shell-wide.
-  function makePortal(onGrip) {
+  function makePortal(onGrip, onNavRendered) {
     const el    = document.createElement('div');
     const frame = document.createElement('iframe');
     const grid  = document.createElement('div');
@@ -404,6 +404,9 @@
       });
       if (currentPage === 'wpn') addWeaponHits();
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
+      // The grid was just rebuilt, so an SOI cursor mark on one of its items is gone — let the shell
+      // re-apply it if this is the focused portal (the F-35 twin of mfd.js's post-rebuild renderSoiCursor).
+      if (onNavRendered) onNavRendered(api);
     }
 
     function showPage(name) {
@@ -426,6 +429,10 @@
       isMapWin: isMapWin,
       setFollow: setFollow,
       setGrips: setGrips,
+      // For the SOI cursor: the page this portal shows (to tell a navigating SELECT from an
+      // in-place one) and its enabled nav labels, in reading order, as the cursor's targets.
+      page: function () { return currentPage; },
+      navItems: function () { return [].slice.call(grid.querySelectorAll('.nav-item:not([disabled])')); },
       // Flex-grow tracks the span, so a merged portal takes exactly the two slots it owns and its
       // neighbours keep theirs. All four slots are the same width, so the arithmetic is just the
       // span — no wrapper elements, no percentages.
@@ -468,10 +475,16 @@
       p.setGrips(F35Glass.gripsFor(cs, i));
       p.resized();
     });
+    // The glass just changed shape — a portal was added or destroyed. Tell the server the new
+    // surface count (SOI cycles portals), and re-apply the ring/cursor: a destroyed portal may have
+    // held focus, and a merge shifts indices until the server's clamped target arrives.
+    reportPanes();
+    renderSoiRing();
+    renderSoiCursor();
   }
 
   function addPortal(at) {
-    const p = makePortal(onGrip);
+    const p = makePortal(onGrip, onNavRendered);
     portals.splice(at, 0, p);
     portalsEl.insertBefore(p.el, portalsEl.children[at] || null);
     p.applySpan();
@@ -511,6 +524,80 @@
     refreshGlass();
   }
 
+  // ── SOI (sensor of interest) ───────────────────────────────────────────────────────────
+  // Focus is a SURFACE (docs/keybinds-page.md): on the F-35, a surface is one portal. The server
+  // cycles the glass's live portals; this shell rings the focused one and walks a cursor over its
+  // nav labels — the F-35 twin of the bezel's per-key cursor, over `.nav-item` divs since the glass
+  // has no physical keys. soiPane is the focused portal's index (-1 = this glass isn't the SOI);
+  // soiCursor indexes that portal's nav items.
+  let soiPane = -1, soiCursor = -1, myCid = '';
+
+  // Report the live surface count so the server cycles portals, not documents. Needs the cid, which
+  // the tap supplies (soi-cid); until then this no-ops and the soi-cid handler re-invokes it.
+  function reportPanes() {
+    if (myCid) sendCommand('soi.panes', { cid: myCid, n: portals.length }).catch(function () {});
+  }
+
+  function focusedPortal() { return (soiPane >= 0 && soiPane < portals.length) ? portals[soiPane] : null; }
+
+  // Ring the focused portal (a class on its box; f35.css draws it). Out of range — a merge just
+  // removed it, before the server's clamped target lands — rings nothing, which is the safe default.
+  function renderSoiRing() {
+    const fp = focusedPortal();
+    portals.forEach(function (p) { p.el.classList.toggle('soi', p === fp); });
+  }
+
+  // Paint the cursor on the focused portal's cursored nav item, clearing any elsewhere. Clamped, so
+  // a page change that shortened the list keeps it in range; re-run after any nav rebuild.
+  function renderSoiCursor() {
+    portals.forEach(function (p) {
+      [].slice.call(p.el.querySelectorAll('.nav-item.cursor')).forEach(function (b) { b.classList.remove('cursor'); });
+    });
+    const fp = focusedPortal();
+    if (!fp || soiCursor < 0) return;
+    const items = fp.navItems();
+    if (!items.length) { soiCursor = -1; return; }
+    if (soiCursor >= items.length) soiCursor = items.length - 1;
+    items[soiCursor].classList.add('cursor');
+  }
+  function setSoiCursor(i) { soiCursor = i; renderSoiCursor(); }
+
+  // Focus moved (or cleared). A different portal drops the cursor — the destination reveals it fresh
+  // on the next NAV, like a first focus.
+  function onSoiFocus(m) {
+    const prev = soiPane;
+    soiPane = m.focused ? (typeof m.pane === 'number' ? m.pane : 0) : -1;
+    if (soiPane !== prev) soiCursor = -1;
+    renderSoiRing();
+    renderSoiCursor();
+  }
+
+  // A SOI key press, applied to the focused portal. SELECT clicks the cursored label through its own
+  // wiring; a press that navigates the portal to a new page drops the cursor (as the bezel does),
+  // one that stays put (paging, a map control) keeps it. NAV walks the portal's items, first press
+  // revealing the cursor from the end it came from.
+  function onSoiAct(act) {
+    const fp = focusedPortal();
+    if (!fp) return;
+    const items = fp.navItems();
+    if (!items.length) { setSoiCursor(-1); return; }
+
+    if (act === 'select') {
+      if (soiCursor >= 0 && soiCursor < items.length) {
+        const before = fp.page();
+        items[soiCursor].click();
+        if (fp.page() !== before) setSoiCursor(-1); else renderSoiCursor();
+      }
+      return;
+    }
+    const dir = act === 'up' ? -1 : 1;
+    if (soiCursor < 0) setSoiCursor(dir > 0 ? 0 : items.length - 1);
+    else setSoiCursor(((soiCursor + dir) % items.length + items.length) % items.length);
+  }
+
+  // A focused portal just rebuilt its nav grid (page change, WPN paging) — re-apply the cursor mark.
+  function onNavRendered(p) { if (p === focusedPortal()) renderSoiCursor(); }
+
   window.addEventListener('message', function (e) {
     const m = e.data;
     if (!m || m.mfd !== true || typeof m.type !== 'string') return;
@@ -527,6 +614,12 @@
     // are ignored here — otherwise two out-of-phase feeds would drive the same page. This is the
     // bezel's canonical-source guard, for the same reason.
     if (e.source !== mapTap.contentWindow) return;
+
+    // SOI control messages from the tap — not telemetry slices, so handle and return before caching.
+    if (m.type === 'soi-cid') { myCid = m.cid || ''; reportPanes(); return; }
+    if (m.type === 'soi')     { onSoiFocus(m); return; }
+    if (m.type === 'soi-act') { onSoiAct(m.act); return; }
+
     slices[m.type] = m;   // cache every slice: the screen that wants it may not be up yet
     livePortals().forEach(function (p) { p.onSlice(m.type); });
 

@@ -265,6 +265,9 @@ press-flash, which is momentary.
 
 ## Scope
 
+> **Both layouts, per surface** as of the `soi-surfaces` branch (see "Planned: surface-level focus"
+> below, now built). The notes below are from the original classic-only MVP.
+
 Classic layout only. It is the layout whose navigation is already a flat, ordered, shell-owned
 list of keys, so the cursor was nearly free there; the F-35's portals would need their own cursor
 over `.nav-item` labels, and it has up to four portals per instance rather than two panes.
@@ -273,12 +276,9 @@ layout-agnostic and carries over unchanged.
 
 ## Still open
 
-- **Focus is per display, not per pane.** The cursor spans both panes of a split, which works
-  (each key carries its own `data-pane`, so a press lands on the right pane) but means `SOI NEXT`
-  can't skip a pane, or step between the two panes of one display. Needs the client to report its
-  panes.
-- **Pages with in-iframe controls can be reached but not operated** — see above. Needs a
-  page-level cursor protocol.
+- **Pages with in-iframe controls can be reached but not operated** — TGT's filter toggles, HUD's
+  category rows. Needs a page-level cursor protocol. (On the F-35, WPN's weapon rows are the same
+  kind of gap — see step 3.)
 - **Ordering of `SOI NEXT`.** Connection order is what the server has, and it is neither stable
   nor spatial — reconnect a tablet and it moves to the end of the ring. A named or user-ordered
   instance list is the fix, and it needs somewhere to live.
@@ -292,8 +292,8 @@ layout-agnostic and carries over unchanged.
 
 ## Planned: surface-level focus (Option B) — the F-35, and the split done right
 
-**Status: in progress on the `soi-surfaces` branch.** Steps 1 (server) and 2 (classic client) are
-**built**; step 3 (F-35 client) is next.
+**Status: on the `soi-surfaces` branch — all three steps built.** Server, classic per-pane client,
+and F-35 portal client are done; SOI now works in both layouts, per surface.
 
 Today the unit of SOI focus is an *instance* (a `cid` = one document). That already strains the
 classic split — the whole screen rings and the cursor walks *both* panes as one flat list — and it
@@ -339,13 +339,24 @@ view, one pane in a split. Measured, not CSS-placed, because a split pane is fle
 2:1 — and only reading its box rings it exactly. Repositioned on the `soi` message, split
 enter/exit, axis flip, and window resize.
 
-### Step 3 — F-35 client (`f35.js`, `f35.css`) — the new surface
+### Step 3 — F-35 client (`f35.js`, `f35.css`) — **built** (the new surface)
 
-`f35.js` grows the SOI handling it lacks entirely: listen for `soi-cid`/`soi`/`soi-act`, report
-`soi.panes {cid, n: portals.length}` on load and every grip merge/split, cursor over the focused
-portal's `.nav-item`s (a class on the div — no physical keys), ring the focused portal's box, and
-`SELECT` clicks the cursored item through the portal's existing `dispatch`. Rebuilds re-clamp the
-cursor and re-report the count, the same discipline `renderSoiCursor` already uses.
+`f35.js` grew the SOI handling it lacked entirely: it listens for `soi-cid`/`soi`/`soi-act` from
+the tap, reports `soi.panes {cid, n: portals.length}` on load and on every grip merge/split
+(`refreshGlass`, the one "glass changed" hook), rings the focused portal (a `.soi` class → a white
+inner ring in `f35.css`), and walks a cursor over that portal's enabled `.nav-item`s — a class on
+the div, since the glass has no physical keys. `SELECT` clicks the cursored item through its own
+wiring; a press that navigates the portal drops the cursor, one that stays put (paging, a map
+control) keeps it — the same rule the bezel uses, told apart by the portal's `page()`. The portal
+calls back (`onNavRendered`) after each nav rebuild so the focused one re-applies its cursor, the
+F-35 twin of the bezel's post-rebuild `renderSoiCursor`. `focusedPortal()` bounds-checks the index,
+so the frame between a merge and the server's clamped target rings nothing rather than the wrong
+box.
+
+**Gap:** the cursor walks a portal's `.nav-item`s (MAIN menu, page nav, WPN's MAIN/PREV/NEXT) but
+not WPN's weapon rows — on the F-35 those are `.wpn-hit` overlays, not nav items, so unlike the
+bezel (where weapon rows *are* keys) SOI can page WPN but not pick a weapon on it. Reaching them
+means folding `.wpn-hit` into the cursor's target list in reading order; deferred.
 
 ### Deferred
 
