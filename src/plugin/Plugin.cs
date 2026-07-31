@@ -29,7 +29,7 @@ namespace NOXMFD
         {
             Log = Logger;
             HudDeclutterConfig.Bind(Config);   // bind HUD-declutter toggles (persisted + shown in the in-game config menu)
-            Keybinds.Bind(Config);             // bind the gameplay keybinds (countermeasures + gear) — rebindable in the F1 menu
+            Keybinds.Bind(Config);             // bind the gameplay keybinds (countermeasures + gear) — configured on the /keybinds page
 
             // Network: the port the tablet connects to, and whether to auto-open the Windows LAN
             // gates when the wildcard bind is denied (see docs/networking.md). Read once here —

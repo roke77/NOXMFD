@@ -61,6 +61,7 @@
     bdf: '/bdf',
     pal: '/bdf?pal',   // same page, PRIMEVA (docs/bdf-page.md) — a URL flag, not a separate page
     hud: '/hud',   // the HUD OPTIONS page — fetches /hud-options and POSTs its own hud.* commands
+    keys: '/keybinds',   // extended-keybinds page — polls /keybinds-config and POSTs keybind.* itself
   };
 
   // The telemetry each screen needs, by the tap's own type names. A page that just mounted has
@@ -95,17 +96,26 @@
   // too, and it has six physical keys for six items. Kept here, they stay F-35's business and the
   // bezel is unaffected (there HUD, BDF and PAL are their own BEZEL_EXTRAS keys). HUD, BDF and PAL
   // each have an F35_PAGES entry (docs/bdf-page.md) and render as real pages.
-  // (The layout chooser used to be among them, as a greyed LYT. Choosing a layout is the whole
-  // glass's business, so it moved to the master strip — on MAIN it would have been offered once per
-  // portal, four times over.)
+  // HUD, KEY, BDF and PAL are frame pages with an F35_PAGES entry; only LYT is not a page — it opens
+  // the layout chooser over the whole glass (GLASS_ACTIONS). All match where the bezel keeps them —
+  // MAIN — so a pilot finds the same names in the same place in either layout. LYT is offered once
+  // per portal and answers for all of them, the way the bezel offers it in each split pane.
   const MAIN_EXTRAS = [
     { label: 'HUD', action: 'hud' },
+    { label: 'KEY', action: 'keys' },
+    { label: 'LYT', action: 'lyt' },
     { label: 'PAL', action: 'pal' },
     { label: 'BDF', action: 'bdf' },
   ];
 
   // Paging actions, and the direction each moves. Not pages, so they dispatch separately.
   const PAGER = { 'wpn-prev': -1, 'wpn-next': 1 };
+
+  // Actions that act on the whole glass rather than the portal they were pressed from. LYT is the
+  // only one: the chooser takes the portals' place entirely (showPicker), so which portal offered
+  // it doesn't matter — the same reason the bezel's LYT collapses a split instead of filling a pane.
+  // Declared here, run later: showPicker is a hoisted declaration further down the file.
+  const GLASS_ACTIONS = { lyt: function () { showPicker(true); } };
 
   // MAP's own actions → the message the map view listens for. Also not pages: they drive the map
   // in place rather than navigating. Same protocol the bezel uses (mfd.js mapSend), but routed to
@@ -126,7 +136,9 @@
 
   function has(page) { return Object.prototype.hasOwnProperty.call(F35_PAGES, page); }
   function feedsFor(page) { return PAGE_FEEDS[page] || []; }
-  function canDo(action) { return has(action) || (action in PAGER) || (action in MAP_ACTIONS); }
+  function canDo(action) {
+    return has(action) || (action in PAGER) || (action in MAP_ACTIONS) || (action in GLASS_ACTIONS);
+  }
 
   // 'edge' placement: an item's index → its cell. The left column, top-down, IS the bezel's left
   // key bank — the same derivation mfd.js fullViewSlot() uses, which is why NAV needs no placement
@@ -176,7 +188,7 @@
   // *this* screen rather than the shell — which page is up, where its WPN list is paged to, and
   // whether its map is following. Everything a second portal must not share lives in here; only
   // the telemetry cache and the tap are shell-wide.
-  function makePortal(onGrip) {
+  function makePortal(onGrip, onNavRendered) {
     const el    = document.createElement('div');
     const frame = document.createElement('iframe');
     const grid  = document.createElement('div');
@@ -190,6 +202,7 @@
     let currentPage = null;
     let wpnPage     = 0;    // 0-indexed pagination state
     let wpnNavKey   = '';   // what this grid last drew; guards a per-tick rebuild
+    let wpnSelSeen  = null; // last selWeapon this portal followed; guards the page jump below
     let followOn    = false;
 
     // This portal's footprint on the glass: one slot, or two with a memory of which side it ate.
@@ -254,9 +267,18 @@
     function forwardWpn() {
       const w = frameWin(), lo = slices.loadout;
       if (!w || !lo) return;
+      // Follow the in-game selection to its page when it CHANGES (the weapon keybinds' cycle keys
+      // select, possibly onto another page) — the bezel shell does the same. Change-gated so manual
+      // paging survives the per-tick ammo loadouts.
+      if (lo.selWeapon && lo.selWeapon !== wpnSelSeen) {
+        wpnSelSeen = lo.selWeapon;
+        const i = wpnList().findIndex(function (it) { return it.n === lo.selWeapon; });
+        if (i >= 0) wpnPage = Math.floor(i / WPN_MAX_DISPLAY);
+      }
       const st = wpnState();
       wpnPage = st.page;
       w.postMessage({ mfd: true, type: 'wpn', items: st.visible, selWeapon: lo.selWeapon,
+                      softGun: lo.softGun || null, softRel: lo.softRel || null,
                       page: st.maxPage > 0 ? st.page + 1 : 1, pages: st.maxPage + 1 }, '*');
       const key = st.page + '|' + st.maxPage + '|' + st.visible.map(function (it) { return it.n; }).join(',');
       if (currentPage === 'wpn' && key !== wpnNavKey) { wpnNavKey = key; renderNav(); }
@@ -348,6 +370,7 @@
     function dispatch(action) {
       if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
       if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
+      if (action in GLASS_ACTIONS) { GLASS_ACTIONS[action](); return; }
       if (has(action)) showPage(action);
     }
 
@@ -381,6 +404,9 @@
       });
       if (currentPage === 'wpn') addWeaponHits();
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
+      // The grid was just rebuilt, so an SOI cursor mark on one of its items is gone — let the shell
+      // re-apply it if this is the focused portal (the F-35 twin of mfd.js's post-rebuild renderSoiCursor).
+      if (onNavRendered) onNavRendered(api);
     }
 
     function showPage(name) {
@@ -403,6 +429,10 @@
       isMapWin: isMapWin,
       setFollow: setFollow,
       setGrips: setGrips,
+      // For the SOI cursor: the page this portal shows (to tell a navigating SELECT from an
+      // in-place one) and its enabled nav labels, in reading order, as the cursor's targets.
+      page: function () { return currentPage; },
+      navItems: function () { return [].slice.call(grid.querySelectorAll('.nav-item:not([disabled])')); },
       // Flex-grow tracks the span, so a merged portal takes exactly the two slots it owns and its
       // neighbours keep theirs. All four slots are the same width, so the arithmetic is just the
       // span — no wrapper elements, no percentages.
@@ -445,10 +475,16 @@
       p.setGrips(F35Glass.gripsFor(cs, i));
       p.resized();
     });
+    // The glass just changed shape — a portal was added or destroyed. Tell the server the new
+    // surface count (SOI cycles portals), and re-apply the ring/cursor: a destroyed portal may have
+    // held focus, and a merge shifts indices until the server's clamped target arrives.
+    reportPanes();
+    renderSoiRing();
+    renderSoiCursor();
   }
 
   function addPortal(at) {
-    const p = makePortal(onGrip);
+    const p = makePortal(onGrip, onNavRendered);
     portals.splice(at, 0, p);
     portalsEl.insertBefore(p.el, portalsEl.children[at] || null);
     p.applySpan();
@@ -488,6 +524,80 @@
     refreshGlass();
   }
 
+  // ── SOI (sensor of interest) ───────────────────────────────────────────────────────────
+  // Focus is a SURFACE (docs/keybinds-page.md): on the F-35, a surface is one portal. The server
+  // cycles the glass's live portals; this shell rings the focused one and walks a cursor over its
+  // nav labels — the F-35 twin of the bezel's per-key cursor, over `.nav-item` divs since the glass
+  // has no physical keys. soiPane is the focused portal's index (-1 = this glass isn't the SOI);
+  // soiCursor indexes that portal's nav items.
+  let soiPane = -1, soiCursor = -1, myCid = '';
+
+  // Report the live surface count so the server cycles portals, not documents. Needs the cid, which
+  // the tap supplies (soi-cid); until then this no-ops and the soi-cid handler re-invokes it.
+  function reportPanes() {
+    if (myCid) sendCommand('soi.panes', { cid: myCid, n: portals.length }).catch(function () {});
+  }
+
+  function focusedPortal() { return (soiPane >= 0 && soiPane < portals.length) ? portals[soiPane] : null; }
+
+  // Ring the focused portal (a class on its box; f35.css draws it). Out of range — a merge just
+  // removed it, before the server's clamped target lands — rings nothing, which is the safe default.
+  function renderSoiRing() {
+    const fp = focusedPortal();
+    portals.forEach(function (p) { p.el.classList.toggle('soi', p === fp); });
+  }
+
+  // Paint the cursor on the focused portal's cursored nav item, clearing any elsewhere. Clamped, so
+  // a page change that shortened the list keeps it in range; re-run after any nav rebuild.
+  function renderSoiCursor() {
+    portals.forEach(function (p) {
+      [].slice.call(p.el.querySelectorAll('.nav-item.cursor')).forEach(function (b) { b.classList.remove('cursor'); });
+    });
+    const fp = focusedPortal();
+    if (!fp || soiCursor < 0) return;
+    const items = fp.navItems();
+    if (!items.length) { soiCursor = -1; return; }
+    if (soiCursor >= items.length) soiCursor = items.length - 1;
+    items[soiCursor].classList.add('cursor');
+  }
+  function setSoiCursor(i) { soiCursor = i; renderSoiCursor(); }
+
+  // Focus moved (or cleared). A different portal drops the cursor — the destination reveals it fresh
+  // on the next NAV, like a first focus.
+  function onSoiFocus(m) {
+    const prev = soiPane;
+    soiPane = m.focused ? (typeof m.pane === 'number' ? m.pane : 0) : -1;
+    if (soiPane !== prev) soiCursor = -1;
+    renderSoiRing();
+    renderSoiCursor();
+  }
+
+  // A SOI key press, applied to the focused portal. SELECT clicks the cursored label through its own
+  // wiring; a press that navigates the portal to a new page drops the cursor (as the bezel does),
+  // one that stays put (paging, a map control) keeps it. NAV walks the portal's items, first press
+  // revealing the cursor from the end it came from.
+  function onSoiAct(act) {
+    const fp = focusedPortal();
+    if (!fp) return;
+    const items = fp.navItems();
+    if (!items.length) { setSoiCursor(-1); return; }
+
+    if (act === 'select') {
+      if (soiCursor >= 0 && soiCursor < items.length) {
+        const before = fp.page();
+        items[soiCursor].click();
+        if (fp.page() !== before) setSoiCursor(-1); else renderSoiCursor();
+      }
+      return;
+    }
+    const dir = act === 'up' ? -1 : 1;
+    if (soiCursor < 0) setSoiCursor(dir > 0 ? 0 : items.length - 1);
+    else setSoiCursor(((soiCursor + dir) % items.length + items.length) % items.length);
+  }
+
+  // A focused portal just rebuilt its nav grid (page change, WPN paging) — re-apply the cursor mark.
+  function onNavRendered(p) { if (p === focusedPortal()) renderSoiCursor(); }
+
   window.addEventListener('message', function (e) {
     const m = e.data;
     if (!m || m.mfd !== true || typeof m.type !== 'string') return;
@@ -504,6 +614,12 @@
     // are ignored here — otherwise two out-of-phase feeds would drive the same page. This is the
     // bezel's canonical-source guard, for the same reason.
     if (e.source !== mapTap.contentWindow) return;
+
+    // SOI control messages from the tap — not telemetry slices, so handle and return before caching.
+    if (m.type === 'soi-cid') { myCid = m.cid || ''; reportPanes(); return; }
+    if (m.type === 'soi')     { onSoiFocus(m); return; }
+    if (m.type === 'soi-act') { onSoiAct(m.act); return; }
+
     slices[m.type] = m;   // cache every slice: the screen that wants it may not be up yet
     livePortals().forEach(function (p) { p.onSlice(m.type); });
 
@@ -667,9 +783,9 @@
   }
 
   // ── Layout picker ──────────────────────────────────────────────────────────────────────
-  // LAYOUT swaps the portals for a two-item chooser. It lives in the strip because a layout is the
-  // whole glass's business — the one thing on this shell that isn't any portal's to decide. (Its
-  // id and class stay ms-lyt: the label grew, the control didn't change.)
+  // LYT (a portal's MAIN, GLASS_ACTIONS) swaps the portals for a two-item chooser — the same place
+  // the bezel keeps it, so the choice is named the same way in either layout. A layout is still the
+  // whole glass's business, not the offering portal's: the chooser takes over the entire column.
   //
   // It replaces the portals CONTAINER, not their contents: hidden, the portals keep their pages,
   // their arrangement and their map streams, so coming back costs nothing and loses nothing.
@@ -678,12 +794,10 @@
   // Which layout is current needs no state: this file IS the F-35 shell, so its item is marked in
   // the HTML and CLASSIC is simply somewhere else.
   const pickerEl = document.getElementById('layout-picker');
-  const lytBtn   = document.getElementById('ms-lyt');
 
   function showPicker(on) {
     pickerEl.hidden  = !on;
     portalsEl.hidden = on;
-    lytBtn.classList.toggle('on', on);
     // Hidden, a portal's box is 0x0 — and the resize listener below still fires into it, handing
     // WPN a zero-height rect for every row. So rebuild on the way back: the glass may have changed
     // size while it was away, and whatever WPN is holding was measured against nothing. Only WPN
@@ -691,13 +805,13 @@
     if (!on) relayoutAll();
   }
 
-  lytBtn.addEventListener('click', function () { showPicker(pickerEl.hidden); });
   // Remember the choice so a fresh load honors it (docs/layouts.md, Stage 3); the head guard in each
   // shell's HTML reads it and redirects before paint. Guarded — localStorage throws in some
   // private-mode browsers, and a failed write just means the choice isn't sticky.
   function setLayout(name) { try { localStorage.setItem('layout', name); } catch (e) {} }
-  // F-35 is this document, so the way back is just showing the glass again. CLASSIC is a different
-  // one: the bezel shell at /, which lands on its own MAIN.
+  // F-35 is this document, so the way back is just showing the glass again — picking the layout you
+  // are already on is how you leave the chooser, exactly as CLASSIC is on the bezel's LYT page.
+  // CLASSIC is a different document: the bezel shell at /, which lands on its own MAIN.
   pickerEl.querySelector('[data-layout="f35"]').addEventListener('click', function () { setLayout('f35'); showPicker(false); });
   pickerEl.querySelector('[data-layout="classic"]').addEventListener('click', function () { setLayout('classic'); location.href = '/'; });
 

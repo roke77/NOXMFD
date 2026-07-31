@@ -110,8 +110,8 @@ namespace NOXMFD
         {
             float dt = Time.deltaTime;
 
-            // Drain any inbound web-client commands first (main thread — safe to touch game state).
-            CommandDispatcher.Drain();
+            // Inbound web-client commands are drained by MissionLifecycle.Update (the persistent host),
+            // so the /keybinds page works at the main menu too — not here.
 
             _fastTimer += dt;
             _slowTimer += dt;
@@ -529,6 +529,12 @@ namespace NOXMFD
             if (selInfo != null)
                 selWeapon = !string.IsNullOrEmpty(selInfo.weaponName) ? selInfo.weaponName : selInfo.shortName;
 
+            // Weapon soft-selections (WeaponSelectors) — what the fire keybinds would commit right
+            // now; the WPN page outlines them. Reading them also keeps the follow-active tracking
+            // fresh at snapshot rate.
+            string softGun = WeaponSelectors.EffectiveGun(aircraft) ?? string.Empty;
+            string softRel = WeaponSelectors.EffectiveRelease(aircraft) ?? string.Empty;
+
             byte cmCategory = GetSelectedCmCategory(aircraft);
 
             _assets.TryCaptureIcon(aircraft.definition);
@@ -574,6 +580,8 @@ namespace NOXMFD
                 HasAfterburner = _hasAfterburner,
                 AbStart        = _abStart,
                 SelWeapon      = selWeapon,
+                SoftGun        = softGun,
+                SoftRel        = softRel,
                 CmCategory     = cmCategory,
                 TotalUnits     = _totalUnits,
                 TotalAircraft  = _totalAircraft,

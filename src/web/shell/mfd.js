@@ -21,6 +21,11 @@ const keyBanks = {
 };
 const leftKeys  = keyBanks.left;    // compatibility aliases for side-specific renderers
 const rightKeys = keyBanks.right;
+// Name every key by its bank+index. placeOverlayLabel stamps the same string on the label it puts
+// there, which is what lets the SOI cursor go from a physical key to the label riding on it.
+['left', 'right', 'top', 'bottom'].forEach(function(side) {
+  keyBanks[side].forEach(function(k, i) { k.dataset.pos = side + i; });
+});
 // Fixed-control icon banks. The top row holds page-independent functions; the bottom row
 // holds layout controls. Both are wired once at startup and excluded from clearKeyActions,
 // so they survive page switches.
@@ -60,10 +65,11 @@ const overlayEl = document.getElementById('overlay');
 const mapFrame  = document.querySelector('.screen > iframe[title="map"]');
 const screenEl  = document.getElementById('screen');
 const paneIframes = [document.getElementById('pane-top'), document.getElementById('pane-bot')];
+const soiRingEl = document.getElementById('soi-ring');
 const pageFrame = document.getElementById('page-frame');   // full-view host for the frame-hosted pages (WPN, TGT, TGP)
 // Pages that render in #page-frame in full view (rather than as overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
-const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt', hud: '/hud', bdf: '/bdf', pal: '/bdf?pal' };
+const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt', hud: '/hud', bdf: '/bdf', pal: '/bdf?pal', keys: '/keybinds' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
@@ -101,15 +107,18 @@ function fullViewSlot(i) { return { bank: 'left', index: i }; }
 // no panel: every other page in this shell puts its items beside a physical key, and a chooser is
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
-  // HUD, LYT, BDF and PAL — the layout-owned MAIN items the six shared NAV items don't cover. HUD
-  // opens the HUD OPTIONS #page-frame page; BDF and PAL open the same faction-forces panel for the
-  // two fixed identities BOSCALI/PRIMEVA — not "mine vs the enemy's" (docs/bdf-page.md); each gets
-  // its MAIN back from NAV like every other frame page, so none needs an entry of its own here.
+  // HUD, KEY, LYT, BDF and PAL — the layout-owned MAIN items the six shared NAV items don't cover.
+  // HUD opens the HUD OPTIONS #page-frame page; KEY the extended-keybinds page; BDF and PAL the same
+  // faction-forces panel for the two fixed identities BOSCALI/PRIMEVA — not "mine vs the enemy's"
+  // (docs/bdf-page.md). All four are frame-hosted pages that get their MAIN back from NAV like every
+  // other, so none needs an entry of its own here. Only LYT differs — it's a layout switch, not a
+  // page (see mfdButton).
   // No bank/index/mark here (unlike lyt below): MAIN_SPLIT_ITEMS is the only consumer, in both full
   // view and split (showPage / renderSplitLabels' 'main' branch), and it places by alphabetical
   // order, not a fixed key.
   main: [
     { label: 'HUD', action: 'hud' },
+    { label: 'KEY', action: 'keys' },
     { label: 'LYT', action: 'lyt' },
     { label: 'BDF', action: 'bdf' },
     { label: 'PAL', action: 'pal' },
@@ -122,10 +131,10 @@ const BEZEL_EXTRAS = {
   ],
 };
 
-// All ten MAIN destinations, alphabetically — the single ordering both full view (showPage) and a
+// All eleven MAIN destinations, alphabetically — the single ordering both full view (showPage) and a
 // split pane's paginated list (renderSplitLabels' 'main' branch) place from. Full view has room for
-// all ten at once (six left-bank keys, four right-bank); a split pane's budget is 6 physical keys,
-// too few for all ten at once — including HUD/LYT/BDF/PAL, which a split pane couldn't reach at all
+// all of them at once (six left-bank keys, five of the right bank's six); a split pane's budget is 6
+// physical keys, too few — including HUD/KEY/LYT/BDF/PAL, which a split pane couldn't reach at all
 // before (the right bank is the pane's own column there, not BEZEL_EXTRAS) — so MAIN becomes a
 // paginated list there, the same idea as WPN's weapon list.
 const MAIN_SPLIT_ITEMS = NAV.main.concat(BEZEL_EXTRAS.main)
@@ -159,10 +168,10 @@ let panePages = ['main', 'main'];
 // reserved: L0 = MAIN/PREV back-button, R0 = NEXT (shown only when the loadout exceeds 4).
 let paneWpnPage = [0, 0];
 const WPN_SPLIT_MAX = 4;
-// Per-pane MAIN pagination index — MAIN_SPLIT_ITEMS sliced MAIN_PANE_SIZE-per-page (mainPaneSlice).
+// Per-pane MAIN pagination index — MAIN_SPLIT_ITEMS paged across the pane's keys (mainPaneSlice).
 // Reset to 0 when a pane (re)enters MAIN (paneNavigate), same as paneWpnPage for WPN.
 let paneMainPage = [0, 0];
-const MAIN_PANE_SIZE = 5;
+const MAIN_PANE_SLOTS = 6;   // physical keys a split pane exposes for the MAIN list
 
 // Latest connection status mirrored from the map iframe — kept so we can push the
 // current value to a freshly-loaded pane iframe (its onload may fire AFTER the
@@ -205,6 +214,7 @@ const SPLIT_SLOTS = {
   bdf: [ { side: 'left', slot: 0 } ],
   pal: [ { side: 'left', slot: 0 } ],
   hud: [ { side: 'left', slot: 0 } ],
+  keys: [ { side: 'left', slot: 0 } ],   // extended-keybinds page — self-driven, only its MAIN back-key
   // WPN is a valid split page but places no NAV labels: its MAIN/PREV + NEXT depend on the pane's
   // pagination state, so renderSplitLabels' list branch owns them (NAV.wpn is empty to match).
   wpn: [],
@@ -223,6 +233,7 @@ const PAGE_URL = {
   bdf:  '/bdf?bare',
   pal:  '/bdf?bare&pal',
   hud:  '/hud?bare',
+  keys: '/keybinds?bare',
 };
 function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 
@@ -252,6 +263,7 @@ function setSplit(variant) {
     // Re-forward list-page geometry so WPN panes re-lay-out for the new orientation (else they
     // keep the previous layout's row arrangement — e.g. H's 2-column grid in a V column).
     forwardWpnLayoutToPanes();
+    positionSoiRing();              // the panes moved (axis flip / v↔vw); re-frame the focused one
     return;
   }
   splitMode = true;
@@ -286,6 +298,10 @@ function applySplitMode() {
     showPage(currentPage);
     refreshFollowIndicator();        // prune any split-mode FOLLOW chip; single-mode recompute
   }
+  // The surface count just changed (1 full view ↔ 2 split); tell the server so SOI cycles the right
+  // surfaces, and re-place the ring, which now frames a pane instead of the whole recess (or back).
+  reportPanes();
+  positionSoiRing();
 }
 
 // Place per-pane labels for both panes' current pages. Each pane-local (side, slot) resolves to
@@ -339,27 +355,40 @@ function placeSplitKey(m, label, action, paneTag) {
 
 // Pages whose own content sits in the top-left where the MAIN bezel label lands, so that label is
 // stood upright to clear it — in full view via .overlay.vmain, in a split pane via a per-label class
-// (renderSplitLabels). TGT's RESET FILTER, HUD's mode/category rows, and BDF/PAL's WARHEADS readout
-// are that content, and all four are split-capable, so all of them reach the split path.
-function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal'; }
+// (renderSplitLabels). TGT's RESET FILTER, HUD's mode/category rows, BDF/PAL's WARHEADS readout, and
+// KEY's FUNCTION/KEYBOARD/JOYSTICK table header are that content — on a narrow display the panel
+// widens to the edge and a horizontal MAIN would sit over that header. All are split-capable.
+function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal' || p === 'keys'; }
 
-// MAIN's own paginated nav list in a split pane: all ten MAIN_SPLIT_ITEMS, alphabetically, sliced
-// MAIN_PANE_SIZE-per-page. Reuses WPN's PREV/NEXT idiom — same "one page can't fit everything, chain
-// pages together" shape — but sized differently: WPN always reserves its back-slot for MAIN/PREV
-// (never mixed with content), where MAIN's own list only needs PREV once you've paged forward, so
-// the first page's would-be-PREV slot holds a fifth item instead.
-// ponytail: assumes exactly two pages (today's ten items / five). A middle page needing BOTH PREV
-// and NEXT at once would overflow six slots by one — if MAIN ever grows past ten items, drop to
-// WPN's stricter always-reserved-back-slot + four-items-per-page shape (see wpnPaneSlice) instead.
+// The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
+// the first key only on pages past the first, NEXT the last key only on pages before the last, and
+// items fill every slot in between — INCLUDING the first when there's no PREV and the last when
+// there's no NEXT. So the page sizes are chosen to fill all six keys: the first page holds five (no
+// PREV), a middle page four (PREV + NEXT both eat a slot), and the last page up to five (no NEXT).
+// The first page a split opens on is therefore full, not four items with two empty keys.
+function mainPageSizes() {
+  const total = MAIN_SPLIT_ITEMS.length;
+  const sizes = [];
+  let placed = 0;
+  while (placed < total) {
+    const room = MAIN_PANE_SLOTS - (sizes.length === 0 ? 0 : 1);   // minus PREV on every page but the first
+    if (total - placed <= room) { sizes.push(total - placed); break; }   // the rest fits, no NEXT needed
+    sizes.push(room - 1);                                          // reserve the last key for NEXT
+    placed += room - 1;
+  }
+  return sizes;
+}
+
+// This pane's slice of the MAIN list, with the page clamped in range.
 function mainPaneSlice(idx) {
-  const list = MAIN_SPLIT_ITEMS;
-  const total = list.length;
-  const maxPage = Math.max(0, Math.ceil(total / MAIN_PANE_SIZE) - 1);
-  if (paneMainPage[idx] > maxPage) paneMainPage[idx] = maxPage;
+  const sizes = mainPageSizes();
+  if (paneMainPage[idx] > sizes.length - 1) paneMainPage[idx] = sizes.length - 1;
   if (paneMainPage[idx] < 0) paneMainPage[idx] = 0;
-  const start = paneMainPage[idx] * MAIN_PANE_SIZE;
-  const items = list.slice(start, start + MAIN_PANE_SIZE);
-  return { items: items, hasPrev: paneMainPage[idx] > 0, hasNext: start + items.length < total };
+  const p = paneMainPage[idx];
+  let start = 0;
+  for (let k = 0; k < p; k++) start += sizes[k];
+  const items = MAIN_SPLIT_ITEMS.slice(start, start + sizes[p]);
+  return { items: items, hasPrev: p > 0, hasNext: p < sizes.length - 1 };
 }
 
 function renderSplitLabels() {
@@ -370,17 +399,25 @@ function renderSplitLabels() {
     const paneTag = paneIdx === 0 ? 'top' : 'bot';   // pane identity for click dispatch (orientation-agnostic)
 
     if (page === 'main') {
-      // MAIN_SPLIT_ITEMS instead of SPLIT_SLOTS/NAV.main — see mainPaneSlice. Reuses listPaneLayout's
-      // six physical positions (the same shape WPN's pagination already occupies): main-or-prev slot,
-      // four middle slots, next slot — in that visual order.
+      // MAIN_SPLIT_ITEMS instead of SPLIT_SLOTS/NAV.main — see mainPaneSlice/mainPageSizes. PREV
+      // anchors the first physical key, NEXT the last, and the page's items fill every key in between
+      // — and the first key too when there's no PREV, the last when there's no NEXT. The page sizes
+      // keep those free keys exactly filled, so the first page shows NEXT in the last slot with no
+      // gaps, a middle page has PREV first and NEXT last, and the last page has PREV first and no NEXT.
       const L = listPaneLayout(paneIdx, 'main');
       const positions = [L.main, L.items[0], L.items[1], L.items[2], L.items[3], L.next];
       const slice = mainPaneSlice(paneIdx);
-      const cells = [];
-      if (slice.hasPrev) cells.push({ label: 'PREV', action: 'main-prev' });
-      slice.items.forEach(function (item) { cells.push({ label: item.label, action: item.action }); });
-      if (slice.hasNext) cells.push({ label: 'NEXT', action: 'main-next' });
-      cells.forEach(function (cell, i) { placeSplitKey(positions[i], cell.label, cell.action, paneTag); });
+      const cells = new Array(positions.length).fill(null);
+      if (slice.hasPrev) cells[0] = { label: 'PREV', action: 'main-prev' };
+      if (slice.hasNext) cells[cells.length - 1] = { label: 'NEXT', action: 'main-next' };
+      let it = 0;
+      for (let p = 0; p < cells.length; p++) {
+        if (cells[p] === null && it < slice.items.length) {
+          cells[p] = { label: slice.items[it].label, action: slice.items[it].action };
+          it++;
+        }
+      }
+      cells.forEach(function (cell, i) { if (cell) placeSplitKey(positions[i], cell.label, cell.action, paneTag); });
       continue;
     }
 
@@ -414,6 +451,7 @@ function renderSplitLabels() {
   }
   renderPaneMainPageInd();   // main-prev/next (mfdButton) calls renderSplitLabels directly, not
                              // refreshFollowIndicator, so the chip needs its own call here too.
+  renderSoiCursor();         // same reason: the labels this just rebuilt carry the cursor mark
 }
 
 // Send a map action (toggle-follow / zoom-in / zoom-out) to a single pane's map iframe.
@@ -611,6 +649,7 @@ function forwardWpnToPanes() {
     const sl = wpnPaneSlice(idx);
     iframe.contentWindow.postMessage(
       { mfd: true, type: 'wpn', items: sl.items, selWeapon: wpnData.selWeapon,
+        softGun: wpnData.softGun, softRel: wpnData.softRel,
         page: sl.page, pages: sl.pages }, '*');
   });
 }
@@ -715,6 +754,7 @@ function forwardWpnToFrame() {
   const start = wpnPage * WPN_MAX_DISPLAY;
   const items = list.slice(start, start + WPN_MAX_DISPLAY);
   w.postMessage({ mfd: true, type: 'wpn', items: items, selWeapon: wpnData.selWeapon,
+                  softGun: wpnData.softGun, softRel: wpnData.softRel,
                   page: maxPage > 0 ? wpnPage + 1 : 1, pages: maxPage + 1 }, '*');
 
   // Wire each visible weapon's LEFT line-select key (keys 1..5) to select that weapon: a bezel
@@ -767,6 +807,9 @@ function placeWpnNavLabels() {
   const cur = Math.min(Math.max(wpnPage, 0), maxPage);
   placeOverlayLabel('left', 0, cur > 0 ? 'PREV' : 'MAIN', cur > 0 ? 'wpn-prev' : 'main');
   if (cur < maxPage) placeOverlayLabel('right', 0, 'NEXT', 'wpn-next');
+  // This runs on every loadout tick, not only on a page change, so the SOI cursor's mark has to be
+  // re-applied here too — it lives on a label this function just threw away.
+  renderSoiCursor();
 }
 
 // ── App-wide orientation ─────────────────────────────────────────────────────────────
@@ -877,12 +920,11 @@ function renderPaneFollow() {
   });
 }
 // Paint a "PAGE x/y" chip in the bottom-right of each pane showing MAIN with more than one page
-// (mainPaneSlice / MAIN_PANE_SIZE) — the split twin of WPN's #page-ind, but drawn on the shared
-// overlay rather than inside the /main iframe: MAIN's pagination is bezel/shell state, not
-// anything the page itself knows, so there's nothing to forward in. Split mode only, like
-// renderPaneFollow.
+// (mainPageSizes) — the split twin of WPN's #page-ind, but drawn on the shared overlay rather than
+// inside the /main iframe: MAIN's pagination is bezel/shell state, not anything the page itself
+// knows, so there's nothing to forward in. Split mode only, like renderPaneFollow.
 function renderPaneMainPageInd() {
-  const pages = Math.ceil(MAIN_SPLIT_ITEMS.length / MAIN_PANE_SIZE);
+  const pages = mainPageSizes().length;
   [0, 1].forEach(function(i) {
     const box = document.getElementById(i === 0 ? 'mainpage-top' : 'mainpage-bot');
     const on = splitMode && panePages[i] === 'main' && pages > 1;
@@ -915,7 +957,7 @@ function renderIndicators() {
 
 // Latest loadout snapshot mirrored from the map iframe (postMessage). Even when WPN isn't
 // in view we keep it fresh, so opening the page renders immediately without a round-trip.
-let wpnData      = { items: [], selWeapon: null };
+let wpnData      = { items: [], selWeapon: null, softGun: null, softRel: null };
 let wpnPage = 0;             // 0-indexed page for the weapon list pagination (full-view nav state)
 const WPN_MAX_DISPLAY = 5;   // weapons per page = 5 line-select slots (keys 1..5)
 
@@ -992,6 +1034,7 @@ function placeOverlayLabel(bankName, keyIndex, label, action, mark) {
   const el = document.createElement('div');
   el.className = 'overlay-item ' + side + (mark ? ' on' : '') + (PAGING_ACTIONS[action] ? ' paging' : '');
   el.textContent = label;
+  el.dataset.key = side + keyIndex;   // ties the label to its physical key, so the SOI cursor can mark it
 
   const oRect = overlayEl.getBoundingClientRect();
   const kr = k.getBoundingClientRect();
@@ -1021,9 +1064,9 @@ function showPage(name) {
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
 
   if (name === 'main') {
-    // MAIN_SPLIT_ITEMS — all ten destinations, alphabetically — rather than NAV.main +
-    // BEZEL_EXTRAS.main separately: full view has room for all ten at once (six left-bank keys,
-    // four right-bank), so it's the same ordering a split pane pages through, just unpaginated.
+    // MAIN_SPLIT_ITEMS — all eleven destinations, alphabetically — rather than NAV.main +
+    // BEZEL_EXTRAS.main separately: full view has room for all of them at once (six left-bank keys,
+    // then the right bank), so it's the same ordering a split pane pages through, just unpaginated.
     MAIN_SPLIT_ITEMS.forEach(function (item, i) {
       const bank = i < 6 ? 'left' : 'right';
       placeOverlayLabel(bank, i < 6 ? i : i - 6, item.label, item.action);
@@ -1093,12 +1136,16 @@ function showPage(name) {
   // the generic sweep above); the page is otherwise self-driven — it fetches /hud-options and POSTs
   // its own hud.* commands, so the shell forwards it nothing.
   if (name === 'hud') showFramePage('hud');
+  // KEY (extended keybinds) renders in #page-frame too. Like HUD it's self-driven — it polls
+  // /keybinds-config and POSTs its own keybind.* commands — so the shell forwards it nothing.
+  if (name === 'keys') showFramePage('keys');
 
   // refreshFollowIndicator (not just renderIndicators) because the FOLLOW chip's membership
   // depends on currentPage, which just changed: entering MAP with follow already on must add the
   // chip now (the map's follow state was reported earlier, while another page was in view), and
   // leaving MAP must drop it. It renders the full indicator stack (incl. PINNED) internally.
   refreshFollowIndicator();
+  renderSoiCursor();   // the labels were just rebuilt; re-mark the cursored one (and clamp it)
 }
 
 // The map iframe broadcasts status + loadout + cm via postMessage; mirror onto the
@@ -1118,9 +1165,26 @@ window.addEventListener('message', function(e) {
     ibStatus.className = 'ib-status mfd-status ' + m.cls;
     ibStatus.textContent = m.text;
     if (splitMode) forwardStatusToPanes();
+  } else if (m.type === 'soi-cid') {
+    // The tap learned this instance's cid — remember it and report the surface count under it (this
+    // also fires after an SSE reconnect, when the server has reset the count to 1).
+    myCid = m.cid || '';
+    reportPanes();
+  } else if (m.type === 'soi') {
+    // Which of this instance's surfaces (if any) is the sensor of interest. Reported by the tap, the
+    // only part that knows this instance's cid. Ring frames the focused pane; the cursor scopes to
+    // it. Moving to a different surface (or losing focus) drops the cursor — the destination reveals
+    // it fresh on the next NAV, like a first focus.
+    const prevPane = soiPane;
+    soiPane = m.focused ? (typeof m.pane === 'number' ? m.pane : 0) : -1;
+    if (soiPane !== prevPane) setSoiCursor(-1);
+    positionSoiRing();
+  } else if (m.type === 'soi-act') {
+    soiAct(m.act);
   } else if (m.type === 'loadout') {
     const prevSel = wpnData.selWeapon;
-    wpnData = { items: m.items || [], selWeapon: m.selWeapon || null };
+    wpnData = { items: m.items || [], selWeapon: m.selWeapon || null,
+                softGun: m.softGun || null, softRel: m.softRel || null };
     const selChanged = wpnData.selWeapon && wpnData.selWeapon !== prevSel;
     // Full-view: follow the in-game selection to its page when it moves off the current page.
     // Only on an actual change, so manual paging is preserved on ammo/loadout ticks.
@@ -1345,6 +1409,119 @@ function loadConfigUrls() {
 // the target list) come back via normal telemetry, so the shell's calls are fire-and-forget: add
 // .catch() at the call site since the shared sender returns the raw promise.
 
+// ── SOI cursor ───────────────────────────────────────────────────────────────────────
+// NAV UP/DOWN walk a cursor over this display's line-select keys and SELECT presses the one it
+// stops on — reaching out and touching a bezel key, for a screen you are not touching. Only ever
+// driven while this display is the SOI; the tap forwards nothing otherwise (docs/keybinds-page.md).
+//
+// The list is DERIVED, never maintained: everything navigable in this shell is already a label on a
+// physical key carrying a data-action, and mfdButton() is already the single activation entry. So
+// the cursor needs no per-page knowledge and every page with keys gets it at once — MAIN's menu,
+// WPN's weapon list and paging, MAP's zoom rocker, LYT. Pages whose controls live inside their
+// iframe (TGT, HUD) expose only their MAIN key here; operating those needs a page-level cursor
+// protocol, which is the MVP limit the doc names.
+//
+// Left bank then right, top to bottom — how the bezel reads. The top/bottom banks stay out: they
+// are fixed chrome (fullscreen, PIN, the split presets), not page navigation.
+//
+// Focus is a SURFACE, not the whole display (docs/keybinds-page.md): full view is one surface, a
+// split is two panes. soiPane says which of THIS instance's surfaces is focused (-1 = none), so the
+// cursor scopes to that pane's keys and the ring frames just it — SOI NEXT steps top→bottom→next
+// display, and the cursor no longer spans both panes.
+let soiCursor = -1;   // index into soiKeys(); -1 = no cursor
+let soiPane   = -1;   // focused surface index of this instance, from the tap; -1 = not the SOI
+let myCid     = '';   // this instance's cid, for soi.panes reports (from the tap's soi-cid)
+
+// Report how many focusable surfaces this display shows now — 1 in full view, 2 in a split — so the
+// server cycles surfaces, not whole documents. Needs the cid, which arrives from the tap; until then
+// this no-ops and the soi-cid handler re-invokes it. Re-sent on every split change and reconnect.
+function reportPanes() {
+  if (!myCid) return;
+  sendCommand('soi.panes', { cid: myCid, n: splitMode ? 2 : 1 }).catch(function() {});
+}
+
+// Position the SOI ring over the focused surface: the whole recess in full view (the map iframe
+// fills it), one pane's box in a split. Measured rather than CSS-placed so a flex-sized pane
+// (V_WIDE is 2:1) is framed exactly. Hidden when this display isn't the SOI.
+function positionSoiRing() {
+  if (soiPane < 0) { soiRingEl.style.display = 'none'; return; }
+  const target = splitMode ? paneIframes[soiPane === 1 ? 1 : 0] : mapFrame;
+  if (!target) { soiRingEl.style.display = 'none'; return; }
+  const s = screenEl.getBoundingClientRect();
+  const t = target.getBoundingClientRect();
+  soiRingEl.style.left   = (t.left - s.left) + 'px';
+  soiRingEl.style.top    = (t.top  - s.top ) + 'px';
+  soiRingEl.style.width  = t.width  + 'px';
+  soiRingEl.style.height = t.height + 'px';
+  soiRingEl.style.display = 'block';
+}
+
+// The focused surface's keys. In a split, only the focused pane's — each split key carries its
+// data-pane, so the cursor stops spanning both panes. In full view (one surface) it's every key.
+function soiKeys() {
+  const out = [];
+  const paneTag = splitMode ? (soiPane === 1 ? 'bot' : 'top') : null;
+  ['left', 'right'].forEach(function(side) {
+    keyBanks[side].forEach(function(k) {
+      if (!k.dataset.action) return;
+      if (paneTag && k.dataset.pane !== paneTag) return;
+      out.push(k);
+    });
+  });
+  return out;
+}
+
+// Paint the cursor on the KEY, and on its label when it has one. Marking only the label would lose
+// the cursor exactly where it matters most: WPN's weapon rows are keys with an action whose text is
+// drawn inside the page iframe, so no overlay label exists to mark. Every action key has a key.
+//
+// Re-run after anything that rebuilds labels — they are thrown away and recreated on each page
+// change. The index is CLAMPED rather than reset, so paging (WPN's PREV/NEXT, MAIN's) keeps the
+// cursor roughly where it was instead of snapping back to the top on every press.
+function renderSoiCursor() {
+  overlayEl.querySelectorAll('.overlay-item.cursor').forEach(function(el) { el.classList.remove('cursor'); });
+  ['left', 'right'].forEach(function(side) {
+    keyBanks[side].forEach(function(k) { k.classList.remove('cursor'); });
+  });
+  if (soiCursor < 0) return;
+  const keys = soiKeys();
+  if (!keys.length) { soiCursor = -1; return; }
+  if (soiCursor >= keys.length) soiCursor = keys.length - 1;
+  const k = keys[soiCursor];
+  k.classList.add('cursor');
+  const el = overlayEl.querySelector('.overlay-item[data-key="' + k.dataset.pos + '"]');
+  if (el) el.classList.add('cursor');
+}
+
+function setSoiCursor(i) { soiCursor = i; renderSoiCursor(); }
+
+function soiAct(act) {
+  const keys = soiKeys();
+  if (!keys.length) return;
+
+  if (act === 'select') {
+    if (soiCursor >= 0 && soiCursor < keys.length) {
+      // A SELECT that navigates to a new screen drops the cursor, so the destination shows nothing
+      // highlighted until the pilot summons it again with NAV — landing pre-parked on the new page's
+      // first key (usually MAIN) reads as a selection nobody made. A SELECT that stays put (a weapon
+      // pick, a page-turn) keeps the cursor, so you can act again without re-summoning it. The nav
+      // signature covers both full view (currentPage) and a split pane (panePages).
+      const navBefore = currentPage + '|' + panePages.join(',');
+      mfdButton(keys[soiCursor]);
+      if (currentPage + '|' + panePages.join(',') !== navBefore) { setSoiCursor(-1); return; }
+    }
+    renderSoiCursor();   // stayed put: re-apply the mark to the (possibly rebuilt) label set
+    return;
+  }
+
+  const dir = act === 'up' ? -1 : 1;
+  // The first NAV press only reveals the cursor — landing it somewhere unannounced and moving it in
+  // the same press would make the first press of a session unpredictable. Entering from the end the
+  // key came from, as SOI NEXT/PREV do from no focus.
+  if (soiCursor < 0) setSoiCursor(dir > 0 ? 0 : keys.length - 1);
+  else setSoiCursor(((soiCursor + dir) % keys.length + keys.length) % keys.length);
+}
+
 function mfdButton(el) {
   el.classList.add('lit');                                   // brief press feedback
   setTimeout(function() { el.classList.remove('lit'); }, 150);
@@ -1391,6 +1568,7 @@ function mfdButton(el) {
       break;
     case 'tgp':  showPage('tgp');  break;
     case 'hud':  showPage('hud');  break;
+    case 'keys': showPage('keys'); break;
     case 'lyt':  showPage('lyt');  break;
     // The LAYOUT page's two choices. CLASSIC is this document, so choosing it is just leaving the
     // menu — back to MAIN, where LYT was pressed, with a fresh status as MAIN's own key pulls.
@@ -1501,6 +1679,7 @@ window.addEventListener('resize', function() {
   // would clobber the split bezel with the single-pane page's full 6-item layout.
   if (splitMode) { renderSplitLabels(); forwardWpnLayoutToPanes(); }
   else           showPage(currentPage);
+  positionSoiRing();   // the recess/panes resized — keep the ring on the focused surface
 });
 loadConfigUrls();
 showPage('main');   // start on the MAIN page

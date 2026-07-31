@@ -39,6 +39,7 @@ namespace NOXMFD
         // every connected client (#2 in docs/performance.md). Without this, each of N clients
         // re-serialized the full snapshot every tick — wasteful with 3+ screens open.
         private static long             _frameVersion = -1;
+        private static long             _frameSoiVersion = -1;   // see SetSoiTarget — the target moves independently of the snapshot
         private static byte[]?          _frameBytes;
         private static readonly object  _frameLock = new object();
 
@@ -107,6 +108,179 @@ namespace NOXMFD
         // comes from. Counter is bumped in HandleMjpegAsync's try and decremented in finally.
         private static int _tgpSubscribers;
         public static bool WantsTgpFrames => Volatile.Read(ref _tgpSubscribers) > 0;
+
+        // ── Connected MFD instances (SOI — docs/keybinds-page.md) ──────────────
+        // One /stream connection IS one MFD instance: HandleSseAsync runs for exactly as long as a
+        // browser sits on the display, so registering on entry and dropping in its existing finally
+        // is the whole of the registry. Nothing else needs to track anything.
+        //
+        // Keyed by a server-side connection number, not by the client's cid. A duplicated browser tab
+        // copies its sessionStorage and so claims a cid that is already in use — keying on that would
+        // let the copy evict a live connection from the list, and let either one's disconnect remove
+        // the other. The connection number is unique by construction; the cid rides along as data.
+        internal sealed class MfdInstance
+        {
+            public long     Conn;
+            public string   Cid    = string.Empty;
+            public string   Remote = string.Empty;
+            public DateTime ConnectedUtc;
+            // How many independently-focusable SURFACES this instance shows right now — 1 in full
+            // view, 2 in a classic split, up to 4 F-35 portals. The client reports it (soi.panes) and
+            // re-reports on every layout change; SOI cycles surfaces, not whole documents. Defaults to
+            // 1 so a client that never reports behaves exactly as before (whole-instance focus).
+            public int      PaneCount = 1;
+        }
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<long, MfdInstance>
+            _instances = new System.Collections.Concurrent.ConcurrentDictionary<long, MfdInstance>();
+        private static long _nextConn;
+
+        // Snapshot of the live instances, oldest connection first — a stable order to cycle SOI
+        // through, unlike the dictionary's own.
+        internal static List<MfdInstance> Instances()
+        {
+            var all = new List<MfdInstance>(_instances.Values);
+            all.Sort((a, b) => a.Conn.CompareTo(b.Conn));
+            return all;
+        }
+
+        // ── SOI focus ──────────────────────────────────────────────────────────
+        // Which instance the SOI keys drive, as its cid. Broadcast in every frame so each client can
+        // compare it against its own — see the shared-frame note on GetFrameBytes. Empty = nothing
+        // focused, which is the state at startup and after the focused display disconnects.
+        //
+        // _soiVersion is what keeps the frame cache honest: the cache is keyed on the snapshot
+        // version, and the target can change without a new snapshot — at the main menu, where frames
+        // are 1 Hz pings, a stale cached frame would otherwise hide the change indefinitely.
+        // Focus is a SURFACE, not a whole document: a cid PLUS which of that instance's surfaces
+        // (panes/portals) is focused. An instance shows 1 surface in full view, 2 in a classic split,
+        // up to 4 F-35 portals — the client reports the count (soi.panes). _soiTargetPane is -1 when
+        // nothing is focused.
+        private static string _soiTargetCid  = string.Empty;
+        private static int    _soiTargetPane = -1;
+        private static long   _soiVersion;
+        // Guards every change of focus. Connects and disconnects arrive on their own threadpool
+        // threads and both can move the target, so "is anything focused?" and the write that follows
+        // it have to be one step — otherwise two displays connecting together both see no focus and
+        // the second silently steals it.
+        private static readonly object _soiLock = new object();
+        internal static string SoiTarget     => Volatile.Read(ref _soiTargetCid);
+        internal static int    SoiTargetPane => Volatile.Read(ref _soiTargetPane);
+
+        private static void SetSoiTarget(string cid, int pane) { lock (_soiLock) SetSoiTargetLocked(cid, pane); }
+
+        private static void SetSoiTargetLocked(string cid, int pane)
+        {
+            if (cid.Length == 0) pane = -1;   // "nothing focused" has no surface
+            if (string.Equals(_soiTargetCid, cid, StringComparison.Ordinal) && _soiTargetPane == pane) return;
+            Volatile.Write(ref _soiTargetCid, cid);
+            Volatile.Write(ref _soiTargetPane, pane);
+            Interlocked.Increment(ref _soiVersion);
+        }
+
+        // The last SOI key pressed, and a counter that makes it idempotent to broadcast. A client acts
+        // when the counter CHANGES and ignores the field otherwise, so a duplicated frame can't
+        // double-press and a dropped one costs at most a repeat of the same value. The plugin has no
+        // idea what "up" means on a page — it only says a key was pressed.
+        private static long   _soiSeq;
+        private static string _soiAct = string.Empty;
+        internal static long   SoiSeq => Interlocked.Read(ref _soiSeq);
+        internal static string SoiAct => Volatile.Read(ref _soiAct);
+
+        internal static void SoiAction(string act)
+        {
+            lock (_soiLock)
+            {
+                Volatile.Write(ref _soiAct, act);
+                Interlocked.Increment(ref _soiSeq);
+                Interlocked.Increment(ref _soiVersion);   // rebuild the cached frame so the press ships
+            }
+        }
+
+        // A display drops. If it was the focused one, focus clears — it does NOT move to another
+        // display on its own. SOI is opt-in: the ring only ever appears once the pilot presses a SOI
+        // key (SoiCycle from empty), so it must never re-appear on a display they didn't pick. A
+        // mouse/touch user who never touches the keys therefore never sees it. Nothing to do unless
+        // the dropped display held focus.
+        private static void SoiReleaseOnDisconnect(string cid)
+        {
+            lock (_soiLock)
+            {
+                if (!string.Equals(_soiTargetCid, cid, StringComparison.Ordinal)) return;
+                var all = Instances();   // the disconnecting one is already out of the registry
+                // A duplicated tab copies its cid, so a twin may still be holding that display open —
+                // keep focus if so, otherwise clear it (the next SOI keypress re-picks a display).
+                if (all.Exists(x => string.Equals(x.Cid, cid, StringComparison.Ordinal))) return;
+                SetSoiTargetLocked(string.Empty, -1);
+            }
+        }
+
+        // The flat ring SOI cycles through: every instance's every surface, instance-major and
+        // surface-minor, oldest connection first. Deduped by cid so a twin (same cid, second
+        // connection) doesn't put the same document in the ring twice. Built under _soiLock by the
+        // callers that need it.
+        private static List<(string cid, int pane)> SoiRingLocked()
+        {
+            var ring = new List<(string, int)>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var inst in Instances())
+            {
+                if (!seen.Add(inst.Cid)) continue;
+                for (int p = 0; p < inst.PaneCount; p++) ring.Add((inst.Cid, p));
+            }
+            return ring;
+        }
+
+        // Move focus one step along that ring. From no focus, NEXT takes the first surface and PREV
+        // the last, so either key lights something up on the first press.
+        internal static void SoiCycle(int dir)
+        {
+            lock (_soiLock)
+            {
+                var ring = SoiRingLocked();
+                if (ring.Count == 0) { SetSoiTargetLocked(string.Empty, -1); return; }
+
+                int i = ring.FindIndex(s => string.Equals(s.cid, _soiTargetCid, StringComparison.Ordinal)
+                                            && s.pane == _soiTargetPane);
+                int next = i < 0
+                    ? (dir >= 0 ? 0 : ring.Count - 1)
+                    : ((i + dir) % ring.Count + ring.Count) % ring.Count;
+                SetSoiTargetLocked(ring[next].cid, ring[next].pane);
+            }
+        }
+
+        // A client reports how many surfaces it now shows (soi.panes). Update every instance on that
+        // cid (twins share one), and if that display is the focused one and a merge has shrunk it
+        // below the focused surface, clamp — the pilot stays on the glass they were driving rather
+        // than being dropped. This is the one focus move not caused by a keypress, and it never
+        // leaves the instance.
+        internal static void SetPaneCount(string cid, int n)
+        {
+            if (cid.Length == 0) return;
+            if (n < 1) n = 1;
+            lock (_soiLock)
+            {
+                foreach (var inst in Instances())
+                    if (string.Equals(inst.Cid, cid, StringComparison.Ordinal)) inst.PaneCount = n;
+
+                if (string.Equals(_soiTargetCid, cid, StringComparison.Ordinal) && _soiTargetPane >= n)
+                    SetSoiTargetLocked(cid, n - 1);
+            }
+        }
+
+        // The cid arrives over the network, so it is untrusted: it lands in JSON and, later, in an
+        // SOI target comparison. Keep it to what the client is supposed to send — a UUID or the
+        // fallback id — and drop anything else rather than escaping it downstream. An empty cid is
+        // legal and means "this instance has no durable identity" (private mode, storage blocked).
+        private const int MaxCidLength = 64;
+        private static string SanitizeCid(string? raw)
+        {
+            if (string.IsNullOrEmpty(raw) || raw!.Length > MaxCidLength) return string.Empty;
+            foreach (char c in raw)
+                if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                      (c >= '0' && c <= '9') || c == '-'))
+                    return string.Empty;
+            return raw;
+        }
 
         // ── Lifecycle ──────────────────────────────────────────────────────────
 
@@ -263,9 +437,15 @@ namespace NOXMFD
                 lock (_lock) { v = _snapVersion; snap = _latest; }
                 valid = snap.Valid;
 
-                if (_frameVersion == v && _frameBytes != null) return _frameBytes;
+                // SOI focus can move without a new snapshot, so it versions the cache too — a ping
+                // frame at the main menu is otherwise identical forever and the change never ships.
+                long sv = Interlocked.Read(ref _soiVersion);
+                if (_frameVersion == v && _frameSoiVersion == sv && _frameBytes != null) return _frameBytes;
+                _frameSoiVersion = sv;
 
-                string payload = snap.Valid ? Serialize(snap) : "{\"ping\":true}";
+                string payload = snap.Valid
+                    ? Serialize(snap)
+                    : "{\"ping\":true," + SoiJson() + "}";
                 _frameBytes   = Encoding.UTF8.GetBytes("data: " + payload + "\n\n");
                 _frameVersion = v;
                 return _frameBytes;
@@ -404,6 +584,10 @@ namespace NOXMFD
                         ServeConfig(ctx);
                     else if (path == "/hud-options")
                         ServeHudOptions(ctx);
+                    else if (path == "/keybinds-config")
+                        ServeKeybindsConfig(ctx);
+                    else if (path == "/soi-instances")
+                        ServeSoiInstances(ctx);
                     else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                         ServeAsset(ctx, path);
                     else if (path == "/map-view")
@@ -424,6 +608,8 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/bdf/bdf.html");
                     else if (path == "/hud")
                         ServeAssetRel(ctx, "pages/hud/hud.html");
+                    else if (path == "/keybinds")
+                        ServeAssetRel(ctx, "pages/keybinds/keybinds.html");
                     else if (path == "/command")
                         HandleCommand(ctx);
                     else if (path == "/mfd")
@@ -514,6 +700,94 @@ namespace NOXMFD
                     "{{\"localhost\":\"http://localhost:{0}\",\"lanUrl\":\"{1}\",\"port\":{0}}}",
                     Port, EscapeJson(LanUrl ?? string.Empty));
                 byte[] body = Encoding.UTF8.GetBytes(json);
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // The live MFD instances as JSON — the SOI instance registry made visible. Diagnostic for now:
+        // it is what proves the registry tracks connects, disconnects and reloads correctly before any
+        // of SOI is wired to it, and it stays useful afterwards for "which displays does the server
+        // think are open?". Safe off the main thread — the dictionary is concurrent and touches no
+        // Unity state.
+        private static void ServeSoiInstances(HttpListenerContext ctx)
+        {
+            try
+            {
+                var sb = new StringBuilder("{\"instances\":[");
+                var all = Instances();
+                for (int i = 0; i < all.Count; i++)
+                {
+                    var it = all[i];
+                    if (i > 0) sb.Append(',');
+                    sb.AppendFormat(CultureInfo.InvariantCulture,
+                        "{{\"conn\":{0},\"cid\":\"{1}\",\"remote\":\"{2}\",\"upSec\":{3:0.0}}}",
+                        it.Conn, EscapeJson(it.Cid), EscapeJson(it.Remote),
+                        (DateTime.UtcNow - it.ConnectedUtc).TotalSeconds);
+                }
+                sb.Append("]}");
+                byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // The keybind registry as JSON for the /keybinds page: every bind's identity + current values,
+        // plus which bind (if any) is armed for joystick capture — the page polls this while open, and
+        // it's also how a capture result comes back. Safe off the main thread: the registry list is
+        // built once at Awake and never mutated, and ConfigEntry/CapturingId reads are plain field reads
+        // (worst case one poll stale).
+        private static void ServeKeybindsConfig(HttpListenerContext ctx)
+        {
+            try
+            {
+                var sb = new StringBuilder(512);
+                sb.Append("{\"binds\":[");
+                bool first = true;
+                foreach (var b in Keybinds.Binds)
+                {
+                    if (!first) sb.Append(',');
+                    first = false;
+                    var key = b.KeyEntry.Value.MainKey;
+                    sb.Append("{\"id\":\"").Append(EscapeJson(b.Id))
+                      .Append("\",\"section\":\"").Append(EscapeJson(Keybinds.SectionTitle(b.Section)))
+                      .Append("\",\"label\":\"").Append(EscapeJson(b.Label))
+                      .Append("\",\"description\":\"").Append(EscapeJson(b.Description))
+                      .Append("\",\"key\":\"").Append(key == UnityEngine.KeyCode.None ? string.Empty : EscapeJson(key.ToString()))
+                      .Append("\",\"joyButton\":").Append(b.JoyEntry.Value.ToString(CultureInfo.InvariantCulture))
+                      .Append(",\"joyNum\":").Append(b.JoyNumEntry.Value.ToString(CultureInfo.InvariantCulture))
+                      .Append('}');
+                }
+                // Per-section notes (shared behaviour text under a section header), keyed by the
+                // display title the binds carry in "section".
+                sb.Append("],\"notes\":{");
+                bool firstNote = true;
+                var seen = new List<string>(4);
+                foreach (var b in Keybinds.Binds)
+                {
+                    if (seen.Contains(b.Section)) continue;
+                    seen.Add(b.Section);
+                    string note = Keybinds.SectionNote(b.Section);
+                    if (note == null) continue;
+                    if (!firstNote) sb.Append(',');
+                    firstNote = false;
+                    sb.Append('"').Append(EscapeJson(Keybinds.SectionTitle(b.Section)))
+                      .Append("\":\"").Append(EscapeJson(note)).Append('"');
+                }
+                string cap = Keybinds.CapturingId;
+                sb.Append("},\"capturing\":").Append(cap == null ? "null" : "\"" + EscapeJson(cap) + "\"").Append('}');
+
+                byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
                 ctx.Response.StatusCode      = 200;
                 ctx.Response.ContentType     = "application/json; charset=utf-8";
                 ctx.Response.ContentLength64 = body.Length;
@@ -919,30 +1193,63 @@ namespace NOXMFD
             ctx.Response.Headers.Add("Cache-Control", "no-cache");
             ctx.Response.Headers.Add("X-Accel-Buffering", "no");
 
-            Plugin.Log?.LogInfo($"[NOXMFD] Client connected from {ctx.Request.RemoteEndPoint}");
+            // Register this instance for its whole lifetime — see MfdInstance. The cid is the
+            // client's own durable id (telemetry-source.js), empty when its storage is unavailable.
+            long conn = Interlocked.Increment(ref _nextConn);
+            // A client with no usable storage sends nothing; give it a connection-scoped id anyway so
+            // that every instance is addressable. It is told which id it got (the hello event below),
+            // because focus is broadcast BY cid and a client that doesn't know its own can never
+            // recognise itself. Such an id lasts only as long as the connection — which is exactly
+            // what "no durable identity" means.
+            string cid = SanitizeCid(ctx.Request.QueryString["cid"]);
+            if (cid.Length == 0) cid = "conn-" + conn.ToString(CultureInfo.InvariantCulture);
+
+            _instances[conn] = new MfdInstance
+            {
+                Conn         = conn,
+                Cid          = cid,
+                Remote       = ctx.Request.RemoteEndPoint?.ToString() ?? string.Empty,
+                ConnectedUtc = DateTime.UtcNow,
+            };
+            // No auto-claim: a fresh display does NOT become the SOI on its own. Focus stays empty
+            // until the pilot presses a SOI key, so mouse/touch users never get the ring.
+
+            Plugin.Log?.LogInfo($"[NOXMFD] Client connected from {ctx.Request.RemoteEndPoint} (instance {conn})");
 
             try
             {
+                // Tell this client which id it is known by, once, before the stream proper. A named
+                // SSE event so it can't be mistaken for a telemetry frame, and written to this one
+                // connection only — the shared frame stays shared.
+                byte[] hello = Encoding.UTF8.GetBytes(
+                    "event: hello\ndata: {\"cid\":\"" + EscapeJson(cid) + "\"}\n\n");
+                await ctx.Response.OutputStream.WriteAsync(hello, 0, hello.Length, ct).ConfigureAwait(false);
+
                 while (!ct.IsCancellationRequested)
                 {
                     // Shared frame: serialized at most once per snapshot version, regardless of
                     // how many clients are connected. Always send something — real data during a
                     // mission, a ping otherwise.
-                    byte[] bytes = GetFrameBytes(out bool valid);
+                    byte[] bytes = GetFrameBytes(out _);   // valid flag no longer gates the cadence — 10 Hz always
 
                     await ctx.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct).ConfigureAwait(false);
                     ctx.Response.OutputStream.Flush();
 
-                    // 10 Hz during a mission, 1 Hz ping otherwise.
-                    await Task.Delay(valid ? 100 : 1000, ct).ConfigureAwait(false);
+                    // 10 Hz always — during a mission for live telemetry, and at the main menu too so
+                    // SOI focus/cursor changes there feel immediate rather than lagging up to a second
+                    // behind the keypress. The menu frame is a tiny cached ping (GetFrameBytes only
+                    // re-serializes when SOI moves), so 10 Hz of it is near-free.
+                    await Task.Delay(100, ct).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) { }
             catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] Client error: {ex.Message}"); }
             finally
             {
+                _instances.TryRemove(conn, out _);
+                SoiReleaseOnDisconnect(cid);
                 try { ctx.Response.Close(); } catch { }
-                Plugin.Log?.LogInfo($"[NOXMFD] Client disconnected from {ctx.Request.RemoteEndPoint}");
+                Plugin.Log?.LogInfo($"[NOXMFD] Client disconnected from {ctx.Request.RemoteEndPoint} (instance {conn})");
             }
         }
 
@@ -960,7 +1267,8 @@ namespace NOXMFD
                 "\"iconOrient\":{18},\"iconScale\":{19:0.000}," +
                 "\"flares\":{20},\"flaresMax\":{21},\"ewKJ\":{22:0.0},\"ewKJMax\":{23:0.0}," +
                 "\"selWeapon\":\"{24}\",\"cmCat\":{25},\"tgpActive\":{26}," +
-                "\"fuel\":{27:0.000},\"thr\":{28:0.000},\"hasAb\":{29},\"abStart\":{30:0.000},",
+                "\"fuel\":{27:0.000},\"thr\":{28:0.000},\"hasAb\":{29},\"abStart\":{30:0.000}," +
+                "\"softGun\":\"{31}\",\"softRel\":\"{32}\",{33},",
                 s.Time,
                 EscapeJson(s.PlaneName ?? string.Empty),
                 EscapeJson(s.MissionName ?? string.Empty),
@@ -978,7 +1286,9 @@ namespace NOXMFD
                 EscapeJson(s.SelWeapon ?? string.Empty), s.CmCategory,
                 s.TgpActive ? "true" : "false",
                 s.Fuel, s.Throttle,
-                s.HasAfterburner ? "true" : "false", s.AbStart);
+                s.HasAfterburner ? "true" : "false", s.AbStart,
+                EscapeJson(s.SoftGun ?? string.Empty), EscapeJson(s.SoftRel ?? string.Empty),
+                SoiJson());   // server state, not the snapshot's — see SetSoiTarget
 
             return head + "\"loadout\":" + LoadoutArray(s.Loadout)
                         + ",\"colors\":{"
@@ -1163,6 +1473,12 @@ namespace NOXMFD
             }
             return sb.Append(']').ToString();
         }
+
+        // SOI's slice of a frame. Shared by the real payload and the no-mission ping, because a display
+        // is focusable and drivable at the main menu, where the ping is the only frame there is.
+        private static string SoiJson() => string.Format(CultureInfo.InvariantCulture,
+            "\"soiTarget\":\"{0}\",\"soiPane\":{1},\"soiSeq\":{2},\"soiAct\":\"{3}\"",
+            EscapeJson(SoiTarget), SoiTargetPane, SoiSeq, EscapeJson(SoiAct));
 
         private static string EscapeJson(string s) =>
             s.Replace("\\", "\\\\").Replace("\"", "\\\"");

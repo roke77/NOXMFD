@@ -35,6 +35,7 @@ import pathlib
 import posixpath
 import socket
 import socketserver
+import time
 import urllib.parse
 import webbrowser
 
@@ -161,7 +162,103 @@ def _hud_options():
     }).encode("utf-8")
 
 
+# Stateful mock of the plugin's /keybinds-config + keybind.* commands, so the /keybinds page's
+# whole flow (render, keyboard set, joystick arm-capture) is drivable in the harness. Arming a
+# joystick capture "captures" a fake button ~1.5s later (simulated on the next poll after the
+# deadline — no threads).
+KEYBINDS = [
+    {"id": "flares", "section": "COUNTERMEASURES", "label": "Flares",
+     "description": "Select + deploy IR flares. Tap to pop a set, hold to keep popping.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "jammer", "section": "COUNTERMEASURES", "label": "Jammer",
+     "description": "Select + activate the radar jammer. HOLD to jam.",
+     "key": "J", "joyButton": 3, "joyNum": 2},
+    {"id": "gear-up", "section": "GEAR", "label": "Gear Up",
+     "description": "Raise the landing gear.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "gear-down", "section": "GEAR", "label": "Gear Down",
+     "description": "Lower the landing gear.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cycle-guns", "section": "WEAPONS", "label": "Cycle Guns",
+     "description": "Select a gun.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cycle-missiles", "section": "WEAPONS", "label": "Cycle Missiles",
+     "description": "Select a missile or rocket.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cycle-bombs", "section": "WEAPONS", "label": "Cycle Bombs",
+     "description": "Select a bomb.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "gun-trigger", "section": "WEAPONS", "label": "Gun Trigger",
+     "description": "Fire your gun; HOLD for continuous fire. With a non-gun selected, the first press only switches to the gun — press again to fire.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "weapon-release", "section": "WEAPONS", "label": "Weapon Release",
+     "description": "Release your missile/bomb; HOLD to keep releasing. With a gun selected, the first press only switches to it — press again to release.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "soi-next", "section": "SOI", "label": "SOI Next",
+     "description": "Move focus to the next display.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "soi-prev", "section": "SOI", "label": "SOI Prev",
+     "description": "Move focus to the previous display.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "soi-nav-up", "section": "SOI", "label": "Nav Up",
+     "description": "Move the cursor up the focused display's key labels.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "soi-nav-down", "section": "SOI", "label": "Nav Down",
+     "description": "Move the cursor down the focused display's key labels.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "soi-select", "section": "SOI", "label": "Select",
+     "description": "Press the label the cursor is on, as if you had clicked that key.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+]
+KB_STATE = {"capturing": None, "armed_at": 0.0}
+
+
+def _keybinds_config():
+    # simulate the plugin capturing a stick button 1.5s after arming
+    if KB_STATE["capturing"] and time.monotonic() - KB_STATE["armed_at"] > 1.5:
+        for b in KEYBINDS:
+            if b["id"] == KB_STATE["capturing"]:
+                b["joyButton"] = 7
+                b["joyNum"] = 1
+        KB_STATE["capturing"] = None
+    notes = {"WEAPONS": "Cycle keys select the last soft-selected weapon of their type, or the first "
+                        "in the list. Repeated presses cycle to the next one, skipping depleted "
+                        "weapons. Cycling to a different type leaves the current one soft-selected.",
+             "SOI": "One display at a time is the sensor of interest — it rings itself in white, and "
+                    "these keys drive it. Nothing is focused until you press SOI Next or Prev; from "
+                    "there they cycle through the open displays. These are the only keys that work "
+                    "without an aircraft."}
+    return json.dumps({"binds": KEYBINDS, "notes": notes,
+                       "capturing": KB_STATE["capturing"]}).encode("utf-8")
+
+
+def _keybinds_command(env):
+    cmd, bind = env.get("cmd", ""), env.get("bind", "")
+    row = next((b for b in KEYBINDS if b["id"] == bind), None)
+    if cmd == "keybind.set-key" and row is not None:
+        key = env.get("key", "")
+        row["key"] = "" if key in ("", "None") else key
+    elif cmd == "keybind.arm-joy" and row is not None:
+        KB_STATE.update(capturing=bind, armed_at=time.monotonic())
+    elif cmd == "keybind.cancel-joy":
+        KB_STATE["capturing"] = None
+    elif cmd == "keybind.clear-joy" and row is not None:
+        row["joyButton"] = -1
+        row["joyNum"] = 0
+    else:
+        return False
+    return True
+
+
 class H(http.server.SimpleHTTPRequestHandler):
+    def do_POST(self):
+        # /command mock: keybind.* commands mutate the keybind mock state; everything else is
+        # swallowed with 204, mirroring the plugin's fire-and-forget contract.
+        if self.path.split('?', 1)[0] == '/command':
+            try:
+                n = int(self.headers.get('Content-Length') or 0)
+                env = json.loads(self.rfile.read(n) or b'{}')
+            except (ValueError, OSError):
+                env = {}
+            _keybinds_command(env)
+            self.send_response(204)
+            self.end_headers()
+            return
+        self.send_error(404)
+
     def do_GET(self):
         path = self.path.split('?', 1)[0]
         if path in ('/', '/index.html'):
@@ -172,6 +269,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(_config(self.server.server_address[1]), 'application/json; charset=utf-8')
         if path == '/hud-options':
             return self._send(_hud_options(), 'application/json; charset=utf-8')
+        if path == '/keybinds-config':
+            return self._send(_keybinds_config(), 'application/json; charset=utf-8')
         if path == '/map-view':
             try:
                 return self._send(_map_page(), 'text/html; charset=utf-8')
@@ -309,7 +408,10 @@ def main():
     # keeps every reload responsive. daemon_threads so Ctrl+C exits without waiting on open sockets.
     class Server(socketserver.ThreadingTCPServer):
         daemon_threads = True
-        allow_reuse_address = True
+        # On Windows SO_REUSEADDR lets a SECOND instance bind the same port while the first is
+        # alive — stale servers then keep answering with old code. Windows doesn't need the flag
+        # to rebind after a normal exit, so only use it on POSIX (where it just skips TIME_WAIT).
+        allow_reuse_address = os.name != "nt"
     with Server(("127.0.0.1", args.port), H) as s:
         url = f"http://127.0.0.1:{args.port}/"
         print(f"serving on {url}")

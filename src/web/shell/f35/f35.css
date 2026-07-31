@@ -294,22 +294,10 @@ html, body {
           mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
 }
 
-/* LYT — the only thing in the strip you press; everything either side of it is a readout. So it is
-   drawn as a button rather than a label: its name spelled out, and a border to say it has an edge
-   to hit. currentColor ties that border to the item's own state, so it tracks the label it rings —
-   teal at rest, amber while the picker is up, dark against the hover fill. */
-.master-strip .ms-lyt {
-  border: 1px solid currentColor;
-  border-radius: 3px;
-  padding: 6px 12px;
-  white-space: nowrap;   /* the strip is one row; never let the name wrap into two */
-}
-/* The border already rings it, so .nav-item.on's amber outline would sit a second ring just
-   outside it. Same colour, same job — keep the border and drop the outline. */
-.master-strip .ms-lyt.on { outline: none; }
-
-/* FULLSCREEN — same border-and-button treatment as LYT beside it, but square and icon-only rather
-   than a spelled-out label, since there's nothing to read out. */
+/* FULLSCREEN — the only thing in the strip you press; everything else in it is a readout. So it is
+   drawn as a button rather than a label: a border to say it has an edge to hit, square and
+   icon-only since there's nothing to read out. currentColor ties that border to the item's own
+   state, so it tracks the icon it rings — teal at rest, dark against the hover fill. */
 .master-strip .ms-fll {
   border: 1px solid currentColor;
   border-radius: 3px;
@@ -408,6 +396,20 @@ html, body {
      put the flex spans out by 4px each. */
   box-sizing: border-box;
   border: 2px solid var(--no-teal);
+}
+
+/* SOI focus ring — this portal is the sensor of interest (f35.js renderSoiRing toggles .soi). A
+   white inner ring just inside the teal frame, the DCS way of saying "this screen is live", and the
+   same off-white the bezel's ring uses. ::after inset:0 sits inside the border (border-box), so
+   overflow:hidden doesn't clip it; pointer-events:none so it never eats a tap; above the label grid
+   (z-index 1) but only at the perimeter, so it never covers a label. */
+.portal.soi::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--no-label);
+  pointer-events: none;
+  z-index: 3;
 }
 
 /* Where two frames meet, they meet — 2px of seam, not 2px twice. The overlap is a negative margin
@@ -553,16 +555,18 @@ html, body {
   .wpn-hit:hover { background: rgba(var(--no-teal-rgb), 0.08); }
 }
 
-/* TGT, HUD and BDF all pack their own content into the top-left, exactly where the edge label sits
-   — and because this layout draws labels ON the page, a horizontal MAIN doesn't just look cramped,
-   it covers that content (TGT's RESET FILTER, HUD's first mode/category row, BDF's WARHEADS readout)
-   and eats its clicks (TGT/HUD) or just overlaps the text (BDF). Standing the text up narrows the
-   label to roughly one glyph so it clears them. Same fix, same properties, as the bezel's
-   .overlay.vmain .overlay-item.left in mfd.css — including pulling in to the edge, since 16px of
-   margin would still leave the label overlapping. */
+/* TGT, HUD and BDF/PAL all pack their own content into the top-left, exactly where the edge label
+   sits — and because this layout draws labels ON the page, a horizontal MAIN doesn't just look
+   cramped, it covers that content (TGT's RESET FILTER, HUD's first mode/category row, BDF/PAL's
+   WARHEADS readout) and eats its clicks (TGT/HUD) or just overlaps the text (BDF/PAL). Standing the
+   text up narrows the label to roughly one glyph so it clears them. Same fix, same properties, as
+   the bezel's .overlay.vmain .overlay-item.left in mfd.css — including pulling in to the edge, since
+   16px of margin would still leave the label overlapping. PAL is the same page as BDF for the other
+   faction, so it needs the same treatment; the bezel's isVmainPage() lists the same four. */
 .nav-grid.edge[data-page="tgt"] .nav-item,
 .nav-grid.edge[data-page="hud"] .nav-item,
-.nav-grid.edge[data-page="bdf"] .nav-item {
+.nav-grid.edge[data-page="bdf"] .nav-item,
+.nav-grid.edge[data-page="pal"] .nav-item {
   writing-mode: vertical-rl;
   text-orientation: upright;
   letter-spacing: 0;
@@ -586,6 +590,14 @@ html, body {
 .nav-item.on {
   color: var(--no-amber);
   outline: 1px solid var(--no-amber);
+}
+
+/* The SOI cursor — the label SELECT will press. A filled white chip (--no-label on --no-ink), the
+   same mark the bezel's cursor uses, so the two layouts read as one. SOI drives a screen nobody is
+   touching, so the mouse-hover fill below doesn't compete in practice. */
+.nav-item.cursor {
+  color: var(--no-ink);
+  background: var(--no-label);
 }
 
 /* Hover is a mouse affordance, and only a mouse can take it back. A touch tap leaves :hover stuck

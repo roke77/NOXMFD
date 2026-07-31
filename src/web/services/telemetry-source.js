@@ -32,6 +32,29 @@ export function gridLabel(wx, wz, meta) {
   return vert + `${majX}${minX}`;
 }
 
+// This document's MFD-instance id, for the server's instance registry (SOI — docs/keybinds-page.md).
+// sessionStorage, NOT localStorage: sessionStorage is scoped to the browsing context, so it is the
+// same across a reload (a tablet that refreshes stays the instance it was) and different in a second
+// tab (two displays on one PC are two instances). localStorage is per-origin and every tab would
+// have claimed the same id. Read from an iframe, it resolves to the TAB's store — which is what we
+// want, since the instance is the whole document, not this tap.
+//
+// Guarded on every hop: sessionStorage throws in some private-mode browsers, and randomUUID needs a
+// secure context — plain http:// over the LAN is exactly how this mod is used. A per-load fallback
+// id still identifies the instance while it is connected; it just doesn't survive a reload.
+function instanceId() {
+  const fresh = () =>
+    (crypto.randomUUID ? crypto.randomUUID()
+                       : 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+  try {
+    let id = sessionStorage.getItem('noxmfd-cid');
+    if (!id) { id = fresh(); sessionStorage.setItem('noxmfd-cid', id); }
+    return id;
+  } catch (e) {
+    return fresh();
+  }
+}
+
 export class TelemetrySource {
   constructor({ onFrame, onNoMission, onStatus } = {}) {
     this._onFrame = onFrame;
@@ -41,10 +64,26 @@ export class TelemetrySource {
     this._inMission = false;            // true between the first frame and the next no-mission ping
     this._meta = null;                  // { w, h, ox, oy } — for target grid labels; persists until reset
     this._lastStatus = { cls: 'disconnected', text: '● DISCONNECTED' };
+    this._cid = '';                     // this instance's SOI id — settled by the server's hello
+    this._soiFocused = null;            // null = never reported; forces the first post either way
+    this._soiPane = -1;                 // which of this instance's surfaces is focused (-1 = none)
+    this._soiSeq = null;                // null = the first frame's counter is a starting point, not a press
   }
 
   connect() {
-    const es = new EventSource('/stream');
+    this._cid = instanceId();
+    const es = new EventSource('/stream?cid=' + encodeURIComponent(this._cid));
+    // The server answers with the id it actually filed us under. Normally that's the one we just
+    // sent; when our storage is unavailable we sent nothing and it named us itself. Either way this
+    // is the id SOI focus is broadcast by, so it is the one to compare against — and it is not
+    // persisted, since a server-named id belongs to this connection only.
+    es.addEventListener('hello', (e) => {
+      try { this._cid = JSON.parse(e.data).cid || this._cid; } catch (err) { /* keep ours */ }
+      // Tell the shell which id it is, so it can report its surface count (soi.panes) under it. Fires
+      // on every hello, including an SSE reconnect — the server assigns a fresh connection (pane
+      // count back to 1) each time, so the shell must re-report, and this is its cue.
+      this._postUp({ type: 'soi-cid', cid: this._cid });
+    });
     es.onmessage = (e) => this._onMessage(e);
     es.onerror = () => {};   // EventSource auto-reconnects; the watchdog decides when to flag DISCONNECTED
     // Watchdog — tolerate transient SSE blips, only flag disconnect after a real gap.
@@ -70,6 +109,30 @@ export class TelemetrySource {
   _onMessage(e) {
     this._lastMsgAt = performance.now();
     const d = JSON.parse(e.data);
+
+    // SOI focus rides in every frame kind, ping included — a display is focusable at the main menu,
+    // where a ping is all there is — so this sits ahead of the ping branch's early return rather
+    // than in _emit with the per-page slices. Focus is a SURFACE: whether this instance is the
+    // target AND which of its panes/portals. Posted only on a change (of either), so the shell isn't
+    // rebuilt ten times a second to say the same thing; pane travels so it can ring the right pane.
+    const focused = !!d.soiTarget && d.soiTarget === this._cid;
+    const pane = focused && typeof d.soiPane === 'number' ? d.soiPane : -1;
+    if (focused !== this._soiFocused || pane !== this._soiPane) {
+      this._soiFocused = focused;
+      this._soiPane = pane;
+      this._postUp({ type: 'soi', focused, pane });
+    }
+
+    // A SOI key press. The counter is what makes this safe to broadcast: act only when it CHANGES,
+    // so a repeated frame can't double-press and a dropped one costs nothing. The first frame only
+    // records where the counter is — presses made before this display connected are history, not
+    // input. Unfocused displays see the same fields and ignore them. `pane` rides along so the shell
+    // acts on the focused surface.
+    if (typeof d.soiSeq === 'number' && d.soiSeq !== this._soiSeq) {
+      const first = this._soiSeq === null;
+      this._soiSeq = d.soiSeq;
+      if (!first && focused && d.soiAct) this._postUp({ type: 'soi-act', act: d.soiAct, pane });
+    }
 
     if (d.ping) {
       this._setStatus('waiting', '● CONNECTED — no mission');
@@ -188,7 +251,8 @@ export class TelemetrySource {
     });
 
     // Loadout (the WPN page mirrors it without opening its own /stream).
-    this._postUp({ type: 'loadout', items: d.loadout || [], selWeapon: d.selWeapon || null });
+    this._postUp({ type: 'loadout', items: d.loadout || [], selWeapon: d.selWeapon || null,
+                   softGun: d.softGun || null, softRel: d.softRel || null });
 
     // TGT filter panel — pass the mod's "tgt" block straight through (present:false when the game's
     // TargetListSelector isn't up). The TGT page renders the toggle states and drives the tgt.* cmds.
@@ -206,7 +270,7 @@ export class TelemetrySource {
 
   // On mission exit, tell every consumer the data is gone so no page renders stale state.
   _emitEmpties() {
-    this._postUp({ type: 'loadout', items: [], selWeapon: null });
+    this._postUp({ type: 'loadout', items: [], selWeapon: null, softGun: null, softRel: null });
     this._postUp({ type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 });
     this._postUp({ type: 'tgp', active: false });
     this._postUp({ type: 'mapinfo', mission: null, grid: null });

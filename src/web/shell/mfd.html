@@ -68,6 +68,10 @@
           <!-- RWR content (radar-warning scope SVG) now lives in the #page-frame iframe
                (src/web/pages/rwr/), not here. The overlay only carries RWR's MAIN nav label. -->
         </div>
+        <!-- SOI focus ring — JS-positioned (mfd.js positionSoiRing) over the focused surface: the
+             whole recess in full view, or one pane in a split. A div, not .screen::after, because a
+             split pane's box is flex-sized (V_WIDE is 2:1) and only measuring it rings it exactly. -->
+        <div id="soi-ring"></div>
       </div>
       <div class="keys v" id="keys-right"></div>
     </div>

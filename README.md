@@ -167,6 +167,10 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
+- **KEY** — extended-keybinds editor: bind a keyboard key and a joystick/HOTAS button to each of
+  the mod's own cockpit functions. See [Extended Keybinds](#extended-keybinds) below for the
+  functions themselves.
+
 - **LYT** — layout chooser: switch the display to a different shell layout.
 
   <details>
@@ -227,13 +231,50 @@ fuel, and the avionics flags.
 
 ### Extended Keybinds
 
-Optional dedicated keybinds, available in the BepInEx configuration menu
-(keyboard/mouse or HOTAS button).
+Optional dedicated keybinds for cockpit functions the game has no native bind for,
+configured on the **KEY** page, reached from MAIN in either layout (or opened directly at
+`http://localhost:5005/keybinds`). Each function takes a keyboard/mouse key, a
+joystick/HOTAS button, or both — click a cell and press the key or button to bind it.
+Multi-stick HOTAS setups are supported; each bind remembers which stick it came from.
 
-- **Dispense flares** — select + deploy IR flares (tap to pop, hold to keep popping).
-- **Activate radar jammer** — select + activate the radar jammer (hold to jam).
-- **Gear up** — raise the landing gear.
-- **Gear down** — lower the landing gear.
+- **Flares** — select + deploy IR flares (tap to pop, hold to keep popping).
+- **Jammer** — select + activate the radar jammer (hold to jam).
+- **Gear up / Gear down** — dedicated raise/lower (the stock bind is a single toggle).
+- **Cycle guns / missiles / bombs** — select the last soft-selected weapon of that type, or
+  the first in the list; repeated presses cycle to the next one, skipping depleted weapons.
+  Cycling to a different type leaves the current one soft-selected.
+- **Gun trigger / Weapon release** — per-class fire keys (hold for continuous fire). If the
+  active weapon is from the other class, the first press only switches — bringing up the
+  right reticle — and the next press fires. The current gun and missile/bomb choices show
+  as outlines on the WPN page.
+
+<details>
+<summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+![Extended keybinds page](docs/images/KEY.png)
+
+</details>
+
+#### Sensor of Interest (SOI)
+
+Operate a display from your HOTAS without touching it. One screen at a time is selected — it is
+outlined in white — and the SOI keys move a cursor over its buttons and press them. In a split the
+selection is a single pane; on the F-35 it is a single portal. Nothing is selected until you press
+a SOI key. Five binds, on the **KEY** page:
+
+- **SOI Next / SOI Prev** — select the next / previous screen (every open display, and each F-35
+  portal).
+- **Nav Up / Nav Down** — move the cursor over the selected screen's buttons.
+- **Select** — press the button under the cursor.
+
+<details>
+<summary>$\color{green}\textsf{See screenshots}$</summary>
+
+![SOI-selected screen](docs/images/SOI1.png)
+
+![SOI-selected screen](docs/images/SOI2.png)
+
+</details>
 
 ## Reporting & collaboration
 

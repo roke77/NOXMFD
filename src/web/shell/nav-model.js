@@ -39,6 +39,7 @@
     bdf: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN (docs/bdf-page.md)
     pal: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN — same panel, PRIMEVA (docs/bdf-page.md)
     hud: [ { label: 'MAIN', action: 'main' } ],   // HUD OPTIONS page — reached via a layout extra, not MAIN
+    keys: [ { label: 'MAIN', action: 'main' } ],  // Extended-keybinds page (docs/keybinds-page.md), reached via KEY
     wpn: [],
   };
 

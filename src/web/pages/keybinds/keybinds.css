@@ -1,0 +1,117 @@
+/* Extended-keybinds page — an in-game-menu style table: function | keyboard | joystick.
+   Colors from theme.css tokens only. */
+
+html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this is a full page */
+
+.kb-panel {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 26px 18px 40px;
+}
+
+/* Way back to the display. Floated rather than absolutely placed so it reserves space on the
+   title's line — the centered title then shrinks into what's left instead of overlapping it on a
+   narrow screen. */
+.kb-back {
+  float: left;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--no-green-dim);
+  text-decoration: none;
+  padding: 6px 2px;
+}
+.kb-back:hover { color: var(--no-green); }
+
+.kb-title {
+  font-size: 24px;
+  letter-spacing: 4px;
+  color: var(--no-green);
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+/* header + rows share one grid template so the columns line up */
+.kb-head, .kb-row {
+  display: grid;
+  grid-template-columns: 1fr 170px 170px;
+  gap: 8px;
+  align-items: center;
+}
+.kb-head {
+  padding: 0 10px 6px;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--no-green-dim);
+  border-bottom: 1px solid var(--no-panel-border);
+}
+.kb-head span:not(:first-child) { text-align: center; }
+
+
+.kb-row {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--no-panel-border);
+}
+.kb-row:hover { background: var(--no-panel-bg); }
+
+.kb-section {
+  margin: 18px 10px 6px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--no-green-deep);
+}
+
+/* shared-behaviour note under a section header (e.g. how the WEAPONS cycle keys work) */
+.kb-note {
+  margin: 0 10px 8px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--no-green-dim);
+  max-width: 620px;
+}
+
+.kb-name  { font-size: 14px; letter-spacing: 1px; color: var(--no-green); }
+.kb-desc  { font-size: 10px; letter-spacing: 0.5px; color: var(--no-green-dim); margin-top: 3px; padding-right: 8px; }
+
+/* a bind cell: the clickable current-value box + its clear button */
+.kb-cell { display: flex; align-items: center; gap: 5px; }
+.kb-val {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--no-green-dark);
+  background: none;
+  color: var(--no-green);
+  font-family: var(--no-font);
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-align: center;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.kb-val:hover { border-color: var(--no-green-dim); }
+.kb-val.unbound { color: var(--no-green-dark); }
+.kb-val.capturing {
+  color: var(--no-amber);
+  border-color: var(--no-amber);
+  animation: kb-blink 1s step-end infinite;
+}
+.kb-val.rejected { color: var(--no-red); border-color: var(--no-red); }
+@keyframes kb-blink { 50% { opacity: 0.45; } }
+
+.kb-clear {
+  border: none;
+  background: none;
+  color: var(--no-green-dark);
+  font-family: var(--no-font);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  visibility: hidden;
+}
+.kb-row:hover .kb-clear.bound { visibility: visible; }
+.kb-clear:hover { color: var(--no-red); }
+
+#kb-empty { display: none; }
+.kb-panel.unavailable .kb-head,
+.kb-panel.unavailable .kb-rows { display: none; }
+.kb-panel.unavailable #kb-empty { display: block; }

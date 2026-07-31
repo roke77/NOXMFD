@@ -27,6 +27,10 @@ namespace NOXMFD
         public string group;   // tgt.set / tgt.only : "faction" | "category" | "vehicle"
         public int    index;   // tgt.set / tgt.only : toggle index within the group
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
+        public string bind;    // keybind.* : BindDef id ("flares", "gear-up", ...)
+        public string key;     // keybind.set-key : Unity KeyCode name ("" or "None" clears)
+        public string cid;     // soi.panes : which instance is reporting (a POST isn't tied to its /stream)
+        public int    n;       // soi.panes : how many focusable surfaces that instance now shows
     }
 
     internal static class CommandDispatcher
@@ -46,7 +50,25 @@ namespace NOXMFD
                 { "hud.set",         HudSet },
                 { "hud.mode",        HudMode },
                 { "declutter.set",   DeclutterSet },
+                { "keybind.set-key",    e => Log("set-key",    e.bind, Keybinds.SetKeyBind(e.bind, e.key)) },
+                { "keybind.arm-joy",    e => Log("arm-joy",    e.bind, Keybinds.ArmJoyCapture(e.bind)) },
+                { "keybind.cancel-joy", e => Keybinds.CancelJoyCapture() },
+                { "keybind.clear-joy",  e => Log("clear-joy",  e.bind, Keybinds.ClearJoyBind(e.bind)) },
+                // SOI focus. These will get HOTAS binds of their own; as commands they are how focus
+                // is driven (and tested) from a browser, with no controller and no aircraft.
+                { "soi.next",           e => TelemetryServer.SoiCycle(1) },
+                { "soi.prev",           e => TelemetryServer.SoiCycle(-1) },
+                // A client reports its current surface count so SOI can cycle surfaces, not documents
+                // (docs/keybinds-page.md, "surface-level focus"). Carries its own cid — a POST isn't
+                // tied to the /stream connection the count belongs to.
+                { "soi.panes",          e => TelemetryServer.SetPaneCount(e.cid ?? string.Empty, e.n) },
             };
+
+        // Keybind writes just delegate to the Keybinds registry; log rejections (unknown id / bad key).
+        private static void Log(string op, string bind, bool ok)
+        {
+            if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] keybind.{op} '{bind}': rejected.");
+        }
 
         // True for a cmd we have a handler for — lets the server reject unknown commands at the
         // boundary (422) instead of silently queueing them.
@@ -156,15 +178,7 @@ namespace NOXMFD
             if (ac == null || ac.weaponManager == null || ac.weaponStations == null) return;
             WeaponManager wm = ac.weaponManager;
 
-            WeaponStation target = null;
-            foreach (WeaponStation st in ac.weaponStations)
-            {
-                if (st == null) continue;
-                WeaponInfo info = st.WeaponInfo;
-                if (info == null || info.hideInDisplay) continue;
-                string name = !string.IsNullOrEmpty(info.weaponName) ? info.weaponName : info.shortName;
-                if (string.Equals(name, wname, StringComparison.Ordinal)) { target = st; break; }
-            }
+            WeaponStation target = WeaponSelectors.FindStationByName(ac, wname);
             if (target == null) { Plugin.Log?.LogInfo($"[NOXMFD] weapon.select '{wname}': no matching station — ignored."); return; }
 
             if (ReferenceEquals(wm.currentWeaponStation, target))
@@ -173,10 +187,7 @@ namespace NOXMFD
                 return;
             }
 
-            wm.currentWeaponStation = target;
-            ac.SetActiveStation(target.Number);
-            CombatHUD hud = SceneSingleton<CombatHUD>.i;
-            if (hud != null && ReferenceEquals(hud.aircraft, ac)) hud.ShowWeaponStation(target);
+            WeaponSelectors.SelectStation(ac, target);
             Plugin.Log?.LogInfo($"[NOXMFD] weapon.select → '{wname}' (station {target.Number}).");
         }
 

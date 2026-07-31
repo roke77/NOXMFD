@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — KEYBINDS</title>
+<!--
+  Extended-keybinds page served at /keybinds — a standalone page (like /f35, not an MFD split
+  pane) for binding the mod's extra cockpit functions: things the game has no native keybind
+  for (dedicated gear up/down, direct countermeasures, ...). See docs/keybinds-page.md.
+
+  Fetch-driven like /hud: polls /keybinds-config (the plugin's bind registry) and POSTs
+  keybind.* commands (send-command.js → CommandDispatcher). One table row per function:
+  name | keyboard key | joystick/HOTAS button.
+
+  Capture is split by source:
+    keyboard — captured HERE (focus is on the browser, the game never sees the key): click the
+               cell, press a key; its KeyboardEvent.code maps to a Unity KeyCode name which is
+               POSTed via keybind.set-key. Esc cancels. Mouse buttons are not capturable (a
+               click is how you drive this page).
+    joystick — captured by the PLUGIN (only Rewired's button numbering matches playback):
+               clicking the cell POSTs keybind.arm-joy; the next stick button pressed lands in
+               the bind and comes back through the /keybinds-config poll.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/keybinds/keybinds.css">
+</head>
+<body>
+
+<div class="kb-panel" id="kb-panel">
+  <!-- Way back to the display, for when this page is opened standalone (typed /keybinds, bookmarked).
+       Hidden when embedded in a shell (classic #page-frame or an F-35 portal), where the shell's own
+       MAIN key is the way back — see keybinds.js. '/' rather than a remembered shell: the
+       sticky-layout head guard there redirects to whichever one is current. -->
+  <a class="kb-back" href="/">&lt; MAIN</a>
+  <div class="kb-title">EXTENDED KEYBINDS</div>
+  <div class="kb-head">
+    <span>FUNCTION</span><span>KEYBOARD</span><span>JOYSTICK / HOTAS</span>
+  </div>
+  <div class="kb-rows" id="kb-rows"><!-- built by keybinds.js from /keybinds-config --></div>
+  <!-- shown while /keybinds-config is unreachable (plugin not running) -->
+  <div class="mfd-empty" id="kb-empty"><span class="mfd-empty-title">KEYBINDS</span>&mdash; UNAVAILABLE &mdash;</div>
+</div>
+
+<script src="/assets/services/send-command.js"></script>
+<script src="/assets/pages/keybinds/keybinds.js"></script>
+</body>
+</html>

@@ -177,7 +177,9 @@
     failures: ['ENGINE FIRE L', 'RIGHT ENGINE FAIL', 'MAIN ROTOR DAMAGE'],
     flares: 60, flaresMax: 64, ewKJ: 820, ewKJMax: 1000, cmCat: 1,
     fuel: 0.94, thr: 0.90, hasAb: true, abStart: 0.8,   // afterburner airframe: 0.90 → reheat (AB 50%)
-    iconOrient: true, iconScale: 1.1, selWeapon: 'AIM-9X',
+    // softGun/softRel: the weapon-keybind soft selections (outlined on the WPN page). softRel differs
+    // from selWeapon so the outline is visible; a soft name equal to selWeapon must NOT outline.
+    iconOrient: true, iconScale: 1.1, selWeapon: 'AIM-9X', softGun: 'AIM-9X', softRel: 'GBU-12',
     loadout: [
       { n: 'AIM-9X',   a: 2, f: 2 },
       { n: 'AIM-120D', a: 4, f: 6 },
@@ -347,19 +349,51 @@
   class MockEventSource {
     constructor(url) {
       this.url = url; this.onmessage = null; this.onerror = null; this.onopen = null;
+      // No request leaves the browser here, so the URL the client asked for is otherwise
+      // unobservable. Park it where the harness can read it — that query string carries the
+      // SOI instance id (telemetry-source.js), and "is the cid stable across a reload?" is
+      // the one thing about it worth checking without the game.
+      window.__PREVIEW_STREAM_URL = url;
+      this._listeners = {};
+      // The server answers a new connection with the id it filed the client under, echoing the cid
+      // the client sent. Same here, so telemetry-source settles on an id in the harness too.
+      const cid = decodeURIComponent((/[?&]cid=([^&]*)/.exec(url) || [, ''])[1]);
       // The frame is static EXCEPT the RWR ping freshness, which we re-tick each send so the
       // diamonds visibly pulse; ~6.7 Hz approximates the real 10 Hz stream (and keeps the
       // page's 2.5 s connection watchdog happy).
       const tick = () => { rwrTickFreshness(); mwTickApproach(); this._send(JSON.stringify(FRAME)); };
       setTimeout(() => {
+        this._fire('hello', JSON.stringify({ cid }));
         tick();
         this._timer = setInterval(tick, 150);
       }, 30);
     }
+    addEventListener(type, fn) { (this._listeners[type] = this._listeners[type] || []).push(fn); }
+    removeEventListener(type, fn) {
+      const l = this._listeners[type] || [];
+      const i = l.indexOf(fn);
+      if (i >= 0) l.splice(i, 1);
+    }
+    _fire(type, data) { (this._listeners[type] || []).forEach(fn => fn({ data })); }
     _send(data) { if (this.onmessage) this.onmessage({ data }); }
     close() { clearInterval(this._timer); }
   }
   window.EventSource = MockEventSource;
+
+  // Drive SOI by hand: no game, so nothing moves the target or presses a key on its own. Pass this
+  // instance's own cid (window.__PREVIEW_STREAM_URL carries it) to see the display take focus, ''
+  // to drop it; __soiPress stands in for one SOI keybind press, counter and all.
+  // Present from the first frame, as the server has them — a client treats the first counter it
+  // sees as a starting point rather than a press, so a field that only appears once it is pressed
+  // would make that first press look like history and be ignored.
+  FRAME.soiTarget = FRAME.soiTarget || '';
+  FRAME.soiPane   = ('soiPane' in FRAME) ? FRAME.soiPane : -1;   // which surface is focused (-1 = none)
+  FRAME.soiSeq    = FRAME.soiSeq    || 0;
+  FRAME.soiAct    = FRAME.soiAct    || '';
+
+  // Focus a surface: cid + which pane (0 = full view / top / left, 1 = the second pane). '' clears.
+  window.__setSoiTarget = (cid, pane = 0) => { FRAME.soiTarget = cid || ''; FRAME.soiPane = cid ? pane : -1; };
+  window.__soiPress = (act) => { FRAME.soiAct = act; FRAME.soiSeq = (FRAME.soiSeq || 0) + 1; };
 
   // Show the map immediately (avoids the initial /map 404 flash).
   window.addEventListener('DOMContentLoaded', () => {
