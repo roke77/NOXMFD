@@ -628,12 +628,11 @@ namespace NOXMFD
         // centred stick makes the crosshair wander. The response curve below covers most of what a
         // deadzone would otherwise be doing, since it already flattens the bottom of the travel.
         private const float AxisDeadzone = 0.03f;
-        // Response curve. Full deflection still means full CURSOR_SPEED — what changes is everything
-        // below it: at 2.5, half travel gives about a sixth of the speed and a quarter travel about a
-        // thirtieth. A linear axis spends most of its usable range too fast to place the crosshair on
-        // a contact, so the pilot overshoots and hunts; the curve buys back the near-centre range for
-        // precision without touching the top end. Raise it for finer control near centre, 1 = linear.
-        private const float AxisCurve = 2.5f;
+        // Response curve. Full deflection always means full CURSOR_SPEED — the curve only shapes
+        // everything below it: at 1 the axis is linear, at 2 half travel gives a quarter speed, at
+        // 2.5 about a sixth. Higher trades top-end reach for fine placement near centre. Currently
+        // linear so the other cursor changes can be judged without it in the way.
+        private const float AxisCurve = 1f;
         private static float ReadAxis(BindDef bind)
         {
             int idx = bind.AxisEntry!.Value;
