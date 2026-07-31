@@ -625,8 +625,9 @@ namespace NOXMFD
         // decide this component" (see the doc's "keys and axes coexist" note).
         // Small — this is a cursor, not a flight control: the pilot wants fine, slow slew available
         // near centre, and a stick good enough to bind here doesn't drift much. Raise it only if a
-        // centred stick makes the crosshair wander.
-        private const float AxisDeadzone = 0.06f;
+        // centred stick makes the crosshair wander. The response curve below covers most of what a
+        // deadzone would otherwise be doing, since it already flattens the bottom of the travel.
+        private const float AxisDeadzone = 0.03f;
         // Response curve. Full deflection still means full CURSOR_SPEED — what changes is everything
         // below it: at 2.5, half travel gives about a sixth of the speed and a quarter travel about a
         // thirtieth. A linear axis spends most of its usable range too fast to place the crosshair on
