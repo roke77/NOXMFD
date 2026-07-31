@@ -585,7 +585,10 @@ namespace NOXMFD
         // Reads a bind's analog axis, deadzoned and inverted, folded straight into the cursor vector —
         // 0 means "no axis bound, centered, or within the deadzone," which Poll() treats as "the keys
         // decide this component" (see the doc's "keys and axes coexist" note).
-        private const float AxisDeadzone = 0.12f;
+        // Small — this is a cursor, not a flight control: the pilot wants fine, slow slew available
+        // near centre, and a stick good enough to bind here doesn't drift much. Raise it only if a
+        // centred stick makes the crosshair wander.
+        private const float AxisDeadzone = 0.06f;
         private static float ReadAxis(BindDef bind)
         {
             int idx = bind.AxisEntry!.Value;
@@ -604,7 +607,13 @@ namespace NOXMFD
                 if (j < joys.Count && idx < joys[j].axisCount) raw = joys[j].GetAxis(idx);
             }
             if (bind.AxisInvertEntry!.Value) raw = -raw;
-            return Math.Abs(raw) < AxisDeadzone ? 0f : raw;
+            float mag = Math.Abs(raw);
+            if (mag < AxisDeadzone) return 0f;
+            // Rescale the live part of the travel back to a full 0..1 rather than returning the raw
+            // value: otherwise the first movement past the deadzone jumps straight to AxisDeadzone
+            // speed instead of easing up from nothing, which is the sub-pixel control the pilot
+            // reaches for the axis to get. Sign is carried separately so both directions ease alike.
+            return Math.Sign(raw) * (mag - AxisDeadzone) / (1f - AxisDeadzone);
         }
 
         // Reads an explicit Rewired joystick button index (the number capture writes), honoring the

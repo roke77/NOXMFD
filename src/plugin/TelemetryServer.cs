@@ -207,8 +207,14 @@ namespace NOXMFD
         internal static float CursorX => Volatile.Read(ref _cursorX);
         internal static float CursorY => Volatile.Read(ref _cursorY);
 
+        // Quantized to 1% before comparing: an analog axis jitters in the last decimals even when the
+        // pilot is holding it still, and every distinct value would otherwise bump _soiVersion and
+        // force a full frame re-serialize on the next tick. 1% is far below what the eye can see in
+        // cursor speed, so this costs nothing visible and keeps a steady hold genuinely steady.
         internal static void SetCursorVector(float x, float y)
         {
+            x = (float)Math.Round(x, 2);
+            y = (float)Math.Round(y, 2);
             lock (_soiLock)
             {
                 if (_cursorX == x && _cursorY == y) return;   // steady hold — nothing to ship
@@ -217,6 +223,10 @@ namespace NOXMFD
                 Interlocked.Increment(ref _soiVersion);
             }
         }
+
+        // Is a cursor actually being slewed right now? Drives the stream's faster cadence below.
+        private static bool CursorSlewing =>
+            SoiTarget.Length > 0 && (CursorX != 0f || CursorY != 0f);
 
         // Cursor Select: a discrete press, same idempotent-counter shape as SoiAction/SoiSeq — the
         // map acts when this changes, not on any particular value.
@@ -1309,7 +1319,18 @@ namespace NOXMFD
                     // SOI focus/cursor changes there feel immediate rather than lagging up to a second
                     // behind the keypress. The menu frame is a tiny cached ping (GetFrameBytes only
                     // re-serializes when SOI moves), so 10 Hz of it is near-free.
-                    await Task.Delay(100, ct).ConfigureAwait(false);
+                    //
+                    // EXCEPT while a cursor is being slewed (docs/map-cursor.md). A held axis is a
+                    // CONTINUOUS signal, not an event: at 10 Hz the pilot feels up to 100 ms between
+                    // moving the stick and the crosshair following, then the same again as overshoot
+                    // when they centre it — which reads as a heavy, laggy cursor no amount of
+                    // client-side interpolation can hide (the client can smooth motion it already
+                    // knows about, but it cannot know the stick moved until a frame says so). So tick
+                    // ~30 Hz while the cursor is actually moving and drop straight back to 10 Hz when
+                    // it centres, keeping the extra serialize+bandwidth to the seconds it's in use.
+                    // Serialization runs on this background thread, never the Unity main thread, so
+                    // the faster cadence costs no frame time.
+                    await Task.Delay(CursorSlewing ? 33 : 100, ct).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) { }
