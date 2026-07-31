@@ -250,17 +250,15 @@ Multi-stick HOTAS setups are supported; each bind remembers which stick it came 
 
 #### Sensor of Interest (SOI)
 
-Drive a screen you aren't touching. Borrowed from DCS: one display is the *sensor of interest*,
-and a fixed set of HOTAS keys navigates whatever that is — so a tablet clamped to the rig or a
-second monitor can be worked from the throttle, no reaching for the glass. It is opt-in: nothing is
-focused until you press a SOI key, so a mouse/touch setup that never uses it is unaffected. The
-focused screen rings itself in white. Focus is per *screen*, not per device — in a split it lands
-on one pane, and on the F-35 on one portal. Five binds, on the same **KEY** page:
+Operate a display from your HOTAS without touching it. One screen at a time is selected — it is
+outlined in white — and the SOI keys move a cursor over its buttons and press them. In a split the
+selection is a single pane; on the F-35 it is a single portal. Nothing is selected until you press
+a SOI key. Five binds, on the **KEY** page:
 
-- **SOI Next / SOI Prev** — move focus to the next/previous screen, cycling through every open
-  display (and, on the F-35, each portal of the glass).
-- **Nav Up / Nav Down** — move a cursor over the focused screen's on-screen buttons.
-- **Select** — press the button the cursor is on, exactly as tapping it would.
+- **SOI Next / SOI Prev** — select the next / previous screen (every open display, and each F-35
+  portal).
+- **Nav Up / Nav Down** — move the cursor over the selected screen's buttons.
+- **Select** — press the button under the cursor.
 
 ## Reporting & collaboration
 
