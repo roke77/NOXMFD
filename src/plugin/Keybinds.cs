@@ -105,6 +105,11 @@ namespace NOXMFD
         // above; a deflected axis overrides its keys for that component (Poll()).
         private static BindDef? _cursorAxisH, _cursorAxisV;
 
+        // "Keep reading the stick while the game is unfocused" (see the .cfg description). Applied
+        // live by ApplyBackgroundInput; the _bg* fields remember what to put back if it's turned off.
+        private static ConfigEntry<bool>? _bgInput;
+        private static bool _bgApplied, _bgPrevRun, _bgPrevIgnore;
+
         // Called once from Plugin.Awake. Section/key names are the .cfg identity — existing user configs
         // carry over. Descriptions surface as row tooltips on the /keybinds page.
         public static void Bind(ConfigFile config)
@@ -199,6 +204,11 @@ namespace NOXMFD
                 "Analog axis (HOTAS mini-stick/hat) driving the cursor left/right — overrides Cursor Left/Right when deflected. Only acts while a MAP display is focused.");
             _cursorAxisV = AddAxis(config, "cursor-axis-v", map, "CursorAxisV", "Cursor Vertical",
                 "Analog axis driving the cursor up/down — overrides Cursor Up/Down when deflected. Only acts while a MAP display is focused.");
+
+            // Deliberately NOT hidden (unlike the binds above, which the /keybinds page owns): this one
+            // has no page of its own, and someone who needs it needs it in the F1 menu.
+            _bgInput = config.Bind("Input", "InputWhenGameUnfocused", false,
+                "Keep reading your HOTAS while the game window is NOT focused. Turn this ON if you run the MFD in a browser on the SAME PC: otherwise the game must stay focused for the stick to work, which leaves the browser in the background where it throttles its own redraw — and the map cursor stutters. Not needed for a tablet or phone, where the game keeps focus anyway. NOTE: while on, your stick also still flies the aircraft while you are clicking around in another window.");
 
             foreach (var b in _binds)
             {
@@ -406,6 +416,33 @@ namespace NOXMFD
             return false;
         }
 
+        // Rewired ignores ALL joystick input while the app isn't focused (ignoreInputWhenAppNotInFocus
+        // defaults on), and Unity throttles an unfocused app unless runInBackground is set. Together
+        // that means a same-PC browser user has to keep the GAME focused for the stick to work — which
+        // parks the browser in the background, where it throttles its own rAF and the cursor stutters.
+        // Opt in and both go away. Cheap to call every frame: it no-ops once applied, and only retries
+        // while Rewired isn't ready yet. Capture's own temporary override nests harmlessly — it pushes
+        // the same direction and snapshots whatever is current.
+        private static void ApplyBackgroundInput()
+        {
+            if (_bgInput == null || _bgInput.Value == _bgApplied) return;
+            if (!ReInput.isReady) return;   // not up yet — try again next frame
+            if (_bgInput.Value)
+            {
+                _bgPrevRun    = Application.runInBackground;
+                _bgPrevIgnore = ReInput.configuration.ignoreInputWhenAppNotInFocus;
+                Application.runInBackground = true;
+                ReInput.configuration.ignoreInputWhenAppNotInFocus = false;
+            }
+            else
+            {
+                Application.runInBackground = _bgPrevRun;
+                ReInput.configuration.ignoreInputWhenAppNotInFocus = _bgPrevIgnore;
+            }
+            _bgApplied = _bgInput.Value;
+            Plugin.Log?.LogInfo($"[NOXMFD] InputWhenGameUnfocused = {_bgApplied}.");
+        }
+
         private static void EnableBackgroundInput()
         {
             _prevRunInBackground = Application.runInBackground;
@@ -443,6 +480,7 @@ namespace NOXMFD
         public static void Poll()
         {
             if (_binds.Count == 0) return;   // not bound yet
+            ApplyBackgroundInput();
 
             // While a joy/axis entry is armed for capture, swallow the next button/deflection into it
             // (and don't let that same input also trigger an action this frame).
@@ -590,11 +628,11 @@ namespace NOXMFD
         // centred stick makes the crosshair wander.
         private const float AxisDeadzone = 0.06f;
         // Response curve. Full deflection still means full CURSOR_SPEED — what changes is everything
-        // below it: squared, half travel gives a quarter speed and a quarter travel a sixteenth. A
-        // linear axis spends most of its usable range too fast to place the crosshair on a contact,
-        // so the pilot overshoots and hunts; the curve buys back the near-centre range for precision
-        // without touching the top end. Raise it for finer control near centre, 1 = linear.
-        private const float AxisCurve = 2f;
+        // below it: at 2.5, half travel gives about a sixth of the speed and a quarter travel about a
+        // thirtieth. A linear axis spends most of its usable range too fast to place the crosshair on
+        // a contact, so the pilot overshoots and hunts; the curve buys back the near-centre range for
+        // precision without touching the top end. Raise it for finer control near centre, 1 = linear.
+        private const float AxisCurve = 2.5f;
         private static float ReadAxis(BindDef bind)
         {
             int idx = bind.AxisEntry!.Value;
