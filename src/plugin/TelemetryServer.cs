@@ -813,15 +813,27 @@ namespace NOXMFD
                 {
                     if (!first) sb.Append(',');
                     first = false;
-                    var key = b.KeyEntry.Value.MainKey;
                     sb.Append("{\"id\":\"").Append(EscapeJson(b.Id))
                       .Append("\",\"section\":\"").Append(EscapeJson(Keybinds.SectionTitle(b.Section)))
                       .Append("\",\"label\":\"").Append(EscapeJson(b.Label))
-                      .Append("\",\"description\":\"").Append(EscapeJson(b.Description))
-                      .Append("\",\"key\":\"").Append(key == UnityEngine.KeyCode.None ? string.Empty : EscapeJson(key.ToString()))
-                      .Append("\",\"joyButton\":").Append(b.JoyEntry.Value.ToString(CultureInfo.InvariantCulture))
-                      .Append(",\"joyNum\":").Append(b.JoyNumEntry.Value.ToString(CultureInfo.InvariantCulture))
-                      .Append('}');
+                      .Append("\",\"description\":\"").Append(EscapeJson(b.Description)).Append('"');
+                    // Digital source — absent for an axis-only bind (docs/map-cursor.md); the page
+                    // renders no key/joy cell for a row that has no key/joyButton field.
+                    if (b.KeyEntry != null)
+                    {
+                        var key = b.KeyEntry.Value.MainKey;
+                        sb.Append(",\"key\":\"").Append(key == UnityEngine.KeyCode.None ? string.Empty : EscapeJson(key.ToString()))
+                          .Append("\",\"joyButton\":").Append(b.JoyEntry!.Value.ToString(CultureInfo.InvariantCulture))
+                          .Append(",\"joyNum\":").Append(b.JoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture));
+                    }
+                    // Analog source — present only for the MAP cursor's axis-capable rows.
+                    if (b.AxisEntry != null)
+                    {
+                        sb.Append(",\"axis\":").Append(b.AxisEntry.Value.ToString(CultureInfo.InvariantCulture))
+                          .Append(",\"axisNum\":").Append(b.AxisJoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture))
+                          .Append(",\"axisInvert\":").Append(b.AxisInvertEntry!.Value ? "true" : "false");
+                    }
+                    sb.Append('}');
                 }
                 // Per-section notes (shared behaviour text under a section header), keyed by the
                 // display title the binds carry in "section".
@@ -840,7 +852,10 @@ namespace NOXMFD
                       .Append("\":\"").Append(EscapeJson(note)).Append('"');
                 }
                 string cap = Keybinds.CapturingId;
-                sb.Append("},\"capturing\":").Append(cap == null ? "null" : "\"" + EscapeJson(cap) + "\"").Append('}');
+                string capKind = Keybinds.CapturingKind;
+                sb.Append("},\"capturing\":").Append(cap == null ? "null" : "\"" + EscapeJson(cap) + "\"")
+                  .Append(",\"capturingKind\":").Append(capKind == null ? "null" : "\"" + EscapeJson(capKind) + "\"")
+                  .Append('}');
 
                 byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
                 ctx.Response.StatusCode      = 200;

@@ -212,9 +212,20 @@ No per-layout cursor code — just the same "is my focused surface a MAP? then f
    crosshair never visibly moves in-harness. The integrate/clamp math is covered by
    `tools/map-cursor.test.js` instead. **Needs a real in-game/browser check for the visual motion**
    before calling this done.
-5. **Axis source — not started.** Add the axis source to `Keybinds.cs` (capture-from-rest +
-   `GetAxis` read + invert/deadzone) folded into the same cursor vector, and the `/keybinds` axis UI
-   (+ mock). Same branch, built after the key path is proven so there's a working checkpoint first.
+5. **Axis source — built.** `BindDef` gained a nullable analog side (`AxisEntry`/`AxisJoyNumEntry`/
+   `AxisInvertEntry`) alongside the nullable digital side, so a bind is either digital or axis-only
+   (`AddAxis`, no Drive/DriveFree — `Poll()` reads it directly, like the four direction keys).
+   `ArmAxisCapture`/`CaptureAxis` mirror the button-capture shape but measure deflection **from a
+   snapshotted rest position** rather than an edge — a HOTAS axis is rarely centered at rest, so
+   "moved" has to mean "moved from wherever it started," not "moved from zero." `ReadAxis` deadzones
+   + inverts + folds straight into the cursor vector; a deflected axis overrides its two keys for
+   that component (`Poll()`), so keys and axis coexist on the same two rows (**Cursor Horizontal** /
+   **Cursor Vertical**) without conflict. `TelemetryServer.ServeKeybindsConfig` and `CommandDispatcher`
+   (`keybind.arm-axis`/`cancel-axis`/`clear-axis`/`set-axis-invert`) extended to match; `keybinds.js`
+   renders these two rows as one wide cell (arm/capture/invert/clear) instead of empty key/joy cells,
+   guided by the JSON simply omitting `key` for an axis-only row. Verified end-to-end in the
+   `serve_web` harness (arm → simulated capture → invert → clear, no console errors) — the server-side
+   axis read itself needs a real HOTAS in-game to confirm, same caveat as step 4's rAF glide.
 
 ## Open questions / gaps
 

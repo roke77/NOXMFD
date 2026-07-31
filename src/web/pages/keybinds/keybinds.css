@@ -111,6 +111,22 @@ html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this
 .kb-row:hover .kb-clear.bound { visibility: visible; }
 .kb-clear:hover { color: var(--no-red); }
 
+/* Axis-only rows' invert toggle (docs/map-cursor.md) — always visible (not hover-only like
+   kb-clear): unlike a binding, whether it's flipped is state worth seeing at a glance. */
+.kb-invert {
+  border: 1px solid var(--no-green-dark);
+  background: none;
+  color: var(--no-green-dark);
+  font-family: var(--no-font);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+.kb-invert:hover { border-color: var(--no-green-dim); color: var(--no-green-dim); }
+.kb-invert.on    { border-color: var(--no-green); color: var(--no-green); }
+
 #kb-empty { display: none; }
 .kb-panel.unavailable .kb-head,
 .kb-panel.unavailable .kb-rows { display: none; }
