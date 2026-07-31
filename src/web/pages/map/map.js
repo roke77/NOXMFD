@@ -425,19 +425,30 @@ function drawOverlay() {
     }
   }
 
-  // SOI cursor last = on top of everything, same reason the missile cue is.
+  // SOI cursor last = on top of everything, same reason the missile cue is. The exact same
+  // crosshair as the mouse/touch pointer (map.css's `cursor:`, an SVG built from these same
+  // proportions) — a HOTAS pilot and a mouse user see the same tool. Drawn on the canvas rather
+  // than swapping a CSS cursor, since a HOTAS cursor has no OS mouse position to hijack.
   if (cursorOn && cursorPos) {
     oc.save();
-    oc.strokeStyle = '#ffffff';
-    oc.lineWidth = 1.5;
+    oc.lineCap = 'round';
+    const arms = [
+      [cursorPos.x, cursorPos.y - 10, cursorPos.x, cursorPos.y - 4],
+      [cursorPos.x, cursorPos.y + 4,  cursorPos.x, cursorPos.y + 10],
+      [cursorPos.x - 10, cursorPos.y, cursorPos.x - 4, cursorPos.y],
+      [cursorPos.x + 4,  cursorPos.y, cursorPos.x + 10, cursorPos.y],
+    ];
+    // Dark underlay for contrast against any terrain colour, then the HUD-green line on top —
+    // the SVG cursor's own two-pass technique, replicated in canvas strokes.
+    oc.strokeStyle = 'rgba(0,0,0,0.55)';
+    oc.lineWidth = 3.4;
     oc.beginPath();
-    oc.moveTo(cursorPos.x - 9, cursorPos.y); oc.lineTo(cursorPos.x - 3, cursorPos.y);
-    oc.moveTo(cursorPos.x + 3, cursorPos.y); oc.lineTo(cursorPos.x + 9, cursorPos.y);
-    oc.moveTo(cursorPos.x, cursorPos.y - 9); oc.lineTo(cursorPos.x, cursorPos.y - 3);
-    oc.moveTo(cursorPos.x, cursorPos.y + 3); oc.lineTo(cursorPos.x, cursorPos.y + 9);
+    arms.forEach(function(a) { oc.moveTo(a[0], a[1]); oc.lineTo(a[2], a[3]); });
     oc.stroke();
+    oc.strokeStyle = PLAYER_COLOR;
+    oc.lineWidth = 1.7;
     oc.beginPath();
-    oc.arc(cursorPos.x, cursorPos.y, 3, 0, Math.PI * 2);
+    arms.forEach(function(a) { oc.moveTo(a[0], a[1]); oc.lineTo(a[2], a[3]); });
     oc.stroke();
     oc.restore();
   }
