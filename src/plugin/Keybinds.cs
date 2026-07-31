@@ -589,6 +589,12 @@ namespace NOXMFD
         // near centre, and a stick good enough to bind here doesn't drift much. Raise it only if a
         // centred stick makes the crosshair wander.
         private const float AxisDeadzone = 0.06f;
+        // Response curve. Full deflection still means full CURSOR_SPEED — what changes is everything
+        // below it: squared, half travel gives a quarter speed and a quarter travel a sixteenth. A
+        // linear axis spends most of its usable range too fast to place the crosshair on a contact,
+        // so the pilot overshoots and hunts; the curve buys back the near-centre range for precision
+        // without touching the top end. Raise it for finer control near centre, 1 = linear.
+        private const float AxisCurve = 2f;
         private static float ReadAxis(BindDef bind)
         {
             int idx = bind.AxisEntry!.Value;
@@ -613,7 +619,8 @@ namespace NOXMFD
             // value: otherwise the first movement past the deadzone jumps straight to AxisDeadzone
             // speed instead of easing up from nothing, which is the sub-pixel control the pilot
             // reaches for the axis to get. Sign is carried separately so both directions ease alike.
-            return Math.Sign(raw) * (mag - AxisDeadzone) / (1f - AxisDeadzone);
+            float norm = (mag - AxisDeadzone) / (1f - AxisDeadzone);
+            return Math.Sign(raw) * (float)Math.Pow(norm, AxisCurve);
         }
 
         // Reads an explicit Rewired joystick button index (the number capture writes), honoring the

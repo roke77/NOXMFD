@@ -362,10 +362,23 @@
       // diamonds visibly pulse; ~6.7 Hz approximates the real 10 Hz stream (and keeps the
       // page's 2.5 s connection watchdog happy).
       const tick = () => { rwrTickFreshness(); mwTickApproach(); this._send(JSON.stringify(FRAME)); };
+      // The MAP cursor rides its own event at a much higher rate than the frame (docs/map-cursor.md).
+      // Mirrored here, repeat-suppressed exactly like the server, so the harness exercises the same
+      // path the game does rather than a shortcut that would hide an ordering bug.
+      let lastCursor = '';
+      const cursorTick = () => {
+        const c = JSON.stringify({ x: FRAME.cursorX, y: FRAME.cursorY,
+                                   selSeq: FRAME.cursorSelSeq, act: FRAME.mapAct, actSeq: FRAME.mapActSeq });
+        if (c === lastCursor) return;
+        lastCursor = c;
+        this._fire('cursor', c);
+      };
       setTimeout(() => {
         this._fire('hello', JSON.stringify({ cid }));
         tick();
+        cursorTick();
         this._timer = setInterval(tick, 150);
+        this._cursorTimer = setInterval(cursorTick, 16);
       }, 30);
     }
     addEventListener(type, fn) { (this._listeners[type] = this._listeners[type] || []).push(fn); }
@@ -376,7 +389,7 @@
     }
     _fire(type, data) { (this._listeners[type] || []).forEach(fn => fn({ data })); }
     _send(data) { if (this.onmessage) this.onmessage({ data }); }
-    close() { clearInterval(this._timer); }
+    close() { clearInterval(this._timer); clearInterval(this._cursorTimer); }
   }
   window.EventSource = MockEventSource;
 

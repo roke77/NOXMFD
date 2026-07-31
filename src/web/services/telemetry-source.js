@@ -90,6 +90,11 @@ export class TelemetrySource {
       // count back to 1) each time, so the shell must re-report, and this is its cue.
       this._postUp({ type: 'soi-cid', cid: this._cid });
     });
+    // The MAP cursor rides its own event at a much higher rate than the telemetry frame
+    // (docs/map-cursor.md) — a slewed axis is continuous, so latency here is felt directly.
+    es.addEventListener('cursor', (e) => {
+      try { this._onCursor(JSON.parse(e.data)); } catch (err) { /* malformed — skip this one */ }
+    });
     es.onmessage = (e) => this._onMessage(e);
     es.onerror = () => {};   // EventSource auto-reconnects; the watchdog decides when to flag DISCONNECTED
     // Watchdog — tolerate transient SSE blips, only flag disconnect after a real gap.
@@ -112,6 +117,34 @@ export class TelemetrySource {
     if (window.parent !== window) window.parent.postMessage(Object.assign({ mfd: true }, msg), '*');
   }
 
+  // The MAP cursor's own SSE event (docs/map-cursor.md) — arrives far more often than a telemetry
+  // frame, and carries only the cursor. Focus state comes from the last frame (this._soiFocused):
+  // focus changes are rare and discrete, so they can keep riding the slow channel.
+  //
+  // The velocity is tracked REGARDLESS of focus so it is never stale on a regain; the presses use
+  // the same idempotent-counter shape as soiSeq — act only when the counter CHANGES, and treat the
+  // first one seen as a baseline, since presses made before this display connected are history.
+  _onCursor(c) {
+    this._lastMsgAt = performance.now();
+    const x = typeof c.x === 'number' ? c.x : 0;
+    const y = typeof c.y === 'number' ? c.y : 0;
+    const changed = x !== this._cursorX || y !== this._cursorY;
+    this._cursorX = x; this._cursorY = y;
+    const pane = this._soiPane;
+    if (this._soiFocused && changed) this._postUp({ type: 'cursor', x, y, pane });
+
+    if (typeof c.selSeq === 'number' && c.selSeq !== this._cursorSelSeq) {
+      const first = this._cursorSelSeq === null;
+      this._cursorSelSeq = c.selSeq;
+      if (!first && this._soiFocused) this._postUp({ type: 'cursor-select', pane });
+    }
+    if (typeof c.actSeq === 'number' && c.actSeq !== this._mapActSeq) {
+      const first = this._mapActSeq === null;
+      this._mapActSeq = c.actSeq;
+      if (!first && this._soiFocused && c.act) this._postUp({ type: 'map-act', act: c.act, pane });
+    }
+  }
+
   _onMessage(e) {
     this._lastMsgAt = performance.now();
     const d = JSON.parse(e.data);
@@ -123,11 +156,15 @@ export class TelemetrySource {
     // rebuilt ten times a second to say the same thing; pane travels so it can ring the right pane.
     const focused = !!d.soiTarget && d.soiTarget === this._cid;
     const pane = focused && typeof d.soiPane === 'number' ? d.soiPane : -1;
-    const justFocused = focused && !this._soiFocused;   // used by the cursor vector below
+    const justFocused = focused && !this._soiFocused;
     if (focused !== this._soiFocused || pane !== this._soiPane) {
       this._soiFocused = focused;
       this._soiPane = pane;
       this._postUp({ type: 'soi', focused, pane });
+      // map.js zeroes its own cursor when it loses focus, so a regain has to resend the vector even
+      // if it is unchanged since this display was last focused — otherwise the crosshair sits still
+      // under a already-deflected stick until the pilot happens to move it.
+      if (justFocused) this._postUp({ type: 'cursor', x: this._cursorX, y: this._cursorY, pane });
     }
 
     // A SOI key press. The counter is what makes this safe to broadcast: act only when it CHANGES,
@@ -139,29 +176,6 @@ export class TelemetrySource {
       const first = this._soiSeq === null;
       this._soiSeq = d.soiSeq;
       if (!first && focused && d.soiAct) this._postUp({ type: 'soi-act', act: d.soiAct, pane });
-    }
-
-    // MAP cursor (docs/map-cursor.md) — a continuous velocity rather than a press, so it can't use
-    // the counter trick alone. Tracked every frame REGARDLESS of focus, so the value never goes
-    // stale while unfocused; posted only while focused, and unconditionally on the very frame focus
-    // is (re)gained — map.js zeroes its own cursor on losing focus, so a regain has to resync even
-    // when the vector happens to already equal what it was the last time this instance was focused.
-    const cx = typeof d.cursorX === 'number' ? d.cursorX : 0;
-    const cy = typeof d.cursorY === 'number' ? d.cursorY : 0;
-    const cursorChanged = cx !== this._cursorX || cy !== this._cursorY;
-    this._cursorX = cx; this._cursorY = cy;
-    if (focused && (cursorChanged || justFocused)) this._postUp({ type: 'cursor', x: cx, y: cy, pane });
-
-    // Cursor Select / MAP view actions — discrete presses, same idempotent-counter shape as soiSeq.
-    if (typeof d.cursorSelSeq === 'number' && d.cursorSelSeq !== this._cursorSelSeq) {
-      const first = this._cursorSelSeq === null;
-      this._cursorSelSeq = d.cursorSelSeq;
-      if (!first && focused) this._postUp({ type: 'cursor-select', pane });
-    }
-    if (typeof d.mapActSeq === 'number' && d.mapActSeq !== this._mapActSeq) {
-      const first = this._mapActSeq === null;
-      this._mapActSeq = d.mapActSeq;
-      if (!first && focused && d.mapAct) this._postUp({ type: 'map-act', act: d.mapAct, pane });
     }
 
     if (d.ping) {
