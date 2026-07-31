@@ -68,6 +68,12 @@ export class TelemetrySource {
     this._soiFocused = null;            // null = never reported; forces the first post either way
     this._soiPane = -1;                 // which of this instance's surfaces is focused (-1 = none)
     this._soiSeq = null;                // null = the first frame's counter is a starting point, not a press
+    // MAP cursor (docs/map-cursor.md) — same idempotent-counter idea as soiSeq/soiAct, plus the
+    // continuous vector tracked every frame (see the justFocused note in _onMessage for why).
+    this._cursorX = 0;
+    this._cursorY = 0;
+    this._cursorSelSeq = null;
+    this._mapActSeq = null;
   }
 
   connect() {
@@ -117,6 +123,7 @@ export class TelemetrySource {
     // rebuilt ten times a second to say the same thing; pane travels so it can ring the right pane.
     const focused = !!d.soiTarget && d.soiTarget === this._cid;
     const pane = focused && typeof d.soiPane === 'number' ? d.soiPane : -1;
+    const justFocused = focused && !this._soiFocused;   // used by the cursor vector below
     if (focused !== this._soiFocused || pane !== this._soiPane) {
       this._soiFocused = focused;
       this._soiPane = pane;
@@ -132,6 +139,29 @@ export class TelemetrySource {
       const first = this._soiSeq === null;
       this._soiSeq = d.soiSeq;
       if (!first && focused && d.soiAct) this._postUp({ type: 'soi-act', act: d.soiAct, pane });
+    }
+
+    // MAP cursor (docs/map-cursor.md) — a continuous velocity rather than a press, so it can't use
+    // the counter trick alone. Tracked every frame REGARDLESS of focus, so the value never goes
+    // stale while unfocused; posted only while focused, and unconditionally on the very frame focus
+    // is (re)gained — map.js zeroes its own cursor on losing focus, so a regain has to resync even
+    // when the vector happens to already equal what it was the last time this instance was focused.
+    const cx = typeof d.cursorX === 'number' ? d.cursorX : 0;
+    const cy = typeof d.cursorY === 'number' ? d.cursorY : 0;
+    const cursorChanged = cx !== this._cursorX || cy !== this._cursorY;
+    this._cursorX = cx; this._cursorY = cy;
+    if (focused && (cursorChanged || justFocused)) this._postUp({ type: 'cursor', x: cx, y: cy, pane });
+
+    // Cursor Select / MAP view actions — discrete presses, same idempotent-counter shape as soiSeq.
+    if (typeof d.cursorSelSeq === 'number' && d.cursorSelSeq !== this._cursorSelSeq) {
+      const first = this._cursorSelSeq === null;
+      this._cursorSelSeq = d.cursorSelSeq;
+      if (!first && focused) this._postUp({ type: 'cursor-select', pane });
+    }
+    if (typeof d.mapActSeq === 'number' && d.mapActSeq !== this._mapActSeq) {
+      const first = this._mapActSeq === null;
+      this._mapActSeq = d.mapActSeq;
+      if (!first && focused && d.mapAct) this._postUp({ type: 'map-act', act: d.mapAct, pane });
     }
 
     if (d.ping) {

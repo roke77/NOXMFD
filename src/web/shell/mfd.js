@@ -452,6 +452,7 @@ function renderSplitLabels() {
   renderPaneMainPageInd();   // main-prev/next (mfdButton) calls renderSplitLabels directly, not
                              // refreshFollowIndicator, so the chip needs its own call here too.
   renderSoiCursor();         // same reason: the labels this just rebuilt carry the cursor mark
+  syncCursorFocus();         // a pane may have paged onto/off MAP under the focused surface
 }
 
 // Send a map action (toggle-follow / zoom-in / zoom-out) to a single pane's map iframe.
@@ -850,6 +851,13 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'bdf')  forwardBdfToPanes();
     else if (page === 'pal')  forwardPalToPanes();
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
+    // docs/map-cursor.md: a fresh document means a fresh message listener, so any earlier
+    // cursor-focus post (sent the moment this pane's src changed, before its script had attached
+    // one) was silently dropped — a straight re-run of syncCursorFocus() wouldn't resend it either,
+    // since contentWindow's identity survives the reload and the target-unchanged check would no-op.
+    // Resend directly, bypassing that dedup, whenever this freshly-loaded pane is the one eligible.
+    if (page === 'map' && focusedMapWindow() === iframe.contentWindow)
+      iframe.contentWindow.postMessage({ mfd: true, action: 'cursor-focus', on: true }, '*');
   });
 });
 
@@ -1146,6 +1154,7 @@ function showPage(name) {
   // leaving MAP must drop it. It renders the full indicator stack (incl. PINNED) internally.
   refreshFollowIndicator();
   renderSoiCursor();   // the labels were just rebuilt; re-mark the cursored one (and clamp it)
+  syncCursorFocus();   // full view just navigated onto/off MAP — the focused surface may be it
 }
 
 // The map iframe broadcasts status + loadout + cm via postMessage; mirror onto the
@@ -1179,8 +1188,22 @@ window.addEventListener('message', function(e) {
     soiPane = m.focused ? (typeof m.pane === 'number' ? m.pane : 0) : -1;
     if (soiPane !== prevPane) setSoiCursor(-1);
     positionSoiRing();
+    syncCursorFocus();   // the focused surface itself changed — re-evaluate who owns the map cursor
   } else if (m.type === 'soi-act') {
     soiAct(m.act);
+  } else if (m.type === 'cursor') {
+    // docs/map-cursor.md — forward straight to whichever iframe is both the focused surface AND
+    // currently showing MAP (focusedMapWindow returns null otherwise, so this is a safe no-op).
+    const w = focusedMapWindow();
+    if (w) w.postMessage({ mfd: true, action: 'cursor', x: m.x || 0, y: m.y || 0 }, '*');
+  } else if (m.type === 'cursor-select') {
+    const w = focusedMapWindow();
+    if (w) w.postMessage({ mfd: true, action: 'cursor-select' }, '*');
+  } else if (m.type === 'map-act') {
+    // Reuse the existing mapSend/paneMapSend — Follow/Zoom act exactly like their bezel-key
+    // counterparts, on whichever surface is focused (soiPane, already updated by the 'soi' message
+    // this same postMessage batch always delivers first).
+    if (soiPane >= 0) { if (splitMode) paneMapSend(soiPane, m.act); else mapSend(m.act); }
   } else if (m.type === 'loadout') {
     const prevSel = wpnData.selWeapon;
     wpnData = { items: m.items || [], selWeapon: m.selWeapon || null,
@@ -1438,6 +1461,28 @@ let myCid     = '';   // this instance's cid, for soi.panes reports (from the ta
 function reportPanes() {
   if (!myCid) return;
   sendCommand('soi.panes', { cid: myCid, n: splitMode ? 2 : 1 }).catch(function() {});
+}
+
+// ── MAP cursor forwarding (docs/map-cursor.md) ────────────────────────────────────────
+// The focused surface is drivable as a MAP cursor only while it's actually SHOWING map — the SOI
+// ring/bezel-key cursor above frames "the recess," but the map cursor needs the real content check
+// (a focused pane can page onto/off MAP without soiPane itself changing). null = nothing eligible.
+function focusedMapWindow() {
+  if (soiPane < 0) return null;
+  if (splitMode) return panePages[soiPane] === 'map' ? paneIframes[soiPane].contentWindow : null;
+  return currentPage === 'map' ? mapFrame.contentWindow : null;
+}
+
+// Tell the map iframe that just lost eligibility to drop its cursor, and the one that just gained
+// it to show one — called after anything that could change the answer (focus moves, page
+// navigation under the focused surface, split toggling). No-ops when the answer didn't change.
+let cursorFocusTarget = null;   // the iframe window currently holding cursor focus, or null
+function syncCursorFocus() {
+  const target = focusedMapWindow();
+  if (target === cursorFocusTarget) return;
+  if (cursorFocusTarget) cursorFocusTarget.postMessage({ mfd: true, action: 'cursor-focus', on: false }, '*');
+  if (target) target.postMessage({ mfd: true, action: 'cursor-focus', on: true }, '*');
+  cursorFocusTarget = target;
 }
 
 // Position the SOI ring over the focused surface: the whole recess in full view (the map iframe

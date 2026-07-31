@@ -64,11 +64,14 @@ function setCursorFocus(on) {
 // Integrates the last-known velocity between the 10 Hz broadcasts — the same trick as the
 // missile-flash timer and pumpFlash: smooth motion without needing the transport itself to run at
 // 60 Hz. Self-stops once the vector is zero; ensureCursorAnimation restarts it when a new nonzero
-// vector arrives.
-function driveCursor(ts) {
+// vector arrives. Uses performance.now() rather than the rAF callback's own timestamp — dt only
+// needs real elapsed time, and this way driveCursor doesn't depend on how a given embedder's
+// requestAnimationFrame happens to invoke it.
+function driveCursor() {
   if (!cursorOn || !cursorPos || (!cursorVec.x && !cursorVec.y)) { cursorTimer = null; cursorLastT = 0; return; }
-  const dt = cursorLastT ? Math.min(0.1, (ts - cursorLastT) / 1000) : 0;
-  cursorLastT = ts;
+  const now = performance.now();
+  const dt = cursorLastT ? Math.min(0.1, (now - cursorLastT) / 1000) : 0;
+  cursorLastT = now;
   cursorPos.x += cursorVec.x * CURSOR_SPEED * dt;
   cursorPos.y += cursorVec.y * CURSOR_SPEED * dt;
   clampCursor();
