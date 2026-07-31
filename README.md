@@ -248,6 +248,13 @@ Multi-stick HOTAS setups are supported; each bind remembers which stick it came 
   right reticle — and the next press fires. The current gun and missile/bomb choices show
   as outlines on the WPN page.
 
+<details>
+<summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+![Extended keybinds page](docs/images/KEY.png)
+
+</details>
+
 #### Sensor of Interest (SOI)
 
 Operate a display from your HOTAS without touching it. One screen at a time is selected — it is
@@ -259,6 +266,15 @@ a SOI key. Five binds, on the **KEY** page:
   portal).
 - **Nav Up / Nav Down** — move the cursor over the selected screen's buttons.
 - **Select** — press the button under the cursor.
+
+<details>
+<summary>$\color{green}\textsf{See screenshots}$</summary>
+
+![SOI-selected screen](docs/images/SOI1.png)
+
+![SOI-selected screen](docs/images/SOI2.png)
+
+</details>
 
 ## Reporting & collaboration
 
