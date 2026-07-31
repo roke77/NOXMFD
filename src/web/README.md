@@ -13,12 +13,22 @@ Full design history and decisions: [`docs/src-architecture.md`](../../docs/src-a
 src/web/
   shared/   font.css  theme.css  share-tech-mono.woff2   # passive cross-page assets
   services/ telemetry-source.js  send-command.js          # active shared code (the providers)
-  shell/    mfd.html  mfd.css  mfd.js                     # the bezel shell (host + router)
+  shell/    mfd.html  mfd.css  mfd.js                     # the classic bezel shell (host + router)
+            nav-model.js   split-keymap.js                # NAV registry (shared with f35/) + bezel key-slot logic
+            f35/           f35.html  f35.css  f35.js       # a second shell: borderless F-35 glass, N portals
+                           f35-glass.js  f35-wpn-paging.js  # portal merge/split geometry, WPN pagination
   pages/
     map/    map.html  map.css  map.js     # the live map view (imports services/telemetry-source.js)
-    wpn/  tgt/  tgp/  avn/  rwr/           # reactive MFD pages, one folder each
-    main/                                  # the split-pane MAIN card (full-view MAIN is shell chrome)
+    wpn/  tgt/  tgp/  avn/  rwr/  hud/  bdf/   # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal)
+    keybinds/                                  # frame-hosted like the pages above, not a standalone document
+    main/                                      # the split-pane MAIN card (full-view MAIN is shell chrome)
 ```
+
+Two shells render the same pages: the classic bezel (`shell/mfd.js`) and the F-35 glass
+(`shell/f35/f35.js`), sharing the page set, the NAV model, and `sendCommand` — see
+[`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
+`nav-model.test.js`, `f35-glass.test.js`, `main-paging.test.js`) are Node self-checks, run by hand
+(`node shell/whatever.test.js`), never fetched by a browser (excluded from the embedded-resource glob).
 
 Convention per page: `src/web/pages/<x>/<x>.{html,css,js}`, served at `/<x>`. The HTML links
 `/assets/shared/font.css` + `theme.css`, then its own `<x>.css`, and ends with `<script
@@ -39,14 +49,16 @@ a reactive sink.
    │ source +view │  the slices below, posts them UP) and the map view (map.js — renders the live
    │              │  map/HUD from the frames the source hands back). One iframe on purpose:
    │              │  the view needs the full frame every tick, so the parse stays in-process.
-   │              │  Slices posted up: status·loadout·cm·tgp·targets·rwr·mw·avn·follow
+   │              │  Slices posted up: status·loadout·cm·tgp·targets·rwr·mw·avn·follow·soi-cid·soi·soi-act
    └──────┬───────┘
           │  postMessage  ▲ UP   ({ mfd:true, type, … })
           ▼
    ┌──────────────┐  Caches each slice and re-forwards DOWN to whoever is visible:
-   │  SHELL       │  forwardX*ToFrame (full view) / forwardX*ToPanes (split).
-   │  (mfd.js)    │  Owns the bezel, split logic and page hosting.
-   │              │  Guard: only trusts telemetry from the canonical MAP iframe
+   │  SHELL       │  forwardX*ToFrame (full view) / forwardX*ToPanes (split) — or, on the F-35
+   │ (mfd.js OR   │  shell, to whichever portal owns that page. Owns split/portal logic, page
+   │  f35.js)     │  hosting, and the SOI focus ring + cursor (derived from each page's own
+   │              │  data-action / .nav-item elements — no per-page SOI awareness needed).
+   │              │  Guard: only trusts telemetry from the canonical MAP iframe/tap
    │              │  (e.source === mapFrame.contentWindow).
    └──────┬───────┘
           │  postMessage  ▼ DOWN
@@ -72,24 +84,39 @@ not part of the data path; `map.js` owns it (`loadPersistedView` / `savePersiste
 
 ## Hosting model
 
-- **Full view:** the visible page renders in the shell's single `#page-frame` iframe
-  (`FRAME_PAGES = {wpn, tgt, tgp, avn, rwr}`). MAP is the base iframe *under* it; MAIN's full view
-  is the shell's own info-box chrome (not a hosted page).
-- **Split view:** two stacked pane iframes (`/<page>?bare` each). The shell forwards data to both.
-- A page is the **single source of truth** for both layouts — one file, with an optional `body.full`
-  profile toggled by a `layout:'full'` field in its layout message.
+- **Full view (bezel):** the visible page renders in the shell's single `#page-frame` iframe
+  (`FRAME_PAGES = {wpn, tgp, avn, rwr, tgt, hud, bdf, pal, keys}`, the last three mapping to
+  `/hud`, `/bdf`, `/bdf?pal`, `/keybinds`). MAP is the base iframe *under* it; MAIN's full view is
+  the shell's own info-box chrome (not a hosted page).
+- **Split view (bezel):** two stacked pane iframes (`/<page>?bare` each). The shell forwards data
+  to both.
+- **F-35 (`shell/f35/`):** a third, N-way layout instead of full/split — up to 4 portals, each an
+  independent `/<page>?bare` iframe; corner grips merge/split them (`f35-glass.js`). Every NAV
+  action maps to a page here too, so nothing renders dimmed; WPN's own pagination is
+  `f35-wpn-paging.js`.
+- A page is the **single source of truth** across all of these — one file, with an optional
+  `body.full` profile toggled by a `layout:'full'` field in its layout message.
 
 ## The contracts (shell ⇄ page, envelope `{ mfd:true, type, … }`)
 
 - **Data down:** `'<page>'` (the sliced rows + selection), `'<page>-layout'` (geometry +
   `layout:'full'|'compact'`), `'cm'`, `'orient'`.
+- **SOI (up then down):** `telemetry-source.js` posts `'soi-cid'` (this document's instance id,
+  once, from the server's SSE `hello`), `'soi'` (`{focused, pane}`, on change), and `'soi-act'`
+  (`{act, pane}`, on a HOTAS keypress) up to whichever shell hosts it; the shell reports its own
+  surface count back down via `soi.panes` (below) and derives the on-screen cursor itself — pages
+  carry no SOI-specific code.
 - **Write commands:** `src/web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
-  (MAP tap → `target.select`; TGT page → `tgt.*` + `target.deselect`).
+  (MAP tap → `target.select`; TGT page → `tgt.*` + `target.deselect`; either shell →
+  `soi.next`/`soi.prev`/`soi.panes`).
 
 ## Verifying without the game
 
 `dotnet build` checks the C# routes + embedded-resource manifest but never parses the JS/CSS. Run
 the browser harness instead: `python tools/serve_web.py --open` (launch.json `hud-web`, port 8782)
-serves the real `src/web/` files, mocks `/stream` (`tools/preview-mock.js` feeds the MAP iframe),
-and serves `/config` + captured assets. Drive it with the Preview MCP (`preview_eval` probes;
-`preview_screenshot` times out). Then confirm in-game on the next DLL build.
+serves the real `src/web/` files, mocks `/stream` (`tools/preview-mock.js` feeds the MAP iframe /
+map-tap and both shells), and serves `/config` + captured assets. The mock also exposes
+`window.__setSoiTarget(cid, pane)` / `window.__soiPress(act)` to drive SOI focus/keys by hand, since
+nothing else moves them without a game. Drive it with the Browser pane tools (`javascript_tool` to
+probe/poke state, `computer` for clicks and screenshots, `read_console_messages` /
+`read_network_requests` for errors). Then confirm in-game on the next DLL build.
