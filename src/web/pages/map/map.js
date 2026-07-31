@@ -51,6 +51,14 @@ function clampCursor() {
   cursorPos.y = Math.max(r.dy, Math.min(r.dy + r.dh, cursorPos.y));
 }
 
+// Put the crosshair element where cursorPos says. Transform, not left/top, so it stays a compositor
+// move and never reflows or repaints the map underneath it.
+function paintCursor() {
+  if (!cursorOn || !cursorPos) { cursorEl.style.display = 'none'; return; }
+  cursorEl.style.display = 'block';
+  cursorEl.style.transform = 'translate(' + (cursorPos.x - 12) + 'px,' + (cursorPos.y - 12) + 'px)';
+}
+
 // Focus changed (docs/map-cursor.md "Cursor persistence"): center it the first time this map is
 // focused (predictable), then leave it wherever the pilot parks it — losing focus hides it rather
 // than forgetting its spot, so it reappears where it was left if focus returns.
@@ -58,7 +66,7 @@ function setCursorFocus(on) {
   cursorOn = on;
   if (on && !cursorPos) cursorPos = { x: overlay.width / 2, y: overlay.height / 2 };
   if (!on) cursorVec = { x: 0, y: 0 };
-  drawOverlay();
+  paintCursor();
 }
 
 // Integrates the last-known velocity between the 10 Hz broadcasts — the same trick as the
@@ -75,7 +83,7 @@ function driveCursor() {
   cursorPos.x += cursorVec.x * CURSOR_SPEED * dt;
   cursorPos.y += cursorVec.y * CURSOR_SPEED * dt;
   clampCursor();
-  drawOverlay();
+  paintCursor();   // NOT drawOverlay — the map hasn't changed, only the crosshair moved
   cursorTimer = requestAnimationFrame(driveCursor);
 }
 function ensureCursorAnimation() {
@@ -125,6 +133,7 @@ const overlay  = document.getElementById('overlay');
 const oc       = overlay.getContext('2d');
 const gridBar   = document.getElementById('grid-bar');
 const unitLabel = document.getElementById('unit-label');
+const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — see paintCursor
 
 // ── Canvas geometry ──────────────────────────────────────────────────────────────
 function resizeOverlay() {
@@ -133,6 +142,7 @@ function resizeOverlay() {
   overlay.height = panel.clientHeight;
   clampPan();          // pan limits depend on canvas size; keep the view valid after a resize
   clampCursor();       // same — the cursor's rect shrank/grew too
+  paintCursor();
   drawOverlay();
 }
 
@@ -425,33 +435,8 @@ function drawOverlay() {
     }
   }
 
-  // SOI cursor last = on top of everything, same reason the missile cue is. The exact same
-  // crosshair as the mouse/touch pointer (map.css's `cursor:`, an SVG built from these same
-  // proportions) — a HOTAS pilot and a mouse user see the same tool. Drawn on the canvas rather
-  // than swapping a CSS cursor, since a HOTAS cursor has no OS mouse position to hijack.
-  if (cursorOn && cursorPos) {
-    oc.save();
-    oc.lineCap = 'round';
-    const arms = [
-      [cursorPos.x, cursorPos.y - 10, cursorPos.x, cursorPos.y - 4],
-      [cursorPos.x, cursorPos.y + 4,  cursorPos.x, cursorPos.y + 10],
-      [cursorPos.x - 10, cursorPos.y, cursorPos.x - 4, cursorPos.y],
-      [cursorPos.x + 4,  cursorPos.y, cursorPos.x + 10, cursorPos.y],
-    ];
-    // Dark underlay for contrast against any terrain colour, then the HUD-green line on top —
-    // the SVG cursor's own two-pass technique, replicated in canvas strokes.
-    oc.strokeStyle = 'rgba(0,0,0,0.55)';
-    oc.lineWidth = 3.4;
-    oc.beginPath();
-    arms.forEach(function(a) { oc.moveTo(a[0], a[1]); oc.lineTo(a[2], a[3]); });
-    oc.stroke();
-    oc.strokeStyle = PLAYER_COLOR;
-    oc.lineWidth = 1.7;
-    oc.beginPath();
-    arms.forEach(function(a) { oc.moveTo(a[0], a[1]); oc.lineTo(a[2], a[3]); });
-    oc.stroke();
-    oc.restore();
-  }
+  // The SOI cursor is NOT drawn here — it's #soi-cursor, its own element (paintCursor). Slewing it
+  // would otherwise force this whole function per frame just to shift a 24px mark.
 }
 
 // Drives the click-flash fade between telemetry frames (which only arrive ~10 Hz).
@@ -555,6 +540,7 @@ function clearViewState() {
   if (threatTimer) { clearInterval(threatTimer); threatTimer = null; }   // stop the missile-flash loop
   if (cursorTimer) { cancelAnimationFrame(cursorTimer); cursorTimer = null; }
   cursorOn = false; cursorPos = null; cursorVec = { x: 0, y: 0 };   // no cursor across a mission boundary
+  paintCursor();                                                    // ...and take it off screen
   mapWasValid = false;
   view.zoom = 1; view.panX = 0; view.panY = 0;   // next mission starts at full extent
   followPlayer = false;                           // follow resets for the next mission
