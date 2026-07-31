@@ -186,23 +186,35 @@ No per-layout cursor code — just the same "is my focused surface a MAP? then f
 
 ## Steps
 
-1. **Server + binds** — cursor vector + select counter **and** the `mapAct`/`mapActSeq` view-action
-   pair in `TelemetryServer` (broadcast every frame); the eight `DriveFree` binds + the `Poll()`
-   vector-assembly in `Keybinds.cs`; `serve_web.py` + `preview-mock.js` gain the rows and hand-drive
-   hooks (`window.__cursorVec`, `__cursorSelect`, `__mapAct`).
-2. **map.js cursor** — refactor the click body into `selectAt(px,py,pad)`; add the crosshair state,
-   the rAF integrator, clamp-to-image, and the `action:'cursor'` / select message handling; draw the
-   crosshair in `drawOverlay()`; hide it when not the focused SOI. (Follow/Zoom need nothing here —
-   they reuse the existing `toggle-follow`/`zoom-in`/`zoom-out` handlers.)
-3. **Shell forwarding** — `telemetry-source.js` posts the cursor vector, select edge, and view action
-   up (like `soi` / `soi-act`); `mfd.js` and `f35.js` forward them down to the focused map surface
-   only — the view action mapped onto the existing `mapSend`.
-4. **Verify in the `serve_web` harness** — drive the cursor by hand over the mock contacts, confirm
-   select fires `target.select` for the nearest unselected one, and that Follow/Zoom act on the
-   focused map; check full view, split pane, and an F-35 map portal. Then confirm in-game.
-5. **Axis source** — add the axis source to `Keybinds.cs` (capture-from-rest + `GetAxis` read +
-   invert/deadzone) folded into the same cursor vector, and the `/keybinds` axis UI (+ mock). Same
-   branch, built after the key path is proven so there's a working checkpoint first.
+1. **Server + binds — built.** Cursor vector + select counter and the `mapAct`/`mapActSeq`
+   view-action pair in `TelemetryServer` (broadcast every frame); the eight `DriveFree` binds + the
+   `Poll()` vector-assembly in `Keybinds.cs`; `serve_web.py` + `preview-mock.js` gained the rows and
+   hand-drive hooks (`window.__cursorVec`, `__cursorSelect`, `__mapAct`).
+2. **map.js cursor — built.** `selectAt(px,py,pad)` factored out of the click handler; crosshair
+   state, the rAF integrator, clamp-to-image, and the `cursor-focus`/`cursor`/`cursor-select` message
+   handling; the crosshair draws in `drawOverlay()`. Follow/Zoom needed no `map.js` change — they
+   reuse the existing `toggle-follow`/`zoom-in`/`zoom-out` handlers.
+3. **Shell forwarding — built.** `telemetry-source.js` posts `cursor`/`cursor-select`/`map-act` up
+   (gated on `focused`, same idempotent-counter shape as `soi`/`soi-act`); `mfd.js`/`f35.js` forward
+   down via `focusedMapWindow()`/`syncCursorFocus()` — the surface that's both SOI-focused AND
+   actually showing MAP. Two bugs surfaced and were fixed here:
+   - The integrator used the rAF callback's own timestamp; switched to `performance.now()` so it
+     doesn't depend on how a given embedder invokes `requestAnimationFrame`.
+   - A pane/portal reloading while it holds cursor focus (e.g. entering a split) dropped the
+     `cursor-focus` message — sent before the fresh document attached its listener, and a plain
+     re-run of the sync wouldn't resend it since the window reference survives the reload. Fixed by
+     resending directly on that pane/portal's own `load` event when it's still the eligible target.
+4. **Verify in the `serve_web` harness — done, with one caveat.** Confirmed end-to-end: SOI focus
+   reaching a full-view MAP shows a centered crosshair; Cursor Select and Follow/Zoom round-trip
+   with no console errors; the split-pane reload bug reproduced and the fix confirmed there and in
+   an F-35 portal. **Not confirmed here:** the actual rAF glide — this harness's Browser pane
+   doesn't composite frames when not displayed, so `requestAnimationFrame` never fires and the
+   crosshair never visibly moves in-harness. The integrate/clamp math is covered by
+   `tools/map-cursor.test.js` instead. **Needs a real in-game/browser check for the visual motion**
+   before calling this done.
+5. **Axis source — not started.** Add the axis source to `Keybinds.cs` (capture-from-rest +
+   `GetAxis` read + invert/deadzone) folded into the same cursor vector, and the `/keybinds` axis UI
+   (+ mock). Same branch, built after the key path is proven so there's a working checkpoint first.
 
 ## Open questions / gaps
 
