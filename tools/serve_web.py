@@ -202,6 +202,30 @@ KEYBINDS = [
     {"id": "soi-select", "section": "SOI", "label": "Select",
      "description": "Press the label the cursor is on, as if you had clicked that key.",
      "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cursor-up", "section": "MAP", "label": "Cursor Up",
+     "description": "Move the map cursor up. Only acts while a MAP display is focused.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cursor-down", "section": "MAP", "label": "Cursor Down",
+     "description": "Move the map cursor down. Only acts while a MAP display is focused.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cursor-left", "section": "MAP", "label": "Cursor Left",
+     "description": "Move the map cursor left. Only acts while a MAP display is focused.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cursor-right", "section": "MAP", "label": "Cursor Right",
+     "description": "Move the map cursor right. Only acts while a MAP display is focused.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cursor-select", "section": "MAP", "label": "Cursor Select",
+     "description": "Select the contact under the map cursor. Only acts while a MAP display is focused.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "map-follow", "section": "MAP", "label": "Follow",
+     "description": "Toggle FLW on the focused MAP display.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "map-zoom-in", "section": "MAP", "label": "Zoom In",
+     "description": "Zoom in on the focused MAP display.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "map-zoom-out", "section": "MAP", "label": "Zoom Out",
+     "description": "Zoom out on the focused MAP display.",
+     "key": "", "joyButton": -1, "joyNum": 0},
 ]
 KB_STATE = {"capturing": None, "armed_at": 0.0}
 
@@ -220,7 +244,11 @@ def _keybinds_config():
              "SOI": "One display at a time is the sensor of interest — it rings itself in white, and "
                     "these keys drive it. Nothing is focused until you press SOI Next or Prev; from "
                     "there they cycle through the open displays. These are the only keys that work "
-                    "without an aircraft."}
+                    "without an aircraft.",
+             "MAP": "Act on the focused display only when it is showing MAP. Cursor Up/Down/Left/Right "
+                    "move a crosshair over the map; Cursor Select picks the contact under it, same as a "
+                    "click or tap. Follow / Zoom In / Zoom Out are direct binds for what the bezel's "
+                    "FLW and Z+/Z- keys already do."}
     return json.dumps({"binds": KEYBINDS, "notes": notes,
                        "capturing": KB_STATE["capturing"]}).encode("utf-8")
 

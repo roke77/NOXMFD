@@ -196,6 +196,61 @@ namespace NOXMFD
             }
         }
 
+        // ── MAP cursor (docs/map-cursor.md) ──────────────────────────────────────
+        // A velocity, not a position: the plugin only says which way the cursor should move this
+        // frame ([-1,1] per axis — held direction keys give ±1, an axis gives its analog deflection),
+        // and the focused MAP integrates it locally against real elapsed time. That's what lets a
+        // digital key and an analog axis drive the exact same field, and what avoids trying to
+        // animate smooth motion over a 10 Hz transport. Only meaningful while the SOI focus is a MAP;
+        // otherwise the map that would read it isn't there to read it.
+        private static float _cursorX, _cursorY;
+        internal static float CursorX => Volatile.Read(ref _cursorX);
+        internal static float CursorY => Volatile.Read(ref _cursorY);
+
+        internal static void SetCursorVector(float x, float y)
+        {
+            lock (_soiLock)
+            {
+                if (_cursorX == x && _cursorY == y) return;   // steady hold — nothing to ship
+                Volatile.Write(ref _cursorX, x);
+                Volatile.Write(ref _cursorY, y);
+                Interlocked.Increment(ref _soiVersion);
+            }
+        }
+
+        // Cursor Select: a discrete press, same idempotent-counter shape as SoiAction/SoiSeq — the
+        // map acts when this changes, not on any particular value.
+        private static long _cursorSelSeq;
+        internal static long CursorSelSeq => Interlocked.Read(ref _cursorSelSeq);
+
+        internal static void CursorSelect()
+        {
+            lock (_soiLock)
+            {
+                Interlocked.Increment(ref _cursorSelSeq);
+                Interlocked.Increment(ref _soiVersion);
+            }
+        }
+
+        // MAP view actions (Follow / Zoom In / Zoom Out) — binds for what the bezel's FLW/Z+/Z- keys
+        // already do. Same idempotent-counter shape again: the focused map's mfd.js/f35.js forwarding
+        // reads mapAct only when mapActSeq changes, then maps the string straight onto the existing
+        // toggle-follow/zoom-in/zoom-out postMessage it already sends for those bezel keys.
+        private static long   _mapActSeq;
+        private static string _mapAct = string.Empty;
+        internal static long   MapActSeq => Interlocked.Read(ref _mapActSeq);
+        internal static string MapAct    => Volatile.Read(ref _mapAct);
+
+        internal static void MapAction(string act)
+        {
+            lock (_soiLock)
+            {
+                Volatile.Write(ref _mapAct, act);
+                Interlocked.Increment(ref _mapActSeq);
+                Interlocked.Increment(ref _soiVersion);
+            }
+        }
+
         // A display drops. If it was the focused one, focus clears — it does NOT move to another
         // display on its own. SOI is opt-in: the ring only ever appears once the pilot presses a SOI
         // key (SoiCycle from empty), so it must never re-appear on a display they didn't pick. A
@@ -1476,9 +1531,14 @@ namespace NOXMFD
 
         // SOI's slice of a frame. Shared by the real payload and the no-mission ping, because a display
         // is focusable and drivable at the main menu, where the ping is the only frame there is.
+        // cursorX/Y/cursorSelSeq/mapAct/mapActSeq are docs/map-cursor.md's MAP-only fields — sent
+        // here too rather than a second message, since they ride the same version-gated frame cache.
         private static string SoiJson() => string.Format(CultureInfo.InvariantCulture,
-            "\"soiTarget\":\"{0}\",\"soiPane\":{1},\"soiSeq\":{2},\"soiAct\":\"{3}\"",
-            EscapeJson(SoiTarget), SoiTargetPane, SoiSeq, EscapeJson(SoiAct));
+            "\"soiTarget\":\"{0}\",\"soiPane\":{1},\"soiSeq\":{2},\"soiAct\":\"{3}\"," +
+            "\"cursorX\":{4:0.000},\"cursorY\":{5:0.000},\"cursorSelSeq\":{6}," +
+            "\"mapAct\":\"{7}\",\"mapActSeq\":{8}",
+            EscapeJson(SoiTarget), SoiTargetPane, SoiSeq, EscapeJson(SoiAct),
+            CursorX, CursorY, CursorSelSeq, EscapeJson(MapAct), MapActSeq);
 
         private static string EscapeJson(string s) =>
             s.Replace("\\", "\\\\").Replace("\"", "\\\"");

@@ -83,6 +83,10 @@ namespace NOXMFD
         private static BindDef? _capturing;
         internal static string? CapturingId => _capturing?.Id;
 
+        // The four MAP cursor direction binds, kept by reference so Poll() can read their ActiveNow
+        // directly and fold them into one cursor vector (see the MAP Keybinds comment in Bind()).
+        private static BindDef? _cursorUp, _cursorDown, _cursorLeft, _cursorRight;
+
         // Called once from Plugin.Awake. Section/key names are the .cfg identity — existing user configs
         // carry over. Descriptions surface as row tooltips on the /keybinds page.
         public static void Bind(ConfigFile config)
@@ -141,26 +145,54 @@ namespace NOXMFD
                 "Press the label the cursor is on, as if you had clicked that key.",
                 () => TelemetryServer.SoiAction("select"));
 
+            // MAP binds — act on the focused MAP display, so DefFree like SOI. Docs/map-cursor.md.
+            // Cursor Up/Down/Left/Right are HELD (a velocity, not a one-shot action) and don't fit the
+            // one-DriveFree-call-per-press shape the other binds use: Poll() reads their ActiveNow
+            // directly (via the references captured below) and folds all four into one cursor vector
+            // call, so their DriveFree here is intentionally a no-op — only Edge/held-vs-tap and the
+            // config entries matter for them.
+            const string map = "MAP Keybinds";
+            _cursorUp    = DefFree(config, "cursor-up", map, "CursorUp", "Cursor Up", edge: false,
+                "Move the map cursor up. Only acts while a MAP display is focused.", () => { });
+            _cursorDown  = DefFree(config, "cursor-down", map, "CursorDown", "Cursor Down", edge: false,
+                "Move the map cursor down. Only acts while a MAP display is focused.", () => { });
+            _cursorLeft  = DefFree(config, "cursor-left", map, "CursorLeft", "Cursor Left", edge: false,
+                "Move the map cursor left. Only acts while a MAP display is focused.", () => { });
+            _cursorRight = DefFree(config, "cursor-right", map, "CursorRight", "Cursor Right", edge: false,
+                "Move the map cursor right. Only acts while a MAP display is focused.", () => { });
+            DefFree(config, "cursor-select", map, "CursorSelect", "Cursor Select", edge: true,
+                "Select the contact under the map cursor. Only acts while a MAP display is focused.",
+                () => TelemetryServer.CursorSelect());
+            DefFree(config, "map-follow", map, "MapFollow", "Follow", edge: true,
+                "Toggle FLW on the focused MAP display.",
+                () => TelemetryServer.MapAction("toggle-follow"));
+            DefFree(config, "map-zoom-in", map, "MapZoomIn", "Zoom In", edge: true,
+                "Zoom in on the focused MAP display.",
+                () => TelemetryServer.MapAction("zoom-in"));
+            DefFree(config, "map-zoom-out", map, "MapZoomOut", "Zoom Out", edge: true,
+                "Zoom out on the focused MAP display.",
+                () => TelemetryServer.MapAction("zoom-out"));
+
             foreach (var b in _binds)
                 Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value}, joy={b.JoyEntry.Value} (stick {b.JoyNumEntry.Value}).");
         }
 
         // Registers one functionality: binds its two config entries (keyboard + joystick, both hidden
         // from the F1 menu — the /keybinds page is the UI) and adds the registry row.
-        private static void Def(ConfigFile config, string id, string section, string key, string label,
+        private static BindDef Def(ConfigFile config, string id, string section, string key, string label,
                                 bool edge, string description, Action<Aircraft> drive)
             => Add(config, id, section, key, label, edge, description, drive, null);
 
         // A bind that acts on the mod rather than on the aeroplane, so it needs no aircraft and works
         // at the main menu. Same row on the page — the difference is only which Poll() pass runs it.
-        private static void DefFree(ConfigFile config, string id, string section, string key, string label,
+        private static BindDef DefFree(ConfigFile config, string id, string section, string key, string label,
                                     bool edge, string description, Action drive)
             => Add(config, id, section, key, label, edge, description, null, drive);
 
-        private static void Add(ConfigFile config, string id, string section, string key, string label,
+        private static BindDef Add(ConfigFile config, string id, string section, string key, string label,
                                 bool edge, string description, Action<Aircraft>? drive, Action? driveFree)
         {
-            _binds.Add(new BindDef
+            var b = new BindDef
             {
                 Id = id, Section = section, Label = label, Description = description, Edge = edge,
                 Drive = drive, DriveFree = driveFree,
@@ -170,7 +202,9 @@ namespace NOXMFD
                     new ConfigDescription("Joystick/HOTAS button (Rewired index, -1 = off): " + description, null, Hidden())),
                 JoyNumEntry = config.Bind(section, key + "JoystickNumber", 0,
                     new ConfigDescription("Which joystick the button index refers to (0 = any; pinned to the captured device).", null, Hidden())),
-            });
+            };
+            _binds.Add(b);
+            return b;
         }
 
         // Keybind entries persist in the .cfg but never show in the F1 menu — the page owns the UI.
@@ -185,6 +219,7 @@ namespace NOXMFD
             "Landing Gear Keybinds"   => "GEAR",
             "Weapon Keybinds"         => "WEAPONS",
             "SOI Keybinds"            => "SOI",
+            "MAP Keybinds"            => "MAP",
             _ => section,
         };
 
@@ -200,6 +235,11 @@ namespace NOXMFD
                 "One display at a time is the sensor of interest — it rings itself in white, and these " +
                 "keys drive it. Nothing is focused until you press SOI Next or Prev; from there they " +
                 "cycle through the open displays. These are the only keys that work without an aircraft.",
+            "MAP Keybinds" =>
+                "Act on the focused display only when it is showing MAP. Cursor Up/Down/Left/Right move " +
+                "a crosshair over the map; Cursor Select picks the contact under it, same as a click or " +
+                "tap. Follow / Zoom In / Zoom Out are direct binds for what the bezel's FLW and Z+/Z- " +
+                "keys already do.",
             _ => null,
         };
 
@@ -312,6 +352,17 @@ namespace NOXMFD
                 b.ActiveNow = Active(b);
                 any |= b.ActiveNow;
             }
+
+            // MAP cursor vector: assembled every frame, even an idle one, so releasing the last
+            // direction key still reports (0,0) — the "nothing active" return below is only about
+            // skipping the rest of Poll(), not about the cursor. SetCursorVector no-ops on repeat.
+            float cx = 0, cy = 0;
+            if (_cursorLeft!.ActiveNow)  cx -= 1;
+            if (_cursorRight!.ActiveNow) cx += 1;
+            if (_cursorUp!.ActiveNow)    cy -= 1;
+            if (_cursorDown!.ActiveNow)  cy += 1;
+            TelemetryServer.SetCursorVector(cx, cy);
+
             if (!any) return;   // common case — nothing this frame
 
             // Aircraft-free binds first (SOI): they drive the mod's own displays, so they have to work
