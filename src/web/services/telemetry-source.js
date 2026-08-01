@@ -68,6 +68,12 @@ export class TelemetrySource {
     this._soiFocused = null;            // null = never reported; forces the first post either way
     this._soiPane = -1;                 // which of this instance's surfaces is focused (-1 = none)
     this._soiSeq = null;                // null = the first frame's counter is a starting point, not a press
+    // MAP cursor (docs/map-cursor.md) — same idempotent-counter idea as soiSeq/soiAct, plus the
+    // continuous vector tracked every frame (see the justFocused note in _onMessage for why).
+    this._cursorX = 0;
+    this._cursorY = 0;
+    this._cursorSelSeq = null;
+    this._mapActSeq = null;
   }
 
   connect() {
@@ -83,6 +89,11 @@ export class TelemetrySource {
       // on every hello, including an SSE reconnect — the server assigns a fresh connection (pane
       // count back to 1) each time, so the shell must re-report, and this is its cue.
       this._postUp({ type: 'soi-cid', cid: this._cid });
+    });
+    // The MAP cursor rides its own event at a much higher rate than the telemetry frame
+    // (docs/map-cursor.md) — a slewed axis is continuous, so latency here is felt directly.
+    es.addEventListener('cursor', (e) => {
+      try { this._onCursor(JSON.parse(e.data)); } catch (err) { /* malformed — skip this one */ }
     });
     es.onmessage = (e) => this._onMessage(e);
     es.onerror = () => {};   // EventSource auto-reconnects; the watchdog decides when to flag DISCONNECTED
@@ -106,6 +117,34 @@ export class TelemetrySource {
     if (window.parent !== window) window.parent.postMessage(Object.assign({ mfd: true }, msg), '*');
   }
 
+  // The MAP cursor's own SSE event (docs/map-cursor.md) — arrives far more often than a telemetry
+  // frame, and carries only the cursor. Focus state comes from the last frame (this._soiFocused):
+  // focus changes are rare and discrete, so they can keep riding the slow channel.
+  //
+  // The velocity is tracked REGARDLESS of focus so it is never stale on a regain; the presses use
+  // the same idempotent-counter shape as soiSeq — act only when the counter CHANGES, and treat the
+  // first one seen as a baseline, since presses made before this display connected are history.
+  _onCursor(c) {
+    this._lastMsgAt = performance.now();
+    const x = typeof c.x === 'number' ? c.x : 0;
+    const y = typeof c.y === 'number' ? c.y : 0;
+    const changed = x !== this._cursorX || y !== this._cursorY;
+    this._cursorX = x; this._cursorY = y;
+    const pane = this._soiPane;
+    if (this._soiFocused && changed) this._postUp({ type: 'cursor', x, y, pane });
+
+    if (typeof c.selSeq === 'number' && c.selSeq !== this._cursorSelSeq) {
+      const first = this._cursorSelSeq === null;
+      this._cursorSelSeq = c.selSeq;
+      if (!first && this._soiFocused) this._postUp({ type: 'cursor-select', pane });
+    }
+    if (typeof c.actSeq === 'number' && c.actSeq !== this._mapActSeq) {
+      const first = this._mapActSeq === null;
+      this._mapActSeq = c.actSeq;
+      if (!first && this._soiFocused && c.act) this._postUp({ type: 'map-act', act: c.act, pane });
+    }
+  }
+
   _onMessage(e) {
     this._lastMsgAt = performance.now();
     const d = JSON.parse(e.data);
@@ -117,10 +156,15 @@ export class TelemetrySource {
     // rebuilt ten times a second to say the same thing; pane travels so it can ring the right pane.
     const focused = !!d.soiTarget && d.soiTarget === this._cid;
     const pane = focused && typeof d.soiPane === 'number' ? d.soiPane : -1;
+    const justFocused = focused && !this._soiFocused;
     if (focused !== this._soiFocused || pane !== this._soiPane) {
       this._soiFocused = focused;
       this._soiPane = pane;
       this._postUp({ type: 'soi', focused, pane });
+      // map.js zeroes its own cursor when it loses focus, so a regain has to resend the vector even
+      // if it is unchanged since this display was last focused — otherwise the crosshair sits still
+      // under a already-deflected stick until the pilot happens to move it.
+      if (justFocused) this._postUp({ type: 'cursor', x: this._cursorX, y: this._cursorY, pane });
     }
 
     // A SOI key press. The counter is what makes this safe to broadcast: act only when it CHANGES,

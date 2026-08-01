@@ -2,6 +2,18 @@
    Colors from theme.css tokens only. */
 
 html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this is a full page */
+/* Match the thin overlay scrollbar a touch device draws, not the desktop default's chunky bar with
+   its light track: a slim grey thumb on a transparent track. scrollbar-* covers Firefox + the
+   standard; the ::-webkit rules below cover Chrome / Edge / Safari. Same treatment as BDF's/TGT's
+   list — this page scrolls as a whole (html/body above), so the rule targets that instead of an
+   inner panel. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
+}
+html::-webkit-scrollbar { width: 6px; height: 6px; }
+html::-webkit-scrollbar-track { background: transparent; }
+html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
 
 .kb-panel {
   max-width: 720px;
@@ -110,6 +122,49 @@ html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this
 }
 .kb-row:hover .kb-clear.bound { visibility: visible; }
 .kb-clear:hover { color: var(--no-red); }
+
+/* Axis-only rows' invert toggle (docs/map-cursor.md) — always visible (not hover-only like
+   kb-clear): unlike a binding, whether it's flipped is state worth seeing at a glance. */
+.kb-invert {
+  border: 1px solid var(--no-green-dark);
+  background: none;
+  color: var(--no-green-dark);
+  font-family: var(--no-font);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+.kb-invert:hover { border-color: var(--no-green-dim); color: var(--no-green-dim); }
+.kb-invert.on    { border-color: var(--no-green); color: var(--no-green); }
+
+/* The one plain on/off setting (InputWhenGameUnfocused) — sits above the bind table since it has no
+   key/joy/axis source of its own. Same row shape as .kb-row (name+desc left, control right) but its
+   own class: it's one fixed row, not part of the repeating grid the table shares with its header. */
+.kb-setting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 14px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--no-panel-border);
+}
+.kb-setting-text { flex: 1; }
+.kb-toggle {
+  flex: none;
+  min-width: 64px;
+  padding: 6px 10px;
+  border: 1px solid var(--no-green-dark);
+  background: none;
+  color: var(--no-green-dark);
+  font-family: var(--no-font);
+  font-size: 12px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.kb-toggle:hover { border-color: var(--no-green-dim); color: var(--no-green-dim); }
+.kb-toggle.on    { border-color: var(--no-amber); color: var(--no-amber); }
 
 #kb-empty { display: none; }
 .kb-panel.unavailable .kb-head,

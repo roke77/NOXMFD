@@ -54,6 +54,15 @@ namespace NOXMFD
                 { "keybind.arm-joy",    e => Log("arm-joy",    e.bind, Keybinds.ArmJoyCapture(e.bind)) },
                 { "keybind.cancel-joy", e => Keybinds.CancelJoyCapture() },
                 { "keybind.clear-joy",  e => Log("clear-joy",  e.bind, Keybinds.ClearJoyBind(e.bind)) },
+                // Analog axis capture/clear/invert (docs/map-cursor.md) — the MAP cursor's Horizontal/
+                // Vertical rows only; same arm/cancel/clear shape as the joystick-button commands above.
+                { "keybind.arm-axis",       e => Log("arm-axis",       e.bind, Keybinds.ArmAxisCapture(e.bind)) },
+                { "keybind.cancel-axis",    e => Keybinds.CancelAxisCapture() },
+                { "keybind.clear-axis",     e => Log("clear-axis",     e.bind, Keybinds.ClearAxisBind(e.bind)) },
+                { "keybind.set-axis-invert", e => Log("set-axis-invert", e.bind, Keybinds.SetAxisInvert(e.bind, e.on)) },
+                // Input-while-unfocused toggle — the /keybinds page's first entry, not a bind (no
+                // key/joy/axis source of its own).
+                { "keybind.set-bg-input", e => Keybinds.SetBackgroundInput(e.on) },
                 // SOI focus. These will get HOTAS binds of their own; as commands they are how focus
                 // is driven (and tested) from a browser, with no controller and no aircraft.
                 { "soi.next",           e => TelemetryServer.SoiCycle(1) },

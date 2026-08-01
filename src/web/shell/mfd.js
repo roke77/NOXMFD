@@ -452,6 +452,8 @@ function renderSplitLabels() {
   renderPaneMainPageInd();   // main-prev/next (mfdButton) calls renderSplitLabels directly, not
                              // refreshFollowIndicator, so the chip needs its own call here too.
   renderSoiCursor();         // same reason: the labels this just rebuilt carry the cursor mark
+  markFollowLabels();        // ...and the FLW label carries the follow state
+  syncCursorFocus();         // a pane may have paged onto/off MAP under the focused surface
 }
 
 // Send a map action (toggle-follow / zoom-in / zoom-out) to a single pane's map iframe.
@@ -850,6 +852,13 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'bdf')  forwardBdfToPanes();
     else if (page === 'pal')  forwardPalToPanes();
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
+    // docs/map-cursor.md: a fresh document means a fresh message listener, so any earlier
+    // cursor-focus post (sent the moment this pane's src changed, before its script had attached
+    // one) was silently dropped — a straight re-run of syncCursorFocus() wouldn't resend it either,
+    // since contentWindow's identity survives the reload and the target-unchanged check would no-op.
+    // Resend directly, bypassing that dedup, whenever this freshly-loaded pane is the one eligible.
+    if (page === 'map' && focusedMapWindow() === iframe.contentWindow)
+      iframe.contentWindow.postMessage({ mfd: true, action: 'cursor-focus', on: true }, '*');
   });
 });
 
@@ -867,18 +876,18 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'pal') { forwardPalToFrame(); }
 });
 
-// Top-right indicator stack (PINNED + FOLLOW). pinnedPage tracks which page (if any)
-// is currently pinned; followOn mirrors the map iframe's follow state (broadcast via
-// postMessage). indicatorOrder records the chronological order indicators were turned
-// on — the first activated stays at the right edge and later arrivals stack to its
-// left, matching how chips render with flex-direction:row-reverse on #mfd-indicators.
+// Top-right indicator stack (PINNED). pinnedPage tracks which page (if any) is currently pinned.
+// indicatorOrder records the chronological order indicators were turned on — the first activated
+// stays at the right edge and later arrivals stack to its left, matching how chips render with
+// flex-direction:row-reverse on #mfd-indicators. (FOLLOW was once a chip here too; it now lights
+// its own FLW label instead — markFollowLabels.)
 const indicatorsEl = document.getElementById('mfd-indicators');
 let pinnedPage    = null;
+// Map follow state, mirrored from the map iframe(s) via postMessage: one for the full-view map,
+// and one per pane in a split, since each MAP pane follows independently. Both drive the FLW label.
 let followOn      = false;
-// Per-pane map follow state for split mode — each MAP pane's iframe broadcasts its own
-// follow. The FOLLOW chip shows whenever a currently-visible MAP pane is following.
 let paneFollowOn  = [false, false];
-let indicatorOrder = [];   // subset of ['pinned','follow'] in activation order
+let indicatorOrder = [];   // ['pinned'] — kept a list, since the stack is built to hold more
 // Last non-pinned page we left to jump to pinnedPage via SWAP. Lets the second SWAP
 // press return there. Cleared whenever the pin itself changes (re-pin or unpin) since
 // the partner relationship is tied to the current pin.
@@ -899,30 +908,38 @@ function clearPin() {
 
 function indicatorVisible(name) {
   // PINNED tracks the pinned page in whichever context owns PIN: the top-right pane in split
-  // mode, the single stack in full view.
+  // mode, the single stack in full view. (FOLLOW used to live here too; it is now shown on the
+  // FLW label itself — see markFollowLabels.)
   if (name === 'pinned') {
     return pinnedPage !== null &&
       (splitMode ? panePages[topRightPane()] === pinnedPage : currentPage === pinnedPage);
   }
-  // Shell-stack FOLLOW is single-mode only (one map fills the screen). Split mode renders
-  // a FOLLOW chip per pane instead — see renderPaneFollow().
-  if (name === 'follow') return !splitMode && currentPage === 'map' && followOn;
   return false;
 }
-// Paint a FOLLOW chip in the top-right of each pane that's showing a following MAP. Split
-// mode only; in single mode both per-pane boxes are cleared (the shell stack handles it).
-function renderPaneFollow() {
-  [0, 1].forEach(function(i) {
-    const box = document.getElementById(i === 0 ? 'follow-top' : 'follow-bot');
-    const on  = splitMode && panePages[i] === 'map' && paneFollowOn[i];
-    box.innerHTML = on ? '<div class="mfd-indicator">FOLLOW</div>' : '';
-    box.classList.toggle('show', on);
+
+// FOLLOW is shown by lighting the FLW label in the engaged amber, rather than by a separate chip in
+// the corner: the state belongs to the control that sets it, and the F-35 already reads that way
+// (.nav-item.on there, the same amber outline .overlay-item.on gives here). It also scales to a
+// split for free — each pane's own FLW carries its own pane's state, where the corner chips needed
+// a per-pane box and a set of anchoring rules to say the same thing.
+//
+// Toggles the class in place instead of re-rendering: the labels are rebuilt often (page changes,
+// loadout ticks), and this is called from those same paths.
+function markFollowLabels() {
+  ['left', 'right'].forEach(function(side) {
+    (keyBanks[side] || []).forEach(function(k) {
+      if (k.dataset.action !== 'flw') return;
+      // In a split each pane's FLW reports its own pane; in full view there is one map.
+      const on = splitMode ? !!paneFollowOn[k.dataset.pane === 'bot' ? 1 : 0] : followOn;
+      const el = overlayEl.querySelector('.overlay-item[data-key="' + k.dataset.pos + '"]');
+      if (el) el.classList.toggle('on', on);
+    });
   });
 }
 // Paint a "PAGE x/y" chip in the bottom-right of each pane showing MAIN with more than one page
 // (mainPageSizes) — the split twin of WPN's #page-ind, but drawn on the shared overlay rather than
 // inside the /main iframe: MAIN's pagination is bezel/shell state, not anything the page itself
-// knows, so there's nothing to forward in. Split mode only, like renderPaneFollow.
+// knows, so there's nothing to forward in. Split mode only.
 function renderPaneMainPageInd() {
   const pages = mainPageSizes().length;
   [0, 1].forEach(function(i) {
@@ -932,15 +949,11 @@ function renderPaneMainPageInd() {
     box.classList.toggle('show', on);
   });
 }
-// Recompute both FOLLOW surfaces: the single-mode shell-stack chip and the split-mode
-// per-pane chips. Called whenever follow state, pane pages, or split mode change.
+// Re-apply follow state to the FLW label(s). Called whenever follow state, pane pages, or split
+// mode change — the name is kept because those call sites all mean "follow may have changed".
 function refreshFollowIndicator() {
-  const single = !splitMode && currentPage === 'map' && followOn;
-  const has = indicatorOrder.indexOf('follow') !== -1;
-  if (single && !has) indicatorOrder.push('follow');
-  else if (!single && has) indicatorOrder = indicatorOrder.filter(function(x) { return x !== 'follow'; });
+  markFollowLabels();
   renderIndicators();
-  renderPaneFollow();
   renderPaneMainPageInd();
 }
 
@@ -950,7 +963,7 @@ function renderIndicators() {
     if (!indicatorVisible(name)) return;
     const el = document.createElement('div');
     el.className = 'mfd-indicator';
-    el.textContent = name === 'pinned' ? 'PINNED' : 'FOLLOW';
+    el.textContent = 'PINNED';
     indicatorsEl.appendChild(el);
   });
 }
@@ -1146,6 +1159,7 @@ function showPage(name) {
   // leaving MAP must drop it. It renders the full indicator stack (incl. PINNED) internally.
   refreshFollowIndicator();
   renderSoiCursor();   // the labels were just rebuilt; re-mark the cursored one (and clamp it)
+  syncCursorFocus();   // full view just navigated onto/off MAP — the focused surface may be it
 }
 
 // The map iframe broadcasts status + loadout + cm via postMessage; mirror onto the
@@ -1179,8 +1193,22 @@ window.addEventListener('message', function(e) {
     soiPane = m.focused ? (typeof m.pane === 'number' ? m.pane : 0) : -1;
     if (soiPane !== prevPane) setSoiCursor(-1);
     positionSoiRing();
+    syncCursorFocus();   // the focused surface itself changed — re-evaluate who owns the map cursor
   } else if (m.type === 'soi-act') {
     soiAct(m.act);
+  } else if (m.type === 'cursor') {
+    // docs/map-cursor.md — forward straight to whichever iframe is both the focused surface AND
+    // currently showing MAP (focusedMapWindow returns null otherwise, so this is a safe no-op).
+    const w = focusedMapWindow();
+    if (w) w.postMessage({ mfd: true, action: 'cursor', x: m.x || 0, y: m.y || 0 }, '*');
+  } else if (m.type === 'cursor-select') {
+    const w = focusedMapWindow();
+    if (w) w.postMessage({ mfd: true, action: 'cursor-select' }, '*');
+  } else if (m.type === 'map-act') {
+    // Reuse the existing mapSend/paneMapSend — Follow/Zoom act exactly like their bezel-key
+    // counterparts, on whichever surface is focused (soiPane, already updated by the 'soi' message
+    // this same postMessage batch always delivers first).
+    if (soiPane >= 0) { if (splitMode) paneMapSend(soiPane, m.act); else mapSend(m.act); }
   } else if (m.type === 'loadout') {
     const prevSel = wpnData.selWeapon;
     wpnData = { items: m.items || [], selWeapon: m.selWeapon || null,
@@ -1438,6 +1466,28 @@ let myCid     = '';   // this instance's cid, for soi.panes reports (from the ta
 function reportPanes() {
   if (!myCid) return;
   sendCommand('soi.panes', { cid: myCid, n: splitMode ? 2 : 1 }).catch(function() {});
+}
+
+// ── MAP cursor forwarding (docs/map-cursor.md) ────────────────────────────────────────
+// The focused surface is drivable as a MAP cursor only while it's actually SHOWING map — the SOI
+// ring/bezel-key cursor above frames "the recess," but the map cursor needs the real content check
+// (a focused pane can page onto/off MAP without soiPane itself changing). null = nothing eligible.
+function focusedMapWindow() {
+  if (soiPane < 0) return null;
+  if (splitMode) return panePages[soiPane] === 'map' ? paneIframes[soiPane].contentWindow : null;
+  return currentPage === 'map' ? mapFrame.contentWindow : null;
+}
+
+// Tell the map iframe that just lost eligibility to drop its cursor, and the one that just gained
+// it to show one — called after anything that could change the answer (focus moves, page
+// navigation under the focused surface, split toggling). No-ops when the answer didn't change.
+let cursorFocusTarget = null;   // the iframe window currently holding cursor focus, or null
+function syncCursorFocus() {
+  const target = focusedMapWindow();
+  if (target === cursorFocusTarget) return;
+  if (cursorFocusTarget) cursorFocusTarget.postMessage({ mfd: true, action: 'cursor-focus', on: false }, '*');
+  if (target) target.postMessage({ mfd: true, action: 'cursor-focus', on: true }, '*');
+  cursorFocusTarget = target;
 }
 
 // Position the SOI ring over the focused surface: the whole recess in full view (the map iframe

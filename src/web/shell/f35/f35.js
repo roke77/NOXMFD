@@ -237,6 +237,13 @@
     function forwardToPage() {
       feedsFor(currentPage).forEach(forwardSlice);
       if (currentPage === 'wpn') { forwardWpnLayout(); forwardOrientation(); }
+      // docs/map-cursor.md: a fresh document means a fresh message listener, so an earlier
+      // cursor-focus post (sent the moment this portal's src changed, before its script had
+      // attached one) was silently dropped — and a plain re-run of syncCursorFocus() wouldn't
+      // resend it either, since frameWin()'s identity survives the reload. Resend directly,
+      // bypassing that dedup, whenever this freshly-loaded portal is the one eligible.
+      if (currentPage === 'map' && focusedMapWindow() === frameWin())
+        frameWin().postMessage({ mfd: true, action: 'cursor-focus', on: true }, '*');
     }
 
     // ── WPN ────────────────────────────────────────────────────────────────────────────
@@ -433,6 +440,9 @@
       // in-place one) and its enabled nav labels, in reading order, as the cursor's targets.
       page: function () { return currentPage; },
       navItems: function () { return [].slice.call(grid.querySelectorAll('.nav-item:not([disabled])')); },
+      // docs/map-cursor.md — this portal's frame window, but only while it's actually showing MAP
+      // (null otherwise), so the glass-level cursor forwarding can't target a non-map page.
+      mapWin: function () { return currentPage === 'map' ? frameWin() : null; },
       // Flex-grow tracks the span, so a merged portal takes exactly the two slots it owns and its
       // neighbours keep theirs. All four slots are the same width, so the arithmetic is just the
       // span — no wrapper elements, no percentages.
@@ -570,6 +580,7 @@
     if (soiPane !== prev) soiCursor = -1;
     renderSoiRing();
     renderSoiCursor();
+    syncCursorFocus();
   }
 
   // A SOI key press, applied to the focused portal. SELECT clicks the cursored label through its own
@@ -596,7 +607,28 @@
   }
 
   // A focused portal just rebuilt its nav grid (page change, WPN paging) — re-apply the cursor mark.
-  function onNavRendered(p) { if (p === focusedPortal()) renderSoiCursor(); }
+  function onNavRendered(p) {
+    if (p !== focusedPortal()) return;
+    renderSoiCursor();
+    syncCursorFocus();   // the focused portal may have paged onto/off MAP under it
+  }
+
+  // ── MAP cursor forwarding (docs/map-cursor.md) ────────────────────────────────────────
+  // Twin of the bezel's syncCursorFocus: tell the portal that just lost eligibility to drop its
+  // cursor, and the one that just gained it (focused AND showing MAP) to show one. null-safe no-op
+  // when the answer didn't change.
+  let cursorFocusTarget = null;
+  function focusedMapWindow() {
+    const fp = focusedPortal();
+    return fp ? fp.mapWin() : null;
+  }
+  function syncCursorFocus() {
+    const target = focusedMapWindow();
+    if (target === cursorFocusTarget) return;
+    if (cursorFocusTarget) cursorFocusTarget.postMessage({ mfd: true, action: 'cursor-focus', on: false }, '*');
+    if (target) target.postMessage({ mfd: true, action: 'cursor-focus', on: true }, '*');
+    cursorFocusTarget = target;
+  }
 
   window.addEventListener('message', function (e) {
     const m = e.data;
@@ -619,6 +651,23 @@
     if (m.type === 'soi-cid') { myCid = m.cid || ''; reportPanes(); return; }
     if (m.type === 'soi')     { onSoiFocus(m); return; }
     if (m.type === 'soi-act') { onSoiAct(m.act); return; }
+    if (m.type === 'cursor') {
+      const w = focusedMapWindow();
+      if (w) w.postMessage({ mfd: true, action: 'cursor', x: m.x || 0, y: m.y || 0 }, '*');
+      return;
+    }
+    if (m.type === 'cursor-select') {
+      const w = focusedMapWindow();
+      if (w) w.postMessage({ mfd: true, action: 'cursor-select' }, '*');
+      return;
+    }
+    if (m.type === 'map-act') {
+      // Same wire action the bezel forwards (toggle-follow/zoom-in/zoom-out) — no MAP_ACTIONS
+      // translation needed since the server already sends those exact strings.
+      const w = focusedMapWindow();
+      if (w) w.postMessage({ mfd: true, action: m.act }, '*');
+      return;
+    }
 
     slices[m.type] = m;   // cache every slice: the screen that wants it may not be up yet
     livePortals().forEach(function (p) { p.onSlice(m.type); });

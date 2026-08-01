@@ -104,7 +104,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **MAP** — full-screen tactical map with friendly/hostile units and your own position; click a unit to target it, FLW toggles follow, Z+/Z− zoom.
+- **MAP** — full-screen tactical map with friendly/hostile units and your own position; click a unit to target it, FLW toggles follow, Z+/Z− zoom. A HOTAS cursor can drive all of this without touching the screen — see [MAP cursor](#map-cursor) below.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
@@ -247,6 +247,15 @@ Multi-stick HOTAS setups are supported; each bind remembers which stick it came 
   active weapon is from the other class, the first press only switches — bringing up the
   right reticle — and the next press fires. The current gun and missile/bomb choices show
   as outlines on the WPN page.
+- **Follow / Zoom In / Zoom Out** — direct binds for what the bezel's FLW and Z+/Z− keys already
+  do on the focused MAP display.
+- **Cursor Up / Down / Left / Right / Select**, plus two HOTAS axis binds (horizontal/vertical) —
+  drive the [MAP cursor](#map-cursor) below.
+
+An **Input When Game Unfocused** toggle sits above the bind table (not a bind itself) — turn it on
+if you run the display in a browser on the same PC as the game, so your HOTAS stays live while
+that browser window has focus. Off by default; leave it off for a tablet or phone, where the game
+keeps focus anyway.
 
 <details>
 <summary>$\color{green}\textsf{Show screenshot}$</summary>
@@ -275,6 +284,13 @@ a SOI key. Five binds, on the **KEY** page:
 ![SOI-selected screen](docs/images/SOI2.png)
 
 </details>
+
+#### MAP cursor
+
+When a MAP display is the SOI, a cursor can move over the map itself and select targets — the same
+thing a mouse click or touch tap already does, but from the HOTAS, without touching the screen.
+Cursor Up/Down/Left/Right (or a bound analog axis) slews it, Cursor Select picks the contact
+underneath. It only acts on whichever display currently has both SOI focus and MAP open.
 
 ## Reporting & collaboration
 

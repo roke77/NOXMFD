@@ -27,6 +27,13 @@ namespace NOXMFD
             _autoSetupLan = autoSetupLan;
         }
 
+        // SSE cadences. The loop ticks at CursorTickMs (the MAP cursor's rate — a continuous analog
+        // signal, so latency here is felt directly as a heavy, lagging crosshair) and emits the
+        // telemetry frame every FrameEveryMs. 10 Hz for telemetry both during a mission and at the
+        // main menu, where SOI focus changes must still feel immediate.
+        private const int CursorTickMs = 16;    // ~60 Hz, but only ~60 bytes and only when it changes
+        private const int FrameEveryMs = 100;   // 10 Hz
+
         private static HttpListener?           _listener;
         private static Thread?                 _acceptThread;
         private static CancellationTokenSource _cts = new CancellationTokenSource();
@@ -193,6 +200,64 @@ namespace NOXMFD
                 Volatile.Write(ref _soiAct, act);
                 Interlocked.Increment(ref _soiSeq);
                 Interlocked.Increment(ref _soiVersion);   // rebuild the cached frame so the press ships
+            }
+        }
+
+        // ── MAP cursor (docs/map-cursor.md) ──────────────────────────────────────
+        // A velocity, not a position: the plugin only says which way the cursor should move this
+        // frame ([-1,1] per axis — held direction keys give ±1, an axis gives its analog deflection),
+        // and the focused MAP integrates it locally against real elapsed time. That's what lets a
+        // digital key and an analog axis drive the exact same field, and what avoids trying to
+        // animate smooth motion over a 10 Hz transport. Only meaningful while the SOI focus is a MAP;
+        // otherwise the map that would read it isn't there to read it.
+        private static float _cursorX, _cursorY;
+        internal static float CursorX => Volatile.Read(ref _cursorX);
+        internal static float CursorY => Volatile.Read(ref _cursorY);
+
+        // Quantized to 1% before comparing: an analog axis jitters in the last decimals even when the
+        // pilot is holding it still, and every distinct value would otherwise bump _soiVersion and
+        // force a full frame re-serialize on the next tick. 1% is far below what the eye can see in
+        // cursor speed, so this costs nothing visible and keeps a steady hold genuinely steady.
+        // None of the cursor writers touch _soiVersion: they ride their own SSE event (CursorJson),
+        // so invalidating the shared telemetry frame for them would re-serialize the whole snapshot
+        // for a value that frame no longer carries.
+        internal static void SetCursorVector(float x, float y)
+        {
+            x = (float)Math.Round(x, 2);
+            y = (float)Math.Round(y, 2);
+            lock (_soiLock)
+            {
+                if (_cursorX == x && _cursorY == y) return;   // steady hold — nothing to ship
+                Volatile.Write(ref _cursorX, x);
+                Volatile.Write(ref _cursorY, y);
+            }
+        }
+
+        // Cursor Select: a discrete press, same idempotent-counter shape as SoiAction/SoiSeq — the
+        // map acts when this changes, not on any particular value.
+        private static long _cursorSelSeq;
+        internal static long CursorSelSeq => Interlocked.Read(ref _cursorSelSeq);
+
+        internal static void CursorSelect()
+        {
+            Interlocked.Increment(ref _cursorSelSeq);
+        }
+
+        // MAP view actions (Follow / Zoom In / Zoom Out) — binds for what the bezel's FLW/Z+/Z- keys
+        // already do. Same idempotent-counter shape again: the focused map's mfd.js/f35.js forwarding
+        // reads mapAct only when mapActSeq changes, then maps the string straight onto the existing
+        // toggle-follow/zoom-in/zoom-out postMessage it already sends for those bezel keys.
+        private static long   _mapActSeq;
+        private static string _mapAct = string.Empty;
+        internal static long   MapActSeq => Interlocked.Read(ref _mapActSeq);
+        internal static string MapAct    => Volatile.Read(ref _mapAct);
+
+        internal static void MapAction(string act)
+        {
+            lock (_soiLock)
+            {
+                Volatile.Write(ref _mapAct, act);
+                Interlocked.Increment(ref _mapActSeq);
             }
         }
 
@@ -758,15 +823,27 @@ namespace NOXMFD
                 {
                     if (!first) sb.Append(',');
                     first = false;
-                    var key = b.KeyEntry.Value.MainKey;
                     sb.Append("{\"id\":\"").Append(EscapeJson(b.Id))
                       .Append("\",\"section\":\"").Append(EscapeJson(Keybinds.SectionTitle(b.Section)))
                       .Append("\",\"label\":\"").Append(EscapeJson(b.Label))
-                      .Append("\",\"description\":\"").Append(EscapeJson(b.Description))
-                      .Append("\",\"key\":\"").Append(key == UnityEngine.KeyCode.None ? string.Empty : EscapeJson(key.ToString()))
-                      .Append("\",\"joyButton\":").Append(b.JoyEntry.Value.ToString(CultureInfo.InvariantCulture))
-                      .Append(",\"joyNum\":").Append(b.JoyNumEntry.Value.ToString(CultureInfo.InvariantCulture))
-                      .Append('}');
+                      .Append("\",\"description\":\"").Append(EscapeJson(b.Description)).Append('"');
+                    // Digital source — absent for an axis-only bind (docs/map-cursor.md); the page
+                    // renders no key/joy cell for a row that has no key/joyButton field.
+                    if (b.KeyEntry != null)
+                    {
+                        var key = b.KeyEntry.Value.MainKey;
+                        sb.Append(",\"key\":\"").Append(key == UnityEngine.KeyCode.None ? string.Empty : EscapeJson(key.ToString()))
+                          .Append("\",\"joyButton\":").Append(b.JoyEntry!.Value.ToString(CultureInfo.InvariantCulture))
+                          .Append(",\"joyNum\":").Append(b.JoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture));
+                    }
+                    // Analog source — present only for the MAP cursor's axis-capable rows.
+                    if (b.AxisEntry != null)
+                    {
+                        sb.Append(",\"axis\":").Append(b.AxisEntry.Value.ToString(CultureInfo.InvariantCulture))
+                          .Append(",\"axisNum\":").Append(b.AxisJoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture))
+                          .Append(",\"axisInvert\":").Append(b.AxisInvertEntry!.Value ? "true" : "false");
+                    }
+                    sb.Append('}');
                 }
                 // Per-section notes (shared behaviour text under a section header), keyed by the
                 // display title the binds carry in "section".
@@ -785,7 +862,11 @@ namespace NOXMFD
                       .Append("\":\"").Append(EscapeJson(note)).Append('"');
                 }
                 string cap = Keybinds.CapturingId;
-                sb.Append("},\"capturing\":").Append(cap == null ? "null" : "\"" + EscapeJson(cap) + "\"").Append('}');
+                string capKind = Keybinds.CapturingKind;
+                sb.Append("},\"capturing\":").Append(cap == null ? "null" : "\"" + EscapeJson(cap) + "\"")
+                  .Append(",\"capturingKind\":").Append(capKind == null ? "null" : "\"" + EscapeJson(capKind) + "\"")
+                  .Append(",\"bgInput\":").Append(Keybinds.BackgroundInput ? "true" : "false")
+                  .Append('}');
 
                 byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
                 ctx.Response.StatusCode      = 200;
@@ -1225,21 +1306,35 @@ namespace NOXMFD
                     "event: hello\ndata: {\"cid\":\"" + EscapeJson(cid) + "\"}\n\n");
                 await ctx.Response.OutputStream.WriteAsync(hello, 0, hello.Length, ct).ConfigureAwait(false);
 
+                // The loop ticks at the CURSOR's rate and sends the telemetry frame every Nth tick, so
+                // the two cadences are independent: a slewed axis gets ~60 Hz of tiny updates while
+                // the expensive snapshot keeps its 10 Hz. lastCursor suppresses repeats, so a centred
+                // stick costs one comparison per tick and no traffic at all.
+                string lastCursor = string.Empty;
+                int sinceFrame = FrameEveryMs;   // send a frame immediately on connect
                 while (!ct.IsCancellationRequested)
                 {
-                    // Shared frame: serialized at most once per snapshot version, regardless of
-                    // how many clients are connected. Always send something — real data during a
-                    // mission, a ping otherwise.
-                    byte[] bytes = GetFrameBytes(out _);   // valid flag no longer gates the cadence — 10 Hz always
+                    if (sinceFrame >= FrameEveryMs)
+                    {
+                        // Shared frame: serialized at most once per snapshot version, regardless of
+                        // how many clients are connected. Always send something — real data during a
+                        // mission, a ping otherwise.
+                        byte[] bytes = GetFrameBytes(out _);
+                        await ctx.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct).ConfigureAwait(false);
+                        sinceFrame = 0;
+                    }
 
-                    await ctx.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct).ConfigureAwait(false);
+                    string cursor = CursorJson();
+                    if (!string.Equals(cursor, lastCursor, StringComparison.Ordinal))
+                    {
+                        lastCursor = cursor;
+                        byte[] cbytes = Encoding.UTF8.GetBytes("event: cursor\ndata: " + cursor + "\n\n");
+                        await ctx.Response.OutputStream.WriteAsync(cbytes, 0, cbytes.Length, ct).ConfigureAwait(false);
+                    }
                     ctx.Response.OutputStream.Flush();
 
-                    // 10 Hz always — during a mission for live telemetry, and at the main menu too so
-                    // SOI focus/cursor changes there feel immediate rather than lagging up to a second
-                    // behind the keypress. The menu frame is a tiny cached ping (GetFrameBytes only
-                    // re-serializes when SOI moves), so 10 Hz of it is near-free.
-                    await Task.Delay(100, ct).ConfigureAwait(false);
+                    await Task.Delay(CursorTickMs, ct).ConfigureAwait(false);
+                    sinceFrame += CursorTickMs;
                 }
             }
             catch (OperationCanceledException) { }
@@ -1479,6 +1574,18 @@ namespace NOXMFD
         private static string SoiJson() => string.Format(CultureInfo.InvariantCulture,
             "\"soiTarget\":\"{0}\",\"soiPane\":{1},\"soiSeq\":{2},\"soiAct\":\"{3}\"",
             EscapeJson(SoiTarget), SoiTargetPane, SoiSeq, EscapeJson(SoiAct));
+
+        // The MAP cursor's own payload (docs/map-cursor.md), sent as its OWN SSE event rather than in
+        // the telemetry frame above. A slewed axis is continuous and wants the lowest latency we can
+        // give it, but the telemetry frame is the most expensive thing we build — so pushing the
+        // frame faster to chase the cursor would re-serialize every contact, every RWR emitter and
+        // every loadout row dozens of times a second, and on a tablet over wifi the extra bulk costs
+        // more latency than the faster tick buys back. This is ~60 bytes: it can go out many times
+        // per telemetry frame and still be free. It is the ONLY place these fields travel — carrying
+        // them in both would let a cached (older) frame overwrite a fresher event.
+        private static string CursorJson() => string.Format(CultureInfo.InvariantCulture,
+            "{{\"x\":{0:0.00},\"y\":{1:0.00},\"selSeq\":{2},\"act\":\"{3}\",\"actSeq\":{4}}}",
+            CursorX, CursorY, CursorSelSeq, EscapeJson(MapAct), MapActSeq);
 
         private static string EscapeJson(string s) =>
             s.Replace("\\", "\\\\").Replace("\"", "\\\"");

@@ -173,10 +173,6 @@ KEYBINDS = [
     {"id": "jammer", "section": "COUNTERMEASURES", "label": "Jammer",
      "description": "Select + activate the radar jammer. HOLD to jam.",
      "key": "J", "joyButton": 3, "joyNum": 2},
-    {"id": "gear-up", "section": "GEAR", "label": "Gear Up",
-     "description": "Raise the landing gear.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "gear-down", "section": "GEAR", "label": "Gear Down",
-     "description": "Lower the landing gear.", "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "cycle-guns", "section": "WEAPONS", "label": "Cycle Guns",
      "description": "Select a gun.", "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "cycle-missiles", "section": "WEAPONS", "label": "Cycle Missiles",
@@ -188,6 +184,19 @@ KEYBINDS = [
      "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "weapon-release", "section": "WEAPONS", "label": "Weapon Release",
      "description": "Release your missile/bomb; HOLD to keep releasing. With a gun selected, the first press only switches to it — press again to release.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "gear-up", "section": "GEAR", "label": "Gear Up",
+     "description": "Raise the landing gear.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "gear-down", "section": "GEAR", "label": "Gear Down",
+     "description": "Lower the landing gear.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "map-follow", "section": "MAP", "label": "Follow",
+     "description": "Toggle FLW on the focused MAP display.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "map-zoom-in", "section": "MAP", "label": "Zoom In",
+     "description": "Zoom in on the focused MAP display.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "map-zoom-out", "section": "MAP", "label": "Zoom Out",
+     "description": "Zoom out on the focused MAP display.",
      "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "soi-next", "section": "SOI", "label": "SOI Next",
      "description": "Move focus to the next display.", "key": "", "joyButton": -1, "joyNum": 0},
@@ -202,27 +211,63 @@ KEYBINDS = [
     {"id": "soi-select", "section": "SOI", "label": "Select",
      "description": "Press the label the cursor is on, as if you had clicked that key.",
      "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cursor-up", "section": "CURSOR", "label": "Cursor Up",
+     "description": "Move the cursor up. Only acts while a display with a cursor is focused.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cursor-down", "section": "CURSOR", "label": "Cursor Down",
+     "description": "Move the cursor down. Only acts while a display with a cursor is focused.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cursor-left", "section": "CURSOR", "label": "Cursor Left",
+     "description": "Move the cursor left. Only acts while a display with a cursor is focused.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cursor-right", "section": "CURSOR", "label": "Cursor Right",
+     "description": "Move the cursor right. Only acts while a display with a cursor is focused.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cursor-select", "section": "CURSOR", "label": "Cursor Select",
+     "description": "Select whatever the cursor is on. Only acts while a display with a cursor is focused.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    # Axis-only (docs/map-cursor.md): no key/joyButton/joyNum fields at all — the real server omits
+    # them for an axis-capable bind too, and keybinds.js renders one wide cell instead of empty
+    # key/joy cells when a row has no "key" field.
+    {"id": "cursor-axis-h", "section": "CURSOR", "label": "Cursor Horizontal",
+     "description": "Analog axis (HOTAS mini-stick/hat) driving the cursor left/right — overrides "
+                     "Cursor Left/Right when deflected. Only acts while a display with a cursor "
+                     "is focused.",
+     "axis": -1, "axisNum": 0, "axisInvert": False},
+    {"id": "cursor-axis-v", "section": "CURSOR", "label": "Cursor Vertical",
+     "description": "Analog axis driving the cursor up/down — overrides Cursor Up/Down when "
+                     "deflected. Only acts while a display with a cursor is focused.",
+     "axis": -1, "axisNum": 0, "axisInvert": False},
 ]
-KB_STATE = {"capturing": None, "armed_at": 0.0}
+KB_STATE = {"capturing": None, "capturingKind": None, "armed_at": 0.0, "bgInput": False}
 
 
 def _keybinds_config():
-    # simulate the plugin capturing a stick button 1.5s after arming
+    # simulate the plugin capturing a stick button/axis 1.5s after arming
     if KB_STATE["capturing"] and time.monotonic() - KB_STATE["armed_at"] > 1.5:
         for b in KEYBINDS:
             if b["id"] == KB_STATE["capturing"]:
-                b["joyButton"] = 7
-                b["joyNum"] = 1
+                if KB_STATE["capturingKind"] == "axis":
+                    b["axis"], b["axisNum"] = 3, 1
+                else:
+                    b["joyButton"], b["joyNum"] = 7, 1
         KB_STATE["capturing"] = None
-    notes = {"WEAPONS": "Cycle keys select the last soft-selected weapon of their type, or the first "
-                        "in the list. Repeated presses cycle to the next one, skipping depleted "
-                        "weapons. Cycling to a different type leaves the current one soft-selected.",
+        KB_STATE["capturingKind"] = None
+    notes = {"MAP": "Follow / Zoom In / Zoom Out are direct binds for what the bezel's FLW and Z+/Z- "
+                    "keys already do on the focused MAP display.",
              "SOI": "One display at a time is the sensor of interest — it rings itself in white, and "
                     "these keys drive it. Nothing is focused until you press SOI Next or Prev; from "
-                    "there they cycle through the open displays. These are the only keys that work "
-                    "without an aircraft."}
+                    "there they cycle through the open displays.",
+             "CURSOR": "Moves a cursor over whichever focused display has one (MAP, for now) and "
+                       "selects what it's on. Cursor Horizontal/Vertical are the same movement as an "
+                       "analog HOTAS axis — bind either or both; a deflected axis overrides its two keys.",
+             "WEAPONS": "Cycle keys select the last soft-selected weapon of their type, or the first "
+                        "in the list. Repeated presses cycle to the next one, skipping depleted "
+                        "weapons. Cycling to a different type leaves the current one soft-selected."}
     return json.dumps({"binds": KEYBINDS, "notes": notes,
-                       "capturing": KB_STATE["capturing"]}).encode("utf-8")
+                       "capturing": KB_STATE["capturing"],
+                       "capturingKind": KB_STATE["capturingKind"],
+                       "bgInput": KB_STATE["bgInput"]}).encode("utf-8")
 
 
 def _keybinds_command(env):
@@ -232,12 +277,26 @@ def _keybinds_command(env):
         key = env.get("key", "")
         row["key"] = "" if key in ("", "None") else key
     elif cmd == "keybind.arm-joy" and row is not None:
-        KB_STATE.update(capturing=bind, armed_at=time.monotonic())
+        KB_STATE.update(capturing=bind, capturingKind="joy", armed_at=time.monotonic())
     elif cmd == "keybind.cancel-joy":
         KB_STATE["capturing"] = None
+        KB_STATE["capturingKind"] = None
     elif cmd == "keybind.clear-joy" and row is not None:
         row["joyButton"] = -1
         row["joyNum"] = 0
+    elif cmd == "keybind.arm-axis" and row is not None:
+        KB_STATE.update(capturing=bind, capturingKind="axis", armed_at=time.monotonic())
+    elif cmd == "keybind.cancel-axis":
+        KB_STATE["capturing"] = None
+        KB_STATE["capturingKind"] = None
+    elif cmd == "keybind.clear-axis" and row is not None:
+        row["axis"] = -1
+        row["axisNum"] = 0
+        row["axisInvert"] = False
+    elif cmd == "keybind.set-axis-invert" and row is not None:
+        row["axisInvert"] = bool(env.get("on", False))
+    elif cmd == "keybind.set-bg-input":
+        KB_STATE["bgInput"] = bool(env.get("on", False))
     else:
         return False
     return True

@@ -362,10 +362,23 @@
       // diamonds visibly pulse; ~6.7 Hz approximates the real 10 Hz stream (and keeps the
       // page's 2.5 s connection watchdog happy).
       const tick = () => { rwrTickFreshness(); mwTickApproach(); this._send(JSON.stringify(FRAME)); };
+      // The MAP cursor rides its own event at a much higher rate than the frame (docs/map-cursor.md).
+      // Mirrored here, repeat-suppressed exactly like the server, so the harness exercises the same
+      // path the game does rather than a shortcut that would hide an ordering bug.
+      let lastCursor = '';
+      const cursorTick = () => {
+        const c = JSON.stringify({ x: FRAME.cursorX, y: FRAME.cursorY,
+                                   selSeq: FRAME.cursorSelSeq, act: FRAME.mapAct, actSeq: FRAME.mapActSeq });
+        if (c === lastCursor) return;
+        lastCursor = c;
+        this._fire('cursor', c);
+      };
       setTimeout(() => {
         this._fire('hello', JSON.stringify({ cid }));
         tick();
+        cursorTick();
         this._timer = setInterval(tick, 150);
+        this._cursorTimer = setInterval(cursorTick, 16);
       }, 30);
     }
     addEventListener(type, fn) { (this._listeners[type] = this._listeners[type] || []).push(fn); }
@@ -376,7 +389,7 @@
     }
     _fire(type, data) { (this._listeners[type] || []).forEach(fn => fn({ data })); }
     _send(data) { if (this.onmessage) this.onmessage({ data }); }
-    close() { clearInterval(this._timer); }
+    close() { clearInterval(this._timer); clearInterval(this._cursorTimer); }
   }
   window.EventSource = MockEventSource;
 
@@ -394,6 +407,21 @@
   // Focus a surface: cid + which pane (0 = full view / top / left, 1 = the second pane). '' clears.
   window.__setSoiTarget = (cid, pane = 0) => { FRAME.soiTarget = cid || ''; FRAME.soiPane = cid ? pane : -1; };
   window.__soiPress = (act) => { FRAME.soiAct = act; FRAME.soiSeq = (FRAME.soiSeq || 0) + 1; };
+
+  // Drive the MAP cursor by hand (docs/map-cursor.md): no game, so nothing moves it or presses
+  // Cursor Select on its own. Same "present from frame 1" reasoning as the SOI fields above.
+  FRAME.cursorX      = FRAME.cursorX      || 0;
+  FRAME.cursorY      = FRAME.cursorY      || 0;
+  FRAME.cursorSelSeq = FRAME.cursorSelSeq || 0;
+  FRAME.mapAct       = FRAME.mapAct       || '';
+  FRAME.mapActSeq    = FRAME.mapActSeq    || 0;
+
+  // Set the cursor velocity, [-1,1] per axis — stands in for held direction keys or an axis.
+  window.__cursorVec = (x, y) => { FRAME.cursorX = x; FRAME.cursorY = y; };
+  // One Cursor Select press.
+  window.__cursorSelect = () => { FRAME.cursorSelSeq = (FRAME.cursorSelSeq || 0) + 1; };
+  // One MAP view-action press: 'toggle-follow' | 'zoom-in' | 'zoom-out'.
+  window.__mapAct = (act) => { FRAME.mapAct = act; FRAME.mapActSeq = (FRAME.mapActSeq || 0) + 1; };
 
   // Show the map immediately (avoids the initial /map 404 flash).
   window.addEventListener('DOMContentLoaded', () => {

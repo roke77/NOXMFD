@@ -38,6 +38,10 @@
     <img id="map-img" alt="">
     <div id="map-missing" class="mfd-empty"><span class="mfd-empty-title">MAP</span>&mdash; NO SIGNAL &mdash;</div>
     <canvas id="overlay"></canvas>
+    <!-- SOI crosshair (docs/map-cursor.md). Its own element rather than a canvas draw: moving it is
+         then one transform on a 24px layer instead of a full drawOverlay (map blit + every icon +
+         every RWR line) per frame. Same SVG the mouse pointer uses — see --map-crosshair. -->
+    <div id="soi-cursor"></div>
     <div id="mission-bar" class="empty">
       <div class="mission-name" id="mission-name">—</div>
     </div>

@@ -435,33 +435,11 @@
     color: var(--no-amber);
     user-select: none;
   }
-  /* Per-pane FOLLOW chips (split mode). Each sits at the top-right of its own pane: the
-     top pane mirrors the shell stack's corner; the bottom pane sits just below the 50%
-     divider. Hidden until renderPaneFollow() flags the pane's map as following. */
-  .pane-follow {
-    position: absolute;
-    right: 12px;
-    display: none;
-    pointer-events: none;
-    z-index: 2;
-  }
-  .pane-follow.top { top: 10px; }
-  .pane-follow.bot { top: calc(50% + 8px); }
-  .pane-follow.show { display: block; }
-  /* Left/right variants (V_SPLIT / V_WIDE_SPLIT): panes sit side by side, so BOTH are full-height
-     at the top — the 'bot' chip drops to the top, and each chip anchors to the top-right corner of
-     its own pane. 'top' chip = left pane (right edge = the centre divider); 'bot' chip = right pane
-     (right edge = the recess edge). The divider is at 50% for V_SPLIT, 1/3 from the right for the
-     2:1 V_WIDE_SPLIT. */
-  .screen.split-v  .pane-follow.bot,
-  .screen.split-vw .pane-follow.bot { top: 10px; right: 12px; }
-  .screen.split-v  .pane-follow.top { right: calc(50% + 12px); }
-  .screen.split-vw .pane-follow.top { right: calc(33.333% + 12px); }
   /* Per-pane "PAGE x/y" chip for MAIN's own pagination (mfd.js renderPaneMainPageInd) — same
      bottom-right spot WPN's #page-ind sits in inside its own framed page, but drawn on the shared
      overlay instead: MAIN's split pagination is bezel/shell state (paneMainPage), not the /main
-     page's own, so there's nothing to forward into that iframe. Mirrors .pane-follow's anchoring,
-     flipped to the bottom edge of each pane instead of the top. Hidden until
+     page's own, so there's nothing to forward into that iframe. Anchored per pane like the split
+     labels are, but to the bottom edge of each pane. Hidden until
      renderPaneMainPageInd() flags a pane showing MAIN with more than one page. */
   .pane-mainpage {
     position: absolute;

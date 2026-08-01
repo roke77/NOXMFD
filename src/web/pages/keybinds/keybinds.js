@@ -16,9 +16,24 @@ if (window.parent !== window) {
 
 var binds     = [];      // last /keybinds-config payload
 var notes     = {};      // per-section shared-behaviour note, keyed by section title
-var capturing = null;    // plugin-side joy capture: bind id or null (server state, mirrored)
+var capturing = null;    // plugin-side joy/axis capture: bind id or null (server state, mirrored)
+var capturingKind = null; // 'joy' | 'axis' | null — which capture `capturing` refers to
 var kbCapture = null;    // browser-side keyboard capture: bind id or null (local state)
+var bgInput   = false;   // InputWhenGameUnfocused — a plain setting, not a bind (server state)
 var lastJson  = '';      // skip re-render when nothing changed
+
+// ── Input-when-unfocused toggle ──────────────────────────────────────────────────────────────
+var bgInputBtn = document.getElementById('kb-bg-input-btn');
+function renderBgToggle() {
+  bgInputBtn.textContent = bgInput ? 'ON' : 'OFF';
+  bgInputBtn.classList.toggle('on', bgInput);
+}
+bgInputBtn.onclick = function () {
+  var next = !bgInput;
+  sendCommand('keybind.set-bg-input', { on: next }).catch(function () {});
+  bgInput = next;   // optimistic: show it now, the poll confirms
+  renderBgToggle();
+};
 
 // ── KeyboardEvent.code → Unity KeyCode name ──────────────────────────────────────────────────
 // Letters/digits/F-keys/numpad are mechanical; the rest enumerated. Escape is reserved (cancels
@@ -63,9 +78,10 @@ function cell(bind, kind) {
   var val = document.createElement('button');
   val.className = 'kb-val';
   var bound = kind === 'key' ? !!bind.key : bind.joyButton >= 0;
-  if (kind === 'key' && kbCapture === bind.id)      { val.textContent = 'PRESS A KEY…';    val.className += ' capturing'; }
-  else if (kind === 'joy' && capturing === bind.id) { val.textContent = 'PRESS A BUTTON…'; val.className += ' capturing'; }
-  else if (!bound)                                  { val.textContent = '—';               val.className += ' unbound'; }
+  if (kind === 'key' && kbCapture === bind.id) { val.textContent = 'PRESS A KEY…';    val.className += ' capturing'; }
+  else if (kind === 'joy' && capturing === bind.id && capturingKind === 'joy')
+                                               { val.textContent = 'PRESS A BUTTON…'; val.className += ' capturing'; }
+  else if (!bound)                             { val.textContent = '—';               val.className += ' unbound'; }
   // joystick display carries the device number when pinned ("J2 B55") — with a multi-stick
   // HOTAS the button index alone is ambiguous
   else val.textContent = kind === 'key' ? displayKey(bind.key)
@@ -88,6 +104,50 @@ function cell(bind, kind) {
   };
 
   wrap.appendChild(val); wrap.appendChild(clear);
+  return wrap;
+}
+
+// An axis-only row (docs/map-cursor.md — MAP Cursor Horizontal/Vertical): no key/joy cells make
+// sense for a continuous value, so this renders one wide cell (spanning both value columns, see
+// render()) with the axis value, an invert toggle, and clear.
+function axisCell(bind) {
+  var wrap = document.createElement('div');
+  wrap.className = 'kb-cell';
+
+  var val = document.createElement('button');
+  val.className = 'kb-val';
+  var bound = bind.axis >= 0;
+  if (capturing === bind.id && capturingKind === 'axis') { val.textContent = 'MOVE THE AXIS…'; val.className += ' capturing'; }
+  else if (!bound)                                       { val.textContent = '—';              val.className += ' unbound'; }
+  // carries the device number when pinned ("J2 A3") — with a multi-stick HOTAS the axis index
+  // alone is ambiguous, same reasoning as the joystick button cell.
+  else val.textContent = bind.axisNum > 0 ? 'J' + bind.axisNum + ' A' + bind.axis : 'AXIS ' + bind.axis;
+  val.onclick = function () { axisCellClick(bind.id); };
+
+  var invert = document.createElement('button');
+  invert.className = 'kb-invert' + (bind.axisInvert ? ' on' : '');
+  invert.textContent = 'INVERT';
+  invert.title = 'flip axis polarity';
+  invert.onclick = function (e) {
+    e.stopPropagation();
+    var next = !bind.axisInvert;
+    sendCommand('keybind.set-axis-invert', { bind: bind.id, on: next }).then(refresh).catch(function () {});
+    bind.axisInvert = next;   // optimistic: show it now, the poll confirms
+    render();
+  };
+
+  var clear = document.createElement('button');
+  clear.className = 'kb-clear' + (bound ? ' bound' : '');
+  clear.textContent = '×';
+  clear.title = 'clear';
+  clear.onclick = function (e) {
+    e.stopPropagation();
+    sendCommand('keybind.clear-axis', { bind: bind.id }).then(refresh).catch(function () {});
+    bind.axis = -1; bind.axisNum = 0; bind.axisInvert = false;   // optimistic
+    render();
+  };
+
+  wrap.appendChild(val); wrap.appendChild(invert); wrap.appendChild(clear);
   return wrap;
 }
 
@@ -120,8 +180,16 @@ function render() {
     desc.textContent = b.description || '';
     fn.appendChild(desc);
     row.appendChild(fn);
-    row.appendChild(cell(b, 'key'));
-    row.appendChild(cell(b, 'joy'));
+    if (b.axis !== undefined && b.key === undefined) {
+      // Axis-only row: one wide cell spanning both value columns, rather than an always-empty
+      // key cell next to an always-empty joy cell.
+      var wide = axisCell(b);
+      wide.style.gridColumn = '2 / span 2';
+      row.appendChild(wide);
+    } else {
+      row.appendChild(cell(b, 'key'));
+      row.appendChild(cell(b, 'joy'));
+    }
     rowsEl.appendChild(row);
   });
 }
@@ -163,9 +231,20 @@ function flashRejected(id) {
 // ── Joystick capture (plugin-side) ───────────────────────────────────────────────────────────
 function joyCellClick(id) {
   kbCapture = null;
-  var cmd = capturing === id ? 'keybind.cancel-joy' : 'keybind.arm-joy';
-  sendCommand(cmd, { bind: id }).catch(function () {});
-  capturing = capturing === id ? null : id;   // optimistic; the poll is the truth
+  var already = capturing === id && capturingKind === 'joy';
+  sendCommand(already ? 'keybind.cancel-joy' : 'keybind.arm-joy', { bind: id }).catch(function () {});
+  capturing = already ? null : id;             // optimistic; the poll is the truth
+  capturingKind = already ? null : 'joy';
+  render();
+}
+
+// ── Axis capture (plugin-side, docs/map-cursor.md) ───────────────────────────────────────────
+function axisCellClick(id) {
+  kbCapture = null;
+  var already = capturing === id && capturingKind === 'axis';
+  sendCommand(already ? 'keybind.cancel-axis' : 'keybind.arm-axis', { bind: id }).catch(function () {});
+  capturing = already ? null : id;
+  capturingKind = already ? null : 'axis';
   render();
 }
 
@@ -182,9 +261,13 @@ function refresh() {
     binds     = cfg.binds || [];
     notes     = cfg.notes || {};
     capturing = cfg.capturing || null;
+    capturingKind = cfg.capturingKind || null;
+    bgInput = !!cfg.bgInput;
+    renderBgToggle();
     render();
   }).catch(function () { panelEl.classList.add('unavailable'); });
 }
 
+renderBgToggle();   // OFF until the first fetch resolves, rather than a blank button
 refresh();
 setInterval(refresh, 600);

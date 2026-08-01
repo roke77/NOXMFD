@@ -64,15 +64,26 @@ namespace NOXMFD
             public string Label;                               // row name on the page
             public string Description;                         // row tooltip on the page
             public bool Edge;                                  // true = fire once per press; false = fire every frame held
-            // Exactly one of these is set. Drive needs a live aircraft and is skipped without one;
-            // DriveFree runs regardless, for binds that act on the mod rather than on the aeroplane
-            // (SOI) and so must work at the main menu, where there is no aircraft at all.
+            // Exactly one of these is set for a digital (KeyEntry != null) bind. Drive needs a live
+            // aircraft and is skipped without one; DriveFree runs regardless, for binds that act on the
+            // mod rather than on the aeroplane (SOI) and so must work at the main menu, where there is
+            // no aircraft at all. Both are null for an axis-only bind (docs/map-cursor.md) — it has no
+            // digital press to dispatch; Poll() reads AxisValueNow via the stored reference instead,
+            // the same way it already reads the four MAP direction binds' ActiveNow.
             public Action<Aircraft>? Drive;
             public Action? DriveFree;
-            public ConfigEntry<KeyboardShortcut> KeyEntry;     // keyboard/mouse source
-            public ConfigEntry<int> JoyEntry;                  // Rewired joystick button index source (-1 = off)
-            public ConfigEntry<int> JoyNumEntry;               // which joystick the index refers to (0 = any; pinned on capture)
-            public bool ActiveNow;                             // per-frame scratch, valid only inside Poll()
+            // Digital source (keyboard/mouse + joystick button) — null for an axis-only bind.
+            public ConfigEntry<KeyboardShortcut>? KeyEntry;
+            public ConfigEntry<int>? JoyEntry;                 // Rewired joystick button index source (-1 = off)
+            public ConfigEntry<int>? JoyNumEntry;              // which joystick the index refers to (0 = any; pinned on capture)
+            // Analog source (docs/map-cursor.md) — null unless this bind is axis-capable. Only the two
+            // MAP cursor-axis rows have one today; a digital bind could carry both in principle, but
+            // nothing needs that yet.
+            public ConfigEntry<int>? AxisEntry;                // Rewired axis index source (-1 = off)
+            public ConfigEntry<int>? AxisJoyNumEntry;          // which joystick the axis index refers to (0 = any; pinned on capture)
+            public ConfigEntry<bool>? AxisInvertEntry;         // flip polarity — arbitrary per device
+            public bool  ActiveNow;                            // per-frame scratch (digital), valid only inside Poll()
+            public float AxisValueNow;                         // per-frame scratch (analog), valid only inside Poll()
         }
 
         private static readonly List<BindDef> _binds = new List<BindDef>();
@@ -80,8 +91,24 @@ namespace NOXMFD
 
         // The bind whose joystick entry is currently armed for capture (via ArmJoyCapture), or null.
         // While non-null, the next joystick button pressed is written into it (see CaptureJoyButton).
+        // Mutually exclusive with _capturingAxis — arming one disarms the other, matching the page's
+        // one-row-at-a-time capture UX.
         private static BindDef? _capturing;
-        internal static string? CapturingId => _capturing?.Id;
+        private static BindDef? _capturingAxis;
+        internal static string? CapturingId   => (_capturing ?? _capturingAxis)?.Id;
+        internal static string? CapturingKind => _capturing != null ? "joy" : (_capturingAxis != null ? "axis" : null);
+
+        // The four MAP cursor direction binds, kept by reference so Poll() can read their ActiveNow
+        // directly and fold them into one cursor vector (see the MAP Keybinds comment in Bind()).
+        private static BindDef? _cursorUp, _cursorDown, _cursorLeft, _cursorRight;
+        // The two MAP cursor axis binds (docs/map-cursor.md) — analog alternative to the four keys
+        // above; a deflected axis overrides its keys for that component (Poll()).
+        private static BindDef? _cursorAxisH, _cursorAxisV;
+
+        // "Keep reading the stick while the game is unfocused" (see the .cfg description). Applied
+        // live by ApplyBackgroundInput; the _bg* fields remember what to put back if it's turned off.
+        private static ConfigEntry<bool>? _bgInput;
+        private static bool _bgApplied, _bgPrevRun, _bgPrevIgnore;
 
         // Called once from Plugin.Awake. Section/key names are the .cfg identity — existing user configs
         // carry over. Descriptions surface as row tooltips on the /keybinds page.
@@ -96,12 +123,6 @@ namespace NOXMFD
             Def(config, "jammer", cm, "ActivateRadarJammer", "Jammer", edge: false,
                 "Select + activate the radar jammer. HOLD to jam (a tap only jams ~0.1s). No-op if the aircraft has no jammer.",
                 ac => { var mgr = ac.countermeasureManager; if (mgr != null) Drive(ac, mgr, Jammer); });
-            Def(config, "gear-up", gear, "GearUp", "Gear Up", edge: true,
-                "Raise the landing gear. No-op if the gear is already up, still moving, or while on the ground.",
-                ac => DriveGear(ac, up: true, down: false));
-            Def(config, "gear-down", gear, "GearDown", "Gear Down", edge: true,
-                "Lower the landing gear. No-op if the gear is already down, still moving, or while on the ground.",
-                ac => DriveGear(ac, up: false, down: true));
 
             // Weapon soft-selector binds — see WeaponSelectors.cs for the model (two background
             // selections: one gun, one missile-or-bomb; cycle keys move them, fire keys commit them).
@@ -122,6 +143,25 @@ namespace NOXMFD
                 "Release your missile/bomb; HOLD to keep releasing. With a gun selected, the first press only switches to it — press again to release.",
                 WeaponSelectors.FireRelease);
 
+            Def(config, "gear-up", gear, "GearUp", "Gear Up", edge: true,
+                "Raise the landing gear. No-op if the gear is already up, still moving, or while on the ground.",
+                ac => DriveGear(ac, up: true, down: false));
+            Def(config, "gear-down", gear, "GearDown", "Gear Down", edge: true,
+                "Lower the landing gear. No-op if the gear is already down, still moving, or while on the ground.",
+                ac => DriveGear(ac, up: false, down: true));
+
+            // MAP binds — act on the focused MAP display, so DefFree like SOI. Docs/map-cursor.md.
+            const string map = "MAP Keybinds";
+            DefFree(config, "map-follow", map, "MapFollow", "Follow", edge: true,
+                "Toggle FLW on the focused MAP display.",
+                () => TelemetryServer.MapAction("toggle-follow"));
+            DefFree(config, "map-zoom-in", map, "MapZoomIn", "Zoom In", edge: true,
+                "Zoom in on the focused MAP display.",
+                () => TelemetryServer.MapAction("zoom-in"));
+            DefFree(config, "map-zoom-out", map, "MapZoomOut", "Zoom Out", edge: true,
+                "Zoom out on the focused MAP display.",
+                () => TelemetryServer.MapAction("zoom-out"));
+
             // SOI binds — they drive the mod's own displays rather than the aeroplane, so they are
             // DefFree (no aircraft needed) and work at the main menu. See docs/keybinds-page.md.
             const string soi = "SOI Keybinds";
@@ -141,26 +181,67 @@ namespace NOXMFD
                 "Press the label the cursor is on, as if you had clicked that key.",
                 () => TelemetryServer.SoiAction("select"));
 
+            // Cursor binds — a separate section from MAP's own view controls above, since a cursor
+            // isn't MAP-specific: it will drive other pages with their own cursor (a RADAR page,
+            // eventually) through this same registry, unchanged. Cursor Up/Down/Left/Right are HELD (a
+            // velocity, not a one-shot action) and don't fit the one-DriveFree-call-per-press shape the
+            // other binds use: Poll() reads their ActiveNow directly (via the references captured
+            // below) and folds all four into one cursor vector call, so their DriveFree here is
+            // intentionally a no-op — only Edge/held-vs-tap and the config entries matter for them.
+            const string cursor = "Cursor Keybinds";
+            _cursorUp    = DefFree(config, "cursor-up", cursor, "CursorUp", "Cursor Up", edge: false,
+                "Move the cursor up. Only acts while a display with a cursor is focused.", () => { });
+            _cursorDown  = DefFree(config, "cursor-down", cursor, "CursorDown", "Cursor Down", edge: false,
+                "Move the cursor down. Only acts while a display with a cursor is focused.", () => { });
+            _cursorLeft  = DefFree(config, "cursor-left", cursor, "CursorLeft", "Cursor Left", edge: false,
+                "Move the cursor left. Only acts while a display with a cursor is focused.", () => { });
+            _cursorRight = DefFree(config, "cursor-right", cursor, "CursorRight", "Cursor Right", edge: false,
+                "Move the cursor right. Only acts while a display with a cursor is focused.", () => { });
+            DefFree(config, "cursor-select", cursor, "CursorSelect", "Cursor Select", edge: true,
+                "Select whatever the cursor is on. Only acts while a display with a cursor is focused.",
+                () => TelemetryServer.CursorSelect());
+            // Analog alternative to the four direction keys above — a HOTAS mini-stick/hat gives full
+            // diagonal control the keys can't (only one axis can be held "active" at a time on a
+            // digital pad). Axis-only: no keyboard/button source makes sense for a continuous value,
+            // so these use AddAxis rather than DefFree — no Drive/DriveFree at all; Poll() reads
+            // AxisValueNow via the stored references, exactly like the four direction keys' ActiveNow.
+            _cursorAxisH = AddAxis(config, "cursor-axis-h", cursor, "CursorAxisH", "Cursor Horizontal",
+                "Analog axis (HOTAS mini-stick/hat) driving the cursor left/right — overrides Cursor Left/Right when deflected. Only acts while a display with a cursor is focused.");
+            _cursorAxisV = AddAxis(config, "cursor-axis-v", cursor, "CursorAxisV", "Cursor Vertical",
+                "Analog axis driving the cursor up/down — overrides Cursor Up/Down when deflected. Only acts while a display with a cursor is focused.");
+
+            // Hidden like the binds above — the /keybinds page owns this one too now (rendered as a
+            // toggle, not a bind row: it has no key/joy/axis source of its own).
+            _bgInput = config.Bind("Input", "InputWhenGameUnfocused", false,
+                new ConfigDescription(
+                    "Keep reading your HOTAS while the game window is NOT focused. Turn this ON if you run the MFD in a browser on the SAME PC: otherwise the game must stay focused for the stick to work, which leaves the browser in the background where it throttles its own redraw — and the map cursor stutters. Not needed for a tablet or phone, where the game keeps focus anyway. NOTE: while on, your stick also still flies the aircraft while you are clicking around in another window.",
+                    null, Hidden()));
+
             foreach (var b in _binds)
-                Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value}, joy={b.JoyEntry.Value} (stick {b.JoyNumEntry.Value}).");
+            {
+                if (b.KeyEntry != null)
+                    Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value}, joy={b.JoyEntry!.Value} (stick {b.JoyNumEntry!.Value}).");
+                else
+                    Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': axis={b.AxisEntry!.Value} (stick {b.AxisJoyNumEntry!.Value}, invert={b.AxisInvertEntry!.Value}).");
+            }
         }
 
         // Registers one functionality: binds its two config entries (keyboard + joystick, both hidden
         // from the F1 menu — the /keybinds page is the UI) and adds the registry row.
-        private static void Def(ConfigFile config, string id, string section, string key, string label,
+        private static BindDef Def(ConfigFile config, string id, string section, string key, string label,
                                 bool edge, string description, Action<Aircraft> drive)
             => Add(config, id, section, key, label, edge, description, drive, null);
 
         // A bind that acts on the mod rather than on the aeroplane, so it needs no aircraft and works
         // at the main menu. Same row on the page — the difference is only which Poll() pass runs it.
-        private static void DefFree(ConfigFile config, string id, string section, string key, string label,
+        private static BindDef DefFree(ConfigFile config, string id, string section, string key, string label,
                                     bool edge, string description, Action drive)
             => Add(config, id, section, key, label, edge, description, null, drive);
 
-        private static void Add(ConfigFile config, string id, string section, string key, string label,
+        private static BindDef Add(ConfigFile config, string id, string section, string key, string label,
                                 bool edge, string description, Action<Aircraft>? drive, Action? driveFree)
         {
-            _binds.Add(new BindDef
+            var b = new BindDef
             {
                 Id = id, Section = section, Label = label, Description = description, Edge = edge,
                 Drive = drive, DriveFree = driveFree,
@@ -170,7 +251,29 @@ namespace NOXMFD
                     new ConfigDescription("Joystick/HOTAS button (Rewired index, -1 = off): " + description, null, Hidden())),
                 JoyNumEntry = config.Bind(section, key + "JoystickNumber", 0,
                     new ConfigDescription("Which joystick the button index refers to (0 = any; pinned to the captured device).", null, Hidden())),
-            });
+            };
+            _binds.Add(b);
+            return b;
+        }
+
+        // An axis-only bind (docs/map-cursor.md): purely analog, no keyboard/button source and no
+        // Drive/DriveFree dispatch (see the BindDef comment) — Poll() reads AxisValueNow directly via
+        // the stored reference. section/key follow the same .cfg-identity convention as Add().
+        private static BindDef AddAxis(ConfigFile config, string id, string section, string key, string label,
+                                string description)
+        {
+            var b = new BindDef
+            {
+                Id = id, Section = section, Label = label, Description = description, Edge = false,
+                AxisEntry = config.Bind(section, key + "JoystickAxis", -1,
+                    new ConfigDescription("Joystick/HOTAS axis (Rewired index, -1 = off): " + description, null, Hidden())),
+                AxisJoyNumEntry = config.Bind(section, key + "JoystickAxisNumber", 0,
+                    new ConfigDescription("Which joystick the axis index refers to (0 = any; pinned to the captured device).", null, Hidden())),
+                AxisInvertEntry = config.Bind(section, key + "JoystickAxisInvert", false,
+                    new ConfigDescription("Invert the axis polarity — arbitrary per device.", null, Hidden())),
+            };
+            _binds.Add(b);
+            return b;
         }
 
         // Keybind entries persist in the .cfg but never show in the F1 menu — the page owns the UI.
@@ -182,9 +285,11 @@ namespace NOXMFD
         internal static string SectionTitle(string section) => section switch
         {
             "Countermeasure Keybinds" => "COUNTERMEASURES",
-            "Landing Gear Keybinds"   => "GEAR",
             "Weapon Keybinds"         => "WEAPONS",
+            "Landing Gear Keybinds"   => "GEAR",
+            "MAP Keybinds"            => "MAP",
             "SOI Keybinds"            => "SOI",
+            "Cursor Keybinds"         => "CURSOR",
             _ => section,
         };
 
@@ -192,16 +297,29 @@ namespace NOXMFD
         // so the per-bind descriptions stay short. Keyed by .cfg section like SectionTitle.
         internal static string SectionNote(string section) => section switch
         {
+            "MAP Keybinds" =>
+                "Follow / Zoom In / Zoom Out are direct binds for what the bezel's FLW and Z+/Z- keys " +
+                "already do on the focused MAP display.",
+            "SOI Keybinds" =>
+                "One display at a time is the sensor of interest — it rings itself in white, and these " +
+                "keys drive it. Nothing is focused until you press SOI Next or Prev; from there they " +
+                "cycle through the open displays.",
+            "Cursor Keybinds" =>
+                "Moves a cursor over whichever focused display has one (MAP, for now) and selects what " +
+                "it's on. Cursor Horizontal/Vertical are the same movement as an analog HOTAS axis — " +
+                "bind either or both; a deflected axis overrides its two keys.",
             "Weapon Keybinds" =>
                 "Cycle keys select the last soft-selected weapon of their type, or the first in the list. " +
                 "Repeated presses cycle to the next one, skipping depleted weapons. " +
                 "Cycling to a different type leaves the current one soft-selected.",
-            "SOI Keybinds" =>
-                "One display at a time is the sensor of interest — it rings itself in white, and these " +
-                "keys drive it. Nothing is focused until you press SOI Next or Prev; from there they " +
-                "cycle through the open displays. These are the only keys that work without an aircraft.",
             _ => null,
         };
+
+        // "Input when unfocused" — a plain toggle, not a bind, so the /keybinds page renders it above
+        // the table rather than as a row. BackgroundInput is read once to build the page's initial
+        // state; SetBackgroundInput is the write, applied live next Poll() by ApplyBackgroundInput.
+        internal static bool BackgroundInput => _bgInput?.Value ?? false;
+        internal static void SetBackgroundInput(bool on) { if (_bgInput != null) _bgInput.Value = on; }
 
         // ── Bind writes (driven by the /keybinds page via CommandDispatcher, main thread) ───────────
         // Set a bind's keyboard key from its Unity KeyCode name; "" / "None" clears. Rejects unknown
@@ -245,9 +363,10 @@ namespace NOXMFD
         {
             foreach (var b in _binds)
             {
-                if (b.Id != id) continue;
-                if (_capturing == null) EnableBackgroundInput();
+                if (b.Id != id || b.JoyEntry == null) continue;
+                if (_capturing == null && _capturingAxis == null) EnableBackgroundInput();
                 _capturing = b;
+                _capturingAxis = null;   // mutually exclusive
                 _captureSettle = SettleFrames;
                 _latched.Clear();
                 LogJoysticks();
@@ -261,8 +380,82 @@ namespace NOXMFD
         internal static bool ClearJoyBind(string id)
         {
             foreach (var b in _binds)
-                if (b.Id == id) { b.JoyEntry.Value = -1; b.JoyNumEntry.Value = 0; if (_capturing == b) Disarm(); return true; }
+                if (b.Id == id && b.JoyEntry != null) { b.JoyEntry.Value = -1; b.JoyNumEntry!.Value = 0; if (_capturing == b) Disarm(); return true; }
             return false;
+        }
+
+        // ── Axis capture (docs/map-cursor.md) ───────────────────────────────────────────────────────
+        // Same shape as button capture — arm, settle a few frames, then accept whichever source moves
+        // — but "moves" means deflects away from its REST position rather than an edge-down: a HOTAS
+        // axis (unlike a button) usually already reads a nonzero value at rest (a throttle rarely
+        // centers), so capture has to measure deflection FROM that snapshot, not from zero.
+        private const float AxisCaptureThreshold = 0.5f;    // deflection from rest that counts as "moved"
+        private const int   AxisSettleFrames     = 3;
+        private static int _axisSettle;
+        private static readonly Dictionary<(int joy, int axis), float> _axisRest = new Dictionary<(int, int), float>();
+
+        internal static bool ArmAxisCapture(string id)
+        {
+            foreach (var b in _binds)
+            {
+                if (b.Id != id || b.AxisEntry == null) continue;
+                if (_capturing == null && _capturingAxis == null) EnableBackgroundInput();
+                _capturingAxis = b;
+                _capturing = null;   // mutually exclusive
+                _axisSettle = AxisSettleFrames;
+                _axisRest.Clear();
+                LogJoysticks();
+                return true;
+            }
+            return false;
+        }
+
+        internal static void CancelAxisCapture() => Disarm();
+
+        internal static bool ClearAxisBind(string id)
+        {
+            foreach (var b in _binds)
+                if (b.Id == id && b.AxisEntry != null)
+                {
+                    b.AxisEntry.Value = -1; b.AxisJoyNumEntry!.Value = 0; b.AxisInvertEntry!.Value = false;
+                    if (_capturingAxis == b) Disarm();
+                    return true;
+                }
+            return false;
+        }
+
+        internal static bool SetAxisInvert(string id, bool invert)
+        {
+            foreach (var b in _binds)
+                if (b.Id == id && b.AxisInvertEntry != null) { b.AxisInvertEntry.Value = invert; return true; }
+            return false;
+        }
+
+        // Rewired ignores ALL joystick input while the app isn't focused (ignoreInputWhenAppNotInFocus
+        // defaults on), and Unity throttles an unfocused app unless runInBackground is set. Together
+        // that means a same-PC browser user has to keep the GAME focused for the stick to work — which
+        // parks the browser in the background, where it throttles its own rAF and the cursor stutters.
+        // Opt in and both go away. Cheap to call every frame: it no-ops once applied, and only retries
+        // while Rewired isn't ready yet. Capture's own temporary override nests harmlessly — it pushes
+        // the same direction and snapshots whatever is current.
+        private static void ApplyBackgroundInput()
+        {
+            if (_bgInput == null || _bgInput.Value == _bgApplied) return;
+            if (!ReInput.isReady) return;   // not up yet — try again next frame
+            if (_bgInput.Value)
+            {
+                _bgPrevRun    = Application.runInBackground;
+                _bgPrevIgnore = ReInput.configuration.ignoreInputWhenAppNotInFocus;
+                Application.runInBackground = true;
+                ReInput.configuration.ignoreInputWhenAppNotInFocus = false;
+            }
+            else
+            {
+                Application.runInBackground = _bgPrevRun;
+                ReInput.configuration.ignoreInputWhenAppNotInFocus = _bgPrevIgnore;
+            }
+            _bgApplied = _bgInput.Value;
+            Plugin.Log?.LogInfo($"[NOXMFD] InputWhenGameUnfocused = {_bgApplied}.");
         }
 
         private static void EnableBackgroundInput()
@@ -278,8 +471,9 @@ namespace NOXMFD
 
         private static void Disarm()
         {
-            if (_capturing == null) return;
+            if (_capturing == null && _capturingAxis == null) return;
             _capturing = null;
+            _capturingAxis = null;
             Application.runInBackground = _prevRunInBackground;
             if (ReInput.isReady)
                 ReInput.configuration.ignoreInputWhenAppNotInFocus = _prevIgnoreUnfocused;
@@ -293,7 +487,7 @@ namespace NOXMFD
             IList<Joystick> joys = ReInput.controllers.Joysticks;
             var names = new List<string>(joys.Count);
             foreach (Joystick j in joys) names.Add($"'{j.name}' ({j.buttonCount} buttons)");
-            Plugin.Log?.LogInfo($"[NOXMFD] joy capture armed for '{_capturing?.Id}': {joys.Count} joystick(s): {string.Join(", ", names)}");
+            Plugin.Log?.LogInfo($"[NOXMFD] {CapturingKind} capture armed for '{CapturingId}': {joys.Count} joystick(s): {string.Join(", ", names)}");
         }
 
         // Once per frame on the main thread. CM keys are held-driven (deploy every frame held); gear keys
@@ -301,10 +495,12 @@ namespace NOXMFD
         public static void Poll()
         {
             if (_binds.Count == 0) return;   // not bound yet
+            ApplyBackgroundInput();
 
-            // While a joy entry is armed for capture, swallow the next button into it (and don't let
-            // that same press also trigger an action this frame).
-            if (_capturing != null) { CaptureJoyButton(); return; }
+            // While a joy/axis entry is armed for capture, swallow the next button/deflection into it
+            // (and don't let that same input also trigger an action this frame).
+            if (_capturing != null)      { CaptureJoyButton(); return; }
+            if (_capturingAxis != null)  { CaptureAxis(); return; }
 
             bool any = false;
             foreach (var b in _binds)
@@ -312,6 +508,23 @@ namespace NOXMFD
                 b.ActiveNow = Active(b);
                 any |= b.ActiveNow;
             }
+
+            // MAP cursor vector: assembled every frame, even an idle one, so releasing the last
+            // direction key still reports (0,0) — the "nothing active" return below is only about
+            // skipping the rest of Poll(), not about the cursor. SetCursorVector no-ops on repeat.
+            // A deflected axis overrides its two keys for that component (docs/map-cursor.md) — keys
+            // and an unbound/centered axis both read as 0, so "axis nonzero" is exactly "axis wins".
+            float cx = 0, cy = 0;
+            if (_cursorLeft!.ActiveNow)  cx -= 1;
+            if (_cursorRight!.ActiveNow) cx += 1;
+            if (_cursorUp!.ActiveNow)    cy -= 1;
+            if (_cursorDown!.ActiveNow)  cy += 1;
+            float ax = ReadAxis(_cursorAxisH!);
+            float ay = ReadAxis(_cursorAxisV!);
+            if (ax != 0f) cx = ax;
+            if (ay != 0f) cy = ay;
+            TelemetryServer.SetCursorVector(cx, cy);
+
             if (!any) return;   // common case — nothing this frame
 
             // Aircraft-free binds first (SOI): they drive the mod's own displays, so they have to work
@@ -364,10 +577,45 @@ namespace NOXMFD
                 {
                     if (!joy.GetButton(b)) { _latched.Remove((i, b)); continue; }   // seen up → capturable again
                     if (_latched.Contains((i, b)) || !joy.GetButtonDown(b)) continue;
-                    _capturing!.JoyEntry.Value = b;
-                    _capturing.JoyNumEntry.Value = i + 1;   // pin to the device it came from
+                    _capturing!.JoyEntry!.Value = b;
+                    _capturing.JoyNumEntry!.Value = i + 1;   // pin to the device it came from
                     Plugin.Log?.LogInfo($"[NOXMFD] captured joy[{i}] '{joy.name}' button {b} for keybind '{_capturing.Id}'.");
                     Disarm();   // also restores the background-input overrides
+                    return;
+                }
+            }
+        }
+
+        // Runs on the main-thread Poll while an axis capture is armed. Settle window matches button
+        // capture's, but "moved" here means deflected past AxisCaptureThreshold FROM the rest position
+        // snapshotted at the end of settling — a HOTAS axis usually isn't centered at rest (a throttle
+        // rarely is), so measuring from zero would either capture immediately (an off-center rest
+        // already past the threshold) or never (a rest near ±1 with nowhere left to deflect FROM zero).
+        private static void CaptureAxis()
+        {
+            if (!ReInput.isReady) return;
+            IList<Joystick> joys = ReInput.controllers.Joysticks;
+
+            if (_axisSettle > 0)
+            {
+                if (--_axisSettle == 0)
+                    for (int i = 0; i < joys.Count; i++)
+                        for (int a = 0; a < joys[i].axisCount; a++)
+                            _axisRest[(i, a)] = joys[i].GetAxis(a);
+                return;
+            }
+
+            for (int i = 0; i < joys.Count; i++)
+            {
+                Joystick joy = joys[i];
+                for (int a = 0; a < joy.axisCount; a++)
+                {
+                    float rest = _axisRest.TryGetValue((i, a), out float r) ? r : 0f;
+                    if (Math.Abs(joy.GetAxis(a) - rest) < AxisCaptureThreshold) continue;
+                    _capturingAxis!.AxisEntry!.Value = a;
+                    _capturingAxis.AxisJoyNumEntry!.Value = i + 1;   // pin to the device it came from
+                    Plugin.Log?.LogInfo($"[NOXMFD] captured joy[{i}] '{joy.name}' axis {a} for keybind '{_capturingAxis.Id}'.");
+                    Disarm();
                     return;
                 }
             }
@@ -376,13 +624,56 @@ namespace NOXMFD
         // Is this bind active this frame? A keyboard/mouse key (KeyboardShortcut, Unity input) OR an explicit
         // Rewired joystick button index. edge=false → held (IsPressed/GetButton, the CM keys); edge=true →
         // pressed-this-frame (IsDown/GetButtonDown, the gear keys). Joystick KeyCodes inside the
-        // KeyboardShortcut are ignored — those go through the Rewired index instead.
+        // KeyboardShortcut are ignored — those go through the Rewired index instead. An axis-only bind
+        // (KeyEntry null) has no digital press to report — Poll() reads its analog value separately.
         private static bool Active(BindDef bind)
         {
+            if (bind.KeyEntry == null) return false;
             KeyCode k = bind.KeyEntry.Value.MainKey;
             bool kbd = k != KeyCode.None && k < KeyCode.JoystickButton0 &&
                        (bind.Edge ? bind.KeyEntry.Value.IsDown() : bind.KeyEntry.Value.IsPressed());
-            return kbd || JoyBtn(bind.JoyEntry.Value, bind.JoyNumEntry.Value, bind.Edge);
+            return kbd || JoyBtn(bind.JoyEntry!.Value, bind.JoyNumEntry!.Value, bind.Edge);
+        }
+
+        // Reads a bind's analog axis, deadzoned and inverted, folded straight into the cursor vector —
+        // 0 means "no axis bound, centered, or within the deadzone," which Poll() treats as "the keys
+        // decide this component" (see the doc's "keys and axes coexist" note).
+        // Small — this is a cursor, not a flight control: the pilot wants fine, slow slew available
+        // near centre, and a stick good enough to bind here doesn't drift much. Raise it only if a
+        // centred stick makes the crosshair wander. The response curve below covers most of what a
+        // deadzone would otherwise be doing, since it already flattens the bottom of the travel.
+        private const float AxisDeadzone = 0.03f;
+        // Response curve. Full deflection always means full CURSOR_SPEED — the curve only shapes
+        // everything below it: at 1 the axis is linear, at 2 half travel gives a quarter speed, at
+        // 2.5 about a sixth. Higher trades top-end reach for fine placement near centre. Currently
+        // linear so the other cursor changes can be judged without it in the way.
+        private const float AxisCurve = 1f;
+        private static float ReadAxis(BindDef bind)
+        {
+            int idx = bind.AxisEntry!.Value;
+            if (idx < 0 || !ReInput.isReady) return 0f;
+            IList<Joystick> joys = ReInput.controllers.Joysticks;
+            int joyNum = bind.AxisJoyNumEntry!.Value;
+            float raw = 0f;
+            if (joyNum <= 0)   // any joystick with enough axes — same convention JoyBtn uses for buttons
+            {
+                for (int i = 0; i < joys.Count; i++)
+                    if (idx < joys[i].axisCount) { raw = joys[i].GetAxis(idx); break; }
+            }
+            else
+            {
+                int j = joyNum - 1;
+                if (j < joys.Count && idx < joys[j].axisCount) raw = joys[j].GetAxis(idx);
+            }
+            if (bind.AxisInvertEntry!.Value) raw = -raw;
+            float mag = Math.Abs(raw);
+            if (mag < AxisDeadzone) return 0f;
+            // Rescale the live part of the travel back to a full 0..1 rather than returning the raw
+            // value: otherwise the first movement past the deadzone jumps straight to AxisDeadzone
+            // speed instead of easing up from nothing, which is the sub-pixel control the pilot
+            // reaches for the axis to get. Sign is carried separately so both directions ease alike.
+            float norm = (mag - AxisDeadzone) / (1f - AxisDeadzone);
+            return Math.Sign(raw) * (float)Math.Pow(norm, AxisCurve);
         }
 
         // Reads an explicit Rewired joystick button index (the number capture writes), honoring the
