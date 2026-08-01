@@ -123,12 +123,6 @@ namespace NOXMFD
             Def(config, "jammer", cm, "ActivateRadarJammer", "Jammer", edge: false,
                 "Select + activate the radar jammer. HOLD to jam (a tap only jams ~0.1s). No-op if the aircraft has no jammer.",
                 ac => { var mgr = ac.countermeasureManager; if (mgr != null) Drive(ac, mgr, Jammer); });
-            Def(config, "gear-up", gear, "GearUp", "Gear Up", edge: true,
-                "Raise the landing gear. No-op if the gear is already up, still moving, or while on the ground.",
-                ac => DriveGear(ac, up: true, down: false));
-            Def(config, "gear-down", gear, "GearDown", "Gear Down", edge: true,
-                "Lower the landing gear. No-op if the gear is already down, still moving, or while on the ground.",
-                ac => DriveGear(ac, up: false, down: true));
 
             // Weapon soft-selector binds — see WeaponSelectors.cs for the model (two background
             // selections: one gun, one missile-or-bomb; cycle keys move them, fire keys commit them).
@@ -149,6 +143,25 @@ namespace NOXMFD
                 "Release your missile/bomb; HOLD to keep releasing. With a gun selected, the first press only switches to it — press again to release.",
                 WeaponSelectors.FireRelease);
 
+            Def(config, "gear-up", gear, "GearUp", "Gear Up", edge: true,
+                "Raise the landing gear. No-op if the gear is already up, still moving, or while on the ground.",
+                ac => DriveGear(ac, up: true, down: false));
+            Def(config, "gear-down", gear, "GearDown", "Gear Down", edge: true,
+                "Lower the landing gear. No-op if the gear is already down, still moving, or while on the ground.",
+                ac => DriveGear(ac, up: false, down: true));
+
+            // MAP binds — act on the focused MAP display, so DefFree like SOI. Docs/map-cursor.md.
+            const string map = "MAP Keybinds";
+            DefFree(config, "map-follow", map, "MapFollow", "Follow", edge: true,
+                "Toggle FLW on the focused MAP display.",
+                () => TelemetryServer.MapAction("toggle-follow"));
+            DefFree(config, "map-zoom-in", map, "MapZoomIn", "Zoom In", edge: true,
+                "Zoom in on the focused MAP display.",
+                () => TelemetryServer.MapAction("zoom-in"));
+            DefFree(config, "map-zoom-out", map, "MapZoomOut", "Zoom Out", edge: true,
+                "Zoom out on the focused MAP display.",
+                () => TelemetryServer.MapAction("zoom-out"));
+
             // SOI binds — they drive the mod's own displays rather than the aeroplane, so they are
             // DefFree (no aircraft needed) and work at the main menu. See docs/keybinds-page.md.
             const string soi = "SOI Keybinds";
@@ -168,42 +181,34 @@ namespace NOXMFD
                 "Press the label the cursor is on, as if you had clicked that key.",
                 () => TelemetryServer.SoiAction("select"));
 
-            // MAP binds — act on the focused MAP display, so DefFree like SOI. Docs/map-cursor.md.
-            // Cursor Up/Down/Left/Right are HELD (a velocity, not a one-shot action) and don't fit the
-            // one-DriveFree-call-per-press shape the other binds use: Poll() reads their ActiveNow
-            // directly (via the references captured below) and folds all four into one cursor vector
-            // call, so their DriveFree here is intentionally a no-op — only Edge/held-vs-tap and the
-            // config entries matter for them.
-            const string map = "MAP Keybinds";
-            _cursorUp    = DefFree(config, "cursor-up", map, "CursorUp", "Cursor Up", edge: false,
-                "Move the map cursor up. Only acts while a MAP display is focused.", () => { });
-            _cursorDown  = DefFree(config, "cursor-down", map, "CursorDown", "Cursor Down", edge: false,
-                "Move the map cursor down. Only acts while a MAP display is focused.", () => { });
-            _cursorLeft  = DefFree(config, "cursor-left", map, "CursorLeft", "Cursor Left", edge: false,
-                "Move the map cursor left. Only acts while a MAP display is focused.", () => { });
-            _cursorRight = DefFree(config, "cursor-right", map, "CursorRight", "Cursor Right", edge: false,
-                "Move the map cursor right. Only acts while a MAP display is focused.", () => { });
-            DefFree(config, "cursor-select", map, "CursorSelect", "Cursor Select", edge: true,
-                "Select the contact under the map cursor. Only acts while a MAP display is focused.",
+            // Cursor binds — a separate section from MAP's own view controls above, since a cursor
+            // isn't MAP-specific: it will drive other pages with their own cursor (a RADAR page,
+            // eventually) through this same registry, unchanged. Cursor Up/Down/Left/Right are HELD (a
+            // velocity, not a one-shot action) and don't fit the one-DriveFree-call-per-press shape the
+            // other binds use: Poll() reads their ActiveNow directly (via the references captured
+            // below) and folds all four into one cursor vector call, so their DriveFree here is
+            // intentionally a no-op — only Edge/held-vs-tap and the config entries matter for them.
+            const string cursor = "Cursor Keybinds";
+            _cursorUp    = DefFree(config, "cursor-up", cursor, "CursorUp", "Cursor Up", edge: false,
+                "Move the cursor up. Only acts while a display with a cursor is focused.", () => { });
+            _cursorDown  = DefFree(config, "cursor-down", cursor, "CursorDown", "Cursor Down", edge: false,
+                "Move the cursor down. Only acts while a display with a cursor is focused.", () => { });
+            _cursorLeft  = DefFree(config, "cursor-left", cursor, "CursorLeft", "Cursor Left", edge: false,
+                "Move the cursor left. Only acts while a display with a cursor is focused.", () => { });
+            _cursorRight = DefFree(config, "cursor-right", cursor, "CursorRight", "Cursor Right", edge: false,
+                "Move the cursor right. Only acts while a display with a cursor is focused.", () => { });
+            DefFree(config, "cursor-select", cursor, "CursorSelect", "Cursor Select", edge: true,
+                "Select whatever the cursor is on. Only acts while a display with a cursor is focused.",
                 () => TelemetryServer.CursorSelect());
-            DefFree(config, "map-follow", map, "MapFollow", "Follow", edge: true,
-                "Toggle FLW on the focused MAP display.",
-                () => TelemetryServer.MapAction("toggle-follow"));
-            DefFree(config, "map-zoom-in", map, "MapZoomIn", "Zoom In", edge: true,
-                "Zoom in on the focused MAP display.",
-                () => TelemetryServer.MapAction("zoom-in"));
-            DefFree(config, "map-zoom-out", map, "MapZoomOut", "Zoom Out", edge: true,
-                "Zoom out on the focused MAP display.",
-                () => TelemetryServer.MapAction("zoom-out"));
             // Analog alternative to the four direction keys above — a HOTAS mini-stick/hat gives full
             // diagonal control the keys can't (only one axis can be held "active" at a time on a
             // digital pad). Axis-only: no keyboard/button source makes sense for a continuous value,
             // so these use AddAxis rather than DefFree — no Drive/DriveFree at all; Poll() reads
             // AxisValueNow via the stored references, exactly like the four direction keys' ActiveNow.
-            _cursorAxisH = AddAxis(config, "cursor-axis-h", map, "CursorAxisH", "Cursor Horizontal",
-                "Analog axis (HOTAS mini-stick/hat) driving the cursor left/right — overrides Cursor Left/Right when deflected. Only acts while a MAP display is focused.");
-            _cursorAxisV = AddAxis(config, "cursor-axis-v", map, "CursorAxisV", "Cursor Vertical",
-                "Analog axis driving the cursor up/down — overrides Cursor Up/Down when deflected. Only acts while a MAP display is focused.");
+            _cursorAxisH = AddAxis(config, "cursor-axis-h", cursor, "CursorAxisH", "Cursor Horizontal",
+                "Analog axis (HOTAS mini-stick/hat) driving the cursor left/right — overrides Cursor Left/Right when deflected. Only acts while a display with a cursor is focused.");
+            _cursorAxisV = AddAxis(config, "cursor-axis-v", cursor, "CursorAxisV", "Cursor Vertical",
+                "Analog axis driving the cursor up/down — overrides Cursor Up/Down when deflected. Only acts while a display with a cursor is focused.");
 
             // Hidden like the binds above — the /keybinds page owns this one too now (rendered as a
             // toggle, not a bind row: it has no key/joy/axis source of its own).
@@ -280,10 +285,11 @@ namespace NOXMFD
         internal static string SectionTitle(string section) => section switch
         {
             "Countermeasure Keybinds" => "COUNTERMEASURES",
-            "Landing Gear Keybinds"   => "GEAR",
             "Weapon Keybinds"         => "WEAPONS",
-            "SOI Keybinds"            => "SOI",
+            "Landing Gear Keybinds"   => "GEAR",
             "MAP Keybinds"            => "MAP",
+            "SOI Keybinds"            => "SOI",
+            "Cursor Keybinds"         => "CURSOR",
             _ => section,
         };
 
@@ -291,20 +297,21 @@ namespace NOXMFD
         // so the per-bind descriptions stay short. Keyed by .cfg section like SectionTitle.
         internal static string SectionNote(string section) => section switch
         {
+            "MAP Keybinds" =>
+                "Follow / Zoom In / Zoom Out are direct binds for what the bezel's FLW and Z+/Z- keys " +
+                "already do on the focused MAP display.",
+            "SOI Keybinds" =>
+                "One display at a time is the sensor of interest — it rings itself in white, and these " +
+                "keys drive it. Nothing is focused until you press SOI Next or Prev; from there they " +
+                "cycle through the open displays.",
+            "Cursor Keybinds" =>
+                "Moves a cursor over whichever focused display has one (MAP, for now) and selects what " +
+                "it's on. Cursor Horizontal/Vertical are the same movement as an analog HOTAS axis — " +
+                "bind either or both; a deflected axis overrides its two keys.",
             "Weapon Keybinds" =>
                 "Cycle keys select the last soft-selected weapon of their type, or the first in the list. " +
                 "Repeated presses cycle to the next one, skipping depleted weapons. " +
                 "Cycling to a different type leaves the current one soft-selected.",
-            "SOI Keybinds" =>
-                "One display at a time is the sensor of interest — it rings itself in white, and these " +
-                "keys drive it. Nothing is focused until you press SOI Next or Prev; from there they " +
-                "cycle through the open displays. These are the only keys that work without an aircraft.",
-            "MAP Keybinds" =>
-                "Act on the focused display only when it is showing MAP. Cursor Up/Down/Left/Right move " +
-                "a crosshair over the map, or bind Cursor Horizontal/Vertical to a HOTAS axis for full " +
-                "analog and diagonal control — a deflected axis overrides its two keys. Cursor Select " +
-                "picks the contact under the cursor, same as a click or tap. Follow / Zoom In / Zoom Out " +
-                "are direct binds for what the bezel's FLW and Z+/Z- keys already do.",
             _ => null,
         };
 

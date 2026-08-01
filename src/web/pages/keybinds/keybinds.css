@@ -2,6 +2,18 @@
    Colors from theme.css tokens only. */
 
 html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this is a full page */
+/* Match the thin overlay scrollbar a touch device draws, not the desktop default's chunky bar with
+   its light track: a slim grey thumb on a transparent track. scrollbar-* covers Firefox + the
+   standard; the ::-webkit rules below cover Chrome / Edge / Safari. Same treatment as BDF's/TGT's
+   list — this page scrolls as a whole (html/body above), so the rule targets that instead of an
+   inner panel. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
+}
+html::-webkit-scrollbar { width: 6px; height: 6px; }
+html::-webkit-scrollbar-track { background: transparent; }
+html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
 
 .kb-panel {
   max-width: 720px;
