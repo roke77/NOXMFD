@@ -205,10 +205,12 @@ namespace NOXMFD
             _cursorAxisV = AddAxis(config, "cursor-axis-v", map, "CursorAxisV", "Cursor Vertical",
                 "Analog axis driving the cursor up/down — overrides Cursor Up/Down when deflected. Only acts while a MAP display is focused.");
 
-            // Deliberately NOT hidden (unlike the binds above, which the /keybinds page owns): this one
-            // has no page of its own, and someone who needs it needs it in the F1 menu.
+            // Hidden like the binds above — the /keybinds page owns this one too now (rendered as a
+            // toggle, not a bind row: it has no key/joy/axis source of its own).
             _bgInput = config.Bind("Input", "InputWhenGameUnfocused", false,
-                "Keep reading your HOTAS while the game window is NOT focused. Turn this ON if you run the MFD in a browser on the SAME PC: otherwise the game must stay focused for the stick to work, which leaves the browser in the background where it throttles its own redraw — and the map cursor stutters. Not needed for a tablet or phone, where the game keeps focus anyway. NOTE: while on, your stick also still flies the aircraft while you are clicking around in another window.");
+                new ConfigDescription(
+                    "Keep reading your HOTAS while the game window is NOT focused. Turn this ON if you run the MFD in a browser on the SAME PC: otherwise the game must stay focused for the stick to work, which leaves the browser in the background where it throttles its own redraw — and the map cursor stutters. Not needed for a tablet or phone, where the game keeps focus anyway. NOTE: while on, your stick also still flies the aircraft while you are clicking around in another window.",
+                    null, Hidden()));
 
             foreach (var b in _binds)
             {
@@ -305,6 +307,12 @@ namespace NOXMFD
                 "are direct binds for what the bezel's FLW and Z+/Z- keys already do.",
             _ => null,
         };
+
+        // "Input when unfocused" — a plain toggle, not a bind, so the /keybinds page renders it above
+        // the table rather than as a row. BackgroundInput is read once to build the page's initial
+        // state; SetBackgroundInput is the write, applied live next Poll() by ApplyBackgroundInput.
+        internal static bool BackgroundInput => _bgInput?.Value ?? false;
+        internal static void SetBackgroundInput(bool on) { if (_bgInput != null) _bgInput.Value = on; }
 
         // ── Bind writes (driven by the /keybinds page via CommandDispatcher, main thread) ───────────
         // Set a bind's keyboard key from its Unity KeyCode name; "" / "None" clears. Rejects unknown

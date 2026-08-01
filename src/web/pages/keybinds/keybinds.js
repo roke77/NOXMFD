@@ -19,7 +19,21 @@ var notes     = {};      // per-section shared-behaviour note, keyed by section 
 var capturing = null;    // plugin-side joy/axis capture: bind id or null (server state, mirrored)
 var capturingKind = null; // 'joy' | 'axis' | null — which capture `capturing` refers to
 var kbCapture = null;    // browser-side keyboard capture: bind id or null (local state)
+var bgInput   = false;   // InputWhenGameUnfocused — a plain setting, not a bind (server state)
 var lastJson  = '';      // skip re-render when nothing changed
+
+// ── Input-when-unfocused toggle ──────────────────────────────────────────────────────────────
+var bgInputBtn = document.getElementById('kb-bg-input-btn');
+function renderBgToggle() {
+  bgInputBtn.textContent = bgInput ? 'ON' : 'OFF';
+  bgInputBtn.classList.toggle('on', bgInput);
+}
+bgInputBtn.onclick = function () {
+  var next = !bgInput;
+  sendCommand('keybind.set-bg-input', { on: next }).catch(function () {});
+  bgInput = next;   // optimistic: show it now, the poll confirms
+  renderBgToggle();
+};
 
 // ── KeyboardEvent.code → Unity KeyCode name ──────────────────────────────────────────────────
 // Letters/digits/F-keys/numpad are mechanical; the rest enumerated. Escape is reserved (cancels
@@ -248,9 +262,12 @@ function refresh() {
     notes     = cfg.notes || {};
     capturing = cfg.capturing || null;
     capturingKind = cfg.capturingKind || null;
+    bgInput = !!cfg.bgInput;
+    renderBgToggle();
     render();
   }).catch(function () { panelEl.classList.add('unavailable'); });
 }
 
+renderBgToggle();   // OFF until the first fetch resolves, rather than a blank button
 refresh();
 setInterval(refresh, 600);

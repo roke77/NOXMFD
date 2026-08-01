@@ -60,6 +60,9 @@ namespace NOXMFD
                 { "keybind.cancel-axis",    e => Keybinds.CancelAxisCapture() },
                 { "keybind.clear-axis",     e => Log("clear-axis",     e.bind, Keybinds.ClearAxisBind(e.bind)) },
                 { "keybind.set-axis-invert", e => Log("set-axis-invert", e.bind, Keybinds.SetAxisInvert(e.bind, e.on)) },
+                // Input-while-unfocused toggle — the /keybinds page's first entry, not a bind (no
+                // key/joy/axis source of its own).
+                { "keybind.set-bg-input", e => Keybinds.SetBackgroundInput(e.on) },
                 // SOI focus. These will get HOTAS binds of their own; as commands they are how focus
                 // is driven (and tested) from a browser, with no controller and no aircraft.
                 { "soi.next",           e => TelemetryServer.SoiCycle(1) },

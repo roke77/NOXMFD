@@ -238,7 +238,7 @@ KEYBINDS = [
                      "deflected. Only acts while a MAP display is focused.",
      "axis": -1, "axisNum": 0, "axisInvert": False},
 ]
-KB_STATE = {"capturing": None, "capturingKind": None, "armed_at": 0.0}
+KB_STATE = {"capturing": None, "capturingKind": None, "armed_at": 0.0, "bgInput": False}
 
 
 def _keybinds_config():
@@ -267,7 +267,8 @@ def _keybinds_config():
                     "keys already do."}
     return json.dumps({"binds": KEYBINDS, "notes": notes,
                        "capturing": KB_STATE["capturing"],
-                       "capturingKind": KB_STATE["capturingKind"]}).encode("utf-8")
+                       "capturingKind": KB_STATE["capturingKind"],
+                       "bgInput": KB_STATE["bgInput"]}).encode("utf-8")
 
 
 def _keybinds_command(env):
@@ -295,6 +296,8 @@ def _keybinds_command(env):
         row["axisInvert"] = False
     elif cmd == "keybind.set-axis-invert" and row is not None:
         row["axisInvert"] = bool(env.get("on", False))
+    elif cmd == "keybind.set-bg-input":
+        KB_STATE["bgInput"] = bool(env.get("on", False))
     else:
         return False
     return True

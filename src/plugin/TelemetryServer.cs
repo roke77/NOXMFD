@@ -865,6 +865,7 @@ namespace NOXMFD
                 string capKind = Keybinds.CapturingKind;
                 sb.Append("},\"capturing\":").Append(cap == null ? "null" : "\"" + EscapeJson(cap) + "\"")
                   .Append(",\"capturingKind\":").Append(capKind == null ? "null" : "\"" + EscapeJson(capKind) + "\"")
+                  .Append(",\"bgInput\":").Append(Keybinds.BackgroundInput ? "true" : "false")
                   .Append('}');
 
                 byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
