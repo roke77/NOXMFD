@@ -123,6 +123,14 @@ namespace NOXMFD
             Def(config, "jammer", cm, "ActivateRadarJammer", "Jammer", edge: false,
                 "Select + activate the radar jammer. HOLD to jam (a tap only jams ~0.1s). No-op if the aircraft has no jammer.",
                 ac => { var mgr = ac.countermeasureManager; if (mgr != null) Drive(ac, mgr, Jammer); });
+            // A weapon-mounted ECM pod (e.g. the Medusa's Radar Jamming Pod) — a WeaponStation, not the
+            // countermeasureManager-driven RadarJammer above, so it goes through WeaponSelectors like the
+            // gun/missile/bomb binds below (two-stage switch-then-fire), but sits here with the other
+            // countermeasure-flavoured binds since there's exactly one soft selection and no cycle key
+            // (see WeaponSelectors.cs).
+            Def(config, "jammer-pod", cm, "ActivateJammerPod", "Jamming Pod", edge: false,
+                "Select + activate a weapon-mounted radar jamming pod. HOLD to keep jamming. With another weapon selected, the first press only switches to it — press again to activate. No-op if the aircraft has no jamming pod.",
+                WeaponSelectors.FireJammerPod);
 
             // Weapon soft-selector binds — see WeaponSelectors.cs for the model (two background
             // selections: one gun, one missile-or-bomb; cycle keys move them, fire keys commit them).

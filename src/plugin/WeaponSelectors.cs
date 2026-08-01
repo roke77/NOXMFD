@@ -19,7 +19,9 @@ namespace NOXMFD
     //   gun     → gun bucket
     //   bomb / glideBomb → bomb bucket
     //   missile, plus unclassified ordnance (rockets carry no flag at all) → missile bucket
-    //   jammer / cargo / troops / sling / hideInDisplay → not selectable ordnance
+    //   jammer → jammer-pod bucket (a weapon station, e.g. the Medusa's Radar Jamming Pod — distinct
+    //            from the airframe-mounted RadarJammer countermeasure behind the "Jammer" keybind)
+    //   cargo / troops / sling / hideInDisplay → not selectable ordnance
     // The release selector serves the union of the missile and bomb buckets; Cycle Missiles and
     // Cycle Bombs each move it constrained to their own bucket, and Weapon Release fires whichever
     // was chosen last.
@@ -36,6 +38,7 @@ namespace NOXMFD
     {
         private static string _softGun;         // gun-bucket entry name, or null
         private static string _softRel;         // missile/bomb-bucket entry name, or null
+        private static string _softJam;         // jammer-pod-bucket entry name, or null
         private static WeaponStation _lastActive;
 
         private static readonly List<string> _entries = new List<string>(8);   // reused scratch
@@ -50,6 +53,11 @@ namespace NOXMFD
         private static bool IsMissile(WeaponInfo i) =>
             !i.gun && !i.bomb && !i.glideBomb && !i.jammer && !i.cargo && !i.troops && !i.sling;
         private static bool IsRelease(WeaponInfo i) => IsMissile(i) || IsBomb(i);
+        // Weapon-mounted ECM (e.g. the Medusa's Radar Jamming Pod) — its own bucket, same shape as
+        // guns: one soft selection, first press switches/selects, held presses activate it. Distinct
+        // from the countermeasureManager-driven "Jammer" keybind, which drives an airframe-mounted
+        // RadarJammer countermeasure, not a weapon station.
+        private static bool IsJammerPod(WeaponInfo i) => i.jammer;
 
         internal static string EntryName(WeaponInfo info) =>
             !string.IsNullOrEmpty(info.weaponName) ? info.weaponName : info.shortName;
@@ -116,16 +124,18 @@ namespace NOXMFD
         // Press-vs-hold is derived from Time.frameCount continuity: the drive runs every held frame,
         // so a gap in frames = a fresh press. ponytail: misses a release+re-press within one frame —
         // physically impossible on a real key.
-        private static int  _gunFrame = -10, _relFrame = -10;
-        private static bool _gunSwitchHold,  _relSwitchHold;
+        private static int  _gunFrame = -10, _relFrame = -10, _jamFrame = -10;
+        private static bool _gunSwitchHold,  _relSwitchHold,  _jamSwitchHold;
 
-        public static void FireGun(Aircraft ac)     => Fire(ac, EffectiveGun(ac),     ref _gunFrame, ref _gunSwitchHold);
-        public static void FireRelease(Aircraft ac) => Fire(ac, EffectiveRelease(ac), ref _relFrame, ref _relSwitchHold);
+        public static void FireGun(Aircraft ac)       => Fire(ac, EffectiveGun(ac),       ref _gunFrame, ref _gunSwitchHold);
+        public static void FireRelease(Aircraft ac)   => Fire(ac, EffectiveRelease(ac),   ref _relFrame, ref _relSwitchHold);
+        public static void FireJammerPod(Aircraft ac) => Fire(ac, EffectiveJammerPod(ac), ref _jamFrame, ref _jamSwitchHold);
 
         // The entry a fire key would commit right now: the soft selection if it's still a live entry
         // of the class, else the first entry of the class, else null. Also what the WPN page outlines.
-        public static string EffectiveGun(Aircraft ac)     => Effective(ac, IsGun,     _softGun);
-        public static string EffectiveRelease(Aircraft ac) => Effective(ac, IsRelease, _softRel);
+        public static string EffectiveGun(Aircraft ac)       => Effective(ac, IsGun,       _softGun);
+        public static string EffectiveRelease(Aircraft ac)   => Effective(ac, IsRelease,   _softRel);
+        public static string EffectiveJammerPod(Aircraft ac) => Effective(ac, IsJammerPod, _softJam);
 
         private static string Effective(Aircraft ac, Func<WeaponInfo, bool> cls, string soft)
         {
@@ -169,8 +179,9 @@ namespace NOXMFD
             _lastActive = cur;
             WeaponInfo info = cur != null ? cur.WeaponInfo : null;
             if (info == null || info.hideInDisplay) return;
-            if (IsGun(info))          _softGun = EntryName(info);
-            else if (IsRelease(info)) _softRel = EntryName(info);
+            if (IsGun(info))            _softGun = EntryName(info);
+            else if (IsRelease(info))   _softRel = EntryName(info);
+            else if (IsJammerPod(info)) _softJam = EntryName(info);
         }
 
         // ── Shared station lookup + select (also used by CommandDispatcher.WeaponSelect) ─────────
