@@ -1,3 +1,4 @@
+using System;
 using BepInEx;
 using BepInEx.Logging;
 using UnityEngine;
@@ -28,8 +29,13 @@ namespace NOXMFD
         private void Awake()
         {
             Log = Logger;
-            HudDeclutterConfig.Bind(Config);   // bind HUD-declutter toggles (persisted + shown in the in-game config menu)
-            Keybinds.Bind(Config);             // bind the gameplay keybinds (countermeasures + gear) — configured on the /keybinds page
+            // Each wrapped separately: a config-system problem on the host (e.g. BepInEx missing a
+            // type converter it needs — seen in the wild as ConfigFile.Bind<KeyboardShortcut>
+            // throwing ArgumentException on a broken/mismatched BepInEx install) would otherwise take
+            // the whole plugin down in Awake, silently disabling telemetry along with it. This way
+            // one broken subsystem logs a clear cause and the rest of the mod still starts.
+            TryBind("HUD declutter", () => HudDeclutterConfig.Bind(Config));   // HUD-declutter toggles (persisted + shown in the in-game config menu)
+            TryBind("Keybinds", () => Keybinds.Bind(Config));                  // gameplay keybinds (countermeasures + gear) — configured on the /keybinds page
 
             // Network: the port the tablet connects to, and whether to auto-open the Windows LAN
             // gates when the wildcard bind is denied (see docs/networking.md). Read once here —
@@ -49,11 +55,24 @@ namespace NOXMFD
             Log.LogInfo("NO XMFD loaded. Waiting for a mission to start...");
         }
 
+        // Runs a config-binding step without letting its failure take the rest of Awake down.
+        private static void TryBind(string what, Action bind)
+        {
+            try { bind(); }
+            catch (Exception ex)
+            {
+                Log?.LogError($"[NOXMFD] {what} failed to initialize and will be unavailable this session: {ex.Message}\n" +
+                    "This usually means BepInEx's config system on this install is missing a type converter it " +
+                    "needs (a broken or mismatched BepInEx install) — try reinstalling BepInEx. The rest of " +
+                    "NO XMFD will still run.");
+            }
+        }
+
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             if (_lifecycle != null) return;
             var go = new GameObject("NOXMFD_Lifecycle");
-            Object.DontDestroyOnLoad(go);
+            UnityEngine.Object.DontDestroyOnLoad(go);
             _lifecycle = go.AddComponent<MissionLifecycle>();
             Log?.LogInfo("[NOXMFD] MissionLifecycle attached (scene='" + scene.name + "').");
         }
