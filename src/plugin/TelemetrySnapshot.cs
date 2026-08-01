@@ -66,6 +66,12 @@ namespace NOXMFD
         // Other units the player's faction can see (fog-of-war respected).
         public UnitInfo[] Units;
 
+        // Player's own radar-jammed state (replicates the game's MAP jam marker for the player's
+        // own icon, which isn't part of Units — see docs comment on UnitInfo.Jammed).
+        public uint PlayerId;         // Unit.persistentID.Id — lets a UnitInfo.JammedBy reference resolve to "the player"
+        public bool PlayerJammed;
+        public uint PlayerJammedBy;   // persistentID.Id of the jamming unit; 0 = jammed but source unknown/not tracked
+
         // The game's own HUD faction colors (hex), so the web map matches the game.
         public string ColFriendly;
         public string ColHostile;
@@ -199,5 +205,11 @@ namespace NOXMFD
         public bool   Orient;   // icon rotates with heading
         public float  Scale;    // icon size multiplier
         public bool   Targeted; // true when this unit is one of the player's current targets
+
+        // Radar-jammed state, replicating the game's MAP JammedMarker (yellow line + icon to the
+        // jamming unit). JammedBy is 0 when jammed but the jamming unit isn't known/tracked (the
+        // client then shows the jam icon with no line, matching the game's own fallback).
+        public bool   Jammed;
+        public uint   JammedBy;  // persistentID.Id of the jamming unit
     }
 }

@@ -32,6 +32,15 @@ namespace NOXMFD
         // Cached unit list from the 1 Hz scan; positions are read from it at 10 Hz.
         private Unit[] _units = Array.Empty<Unit>();
 
+        // MAP jam markers (docs comment on UnitInfo.Jammed): Unit.onJam only fires the jamming
+        // source, Radar.IsJammed() doesn't remember it — so we hook every radar-equipped unit once
+        // and remember its last jammer. Radar.IsJammed() (polled fresh each scan) gates whether a
+        // unit is CURRENTLY jammed; _jammedBy just answers "by whom" once it is.
+        // ponytail: hooked units are never unhooked (a despawned unit's entry just sits inert) —
+        // bounded by total units spawned in one mission, not worth pruning for a HOTAS MFD mod.
+        private readonly HashSet<Unit> _jamHooked = new HashSet<Unit>();
+        private readonly Dictionary<Unit, Unit> _jammedBy = new Dictionary<Unit, Unit>();
+
         // Slowly-changing context, refreshed in the 1 Hz scan.
         private string         _missionName = string.Empty;
         private string         _mapName     = string.Empty;
@@ -147,6 +156,12 @@ namespace NOXMFD
                 if (u is Aircraft) aircraft++;
                 // Pre-extract each unit type's map icon (a few per scan so it doesn't hitch).
                 if (iconBudget > 0 && _assets.TryCaptureIcon(u.definition)) iconBudget--;
+                // Remember who last jammed this unit's radar (see _jammedBy declaration).
+                if (u.radar != null && _jamHooked.Add(u))
+                {
+                    Unit jammed = u;
+                    u.onJam += e => _jammedBy[jammed] = e.jammingUnit;
+                }
             }
             _totalUnits    = units.Length;
             _totalAircraft = aircraft;
@@ -541,6 +556,7 @@ namespace NOXMFD
             _assets.TryCaptureIcon(aircraft.definition);
 
             UnitInfo[] units = BuildUnits(aircraft);
+            bool playerJammed = GetJamState(aircraft, out uint playerJammedBy);
 
             // TGT filter panel — read straight off the game's singleton (present all mission, but
             // guard anyway). Unity's == handles a destroyed instance as null, so we take a plain
@@ -592,6 +608,9 @@ namespace NOXMFD
                 GridOffsetX    = _gridOffsetX,
                 GridOffsetY    = _gridOffsetY,
                 Units          = units,
+                PlayerId       = aircraft.persistentID.Id,
+                PlayerJammed   = playerJammed,
+                PlayerJammedBy = playerJammedBy,
                 ColFriendly    = _colFriendly,
                 ColHostile     = _colHostile,
                 ColNeutral     = _colNeutral,
@@ -908,6 +927,8 @@ namespace NOXMFD
                 var hq = u.NetworkHQ;
                 byte faction = hq == null ? (byte)0 : (hq == playerHQ ? (byte)1 : (byte)2);
 
+                bool jammed = GetJamState(u, out uint jammedBy);
+
                 _unitBuf.Add(new UnitInfo
                 {
                     Id       = u.persistentID.Id,
@@ -918,10 +939,22 @@ namespace NOXMFD
                     Faction  = faction,
                     Orient   = def.mapOrient,
                     Scale    = def.mapIconSize,
-                    Targeted = hasTargets && targets.Contains(u)
+                    Targeted = hasTargets && targets.Contains(u),
+                    Jammed   = jammed,
+                    JammedBy = jammedBy
                 });
             }
             return _unitBuf.ToArray();
+        }
+
+        // Is this unit's radar currently jammed and (if known) by whom — see _jammedBy declaration.
+        private bool GetJamState(Unit u, out uint jammedBy)
+        {
+            jammedBy = 0;
+            if (!(u.radar is Radar radar) || !radar.IsJammed()) return false;
+            if (_jammedBy.TryGetValue(u, out Unit source) && source != null && !source.disabled)
+                jammedBy = source.persistentID.Id;
+            return true;
         }
 
         private void OnDestroy()

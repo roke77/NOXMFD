@@ -357,6 +357,51 @@ function drawMissiles() {
   }
 }
 
+// Radar jamming (replicates the game's MAP JammedMarker): a yellow line from a jammed unit's
+// icon to whoever is jamming it, plus a small lightning glyph on the jammed icon itself. The
+// glyph always shows once jm is true (matching the game keeping its jammedImage on regardless
+// of the line); the line only draws when the jammer's own position can be resolved — either
+// another tracked contact (jb matched by id) or the player (jb === playerId).
+function jamTargetPos(id) {
+  if (!lastData) return null;
+  if (lastData.playerId && id === lastData.playerId) return worldToOverlay(lastData.world.x, lastData.world.z);
+  if (Array.isArray(lastData.contacts)) {
+    for (const c of lastData.contacts) if (c.id === id) return worldToOverlay(c.x, c.z);
+  }
+  return null;
+}
+function drawJamLines() {
+  if (!lastData) return;
+  oc.save();
+  oc.strokeStyle = 'rgba(255,221,0,0.85)';
+  oc.lineWidth = 1.5;
+  oc.lineCap = 'round';
+  if (Array.isArray(lastData.contacts)) {
+    for (const c of lastData.contacts) {
+      if (!c.jm || !c.jb) continue;
+      const from = worldToOverlay(c.x, c.z), to = jamTargetPos(c.jb);
+      if (!from || !to) continue;
+      oc.beginPath(); oc.moveTo(from.cx, from.cy); oc.lineTo(to.cx, to.cy); oc.stroke();
+    }
+  }
+  if (lastData.pjm && lastData.pjb && lastData.world) {
+    const from = worldToOverlay(lastData.world.x, lastData.world.z), to = jamTargetPos(lastData.pjb);
+    if (from && to) { oc.beginPath(); oc.moveTo(from.cx, from.cy); oc.lineTo(to.cx, to.cy); oc.stroke(); }
+  }
+  oc.restore();
+}
+function drawJamGlyph(cx, cy, r) {
+  oc.save();
+  oc.font = Math.max(10, r * 1.1) + 'px sans-serif';
+  oc.textAlign = 'center';
+  oc.textBaseline = 'middle';
+  oc.fillStyle = '#ffdd00';
+  oc.shadowColor = '#ffdd00';
+  oc.shadowBlur = 4;
+  oc.fillText('⚡', cx, cy - r - 6);
+  oc.restore();
+}
+
 // ── Drawing ──────────────────────────────────────────────────────────────────────
 function drawOverlay() {
   oc.clearRect(0, 0, overlay.width, overlay.height);
@@ -388,6 +433,7 @@ function drawOverlay() {
 
   // Radar-warning spokes under the icons (icons stay readable on top).
   drawRwrLines();
+  drawJamLines();
 
   // Other units first, so the player's icon and label sit on top.
   if (lastData.contacts) {
@@ -398,6 +444,7 @@ function drawOverlay() {
       const hex = factionColors[u.f] || factionColors[0];
       const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, iconBase(), u.s);
       if (u.tg) { drawTargetBox(p.cx, p.cy, r + 4); pendingSel.delete(u.id); }   // telemetry confirms selection
+      if (u.jm) drawJamGlyph(p.cx, p.cy, r);
       hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex, id: u.id, tg: !!u.tg });
     }
   }
@@ -406,6 +453,7 @@ function drawOverlay() {
   const pos = worldToOverlay(lastData.world.x, lastData.world.z);
   if (!pos) return;
   const pr = drawIcon(lastData.name, PLAYER_COLOR, pos.cx, pos.cy, lastData.hdg, lastData.iconOrient, iconBase(), lastData.iconScale);
+  if (lastData.pjm) drawJamGlyph(pos.cx, pos.cy, pr);
   hitTargets.push({ cx: pos.cx, cy: pos.cy, r: pr + HIT_PAD, label: lastData.name, color: PLAYER_COLOR });
 
   // Incoming-missile triangles last = on top of everything (most urgent cue).
