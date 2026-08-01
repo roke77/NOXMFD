@@ -1603,6 +1603,12 @@ function mfdButton(el) {
     } else if (act === 'flw' || act === 'zin' || act === 'zout') {
       // MAP controls act on the pane's own map iframe — they don't navigate it away.
       paneMapSend(paneIdx, act === 'flw' ? 'toggle-follow' : act === 'zin' ? 'zoom-in' : 'zoom-out');
+    } else if (act === 'weapon.select') {
+      // A weapon row: selection is aircraft-global, not a destination page — same case as the
+      // full-view/shared switch below. It carries a data-pane tag only so the SOI cursor (soiKeys())
+      // can scope to the focused pane; that tag would otherwise make this branch mistake
+      // 'weapon.select' for a page name and hand it to paneNavigate.
+      if (el.dataset.wname) sendCommand('weapon.select', { wname: el.dataset.wname }).catch(function() {});
     } else {
       paneNavigate(paneIdx, act);
     }
