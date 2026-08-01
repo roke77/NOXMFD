@@ -431,9 +431,10 @@ function renderSplitLabels() {
       const slice = wpnPaneSlice(paneIdx);
       placeSplitKey(L.main, slice.hasPrev ? 'PREV' : 'MAIN', slice.hasPrev ? 'wpn-prev' : 'main', paneTag);
       if (slice.hasNext) placeSplitKey(L.next, 'NEXT', 'wpn-next', paneTag);
-      // Wire this pane's weapon rows to weapon.select. No data-pane tag — weapon selection is
-      // aircraft-global, so the press falls through the pane dispatcher to the shared case.
-      wireWpnPaneWeaponKeys(slice.items, paneIdx);
+      // Wire this pane's weapon rows to weapon.select, tagged with the owning pane so the SOI
+      // cursor (soiKeys(), scoped per pane) can reach them — dispatch itself doesn't need the tag
+      // (weapon selection is aircraft-global and falls through to the shared case regardless).
+      wireWpnPaneWeaponKeys(slice.items, paneIdx, paneTag);
     } else {
       // Static nav (MAP/AVN/RWR/TGP/…): render the navigation model at this page's declared
       // pane-local slots — SPLIT_SLOTS[page][i] places NAV[page][i].
@@ -721,15 +722,16 @@ function forwardWpnLayoutToPanes() {
 
 // Wire a split WPN pane's up-to-4 weapon rows to weapon.select. Fill order matches the pane
 // renderer (wpn.js compact) and forwardWpnLayoutToPanes' slotYs: items → L1, L2, R1, R2. Sets the
-// aligned physical key's action + weapon name so a bezel press selects that weapon. No data-pane
-// tag: selection is aircraft-global, so the press falls through to the shared weapon.select case.
+// aligned physical key's action + weapon name so a bezel press selects that weapon, and tags it
+// with the owning pane so the SOI cursor (soiKeys()) can reach it — dispatch itself doesn't need
+// the tag (weapon selection is aircraft-global and falls through to the shared case regardless).
 // Called from renderSplitLabels after clearKeyActions has cleared the key zone, so only occupied
 // rows are set and empty ones stay clean.
-function wireWpnPaneWeaponKeys(weapons, paneIdx) {
+function wireWpnPaneWeaponKeys(weapons, paneIdx, paneTag) {
   const items = listPaneLayout(paneIdx, 'wpn').items;
   for (let i = 0; i < items.length && i < weapons.length; i++) {
     const key = keyBanks[items[i].bank][items[i].index];
-    if (key) { key.dataset.action = 'weapon.select'; key.dataset.wname = weapons[i].n; }
+    if (key) { key.dataset.action = 'weapon.select'; key.dataset.wname = weapons[i].n; key.dataset.pane = paneTag; }
   }
 }
 

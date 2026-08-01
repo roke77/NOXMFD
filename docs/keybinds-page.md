@@ -32,17 +32,22 @@ binds (WEAPONS uses it for how the cycle keys work), keeping the per-row text sh
 |---|---|---|
 | Flares | select + deploy IR flares; hold to keep popping | held |
 | Jammer | select + activate the radar jammer; HOLD to jam | held |
+| Jamming Pod | select + activate a weapon-mounted ECM pod (e.g. the Medusa's); HOLD to keep jamming — see below | held |
 | Gear Up / Gear Down | dedicated raise/lower (stock bind is a toggle); no-op if already there, mid-transition, or on the ground | edge |
 | Cycle Guns / Missiles / Bombs | select within the class — see below | edge |
 | Gun Trigger / Weapon Release | two-stage class fire keys — see below | held |
 
 ### Weapon selectors (WeaponSelectors.cs)
 
-Alongside the game's single active-weapon selection, the mod remembers a **gun** choice and
-a **missile-or-bomb** choice ("soft selections", pointing at the same aggregated loadout
-entries the WPN page lists). Classification uses the game's public `WeaponInfo` flags:
-`gun`; `bomb`/`glideBomb`; missiles are the `missile` flag plus flagless launched ordnance
-(rockets carry no flag), excluding jammer/cargo/troops/sling.
+Alongside the game's single active-weapon selection, the mod remembers a **gun** choice, a
+**missile-or-bomb** choice, and a **jamming pod** choice ("soft selections", pointing at the
+same aggregated loadout entries the WPN page lists). Classification uses the game's public
+`WeaponInfo` flags: `gun`; `bomb`/`glideBomb`; missiles are the `missile` flag plus flagless
+launched ordnance (rockets carry no flag); `jammer` is a weapon-mounted ECM pod (e.g. the
+Medusa's Radar Jamming Pod — distinct from the airframe `RadarJammer` countermeasure behind
+the "Jammer" keybind above); excluding cargo/troops/sling. The jamming pod has no cycle key —
+same two-stage switch-then-fire model as Gun Trigger/Weapon Release, just one soft selection
+and no need to advance through a list.
 
 - **Cycle keys select.** With the active weapon in the key's class, each press advances to
   the next entry and makes it active; from another class, the first press recalls the

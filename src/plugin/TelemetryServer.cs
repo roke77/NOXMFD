@@ -1391,6 +1391,9 @@ namespace NOXMFD
                         +   "\"e\":\"" + EscapeJson(s.ColHostile  ?? "#ff4040") + "\","
                         +   "\"n\":\"" + EscapeJson(s.ColNeutral  ?? "#9aa0a6") + "\"}"
                         + ",\"contacts\":" + UnitsArray(s.Units)
+                        + ",\"playerId\":" + s.PlayerId
+                        + ",\"pjm\":" + (s.PlayerJammed ? "true" : "false")
+                        + ",\"pjb\":" + s.PlayerJammedBy
                         + ",\"parts\":" + PartsArray(s.Parts)
                         + ",\"rwr\":" + RwrArray(s.Rwr)
                         + ",\"mw\":" + MwArray(s.Mw)
@@ -1545,12 +1548,14 @@ namespace NOXMFD
                 UnitInfo u = units[i];
                 if (i > 0) sb.Append(',');
                 sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"id\":{8},\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7}}}",
+                    "{{\"id\":{8},\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7},\"jm\":{9},\"jb\":{10}}}",
                     EscapeJson(u.Type ?? string.Empty),
                     u.X, u.Z, u.Heading, u.Faction,
                     u.Orient ? "true" : "false", u.Scale,
                     u.Targeted ? 1 : 0,
-                    u.Id);
+                    u.Id,
+                    u.Jammed ? 1 : 0,
+                    u.JammedBy);
             }
             return sb.Append(']').ToString();
         }

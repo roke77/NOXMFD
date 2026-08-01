@@ -239,6 +239,8 @@ Multi-stick HOTAS setups are supported; each bind remembers which stick it came 
 
 - **Flares** — select + deploy IR flares (tap to pop, hold to keep popping).
 - **Jammer** — select + activate the radar jammer (hold to jam).
+- **Jamming Pod** — select + activate a weapon-mounted radar jamming pod (e.g. the Medusa's). Hold
+  to keep jamming.
 - **Gear up / Gear down** — dedicated raise/lower (the stock bind is a single toggle).
 - **Cycle guns / missiles / bombs** — select the last soft-selected weapon of that type, or
   the first in the list; repeated presses cycle to the next one, skipping depleted weapons.
