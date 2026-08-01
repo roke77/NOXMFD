@@ -390,15 +390,33 @@ function drawJamLines() {
   }
   oc.restore();
 }
+// A hand-drawn bolt, not the '⚡' glyph: that emoji is a multi-color font glyph (its own baked-in
+// yellow-to-black shading), so fillStyle never actually touches its fill — only the shadow halo
+// took our color, which is why it read as a gradient instead of solid orange.
+// Centered directly on the jammed icon (same footprint, r matching drawIcon's own half-extent),
+// fully opaque, ringed by a dotted circle so the marker reads as "this unit" even overlapping
+// the icon underneath.
 function drawJamGlyph(cx, cy, r) {
+  const s = r * 2.4;
   oc.save();
-  oc.font = Math.max(10, r * 1.1) + 'px sans-serif';
-  oc.textAlign = 'center';
-  oc.textBaseline = 'middle';
-  oc.fillStyle = '#ffdd00';
-  oc.shadowColor = '#ffdd00';
-  oc.shadowBlur = 4;
-  oc.fillText('⚡', cx, cy - r - 6);
+  oc.strokeStyle = TARGET_COLOR;
+  oc.lineWidth = 1.5;
+  oc.setLineDash([3, 3]);
+  oc.beginPath();
+  oc.arc(cx, cy, r + 5, 0, Math.PI * 2);
+  oc.stroke();
+  oc.setLineDash([]);
+  oc.translate(cx, cy);
+  oc.fillStyle = TARGET_COLOR;
+  oc.beginPath();
+  oc.moveTo(s * 0.15, -s * 0.5);
+  oc.lineTo(-s * 0.15, s * 0.05);
+  oc.lineTo(s * 0.05, s * 0.05);
+  oc.lineTo(-s * 0.1, s * 0.5);
+  oc.lineTo(s * 0.25, -s * 0.02);
+  oc.lineTo(s * 0.05, -s * 0.02);
+  oc.closePath();
+  oc.fill();
   oc.restore();
 }
 
