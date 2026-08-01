@@ -211,5 +211,10 @@ namespace NOXMFD
         // client then shows the jam icon with no line, matching the game's own fallback).
         public bool   Jammed;
         public uint   JammedBy;  // persistentID.Id of the jamming unit
+
+        // True for an enemy contact known only via the faction's shared tracking database (stale —
+        // no friendly sensor has painted it in the last ~4s; docs/tgt-datalink-cancel.md), as opposed
+        // to one your own faction is actively sensing right now. Always false for friendly/neutral.
+        public bool   Datalink;
     }
 }

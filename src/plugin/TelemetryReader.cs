@@ -929,6 +929,12 @@ namespace NOXMFD
 
                 bool jammed = GetJamState(u, out uint jammedBy);
 
+                // An enemy's position only ever reaches us via playerHQ.trackingDatabase (confirmed
+                // above by TryGetKnownPosition) — Observed() is false when that entry is stale (no
+                // friendly sensor has painted it in the last ~4s), i.e. a datalink-only relay rather
+                // than something actively sensed right now. See docs/tgt-datalink-cancel.md.
+                bool datalink = faction == 2 && !(playerHQ.GetTrackingData(u.persistentID)?.Observed() ?? false);
+
                 _unitBuf.Add(new UnitInfo
                 {
                     Id       = u.persistentID.Id,
@@ -941,7 +947,8 @@ namespace NOXMFD
                     Scale    = def.mapIconSize,
                     Targeted = hasTargets && targets.Contains(u),
                     Jammed   = jammed,
-                    JammedBy = jammedBy
+                    JammedBy = jammedBy,
+                    Datalink = datalink
                 });
             }
             return _unitBuf.ToArray();

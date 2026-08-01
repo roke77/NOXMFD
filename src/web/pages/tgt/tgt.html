@@ -24,6 +24,11 @@
     RESET FILTER        → tgt.reset   (all filters back on)
     CLEAR TARGETS       → tgt.clear   (deselect every target)
     tap a target's box  → deselect it (target.deselect {id})
+
+  DATALINK button (docs/tgt-datalink-cancel.md) — a mod-only control, not one of the game's real
+  TargetListSelector filters (those are FRIENDLY/ENEMY/category/vehicle/LASER/HUD above):
+    tap  → tgt.clear-datalink (deselect just the datalink-only targets)
+    hold → tgt.clear-sensor   (deselect everything else — keeps only datalink-only targets locked)
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -53,13 +58,19 @@
 
     <div class="tgt-vehicles" id="row-vehicle"></div>
 
-    <!-- Selected-target list: NAME / GRID / RNG per row, with a checkbox to deselect. -->
+    <!-- Selected-target list: NAME / GRID / RNG / SRC per row, with a checkbox to deselect. -->
     <div class="tgt-list" id="tgt-list">
       <div class="tgt-list-head">
-        <span></span><span>NAME</span><span>GRID</span><span>RNG</span>
+        <span></span><span>NAME</span><span>GRID</span><span>RNG</span><span>SRC</span>
       </div>
       <div class="tgt-list-rows" id="tgt-list-rows"></div>
       <div class="tgt-list-empty" id="tgt-list-empty">&mdash; NO TARGETS SELECTED &mdash;</div>
+    </div>
+
+    <!-- DATALINK: mod-only, not a real TargetListSelector filter — see the header comment above. -->
+    <div class="tgt-footer">
+      <button class="tgt-datalink-btn" id="datalink-btn">DATALINK</button>
+      <span class="tgt-datalink-desc">Tap: deselect datalink-only targets &middot; Hold: deselect all others</span>
     </div>
   </div>
 

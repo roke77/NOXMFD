@@ -200,13 +200,15 @@
     // 12 mock target locks — the MFD's TGT page lists them under its filters (it scrolls, so
     // all 12 show). `f` matches the contact faction code (0 = neutral, 1 = friendly,
     // 2 = enemy) and drives the row colour.
+    // A couple flagged dl:true (docs/tgt-datalink-cancel.md) so the harness exercises the SRC
+    // column + the DATALINK button's filter/deselect without needing the game.
     targets: [
       { id: 101, n: 'HLT Flatbed',   g: 'Kg53', r: 8.4,  f: 2 },
-      { id: 102, n: 'BMP-2',         g: 'Kh54', r: 9.1,  f: 2 },
+      { id: 102, n: 'BMP-2',         g: 'Kh54', r: 9.1,  f: 2, dl: true },
       { id: 103, n: 'F-18',          g: 'Kh55', r: 9.6,  f: 1 },
       { id: 104, n: 'ZSU-23-4',      g: 'Lh55', r: 10.3, f: 2 },
       { id: 105, n: 'Vessel',        g: 'Lh56', r: 11.0, f: 0 },
-      { id: 106, n: 'SA-15 Tor',     g: 'Lj57', r: 12.4, f: 2 },
+      { id: 106, n: 'SA-15 Tor',     g: 'Lj57', r: 12.4, f: 2, dl: true },
       { id: 107, n: 'Airbase',       g: 'Lj58', r: 12.9, f: 1 },
       { id: 108, n: 'Truck',         g: 'Mj58', r: 13.5, f: 0 },
       { id: 109, n: 'Su-25 (gnd)',   g: 'Mj59', r: 14.2, f: 2 },

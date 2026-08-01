@@ -233,7 +233,7 @@ export class TelemetrySource {
         if (!u.tg) continue;
         const dx = u.x - d.world.x;
         const dz = u.z - d.world.z;
-        targets.push({ id: u.id, n: u.t, g: gridLabel(u.x, u.z, this._meta), r: Math.hypot(dx, dz) / 1000, f: u.f });
+        targets.push({ id: u.id, n: u.t, g: gridLabel(u.x, u.z, this._meta), r: Math.hypot(dx, dz) / 1000, f: u.f, dl: !!u.dl });
       }
     } else {
       targets = [];

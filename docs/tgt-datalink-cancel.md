@@ -1,6 +1,6 @@
 # TGT: telling datalink-only locks apart — [issue #29](https://github.com/roke77/NOXMFD/issues/29)
 
-**Branch:** `tgt-datalink-cancel`. **Status:** planning.
+**Branch:** `tgt-datalink-cancel`. **Status:** built, `serve_web`-harness verified. Not yet tested in-game.
 
 ## Goal
 
@@ -49,31 +49,46 @@ So **"datalink-only" = `!playerHQ.GetTrackingData(u.persistentID).Observed()`** 
 unit. (Own-faction targets, if they can even be targeted, are never datalink-only — their position
 always comes from `NetworkHQ == this`, not the tracking database.)
 
-## The plan
+## The plan (as built)
 
-1. **`UnitInfo`** ([TelemetrySnapshot.cs](../src/plugin/TelemetrySnapshot.cs)) gains one field —
-   `Stale` (or similar) — set in `BuildUnits()` alongside the existing `Faction`/`Targeted` fields,
-   using the lookup above. Enemy contacts only; friendlies default false.
-2. **Serialization** ([TelemetryServer.cs](../src/plugin/TelemetryServer.cs)) — one more terse key on
-   `UnitsArray`'s per-contact JSON (`"dl"` or similar), next to the existing `tg`.
-3. **Client derivation** ([telemetry-source.js](../src/web/services/telemetry-source.js):225-241) —
-   the TGT page's target list is *already derived client-side from `contacts`*, filtered by `tg`
-   (see the comment there: "derive from contacts... the mod flags each targeted unit on its
-   contact"). Carry the new flag through into each pushed target item alongside `id`/`n`/`g`/`r`/`f`.
-4. **TGT page rendering** ([tgt.js](../src/web/pages/tgt/tgt.js):102-131) — one more element per row
-   (a small "DATALINK" badge or dimmed styling), toggled in the existing per-row refresh loop that
-   already updates name/grid/range each frame. The checkbox next to it is already wired to
-   `target.deselect` — no new interaction needed.
-5. **Preview mock** ([preview-mock.js](../tools/preview-mock.js)) — flag one or two of the mocked
-   targets as datalink-only so the harness can show/verify the badge without the game.
+1. **`UnitInfo.Datalink`** ([TelemetrySnapshot.cs](../src/plugin/TelemetrySnapshot.cs)) — set in
+   `BuildUnits()` ([TelemetryReader.cs](../src/plugin/TelemetryReader.cs)) alongside the existing
+   `Faction`/`Targeted` fields, using the lookup above. Enemy contacts only; friendly/neutral always
+   false.
+2. **Serialization** ([TelemetryServer.cs](../src/plugin/TelemetryServer.cs)) — one more terse key,
+   `"dl"`, on `UnitsArray`'s per-contact JSON, next to the existing `tg`.
+3. **Client derivation** ([telemetry-source.js](../src/web/services/telemetry-source.js)) — the TGT
+   page's target list is *already derived client-side from `contacts`*, filtered by `tg` (see the
+   comment there: "derive from contacts... the mod flags each targeted unit on its contact"). The new
+   flag rides along into each pushed target item as `dl` alongside `id`/`n`/`g`/`r`/`f`.
+4. **TGT page rendering** ([tgt.js](../src/web/pages/tgt/tgt.js), [tgt.css](../src/web/pages/tgt/tgt.css)) —
+   the target list gained a fifth column, SRC (`SENSOR` / `DATALINK`, purple-tinted when datalink),
+   toggled in the existing per-row refresh loop.
+5. **DATALINK button** ([tgt.html](../src/web/pages/tgt/tgt.html)) — sits below the target list,
+   dashed purple border (distinct from the real `TargetListSelector` filter buttons above it, which
+   also gate future selection — this one doesn't): **tap** deselects just the datalink-only targets,
+   **hold** deselects everything else (keeping only the datalink-only ones locked). Both are new bulk
+   server-side commands:
+   - **`tgt.clear-datalink`** / **`tgt.clear-sensor`** ([CommandDispatcher.cs](../src/plugin/CommandDispatcher.cs)) —
+     mirror the existing `tgt.clear` ("deselect everything") pattern, scoped by the same
+     datalink/observed check as `UnitInfo.Datalink`, sharing one `TgtClearBy(op, wantDatalink)` helper.
+6. **Preview mock** ([preview-mock.js](../tools/preview-mock.js)) — two mocked targets flagged
+   `dl: true` so the harness exercises the SRC column and both button directions without the game.
 
-No new server command, no new client message type, no change to the deselect path at all — this is
-one boolean threaded through plumbing that already exists end to end, plus a badge in the existing
-row template.
+Turned out to need two small new commands after all (see "Open question", below, for how the design
+moved there) — everything else is exactly the existing `tgt.clear`/`ForceDeselect`/ `target.deselect`
+machinery, just scoped by one extra boolean.
 
-## Open question
+## Design decisions along the way
 
-Whether a *dedicated* "cancel datalink locks" bulk action (beyond the existing per-row deselect) is
-still wanted once the badge exists — the ticket's primary ask reads like it assumed no per-target
-cancel existed yet. Worth checking with the user once the badge is in, rather than building a bulk
-action nobody asked for after finding out the granular one already works.
+- **"Sensor" over "radar"** for the live-side label — the game's own distinction (`Observed()`) is
+  about *freshness*, not which instrument painted the contact (could be radar, IRST, visual ID, a
+  laser designation), so "radar" would overclaim.
+- **The button isn't a real filter, and looks like it isn't** — dashed border + a dedicated purple
+  accent (`--no-purple` / `--no-purple-rgb`, added to [theme.css](../src/web/shared/theme.css)) mark
+  it as a mod-only control, so a pilot who's learned "these buttons gate future selections too"
+  (see docs/tgt-page.md) doesn't wrongly assume that about this one.
+- **Tap/hold both ended up as bulk deselects, not a display filter** — an earlier pass had tap hide
+  datalink rows from view (client-side only) and hold do the bulk deselect. Revised per direct
+  feedback: tap deselects datalink-only targets, hold deselects everything *except* datalink-only
+  targets (the inverse) — both real actions, no view-only filtering.

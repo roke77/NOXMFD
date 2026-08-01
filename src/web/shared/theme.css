@@ -18,6 +18,8 @@
      same colour with an alpha, and one source is one thing to tune. */
   --no-teal-rgb:   78, 201, 201;
   --no-teal:       rgb(var(--no-teal-rgb));
+  --no-purple-rgb: 179, 136, 255;  /* mod-only controls that aren't real game filters (e.g. TGT's DATALINK) */
+  --no-purple:     rgb(var(--no-purple-rgb));
   --no-bg:         #000;
   --no-panel-bg:   rgba(6,10,6,0.78);
   --no-panel-border: #1a3a1a;
