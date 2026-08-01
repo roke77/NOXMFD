@@ -186,6 +186,7 @@ namespace NOXMFD
                 CountFlares(ac, out _flares, out _flaresMax);
                 _assets.TryCaptureCmIcons(ac);
                 _assets.TryLogPartLayout(ac);
+                _assets.TryLogWeaponInfo(ac);
                 _assets.TryCaptureAirframe(ac);
             }
             // BDF/PAL need no local aircraft — each resolves a fixed faction identity straight from

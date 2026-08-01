@@ -313,6 +313,52 @@ namespace NOXMFD
             }
         }
 
+        // WeaponInfo assets already dumped to the log this session, keyed by the asset's own Unity
+        // object name (stable identity — unlike weaponName/shortName, which can be blank or shared
+        // across variants). One line per distinct weapon, across every aircraft type seen this
+        // session, not per-aircraft.
+        private readonly HashSet<string> _loggedWeapons = new HashSet<string>();
+
+        // One-shot diagnostic dump of every weapon's full WeaponInfo data — every classification
+        // flag plus the numbers behind it — as ac.weaponStations turns them up. Data-mining pass for
+        // design questions (e.g. "does anything besides the Medusa's pod set the jammer flag") that
+        // don't need a proper asset-extraction tool, just a flight over a few loadouts and a look at
+        // LogOutput.log afterward. Walks EVERY station, including ones BuildLoadout hides
+        // (hideInDisplay, cargo/troops/sling) — those are exactly the kind of thing worth seeing.
+        public void TryLogWeaponInfo(Aircraft ac)
+        {
+            var stations = ac.weaponStations;
+            if (stations == null) return;
+
+            foreach (WeaponStation st in stations)
+            {
+                WeaponInfo info = st != null ? st.WeaponInfo : null;
+                if (info == null) continue;
+                string key = !string.IsNullOrEmpty(info.name) ? info.name
+                           : !string.IsNullOrEmpty(info.weaponName) ? info.weaponName
+                           : info.shortName ?? "?";
+                if (_loggedWeapons.Contains(key)) continue;
+                _loggedWeapons.Add(key);
+
+                Plugin.Log?.LogInfo(
+                    $"[NOXMFD] Weapon '{key}' name=\"{info.weaponName}\" short=\"{info.shortName}\" " +
+                    $"flags[gun={info.gun} missile={info.missile} bomb={info.bomb} glideBomb={info.glideBomb} " +
+                    $"jammer={info.jammer} energy={info.energy} nuclear={info.nuclear} strategic={info.strategic} " +
+                    $"overHorizon={info.overHorizon} laserGuided={info.laserGuided} boresight={info.boresight} " +
+                    $"cargo={info.cargo} troops={info.troops} sling={info.sling} " +
+                    $"rearmGround={info.rearmGround} rearmShip={info.rearmShip} hideInDisplay={info.hideInDisplay}] " +
+                    $"role[antiSurface={info.effectiveness.antiSurface:0.##} antiAir={info.effectiveness.antiAir:0.##} " +
+                    $"antiMissile={info.effectiveness.antiMissile:0.##} antiRadar={info.effectiveness.antiRadar:0.##}] " +
+                    $"pK={info.pK:0.###} fireInterval={info.fireInterval:0.###} muzzleVelocity={info.muzzleVelocity:0.#} " +
+                    $"maxSpeed={info.maxSpeed:0.#} dragCoef={info.dragCoef:0.###} gravMult={info.gravMult:0.##} " +
+                    $"pierceDamage={info.pierceDamage:0.#} blastDamage={info.blastDamage:0.#} " +
+                    $"armorTierEffectiveness={info.armorTierEffectiveness:0.##} airburstHeight={info.airburstHeight:0.#} " +
+                    $"visibilityWhenFired={info.visibilityWhenFired:0.##} costPerRound={info.costPerRound:0.#} " +
+                    $"massPerRound={info.massPerRound:0.##} useWeaponDoors={info.useWeaponDoors} " +
+                    $"hasIcon={info.weaponIcon != null}");
+            }
+        }
+
         // Extracts the flares + radar jammer Sprites from any matching component on the
         // aircraft, once each. Saves them as PNGs so /cm?type=flares|jammer can serve them.
         public void TryCaptureCmIcons(Aircraft ac)
