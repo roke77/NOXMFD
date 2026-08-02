@@ -23,7 +23,17 @@
     long-press a filter → "only this" (tgt.only {group,index}) — isolate it in its group
     RESET FILTER        → tgt.reset   (all filters back on)
     CLEAR TARGETS       → tgt.clear   (deselect every target)
-    tap a target's box  → deselect it (target.deselect {id})
+    tap anywhere on a target's row → deselect it (target.deselect {id})
+
+  PAD cursor (docs/page-cursor.md) — while this TGT is the SOI's focused surface, the shell forwards
+  the same cursor transport MAP uses, plus Cursor Select's live held state
+  ({mfd:true, action:'cursor'|'cursor-held'|'cursor-focus'}): held past the long-press threshold
+  mirrors a filter cell's own long-press "only" (release before it mirrors the tap); every other
+  control (list row, RESET/CLEAR, LASER/HUD) only ever has a tap outcome, since they have no hold
+  behaviour to mirror. Hovering the crosshair over any control highlights it (.pad-hoverable/
+  .pad-hover, shared/theme.css) the same way a real mouse would. Zoom In/Out (map-act's
+  'zoom-in'/'zoom-out') are repurposed here to scroll the target list instead of zooming (nothing to
+  zoom on this page).
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -38,22 +48,23 @@
 
     <div class="tgt-top">
       <div class="tgt-actions">
-        <button class="tgt-action reset" data-cmd="reset">RESET<br>FILTER</button>
-        <button class="tgt-action clear" data-cmd="clear">CLEAR<br>TARGETS</button>
+        <button class="tgt-action pad-hoverable reset" data-cmd="reset">RESET<br>FILTER</button>
+        <button class="tgt-action pad-hoverable clear" data-cmd="clear">CLEAR<br>TARGETS</button>
       </div>
       <div class="tgt-filters">
         <div class="tgt-row" id="row-faction"></div>
         <div class="tgt-row" id="row-category"></div>
       </div>
       <div class="tgt-modes">
-        <button class="tgt-mode" id="mode-laser" data-mode="laser">LASER</button>
-        <button class="tgt-mode" id="mode-hud"   data-mode="hud">HUD</button>
+        <button class="tgt-mode pad-hoverable" id="mode-laser" data-mode="laser">LASER</button>
+        <button class="tgt-mode pad-hoverable" id="mode-hud"   data-mode="hud">HUD</button>
       </div>
     </div>
 
     <div class="tgt-vehicles" id="row-vehicle"></div>
 
-    <!-- Selected-target list: NAME / GRID / RNG per row, with a checkbox to deselect. -->
+    <!-- Selected-target list: NAME / GRID / RNG per row. The whole row is clickable (not just the
+         checkbox — a bigger, easier touch/cursor target) and deselects that target. -->
     <div class="tgt-list" id="tgt-list">
       <div class="tgt-list-head">
         <span></span><span>NAME</span><span>GRID</span><span>RNG</span>
@@ -61,6 +72,10 @@
       <div class="tgt-list-rows" id="tgt-list-rows"></div>
       <div class="tgt-list-empty" id="tgt-list-empty">&mdash; NO TARGETS SELECTED &mdash;</div>
     </div>
+
+    <!-- PAD cursor (docs/page-cursor.md) — same crosshair/transport MAP uses, driven here only
+         while this TGT is the SOI's focused surface. See tgt.js. -->
+    <div id="pad-cursor" class="pad-cursor"></div>
   </div>
 
   <div class="tgt-unavailable mfd-empty" id="tgt-unavailable">
@@ -68,6 +83,6 @@
   </div>
 
 <script src="/assets/services/send-command.js"></script>
-<script src="/assets/pages/tgt/tgt.js"></script>
+<script type="module" src="/assets/pages/tgt/tgt.js"></script>
 </body>
 </html>

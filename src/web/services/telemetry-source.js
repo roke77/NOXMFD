@@ -74,6 +74,7 @@ export class TelemetrySource {
     this._cursorY = 0;
     this._cursorSelSeq = null;
     this._mapActSeq = null;
+    this._cursorSelHeld = false;   // Cursor Select's live held state (docs/page-cursor.md)
   }
 
   connect() {
@@ -132,6 +133,15 @@ export class TelemetrySource {
     this._cursorX = x; this._cursorY = y;
     const pane = this._soiPane;
     if (this._soiFocused && changed) this._postUp({ type: 'cursor', x, y, pane });
+
+    // Cursor Select's LIVE held state (docs/page-cursor.md) — a page with its own tap/long-press
+    // controls (TGT) needs the true→false transition to tell a tap from a hold, which the edge
+    // counter below can't express. Tracked regardless of focus, same reasoning as the vector above.
+    const held = !!c.held;
+    if (held !== this._cursorSelHeld) {
+      this._cursorSelHeld = held;
+      if (this._soiFocused) this._postUp({ type: 'cursor-held', held, pane });
+    }
 
     if (typeof c.selSeq === 'number' && c.selSeq !== this._cursorSelSeq) {
       const first = this._cursorSelSeq === null;

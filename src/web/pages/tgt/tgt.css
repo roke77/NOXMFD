@@ -17,6 +17,7 @@ html, body {
 
 .tgt-panel {
   height: 100%;
+  position: relative;   /* positions the PAD cursor (docs/page-cursor.md, .pad-cursor) */
   display: flex; flex-direction: column;
   gap: clamp(4px, 1.4vh, 12px);
   padding: clamp(6px, 1.8vmin, 16px);
@@ -165,6 +166,7 @@ html, body {
   padding: clamp(4px, 1vh, 9px) clamp(4px, 1vw, 10px);
   border-bottom: 1px solid rgba(57,255,20,0.10);
   font-size: clamp(11px, 1.9vmin, 18px);
+  cursor: pointer;   /* the whole row deselects now, not just the checkbox */
 }
 .tl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tl-grid, .tl-dist { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }

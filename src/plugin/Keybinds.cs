@@ -100,7 +100,7 @@ namespace NOXMFD
 
         // The four MAP cursor direction binds, kept by reference so Poll() can read their ActiveNow
         // directly and fold them into one cursor vector (see the MAP Keybinds comment in Bind()).
-        private static BindDef? _cursorUp, _cursorDown, _cursorLeft, _cursorRight;
+        private static BindDef? _cursorUp, _cursorDown, _cursorLeft, _cursorRight, _cursorSelect;
         // The two MAP cursor axis binds (docs/map-cursor.md) — analog alternative to the four keys
         // above; a deflected axis overrides its keys for that component (Poll()).
         private static BindDef? _cursorAxisH, _cursorAxisV;
@@ -164,10 +164,10 @@ namespace NOXMFD
                 "Toggle FLW on the focused MAP display.",
                 () => TelemetryServer.MapAction("toggle-follow"));
             DefFree(config, "map-zoom-in", map, "MapZoomIn", "Zoom In", edge: true,
-                "Zoom in on the focused MAP display.",
+                "Zoom in on the focused MAP display. On a scrollable page, scrolls it up instead.",
                 () => TelemetryServer.MapAction("zoom-in"));
             DefFree(config, "map-zoom-out", map, "MapZoomOut", "Zoom Out", edge: true,
-                "Zoom out on the focused MAP display.",
+                "Zoom out on the focused MAP display. On a scrollable page, scrolls it down instead.",
                 () => TelemetryServer.MapAction("zoom-out"));
 
             // SOI binds — they drive the mod's own displays rather than the aeroplane, so they are
@@ -205,7 +205,11 @@ namespace NOXMFD
                 "Move the cursor left. Only acts while a display with a cursor is focused.", () => { });
             _cursorRight = DefFree(config, "cursor-right", cursor, "CursorRight", "Cursor Right", edge: false,
                 "Move the cursor right. Only acts while a display with a cursor is focused.", () => { });
-            DefFree(config, "cursor-select", cursor, "CursorSelect", "Cursor Select", edge: true,
+            // edge:true still drives the instant-select edge (CursorSelect/cursorSelSeq) MAP relies
+            // on; Poll() separately reads this same bind's LIVE (non-edge) held state every frame via
+            // the reference below, for pages that need to tell a tap from a hold (docs/page-cursor.md
+            // — TGT's PAD-cursor Select mirrors its tap/long-press cell behaviour).
+            _cursorSelect = DefFree(config, "cursor-select", cursor, "CursorSelect", "Cursor Select", edge: true,
                 "Select whatever the cursor is on. Only acts while a display with a cursor is focused.",
                 () => TelemetryServer.CursorSelect());
             // Analog alternative to the four direction keys above — a HOTAS mini-stick/hat gives full
@@ -533,6 +537,11 @@ namespace NOXMFD
             if (ay != 0f) cy = ay;
             TelemetryServer.SetCursorVector(cx, cy);
 
+            // Cursor Select's LIVE held state (not the edge above) — reported every frame, same
+            // reasoning as the vector: a page needs to see it go true→false to tell a tap from a hold
+            // (docs/page-cursor.md), which an edge-only counter can't express.
+            TelemetryServer.SetCursorSelectHeld(Active(_cursorSelect!, edgeOverride: false));
+
             if (!any) return;   // common case — nothing this frame
 
             // Aircraft-free binds first (SOI): they drive the mod's own displays, so they have to work
@@ -634,13 +643,17 @@ namespace NOXMFD
         // pressed-this-frame (IsDown/GetButtonDown, the gear keys). Joystick KeyCodes inside the
         // KeyboardShortcut are ignored — those go through the Rewired index instead. An axis-only bind
         // (KeyEntry null) has no digital press to report — Poll() reads its analog value separately.
-        private static bool Active(BindDef bind)
+        // edgeOverride lets a caller read a bind's LIVE held state regardless of its own Edge mode
+        // (used for cursor-select: edge:true drives its instant-select action, but Poll() also wants
+        // its continuous held state every frame — see docs/page-cursor.md).
+        private static bool Active(BindDef bind, bool? edgeOverride = null)
         {
             if (bind.KeyEntry == null) return false;
+            bool edge = edgeOverride ?? bind.Edge;
             KeyCode k = bind.KeyEntry.Value.MainKey;
             bool kbd = k != KeyCode.None && k < KeyCode.JoystickButton0 &&
-                       (bind.Edge ? bind.KeyEntry.Value.IsDown() : bind.KeyEntry.Value.IsPressed());
-            return kbd || JoyBtn(bind.JoyEntry!.Value, bind.JoyNumEntry!.Value, bind.Edge);
+                       (edge ? bind.KeyEntry.Value.IsDown() : bind.KeyEntry.Value.IsPressed());
+            return kbd || JoyBtn(bind.JoyEntry!.Value, bind.JoyNumEntry!.Value, edge);
         }
 
         // Reads a bind's analog axis, deadzoned and inverted, folded straight into the cursor vector —

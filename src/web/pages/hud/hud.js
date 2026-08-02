@@ -1,6 +1,7 @@
 // HUD page — a clickable replica of the game's HUD OPTIONS screen (HUDOptions). Fetch-driven, not
 // telemetry-pushed: it GETs the current state from /hud-options and POSTs hud.* commands back. See
 // hud.html for the control contract and docs/hud-page.md for the model.
+import { createPadCursor } from '/assets/services/pad-cursor.js';
 
 // The seven categories in listCategories order. The game exposes no per-category display name, and
 // this order is fixed in its inspector, so the labels live here (docs/hud-page.md). The count from
@@ -95,7 +96,7 @@ function renderDeclutter() {
   const dc = data.declutter;
   DECLUTTER.forEach(function (item) {
     const b = document.createElement('button');
-    b.className = 'hud-dc' + (dc[item.key] ? '' : ' on');   // flag true = hidden = not lit
+    b.className = 'hud-dc pad-hoverable' + (dc[item.key] ? '' : ' on');   // flag true = hidden = not lit
     b.textContent = item.label;
     b.addEventListener('click', function () {
       const nextShown = !b.classList.contains('on');
@@ -111,7 +112,7 @@ function renderModes() {
   modesEl.textContent = '';
   (data.modes || []).forEach(function (name, i) {
     const b = document.createElement('button');
-    b.className = 'hud-mode' + (i === data.mode ? ' on' : '');
+    b.className = 'hud-mode pad-hoverable' + (i === data.mode ? ' on' : '');
     b.textContent = name;
     b.addEventListener('click', function () {
       if (i === data.mode) return;
@@ -146,7 +147,7 @@ function catRow(label, on, index) {
   name.className = 'hud-cat-name';
   name.textContent = label;
   const btn = document.createElement('button');
-  btn.className = 'hud-max' + (on ? ' on' : '');
+  btn.className = 'hud-max pad-hoverable' + (on ? ' on' : '');
   btn.textContent = 'MAXIMIZE';
   btn.addEventListener('click', function () {
     const next = !btn.classList.contains('on');
@@ -168,7 +169,7 @@ function subGrid(group, items) {
   grid.className = 'hud-subs';
   items.forEach(function (it, i) {
     const chip = document.createElement('button');
-    chip.className = 'hud-sub' + (it.on ? ' on' : '');
+    chip.className = 'hud-sub pad-hoverable' + (it.on ? ' on' : '');
     chip.appendChild(subIcon(group, it.n));
     const lbl = document.createElement('span');
     lbl.className = 'hud-sub-label';
@@ -202,6 +203,69 @@ function subIcon(group, name) {
   img.src = url;
   return img;
 }
+
+// ── PAD cursor (docs/page-cursor.md) ──────────────────────────────────────────────────
+// Same crosshair/transport MAP uses (pad-cursor.js), driven here only while this HUD is the SOI's
+// focused surface. .hud-panel scrolls its own content (overflow-y: auto — the category list is
+// often taller than the frame), so the cursor element lives OUTSIDE it (a sibling in hud.html) and
+// is positioned in viewport coordinates instead of panel-local ones: a child positioned relative to
+// a scrolling ancestor would drift with the content on every scroll, which a cursor overlay must
+// never do (contrast TGT, whose .tgt-panel doesn't scroll, so panel-local coordinates work there).
+const CURSORABLE = '.hud-dc, .hud-mode, .hud-max, .hud-sub';
+const hudPanel   = document.getElementById('hud-panel');
+const padCursorEl = document.getElementById('pad-cursor');
+const cursor = createPadCursor({
+  el: padCursorEl,
+  clampRect: () => {
+    const r = hudPanel.getBoundingClientRect();
+    return { dx: r.left, dy: r.top, dw: r.width, dh: r.height };
+  },
+  onSelect: padCursorSelectAt,
+  onMove: padCursorMoveAt,
+});
+
+// Select performs whatever a click already does here — every HUD control (declutter/mode/category/
+// subtype) is wired to a plain 'click' listener, so this is a synthetic click at the crosshair's
+// point, exactly what a mouse or touch tap already does. No hold behaviour on this page (unlike
+// TGT's filter cells), so HUD keeps the plain edge-driven select (docs/page-cursor.md).
+function padCursorSelectAt(x, y) {
+  const raw = document.elementFromPoint(x, y);
+  const el = raw && raw.closest(CURSORABLE);
+  if (el) el.click();
+}
+
+// Hover feedback (docs/page-cursor.md #2): mark whatever's currently under the crosshair with the
+// shared .pad-hover class (shared/theme.css), clearing it from whatever had it before.
+let hoveredEl = null;
+function padCursorMoveAt(x, y) {
+  const raw = x == null ? null : document.elementFromPoint(x, y);
+  const el = raw && raw.closest(CURSORABLE);
+  if (el === hoveredEl) return;
+  if (hoveredEl) hoveredEl.classList.remove('pad-hover');
+  hoveredEl = el;
+  if (hoveredEl) hoveredEl.classList.add('pad-hover');
+}
+
+// Zoom In/Out (map-act's zoom-in/zoom-out) are repurposed here to scroll the panel — nothing on
+// this page to zoom, and the binds already exist end-to-end (docs/page-cursor.md).
+const SCROLL_STEP = 60;   // ponytail: flat constant tuned by feel, like pad-cursor.js's own SPEED
+
+window.addEventListener('message', function (e) {
+  const m = e.data;
+  if (!m || m.mfd !== true) return;
+  if (m.action === 'cursor-focus') {
+    const r = hudPanel.getBoundingClientRect();
+    cursor.setFocus(!!m.on, r.left + r.width / 2, r.top + r.height / 2);
+  } else if (m.action === 'cursor') {
+    cursor.setVector(m.x, m.y);
+  } else if (m.action === 'cursor-select') {
+    cursor.select();
+  } else if (m.action === 'zoom-in') {
+    hudPanel.scrollBy({ top: SCROLL_STEP });
+  } else if (m.action === 'zoom-out') {
+    hudPanel.scrollBy({ top: -SCROLL_STEP });
+  }
+});
 
 // Unlike the telemetry-pushed pages (which get a live stream and just react to it), HUD OPTIONS
 // has no push channel — the plugin refreshes /hud-options on its own 1 Hz tick (TelemetryServer.

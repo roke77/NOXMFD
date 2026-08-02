@@ -21,6 +21,12 @@
 
   The seven category NAMES are the page's own, by index — the game exposes no per-category display
   name (see docs/hud-page.md). Vehicle/building names come from /hud-options (the Encyclopedia).
+
+  PAD cursor (docs/page-cursor.md) — while this HUD is the SOI's focused surface, the shell forwards
+  the same cursor/cursor-select transport MAP uses ({mfd:true, action:'cursor'|'cursor-select'|
+  'cursor-focus'}). Zoom In/Out (map-act's 'zoom-in'/'zoom-out') are repurposed here to scroll the
+  panel instead of zooming (nothing to zoom on this page). #pad-cursor sits OUTSIDE .hud-panel
+  (which scrolls its own content) so the crosshair never drifts with a scroll — see hud.js.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -37,8 +43,9 @@
   <!-- shown when /hud-options is empty (no mission / HUDOptions not up) -->
   <div class="hud-empty mfd-empty" id="hud-empty"><span class="mfd-empty-title">HUD</span>&mdash; UNAVAILABLE &mdash;</div>
 </div>
+<div id="pad-cursor" class="pad-cursor"></div>
 
 <script src="/assets/services/send-command.js"></script>
-<script src="/assets/pages/hud/hud.js"></script>
+<script type="module" src="/assets/pages/hud/hud.js"></script>
 </body>
 </html>

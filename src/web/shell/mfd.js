@@ -854,12 +854,13 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'bdf')  forwardBdfToPanes();
     else if (page === 'pal')  forwardPalToPanes();
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
-    // docs/map-cursor.md: a fresh document means a fresh message listener, so any earlier
-    // cursor-focus post (sent the moment this pane's src changed, before its script had attached
-    // one) was silently dropped — a straight re-run of syncCursorFocus() wouldn't resend it either,
-    // since contentWindow's identity survives the reload and the target-unchanged check would no-op.
-    // Resend directly, bypassing that dedup, whenever this freshly-loaded pane is the one eligible.
-    if (page === 'map' && focusedMapWindow() === iframe.contentWindow)
+    // docs/page-cursor.md, docs/map-cursor.md: a fresh document means a fresh message listener, so
+    // any earlier cursor-focus post (sent the moment this pane's src changed, before its script had
+    // attached one) was silently dropped — a straight re-run of syncCursorFocus() wouldn't resend it
+    // either, since contentWindow's identity survives the reload and the target-unchanged check
+    // would no-op. Resend directly, bypassing that dedup, whenever this freshly-loaded pane is the
+    // one eligible.
+    if (PAD_CURSOR_PAGES[page] && focusedCursorWindow() === iframe.contentWindow)
       iframe.contentWindow.postMessage({ mfd: true, action: 'cursor-focus', on: true }, '*');
   });
 });
@@ -876,6 +877,11 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'tgt') { forwardTgtToFrame(); forwardTgtTargetsToFrame(); }
   else if (currentPage === 'bdf') { forwardBdfToFrame(); }
   else if (currentPage === 'pal') { forwardPalToFrame(); }
+  // docs/page-cursor.md: full-view TGT/HUD render in the shared #page-frame, which reloads (fresh
+  // document, fresh listener) on every navigation onto the page — same dropped-cursor-focus gap
+  // the split-pane fix above closes, just for the full-view frame instead of a pane.
+  if (PAD_CURSOR_PAGES[currentPage] && focusedCursorWindow() === pageFrame.contentWindow)
+    pageFrame.contentWindow.postMessage({ mfd: true, action: 'cursor-focus', on: true }, '*');
 });
 
 // Top-right indicator stack (PINNED). pinnedPage tracks which page (if any) is currently pinned.
@@ -1199,18 +1205,26 @@ window.addEventListener('message', function(e) {
   } else if (m.type === 'soi-act') {
     soiAct(m.act);
   } else if (m.type === 'cursor') {
-    // docs/map-cursor.md — forward straight to whichever iframe is both the focused surface AND
-    // currently showing MAP (focusedMapWindow returns null otherwise, so this is a safe no-op).
-    const w = focusedMapWindow();
+    // docs/page-cursor.md, docs/map-cursor.md — forward straight to whichever iframe is both the
+    // focused surface AND currently showing a PAD-cursor-eligible page (focusedCursorWindow
+    // returns null otherwise, so this is a safe no-op).
+    const w = focusedCursorWindow();
     if (w) w.postMessage({ mfd: true, action: 'cursor', x: m.x || 0, y: m.y || 0 }, '*');
   } else if (m.type === 'cursor-select') {
-    const w = focusedMapWindow();
+    const w = focusedCursorWindow();
     if (w) w.postMessage({ mfd: true, action: 'cursor-select' }, '*');
+  } else if (m.type === 'cursor-held') {
+    // docs/page-cursor.md — Cursor Select's live held state, for a page (TGT) that tells a tap from
+    // a hold. MAP ignores this action; only pages that opt in (pass onHold to createPadCursor) do.
+    const w = focusedCursorWindow();
+    if (w) w.postMessage({ mfd: true, action: 'cursor-held', held: !!m.held }, '*');
   } else if (m.type === 'map-act') {
-    // Reuse the existing mapSend/paneMapSend — Follow/Zoom act exactly like their bezel-key
-    // counterparts, on whichever surface is focused (soiPane, already updated by the 'soi' message
-    // this same postMessage batch always delivers first).
-    if (soiPane >= 0) { if (splitMode) paneMapSend(soiPane, m.act); else mapSend(m.act); }
+    // Follow/Zoom In/Zoom Out — MAP interprets these as view controls; TGT repurposes Zoom In/Out
+    // to scroll its target list (docs/page-cursor.md), HUD has nothing to do with them yet, so
+    // both are simply inert there. Routed the same way cursor/cursor-select are: straight to
+    // whichever surface is focused AND showing a PAD-cursor-eligible page.
+    const w = focusedCursorWindow();
+    if (w) w.postMessage({ mfd: true, action: m.act }, '*');
   } else if (m.type === 'loadout') {
     const prevSel = wpnData.selWeapon;
     wpnData = { items: m.items || [], selWeapon: m.selWeapon || null,
@@ -1470,22 +1484,32 @@ function reportPanes() {
   sendCommand('soi.panes', { cid: myCid, n: splitMode ? 2 : 1 }).catch(function() {});
 }
 
-// ── MAP cursor forwarding (docs/map-cursor.md) ────────────────────────────────────────
-// The focused surface is drivable as a MAP cursor only while it's actually SHOWING map — the SOI
-// ring/bezel-key cursor above frames "the recess," but the map cursor needs the real content check
-// (a focused pane can page onto/off MAP without soiPane itself changing). null = nothing eligible.
-function focusedMapWindow() {
+// ── PAD cursor forwarding (docs/page-cursor.md, docs/map-cursor.md) ───────────────────
+// Pages that carry their own PAD cursor (pad-cursor.js) — MAP's canvas crosshair, and TGT/HUD's
+// DOM-hit-test cursor. BDF/PAL stays out: read-only, nothing to click (docs/page-cursor.md).
+const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true };
+
+// The focused surface is drivable as a PAD cursor only while it's actually SHOWING an eligible
+// page — the SOI ring/bezel-key cursor above frames "the recess," but the cursor needs the real
+// content check (a focused pane can page onto/off an eligible page without soiPane itself
+// changing). null = nothing eligible. MAP renders in its own always-alive mapFrame in full view;
+// every other eligible page (TGT/HUD) renders in the shared #page-frame.
+function focusedCursorWindow() {
   if (soiPane < 0) return null;
-  if (splitMode) return panePages[soiPane] === 'map' ? paneIframes[soiPane].contentWindow : null;
-  return currentPage === 'map' ? mapFrame.contentWindow : null;
+  if (splitMode) {
+    const page = panePages[soiPane];
+    return PAD_CURSOR_PAGES[page] ? paneIframes[soiPane].contentWindow : null;
+  }
+  if (!PAD_CURSOR_PAGES[currentPage]) return null;
+  return currentPage === 'map' ? mapFrame.contentWindow : pageFrame.contentWindow;
 }
 
-// Tell the map iframe that just lost eligibility to drop its cursor, and the one that just gained
+// Tell the iframe that just lost eligibility to drop its cursor, and the one that just gained
 // it to show one — called after anything that could change the answer (focus moves, page
 // navigation under the focused surface, split toggling). No-ops when the answer didn't change.
 let cursorFocusTarget = null;   // the iframe window currently holding cursor focus, or null
 function syncCursorFocus() {
-  const target = focusedMapWindow();
+  const target = focusedCursorWindow();
   if (target === cursorFocusTarget) return;
   if (cursorFocusTarget) cursorFocusTarget.postMessage({ mfd: true, action: 'cursor-focus', on: false }, '*');
   if (target) target.postMessage({ mfd: true, action: 'cursor-focus', on: true }, '*');

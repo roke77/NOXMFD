@@ -243,6 +243,14 @@ namespace NOXMFD
             Interlocked.Increment(ref _cursorSelSeq);
         }
 
+        // Cursor Select's LIVE held state (docs/page-cursor.md) — separate from the edge counter
+        // above: MAP only ever wants the instant-select edge, but a page with its own tap/long-press
+        // controls (TGT) needs to see the press through to release to tell the two apart, the same
+        // way a real pointerdown/pointerup pair would. Rides the same 'cursor' SSE event as x/y, so
+        // it costs nothing extra to transport — a change here just makes that event fire sooner.
+        private static bool _cursorSelHeld;
+        internal static void SetCursorSelectHeld(bool held) => Volatile.Write(ref _cursorSelHeld, held);
+
         // MAP view actions (Follow / Zoom In / Zoom Out) — binds for what the bezel's FLW/Z+/Z- keys
         // already do. Same idempotent-counter shape again: the focused map's mfd.js/f35.js forwarding
         // reads mapAct only when mapActSeq changes, then maps the string straight onto the existing
@@ -1589,8 +1597,9 @@ namespace NOXMFD
         // per telemetry frame and still be free. It is the ONLY place these fields travel — carrying
         // them in both would let a cached (older) frame overwrite a fresher event.
         private static string CursorJson() => string.Format(CultureInfo.InvariantCulture,
-            "{{\"x\":{0:0.00},\"y\":{1:0.00},\"selSeq\":{2},\"act\":\"{3}\",\"actSeq\":{4}}}",
-            CursorX, CursorY, CursorSelSeq, EscapeJson(MapAct), MapActSeq);
+            "{{\"x\":{0:0.00},\"y\":{1:0.00},\"selSeq\":{2},\"act\":\"{3}\",\"actSeq\":{4},\"held\":{5}}}",
+            CursorX, CursorY, CursorSelSeq, EscapeJson(MapAct), MapActSeq,
+            Volatile.Read(ref _cursorSelHeld) ? "true" : "false");
 
         private static string EscapeJson(string s) =>
             s.Replace("\\", "\\\\").Replace("\"", "\\\"");

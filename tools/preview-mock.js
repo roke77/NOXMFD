@@ -372,7 +372,8 @@
       let lastCursor = '';
       const cursorTick = () => {
         const c = JSON.stringify({ x: FRAME.cursorX, y: FRAME.cursorY,
-                                   selSeq: FRAME.cursorSelSeq, act: FRAME.mapAct, actSeq: FRAME.mapActSeq });
+                                   selSeq: FRAME.cursorSelSeq, act: FRAME.mapAct, actSeq: FRAME.mapActSeq,
+                                   held: !!FRAME.cursorSelHeld });
         if (c === lastCursor) return;
         lastCursor = c;
         this._fire('cursor', c);
@@ -414,11 +415,12 @@
 
   // Drive the MAP cursor by hand (docs/map-cursor.md): no game, so nothing moves it or presses
   // Cursor Select on its own. Same "present from frame 1" reasoning as the SOI fields above.
-  FRAME.cursorX      = FRAME.cursorX      || 0;
-  FRAME.cursorY      = FRAME.cursorY      || 0;
-  FRAME.cursorSelSeq = FRAME.cursorSelSeq || 0;
-  FRAME.mapAct       = FRAME.mapAct       || '';
-  FRAME.mapActSeq    = FRAME.mapActSeq    || 0;
+  FRAME.cursorX       = FRAME.cursorX       || 0;
+  FRAME.cursorY       = FRAME.cursorY       || 0;
+  FRAME.cursorSelSeq  = FRAME.cursorSelSeq  || 0;
+  FRAME.mapAct        = FRAME.mapAct        || '';
+  FRAME.mapActSeq     = FRAME.mapActSeq     || 0;
+  FRAME.cursorSelHeld = FRAME.cursorSelHeld || false;
 
   // Set the cursor velocity, [-1,1] per axis — stands in for held direction keys or an axis.
   window.__cursorVec = (x, y) => { FRAME.cursorX = x; FRAME.cursorY = y; };
@@ -426,6 +428,8 @@
   window.__cursorSelect = () => { FRAME.cursorSelSeq = (FRAME.cursorSelSeq || 0) + 1; };
   // One MAP view-action press: 'toggle-follow' | 'zoom-in' | 'zoom-out'.
   window.__mapAct = (act) => { FRAME.mapAct = act; FRAME.mapActSeq = (FRAME.mapActSeq || 0) + 1; };
+  // Hold/release Cursor Select by hand (docs/page-cursor.md) — stands in for a physically held key.
+  window.__cursorHold = (held) => { FRAME.cursorSelHeld = !!held; };
 
   // Show the map immediately (avoids the initial /map 404 flash).
   window.addEventListener('DOMContentLoaded', () => {
