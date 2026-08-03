@@ -65,8 +65,27 @@ function padSelect(px, py) {
   var c = itemById(pt.id);
   send(c && c.tg ? 'target.deselect' : 'target.select', { id: pt.id });
 }
-// Highlight the contact under the cursor (or clear it when the cursor leaves/hides).
+// Draw the F-16 two-bar acquisition gate at the cursor, in viewBox units so it scales with the
+// contact bricks (a 16-unit brick sits inside the ~28-unit gap). CUR_GAP = each bar's offset from
+// the aimpoint (gap encloses a brick with margin); CUR_H = half the bar height.
+var CUR_GAP = 14, CUR_H = 9;
+function drawCursor(px, py) {
+  var g = document.getElementById('rdr-cursor-g');
+  if (!g) return;
+  if (px == null) { g.innerHTML = ''; return; }
+  var v = viewport(), vx = (px - v.ox) / v.s, vy = (py - v.oy) / v.s;
+  g.innerHTML =
+    bar(vx - CUR_GAP, vy) + bar(vx + CUR_GAP, vy);
+}
+function bar(x, y) {
+  return '<line x1="' + x.toFixed(1) + '" y1="' + (y - CUR_H).toFixed(1) +
+         '" x2="' + x.toFixed(1) + '" y2="' + (y + CUR_H).toFixed(1) +
+         '" stroke="' + GREEN + '" stroke-width="3"/>';
+}
+
+// Move the gate and highlight the contact under the cursor (or clear both when it leaves/hides).
 function padMove(px, py) {
+  drawCursor(px, py);
   var pt = px == null ? null : nearestContact(px, py);
   var id = pt ? pt.id : null;
   if (id === hoveredId) return;

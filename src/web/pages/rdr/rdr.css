@@ -10,20 +10,10 @@
 .rdr-read { fill: var(--no-amber); font-size: 16px; }
 .rdr-read.big { font-size: 19px; letter-spacing: 0.5px; }
 
-/* PAD acquisition cursor — F-16-style two vertical bars flanking the aimpoint. pad-cursor.js moves
-   it via transform (assuming a 24px box centred on the aimpoint), so the bars sit symmetric about
-   the box centre and overflow it vertically. */
-.rdr-cursor {
-  position: absolute; top: 0; left: 0;
-  width: 24px; height: 24px;
-  pointer-events: none; display: none;
-}
-.rdr-cursor::before, .rdr-cursor::after {
-  content: ""; position: absolute; top: -13px;
-  width: 3px; height: 50px; background: var(--no-green);
-}
-.rdr-cursor::before { left: 3px; }
-.rdr-cursor::after  { right: 3px; }
+/* PAD acquisition cursor — the invisible element pad-cursor.js moves (in panel px). The visible
+   F-16 two-bar gate is drawn inside the SVG (#rdr-cursor-g, viewBox units) so it scales with the
+   contact bricks; see rdr.js drawCursor. */
+.rdr-cursor { position: absolute; top: 0; left: 0; width: 24px; height: 24px; pointer-events: none; display: none; }
 
 /* — not available — placeholder, centred over the panel when the aircraft has no radar. */
 .rdr-na {
