@@ -29,11 +29,15 @@
    50% keyframe passes back through the drawn centre position, satisfying "left, centre, right" with
    one continuous back-and-forth motion (animation-direction: alternate reverses it forever). linear
    (not ease-in-out) keeps the speed constant through the whole sweep, including through centre —
-   with three keyframes, per-segment easing would otherwise slow it down approaching 50%. */
+   with three keyframes, per-segment easing would otherwise slow it down approaching 50%. 0%/100%
+   are +186/-186, not the more obvious -186/+186 — rdr.js's syncSweepPhase() phase-locks the TIMING
+   to the native MFD radar's needle correctly either way; empirically only this sign put our caret on
+   the same SIDE as the native needle at a given instant (a mirror of the whole motion, independent
+   of the phase-delay maths). */
 @keyframes rdr-sweep-move {
-  0%   { transform: translateX(-186px); }
+  0%   { transform: translateX(186px); }
   50%  { transform: translateX(0); }
-  100% { transform: translateX(186px); }
+  100% { transform: translateX(-186px); }
 }
 #rdr-sweep { display: none; }
 #rdr-sweep.on {
