@@ -111,6 +111,11 @@ namespace NOXMFD
         public float       RadarConeDeg;
         public RdrContact[] Rdr;
 
+        // The player's Imperial/Metric display preference (PlayerSettings.unitSystem), mirroring
+        // the game's own UnitConverter — RDR's range/altitude readouts follow it (nm/ft vs km/m)
+        // the same way the native HUD does.
+        public bool RdrMetric;
+
         // TGT filter panel (docs/tgt-page.md), mirrored from the game's TargetListSelector so the
         // web TGT page renders the real toggle states. TgtPresent=false when the singleton isn't up
         // (the page then shows an unavailable state). The three arrays are ordered as the game holds

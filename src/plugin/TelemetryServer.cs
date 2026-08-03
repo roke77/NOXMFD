@@ -1515,8 +1515,8 @@ namespace NOXMFD
         {
             if (!s.RadarPresent) return "{\"present\":false}";
             return string.Format(CultureInfo.InvariantCulture,
-                "{{\"present\":true,\"range\":{0:0.0},\"cone\":{1:0.0},\"items\":{2}}}",
-                s.RadarRange, s.RadarConeDeg, RdrArray(s.Rdr));
+                "{{\"present\":true,\"range\":{0:0.0},\"cone\":{1:0.0},\"metric\":{2},\"items\":{3}}}",
+                s.RadarRange, s.RadarConeDeg, s.RdrMetric ? "true" : "false", RdrArray(s.Rdr));
         }
 
         private static string RdrArray(RdrContact[]? items)

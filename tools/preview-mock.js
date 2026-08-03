@@ -323,8 +323,10 @@
   ];
   if (!FRAME.rdr) {
     const ow = FRAME.world || { x: 0, z: 0 }, hdg = FRAME.hdg || 0, range = 74000, cone = 60;
+    // metric toggles the corner scale (KM/M) vs default (NM/FT) — flip via window.__PREVIEW_FRAME__
+    // = { rdr: { metric: true } } or just window.__RDR_METRIC__ = true before load, for a quick check.
     FRAME.rdr = {
-      present: true, range: range, cone: cone,
+      present: true, range: range, cone: cone, metric: !!window.__RDR_METRIC__,
       items: SYNTH_RDR.map((c, i) => {
         const ab = (c.az + hdg) * Math.PI / 180, rng = c.rf * range;
         return { id: 9001 + i,

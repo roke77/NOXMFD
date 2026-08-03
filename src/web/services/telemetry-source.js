@@ -304,6 +304,7 @@ export class TelemetrySource {
       present: !!(rb && rb.present),
       range: rb ? (rb.range || 0) : 0,
       cone: rb ? (rb.cone || 0) : 0,
+      metric: !!(rb && rb.metric),
       hdg: d.hdg || 0,
       items: rdrItems
     });

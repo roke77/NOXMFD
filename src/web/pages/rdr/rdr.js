@@ -6,10 +6,18 @@
 var L = 60, R = 460, TOP = 70, BOT = 510;      // scope rectangle
 var MIDX = 260, HALFW = 200, HGT = BOT - TOP;  // (R-L)/2, height
 var DEF_CONE = 60;                             // fallback azimuth half-angle when the radar reports none
-var M_PER_NM = 1852, M_TO_KFT = 3.28084 / 1000;
+// Unit conversions matching the game's own UnitConverter (PlayerSettings.unitSystem): Imperial is
+// nm for range, feet for altitude; Metric is km/m. M_PER_NM/M_PER_KM convert world metres to the
+// scope's range unit; M_TO_FT is the plain metres->feet factor UnitConverter.AltitudeReading uses.
+var M_PER_NM = 1852, M_PER_KM = 1000, M_TO_FT = 3.28084;
 
 var GREEN = '#39ff14', AMBER = '#ffaa00';
-var state = { present: false, range: 0, cone: 0, items: [] };
+var state = { present: false, range: 0, cone: 0, metric: false, items: [] };
+
+// Range in the display unit (nm or km, per state.metric); rounded, matching the corner scale.
+function rangeUnits(meters) { return Math.round(meters / (state.metric ? M_PER_KM : M_PER_NM)); }
+// Altitude in the display unit (m or ft, per state.metric), matching UnitConverter.AltitudeReading.
+function altUnits(meters) { return Math.round(state.metric ? meters : meters * M_TO_FT); }
 
 function coneHalf() { return state.cone > 0 ? state.cone : DEF_CONE; }
 
@@ -160,8 +168,8 @@ function renderReadout(first) {
   if (first) {
     r1.classList.add('big');
     r1.textContent = short(first.n);
-    r2.textContent = 'RNG ' + Math.round(first.rng / M_PER_NM) +
-                     '   ALT ' + Math.round(first.alt * M_TO_KFT) +
+    r2.textContent = 'RNG ' + rangeUnits(first.rng) +
+                     '   ALT ' + altUnits(first.alt) +
                      '   HDG ' + pad3(Math.round(((first.rhdg + heading()) % 360 + 360) % 360));
   } else {
     r1.classList.remove('big');
@@ -181,7 +189,8 @@ function pad3(n) { return ('00' + n).slice(-3); }
 function renderScale() {
   var range = document.getElementById('rdr-range');
   var azl = document.getElementById('rdr-azl'), azr = document.getElementById('rdr-azr');
-  range.textContent = state.range > 0 ? Math.round(state.range / M_PER_NM) : '';
+  // Corner scale carries its unit (NM/KM) so the bare number is self-explanatory.
+  range.textContent = state.range > 0 ? rangeUnits(state.range) + (state.metric ? 'KM' : 'NM') : '';
   var ch = Math.round(coneHalf());
   azl.textContent = '-' + ch;
   azr.textContent = '+' + ch;
@@ -224,6 +233,7 @@ if (typeof window !== 'undefined' && window.addEventListener) {
         present: !!m.present,
         range: m.range || 0,
         cone: m.cone || 0,
+        metric: !!m.metric,
         items: Array.isArray(m.items) ? m.items : []
       };
       if (typeof m.hdg === 'number') _hdg = m.hdg;

@@ -62,7 +62,11 @@ approach as RWR but **rectangular** instead of polar.
 - **Frame:** ownship implied at bottom-center (white caret). Horizontal axis = relative bearing
   off the nose; vertical axis = range, 0 at ownship → max at top.
 - **Range scale:** fixed at the radar's own max range (`RadarParameters.maxRange`) — no selectable
-  scale for v1.
+  scale for v1. Displayed in the player's own Imperial/Metric unit preference
+  (`PlayerSettings.unitSystem`, mirrored into the snapshot as `RdrMetric`), matching the game's own
+  `UnitConverter`: nm/ft in Imperial, km/m in Metric. The corner range number carries its unit
+  suffix (`NM`/`KM`) since it's a bare scale value with no other label; the readout's RNG/ALT stay
+  unlabeled (their row label already says what they are), same unit choice.
 - **Azimuth span:** clamp the horizontal to the **radar's actual cone half-angle** (`Radar.radarCone`),
   not a fixed ±60°, so contacts spread across the real FOV. Scan-limit lines mark the cone edges.
 - **Contacts:** solid green bricks positioned by bearing × range, **aircraft only** (missiles

@@ -559,6 +559,7 @@ namespace NOXMFD
             bool playerJammed = GetJamState(aircraft, out uint playerJammedBy);
 
             RdrContact[] rdr = BuildRdr(aircraft, out bool radarPresent, out float radarRange, out float radarConeDeg);
+            bool rdrMetric = PlayerSettings.unitSystem == PlayerSettings.UnitSystem.Metric;
 
             // TGT filter panel — read straight off the game's singleton (present all mission, but
             // guard anyway). Unity's == handles a destroyed instance as null, so we take a plain
@@ -625,6 +626,7 @@ namespace NOXMFD
                 RadarRange     = radarRange,
                 RadarConeDeg   = radarConeDeg,
                 Rdr            = rdr,
+                RdrMetric      = rdrMetric,
                 TgtPresent     = tgtOk,
                 TgtLaser       = tgtOk && tgtSel.toggleLaser      != null && tgtSel.toggleLaser.status,
                 TgtHud         = tgtOk && tgtSel.toggleFollowHUD  != null && tgtSel.toggleFollowHUD.status,
