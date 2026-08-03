@@ -122,6 +122,15 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
+- **RDR** — an F-16-style radar scope showing the air contacts your own radar detects, with a PAD cursor to slew between the bars and lock/unlock a target.
+
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![RDR page](docs/images/RDR.png)
+
+  </details>
+
 - **TGT** — target-selection filter mirroring the in-cockpit TARGET SELECTION panel: toggle which factions, categories, and vehicle types can be targeted (plus LASER/HUD), with RESET and CLEAR, above your live selected-target list.
 
   <details>
@@ -289,14 +298,15 @@ a SOI key. Five binds, on the **KEY** page:
 
 #### PAD cursor
 
-When a display's focused page is interactible — MAP, HUD, or TGT — a crosshair can move over it
-and act on whatever's underneath, the same thing a mouse click or touch tap already does, but from
-the HOTAS, without touching the screen. Cursor Up/Down/Left/Right (or a bound analog axis) slews
-it, Cursor Select picks whatever it's over: a contact on MAP, a toggle on HUD, a filter or target
-row on TGT (holding it also mirrors that page's own long-press action, where it has one). Zoom
-In/Out zoom the MAP view as usual, or scroll the page up/down on HUD/TGT. On MAP, pushing the
-cursor against the edge with FLW off pans the view to reveal more terrain. It only acts on
-whichever display currently has both SOI focus and one of these pages open.
+When a display's focused page is interactible — MAP, HUD, TGT, or RDR — a crosshair can move over
+it and act on whatever's underneath, the same thing a mouse click or touch tap already does, but
+from the HOTAS, without touching the screen. Cursor Up/Down/Left/Right (or a bound analog axis)
+slews it, Cursor Select picks whatever it's over: a contact on MAP, a toggle on HUD, a filter or
+target row on TGT (holding it also mirrors that page's own long-press action, where it has one), or
+a contact on RDR (locking/unlocking it). Zoom In/Out zoom the MAP view as usual, or scroll the page
+up/down on HUD/TGT. On MAP, pushing the cursor against the edge with FLW off pans the view to
+reveal more terrain. It only acts on whichever display currently has both SOI focus and one of
+these pages open.
 
 ## Reporting & collaboration
 
