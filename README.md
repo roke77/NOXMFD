@@ -122,7 +122,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **RDR** — an F-16-style radar scope showing the air contacts your own radar detects, with a PAD cursor to slew between the bars and lock/unlock a target.
+- **RDR** — a radar scope showing the air contacts your own radar detects, with a PAD cursor to slew between the bars and lock/unlock a target.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
