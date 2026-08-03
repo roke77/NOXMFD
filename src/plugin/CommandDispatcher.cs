@@ -123,8 +123,32 @@ namespace NOXMFD
             if (ac == null || ac.weaponManager == null) return;
             if (ReferenceEquals(unit, ac)) return;   // can't target yourself
 
-            WeaponManager wm = ac.weaponManager;
             string name = unit.definition?.unitName ?? "?";
+
+            // Neutral (no-faction) units are never selectable by default. The game's own TGT filter
+            // panel has no toggle for them at all — TargetListSelector_ToggleButton.CheckFactions
+            // only gates Friendly/Enemy, so a no-faction contact always passes it — which meant a
+            // MAP tap or RDR lock could weapon-lock something the pilot's own filters were never
+            // built to offer. Issue: a player targeted grey/white contacts via MAP that then never
+            // appeared in the in-game TGT list at all.
+            if (DynamicMap.GetFactionMode(unit.NetworkHQ) == FactionMode.NoFaction)
+            {
+                Plugin.Log?.LogInfo($"[NOXMFD] target.select '{name}' (id={id}): no-faction unit — ignored.");
+                return;
+            }
+
+            // Respect the TGT filter panel's current faction/category/vehicle/laser toggles — a MAP
+            // tap or RDR lock shouldn't be able to select anything the pilot has filtered out there.
+            // Reuses the game's own exclusion check (docs/tgt-page.md's "Option A"); if the singleton
+            // isn't up yet, fail open rather than block every selection.
+            TargetListSelector tgtSel = SceneSingleton<TargetListSelector>.i;
+            if (tgtSel != null && tgtSel.CheckExclusions(unit))
+            {
+                Plugin.Log?.LogInfo($"[NOXMFD] target.select '{name}' (id={id}): excluded by TGT filters — ignored.");
+                return;
+            }
+
+            WeaponManager wm = ac.weaponManager;
             if (wm.CheckIsTarget(unit))
             {
                 Plugin.Log?.LogInfo($"[NOXMFD] target.select '{name}' (id={id}): already targeted — no-op.");
