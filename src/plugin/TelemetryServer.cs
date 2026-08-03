@@ -675,6 +675,8 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/wpn/wpn.html");
                     else if (path == "/rwr")
                         ServeAssetRel(ctx, "pages/rwr/rwr.html");
+                    else if (path == "/rdr")
+                        ServeAssetRel(ctx, "pages/rdr/rdr.html");
                     else if (path == "/tgt")
                         ServeAssetRel(ctx, "pages/tgt/tgt.html");
                     else if (path == "/bdf")
