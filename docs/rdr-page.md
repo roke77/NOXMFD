@@ -120,9 +120,21 @@ Mirrors the existing frame-hosted pages (RWR is the closest analog — bezel rad
    `PAGE_URL` / `SPLIT_SLOTS`; its own NAV slot via `BEZEL_EXTRAS.main` (right bank — `NAV.main`'s
    six left keys are full); `forwardRdrTo{Frame,Panes}` + `rdrData` mirror + the `rdr` message
    handler; `PAD_CURSOR_PAGES.rdr = true`. MAIN now shows 12 destinations (left 6 + right 6).
-4. **PAD cursor + lock — not built (next).** Wire `createPadCursor` for the two-bar acquisition
-   cursor; on Select, drive `target.select` for the contact under the cursor (no new lock
-   mechanism — see "Locking reuses TGT's target set" above).
+4. **PAD cursor + lock — built.** `rdr.js` creates a shared `createPadCursor` (loaded via dynamic
+   import so the file stays a classic script the Node check can require). The `#rdr-cursor` element
+   is styled as the two vertical bars; the integrator moves it, clamped to the scope rect
+   (`scopeRectPx`, derived from the SVG's xMidYMid-meet transform). Hit-testing maps cursor px →
+   viewBox and finds the nearest contact within `HIT_PAD`. Select **toggles** that contact's lock
+   via `target.select` / `target.deselect` (reusing TGT's target set); onMove draws a hover ring.
+
+### Verification (serve_web harness)
+
+Confirmed live: NAV slot + full data path, B-scope render (scale/contacts/locks/stubs/readout),
+placeholder, and the cursor's **select-toggle** (locked→`target.deselect`, unlocked→`target.select`,
+empty→no-op), **hover highlight**, two-bar visual on focus, and import-race parking. The cursor's
+**slew motion** couldn't be shown in this harness — `pad-cursor.js` integrates on
+`requestAnimationFrame`, which the non-displayed Browser pane pauses — but it's the same shared
+integrator MAP/TGT/HUD already use, fed identically. `rdr.test.js` covers the pure projection.
 
 ## Resolved (was: open questions)
 

@@ -6,10 +6,24 @@
 .rdr-scope text { font-family: var(--no-font); }
 
 .rdr-hdr  { fill: var(--no-green); font-size: 22px; letter-spacing: 1px; }
-.rdr-tag  { fill: var(--no-green-dim); font-size: 18px; }
 .rdr-az   { fill: var(--no-green-dim); font-size: 15px; }
 .rdr-read { fill: var(--no-amber); font-size: 16px; }
 .rdr-read.big { font-size: 19px; letter-spacing: 0.5px; }
+
+/* PAD acquisition cursor — F-16-style two vertical bars flanking the aimpoint. pad-cursor.js moves
+   it via transform (assuming a 24px box centred on the aimpoint), so the bars sit symmetric about
+   the box centre and overflow it vertically. */
+.rdr-cursor {
+  position: absolute; top: 0; left: 0;
+  width: 24px; height: 24px;
+  pointer-events: none; display: none;
+}
+.rdr-cursor::before, .rdr-cursor::after {
+  content: ""; position: absolute; top: -13px;
+  width: 3px; height: 50px; background: var(--no-green);
+}
+.rdr-cursor::before { left: 3px; }
+.rdr-cursor::after  { right: 3px; }
 
 /* — not available — placeholder, centred over the panel when the aircraft has no radar. */
 .rdr-na {
