@@ -26,8 +26,10 @@
    while the radar is emitting (docs comment in rdr.html has the shape/geometry). Hidden by default;
    rdr.js's render() toggles .on off the radarOn flag. translateX is in the SVG's own viewBox units
    (drawn at centre in rdr.html), so ±186 reaches the frame's left/right insets (L+14 / R-14) — the
-   50% keyframe passes back through the drawn centre position, satisfying "left, centre, right"
-   with one continuous back-and-forth motion (animation-direction: alternate reverses it forever). */
+   50% keyframe passes back through the drawn centre position, satisfying "left, centre, right" with
+   one continuous back-and-forth motion (animation-direction: alternate reverses it forever). linear
+   (not ease-in-out) keeps the speed constant through the whole sweep, including through centre —
+   with three keyframes, per-segment easing would otherwise slow it down approaching 50%. */
 @keyframes rdr-sweep-move {
   0%   { transform: translateX(-186px); }
   50%  { transform: translateX(0); }
@@ -36,7 +38,7 @@
 #rdr-sweep { display: none; }
 #rdr-sweep.on {
   display: block;
-  animation: rdr-sweep-move 2.4s ease-in-out infinite alternate;
+  animation: rdr-sweep-move 2.4s linear infinite alternate;
 }
 
 /* Unavailable state (aircraft has no radar) — same shared .mfd-empty look every other page uses
