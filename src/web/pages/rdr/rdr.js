@@ -190,7 +190,7 @@ function renderScale() {
   var range = document.getElementById('rdr-range');
   var azl = document.getElementById('rdr-azl'), azr = document.getElementById('rdr-azr');
   // Corner scale carries its unit (NM/KM) so the bare number is self-explanatory.
-  range.textContent = state.range > 0 ? rangeUnits(state.range) + (state.metric ? 'KM' : 'NM') : '';
+  range.textContent = state.range > 0 ? rangeUnits(state.range) + (state.metric ? 'km' : 'nm') : '';
   var ch = Math.round(coneHalf());
   azl.textContent = '-' + ch;
   azr.textContent = '+' + ch;
