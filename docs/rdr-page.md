@@ -80,6 +80,12 @@ approach as RWR but **rectangular** instead of polar.
 - **Data readout (bottom):** always the **first** target in the locked list — its `NAME` (kept —
   we have `definition.unitName`), plus `RNG`, `ALT`, `HDG`, and a `LOCK N` count of how many are
   locked.
+- **Antenna-sweep caret:** a small inverted-T on the frame's bottom edge, sweeping left↔right through
+  centre while the radar is actively emitting (`Aircraft.HasRadarEmission()` — already a top-level
+  telemetry field, forwarded into the `rdr` message as `radarOn`; no plugin change needed). Pure CSS
+  `@keyframes` (0%/50%/100% → −186px/0/+186px, `ease-in-out`, `alternate`, `2.4s`) rather than a
+  discrete 3-position snap, so it reads as one continuous sweep that happens to pass through those
+  three points. Hidden whenever `radarOn` is false (radar off, even with hardware present).
 
 ### Locking reuses TGT's target set (decided)
 

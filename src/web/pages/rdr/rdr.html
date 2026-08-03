@@ -37,6 +37,15 @@
       <g id="rdr-contacts"></g>
       <g id="rdr-cursor-g"></g>
 
+      <!-- Antenna-sweep caret: a small inverted-T sitting on the frame's bottom edge, drawn at
+           centre; rdr.css's animation swings it left<->right through this drawn position (CSS
+           translateX is in the SVG's own viewBox units, so ±186 reaches the frame's L/R insets).
+           Shown only while the radar is actively emitting — see rdr.js render(). -->
+      <g id="rdr-sweep">
+        <line x1="252" y1="510" x2="268" y2="510" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+        <line x1="260" y1="510" x2="260" y2="500" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+      </g>
+
       <polygon points="260,510 246,534 260,526 274,534" fill="rgba(255,255,255,0.7)"/>
       <text id="rdr-azl" x="60"  y="534" class="rdr-az">-60</text>
       <text id="rdr-azr" x="460" y="534" class="rdr-az" text-anchor="end">+60</text>

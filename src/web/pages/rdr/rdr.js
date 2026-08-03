@@ -12,7 +12,7 @@ var DEF_CONE = 60;                             // fallback azimuth half-angle wh
 var M_PER_NM = 1852, M_PER_KM = 1000, M_TO_FT = 3.28084;
 
 var GREEN = '#39ff14', AMBER = '#ffaa00';
-var state = { present: false, range: 0, cone: 0, metric: false, items: [] };
+var state = { present: false, range: 0, cone: 0, metric: false, radarOn: false, items: [] };
 
 // Range in the display unit (nm or km, per state.metric); rounded, matching the corner scale.
 function rangeUnits(meters) { return Math.round(meters / (state.metric ? M_PER_KM : M_PER_NM)); }
@@ -199,6 +199,8 @@ function renderScale() {
 function render() {
   document.body.classList.toggle('unavailable', !state.present);
   if (!state.present) return;
+  var sweep = document.getElementById('rdr-sweep');
+  if (sweep) sweep.classList.toggle('on', !!state.radarOn);
   renderScale();
   renderGrid();
   renderContacts();
@@ -242,6 +244,7 @@ if (typeof window !== 'undefined' && window.addEventListener) {
         range: m.range || 0,
         cone: m.cone || 0,
         metric: !!m.metric,
+        radarOn: !!m.radarOn,
         items: Array.isArray(m.items) ? m.items : []
       };
       if (typeof m.hdg === 'number') _hdg = m.hdg;

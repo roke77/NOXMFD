@@ -305,6 +305,9 @@ export class TelemetrySource {
       range: rb ? (rb.range || 0) : 0,
       cone: rb ? (rb.cone || 0) : 0,
       metric: !!(rb && rb.metric),
+      // Radar emission (Aircraft.HasRadarEmission, already forwarded top-level for AVN's status
+      // tile) drives the B-scope's antenna-sweep caret — on only while actively emitting.
+      radarOn: d.radar === true,
       hdg: d.hdg || 0,
       items: rdrItems
     });
