@@ -188,15 +188,8 @@ function renderScale() {
 }
 
 function render() {
-  var na = document.getElementById('rdr-na');
-  var svg = document.querySelector('.rdr-scope');
-  if (!state.present) {
-    if (na) na.hidden = false;
-    if (svg) svg.style.visibility = 'hidden';
-    return;
-  }
-  if (na) na.hidden = true;
-  if (svg) svg.style.visibility = '';
+  document.body.classList.toggle('unavailable', !state.present);
+  if (!state.present) return;
   renderScale();
   renderGrid();
   renderContacts();

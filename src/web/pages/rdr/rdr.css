@@ -15,11 +15,9 @@
    contact bricks; see rdr.js drawCursor. */
 .rdr-cursor { position: absolute; top: 0; left: 0; width: 24px; height: 24px; pointer-events: none; display: none; }
 
-/* — not available — placeholder, centred over the panel when the aircraft has no radar. */
-.rdr-na {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--no-green-deep); font-family: var(--no-font); font-size: 28px;
-  letter-spacing: 2px;
-}
-.rdr-na[hidden] { display: none; }
+/* Unavailable state (aircraft has no radar) — same shared .mfd-empty look every other page uses
+   (TGT/HUD/BDF/keybinds): a RDR title + "— NOT AVAILABLE —" via body.unavailable, not a page-local
+   placeholder style. */
+.rdr-unavailable { display: none; }
+body.unavailable .rdr-panel { display: none; }
+body.unavailable .rdr-unavailable { display: block; }
