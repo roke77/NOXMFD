@@ -1405,6 +1405,7 @@ namespace NOXMFD
                         + ",\"parts\":" + PartsArray(s.Parts)
                         + ",\"rwr\":" + RwrArray(s.Rwr)
                         + ",\"mw\":" + MwArray(s.Mw)
+                        + ",\"rdr\":" + RdrBlock(s)
                         + ",\"radar\":" + (s.RadarOn ? "true" : "false")
                         + ",\"guns\":" + (s.GunsLinked ? "true" : "false")
                         + ",\"ign\":" + (s.Ignition ? "true" : "false")
@@ -1500,6 +1501,33 @@ namespace NOXMFD
                 sb.AppendFormat(CultureInfo.InvariantCulture,
                     "{{\"x\":{0:0.0},\"z\":{1:0.0},\"st\":\"{2}\",\"nb\":{3:0.0},\"h\":{4:0.0}}}",
                     items[i].X, items[i].Z, EscapeJson(items[i].Seeker ?? string.Empty), items[i].Notch, items[i].Heading);
+            }
+            return sb.Append(']').ToString();
+        }
+
+        // RDR page (docs/rdr-page.md). {present:false} when the aircraft has no radar; otherwise the
+        // scope's range scale + cone half-angle and the air contacts the own radar detects. Contacts
+        // carry world x/z (client derives bearing/range from the player's own position), altitude,
+        // travel heading (velocity stub), lock state (tg) and label.
+        private static string RdrBlock(TelemetrySnapshot s)
+        {
+            if (!s.RadarPresent) return "{\"present\":false}";
+            return string.Format(CultureInfo.InvariantCulture,
+                "{{\"present\":true,\"range\":{0:0.0},\"cone\":{1:0.0},\"items\":{2}}}",
+                s.RadarRange, s.RadarConeDeg, RdrArray(s.Rdr));
+        }
+
+        private static string RdrArray(RdrContact[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.AppendFormat(CultureInfo.InvariantCulture,
+                    "{{\"id\":{0},\"x\":{1:0.0},\"z\":{2:0.0},\"alt\":{3:0.0},\"hdg\":{4:0.0},\"tg\":{5},\"n\":\"{6}\"}}",
+                    items[i].Id, items[i].X, items[i].Z, items[i].Alt, items[i].Heading,
+                    items[i].Targeted ? 1 : 0, EscapeJson(items[i].Name ?? string.Empty));
             }
             return sb.Append(']').ToString();
         }

@@ -100,6 +100,17 @@ namespace NOXMFD
         // positions are in the same world space as Units. Empty when nothing is inbound.
         public MwContact[] Mw;
 
+        // RDR page (docs/rdr-page.md): the air contacts the player's OWN radar currently detects
+        // (Radar.detectedTargets, air-only). RadarPresent=false when the aircraft has no radar —
+        // the page then shows a — not available — placeholder. RadarRange is the scope's fixed
+        // range scale (RadarParameters.maxRange); RadarConeDeg is the antenna cone half-angle in
+        // degrees the B-scope spreads contacts across (0 = no cone limit). Rdr is empty when the
+        // radar sees no aircraft.
+        public bool        RadarPresent;
+        public float       RadarRange;
+        public float       RadarConeDeg;
+        public RdrContact[] Rdr;
+
         // TGT filter panel (docs/tgt-page.md), mirrored from the game's TargetListSelector so the
         // web TGT page renders the real toggle states. TgtPresent=false when the singleton isn't up
         // (the page then shows an unavailable state). The three arrays are ordered as the game holds
@@ -166,6 +177,19 @@ namespace NOXMFD
         public float  Fresh;   // 0..1 ping freshness (1 = just pinged, fades to 0 over the tier TTL)
         public string Name;    // display label
         public byte   Kind;    // 0 unknown, 1 ground-SAM, 2 air (from typeIdentity)
+    }
+
+    // One air contact the player's own radar detects, for the RDR B-scope. Position is in the same
+    // world space as UnitInfo so the client can derive bearing/range from the player's own position.
+    // Serialized terse as {id,x,z,alt,hdg,tg,n}.
+    internal struct RdrContact
+    {
+        public uint   Id;       // Unit.persistentID.Id — correlates with UnitInfo / the target set
+        public float  X, Z;     // world position (GlobalPosition, same space as UnitInfo)
+        public float  Alt;      // altitude (GlobalPosition.y) — the readout's ALT
+        public float  Heading;  // travel heading, degrees — drives the velocity-vector stub
+        public bool   Targeted; // in the player's weapon target list — drives the amber lock symbol
+        public string Name;     // display label (unitName, bogey fallback)
     }
 
     // One incoming missile on the RWR. Serialized terse as {x,z,st,nb,h}.
