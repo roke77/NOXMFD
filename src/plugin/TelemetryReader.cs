@@ -558,6 +558,10 @@ namespace NOXMFD
             UnitInfo[] units = BuildUnits(aircraft);
             bool playerJammed = GetJamState(aircraft, out uint playerJammedBy);
 
+            RdrContact[] rdr = BuildRdr(aircraft, out bool radarPresent, out float radarRange, out float radarConeDeg);
+            bool rdrMetric = PlayerSettings.unitSystem == PlayerSettings.UnitSystem.Metric;
+            float rdrLevelTime = Time.timeSinceLevelLoad;
+
             // TGT filter panel — read straight off the game's singleton (present all mission, but
             // guard anyway). Unity's == handles a destroyed instance as null, so we take a plain
             // reference + bool rather than ?. (which would sidestep that fake-null check).
@@ -619,6 +623,12 @@ namespace NOXMFD
                 Failures       = BuildFailures(),
                 Rwr            = BuildRwr(aircraft),
                 Mw             = BuildMw(aircraft),
+                RadarPresent   = radarPresent,
+                RadarRange     = radarRange,
+                RadarConeDeg   = radarConeDeg,
+                Rdr            = rdr,
+                RdrMetric      = rdrMetric,
+                RdrLevelTime   = rdrLevelTime,
                 TgtPresent     = tgtOk,
                 TgtLaser       = tgtOk && tgtSel.toggleLaser      != null && tgtSel.toggleLaser.status,
                 TgtHud         = tgtOk && tgtSel.toggleFollowHUD  != null && tgtSel.toggleFollowHUD.status,
@@ -836,6 +846,68 @@ namespace NOXMFD
             }
             for (int i = 0; i < _rwrExpireScratch.Count; i++) _rwrEmitters.Remove(_rwrExpireScratch[i]);
             return _rwrBuf.Count == 0 ? Array.Empty<RwrContact>() : _rwrBuf.ToArray();
+        }
+
+        private readonly List<RdrContact> _rdrBuf = new List<RdrContact>(32);
+
+        // Reflection handle for Radar's private cone half-angle (degrees). Cached once — it's a
+        // SerializeField baked per radar prefab, so it never changes at runtime.
+        private static FieldInfo _radarConeField;
+
+        // The air contacts the player's OWN radar currently detects (docs/rdr-page.md). The game's
+        // Radar already maintains this per scan as TargetDetector.detectedTargets (cleared + refilled
+        // by its own RepeatSearch, which runs client-side for the local aircraft), applying real
+        // range / cone / RCS / jamming — so we don't reimplement detection, just project the air
+        // entries. Also surfaces the scope's range scale and cone half-angle. present=false when the
+        // aircraft carries no radar, which drives the page's — not available — placeholder.
+        private RdrContact[] BuildRdr(Aircraft player, out bool present, out float range, out float coneDeg)
+        {
+            present = false; range = 0f; coneDeg = 0f;
+            Radar radar = player.radar as Radar;
+            if (radar == null) return Array.Empty<RdrContact>();
+
+            present = true;
+            range = radar.RadarParameters.maxRange;
+            coneDeg = ReadRadarCone(radar);
+
+            List<Unit> det = radar.detectedTargets;
+            if (det == null || det.Count == 0) return Array.Empty<RdrContact>();
+
+            // Same target-set reference the TGT page / target.select drive — an RDR "lock" IS
+            // membership here (reused, not a new mechanism — see docs/rdr-page.md).
+            List<Unit> targets = player.weaponManager != null ? player.weaponManager.GetTargetList() : null;
+            bool hasTargets = targets != null && targets.Count > 0;
+
+            _rdrBuf.Clear();
+            for (int i = 0; i < det.Count; i++)
+            {
+                Unit u = det[i];
+                if (u == null || u.disabled) continue;
+                UnitDefinition def = u.definition;
+                if (def == null || def.typeIdentity.air <= 0.5f) continue;   // aircraft only
+
+                GlobalPosition gp = u.GlobalPosition();
+                _rdrBuf.Add(new RdrContact
+                {
+                    Id       = u.persistentID.Id,
+                    X        = gp.x,
+                    Z        = gp.z,
+                    Alt      = gp.y,
+                    Heading  = u.transform.eulerAngles.y,
+                    Targeted = hasTargets && targets.Contains(u),
+                    Name     = RwrLabel(u)
+                });
+            }
+            return _rdrBuf.Count == 0 ? Array.Empty<RdrContact>() : _rdrBuf.ToArray();
+        }
+
+        // Radar's antenna cone half-angle in degrees (private SerializeField). <= 0 means the radar
+        // applies no cone limit; the page then falls back to a sensible fixed azimuth span.
+        private static float ReadRadarCone(Radar radar)
+        {
+            if (_radarConeField == null)
+                _radarConeField = typeof(Radar).GetField("radarCone", BindingFlags.NonPublic | BindingFlags.Instance);
+            return _radarConeField?.GetValue(radar) is float f ? f : 0f;
         }
 
         // RWR label: the unit's display name (bogeyName is the generic fallback).

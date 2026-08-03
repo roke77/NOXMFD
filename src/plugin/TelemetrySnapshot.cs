@@ -100,6 +100,31 @@ namespace NOXMFD
         // positions are in the same world space as Units. Empty when nothing is inbound.
         public MwContact[] Mw;
 
+        // RDR page (docs/rdr-page.md): the air contacts the player's OWN radar currently detects
+        // (Radar.detectedTargets, air-only). RadarPresent=false when the aircraft has no radar —
+        // the page then shows a — not available — placeholder. RadarRange is the scope's fixed
+        // range scale (RadarParameters.maxRange); RadarConeDeg is the antenna cone half-angle in
+        // degrees the B-scope spreads contacts across (0 = no cone limit). Rdr is empty when the
+        // radar sees no aircraft.
+        public bool        RadarPresent;
+        public float       RadarRange;
+        public float       RadarConeDeg;
+        public RdrContact[] Rdr;
+
+        // The player's Imperial/Metric display preference (PlayerSettings.unitSystem), mirroring
+        // the game's own UnitConverter — RDR's range/altitude readouts follow it (nm/ft vs km/m)
+        // the same way the native HUD does.
+        public bool RdrMetric;
+
+        // Time.timeSinceLevelLoad — the exact clock the game's own internal MFD radar sweep
+        // (TacScreen.ScanRadar: scanLine rotation = sin(t * 0.5 * PI) * 26deg, a 4s period) is
+        // driven by. RDR's sweep caret phase-locks to it on its first "radar just turned on" tick,
+        // so both sweeps read the same moment in their cycle even though ours is a linear B-scope
+        // caret and the native one is a rotating PPI needle. NOT Time.time (s.Time) — that runs
+        // continuously across scene loads, while this resets with the mission, matching the
+        // native sweep's own reference frame.
+        public float RdrLevelTime;
+
         // TGT filter panel (docs/tgt-page.md), mirrored from the game's TargetListSelector so the
         // web TGT page renders the real toggle states. TgtPresent=false when the singleton isn't up
         // (the page then shows an unavailable state). The three arrays are ordered as the game holds
@@ -166,6 +191,19 @@ namespace NOXMFD
         public float  Fresh;   // 0..1 ping freshness (1 = just pinged, fades to 0 over the tier TTL)
         public string Name;    // display label
         public byte   Kind;    // 0 unknown, 1 ground-SAM, 2 air (from typeIdentity)
+    }
+
+    // One air contact the player's own radar detects, for the RDR B-scope. Position is in the same
+    // world space as UnitInfo so the client can derive bearing/range from the player's own position.
+    // Serialized terse as {id,x,z,alt,hdg,tg,n}.
+    internal struct RdrContact
+    {
+        public uint   Id;       // Unit.persistentID.Id — correlates with UnitInfo / the target set
+        public float  X, Z;     // world position (GlobalPosition, same space as UnitInfo)
+        public float  Alt;      // altitude (GlobalPosition.y) — the readout's ALT
+        public float  Heading;  // travel heading, degrees — drives the velocity-vector stub
+        public bool   Targeted; // in the player's weapon target list — drives the amber lock symbol
+        public string Name;     // display label (unitName, bogey fallback)
     }
 
     // One incoming missile on the RWR. Serialized terse as {x,z,st,nb,h}.

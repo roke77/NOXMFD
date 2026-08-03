@@ -69,7 +69,7 @@ const soiRingEl = document.getElementById('soi-ring');
 const pageFrame = document.getElementById('page-frame');   // full-view host for the frame-hosted pages (WPN, TGT, TGP)
 // Pages that render in #page-frame in full view (rather than as overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
-const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', tgt: '/tgt', hud: '/hud', bdf: '/bdf', pal: '/bdf?pal', keys: '/keybinds' };
+const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', rdr: '/rdr', tgt: '/tgt', hud: '/hud', bdf: '/bdf', pal: '/bdf?pal', keys: '/keybinds' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
@@ -122,6 +122,7 @@ const BEZEL_EXTRAS = {
     { label: 'LYT', action: 'lyt' },
     { label: 'BDF', action: 'bdf' },
     { label: 'PAL', action: 'pal' },
+    { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
   ],
   // No MAIN back-item under lyt here — picking CLASSIC already navigates back to MAIN (this shell),
   // so a separate way-back label would be redundant with it.
@@ -210,6 +211,7 @@ const SPLIT_SLOTS = {
   avn: [ { side: 'left', slot: 0 } ],
   tgp: [ { side: 'left', slot: 0 } ],
   rwr: [ { side: 'left', slot: 0 } ],
+  rdr: [ { side: 'left', slot: 0 } ],
   tgt: [ { side: 'left', slot: 0 } ],
   bdf: [ { side: 'left', slot: 0 } ],
   pal: [ { side: 'left', slot: 0 } ],
@@ -229,6 +231,7 @@ const PAGE_URL = {
   tgp:  '/tgp?bare',
   wpn:  '/wpn?bare',
   rwr:  '/rwr?bare',
+  rdr:  '/rdr?bare',
   tgt:  '/tgt?bare',
   bdf:  '/bdf?bare',
   pal:  '/bdf?bare&pal',
@@ -564,6 +567,23 @@ function forwardRwrToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage({ mfd: true, type: 'rwr', items: rwrData.items || [] }, '*');
 }
+// RDR (docs/rdr-page.md): forward the whole B-scope block (present/range/cone/hdg/items) to the
+// pane(s) or the full-view frame. Like RWR it's one responsive SVG — no geometry to forward.
+function forwardRdrToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'rdr' || !iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(rdrMsg(), '*');
+  });
+}
+function forwardRdrToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage(rdrMsg(), '*');
+}
+function rdrMsg() {
+  return { mfd: true, type: 'rdr', present: rdrData.present, range: rdrData.range,
+           cone: rdrData.cone, metric: rdrData.metric, radarOn: rdrData.radarOn,
+           levelTime: rdrData.levelTime, hdg: rdrData.hdg, items: rdrData.items || [] };
+}
 function forwardMwToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage({ mfd: true, type: 'mw', items: mwData.items || [] }, '*');
@@ -850,6 +870,7 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'avn')  forwardAvnToPanes();
     else if (page === 'tgp')  forwardTgpToPanes();
     else if (page === 'rwr')  { forwardRwrToPanes(); forwardMwToPanes(); }
+    else if (page === 'rdr')  forwardRdrToPanes();
     else if (page === 'tgt')  { forwardTgtToPanes(); forwardTgtTargetsToPanes(); }
     else if (page === 'bdf')  forwardBdfToPanes();
     else if (page === 'pal')  forwardPalToPanes();
@@ -874,6 +895,7 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'tgp') { forwardTgpToFrame(); }
   else if (currentPage === 'avn') { forwardAvnLayoutToFrame(); forwardAvnToFrame(); }
   else if (currentPage === 'rwr') { forwardRwrToFrame(); forwardMwToFrame(); }
+  else if (currentPage === 'rdr') { forwardRdrToFrame(); }
   else if (currentPage === 'tgt') { forwardTgtToFrame(); forwardTgtTargetsToFrame(); }
   else if (currentPage === 'bdf') { forwardBdfToFrame(); }
   else if (currentPage === 'pal') { forwardPalToFrame(); }
@@ -1016,6 +1038,10 @@ let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1,
 let rwrData = { items: [] };
 let mwData  = { items: [] };
 
+// Latest RDR B-scope block (docs/rdr-page.md), mirrored from the map iframe's SSE feed. present is
+// false when the aircraft has no radar; the page draws its own scale/contacts from range/cone/items.
+let rdrData = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, hdg: 0, items: [] };
+
 // Latest TGT filter state, mirrored from the map iframe's SSE feed. The shell keeps only this
 // state and forwards it to the frame; the page renders the toggles + POSTs the tgt.* commands.
 let tgtData = { present: false };
@@ -1132,6 +1158,12 @@ function showPage(name) {
   if (name === 'rwr') {
     showFramePage('rwr');
     forwardRwrToFrame(); forwardMwToFrame();
+  }
+  // RDR renders in #page-frame too (docs/rdr-page.md). Its only bezel key is the static MAIN label
+  // (NAV.rdr, placed by the generic sweep above); the PAD cursor + lock work inside the page.
+  if (name === 'rdr') {
+    showFramePage('rdr');
+    forwardRdrToFrame();
   }
   // TGT renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.tgt,
   // placed by the generic sweep above); everything else is clickable in the page. Forward state.
@@ -1309,6 +1341,14 @@ window.addEventListener('message', function(e) {
     mwData = { items: Array.isArray(m.items) ? m.items : [] };
     if (currentPage === 'rwr' && !splitMode) forwardMwToFrame();
     if (splitMode) forwardMwToPanes();
+  } else if (m.type === 'rdr') {
+    // Mirror the RDR B-scope block (own-radar air contacts, already nose-up from ClientPage) and
+    // forward it to whichever surface shows RDR. See docs/rdr-page.md.
+    rdrData = { present: !!m.present, range: m.range || 0, cone: m.cone || 0, metric: !!m.metric,
+                radarOn: !!m.radarOn, levelTime: m.levelTime || 0, hdg: m.hdg || 0,
+                items: Array.isArray(m.items) ? m.items : [] };
+    if (currentPage === 'rdr' && !splitMode) forwardRdrToFrame();
+    if (splitMode) forwardRdrToPanes();
   } else if (m.type === 'tgt') {
     // Mirror the TGT filter state (present + toggle groups). Renders in the #page-frame iframe (full)
     // or a pane (split); forward on when it's the page in view.
@@ -1487,7 +1527,7 @@ function reportPanes() {
 // ── PAD cursor forwarding (docs/page-cursor.md, docs/map-cursor.md) ───────────────────
 // Pages that carry their own PAD cursor (pad-cursor.js) — MAP's canvas crosshair, and TGT/HUD's
 // DOM-hit-test cursor. BDF/PAL stays out: read-only, nothing to click (docs/page-cursor.md).
-const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true };
+const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true };
 
 // The focused surface is drivable as a PAD cursor only while it's actually SHOWING an eligible
 // page — the SOI ring/bezel-key cursor above frames "the recess," but the cursor needs the real
@@ -1661,6 +1701,7 @@ function mfdButton(el) {
     case 'lyt-f35':     setLayout('f35'); location.href = '/f35'; break;
     case 'avn':  showPage('avn');  break;
     case 'rwr':  showPage('rwr');  break;
+    case 'rdr':  showPage('rdr');  break;
     case 'tgt':  showPage('tgt');  break;
     case 'bdf':  showPage('bdf');  break;
     case 'pal':  showPage('pal');  break;

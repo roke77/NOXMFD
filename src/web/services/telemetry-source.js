@@ -282,6 +282,39 @@ export class TelemetrySource {
     }
     this._postUp({ type: 'mw', items: mw });
 
+    // RDR → nose-up B-scope contacts (docs/rdr-page.md). az = signed bearing off nose, rng = world
+    // distance (same units as range), rhdg = travel heading relative to nose (velocity stub). The
+    // present/range/cone scope scale passes straight through; the page shows a placeholder when
+    // present is false. Posted every tick (even absent) so the page can drop back to placeholder.
+    let rdrItems = [];
+    const rb = d.rdr;
+    if (rb && rb.present && Array.isArray(rb.items) && d.world) {
+      const hdg = d.hdg || 0;
+      for (const c of rb.items) {
+        const dx = c.x - d.world.x;
+        const dz = c.z - d.world.z;
+        let az = Math.atan2(dx, dz) * 180 / Math.PI - hdg;
+        az = ((az + 540) % 360) - 180;                          // -180..180 off nose
+        const rhdg = ((((c.hdg || 0) - hdg) % 360) + 360) % 360;  // travel heading relative to nose
+        rdrItems.push({ id: c.id, az: az, rng: Math.hypot(dx, dz), alt: c.alt || 0, rhdg: rhdg, tg: c.tg || 0, n: c.n || '' });
+      }
+    }
+    this._postUp({
+      type: 'rdr',
+      present: !!(rb && rb.present),
+      range: rb ? (rb.range || 0) : 0,
+      cone: rb ? (rb.cone || 0) : 0,
+      metric: !!(rb && rb.metric),
+      // Radar emission (Aircraft.HasRadarEmission, already forwarded top-level for AVN's status
+      // tile) drives the B-scope's antenna-sweep caret — on only while actively emitting.
+      radarOn: d.radar === true,
+      // Time.timeSinceLevelLoad, the clock the game's own MFD radar sweep runs on — lets the page
+      // phase-lock its caret to the native sweep (docs/rdr-page.md).
+      levelTime: rb ? (rb.lvlt || 0) : 0,
+      hdg: d.hdg || 0,
+      items: rdrItems
+    });
+
     // Aircraft name + per-part HP (the AVN damage silhouette; assets fetched on demand by the page).
     this._postUp({
       type: 'avn',
