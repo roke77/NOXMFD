@@ -1,7 +1,13 @@
 /* RDR page — F-16 FCR B-scope (docs/rdr-page.md). Single source of truth for BOTH layouts; the
    520x600 SVG is centred by preserveAspectRatio, so it keeps its aspect at any container size
    (like RWR/MAP/TGP). Colours follow the theme tokens: green search contacts, amber locks. */
-.rdr-panel { position: relative; width: 100%; height: 100%; }
+/* Mouse cursor matches the PAD acquisition gate's own two-bar look (green, same colour as
+   #rdr-cursor-g's bars) instead of the default pointer, so a mouse click reads as the same
+   "aim between the bars" gesture as the HOTAS cursor. Hotspot (16,16) is the gate's centre. */
+.rdr-panel {
+  position: relative; width: 100%; height: 100%;
+  cursor: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48bGluZSB4MT0iOSIgeTE9IjYiIHgyPSI5IiB5Mj0iMjYiIHN0cm9rZT0iIzM5ZmYxNCIgc3Ryb2tlLXdpZHRoPSIzIi8+PGxpbmUgeDE9IjIzIiB5MT0iNiIgeDI9IjIzIiB5Mj0iMjYiIHN0cm9rZT0iIzM5ZmYxNCIgc3Ryb2tlLXdpZHRoPSIzIi8+PC9zdmc+") 16 16, crosshair;
+}
 .rdr-scope { display: block; width: 100%; height: 100%; }
 .rdr-scope text { font-family: var(--no-font); }
 

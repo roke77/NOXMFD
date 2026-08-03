@@ -225,6 +225,14 @@ if (typeof window !== 'undefined' && window.addEventListener) {
     if (pendingVec) { cursor.setVector(pendingVec.x, pendingVec.y); pendingVec = null; }
   });
 
+  // A mouse/touch tap selects the same way the PAD cursor's Select does — same hit-test, same
+  // toggle-lock (target.select/deselect). The panel's own CSS cursor already matches the PAD gate's
+  // two-bar look, so both input paths read as the same "aim between the bars" gesture.
+  document.querySelector('.rdr-panel').addEventListener('click', function (e) {
+    var r = this.getBoundingClientRect();
+    padSelect(e.clientX - r.left, e.clientY - r.top);
+  });
+
   window.addEventListener('message', function (e) {
     var m = e.data;
     if (!m || !m.mfd) return;
