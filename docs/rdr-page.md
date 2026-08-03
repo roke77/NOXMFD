@@ -82,10 +82,26 @@ approach as RWR but **rectangular** instead of polar.
   locked.
 - **Antenna-sweep caret:** a small inverted-T on the frame's bottom edge, sweeping left↔right through
   centre while the radar is actively emitting (`Aircraft.HasRadarEmission()` — already a top-level
-  telemetry field, forwarded into the `rdr` message as `radarOn`; no plugin change needed). Pure CSS
-  `@keyframes` (0%/50%/100% → −186px/0/+186px, `ease-in-out`, `alternate`, `2.4s`) rather than a
-  discrete 3-position snap, so it reads as one continuous sweep that happens to pass through those
-  three points. Hidden whenever `radarOn` is false (radar off, even with hardware present).
+  telemetry field, forwarded into the `rdr` message as `radarOn`). Hidden whenever `radarOn` is false
+  (radar off, even with hardware present). Pure CSS `@keyframes` (0%/50%/100% → −186px/0/+186px),
+  `linear` timing so the speed is constant through the whole sweep (not `ease-in-out`, which eased
+  down approaching centre with three keyframes), `animation-direction: alternate`.
+
+  **Matches the game's own internal MFD radar** (`TacScreen.ScanRadar`, `_scratch/full/TacScreen.cs`):
+  its `scanLine` needle rotation is `sin(Time.timeSinceLevelLoad * 0.5 * PI) * 26deg` — amplitude
+  ±26°, period 4s, one-way (edge-to-edge through centre) 2s. RDR's `SWEEP_ONE_WAY = 2` (rdr.js) and
+  the CSS `2s` duration mirror that period exactly, though the native sweep is a rotating PPI needle
+  (sinusoidal — fast through centre, slowing to a stop at the extremes) while RDR's is a linear
+  B-scope caret; matching the period doesn't make the *shape* of motion identical, just the timing.
+
+  **Phase-synced to it**, not just period-matched: the plugin forwards `Time.timeSinceLevelLoad`
+  itself (`RdrLevelTime` → wire `lvlt`, only inside the `rdr` block) as `levelTime`; on the first
+  "radar just turned on" tick (`state.radarOn && !_wasRadarOn`), `syncSweepPhase()` sets
+  `animation-delay: -((levelTime + 1) mod 4)`, so RDR's caret crosses centre / hits its extremes at
+  the exact instants the native needle does. Computed once per on-transition, not every tick —
+  continuously resetting `animation-delay` would restart/stutter the animation instead of letting
+  it run smoothly; verified this by isolating the on-transition from the mock's own background
+  stream ticks, which otherwise interleave and produce a false "resync happened" reading.
 
 ### Locking reuses TGT's target set (decided)
 

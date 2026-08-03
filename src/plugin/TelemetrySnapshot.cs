@@ -116,6 +116,15 @@ namespace NOXMFD
         // the same way the native HUD does.
         public bool RdrMetric;
 
+        // Time.timeSinceLevelLoad — the exact clock the game's own internal MFD radar sweep
+        // (TacScreen.ScanRadar: scanLine rotation = sin(t * 0.5 * PI) * 26deg, a 4s period) is
+        // driven by. RDR's sweep caret phase-locks to it on its first "radar just turned on" tick,
+        // so both sweeps read the same moment in their cycle even though ours is a linear B-scope
+        // caret and the native one is a rotating PPI needle. NOT Time.time (s.Time) — that runs
+        // continuously across scene loads, while this resets with the mission, matching the
+        // native sweep's own reference frame.
+        public float RdrLevelTime;
+
         // TGT filter panel (docs/tgt-page.md), mirrored from the game's TargetListSelector so the
         // web TGT page renders the real toggle states. TgtPresent=false when the singleton isn't up
         // (the page then shows an unavailable state). The three arrays are ordered as the game holds

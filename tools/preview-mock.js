@@ -327,6 +327,10 @@
     // = { rdr: { metric: true } } or just window.__RDR_METRIC__ = true before load, for a quick check.
     FRAME.rdr = {
       present: true, range: range, cone: cone, metric: !!window.__RDR_METRIC__,
+      // Time.timeSinceLevelLoad stand-in — a fixed sample (not advancing, unlike a real mission
+      // clock) is enough to exercise the sweep's phase-lock math (rdr.js syncSweepPhase); the
+      // browser's own animation clock free-runs at 1x real time once the delay is set.
+      lvlt: 123.456,
       items: SYNTH_RDR.map((c, i) => {
         const ab = (c.az + hdg) * Math.PI / 180, rng = c.rf * range;
         return { id: 9001 + i,

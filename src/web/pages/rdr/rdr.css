@@ -38,7 +38,9 @@
 #rdr-sweep { display: none; }
 #rdr-sweep.on {
   display: block;
-  animation: rdr-sweep-move 2.4s linear infinite alternate;
+  /* 2s one-way (must match rdr.js's SWEEP_ONE_WAY) — the game's own MFD radar sweep takes exactly
+     2s edge-to-edge through centre (TacScreen.ScanRadar's 4s sine period), so this matches it. */
+  animation: rdr-sweep-move 2s linear infinite alternate;
 }
 
 /* Unavailable state (aircraft has no radar) — same shared .mfd-empty look every other page uses

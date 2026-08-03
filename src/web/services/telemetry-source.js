@@ -308,6 +308,9 @@ export class TelemetrySource {
       // Radar emission (Aircraft.HasRadarEmission, already forwarded top-level for AVN's status
       // tile) drives the B-scope's antenna-sweep caret — on only while actively emitting.
       radarOn: d.radar === true,
+      // Time.timeSinceLevelLoad, the clock the game's own MFD radar sweep runs on — lets the page
+      // phase-lock its caret to the native sweep (docs/rdr-page.md).
+      levelTime: rb ? (rb.lvlt || 0) : 0,
       hdg: d.hdg || 0,
       items: rdrItems
     });

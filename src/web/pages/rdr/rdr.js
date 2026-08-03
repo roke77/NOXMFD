@@ -12,7 +12,27 @@ var DEF_CONE = 60;                             // fallback azimuth half-angle wh
 var M_PER_NM = 1852, M_PER_KM = 1000, M_TO_FT = 3.28084;
 
 var GREEN = '#39ff14', AMBER = '#ffaa00';
-var state = { present: false, range: 0, cone: 0, metric: false, radarOn: false, items: [] };
+var state = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, items: [] };
+
+// The caret's one-way sweep time (rdr.css's animation-duration must match). 2s one-way / 4s round
+// trip mirrors the game's own MFD radar sweep exactly (TacScreen.ScanRadar: needle angle =
+// sin(t * 0.5*PI) * 26deg, a 4s period — see docs/rdr-page.md).
+var SWEEP_ONE_WAY = 2, SWEEP_PERIOD = SWEEP_ONE_WAY * 2;
+
+// Phase-locks the caret to that same sweep: our own local timeline (TAU, seconds since our
+// animation notionally started fresh) reaches (position, direction) = (centre, "+") at TAU=1, 2,
+// 3... one second AHEAD of the real needle's matching moments — so setting animation-delay to
+// -((levelTime + 1) mod period) makes our caret cross centre/hit its extremes at the exact instants
+// the real needle does, even though ours is linear and the real one sinusoidal. Applied once per
+// "radar just turned on" transition (see render()), not every tick — repeatedly resetting
+// animation-delay would restart/stutter the animation instead of letting it run smoothly.
+function syncSweepPhase(levelTime) {
+  var sweep = document.getElementById('rdr-sweep');
+  if (!sweep) return;
+  var phase = (((levelTime + 1) % SWEEP_PERIOD) + SWEEP_PERIOD) % SWEEP_PERIOD;
+  sweep.style.animationDelay = (-phase) + 's';
+}
+var _wasRadarOn = false;
 
 // Range in the display unit (nm or km, per state.metric); rounded, matching the corner scale.
 function rangeUnits(meters) { return Math.round(meters / (state.metric ? M_PER_KM : M_PER_NM)); }
@@ -201,6 +221,8 @@ function render() {
   if (!state.present) return;
   var sweep = document.getElementById('rdr-sweep');
   if (sweep) sweep.classList.toggle('on', !!state.radarOn);
+  if (state.radarOn && !_wasRadarOn) syncSweepPhase(state.levelTime);
+  _wasRadarOn = state.radarOn;
   renderScale();
   renderGrid();
   renderContacts();
@@ -245,6 +267,7 @@ if (typeof window !== 'undefined' && window.addEventListener) {
         cone: m.cone || 0,
         metric: !!m.metric,
         radarOn: !!m.radarOn,
+        levelTime: m.levelTime || 0,
         items: Array.isArray(m.items) ? m.items : []
       };
       if (typeof m.hdg === 'number') _hdg = m.hdg;
