@@ -35,6 +35,7 @@
     tgp: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN
     avn: [ { label: 'MAIN', action: 'main' } ],
     rwr: [ { label: 'MAIN', action: 'main' } ],
+    rdr: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN (docs/rdr-page.md)
     tgt: [ { label: 'MAIN', action: 'main' } ],
     bdf: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN (docs/bdf-page.md)
     pal: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN — same panel, PRIMEVA (docs/bdf-page.md)

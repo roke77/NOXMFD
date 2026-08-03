@@ -311,6 +311,29 @@
                tr: c.tr, pw: c.pw, fr: 1, n: c.n, k: c.k, _p: c.period };
     });
   }
+  // Synthetic RDR block for the radar page (docs/rdr-page.md): air contacts the own radar
+  // "detects", authored as nose-relative bearing (az), range fraction (rf), travel heading
+  // relative to nose (rh, for the velocity stub) and lock flag (tg), converted to the plugin's
+  // wire shape (world x,z + world hdg + present/range/cone). A real capture's own `rdr` is kept.
+  const SYNTH_RDR = [
+    { az: -20, rf: 0.35, rh: 190, tg: 1, n: 'FS-20 Vortex', alt: 5500 },   // hot, locked
+    { az:  25, rf: 0.52, rh: 205, tg: 1, n: 'KR-67 Ifrit',  alt: 7200 },   // locked
+    { az: -46, rf: 0.70, rh:  15, tg: 0, n: 'SFB-81',       alt: 9100 },   // cold, search
+    { az:  10, rf: 0.86, rh: 335, tg: 0, n: 'EW-25 Medusa', alt: 10500 },  // search
+  ];
+  if (!FRAME.rdr) {
+    const ow = FRAME.world || { x: 0, z: 0 }, hdg = FRAME.hdg || 0, range = 74000, cone = 60;
+    FRAME.rdr = {
+      present: true, range: range, cone: cone,
+      items: SYNTH_RDR.map((c, i) => {
+        const ab = (c.az + hdg) * Math.PI / 180, rng = c.rf * range;
+        return { id: 9001 + i,
+                 x: Math.round(ow.x + Math.sin(ab) * rng), z: Math.round(ow.z + Math.cos(ab) * rng),
+                 alt: c.alt, hdg: ((c.rh + hdg) % 360 + 360) % 360, tg: c.tg, n: c.n };
+      })
+    };
+  }
+
   // Synthetic incoming missile for the RWR launch indicator. Authored as a bearing + an
   // animated range that closes from _r0 to _r1 km over _period s (then loops), so the preview
   // shows the connecting line shortening as it bears in. mwTickApproach below recomputes its

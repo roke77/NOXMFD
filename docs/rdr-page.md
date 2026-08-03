@@ -103,21 +103,26 @@ velocity stubs, one amber-locked contact).
   set (`target.select`). Select can lock several contacts; the readout tracks the first entry in
   that set.
 
-## What the page needs (not built yet — pending go-ahead)
+## Build steps
 
 Mirrors the existing frame-hosted pages (RWR is the closest analog — bezel radar contacts).
 
-1. **Plugin (`TelemetryReader.cs` + `TelemetrySnapshot.cs` + `TelemetryServer.cs`):** on the
-   telemetry tick, if `ac?.radar == null` emit a "no radar" flag; else project each air entry of
-   `ac.radar.detectedTargets` into a small contact record (position relative to own-ship or
-   bearing/range, speed, name, faction/hostility) and serialize as a new SSE payload.
-2. **Frontend page `src/web/pages/rdr/`:** the B-scope SVG renderer (the locked layout above,
-   made reactive), plus the `— not available —` placeholder state.
-3. **Shell wiring (`src/web/shell/mfd.js`):** register `rdr: '/rdr'` in `FRAME_PAGES`, add its
-   own RDR NAV slot, forward the contact stream to the frame like RWR's forwarder does.
-4. **PAD cursor + lock:** wire `createPadCursor` for the two-bar acquisition cursor; on Select,
-   drive TGT's existing `target.select` for the contact under the cursor (no new lock mechanism —
-   see "Locking reuses TGT's target set" above).
+1. **Plugin (`TelemetryReader.cs` + `TelemetrySnapshot.cs` + `TelemetryServer.cs`) — built.**
+   `BuildRdr` projects the air entries of `Aircraft.radar.detectedTargets` into an `rdr` block
+   `{present,range,cone,items:[{id,x,z,alt,hdg,tg,n}]}`; `present:false` when the aircraft has no
+   radar. `range`/`cone` (cone read via reflection) give the scope its scale; `tg` reuses the
+   weapon target list (`GetTargetList`), the same set `target.select` drives.
+2. **Frontend page `src/web/pages/rdr/` — built.** B-scope SVG renderer (`rdr.html/.css/.js`) with
+   the `— not available —` placeholder. `telemetry-source.js` converts world x/z to nose-up az +
+   range (rhdg for the velocity stub). Pure projection `bscopeXY` has a Node self-check
+   (`rdr.test.js`). Verified end-to-end in the serve_web harness.
+3. **Shell wiring (`src/web/shell/mfd.js`, `nav-model.js`) — built.** `rdr` in `FRAME_PAGES` /
+   `PAGE_URL` / `SPLIT_SLOTS`; its own NAV slot via `BEZEL_EXTRAS.main` (right bank — `NAV.main`'s
+   six left keys are full); `forwardRdrTo{Frame,Panes}` + `rdrData` mirror + the `rdr` message
+   handler; `PAD_CURSOR_PAGES.rdr = true`. MAIN now shows 12 destinations (left 6 + right 6).
+4. **PAD cursor + lock — not built (next).** Wire `createPadCursor` for the two-bar acquisition
+   cursor; on Select, drive `target.select` for the contact under the cursor (no new lock
+   mechanism — see "Locking reuses TGT's target set" above).
 
 ## Resolved (was: open questions)
 
