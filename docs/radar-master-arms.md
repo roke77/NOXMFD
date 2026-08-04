@@ -1,6 +1,10 @@
 # Radar & Master Arms — [issue #32](https://github.com/roke77/NOXMFD/issues/32)
 
-**Branch:** `radar-master-arms`. **Status:** planning.
+**Branch:** `radar-master-arms`. **Status:** built (steps 1-12), not yet in-game verified beyond the
+Harmony probe patch. Remaining before merge: play-test the whole feature set in an actual mission
+(spawn defaults, all eight keybinds, Master Arms enforcement, combat-mode filtering, WPN ARM/SAFE,
+KEY page settings), and confirm the four unconfirmed A/A missile names against a real WPN-page
+capture (`AAM-29 Scythe` is the one name already confirmed).
 
 ## Goal
 

@@ -36,6 +36,8 @@ binds (WEAPONS uses it for how the cycle keys work), keeping the per-row text sh
 | Gear Up / Gear Down | dedicated raise/lower (stock bind is a toggle); no-op if already there, mid-transition, or on the ground | edge |
 | Cycle Guns / Missiles / Bombs | select within the class — see below | edge |
 | Gun Trigger / Weapon Release | two-stage class fire keys — see below | held |
+| Master Arms ON / OFF, Radar ON / OFF, Engine ON / OFF | plain dedicated pairs — see below | edge |
+| A/A / A/G | restrict Cycle Missile to one class; hold either to reset to ALL — see below | held (tap/hold) |
 
 ### Weapon selectors (WeaponSelectors.cs)
 
@@ -65,6 +67,24 @@ and no need to advance through a list.
   label (red when empty), suppressed when the entry is the actively selected weapon — the
   filled box already says it. A selection change also pages the WPN view (bezel and F-35)
   to the page holding it.
+
+### Immersion options (docs/radar-master-arms.md)
+
+A separate section, appended last on the page, below a divider: eight binds plus three settings
+for cold-start immersion — see [docs/radar-master-arms.md](radar-master-arms.md) for the full design
+and known limitations (e.g. the dedicated-server gap for Engine).
+
+- **Three settings** (KEY page, not binds — same shape as **Input When Game Unfocused**): Radar ON
+  on start, Engine ON on start, Master Arms ON on start. All default ON (today's behaviour); switch
+  one OFF for the corresponding system to start off on every new aircraft.
+- **Master Arms ON / OFF, Radar ON / OFF, Engine ON / OFF** — plain dedicated pairs, no tap/hold
+  (the game already has its own single-toggle bind for Radar/Engine). Master Arms OFF blocks all
+  weapon/countermeasure fire, including the stock trigger.
+- **A/A / A/G** — restrict Cycle Missile to air-to-air or air-to-ground missiles only; A/A also
+  disables Cycle Bombs. Hold either to reset to ALL (unrestricted) — there's no dedicated ALL bind,
+  since holding already gets there.
+- **WPN page:** always shows **ARM**/**SAFE** controls reflecting/setting Master Arms, independent
+  of these keybinds. Master Arms OFF also draws a full-screen X with a SAFE label over the WPN page.
 
 ## Capture
 
