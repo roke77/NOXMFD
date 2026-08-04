@@ -62,8 +62,9 @@ namespace NOXMFD
         // Air-to-air missiles (docs/radar-master-arms.md, issue #32) — a maintained, exhaustive list;
         // every other IsMissile entry counts as air-to-ground by default (new A/A weapons from future
         // game updates land as A/G until this list is updated — accepted, A/G additions are the common
-        // case). Names are Encyclopedia/UnitDefinition names (_scratch/units.json); "AAM-29 Scythe" is
-        // confirmed matching the live WeaponInfo name from an actual session log, the other four are
+        // case). Names are Encyclopedia/UnitDefinition names (_scratch/units.json); four of five —
+        // "AAM-29 Scythe", "AAM-36 Scimitar", "IRM-S2", "MMR-S3" — are confirmed matching the live
+        // WeaponInfo name from real session logs. "IRM-S1" hasn't turned up in a loadout yet and is
         // still provisional.
         private static readonly HashSet<string> AirToAirMissiles = new HashSet<string>(StringComparer.Ordinal)
         {

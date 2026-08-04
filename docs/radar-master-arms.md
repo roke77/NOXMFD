@@ -3,9 +3,9 @@
 **Branch:** `radar-master-arms`. **Status:** built and partly in-game tested. First real play-test
 caught the Radar spawn-default bug (see the Radar section below) — fixed. RDR was also found missing
 from the F-35 layout's MAIN list (a pre-existing gap unrelated to this feature, fixed in passing).
-Still remaining before merge: verify the Radar fix, Engine, all eight keybinds, Master Arms
-enforcement, and combat-mode filtering in-game; confirm the four unconfirmed A/A missile names
-against a real WPN-page capture (`AAM-29 Scythe` is the one name already confirmed).
+4 of 5 A/A missile names are now confirmed against real session logs (see Decisions confirmed) —
+only `IRM-S1` remains provisional. Still remaining before merge: verify the Radar fix, Engine, all
+eight keybinds, Master Arms enforcement, and combat-mode filtering in-game.
 
 ## Goal
 
@@ -281,9 +281,11 @@ page already has. Existing sections/table are untouched.
 
 - **Combat mode resets to ALL on every new-aircraft spawn** — same as Radar/Engine/Master Arms,
   nothing here carries over between spawns.
-- **A/A name-string verification happens during build** — the five names are provisional until then;
-  confirm against real `WeaponInfo`/WPN-page names (`TryLogWeaponInfo` output) before step 7/8 relies
-  on them, adjusting spelling in source if they differ from the Encyclopedia names.
+- **A/A name-string verification — 4 of 5 confirmed against real session logs**
+  (`TryLogWeaponInfo` output, two separate in-game sessions): `AAM-29 Scythe`, `AAM-36 Scimitar`,
+  `IRM-S2`, and `MMR-S3` all match the Encyclopedia names in `WeaponSelectors.AirToAirMissiles`
+  exactly — no spelling changes needed. Only `IRM-S1` remains unconfirmed (not seen in either
+  session's loadouts); still provisional until it turns up in a real log.
 
 ## Open questions
 
