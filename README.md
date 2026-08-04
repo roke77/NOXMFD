@@ -1,5 +1,8 @@
 # <img src="docs/images/icon.svg" alt="" width="30" height="30" align="absmiddle"> Nuclear Option eXternal MFD
 
+[![Latest Release](https://img.shields.io/github/v/release/roke77/NOXMFD)](https://github.com/roke77/NOXMFD/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 ![NO XMFD running on a flight-sim rig](docs/images/SIM.png)
 
 NO XMFD is a BepInEx plugin for [Nuclear Option](https://store.steampowered.com/app/2168680/)
@@ -7,9 +10,24 @@ that reads live flight telemetry from the game and serves it over the local
 network as a browser-based multi-function display (MFD). The display opens in
 any web browser, on the same PC or on another device on the same network.
 
+## Contents
+
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Features](#features)
+  - [MFD pages](#mfd-pages)
+  - [MFD shell](#mfd-shell)
+  - [MFD layouts](#mfd-layouts)
+  - [Extended Keybinds](#extended-keybinds)
+    - [Sensor of Interest (SOI)](#sensor-of-interest-soi)
+    - [PAD cursor](#pad-cursor)
+- [Reporting & collaboration](#reporting--collaboration)
+- [Security & privacy](#security--privacy)
+- [License](#license)
+
 ## Requirements
 
-- **Nuclear Option** (PC, via Steam).
+- **Nuclear Option** (PC, via Steam). Currently tested against game version 0.34.
 - **BepInEx 5** (x64) installed into the game.
 - A device with a modern web browser — the same PC, or a tablet/phone on the
   same local network.
@@ -39,8 +57,8 @@ NO XMFD for you, and keeps it up to date.
 1. **Install BepInEx 5** (x64) into Nuclear Option — grab it from the
    [BepInEx releases](https://github.com/BepInEx/BepInEx/releases). Run the game
    once so BepInEx creates its folders.
-2. **Download the latest NO XMFD release** from the
-   [Releases page](https://github.com/roke77/NOXMFD/releases).
+2. **Download the latest NO XMFD release** — the `NOXMFD_x.y.z.zip` asset — from
+   the [Releases page](https://github.com/roke77/NOXMFD/releases).
 3. **Extract it** into a subfolder of BepInEx's plugins directory:
 
    ```
@@ -104,48 +122,12 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **MAP** — full-screen tactical map with friendly/hostile units and your own position; click a unit to target it, FLW toggles follow, Z+/Z− zoom. A HOTAS cursor can drive all of this without touching the screen — see [PAD cursor](#pad-cursor) below.
+- **BDF / PAL** — read-only replicas of the game's faction Forces panel, one per fixed identity: BDF for BOSCALI, PAL for PRIMEVA. Warheads, score, and funds, plus a ships/buildings/vehicles/aircraft breakdown.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
-  ![MAP page](docs/images/MAP.png)
-
-  </details>
-
-- **RWR** — radar threats around you by bearing, with incoming-missile warnings.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![RWR page](docs/images/RWR.png)
-
-  </details>
-
-- **RDR** — a radar scope showing air contacts from your own radar (green) and the faction's shared datalink picture (purple), with a PAD cursor to slew between the bars and lock/unlock a target.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![RDR page](docs/images/RDR.png)
-
-  </details>
-
-- **TGT** — target-selection filter mirroring the in-cockpit TARGET SELECTION panel: toggle which factions, categories, and vehicle types can be targeted (plus LASER/HUD), with RESET and CLEAR, above your live selected-target list. A DATALINK button bulk-deselects by source: tap clears datalink-only locks, hold clears everything else.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![TGT page](docs/images/TGT.png)
-
-  </details>
-
-- **TGP** — targeting-pod camera feed zoomed on the locked target, with range and bearing.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![TGP page](docs/images/TGP.png)
+  ![BDF page](docs/images/BDF.png)
 
   </details>
 
@@ -155,24 +137,6 @@ pilot, with HOTAS-friendly keybinds to match.
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
   ![HUD page](docs/images/HUD.png)
-
-  </details>
-
-- **WPN** — weapon loadout and rounds remaining, plus IR-flare count and jammer charge.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![WPN page](docs/images/WPN.png)
-
-  </details>
-
-- **BDF / PAL** — read-only replicas of the game's faction Forces panel, one per fixed identity: BDF for BOSCALI, PAL for PRIMEVA. Warheads, score, and funds, plus a ships/buildings/vehicles/aircraft breakdown.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![BDF page](docs/images/BDF.png)
 
   </details>
 
@@ -186,6 +150,60 @@ pilot, with HOTAS-friendly keybinds to match.
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
   ![LYT page](docs/images/LYT.png)
+
+  </details>
+
+- **MAP** — full-screen tactical map with friendly/hostile units and your own position; click a unit to target it, FLW toggles follow, Z+/Z− zoom. A HOTAS cursor can drive all of this without touching the screen — see [PAD cursor](#pad-cursor) below.
+
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![MAP page](docs/images/MAP.png)
+
+  </details>
+
+- **RDR** — a radar scope showing air contacts from your own radar (green) and the faction's shared datalink picture (purple), with a PAD cursor to slew between the bars and lock/unlock a target.
+
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![RDR page](docs/images/RDR.png)
+
+  </details>
+
+- **RWR** — radar threats around you by bearing, with incoming-missile warnings.
+
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![RWR page](docs/images/RWR.png)
+
+  </details>
+
+- **TGP** — targeting-pod camera feed zoomed on the locked target, with range and bearing. (Low quality for now. Follow high quality development [here](https://github.com/roke77/NOXMFD/issues/10))
+
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![TGP page](docs/images/TGP.png)
+
+  </details>
+
+- **TGT** — target-selection filter mirroring the in-cockpit TARGET SELECTION panel: toggle which factions, categories, and vehicle types can be targeted (plus LASER/HUD), with RESET and CLEAR, above your live selected-target list. A DATALINK button bulk-deselects by source: tap clears datalink-only locks, hold clears everything else.
+
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![TGT page](docs/images/TGT.png)
+
+  </details>
+
+- **WPN** — weapon loadout and rounds remaining, plus IR-flare count and jammer charge.
+
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![WPN page](docs/images/WPN.png)
 
   </details>
 
@@ -329,3 +347,7 @@ knowing exactly what it can access: see **[SECURITY.md](SECURITY.md)** for the
 full capability disclosure, the one network caveat (the LAN server is
 unauthenticated), and how to verify the build yourself. Network/firewall setup
 is covered in [docs/networking.md](docs/networking.md).
+
+## License
+
+[MIT](LICENSE) © Roque Alejandro Cuello
