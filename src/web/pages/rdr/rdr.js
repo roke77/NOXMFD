@@ -157,9 +157,9 @@ function renderContacts() {
     if (!p) return;
     plotted.push({ id: c.id, x: p.x, y: p.y });
     var locked = !!c.tg;
-    // Source colour: radar-only = green, datalink-only = purple (matching TGT's DATALINK button),
-    // both at once = green with a smaller centred purple square (see below) — locked always wins,
-    // same as before (docs/rdr-page.md).
+    // Source colour: radar (own radar detected it, regardless of datalink too) = green,
+    // datalink-only (not currently painted by the player's own radar) = purple (matching TGT's
+    // DATALINK button) — locked always wins, same as before (docs/rdr-page.md).
     var col = locked ? AMBER : (c.radar ? GREEN : PURPLE);
     if (locked && !first) first = c;
     // Hover highlight: a soft ring under whatever the cursor is nearest (docs/rdr-page.md).
@@ -169,11 +169,6 @@ function renderContacts() {
     // Brick.
     out += '<rect x="' + (p.x - 8).toFixed(1) + '" y="' + (p.y - 8).toFixed(1) +
            '" width="16" height="16" fill="' + col + '"/>';
-    // Detected by both the own radar AND datalink at once: a smaller centred purple square inside
-    // the green brick (skipped when locked — the amber lock state already takes visual priority).
-    if (!locked && c.radar && c.dl)
-      out += '<rect x="' + (p.x - 4).toFixed(1) + '" y="' + (p.y - 4).toFixed(1) +
-             '" width="8" height="8" fill="' + PURPLE + '"/>';
     // Velocity-vector stub: travel heading relative to nose, 0 = up (away). Length ~75% of a brick+.
     var a = (c.rhdg || 0) * Math.PI / 180, LEN = 19;
     out += '<line x1="' + p.x.toFixed(1) + '" y1="' + p.y.toFixed(1) + '" x2="' +
