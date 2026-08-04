@@ -122,7 +122,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **RDR** — a radar scope showing the air contacts your own radar detects, with a PAD cursor to slew between the bars and lock/unlock a target.
+- **RDR** — a radar scope showing air contacts from your own radar (green) and the faction's shared datalink picture (purple), with a PAD cursor to slew between the bars and lock/unlock a target.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
@@ -131,7 +131,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **TGT** — target-selection filter mirroring the in-cockpit TARGET SELECTION panel: toggle which factions, categories, and vehicle types can be targeted (plus LASER/HUD), with RESET and CLEAR, above your live selected-target list.
+- **TGT** — target-selection filter mirroring the in-cockpit TARGET SELECTION panel: toggle which factions, categories, and vehicle types can be targeted (plus LASER/HUD), with RESET and CLEAR, above your live selected-target list. A DATALINK button bulk-deselects by source: tap clears datalink-only locks, hold clears everything else.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
