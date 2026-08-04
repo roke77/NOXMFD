@@ -12,9 +12,10 @@ const rows = {
 };
 const modeEls = { laser: document.getElementById('mode-laser'), hud: document.getElementById('mode-hud') };
 const listRows = document.getElementById('tgt-list-rows');
+const datalinkBtn = document.getElementById('datalink-btn');
 
 let state = { present: false, laser: false, hud: false, faction: [], category: [], vehicle: [] };
-let targets = [];        // selected-target list (from 'tgt-targets'): [{ id, n, g, r, f }]
+let targets = [];        // selected-target list (from 'tgt-targets'): [{ id, n, g, r, f, dl }]
 let targetsKey = '';     // id-set signature; rebuild rows only when it changes
 // Cache of the built row signatures (names) so we only rebuild DOM when the set of toggles changes,
 // not on every 10 Hz frame — the per-frame work is just flipping the .on class.
@@ -101,7 +102,7 @@ function fmtRng(r) {
 }
 
 function renderTargets() {
-  const list = targets || [];
+  const list = targets;
   // Rebuild the rows only when the set of target ids changes; otherwise just refresh the text
   // (name/grid/range drift as targets move) so we don't thrash the DOM at 10 Hz.
   const key = list.map(function (t) { return t.id; }).join(',');
@@ -119,7 +120,8 @@ function renderTargets() {
       const name = document.createElement('span'); name.className = 'tl-name';
       const grid = document.createElement('span'); grid.className = 'tl-grid';
       const dist = document.createElement('span'); dist.className = 'tl-dist';
-      row.appendChild(chk); row.appendChild(name); row.appendChild(grid); row.appendChild(dist);
+      const src  = document.createElement('span'); src.className = 'tl-src';
+      row.appendChild(chk); row.appendChild(name); row.appendChild(grid); row.appendChild(dist); row.appendChild(src);
       listRows.appendChild(row);
     });
   }
@@ -129,6 +131,8 @@ function renderTargets() {
     el.querySelector('.tl-name').textContent = t.n || '—';
     el.querySelector('.tl-grid').textContent = t.g != null ? String(t.g) : '—';
     el.querySelector('.tl-dist').textContent = fmtRng(t.r);
+    el.classList.toggle('datalink', !!t.dl);
+    el.querySelector('.tl-src').textContent = t.dl ? 'DATALINK' : 'SENSOR';
   }
 }
 
@@ -179,11 +183,37 @@ document.querySelectorAll('.tgt-action').forEach(function (b) {
 modeEls.laser.addEventListener('click', function () { send('tgt.laser', { on: !state.laser }); });
 modeEls.hud.addEventListener('click', function () { send('tgt.hud', { on: !state.hud }); });
 
+// DATALINK button (docs/tgt-datalink-cancel.md): tap deselects the datalink-only targets, hold
+// deselects everything else (the actively-sensed ones), keeping only datalink-only targets locked.
+// Both are bulk server-side deselects — no client-side filtering. Its own press-hold pair rather
+// than folding into the .tgt-cell/.tgt-veh handling above, since this button isn't a game filter
+// cell (no group/index, no tgt.set/tgt.only) — this is the real mouse/touch path; the PAD cursor
+// mirrors the same tap/hold split below (padCursorSelectAt/padCursorHoldAt).
+let datalinkPress = null;
+datalinkBtn.addEventListener('pointerdown', function () {
+  datalinkPress = { longFired: false };
+  datalinkPress.timer = setTimeout(function () {
+    if (!datalinkPress) return;
+    datalinkPress.longFired = true;
+    send('tgt.clear-sensor');
+  }, LONG_MS);
+});
+datalinkBtn.addEventListener('pointerup', function () {
+  if (!datalinkPress) return;
+  if (!datalinkPress.longFired) send('tgt.clear-datalink');
+  clearTimeout(datalinkPress.timer);
+  datalinkPress = null;
+});
+datalinkBtn.addEventListener('pointercancel', function () {
+  if (datalinkPress) clearTimeout(datalinkPress.timer);
+  datalinkPress = null;
+});
+
 // ── PAD cursor (docs/page-cursor.md) ──────────────────────────────────────────────────
 // Same crosshair/transport MAP uses (pad-cursor.js), driven here only while this TGT is the SOI's
 // focused surface. Clamped to the panel's own box (panel-local px, matching the crosshair's
 // positioned ancestor — see tgt.css's .tgt-panel { position: relative }).
-const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-row, .tgt-action, .tgt-mode';
+const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-row, .tgt-action, .tgt-mode, .tgt-datalink-btn';
 const padCursorEl = document.getElementById('pad-cursor');
 const cursor = createPadCursor({
   el: padCursorEl,
@@ -206,18 +236,25 @@ function padCursorSelectAt(px, py) {
   if (!el) return;
   if (el.classList.contains('tgt-cell') || el.classList.contains('tgt-veh')) {
     send('tgt.set', { group: el.dataset.group, index: +el.dataset.index, on: !isOn(el.dataset.group, +el.dataset.index) });
+  } else if (el.classList.contains('tgt-datalink-btn')) {
+    send('tgt.clear-datalink');   // mirrors datalinkBtn's own pointerup tap outcome
   } else {
     el.click();   // .tl-row / .tgt-action / .tgt-mode already have plain click handlers
   }
 }
 
-// Select's HOLD outcome — only filter cells (.tgt-cell/.tgt-veh) have a long-press meaning ("only
-// this"); everything else has no hold behaviour, so holding over it is simply a no-op (same as
-// holding the pointer down over a plain button already is today).
+// Select's HOLD outcome — filter cells (.tgt-cell/.tgt-veh) have a long-press meaning ("only this"),
+// and DATALINK has its own (tgt.clear-sensor, mirroring datalinkBtn's own pointerdown timer);
+// everything else has no hold behaviour, so holding over it is simply a no-op (same as holding the
+// pointer down over a plain button already is today).
 function padCursorHoldAt(px, py) {
   const el = elAt(px, py);
-  if (!el || !(el.classList.contains('tgt-cell') || el.classList.contains('tgt-veh'))) return;
-  send('tgt.only', { group: el.dataset.group, index: +el.dataset.index });
+  if (!el) return;
+  if (el.classList.contains('tgt-cell') || el.classList.contains('tgt-veh')) {
+    send('tgt.only', { group: el.dataset.group, index: +el.dataset.index });
+  } else if (el.classList.contains('tgt-datalink-btn')) {
+    send('tgt.clear-sensor');   // mirrors datalinkBtn's own pointerdown hold outcome
+  }
 }
 
 // Hover feedback (docs/page-cursor.md #2): mark whatever's currently under the crosshair with the

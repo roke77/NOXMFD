@@ -45,6 +45,8 @@ namespace NOXMFD
                 { "tgt.only",        TgtOnly },
                 { "tgt.reset",       TgtReset },
                 { "tgt.clear",       TgtClear },
+                { "tgt.clear-datalink", TgtClearDatalink },
+                { "tgt.clear-sensor",   TgtClearSensor },
                 { "tgt.laser",       TgtLaser },
                 { "tgt.hud",         TgtHud },
                 { "hud.set",         HudSet },
@@ -299,6 +301,41 @@ namespace NOXMFD
             sel.DeselectAll();
             Plugin.Log?.LogInfo("[NOXMFD] tgt.clear — deselected all targets.");
         }
+
+        // TGT page's DATALINK button (docs/tgt-datalink-cancel.md): tap deselects datalink-only
+        // targets, hold deselects the rest (everything actively sensed). Same staleness check as
+        // TelemetryReader.BuildUnits' Datalink field, duplicated here since it's a one-line read with
+        // no shared game-query helper in this codebase yet.
+        private static bool IsDatalinkOnly(FactionHQ playerHQ, Unit unit)
+        {
+            if (unit == null || unit.NetworkHQ == playerHQ) return false;   // only enemy/other-faction targets can be datalink-only
+            return !(playerHQ.GetTrackingData(unit.persistentID)?.Observed() ?? false);
+        }
+
+        private static void TgtClearBy(string op, bool wantDatalink)
+        {
+            TargetListSelector sel = SceneSingleton<TargetListSelector>.i;
+            if (sel == null) { Plugin.Log?.LogInfo($"[NOXMFD] {op}: TargetListSelector absent — ignored."); return; }
+
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            if (ac == null || ac.weaponManager == null || ac.NetworkHQ == null) return;
+            FactionHQ playerHQ = ac.NetworkHQ;
+
+            List<Unit> targets = ac.weaponManager.GetTargetList();
+            if (targets == null || targets.Count == 0) return;
+
+            int cleared = 0;
+            foreach (Unit unit in new List<Unit>(targets))   // copy: ForceDeselect mutates the live list
+            {
+                if (IsDatalinkOnly(playerHQ, unit) != wantDatalink) continue;
+                sel.ForceDeselect(unit);
+                cleared++;
+            }
+            Plugin.Log?.LogInfo($"[NOXMFD] {op} — deselected {cleared} target(s).");
+        }
+
+        private static void TgtClearDatalink(CommandEnvelope env) => TgtClearBy("tgt.clear-datalink", wantDatalink: true);
+        private static void TgtClearSensor(CommandEnvelope env)   => TgtClearBy("tgt.clear-sensor", wantDatalink: false);
 
         // LASER toggle — keep only lased targets when on.
         private static void TgtLaser(CommandEnvelope env)

@@ -11,7 +11,7 @@ var DEF_CONE = 60;                             // fallback azimuth half-angle wh
 // scope's range unit; M_TO_FT is the plain metres->feet factor UnitConverter.AltitudeReading uses.
 var M_PER_NM = 1852, M_PER_KM = 1000, M_TO_FT = 3.28084;
 
-var GREEN = '#39ff14', AMBER = '#ffaa00';
+var GREEN = '#39ff14', AMBER = '#ffaa00', PURPLE = 'rgb(179, 136, 255)';
 var state = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, items: [] };
 
 // The caret's one-way sweep time (rdr.css's animation-duration must match). 2s one-way / 4s round
@@ -157,7 +157,10 @@ function renderContacts() {
     if (!p) return;
     plotted.push({ id: c.id, x: p.x, y: p.y });
     var locked = !!c.tg;
-    var col = locked ? AMBER : GREEN;
+    // Source colour: radar (own radar detected it, regardless of datalink too) = green,
+    // datalink-only (not currently painted by the player's own radar) = purple (matching TGT's
+    // DATALINK button) — locked always wins, same as before (docs/rdr-page.md).
+    var col = locked ? AMBER : (c.radar ? GREEN : PURPLE);
     if (locked && !first) first = c;
     // Hover highlight: a soft ring under whatever the cursor is nearest (docs/rdr-page.md).
     if (c.id === hoveredId)

@@ -69,11 +69,21 @@ approach as RWR but **rectangular** instead of polar.
   unlabeled (their row label already says what they are), same unit choice.
 - **Azimuth span:** clamp the horizontal to the **radar's actual cone half-angle** (`Radar.radarCone`),
   not a fixed ±60°, so contacts spread across the real FOV. Scan-limit lines mark the cone edges.
-- **Contacts:** solid green bricks positioned by bearing × range, **aircraft only** (missiles
-  filtered out). Each brick carries a short **velocity-vector stub** — a line off the brick in the
-  direction of the target's horizontal motion (shows hot/cold/beaming aspect). *(Frame of the stub
-  — north-up vs ownship-relative aspect — is an implementation detail; derive from the contact's
-  velocity, resolve during step 2.)*
+- **Contacts:** solid bricks positioned by bearing × range, **aircraft only** (missiles filtered
+  out). Each brick carries a short **velocity-vector stub** — a line off the brick in the direction
+  of the target's horizontal motion (shows hot/cold/beaming aspect). *(Frame of the stub — north-up
+  vs ownship-relative aspect — is an implementation detail; derive from the contact's velocity,
+  resolve during step 2.)*
+- **Source colour (added later):** RDR isn't radar-only — it also shows contacts known via the
+  faction's shared datalink picture, not just the player's own radar. **Green** = player's own
+  radar detected it (`Radar.detectedTargets`), regardless of whether it's also datalink-known;
+  **purple** (`--no-purple`, the same colour TGT's DATALINK button uses) = datalink-only, not
+  currently painted by the player's own radar. *(A distinct "both" visual — a smaller purple square
+  inside the green brick — was tried and dropped as not useful; radar always just reads green.)*
+  Locked always overrides to amber regardless of source. Datalink contacts are gated the same way
+  BuildUnits' faction-visibility check works (`playerHQ.TryGetKnownPosition`), not
+  distance-limited server-side — the scope's own range/cone culling handles anything outside the
+  displayed window.
 - **Locked/bugged target:** turns `--no-amber`, gains a surrounding **circle** (not a box), keeps
   its velocity stub. **Multiple targets can be locked at once** — each locked contact gets the
   amber brick + circle.

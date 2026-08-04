@@ -200,13 +200,15 @@
     // 12 mock target locks — the MFD's TGT page lists them under its filters (it scrolls, so
     // all 12 show). `f` matches the contact faction code (0 = neutral, 1 = friendly,
     // 2 = enemy) and drives the row colour.
+    // A couple flagged dl:true (docs/tgt-datalink-cancel.md) so the harness exercises the SRC
+    // column + the DATALINK button's filter/deselect without needing the game.
     targets: [
       { id: 101, n: 'HLT Flatbed',   g: 'Kg53', r: 8.4,  f: 2 },
-      { id: 102, n: 'BMP-2',         g: 'Kh54', r: 9.1,  f: 2 },
+      { id: 102, n: 'BMP-2',         g: 'Kh54', r: 9.1,  f: 2, dl: true },
       { id: 103, n: 'F-18',          g: 'Kh55', r: 9.6,  f: 1 },
       { id: 104, n: 'ZSU-23-4',      g: 'Lh55', r: 10.3, f: 2 },
       { id: 105, n: 'Vessel',        g: 'Lh56', r: 11.0, f: 0 },
-      { id: 106, n: 'SA-15 Tor',     g: 'Lj57', r: 12.4, f: 2 },
+      { id: 106, n: 'SA-15 Tor',     g: 'Lj57', r: 12.4, f: 2, dl: true },
       { id: 107, n: 'Airbase',       g: 'Lj58', r: 12.9, f: 1 },
       { id: 108, n: 'Truck',         g: 'Mj58', r: 13.5, f: 0 },
       { id: 109, n: 'Su-25 (gnd)',   g: 'Mj59', r: 14.2, f: 2 },
@@ -316,10 +318,11 @@
   // relative to nose (rh, for the velocity stub) and lock flag (tg), converted to the plugin's
   // wire shape (world x,z + world hdg + present/range/cone). A real capture's own `rdr` is kept.
   const SYNTH_RDR = [
-    { az: -20, rf: 0.35, rh: 190, tg: 1, n: 'FS-20 Vortex', alt: 5500 },   // hot, locked
-    { az:  25, rf: 0.52, rh: 205, tg: 1, n: 'KR-67 Ifrit',  alt: 7200 },   // locked
-    { az: -46, rf: 0.70, rh:  15, tg: 0, n: 'SFB-81',       alt: 9100 },   // cold, search
-    { az:  10, rf: 0.86, rh: 335, tg: 0, n: 'EW-25 Medusa', alt: 10500 },  // search
+    { az: -20, rf: 0.35, rh: 190, tg: 1, rd: 1, dl: 1, n: 'FS-20 Vortex', alt: 5500 },   // locked, both
+    { az:  25, rf: 0.52, rh: 205, tg: 1, rd: 1, dl: 0, n: 'KR-67 Ifrit',  alt: 7200 },   // locked, radar-only
+    { az: -46, rf: 0.70, rh:  15, tg: 0, rd: 1, dl: 0, n: 'SFB-81',       alt: 9100 },   // radar-only (green)
+    { az:  10, rf: 0.86, rh: 335, tg: 0, rd: 0, dl: 1, n: 'EW-25 Medusa', alt: 10500 },  // datalink-only (purple)
+    { az:  40, rf: 0.60, rh: 100, tg: 0, rd: 1, dl: 1, n: 'AB-4 Alkyon',  alt: 8200 },   // both, unlocked (green + purple centre)
   ];
   if (!FRAME.rdr) {
     const ow = FRAME.world || { x: 0, z: 0 }, hdg = FRAME.hdg || 0, range = 74000, cone = 60;
@@ -335,7 +338,7 @@
         const ab = (c.az + hdg) * Math.PI / 180, rng = c.rf * range;
         return { id: 9001 + i,
                  x: Math.round(ow.x + Math.sin(ab) * rng), z: Math.round(ow.z + Math.cos(ab) * rng),
-                 alt: c.alt, hdg: ((c.rh + hdg) % 360 + 360) % 360, tg: c.tg, n: c.n };
+                 alt: c.alt, hdg: ((c.rh + hdg) % 360 + 360) % 360, tg: c.tg, rd: c.rd, dl: c.dl, n: c.n };
       })
     };
   }

@@ -193,9 +193,10 @@ namespace NOXMFD
         public byte   Kind;    // 0 unknown, 1 ground-SAM, 2 air (from typeIdentity)
     }
 
-    // One air contact the player's own radar detects, for the RDR B-scope. Position is in the same
-    // world space as UnitInfo so the client can derive bearing/range from the player's own position.
-    // Serialized terse as {id,x,z,alt,hdg,tg,n}.
+    // One air contact on the RDR B-scope — either detected by the player's own onboard radar, known
+    // via the faction's shared datalink picture, or both at once (docs/rdr-page.md). Position is in
+    // the same world space as UnitInfo so the client can derive bearing/range from the player's own
+    // position. Serialized terse as {id,x,z,alt,hdg,tg,rd,dl,n}.
     internal struct RdrContact
     {
         public uint   Id;       // Unit.persistentID.Id — correlates with UnitInfo / the target set
@@ -203,6 +204,8 @@ namespace NOXMFD
         public float  Alt;      // altitude (GlobalPosition.y) — the readout's ALT
         public float  Heading;  // travel heading, degrees — drives the velocity-vector stub
         public bool   Targeted; // in the player's weapon target list — drives the amber lock symbol
+        public bool   Radar;    // detected by the player's OWN radar (Radar.detectedTargets)
+        public bool   Datalink; // known via the faction's shared tracking (playerHQ.TryGetKnownPosition)
         public string Name;     // display label (unitName, bogey fallback)
     }
 
@@ -249,5 +252,10 @@ namespace NOXMFD
         // client then shows the jam icon with no line, matching the game's own fallback).
         public bool   Jammed;
         public uint   JammedBy;  // persistentID.Id of the jamming unit
+
+        // True for an enemy contact known only via the faction's shared tracking database (stale —
+        // no friendly sensor has painted it in the last ~4s; docs/tgt-datalink-cancel.md), as opposed
+        // to one your own faction is actively sensing right now. Always false for friendly/neutral.
+        public bool   Datalink;
     }
 }

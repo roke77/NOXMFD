@@ -849,6 +849,7 @@ namespace NOXMFD
         }
 
         private readonly List<RdrContact> _rdrBuf = new List<RdrContact>(32);
+        private readonly HashSet<Unit> _rdrSeenScratch = new HashSet<Unit>();
 
         // Reflection handle for Radar's private cone half-angle (degrees). Cached once — it's a
         // SerializeField baked per radar prefab, so it never changes at runtime.
@@ -870,34 +871,77 @@ namespace NOXMFD
             range = radar.RadarParameters.maxRange;
             coneDeg = ReadRadarCone(radar);
 
-            List<Unit> det = radar.detectedTargets;
-            if (det == null || det.Count == 0) return Array.Empty<RdrContact>();
-
             // Same target-set reference the TGT page / target.select drive — an RDR "lock" IS
             // membership here (reused, not a new mechanism — see docs/rdr-page.md).
             List<Unit> targets = player.weaponManager != null ? player.weaponManager.GetTargetList() : null;
             bool hasTargets = targets != null && targets.Count > 0;
+            var playerHQ = player.NetworkHQ;
 
             _rdrBuf.Clear();
-            for (int i = 0; i < det.Count; i++)
-            {
-                Unit u = det[i];
-                if (u == null || u.disabled) continue;
-                UnitDefinition def = u.definition;
-                if (def == null || def.typeIdentity.air <= 0.5f) continue;   // aircraft only
+            _rdrSeenScratch.Clear();
 
-                GlobalPosition gp = u.GlobalPosition();
-                _rdrBuf.Add(new RdrContact
+            // Pass 1: the player's OWN radar detections (Radar=true). Datalink is checked
+            // independently — my own detection typically also reaches the faction's shared tracking
+            // almost immediately (Radar.DetectTarget → NetworkHQ.RpcUpdateTrackingInfo), so "both" is
+            // the everyday case for anything actively painted, not a rare edge case.
+            List<Unit> det = radar.detectedTargets;
+            if (det != null)
+            {
+                for (int i = 0; i < det.Count; i++)
                 {
-                    Id       = u.persistentID.Id,
-                    X        = gp.x,
-                    Z        = gp.z,
-                    Alt      = gp.y,
-                    Heading  = u.transform.eulerAngles.y,
-                    Targeted = hasTargets && targets.Contains(u),
-                    Name     = RwrLabel(u)
-                });
+                    Unit u = det[i];
+                    if (u == null || u.disabled || !_rdrSeenScratch.Add(u)) continue;
+                    UnitDefinition def = u.definition;
+                    if (def == null || def.typeIdentity.air <= 0.5f) continue;   // aircraft only
+
+                    bool dl = playerHQ != null && playerHQ.TryGetKnownPosition(u, out _);
+                    GlobalPosition gp = u.GlobalPosition();
+                    _rdrBuf.Add(new RdrContact
+                    {
+                        Id       = u.persistentID.Id,
+                        X        = gp.x,
+                        Z        = gp.z,
+                        Alt      = gp.y,
+                        Heading  = u.transform.eulerAngles.y,
+                        Targeted = hasTargets && targets.Contains(u),
+                        Radar    = true,
+                        Datalink = dl,
+                        Name     = RwrLabel(u)
+                    });
+                }
             }
+
+            // Pass 2: datalink-only air contacts — enemy aircraft the faction's shared tracking
+            // knows about (same visibility gate BuildUnits uses for MAP/TGT) that the player's own
+            // radar isn't currently painting. The B-scope's own range/cone culling (client-side)
+            // handles anything outside the displayed window; no distance pre-filter needed here.
+            if (playerHQ != null)
+            {
+                foreach (Unit u in _units)
+                {
+                    if (u == null || u.disabled || !_rdrSeenScratch.Add(u)) continue;
+                    UnitDefinition def = u.definition;
+                    if (def == null || def.typeIdentity.air <= 0.5f) continue;
+
+                    var hq = u.NetworkHQ;
+                    if (hq == null || hq == playerHQ) continue;   // enemy-only, like BuildUnits' faction==2
+                    if (!playerHQ.TryGetKnownPosition(u, out GlobalPosition gp)) continue;
+
+                    _rdrBuf.Add(new RdrContact
+                    {
+                        Id       = u.persistentID.Id,
+                        X        = gp.x,
+                        Z        = gp.z,
+                        Alt      = gp.y,
+                        Heading  = u.transform.eulerAngles.y,
+                        Targeted = hasTargets && targets.Contains(u),
+                        Radar    = false,
+                        Datalink = true,
+                        Name     = RwrLabel(u)
+                    });
+                }
+            }
+
             return _rdrBuf.Count == 0 ? Array.Empty<RdrContact>() : _rdrBuf.ToArray();
         }
 
@@ -1001,6 +1045,12 @@ namespace NOXMFD
 
                 bool jammed = GetJamState(u, out uint jammedBy);
 
+                // An enemy's position only ever reaches us via playerHQ.trackingDatabase (confirmed
+                // above by TryGetKnownPosition) — Observed() is false when that entry is stale (no
+                // friendly sensor has painted it in the last ~4s), i.e. a datalink-only relay rather
+                // than something actively sensed right now. See docs/tgt-datalink-cancel.md.
+                bool datalink = faction == 2 && !(playerHQ.GetTrackingData(u.persistentID)?.Observed() ?? false);
+
                 _unitBuf.Add(new UnitInfo
                 {
                     Id       = u.persistentID.Id,
@@ -1013,7 +1063,8 @@ namespace NOXMFD
                     Scale    = def.mapIconSize,
                     Targeted = hasTargets && targets.Contains(u),
                     Jammed   = jammed,
-                    JammedBy = jammedBy
+                    JammedBy = jammedBy,
+                    Datalink = datalink
                 });
             }
             return _unitBuf.ToArray();

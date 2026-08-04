@@ -23,17 +23,23 @@
     long-press a filter → "only this" (tgt.only {group,index}) — isolate it in its group
     RESET FILTER        → tgt.reset   (all filters back on)
     CLEAR TARGETS       → tgt.clear   (deselect every target)
-    tap anywhere on a target's row → deselect it (target.deselect {id})
+    tap a target's row  → deselect it (target.deselect {id}) — the whole row, not just the checkbox
+
+  DATALINK button (docs/tgt-datalink-cancel.md) — a mod-only control, not one of the game's real
+  TargetListSelector filters (those are FRIENDLY/ENEMY/category/vehicle/LASER/HUD above):
+    tap  → tgt.clear-datalink (deselect just the datalink-only targets)
+    hold → tgt.clear-sensor   (deselect everything else — keeps only datalink-only targets locked)
 
   PAD cursor (docs/page-cursor.md) — while this TGT is the SOI's focused surface, the shell forwards
   the same cursor transport MAP uses, plus Cursor Select's live held state
   ({mfd:true, action:'cursor'|'cursor-held'|'cursor-focus'}): held past the long-press threshold
-  mirrors a filter cell's own long-press "only" (release before it mirrors the tap); every other
-  control (list row, RESET/CLEAR, LASER/HUD) only ever has a tap outcome, since they have no hold
-  behaviour to mirror. Hovering the crosshair over any control highlights it (.pad-hoverable/
-  .pad-hover, shared/theme.css) the same way a real mouse would. Zoom In/Out (map-act's
-  'zoom-in'/'zoom-out') are repurposed here to scroll the target list instead of zooming (nothing to
-  zoom on this page).
+  mirrors a filter cell's own long-press "only", or DATALINK's own hold outcome (tgt.clear-sensor)
+  when the cursor's over it (release before it mirrors the tap instead — filter toggle or
+  tgt.clear-datalink). Every other CURSORABLE control (list row, RESET/CLEAR, LASER/HUD) only ever
+  has a tap outcome, since they have no hold behaviour to mirror. Hovering the crosshair over any
+  control highlights it (.pad-hoverable/.pad-hover, shared/theme.css) the same way a real mouse
+  would. Zoom In/Out (map-act's 'zoom-in'/'zoom-out') are repurposed here to scroll the target list
+  instead of zooming (nothing to zoom on this page).
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -63,14 +69,20 @@
 
     <div class="tgt-vehicles" id="row-vehicle"></div>
 
-    <!-- Selected-target list: NAME / GRID / RNG per row. The whole row is clickable (not just the
-         checkbox — a bigger, easier touch/cursor target) and deselects that target. -->
+    <!-- Selected-target list: NAME / GRID / RNG / SRC per row. The whole row is clickable (not just
+         the checkbox — a bigger, easier touch/cursor target) and deselects that target. -->
     <div class="tgt-list" id="tgt-list">
       <div class="tgt-list-head">
-        <span></span><span>NAME</span><span>GRID</span><span>RNG</span>
+        <span></span><span>NAME</span><span>GRID</span><span>RNG</span><span>SRC</span>
       </div>
       <div class="tgt-list-rows" id="tgt-list-rows"></div>
       <div class="tgt-list-empty" id="tgt-list-empty">&mdash; NO TARGETS SELECTED &mdash;</div>
+    </div>
+
+    <!-- DATALINK: mod-only, not a real TargetListSelector filter — see the header comment above. -->
+    <div class="tgt-footer">
+      <button class="tgt-datalink-btn pad-hoverable" id="datalink-btn">DATALINK</button>
+      <span class="tgt-datalink-desc">Tap: deselect datalink-only targets &middot; Hold: deselect all others</span>
     </div>
 
     <!-- PAD cursor (docs/page-cursor.md) — same crosshair/transport MAP uses, driven here only

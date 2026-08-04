@@ -132,13 +132,13 @@ html, body {
   border-top: 1px solid var(--no-green-dark);
   padding-top: clamp(3px, 0.8vh, 7px);
 }
-/* Shared 4-column track: [checkbox] [name grows] [grid] [range]. Head + rows use the same grid so
-   the columns line up. */
+/* Shared 5-column track: [checkbox] [name grows] [grid] [range] [source]. Head + rows use the same
+   grid so the columns line up. */
 .tgt-list-head, .tl-row {
   display: grid;
   /* Viewport-based column widths (not auto) so the header and the rows — separate grids — compute
      identical tracks and line up. minmax(0,1fr) lets the name shrink so its ellipsis kicks in. */
-  grid-template-columns: clamp(20px, 3.4vmin, 26px) minmax(0, 1fr) clamp(46px, 7vw, 76px) clamp(60px, 9vw, 96px);
+  grid-template-columns: clamp(20px, 3.4vmin, 26px) minmax(0, 1fr) clamp(46px, 7vw, 76px) clamp(60px, 9vw, 96px) clamp(52px, 8vw, 86px);
   gap: clamp(6px, 1.4vw, 14px);
   align-items: center;
 }
@@ -174,6 +174,11 @@ html, body {
 .tl-row.f-friendly .tl-name { color: var(--tgt-blue); }
 .tl-row.f-neutral  .tl-name { color: #d4d8dc; }
 .tl-row.f-enemy    .tl-name { color: var(--no-red); }
+/* SRC column: SENSOR (live) reads as a normal dim value; DATALINK (stale, relayed — see
+   docs/tgt-datalink-cancel.md) gets the same purple accent as the DATALINK button below, so the two
+   read as one concept. */
+.tl-src { font-size: 0.85em; letter-spacing: 0.03em; white-space: nowrap; color: var(--no-green-dim); }
+.tl-row.datalink .tl-src { color: var(--no-purple); }
 
 /* Checkbox: selected targets are all checked; tapping it deselects (the row drops on the next
    telemetry frame). Sized for a comfortable touch target. */
@@ -195,6 +200,37 @@ html, body {
   font-size: clamp(11px, 1.8vmin, 16px); letter-spacing: 0.08em;
 }
 .tgt-list-rows:not(:empty) + .tgt-list-empty { display: none; }   /* hide the empty note once rows exist */
+
+/* ── DATALINK footer (below the target list) ───────────────────────────────────────────
+   Mod-only control, not one of the game's real TargetListSelector filters — dashed border + a
+   distinct accent colour (light purple) mark it as different in kind from FRIENDLY/ENEMY/etc.,
+   which gate future selection too; this one doesn't. See docs/tgt-datalink-cancel.md. */
+.tgt-footer {
+  flex: 0 0 auto;
+  display: flex; align-items: center;
+  gap: clamp(6px, 1.4vw, 12px);
+  padding-top: clamp(3px, 0.8vh, 7px);
+}
+.tgt-datalink-btn {
+  font-family: var(--no-font);
+  background: var(--no-panel-bg);
+  color: var(--no-purple);
+  border: 1.5px dashed var(--no-purple);
+  border-radius: 3px;
+  padding: clamp(5px, 1.2vh, 10px) clamp(8px, 1.6vw, 14px);
+  font-size: clamp(9px, 1.7vmin, 14px);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  transition: background .08s, box-shadow .08s;
+}
+.tgt-datalink-btn:active { background: rgba(var(--no-purple-rgb), 0.20); }
+.tgt-datalink-desc {
+  color: var(--no-purple);
+  font-size: clamp(8px, 1.3vmin, 11px);
+  line-height: 1.25;
+}
 
 /* Unavailable state (TargetListSelector not up / no mission). display:block (not flex) so the
    shared .mfd-empty-title stacks above the text like the other pages' empty states. */

@@ -1527,9 +1527,10 @@ namespace NOXMFD
             {
                 if (i > 0) sb.Append(',');
                 sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"id\":{0},\"x\":{1:0.0},\"z\":{2:0.0},\"alt\":{3:0.0},\"hdg\":{4:0.0},\"tg\":{5},\"n\":\"{6}\"}}",
+                    "{{\"id\":{0},\"x\":{1:0.0},\"z\":{2:0.0},\"alt\":{3:0.0},\"hdg\":{4:0.0},\"tg\":{5},\"rd\":{6},\"dl\":{7},\"n\":\"{8}\"}}",
                     items[i].Id, items[i].X, items[i].Z, items[i].Alt, items[i].Heading,
-                    items[i].Targeted ? 1 : 0, EscapeJson(items[i].Name ?? string.Empty));
+                    items[i].Targeted ? 1 : 0, items[i].Radar ? 1 : 0, items[i].Datalink ? 1 : 0,
+                    EscapeJson(items[i].Name ?? string.Empty));
             }
             return sb.Append(']').ToString();
         }
@@ -1586,14 +1587,15 @@ namespace NOXMFD
                 UnitInfo u = units[i];
                 if (i > 0) sb.Append(',');
                 sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"id\":{8},\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7},\"jm\":{9},\"jb\":{10}}}",
+                    "{{\"id\":{8},\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7},\"jm\":{9},\"jb\":{10},\"dl\":{11}}}",
                     EscapeJson(u.Type ?? string.Empty),
                     u.X, u.Z, u.Heading, u.Faction,
                     u.Orient ? "true" : "false", u.Scale,
                     u.Targeted ? 1 : 0,
                     u.Id,
                     u.Jammed ? 1 : 0,
-                    u.JammedBy);
+                    u.JammedBy,
+                    u.Datalink ? 1 : 0);
             }
             return sb.Append(']').ToString();
         }
