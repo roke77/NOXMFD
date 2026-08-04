@@ -193,9 +193,10 @@ namespace NOXMFD
         public byte   Kind;    // 0 unknown, 1 ground-SAM, 2 air (from typeIdentity)
     }
 
-    // One air contact the player's own radar detects, for the RDR B-scope. Position is in the same
-    // world space as UnitInfo so the client can derive bearing/range from the player's own position.
-    // Serialized terse as {id,x,z,alt,hdg,tg,n}.
+    // One air contact on the RDR B-scope — either detected by the player's own onboard radar, known
+    // via the faction's shared datalink picture, or both at once (docs/rdr-page.md). Position is in
+    // the same world space as UnitInfo so the client can derive bearing/range from the player's own
+    // position. Serialized terse as {id,x,z,alt,hdg,tg,rd,dl,n}.
     internal struct RdrContact
     {
         public uint   Id;       // Unit.persistentID.Id — correlates with UnitInfo / the target set
@@ -203,6 +204,8 @@ namespace NOXMFD
         public float  Alt;      // altitude (GlobalPosition.y) — the readout's ALT
         public float  Heading;  // travel heading, degrees — drives the velocity-vector stub
         public bool   Targeted; // in the player's weapon target list — drives the amber lock symbol
+        public bool   Radar;    // detected by the player's OWN radar (Radar.detectedTargets)
+        public bool   Datalink; // known via the faction's shared tracking (playerHQ.TryGetKnownPosition)
         public string Name;     // display label (unitName, bogey fallback)
     }
 

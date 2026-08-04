@@ -11,7 +11,7 @@ var DEF_CONE = 60;                             // fallback azimuth half-angle wh
 // scope's range unit; M_TO_FT is the plain metres->feet factor UnitConverter.AltitudeReading uses.
 var M_PER_NM = 1852, M_PER_KM = 1000, M_TO_FT = 3.28084;
 
-var GREEN = '#39ff14', AMBER = '#ffaa00';
+var GREEN = '#39ff14', AMBER = '#ffaa00', PURPLE = 'rgb(179, 136, 255)';
 var state = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, items: [] };
 
 // The caret's one-way sweep time (rdr.css's animation-duration must match). 2s one-way / 4s round
@@ -157,7 +157,10 @@ function renderContacts() {
     if (!p) return;
     plotted.push({ id: c.id, x: p.x, y: p.y });
     var locked = !!c.tg;
-    var col = locked ? AMBER : GREEN;
+    // Source colour: radar-only = green, datalink-only = purple (matching TGT's DATALINK button),
+    // both at once = green with a smaller centred purple square (see below) — locked always wins,
+    // same as before (docs/rdr-page.md).
+    var col = locked ? AMBER : (c.radar ? GREEN : PURPLE);
     if (locked && !first) first = c;
     // Hover highlight: a soft ring under whatever the cursor is nearest (docs/rdr-page.md).
     if (c.id === hoveredId)
@@ -166,6 +169,11 @@ function renderContacts() {
     // Brick.
     out += '<rect x="' + (p.x - 8).toFixed(1) + '" y="' + (p.y - 8).toFixed(1) +
            '" width="16" height="16" fill="' + col + '"/>';
+    // Detected by both the own radar AND datalink at once: a smaller centred purple square inside
+    // the green brick (skipped when locked — the amber lock state already takes visual priority).
+    if (!locked && c.radar && c.dl)
+      out += '<rect x="' + (p.x - 4).toFixed(1) + '" y="' + (p.y - 4).toFixed(1) +
+             '" width="8" height="8" fill="' + PURPLE + '"/>';
     // Velocity-vector stub: travel heading relative to nose, 0 = up (away). Length ~75% of a brick+.
     var a = (c.rhdg || 0) * Math.PI / 180, LEN = 19;
     out += '<line x1="' + p.x.toFixed(1) + '" y1="' + p.y.toFixed(1) + '" x2="' +

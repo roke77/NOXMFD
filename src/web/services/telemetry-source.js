@@ -296,7 +296,8 @@ export class TelemetrySource {
         let az = Math.atan2(dx, dz) * 180 / Math.PI - hdg;
         az = ((az + 540) % 360) - 180;                          // -180..180 off nose
         const rhdg = ((((c.hdg || 0) - hdg) % 360) + 360) % 360;  // travel heading relative to nose
-        rdrItems.push({ id: c.id, az: az, rng: Math.hypot(dx, dz), alt: c.alt || 0, rhdg: rhdg, tg: c.tg || 0, n: c.n || '' });
+        rdrItems.push({ id: c.id, az: az, rng: Math.hypot(dx, dz), alt: c.alt || 0, rhdg: rhdg,
+                        tg: c.tg || 0, radar: !!c.rd, dl: !!c.dl, n: c.n || '' });
       }
     }
     this._postUp({

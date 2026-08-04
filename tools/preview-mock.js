@@ -318,10 +318,11 @@
   // relative to nose (rh, for the velocity stub) and lock flag (tg), converted to the plugin's
   // wire shape (world x,z + world hdg + present/range/cone). A real capture's own `rdr` is kept.
   const SYNTH_RDR = [
-    { az: -20, rf: 0.35, rh: 190, tg: 1, n: 'FS-20 Vortex', alt: 5500 },   // hot, locked
-    { az:  25, rf: 0.52, rh: 205, tg: 1, n: 'KR-67 Ifrit',  alt: 7200 },   // locked
-    { az: -46, rf: 0.70, rh:  15, tg: 0, n: 'SFB-81',       alt: 9100 },   // cold, search
-    { az:  10, rf: 0.86, rh: 335, tg: 0, n: 'EW-25 Medusa', alt: 10500 },  // search
+    { az: -20, rf: 0.35, rh: 190, tg: 1, rd: 1, dl: 1, n: 'FS-20 Vortex', alt: 5500 },   // locked, both
+    { az:  25, rf: 0.52, rh: 205, tg: 1, rd: 1, dl: 0, n: 'KR-67 Ifrit',  alt: 7200 },   // locked, radar-only
+    { az: -46, rf: 0.70, rh:  15, tg: 0, rd: 1, dl: 0, n: 'SFB-81',       alt: 9100 },   // radar-only (green)
+    { az:  10, rf: 0.86, rh: 335, tg: 0, rd: 0, dl: 1, n: 'EW-25 Medusa', alt: 10500 },  // datalink-only (purple)
+    { az:  40, rf: 0.60, rh: 100, tg: 0, rd: 1, dl: 1, n: 'AB-4 Alkyon',  alt: 8200 },   // both, unlocked (green + purple centre)
   ];
   if (!FRAME.rdr) {
     const ow = FRAME.world || { x: 0, z: 0 }, hdg = FRAME.hdg || 0, range = 74000, cone = 60;
@@ -337,7 +338,7 @@
         const ab = (c.az + hdg) * Math.PI / 180, rng = c.rf * range;
         return { id: 9001 + i,
                  x: Math.round(ow.x + Math.sin(ab) * rng), z: Math.round(ow.z + Math.cos(ab) * rng),
-                 alt: c.alt, hdg: ((c.rh + hdg) % 360 + 360) % 360, tg: c.tg, n: c.n };
+                 alt: c.alt, hdg: ((c.rh + hdg) % 360 + 360) % 360, tg: c.tg, rd: c.rd, dl: c.dl, n: c.n };
       })
     };
   }
