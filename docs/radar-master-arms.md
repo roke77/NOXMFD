@@ -74,6 +74,16 @@ after everything the KEY page already has, below a separator — existing sectio
 - The **Radar ON / Radar OFF** keybinds are direct, not a blind toggle like the stock bind — they
   check current state and only call `CmdToggleRadar()` when it actually needs to change, so pressing
   "ON" while already on (or "OFF" while already off) is a clean no-op.
+- **Confirmed: the game always spawns radar on** — `Radar.Awake()`/`AttachToUnit()` unconditionally
+  set `activated = true`, no code path spawns it off. So "toggle off if currently on" is the correct,
+  safe polarity for a reactive post-spawn push — it can never wrongly turn radar on.
+- **Confirmed: reactive-toggle timing is safe** — by the time `GameManager.GetLocalAircraft` returns
+  the new aircraft, Mirage network authority is already established (ownership is conveyed with the
+  spawn message itself, before `OnStartClient`/`OnStartAuthority` fire). `Keybinds.cs`'s existing
+  `SetGear` call already relies on exactly this — gated only by `GetLocalAircraft` returning
+  non-null, no extra readiness check — so `EnsureSpawnDefaults` needs none either.
+- **No artifact on the radar side** — `Radar.cs` has no sound/visual effect tied to the on→off
+  transition, only continuous steady-state scan behavior. A reactive toggle here is clean.
 
 ### Engine — same shape as radar, one flag drives every engine
 
@@ -90,6 +100,19 @@ after everything the KEY page already has, below a separator — existing sectio
   engine. Turning it back on after being off for a while re-spools over the engine's own
   `spoolUpTime`/`startupTime` — normal stock behavior, nothing the mod needs to simulate or guard
   against itself.
+- **Confirmed: the game always spawns ignition on** (`Aircraft.OnStartServer()` explicitly sets
+  `NetworkIgnition = true`), so — same as radar — "toggle off if currently on" is the correct
+  polarity.
+- **Known limitation, accepted: a brief startup sound plays regardless.**
+  `TurbineEngine.Update()` (and `Turbojet`/`Turbofan`) starts the engine startup audio on the
+  aircraft's very first client-side `Update()` frame once `Ignition` is true — which it already is
+  at spawn, well before the mod's next ~100ms telemetry tick can react and call
+  `CmdToggleIgnition()`. A reactive, no-Harmony toggle can cut the engine back off almost
+  immediately, but **cannot prevent that initial startup sound from playing once** on every spawn,
+  even with "Engine ON on start" set to OFF. Fixing this at the source would need a Harmony patch
+  before `Aircraft.OnStartServer`/`Radar.Awake` sync the SyncVar — explicitly out of scope for this
+  pass (no Harmony), same call as the Master Arms stock-trigger gap. Documented here as a known,
+  accepted limitation, not a blocker.
 
 ### Master Arms — no game concept to hook; this is a mod-only flag, no Harmony
 
@@ -222,6 +245,9 @@ after everything the KEY page already has, below a separator — existing sectio
   with "nothing here should be inherited"); flag if you want it sticky instead.
 - **Master Arms / stock-trigger gap** — confirmed out of scope for this pass (no Harmony). Revisit
   only if full coverage becomes a real ask later.
+- **Engine startup sound on spawn** — confirmed unavoidable without Harmony (see Engine section
+  above). Accepted as a known limitation for this pass: engine ends up off almost immediately, but a
+  brief startup sound plays once on every spawn even with "Engine ON on start" set to OFF.
 - **Exact ARM/SAFE key/cell placement** — CLASSIC has `right[1]`/`right[2]` free in full-view WPN
   (weapon rows occupy `left[1..5]`); F-35 needs explicit `cell` hints in `f35-wpn-paging.js`'s `nav`
   array, same as NEXT already gets. Split-pane WPN placement (`renderSplitLabels`'s list branch) also
