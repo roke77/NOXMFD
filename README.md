@@ -1,9 +1,9 @@
 # <img src="docs/images/icon.svg" alt="" width="30" height="30" align="absmiddle"> Nuclear Option eXternal MFD
 
-[![Latest Release](https://img.shields.io/github/v/release/roke77/NOXMFD)](https://github.com/roke77/NOXMFD/releases/latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Nuclear Option](https://img.shields.io/badge/Game-Nuclear%20Option-green)](https://store.steampowered.com/app/2168680/Nuclear_Option/)
 [![BepInEx 5](https://img.shields.io/badge/Loader-BepInEx%205-orange)](https://docs.bepinex.dev/)
+[![Release](https://img.shields.io/github/v/release/roke77/NOXMFD?label=Release&color=blue)](https://github.com/roke77/NOXMFD/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ![NO XMFD running on a flight-sim rig](docs/images/SIM.png)
 
