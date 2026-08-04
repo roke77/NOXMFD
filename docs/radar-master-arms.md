@@ -243,13 +243,16 @@ after everything the KEY page already has, below a separator — existing sectio
     separator.
 12. **docs/keybinds-page.md** — document the new section once built.
 
+## Decisions confirmed
+
+- **Combat mode resets to ALL on every new-aircraft spawn** — same as Radar/Engine/Master Arms,
+  nothing here carries over between spawns.
+- **A/A name-string verification happens during build** — the five names are provisional until then;
+  confirm against real `WeaponInfo`/WPN-page names (`TryLogWeaponInfo` output) before step 7/8 relies
+  on them, adjusting spelling in source if they differ from the Encyclopedia names.
+
 ## Open questions
 
-- **A/A name-string verification** (see above) — needs an in-game session log before step 7/8 can be
-  trusted; treat the five strings as provisional until confirmed.
-- **Does combat mode reset to ALL on every new-aircraft spawn**, same as the two start-state
-  settings, or persist across spawns within a session? Plan above assumes reset-to-ALL (consistent
-  with "nothing here should be inherited"); flag if you want it sticky instead.
 - **Exact ARM/SAFE key/cell placement** — CLASSIC has `right[1]`/`right[2]` free in full-view WPN
   (weapon rows occupy `left[1..5]`); F-35 needs explicit `cell` hints in `f35-wpn-paging.js`'s `nav`
   array, same as NEXT already gets. Split-pane WPN placement (`renderSplitLabels`'s list branch) also
