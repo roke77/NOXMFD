@@ -55,5 +55,35 @@ namespace NOXMFD
                 __instance.NetworkIgnition = ImmersionConfig.EngineOnOnStart;
             }
         }
+
+        // Master Arms enforcement. A prefix on WeaponManager.Fire() and CountermeasureManager.
+        // DeployCountermeasure(), both short-circuiting (skipping the original) when
+        // ImmersionState.MasterArmsOn is false. Covers the mod's own keybinds (WeaponSelectors.Fire()
+        // calls wm.Fire(); Keybinds.Drive(...) calls mgr.DeployCountermeasure(ac) directly) AND the
+        // game's own stock trigger/mouse/joystick input in one patch each, since both paths call these
+        // same two methods underneath — this is the whole reason Master Arms needed Harmony at all.
+        //
+        // Same local-only gate as the spawn-default patches above: MasterArmsOn is a personal,
+        // client-side preference, never something that should block AI or another player's weapons.
+        [HarmonyPatch(typeof(WeaponManager), nameof(WeaponManager.Fire))]
+        private static class WeaponManager_Fire_Patch
+        {
+            // ___aircraft: Harmony's convention for injecting a target type's private field by name.
+            private static bool Prefix(Aircraft ___aircraft)
+            {
+                if (!GameManager.GetLocalAircraft(out Aircraft local) || !ReferenceEquals(___aircraft, local)) return true;
+                return ImmersionState.MasterArmsOn;
+            }
+        }
+
+        [HarmonyPatch(typeof(CountermeasureManager), nameof(CountermeasureManager.DeployCountermeasure))]
+        private static class CountermeasureManager_DeployCountermeasure_Patch
+        {
+            private static bool Prefix(Aircraft aircraft)
+            {
+                if (!GameManager.GetLocalAircraft(out Aircraft local) || !ReferenceEquals(aircraft, local)) return true;
+                return ImmersionState.MasterArmsOn;
+            }
+        }
     }
 }
