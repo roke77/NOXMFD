@@ -358,10 +358,11 @@ function placeSplitKey(m, label, action, paneTag) {
 
 // Pages whose own content sits in the top-left where the MAIN bezel label lands, so that label is
 // stood upright to clear it — in full view via .overlay.vmain, in a split pane via a per-label class
-// (renderSplitLabels). TGT's RESET FILTER, HUD's mode/category rows, BDF/PAL's WARHEADS readout, and
-// KEY's FUNCTION/KEYBOARD/JOYSTICK table header are that content — on a narrow display the panel
-// widens to the edge and a horizontal MAIN would sit over that header. All are split-capable.
-function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal' || p === 'keys'; }
+// (renderSplitLabels). TGT's RESET FILTER, HUD's mode/category rows, BDF/PAL's WARHEADS readout,
+// KEY's FUNCTION/KEYBOARD/JOYSTICK table header, and RDR's RWS mode/range readout are that content
+// — on a narrow display the panel widens to the edge and a horizontal MAIN would sit over that
+// header. All are split-capable.
+function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal' || p === 'keys' || p === 'rdr'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
