@@ -20,6 +20,11 @@ var capturing = null;    // plugin-side joy/axis capture: bind id or null (serve
 var capturingKind = null; // 'joy' | 'axis' | null — which capture `capturing` refers to
 var kbCapture = null;    // browser-side keyboard capture: bind id or null (local state)
 var bgInput   = false;   // InputWhenGameUnfocused — a plain setting, not a bind (server state)
+// Immersion start-state settings (docs/radar-master-arms.md) — same shape as bgInput above: plain
+// settings, not binds, default true (today's behaviour) until the first /keybinds-config poll.
+var radarOnOnStart      = true;
+var engineOnOnStart     = true;
+var masterArmsOnOnStart = true;
 var lastJson  = '';      // skip re-render when nothing changed
 
 // ── Input-when-unfocused toggle ──────────────────────────────────────────────────────────────
@@ -34,6 +39,29 @@ bgInputBtn.onclick = function () {
   bgInput = next;   // optimistic: show it now, the poll confirms
   renderBgToggle();
 };
+
+// ── Immersion start-state toggles (docs/radar-master-arms.md) ───────────────────────────────
+// Three settings, identical shape to the one above — a tiny factory instead of repeating it 3x.
+function makeSettingToggle(btnId, cmd, get, set) {
+  var btn = document.getElementById(btnId);
+  function render() {
+    btn.textContent = get() ? 'ON' : 'OFF';
+    btn.classList.toggle('on', get());
+  }
+  btn.onclick = function () {
+    var next = !get();
+    sendCommand(cmd, { on: next }).catch(function () {});
+    set(next);   // optimistic: show it now, the poll confirms
+    render();
+  };
+  return render;
+}
+var renderRadarOnStart = makeSettingToggle('kb-radar-on-start-btn', 'keybind.set-radar-on-start',
+  function () { return radarOnOnStart; }, function (v) { radarOnOnStart = v; });
+var renderEngineOnStart = makeSettingToggle('kb-engine-on-start-btn', 'keybind.set-engine-on-start',
+  function () { return engineOnOnStart; }, function (v) { engineOnOnStart = v; });
+var renderMasterArmsOnStart = makeSettingToggle('kb-master-arms-on-start-btn', 'keybind.set-master-arms-on-start',
+  function () { return masterArmsOnOnStart; }, function (v) { masterArmsOnOnStart = v; });
 
 // ── KeyboardEvent.code → Unity KeyCode name ──────────────────────────────────────────────────
 // Letters/digits/F-keys/numpad are mechanical; the rest enumerated. Escape is reserved (cancels
@@ -264,10 +292,19 @@ function refresh() {
     capturingKind = cfg.capturingKind || null;
     bgInput = !!cfg.bgInput;
     renderBgToggle();
+    radarOnOnStart      = cfg.radarOnOnStart      !== false;
+    engineOnOnStart     = cfg.engineOnOnStart     !== false;
+    masterArmsOnOnStart = cfg.masterArmsOnOnStart !== false;
+    renderRadarOnStart();
+    renderEngineOnStart();
+    renderMasterArmsOnStart();
     render();
   }).catch(function () { panelEl.classList.add('unavailable'); });
 }
 
 renderBgToggle();   // OFF until the first fetch resolves, rather than a blank button
+renderRadarOnStart();          // ON until the first fetch resolves — true is the actual default
+renderEngineOnStart();
+renderMasterArmsOnStart();
 refresh();
 setInterval(refresh, 600);

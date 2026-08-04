@@ -338,9 +338,13 @@ export class TelemetrySource {
       navLights: d.navlt === true,
     });
 
-    // Loadout (the WPN page mirrors it without opening its own /stream).
+    // Loadout (the WPN page mirrors it without opening its own /stream). masterArmsOn is mod state
+    // (docs/radar-master-arms.md), not per-loadout, but rides the same message since the WPN page is
+    // the only consumer of either — its ARM/SAFE controls always show, regardless of the immersion
+    // setting (see the ticket's Goal), so this is never null/absent, just true or false.
     this._postUp({ type: 'loadout', items: d.loadout || [], selWeapon: d.selWeapon || null,
-                   softGun: d.softGun || null, softRel: d.softRel || null });
+                   softGun: d.softGun || null, softRel: d.softRel || null,
+                   masterArmsOn: d.masterArmsOn === true });
 
     // TGT filter panel — pass the mod's "tgt" block straight through (present:false when the game's
     // TargetListSelector isn't up). The TGT page renders the toggle states and drives the tgt.* cmds.
@@ -358,7 +362,7 @@ export class TelemetrySource {
 
   // On mission exit, tell every consumer the data is gone so no page renders stale state.
   _emitEmpties() {
-    this._postUp({ type: 'loadout', items: [], selWeapon: null, softGun: null, softRel: null });
+    this._postUp({ type: 'loadout', items: [], selWeapon: null, softGun: null, softRel: null, masterArmsOn: true });
     this._postUp({ type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 });
     this._postUp({ type: 'tgp', active: false });
     this._postUp({ type: 'mapinfo', mission: null, grid: null });

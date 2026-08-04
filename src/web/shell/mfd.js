@@ -439,6 +439,10 @@ function renderSplitLabels() {
       // cursor (soiKeys(), scoped per pane) can reach them — dispatch itself doesn't need the tag
       // (weapon selection is aircraft-global and falls through to the shared case regardless).
       wireWpnPaneWeaponKeys(slice.items, paneIdx, paneTag);
+      // ARM/SAFE (docs/radar-master-arms.md) are NOT placed here yet — a split WPN pane's 6 physical
+      // keys (main + 4 item rows + next) are already fully spoken for, unlike full view's spare
+      // right[1]/right[2]. Flagged as an open question in the plan doc rather than guessing which
+      // slot to sacrifice; full-view WPN already has both controls.
     } else {
       // Static nav (MAP/AVN/RWR/TGP/…): render the navigation model at this page's declared
       // pane-local slots — SPLIT_SLOTS[page][i] places NAV[page][i].
@@ -673,7 +677,7 @@ function forwardWpnToPanes() {
     const sl = wpnPaneSlice(idx);
     iframe.contentWindow.postMessage(
       { mfd: true, type: 'wpn', items: sl.items, selWeapon: wpnData.selWeapon,
-        softGun: wpnData.softGun, softRel: wpnData.softRel,
+        softGun: wpnData.softGun, softRel: wpnData.softRel, masterArmsOn: wpnData.masterArmsOn,
         page: sl.page, pages: sl.pages }, '*');
   });
 }
@@ -779,7 +783,7 @@ function forwardWpnToFrame() {
   const start = wpnPage * WPN_MAX_DISPLAY;
   const items = list.slice(start, start + WPN_MAX_DISPLAY);
   w.postMessage({ mfd: true, type: 'wpn', items: items, selWeapon: wpnData.selWeapon,
-                  softGun: wpnData.softGun, softRel: wpnData.softRel,
+                  softGun: wpnData.softGun, softRel: wpnData.softRel, masterArmsOn: wpnData.masterArmsOn,
                   page: maxPage > 0 ? wpnPage + 1 : 1, pages: maxPage + 1 }, '*');
 
   // Wire each visible weapon's LEFT line-select key (keys 1..5) to select that weapon: a bezel
@@ -821,8 +825,12 @@ function forwardWpnLayoutToFrame() {
                   iconTop: icoTop, iconHeight: icoBot - icoTop }, '*');
 }
 // Full-view WPN nav labels (shell-owned, since pagination is shell state): left key-0 is MAIN
-// on page 0 / PREV after; right key-0 is NEXT when the loadout overflows the page. WPN has no
-// other overlay labels, so we can safely clear all overlay-items before re-placing.
+// on page 0 / PREV after; right key-0 is NEXT when the loadout overflows the page. ARM/SAFE
+// (docs/radar-master-arms.md) are unconditional, unlike NEXT — always shown, on right[1]/right[2]
+// (weapon rows occupy left[1..5]; right[1..2] are otherwise unused in full-view WPN). Since this
+// whole function reruns every loadout tick (not just on a page change), passing `mark` from the
+// current wpnData.masterArmsOn here IS the live update — no separate re-apply-in-place step is
+// needed the way FLW's markFollowLabels needs one (FLW's labels persist across ticks; WPN's don't).
 function placeWpnNavLabels() {
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
   delete keyBanks.left[0].dataset.action;
@@ -832,6 +840,8 @@ function placeWpnNavLabels() {
   const cur = Math.min(Math.max(wpnPage, 0), maxPage);
   placeOverlayLabel('left', 0, cur > 0 ? 'PREV' : 'MAIN', cur > 0 ? 'wpn-prev' : 'main');
   if (cur < maxPage) placeOverlayLabel('right', 0, 'NEXT', 'wpn-next');
+  placeOverlayLabel('right', 1, 'ARM',  'master-arms-on',  wpnData.masterArmsOn === true);
+  placeOverlayLabel('right', 2, 'SAFE', 'master-arms-off', wpnData.masterArmsOn === false);
   // This runs on every loadout tick, not only on a page change, so the SOI cursor's mark has to be
   // re-applied here too — it lives on a label this function just threw away.
   renderSoiCursor();
@@ -1001,7 +1011,7 @@ function renderIndicators() {
 
 // Latest loadout snapshot mirrored from the map iframe (postMessage). Even when WPN isn't
 // in view we keep it fresh, so opening the page renders immediately without a round-trip.
-let wpnData      = { items: [], selWeapon: null, softGun: null, softRel: null };
+let wpnData      = { items: [], selWeapon: null, softGun: null, softRel: null, masterArmsOn: true };
 let wpnPage = 0;             // 0-indexed page for the weapon list pagination (full-view nav state)
 const WPN_MAX_DISPLAY = 5;   // weapons per page = 5 line-select slots (keys 1..5)
 
@@ -1261,7 +1271,8 @@ window.addEventListener('message', function(e) {
   } else if (m.type === 'loadout') {
     const prevSel = wpnData.selWeapon;
     wpnData = { items: m.items || [], selWeapon: m.selWeapon || null,
-                softGun: m.softGun || null, softRel: m.softRel || null };
+                softGun: m.softGun || null, softRel: m.softRel || null,
+                masterArmsOn: m.masterArmsOn !== false };
     const selChanged = wpnData.selWeapon && wpnData.selWeapon !== prevSel;
     // Full-view: follow the in-game selection to its page when it moves off the current page.
     // Only on an actual change, so manual paging is preserved on ammo/loadout ticks.
@@ -1689,6 +1700,8 @@ function mfdButton(el) {
     case 'weapon.select':                                    // WPN bezel key → select the aligned weapon
       if (el.dataset.wname) sendCommand('weapon.select', { wname: el.dataset.wname }).catch(function() {});
       break;
+    case 'master-arms-on':  sendCommand('master-arms.set', { on: true  }).catch(function() {}); break;
+    case 'master-arms-off': sendCommand('master-arms.set', { on: false }).catch(function() {}); break;
     case 'tgp':  showPage('tgp');  break;
     case 'hud':  showPage('hud');  break;
     case 'keys': showPage('keys'); break;

@@ -166,7 +166,20 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 .kb-toggle:hover { border-color: var(--no-green-dim); color: var(--no-green-dim); }
 .kb-toggle.on    { border-color: var(--no-amber); color: var(--no-amber); }
 
+/* IMMERSION OPTIONS settings (docs/radar-master-arms.md) — appended after the bind table's own
+   "IMMERSION OPTIONS" section, not interleaved with it; no second heading repeats that title. The
+   top border sets the settings apart from the binds just above, the way HUD's declutter strip sets
+   itself apart with its own divider — a related but distinct sub-group under the same heading. */
+.kb-immersion {
+  margin: 4px 10px 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--no-panel-border);
+}
+.kb-immersion .kb-note { margin-left: 0; margin-right: 0; }
+.kb-immersion .kb-setting:last-child { border-bottom: none; margin-bottom: 0; }
+
 #kb-empty { display: none; }
 .kb-panel.unavailable .kb-head,
-.kb-panel.unavailable .kb-rows { display: none; }
+.kb-panel.unavailable .kb-rows,
+.kb-panel.unavailable .kb-immersion { display: none; }
 .kb-panel.unavailable #kb-empty { display: block; }

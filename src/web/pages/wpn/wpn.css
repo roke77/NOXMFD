@@ -4,6 +4,27 @@
 .wpn-panel { position: absolute; inset: 0; }
 .wpn-panel.has-loadout .wpn-empty { display: none; }
 
+/* Master Arms OFF (docs/radar-master-arms.md) — full-screen X + centered SAFE label, over
+   whatever the panel is currently showing (loadout or the empty placeholder). Stretched to fill
+   the panel's own aspect ratio (preserveAspectRatio="none") rather than kept square — this reads
+   as "the whole screen is crossed out," not a decorative glyph, so distorting off a true 45°
+   isn't a concern. Hidden by default; toggled by wpn.js off the shell-forwarded masterArmsOn. */
+.wpn-safe { display: none; position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.wpn-safe.show { display: block; }
+.wpn-safe-x { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wpn-safe-x line { stroke: var(--no-red); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.wpn-safe-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, 28px);
+  font-size: clamp(18px, 4vh, 34px);
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: var(--no-red);
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.7);
+}
+
 /* Countermeasures panel — fills the top "first band" (key slot beside MAIN). top + height
    are set by JS from the shell-forwarded band geometry; the middle grid row (1fr) grows so
    the flares count/icon and jammer readout fill the band's height. */

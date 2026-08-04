@@ -21,6 +21,7 @@ const flareDots     = Array.prototype.slice.call(document.querySelectorAll('.fla
 const pageInd       = document.getElementById('page-ind');
 const wpSelIconWrap = document.getElementById('wp-sel-icon-wrap');
 const wpSelIconImg  = document.getElementById('wp-sel-icon');
+const wpnSafe        = document.getElementById('wpn-safe');
 
 // ── State ──────────────────────────────────────────────────────────────────────────
 // wpnData.items is already the shell-sliced page; this page never paginates.
@@ -28,7 +29,7 @@ const wpSelIconImg  = document.getElementById('wp-sel-icon');
 // full:    fullSlots[i] = {top,height} of weapon slot i down the left column (L1..L5);
 //          iconArea = {top,height} of the right-half weapon-image box.
 // cmBand = {top,height} of the first key band (both profiles).
-let wpnData = { items: [], selWeapon: null, softGun: null, softRel: null };
+let wpnData = { items: [], selWeapon: null, softGun: null, softRel: null, masterArmsOn: true };
 let cmData  = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 let layout  = 'compact';
 let slotYs  = null;
@@ -157,6 +158,14 @@ function renderWpn() {
   }
 
   renderSelIcon();
+  renderMasterArms();
+}
+
+// Master Arms OFF (docs/radar-master-arms.md) — full-screen X + SAFE label. Independent of the
+// ARM/SAFE bezel/nav controls (those are shell-owned labels); this is page content, driven by
+// the same masterArmsOn field riding the 'wpn' message.
+function renderMasterArms() {
+  wpnSafe.classList.toggle('show', wpnData.masterArmsOn === false);
 }
 
 // Full-profile only: the big image of the selected weapon on the right half. Swaps src only
@@ -232,7 +241,8 @@ window.addEventListener('message', function(e) {
   if (!m || m.mfd !== true) return;
   if (m.type === 'wpn') {
     wpnData = { items: Array.isArray(m.items) ? m.items : [], selWeapon: m.selWeapon || null,
-                softGun: m.softGun || null, softRel: m.softRel || null };
+                softGun: m.softGun || null, softRel: m.softRel || null,
+                masterArmsOn: m.masterArmsOn !== false };
     updatePageInd(typeof m.page === 'number' ? m.page : 1, typeof m.pages === 'number' ? m.pages : 1);
     renderWpn();
   } else if (m.type === 'wpn-layout') {

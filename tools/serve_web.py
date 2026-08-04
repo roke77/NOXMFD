@@ -241,8 +241,30 @@ KEYBINDS = [
      "description": "Analog axis driving the cursor up/down — overrides Cursor Up/Down when "
                      "deflected. Only acts while a display with a cursor is focused.",
      "axis": -1, "axisNum": 0, "axisInvert": False},
+    # Immersion keybinds (docs/radar-master-arms.md, issue #32) — deliberately last, so the
+    # "Immersion options" block (this section + the three settings below) reads as one group at
+    # the bottom of the page.
+    {"id": "master-arms-on", "section": "IMMERSION OPTIONS", "label": "Master Arms ON",
+     "description": "Arm — weapons/countermeasures free to fire.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "master-arms-off", "section": "IMMERSION OPTIONS", "label": "Master Arms OFF",
+     "description": "Disarm — weapons/countermeasures blocked.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "radar-on", "section": "IMMERSION OPTIONS", "label": "Radar ON",
+     "description": "Turn the radar on.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "radar-off", "section": "IMMERSION OPTIONS", "label": "Radar OFF",
+     "description": "Turn the radar off.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "engine-on", "section": "IMMERSION OPTIONS", "label": "Engine ON",
+     "description": "Turn the engine on.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "engine-off", "section": "IMMERSION OPTIONS", "label": "Engine OFF",
+     "description": "Turn the engine off.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "combat-mode-aa", "section": "IMMERSION OPTIONS", "label": "A/A",
+     "description": "Tap to restrict Cycle Missile to air-to-air missiles only, and disable Cycle "
+                     "Bombs. Hold to reset to ALL (unrestricted).", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "combat-mode-ag", "section": "IMMERSION OPTIONS", "label": "A/G",
+     "description": "Tap to restrict Cycle Missile to air-to-ground missiles only. Hold to reset to "
+                     "ALL (unrestricted).", "key": "", "joyButton": -1, "joyNum": 0},
 ]
-KB_STATE = {"capturing": None, "capturingKind": None, "armed_at": 0.0, "bgInput": False}
+KB_STATE = {"capturing": None, "capturingKind": None, "armed_at": 0.0, "bgInput": False,
+            "radarOnOnStart": True, "engineOnOnStart": True, "masterArmsOnOnStart": True}
 
 
 def _keybinds_config():
@@ -266,11 +288,17 @@ def _keybinds_config():
                        "analog HOTAS axis — bind either or both; a deflected axis overrides its two keys.",
              "WEAPONS": "Cycle keys select the last soft-selected weapon of their type, or the first "
                         "in the list. Repeated presses cycle to the next one, skipping depleted "
-                        "weapons. Cycling to a different type leaves the current one soft-selected."}
+                        "weapons. Cycling to a different type leaves the current one soft-selected.",
+             "IMMERSION OPTIONS": "A/A and A/G each restrict Cycle Missile on a tap; hold either one "
+                        "to reset to ALL (unrestricted). Every other bind here is a plain dedicated "
+                        "action."}
     return json.dumps({"binds": KEYBINDS, "notes": notes,
                        "capturing": KB_STATE["capturing"],
                        "capturingKind": KB_STATE["capturingKind"],
-                       "bgInput": KB_STATE["bgInput"]}).encode("utf-8")
+                       "bgInput": KB_STATE["bgInput"],
+                       "radarOnOnStart": KB_STATE["radarOnOnStart"],
+                       "engineOnOnStart": KB_STATE["engineOnOnStart"],
+                       "masterArmsOnOnStart": KB_STATE["masterArmsOnOnStart"]}).encode("utf-8")
 
 
 def _keybinds_command(env):
@@ -300,6 +328,12 @@ def _keybinds_command(env):
         row["axisInvert"] = bool(env.get("on", False))
     elif cmd == "keybind.set-bg-input":
         KB_STATE["bgInput"] = bool(env.get("on", False))
+    elif cmd == "keybind.set-radar-on-start":
+        KB_STATE["radarOnOnStart"] = bool(env.get("on", False))
+    elif cmd == "keybind.set-engine-on-start":
+        KB_STATE["engineOnOnStart"] = bool(env.get("on", False))
+    elif cmd == "keybind.set-master-arms-on-start":
+        KB_STATE["masterArmsOnOnStart"] = bool(env.get("on", False))
     else:
         return False
     return True

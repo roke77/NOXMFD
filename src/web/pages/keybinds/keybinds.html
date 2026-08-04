@@ -55,6 +55,41 @@
     <span>FUNCTION</span><span>KEYBOARD</span><span>JOYSTICK / HOTAS</span>
   </div>
   <div class="kb-rows" id="kb-rows"><!-- built by keybinds.js from /keybinds-config --></div>
+
+  <!-- Radar/Engine/Master Arms start-state settings (docs/radar-master-arms.md) — plain on/off
+       settings, not binds, same shape as INPUT WHEN GAME UNFOCUSED above. Appended after the bind
+       table (not interleaved with it) so this whole block reads as one continuation of the table's
+       own "IMMERSION OPTIONS" section just above it — no second heading repeating that title. -->
+  <div class="kb-immersion" id="kb-immersion">
+    <div class="kb-note">Each setting only changes what a freshly-spawned aircraft starts with; the
+      binds above always work regardless of these.</div>
+    <div class="kb-setting" id="kb-radar-on-start">
+      <div class="kb-setting-text">
+        <div class="kb-name">RADAR ON ON START</div>
+        <div class="kb-desc">Radar starts ON when spawning in a new aircraft (the game's own default).
+          Turn OFF for more immersion: radar starts off, arm it yourself.</div>
+      </div>
+      <button class="kb-toggle" id="kb-radar-on-start-btn"></button>
+    </div>
+    <div class="kb-setting" id="kb-engine-on-start">
+      <div class="kb-setting-text">
+        <div class="kb-name">ENGINE ON ON START</div>
+        <div class="kb-desc">Engine starts ON when spawning in a new aircraft (the game's own
+          default). Turn OFF for more immersion: engine starts off, start it yourself.</div>
+      </div>
+      <button class="kb-toggle" id="kb-engine-on-start-btn"></button>
+    </div>
+    <div class="kb-setting" id="kb-master-arms-on-start">
+      <div class="kb-setting-text">
+        <div class="kb-name">MASTER ARMS ON ON START</div>
+        <div class="kb-desc">Master Arms starts ON (unrestricted, today's behaviour) when spawning in
+          a new aircraft. Turn OFF for more immersion: weapons/countermeasures are blocked until you
+          arm.</div>
+      </div>
+      <button class="kb-toggle" id="kb-master-arms-on-start-btn"></button>
+    </div>
+  </div>
+
   <!-- shown while /keybinds-config is unreachable (plugin not running) -->
   <div class="mfd-empty" id="kb-empty"><span class="mfd-empty-title">KEYBINDS</span>&mdash; UNAVAILABLE &mdash;</div>
 </div>

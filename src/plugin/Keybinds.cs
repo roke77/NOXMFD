@@ -166,38 +166,6 @@ namespace NOXMFD
                 "Lower the landing gear. No-op if the gear is already down, still moving, or while on the ground.",
                 ac => DriveGear(ac, up: false, down: true));
 
-            // Immersion keybinds — docs/radar-master-arms.md (issue #32). Master Arms/Radar/Engine are
-            // plain dedicated ON+OFF pairs (edge:true, always the same action) — the game already has
-            // its own single-toggle Radar/Engine bind for anyone who doesn't want a dedicated pair, so
-            // there's no tap/hold trick here. A/A and A/G are different: there's no stock "reset combat
-            // mode" control at all, so they keep a tap-vs-hold pair (tap sets that mode, hold resets to
-            // ALL) — see PollTapHold. Registered as no-op held binds (edge:false), exactly like the
-            // cursor direction binds above — Poll() drives them directly via PollTapHold instead of the
-            // generic per-frame dispatch, since tap and hold must each fire exactly once, not repeatedly.
-            const string immersion = "Immersion Keybinds";
-            DefFree(config, "master-arms-on", immersion, "MasterArmsOn", "Master Arms ON", edge: true,
-                "Arm — weapons/countermeasures free to fire.",
-                () => ImmersionState.MasterArmsOn = true);
-            DefFree(config, "master-arms-off", immersion, "MasterArmsOff", "Master Arms OFF", edge: true,
-                "Disarm — weapons/countermeasures blocked.",
-                () => ImmersionState.MasterArmsOn = false);
-            Def(config, "radar-on", immersion, "RadarOn", "Radar ON", edge: true,
-                "Turn the radar on.",
-                ac => SetRadar(ac, on: true));
-            Def(config, "radar-off", immersion, "RadarOff", "Radar OFF", edge: true,
-                "Turn the radar off.",
-                ac => SetRadar(ac, on: false));
-            Def(config, "engine-on", immersion, "EngineOn", "Engine ON", edge: true,
-                "Turn the engine on.",
-                ac => SetEngine(ac, on: true));
-            Def(config, "engine-off", immersion, "EngineOff", "Engine OFF", edge: true,
-                "Turn the engine off.",
-                ac => SetEngine(ac, on: false));
-            _combatModeAa = DefFree(config, "combat-mode-aa", immersion, "CombatModeAA", "A/A", edge: false,
-                "Tap to restrict Cycle Missile to air-to-air missiles only, and disable Cycle Bombs. Hold to reset to ALL (unrestricted).", () => { });
-            _combatModeAg = DefFree(config, "combat-mode-ag", immersion, "CombatModeAG", "A/G", edge: false,
-                "Tap to restrict Cycle Missile to air-to-ground missiles only. Hold to reset to ALL (unrestricted).", () => { });
-
             // MAP binds — act on the focused MAP display, so DefFree like SOI. Docs/map-cursor.md.
             const string map = "MAP Keybinds";
             DefFree(config, "map-follow", map, "MapFollow", "Follow", edge: true,
@@ -261,6 +229,42 @@ namespace NOXMFD
                 "Analog axis (HOTAS mini-stick/hat) driving the cursor left/right — overrides Cursor Left/Right when deflected. Only acts while a display with a cursor is focused.");
             _cursorAxisV = AddAxis(config, "cursor-axis-v", cursor, "CursorAxisV", "Cursor Vertical",
                 "Analog axis driving the cursor up/down — overrides Cursor Up/Down when deflected. Only acts while a display with a cursor is focused.");
+
+            // Immersion keybinds — docs/radar-master-arms.md (issue #32). Registered LAST (and its
+            // three start-state settings appended after this Bind() method, in the same order) so the
+            // KEY page's "Immersion options" section — binds + settings together — lands at the very
+            // bottom of the page, below a separator, per the user's request: appended, not interleaved
+            // with the existing sections above. Master Arms/Radar/Engine are plain dedicated ON+OFF
+            // pairs (edge:true, always the same action) — the game already has its own single-toggle
+            // Radar/Engine bind for anyone who doesn't want a dedicated pair, so there's no tap/hold
+            // trick here. A/A and A/G are different: there's no stock "reset combat mode" control at
+            // all, so they keep a tap-vs-hold pair (tap sets that mode, hold resets to ALL) — see
+            // PollTapHold. Registered as no-op held binds (edge:false), exactly like the cursor
+            // direction binds above — Poll() drives them directly via PollTapHold instead of the
+            // generic per-frame dispatch, since tap and hold must each fire exactly once, not repeatedly.
+            const string immersion = "Immersion Keybinds";
+            DefFree(config, "master-arms-on", immersion, "MasterArmsOn", "Master Arms ON", edge: true,
+                "Arm — weapons/countermeasures free to fire.",
+                () => ImmersionState.MasterArmsOn = true);
+            DefFree(config, "master-arms-off", immersion, "MasterArmsOff", "Master Arms OFF", edge: true,
+                "Disarm — weapons/countermeasures blocked.",
+                () => ImmersionState.MasterArmsOn = false);
+            Def(config, "radar-on", immersion, "RadarOn", "Radar ON", edge: true,
+                "Turn the radar on.",
+                ac => SetRadar(ac, on: true));
+            Def(config, "radar-off", immersion, "RadarOff", "Radar OFF", edge: true,
+                "Turn the radar off.",
+                ac => SetRadar(ac, on: false));
+            Def(config, "engine-on", immersion, "EngineOn", "Engine ON", edge: true,
+                "Turn the engine on.",
+                ac => SetEngine(ac, on: true));
+            Def(config, "engine-off", immersion, "EngineOff", "Engine OFF", edge: true,
+                "Turn the engine off.",
+                ac => SetEngine(ac, on: false));
+            _combatModeAa = DefFree(config, "combat-mode-aa", immersion, "CombatModeAA", "A/A", edge: false,
+                "Tap to restrict Cycle Missile to air-to-air missiles only, and disable Cycle Bombs. Hold to reset to ALL (unrestricted).", () => { });
+            _combatModeAg = DefFree(config, "combat-mode-ag", immersion, "CombatModeAG", "A/G", edge: false,
+                "Tap to restrict Cycle Missile to air-to-ground missiles only. Hold to reset to ALL (unrestricted).", () => { });
 
             // Hidden like the binds above — the /keybinds page owns this one too now (rendered as a
             // toggle, not a bind row: it has no key/joy/axis source of its own).

@@ -180,6 +180,7 @@
     // softGun/softRel: the weapon-keybind soft selections (outlined on the WPN page). softRel differs
     // from selWeapon so the outline is visible; a soft name equal to selWeapon must NOT outline.
     iconOrient: true, iconScale: 1.1, selWeapon: 'AIM-9X', softGun: 'AIM-9X', softRel: 'GBU-12',
+    masterArmsOn: true,   // docs/radar-master-arms.md — flip to false in devtools to preview SAFE
     loadout: [
       { n: 'AIM-9X',   a: 2, f: 2 },
       { n: 'AIM-120D', a: 4, f: 6 },

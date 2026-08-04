@@ -3,6 +3,10 @@
 // and the top-row nav labels: MAIN on page 0 / PREV after it (top-left), and NEXT (top-right)
 // only while pages remain. Mirrors the bezel's placeWpnNavLabels without the bezel.
 //
+// ARM/SAFE (docs/radar-master-arms.md) deliberately do NOT live here — unlike NEXT they're
+// unconditional, so they're appended in f35.js's itemsFor() instead, keeping this module (and its
+// pinned test) about pagination only.
+//
 // Kept pure and importable so f35-wpn-paging.test.js can pin the slice boundaries and the
 // MAIN/PREV/NEXT switch; f35.js is the only caller. NEXT names its own cell because it belongs
 // top-right — legal here (this is the layout's own item, not a shared NAV item, which the
