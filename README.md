@@ -2,6 +2,8 @@
 
 [![Latest Release](https://img.shields.io/github/v/release/roke77/NOXMFD)](https://github.com/roke77/NOXMFD/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Nuclear Option](https://img.shields.io/badge/Game-Nuclear%20Option-green)](https://store.steampowered.com/app/2168680/Nuclear_Option/)
+[![BepInEx 5](https://img.shields.io/badge/Loader-BepInEx%205-orange)](https://docs.bepinex.dev/)
 
 ![NO XMFD running on a flight-sim rig](docs/images/SIM.png)
 
@@ -19,8 +21,6 @@ any web browser, on the same PC or on another device on the same network.
   - [MFD shell](#mfd-shell)
   - [MFD layouts](#mfd-layouts)
   - [Extended Keybinds](#extended-keybinds)
-    - [Sensor of Interest (SOI)](#sensor-of-interest-soi)
-    - [PAD cursor](#pad-cursor)
 - [Reporting & collaboration](#reporting--collaboration)
 - [Security & privacy](#security--privacy)
 - [License](#license)
