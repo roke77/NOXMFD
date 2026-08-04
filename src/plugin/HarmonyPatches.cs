@@ -13,24 +13,29 @@ namespace NOXMFD
             new Harmony("com.roque.NOXMFD").PatchAll(typeof(HarmonyPatches).Assembly);
         }
 
-        // Radar start state. Radar.AttachToUnit sets `activated = true` unconditionally for EVERY
-        // unit's radar (AI/enemy included, not just the player's own) — so this only overrides it once
-        // confirmed the attached unit IS the local player's own aircraft. GameManager.GetLocalAircraft
-        // is a per-client lookup (not server state), so it's safe to call from any code path.
+        // Radar start state. CONFIRMED (in-game bug report + decompiled-source investigation) that
+        // patching Radar.AttachToUnit — the original approach — was wrong: that method only fires for
+        // a hardpoint-MOUNTED radar pod (Hardpoint.SpawnMount, gated on weaponMount.radar). A normal
+        // aircraft's built-in radar attaches via Radar.Awake() instead, which hardcodes
+        // `activated = true` with no way to gate it in place — Awake() runs the instant the prefab is
+        // instantiated, before Player.SetAircraft(this) has run, so GameManager.GetLocalAircraft can't
+        // even resolve correctly at that point (it still reports the PREVIOUS aircraft, or nothing).
         //
-        // Does NOT cover Radar.Awake's separate attach path (attachedUnit pre-wired before Awake runs)
-        // — believed unused for a dynamically-spawned player aircraft (that path looks built for
-        // scene-placed AI units with a serialized radar reference), but unconfirmed. If a player
-        // aircraft's radar turns out to attach that way instead, RadarOnOnStart would silently have no
-        // effect — worth an in-game check the first time this ships.
-        [HarmonyPatch(typeof(Radar), nameof(Radar.AttachToUnit))]
-        private static class Radar_AttachToUnit_Patch
+        // Fix: patch Aircraft.OnStartClient() instead — a postfix, so it runs after the whole method
+        // body, including Player.SetAircraft(this) (partway through) AND the InitializeUnit() call at
+        // the very end that triggers Hardpoint.SpawnMount for a radar pod, if the loadout has one. By
+        // the time this postfix runs, __instance.radar is populated correctly regardless of WHICH path
+        // attached it, and GetLocalAircraft resolves correctly — one patch covers both radar shapes.
+        // Still gated to the local player's own aircraft; still never observably flickers on for the
+        // same reason as before (OnStartClient completes synchronously, well before the first Update()
+        // that would otherwise render/scan with it on).
+        [HarmonyPatch(typeof(Aircraft), "OnStartClient")]
+        private static class Aircraft_OnStartClient_Patch
         {
-            private static void Postfix(Radar __instance, Unit unit)
+            private static void Postfix(Aircraft __instance)
             {
-                if (unit is not Aircraft ac) return;
-                if (!GameManager.GetLocalAircraft(out Aircraft local) || !ReferenceEquals(ac, local)) return;
-                __instance.activated = ImmersionConfig.RadarOnOnStart;
+                if (!GameManager.GetLocalAircraft(out Aircraft local) || !ReferenceEquals(__instance, local)) return;
+                if (__instance.radar != null) __instance.radar.activated = ImmersionConfig.RadarOnOnStart;
             }
         }
 

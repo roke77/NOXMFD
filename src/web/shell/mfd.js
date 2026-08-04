@@ -825,12 +825,13 @@ function forwardWpnLayoutToFrame() {
                   iconTop: icoTop, iconHeight: icoBot - icoTop }, '*');
 }
 // Full-view WPN nav labels (shell-owned, since pagination is shell state): left key-0 is MAIN
-// on page 0 / PREV after; right key-0 is NEXT when the loadout overflows the page. ARM/SAFE
-// (docs/radar-master-arms.md) are unconditional, unlike NEXT — always shown, on right[1]/right[2]
-// (weapon rows occupy left[1..5]; right[1..2] are otherwise unused in full-view WPN). Since this
-// whole function reruns every loadout tick (not just on a page change), passing `mark` from the
-// current wpnData.masterArmsOn here IS the live update — no separate re-apply-in-place step is
-// needed the way FLW's markFollowLabels needs one (FLW's labels persist across ticks; WPN's don't).
+// on page 0 / PREV after; right key-0 is NEXT when the loadout overflows the page. ARM/SAFE and
+// A/A/A-G (docs/radar-master-arms.md) are unconditional, unlike NEXT — always shown, on
+// right[1..4] (weapon rows occupy left[1..5]; right[1..4] are otherwise unused in full-view WPN).
+// Since this whole function reruns every loadout tick (not just on a page change), passing `mark`
+// from the current wpnData.masterArmsOn/combatMode here IS the live update — no separate
+// re-apply-in-place step is needed the way FLW's markFollowLabels needs one (FLW's labels persist
+// across ticks; WPN's don't).
 function placeWpnNavLabels() {
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
   delete keyBanks.left[0].dataset.action;
@@ -842,6 +843,10 @@ function placeWpnNavLabels() {
   if (cur < maxPage) placeOverlayLabel('right', 0, 'NEXT', 'wpn-next');
   placeOverlayLabel('right', 1, 'ARM',  'master-arms-on',  wpnData.masterArmsOn === true);
   placeOverlayLabel('right', 2, 'SAFE', 'master-arms-off', wpnData.masterArmsOn === false);
+  // No ALL label — holding A/A or A/G already resets to ALL (see PollTapHold in Keybinds.cs), so
+  // ALL just reads as neither of these two lit, the same way it does for the keybinds themselves.
+  placeOverlayLabel('right', 3, 'A/A', 'combat-mode-aa', wpnData.combatMode === 'aa');
+  placeOverlayLabel('right', 4, 'A/G', 'combat-mode-ag', wpnData.combatMode === 'ag');
   // This runs on every loadout tick, not only on a page change, so the SOI cursor's mark has to be
   // re-applied here too — it lives on a label this function just threw away.
   renderSoiCursor();
@@ -1011,7 +1016,7 @@ function renderIndicators() {
 
 // Latest loadout snapshot mirrored from the map iframe (postMessage). Even when WPN isn't
 // in view we keep it fresh, so opening the page renders immediately without a round-trip.
-let wpnData      = { items: [], selWeapon: null, softGun: null, softRel: null, masterArmsOn: true };
+let wpnData      = { items: [], selWeapon: null, softGun: null, softRel: null, masterArmsOn: true, combatMode: 'all' };
 let wpnPage = 0;             // 0-indexed page for the weapon list pagination (full-view nav state)
 const WPN_MAX_DISPLAY = 5;   // weapons per page = 5 line-select slots (keys 1..5)
 
@@ -1272,7 +1277,7 @@ window.addEventListener('message', function(e) {
     const prevSel = wpnData.selWeapon;
     wpnData = { items: m.items || [], selWeapon: m.selWeapon || null,
                 softGun: m.softGun || null, softRel: m.softRel || null,
-                masterArmsOn: m.masterArmsOn !== false };
+                masterArmsOn: m.masterArmsOn !== false, combatMode: m.combatMode || 'all' };
     const selChanged = wpnData.selWeapon && wpnData.selWeapon !== prevSel;
     // Full-view: follow the in-game selection to its page when it moves off the current page.
     // Only on an actual change, so manual paging is preserved on ammo/loadout ticks.
@@ -1702,6 +1707,8 @@ function mfdButton(el) {
       break;
     case 'master-arms-on':  sendCommand('master-arms.set', { on: true  }).catch(function() {}); break;
     case 'master-arms-off': sendCommand('master-arms.set', { on: false }).catch(function() {}); break;
+    case 'combat-mode-aa':  sendCommand('combat-mode.set', { group: 'aa'  }).catch(function() {}); break;
+    case 'combat-mode-ag':  sendCommand('combat-mode.set', { group: 'ag'  }).catch(function() {}); break;
     case 'tgp':  showPage('tgp');  break;
     case 'hud':  showPage('hud');  break;
     case 'keys': showPage('keys'); break;

@@ -25,6 +25,7 @@ namespace NOXMFD
         public long   id;      // target unit persistentID (target.select / target.deselect)
         public string wname;   // weapon type name (weapon.select) — matches LoadoutEntry.Name
         public string group;   // tgt.set / tgt.only : "faction" | "category" | "vehicle"
+                                // combat-mode.set : "all" | "aa" | "ag"
         public int    index;   // tgt.set / tgt.only : toggle index within the group
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
         public string bind;    // keybind.* : BindDef id ("flares", "gear-up", ...)
@@ -53,6 +54,12 @@ namespace NOXMFD
                 { "hud.mode",        HudMode },
                 { "declutter.set",   DeclutterSet },
                 { "master-arms.set", e => ImmersionState.MasterArmsOn = e.on },
+                { "combat-mode.set", e => ImmersionState.CombatMode = e.group switch
+                    {
+                        "aa" => CombatMode.AirToAir,
+                        "ag" => CombatMode.AirToGround,
+                        _    => CombatMode.All,
+                    } },
                 { "keybind.set-key",    e => Log("set-key",    e.bind, Keybinds.SetKeyBind(e.bind, e.key)) },
                 { "keybind.arm-joy",    e => Log("arm-joy",    e.bind, Keybinds.ArmJoyCapture(e.bind)) },
                 { "keybind.cancel-joy", e => Keybinds.CancelJoyCapture() },

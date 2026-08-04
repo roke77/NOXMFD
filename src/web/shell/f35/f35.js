@@ -62,6 +62,7 @@
     pal: '/bdf?pal',   // same page, PRIMEVA (docs/bdf-page.md) — a URL flag, not a separate page
     hud: '/hud',   // the HUD OPTIONS page — fetches /hud-options and POSTs its own hud.* commands
     keys: '/keybinds',   // extended-keybinds page — polls /keybinds-config and POSTs keybind.* itself
+    rdr: '/rdr',   // radar page (docs/rdr-page.md) — mirrors the bezel's FRAME_PAGES.rdr
   };
 
   // The telemetry each screen needs, by the tap's own type names. A page that just mounted has
@@ -77,6 +78,7 @@
     wpn: ['loadout', 'cm'],   // 'loadout' is derived, not forwarded as-is — see DERIVED
     bdf: ['bdf'],             // read-only faction-forces block (docs/bdf-page.md)
     pal: ['pal'],             // same, for PRIMEVA
+    rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
   };
 
   // The tap calls it 'targets'; TGT listens for 'tgt-targets'. The bezel renames it in exactly the
@@ -106,6 +108,7 @@
     { label: 'LYT', action: 'lyt' },
     { label: 'PAL', action: 'pal' },
     { label: 'BDF', action: 'bdf' },
+    { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md) — mirrors BEZEL_EXTRAS.main
   ];
 
   // Paging actions, and the direction each moves. Not pages, so they dispatch separately.
@@ -133,6 +136,16 @@
     { label: 'SAFE', action: 'master-arms-off', cell: { row: 3, col: 2 } },
   ];
 
+  // Combat mode (docs/radar-master-arms.md) — same shape as ARM/SAFE, one row lower: rows 4-5 of
+  // the right column are free too (only col 1 rows 2..6 are spoken for, by the weapon-row hits).
+  // No ALL item — holding A/A or A/G already resets to ALL (PollTapHold, Keybinds.cs), so ALL just
+  // reads as neither of these two lit, same as for the keybinds themselves.
+  const COMBAT_MODE_ACTIONS = { 'combat-mode-aa': 'aa', 'combat-mode-ag': 'ag' };
+  const COMBAT_MODE_NAV = [
+    { label: 'A/A', action: 'combat-mode-aa', cell: { row: 4, col: 2 } },
+    { label: 'A/G', action: 'combat-mode-ag', cell: { row: 5, col: 2 } },
+  ];
+
   // Where a screen's NAV items sit. Default 'edge' = the bezel's left key bank, minus the bezel.
   // MAIN is 'center': its labels ARE the screen, so they own the middle of the glass instead of
   // hugging an edge that frames nothing. Both modes consume NAV in order — only placement differs,
@@ -149,7 +162,7 @@
   function feedsFor(page) { return PAGE_FEEDS[page] || []; }
   function canDo(action) {
     return has(action) || (action in PAGER) || (action in MAP_ACTIONS) || (action in GLASS_ACTIONS) ||
-           (action in MASTER_ARMS_ACTIONS);
+           (action in MASTER_ARMS_ACTIONS) || (action in COMBAT_MODE_ACTIONS);
   }
 
   // 'edge' placement: an item's index → its cell. The left column, top-down, IS the bezel's left
@@ -302,9 +315,9 @@
                       page: st.maxPage > 0 ? st.page + 1 : 1, pages: st.maxPage + 1 }, '*');
       const key = st.page + '|' + st.maxPage + '|' + st.visible.map(function (it) { return it.n; }).join(',');
       if (currentPage === 'wpn' && key !== wpnNavKey) { wpnNavKey = key; renderNav(); }
-      // masterArmsOn can change without the page/weapon list changing, so re-apply it every tick —
-      // renderNav() above is change-gated and would otherwise miss that case.
-      if (currentPage === 'wpn') markMasterArms();
+      // masterArmsOn/combatMode can change without the page/weapon list changing, so re-apply them
+      // every tick — renderNav() above is change-gated and would otherwise miss that case.
+      if (currentPage === 'wpn') { markMasterArms(); markCombatMode(); }
     }
 
     // Row 1 is the CM band; rows 2..6 are the weapon slots; the image spans rows 2..6. The grid and
@@ -366,7 +379,7 @@
     //          NAV items, where the bezel just shows NAV's six in their given order.
     //   wpn  — nothing from NAV (it's empty by design); its labels are pagination.
     function itemsFor(page) {
-      if (page === 'wpn') return wpnState().nav.concat(MASTER_ARMS_NAV);
+      if (page === 'wpn') return wpnState().nav.concat(MASTER_ARMS_NAV, COMBAT_MODE_NAV);
       const items = (NAV[page] || []).slice();
       if (page !== 'main') return items;
       return items.concat(MAIN_EXTRAS).sort(function (a, b) { return a.label.localeCompare(b.label); });
@@ -402,12 +415,25 @@
       if (off) off.classList.toggle('on', !armed);
     }
 
+    // Combat mode (docs/radar-master-arms.md) — same shape as markMasterArms above.
+    function markCombatMode() {
+      const mode = (slices.loadout && slices.loadout.combatMode) || 'all';
+      COMBAT_MODE_NAV.forEach(function (item) {
+        const b = grid.querySelector('.nav-item[data-action="' + item.action + '"]');
+        if (b) b.classList.toggle('on', COMBAT_MODE_ACTIONS[item.action] === mode);
+      });
+    }
+
     function dispatch(action) {
       if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
       if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
       if (action in GLASS_ACTIONS) { GLASS_ACTIONS[action](); return; }
       if (action in MASTER_ARMS_ACTIONS) {
         sendCommand('master-arms.set', { on: MASTER_ARMS_ACTIONS[action] }).catch(function () {});
+        return;
+      }
+      if (action in COMBAT_MODE_ACTIONS) {
+        sendCommand('combat-mode.set', { group: COMBAT_MODE_ACTIONS[action] }).catch(function () {});
         return;
       }
       if (has(action)) showPage(action);
@@ -441,7 +467,7 @@
         else       b.disabled = true;
         grid.appendChild(b);
       });
-      if (currentPage === 'wpn') { addWeaponHits(); markMasterArms(); }
+      if (currentPage === 'wpn') { addWeaponHits(); markMasterArms(); markCombatMode(); }
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
       // The grid was just rebuilt, so an SOI cursor mark on one of its items is gone — let the shell
       // re-apply it if this is the focused portal (the F-35 twin of mfd.js's post-rebuild renderSoiCursor).

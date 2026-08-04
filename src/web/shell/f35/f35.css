@@ -566,7 +566,8 @@ html, body {
 .nav-grid.edge[data-page="tgt"] .nav-item,
 .nav-grid.edge[data-page="hud"] .nav-item,
 .nav-grid.edge[data-page="bdf"] .nav-item,
-.nav-grid.edge[data-page="pal"] .nav-item {
+.nav-grid.edge[data-page="pal"] .nav-item,
+.nav-grid.edge[data-page="rdr"] .nav-item {
   writing-mode: vertical-rl;
   text-orientation: upright;
   letter-spacing: 0;

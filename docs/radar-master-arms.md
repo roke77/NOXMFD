@@ -1,10 +1,11 @@
 # Radar & Master Arms — [issue #32](https://github.com/roke77/NOXMFD/issues/32)
 
-**Branch:** `radar-master-arms`. **Status:** built (steps 1-12), not yet in-game verified beyond the
-Harmony probe patch. Remaining before merge: play-test the whole feature set in an actual mission
-(spawn defaults, all eight keybinds, Master Arms enforcement, combat-mode filtering, WPN ARM/SAFE,
-KEY page settings), and confirm the four unconfirmed A/A missile names against a real WPN-page
-capture (`AAM-29 Scythe` is the one name already confirmed).
+**Branch:** `radar-master-arms`. **Status:** built and partly in-game tested. First real play-test
+caught the Radar spawn-default bug (see the Radar section below) — fixed. RDR was also found missing
+from the F-35 layout's MAIN list (a pre-existing gap unrelated to this feature, fixed in passing).
+Still remaining before merge: verify the Radar fix, Engine, all eight keybinds, Master Arms
+enforcement, and combat-mode filtering in-game; confirm the four unconfirmed A/A missile names
+against a real WPN-page capture (`AAM-29 Scythe` is the one name already confirmed).
 
 ## Goal
 
@@ -34,11 +35,11 @@ runtime**, so every user who can run this mod at all already has it — no new i
 file, no README change. It unlocks two things the mod's existing read-reflection/call-public-method
 approach structurally can't:
 
-- **Silent spawn defaults** — a prefix patch on `Aircraft.OnStartServer()` (ignition) and
-  `Radar.Awake()`/`AttachToUnit()` (radar) sets the *initial* SyncVar value directly, before it ever
-  syncs to a client, instead of reactively toggling it back off a tick later. This removes the
-  engine-startup-sound artifact entirely (see the old "known limitation" below, now resolved) rather
-  than just cutting it short.
+- **Silent spawn defaults** — a prefix patch on `Aircraft.OnStartServer()` (ignition) and a postfix on
+  `Aircraft.OnStartClient()` (radar — see below for why that's the correct target, not `Radar.Awake`/
+  `AttachToUnit` directly) sets the *initial* value directly, before it's ever observable, instead of
+  reactively toggling it back off a tick later. This removes the engine-startup-sound artifact
+  entirely (see the old "known limitation" below, now resolved) rather than just cutting it short.
 - **Full Master Arms coverage** — a patch on the weapon-fire and countermeasure-dispense paths blocks
   firing at the source, so OFF blocks *every* way to fire, not just the mod's own keybinds.
 
@@ -67,32 +68,49 @@ one-key-does-both already has that; a tap/hold trick on top would only add compl
 capability. **A/A and A/G keep the tap/hold pair** because there's no stock "reset combat mode"
 control to fall back on — without the hold, there'd be no keybind way back to ALL at all.
 
-### WPN page — ARM / SAFE controls, always present
+### WPN page — ARM / SAFE and A/A / A/G controls, always present
 
-The WPN page always gains two new selectable controls, **ARM** and **SAFE** — unconditional,
-regardless of the `MasterArmsOnOnStart` setting (even a pilot who leaves the default ON can arm/
-disarm mid-flight straight from the WPN page, not just via keybind). Whichever matches the live
-Master Arms state renders active (amber box, same as every other engaged control); clicking,
-tapping, or SOI-navigating to it and pressing Select sets that state.
+The WPN page always gains four new selectable controls: **ARM**/**SAFE** (Master Arms) and
+**A/A**/**A/G** (combat mode) — all unconditional, regardless of the relevant setting (even a pilot
+who leaves Master Arms' default ON can arm/disarm mid-flight straight from the WPN page, not just
+via keybind). Whichever matches the live state renders active (amber box, same as every other
+engaged control); clicking, tapping, or SOI-navigating to it and pressing Select sets that state.
 
+- **No dedicated ALL control** — holding either A/A or A/G already resets combat mode to ALL (see
+  the keybinds table above), so ALL just reads as neither of the two being lit, the same way it does
+  for the keybinds themselves. One less control to place, and no inconsistency between the two ways
+  to reach ALL.
 - **When `MasterArms.On` is false (SAFE)**, the WPN page additionally draws a full-screen **X**
   over its own content, with a **SAFE** label centered just below the X's middle — a content-level
-  visual, not a bezel/nav element, drawn by `wpn.js`/`wpn.css` regardless of layout.
+  visual, not a bezel/nav element, drawn by `wpn.js`/`wpn.css` regardless of layout. Combat mode has
+  no equivalent content-level overlay — only the nav controls.
 
 ### Extended keybinds page — new content is appended, not interleaved
 
-All eight new binds and three new settings land in one new section, **"Immersion options"**, appended
-after everything the KEY page already has, below a separator — existing sections are untouched.
+A true second section, not appended content sharing the existing table: its own EXTENDED-KEYBINDS-
+sized title ("IMMERSION OPTIONS"), a short description, the three start-state settings, then its own
+table (own header row, own rows) for the eight binds — below a separator, after everything the KEY
+page already has. Existing sections/table are untouched.
 
 ## What already exists to reuse (read before building)
 
 ### Radar — patched at the source, not reactively toggled
 
-- `Radar.Awake()`/`AttachToUnit()` unconditionally set `activated = true` — confirmed, no code path
-  spawns radar off. A Harmony prefix (or postfix forcing the field) on whichever of the two actually
-  fires for a player aircraft's radar sets `activated = RadarOnOnStart` at that point instead — the
-  client never observes an on-transition at all when the setting is OFF, so there's nothing to
-  detect or react to.
+- **Bug found and fixed after first ship**: the original patch targeted `Radar.AttachToUnit()`,
+  which turned out to be the WRONG method for a normal aircraft's built-in radar — confirmed both by
+  an in-game report (radar stayed on with the setting OFF) and by re-reading the decompiled source.
+  `AttachToUnit()` only fires for a hardpoint-*mounted* radar pod (`Hardpoint.SpawnMount`, gated on
+  `weaponMount.radar`); the built-in radar every normal loadout has attaches via `Radar.Awake()`
+  instead, which hardcodes `activated = true` with no way to gate it in place — `Awake()` runs the
+  instant the prefab is instantiated, before `Player.SetAircraft(this)` has run, so
+  `GameManager.GetLocalAircraft` can't even resolve correctly at that point.
+- **Fix: patch `Aircraft.OnStartClient()` instead**, as a postfix. By the time the whole method body
+  has run — including `Player.SetAircraft(this)` partway through, and the `InitializeUnit()` call at
+  the very end that triggers `Hardpoint.SpawnMount` for a radar pod if the loadout has one —
+  `aircraft.radar` is populated correctly regardless of which path attached it, and
+  `GameManager.GetLocalAircraft` resolves correctly. One patch now covers both radar shapes. Still
+  never observably flickers on, for the same reason as before: `OnStartClient` completes
+  synchronously, well before the first `Update()` that would otherwise render/scan with it on.
 - **The runtime keybinds still use the existing toggle, unchanged** —
   `Aircraft.CmdToggleRadar()` (→ `RpcToggleRadar`) is still the right call for the **Radar ON /
   Radar OFF** keybinds during flight; only the *spawn* default moves to a patch. The keybinds check
@@ -225,10 +243,11 @@ after everything the KEY page already has, below a separator — existing sectio
 3. **Runtime state** — `MasterArms.On` (bool) and `CombatMode` (enum: `All` / `AirToAir` /
    `AirToGround`), both plain in-memory, owned wherever `Keybinds.cs` keeps similar mod state.
    `CombatMode` always starts `All`; no patch needed for it, it has no game-side default to fight.
-4. **Spawn-default patches** — a prefix on `Radar.Awake()`/`AttachToUnit()` setting `activated =
-   RadarOnOnStart`, and a prefix on `Aircraft.OnStartServer()` setting `NetworkIgnition =
-   EngineOnOnStart`, both reading the settings from step 2. Replaces the earlier reactive
-   `TelemetryReader.cs`-hook idea entirely for these two — no polling, no timing window.
+4. **Spawn-default patches** — a postfix on `Aircraft.OnStartClient()` setting
+   `radar.activated = RadarOnOnStart` (fixed from an original, wrong `Radar.AttachToUnit()` target —
+   see the Radar section above), and a prefix on `Aircraft.OnStartServer()` setting
+   `NetworkIgnition = EngineOnOnStart`, both reading the settings from step 2. Replaces the earlier
+   reactive `TelemetryReader.cs`-hook idea entirely for these two — no polling, no timing window.
 5. **Eight keybinds** (`Keybinds.cs`) — `master-arms-on` / `master-arms-off`, `radar-on` /
    `radar-off`, `engine-on` / `engine-off`, `combat-mode-aa` / `combat-mode-ag`, each `edge: true`,
    tap/hold branching per the table above. Radar/Engine keybinds still call the existing
@@ -268,27 +287,25 @@ after everything the KEY page already has, below a separator — existing sectio
 
 ## Open questions
 
-- **Exact ARM/SAFE key/cell placement** — CLASSIC has `right[1]`/`right[2]` free in full-view WPN
-  (weapon rows occupy `left[1..5]`); F-35 needs explicit `cell` hints in `f35-wpn-paging.js`'s `nav`
-  array, same as NEXT already gets. Split-pane WPN placement (`renderSplitLabels`'s list branch) also
-  needs a slot decision — not yet picked, but mechanically identical to how MAIN/PREV/NEXT already
-  place there.
-- **`Radar.Awake()`'s separate attach path is unpatched, unconfirmed** — implemented so far
-  (`HarmonyPatches.cs`) only patches `Radar.AttachToUnit()`, gated to the local player's own aircraft
-  via `GameManager.GetLocalAircraft`. `Awake()`'s path (`attachedUnit` pre-wired before `Awake` runs)
-  looks built for scene-placed AI units with a serialized radar reference, not a dynamically-spawned
-  player aircraft, but this is unconfirmed — if a player aircraft's radar turns out to attach that way
-  instead, `RadarOnOnStart` would silently have no effect. Worth an in-game check the first time this
-  ships.
+- **ARM/SAFE/A-A/A-G key/cell placement — resolved for full view, split still open.** CLASSIC uses
+  `right[1..4]` in full-view WPN (weapon rows occupy `left[1..5]`); F-35 uses explicit `cell` hints in
+  `f35.js`'s `COMBAT_MODE_NAV`/`MASTER_ARMS_NAV` (rows 2-5 of the right column), same as NEXT already
+  gets. Split-pane WPN placement (`renderSplitLabels`'s list branch) still needs a slot decision — not
+  yet picked (all 6 physical keys per pane are already spoken for), flagged in code rather than
+  guessed.
+- **`Radar.Awake()`/`AttachToUnit()` targeting — resolved.** Confirmed by an in-game bug report
+  (radar stayed on with the setting OFF) that the original patch target was wrong; fixed by moving to
+  an `Aircraft.OnStartClient()` postfix instead. See the Radar section above for the full story.
 - **Dedicated-server topology gap, confirmed and accepted** — `Aircraft.OnStartServer()` only
   executes on the network SERVER. Host mode (single-player or a player-hosted lobby) is fine, since
   the host process is both client and server. Connecting as a plain client to someone else's
   dedicated `NuclearOptionServer.exe` means the Engine patch never fires for your own aircraft at all
   (that method runs on their machine, not yours, and a mod normally isn't installed server-side) — the
   `EngineOnOnStart` setting silently has no effect in that topology. Accepted: this mod's primary use
-  case is single-player/host play; revisit only if dedicated-server support becomes a real ask.
+  case is single-player/host play; revisit only if dedicated-server support becomes a real ask. (The
+  Radar fix above is client-side, so it does NOT have this gap — only Engine does.)
 - **Patch fragility across game updates** — accepted cost of adding Harmony (see Goal). Not covered
   by `apicheck`; a future game update that reshapes `WeaponManager.Fire()`/`OnStartServer()`/
-  `Radar.AttachToUnit()` could make a patch silently misbehave rather than throw. Worth a manual
+  `OnStartClient()` could make a patch silently misbehave rather than throw. Worth a manual
   smoke-test of these four patches specifically after every game update, alongside the usual
   `apicheck` run.

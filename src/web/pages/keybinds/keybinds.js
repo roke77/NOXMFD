@@ -4,6 +4,10 @@
 // arrives via the poll. See keybinds.html header + docs/keybinds-page.md.
 
 var rowsEl  = document.getElementById('kb-rows');
+// Immersion options (docs/radar-master-arms.md) is a true second section, not a continuation of
+// the table above — its 8 binds render into their own container, under their own header row.
+var IMMERSION_SECTION = 'IMMERSION OPTIONS';
+var immersionRowsEl = document.getElementById('kb-immersion-rows');
 var panelEl = document.getElementById('kb-panel');
 
 // Embedded in a shell (classic #page-frame or an F-35 portal) rather than opened standalone? Then
@@ -179,10 +183,38 @@ function axisCell(bind) {
   return wrap;
 }
 
+// One bind row — shared by the main table and the Immersion options table below it.
+function buildRow(b) {
+  var row = document.createElement('div');
+  row.className = 'kb-row';
+  var fn = document.createElement('div');
+  var name = document.createElement('div');
+  name.className = 'kb-name';
+  name.textContent = b.label.toUpperCase();
+  fn.appendChild(name);
+  var desc = document.createElement('div');
+  desc.className = 'kb-desc';
+  desc.textContent = b.description || '';
+  fn.appendChild(desc);
+  row.appendChild(fn);
+  if (b.axis !== undefined && b.key === undefined) {
+    // Axis-only row: one wide cell spanning both value columns, rather than an always-empty
+    // key cell next to an always-empty joy cell.
+    var wide = axisCell(b);
+    wide.style.gridColumn = '2 / span 2';
+    row.appendChild(wide);
+  } else {
+    row.appendChild(cell(b, 'key'));
+    row.appendChild(cell(b, 'joy'));
+  }
+  return row;
+}
+
 function render() {
   rowsEl.textContent = '';
   var section = null;
   binds.forEach(function (b) {
+    if (b.section === IMMERSION_SECTION) return;   // its own table — see renderImmersionRows
     if (b.section !== section) {
       section = b.section;
       var h = document.createElement('div');
@@ -196,29 +228,21 @@ function render() {
         rowsEl.appendChild(note);
       }
     }
-    var row = document.createElement('div');
-    row.className = 'kb-row';
-    var fn = document.createElement('div');
-    var name = document.createElement('div');
-    name.className = 'kb-name';
-    name.textContent = b.label.toUpperCase();
-    fn.appendChild(name);
-    var desc = document.createElement('div');
-    desc.className = 'kb-desc';
-    desc.textContent = b.description || '';
-    fn.appendChild(desc);
-    row.appendChild(fn);
-    if (b.axis !== undefined && b.key === undefined) {
-      // Axis-only row: one wide cell spanning both value columns, rather than an always-empty
-      // key cell next to an always-empty joy cell.
-      var wide = axisCell(b);
-      wide.style.gridColumn = '2 / span 2';
-      row.appendChild(wide);
-    } else {
-      row.appendChild(cell(b, 'key'));
-      row.appendChild(cell(b, 'joy'));
-    }
-    rowsEl.appendChild(row);
+    rowsEl.appendChild(buildRow(b));
+  });
+  renderImmersionRows();
+}
+
+// Immersion options (docs/radar-master-arms.md) — a true second section (its own title/description/
+// settings in keybinds.html), so its binds get their own table here instead of a header inside the
+// main one. No per-row section heading needed (there's only ever the one section); the server's
+// shared-behaviour note still shows, just above this table's header instead of inside it.
+function renderImmersionRows() {
+  immersionRowsEl.textContent = '';
+  document.getElementById('kb-immersion-note').textContent = notes[IMMERSION_SECTION] || '';
+  binds.forEach(function (b) {
+    if (b.section !== IMMERSION_SECTION) return;
+    immersionRowsEl.appendChild(buildRow(b));
   });
 }
 

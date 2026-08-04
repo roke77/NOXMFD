@@ -166,17 +166,27 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 .kb-toggle:hover { border-color: var(--no-green-dim); color: var(--no-green-dim); }
 .kb-toggle.on    { border-color: var(--no-amber); color: var(--no-amber); }
 
-/* IMMERSION OPTIONS settings (docs/radar-master-arms.md) — appended after the bind table's own
-   "IMMERSION OPTIONS" section, not interleaved with it; no second heading repeats that title. The
-   top border sets the settings apart from the binds just above, the way HUD's declutter strip sets
-   itself apart with its own divider — a related but distinct sub-group under the same heading. */
+/* IMMERSION OPTIONS (docs/radar-master-arms.md) — a true second section: its own EXTENDED-
+   KEYBINDS-sized title (.kb-title, reused as-is), a description, the 3 start-state settings, then
+   its own table (own .kb-head + .kb-rows, not shared with the main one above). The top border/
+   margin sets the whole section apart from the main table, the way a fresh page section should. */
 .kb-immersion {
-  margin: 4px 10px 0;
-  padding-top: 14px;
+  margin: 32px 10px 0;
+  padding-top: 24px;
   border-top: 1px solid var(--no-panel-border);
 }
-.kb-immersion .kb-note { margin-left: 0; margin-right: 0; }
+.kb-immersion .kb-title { margin-bottom: 10px; }
+.kb-immersion-desc {
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: var(--no-green-dim);
+  text-align: center;
+  max-width: 560px;
+  margin: 0 auto 20px;
+}
 .kb-immersion .kb-setting:last-child { border-bottom: none; margin-bottom: 0; }
+.kb-immersion .kb-head { margin-top: 18px; }
+#kb-immersion-note:empty { display: none; }
 
 #kb-empty { display: none; }
 .kb-panel.unavailable .kb-head,
