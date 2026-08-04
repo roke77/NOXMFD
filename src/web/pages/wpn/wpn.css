@@ -4,25 +4,43 @@
 .wpn-panel { position: absolute; inset: 0; }
 .wpn-panel.has-loadout .wpn-empty { display: none; }
 
-/* Master Arms OFF (docs/radar-master-arms.md) — full-screen X + centered SAFE label, over
-   whatever the panel is currently showing (loadout or the empty placeholder). Stretched to fill
-   the panel's own aspect ratio (preserveAspectRatio="none") rather than kept square — this reads
-   as "the whole screen is crossed out," not a decorative glyph, so distorting off a true 45°
+/* Master Arms OFF (docs/radar-master-arms.md) — full-screen X + a centered info card, over
+   whatever the panel is currently showing (loadout or the empty placeholder). The X is stretched
+   to fill the panel's own aspect ratio (preserveAspectRatio="none") rather than kept square — this
+   reads as "the whole screen is crossed out," not a decorative glyph, so distorting off a true 45°
    isn't a concern. Hidden by default; toggled by wpn.js off the shell-forwarded masterArmsOn. */
 .wpn-safe { display: none; position: absolute; inset: 0; z-index: 5; pointer-events: none; }
 .wpn-safe.show { display: block; }
 .wpn-safe-x { position: absolute; inset: 0; width: 100%; height: 100%; }
 .wpn-safe-x line { stroke: var(--no-red); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-.wpn-safe-label {
+
+/* The card itself — same shape as the shell's MAIN "about" info-box (mfd.css .info-box: centered,
+   bordered, translucent dark fill, glow), red instead of the theme's usual green, since this is an
+   alert state rather than identity/status. MASTER ARMS names what's shown; SAFE is the state, so it
+   reads bigger/heavier — the one thing a pilot actually needs to register at a glance. */
+.wpn-safe-box {
   position: absolute;
   left: 50%;
   top: 50%;
-  transform: translate(-50%, 28px);
-  font-size: clamp(18px, 4vh, 34px);
+  transform: translate(-50%, -50%);
+  min-width: 40%;
+  padding: clamp(14px, 3vh, 28px) clamp(20px, 5vw, 46px);
+  border: 1px solid var(--no-red);
+  background: var(--no-panel-bg);
+  color: var(--no-red);
+  text-align: center;
+  letter-spacing: 2px;
+  box-shadow: 0 0 12px rgba(255, 64, 64, 0.35);
+}
+.wpn-safe-title {
+  font-size: clamp(12px, 2.2vh, 18px);
+  font-weight: 700;
+  margin-bottom: clamp(6px, 1.2vh, 12px);
+}
+.wpn-safe-state {
+  font-size: clamp(22px, 4.4vh, 38px);
   font-weight: 900;
   letter-spacing: 3px;
-  color: var(--no-red);
-  text-shadow: 0 0 10px rgba(0, 0, 0, 0.7);
 }
 
 /* Countermeasures panel — fills the top "first band" (key slot beside MAIN). top + height

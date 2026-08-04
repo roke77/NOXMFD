@@ -81,9 +81,11 @@ engaged control); clicking, tapping, or SOI-navigating to it and pressing Select
   for the keybinds themselves. One less control to place, and no inconsistency between the two ways
   to reach ALL.
 - **When `MasterArms.On` is false (SAFE)**, the WPN page additionally draws a full-screen **X**
-  over its own content, with a **SAFE** label centered just below the X's middle — a content-level
-  visual, not a bezel/nav element, drawn by `wpn.js`/`wpn.css` regardless of layout. Combat mode has
-  no equivalent content-level overlay — only the nav controls.
+  over its own content, plus a centered info card — the same shape as the shell's MAIN "about" card
+  (bordered, translucent fill, glow), red instead of green — reading **MASTER ARMS** (smaller) over
+  **SAFE** (bigger, heavier: the state is what matters at a glance). Content-level, not a bezel/nav
+  element, drawn by `wpn.js`/`wpn.css` regardless of layout. Combat mode has no equivalent
+  content-level overlay — only the nav controls.
 
 ### Extended keybinds page — new content is appended, not interleaved
 
