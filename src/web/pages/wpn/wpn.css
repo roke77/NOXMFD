@@ -15,22 +15,33 @@
 .wpn-safe-x line { stroke: var(--no-red); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 
 /* The card itself — same shape as the shell's MAIN "about" info-box (mfd.css .info-box: centered,
-   bordered, translucent dark fill, glow), red instead of the theme's usual green, since this is an
-   alert state rather than identity/status. MASTER ARMS names what's shown; SAFE is the state, so it
-   reads bigger/heavier — the one thing a pilot actually needs to register at a glance. */
+   bordered, glow), red instead of the theme's usual green, since this is an alert state rather than
+   identity/status. Solid black fill (not the translucent --no-panel-bg other cards use) so the
+   crossed-out content behind it doesn't show through — this card IS the alert, not a status
+   readout layered over live data. A hazard-stripe band is the card's own top/bottom edge (not a
+   full-screen bar) — the same caution-tape motif a physical MASTER ARM switch's guard often
+   carries. MASTER ARMS names what's shown; SAFE is the state, so it reads bigger/heavier — the one
+   thing a pilot actually needs to register at a glance. */
 .wpn-safe-box {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
   min-width: 40%;
-  padding: clamp(14px, 3vh, 28px) clamp(20px, 5vw, 46px);
   border: 1px solid var(--no-red);
-  background: var(--no-panel-bg);
+  background: var(--no-bg);
+  box-shadow: 0 0 12px rgba(255, 64, 64, 0.35);
+  overflow: hidden;
+}
+.wpn-safe-stripe {
+  height: clamp(6px, 1.2vh, 10px);
+  background: repeating-linear-gradient(135deg, var(--no-red) 0 10px, var(--no-bg) 10px 20px);
+}
+.wpn-safe-body {
+  padding: clamp(14px, 3vh, 28px) clamp(20px, 5vw, 46px);
   color: var(--no-red);
   text-align: center;
   letter-spacing: 2px;
-  box-shadow: 0 0 12px rgba(255, 64, 64, 0.35);
 }
 .wpn-safe-title {
   font-size: clamp(12px, 2.2vh, 18px);

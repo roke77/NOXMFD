@@ -82,10 +82,13 @@ engaged control); clicking, tapping, or SOI-navigating to it and pressing Select
   to reach ALL.
 - **When `MasterArms.On` is false (SAFE)**, the WPN page additionally draws a full-screen **X**
   over its own content, plus a centered info card — the same shape as the shell's MAIN "about" card
-  (bordered, translucent fill, glow), red instead of green — reading **MASTER ARMS** (smaller) over
-  **SAFE** (bigger, heavier: the state is what matters at a glance). Content-level, not a bezel/nav
-  element, drawn by `wpn.js`/`wpn.css` regardless of layout. Combat mode has no equivalent
-  content-level overlay — only the nav controls.
+  (bordered, glow), red instead of green, but solid black fill (not the translucent `--no-panel-bg`
+  other cards use — this card IS the alert, not a status readout layered over live data). A
+  hazard-stripe band forms the card's own top and bottom edge (not a full-screen bar — mockup-tested
+  against the user before landing on this). Reads **MASTER ARMS** (smaller) over **SAFE** (bigger,
+  heavier: the state is what matters at a glance). Content-level, not a bezel/nav element, drawn by
+  `wpn.js`/`wpn.css` regardless of layout. Combat mode has no equivalent content-level overlay —
+  only the nav controls.
 
 ### Extended keybinds page — new content is appended, not interleaved
 
