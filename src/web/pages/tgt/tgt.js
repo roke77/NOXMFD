@@ -187,8 +187,8 @@ modeEls.hud.addEventListener('click', function () { send('tgt.hud', { on: !state
 // deselects everything else (the actively-sensed ones), keeping only datalink-only targets locked.
 // Both are bulk server-side deselects — no client-side filtering. Its own press-hold pair rather
 // than folding into the .tgt-cell/.tgt-veh handling above, since this button isn't a game filter
-// cell (no group/index, no tgt.set/tgt.only). Mouse/touch only — not in the PAD cursor's CURSORABLE
-// set below, so it isn't reachable from the HOTAS cursor yet.
+// cell (no group/index, no tgt.set/tgt.only) — this is the real mouse/touch path; the PAD cursor
+// mirrors the same tap/hold split below (padCursorSelectAt/padCursorHoldAt).
 let datalinkPress = null;
 datalinkBtn.addEventListener('pointerdown', function () {
   datalinkPress = { longFired: false };
@@ -213,7 +213,7 @@ datalinkBtn.addEventListener('pointercancel', function () {
 // Same crosshair/transport MAP uses (pad-cursor.js), driven here only while this TGT is the SOI's
 // focused surface. Clamped to the panel's own box (panel-local px, matching the crosshair's
 // positioned ancestor — see tgt.css's .tgt-panel { position: relative }).
-const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-row, .tgt-action, .tgt-mode';
+const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-row, .tgt-action, .tgt-mode, .tgt-datalink-btn';
 const padCursorEl = document.getElementById('pad-cursor');
 const cursor = createPadCursor({
   el: padCursorEl,
@@ -236,18 +236,25 @@ function padCursorSelectAt(px, py) {
   if (!el) return;
   if (el.classList.contains('tgt-cell') || el.classList.contains('tgt-veh')) {
     send('tgt.set', { group: el.dataset.group, index: +el.dataset.index, on: !isOn(el.dataset.group, +el.dataset.index) });
+  } else if (el.classList.contains('tgt-datalink-btn')) {
+    send('tgt.clear-datalink');   // mirrors datalinkBtn's own pointerup tap outcome
   } else {
     el.click();   // .tl-row / .tgt-action / .tgt-mode already have plain click handlers
   }
 }
 
-// Select's HOLD outcome — only filter cells (.tgt-cell/.tgt-veh) have a long-press meaning ("only
-// this"); everything else has no hold behaviour, so holding over it is simply a no-op (same as
-// holding the pointer down over a plain button already is today).
+// Select's HOLD outcome — filter cells (.tgt-cell/.tgt-veh) have a long-press meaning ("only this"),
+// and DATALINK has its own (tgt.clear-sensor, mirroring datalinkBtn's own pointerdown timer);
+// everything else has no hold behaviour, so holding over it is simply a no-op (same as holding the
+// pointer down over a plain button already is today).
 function padCursorHoldAt(px, py) {
   const el = elAt(px, py);
-  if (!el || !(el.classList.contains('tgt-cell') || el.classList.contains('tgt-veh'))) return;
-  send('tgt.only', { group: el.dataset.group, index: +el.dataset.index });
+  if (!el) return;
+  if (el.classList.contains('tgt-cell') || el.classList.contains('tgt-veh')) {
+    send('tgt.only', { group: el.dataset.group, index: +el.dataset.index });
+  } else if (el.classList.contains('tgt-datalink-btn')) {
+    send('tgt.clear-sensor');   // mirrors datalinkBtn's own pointerdown hold outcome
+  }
 }
 
 // Hover feedback (docs/page-cursor.md #2): mark whatever's currently under the crosshair with the
