@@ -530,6 +530,10 @@ namespace NOXMFD
             // Resolve the afterburner gauge shape when the aircraft changes (cached; static per airframe).
             EnsureAfterburnerCache(aircraft);
 
+            // Master Arms / combat mode have no game field to patch at spawn (unlike radar/engine,
+            // handled by HarmonyPatches instead) — reset them here on every new aircraft.
+            ImmersionState.EnsureSpawnDefaults(aircraft);
+
             // The game uses a floating-origin system: transform.position drifts back toward
             // zero as the world re-centers. The true world coordinate is pos - Datum.originPosition.
             Vector3 world   = aircraft.transform.position - Datum.originPosition;

@@ -48,18 +48,20 @@ key — same shape as the existing **Input When Game Unfocused** toggle):
 
 | Bind | Tap | Hold |
 |---|---|---|
-| **Master Arms ON** | arm (`MasterArms.On = true`) | disarm (`= false`) |
-| **Master Arms OFF** | disarm (dedicated; no hold behavior) | — |
-| **Radar ON** | radar on (if currently off) | radar off |
-| **Radar OFF** | radar off (dedicated; no hold behavior) | — |
-| **Engine ON** | engine on (if currently off) | engine off |
-| **Engine OFF** | engine off (dedicated; no hold behavior) | — |
+| **Master Arms ON** | arm (`MasterArms.On = true`) | — (dedicated; no hold behavior) |
+| **Master Arms OFF** | disarm (`= false`) | — (dedicated; no hold behavior) |
+| **Radar ON** | radar on | — (dedicated; no hold behavior) |
+| **Radar OFF** | radar off | — (dedicated; no hold behavior) |
+| **Engine ON** | engine on | — (dedicated; no hold behavior) |
+| **Engine OFF** | engine off | — (dedicated; no hold behavior) |
 | **A/A** | combat mode → A/A | combat mode → ALL |
 | **A/G** | combat mode → A/G | combat mode → ALL |
 
-The dedicated OFF binds exist so disarming/killing the radar or engine never *requires* a hold — a
-pilot who finds holding awkward mid-fight has a direct one-press option too. A/A and A/G don't need
-a third "ALL" bind for the same reason: holding either one already gets there.
+Master Arms/Radar/Engine ended up as **plain dedicated ON+OFF pairs, no tap/hold** — the game
+already has its own single-toggle bind for each (Radar, Toggle Engine), so anyone who wants
+one-key-does-both already has that; a tap/hold trick on top would only add complexity for no new
+capability. **A/A and A/G keep the tap/hold pair** because there's no stock "reset combat mode"
+control to fall back on — without the hold, there'd be no keybind way back to ALL at all.
 
 ### WPN page — ARM / SAFE controls, always present
 
@@ -184,11 +186,20 @@ after everything the KEY page already has, below a separator — existing sectio
 
 ### Keybind registration — eight ordinary binds, three ordinary settings
 
-- **File:** `src/plugin/Keybinds.cs`. Tap-vs-hold branching within one bind already has a working
-  precedent — `Jammer`'s `Drive(...)` distinguishes a tap from a hold for its own purposes — so the
-  ON/A-A/A-G binds' "tap does X, hold does Y" behavior isn't new plumbing, just a new pair of
-  branches. The dedicated OFF binds are plain `edge: true` binds, the same shape as `gear-up`/
-  `gear-down`.
+- **File:** `src/plugin/Keybinds.cs`. **Built, and turned out to need genuinely new plumbing** — the
+  plan originally assumed `Jammer`'s `Drive(...)` was a working tap-vs-hold precedent to reuse, but on
+  closer inspection it isn't one: Jammer just re-fires the *same* action every frame held, and only
+  looks tap/hold-shaped because the underlying game method self-limits to ~0.1s per call. TGT's
+  PAD-cursor tap/long-press doesn't transfer either — that's decided client-side in JS off a raw held
+  flag, which only works because a page is in the loop; these are pure keybind-to-plugin actions with
+  no page involved. What got built instead: a small `PollTapHold(BindDef, onTap, onHold)` helper,
+  tracking press-start time on two new `BindDef` scratch fields (`PressStartTime`, `HoldFired`) —
+  fires `onTap` the instant the bind is pressed, `onHold` once if still held past 0.35s. Registered as
+  no-op held binds (`edge: false`), same shape as the existing cursor-direction binds, with `Poll()`
+  driving them directly instead of through the generic per-frame dispatch. **Used for A/A and A/G
+  only** — Master Arms/Radar/Engine turned out not to need it (see Goal): they ended up as plain
+  dedicated `edge: true` ON+OFF pairs, the same shape as `gear-up`/`gear-down`, since the game's own
+  single-toggle bind already covers the "one key does both" case for those three.
 - **The three start-state settings are not binds** — no key/joystick capture, just an on/off value.
   Model them after `HudDeclutterConfig.cs` (`ConfigEntry<bool>`, `Browsable = false` so they don't
   duplicate onto the F1 menu) for persistence, surfaced on the KEY page the same bespoke way
@@ -258,11 +269,22 @@ after everything the KEY page already has, below a separator — existing sectio
   array, same as NEXT already gets. Split-pane WPN placement (`renderSplitLabels`'s list branch) also
   needs a slot decision — not yet picked, but mechanically identical to how MAIN/PREV/NEXT already
   place there.
-- **Which `Radar.Awake()`/`AttachToUnit()` call site is the right patch target** for a player
-  aircraft's own radar specifically (both are generic and likely used for non-player units/other
-  radars too) — needs confirming in an actual debugging session before the patch ships, so it doesn't
-  accidentally affect AI/enemy radar state.
+- **`Radar.Awake()`'s separate attach path is unpatched, unconfirmed** — implemented so far
+  (`HarmonyPatches.cs`) only patches `Radar.AttachToUnit()`, gated to the local player's own aircraft
+  via `GameManager.GetLocalAircraft`. `Awake()`'s path (`attachedUnit` pre-wired before `Awake` runs)
+  looks built for scene-placed AI units with a serialized radar reference, not a dynamically-spawned
+  player aircraft, but this is unconfirmed — if a player aircraft's radar turns out to attach that way
+  instead, `RadarOnOnStart` would silently have no effect. Worth an in-game check the first time this
+  ships.
+- **Dedicated-server topology gap, confirmed and accepted** — `Aircraft.OnStartServer()` only
+  executes on the network SERVER. Host mode (single-player or a player-hosted lobby) is fine, since
+  the host process is both client and server. Connecting as a plain client to someone else's
+  dedicated `NuclearOptionServer.exe` means the Engine patch never fires for your own aircraft at all
+  (that method runs on their machine, not yours, and a mod normally isn't installed server-side) — the
+  `EngineOnOnStart` setting silently has no effect in that topology. Accepted: this mod's primary use
+  case is single-player/host play; revisit only if dedicated-server support becomes a real ask.
 - **Patch fragility across game updates** — accepted cost of adding Harmony (see Goal). Not covered
   by `apicheck`; a future game update that reshapes `WeaponManager.Fire()`/`OnStartServer()`/
-  `Radar.Awake()` could make a patch silently misbehave rather than throw. Worth a manual smoke-test
-  of these four patches specifically after every game update, alongside the usual `apicheck` run.
+  `Radar.AttachToUnit()` could make a patch silently misbehave rather than throw. Worth a manual
+  smoke-test of these four patches specifically after every game update, alongside the usual
+  `apicheck` run.
