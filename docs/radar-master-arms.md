@@ -9,18 +9,39 @@ unless the pilot turns it on:
 
 1. **Radar start state** — a persistent setting, **default ON** (today's behavior, untouched). A
    pilot who wants more immersion switches it to OFF, and from then on a freshly-spawned aircraft's
-   radar starts off.
+   radar starts off — silently, with no flicker (see **Harmony**, below).
 2. **Engine start state** — same shape: a persistent setting, **default ON** (today's behavior).
-   Switched OFF, a freshly-spawned aircraft's engine(s) start off, and the pilot lights them up
-   manually.
+   Switched OFF, a freshly-spawned aircraft's engine(s) start off — also silently, no startup sound.
 3. **Master Arms start state** — same shape again: a persistent setting, **default ON**
    (unrestricted, today's behavior). Switched OFF, a new mod-only "master arms" flag starts off on
-   every spawn; a dedicated keybind lets the pilot arm/disarm it in flight. OFF blocks the mod's own
-   weapon and countermeasure keybinds.
+   every spawn; a dedicated keybind lets the pilot arm/disarm it in flight. OFF blocks **all**
+   weapon/countermeasure fire — the mod's own keybinds *and* the game's own stock
+   trigger/mouse/joystick fire path.
 4. **Combat mode (A/A / A/G)** — a runtime tri-state, **always starts at ALL** (unrestricted — no
    setting needed, this one has no legacy behavior to preserve). While set to A/A, Cycle Missile
    only reaches air-to-air missiles; while A/G, only everything else. Guns are unaffected either way;
    Cycle Bomb no-ops while in A/A.
+
+### Harmony
+
+This pass adds a Harmony (HarmonyX) dependency — a reversal of the earlier no-Harmony decision, made
+once its actual cost was understood: **BepInEx 5 already bundles Harmony as part of its own core
+runtime**, so every user who can run this mod at all already has it — no new install step, no new
+file, no README change. It unlocks two things the mod's existing read-reflection/call-public-method
+approach structurally can't:
+
+- **Silent spawn defaults** — a prefix patch on `Aircraft.OnStartServer()` (ignition) and
+  `Radar.Awake()`/`AttachToUnit()` (radar) sets the *initial* SyncVar value directly, before it ever
+  syncs to a client, instead of reactively toggling it back off a tick later. This removes the
+  engine-startup-sound artifact entirely (see the old "known limitation" below, now resolved) rather
+  than just cutting it short.
+- **Full Master Arms coverage** — a patch on the weapon-fire and countermeasure-dispense paths blocks
+  firing at the source, so OFF blocks *every* way to fire, not just the mod's own keybinds.
+
+The trade-off is real but bounded: Harmony patches are more brittle across game updates than this
+mod's usual reflection reads (`apicheck` catches a renamed/retyped member; it does **not** catch a
+patch target whose method body changed shape), and there's a small chance of colliding with another
+mod patching the same method. Both are accepted for this pass.
 
 Eight new keybinds (KEY page), plus three new persistent on/off settings (KEY page, not bound to a
 key — same shape as the existing **Input When Game Unfocused** toggle):
@@ -59,76 +80,54 @@ after everything the KEY page already has, below a separator — existing sectio
 
 ## What already exists to reuse (read before building)
 
-### Radar — the game already has the toggle; only the start-state push is new
+### Radar — patched at the source, not reactively toggled
 
-- `Aircraft.CmdToggleRadar()` is the real, network-safe toggle — server RPC pair
-  (`CmdToggleRadar` → `RpcToggleRadar`) flipping `Radar.activated`, the same path the stock `Radar`
-  keybind/radial menu use. `Unit.HasRadarEmission()` (`return radar is Radar r && r.activated;`) is
-  what `TelemetryReader.cs` already reads into `TelemetrySnapshot.RadarOn` — so the mod already has
-  both the read and the exact call needed to write it.
-- **"New aircraft" detection already has a house pattern** — `TelemetryReader.cs` caches a per-
-  airframe reference and resets state via a `ReferenceEquals(ac, _cached)` guard run every
-  `PushSnapshot()` tick: see `EnsureRwrSubscription` and `EnsureAfterburnerCache`. A new
-  `EnsureSpawnDefaults(Aircraft ac)` on that same shape is where all three start-state resets
-  (radar, master arms, combat mode) belong — one hook, not three.
-- The **Radar ON / Radar OFF** keybinds are direct, not a blind toggle like the stock bind — they
-  check current state and only call `CmdToggleRadar()` when it actually needs to change, so pressing
-  "ON" while already on (or "OFF" while already off) is a clean no-op.
-- **Confirmed: the game always spawns radar on** — `Radar.Awake()`/`AttachToUnit()` unconditionally
-  set `activated = true`, no code path spawns it off. So "toggle off if currently on" is the correct,
-  safe polarity for a reactive post-spawn push — it can never wrongly turn radar on.
-- **Confirmed: reactive-toggle timing is safe** — by the time `GameManager.GetLocalAircraft` returns
-  the new aircraft, Mirage network authority is already established (ownership is conveyed with the
-  spawn message itself, before `OnStartClient`/`OnStartAuthority` fire). `Keybinds.cs`'s existing
-  `SetGear` call already relies on exactly this — gated only by `GetLocalAircraft` returning
-  non-null, no extra readiness check — so `EnsureSpawnDefaults` needs none either.
-- **No artifact on the radar side** — `Radar.cs` has no sound/visual effect tied to the on→off
-  transition, only continuous steady-state scan behavior. A reactive toggle here is clean.
+- `Radar.Awake()`/`AttachToUnit()` unconditionally set `activated = true` — confirmed, no code path
+  spawns radar off. A Harmony prefix (or postfix forcing the field) on whichever of the two actually
+  fires for a player aircraft's radar sets `activated = RadarOnOnStart` at that point instead — the
+  client never observes an on-transition at all when the setting is OFF, so there's nothing to
+  detect or react to.
+- **The runtime keybinds still use the existing toggle, unchanged** —
+  `Aircraft.CmdToggleRadar()` (→ `RpcToggleRadar`) is still the right call for the **Radar ON /
+  Radar OFF** keybinds during flight; only the *spawn* default moves to a patch. The keybinds check
+  current state and only call `CmdToggleRadar()` when it actually needs to change, same as before.
+- No "new aircraft" detection hook is needed for radar's spawn default at all now — the patch fires
+  exactly once, at the moment the game itself would have turned it on, so there's no reactive
+  `TelemetryReader.cs` polling involved for this part.
 
-### Engine — same shape as radar, one flag drives every engine
+### Engine — same patch shape as radar, and it's what actually fixes the startup sound
 
-- `Aircraft.CmdToggleIgnition()` is the network-safe toggle (Cmd only, no companion Rpc — the
-  `NetworkIgnition` SyncVar replicates itself), flipping `Aircraft.Ignition`. Every engine component
-  (`TurbineEngine`/`Turbojet`/`Turbofan`) reads that same one flag in its own `Update()`, so a
-  multi-engine aircraft needs no per-engine handling — one call covers all of them, same as the
-  stock `"Toggle Engine"` bind (`PilotPlayerState.cs`) and the radial menu already do.
-- **Already read** — `TelemetryReader.cs` already sets `TelemetrySnapshot.Ignition =
-  aircraft.Ignition`, so no plugin/snapshot change is needed for the read side, only the write
-  (`CmdToggleIgnition()`) and the same direct-not-blind ON/OFF check the Radar binds use.
-- **Ignition ≠ engine health** — `operable`/`hasFuel` are separate per-engine concerns (damage,
-  fuel starvation); `Ignition` is only the pilot's switch, and toggling it can't revive a destroyed
-  engine. Turning it back on after being off for a while re-spools over the engine's own
-  `spoolUpTime`/`startupTime` — normal stock behavior, nothing the mod needs to simulate or guard
-  against itself.
-- **Confirmed: the game always spawns ignition on** (`Aircraft.OnStartServer()` explicitly sets
-  `NetworkIgnition = true`), so — same as radar — "toggle off if currently on" is the correct
-  polarity.
-- **Known limitation, accepted: a brief startup sound plays regardless.**
-  `TurbineEngine.Update()` (and `Turbojet`/`Turbofan`) starts the engine startup audio on the
-  aircraft's very first client-side `Update()` frame once `Ignition` is true — which it already is
-  at spawn, well before the mod's next ~100ms telemetry tick can react and call
-  `CmdToggleIgnition()`. A reactive, no-Harmony toggle can cut the engine back off almost
-  immediately, but **cannot prevent that initial startup sound from playing once** on every spawn,
-  even with "Engine ON on start" set to OFF. Fixing this at the source would need a Harmony patch
-  before `Aircraft.OnStartServer`/`Radar.Awake` sync the SyncVar — explicitly out of scope for this
-  pass (no Harmony), same call as the Master Arms stock-trigger gap. Documented here as a known,
-  accepted limitation, not a blocker.
+- `Aircraft.OnStartServer()` explicitly sets `NetworkIgnition = true` — confirmed, no code path
+  spawns ignition off. A Harmony prefix here sets it to `EngineOnOnStart` instead, **before** the
+  SyncVar ever syncs to any client. This is what actually solves the case discussed earlier:
+  `TurbineEngine.Update()` (and `Turbojet`/`Turbofan`) only plays the startup sound on an
+  `Ignition` on-transition, and if the client never sees `Ignition` become `true` in the first place,
+  that transition never happens — no reactive cleanup needed, no brief sound, fully silent. This is
+  strictly better than the reactive `CmdToggleIgnition()`-after-detection approach considered
+  earlier, which could only cut the sound short, not prevent it.
+- **The runtime keybinds still use the existing toggle, unchanged** — `Aircraft.CmdToggleIgnition()`
+  remains the right call for the **Engine ON / Engine OFF** keybinds during flight; only the spawn
+  default moves to the patch.
+- **Ignition ≠ engine health**, unaffected by this change — `operable`/`hasFuel` are separate
+  per-engine concerns; the patch only changes the *initial* value the pilot's switch starts at.
 
-### Master Arms — no game concept to hook; this is a mod-only flag, no Harmony
+### Master Arms — mod-only flag; now fully enforced via Harmony, including the stock trigger
 
 - Decompiled source has **no** master-arms/safety-switch concept on `Aircraft`/`WeaponManager`.
-  `WeaponStation.SafetyIsOn()` exists but is a *ground/gear* safety, unrelated.
-- **This mod has no Harmony dependency anywhere** and this pass isn't adding one. That means Master
-  Arms enforcement covers **the mod's own fire/countermeasure keybinds only**:
-  - `WeaponSelectors.Fire()` — the single funnel `FireGun`/`FireRelease`/`FireJammerPod` all go
-    through before `wm.Fire()`. One `if (!MasterArms.On) return;` at the top gates all three.
-  - `Keybinds.Drive(ac, CountermeasureManager, category)` — same guard, since countermeasures don't
-    route through `WeaponSelectors.Fire()`.
-  - The **stock trigger/mouse/joystick fire path is explicitly out of scope for this pass** —
-    `WeaponManager.Fire()` is called directly by the game's own input code, not through anything this
-    mod owns, and reaching it would need a Harmony prefix patch. Left as a known gap, not a blocker.
+  `WeaponStation.SafetyIsOn()` exists but is a *ground/gear* safety, unrelated — `MasterArms.On`
+  remains a mod-only flag with no game-side equivalent to alias.
+- **Full coverage, not just the mod's own keybinds**:
+  - `WeaponManager.Fire()` — the game's own single funnel for gun/missile/bomb fire, called both by
+    the mod's `WeaponSelectors.Fire()` *and* directly by the game's own stock trigger/mouse/joystick
+    input code. A Harmony prefix here, short-circuiting (returning `false`/skipping the original)
+    when `MasterArms.On` is false, blocks **every** firing path in one patch — mod keybinds and stock
+    input alike. This replaces the narrower `WeaponSelectors.Fire()`-only guard considered earlier;
+    that in-mod guard can be dropped once the patch covers the same call from underneath it.
+  - `CountermeasureManager.DeployCountermeasure()` — countermeasures don't route through
+    `WeaponManager.Fire()`, so this needs its own prefix, same shape, to cover both the mod's
+    `Keybinds.Drive(...)` path and the game's own stock countermeasure keybind.
 - **State is plain in-memory, not a `ConfigEntry`** — `MasterArms.On` and `CombatMode` shouldn't
-  survive a restart; only the two *start-state settings* (below) are persistent.
+  survive a restart; only the *start-state settings* are persistent.
 
 ### A/A / A/G — guns and bombs need no new classification; missiles get a hardcoded list
 
@@ -201,55 +200,66 @@ after everything the KEY page already has, below a separator — existing sectio
 
 ## The plan (proposed)
 
-1. **Three persistent settings** (`Keybinds.cs`, modeled on `HudDeclutterConfig`) —
+1. **Add the Harmony reference** (`NOXMFD.csproj`) — a `<Reference Include="0Harmony">` pointing at
+   `$(GameDir)\BepInEx\core\0Harmony.dll` (already present in any BepInEx 5 install, same pattern as
+   the existing `Assembly-CSharp`/`Mirage`/`Rewired_Core` references). One `Harmony` instance created
+   and `PatchAll()`-ed (or targeted `Patch()` calls) once in `Plugin.Awake()`.
+2. **Three persistent settings** (`Keybinds.cs`, modeled on `HudDeclutterConfig`) —
    `RadarOnOnStart`, `EngineOnOnStart`, and `MasterArmsOnOnStart` (all default `true`). Surfaced on
    the KEY page as toggle rows, same treatment as **Input When Game Unfocused**.
-2. **Runtime state** — `MasterArms.On` (bool) and `CombatMode` (enum: `All` / `AirToAir` /
+3. **Runtime state** — `MasterArms.On` (bool) and `CombatMode` (enum: `All` / `AirToAir` /
    `AirToGround`), both plain in-memory, owned wherever `Keybinds.cs` keeps similar mod state.
-3. **`EnsureSpawnDefaults(Aircraft ac)`** (`TelemetryReader.cs`, `ReferenceEquals`-guarded like
-   `EnsureRwrSubscription`) — on every new aircraft: set radar to match `RadarOnOnStart` (via
-   `CmdToggleRadar()` only if it needs to change), engine to match `EngineOnOnStart` (via
-   `CmdToggleIgnition()` only if it needs to change), `MasterArms.On = MasterArmsOnOnStart`,
-   `CombatMode = All`.
-4. **Eight keybinds** (`Keybinds.cs`) — `master-arms-on` / `master-arms-off`, `radar-on` /
+   `CombatMode` always starts `All`; no patch needed for it, it has no game-side default to fight.
+4. **Spawn-default patches** — a prefix on `Radar.Awake()`/`AttachToUnit()` setting `activated =
+   RadarOnOnStart`, and a prefix on `Aircraft.OnStartServer()` setting `NetworkIgnition =
+   EngineOnOnStart`, both reading the settings from step 2. Replaces the earlier reactive
+   `TelemetryReader.cs`-hook idea entirely for these two — no polling, no timing window.
+5. **Eight keybinds** (`Keybinds.cs`) — `master-arms-on` / `master-arms-off`, `radar-on` /
    `radar-off`, `engine-on` / `engine-off`, `combat-mode-aa` / `combat-mode-ag`, each `edge: true`,
-   tap/hold branching per the table above.
-5. **Master Arms enforcement** — guard clause in `WeaponSelectors.Fire()` and in
-   `Keybinds.Drive(..., CountermeasureManager, ...)`. Mod's own keybinds only; stock trigger path
-   explicitly deferred (see above).
-6. **Combat-mode enforcement** (`WeaponSelectors.cs`) — `CycleMissile` filters its candidate list by
-   `CombatMode` (`All`: unchanged; `AirToAir`: only the five-name list; `AirToGround`: everything
-   `IsMissile` flags minus that list). `CycleBomb`/bomb release no-ops while `CombatMode ==
-   AirToAir`. Guns untouched.
-7. **Verify the A/A name list** in an actual session (`TryLogWeaponInfo` output) before relying on
+   tap/hold branching per the table above. Radar/Engine keybinds still call the existing
+   `CmdToggleRadar()`/`CmdToggleIgnition()` — only the spawn default changed, not the in-flight
+   controls.
+6. **Master Arms enforcement patches** — a prefix on `WeaponManager.Fire()` and a prefix on
+   `CountermeasureManager.DeployCountermeasure()`, both short-circuiting when `MasterArms.On` is
+   false. Covers the mod's own keybinds and the game's stock trigger/mouse/joystick input in one
+   patch each, since both call the same two methods underneath.
+7. **Combat-mode enforcement** (`WeaponSelectors.cs`, no Harmony needed — this is the mod's own
+   cycling logic, not a game method) — `CycleMissile` filters its candidate list by `CombatMode`
+   (`All`: unchanged; `AirToAir`: only the five-name list; `AirToGround`: everything `IsMissile`
+   flags minus that list). `CycleBomb`/bomb release no-ops while `CombatMode == AirToAir`. Guns
+   untouched.
+8. **Verify the A/A name list** in an actual session (`TryLogWeaponInfo` output) before relying on
    it — adjust spelling if the live `WeaponInfo` name differs from the Encyclopedia name.
-8. **WPN ARM/SAFE** — `MasterArmsOn` added to the `'wpn'` payload
+9. **WPN ARM/SAFE** — `MasterArmsOn` added to the `'wpn'` payload
    (`TelemetrySnapshot.cs`/`TelemetryServer.cs`); a `master-arms.set {on}` command
    (`CommandDispatcher.cs`, `env.on` idiom); `placeWpnNavLabels()`/`renderSplitLabels()` (`mfd.js`)
    and `f35-wpn-paging.js` place ARM/SAFE unconditionally, alongside MAIN/PREV/NEXT; a
    `markMasterArms()` toggles `.on`/`.nav-item.on` on whichever matches live state, mirroring
    `markFollowLabels`/`markFollow`; F-35's `canDo()`/`dispatch()` gain a case for the new action.
-9. **WPN SAFE overlay** — `wpn.js`/`wpn.css` draw a full-screen X with a centered **SAFE** label
-   underneath whenever `masterArmsOn` is false, independent of the ARM/SAFE nav controls above.
-10. **KEY page — "Immersion options" section** — all eight binds and three settings from steps 1
-    and 4 render under one new `SectionTitle`, appended after every existing section, behind a
+10. **WPN SAFE overlay** — `wpn.js`/`wpn.css` draw a full-screen X with a centered **SAFE** label
+    underneath whenever `masterArmsOn` is false, independent of the ARM/SAFE nav controls above.
+11. **KEY page — "Immersion options" section** — all eight binds and three settings from steps 2
+    and 5 render under one new `SectionTitle`, appended after every existing section, behind a
     separator.
-11. **docs/keybinds-page.md** — document the new section once built.
+12. **docs/keybinds-page.md** — document the new section once built.
 
 ## Open questions
 
-- **A/A name-string verification** (see above) — needs an in-game session log before step 6/7 can be
+- **A/A name-string verification** (see above) — needs an in-game session log before step 7/8 can be
   trusted; treat the five strings as provisional until confirmed.
 - **Does combat mode reset to ALL on every new-aircraft spawn**, same as the two start-state
   settings, or persist across spawns within a session? Plan above assumes reset-to-ALL (consistent
   with "nothing here should be inherited"); flag if you want it sticky instead.
-- **Master Arms / stock-trigger gap** — confirmed out of scope for this pass (no Harmony). Revisit
-  only if full coverage becomes a real ask later.
-- **Engine startup sound on spawn** — confirmed unavoidable without Harmony (see Engine section
-  above). Accepted as a known limitation for this pass: engine ends up off almost immediately, but a
-  brief startup sound plays once on every spawn even with "Engine ON on start" set to OFF.
 - **Exact ARM/SAFE key/cell placement** — CLASSIC has `right[1]`/`right[2]` free in full-view WPN
   (weapon rows occupy `left[1..5]`); F-35 needs explicit `cell` hints in `f35-wpn-paging.js`'s `nav`
   array, same as NEXT already gets. Split-pane WPN placement (`renderSplitLabels`'s list branch) also
   needs a slot decision — not yet picked, but mechanically identical to how MAIN/PREV/NEXT already
   place there.
+- **Which `Radar.Awake()`/`AttachToUnit()` call site is the right patch target** for a player
+  aircraft's own radar specifically (both are generic and likely used for non-player units/other
+  radars too) — needs confirming in an actual debugging session before the patch ships, so it doesn't
+  accidentally affect AI/enemy radar state.
+- **Patch fragility across game updates** — accepted cost of adding Harmony (see Goal). Not covered
+  by `apicheck`; a future game update that reshapes `WeaponManager.Fire()`/`OnStartServer()`/
+  `Radar.Awake()` could make a patch silently misbehave rather than throw. Worth a manual smoke-test
+  of these four patches specifically after every game update, alongside the usual `apicheck` run.
