@@ -3,6 +3,7 @@
 // TelemetrySource (telemetry-source.js); this file instantiates it and renders the frames it
 // hands back. See src/web/README.md for why MAP is the telemetry tap.
 import { TelemetrySource, gridLabel } from '/assets/services/telemetry-source.js';
+import { createPadCursor } from '/assets/services/pad-cursor.js';
 
 // ── State (declared first so callbacks never hit a temporal dead zone) ──────────
 let   lastData  = null;        // last rendered frame (the source hands it to renderFrame)
@@ -25,73 +26,14 @@ function iconBase()     { return zoomedIn() ? ICON_BASE_IN : ICON_BASE_OUT; }
 function fallbackSize() { return zoomedIn() ? FALLBACK_IN  : FALLBACK_OUT; }
 let   followPlayer = false;    // when on (and zoomed in), keep the player icon centred
 
-// ── SOI cursor (docs/map-cursor.md) ───────────────────────────────────────────────
+// ── PAD cursor (docs/page-cursor.md, docs/map-cursor.md) ──────────────────────────
 // A crosshair standing in for the mouse/touch while this MAP is the HOTAS-driven SOI focus. The
 // shell alone decides whether that's true — cursor/cursor-select/cursor-focus messages only ever
 // arrive here while this surface is the SOI's focused MAP — so this file just answers "where is the
-// cursor, and what's under it," the same way it already does for a mouse click.
-//
-// Position lives in canvas px (screen space, like the mouse): under FLW the map pans beneath a
-// stationary mouse, and the cursor works the same way rather than being pinned to a world point.
-let cursorOn  = false;            // is this map the SOI-focused surface right now?
-let cursorPos = null;             // {x,y} canvas px; null when not focused or not yet placed
-let cursorVec = { x: 0, y: 0 };   // last reported [-1,1] velocity, held between the 10 Hz broadcasts
-// ponytail: a flat constant tuned by feel (crosses the canvas in ~1.5-2s at full deflection); a
-// config entry can come later if anyone wants to tune it live instead.
-const CURSOR_SPEED   = 700;       // canvas px/second at full deflection
-const CURSOR_HIT_PAD = 16;        // extra reach around an icon — coarser than a mouse, finer than a fat touch tap
-let cursorTimer = null, cursorLastT = 0;
-
-// Keep the cursor inside the map image's rect (same footprint pan is clamped to), so it can't
-// wander into the letterboxed margin or off-canvas after a resize.
-function clampCursor() {
-  if (!cursorPos) return;
-  const r = imgRect();
-  cursorPos.x = Math.max(r.dx, Math.min(r.dx + r.dw, cursorPos.x));
-  cursorPos.y = Math.max(r.dy, Math.min(r.dy + r.dh, cursorPos.y));
-}
-
-// Put the crosshair element where cursorPos says. Transform, not left/top, so it stays a compositor
-// move and never reflows or repaints the map underneath it.
-function paintCursor() {
-  if (!cursorOn || !cursorPos) { cursorEl.style.display = 'none'; return; }
-  cursorEl.style.display = 'block';
-  cursorEl.style.transform = 'translate(' + (cursorPos.x - 12) + 'px,' + (cursorPos.y - 12) + 'px)';
-}
-
-// Focus changed (docs/map-cursor.md "Cursor persistence"): center it the first time this map is
-// focused (predictable), then leave it wherever the pilot parks it — losing focus hides it rather
-// than forgetting its spot, so it reappears where it was left if focus returns.
-function setCursorFocus(on) {
-  cursorOn = on;
-  if (on && !cursorPos) cursorPos = { x: overlay.width / 2, y: overlay.height / 2 };
-  if (!on) cursorVec = { x: 0, y: 0 };
-  paintCursor();
-}
-
-// Integrates the last-known velocity between the 10 Hz broadcasts — the same trick as the
-// missile-flash timer and pumpFlash: smooth motion without needing the transport itself to run at
-// 60 Hz. Self-stops once the vector is zero; ensureCursorAnimation restarts it when a new nonzero
-// vector arrives. Uses performance.now() rather than the rAF callback's own timestamp — dt only
-// needs real elapsed time, and this way driveCursor doesn't depend on how a given embedder's
-// requestAnimationFrame happens to invoke it.
-function driveCursor() {
-  if (!cursorOn || !cursorPos || (!cursorVec.x && !cursorVec.y)) { cursorTimer = null; cursorLastT = 0; return; }
-  const now = performance.now();
-  const dt = cursorLastT ? Math.min(0.1, (now - cursorLastT) / 1000) : 0;
-  cursorLastT = now;
-  cursorPos.x += cursorVec.x * CURSOR_SPEED * dt;
-  cursorPos.y += cursorVec.y * CURSOR_SPEED * dt;
-  clampCursor();
-  paintCursor();   // NOT drawOverlay — the map hasn't changed, only the crosshair moved
-  cursorTimer = requestAnimationFrame(driveCursor);
-}
-function ensureCursorAnimation() {
-  if (cursorOn && cursorPos && (cursorVec.x || cursorVec.y) && !cursorTimer) {
-    cursorLastT = 0;
-    cursorTimer = requestAnimationFrame(driveCursor);
-  }
-}
+// cursor, and what's under it," the same way it already does for a mouse click. The crosshair
+// element/position/integrator live in the shared pad-cursor.js module (also used by TGT/HUD);
+// this page only supplies the clamp rect and the select callback.
+const CURSOR_HIT_PAD = 16;   // extra reach around an icon — coarser than a mouse, finer than a fat touch tap
 
 // ── Persisted view (FLW + ZOOM) ───────────────────────────────────────────────────
 // FLW and ZOOM persist across navigation in sessionStorage, shared same-origin by the shell
@@ -133,16 +75,42 @@ const overlay  = document.getElementById('overlay');
 const oc       = overlay.getContext('2d');
 const gridBar   = document.getElementById('grid-bar');
 const unitLabel = document.getElementById('unit-label');
-const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — see paintCursor
+const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — see pad-cursor.js
+
+// The PAD cursor instance: clamps to the map image's rect (same footprint pan is clamped to, so it
+// can't wander into the letterboxed margin), and Select picks the nearest unselected contact
+// within CURSOR_HIT_PAD, same body as a mouse click / touch tap (selectAt, defined below).
+const cursor = createPadCursor({
+  el: cursorEl,
+  clampRect: imgRect,
+  onSelect: (x, y) => selectAt(x, y, CURSOR_HIT_PAD),
+  onEdge: onCursorEdge,
+});
+
+// Edge-panning (docs/page-cursor.md #3): the cursor lives in screen space and never leaves
+// imgRect(), so pushing it against a border while more map exists past it (zoomed in) instead
+// shifts the map that way, revealing what's past the edge — a 4-axis scroll, like an RTS map at
+// the screen's border. Only while NOT following: under FLW the view is already re-centring on the
+// player every frame (drawOverlay), and panning here would just fight that. ex/ey are how far past
+// the rect (in screen px) the cursor's raw position landed this tick; clampPan already keeps the
+// pan within the zoomed footprint, so this is a no-op at zoom=1 (nothing to reveal) with no extra
+// gating needed.
+const EDGE_PAN_SPEED = 700;   // screen px/second at full push, matching pad-cursor.js's own SPEED
+function onCursorEdge(ex, ey, dt) {
+  if (!mapMeta || followPlayer) return;
+  if (ex) view.panX -= Math.sign(ex) * EDGE_PAN_SPEED * dt;
+  if (ey) view.panY -= Math.sign(ey) * EDGE_PAN_SPEED * dt;
+  clampPan();
+  drawOverlay();
+}
 
 // ── Canvas geometry ──────────────────────────────────────────────────────────────
 function resizeOverlay() {
   const panel = document.getElementById('map-panel');
   overlay.width  = panel.clientWidth;
   overlay.height = panel.clientHeight;
-  clampPan();          // pan limits depend on canvas size; keep the view valid after a resize
-  clampCursor();       // same — the cursor's rect shrank/grew too
-  paintCursor();
+  clampPan();       // pan limits depend on canvas size; keep the view valid after a resize
+  cursor.resize();  // same — the cursor's clamp rect shrank/grew too
   drawOverlay();
 }
 
@@ -501,7 +469,7 @@ function drawOverlay() {
     }
   }
 
-  // The SOI cursor is NOT drawn here — it's #soi-cursor, its own element (paintCursor). Slewing it
+  // The PAD cursor is NOT drawn here — it's #soi-cursor, its own element (pad-cursor.js). Slewing it
   // would otherwise force this whole function per frame just to shift a 24px mark.
 }
 
@@ -604,9 +572,7 @@ function clearViewState() {
   lastData = null;
   mapMeta = null;
   if (threatTimer) { clearInterval(threatTimer); threatTimer = null; }   // stop the missile-flash loop
-  if (cursorTimer) { cancelAnimationFrame(cursorTimer); cursorTimer = null; }
-  cursorOn = false; cursorPos = null; cursorVec = { x: 0, y: 0 };   // no cursor across a mission boundary
-  paintCursor();                                                    // ...and take it off screen
+  cursor.reset();   // no cursor across a mission boundary
   mapWasValid = false;
   view.zoom = 1; view.panX = 0; view.panY = 0;   // next mission starts at full extent
   followPlayer = false;                           // follow resets for the next mission
@@ -862,11 +828,11 @@ window.addEventListener('message', function(e) {
     case 'zoom-in':       zoomStep(1.5);   break;
     case 'zoom-out':      zoomStep(1 / 1.5); break;
     case 'status-request': source.rebroadcastStatus(); break;   // shell asked for the current status
-    // MAP cursor (docs/map-cursor.md) — the shell only ever sends these while THIS map is the SOI's
-    // focused surface, so no further gating is needed here.
-    case 'cursor-focus':  setCursorFocus(!!m.on); break;
-    case 'cursor':        cursorVec = { x: m.x || 0, y: m.y || 0 }; ensureCursorAnimation(); break;
-    case 'cursor-select': if (cursorOn && cursorPos) selectAt(cursorPos.x, cursorPos.y, CURSOR_HIT_PAD); break;
+    // PAD cursor (docs/page-cursor.md, docs/map-cursor.md) — the shell only ever sends these while
+    // THIS map is the SOI's focused surface, so no further gating is needed here.
+    case 'cursor-focus':  cursor.setFocus(!!m.on, overlay.width / 2, overlay.height / 2); break;
+    case 'cursor':        cursor.setVector(m.x, m.y); break;
+    case 'cursor-select': cursor.select(); break;
   }
 });
 

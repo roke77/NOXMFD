@@ -104,7 +104,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **MAP** — full-screen tactical map with friendly/hostile units and your own position; click a unit to target it, FLW toggles follow, Z+/Z− zoom. A HOTAS cursor can drive all of this without touching the screen — see [MAP cursor](#map-cursor) below.
+- **MAP** — full-screen tactical map with friendly/hostile units and your own position; click a unit to target it, FLW toggles follow, Z+/Z− zoom. A HOTAS cursor can drive all of this without touching the screen — see [PAD cursor](#pad-cursor) below.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
@@ -119,6 +119,15 @@ pilot, with HOTAS-friendly keybinds to match.
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
   ![RWR page](docs/images/RWR.png)
+
+  </details>
+
+- **RDR** — a radar scope showing the air contacts your own radar detects, with a PAD cursor to slew between the bars and lock/unlock a target.
+
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![RDR page](docs/images/RDR.png)
 
   </details>
 
@@ -252,7 +261,7 @@ Multi-stick HOTAS setups are supported; each bind remembers which stick it came 
 - **Follow / Zoom In / Zoom Out** — direct binds for what the bezel's FLW and Z+/Z− keys already
   do on the focused MAP display.
 - **Cursor Up / Down / Left / Right / Select**, plus two HOTAS axis binds (horizontal/vertical) —
-  drive the [MAP cursor](#map-cursor) below.
+  drive the [PAD cursor](#pad-cursor) below.
 
 An **Input When Game Unfocused** toggle sits above the bind table (not a bind itself) — turn it on
 if you run the display in a browser on the same PC as the game, so your HOTAS stays live while
@@ -287,12 +296,17 @@ a SOI key. Five binds, on the **KEY** page:
 
 </details>
 
-#### MAP cursor
+#### PAD cursor
 
-When a MAP display is the SOI, a cursor can move over the map itself and select targets — the same
-thing a mouse click or touch tap already does, but from the HOTAS, without touching the screen.
-Cursor Up/Down/Left/Right (or a bound analog axis) slews it, Cursor Select picks the contact
-underneath. It only acts on whichever display currently has both SOI focus and MAP open.
+When a display's focused page is interactible — MAP, HUD, TGT, or RDR — a crosshair can move over
+it and act on whatever's underneath, the same thing a mouse click or touch tap already does, but
+from the HOTAS, without touching the screen. Cursor Up/Down/Left/Right (or a bound analog axis)
+slews it, Cursor Select picks whatever it's over: a contact on MAP, a toggle on HUD, a filter or
+target row on TGT (holding it also mirrors that page's own long-press action, where it has one), or
+a contact on RDR (locking/unlocking it). Zoom In/Out zoom the MAP view as usual, or scroll the page
+up/down on HUD/TGT. On MAP, pushing the cursor against the edge with FLW off pans the view to
+reveal more terrain. It only acts on whichever display currently has both SOI focus and one of
+these pages open.
 
 ## Reporting & collaboration
 

@@ -2,6 +2,7 @@
 // postMessage and POSTing the tgt.* commands itself. State is telemetry-driven: a tap fires a
 // command and the next 'tgt' frame (~100 ms) reflects the game's real toggle state, so the buttons
 // never lie even if a tap is dropped. See tgt.html for the message contract + docs/tgt-page.md.
+import { createPadCursor } from '/assets/services/pad-cursor.js';
 
 const panel = document.getElementById('tgt-panel');
 const rows = {
@@ -41,7 +42,7 @@ function buildRow(group) {
   row.innerHTML = '';
   list.forEach(function (t, i) {
     const b = document.createElement('div');
-    b.className = 'tgt-cell';
+    b.className = 'tgt-cell pad-hoverable';
     b.dataset.group = group; b.dataset.index = i;
     b.textContent = label(t.n);
     row.appendChild(b);
@@ -59,7 +60,7 @@ function buildVehicles() {
   row.innerHTML = '';
   list.forEach(function (t, i) {
     const cell = document.createElement('div');
-    cell.className = 'tgt-veh'; cell.dataset.group = 'vehicle'; cell.dataset.index = i;
+    cell.className = 'tgt-veh pad-hoverable'; cell.dataset.group = 'vehicle'; cell.dataset.index = i;
     const img = document.createElement('img');
     img.className = 'veh-icon'; img.alt = t.n;
     const iconUrl = '/tgt-icon?type=' + encodeURIComponent(t.n);
@@ -110,11 +111,12 @@ function renderTargets() {
     listRows.innerHTML = '';
     list.forEach(function (t) {
       const row = document.createElement('div');
-      row.className = 'tl-row ' + (t.f === 1 ? 'f-friendly' : t.f === 0 ? 'f-neutral' : 'f-enemy');
+      row.className = 'tl-row pad-hoverable ' + (t.f === 1 ? 'f-friendly' : t.f === 0 ? 'f-neutral' : 'f-enemy');
       row.dataset.id = t.id;
+      row.setAttribute('role', 'checkbox'); row.setAttribute('aria-checked', 'true');
+      row.setAttribute('aria-label', 'deselect'); row.tabIndex = 0;
       const chk = document.createElement('span');
-      chk.className = 'tl-check'; chk.setAttribute('role', 'checkbox');
-      chk.setAttribute('aria-checked', 'true'); chk.setAttribute('aria-label', 'deselect'); chk.tabIndex = 0;
+      chk.className = 'tl-check';   // still the visual check mark — the whole row is the click target now
       const name = document.createElement('span'); name.className = 'tl-name';
       const grid = document.createElement('span'); grid.className = 'tl-grid';
       const dist = document.createElement('span'); dist.className = 'tl-dist';
@@ -134,12 +136,11 @@ function renderTargets() {
   }
 }
 
-// Tap a row's checkbox → deselect that target. The game drops it and the next 'tgt-targets' frame
-// no longer carries it, so the row disappears — telemetry-driven, same as the filter toggles.
+// Tap anywhere on a row → deselect that target (the whole row is the target, not just the small
+// checkbox — a bigger, easier touch/cursor hit area). The game drops it and the next 'tgt-targets'
+// frame no longer carries it, so the row disappears — telemetry-driven, same as the filter toggles.
 listRows.addEventListener('click', function (e) {
-  const chk = e.target.closest('.tl-check');
-  if (!chk) return;
-  const row = chk.closest('.tl-row');
+  const row = e.target.closest('.tl-row');
   const id = row && row.dataset.id;
   if (id) send('target.deselect', { id: Number(id) });
 });
@@ -186,7 +187,8 @@ modeEls.hud.addEventListener('click', function () { send('tgt.hud', { on: !state
 // deselects everything else (the actively-sensed ones), keeping only datalink-only targets locked.
 // Both are bulk server-side deselects — no client-side filtering. Its own press-hold pair rather
 // than folding into the .tgt-cell/.tgt-veh handling above, since this button isn't a game filter
-// cell (no group/index, no tgt.set/tgt.only).
+// cell (no group/index, no tgt.set/tgt.only). Mouse/touch only — not in the PAD cursor's CURSORABLE
+// set below, so it isn't reachable from the HOTAS cursor yet.
 let datalinkPress = null;
 datalinkBtn.addEventListener('pointerdown', function () {
   datalinkPress = { longFired: false };
@@ -207,6 +209,62 @@ datalinkBtn.addEventListener('pointercancel', function () {
   datalinkPress = null;
 });
 
+// ── PAD cursor (docs/page-cursor.md) ──────────────────────────────────────────────────
+// Same crosshair/transport MAP uses (pad-cursor.js), driven here only while this TGT is the SOI's
+// focused surface. Clamped to the panel's own box (panel-local px, matching the crosshair's
+// positioned ancestor — see tgt.css's .tgt-panel { position: relative }).
+const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-row, .tgt-action, .tgt-mode';
+const padCursorEl = document.getElementById('pad-cursor');
+const cursor = createPadCursor({
+  el: padCursorEl,
+  clampRect: () => ({ dx: 0, dy: 0, dw: panel.clientWidth, dh: panel.clientHeight }),
+  onSelect: padCursorSelectAt,
+  onHold: padCursorHoldAt,
+  onMove: padCursorMoveAt,
+  holdMs: LONG_MS,
+});
+
+function elAt(px, py) {
+  const rect = panel.getBoundingClientRect();
+  const raw = document.elementFromPoint(rect.left + px, rect.top + py);
+  return raw && raw.closest(CURSORABLE);
+}
+
+// Select's TAP outcome (release before LONG_MS, or any control with no hold behaviour to mirror).
+function padCursorSelectAt(px, py) {
+  const el = elAt(px, py);
+  if (!el) return;
+  if (el.classList.contains('tgt-cell') || el.classList.contains('tgt-veh')) {
+    send('tgt.set', { group: el.dataset.group, index: +el.dataset.index, on: !isOn(el.dataset.group, +el.dataset.index) });
+  } else {
+    el.click();   // .tl-row / .tgt-action / .tgt-mode already have plain click handlers
+  }
+}
+
+// Select's HOLD outcome — only filter cells (.tgt-cell/.tgt-veh) have a long-press meaning ("only
+// this"); everything else has no hold behaviour, so holding over it is simply a no-op (same as
+// holding the pointer down over a plain button already is today).
+function padCursorHoldAt(px, py) {
+  const el = elAt(px, py);
+  if (!el || !(el.classList.contains('tgt-cell') || el.classList.contains('tgt-veh'))) return;
+  send('tgt.only', { group: el.dataset.group, index: +el.dataset.index });
+}
+
+// Hover feedback (docs/page-cursor.md #2): mark whatever's currently under the crosshair with the
+// shared .pad-hover class (shared/theme.css), clearing it from whatever had it before.
+let hoveredEl = null;
+function padCursorMoveAt(px, py) {
+  const el = px == null ? null : elAt(px, py);
+  if (el === hoveredEl) return;
+  if (hoveredEl) hoveredEl.classList.remove('pad-hover');
+  hoveredEl = el;
+  if (hoveredEl) hoveredEl.classList.add('pad-hover');
+}
+
+// Zoom In/Out (map-act's zoom-in/zoom-out) are repurposed here to scroll the target list — nothing
+// on this page to zoom, and the binds already exist end-to-end (docs/page-cursor.md).
+const SCROLL_STEP = 60;   // ponytail: flat constant tuned by feel, like pad-cursor.js's own SPEED
+
 // ── Shell → page ─────────────────────────────────────────────────────────────────────
 window.addEventListener('message', function (e) {
   const m = e.data;
@@ -224,6 +282,16 @@ window.addEventListener('message', function (e) {
   } else if (m.type === 'tgt-targets') {
     targets = Array.isArray(m.items) ? m.items : [];
     renderTargets();
+  } else if (m.action === 'cursor-focus') {
+    cursor.setFocus(!!m.on, panel.clientWidth / 2, panel.clientHeight / 2);
+  } else if (m.action === 'cursor') {
+    cursor.setVector(m.x, m.y);
+  } else if (m.action === 'cursor-held') {
+    cursor.setSelectHeld(!!m.held);
+  } else if (m.action === 'zoom-in') {
+    listRows.scrollBy({ top: SCROLL_STEP });
+  } else if (m.action === 'zoom-out') {
+    listRows.scrollBy({ top: -SCROLL_STEP });
   }
 });
 

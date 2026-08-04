@@ -243,6 +243,14 @@ namespace NOXMFD
             Interlocked.Increment(ref _cursorSelSeq);
         }
 
+        // Cursor Select's LIVE held state (docs/page-cursor.md) — separate from the edge counter
+        // above: MAP only ever wants the instant-select edge, but a page with its own tap/long-press
+        // controls (TGT) needs to see the press through to release to tell the two apart, the same
+        // way a real pointerdown/pointerup pair would. Rides the same 'cursor' SSE event as x/y, so
+        // it costs nothing extra to transport — a change here just makes that event fire sooner.
+        private static bool _cursorSelHeld;
+        internal static void SetCursorSelectHeld(bool held) => Volatile.Write(ref _cursorSelHeld, held);
+
         // MAP view actions (Follow / Zoom In / Zoom Out) — binds for what the bezel's FLW/Z+/Z- keys
         // already do. Same idempotent-counter shape again: the focused map's mfd.js/f35.js forwarding
         // reads mapAct only when mapActSeq changes, then maps the string straight onto the existing
@@ -667,6 +675,8 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/wpn/wpn.html");
                     else if (path == "/rwr")
                         ServeAssetRel(ctx, "pages/rwr/rwr.html");
+                    else if (path == "/rdr")
+                        ServeAssetRel(ctx, "pages/rdr/rdr.html");
                     else if (path == "/tgt")
                         ServeAssetRel(ctx, "pages/tgt/tgt.html");
                     else if (path == "/bdf")
@@ -1397,6 +1407,7 @@ namespace NOXMFD
                         + ",\"parts\":" + PartsArray(s.Parts)
                         + ",\"rwr\":" + RwrArray(s.Rwr)
                         + ",\"mw\":" + MwArray(s.Mw)
+                        + ",\"rdr\":" + RdrBlock(s)
                         + ",\"radar\":" + (s.RadarOn ? "true" : "false")
                         + ",\"guns\":" + (s.GunsLinked ? "true" : "false")
                         + ",\"ign\":" + (s.Ignition ? "true" : "false")
@@ -1496,6 +1507,33 @@ namespace NOXMFD
             return sb.Append(']').ToString();
         }
 
+        // RDR page (docs/rdr-page.md). {present:false} when the aircraft has no radar; otherwise the
+        // scope's range scale + cone half-angle and the air contacts the own radar detects. Contacts
+        // carry world x/z (client derives bearing/range from the player's own position), altitude,
+        // travel heading (velocity stub), lock state (tg) and label.
+        private static string RdrBlock(TelemetrySnapshot s)
+        {
+            if (!s.RadarPresent) return "{\"present\":false}";
+            return string.Format(CultureInfo.InvariantCulture,
+                "{{\"present\":true,\"range\":{0:0.0},\"cone\":{1:0.0},\"metric\":{2},\"lvlt\":{3:0.000},\"items\":{4}}}",
+                s.RadarRange, s.RadarConeDeg, s.RdrMetric ? "true" : "false", s.RdrLevelTime, RdrArray(s.Rdr));
+        }
+
+        private static string RdrArray(RdrContact[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.AppendFormat(CultureInfo.InvariantCulture,
+                    "{{\"id\":{0},\"x\":{1:0.0},\"z\":{2:0.0},\"alt\":{3:0.0},\"hdg\":{4:0.0},\"tg\":{5},\"n\":\"{6}\"}}",
+                    items[i].Id, items[i].X, items[i].Z, items[i].Alt, items[i].Heading,
+                    items[i].Targeted ? 1 : 0, EscapeJson(items[i].Name ?? string.Empty));
+            }
+            return sb.Append(']').ToString();
+        }
+
         private static string RwrArray(RwrContact[]? items)
         {
             if (items == null || items.Length == 0) return "[]";
@@ -1590,8 +1628,9 @@ namespace NOXMFD
         // per telemetry frame and still be free. It is the ONLY place these fields travel — carrying
         // them in both would let a cached (older) frame overwrite a fresher event.
         private static string CursorJson() => string.Format(CultureInfo.InvariantCulture,
-            "{{\"x\":{0:0.00},\"y\":{1:0.00},\"selSeq\":{2},\"act\":\"{3}\",\"actSeq\":{4}}}",
-            CursorX, CursorY, CursorSelSeq, EscapeJson(MapAct), MapActSeq);
+            "{{\"x\":{0:0.00},\"y\":{1:0.00},\"selSeq\":{2},\"act\":\"{3}\",\"actSeq\":{4},\"held\":{5}}}",
+            CursorX, CursorY, CursorSelSeq, EscapeJson(MapAct), MapActSeq,
+            Volatile.Read(ref _cursorSelHeld) ? "true" : "false");
 
         private static string EscapeJson(string s) =>
             s.Replace("\\", "\\\\").Replace("\"", "\\\"");

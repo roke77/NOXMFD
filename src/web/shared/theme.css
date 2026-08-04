@@ -25,6 +25,32 @@
   --no-panel-border: #1a3a1a;
   --no-ink:        #060a06;  /* text on a green fill */
   --no-font: 'Share Tech Mono', 'Courier New', monospace;
+  /* The PAD cursor's sprite (docs/page-cursor.md, docs/map-cursor.md): a HUD-green crosshair,
+     shared by every page carrying a PAD cursor (originally MAP-only, see .pad-cursor below) so a
+     HOTAS pilot sees the same mark everywhere it appears. 24x24, centred at 12,12. */
+  --map-crosshair: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48ZyBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAiIHN0cm9rZS1vcGFjaXR5PSIuNTUiIHN0cm9rZS13aWR0aD0iMy40IiBzdHJva2UtbGluZWNhcD0icm91bmQiPjxsaW5lIHgxPSIxMiIgeTE9IjIiIHgyPSIxMiIgeTI9IjgiLz48bGluZSB4MT0iMTIiIHkxPSIxNiIgeDI9IjEyIiB5Mj0iMjIiLz48bGluZSB4MT0iMiIgeTE9IjEyIiB4Mj0iOCIgeTI9IjEyIi8+PGxpbmUgeDE9IjE2IiB5MT0iMTIiIHgyPSIyMiIgeTI9IjEyIi8+PC9nPjxnIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzM5ZmYxNCIgc3Ryb2tlLXdpZHRoPSIxLjciIHN0cm9rZS1saW5lY2FwPSJyb3VuZCI+PGxpbmUgeDE9IjEyIiB5MT0iMiIgeDI9IjEyIiB5Mj0iOCIvPjxsaW5lIHgxPSIxMiIgeTE9IjE2IiB4Mj0iMTIiIHkyPSIyMiIvPjxsaW5lIHgxPSIyIiB5MT0iMTIiIHgyPSI4IiB5Mj0iMTIiLz48bGluZSB4MT0iMTYiIHkxPSIxMiIgeDI9IjIyIiB5Mj0iMTIiLz48L2c+PC9zdmc+);
+}
+/* The PAD cursor element itself (docs/page-cursor.md). Moved by transform only, on its own layer
+   (will-change), so slewing it never touches the rest of the page — a full page redraw per frame
+   to shift 24px would make the crosshair the most expensive thing on the page (proven true on MAP,
+   whose canvas redraw is real work; TGT/HUD are plain DOM so it matters less there, but the
+   pattern is free to keep). The host page's cursor container needs position:relative. */
+.pad-cursor {
+  position: absolute;
+  top: 0; left: 0;
+  width: 24px; height: 24px;
+  background: var(--map-crosshair) no-repeat;
+  display: none;
+  pointer-events: none;
+  will-change: transform;
+  z-index: 40;
+}
+/* "What's under the cursor" feedback (docs/page-cursor.md #2), shared by every clickable control on
+   TGT/HUD — a subtle lighter-than-black overlay, not a colour change, so it reads under any control's
+   own state colour. Doubles as a real mouse :hover, since neither page had one before. .pad-hover is
+   applied by the page's onMove callback (pad-cursor.js) to whatever's currently under the crosshair. */
+.pad-hoverable:hover, .pad-hoverable.pad-hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 html, body { margin: 0; height: 100%; background: var(--no-bg); overflow: hidden; }
 body {
