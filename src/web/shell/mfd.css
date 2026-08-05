@@ -494,11 +494,7 @@
   /* WPN decorators (docs/radar-master-arms.md) — purely decorative, no click action: a word with a
      solid triangle above and below, centered in the gap between a control pair (ARM/SAFE, A/A/A-G).
      Positioned like .overlay-item.right (same right-edge anchor), but vertically centered on the
-     separator BETWEEN the pair's two keys rather than on a key itself — see placeWpnDecorators.
-     .wpn-decor-box is a second element per pair: a plain border sized to enclose both keys + the
-     word, so the pair reads as one grouped control rather than two keys with a label floating
-     between them. Shares the .wpn-decor class so the existing "clear on page/mode change" queries
-     (querySelectorAll('.overlay-item, .wpn-decor')) catch it too without extra call sites. */
+     separator BETWEEN the pair's two keys rather than on a key itself — see placeWpnDecorators. */
   .wpn-decor {
     position: absolute;
     right: 16px;
@@ -508,6 +504,7 @@
     align-items: center;
     gap: 4px;
     pointer-events: none;
+    color: var(--no-label);
   }
   .wpn-decor svg { display: block; }
   .wpn-decor-word {
@@ -519,15 +516,6 @@
     font-weight: 700;
     letter-spacing: 1px;
     padding: 3px;
-  }
-  .wpn-decor.red  { color: var(--no-red); }
-  .wpn-decor.blue { color: var(--no-blue); }
-  .wpn-decor.wpn-decor-box {
-    display: block;
-    transform: none;
-    box-sizing: border-box;
-    border: 1px solid currentColor;
-    border-radius: 2px;
   }
   /* Pin the menu-item size in portrait to the same 21px as landscape, so items read
      identically in both orientations. A viewport-height clamp (e.g. clamp(21px, 2.4vh, 34px))

@@ -901,15 +901,14 @@ function placeWpnNavLabels() {
 }
 
 // Purely decorative — a word + triangle above/below, centered in the gap BETWEEN a control pair
-// rather than on either key, with a plain border enclosing the whole pair (keys + word) so it reads
-// as one grouped control (docs/radar-master-arms.md, per the user's mockup-approved design).
+// rather than on either key (docs/radar-master-arms.md, per the user's mockup-approved design).
 // Vertically centered on the separator between the pair's two keys (sepElsRight[2] sits between
 // right[1]/ARM and right[2]/SAFE; sepElsRight[4] between right[3]/A-A and right[4]/A-G — sepElsRight
 // index i+1 = below key i). Horizontally centered on the pair's own labels rather than sharing their
 // right:16px anchor — ARM/SAFE/A-A/A-G are unpadded nowrap text right-aligned to that edge, so two
 // different-width words (e.g. "ARM" vs "SAFE") don't share a center; anchoring the decorator to that
 // same edge made it hug the narrower word's edge instead of sitting in the middle of the pair.
-function placeWpnDecorator(sepIndex, cls, word, upPoints, downPoints) {
+function placeWpnDecorator(sepIndex, word, upPoints, downPoints) {
   const sep = sepElsRight[sepIndex];
   const labelA = overlayEl.querySelector('[data-key="right' + (sepIndex - 1) + '"]');
   const labelB = overlayEl.querySelector('[data-key="right' + sepIndex + '"]');
@@ -920,17 +919,8 @@ function placeWpnDecorator(sepIndex, cls, word, upPoints, downPoints) {
   const bRect = labelB.getBoundingClientRect();
   const centerX = ((aRect.left + aRect.right) / 2 + (bRect.left + bRect.right) / 2) / 2;
 
-  const boxPadH = 8, boxPadV = 4;
-  const box = document.createElement('div');
-  box.className = 'wpn-decor wpn-decor-box ' + cls;
-  box.style.top = (Math.min(aRect.top, bRect.top) - oRect.top - boxPadV) + 'px';
-  box.style.height = (Math.max(aRect.bottom, bRect.bottom) - Math.min(aRect.top, bRect.top) + boxPadV * 2) + 'px';
-  box.style.width = (Math.max(aRect.width, bRect.width) + boxPadH * 2) + 'px';
-  overlayEl.appendChild(box);
-  box.style.left = (centerX - oRect.left - box.offsetWidth / 2) + 'px';
-
   const el = document.createElement('div');
-  el.className = 'wpn-decor ' + cls;
+  el.className = 'wpn-decor';
   el.style.top = (sRect.top + sRect.height / 2 - oRect.top) + 'px';
   el.innerHTML =
     '<svg width="12" height="8" viewBox="0 0 12 8"><polygon points="' + upPoints + '" fill="currentColor"/></svg>' +
@@ -941,8 +931,8 @@ function placeWpnDecorator(sepIndex, cls, word, upPoints, downPoints) {
   el.style.left = (centerX - oRect.left - el.offsetWidth / 2) + 'px';
 }
 function placeWpnDecorators() {
-  placeWpnDecorator(2, 'red',  'MASTER', '6,0 12,8 0,8', '0,0 12,0 6,8');
-  placeWpnDecorator(4, 'blue', 'MODE',   '6,0 12,8 0,8', '0,0 12,0 6,8');
+  placeWpnDecorator(2, 'MASTER', '6,0 12,8 0,8', '0,0 12,0 6,8');
+  placeWpnDecorator(4, 'MODE',   '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
 
 // ── App-wide orientation ─────────────────────────────────────────────────────────────
