@@ -294,6 +294,14 @@ page already has. Existing sections/table are untouched.
 
 ## Open questions
 
+- **Decorative MASTER/MODE labels — CLASSIC full view only, for now.** Purely decorative (no click
+  action): a boxed word with a solid triangle above/below, centered in the gap between a control pair
+  — red "MASTER" between ARM/SAFE, blue "MODE" between A/A/A-G (`.wpn-decor` in `mfd.css`,
+  `placeWpnDecorators()` in `mfd.js`, positioned on the separator between the pair's two keys via
+  `sepElsRight`). Design was mockup-tested with the user (three arrow/icon styles, then a boxed-word
+  variant) before landing on this. Not yet added to split panes or F-35 — both have a different
+  physical layout (split's pairs can land anywhere in a page; F-35 has no separator element between
+  edge-pinned nav items to anchor on), so this needs its own placement decision if wanted there too.
 - **ARM/SAFE/A-A/A-G key/cell placement — resolved everywhere, including split.** CLASSIC uses
   `right[1..4]` in full-view WPN (weapon rows occupy `left[1..5]`); F-35 uses explicit `cell` hints in
   `f35.js`'s `COMBAT_MODE_NAV`/`MASTER_ARMS_NAV` (rows 2-5 of the right column), same as NEXT already

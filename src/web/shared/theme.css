@@ -20,6 +20,7 @@
   --no-teal:       rgb(var(--no-teal-rgb));
   --no-purple-rgb: 179, 136, 255;  /* mod-only controls that aren't real game filters (e.g. TGT's DATALINK) */
   --no-purple:     rgb(var(--no-purple-rgb));
+  --no-blue:       #4d9fff;  /* mod-only decorative accent (WPN's MODE label, docs/radar-master-arms.md) */
   --no-bg:         #000;
   --no-panel-bg:   rgba(6,10,6,0.78);
   --no-panel-border: #1a3a1a;

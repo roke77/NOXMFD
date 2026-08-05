@@ -427,7 +427,9 @@ function mainPaneSlice(idx) {
 
 function renderSplitLabels() {
   clearKeyActions();
-  overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
+  // .wpn-decor too: full view's MASTER/MODE decorators (docs/radar-master-arms.md) must not survive
+  // entering split mode — split doesn't place them (yet — see the plan doc's open question).
+  overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
   for (let paneIdx = 0; paneIdx < 2; paneIdx++) {
     const page = panePages[paneIdx];
     const paneTag = paneIdx === 0 ? 'top' : 'bot';   // pane identity for click dispatch (orientation-agnostic)
@@ -878,7 +880,7 @@ function forwardWpnLayoutToFrame() {
 // re-apply-in-place step is needed the way FLW's markFollowLabels needs one (FLW's labels persist
 // across ticks; WPN's don't).
 function placeWpnNavLabels() {
-  overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
+  overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
   delete keyBanks.left[0].dataset.action;
   delete keyBanks.right[0].dataset.action;
   const total = (wpnData.items || []).length;
@@ -892,9 +894,35 @@ function placeWpnNavLabels() {
   // ALL just reads as neither of these two lit, the same way it does for the keybinds themselves.
   placeOverlayLabel('right', 3, 'A/A', 'combat-mode-aa', wpnData.combatMode === 'aa');
   placeOverlayLabel('right', 4, 'A/G', 'combat-mode-ag', wpnData.combatMode === 'ag');
+  placeWpnDecorators();
   // This runs on every loadout tick, not only on a page change, so the SOI cursor's mark has to be
   // re-applied here too — it lives on a label this function just threw away.
   renderSoiCursor();
+}
+
+// Purely decorative — a boxed word + triangle above/below, centered in the gap BETWEEN a control
+// pair rather than on either key (docs/radar-master-arms.md, per the user's mockup-approved design).
+// Vertically centered on the separator between the pair's two keys (sepElsRight[2] sits between
+// right[1]/ARM and right[2]/SAFE; sepElsRight[4] between right[3]/A-A and right[4]/A-G — sepElsRight
+// index i+1 = below key i). Horizontally anchored the same way .overlay-item.right is (right: 16px
+// in CSS); only the vertical center needs computing here.
+function placeWpnDecorator(sepIndex, cls, word, upPoints, downPoints) {
+  const sep = sepElsRight[sepIndex];
+  if (!sep) return;
+  const oRect = overlayEl.getBoundingClientRect();
+  const sRect = sep.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'wpn-decor ' + cls;
+  el.style.top = (sRect.top + sRect.height / 2 - oRect.top) + 'px';
+  el.innerHTML =
+    '<svg width="12" height="8" viewBox="0 0 12 8"><polygon points="' + upPoints + '" fill="currentColor"/></svg>' +
+    '<div class="wpn-decor-word">' + word + '</div>' +
+    '<svg width="12" height="8" viewBox="0 0 12 8"><polygon points="' + downPoints + '" fill="currentColor"/></svg>';
+  overlayEl.appendChild(el);
+}
+function placeWpnDecorators() {
+  placeWpnDecorator(2, 'red',  'MASTER', '6,0 12,8 0,8', '0,0 12,0 6,8');
+  placeWpnDecorator(4, 'blue', 'MODE',   '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
 
 // ── App-wide orientation ─────────────────────────────────────────────────────────────
@@ -1168,8 +1196,9 @@ function showPage(name) {
   infoBox.classList.toggle('show', name === 'main');
   screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGT/TGP/AVN render in #page-frame
   clearKeyActions();
-  // Only wipe dynamic line-select labels; static children (info-box) stay put.
-  overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
+  // Only wipe dynamic line-select labels (+ WPN's purely-decorative MASTER/MODE labels, docs/
+  // radar-master-arms.md); static children (info-box) stay put.
+  overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
 
   if (name === 'main') {
     // MAIN_SPLIT_ITEMS — all eleven destinations, alphabetically — rather than NAV.main +
