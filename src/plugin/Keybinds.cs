@@ -369,9 +369,6 @@ namespace NOXMFD
                 "Cycle keys select the last soft-selected weapon of their type, or the first in the list. " +
                 "Repeated presses cycle to the next one, skipping depleted weapons. " +
                 "Cycling to a different type leaves the current one soft-selected.",
-            // TODO(docs/radar-master-arms.md step 11): once the three RadarOnOnStart/EngineOnOnStart/
-            // MasterArmsOnOnStart settings get their own page toggles, mention them here too — for now
-            // this only documents the keybinds, which already work standalone.
             "Immersion Keybinds" =>
                 "A/A and A/G each restrict Cycle Missile on a tap; hold either one to reset to ALL " +
                 "(unrestricted). Every other bind here is a plain dedicated action.",
