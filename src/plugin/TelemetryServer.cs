@@ -876,6 +876,9 @@ namespace NOXMFD
                 sb.Append("},\"capturing\":").Append(cap == null ? "null" : "\"" + EscapeJson(cap) + "\"")
                   .Append(",\"capturingKind\":").Append(capKind == null ? "null" : "\"" + EscapeJson(capKind) + "\"")
                   .Append(",\"bgInput\":").Append(Keybinds.BackgroundInput ? "true" : "false")
+                  .Append(",\"radarOnOnStart\":").Append(ImmersionConfig.RadarOnOnStart ? "true" : "false")
+                  .Append(",\"engineOnOnStart\":").Append(ImmersionConfig.EngineOnOnStart ? "true" : "false")
+                  .Append(",\"masterArmsOnOnStart\":").Append(ImmersionConfig.MasterArmsOnOnStart ? "true" : "false")
                   .Append('}');
 
                 byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
@@ -1373,7 +1376,7 @@ namespace NOXMFD
                 "\"flares\":{20},\"flaresMax\":{21},\"ewKJ\":{22:0.0},\"ewKJMax\":{23:0.0}," +
                 "\"selWeapon\":\"{24}\",\"cmCat\":{25},\"tgpActive\":{26}," +
                 "\"fuel\":{27:0.000},\"thr\":{28:0.000},\"hasAb\":{29},\"abStart\":{30:0.000}," +
-                "\"softGun\":\"{31}\",\"softRel\":\"{32}\",{33},",
+                "\"softGun\":\"{31}\",\"softRel\":\"{32}\",\"masterArmsOn\":{34},\"combatMode\":\"{35}\",{33},",
                 s.Time,
                 EscapeJson(s.PlaneName ?? string.Empty),
                 EscapeJson(s.MissionName ?? string.Empty),
@@ -1393,7 +1396,9 @@ namespace NOXMFD
                 s.Fuel, s.Throttle,
                 s.HasAfterburner ? "true" : "false", s.AbStart,
                 EscapeJson(s.SoftGun ?? string.Empty), EscapeJson(s.SoftRel ?? string.Empty),
-                SoiJson());   // server state, not the snapshot's — see SetSoiTarget
+                SoiJson(),   // server state, not the snapshot's — see SetSoiTarget
+                ImmersionState.MasterArmsOn ? "true" : "false",   // mod state, not the snapshot's — docs/radar-master-arms.md
+                ImmersionState.CombatMode switch { CombatMode.AirToAir => "aa", CombatMode.AirToGround => "ag", _ => "all" });
 
             return head + "\"loadout\":" + LoadoutArray(s.Loadout)
                         + ",\"colors\":{"

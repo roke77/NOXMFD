@@ -169,6 +169,35 @@ let panePages = ['main', 'main'];
 // reserved: L0 = MAIN/PREV back-button, R0 = NEXT (shown only when the loadout exceeds 4).
 let paneWpnPage = [0, 0];
 const WPN_SPLIT_MAX = 4;
+
+// ARM/SAFE/A-A/A-G (docs/radar-master-arms.md) in a split pane: appended after the weapon list,
+// sharing the same 4-slot-per-page window weapons use (unlike full view, which has dedicated
+// right-column keys free for them). A pair is never split across a page boundary — since (ARM,SAFE)
+// and (A/A,A/G) are always two adjacent entries in the combined list, a pair only ever splits when
+// its first item would land on a page's LAST slot, so one empty slot inserted right before the pair
+// pushes the whole thing to the next page, leaving the leftover slot(s) on the previous page blank.
+const WPN_SPLIT_CONTROLS = [
+  { id: 'master-arms-on',  label: 'ARM'  },
+  { id: 'master-arms-off', label: 'SAFE' },
+  { id: 'combat-mode-aa',  label: 'A/A'  },
+  { id: 'combat-mode-ag',  label: 'A/G'  },
+];
+function buildWpnSplitPages(weaponCount) {
+  const slots = [];
+  for (let i = 0; i < weaponCount; i++) slots.push({ type: 'weapon', index: i });
+  function padIfWouldSplitNextPair() {
+    if (slots.length % WPN_SPLIT_MAX === WPN_SPLIT_MAX - 1) slots.push({ type: 'empty' });
+  }
+  padIfWouldSplitNextPair();
+  slots.push(Object.assign({ type: 'ctrl' }, WPN_SPLIT_CONTROLS[0]));
+  slots.push(Object.assign({ type: 'ctrl' }, WPN_SPLIT_CONTROLS[1]));
+  padIfWouldSplitNextPair();
+  slots.push(Object.assign({ type: 'ctrl' }, WPN_SPLIT_CONTROLS[2]));
+  slots.push(Object.assign({ type: 'ctrl' }, WPN_SPLIT_CONTROLS[3]));
+  const pages = [];
+  for (let i = 0; i < slots.length; i += WPN_SPLIT_MAX) pages.push(slots.slice(i, i + WPN_SPLIT_MAX));
+  return pages;
+}
 // Per-pane MAIN pagination index — MAIN_SPLIT_ITEMS paged across the pane's keys (mainPaneSlice).
 // Reset to 0 when a pane (re)enters MAIN (paneNavigate), same as paneWpnPage for WPN.
 let paneMainPage = [0, 0];
@@ -348,9 +377,10 @@ function listPaneLayout(paneIdx, page) {
 }
 
 // Place an overlay label on a physical key {bank,index} and tag it with the owning pane. Returns the
-// label element so the caller can style it (e.g. the vertical MAIN for a TGT pane).
-function placeSplitKey(m, label, action, paneTag) {
-  const el = placeOverlayLabel(m.bank, m.index, label, action);
+// label element so the caller can style it (e.g. the vertical MAIN for a TGT pane). `mark` lights it
+// engaged amber, same as placeOverlayLabel's own param — used by WPN's ARM/SAFE/A-A/A-G.
+function placeSplitKey(m, label, action, paneTag, mark) {
+  const el = placeOverlayLabel(m.bank, m.index, label, action, mark);
   const k = keyBanks[m.bank] && keyBanks[m.bank][m.index];
   if (k) k.dataset.pane = paneTag;
   return el;
@@ -397,7 +427,9 @@ function mainPaneSlice(idx) {
 
 function renderSplitLabels() {
   clearKeyActions();
-  overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
+  // .wpn-decor too: full view's MASTER/MODE decorators (docs/radar-master-arms.md) must not survive
+  // entering split mode — split doesn't place them (yet — see the plan doc's open question).
+  overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
   for (let paneIdx = 0; paneIdx < 2; paneIdx++) {
     const page = panePages[paneIdx];
     const paneTag = paneIdx === 0 ? 'top' : 'bot';   // pane identity for click dispatch (orientation-agnostic)
@@ -439,6 +471,18 @@ function renderSplitLabels() {
       // cursor (soiKeys(), scoped per pane) can reach them — dispatch itself doesn't need the tag
       // (weapon selection is aircraft-global and falls through to the shared case regardless).
       wireWpnPaneWeaponKeys(slice.items, paneIdx, paneTag);
+      // ARM/SAFE/A-A/A-G (docs/radar-master-arms.md) — appended after the weapon list into the same
+      // 4 item slots (buildWpnSplitPages), since a split pane has no spare keys the way full view
+      // does. Weapon slots are already wired above; only 'ctrl' slots need placing here ('empty'
+      // slots need nothing — clearKeyActions already cleared them).
+      slice.slots.forEach(function(s, i) {
+        if (s.type !== 'ctrl') return;
+        const mark = s.id === 'master-arms-on'  ? wpnData.masterArmsOn === true
+                   : s.id === 'master-arms-off' ? wpnData.masterArmsOn === false
+                   : s.id === 'combat-mode-aa'  ? wpnData.combatMode === 'aa'
+                   :                              wpnData.combatMode === 'ag';
+        placeSplitKey(L.items[i], s.label, s.id, paneTag, mark);
+      });
     } else {
       // Static nav (MAP/AVN/RWR/TGP/…): render the navigation model at this page's declared
       // pane-local slots — SPLIT_SLOTS[page][i] places NAV[page][i].
@@ -652,18 +696,21 @@ function forwardPalToPanes() {
     iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'pal' }, palData), '*');
   });
 }
-// Slice the full loadout to the page a given pane is scrolled to. Returns the visible rows
-// plus whether PREV/NEXT exist, so renderSplitLabels can place the right nav labels. Clamps
-// a stale page index (e.g. the loadout shrank) back into range as a side effect.
+// Slice the full loadout+controls to the page a given pane is scrolled to. Returns the visible
+// weapon rows (items — always a prefix of the page's 4 slots, since weapons never follow a control
+// within one page, see buildWpnSplitPages) plus the raw per-slot descriptors (slots — renderSplitLabels
+// uses these to place ARM/SAFE/A-A/A-G on whichever physical keys they land on) and whether
+// PREV/NEXT exist. Clamps a stale page index (e.g. the loadout shrank) back into range as a side effect.
 function wpnPaneSlice(idx) {
-  const list = wpnData.items || [];
-  const total = list.length;
-  const maxPage = Math.max(0, Math.ceil(total / WPN_SPLIT_MAX) - 1);
+  const weapons = wpnData.items || [];
+  const pages = buildWpnSplitPages(weapons.length);
+  const maxPage = pages.length - 1;
   if (paneWpnPage[idx] > maxPage) paneWpnPage[idx] = maxPage;
   if (paneWpnPage[idx] < 0)       paneWpnPage[idx] = 0;
-  const start = paneWpnPage[idx] * WPN_SPLIT_MAX;
-  const items = list.slice(start, start + WPN_SPLIT_MAX);
-  return { items: items, hasPrev: paneWpnPage[idx] > 0, hasNext: start + items.length < total,
+  const slots = pages[paneWpnPage[idx]] || [];
+  const items = slots.filter(function(s) { return s.type === 'weapon'; })
+                      .map(function(s) { return weapons[s.index]; });
+  return { items: items, slots: slots, hasPrev: paneWpnPage[idx] > 0, hasNext: paneWpnPage[idx] < maxPage,
            page: maxPage > 0 ? paneWpnPage[idx] + 1 : 1, pages: maxPage + 1 };
 }
 function forwardWpnToPanes() {
@@ -673,7 +720,11 @@ function forwardWpnToPanes() {
     const sl = wpnPaneSlice(idx);
     iframe.contentWindow.postMessage(
       { mfd: true, type: 'wpn', items: sl.items, selWeapon: wpnData.selWeapon,
-        softGun: wpnData.softGun, softRel: wpnData.softRel,
+        softGun: wpnData.softGun, softRel: wpnData.softRel, masterArmsOn: wpnData.masterArmsOn,
+        // A controls-only page legitimately sends items:[] even with a real loadout — tell the page
+        // explicitly so it doesn't mistake "no weapons on THIS page" for "no loadout at all" (which
+        // would wrongly show the NO LOADOUT placeholder and hide the CM panel).
+        hasLoadout: (wpnData.items || []).length > 0,
         page: sl.page, pages: sl.pages }, '*');
   });
 }
@@ -779,7 +830,7 @@ function forwardWpnToFrame() {
   const start = wpnPage * WPN_MAX_DISPLAY;
   const items = list.slice(start, start + WPN_MAX_DISPLAY);
   w.postMessage({ mfd: true, type: 'wpn', items: items, selWeapon: wpnData.selWeapon,
-                  softGun: wpnData.softGun, softRel: wpnData.softRel,
+                  softGun: wpnData.softGun, softRel: wpnData.softRel, masterArmsOn: wpnData.masterArmsOn,
                   page: maxPage > 0 ? wpnPage + 1 : 1, pages: maxPage + 1 }, '*');
 
   // Wire each visible weapon's LEFT line-select key (keys 1..5) to select that weapon: a bezel
@@ -821,10 +872,15 @@ function forwardWpnLayoutToFrame() {
                   iconTop: icoTop, iconHeight: icoBot - icoTop }, '*');
 }
 // Full-view WPN nav labels (shell-owned, since pagination is shell state): left key-0 is MAIN
-// on page 0 / PREV after; right key-0 is NEXT when the loadout overflows the page. WPN has no
-// other overlay labels, so we can safely clear all overlay-items before re-placing.
+// on page 0 / PREV after; right key-0 is NEXT when the loadout overflows the page. ARM/SAFE and
+// A/A/A-G (docs/radar-master-arms.md) are unconditional, unlike NEXT — always shown, on
+// right[1..4] (weapon rows occupy left[1..5]; right[1..4] are otherwise unused in full-view WPN).
+// Since this whole function reruns every loadout tick (not just on a page change), passing `mark`
+// from the current wpnData.masterArmsOn/combatMode here IS the live update — no separate
+// re-apply-in-place step is needed the way FLW's markFollowLabels needs one (FLW's labels persist
+// across ticks; WPN's don't).
 function placeWpnNavLabels() {
-  overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
+  overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
   delete keyBanks.left[0].dataset.action;
   delete keyBanks.right[0].dataset.action;
   const total = (wpnData.items || []).length;
@@ -832,9 +888,51 @@ function placeWpnNavLabels() {
   const cur = Math.min(Math.max(wpnPage, 0), maxPage);
   placeOverlayLabel('left', 0, cur > 0 ? 'PREV' : 'MAIN', cur > 0 ? 'wpn-prev' : 'main');
   if (cur < maxPage) placeOverlayLabel('right', 0, 'NEXT', 'wpn-next');
+  placeOverlayLabel('right', 1, 'ARM',  'master-arms-on',  wpnData.masterArmsOn === true);
+  placeOverlayLabel('right', 2, 'SAFE', 'master-arms-off', wpnData.masterArmsOn === false);
+  // No ALL label — holding A/A or A/G already resets to ALL (see PollTapHold in Keybinds.cs), so
+  // ALL just reads as neither of these two lit, the same way it does for the keybinds themselves.
+  placeOverlayLabel('right', 3, 'A/A', 'combat-mode-aa', wpnData.combatMode === 'aa');
+  placeOverlayLabel('right', 4, 'A/G', 'combat-mode-ag', wpnData.combatMode === 'ag');
+  placeWpnDecorators();
   // This runs on every loadout tick, not only on a page change, so the SOI cursor's mark has to be
   // re-applied here too — it lives on a label this function just threw away.
   renderSoiCursor();
+}
+
+// Purely decorative — a word + triangle above/below, centered in the gap BETWEEN a control pair
+// rather than on either key (docs/radar-master-arms.md, per the user's mockup-approved design).
+// Vertically centered on the separator between the pair's two keys (sepElsRight[2] sits between
+// right[1]/ARM and right[2]/SAFE; sepElsRight[4] between right[3]/A-A and right[4]/A-G — sepElsRight
+// index i+1 = below key i). Horizontally centered on the pair's own labels rather than sharing their
+// right:16px anchor — ARM/SAFE/A-A/A-G are unpadded nowrap text right-aligned to that edge, so two
+// different-width words (e.g. "ARM" vs "SAFE") don't share a center; anchoring the decorator to that
+// same edge made it hug the narrower word's edge instead of sitting in the middle of the pair.
+function placeWpnDecorator(sepIndex, word, upPoints, downPoints) {
+  const sep = sepElsRight[sepIndex];
+  const labelA = overlayEl.querySelector('[data-key="right' + (sepIndex - 1) + '"]');
+  const labelB = overlayEl.querySelector('[data-key="right' + sepIndex + '"]');
+  if (!sep || !labelA || !labelB) return;
+  const oRect = overlayEl.getBoundingClientRect();
+  const sRect = sep.getBoundingClientRect();
+  const aRect = labelA.getBoundingClientRect();
+  const bRect = labelB.getBoundingClientRect();
+  const centerX = ((aRect.left + aRect.right) / 2 + (bRect.left + bRect.right) / 2) / 2;
+
+  const el = document.createElement('div');
+  el.className = 'wpn-decor';
+  el.style.top = (sRect.top + sRect.height / 2 - oRect.top) + 'px';
+  el.innerHTML =
+    '<svg width="12" height="8" viewBox="0 0 12 8"><polygon points="' + upPoints + '" fill="currentColor"/></svg>' +
+    '<div class="wpn-decor-word">' + word + '</div>' +
+    '<svg width="12" height="8" viewBox="0 0 12 8"><polygon points="' + downPoints + '" fill="currentColor"/></svg>';
+  overlayEl.appendChild(el);
+  el.style.right = 'auto';
+  el.style.left = (centerX - oRect.left - el.offsetWidth / 2) + 'px';
+}
+function placeWpnDecorators() {
+  placeWpnDecorator(2, 'MASTER', '6,0 12,8 0,8', '0,0 12,0 6,8');
+  placeWpnDecorator(4, 'MODE',   '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
 
 // ── App-wide orientation ─────────────────────────────────────────────────────────────
@@ -1001,7 +1099,7 @@ function renderIndicators() {
 
 // Latest loadout snapshot mirrored from the map iframe (postMessage). Even when WPN isn't
 // in view we keep it fresh, so opening the page renders immediately without a round-trip.
-let wpnData      = { items: [], selWeapon: null, softGun: null, softRel: null };
+let wpnData      = { items: [], selWeapon: null, softGun: null, softRel: null, masterArmsOn: true, combatMode: 'all' };
 let wpnPage = 0;             // 0-indexed page for the weapon list pagination (full-view nav state)
 const WPN_MAX_DISPLAY = 5;   // weapons per page = 5 line-select slots (keys 1..5)
 
@@ -1108,8 +1206,9 @@ function showPage(name) {
   infoBox.classList.toggle('show', name === 'main');
   screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGT/TGP/AVN render in #page-frame
   clearKeyActions();
-  // Only wipe dynamic line-select labels; static children (info-box) stay put.
-  overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.remove(); });
+  // Only wipe dynamic line-select labels (+ WPN's purely-decorative MASTER/MODE labels, docs/
+  // radar-master-arms.md); static children (info-box) stay put.
+  overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
 
   if (name === 'main') {
     // MAIN_SPLIT_ITEMS — all eleven destinations, alphabetically — rather than NAV.main +
@@ -1261,7 +1360,8 @@ window.addEventListener('message', function(e) {
   } else if (m.type === 'loadout') {
     const prevSel = wpnData.selWeapon;
     wpnData = { items: m.items || [], selWeapon: m.selWeapon || null,
-                softGun: m.softGun || null, softRel: m.softRel || null };
+                softGun: m.softGun || null, softRel: m.softRel || null,
+                masterArmsOn: m.masterArmsOn !== false, combatMode: m.combatMode || 'all' };
     const selChanged = wpnData.selWeapon && wpnData.selWeapon !== prevSel;
     // Full-view: follow the in-game selection to its page when it moves off the current page.
     // Only on an actual change, so manual paging is preserved on ammo/loadout ticks.
@@ -1674,6 +1774,12 @@ function mfdButton(el) {
       // can scope to the focused pane; that tag would otherwise make this branch mistake
       // 'weapon.select' for a page name and hand it to paneNavigate.
       if (el.dataset.wname) sendCommand('weapon.select', { wname: el.dataset.wname }).catch(function() {});
+    } else if (act === 'master-arms-on' || act === 'master-arms-off') {
+      // Same reasoning as weapon.select above: a mod-state action, not a destination page. Only
+      // carries a data-pane tag because it shares WPN's paginated item slots (buildWpnSplitPages).
+      sendCommand('master-arms.set', { on: act === 'master-arms-on' }).catch(function() {});
+    } else if (act === 'combat-mode-aa' || act === 'combat-mode-ag') {
+      sendCommand('combat-mode.set', { group: act === 'combat-mode-aa' ? 'aa' : 'ag' }).catch(function() {});
     } else {
       paneNavigate(paneIdx, act);
     }
@@ -1689,6 +1795,10 @@ function mfdButton(el) {
     case 'weapon.select':                                    // WPN bezel key → select the aligned weapon
       if (el.dataset.wname) sendCommand('weapon.select', { wname: el.dataset.wname }).catch(function() {});
       break;
+    case 'master-arms-on':  sendCommand('master-arms.set', { on: true  }).catch(function() {}); break;
+    case 'master-arms-off': sendCommand('master-arms.set', { on: false }).catch(function() {}); break;
+    case 'combat-mode-aa':  sendCommand('combat-mode.set', { group: 'aa'  }).catch(function() {}); break;
+    case 'combat-mode-ag':  sendCommand('combat-mode.set', { group: 'ag'  }).catch(function() {}); break;
     case 'tgp':  showPage('tgp');  break;
     case 'hud':  showPage('hud');  break;
     case 'keys': showPage('keys'); break;

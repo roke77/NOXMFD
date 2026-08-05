@@ -59,6 +59,19 @@ namespace NOXMFD
         // RadarJammer countermeasure, not a weapon station.
         private static bool IsJammerPod(WeaponInfo i) => i.jammer;
 
+        // Air-to-air missiles (docs/radar-master-arms.md, issue #32) — a maintained, exhaustive list;
+        // every other IsMissile entry counts as air-to-ground by default (new A/A weapons from future
+        // game updates land as A/G until this list is updated — accepted, A/G additions are the common
+        // case). Names are Encyclopedia/UnitDefinition names (_scratch/units.json); four of five —
+        // "AAM-29 Scythe", "AAM-36 Scimitar", "IRM-S2", "MMR-S3" — are confirmed matching the live
+        // WeaponInfo name from real session logs. "IRM-S1" hasn't turned up in a loadout yet and is
+        // still provisional.
+        private static readonly HashSet<string> AirToAirMissiles = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "AAM-29 Scythe", "AAM-36 Scimitar", "IRM-S2", "MMR-S3", "IRM-S1",
+        };
+        private static bool IsAirToAir(WeaponInfo i) => AirToAirMissiles.Contains(EntryName(i));
+
         internal static string EntryName(WeaponInfo info) =>
             !string.IsNullOrEmpty(info.weaponName) ? info.weaponName : info.shortName;
 
@@ -67,9 +80,26 @@ namespace NOXMFD
         // it advances to the next entry and makes it active; with another class active it recalls the
         // class's remembered soft selection (or the first entry) and makes THAT active — so the first
         // press is "switch into this class where I left it", the second press cycles.
-        public static void CycleGun(Aircraft ac)     => _softGun = CycleAndSelect(ac, IsGun,     _softGun);
-        public static void CycleMissile(Aircraft ac) => _softRel = CycleAndSelect(ac, IsMissile, _softRel);
-        public static void CycleBomb(Aircraft ac)    => _softRel = CycleAndSelect(ac, IsBomb,    _softRel);
+        public static void CycleGun(Aircraft ac)     => _softGun = CycleAndSelect(ac, IsGun, _softGun);
+
+        // Combat mode (docs/radar-master-arms.md, issue #32) narrows which missiles Cycle Missile
+        // reaches: unrestricted in ALL, air-to-air-only or air-to-ground-only otherwise. Guns are
+        // unaffected by combat mode (see CycleGun above); bombs are handled below.
+        public static void CycleMissile(Aircraft ac) => _softRel = CycleAndSelect(ac, MissileFilter(), _softRel);
+
+        // Bombs are disabled entirely while in A/A mode — no-op, doesn't touch _softRel.
+        public static void CycleBomb(Aircraft ac)
+        {
+            if (ImmersionState.CombatMode == CombatMode.AirToAir) return;
+            _softRel = CycleAndSelect(ac, IsBomb, _softRel);
+        }
+
+        private static Func<WeaponInfo, bool> MissileFilter() => ImmersionState.CombatMode switch
+        {
+            CombatMode.AirToAir    => i => IsMissile(i) && IsAirToAir(i),
+            CombatMode.AirToGround => i => IsMissile(i) && !IsAirToAir(i),
+            _                      => IsMissile,
+        };
 
         private static string CycleAndSelect(Aircraft ac, Func<WeaponInfo, bool> cls, string soft)
         {

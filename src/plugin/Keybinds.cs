@@ -84,6 +84,9 @@ namespace NOXMFD
             public ConfigEntry<bool>? AxisInvertEntry;         // flip polarity — arbitrary per device
             public bool  ActiveNow;                            // per-frame scratch (digital), valid only inside Poll()
             public float AxisValueNow;                         // per-frame scratch (analog), valid only inside Poll()
+            // Tap/hold binds only (see PollTapHold): when ActiveNow went true, -1 while not pressed.
+            public float PressStartTime = -1f;
+            public bool  HoldFired;                            // whether the hold action already fired this press
         }
 
         private static readonly List<BindDef> _binds = new List<BindDef>();
@@ -104,6 +107,11 @@ namespace NOXMFD
         // The two MAP cursor axis binds (docs/map-cursor.md) — analog alternative to the four keys
         // above; a deflected axis overrides its keys for that component (Poll()).
         private static BindDef? _cursorAxisH, _cursorAxisV;
+
+        // Combat-mode tap/hold binds (docs/radar-master-arms.md, issue #32) — see PollTapHold. Kept by
+        // reference, same reasoning as the cursor binds above: Poll() drives their real behavior
+        // directly rather than through the generic Drive/DriveFree per-frame dispatch.
+        private static BindDef? _combatModeAa, _combatModeAg;
 
         // "Keep reading the stick while the game is unfocused" (see the .cfg description). Applied
         // live by ApplyBackgroundInput; the _bg* fields remember what to put back if it's turned off.
@@ -222,6 +230,42 @@ namespace NOXMFD
             _cursorAxisV = AddAxis(config, "cursor-axis-v", cursor, "CursorAxisV", "Cursor Vertical",
                 "Analog axis driving the cursor up/down — overrides Cursor Up/Down when deflected. Only acts while a display with a cursor is focused.");
 
+            // Immersion keybinds — docs/radar-master-arms.md (issue #32). Registered LAST (and its
+            // three start-state settings appended after this Bind() method, in the same order) so the
+            // KEY page's "Immersion options" section — binds + settings together — lands at the very
+            // bottom of the page, below a separator, per the user's request: appended, not interleaved
+            // with the existing sections above. Master Arms/Radar/Engine are plain dedicated ON+OFF
+            // pairs (edge:true, always the same action) — the game already has its own single-toggle
+            // Radar/Engine bind for anyone who doesn't want a dedicated pair, so there's no tap/hold
+            // trick here. A/A and A/G are different: there's no stock "reset combat mode" control at
+            // all, so they keep a tap-vs-hold pair (tap sets that mode, hold resets to ALL) — see
+            // PollTapHold. Registered as no-op held binds (edge:false), exactly like the cursor
+            // direction binds above — Poll() drives them directly via PollTapHold instead of the
+            // generic per-frame dispatch, since tap and hold must each fire exactly once, not repeatedly.
+            const string immersion = "Immersion Keybinds";
+            DefFree(config, "master-arms-on", immersion, "MasterArmsOn", "Master Arms ON", edge: true,
+                "Arm — guns/missiles/bombs free to fire.",
+                () => ImmersionState.MasterArmsOn = true);
+            DefFree(config, "master-arms-off", immersion, "MasterArmsOff", "Master Arms OFF", edge: true,
+                "Disarm — guns/missiles/bombs blocked.",
+                () => ImmersionState.MasterArmsOn = false);
+            Def(config, "radar-on", immersion, "RadarOn", "Radar ON", edge: true,
+                "Turn the radar on.",
+                ac => SetRadar(ac, on: true));
+            Def(config, "radar-off", immersion, "RadarOff", "Radar OFF", edge: true,
+                "Turn the radar off.",
+                ac => SetRadar(ac, on: false));
+            Def(config, "engine-on", immersion, "EngineOn", "Engine ON", edge: true,
+                "Turn the engine on.",
+                ac => SetEngine(ac, on: true));
+            Def(config, "engine-off", immersion, "EngineOff", "Engine OFF", edge: true,
+                "Turn the engine off.",
+                ac => SetEngine(ac, on: false));
+            _combatModeAa = DefFree(config, "combat-mode-aa", immersion, "CombatModeAA", "A/A", edge: false,
+                "Tap to restrict Cycle Missile to air-to-air missiles only, and disable Cycle Bombs. Hold to reset to ALL (unrestricted).", () => { });
+            _combatModeAg = DefFree(config, "combat-mode-ag", immersion, "CombatModeAG", "A/G", edge: false,
+                "Tap to restrict Cycle Missile to air-to-ground missiles only. Hold to reset to ALL (unrestricted).", () => { });
+
             // Hidden like the binds above — the /keybinds page owns this one too now (rendered as a
             // toggle, not a bind row: it has no key/joy/axis source of its own).
             _bgInput = config.Bind("Input", "InputWhenGameUnfocused", false,
@@ -302,6 +346,7 @@ namespace NOXMFD
             "MAP Keybinds"            => "MAP",
             "SOI Keybinds"            => "SOI",
             "Cursor Keybinds"         => "CURSOR",
+            "Immersion Keybinds"      => "IMMERSION OPTIONS",
             _ => section,
         };
 
@@ -324,6 +369,9 @@ namespace NOXMFD
                 "Cycle keys select the last soft-selected weapon of their type, or the first in the list. " +
                 "Repeated presses cycle to the next one, skipping depleted weapons. " +
                 "Cycling to a different type leaves the current one soft-selected.",
+            "Immersion Keybinds" =>
+                "A/A and A/G each restrict Cycle Missile on a tap; hold either one to reset to ALL " +
+                "(unrestricted). Every other bind here is a plain dedicated action.",
             _ => null,
         };
 
@@ -542,6 +590,14 @@ namespace NOXMFD
             // (docs/page-cursor.md), which an edge-only counter can't express.
             TelemetryServer.SetCursorSelectHeld(Active(_cursorSelect!, edgeOverride: false));
 
+            // Combat-mode tap/hold binds (docs/radar-master-arms.md) — run every frame, same reasoning
+            // as the cursor vector above: a release on an otherwise-idle frame must still reset
+            // PressStartTime, or the next tap on that bind would misread as an instant hold.
+            PollTapHold(_combatModeAa!, onTap: () => ImmersionState.CombatMode = CombatMode.AirToAir,
+                                        onHold: () => ImmersionState.CombatMode = CombatMode.All);
+            PollTapHold(_combatModeAg!, onTap: () => ImmersionState.CombatMode = CombatMode.AirToGround,
+                                        onHold: () => ImmersionState.CombatMode = CombatMode.All);
+
             if (!any) return;   // common case — nothing this frame
 
             // Aircraft-free binds first (SOI): they drive the mod's own displays, so they have to work
@@ -565,6 +621,46 @@ namespace NOXMFD
             if (ac.radarAlt <= 0.2f) return;
             if (up   && ac.gearState == LandingGear.GearState.LockedExtended)  ac.SetGear(false);   // raise if down
             if (down && ac.gearState == LandingGear.GearState.LockedRetracted) ac.SetGear(true);    // lower if up
+        }
+
+        // Direct, not a blind toggle: only calls the game's Cmd when the state actually needs to
+        // change, so pressing "on" while already on (or "off" while already off) is a clean no-op —
+        // same reasoning as DriveGear above. CmdToggleRadar()/CmdToggleIgnition() only flip whatever
+        // the current state is; there's no direct "set" call on the game side.
+        private static void SetRadar(Aircraft ac, bool on)
+        {
+            if (ac.radar != null && ac.radar.activated != on) ac.CmdToggleRadar();
+        }
+        private static void SetEngine(Aircraft ac, bool on)
+        {
+            if (ac.Ignition != on) ac.CmdToggleIgnition();
+        }
+
+        // Tap/hold binds (docs/radar-master-arms.md, issue #32 — currently just A/A and A/G, which
+        // have no stock "reset combat mode" bind to fall back on; Master Arms/Radar/Engine turned out
+        // not to need this, since the game's own single-toggle bind already covers that case) — a tap
+        // and a hold are two DIFFERENT actions, unlike the held-repeat binds above (Jammer, Flares)
+        // where the same action just re-fires every frame held. Nothing in this codebase already
+        // distinguishes tap from hold this way: TGT's PAD-cursor tap/long-press (docs/page-cursor.md)
+        // is decided CLIENT-SIDE in JS off a raw held flag the plugin streams — that doesn't apply
+        // here, since there's no page involved for a physical keybind press. So this tracks
+        // press-start time directly on the bind's own scratch fields (PressStartTime/HoldFired): onTap
+        // fires the instant the bind is pressed; onHold fires once if still held past HoldSeconds.
+        // Must be called every frame for every tap/hold bind regardless of ActiveNow — see the call
+        // site in Poll(), before the "nothing active" early return — so a release on an otherwise-idle
+        // frame still resets PressStartTime.
+        private const float HoldSeconds = 0.35f;
+        private static void PollTapHold(BindDef b, Action onTap, Action onHold)
+        {
+            if (b.ActiveNow)
+            {
+                if (b.PressStartTime < 0f) { b.PressStartTime = Time.unscaledTime; b.HoldFired = false; onTap(); }
+                else if (!b.HoldFired && Time.unscaledTime - b.PressStartTime >= HoldSeconds) { b.HoldFired = true; onHold(); }
+            }
+            else
+            {
+                b.PressStartTime = -1f;
+            }
         }
 
         // Runs on the main-thread Poll while a joy capture is armed. Writes the first joystick button that

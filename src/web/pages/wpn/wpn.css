@@ -4,6 +4,56 @@
 .wpn-panel { position: absolute; inset: 0; }
 .wpn-panel.has-loadout .wpn-empty { display: none; }
 
+/* Master Arms OFF (docs/radar-master-arms.md) — full-screen X + a centered info card, over
+   whatever the panel is currently showing (loadout or the empty placeholder). The X is stretched
+   to fill the panel's own aspect ratio (preserveAspectRatio="none") rather than kept square — this
+   reads as "the whole screen is crossed out," not a decorative glyph, so distorting off a true 45°
+   isn't a concern. Hidden by default; toggled by wpn.js off the shell-forwarded masterArmsOn. */
+.wpn-safe { display: none; position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.wpn-safe.show { display: block; }
+.wpn-safe-x { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wpn-safe-x line { stroke: var(--no-red); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+
+/* The card itself — same shape as the shell's MAIN "about" info-box (mfd.css .info-box: centered,
+   bordered, glow), red instead of the theme's usual green, since this is an alert state rather than
+   identity/status. Solid black fill (not the translucent --no-panel-bg other cards use) so the
+   crossed-out content behind it doesn't show through — this card IS the alert, not a status
+   readout layered over live data. A hazard-stripe band is the card's own top/bottom edge (not a
+   full-screen bar) — the same caution-tape motif a physical MASTER ARM switch's guard often
+   carries. MASTER ARMS names what's shown; SAFE is the state, so it reads bigger/heavier — the one
+   thing a pilot actually needs to register at a glance. */
+.wpn-safe-box {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 40%;
+  border: 1px solid var(--no-red);
+  background: var(--no-bg);
+  box-shadow: 0 0 12px rgba(255, 64, 64, 0.35);
+  overflow: hidden;
+}
+.wpn-safe-stripe {
+  height: clamp(6px, 1.2vh, 10px);
+  background: repeating-linear-gradient(135deg, var(--no-red) 0 10px, var(--no-bg) 10px 20px);
+}
+.wpn-safe-body {
+  padding: clamp(14px, 3vh, 28px) clamp(20px, 5vw, 46px);
+  color: var(--no-red);
+  text-align: center;
+  letter-spacing: 2px;
+}
+.wpn-safe-title {
+  font-size: clamp(12px, 2.2vh, 18px);
+  font-weight: 700;
+  margin-bottom: clamp(6px, 1.2vh, 12px);
+}
+.wpn-safe-state {
+  font-size: clamp(22px, 4.4vh, 38px);
+  font-weight: 900;
+  letter-spacing: 3px;
+}
+
 /* Countermeasures panel — fills the top "first band" (key slot beside MAIN). top + height
    are set by JS from the shell-forwarded band geometry; the middle grid row (1fr) grows so
    the flares count/icon and jammer readout fill the band's height. */
@@ -136,7 +186,7 @@
    override the compact base by specificity; compact (no .full class) is unaffected.
    Transcribed from the former MfdPage.cs full-view WPN <style>. */
 body.full .wp-item {
-  left: 90px;                      /* clear the left line-select label gutter */
+  left: 18px;                      /* hug the screen's left edge, same as portrait */
   right: calc(45% + 10px);         /* name list takes the left 55%; image the right 45% */
   transform: none;                 /* full positions by top+height span, not centre */
   flex-direction: column;
@@ -148,12 +198,13 @@ body.full .wp-item {
 }
 body.full .wp-name { align-self: flex-start; max-width: 100%; font-size: 28px; }
 body.full .wp-ammo { font-size: 20px; margin-top: 2px; }
-body.full.portrait .wp-item { left: 18px; }
 
 /* Big icon of the currently-selected weapon, right ~45%, spanning the keys-1..5 area
    (top+height set by JS from the forwarded icon geometry). Source icons are 2:1 horizontal;
-   rotate 90deg in portrait so the long axis runs vertically and object-fit:contain fills the
-   tall right half (cqh/cqw axis-swap pairs with the rotate). */
+   always rotated 90deg so the long axis runs vertically and object-fit:contain fills the tall
+   right half (cqh/cqw axis-swap pairs with the rotate) — same look in landscape as portrait, not
+   just a portrait-only fit (matches V_SPLIT below, which never un-rotates regardless of
+   orientation either). */
 .wp-sel-icon-wrap {
   position: absolute;
   left: 55%; right: 0;
@@ -174,7 +225,6 @@ body.full .wp-sel-icon-wrap.show { display: flex; }
   object-fit: contain;
   transform: rotate(90deg);
 }
-body.landscape .wp-sel-icon { width: 100cqw; height: 100cqh; transform: none; }
 
 /* Left/right split (V_SPLIT / V_WIDE_SPLIT): the single-column list hugs one side (max 46% wide),
    so show the selected-weapon image in the opposite half. The image box is tall + narrow here, so

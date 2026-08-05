@@ -62,6 +62,7 @@
     pal: '/bdf?pal',   // same page, PRIMEVA (docs/bdf-page.md) — a URL flag, not a separate page
     hud: '/hud',   // the HUD OPTIONS page — fetches /hud-options and POSTs its own hud.* commands
     keys: '/keybinds',   // extended-keybinds page — polls /keybinds-config and POSTs keybind.* itself
+    rdr: '/rdr',   // radar page (docs/rdr-page.md) — mirrors the bezel's FRAME_PAGES.rdr
   };
 
   // The telemetry each screen needs, by the tap's own type names. A page that just mounted has
@@ -77,6 +78,7 @@
     wpn: ['loadout', 'cm'],   // 'loadout' is derived, not forwarded as-is — see DERIVED
     bdf: ['bdf'],             // read-only faction-forces block (docs/bdf-page.md)
     pal: ['pal'],             // same, for PRIMEVA
+    rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
   };
 
   // The tap calls it 'targets'; TGT listens for 'tgt-targets'. The bezel renames it in exactly the
@@ -106,6 +108,7 @@
     { label: 'LYT', action: 'lyt' },
     { label: 'PAL', action: 'pal' },
     { label: 'BDF', action: 'bdf' },
+    { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md) — mirrors BEZEL_EXTRAS.main
   ];
 
   // Paging actions, and the direction each moves. Not pages, so they dispatch separately.
@@ -122,6 +125,27 @@
   // the portal's OWN map — with several maps on the glass, "the map" is no longer unambiguous.
   const MAP_ACTIONS = { flw: 'toggle-follow', zin: 'zoom-in', zout: 'zoom-out' };
 
+  // ARM/SAFE (docs/radar-master-arms.md) — WPN's own unconditional controls, same shape as
+  // MAP_ACTIONS: an action name maps to what it sends, dispatched by command rather than page nav.
+  const MASTER_ARMS_ACTIONS = { 'master-arms-on': true, 'master-arms-off': false };
+  // Right column, rows 2-3: col 1 rows 2..6 are the weapon-row hit targets (.wpn-hit, f35.css), so
+  // col 2 below NEXT's row 1 is free. Appended in itemsFor() rather than living in f35-wpn-paging.js
+  // — unconditional, unlike NEXT, so they don't belong in that pure/tested pagination module.
+  const MASTER_ARMS_NAV = [
+    { label: 'ARM',  action: 'master-arms-on',  cell: { row: 2, col: 2 } },
+    { label: 'SAFE', action: 'master-arms-off', cell: { row: 3, col: 2 } },
+  ];
+
+  // Combat mode (docs/radar-master-arms.md) — same shape as ARM/SAFE, one row lower: rows 4-5 of
+  // the right column are free too (only col 1 rows 2..6 are spoken for, by the weapon-row hits).
+  // No ALL item — holding A/A or A/G already resets to ALL (PollTapHold, Keybinds.cs), so ALL just
+  // reads as neither of these two lit, same as for the keybinds themselves.
+  const COMBAT_MODE_ACTIONS = { 'combat-mode-aa': 'aa', 'combat-mode-ag': 'ag' };
+  const COMBAT_MODE_NAV = [
+    { label: 'A/A', action: 'combat-mode-aa', cell: { row: 4, col: 2 } },
+    { label: 'A/G', action: 'combat-mode-ag', cell: { row: 5, col: 2 } },
+  ];
+
   // Where a screen's NAV items sit. Default 'edge' = the bezel's left key bank, minus the bezel.
   // MAIN is 'center': its labels ARE the screen, so they own the middle of the glass instead of
   // hugging an edge that frames nothing. Both modes consume NAV in order — only placement differs,
@@ -137,7 +161,8 @@
   function has(page) { return Object.prototype.hasOwnProperty.call(F35_PAGES, page); }
   function feedsFor(page) { return PAGE_FEEDS[page] || []; }
   function canDo(action) {
-    return has(action) || (action in PAGER) || (action in MAP_ACTIONS) || (action in GLASS_ACTIONS);
+    return has(action) || (action in PAGER) || (action in MAP_ACTIONS) || (action in GLASS_ACTIONS) ||
+           (action in MASTER_ARMS_ACTIONS) || (action in COMBAT_MODE_ACTIONS);
   }
 
   // 'edge' placement: an item's index → its cell. The left column, top-down, IS the bezel's left
@@ -286,9 +311,13 @@
       wpnPage = st.page;
       w.postMessage({ mfd: true, type: 'wpn', items: st.visible, selWeapon: lo.selWeapon,
                       softGun: lo.softGun || null, softRel: lo.softRel || null,
+                      masterArmsOn: lo.masterArmsOn !== false,
                       page: st.maxPage > 0 ? st.page + 1 : 1, pages: st.maxPage + 1 }, '*');
       const key = st.page + '|' + st.maxPage + '|' + st.visible.map(function (it) { return it.n; }).join(',');
       if (currentPage === 'wpn' && key !== wpnNavKey) { wpnNavKey = key; renderNav(); }
+      // masterArmsOn/combatMode can change without the page/weapon list changing, so re-apply them
+      // every tick — renderNav() above is change-gated and would otherwise miss that case.
+      if (currentPage === 'wpn') { markMasterArms(); markCombatMode(); }
     }
 
     // Row 1 is the CM band; rows 2..6 are the weapon slots; the image spans rows 2..6. The grid and
@@ -350,7 +379,7 @@
     //          NAV items, where the bezel just shows NAV's six in their given order.
     //   wpn  — nothing from NAV (it's empty by design); its labels are pagination.
     function itemsFor(page) {
-      if (page === 'wpn') return wpnState().nav;
+      if (page === 'wpn') return wpnState().nav.concat(MASTER_ARMS_NAV, COMBAT_MODE_NAV);
       const items = (NAV[page] || []).slice();
       if (page !== 'main') return items;
       return items.concat(MAIN_EXTRAS).sort(function (a, b) { return a.label.localeCompare(b.label); });
@@ -374,10 +403,71 @@
       if (b) b.classList.toggle('on', followOn);
     }
 
+    // ARM/SAFE (docs/radar-master-arms.md) reflect masterArmsOn straight off the loadout slice —
+    // no local state to track, unlike followOn (which the map reports back independently). Called
+    // from forwardWpn() on every tick (not gated by the nav-rebuild key), since the amber state can
+    // change without the weapon list/page changing.
+    function markMasterArms() {
+      const armed = !(slices.loadout && slices.loadout.masterArmsOn === false);
+      const on  = grid.querySelector('.nav-item[data-action="master-arms-on"]');
+      const off = grid.querySelector('.nav-item[data-action="master-arms-off"]');
+      if (on)  on.classList.toggle('on', armed);
+      if (off) off.classList.toggle('on', !armed);
+    }
+
+    // Combat mode (docs/radar-master-arms.md) — same shape as markMasterArms above.
+    function markCombatMode() {
+      const mode = (slices.loadout && slices.loadout.combatMode) || 'all';
+      COMBAT_MODE_NAV.forEach(function (item) {
+        const b = grid.querySelector('.nav-item[data-action="' + item.action + '"]');
+        if (b) b.classList.toggle('on', COMBAT_MODE_ACTIONS[item.action] === mode);
+      });
+    }
+
+    // Decorative MASTER/MODE labels (docs/radar-master-arms.md) — the bezel's mfd.js equivalent,
+    // adapted to this layout: no separator element sits between ARM/SAFE (adjacent grid rows, not
+    // bezel keys with a real gap), so the vertical centre is just the midpoint between the two
+    // buttons' own rects; horizontal centre likewise averages their rects rather than sharing their
+    // right-edge margin (which two different-width labels don't actually share, same reasoning as
+    // the bezel version). Recomputed from scratch each call rather than diffed in place — cheap, and
+    // simpler than tracking whether a resize invalidated the last position.
+    function placeWpnDecorator(actionA, actionB, word) {
+      const a = grid.querySelector('.nav-item[data-action="' + actionA + '"]');
+      const b = grid.querySelector('.nav-item[data-action="' + actionB + '"]');
+      if (!a || !b) return;
+      const gRect = grid.getBoundingClientRect();
+      const aRect = a.getBoundingClientRect();
+      const bRect = b.getBoundingClientRect();
+      const centerX = ((aRect.left + aRect.right) / 2 + (bRect.left + bRect.right) / 2) / 2;
+      const centerY = (aRect.bottom + bRect.top) / 2;
+      const el = document.createElement('div');
+      el.className = 'wpn-decor';
+      el.innerHTML =
+        '<svg width="12" height="8" viewBox="0 0 12 8"><polygon points="6,0 12,8 0,8" fill="currentColor"/></svg>' +
+        '<div class="wpn-decor-word">' + word + '</div>' +
+        '<svg width="12" height="8" viewBox="0 0 12 8"><polygon points="0,0 12,0 6,8" fill="currentColor"/></svg>';
+      grid.appendChild(el);
+      el.style.left = (centerX - gRect.left - el.offsetWidth / 2) + 'px';
+      el.style.top  = (centerY - gRect.top - el.offsetHeight / 2) + 'px';
+    }
+    function placeWpnDecorators() {
+      grid.querySelectorAll('.wpn-decor').forEach(function (el) { el.remove(); });
+      placeWpnDecorator('master-arms-on', 'master-arms-off', 'MASTER');
+      placeWpnDecorator('combat-mode-aa', 'combat-mode-ag', 'MODE');
+    }
+
     function dispatch(action) {
       if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
       if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
       if (action in GLASS_ACTIONS) { GLASS_ACTIONS[action](); return; }
+      if (action in MASTER_ARMS_ACTIONS) {
+        sendCommand('master-arms.set', { on: MASTER_ARMS_ACTIONS[action] }).catch(function () {});
+        return;
+      }
+      if (action in COMBAT_MODE_ACTIONS) {
+        sendCommand('combat-mode.set', { group: COMBAT_MODE_ACTIONS[action] }).catch(function () {});
+        return;
+      }
       if (has(action)) showPage(action);
     }
 
@@ -409,7 +499,7 @@
         else       b.disabled = true;
         grid.appendChild(b);
       });
-      if (currentPage === 'wpn') addWeaponHits();
+      if (currentPage === 'wpn') { addWeaponHits(); markMasterArms(); markCombatMode(); placeWpnDecorators(); }
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
       // The grid was just rebuilt, so an SOI cursor mark on one of its items is gone — let the shell
       // re-apply it if this is the focused portal (the F-35 twin of mfd.js's post-rebuild renderSoiCursor).
@@ -453,7 +543,7 @@
       // resize handling, and must not be re-entered here — that would reload the iframe and throw
       // away the zoom and pan the pilot set.
       resized: function () {
-        if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); }
+        if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); placeWpnDecorators(); }
       },
       destroy: function () { el.remove(); },
     };

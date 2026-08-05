@@ -13,7 +13,8 @@
   be added during the full/split unification (docs/src-architecture.md).
 
   Shell -> page messages (all {mfd:true, ...}):
-    'wpn'        : the (already-sliced, <= 4) weapon list + selected weapon.
+    'wpn'        : the (already-sliced, <= 4) weapon list + selected weapon, plus masterArmsOn
+                   (docs/radar-master-arms.md) — false draws the full-screen SAFE cross.
     'wpn-layout' : geometry from the shell — slotYs (vertical centre of each weapon slot,
                    fill order L1, L2, R1, R2) and the CM band (cmTop + cmHeight).
     'cm'         : countermeasures snapshot (flares + jammer).
@@ -53,6 +54,23 @@
     <!-- Full-profile only: big icon of the selected weapon on the right ~45%. Hidden in the
          compact (split-pane) profile, which has no room for it. -->
     <div class="wp-sel-icon-wrap" id="wp-sel-icon-wrap"><img class="wp-sel-icon" id="wp-sel-icon" alt=""></div>
+    <!-- Master Arms OFF (docs/radar-master-arms.md) — full-screen X + a centered info-box (same
+         shape as MAIN's green title/status card, red instead), both profiles. masterArmsOn rides
+         the 'wpn' message alongside the loadout. -->
+    <div class="wpn-safe" id="wpn-safe">
+      <svg class="wpn-safe-x" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <line x1="1" y1="1" x2="99" y2="99"/>
+        <line x1="99" y1="1" x2="1" y2="99"/>
+      </svg>
+      <div class="wpn-safe-box">
+        <div class="wpn-safe-stripe"></div>
+        <div class="wpn-safe-body">
+          <div class="wpn-safe-title">MASTER ARMS</div>
+          <div class="wpn-safe-state">SAFE</div>
+        </div>
+        <div class="wpn-safe-stripe"></div>
+      </div>
+    </div>
   </div>
   <div id="page-ind" class="mfd-chip empty">PAGE 1/1</div>
 <script src="/assets/pages/wpn/wpn.js"></script>

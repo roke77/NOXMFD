@@ -25,6 +25,7 @@ namespace NOXMFD
         public long   id;      // target unit persistentID (target.select / target.deselect)
         public string wname;   // weapon type name (weapon.select) — matches LoadoutEntry.Name
         public string group;   // tgt.set / tgt.only : "faction" | "category" | "vehicle"
+                                // combat-mode.set : "all" | "aa" | "ag"
         public int    index;   // tgt.set / tgt.only : toggle index within the group
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
         public string bind;    // keybind.* : BindDef id ("flares", "gear-up", ...)
@@ -52,6 +53,13 @@ namespace NOXMFD
                 { "hud.set",         HudSet },
                 { "hud.mode",        HudMode },
                 { "declutter.set",   DeclutterSet },
+                { "master-arms.set", e => ImmersionState.MasterArmsOn = e.on },
+                { "combat-mode.set", e => ImmersionState.CombatMode = e.group switch
+                    {
+                        "aa" => CombatMode.AirToAir,
+                        "ag" => CombatMode.AirToGround,
+                        _    => CombatMode.All,
+                    } },
                 { "keybind.set-key",    e => Log("set-key",    e.bind, Keybinds.SetKeyBind(e.bind, e.key)) },
                 { "keybind.arm-joy",    e => Log("arm-joy",    e.bind, Keybinds.ArmJoyCapture(e.bind)) },
                 { "keybind.cancel-joy", e => Keybinds.CancelJoyCapture() },
@@ -65,6 +73,11 @@ namespace NOXMFD
                 // Input-while-unfocused toggle — the /keybinds page's first entry, not a bind (no
                 // key/joy/axis source of its own).
                 { "keybind.set-bg-input", e => Keybinds.SetBackgroundInput(e.on) },
+                // Immersion start-state toggles (docs/radar-master-arms.md) — the KEY page's other
+                // non-bind rows, same shape as keybind.set-bg-input.
+                { "keybind.set-radar-on-start",       e => ImmersionConfig.SetRadarOnOnStart(e.on) },
+                { "keybind.set-engine-on-start",      e => ImmersionConfig.SetEngineOnOnStart(e.on) },
+                { "keybind.set-master-arms-on-start", e => ImmersionConfig.SetMasterArmsOnOnStart(e.on) },
                 // SOI focus. These will get HOTAS binds of their own; as commands they are how focus
                 // is driven (and tested) from a browser, with no controller and no aircraft.
                 { "soi.next",           e => TelemetryServer.SoiCycle(1) },

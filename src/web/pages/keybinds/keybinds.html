@@ -54,7 +54,54 @@
   <div class="kb-head">
     <span>FUNCTION</span><span>KEYBOARD</span><span>JOYSTICK / HOTAS</span>
   </div>
-  <div class="kb-rows" id="kb-rows"><!-- built by keybinds.js from /keybinds-config --></div>
+  <div class="kb-rows" id="kb-rows"><!-- built by keybinds.js from /keybinds-config, excluding the
+    "IMMERSION OPTIONS" section — that one renders in its own block below, not this table --></div>
+
+  <!-- Immersion options (docs/radar-master-arms.md) — a true second section, not appended content:
+       its own EXTENDED-KEYBINDS-sized title, a description, the 3 start-state settings, THEN its
+       own table for the section's 8 binds (own header row, own rows container — doesn't share
+       #kb-head/#kb-rows above). -->
+  <div class="kb-immersion" id="kb-immersion">
+    <div class="kb-title">IMMERSION OPTIONS</div>
+    <div class="kb-immersion-desc">Cold-start controls: whether radar, engine, and master arms start
+      on or off when you spawn in a new aircraft, and dedicated binds to change any of them — plus
+      combat mode — in flight.</div>
+
+    <div class="kb-setting" id="kb-radar-on-start">
+      <div class="kb-setting-text">
+        <div class="kb-name">ENABLE RADAR ON START</div>
+        <div class="kb-desc">Radar starts ON when spawning in a new aircraft (the game's own default).
+          Turn OFF for more immersion: radar starts off, arm it yourself.</div>
+      </div>
+      <button class="kb-toggle" id="kb-radar-on-start-btn"></button>
+    </div>
+    <div class="kb-setting" id="kb-engine-on-start">
+      <div class="kb-setting-text">
+        <div class="kb-name">ENABLE ENGINE ON START</div>
+        <div class="kb-desc">Engine starts ON when spawning in a new aircraft (the game's own
+          default). Turn OFF for more immersion: engine starts off, start it yourself.</div>
+      </div>
+      <button class="kb-toggle" id="kb-engine-on-start-btn"></button>
+    </div>
+    <div class="kb-setting" id="kb-master-arms-on-start">
+      <div class="kb-setting-text">
+        <div class="kb-name">ENABLE MASTER ARMS ON START</div>
+        <div class="kb-desc">Master Arms starts ON (unrestricted, today's behaviour) when spawning in
+          a new aircraft. Turn OFF for more immersion: guns/missiles/bombs are blocked until you arm.</div>
+      </div>
+      <button class="kb-toggle" id="kb-master-arms-on-start-btn"></button>
+    </div>
+
+    <!-- Shared-behaviour note for this section's binds (A/A-A/G tap/hold) — same server-provided
+         notes[] text the main table's section notes use, just rendered above this table instead. -->
+    <div class="kb-note" id="kb-immersion-note"></div>
+    <div class="kb-head">
+      <span>FUNCTION</span><span>KEYBOARD</span><span>JOYSTICK / HOTAS</span>
+    </div>
+    <div class="kb-rows" id="kb-immersion-rows"><!-- built by keybinds.js: just the
+      "IMMERSION OPTIONS" section's binds --></div>
+  </div>
+
   <!-- shown while /keybinds-config is unreachable (plugin not running) -->
   <div class="mfd-empty" id="kb-empty"><span class="mfd-empty-title">KEYBINDS</span>&mdash; UNAVAILABLE &mdash;</div>
 </div>
