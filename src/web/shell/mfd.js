@@ -169,6 +169,35 @@ let panePages = ['main', 'main'];
 // reserved: L0 = MAIN/PREV back-button, R0 = NEXT (shown only when the loadout exceeds 4).
 let paneWpnPage = [0, 0];
 const WPN_SPLIT_MAX = 4;
+
+// ARM/SAFE/A-A/A-G (docs/radar-master-arms.md) in a split pane: appended after the weapon list,
+// sharing the same 4-slot-per-page window weapons use (unlike full view, which has dedicated
+// right-column keys free for them). A pair is never split across a page boundary — since (ARM,SAFE)
+// and (A/A,A/G) are always two adjacent entries in the combined list, a pair only ever splits when
+// its first item would land on a page's LAST slot, so one empty slot inserted right before the pair
+// pushes the whole thing to the next page, leaving the leftover slot(s) on the previous page blank.
+const WPN_SPLIT_CONTROLS = [
+  { id: 'master-arms-on',  label: 'ARM'  },
+  { id: 'master-arms-off', label: 'SAFE' },
+  { id: 'combat-mode-aa',  label: 'A/A'  },
+  { id: 'combat-mode-ag',  label: 'A/G'  },
+];
+function buildWpnSplitPages(weaponCount) {
+  const slots = [];
+  for (let i = 0; i < weaponCount; i++) slots.push({ type: 'weapon', index: i });
+  function padIfWouldSplitNextPair() {
+    if (slots.length % WPN_SPLIT_MAX === WPN_SPLIT_MAX - 1) slots.push({ type: 'empty' });
+  }
+  padIfWouldSplitNextPair();
+  slots.push(Object.assign({ type: 'ctrl' }, WPN_SPLIT_CONTROLS[0]));
+  slots.push(Object.assign({ type: 'ctrl' }, WPN_SPLIT_CONTROLS[1]));
+  padIfWouldSplitNextPair();
+  slots.push(Object.assign({ type: 'ctrl' }, WPN_SPLIT_CONTROLS[2]));
+  slots.push(Object.assign({ type: 'ctrl' }, WPN_SPLIT_CONTROLS[3]));
+  const pages = [];
+  for (let i = 0; i < slots.length; i += WPN_SPLIT_MAX) pages.push(slots.slice(i, i + WPN_SPLIT_MAX));
+  return pages;
+}
 // Per-pane MAIN pagination index — MAIN_SPLIT_ITEMS paged across the pane's keys (mainPaneSlice).
 // Reset to 0 when a pane (re)enters MAIN (paneNavigate), same as paneWpnPage for WPN.
 let paneMainPage = [0, 0];
@@ -348,9 +377,10 @@ function listPaneLayout(paneIdx, page) {
 }
 
 // Place an overlay label on a physical key {bank,index} and tag it with the owning pane. Returns the
-// label element so the caller can style it (e.g. the vertical MAIN for a TGT pane).
-function placeSplitKey(m, label, action, paneTag) {
-  const el = placeOverlayLabel(m.bank, m.index, label, action);
+// label element so the caller can style it (e.g. the vertical MAIN for a TGT pane). `mark` lights it
+// engaged amber, same as placeOverlayLabel's own param — used by WPN's ARM/SAFE/A-A/A-G.
+function placeSplitKey(m, label, action, paneTag, mark) {
+  const el = placeOverlayLabel(m.bank, m.index, label, action, mark);
   const k = keyBanks[m.bank] && keyBanks[m.bank][m.index];
   if (k) k.dataset.pane = paneTag;
   return el;
@@ -439,10 +469,18 @@ function renderSplitLabels() {
       // cursor (soiKeys(), scoped per pane) can reach them — dispatch itself doesn't need the tag
       // (weapon selection is aircraft-global and falls through to the shared case regardless).
       wireWpnPaneWeaponKeys(slice.items, paneIdx, paneTag);
-      // ARM/SAFE (docs/radar-master-arms.md) are NOT placed here yet — a split WPN pane's 6 physical
-      // keys (main + 4 item rows + next) are already fully spoken for, unlike full view's spare
-      // right[1]/right[2]. Flagged as an open question in the plan doc rather than guessing which
-      // slot to sacrifice; full-view WPN already has both controls.
+      // ARM/SAFE/A-A/A-G (docs/radar-master-arms.md) — appended after the weapon list into the same
+      // 4 item slots (buildWpnSplitPages), since a split pane has no spare keys the way full view
+      // does. Weapon slots are already wired above; only 'ctrl' slots need placing here ('empty'
+      // slots need nothing — clearKeyActions already cleared them).
+      slice.slots.forEach(function(s, i) {
+        if (s.type !== 'ctrl') return;
+        const mark = s.id === 'master-arms-on'  ? wpnData.masterArmsOn === true
+                   : s.id === 'master-arms-off' ? wpnData.masterArmsOn === false
+                   : s.id === 'combat-mode-aa'  ? wpnData.combatMode === 'aa'
+                   :                              wpnData.combatMode === 'ag';
+        placeSplitKey(L.items[i], s.label, s.id, paneTag, mark);
+      });
     } else {
       // Static nav (MAP/AVN/RWR/TGP/…): render the navigation model at this page's declared
       // pane-local slots — SPLIT_SLOTS[page][i] places NAV[page][i].
@@ -656,18 +694,21 @@ function forwardPalToPanes() {
     iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'pal' }, palData), '*');
   });
 }
-// Slice the full loadout to the page a given pane is scrolled to. Returns the visible rows
-// plus whether PREV/NEXT exist, so renderSplitLabels can place the right nav labels. Clamps
-// a stale page index (e.g. the loadout shrank) back into range as a side effect.
+// Slice the full loadout+controls to the page a given pane is scrolled to. Returns the visible
+// weapon rows (items — always a prefix of the page's 4 slots, since weapons never follow a control
+// within one page, see buildWpnSplitPages) plus the raw per-slot descriptors (slots — renderSplitLabels
+// uses these to place ARM/SAFE/A-A/A-G on whichever physical keys they land on) and whether
+// PREV/NEXT exist. Clamps a stale page index (e.g. the loadout shrank) back into range as a side effect.
 function wpnPaneSlice(idx) {
-  const list = wpnData.items || [];
-  const total = list.length;
-  const maxPage = Math.max(0, Math.ceil(total / WPN_SPLIT_MAX) - 1);
+  const weapons = wpnData.items || [];
+  const pages = buildWpnSplitPages(weapons.length);
+  const maxPage = pages.length - 1;
   if (paneWpnPage[idx] > maxPage) paneWpnPage[idx] = maxPage;
   if (paneWpnPage[idx] < 0)       paneWpnPage[idx] = 0;
-  const start = paneWpnPage[idx] * WPN_SPLIT_MAX;
-  const items = list.slice(start, start + WPN_SPLIT_MAX);
-  return { items: items, hasPrev: paneWpnPage[idx] > 0, hasNext: start + items.length < total,
+  const slots = pages[paneWpnPage[idx]] || [];
+  const items = slots.filter(function(s) { return s.type === 'weapon'; })
+                      .map(function(s) { return weapons[s.index]; });
+  return { items: items, slots: slots, hasPrev: paneWpnPage[idx] > 0, hasNext: paneWpnPage[idx] < maxPage,
            page: maxPage > 0 ? paneWpnPage[idx] + 1 : 1, pages: maxPage + 1 };
 }
 function forwardWpnToPanes() {
@@ -1690,6 +1731,12 @@ function mfdButton(el) {
       // can scope to the focused pane; that tag would otherwise make this branch mistake
       // 'weapon.select' for a page name and hand it to paneNavigate.
       if (el.dataset.wname) sendCommand('weapon.select', { wname: el.dataset.wname }).catch(function() {});
+    } else if (act === 'master-arms-on' || act === 'master-arms-off') {
+      // Same reasoning as weapon.select above: a mod-state action, not a destination page. Only
+      // carries a data-pane tag because it shares WPN's paginated item slots (buildWpnSplitPages).
+      sendCommand('master-arms.set', { on: act === 'master-arms-on' }).catch(function() {});
+    } else if (act === 'combat-mode-aa' || act === 'combat-mode-ag') {
+      sendCommand('combat-mode.set', { group: act === 'combat-mode-aa' ? 'aa' : 'ag' }).catch(function() {});
     } else {
       paneNavigate(paneIdx, act);
     }

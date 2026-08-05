@@ -294,12 +294,17 @@ page already has. Existing sections/table are untouched.
 
 ## Open questions
 
-- **ARM/SAFE/A-A/A-G key/cell placement — resolved for full view, split still open.** CLASSIC uses
+- **ARM/SAFE/A-A/A-G key/cell placement — resolved everywhere, including split.** CLASSIC uses
   `right[1..4]` in full-view WPN (weapon rows occupy `left[1..5]`); F-35 uses explicit `cell` hints in
   `f35.js`'s `COMBAT_MODE_NAV`/`MASTER_ARMS_NAV` (rows 2-5 of the right column), same as NEXT already
-  gets. Split-pane WPN placement (`renderSplitLabels`'s list branch) still needs a slot decision — not
-  yet picked (all 6 physical keys per pane are already spoken for), flagged in code rather than
-  guessed.
+  gets. **Split-pane** (`mfd.js`'s `buildWpnSplitPages`): the four controls are appended after the
+  weapon list into the same shared 4-slot-per-page window weapons already page through — a split pane
+  has no spare keys the way full view does. A pair (ARM+SAFE, A/A+A/G) never splits across a page
+  boundary: since a pair is always two adjacent entries in the combined list, it only ever splits
+  when the first item would land on a page's last slot, so one empty slot inserted right before the
+  pair pushes the whole thing to the next page instead, leaving the leftover slot(s) on the previous
+  page blank. Weapons and controls can share a page when there's room (e.g. 2 weapons + ARM + SAFE
+  fits one page exactly) — only a would-be split is special-cased.
 - **`Radar.Awake()`/`AttachToUnit()` targeting — resolved.** Confirmed by an in-game bug report
   (radar stayed on with the setting OFF) that the original patch target was wrong; fixed by moving to
   an `Aircraft.OnStartClient()` postfix instead. See the Radar section above for the full story.
