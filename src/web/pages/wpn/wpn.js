@@ -29,7 +29,12 @@ const wpnSafe        = document.getElementById('wpn-safe');
 // full:    fullSlots[i] = {top,height} of weapon slot i down the left column (L1..L5);
 //          iconArea = {top,height} of the right-half weapon-image box.
 // cmBand = {top,height} of the first key band (both profiles).
-let wpnData = { items: [], selWeapon: null, softGun: null, softRel: null, masterArmsOn: true };
+// hasLoadout: true whenever the AIRCRAFT has weapons at all — NOT the same as items.length, since a
+// split-pane page can legitimately show zero weapon rows while a real loadout still exists (a
+// controls-only ARM/SAFE/A-A/A-G page, docs/radar-master-arms.md). The shell sends this explicitly
+// in split mode; full view/F-35 never paginate weapons away from every page, so they don't need to —
+// see the 'wpn' handler below for the fallback.
+let wpnData = { items: [], selWeapon: null, softGun: null, softRel: null, masterArmsOn: true, hasLoadout: false };
 let cmData  = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 let layout  = 'compact';
 let slotYs  = null;
@@ -120,7 +125,7 @@ function positionRow(i, el) {
 // ── Weapon list renderer ─────────────────────────────────────────────────────────────
 function renderWpn() {
   const list = wpnData.items || [];
-  wpnPanel.classList.toggle('has-loadout', list.length > 0);
+  wpnPanel.classList.toggle('has-loadout', wpnData.hasLoadout);
 
   // Rebuild rows when the layout profile, per-row sides, or the name list changes (the side class
   // differs between profiles/orientations, so a flip must rebuild even if the names are identical).
@@ -240,9 +245,13 @@ window.addEventListener('message', function(e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
   if (m.type === 'wpn') {
-    wpnData = { items: Array.isArray(m.items) ? m.items : [], selWeapon: m.selWeapon || null,
+    const items = Array.isArray(m.items) ? m.items : [];
+    wpnData = { items: items, selWeapon: m.selWeapon || null,
                 softGun: m.softGun || null, softRel: m.softRel || null,
-                masterArmsOn: m.masterArmsOn !== false };
+                masterArmsOn: m.masterArmsOn !== false,
+                // Full view/F-35 never send hasLoadout (their weapon pagination never empties a
+                // page), so falling back to items.length there is exactly the old behavior.
+                hasLoadout: typeof m.hasLoadout === 'boolean' ? m.hasLoadout : items.length > 0 };
     updatePageInd(typeof m.page === 'number' ? m.page : 1, typeof m.pages === 'number' ? m.pages : 1);
     renderWpn();
   } else if (m.type === 'wpn-layout') {

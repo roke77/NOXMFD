@@ -719,6 +719,10 @@ function forwardWpnToPanes() {
     iframe.contentWindow.postMessage(
       { mfd: true, type: 'wpn', items: sl.items, selWeapon: wpnData.selWeapon,
         softGun: wpnData.softGun, softRel: wpnData.softRel, masterArmsOn: wpnData.masterArmsOn,
+        // A controls-only page legitimately sends items:[] even with a real loadout — tell the page
+        // explicitly so it doesn't mistake "no weapons on THIS page" for "no loadout at all" (which
+        // would wrongly show the NO LOADOUT placeholder and hide the CM panel).
+        hasLoadout: (wpnData.items || []).length > 0,
         page: sl.page, pages: sl.pages }, '*');
   });
 }
