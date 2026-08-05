@@ -32,10 +32,10 @@ which virus-scans and manually reviews uploads.
   multiplayer the same way.
 - **Patches three game methods with Harmony, to enforce Master Arms and set radar/engine's spawn
   state** — `WeaponManager.Fire` (guns/missiles/bombs) is blocked outright while Master Arms is off
-  (including the stock keybind, not just this mod's own fire keys — countermeasures are not gated by
-  Master Arms, matching real aircraft); `Aircraft.OnStartClient`/`OnStartServer` set the radar/
-  engine's initial on/off state when you spawn into a new aircraft, per the KEY page's on-start
-  toggles. Harmony is a well-established patching library used across the BepInEx modding ecosystem
+  (including the stock keybind, not just this mod's own fire keys); `Aircraft.OnStartClient`/
+  `OnStartServer` set the radar/engine's initial on/off state when you spawn into a new aircraft,
+  per the KEY page's on-start toggles. Harmony is a well-established patching library used across
+  the BepInEx modding ecosystem
   (already a transitive dependency of `BepInEx.Core` — no separate install), and every patch checks
   `GameManager.GetLocalAircraft` first, so none of them ever run against another player's or an
   AI's aircraft. See [`HarmonyPatches.cs`](src/plugin/HarmonyPatches.cs) for the exact three.

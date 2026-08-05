@@ -67,12 +67,6 @@ namespace NOXMFD
         // input in one patch, since both paths call this same method underneath — this is the whole
         // reason Master Arms needed Harmony at all.
         //
-        // Deliberately does NOT gate CountermeasureManager.DeployCountermeasure — real aircraft (and
-        // sims like DCS) arm chaff/flare dispensers on their own separate circuit rather than tying
-        // them to the offensive-weapons Master Arms switch, precisely so you can still defend yourself
-        // with countermeasures while safed. Gating them here was the original (less realistic) design;
-        // see docs/radar-master-arms.md.
-        //
         // Same local-only gate as the spawn-default patches above: MasterArmsOn is a personal,
         // client-side preference, never something that should block AI or another player's weapons.
         [HarmonyPatch(typeof(WeaponManager), nameof(WeaponManager.Fire))]

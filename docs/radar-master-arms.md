@@ -21,8 +21,7 @@ unless the pilot turns it on:
    (unrestricted, today's behavior). Switched OFF, a new mod-only "master arms" flag starts off on
    every spawn; a dedicated keybind lets the pilot arm/disarm it in flight. OFF blocks **all** gun/
    missile/bomb fire — the mod's own keybinds *and* the game's own stock trigger/mouse/joystick fire
-   path — but not countermeasures, which real aircraft arm on a separate circuit from Master Arms
-   (see the Harmony section below).
+   path.
 4. **Combat mode (A/A / A/G)** — a runtime tri-state, **always starts at ALL** (unrestricted — no
    setting needed, this one has no legacy behavior to preserve). While set to A/A, Cycle Missile
    only reaches air-to-air missiles; while A/G, only everything else. Guns are unaffected either way;
@@ -42,10 +41,7 @@ approach structurally can't:
   reactively toggling it back off a tick later. This removes the engine-startup-sound artifact
   entirely (see the old "known limitation" below, now resolved) rather than just cutting it short.
 - **Full Master Arms coverage** — a patch on the weapon-fire path blocks firing at the source, so OFF
-  blocks *every* way to fire guns/missiles/bombs, not just the mod's own keybinds. Deliberately does
-  NOT gate countermeasures — real aircraft (and DCS-style sims) arm chaff/flare dispensers on a
-  separate circuit from the offensive-weapons Master Arms switch, precisely so a safed aircraft can
-  still defend itself.
+  blocks *every* way to fire guns/missiles/bombs, not just the mod's own keybinds.
 
 The trade-off is real but bounded: Harmony patches are more brittle across game updates than this
 mod's usual reflection reads (`apicheck` catches a renamed/retyped member; it does **not** catch a
@@ -144,7 +140,7 @@ page already has. Existing sections/table are untouched.
 - **Ignition ≠ engine health**, unaffected by this change — `operable`/`hasFuel` are separate
   per-engine concerns; the patch only changes the *initial* value the pilot's switch starts at.
 
-### Master Arms — mod-only flag; enforced via Harmony, including the stock trigger; guns/missiles/bombs only
+### Master Arms — mod-only flag; enforced via Harmony, including the stock trigger
 
 - Decompiled source has **no** master-arms/safety-switch concept on `Aircraft`/`WeaponManager`.
   `WeaponStation.SafetyIsOn()` exists but is a *ground/gear* safety, unrelated — `MasterArms.On`
@@ -156,11 +152,6 @@ page already has. Existing sections/table are untouched.
     when `MasterArms.On` is false, blocks **every** firing path in one patch — mod keybinds and stock
     input alike. This replaces the narrower `WeaponSelectors.Fire()`-only guard considered earlier;
     that in-mod guard can be dropped once the patch covers the same call from underneath it.
-- **Countermeasures are deliberately NOT gated by Master Arms.** `CountermeasureManager.
-  DeployCountermeasure()` was originally patched the same way, but real aircraft (and DCS-style sims)
-  arm chaff/flare dispensers on their own separate circuit from the offensive-weapons Master Arms
-  switch, precisely so a safed aircraft can still defend itself — gating them here was a less
-  realistic simplification, dropped after review.
 - **State is plain in-memory, not a `ConfigEntry`** — `MasterArms.On` and `CombatMode` shouldn't
   survive a restart; only the *start-state settings* are persistent.
 
@@ -266,9 +257,7 @@ page already has. Existing sections/table are untouched.
    controls.
 6. **Master Arms enforcement patch** — a prefix on `WeaponManager.Fire()`, short-circuiting when
    `MasterArms.On` is false. Covers the mod's own keybinds and the game's stock trigger/mouse/joystick
-   input in one patch, since both call the same method underneath. Deliberately does not touch
-   `CountermeasureManager.DeployCountermeasure()` — countermeasures aren't gated by Master Arms (see
-   the Master Arms section above).
+   input in one patch, since both call the same method underneath.
 7. **Combat-mode enforcement** (`WeaponSelectors.cs`, no Harmony needed — this is the mod's own
    cycling logic, not a game method) — `CycleMissile` filters its candidate list by `CombatMode`
    (`All`: unchanged; `AirToAir`: only the five-name list; `AirToGround`: everything `IsMissile`

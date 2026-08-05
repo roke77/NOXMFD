@@ -339,10 +339,9 @@ configured in their own section at the bottom of the **KEY** page.
   you spawn into a new aircraft, and you arm/start it yourself.
 - **Radar ON / Radar OFF**, **Engine ON / Engine OFF**, **Master Arms ON / Master Arms OFF** —
   dedicated binds for each, on top of the on-start toggles, so you can flip them mid-flight.
-  Master Arms OFF blocks guns, missiles, and bombs until it's back on (countermeasures — flares,
-  jammer — are never gated by it, same as real aircraft: chaff/flare dispensers arm on their own
-  circuit) — the WPN page shows a full-screen SAFE warning while it's off, and its ARM/SAFE
-  controls mirror and drive the same state.
+  Master Arms OFF blocks guns, missiles, and bombs until it's back on — the WPN page shows a
+  full-screen SAFE warning while it's off, and its ARM/SAFE controls mirror and drive the same
+  state.
 - **A/A mode / A/G mode** — restrict missile cycling to air-to-air or air-to-ground weapons; guns
   fire in either mode, bombs only cycle in A/G. Tap to set the mode; hold either bind to reset to
   ALL (unrestricted) — there's no dedicated ALL bind, since neither showing lit already means ALL.
