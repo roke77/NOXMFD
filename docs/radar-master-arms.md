@@ -173,6 +173,15 @@ page already has. Existing sections/table are untouched.
   this repo. Before wiring the match, log real `WeaponInfo` names in an actual session (the existing
   `AssetCapture.TryLogWeaponInfo` diagnostic already does this) and confirm the five strings match
   exactly, adjusting spelling in source if the WPN-page name differs from the Encyclopedia name.
+- **Auto-switch on entering a mode** (`WeaponSelectors.OnCombatModeChanged`, called from
+  `Keybinds.SetCombatMode` on the A/A/A/G tap, before the mode-restricted class filter above ever
+  narrows Cycle Missile): if the currently selected weapon is a bomb or an A/G missile and A/A is
+  set, snaps to the first available A/A missile, falling back to the first gun if none has ammo; if
+  it's an A/A missile and A/G is set, snaps to the first available A/G missile, falling back to the
+  first bomb and then the first gun. Guns are exempt as the *current* selection — no-ops immediately,
+  same as `CycleGun`'s own independence from combat mode — but are always the last resort when
+  nothing in the new mode can fire. Anything already valid for the new mode (a bomb entering A/G, an
+  already-matching missile, a jammer pod) is left alone.
 
 ### ARM / SAFE wiring — reuses WPN's existing shell-placed-label + amber-toggle machinery
 

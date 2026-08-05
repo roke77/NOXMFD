@@ -214,6 +214,66 @@ namespace NOXMFD
             else if (IsJammerPod(info)) _softJam = EntryName(info);
         }
 
+        // ── Combat-mode auto-switch ──────────────────────────────────────────────────────────────
+        // Entering A/A while a bomb or A/G missile is selected snaps to the first available A/A
+        // missile, and entering A/G while an A/A missile is selected snaps to the first available
+        // A/G missile — falling back to a bomb if no A/G missile has ammo — (docs/radar-master-arms.md,
+        // issue #32) — a combat-mode press shouldn't leave the pilot lined up on a weapon it just
+        // disabled. If nothing in the new mode has ammo at all, falls back to the first gun — always
+        // fireable, combat mode or not. Guns are exempt as the CURRENT selection (combat mode never
+        // touches a gun that's already selected, matching CycleGun's own independence from it);
+        // anything else already valid for the new mode (a bomb entering A/G, a jammer pod, an
+        // already-matching missile) is left alone.
+        internal static void OnCombatModeChanged(Aircraft ac, CombatMode mode)
+        {
+            Follow(ac);
+            WeaponManager wm = ac.weaponManager;
+            WeaponStation cur = wm != null ? wm.currentWeaponStation : null;
+            WeaponInfo info = cur != null ? cur.WeaponInfo : null;
+            if (info == null || IsGun(info)) return;
+
+            if (mode == CombatMode.AirToAir && (IsBomb(info) || (IsMissile(info) && !IsAirToAir(info))))
+            {
+                if (!SelectFirstAvailable(ac, i => IsMissile(i) && IsAirToAir(i)))
+                    SelectFirstAvailable(ac, IsGun);
+            }
+            else if (mode == CombatMode.AirToGround && IsMissile(info) && IsAirToAir(info))
+            {
+                if (!SelectFirstAvailable(ac, i => IsMissile(i) && !IsAirToAir(i)) &&
+                    !SelectFirstAvailable(ac, IsBomb))
+                    SelectFirstAvailable(ac, IsGun);
+            }
+        }
+
+        // Selects the first class entry with ammo — not "next after current" like CycleAndSelect,
+        // since there's no meaningful "current" once the active weapon sits outside the new mode's
+        // allowed set. Returns false (no-op) if the class is empty or fully depleted, so callers can
+        // fall back to the next class in line.
+        private static bool SelectFirstAvailable(Aircraft ac, Func<WeaponInfo, bool> cls)
+        {
+            BuildEntries(ac, cls);
+            for (int i = 0; i < _entries.Count; i++)
+            {
+                if (_ammo[i] <= 0) continue;
+                WeaponStation target = FindStationByName(ac, _entries[i]);
+                if (target == null) continue;
+                SelectStation(ac, target);
+                _lastActive = target;
+                SnapSoft(target.WeaponInfo, _entries[i]);
+                return true;
+            }
+            return false;
+        }
+
+        // Mirrors Follow's own classification — sets whichever soft selector matches the newly
+        // selected entry's class, same as a pilot manually switching to it would.
+        private static void SnapSoft(WeaponInfo info, string name)
+        {
+            if (IsGun(info))            _softGun = name;
+            else if (IsRelease(info))   _softRel = name;
+            else if (IsJammerPod(info)) _softJam = name;
+        }
+
         // ── Shared station lookup + select (also used by CommandDispatcher.WeaponSelect) ─────────
         // First visible station whose entry name matches — the same aggregation BuildLoadout uses;
         // the game cycles duplicate stations of one type itself.

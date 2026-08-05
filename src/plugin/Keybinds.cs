@@ -262,9 +262,15 @@ namespace NOXMFD
                 "Turn the engine off.",
                 ac => SetEngine(ac, on: false));
             _combatModeAa = DefFree(config, "combat-mode-aa", immersion, "CombatModeAA", "A/A", edge: false,
-                "Tap to restrict Cycle Missile to air-to-air missiles only, and disable Cycle Bombs. Hold to reset to ALL (unrestricted).", () => { });
+                "Tap to restrict Cycle Missile to air-to-air missiles only, and disable Cycle Bombs — " +
+                "also switches away from a currently selected bomb or A/G missile: first available A/A " +
+                "missile, else first gun (guns already selected are left alone). Hold to reset to ALL " +
+                "(unrestricted).", () => { });
             _combatModeAg = DefFree(config, "combat-mode-ag", immersion, "CombatModeAG", "A/G", edge: false,
-                "Tap to restrict Cycle Missile to air-to-ground missiles only. Hold to reset to ALL (unrestricted).", () => { });
+                "Tap to restrict Cycle Missile to air-to-ground missiles only — also switches away from " +
+                "a currently selected A/A missile: first available A/G missile, else first bomb, else " +
+                "first gun (guns already selected are left alone). Hold to reset to ALL (unrestricted).",
+                () => { });
 
             // Hidden like the binds above — the /keybinds page owns this one too now (rendered as a
             // toggle, not a bind row: it has no key/joy/axis source of its own).
@@ -593,9 +599,9 @@ namespace NOXMFD
             // Combat-mode tap/hold binds (docs/radar-master-arms.md) — run every frame, same reasoning
             // as the cursor vector above: a release on an otherwise-idle frame must still reset
             // PressStartTime, or the next tap on that bind would misread as an instant hold.
-            PollTapHold(_combatModeAa!, onTap: () => ImmersionState.CombatMode = CombatMode.AirToAir,
+            PollTapHold(_combatModeAa!, onTap: () => SetCombatMode(CombatMode.AirToAir),
                                         onHold: () => ImmersionState.CombatMode = CombatMode.All);
-            PollTapHold(_combatModeAg!, onTap: () => ImmersionState.CombatMode = CombatMode.AirToGround,
+            PollTapHold(_combatModeAg!, onTap: () => SetCombatMode(CombatMode.AirToGround),
                                         onHold: () => ImmersionState.CombatMode = CombatMode.All);
 
             if (!any) return;   // common case — nothing this frame
@@ -634,6 +640,17 @@ namespace NOXMFD
         private static void SetEngine(Aircraft ac, bool on)
         {
             if (ac.Ignition != on) ac.CmdToggleIgnition();
+        }
+
+        // Sets combat mode and, on a live aircraft, lets WeaponSelectors auto-switch away from a
+        // weapon the new mode just disabled (docs/radar-master-arms.md, issue #32) — e.g. tapping
+        // A/A while a bomb or A/G missile is selected. Runs before Poll()'s own GetLocalAircraft
+        // fetch further down, so it fetches its own reference; a no-op at the main menu.
+        private static void SetCombatMode(CombatMode mode)
+        {
+            ImmersionState.CombatMode = mode;
+            if (GameManager.GetLocalAircraft(out Aircraft ac) && ac != null && !ac.disabled)
+                WeaponSelectors.OnCombatModeChanged(ac, mode);
         }
 
         // Tap/hold binds (docs/radar-master-arms.md, issue #32 — currently just A/A and A/G, which
