@@ -900,8 +900,9 @@ function placeWpnNavLabels() {
   renderSoiCursor();
 }
 
-// Purely decorative — a boxed word + triangle above/below, centered in the gap BETWEEN a control
-// pair rather than on either key (docs/radar-master-arms.md, per the user's mockup-approved design).
+// Purely decorative — a word + triangle above/below, centered in the gap BETWEEN a control pair
+// rather than on either key, with a plain border enclosing the whole pair (keys + word) so it reads
+// as one grouped control (docs/radar-master-arms.md, per the user's mockup-approved design).
 // Vertically centered on the separator between the pair's two keys (sepElsRight[2] sits between
 // right[1]/ARM and right[2]/SAFE; sepElsRight[4] between right[3]/A-A and right[4]/A-G — sepElsRight
 // index i+1 = below key i). Horizontally centered on the pair's own labels rather than sharing their
@@ -918,6 +919,16 @@ function placeWpnDecorator(sepIndex, cls, word, upPoints, downPoints) {
   const aRect = labelA.getBoundingClientRect();
   const bRect = labelB.getBoundingClientRect();
   const centerX = ((aRect.left + aRect.right) / 2 + (bRect.left + bRect.right) / 2) / 2;
+
+  const boxPadH = 8, boxPadV = 4;
+  const box = document.createElement('div');
+  box.className = 'wpn-decor wpn-decor-box ' + cls;
+  box.style.top = (Math.min(aRect.top, bRect.top) - oRect.top - boxPadV) + 'px';
+  box.style.height = (Math.max(aRect.bottom, bRect.bottom) - Math.min(aRect.top, bRect.top) + boxPadV * 2) + 'px';
+  box.style.width = (Math.max(aRect.width, bRect.width) + boxPadH * 2) + 'px';
+  overlayEl.appendChild(box);
+  box.style.left = (centerX - oRect.left - box.offsetWidth / 2) + 'px';
+
   const el = document.createElement('div');
   el.className = 'wpn-decor ' + cls;
   el.style.top = (sRect.top + sRect.height / 2 - oRect.top) + 'px';
