@@ -3,6 +3,7 @@ using Rewired;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using UnityEngine;
 
@@ -754,23 +755,39 @@ namespace NOXMFD
             }
         }
 
-        // Is this bind active this frame? A keyboard/mouse key (KeyboardShortcut, Unity input) OR an explicit
-        // Rewired joystick button index. edge=false → held (IsPressed/GetButton, the CM keys); edge=true →
-        // pressed-this-frame (IsDown/GetButtonDown, the gear keys). Joystick KeyCodes inside the
-        // KeyboardShortcut are ignored — those go through the Rewired index instead. An axis-only bind
-        // (KeyEntry null) has no digital press to report — Poll() reads its analog value separately.
-        // edgeOverride lets a caller read a bind's LIVE held state regardless of its own Edge mode
-        // (used for cursor-select: edge:true drives its instant-select action, but Poll() also wants
-        // its continuous held state every frame — see docs/page-cursor.md).
+        // Is this bind active this frame? A keyboard/mouse key OR an explicit Rewired joystick button
+        // index. edge=false → held (the CM keys); edge=true → pressed-this-frame (the gear keys).
+        // Joystick KeyCodes inside the KeyboardShortcut are ignored — those go through the Rewired
+        // index instead. An axis-only bind (KeyEntry null) has no digital press to report — Poll()
+        // reads its analog value separately. edgeOverride lets a caller read a bind's LIVE held state
+        // regardless of its own Edge mode (used for cursor-select: edge:true drives its instant-select
+        // action, but Poll() also wants its continuous held state every frame — see docs/page-cursor.md).
+        //
+        // Reads Unity's raw Input.GetKey/GetKeyDown directly rather than KeyboardShortcut.IsPressed()/
+        // IsDown() — confirmed by diagnostic logging (issue: countermeasure keys wouldn't fire while a
+        // WASD flight key was held, reported independently on two different keyboards) that BepInEx's
+        // own IsPressed()/IsDown() require that NO OTHER keyboard key is currently held besides this
+        // shortcut's own MainKey+Modifiers, treating any other key — even one with nothing to do with
+        // this shortcut, like a flight-control key — as disqualifying. That's a sensible default for a
+        // one-off UI hotkey (avoids firing a plain "F" shortcut when the user is really pressing a
+        // longer chord that happens to include F), but wrong for gameplay keybinds meant to fire WHILE
+        // flight-control keys are held. ModifiersHeld still honors any configured Modifiers manually,
+        // so nothing is lost — just the "and nothing else is held" restriction.
         private static bool Active(BindDef bind, bool? edgeOverride = null)
         {
             if (bind.KeyEntry == null) return false;
             bool edge = edgeOverride ?? bind.Edge;
-            KeyCode k = bind.KeyEntry.Value.MainKey;
+            KeyboardShortcut sc = bind.KeyEntry.Value;
+            KeyCode k = sc.MainKey;
             bool kbd = k != KeyCode.None && k < KeyCode.JoystickButton0 &&
-                       (edge ? bind.KeyEntry.Value.IsDown() : bind.KeyEntry.Value.IsPressed());
+                       (edge ? Input.GetKeyDown(k) : Input.GetKey(k)) && ModifiersHeld(sc);
             return kbd || JoyBtn(bind.JoyEntry!.Value, bind.JoyNumEntry!.Value, edge);
         }
+
+        // No bind in this codebase's own capture flow (SetKeyBind → new KeyboardShortcut(key)) ever
+        // configures a modifier, so this is always vacuously true today — kept so a future modifier-
+        // capable capture UI doesn't silently regress this check.
+        private static bool ModifiersHeld(KeyboardShortcut sc) => sc.Modifiers.All(Input.GetKey);
 
         // Reads a bind's analog axis, deadzoned and inverted, folded straight into the cursor vector —
         // 0 means "no axis bound, centered, or within the deadzone," which Poll() treats as "the keys
