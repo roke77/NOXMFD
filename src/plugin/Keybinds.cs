@@ -645,8 +645,11 @@ namespace NOXMFD
         // Sets combat mode and, on a live aircraft, lets WeaponSelectors auto-switch away from a
         // weapon the new mode just disabled (docs/radar-master-arms.md, issue #32) — e.g. tapping
         // A/A while a bomb or A/G missile is selected. Runs before Poll()'s own GetLocalAircraft
-        // fetch further down, so it fetches its own reference; a no-op at the main menu.
-        private static void SetCombatMode(CombatMode mode)
+        // fetch further down, so it fetches its own reference; a no-op at the main menu. Internal,
+        // not private — also the entry point for CommandDispatcher's combat-mode.set (the WPN page's
+        // own A/A · A/G controls, bezel and F-35 alike), so the auto-switch applies everywhere
+        // combat mode can change, not just the physical keybind.
+        internal static void SetCombatMode(CombatMode mode)
         {
             ImmersionState.CombatMode = mode;
             if (GameManager.GetLocalAircraft(out Aircraft ac) && ac != null && !ac.disabled)

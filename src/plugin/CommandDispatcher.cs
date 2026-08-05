@@ -57,12 +57,16 @@ namespace NOXMFD
                 { "declutter.set",   DeclutterSet },
                 { "avn.toggle",      AvnToggle },
                 { "master-arms.set", e => ImmersionState.MasterArmsOn = e.on },
-                { "combat-mode.set", e => ImmersionState.CombatMode = e.group switch
+                // Routes through Keybinds.SetCombatMode (not a bare assignment) so the WPN page's own
+                // A/A · A/G controls (bezel and F-35) get the same weapon auto-switch as the physical
+                // keybind (docs/radar-master-arms.md, issue #32) — one behavior, one source, not a
+                // second copy that could drift from it.
+                { "combat-mode.set", e => Keybinds.SetCombatMode(e.group switch
                     {
                         "aa" => CombatMode.AirToAir,
                         "ag" => CombatMode.AirToGround,
                         _    => CombatMode.All,
-                    } },
+                    }) },
                 { "keybind.set-key",    e => Log("set-key",    e.bind, Keybinds.SetKeyBind(e.bind, e.key)) },
                 { "keybind.arm-joy",    e => Log("arm-joy",    e.bind, Keybinds.ArmJoyCapture(e.bind)) },
                 { "keybind.cancel-joy", e => Keybinds.CancelJoyCapture() },

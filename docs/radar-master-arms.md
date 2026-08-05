@@ -174,8 +174,10 @@ page already has. Existing sections/table are untouched.
   `AssetCapture.TryLogWeaponInfo` diagnostic already does this) and confirm the five strings match
   exactly, adjusting spelling in source if the WPN-page name differs from the Encyclopedia name.
 - **Auto-switch on entering a mode** (`WeaponSelectors.OnCombatModeChanged`, called from
-  `Keybinds.SetCombatMode` on the A/A/A/G tap, before the mode-restricted class filter above ever
-  narrows Cycle Missile): if the currently selected weapon is a bomb or an A/G missile and A/A is
+  `Keybinds.SetCombatMode` — the A/A/A/G tap *and* the WPN page's own A/A · A/G controls, bezel and
+  F-35 alike, both route through it via `CommandDispatcher`'s `combat-mode.set` — before the
+  mode-restricted class filter above ever narrows Cycle Missile): if the currently selected weapon is
+  a bomb or an A/G missile and A/A is
   set, snaps to the first available A/A missile, falling back to the first gun if none has ammo; if
   it's an A/A missile and A/G is set, snaps to the first available A/G missile, falling back to the
   first bomb and then the first gun. Guns are exempt as the *current* selection — no-ops immediately,
