@@ -23,6 +23,7 @@ any web browser, on the same PC or on another device on the same network.
   - [Extended Keybinds](#extended-keybinds)
   - [Immersion Options](#immersion-options)
 - [Reporting & collaboration](#reporting--collaboration)
+- [Mod compatibility](#mod-compatibility)
 - [Security & privacy](#security--privacy)
 - [License](#license)
 
@@ -364,6 +365,33 @@ in-progress work is tracked.
 Pull requests are welcome. For anything non-trivial, open an issue first so we
 can agree on the approach before you write code. Security issues have their own
 process — see [Verifying and reporting](SECURITY.md#verifying-and-reporting).
+
+## Mod compatibility
+
+NO XMFD hasn't been systematically tested against other mods — that's real
+investigation work, tracked but not yet underway. If you hit a conflict, please
+[open an issue](https://github.com/roke77/NOXMFD/issues) with both mods' names
+and versions.
+
+Some ways two mods can step on each other, so you know what to check first if
+something breaks:
+
+- **Keybinds** — extended keybinds (flares, gear, weapon cycling, Master Arms,
+  radar/engine, combat mode) are read directly from raw keyboard/joystick state,
+  the same way most mods do it. Two mods bound to the same physical key/button
+  will both fire; NO XMFD doesn't and can't detect that for you.
+- **Harmony patches** — a handful of game methods are patched to enforce Master
+  Arms and set radar/engine spawn defaults (see
+  [SECURITY.md](SECURITY.md#what-no-xmfd-does) for the exact list). Another mod
+  patching the same methods can change behavior depending on patch order, which
+  isn't something either mod controls.
+- **HUD declutter** — hiding native HUD elements (weapon panel, minimap, boxed
+  readouts) works by directly toggling those elements' visibility. A mod that
+  also touches them can end up fighting NO XMFD over the same on/off state.
+
+None of this is unique to NO XMFD — it's the standard risk profile of any
+BepInEx mod that reads input or patches game code. Uninstalling one of the two
+mods is the fastest way to confirm which side a conflict is coming from.
 
 ## Security & privacy
 
