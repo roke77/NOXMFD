@@ -26,6 +26,8 @@ namespace NOXMFD
         public string wname;   // weapon type name (weapon.select) — matches LoadoutEntry.Name
         public string group;   // tgt.set / tgt.only : "faction" | "category" | "vehicle"
                                 // combat-mode.set : "all" | "aa" | "ag"
+                                // avn.toggle : "gear" | "radar" | "guns" | "eng" | "assist" | "nvg" |
+                                //              "lights" | "turret"
         public int    index;   // tgt.set / tgt.only : toggle index within the group
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
         public string bind;    // keybind.* : BindDef id ("flares", "gear-up", ...)
@@ -53,6 +55,7 @@ namespace NOXMFD
                 { "hud.set",         HudSet },
                 { "hud.mode",        HudMode },
                 { "declutter.set",   DeclutterSet },
+                { "avn.toggle",      AvnToggle },
                 { "master-arms.set", e => ImmersionState.MasterArmsOn = e.on },
                 { "combat-mode.set", e => ImmersionState.CombatMode = e.group switch
                     {
@@ -449,6 +452,36 @@ namespace NOXMFD
                     return;
             }
             Plugin.Log?.LogInfo($"[NOXMFD] declutter.set {env.group} hide={env.on}.");
+        }
+
+        // F-35 master-strip status icons (issue #35) — toggles the same
+        // systems the AVN annunciators already read (TelemetryReader.BuildAvn). gear/radar/eng go
+        // through the game's own networked Cmd calls, the same path the immersion keybinds use;
+        // guns/assist/lights/turret are local, client-only toggles; nvg is a player-camera setting,
+        // not per-aircraft, but still gated on a live aircraft so the icon only works in flight,
+        // matching the row it lives in. Each game-side call already self-guards on the airframe's
+        // own capability (no turret stations, no flight-assist-capable controls filter, etc.), so
+        // this just fires it — no capability check duplicated here.
+        private static void AvnToggle(CommandEnvelope env)
+        {
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            if (ac == null || ac.disabled) return;
+
+            switch (env.group)
+            {
+                case "gear":   ac.SetGear(!ac.gearDeployed); break;
+                case "radar":  ac.CmdToggleRadar(); break;
+                case "guns":   ac.weaponManager?.ToggleGunsLinked(); break;
+                case "eng":    ac.CmdToggleIgnition(); break;
+                case "assist": ac.TogglePitchLimiter(); break;
+                case "nvg":    NightVision.Toggle(); break;
+                case "lights": ac.ToggleNavLights(); break;
+                case "turret": SceneSingleton<CombatHUD>.i?.ToggleAutoControl(); break;
+                default:
+                    Plugin.Log?.LogInfo($"[NOXMFD] avn.toggle: unknown group '{env.group}' — ignored.");
+                    return;
+            }
+            Plugin.Log?.LogInfo($"[NOXMFD] avn.toggle {env.group}.");
         }
 
         // Bounds guard shared by the HUD handlers: true when index addresses a live element.

@@ -788,6 +788,17 @@
   const stripThr  = gauge('ms-thr', 'thr');
   const stripFuel = gauge('ms-fuel', 'fuel');
 
+  // Click-to-toggle (issue #35) — data-kind already names the avn.toggle group 1:1 (gear, radar,
+  // guns, eng, assist, nvg, lights, turret), so the click handler needs no mapping table. Fire-and-
+  // forget: the next 'avn' telemetry frame repaints the tile via updateStripFlags below, same as
+  // every other live-state indicator on this strip.
+  stripFlags.forEach(function (el) {
+    el.classList.add('pad-hoverable');
+    el.addEventListener('click', function () {
+      sendCommand('avn.toggle', { group: el.dataset.kind }).catch(function () {});
+    });
+  });
+
   function gauge(id, kind) {
     return { el: document.getElementById(id),
              fill: document.getElementById(id + '-fill'),

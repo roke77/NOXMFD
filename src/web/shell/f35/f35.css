@@ -281,6 +281,9 @@ html, body {
   align-items: center;
   gap: 2px;
   color: var(--no-gray);   /* off / dim; on / gear-down override below */
+  cursor: pointer;         /* click-to-toggle (issue #35); .pad-hoverable (theme.css) gives the hover wash */
+  padding: 2px 4px;
+  border-radius: 3px;
 }
 .ms-flag.on        { color: var(--no-green); }
 .ms-flag.gear-down { color: var(--no-red); }
