@@ -30,15 +30,15 @@ which virus-scans and manually reviews uploads.
   engine, and Master Arms on/off, combat-mode select). Each goes through the game's own APIs (the
   same calls the cockpit makes), so it behaves exactly like normal input and replicates over
   multiplayer the same way.
-- **Patches four game methods with Harmony, to enforce Master Arms and set radar/engine's spawn
-  state** — `WeaponManager.Fire` and `CountermeasureManager.DeployCountermeasure` are blocked
-  outright while Master Arms is off (including the stock keybind, not just this mod's own fire
-  keys); `Aircraft.OnStartClient`/`OnStartServer` set the radar/engine's initial on/off state when
-  you spawn into a new aircraft, per the KEY page's on-start toggles. Harmony is a well-established
-  patching library used across the BepInEx modding ecosystem (already a transitive dependency of
-  `BepInEx.Core` — no separate install), and every patch checks
+- **Patches three game methods with Harmony, to enforce Master Arms and set radar/engine's spawn
+  state** — `WeaponManager.Fire` (guns/missiles/bombs) is blocked outright while Master Arms is off
+  (including the stock keybind, not just this mod's own fire keys — countermeasures are not gated by
+  Master Arms, matching real aircraft); `Aircraft.OnStartClient`/`OnStartServer` set the radar/
+  engine's initial on/off state when you spawn into a new aircraft, per the KEY page's on-start
+  toggles. Harmony is a well-established patching library used across the BepInEx modding ecosystem
+  (already a transitive dependency of `BepInEx.Core` — no separate install), and every patch checks
   `GameManager.GetLocalAircraft` first, so none of them ever run against another player's or an
-  AI's aircraft. See [`HarmonyPatches.cs`](src/plugin/HarmonyPatches.cs) for the exact four.
+  AI's aircraft. See [`HarmonyPatches.cs`](src/plugin/HarmonyPatches.cs) for the exact three.
   Beyond these two categories, the mod only reads game state.
 - **Optionally runs `netsh` once** — *only* if the LAN bind is denied, the game is running as
   Administrator, and `AutoSetupLanAccess` is left on. It adds a Windows URL reservation and an

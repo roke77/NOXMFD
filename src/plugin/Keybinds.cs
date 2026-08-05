@@ -244,10 +244,10 @@ namespace NOXMFD
             // generic per-frame dispatch, since tap and hold must each fire exactly once, not repeatedly.
             const string immersion = "Immersion Keybinds";
             DefFree(config, "master-arms-on", immersion, "MasterArmsOn", "Master Arms ON", edge: true,
-                "Arm — weapons/countermeasures free to fire.",
+                "Arm — guns/missiles/bombs free to fire. Countermeasures are never gated by this.",
                 () => ImmersionState.MasterArmsOn = true);
             DefFree(config, "master-arms-off", immersion, "MasterArmsOff", "Master Arms OFF", edge: true,
-                "Disarm — weapons/countermeasures blocked.",
+                "Disarm — guns/missiles/bombs blocked. Countermeasures are never gated by this.",
                 () => ImmersionState.MasterArmsOn = false);
             Def(config, "radar-on", immersion, "RadarOn", "Radar ON", edge: true,
                 "Turn the radar on.",

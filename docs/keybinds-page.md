@@ -82,7 +82,8 @@ the dedicated-server gap for Engine).
   new aircraft.
 - **Master Arms ON / OFF, Radar ON / OFF, Engine ON / OFF** — plain dedicated pairs, no tap/hold
   (the game already has its own single-toggle bind for Radar/Engine). Master Arms OFF blocks all
-  weapon/countermeasure fire, including the stock trigger.
+  gun/missile/bomb fire, including the stock trigger — not countermeasures, which arm independently
+  of Master Arms (matching real aircraft).
 - **A/A / A/G** — restrict Cycle Missile to air-to-air or air-to-ground missiles only; A/A also
   disables Cycle Bombs. Hold either to reset to ALL (unrestricted) — there's no dedicated ALL bind,
   since holding already gets there.

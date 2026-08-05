@@ -61,12 +61,17 @@ namespace NOXMFD
             }
         }
 
-        // Master Arms enforcement. A prefix on WeaponManager.Fire() and CountermeasureManager.
-        // DeployCountermeasure(), both short-circuiting (skipping the original) when
-        // ImmersionState.MasterArmsOn is false. Covers the mod's own keybinds (WeaponSelectors.Fire()
-        // calls wm.Fire(); Keybinds.Drive(...) calls mgr.DeployCountermeasure(ac) directly) AND the
-        // game's own stock trigger/mouse/joystick input in one patch each, since both paths call these
-        // same two methods underneath — this is the whole reason Master Arms needed Harmony at all.
+        // Master Arms enforcement. A prefix on WeaponManager.Fire(), short-circuiting (skipping the
+        // original) when ImmersionState.MasterArmsOn is false. Covers the mod's own keybinds
+        // (WeaponSelectors.Fire() calls wm.Fire()) AND the game's own stock trigger/mouse/joystick
+        // input in one patch, since both paths call this same method underneath — this is the whole
+        // reason Master Arms needed Harmony at all.
+        //
+        // Deliberately does NOT gate CountermeasureManager.DeployCountermeasure — real aircraft (and
+        // sims like DCS) arm chaff/flare dispensers on their own separate circuit rather than tying
+        // them to the offensive-weapons Master Arms switch, precisely so you can still defend yourself
+        // with countermeasures while safed. Gating them here was the original (less realistic) design;
+        // see docs/radar-master-arms.md.
         //
         // Same local-only gate as the spawn-default patches above: MasterArmsOn is a personal,
         // client-side preference, never something that should block AI or another player's weapons.
@@ -77,16 +82,6 @@ namespace NOXMFD
             private static bool Prefix(Aircraft ___aircraft)
             {
                 if (!GameManager.GetLocalAircraft(out Aircraft local) || !ReferenceEquals(___aircraft, local)) return true;
-                return ImmersionState.MasterArmsOn;
-            }
-        }
-
-        [HarmonyPatch(typeof(CountermeasureManager), nameof(CountermeasureManager.DeployCountermeasure))]
-        private static class CountermeasureManager_DeployCountermeasure_Patch
-        {
-            private static bool Prefix(Aircraft aircraft)
-            {
-                if (!GameManager.GetLocalAircraft(out Aircraft local) || !ReferenceEquals(aircraft, local)) return true;
                 return ImmersionState.MasterArmsOn;
             }
         }
