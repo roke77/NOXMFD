@@ -424,6 +424,38 @@
       });
     }
 
+    // Decorative MASTER/MODE labels (docs/radar-master-arms.md) — the bezel's mfd.js equivalent,
+    // adapted to this layout: no separator element sits between ARM/SAFE (adjacent grid rows, not
+    // bezel keys with a real gap), so the vertical centre is just the midpoint between the two
+    // buttons' own rects; horizontal centre likewise averages their rects rather than sharing their
+    // right-edge margin (which two different-width labels don't actually share, same reasoning as
+    // the bezel version). Recomputed from scratch each call rather than diffed in place — cheap, and
+    // simpler than tracking whether a resize invalidated the last position.
+    function placeWpnDecorator(actionA, actionB, word) {
+      const a = grid.querySelector('.nav-item[data-action="' + actionA + '"]');
+      const b = grid.querySelector('.nav-item[data-action="' + actionB + '"]');
+      if (!a || !b) return;
+      const gRect = grid.getBoundingClientRect();
+      const aRect = a.getBoundingClientRect();
+      const bRect = b.getBoundingClientRect();
+      const centerX = ((aRect.left + aRect.right) / 2 + (bRect.left + bRect.right) / 2) / 2;
+      const centerY = (aRect.bottom + bRect.top) / 2;
+      const el = document.createElement('div');
+      el.className = 'wpn-decor';
+      el.innerHTML =
+        '<svg width="12" height="8" viewBox="0 0 12 8"><polygon points="6,0 12,8 0,8" fill="currentColor"/></svg>' +
+        '<div class="wpn-decor-word">' + word + '</div>' +
+        '<svg width="12" height="8" viewBox="0 0 12 8"><polygon points="0,0 12,0 6,8" fill="currentColor"/></svg>';
+      grid.appendChild(el);
+      el.style.left = (centerX - gRect.left - el.offsetWidth / 2) + 'px';
+      el.style.top  = (centerY - gRect.top - el.offsetHeight / 2) + 'px';
+    }
+    function placeWpnDecorators() {
+      grid.querySelectorAll('.wpn-decor').forEach(function (el) { el.remove(); });
+      placeWpnDecorator('master-arms-on', 'master-arms-off', 'MASTER');
+      placeWpnDecorator('combat-mode-aa', 'combat-mode-ag', 'MODE');
+    }
+
     function dispatch(action) {
       if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
       if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
@@ -467,7 +499,7 @@
         else       b.disabled = true;
         grid.appendChild(b);
       });
-      if (currentPage === 'wpn') { addWeaponHits(); markMasterArms(); markCombatMode(); }
+      if (currentPage === 'wpn') { addWeaponHits(); markMasterArms(); markCombatMode(); placeWpnDecorators(); }
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
       // The grid was just rebuilt, so an SOI cursor mark on one of its items is gone — let the shell
       // re-apply it if this is the focused portal (the F-35 twin of mfd.js's post-rebuild renderSoiCursor).
@@ -511,7 +543,7 @@
       // resize handling, and must not be re-entered here — that would reload the iframe and throw
       // away the zoom and pan the pilot set.
       resized: function () {
-        if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); }
+        if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); placeWpnDecorators(); }
       },
       destroy: function () { el.remove(); },
     };

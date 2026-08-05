@@ -585,6 +585,30 @@ html, body {
    is the one that always applies — it's also all TGT uses, this codebase's other touch surface. */
 .nav-item:active { opacity: 0.7; }
 
+/* MASTER/MODE decorators (docs/radar-master-arms.md) — this layout's twin of the bezel's .wpn-decor
+   in mfd.css: a word with a triangle above/below, positioned (in f35.js placeWpnDecorators) at the
+   midpoint between ARM/SAFE or A/A/A-G. --no-teal, this layout's own label colour, rather than the
+   bezel's off-white --no-label — a decorator names a control the same way a nav-item does. */
+.wpn-decor {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+  color: var(--no-teal);
+}
+.wpn-decor svg { display: block; }
+.wpn-decor-word {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 3px;
+}
+
 /* A toggle that is currently ON (MAP's FLW). The bezel reports follow in a separate FOLLOW chip;
    here the label is the only place to say it, so it boxes itself in the theme's "engaged" amber —
    the same colour the bezel's own FOLLOW chip uses. */
