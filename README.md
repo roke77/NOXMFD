@@ -21,6 +21,7 @@ any web browser, on the same PC or on another device on the same network.
   - [MFD shell](#mfd-shell)
   - [MFD layouts](#mfd-layouts)
   - [Extended Keybinds](#extended-keybinds)
+  - [Immersion Options](#immersion-options)
 - [Reporting & collaboration](#reporting--collaboration)
 - [Security & privacy](#security--privacy)
 - [License](#license)
@@ -198,7 +199,9 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **WPN** — weapon loadout and rounds remaining, plus IR-flare count and jammer charge.
+- **WPN** — weapon loadout and rounds remaining, plus IR-flare count and jammer charge. ARM/SAFE and
+  A/A · A/G controls reflect and drive Master Arms and combat mode — see
+  [Immersion Options](#immersion-options).
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
@@ -325,6 +328,24 @@ a contact on RDR (locking/unlocking it). Zoom In/Out zoom the MAP view as usual,
 up/down on HUD/TGT. On MAP, pushing the cursor against the edge with FLW off pans the view to
 reveal more terrain. It only acts on whichever display currently has both SOI focus and one of
 these pages open.
+
+### Immersion Options
+
+Optional cold-start behavior and dedicated binds for radar, engine, and weapons safety —
+configured in their own section at the bottom of the **KEY** page.
+
+- **Enable Radar / Engine / Master Arms on start** — three toggles, all ON by default (matching
+  the game's own behavior). Turn any of them off for more immersion: that system starts off when
+  you spawn into a new aircraft, and you arm/start it yourself.
+- **Radar ON / Radar OFF**, **Engine ON / Engine OFF**, **Master Arms ON / Master Arms OFF** —
+  dedicated binds for each, on top of the on-start toggles, so you can flip them mid-flight.
+  Master Arms OFF blocks weapon fire and countermeasure deploys (guns, missiles, bombs, flares,
+  jammer) until it's back on — the WPN page shows a full-screen SAFE warning while it's off, and
+  its ARM/SAFE controls mirror and drive the same state.
+- **A/A mode / A/G mode** — restrict missile cycling to air-to-air or air-to-ground weapons; guns
+  fire in either mode, bombs only cycle in A/G. Tap to set the mode; hold either bind to reset to
+  ALL (unrestricted) — there's no dedicated ALL bind, since neither showing lit already means ALL.
+  The WPN page's A/A · A/G controls mirror and drive the same state.
 
 ## Reporting & collaboration
 
