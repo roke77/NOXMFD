@@ -509,6 +509,8 @@ html, body {
   padding: 4px 8px;
   border: 0;
   background: none;
+  appearance: none;      /* a native <button>'s own chrome/insets can throw off .on's outline box */
+  box-sizing: border-box;
   font: inherit;
   font-size: 20px;
   letter-spacing: 1px;
