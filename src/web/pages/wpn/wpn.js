@@ -177,7 +177,10 @@ function renderMasterArms() {
 // when the selection changes; hidden in compact and whenever nothing is selected.
 function renderSelIcon() {
   const sel = wpnData.selWeapon;
-  if ((isFull() || isVsplit()) && sel && (wpnData.items || []).length) {
+  // hasLoadout, not items.length — the selected weapon can easily be on a DIFFERENT page than the
+  // one currently shown (e.g. a split pane's controls-only ARM/SAFE/A-A/A-G page has no items at
+  // all), and the image is keyed off sel directly, not off anything in the current page's items.
+  if ((isFull() || isVsplit()) && sel && wpnData.hasLoadout) {
     if (sel !== wpSelIconKey) {
       wpSelIconKey = sel;
       wpSelIconImg.style.visibility = '';
