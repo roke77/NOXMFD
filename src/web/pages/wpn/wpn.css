@@ -186,7 +186,7 @@
    override the compact base by specificity; compact (no .full class) is unaffected.
    Transcribed from the former MfdPage.cs full-view WPN <style>. */
 body.full .wp-item {
-  left: 90px;                      /* clear the left line-select label gutter */
+  left: 18px;                      /* hug the screen's left edge, same as portrait */
   right: calc(45% + 10px);         /* name list takes the left 55%; image the right 45% */
   transform: none;                 /* full positions by top+height span, not centre */
   flex-direction: column;
@@ -198,7 +198,6 @@ body.full .wp-item {
 }
 body.full .wp-name { align-self: flex-start; max-width: 100%; font-size: 28px; }
 body.full .wp-ammo { font-size: 20px; margin-top: 2px; }
-body.full.portrait .wp-item { left: 18px; }
 
 /* Big icon of the currently-selected weapon, right ~45%, spanning the keys-1..5 area
    (top+height set by JS from the forwarded icon geometry). Source icons are 2:1 horizontal;

@@ -904,13 +904,20 @@ function placeWpnNavLabels() {
 // pair rather than on either key (docs/radar-master-arms.md, per the user's mockup-approved design).
 // Vertically centered on the separator between the pair's two keys (sepElsRight[2] sits between
 // right[1]/ARM and right[2]/SAFE; sepElsRight[4] between right[3]/A-A and right[4]/A-G — sepElsRight
-// index i+1 = below key i). Horizontally anchored the same way .overlay-item.right is (right: 16px
-// in CSS); only the vertical center needs computing here.
+// index i+1 = below key i). Horizontally centered on the pair's own labels rather than sharing their
+// right:16px anchor — ARM/SAFE/A-A/A-G are unpadded nowrap text right-aligned to that edge, so two
+// different-width words (e.g. "ARM" vs "SAFE") don't share a center; anchoring the decorator to that
+// same edge made it hug the narrower word's edge instead of sitting in the middle of the pair.
 function placeWpnDecorator(sepIndex, cls, word, upPoints, downPoints) {
   const sep = sepElsRight[sepIndex];
-  if (!sep) return;
+  const labelA = overlayEl.querySelector('[data-key="right' + (sepIndex - 1) + '"]');
+  const labelB = overlayEl.querySelector('[data-key="right' + sepIndex + '"]');
+  if (!sep || !labelA || !labelB) return;
   const oRect = overlayEl.getBoundingClientRect();
   const sRect = sep.getBoundingClientRect();
+  const aRect = labelA.getBoundingClientRect();
+  const bRect = labelB.getBoundingClientRect();
+  const centerX = ((aRect.left + aRect.right) / 2 + (bRect.left + bRect.right) / 2) / 2;
   const el = document.createElement('div');
   el.className = 'wpn-decor ' + cls;
   el.style.top = (sRect.top + sRect.height / 2 - oRect.top) + 'px';
@@ -919,6 +926,8 @@ function placeWpnDecorator(sepIndex, cls, word, upPoints, downPoints) {
     '<div class="wpn-decor-word">' + word + '</div>' +
     '<svg width="12" height="8" viewBox="0 0 12 8"><polygon points="' + downPoints + '" fill="currentColor"/></svg>';
   overlayEl.appendChild(el);
+  el.style.right = 'auto';
+  el.style.left = (centerX - oRect.left - el.offsetWidth / 2) + 'px';
 }
 function placeWpnDecorators() {
   placeWpnDecorator(2, 'red',  'MASTER', '6,0 12,8 0,8', '0,0 12,0 6,8');
