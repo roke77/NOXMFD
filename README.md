@@ -348,6 +348,13 @@ configured in their own section at the bottom of the **KEY** page.
   ALL (unrestricted) — there's no dedicated ALL bind, since neither showing lit already means ALL.
   The WPN page's A/A · A/G controls mirror and drive the same state.
 
+<details>
+<summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+![Immersion Options section](docs/images/IMM.png)
+
+</details>
+
 ## Reporting & collaboration
 
 Found a bug, or want a feature? Open an issue on the
