@@ -257,5 +257,11 @@ namespace NOXMFD
         // no friendly sensor has painted it in the last ~4s; docs/tgt-datalink-cancel.md), as opposed
         // to one your own faction is actively sensing right now. Always false for friendly/neutral.
         public bool   Datalink;
+
+        // True once a Datalink-only contact's relayed position can no longer be trusted — the same
+        // check the game's own TGP uses to swap a locked target's box for the "?" (outdated) sprite
+        // (FactionHQ.IsTargetPositionAccurate; docs/tgt-stale-lock.md). Implies Datalink; always false
+        // for friendly/neutral or anything still fresh.
+        public bool   Stale;
     }
 }

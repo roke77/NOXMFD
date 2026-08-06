@@ -25,19 +25,24 @@
     CLEAR TARGETS       → tgt.clear   (deselect every target)
     tap a target's row  → deselect it (target.deselect {id}) — the whole row, not just the checkbox
 
-  DATALINK button (docs/tgt-datalink-cancel.md) — a mod-only control, not one of the game's real
-  TargetListSelector filters (those are FRIENDLY/ENEMY/category/vehicle/LASER/HUD above):
-    tap  → tgt.clear-datalink (deselect just the datalink-only targets)
-    hold → tgt.clear-sensor   (deselect everything else — keeps only datalink-only targets locked)
+  SRC column: SENSOR (live), DATALINK (relayed, still trustworthy), or STALE (relayed, no longer
+  trustworthy — the same drift-past-threshold check that pops the "?" on the game's own TGP;
+  docs/tgt-stale-lock.md). STALE implies DATALINK.
+
+  DATALINK / STALE buttons (docs/tgt-datalink-cancel.md, docs/tgt-stale-lock.md) — mod-only
+  controls, not one of the game's real TargetListSelector filters (those are
+  FRIENDLY/ENEMY/category/vehicle/LASER/HUD above):
+    tap DATALINK → tgt.clear-datalink (deselect just the datalink-only targets)
+    tap STALE    → tgt.clear-stale    (deselect just the stale-locked targets)
 
   PAD cursor (docs/page-cursor.md) — while this TGT is the SOI's focused surface, the shell forwards
   the same cursor transport MAP uses, plus Cursor Select's live held state
   ({mfd:true, action:'cursor'|'cursor-held'|'cursor-focus'}): held past the long-press threshold
-  mirrors a filter cell's own long-press "only", or DATALINK's own hold outcome (tgt.clear-sensor)
-  when the cursor's over it (release before it mirrors the tap instead — filter toggle or
-  tgt.clear-datalink). Every other CURSORABLE control (list row, RESET/CLEAR, LASER/HUD) only ever
-  has a tap outcome, since they have no hold behaviour to mirror. Hovering the crosshair over any
-  control highlights it (.pad-hoverable/.pad-hover, shared/theme.css) the same way a real mouse
+  mirrors a filter cell's own long-press "only" when the cursor's over one, releasing before that
+  mirrors the tap instead — filter toggle, tgt.clear-datalink over DATALINK, or tgt.clear-stale over
+  STALE. Every other CURSORABLE control (list row, RESET/CLEAR, LASER/HUD, DATALINK, STALE) only
+  ever has a tap outcome, since they have no hold behaviour to mirror. Hovering the crosshair over
+  any control highlights it (.pad-hoverable/.pad-hover, shared/theme.css) the same way a real mouse
   would. Zoom In/Out (map-act's 'zoom-in'/'zoom-out') are repurposed here to scroll the target list
   instead of zooming (nothing to zoom on this page).
 -->
@@ -79,10 +84,12 @@
       <div class="tgt-list-empty" id="tgt-list-empty">&mdash; NO TARGETS SELECTED &mdash;</div>
     </div>
 
-    <!-- DATALINK: mod-only, not a real TargetListSelector filter — see the header comment above. -->
+    <!-- DATALINK / STALE: mod-only, not real TargetListSelector filters — see the header comment above. -->
     <div class="tgt-footer">
       <button class="tgt-datalink-btn pad-hoverable" id="datalink-btn">DATALINK</button>
-      <span class="tgt-datalink-desc">Tap: deselect datalink-only targets &middot; Hold: deselect all others</span>
+      <span class="tgt-datalink-desc">Tap: deselect datalink-only targets</span>
+      <button class="tgt-stale-btn pad-hoverable" id="stale-btn">STALE</button>
+      <span class="tgt-stale-desc">Tap: deselect stale-locked targets</span>
     </div>
 
     <!-- PAD cursor (docs/page-cursor.md) — same crosshair/transport MAP uses, driven here only

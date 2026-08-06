@@ -174,11 +174,13 @@ html, body {
 .tl-row.f-friendly .tl-name { color: var(--tgt-blue); }
 .tl-row.f-neutral  .tl-name { color: #d4d8dc; }
 .tl-row.f-enemy    .tl-name { color: var(--no-red); }
-/* SRC column: SENSOR (live) reads as a normal dim value; DATALINK (stale, relayed — see
+/* SRC column: SENSOR (live) reads as a normal dim value; DATALINK (relayed, still trustworthy — see
    docs/tgt-datalink-cancel.md) gets the same purple accent as the DATALINK button below, so the two
-   read as one concept. */
+   read as one concept; STALE (relayed, no longer trustworthy — docs/tgt-stale-lock.md) gets
+   --no-label (off-white), matching the STALE button beside it. */
 .tl-src { font-size: 0.85em; letter-spacing: 0.03em; white-space: nowrap; color: var(--no-green-dim); }
 .tl-row.datalink .tl-src { color: var(--no-purple); }
+.tl-row.stale    .tl-src { color: var(--no-label); }
 
 /* Checkbox: selected targets are all checked; tapping it deselects (the row drops on the next
    telemetry frame). Sized for a comfortable touch target. */
@@ -228,6 +230,29 @@ html, body {
 .tgt-datalink-btn:active { background: rgba(var(--no-purple-rgb), 0.20); }
 .tgt-datalink-desc {
   color: var(--no-purple);
+  font-size: clamp(8px, 1.3vmin, 11px);
+  line-height: 1.25;
+}
+
+/* STALE button — same mod-only treatment as DATALINK, in --no-label (off-white) to match the STALE
+   SRC tint above (docs/tgt-stale-lock.md). */
+.tgt-stale-btn {
+  font-family: var(--no-font);
+  background: var(--no-panel-bg);
+  color: var(--no-label);
+  border: 1.5px dashed var(--no-label);
+  border-radius: 3px;
+  padding: clamp(5px, 1.2vh, 10px) clamp(8px, 1.6vw, 14px);
+  font-size: clamp(9px, 1.7vmin, 14px);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  transition: background .08s, box-shadow .08s;
+}
+.tgt-stale-btn:active { background: rgba(212, 216, 220, 0.20); }
+.tgt-stale-desc {
+  color: var(--no-label);
   font-size: clamp(8px, 1.3vmin, 11px);
   line-height: 1.25;
 }

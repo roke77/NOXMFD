@@ -1055,6 +1055,13 @@ namespace NOXMFD
                 // than something actively sensed right now. See docs/tgt-datalink-cancel.md.
                 bool datalink = faction == 2 && !(playerHQ.GetTrackingData(u.persistentID)?.Observed() ?? false);
 
+                // Stale: a Datalink-only relay whose position has drifted past the game's own
+                // trust radius. IsTargetPositionAccurate returns true immediately while fresh (short-
+                // circuits the same Observed() check above), so this can only fire once datalink is
+                // already true — same 20m threshold TargetScreenUI uses for the TGP's "?" box.
+                // See docs/tgt-stale-lock.md.
+                bool stale = datalink && !playerHQ.IsTargetPositionAccurate(u, 20f);
+
                 _unitBuf.Add(new UnitInfo
                 {
                     Id       = u.persistentID.Id,
@@ -1068,7 +1075,8 @@ namespace NOXMFD
                     Targeted = hasTargets && targets.Contains(u),
                     Jammed   = jammed,
                     JammedBy = jammedBy,
-                    Datalink = datalink
+                    Datalink = datalink,
+                    Stale    = stale
                 });
             }
             return _unitBuf.ToArray();

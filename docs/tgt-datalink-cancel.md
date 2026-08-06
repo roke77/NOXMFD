@@ -66,12 +66,11 @@ always comes from `NetworkHQ == this`, not the tracking database.)
    toggled in the existing per-row refresh loop.
 5. **DATALINK button** ([tgt.html](../src/web/pages/tgt/tgt.html)) — sits below the target list,
    dashed purple border (distinct from the real `TargetListSelector` filter buttons above it, which
-   also gate future selection — this one doesn't): **tap** deselects just the datalink-only targets,
-   **hold** deselects everything else (keeping only the datalink-only ones locked). Both are new bulk
-   server-side commands:
-   - **`tgt.clear-datalink`** / **`tgt.clear-sensor`** ([CommandDispatcher.cs](../src/plugin/CommandDispatcher.cs)) —
-     mirror the existing `tgt.clear` ("deselect everything") pattern, scoped by the same
-     datalink/observed check as `UnitInfo.Datalink`, sharing one `TgtClearBy(op, wantDatalink)` helper.
+   also gate future selection — this one doesn't): **tap** deselects just the datalink-only targets.
+   A new bulk server-side command:
+   - **`tgt.clear-datalink`** ([CommandDispatcher.cs](../src/plugin/CommandDispatcher.cs)) — mirrors
+     the existing `tgt.clear` ("deselect everything") pattern, scoped by the same datalink/observed
+     check as `UnitInfo.Datalink`.
 6. **Preview mock** ([preview-mock.js](../tools/preview-mock.js)) — two mocked targets flagged
    `dl: true` so the harness exercises the SRC column and both button directions without the game.
 
@@ -88,7 +87,6 @@ machinery, just scoped by one extra boolean.
   accent (`--no-purple` / `--no-purple-rgb`, added to [theme.css](../src/web/shared/theme.css)) mark
   it as a mod-only control, so a pilot who's learned "these buttons gate future selections too"
   (see docs/tgt-page.md) doesn't wrongly assume that about this one.
-- **Tap/hold both ended up as bulk deselects, not a display filter** — an earlier pass had tap hide
-  datalink rows from view (client-side only) and hold do the bulk deselect. Revised per direct
-  feedback: tap deselects datalink-only targets, hold deselects everything *except* datalink-only
-  targets (the inverse) — both real actions, no view-only filtering.
+- **A bulk deselect, not a display filter** — an earlier pass had tap hide datalink rows from view
+  (client-side only). Revised per direct feedback: tap deselects the datalink-only targets for real,
+  no view-only filtering.

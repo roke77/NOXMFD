@@ -49,7 +49,7 @@ namespace NOXMFD
                 { "tgt.reset",       TgtReset },
                 { "tgt.clear",       TgtClear },
                 { "tgt.clear-datalink", TgtClearDatalink },
-                { "tgt.clear-sensor",   TgtClearSensor },
+                { "tgt.clear-stale",    TgtClearStale },
                 { "tgt.laser",       TgtLaser },
                 { "tgt.hud",         TgtHud },
                 { "hud.set",         HudSet },
@@ -323,16 +323,27 @@ namespace NOXMFD
         }
 
         // TGT page's DATALINK button (docs/tgt-datalink-cancel.md): tap deselects datalink-only
-        // targets, hold deselects the rest (everything actively sensed). Same staleness check as
-        // TelemetryReader.BuildUnits' Datalink field, duplicated here since it's a one-line read with
-        // no shared game-query helper in this codebase yet.
+        // targets. Same staleness check as TelemetryReader.BuildUnits' Datalink field, duplicated
+        // here since it's a one-line read with no shared game-query helper in this codebase yet.
         private static bool IsDatalinkOnly(FactionHQ playerHQ, Unit unit)
         {
             if (unit == null || unit.NetworkHQ == playerHQ) return false;   // only enemy/other-faction targets can be datalink-only
             return !(playerHQ.GetTrackingData(unit.persistentID)?.Observed() ?? false);
         }
 
-        private static void TgtClearBy(string op, bool wantDatalink)
+        // TGT page's STALE button (docs/tgt-stale-lock.md): tap deselects locked targets whose
+        // relayed position the game itself no longer trusts — the same FactionHQ check that swaps a
+        // locked target's TGP box for the "?" (outdated) sprite (TargetScreenUI.outdatedSprite), same
+        // 20m threshold. Duplicated from TelemetryReader.BuildUnits' Stale field for the reason above.
+        private static bool IsStale(FactionHQ playerHQ, Unit unit)
+        {
+            if (unit == null || unit.NetworkHQ == playerHQ) return false;
+            return !playerHQ.IsTargetPositionAccurate(unit, 20f);
+        }
+
+        // Shared by TgtClearDatalink/TgtClearStale: bulk-deselect whichever currently-locked targets
+        // match the given predicate.
+        private static void TgtClearBy(string op, Func<FactionHQ, Unit, bool> predicate)
         {
             TargetListSelector sel = SceneSingleton<TargetListSelector>.i;
             if (sel == null) { Plugin.Log?.LogInfo($"[NOXMFD] {op}: TargetListSelector absent — ignored."); return; }
@@ -347,15 +358,15 @@ namespace NOXMFD
             int cleared = 0;
             foreach (Unit unit in new List<Unit>(targets))   // copy: ForceDeselect mutates the live list
             {
-                if (IsDatalinkOnly(playerHQ, unit) != wantDatalink) continue;
+                if (!predicate(playerHQ, unit)) continue;
                 sel.ForceDeselect(unit);
                 cleared++;
             }
             Plugin.Log?.LogInfo($"[NOXMFD] {op} — deselected {cleared} target(s).");
         }
 
-        private static void TgtClearDatalink(CommandEnvelope env) => TgtClearBy("tgt.clear-datalink", wantDatalink: true);
-        private static void TgtClearSensor(CommandEnvelope env)   => TgtClearBy("tgt.clear-sensor", wantDatalink: false);
+        private static void TgtClearDatalink(CommandEnvelope env) => TgtClearBy("tgt.clear-datalink", IsDatalinkOnly);
+        private static void TgtClearStale(CommandEnvelope env)    => TgtClearBy("tgt.clear-stale", IsStale);
 
         // LASER toggle — keep only lased targets when on.
         private static void TgtLaser(CommandEnvelope env)
