@@ -284,6 +284,11 @@ Multi-stick HOTAS setups are supported; each bind remembers which stick it came 
   do on the focused MAP display.
 - **Cursor Up / Down / Left / Right / Select**, plus two HOTAS axis binds (horizontal/vertical) —
   drive the [PAD cursor](#pad-cursor) below.
+- **Next Target / Previous Target** — step a highlighted row through the focused TGT display's
+  locked-target list, without aiming the PAD cursor at it. The two are mutually exclusive: stepping
+  a row hides the crosshair and hands Cursor Select to that row instead (Select deselects it);
+  moving the crosshair hands Select back. **Clear Datalink / Clear Stale** — the keybind equivalents
+  of tapping TGT's own DATALINK/STALE buttons.
 
 An **Input When Game Unfocused** toggle sits above the bind table (not a bind itself) — turn it on
 if you run the display in a browser on the same PC as the game, so your HOTAS stays live while
@@ -307,7 +312,7 @@ a SOI key. Five binds, on the **KEY** page:
 - **SOI Next / SOI Prev** — select the next / previous screen (every open display, and each F-35
   portal).
 - **Nav Up / Nav Down** — move the cursor over the selected screen's buttons.
-- **Select** — press the button under the cursor.
+- **Nav Select** — press the button under the cursor.
 
 <details>
 <summary>$\color{green}\textsf{See screenshots}$</summary>
@@ -325,8 +330,11 @@ it and act on whatever's underneath, the same thing a mouse click or touch tap a
 from the HOTAS, without touching the screen. Cursor Up/Down/Left/Right (or a bound analog axis)
 slews it, Cursor Select picks whatever it's over: a contact on MAP, a toggle on HUD, a filter or
 target row on TGT (holding it also mirrors that page's own long-press action, where it has one), or
-a contact on RDR (locking/unlocking it). Zoom In/Out zoom the MAP view as usual, or scroll the page
-up/down on HUD/TGT. On MAP, pushing the cursor against the edge with FLW off pans the view to
+a contact on RDR (locking/unlocking it). On TGT specifically, Select instead deselects whichever row
+Next/Previous Target highlighted, if one is — the two are mutually exclusive, and moving the
+crosshair hands Select back to it (see the Extended Keybinds list above). Zoom In/Out zoom the MAP
+view as usual, or scroll the page up/down on HUD/TGT. On MAP, pushing the cursor against the edge
+with FLW off pans the view to
 reveal more terrain. It only acts on whichever display currently has both SOI focus and one of
 these pages open.
 
