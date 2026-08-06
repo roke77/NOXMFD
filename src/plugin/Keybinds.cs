@@ -194,7 +194,7 @@ namespace NOXMFD
             DefFree(config, "soi-nav-down", soi, "SoiNavDown", "Nav Down", edge: true,
                 "Move the cursor down the focused display's key labels.",
                 () => TelemetryServer.SoiAction("down"));
-            DefFree(config, "soi-select", soi, "SoiSelect", "Select", edge: true,
+            DefFree(config, "soi-select", soi, "SoiSelect", "Nav Select", edge: true,
                 "Press the label the cursor is on, as if you had clicked that key.",
                 () => TelemetryServer.SoiAction("select"));
 

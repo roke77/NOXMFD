@@ -211,7 +211,7 @@ KEYBINDS = [
     {"id": "soi-nav-down", "section": "SOI", "label": "Nav Down",
      "description": "Move the cursor down the focused display's key labels.",
      "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "soi-select", "section": "SOI", "label": "Select",
+    {"id": "soi-select", "section": "SOI", "label": "Nav Select",
      "description": "Press the label the cursor is on, as if you had clicked that key.",
      "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "cursor-up", "section": "CURSOR", "label": "Cursor Up",
