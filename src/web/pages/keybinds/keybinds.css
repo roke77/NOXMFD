@@ -169,9 +169,11 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 /* IMMERSION OPTIONS (docs/radar-master-arms.md) — a true second section: its own EXTENDED-
    KEYBINDS-sized title (.kb-title, reused as-is), a description, the 3 start-state settings, then
    its own table (own .kb-head + .kb-rows, not shared with the main one above). The top border/
-   margin sets the whole section apart from the main table, the way a fresh page section should. */
+   margin sets the whole section apart from the main table, the way a fresh page section should.
+   No horizontal margin — it nests its own .kb-head/.kb-row, whose border-bottom lines should span
+   the same width .kb-panel's padding already gives the main table's, not sit inset from them. */
 .kb-immersion {
-  margin: 32px 10px 0;
+  margin: 32px 0 0;
   padding-top: 24px;
   border-top: 1px solid var(--no-panel-border);
 }
