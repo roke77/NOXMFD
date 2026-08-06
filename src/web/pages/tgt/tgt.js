@@ -18,6 +18,10 @@ const staleBtn = document.getElementById('stale-btn');
 let state = { present: false, laser: false, hud: false, faction: [], category: [], vehicle: [] };
 let targets = [];        // selected-target list (from 'tgt-targets'): [{ id, n, g, r, f, dl }]
 let targetsKey = '';     // id-set signature; rebuild rows only when it changes
+// Next/Previous Target's row-stepper (docs/tgt-keybind-nav.md) — an index into `targets`, -1 when
+// nothing's highlighted. Mutually exclusive with the PAD cursor: entering this mode hides the free
+// crosshair, and moving the crosshair clears this back to -1 (see the 'cursor' message handler).
+let highlightIndex = -1;
 // Cache of the built row signatures (names) so we only rebuild DOM when the set of toggles changes,
 // not on every 10 Hz frame — the per-frame work is just flipping the .on class.
 const builtKey = { faction: '', category: '', vehicle: '' };
@@ -107,6 +111,9 @@ function renderTargets() {
   // Rebuild the rows only when the set of target ids changes; otherwise just refresh the text
   // (name/grid/range drift as targets move) so we don't thrash the DOM at 10 Hz.
   const key = list.map(function (t) { return t.id; }).join(',');
+  // A deselect elsewhere (crosshair, DATALINK/STALE, in-game) can drop the list out from under the
+  // highlight — reclamp rather than leave it pointing past the end or lingering at -1's "none".
+  if (highlightIndex >= list.length) highlightIndex = list.length - 1;
   if (key !== targetsKey) {
     targetsKey = key;
     listRows.innerHTML = '';
@@ -135,6 +142,7 @@ function renderTargets() {
     el.classList.toggle('datalink', !!t.dl && !t.st);
     el.classList.toggle('stale', !!t.st);
     el.querySelector('.tl-src').textContent = t.st ? 'STALE' : t.dl ? 'DATALINK' : 'SENSOR';
+    el.classList.toggle('nav-highlight', i === highlightIndex);
   }
 }
 
@@ -214,8 +222,37 @@ function elAt(px, py) {
   return raw && raw.closest(CURSORABLE);
 }
 
+// Next/Previous Target (docs/tgt-keybind-nav.md): steps highlightIndex through `targets`, wrapping
+// at both ends, and hides the free crosshair for the duration — the two selection modes are mutually
+// exclusive, so entering this one puts the crosshair away rather than leaving both visible at once.
+function navHighlight(dir) {
+  if (!targets.length) return;
+  highlightIndex = highlightIndex < 0 ? 0 : (highlightIndex + dir + targets.length) % targets.length;
+  cursor.setHidden(true);
+  renderTargets();
+}
+
+// Moving the crosshair (Cursor Up/Down/Left/Right or its axis) hands Select back to it — called from
+// the 'cursor' message handler on an actual deflection, not the zero it reports on release.
+function clearNavHighlight() {
+  if (highlightIndex < 0) return;
+  highlightIndex = -1;
+  cursor.setHidden(false);
+  renderTargets();
+}
+
+// Cursor Select's outcome while a row is highlighted: deselect it, same as tapping the row itself.
+// highlightIndex is left as-is — the target drops from `targets` on the next telemetry frame and
+// renderTargets()'s reclamp above settles it onto whatever slid into that slot, same as a deselect
+// via any other path already does to the list itself.
+function deselectHighlighted() {
+  const t = targets[highlightIndex];
+  if (t) send('target.deselect', { id: t.id });
+}
+
 // Select's TAP outcome (release before LONG_MS, or any control with no hold behaviour to mirror).
 function padCursorSelectAt(px, py) {
+  if (highlightIndex >= 0) { deselectHighlighted(); return; }
   const el = elAt(px, py);
   if (!el) return;
   if (el.classList.contains('tgt-cell') || el.classList.contains('tgt-veh')) {
@@ -275,6 +312,7 @@ window.addEventListener('message', function (e) {
   } else if (m.action === 'cursor-focus') {
     cursor.setFocus(!!m.on, panel.clientWidth / 2, panel.clientHeight / 2);
   } else if (m.action === 'cursor') {
+    if (m.x || m.y) clearNavHighlight();   // an actual deflection, not the (0,0) a key release reports
     cursor.setVector(m.x, m.y);
   } else if (m.action === 'cursor-held') {
     cursor.setSelectHeld(!!m.held);
@@ -282,6 +320,14 @@ window.addEventListener('message', function (e) {
     listRows.scrollBy({ top: SCROLL_STEP });
   } else if (m.action === 'zoom-out') {
     listRows.scrollBy({ top: -SCROLL_STEP });
+  } else if (m.action === 'tgt-next') {
+    navHighlight(1);
+  } else if (m.action === 'tgt-prev') {
+    navHighlight(-1);
+  } else if (m.action === 'tgt-datalink') {
+    send('tgt.clear-datalink');
+  } else if (m.action === 'tgt-stale') {
+    send('tgt.clear-stale');
   }
 });
 

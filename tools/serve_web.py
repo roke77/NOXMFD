@@ -201,6 +201,18 @@ KEYBINDS = [
     {"id": "map-zoom-out", "section": "MAP", "label": "Zoom Out",
      "description": "Zoom out on the focused MAP display.",
      "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgt-next", "section": "TGT", "label": "Next Target",
+     "description": "Highlight the next locked target on the focused TGT display.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgt-prev", "section": "TGT", "label": "Previous Target",
+     "description": "Highlight the previous locked target on the focused TGT display.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgt-datalink", "section": "TGT", "label": "Clear Datalink",
+     "description": "Deselect the datalink-only locks on the focused TGT display — same as tapping its DATALINK button.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgt-stale", "section": "TGT", "label": "Clear Stale",
+     "description": "Deselect the stale locks on the focused TGT display — same as tapping its STALE button.",
+     "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "soi-next", "section": "SOI", "label": "SOI Next",
      "description": "Move focus to the next display.", "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "soi-prev", "section": "SOI", "label": "SOI Prev",
@@ -280,6 +292,10 @@ def _keybinds_config():
         KB_STATE["capturingKind"] = None
     notes = {"MAP": "Follow / Zoom In / Zoom Out are direct binds for what the bezel's FLW and Z+/Z- "
                     "keys already do on the focused MAP display.",
+             "TGT": "Next/Previous highlight a row instead of moving the crosshair — moving Cursor "
+                    "Up/Down/Left/Right (or its axis) clears the highlight and hands Cursor Select "
+                    "back to the crosshair. While a row is highlighted, Cursor Select deselects it. "
+                    "Datalink/Stale mirror the DATALINK/STALE buttons.",
              "SOI": "One display at a time is the sensor of interest — it rings itself in white, and "
                     "these keys drive it. Nothing is focused until you press SOI Next or Prev; from "
                     "there they cycle through the open displays.",

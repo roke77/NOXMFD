@@ -36,6 +36,12 @@ export function createPadCursor({ el, clampRect, onSelect, onHold, onMove, onEdg
   let vec = { x: 0, y: 0 };   // last reported [-1,1] velocity, held between broadcasts
   let timer = null, lastT = 0;
   let holdTimer = null, holdFired = false;   // Select press/hold arbitration (see setSelectHeld)
+  // Externally forced invisible (docs/tgt-keybind-nav.md) — a page can have its own second selection
+  // mode (TGT's Next/Previous Target row-stepper) that's mutually exclusive with the free crosshair;
+  // setHidden lets it suppress the crosshair without touching `on`/`pos`, so the crosshair picks up
+  // exactly where it was left the moment it's un-hidden (same "parked, not forgotten" contract focus
+  // loss already has). Unused by MAP/HUD — plain false forever, paint() behaves exactly as before.
+  let hidden = false;
 
   function clamp() {
     if (!pos) return;
@@ -47,7 +53,7 @@ export function createPadCursor({ el, clampRect, onSelect, onHold, onMove, onEdg
   // Transform, not left/top, so it stays a compositor move and never reflows/repaints the page
   // underneath it.
   function paint() {
-    if (!on || !pos) {
+    if (!on || !pos || hidden) {
       el.style.display = 'none';
       if (onMove) onMove(null, null);
       return;
@@ -112,6 +118,10 @@ export function createPadCursor({ el, clampRect, onSelect, onHold, onMove, onEdg
     },
     // Re-clamp + repaint after the clamp rect changed (a resize) without moving the cursor itself.
     resize() { clamp(); paint(); },
+    // Force the crosshair invisible (true) or let it paint normally again (false) — docs/tgt-keybind-nav.md.
+    // `pos`/`vec` are untouched, so un-hiding shows it exactly where it was, and a still-deflected
+    // vector keeps driving underneath while hidden (paint() just skips the visible repaint).
+    setHidden(h) { hidden = !!h; paint(); },
     // Drop the cursor entirely (a mission boundary) — no lingering position across it.
     reset() {
       if (timer) { cancelAnimationFrame(timer); timer = null; }

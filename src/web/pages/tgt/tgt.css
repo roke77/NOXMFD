@@ -182,6 +182,11 @@ html, body {
 .tl-row.datalink .tl-src { color: var(--no-purple); }
 .tl-row.stale    .tl-src { color: var(--no-label); }
 
+/* Next/Previous Target's row-stepper (docs/tgt-keybind-nav.md) — a persistent outline (unlike
+   .pad-hover's transient overlay) since it has to stay legible while the crosshair itself is hidden.
+   --no-amber matches its existing "selected/waiting state" meaning elsewhere in the theme. */
+.tl-row.nav-highlight { outline: 2px solid var(--no-amber); outline-offset: -2px; background: rgba(255,170,0,0.10); }
+
 /* Checkbox: selected targets are all checked; tapping it deselects (the row drops on the next
    telemetry frame). Sized for a comfortable touch target. */
 .tl-check {

@@ -179,6 +179,25 @@ namespace NOXMFD
                 "Zoom out on the focused MAP display. On a scrollable page, scrolls it down instead.",
                 () => TelemetryServer.MapAction("zoom-out"));
 
+            // TGT binds — act on the focused TGT display, so DefFree like MAP above (docs/tgt-keybind-nav.md).
+            // Next/Previous step a highlighted row through the locked-target list, independent of (and
+            // mutually exclusive with) the PAD cursor's free crosshair: using either one hides the
+            // crosshair and hands Cursor Select to the highlighted row instead; moving the crosshair
+            // (Cursor Up/Down/Left/Right or its axis) clears the highlight and hands Select back to it.
+            const string tgt = "TGT Keybinds";
+            DefFree(config, "tgt-next", tgt, "TgtNext", "Next Target", edge: true,
+                "Highlight the next locked target on the focused TGT display.",
+                () => TelemetryServer.MapAction("tgt-next"));
+            DefFree(config, "tgt-prev", tgt, "TgtPrev", "Previous Target", edge: true,
+                "Highlight the previous locked target on the focused TGT display.",
+                () => TelemetryServer.MapAction("tgt-prev"));
+            DefFree(config, "tgt-datalink", tgt, "TgtDatalink", "Clear Datalink", edge: true,
+                "Deselect the datalink-only locks on the focused TGT display — same as tapping its DATALINK button.",
+                () => TelemetryServer.MapAction("tgt-datalink"));
+            DefFree(config, "tgt-stale", tgt, "TgtStale", "Clear Stale", edge: true,
+                "Deselect the stale locks on the focused TGT display — same as tapping its STALE button.",
+                () => TelemetryServer.MapAction("tgt-stale"));
+
             // SOI binds — they drive the mod's own displays rather than the aeroplane, so they are
             // DefFree (no aircraft needed) and work at the main menu. See docs/keybinds-page.md.
             const string soi = "SOI Keybinds";
@@ -351,6 +370,7 @@ namespace NOXMFD
             "Weapon Keybinds"         => "WEAPONS",
             "Landing Gear Keybinds"   => "GEAR",
             "MAP Keybinds"            => "MAP",
+            "TGT Keybinds"            => "TGT",
             "SOI Keybinds"            => "SOI",
             "Cursor Keybinds"         => "CURSOR",
             "Immersion Keybinds"      => "IMMERSION OPTIONS",
@@ -364,6 +384,11 @@ namespace NOXMFD
             "MAP Keybinds" =>
                 "Follow / Zoom In / Zoom Out are direct binds for what the bezel's FLW and Z+/Z- keys " +
                 "already do on the focused MAP display.",
+            "TGT Keybinds" =>
+                "Next/Previous highlight a row instead of moving the crosshair — moving Cursor Up/Down/" +
+                "Left/Right (or its axis) clears the highlight and hands Cursor Select back to the " +
+                "crosshair. While a row is highlighted, Cursor Select deselects it. Datalink/Stale " +
+                "mirror the DATALINK/STALE buttons.",
             "SOI Keybinds" =>
                 "One display at a time is the sensor of interest — it rings itself in white, and these " +
                 "keys drive it. Nothing is focused until you press SOI Next or Prev; from there they " +

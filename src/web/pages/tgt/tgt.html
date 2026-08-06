@@ -45,6 +45,14 @@
   any control highlights it (.pad-hoverable/.pad-hover, shared/theme.css) the same way a real mouse
   would. Zoom In/Out (map-act's 'zoom-in'/'zoom-out') are repurposed here to scroll the target list
   instead of zooming (nothing to zoom on this page).
+
+  Next/Previous Target + Datalink/Stale keybinds (docs/tgt-keybind-nav.md) — four more map-act
+  actions, all TGT-only: 'tgt-next'/'tgt-prev' step a highlighted row through the target list,
+  hiding the free crosshair for as long as one's highlighted (mutually exclusive with the PAD cursor
+  above — moving the crosshair clears the highlight and hands Select back to it). While a row is
+  highlighted, Cursor Select deselects it instead of hit-testing the crosshair's position.
+  'tgt-datalink'/'tgt-stale' just fire tgt.clear-datalink/tgt.clear-stale directly — the keybind
+  equivalents of tapping the DATALINK/STALE buttons.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
