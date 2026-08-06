@@ -147,10 +147,12 @@ non-MAP page.
    `tools/map-cursor.test.js`), just re-parameterized. **Needs a real in-game/browser check** for
    the visual glide and the actual click-through on TGT/HUD, same as MAP needed one for its own
    rollout.
-6. **`f35.js` — deliberately not touched.** Scope stays classic-layout-only, matching the existing
-   bezel SOI cursor's own documented scope (`docs/keybinds-page.md`). F-35 has its own MAP-only
-   `focusedMapWindow()`; widening it to cover its TGT/HUD portals is a later, separate change if
-   ever wanted.
+6. **`f35.js` widened (docs/tgt-keybind-nav.md).** Originally scoped to classic-layout-only, since
+   F-35 had its own MAP-only `focusedMapWindow()`. Generalized to `focusedCursorWindow()` + a
+   `PAD_CURSOR_PAGES` set mirroring the bezel's, plus a `cursor-held` forwarder the bezel already had
+   and F-35 was missing entirely (TGT/RDR's Select tap/hold arbitration lives there, not in the
+   plain edge-driven `cursor-select`) — so a portal showing TGT/HUD/RDR gets the same cursor/
+   cursor-select/cursor-held/map-act forwarding a MAP portal always did.
 
 ## Open questions
 

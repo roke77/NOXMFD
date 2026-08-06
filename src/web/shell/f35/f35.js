@@ -91,6 +91,11 @@
   // NAV.wpn is empty and why the bezel hand-rolls its WPN labels too.
   const DERIVED = { loadout: true };
 
+  // Pages carrying their own PAD cursor (pad-cursor.js) — docs/page-cursor.md, docs/tgt-keybind-nav.md.
+  // Mirrors the bezel's own PAD_CURSOR_PAGES (mfd.js) exactly; kept as its own copy since this
+  // layout has no shared module with the bezel to hang it on.
+  const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true };
+
   const WPN_MAX_DISPLAY = ROWS - 1;   // row 1 is the nav + CM band; rows 2..6 carry the weapons
   const WPN_ICON_INSET  = 20;         // keeps the image off its band edges, as the bezel does
 
@@ -266,8 +271,10 @@
       // cursor-focus post (sent the moment this portal's src changed, before its script had
       // attached one) was silently dropped — and a plain re-run of syncCursorFocus() wouldn't
       // resend it either, since frameWin()'s identity survives the reload. Resend directly,
-      // bypassing that dedup, whenever this freshly-loaded portal is the one eligible.
-      if (currentPage === 'map' && focusedMapWindow() === frameWin())
+      // bypassing that dedup, whenever this freshly-loaded portal is the one eligible. Any
+      // PAD_CURSOR_PAGES page can land here, not just MAP — TGT/HUD/RDR reload their iframe on
+      // every page switch exactly like MAP does.
+      if (PAD_CURSOR_PAGES[currentPage] && focusedCursorWindow() === frameWin())
         frameWin().postMessage({ mfd: true, action: 'cursor-focus', on: true }, '*');
     }
 
@@ -530,9 +537,10 @@
       // in-place one) and its enabled nav labels, in reading order, as the cursor's targets.
       page: function () { return currentPage; },
       navItems: function () { return [].slice.call(grid.querySelectorAll('.nav-item:not([disabled])')); },
-      // docs/map-cursor.md — this portal's frame window, but only while it's actually showing MAP
-      // (null otherwise), so the glass-level cursor forwarding can't target a non-map page.
-      mapWin: function () { return currentPage === 'map' ? frameWin() : null; },
+      // docs/page-cursor.md — this portal's frame window, but only while it's showing a page with its
+      // own PAD cursor (null otherwise), so the glass-level cursor forwarding can't target a page
+      // with nothing listening for it.
+      cursorWin: function () { return PAD_CURSOR_PAGES[currentPage] ? frameWin() : null; },
       // Flex-grow tracks the span, so a merged portal takes exactly the two slots it owns and its
       // neighbours keep theirs. All four slots are the same width, so the arithmetic is just the
       // span — no wrapper elements, no percentages.
@@ -703,17 +711,17 @@
     syncCursorFocus();   // the focused portal may have paged onto/off MAP under it
   }
 
-  // ── MAP cursor forwarding (docs/map-cursor.md) ────────────────────────────────────────
+  // ── PAD cursor forwarding (docs/page-cursor.md, docs/map-cursor.md) ───────────────────
   // Twin of the bezel's syncCursorFocus: tell the portal that just lost eligibility to drop its
-  // cursor, and the one that just gained it (focused AND showing MAP) to show one. null-safe no-op
-  // when the answer didn't change.
+  // cursor, and the one that just gained it (focused AND showing a PAD_CURSOR_PAGES page — MAP,
+  // TGT, HUD, RDR) to show one. null-safe no-op when the answer didn't change.
   let cursorFocusTarget = null;
-  function focusedMapWindow() {
+  function focusedCursorWindow() {
     const fp = focusedPortal();
-    return fp ? fp.mapWin() : null;
+    return fp ? fp.cursorWin() : null;
   }
   function syncCursorFocus() {
-    const target = focusedMapWindow();
+    const target = focusedCursorWindow();
     if (target === cursorFocusTarget) return;
     if (cursorFocusTarget) cursorFocusTarget.postMessage({ mfd: true, action: 'cursor-focus', on: false }, '*');
     if (target) target.postMessage({ mfd: true, action: 'cursor-focus', on: true }, '*');
@@ -742,19 +750,29 @@
     if (m.type === 'soi')     { onSoiFocus(m); return; }
     if (m.type === 'soi-act') { onSoiAct(m.act); return; }
     if (m.type === 'cursor') {
-      const w = focusedMapWindow();
+      const w = focusedCursorWindow();
       if (w) w.postMessage({ mfd: true, action: 'cursor', x: m.x || 0, y: m.y || 0 }, '*');
       return;
     }
     if (m.type === 'cursor-select') {
-      const w = focusedMapWindow();
+      const w = focusedCursorWindow();
       if (w) w.postMessage({ mfd: true, action: 'cursor-select' }, '*');
       return;
     }
+    if (m.type === 'cursor-held') {
+      // docs/page-cursor.md — TGT/RDR's Select tap-vs-hold arbitration lives entirely in this
+      // held state (pad-cursor.js's setSelectHeld), not the plain edge-driven cursor-select above;
+      // MAP/HUD have no onHold registered and simply ignore it. Missing this meant those two pages'
+      // Select never fired ANY outcome under this layout, not just the wrong one.
+      const w = focusedCursorWindow();
+      if (w) w.postMessage({ mfd: true, action: 'cursor-held', held: !!m.held }, '*');
+      return;
+    }
     if (m.type === 'map-act') {
-      // Same wire action the bezel forwards (toggle-follow/zoom-in/zoom-out) — no MAP_ACTIONS
-      // translation needed since the server already sends those exact strings.
-      const w = focusedMapWindow();
+      // Same wire action the bezel forwards (toggle-follow/zoom-in/zoom-out/tgt-next/tgt-prev/
+      // tgt-datalink/tgt-stale, docs/tgt-keybind-nav.md) — no MAP_ACTIONS translation needed since
+      // the server already sends those exact strings.
+      const w = focusedCursorWindow();
       if (w) w.postMessage({ mfd: true, action: m.act }, '*');
       return;
     }

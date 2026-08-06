@@ -69,9 +69,25 @@ persistent rather than `.pad-hover`'s transient overlay, since it has to stay le
 crosshair (and its hover feedback) is hidden. `--no-amber` matches its existing "selected/waiting
 state" meaning elsewhere in the theme.
 
+## F-35 layout: everything above rode a channel it didn't reach
+
+First in-game test found the four binds inert, and separately that RDR's crosshair never moved
+either — both symptoms of the same pre-existing gap, not this feature: `f35.js` had its own
+MAP-only `focusedMapWindow()` (`docs/page-cursor.md` step 6 named this as a known, deliberately
+scoped-out limitation), so `map-act` — the channel every bind here rides — silently never reached a
+portal showing TGT, HUD, or RDR. Widened it (`docs/page-cursor.md`'s step 6 update has the details) —
+also found `cursor-held` wasn't forwarded by F-35 *at all*, which the bezel already did: TGT/RDR's
+Select tap-vs-hold arbitration lives entirely in that held state, not the plain edge-driven
+`cursor-select` MAP/HUD use, so Select never fired any outcome for either page under F-35, unrelated
+to this feature but caught by the same testing pass.
+
 ## Verification
 
-`dotnet build` (0 errors). `serve_web` harness: `window.__mapAct('tgt-next')`/`'tgt-prev'` step the
-highlight and hide the crosshair; `window.__cursorVec(x, y)` with a nonzero component clears it and
-un-hides the crosshair again; `window.__mapAct('tgt-datalink')`/`'tgt-stale'` post the same
-`/command` bodies the buttons do. Not yet tested in-game.
+`dotnet build` (0 errors). `serve_web` harness, both layouts: `window.__mapAct('tgt-next')`/
+`'tgt-prev'` step the highlight and hide the crosshair; `window.__cursorVec(x, y)` with a nonzero
+component clears it and un-hides the crosshair again; `window.__mapAct('tgt-datalink')`/`'tgt-stale'`
+post the same `/command` bodies the buttons do; `window.__cursorHold(true)` then `false` within
+300ms deselects the highlighted row. On F-35 specifically: confirmed a TGT portal's crosshair shows
+on SOI focus, `tgt-next` reaches it and hides it, held-then-released reaches it as a deselect, and a
+separate RDR portal's own cursor element receives real `cursor` vector messages with the posted
+x/y — all of which reached nothing before the `f35.js` widening. Not yet tested in-game.
