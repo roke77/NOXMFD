@@ -287,8 +287,9 @@ Multi-stick HOTAS setups are supported; each bind remembers which stick it came 
 - **Next Target / Previous Target** — step a highlighted row through the focused TGT display's
   locked-target list, without aiming the PAD cursor at it. The two are mutually exclusive: stepping
   a row hides the crosshair and hands Cursor Select to that row instead (Select deselects it);
-  moving the crosshair hands Select back. **Clear Datalink / Clear Stale** — the keybind equivalents
-  of tapping TGT's own DATALINK/STALE buttons.
+  moving the crosshair hands Select back.
+- **Clear Datalink / Clear Stale** — the keybind equivalents of tapping TGT's own DATALINK/STALE
+  buttons.
 
 An **Input When Game Unfocused** toggle sits above the bind table (not a bind itself) — turn it on
 if you run the display in a browser on the same PC as the game, so your HOTAS stays live while
