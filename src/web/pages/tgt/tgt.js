@@ -123,13 +123,11 @@ function renderTargets() {
       row.dataset.id = t.id;
       row.setAttribute('role', 'checkbox'); row.setAttribute('aria-checked', 'true');
       row.setAttribute('aria-label', 'deselect'); row.tabIndex = 0;
-      const chk = document.createElement('span');
-      chk.className = 'tl-check';   // still the visual check mark — the whole row is the click target now
       const name = document.createElement('span'); name.className = 'tl-name';
-      const grid = document.createElement('span'); grid.className = 'tl-grid';
-      const dist = document.createElement('span'); dist.className = 'tl-dist';
       const src  = document.createElement('span'); src.className = 'tl-src';
-      row.appendChild(chk); row.appendChild(name); row.appendChild(grid); row.appendChild(dist); row.appendChild(src);
+      const dist = document.createElement('span'); dist.className = 'tl-dist';
+      const grid = document.createElement('span'); grid.className = 'tl-grid';
+      row.appendChild(name); row.appendChild(src); row.appendChild(dist); row.appendChild(grid);
       listRows.appendChild(row);
     });
   }

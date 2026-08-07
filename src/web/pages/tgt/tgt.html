@@ -23,7 +23,7 @@
     long-press a filter → "only this" (tgt.only {group,index}) — isolate it in its group
     RESET FILTER        → tgt.reset   (all filters back on)
     CLEAR TARGETS       → tgt.clear   (deselect every target)
-    tap a target's row  → deselect it (target.deselect {id}) — the whole row, not just the checkbox
+    tap a target's row  → deselect it (target.deselect {id}) — anywhere on the row, no checkbox
 
   SRC column: SENSOR (live), DATALINK (relayed, still trustworthy), or STALE (relayed, no longer
   trustworthy — the same drift-past-threshold check that pops the "?" on the game's own TGP;
@@ -82,22 +82,27 @@
 
     <div class="tgt-vehicles" id="row-vehicle"></div>
 
-    <!-- Selected-target list: NAME / GRID / RNG / SRC per row. The whole row is clickable (not just
-         the checkbox — a bigger, easier touch/cursor target) and deselects that target. -->
+    <!-- Selected-target list: NAME / SRC / RNG / GRID per row. The whole row is clickable and
+         deselects that target — no checkbox, the row itself already reads as "this is selected".
+         .tgt-list-scroll scrolls both axes so a narrow panel (small-screen F-35) overflows instead
+         of squeezing columns unreadably thin; .tgt-list-head is sticky within it so the header stays
+         put vertically but still tracks the rows horizontally. -->
     <div class="tgt-list" id="tgt-list">
-      <div class="tgt-list-head">
-        <span></span><span>NAME</span><span>GRID</span><span>RNG</span><span>SRC</span>
+      <div class="tgt-list-scroll">
+        <div class="tgt-list-head">
+          <span>NAME</span><span>SRC</span><span>RNG</span><span>GRID</span>
+        </div>
+        <div class="tgt-list-rows" id="tgt-list-rows"></div>
+        <div class="tgt-list-empty" id="tgt-list-empty">&mdash; NO TARGETS SELECTED &mdash;</div>
       </div>
-      <div class="tgt-list-rows" id="tgt-list-rows"></div>
-      <div class="tgt-list-empty" id="tgt-list-empty">&mdash; NO TARGETS SELECTED &mdash;</div>
     </div>
 
     <!-- DATALINK / STALE: mod-only, not real TargetListSelector filters — see the header comment above. -->
     <div class="tgt-footer">
       <button class="tgt-datalink-btn pad-hoverable" id="datalink-btn">DATALINK</button>
-      <span class="tgt-datalink-desc">Tap: deselect datalink-only targets</span>
+      <span class="tgt-datalink-desc">Deselect datalink-only</span>
       <button class="tgt-stale-btn pad-hoverable" id="stale-btn">STALE</button>
-      <span class="tgt-stale-desc">Tap: deselect stale-locked targets</span>
+      <span class="tgt-stale-desc">Deselect stale locks</span>
     </div>
 
     <!-- PAD cursor (docs/page-cursor.md) — same crosshair/transport MAP uses, driven here only

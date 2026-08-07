@@ -132,41 +132,55 @@ html, body {
   border-top: 1px solid var(--no-green-dark);
   padding-top: clamp(3px, 0.8vh, 7px);
 }
-/* Shared 5-column track: [checkbox] [name grows] [grid] [range] [source]. Head + rows use the same
-   grid so the columns line up. */
-.tgt-list-head, .tl-row {
-  display: grid;
-  /* Viewport-based column widths (not auto) so the header and the rows — separate grids — compute
-     identical tracks and line up. minmax(0,1fr) lets the name shrink so its ellipsis kicks in. */
-  grid-template-columns: clamp(20px, 3.4vmin, 26px) minmax(0, 1fr) clamp(46px, 7vw, 76px) clamp(60px, 9vw, 96px) clamp(52px, 8vw, 86px);
-  gap: clamp(6px, 1.4vw, 14px);
-  align-items: center;
-}
-.tgt-list-head {
-  padding: 0 clamp(4px, 1vw, 10px) clamp(2px, 0.6vh, 5px);
-  color: var(--no-green-dim);
-  font-size: clamp(9px, 1.4vmin, 13px);
-  letter-spacing: 0.06em;
-  border-bottom: 1px solid var(--no-green-dark);
-}
-.tgt-list-rows {
+/* .tgt-list-scroll owns the scrolling (both axes) so a narrow panel overflows horizontally instead
+   of squeezing the columns unreadably thin — .tgt-list-head/.tl-row below give the NAME column a
+   real floor (not 0) so the row has a genuine minimum width to overflow at. .tgt-list-head is
+   sticky within this scroller: pinned vertically like before, but still pans with the rows
+   horizontally so the labels stay lined up over their column. */
+.tgt-list-scroll {
   flex: 1 1 auto;
-  overflow-y: auto;
+  min-height: 0;
+  display: flex; flex-direction: column;   /* stacks head/rows/empty-note; overflow scrolls the lot */
+  overflow: auto;
   /* Match the thin overlay scrollbar a touch device draws, not the desktop default's chunky bar with
      its light track: a slim grey thumb on a transparent track. scrollbar-* covers Firefox + the
      standard; the ::-webkit rules below cover Chrome / Edge / Safari. */
   scrollbar-width: thin;
   scrollbar-color: var(--no-gray) transparent;
 }
-.tgt-list-rows::-webkit-scrollbar { width: 6px; height: 6px; }
-.tgt-list-rows::-webkit-scrollbar-track { background: transparent; }
-.tgt-list-rows::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
-.tgt-list-rows:empty { flex: 0 0 auto; }   /* collapse when empty so the empty-note fills + centers */
+.tgt-list-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.tgt-list-scroll::-webkit-scrollbar-track { background: transparent; }
+.tgt-list-scroll::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
+/* Shared 4-column track: [name grows] [source] [range] [grid]. Head + rows use the same grid so the
+   columns line up. minmax(90px, 1fr) still lets NAME grow on a wide panel, but never below a
+   readable floor — once the other three tracks' floors plus this one exceed the scroller's width,
+   the row overflows it rather than compressing further. */
+.tgt-list-head, .tl-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) clamp(52px, 8vw, 86px) clamp(60px, 9vw, 96px) clamp(46px, 7vw, 76px);
+  gap: clamp(6px, 1.4vw, 14px);
+  align-items: center;
+  /* Sum of the four columns' floors + 3 gap floors (90+52+60+46 + 3*6). Both are flex items of
+     .tgt-list-scroll (flex-direction: column), which stretches its children to its own width by
+     default — without this they'd shrink below their grid tracks' own minimums instead of the
+     scroller overflowing, undoing the point of giving NAME a real floor above. */
+  min-width: 266px;
+}
+.tgt-list-head {
+  position: sticky;
+  top: 0;
+  background: var(--no-bg);
+  padding: 0 clamp(4px, 1vw, 10px) clamp(2px, 0.6vh, 5px);
+  color: var(--no-green-dim);
+  font-size: clamp(9px, 1.4vmin, 13px);
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--no-green-dark);
+}
 .tl-row {
   padding: clamp(4px, 1vh, 9px) clamp(4px, 1vw, 10px);
   border-bottom: 1px solid rgba(57,255,20,0.10);
   font-size: clamp(11px, 1.9vmin, 18px);
-  cursor: pointer;   /* the whole row deselects now, not just the checkbox */
+  cursor: pointer;   /* the whole row deselects it */
 }
 .tl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tl-grid, .tl-dist { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -186,19 +200,6 @@ html, body {
    .pad-hover's transient overlay) since it has to stay legible while the crosshair itself is hidden.
    --no-amber matches its existing "selected/waiting state" meaning elsewhere in the theme. */
 .tl-row.nav-highlight { outline: 2px solid var(--no-amber); outline-offset: -2px; background: rgba(255,170,0,0.10); }
-
-/* Checkbox: selected targets are all checked; tapping it deselects (the row drops on the next
-   telemetry frame). Sized for a comfortable touch target. */
-.tl-check {
-  width: clamp(18px, 3vmin, 24px); height: clamp(18px, 3vmin, 24px);
-  border: 1.5px solid var(--no-green); border-radius: 3px;
-  display: inline-flex; align-items: center; justify-content: center;
-  color: var(--no-green); cursor: pointer;
-  font-size: clamp(12px, 2.2vmin, 18px); line-height: 1;
-  -webkit-user-select: none; user-select: none;
-}
-.tl-check::after { content: '\2713'; }          /* ✓ — always shown; the row IS the selection */
-.tl-check:active { background: rgba(57,255,20,0.15); }
 
 .tgt-list-empty {
   flex: 1 1 auto;
