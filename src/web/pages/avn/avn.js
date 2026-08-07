@@ -6,7 +6,9 @@
 // ── DOM refs ───────────────────────────────────────────────────────────────────────
 const avnPanel     = document.getElementById('avn-panel');
 const avnEmptyEl   = document.getElementById('avn-empty');
-const avnContentEl = document.getElementById('avn-content');
+const avnContentEl  = document.getElementById('avn-content');
+const avnIconGridEl = document.getElementById('avn-icon-grid');
+const avnPageIndEl  = document.getElementById('avn-page-ind');
 const avnGaugeFuel = document.getElementById('avn-gauge-fuel');
 const avnGaugeRpm  = document.getElementById('avn-gauge-rpm');
 const avnGaugeHeat = document.getElementById('avn-gauge-heat');
@@ -21,7 +23,7 @@ const avnTileLights = document.getElementById('avn-tile-lights');
 const avnTileTurret = document.getElementById('avn-tile-turret');
 
 // ── State ──────────────────────────────────────────────────────────────────────────
-let avnData = { name: null, fuel: -1, throttle: -1, heat: -1, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
+let avnData = { name: null, fuel: -1, throttle: -1, heat: -1, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false, visible: null, page: 1, pages: 1 };
 let layout         = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)
 // {frameTop, frameHeight} forwarded by the shell in full — the vertical band .avn-content centres
 // itself in (below the top bezel row). No per-tile geometry any more: the icon grid and gauge grid
@@ -42,6 +44,7 @@ function renderAvn() {
 
   paintAvnStatus();
   paintAvnGauges();
+  layoutAvnIconPaging();
   layoutAvnContent();
 }
 
@@ -60,6 +63,37 @@ function paintAvnStatus() {
   setAvnTile(avnTileNvg,    'nvg',    avnData.nvg);
   setAvnTile(avnTileLights, 'lights', avnData.navLights);
   setAvnTile(avnTileTurret, 'turret', avnData.turret);
+}
+
+// id->element map, in mfd.js's AVN_TOGGLE_GROUPS order — the shell indexes `visible` by these same
+// ids, so a mismatch here would hide/show the wrong tile.
+const AVN_TILE_BY_ID = {
+  gear: avnTileGear, radar: avnTileRadar, guns: avnTileGuns, eng: avnTileEng,
+  assist: avnTileAssist, nvg: avnTileNvg, lights: avnTileLights, turret: avnTileTurret,
+};
+
+// A split pane only has 4 avn.toggle keys (PREV/NEXT page the other 4 in, mfd.js avnPaneSlice) —
+// show just avnData.visible's 4 tiles there, with a PAGE x/y indicator so it's clear the other 4
+// exist. Full view never sends `visible` (it has all 8 keys at once), so this is a no-op there:
+// every tile stays shown, .paged never applies, and the indicator stays hidden (updateAvnPageInd's
+// pages<=1 check).
+function layoutAvnIconPaging() {
+  const visible = Array.isArray(avnData.visible) ? avnData.visible : null;
+  avnIconGridEl.classList.toggle('paged', !!visible);
+  Object.keys(AVN_TILE_BY_ID).forEach(function (id) {
+    AVN_TILE_BY_ID[id].style.display = (!visible || visible.indexOf(id) >= 0) ? '' : 'none';
+  });
+  updateAvnPageInd(avnData.page, avnData.pages);
+}
+
+// Mirrors wpn.js's updatePageInd exactly: hidden unless there's more than one page.
+function updateAvnPageInd(page, pages) {
+  if (pages > 1) {
+    avnPageIndEl.textContent = 'PAGE ' + page + '/' + pages;
+    avnPageIndEl.classList.remove('empty');
+  } else {
+    avnPageIndEl.classList.add('empty');
+  }
 }
 
 // The vertical band .avn-content centres itself in: full uses the shell-forwarded bezel geometry
@@ -105,34 +139,13 @@ function paintAvnGauges() {
 // sweep every dial's tick ring covers (avn.html's shared <defs>).
 function avnNeedleAngle(v) { return (v * 270).toFixed(1) + 'deg'; }
 
-// The lit arc trailing the needle from zero to v — the classic SVG "circular progress" trick:
-// dasharray = the path's own length L turns it into one dash of length L then one gap of length L;
-// dashoffset = L*(1-v) slides that dash so only the first v*L of the path (from the zero end, where
-// the path's `d` in avn.html starts) stays visible. getTotalLength() is cached per element (a
-// WeakMap, not a data attribute, since the value is a number, not markup) — every dial's path is
-// geometrically identical, but reading it straight off each element is one line simpler than
-// threading a shared constant through four call sites.
-const avnGaugeFillLengths = new WeakMap();
-function setAvnGaugeFill(fillEl, v) {
-  let L = avnGaugeFillLengths.get(fillEl);
-  if (L === undefined) { L = fillEl.getTotalLength(); avnGaugeFillLengths.set(fillEl, L); }
-  // No unit suffix: both resolve in the path's own user-space coordinate system (the viewBox's
-  // 0-100 grid), matching getTotalLength()'s own units. 'px' here would mean CSS pixels of the
-  // rendered (cqmin-scaled) box instead, which drifts from L as soon as a dial isn't rendered at
-  // exactly 100x100 device px — every size except the reference.
-  fillEl.style.strokeDasharray = L;
-  fillEl.style.strokeDashoffset = L * (1 - v);
-}
-
 function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt) {
   const needle = gaugeEl.querySelector('.avn-gauge-needle');
-  const fill   = gaugeEl.querySelector('.avn-gauge-fill');
   const valEl  = gaugeEl.querySelector('.avn-gauge-val');
   gaugeEl.classList.remove('na', 'caution', 'critical');
   if (typeof value01 !== 'number' || value01 < 0) {
     gaugeEl.classList.add('na');
     needle.style.transform = 'rotate(' + avnNeedleAngle(0) + ')';
-    setAvnGaugeFill(fill, 0);
     valEl.textContent = '--';
     return;
   }
@@ -140,7 +153,6 @@ function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt) {
   if      (criticalAt !== null && v <= criticalAt) gaugeEl.classList.add('critical');
   else if (cautionAt  !== null && v <= cautionAt)  gaugeEl.classList.add('caution');
   needle.style.transform = 'rotate(' + avnNeedleAngle(v) + ')';
-  setAvnGaugeFill(fill, v);
   valEl.textContent = Math.round(v * 100) + '%';
 }
 
@@ -150,13 +162,11 @@ function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt) {
 function paintAvnThrottle() {
   const r = AvnThrottlePolicy.throttleReadout(avnData.throttle, avnData.hasAb, avnData.abStart);
   const needle = avnGaugeThr.querySelector('.avn-gauge-needle');
-  const fill   = avnGaugeThr.querySelector('.avn-gauge-fill');
   const valEl  = avnGaugeThr.querySelector('.avn-gauge-val');
   avnGaugeThr.classList.remove('caution', 'critical');
   avnGaugeThr.classList.toggle('na', r.na);
   avnGaugeThr.classList.toggle('ab-active', r.zone === 'ab');
   needle.style.transform = 'rotate(' + avnNeedleAngle(r.fill) + ')';
-  setAvnGaugeFill(fill, r.fill);
   valEl.textContent = r.text;
 }
 
@@ -181,10 +191,15 @@ window.addEventListener('message', function(e) {
       turret:   m.turret   === true,
       nvg:      m.nvg      === true,
       navLights: m.navLights === true,
+      // compact split pane's current 4-of-8 page (mfd.js avnPaneSlice); absent (full, or no
+      // shell) shows all 8 — see layoutAvnIconPaging.
+      visible: Array.isArray(m.visible) ? m.visible : null,
+      page:  typeof m.page  === 'number' ? m.page  : 1,
+      pages: typeof m.pages === 'number' ? m.pages : 1,
     };
     // Full render on aircraft change, or whenever there's no aircraft.
     if (avnLastType !== avnData.name || !avnData.name) renderAvn();
-    else { paintAvnGauges(); paintAvnStatus(); }
+    else { paintAvnGauges(); paintAvnStatus(); layoutAvnIconPaging(); }
   } else if (m.type === 'avn-layout') {
     // Geometry profile from the shell. full forwards the bezel-anchored vertical band
     // (geom.frameTop/frameHeight); compact carries no geometry at all any more.

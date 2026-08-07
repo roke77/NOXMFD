@@ -27,20 +27,24 @@
   ticket's future AFM page owns airframe status; this page is avionics only).
 
   The 8 status tiles (2 rows x 4 cols, .avn-icon-grid) and the 4 gauges (2x2, .avn-gauge-grid) are
-  plain CSS grids, always showing all of their items regardless of layout/profile — no per-tile
-  geometry from the shell any more. Both grids are stacked as siblings inside one flex column
-  (.avn-content), which centres itself vertically within whatever band avn.js's
-  avnContentVerticalExtent names (full: the shell-forwarded geom.frameTop/frameHeight — still "below
-  the top bezel row", nothing to do with the silhouette that used to sit there; compact: a small top/
-  bottom margin) and spans the full panel width. Clicking a status tile does nothing here — toggling
-  still only happens via the shell's physical-key `avn.toggle` wiring (full view: mfd.js
-  placeAvnNavLabels also draws a shell-side NAV label at each of those 8 keys now, so the bezel key
-  itself shows what it does and its current state; split pane: wireAvnPaneToggleKeys, unchanged, no
-  label — same as before this pass).
+  plain CSS grids — no per-tile geometry from the shell any more, in either profile. Both grids are
+  stacked as siblings inside one flex column (.avn-content), which centres itself vertically within
+  whatever band avn.js's avnContentVerticalExtent names (full: the shell-forwarded
+  geom.frameTop/frameHeight — still "below the top bezel row", nothing to do with the silhouette
+  that used to sit there; compact: a small top/bottom margin) and spans the full panel width.
+  Clicking a status tile does nothing here — toggling still only happens via the shell's
+  physical-key `avn.toggle` wiring (full view: mfd.js placeAvnNavLabels also draws a shell-side NAV
+  label at each of those 8 keys now, so the bezel key itself shows what it does; split pane:
+  wireAvnPaneToggleKeys — only 4 keys exist in a pane, so this page shows only THOSE 4 tiles too
+  (avnData.visible) with a PAGE x/y indicator, rather than showing all 8 as if every one were live).
+  Full view always shows all 8 — it has a dedicated key for each, so it never paginates.
 
   Shell -> page messages (all {mfd:true, ...}):
-    'avn'        : { name, fuel, throttle, heat, rpm, gearDown, radar, guns, … } — the live snapshot.
-                   `name` is presence-only now (drives the NO DATA empty state), never displayed.
+    'avn'        : { name, fuel, throttle, heat, rpm, gearDown, radar, guns, …, visible, page, pages }
+                   — the live snapshot. `name` is presence-only now (drives the NO DATA empty
+                   state), never displayed. `visible`/`page`/`pages` (compact/split only — full view
+                   never sends them) name the pane's current 4-of-8 page; their absence means "show
+                   all 8, no indicator" (full view, or loaded outside a shell).
     'avn-layout' : geometry. layout:'full' + geom {frameTop, frameHeight} (just the vertical band
                    .avn-content centres in — no more per-tile leftSlots/rightSlots). layout:'compact'
                    carries no geometry at all any more; the compact vertical band is a fixed margin.
@@ -144,7 +148,6 @@
         <div class="avn-gauge-dial-wrap"><svg class="avn-gauge-dial" viewBox="0 0 100 100">
           <circle class="avn-gauge-rim" cx="50" cy="50" r="42"/>
           <path class="avn-gauge-track" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
-          <path class="avn-gauge-fill" id="avn-gauge-fuel-fill" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
           <use href="#avn-gauge-ticks"/>
           <g class="avn-gauge-needle" id="avn-gauge-fuel-needle"><line x1="50" y1="50" x2="30.2" y2="30.2"/></g>
           <circle class="avn-gauge-hub" cx="50" cy="50" r="2.8"/>
@@ -155,7 +158,6 @@
         <div class="avn-gauge-dial-wrap"><svg class="avn-gauge-dial" viewBox="0 0 100 100">
           <circle class="avn-gauge-rim" cx="50" cy="50" r="42"/>
           <path class="avn-gauge-track" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
-          <path class="avn-gauge-fill" id="avn-gauge-rpm-fill" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
           <use href="#avn-gauge-ticks"/>
           <g class="avn-gauge-needle" id="avn-gauge-rpm-needle"><line x1="50" y1="50" x2="30.2" y2="30.2"/></g>
           <circle class="avn-gauge-hub" cx="50" cy="50" r="2.8"/>
@@ -166,7 +168,6 @@
         <div class="avn-gauge-dial-wrap"><svg class="avn-gauge-dial" viewBox="0 0 100 100">
           <circle class="avn-gauge-rim" cx="50" cy="50" r="42"/>
           <path class="avn-gauge-track" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
-          <path class="avn-gauge-fill" id="avn-gauge-heat-fill" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
           <use href="#avn-gauge-ticks"/>
           <g class="avn-gauge-needle" id="avn-gauge-heat-needle"><line x1="50" y1="50" x2="30.2" y2="30.2"/></g>
           <circle class="avn-gauge-hub" cx="50" cy="50" r="2.8"/>
@@ -177,7 +178,6 @@
         <div class="avn-gauge-dial-wrap"><svg class="avn-gauge-dial" viewBox="0 0 100 100">
           <circle class="avn-gauge-rim" cx="50" cy="50" r="42"/>
           <path class="avn-gauge-track" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
-          <path class="avn-gauge-fill" id="avn-gauge-thr-fill" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
           <use href="#avn-gauge-ticks"/>
           <g class="avn-gauge-needle" id="avn-gauge-thr-needle"><line x1="50" y1="50" x2="30.2" y2="30.2"/></g>
           <circle class="avn-gauge-hub" cx="50" cy="50" r="2.8"/>
@@ -186,6 +186,12 @@
       </div>
     </div>
     </div>
+    <!-- Compact/split only: hidden unless the shell has paginated the icon grid (avnData.pages > 1
+         — full view never sends more than 1, so this stays empty there). Mirrors wpn.js's own
+         #page-ind exactly (same .mfd-chip, same corner, same hide-unless-multi-page rule) — see
+         avn.js updateAvnPageInd. Sibling of .avn-content (not nested in it) so its own
+         bottom/right anchor the true panel corner, not that block's smaller, vertically-centred box. -->
+    <div class="mfd-chip empty" id="avn-page-ind">PAGE 1/1</div>
   </div>
 <script src="/assets/pages/avn/avn-status-policy.js"></script>
 <script src="/assets/pages/avn/avn-throttle-policy.js"></script>

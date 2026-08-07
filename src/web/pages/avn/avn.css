@@ -52,8 +52,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 6px 0;
+  gap: 4px;
+  padding: 10px 0;
   border: 0 solid var(--no-green-dark);   /* muted inner dividers only, see the two rules below */
   color: var(--no-gray);   /* off / dim; on/gear-down override below. Drives label + icon. */
 }
@@ -66,7 +66,7 @@
 .avn-tile.on        { color: var(--no-green); }
 .avn-tile.gear-down { color: var(--no-red); }
 .avn-tile-label {
-  font-size: clamp(15px, 2.4vh, 20px);
+  font-size: clamp(12px, 2.1vh, 18px);
   font-weight: 900;
   letter-spacing: 1px;
   line-height: 1;
@@ -77,8 +77,8 @@
   justify-content: center;
 }
 .avn-tile-icon {
-  width:  clamp(30px, 5vh, 42px);
-  height: clamp(30px, 5vh, 42px);
+  width:  clamp(27px, 4.9vh, 40px);
+  height: clamp(27px, 4.9vh, 40px);
   display: block;
 }
 /* GEAR uses a recolourable mask of the REAL in-game glyph — captured once from the game and baked
@@ -91,13 +91,26 @@
           mask: var(--gear-mask) no-repeat center / contain;
 }
 
+/* Compact/split pane only: a pane has just 4 avn.toggle keys (PREV/NEXT page between the two
+   halves of the 8 — mfd.js avnPaneSlice/wireAvnPaneToggleKeys), so avn.js hides the other 4 tiles
+   here (inline display:none) rather than showing all 8 as if every one were reachable. What's left
+   reads as a single row of 4, not a half-empty 2-row grid: one row's worth of height, and the
+   bottom-divider rule (which only ever targeted the top row's 4 children) already does nothing
+   whichever half is showing, so only the row count needs overriding. Full view never gets this
+   class — it has a dedicated key for all 8, so it always shows all 8 (see avn.html's message
+   contract note on `visible`/`page`/`pages`). */
+.avn-icon-grid.paged { grid-template-rows: repeat(1, auto); }
+.avn-icon-grid.paged .avn-tile { flex-direction: column; }   /* both pages read label-then-icon, not just the first */
+
 /* FUEL/RPM/HEAT/THRL as a 2x2 grid of needle dials — mockup-tested with the user across three
-   styles (a needle+value-inside-dial look, a no-needle progress-ring, and a needle-only style with
-   the label above) before landing on this hybrid: value inside the dial, label below it, AND a
-   filled arc trailing the needle from zero up to the current value. Takes all the height the icon
-   grid above doesn't use (that one is flex:0 0 auto, content-sized) — .avn-content's own
-   positioning covers both grids, so this one just needs to fill whatever's left of that box. Each
-   dial's own face is plain CSS + the shared tick-ring <defs> in avn.html. */
+   styles (this needle+value-inside-dial look, a no-needle progress-ring, and a needle-only style
+   with the label above) before landing on the first: a sweep needle over the muted tick arc, with
+   the value inside the dial and the label below it. Deliberately NO lit progress arc trailing the
+   needle — one was tried and pulled: over a track sharing its exact curve it read as two concentric
+   bars with a gap between rather than one gauge, and the needle already says where the value is.
+   Takes all the height the icon grid above doesn't use (that one is flex:0 0 auto, content-sized) —
+   .avn-content's own positioning covers both grids, so this one just needs to fill whatever's left
+   of that box. Each dial's own face is plain CSS + the shared tick-ring <defs> in avn.html. */
 .avn-gauge-grid {
   flex: 1 1 auto;
   min-height: 0;
@@ -114,9 +127,13 @@
   height: 100%;
   min-height: 0;
   min-width: 0;
-  color: var(--no-green);
+  /* The dials report in white, not the screen's green — they read as a distinct instrument cluster
+     next to the green status tiles above them. `color` drives the needle, hub, value and label
+     (all currentColor); the dial FACE below picks the matching --no-white-dark/-dim. The
+     caution/critical/AB overrides further down still win over this, so a warning is still amber/red. */
+  color: var(--no-white);
   font-family: var(--no-font);
-  text-shadow: 0 0 4px rgba(57, 255, 20, 0.35);
+  text-shadow: 0 0 4px rgba(230, 235, 239, 0.3);
 }
 .avn-gauge-label {
   flex: 0 0 auto;
@@ -151,46 +168,37 @@
 }
 .avn-gauge-val {
   position: absolute;
-  top: 60%;
+  top: 74%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: clamp(11px, 2.4cqmin, 20px);
+  font-size: clamp(17px, 3.6cqmin, 30px);
   font-weight: 900;
   letter-spacing: 1px;
   line-height: 1;
   white-space: nowrap;
   pointer-events: none;
 }
+/* The dial face — rim, track and ticks. Fixed neutral tokens rather than currentColor, so the face
+   stays put while the needle/value go amber or red on a warning (see the state rules below). */
 .avn-gauge-rim {
   fill: none;
-  stroke: var(--no-green-dark);
+  stroke: var(--no-white-dark);
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
 }
 .avn-gauge-track {
   fill: none;
-  stroke: var(--no-green-dark);
+  stroke: var(--no-white-dark);
   stroke-width: 3;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
-}
-/* The lit arc trailing the needle from zero to the current value — avn.js sets stroke-dasharray/
-   -dashoffset (the standard SVG "circular progress" trick) rather than recomputing the path's `d`
-   each paint, since the path is otherwise identical to .avn-gauge-track underneath it. */
-.avn-gauge-fill {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 3;
-  stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
-  transition: stroke-dashoffset 200ms linear;
 }
 .avn-gauge-tick {
-  stroke: var(--no-green-dark);
+  stroke: var(--no-white-dark);
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
-.avn-gauge-tick.major { stroke: var(--no-green-dim); }
+.avn-gauge-tick.major { stroke: var(--no-white-dim); }
 /* The needle is drawn pointing at the dial's zero position (avn.html); avn.js only ever sets a
    `rotate()` transform on this group, sweeping it around the dial's own centre — transform-box
    makes that centre (50,50) the rotation origin instead of the SVG's default (the whole document's
@@ -208,7 +216,7 @@
 .avn-gauge-hub { fill: currentColor; }
 .avn-gauge.caution  { color: var(--no-amber); }
 .avn-gauge.critical { color: var(--no-red); }
-.avn-gauge.na { color: var(--no-green-dark); text-shadow: none; }
+.avn-gauge.na { color: var(--no-white-dark); text-shadow: none; }
 .avn-gauge.na .avn-gauge-needle { opacity: 0.4; }
 /* Reheat: the needle/label/value go red while THRL is in the AB zone (AvnThrottlePolicy) — the
    dial face itself (rim/track/ticks) stays neutral, same as it does for FUEL's caution/critical. */
@@ -229,3 +237,12 @@
    .avn-content's, so this wins wherever it sits in the cascade. */
 .nochrome .avn-content,
 .nochrome .avn-content.placed { display: none; }
+
+/* "PAGE x/y" — compact/split only (avn.js updateAvnPageInd), same corner/chip WPN's own #page-ind
+   uses. Sibling of .avn-content (avn.html), not inside it, so this bottom/right anchors the true
+   panel corner. */
+#avn-page-ind {
+  position: absolute;
+  bottom: 10px; right: 12px;
+  z-index: 3;
+}

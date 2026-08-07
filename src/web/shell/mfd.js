@@ -184,6 +184,10 @@ function avnPaneSlice(idx) {
     items: AVN_TOGGLE_GROUPS.slice(start, start + AVN_PANE_PAGE_SIZE),
     hasPrev: paneAvnPage[idx] > 0,
     hasNext: paneAvnPage[idx] < maxPage,
+    // 1-indexed, mirrors wpnPaneSlice's page/pages — lets the page show a "PAGE x/y" indicator
+    // (avn.js) so a pilot in a split pane knows 4 of the 8 groups are a NEXT press away.
+    page: paneAvnPage[idx] + 1,
+    pages: maxPage + 1,
   };
 }
 // Wire this pane's 4 visible avn.toggle groups to the physical keys L.items resolves to — mirrors
@@ -580,6 +584,7 @@ function forwardAvnToPanes() {
   paneIframes.forEach(function(iframe, idx) {
     if (panePages[idx] !== 'avn') return;
     if (!iframe.contentWindow) return;
+    const sl = avnPaneSlice(idx);
     iframe.contentWindow.postMessage({
       mfd: true, type: 'avn',
       name: avnData.name,
@@ -601,8 +606,11 @@ function forwardAvnToPanes() {
       navLights: avnData.navLights,
       // compact/split only shows the pane's current page of 4 toggle groups (see
       // forwardAvnLayoutToPanes for the matching row positions); full view sends none and the
-      // page falls back to showing all 8 (its default when `visible` is absent).
-      visible: avnPaneSlice(idx).items,
+      // page falls back to showing all 8 (its default when `visible` is absent). page/pages drive
+      // the page's "PAGE x/y" indicator so a pilot knows the other 4 are a NEXT press away.
+      visible: sl.items,
+      page: sl.page,
+      pages: sl.pages,
     }, '*');
   });
 }
@@ -645,12 +653,14 @@ function forwardAvnLayoutToFrame() {
   const geom = {};
   if (sepEls.length >= 2) {
     const sep0 = sepEls[0].getBoundingClientRect();   // top separator (above key[0])
-    const sep1 = sepEls[1].getBoundingClientRect();   // below key[0] — bottom of the top bezel row
     const botSep = sepEls[sepEls.length - 1].getBoundingClientRect();
-    geom.headerTop    = sep0.bottom - frameTop;       // name band …
-    geom.headerHeight = sep1.top - sep0.bottom;       // … the top bezel row
-    geom.frameTop     = sep1.bottom - frameTop;       // content starts below sep[1]
-    geom.frameHeight  = botSep.top - sep1.bottom;
+    // The content band spans the WHOLE key column — from above key[0] down to the bottom strip —
+    // rather than starting below key[0]'s row. That row holds only the MAIN label, and the page's
+    // icon grid already insets itself past the bezel-label zone on both sides (avn.css
+    // .avn-icon-grid padding), so reserving a full row for one short word just left dead space at
+    // the top with the gauges squeezed below it.
+    geom.frameTop     = sep0.bottom - frameTop;
+    geom.frameHeight  = botSep.top - sep0.bottom;
   }
   w.postMessage({ mfd: true, type: 'avn-layout', layout: 'full', geom: geom }, '*');
 }

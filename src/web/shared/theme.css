@@ -8,6 +8,13 @@
   --no-red:        #ff4040;  /* empty / alert state */
   --no-amber:      #ffaa00;  /* selected / waiting state */
   --no-gray:       #5a5a5a;  /* inactive / off annunciator (AVN status tiles) */
+  /* Neutral instrument white, in the same primary/dim/dark triplet as the greens above and used the
+     same way: a readout that reports in white rather than green (AVN's gauge dials). Distinct from
+     --no-label below, which is a LAYOUT's chrome colour (the bezel's key labels) — a page must not
+     read that one, so reporting-white needs its own name. */
+  --no-white:      #e6ebef;  /* primary — needle, value, label */
+  --no-white-dim:  #8a949c;  /* secondary — major ticks */
+  --no-white-dark: #3c444b;  /* depleted / hollow / dial face — rim, track, minor ticks */
   --no-label:      #d4d8dc;  /* off-white, not the screen's green — the bezel's key labels, and
                                 the F-35 strip's URL lines */
   /* The F-35 layout's chrome: the frame around each portal, the labels it draws on the glass, the
