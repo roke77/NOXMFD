@@ -508,8 +508,8 @@
   }
   .wpn-decor svg { display: block; }
   .wpn-decor-word {
-    writing-mode: vertical-rl;
-    text-orientation: upright;
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
     font: inherit;
     font-family: var(--no-font);
     font-size: 11px;
