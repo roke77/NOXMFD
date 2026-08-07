@@ -406,6 +406,47 @@ namespace NOXMFD
             catch { return false; }
         }
 
+        // Unit.IRSources is a private List<IRSource> — every heat-emitting engine registers into it
+        // (flares do too, flagged IRSource.flare=true). Reflect the list once (cached, same pattern
+        // as GetNavLightsOn above), then read each entry's public intensity/flare fields directly —
+        // no per-engine-type reflection needed, IRSource itself already carries them.
+        private static FieldInfo? _irSourcesField;
+        private static float GetHeatLevel(Aircraft ac)
+        {
+            try
+            {
+                if (_irSourcesField == null)
+                    _irSourcesField = typeof(Unit).GetField("IRSources", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (!(_irSourcesField?.GetValue(ac) is System.Collections.IEnumerable sources)) return 0f;
+                float max = 0f;
+                foreach (object o in sources)
+                {
+                    if (o is IRSource src && !src.flare && src.intensity > max) max = src.intensity;
+                }
+                // ponytail: fixed normalization ceiling, not each engine's own max — see Heat's
+                // comment in TelemetrySnapshot.cs (TurbineEngine/DuctedFan expose no public IR max,
+                // unlike JetNozzle, so there's no uniform per-engine ceiling to divide by). Tune
+                // `ceiling` against real in-game readings (idle vs. full afterburner) once testable.
+                const float ceiling = 4f;
+                return Mathf.Clamp01(max / ceiling);
+            }
+            catch { return 0f; }
+        }
+
+        // Aircraft.engineStates is a public List<IEngine> (every engine adds itself on
+        // Awake/OnEnable), and IEngine.GetRPMRatio() is a public, already-normalized value — no
+        // reflection needed, unlike GetHeatLevel above. Averages across engines rather than picking
+        // one, same shape as the game's own RPMGauge cockpit widget. Empty list shouldn't happen in
+        // practice (every propulsion type implements IEngine), but guard it as 0 rather than divide
+        // by zero.
+        private static float GetRpmLevel(Aircraft ac)
+        {
+            if (ac.engineStates.Count == 0) return 0f;
+            float sum = 0f;
+            foreach (IEngine engine in ac.engineStates) sum += engine.GetRPMRatio();
+            return Mathf.Clamp01(sum / ac.engineStates.Count);
+        }
+
         // The active countermeasure index points into CountermeasureManager's private station
         // list, so we reflect into it once (cached) and check the active station's type.
         private static FieldInfo?  _cmStationsField;
@@ -602,6 +643,8 @@ namespace NOXMFD
                 EwKJMax        = ewKJMax,
                 Fuel           = aircraft.GetFuelLevel(),
                 Throttle       = aircraft.GetInputs() != null ? aircraft.GetInputs().throttle : -1f,
+                Heat           = GetHeatLevel(aircraft),
+                Rpm            = GetRpmLevel(aircraft),
                 HasAfterburner = _hasAfterburner,
                 AbStart        = _abStart,
                 SelWeapon      = selWeapon,

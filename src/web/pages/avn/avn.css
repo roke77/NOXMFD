@@ -1,78 +1,82 @@
-/* AVN page — avionics (damage silhouette + failure labels + FUEL/THROTTLE bars). Single
-   source of truth for BOTH layouts. Base reset / colour tokens / font come from theme.css.
-   compact (split pane, the default) uses the fixed name/frame offsets below; the full profile
-   (body.full, single full-screen iframe) overrides name/frame placement at the bottom — the
-   shell forwards the bezel-anchored pixel geometry. */
+/* AVN page — avionics (the 8 avn.toggle status tiles + FUEL/RPM/HEAT/THRL gauges). Single source
+   of truth for BOTH layouts. Base reset / colour tokens / font come from theme.css. No damage
+   silhouette or airframe name here — both moved out (a future AFM page owns airframe status; this
+   page is avionics only). */
 .avn-panel {
   position: absolute;
   inset: 0;
   color: var(--no-green);
   font-family: var(--no-font);
 }
-/* Header band — aircraft name + status annunciators as one centered block. Sits at the top bezel
-   row (min-height keeps short content centred there); the status row wraps to a 2nd line when the
-   tiles don't fit one row, growing the header downward. The silhouette frame follows the header's
-   actual bottom (layoutAvnFrame in avn.js). full overrides top/min-height from bezel geometry. */
-.avn-header {
+
+/* .avn-content wraps the icon grid + gauge grid as one flex column, positioned/sized entirely by
+   avn.js's layoutAvnContent (left/top/width/height inline, full panel width, the vertical band
+   avnContentVerticalExtent names) — CSS only splits that box's height between the two grids (below)
+   and centres them as a unit via justify-content. Replaces the old side-column tile layout (tiles
+   anchored to bezel-key geometry the shell forwarded) — that anchoring moved to the shell itself:
+   CLASSIC's full view now draws its own NAV labels at those 8 keys instead (mfd.js
+   placeAvnNavLabels), so this page needs no per-tile geometry from the shell in either profile. */
+.avn-content {
   position: absolute;
-  left: 0; right: 0;
-  top: 0;
-  min-height: 112px;
   display: none;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
-  gap: 6px;
-  z-index: 4;
+  gap: clamp(8px, 2vh, 20px);
+  box-sizing: border-box;
+  padding: 0 12px;
   pointer-events: none;
+  z-index: 3;
 }
-.avn-header.placed { display: flex; }
-.avn-name {
-  color: var(--no-green);
-  font-size: clamp(20px, 3.6vh, 32px);
-  font-weight: 900;
-  letter-spacing: 2px;
-  white-space: nowrap;
-}
-.avn-frame {
-  position: absolute;
-  left: 0; right: 0;
-  top: 120px;   /* below the compact header band; full overrides from bezel geometry */
-  bottom: 12px;
-  overflow: hidden;
-}
+.avn-content.placed { display: flex; }
 
-/* Avionics status annunciators — a centered row inside the header band. Wraps to a second line
-   when the 8 tiles don't fit one row (narrow / split-pane / portrait). */
-.avn-status {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  column-gap: 16px;
-  row-gap: 8px;
-  max-width: 96%;
-  pointer-events: none;
+/* Status-icon grid: 2 rows x 4 cols, fixed reading order (matches mfd.js's AVN_TOGGLE_GROUPS: GEAR/
+   RADAR/GUNS/ENG, then ASSIST/NVG/LIGHTS/TURRET). Muted green dividers between cells only — no
+   outer border, so the grid reads as one instrument cluster rather than a boxed panel. Sized to its
+   own content (icons are a fixed size, not stretched — see .avn-tile-icon below) rather than
+   flex-growing, so the gauge grid below gets the rest of the available height.
+   AVN_TILE_COL_W-wide side padding (matches the old side-column inset, and the shell's bezel NAV
+   labels it's clearing) keeps every tile AND its divider borders off the bezel-key label zone —
+   the gauges never needed this because a circular dial has natural margin inside its own grid cell,
+   but a tile (and its full-bleed border lines) fills its cell edge to edge. */
+.avn-icon-grid {
+  flex: 0 0 auto;
+  width: 100%;
+  padding: 0 90px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, auto);
 }
 .avn-tile {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 2px;
+  padding: 6px 0;
+  border: 0 solid var(--no-green-dark);   /* muted inner dividers only, see the two rules below */
   color: var(--no-gray);   /* off / dim; on/gear-down override below. Drives label + icon. */
 }
+.avn-tile:not(:nth-child(4n)) { border-right-width: 1px; }   /* between columns 1-2, 2-3, 3-4 */
+.avn-tile:nth-child(-n+4)     { border-bottom-width: 1px; }  /* between row 1 and row 2 */
+/* Bottom-row tiles read icon-then-label (label under the icon) instead of the top row's
+   label-then-icon — reversing the flex order rather than the markup, so avn.js's DOM-order lookups
+   (querySelector by id) don't need to change. */
+.avn-tile:nth-child(n+5) { flex-direction: column-reverse; }
 .avn-tile.on        { color: var(--no-green); }
 .avn-tile.gear-down { color: var(--no-red); }
-/* Name/label/icon top out at the "2×" sizes but scale down with viewport height so the whole
-   block always fits one bezel row (the band shrinks on shorter screens). */
 .avn-tile-label {
   font-size: clamp(15px, 2.4vh, 20px);
   font-weight: 900;
   letter-spacing: 1px;
   line-height: 1;
 }
+.avn-tile-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .avn-tile-icon {
-  /* 80% of the former clamp(38px, 6.2vh, 52px) — smaller glyphs, shorter header band, more room
-     for the silhouette below (the label size is unchanged). */
   width:  clamp(30px, 5vh, 42px);
   height: clamp(30px, 5vh, 42px);
   display: block;
@@ -86,253 +90,142 @@
   -webkit-mask: var(--gear-mask) no-repeat center / contain;
           mask: var(--gear-mask) no-repeat center / contain;
 }
-.avn-bg, .avn-parts {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-.avn-bg     { max-width: 100%; max-height: 100%; display: block; }
-.avn-parts  { display: block; }
-.avn-part {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  background-color: #ffffff;
-  -webkit-mask-repeat: no-repeat;
-          mask-repeat: no-repeat;
-  -webkit-mask-size: 100% 100%;
-          mask-size: 100% 100%;
-  -webkit-mask-position: center;
-          mask-position: center;
-  -webkit-mask-source-type: luminance;
-          mask-mode: luminance;
-  pointer-events: none;
-}
-.avn-failure {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  display: none;
-  color: var(--no-red);
-  font-weight: 900;
-  letter-spacing: 1px;
-  white-space: nowrap;
-  text-align: center;
-  pointer-events: none;
-  text-shadow: 0 0 4px rgba(255, 64, 64, 0.5);
-}
-.avn-failure.active { display: block; }
 
-/* FUEL + THROTTLE side bars. */
-.avn-vbar {
-  position: absolute;
-  display: none;
+/* FUEL/RPM/HEAT/THRL as a 2x2 grid of needle dials — mockup-tested with the user across three
+   styles (a needle+value-inside-dial look, a no-needle progress-ring, and a needle-only style with
+   the label above) before landing on this hybrid: value inside the dial, label below it, AND a
+   filled arc trailing the needle from zero up to the current value. Takes all the height the icon
+   grid above doesn't use (that one is flex:0 0 auto, content-sized) — .avn-content's own
+   positioning covers both grids, so this one just needs to fill whatever's left of that box. Each
+   dial's own face is plain CSS + the shared tick-ring <defs> in avn.html. */
+.avn-gauge-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+.avn-gauge {
+  display: flex;
   flex-direction: column;
   align-items: center;
-  width: 42px;
+  justify-content: center;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
   color: var(--no-green);
   font-family: var(--no-font);
   text-shadow: 0 0 4px rgba(57, 255, 20, 0.35);
-  pointer-events: none;
-  z-index: 3;
 }
-.avn-vbar.placed { display: flex; }
-.avn-vbar-label,
-.avn-vbar-value {
-  font-size: 16px;
-  font-weight: 900;
-  letter-spacing: 2px;
-  line-height: 1;
-  white-space: nowrap;
-}
-/* The % readout floats to the inner side of its bar (toward the silhouette) and tracks the top
-   tip of the fill — paintAvnBar sets its `top` in px each paint. fuel sits on the left (opens
-   right); thr sits on the right (opens left). The container border is a single connected SVG
-   leader matching the game's ¯\___ geometry (tick off the bar → diagonal ramp → underline under
-   the number), so the strokes never gap. Fixed width keeps the leader proportions stable as the
-   digit count changes. */
-.avn-vbar-value {
-  position: absolute;
-  width: 4.6em;
-  height: 1.25em;
-  transform: translateY(-50%);
-  transition: top 200ms linear;
-  z-index: 4;
-}
-.avn-vbar.fuel .avn-vbar-value { left:  calc(100% - 4px); }
-.avn-vbar.thr  .avn-vbar-value { right: calc(100% - 4px); }
-/* The ¯\___ leader, stretched over the box; non-scaling-stroke keeps the 2px line uniform. */
-.avn-vbar-frame {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  pointer-events: none;
-}
-.avn-vbar-frame path {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linejoin: miter;
-  vector-effect: non-scaling-stroke;
-}
-.avn-vbar.thr .avn-vbar-frame { transform: scaleX(-1); }   /* mirror to ___/‾ */
-/* The digits sit above the underline portion of the leader. */
-.avn-vbar-num {
-  position: relative;
-  z-index: 1;
-  display: block;
-  line-height: 1;
-}
-.avn-vbar.fuel .avn-vbar-num { padding-left:  1.6em; text-align: left;  }
-.avn-vbar.thr  .avn-vbar-num { padding-right: 1.6em; text-align: right; }
-/* AFTERBURNER annunciator: vertical text running UP the tube, hugging its inner edge and starting
-   at the tube top (the reheat zone). Space above the bar is too tight for a horizontal word, so it
-   reads sideways like a real gauge label. Hidden unless the throttle is in the reheat zone
-   (.ab-active), then lit red. */
-.avn-vbar-ab {
-  position: absolute;
-  top: 6px;                           /* tube inner top = top of the reheat zone */
-  right: calc(100% - 5px);            /* just inside the tube's inner (silhouette-facing) edge */
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);          /* read bottom-to-top */
-  display: none;
-  font-size: 11px;
+.avn-gauge-label {
+  flex: 0 0 auto;
+  font-size: clamp(11px, 1.6vh, 16px);
   font-weight: 900;
   letter-spacing: 1px;
   line-height: 1;
   white-space: nowrap;
-  color: var(--no-red);
-  text-shadow: 0 0 4px rgba(6, 10, 6, 0.95);
-  pointer-events: none;
-  z-index: 5;
+  margin-top: 2px;
 }
-.avn-vbar.thr.ab-active .avn-vbar-ab { display: block; }
-.avn-vbar-label { padding: 20px 0 0 0; }
-/* Orientation driven by the shell (body.portrait), not @media — a pane iframe's box is
-   wide+short and would wrongly read landscape in split mode. */
-body.portrait .avn-vbar-label,
-body.portrait .avn-vbar-value { font-size: clamp(16px, 1.8vh, 25.5px); }
-.avn-vbar-tube {
+/* The dial fills whichever of the cell's own width/height is tighter, via container query units
+   (cqmin = min(cqw,cqh)) — so a wide-but-short cell (grid wider than tall) still gets a full circle
+   sized off its height, with the leftover width just becoming breathing room around it, rather than
+   the dial shrinking to fit some fixed vh cap regardless of how much room is actually available.
+   position:relative so .avn-gauge-val (an HTML div, not SVG text — plain CSS typography is simpler
+   than sizing/centring an SVG <text> node) can centre itself over the dial's face. */
+.avn-gauge-dial-wrap {
   position: relative;
   flex: 1 1 auto;
-  width: 28px;
-  background: #050a05;
-  box-sizing: border-box;
-  padding: 6px;
-  overflow: hidden;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
 }
-.avn-vbar.fuel .avn-vbar-tube { border: 2px solid var(--no-green); border-right: none; }
-.avn-vbar.thr  .avn-vbar-tube { border: 2px solid var(--no-green); border-left:  none; }
-.avn-vbar.thr  .avn-vbar-tube::after,
-.avn-vbar.thr  .avn-vbar-tube::before { content: none; }
-.avn-vbar-fill {
-  position: absolute;
-  left: 6px; right: 6px; bottom: 6px;
-  height: 0%;
-  background: var(--no-green);
-  transition: height 200ms linear, background-color 150ms linear;
+.avn-gauge-dial {
+  width: 100cqmin;
+  height: 100cqmin;
+  overflow: visible;
 }
-.avn-vbar-tube::after {
-  content: '';
+.avn-gauge-val {
   position: absolute;
-  inset: 0;
-  background-image: repeating-linear-gradient(
-    to top,
-    transparent 0,
-    transparent calc(10% - 6px),
-    #050a05 calc(10% - 6px),
-    #050a05 10%
-  );
+  top: 60%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(11px, 2.4cqmin, 20px);
+  font-weight: 900;
+  letter-spacing: 1px;
+  line-height: 1;
+  white-space: nowrap;
   pointer-events: none;
 }
-.avn-vbar-tube::before {
-  content: '';
-  position: absolute;
-  left: 0; right: 0;
-  top: 50%;
-  height: 1.5px;
-  margin-top: 2.25px;
-  background: var(--no-green);
-  z-index: 2;
-  pointer-events: none;
+.avn-gauge-rim {
+  fill: none;
+  stroke: var(--no-green-dark);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
 }
-.avn-vbar-ticks {
-  position: absolute;
-  top: 0; bottom: 0;
-  width: 5px;
-  pointer-events: none;
+.avn-gauge-track {
+  fill: none;
+  stroke: var(--no-green-dark);
+  stroke-width: 3;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
 }
-.avn-vbar.fuel .avn-vbar-ticks { right: 100%; margin-right: 2px; }
-.avn-vbar.thr  .avn-vbar-ticks { left:  100%; margin-left:  2px; }
-.avn-vbar-ticks::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--no-green), var(--no-green)),
-    linear-gradient(var(--no-green), var(--no-green)),
-    linear-gradient(var(--no-green), var(--no-green)),
-    linear-gradient(var(--no-green), var(--no-green)),
-    linear-gradient(var(--no-green), var(--no-green));
-  background-repeat: no-repeat;
-  background-size: 100% 1px;
-  background-position: 0 0%, 0 25%, 0 50%, 0 75%, 0 100%;
+/* The lit arc trailing the needle from zero to the current value — avn.js sets stroke-dasharray/
+   -dashoffset (the standard SVG "circular progress" trick) rather than recomputing the path's `d`
+   each paint, since the path is otherwise identical to .avn-gauge-track underneath it. */
+.avn-gauge-fill {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  transition: stroke-dashoffset 200ms linear;
 }
-.avn-vbar.caution  .avn-vbar-fill { background: var(--no-amber); }
-.avn-vbar.critical .avn-vbar-fill { background: var(--no-red); }
-.avn-vbar.caution  { color: var(--no-amber); }
-.avn-vbar.critical { color: var(--no-red); }
-.avn-vbar.na { color: var(--no-green-dark); text-shadow: none; }
-.avn-vbar.na .avn-vbar-tube { border-color: var(--no-green-dark); }
-.avn-vbar.na .avn-vbar-tube::before { background: var(--no-green-dark); }
-.avn-vbar.na .avn-vbar-ticks::before { background-image:
-    linear-gradient(var(--no-green-dark), var(--no-green-dark)),
-    linear-gradient(var(--no-green-dark), var(--no-green-dark)),
-    linear-gradient(var(--no-green-dark), var(--no-green-dark)),
-    linear-gradient(var(--no-green-dark), var(--no-green-dark)),
-    linear-gradient(var(--no-green-dark), var(--no-green-dark)); }
-.avn-vbar.na .avn-vbar-fill { display: none; }
-
-/* Afterburner THROTTLE bar (ab-capable). The single fill is split at --ab-start: MIL green below,
-   reheat red above. The gradient is sized to the tube's inner height (--tube-inner-px, set each
-   paint by positionAvnBarValue) and anchored to the bottom, so the green→red boundary stays fixed
-   at abStart while the fill rises past it. Non-AB bars never get .ab-capable → plain green fill. */
-.avn-vbar.thr { --ab-start: 1; --tube-inner-px: 0px; }   /* safe defaults until first measurement */
-.avn-vbar.thr.ab-capable .avn-vbar-fill {
-  background: linear-gradient(to top,
-    var(--no-green) 0,
-    var(--no-green) calc(var(--ab-start) * var(--tube-inner-px)),
-    var(--no-red)   calc(var(--ab-start) * var(--tube-inner-px)),
-    var(--no-red)   var(--tube-inner-px));
-  background-repeat: no-repeat;
-  background-position: left bottom;
-  background-size: 100% var(--tube-inner-px);
+.avn-gauge-tick {
+  stroke: var(--no-green-dark);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
 }
-/* Readout goes red while in the reheat zone; MIL keeps the bar's green. */
-.avn-vbar.thr.ab-active .avn-vbar-num { color: var(--no-red); }
-
-/* full profile (single full-screen iframe): the header band + frame top/height come from the
-   shell's bezel geometry (set inline by avn.js), so only `bottom` needs clearing here to avoid
-   over-constraining the frame box. compact (split pane) keeps the CSS band above. */
-/* Portrait full is tall, so the name may grow past the landscape 32px cap. */
-body.full.portrait .avn-name { font-size: clamp(32px, 3.6vh, 51px); }
-body.full .avn-frame { bottom: auto; }
+.avn-gauge-tick.major { stroke: var(--no-green-dim); }
+/* The needle is drawn pointing at the dial's zero position (avn.html); avn.js only ever sets a
+   `rotate()` transform on this group, sweeping it around the dial's own centre — transform-box
+   makes that centre (50,50) the rotation origin instead of the SVG's default (the whole document's
+   top-left corner), which is what lets a plain CSS transform work here at all. */
+.avn-gauge-needle {
+  transform-box: view-box;
+  transform-origin: 50px 50px;
+  transition: transform 200ms linear;
+}
+.avn-gauge-needle line {
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+.avn-gauge-hub { fill: currentColor; }
+.avn-gauge.caution  { color: var(--no-amber); }
+.avn-gauge.critical { color: var(--no-red); }
+.avn-gauge.na { color: var(--no-green-dark); text-shadow: none; }
+.avn-gauge.na .avn-gauge-needle { opacity: 0.4; }
+/* Reheat: the needle/label/value go red while THRL is in the AB zone (AvnThrottlePolicy) — the
+   dial face itself (rim/track/ticks) stays neutral, same as it does for FUEL's caution/critical. */
+.avn-gauge.thr.ab-active { color: var(--no-red); }
 
 /* ── ?nochrome ─────────────────────────────────────────────────────────────────────────
-   The host already shows this aircraft's own-ship readouts, so the page drops its own copies: the
-   FUEL/THROTTLE bars and the status tiles. What is left is what only this page draws — the damage
-   silhouette and its failure labels — and it gets the whole panel.
+   The host already shows this aircraft's own-ship readouts, so the page drops its own copy: the
+   whole .avn-content block (status-icon grid + gauges) — avn.toggle bezel-key wiring is a bezel/
+   full-view-only concept anyway, nothing here is F-35-reachable.
 
-   The F-35 sets it, because its master strip carries both (docs/layouts.md). The bezel never does,
-   and renders exactly as before. The class lands on <html> from the inline read in avn.html, before
-   first paint, so nothing flashes up and then leaves.
+   FIXME (see the matching note in avn.html): this used to leave the damage silhouette the whole
+   panel — the reason nochrome existed. That's gone, so a nochrome AVN portal currently renders
+   empty. F-35 is out of scope for this pass; left as-is rather than guessed at.
 
-   Only these two rules are needed: the tiles are INSIDE the header, and layoutAvnFrame measures the
-   header's real bottom on every paint, so the silhouette takes the freed space on its own. The bars
-   are absolutely positioned and were never in anyone's way. */
-.nochrome #avn-status { display: none; }
-/* .placed is what reveals a bar once the shell has sized it — match its specificity, not just
-   .avn-vbar's, so this wins wherever it sits in the cascade. */
-.nochrome .avn-vbar,
-.nochrome .avn-vbar.placed { display: none; }
+   The class lands on <html> from the inline read in avn.html, before first paint, so nothing
+   flashes up and then leaves. */
+/* .placed is what reveals the block once the shell has sized it — match its specificity, not just
+   .avn-content's, so this wins wherever it sits in the cascade. */
+.nochrome .avn-content,
+.nochrome .avn-content.placed { display: none; }

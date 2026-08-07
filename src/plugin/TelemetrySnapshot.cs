@@ -39,6 +39,22 @@ namespace NOXMFD
         public float  Fuel;       // 0..1 fuel fraction across all tanks
         public float  Throttle;   // 0..1 commanded throttle
 
+        // ponytail: airframe IR/heat signature, approximated as the strongest live non-flare
+        // IRSource on the aircraft (TelemetryReader.GetHeatLevel), normalized against a fixed
+        // constant ceiling rather than each engine's own max — TurbineEngine/DuctedFan don't
+        // expose a public IR max the way JetNozzle does, so there's no uniform per-engine
+        // normalization available. Good enough as a relative gauge; upgrade path is threading
+        // each engine's own max where the game exposes one. -1 = no aircraft.
+        public float  Heat;       // ~0..1 relative heat signature
+
+        // Engine RPM, averaged across every IEngine on the aircraft (TelemetryReader.GetRpmLevel).
+        // Unlike Heat, this needs no reflection or fixed-ceiling guess: IEngine.GetRPMRatio() is a
+        // public, already-normalized (0..1-ish) interface member every propulsion type implements
+        // (TurbineEngine, Turbojet/Turbofan, DuctedFan, ConstantSpeedProp, PropFan, RotorShaft) —
+        // the same value the game's own RPMGauge/PropGauge/EngineTelemetry cockpit widgets read.
+        // -1 = no aircraft or no engines.
+        public float  Rpm;        // ~0..1 average RPM ratio across engineStates
+
         // Afterburner gauge shape (static per airframe; read once from the game's own ThrottleGauge).
         // HasAfterburner planes split the 0..1 throttle axis at AbStart: below = MIL, above = reheat.
         // Compass / helicopters report false → the AVN page keeps the plain 0-100% bar.

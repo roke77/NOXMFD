@@ -1,24 +1,16 @@
 // AVN page — avionics. A pure reactive renderer driven by the shell over postMessage; single
-// source of truth for BOTH layouts (full-screen iframe + split pane). The full-view overlay
-// twin in MfdPage.cs is gone. See avn.html for the message contract.
-//
-// compact (default) places name + frame with fixed CSS offsets. full (body.full) overrides the
-// name/frame placement from the bezel geometry the shell forwards in 'avn-layout'.
+// source of truth for BOTH layouts (full-screen iframe + split pane). No damage silhouette or
+// airframe name here — both moved out (a future AFM page owns airframe status). See avn.html for
+// the message contract.
 
 // ── DOM refs ───────────────────────────────────────────────────────────────────────
-const avnPanel    = document.getElementById('avn-panel');
-const avnNameEl   = document.getElementById('avn-name');
-const avnFrame    = document.getElementById('avn-frame');
-const avnBg       = document.getElementById('avn-bg');
-const avnPartsEl  = document.getElementById('avn-parts');
-const avnEmptyEl  = document.getElementById('avn-empty');
-const avnFuelBar  = document.getElementById('avn-fuel-bar');
-const avnFuelFill = document.getElementById('avn-fuel-fill');
-const avnFuelVal  = document.getElementById('avn-fuel-val');
-const avnThrBar   = document.getElementById('avn-thr-bar');
-const avnThrFill  = document.getElementById('avn-thr-fill');
-const avnThrVal   = document.getElementById('avn-thr-val');
-const avnHeaderEl  = document.getElementById('avn-header');
+const avnPanel     = document.getElementById('avn-panel');
+const avnEmptyEl   = document.getElementById('avn-empty');
+const avnContentEl = document.getElementById('avn-content');
+const avnGaugeFuel = document.getElementById('avn-gauge-fuel');
+const avnGaugeRpm  = document.getElementById('avn-gauge-rpm');
+const avnGaugeHeat = document.getElementById('avn-gauge-heat');
+const avnGaugeThr  = document.getElementById('avn-gauge-thr');
 const avnTileGear  = document.getElementById('avn-tile-gear');
 const avnTileRadar = document.getElementById('avn-tile-radar');
 const avnTileGuns  = document.getElementById('avn-tile-guns');
@@ -29,92 +21,28 @@ const avnTileLights = document.getElementById('avn-tile-lights');
 const avnTileTurret = document.getElementById('avn-tile-turret');
 
 // ── State ──────────────────────────────────────────────────────────────────────────
-let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
+let avnData = { name: null, fuel: -1, throttle: -1, heat: -1, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
 let layout         = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)
-let avnFullGeom    = null;        // {headerTop, headerHeight, frameTop, frameHeight} forwarded by the shell in full
-let avnLayoutType  = null;
-let avnLayoutCache = Object.create(null);
-let avnLayoutTries = Object.create(null);   // per-type layout-fetch retry counts
-let avnPartEls     = Object.create(null);
-let avnFailureEls  = [];   // current failure-label DOM nodes, rebuilt each paint (see paintAvnFailures)
-let avnBgType = null, avnBgTries = 0, avnBgLoaded = false;   // background-image request/retry state
-const AVN_BG_RETRY_CAP = 120;                // ~60 s @ 500 ms — safety bound; the async server capture lands far sooner
-
-// Failure-label placement on the silhouette. The strings themselves vary per aircraft and are
-// parsed by avn-failure-policy (side + display text); here we just decide where each column sits.
-// Sided failures cluster over their engine (left/right); side-less ones stack in a centre column.
-const AVN_FAIL_COL = { L: 0.20, R: 0.80, C: 0.50 };   // silhouette x per column (0..1)
-const AVN_FAIL_BASE_CY = 0.78;                        // first row y — over the engines / lower body
-const AVN_FAIL_ROW_DY  = 0.07;                        // vertical step when a column stacks
-// ponytail: naive upward stack — with many simultaneous failures in one column the labels could
-// climb off the top of the silhouette. Fine for the handful the game ever raises at once.
+// {frameTop, frameHeight} forwarded by the shell in full — the vertical band .avn-content centres
+// itself in (below the top bezel row). No per-tile geometry any more: the icon grid and gauge grid
+// are plain CSS grids, sized/positioned entirely by CSS once .avn-content itself is placed.
+let avnFullGeom    = null;
+let avnLastType    = null;   // last aircraft type rendered, so a respawn on the SAME type still re-renders
 
 // ── Renderer ───────────────────────────────────────────────────────────────────────
 function renderAvn() {
   const type = avnData.name;
+  avnLastType = type;
   if (!type) {
-    avnHeaderEl.classList.remove('placed');
-    avnFrame.style.display  = 'none';
+    avnContentEl.classList.remove('placed');
     avnEmptyEl.style.display = '';
-    avnFuelBar.classList.remove('placed');
-    avnThrBar .classList.remove('placed');
-    avnLayoutType = type;   // record that the empty state is shown, so returning to a plane
-    return;                 // (even the SAME type — e.g. respawn) re-triggers a render
+    return;
   }
-  avnHeaderEl.classList.add('placed');
-  avnFrame.style.display   = '';
   avnEmptyEl.style.display = 'none';
-  avnNameEl.textContent = type;
 
-  // full profile: anchor the header to the top bezel row the shell forwards (headerTop), with the
-  // band height as a MIN so short content stays centred in the row but a wrapped 2-row status can
-  // grow past it. compact (split pane) uses the CSS band. The frame then follows the header's
-  // actual bottom (layoutAvnFrame) — so the silhouette starts below however tall the status ends up.
-  if (layout === 'full' && avnFullGeom && typeof avnFullGeom.headerTop === 'number') {
-    avnHeaderEl.style.top       = avnFullGeom.headerTop + 'px';
-    avnHeaderEl.style.minHeight = avnFullGeom.headerHeight + 'px';
-    avnHeaderEl.style.height    = 'auto';
-  } else {
-    avnHeaderEl.style.top       = '';
-    avnHeaderEl.style.minHeight = '';
-    avnHeaderEl.style.height    = '';
-  }
-
-  // Colour the status tiles here (alongside the name) so they update even while the silhouette
-  // layout is still fetching (the early return below). Placement is handled by the header flexbox.
   paintAvnStatus();
-  layoutAvnFrame();   // position the silhouette frame just below the (possibly wrapped) header
-
-  avnBg.style.display = '';
-  avnPartsEl.style.display = '';
-
-  ensureAvnLayout(type);
-  ensureAvnBg(type);   // request the silhouette independently of the layout cache (see avn-bg-policy)
-  const layoutDef = avnLayoutCache[type];
-  if (!layoutDef || typeof layoutDef === 'string') return;
-  if (avnLayoutType !== type) buildAvnParts(type, layoutDef);
-
-  fitAvnPartsToBg();
-  paintAvnDamage();
-  paintAvnFailures();   // rebuilds + sizes the failure labels
-  layoutAvnBars();
-  paintAvnBars();
-}
-
-// Position the silhouette frame directly below the header's actual bottom, so the status row can
-// wrap to two lines (8 tiles on a narrow screen) without ever overlapping the silhouette. The
-// frame's lower edge stays put: the forwarded bezel limit in full, or the CSS bottom in compact.
-const AVN_HDR_GAP = 6;
-function layoutAvnFrame() {
-  const panelTop = avnPanel.getBoundingClientRect().top;
-  const frameTop = (avnHeaderEl.getBoundingClientRect().bottom - panelTop) + AVN_HDR_GAP;
-  avnFrame.style.top = frameTop + 'px';
-  if (layout === 'full' && avnFullGeom && typeof avnFullGeom.frameTop === 'number') {
-    const frameBottom = avnFullGeom.frameTop + avnFullGeom.frameHeight;   // fixed lower limit (last bezel sep)
-    avnFrame.style.height = Math.max(0, frameBottom - frameTop) + 'px';
-  } else {
-    avnFrame.style.height = '';   // compact: CSS bottom:12px spans the rest
-  }
+  paintAvnGauges();
+  layoutAvnContent();
 }
 
 // Recolour each tile from the live booleans (avn-status-policy maps state -> the 'on'/'off'/
@@ -134,297 +62,102 @@ function paintAvnStatus() {
   setAvnTile(avnTileTurret, 'turret', avnData.turret);
 }
 
-function ensureAvnLayout(type) {
-  const cached = avnLayoutCache[type];
-  if (cached && typeof cached === 'object') return;   // already loaded
-  if (cached === 'pending') return;                   // fetch in flight
-  avnLayoutCache[type] = 'pending';
-  fetch('/airframe-layout?type=' + encodeURIComponent(type))
-    .then(function(r) { if (!r.ok) throw new Error('layout ' + r.status); return r.json(); })
-    .then(function(j) { avnLayoutCache[type] = j; avnLayoutTries[type] = 0; renderAvn(); })
-    .catch(function() {
-      // The airframe is captured ~1 Hz AFTER the plane loads (and its images stream in async),
-      // so right after a respawn / plane change the layout can 404 for a beat. Retry until it
-      // lands rather than giving up on the first miss, which would leave AVN stuck black.
-      const n = (avnLayoutTries[type] || 0) + 1;
-      avnLayoutTries[type] = n;
-      avnLayoutCache[type] = (n <= 20) ? undefined : 'fail';
-      if (n <= 20) setTimeout(function() { if (avnData.name === type) ensureAvnLayout(type); }, 500);
-    });
-}
-
-// (Re)request the silhouette iff the type we're showing differs from the wanted one. Decoupled
-// from the layout cache (unlike before) so switching to an aircraft whose layout is already
-// cached — or whose bg PNG lagged the async server capture — still refreshes the silhouette
-// instead of leaving it stuck on the previous plane. See avn-bg-policy.js.
-function ensureAvnBg(type) {
-  if (AvnBgPolicy.shouldRequestBg(avnBgType, type)) setAvnBg(type);
-}
-
-// Set the background silhouette image. Retries on error because its capture is async, so it can
-// 404 for a moment right after a plane change; cache-busts each retry so a prior 404 doesn't
-// stick in the browser cache.
-function setAvnBg(type) {
-  avnBgType = type; avnBgTries = 0; avnBgLoaded = false;
-  avnBg.src = '/airframe?type=' + encodeURIComponent(type) + '&part=__bg';
-}
-avnBg.onerror = function() {
-  if (!AvnBgPolicy.shouldRetryBg(avnData.name, avnBgType, avnBgLoaded, avnBgTries, AVN_BG_RETRY_CAP)) return;
-  avnBgTries++;
-  const t = avnBgType, v = avnBgTries;
-  setTimeout(function() {
-    if (avnData.name === t && !avnBgLoaded) avnBg.src = '/airframe?type=' + encodeURIComponent(t) + '&part=__bg&v=' + v;
-  }, 500);
-};
-
-// Point a part's CSS mask at its sprite, but preload via Image() first so a not-yet-ready
-// (async) sprite is retried rather than sticking as an empty mask. Cache-busts each retry.
-function setPartMask(el, type, partName) {
-  let tries = 0;
-  (function attempt() {
-    const url = '/airframe?type=' + encodeURIComponent(type) + '&part=' + encodeURIComponent(partName) + (tries ? '&v=' + tries : '');
-    const img = new Image();
-    img.onload  = function() { el.style.webkitMaskImage = 'url("' + url + '")'; el.style.maskImage = 'url("' + url + '")'; };
-    img.onerror = function() { if (tries < 20 && avnData.name === type) { tries++; setTimeout(attempt, 500); } };
-    img.src = url;
-  })();
-}
-
-function buildAvnParts(type, layoutDef) {
-  avnPartsEl.innerHTML = '';
-  avnPartEls = Object.create(null);
-  if (!layoutDef || !Array.isArray(layoutDef.parts)) { avnLayoutType = type; return; }
-  for (const p of layoutDef.parts) {
-    const el = document.createElement('div');
-    el.className = 'avn-part';
-    el.dataset.rt = p.rt;
-    el.style.left   = (p.cx * 100).toFixed(3) + '%';
-    el.style.top    = (p.cy * 100).toFixed(3) + '%';
-    el.style.width  = (p.w  * 100).toFixed(3) + '%';
-    el.style.height = (p.h  * 100).toFixed(3) + '%';
-    const sx = (p.sx === -1) ? -1 : 1;
-    const sy = (p.sy === -1) ? -1 : 1;
-    const parts = ['translate(-50%, -50%)'];
-    if (sx !== 1 || sy !== 1) parts.push('scale(' + sx + ',' + sy + ')');
-    if (p.r)                   parts.push('rotate(' + (-p.r).toFixed(1) + 'deg)');
-    el.style.transform = parts.join(' ');
-    setPartMask(el, type, p.n);
-    avnPartsEl.appendChild(el);
-    avnPartEls[p.n] = el;
-  }
-  // Failure labels are (re)built by paintAvnFailures from the live failure list — buildAvnParts
-  // just cleared them along with the parts (innerHTML = ''), so drop our stale references.
-  avnFailureEls = [];
-  avnLayoutType = type;
-}
-
-function sizeAvnFailures() {
-  const h = avnPartsEl.getBoundingClientRect().height;
-  if (h <= 0) return;
-  const px = Math.max(11, h * 0.045);
-  for (const el of avnFailureEls) el.style.fontSize = px.toFixed(1) + 'px';
-}
-
-// Bar geometry shared by the placement (layoutAvnBars) and the portrait frame inset
-// (applyAvnFrameInset) so they always agree on where the bars sit. .avn-vbar has a fixed
-// 42px CSS width; edgeInset matches the clamp in layoutAvnBars. AVN_BAR_SILHOUETTE_GAP is
-// the breathing room kept between a bar's inner edge and the silhouette in portrait.
-const AVN_BAR_W = 42;
-const AVN_BAR_SILHOUETTE_GAP = 15;
-function avnBarGap() { return Math.max(8, Math.round(avnPanel.getBoundingClientRect().width * 0.012)); }
-function avnBarEdgeInset() { return avnBarGap() + 7; }   // 7 ≈ tick gutter (5px) + 2px margin
-
-// In portrait the silhouette would fill the full frame width and slide under the FUEL/
-// THROTTLE bars pinned at the panel edges. Pull the frame in on each side by the bar zone
-// plus AVN_BAR_SILHOUETTE_GAP so the silhouette (bg + part masks, both sized to the frame)
-// stays clear of the bars. Cleared in landscape, which flanks a narrow silhouette.
-function applyAvnFrameInset() {
-  if (document.body.classList.contains('portrait')) {
-    const inset = avnBarEdgeInset() + AVN_BAR_W + AVN_BAR_SILHOUETTE_GAP;
-    avnFrame.style.left  = inset + 'px';
-    avnFrame.style.right = inset + 'px';
-  } else {
-    avnFrame.style.left  = '';
-    avnFrame.style.right = '';
-  }
-}
-
-function fitAvnPartsToBg() {
-  applyAvnFrameInset();
-  const fr = avnFrame.getBoundingClientRect();
-  if (!fr.width || !fr.height || !avnBg.naturalWidth || !avnBg.naturalHeight) {
-    avnPartsEl.style.width = fr.width + 'px';
-    avnPartsEl.style.height = fr.height + 'px';
-    return;
-  }
-  const imgAspect = avnBg.naturalWidth / avnBg.naturalHeight;
-  const frAspect  = fr.width / fr.height;
-  let w, h;
-  if (imgAspect > frAspect) { w = fr.width;  h = fr.width  / imgAspect; }
-  else                      { h = fr.height; w = fr.height * imgAspect; }
-  avnPartsEl.style.width  = w + 'px';
-  avnPartsEl.style.height = h + 'px';
-}
-avnBg.addEventListener('load', function() {
-  avnBgLoaded = true;   // silhouette for avnBgType is up — stop the retry loop
-  fitAvnPartsToBg();
-  sizeAvnFailures();
-  layoutAvnBars();
-  paintAvnBars();
-});
-
-function paintAvnDamage() {
-  const map = Object.create(null);
-  if (Array.isArray(avnData.parts)) {
-    for (const p of avnData.parts) map[p.n] = p;
-  }
-  for (const name in avnPartEls) {
-    const el = avnPartEls[name];
-    const data = map[name];
-    const rt = +el.dataset.rt || 30;
-    if (data && data.d) {
-      el.style.backgroundColor = 'rgb(178, 0, 64)';
-      el.style.opacity = '1';
-      continue;
-    }
-    const hp = data ? data.hp : 100;
-    const cond = Math.max((hp - rt) / (100 - rt), 0);
-    const g = Math.min(cond * 2, 1);
-    el.style.backgroundColor = 'rgb(255,' + Math.round(g * 255) + ',0)';
-    el.style.opacity = (1 - cond).toFixed(3);
-  }
-}
-
-function paintAvnFailures() {
-  // Failures are arbitrary per-aircraft strings, so render whatever is active rather than
-  // matching a fixed table. Rebuild the labels each paint: side-column + stacked row per column.
-  for (const el of avnFailureEls) el.remove();
-  avnFailureEls = [];
-  const active = Array.isArray(avnData.failures) ? avnData.failures : null;
-  if (!active || !active.length) return;
-  const rowInCol = { L: 0, R: 0, C: 0 };
-  for (const name of active) {
-    const side = AvnFailurePolicy.failureSide(name) || 'C';
-    const row  = rowInCol[side]++;
-    const el = document.createElement('div');
-    el.className = 'avn-failure active';
-    el.textContent = AvnFailurePolicy.failureText(name);
-    el.style.left = (AVN_FAIL_COL[side] * 100).toFixed(3) + '%';
-    el.style.top  = ((AVN_FAIL_BASE_CY - row * AVN_FAIL_ROW_DY) * 100).toFixed(3) + '%';
-    avnPartsEl.appendChild(el);
-    avnFailureEls.push(el);
-  }
-  sizeAvnFailures();
-}
-
-function layoutAvnBars() {
-  const partsRect = avnPartsEl.getBoundingClientRect();
-  const frameRect = avnFrame.getBoundingClientRect();
-  if (!partsRect.width || !partsRect.height || !frameRect.height) {
-    avnFuelBar.classList.remove('placed');
-    avnThrBar .classList.remove('placed');
-    return;
+// The vertical band .avn-content centres itself in: full uses the shell-forwarded bezel geometry
+// (the same "below the top bezel row" band the old icon columns sat within); compact has no such
+// geometry, so it's just a small top margin down to a small bottom margin.
+const AVN_TOP_MARGIN = 12;
+const AVN_BOTTOM_MARGIN = 12;
+function avnContentVerticalExtent() {
+  if (layout === 'full' && avnFullGeom && typeof avnFullGeom.frameTop === 'number') {
+    return { top: avnFullGeom.frameTop, height: avnFullGeom.frameHeight };
   }
   const panelRect = avnPanel.getBoundingClientRect();
-  const gap = avnBarGap();
-  const topInPanel = frameRect.top - panelRect.top;
-
-  const barW = avnFuelBar.offsetWidth || AVN_BAR_W;
-  const edgeInset = avnBarEdgeInset();             // 7 ≈ tick gutter width (5px) + its 2px margin
-  const edgePos = panelRect.width - barW - edgeInset;   // flush against the panel edge
-
-  // Portrait: the silhouette fills the width (and is inset to clear the bars — see
-  // applyAvnFrameInset), so pin the bars to the panel edges. Landscape: flank the narrow
-  // silhouette, anchoring to its measured edges, clamped so a bar can never spill outside.
-  const portrait = document.body.classList.contains('portrait');
-  let fuelRight, thrLeft;
-  if (portrait) {
-    fuelRight = edgePos;
-    thrLeft   = edgePos;
-  } else {
-    fuelRight = Math.max(edgeInset, Math.min(panelRect.right - (partsRect.left - gap), edgePos));
-    thrLeft   = Math.max(edgeInset, Math.min((partsRect.right + gap) - panelRect.left, edgePos));
-  }
-
-  // Portrait: shorten the bars to 80% of the frame height and re-center them vertically so
-  // they read tighter against the aircraft. Landscape keeps the full silhouette height.
-  const barH   = portrait ? frameRect.height * 0.8 : frameRect.height;
-  const barTop = topInPanel + (frameRect.height - barH) / 2;
-
-  avnFuelBar.style.right  = fuelRight + 'px';
-  avnFuelBar.style.top    = barTop + 'px';
-  avnFuelBar.style.height = barH + 'px';
-  avnFuelBar.classList.add('placed');
-
-  avnThrBar.style.left   = thrLeft + 'px';
-  avnThrBar.style.top    = barTop + 'px';
-  avnThrBar.style.height = barH + 'px';
-  avnThrBar.classList.add('placed');
+  return { top: AVN_TOP_MARGIN, height: Math.max(0, panelRect.height - AVN_TOP_MARGIN - AVN_BOTTOM_MARGIN) };
 }
 
-function paintAvnBars() {
-  paintAvnBar(avnFuelBar, avnFuelFill, avnFuelVal, avnData.fuel, 0.25, 0.10);
+// .avn-content spans the FULL panel width (no more tile-column inset — the icon grid is now a
+// sibling row above the gauges, not side columns beside them) and the full vertical extent, so it
+// reads as "as wide as possible, vertically centred" per that extent. The icon grid and gauge grid
+// split that height between them via flex-grow (avn.css) — no further JS sizing needed for either.
+function layoutAvnContent() {
+  const panelRect = avnPanel.getBoundingClientRect();
+  if (!panelRect.width || !panelRect.height) {
+    avnContentEl.classList.remove('placed');
+    return;
+  }
+  const vert = avnContentVerticalExtent();
+  avnContentEl.style.width  = panelRect.width + 'px';
+  avnContentEl.style.height = vert.height + 'px';
+  avnContentEl.style.left   = '0px';
+  avnContentEl.style.top    = vert.top + 'px';
+  avnContentEl.classList.add('placed');
+}
+
+function paintAvnGauges() {
+  paintAvnGauge(avnGaugeFuel, avnData.fuel, 0.25, 0.10);
+  paintAvnGauge(avnGaugeRpm,  avnData.rpm,  null, null);   // no caution/critical — low RPM at idle is normal, not a warning
+  paintAvnGauge(avnGaugeHeat, avnData.heat, null, null);   // no caution/critical — heat has no "low is bad" sense
   paintAvnThrottle();
 }
 
-// THROTTLE is its own paint: afterburner airframes split the bar at abStart (MIL below, reheat
-// above) per AvnThrottlePolicy, driving the fill's green→red gradient (via the --ab-start var),
-// the readout text ('MIL nn%' / red 'AB nn%'), and the zone classes. Non-AB airframes render a
-// plain 0-100% green bar, identical to before.
-function paintAvnThrottle() {
-  const r = AvnThrottlePolicy.throttleReadout(avnData.throttle, avnData.hasAb, avnData.abStart);
-  avnThrBar.classList.remove('caution', 'critical');
-  avnThrBar.classList.toggle('na', r.na);
-  avnThrBar.classList.toggle('ab-capable', r.boundary !== null);
-  avnThrBar.classList.toggle('ab-active', r.zone === 'ab');
-  if (r.boundary !== null) avnThrBar.style.setProperty('--ab-start', r.boundary);
-  avnThrFill.style.height = (r.fill * 100).toFixed(1) + '%';
-  avnValNum(avnThrVal).textContent = r.text;
-  positionAvnBarValue(avnThrBar, avnThrVal, r.fill);
+// Needle rotation: the SVG needle is drawn pointing at the gauge's zero position (-135deg, see
+// avn.html), so rotating it (v * 270)deg clockwise lands it at -135 + v*270 — the same 270deg
+// sweep every dial's tick ring covers (avn.html's shared <defs>).
+function avnNeedleAngle(v) { return (v * 270).toFixed(1) + 'deg'; }
+
+// The lit arc trailing the needle from zero to v — the classic SVG "circular progress" trick:
+// dasharray = the path's own length L turns it into one dash of length L then one gap of length L;
+// dashoffset = L*(1-v) slides that dash so only the first v*L of the path (from the zero end, where
+// the path's `d` in avn.html starts) stays visible. getTotalLength() is cached per element (a
+// WeakMap, not a data attribute, since the value is a number, not markup) — every dial's path is
+// geometrically identical, but reading it straight off each element is one line simpler than
+// threading a shared constant through four call sites.
+const avnGaugeFillLengths = new WeakMap();
+function setAvnGaugeFill(fillEl, v) {
+  let L = avnGaugeFillLengths.get(fillEl);
+  if (L === undefined) { L = fillEl.getTotalLength(); avnGaugeFillLengths.set(fillEl, L); }
+  // No unit suffix: both resolve in the path's own user-space coordinate system (the viewBox's
+  // 0-100 grid), matching getTotalLength()'s own units. 'px' here would mean CSS pixels of the
+  // rendered (cqmin-scaled) box instead, which drifts from L as soon as a dial isn't rendered at
+  // exactly 100x100 device px — every size except the reference.
+  fillEl.style.strokeDasharray = L;
+  fillEl.style.strokeDashoffset = L * (1 - v);
 }
 
-// The digits live in a .avn-vbar-num span (sibling of the SVG leader frame); fall back to the
-// element itself so nothing breaks if the markup changes.
-function avnValNum(valEl) { return valEl.querySelector('.avn-vbar-num') || valEl; }
-
-function paintAvnBar(barEl, fillEl, valEl, value01, cautionAt, criticalAt) {
-  barEl.classList.remove('na', 'caution', 'critical');
+function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt) {
+  const needle = gaugeEl.querySelector('.avn-gauge-needle');
+  const fill   = gaugeEl.querySelector('.avn-gauge-fill');
+  const valEl  = gaugeEl.querySelector('.avn-gauge-val');
+  gaugeEl.classList.remove('na', 'caution', 'critical');
   if (typeof value01 !== 'number' || value01 < 0) {
-    barEl.classList.add('na');
-    fillEl.style.height = '0%';
-    avnValNum(valEl).textContent = '--';
-    positionAvnBarValue(barEl, valEl, 0);
+    gaugeEl.classList.add('na');
+    needle.style.transform = 'rotate(' + avnNeedleAngle(0) + ')';
+    setAvnGaugeFill(fill, 0);
+    valEl.textContent = '--';
     return;
   }
   const v = Math.max(0, Math.min(1, value01));
-  if      (criticalAt !== null && v <= criticalAt) barEl.classList.add('critical');
-  else if (cautionAt  !== null && v <= cautionAt)  barEl.classList.add('caution');
-  fillEl.style.height = (v * 100).toFixed(1) + '%';
-  avnValNum(valEl).textContent = Math.round(v * 100) + '%';
-  positionAvnBarValue(barEl, valEl, v);
+  if      (criticalAt !== null && v <= criticalAt) gaugeEl.classList.add('critical');
+  else if (cautionAt  !== null && v <= cautionAt)  gaugeEl.classList.add('caution');
+  needle.style.transform = 'rotate(' + avnNeedleAngle(v) + ')';
+  setAvnGaugeFill(fill, v);
+  valEl.textContent = Math.round(v * 100) + '%';
 }
 
-// Slide the % readout so the leader's bar-side line sits on the fill's top tip. Derived from the
-// tube's box (not the fill's animated rect) so it tracks the target level immediately; the
-// CSS `top` transition then carries it in step with the fill's height animation.
-// The value box carries `transform: translateY(-50%)`, so `top` sets its VERTICAL CENTRE. The
-// leader's near-bar horizontal line sits at y=18/100 of the box (AVN_LEADER_TIP), not the centre,
-// so nudge the centre down by (0.5 - tip)·height to land that line exactly on the fill top.
-const AVN_LEADER_TIP = 0.18;   // SVG y of the leader's bar-side line, as a fraction of box height
-function positionAvnBarValue(barEl, valEl, v) {
-  const tube = barEl.querySelector('.avn-vbar-tube');
-  if (!tube) return;
-  const tubeRect = tube.getBoundingClientRect();
-  if (!tubeRect.height) return;
-  const PAD = 6, BORDER = 2;                          // mirror .avn-vbar-tube padding + border
-  const fillBottomY = tubeRect.bottom - BORDER - PAD; // viewport y of the fill's base
-  const innerH      = tubeRect.height - 2 * BORDER;   // padding-box height the fill % spans
-  const tipY        = fillBottomY - v * innerH;       // viewport y of the fill's top tip
-  const boxH        = valEl.getBoundingClientRect().height;
-  valEl.style.top = (tipY - barEl.getBoundingClientRect().top + (0.5 - AVN_LEADER_TIP) * boxH) + 'px';
-  // Track height for the throttle fill's MIL/AB gradient — it anchors the green→red split at
-  // --ab-start of the tube regardless of how full the bar is (harmless on the fuel bar).
-  barEl.style.setProperty('--tube-inner-px', innerH + 'px');
+// THROTTLE is its own paint: AvnThrottlePolicy gives the needle position (`fill`, still 0..1 even
+// though it's no longer a bar height), the readout text ('MIL nn%' / red 'AB nn%'), and the zone.
+// Non-AB airframes just get a plain 0-100% needle sweep, same as before.
+function paintAvnThrottle() {
+  const r = AvnThrottlePolicy.throttleReadout(avnData.throttle, avnData.hasAb, avnData.abStart);
+  const needle = avnGaugeThr.querySelector('.avn-gauge-needle');
+  const fill   = avnGaugeThr.querySelector('.avn-gauge-fill');
+  const valEl  = avnGaugeThr.querySelector('.avn-gauge-val');
+  avnGaugeThr.classList.remove('caution', 'critical');
+  avnGaugeThr.classList.toggle('na', r.na);
+  avnGaugeThr.classList.toggle('ab-active', r.zone === 'ab');
+  needle.style.transform = 'rotate(' + avnNeedleAngle(r.fill) + ')';
+  setAvnGaugeFill(fill, r.fill);
+  valEl.textContent = r.text;
 }
 
 // ── Shell → page forwarding ──────────────────────────────────────────────────────────
@@ -433,11 +166,11 @@ window.addEventListener('message', function(e) {
   if (!m || m.mfd !== true) return;
   if (m.type === 'avn') {
     avnData = {
-      name: m.name || null,
-      parts: Array.isArray(m.parts) ? m.parts : null,
-      failures: Array.isArray(m.failures) ? m.failures : null,
+      name: m.name || null,   // presence-only now — never displayed, just gates the empty state
       fuel:     typeof m.fuel     === 'number' ? m.fuel     : -1,
       throttle: typeof m.throttle === 'number' ? m.throttle : -1,
+      heat:     typeof m.heat     === 'number' ? m.heat     : -1,
+      rpm:      typeof m.rpm      === 'number' ? m.rpm      : -1,
       hasAb:    m.hasAb === true,
       abStart:  typeof m.abStart === 'number' ? m.abStart : 1,
       gearDown: m.gearDown === true,
@@ -449,16 +182,15 @@ window.addEventListener('message', function(e) {
       nvg:      m.nvg      === true,
       navLights: m.navLights === true,
     };
-    // Full render on aircraft change, or whenever there's no aircraft — the empty-state hide lives
-    // in renderAvn and must run even if a silhouette layout never cached (avnLayoutType stays null).
-    if (avnLayoutType !== avnData.name || !avnData.name) renderAvn();
-    else { paintAvnDamage(); paintAvnFailures(); paintAvnBars(); paintAvnStatus(); }
+    // Full render on aircraft change, or whenever there's no aircraft.
+    if (avnLastType !== avnData.name || !avnData.name) renderAvn();
+    else { paintAvnGauges(); paintAvnStatus(); }
   } else if (m.type === 'avn-layout') {
-    // Geometry profile from the shell. full forwards the bezel-anchored name/frame placement;
-    // compact omits geom and the page falls back to the CSS fixed offsets.
+    // Geometry profile from the shell. full forwards the bezel-anchored vertical band
+    // (geom.frameTop/frameHeight); compact carries no geometry at all any more.
     layout = (m.layout === 'full') ? 'full' : 'compact';
     document.body.classList.toggle('full', layout === 'full');
-    avnFullGeom = m.geom || null;
+    avnFullGeom = (layout === 'full') ? (m.geom || null) : null;
     renderAvn();
   } else if (m.type === 'orient') {
     // App-wide orientation forwarded by the shell (see body.portrait rules in the CSS).

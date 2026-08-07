@@ -1420,6 +1420,8 @@ namespace NOXMFD
                         + ",\"turret\":" + (s.TurretAuto ? "true" : "false")
                         + ",\"nvg\":" + (s.NightVision ? "true" : "false")
                         + ",\"navlt\":" + (s.NavLightsOn ? "true" : "false")
+                        + ",\"heat\":" + s.Heat.ToString("0.000", CultureInfo.InvariantCulture)
+                        + ",\"rpm\":" + s.Rpm.ToString("0.000", CultureInfo.InvariantCulture)
                         + ",\"failures\":" + StringArray(s.Failures)
                         + ",\"tgt\":" + TgtBlock(s)
                         + ",\"bdf\":" + BdfBlock(s)

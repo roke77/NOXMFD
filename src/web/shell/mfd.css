@@ -547,7 +547,9 @@
      the F-35's picker gives its own, so the two chooser screens agree. This is the only overlay
      label that ever carries a state: the rest name a page, while these two name a choice and one of
      them is already made. padding+outline rather than a border so the label doesn't shift the 2px a
-     border would add, staying aligned with its key. */
+     border would add, staying aligned with its key. AVN's NAV labels (mfd.js placeAvnNavLabels) are
+     plain, uncoloured .overlay-item text like every other page's — the page's own tile grid is
+     where on/off/gear-down state shows, not the bezel key naming it. */
   .overlay-item.on {
     color: var(--no-amber);
     outline: 1px solid var(--no-amber);

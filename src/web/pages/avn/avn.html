@@ -4,34 +4,47 @@
 <meta charset="utf-8">
 <title>NO XMFD — AVN</title>
 <!-- ?nochrome — the host already shows this aircraft's own-ship readouts, so don't repeat them:
-     the FUEL/THROTTLE bars and the status tiles go, leaving the silhouette and its failure labels
-     the whole panel (see avn.css .nochrome). The F-35 sets it because its master strip carries
-     both; the bezel doesn't, and renders exactly as before.
+     the FUEL/RPM/HEAT/THRL gauges and the status tiles go. The F-35 sets it because its master strip
+     carries both; the bezel doesn't, and renders exactly as before.
+
+     FIXME: this used to leave the damage silhouette the whole panel — the actual reason nochrome
+     existed. That silhouette is gone (this page is avionics-only now); a nochrome AVN portal on
+     the F-35 currently renders an empty panel. F-35 is out of scope for this pass (docs/layouts.md)
+     so left as-is rather than guessed at — worth a decision (drop nochrome's effect on this page
+     entirely? show something else?) whenever F-35 work picks this back up.
 
      Read here, inline and before the body, rather than posted in by the host: this decides what to
-     paint, and a message arriving after first paint would flash the bars up and then pull them —
+     paint, and a message arriving after first paint would flash the gauges up and then pull them —
      on every mount, and a portal glass mounts pages constantly. It costs the page nothing when
      absent. -->
 <script>
   if (new URLSearchParams(location.search).has('nochrome')) document.documentElement.classList.add('nochrome');
 </script>
 <!--
-  Bare AVN page served at /avn. Single source of truth for the avionics page (damage
-  silhouette + failure labels + FUEL/THROTTLE bars) in BOTH layouts — a pure reactive
-  renderer fed by the shell over postMessage. The full-view overlay twin in MfdPage.cs is
-  gone. Two profiles share this one file:
-    compact : split-pane / half-height. Name + frame use fixed pixel offsets from the iframe
-              edges (no bezel keys to anchor against). The default.
-    full    : single full-screen iframe. Name is vertical-centred on the bezel key[0] row and
-              sized up; the frame spans from below the name (sep[1]) to the bottom strip — the
-              shell forwards those pixel positions. Enabled by layout:'full' in avn-layout.
+  Bare AVN page served at /avn. Single source of truth for the avionics page (the 8 avn.toggle
+  status tiles + FUEL/RPM/HEAT/THRL gauges) in BOTH layouts — a pure reactive renderer fed by the
+  shell over postMessage. No damage silhouette or airframe name here any more — both moved out (the
+  ticket's future AFM page owns airframe status; this page is avionics only).
+
+  The 8 status tiles (2 rows x 4 cols, .avn-icon-grid) and the 4 gauges (2x2, .avn-gauge-grid) are
+  plain CSS grids, always showing all of their items regardless of layout/profile — no per-tile
+  geometry from the shell any more. Both grids are stacked as siblings inside one flex column
+  (.avn-content), which centres itself vertically within whatever band avn.js's
+  avnContentVerticalExtent names (full: the shell-forwarded geom.frameTop/frameHeight — still "below
+  the top bezel row", nothing to do with the silhouette that used to sit there; compact: a small top/
+  bottom margin) and spans the full panel width. Clicking a status tile does nothing here — toggling
+  still only happens via the shell's physical-key `avn.toggle` wiring (full view: mfd.js
+  placeAvnNavLabels also draws a shell-side NAV label at each of those 8 keys now, so the bezel key
+  itself shows what it does and its current state; split pane: wireAvnPaneToggleKeys, unchanged, no
+  label — same as before this pass).
 
   Shell -> page messages (all {mfd:true, ...}):
-    'avn'        : { name, parts, failures, fuel, throttle, gearDown, radar, guns } — the live snapshot.
-    'avn-layout' : geometry — layout:'full' + geom {headerTop, headerHeight, frameTop, frameHeight}
-                   in full; omitted in compact (the page defaults to the CSS fixed offsets).
+    'avn'        : { name, fuel, throttle, heat, rpm, gearDown, radar, guns, … } — the live snapshot.
+                   `name` is presence-only now (drives the NO DATA empty state), never displayed.
+    'avn-layout' : geometry. layout:'full' + geom {frameTop, frameHeight} (just the vertical band
+                   .avn-content centres in — no more per-tile leftSlots/rightSlots). layout:'compact'
+                   carries no geometry at all any more; the compact vertical band is a fixed margin.
     'orient'     : app-wide orientation (drives body.portrait/.landscape).
-  The silhouette bg + part masks + per-type layout are fetched directly from /airframe[-layout].
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -39,98 +52,142 @@
 </head>
 <body>
   <div class="avn-panel" id="avn-panel">
-    <!-- Header band: aircraft name + status annunciators as one centered block (vertically and
-         horizontally). In the full profile the shell forwards the top bezel-row band (below the
-         first separator sep[0] → above the second sep[1]); the silhouette frame + bars start below
-         sep[1]. Compact (split pane) sizes the band via CSS. -->
-    <div class="avn-header" id="avn-header">
-    <div class="avn-name" id="avn-name"></div>
-    <!-- Avionics status annunciators. Each tile is a label + icon; bright = active (GEAR DOWN is
-         red, RADAR/GUNS on are green), dim gray = off. State classes ('on' / 'off' / 'gear-down')
-         come from avn-status-policy.js. Icons use stroke="currentColor" so one color rule drives
-         both label and glyph. -->
-    <div class="avn-status" id="avn-status">
+    <div class="avn-empty mfd-empty" id="avn-empty"><span class="mfd-empty-title">AVN</span>&mdash; NO DATA &mdash;</div>
+    <!-- Shared tick ring for every gauge dial below (avn.html's <use> pattern) — lives outside
+         .avn-content since <defs>/<use> just need matching ids anywhere in the document. -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+      <defs>
+        <g id="avn-gauge-ticks">
+          <line class="avn-gauge-tick major" x1="23.13" y1="23.13" x2="28.08" y2="28.08"/>
+          <line class="avn-gauge-tick"       x1="38.26" y1="13.86" x2="39.49" y2="17.66"/>
+          <line class="avn-gauge-tick"       x1="55.94" y1="12.47" x2="55.32" y2="16.42"/>
+          <line class="avn-gauge-tick"       x1="72.34" y1="19.26" x2="69.98" y2="22.49"/>
+          <line class="avn-gauge-tick"       x1="83.86" y1="32.75" x2="80.29" y2="34.56"/>
+          <line class="avn-gauge-tick major" x1="88"    y1="50"    x2="81"    y2="50"/>
+          <line class="avn-gauge-tick"       x1="83.86" y1="67.25" x2="80.29" y2="65.44"/>
+          <line class="avn-gauge-tick"       x1="72.34" y1="80.74" x2="69.98" y2="77.51"/>
+          <line class="avn-gauge-tick"       x1="55.94" y1="87.53" x2="55.32" y2="83.58"/>
+          <line class="avn-gauge-tick"       x1="38.26" y1="86.14" x2="39.49" y2="82.34"/>
+          <line class="avn-gauge-tick major" x1="23.13" y1="76.87" x2="28.08" y2="71.92"/>
+        </g>
+      </defs>
+    </svg>
+    <!-- Content: the 2-row x 4-col status-icon grid, then the 2x2 gauge grid below it — both
+         siblings in one flex column (.avn-content) that centres itself vertically as a unit and
+         spans the full panel width. Replaces the old two-side-column tile layout (tiles anchored
+         to bezel-key positions) — that anchoring moved to the shell itself: CLASSIC's full view now
+         draws its own NAV labels at those 8 keys (mfd.js placeAvnNavLabels), so this page no longer
+         needs per-tile geometry from the shell at all, in either profile. Each tile is a label +
+         icon; bright = active (GEAR DOWN is red, RADAR/GUNS on are green), dim gray = off. State
+         classes ('on' / 'off' / 'gear-down') come from avn-status-policy.js. Icons use
+         stroke="currentColor" so one color rule drives both label and glyph. -->
+    <div class="avn-content" id="avn-content">
+    <div class="avn-icon-grid" id="avn-icon-grid">
       <div class="avn-tile off" id="avn-tile-gear">
         <span class="avn-tile-label">GEAR</span>
         <!-- Recolourable mask of the real in-game gear glyph, captured once from the game and baked
              as gear-icon.png (--gear-mask in avn.css). Served by both the plugin and serve_web. -->
-        <div class="avn-tile-icon avn-mask-icon" id="avn-gear-icon"></div>
+        <div class="avn-tile-icon-wrap"><div class="avn-tile-icon avn-mask-icon" id="avn-gear-icon"></div></div>
       </div>
       <div class="avn-tile off" id="avn-tile-radar">
         <span class="avn-tile-label">RADAR</span>
-        <svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <div class="avn-tile-icon-wrap"><svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4.5 9.6a11 11 0 0 1 15 0"/><path d="M7.5 12.6a6.5 6.5 0 0 1 9 0"/>
           <circle cx="12" cy="16.1" r="1.3" fill="currentColor" stroke="none"/>
-        </svg>
+        </svg></div>
       </div>
       <div class="avn-tile off" id="avn-tile-guns">
         <span class="avn-tile-label">GUNS</span>
-        <svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <div class="avn-tile-icon-wrap"><svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 12h6"/><path d="M10.5 8H8a4 4 0 0 0 0 8h2.5"/><path d="M13.5 8H16a4 4 0 0 1 0 8h-2.5"/>
-        </svg>
+        </svg></div>
       </div>
       <div class="avn-tile off" id="avn-tile-eng">
         <span class="avn-tile-label">ENG</span>
-        <svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <div class="avn-tile-icon-wrap"><svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 10v6"/><path d="M12 5v3"/><path d="M10 5h4"/><path d="M5 13h-2"/><path d="M6 10h2l2 -2h3.382a1 1 0 0 1 .894 .553l1.448 2.894a1 1 0 0 0 .894 .553h1.382v-2h2a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-2v-2h-3v2a1 1 0 0 1 -1 1h-3.465a1 1 0 0 1 -.832 -.445l-1.703 -2.555h-2v-6"/>
-        </svg>
+        </svg></div>
       </div>
       <div class="avn-tile off" id="avn-tile-assist">
         <span class="avn-tile-label">ASSIST</span>
-        <!-- Attitude indicator (artificial horizon): bezel circle, horizon line, and the fixed
-             aircraft-reference "wings" symbol (the W-like marker) sitting on the horizon. -->
-        <svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="8.5"/>
-          <path d="M5.3 12.3 H7.5 L10 13.7 L12 12.5 L14 13.7 L16.5 12.3 H18.7"/>
-        </svg>
+        <!-- Flight Path Vector / Flight Path Marker: the circle-plus-wings symbol showing where the
+             aircraft is actually going (velocity vector), not where the nose points. Wings and the
+             top tick are gapped from the circle, matching the real HUD symbol. -->
+        <div class="avn-tile-icon-wrap"><svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <circle cx="12" cy="12" r="3.5"/>
+          <line x1="12" y1="2" x2="12" y2="8.5"/>
+          <line x1="2.5" y1="12" x2="7.5" y2="12"/>
+          <line x1="16.5" y1="12" x2="21.5" y2="12"/>
+        </svg></div>
       </div>
       <div class="avn-tile off" id="avn-tile-nvg">
         <span class="avn-tile-label">NVG</span>
-        <svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <div class="avn-tile-icon-wrap"><svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M2.5 12s3.4-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.4 6.5-9.5 6.5-9.5-6.5-9.5-6.5z"/><circle cx="12" cy="12" r="3"/>
-        </svg>
+        </svg></div>
       </div>
       <div class="avn-tile off" id="avn-tile-lights">
         <span class="avn-tile-label">LIGHTS</span>
-        <svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <div class="avn-tile-icon-wrap"><svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="4.2"/><path d="M12 3.2v2"/><path d="M12 18.8v2"/><path d="M3.2 12h2"/><path d="M18.8 12h2"/><path d="M5.5 5.5l1.6 1.6"/><path d="M16.9 16.9l1.6 1.6"/><path d="M18.5 5.5l-1.6 1.6"/><path d="M7.1 16.9l-1.6 1.6"/>
-        </svg>
+        </svg></div>
       </div>
       <div class="avn-tile off" id="avn-tile-turret">
         <span class="avn-tile-label">TURRET</span>
-        <svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <div class="avn-tile-icon-wrap"><svg class="avn-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
           <path d="M7.5 13 L4 18.5 H20 L16.5 13"/><path d="M8 13 V11 Q8 8 12 8 Q16 8 16 11 V13"/><path d="M8 10.8 H3 V12.8 H8"/>
-        </svg>
+        </svg></div>
       </div>
     </div>
-    </div>
-    <div class="avn-frame" id="avn-frame">
-      <img class="avn-bg" id="avn-bg" alt="">
-      <div class="avn-parts" id="avn-parts"></div>
-    </div>
-    <div class="avn-empty mfd-empty" id="avn-empty"><span class="mfd-empty-title">AVN</span>&mdash; NO DATA &mdash;</div>
-    <div class="avn-vbar fuel" id="avn-fuel-bar">
-      <div class="avn-vbar-value" id="avn-fuel-val"><svg class="avn-vbar-frame" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M2,18 H20 L34,84 H98"/></svg><span class="avn-vbar-num">&mdash;</span></div>
-      <div class="avn-vbar-tube">
-        <div class="avn-vbar-fill" id="avn-fuel-fill"></div>
-        <div class="avn-vbar-ticks"></div>
+    <div class="avn-gauge-grid" id="avn-gauge-grid">
+      <div class="avn-gauge fuel" id="avn-gauge-fuel">
+        <div class="avn-gauge-dial-wrap"><svg class="avn-gauge-dial" viewBox="0 0 100 100">
+          <circle class="avn-gauge-rim" cx="50" cy="50" r="42"/>
+          <path class="avn-gauge-track" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
+          <path class="avn-gauge-fill" id="avn-gauge-fuel-fill" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
+          <use href="#avn-gauge-ticks"/>
+          <g class="avn-gauge-needle" id="avn-gauge-fuel-needle"><line x1="50" y1="50" x2="30.2" y2="30.2"/></g>
+          <circle class="avn-gauge-hub" cx="50" cy="50" r="2.8"/>
+        </svg><div class="avn-gauge-val" id="avn-gauge-fuel-val">&mdash;</div></div>
+        <div class="avn-gauge-label">FUEL</div>
       </div>
-      <div class="avn-vbar-label">FUEL</div>
-    </div>
-    <div class="avn-vbar thr" id="avn-thr-bar">
-      <!-- Reheat annunciator: sits above the tube, lit red only while throttle is in the AB zone. -->
-      <div class="avn-vbar-ab" id="avn-thr-ab" aria-hidden="true">AFTERBURNER</div>
-      <div class="avn-vbar-value" id="avn-thr-val"><svg class="avn-vbar-frame" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M2,18 H20 L34,84 H98"/></svg><span class="avn-vbar-num">&mdash;</span></div>
-      <div class="avn-vbar-tube">
-        <div class="avn-vbar-fill" id="avn-thr-fill"></div>
-        <div class="avn-vbar-ticks"></div>
+      <div class="avn-gauge rpm" id="avn-gauge-rpm">
+        <div class="avn-gauge-dial-wrap"><svg class="avn-gauge-dial" viewBox="0 0 100 100">
+          <circle class="avn-gauge-rim" cx="50" cy="50" r="42"/>
+          <path class="avn-gauge-track" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
+          <path class="avn-gauge-fill" id="avn-gauge-rpm-fill" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
+          <use href="#avn-gauge-ticks"/>
+          <g class="avn-gauge-needle" id="avn-gauge-rpm-needle"><line x1="50" y1="50" x2="30.2" y2="30.2"/></g>
+          <circle class="avn-gauge-hub" cx="50" cy="50" r="2.8"/>
+        </svg><div class="avn-gauge-val" id="avn-gauge-rpm-val">&mdash;</div></div>
+        <div class="avn-gauge-label">RPM</div>
       </div>
-      <div class="avn-vbar-label">THRL</div>
+      <div class="avn-gauge heat" id="avn-gauge-heat">
+        <div class="avn-gauge-dial-wrap"><svg class="avn-gauge-dial" viewBox="0 0 100 100">
+          <circle class="avn-gauge-rim" cx="50" cy="50" r="42"/>
+          <path class="avn-gauge-track" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
+          <path class="avn-gauge-fill" id="avn-gauge-heat-fill" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
+          <use href="#avn-gauge-ticks"/>
+          <g class="avn-gauge-needle" id="avn-gauge-heat-needle"><line x1="50" y1="50" x2="30.2" y2="30.2"/></g>
+          <circle class="avn-gauge-hub" cx="50" cy="50" r="2.8"/>
+        </svg><div class="avn-gauge-val" id="avn-gauge-heat-val">&mdash;</div></div>
+        <div class="avn-gauge-label">HEAT</div>
+      </div>
+      <div class="avn-gauge thr" id="avn-gauge-thr">
+        <div class="avn-gauge-dial-wrap"><svg class="avn-gauge-dial" viewBox="0 0 100 100">
+          <circle class="avn-gauge-rim" cx="50" cy="50" r="42"/>
+          <path class="avn-gauge-track" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
+          <path class="avn-gauge-fill" id="avn-gauge-thr-fill" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
+          <use href="#avn-gauge-ticks"/>
+          <g class="avn-gauge-needle" id="avn-gauge-thr-needle"><line x1="50" y1="50" x2="30.2" y2="30.2"/></g>
+          <circle class="avn-gauge-hub" cx="50" cy="50" r="2.8"/>
+        </svg><div class="avn-gauge-val" id="avn-gauge-thr-val">&mdash;</div></div>
+        <div class="avn-gauge-label">THRL</div>
+      </div>
+    </div>
     </div>
   </div>
-<script src="/assets/pages/avn/avn-bg-policy.js"></script>
 <script src="/assets/pages/avn/avn-status-policy.js"></script>
-<script src="/assets/pages/avn/avn-failure-policy.js"></script>
 <script src="/assets/pages/avn/avn-throttle-policy.js"></script>
 <script src="/assets/pages/avn/avn.js"></script>
 </body>

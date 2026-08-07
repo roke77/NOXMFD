@@ -177,6 +177,8 @@
     failures: ['ENGINE FIRE L', 'RIGHT ENGINE FAIL', 'MAIN ROTOR DAMAGE'],
     flares: 60, flaresMax: 64, ewKJ: 820, ewKJMax: 1000, cmCat: 1,
     fuel: 0.94, thr: 0.90, hasAb: true, abStart: 0.8,   // afterburner airframe: 0.90 → reheat (AB 50%)
+    heat: 0.62,   // AVN's HEAT gauge — mid-range so the preview isn't pinned at empty or full
+    rpm: 0.88,    // AVN's RPM gauge — high-but-not-pinned, like a jet cruising near max continuous
     // softGun/softRel: the weapon-keybind soft selections (outlined on the WPN page). softRel differs
     // from selWeapon so the outline is visible; a soft name equal to selWeapon must NOT outline.
     iconOrient: true, iconScale: 1.1, selWeapon: 'AIM-9X', softGun: 'AIM-9X', softRel: 'GBU-12',
