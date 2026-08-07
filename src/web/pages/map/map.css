@@ -44,7 +44,7 @@ main { flex: 1; display: flex; overflow: hidden; }
 
 #mission-bar {
   position: absolute;
-  bottom: 10px; left: 12px;
+  top: 10px; left: 12px;
   background: var(--no-panel-bg);
   border: 1px solid var(--no-panel-border);
   padding: 6px 11px;
@@ -54,10 +54,10 @@ main { flex: 1; display: flex; overflow: hidden; }
 #mission-bar .mission-name { font-size: 11px; color: var(--no-green-dim); }
 #mission-bar.empty { display: none; }
 
-/* Bottom-right twin of the mission bar — current grid square (e.g. "GRID: Kg48"). */
+/* Top-right twin of the mission bar — current grid square (e.g. "GRID: Kg48"). */
 #grid-bar {
   position: absolute;
-  bottom: 10px; right: 12px;
+  top: 10px; right: 12px;
 }
 
 /* FOLLOW is shown by the MFD shell's own indicator (stacked alongside PINNED), not here —
