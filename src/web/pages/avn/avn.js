@@ -7,8 +7,6 @@
 const avnPanel     = document.getElementById('avn-panel');
 const avnEmptyEl   = document.getElementById('avn-empty');
 const avnContentEl  = document.getElementById('avn-content');
-const avnIconGridEl = document.getElementById('avn-icon-grid');
-const avnPageIndEl  = document.getElementById('avn-page-ind');
 const avnGaugeFuel = document.getElementById('avn-gauge-fuel');
 const avnGaugeRpm  = document.getElementById('avn-gauge-rpm');
 const avnGaugeHeat = document.getElementById('avn-gauge-heat');
@@ -23,7 +21,7 @@ const avnTileLights = document.getElementById('avn-tile-lights');
 const avnTileTurret = document.getElementById('avn-tile-turret');
 
 // ── State ──────────────────────────────────────────────────────────────────────────
-let avnData = { name: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false, visible: null, page: 1, pages: 1 };
+let avnData = { name: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
 let layout         = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)
 // {frameTop, frameHeight} forwarded by the shell in full — the vertical band .avn-content centres
 // itself in (below the top bezel row). No per-tile geometry any more: the icon grid and gauge grid
@@ -44,7 +42,6 @@ function renderAvn() {
 
   paintAvnStatus();
   paintAvnGauges();
-  layoutAvnIconPaging();
   layoutAvnContent();
 }
 
@@ -63,37 +60,6 @@ function paintAvnStatus() {
   setAvnTile(avnTileNvg,    'nvg',    avnData.nvg);
   setAvnTile(avnTileLights, 'lights', avnData.navLights);
   setAvnTile(avnTileTurret, 'turret', avnData.turret);
-}
-
-// id->element map, in mfd.js's AVN_TOGGLE_GROUPS order — the shell indexes `visible` by these same
-// ids, so a mismatch here would hide/show the wrong tile.
-const AVN_TILE_BY_ID = {
-  gear: avnTileGear, radar: avnTileRadar, guns: avnTileGuns, eng: avnTileEng,
-  assist: avnTileAssist, nvg: avnTileNvg, lights: avnTileLights, turret: avnTileTurret,
-};
-
-// A split pane only has 4 avn.toggle keys (PREV/NEXT page the other 4 in, mfd.js avnPaneSlice) —
-// show just avnData.visible's 4 tiles there, with a PAGE x/y indicator so it's clear the other 4
-// exist. Full view never sends `visible` (it has all 8 keys at once), so this is a no-op there:
-// every tile stays shown, .paged never applies, and the indicator stays hidden (updateAvnPageInd's
-// pages<=1 check).
-function layoutAvnIconPaging() {
-  const visible = Array.isArray(avnData.visible) ? avnData.visible : null;
-  avnIconGridEl.classList.toggle('paged', !!visible);
-  Object.keys(AVN_TILE_BY_ID).forEach(function (id) {
-    AVN_TILE_BY_ID[id].style.display = (!visible || visible.indexOf(id) >= 0) ? '' : 'none';
-  });
-  updateAvnPageInd(avnData.page, avnData.pages);
-}
-
-// Mirrors wpn.js's updatePageInd exactly: hidden unless there's more than one page.
-function updateAvnPageInd(page, pages) {
-  if (pages > 1) {
-    avnPageIndEl.textContent = 'PAGE ' + page + '/' + pages;
-    avnPageIndEl.classList.remove('empty');
-  } else {
-    avnPageIndEl.classList.add('empty');
-  }
 }
 
 // The vertical band .avn-content centres itself in: full uses the shell-forwarded bezel geometry
@@ -280,15 +246,10 @@ window.addEventListener('message', function(e) {
       turret:   m.turret   === true,
       nvg:      m.nvg      === true,
       navLights: m.navLights === true,
-      // compact split pane's current 4-of-8 page (mfd.js avnPaneSlice); absent (full, or no
-      // shell) shows all 8 — see layoutAvnIconPaging.
-      visible: Array.isArray(m.visible) ? m.visible : null,
-      page:  typeof m.page  === 'number' ? m.page  : 1,
-      pages: typeof m.pages === 'number' ? m.pages : 1,
     };
     // Full render on aircraft change, or whenever there's no aircraft.
     if (avnLastType !== avnData.name || !avnData.name) renderAvn();
-    else { paintAvnGauges(); paintAvnStatus(); layoutAvnIconPaging(); }
+    else { paintAvnGauges(); paintAvnStatus(); }
   } else if (m.type === 'avn-layout') {
     // Geometry profile from the shell. full forwards the bezel-anchored vertical band
     // (geom.frameTop/frameHeight); compact carries no geometry at all any more.

@@ -91,17 +91,6 @@
           mask: var(--gear-mask) no-repeat center / contain;
 }
 
-/* Compact/split pane only: a pane has just 4 avn.toggle keys (PREV/NEXT page between the two
-   halves of the 8 — mfd.js avnPaneSlice/wireAvnPaneToggleKeys), so avn.js hides the other 4 tiles
-   here (inline display:none) rather than showing all 8 as if every one were reachable. What's left
-   reads as a single row of 4, not a half-empty 2-row grid: one row's worth of height, and the
-   bottom-divider rule (which only ever targeted the top row's 4 children) already does nothing
-   whichever half is showing, so only the row count needs overriding. Full view never gets this
-   class — it has a dedicated key for all 8, so it always shows all 8 (see avn.html's message
-   contract note on `visible`/`page`/`pages`). */
-.avn-icon-grid.paged { grid-template-rows: repeat(1, auto); }
-.avn-icon-grid.paged .avn-tile { flex-direction: column; }   /* both pages read label-then-icon, not just the first */
-
 /* FUEL/RPM/HEAT/THRL as a 2x2 grid of needle dials — mockup-tested with the user across three
    styles (this needle+value-inside-dial look, a no-needle progress-ring, and a needle-only style
    with the label above) before landing on the first: a sweep needle over the muted tick arc, with
@@ -303,12 +292,3 @@
    .avn-content's, so this wins wherever it sits in the cascade. */
 .nochrome .avn-content,
 .nochrome .avn-content.placed { display: none; }
-
-/* "PAGE x/y" — compact/split only (avn.js updateAvnPageInd), same corner/chip WPN's own #page-ind
-   uses. Sibling of .avn-content (avn.html), not inside it, so this bottom/right anchors the true
-   panel corner. */
-#avn-page-ind {
-  position: absolute;
-  bottom: 10px; right: 12px;
-  z-index: 3;
-}

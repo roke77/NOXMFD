@@ -191,12 +191,17 @@ function avnPaneSlice(idx) {
   };
 }
 // Wire this pane's 4 visible avn.toggle groups to the physical keys L.items resolves to — mirrors
-// wireWpnPaneWeaponKeys. No overlay label: the icon + its ON/OFF colour are drawn inside the AVN
-// iframe itself (paintAvnStatus), the same way WPN's weapon names are drawn inside its own iframe.
+// wireWpnPaneWeaponKeys, plus an overlay text label (avnNavLabelText, the same abbreviations full
+// view's placeAvnNavLabels uses) since a split pane only exposes 4 of the 8 keys at a time and a
+// pilot can't tell which is which from the icon grid alone (unlike full view, where all 8 keys
+// have a fixed 1:1 row). No on/off colouring on the label itself — that state already shows on the
+// page's own tile grid, same as full view's labels.
 function wireAvnPaneToggleKeys(groups, L, paneTag) {
   for (let i = 0; i < L.items.length && i < groups.length; i++) {
     const key = keyBanks[L.items[i].bank][L.items[i].index];
-    if (key) { key.dataset.action = 'avn.toggle'; key.dataset.group = groups[i]; key.dataset.pane = paneTag; }
+    if (!key) continue;
+    key.dataset.group = groups[i];
+    placeSplitKey(L.items[i], avnNavLabelText(groups[i]), 'avn.toggle', paneTag);
   }
 }
 
@@ -584,7 +589,6 @@ function forwardAvnToPanes() {
   paneIframes.forEach(function(iframe, idx) {
     if (panePages[idx] !== 'avn') return;
     if (!iframe.contentWindow) return;
-    const sl = avnPaneSlice(idx);
     iframe.contentWindow.postMessage({
       mfd: true, type: 'avn',
       name: avnData.name,
@@ -605,13 +609,11 @@ function forwardAvnToPanes() {
       turret: avnData.turret,
       nvg: avnData.nvg,
       navLights: avnData.navLights,
-      // compact/split only shows the pane's current page of 4 toggle groups (see
-      // forwardAvnLayoutToPanes for the matching row positions); full view sends none and the
-      // page falls back to showing all 8 (its default when `visible` is absent). page/pages drive
-      // the page's "PAGE x/y" indicator so a pilot knows the other 4 are a NEXT press away.
-      visible: sl.items,
-      page: sl.page,
-      pages: sl.pages,
+      // No `visible`/page/pages any more: the icon grid always shows all 8, split or full — only
+      // the pane's 4 physical toggle KEYS still page (avnPaneSlice, renderSplitLabels' avn branch),
+      // same as WPN's list ever needing more rows than keys. The grid and the keys page
+      // independently now: the page's own tiles show current state at a glance regardless of which
+      // 4 groups the bezel can actuate this page.
     }, '*');
   });
 }
