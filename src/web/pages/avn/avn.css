@@ -149,9 +149,19 @@
   height: 100cqmin;
   overflow: visible;
 }
+/* top is in cqh/cqmin, not a plain %: the dial itself is only 100cqmin tall (.avn-gauge-dial above),
+   centred inside a wrap that's however tall the flex layout gives it (100cqh) — the two only match
+   when the wrap happens to be square. A plain `top: 26%` reads as 26% of the WRAP, which drifts away
+   from 26% of the DIAL as soon as the wrap gets much taller than it is wide (e.g. stretching the
+   window vertically), since the dial then shrinks to the width-capped cqmin while the wrap keeps
+   growing. 50cqh is the wrap's (and dial's, since it's centred) vertical middle; ±24cqmin is 26%/74%
+   of the dial's own 100cqmin height, offset from that middle — so this tracks the dial's actual
+   rendered circle regardless of how non-square the wrap is. left stays a plain 50%: horizontal
+   centring puts the dial's centre at the wrap's 50% mark regardless of size, so only the two
+   off-centre (26%/74%) vertical positions were ever exposed to this. */
 .avn-gauge-label {
   position: absolute;
-  top: 26%;
+  top: calc(50cqh - 24cqmin);
   left: 50%;
   transform: translate(-50%, -50%);
   font-size: clamp(17px, 3.6cqmin, 30px);   /* matches .avn-gauge-val — a mirrored pair, same weight */
@@ -163,7 +173,7 @@
 }
 .avn-gauge-val {
   position: absolute;
-  top: 74%;
+  top: calc(50cqh + 24cqmin);
   left: 50%;
   transform: translate(-50%, -50%);
   font-size: clamp(17px, 3.6cqmin, 30px);
