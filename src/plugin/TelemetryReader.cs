@@ -410,27 +410,45 @@ namespace NOXMFD
         // (flares do too, flagged IRSource.flare=true). Reflect the list once (cached, same pattern
         // as GetNavLightsOn above), then read each entry's public intensity/flare fields directly —
         // no per-engine-type reflection needed, IRSource itself already carries them.
+        //
+        // Ceiling of 12 is not a guess: the game's own cockpit IR gauge (StatusGauges.Gauge.Update,
+        // decompiled) does `Mathf.Clamp(irSource.intensity, 0f, 12f)` before dividing by its serialized
+        // maxValue — a clamp tighter than maxValue would cut the gauge off before full-scale, so 12 is
+        // maxValue. That widget also picks a single (random) live IRSource via Unit.GetIRSource()
+        // rather than the max non-flare source; we use max-non-flare instead since it's stable frame to
+        // frame (the random pick is fine for the game's own gauge, which only needs to look busy).
         private static FieldInfo? _irSourcesField;
-        private static float GetHeatLevel(Aircraft ac)
+        private static float GetHeatLevel(Aircraft ac, out float rawMax)
         {
             try
             {
                 if (_irSourcesField == null)
                     _irSourcesField = typeof(Unit).GetField("IRSources", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (!(_irSourcesField?.GetValue(ac) is System.Collections.IEnumerable sources)) return 0f;
+                if (!(_irSourcesField?.GetValue(ac) is System.Collections.IEnumerable sources)) { rawMax = 0f; return 0f; }
                 float max = 0f;
                 foreach (object o in sources)
                 {
                     if (o is IRSource src && !src.flare && src.intensity > max) max = src.intensity;
                 }
-                // ponytail: fixed normalization ceiling, not each engine's own max — see Heat's
-                // comment in TelemetrySnapshot.cs (TurbineEngine/DuctedFan expose no public IR max,
-                // unlike JetNozzle, so there's no uniform per-engine ceiling to divide by). Tune
-                // `ceiling` against real in-game readings (idle vs. full afterburner) once testable.
-                const float ceiling = 4f;
+                rawMax = max;
+                const float ceiling = 12f;
                 return Mathf.Clamp01(max / ceiling);
             }
-            catch { return 0f; }
+            catch { rawMax = 0f; return 0f; }
+        }
+
+        // Matches the game's own IR gauge color exactly (StatusGauges.Gauge.Update): sample the same
+        // GameAssets.i.redGreenGradient asset at the same (1 - value/maxValue) point, rather than
+        // guessing our own green/amber/red stops.
+        private static string GetHeatColor(float heat01)
+        {
+            try
+            {
+                GameAssets ga = GameAssets.i;
+                if (ga == null || ga.redGreenGradient == null) return "#39ff14";
+                return ColorHex(ga.redGreenGradient.Evaluate(1f - heat01));
+            }
+            catch { return "#39ff14"; }
         }
 
         // Aircraft.engineStates is a public List<IEngine> (every engine adds itself on
@@ -598,6 +616,14 @@ namespace NOXMFD
 
             byte cmCategory = GetSelectedCmCategory(aircraft);
 
+            float throttleRaw = aircraft.GetInputs() != null ? aircraft.GetInputs().throttle : -1f;
+            float heat01 = GetHeatLevel(aircraft, out float heatRawMax);
+            // ponytail: temporary calibration logging for the AVN THRL/HEAT gauges (10Hz, this method's
+            // own cadence) — remove once THRL's reported lag and HEAT's ceiling are confirmed against
+            // real in-game readings. Grep the BepInEx log for "CAL " to pull a session's worth of samples.
+            Plugin.Log?.LogInfo(FormattableString.Invariant(
+                $"[NOXMFD] CAL t={Time.time:F2} thr={throttleRaw:F4} heatRaw={heatRawMax:F3} heat01={heat01:F3}"));
+
             _assets.TryCaptureIcon(aircraft.definition);
 
             UnitInfo[] units = BuildUnits(aircraft);
@@ -642,8 +668,9 @@ namespace NOXMFD
                 EwKJ           = ewKJ,
                 EwKJMax        = ewKJMax,
                 Fuel           = aircraft.GetFuelLevel(),
-                Throttle       = aircraft.GetInputs() != null ? aircraft.GetInputs().throttle : -1f,
-                Heat           = GetHeatLevel(aircraft),
+                Throttle       = throttleRaw,
+                Heat           = heat01,
+                HeatColor      = GetHeatColor(heat01),
                 Rpm            = GetRpmLevel(aircraft),
                 HasAfterburner = _hasAfterburner,
                 AbStart        = _abStart,

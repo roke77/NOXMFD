@@ -150,7 +150,11 @@
           <circle class="avn-gauge-rim" cx="50" cy="50" r="42"/>
           <path class="avn-gauge-track" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
           <use href="#avn-gauge-ticks"/>
-          <g class="avn-gauge-needle" id="avn-gauge-fuel-needle"><line x1="50" y1="50" x2="30.2" y2="30.2"/></g>
+          <!-- Needle is a thin triangle (base at the hub, offset ±1.2 perpendicular to the
+               50,50->30.2,30.2 shaft) instead of a stroked line, so the tip comes to a point rather
+               than a round/flat cap; the hub circle below covers the base regardless of how exactly
+               it's cut. Same points on all 4 dials — the shaft is identical everywhere. -->
+          <g class="avn-gauge-needle" id="avn-gauge-fuel-needle"><polygon points="50.85,49.15 49.15,50.85 30.2,30.2"/></g>
           <circle class="avn-gauge-hub" cx="50" cy="50" r="2.8"/>
         </svg><div class="avn-gauge-label">FUEL</div><div class="avn-gauge-val" id="avn-gauge-fuel-val">&mdash;</div></div>
       </div>
@@ -160,7 +164,7 @@
           <circle class="avn-gauge-rim" cx="50" cy="50" r="42"/>
           <path class="avn-gauge-track" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
           <use href="#avn-gauge-ticks"/>
-          <g class="avn-gauge-needle" id="avn-gauge-heat-needle"><line x1="50" y1="50" x2="30.2" y2="30.2"/></g>
+          <g class="avn-gauge-needle" id="avn-gauge-heat-needle"><polygon points="50.85,49.15 49.15,50.85 30.2,30.2"/></g>
           <circle class="avn-gauge-hub" cx="50" cy="50" r="2.8"/>
         </svg><div class="avn-gauge-label">HEAT</div><div class="avn-gauge-val" id="avn-gauge-heat-val">&mdash;</div></div>
       </div>
@@ -170,18 +174,24 @@
           <circle class="avn-gauge-rim" cx="50" cy="50" r="42"/>
           <path class="avn-gauge-track" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
           <use href="#avn-gauge-ticks"/>
-          <g class="avn-gauge-needle" id="avn-gauge-rpm-needle"><line x1="50" y1="50" x2="30.2" y2="30.2"/></g>
+          <g class="avn-gauge-needle" id="avn-gauge-rpm-needle"><polygon points="50.85,49.15 49.15,50.85 30.2,30.2"/></g>
           <circle class="avn-gauge-hub" cx="50" cy="50" r="2.8"/>
         </svg><div class="avn-gauge-label">RPM</div><div class="avn-gauge-val" id="avn-gauge-rpm-val">&mdash;</div></div>
       </div>
       <div class="avn-gauge thr" id="avn-gauge-thr">
         <div class="avn-gauge-dial-wrap"><svg class="avn-gauge-dial" viewBox="0 0 100 100">
-          <path class="avn-gauge-fill" id="avn-gauge-thr-fill" d="M 25.25 25.25 A 35 35 0 1 1 25.25 74.75"/>
+          <!-- fill-hot paints BELOW fill (source order = paint order): it's always drawn full-extent
+               to the live throttle value, and fill (green, capped at abStart) paints over it, masking
+               red for the MIL portion — the visible red segment is whatever fill doesn't cover. Both
+               use the exact same fixed-dasharray reveal as every other gauge (avn.js setAvnGaugeFill),
+               so the red segment's leading edge tracks the throttle continuously instead of a
+               recomputed [start,end] dash pattern jumping every frame. -->
           <path class="avn-gauge-fill-hot" id="avn-gauge-thr-fill-hot" d="M 25.25 25.25 A 35 35 0 1 1 25.25 74.75"/>
+          <path class="avn-gauge-fill" id="avn-gauge-thr-fill" d="M 25.25 25.25 A 35 35 0 1 1 25.25 74.75"/>
           <circle class="avn-gauge-rim" cx="50" cy="50" r="42"/>
           <path class="avn-gauge-track" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
           <use href="#avn-gauge-ticks"/>
-          <!-- Reheat annunciator: "AFTERBURNER" arcing along the fill's own inner edge (r33.5),
+          <!-- Reheat annunciator: "AB" arcing along the fill's own inner edge (r33.5),
                spanning the whole reheat zone (abStart->100%, avn.js avnArcPath) rather than the
                live throttle value — the full word is what appears the instant the zone lights up,
                not a readout that grows/shrinks with the needle. avn.js only ever repositions this
@@ -189,9 +199,9 @@
                .thr.ab-active (avn.css) is the only thing that toggles it visible. -->
           <path id="avn-gauge-thr-ab-path" fill="none" stroke="none"/>
           <text class="avn-gauge-ab-arc" id="avn-gauge-thr-ab" aria-hidden="true">
-            <textPath href="#avn-gauge-thr-ab-path" startOffset="50%" text-anchor="middle">AFTERBURNER</textPath>
+            <textPath href="#avn-gauge-thr-ab-path" startOffset="50%" text-anchor="middle">AB</textPath>
           </text>
-          <g class="avn-gauge-needle" id="avn-gauge-thr-needle"><line x1="50" y1="50" x2="30.2" y2="30.2"/></g>
+          <g class="avn-gauge-needle" id="avn-gauge-thr-needle"><polygon points="50.85,49.15 49.15,50.85 30.2,30.2"/></g>
           <circle class="avn-gauge-hub" cx="50" cy="50" r="2.8"/>
         </svg><div class="avn-gauge-label">THRL</div>
         <div class="avn-gauge-val" id="avn-gauge-thr-val">&mdash;</div></div>

@@ -23,7 +23,7 @@ const avnTileLights = document.getElementById('avn-tile-lights');
 const avnTileTurret = document.getElementById('avn-tile-turret');
 
 // ── State ──────────────────────────────────────────────────────────────────────────
-let avnData = { name: null, fuel: -1, throttle: -1, heat: -1, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false, visible: null, page: 1, pages: 1 };
+let avnData = { name: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false, visible: null, page: 1, pages: 1 };
 let layout         = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)
 // {frameTop, frameHeight} forwarded by the shell in full — the vertical band .avn-content centres
 // itself in (below the top bezel row). No per-tile geometry any more: the icon grid and gauge grid
@@ -130,8 +130,16 @@ function layoutAvnContent() {
 function paintAvnGauges() {
   paintAvnGauge(avnGaugeFuel, avnData.fuel, 0.25, 0.10);
   paintAvnGauge(avnGaugeRpm,  avnData.rpm,  null, null);   // no caution/critical — low RPM at idle is normal, not a warning
-  paintAvnGauge(avnGaugeHeat, avnData.heat, null, null);   // no caution/critical — heat has no "low is bad" sense
+  paintAvnGauge(avnGaugeHeat, avnData.heat, null, null);   // no caution/critical class — color comes from paintAvnHeatColor instead
+  paintAvnHeatColor();
   paintAvnThrottle();
+}
+
+// HEAT's fill color mirrors the game's own cockpit IR gauge exactly: TelemetryReader computes it
+// server-side off the same GameAssets.i.redGreenGradient asset the game reads, so this just applies
+// that hex color straight to the fill stroke instead of guessing our own green/amber/red stops.
+function paintAvnHeatColor() {
+  avnGaugeHeat.querySelector('.avn-gauge-fill').style.stroke = avnData.heatColor || '';
 }
 
 // Needle rotation: the SVG needle is drawn pointing at the gauge's zero position (-135deg, see
@@ -193,20 +201,6 @@ function setAvnGaugeFill(fillEl, v) {
   fillEl.style.strokeDasharray = L;
   fillEl.style.strokeDashoffset = L * (1 - v);
 }
-// Same dash trick as setAvnGaugeFill, generalized to light up an arbitrary [s, e] slice of the
-// path instead of always starting at zero — THRL's reheat overlay uses this to paint only the
-// [abStart, value] segment red, on top of the plain green fill underneath. dasharray is an
-// explicit [onLen, gapLen] pair (rather than a single L) so the "on" length can be less than L;
-// dashoffset lands that dash's start exactly at s by walking it one full period back from there.
-function setAvnGaugeFillRange(fillEl, s, e) {
-  const L = avnGaugeFillLength(fillEl);
-  if (e <= s) { fillEl.style.strokeDasharray = '0 ' + L; return; }
-  const onLen = (e - s) * L;
-  const period = onLen + L;
-  fillEl.style.strokeDasharray = onLen + ' ' + L;
-  fillEl.style.strokeDashoffset = period - s * L;
-}
-
 function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt) {
   const needle = gaugeEl.querySelector('.avn-gauge-needle');
   const fill   = gaugeEl.querySelector('.avn-gauge-fill');
@@ -230,9 +224,14 @@ function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt) {
 // THROTTLE is its own paint: AvnThrottlePolicy gives the needle position (`fill`, still 0..1 even
 // though it's no longer a bar height), the readout text ('MIL nn%' / red 'AB nn%'), and the zone.
 // Non-AB airframes just get a plain 0-100% needle sweep, same as before. The fill itself mirrors
-// the old vertical bar's green/red split: the green .avn-gauge-fill only ever runs up to boundary
-// (or the raw value, on a plain non-AB bar / while still in MIL), and the red .avn-gauge-fill-hot
-// overlay lights up just the [boundary, value] slice once past it — never both past boundary at once.
+// the old vertical bar's green/red split, but via masking rather than a variable-length dash range:
+// .avn-gauge-fill-hot is always revealed full-extent to the live value (same fixed-dasharray
+// reveal every other gauge uses — continuous by construction, see setAvnGaugeFill), and the green
+// .avn-gauge-fill paints on top of it (avn.html source order) capped at boundary, hiding red for
+// the MIL portion. Only the segment past boundary ever shows red. A variable-length dash range for
+// just the red segment was tried first and looked erratic — its dasharray had to be recomputed
+// every frame (dash length = value - boundary), which CSS can't tween the way a fixed-pattern
+// dashoffset transition can.
 // The AB placard's own arc only depends on abStart (a per-aircraft constant), not the live
 // throttle — re-set it whenever abStart changes rather than every paint, so its span never
 // tracks the needle even transiently.
@@ -248,8 +247,8 @@ function paintAvnThrottle() {
   avnGaugeThr.classList.toggle('na', r.na);
   avnGaugeThr.classList.toggle('ab-active', r.zone === 'ab');
   needle.style.transform = 'rotate(' + avnNeedleAngle(r.fill) + ')';
+  setAvnGaugeFill(fillHot, r.boundary !== null ? r.fill : 0);
   setAvnGaugeFill(fill, r.boundary !== null ? Math.min(r.fill, r.boundary) : r.fill);
-  setAvnGaugeFillRange(fillHot, r.boundary !== null ? r.boundary : 1, r.fill);
   valEl.textContent = r.text;
   if (r.boundary !== null && r.boundary !== avnAbPathBoundary) {
     // v0=1, v1=boundary (high to low) — see avnArcPath: the reheat zone sits on the dial's bottom
@@ -269,6 +268,7 @@ window.addEventListener('message', function(e) {
       fuel:     typeof m.fuel     === 'number' ? m.fuel     : -1,
       throttle: typeof m.throttle === 'number' ? m.throttle : -1,
       heat:     typeof m.heat     === 'number' ? m.heat     : -1,
+      heatColor: typeof m.heatColor === 'string' ? m.heatColor : null,
       rpm:      typeof m.rpm      === 'number' ? m.rpm      : -1,
       hasAb:    m.hasAb === true,
       abStart:  typeof m.abStart === 'number' ? m.abStart : 1,

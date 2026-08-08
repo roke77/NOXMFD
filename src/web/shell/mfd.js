@@ -593,6 +593,7 @@ function forwardAvnToPanes() {
       fuel: avnData.fuel,
       throttle: avnData.throttle,
       heat: avnData.heat,
+      heatColor: avnData.heatColor,
       rpm: avnData.rpm,
       hasAb: avnData.hasAb,
       abStart: avnData.abStart,
@@ -619,7 +620,7 @@ function forwardAvnToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage({ mfd: true, type: 'avn', name: avnData.name, parts: avnData.parts,
                   failures: avnData.failures, fuel: avnData.fuel, throttle: avnData.throttle,
-                  heat: avnData.heat, rpm: avnData.rpm,
+                  heat: avnData.heat, heatColor: avnData.heatColor, rpm: avnData.rpm,
                   hasAb: avnData.hasAb, abStart: avnData.abStart,
                   gearDown: avnData.gearDown, radar: avnData.radar, guns: avnData.guns,
                   ignition: avnData.ignition, assist: avnData.assist, turret: avnData.turret,
@@ -1241,7 +1242,7 @@ let targetsData = { targets: [] };
 // Latest AVN snapshot, mirrored from the map iframe's SSE feed. The shell keeps only this
 // state (the forwarders read it); all rendering — silhouette, failure labels, FUEL/THROTTLE
 // bars, the failure-label parsing/placement, the /airframe layout cache — lives in src/web/pages/avn/.
-let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1, heat: -1, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
+let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
 
 // Latest RWR emitters + incoming missiles, mirrored from the map iframe's SSE feed. The shell
 // keeps only this state (the forwarders read it); all scope SVG rendering lives in src/web/pages/rwr/.
@@ -1518,6 +1519,7 @@ window.addEventListener('message', function(e) {
       fuel:     typeof m.fuel     === 'number' ? m.fuel     : -1,
       throttle: typeof m.throttle === 'number' ? m.throttle : -1,
       heat:     typeof m.heat     === 'number' ? m.heat     : -1,
+      heatColor: typeof m.heatColor === 'string' ? m.heatColor : null,
       rpm:      typeof m.rpm      === 'number' ? m.rpm      : -1,
       hasAb:    m.hasAb === true,
       abStart:  typeof m.abStart === 'number' ? m.abStart : 1,

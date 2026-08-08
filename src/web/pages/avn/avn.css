@@ -243,10 +243,8 @@
   transform-origin: 50px 50px;
   transition: transform 200ms linear;
 }
-.avn-gauge-needle line {
-  stroke: currentColor;
-  stroke-width: 2.4;
-  stroke-linecap: round;
+.avn-gauge-needle polygon {
+  fill: currentColor;
 }
 .avn-gauge-hub { fill: currentColor; }
 /* Caution/critical (FUEL: 25%/10%, avn.js paintAvnGauges) recolour ONLY the fill arc — needle,
@@ -258,31 +256,31 @@
 .avn-gauge.critical .avn-gauge-fill { stroke: var(--no-red); }
 .avn-gauge.na { color: var(--no-white-dark); text-shadow: none; }
 .avn-gauge.na .avn-gauge-needle { opacity: 0.4; }
-/* Reheat fill: same path as .avn-gauge-fill, painted on top of it, showing red only for the
-   [abStart, value] slice once THRL crosses into the AB zone (avn.js setAvnGaugeFillRange) —
-   mirrors the old vertical bar's green-below/red-above split fill exactly, just applied to an arc
-   instead of a straight gradient. Needle/label/value stay white throughout (unlike the old bar's
-   red readout) — the red fill segment plus the AB tag below are enough to flag reheat without
-   recolouring the whole gauge. */
+/* Reheat fill: same path as .avn-gauge-fill, painted BELOW it (avn.html source order) and always
+   revealed full-extent to the live throttle value (avn.js paintAvnThrottle) — .avn-gauge-fill
+   painting on top, capped at abStart, masks red for the MIL portion, so the only red that shows
+   through is [abStart, value]. Mirrors the old vertical bar's green-below/red-above split fill,
+   just applied to an arc instead of a straight gradient. Needle/label/value stay white throughout
+   (unlike the old bar's red readout) — the red fill segment plus the AB tag below are enough to
+   flag reheat without recolouring the whole gauge. */
 .avn-gauge-fill-hot {
   fill: none;
   stroke: var(--no-red);
   stroke-width: 3;
   stroke-linecap: butt;
-  stroke-dasharray: 0 1000;
   transition: stroke-dashoffset 200ms linear;
 }
-/* AB annunciator (avn.html, THR only): "AFTERBURNER" arced along the fill's own inner edge
-   (avn.js sets the underlying <path>'s `d`, spanning the fixed [abStart, 1] zone — not the live
-   value, so this is the whole word or nothing, never a partial arc that grows with the needle).
-   A real SVG <text>, not an HTML overlay like .avn-gauge-label/-val — font-size is in the dial's
-   own viewBox units, so it scales with the dial exactly like the rim/ticks do, no cqmin clamp
-   needed. Hidden unless the throttle is in the reheat zone (avn.js toggles .ab-active), same
-   "hidden unless active" rule the old .avn-vbar-ab had. */
+/* AB annunciator (avn.html, THR only): "AB" arced along the fill's own inner edge (avn.js sets
+   the underlying <path>'s `d`, spanning the fixed [abStart, 1] zone — not the live value, so this
+   is the whole label or nothing, never a partial arc that grows with the needle). A real SVG
+   <text>, not an HTML overlay like .avn-gauge-label/-val — font-size is in the dial's own viewBox
+   units, so it scales with the dial exactly like the rim/ticks do, no cqmin clamp needed. Hidden
+   unless the throttle is in the reheat zone (avn.js toggles .ab-active), same "hidden unless
+   active" rule the old .avn-vbar-ab had. */
 .avn-gauge-ab-arc {
-  font-size: 4px;
+  font-size: 6px;
   font-weight: 900;
-  letter-spacing: -0.15px;
+  letter-spacing: 0;
   fill: var(--no-red);
   opacity: 0;
   transition: opacity 150ms linear;

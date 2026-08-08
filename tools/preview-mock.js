@@ -178,6 +178,7 @@
     flares: 60, flaresMax: 64, ewKJ: 820, ewKJMax: 1000, cmCat: 1,
     fuel: 0.23, thr: 1.0, hasAb: true, abStart: 0.8,   // fuel in the caution band (AVN: <=0.25); throttle pinned at 100% so the AB zone (red fill segment + AB tag) is always exercised
     heat: 0.62,   // AVN's HEAT gauge — mid-range so the preview isn't pinned at empty or full
+    heatColor: '#ffaa00',   // stand-in for TelemetryReader.GetHeatColor's redGreenGradient sample (real plugin only, not reproducible here without the game's Gradient asset)
     rpm: 0.88,    // AVN's RPM gauge — high-but-not-pinned, like a jet cruising near max continuous
     // softGun/softRel: the weapon-keybind soft selections (outlined on the WPN page). softRel differs
     // from selWeapon so the outline is visible; a soft name equal to selWeapon must NOT outline.

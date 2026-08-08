@@ -325,6 +325,7 @@ export class TelemetrySource {
       fuel:     typeof d.fuel === 'number' ? d.fuel : -1,
       throttle: typeof d.thr  === 'number' ? d.thr  : -1,
       heat:     typeof d.heat === 'number' ? d.heat : -1,
+      heatColor: typeof d.heatColor === 'string' ? d.heatColor : null,
       rpm:      typeof d.rpm  === 'number' ? d.rpm  : -1,
       // Afterburner gauge shape (static per airframe). hasAb splits the THRL bar at abStart.
       hasAb:    d.hasAb === true,

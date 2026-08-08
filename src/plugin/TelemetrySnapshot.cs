@@ -39,13 +39,15 @@ namespace NOXMFD
         public float  Fuel;       // 0..1 fuel fraction across all tanks
         public float  Throttle;   // 0..1 commanded throttle
 
-        // ponytail: airframe IR/heat signature, approximated as the strongest live non-flare
-        // IRSource on the aircraft (TelemetryReader.GetHeatLevel), normalized against a fixed
-        // constant ceiling rather than each engine's own max — TurbineEngine/DuctedFan don't
-        // expose a public IR max the way JetNozzle does, so there's no uniform per-engine
-        // normalization available. Good enough as a relative gauge; upgrade path is threading
-        // each engine's own max where the game exposes one. -1 = no aircraft.
+        // Airframe IR/heat signature, approximated as the strongest live non-flare IRSource on the
+        // aircraft (TelemetryReader.GetHeatLevel), normalized against a ceiling of 12 — matched to the
+        // game's own cockpit IR gauge (StatusGauges.Gauge), which clamps intensity to the same [0,12]
+        // before dividing by its maxValue. -1 = no aircraft.
         public float  Heat;       // ~0..1 relative heat signature
+        // Hex color the game's own IR gauge would show at this Heat (TelemetryReader.GetHeatColor,
+        // sampled straight from GameAssets.i.redGreenGradient) — the page paints the fill arc with
+        // this directly instead of re-deriving a gradient client-side.
+        public string? HeatColor;
 
         // Engine RPM, averaged across every IEngine on the aircraft (TelemetryReader.GetRpmLevel).
         // Unlike Heat, this needs no reflection or fixed-ceiling guess: IEngine.GetRPMRatio() is a

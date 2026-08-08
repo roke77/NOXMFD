@@ -1421,6 +1421,7 @@ namespace NOXMFD
                         + ",\"nvg\":" + (s.NightVision ? "true" : "false")
                         + ",\"navlt\":" + (s.NavLightsOn ? "true" : "false")
                         + ",\"heat\":" + s.Heat.ToString("0.000", CultureInfo.InvariantCulture)
+                        + ",\"heatColor\":\"" + EscapeJson(s.HeatColor ?? "#39ff14") + "\""
                         + ",\"rpm\":" + s.Rpm.ToString("0.000", CultureInfo.InvariantCulture)
                         + ",\"failures\":" + StringArray(s.Failures)
                         + ",\"tgt\":" + TgtBlock(s)
