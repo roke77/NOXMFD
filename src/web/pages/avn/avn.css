@@ -272,26 +272,23 @@
   stroke-dasharray: 0 1000;
   transition: stroke-dashoffset 200ms linear;
 }
-/* AB annunciator (avn.html, THR only) — sits inside the dial, hugging the THRL label right above
-   it (same font-size, so it reads as a two-line stack, not a separately-scaled tag). Hidden unless
-   the throttle is in the reheat zone (avn.js toggles .ab-active), same "hidden unless active" rule
-   the old .avn-vbar-ab had. */
-.avn-gauge-ab {
-  position: absolute;
-  top: 34%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: none;
-  font-size: clamp(17px, 3.6cqmin, 30px);
+/* AB annunciator (avn.html, THR only): "AFTERBURNER" arced along the fill's own inner edge
+   (avn.js sets the underlying <path>'s `d`, spanning the fixed [abStart, 1] zone — not the live
+   value, so this is the whole word or nothing, never a partial arc that grows with the needle).
+   A real SVG <text>, not an HTML overlay like .avn-gauge-label/-val — font-size is in the dial's
+   own viewBox units, so it scales with the dial exactly like the rim/ticks do, no cqmin clamp
+   needed. Hidden unless the throttle is in the reheat zone (avn.js toggles .ab-active), same
+   "hidden unless active" rule the old .avn-vbar-ab had. */
+.avn-gauge-ab-arc {
+  font-size: 4px;
   font-weight: 900;
-  letter-spacing: 1px;
-  line-height: 1;
-  white-space: nowrap;
-  color: var(--no-red);
-  text-shadow: 0 0 4px rgba(6, 10, 6, 0.95);
+  letter-spacing: -0.15px;
+  fill: var(--no-red);
+  opacity: 0;
+  transition: opacity 150ms linear;
   pointer-events: none;
 }
-.avn-gauge.thr.ab-active .avn-gauge-ab { display: block; }
+.avn-gauge.thr.ab-active .avn-gauge-ab-arc { opacity: 1; }
 
 /* ── ?nochrome ─────────────────────────────────────────────────────────────────────────
    The host already shows this aircraft's own-ship readouts, so the page drops its own copy: the

@@ -139,6 +139,38 @@ function paintAvnGauges() {
 // sweep every dial's tick ring covers (avn.html's shared <defs>).
 function avnNeedleAngle(v) { return (v * 270).toFixed(1) + 'deg'; }
 
+// Absolute arc-position math for THRL's AFTERBURNER placard (the needle above only ever needs a
+// relative CSS rotate(), convention-free — this is for an absolute <path> instead). Clock-angle
+// convention (0deg = 12 o'clock, increasing clockwise) reverse-engineered from the dial's own
+// hardcoded track path (avn.html: "M 23.13 23.13 A 38 38 0 1 1 23.13 76.87") — that path's two
+// endpoints solve to exactly 315deg (v=0) and 585deg==225deg (v=1) here, so this is the one
+// coordinate system every dial in this file already implicitly agrees on.
+function avnClockPoint(r, thetaDeg) {
+  const t = thetaDeg * Math.PI / 180;
+  return { x: 50 + r * Math.sin(t), y: 50 - r * Math.cos(t) };
+}
+function avnClockAngle(v) { return 315 + v * 270; }
+// sweep is derived from the v0->v1 direction (not hardcoded to 1, like the needle-swept fills
+// above) because text laid on a path reads upright only when the path runs in the direction that
+// keeps "outward from the dial centre" on the glyphs' up side — on the bottom half of the dial
+// (where the reheat zone always lands, since it's the top of THRL's range) that means running
+// from the HIGH-v end toward the LOW-v end, backwards from every other arc in this file. Getting
+// the sweep flag wrong here doesn't just mis-orient the text, it draws the major (306deg) arc
+// instead of the minor one, so it's derived rather than left at the fills' constant 1.
+function avnArcPath(r, v0, v1) {
+  const p0 = avnClockPoint(r, avnClockAngle(v0));
+  const p1 = avnClockPoint(r, avnClockAngle(v1));
+  const span = (v1 - v0) * 270;
+  const large = Math.abs(span) > 180 ? 1 : 0;
+  const sweep = span >= 0 ? 1 : 0;
+  return 'M ' + p0.x.toFixed(3) + ' ' + p0.y.toFixed(3) +
+    ' A ' + r + ' ' + r + ' 0 ' + large + ' ' + sweep + ' ' + p1.x.toFixed(3) + ' ' + p1.y.toFixed(3);
+}
+// Fill inner edge is r33.5 (fill r35, stroke-width 3 -> 35 - 3/2); pulled in another 1.5 so the
+// placard clears it with a small gap instead of touching, while still reading as a concentric
+// band rather than a separate ring.
+const AVN_AB_LABEL_R = 32;
+
 // The amber fill arc from zero to v, over .avn-gauge-track's identical curve — the classic SVG
 // "circular progress" trick: dasharray = the path's own length L turns it into one dash of length
 // L then one gap of length L; dashoffset = L*(1-v) slides that dash so only the first v*L of the
@@ -201,12 +233,17 @@ function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt) {
 // the old vertical bar's green/red split: the green .avn-gauge-fill only ever runs up to boundary
 // (or the raw value, on a plain non-AB bar / while still in MIL), and the red .avn-gauge-fill-hot
 // overlay lights up just the [boundary, value] slice once past it — never both past boundary at once.
+// The AB placard's own arc only depends on abStart (a per-aircraft constant), not the live
+// throttle — re-set it whenever abStart changes rather than every paint, so its span never
+// tracks the needle even transiently.
+let avnAbPathBoundary = null;
 function paintAvnThrottle() {
   const r = AvnThrottlePolicy.throttleReadout(avnData.throttle, avnData.hasAb, avnData.abStart);
   const needle = avnGaugeThr.querySelector('.avn-gauge-needle');
   const fill   = avnGaugeThr.querySelector('.avn-gauge-fill');
   const fillHot = avnGaugeThr.querySelector('.avn-gauge-fill-hot');
   const valEl  = avnGaugeThr.querySelector('.avn-gauge-val');
+  const abPath = avnGaugeThr.querySelector('#avn-gauge-thr-ab-path');
   avnGaugeThr.classList.remove('caution', 'critical');
   avnGaugeThr.classList.toggle('na', r.na);
   avnGaugeThr.classList.toggle('ab-active', r.zone === 'ab');
@@ -214,6 +251,12 @@ function paintAvnThrottle() {
   setAvnGaugeFill(fill, r.boundary !== null ? Math.min(r.fill, r.boundary) : r.fill);
   setAvnGaugeFillRange(fillHot, r.boundary !== null ? r.boundary : 1, r.fill);
   valEl.textContent = r.text;
+  if (r.boundary !== null && r.boundary !== avnAbPathBoundary) {
+    // v0=1, v1=boundary (high to low) — see avnArcPath: the reheat zone sits on the dial's bottom
+    // half, where upright text runs opposite the fills' usual low-to-high direction.
+    abPath.setAttribute('d', avnArcPath(AVN_AB_LABEL_R, 1, r.boundary));
+    avnAbPathBoundary = r.boundary;
+  }
 }
 
 // ── Shell → page forwarding ──────────────────────────────────────────────────────────

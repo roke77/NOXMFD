@@ -181,13 +181,19 @@
           <circle class="avn-gauge-rim" cx="50" cy="50" r="42"/>
           <path class="avn-gauge-track" d="M 23.13 23.13 A 38 38 0 1 1 23.13 76.87"/>
           <use href="#avn-gauge-ticks"/>
+          <!-- Reheat annunciator: "AFTERBURNER" arcing along the fill's own inner edge (r33.5),
+               spanning the whole reheat zone (abStart->100%, avn.js avnArcPath) rather than the
+               live throttle value — the full word is what appears the instant the zone lights up,
+               not a readout that grows/shrinks with the needle. avn.js only ever repositions this
+               path when abStart itself changes (a per-aircraft constant, not a per-frame one);
+               .thr.ab-active (avn.css) is the only thing that toggles it visible. -->
+          <path id="avn-gauge-thr-ab-path" fill="none" stroke="none"/>
+          <text class="avn-gauge-ab-arc" id="avn-gauge-thr-ab" aria-hidden="true">
+            <textPath href="#avn-gauge-thr-ab-path" startOffset="50%" text-anchor="middle">AFTERBURNER</textPath>
+          </text>
           <g class="avn-gauge-needle" id="avn-gauge-thr-needle"><line x1="50" y1="50" x2="30.2" y2="30.2"/></g>
           <circle class="avn-gauge-hub" cx="50" cy="50" r="2.8"/>
         </svg><div class="avn-gauge-label">THRL</div>
-        <!-- Reheat annunciator: shown only while THRL is in the AB zone (avn-throttle-policy —
-             which itself only ever reports 'ab' for an afterburner-capable airframe with a valid
-             MIL/reheat split, so this is already gated on capability, not just guessed at here). -->
-        <div class="avn-gauge-ab" id="avn-gauge-thr-ab" aria-hidden="true">AB</div>
         <div class="avn-gauge-val" id="avn-gauge-thr-val">&mdash;</div></div>
       </div>
     </div>
