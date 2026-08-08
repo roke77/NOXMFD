@@ -1,4 +1,4 @@
-// Pure parsing for the AVN failure labels. No DOM, so it runs under node for the self-check.
+// Pure parsing for the AFM failure labels. No DOM, so it runs under node for the self-check.
 //
 // The game's failure-indicator strings are authored per-aircraft, so their wording and side
 // notation vary: "LEFT ENGINE FIRE" / "RIGHT ENGINE FIRE" (T/A-30), "ENGINE FIRE L" /
@@ -31,5 +31,5 @@
 
   const api = { failureSide, failureText };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
-  else root.AvnFailurePolicy = api;
+  else root.AfmFailurePolicy = api;
 })(typeof self !== 'undefined' ? self : this);

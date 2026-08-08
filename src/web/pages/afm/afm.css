@@ -1,0 +1,82 @@
+/* AFM page — airframe status (damage silhouette + failure labels + aircraft name). Single source
+   of truth for BOTH layouts. Base reset / colour tokens / font come from theme.css.
+   compact (split pane, the default) uses the fixed name/frame offsets below; the full profile
+   (body.full, single full-screen iframe) overrides name/frame placement at the bottom — the
+   shell forwards the bezel-anchored pixel geometry. */
+.afm-panel {
+  position: absolute;
+  inset: 0;
+  color: var(--no-green);
+  font-family: var(--no-font);
+}
+/* Header band — just the aircraft name. Sits at the top bezel row (min-height keeps it centred
+   there); the silhouette frame follows the header's actual bottom (layoutAfmFrame in afm.js).
+   full overrides top/min-height from bezel geometry. */
+.afm-header {
+  position: absolute;
+  left: 0; right: 0;
+  top: 0;
+  min-height: 64px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
+  pointer-events: none;
+}
+.afm-header.placed { display: flex; }
+.afm-name {
+  color: var(--no-green);
+  font-size: clamp(20px, 3.6vh, 32px);
+  font-weight: 900;
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
+.afm-frame {
+  position: absolute;
+  left: 0; right: 0;
+  top: 72px;   /* below the compact header band; full overrides from bezel geometry */
+  bottom: 12px;
+  overflow: hidden;
+}
+.afm-bg, .afm-parts {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.afm-bg     { max-width: 100%; max-height: 100%; display: block; }
+.afm-parts  { display: block; }
+.afm-part {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background-color: #ffffff;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+          mask-size: 100% 100%;
+  -webkit-mask-position: center;
+          mask-position: center;
+  -webkit-mask-source-type: luminance;
+          mask-mode: luminance;
+  pointer-events: none;
+}
+.afm-failure {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: none;
+  color: var(--no-red);
+  font-weight: 900;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  text-align: center;
+  pointer-events: none;
+  text-shadow: 0 0 4px rgba(255, 64, 64, 0.5);
+}
+.afm-failure.active { display: block; }
+
+/* full profile (single full-screen iframe): the header band + frame top/height come from the
+   shell's bezel geometry (set inline by afm.js), so only `bottom` needs clearing here to avoid
+   over-constraining the frame box. compact (split pane) keeps the CSS band above. */
+/* Portrait full is tall, so the name may grow past the landscape 32px cap. */
+body.full.portrait .afm-name { font-size: clamp(32px, 3.6vh, 51px); }
+body.full .afm-frame { bottom: auto; }

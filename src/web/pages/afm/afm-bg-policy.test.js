@@ -1,7 +1,7 @@
-// Self-check for the AVN silhouette request/retry policy. Run: `node avn-bg-policy.test.js`.
+// Self-check for the AFM silhouette request/retry policy. Run: `node afm-bg-policy.test.js`.
 // Guards the respawn bug where the silhouette stuck on the previous aircraft.
 const assert = require('assert');
-const { shouldRequestBg, shouldRetryBg } = require('./avn-bg-policy.js');
+const { shouldRequestBg, shouldRetryBg } = require('./afm-bg-policy.js');
 
 // ── shouldRequestBg ──────────────────────────────────────────────────────────
 // Fresh page (nothing shown yet) → request the new aircraft.
@@ -26,4 +26,4 @@ assert.strictEqual(shouldRetryBg('Cricket', null, false, 3, 120), false);
 // Safety cap reached → stop.
 assert.strictEqual(shouldRetryBg('Cricket', 'Cricket', false, 120, 120), false);
 
-console.log('avn-bg-policy: all checks passed');
+console.log('afm-bg-policy: all checks passed');

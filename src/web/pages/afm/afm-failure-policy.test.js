@@ -1,7 +1,7 @@
-// Self-check for avn-failure-policy: run with `node avn-failure-policy.test.js`.
+// Self-check for afm-failure-policy: run with `node afm-failure-policy.test.js`.
 // Covers the three real per-aircraft naming schemes seen in the game logs.
 const assert = require('assert');
-const { failureSide, failureText } = require('./avn-failure-policy.js');
+const { failureSide, failureText } = require('./afm-failure-policy.js');
 
 // Side detection across the wording variants.
 assert.strictEqual(failureSide('LEFT ENGINE FIRE'),  'L');   // T/A-30 Compass
@@ -22,4 +22,4 @@ assert.strictEqual(failureText('LEFT ENGINE FAIL'),  'L ENG FAIL');
 assert.strictEqual(failureText('TAIL ROTOR FAIL'),   'TAIL ROTOR FAIL');   // side-less, passes through
 assert.strictEqual(failureText('MAIN ROTOR DAMAGE'), 'MAIN ROTOR DAMAGE');
 
-console.log('avn-failure-policy: all assertions passed');
+console.log('afm-failure-policy: all assertions passed');

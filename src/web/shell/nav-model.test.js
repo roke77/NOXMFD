@@ -10,18 +10,24 @@ const { NAV } = require('./nav-model.js');
 // ── The invariant: an item describes WHAT, never WHERE ──────────────────────────────
 // No key/side/slot/bank/index — placement belongs to the layout renderer (mfd.js fullViewSlot /
 // SPLIT_SLOTS), not here. If this fails, the seam has leaked and a second layout can't reuse NAV.
+// `mark` is the one exception: it says "this is the current selection" (e.g. NAV.bdf/NAV.pal
+// flagging whichever of the two is the live page) — a WHAT, like label/action, not a WHERE; every
+// layout renderer honors it the same way BEZEL_EXTRAS.lyt's mark already does for CLASSIC/F-35.
 const PLACEMENT_KEYS = ['key', 'side', 'slot', 'bank', 'index', 'pane', 'paneOffset'];
+const ALLOWED_KEYS = new Set(['action', 'label', 'mark']);
 for (const [page, items] of Object.entries(NAV)) {
   assert.ok(Array.isArray(items), `NAV.${page} must be an ordered array`);
   items.forEach((item, i) => {
     const where = `NAV.${page}[${i}]`;
-    assert.deepStrictEqual(Object.keys(item).sort(), ['action', 'label'],
-      `${where} must have exactly { label, action } — got ${JSON.stringify(Object.keys(item))}`);
+    for (const k of Object.keys(item)) {
+      assert.ok(ALLOWED_KEYS.has(k), `${where} has unexpected key "${k}" — got ${JSON.stringify(Object.keys(item))}`);
+    }
     for (const k of PLACEMENT_KEYS) {
       assert.ok(!(k in item), `${where} carries layout placement "${k}" — NAV must stay layout-independent`);
     }
     assert.ok(typeof item.label === 'string' && item.label.length, `${where}.label must be a non-empty string`);
     assert.ok(typeof item.action === 'string' && item.action.length, `${where}.action must be a non-empty string`);
+    if ('mark' in item) assert.strictEqual(typeof item.mark, 'boolean', `${where}.mark must be boolean when present`);
   });
 }
 
@@ -32,9 +38,22 @@ assert.deepStrictEqual(NAV.main.map(i => i.label), ['AVN', 'MAP', 'RWR', 'TGP', 
 assert.deepStrictEqual(NAV.map.map(i => i.label), ['MAIN', 'FLW', 'Z+', 'Z-']);
 
 // ── Every frame-hosted page can get back to MAIN ────────────────────────────────────
-for (const page of ['avn', 'rwr', 'tgp', 'tgt', 'bdf', 'hud', 'keys']) {
+for (const page of ['avn', 'afm', 'rwr', 'tgp', 'tgt', 'hud', 'keys']) {
   assert.deepStrictEqual(NAV[page], [{ label: 'MAIN', action: 'main' }], `${page} should be just a MAIN back-button`);
 }
+
+// BDF/PAL are folded together (reached from MAIN via SCR — mfd.js BEZEL_EXTRAS.main, action
+// still 'bdf'): each gets MAIN plus a direct switch to the other, with `mark` on whichever is live.
+assert.deepStrictEqual(NAV.bdf, [
+  { label: 'MAIN', action: 'main' },
+  { label: 'BDF',  action: 'bdf', mark: true },
+  { label: 'PAL',  action: 'pal' },
+]);
+assert.deepStrictEqual(NAV.pal, [
+  { label: 'MAIN', action: 'main' },
+  { label: 'BDF',  action: 'bdf' },
+  { label: 'PAL',  action: 'pal', mark: true },
+]);
 
 // WPN contributes no navigation of its own: its MAIN/PREV/NEXT are pagination, i.e. shell state
 // owned by the bezel renderer. Empty (not absent) so the renderer can iterate it uniformly.

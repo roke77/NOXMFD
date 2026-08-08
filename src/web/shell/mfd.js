@@ -69,7 +69,7 @@ const soiRingEl = document.getElementById('soi-ring');
 const pageFrame = document.getElementById('page-frame');   // full-view host for the frame-hosted pages (WPN, TGT, TGP)
 // Pages that render in #page-frame in full view (rather than as overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
-const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', rwr: '/rwr', rdr: '/rdr', tgt: '/tgt', hud: '/hud', bdf: '/bdf', pal: '/bdf?pal', keys: '/keybinds' };
+const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', afm: '/afm', rwr: '/rwr', rdr: '/rdr', tgt: '/tgt', hud: '/hud', bdf: '/bdf', pal: '/bdf?pal', keys: '/keybinds' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
@@ -107,12 +107,15 @@ function fullViewSlot(i) { return { bank: 'left', index: i }; }
 // no panel: every other page in this shell puts its items beside a physical key, and a chooser is
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
-  // HUD, KEY, LYT, BDF and PAL — the layout-owned MAIN items the six shared NAV items don't cover.
-  // HUD opens the HUD OPTIONS #page-frame page; KEY the extended-keybinds page; BDF and PAL the same
+  // HUD, KEY, LYT, SCR, RDR and AFM — the layout-owned MAIN items the six shared NAV items don't
+  // cover. HUD opens the HUD OPTIONS #page-frame page; KEY the extended-keybinds page; SCR the
   // faction-forces panel for the two fixed identities BOSCALI/PRIMEVA — not "mine vs the enemy's"
-  // (docs/bdf-page.md). All four are frame-hosted pages that get their MAIN back from NAV like every
-  // other, so none needs an entry of its own here. Only LYT differs — it's a layout switch, not a
-  // page (see mfdButton).
+  // (docs/bdf-page.md) — landing on BDF by default, with PAL a switch away via NAV.bdf/NAV.pal
+  // rather than its own MAIN entry (action is still 'bdf': SCR is just this list's label for it);
+  // AFM shows the aircraft name + damage silhouette (split out of AVN, which is avionics only now).
+  // All are frame-hosted pages that get their MAIN back from NAV like every other, so none needs an
+  // entry of its own here beyond this one. Only LYT differs — it's a layout switch, not a page (see
+  // mfdButton).
   // No bank/index/mark here (unlike lyt below): MAIN_SPLIT_ITEMS is the only consumer, in both full
   // view and split (showPage / renderSplitLabels' 'main' branch), and it places by alphabetical
   // order, not a fixed key.
@@ -120,9 +123,9 @@ const BEZEL_EXTRAS = {
     { label: 'HUD', action: 'hud' },
     { label: 'KEY', action: 'keys' },
     { label: 'LYT', action: 'lyt' },
-    { label: 'BDF', action: 'bdf' },
-    { label: 'PAL', action: 'pal' },
+    { label: 'SCR', action: 'bdf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
+    { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
   ],
   // No MAIN back-item under lyt here — picking CLASSIC already navigates back to MAIN (this shell),
   // so a separate way-back label would be redundant with it.
@@ -268,17 +271,20 @@ const SPLIT_SLOTS = {
     { side: 'right', slot: 0 },   // Z+
     { side: 'right', slot: 1 },   // Z-
   ],
-  // AVN / TGP / RWR / TGT / BDF / PAL / HUD in a split pane each expose their single MAIN back-button
-  // on the pane's top-left slot (L0 for top, physically L3 for bottom). It navigates ONLY that pane.
-  // TGT's filter toggles and HUD's toggles are clickable inside the pane iframe, and BDF/PAL are
-  // read-only, so like the others they need no key labels beyond MAIN.
+  // AVN / AFM / TGP / RWR / TGT / HUD in a split pane each expose their single MAIN back-button on
+  // the pane's top-left slot (L0 for top, physically L3 for bottom). It navigates ONLY that pane.
+  // TGT's filter toggles and HUD's toggles are clickable inside the pane iframe, so like the others
+  // they need no key labels beyond MAIN.
   avn: [ { side: 'left', slot: 0 } ],
+  afm: [ { side: 'left', slot: 0 } ],
   tgp: [ { side: 'left', slot: 0 } ],
   rwr: [ { side: 'left', slot: 0 } ],
   rdr: [ { side: 'left', slot: 0 } ],
   tgt: [ { side: 'left', slot: 0 } ],
-  bdf: [ { side: 'left', slot: 0 } ],
-  pal: [ { side: 'left', slot: 0 } ],
+  // BDF/PAL instead get 3: MAIN, then BDF/PAL as a direct switch between them (NAV.bdf/NAV.pal),
+  // index-aligned with this list — L1/L2 are free either way, nothing else uses them here.
+  bdf: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 } ],
+  pal: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 } ],
   hud: [ { side: 'left', slot: 0 } ],
   keys: [ { side: 'left', slot: 0 } ],   // extended-keybinds page — self-driven, only its MAIN back-key
   // WPN is a valid split page but places no NAV labels: its MAIN/PREV + NEXT depend on the pane's
@@ -292,6 +298,7 @@ const PAGE_URL = {
   main: '/main?bare',
   map:  '/map-view?bare',
   avn:  '/avn?bare',
+  afm:  '/afm?bare',
   tgp:  '/tgp?bare',
   wpn:  '/wpn?bare',
   rwr:  '/rwr?bare',
@@ -536,13 +543,14 @@ function renderSplitLabels() {
       });
     } else {
       // Static nav (MAP/AVN/RWR/TGP/…): render the navigation model at this page's declared
-      // pane-local slots — SPLIT_SLOTS[page][i] places NAV[page][i].
+      // pane-local slots — SPLIT_SLOTS[page][i] places NAV[page][i]. `mark` lights an item active
+      // (NAV.bdf/NAV.pal's current-page flag).
       (NAV[page] || []).forEach(function(item, i) {
         const s = slots[i];
         // SPLIT_SLOTS is index-aligned with NAV, so a NAV item added without a matching slot would
         // silently not render here — the exact failure the old duplicated tables produced. Say so.
         if (!s) { console.warn('[mfd] NAV.' + page + '[' + i + '] "' + item.label + '" has no SPLIT_SLOTS entry — not placed'); return; }
-        const el = placeSplitKey(paneKey(paneIdx, s.side, s.slot), item.label, item.action, paneTag);
+        const el = placeSplitKey(paneKey(paneIdx, s.side, s.slot), item.label, item.action, paneTag, item.mark);
         // TGT keeps clickable content (RESET FILTER) under its MAIN label; stand it upright in the
         // pane too, the way full view does via .overlay.vmain. Only the MAIN back-item of a vmain page.
         if (el && isVmainPage(page) && item.action === 'main') el.classList.add('vlabel');
@@ -667,6 +675,48 @@ function forwardAvnLayoutToFrame() {
   }
   w.postMessage({ mfd: true, type: 'avn-layout', layout: 'full', geom: geom }, '*');
 }
+
+// AFM (airframe: name + damage silhouette) shares avnData's name/parts/failures — the shell
+// already tracks them for AVN's own snapshot (unused there since the redesign that split this
+// page out), so AFM just reads the same fields rather than parsing its own copy. No per-pane
+// layout forwarding, unlike AVN: AFM has no bezel-actuated content in a split pane, so compact's
+// fixed CSS offsets are enough there — only full view needs its bezel-anchored geometry, below.
+function forwardAfmToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'afm') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage({
+      mfd: true, type: 'afm', name: avnData.name, parts: avnData.parts, failures: avnData.failures,
+    }, '*');
+  });
+}
+// Full-view AFM: forward the snapshot to the #page-frame iframe (same payload as the panes).
+function forwardAfmToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage({
+    mfd: true, type: 'afm', name: avnData.name, parts: avnData.parts, failures: avnData.failures,
+  }, '*');
+}
+// Forward the full-view geometry: AFM's name band fills the top bezel row — from below the first
+// separator sep[0] to above the second sep[1] — and the silhouette frame spans from below sep[1]
+// to the bottom strip (last sep). Mirrors AVN's own forwardAvnLayoutToFrame from before its
+// redesign dropped the header band (that page no longer needs one; this one does).
+function forwardAfmLayoutToFrame() {
+  const w = frameWin(); if (!w) return;
+  const frameTop = pageFrame.getBoundingClientRect().top;
+  const geom = {};
+  if (sepEls.length >= 2) {
+    const sep0 = sepEls[0].getBoundingClientRect();   // top separator (above key[0])
+    const sep1 = sepEls[1].getBoundingClientRect();   // below key[0] — bottom of the top bezel row
+    const botSep = sepEls[sepEls.length - 1].getBoundingClientRect();
+    geom.headerTop    = sep0.bottom - frameTop;       // name band …
+    geom.headerHeight = sep1.top - sep0.bottom;       // … the top bezel row
+    geom.frameTop     = sep1.bottom - frameTop;       // silhouette starts below sep[1]
+    geom.frameHeight  = botSep.top - sep1.bottom;
+  }
+  w.postMessage({ mfd: true, type: 'afm-layout', layout: 'full', geom: geom }, '*');
+}
+
 // Shell-drawn NAV label per avn.toggle group (full view only — docs note this is a CLASSIC-bezel
 // pass; split pane keeps its existing label-less wireAvnPaneToggleKeys wiring unchanged), at the
 // same 8 physical keys wireAvnToggleKeysFull used to wire blind: left[1..4] then right[1..4]
@@ -1081,6 +1131,7 @@ paneIframes.forEach(function(iframe, idx) {
     const page = panePages[idx];
     if      (page === 'main') forwardStatusToPanes();
     else if (page === 'avn')  { forwardAvnToPanes(); forwardAvnLayoutToPanes(); }
+    else if (page === 'afm')  forwardAfmToPanes();
     else if (page === 'tgp')  forwardTgpToPanes();
     else if (page === 'rwr')  { forwardRwrToPanes(); forwardMwToPanes(); }
     else if (page === 'rdr')  forwardRdrToPanes();
@@ -1107,6 +1158,7 @@ pageFrame.addEventListener('load', function() {
   if (currentPage === 'wpn')      { forwardWpnLayoutToFrame(); forwardWpnToFrame(); forwardCmToFrame(); }
   else if (currentPage === 'tgp') { forwardTgpToFrame(); }
   else if (currentPage === 'avn') { forwardAvnLayoutToFrame(); forwardAvnToFrame(); }
+  else if (currentPage === 'afm') { forwardAfmLayoutToFrame(); forwardAfmToFrame(); }
   else if (currentPage === 'rwr') { forwardRwrToFrame(); forwardMwToFrame(); }
   else if (currentPage === 'rdr') { forwardRdrToFrame(); }
   else if (currentPage === 'tgt') { forwardTgtToFrame(); forwardTgtTargetsToFrame(); }
@@ -1336,10 +1388,11 @@ function showPage(name) {
       placeOverlayLabel(bank, i < 6 ? i : i - 6, item.label, item.action);
     });
   } else {
-    // Bezel full-view rendering of the navigation model: item i → left-column key i.
+    // Bezel full-view rendering of the navigation model: item i → left-column key i. `mark` lights
+    // an item active (e.g. NAV.bdf/NAV.pal flagging whichever of BDF/PAL is the current page).
     (NAV[name] || []).forEach(function(item, i) {
       const m = fullViewSlot(i);
-      placeOverlayLabel(m.bank, m.index, item.label, item.action);
+      placeOverlayLabel(m.bank, m.index, item.label, item.action, item.mark);
     });
     // ...then this layout's own, which name their own key (see BEZEL_EXTRAS). Only full view runs
     // through here, so LYT never appears on a split pane's MAIN — which is what "full-view only"
@@ -1372,6 +1425,12 @@ function showPage(name) {
     placeAvnNavLabels();
     forwardAvnLayoutToFrame(); forwardAvnToFrame();
   }
+  // AFM renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.afm, placed
+  // by the generic sweep above); forward the bezel geometry (full profile) + snapshot.
+  if (name === 'afm') {
+    showFramePage('afm');
+    forwardAfmLayoutToFrame(); forwardAfmToFrame();
+  }
   // RWR renders in #page-frame too. Its only key is the static MAIN label (NAV.rwr,
   // placed by the generic sweep above); forward the contact + missile snapshots.
   if (name === 'rwr') {
@@ -1391,15 +1450,14 @@ function showPage(name) {
     forwardTgtToFrame();
     forwardTgtTargetsToFrame();
   }
-  // BDF renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.bdf, placed
-  // by the generic sweep above) — the right-bank BDF key itself lives in BEZEL_EXTRAS, not NAV, so
-  // it's reached in full view and carried into a split by splitting from there (SPLIT_SLOTS.bdf).
-  // Forward the faction-forces state.
+  // BDF renders in #page-frame too. Its bezel keys are MAIN/BDF/PAL (NAV.bdf, placed by the generic
+  // sweep above, `mark` lighting BDF since this is that page) — reached from MAIN via SCR
+  // (BEZEL_EXTRAS.main, action 'bdf') and carried into a split via SPLIT_SLOTS.bdf. Forward state.
   if (name === 'bdf') {
     showFramePage('bdf');
     forwardBdfToFrame();
   }
-  // PAL renders in #page-frame too — same as BDF, for the PRIMEVA block.
+  // PAL renders in #page-frame too — same as BDF (NAV.pal marks PAL instead), for the PRIMEVA block.
   if (name === 'pal') {
     showFramePage('pal');
     forwardPalToFrame();
@@ -1537,6 +1595,9 @@ window.addEventListener('message', function(e) {
     // AVN renders in the #page-frame iframe (full) or a pane (split); forward the snapshot.
     if (currentPage === 'avn' && !splitMode) forwardAvnToFrame();
     if (splitMode) { forwardAvnToPanes(); forwardAvnLayoutToPanes(); }
+    // AFM shares this same snapshot (name/parts/failures) for its silhouette.
+    if (currentPage === 'afm' && !splitMode) forwardAfmToFrame();
+    if (splitMode) forwardAfmToPanes();
   } else if (m.type === 'follow') {
     // Map iframe broadcasts its follow state on toggle / mission clear. Route by source: the
     // canonical full-view map drives single-mode follow; each split MAP pane drives its own.
@@ -1947,6 +2008,7 @@ function mfdButton(el) {
     case 'lyt-classic': setLayout('classic'); showPage('main'); mapSend('status-request'); break;
     case 'lyt-f35':     setLayout('f35'); location.href = '/f35'; break;
     case 'avn':  showPage('avn');  break;
+    case 'afm':  showPage('afm');  break;
     case 'rwr':  showPage('rwr');  break;
     case 'rdr':  showPage('rdr');  break;
     case 'tgt':  showPage('tgt');  break;

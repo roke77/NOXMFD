@@ -34,11 +34,24 @@
     ],
     tgp: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN
     avn: [ { label: 'MAIN', action: 'main' } ],
+    afm: [ { label: 'MAIN', action: 'main' } ],   // Airframe page — name + damage silhouette
     rwr: [ { label: 'MAIN', action: 'main' } ],
     rdr: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN (docs/rdr-page.md)
     tgt: [ { label: 'MAIN', action: 'main' } ],
-    bdf: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN (docs/bdf-page.md)
-    pal: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN — same panel, PRIMEVA (docs/bdf-page.md)
+    // BDF and PAL fold under one MAIN destination (SCR — BEZEL_EXTRAS.main, action still 'bdf' so
+    // it lands on this same list) rather than two: each carries the other as a direct switch, plus
+    // the way back, with `mark` on whichever one is current (docs/bdf-page.md). mfd.js's generic
+    // sweep (full view) and renderSplitLabels' static-nav branch (split) both honor `mark`.
+    bdf: [
+      { label: 'MAIN', action: 'main' },
+      { label: 'BDF',  action: 'bdf', mark: true },
+      { label: 'PAL',  action: 'pal' },
+    ],
+    pal: [
+      { label: 'MAIN', action: 'main' },
+      { label: 'BDF',  action: 'bdf' },
+      { label: 'PAL',  action: 'pal', mark: true },
+    ],
     hud: [ { label: 'MAIN', action: 'main' } ],   // HUD OPTIONS page — reached via a layout extra, not MAIN
     keys: [ { label: 'MAIN', action: 'main' } ],  // Extended-keybinds page (docs/keybinds-page.md), reached via KEY
     wpn: [],

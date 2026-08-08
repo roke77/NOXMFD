@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — AFM</title>
+<!--
+  Bare AFM (Airframe) page served at /afm. Single source of truth for the airframe silhouette +
+  name in BOTH layouts — a pure reactive renderer fed by the shell over postMessage. Split out of
+  the old AVN page (which used to carry this alongside its status tiles/gauges); AVN is avionics
+  only now, this is airframe status only.
+
+  compact : split-pane / half-height. Name + frame use fixed pixel offsets from the iframe edges
+            (no bezel keys to anchor against). The default.
+  full    : single full-screen iframe. Name is vertical-centred on the bezel key[0] row; the frame
+            spans from below the name to the bottom strip — the shell forwards those pixel
+            positions. Enabled by layout:'full' in afm-layout.
+
+  Shell -> page messages (all {mfd:true, ...}):
+    'afm'        : { name, parts, failures } — the live snapshot (same data AVN's shell-side state
+                   already carries; the shell just points a second page at it).
+    'afm-layout' : geometry — layout:'full' + geom {headerTop, headerHeight, frameTop, frameHeight}
+                   in full; omitted in compact (the page defaults to the CSS fixed offsets).
+    'orient'     : app-wide orientation (drives body.portrait/.landscape).
+  The silhouette bg + part masks + per-type layout are fetched directly from /airframe[-layout].
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/afm/afm.css">
+</head>
+<body>
+  <div class="afm-panel" id="afm-panel">
+    <div class="afm-header" id="afm-header">
+      <div class="afm-name" id="afm-name"></div>
+    </div>
+    <div class="afm-frame" id="afm-frame">
+      <img class="afm-bg" id="afm-bg" alt="">
+      <div class="afm-parts" id="afm-parts"></div>
+    </div>
+    <div class="afm-empty mfd-empty" id="afm-empty"><span class="mfd-empty-title">AFM</span>&mdash; NO DATA &mdash;</div>
+  </div>
+<script src="/assets/pages/afm/afm-bg-policy.js"></script>
+<script src="/assets/pages/afm/afm-failure-policy.js"></script>
+<script src="/assets/pages/afm/afm.js"></script>
+</body>
+</html>

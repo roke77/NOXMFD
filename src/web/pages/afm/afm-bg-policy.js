@@ -1,5 +1,5 @@
-// Pure policy for when the AVN silhouette image (#avn-bg) must (re)request itself. Split out of
-// avn.js so it carries NO DOM refs and can be unit-checked in Node (see avn-bg-policy.test.js).
+// Pure policy for when the AFM silhouette image (#afm-bg) must (re)request itself. Split out of
+// afm.js so it carries NO DOM refs and can be unit-checked in Node (see afm-bg-policy.test.js).
 //
 // The bug this guards against: the bg request used to be fired only from inside ensureAvnLayout's
 // "layout not cached yet" branch. So the silhouette got stuck on the PREVIOUS aircraft whenever
@@ -10,7 +10,7 @@
 // shown-vs-wanted type, and retry keys off "still the current aircraft and not yet loaded".
 (function (root) {
   // (Re)issue a bg request iff the type currently shown/requested differs from the wanted type.
-  // shownType is the last type handed to setAvnBg (null before any request). This is what makes a
+  // shownType is the last type handed to setAfmBg (null before any request). This is what makes a
   // switch to an already-cached-layout aircraft still refresh the silhouette.
   function shouldRequestBg(shownType, wantType) {
     return !!wantType && shownType !== wantType;
@@ -26,5 +26,5 @@
 
   const api = { shouldRequestBg, shouldRetryBg };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
-  else root.AvnBgPolicy = api;
+  else root.AfmBgPolicy = api;
 })(typeof self !== 'undefined' ? self : this);

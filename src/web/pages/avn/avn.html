@@ -8,10 +8,11 @@
      carries both; the bezel doesn't, and renders exactly as before.
 
      FIXME: this used to leave the damage silhouette the whole panel — the actual reason nochrome
-     existed. That silhouette is gone (this page is avionics-only now); a nochrome AVN portal on
-     the F-35 currently renders an empty panel. F-35 is out of scope for this pass (docs/layouts.md)
-     so left as-is rather than guessed at — worth a decision (drop nochrome's effect on this page
-     entirely? show something else?) whenever F-35 work picks this back up.
+     existed. That silhouette moved to its own page (AFM, src/web/pages/afm/) with no nochrome
+     handling of its own yet; a nochrome AVN portal on the F-35 currently renders an empty panel.
+     F-35 is out of scope for this pass (docs/layouts.md) so left as-is rather than guessed at —
+     worth a decision (give AFM its own nochrome? drop nochrome's effect on AVN entirely?) whenever
+     F-35 work picks this back up.
 
      Read here, inline and before the body, rather than posted in by the host: this decides what to
      paint, and a message arriving after first paint would flash the gauges up and then pull them —
@@ -23,8 +24,8 @@
 <!--
   Bare AVN page served at /avn. Single source of truth for the avionics page (the 8 avn.toggle
   status tiles + FUEL/RPM/HEAT/THRL gauges) in BOTH layouts — a pure reactive renderer fed by the
-  shell over postMessage. No damage silhouette or airframe name here any more — both moved out (the
-  ticket's future AFM page owns airframe status; this page is avionics only).
+  shell over postMessage. No damage silhouette or airframe name here any more — both moved out to
+  the AFM page (src/web/pages/afm/), which owns airframe status; this page is avionics only.
 
   The 8 status tiles (2 rows x 4 cols, .avn-icon-grid) and the 4 gauges (2x2, .avn-gauge-grid) are
   plain CSS grids — no per-tile geometry from the shell any more, in either profile. Both grids are
