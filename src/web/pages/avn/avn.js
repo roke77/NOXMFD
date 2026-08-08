@@ -139,13 +139,34 @@ function paintAvnGauges() {
 // sweep every dial's tick ring covers (avn.html's shared <defs>).
 function avnNeedleAngle(v) { return (v * 270).toFixed(1) + 'deg'; }
 
+// The amber fill arc from zero to v, over .avn-gauge-track's identical curve — the classic SVG
+// "circular progress" trick: dasharray = the path's own length L turns it into one dash of length
+// L then one gap of length L; dashoffset = L*(1-v) slides that dash so only the first v*L of the
+// path (from the zero end, where the path's `d` in avn.html starts) stays visible.
+// getTotalLength() is cached per element (a WeakMap, not a data attribute, since the value is a
+// number, not markup) — every dial's path is geometrically identical, but reading it straight off
+// each element is one line simpler than threading a shared constant through four call sites.
+const avnGaugeFillLengths = new WeakMap();
+function setAvnGaugeFill(fillEl, v) {
+  let L = avnGaugeFillLengths.get(fillEl);
+  if (L === undefined) { L = fillEl.getTotalLength(); avnGaugeFillLengths.set(fillEl, L); }
+  // No unit suffix: both resolve in the path's own user-space coordinate system (the viewBox's
+  // 0-100 grid), matching getTotalLength()'s own units. 'px' here would mean CSS pixels of the
+  // rendered (cqmin-scaled) box instead, which drifts from L as soon as a dial isn't rendered at
+  // exactly 100x100 device px — every size except the reference.
+  fillEl.style.strokeDasharray = L;
+  fillEl.style.strokeDashoffset = L * (1 - v);
+}
+
 function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt) {
   const needle = gaugeEl.querySelector('.avn-gauge-needle');
+  const fill   = gaugeEl.querySelector('.avn-gauge-fill');
   const valEl  = gaugeEl.querySelector('.avn-gauge-val');
   gaugeEl.classList.remove('na', 'caution', 'critical');
   if (typeof value01 !== 'number' || value01 < 0) {
     gaugeEl.classList.add('na');
     needle.style.transform = 'rotate(' + avnNeedleAngle(0) + ')';
+    setAvnGaugeFill(fill, 0);
     valEl.textContent = '--';
     return;
   }
@@ -153,6 +174,7 @@ function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt) {
   if      (criticalAt !== null && v <= criticalAt) gaugeEl.classList.add('critical');
   else if (cautionAt  !== null && v <= cautionAt)  gaugeEl.classList.add('caution');
   needle.style.transform = 'rotate(' + avnNeedleAngle(v) + ')';
+  setAvnGaugeFill(fill, v);
   valEl.textContent = Math.round(v * 100) + '%';
 }
 
@@ -162,11 +184,13 @@ function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt) {
 function paintAvnThrottle() {
   const r = AvnThrottlePolicy.throttleReadout(avnData.throttle, avnData.hasAb, avnData.abStart);
   const needle = avnGaugeThr.querySelector('.avn-gauge-needle');
+  const fill   = avnGaugeThr.querySelector('.avn-gauge-fill');
   const valEl  = avnGaugeThr.querySelector('.avn-gauge-val');
   avnGaugeThr.classList.remove('caution', 'critical');
   avnGaugeThr.classList.toggle('na', r.na);
   avnGaugeThr.classList.toggle('ab-active', r.zone === 'ab');
   needle.style.transform = 'rotate(' + avnNeedleAngle(r.fill) + ')';
+  setAvnGaugeFill(fill, r.fill);
   valEl.textContent = r.text;
 }
 

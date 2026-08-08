@@ -105,12 +105,14 @@
 /* FUEL/RPM/HEAT/THRL as a 2x2 grid of needle dials — mockup-tested with the user across three
    styles (this needle+value-inside-dial look, a no-needle progress-ring, and a needle-only style
    with the label above) before landing on the first: a sweep needle over the muted tick arc, with
-   the value inside the dial and the label below it. Deliberately NO lit progress arc trailing the
-   needle — one was tried and pulled: over a track sharing its exact curve it read as two concentric
-   bars with a gap between rather than one gauge, and the needle already says where the value is.
-   Takes all the height the icon grid above doesn't use (that one is flex:0 0 auto, content-sized) —
-   .avn-content's own positioning covers both grids, so this one just needs to fill whatever's left
-   of that box. Each dial's own face is plain CSS + the shared tick-ring <defs> in avn.html. */
+   both the name and the value inside the dial — name above centre, value below, a mirrored pair
+   rather than a label-then-icon stack. A lit progress arc (.avn-gauge-fill, zero to the current
+   value) rides the same track — a first attempt at this was thicker and glowing and read as two
+   concentric bars with a gap between rather than one gauge; matching the track's own width fixed
+   it. Takes all the height the icon grid above doesn't use (that one is flex:0 0 auto,
+   content-sized) — .avn-content's own positioning covers both grids, so this one just needs to
+   fill whatever's left of that box. Each dial's own face is plain CSS + the shared tick-ring
+   <defs> in avn.html. */
 .avn-gauge-grid {
   flex: 1 1 auto;
   min-height: 0;
@@ -135,21 +137,13 @@
   font-family: var(--no-font);
   text-shadow: 0 0 4px rgba(230, 235, 239, 0.3);
 }
-.avn-gauge-label {
-  flex: 0 0 auto;
-  font-size: clamp(11px, 1.6vh, 16px);
-  font-weight: 900;
-  letter-spacing: 1px;
-  line-height: 1;
-  white-space: nowrap;
-  margin-top: 2px;
-}
 /* The dial fills whichever of the cell's own width/height is tighter, via container query units
    (cqmin = min(cqw,cqh)) — so a wide-but-short cell (grid wider than tall) still gets a full circle
    sized off its height, with the leftover width just becoming breathing room around it, rather than
    the dial shrinking to fit some fixed vh cap regardless of how much room is actually available.
-   position:relative so .avn-gauge-val (an HTML div, not SVG text — plain CSS typography is simpler
-   than sizing/centring an SVG <text> node) can centre itself over the dial's face. */
+   position:relative so .avn-gauge-label/.avn-gauge-val (HTML divs, not SVG text — plain CSS
+   typography is simpler than sizing/centring an SVG <text> node) can centre themselves over the
+   dial's face, one above centre and one below — a mirrored pair, not a label-then-icon stack. */
 .avn-gauge-dial-wrap {
   position: relative;
   flex: 1 1 auto;
@@ -165,6 +159,18 @@
   width: 100cqmin;
   height: 100cqmin;
   overflow: visible;
+}
+.avn-gauge-label {
+  position: absolute;
+  top: 26%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(17px, 3.6cqmin, 30px);   /* matches .avn-gauge-val — a mirrored pair, same weight */
+  font-weight: 900;
+  letter-spacing: 1px;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
 }
 .avn-gauge-val {
   position: absolute;
@@ -192,6 +198,35 @@
   stroke-width: 3;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
+}
+/* The progress fill — zero to the current value, a smaller-radius (35 vs. .avn-gauge-track's 38)
+   copy of the same sweep, so its outer edge sits right up against the track's inner edge (their
+   3px strokes: fill spans r 33.5-36.5, track spans r 36.5-39.5) rather than retracing the track's
+   exact line — close, not nested deep inside it. Painted FIRST in the SVG (avn.html), below the
+   rim, track and ticks, so all of those still show cleanly on top of it. Fixed green rather than currentColor:
+   it's its own accent (the screen's own primary green, not a restatement of the needle's state
+   colour), and stays that way even when the needle goes red on a warning. Flat (butt) caps, not
+   round — a round cap on a dash this thin reads as a soft dot at each end; the reference gauge's
+   tips are square-cut. Same stroke-width as the track (no glow, no extra thickness) so it reads
+   as a proportionally-thinner inner ring, not a second bar competing with it — a thicker/glowing
+   version of this was tried once already and read exactly that way. avn.js sets
+   stroke-dasharray/-dashoffset (the standard SVG "circular progress" trick) off getTotalLength(),
+   which always reports the path's LOCAL (~0-100 viewBox)
+   length — deliberately NO vector-effect:non-scaling-stroke here, unlike every other stroke on
+   this dial: that property also re-bases dasharray/dashoffset into rendered SCREEN pixels, so on a
+   dial actually drawn at a few hundred px (100cqmin) the ~179-unit dash cycle tiled 1-2 times
+   around the real on-screen arc length instead of running once continuously — the "several
+   disconnected patches" bug. Dropping it makes the dash math and stroke-width share the path's own
+   coordinate space, so the pattern scales exactly with the arc regardless of the dial's rendered
+   size — the trade is this stroke isn't pixel-frozen like the others, but it scales in lockstep
+   across all 4 dials (same viewBox, same cqmin sizing), so nothing looks inconsistent between
+   them. */
+.avn-gauge-fill {
+  fill: none;
+  stroke: var(--no-green);
+  stroke-width: 3;
+  stroke-linecap: butt;
+  transition: stroke-dashoffset 200ms linear;
 }
 .avn-gauge-tick {
   stroke: var(--no-white-dark);
