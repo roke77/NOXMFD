@@ -1,0 +1,55 @@
+<!doctype html>
+<!-- Standalone THRL gauge demo: a slider drives the AVN page's throttle value directly (no mock
+     SSE/shell plumbing needed), so the afterburner fill-split animation can be scrubbed by hand.
+     Served by serve_web.py at /thrl-demo. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>THRL demo</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0d0a; font-family: monospace; color: #9aa0a6; }
+  body { display: flex; flex-direction: column; }
+  #stage { flex: 1; min-height: 0; }
+  #stage iframe { width: 100%; height: 100%; border: 0; }
+  #controls { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #12160f; border-top: 1px solid #2a3226; }
+  #controls label { flex: 0 0 auto; }
+  #thr { flex: 1; }
+  #thrVal { flex: 0 0 4em; text-align: right; font-weight: bold; color: #39ff14; }
+  #abStart { width: 4em; }
+</style>
+</head>
+<body>
+  <div id="stage"><iframe id="avnFrame" src="/avn"></iframe></div>
+  <div id="controls">
+    <label for="thr">THRL</label>
+    <input id="thr" type="range" min="0" max="100" value="0" step="1">
+    <span id="thrVal">0%</span>
+    <label for="abStart">AB start %</label>
+    <input id="abStart" type="number" min="1" max="99" value="80">
+  </div>
+  <script>
+    const frame = document.getElementById('avnFrame');
+    const thr = document.getElementById('thr');
+    const thrVal = document.getElementById('thrVal');
+    const abStart = document.getElementById('abStart');
+
+    function post() {
+      const win = frame.contentWindow;
+      if (!win) return;
+      win.postMessage({ mfd: true, type: 'avn-layout', layout: 'full',
+        geom: { frameTop: 0, frameHeight: stage.clientHeight } }, '*');
+      win.postMessage({
+        mfd: true, type: 'avn', name: 'DEMO',
+        fuel: 0.8, throttle: Number(thr.value) / 100, heat: 0.4, heatColor: '#39ff14', rpm: 0.9,
+        hasAb: true, abStart: Number(abStart.value) / 100,
+        gearDown: false, radar: false, guns: false, ignition: true, assist: false,
+        turret: false, nvg: false, navLights: false,
+      }, '*');
+    }
+    thr.addEventListener('input', () => { thrVal.textContent = thr.value + '%'; post(); });
+    abStart.addEventListener('input', post);
+    frame.addEventListener('load', post);
+    window.addEventListener('resize', post);
+  </script>
+</body>
+</html>
