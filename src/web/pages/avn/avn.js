@@ -147,15 +147,32 @@ function avnNeedleAngle(v) { return (v * 270).toFixed(1) + 'deg'; }
 // number, not markup) — every dial's path is geometrically identical, but reading it straight off
 // each element is one line simpler than threading a shared constant through four call sites.
 const avnGaugeFillLengths = new WeakMap();
-function setAvnGaugeFill(fillEl, v) {
+function avnGaugeFillLength(fillEl) {
   let L = avnGaugeFillLengths.get(fillEl);
   if (L === undefined) { L = fillEl.getTotalLength(); avnGaugeFillLengths.set(fillEl, L); }
+  return L;
+}
+function setAvnGaugeFill(fillEl, v) {
+  const L = avnGaugeFillLength(fillEl);
   // No unit suffix: both resolve in the path's own user-space coordinate system (the viewBox's
   // 0-100 grid), matching getTotalLength()'s own units. 'px' here would mean CSS pixels of the
   // rendered (cqmin-scaled) box instead, which drifts from L as soon as a dial isn't rendered at
   // exactly 100x100 device px — every size except the reference.
   fillEl.style.strokeDasharray = L;
   fillEl.style.strokeDashoffset = L * (1 - v);
+}
+// Same dash trick as setAvnGaugeFill, generalized to light up an arbitrary [s, e] slice of the
+// path instead of always starting at zero — THRL's reheat overlay uses this to paint only the
+// [abStart, value] segment red, on top of the plain green fill underneath. dasharray is an
+// explicit [onLen, gapLen] pair (rather than a single L) so the "on" length can be less than L;
+// dashoffset lands that dash's start exactly at s by walking it one full period back from there.
+function setAvnGaugeFillRange(fillEl, s, e) {
+  const L = avnGaugeFillLength(fillEl);
+  if (e <= s) { fillEl.style.strokeDasharray = '0 ' + L; return; }
+  const onLen = (e - s) * L;
+  const period = onLen + L;
+  fillEl.style.strokeDasharray = onLen + ' ' + L;
+  fillEl.style.strokeDashoffset = period - s * L;
 }
 
 function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt) {
@@ -180,17 +197,22 @@ function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt) {
 
 // THROTTLE is its own paint: AvnThrottlePolicy gives the needle position (`fill`, still 0..1 even
 // though it's no longer a bar height), the readout text ('MIL nn%' / red 'AB nn%'), and the zone.
-// Non-AB airframes just get a plain 0-100% needle sweep, same as before.
+// Non-AB airframes just get a plain 0-100% needle sweep, same as before. The fill itself mirrors
+// the old vertical bar's green/red split: the green .avn-gauge-fill only ever runs up to boundary
+// (or the raw value, on a plain non-AB bar / while still in MIL), and the red .avn-gauge-fill-hot
+// overlay lights up just the [boundary, value] slice once past it — never both past boundary at once.
 function paintAvnThrottle() {
   const r = AvnThrottlePolicy.throttleReadout(avnData.throttle, avnData.hasAb, avnData.abStart);
   const needle = avnGaugeThr.querySelector('.avn-gauge-needle');
   const fill   = avnGaugeThr.querySelector('.avn-gauge-fill');
+  const fillHot = avnGaugeThr.querySelector('.avn-gauge-fill-hot');
   const valEl  = avnGaugeThr.querySelector('.avn-gauge-val');
   avnGaugeThr.classList.remove('caution', 'critical');
   avnGaugeThr.classList.toggle('na', r.na);
   avnGaugeThr.classList.toggle('ab-active', r.zone === 'ab');
   needle.style.transform = 'rotate(' + avnNeedleAngle(r.fill) + ')';
-  setAvnGaugeFill(fill, r.fill);
+  setAvnGaugeFill(fill, r.boundary !== null ? Math.min(r.fill, r.boundary) : r.fill);
+  setAvnGaugeFillRange(fillHot, r.boundary !== null ? r.boundary : 1, r.fill);
   valEl.textContent = r.text;
 }
 

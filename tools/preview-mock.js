@@ -176,7 +176,7 @@
     // side-less failure. avn-failure-policy normalizes these to "L ENG FIRE" / "R ENG FAIL" / etc.
     failures: ['ENGINE FIRE L', 'RIGHT ENGINE FAIL', 'MAIN ROTOR DAMAGE'],
     flares: 60, flaresMax: 64, ewKJ: 820, ewKJMax: 1000, cmCat: 1,
-    fuel: 0.94, thr: 0.90, hasAb: true, abStart: 0.8,   // afterburner airframe: 0.90 → reheat (AB 50%)
+    fuel: 0.23, thr: 1.0, hasAb: true, abStart: 0.8,   // fuel in the caution band (AVN: <=0.25); throttle pinned at 100% so the AB zone (red fill segment + AB tag) is always exercised
     heat: 0.62,   // AVN's HEAT gauge — mid-range so the preview isn't pinned at empty or full
     rpm: 0.88,    // AVN's RPM gauge — high-but-not-pinned, like a jet cruising near max continuous
     // softGun/softRel: the weapon-keybind soft selections (outlined on the WPN page). softRel differs

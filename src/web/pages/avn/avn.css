@@ -249,13 +249,49 @@
   stroke-linecap: round;
 }
 .avn-gauge-hub { fill: currentColor; }
-.avn-gauge.caution  { color: var(--no-amber); }
-.avn-gauge.critical { color: var(--no-red); }
+/* Caution/critical (FUEL: 25%/10%, avn.js paintAvnGauges) recolour ONLY the fill arc — needle,
+   value and label stay white throughout. Deliberately narrower than .na/.ab-active below, which
+   both still recolour the whole gauge (`color`, i.e. everything using currentColor): those mark
+   "this reading is unavailable" / "this is a different mode," not "this value is low," and the
+   needle/value going neutral or red there is the point. */
+.avn-gauge.caution  .avn-gauge-fill { stroke: var(--no-amber); }
+.avn-gauge.critical .avn-gauge-fill { stroke: var(--no-red); }
 .avn-gauge.na { color: var(--no-white-dark); text-shadow: none; }
 .avn-gauge.na .avn-gauge-needle { opacity: 0.4; }
-/* Reheat: the needle/label/value go red while THRL is in the AB zone (AvnThrottlePolicy) — the
-   dial face itself (rim/track/ticks) stays neutral, same as it does for FUEL's caution/critical. */
-.avn-gauge.thr.ab-active { color: var(--no-red); }
+/* Reheat fill: same path as .avn-gauge-fill, painted on top of it, showing red only for the
+   [abStart, value] slice once THRL crosses into the AB zone (avn.js setAvnGaugeFillRange) —
+   mirrors the old vertical bar's green-below/red-above split fill exactly, just applied to an arc
+   instead of a straight gradient. Needle/label/value stay white throughout (unlike the old bar's
+   red readout) — the red fill segment plus the AB tag below are enough to flag reheat without
+   recolouring the whole gauge. */
+.avn-gauge-fill-hot {
+  fill: none;
+  stroke: var(--no-red);
+  stroke-width: 3;
+  stroke-linecap: butt;
+  stroke-dasharray: 0 1000;
+  transition: stroke-dashoffset 200ms linear;
+}
+/* AB annunciator (avn.html, THR only) — sits inside the dial, hugging the THRL label right above
+   it (same font-size, so it reads as a two-line stack, not a separately-scaled tag). Hidden unless
+   the throttle is in the reheat zone (avn.js toggles .ab-active), same "hidden unless active" rule
+   the old .avn-vbar-ab had. */
+.avn-gauge-ab {
+  position: absolute;
+  top: 34%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: none;
+  font-size: clamp(17px, 3.6cqmin, 30px);
+  font-weight: 900;
+  letter-spacing: 1px;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--no-red);
+  text-shadow: 0 0 4px rgba(6, 10, 6, 0.95);
+  pointer-events: none;
+}
+.avn-gauge.thr.ab-active .avn-gauge-ab { display: block; }
 
 /* ── ?nochrome ─────────────────────────────────────────────────────────────────────────
    The host already shows this aircraft's own-ship readouts, so the page drops its own copy: the
