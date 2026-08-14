@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -287,6 +288,94 @@ namespace NOXMFD
                 else                sb.Append(c);
             }
             return sb.ToString();
+        }
+
+        // One-shot per aircraft type: capture the cockpit's weapon-station-armed panel's frontal
+        // silhouette (WeaponPanel/frontProfile, sprite named "<unitName>_front" — confirmed live via
+        // a diagnostic hierarchy dump). Distinct from TryCaptureAirframe's top-down damage silhouette
+        // (StatusDisplay.aircraftBackground) — this is the OTHER cockpit panel, the one with the
+        // GUN/TIP/PYLON/BAY "WEAPON ARMED" boxes. Served at the same /airframe endpoint as the
+        // damage silhouette's parts, just under part key "__front", so no new server plumbing.
+        //
+        // Also captures the panel's per-station hardpoint markers (hardpoint_TipR/PylonR/Bay/Gun/...
+        // — small colored squares overlaid on the silhouette). Their LAYOUT is static (captured once,
+        // via the same GetPartPlacement math as the damage-silhouette parts — these are UI
+        // RectTransforms too, no reflection needed). Their COLOR is live game state (green = ammo
+        // remaining, red = exhausted) computed by the game's own script every frame; rather than
+        // re-deriving armed/exhausted ourselves — which would need a name↔WeaponStation mapping that
+        // doesn't exist anywhere reliable — we just mirror the same Image.color the player already
+        // sees (ReadFrontalMarkerColors, polled per snapshot tick).
+        private readonly HashSet<string> _capturedFrontal = new HashSet<string>();
+        private readonly Dictionary<string, List<(string name, Image img)>> _frontalMarkers =
+            new Dictionary<string, List<(string, Image)>>();
+
+        public void TryCaptureFrontalSilhouette(Aircraft ac)
+        {
+            string key = ac.definition != null ? ac.definition.unitName : null;
+            if (string.IsNullOrEmpty(key) || _capturedFrontal.Contains(key)) return;
+
+            // frontProfile only exists inside the LIVE (instantiated) WeaponPanel, not the inactive
+            // template prefabs for other aircraft types that FindObjectsOfTypeAll also returns.
+            Image frontImg = null;
+            foreach (Image img in Resources.FindObjectsOfTypeAll<Image>())
+            {
+                if (img == null || img.gameObject.name != "frontProfile") continue;
+                if (img.gameObject.scene.name == null) continue;   // prefab asset, not a live instance
+                frontImg = img;
+                break;
+            }
+            if (frontImg == null || frontImg.sprite == null) return;   // not built yet — retry next slow scan
+
+            _capturedFrontal.Add(key);
+            string bgKey = key;
+            SpriteCapture.Request(frontImg.sprite, SpriteCapture.Encoding.Png, synthAlpha: false, quality: 0, maxDim: 0,
+                png => { if (png != null) TelemetryServer.SetAirframeImage(bgKey, "__front", png); });
+
+            RectTransform frontRT = frontImg.rectTransform;
+            var markers = new List<(string, Image)>();
+            var sb = new StringBuilder();
+            sb.Append("{\"parts\":[");
+            int n = 0;
+            for (int i = 0; i < frontRT.childCount; i++)
+            {
+                Transform child = frontRT.GetChild(i);
+                if (!child.name.StartsWith("hardpoint_", StringComparison.Ordinal)) continue;
+                Image mImg = child.GetComponent<Image>();
+                if (mImg == null) continue;
+                if (!GetPartPlacement(mImg.rectTransform, frontRT, out float cx, out float cy, out float w, out float h, out float rotZ, out int sx, out int sy))
+                    continue;
+
+                markers.Add((child.name, mImg));
+                if (n > 0) sb.Append(',');
+                n++;
+                sb.Append('{')
+                  .Append("\"n\":\"").Append(EscapeJson(child.name)).Append("\",")
+                  .Append("\"cx\":").Append(cx.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
+                  .Append("\"cy\":").Append(cy.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
+                  .Append("\"w\":").Append(w.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
+                  .Append("\"h\":").Append(h.ToString("0.00000", CultureInfo.InvariantCulture))
+                  .Append('}');
+            }
+            sb.Append("]}");
+            _frontalMarkers[key] = markers;
+            TelemetryServer.SetAirframeLayout(key + "__front", sb.ToString());
+        }
+
+        // Armed/exhausted, not the raw color: the AFM page renders these in the theme's own
+        // solid green/red (matching the rest of its text), not a mirrored, semi-transparent
+        // in-game hue. WeaponStatus.cs (decompiled) sets the marker to exactly Color.green when
+        // armed or Color.red when exhausted (briefly lerped toward a flash color on a hit) — so
+        // "which channel dominates" cleanly classifies both the resting and flashing states.
+        public List<(string name, bool armed)> ReadFrontalMarkerStates(string type)
+        {
+            var result = new List<(string, bool)>();
+            if (string.IsNullOrEmpty(type) || !_frontalMarkers.TryGetValue(type, out var markers)) return result;
+            foreach (var (name, img) in markers)
+            {
+                if (img == null) continue;   // scene reloaded since capture; stale reference
+                result.Add((name, img.color.g >= img.color.r));
+            }
+            return result;
         }
 
         // One-shot debug aid for the AVN-page silhouette design: walks Aircraft.partLookup and

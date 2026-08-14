@@ -192,6 +192,31 @@ def main():
         else:
             print(f"  airframe layout (none)  for '{af_type}' — capture again once you're in the cockpit")
 
+        # AFM frontal silhouette: the cockpit's weapon-station-armed panel's nose-on image + its
+        # pylon-marker layout. Same shape as the __bg block above, just under the "<type>__front"
+        # key the real endpoints use (see AssetCapture.TryCaptureFrontalSilhouette). Pylon marker
+        # COLORS need no capture step — they ride the live /stream frame itself (frame["pylons"]),
+        # already saved into manifest.json below.
+        front_type = af_type + "__front"
+        front_layout_bytes = fetch("/airframe-layout?type=" + urllib.parse.quote(front_type))
+        if front_layout_bytes:
+            try:
+                front_layout = json.loads(front_layout_bytes.decode("utf-8"))
+            except json.JSONDecodeError:
+                front_layout = None
+        else:
+            front_layout = None
+        if front_layout:
+            assets["airframe-layout:" + front_type] = front_layout   # inlined JSON, not a file
+            front_bg = fetch(f"/airframe?type={urllib.parse.quote(af_type)}&part=__front")
+            if front_bg:
+                fn = "airframe_front.png"
+                (ASSETS / fn).write_bytes(front_bg)
+                assets[f"airframe:{af_type}|__front"] = "assets/" + fn
+                print(f"  airframe front  saved   ({len(front_bg):,} bytes)")
+        else:
+            print(f"  airframe front  (none)  for '{af_type}' — capture again once you're in the cockpit")
+
     (ASSETS / "manifest.json").write_text(
         json.dumps({"frame": frame, "assets": assets}, indent=2), encoding="utf-8")
     print(f"\nWrote {len(assets)} assets + manifest to {ASSETS.relative_to(ROOT)}")

@@ -16,12 +16,19 @@
             positions. Enabled by layout:'full' in afm-layout.
 
   Shell -> page messages (all {mfd:true, ...}):
-    'afm'        : { name, parts, failures } — the live snapshot (same data AVN's shell-side state
-                   already carries; the shell just points a second page at it).
+    'afm'        : { name, parts, failures, pylons } — the live snapshot (same data AVN's
+                   shell-side state already carries; the shell just points a second page at it).
+                   pylons is [{n, c}] — hardpoint marker name + live hex color, mirroring the
+                   cockpit's own WEAPON ARMED panel (green = armed/has ammo, red = exhausted).
     'afm-layout' : geometry — layout:'full' + geom {headerTop, headerHeight, frameTop, frameHeight}
                    in full; omitted in compact (the page defaults to the CSS fixed offsets).
     'orient'     : app-wide orientation (drives body.portrait/.landscape).
-  The silhouette bg + part masks + per-type layout are fetched directly from /airframe[-layout].
+  Vertical stack, top to bottom: name, frontal silhouette (+ pylon markers), top-down damage
+  silhouette. The frontal silhouette bg + pylon-marker layout are captured from the cockpit's
+  weapon-station-armed panel and fetched from /airframe[-layout]?type=<name>__front (part
+  "__front" for the image; the "__front"-suffixed type key for the marker layout — same endpoints
+  the damage silhouette uses, just a distinct key). The damage silhouette bg + part masks + layout
+  come from the plain /airframe[-layout]?type=<name>.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -31,6 +38,10 @@
   <div class="afm-panel" id="afm-panel">
     <div class="afm-header" id="afm-header">
       <div class="afm-name" id="afm-name"></div>
+    </div>
+    <div class="afm-front-section" id="afm-front-section">
+      <img class="afm-front" id="afm-front" alt="">
+      <div class="afm-front-markers" id="afm-front-markers"></div>
     </div>
     <div class="afm-frame" id="afm-frame">
       <img class="afm-bg" id="afm-bg" alt="">

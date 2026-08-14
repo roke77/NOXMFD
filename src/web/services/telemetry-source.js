@@ -322,6 +322,9 @@ export class TelemetrySource {
       name: d.name || null,
       parts: Array.isArray(d.parts) ? d.parts : null,
       failures: Array.isArray(d.failures) ? d.failures : null,
+      // AFM frontal-silhouette hardpoint markers — [{n, c}], c a live hex color mirroring the
+      // cockpit's own WEAPON ARMED panel (green = armed/has ammo, red = exhausted).
+      pylons: Array.isArray(d.pylons) ? d.pylons : null,
       fuel:     typeof d.fuel === 'number' ? d.fuel : -1,
       throttle: typeof d.thr  === 'number' ? d.thr  : -1,
       heat:     typeof d.heat === 'number' ? d.heat : -1,
@@ -372,7 +375,7 @@ export class TelemetrySource {
     this._postUp({ type: 'targets', items: [] });
     this._postUp({ type: 'rwr', items: [] });
     this._postUp({ type: 'mw', items: [] });
-    this._postUp({ type: 'avn', name: null, parts: null, failures: null, fuel: -1, throttle: -1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false });
+    this._postUp({ type: 'avn', name: null, parts: null, failures: null, pylons: null, fuel: -1, throttle: -1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false });
     this._postUp({ type: 'tgt', present: false });
     this._postUp({ type: 'bdf', present: false });
     this._postUp({ type: 'pal', present: false });

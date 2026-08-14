@@ -9,13 +9,16 @@
 const afmPanel   = document.getElementById('afm-panel');
 const afmHeaderEl = document.getElementById('afm-header');
 const afmNameEl  = document.getElementById('afm-name');
+const afmFrontSection  = document.getElementById('afm-front-section');
+const afmFrontEl       = document.getElementById('afm-front');
+const afmFrontMarkersEl = document.getElementById('afm-front-markers');
 const afmFrame   = document.getElementById('afm-frame');
 const afmBg      = document.getElementById('afm-bg');
 const afmPartsEl = document.getElementById('afm-parts');
 const afmEmptyEl = document.getElementById('afm-empty');
 
 // ── State ──────────────────────────────────────────────────────────────────────────
-let afmData        = { name: null, parts: null, failures: null };
+let afmData        = { name: null, parts: null, failures: null, pylons: null };
 let layout          = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)
 let afmFullGeom     = null;        // {headerTop, headerHeight, frameTop, frameHeight} forwarded by the shell in full
 let afmLayoutType   = null;
@@ -25,6 +28,11 @@ let afmPartEls      = Object.create(null);
 let afmFailureEls   = [];   // current failure-label DOM nodes, rebuilt each paint (see paintAfmFailures)
 let afmBgType = null, afmBgTries = 0, afmBgLoaded = false;   // background-image request/retry state
 const AFM_BG_RETRY_CAP = 120;                // ~60 s @ 500 ms — safety bound; the async server capture lands far sooner
+let afmFrontType = null, afmFrontTries = 0, afmFrontLoaded = false;   // frontal-silhouette image request/retry state
+let afmFrontLayoutType  = null;
+let afmFrontLayoutCache = Object.create(null);
+let afmFrontLayoutTries = Object.create(null);   // per-type pylon-marker-layout fetch retry counts
+let afmFrontMarkerEls   = Object.create(null);
 
 // Failure-label placement on the silhouette. The strings themselves vary per aircraft and are
 // parsed by afm-failure-policy (side + display text); here we just decide where each column sits.
@@ -40,19 +48,21 @@ function renderAfm() {
   const type = afmData.name;
   if (!type) {
     afmHeaderEl.classList.remove('placed');
+    afmFrontSection.style.display = 'none';
     afmFrame.style.display  = 'none';
     afmEmptyEl.style.display = '';
     afmLayoutType = type;   // record that the empty state is shown, so returning to a plane
     return;                 // (even the SAME type — e.g. respawn) re-triggers a render
   }
   afmHeaderEl.classList.add('placed');
+  afmFrontSection.style.display = '';
   afmFrame.style.display   = '';
   afmEmptyEl.style.display = 'none';
   afmNameEl.textContent = type;
 
   // full profile: anchor the header to the top bezel row the shell forwards (headerTop). compact
-  // (split pane) uses the CSS band. The frame then follows the header's actual bottom
-  // (layoutAfmFrame) — so the silhouette starts below however tall the name band ends up.
+  // (split pane) uses the CSS band. The front-section and frame then follow the header's actual
+  // bottom (layoutAfmFrame) — so the vertical stack starts below however tall the name band ends up.
   if (layout === 'full' && afmFullGeom && typeof afmFullGeom.headerTop === 'number') {
     afmHeaderEl.style.top       = afmFullGeom.headerTop + 'px';
     afmHeaderEl.style.minHeight = afmFullGeom.headerHeight + 'px';
@@ -63,35 +73,54 @@ function renderAfm() {
     afmHeaderEl.style.height    = '';
   }
 
-  layoutAfmFrame();   // position the silhouette frame just below the header
+  layoutAfmFrame();   // position the front-section + silhouette frame below the header
 
   afmBg.style.display = '';
   afmPartsEl.style.display = '';
 
   ensureAfmLayout(type);
   ensureAfmBg(type);   // request the silhouette independently of the layout cache (see afm-bg-policy)
+  ensureAfmFront(type);
+  ensureAfmFrontLayout(type);
   const layoutDef = afmLayoutCache[type];
-  if (!layoutDef || typeof layoutDef === 'string') return;
-  if (afmLayoutType !== type) buildAfmParts(type, layoutDef);
+  if (layoutDef && typeof layoutDef === 'object' && afmLayoutType !== type) buildAfmParts(type, layoutDef);
+  const frontLayoutDef = afmFrontLayoutCache[type];
+  if (frontLayoutDef && typeof frontLayoutDef === 'object' && afmFrontLayoutType !== type) buildAfmFrontMarkers(type, frontLayoutDef);
 
   fitAfmPartsToBg();
+  fitAfmFrontToImg();
   paintAfmDamage();
   paintAfmFailures();   // rebuilds + sizes the failure labels
+  paintAfmPylons();
 }
 
-// Position the silhouette frame directly below the header's actual bottom. The frame's lower
-// edge stays put: the forwarded bezel limit in full, or the CSS bottom in compact.
-const AFM_HDR_GAP = 6;
+// Position the front-section band directly below the header's actual bottom, and the silhouette
+// frame directly below the front-section. The stack's lower edge stays put: the forwarded bezel
+// limit in full, or the CSS bottom in compact. The front band gets a modest share of whatever
+// vertical room is left (capped both ways) so the top-down silhouette — the primary content —
+// keeps the majority of the space in both profiles.
+const AFM_HDR_GAP  = 6;
+const AFM_BAND_GAP = 6;
 function layoutAfmFrame() {
   const panelTop = afmPanel.getBoundingClientRect().top;
-  const frameTop = (afmHeaderEl.getBoundingClientRect().bottom - panelTop) + AFM_HDR_GAP;
-  afmFrame.style.top = frameTop + 'px';
+  const frontTop = (afmHeaderEl.getBoundingClientRect().bottom - panelTop) + AFM_HDR_GAP;
+
+  let bottomLimit;
   if (layout === 'full' && afmFullGeom && typeof afmFullGeom.frameTop === 'number') {
-    const frameBottom = afmFullGeom.frameTop + afmFullGeom.frameHeight;   // fixed lower limit (last bezel sep)
-    afmFrame.style.height = Math.max(0, frameBottom - frameTop) + 'px';
+    bottomLimit = afmFullGeom.frameTop + afmFullGeom.frameHeight;   // fixed lower limit (last bezel sep)
   } else {
-    afmFrame.style.height = '';   // compact: CSS bottom:12px spans the rest
+    bottomLimit = afmPanel.getBoundingClientRect().height - 12;     // matches the compact CSS bottom:12px
   }
+  const available   = Math.max(0, bottomLimit - frontTop);
+  const frontHeight = Math.min(200, Math.max(90, available * 0.3));
+
+  afmFrontSection.style.top    = frontTop + 'px';
+  afmFrontSection.style.height = frontHeight + 'px';
+
+  const frameTop = frontTop + frontHeight + AFM_BAND_GAP;
+  afmFrame.style.top    = frameTop + 'px';
+  afmFrame.style.bottom = 'auto';
+  afmFrame.style.height = Math.max(0, bottomLimit - frameTop) + 'px';
 }
 
 function ensureAfmLayout(type) {
@@ -136,6 +165,98 @@ afmBg.onerror = function() {
     if (afmData.name === t && !afmBgLoaded) afmBg.src = '/airframe?type=' + encodeURIComponent(t) + '&part=__bg&v=' + v;
   }, 500);
 };
+
+// Front-section's small frontal silhouette — same request/retry shape as the big damage bg
+// (AfmBgPolicy's predicates are generic, not tied to one image element), just a different part
+// key and element.
+function ensureAfmFront(type) {
+  if (AfmBgPolicy.shouldRequestBg(afmFrontType, type)) setAfmFront(type);
+}
+function setAfmFront(type) {
+  afmFrontType = type; afmFrontTries = 0; afmFrontLoaded = false;
+  afmFrontEl.classList.remove('loaded');
+  afmFrontEl.src = '/airframe?type=' + encodeURIComponent(type) + '&part=__front';
+}
+afmFrontEl.addEventListener('load', function() {
+  afmFrontLoaded = true;
+  afmFrontEl.classList.add('loaded');
+  fitAfmFrontToImg();
+});
+afmFrontEl.onerror = function() {
+  if (!AfmBgPolicy.shouldRetryBg(afmData.name, afmFrontType, afmFrontLoaded, afmFrontTries, AFM_BG_RETRY_CAP)) return;
+  afmFrontTries++;
+  const t = afmFrontType, v = afmFrontTries;
+  setTimeout(function() {
+    if (afmData.name === t && !afmFrontLoaded) afmFrontEl.src = '/airframe?type=' + encodeURIComponent(t) + '&part=__front&v=' + v;
+  }, 500);
+};
+
+// Pylon-marker layout for the frontal silhouette (hardpoint_* positions, captured once — see
+// AssetCapture.TryCaptureFrontalSilhouette). Requested under type+"__front" so it doesn't collide
+// with the damage-silhouette layout cache key. Same retry shape as ensureAfmLayout.
+function ensureAfmFrontLayout(type) {
+  const cached = afmFrontLayoutCache[type];
+  if (cached && typeof cached === 'object') return;   // already loaded
+  if (cached === 'pending') return;                   // fetch in flight
+  afmFrontLayoutCache[type] = 'pending';
+  fetch('/airframe-layout?type=' + encodeURIComponent(type + '__front'))
+    .then(function(r) { if (!r.ok) throw new Error('layout ' + r.status); return r.json(); })
+    .then(function(j) { afmFrontLayoutCache[type] = j; afmFrontLayoutTries[type] = 0; renderAfm(); })
+    .catch(function() {
+      const n = (afmFrontLayoutTries[type] || 0) + 1;
+      afmFrontLayoutTries[type] = n;
+      afmFrontLayoutCache[type] = (n <= 20) ? undefined : 'fail';
+      if (n <= 20) setTimeout(function() { if (afmData.name === type) ensureAfmFrontLayout(type); }, 500);
+    });
+}
+
+function buildAfmFrontMarkers(type, layoutDef) {
+  afmFrontMarkersEl.innerHTML = '';
+  afmFrontMarkerEls = Object.create(null);
+  if (!layoutDef || !Array.isArray(layoutDef.parts)) { afmFrontLayoutType = type; return; }
+  for (const p of layoutDef.parts) {
+    const el = document.createElement('div');
+    el.className = 'afm-front-marker';
+    el.style.left   = (p.cx * 100).toFixed(3) + '%';
+    el.style.top    = (p.cy * 100).toFixed(3) + '%';
+    el.style.width  = (p.w  * 100).toFixed(3) + '%';
+    el.style.height = (p.h  * 100).toFixed(3) + '%';
+    afmFrontMarkersEl.appendChild(el);
+    afmFrontMarkerEls[p.n] = el;
+  }
+  afmFrontLayoutType = type;
+}
+
+// Size .afm-front-markers to match the frontal silhouette's actual rendered box (same
+// letterboxing math as fitAfmPartsToBg, against the frontal image instead of the damage bg).
+function fitAfmFrontToImg() {
+  const fr = afmFrontSection.getBoundingClientRect();
+  if (!fr.width || !fr.height || !afmFrontEl.naturalWidth || !afmFrontEl.naturalHeight) {
+    afmFrontMarkersEl.style.width  = fr.width + 'px';
+    afmFrontMarkersEl.style.height = fr.height + 'px';
+    return;
+  }
+  const imgAspect = afmFrontEl.naturalWidth / afmFrontEl.naturalHeight;
+  const frAspect  = fr.width / fr.height;
+  let w, h;
+  if (imgAspect > frAspect) { w = fr.width;  h = fr.width  / imgAspect; }
+  else                      { h = fr.height; w = fr.height * imgAspect; }
+  afmFrontMarkersEl.style.width  = w + 'px';
+  afmFrontMarkersEl.style.height = h + 'px';
+}
+
+// Colors each pylon marker from the live snapshot — [{n, a}], a = armed/has ammo (mirroring the
+// cockpit's own WEAPON ARMED panel's green/red state). Rendered in the page's own solid theme
+// colors, not the game's raw (semi-transparent) hue. Positions are static (buildAfmFrontMarkers);
+// only the color updates per tick.
+function paintAfmPylons() {
+  const pylons = Array.isArray(afmData.pylons) ? afmData.pylons : null;
+  if (!pylons) return;
+  for (const p of pylons) {
+    const el = afmFrontMarkerEls[p.n];
+    if (el) el.style.backgroundColor = p.a ? 'var(--no-green)' : 'var(--no-red)';
+  }
+}
 
 // Point a part's CSS mask at its sprite, but preload via Image() first so a not-yet-ready
 // (async) sprite is retried rather than sticking as an empty mask. Cache-busts each retry.
@@ -259,11 +380,12 @@ window.addEventListener('message', function(e) {
       name: m.name || null,
       parts: Array.isArray(m.parts) ? m.parts : null,
       failures: Array.isArray(m.failures) ? m.failures : null,
+      pylons: Array.isArray(m.pylons) ? m.pylons : null,
     };
     // Full render on aircraft change, or whenever there's no aircraft — the empty-state hide lives
     // in renderAfm and must run even if a silhouette layout never cached (afmLayoutType stays null).
     if (afmLayoutType !== afmData.name || !afmData.name) renderAfm();
-    else { paintAfmDamage(); paintAfmFailures(); }
+    else { paintAfmDamage(); paintAfmFailures(); paintAfmPylons(); }
   } else if (m.type === 'afm-layout') {
     // Geometry profile from the shell. full forwards the bezel-anchored name/frame placement;
     // compact omits geom and the page falls back to the CSS fixed offsets.

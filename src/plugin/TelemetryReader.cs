@@ -45,6 +45,7 @@ namespace NOXMFD
         private string         _missionName = string.Empty;
         private string         _mapName     = string.Empty;
         private LoadoutEntry[]  _loadout     = Array.Empty<LoadoutEntry>();
+        private PylonMarker[]   _pylons      = Array.Empty<PylonMarker>();
 
         private int _flares    = -1;   // IR flares remaining (refreshed in the 1 Hz scan)
         private int _flaresMax = -1;   // IR flares capacity   (refreshed in the 1 Hz scan)
@@ -203,6 +204,11 @@ namespace NOXMFD
                 _assets.TryLogPartLayout(ac);
                 _assets.TryLogWeaponInfo(ac);
                 _assets.TryCaptureAirframe(ac);
+                _assets.TryCaptureFrontalSilhouette(ac);
+                var pylonStates = _assets.ReadFrontalMarkerStates(ac.definition != null ? ac.definition.unitName : null);
+                _pylons = new PylonMarker[pylonStates.Count];
+                for (int i = 0; i < pylonStates.Count; i++)
+                    _pylons[i] = new PylonMarker { Name = pylonStates[i].name, Armed = pylonStates[i].armed };
             }
             // BDF/PAL need no local aircraft — each resolves a fixed faction identity straight from
             // FactionRegistry, so both are built unconditionally.
@@ -649,6 +655,7 @@ namespace NOXMFD
                 MissionName    = _missionName,
                 MapName        = _mapName,
                 Loadout        = _loadout,
+                Pylons         = _pylons,
                 WorldX         = world.x,
                 WorldY         = world.y,
                 WorldZ         = world.z,

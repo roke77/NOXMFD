@@ -686,7 +686,7 @@ function forwardAfmToPanes() {
     if (panePages[idx] !== 'afm') return;
     if (!iframe.contentWindow) return;
     iframe.contentWindow.postMessage({
-      mfd: true, type: 'afm', name: avnData.name, parts: avnData.parts, failures: avnData.failures,
+      mfd: true, type: 'afm', name: avnData.name, parts: avnData.parts, failures: avnData.failures, pylons: avnData.pylons,
     }, '*');
   });
 }
@@ -694,7 +694,7 @@ function forwardAfmToPanes() {
 function forwardAfmToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage({
-    mfd: true, type: 'afm', name: avnData.name, parts: avnData.parts, failures: avnData.failures,
+    mfd: true, type: 'afm', name: avnData.name, parts: avnData.parts, failures: avnData.failures, pylons: avnData.pylons,
   }, '*');
 }
 // Forward the full-view geometry: AFM's name band fills the top bezel row — from below the first
@@ -1296,7 +1296,7 @@ let targetsData = { targets: [] };
 // Latest AVN snapshot, mirrored from the map iframe's SSE feed. The shell keeps only this
 // state (the forwarders read it); all rendering — silhouette, failure labels, FUEL/THROTTLE
 // bars, the failure-label parsing/placement, the /airframe layout cache — lives in src/web/pages/avn/.
-let avnData = { name: null, parts: null, failures: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
+let avnData = { name: null, parts: null, failures: null, pylons: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
 
 // Latest RWR emitters + incoming missiles, mirrored from the map iframe's SSE feed. The shell
 // keeps only this state (the forwarders read it); all scope SVG rendering lives in src/web/pages/rwr/.
@@ -1576,6 +1576,7 @@ window.addEventListener('message', function(e) {
       name: m.name || null,
       parts: Array.isArray(m.parts) ? m.parts : null,
       failures: Array.isArray(m.failures) ? m.failures : null,
+      pylons:   Array.isArray(m.pylons)   ? m.pylons   : null,
       fuel:     typeof m.fuel     === 'number' ? m.fuel     : -1,
       throttle: typeof m.throttle === 'number' ? m.throttle : -1,
       heat:     typeof m.heat     === 'number' ? m.heat     : -1,

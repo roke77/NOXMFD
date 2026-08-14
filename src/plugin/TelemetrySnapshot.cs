@@ -8,6 +8,7 @@ namespace NOXMFD
         public string MissionName;
         public string MapName;
         public LoadoutEntry[] Loadout;   // weapon loadout, aggregated by type
+        public PylonMarker[]  Pylons;    // AFM frontal-silhouette hardpoint marker colors (live)
 
         // True world position (floating-origin corrected): pos - Datum.originPosition.
         public float  WorldX, WorldY, WorldZ;
@@ -250,6 +251,16 @@ namespace NOXMFD
         public string Name;
         public int    Ammo;       // rounds/missiles remaining (summed across stations)
         public int    FullAmmo;   // capacity (summed across stations)
+    }
+
+    // One hardpoint marker on the AFM frontal silhouette (WeaponPanel/frontProfile/hardpoint_*).
+    // Armed mirrors the LIVE state the game's own cockpit panel already shows for that station
+    // (green = armed/has ammo, red = exhausted) — see AssetCapture.ReadFrontalMarkerStates. The
+    // AFM page renders this in its own theme colors, not the game's raw (semi-transparent) hue.
+    internal struct PylonMarker
+    {
+        public string Name;
+        public bool   Armed;
     }
 
     // One tracked unit, in the same global coordinate space as WorldX/WorldZ.

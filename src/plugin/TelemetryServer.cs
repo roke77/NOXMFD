@@ -669,6 +669,8 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/main/main.html");
                     else if (path == "/avn")
                         ServeAssetRel(ctx, "pages/avn/avn.html");
+                    else if (path == "/afm")
+                        ServeAssetRel(ctx, "pages/afm/afm.html");
                     else if (path == "/tgp")
                         ServeAssetRel(ctx, "pages/tgp/tgp.html");
                     else if (path == "/wpn")
@@ -1410,6 +1412,7 @@ namespace NOXMFD
                         + ",\"pjm\":" + (s.PlayerJammed ? "true" : "false")
                         + ",\"pjb\":" + s.PlayerJammedBy
                         + ",\"parts\":" + PartsArray(s.Parts)
+                        + ",\"pylons\":" + PylonsArray(s.Pylons)
                         + ",\"rwr\":" + RwrArray(s.Rwr)
                         + ",\"mw\":" + MwArray(s.Mw)
                         + ",\"rdr\":" + RdrBlock(s)
@@ -1582,6 +1585,19 @@ namespace NOXMFD
                     EscapeJson(parts[i].Name ?? string.Empty),
                     parts[i].Hp,
                     parts[i].Detached ? 1 : 0);
+            }
+            return sb.Append(']').ToString();
+        }
+
+        private static string PylonsArray(PylonMarker[]? pylons)
+        {
+            if (pylons == null || pylons.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < pylons.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append("{\"n\":\"").Append(EscapeJson(pylons[i].Name ?? string.Empty)).Append("\",")
+                  .Append("\"a\":").Append(pylons[i].Armed ? "true" : "false").Append('}');
             }
             return sb.Append(']').ToString();
         }
