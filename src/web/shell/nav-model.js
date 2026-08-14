@@ -38,7 +38,7 @@
     rwr: [ { label: 'MAIN', action: 'main' } ],
     rdr: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN (docs/rdr-page.md)
     tgt: [ { label: 'MAIN', action: 'main' } ],
-    // BDF and PAL fold under one MAIN destination (SCR — BEZEL_EXTRAS.main, action still 'bdf' so
+    // BDF and PAL fold under one MAIN destination (MDT — BEZEL_EXTRAS.main, action still 'bdf' so
     // it lands on this same list) rather than two: each carries the other as a direct switch, plus
     // the way back, with `mark` on whichever one is current (docs/bdf-page.md). mfd.js's generic
     // sweep (full view) and renderSplitLabels' static-nav branch (split) both honor `mark`.

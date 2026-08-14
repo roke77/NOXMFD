@@ -11,7 +11,8 @@ bezel remains the default, and every page renders on it exactly as before.
   LAYOUT page, so the two layouts can reach each other (see Stage 3).
 - The **F-35** layout is a working prototype, served at `/f35`: borderless,
   no keys, labels drawn on the glass, and framed in teal. Every page renders
-  on it (MAIN, MAP, AVN, RWR, TGT, TGP, WPN). The glass is four independent
+  on it (MAIN, MAP, AVN, RWR, TGT, TGP, WPN, BDF, PAL, HUD, KEY, RDR) — one
+  exception below (AFM). The glass is four independent
   portals, each framed as a whole box, and the corner grips merge adjacent
   ones and split them back — five arrangements, never fewer than two portals.
   A fixed **master strip** runs across the top, carrying the aircraft-level
@@ -26,6 +27,23 @@ under the F-35, which is a different thing: AVN and MAP each grew a `?nochrome`
 option of their own, and the F-35 is a host that asks for it (see "Decluttering"
 below). The page decides what its own option means; the layout only picks.
 Nothing under `pages/` knows a layout exists.
+
+> **Since then (2026-08-15) — AVN split into AVN + AFM; F-35 hasn't picked either
+> up.** AVN dropped its damage silhouette and failure labels to a new **AFM**
+> page (see `src-architecture.md`'s addendum); AVN itself moved from FUEL/
+> THROTTLE bars to circular RPM/FUEL/HEAT/THRL gauges, and its status tiles are
+> now bezel-actuated toggles, not just annunciators. Both changes were scoped to
+> the bezel; F-35 (`f35.js`'s `F35_PAGES`/`MAIN_EXTRAS`/`PAGE_FEEDS`) was left
+> untouched deliberately (see the FIXME in `avn.html`) and needs its own pass:
+> **AFM has no F-35 entry at all** (can't be reached from the F-35's MAIN), and
+> **AVN's `?nochrome` — which the F-35's master strip sets on every AVN
+> portal — now blanks the whole panel** rather than leaving a silhouette behind,
+> since the silhouette it used to leave isn't on this page anymore. See
+> "Decluttering" below for the detail. The bezel's own `SCR` MAIN item was also
+> renamed to `MDT` (Mission Data Table) this session; F-35's `MAIN_EXTRAS` never
+> had an equivalent single entry (it still lists `BDF`/`PAL` separately), so
+> nothing there needed renaming, but it's now inconsistent with the bezel's
+> design on that point too.
 
 What the F-35 cost outside its own `shell/f35/` directory, precisely: three
 tokens in `theme.css` (`--no-teal` and its rgb source; plus `--no-label`, which
@@ -80,11 +98,12 @@ effectively an independent MFD with its own page and its own edge labels.
 
 ## What's already decoupled
 
-Page *content* is independent of the shell. Every page — AVN / MAP / RWR /
-TGT / TGP / WPN — is its own iframe under `src/web/pages/*`, served "bare"
-and mounted into a host frame. The shell hosts the frame and feeds it data;
-it does not know what's inside a page. The F-35 layout renders all of them
-without a single page edit.
+Page *content* is independent of the shell. Every page — AVN / AFM / MAP / RWR /
+TGT / TGP / WPN / BDF / PAL / HUD / KEY / RDR — is its own iframe under
+`src/web/pages/*`, served "bare" and mounted into a host frame. The shell hosts
+the frame and feeds it data; it does not know what's inside a page. The F-35
+layout renders all of them without a single page edit — except AFM, which the
+F-35 doesn't reach yet (see the addendum above).
 
 Two qualifications, both learned by building the second layout:
 
@@ -186,7 +205,8 @@ A layout also owns the **page placement geometry** it feeds pages (the
 `NAV` is shared, so a layout cannot grow it: the bezel has six physical keys
 for MAIN's six items, and `nav-model.test.js` pins that list. A layout that
 wants more puts them in its own table — the F-35 keeps `MAIN_EXTRAS`
-(HUD/KEY/LYT/PAL/BDF) beside `NAV` and merges the two when rendering. Not all of
+(HUD/KEY/LYT/PAL/BDF/RDR — no AFM yet, see the Status addendum above) beside
+`NAV` and merges the two when rendering. Not all of
 them are pages: `KEY` leaves the document for `/keybinds` (`LINKS`) and `LYT`
 opens the layout chooser over the whole glass (`GLASS_ACTIONS`), so `canDo`
 counts those tables too — an action in none of them renders dimmed.
@@ -344,11 +364,23 @@ layout they were drawn twice — and on a quarter-width portal the duplicates co
 space the pages needed.
 
 So each of those two pages grew an option: `?nochrome` means *my host already
-shows my own-ship readouts, so I won't repeat them*. AVN drops its FUEL/THROTTLE
-bars and its status tiles, keeping the silhouette and failure labels that only it
-draws; MAP drops the mission bar and the GRID chip, keeping the map. The F-35
-sets it on both. The bezel sets it on nothing and renders exactly as before —
-which is the test that this is a page's option and not a layout's reach-in.
+shows my own-ship readouts, so I won't repeat them*. AVN drops its FUEL/RPM/
+HEAT/THRL gauges and its status tiles (the strip already carries the ones it
+mirrors); MAP drops the mission bar and the GRID chip, keeping the map. The
+F-35 sets it on both. The bezel sets it on nothing and renders exactly as
+before — which is the test that this is a page's option and not a layout's
+reach-in.
+
+> **2026-08-15 — this leaves nothing behind on AVN, and that's a known gap.**
+> `?nochrome` used to hide AVN's own-ship readouts *and* leave its damage
+> silhouette filling the freed space — the actual reason the option existed
+> (see the note below, kept for the record). That silhouette moved to a new
+> **AFM** page this session, which the F-35 doesn't reach at all yet (see the
+> Status addendum above). So today a `?nochrome` AVN portal on the F-35 hides
+> everything and renders an empty panel — flagged with a `FIXME` in `avn.html`
+> rather than guessed at, pending a decision once F-35 picks AFM up: give AFM
+> its own `?nochrome` (most likely, mirroring AVN), or drop `?nochrome`'s
+> effect on AVN entirely now that it has nothing left to leave behind.
 
 **It is a URL flag, not a message.** Every other host→page instruction here is a
 postMessage (`avn-layout`, `orient`), but those adjust a page that is already
@@ -358,11 +390,13 @@ portal glass mounts pages constantly. An inline read in each page's `<head>`
 puts the class on `<html>` before the body parses, so they simply never appear.
 (`?bare`, the other flag in these URLs, is a convention no page has ever read.)
 
-**AVN's silhouette takes the freed space on its own.** The status tiles are
-inside the header, and `layoutAvnFrame` positions the frame below the header's
+**(Historical — kept for the reasoning, superseded by the note above.) AVN's
+silhouette used to take the freed space on its own.** The status tiles were
+inside the header, and `layoutAvnFrame` positioned the frame below the header's
 *measured* bottom on every paint — so dropping them moved the silhouette 42px up
-and made it 42px taller at 320×640, with nothing told to do it. The bars are
-absolutely positioned and were never in anything's way; they just go.
+and made it 42px taller at 320×640, with nothing told to do it. The bars were
+absolutely positioned and were never in anything's way; they just went. AVN has
+no silhouette left to reflow this way — it's on AFM now.
 
 #### The palette — what the layout colours, and what it doesn't
 
@@ -505,7 +539,9 @@ Left to right:
   mission block and the flags. See below.
 - **Avionics flags** — the eight annunciators the AVN page shows
   (GEAR / RADAR / GUNS / ENG / ASSIST / NVG / LIGHTS / TURRET), in one row, each
-  a label + icon.
+  a label + icon. Read-only here, unlike on AVN itself: since this session, AVN's
+  own tiles are also bezel-actuated toggles (press the aligned key to flip the
+  system) — the strip's copy still only mirrors state, same as before.
 - **FULLSCREEN** — last, at the far right. The only thing in the strip you
   press, so it is drawn as a button — bordered, square and icon-only, the same
   toggle the bezel carries on a top-bank key.
@@ -555,6 +591,18 @@ The stream also carries a `mapName` ("PREVIEW ISLAND") distinct from `mission`.
 Nothing renders it, here or on the map page.
 
 ### The gauges — what travels and what doesn't
+
+> **2026-08-15 — the strip's gauges are unaffected, but their AVN references
+> below now point at deleted code.** This section describes the F-35 strip's
+> *own* self-contained bar widget (`.ms-tube-inner` etc. in `f35.css`/`f35.js`),
+> built at the time by copying AVN's then-current vertical-bar styling and
+> reusing `avn-throttle-policy.js` (a pure logic module, still there and still
+> shared) for the MIL/AB math. The strip never imported AVN's CSS/DOM directly,
+> so nothing here broke when AVN moved from bars to circular gauges this
+> session — but `avn.css .avn-vbar-tube` and `positionAvnBarValue`, named below
+> as the styling/behavior this was copied from, no longer exist on the AVN page.
+> Left as written for the reasoning; treat those two names as history, not a
+> place to go looking.
 
 THRL and FUEL cost no telemetry: `fuel` and `throttle` were already in the `avn`
 slice driving the flags.

@@ -44,16 +44,27 @@
   // untouched and still serves the bezel.)
   //
   // ?nochrome tells a page this shell already shows its own-ship readouts, so it should not draw
-  // them twice: AVN drops its FUEL/THROTTLE bars and status tiles — the master strip carries both.
-  // MAP no longer gets the flag: the strip dropped its own mission name/grid chip (more room for
-  // the gauges), so MAP is the one place left to see them, same as the bezel. Each page owns the
-  // option and decides what it means; this layout only picks it. It is a URL flag rather than a
-  // message because a page reads it before its first paint, and a message would show the readouts
-  // and then take them away on every mount. The bezel passes it to nothing and is unaffected.
+  // them twice. MAP no longer gets the flag: the strip dropped its own mission name/grid chip
+  // (more room for the gauges), so MAP is the one place left to see them, same as the bezel. Each
+  // page owns the option and decides what it means; this layout only picks it. It is a URL flag
+  // rather than a message because a page reads it before its first paint, and a message would show
+  // the readouts and then take them away on every mount. The bezel passes it to nothing and is
+  // unaffected.
+  //
+  // AVN no longer gets the flag either (2026-08-15). It used to hide AVN's FUEL/THROTTLE bars and
+  // status tiles while leaving the damage silhouette — the actual reason it existed — but that
+  // silhouette moved to AFM this session, so nochrome had nothing selective left to do: AVN's
+  // `.nochrome` rule hides the page's *entire* content, and that content is no longer purely
+  // decorative duplication of the strip — the status tiles are now bezel/portal-actuated toggles,
+  // the strip's own copy is read-only, and RPM/HEAT aren't on the strip at all. Hiding it would
+  // have left this layout with no way to flip gear/radar/etc. Dropping the flag (plain `/avn`,
+  // like every other page here) accepts a little duplication of FUEL/THRL with the strip in
+  // exchange for keeping AVN's own content — and its only toggle controls — intact.
   const F35_PAGES = {
     main: null,
     map: MAP_URL,
-    avn: '/avn?nochrome',
+    avn: '/avn',
+    afm: '/afm',   // airframe page (docs/src-architecture.md addendum) — reuses the avn feed, see PAGE_FEEDS
     rwr: '/rwr',
     tgt: '/tgt',
     tgp: '/tgp',
@@ -72,6 +83,7 @@
   // TGT needs no command plumbing: it POSTs its own tgt.* via send-command.js.
   const PAGE_FEEDS = {
     avn: ['avn'],
+    afm: ['avn'],   // AFM shares AVN's snapshot (name/parts/failures/pylons) — see forwardSlice's afm case
     rwr: ['rwr', 'mw'],       // scope contacts + incoming-missile warnings
     tgt: ['tgt', 'targets'],
     tgp: ['tgp'],
@@ -101,19 +113,26 @@
 
   // Screens this layout puts on MAIN beyond NAV's — can't go in NAV since NAV is the bezel's menu
   // too, and it has six physical keys for six items. Kept here, they stay F-35's business and the
-  // bezel is unaffected (there HUD, BDF and PAL are their own BEZEL_EXTRAS keys). HUD, BDF and PAL
-  // each have an F35_PAGES entry (docs/bdf-page.md) and render as real pages.
-  // HUD, KEY, BDF and PAL are frame pages with an F35_PAGES entry; only LYT is not a page — it opens
-  // the layout chooser over the whole glass (GLASS_ACTIONS). All match where the bezel keeps them —
-  // MAIN — so a pilot finds the same names in the same place in either layout. LYT is offered once
-  // per portal and answers for all of them, the way the bezel offers it in each split pane.
+  // bezel is unaffected (there HUD, MDT, RDR and AFM are their own BEZEL_EXTRAS keys). Each of
+  // these has an F35_PAGES entry and renders as a real page (docs/bdf-page.md, src-architecture.md).
+  // HUD, KEY, MDT, RDR and AFM are frame pages with an F35_PAGES entry; only LYT is not a page — it
+  // opens the layout chooser over the whole glass (GLASS_ACTIONS). All match where the bezel keeps
+  // them — MAIN — so a pilot finds the same names in the same place in either layout. LYT is
+  // offered once per portal and answers for all of them, the way the bezel offers it in each split
+  // pane.
+  //
+  // MDT (2026-08-15) replaces what used to be separate PAL/BDF entries — mirrors the bezel's own
+  // SCR→MDT rename and BDF/PAL fold. Action still 'bdf'; NAV.bdf/NAV.pal (shared, consumed
+  // generically at line ~390 below) carry the MAIN/BDF/PAL sub-nav once you're on either page, with
+  // `mark` lighting whichever is current — nothing here needed to change for that part, since this
+  // layout already renders NAV[page] like any other.
   const MAIN_EXTRAS = [
     { label: 'HUD', action: 'hud' },
     { label: 'KEY', action: 'keys' },
     { label: 'LYT', action: 'lyt' },
-    { label: 'PAL', action: 'pal' },
-    { label: 'BDF', action: 'bdf' },
+    { label: 'MDT', action: 'bdf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md) — mirrors BEZEL_EXTRAS.main
+    { label: 'AFM', action: 'afm' },   // → AFM airframe page — mirrors BEZEL_EXTRAS.main
   ];
 
   // Paging actions, and the direction each moves. Not pages, so they dispatch separately.
@@ -256,9 +275,18 @@
     // ── Feeds ──────────────────────────────────────────────────────────────────────────
     function forwardSlice(type) {
       if (DERIVED[type]) return forwardWpn();
+      // AFM reuses the 'avn' feed but under its own message type (mirrors mfd.js
+      // forwardAfmToFrame) — a per-page rename, unlike FEED_AS below which is global per type and
+      // would also rename AVN's own 'avn' feed if used for this.
+      if (type === 'avn' && currentPage === 'afm') return forwardAfm();
       const w = frameWin(), m = slices[type];
       if (!w || !m) return;
       w.postMessage(FEED_AS[type] ? Object.assign({}, m, { type: FEED_AS[type] }) : m, '*');
+    }
+    function forwardAfm() {
+      const w = frameWin(), m = slices.avn;
+      if (!w || !m) return;
+      w.postMessage({ mfd: true, type: 'afm', name: m.name, parts: m.parts, failures: m.failures, pylons: m.pylons }, '*');
     }
     function onSlice(type) {
       if (feedsFor(currentPage).indexOf(type) !== -1) forwardSlice(type);
@@ -495,7 +523,8 @@
         }
         const wired = canDo(item.action);
         const b = document.createElement('button');
-        b.className   = 'nav-item' + (wired ? '' : ' pending') + (cell.col === 2 ? ' col-right' : '');
+        b.className   = 'nav-item' + (wired ? '' : ' pending') + (cell.col === 2 ? ' col-right' : '')
+                       + (item.mark ? ' on' : '');   // e.g. NAV.bdf/NAV.pal lighting the live one
         b.textContent = item.label;
         b.dataset.action = item.action;   // markFollow finds FLW by this
         if (mode === 'edge') {

@@ -107,12 +107,13 @@ function fullViewSlot(i) { return { bank: 'left', index: i }; }
 // no panel: every other page in this shell puts its items beside a physical key, and a chooser is
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
-  // HUD, KEY, LYT, SCR, RDR and AFM — the layout-owned MAIN items the six shared NAV items don't
-  // cover. HUD opens the HUD OPTIONS #page-frame page; KEY the extended-keybinds page; SCR the
-  // faction-forces panel for the two fixed identities BOSCALI/PRIMEVA — not "mine vs the enemy's"
-  // (docs/bdf-page.md) — landing on BDF by default, with PAL a switch away via NAV.bdf/NAV.pal
-  // rather than its own MAIN entry (action is still 'bdf': SCR is just this list's label for it);
-  // AFM shows the aircraft name + damage silhouette (split out of AVN, which is avionics only now).
+  // HUD, KEY, LYT, MDT, RDR and AFM — the layout-owned MAIN items the six shared NAV items don't
+  // cover. HUD opens the HUD OPTIONS #page-frame page; KEY the extended-keybinds page; MDT
+  // (Mission Data Table) the faction-forces panel for the two fixed identities BOSCALI/PRIMEVA —
+  // not "mine vs the enemy's" (docs/bdf-page.md) — landing on BDF by default, with PAL a switch
+  // away via NAV.bdf/NAV.pal rather than its own MAIN entry (action is still 'bdf': MDT is just
+  // this list's label for it); AFM shows the aircraft name + damage silhouette (split out of AVN,
+  // which is avionics only now).
   // All are frame-hosted pages that get their MAIN back from NAV like every other, so none needs an
   // entry of its own here beyond this one. Only LYT differs — it's a layout switch, not a page (see
   // mfdButton).
@@ -123,7 +124,7 @@ const BEZEL_EXTRAS = {
     { label: 'HUD', action: 'hud' },
     { label: 'KEY', action: 'keys' },
     { label: 'LYT', action: 'lyt' },
-    { label: 'SCR', action: 'bdf' },
+    { label: 'MDT', action: 'bdf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
   ],
@@ -1451,7 +1452,7 @@ function showPage(name) {
     forwardTgtTargetsToFrame();
   }
   // BDF renders in #page-frame too. Its bezel keys are MAIN/BDF/PAL (NAV.bdf, placed by the generic
-  // sweep above, `mark` lighting BDF since this is that page) — reached from MAIN via SCR
+  // sweep above, `mark` lighting BDF since this is that page) — reached from MAIN via MDT
   // (BEZEL_EXTRAS.main, action 'bdf') and carried into a split via SPLIT_SLOTS.bdf. Forward state.
   if (name === 'bdf') {
     showFramePage('bdf');

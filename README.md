@@ -115,12 +115,21 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **AVN** — aircraft status at a glance: airframe damage, fuel, throttle, engine-fire warnings, and a row of system annunciators (gear, radar, guns, engine, flight assist, night vision, nav lights, turret) that light up with each system's live state.
+- **AVN** — avionics at a glance: circular gauges for engine RPM, fuel, IR heat signature, and throttle (with an afterburner range on the dial), plus a bank of system toggles — gear, radar, guns, engine, flight assist, night vision, nav lights, turret — that show live state and double as bezel-actuated switches.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
   ![AVN page](docs/images/AVN.png)
+
+  </details>
+
+- **AFM** — airframe status: aircraft name, a nose-on view of your loadout's armed/exhausted hardpoints (mirroring the cockpit's own weapon-station panel), and a top-down silhouette that darkens per-part as it takes damage, with engine-fire and other critical failure callouts.
+
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![AFM page](docs/images/AFM.png)
 
   </details>
 

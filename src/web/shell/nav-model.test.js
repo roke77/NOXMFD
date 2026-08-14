@@ -42,7 +42,7 @@ for (const page of ['avn', 'afm', 'rwr', 'tgp', 'tgt', 'hud', 'keys']) {
   assert.deepStrictEqual(NAV[page], [{ label: 'MAIN', action: 'main' }], `${page} should be just a MAIN back-button`);
 }
 
-// BDF/PAL are folded together (reached from MAIN via SCR — mfd.js BEZEL_EXTRAS.main, action
+// BDF/PAL are folded together (reached from MAIN via MDT — mfd.js BEZEL_EXTRAS.main, action
 // still 'bdf'): each gets MAIN plus a direct switch to the other, with `mark` on whichever is live.
 assert.deepStrictEqual(NAV.bdf, [
   { label: 'MAIN', action: 'main' },

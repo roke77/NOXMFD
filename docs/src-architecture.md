@@ -22,6 +22,14 @@ envelope literals sit almost entirely in the shell + map — no cross-page win t
 > end-state: the **playbook below is kept current**, but the historical sections (baseline,
 > migration plan, section B) are left as written. See [`tgt-page.md`](tgt-page.md) and
 > [`layouts.md`](layouts.md).
+>
+> **Since then (2026-08-15) — AVN split into AVN + AFM.** The "avionics silhouette + FUEL/THROTTLE
+> bars" description of AVN below is the pre-split page. AVN is avionics only now: circular gauges
+> (RPM/FUEL/HEAT/THRL) and a bank of bezel-actuated system toggles — no silhouette, no bars. The
+> airframe silhouette (now a frontal weapon-station view *and* a top-down damage view, stacked
+> vertically under the aircraft name) plus the failure-message callouts moved to a new **AFM** page
+> (`src/web/pages/afm/`), split out rather than folded into an existing one. AFM follows the exact
+> same one-source-of-truth pattern this document describes for every other page.
 
 ## Goal
 
