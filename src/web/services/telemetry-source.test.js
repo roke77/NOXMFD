@@ -17,7 +17,42 @@
 const assert = require('assert');
 
 (async () => {
-  const { TelemetrySource } = await import('./telemetry-source.js');
+  const { TelemetrySource, gridLabel } = await import('./telemetry-source.js');
+
+  // ── gridLabel ───────────────────────────────────────────────────────────────────────
+  // Reproduces the game's own grid label from world coords, and is read in two places (the MAP
+  // page's HUD readout and this module's target derivation), so a slip shows up twice. The label
+  // is what a pilot calls out, which makes silently-wrong output worse than an obvious blank.
+  {
+    const meta = { w: 100000, h: 100000, ox: 50000, oy: 50000 };   // the 100km map the harness mocks
+
+    // Origin sits at (-ox, +oy) in world space, so the map's top-left corner is Aa00.
+    assert.strictEqual(gridLabel(-50000, 50000, meta), 'Aa00', 'top-left corner should be Aa00');
+    // Both axes are major/minor pairs on the same 10km/1km scale: X as two digits, Z as an
+    // uppercase/lowercase letter pair.
+    assert.strictEqual(gridLabel(-40000, 50000, meta), 'Aa10', '+10km east should step the major X digit');
+    assert.strictEqual(gridLabel(-49000, 50000, meta), 'Aa01', '+1km east should step the minor X digit');
+    assert.strictEqual(gridLabel(-50000, 40000, meta), 'Ba00', '10km south should step the UPPERCASE letter');
+    assert.strictEqual(gridLabel(-50000, 49000, meta), 'Ab00', '1km south should step the lowercase letter');
+    assert.strictEqual(gridLabel(-50000, -50000, meta), 'Ka00', '100km south should be ten uppercase steps');
+
+    // No map metadata yet (pre-mission, or a map that never loaded) — a dash, not a crash or 'NaN'.
+    assert.strictEqual(gridLabel(0, 0, null), '—', 'missing meta should read as a dash');
+    assert.strictEqual(gridLabel(0, 0, undefined), '—', 'undefined meta should read as a dash');
+
+    // Off the map's west/south edges the scheme has no label, so it must decline rather than emit
+    // a bogus one from a negative char code.
+    assert.strictEqual(gridLabel(-60000, 50000, meta), '—', 'west of the map should decline');
+    assert.strictEqual(gridLabel(-50000, 60000, meta), '—', 'north of the map should decline');
+
+    // The label range this scheme supports: majZ indexes from 'A', so it stays alphabetic while the
+    // map is under ~260km tall. Pinned so a bigger map fails here rather than rendering '[c87'
+    // in the cockpit — at which point the scheme, not this assertion, is what needs revisiting.
+    const tall = { w: 100000, h: 300000, ox: 50000, oy: 150000 };
+    assert.strictEqual(gridLabel(-50000, 150000 - 259000, tall), 'Zj00', '259km south is still the last alphabetic row');
+    assert.ok(!/^[A-Z]/.test(gridLabel(-50000, 150000 - 260000, tall)),
+      'past 260km the leading letter runs off Z — the scheme needs revisiting if a map gets this tall');
+  }
 
   const src = new TelemetrySource({});
   src._postUp = () => {};                 // no parent window outside a browser
