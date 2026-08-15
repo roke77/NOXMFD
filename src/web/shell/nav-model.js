@@ -20,6 +20,7 @@
   const NAV = {
     map: [
       { label: 'MAIN', action: 'main' },   // → MAIN page
+      { label: 'GRID', action: 'grid' },   // → toggle the coordinate grid overlay (issue #41)
       { label: 'FLW',  action: 'flw'  },   // → toggle map follow
       { label: 'Z+',   action: 'zin'  },   // → map zoom in
       { label: 'Z-',   action: 'zout' },   // → map zoom out

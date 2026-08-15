@@ -12,6 +12,7 @@
 //
 // View → source:  new TelemetrySource({ onFrame, onNoMission, onStatus }).connect()
 //                 .emitFollow(on)        — the view's FLW toggle, mirrored up
+//                 .emitGrid(on)          — the view's GRID toggle, mirrored up
 //                 .rebroadcastStatus()   — answer the shell's status-request
 // Source → view (callbacks):
 //   onFrame(d)          a real telemetry frame arrived — render it
@@ -113,6 +114,10 @@ export class TelemetrySource {
   }
   rebroadcastStatus() { this._postUp({ type: 'status', cls: this._lastStatus.cls, text: this._lastStatus.text }); }
   emitFollow(on) { this._postUp({ type: 'follow', on: !!on }); }
+  // The view's GRID toggle, mirrored up the same way (issue #41) — a view-local display
+  // preference, not derived from the telemetry frame, so unlike 'follow' it has no _emitEmpties
+  // reset: there's nothing wrong with the grid staying on/off across a no-mission gap.
+  emitGrid(on) { this._postUp({ type: 'grid', on: !!on }); }
 
   _postUp(msg) {
     if (window.parent !== window) window.parent.postMessage(Object.assign({ mfd: true }, msg), '*');

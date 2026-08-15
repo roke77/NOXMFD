@@ -17,7 +17,7 @@
   iframe[title=map], /map-view?bare). It is the ONLY EventSource('/stream') in the whole MFD:
   TelemetrySource parses each frame and re-broadcasts the derived per-page slices up to the shell
   via parent.postMessage ({mfd:true, type:'status'|'loadout'|'cm'|'tgp'|'targets'|'rwr'|'mw'|
-  'avn'|'follow'}); the shell caches them and re-forwards to the #page-frame (full) or the split
+  'avn'|'follow'|'grid'}); the shell caches them and re-forwards to the #page-frame (full) or the split
   panes. This page renders ONLY the map: the silhouette + unit icons, the mission-name bar, and
   the GRID chip. (The old standalone header + telemetry sidebar were removed — the dedicated MFD
   pages own that data now, and the shell renders connection status + the FOLLOW indicator.)

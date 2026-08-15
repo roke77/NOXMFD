@@ -152,7 +152,7 @@
   // MAP's own actions → the message the map view listens for. Also not pages: they drive the map
   // in place rather than navigating. Same protocol the bezel uses (mfd.js mapSend), but routed to
   // the portal's OWN map — with several maps on the glass, "the map" is no longer unambiguous.
-  const MAP_ACTIONS = { flw: 'toggle-follow', zin: 'zoom-in', zout: 'zoom-out' };
+  const MAP_ACTIONS = { flw: 'toggle-follow', zin: 'zoom-in', zout: 'zoom-out', grid: 'toggle-grid' };
 
   // ARM/SAFE (docs/radar-master-arms.md) — WPN's own unconditional controls, same shape as
   // MAP_ACTIONS: an action name maps to what it sends, dispatched by command rather than page nav.
@@ -258,6 +258,7 @@
     let wpnNavKey   = '';   // what this grid last drew; guards a per-tick rebuild
     let wpnSelSeen  = null; // last selWeapon this portal followed; guards the page jump below
     let followOn    = false;
+    let gridOn      = false;   // corrected as soon as the map reports its real (persisted) state
 
     // This portal's footprint on the glass: one slot, or two with a memory of which side it ate.
     // f35-glass reads these to decide what the grips offer.
@@ -442,6 +443,13 @@
       const b = grid.querySelector('.nav-item[data-action="flw"]');
       if (b) b.classList.toggle('on', followOn);
     }
+    // GRID's twin (issue #41) — same reasoning: the label is the control, so it carries the state,
+    // reflecting the map's own report rather than assuming the click won.
+    function setGrid(on) { gridOn = on; markGrid(); }
+    function markGrid() {
+      const b = grid.querySelector('.nav-item[data-action="grid"]');
+      if (b) b.classList.toggle('on', gridOn);
+    }
 
     // ARM/SAFE (docs/radar-master-arms.md) reflect masterArmsOn straight off the loadout slice —
     // no local state to track, unlike followOn (which the map reports back independently). Called
@@ -542,6 +550,7 @@
       });
       if (currentPage === 'wpn') { addWeaponHits(); markMasterArms(); markCombatMode(); placeWpnDecorators(); }
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
+      markGrid();     // ...and the state to the new GRID
       // The grid was just rebuilt, so an SOI cursor mark on one of its items is gone — let the shell
       // re-apply it if this is the focused portal (the F-35 twin of mfd.js's post-rebuild renderSoiCursor).
       if (onNavRendered) onNavRendered(api);
@@ -566,6 +575,7 @@
       onSlice: onSlice,
       isMapWin: isMapWin,
       setFollow: setFollow,
+      setGrid: setGrid,
       setGrips: setGrips,
       // For the SOI cursor: the page this portal shows (to tell a navigating SELECT from an
       // in-place one) and its enabled nav labels, in reading order, as the cursor's targets.
@@ -771,6 +781,12 @@
     // the same way and for the same reason.
     if (m.type === 'follow') {
       livePortals().forEach(function (p) { if (p.isMapWin(e.source)) p.setFollow(!!m.on); });
+      return;
+    }
+
+    // 'grid' routes the same way, for the same reason (issue #41).
+    if (m.type === 'grid') {
+      livePortals().forEach(function (p) { if (p.isMapWin(e.source)) p.setGrid(!!m.on); });
       return;
     }
 

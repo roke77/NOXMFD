@@ -25,6 +25,7 @@ function zoomedIn()     { return view.zoom >= ICON_ZOOM_THRESHOLD; }
 function iconBase()     { return zoomedIn() ? ICON_BASE_IN : ICON_BASE_OUT; }
 function fallbackSize() { return zoomedIn() ? FALLBACK_IN  : FALLBACK_OUT; }
 let   followPlayer = false;    // when on (and zoomed in), keep the player icon centred
+let   gridOn       = false;    // coordinate grid overlay (issue #41), default off
 
 // ── PAD cursor (docs/page-cursor.md, docs/map-cursor.md) ──────────────────────────
 // A crosshair standing in for the mouse/touch while this MAP is the HOTAS-driven SOI focus. The
@@ -46,15 +47,17 @@ const CURSOR_HIT_PAD = 16;   // extra reach around an icon — coarser than a mo
 const VIEW_STORE_KEY = 'noxmfd.map.view';
 const DEFAULT_FOLLOW = true;
 const DEFAULT_ZOOM   = 4;     // medium point of the MIN_ZOOM..MAX_ZOOM (1..8) range — tune here
+const DEFAULT_GRID   = false; // coordinate grid overlay (issue #41) — off by default, toggleable
 function loadPersistedView() {
   let saved = null;
   try { saved = JSON.parse(sessionStorage.getItem(VIEW_STORE_KEY) || 'null'); } catch (_) {}
   const z = saved && typeof saved.zoom === 'number' ? saved.zoom : DEFAULT_ZOOM;
   view.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
   followPlayer = saved && typeof saved.follow === 'boolean' ? saved.follow : DEFAULT_FOLLOW;
+  gridOn = saved && typeof saved.grid === 'boolean' ? saved.grid : DEFAULT_GRID;
 }
 function savePersistedView() {
-  try { sessionStorage.setItem(VIEW_STORE_KEY, JSON.stringify({ zoom: view.zoom, follow: followPlayer })); } catch (_) {}
+  try { sessionStorage.setItem(VIEW_STORE_KEY, JSON.stringify({ zoom: view.zoom, follow: followPlayer, grid: gridOn })); } catch (_) {}
 }
 const PLAYER_COLOR = '#39ff14';                     // player stays HUD green
 const TARGET_COLOR = '#ff8000';                     // orange ring on the player's targeted unit(s)
@@ -388,6 +391,73 @@ function drawJamGlyph(cx, cy, r) {
   oc.restore();
 }
 
+// ── Coordinate grid overlay (issue #41) ─────────────────────────────────────────────
+// Redraws the game's own major/minor grid-square scheme — the same math gridLabel() uses to name
+// a point (e.g. "Li36"), run in reverse to find which lines cross the map: minor lines every 1 km,
+// bolder major lines + edge labels (numbers along the top, letters down the left, matching the
+// native in-game map's placement) every 10 km. Toggleable via the GRID key, off by default.
+// Iterated by integer grid-line index rather than accumulating world-unit floats, so "is this a
+// major line" (index % 10 === 0) never drifts off after many additions.
+const GRID_MINOR_UNIT  = 1000;   // world units per minor line (1 km)
+const GRID_LINES_PER_MAJOR = 10; // minor lines between major lines (10 km majors)
+const GRID_MINOR_COLOR = 'rgba(57,255,20,0.10)';
+const GRID_MAJOR_COLOR = 'rgba(57,255,20,0.30)';
+const GRID_LABEL_COLOR = 'rgba(196,255,176,0.75)';
+function drawGrid() {
+  if (!gridOn || !mapMeta || mapMeta.w <= 0 || mapMeta.h <= 0) return;
+  const wMinX = -mapMeta.w / 2, wMaxX = mapMeta.w / 2;
+  const wMinZ = -mapMeta.h / 2, wMaxZ = mapMeta.h / 2;
+  // Grid-space (vx,vz) bounds the map spans — gridLabel's vx = ox+wx, vz = oy-wz — clamped to 0
+  // since gridLabel itself treats negative grid-space as "off the labelled grid".
+  const vMinX = Math.max(0, mapMeta.ox + wMinX), vMaxX = mapMeta.ox + wMaxX;
+  const vMinZ = Math.max(0, mapMeta.oy - wMaxZ), vMaxZ = mapMeta.oy - wMinZ;
+  const iMinX = Math.ceil(vMinX / GRID_MINOR_UNIT), iMaxX = Math.floor(vMaxX / GRID_MINOR_UNIT);
+  const iMinZ = Math.ceil(vMinZ / GRID_MINOR_UNIT), iMaxZ = Math.floor(vMaxZ / GRID_MINOR_UNIT);
+
+  oc.save();
+  oc.lineWidth = 1;
+  // Vertical lines (constant world X).
+  for (let i = iMinX; i <= iMaxX; i++) {
+    const wx = i * GRID_MINOR_UNIT - mapMeta.ox;
+    const top = worldToOverlay(wx, wMaxZ), bot = worldToOverlay(wx, wMinZ);
+    if (!top || !bot) continue;
+    oc.strokeStyle = (i % GRID_LINES_PER_MAJOR === 0) ? GRID_MAJOR_COLOR : GRID_MINOR_COLOR;
+    oc.beginPath(); oc.moveTo(top.cx, top.cy); oc.lineTo(bot.cx, bot.cy); oc.stroke();
+  }
+  // Horizontal lines (constant world Z).
+  for (let i = iMinZ; i <= iMaxZ; i++) {
+    const wz = mapMeta.oy - i * GRID_MINOR_UNIT;
+    const left = worldToOverlay(wMinX, wz), right = worldToOverlay(wMaxX, wz);
+    if (!left || !right) continue;
+    oc.strokeStyle = (i % GRID_LINES_PER_MAJOR === 0) ? GRID_MAJOR_COLOR : GRID_MINOR_COLOR;
+    oc.beginPath(); oc.moveTo(left.cx, left.cy); oc.lineTo(right.cx, right.cy); oc.stroke();
+  }
+
+  // Major-line labels — the same digits/letter gridLabel() would emit for a point on that line.
+  // Pinned to the CANVAS edge (not r.dx/r.dy, imgRect()'s zoom=1 letterbox offset): that offset
+  // only matches the map's actual rendered edge at zoom=1/pan=0, so anchoring labels to it made
+  // them drift inward off the true panel edge at any other zoom/pan — worst at the default zoom
+  // (4x) and most visible in a split pane, where letterboxing differs more from full view's.
+  // Pinning to the canvas edge keeps them glued to the pane's true top/left regardless.
+  oc.fillStyle = GRID_LABEL_COLOR;
+  oc.font = '22px "Courier New", monospace';
+  oc.textBaseline = 'top';
+  for (let i = iMinX - (iMinX % GRID_LINES_PER_MAJOR); i <= iMaxX; i += GRID_LINES_PER_MAJOR) {
+    if (i < iMinX) continue;
+    const p = worldToOverlay(i * GRID_MINOR_UNIT - mapMeta.ox, wMaxZ);
+    if (p) oc.fillText(String(i / GRID_LINES_PER_MAJOR), p.cx + 2, 4);
+  }
+  // 'top' baseline + a few px below the line itself (not 'middle' centred ON it) — a letter
+  // straddling its own gridline reads ambiguously as to which row it's naming.
+  oc.textBaseline = 'top';
+  for (let i = iMinZ - (iMinZ % GRID_LINES_PER_MAJOR); i <= iMaxZ; i += GRID_LINES_PER_MAJOR) {
+    if (i < iMinZ) continue;
+    const p = worldToOverlay(wMinX, mapMeta.oy - i * GRID_MINOR_UNIT);
+    if (p) oc.fillText(String.fromCharCode(65 + i / GRID_LINES_PER_MAJOR), 4, p.cy + 2);
+  }
+  oc.restore();
+}
+
 // ── Drawing ──────────────────────────────────────────────────────────────────────
 function drawOverlay() {
   oc.clearRect(0, 0, overlay.width, overlay.height);
@@ -416,6 +486,9 @@ function drawOverlay() {
     oc.drawImage(mapImg, tl.x, tl.y, r.dw * view.zoom, r.dh * view.zoom);
     oc.restore();
   }
+
+  // Coordinate grid under the icons, same layer as the RWR spokes.
+  drawGrid();
 
   // Radar-warning spokes under the icons (icons stay readable on top).
   drawRwrLines();
@@ -544,6 +617,7 @@ function renderFrame(d) {
       // the persisted FLW + ZOOM here, and setFollow reports it up so the shell paints the chip.
       loadPersistedView();
       setFollow(followPlayer);
+      setGrid(gridOn);
     }
   }
 
@@ -619,6 +693,14 @@ function setFollow(on) {
 window.addEventListener('keydown', function(e) {
   if ((e.key === 'f' || e.key === 'F') && mapMeta) setFollow(!followPlayer);
 });
+
+// Toggle the coordinate grid overlay (the MFD's GRID key). Twin of setFollow above (issue #41).
+function setGrid(on) {
+  gridOn = on;
+  savePersistedView();
+  drawOverlay();
+  source.emitGrid(on);   // mirror the grid state up to the shell, which lights the GRID label
+}
 
 // ── Map gestures (mouse + touch) ──────────────────────────────────────────────────
 // One pointer set drives pan, pinch-zoom, and tap-select so single-finger and two-finger
@@ -825,6 +907,7 @@ window.addEventListener('message', function(e) {
   if (!m || m.mfd !== true) return;
   switch (m.action) {
     case 'toggle-follow': if (mapMeta) setFollow(!followPlayer); break;
+    case 'toggle-grid':   setGrid(!gridOn); break;
     case 'zoom-in':       zoomStep(1.5);   break;
     case 'zoom-out':      zoomStep(1 / 1.5); break;
     case 'status-request': source.rebroadcastStatus(); break;   // shell asked for the current status
@@ -845,9 +928,10 @@ function syncSizeWhenReady() {
   resizeOverlay();
   if (document.getElementById('map-panel').clientWidth === 0) requestAnimationFrame(syncSizeWhenReady);
 }
-loadPersistedView();       // adopt the persisted FLW + ZOOM (or the defaults) before the first paint
+loadPersistedView();       // adopt the persisted FLW + ZOOM + GRID (or the defaults) before the first paint
 syncSizeWhenReady();
 setFollow(followPlayer);    // report the restored follow up to the shell (paints the FOLLOW chip)
+setGrid(gridOn);            // report the restored grid state up to the shell (paints the GRID label)
 source.connect();   // open /stream now that the renderer + interaction handlers are wired
 
 // Keep the canvas sized to its panel. A ResizeObserver — not just window 'resize' — is essential:

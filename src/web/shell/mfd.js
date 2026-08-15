@@ -265,10 +265,11 @@ let lastStatusText = '● DISCONNECTED';
 const SPLIT_SLOTS = {
   // MAP pane is the bare map iframe (/map-view?bare) — it self-connects to the SSE stream, so the
   // shell forwards no data, only routes these controls to the pane's own map. Left column = nav
-  // (MAIN back) + follow; right column = the zoom rocker.
+  // (MAIN back) + grid + follow; right column = the zoom rocker.
   map: [
     { side: 'left',  slot: 0 },   // MAIN — back to MAIN (this pane)
-    { side: 'left',  slot: 1 },   // FLW  — toggle follow on this pane's map
+    { side: 'left',  slot: 1 },   // GRID — toggle the coordinate grid overlay (issue #41)
+    { side: 'left',  slot: 2 },   // FLW  — toggle follow on this pane's map
     { side: 'right', slot: 0 },   // Z+
     { side: 'right', slot: 1 },   // Z-
   ],
@@ -367,6 +368,7 @@ function applySplitMode() {
   overlayEl.classList.remove('vmain');
   if (splitMode) {
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
+    paneGridOn = [false, false];     // fresh panes; grid guessed off (its default), re-reported on load
     paneIframes[0].src = paneUrl(panePages[0]);
     paneIframes[1].src = paneUrl(panePages[1]);
     renderSplitLabels();
@@ -574,6 +576,7 @@ function renderSplitLabels() {
                              // refreshFollowIndicator, so the chip needs its own call here too.
   renderSoiCursor();         // same reason: the labels this just rebuilt carry the cursor mark
   markFollowLabels();        // ...and the FLW label carries the follow state
+  markGridLabels();          // ...and the GRID label carries the grid-overlay state
   syncCursorFocus();         // a pane may have paged onto/off MAP under the focused surface
 }
 
@@ -1225,6 +1228,11 @@ let pinnedPage    = null;
 // and one per pane in a split, since each MAP pane follows independently. Both drive the FLW label.
 let followOn      = false;
 let paneFollowOn  = [false, false];
+// Grid overlay state, mirrored the same way (issue #41) — one for the full-view map, one per pane.
+// Default false (fresh-pane guess before the pane reports its own persisted state on load) since
+// the grid defaults off.
+let gridOn        = false;
+let paneGridOn    = [false, false];
 let indicatorOrder = [];   // ['pinned'] — kept a list, since the stack is built to hold more
 // Last non-pinned page we left to jump to pinnedPage via SWAP. Lets the second SWAP
 // press return there. Cleared whenever the pin itself changes (re-pin or unpin) since
@@ -1274,6 +1282,17 @@ function markFollowLabels() {
     });
   });
 }
+// GRID's twin of markFollowLabels — same "light the label, not a corner chip" reasoning (issue #41).
+function markGridLabels() {
+  ['left', 'right'].forEach(function(side) {
+    (keyBanks[side] || []).forEach(function(k) {
+      if (k.dataset.action !== 'grid') return;
+      const on = splitMode ? !!paneGridOn[k.dataset.pane === 'bot' ? 1 : 0] : gridOn;
+      const el = overlayEl.querySelector('.overlay-item[data-key="' + k.dataset.pos + '"]');
+      if (el) el.classList.toggle('on', on);
+    });
+  });
+}
 // Paint a "PAGE x/y" chip in the bottom-right of each pane showing MAIN with more than one page
 // (mainPageSizes) — the split twin of WPN's #page-ind, but drawn on the shared overlay rather than
 // inside the /main iframe: MAIN's pagination is bezel/shell state, not anything the page itself
@@ -1291,6 +1310,7 @@ function renderPaneMainPageInd() {
 // mode change — the name is kept because those call sites all mean "follow may have changed".
 function refreshFollowIndicator() {
   markFollowLabels();
+  markGridLabels();
   renderIndicators();
   renderPaneMainPageInd();
 }
@@ -1668,6 +1688,15 @@ window.addEventListener('message', function(e) {
     else if (e.source === paneIframes[1].contentWindow) paneFollowOn[1] = on;
     else return;
     refreshFollowIndicator();
+  } else if (m.type === 'grid') {
+    // Map iframe broadcasts its grid-overlay state on toggle / mission clear, same protocol as
+    // 'follow' above (issue #41) — routed by source, one state per map context.
+    const on = !!m.on;
+    if      (e.source === mapFrame.contentWindow)       gridOn = on;
+    else if (e.source === paneIframes[0].contentWindow) paneGridOn[0] = on;
+    else if (e.source === paneIframes[1].contentWindow) paneGridOn[1] = on;
+    else return;
+    refreshFollowIndicator();
   } else if (m.type === 'targets') {
     // Mirror the selected-target list; the TGT page renders it under its filters.
     targetsData = { targets: Array.isArray(m.items) ? m.items : [] };
@@ -2025,9 +2054,9 @@ function mfdButton(el) {
       splitMode = false;
       currentPage = 'lyt';
       applySplitMode();
-    } else if (act === 'flw' || act === 'zin' || act === 'zout') {
+    } else if (act === 'flw' || act === 'zin' || act === 'zout' || act === 'grid') {
       // MAP controls act on the pane's own map iframe — they don't navigate it away.
-      paneMapSend(paneIdx, act === 'flw' ? 'toggle-follow' : act === 'zin' ? 'zoom-in' : 'zoom-out');
+      paneMapSend(paneIdx, act === 'flw' ? 'toggle-follow' : act === 'zin' ? 'zoom-in' : act === 'zout' ? 'zoom-out' : 'toggle-grid');
     } else if (act === 'weapon.select') {
       // A weapon row: selection is aircraft-global, not a destination page — same case as the
       // full-view/shared switch below. It carries a data-pane tag only so the SOI cursor (soiKeys())
@@ -2089,6 +2118,7 @@ function mfdButton(el) {
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;
+    case 'grid': mapSend('toggle-grid'); break;
     case 'hide-shell':
       // Collapse the whole shell (frame + strips + side keys) so the screen fills the
       // viewport — for fitting behind a physical MFD frame. Restore button brings it back.
