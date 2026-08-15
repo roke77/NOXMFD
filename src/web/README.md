@@ -15,7 +15,9 @@ src/web/
   services/ telemetry-source.js  send-command.js          # active shared code (the providers)
             pad-cursor.js                                 # the shared PAD crosshair (docs/page-cursor.md)
   shell/    nav-model.js                                  # NAV registry — the layout seam, BOTH shells load it
+            layout-pages.js                               # where each layout mounts each NAV destination
             layout-sticky.test.js                         # the classic⇄f35 redirect handoff — belongs to neither
+            layout-coverage.test.js                       # every NAV destination reachable in BOTH layouts
             classic/       mfd.html  mfd.css  mfd.js       # the classic bezel shell (host + router)
                            split-keymap.js                 # bezel key-slot logic (split panes)
                            classic-paging.js               # pure split-pane pagination + list-page key layout

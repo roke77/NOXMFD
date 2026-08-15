@@ -266,25 +266,10 @@ const SPLIT_SLOTS = {
   wpn: [],
 };
 
-// URL for each iframe-served page. Pages without an entry render 'about:blank' on
-// navigation — a no-op signal rather than a crash.
-const PAGE_URL = {
-  main: '/main?bare',
-  map:  '/map-view?bare',
-  avn:  '/avn?bare',
-  afm:  '/afm?bare',
-  tgp:  '/tgp?bare',
-  wpn:  '/wpn?bare',
-  rwr:  '/rwr?bare',
-  rdr:  '/rdr?bare',
-  tgt:  '/tgt?bare',
-  bdf:  '/bdf?bare',
-  pal:  '/bdf?bare&pal',
-  mis:  '/mis?bare',
-  obj:  '/obj?bare',
-  hud:  '/hud?bare',
-  keys: '/keybinds?bare',
-};
+// URL for each iframe-served page — this layout's half of layout-pages.js, which keeps it beside
+// the F-35's table so the two can't quietly diverge. Pages without an entry render 'about:blank'
+// on navigation (paneUrl), a no-op signal rather than a crash.
+const PAGE_URL = LayoutPages.CLASSIC;
 function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 
 // Map a pane's pane-local (side, slot) label position to the physical bezel key {bank, index}

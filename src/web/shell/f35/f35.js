@@ -25,14 +25,10 @@
 
   const ROWS = 6;   // 'edge' mode only — must match grid-template-rows in f35.css
 
-  // A MAP portal mounts its own map. The tap is a data source only and is never shown — see
-  // #map-tap in f35.css, and "the glass" below for why no portal can ever borrow it. (The tap keeps
-  // its own src in f35.html and needs no ?nochrome: nothing about it is ever looked at.)
-  //
-  // No ?nochrome here: the master strip no longer carries the mission name/grid (removed to give
-  // the THRL/FUEL gauges more room), so a MAP portal draws its own mission bar + GRID chip again,
-  // same as the bezel's MAP.
-  const MAP_URL = '/map-view?bare';
+  // A MAP portal mounts its own map (its URL lives in layout-pages.js with the rest). The tap is a
+  // data source only and is never shown — see #map-tap in f35.css, and "the glass" below for why no
+  // portal can ever borrow it. (The tap keeps its own src in f35.html and needs no ?nochrome:
+  // nothing about it is ever looked at.)
 
   // Screens this layout can show, and the page each mounts. Every NAV action has an entry, so
   // nothing renders dimmed except this layout's own placeholders (MAIN_EXTRAS).
@@ -61,23 +57,10 @@
   // Hiding it would have left this layout with no way to flip gear/radar/etc. Plain `/avn` (like
   // every other page here) accepts a little duplication of FUEL/THRL with the strip in exchange for
   // keeping AVN's own content — and its only toggle controls — intact.
-  const F35_PAGES = {
-    main: null,
-    map: MAP_URL,
-    avn: '/avn',
-    afm: '/afm',   // airframe page (docs/src-architecture.md addendum) — reuses the avn feed, see PAGE_FEEDS
-    rwr: '/rwr',
-    tgt: '/tgt',
-    tgp: '/tgp',
-    wpn: '/wpn',
-    bdf: '/bdf',
-    pal: '/bdf?pal',   // same page, PRIMEVA (docs/bdf-page.md) — a URL flag, not a separate page
-    mis: '/mis',   // mission-info page (docs/mdt-pages.md)
-    obj: '/obj',   // active-objectives page (docs/mdt-pages.md)
-    hud: '/hud',   // the HUD OPTIONS page — fetches /hud-options and POSTs its own hud.* commands
-    keys: '/keybinds',   // extended-keybinds page — polls /keybinds-config and POSTs keybind.* itself
-    rdr: '/rdr',   // radar page (docs/rdr-page.md) — mirrors the bezel's FRAME_PAGES.rdr
-  };
+  // This layout's half of layout-pages.js, which keeps it beside the bezel's table so the two can't
+  // quietly diverge — every NAV destination needs an entry in both, or the button is dead here and
+  // works there. MAIN maps to no page and `null` is meaningful, so membership is tested with `in`.
+  const F35_PAGES = LayoutPages.F35;
 
   // The telemetry each screen needs, by the tap's own type names. A page that just mounted has
   // missed whatever already arrived, and slices land while other screens are up — so the shell
