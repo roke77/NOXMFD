@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <title>NO XMFD</title>
-<!-- ?nochrome — the host already shows the mission name and the ownship grid, so don't draw them
-     over the map as well; it keeps the map itself. The F-35 sets it (its master strip carries both,
-     from the 'mapinfo' slice this page's own TelemetrySource emits); the bezel doesn't, and renders
-     exactly as before. Read inline, before the body, so nothing flashes up and then leaves — see
-     the matching note in avn.html. -->
+<!-- ?nochrome — the host already shows the ownship grid, so don't draw it over the map as well;
+     it keeps the map itself. The F-35 sets it (its master strip carries it, from the 'mapinfo'
+     slice this page's own TelemetrySource emits); the bezel doesn't, and renders exactly as
+     before. Read inline, before the body, so nothing flashes up and then leaves — see the
+     matching note in avn.html. -->
 <script>
   if (new URLSearchParams(location.search).has('nochrome')) document.documentElement.classList.add('nochrome');
 </script>
@@ -18,9 +18,9 @@
   TelemetrySource parses each frame and re-broadcasts the derived per-page slices up to the shell
   via parent.postMessage ({mfd:true, type:'status'|'loadout'|'cm'|'tgp'|'targets'|'rwr'|'mw'|
   'avn'|'follow'|'grid'}); the shell caches them and re-forwards to the #page-frame (full) or the split
-  panes. This page renders ONLY the map: the silhouette + unit icons, the mission-name bar, and
-  the GRID chip. (The old standalone header + telemetry sidebar were removed — the dedicated MFD
-  pages own that data now, and the shell renders connection status + the FOLLOW indicator.)
+  panes. This page renders ONLY the map: the silhouette + unit icons and the GRID chip. (The old
+  standalone header + telemetry sidebar were removed — the dedicated MFD pages own that data now,
+  and the shell renders connection status + the FOLLOW indicator.)
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -44,9 +44,6 @@
          every icon + every RWR line) per frame. Same SVG the mouse pointer uses — see
          --map-crosshair. -->
     <div id="soi-cursor" class="pad-cursor"></div>
-    <div id="mission-bar" class="empty">
-      <div class="mission-name" id="mission-name">—</div>
-    </div>
     <div id="grid-bar" class="mfd-chip empty">GRID: &mdash;</div>
     <div id="unit-label"></div>
   </div>

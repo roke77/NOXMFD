@@ -654,26 +654,17 @@ function clearViewState() {
   document.getElementById('map-panel').classList.remove('has-map');
   mapImg.src = '/map?t=' + Date.now();   // 404 now → falls back to the placeholder
 
-  document.getElementById('mission-bar').className = 'empty';
   document.getElementById('grid-bar').className = 'mfd-chip empty';
 }
 
 // ── HUD ──────────────────────────────────────────────────────────────────────────
-// MAP's own on-map chrome: the mission-name bar (top-left) and the GRID chip (bottom-right).
-// Every other telemetry slice (status / loadout / cm / tgp / targets / rwr / mw / avn) is derived
-// and broadcast to the shell by TelemetrySource._emit — the dedicated MFD pages render those.
-// This pair is the exception both ways: it is drawn here from the raw frame, AND emitted (as
-// 'mapinfo') for shell chrome that shows no map — the F-35's master strip. The two derive the
-// same values independently; neither reads the other.
+// MAP's own on-map chrome: the GRID chip (bottom-right — the current grid square). Every other
+// telemetry slice (status / loadout / cm / tgp / targets / rwr / mw / avn) is derived and
+// broadcast to the shell by TelemetrySource._emit — the dedicated MFD pages render those. This one
+// is the exception both ways: it is drawn here from the raw frame, AND emitted (as part of
+// 'mapinfo') for shell chrome that shows no map — the F-35's master strip. The two derive the same
+// value independently; neither reads the other.
 function updateHUD(d) {
-  const bar = document.getElementById('mission-bar');
-  if (d.mission) {
-    bar.className = '';
-    document.getElementById('mission-name').textContent = d.mission;
-  } else {
-    bar.className = 'empty';
-  }
-
   const gridText = gridLabel(d.world.x, d.world.z, mapMeta);
   gridBar.textContent = 'GRID: ' + gridText;
   gridBar.className = 'mfd-chip';

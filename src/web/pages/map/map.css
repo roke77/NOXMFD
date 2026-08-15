@@ -42,19 +42,7 @@ main { flex: 1; display: flex; overflow: hidden; }
 }
 #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
 
-#mission-bar {
-  position: absolute;
-  top: 10px; left: 12px;
-  background: var(--no-panel-bg);
-  border: 1px solid var(--no-panel-border);
-  padding: 6px 11px;
-  line-height: 1.5;
-  pointer-events: none;
-}
-#mission-bar .mission-name { font-size: 11px; color: var(--no-green-dim); }
-#mission-bar.empty { display: none; }
-
-/* Top-right twin of the mission bar — current grid square (e.g. "GRID: Kg48"). */
+/* Current grid square (e.g. "GRID: Kg48"), top-right of the map. */
 #grid-bar {
   position: absolute;
   top: 10px; right: 12px;
@@ -79,13 +67,11 @@ main { flex: 1; display: flex; overflow: hidden; }
 
 
 /* ── ?nochrome ─────────────────────────────────────────────────────────────────────────
-   The host already shows the mission name and the ownship grid, so the page stops drawing them over
-   the map and keeps only the map. The F-35 sets it — its master strip carries both, off the
-   'mapinfo' slice this page's own TelemetrySource emits (docs/layouts.md). The bezel never does.
-   The class lands on <html> from the inline read in map.html, before first paint.
+   The host already shows the ownship grid, so the page stops drawing it over the map and keeps
+   only the map. The F-35 sets it — its master strip carries it, off the 'mapinfo' slice this
+   page's own TelemetrySource emits (docs/layouts.md). The bezel never does. The class lands on
+   <html> from the inline read in map.html, before first paint.
 
-   Qualified with html so this outranks the runtime state classes rather than tying: updateHUD
-   rewrites className on both of these every frame ('' / 'empty' / 'mfd-chip'), and #mission-bar.empty
-   already matches at the same weight a bare .nochrome #mission-bar would. */
-html.nochrome #mission-bar,
+   Qualified with html so this outranks the runtime state class rather than tying: updateHUD
+   rewrites #grid-bar's className every frame ('mfd-chip' / 'mfd-chip empty'). */
 html.nochrome #grid-bar { display: none; }
