@@ -1733,12 +1733,38 @@ namespace NOXMFD
             CursorX, CursorY, CursorSelSeq, EscapeJson(MapAct), MapActSeq,
             Volatile.Read(ref _cursorSelHeld) ? "true" : "false");
 
-        // Every prior caller was a single-line label (names, faction, weapon names, ...), so only
-        // backslash/quote ever needed escaping. MIS's mission description is the first multi-paragraph
-        // field (docs/mdt-pages.md) — a literal newline inside a JSON string is illegal and breaks
-        // JSON.parse ("Unterminated string"), so control characters need escaping too.
-        private static string EscapeJson(string s) =>
-            s.Replace("\\", "\\\\").Replace("\"", "\\\"")
-             .Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t");
+        // Escapes every character the JSON spec forbids raw inside a string literal — not just the
+        // ones a prior caller happened to hit. Earlier versions only handled \, ", \n, \r, \t (added
+        // for MIS's mission description); that missed the rest of the C0 control range (0x00-0x1F,
+        // e.g. \b, \f, a stray control char in a unit/weapon name from the game's own data), which
+        // JSON.parse rejects as "Bad control character in string literal" — the same failure mode
+        // as the untranslated-decimal-point bug, just a different source field each time. Escaping
+        // the whole class here means no future caller needs to remember this. Lazily allocates only
+        // when a string actually needs escaping (every prior caller was escape-free, hot path stays
+        // allocation-free).
+        private static string EscapeJson(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return s ?? string.Empty;
+            StringBuilder? sb = null;
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                string? esc = c switch
+                {
+                    '\\' => "\\\\",
+                    '"'  => "\\\"",
+                    '\n' => "\\n",
+                    '\r' => "\\r",
+                    '\t' => "\\t",
+                    '\b' => "\\b",
+                    '\f' => "\\f",
+                    _ => c < 0x20 ? "\\u" + ((int)c).ToString("x4", CultureInfo.InvariantCulture) : null
+                };
+                if (esc == null) { sb?.Append(c); continue; }
+                if (sb == null) { sb = new StringBuilder(s.Length + 8); sb.Append(s, 0, i); }
+                sb.Append(esc);
+            }
+            return sb?.ToString() ?? s;
+        }
     }
 }
