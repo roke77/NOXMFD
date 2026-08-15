@@ -131,6 +131,11 @@ namespace NOXMFD
         // so no event hook needed. Reused buffer to keep the 10 Hz push allocation-light.
         private readonly List<MwContact> _mwBuf = new List<MwContact>(8);
 
+        // Player's own in-flight AA missiles that have gone pitbull (RDR page, issue #40). Filtered
+        // out of the same _units scan BuildRdr/ScanWorld already do — Missile IS a Unit subclass, so
+        // no extra enumeration source is needed. Reused buffer, same reasoning as _mwBuf.
+        private readonly List<PitbullContact> _pitbullBuf = new List<PitbullContact>(4);
+
         private void Update()
         {
             float dt = Time.deltaTime;
@@ -797,6 +802,7 @@ namespace NOXMFD
                 RadarRange     = radarRange,
                 RadarConeDeg   = radarConeDeg,
                 Rdr            = rdr,
+                Pitbull        = BuildPitbull(aircraft),
                 RdrMetric      = rdrMetric,
                 RdrLevelTime   = rdrLevelTime,
                 TgtPresent     = tgtOk,
@@ -1121,6 +1127,37 @@ namespace NOXMFD
             }
 
             return _rdrBuf.Count == 0 ? Array.Empty<RdrContact>() : _rdrBuf.ToArray();
+        }
+
+        // Player's own AA missiles that have gone pitbull (RDR page, issue #40): active-radar (ARH)
+        // seeker, currently locked (SeekerMode.activeLock), launched by this aircraft. Missile is a
+        // Unit subclass, so it's already in the _units scan — no separate enumeration needed.
+        // "AA" reuses WeaponSelectors' maintained air-to-air missile list rather than re-deriving it.
+        private PitbullContact[] BuildPitbull(Aircraft player)
+        {
+            _pitbullBuf.Clear();
+            uint playerId = player.persistentID.Id;
+            foreach (Unit u in _units)
+            {
+                if (!(u is Missile m) || m.disabled) continue;
+                if (m.ownerID.Id != playerId) continue;
+                if (m.seekerMode != Missile.SeekerMode.activeLock) continue;
+                if (m.GetSeekerType() != "ARH") continue;
+                WeaponInfo info = m.GetWeaponInfo();
+                if (info == null || !WeaponSelectors.IsAirToAir(info)) continue;
+
+                GlobalPosition gp = m.GlobalPosition();
+                _pitbullBuf.Add(new PitbullContact
+                {
+                    Id       = m.persistentID.Id,
+                    X        = gp.x,
+                    Z        = gp.z,
+                    Alt      = gp.y,
+                    Heading  = m.transform.eulerAngles.y,
+                    TargetId = m.targetID.Id
+                });
+            }
+            return _pitbullBuf.Count == 0 ? Array.Empty<PitbullContact>() : _pitbullBuf.ToArray();
         }
 
         // Radar's antenna cone half-angle in degrees (private SerializeField). <= 0 means the radar

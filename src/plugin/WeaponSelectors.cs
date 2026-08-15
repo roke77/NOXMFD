@@ -70,7 +70,7 @@ namespace NOXMFD
         {
             "AAM-29 Scythe", "AAM-36 Scimitar", "IRM-S2", "MMR-S3", "IRM-S1",
         };
-        private static bool IsAirToAir(WeaponInfo i) => AirToAirMissiles.Contains(EntryName(i));
+        internal static bool IsAirToAir(WeaponInfo i) => AirToAirMissiles.Contains(EntryName(i));
 
         internal static string EntryName(WeaponInfo info) =>
             !string.IsNullOrEmpty(info.weaponName) ? info.weaponName : info.shortName;

@@ -92,9 +92,10 @@ below the fold unreachable, reuse the **Zoom In / Zoom Out** binds. These alread
 `mapSend`/`paneMapSend` forwarding) purely as "an extra discrete action bound to the focused
 surface" — MAP happens to interpret them as zoom, but nothing about the transport is zoom-specific.
 On TGT (whose `.tgt-list-rows` is the one internally-scrolling region — `docs/page-cursor.md`'s
-earlier open question), the same two binds scroll that list up/down by a step instead. HUD has no
-internally-scrolling region today, so they're simply inert there, same as Follow already is on a
-non-MAP page.
+earlier open question), the same two binds scroll that list up/down by a step instead. RDR
+repurposes them again — steps its selectable display range up/down (issue #40 follow-up,
+`docs/rdr-page.md`), matching its own R+/R- bezel nav items. HUD has no internally-scrolling
+region today, so they're simply inert there, same as Follow already is on a non-MAP page.
 
 - **Shell side**: the existing `mapAct`/`mapActSeq` forwarding in `mfd.js` (`m.type === 'map-act'`)
   widens the same way `focusedMapWindow()` widens — forward to whichever cursor-eligible page is
@@ -117,7 +118,8 @@ non-MAP page.
    (`--map-crosshair`, `.pad-cursor`) moved from `map.css` into `shared/theme.css` so TGT/HUD reuse
    it without duplicating the base64 SVG.
 2. **`mfd.js` forwarding — built.** `focusedMapWindow()` → `focusedCursorWindow()`, widened to a
-   `PAD_CURSOR_PAGES = {map, tgt, hud}` set; branches on full-view MAP using its dedicated
+   `PAD_CURSOR_PAGES` set — `{map, tgt, hud}` originally, `rdr` joined later (issue #40) when RDR
+   got its own PAD cursor; branches on full-view MAP using its dedicated
    `mapFrame` vs. TGT/HUD using the shared `#page-frame`. The `cursor`/`cursor-select`/`map-act`
    message handlers, and both reload-resend fixups (the split-pane one that already existed, plus a
    new one for full-view `#page-frame`, which reloads on every TGT/HUD navigation the way a split

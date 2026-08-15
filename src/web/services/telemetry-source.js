@@ -305,6 +305,23 @@ export class TelemetrySource {
                         tg: c.tg || 0, radar: !!c.rd, dl: !!c.dl, n: c.n || '' });
       }
     }
+    // Pitbull missiles (issue #40): the player's own AA missiles whose active-radar seeker has
+    // locked. Same az/rng B-scope projection as the ordinary contacts above — independent of
+    // rb.present (it's the missile's own radar, not the aircraft's), so this runs off d.rdr.pb
+    // directly rather than being gated by rb.present.
+    let pbItems = [];
+    if (rb && Array.isArray(rb.pb) && d.world) {
+      const hdg = d.hdg || 0;
+      for (const m of rb.pb) {
+        const dx = m.x - d.world.x;
+        const dz = m.z - d.world.z;
+        let az = Math.atan2(dx, dz) * 180 / Math.PI - hdg;
+        az = ((az + 540) % 360) - 180;
+        const rhdg = ((((m.hdg || 0) - hdg) % 360) + 360) % 360;
+        pbItems.push({ id: m.id, az: az, rng: Math.hypot(dx, dz), alt: m.alt || 0, rhdg: rhdg,
+                       tid: m.tid || 0 });
+      }
+    }
     this._postUp({
       type: 'rdr',
       present: !!(rb && rb.present),
@@ -318,7 +335,8 @@ export class TelemetrySource {
       // phase-lock its caret to the native sweep (docs/rdr-page.md).
       levelTime: rb ? (rb.lvlt || 0) : 0,
       hdg: d.hdg || 0,
-      items: rdrItems
+      items: rdrItems,
+      pb: pbItems
     });
 
     // Aircraft name + per-part HP (the AVN damage silhouette; assets fetched on demand by the page).

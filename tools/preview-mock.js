@@ -345,7 +345,15 @@
         return { id: 9001 + i,
                  x: Math.round(ow.x + Math.sin(ab) * rng), z: Math.round(ow.z + Math.cos(ab) * rng),
                  alt: c.alt, hdg: ((c.rh + hdg) % 360 + 360) % 360, tg: c.tg, rd: c.rd, dl: c.dl, n: c.n };
-      })
+      }),
+      // Synthetic pitbull missile (issue #40) pursuing SYNTH_RDR's first entry (id 9001, "FS-20
+      // Vortex") — exercises the blue triangle + dashed target line.
+      pb: (() => {
+        const ab = (0 + hdg) * Math.PI / 180, rng = 0.15 * range;
+        return [{ id: 9101,
+                  x: Math.round(ow.x + Math.sin(ab) * rng), z: Math.round(ow.z + Math.cos(ab) * rng),
+                  alt: 5800, hdg: ((0 + hdg) % 360 + 360) % 360, tid: 9001 }];
+      })()
     };
   }
 

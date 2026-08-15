@@ -281,7 +281,10 @@ const SPLIT_SLOTS = {
   afm: [ { side: 'left', slot: 0 } ],
   tgp: [ { side: 'left', slot: 0 } ],
   rwr: [ { side: 'left', slot: 0 } ],
-  rdr: [ { side: 'left', slot: 0 } ],
+  // RDR gets MAIN plus the range rocker (R+/R-, issue #40 follow-up) all on the left column, right
+  // after MAIN — unlike MAP's zoom rocker, which splits onto the right column (MAP has more items
+  // filling the left column already; RDR doesn't).
+  rdr: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 } ],
   tgt: [ { side: 'left', slot: 0 } ],
   // BDF/PAL/MIS/OBJ instead get 5: MAIN, then the other three as a direct switch (NAV.bdf/NAV.pal/
   // NAV.mis/NAV.obj), index-aligned with this list. Left holds MAIN+BDF+PAL (its full 0..2 budget);
@@ -449,7 +452,9 @@ function placeSplitKey(m, label, action, paneTag, mark) {
 // KEY's FUNCTION/KEYBOARD/JOYSTICK table header, and RDR's RWS mode/range readout are that content
 // — on a narrow display the panel widens to the edge and a horizontal MAIN would sit over that
 // header. All are split-capable.
-function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'keys' || p === 'rdr'; }
+// RDR dropped out of this list (issue #40 follow-up): it used to carry only MAIN, cramped enough to
+// need the narrow vertical treatment, but now has MAIN + R+ + R- and reads fine horizontal.
+function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'keys'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
@@ -579,6 +584,9 @@ function renderSplitLabels() {
       // ZOOM decorator between Z+/Z- (issue #41) — MAP's twin of WPN's MASTER/MODE. Z+ is
       // NAV.map[3]/SPLIT_SLOTS.map[3]; paneKey resolves its physical key for this pane/orientation.
       if (page === 'map') placeMapDecorators(paneKey(paneIdx, slots[3].side, slots[3].slot));
+      // RANGE decorator between R+/R- (issue #40 follow-up) — RDR's twin. R+ is NAV.rdr[1]/
+      // SPLIT_SLOTS.rdr[1]; paneKey resolves its physical key for this pane/orientation.
+      if (page === 'rdr') placeRdrDecorators(paneKey(paneIdx, slots[1].side, slots[1].slot));
     }
   }
   renderPaneMainPageInd();   // main-prev/next (mfdButton) calls renderSplitLabels directly, not
@@ -816,7 +824,8 @@ function forwardRdrToFrame() {
 function rdrMsg() {
   return { mfd: true, type: 'rdr', present: rdrData.present, range: rdrData.range,
            cone: rdrData.cone, metric: rdrData.metric, radarOn: rdrData.radarOn,
-           levelTime: rdrData.levelTime, hdg: rdrData.hdg, items: rdrData.items || [] };
+           levelTime: rdrData.levelTime, hdg: rdrData.hdg, items: rdrData.items || [],
+           pb: rdrData.pb || [] };
 }
 function forwardMwToFrame() {
   const w = frameWin(); if (!w) return;
@@ -1173,6 +1182,12 @@ function placeWpnPaneDecorator(L, slots, idA, idB, word) {
 function placeMapDecorators(zinKey) {
   placeWpnDecorator(zinKey.bank, zinKey.index + 1, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
+// RDR's twin (issue #40 follow-up) — RANGE between R+/R-, same word+triangle treatment. Takes R+'s
+// own physical key, same reasoning as placeMapDecorators: SPLIT_SLOTS.rdr keeps R+/R- adjacent
+// (slot 1/2) on the same bank in every context, so index+1 is always the separator between them.
+function placeRdrDecorators(rPlusKey) {
+  placeWpnDecorator(rPlusKey.bank, rPlusKey.index + 1, 'RANGE', '6,0 12,8 0,8', '0,0 12,0 6,8');
+}
 
 // ── App-wide orientation ─────────────────────────────────────────────────────────────
 // A media query INSIDE an iframe evaluates against that iframe's own box, so a split
@@ -1401,7 +1416,7 @@ let mwData  = { items: [] };
 
 // Latest RDR B-scope block (docs/rdr-page.md), mirrored from the map iframe's SSE feed. present is
 // false when the aircraft has no radar; the page draws its own scale/contacts from range/cone/items.
-let rdrData = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, hdg: 0, items: [] };
+let rdrData = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, hdg: 0, items: [], pb: [] };
 
 // Latest TGT filter state, mirrored from the map iframe's SSE feed. The shell keeps only this
 // state and forwards it to the frame; the page renders the toggles + POSTs the tgt.* commands.
@@ -1507,6 +1522,10 @@ function showPage(name) {
   // WPN's) — just add the ZOOM decorator between Z+/Z- once those labels exist. Z+ is NAV.map[3],
   // so fullViewSlot(3) is its physical key in full view (left3).
   if (name === 'map') placeMapDecorators(fullViewSlot(3));
+
+  // RDR's twin — RANGE decorator between R+/R-. R+ is NAV.rdr[1], so fullViewSlot(1) is its
+  // physical key in full view (left1).
+  if (name === 'rdr') placeRdrDecorators(fullViewSlot(1));
 
   // WPN owns its own nav labels (PREV/MAIN + NEXT) because they depend on the page state; run
   // after the generic label sweep so they don't get clobbered. It renders in #page-frame: point
@@ -1758,7 +1777,8 @@ window.addEventListener('message', function(e) {
     // forward it to whichever surface shows RDR. See docs/rdr-page.md.
     rdrData = { present: !!m.present, range: m.range || 0, cone: m.cone || 0, metric: !!m.metric,
                 radarOn: !!m.radarOn, levelTime: m.levelTime || 0, hdg: m.hdg || 0,
-                items: Array.isArray(m.items) ? m.items : [] };
+                items: Array.isArray(m.items) ? m.items : [],
+                pb: Array.isArray(m.pb) ? m.pb : [] };
     if (currentPage === 'rdr' && !splitMode) forwardRdrToFrame();
     if (splitMode) forwardRdrToPanes();
   } else if (m.type === 'tgt') {
@@ -2097,6 +2117,12 @@ function mfdButton(el) {
     } else if (act === 'flw' || act === 'zin' || act === 'zout' || act === 'grid') {
       // MAP controls act on the pane's own map iframe — they don't navigate it away.
       paneMapSend(paneIdx, act === 'flw' ? 'toggle-follow' : act === 'zin' ? 'zoom-in' : act === 'zout' ? 'zoom-out' : 'toggle-grid');
+    } else if (act === 'rng-in' || act === 'rng-out') {
+      // RDR's range rocker acts on the pane's own iframe, same as MAP's zoom above — paneMapSend
+      // just posts to whichever iframe is in this pane, not MAP-specific despite the name. Reuses
+      // the SAME 'zoom-in'/'zoom-out' action names MAP's zoom sends (issue #40 follow-up), which is
+      // also what SOI's Zoom In/Out keybind sends when RDR is the focused surface (docs/page-cursor.md).
+      paneMapSend(paneIdx, act === 'rng-in' ? 'zoom-in' : 'zoom-out');
     } else if (act === 'weapon.select') {
       // A weapon row: selection is aircraft-global, not a destination page — same case as the
       // full-view/shared switch below. It carries a data-pane tag only so the SOI cursor (soiKeys())
@@ -2159,6 +2185,12 @@ function mfdButton(el) {
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;
     case 'grid': mapSend('toggle-grid'); break;
+    // RDR's range rocker — mapSend() targets mapFrame specifically, wrong for RDR (a #page-frame
+    // page), so this posts to frameWin() instead. Same 'zoom-in'/'zoom-out' action names as MAP's
+    // zin/zout above (issue #40 follow-up): reused, not new, so SOI's Zoom In/Out keybind (which
+    // sends the same names — docs/page-cursor.md) drives RDR range for free once RDR is SOI focus.
+    case 'rng-in':  { const w = frameWin(); if (w) w.postMessage({ mfd: true, action: 'zoom-in'  }, '*'); } break;
+    case 'rng-out': { const w = frameWin(); if (w) w.postMessage({ mfd: true, action: 'zoom-out' }, '*'); } break;
     case 'hide-shell':
       // Collapse the whole shell (frame + strips + side keys) so the screen fills the
       // viewport — for fitting behind a physical MFD frame. Restore button brings it back.

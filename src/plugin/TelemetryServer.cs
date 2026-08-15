@@ -1580,10 +1580,29 @@ namespace NOXMFD
         // travel heading (velocity stub), lock state (tg) and label.
         private static string RdrBlock(TelemetrySnapshot s)
         {
-            if (!s.RadarPresent) return "{\"present\":false}";
+            string pb = PitbullArray(s.Pitbull);
+            if (!s.RadarPresent) return "{\"present\":false,\"pb\":" + pb + "}";
             return string.Format(CultureInfo.InvariantCulture,
-                "{{\"present\":true,\"range\":{0:0.0},\"cone\":{1:0.0},\"metric\":{2},\"lvlt\":{3:0.000},\"items\":{4}}}",
-                s.RadarRange, s.RadarConeDeg, s.RdrMetric ? "true" : "false", s.RdrLevelTime, RdrArray(s.Rdr));
+                "{{\"present\":true,\"range\":{0:0.0},\"cone\":{1:0.0},\"metric\":{2},\"lvlt\":{3:0.000},\"items\":{4},\"pb\":{5}}}",
+                s.RadarRange, s.RadarConeDeg, s.RdrMetric ? "true" : "false", s.RdrLevelTime, RdrArray(s.Rdr), pb);
+        }
+
+        // Pitbull missiles (issue #40): the player's own AA missiles with an active-radar seeker
+        // currently locked. tid is the designated target's persistentID.Id, 0 if none/unresolved —
+        // the client only draws the dashed target line when it can resolve tid against a live
+        // RDR/MAP contact.
+        private static string PitbullArray(PitbullContact[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.AppendFormat(CultureInfo.InvariantCulture,
+                    "{{\"id\":{0},\"x\":{1:0.0},\"z\":{2:0.0},\"alt\":{3:0.0},\"hdg\":{4:0.0},\"tid\":{5}}}",
+                    items[i].Id, items[i].X, items[i].Z, items[i].Alt, items[i].Heading, items[i].TargetId);
+            }
+            return sb.Append(']').ToString();
         }
 
         private static string RdrArray(RdrContact[]? items)

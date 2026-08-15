@@ -61,8 +61,11 @@ approach as RWR but **rectangular** instead of polar.
 
 - **Frame:** ownship implied at bottom-center (white caret). Horizontal axis = relative bearing
   off the nose; vertical axis = range, 0 at ownship → max at top.
-- **Range scale:** fixed at the radar's own max range (`RadarParameters.maxRange`) — no selectable
-  scale for v1. Displayed in the player's own Imperial/Metric unit preference
+- **Range scale:** selectable (issue #40 follow-up) — `RANGE_STEPS = [0.25, 0.5, 1]`, a fraction of
+  the radar's own max range (`RadarParameters.maxRange`) rather than fixed absolute km/nm rings,
+  since the true max varies per airframe. R+/R- (bezel nav items, also reachable via SOI's Zoom
+  In/Out keybind — the same one MAP's zoom sends, TGT repurposes to scroll its list) step it,
+  persisted in sessionStorage. Displayed in the player's own Imperial/Metric unit preference
   (`PlayerSettings.unitSystem`, mirrored into the snapshot as `RdrMetric`), matching the game's own
   `UnitConverter`: nm/ft in Imperial, km/m in Metric. The corner range number carries its unit
   suffix (`NM`/`KM`) since it's a bare scale value with no other label; the readout's RNG/ALT stay
@@ -70,7 +73,8 @@ approach as RWR but **rectangular** instead of polar.
 - **Azimuth span:** clamp the horizontal to the **radar's actual cone half-angle** (`Radar.radarCone`),
   not a fixed ±60°, so contacts spread across the real FOV. Scan-limit lines mark the cone edges.
 - **Contacts:** solid bricks positioned by bearing × range, **aircraft only** (missiles filtered
-  out). Each brick carries a short **velocity-vector stub** — a line off the brick in the direction
+  out — pitbull missiles are a separate marker, below). Each brick carries a short
+  **velocity-vector stub** — a line off the brick in the direction
   of the target's horizontal motion (shows hot/cold/beaming aspect). *(Frame of the stub — north-up
   vs ownship-relative aspect — is an implementation detail; derive from the contact's velocity,
   resolve during step 2.)*
@@ -175,9 +179,12 @@ integrator MAP/TGT/HUD already use, fed identically. `rdr.test.js` covers the pu
 ## Resolved (was: open questions)
 
 - **Layout:** F-16 FCR B-scope, its own visual identity, distinct from RWR's polar scope. ✔
-- **Missiles:** excluded — aircraft only. ✔
+- **Missiles:** excluded from the ordinary contact list — aircraft only. ✔ Pitbull missiles
+  (issue #40) are the one exception: the player's own AA missiles with a locked active-radar
+  seeker plot as a blue dart with a line to their target, independent of the contact list.
 - **PAD cursor:** interactible — cursor slews the two-bar acquisition cursor, Select locks. ✔
 - **NAV slot:** RDR gets its own NAV slot (RWR = who paints me, TGT = shared picture, RDR = what
   my radar paints — three distinct things). ✔
-- **Range scale:** fixed at radar max range. ✔  **Azimuth:** clamp to radar cone half-angle. ✔
+- **Range scale:** selectable, 25%/50%/100% of radar max range (issue #40 follow-up — was fixed at
+  100% for v1). ✔  **Azimuth:** clamp to radar cone half-angle. ✔
   **Readout:** keep target name. ✔  **Bugged symbol:** amber box. ✔  **Velocity stub:** yes. ✔
