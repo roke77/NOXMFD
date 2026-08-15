@@ -518,23 +518,22 @@ namespace NOXMFD
         // rather than the max non-flare source; we use max-non-flare instead since it's stable frame to
         // frame (the random pick is fine for the game's own gauge, which only needs to look busy).
         private static FieldInfo? _irSourcesField;
-        private static float GetHeatLevel(Aircraft ac, out float rawMax)
+        private static float GetHeatLevel(Aircraft ac)
         {
             try
             {
                 if (_irSourcesField == null)
                     _irSourcesField = typeof(Unit).GetField("IRSources", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (!(_irSourcesField?.GetValue(ac) is System.Collections.IEnumerable sources)) { rawMax = 0f; return 0f; }
+                if (!(_irSourcesField?.GetValue(ac) is System.Collections.IEnumerable sources)) return 0f;
                 float max = 0f;
                 foreach (object o in sources)
                 {
                     if (o is IRSource src && !src.flare && src.intensity > max) max = src.intensity;
                 }
-                rawMax = max;
                 const float ceiling = 12f;
                 return Mathf.Clamp01(max / ceiling);
             }
-            catch { rawMax = 0f; return 0f; }
+            catch { return 0f; }
         }
 
         // Matches the game's own IR gauge color exactly (StatusGauges.Gauge.Update): sample the same
@@ -717,12 +716,7 @@ namespace NOXMFD
             byte cmCategory = GetSelectedCmCategory(aircraft);
 
             float throttleRaw = aircraft.GetInputs() != null ? aircraft.GetInputs().throttle : -1f;
-            float heat01 = GetHeatLevel(aircraft, out float heatRawMax);
-            // ponytail: temporary calibration logging for the AVN THRL/HEAT gauges (10Hz, this method's
-            // own cadence) — remove once THRL's reported lag and HEAT's ceiling are confirmed against
-            // real in-game readings. Grep the BepInEx log for "CAL " to pull a session's worth of samples.
-            Plugin.Log?.LogInfo(FormattableString.Invariant(
-                $"[NOXMFD] CAL t={Time.time:F2} thr={throttleRaw:F4} heatRaw={heatRawMax:F3} heat01={heat01:F3}"));
+            float heat01 = GetHeatLevel(aircraft);
 
             _assets.TryCaptureIcon(aircraft.definition);
 
