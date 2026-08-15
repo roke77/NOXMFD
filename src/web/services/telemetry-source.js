@@ -76,6 +76,8 @@ export class TelemetrySource {
     this._cursorSelSeq = null;
     this._mapActSeq = null;
     this._cursorSelHeld = false;   // Cursor Select's live held state (docs/page-cursor.md)
+    this._badFrames = 0;           // malformed frames dropped so far (see _onMessage)
+    this._lastBadLogAt = 0;        // rate-limits the drop log — a bad frame usually repeats at 10 Hz
   }
 
   connect() {
@@ -162,7 +164,26 @@ export class TelemetrySource {
 
   _onMessage(e) {
     this._lastMsgAt = performance.now();
-    const d = JSON.parse(e.data);
+    // Drop a malformed frame instead of dying on it. The server hand-rolls its JSON
+    // (TelemetryServer.cs), so a serializer bug lands here as a parse throw — and an uncaught one
+    // takes down the whole tick's fan-out, freezing every page while the SSE connection stays open
+    // and the watchdog below stays quiet. Skipping costs one frame; the next good one (~100 ms)
+    // repaints everything. Logged, never swallowed: every such bug so far has been persistent
+    // rather than a blip, and the console error is what located it. Rate-limited so a persistent
+    // one leaves the console readable instead of burying it at 10 errors a second.
+    let d;
+    try {
+      d = JSON.parse(e.data);
+    } catch (err) {
+      this._badFrames++;
+      const now = performance.now();
+      if (this._badFrames === 1 || now - this._lastBadLogAt > 5000) {
+        this._lastBadLogAt = now;
+        console.error('[noxmfd] malformed telemetry frame dropped (' + this._badFrames +
+                      ' total this session):', err);
+      }
+      return;
+    }
 
     // SOI focus rides in every frame kind, ping included — a display is focusable at the main menu,
     // where a ping is all there is — so this sits ahead of the ping branch's early return rather
