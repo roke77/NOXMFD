@@ -484,8 +484,8 @@ function mainPaneSlice(idx) {
 
 function renderSplitLabels() {
   clearKeyActions();
-  // .wpn-decor too: full view's MASTER/MODE decorators (docs/radar-master-arms.md) must not survive
-  // entering split mode — split doesn't place them (yet — see the plan doc's open question).
+  // .wpn-decor too: full view's MASTER/MODE and ZOOM decorators (docs/radar-master-arms.md,
+  // issue #41) must not survive entering split mode — split doesn't place them.
   overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
   for (let paneIdx = 0; paneIdx < 2; paneIdx++) {
     const page = panePages[paneIdx];
@@ -570,6 +570,9 @@ function renderSplitLabels() {
         // this just extends the same idea to whichever side a split pane put each item on.
         if (el && isVmainPage(page)) el.classList.add('vlabel');
       });
+      // ZOOM decorator between Z+/Z- (issue #41) — MAP's twin of WPN's MASTER/MODE. Z+ is
+      // NAV.map[3]/SPLIT_SLOTS.map[3]; paneKey resolves its physical key for this pane/orientation.
+      if (page === 'map') placeMapDecorators(paneKey(paneIdx, slots[3].side, slots[3].slot));
     }
   }
   renderPaneMainPageInd();   // main-prev/next (mfdButton) calls renderSplitLabels directly, not
@@ -1107,17 +1110,19 @@ function placeWpnNavLabels() {
 }
 
 // Purely decorative — a word + triangle above/below, centered in the gap BETWEEN a control pair
-// rather than on either key (docs/radar-master-arms.md, per the user's mockup-approved design).
-// Vertically centered on the separator between the pair's two keys (sepElsRight[2] sits between
-// right[1]/ARM and right[2]/SAFE; sepElsRight[4] between right[3]/A-A and right[4]/A-G — sepElsRight
-// index i+1 = below key i). Horizontally centered on the pair's own labels rather than sharing their
-// right:16px anchor — ARM/SAFE/A-A/A-G are unpadded nowrap text right-aligned to that edge, so two
-// different-width words (e.g. "ARM" vs "SAFE") don't share a center; anchoring the decorator to that
-// same edge made it hug the narrower word's edge instead of sitting in the middle of the pair.
-function placeWpnDecorator(sepIndex, word, upPoints, downPoints) {
-  const sep = sepElsRight[sepIndex];
-  const labelA = overlayEl.querySelector('[data-key="right' + (sepIndex - 1) + '"]');
-  const labelB = overlayEl.querySelector('[data-key="right' + sepIndex + '"]');
+// rather than on either key (docs/radar-master-arms.md, per the user's mockup-approved design;
+// issue #41 reuses it for MAP's Z+/Z- as ZOOM). Vertically centered on the separator between the
+// pair's two keys (sepElsRight[2] sits between right[1]/ARM and right[2]/SAFE; sepElsRight[4]
+// between right[3]/A-A and right[4]/A-G; sepEls[4] between left[3]/Z+ and left[4]/Z- — each side's
+// array has index i+1 = below key i). Horizontally centered on the pair's own labels rather than
+// sharing their right:16px anchor — ARM/SAFE/A-A/A-G/Z+/Z- are unpadded nowrap text right-aligned
+// to that edge, so two different-width words (e.g. "ARM" vs "SAFE") don't share a center; anchoring
+// the decorator to that same edge made it hug the narrower word's edge instead of sitting in the
+// middle of the pair.
+function placeWpnDecorator(bank, sepIndex, word, upPoints, downPoints) {
+  const sep = (bank === 'right' ? sepElsRight : sepEls)[sepIndex];
+  const labelA = overlayEl.querySelector('[data-key="' + bank + (sepIndex - 1) + '"]');
+  const labelB = overlayEl.querySelector('[data-key="' + bank + sepIndex + '"]');
   if (!sep || !labelA || !labelB) return;
   const oRect = overlayEl.getBoundingClientRect();
   const sRect = sep.getBoundingClientRect();
@@ -1137,8 +1142,16 @@ function placeWpnDecorator(sepIndex, word, upPoints, downPoints) {
   el.style.left = (centerX - oRect.left - el.offsetWidth / 2) + 'px';
 }
 function placeWpnDecorators() {
-  placeWpnDecorator(2, 'MASTER', '6,0 12,8 0,8', '0,0 12,0 6,8');
-  placeWpnDecorator(4, 'MODE',   '6,0 12,8 0,8', '0,0 12,0 6,8');
+  placeWpnDecorator('right', 2, 'MASTER', '6,0 12,8 0,8', '0,0 12,0 6,8');
+  placeWpnDecorator('right', 4, 'MODE',   '6,0 12,8 0,8', '0,0 12,0 6,8');
+}
+// MAP's twin (issue #41) — ZOOM between Z+/Z-, same word+triangle treatment. Takes Z+'s own
+// physical key ({bank,index}) rather than hardcoding one: full view and each split pane/orientation
+// put Z+ on a different physical key (split-keymap.js's paneKey), but SPLIT_SLOTS.map always keeps
+// Z+/Z- adjacent (slot 0/1) on the same bank, so the separator directly below Z+ (index+1) is
+// always the one between them, in every context.
+function placeMapDecorators(zinKey) {
+  placeWpnDecorator(zinKey.bank, zinKey.index + 1, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
 
 // ── App-wide orientation ─────────────────────────────────────────────────────────────
@@ -1443,8 +1456,8 @@ function showPage(name) {
   infoBox.classList.toggle('show', name === 'main');
   screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGT/TGP/AVN render in #page-frame
   clearKeyActions();
-  // Only wipe dynamic line-select labels (+ WPN's purely-decorative MASTER/MODE labels, docs/
-  // radar-master-arms.md); static children (info-box) stay put.
+  // Only wipe dynamic line-select labels (+ WPN's purely-decorative MASTER/MODE and MAP's ZOOM
+  // labels, docs/radar-master-arms.md, issue #41); static children (info-box) stay put.
   overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
 
   if (name === 'main') {
@@ -1469,6 +1482,11 @@ function showPage(name) {
       placeOverlayLabel(item.bank, item.index, item.label, item.action, item.mark);
     });
   }
+
+  // MAP's labels come entirely from the generic NAV sweep above (no page-owned function like
+  // WPN's) — just add the ZOOM decorator between Z+/Z- once those labels exist. Z+ is NAV.map[3],
+  // so fullViewSlot(3) is its physical key in full view (left3).
+  if (name === 'map') placeMapDecorators(fullViewSlot(3));
 
   // WPN owns its own nav labels (PREV/MAIN + NEXT) because they depend on the page state; run
   // after the generic label sweep so they don't get clobbered. It renders in #page-frame: point
@@ -1565,9 +1583,11 @@ window.addEventListener('message', function(e) {
   // Telemetry-mirror messages come only from the canonical map iframe (mapFrame). In split mode
   // a MAP *pane* is a second map iframe that also streams to the shell; ignoring its duplicate
   // data posts keeps the RWR/AVN/etc. mirrors on a single source — otherwise two out-of-phase
-  // feeds drive them (jumpy in preview, redundant live). 'follow' is per-pane and routes by
-  // e.source itself, so it must pass through from any map source.
-  if (m.type !== 'follow' && e.source !== mapFrame.contentWindow) return;
+  // feeds drive them (jumpy in preview, redundant live). 'follow' and 'grid' (issue #41) are both
+  // per-pane and route by e.source itself, so they must pass through from any map source — this
+  // gate dropping 'grid' silently left a split pane's GRID label stuck unlit forever, even though
+  // the pane's own map correctly persisted and drew the grid regardless.
+  if (m.type !== 'follow' && m.type !== 'grid' && e.source !== mapFrame.contentWindow) return;
   if (m.type === 'status') {
     lastStatusCls  = m.cls;
     lastStatusText = m.text;

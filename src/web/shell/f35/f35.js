@@ -549,6 +549,8 @@
         grid.appendChild(b);
       });
       if (currentPage === 'wpn') { addWeaponHits(); markMasterArms(); markCombatMode(); placeWpnDecorators(); }
+      // ZOOM between Z+/Z- (issue #41) — same decorator, MAP's twin of WPN's MASTER/MODE.
+      if (currentPage === 'map') placeWpnDecorator('zin', 'zout', 'ZOOM');
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
       markGrid();     // ...and the state to the new GRID
       // The grid was just rebuilt, so an SOI cursor mark on one of its items is gone — let the shell
@@ -596,6 +598,7 @@
       // away the zoom and pan the pilot set.
       resized: function () {
         if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); placeWpnDecorators(); }
+        if (currentPage === 'map') placeWpnDecorator('zin', 'zout', 'ZOOM');
       },
       destroy: function () { el.remove(); },
     };
