@@ -25,6 +25,9 @@
     { id: 'combat-mode-ag',  label: 'A/G'  },
   ];
 
+  // Full view has more room than a pane: 5 line-select slots (keys 1..5).
+  const WPN_MAX_DISPLAY = 5;
+
   // AVN: a pane shows 4 of the 8 avn.toggle groups per page (item slots L1,L2,R1,R2 like WPN's).
   const AVN_PANE_PAGE_SIZE = 4;
 
@@ -46,6 +49,19 @@
     const pages = [];
     for (let i = 0; i < slots.length; i += WPN_SPLIT_MAX) pages.push(slots.slice(i, i + WPN_SPLIT_MAX));
     return pages;
+  }
+
+  // 0-indexed page holding the named selection, or -1 when nothing is selected or the selection
+  // isn't in the list. Serves both layouts — the only difference between them is perPage
+  // (WPN_SPLIT_MAX in a pane, WPN_MAX_DISPLAY in full view).
+  //
+  // A plain divide is correct even though buildWpnSplitPages inserts padding: the padding only ever
+  // lands AFTER the weapon run (it exists to align the control pairs that follow), so weapons stay
+  // contiguous from slot 0 and their index is their position.
+  function pageOfSelection(list, sel, perPage) {
+    if (!sel) return -1;
+    const i = (list || []).findIndex(function (w) { return w.n === sel; });
+    return i < 0 ? -1 : Math.floor(i / perPage);
   }
 
   function clamp(page, maxPage) {
@@ -143,8 +159,8 @@
   }
 
   const api = { buildWpnSplitPages, wpnPaneSlice, avnPaneSlice, mainPageSizes, mainPaneSlice,
-                listPaneLayout,
-                WPN_SPLIT_MAX, WPN_SPLIT_CONTROLS, AVN_PANE_PAGE_SIZE, MAIN_PANE_SLOTS };
+                listPaneLayout, pageOfSelection,
+                WPN_SPLIT_MAX, WPN_MAX_DISPLAY, WPN_SPLIT_CONTROLS, AVN_PANE_PAGE_SIZE, MAIN_PANE_SLOTS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ClassicPaging = api;
 })(typeof self !== 'undefined' ? self : this);

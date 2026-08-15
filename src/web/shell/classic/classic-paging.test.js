@@ -108,6 +108,30 @@ assert.deepStrictEqual(seen, items, 'MAIN pages do not reconstruct the list');
 assert.strictEqual(P.mainPaneSlice(items, 99).pageIndex, P.mainPageSizes(items.length).length - 1,
   'MAIN page did not clamp');
 
+// ── pageOfSelection: which page opens when the pilot picks a weapon ────────────────────
+const wl = n => Array.from({ length: n }, (_, i) => ({ n: 'W' + i }));
+
+assert.strictEqual(P.pageOfSelection(wl(6), null, 4), -1, 'no selection should be -1');
+assert.strictEqual(P.pageOfSelection(wl(6), '', 4), -1, 'empty selection should be -1');
+assert.strictEqual(P.pageOfSelection(wl(6), 'W99', 4), -1, 'selection not in the loadout should be -1');
+assert.strictEqual(P.pageOfSelection(undefined, 'W0', 4), -1, 'undefined list should be -1, not a throw');
+
+// The two layouts differ only by page size, which is the whole reason they share this helper.
+assert.strictEqual(P.pageOfSelection(wl(12), 'W4', P.WPN_SPLIT_MAX), 1, 'split: W4 is on page 1 of 4-up');
+assert.strictEqual(P.pageOfSelection(wl(12), 'W4', P.WPN_MAX_DISPLAY), 0, 'full: W4 is still on page 0 of 5-up');
+assert.strictEqual(P.pageOfSelection(wl(12), 'W5', P.WPN_MAX_DISPLAY), 1, 'full: W5 opens page 1 of 5-up');
+
+// A plain divide is only correct if padding never displaces a weapon. Cross-check the helper
+// against where buildWpnSplitPages actually puts each weapon, for every loadout size.
+for (let n = 1; n <= 24; n++) {
+  const pages = P.buildWpnSplitPages(n);
+  for (let i = 0; i < n; i++) {
+    const actual = pages.findIndex(pg => pg.some(s => s.type === 'weapon' && s.index === i));
+    assert.strictEqual(P.pageOfSelection(wl(n), 'W' + i, P.WPN_SPLIT_MAX), actual,
+      `${n} weapons: selecting W${i} would open page ${P.pageOfSelection(wl(n), 'W' + i, P.WPN_SPLIT_MAX)}, but it is on page ${actual}`);
+  }
+}
+
 // ── listPaneLayout: no two labels may land on the same physical key ────────────────────
 // It's a hand-maintained table, and a typo there doesn't crash — it quietly stacks two labels on
 // one key, or leaves a control unreachable. A bezel column has 6 keys; in 'h' split both panes

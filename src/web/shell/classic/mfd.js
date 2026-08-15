@@ -877,11 +877,7 @@ function forwardWpnToPanes() {
 // 0-indexed page that holds the currently selected weapon, or -1 if there's no selection
 // (or it isn't in the loadout).
 function selWeaponPage() {
-  const list = wpnData.items || [];
-  const sel  = wpnData.selWeapon;
-  if (!sel) return -1;
-  const i = list.findIndex(function(w) { return w.n === sel; });
-  return i < 0 ? -1 : Math.floor(i / WPN_SPLIT_MAX);
+  return ClassicPaging.pageOfSelection(wpnData.items, wpnData.selWeapon, WPN_SPLIT_MAX);
 }
 // Jump every visible WPN pane to the page containing the selected weapon. Called only when the
 // selection actually changes (not on every ammo/loadout tick), so a pane the user has manually
@@ -1300,16 +1296,11 @@ function renderIndicators() {
 // in view we keep it fresh, so opening the page renders immediately without a round-trip.
 let wpnData      = { items: [], selWeapon: null, softGun: null, softRel: null, masterArmsOn: true, combatMode: 'all' };
 let wpnPage = 0;             // 0-indexed page for the weapon list pagination (full-view nav state)
-const WPN_MAX_DISPLAY = 5;   // weapons per page = 5 line-select slots (keys 1..5)
+const WPN_MAX_DISPLAY = ClassicPaging.WPN_MAX_DISPLAY;   // weapons per page = 5 line-select slots (keys 1..5)
 
-// 0-indexed full-view page (WPN_MAX_DISPLAY per page) holding the selected weapon, or -1 if
-// there's no selection (or it isn't in the loadout). Full-view twin of selWeaponPage().
+// Full-view twin of selWeaponPage() — same lookup, the layout's own page size.
 function selWpnPageFull() {
-  const list = wpnData.items || [];
-  const sel  = wpnData.selWeapon;
-  if (!sel) return -1;
-  const i = list.findIndex(function(w) { return w.n === sel; });
-  return i < 0 ? -1 : Math.floor(i / WPN_MAX_DISPLAY);
+  return ClassicPaging.pageOfSelection(wpnData.items, wpnData.selWeapon, WPN_MAX_DISPLAY);
 }
 
 // Latest countermeasures snapshot mirrored from the map iframe.
