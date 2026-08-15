@@ -20,6 +20,17 @@ const avnTileNvg    = document.getElementById('avn-tile-nvg');
 const avnTileLights = document.getElementById('avn-tile-lights');
 const avnTileTurret = document.getElementById('avn-tile-turret');
 
+// Direct tile clicks/taps — the only way to toggle these on the F-35 layout (no bezel keys there
+// to wire externally); on the bezel this is an additional path to the same command the physical
+// key already sends, not a replacement for it. Group ids match AvnStatusPolicy.tileClass's below.
+[[avnTileGear, 'gear'], [avnTileRadar, 'radar'], [avnTileGuns, 'guns'], [avnTileEng, 'eng'],
+ [avnTileAssist, 'assist'], [avnTileNvg, 'nvg'], [avnTileLights, 'lights'], [avnTileTurret, 'turret']]
+  .forEach(function(pair) {
+    pair[0].addEventListener('click', function() {
+      sendCommand('avn.toggle', { group: pair[1] }).catch(function() {});
+    });
+  });
+
 // ── State ──────────────────────────────────────────────────────────────────────────
 let avnData = { name: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
 let layout         = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)

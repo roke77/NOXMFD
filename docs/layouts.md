@@ -539,9 +539,11 @@ Left to right:
   mission block and the flags. See below.
 - **Avionics flags** — the eight annunciators the AVN page shows
   (GEAR / RADAR / GUNS / ENG / ASSIST / NVG / LIGHTS / TURRET), in one row, each
-  a label + icon. Read-only here, unlike on AVN itself: since this session, AVN's
-  own tiles are also bezel-actuated toggles (press the aligned key to flip the
-  system) — the strip's copy still only mirrors state, same as before.
+  a label + icon. Click-to-toggle (issue #35): `data-kind` names the `avn.toggle`
+  group 1:1, so a tap here sends the same command a tap on AVN's own tile does
+  (2026-08-15 — AVN's tiles became directly clickable too, needed for the F-35
+  layout since it has no bezel keys to wire the toggle externally). Both paths
+  dispatch identically; neither is the sole way in.
 - **FULLSCREEN** — last, at the far right. The only thing in the strip you
   press, so it is drawn as a button — bordered, square and icon-only, the same
   toggle the bezel carries on a top-bank key.

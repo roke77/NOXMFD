@@ -33,12 +33,13 @@
   whatever band avn.js's avnContentVerticalExtent names (full: the shell-forwarded
   geom.frameTop/frameHeight — still "below the top bezel row", nothing to do with the silhouette
   that used to sit there; compact: a small top/bottom margin) and spans the full panel width.
-  Clicking a status tile does nothing here — toggling still only happens via the shell's
-  physical-key `avn.toggle` wiring (full view: mfd.js placeAvnNavLabels also draws a shell-side NAV
-  label at each of those 8 keys now, so the bezel key itself shows what it does; split pane:
-  wireAvnPaneToggleKeys — only 4 keys exist in a pane, so this page shows only THOSE 4 tiles too
-  (avnData.visible) with a PAGE x/y indicator, rather than showing all 8 as if every one were live).
-  Full view always shows all 8 — it has a dedicated key for each, so it never paginates.
+  Each status tile is directly clickable/touchable — sends `avn.toggle` for its own group straight
+  from this page via send-command.js, same as TGT's own filter toggles. This is what makes the
+  tiles reachable on the F-35 layout at all (no bezel keys there to wire externally). On the bezel,
+  physical-key wiring still exists too (mfd.js's full-view NAV labels + split's
+  wireAvnPaneToggleKeys) and dispatches the identical command — a key press and a tap on the tile
+  itself are two paths to the same toggle, not a bezel-only vs F-35-only split. All 8 tiles always
+  show, in both profiles and both layouts (no per-pane pagination any more).
 
   Shell -> page messages (all {mfd:true, ...}):
     'avn'        : { name, fuel, throttle, heat, rpm, gearDown, radar, guns, …, visible, page, pages }
@@ -210,6 +211,7 @@
     </div>
     </div>
   </div>
+<script src="/assets/services/send-command.js"></script>
 <script src="/assets/pages/avn/avn-status-policy.js"></script>
 <script src="/assets/pages/avn/avn-throttle-policy.js"></script>
 <script src="/assets/pages/avn/avn.js"></script>

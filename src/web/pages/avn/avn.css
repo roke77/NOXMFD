@@ -56,6 +56,7 @@
   padding: 10px 0;
   border: 0 solid var(--no-green-dark);   /* muted inner dividers only, see the two rules below */
   color: var(--no-gray);   /* off / dim; on/gear-down override below. Drives label + icon. */
+  cursor: pointer;   /* directly clickable/touchable — see avn.js's click wiring */
 }
 .avn-tile:not(:nth-child(4n)) { border-right-width: 1px; }   /* between columns 1-2, 2-3, 3-4 */
 .avn-tile:nth-child(-n+4)     { border-bottom-width: 1px; }  /* between row 1 and row 2 */
