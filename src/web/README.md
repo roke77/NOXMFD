@@ -13,13 +13,15 @@ Full design history and decisions: [`docs/src-architecture.md`](../../docs/src-a
 src/web/
   shared/   font.css  theme.css  share-tech-mono.woff2   # passive cross-page assets
   services/ telemetry-source.js  send-command.js          # active shared code (the providers)
+            pad-cursor.js                                 # the shared PAD crosshair (docs/page-cursor.md)
   shell/    mfd.html  mfd.css  mfd.js                     # the classic bezel shell (host + router)
             nav-model.js   split-keymap.js                # NAV registry (shared with f35/) + bezel key-slot logic
             f35/           f35.html  f35.css  f35.js       # a second shell: borderless F-35 glass, N portals
                            f35-glass.js  f35-wpn-paging.js  # portal merge/split geometry, WPN pagination
   pages/
     map/    map.html  map.css  map.js     # the live map view (imports services/telemetry-source.js)
-    wpn/  tgt/  tgp/  avn/  rwr/  hud/  bdf/   # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal)
+    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hud/  bdf/  mis/  obj/
+                                               # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal)
     keybinds/                                  # frame-hosted like the pages above, not a standalone document
     main/                                      # the split-pane MAIN card (full-view MAIN is shell chrome)
 ```
@@ -29,6 +31,9 @@ Two shells render the same pages: the classic bezel (`shell/mfd.js`) and the F-3
 [`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
 `nav-model.test.js`, `f35-glass.test.js`, `main-paging.test.js`) are Node self-checks, run by hand
 (`node shell/whatever.test.js`), never fetched by a browser (excluded from the embedded-resource glob).
+A page with non-trivial classification logic splits it into a sibling `<x>-*-policy.js` — a pure
+module the page imports and the test drives without a DOM (`avn-status-policy.js`,
+`avn-throttle-policy.js`, `afm-bg-policy.js`, `afm-failure-policy.js`).
 
 Convention per page: `src/web/pages/<x>/<x>.{html,css,js}`, served at `/<x>`. The HTML links
 `/assets/shared/font.css` + `theme.css`, then its own `<x>.css`, and ends with `<script
@@ -37,8 +42,8 @@ src="/assets/pages/<x>/<x>.js">`. Add files freely — the csproj embeds `src/we
 ## Component roles — read this before touching the data path
 
 The three roles are **not** symmetric. The clean rule ("shell funnels data down into dumb pages")
-holds for six of the seven pages, but **MAP is special**: it is the single telemetry *source*, not
-a reactive sink.
+holds for every page but one: **MAP is special**: it is the single telemetry *source*, not a
+reactive sink.
 
 ```
    mod /stream (SSE, ~10 Hz)
@@ -49,22 +54,26 @@ a reactive sink.
    │ source +view │  the slices below, posts them UP) and the map view (map.js — renders the live
    │              │  map/HUD from the frames the source hands back). One iframe on purpose:
    │              │  the view needs the full frame every tick, so the parse stays in-process.
-   │              │  Slices posted up: status·loadout·cm·tgp·targets·rwr·mw·avn·follow·soi-cid·soi·soi-act
+   │              │  Slices posted up: status·mapinfo·loadout·cm·tgp·targets·rwr·mw·rdr·avn·
+   │              │  tgt·bdf·pal·mis·obj·follow·grid, plus the focus/input events
+   │              │  soi-cid·soi·soi-act·cursor·cursor-held·cursor-select·map-act
    └──────┬───────┘
           │  postMessage  ▲ UP   ({ mfd:true, type, … })
           ▼
    ┌──────────────┐  Caches each slice and re-forwards DOWN to whoever is visible:
    │  SHELL       │  forwardX*ToFrame (full view) / forwardX*ToPanes (split) — or, on the F-35
    │ (mfd.js OR   │  shell, to whichever portal owns that page. Owns split/portal logic, page
-   │  f35.js)     │  hosting, and the SOI focus ring + cursor (derived from each page's own
-   │              │  data-action / .nav-item elements — no per-page SOI awareness needed).
+   │  f35.js)     │  hosting, and the SOI focus ring + NAV cursor (derived from each page's own
+   │              │  data-action / .nav-item elements). PAD-cursor pages instead get the
+   │              │  raw cursor events forwarded down and draw their own crosshair.
    │              │  Guard: only trusts telemetry from the canonical MAP iframe/tap
    │              │  (e.source === mapFrame.contentWindow).
    └──────┬───────┘
           │  postMessage  ▼ DOWN
           ▼
-   WPN · TGT · TGP · AVN · RWR   pure reactive renderers — render to their own container,
-                                 never know full-vs-split, never touch /stream.
+   WPN · TGT · TGP · AVN · AFM   pure reactive renderers — render to their own container,
+   RWR · RDR · HUD · BDF/PAL     never know full-vs-split, never touch /stream.
+   MIS · OBJ · KEYBINDS
 ```
 
 **Why MAP carries two hats (and it's deliberate):** MAP needs the raw stream anyway (live map,
@@ -80,14 +89,16 @@ posts — only the base `mapFrame`'s posts drive the caches.)
 same-origin across the base map iframe and any split-pane map — so it survives page navigation,
 split-pane reloads, and the mission-exit reset, and follow is mirrored up to the shell's FOLLOW
 chip on (re)entry. First run seeds the defaults (follow **on**, a medium zoom). It's view-local —
-not part of the data path; `map.js` owns it (`loadPersistedView` / `savePersistedView`).
+not part of the data path; `map.js` owns it (`loadPersistedView` / `savePersistedView`). RDR's
+selected range follows the same pattern under `noxmfd.rdr.view`.
 
 ## Hosting model
 
 - **Full view (bezel):** the visible page renders in the shell's single `#page-frame` iframe
-  (`FRAME_PAGES = {wpn, tgp, avn, rwr, tgt, hud, bdf, pal, keys}`, the last three mapping to
-  `/hud`, `/bdf`, `/bdf?pal`, `/keybinds`). MAP is the base iframe *under* it; MAIN's full view is
-  the shell's own info-box chrome (not a hosted page).
+  (`FRAME_PAGES = {wpn, tgp, avn, afm, rwr, rdr, tgt, hud, bdf, pal, mis, obj, keys}` — the key is
+  the NAV action, the value the route, which is why `pal` maps to `/bdf?pal` and `keys` to
+  `/keybinds`). MAP is the base iframe *under* it; MAIN's full view is the shell's own info-box
+  chrome (not a hosted page).
 - **Split view (bezel):** two stacked pane iframes (`/<page>?bare` each). The shell forwards data
   to both.
 - **F-35 (`shell/f35/`):** a third, N-way layout instead of full/split — up to 4 portals, each an
@@ -104,11 +115,19 @@ not part of the data path; `map.js` owns it (`loadPersistedView` / `savePersiste
 - **SOI (up then down):** `telemetry-source.js` posts `'soi-cid'` (this document's instance id,
   once, from the server's SSE `hello`), `'soi'` (`{focused, pane}`, on change), and `'soi-act'`
   (`{act, pane}`, on a HOTAS keypress) up to whichever shell hosts it; the shell reports its own
-  surface count back down via `soi.panes` (below) and derives the on-screen cursor itself — pages
-  carry no SOI-specific code.
+  surface count back down via `soi.panes` (below). Most pages carry no SOI-specific code — the
+  shell derives their bezel/NAV cursor from their own `data-action` / `.nav-item` elements.
+- **PAD cursor (the exception):** a page in `PAD_CURSOR_PAGES` (`map`, `tgt`, `hud`, `rdr`) draws a
+  real crosshair over its own content, so the shell forwards the raw `'cursor'` / `'cursor-held'` /
+  `'cursor-select'` / `'map-act'` events down to whichever eligible page is focused
+  (`focusedCursorWindow()`), and the page integrates them with `services/pad-cursor.js`. Each page
+  decides what the events *mean*: MAP hit-tests contacts and pans at the edge, TGT walks its rows,
+  RDR steps its range — one HOTAS bind, per-page meaning (docs/page-cursor.md).
 - **Write commands:** `src/web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
-  (MAP tap → `target.select`; TGT page → `tgt.*` + `target.deselect`; either shell →
-  `soi.next`/`soi.prev`/`soi.panes`).
+  — from pages (MAP tap → `target.select`; TGT → `tgt.*` + `target.deselect`; AVN → `avn.toggle`;
+  HUD → `hud.*`/`declutter.set`; KEYBINDS → the `keybind.*` family) and from either shell (`soi.panes`,
+  `weapon.select`, `master-arms.set`, `combat-mode.set`, and `avn.toggle` again from the F-35 master
+  strip). Every handler is listed in [`src/plugin/README.md`](../plugin/README.md).
 
 ## Verifying without the game
 
