@@ -25,8 +25,10 @@ src/web/
                            f35-glass.js  f35-wpn-paging.js  # portal merge/split geometry, WPN pagination
   pages/
     map/    map.html  map.css  map.js     # the live map view (imports services/telemetry-source.js)
+            map-transform.js              # its pure world⇄pixel maths (pan/zoom/letterbox)
     wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hud/  bdf/  mis/  obj/
                                                # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal)
+                                               # some carry a pure sibling module — see below
     keybinds/                                  # frame-hosted like the pages above, not a standalone document
     main/                                      # the split-pane MAIN card (full-view MAIN is shell chrome)
 ```
@@ -39,9 +41,14 @@ Two shells render the same pages: the classic bezel (`shell/classic/mfd.js`) and
 embedded-resource glob). The whole suite: `find src/web -name '*.test.js' -exec node {} \;`. Most are
 CommonJS; the two under `services/` load their ES-module subject with dynamic `import()` and so need
 Node >= 22.7, since no `package.json` declares the module type.
-A page with non-trivial classification logic splits it into a sibling `<x>-*-policy.js` — a pure
-module the page imports and the test drives without a DOM (`avn-status-policy.js`,
-`avn-throttle-policy.js`, `afm-bg-policy.js`, `afm-failure-policy.js`).
+Logic worth checking gets split into a **pure sibling module** the page loads and a test drives
+without a DOM — the page keeps the elements and live state and passes what the module needs in. The
+same move the shell makes with `nav-model.js` / `classic-paging.js`. Named for what it does:
+`map-transform.js` (world⇄pixel maths), `bdf-funds.js` (the magnitude-band money format),
+`keybinds-keymap.js` (KeyboardEvent.code ⇄ Unity KeyCode names), and `<x>-*-policy.js` where the
+logic really is a classification rule (`avn-status-policy.js`, `avn-throttle-policy.js`,
+`afm-bg-policy.js`, `afm-failure-policy.js`). Everything else on a page is DOM-coupled rendering and
+is left to the harness and the eye, not to Node asserts.
 
 Convention per page: `src/web/pages/<x>/<x>.{html,css,js}`, served at `/<x>`. The HTML links
 `/assets/shared/font.css` + `theme.css`, then its own `<x>.css`, and ends with `<script
