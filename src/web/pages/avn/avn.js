@@ -1,6 +1,6 @@
 // AVN page — avionics. A pure reactive renderer driven by the shell over postMessage; single
 // source of truth for BOTH layouts (full-screen iframe + split pane). No damage silhouette or
-// airframe name here — both moved out (a future AFM page owns airframe status). See avn.html for
+// airframe name here — both moved out (the AFM page owns airframe status). See avn.html for
 // the message contract.
 
 // ── DOM refs ───────────────────────────────────────────────────────────────────────

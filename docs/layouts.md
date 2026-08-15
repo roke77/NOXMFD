@@ -359,28 +359,29 @@ worth making a portal's size depend on its span.
 #### Decluttering — `?nochrome`
 
 The master strip carries the avionics flags, the THRL/FUEL gauges, the mission
-name and the ownship grid. AVN and MAP draw all four themselves, so on this
-layout they were drawn twice — and on a quarter-width portal the duplicates cost
-space the pages needed.
+name and the ownship grid. AVN and MAP used to draw all four themselves, so on
+this layout they were drawn twice — and on a quarter-width portal the
+duplicates cost space the pages needed.
 
 So each of those two pages grew an option: `?nochrome` means *my host already
-shows my own-ship readouts, so I won't repeat them*. AVN drops its FUEL/RPM/
-HEAT/THRL gauges and its status tiles (the strip already carries the ones it
-mirrors); MAP drops the mission bar and the GRID chip, keeping the map. The
-F-35 sets it on both. The bezel sets it on nothing and renders exactly as
-before — which is the test that this is a page's option and not a layout's
-reach-in.
+shows my own-ship readouts, so I won't repeat them*. MAP drops the mission bar
+and the GRID chip, keeping the map; the F-35 sets it there. The bezel sets it
+on nothing and renders exactly as before — which is the test that this is a
+page's option and not a layout's reach-in.
 
-> **2026-08-15 — this leaves nothing behind on AVN, and that's a known gap.**
-> `?nochrome` used to hide AVN's own-ship readouts *and* leave its damage
-> silhouette filling the freed space — the actual reason the option existed
-> (see the note below, kept for the record). That silhouette moved to a new
-> **AFM** page this session, which the F-35 doesn't reach at all yet (see the
-> Status addendum above). So today a `?nochrome` AVN portal on the F-35 hides
-> everything and renders an empty panel — flagged with a `FIXME` in `avn.html`
-> rather than guessed at, pending a decision once F-35 picks AFM up: give AFM
-> its own `?nochrome` (most likely, mirroring AVN), or drop `?nochrome`'s
-> effect on AVN entirely now that it has nothing left to leave behind.
+> **2026-08-15 — AVN's `?nochrome` was removed entirely, not just left unset.**
+> It used to hide AVN's own-ship readouts *and* leave its damage silhouette
+> filling the freed space — the actual reason the option existed (see the note
+> below, kept for the record). That silhouette moved to a new **AFM** page this
+> session, so `?nochrome` had nothing selective left to hide: hiding AVN's
+> entire content would also have taken its status tiles, which are bezel/
+> portal-actuated toggles (and directly clickable on the page itself now, see
+> "AVN's status tiles" below) — the only way to flip gear/radar/etc from this
+> layout. Rather than give AFM its own `?nochrome` to fill the gap, the
+> `?nochrome` handling was deleted from `avn.html`/`avn.css` outright and the
+> F-35 now requests plain `/avn`, same as every other page — accepting a little
+> duplication of FUEL/THRL with the strip in exchange for keeping AVN's content
+> (and its only toggle controls) intact. `?nochrome` is MAP-only now.
 
 **It is a URL flag, not a message.** Every other host→page instruction here is a
 postMessage (`avn-layout`, `orient`), but those adjust a page that is already

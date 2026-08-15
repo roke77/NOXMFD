@@ -51,15 +51,16 @@
   // the readouts and then take them away on every mount. The bezel passes it to nothing and is
   // unaffected.
   //
-  // AVN no longer gets the flag either (2026-08-15). It used to hide AVN's FUEL/THROTTLE bars and
+  // AVN no longer gets the flag either (2026-08-15) — its ?nochrome handling was removed from
+  // avn.html/avn.css entirely, not just unused here. It used to hide AVN's FUEL/THROTTLE bars and
   // status tiles while leaving the damage silhouette — the actual reason it existed — but that
-  // silhouette moved to AFM this session, so nochrome had nothing selective left to do: AVN's
-  // `.nochrome` rule hides the page's *entire* content, and that content is no longer purely
-  // decorative duplication of the strip — the status tiles are now bezel/portal-actuated toggles,
-  // the strip's own copy is read-only, and RPM/HEAT aren't on the strip at all. Hiding it would
-  // have left this layout with no way to flip gear/radar/etc. Dropping the flag (plain `/avn`,
-  // like every other page here) accepts a little duplication of FUEL/THRL with the strip in
-  // exchange for keeping AVN's own content — and its only toggle controls — intact.
+  // silhouette moved to AFM this session, so nochrome had nothing selective left to hide: it would
+  // have taken AVN's *entire* content with it, which is no longer purely decorative duplication of
+  // the strip — the status tiles are bezel/portal-actuated toggles (directly clickable on the page
+  // itself now too), the strip's own copy stays read-only, and RPM/HEAT aren't on the strip at all.
+  // Hiding it would have left this layout with no way to flip gear/radar/etc. Plain `/avn` (like
+  // every other page here) accepts a little duplication of FUEL/THRL with the strip in exchange for
+  // keeping AVN's own content — and its only toggle controls — intact.
   const F35_PAGES = {
     main: null,
     map: MAP_URL,

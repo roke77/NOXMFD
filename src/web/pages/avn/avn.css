@@ -1,6 +1,6 @@
 /* AVN page — avionics (the 8 avn.toggle status tiles + FUEL/RPM/HEAT/THRL gauges). Single source
    of truth for BOTH layouts. Base reset / colour tokens / font come from theme.css. No damage
-   silhouette or airframe name here — both moved out (a future AFM page owns airframe status; this
+   silhouette or airframe name here — both moved out (the AFM page owns airframe status; this
    page is avionics only). */
 .avn-panel {
   position: absolute;
@@ -294,18 +294,3 @@
 }
 .avn-gauge.thr.ab-active .avn-gauge-ab-arc { opacity: 1; }
 
-/* ── ?nochrome ─────────────────────────────────────────────────────────────────────────
-   The host already shows this aircraft's own-ship readouts, so the page drops its own copy: the
-   whole .avn-content block (status-icon grid + gauges) — avn.toggle bezel-key wiring is a bezel/
-   full-view-only concept anyway, nothing here is F-35-reachable.
-
-   FIXME (see the matching note in avn.html): this used to leave the damage silhouette the whole
-   panel — the reason nochrome existed. That's gone, so a nochrome AVN portal currently renders
-   empty. F-35 is out of scope for this pass; left as-is rather than guessed at.
-
-   The class lands on <html> from the inline read in avn.html, before first paint, so nothing
-   flashes up and then leaves. */
-/* .placed is what reveals the block once the shell has sized it — match its specificity, not just
-   .avn-content's, so this wins wherever it sits in the cascade. */
-.nochrome .avn-content,
-.nochrome .avn-content.placed { display: none; }

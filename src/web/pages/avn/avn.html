@@ -3,24 +3,6 @@
 <head>
 <meta charset="utf-8">
 <title>NO XMFD — AVN</title>
-<!-- ?nochrome — the host already shows this aircraft's own-ship readouts, so don't repeat them:
-     the FUEL/RPM/HEAT/THRL gauges and the status tiles go. The F-35 sets it because its master strip
-     carries both; the bezel doesn't, and renders exactly as before.
-
-     FIXME: this used to leave the damage silhouette the whole panel — the actual reason nochrome
-     existed. That silhouette moved to its own page (AFM, src/web/pages/afm/) with no nochrome
-     handling of its own yet; a nochrome AVN portal on the F-35 currently renders an empty panel.
-     F-35 is out of scope for this pass (docs/layouts.md) so left as-is rather than guessed at —
-     worth a decision (give AFM its own nochrome? drop nochrome's effect on AVN entirely?) whenever
-     F-35 work picks this back up.
-
-     Read here, inline and before the body, rather than posted in by the host: this decides what to
-     paint, and a message arriving after first paint would flash the gauges up and then pull them —
-     on every mount, and a portal glass mounts pages constantly. It costs the page nothing when
-     absent. -->
-<script>
-  if (new URLSearchParams(location.search).has('nochrome')) document.documentElement.classList.add('nochrome');
-</script>
 <!--
   Bare AVN page served at /avn. Single source of truth for the avionics page (the 8 avn.toggle
   status tiles + FUEL/RPM/HEAT/THRL gauges) in BOTH layouts — a pure reactive renderer fed by the
