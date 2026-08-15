@@ -35,7 +35,10 @@ Two shells render the same pages: the classic bezel (`shell/classic/mfd.js`) and
 (`shell/f35/f35.js`), sharing the NAV model, the page-routing tables (`shell/layout-pages.js`) and
 `sendCommand` — see [`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
 `nav-model.test.js`, `f35-glass.test.js`, `classic-paging.test.js`) are Node self-checks, run by hand
-(`node shell/whatever.test.js`), never fetched by a browser (excluded from the embedded-resource glob).
+(`node src/web/<path>/whatever.test.js` from anywhere), never fetched by a browser (excluded from the
+embedded-resource glob). The whole suite: `find src/web -name '*.test.js' -exec node {} \;`. Most are
+CommonJS; the two under `services/` load their ES-module subject with dynamic `import()` and so need
+Node >= 22.7, since no `package.json` declares the module type.
 A page with non-trivial classification logic splits it into a sibling `<x>-*-policy.js` — a pure
 module the page imports and the test drives without a DOM (`avn-status-policy.js`,
 `avn-throttle-policy.js`, `afm-bg-policy.js`, `afm-failure-policy.js`).
