@@ -554,6 +554,12 @@ function renderSplitLabels() {
                    :                              wpnData.combatMode === 'ag';
         placeSplitKey(L.items[i], s.label, s.id, paneTag, mark);
       });
+      // MASTER/MODE decorators (docs/radar-master-arms.md) — never wired up for split before; full
+      // view has always had them (placeWpnDecorators), split just never got the equivalent call.
+      if (page === 'wpn') {
+        placeWpnPaneDecorator(L, slice.slots, 'master-arms-on', 'master-arms-off', 'MASTER');
+        placeWpnPaneDecorator(L, slice.slots, 'combat-mode-aa', 'combat-mode-ag', 'MODE');
+      }
     } else {
       // Static nav (MAP/AVN/RWR/TGP/…): render the navigation model at this page's declared
       // pane-local slots — SPLIT_SLOTS[page][i] places NAV[page][i]. `mark` lights an item active
@@ -1153,6 +1159,20 @@ function placeWpnDecorator(bank, sepIndex, word, upPoints, downPoints) {
 function placeWpnDecorators() {
   placeWpnDecorator('right', 2, 'MASTER', '6,0 12,8 0,8', '0,0 12,0 6,8');
   placeWpnDecorator('right', 4, 'MODE',   '6,0 12,8 0,8', '0,0 12,0 6,8');
+}
+// Split-pane MASTER/MODE: unlike full view's fixed right2/right4, a split pane's ctrl pair can land
+// on any of its 4 item slots depending on pagination (buildWpnSplitPages) — found here by id rather
+// than a hardcoded position. buildWpnSplitPages pads so a pair never straddles a PAGE boundary, but
+// WPN_SPLIT_MAX=4 doesn't guarantee it stays on one BANK — a pair can still straddle L.items[1]/[2]
+// (the left/right column boundary), where no sensible "between" position exists; skipped rather than
+// drawn somewhere wrong (a rare pagination edge case, not the common case).
+function placeWpnPaneDecorator(L, slots, idA, idB, word) {
+  const i0 = slots.findIndex(function(s) { return s.id === idA; });
+  const i1 = slots.findIndex(function(s) { return s.id === idB; });
+  if (i0 < 0 || i1 < 0) return;
+  const a = L.items[i0], b = L.items[i1];
+  if (!a || !b || a.bank !== b.bank || Math.abs(a.index - b.index) !== 1) return;
+  placeWpnDecorator(a.bank, Math.max(a.index, b.index), word, '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
 // MAP's twin (issue #41) — ZOOM between Z+/Z-, same word+triangle treatment. Takes Z+'s own
 // physical key ({bank,index}) rather than hardcoding one: full view and each split pane/orientation
