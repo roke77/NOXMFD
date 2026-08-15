@@ -32,8 +32,8 @@ src/web/
 ```
 
 Two shells render the same pages: the classic bezel (`shell/classic/mfd.js`) and the F-35 glass
-(`shell/f35/f35.js`), sharing the page set, the NAV model, and `sendCommand` — see
-[`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
+(`shell/f35/f35.js`), sharing the NAV model, the page-routing tables (`shell/layout-pages.js`) and
+`sendCommand` — see [`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
 `nav-model.test.js`, `f35-glass.test.js`, `classic-paging.test.js`) are Node self-checks, run by hand
 (`node shell/whatever.test.js`), never fetched by a browser (excluded from the embedded-resource glob).
 A page with non-trivial classification logic splits it into a sibling `<x>-*-policy.js` — a pure
@@ -90,6 +90,12 @@ is why MAP is the **always-on base iframe** (under `#page-frame` + the overlay) 
 flowing to them. (In split, a MAP *pane* also opens `/stream`, but the shell ignores its mirror
 posts — only the base `mapFrame`'s posts drive the caches.)
 
+A frame that fails to parse is **dropped, not fatal**: the server hand-rolls its JSON, so a
+serializer bug arrives here as a parse throw, and an uncaught one would take down that tick's whole
+fan-out — freezing every page while the SSE connection stays open and the watchdog stays quiet. The
+drop is logged (rate-limited, with a running total) and the next good frame ~100 ms later repaints
+everything, so a transient glitch self-heals while a persistent one still says so in the console.
+
 **MAP view state (FLW + ZOOM)** persists in `sessionStorage` under `noxmfd.map.view`, shared
 same-origin across the base map iframe and any split-pane map — so it survives page navigation,
 split-pane reloads, and the mission-exit reset, and follow is mirrored up to the shell's FOLLOW
@@ -107,9 +113,11 @@ selected range follows the same pattern under `noxmfd.rdr.view`.
 - **Split view (bezel):** two stacked pane iframes (`/<page>?bare` each). The shell forwards data
   to both.
 - **F-35 (`shell/f35/`):** a third, N-way layout instead of full/split — up to 4 portals, each an
-  independent `/<page>?bare` iframe; corner grips merge/split them (`f35-glass.js`). Every NAV
-  action maps to a page here too, so nothing renders dimmed; WPN's own pagination is
-  `f35-wpn-paging.js`.
+  independent `/<page>?bare` iframe; corner grips merge/split them (`f35-glass.js`). WPN's own
+  pagination is `f35-wpn-paging.js`.
+- **Every NAV destination resolves in both layouts**, so nothing renders dimmed. The two routing
+  tables sit together in `shell/layout-pages.js` for that reason, and `layout-coverage.test.js`
+  fails by name if one layout gains a page the other lacks.
 - A page is the **single source of truth** across all of these — one file, with an optional
   `body.full` profile toggled by a `layout:'full'` field in its layout message.
 

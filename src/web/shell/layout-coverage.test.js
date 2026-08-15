@@ -15,7 +15,14 @@
 // recurring risk anyway — every new page is one.
 const assert = require('assert');
 const { NAV } = require('./nav-model.js');
-const { CLASSIC, F35 } = require('./layout-pages.js');
+const { CLASSIC_FULL, CLASSIC_SPLIT, F35 } = require('./layout-pages.js');
+
+// The bezel routes full view and split panes from separate tables, so the same page can be present
+// in one and missing from the other — it would work in a split pane and render blank in full view.
+// MAIN and MAP are the two documented absences from the full-view table: MAIN is the shell's own
+// info-box chrome there and MAP is the always-on base iframe, so neither is ever mounted in
+// #page-frame.
+const NOT_IN_FULL_VIEW = new Set(['main', 'map']);
 
 // Actions NAV can reach, and the pages they appear on (for a message that says where to look).
 const origin = {};
@@ -33,22 +40,35 @@ assert.ok(destinations.length > 0, 'no destinations found — NAV or this filter
 // `null` is a legitimate entry (F-35's MAIN mounts no page), so membership is `in`, not truthiness.
 for (const action of destinations) {
   const where = origin[action].join(', ');
-  assert.ok(action in CLASSIC,
-    `NAV action '${action}' (on ${where}) has no classic entry — the bezel button would be dead`);
+  assert.ok(action in CLASSIC_SPLIT,
+    `NAV action '${action}' (on ${where}) has no bezel split-pane entry — the pane would show about:blank`);
   assert.ok(action in F35,
     `NAV action '${action}' (on ${where}) has no F-35 entry — the portal button would be dead`);
+  if (!NOT_IN_FULL_VIEW.has(action))
+    assert.ok(action in CLASSIC_FULL,
+      `NAV action '${action}' (on ${where}) has no bezel full-view entry — it would work in a split pane and render blank in full view`);
 }
 
-// Both layouts must agree on the SET of destinations they can reach. A page present in one table
-// and absent from the other is the drift this file exists to catch, in either direction.
-const onlyClassic = Object.keys(CLASSIC).filter(k => !(k in F35)).sort();
-const onlyF35     = Object.keys(F35).filter(k => !(k in CLASSIC)).sort();
-assert.deepStrictEqual(onlyClassic, [], `pages the bezel can reach but the F-35 cannot: ${onlyClassic}`);
+// The layouts must agree on the SET of destinations they can reach. A page present in one table and
+// absent from another is the drift this file exists to catch, in every direction.
+const onlyBezel = Object.keys(CLASSIC_SPLIT).filter(k => !(k in F35)).sort();
+const onlyF35   = Object.keys(F35).filter(k => !(k in CLASSIC_SPLIT)).sort();
+assert.deepStrictEqual(onlyBezel, [], `pages the bezel can reach but the F-35 cannot: ${onlyBezel}`);
 assert.deepStrictEqual(onlyF35, [], `pages the F-35 can reach but the bezel cannot: ${onlyF35}`);
+
+// The bezel's own two tables must agree with each other, modulo the documented full-view absences.
+const splitOnly = Object.keys(CLASSIC_SPLIT).filter(k => !(k in CLASSIC_FULL) && !NOT_IN_FULL_VIEW.has(k)).sort();
+const fullOnly  = Object.keys(CLASSIC_FULL).filter(k => !(k in CLASSIC_SPLIT)).sort();
+assert.deepStrictEqual(splitOnly, [], `bezel pages that work split but render blank in full view: ${splitOnly}`);
+assert.deepStrictEqual(fullOnly, [], `bezel pages that work in full view but not in a split pane: ${fullOnly}`);
+// Guard the exception list itself: if MAIN/MAP ever do gain a full-view entry, this should be
+// re-thought rather than silently tolerated.
+for (const k of NOT_IN_FULL_VIEW)
+  assert.ok(!(k in CLASSIC_FULL), `'${k}' now has a full-view entry — update NOT_IN_FULL_VIEW and its rationale`);
 
 // Every entry must be usable as a URL — a typo'd empty string mounts nothing and looks like a
 // rendering bug rather than a routing one. F-35's MAIN is the one documented null.
-for (const [layout, table] of [['classic', CLASSIC], ['f35', F35]]) {
+for (const [layout, table] of [['classic-full', CLASSIC_FULL], ['classic-split', CLASSIC_SPLIT], ['f35', F35]]) {
   for (const [page, url] of Object.entries(table)) {
     if (url === null) {
       assert.ok(layout === 'f35' && page === 'main', `${layout}.${page} is null; only f35.main may be`);

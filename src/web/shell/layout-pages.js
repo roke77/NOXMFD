@@ -1,18 +1,43 @@
 // Where each layout sends a NAV destination — the two routing tables, deliberately side by side.
 //
 // NAV (nav-model.js) says WHAT a pilot can reach; this says where each layout mounts it. They live
-// together because they must agree: every destination in NAV needs an entry in BOTH tables, or that
-// button is dead in one layout and nobody notices until someone presses it there. Keeping them
-// adjacent means adding a page puts the omission in front of you; layout-coverage.test.js is the
-// backstop that fails if it still slips through.
+// together because they must agree: every destination in NAV needs an entry in EVERY table below,
+// or that button is dead in one place and nobody notices until someone presses it there. Keeping
+// them adjacent means adding a page puts the omission in front of you; layout-coverage.test.js is
+// the backstop that fails if it still slips through.
+//
+// Three tables, not two — the bezel routes full view and split panes differently (?bare, and MAIN/
+// MAP are chrome in full view but ordinary panes in a split), so it carries one of each.
 //
 // Layout-SPECIFIC data, unlike NAV — the URLs differ (the bezel serves panes ?bare, the F-35 mounts
 // portals) and each layout may host a destination differently. That is the seam working as intended
 // (docs/layouts.md), not a leak: NAV still carries no placement.
 (function (root) {
-  // Classic bezel — the iframe URL for each page. A page with no entry renders 'about:blank' on
-  // navigation (paneUrl), a no-op signal rather than a crash.
-  const CLASSIC = {
+  // Classic bezel, FULL view — pages that render in #page-frame; showPage switches the frame's src
+  // as you move between them. MAIN and MAP are absent on purpose: MAIN's full view is the shell's
+  // own info-box chrome and MAP is the always-on base iframe underneath, so neither is ever mounted
+  // here. Every other destination must appear, or the page renders blank in full view while still
+  // working in a split pane.
+  const CLASSIC_FULL = {
+    wpn:  '/wpn',
+    tgp:  '/tgp',
+    avn:  '/avn',
+    afm:  '/afm',
+    rwr:  '/rwr',
+    rdr:  '/rdr',
+    tgt:  '/tgt',
+    hud:  '/hud',
+    bdf:  '/bdf',
+    pal:  '/bdf?pal',
+    mis:  '/mis',
+    obj:  '/obj',
+    keys: '/keybinds',
+  };
+
+  // Classic bezel, SPLIT panes — the same destinations served ?bare, plus MAIN and MAP, which do
+  // mount as ordinary pane iframes here. A page with no entry renders 'about:blank' on navigation
+  // (paneUrl), a no-op signal rather than a crash.
+  const CLASSIC_SPLIT = {
     main: '/main?bare',
     map:  '/map-view?bare',
     avn:  '/avn?bare',
@@ -53,7 +78,7 @@
     keys: '/keybinds',
   };
 
-  const api = { CLASSIC, F35 };
+  const api = { CLASSIC_FULL, CLASSIC_SPLIT, F35 };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LayoutPages = api;
 })(typeof self !== 'undefined' ? self : this);

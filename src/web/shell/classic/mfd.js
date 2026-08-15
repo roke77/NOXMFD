@@ -67,9 +67,10 @@ const screenEl  = document.getElementById('screen');
 const paneIframes = [document.getElementById('pane-top'), document.getElementById('pane-bot')];
 const soiRingEl = document.getElementById('soi-ring');
 const pageFrame = document.getElementById('page-frame');   // full-view host for the frame-hosted pages (WPN, TGT, TGP)
-// Pages that render in #page-frame in full view (rather than as overlay renderers). Maps the
-// page name to its bare URL; showPage switches the frame's src as you move between them.
-const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', afm: '/afm', rwr: '/rwr', rdr: '/rdr', tgt: '/tgt', hud: '/hud', bdf: '/bdf', pal: '/bdf?pal', mis: '/mis', obj: '/obj', keys: '/keybinds' };
+// Pages that render in #page-frame in full view (rather than as overlay renderers); showPage
+// switches the frame's src as you move between them. This layout's full-view half of
+// layout-pages.js — see PAGE_URL below for the split-pane half.
+const FRAME_PAGES = LayoutPages.CLASSIC_FULL;
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
@@ -269,7 +270,7 @@ const SPLIT_SLOTS = {
 // URL for each iframe-served page — this layout's half of layout-pages.js, which keeps it beside
 // the F-35's table so the two can't quietly diverge. Pages without an entry render 'about:blank'
 // on navigation (paneUrl), a no-op signal rather than a crash.
-const PAGE_URL = LayoutPages.CLASSIC;
+const PAGE_URL = LayoutPages.CLASSIC_SPLIT;
 function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
 
 // Map a pane's pane-local (side, slot) label position to the physical bezel key {bank, index}
