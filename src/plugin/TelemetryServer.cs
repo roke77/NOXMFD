@@ -698,7 +698,7 @@ namespace NOXMFD
                     else if (path == "/f35")
                         ServeAssetRel(ctx, "shell/f35/f35.html");
                     else if (path == "/" || path == "/index.html")
-                        ServeAssetRel(ctx, "shell/mfd.html");
+                        ServeAssetRel(ctx, "shell/classic/mfd.html");
                     else
                         Redirect(ctx, "/");
                 }

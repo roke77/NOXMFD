@@ -5,7 +5,7 @@ Serves the real src/web/ MFD shell plus the migrated web assets, so the UI can b
 end-to-end without extracting C# blobs. The MAP iframe receives tools/preview-mock.js,
 which supplies the synthetic/captured /stream data that the shell forwards to page iframes.
 
-  /                  -> src/web/shell/mfd.html
+  /                  -> src/web/shell/classic/mfd.html
   /f35               -> src/web/shell/f35/f35.html      (the F-35 layout — see docs/layouts.md)
   /thrl-demo         -> tools/thrl-demo.html    (standalone THRL slider demo, no shell/mock needed)
   /config            -> preview runtime URLs        (localhost/LAN URL for this harness port)
@@ -375,7 +375,7 @@ class H(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split('?', 1)[0]
         if path in ('/', '/index.html'):
-            return self._file(WEB / 'shell' / 'mfd.html', 'text/html; charset=utf-8', cache=True)
+            return self._file(WEB / 'shell' / 'classic' / 'mfd.html', 'text/html; charset=utf-8', cache=True)
         if path == '/f35':
             return self._file(WEB / 'shell' / 'f35' / 'f35.html', 'text/html; charset=utf-8', cache=True)
         if path == '/thrl-demo':
@@ -516,8 +516,8 @@ def main():
                     help="port to bind (default $PORT or 8782)")
     ap.add_argument("--open", action="store_true", help="open the shell in a browser on start")
     args = ap.parse_args()
-    if not (WEB / "shell" / "mfd.html").exists():
-        raise SystemExit("ERROR: src/web/shell/mfd.html missing.")
+    if not (WEB / "shell" / "classic" / "mfd.html").exists():
+        raise SystemExit("ERROR: src/web/shell/classic/mfd.html missing.")
     # Threaded: the shell opens several connections at once (shell + map/page iframes + assets).
     # A single-threaded server serialises them and stalls if any one handler blocks; ThreadingTCPServer
     # keeps every reload responsive. daemon_threads so Ctrl+C exits without waiting on open sockets.

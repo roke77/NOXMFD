@@ -14,8 +14,10 @@ src/web/
   shared/   font.css  theme.css  share-tech-mono.woff2   # passive cross-page assets
   services/ telemetry-source.js  send-command.js          # active shared code (the providers)
             pad-cursor.js                                 # the shared PAD crosshair (docs/page-cursor.md)
-  shell/    mfd.html  mfd.css  mfd.js                     # the classic bezel shell (host + router)
-            nav-model.js   split-keymap.js                # NAV registry (shared with f35/) + bezel key-slot logic
+  shell/    nav-model.js                                  # NAV registry — the layout seam, BOTH shells load it
+            layout-sticky.test.js                         # the classic⇄f35 redirect handoff — belongs to neither
+            classic/       mfd.html  mfd.css  mfd.js       # the classic bezel shell (host + router)
+                           split-keymap.js                 # bezel key-slot logic (split panes)
             f35/           f35.html  f35.css  f35.js       # a second shell: borderless F-35 glass, N portals
                            f35-glass.js  f35-wpn-paging.js  # portal merge/split geometry, WPN pagination
   pages/
@@ -26,7 +28,7 @@ src/web/
     main/                                      # the split-pane MAIN card (full-view MAIN is shell chrome)
 ```
 
-Two shells render the same pages: the classic bezel (`shell/mfd.js`) and the F-35 glass
+Two shells render the same pages: the classic bezel (`shell/classic/mfd.js`) and the F-35 glass
 (`shell/f35/f35.js`), sharing the page set, the NAV model, and `sendCommand` — see
 [`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
 `nav-model.test.js`, `f35-glass.test.js`, `main-paging.test.js`) are Node self-checks, run by hand

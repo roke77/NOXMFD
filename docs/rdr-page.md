@@ -156,7 +156,7 @@ Mirrors the existing frame-hosted pages (RWR is the closest analog — bezel rad
    the `— not available —` placeholder. `telemetry-source.js` converts world x/z to nose-up az +
    range (rhdg for the velocity stub). Pure projection `bscopeXY` has a Node self-check
    (`rdr.test.js`). Verified end-to-end in the serve_web harness.
-3. **Shell wiring (`src/web/shell/mfd.js`, `nav-model.js`) — built.** `rdr` in `FRAME_PAGES` /
+3. **Shell wiring (`src/web/shell/classic/mfd.js`, `nav-model.js`) — built.** `rdr` in `FRAME_PAGES` /
    `PAGE_URL` / `SPLIT_SLOTS`; its own NAV slot via `BEZEL_EXTRAS.main` (right bank — `NAV.main`'s
    six left keys are full); `forwardRdrTo{Frame,Panes}` + `rdrData` mirror + the `rdr` message
    handler; `PAD_CURSOR_PAGES.rdr = true`. MAIN now shows 12 destinations (left 6 + right 6).

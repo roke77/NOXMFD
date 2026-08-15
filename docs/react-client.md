@@ -95,7 +95,7 @@ Notes that matter for faithful mocking:
 
 The single biggest structural change from the current design. Today:
 
-- the shell (`src/web/shell/mfd.js`) hosts the map page
+- the shell (`src/web/shell/classic/mfd.js`) hosts the map page
   (`src/web/pages/map/map.js`) at `/map-view?bare` in an **iframe** and
   drives it via `postMessage`. The map iframe is the single `/stream`
   consumer and broadcasts status / loadout / cm / tgp / targets / avionics
@@ -268,7 +268,7 @@ react-client/
 - Re-read `tools/preview-mock.js` — it is the mock contract; the React
   mock layer should be a typed port of it.
 - Skim `src/web/pages/map/map.js` (overlay draw maths, `worldToOverlay`,
-  `gridLabel`, pan/zoom), `src/web/shell/mfd.js` (page list, key actions),
+  `gridLabel`, pan/zoom), `src/web/shell/classic/mfd.js` (page list, key actions),
   and `src/web/pages/avn/avn.js` (AVN silhouette layout) for behavioural detail
   the doc summarises.
 - Decide the open questions above (at least: animated mock, strictness).

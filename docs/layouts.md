@@ -769,7 +769,7 @@ Symbol names, not line numbers — this code is actively moving.
   `src/web/shared/theme.css` — the common tokens.
   `src/web/pages/avn/avn-status-policy.js` — the state→colour rule for the
   avionics flags, an AVN-page module the F-35 strip also loads.
-- **Bezel:** `src/web/shell/mfd.{html,css,js}`, `split-keymap.js`. Key
+- **Bezel:** `src/web/shell/classic/mfd.{html,css,js}`, `split-keymap.js`. Key
   symbols: `fullViewSlot`, `SPLIT_SLOTS`, `FRAME_PAGES`, `PAGE_URL`,
   `forwardAvnLayoutToFrame`, `forwardWpnLayoutToFrame`, `placeWpnNavLabels`.
 - **F-35:** `src/web/shell/f35/f35.{html,css,js}`, plus two pure modules with

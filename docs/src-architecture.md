@@ -274,7 +274,7 @@ must survive the move intact.
 - **D1 — LAN URLs → `/config` endpoint: DONE.** `GET /config` returns JSON `{ localhost, lanUrl, port }`.
   The shell + the MAIN card `fetch('/config')` on load and fill `.ib-url`. `TelemetryServer` dropped
   the `{{LAN_URL_BLOCK}}`/localhost string-replace (resolves open question #4). No HTML templating.
-- **D2 — the info-box + boot loader stay SHELL chrome** (in `src/web/shell/mfd.*`). They're boot
+- **D2 — the info-box + boot loader stay SHELL chrome** (in `src/web/shell/classic/mfd.*`). They're boot
   furniture (`flickerScreen`/`runBootLoading`/`typewriterUrls`), not page content. `src/web/pages/main/`
   is only the **split-pane card** (shares `theme.css`). Accept the minor card duplication; the boot
   animation never has to run inside an iframe. (So MAIN is NOT hosted in `#page-frame` — full-view
@@ -303,7 +303,7 @@ http harness + live server, but the shell is served at `/`).
 ## Implementation playbook (for an agent continuing this work)
 
 Concrete, learned-by-doing guidance. **WPN is the reference implementation — copy its
-pattern.** Read `src/web/pages/wpn/*` and the WPN-specific hooks in `src/web/shell/mfd.js` first.
+pattern.** Read `src/web/pages/wpn/*` and the WPN-specific hooks in `src/web/shell/classic/mfd.js` first.
 
 ### File map (current, post-step 5c)
 ```
@@ -338,12 +338,12 @@ NOXMFD.csproj          # <EmbeddedResource Include="src\web\**\*" />
    gated by a `layout:'full'` field in the page's layout message (adds `body.full`). Scope
    full-only CSS under `body.full` so the verified compact layout is untouched. Historically,
    this came from the old shell overlay renderer + CSS; future work should use the current
-   `src/web/shell/mfd.js` hooks as the integration point.
+   `src/web/shell/classic/mfd.js` hooks as the integration point.
 3. **Host full-view in `#page-frame`** (see shell hooks).
 4. **Delete the old overlay path** (renderer, markup, element refs/state, CSS) once the iframe
    version is driving full view.
 
-### Shell hooks in `src/web/shell/mfd.js` (grep these — they are the integration points)
+### Shell hooks in `src/web/shell/classic/mfd.js` (grep these — they are the integration points)
 - **`#page-frame`** — the full-view host iframe in the `.screen` recess (after the map iframe).
   CSS: `#page-frame{position:absolute;inset:6px;display:none}`, shown via `.screen.page-on`,
   hidden in `.screen.split`. It sits **below** `.overlay` (so bezel labels paint on top).
@@ -403,7 +403,7 @@ browser JS/CSS. So **always verify rendering in a browser**. The proven loop, no
 1. Edit `src/web/shell/...` and/or `src/web/pages/...` → `dotnet build` (verifies the server still builds
    and the embedded-resource manifest is valid).
 2. Run the **shell harness over http** (`tools/serve_web.py --open`, or launch.json config `hud-web`):
-   serves `src/web/shell/mfd.html` at `/`, `/<page>`→`src/web/pages/<page>/<page>.html`, `/assets/*`→`src/web/*`
+   serves `src/web/shell/classic/mfd.html` at `/`, `/<page>`→`src/web/pages/<page>/<page>.html`, `/assets/*`→`src/web/*`
    with fallback to `preview/assets/*` captures, `/weapon?…`→captured or mock icons, `/config`, and
    `/airframe[-layout]` captures for AVN. `preview-mock.js` is injected into the MAP page and supplies
    a synthetic or captured frame, so the shell drives the frame end-to-end.
@@ -418,7 +418,7 @@ browser JS/CSS. So **always verify rendering in a browser**. The proven loop, no
    pages (shared `showPage` is touched), hide-shell, portrait/landscape.
 
 ### Editing the shell — gotchas
-- `src/web/shell/mfd.js` is the single shell source. The `mapFrame` source guard in the message handler
+- `src/web/shell/classic/mfd.js` is the single shell source. The `mapFrame` source guard in the message handler
   is critical: telemetry mirror messages should only come from the canonical MAP iframe.
 - JS identifiers like `paneWpnPage`, `selWpnPageFull`, and `wpnPage` are shell state, not page files.
   Grep precisely before deleting or renaming.
@@ -449,5 +449,5 @@ browser JS/CSS. So **always verify rendering in a browser**. The proven loop, no
   of the HTTP API, out of scope for this in-mod refactor (see *Decisions*).
 - The split-screen design (Strategy A: iframe per pane) that this unifies around
   shipped already; its `docs/` doc was removed per the done-doc convention. The
-  iframe-per-pane model survives in `src/web/shell/mfd.js` (`applySplitMode`,
+  iframe-per-pane model survives in `src/web/shell/classic/mfd.js` (`applySplitMode`,
   `renderSplitLabels`).

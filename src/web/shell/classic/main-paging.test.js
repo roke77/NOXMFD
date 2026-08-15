@@ -3,7 +3,7 @@
 // guards, so the properties that broke stay locked: a split pane has SIX physical keys; PREV anchors
 // the first key past page one, NEXT the last key before the last page, and items fill the rest — so
 // every page but the last must be exactly full and no page may ever ask for more than six.
-// Run: node src/web/shell/main-paging.test.js
+// Run: node src/web/shell/classic/main-paging.test.js
 const assert = require('assert');
 
 const PANE_SLOTS = 6;   // physical keys a split pane exposes for the MAIN list (MAIN_PANE_SLOTS)
