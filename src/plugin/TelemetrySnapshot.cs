@@ -254,13 +254,14 @@ namespace NOXMFD
     }
 
     // One hardpoint marker on the AFM frontal silhouette (WeaponPanel/frontProfile/hardpoint_*).
-    // Armed mirrors the LIVE state the game's own cockpit panel already shows for that station
-    // (green = armed/has ammo, red = exhausted) — see AssetCapture.ReadFrontalMarkerStates. The
-    // AFM page renders this in its own theme colors, not the game's raw (semi-transparent) hue.
+    // State mirrors the LIVE state the game's own cockpit panel already shows for that station —
+    // "armed" (has ammo), "exhausted" (mounted, no ammo left), or "empty" (nothing mounted) — see
+    // AssetCapture.ReadFrontalMarkerStates. The AFM page renders this in its own theme colors, not
+    // the game's raw (semi-transparent) hue.
     internal struct PylonMarker
     {
         public string Name;
-        public bool   Armed;
+        public string State;
     }
 
     // One tracked unit, in the same global coordinate space as WorldX/WorldZ.

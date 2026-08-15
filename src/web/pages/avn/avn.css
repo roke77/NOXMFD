@@ -57,6 +57,12 @@
   border: 0 solid var(--no-green-dark);   /* muted inner dividers only, see the two rules below */
   color: var(--no-gray);   /* off / dim; on/gear-down override below. Drives label + icon. */
   cursor: pointer;   /* directly clickable/touchable — see avn.js's click wiring */
+  /* .avn-content (the flex column wrapping both grids) is pointer-events:none so the empty space
+     around the tiles/gauges never eats a click meant for the page behind it — but pointer-events
+     inherits, so without this override a REAL mouse/touch click hit-tests straight through the tile
+     to whatever's underneath and never reaches it at all. A JS-dispatched el.click() bypasses
+     hit-testing entirely and fires anyway, which is why that looked fine in an automated check. */
+  pointer-events: auto;
 }
 .avn-tile:not(:nth-child(4n)) { border-right-width: 1px; }   /* between columns 1-2, 2-3, 3-4 */
 .avn-tile:nth-child(-n+4)     { border-bottom-width: 1px; }  /* between row 1 and row 2 */

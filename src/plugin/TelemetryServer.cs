@@ -1597,7 +1597,7 @@ namespace NOXMFD
             {
                 if (i > 0) sb.Append(',');
                 sb.Append("{\"n\":\"").Append(EscapeJson(pylons[i].Name ?? string.Empty)).Append("\",")
-                  .Append("\"a\":").Append(pylons[i].Armed ? "true" : "false").Append('}');
+                  .Append("\"s\":\"").Append(EscapeJson(pylons[i].State ?? "empty")).Append("\"}");
             }
             return sb.Append(']').ToString();
         }

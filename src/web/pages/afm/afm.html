@@ -18,8 +18,9 @@
   Shell -> page messages (all {mfd:true, ...}):
     'afm'        : { name, parts, failures, pylons } — the live snapshot (same data AVN's
                    shell-side state already carries; the shell just points a second page at it).
-                   pylons is [{n, c}] — hardpoint marker name + live hex color, mirroring the
-                   cockpit's own WEAPON ARMED panel (green = armed/has ammo, red = exhausted).
+                   pylons is [{n, s}] — hardpoint marker name + live state, mirroring the cockpit's
+                   own weapon-station panel: 'armed' (has ammo), 'exhausted' (mounted, fired out),
+                   or 'empty' (nothing mounted — a distinct flat gray, not just "not armed").
     'afm-layout' : geometry — layout:'full' + geom {headerTop, headerHeight, frameTop, frameHeight}
                    in full; omitted in compact (the page defaults to the CSS fixed offsets).
     'orient'     : app-wide orientation (drives body.portrait/.landscape).

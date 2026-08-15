@@ -339,7 +339,10 @@ namespace NOXMFD
             for (int i = 0; i < frontRT.childCount; i++)
             {
                 Transform child = frontRT.GetChild(i);
-                if (!child.name.StartsWith("hardpoint_", StringComparison.Ordinal)) continue;
+                // "hardpoint_Gun"/"hardpoint_TipR" on some airframes, "hardpoint0".."hardpoint8" (no
+                // underscore) on others (e.g. KR-67 Ifrit) — match the common prefix, not either
+                // exact shape.
+                if (!child.name.StartsWith("hardpoint", StringComparison.OrdinalIgnoreCase)) continue;
                 Image mImg = child.GetComponent<Image>();
                 if (mImg == null) continue;
                 if (!GetPartPlacement(mImg.rectTransform, frontRT, out float cx, out float cy, out float w, out float h, out float rotZ, out int sx, out int sy))
@@ -366,14 +369,20 @@ namespace NOXMFD
         // in-game hue. WeaponStatus.cs (decompiled) sets the marker to exactly Color.green when
         // armed or Color.red when exhausted (briefly lerped toward a flash color on a hit) — so
         // "which channel dominates" cleanly classifies both the resting and flashing states.
-        public List<(string name, bool armed)> ReadFrontalMarkerStates(string type)
+        // Three states, confirmed live (2026-08-15, KR-67 Ifrit with empty pylons): armed = pure
+        // green (0,1,0), exhausted = pure red (1,0,0), and a station with nothing mounted is flat
+        // gray (0.5,0.5,0.5) — equal channels, which a plain g>=r check misreads as armed. Gray is
+        // checked first since it's the one case a simple green/red split can't tell apart.
+        public List<(string name, string state)> ReadFrontalMarkerStates(string type)
         {
-            var result = new List<(string, bool)>();
+            var result = new List<(string, string)>();
             if (string.IsNullOrEmpty(type) || !_frontalMarkers.TryGetValue(type, out var markers)) return result;
             foreach (var (name, img) in markers)
             {
                 if (img == null) continue;   // scene reloaded since capture; stale reference
-                result.Add((name, img.color.g >= img.color.r));
+                Color c = img.color;
+                string state = (c.r == c.g && c.g == c.b) ? "empty" : (c.g >= c.r ? "armed" : "exhausted");
+                result.Add((name, state));
             }
             return result;
         }

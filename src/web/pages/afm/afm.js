@@ -245,16 +245,18 @@ function fitAfmFrontToImg() {
   afmFrontMarkersEl.style.height = h + 'px';
 }
 
-// Colors each pylon marker from the live snapshot — [{n, a}], a = armed/has ammo (mirroring the
-// cockpit's own WEAPON ARMED panel's green/red state). Rendered in the page's own solid theme
-// colors, not the game's raw (semi-transparent) hue. Positions are static (buildAfmFrontMarkers);
-// only the color updates per tick.
+// Colors each pylon marker from the live snapshot — [{n, s}], s one of 'armed' / 'exhausted' /
+// 'empty' (mirroring the cockpit's own weapon-station panel's three states — confirmed live: a gray
+// station has nothing mounted at all, distinct from a red one that fired its load). Rendered in the
+// page's own solid theme colors, not the game's raw (semi-transparent) hue. Positions are static
+// (buildAfmFrontMarkers); only the color updates per tick.
+const AFM_PYLON_COLOR = { armed: 'var(--no-green)', exhausted: 'var(--no-red)', empty: 'var(--no-gray)' };
 function paintAfmPylons() {
   const pylons = Array.isArray(afmData.pylons) ? afmData.pylons : null;
   if (!pylons) return;
   for (const p of pylons) {
     const el = afmFrontMarkerEls[p.n];
-    if (el) el.style.backgroundColor = p.a ? 'var(--no-green)' : 'var(--no-red)';
+    if (el) el.style.backgroundColor = AFM_PYLON_COLOR[p.s] || AFM_PYLON_COLOR.empty;
   }
 }
 
