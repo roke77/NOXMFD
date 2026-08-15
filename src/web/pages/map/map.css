@@ -48,6 +48,13 @@ main { flex: 1; display: flex; overflow: hidden; }
   top: 10px; right: 12px;
 }
 
+/* CURSOR — the grid square under whichever pointer is active (mouse or PAD cursor), directly below
+   GRID. updateCursorChip (map.js) toggles 'empty' as the pointer enters/leaves the map. */
+#cursor-bar {
+  position: absolute;
+  top: 44px; right: 12px;
+}
+
 /* FOLLOW is shown by the MFD shell's own indicator (stacked alongside PINNED), not here —
    MAP just mirrors its follow state up via source.emitFollow(). */
 

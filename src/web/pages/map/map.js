@@ -77,6 +77,7 @@ const mapImg   = document.getElementById('map-img');
 const overlay  = document.getElementById('overlay');
 const oc       = overlay.getContext('2d');
 const gridBar   = document.getElementById('grid-bar');
+const cursorBar = document.getElementById('cursor-bar');
 const unitLabel = document.getElementById('unit-label');
 const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — see pad-cursor.js
 
@@ -88,6 +89,7 @@ const cursor = createPadCursor({
   clampRect: imgRect,
   onSelect: (x, y) => selectAt(x, y, CURSOR_HIT_PAD),
   onEdge: onCursorEdge,
+  onMove: updateCursorChip,   // CURSOR chip tracks the PAD cursor too, not just the mouse
 });
 
 // Edge-panning (docs/page-cursor.md #3): the cursor lives in screen space and never leaves
@@ -164,6 +166,22 @@ function worldToOverlay(wx, wz) {
   if (!b) return null;
   const v = viewTransform(b.x, b.y);
   return { cx: v.x, cy: v.y };
+}
+
+// Overlay pixel → world (the exact algebraic inverse of worldToOverlay/worldToBase/viewTransform,
+// not an approximation) — feeds the CURSOR chip's grid label from wherever the mouse/PAD cursor
+// currently sits. No bounds check: a point outside the map's extent (letterbox margin, panned/
+// zoomed past an edge) still resolves to whatever grid square the math extrapolates to, same as
+// the player's own GRID chip has never special-cased being off the labelled grid (gridLabel itself
+// already returns '—' for a negative grid square).
+function overlayToWorld(sx, sy) {
+  if (!mapMeta || mapMeta.w <= 0 || mapMeta.h <= 0) return null;
+  const ox = overlay.width / 2, oy = overlay.height / 2;
+  const bx = ox + (sx - ox - view.panX) / view.zoom;
+  const by = oy + (sy - oy - view.panY) / view.zoom;
+  const r = imgRect();
+  const relX = (bx - r.dx) / r.dw, relY = 1 - (by - r.dy) / r.dh;
+  return { x: relX * mapMeta.w - mapMeta.w * 0.5, z: relY * mapMeta.h - mapMeta.h * 0.5 };
 }
 
 // gridLabel(wx, wz, meta) is imported from telemetry-source.js (shared with the target derive).
@@ -655,6 +673,7 @@ function clearViewState() {
   mapImg.src = '/map?t=' + Date.now();   // 404 now → falls back to the placeholder
 
   document.getElementById('grid-bar').className = 'mfd-chip empty';
+  cursorBar.className = 'mfd-chip empty';
 }
 
 // ── HUD ──────────────────────────────────────────────────────────────────────────
@@ -668,6 +687,18 @@ function updateHUD(d) {
   const gridText = gridLabel(d.world.x, d.world.z, mapMeta);
   gridBar.textContent = 'GRID: ' + gridText;
   gridBar.className = 'mfd-chip';
+}
+
+// CURSOR chip (below GRID) — the grid square under whichever pointer is currently active: the
+// mouse (mapPanel's mousemove, below) or the PAD cursor (pad-cursor.js's onMove, wired at the
+// bottom of this file). Both funnel through here so there's one place that shows/hides it, rather
+// than each source tracking its own visibility. sx===null hides it (no active pointer this tick).
+function updateCursorChip(sx, sy) {
+  if (sx == null || !mapMeta) { cursorBar.className = 'mfd-chip empty'; return; }
+  const w = overlayToWorld(sx, sy);
+  if (!w) { cursorBar.className = 'mfd-chip empty'; return; }
+  cursorBar.textContent = 'CURSOR: ' + gridLabel(w.x, w.z, mapMeta);
+  cursorBar.className = 'mfd-chip';
 }
 
 // ── Map zoom / pan ───────────────────────────────────────────────────────────────
@@ -808,10 +839,11 @@ const mapPanel = document.getElementById('map-panel');
 mapPanel.addEventListener('mousemove', function(e) {
   // Touch has no hover: a tap emits a synthetic mousemove but never a mouseleave, so the label
   // would stick forever (even after the unit dies). Touch taps are select-only — mouse hovers label.
-  if (lastPointerType === 'touch') { unitLabel.style.display = 'none'; return; }
-  if (panId !== null) { unitLabel.style.display = 'none'; return; }   // don't flicker while panning
+  if (lastPointerType === 'touch') { unitLabel.style.display = 'none'; updateCursorChip(null); return; }
+  if (panId !== null) { unitLabel.style.display = 'none'; updateCursorChip(null); return; }   // don't flicker while panning
   const rect = overlay.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  updateCursorChip(mx, my);
   let hit = null;
   for (let i = hitTargets.length - 1; i >= 0; i--) {   // topmost (last-drawn) first
     const t = hitTargets[i];
@@ -828,7 +860,7 @@ mapPanel.addEventListener('mousemove', function(e) {
     unitLabel.style.display = 'none';
   }
 });
-mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = 'none'; });
+mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = 'none'; updateCursorChip(null); });
 
 // ── Tap-to-select (POC write path) ──────────────────────────────────────────────────
 // A tap on a contact POSTs its id to /select; the mod targets it in-game. Map-select only ever

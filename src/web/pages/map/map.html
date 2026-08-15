@@ -18,9 +18,9 @@
   TelemetrySource parses each frame and re-broadcasts the derived per-page slices up to the shell
   via parent.postMessage ({mfd:true, type:'status'|'loadout'|'cm'|'tgp'|'targets'|'rwr'|'mw'|
   'avn'|'follow'|'grid'}); the shell caches them and re-forwards to the #page-frame (full) or the split
-  panes. This page renders ONLY the map: the silhouette + unit icons and the GRID chip. (The old
-  standalone header + telemetry sidebar were removed — the dedicated MFD pages own that data now,
-  and the shell renders connection status + the FOLLOW indicator.)
+  panes. This page renders ONLY the map: the silhouette + unit icons and the GRID/CURSOR chips.
+  (The old standalone header + telemetry sidebar were removed — the dedicated MFD pages own that
+  data now, and the shell renders connection status + the FOLLOW indicator.)
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -45,6 +45,10 @@
          --map-crosshair. -->
     <div id="soi-cursor" class="pad-cursor"></div>
     <div id="grid-bar" class="mfd-chip empty">GRID: &mdash;</div>
+    <!-- CURSOR — the grid square under the mouse or PAD cursor, whichever is active. Below GRID
+         (own-ship's square), same .mfd-chip look, shown only while a pointer is actually hovering
+         the map — updateCursorChip in map.js. -->
+    <div id="cursor-bar" class="mfd-chip empty">CURSOR: &mdash;</div>
     <div id="unit-label"></div>
   </div>
 </main>
