@@ -289,7 +289,11 @@ namespace NOXMFD
             var list = new List<ObjEntry>(active.Count);
             foreach (Objective o in active)
             {
-                if (o == null || o.SavedObjective == null || o.SavedObjective.Hidden) continue;
+                // Matches the game's own list membership, not just a map-pin filter: ObjectiveInfoList.
+                // AddObjectiveEntry/InitializeObjectiveList both gate on IObjectiveWithPosition too, so
+                // position-less objective types (WaitSeconds, DialogueBox, CompleteOtherObjective,
+                // SuccessfulSortie, ...) never show up in the in-game OBJ list at all, not just on the map.
+                if (o == null || o.SavedObjective == null || o.SavedObjective.Hidden || !(o is IObjectiveWithPosition)) continue;
                 list.Add(new ObjEntry
                 {
                     Name      = o.SavedObjective.DisplayName,

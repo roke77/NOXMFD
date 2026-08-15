@@ -50,14 +50,15 @@ still reaches the family via `BEZEL_EXTRAS.main`'s `MDT` label, action
 | `items[].p` | `Objective.CompletePercent` (0..1) |
 | `items[].pos[]` | Position sub-rows (`ObjectiveInfoList_Item` — "DestroyUnits / Lb105 / 18km"), see below |
 
-Objectives with `SavedObjective.Hidden` are dropped (matches
-`ObjectiveInfoList.AddObjectiveEntry`'s filter) — e.g. the always-present
-hidden mission-start bookkeeping objective. The game's own
-`IObjectiveWithPosition` filter is *not* applied as a top-level objective
-filter: that gates whether an objective gets a map pin (used below for the
-position sub-rows), not whether the objective itself belongs in the text
-list, and `MissionPosition.TryGetActiveObjectives` already scopes the list to
-the given faction HQ.
+Objectives are dropped when `SavedObjective.Hidden` (e.g. the always-present
+hidden mission-start bookkeeping objective) **or** when the objective isn't
+`IObjectiveWithPosition` — matching `ObjectiveInfoList.AddObjectiveEntry`/
+`InitializeObjectiveList` exactly. This isn't just a map-pin gate: it's the
+game's own list-membership filter, so position-less objective types
+(WaitSeconds, DialogueBox, CompleteOtherObjective, SuccessfulSortie, ...)
+never appear in the in-game OBJ list at all, not just on the map — an earlier
+version of this page got that backwards and only filtered `Hidden`, which
+would have shown objectives the real panel never does.
 
 **Position sub-rows** (`ObjectiveInfoList_Item`, the collapsible "DestroyUnits
 / Lb105 / 18km" rows under an objective): one `MissionPosition.GetAllPositionsResults(map.HQ, ...)`
