@@ -376,30 +376,7 @@ const AVN_TOGGLE_GROUPS = ['gear', 'radar', 'guns', 'eng', 'assist', 'nvg', 'lig
 //          same for every list page, so `page` only matters to the 'h' branch.
 // Returns {bank,index} for main/next/each item, plus the per-item side class the page renders with.
 function listPaneLayout(paneIdx, page) {
-  if (splitVariant === 'h') {
-    const off = paneIdx * 3;
-    if (page === 'wpn' || page === 'avn') {
-      return {
-        main: { bank: 'left', index: off }, next: { bank: 'right', index: off },
-        items: [{ bank: 'left', index: off + 1 }, { bank: 'left', index: off + 2 },
-                { bank: 'right', index: off + 1 }, { bank: 'right', index: off + 2 }],
-        itemSides: ['left', 'left', 'right', 'right'],
-      };
-    }
-    return {
-      main: { bank: 'left', index: off }, next: { bank: 'right', index: off + 2 },
-      items: [{ bank: 'left', index: off + 1 }, { bank: 'left', index: off + 2 },
-              { bank: 'right', index: off }, { bank: 'right', index: off + 1 }],
-      itemSides: ['left', 'left', 'right', 'right'],
-    };
-  }
-  const side = paneIdx === 0 ? 'left' : 'right';   // left/right pane owns its adjacent column
-  return {
-    main: { bank: side, index: 0 }, next: { bank: side, index: 5 },
-    items: [{ bank: side, index: 1 }, { bank: side, index: 2 },
-            { bank: side, index: 3 }, { bank: side, index: 4 }],
-    itemSides: [side, side, side, side],
-  };
+  return ClassicPaging.listPaneLayout(splitVariant, paneIdx, page);
 }
 
 // Place an overlay label on a physical key {bank,index} and tag it with the owning pane. Returns the

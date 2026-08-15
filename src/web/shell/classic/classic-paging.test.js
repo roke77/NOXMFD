@@ -108,4 +108,55 @@ assert.deepStrictEqual(seen, items, 'MAIN pages do not reconstruct the list');
 assert.strictEqual(P.mainPaneSlice(items, 99).pageIndex, P.mainPageSizes(items.length).length - 1,
   'MAIN page did not clamp');
 
+// ── listPaneLayout: no two labels may land on the same physical key ────────────────────
+// It's a hand-maintained table, and a typo there doesn't crash — it quietly stacks two labels on
+// one key, or leaves a control unreachable. A bezel column has 6 keys; in 'h' split both panes
+// share all 12, so pane 0 and pane 1 must not overlap either.
+const BANK_KEYS = 6;
+const cell = k => k.bank + k.index;
+const allCells = L => [L.main, L.next].concat(L.items).map(cell);
+
+for (const variant of ['h', 'v', 'vw']) {
+  for (const page of ['wpn', 'avn', 'main', 'tgt']) {
+    const panes = [0, 1].map(i => P.listPaneLayout(variant, i, page));
+
+    panes.forEach((L, i) => {
+      const cells = allCells(L);
+      assert.strictEqual(new Set(cells).size, cells.length,
+        `${variant}/${page} pane ${i}: two labels share a key (${cells.join(' ')})`);
+
+      [L.main, L.next].concat(L.items).forEach(k => {
+        assert.ok(k.bank === 'left' || k.bank === 'right', `${variant}/${page} pane ${i}: bad bank ${k.bank}`);
+        assert.ok(k.index >= 0 && k.index < BANK_KEYS,
+          `${variant}/${page} pane ${i}: key index ${k.index} outside 0..${BANK_KEYS - 1}`);
+      });
+
+      assert.strictEqual(L.items.length, 4, `${variant}/${page} pane ${i}: expected 4 item slots`);
+      // itemSides duplicates items[].bank — pin them together so they can't drift apart.
+      assert.deepStrictEqual(L.itemSides, L.items.map(k => k.bank),
+        `${variant}/${page} pane ${i}: itemSides disagrees with items[].bank`);
+    });
+
+    // The two panes are on screen at once, so their key sets must be disjoint.
+    const overlap = allCells(panes[0]).filter(c => allCells(panes[1]).includes(c));
+    assert.strictEqual(overlap.length, 0,
+      `${variant}/${page}: panes 0 and 1 both claim ${overlap.join(' ')}`);
+  }
+}
+
+// A vertical pane owns one column outright and uses all six of its keys.
+const v0 = P.listPaneLayout('v', 0, 'wpn');
+assert.deepStrictEqual(allCells(v0).sort(), ['left0', 'left1', 'left2', 'left3', 'left4', 'left5'],
+  'vertical pane 0 should fill the left column');
+assert.deepStrictEqual(allCells(P.listPaneLayout('v', 1, 'wpn')).sort(),
+  ['right0', 'right1', 'right2', 'right3', 'right4', 'right5'],
+  'vertical pane 1 should fill the right column');
+
+// WPN/AVN put NEXT top-right; other list pages have no top-right control and shift it to the
+// column's end. Pinned because the two branches are easy to conflate when editing the table.
+assert.deepStrictEqual(P.listPaneLayout('h', 0, 'wpn').next, { bank: 'right', index: 0 },
+  'h/wpn NEXT should sit top-right');
+assert.deepStrictEqual(P.listPaneLayout('h', 0, 'tgt').next, { bank: 'right', index: 2 },
+  'h/tgt NEXT should sit at the end of the right column');
+
 console.log('classic-paging.test.js: OK');

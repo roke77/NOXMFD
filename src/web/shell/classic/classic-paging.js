@@ -106,7 +106,44 @@
              hasPrev: p > 0, hasNext: p < sizes.length - 1, pageIndex: p };
   }
 
+  // Where a list page's nav and item rows land on the physical bezel keys, per split orientation.
+  // The companion to split-keymap.js's paneKey: that maps a page's own pane-local slot, this one
+  // hands a LIST page (which owns the whole pane) its fixed positions directly.
+  //
+  // 'h' (top/bottom): each pane keeps both columns, offset by 3 for the bottom pane. WPN and AVN
+  // put NEXT top-right and take four item keys below the top band; every other list page has no
+  // top-right control of its own, so NEXT sits at the column's end and the items start higher.
+  // 'v'/'vw' (left/right): the pane owns one adjacent column — MAIN at its top key, NEXT at its
+  // bottom, items filling the four between.
+  function listPaneLayout(variant, paneIdx, page) {
+    if (variant === 'h') {
+      const off = paneIdx * 3;
+      if (page === 'wpn' || page === 'avn') {
+        return {
+          main: { bank: 'left', index: off }, next: { bank: 'right', index: off },
+          items: [{ bank: 'left', index: off + 1 }, { bank: 'left', index: off + 2 },
+                  { bank: 'right', index: off + 1 }, { bank: 'right', index: off + 2 }],
+          itemSides: ['left', 'left', 'right', 'right'],
+        };
+      }
+      return {
+        main: { bank: 'left', index: off }, next: { bank: 'right', index: off + 2 },
+        items: [{ bank: 'left', index: off + 1 }, { bank: 'left', index: off + 2 },
+                { bank: 'right', index: off }, { bank: 'right', index: off + 1 }],
+        itemSides: ['left', 'left', 'right', 'right'],
+      };
+    }
+    const side = paneIdx === 0 ? 'left' : 'right';   // left/right pane owns its adjacent column
+    return {
+      main: { bank: side, index: 0 }, next: { bank: side, index: 5 },
+      items: [{ bank: side, index: 1 }, { bank: side, index: 2 },
+              { bank: side, index: 3 }, { bank: side, index: 4 }],
+      itemSides: [side, side, side, side],
+    };
+  }
+
   const api = { buildWpnSplitPages, wpnPaneSlice, avnPaneSlice, mainPageSizes, mainPaneSlice,
+                listPaneLayout,
                 WPN_SPLIT_MAX, WPN_SPLIT_CONTROLS, AVN_PANE_PAGE_SIZE, MAIN_PANE_SLOTS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ClassicPaging = api;
