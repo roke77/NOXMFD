@@ -2,10 +2,12 @@
 
 ## Status
 
-**In progress** (branch `mission-objective`, ticket
+**In-game verified, not yet merged** (branch `mission-objective`, ticket
 [#37](https://github.com/roke77/NOXMFD/issues/37)). Backend telemetry, JSON
-wire format, and both bare pages are implemented and wired into MDT on both
-the CLASSIC bezel and the F-35 layout; not yet verified in-game.
+wire format, both bare pages, and the four-way MDT switch (including its
+vertical-label treatment in split mode and F-35) are implemented, wired, and
+confirmed working in a live mission — including OBJ's collapsible
+position sub-rows, added after the ticket's original scope.
 
 ## What these replicate
 
@@ -18,7 +20,8 @@ predates this and doesn't have it), which toggles between two views:
   description text (mission authors write campaign name, synopsis, and
   "Play Order" directly into this one field — nothing to parse out).
 - **OBJ** — `ShowObjectiveList()`: the player faction's currently active
-  objectives, one row each — name, status, completion percent.
+  objectives, one row each — name, status, completion percent, and
+  collapsible position sub-rows (grid label + live range) where applicable.
 
 MDT (Mission Data Table) is now a four-way switch: **BDF / PAL / MIS / OBJ**,
 all reachable from each other (`nav-model.js` `NAV.bdf`/`NAV.pal`/`NAV.mis`/
