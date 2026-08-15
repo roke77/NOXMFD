@@ -12,7 +12,8 @@ var DEF_CONE = 60;                             // fallback azimuth half-angle wh
 var M_PER_NM = 1852, M_PER_KM = 1000, M_TO_FT = 3.28084;
 
 var GREEN = '#39ff14', AMBER = '#ffaa00', PURPLE = 'rgb(179, 136, 255)';
-var BLUE = '#4d9fff', PB_LINE = '#ffd21e';   // pitbull missile triangle / dashed target line (issue #40)
+var BLUE = '#4d9fff';   // pitbull missile triangle fill (issue #40) — the "this is MY missile" cue,
+                         // distinct from RWR's inbound-threat red/yellow
 var state = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, items: [], pb: [] };
 
 // The caret's one-way sweep time (rdr.css's animation-duration must match). 2s one-way / 4s round
@@ -185,13 +186,15 @@ function renderContacts() {
 }
 
 // Pitbull missiles (issue #40): the player's own AA missiles with a locked active-radar seeker.
-// Drawn as a blue triangle, oriented like the ordinary contacts' velocity stub (rhdg, 0 = up/away
-// from ownship), plus a dashed line to the target IF that target is also plotted on the scope right
-// now (renderContacts must run first — it fills `plotted`). tid=0 (no/unresolved target) or a
-// target that's currently off-scope both just skip the line; the triangle still shows.
-// ponytail: line color is a flat yellow (RWR's existing dashed-line color) rather than yellow->red
-// by closing range/TTI — no closing-rate telemetry exists yet to drive that; revisit once this is
-// testable in-game (see issue #40's backfill).
+// Matches RWR's own missile-threat design (rwr.js renderThreats): a slender pointed dart (not a
+// squat isoceles triangle) and a SOLID line, flickering yellow<->red on the same timer RWR uses
+// (see pbFlip below) rather than a static dashed line. The dart stays blue-filled (own weapon, not
+// a threat) while the line adopts RWR's flicker so "missile in flight, still tracking" reads the
+// same way it does on RWR. Points at its target's PLOTTED position (not its own travel heading) so
+// the dart visibly aims at what it's pursuing; falls back to travel heading (rhdg, 0 = up/away from
+// ownship) when the target isn't resolvable on-scope, so the dart still has a sensible orientation.
+// Line only draws when the target is ALSO plotted on the scope right now (renderContacts must run
+// first — it fills `plotted`); tid=0 or an off-scope target just skip the line, the dart still shows.
 function renderPitbull() {
   var g = document.getElementById('rdr-pitbull');
   if (!g) return;
@@ -199,13 +202,19 @@ function renderPitbull() {
   (state.pb || []).forEach(function (m) {
     var p = plot(m);
     if (!p) return;
-    var rot = (m.rhdg || 0).toFixed(1);
-    out += '<polygon points="' + p.x.toFixed(1) + ',' + (p.y - 9).toFixed(1) + ' ' +
-           (p.x - 7).toFixed(1) + ',' + (p.y + 7).toFixed(1) + ' ' +
-           (p.x + 7).toFixed(1) + ',' + (p.y + 7).toFixed(1) +
-           '" fill="' + BLUE + '" transform="rotate(' + rot + ' ' + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ')"/>';
     var target = m.tid ? plotted.find(function (pt) { return pt.id === m.tid; }) : null;
-    if (target) out += line(p.x, p.y, target.x, target.y, PB_LINE, 2.5, '10 8');
+    var rot = target
+      ? (Math.atan2(target.x - p.x, -(target.y - p.y)) * 180 / Math.PI).toFixed(1)
+      : (m.rhdg || 0).toFixed(1);
+    // Slender dart (RWR's HL/HB/HW proportions, scaled to RDR's ~16px contact size): a long tip and
+    // a narrow base, not the fatter brick-sized triangle this used to be.
+    out += '<polygon points="' + p.x.toFixed(1) + ',' + (p.y - 13).toFixed(1) + ' ' +
+           (p.x - 4).toFixed(1) + ',' + (p.y + 3).toFixed(1) + ' ' +
+           (p.x + 4).toFixed(1) + ',' + (p.y + 3).toFixed(1) +
+           '" fill="' + BLUE + '" transform="rotate(' + rot + ' ' + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ')"/>';
+    if (target)
+      out += '<line x1="' + p.x.toFixed(1) + '" y1="' + p.y.toFixed(1) + '" x2="' + target.x.toFixed(1) +
+             '" y2="' + target.y.toFixed(1) + '" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>';
   });
   g.innerHTML = out;
 }
@@ -261,6 +270,17 @@ function render() {
 
 // Browser-only bootstrap (skipped under Node so rdr.test.js can require the pure helpers).
 if (typeof window !== 'undefined' && window.addEventListener) {
+  // Flickers the pitbull target line yellow<->red on RWR's own timer (renderThreats' mwFlip, same
+  // 130ms period). Only the line uses currentColor, so this doesn't affect the dart's fixed blue
+  // fill; a no-op tick while no line is drawn (target unresolved/off-scope) costs one querySelector.
+  var pbFlip = false;
+  setInterval(function () {
+    var g = document.getElementById('rdr-pitbull');
+    if (!g || !g.querySelector('line')) return;
+    pbFlip = !pbFlip;
+    g.style.color = pbFlip ? '#ffd21e' : '#ff3b30';
+  }, 130);
+
   // The PAD acquisition cursor (two vertical bars) reuses the shared pad-cursor integrator. Loaded
   // via dynamic import so this file stays a classic script the Node self-check can require; any
   // cursor message that arrives before it resolves is parked and applied on creation.
