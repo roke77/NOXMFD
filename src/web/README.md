@@ -18,6 +18,7 @@ src/web/
             layout-sticky.test.js                         # the classic⇄f35 redirect handoff — belongs to neither
             classic/       mfd.html  mfd.css  mfd.js       # the classic bezel shell (host + router)
                            split-keymap.js                 # bezel key-slot logic (split panes)
+                           classic-paging.js               # pure WPN/AVN/MAIN split-pane pagination
             f35/           f35.html  f35.css  f35.js       # a second shell: borderless F-35 glass, N portals
                            f35-glass.js  f35-wpn-paging.js  # portal merge/split geometry, WPN pagination
   pages/
@@ -31,7 +32,7 @@ src/web/
 Two shells render the same pages: the classic bezel (`shell/classic/mfd.js`) and the F-35 glass
 (`shell/f35/f35.js`), sharing the page set, the NAV model, and `sendCommand` — see
 [`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
-`nav-model.test.js`, `f35-glass.test.js`, `main-paging.test.js`) are Node self-checks, run by hand
+`nav-model.test.js`, `f35-glass.test.js`, `classic-paging.test.js`) are Node self-checks, run by hand
 (`node shell/whatever.test.js`), never fetched by a browser (excluded from the embedded-resource glob).
 A page with non-trivial classification logic splits it into a sibling `<x>-*-policy.js` — a pure
 module the page imports and the test drives without a DOM (`avn-status-policy.js`,

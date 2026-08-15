@@ -172,27 +172,18 @@ let panePages = ['main', 'main'];
 // A split pane shows at most 4 weapons (slots L1, L2, R1, R2). The top band's keys are
 // reserved: L0 = MAIN/PREV back-button, R0 = NEXT (shown only when the loadout exceeds 4).
 let paneWpnPage = [0, 0];
-const WPN_SPLIT_MAX = 4;
+const WPN_SPLIT_MAX = ClassicPaging.WPN_SPLIT_MAX;
 
 // AVN split pagination: a pane shows 4 of the 8 avn.toggle groups per page (item slots L1,L2,R1,R2
 // like WPN's), PREV/NEXT on the pane's top/bottom keys via listPaneLayout. Reset to 0 when a pane
 // (re)enters AVN — the groups never reorder, so unlike WPN there's no "selection" to auto-page to.
 let paneAvnPage = [0, 0];
-const AVN_PANE_PAGE_SIZE = 4;
+// The slice itself is pure (classic-paging.js); these wrappers just bind it to this pane's page
+// state and write the clamped index back, so every call site keeps its original signature.
 function avnPaneSlice(idx) {
-  const maxPage = Math.ceil(AVN_TOGGLE_GROUPS.length / AVN_PANE_PAGE_SIZE) - 1;
-  if (paneAvnPage[idx] > maxPage) paneAvnPage[idx] = maxPage;
-  if (paneAvnPage[idx] < 0) paneAvnPage[idx] = 0;
-  const start = paneAvnPage[idx] * AVN_PANE_PAGE_SIZE;
-  return {
-    items: AVN_TOGGLE_GROUPS.slice(start, start + AVN_PANE_PAGE_SIZE),
-    hasPrev: paneAvnPage[idx] > 0,
-    hasNext: paneAvnPage[idx] < maxPage,
-    // 1-indexed, mirrors wpnPaneSlice's page/pages — lets the page show a "PAGE x/y" indicator
-    // (avn.js) so a pilot in a split pane knows 4 of the 8 groups are a NEXT press away.
-    page: paneAvnPage[idx] + 1,
-    pages: maxPage + 1,
-  };
+  const slice = ClassicPaging.avnPaneSlice(AVN_TOGGLE_GROUPS, paneAvnPage[idx]);
+  paneAvnPage[idx] = slice.pageIndex;
+  return slice;
 }
 // Wire this pane's 4 visible avn.toggle groups to the physical keys L.items resolves to — mirrors
 // wireWpnPaneWeaponKeys, plus an overlay text label (avnNavLabelText, the same abbreviations full
@@ -209,38 +200,13 @@ function wireAvnPaneToggleKeys(groups, L, paneTag) {
   }
 }
 
-// ARM/SAFE/A-A/A-G (docs/radar-master-arms.md) in a split pane: appended after the weapon list,
-// sharing the same 4-slot-per-page window weapons use (unlike full view, which has dedicated
-// right-column keys free for them). A pair is never split across a page boundary — since (ARM,SAFE)
-// and (A/A,A/G) are always two adjacent entries in the combined list, a pair only ever splits when
-// its first item would land on a page's LAST slot, so one empty slot inserted right before the pair
-// pushes the whole thing to the next page, leaving the leftover slot(s) on the previous page blank.
-const WPN_SPLIT_CONTROLS = [
-  { id: 'master-arms-on',  label: 'ARM'  },
-  { id: 'master-arms-off', label: 'SAFE' },
-  { id: 'combat-mode-aa',  label: 'A/A'  },
-  { id: 'combat-mode-ag',  label: 'A/G'  },
-];
-function buildWpnSplitPages(weaponCount) {
-  const slots = [];
-  for (let i = 0; i < weaponCount; i++) slots.push({ type: 'weapon', index: i });
-  function padIfWouldSplitNextPair() {
-    if (slots.length % WPN_SPLIT_MAX === WPN_SPLIT_MAX - 1) slots.push({ type: 'empty' });
-  }
-  padIfWouldSplitNextPair();
-  slots.push(Object.assign({ type: 'ctrl' }, WPN_SPLIT_CONTROLS[0]));
-  slots.push(Object.assign({ type: 'ctrl' }, WPN_SPLIT_CONTROLS[1]));
-  padIfWouldSplitNextPair();
-  slots.push(Object.assign({ type: 'ctrl' }, WPN_SPLIT_CONTROLS[2]));
-  slots.push(Object.assign({ type: 'ctrl' }, WPN_SPLIT_CONTROLS[3]));
-  const pages = [];
-  for (let i = 0; i < slots.length; i += WPN_SPLIT_MAX) pages.push(slots.slice(i, i + WPN_SPLIT_MAX));
-  return pages;
-}
+// ARM/SAFE/A-A/A-G (docs/radar-master-arms.md) in a split pane, and the pair-never-straddles-a-page
+// rule that shapes the slot list, live in classic-paging.js alongside the rest of the pagination.
+const buildWpnSplitPages = ClassicPaging.buildWpnSplitPages;
+
 // Per-pane MAIN pagination index — MAIN_SPLIT_ITEMS paged across the pane's keys (mainPaneSlice).
 // Reset to 0 when a pane (re)enters MAIN (paneNavigate), same as paneWpnPage for WPN.
 let paneMainPage = [0, 0];
-const MAIN_PANE_SLOTS = 6;   // physical keys a split pane exposes for the MAIN list
 
 // Latest connection status mirrored from the map iframe — kept so we can push the
 // current value to a freshly-loaded pane iframe (its onload may fire AFTER the
@@ -463,28 +429,14 @@ function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p 
 // PREV), a middle page four (PREV + NEXT both eat a slot), and the last page up to five (no NEXT).
 // The first page a split opens on is therefore full, not four items with two empty keys.
 function mainPageSizes() {
-  const total = MAIN_SPLIT_ITEMS.length;
-  const sizes = [];
-  let placed = 0;
-  while (placed < total) {
-    const room = MAIN_PANE_SLOTS - (sizes.length === 0 ? 0 : 1);   // minus PREV on every page but the first
-    if (total - placed <= room) { sizes.push(total - placed); break; }   // the rest fits, no NEXT needed
-    sizes.push(room - 1);                                          // reserve the last key for NEXT
-    placed += room - 1;
-  }
-  return sizes;
+  return ClassicPaging.mainPageSizes(MAIN_SPLIT_ITEMS.length);
 }
 
 // This pane's slice of the MAIN list, with the page clamped in range.
 function mainPaneSlice(idx) {
-  const sizes = mainPageSizes();
-  if (paneMainPage[idx] > sizes.length - 1) paneMainPage[idx] = sizes.length - 1;
-  if (paneMainPage[idx] < 0) paneMainPage[idx] = 0;
-  const p = paneMainPage[idx];
-  let start = 0;
-  for (let k = 0; k < p; k++) start += sizes[k];
-  const items = MAIN_SPLIT_ITEMS.slice(start, start + sizes[p]);
-  return { items: items, hasPrev: p > 0, hasNext: p < sizes.length - 1 };
+  const slice = ClassicPaging.mainPaneSlice(MAIN_SPLIT_ITEMS, paneMainPage[idx]);
+  paneMainPage[idx] = slice.pageIndex;
+  return slice;
 }
 
 function renderSplitLabels() {
@@ -926,16 +878,9 @@ function forwardObjToPanes() {
 // uses these to place ARM/SAFE/A-A/A-G on whichever physical keys they land on) and whether
 // PREV/NEXT exist. Clamps a stale page index (e.g. the loadout shrank) back into range as a side effect.
 function wpnPaneSlice(idx) {
-  const weapons = wpnData.items || [];
-  const pages = buildWpnSplitPages(weapons.length);
-  const maxPage = pages.length - 1;
-  if (paneWpnPage[idx] > maxPage) paneWpnPage[idx] = maxPage;
-  if (paneWpnPage[idx] < 0)       paneWpnPage[idx] = 0;
-  const slots = pages[paneWpnPage[idx]] || [];
-  const items = slots.filter(function(s) { return s.type === 'weapon'; })
-                      .map(function(s) { return weapons[s.index]; });
-  return { items: items, slots: slots, hasPrev: paneWpnPage[idx] > 0, hasNext: paneWpnPage[idx] < maxPage,
-           page: maxPage > 0 ? paneWpnPage[idx] + 1 : 1, pages: maxPage + 1 };
+  const slice = ClassicPaging.wpnPaneSlice(wpnData.items, paneWpnPage[idx]);
+  paneWpnPage[idx] = slice.pageIndex;
+  return slice;
 }
 function forwardWpnToPanes() {
   paneIframes.forEach(function(iframe, idx) {
