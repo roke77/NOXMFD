@@ -1444,7 +1444,7 @@ namespace NOXMFD
         {
             if (!s.MisPresent) return "{\"present\":false}";
             return string.Format(CultureInfo.InvariantCulture,
-                "{{\"present\":true,\"name\":\"{0}\",\"description\":\"{1}\",\"tod\":{2:0.000},\"duration\":{3:0.0},\"score\":{4:0.1},\"level\":{5}}}",
+                "{{\"present\":true,\"name\":\"{0}\",\"description\":\"{1}\",\"tod\":{2:0.000},\"duration\":{3:0.0},\"score\":{4:0.0},\"level\":{5}}}",
                 EscapeJson(s.MissionName ?? string.Empty), EscapeJson(s.MisDescription ?? string.Empty),
                 s.MisTimeOfDay, s.MisDuration, s.MisScore, s.MisLevel);
         }
