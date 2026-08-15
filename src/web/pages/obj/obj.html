@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — OBJ</title>
+<!--
+  Bare OBJ page served at /obj — a read-only replica of the game's in-cockpit active-objectives list
+  (ObjectiveInfoList.ShowObjectiveList, the "OBJ" tab of the same panel MIS shows mission info for).
+  Renders full-view in #page-frame and as a split pane, like BDF/PAL/MIS — its bezel keys are the
+  shared MDT switch (NAV.obj: MAIN + BDF + PAL + MIS + OBJ). See docs/mdt-pages.md.
+
+  Shell -> page messages (all {mfd:true, ...}):
+    'obj' : { present, items:[{n,s,p,pos:[{n,g,r}]}] }.
+            present:false -> the player faction's HQ isn't resolved yet (e.g. between missions) —
+            show UNAVAILABLE. items is empty when the HQ has no active objectives.
+            s (status): 0 Not Started, 1 Running, 2 Complete. p (percent): 0..1.
+            pos: this objective's position sub-rows (ObjectiveInfoList_Item — "DestroyUnits / Lb105
+            / 18km"), collapsible — g is the grid label, r the live range in km (telemetry-source.js
+            derives both from the plugin's raw world x/z, same as the map's target list).
+    'orient' : app-wide orientation (kept for parity).
+
+  Read-only: no commands beyond the local expand/collapse toggle — no interaction with the game.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/obj/obj.css">
+</head>
+<body>
+  <div class="obj-panel" id="obj-panel">
+    <div class="obj-header">
+      <span class="obj-title">ACTIVE OBJECTIVES</span>
+    </div>
+    <div class="obj-list" id="obj-list"></div>
+    <div class="obj-list-empty" id="obj-list-empty">&mdash; NO ACTIVE OBJECTIVES &mdash;</div>
+  </div>
+
+  <div class="obj-unavailable mfd-empty" id="obj-unavailable">
+    <span class="mfd-empty-title">OBJ</span>&mdash; UNAVAILABLE &mdash;
+  </div>
+
+<script src="/assets/pages/obj/obj.js"></script>
+</body>
+</html>

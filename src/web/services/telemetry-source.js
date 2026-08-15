@@ -364,6 +364,31 @@ export class TelemetrySource {
     // PAL — the same panel, always PRIMEVA (docs/bdf-page.md). present:false when Primeva has no
     // FactionHQ yet.
     this._postUp(Object.assign({ type: 'pal' }, d.pal || { present: false }));
+
+    // MIS mission-info panel (docs/mdt-pages.md) — name, time/duration, escalation score/level, and
+    // the mission's own description text. present:false in multiplayer or between missions.
+    this._postUp(Object.assign({ type: 'mis' }, d.mis || { present: false }));
+
+    // OBJ active-objectives list (docs/mdt-pages.md). present:false when the player faction's HQ
+    // isn't resolved yet. Each objective's position sub-rows (ObjectiveInfoList_Item — "DestroyUnits
+    // / Lb105 / 18km") arrive as raw world x/z from the plugin; grid label and live range are derived
+    // here the same way targets/rwr/mw already are, so range stays live at the base frame's own rate
+    // rather than the plugin's 1 Hz refresh — the game itself recomputes distance at render time too.
+    const objBlock = d.obj || { present: false };
+    const objItems = [];
+    if (objBlock.present && Array.isArray(objBlock.items)) {
+      for (const o of objBlock.items) {
+        const positions = [];
+        if (Array.isArray(o.pos) && d.world) {
+          for (const p of o.pos) {
+            const dx = p.x - d.world.x, dz = p.z - d.world.z;
+            positions.push({ n: p.n, g: gridLabel(p.x, p.z, this._meta), r: Math.hypot(dx, dz) / 1000 });
+          }
+        }
+        objItems.push({ n: o.n, s: o.s, p: o.p, pos: positions });
+      }
+    }
+    this._postUp({ type: 'obj', present: !!objBlock.present, items: objItems });
   }
 
   // On mission exit, tell every consumer the data is gone so no page renders stale state.
@@ -379,6 +404,8 @@ export class TelemetrySource {
     this._postUp({ type: 'tgt', present: false });
     this._postUp({ type: 'bdf', present: false });
     this._postUp({ type: 'pal', present: false });
+    this._postUp({ type: 'mis', present: false });
+    this._postUp({ type: 'obj', present: false });
     this._postUp({ type: 'follow', on: false });
   }
 }

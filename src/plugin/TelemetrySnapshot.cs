@@ -183,6 +183,46 @@ namespace NOXMFD
         public BdfCountInfo[] PalVehicles;
         public BdfCountInfo[] PalBuildings;
         public BdfCountInfo[] PalAircraft;
+
+        // MIS — mission info panel (docs/mdt-pages.md), mirroring the game's ObjectiveInfoList
+        // "MIS" tab (ShowMissionInfo). MisPresent=false when no mission is running (or the mod
+        // can't read one — e.g. multiplayer, where the game shows the Steam lobby name instead of
+        // MissionManager.CurrentMission and NOXMFD doesn't plumb that). Name reuses MissionName.
+        public bool   MisPresent;
+        public string MisDescription;   // MissionSettings.description — full multi-paragraph text
+        public float  MisTimeOfDay;     // LevelInfo.timeOfDay, 0..24 — the in-mission clock ("Time")
+        public float  MisDuration;      // MissionManager.MissionTime, seconds ("Duration")
+        public float  MisScore;         // MissionManager.currentEscalation ("Score")
+        public byte   MisLevel;         // 0 Conventional, 1 Tactical, 2 Strategic (vs. the two thresholds)
+
+        // OBJ — active-objectives list (docs/mdt-pages.md), mirroring the same component's
+        // ShowObjectiveList tab. ObjPresent=false when the player's faction has no HQ yet (the page
+        // then shows an unavailable state); Obj is empty when the HQ has no active objectives.
+        public bool       ObjPresent;
+        public ObjEntry[] Obj;
+    }
+
+    // One active mission objective. Serialized terse as {n,s,p,pos}. Status mirrors
+    // NuclearOption.SavedMission.ObjectiveStatus (0 NotStarted, 1 Running, 2 Complete).
+    internal struct ObjEntry
+    {
+        public string Name;     // SavedObjective.DisplayName
+        public byte   Status;
+        public float  Percent;      // CompletePercent, 0..1
+        public ObjPosition[] Positions;   // sub-rows (ObjectiveInfoList_Item) — empty if none/hidden
+    }
+
+    // One position sub-row under an objective (ObjectiveInfoList_Item — the "DestroyUnits / Lb105 /
+    // 18km" rows). Name is the objective TYPE, not the objective's own display name (matches the
+    // game — SavedObjective.ObjectiveTypeEnum.ToString(), e.g. "DestroyUnits"). X/Z are true world coords (same space as
+    // WorldX/WorldZ/UnitInfo); the client derives the grid label and live distance itself, the same
+    // way it already does for the player's own position on MAP — the game recomputes distance from
+    // the player's aircraft at render time too, not from MissionPosition's own (irrelevant) Distance
+    // field. Serialized terse as {n,x,z}.
+    internal struct ObjPosition
+    {
+        public string Name;
+        public float  X, Z;
     }
 
     // One TGT filter toggle: its label (the canonical typeName for the vehicle row — doubles as the

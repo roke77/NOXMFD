@@ -42,17 +42,36 @@ for (const page of ['avn', 'afm', 'rwr', 'tgp', 'tgt', 'hud', 'keys']) {
   assert.deepStrictEqual(NAV[page], [{ label: 'MAIN', action: 'main' }], `${page} should be just a MAIN back-button`);
 }
 
-// BDF/PAL are folded together (reached from MAIN via MDT — mfd.js BEZEL_EXTRAS.main, action
-// still 'bdf'): each gets MAIN plus a direct switch to the other, with `mark` on whichever is live.
+// BDF/PAL/MIS/OBJ are folded together (reached from MAIN via MDT — mfd.js BEZEL_EXTRAS.main,
+// action still 'bdf'): each gets MAIN plus a direct switch to the other three, with `mark` on
+// whichever is live.
 assert.deepStrictEqual(NAV.bdf, [
   { label: 'MAIN', action: 'main' },
   { label: 'BDF',  action: 'bdf', mark: true },
   { label: 'PAL',  action: 'pal' },
+  { label: 'MIS',  action: 'mis' },
+  { label: 'OBJ',  action: 'obj' },
 ]);
 assert.deepStrictEqual(NAV.pal, [
   { label: 'MAIN', action: 'main' },
   { label: 'BDF',  action: 'bdf' },
   { label: 'PAL',  action: 'pal', mark: true },
+  { label: 'MIS',  action: 'mis' },
+  { label: 'OBJ',  action: 'obj' },
+]);
+assert.deepStrictEqual(NAV.mis, [
+  { label: 'MAIN', action: 'main' },
+  { label: 'BDF',  action: 'bdf' },
+  { label: 'PAL',  action: 'pal' },
+  { label: 'MIS',  action: 'mis', mark: true },
+  { label: 'OBJ',  action: 'obj' },
+]);
+assert.deepStrictEqual(NAV.obj, [
+  { label: 'MAIN', action: 'main' },
+  { label: 'BDF',  action: 'bdf' },
+  { label: 'PAL',  action: 'pal' },
+  { label: 'MIS',  action: 'mis' },
+  { label: 'OBJ',  action: 'obj', mark: true },
 ]);
 
 // WPN contributes no navigation of its own: its MAIN/PREV/NEXT are pagination, i.e. shell state

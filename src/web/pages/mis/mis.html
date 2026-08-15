@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — MIS</title>
+<!--
+  Bare MIS page served at /mis — a read-only replica of the game's in-cockpit mission-info panel
+  (ObjectiveInfoList.ShowMissionInfo, the "MIS" tab of the same panel OBJ shows the objective list
+  for). Renders full-view in #page-frame and as a split pane, like BDF/PAL — its bezel keys are the
+  shared MDT switch (NAV.mis: MAIN + BDF + PAL + MIS + OBJ), reached from MAIN via MDT
+  (BEZEL_EXTRAS.main, action 'bdf' lands on the family; NAV.mis marks this one). See docs/mdt-pages.md.
+
+  Shell -> page messages (all {mfd:true, ...}):
+    'mis' : { present, name, description, tod, duration, score, level }.
+            present:false -> no mission running (or multiplayer, where the game shows the Steam
+            lobby name instead and NOXMFD doesn't read that) — show UNAVAILABLE.
+            tod is the in-mission clock (LevelInfo.timeOfDay, 0..24); duration is MissionTime in
+            seconds; level is 0 Conventional / 1 Tactical / 2 Strategic.
+    'orient' : app-wide orientation (kept for parity).
+
+  Read-only: no commands, no interaction.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/mis/mis.css">
+</head>
+<body>
+  <div class="mis-panel" id="mis-panel">
+    <div class="mis-header">
+      <span class="mis-name" id="mis-name">—</span>
+    </div>
+
+    <div class="mis-stats">
+      <span id="mis-time">Time --:--:--  --  Duration --:--:--</span>
+      <span id="mis-score">Score 0.0  --  Conventional level</span>
+    </div>
+
+    <div class="mis-description" id="mis-description"></div>
+  </div>
+
+  <div class="mis-unavailable mfd-empty" id="mis-unavailable">
+    <span class="mfd-empty-title">MIS</span>&mdash; UNAVAILABLE &mdash;
+  </div>
+
+<script src="/assets/pages/mis/mis.js"></script>
+</body>
+</html>

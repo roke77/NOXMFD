@@ -164,7 +164,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **MDT** (Mission Data Table) — read-only replicas of the game's faction Forces panel, one per fixed identity: BDF for BOSCALI, PAL for PRIMEVA, a switch away from each other. Warheads, score, and funds, plus a ships/buildings/vehicles/aircraft breakdown.
+- **MDT** (Mission Data Table) — a four-way switch: BDF/PAL are read-only replicas of the game's faction Forces panel, one per fixed identity (BOSCALI/PRIMEVA) — warheads, score, and funds, plus a ships/buildings/vehicles/aircraft breakdown. MIS shows the mission's name, in-mission clock/duration, escalation score/level, and full description text. OBJ lists the player faction's currently active objectives with status and completion percent.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>

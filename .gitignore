@@ -1,5 +1,7 @@
 bin/
 obj/
+# Not a build output dir — the OBJ mission-objectives page (docs/mdt-pages.md).
+!src/web/pages/obj/
 .vs/
 *.user
 

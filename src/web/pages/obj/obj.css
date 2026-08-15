@@ -1,0 +1,130 @@
+/* OBJ page — read-only replica of the game's active-objectives list (ObjectiveInfoList.
+   ShowObjectiveList). Green-phosphor MFD theme via the shared --no-* tokens; no interaction. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; height: 100%;
+  background: var(--no-bg);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+}
+
+.obj-panel {
+  height: 100%;
+  display: flex; flex-direction: column;
+  gap: clamp(4px, 1.4vh, 12px);
+  padding: clamp(6px, 1.8vmin, 16px);
+  /* Extra side inset for the shell's vertical MAIN bezel label — matches BDF/MIS's own inset. */
+  padding-left: clamp(34px, 5vw, 48px);
+  padding-right: clamp(34px, 5vw, 48px);
+}
+
+.obj-header {
+  flex: 0 0 auto;
+  text-align: center;
+  border-bottom: 1px solid var(--no-green-dark);
+  padding-bottom: clamp(2px, 0.8vh, 6px);
+}
+.obj-title {
+  font-size: clamp(11px, 2vmin, 16px);
+  letter-spacing: 0.08em;
+  color: var(--no-green-dim);
+}
+
+.obj-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
+}
+.obj-list::-webkit-scrollbar { width: 6px; height: 6px; }
+.obj-list::-webkit-scrollbar-track { background: transparent; }
+.obj-list::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
+
+.obj-row {
+  border-top: 1px solid var(--no-green-dark);
+  padding: clamp(5px, 1.2vh, 10px) 0;
+  font-variant-numeric: tabular-nums;
+}
+.obj-row:first-child { border-top: none; }
+
+.obj-row-head {
+  display: flex; align-items: baseline;
+  gap: clamp(6px, 1.6vw, 16px);
+}
+.obj-name {
+  flex: 1 1 auto; min-width: 0;
+  font-size: clamp(11px, 2vmin, 15px);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.obj-status {
+  flex: 0 0 auto;
+  min-width: clamp(60px, 10vw, 90px);
+  text-align: right;
+  font-size: clamp(10px, 1.7vmin, 13px);
+  color: var(--no-green-dim);
+}
+.obj-pct {
+  flex: 0 0 auto;
+  min-width: clamp(32px, 5vw, 44px);
+  text-align: right;
+  font-size: clamp(11px, 2vmin, 15px);
+}
+.obj-row.complete { color: var(--no-green); }
+.obj-row.complete .obj-status { color: var(--no-green); }
+.obj-row:not(.complete) .obj-name,
+.obj-row:not(.complete) .obj-pct { color: var(--no-green-dim); }
+
+/* Expand/collapse toggle (▽/▷) — only present on objectives with position sub-rows. */
+.obj-toggle {
+  flex: 0 0 auto;
+  width: clamp(18px, 3vmin, 24px); height: clamp(18px, 3vmin, 24px);
+  background: transparent;
+  border: 1px solid var(--no-green-dark);
+  border-radius: 2px;
+  color: var(--no-green);
+  font-family: var(--no-font);
+  font-size: clamp(9px, 1.6vmin, 12px);
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.obj-toggle::before { content: "\25BD"; }   /* ▽ expanded */
+.obj-row.collapsed .obj-toggle::before { content: "\25B7"; }   /* ▷ collapsed */
+
+/* Position sub-rows (ObjectiveInfoList_Item — "DestroyUnits / Lb105 / 18km"). */
+.obj-positions {
+  display: flex; flex-direction: column;
+  gap: clamp(2px, 0.6vh, 5px);
+  margin-top: clamp(4px, 1vh, 8px);
+  padding-left: clamp(10px, 2vw, 20px);
+}
+.obj-row.collapsed .obj-positions { display: none; }
+.obj-pos-row {
+  display: flex; align-items: baseline;
+  gap: clamp(6px, 1.6vw, 16px);
+  color: var(--no-green-dim);
+  font-size: clamp(10px, 1.7vmin, 13px);
+}
+.obj-pos-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.obj-pos-grid { flex: 0 0 auto; min-width: clamp(40px, 7vw, 60px); text-align: right; }
+.obj-pos-dist { flex: 0 0 auto; min-width: clamp(40px, 7vw, 60px); text-align: right; }
+
+/* Empty-but-present state (mission running, no active objectives) — matches TGT's
+   .tgt-list-empty treatment: dim green, centered, no border/box. */
+.obj-list-empty {
+  flex: 1 1 auto;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--no-green-dark);
+  font-size: clamp(11px, 1.8vmin, 16px); letter-spacing: 0.08em;
+}
+.obj-list:not(:empty) + .obj-list-empty { display: none; }
+
+/* Unavailable state (player faction has no HQ yet). */
+.obj-unavailable { display: none; }
+body.unavailable .obj-panel { display: none; }
+body.unavailable .obj-unavailable { display: block; }

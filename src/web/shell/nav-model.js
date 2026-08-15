@@ -38,19 +38,38 @@
     rwr: [ { label: 'MAIN', action: 'main' } ],
     rdr: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN (docs/rdr-page.md)
     tgt: [ { label: 'MAIN', action: 'main' } ],
-    // BDF and PAL fold under one MAIN destination (MDT — BEZEL_EXTRAS.main, action still 'bdf' so
-    // it lands on this same list) rather than two: each carries the other as a direct switch, plus
-    // the way back, with `mark` on whichever one is current (docs/bdf-page.md). mfd.js's generic
-    // sweep (full view) and renderSplitLabels' static-nav branch (split) both honor `mark`.
+    // BDF, PAL, MIS and OBJ fold under one MAIN destination (MDT — BEZEL_EXTRAS.main, action still
+    // 'bdf' so it lands on this same list) rather than four separate items: each carries the other
+    // three as a direct switch, plus the way back, with `mark` on whichever one is current
+    // (docs/mdt-pages.md). mfd.js's generic sweep (full view) and renderSplitLabels' static-nav
+    // branch (split) both honor `mark`.
     bdf: [
       { label: 'MAIN', action: 'main' },
       { label: 'BDF',  action: 'bdf', mark: true },
       { label: 'PAL',  action: 'pal' },
+      { label: 'MIS',  action: 'mis' },
+      { label: 'OBJ',  action: 'obj' },
     ],
     pal: [
       { label: 'MAIN', action: 'main' },
       { label: 'BDF',  action: 'bdf' },
       { label: 'PAL',  action: 'pal', mark: true },
+      { label: 'MIS',  action: 'mis' },
+      { label: 'OBJ',  action: 'obj' },
+    ],
+    mis: [
+      { label: 'MAIN', action: 'main' },
+      { label: 'BDF',  action: 'bdf' },
+      { label: 'PAL',  action: 'pal' },
+      { label: 'MIS',  action: 'mis', mark: true },
+      { label: 'OBJ',  action: 'obj' },
+    ],
+    obj: [
+      { label: 'MAIN', action: 'main' },
+      { label: 'BDF',  action: 'bdf' },
+      { label: 'PAL',  action: 'pal' },
+      { label: 'MIS',  action: 'mis' },
+      { label: 'OBJ',  action: 'obj', mark: true },
     ],
     hud: [ { label: 'MAIN', action: 'main' } ],   // HUD OPTIONS page — reached via a layout extra, not MAIN
     keys: [ { label: 'MAIN', action: 'main' } ],  // Extended-keybinds page (docs/keybinds-page.md), reached via KEY

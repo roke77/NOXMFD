@@ -1,0 +1,66 @@
+/* MIS page — read-only replica of the game's mission-info panel (ObjectiveInfoList.ShowMissionInfo).
+   Green-phosphor MFD theme via the shared --no-* tokens; no interaction. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; height: 100%;
+  background: var(--no-bg);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+}
+
+.mis-panel {
+  height: 100%;
+  display: flex; flex-direction: column;
+  gap: clamp(4px, 1.4vh, 12px);
+  padding: clamp(6px, 1.8vmin, 16px);
+  /* Extra side inset for the shell's vertical MAIN bezel label — matches BDF/TGT's own inset. */
+  padding-left: clamp(34px, 5vw, 48px);
+  padding-right: clamp(34px, 5vw, 48px);
+}
+
+.mis-header {
+  flex: 0 0 auto;
+  text-align: center;
+  border-bottom: 1px solid var(--no-green-dark);
+  padding-bottom: clamp(2px, 0.8vh, 6px);
+}
+.mis-name {
+  font-size: clamp(13px, 2.4vmin, 20px);
+  letter-spacing: 0.06em;
+  color: var(--no-green);
+}
+
+.mis-stats {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column; align-items: center;
+  gap: clamp(2px, 0.6vh, 5px);
+  padding: clamp(4px, 1vh, 8px) 0;
+  font-size: clamp(10px, 1.8vmin, 14px);
+  font-variant-numeric: tabular-nums;
+  color: var(--no-green-dim);
+}
+
+.mis-description {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-size: clamp(10px, 1.8vmin, 14px);
+  line-height: 1.5;
+  border-top: 1px solid var(--no-green-dark);
+  padding-top: clamp(6px, 1.4vh, 12px);
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
+}
+.mis-description::-webkit-scrollbar { width: 6px; height: 6px; }
+.mis-description::-webkit-scrollbar-track { background: transparent; }
+.mis-description::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
+
+/* Unavailable state (no mission running, or multiplayer). */
+.mis-unavailable { display: none; }
+body.unavailable .mis-panel { display: none; }
+body.unavailable .mis-unavailable { display: block; }

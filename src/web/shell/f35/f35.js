@@ -72,6 +72,8 @@
     wpn: '/wpn',
     bdf: '/bdf',
     pal: '/bdf?pal',   // same page, PRIMEVA (docs/bdf-page.md) — a URL flag, not a separate page
+    mis: '/mis',   // mission-info page (docs/mdt-pages.md)
+    obj: '/obj',   // active-objectives page (docs/mdt-pages.md)
     hud: '/hud',   // the HUD OPTIONS page — fetches /hud-options and POSTs its own hud.* commands
     keys: '/keybinds',   // extended-keybinds page — polls /keybinds-config and POSTs keybind.* itself
     rdr: '/rdr',   // radar page (docs/rdr-page.md) — mirrors the bezel's FRAME_PAGES.rdr
@@ -91,6 +93,8 @@
     wpn: ['loadout', 'cm'],   // 'loadout' is derived, not forwarded as-is — see DERIVED
     bdf: ['bdf'],             // read-only faction-forces block (docs/bdf-page.md)
     pal: ['pal'],             // same, for PRIMEVA
+    mis: ['mis'],             // mission-info block (docs/mdt-pages.md)
+    obj: ['obj'],             // active-objectives list (docs/mdt-pages.md)
     rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
   };
 

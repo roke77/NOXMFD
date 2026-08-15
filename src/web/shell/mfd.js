@@ -69,7 +69,7 @@ const soiRingEl = document.getElementById('soi-ring');
 const pageFrame = document.getElementById('page-frame');   // full-view host for the frame-hosted pages (WPN, TGT, TGP)
 // Pages that render in #page-frame in full view (rather than as overlay renderers). Maps the
 // page name to its bare URL; showPage switches the frame's src as you move between them.
-const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', afm: '/afm', rwr: '/rwr', rdr: '/rdr', tgt: '/tgt', hud: '/hud', bdf: '/bdf', pal: '/bdf?pal', keys: '/keybinds' };
+const FRAME_PAGES = { wpn: '/wpn', tgp: '/tgp', avn: '/avn', afm: '/afm', rwr: '/rwr', rdr: '/rdr', tgt: '/tgt', hud: '/hud', bdf: '/bdf', pal: '/bdf?pal', mis: '/mis', obj: '/obj', keys: '/keybinds' };
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
@@ -282,10 +282,13 @@ const SPLIT_SLOTS = {
   rwr: [ { side: 'left', slot: 0 } ],
   rdr: [ { side: 'left', slot: 0 } ],
   tgt: [ { side: 'left', slot: 0 } ],
-  // BDF/PAL instead get 3: MAIN, then BDF/PAL as a direct switch between them (NAV.bdf/NAV.pal),
-  // index-aligned with this list — L1/L2 are free either way, nothing else uses them here.
-  bdf: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 } ],
-  pal: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 } ],
+  // BDF/PAL/MIS/OBJ instead get 5: MAIN, then the other three as a direct switch (NAV.bdf/NAV.pal/
+  // NAV.mis/NAV.obj), index-aligned with this list. Left holds MAIN+BDF+PAL (its full 0..2 budget);
+  // MIS/OBJ spill onto the right column's own 0..2 budget, nothing else uses it here.
+  bdf: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
+  pal: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
+  mis: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
+  obj: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
   hud: [ { side: 'left', slot: 0 } ],
   keys: [ { side: 'left', slot: 0 } ],   // extended-keybinds page — self-driven, only its MAIN back-key
   // WPN is a valid split page but places no NAV labels: its MAIN/PREV + NEXT depend on the pane's
@@ -307,6 +310,8 @@ const PAGE_URL = {
   tgt:  '/tgt?bare',
   bdf:  '/bdf?bare',
   pal:  '/bdf?bare&pal',
+  mis:  '/mis?bare',
+  obj:  '/obj?bare',
   hud:  '/hud?bare',
   keys: '/keybinds?bare',
 };
@@ -442,7 +447,7 @@ function placeSplitKey(m, label, action, paneTag, mark) {
 // KEY's FUNCTION/KEYBOARD/JOYSTICK table header, and RDR's RWS mode/range readout are that content
 // — on a narrow display the panel widens to the edge and a horizontal MAIN would sit over that
 // header. All are split-capable.
-function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal' || p === 'keys' || p === 'rdr'; }
+function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'keys' || p === 'rdr'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
@@ -552,9 +557,16 @@ function renderSplitLabels() {
         // silently not render here — the exact failure the old duplicated tables produced. Say so.
         if (!s) { console.warn('[mfd] NAV.' + page + '[' + i + '] "' + item.label + '" has no SPLIT_SLOTS entry — not placed'); return; }
         const el = placeSplitKey(paneKey(paneIdx, s.side, s.slot), item.label, item.action, paneTag, item.mark);
-        // TGT keeps clickable content (RESET FILTER) under its MAIN label; stand it upright in the
-        // pane too, the way full view does via .overlay.vmain. Only the MAIN back-item of a vmain page.
-        if (el && isVmainPage(page) && item.action === 'main') el.classList.add('vlabel');
+        // TGT/HUD/RDR/KEYS keep clickable content under their MAIN label; stand it upright in the
+        // pane too, the way full view does via .overlay.vmain — for those single-item pages that's
+        // just MAIN. BDF/PAL/MIS/OBJ carry four MORE items each (their own MDT switch), split across
+        // both the pane's left AND right columns (SPLIT_SLOTS.bdf/pal/mis/obj) — a horizontal "MIS"/
+        // "OBJ" label would run wide over the pane's own content on that edge (both pages already
+        // reserve only a narrow vertical-label inset on each side, matching BDF's). So every item of
+        // a vmain page stands upright here, not just its MAIN back-item — full view's rule already
+        // covers every left-bank item the same way (BDF/PAL/MIS/OBJ all land on the left bank there),
+        // this just extends the same idea to whichever side a split pane put each item on.
+        if (el && isVmainPage(page)) el.classList.add('vlabel');
       });
     }
   }
@@ -821,6 +833,16 @@ function forwardPalToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage(Object.assign({ mfd: true, type: 'pal' }, palData), '*');
 }
+// Full-view MIS: forward the mission-info block (docs/mdt-pages.md). Same shape as BDF/PAL.
+function forwardMisToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage(Object.assign({ mfd: true, type: 'mis' }, misData), '*');
+}
+// Full-view OBJ: forward the active-objectives list (docs/mdt-pages.md).
+function forwardObjToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage(Object.assign({ mfd: true, type: 'obj' }, objData), '*');
+}
 // Split-pane twins of the two TGT forwarders — same payloads, sent to any pane showing TGT. The
 // page is fully clickable inside the pane, so nothing else (no bezel-key wiring) is needed.
 function forwardTgtToPanes() {
@@ -859,6 +881,22 @@ function forwardPalToPanes() {
     if (panePages[idx] !== 'pal') return;
     if (!iframe.contentWindow) return;
     iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'pal' }, palData), '*');
+  });
+}
+// Split-pane twin of forwardMisToFrame — same mission-info payload, sent to any pane showing MIS.
+function forwardMisToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'mis') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'mis' }, misData), '*');
+  });
+}
+// Split-pane twin of forwardObjToFrame — same objectives payload, sent to any pane showing OBJ.
+function forwardObjToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'obj') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'obj' }, objData), '*');
   });
 }
 // Slice the full loadout+controls to the page a given pane is scrolled to. Returns the visible
@@ -1139,6 +1177,8 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'tgt')  { forwardTgtToPanes(); forwardTgtTargetsToPanes(); }
     else if (page === 'bdf')  forwardBdfToPanes();
     else if (page === 'pal')  forwardPalToPanes();
+    else if (page === 'mis')  forwardMisToPanes();
+    else if (page === 'obj')  forwardObjToPanes();
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
     // docs/page-cursor.md, docs/map-cursor.md: a fresh document means a fresh message listener, so
     // any earlier cursor-focus post (sent the moment this pane's src changed, before its script had
@@ -1165,6 +1205,8 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'tgt') { forwardTgtToFrame(); forwardTgtTargetsToFrame(); }
   else if (currentPage === 'bdf') { forwardBdfToFrame(); }
   else if (currentPage === 'pal') { forwardPalToFrame(); }
+  else if (currentPage === 'mis') { forwardMisToFrame(); }
+  else if (currentPage === 'obj') { forwardObjToFrame(); }
   // docs/page-cursor.md: full-view TGT/HUD render in the shared #page-frame, which reloads (fresh
   // document, fresh listener) on every navigation onto the page — same dropped-cursor-focus gap
   // the split-pane fix above closes, just for the full-view frame instead of a pane.
@@ -1318,6 +1360,11 @@ let bdfData = { present: false };
 // Same, for PAL — the PRIMEVA faction's panel (docs/bdf-page.md).
 let palData = { present: false };
 
+// MIS mission-info panel (docs/mdt-pages.md), mirrored the same way.
+let misData = { present: false };
+// OBJ active-objectives list (docs/mdt-pages.md), mirrored the same way.
+let objData = { present: false };
+
 function clearKeyActions() {
   // Only the page-dynamic banks (left/right) get cleared between pages. The top and bottom
   // banks hold page-independent controls (fullscreen on top; PIN, SWAP, layout… on bottom)
@@ -1462,6 +1509,16 @@ function showPage(name) {
   if (name === 'pal') {
     showFramePage('pal');
     forwardPalToFrame();
+  }
+  // MIS renders in #page-frame too — same MDT family as BDF/PAL (NAV.mis marks MIS instead).
+  if (name === 'mis') {
+    showFramePage('mis');
+    forwardMisToFrame();
+  }
+  // OBJ renders in #page-frame too — same MDT family (NAV.obj marks OBJ instead).
+  if (name === 'obj') {
+    showFramePage('obj');
+    forwardObjToFrame();
   }
   // HUD renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.hud, placed by
   // the generic sweep above); the page is otherwise self-driven — it fetches /hud-options and POSTs
@@ -1652,6 +1709,17 @@ window.addEventListener('message', function(e) {
     palData = m;
     if (currentPage === 'pal' && !splitMode) forwardPalToFrame();
     if (splitMode) forwardPalToPanes();
+  } else if (m.type === 'mis') {
+    // Mirror the MIS mission-info block. Renders in the #page-frame iframe (full) or a pane
+    // (split); forward on when it's the page in view.
+    misData = m;
+    if (currentPage === 'mis' && !splitMode) forwardMisToFrame();
+    if (splitMode) forwardMisToPanes();
+  } else if (m.type === 'obj') {
+    // Mirror the OBJ active-objectives list, same forwarding shape as MIS.
+    objData = m;
+    if (currentPage === 'obj' && !splitMode) forwardObjToFrame();
+    if (splitMode) forwardObjToPanes();
   }
 });
 
@@ -2016,6 +2084,8 @@ function mfdButton(el) {
     case 'tgt':  showPage('tgt');  break;
     case 'bdf':  showPage('bdf');  break;
     case 'pal':  showPage('pal');  break;
+    case 'mis':  showPage('mis');  break;
+    case 'obj':  showPage('obj');  break;
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;

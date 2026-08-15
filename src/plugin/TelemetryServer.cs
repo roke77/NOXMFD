@@ -683,6 +683,10 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/tgt/tgt.html");
                     else if (path == "/bdf")
                         ServeAssetRel(ctx, "pages/bdf/bdf.html");
+                    else if (path == "/mis")
+                        ServeAssetRel(ctx, "pages/mis/mis.html");
+                    else if (path == "/obj")
+                        ServeAssetRel(ctx, "pages/obj/obj.html");
                     else if (path == "/hud")
                         ServeAssetRel(ctx, "pages/hud/hud.html");
                     else if (path == "/keybinds")
@@ -1429,7 +1433,59 @@ namespace NOXMFD
                         + ",\"failures\":" + StringArray(s.Failures)
                         + ",\"tgt\":" + TgtBlock(s)
                         + ",\"bdf\":" + BdfBlock(s)
-                        + ",\"pal\":" + PalBlock(s) + "}";
+                        + ",\"pal\":" + PalBlock(s)
+                        + ",\"mis\":" + MisBlock(s)
+                        + ",\"obj\":" + ObjBlock(s) + "}";
+        }
+
+        // MIS mission-info panel (docs/mdt-pages.md). {present:false} in multiplayer or between
+        // missions. level: 0 Conventional, 1 Tactical, 2 Strategic (TelemetryReader.BuildMis).
+        private static string MisBlock(TelemetrySnapshot s)
+        {
+            if (!s.MisPresent) return "{\"present\":false}";
+            return string.Format(CultureInfo.InvariantCulture,
+                "{{\"present\":true,\"name\":\"{0}\",\"description\":\"{1}\",\"tod\":{2:0.000},\"duration\":{3:0.0},\"score\":{4:0.1},\"level\":{5}}}",
+                EscapeJson(s.MissionName ?? string.Empty), EscapeJson(s.MisDescription ?? string.Empty),
+                s.MisTimeOfDay, s.MisDuration, s.MisScore, s.MisLevel);
+        }
+
+        // OBJ active-objectives list (docs/mdt-pages.md). {present:false} when the player faction's
+        // HQ isn't resolved yet.
+        private static string ObjBlock(TelemetrySnapshot s)
+        {
+            if (!s.ObjPresent) return "{\"present\":false}";
+            return "{\"present\":true,\"items\":" + ObjArray(s.Obj) + "}";
+        }
+
+        private static string ObjArray(ObjEntry[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append(string.Format(CultureInfo.InvariantCulture,
+                    "{{\"n\":\"{0}\",\"s\":{1},\"p\":{2:0.000},\"pos\":{3}}}",
+                    EscapeJson(items[i].Name ?? string.Empty), items[i].Status, items[i].Percent,
+                    ObjPositionArray(items[i].Positions)));
+            }
+            return sb.Append(']').ToString();
+        }
+
+        // Position sub-rows under one objective (ObjectiveInfoList_Item — "DestroyUnits / Lb105 /
+        // 18km"). x/z are true world coords; the page derives the grid label and live distance itself.
+        private static string ObjPositionArray(ObjPosition[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append(string.Format(CultureInfo.InvariantCulture,
+                    "{{\"n\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0}}}",
+                    EscapeJson(items[i].Name ?? string.Empty), items[i].X, items[i].Z));
+            }
+            return sb.Append(']').ToString();
         }
 
         // TGT filter panel state (docs/tgt-page.md). {present:false} when the game's TargetListSelector
@@ -1658,7 +1714,12 @@ namespace NOXMFD
             CursorX, CursorY, CursorSelSeq, EscapeJson(MapAct), MapActSeq,
             Volatile.Read(ref _cursorSelHeld) ? "true" : "false");
 
+        // Every prior caller was a single-line label (names, faction, weapon names, ...), so only
+        // backslash/quote ever needed escaping. MIS's mission description is the first multi-paragraph
+        // field (docs/mdt-pages.md) — a literal newline inside a JSON string is illegal and breaks
+        // JSON.parse ("Unterminated string"), so control characters need escaping too.
         private static string EscapeJson(string s) =>
-            s.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            s.Replace("\\", "\\\\").Replace("\"", "\\\"")
+             .Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t");
     }
 }

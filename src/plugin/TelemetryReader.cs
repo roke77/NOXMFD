@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using NuclearOption.SavedMission;
 using UnityEngine;
 
 namespace NOXMFD
@@ -72,6 +73,20 @@ namespace NOXMFD
         private BdfCountInfo[] _palVehicles  = Array.Empty<BdfCountInfo>();
         private BdfCountInfo[] _palBuildings = Array.Empty<BdfCountInfo>();
         private BdfCountInfo[] _palAircraft  = Array.Empty<BdfCountInfo>();
+
+        // MIS mission-info panel (docs/mdt-pages.md), refreshed in the 1 Hz scan — same cadence the
+        // game's own ObjectiveInfoList.Update() refreshes this panel at (refreshDelay = 1f).
+        private bool   _misPresent;
+        private string _misDescription = string.Empty;
+        private float  _misTimeOfDay;
+        private float  _misDuration;
+        private float  _misScore;
+        private byte   _misLevel;
+
+        // OBJ active-objectives list (docs/mdt-pages.md), refreshed alongside MIS.
+        private bool       _objPresent;
+        private ObjEntry[] _obj = Array.Empty<ObjEntry>();
+        private readonly List<MissionPosition.PositionResult> _objPosScratch = new List<MissionPosition.PositionResult>();
 
         // The game's HUD faction colors, read once from GameAssets.
         private string _colFriendly = "#39ff14";
@@ -214,6 +229,76 @@ namespace NOXMFD
             // FactionRegistry, so both are built unconditionally.
             BuildBdf();
             BuildPal();
+            BuildMis();
+            BuildObj();
+        }
+
+        // MIS mission-info panel (docs/mdt-pages.md) — mirrors ObjectiveInfoList.UpdateMissionInfo /
+        // InitializeMission. Present only in singleplayer: the game reads the mission name/description
+        // off MissionManager.CurrentMission there, but shows the Steam lobby name instead in
+        // multiplayer (no equivalent description exists), which this mod doesn't plumb through.
+        private void BuildMis()
+        {
+            if (GameManager.gameState != GameState.SinglePlayer || MissionManager.CurrentMission == null
+                || NetworkSceneSingleton<MissionManager>.i == null)
+            {
+                _misPresent = false;
+                _misDescription = string.Empty;
+                return;
+            }
+
+            MissionManager mm = NetworkSceneSingleton<MissionManager>.i;
+            _misPresent     = true;
+            _misDescription = MissionManager.CurrentMission.missionSettings?.description ?? string.Empty;
+            _misTimeOfDay   = _level != null ? _level.timeOfDay : 0f;
+            _misDuration    = mm.MissionTime;
+            _misScore       = mm.currentEscalation;
+            _misLevel       = mm.currentEscalation > mm.strategicThreshold ? (byte)2
+                             : mm.currentEscalation > mm.tacticalThreshold  ? (byte)1
+                             : (byte)0;
+        }
+
+        // OBJ active-objectives list (docs/mdt-pages.md) — mirrors ObjectiveInfoList.UpdateObjectiveInfo,
+        // the player faction's currently active objectives. ObjPresent=false when the map's HQ isn't
+        // resolved yet (e.g. between missions).
+        private void BuildObj()
+        {
+            DynamicMap map = SceneSingleton<DynamicMap>.i;
+            if (map == null || map.HQ == null || !MissionPosition.TryGetActiveObjectives(map.HQ, out List<Objective> active))
+            {
+                _objPresent = false;
+                _obj = Array.Empty<ObjEntry>();
+                return;
+            }
+
+            _objPresent = true;
+
+            // One call gathers every position row for every active objective (ObjectiveInfoList's own
+            // pattern) — grouped below by objective rather than re-querying per objective. "from" only
+            // affects the Distance/Direction fields, which nothing here reads (the client recomputes
+            // distance from the player's own position, same as the game's ObjectiveInfoList_Item does).
+            MissionPosition.GetAllPositionsResults(map.HQ, Datum.originPosition.ToGlobalPosition(), false, _objPosScratch);
+            var posByObjective = new Dictionary<Objective, List<ObjPosition>>();
+            foreach (MissionPosition.PositionResult r in _objPosScratch)
+            {
+                if (!posByObjective.TryGetValue(r.Objective, out List<ObjPosition> positions))
+                    posByObjective[r.Objective] = positions = new List<ObjPosition>();
+                positions.Add(new ObjPosition { Name = r.Objective.SavedObjective.ObjectiveTypeEnum.ToString(), X = r.Position.x, Z = r.Position.z });
+            }
+
+            var list = new List<ObjEntry>(active.Count);
+            foreach (Objective o in active)
+            {
+                if (o == null || o.SavedObjective == null || o.SavedObjective.Hidden) continue;
+                list.Add(new ObjEntry
+                {
+                    Name      = o.SavedObjective.DisplayName,
+                    Status    = (byte)o.Status,
+                    Percent   = o.CompletePercent,
+                    Positions = posByObjective.TryGetValue(o, out List<ObjPosition> positions) ? positions.ToArray() : Array.Empty<ObjPosition>()
+                });
+            }
+            _obj = list.ToArray();
         }
 
         // Faction-forces breakdown for the BDF page (docs/bdf-page.md) — always the BOSCALI faction,
@@ -733,7 +818,15 @@ namespace NOXMFD
                 PalShips       = _palShips,
                 PalVehicles    = _palVehicles,
                 PalBuildings   = _palBuildings,
-                PalAircraft    = _palAircraft
+                PalAircraft    = _palAircraft,
+                MisPresent     = _misPresent,
+                MisDescription = _misDescription,
+                MisTimeOfDay   = _misTimeOfDay,
+                MisDuration    = _misDuration,
+                MisScore       = _misScore,
+                MisLevel       = _misLevel,
+                ObjPresent     = _objPresent,
+                Obj            = _obj
             });
         }
 
