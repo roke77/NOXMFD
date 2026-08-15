@@ -152,7 +152,11 @@
   // MAP's own actions → the message the map view listens for. Also not pages: they drive the map
   // in place rather than navigating. Same protocol the bezel uses (mfd.js mapSend), but routed to
   // the portal's OWN map — with several maps on the glass, "the map" is no longer unambiguous.
-  const MAP_ACTIONS = { flw: 'toggle-follow', zin: 'zoom-in', zout: 'zoom-out', grid: 'toggle-grid' };
+  // rng-in/rng-out (RDR's range rocker, issue #40 follow-up) reuse the same zoom-in/zoom-out action
+  // names MAP's zin/zout send — mapSend() here already targets frameWin() generically (unlike the
+  // classic shell's mapFrame-specific version), so RDR needs nothing beyond this mapping.
+  const MAP_ACTIONS = { flw: 'toggle-follow', zin: 'zoom-in', zout: 'zoom-out', grid: 'toggle-grid',
+                         'rng-in': 'zoom-in', 'rng-out': 'zoom-out' };
 
   // ARM/SAFE (docs/radar-master-arms.md) — WPN's own unconditional controls, same shape as
   // MAP_ACTIONS: an action name maps to what it sends, dispatched by command rather than page nav.
@@ -551,6 +555,8 @@
       if (currentPage === 'wpn') { addWeaponHits(); markMasterArms(); markCombatMode(); placeWpnDecorators(); }
       // ZOOM between Z+/Z- (issue #41) — same decorator, MAP's twin of WPN's MASTER/MODE.
       if (currentPage === 'map') placeWpnDecorator('zin', 'zout', 'ZOOM');
+      // RANGE between R+/R- (issue #40 follow-up) — RDR's twin.
+      if (currentPage === 'rdr') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
       markGrid();     // ...and the state to the new GRID
       // The grid was just rebuilt, so an SOI cursor mark on one of its items is gone — let the shell
@@ -599,6 +605,7 @@
       resized: function () {
         if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); placeWpnDecorators(); }
         if (currentPage === 'map') placeWpnDecorator('zin', 'zout', 'ZOOM');
+        if (currentPage === 'rdr') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
       },
       destroy: function () { el.remove(); },
     };

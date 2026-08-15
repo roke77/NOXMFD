@@ -25,6 +25,12 @@
             az/rng/rhdg projection as items; tid is the id of the item it's pursuing (0 = none/off-
             scope). Drawn as a slender blue dart (RWR's threat-marker shape) with a solid line to
             that target, flickering yellow/red on RWR's own timer, when the target is on-scope.
+
+    action  : 'zoom-in'/'zoom-out' step the displayed range in/out (RNG+/RNG-, R+/R- bezel keys,
+              cursor overflow at the scope's top/bottom edge) through RANGE_STEPS (25%/50%/100% of
+              the radar's true max), persisted in sessionStorage. Reuses the SAME action names MAP's
+              Zoom In/Out keybind sends via SOI (docs/page-cursor.md) — TGT repurposes it to scroll
+              its list, RDR repurposes it to range, no new keybind needed.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">

@@ -43,6 +43,38 @@ function altUnits(meters) { return Math.round(state.metric ? meters : meters * M
 
 function coneHalf() { return state.cone > 0 ? state.cone : DEF_CONE; }
 
+// Selectable display range (DCS-style range rings), as a fraction of the radar's true max range
+// (state.range) rather than fixed absolute km/nm steps — the radar's real max varies per airframe,
+// so a fixed "80nm" ring would be meaningless on a short-range set and a fixed "10nm" one would
+// barely use the scope on a long-range one. A fraction always fills the scope at every step. R+
+// ("zoom in", index down) narrows to a closer/more-detailed view; R- ("zoom out", index up) widens
+// back toward the radar's true max. Persisted in sessionStorage, same pattern as MAP's zoom/follow
+// (map.js's VIEW_STORE_KEY) — survives a page switch/reload so a chosen range sticks.
+var RANGE_STEPS = [0.25, 0.5, 1];
+var DEFAULT_RANGE_IDX = RANGE_STEPS.length - 1;   // 100% — matches the page's pre-existing behaviour
+var RANGE_STORE_KEY = 'noxmfd.rdr.view';
+var rangeIdx = DEFAULT_RANGE_IDX;
+function loadPersistedRange() {
+  var saved = null;
+  try { saved = JSON.parse(sessionStorage.getItem(RANGE_STORE_KEY) || 'null'); } catch (_) {}
+  var i = saved && typeof saved.rangeIdx === 'number' ? saved.rangeIdx : DEFAULT_RANGE_IDX;
+  rangeIdx = Math.max(0, Math.min(RANGE_STEPS.length - 1, i));
+}
+function savePersistedRange() {
+  try { sessionStorage.setItem(RANGE_STORE_KEY, JSON.stringify({ rangeIdx: rangeIdx })); } catch (_) {}
+}
+// The radar's true max range (state.range) scaled by the selected step — what the scope actually
+// displays right now. Everything that projects or labels range reads THIS, not state.range
+// directly, so a shorter selection genuinely zooms in rather than just relabeling the same scale.
+function displayRange() { return state.range * RANGE_STEPS[rangeIdx]; }
+function setRangeIdx(i) {
+  var clamped = Math.max(0, Math.min(RANGE_STEPS.length - 1, i));
+  if (clamped === rangeIdx) return;
+  rangeIdx = clamped;
+  savePersistedRange();
+  render();
+}
+
 // Pure B-scope projection: bearing off nose (az, deg) × range (world units) → scope x,y, or null
 // when the contact falls outside the cone half-angle or past max range (culled). Kept free of
 // module state so it's unit-checkable (rdr.test.js). ch = cone half-angle (deg), range = max range.
@@ -53,8 +85,10 @@ function bscopeXY(az, rng, range, ch) {
   return { x: MIDX + fx * HALFW, y: BOT - fy * HGT };
 }
 
-// A contact's scope position against the current scope scale, or null when culled.
-function plot(c) { return bscopeXY(c.az, c.rng, state.range, coneHalf()); }
+// A contact's scope position against the current scope scale, or null when culled. Uses
+// displayRange(), not state.range — a contact beyond the selected range (even if still within the
+// radar's true max) is correctly culled, the same way one beyond the true max always was.
+function plot(c) { return bscopeXY(c.az, c.rng, displayRange(), coneHalf()); }
 
 // ── Acquisition cursor (docs/rdr-page.md, step 4) ────────────────────────────────────────
 // The PAD cursor slews the two-bar #rdr-cursor over the scope; Select toggles a lock on the
@@ -248,8 +282,10 @@ function pad3(n) { return ('00' + n).slice(-3); }
 function renderScale() {
   var range = document.getElementById('rdr-range');
   var azl = document.getElementById('rdr-azl'), azr = document.getElementById('rdr-azr');
-  // Corner scale carries its unit (NM/KM) so the bare number is self-explanatory.
-  range.textContent = state.range > 0 ? rangeUnits(state.range) + (state.metric ? 'km' : 'nm') : '';
+  // Corner scale carries its unit (NM/KM) so the bare number is self-explanatory. Shows the
+  // SELECTED display range, not the radar's true max — matching a real range-selectable radar's
+  // own corner readout (the number that changes as the pilot steps the range in/out).
+  range.textContent = state.range > 0 ? rangeUnits(displayRange()) + (state.metric ? 'km' : 'nm') : '';
   var ch = Math.round(coneHalf());
   azl.textContent = '-' + ch;
   azr.textContent = '+' + ch;
@@ -270,6 +306,8 @@ function render() {
 
 // Browser-only bootstrap (skipped under Node so rdr.test.js can require the pure helpers).
 if (typeof window !== 'undefined' && window.addEventListener) {
+  loadPersistedRange();
+
   // Flickers the pitbull target line yellow<->red on RWR's own timer (renderThreats' mwFlip, same
   // 130ms period). Only the line uses currentColor, so this doesn't affect the dart's fixed blue
   // fill; a no-op tick while no line is drawn (target unresolved/off-scope) costs one querySelector.
@@ -294,11 +332,27 @@ if (typeof window !== 'undefined' && window.addEventListener) {
       el: document.getElementById('rdr-cursor'),
       clampRect: scopeRectPx,
       onSelect: padSelect,
-      onMove: padMove
+      onMove: padMove,
+      onEdge: onCursorEdge
     });
     if (pendingFocus) { centerFocus(pendingFocus.on); pendingFocus = null; }
     if (pendingVec) { cursor.setVector(pendingVec.x, pendingVec.y); pendingVec = null; }
   });
+
+  // Cursor overflow at the scope's top/bottom edge also steps range (RNG+/-): pushing past the top
+  // (further than max displayed range) widens back out; pushing past the bottom (toward/through
+  // ownship) narrows in. onEdge fires every animation frame while overshot (fine for MAP's
+  // continuous pan, map.js:onCursorEdge) — a discrete range step needs a cooldown instead, or one
+  // push would blow through every step in a single frame.
+  var EDGE_STEP_COOLDOWN_MS = 400;
+  var lastEdgeStepAt = 0;
+  function onCursorEdge(ex, ey) {
+    if (!ey) return;
+    var now = performance.now();
+    if (now - lastEdgeStepAt < EDGE_STEP_COOLDOWN_MS) return;
+    lastEdgeStepAt = now;
+    setRangeIdx(rangeIdx + (ey < 0 ? 1 : -1));
+  }
 
   // A mouse/touch tap selects the same way the PAD cursor's Select does — same hit-test, same
   // toggle-lock (target.select/deselect). The panel's own CSS cursor already matches the PAD gate's
@@ -330,6 +384,13 @@ if (typeof window !== 'undefined' && window.addEventListener) {
       if (cursor) cursor.setVector(m.x, m.y); else pendingVec = { x: m.x, y: m.y };
     } else if (m.action === 'cursor-held') {
       if (cursor) cursor.setSelectHeld(!!m.held);
+    } else if (m.action === 'zoom-in') {
+      // The same Zoom In/Out physical keybind MAP uses (map-act, docs/page-cursor.md) — routed here
+      // instead of to MAP whenever RDR is the SOI-focused surface, exactly the way TGT repurposes it
+      // to scroll its list (tgt.js). "Zoom in" narrows to a closer, more detailed range.
+      setRangeIdx(rangeIdx - 1);
+    } else if (m.action === 'zoom-out') {
+      setRangeIdx(rangeIdx + 1);
     }
   });
   render();

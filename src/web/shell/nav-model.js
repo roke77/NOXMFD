@@ -37,7 +37,11 @@
     avn: [ { label: 'MAIN', action: 'main' } ],
     afm: [ { label: 'MAIN', action: 'main' } ],   // Airframe page — name + damage silhouette
     rwr: [ { label: 'MAIN', action: 'main' } ],
-    rdr: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN (docs/rdr-page.md)
+    rdr: [
+      { label: 'MAIN', action: 'main' },     // ← back to MAIN (docs/rdr-page.md)
+      { label: 'R+',   action: 'rng-out' },  // → step the displayed range OUT (bigger range number)
+      { label: 'R-',   action: 'rng-in'  },  // → step the displayed range IN (smaller range number)
+    ],
     tgt: [ { label: 'MAIN', action: 'main' } ],
     // BDF, PAL, MIS and OBJ fold under one MAIN destination (MDT — BEZEL_EXTRAS.main, action still
     // 'bdf' so it lands on this same list) rather than four separate items: each carries the other
