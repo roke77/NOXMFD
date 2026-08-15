@@ -103,18 +103,8 @@ function paintSection(key) {
   if (cfg.total) cfg.total.textContent = total;
 }
 
-// Mirrors UnitConverter.ValueReading's scale-by-magnitude format (docs/bdf-page.md — funds arrive
-// in millions). Formatted with a period rather than the game's locale-dependent comma.
-function fmtFunds(m) {
-  if (typeof m !== 'number' || !isFinite(m)) return '$0';
-  const raw = m * 1e6;
-  if (raw * raw < 1e8) return '$' + Math.round(raw);
-  if (m * m < 1) return '$' + (m * 1000).toFixed(1) + 'k';
-  if (m * m < 100) return '$' + m.toFixed(2) + 'm';
-  if (m * m < 1e6) return '$' + m.toFixed(1) + 'm';
-  if (m * m < 1e12) return '$' + (m * 0.001).toFixed(2) + 'b';
-  return '$' + (m * 1e-6).toFixed(3) + 't';
-}
+// The scale-by-magnitude format lives in bdf-funds.js, pure and unit-checked.
+const fmtFunds = BdfFunds.fmtFunds;
 
 function paint() {
   document.body.classList.toggle('unavailable', !state.present);

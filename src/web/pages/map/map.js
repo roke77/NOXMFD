@@ -120,68 +120,29 @@ function resizeOverlay() {
 }
 
 // Where the contain-fitted map image actually renders inside the overlay (letterbox-aware).
-function imgRect() {
-  const iw = mapImg.naturalWidth  || overlay.width;
-  const ih = mapImg.naturalHeight || overlay.height;
-  const cw = overlay.width, ch = overlay.height;
-  const ia = iw / ih, ca = cw / ch;
-  let dw, dh, dx, dy;
-  if (ia > ca) { dw = cw; dh = cw / ia; dx = 0;             dy = (ch - dh) / 2; }
-  else         { dh = ch; dw = ch * ia; dx = (cw - dw) / 2; dy = 0; }
-  return { dx, dy, dw, dh };
+// The coordinate maths itself lives in map-transform.js, pure and unit-checked (its round trip is
+// what the CURSOR chip's grid label rides on). This binds it to the live canvas/image/view/meta —
+// the geometry the page owns and the module deliberately doesn't.
+function geom() {
+  return {
+    canvas: { w: overlay.width, h: overlay.height },
+    img: { w: mapImg.naturalWidth || overlay.width, h: mapImg.naturalHeight || overlay.height },
+    view: view,
+    meta: mapMeta,
+  };
 }
 
-// Apply the zoom/pan view transform to a base (zoom=1) overlay pixel. Zoom is about the
-// canvas centre, so pan=0 reproduces today's centred framing exactly.
-function viewTransform(px, py) {
-  const ox = overlay.width / 2, oy = overlay.height / 2;
-  return { x: ox + (px - ox) * view.zoom + view.panX,
-           y: oy + (py - oy) * view.zoom + view.panY };
-}
+function imgRect() { return MapTransform.imgRect(geom()); }
+function viewTransform(px, py) { return MapTransform.viewTransform(geom(), px, py); }
+function worldToBase(wx, wz) { return MapTransform.worldToBase(geom(), wx, wz); }
+function worldToOverlay(wx, wz) { return MapTransform.worldToOverlay(geom(), wx, wz); }
+function overlayToWorld(sx, sy) { return MapTransform.overlayToWorld(geom(), sx, sy); }
 
-// Keep the scaled map covering its zoom=1 footprint: pan can't expose blank background, and
-// at zoom=1 this pins pan to 0 (framing unchanged from before zoom existed).
+// The module returns the clamped pair rather than mutating; the live view state stays owned here.
 function clampPan() {
-  const r = imgRect();
-  const maxX = r.dw * (view.zoom - 1) / 2;
-  const maxY = r.dh * (view.zoom - 1) / 2;
-  view.panX = Math.max(-maxX, Math.min(maxX, view.panX));
-  view.panY = Math.max(-maxY, Math.min(maxY, view.panY));
-}
-
-// World (X east, Z north) → overlay pixel. The map is a square centered on the world
-// origin spanning mapMeta.w × mapMeta.h, so this is a direct mapping — no calibration.
-// The extracted map image is north-up, so screen Y is inverted relative to Z.
-// World coord → base (zoom=1) overlay pixel, before the view transform.
-function worldToBase(wx, wz) {
-  if (!mapMeta || mapMeta.w <= 0 || mapMeta.h <= 0) return null;
-  const relX = (wx + mapMeta.w * 0.5) / mapMeta.w;   // 0 = west,  1 = east
-  const relY = (wz + mapMeta.h * 0.5) / mapMeta.h;   // 0 = south, 1 = north
-  const r = imgRect();
-  return { x: r.dx + relX * r.dw, y: r.dy + (1 - relY) * r.dh };
-}
-
-function worldToOverlay(wx, wz) {
-  const b = worldToBase(wx, wz);
-  if (!b) return null;
-  const v = viewTransform(b.x, b.y);
-  return { cx: v.x, cy: v.y };
-}
-
-// Overlay pixel → world (the exact algebraic inverse of worldToOverlay/worldToBase/viewTransform,
-// not an approximation) — feeds the CURSOR chip's grid label from wherever the mouse/PAD cursor
-// currently sits. No bounds check: a point outside the map's extent (letterbox margin, panned/
-// zoomed past an edge) still resolves to whatever grid square the math extrapolates to, same as
-// the player's own GRID chip has never special-cased being off the labelled grid (gridLabel itself
-// already returns '—' for a negative grid square).
-function overlayToWorld(sx, sy) {
-  if (!mapMeta || mapMeta.w <= 0 || mapMeta.h <= 0) return null;
-  const ox = overlay.width / 2, oy = overlay.height / 2;
-  const bx = ox + (sx - ox - view.panX) / view.zoom;
-  const by = oy + (sy - oy - view.panY) / view.zoom;
-  const r = imgRect();
-  const relX = (bx - r.dx) / r.dw, relY = 1 - (by - r.dy) / r.dh;
-  return { x: relX * mapMeta.w - mapMeta.w * 0.5, z: relY * mapMeta.h - mapMeta.h * 0.5 };
+  const c = MapTransform.clampPan(geom(), view.panX, view.panY);
+  view.panX = c.panX;
+  view.panY = c.panY;
 }
 
 // gridLabel(wx, wz, meta) is imported from telemetry-source.js (shared with the target derive).

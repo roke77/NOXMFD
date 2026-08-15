@@ -67,40 +67,10 @@ var renderEngineOnStart = makeSettingToggle('kb-engine-on-start-btn', 'keybind.s
 var renderMasterArmsOnStart = makeSettingToggle('kb-master-arms-on-start-btn', 'keybind.set-master-arms-on-start',
   function () { return masterArmsOnOnStart; }, function (v) { masterArmsOnOnStart = v; });
 
-// ── KeyboardEvent.code → Unity KeyCode name ──────────────────────────────────────────────────
-// Letters/digits/F-keys/numpad are mechanical; the rest enumerated. Escape is reserved (cancels
-// capture) and mouse buttons are not capturable — clicking is how this page is driven.
-var CODE2KEY = {
-  Space: 'Space', Tab: 'Tab', Enter: 'Return', Backspace: 'Backspace', Delete: 'Delete',
-  Insert: 'Insert', Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown',
-  ArrowUp: 'UpArrow', ArrowDown: 'DownArrow', ArrowLeft: 'LeftArrow', ArrowRight: 'RightArrow',
-  ShiftLeft: 'LeftShift', ShiftRight: 'RightShift', ControlLeft: 'LeftControl',
-  ControlRight: 'RightControl', AltLeft: 'LeftAlt', AltRight: 'RightAlt',
-  CapsLock: 'CapsLock', ScrollLock: 'ScrollLock', Pause: 'Pause',
-  Minus: 'Minus', Equal: 'Equals', BracketLeft: 'LeftBracket', BracketRight: 'RightBracket',
-  Backslash: 'Backslash', Semicolon: 'Semicolon', Quote: 'Quote', Backquote: 'BackQuote',
-  Comma: 'Comma', Period: 'Period', Slash: 'Slash',
-  NumpadDivide: 'KeypadDivide', NumpadMultiply: 'KeypadMultiply', NumpadSubtract: 'KeypadMinus',
-  NumpadAdd: 'KeypadPlus', NumpadDecimal: 'KeypadPeriod', NumpadEnter: 'KeypadEnter'
-};
-function codeToKey(code) {
-  if (/^Key[A-Z]$/.test(code))    return code.slice(3);                  // KeyA → A
-  if (/^Digit[0-9]$/.test(code))  return 'Alpha'  + code.slice(5);       // Digit1 → Alpha1
-  if (/^Numpad[0-9]$/.test(code)) return 'Keypad' + code.slice(6);       // Numpad1 → Keypad1
-  if (/^F([1-9]|1[0-5])$/.test(code)) return code;                       // F1..F15
-  return CODE2KEY[code] || null;
-}
-
-// Compact display form of a Unity KeyCode name ("Alpha1" → "1", "LeftShift" → "L-SHIFT", ...).
-function displayKey(k) {
-  return k
-    .replace(/^Alpha/, '')
-    .replace(/^Keypad/, 'NUM ')
-    .replace(/^Left(Shift|Control|Alt|Arrow|Bracket)$/, 'L-$1')
-    .replace(/^Right(Shift|Control|Alt|Arrow|Bracket)$/, 'R-$1')
-    .replace(/([a-z])([A-Z])/g, '$1 $2')
-    .toUpperCase();
-}
+// Key naming (KeyboardEvent.code → Unity KeyCode name, and its compact display form) lives in
+// keybinds-keymap.js, pure and unit-checked.
+var codeToKey = KeybindsKeymap.codeToKey;
+var displayKey = KeybindsKeymap.displayKey;
 
 // ── Render ───────────────────────────────────────────────────────────────────────────────────
 function cell(bind, kind) {
