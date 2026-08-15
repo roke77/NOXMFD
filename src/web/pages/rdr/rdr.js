@@ -387,10 +387,11 @@ if (typeof window !== 'undefined' && window.addEventListener) {
     } else if (m.action === 'zoom-in') {
       // The same Zoom In/Out physical keybind MAP uses (map-act, docs/page-cursor.md) — routed here
       // instead of to MAP whenever RDR is the SOI-focused surface, exactly the way TGT repurposes it
-      // to scroll its list (tgt.js). "Zoom in" narrows to a closer, more detailed range.
-      setRangeIdx(rangeIdx - 1);
-    } else if (m.action === 'zoom-out') {
+      // to scroll its list (tgt.js). Matches R+: steps the displayed range UP (a bigger range
+      // number), not a camera-style "zoom in narrows the view" — R+/R- and Zoom In/Out agree.
       setRangeIdx(rangeIdx + 1);
+    } else if (m.action === 'zoom-out') {
+      setRangeIdx(rangeIdx - 1);
     }
   });
   render();
