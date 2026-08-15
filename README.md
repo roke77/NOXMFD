@@ -155,7 +155,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **MAP** — full-screen tactical map with friendly/hostile units and your own position; click a unit to target it, FLW toggles follow, Z+/Z− zoom. A HOTAS cursor can drive all of this without touching the screen — see [PAD cursor](#pad-cursor) below.
+- **MAP** — full-screen tactical map with friendly/hostile units and your own position; click a unit to target it, FLW toggles follow, Z+/Z− zoom, GRID toggles a coordinate grid overlay (off by default). A CURSOR chip shows the grid square under the mouse/PAD cursor, below the GRID chip for your own position. A HOTAS cursor can drive all of this without touching the screen — see [PAD cursor](#pad-cursor) below.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
