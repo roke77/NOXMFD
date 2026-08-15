@@ -301,16 +301,20 @@ page already has. Existing sections/table are untouched.
 
 ## Open questions
 
-- **Decorative MASTER/MODE labels — CLASSIC full view only, for now.** Purely decorative (no click
-  action): a word with a solid triangle above/below, centered in the gap between a control pair —
-  "MASTER" between ARM/SAFE, "MODE" between A/A/A-G (`.wpn-decor` in `mfd.css`, `placeWpnDecorators()`
-  in `mfd.js`, positioned on the separator between the pair's two keys via `sepElsRight`, horizontally
-  centered on the pair's own label rects). Design was mockup-tested with the user through several
-  rounds — arrow/icon styles, a boxed word, an outer border enclosing the whole pair — before settling
-  on plain white text with the arrows and no border. Not yet added to split panes or F-35 — both have
-  a different physical layout (split's pairs can land anywhere in a page; F-35 has no separator
-  element between edge-pinned nav items to anchor on), so this needs its own placement decision if
-  wanted there too.
+- **Decorative MASTER/MODE labels — resolved everywhere, including split and F-35.** Purely
+  decorative (no click action): a word with a solid triangle above/below, centered in the gap
+  between a control pair — "MASTER" between ARM/SAFE, "MODE" between A/A/A-G (`.wpn-decor` in
+  `mfd.css`). Design was mockup-tested with the user through several rounds — arrow/icon styles, a
+  boxed word, an outer border enclosing the whole pair — before settling on plain white text with
+  the arrows and no border. CLASSIC full view: `placeWpnDecorators()` in `mfd.js`, positioned on
+  the separator between the pair's two keys via `sepElsRight`. **Split-pane** (added later —
+  it had no call site at all originally, so the decorator silently never appeared there):
+  `placeWpnPaneDecorator()` finds each pair by id in the pane's `slice.slots` rather than a
+  hardcoded position, since a split pane's pairs can land on any of its 4 item slots depending on
+  pagination; skips drawing when a pair straddles the left/right column boundary (no sensible
+  "between" position exists there — a rare pagination edge case, not the common one). **F-35**:
+  `placeWpnDecorator(actionA, actionB, word)` there looks its two keys up by `data-action` rather
+  than physical position, so it needed no split-specific handling at all.
 - **ARM/SAFE/A-A/A-G key/cell placement — resolved everywhere, including split.** CLASSIC uses
   `right[1..4]` in full-view WPN (weapon rows occupy `left[1..5]`); F-35 uses explicit `cell` hints in
   `f35.js`'s `COMBAT_MODE_NAV`/`MASTER_ARMS_NAV` (rows 2-5 of the right column), same as NEXT already
