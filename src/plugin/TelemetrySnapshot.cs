@@ -130,6 +130,11 @@ namespace NOXMFD
         public float       RadarConeDeg;
         public RdrContact[] Rdr;
 
+        // RDR page pitbull missiles (issue #40): the player's own AA missiles whose active-radar
+        // seeker has gone lock — independent of RadarPresent, since it's the missile's own radar,
+        // not the aircraft's. Empty when the player has none in flight.
+        public PitbullContact[] Pitbull;
+
         // The player's Imperial/Metric display preference (PlayerSettings.unitSystem), mirroring
         // the game's own UnitConverter — RDR's range/altitude readouts follow it (nm/ft vs km/m)
         // the same way the native HUD does.
@@ -275,6 +280,17 @@ namespace NOXMFD
         public string Seeker;  // seeker type code (e.g. "ARH", "IR") — short, used as the label
         public float  Notch;   // beam-notch heading (world deg) for radar seekers; -1 = none
         public float  Heading; // missile travel heading (world deg) — orients the map icon
+    }
+
+    // One of the player's own AA missiles that has gone pitbull — active-radar seeker locked, no
+    // longer riding the launching aircraft's radar (RDR page, issue #40).
+    internal struct PitbullContact
+    {
+        public uint  Id;       // missile's own persistentID.Id
+        public float X, Z;     // world position (GlobalPosition, same space as UnitInfo)
+        public float Alt;      // altitude (GlobalPosition.y)
+        public float Heading;  // travel heading, degrees — orients the RDR triangle icon
+        public uint  TargetId; // designated target's persistentID.Id, 0 if none/unresolved
     }
 
     // One UnitPart's live damage state.

@@ -17,10 +17,13 @@
   the first locked contact.
 
   Shell -> page messages (all {mfd:true, ...}):
-    'rdr' : { present, range, cone, items:[{ id, az, rng, alt, rhdg, tg, n }] }
+    'rdr' : { present, range, cone, items:[{ id, az, rng, alt, rhdg, tg, n }], pb:[{ id, az, rng, alt, rhdg, tid }] }
             present=false -> placeholder. az = signed deg off nose, rng = world units, range = scope
             max range (world units), cone = antenna half-angle (deg; 0 = none), rhdg = travel heading
             relative to nose (deg), alt = altitude (m), tg = 1 when locked.
+            pb = the player's own AA missiles with a locked active-radar seeker (issue #40), same
+            az/rng/rhdg projection as items; tid is the id of the item it's pursuing (0 = none/off-
+            scope), drawn as a blue triangle with a dashed line to that target when it's on-scope.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -35,6 +38,7 @@
       <rect x="60" y="70" width="400" height="440" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2"/>
       <g id="rdr-grid"></g>
       <g id="rdr-contacts"></g>
+      <g id="rdr-pitbull"></g>
       <g id="rdr-cursor-g"></g>
 
       <!-- Antenna-sweep caret: a small inverted-T sitting just above the frame's bottom edge (its

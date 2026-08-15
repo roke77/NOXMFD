@@ -12,7 +12,8 @@ var DEF_CONE = 60;                             // fallback azimuth half-angle wh
 var M_PER_NM = 1852, M_PER_KM = 1000, M_TO_FT = 3.28084;
 
 var GREEN = '#39ff14', AMBER = '#ffaa00', PURPLE = 'rgb(179, 136, 255)';
-var state = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, items: [] };
+var BLUE = '#4d9fff', PB_LINE = '#ffd21e';   // pitbull missile triangle / dashed target line (issue #40)
+var state = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, items: [], pb: [] };
 
 // The caret's one-way sweep time (rdr.css's animation-duration must match). 2s one-way / 4s round
 // trip mirrors the game's own MFD radar sweep exactly (TacScreen.ScanRadar: needle angle =
@@ -183,6 +184,32 @@ function renderContacts() {
   renderReadout(first);
 }
 
+// Pitbull missiles (issue #40): the player's own AA missiles with a locked active-radar seeker.
+// Drawn as a blue triangle, oriented like the ordinary contacts' velocity stub (rhdg, 0 = up/away
+// from ownship), plus a dashed line to the target IF that target is also plotted on the scope right
+// now (renderContacts must run first — it fills `plotted`). tid=0 (no/unresolved target) or a
+// target that's currently off-scope both just skip the line; the triangle still shows.
+// ponytail: line color is a flat yellow (RWR's existing dashed-line color) rather than yellow->red
+// by closing range/TTI — no closing-rate telemetry exists yet to drive that; revisit once this is
+// testable in-game (see issue #40's backfill).
+function renderPitbull() {
+  var g = document.getElementById('rdr-pitbull');
+  if (!g) return;
+  var out = '';
+  (state.pb || []).forEach(function (m) {
+    var p = plot(m);
+    if (!p) return;
+    var rot = (m.rhdg || 0).toFixed(1);
+    out += '<polygon points="' + p.x.toFixed(1) + ',' + (p.y - 9).toFixed(1) + ' ' +
+           (p.x - 7).toFixed(1) + ',' + (p.y + 7).toFixed(1) + ' ' +
+           (p.x + 7).toFixed(1) + ',' + (p.y + 7).toFixed(1) +
+           '" fill="' + BLUE + '" transform="rotate(' + rot + ' ' + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ')"/>';
+    var target = m.tid ? plotted.find(function (pt) { return pt.id === m.tid; }) : null;
+    if (target) out += line(p.x, p.y, target.x, target.y, PB_LINE, 2.5, '10 8');
+  });
+  g.innerHTML = out;
+}
+
 // Bottom readout: always the FIRST locked contact (or blank), plus the total locked count.
 function renderReadout(first) {
   var r1 = document.getElementById('rdr-r1'), r2 = document.getElementById('rdr-r2'),
@@ -229,6 +256,7 @@ function render() {
   renderScale();
   renderGrid();
   renderContacts();
+  renderPitbull();
 }
 
 // Browser-only bootstrap (skipped under Node so rdr.test.js can require the pure helpers).
@@ -271,7 +299,8 @@ if (typeof window !== 'undefined' && window.addEventListener) {
         metric: !!m.metric,
         radarOn: !!m.radarOn,
         levelTime: m.levelTime || 0,
-        items: Array.isArray(m.items) ? m.items : []
+        items: Array.isArray(m.items) ? m.items : [],
+        pb: Array.isArray(m.pb) ? m.pb : []
       };
       if (typeof m.hdg === 'number') _hdg = m.hdg;
       render();

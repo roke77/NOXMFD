@@ -810,7 +810,8 @@ function forwardRdrToFrame() {
 function rdrMsg() {
   return { mfd: true, type: 'rdr', present: rdrData.present, range: rdrData.range,
            cone: rdrData.cone, metric: rdrData.metric, radarOn: rdrData.radarOn,
-           levelTime: rdrData.levelTime, hdg: rdrData.hdg, items: rdrData.items || [] };
+           levelTime: rdrData.levelTime, hdg: rdrData.hdg, items: rdrData.items || [],
+           pb: rdrData.pb || [] };
 }
 function forwardMwToFrame() {
   const w = frameWin(); if (!w) return;
@@ -1381,7 +1382,7 @@ let mwData  = { items: [] };
 
 // Latest RDR B-scope block (docs/rdr-page.md), mirrored from the map iframe's SSE feed. present is
 // false when the aircraft has no radar; the page draws its own scale/contacts from range/cone/items.
-let rdrData = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, hdg: 0, items: [] };
+let rdrData = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, hdg: 0, items: [], pb: [] };
 
 // Latest TGT filter state, mirrored from the map iframe's SSE feed. The shell keeps only this
 // state and forwards it to the frame; the page renders the toggles + POSTs the tgt.* commands.
@@ -1738,7 +1739,8 @@ window.addEventListener('message', function(e) {
     // forward it to whichever surface shows RDR. See docs/rdr-page.md.
     rdrData = { present: !!m.present, range: m.range || 0, cone: m.cone || 0, metric: !!m.metric,
                 radarOn: !!m.radarOn, levelTime: m.levelTime || 0, hdg: m.hdg || 0,
-                items: Array.isArray(m.items) ? m.items : [] };
+                items: Array.isArray(m.items) ? m.items : [],
+                pb: Array.isArray(m.pb) ? m.pb : [] };
     if (currentPage === 'rdr' && !splitMode) forwardRdrToFrame();
     if (splitMode) forwardRdrToPanes();
   } else if (m.type === 'tgt') {
