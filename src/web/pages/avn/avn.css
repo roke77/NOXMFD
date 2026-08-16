@@ -47,6 +47,9 @@
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(2, auto);
 }
+/* F-35 portal (avn.js's IS_F35): the master strip already shows these 8 flags (issue #35), so the
+   page hides the grid and leaves the gauge grid (flex:1 1 auto) to fill the freed height. */
+body.f35 .avn-icon-grid { display: none; }
 .avn-tile {
   display: flex;
   flex-direction: column;

@@ -63,7 +63,9 @@
     // THRL/FUEL gauges more room), so a MAP portal draws its own mission bar + GRID chip again,
     // same as the bezel's MAP.
     map:  '/map-view?bare',
-    avn:  '/avn',
+    // ?f35: AVN reads this to hide its status-icon grid (avn.js) — the F-35 master strip already
+    // shows those flags (issue #35), so the portal keeps just the gauges.
+    avn:  '/avn?f35',
     afm:  '/afm',   // reuses the avn feed — see PAGE_FEEDS in f35.js
     rwr:  '/rwr',
     rdr:  '/rdr',

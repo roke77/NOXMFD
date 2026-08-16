@@ -20,6 +20,11 @@ const avnTileNvg    = document.getElementById('avn-tile-nvg');
 const avnTileLights = document.getElementById('avn-tile-lights');
 const avnTileTurret = document.getElementById('avn-tile-turret');
 
+// F-35 portal (layout-pages.js's '/avn?f35'): the master strip already shows these 8 flags
+// (issue #35's click-to-toggle), so the page itself hides the icon grid and shows gauges only.
+const IS_F35 = new URLSearchParams(location.search).has('f35');
+document.body.classList.toggle('f35', IS_F35);
+
 // Direct tile clicks/taps — the only way to toggle these on the F-35 layout (no bezel keys there
 // to wire externally); on the bezel this is an additional path to the same command the physical
 // key already sends, not a replacement for it. Group ids match AvnStatusPolicy.tileClass's below.

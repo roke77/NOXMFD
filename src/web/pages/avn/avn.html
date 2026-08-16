@@ -16,12 +16,13 @@
   geom.frameTop/frameHeight — still "below the top bezel row", nothing to do with the silhouette
   that used to sit there; compact: a small top/bottom margin) and spans the full panel width.
   Each status tile is directly clickable/touchable — sends `avn.toggle` for its own group straight
-  from this page via send-command.js, same as TGT's own filter toggles. This is what makes the
-  tiles reachable on the F-35 layout at all (no bezel keys there to wire externally). On the bezel,
-  physical-key wiring still exists too (mfd.js's full-view NAV labels + split's
-  wireAvnPaneToggleKeys) and dispatches the identical command — a key press and a tap on the tile
-  itself are two paths to the same toggle, not a bezel-only vs F-35-only split. All 8 tiles always
-  show, in both profiles and both layouts (no per-pane pagination any more).
+  from this page via send-command.js, same as TGT's own filter toggles. On the bezel, physical-key
+  wiring still exists too (mfd.js's full-view NAV labels + split's wireAvnPaneToggleKeys) and
+  dispatches the identical command — a key press and a tap on the tile itself are two paths to the
+  same toggle. On the F-35 layout the grid is hidden instead (layout-pages.js mounts this page at
+  `/avn?f35`, avn.js's IS_F35): the master strip already shows those 8 flags (issue #35), so the
+  portal keeps just the gauges. All 8 tiles show whenever the grid is visible — bezel full view and
+  split alike (no per-pane pagination any more).
 
   Shell -> page messages (all {mfd:true, ...}):
     'avn'        : { name, fuel, throttle, heat, rpm, gearDown, radar, guns, …, visible, page, pages }
