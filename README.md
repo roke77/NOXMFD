@@ -133,31 +133,18 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **HUD** — a remote for the game's in-cockpit HUD OPTIONS: mode tabs (NAV/GUN/A2A/…) and per-category / per-type toggles for which unit icons show on the HUD, plus a declutter strip that hides native HUD widgets — the weapon panel, corner minimap, and boxed flight readouts.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![HUD page](docs/images/HUD.png)
-
-  </details>
-
 - **CFG** — a three-way switch bundling settings pages that don't need their own MAIN key: **KEY**
   is the extended-keybinds editor (bind a keyboard key and a joystick/HOTAS button to each of the
   mod's own cockpit functions — see [Extended Keybinds](#extended-keybinds) below), **LYT** is the
   layout chooser (switch the display to a different shell layout), and **RTS** tunes the mod's
   live data-refresh rates (below).
 
-- **RTS** — two sliders for the mod's live-adjustable refresh rates: **TLM** (the main telemetry
-  tick — own-ship state, weapons, MAP/RWR/RDR/MW contacts, TGT filters, faction stats) and **TGP**
-  (the targeting-pod camera feed). Higher rates cost more CPU/GPU and network bandwidth; lower
-  rates save it at the cost of smoothness and latency. Changes apply immediately and persist
-  across restarts; a RESET TO DEFAULTS button restores both to 10 Hz / 15 Hz.
+- **HUD** — a remote for the game's in-cockpit HUD OPTIONS: mode tabs (NAV/GUN/A2A/…) and per-category / per-type toggles for which unit icons show on the HUD, plus a declutter strip that hides native HUD widgets — the weapon panel, corner minimap, and boxed flight readouts.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
-  ![RTS page](docs/images/RTS.png)
+  ![HUD page](docs/images/HUD.png)
 
   </details>
 
@@ -185,6 +172,19 @@ pilot, with HOTAS-friendly keybinds to match.
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
   ![RDR page](docs/images/RDR.png)
+
+  </details>
+
+- **RTS** — two sliders for the mod's live-adjustable refresh rates: **TLM** (the main telemetry
+  tick — own-ship state, weapons, MAP/RWR/RDR/MW contacts, TGT filters, faction stats) and **TGP**
+  (the targeting-pod camera feed). Higher rates cost more CPU/GPU and network bandwidth; lower
+  rates save it at the cost of smoothness and latency. Changes apply immediately and persist
+  across restarts; a RESET TO DEFAULTS button restores both to 10 Hz / 15 Hz.
+
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![RTS page](docs/images/RTS.png)
 
   </details>
 
