@@ -32,7 +32,10 @@ for (const [page, items] of Object.entries(NAV))
 // Behaviours, not destinations — see the scope note above. Listed explicitly so that a NEW action
 // is treated as a destination by default: an unrecognised action fails this test until someone
 // consciously classifies it, which is the safe direction to be wrong in.
-const BEHAVIOURS = new Set(['flw', 'grid', 'zin', 'zout', 'rng-in', 'rng-out']);
+// 'lyt' (cfg-rates experiment, issue #39): NAV.keys/NAV.rates now offer it as a sibling switch
+// alongside KEY/RTS, but it opens the CLASSIC/F-35 chooser overlay (BEZEL_EXTRAS.lyt /
+// GLASS_ACTIONS.lyt) rather than naming a page, same as flw/grid/zin/zout below.
+const BEHAVIOURS = new Set(['flw', 'grid', 'zin', 'zout', 'rng-in', 'rng-out', 'lyt']);
 
 const destinations = Object.keys(origin).filter(a => !BEHAVIOURS.has(a)).sort();
 assert.ok(destinations.length > 0, 'no destinations found — NAV or this filter is wrong');

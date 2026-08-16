@@ -108,23 +108,22 @@ function fullViewSlot(i) { return { bank: 'left', index: i }; }
 // no panel: every other page in this shell puts its items beside a physical key, and a chooser is
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
-  // HUD, KEY, LYT, MDT, RDR and AFM — the layout-owned MAIN items the six shared NAV items don't
-  // cover. HUD opens the HUD OPTIONS #page-frame page; KEY the extended-keybinds page; MDT
-  // (Mission Data Table) the faction-forces panel for the two fixed identities BOSCALI/PRIMEVA —
-  // not "mine vs the enemy's" (docs/bdf-page.md) — landing on BDF by default, with PAL a switch
-  // away via NAV.bdf/NAV.pal rather than its own MAIN entry (action is still 'bdf': MDT is just
-  // this list's label for it); AFM shows the aircraft name + damage silhouette (split out of AVN,
-  // which is avionics only now).
+  // HUD, CFG, MDT, RDR and AFM — the layout-owned MAIN items the six shared NAV items don't
+  // cover. HUD opens the HUD OPTIONS #page-frame page; CFG the keybinds page, which now carries
+  // KEY/LYT/RTS as a sibling group (NAV.keys, cfg-rates experiment issue #39 — mirrors MDT/BDF/PAL
+  // below: action stays 'keys', same as MDT staying 'bdf'); MDT (Mission Data Table) the
+  // faction-forces panel for the two fixed identities BOSCALI/PRIMEVA — not "mine vs the enemy's"
+  // (docs/bdf-page.md) — landing on BDF by default, with PAL a switch away via NAV.bdf/NAV.pal
+  // rather than its own MAIN entry; AFM shows the aircraft name + damage silhouette (split out of
+  // AVN, which is avionics only now).
   // All are frame-hosted pages that get their MAIN back from NAV like every other, so none needs an
-  // entry of its own here beyond this one. Only LYT differs — it's a layout switch, not a page (see
-  // mfdButton).
+  // entry of its own here beyond this one.
   // No bank/index/mark here (unlike lyt below): MAIN_SPLIT_ITEMS is the only consumer, in both full
   // view and split (showPage / renderSplitLabels' 'main' branch), and it places by alphabetical
   // order, not a fixed key.
   main: [
     { label: 'HUD', action: 'hud' },
-    { label: 'KEY', action: 'keys' },
-    { label: 'LYT', action: 'lyt' },
+    { label: 'CFG', action: 'keys' },
     { label: 'MDT', action: 'bdf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
@@ -216,56 +215,10 @@ let lastStatusCls  = 'disconnected';
 let lastStatusText = '● DISCONNECTED';
 
 // ── Bezel layout renderer: split placement ───────────────────────────────────────────
-// Where each NAV item lands in a split pane, as pane-local { side, slot } — index-aligned with
-// NAV[page], so entry i places NAV[page][i]. SplitKeymap.paneKey resolves the pane-local position
-// to a physical bezel key per orientation (top/bottom vs left/right).
-//
-// Unlike full view, split placement is NOT derivable from the ordered list: MAP deliberately
-// groups its zoom rocker (Z+ over Z-) on the RIGHT column instead of filling the left first, so
-// each split-capable page declares its own. (layouts.md flags this as the open question — the
-// answer is "a page can need a hint", and MAP is the page that needs one.)
-//
-// MAIN isn't here: its split placement is the MAIN_SPLIT_ITEMS pagination in renderSplitLabels,
-// not a fixed slot table (there are ten destinations and six keys). A page absent here entirely
-// cannot be a split pane: LYT is a whole-document layout switch, not per-pane content, so picking
-// it from a pane collapses the split instead (see mfdButton's pane branch).
-const SPLIT_SLOTS = {
-  // MAP pane is the bare map iframe (/map-view?bare) — it self-connects to the SSE stream, so the
-  // shell forwards no data, only routes these controls to the pane's own map. Left column = nav
-  // (MAIN back) + grid + follow; right column = the zoom rocker.
-  map: [
-    { side: 'left',  slot: 0 },   // MAIN — back to MAIN (this pane)
-    { side: 'left',  slot: 1 },   // GRID — toggle the coordinate grid overlay (issue #41)
-    { side: 'left',  slot: 2 },   // FLW  — toggle follow on this pane's map
-    { side: 'right', slot: 0 },   // Z+
-    { side: 'right', slot: 1 },   // Z-
-  ],
-  // AVN / AFM / TGP / RWR / TGT / HUD in a split pane each expose their single MAIN back-button on
-  // the pane's top-left slot (L0 for top, physically L3 for bottom). It navigates ONLY that pane.
-  // TGT's filter toggles and HUD's toggles are clickable inside the pane iframe, so like the others
-  // they need no key labels beyond MAIN.
-  avn: [ { side: 'left', slot: 0 } ],
-  afm: [ { side: 'left', slot: 0 } ],
-  tgp: [ { side: 'left', slot: 0 } ],
-  rwr: [ { side: 'left', slot: 0 } ],
-  // RDR gets MAIN plus the range rocker (R+/R-, issue #40 follow-up) all on the left column, right
-  // after MAIN — unlike MAP's zoom rocker, which splits onto the right column (MAP has more items
-  // filling the left column already; RDR doesn't).
-  rdr: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 } ],
-  tgt: [ { side: 'left', slot: 0 } ],
-  // BDF/PAL/MIS/OBJ instead get 5: MAIN, then the other three as a direct switch (NAV.bdf/NAV.pal/
-  // NAV.mis/NAV.obj), index-aligned with this list. Left holds MAIN+BDF+PAL (its full 0..2 budget);
-  // MIS/OBJ spill onto the right column's own 0..2 budget, nothing else uses it here.
-  bdf: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
-  pal: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
-  mis: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
-  obj: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
-  hud: [ { side: 'left', slot: 0 } ],
-  keys: [ { side: 'left', slot: 0 } ],   // extended-keybinds page — self-driven, only its MAIN back-key
-  // WPN is a valid split page but places no NAV labels: its MAIN/PREV + NEXT depend on the pane's
-  // pagination state, so renderSplitLabels' list branch owns them (NAV.wpn is empty to match).
-  wpn: [],
-};
+// The pane-local { side, slot } table for each split-capable page — index-aligned with NAV[page].
+// Lives in its own module (split-slots.js) so it can be unit-checked in Node against NAV's shape;
+// see that file's header for the full rationale and per-page notes.
+const SPLIT_SLOTS = SplitSlots.SPLIT_SLOTS;
 
 // URL for each iframe-served page — this layout's half of layout-pages.js, which keeps it beside
 // the F-35's table so the two can't quietly diverge. Pages without an entry render 'about:blank'
@@ -377,13 +330,14 @@ function placeSplitKey(m, label, action, paneTag, mark) {
 
 // Pages whose own content sits in the top-left where the MAIN bezel label lands, so that label is
 // stood upright to clear it — in full view via .overlay.vmain, in a split pane via a per-label class
-// (renderSplitLabels). TGT's RESET FILTER, HUD's mode/category rows, BDF/PAL's WARHEADS readout,
-// KEY's FUNCTION/KEYBOARD/JOYSTICK table header, and RDR's RWS mode/range readout are that content
-// — on a narrow display the panel widens to the edge and a horizontal MAIN would sit over that
-// header. All are split-capable.
+// (renderSplitLabels). TGT's RESET FILTER, HUD's mode/category rows, and BDF/PAL/MIS/OBJ's WARHEADS
+// readout are that content — on a narrow display the panel widens to the edge and a horizontal MAIN
+// would sit over that header. All are split-capable.
 // RDR dropped out of this list (issue #40 follow-up): it used to carry only MAIN, cramped enough to
 // need the narrow vertical treatment, but now has MAIN + R+ + R- and reads fine horizontal.
-function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'keys'; }
+// KEY dropped out too (cfg-rates experiment, issue #39): the CFG group's nav labels read fine
+// horizontal, per user preference — its table header sits far enough from the bezel edge.
+function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
@@ -485,7 +439,7 @@ function renderSplitLabels() {
         // silently not render here — the exact failure the old duplicated tables produced. Say so.
         if (!s) { console.warn('[mfd] NAV.' + page + '[' + i + '] "' + item.label + '" has no SPLIT_SLOTS entry — not placed'); return; }
         const el = placeSplitKey(paneKey(paneIdx, s.side, s.slot), item.label, item.action, paneTag, item.mark);
-        // TGT/HUD/RDR/KEYS keep clickable content under their MAIN label; stand it upright in the
+        // TGT/HUD keep clickable content under their MAIN label; stand it upright in the
         // pane too, the way full view does via .overlay.vmain — for those single-item pages that's
         // just MAIN. BDF/PAL/MIS/OBJ carry four MORE items each (their own MDT switch), split across
         // both the pane's left AND right columns (SPLIT_SLOTS.bdf/pal/mis/obj) — a horizontal "MIS"/
@@ -1503,6 +1457,9 @@ function showPage(name) {
   // KEY (extended keybinds) renders in #page-frame too. Like HUD it's self-driven — it polls
   // /keybinds-config and POSTs its own keybind.* commands — so the shell forwards it nothing.
   if (name === 'keys') showFramePage('keys');
+  // RTS (cfg-rates experiment, issue #39) renders in #page-frame too — same self-driven shape as
+  // KEY/HUD: it polls /rates-config and POSTs its own rates.set commands.
+  if (name === 'rates') showFramePage('rates');
 
   // refreshFollowIndicator (not just renderIndicators) because the FOLLOW chip's membership
   // depends on currentPage, which just changed: entering MAP with follow already on must add the
@@ -2062,8 +2019,9 @@ function mfdButton(el) {
     case 'combat-mode-ag':  sendCommand('combat-mode.set', { group: 'ag'  }).catch(function() {}); break;
     case 'tgp':  showPage('tgp');  break;
     case 'hud':  showPage('hud');  break;
-    case 'keys': showPage('keys'); break;
-    case 'lyt':  showPage('lyt');  break;
+    case 'keys':  showPage('keys');  break;
+    case 'rates': showPage('rates'); break;   // cfg-rates experiment (issue #39) — CFG group's RTS
+    case 'lyt':   showPage('lyt');   break;
     // The LAYOUT page's two choices. CLASSIC is this document, so choosing it is just leaving the
     // menu — back to MAIN, where LYT was pressed, with a fresh status as MAIN's own key pulls.
     // F-35 is a different document, so it is a real navigation; that shell lands on its own MAIN.

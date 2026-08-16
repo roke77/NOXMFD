@@ -34,6 +34,7 @@ namespace NOXMFD
         public string key;     // keybind.set-key : Unity KeyCode name ("" or "None" clears)
         public string cid;     // soi.panes : which instance is reporting (a POST isn't tied to its /stream)
         public int    n;       // soi.panes : how many focusable surfaces that instance now shows
+        public float  hz;      // rates.set : desired rate in Hz (group picks which — "fast" | "tgp")
     }
 
     internal static class CommandDispatcher
@@ -56,6 +57,9 @@ namespace NOXMFD
                 { "hud.mode",        HudMode },
                 { "declutter.set",   DeclutterSet },
                 { "avn.toggle",      AvnToggle },
+                // cfg-rates experiment (issue #39) — RTS page's two sliders. group picks which rate;
+                // "tgp" is the camera feed, anything else (default "fast") is the main 10 Hz tick.
+                { "rates.set",       e => { if (e.group == "tgp") RatesConfig.SetTgpHz(e.hz); else RatesConfig.SetFastHz(e.hz); } },
                 { "master-arms.set", e => ImmersionState.MasterArmsOn = e.on },
                 // Routes through Keybinds.SetCombatMode (not a bare assignment) so the WPN page's own
                 // A/A · A/G controls (bezel and F-35) get the same weapon auto-switch as the physical

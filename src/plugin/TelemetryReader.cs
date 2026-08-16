@@ -8,8 +8,11 @@ namespace NOXMFD
 {
     internal class TelemetryReader : MonoBehaviour
     {
-        private const float FastInterval = 0.1f; // 10 Hz — position / speed
-        private const float SlowInterval = 1.0f; // 1 Hz  — world scan + map metadata (FindObjectsByType is expensive)
+        // cfg-rates experiment: was `const`; RatesConfig.SetFastHz (rates.set command) now writes
+        // this live from the RTS page's TLM slider, so PushSnapshot's whole 10 Hz group — own-ship,
+        // weapons, contacts, TGT, BDF/PAL — moves together.
+        internal static float FastInterval = 0.1f; // 10 Hz — position / speed
+        private const  float SlowInterval  = 1.0f; // 1 Hz  — world scan + map metadata (FindObjectsByType is expensive)
 
         // One-shot game-asset extraction (map / unit icons / weapon + CM icons / airframe silhouette).
         // Owned here; driven from ScanWorld / PushSnapshot. See AssetCapture.cs.

@@ -103,11 +103,12 @@
   // too, and it has six physical keys for six items. Kept here, they stay F-35's business and the
   // bezel is unaffected (there HUD, MDT, RDR and AFM are their own BEZEL_EXTRAS keys). Each of
   // these has an F35_PAGES entry and renders as a real page (docs/bdf-page.md, src-architecture.md).
-  // HUD, KEY, MDT, RDR and AFM are frame pages with an F35_PAGES entry; only LYT is not a page — it
-  // opens the layout chooser over the whole glass (GLASS_ACTIONS). All match where the bezel keeps
-  // them — MAIN — so a pilot finds the same names in the same place in either layout. LYT is
-  // offered once per portal and answers for all of them, the way the bezel offers it in each split
-  // pane.
+  // HUD, CFG, MDT, RDR and AFM are frame pages with an F35_PAGES entry — CFG lands on the keybinds
+  // page, which now carries KEY/LYT/RTS as a sibling group (NAV.keys, cfg-rates experiment issue
+  // #39: action stays 'keys', mirrors MDT staying 'bdf'). Selecting LYT from that group still opens
+  // the layout chooser over the whole glass (GLASS_ACTIONS) exactly as before — only its entry
+  // point moved from top-level MAIN into the CFG group. All match where the bezel keeps them —
+  // MAIN — so a pilot finds the same names in the same place in either layout.
   //
   // MDT (2026-08-15) replaces what used to be separate PAL/BDF entries — mirrors the bezel's own
   // SCR→MDT rename and BDF/PAL fold. Action still 'bdf'; NAV.bdf/NAV.pal (shared, consumed
@@ -116,8 +117,7 @@
   // layout already renders NAV[page] like any other.
   const MAIN_EXTRAS = [
     { label: 'HUD', action: 'hud' },
-    { label: 'KEY', action: 'keys' },
-    { label: 'LYT', action: 'lyt' },
+    { label: 'CFG', action: 'keys' },
     { label: 'MDT', action: 'bdf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md) — mirrors BEZEL_EXTRAS.main
     { label: 'AFM', action: 'afm' },   // → AFM airframe page — mirrors BEZEL_EXTRAS.main

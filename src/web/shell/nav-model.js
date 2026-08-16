@@ -78,7 +78,27 @@
       { label: 'OBJ',  action: 'obj', mark: true },
     ],
     hud: [ { label: 'MAIN', action: 'main' } ],   // HUD OPTIONS page — reached via a layout extra, not MAIN
-    keys: [ { label: 'MAIN', action: 'main' } ],  // Extended-keybinds page (docs/keybinds-page.md), reached via KEY
+    // CFG (cfg-rates experiment, issue #39) folds KEY, LYT and RTS under one MAIN entry — same
+    // pattern as BDF/PAL/MIS/OBJ above. Action 'keys' still lands on the keybinds page (CFG's own
+    // MAIN-entry action, mirroring MDT staying 'bdf'); LYT's action is the pre-existing
+    // CLASSIC/F-35 chooser (mfd.js BEZEL_EXTRAS.lyt / f35.js GLASS_ACTIONS.lyt) — only its entry
+    // point moved here, its own rendering is untouched.
+    keys: [
+      { label: 'MAIN', action: 'main' },
+      { label: 'KEY',  action: 'keys', mark: true },
+      { label: 'LYT',  action: 'lyt'  },
+      { label: 'RTS',  action: 'rates' },
+    ],
+    // No NAV.lyt entry: BEZEL_EXTRAS.lyt places CLASSIC/F-35 at explicit left0/left1 AFTER the
+    // generic NAV[name] sweep (showPage), so a NAV.lyt list here would just get silently
+    // overwritten at those two slots — the existing "no MAIN back-item, CLASSIC/F-35 already
+    // returns to MAIN" design (see BEZEL_EXTRAS comment) stays exactly as it is.
+    rates: [
+      { label: 'MAIN', action: 'main' },
+      { label: 'KEY',  action: 'keys' },
+      { label: 'LYT',  action: 'lyt'  },
+      { label: 'RTS',  action: 'rates', mark: true },
+    ],
     wpn: [],
   };
 

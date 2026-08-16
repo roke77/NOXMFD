@@ -142,16 +142,22 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **KEY** — extended-keybinds editor: bind a keyboard key and a joystick/HOTAS button to each of
-  the mod's own cockpit functions. See [Extended Keybinds](#extended-keybinds) below for the
-  functions themselves.
+- **CFG** — a three-way switch bundling settings pages that don't need their own MAIN key: **KEY**
+  is the extended-keybinds editor (bind a keyboard key and a joystick/HOTAS button to each of the
+  mod's own cockpit functions — see [Extended Keybinds](#extended-keybinds) below), **LYT** is the
+  layout chooser (switch the display to a different shell layout), and **RTS** tunes the mod's
+  live data-refresh rates (below).
 
-- **LYT** — layout chooser: switch the display to a different shell layout.
+- **RTS** — two sliders for the mod's live-adjustable refresh rates: **TLM** (the main telemetry
+  tick — own-ship state, weapons, MAP/RWR/RDR/MW contacts, TGT filters, faction stats) and **TGP**
+  (the targeting-pod camera feed). Higher rates cost more CPU/GPU and network bandwidth; lower
+  rates save it at the cost of smoothness and latency. Changes apply immediately and persist
+  across restarts; a RESET TO DEFAULTS button restores both to 10 Hz / 15 Hz.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
-  ![LYT page](docs/images/LYT.png)
+  ![RTS page](docs/images/RTS.png)
 
   </details>
 
@@ -272,8 +278,8 @@ fuel, and the avionics flags.
 ### Extended Keybinds
 
 Optional dedicated keybinds for cockpit functions the game has no native bind for,
-configured on the **KEY** page, reached from MAIN in either layout (or opened directly at
-`http://localhost:5005/keybinds`). Each function takes a keyboard/mouse key, a
+configured on the **KEY** page, reached from MAIN via **CFG** in either layout (or opened
+directly at `http://localhost:5005/keybinds`). Each function takes a keyboard/mouse key, a
 joystick/HOTAS button, or both — click a cell and press the key or button to bind it.
 Multi-stick HOTAS setups are supported; each bind remembers which stick it came from.
 

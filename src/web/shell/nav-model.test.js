@@ -39,9 +39,27 @@ assert.deepStrictEqual(NAV.map.map(i => i.label), ['MAIN', 'GRID', 'FLW', 'Z+', 
 assert.deepStrictEqual(NAV.rdr.map(i => i.label), ['MAIN', 'R+', 'R-']);
 
 // ── Every frame-hosted page can get back to MAIN ────────────────────────────────────
-for (const page of ['avn', 'afm', 'rwr', 'tgp', 'tgt', 'hud', 'keys']) {
+for (const page of ['avn', 'afm', 'rwr', 'tgp', 'tgt', 'hud']) {
   assert.deepStrictEqual(NAV[page], [{ label: 'MAIN', action: 'main' }], `${page} should be just a MAIN back-button`);
 }
+
+// CFG group (cfg-rates experiment, issue #39): KEY/LYT/RTS folded together, same shape as
+// BDF/PAL/MIS/OBJ below (reached from MAIN via CFG — mfd.js BEZEL_EXTRAS.main, action still
+// 'keys'). LYT has no `mark` slot of its own — see nav-model.js's comment on why NAV.lyt doesn't
+// exist (BEZEL_EXTRAS.lyt places CLASSIC/F-35 at fixed keys that would silently clobber it).
+assert.deepStrictEqual(NAV.keys, [
+  { label: 'MAIN', action: 'main' },
+  { label: 'KEY',  action: 'keys', mark: true },
+  { label: 'LYT',  action: 'lyt'  },
+  { label: 'RTS',  action: 'rates' },
+]);
+assert.deepStrictEqual(NAV.rates, [
+  { label: 'MAIN', action: 'main' },
+  { label: 'KEY',  action: 'keys' },
+  { label: 'LYT',  action: 'lyt'  },
+  { label: 'RTS',  action: 'rates', mark: true },
+]);
+assert.ok(!('lyt' in NAV), 'NAV.lyt must not exist — BEZEL_EXTRAS.lyt owns that page\'s placement');
 
 // BDF/PAL/MIS/OBJ are folded together (reached from MAIN via MDT — mfd.js BEZEL_EXTRAS.main,
 // action still 'bdf'): each gets MAIN plus a direct switch to the other three, with `mark` on

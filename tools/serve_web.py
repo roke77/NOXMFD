@@ -163,6 +163,14 @@ def _hud_options():
     }).encode("utf-8")
 
 
+# Mock of the plugin's /rates-config (cfg-rates experiment, issue #39), so the /rates page's two
+# sliders have something to initialize from in the harness. The write side (rates.set) has no
+# mock — commands POST and are swallowed — so moving a slider here won't change this response;
+# that path is only testable in game.
+def _rates_config():
+    return json.dumps({"fastHz": 10, "tgpHz": 15}).encode("utf-8")
+
+
 # Stateful mock of the plugin's /keybinds-config + keybind.* commands, so the /keybinds page's
 # whole flow (render, keyboard set, joystick arm-capture) is drivable in the harness. Arming a
 # joystick capture "captures" a fake button ~1.5s later (simulated on the next poll after the
@@ -386,6 +394,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(_hud_options(), 'application/json; charset=utf-8')
         if path == '/keybinds-config':
             return self._send(_keybinds_config(), 'application/json; charset=utf-8')
+        if path == '/rates-config':
+            return self._send(_rates_config(), 'application/json; charset=utf-8')
         if path == '/map-view':
             try:
                 return self._send(_map_page(), 'text/html; charset=utf-8')

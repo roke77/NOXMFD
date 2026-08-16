@@ -275,6 +275,9 @@ captured, ordered by value:
    capture rate, or render-on-demand, or cap resolution further. (The
    capture is already gated on subscribers and async — see
    `TgpFeed.CaptureFrame` / `OnReadbackComplete`.)
+   **Confirmed 2026-08-16 — see the dated section below.** This blind spot is
+   no longer blind: it's a real, measured cost. Follow-up fix work is tracked
+   as its own ticket, separate from the investigation that found it.
 
 3. **GC allocation rate.** No GC spikes showed in `PushSnapshot`, but the
    10 Hz `.ToArray()` churn (units/rwr/mw) + the now-owned parts array do
@@ -289,6 +292,90 @@ The frame-time 1%-low and GC-count readouts this section asked for are now
 in the rollup, so #1's FPS delta and #3's allocation pressure read straight
 off the log. #2 (GPU/TGP) remains the one axis the rollup can't see — for
 that, A/B a TGP pane open vs. closed and compare the logged FPS.
+
+## 2026-08-16 — cfg-rates branch: TGP GPU cost confirmed, plus a config-write stall
+
+The `cfg-rates` branch (issue #39) made the main telemetry tick and the TGP
+feed's rate live-adjustable from a new RTS page, to gather real cost/benefit
+data instead of reasoning about refresh rates abstractly. In-game testing
+surfaced two findings — one closes blind-spot #2 above, the other is
+unrelated but real.
+
+### Method: `PerfLog.cs`
+
+A small purpose-built rollup timer (`src/plugin/PerfLog.cs`), narrower than
+the removed `PerfDiag` apparatus but covering the same idea — `using
+(PerfLog.Time("name")) { ... }` around a hot-path block, logged every 5s via
+the normal BepInEx log. Wrapped `ScanWorld`, `PushSnapshot`,
+`TgpFeed.CaptureFrame`, and `RatesConfig`'s `ConfigEntry.Value` writes.
+Extended with:
+
+- **Frame time split by TGP subscriber state** (`PerfLog.Frame`, gated on
+  `TelemetryServer.WantsTgpFrames`) — logs `frame(tgpOpen)` vs
+  `frame(tgpClosed)` avg/max/spike-count separately, specifically to catch
+  GPU cost a CPU `Stopwatch` around `CaptureFrame()` can't see.
+- **`TgpFeed.ReadbackSkipCount`** — counts capture ticks dropped because the
+  previous `AsyncGPUReadback` hadn't completed (`TgpFeed.cs`'s existing
+  `if (_readbackInFlight) return;` guard), read-and-reset each rollup.
+
+Removed from the tree once this investigation's findings were banked (same
+lifecycle as the earlier `PerfDiag` apparatus) — the numbers above are what
+it found. To re-measure or extend it for the follow-up TGP ticket, restore
+`src/plugin/PerfLog.cs` and its call sites (`TelemetryReader.Update`,
+`TgpFeed.Tick`/`CaptureFrame`, `RatesConfig.SetFastHz`/`SetTgpHz`) from
+history rather than re-deriving it.
+
+### Finding 1 — TGP's GPU cost is real, and pre-existing (not new to this branch)
+
+`TgpFeed.CaptureFrame`'s own C# execution time stayed sub-millisecond even at
+30 Hz (0.03ms avg) — the cost isn't in the code a CPU timer can see. But
+`frame(tgpOpen)` windows showed markedly worse worst-case frame times than
+`frame(tgpClosed)` windows throughout a session, **even at the old
+hardcoded-15Hz default**:
+
+```
+frame(tgpOpen) avg=6,609ms max=76,737ms spikes=3/757   (tgpHz=15 — the OLD default)
+frame(tgpOpen) avg=6,745ms max=57,827ms spikes=1/742   (tgpHz=15)
+frame(tgpOpen) avg=6,135ms max=100,000ms spikes=1/815  (tgpHz=15; 100ms = Unity's deltaTime clamp — the real stall was longer)
+```
+
+versus clean `frame(tgpClosed)` windows before the TGP pane opened (avg
+6-8ms, no big spikes). This means the `Blit` + `AsyncGPUReadback` GPU work
+`TgpFeed.CaptureFrame` kicks off was already causing real, user-perceptible
+stutter at the rate this mod has always shipped at — the `cfg-rates`
+experiment didn't introduce this cost, it just built the first instrument
+that could see it, and gave the player a dial that can push it further into
+the red.
+
+**Pushing TGP to 30 Hz makes it measurably worse.** `tgpSkipped` (readback
+backlog) climbed to **33-69 dropped ticks per 5s window at 30Hz** — up to
+~45% of attempted captures — versus the code's own assumption ("we'll only
+skip one or two ticks per second under load," calibrated for 15Hz). The GPU
+genuinely cannot keep up with 30Hz readback requests on the test machine.
+
+**Decision:** leave the `cfg-rates` feature (CFG/KEY/LYT/RTS nav, the two
+sliders) as-is — it's the tool that found this, not the bug. TGP GPU
+performance work is tracked as its own follow-up ticket, separate from this
+investigation. Candidates for that ticket to evaluate: capping the TGP
+slider's usable range below 30Hz, render-on-demand instead of every capture
+tick, or the mirror-cam approach `docs/tgp-high-quality-mode.md` already
+scoped (unrelated feature, same GPU-cost tradeoff shape).
+
+### Finding 2 — `ConfigEntry<T>.Value` can stall the main thread for ~9ms
+
+Separately: `RatesConfig.FastHz.Value-write avg=8,973ms max=8,973ms n=1` — a
+single BepInEx `ConfigEntry.Value` write (which triggers a synchronous `.cfg`
+file save) blocked the main thread for ~9ms, more than half a 60fps frame
+budget. Write costs varied wildly (0.001ms-8.97ms across different
+sessions), consistent with OS/disk I/O jitter rather than CPU cost.
+
+**Fixed**: the RTS page's sliders now fire `rates.set` on `change` (drag
+release / arrow-key commit) instead of every `input` tick during a drag —
+same live label update, far fewer writes, same end-user behavior. Any future
+page adding a continuous-drag control backed by a `ConfigEntry` should use
+the same `input`-for-display / `change`-for-persist split; every other
+config-backed control in this codebase today is a discrete toggle/click, so
+this is the first place the distinction mattered.
 
 ## Marginal polish (deferred — data doesn't justify it yet)
 

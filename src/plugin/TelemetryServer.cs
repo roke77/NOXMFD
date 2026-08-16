@@ -657,6 +657,8 @@ namespace NOXMFD
                         ServeConfig(ctx);
                     else if (path == "/hud-options")
                         ServeHudOptions(ctx);
+                    else if (path == "/rates-config")
+                        ServeRatesConfig(ctx);
                     else if (path == "/keybinds-config")
                         ServeKeybindsConfig(ctx);
                     else if (path == "/soi-instances")
@@ -691,6 +693,8 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/hud/hud.html");
                     else if (path == "/keybinds")
                         ServeAssetRel(ctx, "pages/keybinds/keybinds.html");
+                    else if (path == "/rates")
+                        ServeAssetRel(ctx, "pages/rates/rates.html");
                     else if (path == "/command")
                         HandleCommand(ctx);
                     else if (path == "/mfd")
@@ -909,6 +913,27 @@ namespace NOXMFD
             try
             {
                 byte[] body = Encoding.UTF8.GetBytes(HudOptionsJson ?? "{}");
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // cfg-rates experiment (issue #39): the RTS page's two sliders read their starting position
+        // from here on load, same shape as /hud-options — a small on-demand JSON snapshot rather
+        // than something streamed. Built fresh per request (RatesConfig's getters are plain floats,
+        // no game-object reads), so no caching/refresh-on-tick needed like HudOptionsJson.
+        private static void ServeRatesConfig(HttpListenerContext ctx)
+        {
+            try
+            {
+                string json = string.Format(CultureInfo.InvariantCulture,
+                    "{{\"fastHz\":{0},\"tgpHz\":{1}}}", RatesConfig.FastHz, RatesConfig.TgpHz);
+                byte[] body = Encoding.UTF8.GetBytes(json);
                 ctx.Response.StatusCode      = 200;
                 ctx.Response.ContentType     = "application/json; charset=utf-8";
                 ctx.Response.ContentLength64 = body.Length;

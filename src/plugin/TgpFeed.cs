@@ -23,7 +23,9 @@ namespace NOXMFD
     // nulls the buffers, so a readback callback that lands after teardown bails on its own guards.
     internal class TgpFeed
     {
-        internal const float Interval    = 1f / 15f;   // 15 Hz — enough for a small MFD pane, keeps readback+encode rate low
+        // cfg-rates experiment: was `const`; RatesConfig.SetTgpHz (rates.set command) now writes
+        // this live from the RTS page's TGP slider.
+        internal static float Interval    = 1f / 15f;   // 15 Hz — enough for a small MFD pane, keeps readback+encode rate low
         private  const int   MaxDim      = 720;        // cap for the encoded frame (native source is smaller, so this is a no-op today)
         private  const int   JpegQuality = 50;         // JPEG quality 0–100; 50 is visually fine for a small MFD pane
 
@@ -152,8 +154,9 @@ namespace NOXMFD
             }
 
             // Don't stack readbacks if the GPU is still working on the previous one — drop
-            // this tick instead. With AsyncGPUReadback completing in 1–3 frames we'll only
-            // skip one or two ticks per second under load, no visible stutter on the feed.
+            // this tick instead. At the 15 Hz default AsyncGPUReadback usually completes in
+            // 1–3 frames, so this skips rarely; at higher rates (RTS page's TGP slider) the GPU can
+            // fall behind and skip much more often — see docs/performance.md's 2026-08-16 section.
             if (_readbackInFlight) return;
 
             // (Re)allocate the downscale RT + readback texture when the source dimensions change.
