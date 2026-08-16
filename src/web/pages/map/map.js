@@ -27,6 +27,24 @@ function fallbackSize() { return zoomedIn() ? FALLBACK_IN  : FALLBACK_OUT; }
 let   followPlayer = false;    // when on (and zoomed in), keep the player icon centred
 let   gridOn       = false;    // coordinate grid overlay (issue #41), default off
 
+// ── Waypoints/routes (issue #38) ──────────────────────────────────────────────────
+let   waypointRoute = null;    // WaypointsStore's active route, cached for drawWaypoints()
+const WPT_LINE_COLOR = '#39d0ff';       // dashed route line + non-next markers
+const WPT_NEXT_COLOR = '#ffe14d';       // the waypoint the WPT readout is currently tracking
+const WPT_REACHED_COLOR = '#a0a0a0';    // waypoints/segments already flown past — lighter than the
+                                         // theme's --no-gray (#5a5a5a), which nearly vanished against dark terrain
+function refreshWaypointRoute() { waypointRoute = WaypointsStore.getActiveRoute(); updateRouteChip(); }
+// ROUTE chip (bottom-right status row) — the active route's name, same show/hide-when-empty
+// pattern as CURSOR (updateCursorChip). No active route: hidden, same as CURSOR with nothing hovered.
+function updateRouteChip() {
+  if (waypointRoute) { routeBar.textContent = 'ROUTE: ' + waypointRoute.name; routeBar.className = 'mfd-chip'; }
+  else { routeBar.className = 'mfd-chip empty'; }
+}
+// The WPT page (a separate iframe) writes to the same localStorage key — a 'storage' event fires
+// here whenever IT writes (never on our own writes), so this stays live without any postMessage
+// plumbing for waypoint data itself.
+window.addEventListener('storage', function(e) { if (e.key === WaypointsStore.STORE_KEY) { refreshWaypointRoute(); drawOverlay(); } });
+
 // ── PAD cursor (docs/page-cursor.md, docs/map-cursor.md) ──────────────────────────
 // A crosshair standing in for the mouse/touch while this MAP is the HOTAS-driven SOI focus. The
 // shell alone decides whether that's true — cursor/cursor-select/cursor-focus messages only ever
@@ -78,6 +96,7 @@ const overlay  = document.getElementById('overlay');
 const oc       = overlay.getContext('2d');
 const gridBar   = document.getElementById('grid-bar');
 const cursorBar = document.getElementById('cursor-bar');
+const routeBar  = document.getElementById('route-bar');
 const unitLabel = document.getElementById('unit-label');
 const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — see pad-cursor.js
 
@@ -88,6 +107,7 @@ const cursor = createPadCursor({
   el: cursorEl,
   clampRect: imgRect,
   onSelect: (x, y) => selectAt(x, y, CURSOR_HIT_PAD),
+  onHold: (x, y) => placeWaypointAt(x, y),   // Cursor Select held past holdMs = waypoint placement (issue #38)
   onEdge: onCursorEdge,
   onMove: updateCursorChip,   // CURSOR chip tracks the PAD cursor too, not just the mouse
 });
@@ -437,6 +457,51 @@ function drawGrid() {
   oc.restore();
 }
 
+// Pilot-placed waypoints/route (issue #38) — a dashed line through the active route in order, plus
+// a small numbered marker per waypoint. Drawn right after the grid: navigational chrome the pilot
+// plans against, same "under icons, above map image" layer. The current "next" waypoint (the one
+// the WPT page's readout is tracking) is drawn brighter so the map alone shows which one it is;
+// everything before it (index < nextIndex) is already flown, drawn dim gray — a waypoint carries no
+// "reached" flag of its own (WptRoute's nextIndex is a plain progress COUNT, not a per-waypoint
+// state — same reasoning the reorder/delete fix relies on), so "reached" here is just index < nextIndex.
+function drawWaypoints() {
+  if (!waypointRoute || !waypointRoute.waypoints.length) return;
+  const pts = waypointRoute.waypoints.map(w => Object.assign({}, w, worldToOverlay(w.x, w.z)));
+  oc.save();
+  oc.setLineDash([6, 5]);
+  oc.lineWidth = 1.5;
+  // Segment i->i+1 is drawn gray when its START (waypoint i) is already reached — i.e. every
+  // segment already flown, including the one leading up to the current "next" waypoint.
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    if (a.cx == null || b.cx == null) continue;
+    oc.strokeStyle = i < waypointRoute.nextIndex ? WPT_REACHED_COLOR : WPT_LINE_COLOR;
+    oc.beginPath();
+    oc.moveTo(a.cx, a.cy);
+    oc.lineTo(b.cx, b.cy);
+    oc.stroke();
+  }
+  oc.setLineDash([]);
+  pts.forEach((p, i) => {
+    if (p.cx == null) return;
+    const next = i === waypointRoute.nextIndex;
+    const reached = i < waypointRoute.nextIndex;
+    const color = next ? WPT_NEXT_COLOR : reached ? WPT_REACHED_COLOR : WPT_LINE_COLOR;
+    oc.fillStyle = color;
+    oc.strokeStyle = color;
+    oc.shadowColor = color;
+    oc.shadowBlur = next ? 10 : 4;
+    oc.beginPath();
+    oc.arc(p.cx, p.cy, next ? 6 : 4, 0, Math.PI * 2);
+    oc.fill();
+    oc.shadowBlur = 0;
+    oc.font = '13px "Courier New", monospace';
+    oc.textBaseline = 'bottom';
+    oc.fillText(p.name ? (i + 1) + ' ' + p.name : String(i + 1), p.cx + 8, p.cy - 4);
+  });
+  oc.restore();
+}
+
 // ── Drawing ──────────────────────────────────────────────────────────────────────
 function drawOverlay() {
   oc.clearRect(0, 0, overlay.width, overlay.height);
@@ -468,6 +533,9 @@ function drawOverlay() {
 
   // Coordinate grid under the icons, same layer as the RWR spokes.
   drawGrid();
+
+  // Pilot-placed waypoints/route (issue #38) — same layer as the grid.
+  drawWaypoints();
 
   // Radar-warning spokes under the icons (icons stay readable on top).
   drawRwrLines();
@@ -518,6 +586,23 @@ function drawOverlay() {
           break;
         }
       }
+    }
+  }
+
+  // Waypoint placement feedback: a brief fading ring where the pilot just long-pressed. Screen-px
+  // anchored (not id-anchored like clickFlash) since a fresh waypoint has no hitTargets entry.
+  if (wptFlash) {
+    const now = performance.now();
+    if (now >= wptFlash.until) { wptFlash = null; }
+    else {
+      oc.save();
+      oc.globalAlpha = Math.max(0, (wptFlash.until - now) / 450);
+      oc.strokeStyle = WPT_NEXT_COLOR;
+      oc.lineWidth   = 2;
+      oc.beginPath();
+      oc.arc(wptFlash.cx, wptFlash.cy, 14, 0, Math.PI * 2);
+      oc.stroke();
+      oc.restore();
     }
   }
 
@@ -696,6 +781,40 @@ let gestureMoved = false, downX = 0, downY = 0;
 // icon's hit circle and grabs the nearest contact in range. Mouse clicks stay pixel-precise.
 const TOUCH_HIT_PAD = 22;
 let lastPointerType = 'mouse';
+
+// ── Waypoint placement (long-press, issue #38) ────────────────────────────────────
+// Long-press (mouse hold, touch hold, or the PAD cursor's onHold above) drops a waypoint at that
+// world position into the active route — same LONG_MS/longFired arbitration tgt.js's filter cells
+// use, so a fired long-press never also reads as target-select (the click handler below guards on
+// it). Armed on every single-pointer pointerdown, cancelled the moment gestureMoved flips true
+// (>4px real movement) or a second pointer joins (a pinch is starting, not a hold).
+const WPT_LONG_MS = 500;
+let longPress = null;   // { pointerId, fired, timer }
+function clearLongPress() { if (longPress) { clearTimeout(longPress.timer); longPress = null; } }
+function armLongPress(pointerId, clientX, clientY) {
+  clearLongPress();
+  longPress = { pointerId: pointerId, fired: false, timer: null };
+  longPress.timer = setTimeout(function() {
+    if (!longPress || longPress.pointerId !== pointerId || gestureMoved || pointers.size !== 1) { longPress = null; return; }
+    longPress.fired = true;
+    const rect = overlay.getBoundingClientRect();
+    placeWaypointAt(clientX - rect.left, clientY - rect.top);
+  }, WPT_LONG_MS);
+}
+let wptFlash = null;   // brief confirmation ring at a just-placed waypoint (screen px, not unit id)
+function pumpWptFlash() { if (!wptFlash) return; drawOverlay(); requestAnimationFrame(pumpWptFlash); }
+function flashWaypoint(cx, cy) { wptFlash = { cx: cx, cy: cy, until: performance.now() + 450 }; requestAnimationFrame(pumpWptFlash); }
+function placeWaypointAt(sx, sy) {
+  if (!mapMeta) return;
+  const w = overlayToWorld(sx, sy);
+  if (!w) return;
+  WaypointsStore.addWaypointToActive(w.x, w.z);
+  refreshWaypointRoute();
+  flashWaypoint(sx, sy);
+  drawOverlay();
+}
+window.addEventListener('contextmenu', function(e) { e.preventDefault(); });   // long-press must not pop a menu
+
 function pinchGeom() {
   const p = [...pointers.values()];
   return { dist: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y),
@@ -731,11 +850,13 @@ overlay.addEventListener('pointerdown', function(e) {
   downX = e.clientX; downY = e.clientY; gestureMoved = false;
   lastPointerType = e.pointerType || 'mouse';   // drives the tap-select reach (touch = fat finger)
   if (pointers.size === 2 && mapMeta) {                 // second finger → start a pinch
+    clearLongPress();   // a pinch is starting, not a hold
     if (panId !== null) { try { overlay.releasePointerCapture(panId); } catch (_) {} panId = null; }
     const g = pinchGeom();
     pinching = true; pinchStartDist = g.dist; pinchStartZoom = view.zoom;
     return;
   }
+  if (mapMeta) armLongPress(e.pointerId, e.clientX, e.clientY);
   if (mapMeta && view.zoom > MIN_ZOOM && !followPlayer) {
     panId = e.pointerId; lastX = e.clientX; lastY = e.clientY;
     overlay.setPointerCapture(e.pointerId);
@@ -745,6 +866,7 @@ overlay.addEventListener('pointermove', function(e) {
   if (!pointers.has(e.pointerId)) return;
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (Math.abs(e.clientX - downX) > 4 || Math.abs(e.clientY - downY) > 4) gestureMoved = true;
+  if (gestureMoved) clearLongPress();   // a real pan/pinch cancels a pending hold
 
   if (pinching && pointers.size >= 2 && mapMeta) {       // pinch-zoom about the finger midpoint
     e.preventDefault();
@@ -772,6 +894,9 @@ function dropPointer(e) {
   pointers.delete(e.pointerId);
   if (pointers.size < 2) pinching = false;
   if (e.pointerId === panId) { try { overlay.releasePointerCapture(e.pointerId); } catch (_) {} panId = null; }
+  // Only clear an UNFIRED long-press here — a fired one must survive into the 'click' handler below
+  // (touch fires a synthetic click after pointerup) so it can suppress the tap-select outcome.
+  if (longPress && longPress.pointerId === e.pointerId && !longPress.fired) clearLongPress();
 }
 overlay.addEventListener('pointerup', dropPointer);
 overlay.addEventListener('pointercancel', dropPointer);
@@ -866,6 +991,7 @@ function selectAt(px, py, pad) {
 }
 
 overlay.addEventListener('click', function(e) {
+  if (longPress && longPress.fired) { longPress = null; return; }   // that was a waypoint placement, not a select
   if (gestureMoved) return;   // that was a pan/pinch, not a select
   const rect = overlay.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
@@ -895,6 +1021,10 @@ window.addEventListener('message', function(e) {
     case 'zoom-in':       zoomStep(1.5);   break;
     case 'zoom-out':      zoomStep(1 / 1.5); break;
     case 'status-request': source.rebroadcastStatus(); break;   // shell asked for the current status
+    // R+/R- (issue #38) — switch the active waypoint route; re-pull it and repaint so the map's
+    // rendered line/markers switch immediately, same as a local long-press placement does.
+    case 'route-next': WaypointsStore.cycleActiveRoute(1);  refreshWaypointRoute(); drawOverlay(); break;
+    case 'route-prev': WaypointsStore.cycleActiveRoute(-1); refreshWaypointRoute(); drawOverlay(); break;
     // PAD cursor (docs/page-cursor.md, docs/map-cursor.md) — the shell only ever sends these while
     // THIS map is the SOI's focused surface, so no further gating is needed here.
     case 'cursor-focus':  cursor.setFocus(!!m.on, overlay.width / 2, overlay.height / 2); break;
@@ -913,6 +1043,7 @@ function syncSizeWhenReady() {
   if (document.getElementById('map-panel').clientWidth === 0) requestAnimationFrame(syncSizeWhenReady);
 }
 loadPersistedView();       // adopt the persisted FLW + ZOOM + GRID (or the defaults) before the first paint
+refreshWaypointRoute();    // load the active route (issue #38) before the first paint
 syncSizeWhenReady();
 setFollow(followPlayer);    // report the restored follow up to the shell (paints the FOLLOW chip)
 setGrid(gridOn);            // report the restored grid state up to the shell (paints the GRID label)

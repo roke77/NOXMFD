@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — WPT</title>
+<!--
+  WPT page (issue #38) — waypoints/route creator, served at /wpt. Sibling of /map under MAP's own
+  nav row (nav-model.js's NAV.map/NAV.wpt), not the MAIN-rooted CFG/MDT sibling groups.
+
+  Waypoints are placed on the MAP page itself (long-press — map.js) and persisted client-side in
+  localStorage (waypoints-store.js). This page is the editor: route list (create/rename/delete/
+  switch-active), the active route's waypoint list (rename/delete/reorder), and a distance/bearing
+  readout to the next waypoint that auto-advances as the player nears it.
+
+  Shell -> page messages (all {mfd:true, ...}): 'mapinfo' : { mission, grid, x, z, hdg, ox, oy } —
+  the same slice map.js's own HUD derives, forwarded here (mfd.js forwardWptToFrame/ToPanes) since
+  this is a separate document/iframe from MAP. Used for the readout's distance/bearing calc and for
+  labeling waypoints with their grid square.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/wpt/wpt.css">
+</head>
+<body>
+
+<div class="wpt-panel" id="wpt-panel">
+  <!-- Way back to the display when opened standalone; hidden when embedded — same check
+       keybinds.js/rates.js use (window.parent !== window). Points at MAP (NAV.wpt), not MAIN. -->
+  <a class="wpt-back" href="/">&lt; MAP</a>
+  <div class="wpt-title">WAYPOINTS</div>
+
+  <div class="wpt-readout mfd-chip" id="wpt-readout">NO ACTIVE ROUTE</div>
+
+  <!-- Relative-bearing compass to the next waypoint: the needle points where the aircraft's own
+       heading needs to turn to. Straight up = "on course" (heading already matches the waypoint's
+       bearing); the SVG group is rotated in wpt.js's updateCompass(), not CSS, since SVG's own
+       rotate() takes a clean cx/cy pivot without a separate transform-origin dance. The RING always
+       shows; only the amber NEEDLE hides (display:none, toggled in wpt.js) whenever there's nothing
+       to point at — no active route, route already complete, or no live heading yet. -->
+  <div class="wpt-compass" id="wpt-compass">
+    <svg viewBox="0 0 100 100" width="100" height="100">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="var(--no-green-dim)" stroke-width="1"/>
+      <line x1="50" y1="4" x2="50" y2="12" stroke="var(--no-green-dim)" stroke-width="1"/>
+      <g id="wpt-compass-needle" style="display:none;">
+        <polygon points="50,12 42,58 50,48 58,58" fill="var(--no-amber)"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="wpt-section">
+    <div class="wpt-section-head">
+      <span>ROUTES</span>
+      <button class="wpt-btn" id="wpt-new-route">+ NEW ROUTE</button>
+    </div>
+    <!-- Inline "new route" name entry (no modal — matches keybinds.js/rates.js's no-modal style). -->
+    <div class="wpt-new-row" id="wpt-new-row" style="display:none;">
+      <input type="text" id="wpt-new-name" placeholder="Route name" maxlength="40">
+      <button class="wpt-btn" id="wpt-new-confirm">ADD</button>
+      <button class="wpt-btn wpt-btn-ghost" id="wpt-new-cancel">CANCEL</button>
+    </div>
+    <div class="wpt-routes" id="wpt-routes"></div>
+    <div class="wpt-empty" id="wpt-routes-empty">&mdash; NO ROUTES YET &mdash;</div>
+  </div>
+
+  <div class="wpt-section">
+    <div class="wpt-section-head"><span>ACTIVE ROUTE WAYPOINTS</span></div>
+    <div class="wpt-waypoints" id="wpt-waypoints"></div>
+    <div class="wpt-empty" id="wpt-waypoints-empty">&mdash; LONG-PRESS THE MAP TO ADD A WAYPOINT &mdash;</div>
+  </div>
+</div>
+
+<script src="/assets/pages/wpt/wpt-route.js"></script>
+<script src="/assets/pages/wpt/waypoints-store.js"></script>
+<script type="module" src="/assets/pages/wpt/wpt.js"></script>
+</body>
+</html>

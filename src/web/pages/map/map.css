@@ -42,18 +42,23 @@ main { flex: 1; display: flex; overflow: hidden; }
 }
 #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
 
-/* Current grid square (e.g. "GRID: Kg48"), bottom-right of the map, stacked above CURSOR. */
-#grid-bar {
-  position: absolute;
-  bottom: 44px; right: 12px;
-}
-
-/* CURSOR — the grid square under whichever pointer is active (mouse or PAD cursor), directly below
-   GRID. updateCursorChip (map.js) toggles 'empty' as the pointer enters/leaves the map. */
-#cursor-bar {
+/* Bottom-right status row: CURSOR, GRID, ROUTE (left to right), pushed to the right edge. A flex
+   row rather than each chip absolutely positioning itself, so adding/removing a chip (ROUTE hides
+   when there's no active route) never leaves a gap — the row just reflows to whatever's visible. */
+#map-status-bar {
   position: absolute;
   bottom: 10px; right: 12px;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  justify-content: flex-end;
 }
+
+/* CURSOR — the grid square under whichever pointer is active (mouse or PAD cursor).
+   updateCursorChip (map.js) toggles 'empty' as the pointer enters/leaves the map. GRID is the
+   ownship's own square. ROUTE (issue #38) is the active waypoint route's name, shown only while
+   one exists — updateRouteChip (map.js). All three are plain .mfd-chip content now — #map-status-bar
+   above owns their layout, so none of the three needs its own position/spacing rule. */
 
 /* FOLLOW is shown by the MFD shell's own indicator (stacked alongside PINNED), not here —
    MAP just mirrors its follow state up via source.emitFollow(). */

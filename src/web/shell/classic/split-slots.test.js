@@ -10,11 +10,12 @@ const assert = require('assert');
 const { NAV } = require('../nav-model.js');
 const { SPLIT_SLOTS } = require('./split-slots.js');
 
-// 'main' is documented as the one deliberate exception (split-slots.js's header comment): its
-// placement is MAIN_SPLIT_ITEMS pagination in mfd.js, not a fixed slot table, since it has eleven
-// destinations and only six keys. 'lyt' isn't in NAV at all (nav-model.test.js asserts that), so
-// it never reaches this loop — picking it from a pane collapses the split instead.
-const NO_SPLIT_TABLE = new Set(['main']);
+// 'main' and 'map' are documented exceptions (split-slots.js's header comment): both are paginated
+// in mfd.js (MAIN_SPLIT_ITEMS / mapNavPaneSlice) rather than a fixed slot table, since MAIN has
+// eleven destinations and MAP has eight (issue #38's R+/R-), both past six keys. 'lyt' isn't in
+// NAV at all (nav-model.test.js asserts that), so it never reaches this loop — picking it from a
+// pane collapses the split instead.
+const NO_SPLIT_TABLE = new Set(['main', 'map']);
 
 for (const [page, items] of Object.entries(NAV)) {
   if (NO_SPLIT_TABLE.has(page)) continue;

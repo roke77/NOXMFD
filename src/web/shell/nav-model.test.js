@@ -35,7 +35,7 @@ for (const [page, items] of Object.entries(NAV)) {
 // A layout renderer places by INDEX (bezel full view: item i → left key i; bezel split:
 // SPLIT_SLOTS[i] places NAV[i]). So order is meaningful and reordering is a behaviour change.
 assert.deepStrictEqual(NAV.main.map(i => i.label), ['AVN', 'MAP', 'RWR', 'TGP', 'TGT', 'WPN']);
-assert.deepStrictEqual(NAV.map.map(i => i.label), ['MAIN', 'GRID', 'FLW', 'Z+', 'Z-']);
+assert.deepStrictEqual(NAV.map.map(i => i.label), ['MAIN', 'GRID', 'FLW', 'WPT', 'R+', 'R-', 'Z+', 'Z-']);
 assert.deepStrictEqual(NAV.rdr.map(i => i.label), ['MAIN', 'R+', 'R-']);
 
 // ── Every frame-hosted page can get back to MAIN ────────────────────────────────────
@@ -60,6 +60,10 @@ assert.deepStrictEqual(NAV.rates, [
   { label: 'RTS',  action: 'rates', mark: true },
 ]);
 assert.ok(!('lyt' in NAV), 'NAV.lyt must not exist — BEZEL_EXTRAS.lyt owns that page\'s placement');
+
+// WPT (waypoints/route creator, issue #38) is reached from MAP's own nav row, not MDT/CFG's
+// sibling-group pattern — its way back is MAP, not MAIN.
+assert.deepStrictEqual(NAV.wpt, [ { label: 'MAP', action: 'map' } ]);
 
 // BDF/PAL/MIS/OBJ are folded together (reached from MAIN via MDT — mfd.js BEZEL_EXTRAS.main,
 // action still 'bdf'): each gets MAIN plus a direct switch to the other three, with `mark` on

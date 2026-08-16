@@ -33,6 +33,7 @@
     obj:  '/obj',
     keys: '/keybinds',
     rates: '/rates',
+    wpt: '/wpt',
   };
 
   // Classic bezel, SPLIT panes — the same destinations served ?bare, plus MAIN and MAP, which do
@@ -55,6 +56,7 @@
     hud:  '/hud?bare',
     keys: '/keybinds?bare',
     rates: '/rates?bare',
+    wpt: '/wpt?bare',
   };
 
   // F-35 glass — the page each portal mounts. MAIN maps to no page and `null` is meaningful there
@@ -81,6 +83,7 @@
     hud:  '/hud',
     keys: '/keybinds',
     rates: '/rates',
+    wpt: '/wpt',
   };
 
   const api = { CLASSIC_FULL, CLASSIC_SPLIT, F35 };

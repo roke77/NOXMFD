@@ -44,17 +44,23 @@
          every icon + every RWR line) per frame. Same SVG the mouse pointer uses — see
          --map-crosshair. -->
     <div id="soi-cursor" class="pad-cursor"></div>
-    <div id="grid-bar" class="mfd-chip empty">GRID: &mdash;</div>
-    <!-- CURSOR — the grid square under the mouse or PAD cursor, whichever is active. Below GRID
-         (own-ship's square), same .mfd-chip look, shown only while a pointer is actually hovering
-         the map — updateCursorChip in map.js. -->
-    <div id="cursor-bar" class="mfd-chip empty">CURSOR: &mdash;</div>
+    <!-- Bottom-right status row, left to right: CURSOR, GRID, ROUTE. CURSOR (the grid square under
+         whichever pointer is active) is shown only while a pointer is actually hovering the map —
+         updateCursorChip in map.js. GRID is the ownship's own square. ROUTE (issue #38) names the
+         active waypoint route, shown only while one exists — updateRouteChip in map.js. -->
+    <div id="map-status-bar">
+      <div id="cursor-bar" class="mfd-chip empty">CURSOR: &mdash;</div>
+      <div id="grid-bar" class="mfd-chip empty">GRID: &mdash;</div>
+      <div id="route-bar" class="mfd-chip empty">ROUTE: &mdash;</div>
+    </div>
     <div id="unit-label"></div>
   </div>
 </main>
 
 <script src="/assets/services/send-command.js"></script>
 <script src="/assets/pages/map/map-transform.js"></script>
+<script src="/assets/pages/wpt/wpt-route.js"></script>
+<script src="/assets/pages/wpt/waypoints-store.js"></script>
 <script type="module" src="/assets/pages/map/map.js"></script>
 </body>
 </html>

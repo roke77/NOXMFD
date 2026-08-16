@@ -10,27 +10,22 @@
 // NAV[page], so entry i places NAV[page][i]. SplitKeymap.paneKey resolves the pane-local position
 // to a physical bezel key per orientation (top/bottom vs left/right).
 //
-// Unlike full view, split placement is NOT derivable from the ordered list: MAP deliberately groups
-// its zoom rocker (Z+ over Z-) on the RIGHT column instead of filling the left first, so each
-// split-capable page declares its own. (layouts.md flags this as the open question — the answer is
-// "a page can need a hint", and MAP is the page that needs one.)
+// Unlike full view, split placement is NOT derivable from the ordered list in general: BDF/PAL/MIS/
+// OBJ spill their sibling switch onto the right column, RDR groups its range rocker on the left, so
+// each static-nav split-capable page declares its own. (layouts.md flags this as the open question
+// — the answer is "a page can need a hint".)
 //
-// MAIN isn't here: its split placement is the MAIN_SPLIT_ITEMS pagination in renderSplitLabels, not
-// a fixed slot table (there are eleven destinations and six keys). A page absent here entirely
-// cannot be a split pane: LYT is a whole-document layout switch, not per-pane content, so picking it
-// from a pane collapses the split instead (see mfdButton's pane branch).
+// MAIN and MAP aren't here: their split placement is pagination in renderSplitLabels (mainPaneSlice
+// / mapNavPaneSlice), not a fixed slot table — MAIN has eleven destinations, MAP eight (issue #38's
+// R+/R-), both past six keys. A page absent here entirely cannot be a split pane: LYT is a
+// whole-document layout switch, not per-pane content, so picking it from a pane collapses the split
+// instead (see mfdButton's pane branch).
 (function (root) {
   const SPLIT_SLOTS = {
-    // MAP pane is the bare map iframe (/map-view?bare) — it self-connects to the SSE stream, so the
-    // shell forwards no data, only routes these controls to the pane's own map. Left column = nav
-    // (MAIN back) + grid + follow; right column = the zoom rocker.
-    map: [
-      { side: 'left',  slot: 0 },   // MAIN — back to MAIN (this pane)
-      { side: 'left',  slot: 1 },   // GRID — toggle the coordinate grid overlay (issue #41)
-      { side: 'left',  slot: 2 },   // FLW  — toggle follow on this pane's map
-      { side: 'right', slot: 0 },   // Z+
-      { side: 'right', slot: 1 },   // Z-
-    ],
+    // MAP has no entry here (issue #38): NAV.map grew to 8 items once R+/R- were added, past a
+    // split pane's 6-key budget, so it's paginated instead (mfd.js's mapNavPaneSlice, same
+    // treatment as MAIN — see MAIN's own absence from this table for the same reason).
+    //
     // AVN / AFM / TGP / RWR / TGT / HUD in a split pane each expose their single MAIN back-button on
     // the pane's top-left slot (L0 for top, physically L3 for bottom). It navigates ONLY that pane.
     // TGT's filter toggles and HUD's toggles are clickable inside the pane iframe, so like the others
@@ -57,6 +52,9 @@
     // spills onto right slot 0. Index-aligned with NAV.keys/NAV.rates.
     keys:  [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 } ],
     rates: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 } ],
+    // WPT (issue #38) gets a single MAIN-equivalent back-button, same shape as AVN/AFM/TGP/RWR/TGT —
+    // but back to MAP, matching NAV.wpt (reached from MAP's own nav row, not MAIN).
+    wpt: [ { side: 'left', slot: 0 } ],
     // WPN is a valid split page but places no NAV labels: its MAIN/PREV + NEXT depend on the pane's
     // pagination state, so renderSplitLabels' list branch owns them (NAV.wpn is empty to match).
     wpn: [],

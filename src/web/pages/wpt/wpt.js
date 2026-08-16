@@ -1,0 +1,217 @@
+// WPT page (issue #38) — route/waypoint list editor + distance/bearing readout. DOM-coupled, not
+// unit-tested; the logic it leans on (advance-on-proximity, nextIndex tracking across edits) is
+// already covered by wpt-route.test.js. WptRoute/WaypointsStore are classic <script> globals
+// (wpt.html), loaded before this module.
+import { gridLabel } from '/assets/services/telemetry-source.js';
+
+if (window.parent !== window) {
+  const back = document.querySelector('.wpt-back');
+  if (back) back.remove();
+}
+
+const readoutEl   = document.getElementById('wpt-readout');
+const compassNeedle = document.getElementById('wpt-compass-needle');
+const routesEl     = document.getElementById('wpt-routes');
+const waypointsEl  = document.getElementById('wpt-waypoints');
+const newRouteBtn  = document.getElementById('wpt-new-route');
+const newRow       = document.getElementById('wpt-new-row');
+const newNameInput = document.getElementById('wpt-new-name');
+
+const WPT_ADVANCE_RADIUS_M = 1000; // 1km — combat-aircraft distances are km-scale, coarse on
+                                    // purpose; tune here, no settings UI in this pass.
+
+let mapinfo = { x: null, z: null, hdg: null, ox: null, oy: null };
+
+function render() {
+  const c = WaypointsStore.load();
+  renderRoutes(c);
+  renderWaypoints(WptRoute.findRoute(c.routes, c.activeRouteId));
+  // Every button that mutates route/waypoint state (reset, rename, delete, reorder, switch/create
+  // route) calls render() — without this, the readout at top would stay showing whatever waypoint
+  // was NEXT before the click until the next live 'mapinfo' tick (which never arrives at all when
+  // this page is opened standalone, and is a periodic ~100ms lag even embedded in the shell).
+  renderReadout();
+}
+
+function renderRoutes(c) {
+  routesEl.innerHTML = '';
+  c.routes.forEach(function (route) {
+    const row = document.createElement('div');
+    row.className = 'wpt-row' + (route.id === c.activeRouteId ? ' active' : '');
+
+    const name = document.createElement('span');
+    name.className = 'wpt-row-name';
+    name.textContent = route.name + ' (' + route.waypoints.length + ')';
+    name.title = 'Click to activate';
+    name.onclick = function () { WaypointsStore.setActiveRoute(route.id); render(); };
+
+    const mark = document.createElement('span');
+    mark.className = 'wpt-row-mark';
+    mark.textContent = route.id === c.activeRouteId ? 'ACTIVE' : '';
+
+    const edit = document.createElement('button');
+    edit.className = 'wpt-row-btn'; edit.textContent = '✎'; edit.title = 'Rename route';
+    // Empty stays the route's current (generated) name — a route always keeps SOME name.
+    edit.onclick = function () {
+      editRow(row, route.name, null, function (name) { if (name) WaypointsStore.renameRoute(route.id, name); });
+    };
+
+    const reset = document.createElement('button');
+    reset.className = 'wpt-row-btn'; reset.textContent = '↺'; reset.title = 'Reset route (mark every waypoint not-reached)';
+    reset.onclick = function () { WaypointsStore.resetRoute(route.id); render(); };
+
+    const del = document.createElement('button');
+    del.className = 'wpt-row-btn';
+    del.textContent = '×';
+    del.title = 'Delete route';
+    del.onclick = function () { WaypointsStore.deleteRoute(route.id); render(); };
+
+    row.appendChild(name); row.appendChild(mark); row.appendChild(edit); row.appendChild(reset); row.appendChild(del);
+    routesEl.appendChild(row);
+  });
+}
+
+// Shared inline-edit UI for a route/waypoint row's name — a pencil button (route/waypoint rows
+// below) swaps the row for a text input + Save button. Enter also saves; Escape discards and just
+// re-renders. onSave receives the trimmed value (may be empty — the waypoint case allows clearing
+// a name back to "unnamed"; the route case's own callback decides whether to accept empty).
+function editRow(row, value, placeholder, onSave) {
+  row.innerHTML = '';
+  const input = document.createElement('input');
+  input.type = 'text'; input.maxLength = 40; input.value = value;
+  if (placeholder) input.placeholder = placeholder;
+  const commit = function () { onSave(input.value.trim()); render(); };
+  const save = document.createElement('button');
+  save.className = 'wpt-row-btn wpt-row-save'; save.textContent = '✓'; save.title = 'Save';
+  save.onclick = commit;
+  input.onkeydown = function (e) { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') render(); };
+  row.appendChild(input);
+  row.appendChild(save);
+  input.focus(); input.select();
+}
+
+function renderWaypoints(route) {
+  waypointsEl.innerHTML = '';
+  if (!route) return;
+  route.waypoints.forEach(function (wp, i) {
+    const row = document.createElement('div');
+    row.className = 'wpt-row' + (i === route.nextIndex ? ' next' : '');
+
+    const name = document.createElement('span');
+    name.className = 'wpt-row-name';
+    name.textContent = wp.name ? (i + 1) + '. ' + wp.name : (i + 1) + '.';
+
+    const mark = document.createElement('span');
+    mark.className = 'wpt-row-mark';
+    mark.textContent = i === route.nextIndex ? 'NEXT' : '';
+
+    const grid = document.createElement('span');
+    grid.className = 'wpt-row-grid';
+    grid.textContent = gridLabel(wp.x, wp.z, { ox: mapinfo.ox, oy: mapinfo.oy });
+
+    const edit = document.createElement('button');
+    edit.className = 'wpt-row-btn'; edit.textContent = '✎'; edit.title = 'Rename waypoint';
+    // Unlike routes, an empty save is valid here — it clears the name back to "unnamed" (position
+    // number only), matching a fresh waypoint's own default.
+    edit.onclick = function () {
+      editRow(row, wp.name, 'Name (optional)', function (name) { WaypointsStore.renameWaypoint(i, name); });
+    };
+
+    const up = document.createElement('button');
+    up.className = 'wpt-row-btn'; up.textContent = '▲'; up.title = 'Move up';
+    up.disabled = i === 0;
+    up.onclick = function () { WaypointsStore.reorderWaypoint(i, i - 1); render(); };
+
+    const down = document.createElement('button');
+    down.className = 'wpt-row-btn'; down.textContent = '▼'; down.title = 'Move down';
+    down.disabled = i === route.waypoints.length - 1;
+    down.onclick = function () { WaypointsStore.reorderWaypoint(i, i + 1); render(); };
+
+    const reset = document.createElement('button');
+    reset.className = 'wpt-row-btn'; reset.textContent = '↺';
+    reset.title = 'Rewind here — this waypoint (and every one after it) becomes not-reached, this one NEXT';
+    reset.onclick = function () { WaypointsStore.resetWaypoint(i); render(); };
+
+    const del = document.createElement('button');
+    del.className = 'wpt-row-btn'; del.textContent = '×'; del.title = 'Delete waypoint';
+    del.onclick = function () { WaypointsStore.removeWaypoint(i); render(); };
+
+    row.appendChild(name); row.appendChild(mark); row.appendChild(grid);
+    row.appendChild(edit); row.appendChild(reset); row.appendChild(up); row.appendChild(down); row.appendChild(del);
+    waypointsEl.appendChild(row);
+  });
+}
+
+newRouteBtn.onclick = function () {
+  newRow.style.display = 'flex';
+  newNameInput.value = WaypointsStore.freshRouteName();   // pre-filled, editable — accept or type over
+  newNameInput.focus(); newNameInput.select();
+};
+document.getElementById('wpt-new-cancel').onclick = function () { newRow.style.display = 'none'; };
+document.getElementById('wpt-new-confirm').onclick = function () {
+  const name = newNameInput.value.trim();
+  WaypointsStore.createRoute(name || null);
+  newRow.style.display = 'none';
+  render();
+};
+newNameInput.onkeydown = function (e) { if (e.key === 'Enter') document.getElementById('wpt-new-confirm').click(); };
+
+// An unnamed waypoint has no wp.name — fall back to its position number rather than showing nothing.
+function waypointLabel(wp, index) { return wp.name || ('WAYPOINT ' + (index + 1)); }
+
+function renderReadout() {
+  const c = WaypointsStore.load();
+  const route = WptRoute.findRoute(c.routes, c.activeRouteId);
+  if (!route) { readoutEl.textContent = 'NO ACTIVE ROUTE'; hideNeedle(); return; }
+  if (route.nextIndex >= route.waypoints.length) {
+    readoutEl.textContent = 'ROUTE COMPLETE'; hideNeedle(); return;
+  }
+  const next = route.waypoints[route.nextIndex];
+  const label = waypointLabel(next, route.nextIndex);
+  if (mapinfo.x == null) { readoutEl.textContent = 'NEXT: ' + label; hideNeedle(); return; }
+  const { distM, brgDeg } = WptRoute.distanceBearing(mapinfo.x, mapinfo.z, next.x, next.z);
+  readoutEl.textContent = 'NEXT: ' + label + '  BRG ' + Math.round(brgDeg) + '°  DIST ' + (distM / 1000).toFixed(1) + ' km';
+  updateCompass(brgDeg);
+}
+
+// The ring always shows; only the needle hides when there's nothing to point at (no active route,
+// route complete, or no position/heading yet) — the ring reads as "no bearing right now", not gone.
+function hideNeedle() { compassNeedle.style.display = 'none'; }
+
+// The needle's relative bearing = waypoint bearing minus own heading, so it points straight up
+// (0°) exactly when the aircraft is already pointed at the waypoint, and sweeps clockwise the same
+// direction the pilot would need to turn — a compass rose read nose-relative, not north-up.
+function updateCompass(brgDeg) {
+  if (typeof mapinfo.hdg !== 'number') { hideNeedle(); return; }
+  compassNeedle.style.display = '';
+  const rel = ((brgDeg - mapinfo.hdg) % 360 + 360) % 360;
+  compassNeedle.setAttribute('transform', 'rotate(' + rel + ' 50 50)');
+}
+
+// The waypoint list's grid-label column is only rebuilt by render() (on load/edit/storage) — this
+// page paints once, synchronously, before the shell's first 'mapinfo' message can possibly have
+// arrived, so mapinfo.ox/oy are still null at that first render() and the column would otherwise
+// stay stuck on '—' forever, even once real values start flowing through renderReadout() below.
+let gridMetaKey = mapinfo.ox + ',' + mapinfo.oy;
+
+function tick() {
+  if (mapinfo.x != null && mapinfo.z != null) {
+    const out = WaypointsStore.advanceIfNear(mapinfo.x, mapinfo.z, WPT_ADVANCE_RADIUS_M);
+    if (out.advanced) render();
+  }
+  const key = mapinfo.ox + ',' + mapinfo.oy;
+  if (key !== gridMetaKey) { gridMetaKey = key; render(); }
+  renderReadout();
+}
+
+window.addEventListener('message', function (e) {
+  const m = e.data;
+  if (!m || m.mfd !== true || m.type !== 'mapinfo') return;
+  mapinfo = m;
+  tick();
+});
+
+// Another tab/pane (or MAP itself) wrote a waypoint — pick it up immediately.
+window.addEventListener('storage', function (e) { if (e.key === WaypointsStore.STORE_KEY) render(); });
+
+render();   // also paints the readout — see render()'s own comment

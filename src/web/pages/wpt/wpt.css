@@ -1,0 +1,166 @@
+/* WPT (waypoints/route creator, issue #38) page styles. Same panel shape as rates.css/keybinds.css
+   (.rts-panel/.kb-panel) — everything reuses theme.css tokens, no new visual language. */
+
+html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this is a full page */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
+}
+html::-webkit-scrollbar { width: 6px; height: 6px; }
+html::-webkit-scrollbar-track { background: transparent; }
+html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
+
+.wpt-panel {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 26px 18px 40px;
+}
+
+.wpt-back {
+  float: left;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--no-green-dim);
+  text-decoration: none;
+  padding: 6px 2px;
+}
+.wpt-back:hover { color: var(--no-green); }
+
+.wpt-title {
+  font-size: 24px;
+  letter-spacing: 4px;
+  color: var(--no-green);
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.wpt-readout {
+  display: block;
+  width: fit-content;
+  margin: 0 auto 22px;
+  text-align: center;
+}
+
+.wpt-compass {
+  width: 100px;
+  margin: 0 auto 22px;
+}
+/* The ring always shows; only the needle's own display (wpt.js) toggles when there's nothing to
+   point at. Rotation is set via the SVG group's own transform attribute (rotate(deg,50,50)), not
+   here — but it DOES benefit from a transition so the needle sweeps instead of jumping a whole
+   degree step every tick. */
+#wpt-compass-needle { transition: transform 0.2s linear; }
+
+.wpt-section { margin-bottom: 28px; }
+
+.wpt-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--no-green-dim);
+  border-bottom: 1px solid var(--no-panel-border);
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+}
+
+.wpt-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--no-green-dim);
+  background: none;
+  color: var(--no-green-dim);
+  font-family: var(--no-font);
+  font-size: 11px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.wpt-btn:hover { border-color: var(--no-green); color: var(--no-green); }
+.wpt-btn-ghost { border-color: var(--no-panel-border); color: var(--no-gray); }
+.wpt-btn-ghost:hover { border-color: var(--no-gray); color: var(--no-green-dim); }
+
+.wpt-new-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.wpt-new-row input {
+  flex: 1;
+  background: var(--no-panel-bg);
+  border: 1px solid var(--no-panel-border);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  font-size: 12px;
+  padding: 5px 8px;
+}
+.wpt-new-row input:focus { outline: 1px solid var(--no-green-dim); }
+
+.wpt-empty {
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: var(--no-gray);
+  text-align: center;
+  padding: 10px 0;
+}
+.wpt-routes:not(:empty) + .wpt-empty,
+.wpt-waypoints:not(:empty) + .wpt-empty { display: none; }
+
+.wpt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--no-panel-border);
+  font-size: 12px;
+}
+.wpt-row:last-child { border-bottom: none; }
+
+.wpt-row-name {
+  flex: 1;
+  color: var(--no-green-dim);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wpt-row.active .wpt-row-name,
+.wpt-row.next .wpt-row-name { color: var(--no-green); }
+
+.wpt-row-mark {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--no-amber);
+  flex: none;
+}
+
+.wpt-row-grid {
+  font-size: 11px;
+  color: var(--no-gray);
+  flex: none;
+  min-width: 44px;
+}
+
+.wpt-row-btn {
+  flex: none;
+  background: none;
+  border: none;
+  color: var(--no-gray);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 5px;
+  line-height: 1;
+}
+.wpt-row-btn:hover { color: var(--no-green); }
+.wpt-row-save { color: var(--no-green-dim); }
+.wpt-row-save:hover { color: var(--no-green); }
+
+.wpt-row input[type="text"] {
+  flex: 1;
+  background: var(--no-panel-bg);
+  border: 1px solid var(--no-green-dim);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  font-size: 12px;
+  padding: 3px 6px;
+}
+

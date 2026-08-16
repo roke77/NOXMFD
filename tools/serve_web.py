@@ -10,6 +10,7 @@ which supplies the synthetic/captured /stream data that the shell forwards to pa
   /thrl-demo         -> tools/thrl-demo.html    (standalone THRL slider demo, no shell/mock needed)
   /config            -> preview runtime URLs        (localhost/LAN URL for this harness port)
   /map-view[?bare]   -> src/web/pages/map/map.html      (the base map iframe; mock injected here)
+  /wpt               -> src/web/pages/wpt/wpt.html   (showcase route seeded into localStorage)
   /<page>            -> src/web/pages/<page>/<page>.html  (any migrated page, e.g. /wpn /tgt)
   /weapon?...        -> captured weapon icon, or a mock 2:1 icon
   /hud-cat-icon?cat= -> captured HUD OPTIONS category glyph, or a mock icon
@@ -122,7 +123,17 @@ def _map_page():
     Built fresh per request so edits to map.html / the mock show up on reload."""
     html = (WEB / "pages" / "map" / "map.html").read_text(encoding="utf-8")
     mock = MOCK.read_text(encoding="utf-8").strip()
-    return html.replace("</head>", _capture_injection() + mock + "\n</head>", 1).encode("utf-8")
+    injection = _capture_injection() + mock + "\n" + _wpt_seed_script()
+    return html.replace("</head>", injection + "</head>", 1).encode("utf-8")
+
+
+def _wpt_page():
+    """The WPT page (src/web/pages/wpt/wpt.html) with the showcase route seeded before </head> —
+    unlike map.html above it has no /stream mock to inject, just the localStorage seed, since WPT
+    can be opened standalone without MAP ever loading (the seed can't rely on map.html having run
+    first)."""
+    html = (WEB / "pages" / "wpt" / "wpt.html").read_text(encoding="utf-8")
+    return html.replace("</head>", _wpt_seed_script() + "</head>", 1).encode("utf-8")
 
 
 def _detect_lan_ip():
@@ -169,6 +180,41 @@ def _hud_options():
 # that path is only testable in game.
 def _rates_config():
     return json.dumps({"fastHz": 10, "tgpHz": 15}).encode("utf-8")
+
+
+# WPT showcase route (issue #38) — a real route drawn by hand in this harness (6 waypoints, a loop
+# roughly SE -> N -> W -> back), captured from localStorage so the preview always has something to
+# look at instead of an empty "long-press the map" state. Unlike hud/rates/keybinds above, WPT has
+# no server-side mock at all — routes are pure client-side localStorage (waypoints-store.js) — so
+# this is injected as a <script> that seeds the SAME key the real page reads, not a GET response.
+# Seeded only when the key is still empty: a fresh harness always shows the showcase route, but
+# once a session edits/adds to it (or clears it), reloading won't fight those real localStorage
+# writes back — same "first-visit example, then it's yours" feel a real pilot would get in-game.
+WPT_DEMO_ROUTE = {
+    "version": 1,
+    "activeRouteId": "r_8f68c6aa-f702-4cde-8346-9983657f4ede",
+    "routes": [{
+        "id": "r_8f68c6aa-f702-4cde-8346-9983657f4ede",
+        "name": "RT-8DB0B",
+        "nextIndex": 1,   # waypoint 1 already reached, waypoint 2 is NEXT — a more interesting default
+        "waypoints": [
+            {"id": "w_5ee0d36c-cd0a-4d92-b906-140a785b26be", "name": "", "x": 13299.039341351592, "z": 19932.654304620228},
+            {"id": "w_5077c5ef-ed0a-494b-bf35-0fb740061c7a", "name": "", "x": 17110.641554942384, "z": 5775.264886543118},
+            {"id": "w_0da486af-baf4-41ea-8532-f146030f93fe", "name": "", "x": 14478.821143745561, "z": -6067.935618675401},
+            {"id": "w_edc7b708-3aee-4889-95cc-0dd0ceb0bcf0", "name": "", "x": 1092.8274529657938, "z": -15052.434463700829},
+            {"id": "w_9ec17fb2-14b8-460c-b354-274f9eb32937", "name": "", "x": -4896.838732212251, "z": 3597.2052423722635},
+            {"id": "w_9625bcb8-827c-42d5-9de2-48288eb57a4c", "name": "", "x": -17965.20005917049, "z": 32293.135249762665},
+        ],
+    }],
+}
+
+
+def _wpt_seed_script():
+    payload = json.dumps(json.dumps(WPT_DEMO_ROUTE)).replace("</", "<\\/")
+    return ("<script>\n"
+            "try { if (!localStorage.getItem('noxmfd.map.waypoints')) "
+            f"localStorage.setItem('noxmfd.map.waypoints', {payload}); }} catch (e) {{}}\n"
+            "</script>\n")
 
 
 # Stateful mock of the plugin's /keybinds-config + keybind.* commands, so the /keybinds page's
@@ -399,6 +445,11 @@ class H(http.server.SimpleHTTPRequestHandler):
         if path == '/map-view':
             try:
                 return self._send(_map_page(), 'text/html; charset=utf-8')
+            except OSError as e:
+                return self.send_error(404, str(e))
+        if path == '/wpt':
+            try:
+                return self._send(_wpt_page(), 'text/html; charset=utf-8')
             except OSError as e:
                 return self.send_error(404, str(e))
         if path in ('/map', '/map.png', '/map.jpg'):

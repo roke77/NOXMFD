@@ -22,6 +22,9 @@
       { label: 'MAIN', action: 'main' },   // → MAIN page
       { label: 'GRID', action: 'grid' },   // → toggle the coordinate grid overlay (issue #41)
       { label: 'FLW',  action: 'flw'  },   // → toggle map follow
+      { label: 'WPT',  action: 'wpt'  },   // → WPT page: waypoints/route creator (issue #38)
+      { label: 'R+',   action: 'rt-next' }, // → switch the active route to the NEXT one (issue #38)
+      { label: 'R-',   action: 'rt-prev' }, // → switch the active route to the PREVIOUS one (issue #38)
       { label: 'Z+',   action: 'zin'  },   // → map zoom in
       { label: 'Z-',   action: 'zout' },   // → map zoom out
     ],
@@ -100,6 +103,9 @@
       { label: 'RTS',  action: 'rates', mark: true },
     ],
     wpn: [],
+    // WPT (issue #38) — reached from MAP's own nav row (above), so its way back is MAP, not MAIN,
+    // same reasoning as tgp/avn/etc.'s single-entry back links.
+    wpt: [ { label: 'MAP', action: 'map' } ],
   };
 
   const api = { NAV };

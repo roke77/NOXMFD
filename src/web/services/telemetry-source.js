@@ -247,15 +247,21 @@ export class TelemetrySource {
     // TGP feed state (so the MFD's TGP page can swap to NO TARGET when the feed stops).
     this._postUp({ type: 'tgp', active: !!d.tgpActive });
 
-    // The mission name and the ownship's grid — what the map page draws on itself (its mission bar
-    // and GRID chip). Unlike every other slice here, no page consumes it: it exists for chrome that
-    // shows NO map and so cannot reach what the map keeps to itself (the F-35's master strip). The
-    // map page still renders its own HUD straight from `d`; this is the same pair, derived once
-    // more for anyone outside the iframe.
+    // The mission name, the ownship's grid, and (issue #38) the raw position/heading/map-meta a
+    // non-map page needs to compute distance/bearing to a waypoint and its own grid labels. What
+    // the map page draws on itself (its mission bar and GRID chip) plus what WPT needs — no other
+    // page consumed this slice before WPT (it existed only for chrome that shows NO map, e.g. the
+    // F-35's master strip). The map page still renders its own HUD straight from `d`; this is the
+    // same pair, derived once more for anyone outside the iframe.
     this._postUp({
       type: 'mapinfo',
       mission: d.mission || null,
       grid: d.world ? gridLabel(d.world.x, d.world.z, this._meta) : null,
+      x:   d.world ? d.world.x : null,
+      z:   d.world ? d.world.z : null,
+      hdg: typeof d.hdg === 'number' ? d.hdg : null,
+      ox:  this._meta ? this._meta.ox : null,
+      oy:  this._meta ? this._meta.oy : null,
     });
 
     // Selected-target list. The mod flags each targeted unit on its contact (same `tg` that draws
@@ -440,7 +446,7 @@ export class TelemetrySource {
     this._postUp({ type: 'loadout', items: [], selWeapon: null, softGun: null, softRel: null, masterArmsOn: true, combatMode: 'all' });
     this._postUp({ type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 });
     this._postUp({ type: 'tgp', active: false });
-    this._postUp({ type: 'mapinfo', mission: null, grid: null });
+    this._postUp({ type: 'mapinfo', mission: null, grid: null, x: null, z: null, hdg: null, ox: null, oy: null });
     this._postUp({ type: 'targets', items: [] });
     this._postUp({ type: 'rwr', items: [] });
     this._postUp({ type: 'mw', items: [] });

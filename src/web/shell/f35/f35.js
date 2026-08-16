@@ -79,6 +79,7 @@
     mis: ['mis'],             // mission-info block (docs/mdt-pages.md)
     obj: ['obj'],             // active-objectives list (docs/mdt-pages.md)
     rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
+    wpt: ['mapinfo'],         // position/heading/map-meta for the waypoint readout (issue #38)
   };
 
   // The tap calls it 'targets'; TGT listens for 'tgt-targets'. The bezel renames it in exactly the
@@ -139,7 +140,8 @@
   // names MAP's zin/zout send — mapSend() here already targets frameWin() generically (unlike the
   // classic shell's mapFrame-specific version), so RDR needs nothing beyond this mapping.
   const MAP_ACTIONS = { flw: 'toggle-follow', zin: 'zoom-in', zout: 'zoom-out', grid: 'toggle-grid',
-                         'rng-in': 'zoom-in', 'rng-out': 'zoom-out' };
+                         'rng-in': 'zoom-in', 'rng-out': 'zoom-out',
+                         'rt-next': 'route-next', 'rt-prev': 'route-prev' };   // issue #38
 
   // ARM/SAFE (docs/radar-master-arms.md) — WPN's own unconditional controls, same shape as
   // MAP_ACTIONS: an action name maps to what it sends, dispatched by command rather than page nav.
@@ -183,9 +185,11 @@
 
   // 'edge' placement: an item's index → its cell. The left column, top-down, IS the bezel's left
   // key bank — the same derivation mfd.js fullViewSlot() uses, which is why NAV needs no placement
-  // hints for full view. ('center' needs no function: items flow in NAV order and the grid's own
+  // hints for full view — including the overflow into column 2 once 6 rows fill (MAP's R+/R-,
+  // issue #38, is the first 'edge' page past that mark; WPN's NEXT already proved col 2 works via
+  // its own item.cell). ('center' needs no function: items flow in NAV order and the grid's own
   // columns arrange them.)
-  function cellOf(i) { return { row: i + 1, col: 1 }; }
+  function cellOf(i) { return i < ROWS ? { row: i + 1, col: 1 } : { row: i - ROWS + 1, col: 2 }; }
 
   // ── Corner grips ─────────────────────────────────────────────────────────────────────
   // The F-35's expand/retract control: an outline triangle in a portal's bottom corner. Portal
@@ -536,8 +540,10 @@
         grid.appendChild(b);
       });
       if (currentPage === 'wpn') { addWeaponHits(); markMasterArms(); markCombatMode(); placeWpnDecorators(); }
-      // ZOOM between Z+/Z- (issue #41) — same decorator, MAP's twin of WPN's MASTER/MODE.
-      if (currentPage === 'map') placeWpnDecorator('zin', 'zout', 'ZOOM');
+      // ZOOM between Z+/Z- (issue #41) and ROUTE between R+/R- (issue #38) — same decorator, MAP's
+      // twin of WPN's MASTER/MODE. Found by data-action, so the 2-column overflow (cellOf) needs no
+      // special-casing here — the decorator just measures wherever the two buttons actually landed.
+      if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); }
       // RANGE between R+/R- (issue #40 follow-up) — RDR's twin.
       if (currentPage === 'rdr') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
@@ -587,7 +593,7 @@
       // away the zoom and pan the pilot set.
       resized: function () {
         if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); placeWpnDecorators(); }
-        if (currentPage === 'map') placeWpnDecorator('zin', 'zout', 'ZOOM');
+        if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); }
         if (currentPage === 'rdr') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
       },
       destroy: function () { el.remove(); },
