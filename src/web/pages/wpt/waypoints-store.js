@@ -79,6 +79,35 @@
     save(c);
   }
 
+  // Pretty-printed JSON a pilot can paste to another WPT instance — null if the route doesn't
+  // exist (deleted out from under an open export panel, say).
+  function exportRoute(id) {
+    const c = load();
+    const route = R.findRoute(c.routes, id);
+    return route ? JSON.stringify(R.serializeRoute(route), null, 2) : null;
+  }
+
+  // The reverse of exportRoute: parses `text`, and on success adds it as a brand-new route (fresh
+  // id, fresh waypoint ids, name deduped against what's already here, progress reset to 0 — an
+  // imported route always starts unflown, even if it was exported mid-flight) and makes it active.
+  // Returns the new route, or null if `text` didn't parse as a route (waypoints-store.js has no UI
+  // of its own to report that through — wpt.js's import panel shows the failure).
+  function importRoute(text) {
+    const parsed = R.parseRouteJSON(text);
+    if (!parsed) return null;
+    const c = load();
+    const route = {
+      id: freshId('r_'),
+      name: R.uniqueRouteName(c.routes, parsed.name || freshRouteName()),
+      nextIndex: 0,
+      waypoints: parsed.waypoints.map(w => ({ id: freshId('w_'), name: w.name, x: w.x, z: w.z })),
+    };
+    c.routes = R.addRoute(c.routes, route);
+    c.activeRouteId = route.id;
+    save(c);
+    return route;
+  }
+
   function deleteRoute(id) {
     const c = load();
     c.routes = R.deleteRoute(c.routes, id);
@@ -145,7 +174,7 @@
     STORE_KEY, freshRouteName,
     load, save, getActiveRoute, setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute,
     addWaypointToActive, renameWaypoint, removeWaypoint, reorderWaypoint, advanceIfNear,
-    resetWaypoint, resetRoute,
+    resetWaypoint, resetRoute, exportRoute, importRoute,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WaypointsStore = api;

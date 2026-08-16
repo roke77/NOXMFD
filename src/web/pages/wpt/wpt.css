@@ -64,6 +64,7 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   padding-bottom: 6px;
   margin-bottom: 10px;
 }
+.wpt-section-actions { display: flex; gap: 8px; }
 
 .wpt-btn {
   padding: 5px 12px;
@@ -94,6 +95,43 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   padding: 5px 8px;
 }
 .wpt-new-row input:focus { outline: 1px solid var(--no-green-dim); }
+
+.wpt-io-row {
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid var(--no-panel-border);
+  background: var(--no-panel-bg);
+}
+.wpt-io-label {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--no-green-dim);
+  margin-bottom: 6px;
+}
+.wpt-io-row textarea {
+  display: block;
+  width: 100%;
+  resize: vertical;
+  background: var(--no-bg);
+  border: 1px solid var(--no-panel-border);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  font-size: 11px;
+  padding: 6px 8px;
+}
+.wpt-io-row textarea:focus { outline: 1px solid var(--no-green-dim); }
+.wpt-io-row textarea[readonly] { color: var(--no-green-dim); }
+.wpt-io-error {
+  font-size: 11px;
+  color: var(--no-red);
+  margin-top: 6px;
+  min-height: 1em;
+}
+.wpt-io-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
 
 .wpt-empty {
   font-size: 11px;

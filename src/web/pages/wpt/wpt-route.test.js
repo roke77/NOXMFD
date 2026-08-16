@@ -25,6 +25,26 @@ const route = (nextIndex, waypoints) => ({ id: 'r1', name: 'Route 1', nextIndex,
   assert.ok(Math.abs(r.brgDeg - 270) < 1e-9, `expected bearing 270, got ${r.brgDeg}`);
 }
 
+// ── relativeBearing: the compass needle's rotation, wraps to [0,360) ────────────────────
+{
+  // Heading already matches the waypoint's bearing: needle points straight up.
+  assert.strictEqual(R.relativeBearing(90, 90), 0);
+
+  // Waypoint dead ahead-right of the nose: needle rotates clockwise (positive).
+  assert.strictEqual(R.relativeBearing(90, 0), 90);
+
+  // Waypoint behind-left of the nose (bearing < heading): must wrap to a positive rotation, not
+  // JS's raw '%' (which would hand back -90, a footgun this function exists to avoid).
+  assert.strictEqual(R.relativeBearing(0, 90), 270);
+
+  // Both operands already outside 0-360: still normalizes correctly.
+  assert.strictEqual(R.relativeBearing(370, -10), 20);
+
+  // Exact wrap boundary — 360 relative reduces to 0, not 360 (the needle shouldn't visibly
+  // "overshoot" a full turn back to its own start).
+  assert.strictEqual(R.relativeBearing(45, 45), 0);
+}
+
 // ── advanceIfNear: at / just-under / just-over threshold ────────────────────────────────
 {
   const rt = route(0, [wp('a', 'WP1', 0, 1000), wp('b', 'WP2', 0, 2000)]);
@@ -137,6 +157,32 @@ const route = (nextIndex, waypoints) => ({ id: 'r1', name: 'Route 1', nextIndex,
   assert.strictEqual(R.cycleRoute([], 'a', 1), 'a', 'no routes: nothing to switch to');
   assert.strictEqual(R.cycleRoute(routes, null, 1), 'b', 'unknown activeId starts from index 0, so R+ lands on the second');
   assert.strictEqual(R.cycleRoute(routes, null, -1), 'c', 'unknown activeId starts from index 0, so R- wraps to the last');
+}
+
+// ── serializeRoute / parseRouteJSON: export/import round-trip ───────────────────────────
+{
+  const rt = route(1, [wp('a', 'IP', 100, 200), wp('b', '', 300, -400)]);
+
+  const exported = R.serializeRoute(rt);
+  assert.deepStrictEqual(exported, {
+    name: 'Route 1',
+    waypoints: [{ name: 'IP', x: 100, z: 200 }, { name: '', x: 300, z: -400 }],
+  }, 'serializeRoute should drop ids and nextIndex — only name + waypoint name/x/z travel');
+
+  const roundTripped = R.parseRouteJSON(JSON.stringify(exported));
+  assert.deepStrictEqual(roundTripped, exported, 'a serialized route should parse back identically');
+
+  // Malformed input: not JSON, not an object, no waypoints array, a waypoint missing x/z.
+  assert.strictEqual(R.parseRouteJSON('not json'), null);
+  assert.strictEqual(R.parseRouteJSON('null'), null);
+  assert.strictEqual(R.parseRouteJSON('{}'), null, 'no waypoints array at all');
+  assert.strictEqual(R.parseRouteJSON('{"waypoints":"nope"}'), null, 'waypoints must be an array');
+  assert.strictEqual(R.parseRouteJSON('{"waypoints":[{"name":"x"}]}'), null, 'a waypoint missing x/z is rejected');
+
+  // A missing/blank name parses to '' (waypoints-store.js's importRoute falls back to a generated
+  // name at that point, not this pure parser's job).
+  assert.deepStrictEqual(R.parseRouteJSON('{"waypoints":[{"x":1,"z":2}]}'),
+    { name: '', waypoints: [{ name: '', x: 1, z: 2 }] });
 }
 
 console.log('wpt-route.test.js: OK');

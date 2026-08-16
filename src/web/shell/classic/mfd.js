@@ -147,17 +147,14 @@ const MAIN_SPLIT_ITEMS = NAV.main.concat(BEZEL_EXTRAS.main)
   .sort(function (a, b) { return a.label.localeCompare(b.label); });
 
 // NAV.map's own order for split pagination — deliberately NOT NAV.map's own full-view order (same
-// divergence MAIN_SPLIT_ITEMS already has from full view's own MAIN placement). mainPageSizes'
-// fixed 5-then-3 split for 8 items always lands the boundary between NAV.map's 5th and 6th entries;
-// in full-view order (MAIN,GRID,FLW,WPT,R+,R-,Z+,Z-) that boundary falls INSIDE the R+/R- pair,
-// so their ROUTE decorator (placeMapPaneDecorator) could never find both keys on the same page —
-// only ZOOM (Z+/Z-, both on page 2) ever would. Reordered so each pair stays whole within a page:
-// MAIN/GRID/FLW/R+/R- fill page 1, WPT/Z+/Z- fill page 2. Full view is unaffected — it sweeps
-// NAV.map directly (fullViewSlot), not this list.
+// divergence MAIN_SPLIT_ITEMS already has from full view's own MAIN placement). The order itself
+// (SplitSlots.MAP_SPLIT_ORDER) lives in split-slots.js, tested there against NAV.map directly —
+// see that constant's own comment for why this reordering exists (the ROUTE decorator bug). Full
+// view is unaffected — it sweeps NAV.map directly (fullViewSlot), not this list.
 const MAP_SPLIT_ITEMS = (function () {
   const byAction = {};
   NAV.map.forEach(function (item) { byAction[item.action] = item; });
-  return ['main', 'grid', 'flw', 'rt-next', 'rt-prev', 'wpt', 'zin', 'zout'].map(function (a) { return byAction[a]; });
+  return SplitSlots.MAP_SPLIT_ORDER.map(function (a) { return byAction[a]; });
 })();
 
 // Which pages draw an OPAQUE full-view overlay. MAIN paints a panel over the still-running map, and

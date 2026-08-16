@@ -148,7 +148,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **MAP** — full-screen tactical map with friendly/hostile units and your own position; click a unit to target it, FLW toggles follow, Z+/Z− zoom, GRID toggles a coordinate grid overlay (off by default). A CURSOR chip shows the grid square under the mouse/PAD cursor, below the GRID chip for your own position. A HOTAS cursor can drive all of this without touching the screen — see [PAD cursor](#pad-cursor) below.
+- **MAP** — full-screen tactical map with friendly/hostile units and your own position; click a unit to target it, FLW toggles follow, Z+/Z− zoom, GRID toggles a coordinate grid overlay (off by default), R+/R− switches the active waypoint route, and WPT opens the waypoint/route editor (below). A bottom-right status row shows CURSOR (the grid square under the mouse/PAD cursor), GRID (your own square), and ROUTE (the active route's name) — each shown only while it applies. A HOTAS cursor can drive all of this without touching the screen — see [PAD cursor](#pad-cursor) below.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
@@ -223,6 +223,21 @@ pilot, with HOTAS-friendly keybinds to match.
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
 
   ![WPN page](docs/images/WPN.png)
+
+  </details>
+
+- **WPT** — plot custom waypoints on **MAP** (long-press a spot to drop one into the active
+  route) and chain them into an ordered route. The WPT page lists every route (create, rename,
+  delete, switch active) and the active route's waypoints (rename, reorder, delete, or reset
+  progress back to any waypoint), with a distance/bearing readout and a relative-bearing compass
+  to the next one that auto-advances as you approach it. Routes persist across reloads. IMPORT and
+  each route's own export button turn a route into pasteable JSON, so you can back one up or hand
+  it to another pilot.
+
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![WPT page](docs/images/WPT.png)
 
   </details>
 

@@ -50,13 +50,30 @@
   <div class="wpt-section">
     <div class="wpt-section-head">
       <span>ROUTES</span>
-      <button class="wpt-btn" id="wpt-new-route">+ NEW ROUTE</button>
+      <div class="wpt-section-actions">
+        <button class="wpt-btn" id="wpt-new-route">+ NEW ROUTE</button>
+        <button class="wpt-btn" id="wpt-import-route">IMPORT</button>
+      </div>
     </div>
     <!-- Inline "new route" name entry (no modal — matches keybinds.js/rates.js's no-modal style). -->
     <div class="wpt-new-row" id="wpt-new-row" style="display:none;">
       <input type="text" id="wpt-new-name" placeholder="Route name" maxlength="40">
       <button class="wpt-btn" id="wpt-new-confirm">ADD</button>
       <button class="wpt-btn wpt-btn-ghost" id="wpt-new-cancel">CANCEL</button>
+    </div>
+    <!-- Shared import/export panel — one textarea doing double duty (no modal, same inline-panel
+         idiom as wpt-new-row above): IMPORT shows it empty + editable with an IMPORT button; each
+         route row's own export button shows it read-only + pre-filled with that route's JSON and a
+         COPY button instead. wpt.js's openImportPanel/openExportPanel toggle which. -->
+    <div class="wpt-io-row" id="wpt-io-row" style="display:none;">
+      <div class="wpt-io-label" id="wpt-io-label">IMPORT ROUTE</div>
+      <textarea id="wpt-io-text" rows="8" spellcheck="false"></textarea>
+      <div class="wpt-io-error" id="wpt-io-error"></div>
+      <div class="wpt-io-actions">
+        <button class="wpt-btn" id="wpt-io-primary">IMPORT</button>
+        <button class="wpt-btn" id="wpt-io-copy">COPY</button>
+        <button class="wpt-btn wpt-btn-ghost" id="wpt-io-close">CLOSE</button>
+      </div>
     </div>
     <div class="wpt-routes" id="wpt-routes"></div>
     <div class="wpt-empty" id="wpt-routes-empty">&mdash; NO ROUTES YET &mdash;</div>

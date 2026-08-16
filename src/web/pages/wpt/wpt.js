@@ -16,6 +16,14 @@ const waypointsEl  = document.getElementById('wpt-waypoints');
 const newRouteBtn  = document.getElementById('wpt-new-route');
 const newRow       = document.getElementById('wpt-new-row');
 const newNameInput = document.getElementById('wpt-new-name');
+const importBtn    = document.getElementById('wpt-import-route');
+const ioRow        = document.getElementById('wpt-io-row');
+const ioLabel      = document.getElementById('wpt-io-label');
+const ioText       = document.getElementById('wpt-io-text');
+const ioError      = document.getElementById('wpt-io-error');
+const ioPrimary    = document.getElementById('wpt-io-primary');
+const ioCopy       = document.getElementById('wpt-io-copy');
+const ioClose      = document.getElementById('wpt-io-close');
 
 const WPT_ADVANCE_RADIUS_M = 1000; // 1km — combat-aircraft distances are km-scale, coarse on
                                     // purpose; tune here, no settings UI in this pass.
@@ -60,13 +68,18 @@ function renderRoutes(c) {
     reset.className = 'wpt-row-btn'; reset.textContent = '↺'; reset.title = 'Reset route (mark every waypoint not-reached)';
     reset.onclick = function () { WaypointsStore.resetRoute(route.id); render(); };
 
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'wpt-row-btn'; exportBtn.textContent = '⇩'; exportBtn.title = 'Export route as JSON';
+    exportBtn.onclick = function () { openExportPanel(route.id); };
+
     const del = document.createElement('button');
     del.className = 'wpt-row-btn';
     del.textContent = '×';
     del.title = 'Delete route';
     del.onclick = function () { WaypointsStore.deleteRoute(route.id); render(); };
 
-    row.appendChild(name); row.appendChild(mark); row.appendChild(edit); row.appendChild(reset); row.appendChild(del);
+    row.appendChild(name); row.appendChild(mark); row.appendChild(edit); row.appendChild(reset);
+    row.appendChild(exportBtn); row.appendChild(del);
     routesEl.appendChild(row);
   });
 }
@@ -143,6 +156,7 @@ function renderWaypoints(route) {
 }
 
 newRouteBtn.onclick = function () {
+  closeIOPanel();
   newRow.style.display = 'flex';
   newNameInput.value = WaypointsStore.freshRouteName();   // pre-filled, editable — accept or type over
   newNameInput.focus(); newNameInput.select();
@@ -155,6 +169,61 @@ document.getElementById('wpt-new-confirm').onclick = function () {
   render();
 };
 newNameInput.onkeydown = function (e) { if (e.key === 'Enter') document.getElementById('wpt-new-confirm').click(); };
+
+// ── Import/export (one shared panel, two modes — see wpt.html's comment on wpt-io-row) ──────
+function closeIOPanel() { ioRow.style.display = 'none'; ioError.textContent = ''; }
+
+function openImportPanel() {
+  newRow.style.display = 'none';
+  ioLabel.textContent = 'IMPORT ROUTE — paste an exported route\'s JSON below';
+  ioText.value = '';
+  ioText.readOnly = false;
+  ioError.textContent = '';
+  ioPrimary.style.display = '';
+  ioCopy.style.display = 'none';
+  ioRow.style.display = 'block';
+  ioText.focus();
+}
+importBtn.onclick = openImportPanel;
+
+ioPrimary.onclick = function () {
+  const route = WaypointsStore.importRoute(ioText.value);
+  if (!route) { ioError.textContent = 'Could not read that as a route — check the pasted JSON.'; return; }
+  closeIOPanel();
+  render();
+};
+
+function openExportPanel(id) {
+  const json = WaypointsStore.exportRoute(id);
+  if (!json) return;   // the route vanished (deleted) between the click and here
+  newRow.style.display = 'none';
+  ioLabel.textContent = 'EXPORT ROUTE — copy this and send it to share the route';
+  ioText.value = json;
+  ioText.readOnly = true;
+  ioError.textContent = '';
+  ioPrimary.style.display = 'none';
+  ioCopy.style.display = '';
+  ioCopy.textContent = 'COPY';
+  ioRow.style.display = 'block';
+  ioText.focus(); ioText.select();
+}
+
+ioCopy.onclick = function () {
+  ioText.focus(); ioText.select();
+  // navigator.clipboard needs a secure context (https, or localhost) — plain http:// over the LAN
+  // (how this mod is normally reached) doesn't have it, so fall back to the old execCommand path,
+  // which works off the selection this handler just made regardless of context.
+  const done = function () { ioCopy.textContent = 'COPIED'; setTimeout(function () { ioCopy.textContent = 'COPY'; }, 1200); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(ioText.value).then(done, function () {
+      try { document.execCommand('copy'); done(); } catch (e) {}
+    });
+  } else {
+    try { document.execCommand('copy'); done(); } catch (e) {}
+  }
+};
+
+ioClose.onclick = closeIOPanel;
 
 // An unnamed waypoint has no wp.name — fall back to its position number rather than showing nothing.
 function waypointLabel(wp, index) { return wp.name || ('WAYPOINT ' + (index + 1)); }
@@ -178,13 +247,13 @@ function renderReadout() {
 // route complete, or no position/heading yet) — the ring reads as "no bearing right now", not gone.
 function hideNeedle() { compassNeedle.style.display = 'none'; }
 
-// The needle's relative bearing = waypoint bearing minus own heading, so it points straight up
-// (0°) exactly when the aircraft is already pointed at the waypoint, and sweeps clockwise the same
-// direction the pilot would need to turn — a compass rose read nose-relative, not north-up.
+// The needle points at WptRoute.relativeBearing(brgDeg, hdg) — 0° (straight up) when the aircraft
+// is already pointed at the waypoint, sweeping clockwise the same direction the pilot would need
+// to turn — a compass rose read nose-relative, not north-up.
 function updateCompass(brgDeg) {
   if (typeof mapinfo.hdg !== 'number') { hideNeedle(); return; }
   compassNeedle.style.display = '';
-  const rel = ((brgDeg - mapinfo.hdg) % 360 + 360) % 360;
+  const rel = WptRoute.relativeBearing(brgDeg, mapinfo.hdg);
   compassNeedle.setAttribute('transform', 'rotate(' + rel + ' 50 50)');
 }
 

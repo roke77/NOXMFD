@@ -17,6 +17,15 @@
     return { distM, brgDeg };
   }
 
+  // The compass' needle rotation: waypoint bearing relative to the aircraft's own heading, 0-360,
+  // 0 = the nose is already pointed at the waypoint (needle points straight up), positive = the
+  // pilot needs to turn clockwise (right) to face it. `((x % 360) + 360) % 360` rather than a plain
+  // `%` because JS's remainder operator keeps the dividend's sign — brgDeg - hdg is negative
+  // whenever hdg > brgDeg, and a plain % would hand back a negative rotation instead of wrapping.
+  function relativeBearing(brgDeg, hdg) {
+    return ((brgDeg - hdg) % 360 + 360) % 360;
+  }
+
   function shouldAdvance(distM, thresholdM) {
     return distM <= thresholdM;
   }
@@ -112,11 +121,40 @@
     return routes[next].id;
   }
 
+  // The portable export shape: name + ordered waypoint name/x/z only — no internal ids, no live
+  // progress (nextIndex). Ids are storage bookkeeping, meaningless to whoever the route is shared
+  // with; progress is "how far THIS pilot got," not part of the route's own definition, and
+  // importing always starts a route fresh (see waypoints-store.js's importRoute).
+  function serializeRoute(route) {
+    return {
+      name: route.name,
+      waypoints: route.waypoints.map(w => ({ name: w.name || '', x: w.x, z: w.z })),
+    };
+  }
+
+  // Parses + validates a pasted route export. Returns { name, waypoints } (serializeRoute's own
+  // shape) on success, or null if the text isn't JSON or doesn't look like a route — the caller
+  // decides how to surface that (waypoints-store.js's importRoute has no UI of its own to report
+  // through; wpt.js's import panel shows the failure).
+  function parseRouteJSON(text) {
+    let data;
+    try { data = JSON.parse(text); } catch (e) { return null; }
+    if (!data || typeof data !== 'object' || !Array.isArray(data.waypoints)) return null;
+    const waypoints = [];
+    for (const w of data.waypoints) {
+      if (!w || typeof w.x !== 'number' || typeof w.z !== 'number') return null;
+      waypoints.push({ name: typeof w.name === 'string' ? w.name : '', x: w.x, z: w.z });
+    }
+    const name = typeof data.name === 'string' ? data.name.trim() : '';
+    return { name, waypoints };
+  }
+
   const api = {
-    distanceBearing, shouldAdvance, advanceIfNear,
+    distanceBearing, relativeBearing, shouldAdvance, advanceIfNear,
     resetProgress,
     addWaypoint, removeWaypoint, renameWaypoint, reorderWaypoint,
     addRoute, deleteRoute, renameRoute, findRoute, cycleRoute, uniqueRouteName,
+    serializeRoute, parseRouteJSON,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WptRoute = api;

@@ -8,7 +8,8 @@
 // the next one is caught here instead.
 const assert = require('assert');
 const { NAV } = require('../nav-model.js');
-const { SPLIT_SLOTS } = require('./split-slots.js');
+const { SPLIT_SLOTS, MAP_SPLIT_ORDER } = require('./split-slots.js');
+const { mainPageSizes, mainPaneSlice } = require('./classic-paging.js');
 
 // 'main' and 'map' are documented exceptions (split-slots.js's header comment): both are paginated
 // in mfd.js (MAIN_SPLIT_ITEMS / mapNavPaneSlice) rather than a fixed slot table, since MAIN has
@@ -39,6 +40,36 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
     assert.ok(s.side === 'left' || s.side === 'right', `${where}.side must be 'left' or 'right', got ${JSON.stringify(s.side)}`);
     assert.ok(Number.isInteger(s.slot) && s.slot >= 0, `${where}.slot must be a non-negative integer, got ${JSON.stringify(s.slot)}`);
   });
+}
+
+// MAP_SPLIT_ORDER's whole reason to exist (issue #38): mfd.js's MAP_SPLIT_ITEMS reorders NAV.map
+// for split pagination so the ROUTE (R+/R-) and ZOOM (Z+/Z-) decorator pairs each land on the SAME
+// paginated page — placeMapPaneDecorator only draws a decorator when both of its keys are visible
+// together. In NAV.map's own full-view order the fixed 5-then-3 page split falls INSIDE the R+/R-
+// pair, so the ROUTE decorator could never render at all until this reordering fixed it. This test
+// pins that down directly, so a future NAV.map edit that breaks the pairing (without updating
+// MAP_SPLIT_ORDER to match) fails here instead of shipping a decorator nobody will ever see again.
+{
+  assert.deepStrictEqual(MAP_SPLIT_ORDER.slice().sort(), NAV.map.map(i => i.action).sort(),
+    'MAP_SPLIT_ORDER must contain exactly NAV.map\'s actions — a NAV.map item added/removed here has no matching update');
+
+  const byAction = {};
+  NAV.map.forEach(item => { byAction[item.action] = item; });
+  const items = MAP_SPLIT_ORDER.map(a => byAction[a]);
+
+  const pageOf = action => {
+    const index = MAP_SPLIT_ORDER.indexOf(action);
+    for (let p = 0; p < mainPageSizes(items.length).length; p++) {
+      const slice = mainPaneSlice(items, p);
+      if (slice.items.some(i => i.action === action)) return p;
+    }
+    throw new Error(`${action} not found on any page`);
+  };
+
+  assert.strictEqual(pageOf('rt-next'), pageOf('rt-prev'),
+    'R+/R- must land on the same split-pagination page, or the ROUTE decorator can never render');
+  assert.strictEqual(pageOf('zin'), pageOf('zout'),
+    'Z+/Z- must land on the same split-pagination page, or the ZOOM decorator can never render');
 }
 
 console.log('split-slots.test.js: OK');

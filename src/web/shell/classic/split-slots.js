@@ -60,7 +60,20 @@
     wpn: [],
   };
 
-  const api = { SPLIT_SLOTS };
+  // NAV.map's own item order for SPLIT pagination (mfd.js's MAP_SPLIT_ITEMS/mapNavPaneSlice) —
+  // deliberately NOT NAV.map's own full-view order. mainPageSizes' fixed 5-then-3 split for 8 items
+  // always lands the boundary between NAV.map's 5th and 6th full-view-order entries; in full-view
+  // order (MAIN,GRID,FLW,WPT,R+,R-,Z+,Z-) that boundary falls INSIDE the R+/R- pair, so their ROUTE
+  // decorator (mfd.js's placeMapPaneDecorator) could never find both keys on the same page — only
+  // ZOOM (Z+/Z-, both on page 2) ever would. This order keeps each pair whole within a page instead:
+  // MAIN/GRID/FLW/R+/R- fill page 1, WPT/Z+/Z- fill page 2. An action-name list, not NAV items
+  // directly — this module holds no reference to NAV (nav-model.js), so mfd.js maps these onto the
+  // real NAV.map items; split-slots.test.js checks the resulting pairing against NAV.map directly,
+  // so an edit to NAV.map that breaks the pairing (without updating this list to match) fails there
+  // instead of silently shipping a decorator that can never render, the way the ROUTE one first did.
+  const MAP_SPLIT_ORDER = ['main', 'grid', 'flw', 'rt-next', 'rt-prev', 'wpt', 'zin', 'zout'];
+
+  const api = { SPLIT_SLOTS, MAP_SPLIT_ORDER };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SplitSlots = api;
 })(typeof self !== 'undefined' ? self : this);
