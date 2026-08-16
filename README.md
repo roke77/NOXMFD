@@ -148,7 +148,7 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **MAP** — full-screen tactical map with friendly/hostile units and your own position; click a unit to target it, FLW toggles follow, Z+/Z− zoom, GRID toggles a coordinate grid overlay (off by default), R+/R− switches the active waypoint route, and WPT opens the waypoint/route editor (below). A bottom-right status row shows CURSOR (the grid square under the mouse/PAD cursor), GRID (your own square), and ROUTE (the active route's name) — each shown only while it applies. A HOTAS cursor can drive all of this without touching the screen — see [PAD cursor](#pad-cursor) below.
+- **MAP** — full-screen tactical map with friendly/hostile units and your own position; click a unit to target it, FLW toggles follow, Z+/Z− zoom, GRID toggles a coordinate grid overlay (off by default), R+/R− switches the active waypoint route, W+/W− manually steps to the next/previous waypoint on the active route, and WPT opens the waypoint/route editor (below). A bottom-right status row shows CURSOR (the grid square under the mouse/PAD cursor), GRID (your own square), and ROUTE (the active route's name) — each shown only while it applies. A HOTAS cursor can drive all of this without touching the screen — see [PAD cursor](#pad-cursor) below.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
@@ -310,8 +310,9 @@ Multi-stick HOTAS setups are supported; each bind remembers which stick it came 
   active weapon is from the other class, the first press only switches — bringing up the
   right reticle — and the next press fires. The current gun and missile/bomb choices show
   as outlines on the WPN page.
-- **Follow / Zoom In / Zoom Out** — direct binds for what the bezel's FLW and Z+/Z− keys already
-  do on the focused MAP display.
+- **Follow / Zoom In / Zoom Out / Next Route / Previous Route / Next Waypoint / Previous Waypoint** —
+  direct binds for what the bezel's FLW, Z+/Z−, R+/R− and W+/W− keys already do on the focused MAP
+  display.
 - **Cursor Up / Down / Left / Right / Select**, plus two HOTAS axis binds (horizontal/vertical) —
   drive the [PAD cursor](#pad-cursor) below.
 - **Next Target / Previous Target** — step a highlighted row through the focused TGT display's

@@ -3,6 +3,7 @@
 // already covered by wpt-route.test.js. WptRoute/WaypointsStore are classic <script> globals
 // (wpt.html), loaded before this module.
 import { gridLabel } from '/assets/services/telemetry-source.js';
+import { createPadCursor } from '/assets/services/pad-cursor.js';
 
 if (window.parent !== window) {
   const back = document.querySelector('.wpt-back');
@@ -48,7 +49,7 @@ function renderRoutes(c) {
     row.className = 'wpt-row' + (route.id === c.activeRouteId ? ' active' : '');
 
     const name = document.createElement('span');
-    name.className = 'wpt-row-name';
+    name.className = 'wpt-row-name pad-hoverable';
     name.textContent = route.name + ' (' + route.waypoints.length + ')';
     name.title = 'Click to activate';
     name.onclick = function () { WaypointsStore.setActiveRoute(route.id); render(); };
@@ -58,22 +59,22 @@ function renderRoutes(c) {
     mark.textContent = route.id === c.activeRouteId ? 'ACTIVE' : '';
 
     const edit = document.createElement('button');
-    edit.className = 'wpt-row-btn'; edit.textContent = '✎'; edit.title = 'Rename route';
+    edit.className = 'wpt-row-btn pad-hoverable'; edit.textContent = '✎'; edit.title = 'Rename route';
     // Empty stays the route's current (generated) name — a route always keeps SOME name.
     edit.onclick = function () {
       editRow(row, route.name, null, function (name) { if (name) WaypointsStore.renameRoute(route.id, name); });
     };
 
     const reset = document.createElement('button');
-    reset.className = 'wpt-row-btn'; reset.textContent = '↺'; reset.title = 'Reset route (mark every waypoint not-reached)';
+    reset.className = 'wpt-row-btn pad-hoverable'; reset.textContent = '↺'; reset.title = 'Reset route (mark every waypoint not-reached)';
     reset.onclick = function () { WaypointsStore.resetRoute(route.id); render(); };
 
     const exportBtn = document.createElement('button');
-    exportBtn.className = 'wpt-row-btn'; exportBtn.textContent = '⇩'; exportBtn.title = 'Export route as JSON';
+    exportBtn.className = 'wpt-row-btn pad-hoverable'; exportBtn.textContent = '⇩'; exportBtn.title = 'Export route as JSON';
     exportBtn.onclick = function () { openExportPanel(route.id); };
 
     const del = document.createElement('button');
-    del.className = 'wpt-row-btn';
+    del.className = 'wpt-row-btn pad-hoverable';
     del.textContent = '×';
     del.title = 'Delete route';
     del.onclick = function () { WaypointsStore.deleteRoute(route.id); render(); };
@@ -95,7 +96,7 @@ function editRow(row, value, placeholder, onSave) {
   if (placeholder) input.placeholder = placeholder;
   const commit = function () { onSave(input.value.trim()); render(); };
   const save = document.createElement('button');
-  save.className = 'wpt-row-btn wpt-row-save'; save.textContent = '✓'; save.title = 'Save';
+  save.className = 'wpt-row-btn wpt-row-save pad-hoverable'; save.textContent = '✓'; save.title = 'Save';
   save.onclick = commit;
   input.onkeydown = function (e) { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') render(); };
   row.appendChild(input);
@@ -123,7 +124,7 @@ function renderWaypoints(route) {
     grid.textContent = gridLabel(wp.x, wp.z, { ox: mapinfo.ox, oy: mapinfo.oy });
 
     const edit = document.createElement('button');
-    edit.className = 'wpt-row-btn'; edit.textContent = '✎'; edit.title = 'Rename waypoint';
+    edit.className = 'wpt-row-btn pad-hoverable'; edit.textContent = '✎'; edit.title = 'Rename waypoint';
     // Unlike routes, an empty save is valid here — it clears the name back to "unnamed" (position
     // number only), matching a fresh waypoint's own default.
     edit.onclick = function () {
@@ -131,22 +132,22 @@ function renderWaypoints(route) {
     };
 
     const up = document.createElement('button');
-    up.className = 'wpt-row-btn'; up.textContent = '▲'; up.title = 'Move up';
+    up.className = 'wpt-row-btn pad-hoverable'; up.textContent = '▲'; up.title = 'Move up';
     up.disabled = i === 0;
     up.onclick = function () { WaypointsStore.reorderWaypoint(i, i - 1); render(); };
 
     const down = document.createElement('button');
-    down.className = 'wpt-row-btn'; down.textContent = '▼'; down.title = 'Move down';
+    down.className = 'wpt-row-btn pad-hoverable'; down.textContent = '▼'; down.title = 'Move down';
     down.disabled = i === route.waypoints.length - 1;
     down.onclick = function () { WaypointsStore.reorderWaypoint(i, i + 1); render(); };
 
     const reset = document.createElement('button');
-    reset.className = 'wpt-row-btn'; reset.textContent = '↺';
+    reset.className = 'wpt-row-btn pad-hoverable'; reset.textContent = '↺';
     reset.title = 'Rewind here — this waypoint (and every one after it) becomes not-reached, this one NEXT';
     reset.onclick = function () { WaypointsStore.resetWaypoint(i); render(); };
 
     const del = document.createElement('button');
-    del.className = 'wpt-row-btn'; del.textContent = '×'; del.title = 'Delete waypoint';
+    del.className = 'wpt-row-btn pad-hoverable'; del.textContent = '×'; del.title = 'Delete waypoint';
     del.onclick = function () { WaypointsStore.removeWaypoint(i); render(); };
 
     row.appendChild(name); row.appendChild(mark); row.appendChild(grid);
@@ -273,11 +274,54 @@ function tick() {
   renderReadout();
 }
 
+// ── PAD cursor (docs/page-cursor.md) ──────────────────────────────────────────────────
+// Same crosshair/transport MAP/TGT/HUD use (pad-cursor.js), driven here only while this WPT is the
+// SOI's focused surface. Every clickable control already has a real onclick — no per-element-type
+// dispatch needed (contrast TGT's tgt.set/clear-datalink/clear-stale split), so Select is just a
+// synthetic click at the crosshair's point, same as HUD. #pad-cursor is position:fixed (wpt.css) —
+// the one MFD page whose own body scrolls rather than a fixed-size panel — so (x, y) here are
+// already plain viewport coordinates; no panel-rect offset math needed, unlike TGT/HUD.
+const CURSORABLE = '.pad-hoverable';
+const padCursorEl = document.getElementById('pad-cursor');
+const cursor = createPadCursor({
+  el: padCursorEl,
+  clampRect: () => ({ dx: 0, dy: 0, dw: window.innerWidth, dh: window.innerHeight }),
+  onSelect: padCursorSelectAt,
+  onMove: padCursorMoveAt,
+});
+
+function padCursorSelectAt(x, y) {
+  const raw = document.elementFromPoint(x, y);
+  const el = raw && raw.closest(CURSORABLE);
+  if (el) el.click();
+}
+
+// Hover feedback (docs/page-cursor.md #2): the shared .pad-hoverable/.pad-hover pair (theme.css).
+// Tolerates the row being destroyed/recreated out from under it (render() rebuilds the lists on
+// every edit) — a stale hoveredEl just fails the `=== ` check and gets replaced next move.
+let hoveredEl = null;
+function padCursorMoveAt(x, y) {
+  const raw = x == null ? null : document.elementFromPoint(x, y);
+  const el = raw && raw.closest(CURSORABLE);
+  if (el === hoveredEl) return;
+  if (hoveredEl) hoveredEl.classList.remove('pad-hover');
+  hoveredEl = el;
+  if (hoveredEl) hoveredEl.classList.add('pad-hover');
+}
+
+// Zoom In/Out (map-act's zoom-in/zoom-out) are repurposed here to scroll the page — nothing on this
+// page to zoom, and the binds already exist end-to-end (docs/page-cursor.md), same as TGT/HUD.
+const SCROLL_STEP = 60;   // ponytail: flat constant tuned by feel, like pad-cursor.js's own SPEED
+
 window.addEventListener('message', function (e) {
   const m = e.data;
-  if (!m || m.mfd !== true || m.type !== 'mapinfo') return;
-  mapinfo = m;
-  tick();
+  if (!m || m.mfd !== true) return;
+  if (m.type === 'mapinfo') { mapinfo = m; tick(); return; }
+  if (m.action === 'cursor-focus') cursor.setFocus(!!m.on, window.innerWidth / 2, window.innerHeight / 2);
+  else if (m.action === 'cursor') cursor.setVector(m.x, m.y);
+  else if (m.action === 'cursor-select') cursor.select();
+  else if (m.action === 'zoom-in') window.scrollBy({ top: SCROLL_STEP });
+  else if (m.action === 'zoom-out') window.scrollBy({ top: -SCROLL_STEP });
 });
 
 // Another tab/pane (or MAP itself) wrote a waypoint — pick it up immediately.

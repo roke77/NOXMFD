@@ -146,12 +146,21 @@
 <script src="/assets/services/send-command.js"></script>
 <script src="/assets/shell/nav-model.js"></script>
 <script src="/assets/shell/layout-pages.js"></script>
+<!-- MAP's full-view left/right action grouping (MAP_FULL_LEFT/RIGHT/mapFullRight, issue #38
+     follow-up) — the classic bezel's own module, shared here so the glass can't drift out of sync
+     with it on which actions land left/right or which the no-route filter drops. -->
+<script src="/assets/shell/classic/split-slots.js"></script>
 <script src="/assets/shell/f35/f35-glass.js"></script>
 <script src="/assets/shell/f35/f35-wpn-paging.js"></script>
 <!-- Shared with the AVN page: the pure state->colour rule for the avionics flags in the strip, and
      the MIL/AB split behind its THRL gauge. -->
 <script src="/assets/pages/avn/avn-status-policy.js"></script>
 <script src="/assets/pages/avn/avn-throttle-policy.js"></script>
+<!-- Same-origin localStorage read only (issue #38 follow-up) — MAP's R+/R-/W+/W- portal buttons
+     show only while a route is active, so the glass loads the existing storage wrapper directly
+     rather than re-deriving that check by hand (mirrors mfd.html's classic-shell twin). -->
+<script src="/assets/pages/wpt/wpt-route.js"></script>
+<script src="/assets/pages/wpt/waypoints-store.js"></script>
 <script src="/assets/shell/f35/f35.js"></script>
 </body>
 </html>

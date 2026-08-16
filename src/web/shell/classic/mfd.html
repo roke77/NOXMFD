@@ -91,6 +91,11 @@
 <script src="/assets/shell/classic/split-keymap.js"></script>
 <script src="/assets/shell/classic/split-slots.js"></script>
 <script src="/assets/shell/classic/classic-paging.js"></script>
+<!-- Same-origin localStorage read only (issue #38 follow-up) — the shell needs to know whether a
+     route is active to decide whether MAP's R+/R-/W+/W- labels show at all, so it loads the
+     existing storage wrapper directly rather than re-deriving that check by hand. -->
+<script src="/assets/pages/wpt/wpt-route.js"></script>
+<script src="/assets/pages/wpt/waypoints-store.js"></script>
 <script src="/assets/shell/classic/mfd.js"></script>
 </body>
 </html>

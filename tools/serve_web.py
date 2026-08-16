@@ -256,6 +256,18 @@ KEYBINDS = [
     {"id": "map-zoom-out", "section": "MAP", "label": "Zoom Out",
      "description": "Zoom out on the focused MAP display.",
      "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "map-route-next", "section": "MAP", "label": "Next Route",
+     "description": "Switch the focused MAP display's active waypoint route to the next one (R+).",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "map-route-prev", "section": "MAP", "label": "Previous Route",
+     "description": "Switch the focused MAP display's active waypoint route to the previous one (R-).",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "map-waypoint-next", "section": "MAP", "label": "Next Waypoint",
+     "description": "Manually step the focused MAP display's active route to the next waypoint (W+).",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "map-waypoint-prev", "section": "MAP", "label": "Previous Waypoint",
+     "description": "Manually step the focused MAP display's active route to the previous waypoint (W-).",
+     "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "tgt-next", "section": "TGT", "label": "Next Target",
      "description": "Highlight the next locked target on the focused TGT display.",
      "key": "", "joyButton": -1, "joyNum": 0},
@@ -345,8 +357,9 @@ def _keybinds_config():
                     b["joyButton"], b["joyNum"] = 7, 1
         KB_STATE["capturing"] = None
         KB_STATE["capturingKind"] = None
-    notes = {"MAP": "Follow / Zoom In / Zoom Out are direct binds for what the bezel's FLW and Z+/Z- "
-                    "keys already do on the focused MAP display.",
+    notes = {"MAP": "Follow / Zoom In / Zoom Out / Next & Previous Route / Next & Previous Waypoint "
+                    "are direct binds for what the bezel's FLW, Z+/Z-, R+/R- and W+/W- keys already "
+                    "do on the focused MAP display.",
              "TGT": "Next/Previous highlight a row instead of moving the crosshair — moving Cursor "
                     "Up/Down/Left/Right (or its axis) clears the highlight and hands Cursor Select "
                     "back to the crosshair. While a row is highlighted, Cursor Select deselects it. "

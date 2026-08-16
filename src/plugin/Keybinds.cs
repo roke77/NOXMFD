@@ -178,6 +178,18 @@ namespace NOXMFD
             DefFree(config, "map-zoom-out", map, "MapZoomOut", "Zoom Out", edge: true,
                 "Zoom out on the focused MAP display. On a scrollable page, scrolls it down instead.",
                 () => TelemetryServer.MapAction("zoom-out"));
+            DefFree(config, "map-route-next", map, "MapRouteNext", "Next Route", edge: true,
+                "Switch the focused MAP display's active waypoint route to the next one (R+).",
+                () => TelemetryServer.MapAction("route-next"));
+            DefFree(config, "map-route-prev", map, "MapRoutePrev", "Previous Route", edge: true,
+                "Switch the focused MAP display's active waypoint route to the previous one (R-).",
+                () => TelemetryServer.MapAction("route-prev"));
+            DefFree(config, "map-waypoint-next", map, "MapWaypointNext", "Next Waypoint", edge: true,
+                "Manually step the focused MAP display's active route to the next waypoint (W+).",
+                () => TelemetryServer.MapAction("waypoint-next"));
+            DefFree(config, "map-waypoint-prev", map, "MapWaypointPrev", "Previous Waypoint", edge: true,
+                "Manually step the focused MAP display's active route to the previous waypoint (W-).",
+                () => TelemetryServer.MapAction("waypoint-prev"));
 
             // TGT binds — act on the focused TGT display, so DefFree like MAP above (docs/tgt-keybind-nav.md).
             // Next/Previous step a highlighted row through the locked-target list, independent of (and
@@ -382,8 +394,9 @@ namespace NOXMFD
         internal static string SectionNote(string section) => section switch
         {
             "MAP Keybinds" =>
-                "Follow / Zoom In / Zoom Out are direct binds for what the bezel's FLW and Z+/Z- keys " +
-                "already do on the focused MAP display.",
+                "Follow / Zoom In / Zoom Out / Next & Previous Route / Next & Previous Waypoint are " +
+                "direct binds for what the bezel's FLW, Z+/Z-, R+/R- and W+/W- keys already do on the " +
+                "focused MAP display.",
             "TGT Keybinds" =>
                 "Next/Previous highlight a row instead of moving the crosshair — moving Cursor Up/Down/" +
                 "Left/Right (or its axis) clears the highlight and hands Cursor Select back to the " +

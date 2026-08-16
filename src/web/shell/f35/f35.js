@@ -95,7 +95,7 @@
   // Pages carrying their own PAD cursor (pad-cursor.js) — docs/page-cursor.md, docs/tgt-keybind-nav.md.
   // Mirrors the bezel's own PAD_CURSOR_PAGES (mfd.js) exactly; kept as its own copy since this
   // layout has no shared module with the bezel to hang it on.
-  const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true };
+  const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true };
 
   const WPN_MAX_DISPLAY = ROWS - 1;   // row 1 is the nav + CM band; rows 2..6 carry the weapons
   const WPN_ICON_INSET  = 20;         // keeps the image off its band edges, as the bezel does
@@ -141,7 +141,8 @@
   // classic shell's mapFrame-specific version), so RDR needs nothing beyond this mapping.
   const MAP_ACTIONS = { flw: 'toggle-follow', zin: 'zoom-in', zout: 'zoom-out', grid: 'toggle-grid',
                          'rng-in': 'zoom-in', 'rng-out': 'zoom-out',
-                         'rt-next': 'route-next', 'rt-prev': 'route-prev' };   // issue #38
+                         'rt-next': 'route-next', 'rt-prev': 'route-prev',   // issue #38
+                         'wpt-next': 'waypoint-next', 'wpt-prev': 'waypoint-prev' };   // issue #38
 
   // ARM/SAFE (docs/radar-master-arms.md) — WPN's own unconditional controls, same shape as
   // MAP_ACTIONS: an action name maps to what it sends, dispatched by command rather than page nav.
@@ -163,6 +164,25 @@
     { label: 'A/A', action: 'combat-mode-aa', cell: { row: 4, col: 2 } },
     { label: 'A/G', action: 'combat-mode-ag', cell: { row: 5, col: 2 } },
   ];
+
+  // MAP's own placement (issue #38 follow-up, mfd.js's own full view twin): a fixed 5-left/5-right
+  // split via explicit cells, rather than cellOf's generic index-into-6-rows overflow — MAIN/GRID/
+  // FLW/Z+/Z- read as "map view controls" in column 1, WPT/R+/R-/W+/W- as "waypoint controls" in
+  // column 2. The action lists (SplitSlots.MAP_FULL_LEFT/RIGHT/mapFullRight) are shared with the
+  // classic bezel — see that module's own comment — so the two layouts can't drift out of sync.
+  // R+/R-/W+/W- only show while a route exists to act on; WPT itself always shows, since it's how a
+  // pilot gets a route in the first place.
+  function mapNavItems() {
+    const byAction = {};
+    (NAV.map || []).forEach(function (item) { byAction[item.action] = item; });
+    const hasRoute = !!WaypointsStore.getActiveRoute();
+    const left = SplitSlots.MAP_FULL_LEFT.map(function (a, i) {
+      return Object.assign({}, byAction[a], { cell: { row: i + 1, col: 1 } });
+    });
+    return left.concat(SplitSlots.mapFullRight(hasRoute).map(function (a, i) {
+      return Object.assign({}, byAction[a], { cell: { row: i + 1, col: 2 } });
+    }));
+  }
 
   // Where a screen's NAV items sit. Default 'edge' = the bezel's left key bank, minus the bezel.
   // MAIN is 'center': its labels ARE the screen, so they own the middle of the glass instead of
@@ -410,8 +430,11 @@
     //          than in NAV keeps ordering a rendering choice: it interleaves HUD/PAL/BDF among the
     //          NAV items, where the bezel just shows NAV's six in their given order.
     //   wpn  — nothing from NAV (it's empty by design); its labels are pagination.
+    //   map  — MAIN/GRID/FLW/Z+/Z- and WPT/R+/R-/W+/W- via explicit cells, not NAV.map's own order
+    //          (mapNavItems, issue #38 follow-up — see its own comment).
     function itemsFor(page) {
       if (page === 'wpn') return wpnState().nav.concat(MASTER_ARMS_NAV, COMBAT_MODE_NAV);
+      if (page === 'map') return mapNavItems();
       const items = (NAV[page] || []).slice();
       if (page !== 'main') return items;
       return items.concat(MAIN_EXTRAS).sort(function (a, b) { return a.label.localeCompare(b.label); });
@@ -543,7 +566,7 @@
       // ZOOM between Z+/Z- (issue #41) and ROUTE between R+/R- (issue #38) — same decorator, MAP's
       // twin of WPN's MASTER/MODE. Found by data-action, so the 2-column overflow (cellOf) needs no
       // special-casing here — the decorator just measures wherever the two buttons actually landed.
-      if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); }
+      if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); placeWpnDecorator('wpt-next', 'wpt-prev', 'WYPT'); }
       // RANGE between R+/R- (issue #40 follow-up) — RDR's twin.
       if (currentPage === 'rdr') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
@@ -582,6 +605,10 @@
       // own PAD cursor (null otherwise), so the glass-level cursor forwarding can't target a page
       // with nothing listening for it.
       cursorWin: function () { return PAD_CURSOR_PAGES[currentPage] ? frameWin() : null; },
+      // Rebuilds just the label grid (issue #38 follow-up) — unlike showPage, doesn't touch
+      // frame.src, so it can't reload (and so lose pan/zoom on) an already-showing MAP. The glass's
+      // own 'storage' listener uses this to pick up an active route appearing/disappearing live.
+      refreshNav: renderNav,
       // Flex-grow tracks the span, so a merged portal takes exactly the two slots it owns and its
       // neighbours keep theirs. All four slots are the same width, so the arithmetic is just the
       // span — no wrapper elements, no percentages.
@@ -593,7 +620,7 @@
       // away the zoom and pan the pilot set.
       resized: function () {
         if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); placeWpnDecorators(); }
-        if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); }
+        if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); placeWpnDecorator('wpt-next', 'wpt-prev', 'WYPT'); }
         if (currentPage === 'rdr') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
       },
       destroy: function () { el.remove(); },
@@ -842,6 +869,16 @@
   function relayoutAll() { livePortals().forEach(function (p) { p.resized(); }); }
   window.addEventListener('resize', relayoutAll);
   orientMq.addEventListener('change', relayoutAll);
+
+  // MAP's R+/R-/W+/W- portal buttons show only while a route is active (issue #38 follow-up,
+  // mfd.js's classic-shell twin) — a route created/deleted from the WPT page or a first long-press
+  // placed on MAP itself both write localStorage from a DIFFERENT document (that page's own
+  // portal), which is exactly what fires 'storage' here. refreshNav (not showPage) so it can't
+  // reload — and so can't lose the pan/zoom of — a MAP portal that's already showing.
+  window.addEventListener('storage', function (e) {
+    if (e.key !== WaypointsStore.STORE_KEY) return;
+    livePortals().forEach(function (p) { if (p.page() === 'map') p.refreshNav(); });
+  });
 
   // ── Master strip ───────────────────────────────────────────────────────────────────────
   // Fixed chrome across the top (docs/layouts.md). It holds no page and no NAV, so it isn't a

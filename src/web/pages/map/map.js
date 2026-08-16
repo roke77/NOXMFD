@@ -1025,6 +1025,9 @@ window.addEventListener('message', function(e) {
     // rendered line/markers switch immediately, same as a local long-press placement does.
     case 'route-next': WaypointsStore.cycleActiveRoute(1);  refreshWaypointRoute(); drawOverlay(); break;
     case 'route-prev': WaypointsStore.cycleActiveRoute(-1); refreshWaypointRoute(); drawOverlay(); break;
+    // W+/W- (issue #38) — manually step the active route's "next" waypoint, same repaint as above.
+    case 'waypoint-next': WaypointsStore.stepWaypoint(1);  refreshWaypointRoute(); drawOverlay(); break;
+    case 'waypoint-prev': WaypointsStore.stepWaypoint(-1); refreshWaypointRoute(); drawOverlay(); break;
     // PAD cursor (docs/page-cursor.md, docs/map-cursor.md) — the shell only ever sends these while
     // THIS map is the SOI's focused surface, so no further gating is needed here.
     case 'cursor-focus':  cursor.setFocus(!!m.on, overlay.width / 2, overlay.height / 2); break;

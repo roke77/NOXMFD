@@ -25,6 +25,8 @@
       { label: 'WPT',  action: 'wpt'  },   // → WPT page: waypoints/route creator (issue #38)
       { label: 'R+',   action: 'rt-next' }, // → switch the active route to the NEXT one (issue #38)
       { label: 'R-',   action: 'rt-prev' }, // → switch the active route to the PREVIOUS one (issue #38)
+      { label: 'W+',   action: 'wpt-next' }, // → manually advance to the NEXT waypoint (issue #38)
+      { label: 'W-',   action: 'wpt-prev' }, // → manually rewind to the PREVIOUS waypoint (issue #38)
       { label: 'Z+',   action: 'zin'  },   // → map zoom in
       { label: 'Z-',   action: 'zout' },   // → map zoom out
     ],

@@ -15,7 +15,9 @@
   Shell -> page messages (all {mfd:true, ...}): 'mapinfo' : { mission, grid, x, z, hdg, ox, oy } —
   the same slice map.js's own HUD derives, forwarded here (mfd.js forwardWptToFrame/ToPanes) since
   this is a separate document/iframe from MAP. Used for the readout's distance/bearing calc and for
-  labeling waypoints with their grid square.
+  labeling waypoints with their grid square. Also carries the PAD cursor's transport messages
+  (cursor-focus/cursor/cursor-select, docs/page-cursor.md) and zoom-in/zoom-out (repurposed here to
+  scroll the page, same as HUD/TGT) while this page is the SOI's focused surface.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -28,6 +30,13 @@
        keybinds.js/rates.js use (window.parent !== window). Points at MAP (NAV.wpt), not MAIN. -->
   <a class="wpt-back" href="/">&lt; MAP</a>
   <div class="wpt-title">WAYPOINTS</div>
+
+  <div class="wpt-help">Long-press anywhere on the map to drop a waypoint<br>Click a route to activate it<br>&#9998; rename &middot; &#8634; reset &middot; &#8681; export &middot; &times; delete</div>
+
+  <!-- PAD cursor (docs/page-cursor.md) — position:fixed override in wpt.css, since this is the one
+       MFD page whose own body scrolls rather than a fixed-size panel (MAP/TGT/HUD), so a viewport-
+       anchored crosshair needs position:fixed, not the shared .pad-cursor's default :absolute. -->
+  <div id="pad-cursor" class="pad-cursor"></div>
 
   <div class="wpt-readout mfd-chip" id="wpt-readout">NO ACTIVE ROUTE</div>
 
@@ -51,15 +60,15 @@
     <div class="wpt-section-head">
       <span>ROUTES</span>
       <div class="wpt-section-actions">
-        <button class="wpt-btn" id="wpt-new-route">+ NEW ROUTE</button>
-        <button class="wpt-btn" id="wpt-import-route">IMPORT</button>
+        <button class="wpt-btn pad-hoverable" id="wpt-new-route">+ NEW ROUTE</button>
+        <button class="wpt-btn pad-hoverable" id="wpt-import-route">IMPORT</button>
       </div>
     </div>
     <!-- Inline "new route" name entry (no modal — matches keybinds.js/rates.js's no-modal style). -->
     <div class="wpt-new-row" id="wpt-new-row" style="display:none;">
       <input type="text" id="wpt-new-name" placeholder="Route name" maxlength="40">
-      <button class="wpt-btn" id="wpt-new-confirm">ADD</button>
-      <button class="wpt-btn wpt-btn-ghost" id="wpt-new-cancel">CANCEL</button>
+      <button class="wpt-btn pad-hoverable" id="wpt-new-confirm">ADD</button>
+      <button class="wpt-btn wpt-btn-ghost pad-hoverable" id="wpt-new-cancel">CANCEL</button>
     </div>
     <!-- Shared import/export panel — one textarea doing double duty (no modal, same inline-panel
          idiom as wpt-new-row above): IMPORT shows it empty + editable with an IMPORT button; each
@@ -70,9 +79,9 @@
       <textarea id="wpt-io-text" rows="8" spellcheck="false"></textarea>
       <div class="wpt-io-error" id="wpt-io-error"></div>
       <div class="wpt-io-actions">
-        <button class="wpt-btn" id="wpt-io-primary">IMPORT</button>
-        <button class="wpt-btn" id="wpt-io-copy">COPY</button>
-        <button class="wpt-btn wpt-btn-ghost" id="wpt-io-close">CLOSE</button>
+        <button class="wpt-btn pad-hoverable" id="wpt-io-primary">IMPORT</button>
+        <button class="wpt-btn pad-hoverable" id="wpt-io-copy">COPY</button>
+        <button class="wpt-btn wpt-btn-ghost pad-hoverable" id="wpt-io-close">CLOSE</button>
       </div>
     </div>
     <div class="wpt-routes" id="wpt-routes"></div>

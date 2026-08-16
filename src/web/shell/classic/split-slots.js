@@ -16,14 +16,20 @@
 // — the answer is "a page can need a hint".)
 //
 // MAIN and MAP aren't here: their split placement is pagination in renderSplitLabels (mainPaneSlice
-// / mapNavPaneSlice), not a fixed slot table — MAIN has eleven destinations, MAP eight (issue #38's
-// R+/R-), both past six keys. A page absent here entirely cannot be a split pane: LYT is a
+// / mapNavPaneSlice), not a fixed slot table — MAIN has eleven destinations, MAP ten (issue #38's
+// R+/R- and W+/W-), both past six keys. A page absent here entirely cannot be a split pane: LYT is a
 // whole-document layout switch, not per-pane content, so picking it from a pane collapses the split
 // instead (see mfdButton's pane branch).
+//
+// MAP_FULL_LEFT/RIGHT/mapFullRight (bottom of file, issue #38 follow-up) piggyback on this module
+// for the same reason, despite naming for full view rather than split: this is already the one
+// place NAV.map's action list gets reordered/filtered for its various renderings, shared and tested
+// so mfd.js's full view and f35.js's glass can't drift out of sync with each other — a second module
+// for one more list would just be a second place to keep them in sync by hand instead.
 (function (root) {
   const SPLIT_SLOTS = {
-    // MAP has no entry here (issue #38): NAV.map grew to 8 items once R+/R- were added, past a
-    // split pane's 6-key budget, so it's paginated instead (mfd.js's mapNavPaneSlice, same
+    // MAP has no entry here (issue #38): NAV.map grew to 10 items once R+/R- and W+/W- were added,
+    // past a split pane's 6-key budget, so it's paginated instead (mfd.js's mapNavPaneSlice, same
     // treatment as MAIN — see MAIN's own absence from this table for the same reason).
     //
     // AVN / AFM / TGP / RWR / TGT / HUD in a split pane each expose their single MAIN back-button on
@@ -60,20 +66,49 @@
     wpn: [],
   };
 
-  // NAV.map's own item order for SPLIT pagination (mfd.js's MAP_SPLIT_ITEMS/mapNavPaneSlice) —
-  // deliberately NOT NAV.map's own full-view order. mainPageSizes' fixed 5-then-3 split for 8 items
-  // always lands the boundary between NAV.map's 5th and 6th full-view-order entries; in full-view
-  // order (MAIN,GRID,FLW,WPT,R+,R-,Z+,Z-) that boundary falls INSIDE the R+/R- pair, so their ROUTE
-  // decorator (mfd.js's placeMapPaneDecorator) could never find both keys on the same page — only
-  // ZOOM (Z+/Z-, both on page 2) ever would. This order keeps each pair whole within a page instead:
-  // MAIN/GRID/FLW/R+/R- fill page 1, WPT/Z+/Z- fill page 2. An action-name list, not NAV items
-  // directly — this module holds no reference to NAV (nav-model.js), so mfd.js maps these onto the
-  // real NAV.map items; split-slots.test.js checks the resulting pairing against NAV.map directly,
-  // so an edit to NAV.map that breaks the pairing (without updating this list to match) fails there
-  // instead of silently shipping a decorator that can never render, the way the ROUTE one first did.
-  const MAP_SPLIT_ORDER = ['main', 'grid', 'flw', 'rt-next', 'rt-prev', 'wpt', 'zin', 'zout'];
+  // NAV.map's own item order for SPLIT pagination (mfd.js's mapSplitItems/mapNavPaneSlice) —
+  // deliberately NOT NAV.map's own full-view order, and (issue #38 follow-up) chosen to mirror the
+  // bezel's own full-view grouping: MAIN/GRID/FLW/Z+/Z- (mfd.js's MAP_FULL_LEFT) fill page 1, then
+  // WPT/R+/R-/W+/W- (MAP_FULL_RIGHT) fill page 2 — mainPageSizes' fixed 5-then-5 split for 10 items
+  // lands exactly on that boundary. An action-name list, not NAV items directly — this module holds
+  // no reference to NAV (nav-model.js), so mfd.js maps these onto the real NAV.map items;
+  // split-slots.test.js checks the resulting pairing against NAV.map directly, so an edit to NAV.map
+  // that breaks the pairing (without updating this list to match) fails there instead of silently
+  // shipping a decorator that can never render, the way the ROUTE one first did.
+  //
+  // Within page 2, R+/R- lead and W+/W- trail the bare 'wpt' entry (rather than wpt/R+/R-/W+/W- in
+  // that literal reading order) because page 2's item slots fill left-bank-then-right-bank: R+/R- on
+  // the left bank (two of its four item slots), then WPT alone, then W+/W- adjacent on the right
+  // bank — every pair lands on one bank, none straddles the left/right boundary the way naming order
+  // alone would put wpt-next/wpt-prev (see split-slots.test.js's per-orientation adjacency check,
+  // which pins this down directly — it caught exactly this class of bug once already).
+  const MAP_SPLIT_ORDER = ['main', 'grid', 'flw', 'zin', 'zout', 'rt-next', 'rt-prev', 'wpt', 'wpt-next', 'wpt-prev'];
 
-  const api = { SPLIT_SLOTS, MAP_SPLIT_ORDER };
+  // R+/R-/W+/W- only mean anything once a route exists to act on (issue #38 follow-up) — every MAP
+  // rendering (full view, split, F-35) drops them entirely rather than showing dead keys, and this
+  // is the one place that says so: MAP_SPLIT_ORDER/mapSplitOrder use it for split-mode pagination
+  // (a pane's MAP list collapses from 10 items to 6 — MAIN/GRID/FLW/Z+/Z-/WPT, exactly a split
+  // pane's 6-key budget — rendering as a single unpaginated page with no PREV/NEXT), and
+  // MAP_FULL_LEFT/RIGHT/mapFullRight below use it for full view and F-35's own left/right grouping.
+  const MAP_ROUTE_ACTIONS = new Set(['rt-next', 'rt-prev', 'wpt-next', 'wpt-prev']);
+  function mapSplitOrder(hasRoute) {
+    return hasRoute ? MAP_SPLIT_ORDER.slice() : MAP_SPLIT_ORDER.filter(function (a) { return !MAP_ROUTE_ACTIONS.has(a); });
+  }
+
+  // MAP's full-view left/right grouping (issue #38 follow-up) — the single source both the classic
+  // bezel (mfd.js's showPage 'map' branch) and the F-35 glass (f35.js's mapNavItems) build their own
+  // placement from, so the two layouts can't silently drift out of sync on which actions land left
+  // vs. right, or which the no-route filter drops — previously each hand-wrote its own copy of both
+  // lists with nothing tying them together. MAIN/GRID/FLW/Z+/Z- always show; WPT/R+/R-/W+/W- via
+  // mapFullRight(hasRoute), which collapses to WPT alone with no active route (same MAP_ROUTE_ACTIONS
+  // filter mapSplitOrder uses above).
+  const MAP_FULL_LEFT  = ['main', 'grid', 'flw', 'zin', 'zout'];
+  const MAP_FULL_RIGHT = ['wpt', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev'];
+  function mapFullRight(hasRoute) {
+    return hasRoute ? MAP_FULL_RIGHT.slice() : MAP_FULL_RIGHT.filter(function (a) { return !MAP_ROUTE_ACTIONS.has(a); });
+  }
+
+  const api = { SPLIT_SLOTS, MAP_SPLIT_ORDER, MAP_ROUTE_ACTIONS, mapSplitOrder, MAP_FULL_LEFT, MAP_FULL_RIGHT, mapFullRight };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SplitSlots = api;
 })(typeof self !== 'undefined' ? self : this);

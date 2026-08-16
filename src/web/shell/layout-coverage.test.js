@@ -37,7 +37,10 @@ for (const [page, items] of Object.entries(NAV))
 // GLASS_ACTIONS.lyt) rather than naming a page, same as flw/grid/zin/zout below.
 // 'rt-next'/'rt-prev' (issue #38): MAP's route switch — a MAP_ACTIONS/mapSend behaviour on the
 // active waypoint route, same shape as flw/grid/zin/zout, not a destination.
-const BEHAVIOURS = new Set(['flw', 'grid', 'zin', 'zout', 'rng-in', 'rng-out', 'lyt', 'rt-next', 'rt-prev']);
+// 'wpt-next'/'wpt-prev' (issue #38): MAP's manual waypoint step — same shape as rt-next/rt-prev,
+// acting on the active route's progress instead of which route is active.
+const BEHAVIOURS = new Set(['flw', 'grid', 'zin', 'zout', 'rng-in', 'rng-out', 'lyt', 'rt-next', 'rt-prev',
+  'wpt-next', 'wpt-prev']);
 
 const destinations = Object.keys(origin).filter(a => !BEHAVIOURS.has(a)).sort();
 assert.ok(destinations.length > 0, 'no destinations found — NAV or this filter is wrong');

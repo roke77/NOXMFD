@@ -149,6 +149,11 @@
   // everything after it) counts as not-reached. A per-waypoint "reset" button's action.
   function resetWaypoint(index) { return withActiveRoute(route => R.resetProgress(route, index)); }
 
+  // MAP's W+/W- (issue #38): manually step the active route's "next" waypoint by one, without
+  // waiting to fly into proximity range. Just resetProgress by nextIndex+dir — resetProgress already
+  // clamps to [0, waypoints.length], so stepping past either end simply holds at the boundary.
+  function stepWaypoint(dir) { return withActiveRoute(route => R.resetProgress(route, route.nextIndex + dir)); }
+
   // Reset an ENTIRE route's progress back to its start — a per-route "reset" button's action. Takes
   // an explicit id (not just the active route) since every row in the route list gets this button,
   // not only the currently-active one.
@@ -174,7 +179,7 @@
     STORE_KEY, freshRouteName,
     load, save, getActiveRoute, setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute,
     addWaypointToActive, renameWaypoint, removeWaypoint, reorderWaypoint, advanceIfNear,
-    resetWaypoint, resetRoute, exportRoute, importRoute,
+    resetWaypoint, resetRoute, stepWaypoint, exportRoute, importRoute,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WaypointsStore = api;

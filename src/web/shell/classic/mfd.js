@@ -146,16 +146,39 @@ const MAIN_SPLIT_ITEMS = NAV.main.concat(BEZEL_EXTRAS.main)
   .slice()
   .sort(function (a, b) { return a.label.localeCompare(b.label); });
 
-// NAV.map's own order for split pagination — deliberately NOT NAV.map's own full-view order (same
-// divergence MAIN_SPLIT_ITEMS already has from full view's own MAIN placement). The order itself
-// (SplitSlots.MAP_SPLIT_ORDER) lives in split-slots.js, tested there against NAV.map directly —
-// see that constant's own comment for why this reordering exists (the ROUTE decorator bug). Full
-// view is unaffected — it sweeps NAV.map directly (fullViewSlot), not this list.
-const MAP_SPLIT_ITEMS = (function () {
+// action → NAV.map item, shared by every full-view/split MAP ordering below — each is just a list
+// of actions mapped through this once, rather than NAV.map's own array order (issue #38 follow-up:
+// full view now wants a fixed 5-left/5-right split that doesn't line up with NAV.map's own order,
+// same reasoning MAIN's full view already diverges from NAV.main via MAIN_SPLIT_ITEMS).
+const mapItemByAction = (function () {
   const byAction = {};
   NAV.map.forEach(function (item) { byAction[item.action] = item; });
-  return SplitSlots.MAP_SPLIT_ORDER.map(function (a) { return byAction[a]; });
+  return byAction;
 })();
+
+// NAV.map's own order for split pagination — deliberately NOT NAV.map's own full-view order (same
+// divergence MAIN_SPLIT_ITEMS already has from full view's own MAIN placement). The order itself
+// (SplitSlots.MAP_SPLIT_ORDER/mapSplitOrder) lives in split-slots.js, tested there against NAV.map
+// directly — see that constant's own comment for why this reordering exists (the ROUTE decorator
+// bug) and why R+/R-/W+/W- filter out entirely with no active route (issue #38 follow-up, mirroring
+// MAP_FULL_RIGHT below). Read live rather than cached at load, same reason MAP_FULL_RIGHT's route
+// check is: the active route can come and go without a page reload.
+function mapSplitItems() {
+  return SplitSlots.mapSplitOrder(!!WaypointsStore.getActiveRoute()).map(function (a) { return mapItemByAction[a]; });
+}
+
+// MAP's full-view placement (issue #38 follow-up): a fixed 5-left/5-right split instead of the
+// generic 6-then-overflow fullViewSlot sweep every other page uses — MAIN/GRID/FLW/Z+/Z- read as
+// "map view controls" on the left, WPT/R+/R-/W+/W- as "waypoint controls" on the right. The action
+// lists themselves (SplitSlots.MAP_FULL_LEFT/RIGHT) live in split-slots.js, shared with f35.js's own
+// glass placement so the two layouts can't drift apart — see that module's own comment. showPage's
+// 'map' branch conditionally drops rt-next/rt-prev/wpt-next/wpt-prev from the right list (via
+// SplitSlots.mapFullRight) when no route is active — WPT itself always stays, since it's how a pilot
+// gets a route in the first place.
+const MAP_FULL_LEFT = SplitSlots.MAP_FULL_LEFT.map(function (a) { return mapItemByAction[a]; });
+function mapFullRight(hasRoute) {
+  return SplitSlots.mapFullRight(hasRoute).map(function (a) { return mapItemByAction[a]; });
+}
 
 // Which pages draw an OPAQUE full-view overlay. MAIN paints a panel over the still-running map, and
 // LAYOUT is a menu with nothing of its own behind it; every other page is transparent (its content
@@ -220,8 +243,8 @@ const buildWpnSplitPages = ClassicPaging.buildWpnSplitPages;
 let paneMainPage = [0, 0];
 
 // Per-pane MAP pagination index — NAV.map paged across the pane's keys the same way MAIN's list
-// is (mapNavPaneSlice), since issue #38's R+/R- pushed NAV.map's 8 items past a split pane's 6-key
-// budget. Reset to 0 when a pane (re)enters MAP (paneNavigate).
+// is (mapNavPaneSlice), since issue #38's R+/R- and W+/W- pushed NAV.map's 10 items past a split
+// pane's 6-key budget. Reset to 0 when a pane (re)enters MAP (paneNavigate).
 let paneMapNavPage = [0, 0];
 
 // Latest connection status mirrored from the map iframe — kept so we can push the
@@ -374,7 +397,7 @@ function mainPaneSlice(idx) {
 
 // This pane's slice of MAP_SPLIT_ITEMS, same shape as mainPaneSlice above (issue #38).
 function mapNavPaneSlice(idx) {
-  const slice = ClassicPaging.mainPaneSlice(MAP_SPLIT_ITEMS, paneMapNavPage[idx]);
+  const slice = ClassicPaging.mainPaneSlice(mapSplitItems(), paneMapNavPage[idx]);
   paneMapNavPage[idx] = slice.pageIndex;
   return slice;
 }
@@ -434,6 +457,7 @@ function renderSplitLabels() {
       // drawn wrong, same reasoning as WPN's MASTER/MODE split-pane decorators.
       placeMapPaneDecorator(positions, cells, 'zin', 'zout', 'ZOOM');
       placeMapPaneDecorator(positions, cells, 'rt-next', 'rt-prev', 'ROUTE');
+      placeMapPaneDecorator(positions, cells, 'wpt-next', 'wpt-prev', 'WYPT');
       continue;
     }
 
@@ -1120,6 +1144,12 @@ function placeMapDecorators(zinKey) {
 function placeMapRouteDecorator(rPlusKey) {
   placeWpnDecorator(rPlusKey.bank, rPlusKey.index + 1, 'ROUTE', '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
+// MAP's WYPT decorator (issue #38) — W+/W- manually step the active waypoint, same word+triangle
+// treatment as ROUTE. Takes W+'s own physical key; full-view only (SPLIT_SLOTS doesn't apply to MAP —
+// see placeMapPaneDecorator for the split-pane twin).
+function placeMapWptDecorator(wPlusKey) {
+  placeWpnDecorator(wPlusKey.bank, wPlusKey.index + 1, 'WYPT', '6,0 12,8 0,8', '0,0 12,0 6,8');
+}
 // RDR's twin (issue #40 follow-up) — RANGE between R+/R-, same word+triangle treatment. Takes R+'s
 // own physical key, same reasoning as placeMapDecorators: SPLIT_SLOTS.rdr keeps R+/R- adjacent
 // (slot 1/2) on the same bank in every context, so index+1 is always the separator between them.
@@ -1444,6 +1474,19 @@ function showPage(name) {
       const bank = i < 6 ? 'left' : 'right';
       placeOverlayLabel(bank, i < 6 ? i : i - 6, item.label, item.action);
     });
+  } else if (name === 'map') {
+    // MAP_FULL_LEFT/RIGHT (issue #38 follow-up), not the generic NAV sweep — see their own comment.
+    MAP_FULL_LEFT.forEach(function (item, i) { placeOverlayLabel('left', i, item.label, item.action); });
+    // rt-next/rt-prev/wpt-next/wpt-prev only show — and so only work, since clearKeyActions already
+    // wiped every key's action and nothing reassigns a skipped one's — while a route exists to act
+    // on. WPT (index 0) always shows regardless.
+    const hasRoute = !!WaypointsStore.getActiveRoute();
+    mapFullRight(hasRoute).forEach(function (item, i) { placeOverlayLabel('right', i, item.label, item.action); });
+    placeMapDecorators({ bank: 'left', index: 3 });                  // ZOOM between Z+/Z- (left3/left4)
+    if (hasRoute) {
+      placeMapRouteDecorator({ bank: 'right', index: 1 });           // ROUTE between R+/R- (right1/right2)
+      placeMapWptDecorator({ bank: 'right', index: 3 });             // WYPT between W+/W- (right3/right4)
+    }
   } else {
     // Bezel full-view rendering of the navigation model: item i → left-column key i. `mark` lights
     // an item active (e.g. NAV.bdf/NAV.pal flagging whichever of BDF/PAL is the current page).
@@ -1458,11 +1501,6 @@ function showPage(name) {
       placeOverlayLabel(item.bank, item.index, item.label, item.action, item.mark);
     });
   }
-
-  // MAP's labels come entirely from the generic NAV sweep above (no page-owned function like
-  // WPN's) — just add the ROUTE/ZOOM decorators once those labels exist. R+ is NAV.map[4]
-  // (fullViewSlot(4) = left4), Z+ is NAV.map[6] (fullViewSlot(6) = right0, past the overflow).
-  if (name === 'map') { placeMapRouteDecorator(fullViewSlot(4)); placeMapDecorators(fullViewSlot(6)); }
 
   // RDR's twin — RANGE decorator between R+/R-. R+ is NAV.rdr[1], so fullViewSlot(1) is its
   // physical key in full view (left1).
@@ -1923,9 +1961,9 @@ function reportPanes() {
 }
 
 // ── PAD cursor forwarding (docs/page-cursor.md, docs/map-cursor.md) ───────────────────
-// Pages that carry their own PAD cursor (pad-cursor.js) — MAP's canvas crosshair, and TGT/HUD's
-// DOM-hit-test cursor. BDF/PAL stays out: read-only, nothing to click (docs/page-cursor.md).
-const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true };
+// Pages that carry their own PAD cursor (pad-cursor.js) — MAP's canvas crosshair, and TGT/HUD/RDR/
+// WPT's DOM-hit-test cursor. BDF/PAL stays out: read-only, nothing to click (docs/page-cursor.md).
+const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true };
 
 // The focused surface is drivable as a PAD cursor only while it's actually SHOWING an eligible
 // page — the SOI ring/bezel-key cursor above frames "the recess," but the cursor needs the real
@@ -2074,10 +2112,12 @@ function mfdButton(el) {
       splitMode = false;
       currentPage = 'lyt';
       applySplitMode();
-    } else if (act === 'flw' || act === 'zin' || act === 'zout' || act === 'grid' || act === 'rt-next' || act === 'rt-prev') {
+    } else if (act === 'flw' || act === 'zin' || act === 'zout' || act === 'grid' || act === 'rt-next' || act === 'rt-prev'
+        || act === 'wpt-next' || act === 'wpt-prev') {
       // MAP controls act on the pane's own map iframe — they don't navigate it away.
       paneMapSend(paneIdx, act === 'flw' ? 'toggle-follow' : act === 'zin' ? 'zoom-in' : act === 'zout' ? 'zoom-out'
-        : act === 'grid' ? 'toggle-grid' : act === 'rt-next' ? 'route-next' : 'route-prev');
+        : act === 'grid' ? 'toggle-grid' : act === 'rt-next' ? 'route-next' : act === 'rt-prev' ? 'route-prev'
+        : act === 'wpt-next' ? 'waypoint-next' : 'waypoint-prev');
     } else if (act === 'rng-in' || act === 'rng-out') {
       // RDR's range rocker acts on the pane's own iframe, same as MAP's zoom above — paneMapSend
       // just posts to whichever iframe is in this pane, not MAP-specific despite the name. Reuses
@@ -2150,6 +2190,8 @@ function mfdButton(el) {
     case 'grid': mapSend('toggle-grid'); break;
     case 'rt-next': mapSend('route-next'); break;   // switch the active waypoint route (issue #38)
     case 'rt-prev': mapSend('route-prev'); break;
+    case 'wpt-next': mapSend('waypoint-next'); break;   // manually step the active waypoint (issue #38)
+    case 'wpt-prev': mapSend('waypoint-prev'); break;
     // RDR's range rocker — mapSend() targets mapFrame specifically, wrong for RDR (a #page-frame
     // page), so this posts to frameWin() instead. Same 'zoom-in'/'zoom-out' action names as MAP's
     // zin/zout above (issue #40 follow-up): reused, not new, so SOI's Zoom In/Out keybind (which
@@ -2252,6 +2294,17 @@ window.addEventListener('resize', function() {
   else           showPage(currentPage);
   positionSoiRing();   // the recess/panes resized — keep the ring on the focused surface
 });
+// MAP's R+/R-/W+/W- visibility depends on whether a route exists (showPage's 'map' branch,
+// mapSplitItems' split-pane twin) — a route created/deleted from the WPT page or a first long-press
+// placed on MAP itself both write localStorage from a DIFFERENT document (the wpt/map iframe),
+// which is exactly what fires 'storage' here (same-document writes don't fire their own document's
+// listener). Re-render live to pick that up while MAP is showing, in full view or a split pane.
+window.addEventListener('storage', function(e) {
+  if (e.key !== WaypointsStore.STORE_KEY) return;
+  if (splitMode) { if (panePages.indexOf('map') !== -1) renderSplitLabels(); }
+  else if (currentPage === 'map') showPage('map');
+});
+
 loadConfigUrls();
 showPage('main');   // start on the MAIN page
 flickerScreen();    // CRT boot flicker on first load

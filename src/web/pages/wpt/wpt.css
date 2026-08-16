@@ -10,6 +10,13 @@ html::-webkit-scrollbar { width: 6px; height: 6px; }
 html::-webkit-scrollbar-track { background: transparent; }
 html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
 
+/* PAD cursor (docs/page-cursor.md): the shared .pad-cursor is position:absolute, which assumes a
+   non-scrolling body (true for MAP/TGT/HUD's fixed-size panels) — WPT's own body scrolls (above),
+   so an absolute crosshair would drift away with the page instead of staying where the pilot parked
+   it. position:fixed anchors it to the viewport instead; wpt.js's clampRect matches, using the
+   viewport's own bounds rather than a panel's getBoundingClientRect(). */
+#pad-cursor { position: fixed; }
+
 .wpt-panel {
   max-width: 620px;
   margin: 0 auto;
@@ -32,6 +39,15 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   color: var(--no-green);
   text-align: center;
   margin-bottom: 14px;
+}
+
+.wpt-help {
+  max-width: 460px;
+  margin: 0 auto 16px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--no-gray);
+  text-align: center;
 }
 
 .wpt-readout {
