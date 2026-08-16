@@ -133,11 +133,11 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **CFG** — a three-way switch bundling settings pages that don't need their own MAIN key: **KEY**
-  is the extended-keybinds editor (bind a keyboard key and a joystick/HOTAS button to each of the
-  mod's own cockpit functions — see [Extended Keybinds](#extended-keybinds) below), **LYT** is the
-  layout chooser (switch the display to a different shell layout), and **RTS** tunes the mod's
-  live data-refresh rates (below).
+- **CFG** — a dedicated page containing configuration options: **KEY** is the extended-keybinds
+  editor (bind a keyboard key and a joystick/HOTAS button to each of the mod's own cockpit
+  functions — see [Extended Keybinds](#extended-keybinds) below), **LYT** is the layout chooser
+  (switch the display to a different shell layout), and **RTS** tunes the mod's live
+  data-refresh rates (below).
 
 - **HUD** — a remote for the game's in-cockpit HUD OPTIONS: mode tabs (NAV/GUN/A2A/…) and per-category / per-type toggles for which unit icons show on the HUD, plus a declutter strip that hides native HUD widgets — the weapon panel, corner minimap, and boxed flight readouts.
 
