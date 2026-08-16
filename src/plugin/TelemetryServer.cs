@@ -689,6 +689,8 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/mis/mis.html");
                     else if (path == "/obj")
                         ServeAssetRel(ctx, "pages/obj/obj.html");
+                    else if (path == "/wpt")
+                        ServeAssetRel(ctx, "pages/wpt/wpt.html");
                     else if (path == "/hud")
                         ServeAssetRel(ctx, "pages/hud/hud.html");
                     else if (path == "/keybinds")

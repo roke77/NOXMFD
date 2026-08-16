@@ -470,12 +470,13 @@ function drawWaypoints() {
   oc.save();
   oc.setLineDash([6, 5]);
   oc.lineWidth = 1.5;
-  // Segment i->i+1 is drawn gray when its START (waypoint i) is already reached — i.e. every
-  // segment already flown, including the one leading up to the current "next" waypoint.
+  // Segment i->i+1 is drawn gray only when BOTH ends are already reached (i+1 < nextIndex) — the
+  // one leading INTO the current "next" waypoint shares its far end with nextIndex, so it stays the
+  // active line color instead, the same leg the WPT readout's bearing/distance is tracking.
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i], b = pts[i + 1];
     if (a.cx == null || b.cx == null) continue;
-    oc.strokeStyle = i < waypointRoute.nextIndex ? WPT_REACHED_COLOR : WPT_LINE_COLOR;
+    oc.strokeStyle = i + 1 < waypointRoute.nextIndex ? WPT_REACHED_COLOR : WPT_LINE_COLOR;
     oc.beginPath();
     oc.moveTo(a.cx, a.cy);
     oc.lineTo(b.cx, b.cy);
@@ -1032,7 +1033,11 @@ window.addEventListener('message', function(e) {
     // THIS map is the SOI's focused surface, so no further gating is needed here.
     case 'cursor-focus':  cursor.setFocus(!!m.on, overlay.width / 2, overlay.height / 2); break;
     case 'cursor':        cursor.setVector(m.x, m.y); break;
-    case 'cursor-select': cursor.select(); break;
+    // MAP registers onHold (waypoint placement), so it needs the LIVE held state, not the plain
+    // edge-driven 'cursor-select' every other page uses — that fires onSelect() straight away and
+    // would make Cursor Select's hold arbitration (pad-cursor.js's setSelectHeld) unreachable, same
+    // as a mouse click short-circuiting tgt.js's own long-press timer.
+    case 'cursor-held':   cursor.setSelectHeld(!!m.held); break;
   }
 });
 
