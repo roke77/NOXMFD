@@ -101,6 +101,18 @@ namespace NOXMFD
             _                      => IsMissile,
         };
 
+        // Same restriction, applied to Weapon Release's own switch-then-fire stage (issue: a GUN
+        // selected in A/G mode with only A/A missiles loaded could still switch to one on Weapon
+        // Release, overriding the mode — Cycle Missile already blocked this, Weapon Release didn't).
+        // Bombs stay excluded entirely in A/A (mirrors CycleBomb's own no-op there); a Bomb already
+        // selected when entering A/A is handled separately by OnCombatModeChanged.
+        private static Func<WeaponInfo, bool> ReleaseFilter() => ImmersionState.CombatMode switch
+        {
+            CombatMode.AirToAir    => i => IsMissile(i) && IsAirToAir(i),
+            CombatMode.AirToGround => i => (IsMissile(i) && !IsAirToAir(i)) || IsBomb(i),
+            _                      => IsRelease,
+        };
+
         private static string CycleAndSelect(Aircraft ac, Func<WeaponInfo, bool> cls, string soft)
         {
             Follow(ac);
@@ -164,7 +176,7 @@ namespace NOXMFD
         // The entry a fire key would commit right now: the soft selection if it's still a live entry
         // of the class, else the first entry of the class, else null. Also what the WPN page outlines.
         public static string EffectiveGun(Aircraft ac)       => Effective(ac, IsGun,       _softGun);
-        public static string EffectiveRelease(Aircraft ac)   => Effective(ac, IsRelease,   _softRel);
+        public static string EffectiveRelease(Aircraft ac)   => Effective(ac, ReleaseFilter(), _softRel);
         public static string EffectiveJammerPod(Aircraft ac) => Effective(ac, IsJammerPod, _softJam);
 
         private static string Effective(Aircraft ac, Func<WeaponInfo, bool> cls, string soft)
