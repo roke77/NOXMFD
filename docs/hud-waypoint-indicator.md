@@ -161,6 +161,35 @@ styled, positioned, and clamped by the game), so the first increment tests the
 data plumbing rather than testing two unknowns at once. Add A afterwards, once
 there's a known-good waypoint position arriving on the plugin side.
 
+## Design A's UI, settled
+
+Reviewed as an interactive mockup and approved. The tape, its ticks and
+labels, and the green centre caret stay vanilla; the additions are a coloured
+bug on the tape and a two-line waypoint readout at the tape's top right
+(`WPT 3 · RIDGE` over `12.4 km · brg 045`).
+
+The 90° window is the constraint that shapes the rest. A bug is only
+meaningful within ±45° of the nose, which is narrow enough that clamping it
+silently at the tape's end would be actively misleading during a turn — the
+cue would sit still while the aircraft swings. So the bug has two states:
+
+- **On tape** (`|relBearing| <= 45`): a downward caret at
+  `relativeBearing * (tapeWidth / 90)` from centre, with a short stem.
+- **Off tape** (`|relBearing| > 45`): the caret becomes a sideways arrow
+  pinned at the tape edge it left, pointing the way to turn. A waypoint 130°
+  right reads as "turn right, a lot" rather than as a stalled marker.
+
+Colour: **amber**, distinct from HUD green. It separates the cue from the tick
+labels immediately behind it, which the green variant competes with. The cost
+is that it ignores the player's `hudColorR/G/B` setting, unlike every native
+HUD element — accepted, since legibility against the tape matters more here
+than matching a colour the player chose for a different purpose.
+
+Two things the mockup does not settle: tick interval and glyph style are baked
+into the compass texture and were reconstructed rather than read, and the
+whole layout rests on the zero-offset assumption below. Both want an in-game
+check before the bug's absolute placement is trusted.
+
 ## Lifecycle
 
 The HUD is rebuilt per aircraft spawn — `HUDAppManager` unsubscribes and
@@ -194,9 +223,9 @@ that component, rather than adding a second MonoBehaviour with its own timer.
 - Whether the cloned overlay needs `SetRaycastTarget(false)`. The objective
   overlays are click targets in some contexts; a waypoint cue that eats clicks
   meant for target selection would be a regression.
-- Colour. `PlayerSettings.hudColorR/G/B` is what `HUDApp.RefreshSettings`
-  uses; matching it keeps the cue consistent with player HUD settings, but a
-  deliberately distinct colour may read better against objective markers.
+- Whether design B's cloned overlay should also be amber, or keep the game's
+  objective colouring. Design A is settled (above); B sits among the game's own
+  objective markers, so the tradeoff is different there.
 - Whether the cue should respect `HideTopBoxes` / the declutter strip, or get
   its own toggle. It's an addition, so a new toggle is likely, but it lives in
   the same visual real estate the declutter flags are about.
