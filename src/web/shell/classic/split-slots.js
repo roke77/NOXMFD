@@ -45,13 +45,15 @@
     // filling the left column already; RDR doesn't).
     rdr: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 } ],
     tgt: [ { side: 'left', slot: 0 } ],
-    // BDF/PAL/MIS/OBJ instead get 5: MAIN, then the other three as a direct switch (NAV.bdf/NAV.pal/
-    // NAV.mis/NAV.obj), index-aligned with this list. Left holds MAIN+BDF+PAL (its full 0..2 budget);
-    // MIS/OBJ spill onto the right column's own 0..2 budget, nothing else uses it here.
-    bdf: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
-    pal: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
-    mis: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
-    obj: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
+    // AKF/BDF/PAL/MIS/OBJ instead get 6: MAIN, then the other four as a direct switch (NAV.akf/
+    // NAV.bdf/NAV.pal/NAV.mis/NAV.obj), index-aligned with this list. Left holds MAIN+AKF+MIS (its
+    // full 0..2 budget); OBJ/BDF/PAL spill onto the right column's own 0..2 budget — issue #34
+    // fills the right column's last free slot (2), previously unused by this group.
+    akf: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
+    bdf: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
+    pal: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
+    mis: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
+    obj: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
     hud: [ { side: 'left', slot: 0 } ],
     // CFG group (issue #39): KEY/LYT/RTS switch directly between each other, same shape as
     // BDF/PAL/MIS/OBJ above but only 4 items — MAIN+KEY+LYT fill the left column's 0..2 budget, RTS

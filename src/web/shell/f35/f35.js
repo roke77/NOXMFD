@@ -78,6 +78,7 @@
     pal: ['pal'],             // same, for PRIMEVA
     mis: ['mis'],             // mission-info block (docs/mdt-pages.md)
     obj: ['obj'],             // active-objectives list (docs/mdt-pages.md)
+    akf: ['akf'],             // kill-feed/session-stats block (docs/akf-page.md)
     rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
     wpt: ['mapinfo'],         // position/heading/map-meta for the waypoint readout (issue #38)
   };
@@ -112,14 +113,15 @@
   // MAIN — so a pilot finds the same names in the same place in either layout.
   //
   // MDT (2026-08-15) replaces what used to be separate PAL/BDF entries — mirrors the bezel's own
-  // SCR→MDT rename and BDF/PAL fold. Action still 'bdf'; NAV.bdf/NAV.pal (shared, consumed
-  // generically at line ~390 below) carry the MAIN/BDF/PAL sub-nav once you're on either page, with
-  // `mark` lighting whichever is current — nothing here needed to change for that part, since this
-  // layout already renders NAV[page] like any other.
+  // SCR→MDT rename and BDF/PAL fold. Action now 'akf' (issue #34 follow-up: AKF joined the group as
+  // its default landing page, was 'bdf'); NAV.akf/NAV.mis/NAV.obj/NAV.bdf/NAV.pal (shared, consumed
+  // generically at line ~390 below) carry the MAIN/AKF/MIS/OBJ/BDF/PAL sub-nav once you're on any of
+  // them, with `mark` lighting whichever is current — nothing here needed to change for that part,
+  // since this layout already renders NAV[page] like any other.
   const MAIN_EXTRAS = [
     { label: 'HUD', action: 'hud' },
     { label: 'CFG', action: 'keys' },
-    { label: 'MDT', action: 'bdf' },
+    { label: 'MDT', action: 'akf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md) — mirrors BEZEL_EXTRAS.main
     { label: 'AFM', action: 'afm' },   // → AFM airframe page — mirrors BEZEL_EXTRAS.main
   ];

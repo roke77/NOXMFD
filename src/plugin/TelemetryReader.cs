@@ -91,6 +91,17 @@ namespace NOXMFD
         private ObjEntry[] _obj = Array.Empty<ObjEntry>();
         private readonly List<MissionPosition.PositionResult> _objPosScratch = new List<MissionPosition.PositionResult>();
 
+        // AKF advanced kill feed (docs/akf-page.md). Kill events accumulate on AkfTracker in real
+        // time via Harmony hooks (HarmonyPatches.cs); this just snapshots its state at the same 1 Hz
+        // cadence BDF/MIS/OBJ already refresh at — kill-feed lines and session tallies don't need to
+        // be re-serialized every 100ms.
+        private readonly AkfTracker _akf = new AkfTracker();
+        private AkfKillEntry[] _akfAll    = Array.Empty<AkfKillEntry>();
+        private AkfKillEntry[] _akfPlayer = Array.Empty<AkfKillEntry>();
+        private int   _akfKillsAircraft, _akfKillsShip, _akfKillsVehicle, _akfKillsBuilding;
+        private int   _akfRank;
+        private float _akfFundsGained, _akfFundsSpent;
+
         // The game's HUD faction colors, read once from GameAssets.
         private string _colFriendly = "#39ff14";
         private string _colHostile  = "#ff4040";
@@ -138,6 +149,13 @@ namespace NOXMFD
         // out of the same _units scan BuildRdr/ScanWorld already do — Missile IS a Unit subclass, so
         // no extra enumeration source is needed. Reused buffer, same reasoning as _mwBuf.
         private readonly List<PitbullContact> _pitbullBuf = new List<PitbullContact>(4);
+
+        // Publishes _akf so the Harmony kill/weapon-attribution patches (HarmonyPatches.cs) — static,
+        // with no other way to reach the live mission's tracker — can record into it.
+        private void Awake()
+        {
+            AkfTracker.Active = _akf;
+        }
 
         private void Update()
         {
@@ -239,6 +257,30 @@ namespace NOXMFD
             BuildPal();
             BuildMis();
             BuildObj();
+            BuildAkf();
+        }
+
+        // AKF advanced kill feed (docs/akf-page.md) — snapshots AkfTracker's live, Harmony-fed state.
+        private void BuildAkf()
+        {
+            _akf.TickFunds();
+            _akf.TickRank();
+            _akfAll            = ToArray(_akf.AllFeed);
+            _akfPlayer         = ToArray(_akf.PlayerFeed);
+            _akfKillsAircraft  = _akf.KillsAircraft;
+            _akfKillsShip      = _akf.KillsShip;
+            _akfKillsVehicle   = _akf.KillsVehicle;
+            _akfKillsBuilding  = _akf.KillsBuilding;
+            _akfRank           = _akf.Rank;
+            _akfFundsGained    = _akf.FundsGained;
+            _akfFundsSpent     = _akf.FundsSpent;
+        }
+
+        private static AkfKillEntry[] ToArray(IReadOnlyList<AkfKillEntry> list)
+        {
+            var arr = new AkfKillEntry[list.Count];
+            for (int i = 0; i < list.Count; i++) arr[i] = list[i];
+            return arr;
         }
 
         // MIS mission-info panel (docs/mdt-pages.md) — mirrors ObjectiveInfoList.UpdateMissionInfo /
@@ -833,7 +875,16 @@ namespace NOXMFD
                 MisScore       = _misScore,
                 MisLevel       = _misLevel,
                 ObjPresent     = _objPresent,
-                Obj            = _obj
+                Obj            = _obj,
+                AkfAll             = _akfAll,
+                AkfPlayer          = _akfPlayer,
+                AkfKillsAircraft   = _akfKillsAircraft,
+                AkfKillsShip       = _akfKillsShip,
+                AkfKillsVehicle    = _akfKillsVehicle,
+                AkfKillsBuilding   = _akfKillsBuilding,
+                AkfRank            = _akfRank,
+                AkfFundsGained     = _akfFundsGained,
+                AkfFundsSpent      = _akfFundsSpent
             });
         }
 
@@ -1304,6 +1355,7 @@ namespace NOXMFD
         {
             _tgp.Disengage();
             if (_rwrSubscribed != null) { _rwrSubscribed.onRadarWarning -= OnRadarWarning; _rwrSubscribed = null; }
+            if (AkfTracker.Active == _akf) AkfTracker.Active = null;
         }
     }
 }

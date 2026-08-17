@@ -157,10 +157,12 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **MDT** (Mission Data Table) — a four-way switch: BDF/PAL are read-only replicas of the game's faction Forces panel, one per fixed identity (BOSCALI/PRIMEVA) — warheads, score, and funds, plus a ships/buildings/vehicles/aircraft breakdown. MIS shows the mission's name, in-mission clock/duration, escalation score/level, and full description text. OBJ lists the player faction's currently active objectives with status, completion percent, and collapsible per-objective position sub-rows (grid label + live range).
+- **MDT** (Mission Data Table) — a five-way switch, landing on **AKF** by default: a live replica of the game's own kill-feed ticker, split into an ALL column (everyone's kills) and a PLAYER column (yours — weapon name attached where resolvable, plus "incoming" lines when you're the one shot down or your own ordnance gets intercepted), with session kill tally, funds gained/spent, and your current rank below. **BDF/PAL** are read-only replicas of the game's faction Forces panel, one per fixed identity (BOSCALI/PRIMEVA) — warheads, score, and funds, plus a ships/buildings/vehicles/aircraft breakdown. **MIS** shows the mission's name, in-mission clock/duration, escalation score/level, and full description text. **OBJ** lists the player faction's currently active objectives with status, completion percent, and collapsible per-objective position sub-rows (grid label + live range).
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![AKF page](docs/images/AKF.png)
 
   ![BDF page](docs/images/BDF.png)
 
