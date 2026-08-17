@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — AKF</title>
+<!--
+  Bare AKF page served at /akf — the advanced kill feed (issue #34), currently a scaffold with no
+  content yet: layout/nav wiring only, investigation and implementation to follow once approved.
+  Renders full-view in #page-frame and as a split pane, like BDF/PAL/MIS/OBJ — its bezel keys are
+  the shared MDT switch (NAV.akf: MAIN + AKF + MIS + OBJ + BDF + PAL), reached from MAIN via MDT
+  (BEZEL_EXTRAS.main, action 'akf' lands on this page — AKF is the MDT group's default landing page;
+  NAV.akf marks this one). See docs/mdt-pages.md.
+
+  Shell -> page messages: none yet — no telemetry feed wired (PAGE_FEEDS has no 'akf' entry).
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/akf/akf.css">
+</head>
+<body>
+  <div class="akf-empty mfd-empty">
+    <span class="mfd-empty-title">AKF</span>&mdash; UNAVAILABLE &mdash;
+  </div>
+</body>
+</html>

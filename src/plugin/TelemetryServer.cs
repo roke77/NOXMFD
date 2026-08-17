@@ -683,6 +683,8 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/rdr/rdr.html");
                     else if (path == "/tgt")
                         ServeAssetRel(ctx, "pages/tgt/tgt.html");
+                    else if (path == "/akf")
+                        ServeAssetRel(ctx, "pages/akf/akf.html");
                     else if (path == "/bdf")
                         ServeAssetRel(ctx, "pages/bdf/bdf.html");
                     else if (path == "/mis")

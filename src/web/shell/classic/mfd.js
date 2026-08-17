@@ -110,12 +110,12 @@ function fullViewSlot(i) { return i < 6 ? { bank: 'left', index: i } : { bank: '
 const BEZEL_EXTRAS = {
   // HUD, CFG, MDT, RDR and AFM — the layout-owned MAIN items the six shared NAV items don't
   // cover. HUD opens the HUD OPTIONS #page-frame page; CFG the keybinds page, which now carries
-  // KEY/LYT/RTS as a sibling group (NAV.keys, cfg-rates experiment issue #39 — mirrors MDT/BDF/PAL
-  // below: action stays 'keys', same as MDT staying 'bdf'); MDT (Mission Data Table) the
-  // faction-forces panel for the two fixed identities BOSCALI/PRIMEVA — not "mine vs the enemy's"
-  // (docs/bdf-page.md) — landing on BDF by default, with PAL a switch away via NAV.bdf/NAV.pal
-  // rather than its own MAIN entry; AFM shows the aircraft name + damage silhouette (split out of
-  // AVN, which is avionics only now).
+  // KEY/LYT/RTS as a sibling group (NAV.keys, cfg-rates experiment issue #39 — mirrors MDT's own
+  // sibling group below: action stays 'keys', same as MDT staying 'akf'); MDT (Mission Data Table)
+  // folds AKF/MIS/OBJ/BDF/PAL together — landing on AKF by default (issue #34 follow-up; the other
+  // four are a switch away via NAV.akf/NAV.mis/NAV.obj/NAV.bdf/NAV.pal) rather than its own MAIN
+  // entry; AFM shows the aircraft name + damage silhouette (split out of AVN, which is avionics
+  // only now).
   // All are frame-hosted pages that get their MAIN back from NAV like every other, so none needs an
   // entry of its own here beyond this one.
   // No bank/index/mark here (unlike lyt below): MAIN_SPLIT_ITEMS is the only consumer, in both full
@@ -124,7 +124,7 @@ const BEZEL_EXTRAS = {
   main: [
     { label: 'HUD', action: 'hud' },
     { label: 'CFG', action: 'keys' },
-    { label: 'MDT', action: 'bdf' },
+    { label: 'MDT', action: 'akf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
   ],
@@ -379,7 +379,7 @@ function placeSplitKey(m, label, action, paneTag, mark) {
 // need the narrow vertical treatment, but now has MAIN + R+ + R- and reads fine horizontal.
 // KEY dropped out too (cfg-rates experiment, issue #39): the CFG group's nav labels read fine
 // horizontal, per user preference — its table header sits far enough from the bezel edge.
-function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
+function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
@@ -1561,9 +1561,13 @@ function showPage(name) {
     forwardTgtToFrame();
     forwardTgtTargetsToFrame();
   }
-  // BDF renders in #page-frame too. Its bezel keys are MAIN/BDF/PAL (NAV.bdf, placed by the generic
-  // sweep above, `mark` lighting BDF since this is that page) — reached from MAIN via MDT
-  // (BEZEL_EXTRAS.main, action 'bdf') and carried into a split via SPLIT_SLOTS.bdf. Forward state.
+  // AKF renders in #page-frame too — same MDT family as BDF/PAL/MIS/OBJ (NAV.akf marks AKF instead).
+  // Scaffold only for now (issue #34): no telemetry feed wired yet, so nothing to forward.
+  if (name === 'akf') showFramePage('akf');
+  // BDF renders in #page-frame too. Its bezel keys are MAIN/AKF/MIS/OBJ/BDF/PAL (NAV.bdf, placed by
+  // the generic sweep above, `mark` lighting BDF since this is that page) — reached from MAIN via
+  // MDT (BEZEL_EXTRAS.main, action 'akf' lands on AKF instead) and carried into a split via
+  // SPLIT_SLOTS.bdf. Forward state.
   if (name === 'bdf') {
     showFramePage('bdf');
     forwardBdfToFrame();
@@ -2187,6 +2191,7 @@ function mfdButton(el) {
     case 'rwr':  showPage('rwr');  break;
     case 'rdr':  showPage('rdr');  break;
     case 'tgt':  showPage('tgt');  break;
+    case 'akf':  showPage('akf');  break;
     case 'bdf':  showPage('bdf');  break;
     case 'pal':  showPage('pal');  break;
     case 'mis':  showPage('mis');  break;
