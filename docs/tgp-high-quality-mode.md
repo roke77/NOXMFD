@@ -78,11 +78,14 @@ their numbers — see the sequencing note below the table.
 | 11 | Swap the game's camera to a larger RT | Reuses the free render at a higher resolution | S | ↑↑ | ↑↑ | Parked, not closed — see below. Run #12 first; it may make this moot |
 | 12 | Ask whether the game already has a higher-res path | Triggers an existing quality path instead of building one | S | ? | ↑↑ | Upstream of #3 and #11 — if `TargetCam` renders larger in some context (zoomed/expanded targeting view), high quality costs nothing extra |
 | 13 | Verify we capture the authoritative texture | Possibly fixes picture quality with no cost change | XS | — | ↑? | A quality-bug hypothesis, not an optimisation. Compare the page against the cockpit screen side by side |
+| 14 | MSAA on the capture RT | Antialiases the feed instead of enlarging it | S | ↑ GPU, **no readback change** | ↑ | The only quality lever that spends on a different axis than the bottleneck. May buy more perceived sharpness per transmitted byte than resolution does |
 
 **Sequencing.** First batch: **#1, #2, #12, #13** — all XS/S, all either
 free information or a small change on the measured bottleneck, and #12
 can invalidate the two most expensive entries before any effort goes into
-them. Only then choose between #3 and #11.
+them. **#14** is a natural companion to #2, since together they trade
+colour for smoothness at constant bandwidth. Only then choose between #3
+and #11.
 
 ### On #11
 
@@ -154,6 +157,76 @@ correctness bug rather than a cost or quality question, so it is not a
 menu entry — it wants its own ticket, and reproducing it deliberately
 (connect a client before the first frame exists) is the first step.
 
+## Reference implementation: the MissileCamera rig
+
+The same reading turned up something more useful than the integration
+itself. The base "Missile Camera" mod (`Mursisru/MissileCamera`) is a
+**working implementation of menu entry #3, in this game and this Unity
+version** — a self-created camera rendering to its own RenderTexture at
+player-configurable resolution. Several of this document's open questions
+are answered there rather than needing to be rediscovered.
+
+What it establishes:
+
+- **Render-on-demand works.** Its rig creates a camera, holds it
+  `enabled = false`, and drives it with explicit `Camera.Render()` at a
+  config-driven rate (default 30 fps), decoupled from the game's
+  framerate. It mirrors a reference camera's `cullingMask`, `allowHDR`,
+  `allowMSAA` and `clearFlags`, caching so it only writes on change.
+- **High resolution is viable.** Feed size is configurable, clamped
+  128-2048 for its panel path and 640-3840 for fullscreen.
+- **The URP requirement and the particle caveat** — both folded into the
+  render-on-demand section above.
+- **An HDR intermediate is real, not hypothetical.** The rig keeps a
+  second `ARGBHalf` RenderTexture and blits through it for its
+  thermal/NVG modes. This is the concrete basis for menu entry #13:
+  a camera's `targetTexture` is not necessarily the final picture.
+
+Practices worth copying:
+
+- **Zoom via FOV, never by reallocating the RT.** Its quality-scale
+  helper is hardcoded to 1 with the note that optical zoom must not
+  recreate RT buckets. `TgpFeed` currently reallocates whenever source
+  dimensions change; coupling resolution to zoom would reproduce exactly
+  the stutter that rule exists to prevent.
+- RT recipe: depth buffer 16, `useMipMap = false`,
+  `autoGenerateMips = false`, `filterMode` chosen by context (Point when
+  showing a feed 1:1, Bilinear when scaling).
+- MSAA sample count matched to the pipeline — the basis for menu entry #14.
+
+### Camera safety constraints in this game
+
+That mod ships a `CAMERA_SAFETY.md` written after breaking these. It
+forbids modifying `CameraStateManager.mainCamera` transform/FOV/nearClip,
+`cameraPivot` parent/pose/scale, or `cameraMode`, and forbids Harmony
+-blocking `CameraBaseState.UpdateState`.
+
+The stated cause is the part that matters here: reparenting left
+`cameraPivot` with huge local offsets **because of FloatingOrigin plus
+`cockpitViewPoint`**, and on exit the stock cockpit camera flew out of
+bounds.
+
+Nuclear Option runs a floating-origin system. This document's plan parents
+a new camera to `TargetCam.GetCamMount()`, which is not the same mistake
+— parenting our own camera to a game mount, rather than reparenting a
+game camera — but any camera created and positioned in the world has to
+stay correct across origin shifts, and nothing here has accounted for
+that. Treat it as a first-class risk for #3.
+
+Also filed there, relevant the moment any overlay is drawn on a mirror
+feed: project world positions with the feed camera's
+`WorldToViewportPoint` scaled to screen, **not** `WorldToScreenPoint`,
+which returns render-texture pixels.
+
+### What it does not help with
+
+Its in-game path is RenderTexture → `RawImage`. The picture never leaves
+the GPU; there is no readback anywhere in the base mod. It therefore
+de-risks the render half of #3 and says nothing about the transfer half,
+which is the half `cfg-rates` measured. The mirror camera is a solved
+problem in this game; the readback is ours alone. That is an argument for
+the first batch, not against it.
+
 ## Why this is a separate planning doc
 
 We already tried the obvious implementation of high-quality (swapping
@@ -186,8 +259,11 @@ own** `Camera` as a sibling on the same mount point.
   size (configurable; start with 720×480 — `TgpFeed.MaxDim` is already
   720 and currently a no-op, since the native source is smaller, so
   the encode side needs no change to carry this).
-- Keep the mirror cam's `Camera.enabled == false` and drive it with an
-  explicit `Camera.Render()` on capture ticks only. See below.
+- Keep the mirror cam's `Camera.enabled == false`, set its URP
+  `renderType = Overlay`, and drive it with an explicit `Camera.Render()`
+  on capture ticks only. Both halves are required — see below.
+- Mirror the game camera's `cullingMask`, `allowHDR`, `allowMSAA` and
+  `clearFlags`, writing only when they actually differ.
 - Do NOT touch the game's `TargetCam.cam`, `UICam`, viewport rects,
   aspect, or material. The in-cockpit screen stays exactly as
   vanilla — the cam and UI canvas it depends on are completely
@@ -210,6 +286,21 @@ screen regardless, so today's cost is the `Blit` + readback alone. The
 mirror cam is a genuinely additional render pass. Rendering on demand
 takes it from 60/s down to the capture rate; it does not take it to
 zero, and it will not be cheaper than what ships today.
+
+Two constraints on this, both from the reference implementation
+documented below:
+
+- **`enabled = false` alone is not enough under URP.** An enabled camera
+  joins the pipeline's camera stack rather than merely costing a draw.
+  The rig has to be `renderType = Overlay` *and* disabled, rendered
+  manually. Leaving it enabled cost that project measurable framerate
+  with the camera doing nothing else differently.
+- **Manual rendering appears to lose particles.** That project keeps a
+  pipeline-driven enabled camera specifically for its colour path, noting
+  particles depend on it, and uses the manual path only for its
+  thermal/NVG modes. For a targeting view — smoke, explosions,
+  countermeasures — that is a real fidelity cost, not a detail. Verify
+  before assuming render-on-demand is a free equivalence.
 
 The remaining honest tradeoff is the readback: 4× the bytes per tick,
 on a transfer already shown to back up. If HQ at 15 Hz produces a
@@ -276,9 +367,12 @@ is shared.
 ## Implementation sketch (when we get to it)
 
 1. **Mirror cam controller.** A small helper class that, given a
-   `TargetCam`, parents a disabled mirror `Camera` to the active mount,
-   matches `fieldOfView`, renders to a new high-res RT on an explicit
-   `Render()` call, and can be cleanly disposed.
+   `TargetCam`, parents a disabled mirror `Camera` (URP
+   `renderType = Overlay`) to the active mount, matches `fieldOfView`
+   and the reference camera's cull/HDR/MSAA/clear settings, renders to a
+   new high-res RT on an explicit `Render()` call, and can be cleanly
+   disposed. Verify behaviour across a floating-origin shift, and check
+   whether particles survive the manual render path.
 2. **Config entry + RTS toggle**, following `RatesConfig`. Subscribe to
    `SettingChanged`; forward the new value to the feed.
 3. **Reader switches `src`.** In `CaptureTgpFrame`, after the
@@ -301,6 +395,12 @@ is shared.
   readback bytes again, on the transfer the measurements already flag.
   Ship 720×480 and let the readback numbers decide whether a higher rung
   is even offerable.
+- Does the mirror cam stay correct across a floating-origin shift? Unknown,
+  and the one failure mode in this area that has already burned another
+  mod in this game. Test a long flight, not a spawn-and-look.
+- Do particles render on the manual `Camera.Render()` path? If not,
+  choose deliberately between fidelity (enabled camera, higher cost) and
+  cost (manual render, no particles) rather than discovering it late.
 - Whether HQ needs to clamp the TGP rate slider. Rate and resolution
   multiply into the same readback budget, so 30 Hz + HQ is a combination
   the measurements say cannot work. Capping the slider while HQ is
@@ -331,6 +431,11 @@ is shared.
   the source of truth for the pipeline.
 - Read `docs/performance.md`'s `cfg-rates` section in full. It is the
   only measurement this feature has.
+- Read `Mursisru/MissileCamera`'s `Camera/MissileCameraRig.cs`,
+  `Camera/MissileCameraRenderPrep.cs` and `Fullscreen/CAMERA_SAFETY.md`
+  before writing the mirror cam. That rig is a working version of #3 in
+  this game, and its safety doc is a list of camera mistakes already made
+  here and paid for.
 - **Restore `src/plugin/PerfLog.cs` and its call sites from history
   first.** It was removed once the `cfg-rates` findings were banked, but
   its two key instruments — `frame(tgpOpen)` vs `frame(tgpClosed)` split
