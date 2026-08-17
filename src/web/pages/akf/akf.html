@@ -4,22 +4,68 @@
 <meta charset="utf-8">
 <title>NO XMFD — AKF</title>
 <!--
-  Bare AKF page served at /akf — the advanced kill feed (issue #34), currently a scaffold with no
-  content yet: layout/nav wiring only, investigation and implementation to follow once approved.
-  Renders full-view in #page-frame and as a split pane, like BDF/PAL/MIS/OBJ — its bezel keys are
-  the shared MDT switch (NAV.akf: MAIN + AKF + MIS + OBJ + BDF + PAL), reached from MAIN via MDT
-  (BEZEL_EXTRAS.main, action 'akf' lands on this page — AKF is the MDT group's default landing page;
-  NAV.akf marks this one). See docs/mdt-pages.md.
+  Bare AKF page served at /akf — the advanced kill feed (issue #34), a live replica of the game's
+  own HUD kill-feed ticker plus session stats scoped to the local player's own kills. Renders
+  full-view in #page-frame and as a split pane, like BDF/PAL/MIS/OBJ — its bezel keys are the shared
+  MDT switch (NAV.akf: MAIN + AKF + MIS + OBJ + BDF + PAL), reached from MAIN via MDT
+  (BEZEL_EXTRAS.main, action 'akf' — AKF is the group's default landing page; NAV.akf marks this
+  one). See docs/akf-page.md.
 
-  Shell -> page messages: none yet — no telemetry feed wired (PAGE_FEEDS has no 'akf' entry).
+  Shell -> page messages (all {mfd:true, type:'akf', ...}):
+    { all:[entry,...], player:[entry,...],
+      kills:{aircraft,ship,vehicle,building}, value, fundsGained, fundsSpent }
+    entry: { a: attacker name or absent, h: attacker hostile (only present with a),
+             v: victim name, vh: victim hostile, verb: "shot down"/"destroyed"/..., w: weapon or absent }
+    No present:false gate — an empty session (no kills yet) just reads as all-zero, always shown.
+
+  Read-only: no commands, no interaction.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
 <link rel="stylesheet" href="/assets/pages/akf/akf.css">
 </head>
 <body>
-  <div class="akf-empty mfd-empty">
-    <span class="mfd-empty-title">AKF</span>&mdash; UNAVAILABLE &mdash;
+  <div class="akf-panel">
+    <div class="akf-header">ADVANCED KILL FEED</div>
+
+    <div class="akf-feeds">
+      <div class="akf-feed">
+        <div class="akf-section-label">ALL</div>
+        <div class="akf-feed-lines" id="akf-all"></div>
+      </div>
+
+      <div class="akf-feed">
+        <div class="akf-section-label">PLAYER</div>
+        <div class="akf-feed-lines" id="akf-player"></div>
+      </div>
+    </div>
+
+    <div class="akf-stats">
+      <div class="akf-card">
+        <div class="akf-section-label">SESSION KILLS</div>
+        <div class="akf-kills-grid">
+          <div class="akf-kill-row"><span class="akf-kill-type">AIRCRAFT</span><span class="akf-kill-count" id="akf-k-aircraft">0</span></div>
+          <div class="akf-kill-row"><span class="akf-kill-type">SHIP</span><span class="akf-kill-count" id="akf-k-ship">0</span></div>
+          <div class="akf-kill-row"><span class="akf-kill-type">VEHICLE</span><span class="akf-kill-count" id="akf-k-vehicle">0</span></div>
+          <div class="akf-kill-row"><span class="akf-kill-type">BUILDING</span><span class="akf-kill-count" id="akf-k-building">0</span></div>
+        </div>
+      </div>
+
+      <div class="akf-card">
+        <div class="akf-section-label">FUNDS</div>
+        <div class="akf-funds-row"><span class="akf-funds-label">GAINED</span><span class="akf-funds-gain" id="akf-funds-gained">+0</span></div>
+        <div class="akf-funds-row"><span class="akf-funds-label">SPENT</span><span class="akf-funds-spend" id="akf-funds-spent">-0</span></div>
+        <div class="akf-funds-row akf-funds-net"><span class="akf-funds-label">NET</span><span class="akf-funds-gain" id="akf-funds-net">+0</span></div>
+      </div>
+
+      <div class="akf-card">
+        <div class="akf-section-label">ENEMY VALUE LOST</div>
+        <div class="akf-value-figure" id="akf-value">0</div>
+        <div class="akf-value-note">UnitDefinition.value sum</div>
+      </div>
+    </div>
   </div>
+
+<script src="/assets/pages/akf/akf.js"></script>
 </body>
 </html>

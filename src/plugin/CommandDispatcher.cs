@@ -455,7 +455,8 @@ namespace NOXMFD
 
         // Native-HUD declutter — the mod's OWN HudDeclutter flags (HudDeclutterConfig), not the game's
         // HUDOptions. These hide native HUD widgets: env.group is "weapon" (top-right weapon/ammo/CM
-        // cluster), "minimap" (bottom-left corner map) or "boxes" (boxed heading/speed/alt readouts).
+        // cluster), "minimap" (bottom-left corner map), "boxes" (boxed heading/speed/alt readouts) or
+        // "feed" (native kill-feed ticker, issue #34).
         // Writing the ConfigEntry persists it and fires SettingChanged, so the in-game F1 checkbox
         // follows; HudDeclutter reads the flag each tick and hides/restores within ~0.5s (the minimap
         // within a frame), so there's nothing to apply here. env.on is the desired HIDE state.
@@ -466,6 +467,7 @@ namespace NOXMFD
                 case "weapon":  HudDeclutterConfig.SetHideWeaponAmmo(env.on); break;
                 case "minimap": HudDeclutterConfig.SetHideMinimap(env.on);    break;
                 case "boxes":   HudDeclutterConfig.SetHideTopBoxes(env.on);   break;
+                case "feed":    HudDeclutterConfig.SetHideKillFeed(env.on);   break;
                 default:
                     Plugin.Log?.LogInfo($"[NOXMFD] declutter.set: unknown group '{env.group}' — ignored.");
                     return;

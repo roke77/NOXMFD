@@ -2,12 +2,13 @@
 
 ## Status
 
-**Planned, not yet implemented** (branch `advanced-kill-feed`, ticket
-[#34](https://github.com/roke77/NOXMFD/issues/34)). The page's nav scaffold —
-empty placeholder, MDT group reordered to AKF/MIS/OBJ/BDF/PAL, AKF as the
-group's default landing page, vertical nav labels in both full view and a
-split pane — is committed and pushed. This document covers the page's real
-content: the C# data pipeline and the page's JS/HTML, not yet built.
+**Implemented, not yet in-game verified** (branch `advanced-kill-feed`,
+ticket [#34](https://github.com/roke77/NOXMFD/issues/34)). Every piece
+described below — the two Harmony patches, `AkfTracker`, the wire format,
+the page itself, and the HUD FEED toggle — is built and browser-verified
+(`tools/serve_web.py`, synthetic `'akf'` messages) against `dotnet build -c
+Release`. Confirming the Harmony hooks actually fire on a real kill, and the
+FEED toggle actually hides the native ticker, needs a live mission.
 
 ## What this replicates
 

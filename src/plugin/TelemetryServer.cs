@@ -1005,6 +1005,7 @@ namespace NOXMFD
             sb.Append(",\"declutter\":{\"weapon\":").Append(HudDeclutterConfig.HideWeaponAmmo ? "true" : "false")
               .Append(",\"minimap\":").Append(HudDeclutterConfig.HideMinimap ? "true" : "false")
               .Append(",\"boxes\":").Append(HudDeclutterConfig.HideTopBoxes ? "true" : "false")
+              .Append(",\"feed\":").Append(HudDeclutterConfig.HideKillFeed ? "true" : "false")
               .Append('}');
 
             sb.Append('}');
@@ -1464,7 +1465,41 @@ namespace NOXMFD
                         + ",\"bdf\":" + BdfBlock(s)
                         + ",\"pal\":" + PalBlock(s)
                         + ",\"mis\":" + MisBlock(s)
-                        + ",\"obj\":" + ObjBlock(s) + "}";
+                        + ",\"obj\":" + ObjBlock(s)
+                        + ",\"akf\":" + AkfBlock(s) + "}";
+        }
+
+        // AKF advanced kill feed (docs/akf-page.md). Always present while a mission runs (no "faction
+        // has no HQ yet" gate like MIS/OBJ — an empty session just reads as all-zero). Kills/value are
+        // scoped to the local player's own kills; all is everyone's, matching the game's own feed.
+        private static string AkfBlock(TelemetrySnapshot s)
+        {
+            return "{\"all\":" + AkfArray(s.AkfAll) + ",\"player\":" + AkfArray(s.AkfPlayer)
+                + string.Format(CultureInfo.InvariantCulture,
+                    ",\"kills\":{{\"aircraft\":{0},\"ship\":{1},\"vehicle\":{2},\"building\":{3}}}" +
+                    ",\"value\":{4:0.0},\"fundsGained\":{5:0.0},\"fundsSpent\":{6:0.0}}}",
+                    s.AkfKillsAircraft, s.AkfKillsShip, s.AkfKillsVehicle, s.AkfKillsBuilding,
+                    s.AkfValue, s.AkfFundsGained, s.AkfFundsSpent);
+        }
+
+        private static string AkfArray(AkfKillEntry[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                AkfKillEntry e = items[i];
+                sb.Append('{');
+                if (e.Attacker != null)
+                    sb.Append("\"a\":\"").Append(EscapeJson(e.Attacker)).Append("\",\"h\":").Append(e.AttackerHostile ? "true" : "false").Append(',');
+                sb.Append("\"v\":\"").Append(EscapeJson(e.Victim)).Append("\",\"vh\":").Append(e.VictimHostile ? "true" : "false")
+                  .Append(",\"verb\":\"").Append(EscapeJson(e.Verb)).Append('"');
+                if (e.Weapon != null)
+                    sb.Append(",\"w\":\"").Append(EscapeJson(e.Weapon)).Append('"');
+                sb.Append('}');
+            }
+            return sb.Append(']').ToString();
         }
 
         // MIS mission-info panel (docs/mdt-pages.md). {present:false} in multiplayer or between

@@ -78,6 +78,7 @@
     pal: ['pal'],             // same, for PRIMEVA
     mis: ['mis'],             // mission-info block (docs/mdt-pages.md)
     obj: ['obj'],             // active-objectives list (docs/mdt-pages.md)
+    akf: ['akf'],             // kill-feed/session-stats block (docs/akf-page.md)
     rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
     wpt: ['mapinfo'],         // position/heading/map-meta for the waypoint readout (issue #38)
   };

@@ -45,6 +45,11 @@ namespace NOXMFD
             // HUDApps (those are a separate, off-screen copy). Same target NO_Tactitools uses.
             UpdateWeaponPanel(HudDeclutterConfig.HideWeaponAmmo);
 
+            // Native kill-feed ticker (issue #34) — MessageUI's private 'killFeedText' Graphic. Same
+            // disable-the-graphic idiom as the boxed readouts below: the underlying MessageFeed queue
+            // keeps running either way, only the on-screen text is hidden.
+            UpdateKillFeed(HudDeclutterConfig.HideKillFeed);
+
             // Boxed top readouts (heading / airspeed / altitude). Only the copies with an assigned
             // 'border' are hidden; the borderless boresight-following center readouts are kept.
             // The else branch restores them when the flag is flipped off at runtime (e.g. via the
@@ -116,6 +121,37 @@ namespace NOXMFD
             {
                 panel.SetActive(true);
                 _weaponPanelHidden = false;
+            }
+        }
+
+        // Native kill-feed ticker (issue #34) = MessageUI's private 'killFeedText' TextMeshProUGUI —
+        // a Graphic, so it's disabled/restored the same way the boxed readouts below are, not
+        // SetActive'd: the underlying MessageFeed queue (MessageUI.cs) keeps enqueueing/dequeuing
+        // lines regardless, only the on-screen text needs to disappear. MessageUI's general message
+        // feed ('messageText') is a separate field, untouched.
+        private static FieldInfo? _killFeedTextField;
+        private bool _killFeedHidden;
+
+        private void UpdateKillFeed(bool shouldHide)
+        {
+            MessageUI ui = SceneSingleton<MessageUI>.i;
+            if (ui == null) return;
+            if (_killFeedTextField == null)
+                _killFeedTextField = typeof(MessageUI).GetField("killFeedText", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (_killFeedTextField?.GetValue(ui) is not Graphic feed || feed == null) return;
+
+            if (shouldHide)
+            {
+                if (feed.enabled)
+                {
+                    feed.enabled = false;
+                    _killFeedHidden = true;
+                }
+            }
+            else if (_killFeedHidden)
+            {
+                feed.enabled = true;
+                _killFeedHidden = false;
             }
         }
 

@@ -807,6 +807,11 @@ function forwardObjToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage(Object.assign({ mfd: true, type: 'obj' }, objData), '*');
 }
+// Full-view AKF: forward the kill-feed/session-stats block (docs/akf-page.md).
+function forwardAkfToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage(Object.assign({ mfd: true, type: 'akf' }, akfData), '*');
+}
 // Split-pane twins of the two TGT forwarders — same payloads, sent to any pane showing TGT. The
 // page is fully clickable inside the pane, so nothing else (no bezel-key wiring) is needed.
 function forwardTgtToPanes() {
@@ -861,6 +866,15 @@ function forwardObjToPanes() {
     if (panePages[idx] !== 'obj') return;
     if (!iframe.contentWindow) return;
     iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'obj' }, objData), '*');
+  });
+}
+// Split-pane twin of forwardAkfToFrame — same kill-feed/session-stats payload, sent to any pane
+// showing AKF.
+function forwardAkfToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'akf') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'akf' }, akfData), '*');
   });
 }
 // Full-view WPT (issue #38): forward the mapinfo slice (position/heading/grid meta) the readout
@@ -1230,6 +1244,7 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'pal') { forwardPalToFrame(); }
   else if (currentPage === 'mis') { forwardMisToFrame(); }
   else if (currentPage === 'obj') { forwardObjToFrame(); }
+  else if (currentPage === 'akf') { forwardAkfToFrame(); }
   else if (currentPage === 'wpt') { forwardWptToFrame(); }
   // docs/page-cursor.md: full-view TGT/HUD render in the shared #page-frame, which reloads (fresh
   // document, fresh listener) on every navigation onto the page — same dropped-cursor-focus gap
@@ -1401,6 +1416,11 @@ let misData = { present: false };
 // OBJ active-objectives list (docs/mdt-pages.md), mirrored the same way.
 let objData = { present: false };
 
+// AKF advanced kill feed (docs/akf-page.md), mirrored the same way — no present:false gate (an
+// empty session just reads as all-zero).
+let akfData = { all: [], player: [], kills: { aircraft: 0, ship: 0, vehicle: 0, building: 0 },
+                 value: 0, fundsGained: 0, fundsSpent: 0 };
+
 // WPT waypoints/routes readout (issue #38) — the widened 'mapinfo' slice (mission/grid/x/z/hdg/
 // ox/oy), mirrored the same way as OBJ/MIS. Unlike those, WPT isn't the only consumer — the map
 // page itself derives the same values straight from its own frame — but WPT is a separate
@@ -1562,8 +1582,10 @@ function showPage(name) {
     forwardTgtTargetsToFrame();
   }
   // AKF renders in #page-frame too — same MDT family as BDF/PAL/MIS/OBJ (NAV.akf marks AKF instead).
-  // Scaffold only for now (issue #34): no telemetry feed wired yet, so nothing to forward.
-  if (name === 'akf') showFramePage('akf');
+  if (name === 'akf') {
+    showFramePage('akf');
+    forwardAkfToFrame();
+  }
   // BDF renders in #page-frame too. Its bezel keys are MAIN/AKF/MIS/OBJ/BDF/PAL (NAV.bdf, placed by
   // the generic sweep above, `mark` lighting BDF since this is that page) — reached from MAIN via
   // MDT (BEZEL_EXTRAS.main, action 'akf' lands on AKF instead) and carried into a split via
@@ -1808,6 +1830,11 @@ window.addEventListener('message', function(e) {
     objData = m;
     if (currentPage === 'obj' && !splitMode) forwardObjToFrame();
     if (splitMode) forwardObjToPanes();
+  } else if (m.type === 'akf') {
+    // Mirror the AKF kill-feed/session-stats block, same forwarding shape as MIS/OBJ.
+    akfData = m;
+    if (currentPage === 'akf' && !splitMode) forwardAkfToFrame();
+    if (splitMode) forwardAkfToPanes();
   } else if (m.type === 'mapinfo') {
     // Mirror the mapinfo slice for WPT (issue #38), same forwarding shape as MIS/OBJ.
     mapInfoData = m;
