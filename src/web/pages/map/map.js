@@ -470,13 +470,12 @@ function drawWaypoints() {
   oc.save();
   oc.setLineDash([6, 5]);
   oc.lineWidth = 1.5;
-  // Segment i->i+1 is drawn gray only when BOTH ends are already reached (i+1 < nextIndex) — the
-  // one leading INTO the current "next" waypoint shares its far end with nextIndex, so it stays the
-  // active line color instead, the same leg the WPT readout's bearing/distance is tracking.
+  // Segment coloring is WptRoute.segmentReached (wpt-route.js, pure + tested) — the off-by-one this
+  // pins down (grabbing the wrong end of the segment leading INTO "next") was a real shipped bug.
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i], b = pts[i + 1];
     if (a.cx == null || b.cx == null) continue;
-    oc.strokeStyle = i + 1 < waypointRoute.nextIndex ? WPT_REACHED_COLOR : WPT_LINE_COLOR;
+    oc.strokeStyle = WptRoute.segmentReached(i, waypointRoute.nextIndex) ? WPT_REACHED_COLOR : WPT_LINE_COLOR;
     oc.beginPath();
     oc.moveTo(a.cx, a.cy);
     oc.lineTo(b.cx, b.cy);
@@ -485,9 +484,9 @@ function drawWaypoints() {
   oc.setLineDash([]);
   pts.forEach((p, i) => {
     if (p.cx == null) return;
-    const next = i === waypointRoute.nextIndex;
-    const reached = i < waypointRoute.nextIndex;
-    const color = next ? WPT_NEXT_COLOR : reached ? WPT_REACHED_COLOR : WPT_LINE_COLOR;
+    const state = WptRoute.waypointMarkerState(i, waypointRoute.nextIndex);   // pure + tested, wpt-route.js
+    const next = state === 'next';
+    const color = next ? WPT_NEXT_COLOR : state === 'reached' ? WPT_REACHED_COLOR : WPT_LINE_COLOR;
     oc.fillStyle = color;
     oc.strokeStyle = color;
     oc.shadowColor = color;

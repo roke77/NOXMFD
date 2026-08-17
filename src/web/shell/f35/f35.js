@@ -170,16 +170,18 @@
   // FLW/Z+/Z- read as "map view controls" in column 1, WPT/R+/R-/W+/W- as "waypoint controls" in
   // column 2. The action lists (SplitSlots.MAP_FULL_LEFT/RIGHT/mapFullRight) are shared with the
   // classic bezel — see that module's own comment — so the two layouts can't drift out of sync.
-  // R+/R-/W+/W- only show while a route exists to act on; WPT itself always shows, since it's how a
-  // pilot gets a route in the first place.
+  // R+/R- show as long as any route is saved (deactivate follow-up: still useful to cycle INTO one
+  // with none active); W+/W- need a route actually active, since they step ITS next waypoint. WPT
+  // itself always shows, since it's how a pilot gets a route in the first place.
   function mapNavItems() {
     const byAction = {};
     (NAV.map || []).forEach(function (item) { byAction[item.action] = item; });
-    const hasRoute = !!WaypointsStore.getActiveRoute();
+    const hasRoutes = WaypointsStore.load().routes.length > 0;
+    const hasActiveRoute = !!WaypointsStore.getActiveRoute();
     const left = SplitSlots.MAP_FULL_LEFT.map(function (a, i) {
       return Object.assign({}, byAction[a], { cell: { row: i + 1, col: 1 } });
     });
-    return left.concat(SplitSlots.mapFullRight(hasRoute).map(function (a, i) {
+    return left.concat(SplitSlots.mapFullRight(hasRoutes, hasActiveRoute).map(function (a, i) {
       return Object.assign({}, byAction[a], { cell: { row: i + 1, col: 2 } });
     }));
   }
@@ -870,11 +872,12 @@
   window.addEventListener('resize', relayoutAll);
   orientMq.addEventListener('change', relayoutAll);
 
-  // MAP's R+/R-/W+/W- portal buttons show only while a route is active (issue #38 follow-up,
-  // mfd.js's classic-shell twin) — a route created/deleted from the WPT page or a first long-press
-  // placed on MAP itself both write localStorage from a DIFFERENT document (that page's own
-  // portal), which is exactly what fires 'storage' here. refreshNav (not showPage) so it can't
-  // reload — and so can't lose the pan/zoom of — a MAP portal that's already showing.
+  // MAP's R+/R- portal buttons show while any route is saved, W+/W- only while one is active
+  // (issue #38 follow-up, deactivate follow-up, mfd.js's classic-shell twin) — a route created/
+  // deleted/(de)activated from the WPT page or a first long-press placed on MAP itself all write
+  // localStorage from a DIFFERENT document (that page's own portal), which is exactly what fires
+  // 'storage' here. refreshNav (not showPage) so it can't reload — and so can't lose the pan/zoom
+  // of — a MAP portal that's already showing.
   window.addEventListener('storage', function (e) {
     if (e.key !== WaypointsStore.STORE_KEY) return;
     livePortals().forEach(function (p) { if (p.page() === 'map') p.refreshNav(); });

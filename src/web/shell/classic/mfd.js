@@ -158,13 +158,16 @@ const mapItemByAction = (function () {
 
 // NAV.map's own order for split pagination — deliberately NOT NAV.map's own full-view order (same
 // divergence MAIN_SPLIT_ITEMS already has from full view's own MAIN placement). The order itself
-// (SplitSlots.MAP_SPLIT_ORDER/mapSplitOrder) lives in split-slots.js, tested there against NAV.map
-// directly — see that constant's own comment for why this reordering exists (the ROUTE decorator
-// bug) and why R+/R-/W+/W- filter out entirely with no active route (issue #38 follow-up, mirroring
-// MAP_FULL_RIGHT below). Read live rather than cached at load, same reason MAP_FULL_RIGHT's route
-// check is: the active route can come and go without a page reload.
+// (SplitSlots.MAP_SPLIT_ORDER/MAP_SPLIT_ORDER_V/mapSplitOrder) lives in split-slots.js, tested there
+// against NAV.map directly — see those constants' own comments for why this reordering exists (the
+// ROUTE decorator bug), why 'h' vs 'v'/'vw' get different orders (WPT-leads-in-v-split follow-up:
+// only 'h' has a left/right bank split a pair could straddle), and why R+/R- filter out with no
+// route saved at all while W+/W- filter out with no route ACTIVE (issue #38 follow-up, deactivate
+// follow-up, mirroring MAP_FULL_RIGHT below). Read live rather than cached at load, same reason
+// MAP_FULL_RIGHT's route check is: routes/active route/orientation can all change without a reload.
 function mapSplitItems() {
-  return SplitSlots.mapSplitOrder(!!WaypointsStore.getActiveRoute()).map(function (a) { return mapItemByAction[a]; });
+  const c = WaypointsStore.load();
+  return SplitSlots.mapSplitOrder(splitVariant, c.routes.length > 0, !!WaypointsStore.getActiveRoute()).map(function (a) { return mapItemByAction[a]; });
 }
 
 // MAP's full-view placement (issue #38 follow-up): a fixed 5-left/5-right split instead of the
@@ -172,12 +175,12 @@ function mapSplitItems() {
 // "map view controls" on the left, WPT/R+/R-/W+/W- as "waypoint controls" on the right. The action
 // lists themselves (SplitSlots.MAP_FULL_LEFT/RIGHT) live in split-slots.js, shared with f35.js's own
 // glass placement so the two layouts can't drift apart — see that module's own comment. showPage's
-// 'map' branch conditionally drops rt-next/rt-prev/wpt-next/wpt-prev from the right list (via
-// SplitSlots.mapFullRight) when no route is active — WPT itself always stays, since it's how a pilot
-// gets a route in the first place.
+// 'map' branch conditionally drops rt-next/rt-prev from the right list (via SplitSlots.mapFullRight)
+// when no route is saved at all, and wpt-next/wpt-prev when none is active — WPT itself always
+// stays, since it's how a pilot gets a route in the first place.
 const MAP_FULL_LEFT = SplitSlots.MAP_FULL_LEFT.map(function (a) { return mapItemByAction[a]; });
-function mapFullRight(hasRoute) {
-  return SplitSlots.mapFullRight(hasRoute).map(function (a) { return mapItemByAction[a]; });
+function mapFullRight(hasRoutes, hasActiveRoute) {
+  return SplitSlots.mapFullRight(hasRoutes, hasActiveRoute).map(function (a) { return mapItemByAction[a]; });
 }
 
 // Which pages draw an OPAQUE full-view overlay. MAIN paints a panel over the still-running map, and
@@ -1477,14 +1480,18 @@ function showPage(name) {
   } else if (name === 'map') {
     // MAP_FULL_LEFT/RIGHT (issue #38 follow-up), not the generic NAV sweep — see their own comment.
     MAP_FULL_LEFT.forEach(function (item, i) { placeOverlayLabel('left', i, item.label, item.action); });
-    // rt-next/rt-prev/wpt-next/wpt-prev only show — and so only work, since clearKeyActions already
-    // wiped every key's action and nothing reassigns a skipped one's — while a route exists to act
-    // on. WPT (index 0) always shows regardless.
-    const hasRoute = !!WaypointsStore.getActiveRoute();
-    mapFullRight(hasRoute).forEach(function (item, i) { placeOverlayLabel('right', i, item.label, item.action); });
+    // rt-next/rt-prev only show — and so only work, since clearKeyActions already wiped every key's
+    // action and nothing reassigns a skipped one's — while at least one route is saved (deactivate
+    // follow-up: they still work with none ACTIVE, cycling into one). wpt-next/wpt-prev need a route
+    // actually active, since they step ITS next waypoint. WPT (index 0) always shows regardless.
+    const hasRoutes = WaypointsStore.load().routes.length > 0;
+    const hasActiveRoute = !!WaypointsStore.getActiveRoute();
+    mapFullRight(hasRoutes, hasActiveRoute).forEach(function (item, i) { placeOverlayLabel('right', i, item.label, item.action); });
     placeMapDecorators({ bank: 'left', index: 3 });                  // ZOOM between Z+/Z- (left3/left4)
-    if (hasRoute) {
+    if (hasRoutes) {
       placeMapRouteDecorator({ bank: 'right', index: 1 });           // ROUTE between R+/R- (right1/right2)
+    }
+    if (hasActiveRoute) {
       placeMapWptDecorator({ bank: 'right', index: 3 });             // WYPT between W+/W- (right3/right4)
     }
   } else {
@@ -2294,11 +2301,12 @@ window.addEventListener('resize', function() {
   else           showPage(currentPage);
   positionSoiRing();   // the recess/panes resized — keep the ring on the focused surface
 });
-// MAP's R+/R-/W+/W- visibility depends on whether a route exists (showPage's 'map' branch,
-// mapSplitItems' split-pane twin) — a route created/deleted from the WPT page or a first long-press
-// placed on MAP itself both write localStorage from a DIFFERENT document (the wpt/map iframe),
-// which is exactly what fires 'storage' here (same-document writes don't fire their own document's
-// listener). Re-render live to pick that up while MAP is showing, in full view or a split pane.
+// MAP's R+/R- visibility depends on whether any route is saved, W+/W-'s on whether one is active
+// (showPage's 'map' branch, mapSplitItems' split-pane twin) — a route created/deleted/(de)activated
+// from the WPT page or a first long-press placed on MAP itself all write localStorage from a
+// DIFFERENT document (the wpt/map iframe), which is exactly what fires 'storage' here (same-document
+// writes don't fire their own document's listener). Re-render live to pick that up while MAP is
+// showing, in full view or a split pane.
 window.addEventListener('storage', function(e) {
   if (e.key !== WaypointsStore.STORE_KEY) return;
   if (splitMode) { if (panePages.indexOf('map') !== -1) renderSplitLabels(); }
