@@ -46,6 +46,12 @@
     return R.findRoute(c.routes, c.activeRouteId);
   }
 
+  // Whether any route exists at all, active or not — R+/R- (issue #38 follow-up) stay usable to
+  // cycle INTO a route as long as one is saved, unlike W+/W- which need an active route to step.
+  function hasRoutes() {
+    return load().routes.length > 0;
+  }
+
   function setActiveRoute(id) {
     const c = load();
     c.activeRouteId = id;
@@ -115,6 +121,12 @@
     save(c);
   }
 
+  // CLEAR (issue #38 follow-up): drop every route at once — the "+ NEW ROUTE"/IMPORT row's third
+  // button. No per-route confirmation, same as every other delete in this page.
+  function clearRoutes() {
+    save({ version: 1, activeRouteId: null, routes: [] });
+  }
+
   function withActiveRoute(mutate) {
     const c = load();
     const route = R.findRoute(c.routes, c.activeRouteId);
@@ -177,7 +189,7 @@
 
   const api = {
     STORE_KEY, freshRouteName,
-    load, save, getActiveRoute, setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute,
+    load, save, getActiveRoute, hasRoutes, setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute, clearRoutes,
     addWaypointToActive, renameWaypoint, removeWaypoint, reorderWaypoint, advanceIfNear,
     resetWaypoint, resetRoute, stepWaypoint, exportRoute, importRoute,
   };

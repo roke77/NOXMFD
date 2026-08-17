@@ -31,7 +31,7 @@
   <a class="wpt-back" href="/">&lt; MAP</a>
   <div class="wpt-title">WAYPOINTS</div>
 
-  <div class="wpt-help">Long-press anywhere on the map to drop a waypoint<br>Click a route to activate it<br>&#9998; rename &middot; &#8634; reset &middot; &#8681; export &middot; &times; delete</div>
+  <div class="wpt-help">Long-press anywhere on the map to drop a waypoint<br>Click a route to activate/deactivate it<br>&#9998; rename &middot; &#8634; reset &middot; &#8681; export &middot; &times; delete</div>
 
   <!-- PAD cursor (docs/page-cursor.md) — position:fixed override in wpt.css, since this is the one
        MFD page whose own body scrolls rather than a fixed-size panel (MAP/TGT/HUD), so a viewport-
@@ -61,6 +61,7 @@
       <span>ROUTES</span>
       <div class="wpt-section-actions">
         <button class="wpt-btn pad-hoverable" id="wpt-new-route">+ NEW ROUTE</button>
+        <button class="wpt-btn wpt-btn-ghost pad-hoverable" id="wpt-clear-routes">CLEAR</button>
         <button class="wpt-btn pad-hoverable" id="wpt-import-route">IMPORT</button>
       </div>
     </div>

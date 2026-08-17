@@ -42,19 +42,23 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 }
 
 .wpt-help {
-  max-width: 460px;
-  margin: 0 auto 16px;
-  font-size: 11px;
+  max-width: 552px;
+  margin: 0 auto 19px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--no-gray);
   text-align: center;
 }
 
+/* Bigger than the shared .mfd-chip (theme.css) it's built on — WPT's own readout, not the smaller
+   GRID/CURSOR chips elsewhere, so scoped here rather than bumping .mfd-chip itself. */
 .wpt-readout {
   display: block;
   width: fit-content;
   margin: 0 auto 22px;
   text-align: center;
+  font-size: 13px;
+  padding: 6px 11px;
 }
 
 .wpt-compass {
@@ -127,6 +131,7 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 .wpt-io-row textarea {
   display: block;
   width: 100%;
+  box-sizing: border-box;   /* border+padding count INSIDE the 100% — without this it overflows the panel */
   resize: vertical;
   background: var(--no-bg);
   border: 1px solid var(--no-panel-border);
@@ -162,10 +167,10 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 .wpt-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 6px;
+  gap: 10px;
+  padding: 10px 7px;
   border-bottom: 1px solid var(--no-panel-border);
-  font-size: 12px;
+  font-size: 14px;
 }
 .wpt-row:last-child { border-bottom: none; }
 
@@ -181,17 +186,17 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 .wpt-row.next .wpt-row-name { color: var(--no-green); }
 
 .wpt-row-mark {
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 1px;
   color: var(--no-amber);
   flex: none;
 }
 
 .wpt-row-grid {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--no-gray);
   flex: none;
-  min-width: 44px;
+  min-width: 53px;
 }
 
 .wpt-row-btn {
@@ -199,9 +204,9 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   background: none;
   border: none;
   color: var(--no-gray);
-  font-size: 13px;
+  font-size: 16px;
   cursor: pointer;
-  padding: 2px 5px;
+  padding: 2px 6px;
   line-height: 1;
 }
 .wpt-row-btn:hover { color: var(--no-green); }
@@ -214,7 +219,7 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   border: 1px solid var(--no-green-dim);
   color: var(--no-green);
   font-family: var(--no-font);
-  font-size: 12px;
-  padding: 3px 6px;
+  font-size: 14px;
+  padding: 4px 7px;
 }
 

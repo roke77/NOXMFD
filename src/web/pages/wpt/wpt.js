@@ -15,6 +15,7 @@ const compassNeedle = document.getElementById('wpt-compass-needle');
 const routesEl     = document.getElementById('wpt-routes');
 const waypointsEl  = document.getElementById('wpt-waypoints');
 const newRouteBtn  = document.getElementById('wpt-new-route');
+const clearBtn     = document.getElementById('wpt-clear-routes');
 const newRow       = document.getElementById('wpt-new-row');
 const newNameInput = document.getElementById('wpt-new-name');
 const importBtn    = document.getElementById('wpt-import-route');
@@ -45,14 +46,17 @@ function render() {
 function renderRoutes(c) {
   routesEl.innerHTML = '';
   c.routes.forEach(function (route) {
+    const isActive = route.id === c.activeRouteId;
     const row = document.createElement('div');
-    row.className = 'wpt-row' + (route.id === c.activeRouteId ? ' active' : '');
+    row.className = 'wpt-row' + (isActive ? ' active' : '');
 
     const name = document.createElement('span');
     name.className = 'wpt-row-name pad-hoverable';
     name.textContent = route.name + ' (' + route.waypoints.length + ')';
-    name.title = 'Click to activate';
-    name.onclick = function () { WaypointsStore.setActiveRoute(route.id); render(); };
+    name.title = isActive ? 'Click to deactivate' : 'Click to activate';
+    // A route can be saved but none active (issue #38 follow-up) — clicking the already-ACTIVE
+    // route deactivates it instead of being a no-op.
+    name.onclick = function () { WaypointsStore.setActiveRoute(isActive ? null : route.id); render(); };
 
     const mark = document.createElement('span');
     mark.className = 'wpt-row-mark';
@@ -170,6 +174,9 @@ document.getElementById('wpt-new-confirm').onclick = function () {
   render();
 };
 newNameInput.onkeydown = function (e) { if (e.key === 'Enter') document.getElementById('wpt-new-confirm').click(); };
+
+// CLEAR — drop every route at once, same no-confirmation style as the per-route × button.
+clearBtn.onclick = function () { closeIOPanel(); newRow.style.display = 'none'; WaypointsStore.clearRoutes(); render(); };
 
 // ── Import/export (one shared panel, two modes — see wpt.html's comment on wpt-io-row) ──────
 function closeIOPanel() { ioRow.style.display = 'none'; ioError.textContent = ''; }
@@ -322,6 +329,13 @@ window.addEventListener('message', function (e) {
   else if (m.action === 'cursor-select') cursor.select();
   else if (m.action === 'zoom-in') window.scrollBy({ top: SCROLL_STEP });
   else if (m.action === 'zoom-out') window.scrollBy({ top: -SCROLL_STEP });
+  // R+/R-/W+/W- physical keybinds (issue #38 follow-up) — same 'map-act' transport MAP already
+  // handles (map.js), delivered here too since WPT is a PAD_CURSOR_PAGES page (mfd.js/f35.js); only
+  // wpt.js itself had never listened for these four actions.
+  else if (m.action === 'route-next')    { WaypointsStore.cycleActiveRoute(1);  render(); }
+  else if (m.action === 'route-prev')    { WaypointsStore.cycleActiveRoute(-1); render(); }
+  else if (m.action === 'waypoint-next') { WaypointsStore.stepWaypoint(1);      render(); }
+  else if (m.action === 'waypoint-prev') { WaypointsStore.stepWaypoint(-1);     render(); }
 });
 
 // Another tab/pane (or MAP itself) wrote a waypoint — pick it up immediately.

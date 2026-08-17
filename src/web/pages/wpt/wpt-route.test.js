@@ -67,6 +67,29 @@ const route = (nextIndex, waypoints) => ({ id: 'r1', name: 'Route 1', nextIndex,
   assert.strictEqual(out.route.nextIndex, 2);
 }
 
+// ── waypointMarkerState / segmentReached: map.js's drawWaypoints coloring (issue #38, the exact
+// off-by-one that shipped in segment coloring — pinning the fixed behavior down directly) ─────────
+{
+  const nextIndex = 2;   // waypoints 0,1 already flown; 2 is NEXT; 3+ still pending
+
+  assert.strictEqual(R.waypointMarkerState(0, nextIndex), 'reached');
+  assert.strictEqual(R.waypointMarkerState(1, nextIndex), 'reached');
+  assert.strictEqual(R.waypointMarkerState(2, nextIndex), 'next');
+  assert.strictEqual(R.waypointMarkerState(3, nextIndex), 'pending');
+  // Route complete (nextIndex === waypoints.length): every waypoint reads as reached, none as next.
+  assert.strictEqual(R.waypointMarkerState(3, 4), 'reached');
+
+  // Segment 0->1 (both ends reached): gray.
+  assert.strictEqual(R.segmentReached(0, nextIndex), true);
+  // Segment 1->2 (leads INTO next): stays the active line color, NOT gray — this was the shipped
+  // bug (a plain `i < nextIndex` grayed this one too, since its start index (1) is < nextIndex).
+  assert.strictEqual(R.segmentReached(1, nextIndex), false);
+  // Segment 2->3 (leads OUT of next, into pending): not gray.
+  assert.strictEqual(R.segmentReached(2, nextIndex), false);
+  // No active route / route not yet started (nextIndex 0): no segment is ever reached.
+  assert.strictEqual(R.segmentReached(0, 0), false);
+}
+
 // ── CRUD ops ──────────────────────────────────────────────────────────────────────────
 {
   let rt = route(0, [wp('a', 'WP1', 0, 0), wp('b', 'WP2', 0, 0)]);
@@ -147,16 +170,17 @@ const route = (nextIndex, waypoints) => ({ id: 'r1', name: 'Route 1', nextIndex,
   assert.strictEqual(R.uniqueRouteName(routes, 'Alpha', 'r1'), 'Alpha', 'excludeId lets a route keep its own name on rename');
 }
 
-// ── cycleRoute: wraps both directions, handles empty/unknown activeId ───────────────────
+// ── cycleRoute: wraps both directions through a "none active" stop, handles empty/unknown id ────
 {
   const routes = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
   assert.strictEqual(R.cycleRoute(routes, 'a', 1), 'b');
-  assert.strictEqual(R.cycleRoute(routes, 'c', 1), 'a', 'R+ from the last route should wrap to the first');
-  assert.strictEqual(R.cycleRoute(routes, 'a', -1), 'c', 'R- from the first route should wrap to the last');
+  assert.strictEqual(R.cycleRoute(routes, 'c', 1), null, 'R+ from the last route parks on "none" before wrapping to the first');
+  assert.strictEqual(R.cycleRoute(routes, null, 1), 'a', 'R+ from "none" lands on the first route');
+  assert.strictEqual(R.cycleRoute(routes, 'a', -1), null, 'R- from the first route parks on "none" before wrapping to the last');
+  assert.strictEqual(R.cycleRoute(routes, null, -1), 'c', 'R- from "none" wraps to the last route');
   assert.strictEqual(R.cycleRoute(routes, 'b', -1), 'a');
-  assert.strictEqual(R.cycleRoute([], 'a', 1), 'a', 'no routes: nothing to switch to');
-  assert.strictEqual(R.cycleRoute(routes, null, 1), 'b', 'unknown activeId starts from index 0, so R+ lands on the second');
-  assert.strictEqual(R.cycleRoute(routes, null, -1), 'c', 'unknown activeId starts from index 0, so R- wraps to the last');
+  assert.strictEqual(R.cycleRoute([], null, 1), null, 'no routes: nothing to switch to');
+  assert.strictEqual(R.cycleRoute(routes, 'gone', 1), 'a', 'an unknown/deleted activeId starts from "none", so R+ lands on the first');
 }
 
 // ── serializeRoute / parseRouteJSON: export/import round-trip ───────────────────────────

@@ -30,6 +30,24 @@
     return distM <= thresholdM;
   }
 
+  // Marker state for waypoint `index` in a route whose next waypoint is `nextIndex` (map.js's
+  // drawWaypoints marker coloring): 'next' (the one the WPT readout is tracking), 'reached' (already
+  // flown past), or 'pending' (not yet reached).
+  function waypointMarkerState(index, nextIndex) {
+    if (index === nextIndex) return 'next';
+    return index < nextIndex ? 'reached' : 'pending';
+  }
+
+  // Whether the route LINE segment from waypoint `index` to `index + 1` is already-flown (drawn
+  // gray, map.js's drawWaypoints) — true only when BOTH ends are reached (index + 1 < nextIndex).
+  // The segment leading INTO nextIndex shares its far end with it and stays the active line color
+  // instead — the same leg the WPT readout's bearing/distance is tracking. Getting this off by one
+  // (index < nextIndex, grabbing the wrong end) was a real shipped bug; that's exactly why this is
+  // its own pure, tested function rather than inline canvas code.
+  function segmentReached(index, nextIndex) {
+    return index + 1 < nextIndex;
+  }
+
   // Bumps route.nextIndex by one when the current "next" waypoint is within thresholdM of
   // (ownX,ownZ). Caps at waypoints.length (meaning "route complete" — nothing left to advance to).
   // Returns { route, advanced } — route is a new object only when it actually advanced, the same
@@ -111,14 +129,18 @@
     return name + ' (' + n + ')';
   }
 
-  // The id of the route one step (dir = +1/-1) from activeId, wrapping at both ends — MAP's R+/R-
-  // (issue #38). No routes: returns activeId unchanged (nothing to switch to). Unknown/null
-  // activeId starts from index 0, so R+ from "no active route" lands on the first one.
+  // The id of the route one step (dir = +1/-1) from activeId, wrapping at both ends — MAP's/WPT's
+  // R+/R- (issue #38, deactivate-follow-up). The cycle includes a "no route active" stop between
+  // the last route and the first, so R+/R- can step OUT of a route (parking on "none") as well as
+  // into one — position 0 is "none", positions 1..N are routes[0..N-1]. No routes at all: nothing
+  // to cycle to, stays on "none". Unknown activeId (e.g. a deleted route) starts from "none".
   function cycleRoute(routes, activeId, dir) {
-    if (!routes.length) return activeId;
-    const from = Math.max(0, routes.findIndex(r => r.id === activeId));
-    const next = (from + dir + routes.length) % routes.length;
-    return routes[next].id;
+    if (!routes.length) return null;
+    const idx = activeId == null ? -1 : routes.findIndex(r => r.id === activeId);
+    const pos = idx + 1;
+    const total = routes.length + 1;
+    const nextPos = ((pos + dir) % total + total) % total;
+    return nextPos === 0 ? null : routes[nextPos - 1].id;
   }
 
   // The portable export shape: name + ordered waypoint name/x/z only — no internal ids, no live
@@ -151,6 +173,7 @@
 
   const api = {
     distanceBearing, relativeBearing, shouldAdvance, advanceIfNear,
+    waypointMarkerState, segmentReached,
     resetProgress,
     addWaypoint, removeWaypoint, renameWaypoint, reorderWaypoint,
     addRoute, deleteRoute, renameRoute, findRoute, cycleRoute, uniqueRouteName,
