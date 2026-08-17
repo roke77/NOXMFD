@@ -1802,6 +1802,10 @@ window.addEventListener('message', function(e) {
     mapInfoData = m;
     if (currentPage === 'wpt' && !splitMode) forwardWptToFrame();
     if (splitMode) forwardWptToPanes();
+  } else if (m.type === 'squadron') {
+    // A payload from a squadmate (docs/squadron-transport.md). Applied to the store here rather
+    // than forwarded to a page — see applySquadronPayload.
+    applySquadronPayload(m.payloadType, m.payload);
   }
 });
 
@@ -2301,9 +2305,27 @@ window.addEventListener('resize', function() {
 // listener). Re-render live to pick that up while MAP is showing, in full view or a split pane.
 window.addEventListener('storage', function(e) {
   if (e.key !== WaypointsStore.STORE_KEY) return;
+  refreshMapRouteLabels();
+});
+// Shared by the storage listener above and applySquadronPayload below — the latter writes
+// localStorage from THIS document, which never fires this document's own storage listener, so it
+// has to re-render explicitly.
+function refreshMapRouteLabels() {
   if (splitMode) { if (panePages.indexOf('map') !== -1) renderSplitLabels(); }
   else if (currentPage === 'map') showPage('map');
-});
+}
+
+// Squadron payloads (docs/squadron-transport.md) are applied HERE, in the shell, rather than in the
+// page that owns the feature: a route shared while WPT is closed must still arrive, and the shell is
+// the one document that is always loaded. Writing it to localStorage then fires 'storage' in the MAP
+// and WPT iframes, so they pick it up through the same live-refresh path a local edit already uses —
+// no new plumbing per payload type, just a new case here.
+function applySquadronPayload(payloadType, payload) {
+  if (payloadType !== 'wpt.route') return;   // unknown type: ignore, don't guess (versioned wire)
+  const route = WaypointsStore.importRoute(payload);
+  if (!route) { console.warn('[squadron] rejected malformed wpt.route payload'); return; }
+  refreshMapRouteLabels();
+}
 
 loadConfigUrls();
 showPage('main');   // start on the MAIN page

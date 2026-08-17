@@ -22,6 +22,11 @@ namespace NOXMFD
             // handler validates against live state, so gameplay commands just no-op without a mission.
             CommandDispatcher.Drain();
 
+            // Drain the squadron channel here for the same reason: route planning happens BEFORE a
+            // flight, so shared data has to flow at the main menu, not only during a mission
+            // (docs/squadron-transport.md). No-ops when Steam is unavailable or no peers are set.
+            Squadron.Poll();
+
             bool missionRunning = MissionManager.IsRunning;
 
             if (missionRunning && !_readerActive)

@@ -663,6 +663,8 @@ namespace NOXMFD
                         ServeKeybindsConfig(ctx);
                     else if (path == "/soi-instances")
                         ServeSoiInstances(ctx);
+                    else if (path == "/squadron")
+                        ServeSquadron(ctx);
                     else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                         ServeAsset(ctx, path);
                     else if (path == "/map-view")
@@ -816,6 +818,39 @@ namespace NOXMFD
                         "{{\"conn\":{0},\"cid\":\"{1}\",\"remote\":\"{2}\",\"upSec\":{3:0.0}}}",
                         it.Conn, EscapeJson(it.Cid), EscapeJson(it.Remote),
                         (DateTime.UtcNow - it.ConnectedUtc).TotalSeconds);
+                }
+                sb.Append("]}");
+                byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // Squadron membership as JSON (docs/squadron-transport.md): this player's own SteamID — which
+        // is what they hand to squadmates, since there is no lobby — plus the current peer set and
+        // whether the transport is usable at all. `ready:false` is the honest answer on a non-Steam
+        // launch, and the page shows the feature as unavailable rather than silently failing to send.
+        //
+        // SteamIDs are emitted as STRINGS: a SteamID64 is 17 digits, past the point where JavaScript's
+        // Number keeps integers exact, so a bare number would round and address the wrong account.
+        private static void ServeSquadron(HttpListenerContext ctx)
+        {
+            try
+            {
+                var sb = new StringBuilder();
+                sb.AppendFormat(CultureInfo.InvariantCulture,
+                    "{{\"ready\":{0},\"self\":\"{1}\",\"peers\":[",
+                    Squadron.Ready ? "true" : "false", Squadron.SelfId());
+                ulong[] peers = Squadron.Peers();
+                for (int i = 0; i < peers.Length; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    sb.AppendFormat(CultureInfo.InvariantCulture, "\"{0}\"", peers[i]);
                 }
                 sb.Append("]}");
                 byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
@@ -1358,6 +1393,12 @@ namespace NOXMFD
                 // stick costs one comparison per tick and no traffic at all.
                 string lastCursor = string.Empty;
                 int sinceFrame = FrameEveryMs;   // send a frame immediately on connect
+                // Squadron inbound (docs/squadron-transport.md): per-connection cursor into the
+                // shared inbox, starting at whatever has already arrived so a display that opens
+                // mid-session doesn't replay the backlog. Each message then reaches each display
+                // exactly once, unlike the cursor's latest-value-wins comparison above — a route
+                // that arrives while another is still being read must not be dropped.
+                long lastSquadronSeq = Squadron.LatestSeq();
                 while (!ct.IsCancellationRequested)
                 {
                     if (sinceFrame >= FrameEveryMs)
@@ -1376,6 +1417,20 @@ namespace NOXMFD
                         lastCursor = cursor;
                         byte[] cbytes = Encoding.UTF8.GetBytes("event: cursor\ndata: " + cursor + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(cbytes, 0, cbytes.Length, ct).ConfigureAwait(false);
+                    }
+
+                    // Squadron payloads, one named event each. Sent on their own event rather than
+                    // inside the telemetry frame so they arrive as soon as they land instead of
+                    // waiting for the next 10 Hz tick — the same reasoning the cursor event uses.
+                    var inbound = Squadron.Since(lastSquadronSeq);
+                    foreach (var msg in inbound)
+                    {
+                        lastSquadronSeq = msg.Seq;
+                        string json = string.Format(CultureInfo.InvariantCulture,
+                            "{{\"seq\":{0},\"from\":\"{1}\",\"type\":\"{2}\",\"payload\":\"{3}\"}}",
+                            msg.Seq, msg.From, EscapeJson(msg.Type), EscapeJson(msg.Payload));
+                        byte[] sbytes = Encoding.UTF8.GetBytes("event: squadron\ndata: " + json + "\n\n");
+                        await ctx.Response.OutputStream.WriteAsync(sbytes, 0, sbytes.Length, ct).ConfigureAwait(false);
                     }
                     ctx.Response.OutputStream.Flush();
 
@@ -1769,7 +1824,10 @@ namespace NOXMFD
         // the whole class here means no future caller needs to remember this. Lazily allocates only
         // when a string actually needs escaping (every prior caller was escape-free, hot path stays
         // allocation-free).
-        private static string EscapeJson(string s)
+        // internal, not private: Squadron.cs serialises its wire envelope with this same escape
+        // rather than keeping a second copy that could miss the same control characters this one
+        // was widened to cover.
+        internal static string EscapeJson(string s)
         {
             if (string.IsNullOrEmpty(s)) return s ?? string.Empty;
             StringBuilder? sb = null;

@@ -80,6 +80,14 @@
       <HintPath>$(GameDir)\NuclearOption_Data\Managed\Mirage.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- Steamworks.NET is the game's own Steam binding. The squadron transport (docs/squadron-transport.md)
+         borrows the session SteamManager already initialised — it never calls SteamAPI.Init itself
+         (the game throws on a second init) and never runs its own callback pump (SteamManager.Update
+         already calls SteamAPI.RunCallbacks every frame). -->
+    <Reference Include="com.rlabrecque.steamworks.net">
+      <HintPath>$(GameDir)\NuclearOption_Data\Managed\com.rlabrecque.steamworks.net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <!-- Rewired is the game's input system; it owns the joystick/HOTAS, so Unity's legacy Input never
          sees those buttons. We read them through Rewired for the countermeasure keybinds. -->
     <Reference Include="Rewired_Core">

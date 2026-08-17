@@ -1,0 +1,274 @@
+# Squadron transport — sharing data between players over the internet
+
+A transport layer letting two or more players form a "squadron" and exchange mod data directly:
+the squadron leader assigns targets, publishes a datalink picture, shares a waypoint route, or
+streams a sensor feed, and members receive it on their own displays.
+
+The waypoint route is the smallest consumer of this transport, not its purpose. The transport is
+sized for the whole family:
+
+- **Waypoint routes** — the leader shares a planned route (the WPT page's existing JSON).
+- **Advanced target designation** — the leader assigns specific targets to named members.
+- **Advanced datalink sharing** — a merged contact picture pushed continuously to the squadron.
+- **Sensor/video feed sharing** — a member's TGP camera feed mirrored to another member's display.
+
+These four have payloads three orders of magnitude apart, which is the single biggest constraint on
+the design. A transport that comfortably carries a route can be useless for video.
+
+**Current scope: small text payloads only** — waypoint routes and target designation. Datalink
+streaming and video sharing are deferred; the "Deferred: heavy payloads" section records what they
+would need so the first implementation does not foreclose them.
+
+## What the platform already provides
+
+Findings from the shipped game binaries (`NuclearOption_Data/Managed`) and this mod's own sources.
+
+| Finding | Evidence |
+| --- | --- |
+| The game networks with **Mirage** (a Mirror fork) over a **Steamworks socket** | `Mirage.dll`, `Mirage.SteamworksSocket.dll` |
+| The game already uses **Steam lobbies** for multiplayer | `NuclearOption.Networking.Lobbies.SteamLobby` |
+| A full **Steamworks.NET** binding ships with the game | `com.rlabrecque.steamworks.net.dll` |
+| Steam's modern P2P messaging API is available | `SendMessageToUser`, `ReceiveMessagesOnChannel`, `AcceptSessionWithUser`, `CloseSessionWithUser` |
+| Steam exposes per-message reliability and channels | `k_nSteamNetworkingSend_Reliable`, `_Unreliable`, `_NoDelay`, `_NoNagle`, and a channel argument |
+| Steam lobby APIs are available | `CreateLobby`, `SetLobbyData`, `SetLobbyMemberData`, `SendLobbyChatMsg`, `GetNumLobbyMembers` |
+| The game does **not** use Steam's lobby-chat channel | no `SendLobbyChatMsg` / `LobbyChatMsg_t` reference in `Assembly-CSharp.dll` |
+| The game has **no networked map markers** to reuse | no `Cmd`/`Rpc`/`Target` RPC for pin, marker, or waypoint; `AddFactionPin` is client-local |
+| This mod already references `Mirage.dll` | `NOXMFD.csproj` |
+| Steam app ID | `2168680` |
+| The game **pumps Steam callbacks every frame** | `SteamManager.Update()` calls `SteamAPI.RunCallbacks()` |
+| The game initialises Steam and **throws if initialised twice** | `SteamManager.CheckInit()` — `"Tried to Initialize the SteamAPI twice in one session!"` |
+| The game's transport uses **`SteamNetworkingSockets`**, not `SteamNetworkingMessages` | `Mirage.SteamworksSocket.dll` references `CreateListenSocketP2P` / `ConnectP2P` only |
+| The game registers a **global** `Callback<LobbyCreated_t>` | `SteamLobby` — `Callback<LobbyCreated_t>.Create(OnLobbyCreated)` |
+
+Three of these decide the design:
+
+- **Callbacks are already pumped.** `SteamManager.Update()` runs `SteamAPI.RunCallbacks()` every
+  frame, so a mod-registered `Callback<T>` dispatches without the mod running a pump of its own.
+  Steam is initialised by the game and throws on a second init, so the mod borrows the session and
+  never initialises or shuts down Steam itself.
+- **`SteamNetworkingMessages` is completely unused by the game.** The game's transport is the
+  distinct `SteamNetworkingSockets` interface. The messaging interface is therefore free for the
+  mod to use with no risk of interfering with match traffic.
+- **Steam lobbies are not free of interference.** `Callback<T>.Create` in Steamworks.NET is
+  process-global, so a lobby created by the mod also fires the game's `OnLobbyCreated`. If the
+  game has a lobby creation pending, the mod's result can satisfy the game's completion source and
+  corrupt its lobby state. Lobbies are therefore excluded from the first implementation.
+
+Steam is initialised by the game itself (`SteamManager`), in the same process the mod runs in, so
+the mod can call the Steamworks API without initialising or shipping anything of its own. Valve's
+relay network handles NAT traversal, encryption, and identity at no cost to the project.
+
+The absence of networked map markers matters: there is no native feature to piggyback for any of
+the four target features. All of them require the mod to move its own bytes.
+
+## Payload budget
+
+The four features differ enough that they need different channels, not just different message types.
+
+| Feature | Payload | Rate | Bandwidth | Reliability |
+| --- | --- | --- | --- | --- |
+| Waypoint route | **436 B** measured (10 waypoints, compact JSON) | On demand | Negligible | Reliable, ordered |
+| Target designation | ~100–200 B estimated | A few per minute | Negligible | Reliable, ordered |
+| Datalink picture | ~2 KB estimated (30 contacts) | 5–10 Hz | 10–20 KB/s | Unreliable — a stale contact set has no value once the next one arrives |
+| TGP video feed | ~10–30 KB/frame estimated | 15 Hz | **150–450 KB/s (1.2–3.6 Mbps)** per receiver | Unreliable |
+
+Route and designation payloads are measured and estimated respectively against the existing WPT
+JSON. The video figures derive from `TgpFeed.cs`'s shipped encoder settings — 15 Hz, JPEG quality
+50, longest side capped at 720 — and need confirming against a real captured frame before any video
+work starts.
+
+Video is the constraint that shapes the architecture. A leader streaming to three members sends
+3.6–10.8 Mbps upstream, which exceeds the upload capacity of many domestic connections. Options for
+keeping it inside a realistic budget, in the order worth trying:
+
+1. Lower the shared feed's rate and quality independently of the local feed (5 Hz, smaller cap,
+   quality 35 puts one receiver near 40–80 KB/s).
+2. Allow one video receiver at a time rather than fanning out to the whole squadron.
+3. Replace per-frame JPEG with a real video codec, which is a large piece of work and pulls in a
+   dependency the project does not currently have.
+
+The first two are configuration and policy; the third is a project of its own. Routes, designation,
+and datalink all fit comfortably regardless of which is chosen.
+
+## Options
+
+### A. Steam lobby only
+
+The mod creates its own Steam lobby, separate from the match. Membership, invites, and the Steam
+overlay's friend UI come free. Data rides `SendLobbyChatMsg` (4 KB binary per message) or
+`SetLobbyMemberData` (replicated to members automatically).
+
+Carries routes and target designation without effort. Lobby data and lobby chat are metadata
+channels, rate-limited by Steam and not intended for sustained streaming, so datalink at 10 Hz and
+video are out of reach.
+
+**Effort:** 2–4 days. **Cost:** none.
+
+### B. Steam peer-to-peer messages
+
+`SteamNetworkingMessages.SendMessageToUser` addressed to each member's SteamID, over Valve's relay.
+Messages up to 512 KB, an application-defined channel per message, and a reliability flag per send.
+`AcceptSessionWithUser` provides the accept/reject handshake for an unsolicited sender, so consent
+is a platform primitive rather than something the mod invents.
+
+Channels map directly onto the payload budget: reliable ordered for routes and designation,
+unreliable no-delay for datalink and video. This is the only option that covers all four features.
+
+Membership, invites, and discovery are not included — that work is what Option A provides.
+
+**Effort:** 3–5 days for the transport itself. **Cost:** none.
+
+### C. Custom Mirage message on the live game session
+
+Register a message type with `MessageHandler.RegisterHandler<T>` on the connection the match already
+holds. Reuses an established session and adds no new networking.
+
+The blocking problem is that the host or server must also run the mod. An unregistered message ID
+charges the sender's error budget and reaches `HandleExceptionInMessage`, which calls
+`player.Disconnect()`. Against a vanilla server this risks disconnecting the players using the mod.
+The approach is confined to private, fully modded servers, and it only works while everyone is in
+the same match — so it cannot support planning before a flight.
+
+**Effort:** ~1 week, fragile. **Cost:** none.
+
+### D. External relay server
+
+A WebSocket service with room codes, connected to by either the browser UI or the plugin. Platform
+independent, so it would also serve non-Steam copies, and a relay topology solves the video fanout
+problem by sending upstream once.
+
+It makes the project an operator: uptime, abuse handling, a privacy policy, and a running bill that
+scales with the number of users. It also replaces a Valve-operated relay with a self-operated one
+for no functional gain on Steam.
+
+**Effort:** ~1 week, plus ongoing operations. **Cost:** $0–5/month at hobby scale, rising with use.
+
+### E. Manual export and import
+
+The status quo. The WPT page already exports and imports route JSON, so a route can be shared by
+pasting it into a chat client.
+
+Covers exactly one of the four features, and only for pre-flight planning. Listed because it is the
+baseline any transport has to justify itself against.
+
+**Effort:** none, already shipped. **Cost:** none.
+
+## Recommendation
+
+**Option B alone for the first implementation. Option A is deferred, not adopted.**
+
+`SteamNetworkingMessages` carries everything the current scope needs: `SendMessageToUser` addressed
+to a member's SteamID, reliable and ordered, on a mod-chosen channel the game never touches.
+`AcceptSessionWithUser` supplies the consent handshake, and `CloseSessionWithUser` the teardown.
+Steam's relay handles NAT traversal, encryption, and identity at no cost.
+
+The Steam lobby was the earlier recommendation for the membership layer, and the `LobbyCreated_t`
+finding above removes it from the first pass: a mod-created lobby can corrupt the game's own lobby
+state through a process-global callback. Membership for small text payloads does not need a lobby —
+a squadron is a set of SteamIDs, and messages address those directly. A lobby buys invite UX and
+discovery, which can be revisited once the transport is proven and the callback interaction has
+been tested against a live match.
+
+This costs nothing, requires no server, needs no account beyond Steam, and leaves vanilla players
+unaffected.
+
+Option C is rejected for public play because it can disconnect the players using it. Option D
+remains the fallback if the project ever needs to serve non-Steam copies, or if video fanout proves
+impossible peer-to-peer.
+
+Encoding payloads into the game's own chat is rejected outright. `ChatManager` caps a message at
+`MAX_CHAT_MESSAGE_LENGTH = 128` and applies `[RateLimit(Refill = 5, MaxTokens = 15, Penalty = 1,
+Interval = 30f)]` server-side. The measured 436-byte route becomes 584 base64 characters, or five
+messages — an entire refill period for the smallest of the four payloads, spamming a channel other
+players are reading, with every message logged server-side against the sender's SteamID.
+
+## Architecture sketch
+
+The browser holds the data (routes in `localStorage`), and the plugin holds the network connection,
+so payloads cross that boundary in both directions. Both directions already exist:
+
+- **Browser to plugin:** `POST /command`, dispatched by `CommandDispatcher`. Squadron sends become
+  new commands carrying a payload string.
+- **Plugin to browser:** the SSE stream. The `cursor` event shows the pattern for a dedicated event
+  type alongside the telemetry frame, which is what a squadron event wants — payloads arrive
+  independently of the 10 Hz tick and should not wait for it.
+
+That leaves the genuinely new work as: the Steam lobby lifecycle, the P2P send/receive loop pumped
+from the existing Unity update, a message envelope with a version field, the squadron UI, and the
+consent model.
+
+Two design constraints worth fixing early:
+
+- **Version the envelope from the first message.** Squadron members will run different mod versions,
+  and a transport carrying four independently evolving features needs to reject or ignore what it
+  cannot parse rather than misread it.
+- **Treat every received payload as untrusted input.** It arrives from another player's machine over
+  the internet. Bounds and schema belong at that boundary, as with any other trust boundary in the
+  mod.
+
+## Security and privacy consequences
+
+`SECURITY.md` currently states, as a headline promise, that the mod **makes no internet
+connections** and that all traffic is localhost or LAN. Every option here except E makes that
+sentence untrue.
+
+Adopting A+B requires that disclosure to change honestly, and the change is defensible: connections
+are opt-in, only to Steam users the player invites or accepts, over Valve's relay, with no
+third-party server and no data collected by the project. That is a materially stronger position
+than Option D, which would introduce a server operated by the project through which player data
+passes.
+
+The disclosure needs to cover what is actually sent — position, sensor, and targeting data, and
+potentially a camera feed — since a squadron feature shares live information about the player's
+aircraft with other people by design. It also needs to state that accepting a squadron invite
+reveals the player's SteamID and, through Steam's relay, exposes them to another player's traffic.
+
+The consent model should be explicit rather than implicit: no automatic acceptance of sessions, a
+visible member list, and a way to leave that closes sessions (`CloseSessionWithUser`).
+
+## Deferred: heavy payloads
+
+The datalink and video features are out of the current scope. They are recorded here so the
+transport built now does not foreclose them.
+
+**Datalink streaming** needs an unreliable channel — a contact set that arrives late has been
+superseded, so retransmitting it costs latency and buys nothing.
+`k_nSteamNetworkingSend_UnreliableNoDelay` on a channel separate from the reliable one covers this,
+which is why the envelope carries a type field and the send path takes a channel from the start.
+The open design question is whether the picture merges on the leader's machine or on each member's.
+
+**Video sharing** is the one feature capable of changing the architecture. At the shipped TGP
+settings it needs an estimated 1.2–3.6 Mbps *per receiver*, so a leader feeding three members
+exceeds many domestic upload links. Before any video work, measure a real encoded frame — every
+figure here rests on an estimate — then decide between a reduced shared-feed rate, a single
+receiver at a time, or a real codec. A relay topology (Option D) becomes attractive only if
+peer-to-peer fanout proves unworkable.
+
+Both are additive: they need new channels and new message types, not a different transport.
+
+## Open questions
+
+The two unknowns capable of invalidating the recommendation are now answered — callbacks are pumped
+by `SteamManager.Update()`, and `SteamNetworkingMessages` is untouched by the game. What remains:
+
+- Does a squadron survive leaving a match, or dissolve with it?
+- How do members identify each other without a lobby — a pasted SteamID, or a picker built on
+  `SteamFriends`?
+- Does an unmodded or non-Steam copy need a graceful "unavailable" path, or is silent absence of
+  the feature acceptable?
+- What is a real TGP frame's encoded size? Deferred with the video feature, but it gates any
+  decision there.
+
+## Suggested first step
+
+The lobby spike is no longer the blocker it was — its two questions are answered statically. The
+first implementation is the transport itself:
+
+1. A peer set of SteamIDs, with explicit accept via `AcceptSessionWithUser` and no auto-acceptance.
+2. A versioned envelope with a type field and a size cap, sent reliably on a dedicated channel.
+3. `ReceiveMessagesOnChannel` polled from the update loop the plugin already runs.
+4. Browser plumbing over the paths that already exist — `POST /command` up, an SSE event down.
+
+A waypoint route is the right first payload precisely because it is the smallest and already
+serialises: it exercises the whole path end to end, browser to browser, with no bandwidth question
+attached.

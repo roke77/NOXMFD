@@ -35,6 +35,11 @@ namespace NOXMFD
         public string cid;     // soi.panes : which instance is reporting (a POST isn't tied to its /stream)
         public int    n;       // soi.panes : how many focusable surfaces that instance now shows
         public float  hz;      // rates.set : desired rate in Hz (group picks which — "fast" | "tgp")
+        public string peer;    // squadron.add / squadron.remove : the peer's SteamID64, as text —
+                               // a string, not a long, because a 17-digit SteamID64 exceeds what
+                               // JavaScript's Number can represent exactly (docs/squadron-transport.md)
+        public string type;    // squadron.send : payload type ("wpt.route", ...)
+        public string payload; // squadron.send : the payload itself (small text only)
     }
 
     internal static class CommandDispatcher
@@ -61,6 +66,14 @@ namespace NOXMFD
                 // "tgp" is the camera feed, anything else (default "fast") is the main 10 Hz tick.
                 { "rates.set",       e => { if (e.group == "tgp") RatesConfig.SetTgpHz(e.hz); else RatesConfig.SetFastHz(e.hz); } },
                 { "master-arms.set", e => ImmersionState.MasterArmsOn = e.on },
+                // Squadron transport (docs/squadron-transport.md). Membership is a plain SteamID set;
+                // squadron.send broadcasts one small typed payload to every member. Parsing the peer
+                // id here (not in Squadron) keeps the wire-format tolerance at the trust boundary,
+                // where every other command's validation already lives.
+                { "squadron.add",    e => { if (TryPeer(e.peer, out ulong p)) Squadron.AddPeer(p); } },
+                { "squadron.remove", e => { if (TryPeer(e.peer, out ulong p)) Squadron.RemovePeer(p); } },
+                { "squadron.clear",  e => Squadron.Clear() },
+                { "squadron.send",   e => Squadron.Send(e.type, e.payload) },
                 // Routes through Keybinds.SetCombatMode (not a bare assignment) so the WPN page's own
                 // A/A · A/G controls (bezel and F-35) get the same weapon auto-switch as the physical
                 // keybind (docs/radar-master-arms.md, issue #32) — one behavior, one source, not a
@@ -103,6 +116,22 @@ namespace NOXMFD
         private static void Log(string op, string bind, bool ok)
         {
             if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] keybind.{op} '{bind}': rejected.");
+        }
+
+        // A SteamID64 arrives as text (see CommandEnvelope.peer). Reject anything that isn't a plain
+        // unsigned integer rather than coercing it — this is a trust boundary, and a malformed id
+        // should no-op visibly in the log instead of silently becoming peer 0.
+        private static bool TryPeer(string s, out ulong id)
+        {
+            id = 0;
+            if (string.IsNullOrWhiteSpace(s)) return false;
+            if (!ulong.TryParse(s.Trim(), System.Globalization.NumberStyles.None,
+                                System.Globalization.CultureInfo.InvariantCulture, out id) || id == 0)
+            {
+                Plugin.Log?.LogInfo($"[NOXMFD] squadron: rejected peer id '{s}'.");
+                return false;
+            }
+            return true;
         }
 
         // True for a cmd we have a handler for — lets the server reject unknown commands at the

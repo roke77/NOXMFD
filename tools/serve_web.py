@@ -182,6 +182,35 @@ def _rates_config():
     return json.dumps({"fastHz": 10, "tgpHz": 15}).encode("utf-8")
 
 
+# Stateful mock of the plugin's /squadron + squadron.* commands (docs/squadron-transport.md), so the
+# WPT page's squadron block can be exercised here without Steam or a second player. `ready` is True
+# so the section renders; the real plugin reports False on a non-Steam launch and hides it. The
+# transport itself is NOT mocked — squadron.send is accepted and dropped, since there is no peer
+# here to receive it.
+_SQUADRON = {"ready": True, "self": "76561198000000001", "peers": []}
+
+
+def _squadron_state():
+    return json.dumps(_SQUADRON).encode("utf-8")
+
+
+def _squadron_command(env):
+    cmd = env.get("cmd") or ""
+    if not cmd.startswith("squadron."):
+        return
+    peer = str(env.get("peer") or "").strip()
+    if cmd == "squadron.add":
+        # Same digits-only shape the plugin's TryPeer enforces, so the harness rejects what the real
+        # build would reject rather than accepting ids that only work here.
+        if peer.isdigit() and peer != _SQUADRON["self"] and peer not in _SQUADRON["peers"]:
+            _SQUADRON["peers"].append(peer)
+    elif cmd == "squadron.remove":
+        if peer in _SQUADRON["peers"]:
+            _SQUADRON["peers"].remove(peer)
+    elif cmd == "squadron.clear":
+        _SQUADRON["peers"].clear()
+
+
 # WPT showcase route (issue #38) — a real route drawn by hand in this harness (6 waypoints, a loop
 # roughly SE -> N -> W -> back), captured from localStorage so the preview always has something to
 # look at instead of an empty "long-press the map" state. Unlike hud/rates/keybinds above, WPT has
@@ -434,6 +463,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             except (ValueError, OSError):
                 env = {}
             _keybinds_command(env)
+            _squadron_command(env)
             self.send_response(204)
             self.end_headers()
             return
@@ -455,6 +485,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(_keybinds_config(), 'application/json; charset=utf-8')
         if path == '/rates-config':
             return self._send(_rates_config(), 'application/json; charset=utf-8')
+        if path == '/squadron':
+            return self._send(_squadron_state(), 'application/json; charset=utf-8')
         if path == '/map-view':
             try:
                 return self._send(_map_page(), 'text/html; charset=utf-8')

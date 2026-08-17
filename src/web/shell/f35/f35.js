@@ -853,6 +853,15 @@
       return;
     }
 
+    if (m.type === 'squadron') {
+      // A payload from a squadmate (docs/squadron-transport.md), applied to the store here rather
+      // than routed to a portal — a route shared while no WPT portal is open must still arrive, and
+      // this shell document is always loaded. The write then fires 'storage' in every portal, which
+      // is the same live-refresh path a local edit already takes.
+      applySquadronPayload(m.payloadType, m.payload);
+      return;
+    }
+
     slices[m.type] = m;   // cache every slice: the screen that wants it may not be up yet
     livePortals().forEach(function (p) { p.onSlice(m.type); });
 
@@ -877,8 +886,22 @@
   // reload — and so can't lose the pan/zoom of — a MAP portal that's already showing.
   window.addEventListener('storage', function (e) {
     if (e.key !== WaypointsStore.STORE_KEY) return;
-    livePortals().forEach(function (p) { if (p.page() === 'map') p.refreshNav(); });
+    refreshMapPortalNav();
   });
+  // Shared with applySquadronPayload: that writes localStorage from THIS document, and a document's
+  // own write never fires its own storage listener, so it re-renders explicitly.
+  function refreshMapPortalNav() {
+    livePortals().forEach(function (p) { if (p.page() === 'map') p.refreshNav(); });
+  }
+
+  function applySquadronPayload(payloadType, payload) {
+    if (payloadType !== 'wpt.route') return;   // unknown type: ignore, don't guess (versioned wire)
+    if (!WaypointsStore.importRoute(payload)) {
+      console.warn('[squadron] rejected malformed wpt.route payload');
+      return;
+    }
+    refreshMapPortalNav();
+  }
 
   // ── Master strip ───────────────────────────────────────────────────────────────────────
   // Fixed chrome across the top (docs/layouts.md). It holds no page and no NAV, so it isn't a

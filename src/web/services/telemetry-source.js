@@ -99,6 +99,17 @@ export class TelemetrySource {
     es.addEventListener('cursor', (e) => {
       try { this._onCursor(JSON.parse(e.data)); } catch (err) { /* malformed — skip this one */ }
     });
+    // Squadron payloads from another player (docs/squadron-transport.md). Forwarded straight up to
+    // the shell, which routes them to whichever page handles that payload type — this tap only ever
+    // relays them, exactly as it does the cursor, and never interprets a payload itself. Unlike the
+    // cursor there is no focus gate: a shared route is addressed to this PLAYER, not to whichever
+    // display currently holds SOI, so it must arrive regardless of what is focused.
+    es.addEventListener('squadron', (e) => {
+      try {
+        const m = JSON.parse(e.data);
+        this._postUp({ type: 'squadron', seq: m.seq, from: m.from, payloadType: m.type, payload: m.payload });
+      } catch (err) { /* malformed — skip this one */ }
+    });
     es.onmessage = (e) => this._onMessage(e);
     es.onerror = () => {};   // EventSource auto-reconnects; the watchdog decides when to flag DISCONNECTED
     // Watchdog — tolerate transient SSE blips, only flag disconnect after a real gap.

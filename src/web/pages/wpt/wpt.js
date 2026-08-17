@@ -73,6 +73,15 @@ function renderRoutes(c) {
     exportBtn.className = 'wpt-row-btn pad-hoverable'; exportBtn.textContent = '⇩'; exportBtn.title = 'Export route as JSON';
     exportBtn.onclick = function () { openExportPanel(route.id); };
 
+    // Share to the squadron (docs/squadron-transport.md). Sends the SAME serialisation the export
+    // panel shows, so one format travels both paths — a shared route and a pasted one are the same
+    // bytes, and the receiving end runs the same importRoute validation either way. Only rendered
+    // while the transport is up and at least one squadmate is set, since it can do nothing without
+    // both.
+    const share = document.createElement('button');
+    share.className = 'wpt-row-btn pad-hoverable'; share.textContent = '⇪'; share.title = 'Share route with squadron';
+    share.onclick = function () { shareRoute(route.id, share); };
+
     const del = document.createElement('button');
     del.className = 'wpt-row-btn pad-hoverable';
     del.textContent = '×';
@@ -80,7 +89,9 @@ function renderRoutes(c) {
     del.onclick = function () { WaypointsStore.deleteRoute(route.id); render(); };
 
     row.appendChild(name); row.appendChild(mark); row.appendChild(edit); row.appendChild(reset);
-    row.appendChild(exportBtn); row.appendChild(del);
+    row.appendChild(exportBtn);
+    if (sqd.ready && sqd.peers.length) row.appendChild(share);
+    row.appendChild(del);
     routesEl.appendChild(row);
   });
 }
@@ -324,7 +335,88 @@ window.addEventListener('message', function (e) {
   else if (m.action === 'zoom-out') window.scrollBy({ top: -SCROLL_STEP });
 });
 
-// Another tab/pane (or MAP itself) wrote a waypoint — pick it up immediately.
+// Another tab/pane (or MAP itself) wrote a waypoint — pick it up immediately. A route arriving from
+// a squadmate lands the same way: the shell writes it to the store, which fires this.
 window.addEventListener('storage', function (e) { if (e.key === WaypointsStore.STORE_KEY) render(); });
 
+// ── Squadron (docs/squadron-transport.md) ──────────────────────────────────────────────
+// Membership lives plugin-side (it owns the Steam session), so this block is a thin view over
+// GET /squadron plus the squadron.* commands. `ready:false` means no Steam — the whole section stays
+// hidden rather than offering controls that cannot work.
+const sqd = { ready: false, self: '', peers: [] };
+const sqdSection = document.getElementById('wpt-sqd-section');
+const sqdSelfEl  = document.getElementById('wpt-sqd-selfid');
+const sqdPeersEl = document.getElementById('wpt-sqd-peers');
+const sqdErrEl   = document.getElementById('wpt-sqd-error');
+const sqdInput   = document.getElementById('wpt-sqd-peer');
+
+function sqdError(msg) { sqdErrEl.textContent = msg || ''; }
+
+function refreshSquadron() {
+  return fetch('/squadron')
+    .then(r => r.ok ? r.json() : null)
+    .then(function (s) {
+      if (!s) return;
+      sqd.ready = !!s.ready;
+      sqd.self  = s.self || '';
+      sqd.peers = Array.isArray(s.peers) ? s.peers : [];
+      renderSquadron();
+      render();   // the per-route share button appears/disappears with peers
+    })
+    .catch(function () { /* standalone/preview without the plugin — leave it hidden */ });
+}
+
+function renderSquadron() {
+  sqdSection.style.display = sqd.ready ? '' : 'none';
+  if (!sqd.ready) return;
+  sqdSelfEl.textContent = sqd.self && sqd.self !== '0' ? sqd.self : '—';
+  sqdPeersEl.textContent = '';
+  sqd.peers.forEach(function (p) {
+    const row = document.createElement('div');
+    row.className = 'wpt-row';
+    const name = document.createElement('span');
+    name.className = 'wpt-row-name';
+    name.textContent = p;
+    const del = document.createElement('button');
+    del.className = 'wpt-row-btn pad-hoverable';
+    del.textContent = '×';
+    del.title = 'Remove squadmate';
+    del.onclick = function () {
+      sendCommand('squadron.remove', { peer: p }).then(refreshSquadron).catch(function () {});
+    };
+    row.appendChild(name); row.appendChild(del);
+    sqdPeersEl.appendChild(row);
+  });
+}
+
+// A SteamID64 is 17 digits — validated here as digits-only so an obvious typo is caught in the page,
+// and again plugin-side (CommandDispatcher.TryPeer), which is the real trust boundary.
+document.getElementById('wpt-sqd-add').onclick = function () {
+  const v = (sqdInput.value || '').trim();
+  if (!/^\d{5,20}$/.test(v)) { sqdError('SteamID must be digits only'); return; }
+  if (v === sqd.self) { sqdError('That is your own ID'); return; }
+  sqdError('');
+  sendCommand('squadron.add', { peer: v })
+    .then(function () { sqdInput.value = ''; return refreshSquadron(); })
+    .catch(function () { sqdError('Could not reach the plugin'); });
+};
+
+document.getElementById('wpt-sqd-copy').onclick = function () {
+  if (!sqd.self || sqd.self === '0') return;
+  // Same clipboard fallback shape the export panel's COPY uses — execCommand still covers the
+  // non-secure-origin case a LAN tablet hits (http://<pc-ip>:5005 is not a secure context).
+  try { navigator.clipboard.writeText(sqd.self); }
+  catch (e) { /* older/non-secure context — the id is on screen to read either way */ }
+};
+
+function shareRoute(id, btn) {
+  const json = WaypointsStore.exportRoute(id);
+  if (!json) return;
+  const was = btn.textContent;
+  sendCommand('squadron.send', { type: 'wpt.route', payload: json })
+    .then(function () { btn.textContent = '✓'; setTimeout(function () { btn.textContent = was; }, 1200); })
+    .catch(function () { sqdError('Share failed'); });
+}
+
+refreshSquadron();
 render();   // also paints the readout — see render()'s own comment
