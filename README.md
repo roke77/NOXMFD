@@ -228,11 +228,12 @@ pilot, with HOTAS-friendly keybinds to match.
 
 - **WPT** — plot custom waypoints on **MAP** (long-press a spot to drop one into the active
   route) and chain them into an ordered route. The WPT page lists every route (create, rename,
-  delete, switch active) and the active route's waypoints (rename, reorder, delete, or reset
-  progress back to any waypoint), with a distance/bearing readout and a relative-bearing compass
-  to the next one that auto-advances as you approach it. Routes persist across reloads. IMPORT and
-  each route's own export button turn a route into pasteable JSON, so you can back one up or hand
-  it to another pilot.
+  delete, click to activate — click the active one again to deactivate it, leaving it saved but
+  unassigned) and the active route's waypoints (rename, reorder, delete, or reset progress back to
+  any waypoint), with a distance/bearing readout and a relative-bearing compass to the next one
+  that auto-advances as you approach it. CLEAR wipes every route at once. Routes persist across
+  reloads. IMPORT and each route's own export button turn a route into pasteable JSON, so you can
+  back one up or hand it to another pilot.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
@@ -312,7 +313,8 @@ Multi-stick HOTAS setups are supported; each bind remembers which stick it came 
   as outlines on the WPN page.
 - **Follow / Zoom In / Zoom Out / Next Route / Previous Route / Next Waypoint / Previous Waypoint** —
   direct binds for what the bezel's FLW, Z+/Z−, R+/R− and W+/W− keys already do on the focused MAP
-  display.
+  or WPT display. Next/Previous Route stay usable to switch INTO a route as long as one is saved,
+  even with none currently active.
 - **Cursor Up / Down / Left / Right / Select**, plus two HOTAS axis binds (horizontal/vertical) —
   drive the [PAD cursor](#pad-cursor) below.
 - **Next Target / Previous Target** — step a highlighted row through the focused TGT display's
