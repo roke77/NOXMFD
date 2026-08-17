@@ -13,9 +13,12 @@
 
   Shell -> page messages (all {mfd:true, type:'akf', ...}):
     { all:[entry,...], player:[entry,...],
-      kills:{aircraft,ship,vehicle,building}, value, fundsGained, fundsSpent }
+      kills:{aircraft,ship,vehicle,building}, rank, fundsGained, fundsSpent }
     entry: { a: attacker name or absent, h: attacker hostile (only present with a),
-             v: victim name, vh: victim hostile, verb: "shot down"/"destroyed"/..., w: weapon or absent }
+             v: victim name, vh: victim hostile, verb: "shot down"/"destroyed"/..., w: weapon or absent,
+             pv: true on a PLAYER-feed "incoming" line (player was killed, or the player's own fired
+                 munition was intercepted) — attacker is NOT the player here, unlike a normal
+                 PLAYER-feed line where the player is the omitted attacker }
     No present:false gate — an empty session (no kills yet) just reads as all-zero, always shown.
 
   Read-only: no commands, no interaction.
@@ -59,9 +62,8 @@
       </div>
 
       <div class="akf-card">
-        <div class="akf-section-label">ENEMY VALUE LOST</div>
-        <div class="akf-value-figure" id="akf-value">0</div>
-        <div class="akf-value-note">UnitDefinition.value sum</div>
+        <div class="akf-section-label">RANK</div>
+        <div class="akf-value-figure" id="akf-rank">0</div>
       </div>
     </div>
   </div>

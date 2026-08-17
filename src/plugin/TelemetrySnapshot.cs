@@ -208,15 +208,16 @@ namespace NOXMFD
 
         // AKF advanced kill feed (docs/akf-page.md). Always present while a mission runs — unlike
         // MIS/OBJ there's no "faction has no HQ yet" gate, an empty session just reads as all-zero.
-        // Kills/Value are scoped to the LOCAL PLAYER's own kills only; All is everyone's, matching
-        // the game's own kill-feed ticker.
+        // Kills are scoped to the LOCAL PLAYER's own kills only; All is everyone's, matching the
+        // game's own kill-feed ticker. Rank is Player.PlayerRank, the same integer the game's own
+        // KillDisplay shows ("RANK n") — not session-scoped, it's the player's persistent rank.
         public AkfKillEntry[] AkfAll;
         public AkfKillEntry[] AkfPlayer;
         public int   AkfKillsAircraft;
         public int   AkfKillsShip;
         public int   AkfKillsVehicle;
         public int   AkfKillsBuilding;
-        public float AkfValue;
+        public int   AkfRank;
         public float AkfFundsGained;
         public float AkfFundsSpent;
     }
@@ -248,6 +249,9 @@ namespace NOXMFD
     // when the game reports no killer (e.g. a crash — KillType.GetVerb(hasKiller:false)); Weapon is
     // null when the best-effort attribution (DamageEffects.BlastFrag hook) has nothing recent for
     // that attacker. Hostile flags are relative to the LOCAL player's faction, not a fixed identity.
+    // PlayerIsVictim is only ever set on PLAYER-feed entries: true for an "incoming" line (the player
+    // was killed, or the player's own fired munition was intercepted) where Attacker is NOT the
+    // player, as opposed to the normal PLAYER-feed line where the player IS the (omitted) attacker.
     internal struct AkfKillEntry
     {
         public string? Attacker;
@@ -256,6 +260,7 @@ namespace NOXMFD
         public bool    VictimHostile;
         public string  Verb;
         public string? Weapon;
+        public bool    PlayerIsVictim;
     }
 
     // One TGT filter toggle: its label (the canonical typeName for the vehicle row — doubles as the

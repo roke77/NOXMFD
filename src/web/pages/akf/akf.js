@@ -11,7 +11,7 @@ const kBuildingEl  = document.getElementById('akf-k-building');
 const fundsGainedEl = document.getElementById('akf-funds-gained');
 const fundsSpentEl  = document.getElementById('akf-funds-spent');
 const fundsNetEl    = document.getElementById('akf-funds-net');
-const valueEl        = document.getElementById('akf-value');
+const rankEl         = document.getElementById('akf-rank');
 
 function span(cls, text) {
   const el = document.createElement('span');
@@ -41,9 +41,17 @@ function renderAllLine(e) {
   return line;
 }
 
-// PLAYER feed: the attacker is always the player's own aircraft, so naming it every line would be
-// redundant — always "Victim verb [with Weapon]" instead ("MiG-29 shot down with AIM-9X").
+// PLAYER feed: the attacker is normally the player's own aircraft, so naming it every line would be
+// redundant — "Victim verb [with Weapon]" instead ("MiG-29 shot down with AIM-9X"). An "incoming"
+// line (e.pv: the player was killed, or the player's own fired munition was intercepted) is the
+// opposite — the player is the VICTIM, not the attacker — so it renders in full like the ALL feed,
+// with an accent marking it as incoming rather than scored.
 function renderPlayerLine(e) {
+  if (e.pv) {
+    const line = renderAllLine(e);
+    line.classList.add('akf-incoming');
+    return line;
+  }
   const line = document.createElement('div');
   line.className = 'akf-line';
   line.appendChild(span(e.vh ? 'akf-hostile' : 'akf-friendly', e.v));
@@ -90,7 +98,7 @@ function paint(state) {
   fundsSpentEl.textContent  = '-' + Math.round(spent).toLocaleString();
   fundsNetEl.textContent    = fmtSigned(gained - spent);
 
-  valueEl.textContent = Math.round(state.value || 0).toLocaleString();
+  rankEl.textContent = String(state.rank || 0);
 }
 
 window.addEventListener('message', function (e) {

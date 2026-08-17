@@ -1470,16 +1470,17 @@ namespace NOXMFD
         }
 
         // AKF advanced kill feed (docs/akf-page.md). Always present while a mission runs (no "faction
-        // has no HQ yet" gate like MIS/OBJ — an empty session just reads as all-zero). Kills/value are
+        // has no HQ yet" gate like MIS/OBJ — an empty session just reads as all-zero). Kills are
         // scoped to the local player's own kills; all is everyone's, matching the game's own feed.
+        // rank is the player's persistent Player.PlayerRank, not session-scoped.
         private static string AkfBlock(TelemetrySnapshot s)
         {
             return "{\"all\":" + AkfArray(s.AkfAll) + ",\"player\":" + AkfArray(s.AkfPlayer)
                 + string.Format(CultureInfo.InvariantCulture,
                     ",\"kills\":{{\"aircraft\":{0},\"ship\":{1},\"vehicle\":{2},\"building\":{3}}}" +
-                    ",\"value\":{4:0.0},\"fundsGained\":{5:0.0},\"fundsSpent\":{6:0.0}}}",
+                    ",\"rank\":{4},\"fundsGained\":{5:0.0},\"fundsSpent\":{6:0.0}}}",
                     s.AkfKillsAircraft, s.AkfKillsShip, s.AkfKillsVehicle, s.AkfKillsBuilding,
-                    s.AkfValue, s.AkfFundsGained, s.AkfFundsSpent);
+                    s.AkfRank, s.AkfFundsGained, s.AkfFundsSpent);
         }
 
         private static string AkfArray(AkfKillEntry[]? items)
@@ -1497,6 +1498,8 @@ namespace NOXMFD
                   .Append(",\"verb\":\"").Append(EscapeJson(e.Verb)).Append('"');
                 if (e.Weapon != null)
                     sb.Append(",\"w\":\"").Append(EscapeJson(e.Weapon)).Append('"');
+                if (e.PlayerIsVictim)
+                    sb.Append(",\"pv\":true");
                 sb.Append('}');
             }
             return sb.Append(']').ToString();

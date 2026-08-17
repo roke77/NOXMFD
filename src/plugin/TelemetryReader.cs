@@ -99,7 +99,8 @@ namespace NOXMFD
         private AkfKillEntry[] _akfAll    = Array.Empty<AkfKillEntry>();
         private AkfKillEntry[] _akfPlayer = Array.Empty<AkfKillEntry>();
         private int   _akfKillsAircraft, _akfKillsShip, _akfKillsVehicle, _akfKillsBuilding;
-        private float _akfValue, _akfFundsGained, _akfFundsSpent;
+        private int   _akfRank;
+        private float _akfFundsGained, _akfFundsSpent;
 
         // The game's HUD faction colors, read once from GameAssets.
         private string _colFriendly = "#39ff14";
@@ -263,13 +264,14 @@ namespace NOXMFD
         private void BuildAkf()
         {
             _akf.TickFunds();
+            _akf.TickRank();
             _akfAll            = ToArray(_akf.AllFeed);
             _akfPlayer         = ToArray(_akf.PlayerFeed);
             _akfKillsAircraft  = _akf.KillsAircraft;
             _akfKillsShip      = _akf.KillsShip;
             _akfKillsVehicle   = _akf.KillsVehicle;
             _akfKillsBuilding  = _akf.KillsBuilding;
-            _akfValue          = _akf.ValueLost;
+            _akfRank           = _akf.Rank;
             _akfFundsGained    = _akf.FundsGained;
             _akfFundsSpent     = _akf.FundsSpent;
         }
@@ -880,7 +882,7 @@ namespace NOXMFD
                 AkfKillsShip       = _akfKillsShip,
                 AkfKillsVehicle    = _akfKillsVehicle,
                 AkfKillsBuilding   = _akfKillsBuilding,
-                AkfValue           = _akfValue,
+                AkfRank            = _akfRank,
                 AkfFundsGained     = _akfFundsGained,
                 AkfFundsSpent      = _akfFundsSpent
             });

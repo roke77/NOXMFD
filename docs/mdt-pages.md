@@ -11,10 +11,9 @@ position sub-rows, added after the ticket's original scope.
 
 AKF (advanced kill feed, branch `advanced-kill-feed`, ticket
 [#34](https://github.com/roke77/NOXMFD/issues/34)) has joined the MDT switch
-as a layout/nav scaffold only — `/akf` currently renders a placeholder with no
-telemetry feed wired. Its data model and behavior are a separate
-investigation/planning pass, not yet started; this doc will grow an AKF
-section once that's designed.
+as its default landing page and is fully implemented and in-game verified —
+see [docs/akf-page.md](akf-page.md) for its own data model and design notes,
+kept separate from this doc rather than folded in here.
 
 ## What these replicate
 

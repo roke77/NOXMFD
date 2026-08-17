@@ -70,7 +70,14 @@ html, body {
 .akf-feed-lines::-webkit-scrollbar-track { background: transparent; }
 .akf-feed-lines::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
 
-.akf-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* flex-shrink: 0 — overflow:hidden (for the ellipsis) otherwise zeroes out this flex item's
+   automatic minimum size, so a crowded feed compresses every line far below its text height
+   instead of letting .akf-feed-lines scroll, and the overflowing text visually overlaps its
+   neighbors. */
+.akf-line { flex: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* PLAYER-feed "incoming" line — player was killed, or their own fired munition got intercepted.
+   Left accent only; the line's own attacker/victim coloring already carries hostility. */
+.akf-incoming { border-left: 2px solid var(--no-red); padding-left: 4px; }
 .akf-friendly { color: var(--no-blue); }
 .akf-hostile  { color: var(--no-red); }
 .akf-verb { color: var(--no-white-dim); }
@@ -121,10 +128,4 @@ html, body {
   font-variant-numeric: tabular-nums;
   text-align: center;
   padding-top: clamp(6px, 1.6vh, 14px);
-}
-.akf-value-note {
-  font-size: clamp(8px, 1.2vmin, 10px);
-  color: var(--no-green-dark);
-  text-align: center;
-  letter-spacing: 0.04em;
 }

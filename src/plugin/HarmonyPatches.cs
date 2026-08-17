@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using HarmonyLib;
+using UnityEngine;
 
 namespace NOXMFD
 {
@@ -137,6 +138,37 @@ namespace NOXMFD
             private static void Prefix(PersistentID dealerID, PersistentID missileID)
             {
                 AkfTracker.Active?.RecordWeaponHit(dealerID, missileID);
+            }
+        }
+
+        // Weapon attribution, part 2 (root-caused after the diagnostic build above). BlastFrag's own
+        // missileID is only correct AFTER an armed missile detonates, but for a pierce-fuze warhead
+        // (the AGM-48's kind — impactFuseDelay == 0) the kill itself happens INSIDE
+        // Missile.PenetrateObject via DamageEffects.ArmorPenetrate, synchronously and before the
+        // missile ever calls Detonate/BlastFrag at all. Worse, a proximity/blast-fuze warhead's own
+        // BlastFrag call is deferred a full physics tick (Missile.ExplosionForceOnPhysicsFrame awaits
+        // WaitForFixedUpdate before calling it) — late enough that a second missile fired moments
+        // later can have its own kill race ahead of the first missile's weapon record. Net effect:
+        // in a salvo, each kill was showing the PREVIOUS missile's weapon (looked right only because
+        // salvos repeat the same weapon type), and the first kill had nothing to borrow at all.
+        //
+        // Fix: record weapon identity at the missile's own terminal-sequence entry points instead —
+        // both run synchronously, before ArmorPenetrate/RpcDetonate/BlastFrag, for every missile kind.
+        [HarmonyPatch(typeof(Missile), "PenetrateObject")]
+        private static class Missile_PenetrateObject_Patch
+        {
+            private static void Prefix(Missile __instance)
+            {
+                AkfTracker.Active?.RecordWeaponHit(__instance.ownerID, __instance.persistentID);
+            }
+        }
+
+        [HarmonyPatch(typeof(Missile), nameof(Missile.Detonate), new[] { typeof(Vector3), typeof(bool), typeof(bool) })]
+        private static class Missile_Detonate_Patch
+        {
+            private static void Prefix(Missile __instance)
+            {
+                AkfTracker.Active?.RecordWeaponHit(__instance.ownerID, __instance.persistentID);
             }
         }
     }
