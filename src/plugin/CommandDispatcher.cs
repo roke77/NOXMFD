@@ -477,7 +477,6 @@ namespace NOXMFD
                 case "minimap": HudDeclutterConfig.SetHideMinimap(env.on);    break;
                 case "boxes":   HudDeclutterConfig.SetHideTopBoxes(env.on);   break;
                 case "feed":    HudDeclutterConfig.SetHideKillFeed(env.on);   break;
-                case "wpt":     HudDeclutterConfig.SetHideWaypointCue(env.on); break;
                 default:
                     Plugin.Log?.LogInfo($"[NOXMFD] declutter.set: unknown group '{env.group}' — ignored.");
                     return;

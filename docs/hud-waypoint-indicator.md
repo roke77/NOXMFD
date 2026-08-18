@@ -183,10 +183,10 @@ container is what aims it. The only borrowed resource is the font, taken off
 whichever `UnityEngine.UI.Text` the game already has on screen so the readout
 matches the native readouts rather than introducing a second typeface.
 
-Visibility has its own **WPT** toggle in the HUD page's declutter strip. It is
-the one flag there that hides something the mod draws rather than something the
-game draws, and it keeps the `Hide*` polarity anyway so every toggle in that
-strip reads the same way round.
+Visibility follows the route and nothing else: the cue draws while a route is
+active and has a waypoint left to fly, and disappears when there is no active
+route or the route is complete. No toggle of its own — the browser already sends
+an explicit off payload for both of those states.
 
 ## Rendering: two designs
 
@@ -257,10 +257,9 @@ that component, rather than adding a second MonoBehaviour with its own timer.
 
 ## Open questions
 
-Two of the original questions are settled by the build. Every `Image` and `Text`
-the cue creates sets `raycastTarget = false`, so the cue can't eat a click meant
-for target selection. And visibility is its own **WPT** declutter toggle rather
-than riding `HideTopBoxes`, which is about the game's boxed readouts.
+Every `Image` and `Text` the cue creates sets `raycastTarget = false`, so it
+can't eat a click meant for target selection — one of the original questions,
+settled by the build.
 
 - The compass texture's zero offset. The `+135f` implies the window's centre
   sits at `hdg + 180` in texture space, so the texture is laid out with a half
@@ -296,6 +295,5 @@ Fly a route with the cue visible and confirm:
   crossing back restores it.
 - Reaching a waypoint advances the cue to the next one, and finishing the route
   clears it.
-- The **WPT** declutter toggle hides and restores it.
 - It survives an aircraft respawn (the HUD is rebuilt, taking the cue's objects
   with it) and a mission restart (the published waypoint is held statically).

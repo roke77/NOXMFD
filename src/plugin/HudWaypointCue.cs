@@ -48,7 +48,7 @@ namespace NOXMFD
                 if (!Build()) return;
             }
 
-            if (HudDeclutterConfig.HideWaypointCue || !HudWaypointState.Active || !ResolveOwnship(out Vector3 world, out float hdg))
+            if (!HudWaypointState.Active || !ResolveOwnship(out Vector3 world, out float hdg))
             {
                 SetVisible(false);
                 return;

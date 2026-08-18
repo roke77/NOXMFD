@@ -32,7 +32,6 @@ namespace NOXMFD
         private static ConfigEntry<bool>? _hideMinimap;
         private static ConfigEntry<bool>? _hideTopBoxes;
         private static ConfigEntry<bool>? _hideKillFeed;
-        private static ConfigEntry<bool>? _hideWaypointCue;
 
         // Top-right readouts: weapon name + ammo (WeaponIndicator) and the countermeasure
         // count "48 / IR Flares" (CountermeasureIndicator). Both hidden by this one flag.
@@ -53,13 +52,6 @@ namespace NOXMFD
         // messages) is untouched.
         public static bool HideKillFeed => _hideKillFeed?.Value ?? false;
 
-        // The mod's own in-game waypoint cue on the heading tape (docs/hud-waypoint-indicator.md).
-        // The odd one out here: every other flag hides something the GAME draws, this one hides
-        // something WE draw. It keeps the Hide* polarity anyway (default false = cue shown) so the
-        // HUD page's toggles all read the same way round rather than one of them meaning the
-        // opposite of its neighbours.
-        public static bool HideWaypointCue => _hideWaypointCue?.Value ?? false;
-
         // Runtime setters for the web MFD's declutter toggles (declutter.set command). Writing .Value
         // persists the choice to the cfg; HudDeclutter reads the property each tick and hides/restores
         // within one interval. A no-op before Bind() (it can't be called meaningfully outside a
@@ -68,7 +60,6 @@ namespace NOXMFD
         public static void SetHideMinimap(bool v)    { if (_hideMinimap    != null) _hideMinimap.Value    = v; }
         public static void SetHideTopBoxes(bool v)   { if (_hideTopBoxes   != null) _hideTopBoxes.Value   = v; }
         public static void SetHideKillFeed(bool v)   { if (_hideKillFeed   != null) _hideKillFeed.Value   = v; }
-        public static void SetHideWaypointCue(bool v){ if (_hideWaypointCue != null) _hideWaypointCue.Value = v; }
 
         // Called once from Plugin.Awake with the plugin's ConfigFile. Each entry is bound hidden
         // (Hidden tag) so it persists to the .cfg without showing in the F1 menu; the descriptions
@@ -84,8 +75,6 @@ namespace NOXMFD
                 new ConfigDescription("Hide the boxed heading / airspeed / altitude readouts flanking the heading tape. The center boresight readouts are kept.", null, Hidden));
             _hideKillFeed = config.Bind(section, "HideKillFeed", false,
                 new ConfigDescription("Hide the native kill-feed ticker. The general message feed (join/disconnect/HQ messages) is unaffected.", null, Hidden));
-            _hideWaypointCue = config.Bind(section, "HideWaypointCue", false,
-                new ConfigDescription("Hide NOXMFD's own waypoint bug and readout on the heading tape.", null, Hidden));
         }
     }
 }
