@@ -30,7 +30,9 @@ let   gridOn       = false;    // coordinate grid overlay (issue #41), default o
 // ── Waypoints/routes (issue #38) ──────────────────────────────────────────────────
 let   waypointRoute = null;    // WaypointsStore's active route, cached for drawWaypoints()
 const WPT_LINE_COLOR = '#39d0ff';       // dashed route line + non-next markers
-const WPT_NEXT_COLOR = '#ffe14d';       // the waypoint the WPT readout is currently tracking
+const WPT_NEXT_COLOR = '#ffaa00';       // the waypoint the WPT readout is currently tracking — matches
+                                         // theme.css's --no-amber (WPT's own compass needle) and the
+                                         // in-game HUD cue's amber, one color scheme across all three
 const WPT_REACHED_COLOR = '#a0a0a0';    // waypoints/segments already flown past — lighter than the
                                          // theme's --no-gray (#5a5a5a), which nearly vanished against dark terrain
 function refreshWaypointRoute() { waypointRoute = WaypointsStore.getActiveRoute(); updateRouteChip(); }
@@ -40,10 +42,10 @@ function updateRouteChip() {
   if (waypointRoute) { routeBar.textContent = 'ROUTE: ' + waypointRoute.name; routeBar.className = 'mfd-chip'; }
   else { routeBar.className = 'mfd-chip empty'; }
 }
-// The WPT page (a separate iframe) writes to the same localStorage key — a 'storage' event fires
-// here whenever IT writes (never on our own writes), so this stays live without any postMessage
-// plumbing for waypoint data itself.
-window.addEventListener('storage', function(e) { if (e.key === WaypointsStore.STORE_KEY) { refreshWaypointRoute(); drawOverlay(); } });
+// The plugin is the single source of truth for routes now (docs/hud-waypoint-indicator.md) — the
+// WPT page (a separate iframe), another device's browser, or this map's own edits all converge
+// through WaypointsStore's poll of /wpt-options, which fires this event on any real change.
+window.addEventListener('wptroutes:changed', function() { refreshWaypointRoute(); drawOverlay(); });
 
 // ── PAD cursor (docs/page-cursor.md, docs/map-cursor.md) ──────────────────────────
 // A crosshair standing in for the mouse/touch while this MAP is the HOTAS-driven SOI focus. The
@@ -77,9 +79,11 @@ function loadPersistedView() {
 function savePersistedView() {
   try { sessionStorage.setItem(VIEW_STORE_KEY, JSON.stringify({ zoom: view.zoom, follow: followPlayer, grid: gridOn })); } catch (_) {}
 }
-const PLAYER_COLOR = '#39ff14';                     // player stays HUD green
+const PLAYER_COLOR = '#39ff14';                     // player stays HUD green — matches --no-green;
+                                                     // canvas strokeStyle can't use CSS var()
 const TARGET_COLOR = '#ff8000';                     // orange ring on the player's targeted unit(s)
-let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors
+let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors —
+                                                     // 1/2 default to --no-green/--no-red until then
 const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
 const iconTints  = {};         // "unitName|#hex" -> { cv, iw, ih }  (pre-tinted + pre-glowed)
 
@@ -399,7 +403,7 @@ function drawJamGlyph(cx, cy, r) {
 // major line" (index % 10 === 0) never drifts off after many additions.
 const GRID_MINOR_UNIT  = 1000;   // world units per minor line (1 km)
 const GRID_LINES_PER_MAJOR = 10; // minor lines between major lines (10 km majors)
-const GRID_MINOR_COLOR = 'rgba(57,255,20,0.10)';
+const GRID_MINOR_COLOR = 'rgba(57,255,20,0.10)';    // matches --no-green-rgb; canvas can't use var()
 const GRID_MAJOR_COLOR = 'rgba(57,255,20,0.30)';
 const GRID_LABEL_COLOR = 'rgba(196,255,176,0.75)';
 function drawGrid() {
@@ -808,10 +812,9 @@ function placeWaypointAt(sx, sy) {
   if (!mapMeta) return;
   const w = overlayToWorld(sx, sy);
   if (!w) return;
-  WaypointsStore.addWaypointToActive(w.x, w.z);
-  refreshWaypointRoute();
-  flashWaypoint(sx, sy);
+  flashWaypoint(sx, sy);   // immediate — purely cosmetic, no server round trip needed
   drawOverlay();
+  WaypointsStore.addWaypointToActive(w.x, w.z).then(function () { refreshWaypointRoute(); drawOverlay(); });
 }
 window.addEventListener('contextmenu', function(e) { e.preventDefault(); });   // long-press must not pop a menu
 
@@ -1023,11 +1026,11 @@ window.addEventListener('message', function(e) {
     case 'status-request': source.rebroadcastStatus(); break;   // shell asked for the current status
     // R+/R- (issue #38) — switch the active waypoint route; re-pull it and repaint so the map's
     // rendered line/markers switch immediately, same as a local long-press placement does.
-    case 'route-next': WaypointsStore.cycleActiveRoute(1);  refreshWaypointRoute(); drawOverlay(); break;
-    case 'route-prev': WaypointsStore.cycleActiveRoute(-1); refreshWaypointRoute(); drawOverlay(); break;
+    case 'route-next': WaypointsStore.cycleActiveRoute(1).then(function () { refreshWaypointRoute(); drawOverlay(); });  break;
+    case 'route-prev': WaypointsStore.cycleActiveRoute(-1).then(function () { refreshWaypointRoute(); drawOverlay(); }); break;
     // W+/W- (issue #38) — manually step the active route's "next" waypoint, same repaint as above.
-    case 'waypoint-next': WaypointsStore.stepWaypoint(1);  refreshWaypointRoute(); drawOverlay(); break;
-    case 'waypoint-prev': WaypointsStore.stepWaypoint(-1); refreshWaypointRoute(); drawOverlay(); break;
+    case 'waypoint-next': WaypointsStore.stepWaypoint(1).then(function () { refreshWaypointRoute(); drawOverlay(); });  break;
+    case 'waypoint-prev': WaypointsStore.stepWaypoint(-1).then(function () { refreshWaypointRoute(); drawOverlay(); }); break;
     // PAD cursor (docs/page-cursor.md, docs/map-cursor.md) — the shell only ever sends these while
     // THIS map is the SOI's focused surface, so no further gating is needed here.
     case 'cursor-focus':  cursor.setFocus(!!m.on, overlay.width / 2, overlay.height / 2); break;

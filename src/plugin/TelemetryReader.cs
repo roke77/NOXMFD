@@ -174,6 +174,15 @@ namespace NOXMFD
                 // HUD OPTIONS snapshot for the /hud-options endpoint. Main thread, and cheap; options
                 // change only on a toggle, so 1 Hz is ample. Kept out of PushSnapshot's fast path.
                 TelemetryServer.RefreshHudOptions();
+                // Waypoint route proximity-advance (docs/hud-waypoint-indicator.md) — the plugin now
+                // ticks this itself regardless of which page any browser has open, unlike the old
+                // browser-side check that only ran while the WPT page happened to be visible. 1 Hz is
+                // ample against a 1000m advance radius at combat-aircraft speeds.
+                if (GameManager.GetLocalAircraft(out Aircraft advanceAc) && advanceAc != null)
+                {
+                    Vector3 advanceWorld = advanceAc.transform.position - Datum.originPosition;
+                    RouteStore.AdvanceIfNear(advanceWorld.x, advanceWorld.z);
+                }
             }
 
             if (_fastTimer >= FastInterval)

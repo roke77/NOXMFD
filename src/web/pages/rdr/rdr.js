@@ -11,6 +11,8 @@ var DEF_CONE = 60;                             // fallback azimuth half-angle wh
 // scope's range unit; M_TO_FT is the plain metres->feet factor UnitConverter.AltitudeReading uses.
 var M_PER_NM = 1852, M_PER_KM = 1000, M_TO_FT = 3.28084;
 
+// Mirror theme.css's --no-green/--no-amber/--no-purple/--no-blue — SVG string-building here can't
+// use CSS var(), so these are plain literals kept in sync by hand.
 var GREEN = '#39ff14', AMBER = '#ffaa00', PURPLE = 'rgb(179, 136, 255)';
 var BLUE = '#4d9fff';   // pitbull missile triangle fill (issue #40) — the "this is MY missile" cue,
                          // distinct from RWR's inbound-threat red/yellow

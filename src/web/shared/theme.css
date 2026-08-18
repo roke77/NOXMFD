@@ -1,22 +1,31 @@
 /* Shared MFD theme — base reset, colour tokens, common utility classes, and the mono
    font stack used by every page. Pages link this after font.css. */
 :root {
-  --no-green:      #39ff14;  /* primary text / icons */
+  /* Primary tokens are RGB triples first, hex-equivalent second (teal/purple's pre-existing
+     pattern, now extended to the rest) — the triple is what a glow/wash effect composes with an
+     alpha (rgba(var(--no-green-rgb), 0.08)), so it's the one source; defining the solid colour
+     separately from it would just be the same duplication this pattern exists to avoid. */
+  --no-green-rgb:  57, 255, 20;
+  --no-green:      rgb(var(--no-green-rgb));  /* primary text / icons */
   --no-green-dim:  #4aaa4a;  /* secondary text (ammo, page-ind) */
   --no-green-dark: #1a4a1a;  /* depleted / hollow / borders */
   --no-green-deep: #2e7a2e;  /* page-name placeholder heading */
-  --no-red:        #ff4040;  /* empty / alert state */
-  --no-amber:      #ffaa00;  /* selected / waiting state */
+  --no-red-rgb:    255, 64, 64;
+  --no-red:        rgb(var(--no-red-rgb));    /* empty / alert state */
+  --no-amber-rgb:  255, 170, 0;
+  --no-amber:      rgb(var(--no-amber-rgb));  /* selected / waiting state */
   --no-gray:       #5a5a5a;  /* inactive / off annunciator (AVN status tiles) */
   /* Neutral instrument white, in the same primary/dim/dark triplet as the greens above and used the
      same way: a readout that reports in white rather than green (AVN's gauge dials). Distinct from
      --no-label below, which is a LAYOUT's chrome colour (the bezel's key labels) — a page must not
      read that one, so reporting-white needs its own name. */
-  --no-white:      #e6ebef;  /* primary — needle, value, label */
+  --no-white-rgb:  230, 235, 239;
+  --no-white:      rgb(var(--no-white-rgb));  /* primary — needle, value, label */
   --no-white-dim:  #8a949c;  /* secondary — major ticks */
   --no-white-dark: #3c444b;  /* depleted / hollow / dial face — rim, track, minor ticks */
-  --no-label:      #d4d8dc;  /* off-white, not the screen's green — the bezel's key labels, and
-                                the F-35 strip's URL lines */
+  --no-label-rgb:  212, 216, 220;
+  --no-label:      rgb(var(--no-label-rgb));  /* off-white, not the screen's green — the bezel's
+                                key labels, and the F-35 strip's URL lines */
   /* The F-35 layout's chrome: the frame around each portal, the labels it draws on the glass, the
      corner grips, the master strip. Its real display frames itself in teal where the bezel uses
      --no-label above.
@@ -27,9 +36,11 @@
   --no-teal:       rgb(var(--no-teal-rgb));
   --no-purple-rgb: 179, 136, 255;  /* mod-only controls that aren't real game filters (e.g. TGT's DATALINK) */
   --no-purple:     rgb(var(--no-purple-rgb));
-  --no-blue:       #4d9fff;  /* mod-only decorative accent (WPN's MODE label, docs/radar-master-arms.md) */
+  --no-blue-rgb:   77, 159, 255;
+  --no-blue:       rgb(var(--no-blue-rgb));  /* mod-only decorative accent (WPN's MODE label, docs/radar-master-arms.md) */
   --no-bg:         #000;
-  --no-panel-bg:   rgba(6,10,6,0.78);
+  --no-panel-bg-rgb: 6, 10, 6;
+  --no-panel-bg:   rgba(var(--no-panel-bg-rgb), 0.78);
   --no-panel-border: #1a3a1a;
   --no-ink:        #060a06;  /* text on a green fill */
   --no-font: 'Share Tech Mono', 'Courier New', monospace;

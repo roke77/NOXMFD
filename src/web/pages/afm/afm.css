@@ -96,7 +96,7 @@
   white-space: nowrap;
   text-align: center;
   pointer-events: none;
-  text-shadow: 0 0 4px rgba(255, 64, 64, 0.5);
+  text-shadow: 0 0 4px rgba(var(--no-red-rgb), 0.5);
 }
 .afm-failure.active { display: block; }
 

@@ -1647,7 +1647,10 @@ window.addEventListener('message', function(e) {
   // per-pane and route by e.source itself, so they must pass through from any map source — this
   // gate dropping 'grid' silently left a split pane's GRID label stuck unlit forever, even though
   // the pane's own map correctly persisted and drew the grid regardless.
-  if (m.type !== 'follow' && m.type !== 'grid' && e.source !== mapFrame.contentWindow) return;
+  // 'wpt-routes-request': a freshly-loaded MAP/WPT pane or the full-view frame catching up on the
+  // route library (docs/hud-waypoint-indicator.md perf fix, 2026-08-18) — comes from whichever
+  // iframe just loaded, not necessarily mapFrame, same reasoning as 'follow'/'grid'.
+  if (m.type !== 'follow' && m.type !== 'grid' && m.type !== 'wpt-routes-request' && e.source !== mapFrame.contentWindow) return;
   if (m.type === 'status') {
     lastStatusCls  = m.cls;
     lastStatusText = m.text;
@@ -1840,6 +1843,12 @@ window.addEventListener('message', function(e) {
     mapInfoData = m;
     if (currentPage === 'wpt' && !splitMode) forwardWptToFrame();
     if (splitMode) forwardWptToPanes();
+  } else if (m.type === 'wpt-routes-request') {
+    // A freshly-loaded MAP/WPT iframe catching up (docs/hud-waypoint-indicator.md perf fix) —
+    // only this shell polls /wpt-options now, so a new iframe starts with an empty cache until
+    // either this reply or the next real change arrives. Reply straight to the asker; e.source is
+    // exactly the iframe's own window, not necessarily mapFrame.
+    if (e.source) e.source.postMessage({ mfd: true, type: 'wpt-routes', data: WaypointsStore.load() }, '*');
   }
 });
 
@@ -2333,16 +2342,44 @@ window.addEventListener('resize', function() {
   else           showPage(currentPage);
   positionSoiRing();   // the recess/panes resized — keep the ring on the focused surface
 });
+// Route-LIBRARY forward (not to be confused with forwardWptToFrame/Panes above, which forward the
+// mapinfo readout slice specifically) — pushes RouteStore's data down to every pane/frame so only
+// this shell document ever polls /wpt-options (docs/hud-waypoint-indicator.md perf fix, 2026-08-18:
+// before this, every open MAP/WPT pane AND the shell each ran an independent poller, multiplying
+// requests and redraws by however many were open — confirmed by profiling: roughly 3x the expected
+// request rate for one device. Sent to every pane/frame unconditionally
+// rather than gated by panePages like the mapinfo forwards — routes matter to both MAP and WPT, and
+// an unused postMessage to a page that isn't listening for it is negligible next to the redundant
+// fetch/parse/compare loop it replaces.
+function forwardWptRoutesToPanes() {
+  const payload = { mfd: true, type: 'wpt-routes', data: WaypointsStore.load() };
+  paneIframes.forEach(function (iframe) { if (iframe.contentWindow) iframe.contentWindow.postMessage(payload, '*'); });
+}
+function forwardWptRoutesToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage({ mfd: true, type: 'wpt-routes', data: WaypointsStore.load() }, '*');
+}
+// MAP runs in its own always-loaded mapFrame (the tap), separate from both #page-frame and the
+// split panes, whether or not MAP is the currently visible page — so it needs this push too, not
+// just the two targets above. Missing this left the map iframe's own route overlay stuck on
+// whatever it caught up with at load, never seeing a later edit (caught in testing, 2026-08-18).
+function forwardWptRoutesToMap() {
+  if (mapFrame && mapFrame.contentWindow)
+    mapFrame.contentWindow.postMessage({ mfd: true, type: 'wpt-routes', data: WaypointsStore.load() }, '*');
+}
+
 // MAP's R+/R- visibility depends on whether any route is saved, W+/W-'s on whether one is active
-// (showPage's 'map' branch, mapSplitItems' split-pane twin) — a route created/deleted/(de)activated
-// from the WPT page or a first long-press placed on MAP itself all write localStorage from a
-// DIFFERENT document (the wpt/map iframe), which is exactly what fires 'storage' here (same-document
-// writes don't fire their own document's listener). Re-render live to pick that up while MAP is
-// showing, in full view or a split pane.
-window.addEventListener('storage', function(e) {
-  if (e.key !== WaypointsStore.STORE_KEY) return;
+// (showPage's 'map' branch, mapSplitItems' split-pane twin). The plugin is the single source of
+// truth for routes now (docs/hud-waypoint-indicator.md) — this shell document loads its own copy
+// of waypoints-store.js (mfd.html), which polls /wpt-options and fires this event on any change,
+// from any page, any device. Re-render live to pick that up while MAP is showing, full view or
+// split, and push the new data down to every embedded MAP/WPT iframe.
+window.addEventListener('wptroutes:changed', function() {
   if (splitMode) { if (panePages.indexOf('map') !== -1) renderSplitLabels(); }
   else if (currentPage === 'map') showPage('map');
+  forwardWptRoutesToPanes();
+  forwardWptRoutesToFrame();
+  forwardWptRoutesToMap();
 });
 
 loadConfigUrls();

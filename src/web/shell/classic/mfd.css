@@ -426,7 +426,7 @@
     z-index: 2;
   }
   .mfd-indicator {
-    background: rgba(6,10,6,0.78);
+    background: rgba(var(--no-panel-bg-rgb),0.78);
     border: 1px solid var(--no-amber);
     padding: 5px 9px;
     font-family: var(--no-font);
@@ -534,12 +534,12 @@
        whether the device is portrait or landscape — it no longer resizes on rotation. */
     padding: clamp(22px, 2.4vmax, 35px) clamp(36px, 4vmax, 58px);
     border: 1px solid var(--no-green);
-    background: rgba(6, 10, 6, 0.9);
+    background: rgba(var(--no-panel-bg-rgb), 0.9);
     color: var(--no-green);
     font-family: var(--no-font);
     text-align: center;
     letter-spacing: 2px;
-    box-shadow: 0 0 12px rgba(57, 255, 20, 0.25);
+    box-shadow: 0 0 12px rgba(var(--no-green-rgb), 0.25);
   }
   .info-box.show       { display: block; }
 
@@ -604,7 +604,7 @@
     height: clamp(12px, 1.5vmax, 18px);
     border: 1px solid var(--no-green);
     border-radius: 3px;
-    background: rgba(57, 255, 20, 0.08);
+    background: rgba(var(--no-green-rgb), 0.08);
     box-sizing: border-box;
     overflow: hidden;
   }

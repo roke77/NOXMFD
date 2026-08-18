@@ -657,6 +657,8 @@ namespace NOXMFD
                         ServeConfig(ctx);
                     else if (path == "/hud-options")
                         ServeHudOptions(ctx);
+                    else if (path == "/wpt-options")
+                        ServeWptOptions(ctx);
                     else if (path == "/rates-config")
                         ServeRatesConfig(ctx);
                     else if (path == "/keybinds-config")
@@ -917,6 +919,25 @@ namespace NOXMFD
             try
             {
                 byte[] body = Encoding.UTF8.GetBytes(HudOptionsJson ?? "{}");
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // The waypoint/route library (docs/hud-waypoint-indicator.md, Option 2) — RouteStore is the
+        // single source of truth now, not any browser's localStorage. Mission-independent, like
+        // /hud-options, so the WPT page works at the main menu too. Cached the same way
+        // (RouteStore.RoutesJson is volatile, rebuilt on the main thread after every mutation).
+        private static void ServeWptOptions(HttpListenerContext ctx)
+        {
+            try
+            {
+                byte[] body = Encoding.UTF8.GetBytes(RouteStore.RoutesJson ?? "{\"activeRouteId\":null,\"routes\":[]}");
                 ctx.Response.StatusCode      = 200;
                 ctx.Response.ContentType     = "application/json; charset=utf-8";
                 ctx.Response.ContentLength64 = body.Length;
@@ -1809,7 +1830,7 @@ namespace NOXMFD
         // the whole class here means no future caller needs to remember this. Lazily allocates only
         // when a string actually needs escaping (every prior caller was escape-free, hot path stays
         // allocation-free).
-        private static string EscapeJson(string s)
+        internal static string EscapeJson(string s)
         {
             if (string.IsNullOrEmpty(s)) return s ?? string.Empty;
             StringBuilder? sb = null;
