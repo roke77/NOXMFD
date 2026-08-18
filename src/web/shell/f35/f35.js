@@ -40,23 +40,19 @@
   // untouched and still serves the bezel.)
   //
   // ?nochrome tells a page this shell already shows its own-ship readouts, so it should not draw
-  // them twice. MAP no longer gets the flag: the strip dropped its own mission name/grid chip
-  // (more room for the gauges), so MAP is the one place left to see them, same as the bezel. Each
-  // page owns the option and decides what it means; this layout only picks it. It is a URL flag
-  // rather than a message because a page reads it before its first paint, and a message would show
-  // the readouts and then take them away on every mount. The bezel passes it to nothing and is
-  // unaffected.
+  // them twice. MAP does not get the flag: the strip carries no mission name/grid chip of its own
+  // (that room goes to the gauges instead), so MAP is the one place left to see them, same as the
+  // bezel. Each page owns the option and decides what it means; this layout only picks it. It is a
+  // URL flag rather than a message because a page reads it before its first paint, and a message
+  // would show the readouts and then take them away on every mount. The bezel passes it to nothing
+  // and is unaffected.
   //
-  // AVN no longer gets the flag either (2026-08-15) — its ?nochrome handling was removed from
-  // avn.html/avn.css entirely, not just unused here. It used to hide AVN's FUEL/THROTTLE bars and
-  // status tiles while leaving the damage silhouette — the actual reason it existed — but that
-  // silhouette moved to AFM this session, so nochrome had nothing selective left to hide: it would
-  // have taken AVN's *entire* content with it, which is no longer purely decorative duplication of
-  // the strip — the status tiles are bezel/portal-actuated toggles (directly clickable on the page
-  // itself now too), the strip's own copy stays read-only, and RPM/HEAT aren't on the strip at all.
-  // Hiding it would have left this layout with no way to flip gear/radar/etc. Plain `/avn` (like
-  // every other page here) accepts a little duplication of FUEL/THRL with the strip in exchange for
-  // keeping AVN's own content — and its only toggle controls — intact.
+  // AVN does not get the flag either — its `?nochrome` handling is not present in avn.html/avn.css
+  // at all. AVN's status tiles are bezel/portal-actuated toggles (directly clickable on the page
+  // itself too), the strip's own copy stays read-only, and RPM/HEAT aren't on the strip at all, so
+  // hiding AVN's content would leave this layout with no way to flip gear/radar/etc. Plain `/avn`
+  // (like every other page here) accepts a little duplication of FUEL/THRL with the strip in
+  // exchange for keeping AVN's own content — and its only toggle controls — intact.
   // This layout's half of layout-pages.js, which keeps it beside the bezel's table so the two can't
   // quietly diverge — every NAV destination needs an entry in both, or the button is dead here and
   // works there. MAIN maps to no page and `null` is meaningful, so membership is tested with `in`.
@@ -114,12 +110,11 @@
   // point moved from top-level MAIN into the CFG group. All match where the bezel keeps them —
   // MAIN — so a pilot finds the same names in the same place in either layout.
   //
-  // MDT (2026-08-15) replaces what used to be separate PAL/BDF entries — mirrors the bezel's own
-  // SCR→MDT rename and BDF/PAL fold. Action now 'akf' (issue #34 follow-up: AKF joined the group as
-  // its default landing page, was 'bdf'); NAV.akf/NAV.mis/NAV.obj/NAV.bdf/NAV.pal (shared, consumed
-  // generically at line ~390 below) carry the MAIN/AKF/MIS/OBJ/BDF/PAL sub-nav once you're on any of
-  // them, with `mark` lighting whichever is current — nothing here needed to change for that part,
-  // since this layout already renders NAV[page] like any other.
+  // MDT is one combined entry covering PAL/BDF — mirrors the bezel's own SCR→MDT rename and
+  // BDF/PAL fold. Action is 'akf' (AKF is the group's default landing page); NAV.akf/NAV.mis/
+  // NAV.obj/NAV.bdf/NAV.pal (shared, consumed generically at line ~390 below) carry the
+  // MAIN/AKF/MIS/OBJ/BDF/PAL sub-nav once you're on any of them, with `mark` lighting whichever is
+  // current — this layout already renders NAV[page] like any other.
   const MAIN_EXTRAS = [
     { label: 'HUD', action: 'hud' },
     { label: 'CFG', action: 'keys' },

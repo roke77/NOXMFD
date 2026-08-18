@@ -375,10 +375,10 @@ function placeSplitKey(m, label, action, paneTag, mark) {
 // (renderSplitLabels). TGT's RESET FILTER, HUD's mode/category rows, and BDF/PAL/MIS/OBJ's WARHEADS
 // readout are that content — on a narrow display the panel widens to the edge and a horizontal MAIN
 // would sit over that header. All are split-capable.
-// RDR dropped out of this list (issue #40 follow-up): it used to carry only MAIN, cramped enough to
-// need the narrow vertical treatment, but now has MAIN + R+ + R- and reads fine horizontal.
-// KEY dropped out too (cfg-rates experiment, issue #39): the CFG group's nav labels read fine
-// horizontal, per user preference — its table header sits far enough from the bezel edge.
+// RDR is not in this list (issue #40 follow-up): it carries MAIN + R+ + R- and reads fine
+// horizontal, not cramped enough to need the narrow vertical treatment.
+// KEY is not in this list either (cfg-rates experiment, issue #39): the CFG group's nav labels
+// read fine horizontal, per user preference — its table header sits far enough from the bezel edge.
 function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
@@ -695,7 +695,7 @@ function forwardAfmLayoutToFrame() {
 
 // Shell-drawn NAV label per avn.toggle group (full view only — docs note this is a CLASSIC-bezel
 // pass; split pane keeps its existing label-less wireAvnPaneToggleKeys wiring unchanged), at the
-// same 8 physical keys wireAvnToggleKeysFull used to wire blind: left[1..4] then right[1..4]
+// same 8 physical keys wireAvnToggleKeysFull wires blind: left[1..4] then right[1..4]
 // (left[0] stays MAIN, via the generic full-view NAV sweep in showPage; left[5]/right[0]/right[5]
 // are spare). Clicking still dispatches avn.toggle the same way — this only ADDS a visible label so
 // a bezel key finally says what it does. Plain white text like every other NAV label (no on/off/
@@ -1290,8 +1290,8 @@ function clearPin() {
 
 function indicatorVisible(name) {
   // PINNED tracks the pinned page in whichever context owns PIN: the top-right pane in split
-  // mode, the single stack in full view. (FOLLOW used to live here too; it is now shown on the
-  // FLW label itself — see markFollowLabels.)
+  // mode, the single stack in full view. (FOLLOW is shown on the FLW label itself — see
+  // markFollowLabels.)
   if (name === 'pinned') {
     return pinnedPage !== null &&
       (splitMode ? panePages[topRightPane()] === pinnedPage : currentPage === pinnedPage);

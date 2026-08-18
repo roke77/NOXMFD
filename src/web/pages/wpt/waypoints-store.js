@@ -5,13 +5,11 @@
 //
 // The plugin, not this browser, is the single source of truth (Option 2): RouteStore.cs owns the
 // whole route library, persists it to disk, and ticks proximity-advance itself every second
-// regardless of what page any browser has open. This file used to be a localStorage wrapper with
-// its own push mechanism (publishActive/republishActive) — that mechanism was the actual root of
-// the cross-device bug it was meant to work around (two browsers' local routes disagreeing, and
-// the HUD cue mirroring whichever one last spoke), so it's gone rather than kept alongside this.
+// regardless of what page any browser has open. There is no local push mechanism here — no
+// per-browser route state to disagree across devices, and no ambiguity over which browser's HUD
+// cue is authoritative.
 //
-// Every exported function name is unchanged from the old localStorage version, so callers
-// (wpt.js, map.js) need only mechanical `.then(...)` edits, not a rename sweep.
+// Callers (wpt.js, map.js) use plain `.then(...)` against these exports, no rename sweep needed.
 (function (root) {
   const R = (typeof module !== 'undefined' && module.exports) ? require('./wpt-route.js') : root.WptRoute;
 

@@ -51,7 +51,7 @@ namespace NOXMFD
             }
 
             // RouteStore is the plugin's own in-process route data (docs/hud-waypoint-indicator.md,
-            // Option 2) — no network round trip, unlike the deleted HudWaypointState this used to read.
+            // Option 2) — reading it needs no network round trip.
             if (!RouteStore.TryGetActiveWaypoint(out float wx, out float wz, out string wpName, out int wpIndex)
                 || !ResolveOwnship(out Vector3 world, out float hdg))
             {

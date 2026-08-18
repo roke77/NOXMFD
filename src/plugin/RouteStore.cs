@@ -23,20 +23,18 @@ namespace NOXMFD
     }
 
     // Waypoint/route storage (docs/hud-waypoint-indicator.md, Option 2) — the plugin, not any
-    // browser, is the single source of truth for the whole route library. This supersedes the
-    // browser-localStorage design: two browsers used to have independent route lists (the tablet
-    // couldn't see a route made on the PC), and proximity-advance only ran while the WPT page
-    // happened to be the visible page in some browser. Neither problem exists once one process
-    // owns the data and ticks it every frame regardless of what any browser has open.
+    // browser, is the single source of truth for the whole route library. One process owns the
+    // data and ticks it every frame, so every browser sees the same route list regardless of
+    // which one created it, and proximity-advance runs independent of which page is visible.
     //
     // Static, plugin-lifetime (NOT mission-scoped) — routes must survive a mission restart AND a
     // full game restart, and must be browsable/editable at the main menu.
     internal static class RouteStore
     {
         private const float AdvanceThresholdM = 1000f;   // must track wpt.js's WPT_ADVANCE_RADIUS_M;
-                                                            // the client no longer runs its own check,
-                                                            // so there's nothing left for the two to
-                                                            // disagree with in practice.
+                                                            // the client has no proximity check of its
+                                                            // own, so this is the only threshold that
+                                                            // matters.
 
         private static List<Route> _routes = new List<Route>();
         private static string? _activeRouteId;

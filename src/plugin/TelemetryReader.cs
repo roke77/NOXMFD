@@ -1065,7 +1065,7 @@ namespace NOXMFD
                 float pw;
                 if (em.Range > 0f)
                 {
-                    float dist = Vector3.Distance(player.transform.position, u.transform.position);
+                    float dist = Vector3.Distance(player.transform.position - Datum.originPosition, u.transform.position - Datum.originPosition);
                     pw = Mathf.Clamp01(1f - dist / em.Range);
                 }
                 else
