@@ -101,14 +101,15 @@
 
   // Screens this layout puts on MAIN beyond NAV's — can't go in NAV since NAV is the bezel's menu
   // too, and it has six physical keys for six items. Kept here, they stay F-35's business and the
-  // bezel is unaffected (there HUD, MDT, RDR and AFM are their own BEZEL_EXTRAS keys). Each of
+  // bezel is unaffected (there CFG, MDT, RDR, AFM and SQD are their own BEZEL_EXTRAS keys). Each of
   // these has an F35_PAGES entry and renders as a real page (docs/bdf-page.md, src-architecture.md).
-  // HUD, CFG, MDT, RDR and AFM are frame pages with an F35_PAGES entry — CFG lands on the keybinds
-  // page, which now carries KEY/LYT/RTS as a sibling group (NAV.keys, cfg-rates experiment issue
-  // #39: action stays 'keys', mirrors MDT staying 'bdf'). Selecting LYT from that group still opens
-  // the layout chooser over the whole glass (GLASS_ACTIONS) exactly as before — only its entry
-  // point moved from top-level MAIN into the CFG group. All match where the bezel keeps them —
-  // MAIN — so a pilot finds the same names in the same place in either layout.
+  // CFG, MDT, RDR, AFM and SQD are frame pages with an F35_PAGES entry — CFG opens the CFG group
+  // (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39), landing on HUD by default (mirrors MDT
+  // staying 'bdf' — the action names whichever sibling is the landing page; HUD joined this group
+  // 2026-08-20 and no longer has a MAIN entry of its own, same as RTS). Selecting LYT from that
+  // group still opens the layout chooser over the whole glass (GLASS_ACTIONS) exactly as before —
+  // only its entry point moved from top-level MAIN into the CFG group. All match where the bezel
+  // keeps them — MAIN — so a pilot finds the same names in the same place in either layout.
   //
   // MDT is one combined entry covering PAL/BDF — mirrors the bezel's own SCR→MDT rename and
   // BDF/PAL fold. Action is 'akf' (AKF is the group's default landing page); NAV.akf/NAV.mis/
@@ -116,12 +117,16 @@
   // MAIN/AKF/MIS/OBJ/BDF/PAL sub-nav once you're on any of them, with `mark` lighting whichever is
   // current — this layout already renders NAV[page] like any other.
   const MAIN_EXTRAS = [
-    { label: 'HUD', action: 'hud' },
-    { label: 'CFG', action: 'keys' },
+    { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now (2026-08-20)
     { label: 'MDT', action: 'akf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md) — mirrors BEZEL_EXTRAS.main
     { label: 'AFM', action: 'afm' },   // → AFM airframe page — mirrors BEZEL_EXTRAS.main
     { label: 'SQD', action: 'sqd' },   // → SQD squad page (docs/squadron-transport.md) — mirrors BEZEL_EXTRAS.main
+    // Stub for a future Extensions page, mirroring BEZEL_EXTRAS.main's EXT — needs no extra code
+    // here at all: 'ext' has no F35_PAGES entry, so canDo('ext') is already false and renderNav()
+    // renders it '.pending'/disabled the same way any not-yet-built page does (see the comment atop
+    // this file: "nothing renders dimmed except this layout's own placeholders").
+    { label: 'EXT', action: 'ext' },
   ];
 
   // Paging actions, and the direction each moves. Not pages, so they dispatch separately.

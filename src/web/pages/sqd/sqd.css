@@ -70,17 +70,20 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 
 .sqd-btn {
   padding: 5px 12px;
-  border: 1px solid var(--no-green-dim);
+  border: 1px solid var(--no-green);
   background: none;
-  color: var(--no-green-dim);
+  color: var(--no-green);
   font-family: var(--no-font);
   font-size: 11px;
   letter-spacing: 1px;
   cursor: pointer;
 }
-.sqd-btn:hover { border-color: var(--no-green); color: var(--no-green); }
-.sqd-btn-ghost { border-color: var(--no-panel-border); color: var(--no-gray); }
-.sqd-btn-ghost:hover { border-color: var(--no-gray); color: var(--no-green-dim); }
+.sqd-btn:hover { background: var(--no-green); color: var(--no-ink); }
+/* Secondary but still fully functional (DECLINE/LEAVE/DISBAND) — dim, not gray. --no-gray is the
+   theme's disabled/inactive token (AVN's off annunciators, the EXT stub's dimmed MAIN label); using
+   it here would misread these as non-functional when they're one click away from doing something. */
+.sqd-btn-ghost { border-color: var(--no-green-dim); color: var(--no-green-dim); }
+.sqd-btn-ghost:hover { background: var(--no-green-dim); color: var(--no-ink); }
 
 .sqd-invite-card {
   padding: 12px;
@@ -132,12 +135,12 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 .sqd-row-btn {
   flex: none;
   background: none;
-  border: 1px solid var(--no-panel-border);
-  color: var(--no-gray);
+  border: 1px solid var(--no-green-dim);
+  color: var(--no-green-dim);
   font-family: var(--no-font);
   font-size: 10px;
   letter-spacing: 0.5px;
   cursor: pointer;
   padding: 3px 8px;
 }
-.sqd-row-btn:hover { border-color: var(--no-green-dim); color: var(--no-green); }
+.sqd-row-btn:hover { background: var(--no-green-dim); color: var(--no-ink); }

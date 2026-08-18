@@ -563,6 +563,13 @@
     outline: 1px solid var(--no-label);
     padding: 2px 6px;
   }
+  /* A MAIN item naming a page that isn't built yet (EXT, a stub for a future Extensions page —
+     BEZEL_EXTRAS.main). --no-gray is already the theme's "inactive" (AVN's off annunciators); the
+     key itself does nothing (mfdButton bails on el.dataset.pending) so this is purely visual. Same
+     idiom as f35.js's canDo()-driven '.nav-item.pending', just the bezel's own label element. */
+  .overlay-item.pending {
+    color: var(--no-gray);
+  }
   /* The SOI cursor — the label SELECT will press. Filled rather than outlined: .on and .paging have
      both outline idioms already, and a cursor is a position rather than a property of the label, so
      it has to read at a glance from across the cockpit. White (--no-label), the same colour as the

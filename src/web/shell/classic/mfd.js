@@ -108,26 +108,31 @@ function fullViewSlot(i) { return i < 6 ? { bank: 'left', index: i } : { bank: '
 // no panel: every other page in this shell puts its items beside a physical key, and a chooser is
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
-  // HUD, CFG, MDT, RDR and AFM — the layout-owned MAIN items the six shared NAV items don't
-  // cover. HUD opens the HUD OPTIONS #page-frame page; CFG the keybinds page, which now carries
-  // KEY/LYT/RTS as a sibling group (NAV.keys, cfg-rates experiment issue #39 — mirrors MDT's own
-  // sibling group below: action stays 'keys', same as MDT staying 'akf'); MDT (Mission Data Table)
-  // folds AKF/MIS/OBJ/BDF/PAL together — landing on AKF by default (issue #34 follow-up; the other
-  // four are a switch away via NAV.akf/NAV.mis/NAV.obj/NAV.bdf/NAV.pal) rather than its own MAIN
-  // entry; AFM shows the aircraft name + damage silhouette (split out of AVN, which is avionics
-  // only now).
+  // CFG, MDT, RDR, AFM and SQD — the layout-owned MAIN items the six shared NAV items don't
+  // cover. CFG opens the CFG group (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39, HUD joined
+  // 2026-08-20 and, like RTS, has no MAIN entry of its own anymore), landing on HUD by default
+  // (mirrors MDT's own sibling group below: action names whichever sibling is the landing page,
+  // same as MDT staying 'akf'); MDT (Mission Data Table) folds AKF/MIS/OBJ/BDF/PAL together
+  // — landing on AKF by default (issue #34 follow-up; the other four are a switch away via
+  // NAV.akf/NAV.mis/NAV.obj/NAV.bdf/NAV.pal) rather than its own MAIN entry; AFM shows the aircraft
+  // name + damage silhouette (split out of AVN, which is avionics only now).
   // All are frame-hosted pages that get their MAIN back from NAV like every other, so none needs an
   // entry of its own here beyond this one.
   // No bank/index/mark here (unlike lyt below): MAIN_SPLIT_ITEMS is the only consumer, in both full
   // view and split (showPage / renderSplitLabels' 'main' branch), and it places by alphabetical
   // order, not a fixed key.
   main: [
-    { label: 'HUD', action: 'hud' },
-    { label: 'CFG', action: 'keys' },
+    { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now (2026-08-20)
     { label: 'MDT', action: 'akf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
     { label: 'SQD', action: 'sqd' },   // → SQD squad page (docs/squadron-transport.md)
+    // Stub for a future Extensions page — occupies the MAIN slot now so it's already in place
+    // when that page exists, but wired to nothing yet: no case in mfdButton, no showFramePage
+    // call, no layout-pages.js entry, no F35_PAGES entry. `pending` dims it and skips its click
+    // (placeOverlayLabel/placeSplitKey) the same way f35.js's canDo()-driven '.nav-item.pending'
+    // already dims an action with no F35_PAGES entry — same idiom, both layouts, one flag.
+    { label: 'EXT', action: 'ext', pending: true },
   ],
   // No MAIN back-item under lyt here — picking CLASSIC already navigates back to MAIN (this shell),
   // so a separate way-back label would be redundant with it.
@@ -137,9 +142,9 @@ const BEZEL_EXTRAS = {
   ],
 };
 
-// All eleven MAIN destinations, alphabetically — the single ordering both full view (showPage) and a
+// All twelve MAIN destinations, alphabetically — the single ordering both full view (showPage) and a
 // split pane's paginated list (renderSplitLabels' 'main' branch) place from. Full view has room for
-// all of them at once (six left-bank keys, five of the right bank's six); a split pane's budget is 6
+// all of them at once (six left-bank keys, six of the right bank); a split pane's budget is 6
 // physical keys, too few — including HUD/KEY/LYT/BDF/PAL, which a split pane couldn't reach at all
 // before (the right bank is the pane's own column there, not BEZEL_EXTRAS) — so MAIN becomes a
 // paginated list there, the same idea as WPN's weapon list.
@@ -364,8 +369,8 @@ function listPaneLayout(paneIdx, page) {
 // Place an overlay label on a physical key {bank,index} and tag it with the owning pane. Returns the
 // label element so the caller can style it (e.g. the vertical MAIN for a TGT pane). `mark` lights it
 // engaged amber, same as placeOverlayLabel's own param — used by WPN's ARM/SAFE/A-A/A-G.
-function placeSplitKey(m, label, action, paneTag, mark) {
-  const el = placeOverlayLabel(m.bank, m.index, label, action, mark);
+function placeSplitKey(m, label, action, paneTag, mark, pending) {
+  const el = placeOverlayLabel(m.bank, m.index, label, action, mark, pending);
   const k = keyBanks[m.bank] && keyBanks[m.bank][m.index];
   if (k) k.dataset.pane = paneTag;
   return el;
@@ -373,14 +378,16 @@ function placeSplitKey(m, label, action, paneTag, mark) {
 
 // Pages whose own content sits in the top-left where the MAIN bezel label lands, so that label is
 // stood upright to clear it — in full view via .overlay.vmain, in a split pane via a per-label class
-// (renderSplitLabels). TGT's RESET FILTER, HUD's mode/category rows, and BDF/PAL/MIS/OBJ's WARHEADS
-// readout are that content — on a narrow display the panel widens to the edge and a horizontal MAIN
-// would sit over that header. All are split-capable.
+// (renderSplitLabels). TGT's RESET FILTER and BDF/PAL/MIS/OBJ's WARHEADS readout are that content —
+// on a narrow display the panel widens to the edge and a horizontal MAIN would sit over that
+// header. All are split-capable.
 // RDR is not in this list (issue #40 follow-up): it carries MAIN + R+ + R- and reads fine
 // horizontal, not cramped enough to need the narrow vertical treatment.
 // KEY is not in this list either (cfg-rates experiment, issue #39): the CFG group's nav labels
 // read fine horizontal, per user preference — its table header sits far enough from the bezel edge.
-function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
+// HUD moved out of this list too (2026-08-20, joined the CFG group): its own CSS now reserves top
+// clearance for a horizontal label instead of standing the label up (hud.css).
+function isVmainPage(p) { return p === 'tgt' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
@@ -430,11 +437,13 @@ function renderSplitLabels() {
       let it = 0;
       for (let p = 0; p < cells.length; p++) {
         if (cells[p] === null && it < slice.items.length) {
-          cells[p] = { label: slice.items[it].label, action: slice.items[it].action };
+          // pending (EXT, a stub — BEZEL_EXTRAS.main) carries through so a split pane dims it the
+          // same way full view does, not just an unpaginated MAIN.
+          cells[p] = { label: slice.items[it].label, action: slice.items[it].action, pending: slice.items[it].pending };
           it++;
         }
       }
-      cells.forEach(function (cell, i) { if (cell) placeSplitKey(positions[i], cell.label, cell.action, paneTag); });
+      cells.forEach(function (cell, i) { if (cell) placeSplitKey(positions[i], cell.label, cell.action, paneTag, undefined, cell.pending); });
       continue;
     }
 
@@ -516,8 +525,8 @@ function renderSplitLabels() {
         // silently not render here — the exact failure the old duplicated tables produced. Say so.
         if (!s) { console.warn('[mfd] NAV.' + page + '[' + i + '] "' + item.label + '" has no SPLIT_SLOTS entry — not placed'); return; }
         const el = placeSplitKey(paneKey(paneIdx, s.side, s.slot), item.label, item.action, paneTag, item.mark);
-        // TGT/HUD keep clickable content under their MAIN label; stand it upright in the
-        // pane too, the way full view does via .overlay.vmain — for those single-item pages that's
+        // TGT keeps clickable content under its MAIN label; stand it upright in the
+        // pane too, the way full view does via .overlay.vmain — for that single-item page it's
         // just MAIN. BDF/PAL/MIS/OBJ carry four MORE items each (their own MDT switch), split across
         // both the pane's left AND right columns (SPLIT_SLOTS.bdf/pal/mis/obj) — a horizontal "MIS"/
         // "OBJ" label would run wide over the pane's own content on that edge (both pages already
@@ -1444,6 +1453,7 @@ function clearKeyActions() {
       delete k.dataset.pane;     // split-mode tag; harmless to clear unconditionally
       delete k.dataset.wname;    // weapon.select name (WPN page); clear so it never lingers
       delete k.dataset.group;    // avn.toggle group (AVN page); clear so it never lingers
+      delete k.dataset.pending;  // stub flag (EXT); clear so a later page's key isn't stuck inert
     });
   });
 }
@@ -1455,16 +1465,19 @@ const PAGING_ACTIONS = { 'wpn-prev': true, 'wpn-next': true, 'main-prev': true, 
                           'avn-prev': true, 'avn-next': true, 'map-nav-prev': true, 'map-nav-next': true };
 
 // `mark` lights the label in the engaged amber — only LAYOUT's current item uses it; every other
-// label names a page rather than a state.
-function placeOverlayLabel(bankName, keyIndex, label, action, mark) {
+// label names a page rather than a state. `pending` dims a label that names a page not built yet
+// (a stub) — mirrors f35.js's canDo()-driven '.nav-item.pending' so a placeholder MAIN item (e.g.
+// EXT, BEZEL_EXTRAS.main) reads the same dimmed-and-inert way in both layouts.
+function placeOverlayLabel(bankName, keyIndex, label, action, mark, pending) {
   const side = bankName || 'left';
   const bank = keyBanks[side];
   const k = bank && bank[keyIndex];
   if (!k) return null;
 
   if (action) k.dataset.action = action;
+  if (pending) k.dataset.pending = '1';   // mfdButton() bails before doing anything for this key
   const el = document.createElement('div');
-  el.className = 'overlay-item ' + side + (mark ? ' on' : '') + (PAGING_ACTIONS[action] ? ' paging' : '');
+  el.className = 'overlay-item ' + side + (mark ? ' on' : '') + (pending ? ' pending' : '') + (PAGING_ACTIONS[action] ? ' paging' : '');
   el.textContent = label;
   el.dataset.key = side + keyIndex;   // ties the label to its physical key, so the SOI cursor can mark it
 
@@ -1497,12 +1510,13 @@ function showPage(name) {
   overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
 
   if (name === 'main') {
-    // MAIN_SPLIT_ITEMS — all eleven destinations, alphabetically — rather than NAV.main +
-    // BEZEL_EXTRAS.main separately: full view has room for all of them at once (six left-bank keys,
-    // then the right bank), so it's the same ordering a split pane pages through, just unpaginated.
+    // MAIN_SPLIT_ITEMS — all twelve destinations (including EXT, a stub — see BEZEL_EXTRAS.main),
+    // alphabetically — rather than NAV.main + BEZEL_EXTRAS.main separately: full view has room for
+    // all of them at once (six left-bank keys, then the right bank), so it's the same ordering a
+    // split pane pages through, just unpaginated.
     MAIN_SPLIT_ITEMS.forEach(function (item, i) {
       const bank = i < 6 ? 'left' : 'right';
-      placeOverlayLabel(bank, i < 6 ? i : i - 6, item.label, item.action);
+      placeOverlayLabel(bank, i < 6 ? i : i - 6, item.label, item.action, item.mark, item.pending);
     });
   } else if (name === 'map') {
     // MAP_FULL_LEFT/RIGHT (issue #38 follow-up), not the generic NAV sweep — see their own comment.
@@ -2136,6 +2150,7 @@ function soiAct(act) {
 }
 
 function mfdButton(el) {
+  if (el.dataset.pending) return;   // a stub label (EXT) — not wired to anything yet, not even feedback
   el.classList.add('lit');                                   // brief press feedback
   setTimeout(function() { el.classList.remove('lit'); }, 150);
 
