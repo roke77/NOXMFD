@@ -209,4 +209,29 @@ const route = (nextIndex, waypoints) => ({ id: 'r1', name: 'Route 1', nextIndex,
     { name: '', waypoints: [{ name: '', x: 1, z: 2 }] });
 }
 
+// ── activeWaypointArgs: what the in-game HUD cue gets told ─────────────────────────────
+{
+  const coll = (activeRouteId, routes) => ({ version: 1, activeRouteId, routes });
+  const OFF = { on: false, wx: 0, wz: 0, wname: '', index: 0 };
+
+  // The live case: the payload names the route's NEXT waypoint, not its first or last.
+  const r = route(1, [wp('w1', 'ALPHA', 10, 20), wp('w2', 'BRAVO', 30, 40), wp('w3', 'CHARLIE', 50, 60)]);
+  assert.deepStrictEqual(R.activeWaypointArgs(coll('r1', [r])),
+    { on: true, wx: 30, wz: 40, wname: 'BRAVO', index: 1 });
+
+  // Every "nothing to point at" state must produce a real off payload, not null/undefined — it is
+  // what clears a bug the plugin is already drawing on the tape.
+  assert.deepStrictEqual(R.activeWaypointArgs(coll(null, [r])), OFF, 'no active route');
+  assert.deepStrictEqual(R.activeWaypointArgs(coll('nope', [r])), OFF, 'active id matches no route');
+  assert.deepStrictEqual(R.activeWaypointArgs(coll('r1', [route(3, r.waypoints)])), OFF, 'route complete');
+  assert.deepStrictEqual(R.activeWaypointArgs(coll('r1', [route(0, [])])), OFF, 'empty route');
+  assert.deepStrictEqual(R.activeWaypointArgs(null), OFF, 'no collection at all');
+  assert.deepStrictEqual(R.activeWaypointArgs({}), OFF, 'collection with no routes array');
+
+  // An unnamed waypoint sends '' rather than undefined — the plugin displays "WPT 2" alone for it,
+  // and an undefined here would serialize out of the JSON and leave the field at its C# default.
+  assert.deepStrictEqual(R.activeWaypointArgs(coll('r1', [route(0, [wp('w1', '', 1, 2)])])),
+    { on: true, wx: 1, wz: 2, wname: '', index: 0 });
+}
+
 console.log('wpt-route.test.js: OK');

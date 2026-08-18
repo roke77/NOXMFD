@@ -49,6 +49,10 @@ const DECLUTTER = [
   { key: 'minimap', label: 'MINIMAP' },
   { key: 'boxes',   label: 'FLIGHT' },
   { key: 'feed',    label: 'FEED' },   // native kill-feed ticker (issue #34, docs/akf-page.md)
+  // Not a native widget like the four above — this one hides the mod's OWN waypoint cue
+  // (docs/hud-waypoint-indicator.md). It lives here because this strip is where HUD element
+  // visibility is controlled, and a second control surface for one toggle isn't worth it.
+  { key: 'wpt',     label: 'WPT' },
 ];
 
 const dcEl    = document.getElementById('hud-declutter');

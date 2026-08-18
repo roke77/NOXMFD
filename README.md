@@ -139,7 +139,7 @@ pilot, with HOTAS-friendly keybinds to match.
   (switch the display to a different shell layout), and **RTS** tunes the mod's live
   data-refresh rates (below).
 
-- **HUD** — a remote for the game's in-cockpit HUD OPTIONS: mode tabs (NAV/GUN/A2A/…) and per-category / per-type toggles for which unit icons show on the HUD, plus a declutter strip that hides native HUD widgets — the weapon panel, corner minimap, and boxed flight readouts.
+- **HUD** — a remote for the game's in-cockpit HUD OPTIONS: mode tabs (NAV/GUN/A2A/…) and per-category / per-type toggles for which unit icons show on the HUD, plus a declutter strip that hides HUD widgets — the weapon panel, corner minimap, boxed flight readouts, the native kill-feed ticker, and NO XMFD's own waypoint cue.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
@@ -236,6 +236,12 @@ pilot, with HOTAS-friendly keybinds to match.
   that auto-advances as you approach it. CLEAR wipes every route at once. Routes persist across
   reloads. IMPORT and each route's own export button turn a route into pasteable JSON, so you can
   back one up or hand it to another pilot.
+
+  The active waypoint also shows on the **in-game HUD**: an amber bug rides the game's own heading
+  tape at the waypoint's bearing, with a `WPT n · NAME` / distance · bearing readout beside it. Past
+  ±45° of the nose — the tape only spans 90° — the bug becomes a sideways arrow pinned at the edge
+  it left, pointing the way to turn. Hide it with the **WPT** toggle on the HUD page's declutter
+  strip.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>

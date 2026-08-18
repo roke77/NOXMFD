@@ -26,6 +26,22 @@
     return ((brgDeg - hdg) % 360 + 360) % 360;
   }
 
+  // The in-game HUD cue's wire payload (docs/hud-waypoint-indicator.md), derived from a whole
+  // waypoints collection. Pure and here rather than in waypoints-store.js so the "which waypoint is
+  // active" branching is checkable in Node — the storage/network half around it isn't.
+  //
+  // Always returns a full payload, never null: a finished or deleted route has to be SENT as
+  // on:false to clear a cue the plugin is already drawing. Silence would leave a stale bug on the
+  // tape pointing at a waypoint the pilot already passed.
+  function activeWaypointArgs(collection) {
+    const off = { on: false, wx: 0, wz: 0, wname: '', index: 0 };
+    if (!collection || !Array.isArray(collection.routes)) return off;
+    const route = findRoute(collection.routes, collection.activeRouteId);
+    if (!route || route.nextIndex >= route.waypoints.length) return off;
+    const wp = route.waypoints[route.nextIndex];
+    return { on: true, wx: wp.x, wz: wp.z, wname: wp.name || '', index: route.nextIndex };
+  }
+
   function shouldAdvance(distM, thresholdM) {
     return distM <= thresholdM;
   }
@@ -172,7 +188,7 @@
   }
 
   const api = {
-    distanceBearing, relativeBearing, shouldAdvance, advanceIfNear,
+    distanceBearing, relativeBearing, activeWaypointArgs, shouldAdvance, advanceIfNear,
     waypointMarkerState, segmentReached,
     resetProgress,
     addWaypoint, removeWaypoint, renameWaypoint, reorderWaypoint,

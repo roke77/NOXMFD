@@ -1,10 +1,12 @@
-# In-game HUD waypoint indicator (planning)
+# In-game HUD waypoint indicator
 
 ## Status
 
-Planning only. No code yet. Branch `hud-waypoint-indicator`, no ticket filed
-yet. Every game symbol cited below was read out of `_scratch/full` (the fuller
-decompile) during this pass; nothing here has been run in-game.
+Design A is implemented on branch `hud-waypoint-indicator`, no ticket filed.
+Design B (a cloned `ObjectiveOverlay`) is not built. The build is clean and the
+web self-checks pass; the cue's absolute placement on the tape is **not yet
+verified in-game** — see the zero-offset question at the bottom, which is the
+one thing only flying can settle.
 
 This is the mod's first **additive** HUD change. Everything `HudDeclutter`
 does today is subtractive — find an existing component, disable it, restore
@@ -111,7 +113,25 @@ Every data flow in this mod is plugin → browser. This feature needs
 browser → plugin, and that direction doesn't exist yet for state (only for
 one-shot commands). Two ways out:
 
-### Option 1 — POST the active waypoint back over the command channel
+### Option 1 — POST the active waypoint back over the command channel (shipped)
+
+Two facts make this cheaper than the section below assumes. Waypoints are stored
+as `{ name, x, z }` in raw game world coordinates (`wpt-route.js`), the same
+floating-origin-corrected frame `TelemetryReader` publishes as `world.x`/
+`world.z` — so the payload is two floats and a name with no coordinate
+conversion at either end. And `soi.panes` is already a browser → plugin *state*
+POST carrying a `cid`, so the direction is established rather than new.
+
+`waypoints-store.js`'s `save()` is the single publishing choke point: every
+mutation (edit, W+/W−, R+/R−, import, clear, auto-advance) already routes
+through it, so no caller has to remember to publish. The store is loaded by both
+shells, not just the MAP and WPT pages, so the publisher is alive whichever page
+is on screen.
+
+`HudWaypointState` is static rather than mission-scoped, so a mission restart
+doesn't silently drop the cue — the pilot's route hasn't changed just because
+the mission reloaded. A game restart does clear it, and the SSE `hello` (which
+the shells already handle as `soi-cid`) is the browser's cue to republish.
 
 Smallest diff. `CommandDispatcher`'s `CommandEnvelope` is a deliberately flat
 union of scalars (`cmd`/`id`/`group`/`index`/`on`/`bind`/`key`/`cid`/`n`/`hz`)
@@ -145,6 +165,28 @@ change than the HUD work it unblocks, and it changes an existing shipped
 feature's storage model. Prototype against Option 1 (or even a hardcoded
 bearing) to prove the rendering first, and treat the storage move as its own
 ticket rather than smuggling it in under this one.
+
+## What is built
+
+| File | Role |
+|---|---|
+| `src/plugin/HudWaypointState.cs` | Static holder for the browser's active waypoint |
+| `src/plugin/HudWaypointCue.cs` | The renderer — chevron on the tape + two-line readout |
+| `src/plugin/CommandDispatcher.cs` | `wpt.active` handler; `wx`/`wz` added to the envelope |
+| `src/web/pages/wpt/wpt-route.js` | `activeWaypointArgs(collection)` — the pure payload derivation |
+| `src/web/pages/wpt/waypoints-store.js` | `publishActive()` off `save()`, `republishActive()` for reconnects |
+
+The cue ships no art. Every element is an untextured `Image` (an `Image` with no
+sprite draws a flat tinted quad), so there is no asset to fail to load; the
+chevron is two thin bars meeting at their container's origin, and rotating that
+container is what aims it. The only borrowed resource is the font, taken off
+whichever `UnityEngine.UI.Text` the game already has on screen so the readout
+matches the native readouts rather than introducing a second typeface.
+
+Visibility has its own **WPT** toggle in the HUD page's declutter strip. It is
+the one flag there that hides something the mod draws rather than something the
+game draws, and it keeps the `Hide*` polarity anyway so every toggle in that
+strip reads the same way round.
 
 ## Rendering: two designs
 
@@ -215,36 +257,45 @@ that component, rather than adding a second MonoBehaviour with its own timer.
 
 ## Open questions
 
+Two of the original questions are settled by the build. Every `Image` and `Text`
+the cue creates sets `raycastTarget = false`, so the cue can't eat a click meant
+for target selection. And visibility is its own **WPT** declutter toggle rather
+than riding `HideTopBoxes`, which is about the game's boxed readouts.
+
 - The compass texture's zero offset. The `+135f` implies the window's centre
   sits at `hdg + 180` in texture space, so the texture is laid out with a half
   turn of offset (or reversed). The 90°-window figure is what the bug math
   needs and is solid; the exact zero point should be confirmed empirically
   before trusting a bug's absolute placement.
-- Whether the cloned overlay needs `SetRaycastTarget(false)`. The objective
-  overlays are click targets in some contexts; a waypoint cue that eats clicks
-  meant for target selection would be a regression.
 - Whether design B's cloned overlay should also be amber, or keep the game's
   objective colouring. Design A is settled (above); B sits among the game's own
-  objective markers, so the tradeoff is different there.
-- Whether the cue should respect `HideTopBoxes` / the declutter strip, or get
-  its own toggle. It's an addition, so a new toggle is likely, but it lives in
-  the same visual real estate the declutter flags are about.
-- Multi-display arbitration under Option 1 (above), if Option 1 ships.
+  objective markers, so the tradeoff is different there. Only matters if B gets
+  built.
+- Multi-display arbitration. Two displays each own their own route list, and the
+  last one to publish defines the cue. The envelope's `cid` identifies the
+  reporter but not which reporter is authoritative, and there is no obvious
+  right answer — Option 2 dissolves the question rather than answering it.
 
 ## Out of scope
 
-- Building any of this. This document is plan-only.
+- Design B, the cloned `ObjectiveOverlay` world-space pointer.
 - Moving waypoint storage into the plugin — see Option 2; its own ticket.
 - Any change to the WPT page or the MFD compass.
 - Route *editing* from the HUD. Read-only cue only.
 
-## Pre-flight before implementing
+## In-game check
 
-- Read `src/plugin/HudDeclutter.cs` — the reflect-once/re-apply/restore idiom
-  and the respawn detection this feature has to carry over.
-- Read `_scratch/full/ObjectiveOverlay.cs` and
-  `_scratch/full/ObjectiveOverlayManager.cs` — the clamping math and the
-  prefab/pooling shape design B copies.
-- Read `_scratch/full/FlightHud.cs` — the compass UV scroll design A depends on.
-- Decide Option 1 vs Option 2 before writing any plugin code; the rendering
-  work is the same either way, but the plugin's waypoint-state surface is not.
+Fly a route with the cue visible and confirm:
+
+- The bug sits on the tape tick the readout's `brg` names — this is the
+  zero-offset question above, and the one thing the build can't self-verify.
+- The bug tracks the tape smoothly through a turn rather than lagging it. It is
+  driven off `cockpit.rb.transform.eulerAngles.y`, the same heading `FlightHud`
+  scrolls the tape with, so any lag means that assumption is wrong.
+- Crossing ±45° swaps the chevron to a sideways arrow pinned at the edge, and
+  crossing back restores it.
+- Reaching a waypoint advances the cue to the next one, and finishing the route
+  clears it.
+- The **WPT** declutter toggle hides and restores it.
+- It survives an aircraft respawn (the HUD is rebuilt, taking the cue's objects
+  with it) and a mission restart (the published waypoint is held statically).

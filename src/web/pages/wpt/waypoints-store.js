@@ -39,6 +39,35 @@
 
   function save(collection) {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(collection)); } catch (e) { /* private mode, quota, etc. */ }
+    publishActive();
+  }
+
+  // ── In-game HUD cue (docs/hud-waypoint-indicator.md) ────────────────────────────────
+  // Push the active waypoint down to the plugin, which draws a bug for it on the game's own heading
+  // tape. This is the ONLY browser -> plugin state flow in the mod; everything else about a route
+  // stays here in localStorage, and Option 2 in the doc (routes owned by the plugin) is the real
+  // fix for the two limitations this shape carries: the cue needs some display open to have ever
+  // published, and two displays with different route lists just overwrite each other.
+  //
+  // save() is the single choke point deliberately — every mutation (edit, W+/W-, R+/R-, import,
+  // clear, auto-advance) already routes through it, so no caller has to remember to publish.
+  let lastPublished = null;
+
+  function publishActive() {
+    if (typeof sendCommand !== 'function') return;   // no command channel in this context (tests, Node)
+    const args = R.activeWaypointArgs(load());
+    const key = JSON.stringify(args);
+    if (key === lastPublished) return;
+    lastPublished = key;
+    sendCommand('wpt.active', args).catch(function () { lastPublished = null; });
+  }
+
+  // Re-send even if nothing changed — for the SSE hello, which fires on a fresh server connection.
+  // The plugin holds this state statically so it survives a mission restart, but NOT a game
+  // restart, and a reconnect is the browser's only cue that it may have been lost.
+  function republishActive() {
+    lastPublished = null;
+    publishActive();
   }
 
   function getActiveRoute() {
@@ -192,7 +221,8 @@
     load, save, getActiveRoute, hasRoutes, setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute, clearRoutes,
     addWaypointToActive, renameWaypoint, removeWaypoint, reorderWaypoint, advanceIfNear,
     resetWaypoint, resetRoute, stepWaypoint, exportRoute, importRoute,
+    publishActive, republishActive,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
-  else root.WaypointsStore = api;
+  else { root.WaypointsStore = api; publishActive(); }
 })(typeof self !== 'undefined' ? self : this);

@@ -1659,6 +1659,9 @@ window.addEventListener('message', function(e) {
     // also fires after an SSE reconnect, when the server has reset the count to 1).
     myCid = m.cid || '';
     reportPanes();
+    // Same cue for the in-game waypoint bug (docs/hud-waypoint-indicator.md): a fresh server
+    // connection may be a fresh game process, which would have lost the published waypoint.
+    WaypointsStore.republishActive();
   } else if (m.type === 'soi') {
     // Which of this instance's surfaces (if any) is the sensor of interest. Reported by the tap, the
     // only part that knows this instance's cid. Ring frames the focused pane; the cursor scopes to

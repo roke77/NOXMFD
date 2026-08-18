@@ -1006,6 +1006,7 @@ namespace NOXMFD
               .Append(",\"minimap\":").Append(HudDeclutterConfig.HideMinimap ? "true" : "false")
               .Append(",\"boxes\":").Append(HudDeclutterConfig.HideTopBoxes ? "true" : "false")
               .Append(",\"feed\":").Append(HudDeclutterConfig.HideKillFeed ? "true" : "false")
+              .Append(",\"wpt\":").Append(HudDeclutterConfig.HideWaypointCue ? "true" : "false")
               .Append('}');
 
             sb.Append('}');

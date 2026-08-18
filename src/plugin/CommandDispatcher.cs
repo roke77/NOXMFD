@@ -24,17 +24,22 @@ namespace NOXMFD
         public string cmd;
         public long   id;      // target unit persistentID (target.select / target.deselect)
         public string wname;   // weapon type name (weapon.select) — matches LoadoutEntry.Name
+                                // wpt.active : the active waypoint's display name ("" if unnamed)
         public string group;   // tgt.set / tgt.only : "faction" | "category" | "vehicle"
                                 // combat-mode.set : "all" | "aa" | "ag"
                                 // avn.toggle : "gear" | "radar" | "guns" | "eng" | "assist" | "nvg" |
                                 //              "lights" | "turret"
         public int    index;   // tgt.set / tgt.only : toggle index within the group
+                                // wpt.active : the waypoint's 0-based position in its route
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
+                                // wpt.active : false = no active waypoint, clear the HUD cue
         public string bind;    // keybind.* : BindDef id ("flares", "gear-up", ...)
         public string key;     // keybind.set-key : Unity KeyCode name ("" or "None" clears)
         public string cid;     // soi.panes : which instance is reporting (a POST isn't tied to its /stream)
         public int    n;       // soi.panes : how many focusable surfaces that instance now shows
         public float  hz;      // rates.set : desired rate in Hz (group picks which — "fast" | "tgp")
+        public float  wx;      // wpt.active : active waypoint's world X (floating-origin corrected)
+        public float  wz;      // wpt.active : active waypoint's world Z
     }
 
     internal static class CommandDispatcher
@@ -97,6 +102,10 @@ namespace NOXMFD
                 // (docs/keybinds-page.md, "surface-level focus"). Carries its own cid — a POST isn't
                 // tied to the /stream connection the count belongs to.
                 { "soi.panes",          e => TelemetryServer.SetPaneCount(e.cid ?? string.Empty, e.n) },
+                // The browser's active waypoint, for the in-game HUD cue (docs/hud-waypoint-indicator.md).
+                // The only browser -> plugin STATE command; see HudWaypointState for why it isn't
+                // mission-scoped and how a second display's route list is (not) arbitrated.
+                { "wpt.active",         e => HudWaypointState.Set(e.on, e.wx, e.wz, e.wname, e.index) },
             };
 
         // Keybind writes just delegate to the Keybinds registry; log rejections (unknown id / bad key).
@@ -468,6 +477,7 @@ namespace NOXMFD
                 case "minimap": HudDeclutterConfig.SetHideMinimap(env.on);    break;
                 case "boxes":   HudDeclutterConfig.SetHideTopBoxes(env.on);   break;
                 case "feed":    HudDeclutterConfig.SetHideKillFeed(env.on);   break;
+                case "wpt":     HudDeclutterConfig.SetHideWaypointCue(env.on); break;
                 default:
                     Plugin.Log?.LogInfo($"[NOXMFD] declutter.set: unknown group '{env.group}' — ignored.");
                     return;

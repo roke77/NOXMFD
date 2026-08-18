@@ -826,7 +826,9 @@
     if (e.source !== mapTap.contentWindow) return;
 
     // SOI control messages from the tap — not telemetry slices, so handle and return before caching.
-    if (m.type === 'soi-cid') { myCid = m.cid || ''; reportPanes(); return; }
+    // republishActive: a fresh server connection may be a fresh game process, which would have
+    // lost the published waypoint the in-game HUD cue draws (docs/hud-waypoint-indicator.md).
+    if (m.type === 'soi-cid') { myCid = m.cid || ''; reportPanes(); WaypointsStore.republishActive(); return; }
     if (m.type === 'soi')     { onSoiFocus(m); return; }
     if (m.type === 'soi-act') { onSoiAct(m.act); return; }
     if (m.type === 'cursor') {
