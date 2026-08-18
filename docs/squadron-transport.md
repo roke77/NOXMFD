@@ -19,6 +19,12 @@ the design. A transport that comfortably carries a route can be useless for vide
 streaming and video sharing are deferred; the "Deferred: heavy payloads" section records what they
 would need so the first implementation does not foreclose them.
 
+**Shipped:** the transport (Option B, below) plus a full leader/member squad protocol on top of
+it — invites, single-squad-per-player enforcement, leader succession, and disband — with waypoint
+route sharing wired end to end as the first payload. See "Implementation" below for what actually
+exists in the code today; the sections above and below it are the design investigation that led
+there and are kept as the historical record of why it looks the way it does.
+
 ## What the platform already provides
 
 Findings from the shipped game binaries (`NuclearOption_Data/Managed`) and this mod's own sources.
@@ -182,7 +188,11 @@ Interval = 30f)]` server-side. The measured 436-byte route becomes 584 base64 ch
 messages — an entire refill period for the smallest of the four payloads, spamming a channel other
 players are reading, with every message logged server-side against the sender's SteamID.
 
-## Architecture sketch
+## Architecture sketch (as originally proposed)
+
+The plan below predates the plugin owning route data (`RouteStore`, `docs/hud-waypoint-indicator.md`)
+and predates the leader/member protocol — kept for context on the browser/plugin split it got right.
+See "Implementation" for what's actually built.
 
 The browser holds the data (routes in `localStorage`), and the plugin holds the network connection,
 so payloads cross that boundary in both directions. Both directions already exist:
@@ -206,7 +216,50 @@ Two design constraints worth fixing early:
   the internet. Bounds and schema belong at that boundary, as with any other trust boundary in the
   mod.
 
+## Implementation
+
+What actually shipped, layered on top of Option B:
+
+**Transport (`Squadron.cs`)** — a generic per-peer Steam messaging layer: `SendTo`/`SendToAll`,
+`Poll`/`Since` for the inbox, a versioned envelope (`{v,type,payload}`), and session bookkeeping
+(`OpenSession`/`CloseSession`). It accepts a session from **anyone**, not just a pre-approved list —
+an invite has to reach a stranger before they can decide whether to join, so the earlier "only
+accept known peers" gate doesn't fit a leader/member model. Consent moved entirely to the protocol
+layer below: each message type decides for itself whether a given sender is trusted to send it
+(e.g. an `sqd.invite` is welcome from anyone; an `sqd.roster` is only trusted from the current
+leader).
+
+**Protocol (`Squad.cs`)** — the leader/member state machine, star-topology (leader holds a session
+with every member; members only ever talk to the leader, never each other):
+
+- `sqd.invite` / `sqd.accept` / `sqd.decline` — explicit accept required, no auto-join.
+- Single squad per player, enforced socially (no server to arbitrate): an invite target already in
+  a squad sends back `sqd.conflict` (rejecting it) and, if they're a member, `sqd.poach` to their
+  *real* leader — a warning that someone tried to recruit one of their people.
+- `sqd.roster` — the leader broadcasts the full member list on every change; members never need
+  their own source of truth for who's in the squad.
+- `sqd.leave` (member) / `sqd.transfer` + `sqd.leader-changed` (leader handing off, explicit pick or
+  auto-picked oldest-joined member) / `sqd.disband` (leader only).
+- `sqd.data` — the generic "TBD payload" slot this doc's scope section describes; `wpt.route` is
+  the first (and so far only) concrete use, wired to WPT's per-route share button, which only shows
+  once you're the squad leader with at least one member.
+- Sent invites time out after 15s if nobody responds — there is no delivery acknowledgment at the
+  Steam messaging level, so a target with no mod installed looks identical to one still deciding
+  until the timeout fires and surfaces a notice.
+- No persistence, by design: squad state is in-memory only and resets on plugin restart.
+
+**Membership picker (`PlayerRoster.cs`)** — no pasted SteamIDs. The leader picks from everyone
+currently in their own faction for the match, read via `FactionHQ.GetPlayers()` (the same source
+the game's own scoreboard uses) — any client can read this, not just the host, since `Player` is an
+ordinary spawned Mirage object with a synced SteamID. Scoped to one faction: a squad only makes
+sense among teammates.
+
+**UI** — a new SQD page (`src/web/pages/sqd/`), reachable from MAIN in both layouts, replacing the
+squadron block that used to live on WPT.
+
 ## Security and privacy consequences
+
+**`SECURITY.md` has not been updated yet** — still pending, tracked separately from this doc.
 
 `SECURITY.md` currently states, as a headline promise, that the mod **makes no internet
 connections** and that all traffic is localhost or LAN. Every option here except E makes that
@@ -248,27 +301,21 @@ Both are additive: they need new channels and new message types, not a different
 
 ## Open questions
 
-The two unknowns capable of invalidating the recommendation are now answered — callbacks are pumped
-by `SteamManager.Update()`, and `SteamNetworkingMessages` is untouched by the game. What remains:
+The two unknowns capable of invalidating the recommendation were answered statically before any
+code was written — callbacks are pumped by `SteamManager.Update()`, and `SteamNetworkingMessages`
+is untouched by the game. Of the rest:
 
-- Does a squadron survive leaving a match, or dissolve with it?
-- How do members identify each other without a lobby — a pasted SteamID, or a picker built on
-  `SteamFriends`?
-- Does an unmodded or non-Steam copy need a graceful "unavailable" path, or is silent absence of
-  the feature acceptable?
-- What is a real TGP frame's encoded size? Deferred with the video feature, but it gates any
-  decision there.
-
-## Suggested first step
-
-The lobby spike is no longer the blocker it was — its two questions are answered statically. The
-first implementation is the transport itself:
-
-1. A peer set of SteamIDs, with explicit accept via `AcceptSessionWithUser` and no auto-acceptance.
-2. A versioned envelope with a type field and a size cap, sent reliably on a dedicated channel.
-3. `ReceiveMessagesOnChannel` polled from the update loop the plugin already runs.
-4. Browser plumbing over the paths that already exist — `POST /command` up, an SSE event down.
-
-A waypoint route is the right first payload precisely because it is the smallest and already
-serialises: it exercises the whole path end to end, browser to browser, with no bandwidth question
-attached.
+- ~~Does a squadron survive leaving a match, or dissolve with it?~~ **Answered:** squad state is
+  static/in-memory, not mission-scoped, so it survives a mission change and only ends on an
+  explicit leave/disband (or a plugin restart, since there's no persistence).
+- ~~How do members identify each other without a lobby — a pasted SteamID, or a picker?~~
+  **Answered:** a picker, sourced from `FactionHQ.GetPlayers()` — the leader's own faction roster
+  for the current match, not a pasted SteamID.
+- ~~Does an unmodded or non-Steam copy need a graceful "unavailable" path?~~ **Answered:** yes, and
+  built — the SQD page's whole squad section hides when `Squadron.Ready` is false.
+- **Still open:** what is a real TGP frame's encoded size? Deferred with the video feature, but it
+  gates any decision there.
+- **New, found during implementation:** inviting a player with no mod installed is silently
+  indistinguishable from inviting one who's still deciding — there's no delivery acknowledgment at
+  the Steam messaging level. Mitigated with a 15s invite timeout that surfaces a notice, but there's
+  still no way to *positively* confirm the invite reached a modded client.

@@ -53,20 +53,8 @@
     </div>
   </div>
 
-  <!-- No squad yet — pick a squadmate from whoever else is in this match right now. -->
-  <div class="sqd-section" id="sqd-roster-section">
-    <div class="sqd-section-head"><span>PLAYERS IN THIS MATCH</span></div>
-    <div class="sqd-rows" id="sqd-roster-rows"></div>
-    <div class="sqd-empty" id="sqd-roster-empty">&mdash; NO OTHER PLAYERS DETECTED &mdash;</div>
-  </div>
-
-  <!-- Invites sent, awaiting the target's own accept/decline. -->
-  <div class="sqd-section" id="sqd-pending-section" style="display:none;">
-    <div class="sqd-section-head"><span>INVITED — AWAITING RESPONSE</span></div>
-    <div class="sqd-rows" id="sqd-pending-rows"></div>
-  </div>
-
-  <!-- The squad itself, once one exists (as leader or member). -->
+  <!-- The squad itself, once one exists (as leader or member). Placed above the match roster
+       (below) since that list has no size cap and would otherwise push this out of view. -->
   <div class="sqd-section" id="sqd-squad-section" style="display:none;">
     <div class="sqd-section-head">
       <span id="sqd-squad-head">YOUR SQUAD</span>
@@ -76,6 +64,19 @@
       </div>
     </div>
     <div class="sqd-rows" id="sqd-squad-rows"></div>
+  </div>
+
+  <!-- Invites sent, awaiting the target's own accept/decline. -->
+  <div class="sqd-section" id="sqd-pending-section" style="display:none;">
+    <div class="sqd-section-head"><span>INVITED — AWAITING RESPONSE</span></div>
+    <div class="sqd-rows" id="sqd-pending-rows"></div>
+  </div>
+
+  <!-- No squad yet — pick a squadmate from whoever else is in this match right now. -->
+  <div class="sqd-section" id="sqd-roster-section">
+    <div class="sqd-section-head"><span>PLAYERS IN THIS MATCH</span></div>
+    <div class="sqd-rows" id="sqd-roster-rows"></div>
+    <div class="sqd-empty" id="sqd-roster-empty">&mdash; NO OTHER PLAYERS DETECTED &mdash;</div>
   </div>
 </div>
 

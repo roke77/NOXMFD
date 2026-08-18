@@ -1000,6 +1000,12 @@ function wireWpnPaneWeaponKeys(weapons, paneIdx, paneTag) {
 function frameWin() { return pageFrame && pageFrame.contentWindow; }
 // Point #page-frame at a frame-hosted page, switching its src when moving between frame pages
 // (WPN ↔ TGT) and lazy-loading on first entry. No-op if it already shows that page.
+//
+// Adding a page: showPage() below needs `if (name === '<x>') showFramePage('<x>');` (or a block
+// with one, if the page needs forwarded data), AND mfdButton()'s switch needs a matching
+// `case '<x>':`. Neither is implied by NAV/layout-pages.js/split-slots.js — see
+// docs/src-architecture.md's "Shell hooks" section; classic-button-wiring.test.js is the backstop
+// if either is missed.
 function showFramePage(name) {
   const url = FRAME_PAGES[name];
   if (url && pageFrame.getAttribute('src') !== url) pageFrame.src = url;
@@ -1626,6 +1632,9 @@ function showPage(name) {
     showFramePage('wpt');
     forwardWptToFrame();
   }
+  // SQD (docs/squadron-transport.md) renders in #page-frame too — self-driven like HUD/KEY/RTS: it
+  // polls /squad and /server-players itself, so the shell forwards it nothing.
+  if (name === 'sqd') showFramePage('sqd');
 
   // refreshFollowIndicator (not just renderIndicators) because the FOLLOW chip's membership
   // depends on currentPage, which just changed: entering MAP with follow already on must add the
@@ -2233,6 +2242,7 @@ function mfdButton(el) {
     case 'rdr':  showPage('rdr');  break;
     case 'tgt':  showPage('tgt');  break;
     case 'akf':  showPage('akf');  break;
+    case 'sqd':  showPage('sqd');  break;
     case 'bdf':  showPage('bdf');  break;
     case 'pal':  showPage('pal');  break;
     case 'mis':  showPage('mis');  break;

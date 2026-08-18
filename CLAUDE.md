@@ -77,6 +77,12 @@ guesses — most exist because a past session violated them.
 - After any change under `src/web/`, run the JS self-checks (`*.test.js` files
   alongside the code, plain `node` scripts with asserts — no framework) before calling
   the change done.
+- Adding a new MFD page touches several files (NAV, `layout-pages.js`, `split-slots.js`,
+  and two hand-written switches in `mfd.js` that nothing else implies) — see
+  `docs/src-architecture.md`'s "Shell hooks" section for the full checklist and which
+  test backstops each step. A page that passes every self-check and still does nothing
+  when clicked in full view is missing one of those two `mfd.js` switches — that
+  specific gap is what `classic-button-wiring.test.js` exists to catch.
 - `src/plugin/` (the C# side) intentionally has no automated tests today — most of it
   reflects into live Unity/game objects or subclasses `MonoBehaviour` and needs the
   game running to exercise; failures there are loud (crash/exception) rather than

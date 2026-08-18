@@ -369,6 +369,20 @@ NOXMFD.csproj          # <EmbeddedResource Include="src\web\**\*" />
 - **`broadcastOrientation()`** forwards `orient` to panes — also forward to `pageFrame` (for
   CSS that keys off `body.portrait/landscape`, e.g. WPN's image rotation).
 
+**Two easy-to-miss spots, no shared table with anything above:** `showPage(name)` needs an
+`if (name === '<x>') showFramePage('<x>');` line (or a block with one, if the page needs forwarded
+data — see the `forwardXToFrame` bullet), **and** `mfdButton()`'s full-view switch needs a matching
+`case '<x>': showPage('<x>'); break;`. Neither is implied by `NAV`, `layout-pages.js`, or
+`split-slots.js` — a page can be correctly wired everywhere else covered by
+`layout-coverage.test.js` / `server-route-coverage.test.js` / `split-slots.test.js` and still be a
+dead bezel button in full view, because these two switches are hand-maintained and nothing checks
+them. This is exactly what happened when the SQD page shipped (2026-08-20): fully wired in NAV,
+`layout-pages.js`, and `split-slots.js`, clickable in split mode and on the F-35 (both resolve pages
+generically), and silently did nothing in the classic shell's full view. **Fixed going forward** by
+`src/web/shell/classic/classic-button-wiring.test.js`, which fails by name if any
+`layout-pages.js` `CLASSIC_FULL` entry is missing either line — run it (or the whole suite,
+`find src -iname '*.test.js' | xargs -n1 node`) after adding a page, before manual browser testing.
+
 ### The shell⇄page postMessage protocol (envelope: `{ mfd:true, type, … }`)
 Shell → page (data **down**): `'<page>'` (the sliced rows + selection), `'<page>-layout'`
 (geometry; include `layout:'full'|'compact'` + the slots/bands the page needs), `'cm'`,
