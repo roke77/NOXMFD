@@ -31,14 +31,6 @@
 
   function isExtensionPage(name) { return extIds.has(name); }
 
-  // "First" = alphabetically first id — matches the server's own Manifest() ordering
-  // (ExtensionRegistry.cs sorts by id), so EXT's default landing page is deterministic across
-  // a page reload rather than depending on Set/object iteration order.
-  function firstExtensionId() {
-    var ids = Array.from(extIds).sort();
-    return ids.length ? ids[0] : null;
-  }
-
   // Fetches /ext-manifest once and applies the plan into the live, shared NAV object — the same
   // object every page/shell already holds a reference to via NavModel.NAV. Mutating it in place
   // is deliberate: BepInEx doesn't hot-reload plugins, so the extension set is fixed for the
@@ -57,7 +49,7 @@
       .catch(function () { /* /ext-manifest unreachable — same as "no extensions installed" */ });
   }
 
-  var api = { buildExtNavPlan: buildExtNavPlan, load: load, isExtensionPage: isExtensionPage, firstExtensionId: firstExtensionId };
+  var api = { buildExtNavPlan: buildExtNavPlan, load: load, isExtensionPage: isExtensionPage };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ExtNav = api;
 })(typeof self !== 'undefined' ? self : this);

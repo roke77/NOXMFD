@@ -528,12 +528,10 @@
     }
 
     function dispatch(action) {
-      // EXT (docs/extensions-api.md): lands on whichever installed extension sorts first, the
-      // same way 'akf' is a fixed default landing page for the MDT fold — except this one's
-      // destination is discovered at runtime, not authored. Falls back to the static 'ext' page
-      // (F35_PAGES.ext, "NO EXTENSIONS INSTALLED") when none are installed. Checked before
-      // `has(action)` below since 'ext' itself is never a real extension id.
-      if (action === 'ext') { const extId = ExtNav.firstExtensionId(); showPage(extId || 'ext'); return; }
+      // EXT (docs/extensions-api.md) needs no special case: F35_PAGES.ext already names the hub
+      // page, so `has('ext')` is true and the generic showPage(action) tail below lands there like
+      // any other page. NAV.ext (ext-nav.js) lists MAIN plus one entry per installed extension;
+      // picking one of those is `has(action)` too, via ExtNav.isExtensionPage.
       if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
       if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
       if (action in GLASS_ACTIONS) { GLASS_ACTIONS[action](); return; }

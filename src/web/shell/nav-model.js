@@ -37,7 +37,7 @@
       { label: 'TGP', action: 'tgp' },     // → TGP page
       { label: 'TGT', action: 'tgt' },     // → TGT page (target-selection filter)
       { label: 'WPN', action: 'wpn' },     // → WPN page
-      { label: 'EXT', action: 'ext' },     // → the first installed extension (docs/extensions-api.md)
+      { label: 'EXT', action: 'ext' },     // → the EXT hub page (docs/extensions-api.md)
     ],
     tgp: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN
     // EXT (docs/extensions-api.md) — unlike every other entry here, this one's CONTENTS are

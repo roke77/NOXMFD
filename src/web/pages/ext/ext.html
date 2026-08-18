@@ -4,18 +4,27 @@
 <meta charset="utf-8">
 <title>NO XMFD — EXT</title>
 <!--
-  Bare EXT page, served at /ext (docs/extensions-api.md) — the fallback destination when EXT
-  is pressed and no extension is currently installed. Reached only in that case: the shell's
-  EXT dispatch (mfd.js/f35.js) lands directly on the first installed extension's own page
-  whenever one exists (ExtNav.firstExtensionId), falling back to this static placeholder only
-  when that's null. No message contract — nothing here ever changes at runtime (BepInEx doesn't
-  hot-reload plugins, so "zero extensions" can't become "one" without a restart, which reloads
-  this document anyway).
+  EXT hub, served at /ext (docs/extensions-api.md) — always the EXT dispatch's landing page,
+  whether zero or several extensions are installed. NAV.ext (ext-nav.js) already lists MAIN plus
+  one entry per installed extension as ordinary nav keys in the surrounding bezel/glass chrome;
+  this page's own content only needs to say whether there's anything to pick from there. One
+  fetch on load is enough — the extension set is fixed for the whole session (BepInEx doesn't
+  hot-reload plugins), so it can't change under the page while it's open.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
 </head>
 <body>
-  <div class="mfd-empty"><span class="mfd-empty-title">EXT</span>&mdash; NO EXTENSIONS INSTALLED &mdash;</div>
+  <div class="mfd-empty">
+    <span class="mfd-empty-title">EXT</span><span id="ext-msg">&mdash; NO EXTENSIONS INSTALLED &mdash;</span>
+  </div>
+<script>
+  fetch('/ext-manifest').then(function (r) { return r.ok ? r.json() : []; })
+    .then(function (items) {
+      if (Array.isArray(items) && items.length > 0)
+        document.getElementById('ext-msg').textContent = '— SELECT AN EXTENSION —';
+    })
+    .catch(function () { /* unreachable — same as "no extensions installed" */ });
+</script>
 </body>
 </html>

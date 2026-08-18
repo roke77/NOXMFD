@@ -35,9 +35,11 @@
     keys: '/keybinds',
     rates: '/rates',
     wpt: '/wpt',
-    // Static "no extensions installed" placeholder (docs/extensions-api.md) — the EXT dispatch
-    // (mfd.js/f35.js) only ever lands here when ExtNav.firstExtensionId() is null; whenever an
-    // extension is installed it lands directly on that extension's own /ext/<id> instead.
+    // EXT hub (docs/extensions-api.md) — always the EXT dispatch's landing page, regardless of
+    // how many extensions are installed. Its own content distinguishes "none installed" from
+    // "pick one below"; the picking itself happens via NAV.ext's per-extension entries, each its
+    // own /ext/<id> destination (not listed here — see ExtNav.isExtensionPage's fallback in
+    // paneUrl/frameUrlFor/F35_PAGES' `has`).
     ext: '/ext',
   };
 

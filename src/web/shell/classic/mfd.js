@@ -2263,12 +2263,11 @@ function mfdButton(el) {
     case 'combat-mode-aa':  sendCommand('combat-mode.set', { group: 'aa'  }).catch(function() {}); break;
     case 'combat-mode-ag':  sendCommand('combat-mode.set', { group: 'ag'  }).catch(function() {}); break;
     case 'tgp':  showPage('tgp');  break;
-    // EXT (docs/extensions-api.md): lands on whichever installed extension sorts first, the
-    // same way 'akf' is a fixed default landing page for the MDT fold — except this one's
-    // destination is discovered at runtime, not authored. Falls back to the static 'ext' page
-    // (FRAME_PAGES.ext, "NO EXTENSIONS INSTALLED") when none are installed, rather than a
-    // silent no-op — a pilot pressing EXT should always see *something* happen.
-    case 'ext':  { const extId = ExtNav.firstExtensionId(); showPage(extId || 'ext'); break; }
+    // EXT (docs/extensions-api.md) always lands on the EXT hub itself — NAV.ext (ext-nav.js)
+    // lists MAIN plus one entry per installed extension, rendered as ordinary full-view keys by
+    // the generic NAV sweep in showPage. Picking one of THOSE is handled by the `default` case
+    // below, since an extension id is a runtime string, not a literal `case` this switch can name.
+    case 'ext':  showPage('ext'); break;
     case 'hud':  showPage('hud');  break;
     case 'keys':  showPage('keys');  break;
     case 'rates': showPage('rates'); break;   // cfg-rates experiment (issue #39) — CFG group's RTS
@@ -2359,6 +2358,12 @@ function mfdButton(el) {
       renderIndicators();
       break;
     }
+    // Every other case above is a literal, authored page id — an installed extension's is a
+    // runtime string (its manifest id), so it can't be one of them. Mirrors f35.js dispatch's
+    // `if (has(action)) showPage(action)` tail.
+    default:
+      if (ExtNav.isExtensionPage(el.dataset.action)) showPage(el.dataset.action);
+      break;
   }
 }
 

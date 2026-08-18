@@ -64,8 +64,8 @@ namespace NOXMFD
         }
 
         // For GET /ext-manifest — id+label only, sorted by id for a deterministic order (a plain
-        // Dictionary's enumeration order isn't a contract worth relying on, and "first" needs to
-        // mean the same thing every time — see ExtNav.firstExtensionId on the web side).
+        // Dictionary's enumeration order isn't a contract worth relying on, and the EXT hub's nav
+        // list — ext-nav.js buildExtNavPlan — should render in the same order every load).
         internal static List<Entry> Manifest()
         {
             lock (_extLock)
