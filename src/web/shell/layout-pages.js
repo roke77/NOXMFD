@@ -35,6 +35,10 @@
     keys: '/keybinds',
     rates: '/rates',
     wpt: '/wpt',
+    // Static "no extensions installed" placeholder (docs/extensions-api.md) — the EXT dispatch
+    // (mfd.js/f35.js) only ever lands here when ExtNav.firstExtensionId() is null; whenever an
+    // extension is installed it lands directly on that extension's own /ext/<id> instead.
+    ext: '/ext',
   };
 
   // Classic bezel, SPLIT panes — the same destinations served ?bare, plus MAIN and MAP, which do
@@ -59,6 +63,7 @@
     keys: '/keybinds?bare',
     rates: '/rates?bare',
     wpt: '/wpt?bare',
+    ext: '/ext?bare',
   };
 
   // F-35 glass — the page each portal mounts. MAIN maps to no page and `null` is meaningful there
@@ -87,6 +92,7 @@
     keys: '/keybinds',
     rates: '/rates',
     wpt: '/wpt',
+    ext: '/ext',
   };
 
   const api = { CLASSIC_FULL, CLASSIC_SPLIT, F35 };

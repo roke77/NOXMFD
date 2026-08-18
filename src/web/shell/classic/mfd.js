@@ -1653,6 +1653,9 @@ function showPage(name) {
   // RTS (cfg-rates experiment, issue #39) renders in #page-frame too — same self-driven shape as
   // KEY/HUD: it polls /rates-config and POSTs its own rates.set commands.
   if (name === 'rates') showFramePage('rates');
+  // EXT's static "no extensions installed" fallback (docs/extensions-api.md) — fully static,
+  // no data to forward, unlike the ExtNav.isExtensionPage branch below for a real extension.
+  if (name === 'ext') showFramePage('ext');
   // WPT (issue #38) renders in #page-frame too — unlike KEY/RTS it isn't self-driven: it needs the
   // mapinfo slice (own-ship position/heading + map meta) forwarded for its readout.
   if (name === 'wpt') {
@@ -2262,8 +2265,10 @@ function mfdButton(el) {
     case 'tgp':  showPage('tgp');  break;
     // EXT (docs/extensions-api.md): lands on whichever installed extension sorts first, the
     // same way 'akf' is a fixed default landing page for the MDT fold — except this one's
-    // destination is discovered at runtime, not authored. No-op if none are installed.
-    case 'ext':  { const extId = ExtNav.firstExtensionId(); if (extId) showPage(extId); break; }
+    // destination is discovered at runtime, not authored. Falls back to the static 'ext' page
+    // (FRAME_PAGES.ext, "NO EXTENSIONS INSTALLED") when none are installed, rather than a
+    // silent no-op — a pilot pressing EXT should always see *something* happen.
+    case 'ext':  { const extId = ExtNav.firstExtensionId(); showPage(extId || 'ext'); break; }
     case 'hud':  showPage('hud');  break;
     case 'keys':  showPage('keys');  break;
     case 'rates': showPage('rates'); break;   // cfg-rates experiment (issue #39) — CFG group's RTS

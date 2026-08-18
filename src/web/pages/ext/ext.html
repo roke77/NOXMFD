@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — EXT</title>
+<!--
+  Bare EXT page, served at /ext (docs/extensions-api.md) — the fallback destination when EXT
+  is pressed and no extension is currently installed. Reached only in that case: the shell's
+  EXT dispatch (mfd.js/f35.js) lands directly on the first installed extension's own page
+  whenever one exists (ExtNav.firstExtensionId), falling back to this static placeholder only
+  when that's null. No message contract — nothing here ever changes at runtime (BepInEx doesn't
+  hot-reload plugins, so "zero extensions" can't become "one" without a restart, which reloads
+  this document anyway).
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+</head>
+<body>
+  <div class="mfd-empty"><span class="mfd-empty-title">EXT</span>&mdash; NO EXTENSIONS INSTALLED &mdash;</div>
+</body>
+</html>

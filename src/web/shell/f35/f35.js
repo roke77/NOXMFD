@@ -530,9 +530,10 @@
     function dispatch(action) {
       // EXT (docs/extensions-api.md): lands on whichever installed extension sorts first, the
       // same way 'akf' is a fixed default landing page for the MDT fold — except this one's
-      // destination is discovered at runtime, not authored. No-op if none are installed. Checked
-      // before `has(action)` below since 'ext' itself is never a real page/extension id.
-      if (action === 'ext') { const extId = ExtNav.firstExtensionId(); if (extId) showPage(extId); return; }
+      // destination is discovered at runtime, not authored. Falls back to the static 'ext' page
+      // (F35_PAGES.ext, "NO EXTENSIONS INSTALLED") when none are installed. Checked before
+      // `has(action)` below since 'ext' itself is never a real extension id.
+      if (action === 'ext') { const extId = ExtNav.firstExtensionId(); showPage(extId || 'ext'); return; }
       if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
       if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
       if (action in GLASS_ACTIONS) { GLASS_ACTIONS[action](); return; }

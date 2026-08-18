@@ -681,6 +681,11 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/afm/afm.html");
                     else if (path == "/tgp")
                         ServeAssetRel(ctx, "pages/tgp/tgp.html");
+                    // Static placeholder for EXT with nothing installed (docs/extensions-api.md) —
+                    // distinct from the /ext/<id>/* prefix (HandleExtRequest above), which needs
+                    // the trailing slash to match.
+                    else if (path == "/ext")
+                        ServeAssetRel(ctx, "pages/ext/ext.html");
                     else if (path == "/wpn")
                         ServeAssetRel(ctx, "pages/wpn/wpn.html");
                     else if (path == "/rwr")
