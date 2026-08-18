@@ -21,13 +21,35 @@
 
   function poll() {
     if (typeof fetch !== 'function') return Promise.resolve();   // no fetch in this context (Node tests)
-    return fetch('/wpt-options', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (data) {
+    return fetch('/wpt-options', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (text) {
+      const data = JSON.parse(text);
       const changed = JSON.stringify(data) !== JSON.stringify(cache);
       cache = data;
       if (changed && typeof window !== 'undefined') window.dispatchEvent(new Event('wptroutes:changed'));
     }).catch(function () { /* transient network error — next poll retries */ });
   }
-  if (typeof window !== 'undefined') { poll(); setInterval(poll, 1200); }   // same cadence as hud.js's /hud-options poll
+  // Perf fix (2026-08-18, docs/hud-waypoint-indicator.md): only the TOP window runs the recurring
+  // poll — before this, every document that loaded this file (the shell, plus each open MAP/WPT
+  // iframe/pane) ran its OWN independent 1.2s loop, multiplying requests and the redraws each one
+  // triggers by however many were open (confirmed by profiling: ~3x the expected request rate for
+  // one device). An embedded page instead asks its parent for the current cache once on load (the
+  // parent only pushes on real changes, so a freshly loaded iframe needs to explicitly catch up)
+  // and then just listens — poll() itself is unchanged and still called directly by every mutator
+  // below for instant feedback on THIS document's own edits; only the recurring background loop is
+  // gated.
+  const isTop = typeof window !== 'undefined' && window === window.top;
+  if (isTop) {
+    poll(); setInterval(poll, 1200);   // same cadence as hud.js's /hud-options poll
+  } else if (typeof window !== 'undefined') {
+    window.parent.postMessage({ mfd: true, type: 'wpt-routes-request' }, '*');
+    window.addEventListener('message', function (e) {
+      const m = e.data;
+      if (!m || m.mfd !== true || m.type !== 'wpt-routes') return;
+      const changed = JSON.stringify(m.data) !== JSON.stringify(cache);
+      cache = m.data;
+      if (changed) window.dispatchEvent(new Event('wptroutes:changed'));
+    });
+  }
 
   function load() { return cache; }
 

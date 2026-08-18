@@ -134,7 +134,7 @@ body.f35 .avn-icon-grid { display: none; }
      caution/critical/AB overrides further down still win over this, so a warning is still amber/red. */
   color: var(--no-white);
   font-family: var(--no-font);
-  text-shadow: 0 0 4px rgba(230, 235, 239, 0.3);
+  text-shadow: 0 0 4px rgba(var(--no-white-rgb), 0.3);
 }
 /* The dial fills whichever of the cell's own width/height is tighter, via container query units
    (cqmin = min(cqw,cqh)) — so a wide-but-short cell (grid wider than tall) still gets a full circle

@@ -30,7 +30,7 @@
   min-width: 40%;
   border: 1px solid var(--no-red);
   background: var(--no-bg);
-  box-shadow: 0 0 12px rgba(255, 64, 64, 0.35);
+  box-shadow: 0 0 12px rgba(var(--no-red-rgb), 0.35);
   overflow: hidden;
 }
 .wpn-safe-stripe {
@@ -130,7 +130,7 @@
   height: 12px;
   border: 1px solid var(--no-green);
   border-radius: 3px;
-  background: rgba(57, 255, 20, 0.08);
+  background: rgba(var(--no-green-rgb), 0.08);
   box-sizing: border-box;
   overflow: hidden;
 }

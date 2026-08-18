@@ -30,7 +30,9 @@ let   gridOn       = false;    // coordinate grid overlay (issue #41), default o
 // ── Waypoints/routes (issue #38) ──────────────────────────────────────────────────
 let   waypointRoute = null;    // WaypointsStore's active route, cached for drawWaypoints()
 const WPT_LINE_COLOR = '#39d0ff';       // dashed route line + non-next markers
-const WPT_NEXT_COLOR = '#ffe14d';       // the waypoint the WPT readout is currently tracking
+const WPT_NEXT_COLOR = '#ffaa00';       // the waypoint the WPT readout is currently tracking — matches
+                                         // theme.css's --no-amber (WPT's own compass needle) and the
+                                         // in-game HUD cue's amber, one color scheme across all three
 const WPT_REACHED_COLOR = '#a0a0a0';    // waypoints/segments already flown past — lighter than the
                                          // theme's --no-gray (#5a5a5a), which nearly vanished against dark terrain
 function refreshWaypointRoute() { waypointRoute = WaypointsStore.getActiveRoute(); updateRouteChip(); }
@@ -77,9 +79,11 @@ function loadPersistedView() {
 function savePersistedView() {
   try { sessionStorage.setItem(VIEW_STORE_KEY, JSON.stringify({ zoom: view.zoom, follow: followPlayer, grid: gridOn })); } catch (_) {}
 }
-const PLAYER_COLOR = '#39ff14';                     // player stays HUD green
+const PLAYER_COLOR = '#39ff14';                     // player stays HUD green — matches --no-green;
+                                                     // canvas strokeStyle can't use CSS var()
 const TARGET_COLOR = '#ff8000';                     // orange ring on the player's targeted unit(s)
-let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors
+let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors —
+                                                     // 1/2 default to --no-green/--no-red until then
 const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
 const iconTints  = {};         // "unitName|#hex" -> { cv, iw, ih }  (pre-tinted + pre-glowed)
 
@@ -399,7 +403,7 @@ function drawJamGlyph(cx, cy, r) {
 // major line" (index % 10 === 0) never drifts off after many additions.
 const GRID_MINOR_UNIT  = 1000;   // world units per minor line (1 km)
 const GRID_LINES_PER_MAJOR = 10; // minor lines between major lines (10 km majors)
-const GRID_MINOR_COLOR = 'rgba(57,255,20,0.10)';
+const GRID_MINOR_COLOR = 'rgba(57,255,20,0.10)';    // matches --no-green-rgb; canvas can't use var()
 const GRID_MAJOR_COLOR = 'rgba(57,255,20,0.30)';
 const GRID_LABEL_COLOR = 'rgba(196,255,176,0.75)';
 function drawGrid() {

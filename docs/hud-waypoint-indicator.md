@@ -156,6 +156,42 @@ pre-existing browser-local routes was done (explicit decision) — the storage
 model changed, and anything only ever saved to the old `localStorage` key is
 simply not carried forward.
 
+**Perf fix, 2026-08-18: one poller per device, not one per document.** Shipping
+Option 2 as originally built had every document that loaded
+`waypoints-store.js` — the shell, plus each open MAP/WPT pane or portal —
+running its own independent 1.2s poll loop against `/wpt-options`. A
+profiler-plus-request-count investigation (temporary `[NOXMFD-PERF]` logging,
+since removed) measured roughly 3.2x the request rate one poller alone should
+produce, matching a reported MAP-page stutter. `RouteStore.Save` itself was
+never the cause (0ms on every call, disk write included).
+
+Fixed by gating: only the top window (`window === window.top`) runs the
+recurring poll now. An embedded MAP/WPT page instead posts a
+`wpt-routes-request` message to its parent once on load and just listens —
+the shell replies immediately (a freshly loaded iframe needs to explicitly
+catch up, since the shell only pushes on a real change) and broadcasts every
+subsequent change via `postMessage`, mirroring the pattern every other
+telemetry slice already uses in both shells:
+
+- **Classic shell** (`mfd.js`): three explicit forward targets —
+  `forwardWptRoutesToPanes`/`ToFrame` (split panes, `#page-frame`) plus
+  `forwardWptRoutesToMap` for `mapFrame`, the always-loaded MAP tap, which
+  is separate from both and easy to forget (caught in testing — the map's own
+  route overlay silently went stale without it).
+- **F-35 shell** (`f35.js`): reuses the existing `slices`/`onSlice`/
+  `PAGE_FEEDS` relay wholesale — `'wpt-routes'` was simply added to `map`'s and
+  `wpt`'s feed lists, so a freshly loaded portal catches up through the same
+  `forwardToPage()` mechanism every other feed already relies on, no bespoke
+  catch-up path needed.
+
+Each mutator's own `.then(poll)` is untouched — `poll()` itself still runs a
+real fetch, called directly by whichever document made the edit, so that
+document's own change still shows up in well under a second. Only the
+*recurring background* loop is gated; a sibling pane on the *same* device
+picks up an edit via the shell's push (near-instant once the shell's own next
+change-triggered broadcast fires), while a genuinely different *device* still
+learns about it on the shell's own 1.2s poll cycle, same as before.
+
 ### Option 1 — POST the active waypoint back over the command channel (shipped first, then superseded)
 
 The browser stayed the owner; only the single active waypoint was pushed
@@ -175,12 +211,13 @@ need a browser to push anything, so there was nothing to keep them for.
 | File | Role |
 |---|---|
 | `src/plugin/RouteStore.cs` | The route library: storage, every mutation, disk persistence, `AdvanceIfNear` |
-| `src/plugin/JsonLite.cs` | Minimal JSON reader — the persisted file and pasted imports |
+| `src/plugin/JsonLite.cs` | Minimal JSON reader — the persisted file and pasted imports; `SelfCheck()` is its runnable check, called once from `Plugin.Awake` |
 | `src/plugin/HudWaypointCue.cs` | The renderer — chevron on the tape + two-line readout, reads `RouteStore` in-process |
 | `src/plugin/CommandDispatcher.cs` | 14 `wpt.*` commands; `text` added to the envelope |
 | `src/plugin/TelemetryServer.cs` | `GET /wpt-options` — the route library, mission-independent |
-| `src/web/pages/wpt/waypoints-store.js` | Fetch/poll (`/wpt-options`) + `POST /command` client |
+| `src/web/pages/wpt/waypoints-store.js` | Fetch/poll (`/wpt-options`, top window only) + `POST /command` client |
 | `src/web/pages/wpt/wpt-route.js` | Trimmed to display-derivation only — mutation logic moved to `RouteStore.cs` |
+| `src/web/shell/classic/mfd.js`, `src/web/shell/f35/f35.js` | Relay `/wpt-options` data to embedded MAP/WPT pages — see the perf fix above |
 
 The cue ships no art. Every element is an untextured `Image` (an `Image` with no
 sprite draws a flat tinted quad), so there is no asset to fail to load; the
@@ -227,11 +264,15 @@ cue would sit still while the aircraft swings. So the bug has two states:
   pinned at the tape edge it left, pointing the way to turn. A waypoint 130°
   right reads as "turn right, a lot" rather than as a stalled marker.
 
-Colour: **amber**, distinct from HUD green. It separates the cue from the tick
-labels immediately behind it, which the green variant competes with. The cost
-is that it ignores the player's `hudColorR/G/B` setting, unlike every native
-HUD element — accepted, since legibility against the tape matters more here
-than matching a colour the player chose for a different purpose.
+Colour: **amber** (`#FFAA00`), distinct from HUD green. It separates the cue
+from the tick labels immediately behind it, which the green variant competes
+with. The cost is that it ignores the player's `hudColorR/G/B` setting, unlike
+every native HUD element — accepted, since legibility against the tape matters
+more here than matching a colour the player chose for a different purpose.
+Same value as the web frontend's `--no-amber` token (`theme.css`) — WPT's own
+compass needle already used it, and MAP's active-waypoint marker was changed
+to match, so the cue and both web pages read as one colour scheme rather than
+three unrelated yellows.
 
 Two things the mockup does not settle: tick interval and glyph style are baked
 into the compass texture and were reconstructed rather than read, and the
@@ -304,8 +345,10 @@ Fly a route with the cue visible and confirm:
 Route-storage checks (Option 2):
 
 - Create/rename/delete a route and add waypoints on one browser; confirm it
-  appears on a second browser (or a second tab) within ~1.2s with no reload —
-  this is the bug (2) fix.
+  appears on a second, genuinely different device's browser within ~1.2s with
+  no reload (this is the bug (2) fix) — and on a second PANE/PORTAL on the
+  *same* device, confirm it updates via the shell's push rather than that
+  pane running its own poll (see the perf fix above).
 - Full **game restart** (not just mission restart) — confirm routes on disk
   (`BepInEx/config/com.roque.NOXMFD.routes.json`) survive and reload.
 - Toggle the active route from one browser mid-flight; confirm the HUD cue

@@ -134,5 +134,51 @@ namespace NOXMFD
 
         private static bool Match(string s, int i, string token) =>
             i + token.Length <= s.Length && string.CompareOrdinal(s, i, token, 0, token.Length) == 0;
+
+        // The "one runnable check" for this parser (repo convention: pure logic gets an
+        // assert-based self-check, no framework, no fixtures — same idea as the Node self-checks
+        // src/web's pure JS modules carry, just no C# test runner exists in this codebase to hang
+        // a "real" test off). Called once from Plugin.Awake via TryBind, so a broken parser logs a
+        // clear cause here instead of surfacing later as a cryptic empty route list. Covers exactly
+        // the shape RouteStore.BuildJson's writer produces (nested objects/arrays, escaped strings,
+        // numbers, bool/null) plus a couple of malformed inputs that must degrade, not throw.
+        public static void SelfCheck()
+        {
+            void Check(bool cond, string what)
+            {
+                if (!cond) throw new System.Exception($"JsonLite.SelfCheck failed: {what}");
+            }
+
+            // Round-trip the exact shape RouteStore's writer produces.
+            const string routeJson = "{\"activeRouteId\":\"r_1\",\"routes\":[{\"id\":\"r_1\",\"name\":\"RT-A\"," +
+                "\"nextIndex\":1,\"waypoints\":[{\"id\":\"w_1\",\"name\":\"IP\",\"x\":100.5,\"z\":-200.0}]}]}";
+            Check(Parse(routeJson) is Dictionary<string, object?> root && (string?)root["activeRouteId"] == "r_1",
+                "top-level object with a string field");
+            var routes = ((Dictionary<string, object?>)Parse(routeJson)!)["routes"] as List<object?>;
+            Check(routes != null && routes.Count == 1, "nested array of objects");
+            var route = routes![0] as Dictionary<string, object?>;
+            Check(route != null && (double)route["nextIndex"]! == 1.0, "integer field parses as a number");
+            var waypoints = route!["waypoints"] as List<object?>;
+            var wp = waypoints![0] as Dictionary<string, object?>;
+            Check((double)wp!["x"]! == 100.5, "positive decimal");
+            Check((double)wp["z"]! == -200.0, "negative number");
+
+            // Escaped strings.
+            Check((string?)((Dictionary<string, object?>)Parse("{\"n\":\"a\\\"b\\\\c\\nd\"}")!)["n"] == "a\"b\\c\nd",
+                "escaped quote/backslash/newline in a string");
+
+            // Literals.
+            var lits = (Dictionary<string, object?>)Parse("{\"t\":true,\"f\":false,\"n\":null}")!;
+            Check((bool)lits["t"]! && !(bool)lits["f"]! && lits["n"] == null, "true/false/null literals");
+
+            // Empty object/array.
+            Check(Parse("{}") is Dictionary<string, object?> d0 && d0.Count == 0, "empty object");
+            Check(Parse("[]") is List<object?> l0 && l0.Count == 0, "empty array");
+
+            // Malformed input must degrade, never throw — RouteStore.Load/ImportRoute both rely on
+            // this to reject bad data instead of taking the plugin down.
+            Check(Parse("not json") == null, "garbage input returns null rather than throwing");
+            Check(Parse("") == null, "empty input returns null rather than throwing");
+        }
     }
 }

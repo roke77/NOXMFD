@@ -80,7 +80,9 @@
     obj: ['obj'],             // active-objectives list (docs/mdt-pages.md)
     akf: ['akf'],             // kill-feed/session-stats block (docs/akf-page.md)
     rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
-    wpt: ['mapinfo'],         // position/heading/map-meta for the waypoint readout (issue #38)
+    wpt: ['mapinfo', 'wpt-routes'],   // waypoint readout + the route library itself
+    map: ['wpt-routes'],              // the route library (docs/hud-waypoint-indicator.md perf fix) —
+                                       // MAP mounts its own map.js/telemetry, so this is its only feed
   };
 
   // The tap calls it 'targets'; TGT listens for 'tgt-targets'. The bezel renames it in exactly the
@@ -820,6 +822,14 @@
       return;
     }
 
+    // 'wpt-routes-request' — a freshly-loaded portal catching up on the route library (docs/hud-
+    // waypoint-indicator.md perf fix, 2026-08-18) — comes from the portal's own iframe, not the
+    // tap, same reasoning as 'follow'/'grid' above.
+    if (m.type === 'wpt-routes-request') {
+      if (e.source) e.source.postMessage({ mfd: true, type: 'wpt-routes', data: WaypointsStore.load() }, '*');
+      return;
+    }
+
     // Telemetry comes only from the tap. A portal's own map streams too, and its duplicate posts
     // are ignored here — otherwise two out-of-phase feeds would drive the same page. This is the
     // bezel's canonical-source guard, for the same reason.
@@ -880,8 +890,17 @@
   // loads its own copy of waypoints-store.js (f35.html), which polls /wpt-options and fires this
   // event on any change, from any page, any device. refreshNav (not showPage) so it can't reload
   // — and so can't lose the pan/zoom of — a MAP portal that's already showing.
+  //
+  // Also pushes the route data into the same slices/onSlice relay every other feed uses (perf fix,
+  // 2026-08-18) — only this shell polls /wpt-options now; each portal picks it up through the
+  // normal PAGE_FEEDS mechanism (map/wpt both list 'wpt-routes' above), including automatic
+  // catch-up on a freshly loaded portal via forwardToPage(), the same as every other slice.
   window.addEventListener('wptroutes:changed', function () {
-    livePortals().forEach(function (p) { if (p.page() === 'map') p.refreshNav(); });
+    slices['wpt-routes'] = { mfd: true, type: 'wpt-routes', data: WaypointsStore.load() };
+    livePortals().forEach(function (p) {
+      p.onSlice('wpt-routes');
+      if (p.page() === 'map') p.refreshNav();
+    });
   });
 
   // ── Master strip ───────────────────────────────────────────────────────────────────────
