@@ -17,10 +17,12 @@ html, body {
   height: 100%;
   overflow-y: auto;
   padding: 12px 14px;
-  /* Extra left inset: both shells draw a vertical MAIN label hugging the left edge for this page
-     (mfd.css .overlay.vmain, f35.css [data-page="hud"]), so keep content clear of it — same fix as
-     the TGT page's .tgt-panel. */
-  padding-left: clamp(30px, 5vw, 48px);
+  /* Capped + centered, not full-width: both shells draw the WHOLE CFG group (MAIN/HUD/KEY/LYT/RTS)
+     down the left edge now, one label per row, not just a single MAIN at the top — the same column
+     KEY's/RTS's own pages already clear this exact way (keybinds.css .kb-panel, rates.css
+     .rts-panel), rather than reserving space with padding. */
+  max-width: 720px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 10px;

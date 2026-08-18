@@ -115,22 +115,21 @@ function fullViewSlot(i) { return i < 6 ? { bank: 'left', index: i } : { bank: '
 // no panel: every other page in this shell puts its items beside a physical key, and a chooser is
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
-  // HUD, CFG, MDT, RDR and AFM — the layout-owned MAIN items the six shared NAV items don't
-  // cover. HUD opens the HUD OPTIONS #page-frame page; CFG the keybinds page, which now carries
-  // KEY/LYT/RTS as a sibling group (NAV.keys, cfg-rates experiment issue #39 — mirrors MDT's own
-  // sibling group below: action stays 'keys', same as MDT staying 'akf'); MDT (Mission Data Table)
-  // folds AKF/MIS/OBJ/BDF/PAL together — landing on AKF by default (issue #34 follow-up; the other
-  // four are a switch away via NAV.akf/NAV.mis/NAV.obj/NAV.bdf/NAV.pal) rather than its own MAIN
-  // entry; AFM shows the aircraft name + damage silhouette (split out of AVN, which is avionics
-  // only now).
+  // CFG, MDT, RDR and AFM — the layout-owned MAIN items the six shared NAV items don't cover. CFG
+  // opens the CFG group (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39, HUD joined that group and,
+  // like RTS, has no MAIN entry of its own anymore), landing on HUD by default (mirrors MDT's own
+  // sibling group below: action names whichever sibling is the landing page, same as MDT staying
+  // 'akf'); MDT (Mission Data Table) folds AKF/MIS/OBJ/BDF/PAL together — landing on AKF by default
+  // (issue #34 follow-up; the other four are a switch away via NAV.akf/NAV.mis/NAV.obj/NAV.bdf/
+  // NAV.pal) rather than its own MAIN entry; AFM shows the aircraft name + damage silhouette (split
+  // out of AVN, which is avionics only now).
   // All are frame-hosted pages that get their MAIN back from NAV like every other, so none needs an
   // entry of its own here beyond this one.
   // No bank/index/mark here (unlike lyt below): MAIN_SPLIT_ITEMS is the only consumer, in both full
   // view and split (showPage / renderSplitLabels' 'main' branch), and it places by alphabetical
   // order, not a fixed key.
   main: [
-    { label: 'HUD', action: 'hud' },
-    { label: 'CFG', action: 'keys' },
+    { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now
     { label: 'MDT', action: 'akf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
@@ -379,14 +378,16 @@ function placeSplitKey(m, label, action, paneTag, mark) {
 
 // Pages whose own content sits in the top-left where the MAIN bezel label lands, so that label is
 // stood upright to clear it — in full view via .overlay.vmain, in a split pane via a per-label class
-// (renderSplitLabels). TGT's RESET FILTER, HUD's mode/category rows, and BDF/PAL/MIS/OBJ's WARHEADS
-// readout are that content — on a narrow display the panel widens to the edge and a horizontal MAIN
-// would sit over that header. All are split-capable.
+// (renderSplitLabels). TGT's RESET FILTER and BDF/PAL/MIS/OBJ's WARHEADS readout are that content —
+// on a narrow display the panel widens to the edge and a horizontal MAIN would sit over that
+// header. All are split-capable.
 // RDR is not in this list (issue #40 follow-up): it carries MAIN + R+ + R- and reads fine
 // horizontal, not cramped enough to need the narrow vertical treatment.
 // KEY is not in this list either (cfg-rates experiment, issue #39): the CFG group's nav labels
 // read fine horizontal, per user preference — its table header sits far enough from the bezel edge.
-function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
+// HUD is not in this list either (joined the CFG group): its own CSS now reserves top clearance for
+// a horizontal label instead of standing the label up (hud.css).
+function isVmainPage(p) { return p === 'tgt' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
@@ -522,8 +523,8 @@ function renderSplitLabels() {
         // silently not render here — the exact failure the old duplicated tables produced. Say so.
         if (!s) { console.warn('[mfd] NAV.' + page + '[' + i + '] "' + item.label + '" has no SPLIT_SLOTS entry — not placed'); return; }
         const el = placeSplitKey(paneKey(paneIdx, s.side, s.slot), item.label, item.action, paneTag, item.mark);
-        // TGT/HUD keep clickable content under their MAIN label; stand it upright in the
-        // pane too, the way full view does via .overlay.vmain — for those single-item pages that's
+        // TGT keeps clickable content under its MAIN label; stand it upright in the
+        // pane too, the way full view does via .overlay.vmain — for that single-item page it's
         // just MAIN. BDF/PAL/MIS/OBJ carry four MORE items each (their own MDT switch), split across
         // both the pane's left AND right columns (SPLIT_SLOTS.bdf/pal/mis/obj) — a horizontal "MIS"/
         // "OBJ" label would run wide over the pane's own content on that edge (both pages already

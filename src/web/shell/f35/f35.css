@@ -560,18 +560,17 @@ html, body {
   .wpn-hit:hover { background: rgba(var(--no-teal-rgb), 0.08); }
 }
 
-/* TGT, HUD and the MDT family (BDF/PAL/MIS/OBJ) all pack their own content into the top-left,
+/* TGT and the MDT family (BDF/PAL/MIS/OBJ) all pack their own content into the top-left,
    exactly where the edge label sits — and because this layout draws labels ON the page, a
-   horizontal MAIN doesn't just look cramped, it covers that content (TGT's RESET FILTER, HUD's
-   first mode/category row, BDF/PAL's WARHEADS readout, MIS's Time/Duration/Score line, OBJ's first
-   row) and eats its clicks (TGT/HUD) or just overlaps the text (the rest). Standing the text up
-   narrows the label to roughly one glyph so it clears them. Same fix, same properties, as the
-   bezel's .overlay.vmain .overlay-item.left in mfd.css — including pulling in to the edge, since
-   16px of margin would still leave the label overlapping. BDF/PAL/MIS/OBJ are one family (MDT —
+   horizontal MAIN doesn't just look cramped, it covers that content (TGT's RESET FILTER,
+   BDF/PAL's WARHEADS readout, MIS's Time/Duration/Score line, OBJ's first row) and eats its
+   clicks (TGT) or just overlaps the text (the rest). Standing the text up narrows the label to
+   roughly one glyph so it clears them. Same fix, same properties, as the bezel's
+   .overlay.vmain .overlay-item.left in mfd.css — including pulling in to the edge, since 16px of
+   margin would still leave the label overlapping. BDF/PAL/MIS/OBJ are one family (MDT —
    docs/mdt-pages.md) reachable from each other, so all four need the same treatment; the bezel's
-   isVmainPage() lists the same set. */
+   isVmainPage() lists the same set (HUD moved out of both lists — see hud.css). */
 .nav-grid.edge[data-page="tgt"] .nav-item,
-.nav-grid.edge[data-page="hud"] .nav-item,
 .nav-grid.edge[data-page="bdf"] .nav-item,
 .nav-grid.edge[data-page="pal"] .nav-item,
 .nav-grid.edge[data-page="mis"] .nav-item,

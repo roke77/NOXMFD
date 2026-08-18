@@ -59,12 +59,13 @@
     pal: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
     mis: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
     obj: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
-    hud: [ { side: 'left', slot: 0 } ],
-    // CFG group (issue #39): KEY/LYT/RTS switch directly between each other, same shape as
-    // BDF/PAL/MIS/OBJ above but only 4 items — MAIN+KEY+LYT fill the left column's 0..2 budget, RTS
-    // spills onto right slot 0. Index-aligned with NAV.keys/NAV.rates.
-    keys:  [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 } ],
-    rates: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 } ],
+    // CFG group (issue #39, HUD joined later): MAIN/HUD/KEY/LYT switch directly between each
+    // other, same shape as BDF/PAL/MIS/OBJ above but only 5 items — MAIN+HUD+KEY fill the left
+    // column's 0..2 budget, LYT+RTS spill onto right slots 0..1. Index-aligned with
+    // NAV.hud/NAV.keys/NAV.rates.
+    hud:   [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
+    keys:  [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
+    rates: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
     // WPT (issue #38) gets a single MAIN-equivalent back-button, same shape as AVN/AFM/TGP/RWR/TGT —
     // but back to MAP, matching NAV.wpt (reached from MAP's own nav row, not MAIN).
     wpt: [ { side: 'left', slot: 0 } ],

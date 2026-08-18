@@ -103,14 +103,22 @@
       { label: 'BDF',  action: 'bdf' },
       { label: 'PAL',  action: 'pal', mark: true },
     ],
-    hud: [ { label: 'MAIN', action: 'main' } ],   // HUD OPTIONS page — reached via a layout extra, not MAIN
-    // CFG (cfg-rates experiment, issue #39) folds KEY, LYT and RTS under one MAIN entry — same
-    // pattern as BDF/PAL/MIS/OBJ above. Action 'keys' still lands on the keybinds page (CFG's own
-    // MAIN-entry action, mirroring MDT staying 'bdf'); LYT's action is the pre-existing
-    // CLASSIC/F-35 chooser (mfd.js BEZEL_EXTRAS.lyt / f35.js GLASS_ACTIONS.lyt) — only its entry
-    // point moved here, its own rendering is untouched.
+    // CFG (cfg-rates experiment, issue #39) folds HUD, KEY, LYT and RTS under one MAIN entry — same
+    // pattern as BDF/PAL/MIS/OBJ above. LYT's action is the pre-existing CLASSIC/F-35 chooser
+    // (mfd.js BEZEL_EXTRAS.lyt / f35.js GLASS_ACTIONS.lyt) — only its entry point moved here, its
+    // own rendering is untouched. HUD joined the group later: it no longer has a MAIN entry of its
+    // own (BEZEL_EXTRAS.main) — CFG's own MAIN-entry action was repointed from 'keys' to 'hud', so
+    // CFG now lands here.
+    hud: [
+      { label: 'MAIN', action: 'main' },
+      { label: 'HUD',  action: 'hud', mark: true },
+      { label: 'KEY',  action: 'keys' },
+      { label: 'LYT',  action: 'lyt'  },
+      { label: 'RTS',  action: 'rates' },
+    ],
     keys: [
       { label: 'MAIN', action: 'main' },
+      { label: 'HUD',  action: 'hud' },
       { label: 'KEY',  action: 'keys', mark: true },
       { label: 'LYT',  action: 'lyt'  },
       { label: 'RTS',  action: 'rates' },
@@ -121,6 +129,7 @@
     // returns to MAIN" design (see BEZEL_EXTRAS comment) stays exactly as it is.
     rates: [
       { label: 'MAIN', action: 'main' },
+      { label: 'HUD',  action: 'hud' },
       { label: 'KEY',  action: 'keys' },
       { label: 'LYT',  action: 'lyt'  },
       { label: 'RTS',  action: 'rates', mark: true },

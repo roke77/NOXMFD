@@ -41,22 +41,32 @@ assert.deepStrictEqual(NAV.rdr.map(i => i.label), ['MAIN', 'R+', 'R-']);
 // ── Every frame-hosted page can get back to MAIN ────────────────────────────────────
 // NAV.ext's static baseline is exactly this shape too — see ext-nav.js for how it grows at
 // runtime (untested here on purpose; this file only sees the compile-time baseline).
-for (const page of ['avn', 'afm', 'rwr', 'tgp', 'tgt', 'hud', 'ext']) {
+for (const page of ['avn', 'afm', 'rwr', 'tgp', 'tgt', 'ext']) {
   assert.deepStrictEqual(NAV[page], [{ label: 'MAIN', action: 'main' }], `${page} should be just a MAIN back-button`);
 }
 
-// CFG group (cfg-rates experiment, issue #39): KEY/LYT/RTS folded together, same shape as
-// BDF/PAL/MIS/OBJ below (reached from MAIN via CFG — mfd.js BEZEL_EXTRAS.main, action still
-// 'keys'). LYT has no `mark` slot of its own — see nav-model.js's comment on why NAV.lyt doesn't
-// exist (BEZEL_EXTRAS.lyt places CLASSIC/F-35 at fixed keys that would silently clobber it).
+// CFG group (cfg-rates experiment, issue #39; HUD joined later): HUD/KEY/LYT/RTS folded
+// together, same shape as BDF/PAL/MIS/OBJ below (reached from MAIN via CFG — mfd.js
+// BEZEL_EXTRAS.main, action now 'hud'). LYT has no `mark` slot of its own — see nav-model.js's
+// comment on why NAV.lyt doesn't exist (BEZEL_EXTRAS.lyt places CLASSIC/F-35 at fixed keys that
+// would silently clobber it).
+assert.deepStrictEqual(NAV.hud, [
+  { label: 'MAIN', action: 'main' },
+  { label: 'HUD',  action: 'hud', mark: true },
+  { label: 'KEY',  action: 'keys' },
+  { label: 'LYT',  action: 'lyt'  },
+  { label: 'RTS',  action: 'rates' },
+]);
 assert.deepStrictEqual(NAV.keys, [
   { label: 'MAIN', action: 'main' },
+  { label: 'HUD',  action: 'hud' },
   { label: 'KEY',  action: 'keys', mark: true },
   { label: 'LYT',  action: 'lyt'  },
   { label: 'RTS',  action: 'rates' },
 ]);
 assert.deepStrictEqual(NAV.rates, [
   { label: 'MAIN', action: 'main' },
+  { label: 'HUD',  action: 'hud' },
   { label: 'KEY',  action: 'keys' },
   { label: 'LYT',  action: 'lyt'  },
   { label: 'RTS',  action: 'rates', mark: true },
