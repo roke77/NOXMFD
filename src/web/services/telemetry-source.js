@@ -104,6 +104,15 @@ export class TelemetrySource {
     es.addEventListener('cursor', (e) => {
       try { this._onCursor(JSON.parse(e.data)); } catch (err) { /* malformed — skip this one */ }
     });
+    // RC (MissileCamera: Remote Control) aim reticle — same reasoning as the MAP cursor above: a
+    // continuous analog value that would feel laggy riding the 10 Hz telemetry frame. Unlike the
+    // cursor it isn't SOI/pane-scoped, so this is a plain pass-through, no stateful dedup needed.
+    es.addEventListener('rcaim', (e) => {
+      try {
+        const c = JSON.parse(e.data);
+        this._postUp({ type: 'rcaim', x: c.x, y: c.y });
+      } catch (err) { /* malformed — skip this one */ }
+    });
     es.onmessage = (e) => this._onMessage(e);
     es.onerror = () => {};   // EventSource auto-reconnects; the watchdog decides when to flag DISCONNECTED
     // Watchdog — tolerate transient SSE blips, only flag disconnect after a real gap.
@@ -371,6 +380,11 @@ export class TelemetrySource {
       pb: pbItems
     });
 
+    // RC (MissileCamera: Remote Control) status — pass the mod's "rc" block straight through
+    // (available:false when the RC add-on isn't installed/too old). The aim reticle itself rides
+    // its own high-rate "rcaim" SSE event (see connect()), not this slice.
+    this._postUp(Object.assign({ type: 'rc' }, d.rc || { available: false }));
+
     // Aircraft name + per-part HP (the AVN damage silhouette; assets fetched on demand by the page).
     this._postUp({
       type: 'avn',
@@ -457,6 +471,7 @@ export class TelemetrySource {
     this._postUp({ type: 'loadout', items: [], selWeapon: null, softGun: null, softRel: null, masterArmsOn: true, combatMode: 'all' });
     this._postUp({ type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 });
     this._postUp({ type: 'tgp', active: false });
+    this._postUp({ type: 'rc', available: false });
     this._postUp({ type: 'mapinfo', mission: null, grid: null, x: null, z: null, hdg: null, ox: null, oy: null });
     this._postUp({ type: 'targets', items: [] });
     this._postUp({ type: 'rwr', items: [] });

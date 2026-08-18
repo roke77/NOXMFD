@@ -39,6 +39,7 @@
     avn: [ { side: 'left', slot: 0 } ],
     afm: [ { side: 'left', slot: 0 } ],
     tgp: [ { side: 'left', slot: 0 } ],
+    rc:  [ { side: 'left', slot: 0 } ],
     rwr: [ { side: 'left', slot: 0 } ],
     // RDR gets MAIN plus the range rocker (R+/R-, issue #40 follow-up) all on the left column, right
     // after MAIN — unlike MAP's zoom rocker, which splits onto the right column (MAP has more items

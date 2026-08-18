@@ -739,6 +739,35 @@ function forwardTgpToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage({ mfd: true, type: 'tgp', active: tgpActive }, '*');
 }
+// RC (MissileCamera: Remote Control) status block — same shape as TGP's forward pair, but the
+// whole status object (not just a lock flag) since rc.js renders missile/link/throttle/pool/
+// telemetry from it directly.
+function forwardRcToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'rc') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'rc' }, rcData), '*');
+  });
+}
+function forwardRcToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage(Object.assign({ mfd: true, type: 'rc' }, rcData), '*');
+}
+// RC aim reticle — its own high-rate channel (SSE event "rcaim"), same reasoning as the MAP
+// cursor: a continuous analog value that would feel laggy riding the 10 Hz telemetry frame.
+// Page-gated like the rest of RC (not SOI-focus routed like the PAD cursor) — it's a passive
+// readout, not an input surface.
+function forwardRcAimToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'rc') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage({ mfd: true, type: 'rcaim', x: rcAimData.x, y: rcAimData.y }, '*');
+  });
+}
+function forwardRcAimToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage({ mfd: true, type: 'rcaim', x: rcAimData.x, y: rcAimData.y }, '*');
+}
 function forwardRwrToPanes() {
   paneIframes.forEach(function(iframe, idx) {
     if (panePages[idx] !== 'rwr') return;
@@ -1208,6 +1237,7 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'avn')  { forwardAvnToPanes(); forwardAvnLayoutToPanes(); }
     else if (page === 'afm')  forwardAfmToPanes();
     else if (page === 'tgp')  forwardTgpToPanes();
+    else if (page === 'rc')   { forwardRcToPanes(); forwardRcAimToPanes(); }
     else if (page === 'rwr')  { forwardRwrToPanes(); forwardMwToPanes(); }
     else if (page === 'rdr')  forwardRdrToPanes();
     else if (page === 'tgt')  { forwardTgtToPanes(); forwardTgtTargetsToPanes(); }
@@ -1235,6 +1265,7 @@ pageFrame.addEventListener('load', function() {
   forwardOrientationToPane(pageFrame);
   if (currentPage === 'wpn')      { forwardWpnLayoutToFrame(); forwardWpnToFrame(); forwardCmToFrame(); }
   else if (currentPage === 'tgp') { forwardTgpToFrame(); }
+  else if (currentPage === 'rc')  { forwardRcToFrame(); forwardRcAimToFrame(); }
   else if (currentPage === 'avn') { forwardAvnLayoutToFrame(); forwardAvnToFrame(); }
   else if (currentPage === 'afm') { forwardAfmLayoutToFrame(); forwardAfmToFrame(); }
   else if (currentPage === 'rwr') { forwardRwrToFrame(); forwardMwToFrame(); }
@@ -1379,6 +1410,12 @@ let cmData = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 // Latest TGP feed state mirrored from the map iframe. False until the first frame is
 // produced, and back to false during the 3-second post-loss hold's expiry.
 let tgpActive = false;
+
+// Latest RC (MissileCamera: Remote Control) status block mirrored from the map iframe.
+// available=false until the RC add-on resolves (docs comment on RcBridge.cs).
+let rcData = { available: false, fsActive: false, controlling: false, formation: false, pool: [] };
+// Latest RC aim reticle position — its own high-rate channel, see forwardRcAimToPanes/Frame.
+let rcAimData = { x: 0.5, y: 0.5 };
 
 // Latest selected-target list mirrored from the map iframe. The TGT page renders it under its
 // filters (forwardTgtTargetsToFrame) — the whole list, unpaginated, since that page scrolls.
@@ -1547,6 +1584,13 @@ function showPage(name) {
   if (name === 'tgp') {
     showFramePage('tgp');
     forwardTgpToFrame();
+  }
+  // RC renders in #page-frame too. Same shape as TGP — static MAIN label, no extra nav wiring —
+  // but forwards the whole status block plus the aim reticle's high-rate channel.
+  if (name === 'rc') {
+    showFramePage('rc');
+    forwardRcToFrame();
+    forwardRcAimToFrame();
   }
   // AVN renders in #page-frame too. Its MAIN label (NAV.avn) is placed by the generic sweep
   // above; the 8 avn.toggle groups get their own keys + NAV labels here (placeAvnNavLabels), then
@@ -1732,6 +1776,15 @@ window.addEventListener('message', function(e) {
     // Only matters while the TGP page is in view — outside it the frame/pane isn't shown.
     if (currentPage === 'tgp' && !splitMode) forwardTgpToFrame();
     if (splitMode) forwardTgpToPanes();
+  } else if (m.type === 'rc') {
+    rcData = m;
+    // Only matters while the RC page is in view — outside it the frame/pane isn't shown.
+    if (currentPage === 'rc' && !splitMode) forwardRcToFrame();
+    if (splitMode) forwardRcToPanes();
+  } else if (m.type === 'rcaim') {
+    rcAimData = { x: typeof m.x === 'number' ? m.x : 0.5, y: typeof m.y === 'number' ? m.y : 0.5 };
+    if (currentPage === 'rc' && !splitMode) forwardRcAimToFrame();
+    if (splitMode) forwardRcAimToPanes();
   } else if (m.type === 'avn') {
     avnData = {
       name: m.name || null,
@@ -2211,6 +2264,7 @@ function mfdButton(el) {
     case 'combat-mode-aa':  sendCommand('combat-mode.set', { group: 'aa'  }).catch(function() {}); break;
     case 'combat-mode-ag':  sendCommand('combat-mode.set', { group: 'ag'  }).catch(function() {}); break;
     case 'tgp':  showPage('tgp');  break;
+    case 'rc':   showPage('rc');   break;
     case 'hud':  showPage('hud');  break;
     case 'keys':  showPage('keys');  break;
     case 'rates': showPage('rates'); break;   // cfg-rates experiment (issue #39) — CFG group's RTS

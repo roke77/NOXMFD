@@ -73,6 +73,7 @@
     rwr: ['rwr', 'mw'],       // scope contacts + incoming-missile warnings
     tgt: ['tgt', 'targets'],
     tgp: ['tgp'],
+    rc:  ['rc', 'rcaim'],
     wpn: ['loadout', 'cm'],   // 'loadout' is derived, not forwarded as-is — see DERIVED
     bdf: ['bdf'],             // read-only faction-forces block (docs/bdf-page.md)
     pal: ['pal'],             // same, for PRIMEVA

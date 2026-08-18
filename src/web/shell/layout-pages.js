@@ -21,6 +21,7 @@
   const CLASSIC_FULL = {
     wpn:  '/wpn',
     tgp:  '/tgp',
+    rc:   '/rc',
     avn:  '/avn',
     afm:  '/afm',
     rwr:  '/rwr',
@@ -46,6 +47,7 @@
     avn:  '/avn?bare',
     afm:  '/afm?bare',
     tgp:  '/tgp?bare',
+    rc:   '/rc?bare',
     wpn:  '/wpn?bare',
     rwr:  '/rwr?bare',
     rdr:  '/rdr?bare',
@@ -77,6 +79,7 @@
     rdr:  '/rdr',
     tgt:  '/tgt',
     tgp:  '/tgp',
+    rc:   '/rc',
     wpn:  '/wpn',
     akf:  '/akf',
     bdf:  '/bdf',
