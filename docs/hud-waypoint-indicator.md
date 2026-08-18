@@ -2,11 +2,22 @@
 
 ## Status
 
-Design A is implemented on branch `hud-waypoint-indicator`, no ticket filed.
-Design B (a cloned `ObjectiveOverlay`) is not built. The build is clean and the
-web self-checks pass; the cue's absolute placement on the tape is **not yet
-verified in-game** — see the zero-offset question at the bottom, which is the
-one thing only flying can settle.
+Design A is implemented on branch `hud-waypoint-indicator`, no ticket filed,
+with route storage fully owned by the plugin (Option 2, below — not the
+Option 1 mirror this doc originally shipped with). Design B (a cloned
+`ObjectiveOverlay`) is not built. The build is clean and the web self-checks
+pass; the cue's absolute placement on the tape is **not yet verified
+in-game** — see the in-game check at the bottom, which is the one thing only
+flying can settle.
+
+Two real bugs in the original Option 1 design drove the move to Option 2: (1)
+proximity-advance only ran from the WPT page's own `tick()` loop, so flying
+past a waypoint while looking at the HUD (or anything else) did nothing; (2)
+each browser's `localStorage` was independent, so a route made on one device
+was invisible on another, and the HUD cue (mirroring whichever browser last
+published) went blank when a second, routeless browser overwrote it. Both
+traced to the same root cause: no single process owned route state or ticked
+it forward — see "The actual problem" below for the shipped fix.
 
 This is the mod's first **additive** HUD change. Everything `HudDeclutter`
 does today is subtractive — find an existing component, disable it, restore
@@ -101,80 +112,75 @@ arc**. That makes a heading bug pure arithmetic against the tape's own
 and `GetHUDCenter()` as a public method, so there are anchor points near the
 tape that don't need reflection even though `compass` itself does.
 
-## The actual problem: the plugin doesn't know where the waypoint is
+## The actual problem: who owns the waypoint, and who advances it
 
-Waypoints live entirely in the **browser's** `localStorage`
-(`src/web/pages/wpt/waypoints-store.js`). The plugin has no waypoint state at
-all — `Keybinds.cs` only pushes *actions* outward
-(`TelemetryServer.MapAction("waypoint-next")`) and the browser owns the data
-and does the bearing math client-side.
+Originally: waypoints lived entirely in the **browser's** `localStorage`
+(`src/web/pages/wpt/waypoints-store.js`). The plugin had no waypoint state at
+all — `Keybinds.cs` only pushed *actions* outward
+(`TelemetryServer.MapAction("waypoint-next")`) and the browser owned the data
+and did the bearing math client-side.
 
-Every data flow in this mod is plugin → browser. This feature needs
-browser → plugin, and that direction doesn't exist yet for state (only for
-one-shot commands). Two ways out:
+Every other data flow in this mod is plugin → browser. Getting a waypoint onto
+the HUD needs browser → plugin state, which didn't exist. Two ways out were
+considered — an Option 1 that pushes just the active waypoint (browser stays
+the owner), and Option 2, storage moved into the plugin entirely. **Option 2
+shipped**, after Option 1 shipped first and broke in exactly the two ways its
+own risk section predicted (see Status above).
 
-### Option 1 — POST the active waypoint back over the command channel (shipped)
+### Option 2 — the plugin owns the whole route library (shipped)
 
-Two facts make this cheaper than the section below assumes. Waypoints are stored
-as `{ name, x, z }` in raw game world coordinates (`wpt-route.js`), the same
-floating-origin-corrected frame `TelemetryReader` publishes as `world.x`/
-`world.z` — so the payload is two floats and a name with no coordinate
-conversion at either end. And `soi.panes` is already a browser → plugin *state*
-POST carrying a `cid`, so the direction is established rather than new.
+`RouteStore.cs` is the single source of truth: it holds every route (not just
+the active one), persists them to
+`BepInEx/config/com.roque.NOXMFD.routes.json` after every edit, and ticks
+`AdvanceIfNear` itself once a second from `TelemetryReader`'s existing slow
+block — regardless of what page any browser has open, which is what actually
+fixes bug (1) above. A `GET /wpt-options` endpoint (mission-independent, like
+`/hud-options`) serves the current library to every connected browser; every
+browser polls it every 1.2s, the same cadence `hud.js` already uses. Editing
+is 14 new `wpt.*` commands (`CommandDispatcher.cs`) — one per action the WPT
+page performs, reusing existing `CommandEnvelope` scalar fields wherever the
+type fits (`bind` for a route id, `wname` for a display name, `index` for a
+waypoint index or a ±1 direction) plus one genuinely new field, `text`, for a
+pasted import blob.
 
-`waypoints-store.js`'s `save()` is the single publishing choke point: every
-mutation (edit, W+/W−, R+/R−, import, clear, auto-advance) already routes
-through it, so no caller has to remember to publish. The store is loaded by both
-shells, not just the MAP and WPT pages, so the publisher is alive whichever page
-is on screen.
+No JSON library exists anywhere in this codebase, and Unity's `JsonUtility` is
+documented elsewhere as unreliable for nested objects in this Mono runtime —
+so reading the persisted file (and a pasted import) uses a new,
+narrowly-scoped reader, `JsonLite.cs` (`ponytail:` comment inside naming its
+ceiling — two known shapes only, not a general parser).
 
-`HudWaypointState` is static rather than mission-scoped, so a mission restart
-doesn't silently drop the cue — the pilot's route hasn't changed just because
-the mission reloaded. A game restart does clear it, and the SSE `hello` (which
-the shells already handle as `soi-cid`) is the browser's cue to republish.
+This resolves both original costs directly: proximity-advance no longer
+depends on any page being open, and there is exactly one route library, so
+"the active waypoint" is never ambiguous between displays. No migration of
+pre-existing browser-local routes was done (explicit decision) — the storage
+model changed, and anything only ever saved to the old `localStorage` key is
+simply not carried forward.
 
-Smallest diff. `CommandDispatcher`'s `CommandEnvelope` is a deliberately flat
-union of scalars (`cmd`/`id`/`group`/`index`/`on`/`bind`/`key`/`cid`/`n`/`hz`)
-because nested `[Serializable]` objects deserialize unreliably in the game's
-Mono runtime — so this would add two `float`s (world x/z, or lat/lon) plus a
-name, and a `wpt.active` handler that parks them on a small plugin-side holder.
+### Option 1 — POST the active waypoint back over the command channel (shipped first, then superseded)
 
-Costs, both real:
-
-- The in-game HUD silently depends on a browser tab being open and on the WPT
-  page having been loaded at least once.
-- With two displays open, each has its own route list, so "the active
-  waypoint" is ambiguous. The `cid` field already identifies which instance is
-  reporting, but *choosing* between two disagreeing instances is a new policy
-  decision with no obvious right answer.
-
-### Option 2 — move waypoint storage into the plugin
-
-Bigger change: routes become plugin state, served in the telemetry snapshot,
-edited through commands. The WPT page becomes a view over server state rather
-than the owner of it.
-
-This makes the HUD indicator standalone (works with no browser open) and
-resolves the multi-display divergence as a side effect rather than as a policy
-patch. It also breaks the current "routes survive because they're in *your*
-browser" property — routes would live and die with wherever the plugin decides
-to persist them.
-
-**Recommendation:** Option 2 is the right end state, but it is a much larger
-change than the HUD work it unblocks, and it changes an existing shipped
-feature's storage model. Prototype against Option 1 (or even a hardcoded
-bearing) to prove the rendering first, and treat the storage move as its own
-ticket rather than smuggling it in under this one.
+The browser stayed the owner; only the single active waypoint was pushed
+whenever `waypoints-store.js`'s `save()` ran. Cheap to build — `wx`/`wz` are
+the same floating-origin-corrected world frame `TelemetryReader` already
+publishes, and `soi.panes` was already a browser → plugin *state* POST, so
+the direction wasn't new. It shipped, and its own documented costs then
+happened for real: the HUD cue depended on some browser having loaded WPT at
+least once, and two displays' independent route lists made "the active
+waypoint" ambiguous whenever they disagreed. `HudWaypointState.cs`, the
+`wpt.active` command, and `waypoints-store.js`'s `publishActive`/
+`republishActive` implemented this and are now deleted — Option 2 doesn't
+need a browser to push anything, so there was nothing to keep them for.
 
 ## What is built
 
 | File | Role |
 |---|---|
-| `src/plugin/HudWaypointState.cs` | Static holder for the browser's active waypoint |
-| `src/plugin/HudWaypointCue.cs` | The renderer — chevron on the tape + two-line readout |
-| `src/plugin/CommandDispatcher.cs` | `wpt.active` handler; `wx`/`wz` added to the envelope |
-| `src/web/pages/wpt/wpt-route.js` | `activeWaypointArgs(collection)` — the pure payload derivation |
-| `src/web/pages/wpt/waypoints-store.js` | `publishActive()` off `save()`, `republishActive()` for reconnects |
+| `src/plugin/RouteStore.cs` | The route library: storage, every mutation, disk persistence, `AdvanceIfNear` |
+| `src/plugin/JsonLite.cs` | Minimal JSON reader — the persisted file and pasted imports |
+| `src/plugin/HudWaypointCue.cs` | The renderer — chevron on the tape + two-line readout, reads `RouteStore` in-process |
+| `src/plugin/CommandDispatcher.cs` | 14 `wpt.*` commands; `text` added to the envelope |
+| `src/plugin/TelemetryServer.cs` | `GET /wpt-options` — the route library, mission-independent |
+| `src/web/pages/wpt/waypoints-store.js` | Fetch/poll (`/wpt-options`) + `POST /command` client |
+| `src/web/pages/wpt/wpt-route.js` | Trimmed to display-derivation only — mutation logic moved to `RouteStore.cs` |
 
 The cue ships no art. Every element is an untextured `Image` (an `Image` with no
 sprite draws a flat tinted quad), so there is no asset to fail to load; the
@@ -270,16 +276,12 @@ settled by the build.
   objective colouring. Design A is settled (above); B sits among the game's own
   objective markers, so the tradeoff is different there. Only matters if B gets
   built.
-- Multi-display arbitration. Two displays each own their own route list, and the
-  last one to publish defines the cue. The envelope's `cid` identifies the
-  reporter but not which reporter is authoritative, and there is no obvious
-  right answer — Option 2 dissolves the question rather than answering it.
-
 ## Out of scope
 
 - Design B, the cloned `ObjectiveOverlay` world-space pointer.
-- Moving waypoint storage into the plugin — see Option 2; its own ticket.
-- Any change to the WPT page or the MFD compass.
+- Migrating routes that only ever existed in a browser's old `localStorage`
+  from before Option 2 — explicit decision, see "The actual problem" above.
+- Any change to the WPT page's layout or the MFD compass.
 - Route *editing* from the HUD. Read-only cue only.
 
 ## In-game check
@@ -293,7 +295,23 @@ Fly a route with the cue visible and confirm:
   scrolls the tape with, so any lag means that assumption is wrong.
 - Crossing ±45° swaps the chevron to a sideways arrow pinned at the edge, and
   crossing back restores it.
-- Reaching a waypoint advances the cue to the next one, and finishing the route
-  clears it.
+- Reaching a waypoint advances the cue to the next one — with **no WPT or MAP
+  page open on any browser** — and finishing the route clears it. This is the
+  bug (1) fix: the plugin ticks it, not any page.
 - It survives an aircraft respawn (the HUD is rebuilt, taking the cue's objects
-  with it) and a mission restart (the published waypoint is held statically).
+  with it) and a mission restart (`RouteStore` isn't mission-scoped).
+
+Route-storage checks (Option 2):
+
+- Create/rename/delete a route and add waypoints on one browser; confirm it
+  appears on a second browser (or a second tab) within ~1.2s with no reload —
+  this is the bug (2) fix.
+- Full **game restart** (not just mission restart) — confirm routes on disk
+  (`BepInEx/config/com.roque.NOXMFD.routes.json`) survive and reload.
+- Toggle the active route from one browser mid-flight; confirm the HUD cue
+  switches with no action needed from any other browser.
+- Import/export round-trip a route between two browsers; paste garbage into
+  the import panel and confirm an inline error shows without a round trip to
+  the plugin.
+- Corrupt or delete the routes JSON file and restart — confirm a logged
+  warning and an empty route list rather than a failed plugin `Awake()`.

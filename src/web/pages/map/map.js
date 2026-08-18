@@ -40,10 +40,10 @@ function updateRouteChip() {
   if (waypointRoute) { routeBar.textContent = 'ROUTE: ' + waypointRoute.name; routeBar.className = 'mfd-chip'; }
   else { routeBar.className = 'mfd-chip empty'; }
 }
-// The WPT page (a separate iframe) writes to the same localStorage key — a 'storage' event fires
-// here whenever IT writes (never on our own writes), so this stays live without any postMessage
-// plumbing for waypoint data itself.
-window.addEventListener('storage', function(e) { if (e.key === WaypointsStore.STORE_KEY) { refreshWaypointRoute(); drawOverlay(); } });
+// The plugin is the single source of truth for routes now (docs/hud-waypoint-indicator.md) — the
+// WPT page (a separate iframe), another device's browser, or this map's own edits all converge
+// through WaypointsStore's poll of /wpt-options, which fires this event on any real change.
+window.addEventListener('wptroutes:changed', function() { refreshWaypointRoute(); drawOverlay(); });
 
 // ── PAD cursor (docs/page-cursor.md, docs/map-cursor.md) ──────────────────────────
 // A crosshair standing in for the mouse/touch while this MAP is the HOTAS-driven SOI focus. The
@@ -808,10 +808,9 @@ function placeWaypointAt(sx, sy) {
   if (!mapMeta) return;
   const w = overlayToWorld(sx, sy);
   if (!w) return;
-  WaypointsStore.addWaypointToActive(w.x, w.z);
-  refreshWaypointRoute();
-  flashWaypoint(sx, sy);
+  flashWaypoint(sx, sy);   // immediate — purely cosmetic, no server round trip needed
   drawOverlay();
+  WaypointsStore.addWaypointToActive(w.x, w.z).then(function () { refreshWaypointRoute(); drawOverlay(); });
 }
 window.addEventListener('contextmenu', function(e) { e.preventDefault(); });   // long-press must not pop a menu
 
@@ -1023,11 +1022,11 @@ window.addEventListener('message', function(e) {
     case 'status-request': source.rebroadcastStatus(); break;   // shell asked for the current status
     // R+/R- (issue #38) — switch the active waypoint route; re-pull it and repaint so the map's
     // rendered line/markers switch immediately, same as a local long-press placement does.
-    case 'route-next': WaypointsStore.cycleActiveRoute(1);  refreshWaypointRoute(); drawOverlay(); break;
-    case 'route-prev': WaypointsStore.cycleActiveRoute(-1); refreshWaypointRoute(); drawOverlay(); break;
+    case 'route-next': WaypointsStore.cycleActiveRoute(1).then(function () { refreshWaypointRoute(); drawOverlay(); });  break;
+    case 'route-prev': WaypointsStore.cycleActiveRoute(-1).then(function () { refreshWaypointRoute(); drawOverlay(); }); break;
     // W+/W- (issue #38) — manually step the active route's "next" waypoint, same repaint as above.
-    case 'waypoint-next': WaypointsStore.stepWaypoint(1);  refreshWaypointRoute(); drawOverlay(); break;
-    case 'waypoint-prev': WaypointsStore.stepWaypoint(-1); refreshWaypointRoute(); drawOverlay(); break;
+    case 'waypoint-next': WaypointsStore.stepWaypoint(1).then(function () { refreshWaypointRoute(); drawOverlay(); });  break;
+    case 'waypoint-prev': WaypointsStore.stepWaypoint(-1).then(function () { refreshWaypointRoute(); drawOverlay(); }); break;
     // PAD cursor (docs/page-cursor.md, docs/map-cursor.md) — the shell only ever sends these while
     // THIS map is the SOI's focused surface, so no further gating is needed here.
     case 'cursor-focus':  cursor.setFocus(!!m.on, overlay.width / 2, overlay.height / 2); break;

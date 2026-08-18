@@ -6,8 +6,8 @@ using UnityEngine.UI;
 namespace NOXMFD
 {
     // The in-game HUD waypoint cue (docs/hud-waypoint-indicator.md, design A): a bug riding the
-    // native heading tape plus a two-line readout at its top right. Data comes from the browser via
-    // HudWaypointState; this class is only the drawing.
+    // native heading tape plus a two-line readout at its top right. Data comes from RouteStore, the
+    // plugin's own authoritative route library (Option 2) — this class is only the drawing.
     //
     // This is the mod's first ADDITIVE HUD change — HudDeclutter, the only other HUD toucher, just
     // finds existing components and disables them. Mission-scoped alongside it (created in
@@ -48,18 +48,21 @@ namespace NOXMFD
                 if (!Build()) return;
             }
 
-            if (!HudWaypointState.Active || !ResolveOwnship(out Vector3 world, out float hdg))
+            // RouteStore is the plugin's own in-process route data (docs/hud-waypoint-indicator.md,
+            // Option 2) — no network round trip, unlike the deleted HudWaypointState this used to read.
+            if (!RouteStore.TryGetActiveWaypoint(out float wx, out float wz, out string wpName, out int wpIndex)
+                || !ResolveOwnship(out Vector3 world, out float hdg))
             {
                 SetVisible(false);
                 return;
             }
 
-            // Bearing math runs entirely in the floating-origin-corrected world frame the browser
+            // Bearing math runs entirely in the floating-origin-corrected world frame RouteStore
             // stores waypoints in (TelemetryReader: position - Datum.originPosition). Raw Unity
             // positions drift as the world re-centers, so mixing the two frames would put the bug
             // progressively further off the longer a mission runs.
-            float dx = HudWaypointState.X - world.x;
-            float dz = HudWaypointState.Z - world.z;
+            float dx = wx - world.x;
+            float dz = wz - world.z;
             float bearing  = Mathf.Repeat(Mathf.Atan2(dx, dz) * Mathf.Rad2Deg, 360f);
             float relative = Mathf.DeltaAngle(hdg, bearing);           // -180..180, + = turn right
             float distanceKm = Mathf.Sqrt(dx * dx + dz * dz) / 1000f;
@@ -67,11 +70,10 @@ namespace NOXMFD
             SetVisible(true);
             PlaceBug(relative);
 
-            string name = HudWaypointState.Name;
             _readout!.text = string.Format(CultureInfo.InvariantCulture,
                 "WPT {0}{1}\n{2:0.0} km · brg {3:000}",
-                HudWaypointState.Index + 1,
-                name.Length > 0 ? " · " + name : string.Empty,
+                wpIndex + 1,
+                wpName.Length > 0 ? " · " + wpName : string.Empty,
                 distanceKm,
                 Mathf.RoundToInt(bearing) % 360);
         }

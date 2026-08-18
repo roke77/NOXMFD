@@ -233,9 +233,11 @@ pilot, with HOTAS-friendly keybinds to match.
   delete, click to activate — click the active one again to deactivate it, leaving it saved but
   unassigned) and the active route's waypoints (rename, reorder, delete, or reset progress back to
   any waypoint), with a distance/bearing readout and a relative-bearing compass to the next one
-  that auto-advances as you approach it. CLEAR wipes every route at once. Routes persist across
-  reloads. IMPORT and each route's own export button turn a route into pasteable JSON, so you can
-  back one up or hand it to another pilot.
+  that auto-advances as you approach it. CLEAR wipes every route at once. Routes are stored by the
+  mod itself, not any one browser — the same routes show on every connected display (PC, tablet,
+  phone), survive a full game restart, and advance whether or not the WPT page is even open.
+  IMPORT and each route's own export button turn a route into pasteable JSON, so you can back one
+  up or hand it to another pilot.
 
   The active waypoint also shows on the **in-game HUD**: an amber bug rides the game's own heading
   tape at the waypoint's bearing, with a `WPT n · NAME` / distance · bearing readout beside it. Past

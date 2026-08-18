@@ -1,0 +1,138 @@
+using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
+
+namespace NOXMFD
+{
+    // A minimal JSON VALUE reader — not a general JSON library. docs/hud-waypoint-indicator.md.
+    //
+    // ponytail: scoped to exactly the two shapes this feature needs (the routes persistence file,
+    // and a pasted route-export blob for wpt.import) — object/array/string-with-basic-escapes/
+    // number/bool/null, no unicode \uXXXX escapes, no exponent notation, no streaming, no schema
+    // validation. If a third distinct JSON-parsing need shows up in this codebase, that's the
+    // signal to pull in a real library instead of growing this one. Written from scratch because
+    // no JSON parser exists anywhere in this codebase (only hand-rolled StringBuilder writers) and
+    // Unity's JsonUtility is documented elsewhere (CommandDispatcher.cs) as unreliable for nested
+    // objects in this Mono runtime.
+    //
+    // Parse returns a tree of Dictionary<string,object> / List<object> / string / double / bool /
+    // null — callers walk it defensively with `is` checks, same style as the JS side's own
+    // parseRouteJSON never trusting the shape it's handed.
+    internal static class JsonLite
+    {
+        public static object? Parse(string text)
+        {
+            int i = 0;
+            SkipWs(text, ref i);
+            object? value = ParseValue(text, ref i);
+            return value;
+        }
+
+        private static object? ParseValue(string s, ref int i)
+        {
+            if (i >= s.Length) return null;
+            char c = s[i];
+            if (c == '{') return ParseObject(s, ref i);
+            if (c == '[') return ParseArray(s, ref i);
+            if (c == '"') return ParseString(s, ref i);
+            if (c == 't' && Match(s, i, "true"))  { i += 4; return true; }
+            if (c == 'f' && Match(s, i, "false")) { i += 5; return false; }
+            if (c == 'n' && Match(s, i, "null"))  { i += 4; return null; }
+            if (c == '-' || (c >= '0' && c <= '9')) return ParseNumber(s, ref i);
+            return null;   // unrecognized token — caller's defensive walk treats a missing field as absent
+        }
+
+        private static Dictionary<string, object?>? ParseObject(string s, ref int i)
+        {
+            var obj = new Dictionary<string, object?>();
+            i++; // '{'
+            SkipWs(s, ref i);
+            if (Peek(s, i) == '}') { i++; return obj; }
+            while (i < s.Length)
+            {
+                SkipWs(s, ref i);
+                if (Peek(s, i) != '"') return obj;   // malformed — return what we have rather than throw
+                string key = ParseString(s, ref i);
+                SkipWs(s, ref i);
+                if (Peek(s, i) != ':') return obj;
+                i++; // ':'
+                SkipWs(s, ref i);
+                obj[key] = ParseValue(s, ref i);
+                SkipWs(s, ref i);
+                char next = Peek(s, i);
+                if (next == ',') { i++; continue; }
+                if (next == '}') { i++; break; }
+                break;
+            }
+            return obj;
+        }
+
+        private static List<object?> ParseArray(string s, ref int i)
+        {
+            var arr = new List<object?>();
+            i++; // '['
+            SkipWs(s, ref i);
+            if (Peek(s, i) == ']') { i++; return arr; }
+            while (i < s.Length)
+            {
+                SkipWs(s, ref i);
+                arr.Add(ParseValue(s, ref i));
+                SkipWs(s, ref i);
+                char next = Peek(s, i);
+                if (next == ',') { i++; continue; }
+                if (next == ']') { i++; break; }
+                break;
+            }
+            return arr;
+        }
+
+        private static string ParseString(string s, ref int i)
+        {
+            i++; // opening '"'
+            var sb = new StringBuilder();
+            while (i < s.Length && s[i] != '"')
+            {
+                char c = s[i];
+                if (c == '\\' && i + 1 < s.Length)
+                {
+                    char esc = s[i + 1];
+                    switch (esc)
+                    {
+                        case '"':  sb.Append('"');  i += 2; break;
+                        case '\\': sb.Append('\\'); i += 2; break;
+                        case '/':  sb.Append('/');  i += 2; break;
+                        case 'n':  sb.Append('\n'); i += 2; break;
+                        case 'r':  sb.Append('\r'); i += 2; break;
+                        case 't':  sb.Append('\t'); i += 2; break;
+                        case 'b':  sb.Append('\b'); i += 2; break;
+                        case 'f':  sb.Append('\f'); i += 2; break;
+                        default:   sb.Append(esc);  i += 2; break;   // unrecognized escape — keep the literal char
+                    }
+                }
+                else { sb.Append(c); i++; }
+            }
+            if (i < s.Length) i++; // closing '"'
+            return sb.ToString();
+        }
+
+        private static double ParseNumber(string s, ref int i)
+        {
+            int start = i;
+            if (Peek(s, i) == '-') i++;
+            while (i < s.Length && s[i] >= '0' && s[i] <= '9') i++;
+            if (Peek(s, i) == '.') { i++; while (i < s.Length && s[i] >= '0' && s[i] <= '9') i++; }
+            string token = s.Substring(start, i - start);
+            return double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out double v) ? v : 0.0;
+        }
+
+        private static void SkipWs(string s, ref int i)
+        {
+            while (i < s.Length && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r')) i++;
+        }
+
+        private static char Peek(string s, int i) => i < s.Length ? s[i] : '\0';
+
+        private static bool Match(string s, int i, string token) =>
+            i + token.Length <= s.Length && string.CompareOrdinal(s, i, token, 0, token.Length) == 0;
+    }
+}

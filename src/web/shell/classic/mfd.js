@@ -1659,9 +1659,6 @@ window.addEventListener('message', function(e) {
     // also fires after an SSE reconnect, when the server has reset the count to 1).
     myCid = m.cid || '';
     reportPanes();
-    // Same cue for the in-game waypoint bug (docs/hud-waypoint-indicator.md): a fresh server
-    // connection may be a fresh game process, which would have lost the published waypoint.
-    WaypointsStore.republishActive();
   } else if (m.type === 'soi') {
     // Which of this instance's surfaces (if any) is the sensor of interest. Reported by the tap, the
     // only part that knows this instance's cid. Ring frames the focused pane; the cursor scopes to
@@ -2337,13 +2334,11 @@ window.addEventListener('resize', function() {
   positionSoiRing();   // the recess/panes resized — keep the ring on the focused surface
 });
 // MAP's R+/R- visibility depends on whether any route is saved, W+/W-'s on whether one is active
-// (showPage's 'map' branch, mapSplitItems' split-pane twin) — a route created/deleted/(de)activated
-// from the WPT page or a first long-press placed on MAP itself all write localStorage from a
-// DIFFERENT document (the wpt/map iframe), which is exactly what fires 'storage' here (same-document
-// writes don't fire their own document's listener). Re-render live to pick that up while MAP is
-// showing, in full view or a split pane.
-window.addEventListener('storage', function(e) {
-  if (e.key !== WaypointsStore.STORE_KEY) return;
+// (showPage's 'map' branch, mapSplitItems' split-pane twin). The plugin is the single source of
+// truth for routes now (docs/hud-waypoint-indicator.md) — this shell document loads its own copy
+// of waypoints-store.js (mfd.html), which polls /wpt-options and fires this event on any change,
+// from any page, any device. Re-render live to pick that up while MAP is showing, full view or split.
+window.addEventListener('wptroutes:changed', function() {
   if (splitMode) { if (panePages.indexOf('map') !== -1) renderSplitLabels(); }
   else if (currentPage === 'map') showPage('map');
 });

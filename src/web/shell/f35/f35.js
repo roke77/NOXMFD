@@ -826,9 +826,7 @@
     if (e.source !== mapTap.contentWindow) return;
 
     // SOI control messages from the tap — not telemetry slices, so handle and return before caching.
-    // republishActive: a fresh server connection may be a fresh game process, which would have
-    // lost the published waypoint the in-game HUD cue draws (docs/hud-waypoint-indicator.md).
-    if (m.type === 'soi-cid') { myCid = m.cid || ''; reportPanes(); WaypointsStore.republishActive(); return; }
+    if (m.type === 'soi-cid') { myCid = m.cid || ''; reportPanes(); return; }
     if (m.type === 'soi')     { onSoiFocus(m); return; }
     if (m.type === 'soi-act') { onSoiAct(m.act); return; }
     if (m.type === 'cursor') {
@@ -877,13 +875,12 @@
   orientMq.addEventListener('change', relayoutAll);
 
   // MAP's R+/R- portal buttons show while any route is saved, W+/W- only while one is active
-  // (issue #38 follow-up, deactivate follow-up, mfd.js's classic-shell twin) — a route created/
-  // deleted/(de)activated from the WPT page or a first long-press placed on MAP itself all write
-  // localStorage from a DIFFERENT document (that page's own portal), which is exactly what fires
-  // 'storage' here. refreshNav (not showPage) so it can't reload — and so can't lose the pan/zoom
-  // of — a MAP portal that's already showing.
-  window.addEventListener('storage', function (e) {
-    if (e.key !== WaypointsStore.STORE_KEY) return;
+  // (issue #38 follow-up, deactivate follow-up, mfd.js's classic-shell twin). The plugin is the
+  // single source of truth for routes now (docs/hud-waypoint-indicator.md) — this shell document
+  // loads its own copy of waypoints-store.js (f35.html), which polls /wpt-options and fires this
+  // event on any change, from any page, any device. refreshNav (not showPage) so it can't reload
+  // — and so can't lose the pan/zoom of — a MAP portal that's already showing.
+  window.addEventListener('wptroutes:changed', function () {
     livePortals().forEach(function (p) { if (p.page() === 'map') p.refreshNav(); });
   });
 
