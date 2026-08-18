@@ -48,6 +48,7 @@ const DECLUTTER = [
   { key: 'weapon',  label: 'WEAPONS' },
   { key: 'minimap', label: 'MINIMAP' },
   { key: 'boxes',   label: 'FLIGHT' },
+  { key: 'feed',    label: 'FEED' },   // native kill-feed ticker (issue #34, docs/akf-page.md)
 ];
 
 const dcEl    = document.getElementById('hud-declutter');

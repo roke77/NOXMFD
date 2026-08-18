@@ -40,23 +40,19 @@
   // untouched and still serves the bezel.)
   //
   // ?nochrome tells a page this shell already shows its own-ship readouts, so it should not draw
-  // them twice. MAP no longer gets the flag: the strip dropped its own mission name/grid chip
-  // (more room for the gauges), so MAP is the one place left to see them, same as the bezel. Each
-  // page owns the option and decides what it means; this layout only picks it. It is a URL flag
-  // rather than a message because a page reads it before its first paint, and a message would show
-  // the readouts and then take them away on every mount. The bezel passes it to nothing and is
-  // unaffected.
+  // them twice. MAP does not get the flag: the strip carries no mission name/grid chip of its own
+  // (that room goes to the gauges instead), so MAP is the one place left to see them, same as the
+  // bezel. Each page owns the option and decides what it means; this layout only picks it. It is a
+  // URL flag rather than a message because a page reads it before its first paint, and a message
+  // would show the readouts and then take them away on every mount. The bezel passes it to nothing
+  // and is unaffected.
   //
-  // AVN no longer gets the flag either (2026-08-15) — its ?nochrome handling was removed from
-  // avn.html/avn.css entirely, not just unused here. It used to hide AVN's FUEL/THROTTLE bars and
-  // status tiles while leaving the damage silhouette — the actual reason it existed — but that
-  // silhouette moved to AFM this session, so nochrome had nothing selective left to hide: it would
-  // have taken AVN's *entire* content with it, which is no longer purely decorative duplication of
-  // the strip — the status tiles are bezel/portal-actuated toggles (directly clickable on the page
-  // itself now too), the strip's own copy stays read-only, and RPM/HEAT aren't on the strip at all.
-  // Hiding it would have left this layout with no way to flip gear/radar/etc. Plain `/avn` (like
-  // every other page here) accepts a little duplication of FUEL/THRL with the strip in exchange for
-  // keeping AVN's own content — and its only toggle controls — intact.
+  // AVN does not get the flag either — its `?nochrome` handling is not present in avn.html/avn.css
+  // at all. AVN's status tiles are bezel/portal-actuated toggles (directly clickable on the page
+  // itself too), the strip's own copy stays read-only, and RPM/HEAT aren't on the strip at all, so
+  // hiding AVN's content would leave this layout with no way to flip gear/radar/etc. Plain `/avn`
+  // (like every other page here) accepts a little duplication of FUEL/THRL with the strip in
+  // exchange for keeping AVN's own content — and its only toggle controls — intact.
   // This layout's half of layout-pages.js, which keeps it beside the bezel's table so the two can't
   // quietly diverge — every NAV destination needs an entry in both, or the button is dead here and
   // works there. MAIN maps to no page and `null` is meaningful, so membership is tested with `in`.
@@ -78,8 +74,11 @@
     pal: ['pal'],             // same, for PRIMEVA
     mis: ['mis'],             // mission-info block (docs/mdt-pages.md)
     obj: ['obj'],             // active-objectives list (docs/mdt-pages.md)
+    akf: ['akf'],             // kill-feed/session-stats block (docs/akf-page.md)
     rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
-    wpt: ['mapinfo'],         // position/heading/map-meta for the waypoint readout (issue #38)
+    wpt: ['mapinfo', 'wpt-routes'],   // waypoint readout + the route library itself
+    map: ['wpt-routes'],              // the route library (docs/hud-waypoint-indicator.md perf fix) —
+                                       // MAP mounts its own map.js/telemetry, so this is its only feed
   };
 
   // The tap calls it 'targets'; TGT listens for 'tgt-targets'. The bezel renames it in exactly the
@@ -111,15 +110,15 @@
   // point moved from top-level MAIN into the CFG group. All match where the bezel keeps them —
   // MAIN — so a pilot finds the same names in the same place in either layout.
   //
-  // MDT (2026-08-15) replaces what used to be separate PAL/BDF entries — mirrors the bezel's own
-  // SCR→MDT rename and BDF/PAL fold. Action still 'bdf'; NAV.bdf/NAV.pal (shared, consumed
-  // generically at line ~390 below) carry the MAIN/BDF/PAL sub-nav once you're on either page, with
-  // `mark` lighting whichever is current — nothing here needed to change for that part, since this
-  // layout already renders NAV[page] like any other.
+  // MDT is one combined entry covering PAL/BDF — mirrors the bezel's own SCR→MDT rename and
+  // BDF/PAL fold. Action is 'akf' (AKF is the group's default landing page); NAV.akf/NAV.mis/
+  // NAV.obj/NAV.bdf/NAV.pal (shared, consumed generically at line ~390 below) carry the
+  // MAIN/AKF/MIS/OBJ/BDF/PAL sub-nav once you're on any of them, with `mark` lighting whichever is
+  // current — this layout already renders NAV[page] like any other.
   const MAIN_EXTRAS = [
     { label: 'HUD', action: 'hud' },
     { label: 'CFG', action: 'keys' },
-    { label: 'MDT', action: 'bdf' },
+    { label: 'MDT', action: 'akf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md) — mirrors BEZEL_EXTRAS.main
     { label: 'AFM', action: 'afm' },   // → AFM airframe page — mirrors BEZEL_EXTRAS.main
   ];
@@ -170,16 +169,18 @@
   // FLW/Z+/Z- read as "map view controls" in column 1, WPT/R+/R-/W+/W- as "waypoint controls" in
   // column 2. The action lists (SplitSlots.MAP_FULL_LEFT/RIGHT/mapFullRight) are shared with the
   // classic bezel — see that module's own comment — so the two layouts can't drift out of sync.
-  // R+/R-/W+/W- only show while a route exists to act on; WPT itself always shows, since it's how a
-  // pilot gets a route in the first place.
+  // R+/R- show as long as any route is saved (deactivate follow-up: still useful to cycle INTO one
+  // with none active); W+/W- need a route actually active, since they step ITS next waypoint. WPT
+  // itself always shows, since it's how a pilot gets a route in the first place.
   function mapNavItems() {
     const byAction = {};
     (NAV.map || []).forEach(function (item) { byAction[item.action] = item; });
-    const hasRoute = !!WaypointsStore.getActiveRoute();
+    const hasRoutes = WaypointsStore.load().routes.length > 0;
+    const hasActiveRoute = !!WaypointsStore.getActiveRoute();
     const left = SplitSlots.MAP_FULL_LEFT.map(function (a, i) {
       return Object.assign({}, byAction[a], { cell: { row: i + 1, col: 1 } });
     });
-    return left.concat(SplitSlots.mapFullRight(hasRoute).map(function (a, i) {
+    return left.concat(SplitSlots.mapFullRight(hasRoutes, hasActiveRoute).map(function (a, i) {
       return Object.assign({}, byAction[a], { cell: { row: i + 1, col: 2 } });
     }));
   }
@@ -816,6 +817,14 @@
       return;
     }
 
+    // 'wpt-routes-request' — a freshly-loaded portal catching up on the route library (docs/hud-
+    // waypoint-indicator.md perf fix, 2026-08-18) — comes from the portal's own iframe, not the
+    // tap, same reasoning as 'follow'/'grid' above.
+    if (m.type === 'wpt-routes-request') {
+      if (e.source) e.source.postMessage({ mfd: true, type: 'wpt-routes', data: WaypointsStore.load() }, '*');
+      return;
+    }
+
     // Telemetry comes only from the tap. A portal's own map streams too, and its duplicate posts
     // are ignored here — otherwise two out-of-phase feeds would drive the same page. This is the
     // bezel's canonical-source guard, for the same reason.
@@ -879,28 +888,37 @@
   window.addEventListener('resize', relayoutAll);
   orientMq.addEventListener('change', relayoutAll);
 
-  // MAP's R+/R-/W+/W- portal buttons show only while a route is active (issue #38 follow-up,
-  // mfd.js's classic-shell twin) — a route created/deleted from the WPT page or a first long-press
-  // placed on MAP itself both write localStorage from a DIFFERENT document (that page's own
-  // portal), which is exactly what fires 'storage' here. refreshNav (not showPage) so it can't
-  // reload — and so can't lose the pan/zoom of — a MAP portal that's already showing.
-  window.addEventListener('storage', function (e) {
-    if (e.key !== WaypointsStore.STORE_KEY) return;
-    refreshMapPortalNav();
+  // MAP's R+/R- portal buttons show while any route is saved, W+/W- only while one is active
+  // (issue #38 follow-up, deactivate follow-up, mfd.js's classic-shell twin). The plugin is the
+  // single source of truth for routes now (docs/hud-waypoint-indicator.md) — this shell document
+  // loads its own copy of waypoints-store.js (f35.html), which polls /wpt-options and fires this
+  // event on any change, from any page, any device (a squadmate's shared route, applied via
+  // applySquadronPayload below, arrives the same way once the next poll picks it up). refreshNav
+  // (not showPage) so it can't reload — and so can't lose the pan/zoom of — a MAP portal that's
+  // already showing.
+  //
+  // Also pushes the route data into the same slices/onSlice relay every other feed uses (perf fix,
+  // 2026-08-18) — only this shell polls /wpt-options now; each portal picks it up through the
+  // normal PAGE_FEEDS mechanism (map/wpt both list 'wpt-routes' above), including automatic
+  // catch-up on a freshly loaded portal via forwardToPage(), the same as every other slice.
+  window.addEventListener('wptroutes:changed', function () {
+    slices['wpt-routes'] = { mfd: true, type: 'wpt-routes', data: WaypointsStore.load() };
+    livePortals().forEach(function (p) {
+      p.onSlice('wpt-routes');
+      if (p.page() === 'map') p.refreshNav();
+    });
   });
-  // Shared with applySquadronPayload: that writes localStorage from THIS document, and a document's
-  // own write never fires its own storage listener, so it re-renders explicitly.
-  function refreshMapPortalNav() {
-    livePortals().forEach(function (p) { if (p.page() === 'map') p.refreshNav(); });
-  }
 
+  // Squadron payloads (docs/squadron-transport.md) are applied HERE, in the shell, rather than in
+  // the page that owns the feature: a route shared while WPT isn't open must still arrive, and the
+  // shell is the one document that is always loaded. Importing runs the same wpt.import command
+  // WPT's own import panel uses; RouteStore.ImportRoute makes it active plugin-side, and the
+  // 'wptroutes:changed' listener above already forwards the fresh route list to every live portal
+  // once the next poll picks it up — no squadron-specific refresh plumbing needed beyond issuing
+  // the command.
   function applySquadronPayload(payloadType, payload) {
     if (payloadType !== 'wpt.route') return;   // unknown type: ignore, don't guess (versioned wire)
-    if (!WaypointsStore.importRoute(payload)) {
-      console.warn('[squadron] rejected malformed wpt.route payload');
-      return;
-    }
-    refreshMapPortalNav();
+    WaypointsStore.importRoute(payload);
   }
 
   // ── Master strip ───────────────────────────────────────────────────────────────────────

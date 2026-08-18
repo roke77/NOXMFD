@@ -174,6 +174,41 @@ def _hud_options():
     }).encode("utf-8")
 
 
+# Mock of the plugin's /wpt-options (RouteStore.RoutesJson, docs/hud-waypoint-indicator.md) — a
+# real snapshot pulled from a local mod session's BepInEx/config/com.roque.NOXMFD.routes.json
+# (2026-08-19), so MAP/WPT have real routes to render in the harness instead of "NO ROUTES YET".
+# Static, same as _hud_options — the write side (wpt.* commands) has no mock, POSTs are swallowed,
+# so editing here won't change this response; that path is only testable in game.
+def _wpt_options():
+    return json.dumps({
+        "activeRouteId": "r_1dd9973ab97c415e8256e829921a2320",
+        "routes": [
+            {
+                "id": "r_6422161b6ecd4e0e8bc0a99c627ef397", "name": "RT-8F6A9", "nextIndex": 4,
+                "waypoints": [
+                    {"id": "w_df45b83cc4e5402cbf3be75e38f6103b", "name": "", "x": 7526.1,  "z": 8584.3},
+                    {"id": "w_7f942f59e2104b50b8776839711810c3", "name": "", "x": 18355.2, "z": 8135.4},
+                    {"id": "w_5226ee45a18244d0a4dee68cf235232c", "name": "", "x": 20805.4, "z": 16982.0},
+                    {"id": "w_16ec2f57b0c54914aae8ec4ebf17e4d3", "name": "", "x": 18504.9, "z": 22462.1},
+                    {"id": "w_9254e5131a064af7bb83f32dc85f89ac", "name": "", "x": 8741.8,  "z": 23303.7},
+                    {"id": "w_f492fa611502406fb594bed119f4eebc", "name": "", "x": 24847.2, "z": 26224.2},
+                    {"id": "w_588fe2417e7f4badb016d8b41a473cda", "name": "", "x": 28691.2, "z": 16196.3},
+                ],
+            },
+            {
+                "id": "r_1dd9973ab97c415e8256e829921a2320", "name": "RT-6CA67", "nextIndex": 4,
+                "waypoints": [
+                    {"id": "w_5eb7026834e0487982503ddf63a8ac07", "name": "", "x": 7113.0,  "z": 8578.7},
+                    {"id": "w_5d989cdca24146deadf7d72527295197", "name": "", "x": 21153.2, "z": 7571.6},
+                    {"id": "w_23d2e0ac003e4bb2ab8758283d7be41d", "name": "", "x": 27480.7, "z": 18649.8},
+                    {"id": "w_befad7e5757848928451f81123c0a6cf", "name": "", "x": 19925.4, "z": 29130.0},
+                    {"id": "w_9242d06d1e20411eac306da4b9a0078e", "name": "", "x": 6829.6,  "z": 21828.5},
+                ],
+            },
+        ],
+    }).encode("utf-8")
+
+
 # Mock of the plugin's /rates-config (cfg-rates experiment, issue #39), so the /rates page's two
 # sliders have something to initialize from in the harness. The write side (rates.set) has no
 # mock — commands POST and are swallowed — so moving a slider here won't change this response;
@@ -481,6 +516,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(_config(self.server.server_address[1]), 'application/json; charset=utf-8')
         if path == '/hud-options':
             return self._send(_hud_options(), 'application/json; charset=utf-8')
+        if path == '/wpt-options':
+            return self._send(_wpt_options(), 'application/json; charset=utf-8')
         if path == '/keybinds-config':
             return self._send(_keybinds_config(), 'application/json; charset=utf-8')
         if path == '/rates-config':

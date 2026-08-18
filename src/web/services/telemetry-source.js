@@ -33,6 +33,11 @@ export function gridLabel(wx, wz, meta) {
   return vert + `${majX}${minX}`;
 }
 
+// AKF advanced kill feed (docs/akf-page.md) default/reset shape — shared by the mission-present
+// fallback below and _emitEmpties, so the two can't drift out of sync with each other.
+const AKF_EMPTY = { all: [], player: [], kills: { aircraft: 0, ship: 0, vehicle: 0, building: 0 },
+                     value: 0, fundsGained: 0, fundsSpent: 0 };
+
 // This document's MFD-instance id, for the server's instance registry (SOI — docs/keybinds-page.md).
 // sessionStorage, NOT localStorage: sessionStorage is scoped to the browsing context, so it is the
 // same across a reload (a tablet that refreshes stays the instance it was) and different in a second
@@ -450,6 +455,12 @@ export class TelemetrySource {
       }
     }
     this._postUp({ type: 'obj', present: !!objBlock.present, items: objItems });
+
+    // AKF advanced kill feed (docs/akf-page.md). Always present while a mission runs (no
+    // present:false gate like MIS/OBJ) — an empty session just reads as all-zero. all is
+    // everyone's kills; player/kills/value/fundsGained/fundsSpent are scoped to the local player's
+    // own kills only.
+    this._postUp(Object.assign({ type: 'akf' }, d.akf || AKF_EMPTY));
   }
 
   // On mission exit, tell every consumer the data is gone so no page renders stale state.
@@ -467,6 +478,7 @@ export class TelemetrySource {
     this._postUp({ type: 'pal', present: false });
     this._postUp({ type: 'mis', present: false });
     this._postUp({ type: 'obj', present: false });
+    this._postUp(Object.assign({ type: 'akf' }, AKF_EMPTY));
     this._postUp({ type: 'follow', on: false });
   }
 }

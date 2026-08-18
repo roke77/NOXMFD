@@ -1,184 +1,105 @@
-// The storage-coupled half of the waypoints/routes feature (issue #38) — localStorage read/write
-// and id generation, wrapping wpt-route.js's pure CRUD/math. Classic <script>, not a module, same
-// as map-transform.js, so it's usable from both map.js and wpt.js without a build step.
+// The network half of the waypoints/routes feature (issue #38, docs/hud-waypoint-indicator.md) —
+// GET /wpt-options + POST /command, wrapping wpt-route.js's remaining pure display-derivation
+// helpers. Classic <script>, not a module, same as map-transform.js, so it's usable from both
+// map.js and wpt.js without a build step.
 //
-// Not unit-tested: DOM/storage-coupled code is left to the harness and the eye here, matching the
-// repo's own convention (src/web/README.md) — the logic worth pinning down (advance thresholds,
-// nextIndex tracking across edits) already lives in wpt-route.js's tests.
+// The plugin, not this browser, is the single source of truth (Option 2): RouteStore.cs owns the
+// whole route library, persists it to disk, and ticks proximity-advance itself every second
+// regardless of what page any browser has open. There is no local push mechanism here — no
+// per-browser route state to disagree across devices, and no ambiguity over which browser's HUD
+// cue is authoritative.
 //
-// localStorage, NOT sessionStorage (contrast map.js's VIEW_STORE_KEY): routes are pilot-authored
-// planning data meant to persist across reloads and be shared across every tab/display on the same
-// PC, the opposite tradeoff from per-tab pan/zoom/follow view state.
+// Callers (wpt.js, map.js) use plain `.then(...)` against these exports, no rename sweep needed.
 (function (root) {
-  const STORE_KEY = 'noxmfd.map.waypoints';
   const R = (typeof module !== 'undefined' && module.exports) ? require('./wpt-route.js') : root.WptRoute;
 
-  // Same fallback shape as telemetry-source.js's instanceId(): crypto.randomUUID needs a secure
-  // context, which plain http:// over the LAN (how this mod is normally reached) doesn't have.
-  function freshId(prefix) {
-    return prefix + (crypto.randomUUID ? crypto.randomUUID()
-                                        : Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+  // Last-known server state, refreshed by poll() — every sync read (load/getActiveRoute/hasRoutes/
+  // exportRoute) reads this cache rather than fetching, same as hud.js's own `data` cache.
+  let cache = { activeRouteId: null, routes: [] };
+
+  function poll() {
+    if (typeof fetch !== 'function') return Promise.resolve();   // no fetch in this context (Node tests)
+    return fetch('/wpt-options', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (text) {
+      const data = JSON.parse(text);
+      const changed = JSON.stringify(data) !== JSON.stringify(cache);
+      cache = data;
+      if (changed && typeof window !== 'undefined') window.dispatchEvent(new Event('wptroutes:changed'));
+    }).catch(function () { /* transient network error — next poll retries */ });
+  }
+  // Perf fix (2026-08-18, docs/hud-waypoint-indicator.md): only the TOP window runs the recurring
+  // poll — before this, every document that loaded this file (the shell, plus each open MAP/WPT
+  // iframe/pane) ran its OWN independent 1.2s loop, multiplying requests and the redraws each one
+  // triggers by however many were open (confirmed by profiling: ~3x the expected request rate for
+  // one device). An embedded page instead asks its parent for the current cache once on load (the
+  // parent only pushes on real changes, so a freshly loaded iframe needs to explicitly catch up)
+  // and then just listens — poll() itself is unchanged and still called directly by every mutator
+  // below for instant feedback on THIS document's own edits; only the recurring background loop is
+  // gated.
+  const isTop = typeof window !== 'undefined' && window === window.top;
+  if (isTop) {
+    poll(); setInterval(poll, 1200);   // same cadence as hud.js's /hud-options poll
+  } else if (typeof window !== 'undefined') {
+    window.parent.postMessage({ mfd: true, type: 'wpt-routes-request' }, '*');
+    window.addEventListener('message', function (e) {
+      const m = e.data;
+      if (!m || m.mfd !== true || m.type !== 'wpt-routes') return;
+      const changed = JSON.stringify(m.data) !== JSON.stringify(cache);
+      cache = m.data;
+      if (changed) window.dispatchEvent(new Event('wptroutes:changed'));
+    });
   }
 
-  // A short, human-typeable default DISPLAY name for a new route — distinct from freshId (the
-  // internal id, never shown). The UI pre-fills its rename field with this so the pilot can accept
-  // it as-is or type over it before confirming (wpt.js's "+ NEW ROUTE" flow).
+  function load() { return cache; }
+
+  function getActiveRoute() {
+    return R.findRoute(cache.routes, cache.activeRouteId);
+  }
+
+  // Whether any route exists at all, active or not — R+/R- (issue #38 follow-up) stay usable to
+  // cycle INTO a route as long as one is saved, unlike W+/W- which need an active route to step.
+  function hasRoutes() {
+    return cache.routes.length > 0;
+  }
+
+  // A short, human-typeable default DISPLAY name for a new route — the UI pre-fills its rename
+  // field with this so the pilot can accept it as-is or type over it before confirming (wpt.js's
+  // "+ NEW ROUTE" flow). Purely cosmetic; the plugin generates its own if this is sent empty.
   function freshRouteName() {
     const raw = crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : Math.random().toString(36).slice(2);
     return 'RT-' + raw.slice(0, 5).toUpperCase();
   }
 
-  function load() {
-    try {
-      const raw = localStorage.getItem(STORE_KEY);
-      const parsed = raw && JSON.parse(raw);
-      if (parsed && parsed.version === 1 && Array.isArray(parsed.routes)) return parsed;
-    } catch (e) { /* corrupt or inaccessible — fall through to a fresh collection */ }
-    return { version: 1, activeRouteId: null, routes: [] };
-  }
-
-  function save(collection) {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(collection)); } catch (e) { /* private mode, quota, etc. */ }
-  }
-
-  function getActiveRoute() {
-    const c = load();
-    return R.findRoute(c.routes, c.activeRouteId);
-  }
-
-  function setActiveRoute(id) {
-    const c = load();
-    c.activeRouteId = id;
-    save(c);
-  }
-
-  // MAP's R+/R- (issue #38): switch to the next/previous route in the list, wrapping. Returns the
-  // new active route's id (or null if there are no routes at all).
-  function cycleActiveRoute(dir) {
-    const c = load();
-    c.activeRouteId = R.cycleRoute(c.routes, c.activeRouteId, dir);
-    save(c);
-    return c.activeRouteId;
-  }
-
-  // Names must be unique (issue #38 follow-up) — a typed or auto-generated name that collides with
-  // an existing route gets "(2)", "(3)", … appended (R.uniqueRouteName) rather than silently
-  // creating two routes a pilot can't tell apart in the list or the readout.
-  function createRoute(name) {
-    const c = load();
-    const route = { id: freshId('r_'), name: R.uniqueRouteName(c.routes, name || freshRouteName()), nextIndex: 0, waypoints: [] };
-    c.routes = R.addRoute(c.routes, route);
-    c.activeRouteId = route.id;
-    save(c);
-    return route;
-  }
-
-  function renameRoute(id, name) {
-    const c = load();
-    c.routes = R.renameRoute(c.routes, id, R.uniqueRouteName(c.routes, name, id));
-    save(c);
-  }
+  // Every mutator: POST the command, then force an immediate poll rather than waiting up to 1.2s
+  // for the interval — the pilot's own edit should show up in well under a second.
+  function createRoute(name)               { return sendCommand('wpt.create', { wname: name || '' }).then(poll); }
+  function renameRoute(id, name)           { return sendCommand('wpt.rename', { bind: id, wname: name }).then(poll); }
+  function deleteRoute(id)                 { return sendCommand('wpt.delete', { bind: id }).then(poll); }
+  function setActiveRoute(id)              { return sendCommand('wpt.set-active', { bind: id || '' }).then(poll); }
+  function clearRoutes()                   { return sendCommand('wpt.clear', {}).then(poll); }
+  function resetRoute(id)                  { return sendCommand('wpt.reset-route', { bind: id }).then(poll); }
+  function importRoute(text)               { return sendCommand('wpt.import', { text: text }).then(poll); }
+  function renameWaypoint(index, name)     { return sendCommand('wpt.rename-waypoint', { index: index, wname: name }).then(poll); }
+  function reorderWaypoint(from, to)       { return sendCommand('wpt.reorder-waypoint', { index: from, n: to }).then(poll); }
+  function resetWaypoint(index)            { return sendCommand('wpt.reset-waypoint', { index: index }).then(poll); }
+  function removeWaypoint(index)           { return sendCommand('wpt.remove-waypoint', { index: index }).then(poll); }
+  function cycleActiveRoute(dir)           { return sendCommand('wpt.cycle-route', { index: dir }).then(poll); }
+  function stepWaypoint(dir)               { return sendCommand('wpt.step-waypoint', { index: dir }).then(poll); }
+  // Placed waypoints get no default name — WPT shows one by its position number alone (the
+  // "1. 2. 3." list index already identifies it); the pilot can name it later if they want to.
+  function addWaypointToActive(x, z, name) { return sendCommand('wpt.add-waypoint', { wx: x, wz: z, wname: name || '' }).then(poll); }
 
   // Pretty-printed JSON a pilot can paste to another WPT instance — null if the route doesn't
-  // exist (deleted out from under an open export panel, say).
+  // exist (deleted out from under an open export panel, say). Stays fully client-side: it's a
+  // read of already-fetched data, no server round trip needed.
   function exportRoute(id) {
-    const c = load();
-    const route = R.findRoute(c.routes, id);
+    const route = R.findRoute(cache.routes, id);
     return route ? JSON.stringify(R.serializeRoute(route), null, 2) : null;
   }
 
-  // The reverse of exportRoute: parses `text`, and on success adds it as a brand-new route (fresh
-  // id, fresh waypoint ids, name deduped against what's already here, progress reset to 0 — an
-  // imported route always starts unflown, even if it was exported mid-flight) and makes it active.
-  // Returns the new route, or null if `text` didn't parse as a route (waypoints-store.js has no UI
-  // of its own to report that through — wpt.js's import panel shows the failure).
-  function importRoute(text) {
-    const parsed = R.parseRouteJSON(text);
-    if (!parsed) return null;
-    const c = load();
-    const route = {
-      id: freshId('r_'),
-      name: R.uniqueRouteName(c.routes, parsed.name || freshRouteName()),
-      nextIndex: 0,
-      waypoints: parsed.waypoints.map(w => ({ id: freshId('w_'), name: w.name, x: w.x, z: w.z })),
-    };
-    c.routes = R.addRoute(c.routes, route);
-    c.activeRouteId = route.id;
-    save(c);
-    return route;
-  }
-
-  function deleteRoute(id) {
-    const c = load();
-    c.routes = R.deleteRoute(c.routes, id);
-    if (c.activeRouteId === id) c.activeRouteId = c.routes.length ? c.routes[0].id : null;
-    save(c);
-  }
-
-  function withActiveRoute(mutate) {
-    const c = load();
-    const route = R.findRoute(c.routes, c.activeRouteId);
-    if (!route) return null;
-    const updated = mutate(route);
-    c.routes = c.routes.map(r => (r.id === updated.id ? updated : r));
-    save(c);
-    return updated;
-  }
-
-  // Creates a default route on first-ever placement, so a long-press works before any visit to WPT.
-  // A placed waypoint gets no default name — WPT shows it by its position number alone (the
-  // "1. 2. 3." list index already identifies it); the pilot can name it later if they want to.
-  function addWaypointToActive(x, z, name) {
-    let c = load();
-    if (!c.activeRouteId || !R.findRoute(c.routes, c.activeRouteId)) {
-      const route = { id: freshId('r_'), name: R.uniqueRouteName(c.routes, freshRouteName()), nextIndex: 0, waypoints: [] };
-      c.routes = R.addRoute(c.routes, route);
-      c.activeRouteId = route.id;
-      save(c);
-    }
-    return withActiveRoute(route => R.addWaypoint(route, {
-      id: freshId('w_'), name: name || '', x, z,
-    }));
-  }
-
-  function renameWaypoint(index, name) { return withActiveRoute(route => R.renameWaypoint(route, index, name)); }
-  function removeWaypoint(index)       { return withActiveRoute(route => R.removeWaypoint(route, index)); }
-  function reorderWaypoint(from, to)   { return withActiveRoute(route => R.reorderWaypoint(route, from, to)); }
-
-  // Rewind the active route's progress to `index` — that waypoint becomes NEXT again, and it (plus
-  // everything after it) counts as not-reached. A per-waypoint "reset" button's action.
-  function resetWaypoint(index) { return withActiveRoute(route => R.resetProgress(route, index)); }
-
-  // MAP's W+/W- (issue #38): manually step the active route's "next" waypoint by one, without
-  // waiting to fly into proximity range. Just resetProgress by nextIndex+dir — resetProgress already
-  // clamps to [0, waypoints.length], so stepping past either end simply holds at the boundary.
-  function stepWaypoint(dir) { return withActiveRoute(route => R.resetProgress(route, route.nextIndex + dir)); }
-
-  // Reset an ENTIRE route's progress back to its start — a per-route "reset" button's action. Takes
-  // an explicit id (not just the active route) since every row in the route list gets this button,
-  // not only the currently-active one.
-  function resetRoute(id) {
-    const c = load();
-    c.routes = c.routes.map(r => (r.id === id ? R.resetProgress(r, 0) : r));
-    save(c);
-  }
-
-  function advanceIfNear(ownX, ownZ, thresholdM) {
-    const c = load();
-    const route = R.findRoute(c.routes, c.activeRouteId);
-    if (!route) return { advanced: false, route: null };
-    const out = R.advanceIfNear(route, ownX, ownZ, thresholdM);
-    if (out.advanced) {
-      c.routes = c.routes.map(r => (r.id === out.route.id ? out.route : r));
-      save(c);
-    }
-    return out;
-  }
-
   const api = {
-    STORE_KEY, freshRouteName,
-    load, save, getActiveRoute, setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute,
-    addWaypointToActive, renameWaypoint, removeWaypoint, reorderWaypoint, advanceIfNear,
+    freshRouteName,
+    load, poll, getActiveRoute, hasRoutes, setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute, clearRoutes,
+    addWaypointToActive, renameWaypoint, removeWaypoint, reorderWaypoint,
     resetWaypoint, resetRoute, stepWaypoint, exportRoute, importRoute,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

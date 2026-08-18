@@ -157,10 +157,12 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
-- **MDT** (Mission Data Table) — a four-way switch: BDF/PAL are read-only replicas of the game's faction Forces panel, one per fixed identity (BOSCALI/PRIMEVA) — warheads, score, and funds, plus a ships/buildings/vehicles/aircraft breakdown. MIS shows the mission's name, in-mission clock/duration, escalation score/level, and full description text. OBJ lists the player faction's currently active objectives with status, completion percent, and collapsible per-objective position sub-rows (grid label + live range).
+- **MDT** (Mission Data Table) — a five-way switch, landing on **AKF** by default: a live replica of the game's own kill-feed ticker, split into an ALL column (everyone's kills) and a PLAYER column (yours — weapon name attached where resolvable, plus "incoming" lines when you're the one shot down or your own ordnance gets intercepted), with session kill tally, funds gained/spent, and your current rank below. **BDF/PAL** are read-only replicas of the game's faction Forces panel, one per fixed identity (BOSCALI/PRIMEVA) — warheads, score, and funds, plus a ships/buildings/vehicles/aircraft breakdown. **MIS** shows the mission's name, in-mission clock/duration, escalation score/level, and full description text. **OBJ** lists the player faction's currently active objectives with status, completion percent, and collapsible per-objective position sub-rows (grid label + live range).
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![AKF page](docs/images/AKF.png)
 
   ![BDF page](docs/images/BDF.png)
 
@@ -228,11 +230,19 @@ pilot, with HOTAS-friendly keybinds to match.
 
 - **WPT** — plot custom waypoints on **MAP** (long-press a spot to drop one into the active
   route) and chain them into an ordered route. The WPT page lists every route (create, rename,
-  delete, switch active) and the active route's waypoints (rename, reorder, delete, or reset
-  progress back to any waypoint), with a distance/bearing readout and a relative-bearing compass
-  to the next one that auto-advances as you approach it. Routes persist across reloads. IMPORT and
-  each route's own export button turn a route into pasteable JSON, so you can back one up or hand
-  it to another pilot.
+  delete, click to activate — click the active one again to deactivate it, leaving it saved but
+  unassigned) and the active route's waypoints (rename, reorder, delete, or reset progress back to
+  any waypoint), with a distance/bearing readout and a relative-bearing compass to the next one
+  that auto-advances as you approach it. CLEAR wipes every route at once. Routes are stored by the
+  mod itself, not any one browser — the same routes show on every connected display (PC, tablet,
+  phone), survive a full game restart, and advance whether or not the WPT page is even open.
+  IMPORT and each route's own export button turn a route into pasteable JSON, so you can back one
+  up or hand it to another pilot.
+
+  The active waypoint also shows on the **in-game HUD**: an amber bug rides the game's own heading
+  tape at the waypoint's bearing, with a `WPT n · NAME` / distance · bearing readout beside it. Past
+  ±45° of the nose — the tape only spans 90° — the bug becomes a sideways arrow pinned at the edge
+  it left, pointing the way to turn. It shows whenever a route is active.
 
   <details>
   <summary>$\color{green}\textsf{Show screenshot}$</summary>
@@ -312,7 +322,8 @@ Multi-stick HOTAS setups are supported; each bind remembers which stick it came 
   as outlines on the WPN page.
 - **Follow / Zoom In / Zoom Out / Next Route / Previous Route / Next Waypoint / Previous Waypoint** —
   direct binds for what the bezel's FLW, Z+/Z−, R+/R− and W+/W− keys already do on the focused MAP
-  display.
+  or WPT display. Next/Previous Route stay usable to switch INTO a route as long as one is saved,
+  even with none currently active.
 - **Cursor Up / Down / Left / Right / Select**, plus two HOTAS axis binds (horizontal/vertical) —
   drive the [PAD cursor](#pad-cursor) below.
 - **Next Target / Previous Target** — step a highlighted row through the focused TGT display's

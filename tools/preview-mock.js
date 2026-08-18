@@ -280,6 +280,13 @@
         { targets: window.__PREVIEW_FRAME__.targets || DEFAULT_FRAME.targets })
     : DEFAULT_FRAME;
 
+  // RWR/RDR always use the curated synthetic scenario below, even when a real capture supplies its
+  // own — a live capture's rwr/rdr is whatever sparse handful of contacts happened to be nearby at
+  // capture time, a much weaker demo than the authored one (deliberate bearing/range spread, mixed
+  // lock states). Drop whatever the capture carried so the fallback logic further down always fires.
+  delete FRAME.rwr;
+  delete FRAME.rdr;
+
   // Preview-only: pad the loadout to 6 weapons so the WPN page paginates in both layouts —
   // full view (5 per page → 5 + 1) and the split pane (WPN_SPLIT_MAX=4 → 4 + 2). These
   // synthetic rows have no captured weapon icon, so the single-pane selected-weapon image
@@ -302,7 +309,7 @@
   // so they land at the intended bearings/ranges whether the frame is the synthetic one above
   // or a real capture (which carries a different world/hdg). This also round-trips the real
   // wire shape: we emit x,z + tr/pw, and ClientPage converts it right back to az + radius.
-  // A real capture that already includes its own `rwr` is left untouched.
+  // Always applied — see the `delete FRAME.rwr` above.
   const SYNTH_RWR = [
     { az: 28,  pw: 0.66, tr: 2, n: 'SA-10',  k: 1, period: 2.4 },   // lock,   close, ground-SAM
     { az: 104, pw: 0.40, tr: 1, n: 'SA-11',  k: 1, period: 1.6 },   // track,  mid
@@ -322,7 +329,8 @@
   // Synthetic RDR block for the radar page (docs/rdr-page.md): air contacts the own radar
   // "detects", authored as nose-relative bearing (az), range fraction (rf), travel heading
   // relative to nose (rh, for the velocity stub) and lock flag (tg), converted to the plugin's
-  // wire shape (world x,z + world hdg + present/range/cone). A real capture's own `rdr` is kept.
+  // wire shape (world x,z + world hdg + present/range/cone). Always applied — see the
+  // `delete FRAME.rdr` above.
   const SYNTH_RDR = [
     { az: -20, rf: 0.35, rh: 190, tg: 1, rd: 1, dl: 1, n: 'FS-20 Vortex', alt: 5500 },   // locked, both
     { az:  25, rf: 0.52, rh: 205, tg: 1, rd: 1, dl: 0, n: 'KR-67 Ifrit',  alt: 7200 },   // locked, radar-only

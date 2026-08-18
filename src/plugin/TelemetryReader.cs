@@ -91,6 +91,17 @@ namespace NOXMFD
         private ObjEntry[] _obj = Array.Empty<ObjEntry>();
         private readonly List<MissionPosition.PositionResult> _objPosScratch = new List<MissionPosition.PositionResult>();
 
+        // AKF advanced kill feed (docs/akf-page.md). Kill events accumulate on AkfTracker in real
+        // time via Harmony hooks (HarmonyPatches.cs); this just snapshots its state at the same 1 Hz
+        // cadence BDF/MIS/OBJ already refresh at — kill-feed lines and session tallies don't need to
+        // be re-serialized every 100ms.
+        private readonly AkfTracker _akf = new AkfTracker();
+        private AkfKillEntry[] _akfAll    = Array.Empty<AkfKillEntry>();
+        private AkfKillEntry[] _akfPlayer = Array.Empty<AkfKillEntry>();
+        private int   _akfKillsAircraft, _akfKillsShip, _akfKillsVehicle, _akfKillsBuilding;
+        private int   _akfRank;
+        private float _akfFundsGained, _akfFundsSpent;
+
         // The game's HUD faction colors, read once from GameAssets.
         private string _colFriendly = "#39ff14";
         private string _colHostile  = "#ff4040";
@@ -139,6 +150,13 @@ namespace NOXMFD
         // no extra enumeration source is needed. Reused buffer, same reasoning as _mwBuf.
         private readonly List<PitbullContact> _pitbullBuf = new List<PitbullContact>(4);
 
+        // Publishes _akf so the Harmony kill/weapon-attribution patches (HarmonyPatches.cs) — static,
+        // with no other way to reach the live mission's tracker — can record into it.
+        private void Awake()
+        {
+            AkfTracker.Active = _akf;
+        }
+
         private void Update()
         {
             float dt = Time.deltaTime;
@@ -156,6 +174,15 @@ namespace NOXMFD
                 // HUD OPTIONS snapshot for the /hud-options endpoint. Main thread, and cheap; options
                 // change only on a toggle, so 1 Hz is ample. Kept out of PushSnapshot's fast path.
                 TelemetryServer.RefreshHudOptions();
+                // Waypoint route proximity-advance (docs/hud-waypoint-indicator.md) — the plugin now
+                // ticks this itself regardless of which page any browser has open, unlike the old
+                // browser-side check that only ran while the WPT page happened to be visible. 1 Hz is
+                // ample against a 1000m advance radius at combat-aircraft speeds.
+                if (GameManager.GetLocalAircraft(out Aircraft advanceAc) && advanceAc != null)
+                {
+                    Vector3 advanceWorld = advanceAc.transform.position - Datum.originPosition;
+                    RouteStore.AdvanceIfNear(advanceWorld.x, advanceWorld.z);
+                }
             }
 
             if (_fastTimer >= FastInterval)
@@ -239,6 +266,30 @@ namespace NOXMFD
             BuildPal();
             BuildMis();
             BuildObj();
+            BuildAkf();
+        }
+
+        // AKF advanced kill feed (docs/akf-page.md) — snapshots AkfTracker's live, Harmony-fed state.
+        private void BuildAkf()
+        {
+            _akf.TickFunds();
+            _akf.TickRank();
+            _akfAll            = ToArray(_akf.AllFeed);
+            _akfPlayer         = ToArray(_akf.PlayerFeed);
+            _akfKillsAircraft  = _akf.KillsAircraft;
+            _akfKillsShip      = _akf.KillsShip;
+            _akfKillsVehicle   = _akf.KillsVehicle;
+            _akfKillsBuilding  = _akf.KillsBuilding;
+            _akfRank           = _akf.Rank;
+            _akfFundsGained    = _akf.FundsGained;
+            _akfFundsSpent     = _akf.FundsSpent;
+        }
+
+        private static AkfKillEntry[] ToArray(IReadOnlyList<AkfKillEntry> list)
+        {
+            var arr = new AkfKillEntry[list.Count];
+            for (int i = 0; i < list.Count; i++) arr[i] = list[i];
+            return arr;
         }
 
         // MIS mission-info panel (docs/mdt-pages.md) — mirrors ObjectiveInfoList.UpdateMissionInfo /
@@ -833,7 +884,16 @@ namespace NOXMFD
                 MisScore       = _misScore,
                 MisLevel       = _misLevel,
                 ObjPresent     = _objPresent,
-                Obj            = _obj
+                Obj            = _obj,
+                AkfAll             = _akfAll,
+                AkfPlayer          = _akfPlayer,
+                AkfKillsAircraft   = _akfKillsAircraft,
+                AkfKillsShip       = _akfKillsShip,
+                AkfKillsVehicle    = _akfKillsVehicle,
+                AkfKillsBuilding   = _akfKillsBuilding,
+                AkfRank            = _akfRank,
+                AkfFundsGained     = _akfFundsGained,
+                AkfFundsSpent      = _akfFundsSpent
             });
         }
 
@@ -1005,7 +1065,7 @@ namespace NOXMFD
                 float pw;
                 if (em.Range > 0f)
                 {
-                    float dist = Vector3.Distance(player.transform.position, u.transform.position);
+                    float dist = Vector3.Distance(player.transform.position - Datum.originPosition, u.transform.position - Datum.originPosition);
                     pw = Mathf.Clamp01(1f - dist / em.Range);
                 }
                 else
@@ -1304,6 +1364,7 @@ namespace NOXMFD
         {
             _tgp.Disengage();
             if (_rwrSubscribed != null) { _rwrSubscribed.onRadarWarning -= OnRadarWarning; _rwrSubscribed = null; }
+            if (AkfTracker.Active == _akf) AkfTracker.Active = null;
         }
     }
 }

@@ -1,0 +1,131 @@
+/* AKF page — advanced kill feed (issue #34, docs/akf-page.md). Green-phosphor MFD theme via the
+   shared --no-* tokens; no interaction. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; height: 100%;
+  background: var(--no-bg);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+}
+
+.akf-panel {
+  height: 100%;
+  display: flex; flex-direction: column;
+  gap: clamp(4px, 1.2vh, 10px);
+  padding: clamp(6px, 1.8vmin, 16px);
+  /* Extra side inset for the shell's vertical MAIN/MDT bezel label — matches BDF/MIS/OBJ's own
+     inset (isVmainPage). */
+  padding-left: clamp(34px, 5vw, 48px);
+  padding-right: clamp(34px, 5vw, 48px);
+}
+.akf-header {
+  text-align: center;
+  border-bottom: 1px solid var(--no-green-dark);
+  padding-bottom: clamp(2px, 0.8vh, 6px);
+  font-size: clamp(14px, 2.6vmin, 22px);
+  letter-spacing: 0.1em;
+}
+
+.akf-section-label {
+  font-size: clamp(9px, 1.4vmin, 12px);
+  letter-spacing: 0.12em;
+  color: var(--no-green-dim);
+  border-bottom: 1px solid var(--no-green-dark);
+  padding-bottom: 3px;
+  margin-bottom: 4px;
+}
+
+/* ALL (left, wider) / PLAYER (right) — growing downward, newest line at the bottom (see akf.js). */
+.akf-feeds {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: clamp(8px, 2vw, 20px);
+}
+.akf-feed {
+  min-width: 0;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--no-green-dark);
+  padding-right: clamp(8px, 2vw, 20px);
+}
+.akf-feed:last-child { border-right: none; padding-right: 0; }
+
+.akf-feed-lines {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+  justify-content: flex-end;
+  gap: clamp(3px, 0.7vh, 6px);
+  font-size: clamp(11px, 1.9vmin, 15px);
+  line-height: 1.35;
+}
+.akf-feed-lines::-webkit-scrollbar { width: 6px; }
+.akf-feed-lines::-webkit-scrollbar-track { background: transparent; }
+.akf-feed-lines::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
+
+/* flex-shrink: 0 — overflow:hidden (for the ellipsis) otherwise zeroes out this flex item's
+   automatic minimum size, so a crowded feed compresses every line far below its text height
+   instead of letting .akf-feed-lines scroll, and the overflowing text visually overlaps its
+   neighbors. */
+.akf-line { flex: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* PLAYER-feed "incoming" line — player was killed, or their own fired munition got intercepted.
+   Left accent only; the line's own attacker/victim coloring already carries hostility. */
+.akf-incoming { border-left: 2px solid var(--no-red); padding-left: 4px; }
+.akf-friendly { color: var(--no-blue); }
+.akf-hostile  { color: var(--no-red); }
+.akf-verb { color: var(--no-white-dim); }
+.akf-with { color: var(--no-white-dim); }
+.akf-weapon { color: var(--no-green-dim); }
+
+.akf-stats {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: clamp(6px, 1.6vw, 16px);
+  padding-top: clamp(4px, 1vh, 8px);
+  border-top: 1px solid var(--no-green-dark);
+}
+
+.akf-card {
+  display: flex; flex-direction: column;
+  min-width: 0;
+}
+
+.akf-kills-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+}
+.akf-kill-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: clamp(10px, 1.7vmin, 13px);
+}
+.akf-kill-type { color: var(--no-green-dim); }
+.akf-kill-count { color: var(--no-green); font-variant-numeric: tabular-nums; }
+
+.akf-funds-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-size: clamp(11px, 1.8vmin, 14px);
+  padding: 2px 0;
+}
+.akf-funds-label { color: var(--no-green-dim); }
+.akf-funds-gain { color: var(--no-green); font-variant-numeric: tabular-nums; }
+.akf-funds-spend { color: var(--no-red); font-variant-numeric: tabular-nums; }
+.akf-funds-net { border-top: 1px solid var(--no-green-dark); margin-top: 4px; padding-top: 4px; }
+.akf-funds-net .akf-funds-label { color: var(--no-white-dim); }
+.akf-funds-net .akf-funds-gain { color: var(--no-white); }
+
+.akf-value-figure {
+  font-size: clamp(20px, 4vmin, 30px);
+  color: var(--no-amber);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  padding-top: clamp(6px, 1.6vh, 14px);
+}

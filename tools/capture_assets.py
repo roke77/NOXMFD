@@ -7,6 +7,8 @@ Run this WHILE Nuclear Option is running with a mission loaded and you are flyin
 mod). It pulls, from http://localhost:5005:
 
   • one real telemetry frame  (/stream)         → the static scenario
+                                                   (includes AKF's kill feed/rank/funds, live —
+                                                   score a few kills first if you want it populated)
   • the map image             (/map)            → assets/map.png
   • each unit type's icon      (/icon?type=...)  → assets/icon_*.png
   • each weapon's icon         (/weapon?name=..) → assets/weapon_*.png
@@ -82,6 +84,17 @@ def main():
     # wipe the previous good one, leaving the preview with nothing to render.
     frame = grab_frame()
     print(f"\nCaptured frame: {frame.get('name')}  —  {frame.get('mapName')} / {frame.get('mission')}")
+
+    # AKF (docs/akf-page.md) rides the same /stream frame as everything else — no separate capture
+    # step needed, preview-mock.js already forwards frame['akf'] verbatim. But it's a snapshot of
+    # whatever's accumulated in the CURRENT mission by capture time, so an early capture just means
+    # an empty feed — flag that here instead of leaving it a silent, confusing blank page in preview.
+    akf = frame.get("akf") or {}
+    akf_all, akf_player = len(akf.get("all") or []), len(akf.get("player") or [])
+    print(f"  akf     captured  {akf_all} all / {akf_player} player feed lines, rank {akf.get('rank', 0)}")
+    if akf_all == 0:
+        print("  NOTE: AKF feed is empty — score/take a few kills in-game, then capture again if you"
+              " want the AKF page preview populated.")
 
     # We've confirmed the game is reachable — safe to clear stale assets now.
     for old in ASSETS.glob("*.png"):

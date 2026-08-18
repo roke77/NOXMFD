@@ -8,7 +8,7 @@
 // the next one is caught here instead.
 const assert = require('assert');
 const { NAV } = require('../nav-model.js');
-const { SPLIT_SLOTS, MAP_SPLIT_ORDER, MAP_ROUTE_ACTIONS, mapSplitOrder,
+const { SPLIT_SLOTS, MAP_SPLIT_ORDER, MAP_SPLIT_ORDER_V, MAP_ROUTE_ACTIONS, MAP_WAYPOINT_ACTIONS, mapSplitOrder,
         MAP_FULL_LEFT, MAP_FULL_RIGHT, mapFullRight } = require('./split-slots.js');
 const { mainPageSizes, mainPaneSlice, listPaneLayout } = require('./classic-paging.js');
 
@@ -43,17 +43,25 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
   });
 }
 
-// MAP_SPLIT_ORDER's whole reason to exist (issue #38): mfd.js's mapSplitItems reorders NAV.map for
-// split pagination so the ROUTE (R+/R-), WYPT (W+/W-) and ZOOM (Z+/Z-) decorator pairs each land on
-// the SAME paginated page — placeMapPaneDecorator only draws a decorator when both of its keys are
-// visible together. In NAV.map's own full-view order the fixed 5-then-5 page split falls INSIDE the
-// R+/R- pair, so the ROUTE decorator could never render at all until this reordering fixed it. The
-// checkOrder() helper below pins that down directly for both mapSplitOrder(hasRoute) cases, so a
-// future NAV.map or split-slots.js edit that breaks either fails here instead of shipping a
-// decorator (or a whole pane's worth of dead keys) nobody will ever see again.
+// MAP_SPLIT_ORDER/MAP_SPLIT_ORDER_V's whole reason to exist (issue #38, WPT-leads-in-v-split
+// follow-up): mfd.js's mapSplitItems reorders NAV.map for split pagination so the ROUTE (R+/R-),
+// WYPT (W+/W-) and ZOOM (Z+/Z-) decorator pairs each land on the SAME paginated page —
+// placeMapPaneDecorator only draws a decorator when both of its keys are visible together. In
+// NAV.map's own full-view order the fixed 5-then-5 page split falls INSIDE the R+/R- pair, so the
+// ROUTE decorator could never render at all until this reordering fixed it. An 'h' split additionally
+// splits page 2's items across a left/right BANK boundary (2 slots then 3), which a pair must not
+// straddle — 'v'/'vw' have no such boundary (one column), so WPT can lead there instead. The
+// checkOrder() helper below pins both orders down directly for every mapSplitOrder(variant,
+// hasRoutes, hasActiveRoute) case, so a future NAV.map or split-slots.js edit that breaks any of
+// them fails here instead of shipping a decorator (or a whole pane's worth of dead keys) nobody
+// will ever see again.
 {
   assert.deepStrictEqual(MAP_SPLIT_ORDER.slice().sort(), NAV.map.map(i => i.action).sort(),
     'MAP_SPLIT_ORDER must contain exactly NAV.map\'s actions — a NAV.map item added/removed here has no matching update');
+  assert.deepStrictEqual(MAP_SPLIT_ORDER_V.slice().sort(), NAV.map.map(i => i.action).sort(),
+    'MAP_SPLIT_ORDER_V must contain exactly NAV.map\'s actions — a NAV.map item added/removed here has no matching update');
+  assert.deepStrictEqual(MAP_SPLIT_ORDER_V, ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev'],
+    'MAP_SPLIT_ORDER_V should lead page 2 with WPT ahead of R+/R-/W+/W- (v/vw split has no bank boundary to straddle)');
 
   const byAction = {};
   NAV.map.forEach(item => { byAction[item.action] = item; });
@@ -109,13 +117,19 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
     return { assertSamePagePair, assertAdjacentPair };
   }
 
-  // With an active route: all 10 items, all three pairs must survive pagination.
-  {
-    const { assertSamePagePair, assertAdjacentPair } = checkOrder(mapSplitOrder(true), 'hasRoute');
+  // mapSplitOrder is variant-aware now (WPT-leads-in-v-split follow-up): 'h' gets MAP_SPLIT_ORDER
+  // (bank-safe), 'v'/'vw' both get MAP_SPLIT_ORDER_V (WPT-first) — checked against their own real
+  // pane layouts only, since MAP_SPLIT_ORDER_V would legitimately fail 'h''s bank-adjacency check.
+  const VARIANT_GROUPS = [['h'], ['v', 'vw']];
+
+  // With an active route (routes exist AND one is active): all 10 items, all three pairs must
+  // survive pagination, in both variant groups.
+  for (const variants of VARIANT_GROUPS) {
+    const { assertSamePagePair, assertAdjacentPair } = checkOrder(mapSplitOrder(variants[0], true, true), `hasActiveRoute(${variants[0]})`);
     assertSamePagePair('rt-next', 'rt-prev', 'ROUTE');
     assertSamePagePair('wpt-next', 'wpt-prev', 'WYPT');
     assertSamePagePair('zin', 'zout', 'ZOOM');
-    for (const variant of ['h', 'v', 'vw']) {
+    for (const variant of variants) {
       for (const paneIdx of [0, 1]) {
         assertAdjacentPair('rt-next', 'rt-prev', 'ROUTE', variant, paneIdx);
         assertAdjacentPair('wpt-next', 'wpt-prev', 'WYPT', variant, paneIdx);
@@ -124,20 +138,47 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
     }
   }
 
-  // With no active route: R+/R-/W+/W- filter out entirely (mfd.js's showPage 'map' branch drops
-  // them from full view for the same reason) — this pins the resulting 6-item list down exactly, so
-  // it stays MAIN/GRID/FLW/Z+/Z- then WPT, the same grouping full view's MAP_FULL_LEFT/RIGHT use,
-  // and confirms it fits a split pane's 6-key budget with no pagination at all.
+  // Routes exist but none is active: R+/R- stay (there's something to cycle INTO), W+/W- filter out
+  // (nothing active to step) — the deactivate-follow-up case, in both variant groups.
   {
-    const order = mapSplitOrder(false);
-    assert.deepStrictEqual(order, ['main', 'grid', 'flw', 'zin', 'zout', 'wpt'],
-      'mapSplitOrder(false) should be MAIN/GRID/FLW/Z+/Z- then WPT — the route-dependent actions filtered out entirely');
-    for (const action of order)
-      assert.ok(!MAP_ROUTE_ACTIONS.has(action), `mapSplitOrder(false) should never include route action '${action}'`);
+    const orderH = mapSplitOrder('h', true, false);
+    assert.deepStrictEqual(orderH, ['main', 'grid', 'flw', 'zin', 'zout', 'rt-next', 'rt-prev', 'wpt'],
+      "mapSplitOrder('h', true, false) should keep R+/R- but drop W+/W- — a route is saved but none is active");
+    const orderV = mapSplitOrder('v', true, false);
+    assert.deepStrictEqual(orderV, ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'rt-next', 'rt-prev'],
+      "mapSplitOrder('v', true, false) should lead with WPT, keep R+/R-, drop W+/W-");
+    for (const [order, variants] of [[orderH, ['h']], [orderV, ['v', 'vw']]]) {
+      for (const action of order)
+        assert.ok(!MAP_WAYPOINT_ACTIONS.has(action), `mapSplitOrder(..., true, false) should never include waypoint action '${action}'`);
+      const { assertSamePagePair, assertAdjacentPair } = checkOrder(order, `hasRoutesNoneActive(${variants[0]})`);
+      assertSamePagePair('rt-next', 'rt-prev', 'ROUTE');
+      assertSamePagePair('zin', 'zout', 'ZOOM');
+      for (const variant of variants) {
+        for (const paneIdx of [0, 1]) {
+          assertAdjacentPair('rt-next', 'rt-prev', 'ROUTE', variant, paneIdx);
+          assertAdjacentPair('zin', 'zout', 'ZOOM', variant, paneIdx);
+        }
+      }
+    }
+  }
 
-    const { assertSamePagePair, assertAdjacentPair } = checkOrder(order, 'noRoute');
+  // No routes saved at all: R+/R-/W+/W- both filter out entirely (mfd.js's showPage 'map' branch
+  // drops them from full view for the same reason) — this pins the resulting 6-item list down
+  // exactly, so it stays MAIN/GRID/FLW/Z+/Z- then WPT (the same regardless of variant, since WPT is
+  // the only survivor either way), the same grouping full view's MAP_FULL_LEFT/RIGHT use, and
+  // confirms it fits a split pane's 6-key budget with no pagination.
+  for (const variants of VARIANT_GROUPS) {
+    const order = mapSplitOrder(variants[0], false, false);
+    assert.deepStrictEqual(order, ['main', 'grid', 'flw', 'zin', 'zout', 'wpt'],
+      `mapSplitOrder('${variants[0]}', false, false) should be MAIN/GRID/FLW/Z+/Z- then WPT — every route-dependent action filtered out`);
+    for (const action of order) {
+      assert.ok(!MAP_ROUTE_ACTIONS.has(action), `mapSplitOrder(false, false) should never include route action '${action}'`);
+      assert.ok(!MAP_WAYPOINT_ACTIONS.has(action), `mapSplitOrder(false, false) should never include waypoint action '${action}'`);
+    }
+
+    const { assertSamePagePair, assertAdjacentPair } = checkOrder(order, `noRoutes(${variants[0]})`);
     assertSamePagePair('zin', 'zout', 'ZOOM');
-    for (const variant of ['h', 'v', 'vw']) {
+    for (const variant of variants) {
       for (const paneIdx of [0, 1]) {
         assertAdjacentPair('zin', 'zout', 'ZOOM', variant, paneIdx);
       }
@@ -162,12 +203,16 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
   assert.deepStrictEqual(MAP_FULL_LEFT.concat(MAP_FULL_RIGHT).sort(), NAV.map.map(i => i.action).sort(),
     'MAP_FULL_LEFT + MAP_FULL_RIGHT together must contain exactly NAV.map\'s actions');
 
-  assert.deepStrictEqual(mapFullRight(true), MAP_FULL_RIGHT,
-    'mapFullRight(true) should be the full WPT/R+/R-/W+/W- column — nothing filtered while a route is active');
-  assert.deepStrictEqual(mapFullRight(false), ['wpt'],
-    'mapFullRight(false) should collapse to WPT alone — R+/R-/W+/W- are dead keys with no active route');
-  for (const action of mapFullRight(false))
-    assert.ok(!MAP_ROUTE_ACTIONS.has(action), `mapFullRight(false) should never include route action '${action}'`);
+  assert.deepStrictEqual(mapFullRight(true, true), MAP_FULL_RIGHT,
+    'mapFullRight(true, true) should be the full WPT/R+/R-/W+/W- column — nothing filtered while a route is active');
+  assert.deepStrictEqual(mapFullRight(true, false), ['wpt', 'rt-next', 'rt-prev'],
+    'mapFullRight(true, false) should keep WPT/R+/R- but drop W+/W- — a route is saved but none is active');
+  assert.deepStrictEqual(mapFullRight(false, false), ['wpt'],
+    'mapFullRight(false, false) should collapse to WPT alone — no routes saved at all means R+/R-/W+/W- are all dead keys');
+  for (const action of mapFullRight(false, false)) {
+    assert.ok(!MAP_ROUTE_ACTIONS.has(action), `mapFullRight(false, false) should never include route action '${action}'`);
+    assert.ok(!MAP_WAYPOINT_ACTIONS.has(action), `mapFullRight(false, false) should never include waypoint action '${action}'`);
+  }
 }
 
 console.log('split-slots.test.js: OK');

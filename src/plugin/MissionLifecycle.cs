@@ -48,6 +48,7 @@ namespace NOXMFD
             _readerObject  = new GameObject("NOXMFD_Runner");
             _readerObject.AddComponent<TelemetryReader>();
             _readerObject.AddComponent<HudDeclutter>();   // hides native HUD elements per HudDeclutterConfig
+            _readerObject.AddComponent<HudWaypointCue>(); // draws the waypoint bug on the heading tape
             Plugin.Log?.LogInfo("Mission started -> telemetry reader ON.");
         }
 

@@ -49,38 +49,51 @@
       { label: 'R-',   action: 'rng-out' }, // → step the displayed range DOWN (smaller range number)
     ],
     tgt: [ { label: 'MAIN', action: 'main' } ],
-    // BDF, PAL, MIS and OBJ fold under one MAIN destination (MDT — BEZEL_EXTRAS.main, action still
-    // 'bdf' so it lands on this same list) rather than four separate items: each carries the other
-    // three as a direct switch, plus the way back, with `mark` on whichever one is current
-    // (docs/mdt-pages.md). mfd.js's generic sweep (full view) and renderSplitLabels' static-nav
-    // branch (split) both honor `mark`.
-    bdf: [
+    // AKF, BDF, PAL, MIS and OBJ fold under one MAIN destination (MDT — BEZEL_EXTRAS.main, action
+    // 'akf' so it lands on this list, on AKF specifically) rather than five separate items: each
+    // carries the other four as a direct switch, plus the way back, with `mark` on whichever one is
+    // current (docs/mdt-pages.md). mfd.js's generic sweep (full view) and renderSplitLabels'
+    // static-nav branch (split) both honor `mark`. Order is AKF, MIS, OBJ, BDF, PAL (issue #34) —
+    // AKF leads and is MDT's default landing page.
+    akf: [
       { label: 'MAIN', action: 'main' },
-      { label: 'BDF',  action: 'bdf', mark: true },
-      { label: 'PAL',  action: 'pal' },
+      { label: 'AKF',  action: 'akf', mark: true },
       { label: 'MIS',  action: 'mis' },
       { label: 'OBJ',  action: 'obj' },
-    ],
-    pal: [
-      { label: 'MAIN', action: 'main' },
       { label: 'BDF',  action: 'bdf' },
-      { label: 'PAL',  action: 'pal', mark: true },
-      { label: 'MIS',  action: 'mis' },
-      { label: 'OBJ',  action: 'obj' },
+      { label: 'PAL',  action: 'pal' },
     ],
     mis: [
       { label: 'MAIN', action: 'main' },
-      { label: 'BDF',  action: 'bdf' },
-      { label: 'PAL',  action: 'pal' },
+      { label: 'AKF',  action: 'akf' },
       { label: 'MIS',  action: 'mis', mark: true },
       { label: 'OBJ',  action: 'obj' },
+      { label: 'BDF',  action: 'bdf' },
+      { label: 'PAL',  action: 'pal' },
     ],
     obj: [
       { label: 'MAIN', action: 'main' },
-      { label: 'BDF',  action: 'bdf' },
-      { label: 'PAL',  action: 'pal' },
+      { label: 'AKF',  action: 'akf' },
       { label: 'MIS',  action: 'mis' },
       { label: 'OBJ',  action: 'obj', mark: true },
+      { label: 'BDF',  action: 'bdf' },
+      { label: 'PAL',  action: 'pal' },
+    ],
+    bdf: [
+      { label: 'MAIN', action: 'main' },
+      { label: 'AKF',  action: 'akf' },
+      { label: 'MIS',  action: 'mis' },
+      { label: 'OBJ',  action: 'obj' },
+      { label: 'BDF',  action: 'bdf', mark: true },
+      { label: 'PAL',  action: 'pal' },
+    ],
+    pal: [
+      { label: 'MAIN', action: 'main' },
+      { label: 'AKF',  action: 'akf' },
+      { label: 'MIS',  action: 'mis' },
+      { label: 'OBJ',  action: 'obj' },
+      { label: 'BDF',  action: 'bdf' },
+      { label: 'PAL',  action: 'pal', mark: true },
     ],
     hud: [ { label: 'MAIN', action: 'main' } ],   // HUD OPTIONS page — reached via a layout extra, not MAIN
     // CFG (cfg-rates experiment, issue #39) folds KEY, LYT and RTS under one MAIN entry — same

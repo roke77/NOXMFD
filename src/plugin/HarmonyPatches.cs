@@ -1,4 +1,7 @@
+using System;
+using System.Reflection;
 using HarmonyLib;
+using UnityEngine;
 
 namespace NOXMFD
 {
@@ -8,9 +11,24 @@ namespace NOXMFD
     // apply and fire correctly in this BepInEx 5 setup (see the removed probe patch's log line).
     internal static class HarmonyPatches
     {
+        // Patches each nested class individually, rather than PatchAll(Assembly) (issue #34 follow-up):
+        // the AKF kill-feed patch below resolves its target by reflection (a generated method whose
+        // exact name isn't guaranteed stable across a game update — see its own comment), which can
+        // throw at patch-apply time. PatchAll(Assembly) applies every patch class in one pass and a
+        // single failure there can abort the whole pass — this would silently take the pre-existing
+        // radar/engine/master-arms patches down with it. Patching one class at a time, each in its own
+        // try/catch, means a failure stays contained to that one feature.
         internal static void Init()
         {
-            new Harmony("com.roque.NOXMFD").PatchAll(typeof(HarmonyPatches).Assembly);
+            var harmony = new Harmony("com.roque.NOXMFD");
+            foreach (Type patchClass in typeof(HarmonyPatches).GetNestedTypes(BindingFlags.NonPublic | BindingFlags.Static))
+            {
+                try { harmony.CreateClassProcessor(patchClass).Patch(); }
+                catch (Exception e)
+                {
+                    Plugin.Log?.LogWarning($"[NOXMFD] Harmony patch '{patchClass.Name}' failed to apply: {e.Message}");
+                }
+            }
         }
 
         // Radar start state. CONFIRMED (in-game bug report + decompiled-source investigation) that
@@ -77,6 +95,80 @@ namespace NOXMFD
             {
                 if (!GameManager.GetLocalAircraft(out Aircraft local) || !ReferenceEquals(___aircraft, local)) return true;
                 return ImmersionState.MasterArmsOn;
+            }
+        }
+
+        // Kill-feed capture (issue #34, docs/akf-page.md). MessageManager.RpcKillMessage is the
+        // ClientRpc that drives the game's own kill-feed ticker, but the public method only runs on
+        // the sending/host side — a remote client receiving the RPC never calls it, going straight
+        // from the network Skeleton_... reader into the generated UserCode_RpcKillMessage_... method
+        // instead. THAT is the method every observer's kill actually reaches, so it's the patch
+        // target — resolved by name PREFIX rather than the full mangled name, since the numeric
+        // suffix is a Mirage-weaver hash tied to the RPC's signature and isn't guaranteed stable
+        // across a game update. If it can't be found, TargetMethod returns null, Harmony throws when
+        // applying this one patch class, and Init() above logs and moves on — every other patch
+        // (including the two below and the three above) still applies.
+        [HarmonyPatch]
+        private static class MessageManager_RpcKillMessage_Patch
+        {
+            private static MethodBase? TargetMethod()
+            {
+                foreach (MethodInfo m in typeof(MessageManager).GetMethods(
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+                {
+                    if (m.Name.StartsWith("UserCode_RpcKillMessage")) return m;
+                }
+                return null;
+            }
+
+            private static void Postfix(PersistentID killerID, PersistentID killedID, KillType killedType)
+            {
+                AkfTracker.Active?.RecordKill(killerID, killedID, killedType);
+            }
+        }
+
+        // Weapon attribution (issue #34, docs/akf-page.md), best-effort. DamageEffects.BlastFrag
+        // receives the detonating missile's own PersistentID (missileID) alongside the attacking
+        // aircraft's (dealerID) but never uses it — recording it here, before the kill-message patch
+        // above fires, lets a PLAYER-feed kill quote the attacker's last-fired weapon. Per-ATTACKER,
+        // not per-victim — see the doc's "known ceiling" note.
+        [HarmonyPatch(typeof(DamageEffects), nameof(DamageEffects.BlastFrag))]
+        private static class DamageEffects_BlastFrag_Patch
+        {
+            private static void Prefix(PersistentID dealerID, PersistentID missileID)
+            {
+                AkfTracker.Active?.RecordWeaponHit(dealerID, missileID);
+            }
+        }
+
+        // Weapon attribution, part 2 (root-caused after the diagnostic build above). BlastFrag's own
+        // missileID is only correct AFTER an armed missile detonates, but for a pierce-fuze warhead
+        // (the AGM-48's kind — impactFuseDelay == 0) the kill itself happens INSIDE
+        // Missile.PenetrateObject via DamageEffects.ArmorPenetrate, synchronously and before the
+        // missile ever calls Detonate/BlastFrag at all. Worse, a proximity/blast-fuze warhead's own
+        // BlastFrag call is deferred a full physics tick (Missile.ExplosionForceOnPhysicsFrame awaits
+        // WaitForFixedUpdate before calling it) — late enough that a second missile fired moments
+        // later can have its own kill race ahead of the first missile's weapon record. Net effect:
+        // in a salvo, each kill was showing the PREVIOUS missile's weapon (looked right only because
+        // salvos repeat the same weapon type), and the first kill had nothing to borrow at all.
+        //
+        // Fix: record weapon identity at the missile's own terminal-sequence entry points instead —
+        // both run synchronously, before ArmorPenetrate/RpcDetonate/BlastFrag, for every missile kind.
+        [HarmonyPatch(typeof(Missile), "PenetrateObject")]
+        private static class Missile_PenetrateObject_Patch
+        {
+            private static void Prefix(Missile __instance)
+            {
+                AkfTracker.Active?.RecordWeaponHit(__instance.ownerID, __instance.persistentID);
+            }
+        }
+
+        [HarmonyPatch(typeof(Missile), nameof(Missile.Detonate), new[] { typeof(Vector3), typeof(bool), typeof(bool) })]
+        private static class Missile_Detonate_Patch
+        {
+            private static void Prefix(Missile __instance)
+            {
+                AkfTracker.Active?.RecordWeaponHit(__instance.ownerID, __instance.persistentID);
             }
         }
     }

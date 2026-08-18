@@ -110,12 +110,12 @@ function fullViewSlot(i) { return i < 6 ? { bank: 'left', index: i } : { bank: '
 const BEZEL_EXTRAS = {
   // HUD, CFG, MDT, RDR and AFM — the layout-owned MAIN items the six shared NAV items don't
   // cover. HUD opens the HUD OPTIONS #page-frame page; CFG the keybinds page, which now carries
-  // KEY/LYT/RTS as a sibling group (NAV.keys, cfg-rates experiment issue #39 — mirrors MDT/BDF/PAL
-  // below: action stays 'keys', same as MDT staying 'bdf'); MDT (Mission Data Table) the
-  // faction-forces panel for the two fixed identities BOSCALI/PRIMEVA — not "mine vs the enemy's"
-  // (docs/bdf-page.md) — landing on BDF by default, with PAL a switch away via NAV.bdf/NAV.pal
-  // rather than its own MAIN entry; AFM shows the aircraft name + damage silhouette (split out of
-  // AVN, which is avionics only now).
+  // KEY/LYT/RTS as a sibling group (NAV.keys, cfg-rates experiment issue #39 — mirrors MDT's own
+  // sibling group below: action stays 'keys', same as MDT staying 'akf'); MDT (Mission Data Table)
+  // folds AKF/MIS/OBJ/BDF/PAL together — landing on AKF by default (issue #34 follow-up; the other
+  // four are a switch away via NAV.akf/NAV.mis/NAV.obj/NAV.bdf/NAV.pal) rather than its own MAIN
+  // entry; AFM shows the aircraft name + damage silhouette (split out of AVN, which is avionics
+  // only now).
   // All are frame-hosted pages that get their MAIN back from NAV like every other, so none needs an
   // entry of its own here beyond this one.
   // No bank/index/mark here (unlike lyt below): MAIN_SPLIT_ITEMS is the only consumer, in both full
@@ -124,7 +124,7 @@ const BEZEL_EXTRAS = {
   main: [
     { label: 'HUD', action: 'hud' },
     { label: 'CFG', action: 'keys' },
-    { label: 'MDT', action: 'bdf' },
+    { label: 'MDT', action: 'akf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
   ],
@@ -158,13 +158,16 @@ const mapItemByAction = (function () {
 
 // NAV.map's own order for split pagination — deliberately NOT NAV.map's own full-view order (same
 // divergence MAIN_SPLIT_ITEMS already has from full view's own MAIN placement). The order itself
-// (SplitSlots.MAP_SPLIT_ORDER/mapSplitOrder) lives in split-slots.js, tested there against NAV.map
-// directly — see that constant's own comment for why this reordering exists (the ROUTE decorator
-// bug) and why R+/R-/W+/W- filter out entirely with no active route (issue #38 follow-up, mirroring
-// MAP_FULL_RIGHT below). Read live rather than cached at load, same reason MAP_FULL_RIGHT's route
-// check is: the active route can come and go without a page reload.
+// (SplitSlots.MAP_SPLIT_ORDER/MAP_SPLIT_ORDER_V/mapSplitOrder) lives in split-slots.js, tested there
+// against NAV.map directly — see those constants' own comments for why this reordering exists (the
+// ROUTE decorator bug), why 'h' vs 'v'/'vw' get different orders (WPT-leads-in-v-split follow-up:
+// only 'h' has a left/right bank split a pair could straddle), and why R+/R- filter out with no
+// route saved at all while W+/W- filter out with no route ACTIVE (issue #38 follow-up, deactivate
+// follow-up, mirroring MAP_FULL_RIGHT below). Read live rather than cached at load, same reason
+// MAP_FULL_RIGHT's route check is: routes/active route/orientation can all change without a reload.
 function mapSplitItems() {
-  return SplitSlots.mapSplitOrder(!!WaypointsStore.getActiveRoute()).map(function (a) { return mapItemByAction[a]; });
+  const c = WaypointsStore.load();
+  return SplitSlots.mapSplitOrder(splitVariant, c.routes.length > 0, !!WaypointsStore.getActiveRoute()).map(function (a) { return mapItemByAction[a]; });
 }
 
 // MAP's full-view placement (issue #38 follow-up): a fixed 5-left/5-right split instead of the
@@ -172,12 +175,12 @@ function mapSplitItems() {
 // "map view controls" on the left, WPT/R+/R-/W+/W- as "waypoint controls" on the right. The action
 // lists themselves (SplitSlots.MAP_FULL_LEFT/RIGHT) live in split-slots.js, shared with f35.js's own
 // glass placement so the two layouts can't drift apart — see that module's own comment. showPage's
-// 'map' branch conditionally drops rt-next/rt-prev/wpt-next/wpt-prev from the right list (via
-// SplitSlots.mapFullRight) when no route is active — WPT itself always stays, since it's how a pilot
-// gets a route in the first place.
+// 'map' branch conditionally drops rt-next/rt-prev from the right list (via SplitSlots.mapFullRight)
+// when no route is saved at all, and wpt-next/wpt-prev when none is active — WPT itself always
+// stays, since it's how a pilot gets a route in the first place.
 const MAP_FULL_LEFT = SplitSlots.MAP_FULL_LEFT.map(function (a) { return mapItemByAction[a]; });
-function mapFullRight(hasRoute) {
-  return SplitSlots.mapFullRight(hasRoute).map(function (a) { return mapItemByAction[a]; });
+function mapFullRight(hasRoutes, hasActiveRoute) {
+  return SplitSlots.mapFullRight(hasRoutes, hasActiveRoute).map(function (a) { return mapItemByAction[a]; });
 }
 
 // Which pages draw an OPAQUE full-view overlay. MAIN paints a panel over the still-running map, and
@@ -372,11 +375,11 @@ function placeSplitKey(m, label, action, paneTag, mark) {
 // (renderSplitLabels). TGT's RESET FILTER, HUD's mode/category rows, and BDF/PAL/MIS/OBJ's WARHEADS
 // readout are that content — on a narrow display the panel widens to the edge and a horizontal MAIN
 // would sit over that header. All are split-capable.
-// RDR dropped out of this list (issue #40 follow-up): it used to carry only MAIN, cramped enough to
-// need the narrow vertical treatment, but now has MAIN + R+ + R- and reads fine horizontal.
-// KEY dropped out too (cfg-rates experiment, issue #39): the CFG group's nav labels read fine
-// horizontal, per user preference — its table header sits far enough from the bezel edge.
-function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
+// RDR is not in this list (issue #40 follow-up): it carries MAIN + R+ + R- and reads fine
+// horizontal, not cramped enough to need the narrow vertical treatment.
+// KEY is not in this list either (cfg-rates experiment, issue #39): the CFG group's nav labels
+// read fine horizontal, per user preference — its table header sits far enough from the bezel edge.
+function isVmainPage(p) { return p === 'tgt' || p === 'hud' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
@@ -692,7 +695,7 @@ function forwardAfmLayoutToFrame() {
 
 // Shell-drawn NAV label per avn.toggle group (full view only — docs note this is a CLASSIC-bezel
 // pass; split pane keeps its existing label-less wireAvnPaneToggleKeys wiring unchanged), at the
-// same 8 physical keys wireAvnToggleKeysFull used to wire blind: left[1..4] then right[1..4]
+// same 8 physical keys wireAvnToggleKeysFull wires blind: left[1..4] then right[1..4]
 // (left[0] stays MAIN, via the generic full-view NAV sweep in showPage; left[5]/right[0]/right[5]
 // are spare). Clicking still dispatches avn.toggle the same way — this only ADDS a visible label so
 // a bezel key finally says what it does. Plain white text like every other NAV label (no on/off/
@@ -804,6 +807,11 @@ function forwardObjToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage(Object.assign({ mfd: true, type: 'obj' }, objData), '*');
 }
+// Full-view AKF: forward the kill-feed/session-stats block (docs/akf-page.md).
+function forwardAkfToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage(Object.assign({ mfd: true, type: 'akf' }, akfData), '*');
+}
 // Split-pane twins of the two TGT forwarders — same payloads, sent to any pane showing TGT. The
 // page is fully clickable inside the pane, so nothing else (no bezel-key wiring) is needed.
 function forwardTgtToPanes() {
@@ -858,6 +866,15 @@ function forwardObjToPanes() {
     if (panePages[idx] !== 'obj') return;
     if (!iframe.contentWindow) return;
     iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'obj' }, objData), '*');
+  });
+}
+// Split-pane twin of forwardAkfToFrame — same kill-feed/session-stats payload, sent to any pane
+// showing AKF.
+function forwardAkfToPanes() {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== 'akf') return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'akf' }, akfData), '*');
   });
 }
 // Full-view WPT (issue #38): forward the mapinfo slice (position/heading/grid meta) the readout
@@ -1227,6 +1244,7 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'pal') { forwardPalToFrame(); }
   else if (currentPage === 'mis') { forwardMisToFrame(); }
   else if (currentPage === 'obj') { forwardObjToFrame(); }
+  else if (currentPage === 'akf') { forwardAkfToFrame(); }
   else if (currentPage === 'wpt') { forwardWptToFrame(); }
   // docs/page-cursor.md: full-view TGT/HUD render in the shared #page-frame, which reloads (fresh
   // document, fresh listener) on every navigation onto the page — same dropped-cursor-focus gap
@@ -1272,8 +1290,8 @@ function clearPin() {
 
 function indicatorVisible(name) {
   // PINNED tracks the pinned page in whichever context owns PIN: the top-right pane in split
-  // mode, the single stack in full view. (FOLLOW used to live here too; it is now shown on the
-  // FLW label itself — see markFollowLabels.)
+  // mode, the single stack in full view. (FOLLOW is shown on the FLW label itself — see
+  // markFollowLabels.)
   if (name === 'pinned') {
     return pinnedPage !== null &&
       (splitMode ? panePages[topRightPane()] === pinnedPage : currentPage === pinnedPage);
@@ -1398,6 +1416,11 @@ let misData = { present: false };
 // OBJ active-objectives list (docs/mdt-pages.md), mirrored the same way.
 let objData = { present: false };
 
+// AKF advanced kill feed (docs/akf-page.md), mirrored the same way — no present:false gate (an
+// empty session just reads as all-zero).
+let akfData = { all: [], player: [], kills: { aircraft: 0, ship: 0, vehicle: 0, building: 0 },
+                 value: 0, fundsGained: 0, fundsSpent: 0 };
+
 // WPT waypoints/routes readout (issue #38) — the widened 'mapinfo' slice (mission/grid/x/z/hdg/
 // ox/oy), mirrored the same way as OBJ/MIS. Unlike those, WPT isn't the only consumer — the map
 // page itself derives the same values straight from its own frame — but WPT is a separate
@@ -1477,14 +1500,18 @@ function showPage(name) {
   } else if (name === 'map') {
     // MAP_FULL_LEFT/RIGHT (issue #38 follow-up), not the generic NAV sweep — see their own comment.
     MAP_FULL_LEFT.forEach(function (item, i) { placeOverlayLabel('left', i, item.label, item.action); });
-    // rt-next/rt-prev/wpt-next/wpt-prev only show — and so only work, since clearKeyActions already
-    // wiped every key's action and nothing reassigns a skipped one's — while a route exists to act
-    // on. WPT (index 0) always shows regardless.
-    const hasRoute = !!WaypointsStore.getActiveRoute();
-    mapFullRight(hasRoute).forEach(function (item, i) { placeOverlayLabel('right', i, item.label, item.action); });
+    // rt-next/rt-prev only show — and so only work, since clearKeyActions already wiped every key's
+    // action and nothing reassigns a skipped one's — while at least one route is saved (deactivate
+    // follow-up: they still work with none ACTIVE, cycling into one). wpt-next/wpt-prev need a route
+    // actually active, since they step ITS next waypoint. WPT (index 0) always shows regardless.
+    const hasRoutes = WaypointsStore.load().routes.length > 0;
+    const hasActiveRoute = !!WaypointsStore.getActiveRoute();
+    mapFullRight(hasRoutes, hasActiveRoute).forEach(function (item, i) { placeOverlayLabel('right', i, item.label, item.action); });
     placeMapDecorators({ bank: 'left', index: 3 });                  // ZOOM between Z+/Z- (left3/left4)
-    if (hasRoute) {
+    if (hasRoutes) {
       placeMapRouteDecorator({ bank: 'right', index: 1 });           // ROUTE between R+/R- (right1/right2)
+    }
+    if (hasActiveRoute) {
       placeMapWptDecorator({ bank: 'right', index: 3 });             // WYPT between W+/W- (right3/right4)
     }
   } else {
@@ -1554,9 +1581,15 @@ function showPage(name) {
     forwardTgtToFrame();
     forwardTgtTargetsToFrame();
   }
-  // BDF renders in #page-frame too. Its bezel keys are MAIN/BDF/PAL (NAV.bdf, placed by the generic
-  // sweep above, `mark` lighting BDF since this is that page) — reached from MAIN via MDT
-  // (BEZEL_EXTRAS.main, action 'bdf') and carried into a split via SPLIT_SLOTS.bdf. Forward state.
+  // AKF renders in #page-frame too — same MDT family as BDF/PAL/MIS/OBJ (NAV.akf marks AKF instead).
+  if (name === 'akf') {
+    showFramePage('akf');
+    forwardAkfToFrame();
+  }
+  // BDF renders in #page-frame too. Its bezel keys are MAIN/AKF/MIS/OBJ/BDF/PAL (NAV.bdf, placed by
+  // the generic sweep above, `mark` lighting BDF since this is that page) — reached from MAIN via
+  // MDT (BEZEL_EXTRAS.main, action 'akf' lands on AKF instead) and carried into a split via
+  // SPLIT_SLOTS.bdf. Forward state.
   if (name === 'bdf') {
     showFramePage('bdf');
     forwardBdfToFrame();
@@ -1614,7 +1647,10 @@ window.addEventListener('message', function(e) {
   // per-pane and route by e.source itself, so they must pass through from any map source — this
   // gate dropping 'grid' silently left a split pane's GRID label stuck unlit forever, even though
   // the pane's own map correctly persisted and drew the grid regardless.
-  if (m.type !== 'follow' && m.type !== 'grid' && e.source !== mapFrame.contentWindow) return;
+  // 'wpt-routes-request': a freshly-loaded MAP/WPT pane or the full-view frame catching up on the
+  // route library (docs/hud-waypoint-indicator.md perf fix, 2026-08-18) — comes from whichever
+  // iframe just loaded, not necessarily mapFrame, same reasoning as 'follow'/'grid'.
+  if (m.type !== 'follow' && m.type !== 'grid' && m.type !== 'wpt-routes-request' && e.source !== mapFrame.contentWindow) return;
   if (m.type === 'status') {
     lastStatusCls  = m.cls;
     lastStatusText = m.text;
@@ -1797,6 +1833,11 @@ window.addEventListener('message', function(e) {
     objData = m;
     if (currentPage === 'obj' && !splitMode) forwardObjToFrame();
     if (splitMode) forwardObjToPanes();
+  } else if (m.type === 'akf') {
+    // Mirror the AKF kill-feed/session-stats block, same forwarding shape as MIS/OBJ.
+    akfData = m;
+    if (currentPage === 'akf' && !splitMode) forwardAkfToFrame();
+    if (splitMode) forwardAkfToPanes();
   } else if (m.type === 'mapinfo') {
     // Mirror the mapinfo slice for WPT (issue #38), same forwarding shape as MIS/OBJ.
     mapInfoData = m;
@@ -1806,6 +1847,12 @@ window.addEventListener('message', function(e) {
     // A payload from a squadmate (docs/squadron-transport.md). Applied to the store here rather
     // than forwarded to a page — see applySquadronPayload.
     applySquadronPayload(m.payloadType, m.payload);
+  } else if (m.type === 'wpt-routes-request') {
+    // A freshly-loaded MAP/WPT iframe catching up (docs/hud-waypoint-indicator.md perf fix) —
+    // only this shell polls /wpt-options now, so a new iframe starts with an empty cache until
+    // either this reply or the next real change arrives. Reply straight to the asker; e.source is
+    // exactly the iframe's own window, not necessarily mapFrame.
+    if (e.source) e.source.postMessage({ mfd: true, type: 'wpt-routes', data: WaypointsStore.load() }, '*');
   }
 });
 
@@ -2184,6 +2231,7 @@ function mfdButton(el) {
     case 'rwr':  showPage('rwr');  break;
     case 'rdr':  showPage('rdr');  break;
     case 'tgt':  showPage('tgt');  break;
+    case 'akf':  showPage('akf');  break;
     case 'bdf':  showPage('bdf');  break;
     case 'pal':  showPage('pal');  break;
     case 'mis':  showPage('mis');  break;
@@ -2298,33 +2346,57 @@ window.addEventListener('resize', function() {
   else           showPage(currentPage);
   positionSoiRing();   // the recess/panes resized — keep the ring on the focused surface
 });
-// MAP's R+/R-/W+/W- visibility depends on whether a route exists (showPage's 'map' branch,
-// mapSplitItems' split-pane twin) — a route created/deleted from the WPT page or a first long-press
-// placed on MAP itself both write localStorage from a DIFFERENT document (the wpt/map iframe),
-// which is exactly what fires 'storage' here (same-document writes don't fire their own document's
-// listener). Re-render live to pick that up while MAP is showing, in full view or a split pane.
-window.addEventListener('storage', function(e) {
-  if (e.key !== WaypointsStore.STORE_KEY) return;
-  refreshMapRouteLabels();
-});
-// Shared by the storage listener above and applySquadronPayload below — the latter writes
-// localStorage from THIS document, which never fires this document's own storage listener, so it
-// has to re-render explicitly.
-function refreshMapRouteLabels() {
+// Route-LIBRARY forward (not to be confused with forwardWptToFrame/Panes above, which forward the
+// mapinfo readout slice specifically) — pushes RouteStore's data down to every pane/frame so only
+// this shell document ever polls /wpt-options (docs/hud-waypoint-indicator.md perf fix, 2026-08-18:
+// before this, every open MAP/WPT pane AND the shell each ran an independent poller, multiplying
+// requests and redraws by however many were open — confirmed by profiling: roughly 3x the expected
+// request rate for one device. Sent to every pane/frame unconditionally
+// rather than gated by panePages like the mapinfo forwards — routes matter to both MAP and WPT, and
+// an unused postMessage to a page that isn't listening for it is negligible next to the redundant
+// fetch/parse/compare loop it replaces.
+function forwardWptRoutesToPanes() {
+  const payload = { mfd: true, type: 'wpt-routes', data: WaypointsStore.load() };
+  paneIframes.forEach(function (iframe) { if (iframe.contentWindow) iframe.contentWindow.postMessage(payload, '*'); });
+}
+function forwardWptRoutesToFrame() {
+  const w = frameWin(); if (!w) return;
+  w.postMessage({ mfd: true, type: 'wpt-routes', data: WaypointsStore.load() }, '*');
+}
+// MAP runs in its own always-loaded mapFrame (the tap), separate from both #page-frame and the
+// split panes, whether or not MAP is the currently visible page — so it needs this push too, not
+// just the two targets above. Missing this left the map iframe's own route overlay stuck on
+// whatever it caught up with at load, never seeing a later edit (caught in testing, 2026-08-18).
+function forwardWptRoutesToMap() {
+  if (mapFrame && mapFrame.contentWindow)
+    mapFrame.contentWindow.postMessage({ mfd: true, type: 'wpt-routes', data: WaypointsStore.load() }, '*');
+}
+
+// MAP's R+/R- visibility depends on whether any route is saved, W+/W-'s on whether one is active
+// (showPage's 'map' branch, mapSplitItems' split-pane twin). The plugin is the single source of
+// truth for routes now (docs/hud-waypoint-indicator.md) — this shell document loads its own copy
+// of waypoints-store.js (mfd.html), which polls /wpt-options and fires this event on any change,
+// from any page, any device (a squadmate's shared route, applied via applySquadronPayload below,
+// arrives the same way once RouteStore.ImportRoute takes effect and the next poll picks it up).
+// Re-render live to pick that up while MAP is showing, full view or split, and push the new data
+// down to every embedded MAP/WPT iframe.
+window.addEventListener('wptroutes:changed', function() {
   if (splitMode) { if (panePages.indexOf('map') !== -1) renderSplitLabels(); }
   else if (currentPage === 'map') showPage('map');
-}
+  forwardWptRoutesToPanes();
+  forwardWptRoutesToFrame();
+  forwardWptRoutesToMap();
+});
 
 // Squadron payloads (docs/squadron-transport.md) are applied HERE, in the shell, rather than in the
 // page that owns the feature: a route shared while WPT is closed must still arrive, and the shell is
-// the one document that is always loaded. Writing it to localStorage then fires 'storage' in the MAP
-// and WPT iframes, so they pick it up through the same live-refresh path a local edit already uses —
-// no new plumbing per payload type, just a new case here.
+// the one document that is always loaded. Importing runs the same wpt.import command WPT's own
+// import panel uses; RouteStore.ImportRoute makes it active plugin-side, and the 'wptroutes:changed'
+// listener above already forwards the fresh route list to every open pane/frame/map once the next
+// poll picks it up — no squadron-specific refresh plumbing needed beyond issuing the command.
 function applySquadronPayload(payloadType, payload) {
   if (payloadType !== 'wpt.route') return;   // unknown type: ignore, don't guess (versioned wire)
-  const route = WaypointsStore.importRoute(payload);
-  if (!route) { console.warn('[squadron] rejected malformed wpt.route payload'); return; }
-  refreshMapRouteLabels();
+  WaypointsStore.importRoute(payload);
 }
 
 loadConfigUrls();

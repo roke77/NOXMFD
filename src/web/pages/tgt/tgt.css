@@ -1,7 +1,8 @@
 /* TGT page — fully-clickable replica of the game's TARGET SELECTION panel. Green-phosphor MFD
    theme via the shared --no-* tokens; faction accents (friendly blue / enemy red) echo the game. */
 
-:root { --tgt-blue: #4aa3ff; }   /* theme has no blue; FRIENDLY uses this accent (matches the game) */
+:root { --tgt-blue: #4aa3ff; }   /* deliberately its own value, not --no-blue (a different, mod-only
+   decorative accent) — FRIENDLY here specifically matches the game's own friendly-unit blue */
 
 * { box-sizing: border-box; }
 
@@ -60,7 +61,7 @@ html, body {
   line-height: 1.05;
   transition: color .08s, border-color .08s, box-shadow .08s, background .08s;
 }
-.tgt-cell:active, .tgt-action:active, .tgt-mode:active { background: rgba(57,255,20,0.08); }
+.tgt-cell:active, .tgt-action:active, .tgt-mode:active { background: rgba(var(--no-green-rgb),0.08); }
 
 /* Toggle cells (faction / category / mode) — ON is lit, OFF is dim gray */
 .tgt-cell, .tgt-mode {
@@ -71,13 +72,13 @@ html, body {
 }
 .tgt-cell.on, .tgt-mode.on {
   color: var(--no-green); border-color: var(--no-green);
-  box-shadow: 0 0 6px rgba(57,255,20,0.28), inset 0 0 6px rgba(57,255,20,0.10);
+  box-shadow: 0 0 6px rgba(var(--no-green-rgb),0.28), inset 0 0 6px rgba(var(--no-green-rgb),0.10);
 }
 /* Faction accents when ON */
 #row-faction .tgt-cell.on[data-index="0"] { color: var(--tgt-blue); border-color: var(--tgt-blue);
   box-shadow: 0 0 6px rgba(74,163,255,0.32), inset 0 0 6px rgba(74,163,255,0.12); }
 #row-faction .tgt-cell.on[data-index="1"] { color: var(--no-red); border-color: var(--no-red);
-  box-shadow: 0 0 6px rgba(255,64,64,0.30), inset 0 0 6px rgba(255,64,64,0.12); }
+  box-shadow: 0 0 6px rgba(var(--no-red-rgb),0.30), inset 0 0 6px rgba(var(--no-red-rgb),0.12); }
 
 /* Action buttons — momentary, always lit in their accent */
 .tgt-action {
@@ -89,8 +90,8 @@ html, body {
 }
 .tgt-action.reset { color: var(--no-amber); border-color: var(--no-amber); }
 .tgt-action.clear { color: var(--no-red);   border-color: var(--no-red); }
-.tgt-action.reset:active { background: rgba(255,170,0,0.12); }
-.tgt-action.clear:active { background: rgba(255,64,64,0.12); }
+.tgt-action.reset:active { background: rgba(var(--no-amber-rgb),0.12); }
+.tgt-action.clear:active { background: rgba(var(--no-red-rgb),0.12); }
 
 /* Vehicle-type grid — icon over label */
 .tgt-vehicles {
@@ -178,7 +179,7 @@ html, body {
 }
 .tl-row {
   padding: clamp(4px, 1vh, 9px) clamp(4px, 1vw, 10px);
-  border-bottom: 1px solid rgba(57,255,20,0.10);
+  border-bottom: 1px solid rgba(var(--no-green-rgb),0.10);
   font-size: clamp(11px, 1.9vmin, 18px);
   cursor: pointer;   /* the whole row deselects it */
 }
@@ -186,7 +187,7 @@ html, body {
 .tl-grid, .tl-dist { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* Faction tint on the name (mirrors the map colours): friendly blue, neutral white, enemy red. */
 .tl-row.f-friendly .tl-name { color: var(--tgt-blue); }
-.tl-row.f-neutral  .tl-name { color: #d4d8dc; }
+.tl-row.f-neutral  .tl-name { color: var(--no-label); }
 .tl-row.f-enemy    .tl-name { color: var(--no-red); }
 /* SRC column: SENSOR (live) reads as a normal dim value; DATALINK (relayed, still trustworthy — see
    docs/tgt-datalink-cancel.md) gets the same purple accent as the DATALINK button below, so the two
@@ -256,7 +257,7 @@ html, body {
   flex: 0 0 auto;
   transition: background .08s, box-shadow .08s;
 }
-.tgt-stale-btn:active { background: rgba(212, 216, 220, 0.20); }
+.tgt-stale-btn:active { background: rgba(var(--no-label-rgb), 0.20); }
 .tgt-stale-desc {
   color: var(--no-label);
   font-size: clamp(8px, 1.3vmin, 11px);

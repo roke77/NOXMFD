@@ -2,22 +2,230 @@
 
 ## Status
 
-Planning only. No code yet. Default TGP behavior is the smooth
-native-resolution path that ships today; this document describes a
-future opt-in toggle for a sharper feed that intentionally costs
-more in-game performance.
+Planning only. No code yet. Default TGP behavior is the
+native-resolution path that ships today; this document describes an
+opt-in toggle for a sharper feed.
+
+Two layers here: the **experiment menu** below is the wider option space
+for the TGP feed as a whole (cost and quality both), meant to be picked
+from when spinning up experiment branches. Everything after it is the
+detailed design for one of those entries — the mirror camera.
 
 ## Goal
 
 Let the player choose a higher-quality TGP feed when they have the
-GPU/CPU headroom to spend on it, without compromising the default
+GPU headroom to spend on it, without compromising the default
 experience for anyone who doesn't. The two modes coexist; only one
 is active at a time.
 
-| Mode               | Source resolution | FPS cost     | Default?    |
-|--------------------|-------------------|--------------|-------------|
-| **Native** (today) | game's prefab (~360×240) | low (smooth) | yes |
-| **High-quality**   | mirror cam at e.g. 720×480 or 1280×720 | noticeably higher | no — opt-in |
+| Mode               | Source resolution | GPU cost | Default?    |
+|--------------------|-------------------|----------|-------------|
+| **Native** (today) | game's prefab (~360×240) | already measurable — see below | yes |
+| **High-quality**   | mirror cam at e.g. 720×480 | ~4× the readback bytes per tick, plus a camera pass | no — opt-in |
+
+## Measured baseline
+
+`docs/performance.md`'s `cfg-rates` section (issue #39) is the first
+real instrumentation of this pipeline, and it constrains this feature
+directly:
+
+- TGP's GPU cost is **already user-perceptible at the shipping 15 Hz
+  default**. `frame(tgpOpen)` windows logged 57–100 ms worst-case frame
+  times against clean 6–8 ms `frame(tgpClosed)` windows.
+  `CaptureFrame`'s own C# time was 0.03 ms, so the entire cost lives in
+  the `Blit` + `AsyncGPUReadback` GPU work.
+- Doubling the capture rate to 30 Hz overran the GPU: `tgpSkipped`
+  (the `_readbackInFlight` guard in `TgpFeed.cs`) dropped 33–69 ticks
+  per 5 s window, up to ~45% of attempted captures.
+
+That 30 Hz result scaled readback **frequency**. High-quality mode
+scales the other term in the same product — **pixels per readback**.
+720×480 is 4× the pixels of the ~360×240 native source, so HQ at 15 Hz
+moves readback bytes per second into roughly the same band as native at
+60 Hz, well past the point already shown to saturate. (Not a strict
+1:1 — fewer, larger transfers amortize per-request overhead better than
+many small ones — but it is the same wall approached from the other
+side.) On top of that, HQ adds a cost the 30 Hz test never included: a
+second camera render.
+
+The practical consequence is in the approach below: this mode is only
+affordable if the mirror cam renders **on demand**, not every frame.
+
+## Experiment menu
+
+The feed does four things per capture tick: point a camera (free today —
+it borrows the picture the game already draws for the cockpit screen),
+pull that picture off the GPU, JPEG-compress it, and send it to the
+browser as a flipbook of stills. Every entry below either makes the
+pull-off-the-GPU step carry less, or skips it.
+
+Roughly ordered by recommendation, not by ambition. One branch per entry.
+Entries 12-13 were added later and belong early in the sequence despite
+their numbers — see the sequencing note below the table.
+
+| #  | Approach | What it changes | Effort | Cost | Quality | Notes |
+|----|----------|-----------------|--------|------|---------|-------|
+| 1  | Measure the JPEG step | Nothing yet — says whether compression is part of the stutter | XS | — | — | Do first. It runs on the main thread and sits outside the block `cfg-rates` timed, so it is a known unknown in the middle of a known-stuttery path |
+| 2  | Drop colour depth | 4× (mono) or 2× (half-precision) less data through the saturated channel | S | ↓↓ | ~none | Best cost/benefit available. Verify against the IR and daylight modes before assuming colour is disposable — the page renders it untinted today |
+| 3  | Mirror camera, render-on-demand | Chooses its own resolution instead of inheriting ~360×240 | M | ↑ | ↑↑ | Detailed in the rest of this doc. #2 roughly pays for its extra pixels; test the pair, not #3 alone. Run #12 first |
+| 4  | Tighter visibility gating | Stops capturing for a hidden tab or off-screen pane | XS | ↓ | none | No downside. Fold into whichever branch runs first |
+| 5  | Synthetic sensor view | Draws a pod-style picture in the browser from telemetry already streamed — no pixels captured at all | M | **zero** | different | Doesn't compete on the same axis. The only entry where the performance question disappears rather than shrinking |
+| 6  | JPEG compression off the main thread | Same work, off the frame's critical path | M | ↓? | none | Gated on #1 finding a cost worth moving |
+| 7  | Interlacing | Half the rows per capture tick | S | ↓ | ↓ shimmer | Reserve. Spend #2's budget first |
+| 8  | GPU hardware video encode | Compresses on the GPU; raw pixels never come back | XL | ↓↓↓ | ↑↑↑ | The only path with real headroom. Vendor-specific, needs a native plugin or a streaming library — its own project |
+| 9  | Real video transport | Sends inter-frame deltas instead of whole stills | L | ↓↓ | ↑ | Pairs with #8; little value alone |
+| 10 | External window capture | A separate desktop app grabs the game window | L | zero | ↓ | Can't isolate the pod view, and is a second program to ship |
+| 11 | Swap the game's camera to a larger RT | Reuses the free render at a higher resolution | S | ↑↑ | ↑↑ | Parked, not closed — see below. Run #12 first; it may make this moot |
+| 12 | Ask whether the game already has a higher-res path | Triggers an existing quality path instead of building one | S | ? | ↑↑ | Upstream of #3 and #11 — if `TargetCam` renders larger in some context (zoomed/expanded targeting view), high quality costs nothing extra |
+| 13 | Verify we capture the authoritative texture | Possibly fixes picture quality with no cost change | XS | — | ↑? | A quality-bug hypothesis, not an optimisation. Compare the page against the cockpit screen side by side |
+| 14 | MSAA on the capture RT | Antialiases the feed instead of enlarging it | S | ↑ GPU, **no readback change** | ↑ | The only quality lever that spends on a different axis than the bottleneck. May buy more perceived sharpness per transmitted byte than resolution does |
+
+**Sequencing.** First batch: **#1, #2, #12, #13** — all XS/S, all either
+free information or a small change on the measured bottleneck, and #12
+can invalidate the two most expensive entries before any effort goes into
+them. **#14** is a natural companion to #2, since together they trade
+colour for smoothness at constant bandwidth. Only then choose between #3
+and #11.
+
+### On #11
+
+The swap approach was tried and abandoned because it repositions the
+in-cockpit targeting overlay (the UI canvas snaps to the swapped RT's
+dimensions instead of the prefab's) and costs framerate even with no
+subscriber, since it enlarges a render the game performs every frame
+regardless.
+
+It stays on the menu because neither failure has actually been root-caused
+— the overlay displacement in particular is a canvas/aspect problem that
+may have a fix, and if it does, the swap path gets high resolution
+*without* paying for a second render pass, which is the one thing the
+mirror camera cannot offer. Worth a branch to characterise the two
+failures properly rather than inheriting the earlier verdict. The mirror
+camera remains the default plan unless that investigation finds something.
+
+## Findings from a third-party integration
+
+Menu entries #12 and #13 come from reading a community integration that
+bridges the "Missile Camera" mod into a NOXMFD page (lupfine's forks of
+`Mursisru/MissileCamera` and of this repo). That work solves a different
+problem — making a feed exist at all, where the owning mod only renders
+while its own cockpit panel or fullscreen view is up — and it reuses
+`TgpFeed`'s capture pipeline unchanged, so it contributes nothing to the
+cost question. Four things in it are relevant here anyway.
+
+**Resolution negotiation (#12).** That integration didn't build a camera
+to get better quality. It set a flag the owning mod already consulted, so
+its existing size-resolution logic returned fullscreen-grade dimensions
+instead of the small cockpit-panel size. The quality path already
+existed; it just had to be asked for. The equivalent question for TGP has
+never been asked: whether the game itself renders `TargetCam` larger in
+some context we could trigger. If it does, high quality costs nothing
+that a mirror camera or an RT swap would cost.
+
+**Authoritative texture (#13).** That integration deliberately reads a
+dedicated output texture rather than the feed camera's own
+`targetTexture`, because the camera's target is swapped to an
+intermediate HDR buffer mid-render and restored afterwards — so reading
+it at an arbitrary moment does not reliably yield the final picture.
+`TgpFeed` reads `cam.targetTexture` directly. If Nuclear Option's
+`TargetCam` does anything comparable (post-processing, HDR intermediate,
+temporal effects), the captured picture may not match what the cockpit
+screen shows. This presents as the feed looking subtly wrong, not as a
+failure, which is why it would not have surfaced as a bug report.
+
+**Thermal modes double as the colour-depth justification.** That
+integration exposes the vision filter (Color / NightVision / WhiteHot /
+BlackHot / Contour) as a page-cyclable feature. WhiteHot and BlackHot are
+monochrome by definition, so offering thermal modes on the TGP page makes
+menu entry #2 unambiguous rather than a judgement call — in those modes
+there is no colour to discard. A feature and a bandwidth optimisation
+that happen to be the same change. This supersedes the IR question filed
+under open questions below as "cosmetic detail, defer."
+
+**MJPEG cold-start stall — likely a live bug here.** Their `/rc.mjpg`
+handler originally sent a 1×1 placeholder JPEG immediately on connect,
+because a fresh connection that receives zero bytes while the pipeline
+warms up can be marked failed by the browser and never recover once real
+frames arrive — presenting as "works after one page reload." That
+workaround was reverted and the issue left open on their side.
+
+`TelemetryServer.HandleMjpegAsync` has the same shape: it writes nothing
+until `_tgpJpg != null && id != lastSeen`. TGP's warm-up is shorter than
+a missile camera's (no missile-selection step), which may be why it has
+not been reported, but the failure mode is identical. This is a
+correctness bug rather than a cost or quality question, so it is not a
+menu entry — it wants its own ticket, and reproducing it deliberately
+(connect a client before the first frame exists) is the first step.
+
+## Reference implementation: the MissileCamera rig
+
+The same reading turned up something more useful than the integration
+itself. The base "Missile Camera" mod (`Mursisru/MissileCamera`) is a
+**working implementation of menu entry #3, in this game and this Unity
+version** — a self-created camera rendering to its own RenderTexture at
+player-configurable resolution. Several of this document's open questions
+are answered there rather than needing to be rediscovered.
+
+What it establishes:
+
+- **Render-on-demand works.** Its rig creates a camera, holds it
+  `enabled = false`, and drives it with explicit `Camera.Render()` at a
+  config-driven rate (default 30 fps), decoupled from the game's
+  framerate. It mirrors a reference camera's `cullingMask`, `allowHDR`,
+  `allowMSAA` and `clearFlags`, caching so it only writes on change.
+- **High resolution is viable.** Feed size is configurable, clamped
+  128-2048 for its panel path and 640-3840 for fullscreen.
+- **The URP requirement and the particle caveat** — both folded into the
+  render-on-demand section above.
+- **An HDR intermediate is real, not hypothetical.** The rig keeps a
+  second `ARGBHalf` RenderTexture and blits through it for its
+  thermal/NVG modes. This is the concrete basis for menu entry #13:
+  a camera's `targetTexture` is not necessarily the final picture.
+
+Practices worth copying:
+
+- **Zoom via FOV, never by reallocating the RT.** Its quality-scale
+  helper is hardcoded to 1 with the note that optical zoom must not
+  recreate RT buckets. `TgpFeed` currently reallocates whenever source
+  dimensions change; coupling resolution to zoom would reproduce exactly
+  the stutter that rule exists to prevent.
+- RT recipe: depth buffer 16, `useMipMap = false`,
+  `autoGenerateMips = false`, `filterMode` chosen by context (Point when
+  showing a feed 1:1, Bilinear when scaling).
+- MSAA sample count matched to the pipeline — the basis for menu entry #14.
+
+### Camera safety constraints in this game
+
+That mod ships a `CAMERA_SAFETY.md` written after breaking these. It
+forbids modifying `CameraStateManager.mainCamera` transform/FOV/nearClip,
+`cameraPivot` parent/pose/scale, or `cameraMode`, and forbids Harmony
+-blocking `CameraBaseState.UpdateState`.
+
+The stated cause is the part that matters here: reparenting left
+`cameraPivot` with huge local offsets **because of FloatingOrigin plus
+`cockpitViewPoint`**, and on exit the stock cockpit camera flew out of
+bounds.
+
+Nuclear Option runs a floating-origin system. This document's plan parents
+a new camera to `TargetCam.GetCamMount()`, which is not the same mistake
+— parenting our own camera to a game mount, rather than reparenting a
+game camera — but any camera created and positioned in the world has to
+stay correct across origin shifts, and nothing here has accounted for
+that. Treat it as a first-class risk for #3.
+
+Also filed there, relevant the moment any overlay is drawn on a mirror
+feed: project world positions with the feed camera's
+`WorldToViewportPoint` scaled to screen, **not** `WorldToScreenPoint`,
+which returns render-texture pixels.
+
+### What it does not help with
+
+Its in-game path is RenderTexture → `RawImage`. The picture never leaves
+the GPU; there is no readback anywhere in the base mod. It therefore
+de-risks the render half of #3 and says nothing about the transfer half,
+which is the half `cfg-rates` measured. The mirror camera is a solved
+problem in this game; the readback is ours alone. That is an argument for
+the first batch, not against it.
 
 ## Why this is a separate planning doc
 
@@ -44,11 +252,18 @@ own** `Camera` as a sibling on the same mount point.
 
 - Read `TargetCam.GetCamMount()` for the active mount (forward / rear /
   landing) and parent the mirror cam there.
-- Copy the private `cam.fieldOfView` from the game's `TargetCam` each
-  frame so the mirror tracks the same zoom-on-target behavior.
+- Copy the private `cam.fieldOfView` from the game's `TargetCam` on each
+  capture tick so the mirror tracks the same zoom-on-target behavior.
 - (Optional) copy IR state so the mirror reflects `SwitchIRState`.
 - Render our cam to **our own** RenderTexture at the chosen high-res
-  size (configurable; start with 720×480).
+  size (configurable; start with 720×480 — `TgpFeed.MaxDim` is already
+  720 and currently a no-op, since the native source is smaller, so
+  the encode side needs no change to carry this).
+- Keep the mirror cam's `Camera.enabled == false`, set its URP
+  `renderType = Overlay`, and drive it with an explicit `Camera.Render()`
+  on capture ticks only. Both halves are required — see below.
+- Mirror the game camera's `cullingMask`, `allowHDR`, `allowMSAA` and
+  `clearFlags`, writing only when they actually differ.
 - Do NOT touch the game's `TargetCam.cam`, `UICam`, viewport rects,
   aspect, or material. The in-cockpit screen stays exactly as
   vanilla — the cam and UI canvas it depends on are completely
@@ -56,74 +271,75 @@ own** `Camera` as a sibling on the same mount point.
 - Feed the high-res RT into the same `Graphics.Blit` → `AsyncGPUReadback`
   → `EncodeToJPG` pipeline the native path uses today.
 
-Tradeoff: this is a second camera pass on the GPU every frame the
-mode is active. That's the "costly" part — it's why this mode is
-opt-in. A second 720p pass on a target-scene render is significant
-on lower-end hardware, which is exactly why the default should never
-turn it on automatically.
+### Render on demand, not every frame
+
+An `enabled` camera renders every frame — 60 renders/s to serve a 15 Hz
+feed, three quarters of them discarded. Disabling the component and
+calling `Camera.Render()` from the capture tick cuts the render cost to
+a quarter of that at the default rate, and makes the cost scale with
+the TGP rate slider instead of with the player's framerate.
+
+This is the difference between the feature being affordable and not —
+but it does not make the mode free. The native path piggybacks on a
+render the cockpit needs anyway: `TargetCam` renders for the in-cockpit
+screen regardless, so today's cost is the `Blit` + readback alone. The
+mirror cam is a genuinely additional render pass. Rendering on demand
+takes it from 60/s down to the capture rate; it does not take it to
+zero, and it will not be cheaper than what ships today.
+
+Two constraints on this, both from the reference implementation
+documented below:
+
+- **`enabled = false` alone is not enough under URP.** An enabled camera
+  joins the pipeline's camera stack rather than merely costing a draw.
+  The rig has to be `renderType = Overlay` *and* disabled, rendered
+  manually. Leaving it enabled cost that project measurable framerate
+  with the camera doing nothing else differently.
+- **Manual rendering appears to lose particles.** That project keeps a
+  pipeline-driven enabled camera specifically for its colour path, noting
+  particles depend on it, and uses the manual path only for its
+  thermal/NVG modes. For a targeting view — smoke, explosions,
+  countermeasures — that is a real fidelity cost, not a detail. Verify
+  before assuming render-on-demand is a free equivalence.
+
+The remaining honest tradeoff is the readback: 4× the bytes per tick,
+on a transfer already shown to back up. If HQ at 15 Hz produces a
+`tgpSkipped` count resembling native at 30 Hz, the resolution is too
+high for the machine — which is what makes this opt-in rather than a
+new default.
 
 ## What we deliberately don't do
 
-- We **don't reuse the swap-based path** (overriding
-  `cam.targetTexture` and `UICam.targetTexture`). Even with the
-  toggle off it requires extra wiring, and even with the toggle on
-  it would break the in-cockpit overlay positioning. Mirror cam is
-  the only path that satisfies "high-res web feed AND vanilla
-  cockpit display."
+- We **don't build on the swap-based path** (overriding
+  `cam.targetTexture` and `UICam.targetTexture`) *as this design's
+  foundation*. As it stands it breaks the in-cockpit overlay
+  positioning, and mirror cam is the only path currently known to
+  satisfy "high-res web feed AND vanilla cockpit display." It remains
+  a live investigation in its own right — menu entry #11 — because a
+  fix for the overlay displacement would make it strictly cheaper than
+  this design.
 - We **don't fall back automatically** based on framerate. The user
   is choosing the mode explicitly; we don't second-guess them.
 
 ## How the player toggles the mode
 
-Three options, ordered by implementation cost. Pick during
-implementation, not now.
+On the **RTS page**, next to the TGP rate slider it shares a cost
+budget with. That page already owns TGP tuning, is already discoverable
+in the MFD nav (CFG/KEY/LYT/RTS), and already has the whole
+`rates.set` → `RatesConfig` → live-apply path this needs — a quality
+toggle is one more control on an existing surface rather than a new one.
 
-### Option 1 (MVP): BepInEx `ConfigEntry` via Configuration Manager
+Follow `RatesConfig`'s existing shape: a `ConfigEntry` for persistence,
+a setter the command dispatcher calls, and `SettingChanged` forwarding
+the new value to a `SetMode(...)` on the feed that engages/releases the
+mirror cam. Being a `ConfigEntry` also means Configuration Manager (F1)
+picks it up for free.
 
-We already ship with `BepInEx.ConfigurationManager` installed. Add a
-single config entry:
-
-```csharp
-public enum TgpQuality { Native, HighQuality }
-internal static ConfigEntry<TgpQuality> TgpQualityConfig;
-
-TgpQualityConfig = Config.Bind(
-    "TGP", "Quality", TgpQuality.Native,
-    "Native = game's prefab resolution, smooth. HighQuality = mirror camera at 720×480, sharper but adds an extra render pass per frame.");
-```
-
-Player opens F1 (Configuration Manager hotkey), changes the dropdown,
-mode swaps without reloading the game. Hook
-`TgpQualityConfig.SettingChanged` to call a `SetMode(...)` on the
-reader that engages/disengages the mirror cam.
-
-Pros: zero MFD-side work, two-line UX.  
-Cons: discoverability — players who don't know F1 won't find it.
-
-### Option 2: MFD button on the TGP page
-
-Add a labeled key on the TGP page (e.g. `QLT` next to MAIN) that
-cycles through Native / HighQuality. Send a `quality` message via
-the existing postMessage protocol; the page persists the choice
-to `localStorage`; the server-side mode actually changes via a new
-endpoint (e.g. `POST /tgp/quality`) or a query param on `/tgp.mjpg`
-(`/tgp.mjpg?q=hq`).
-
-Pros: discoverable, lives on the same surface as the feed itself.  
-Cons: more wiring across MFD HTML/JS, server, and reader.
-
-### Option 3: query param on `/tgp.mjpg` only
-
-Drop the UI entirely. Subscribing to `/tgp.mjpg?q=hq` engages the
-mirror cam; `/tgp.mjpg` engages native. The MFD client decides which
-URL to use.
-
-Pros: cleanest server contract — quality follows the subscriber.  
-Cons: still needs a way for the player to flip the MFD client, so
-this collapses into Option 2 anyway from the user's POV.
-
-**Recommendation:** ship Option 1 first (smallest diff, real toggle).
-Add Option 2 later if discoverability is a problem.
+One thing to carry over from `docs/performance.md`: a `ConfigEntry.Value`
+write triggers a synchronous `.cfg` save that measured up to ~9 ms on the
+main thread. A discrete toggle writes once per click, so this is fine as
+long as it stays a toggle — the `input`-for-display / `change`-for-persist
+split only matters for continuous controls like the sliders.
 
 ## State machine
 
@@ -151,15 +367,18 @@ is shared.
 ## Implementation sketch (when we get to it)
 
 1. **Mirror cam controller.** A small helper class that, given a
-   `TargetCam`, parents a mirror `Camera` to the active mount,
-   matches `fieldOfView` each tick, renders to a new high-res RT,
-   and can be cleanly disposed.
-2. **Config entry** in `Plugin.cs` (Option 1 above). Subscribe to
-   `SettingChanged`; forward the new value to the reader.
+   `TargetCam`, parents a disabled mirror `Camera` (URP
+   `renderType = Overlay`) to the active mount, matches `fieldOfView`
+   and the reference camera's cull/HDR/MSAA/clear settings, renders to a
+   new high-res RT on an explicit `Render()` call, and can be cleanly
+   disposed. Verify behaviour across a floating-origin shift, and check
+   whether particles survive the manual render path.
+2. **Config entry + RTS toggle**, following `RatesConfig`. Subscribe to
+   `SettingChanged`; forward the new value to the feed.
 3. **Reader switches `src`.** In `CaptureTgpFrame`, after the
    subscriber gate but before the size/Blit logic:
    - If mode == HighQuality, ensure mirror cam exists (engage if not),
-     update its fov/mount, set `src = mirror.targetTexture`.
+     update its fov/mount, `Render()` it, set `src = mirror.targetTexture`.
    - If mode == Native, ensure mirror cam is released, set
      `src = tc.cam.targetTexture` (today's path).
 4. **Disengage releases the mirror cam too** — extend the existing
@@ -171,19 +390,29 @@ is shared.
 
 ## Open questions to settle while implementing (not now)
 
-- Default HQ resolution. 720×480 keeps aspect with the native source;
-  1280×720 is sharper but doubles the fragment cost again. Probably
-  720×480 as the first ship and let the player crank it via a second
-  config entry if they want.
+- Default HQ resolution. 720×480 keeps aspect with the native source and
+  fits `TgpFeed.MaxDim`; 1280×720 is sharper but roughly triples the
+  readback bytes again, on the transfer the measurements already flag.
+  Ship 720×480 and let the readback numbers decide whether a higher rung
+  is even offerable.
+- Does the mirror cam stay correct across a floating-origin shift? Unknown,
+  and the one failure mode in this area that has already burned another
+  mod in this game. Test a long flight, not a spawn-and-look.
+- Do particles render on the manual `Camera.Render()` path? If not,
+  choose deliberately between fidelity (enabled camera, higher cost) and
+  cost (manual render, no particles) rather than discovering it late.
+- Whether HQ needs to clamp the TGP rate slider. Rate and resolution
+  multiply into the same readback budget, so 30 Hz + HQ is a combination
+  the measurements say cannot work. Capping the slider while HQ is
+  engaged may be simpler than letting the player find the cliff.
 - Does the mirror cam need its own `UICam` to draw the overlay
   (mag/dist/grid/mode)? Almost certainly no — we'd render those
   overlays on the MFD client from the SSE snapshot, which is free.
-- Does the mirror cam need to render every frame, or can we render it
-  only on capture ticks (15 Hz)? `Camera.Render()` on demand would
-  cut the GPU cost dramatically. Worth investigating during impl.
 - IR mode: does the mirror cam need its own post-process to match the
   game's IR look, or can we read the same shader values off the
-  TargetCam? Cosmetic detail, defer.
+  TargetCam? No longer purely cosmetic — a monochrome thermal mode is
+  also what makes menu entry #2 free of judgement, so this rides with
+  the colour-depth experiment rather than being deferred.
 
 ## Out of scope
 
@@ -191,13 +420,26 @@ is shared.
 - Changing the default mode. Native stays default.
 - Removing the current gating or async-readback work — both apply to
   HighQuality unchanged.
-- The legacy swap approach. Don't revive it; mirror cam supersedes it.
+- The swap approach, *within this design* — it's tracked separately as
+  menu entry #11, not folded in here.
 
 ## Pre-flight before implementing
 
 - Read `src/plugin/TgpFeed.cs` — it maps the relevant `TargetCam`
   internals (cam / mount / fov reflection) and implements the subscriber
-  gating + async readback this mode has to carry over. (The original
-  `tgp-camera-feed.md` / `tgp-feature-gating.md` design docs were removed
-  once the feed shipped — `TgpFeed.cs` is the source of truth now.)
-- Re-read this doc and pick a toggle option before writing any code.
+  gating + async readback this mode has to carry over. `TgpFeed.cs` is
+  the source of truth for the pipeline.
+- Read `docs/performance.md`'s `cfg-rates` section in full. It is the
+  only measurement this feature has.
+- Read `Mursisru/MissileCamera`'s `Camera/MissileCameraRig.cs`,
+  `Camera/MissileCameraRenderPrep.cs` and `Fullscreen/CAMERA_SAFETY.md`
+  before writing the mirror cam. That rig is a working version of #3 in
+  this game, and its safety doc is a list of camera mistakes already made
+  here and paid for.
+- **Restore `src/plugin/PerfLog.cs` and its call sites from history
+  first.** It was removed once the `cfg-rates` findings were banked, but
+  its two key instruments — `frame(tgpOpen)` vs `frame(tgpClosed)` split
+  and `TgpFeed.ReadbackSkipCount` — are exactly what says whether a
+  mirror cam is affordable. Restore it, take a native-path baseline on
+  the test machine, then build against that number rather than the ones
+  quoted here.

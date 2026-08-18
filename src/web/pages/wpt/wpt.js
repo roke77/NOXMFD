@@ -1,7 +1,9 @@
 // WPT page (issue #38) — route/waypoint list editor + distance/bearing readout. DOM-coupled, not
-// unit-tested; the logic it leans on (advance-on-proximity, nextIndex tracking across edits) is
-// already covered by wpt-route.test.js. WptRoute/WaypointsStore are classic <script> globals
-// (wpt.html), loaded before this module.
+// unit-tested. docs/hud-waypoint-indicator.md (Option 2): route data and its mutation logic are
+// now authoritative in the plugin (RouteStore.cs) — every WaypointsStore mutator is a POST
+// /command that resolves once the plugin's response has been polled back in, so callers chain
+// .then(render) instead of calling render() synchronously afterward. WptRoute/WaypointsStore are
+// classic <script> globals (wpt.html), loaded before this module.
 import { gridLabel } from '/assets/services/telemetry-source.js';
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 
@@ -15,6 +17,7 @@ const compassNeedle = document.getElementById('wpt-compass-needle');
 const routesEl     = document.getElementById('wpt-routes');
 const waypointsEl  = document.getElementById('wpt-waypoints');
 const newRouteBtn  = document.getElementById('wpt-new-route');
+const clearBtn     = document.getElementById('wpt-clear-routes');
 const newRow       = document.getElementById('wpt-new-row');
 const newNameInput = document.getElementById('wpt-new-name');
 const importBtn    = document.getElementById('wpt-import-route');
@@ -25,9 +28,6 @@ const ioError      = document.getElementById('wpt-io-error');
 const ioPrimary    = document.getElementById('wpt-io-primary');
 const ioCopy       = document.getElementById('wpt-io-copy');
 const ioClose      = document.getElementById('wpt-io-close');
-
-const WPT_ADVANCE_RADIUS_M = 1000; // 1km — combat-aircraft distances are km-scale, coarse on
-                                    // purpose; tune here, no settings UI in this pass.
 
 let mapinfo = { x: null, z: null, hdg: null, ox: null, oy: null };
 
@@ -45,14 +45,17 @@ function render() {
 function renderRoutes(c) {
   routesEl.innerHTML = '';
   c.routes.forEach(function (route) {
+    const isActive = route.id === c.activeRouteId;
     const row = document.createElement('div');
-    row.className = 'wpt-row' + (route.id === c.activeRouteId ? ' active' : '');
+    row.className = 'wpt-row' + (isActive ? ' active' : '');
 
     const name = document.createElement('span');
     name.className = 'wpt-row-name pad-hoverable';
     name.textContent = route.name + ' (' + route.waypoints.length + ')';
-    name.title = 'Click to activate';
-    name.onclick = function () { WaypointsStore.setActiveRoute(route.id); render(); };
+    name.title = isActive ? 'Click to deactivate' : 'Click to activate';
+    // A route can be saved but none active (issue #38 follow-up) — clicking the already-ACTIVE
+    // route deactivates it instead of being a no-op.
+    name.onclick = function () { WaypointsStore.setActiveRoute(isActive ? null : route.id).then(render); };
 
     const mark = document.createElement('span');
     mark.className = 'wpt-row-mark';
@@ -62,12 +65,12 @@ function renderRoutes(c) {
     edit.className = 'wpt-row-btn pad-hoverable'; edit.textContent = '✎'; edit.title = 'Rename route';
     // Empty stays the route's current (generated) name — a route always keeps SOME name.
     edit.onclick = function () {
-      editRow(row, route.name, null, function (name) { if (name) WaypointsStore.renameRoute(route.id, name); });
+      editRow(row, route.name, null, function (name) { return name ? WaypointsStore.renameRoute(route.id, name) : undefined; });
     };
 
     const reset = document.createElement('button');
     reset.className = 'wpt-row-btn pad-hoverable'; reset.textContent = '↺'; reset.title = 'Reset route (mark every waypoint not-reached)';
-    reset.onclick = function () { WaypointsStore.resetRoute(route.id); render(); };
+    reset.onclick = function () { WaypointsStore.resetRoute(route.id).then(render); };
 
     const exportBtn = document.createElement('button');
     exportBtn.className = 'wpt-row-btn pad-hoverable'; exportBtn.textContent = '⇩'; exportBtn.title = 'Export route as JSON';
@@ -86,7 +89,7 @@ function renderRoutes(c) {
     del.className = 'wpt-row-btn pad-hoverable';
     del.textContent = '×';
     del.title = 'Delete route';
-    del.onclick = function () { WaypointsStore.deleteRoute(route.id); render(); };
+    del.onclick = function () { WaypointsStore.deleteRoute(route.id).then(render); };
 
     row.appendChild(name); row.appendChild(mark); row.appendChild(edit); row.appendChild(reset);
     row.appendChild(exportBtn);
@@ -99,13 +102,15 @@ function renderRoutes(c) {
 // Shared inline-edit UI for a route/waypoint row's name — a pencil button (route/waypoint rows
 // below) swaps the row for a text input + Save button. Enter also saves; Escape discards and just
 // re-renders. onSave receives the trimmed value (may be empty — the waypoint case allows clearing
-// a name back to "unnamed"; the route case's own callback decides whether to accept empty).
+// a name back to "unnamed"; the route case's own callback decides whether to accept empty) and
+// returns the mutator's promise (or undefined if it decided not to save) — commit waits for that
+// before re-rendering, so the row doesn't briefly flash back to its pre-edit value.
 function editRow(row, value, placeholder, onSave) {
   row.innerHTML = '';
   const input = document.createElement('input');
   input.type = 'text'; input.maxLength = 40; input.value = value;
   if (placeholder) input.placeholder = placeholder;
-  const commit = function () { onSave(input.value.trim()); render(); };
+  const commit = function () { Promise.resolve(onSave(input.value.trim())).then(render); };
   const save = document.createElement('button');
   save.className = 'wpt-row-btn wpt-row-save pad-hoverable'; save.textContent = '✓'; save.title = 'Save';
   save.onclick = commit;
@@ -139,27 +144,27 @@ function renderWaypoints(route) {
     // Unlike routes, an empty save is valid here — it clears the name back to "unnamed" (position
     // number only), matching a fresh waypoint's own default.
     edit.onclick = function () {
-      editRow(row, wp.name, 'Name (optional)', function (name) { WaypointsStore.renameWaypoint(i, name); });
+      editRow(row, wp.name, 'Name (optional)', function (name) { return WaypointsStore.renameWaypoint(i, name); });
     };
 
     const up = document.createElement('button');
     up.className = 'wpt-row-btn pad-hoverable'; up.textContent = '▲'; up.title = 'Move up';
     up.disabled = i === 0;
-    up.onclick = function () { WaypointsStore.reorderWaypoint(i, i - 1); render(); };
+    up.onclick = function () { WaypointsStore.reorderWaypoint(i, i - 1).then(render); };
 
     const down = document.createElement('button');
     down.className = 'wpt-row-btn pad-hoverable'; down.textContent = '▼'; down.title = 'Move down';
     down.disabled = i === route.waypoints.length - 1;
-    down.onclick = function () { WaypointsStore.reorderWaypoint(i, i + 1); render(); };
+    down.onclick = function () { WaypointsStore.reorderWaypoint(i, i + 1).then(render); };
 
     const reset = document.createElement('button');
     reset.className = 'wpt-row-btn pad-hoverable'; reset.textContent = '↺';
     reset.title = 'Rewind here — this waypoint (and every one after it) becomes not-reached, this one NEXT';
-    reset.onclick = function () { WaypointsStore.resetWaypoint(i); render(); };
+    reset.onclick = function () { WaypointsStore.resetWaypoint(i).then(render); };
 
     const del = document.createElement('button');
     del.className = 'wpt-row-btn pad-hoverable'; del.textContent = '×'; del.title = 'Delete waypoint';
-    del.onclick = function () { WaypointsStore.removeWaypoint(i); render(); };
+    del.onclick = function () { WaypointsStore.removeWaypoint(i).then(render); };
 
     row.appendChild(name); row.appendChild(mark); row.appendChild(grid);
     row.appendChild(edit); row.appendChild(reset); row.appendChild(up); row.appendChild(down); row.appendChild(del);
@@ -176,11 +181,13 @@ newRouteBtn.onclick = function () {
 document.getElementById('wpt-new-cancel').onclick = function () { newRow.style.display = 'none'; };
 document.getElementById('wpt-new-confirm').onclick = function () {
   const name = newNameInput.value.trim();
-  WaypointsStore.createRoute(name || null);
   newRow.style.display = 'none';
-  render();
+  WaypointsStore.createRoute(name || null).then(render);
 };
 newNameInput.onkeydown = function (e) { if (e.key === 'Enter') document.getElementById('wpt-new-confirm').click(); };
+
+// CLEAR — drop every route at once, same no-confirmation style as the per-route × button.
+clearBtn.onclick = function () { closeIOPanel(); newRow.style.display = 'none'; WaypointsStore.clearRoutes().then(render); };
 
 // ── Import/export (one shared panel, two modes — see wpt.html's comment on wpt-io-row) ──────
 function closeIOPanel() { ioRow.style.display = 'none'; ioError.textContent = ''; }
@@ -199,10 +206,16 @@ function openImportPanel() {
 importBtn.onclick = openImportPanel;
 
 ioPrimary.onclick = function () {
-  const route = WaypointsStore.importRoute(ioText.value);
-  if (!route) { ioError.textContent = 'Could not read that as a route — check the pasted JSON.'; return; }
+  // Pre-validate client-side (WptRoute.parseRouteJSON) for an instant error — the actual import
+  // is a fire-and-forget POST /command, with no synchronous way back from the server to say the
+  // paste wasn't a route (docs/hud-waypoint-indicator.md). RouteStore.ImportRoute independently
+  // re-parses server-side as the real source of truth.
+  if (!WptRoute.parseRouteJSON(ioText.value)) {
+    ioError.textContent = 'Could not read that as a route — check the pasted JSON.';
+    return;
+  }
+  WaypointsStore.importRoute(ioText.value).then(render);
   closeIOPanel();
-  render();
 };
 
 function openExportPanel(id) {
@@ -276,10 +289,10 @@ function updateCompass(brgDeg) {
 let gridMetaKey = mapinfo.ox + ',' + mapinfo.oy;
 
 function tick() {
-  if (mapinfo.x != null && mapinfo.z != null) {
-    const out = WaypointsStore.advanceIfNear(mapinfo.x, mapinfo.z, WPT_ADVANCE_RADIUS_M);
-    if (out.advanced) render();
-  }
+  // Proximity-advance is no longer this page's job (docs/hud-waypoint-indicator.md, Option 2) —
+  // the plugin ticks RouteStore.AdvanceIfNear itself every second regardless of what page is
+  // open anywhere, so the poll below (via WaypointsStore's own setInterval) is what surfaces an
+  // advance here, the same as any other change made from a different display.
   const key = mapinfo.ox + ',' + mapinfo.oy;
   if (key !== gridMetaKey) { gridMetaKey = key; render(); }
   renderReadout();
@@ -333,11 +346,21 @@ window.addEventListener('message', function (e) {
   else if (m.action === 'cursor-select') cursor.select();
   else if (m.action === 'zoom-in') window.scrollBy({ top: SCROLL_STEP });
   else if (m.action === 'zoom-out') window.scrollBy({ top: -SCROLL_STEP });
+  // R+/R-/W+/W- physical keybinds (issue #38 follow-up) — same 'map-act' transport MAP already
+  // handles (map.js), delivered here too since WPT is a PAD_CURSOR_PAGES page (mfd.js/f35.js); only
+  // wpt.js itself had never listened for these four actions.
+  else if (m.action === 'route-next')    { WaypointsStore.cycleActiveRoute(1).then(render); }
+  else if (m.action === 'route-prev')    { WaypointsStore.cycleActiveRoute(-1).then(render); }
+  else if (m.action === 'waypoint-next') { WaypointsStore.stepWaypoint(1).then(render); }
+  else if (m.action === 'waypoint-prev') { WaypointsStore.stepWaypoint(-1).then(render); }
 });
 
-// Another tab/pane (or MAP itself) wrote a waypoint — pick it up immediately. A route arriving from
-// a squadmate lands the same way: the shell writes it to the store, which fires this.
-window.addEventListener('storage', function (e) { if (e.key === WaypointsStore.STORE_KEY) render(); });
+// Another tab/pane, another DEVICE, or MAP itself changed a route — the plugin is the single
+// source of truth now (docs/hud-waypoint-indicator.md), so this fires off WaypointsStore's own
+// poll of /wpt-options rather than a same-PC-only localStorage 'storage' event. A route arriving
+// from a squadmate lands the same way: the shell hands it to the plugin (wpt.import), and this
+// fires once RouteStore's next poll picks it up.
+window.addEventListener('wptroutes:changed', render);
 
 // ── Squadron (docs/squadron-transport.md) ──────────────────────────────────────────────
 // Membership lives plugin-side (it owns the Steam session), so this block is a thin view over

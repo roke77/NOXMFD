@@ -24,22 +24,29 @@ namespace NOXMFD
         public string cmd;
         public long   id;      // target unit persistentID (target.select / target.deselect)
         public string wname;   // weapon type name (weapon.select) — matches LoadoutEntry.Name
+                                // wpt.* : route/waypoint display name
         public string group;   // tgt.set / tgt.only : "faction" | "category" | "vehicle"
                                 // combat-mode.set : "all" | "aa" | "ag"
                                 // avn.toggle : "gear" | "radar" | "guns" | "eng" | "assist" | "nvg" |
                                 //              "lights" | "turret"
         public int    index;   // tgt.set / tgt.only : toggle index within the group
+                                // wpt.* : waypoint index, or a +-1 direction (cycle-route/step-waypoint)
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
         public string bind;    // keybind.* : BindDef id ("flares", "gear-up", ...)
+                                // wpt.* : route id ("" = clear active route)
         public string key;     // keybind.set-key : Unity KeyCode name ("" or "None" clears)
         public string cid;     // soi.panes : which instance is reporting (a POST isn't tied to its /stream)
         public int    n;       // soi.panes : how many focusable surfaces that instance now shows
+                                // wpt.reorder-waypoint : the "to" index
         public float  hz;      // rates.set : desired rate in Hz (group picks which — "fast" | "tgp")
         public string peer;    // squadron.add / squadron.remove : the peer's SteamID64, as text —
                                // a string, not a long, because a 17-digit SteamID64 exceeds what
                                // JavaScript's Number can represent exactly (docs/squadron-transport.md)
         public string type;    // squadron.send : payload type ("wpt.route", ...)
         public string payload; // squadron.send : the payload itself (small text only)
+        public float  wx;      // wpt.add-waypoint : world X (floating-origin corrected)
+        public float  wz;      // wpt.add-waypoint : world Z
+        public string text;    // wpt.import : the pasted route-export JSON blob
     }
 
     internal static class CommandDispatcher
@@ -110,6 +117,22 @@ namespace NOXMFD
                 // (docs/keybinds-page.md, "surface-level focus"). Carries its own cid — a POST isn't
                 // tied to the /stream connection the count belongs to.
                 { "soi.panes",          e => TelemetryServer.SetPaneCount(e.cid ?? string.Empty, e.n) },
+                // Waypoint/route editing (docs/hud-waypoint-indicator.md, Option 2) — RouteStore is
+                // the plugin's own authoritative route library now, not any browser's localStorage.
+                { "wpt.create",           e => LogWpt("create",           RouteStore.CreateRoute(e.wname) != null) },
+                { "wpt.rename",           e => LogWpt("rename",           RouteStore.RenameRoute(e.bind, e.wname)) },
+                { "wpt.delete",           e => LogWpt("delete",           RouteStore.DeleteRoute(e.bind)) },
+                { "wpt.set-active",       e => RouteStore.SetActiveRoute(e.bind) },
+                { "wpt.clear",            e => RouteStore.ClearRoutes() },
+                { "wpt.reset-route",      e => LogWpt("reset-route",      RouteStore.ResetRoute(e.bind)) },
+                { "wpt.import",           e => LogWpt("import",           RouteStore.ImportRoute(e.text)) },
+                { "wpt.rename-waypoint",  e => LogWpt("rename-waypoint",  RouteStore.RenameWaypoint(e.index, e.wname)) },
+                { "wpt.reorder-waypoint", e => LogWpt("reorder-waypoint", RouteStore.ReorderWaypoint(e.index, e.n)) },
+                { "wpt.reset-waypoint",   e => LogWpt("reset-waypoint",   RouteStore.ResetWaypoint(e.index)) },
+                { "wpt.remove-waypoint",  e => LogWpt("remove-waypoint",  RouteStore.RemoveWaypoint(e.index)) },
+                { "wpt.cycle-route",      e => RouteStore.CycleActiveRoute(e.index) },
+                { "wpt.step-waypoint",    e => RouteStore.StepWaypoint(e.index) },
+                { "wpt.add-waypoint",     e => RouteStore.AddWaypoint(e.wx, e.wz, e.wname) },
             };
 
         // Keybind writes just delegate to the Keybinds registry; log rejections (unknown id / bad key).
@@ -132,6 +155,13 @@ namespace NOXMFD
                 return false;
             }
             return true;
+        }
+
+        // Same shape as Log() above, for the wpt.* family — kept separate rather than
+        // generalizing Log() since its "keybind." prefix is baked into every existing call site.
+        private static void LogWpt(string op, bool ok)
+        {
+            if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] wpt.{op}: rejected.");
         }
 
         // True for a cmd we have a handler for — lets the server reject unknown commands at the
@@ -484,7 +514,8 @@ namespace NOXMFD
 
         // Native-HUD declutter — the mod's OWN HudDeclutter flags (HudDeclutterConfig), not the game's
         // HUDOptions. These hide native HUD widgets: env.group is "weapon" (top-right weapon/ammo/CM
-        // cluster), "minimap" (bottom-left corner map) or "boxes" (boxed heading/speed/alt readouts).
+        // cluster), "minimap" (bottom-left corner map), "boxes" (boxed heading/speed/alt readouts) or
+        // "feed" (native kill-feed ticker, issue #34).
         // Writing the ConfigEntry persists it and fires SettingChanged, so the in-game F1 checkbox
         // follows; HudDeclutter reads the flag each tick and hides/restores within ~0.5s (the minimap
         // within a frame), so there's nothing to apply here. env.on is the desired HIDE state.
@@ -495,6 +526,7 @@ namespace NOXMFD
                 case "weapon":  HudDeclutterConfig.SetHideWeaponAmmo(env.on); break;
                 case "minimap": HudDeclutterConfig.SetHideMinimap(env.on);    break;
                 case "boxes":   HudDeclutterConfig.SetHideTopBoxes(env.on);   break;
+                case "feed":    HudDeclutterConfig.SetHideKillFeed(env.on);   break;
                 default:
                     Plugin.Log?.LogInfo($"[NOXMFD] declutter.set: unknown group '{env.group}' — ignored.");
                     return;

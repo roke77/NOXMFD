@@ -1,9 +1,12 @@
-// Route/waypoint logic — pure, DOM/storage-free, so it can be unit-checked in Node
+// Route/waypoint DISPLAY logic — pure, DOM/storage-free, so it can be unit-checked in Node
 // (wpt-route.test.js), the same treatment map-transform.js and nav-model.js get.
 //
-// Everything here takes and returns plain objects; nothing generates ids or touches storage —
-// that's waypoints-store.js's job (issue #38). Keeping id generation out of this module mirrors
-// telemetry-source.js's instanceId() split.
+// docs/hud-waypoint-indicator.md (Option 2): route MUTATION (create/rename/delete/reorder/
+// advance/etc.) is now authoritative in the plugin's RouteStore.cs — the browser only ever
+// renders whatever /wpt-options reports. What's left here is the half that stays genuinely
+// client-side: math combining server-pushed route data with THIS browser's own live ownship
+// position, plus export/import's plain data-shape conversion (no route/waypoint identity
+// involved, so it has nothing that needs to live server-side).
 //
 // World units are meters, matching map.js's GRID_MINOR_UNIT = 1000 (= 1 km).
 (function (root) {
@@ -26,105 +29,34 @@
     return ((brgDeg - hdg) % 360 + 360) % 360;
   }
 
-  function shouldAdvance(distM, thresholdM) {
-    return distM <= thresholdM;
+  // Marker state for waypoint `index` in a route whose next waypoint is `nextIndex` (map.js's
+  // drawWaypoints marker coloring): 'next' (the one the WPT readout is tracking), 'reached' (already
+  // flown past), or 'pending' (not yet reached).
+  function waypointMarkerState(index, nextIndex) {
+    if (index === nextIndex) return 'next';
+    return index < nextIndex ? 'reached' : 'pending';
   }
 
-  // Bumps route.nextIndex by one when the current "next" waypoint is within thresholdM of
-  // (ownX,ownZ). Caps at waypoints.length (meaning "route complete" — nothing left to advance to).
-  // Returns { route, advanced } — route is a new object only when it actually advanced, the same
-  // reference otherwise, so callers can cheaply skip a re-render.
-  function advanceIfNear(route, ownX, ownZ, thresholdM) {
-    if (!route || route.nextIndex >= route.waypoints.length) return { route, advanced: false };
-    const next = route.waypoints[route.nextIndex];
-    const { distM } = distanceBearing(ownX, ownZ, next.x, next.z);
-    if (!shouldAdvance(distM, thresholdM)) return { route, advanced: false };
-    return { route: Object.assign({}, route, { nextIndex: route.nextIndex + 1 }), advanced: true };
+  // Whether the route LINE segment from waypoint `index` to `index + 1` is already-flown (drawn
+  // gray, map.js's drawWaypoints) — true only when BOTH ends are reached (index + 1 < nextIndex).
+  // The segment leading INTO nextIndex shares its far end with it and stays the active line color
+  // instead — the same leg the WPT readout's bearing/distance is tracking. Getting this off by one
+  // (index < nextIndex, grabbing the wrong end) was a real shipped bug; that's exactly why this is
+  // its own pure, tested function rather than inline canvas code.
+  function segmentReached(index, nextIndex) {
+    return index + 1 < nextIndex;
   }
 
-  // Rewinds/jumps progress to `index`: that waypoint (and everything after it) becomes not-reached,
-  // with `index` itself the new "next" one — a plain overwrite of the count, same "nextIndex is a
-  // count, not an identity" reasoning removeWaypoint/reorderWaypoint already rely on. Clamped to a
-  // valid range so an out-of-range index can't produce a negative or overshooting count. Passing 0
-  // resets the whole route back to its start.
-  function resetProgress(route, index) {
-    const nextIndex = Math.max(0, Math.min(index, route.waypoints.length));
-    return Object.assign({}, route, { nextIndex });
-  }
-
-  function addWaypoint(route, waypoint) {
-    const waypoints = route.waypoints.concat([waypoint]);
-    return Object.assign({}, route, { waypoints });
-  }
-
-  // nextIndex is a COUNT of completed waypoints, not a waypoint's identity — it names "how many are
-  // done," not "which one." So a delete before it means one fewer completed waypoint ahead of it
-  // (shift down by one); a delete AT it leaves the number as-is, which now names whatever slid up
-  // into that slot (skip the removed one, move to what's next); a delete after it doesn't touch it.
-  function removeWaypoint(route, index) {
-    const waypoints = route.waypoints.slice(0, index).concat(route.waypoints.slice(index + 1));
-    let nextIndex = route.nextIndex;
-    if (index < nextIndex) nextIndex -= 1;
-    nextIndex = Math.max(0, Math.min(nextIndex, waypoints.length));
-    return Object.assign({}, route, { waypoints, nextIndex });
-  }
-
-  function renameWaypoint(route, index, name) {
-    const waypoints = route.waypoints.map((w, i) => (i === index ? Object.assign({}, w, { name }) : w));
-    return Object.assign({}, route, { waypoints });
-  }
-
-  // Same "count, not identity" reasoning as removeWaypoint: reordering the plan ahead doesn't change
-  // how many waypoints are done, so nextIndex stays numerically put — whichever waypoint now sits at
-  // that index inherits "next," even if a different one carried the mark before the move.
-  function reorderWaypoint(route, fromIndex, toIndex) {
-    const waypoints = route.waypoints.slice();
-    const [moved] = waypoints.splice(fromIndex, 1);
-    waypoints.splice(toIndex, 0, moved);
-    return Object.assign({}, route, { waypoints });
-  }
-
-  function addRoute(routes, route) {
-    return routes.concat([route]);
-  }
-
-  function deleteRoute(routes, id) {
-    return routes.filter(r => r.id !== id);
-  }
-
-  function renameRoute(routes, id, name) {
-    return routes.map(r => (r.id === id ? Object.assign({}, r, { name }) : r));
-  }
-
+  // Read-only lookup against an already-fetched routes array (from /wpt-options) — no mutation, so
+  // it stays in the same category as the display math above rather than moving to RouteStore.cs.
   function findRoute(routes, id) {
     return routes.find(r => r.id === id) || null;
-  }
-
-  // Route names must be unique (no two routes read the same in the list/readout) — returns `name`
-  // unchanged if nothing else already has it, otherwise the first "name (N)" that's free. `excludeId`
-  // lets a rename check against every OTHER route without colliding with its own current name.
-  function uniqueRouteName(routes, name, excludeId) {
-    const taken = new Set(routes.filter(r => r.id !== excludeId).map(r => r.name));
-    if (!taken.has(name)) return name;
-    let n = 2;
-    while (taken.has(name + ' (' + n + ')')) n++;
-    return name + ' (' + n + ')';
-  }
-
-  // The id of the route one step (dir = +1/-1) from activeId, wrapping at both ends — MAP's R+/R-
-  // (issue #38). No routes: returns activeId unchanged (nothing to switch to). Unknown/null
-  // activeId starts from index 0, so R+ from "no active route" lands on the first one.
-  function cycleRoute(routes, activeId, dir) {
-    if (!routes.length) return activeId;
-    const from = Math.max(0, routes.findIndex(r => r.id === activeId));
-    const next = (from + dir + routes.length) % routes.length;
-    return routes[next].id;
   }
 
   // The portable export shape: name + ordered waypoint name/x/z only — no internal ids, no live
   // progress (nextIndex). Ids are storage bookkeeping, meaningless to whoever the route is shared
   // with; progress is "how far THIS pilot got," not part of the route's own definition, and
-  // importing always starts a route fresh (see waypoints-store.js's importRoute).
+  // importing always starts a route fresh (RouteStore.ImportRoute).
   function serializeRoute(route) {
     return {
       name: route.name,
@@ -132,10 +64,12 @@
     };
   }
 
-  // Parses + validates a pasted route export. Returns { name, waypoints } (serializeRoute's own
-  // shape) on success, or null if the text isn't JSON or doesn't look like a route — the caller
-  // decides how to surface that (waypoints-store.js's importRoute has no UI of its own to report
-  // through; wpt.js's import panel shows the failure).
+  // Parses + validates a pasted route export for IMMEDIATE client-side feedback in wpt.js's import
+  // panel. The actual import is authoritative server-side (RouteStore.ImportRoute, which
+  // independently re-parses) — POST /command is fire-and-forget, with no synchronous way for the
+  // server to say "that wasn't a route," so this pre-validator is what lets a garbage paste show an
+  // inline error instantly instead of silently doing nothing for up to a poll interval.
+  // Returns { name, waypoints } (serializeRoute's own shape) on success, or null.
   function parseRouteJSON(text) {
     let data;
     try { data = JSON.parse(text); } catch (e) { return null; }
@@ -150,11 +84,9 @@
   }
 
   const api = {
-    distanceBearing, relativeBearing, shouldAdvance, advanceIfNear,
-    resetProgress,
-    addWaypoint, removeWaypoint, renameWaypoint, reorderWaypoint,
-    addRoute, deleteRoute, renameRoute, findRoute, cycleRoute, uniqueRouteName,
-    serializeRoute, parseRouteJSON,
+    distanceBearing, relativeBearing,
+    waypointMarkerState, segmentReached,
+    findRoute, serializeRoute, parseRouteJSON,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WptRoute = api;
