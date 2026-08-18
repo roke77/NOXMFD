@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — RC</title>
+<!--
+  Bare RC page served at /rc (docs/rc-page.md). Missile Camera: Remote Control's feed + controls,
+  mirroring the RC mod's own in-cockpit fullscreen view. Unlike TGP/RDR this page both receives
+  state AND sends commands — it owns a drag-to-aim pointer surface and a few buttons, POSTing
+  through send-command.js the same way TGT/MAP do.
+
+  Shell -> page messages (all {mfd:true, ...}):
+    'rc'    : { available, fsActive, controlling, missile, thr, boost, link, formation, pool, tele, markers }
+              Mirrors the "rc" telemetry block (TelemetryServer.RcBlock) at the normal frame rate.
+              tele mirrors the base MissileCamera mod's own Fullscreen HUD text fields 1:1 (same
+              pre-formatted strings/units — see McBridge.cs there): { missile, target, ownship,
+              speed, alt, range, g, fuel, mach, guidance, tgtAngle, hasTarget, hasTti, ttiSec,
+              ttiFrac, closMs, relAltM, infrared, salvoIdx, salvoTotal, visionMode } or null when
+              there's no trackable missile (visionMode is still set even then — see McBridge.cs).
+              markers is an array of cockpit HUD target markers reprojected onto the feed camera's
+              viewport: [{ n (name), x, y (0..1, Unity convention — y=0 bottom, flip for CSS top
+              like the aim reticle), sel (bool — locked/selected target), c (hex color) }, ...],
+              always an array (empty when nothing to show).
+    'rcaim' : { x, y } — reticle viewport position (0..1, 0..1), forwarded from its own high-rate
+              SSE event ("rcaim") the same way MAP's PAD cursor rides its own event. Positions the
+              reticle only; does NOT drive aiming (aiming is this page's own pointer drag, sent as
+              rc.aim command deltas — see rc.js).
+    'orient': app-wide orientation (kept for parity with every other page).
+
+  Page -> game commands (POST /command via sendCommand, src/plugin/CommandDispatcher.cs):
+    rc.aim{x,y}, rc.throttle-set{v}, rc.throttle-adjust{v}, rc.boost{on}, rc.take, rc.take-at{index},
+    rc.release, rc.formation, rc.detonate, rc.refresh-pool, rc.vision-cycle.
+
+  The MJPEG <img> connects to /rc.mjpg directly — the server only emits frames while this page (or
+  a pane running it) is open, via TelemetryServer.WantsRcFrames (RcFeed.cs).
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/rc/rc.css">
+</head>
+<body>
+  <div class="rc-panel" id="rc-panel">
+    <div class="rc-empty mfd-empty" id="rc-empty">
+      <span class="mfd-empty-title">RC</span><span id="rc-empty-msg">— NOT INSTALLED —</span>
+    </div>
+
+    <!-- Aim surface: covers the feed, captures pointer drags, hosts the feed image + reticle. -->
+    <div class="rc-surface" id="rc-surface">
+      <img class="rc-img" id="rc-img" alt="">
+      <div class="rc-markers" id="rc-markers"></div>
+      <div class="pad-cursor rc-reticle" id="rc-reticle"></div>
+    </div>
+
+    <!-- Status strip: missile name, link quality, formation flag. -->
+    <div class="rc-status" id="rc-status">
+      <span class="rc-missile" id="rc-missile"></span>
+      <span class="rc-link" id="rc-link"></span>
+      <span class="rc-formation" id="rc-formation">FORM</span>
+    </div>
+
+    <!-- Throttle: vertical bar readout + nudge buttons (no slider — matches the physical
+         tap-to-ramp keybind rather than pretending to be a precision analog control). -->
+    <div class="rc-throttle" id="rc-throttle">
+      <button class="rc-btn rc-thr-up"   id="rc-thr-up"   type="button">THR+</button>
+      <div class="rc-thr-gauge"><div class="rc-thr-fill" id="rc-thr-fill"></div></div>
+      <button class="rc-btn rc-thr-down" id="rc-thr-down" type="button">THR−</button>
+      <button class="rc-btn rc-boost" id="rc-boost" type="button">AB</button>
+    </div>
+
+    <!-- Session controls. -->
+    <div class="rc-actions" id="rc-actions">
+      <button class="rc-btn rc-take"    id="rc-take"    type="button">TAKE</button>
+      <button class="rc-btn rc-release" id="rc-release" type="button">RELEASE</button>
+      <button class="rc-btn rc-form-btn" id="rc-form-btn" type="button">FORM</button>
+      <button class="rc-btn rc-vision" id="rc-vision" type="button">VIS</button>
+      <button class="rc-btn rc-det" id="rc-det" type="button">DETONATE</button>
+    </div>
+
+    <!-- Missile picker: shown on demand (rc-pool-toggle), lists ControllablePool by index. -->
+    <div class="rc-pool" id="rc-pool"></div>
+
+    <!-- Telemetry readout — mirrors the base MissileCamera mod's own Fullscreen HUD text fields
+         1:1 (docs/rc-page.md "tele"); same pre-formatted strings, not reformatted here. -->
+    <div class="rc-tele" id="rc-tele">
+      <div class="rc-tele-col">
+        <div><span class="rc-tele-lbl">SPD</span><span id="rc-tele-spd"></span></div>
+        <div><span class="rc-tele-lbl">ALT</span><span id="rc-tele-alt"></span></div>
+        <div><span class="rc-tele-lbl">RNG</span><span id="rc-tele-rng"></span></div>
+        <div><span class="rc-tele-lbl">FUEL</span><span id="rc-tele-fuel"></span></div>
+      </div>
+      <div class="rc-tele-col">
+        <div><span class="rc-tele-lbl">MACH</span><span id="rc-tele-mach"></span></div>
+        <div><span class="rc-tele-lbl">G</span><span id="rc-tele-g"></span></div>
+        <div><span class="rc-tele-lbl">GUID</span><span id="rc-tele-guid"></span></div>
+        <div><span class="rc-tele-lbl">TGT&ang;</span><span id="rc-tele-tgtangle"></span></div>
+      </div>
+      <div class="rc-tele-tti" id="rc-tele-tti"></div>
+    </div>
+  </div>
+
+<script src="/assets/services/send-command.js"></script>
+<script src="/assets/pages/rc/rc.js"></script>
+</body>
+</html>

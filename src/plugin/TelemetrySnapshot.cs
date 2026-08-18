@@ -100,6 +100,22 @@ namespace NOXMFD
         // game's 3-second post-loss hold is still running). Drives the MFD's NO TARGET fallback.
         public bool   TgpActive;
 
+        // MissileCamera: Remote Control status (soft dependency — RcBridge.cs / McBridge.cs).
+        // RcAvailable=false covers both "RC add-on not installed" and "installed but too old" —
+        // see RcBridge.cs. RcTeleJson/RcMarkersJson are pre-escaped JSON spliced verbatim from the
+        // base MissileCamera mod (McBridge.cs), not parsed here.
+        public bool     RcAvailable;
+        public bool     RcFsActive;
+        public bool     RcControlling;
+        public string?  RcMissileName;
+        public float    RcThrottle;
+        public bool     RcBoost;
+        public string?  RcLink;
+        public bool     RcFormation;
+        public string[]? RcPool;
+        public string?  RcTeleJson;
+        public string?  RcMarkersJson;
+
         // Per-part HP for the AVN page. Built from Aircraft.partLookup, one entry per
         // damageable UnitPart. Names match the silhouette layout served at /airframe-layout.
         public PartHp[] Parts;

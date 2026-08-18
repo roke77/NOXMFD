@@ -1,0 +1,187 @@
+/* RC page — Missile Camera: Remote Control feed + controls. Base reset / colour tokens / font /
+   .mfd-empty / .pad-cursor come from theme.css. See rc.html for the message contract. */
+
+.rc-panel {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  overflow: hidden;
+}
+
+/* Same centred-box reasoning as TGP: hide the whole interactive layer (surface + status +
+   controls) rather than just the image, so a dead/uninstalled RC never leaves stray buttons
+   floating over black. */
+.rc-panel:not(.has-rc) .rc-surface,
+.rc-panel:not(.has-rc) .rc-status,
+.rc-panel:not(.has-rc) .rc-throttle,
+.rc-panel:not(.has-rc) .rc-actions,
+.rc-panel:not(.has-rc) .rc-pool { display: none; }
+.rc-panel.has-rc .rc-empty { display: none; }
+
+.rc-surface {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;   /* the surface owns drag — no browser scroll/zoom gestures to fight */
+  cursor: crosshair;
+}
+.rc-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  pointer-events: none;   /* drags are handled by .rc-surface, not the <img> itself */
+}
+/* No feed yet (fullscreen not active / camera not live) — keep the black box, drop the stale
+   frame MJPEG would otherwise keep buffered in the element (same reasoning as TGP). */
+.rc-panel:not(.has-feed) .rc-img { visibility: hidden; }
+
+.rc-reticle {
+  /* .pad-cursor already gives position/size/crosshair sprite/will-change — this just turns it
+     on and lifts it above the feed image. */
+  display: block;
+}
+
+.rc-status {
+  position: absolute;
+  top: 8px; left: 0; right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  font-family: var(--no-font);
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  color: var(--no-green);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+  pointer-events: none;
+}
+.rc-link.degraded { color: var(--no-amber); }
+.rc-link.lost      { color: var(--no-red); }
+.rc-formation { color: var(--no-green-dark); }
+.rc-formation.active { color: var(--no-green); }
+
+.rc-btn {
+  font-family: var(--no-font);
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--no-green);
+  background: var(--no-panel-bg);
+  border: 1px solid var(--no-panel-border);
+  padding: 6px 10px;
+  border-radius: 2px;
+}
+.rc-btn:active { background: rgba(57,255,20,0.18); }
+.rc-btn.on { color: var(--no-ink); background: var(--no-green); }
+
+.rc-throttle {
+  position: absolute;
+  right: 8px; top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.rc-thr-gauge {
+  width: 14px;
+  height: 140px;
+  background: var(--no-panel-bg);
+  border: 1px solid var(--no-panel-border);
+  display: flex;
+  align-items: flex-end;
+}
+.rc-thr-fill {
+  width: 100%;
+  height: 0%;   /* set inline per-frame by rc.js */
+  background: var(--no-green);
+}
+.rc-boost { margin-top: 4px; }
+.rc-boost.on { color: var(--no-ink); background: var(--no-amber); border-color: var(--no-amber); }
+
+.rc-actions {
+  position: absolute;
+  left: 8px; bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rc-det { color: var(--no-red); border-color: var(--no-red); }
+.rc-det:active { background: rgba(255,64,64,0.22); }
+
+.rc-pool {
+  position: absolute;
+  left: 8px; top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 60%;
+  overflow-y: auto;
+}
+.rc-pool:empty { display: none; }
+.rc-pool-item {
+  font-family: var(--no-font);
+  font-size: 12px;
+  color: var(--no-green-dim);
+  background: var(--no-panel-bg);
+  border: 1px solid var(--no-panel-border);
+  padding: 4px 8px;
+  text-align: left;
+}
+.rc-pool-item:active { background: rgba(57,255,20,0.18); }
+
+.rc-tele {
+  position: absolute;
+  right: 8px; bottom: 8px;
+  display: flex;
+  gap: 14px;
+  font-family: var(--no-font);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: var(--no-green);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+  pointer-events: none;
+}
+.rc-panel:not(.has-rc) .rc-tele,
+.rc-panel:not(.has-tele) .rc-tele { display: none; }
+.rc-tele-col { display: flex; flex-direction: column; gap: 2px; align-items: flex-end; }
+.rc-tele-lbl { color: var(--no-green-dim); margin-right: 6px; }
+.rc-tele-tti {
+  align-self: flex-end;
+  color: var(--no-amber);
+  font-weight: bold;
+}
+
+.rc-markers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.rc-marker {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  border: 1.5px solid currentColor;
+  box-sizing: border-box;
+}
+.rc-marker-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 2px;
+  font-family: var(--no-font);
+  font-size: 10px;
+  color: currentColor;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+  white-space: nowrap;
+}
+.rc-marker.selected {
+  width: 28px;
+  height: 28px;
+  border-width: 2px;
+  box-shadow: 0 0 4px currentColor;
+}

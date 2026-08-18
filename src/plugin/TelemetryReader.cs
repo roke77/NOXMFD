@@ -113,6 +113,11 @@ namespace NOXMFD
         // mirrored into the snapshot, and torn down from OnDestroy. See TgpFeed.cs.
         private readonly TgpFeed _tgp = new TgpFeed();
 
+        // RC (MissileCamera: Remote Control) feed — same shape as TgpFeed, but sourced from a soft
+        // dependency on another pair of mods (RcBridge.cs / McBridge.cs) instead of the game's own
+        // TargetCam. See RcFeed.cs.
+        private readonly RcFeed _rc = new RcFeed();
+
         // ── RWR (radar warning) ───────────────────────────────────────────────────
         // The game raises Aircraft.onRadarWarning once per radar sweep that paints the player
         // (a Mirage ClientRpc, so on the main thread — same as our Update). It's a transient
@@ -192,6 +197,7 @@ namespace NOXMFD
             }
 
             _tgp.Tick(dt);   // TGP feed cadence is owned by TgpFeed (captures at its own interval)
+            _rc.Tick(dt);    // RC feed cadence is owned by RcFeed (captures at its own interval)
         }
 
         private void ScanWorld()
@@ -288,6 +294,13 @@ namespace NOXMFD
         private static AkfKillEntry[] ToArray(IReadOnlyList<AkfKillEntry> list)
         {
             var arr = new AkfKillEntry[list.Count];
+            for (int i = 0; i < list.Count; i++) arr[i] = list[i];
+            return arr;
+        }
+
+        private static string[] ToStringArray(IReadOnlyList<string> list)
+        {
+            var arr = new string[list.Count];
             for (int i = 0; i < list.Count; i++) arr[i] = list[i];
             return arr;
         }
@@ -842,6 +855,22 @@ namespace NOXMFD
                 ColHostile     = _colHostile,
                 ColNeutral     = _colNeutral,
                 TgpActive      = _tgp.Active,
+                RcAvailable    = RcBridge.Available,
+                // ponytail: RcFsActive drives rc.js's "CAMERA NOT ACTIVE" empty state — using
+                // _rc.Active (frames actually flowing) rather than RcBridge.IsFullscreenActive,
+                // since with McBridge wired we force-capture without fullscreen (RcFeed.cs), so
+                // fullscreen state alone would misreport. Ceiling: lags one capture interval
+                // (~50ms) behind the true pipeline state — not noticeable at this refresh rate.
+                RcFsActive     = _rc.Active,
+                RcControlling  = RcBridge.IsControlling,
+                RcMissileName  = RcBridge.ControlledMissileName,
+                RcThrottle     = RcBridge.Throttle01,
+                RcBoost        = RcBridge.BoostActive,
+                RcLink         = RcBridge.LinkQuality,
+                RcFormation    = RcBridge.FormationFollowActive,
+                RcPool         = ToStringArray(RcBridge.ControllablePool),
+                RcTeleJson     = McBridge.TelemetryJson,
+                RcMarkersJson  = McBridge.MarkersJson,
                 Parts          = BuildParts(aircraft),
                 Failures       = BuildFailures(),
                 Rwr            = BuildRwr(aircraft),
@@ -1363,6 +1392,7 @@ namespace NOXMFD
         private void OnDestroy()
         {
             _tgp.Disengage();
+            _rc.Disengage();
             if (_rwrSubscribed != null) { _rwrSubscribed.onRadarWarning -= OnRadarWarning; _rwrSubscribed = null; }
             if (AkfTracker.Active == _akf) AkfTracker.Active = null;
         }

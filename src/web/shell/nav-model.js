@@ -35,10 +35,12 @@
       { label: 'MAP', action: 'map' },     // → MAP page
       { label: 'RWR', action: 'rwr' },     // → RWR page
       { label: 'TGP', action: 'tgp' },     // → TGP page
+      { label: 'RC',  action: 'rc'  },     // → RC page (MissileCamera: Remote Control feed)
       { label: 'TGT', action: 'tgt' },     // → TGT page (target-selection filter)
       { label: 'WPN', action: 'wpn' },     // → WPN page
     ],
     tgp: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN
+    rc:  [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN
     avn: [ { label: 'MAIN', action: 'main' } ],
     afm: [ { label: 'MAIN', action: 'main' } ],   // Airframe page — name + damage silhouette
     rwr: [ { label: 'MAIN', action: 'main' } ],

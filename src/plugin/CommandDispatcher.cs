@@ -42,6 +42,12 @@ namespace NOXMFD
         public float  wx;      // wpt.add-waypoint : world X (floating-origin corrected)
         public float  wz;      // wpt.add-waypoint : world Z
         public string text;    // wpt.import : the pasted route-export JSON blob
+
+        // RC (MissileCamera: Remote Control) continuous values — the only other float fields in
+        // the envelope besides hz, so far only RC needs anything analog beyond that.
+        public float  x;       // rc.aim : yaw delta, degrees (right positive) — one frame's pointer/drag delta
+        public float  y;       // rc.aim : pitch delta, degrees (up negative) — same sign convention as RcBridge
+        public float  v;       // rc.throttle-set : absolute 0..1 · rc.throttle-adjust : relative delta
     }
 
     internal static class CommandDispatcher
@@ -120,6 +126,22 @@ namespace NOXMFD
                 { "wpt.cycle-route",      e => RouteStore.CycleActiveRoute(e.index) },
                 { "wpt.step-waypoint",    e => RouteStore.StepWaypoint(e.index) },
                 { "wpt.add-waypoint",     e => RouteStore.AddWaypoint(e.wx, e.wz, e.wname) },
+                // MissileCamera: Remote Control (soft dependency — RcBridge.cs). Every handler is a
+                // direct forward onto RcBridge/McBridge, which themselves no-op when the relevant mod
+                // isn't installed or not currently controlling — so these are safe to wire up
+                // unconditionally, the same as any other command, rather than gating registration on
+                // an Available check.
+                { "rc.aim",             e => RcBridge.InjectAimDelta(e.x, e.y) },
+                { "rc.throttle-set",    e => RcBridge.SetThrottle01(e.v) },
+                { "rc.throttle-adjust", e => RcBridge.AdjustThrottle(e.v) },
+                { "rc.boost",           e => RcBridge.SetBoostHeld(e.on) },
+                { "rc.take",            e => RcBridge.TakeNearest() },
+                { "rc.take-at",         e => RcBridge.TakeAt(e.index) },
+                { "rc.release",         e => RcBridge.Release() },
+                { "rc.formation",       e => RcBridge.ToggleFormationFollow() },
+                { "rc.detonate",        e => RcBridge.ManualDetonate() },
+                { "rc.refresh-pool",    e => RcBridge.RefreshPool() },
+                { "rc.vision-cycle",    e => McBridge.CycleVisionMode() },
             };
 
         // Keybind writes just delegate to the Keybinds registry; log rejections (unknown id / bad key).

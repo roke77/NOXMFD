@@ -116,6 +116,19 @@ namespace NOXMFD
         private static int _tgpSubscribers;
         public static bool WantsTgpFrames => Volatile.Read(ref _tgpSubscribers) > 0;
 
+        // Latest RC (MissileCamera: Remote Control) feed frame — same shape as the TGP block
+        // above, served at /rc.mjpg. See RcFeed.cs / RcBridge.cs / McBridge.cs.
+        private static byte[]? _rcJpg;
+        private static long    _rcFrameId;
+        private static readonly object _rcLock = new object();
+        private static int _rcSubscribers;
+        public static bool WantsRcFrames => Volatile.Read(ref _rcSubscribers) > 0;
+
+        // RC aim reticle viewport position — its own high-rate channel (SSE event "rcaim"), same
+        // reasoning and shape as the MAP cursor (_cursorX/_cursorY below): a continuous analog
+        // value that would feel laggy riding the 10 Hz telemetry frame.
+        private static float _rcAimX = 0.5f, _rcAimY = 0.5f;
+
         // ── Connected MFD instances (SOI — docs/keybinds-page.md) ──────────────
         // One /stream connection IS one MFD instance: HandleSseAsync runs for exactly as long as a
         // browser sits on the display, so registering on entry and dropping in its existing finally
@@ -609,6 +622,35 @@ namespace NOXMFD
             lock (_tgpLock) { _tgpJpg = null; _tgpFrameId++; }
         }
 
+        // Called from Unity main thread with each captured RC (remote-control missile camera)
+        // frame. Same shape as PushTgpFrame — see WantsRcFrames / RcFeed.cs.
+        public static void PushRcFrame(byte[] jpg)
+        {
+            if (jpg == null || jpg.Length == 0) return;
+            lock (_rcLock) { _rcJpg = jpg; _rcFrameId++; }
+        }
+
+        // Drops the cached RC frame so MJPEG clients see "no frame" again.
+        public static void ClearRcFrame()
+        {
+            lock (_rcLock) { _rcJpg = null; _rcFrameId++; }
+        }
+
+        // RC aim reticle — an absolute viewport position (0..1, 0..1), unlike the MAP cursor's
+        // velocity vector, because the reticle already has a well-defined "where it is right now"
+        // (the RC bridge's own smoothing/slew) that the browser just needs to mirror, not
+        // integrate itself. Ships on its own "rcaim" SSE event, change-gated like SetCursorVector.
+        internal static float RcAimX => Volatile.Read(ref _rcAimX);
+        internal static float RcAimY => Volatile.Read(ref _rcAimY);
+        internal static void SetRcAimVector(float x, float y)
+        {
+            x = (float)Math.Round(x, 3);
+            y = (float)Math.Round(y, 3);
+            if (_rcAimX == x && _rcAimY == y) return;   // steady hold — nothing to ship
+            Volatile.Write(ref _rcAimX, x);
+            Volatile.Write(ref _rcAimY, y);
+        }
+
         // Called from Unity main thread when a mission ends — clears all per-mission state so
         // the client drops back to "no mission" and wipes its display. Icons are static
         // per-type assets and stay cached across missions.
@@ -633,6 +675,8 @@ namespace NOXMFD
                         _ = Task.Run(() => HandleSseAsync(ctx, _cts.Token));
                     else if (path == "/tgp.mjpg")
                         _ = Task.Run(() => HandleMjpegAsync(ctx, _cts.Token));
+                    else if (path == "/rc.mjpg")
+                        _ = Task.Run(() => HandleRcMjpegAsync(ctx, _cts.Token));
                     else if (path == "/map" || path == "/map.png" || path == "/map.jpg")
                         ServeMap(ctx);
                     else if (path == "/icon")
@@ -677,6 +721,8 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/afm/afm.html");
                     else if (path == "/tgp")
                         ServeAssetRel(ctx, "pages/tgp/tgp.html");
+                    else if (path == "/rc")
+                        ServeAssetRel(ctx, "pages/rc/rc.html");
                     else if (path == "/wpn")
                         ServeAssetRel(ctx, "pages/wpn/wpn.html");
                     else if (path == "/rwr")
@@ -1334,6 +1380,51 @@ namespace NOXMFD
             }
         }
 
+        // Same shape as HandleMjpegAsync above, reading the RC buffers instead of the TGP ones.
+        // Kept as its own method (rather than parameterizing) because the two feeds' subscriber
+        // counters / gates (WantsTgpFrames vs WantsRcFrames) are separate statics, not fields on a
+        // shared object.
+        private static async Task HandleRcMjpegAsync(HttpListenerContext ctx, CancellationToken ct)
+        {
+            const string boundary = "rcframe";
+            ctx.Response.StatusCode  = 200;
+            ctx.Response.ContentType = "multipart/x-mixed-replace; boundary=" + boundary;
+            ctx.Response.SendChunked = true;
+            ctx.Response.Headers.Add("Cache-Control", "no-cache");
+            ctx.Response.Headers.Add("X-Accel-Buffering", "no");
+
+            long lastSeen = -1;
+            Interlocked.Increment(ref _rcSubscribers);
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    byte[]? jpg; long id;
+                    lock (_rcLock) { jpg = _rcJpg; id = _rcFrameId; }
+
+                    if (jpg != null && id != lastSeen)
+                    {
+                        lastSeen = id;
+                        string head = "\r\n--" + boundary + "\r\nContent-Type: image/jpeg\r\nContent-Length: " + jpg.Length + "\r\n\r\n";
+                        byte[] headBytes = Encoding.ASCII.GetBytes(head);
+                        await ctx.Response.OutputStream.WriteAsync(headBytes, 0, headBytes.Length, ct).ConfigureAwait(false);
+                        await ctx.Response.OutputStream.WriteAsync(jpg, 0, jpg.Length, ct).ConfigureAwait(false);
+                        ctx.Response.OutputStream.Flush();
+                    }
+
+                    // Source publishes at 20 Hz (~50 ms/frame); 30 ms polls stay ahead.
+                    await Task.Delay(30, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception) { /* client disconnected, normal */ }
+            finally
+            {
+                Interlocked.Decrement(ref _rcSubscribers);
+                try { ctx.Response.Close(); } catch { }
+            }
+        }
+
         // ── SSE handler ────────────────────────────────────────────────────────
 
         private static async Task HandleSseAsync(HttpListenerContext ctx, CancellationToken ct)
@@ -1381,6 +1472,7 @@ namespace NOXMFD
                 // the expensive snapshot keeps its 10 Hz. lastCursor suppresses repeats, so a centred
                 // stick costs one comparison per tick and no traffic at all.
                 string lastCursor = string.Empty;
+                string lastRcAim  = string.Empty;
                 int sinceFrame = FrameEveryMs;   // send a frame immediately on connect
                 while (!ct.IsCancellationRequested)
                 {
@@ -1400,6 +1492,14 @@ namespace NOXMFD
                         lastCursor = cursor;
                         byte[] cbytes = Encoding.UTF8.GetBytes("event: cursor\ndata: " + cursor + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(cbytes, 0, cbytes.Length, ct).ConfigureAwait(false);
+                    }
+
+                    string rcAim = RcAimJson();
+                    if (!string.Equals(rcAim, lastRcAim, StringComparison.Ordinal))
+                    {
+                        lastRcAim = rcAim;
+                        byte[] rbytes = Encoding.UTF8.GetBytes("event: rcaim\ndata: " + rcAim + "\n\n");
+                        await ctx.Response.OutputStream.WriteAsync(rbytes, 0, rbytes.Length, ct).ConfigureAwait(false);
                     }
                     ctx.Response.OutputStream.Flush();
 
@@ -1471,6 +1571,7 @@ namespace NOXMFD
                         + ",\"rwr\":" + RwrArray(s.Rwr)
                         + ",\"mw\":" + MwArray(s.Mw)
                         + ",\"rdr\":" + RdrBlock(s)
+                        + ",\"rc\":" + RcBlock(s)
                         + ",\"radar\":" + (s.RadarOn ? "true" : "false")
                         + ",\"guns\":" + (s.GunsLinked ? "true" : "false")
                         + ",\"ign\":" + (s.Ignition ? "true" : "false")
@@ -1674,6 +1775,37 @@ namespace NOXMFD
                 "{{\"present\":true,\"range\":{0:0.0},\"cone\":{1:0.0},\"metric\":{2},\"lvlt\":{3:0.000},\"items\":{4},\"pb\":{5}}}",
                 s.RadarRange, s.RadarConeDeg, s.RdrMetric ? "true" : "false", s.RdrLevelTime, RdrArray(s.Rdr), pb);
         }
+
+        // MissileCamera: Remote Control status (soft dependency — RcBridge.cs / McBridge.cs).
+        // "available":false covers both "mod not installed" and "installed but too old" — the
+        // page shows the same not-installed state either way, no need for the client to tell them
+        // apart. The aim reticle itself is NOT here — see the "rcaim" SSE event / RcAimJson.
+        private static string RcBlock(TelemetrySnapshot s)
+        {
+            if (!s.RcAvailable) return "{\"available\":false}";
+            // "tele"/"markers" are spliced in verbatim (see TelemetrySnapshot.RcTeleJson/RcMarkersJson)
+            // rather than built via string.Format like the rest of this block — they're already valid,
+            // pre-escaped JSON straight from the base MissileCamera mod (McBridge.cs), and re-threading
+            // their fields through format args here would just be a second, easier-to-drift copy.
+            string tele = string.IsNullOrEmpty(s.RcTeleJson) ? "null" : s.RcTeleJson!;
+            string markers = string.IsNullOrEmpty(s.RcMarkersJson) ? "[]" : s.RcMarkersJson;
+            return string.Format(CultureInfo.InvariantCulture,
+                "{{\"available\":true,\"fsActive\":{0},\"controlling\":{1},\"missile\":\"{2}\"," +
+                "\"thr\":{3:0.000},\"boost\":{4},\"link\":\"{5}\",\"formation\":{6},\"pool\":{7},\"tele\":{8},\"markers\":{9}}}",
+                s.RcFsActive ? "true" : "false",
+                s.RcControlling ? "true" : "false",
+                EscapeJson(s.RcMissileName ?? string.Empty),
+                s.RcThrottle,
+                s.RcBoost ? "true" : "false",
+                EscapeJson(s.RcLink ?? string.Empty),
+                s.RcFormation ? "true" : "false",
+                StringArray(s.RcPool),
+                tele,
+                markers);
+        }
+
+        private static string RcAimJson() => string.Format(CultureInfo.InvariantCulture,
+            "{{\"x\":{0:0.000},\"y\":{1:0.000}}}", RcAimX, RcAimY);
 
         // Pitbull missiles (issue #40): the player's own AA missiles with an active-radar seeker
         // currently locked. tid is the designated target's persistentID.Id, 0 if none/unresolved —
