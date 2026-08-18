@@ -76,13 +76,13 @@ function renderRoutes(c) {
     exportBtn.className = 'wpt-row-btn pad-hoverable'; exportBtn.textContent = '⇩'; exportBtn.title = 'Export route as JSON';
     exportBtn.onclick = function () { openExportPanel(route.id); };
 
-    // Share to the squadron (docs/squadron-transport.md). Sends the SAME serialisation the export
-    // panel shows, so one format travels both paths — a shared route and a pasted one are the same
-    // bytes, and the receiving end runs the same importRoute validation either way. Only rendered
-    // while the transport is up and at least one squadmate is set, since it can do nothing without
-    // both.
+    // Share with the squad (docs/squadron-transport.md, SQD page). Sends the SAME serialisation the
+    // export panel shows, so one format travels both paths — a shared route and a pasted one are
+    // the same bytes, and the receiving end runs the same importRoute validation either way. Only
+    // the LEADER can share (Squad.SendData is leader-only), and only once at least one member has
+    // joined — squad membership itself is managed on the SQD page, not here.
     const share = document.createElement('button');
-    share.className = 'wpt-row-btn pad-hoverable'; share.textContent = '⇪'; share.title = 'Share route with squadron';
+    share.className = 'wpt-row-btn pad-hoverable'; share.textContent = '⇪'; share.title = 'Share route with squad';
     share.onclick = function () { shareRoute(route.id, share); };
 
     const del = document.createElement('button');
@@ -93,7 +93,7 @@ function renderRoutes(c) {
 
     row.appendChild(name); row.appendChild(mark); row.appendChild(edit); row.appendChild(reset);
     row.appendChild(exportBtn);
-    if (sqd.ready && sqd.peers.length) row.appendChild(share);
+    if (sqd.role === 'leader' && sqd.members.length) row.appendChild(share);
     row.appendChild(del);
     routesEl.appendChild(row);
   });
@@ -362,84 +362,34 @@ window.addEventListener('message', function (e) {
 // fires once RouteStore's next poll picks it up.
 window.addEventListener('wptroutes:changed', render);
 
-// ── Squadron (docs/squadron-transport.md) ──────────────────────────────────────────────
-// Membership lives plugin-side (it owns the Steam session), so this block is a thin view over
-// GET /squadron plus the squadron.* commands. `ready:false` means no Steam — the whole section stays
-// hidden rather than offering controls that cannot work.
-const sqd = { ready: false, self: '', peers: [] };
-const sqdSection = document.getElementById('wpt-sqd-section');
-const sqdSelfEl  = document.getElementById('wpt-sqd-selfid');
-const sqdPeersEl = document.getElementById('wpt-sqd-peers');
-const sqdErrEl   = document.getElementById('wpt-sqd-error');
-const sqdInput   = document.getElementById('wpt-sqd-peer');
+// ── Squad (docs/squadron-transport.md) ─────────────────────────────────────────────────
+// Squad membership/invites live on the dedicated SQD page — this page only needs to know whether
+// IT can share a route right now, i.e. whether we're the squad leader with at least one member.
+// A light 2s poll of /squad is enough for that (nothing here needs push latency), so this doesn't
+// need the shell-relay machinery WaypointsStore's route data uses for its much larger/hotter data.
+const sqd = { role: 'none', members: [] };
 
-function sqdError(msg) { sqdErrEl.textContent = msg || ''; }
-
-function refreshSquadron() {
-  return fetch('/squadron')
+function refreshSquad() {
+  return fetch('/squad')
     .then(r => r.ok ? r.json() : null)
     .then(function (s) {
-      if (!s) return;
-      sqd.ready = !!s.ready;
-      sqd.self  = s.self || '';
-      sqd.peers = Array.isArray(s.peers) ? s.peers : [];
-      renderSquadron();
-      render();   // the per-route share button appears/disappears with peers
+      if (!s || !s.state) return;
+      sqd.role    = s.state.role || 'none';
+      sqd.members = Array.isArray(s.state.members) ? s.state.members : [];
+      render();   // the per-route share button appears/disappears with leadership + membership
     })
-    .catch(function () { /* standalone/preview without the plugin — leave it hidden */ });
+    .catch(function () { /* standalone/preview without the plugin — share stays hidden */ });
 }
-
-function renderSquadron() {
-  sqdSection.style.display = sqd.ready ? '' : 'none';
-  if (!sqd.ready) return;
-  sqdSelfEl.textContent = sqd.self && sqd.self !== '0' ? sqd.self : '—';
-  sqdPeersEl.textContent = '';
-  sqd.peers.forEach(function (p) {
-    const row = document.createElement('div');
-    row.className = 'wpt-row';
-    const name = document.createElement('span');
-    name.className = 'wpt-row-name';
-    name.textContent = p;
-    const del = document.createElement('button');
-    del.className = 'wpt-row-btn pad-hoverable';
-    del.textContent = '×';
-    del.title = 'Remove squadmate';
-    del.onclick = function () {
-      sendCommand('squadron.remove', { peer: p }).then(refreshSquadron).catch(function () {});
-    };
-    row.appendChild(name); row.appendChild(del);
-    sqdPeersEl.appendChild(row);
-  });
-}
-
-// A SteamID64 is 17 digits — validated here as digits-only so an obvious typo is caught in the page,
-// and again plugin-side (CommandDispatcher.TryPeer), which is the real trust boundary.
-document.getElementById('wpt-sqd-add').onclick = function () {
-  const v = (sqdInput.value || '').trim();
-  if (!/^\d{5,20}$/.test(v)) { sqdError('SteamID must be digits only'); return; }
-  if (v === sqd.self) { sqdError('That is your own ID'); return; }
-  sqdError('');
-  sendCommand('squadron.add', { peer: v })
-    .then(function () { sqdInput.value = ''; return refreshSquadron(); })
-    .catch(function () { sqdError('Could not reach the plugin'); });
-};
-
-document.getElementById('wpt-sqd-copy').onclick = function () {
-  if (!sqd.self || sqd.self === '0') return;
-  // Same clipboard fallback shape the export panel's COPY uses — execCommand still covers the
-  // non-secure-origin case a LAN tablet hits (http://<pc-ip>:5005 is not a secure context).
-  try { navigator.clipboard.writeText(sqd.self); }
-  catch (e) { /* older/non-secure context — the id is on screen to read either way */ }
-};
 
 function shareRoute(id, btn) {
   const json = WaypointsStore.exportRoute(id);
   if (!json) return;
   const was = btn.textContent;
-  sendCommand('squadron.send', { type: 'wpt.route', payload: json })
+  sendCommand('sqd.send', { type: 'wpt.route', payload: json })
     .then(function () { btn.textContent = '✓'; setTimeout(function () { btn.textContent = was; }, 1200); })
-    .catch(function () { sqdError('Share failed'); });
+    .catch(function () {});
 }
 
-refreshSquadron();
+refreshSquad();
+setInterval(refreshSquad, 2000);
 render();   // also paints the readout — see render()'s own comment

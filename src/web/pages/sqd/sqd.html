@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — SQD</title>
+<!--
+  SQD page — squad membership over Steam P2P (docs/squadron-transport.md), served at /sqd. Reached
+  from MAIN like HUD/CFG/MDT/RDR/AFM (BEZEL_EXTRAS.main / f35.js's MAIN_EXTRAS), not from another
+  page's own nav row.
+
+  A squad is a leader plus zero or more members, no persistence, at most one squad per player. The
+  leader invites players currently in the same match (picked from GET /server-players, the game's
+  own live roster — no lobby, no pasted SteamID); the invited player explicitly accepts or declines
+  (GET /squad's pendingInvite). Only the leader can share data with the squad (SQD.send, wired to
+  WPT's own per-route share button); the topology is a star, leader <-> each member, members never
+  talk to each other directly.
+
+  All state and actions round-trip through the plugin: GET /squad for the current role/leader/
+  members/pending state, POST /command (sqd.invite / sqd.accept / sqd.decline / sqd.leave /
+  sqd.relinquish / sqd.disband). No shell relay — this page polls /squad and /server-players
+  directly (ponytail: a 1s poll is simple and plenty for a UI that isn't latency-sensitive; an
+  SSE 'sqd' event already exists server-side if this ever needs to be push-based instead).
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/sqd/sqd.css">
+</head>
+<body>
+
+<div class="sqd-panel" id="sqd-panel">
+  <a class="sqd-back" href="/">&lt; MAIN</a>
+  <div class="sqd-title">SQUADRON</div>
+
+  <div class="sqd-unavailable" id="sqd-unavailable" style="display:none;">
+    Squad requires Steam. Unavailable on this launch.
+  </div>
+
+  <div class="sqd-notice" id="sqd-notice" style="display:none;"></div>
+
+  <!-- An invite awaiting our own accept/decline (docs/squadron-transport.md). Only one at a time —
+       a newer invite replaces an older, unanswered one. -->
+  <div class="sqd-section" id="sqd-invite-section" style="display:none;">
+    <div class="sqd-section-head"><span>SQUAD INVITE</span></div>
+    <div class="sqd-invite-card">
+      <div class="sqd-invite-text">
+        <span id="sqd-invite-leader">—</span> invites you to their squad
+        (<span id="sqd-invite-count">0</span> member<span id="sqd-invite-plural">s</span>)
+      </div>
+      <div class="sqd-invite-actions">
+        <button class="sqd-btn" id="sqd-invite-accept">ACCEPT</button>
+        <button class="sqd-btn sqd-btn-ghost" id="sqd-invite-decline">DECLINE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- No squad yet — pick a squadmate from whoever else is in this match right now. -->
+  <div class="sqd-section" id="sqd-roster-section">
+    <div class="sqd-section-head"><span>PLAYERS IN THIS MATCH</span></div>
+    <div class="sqd-rows" id="sqd-roster-rows"></div>
+    <div class="sqd-empty" id="sqd-roster-empty">&mdash; NO OTHER PLAYERS DETECTED &mdash;</div>
+  </div>
+
+  <!-- Invites sent, awaiting the target's own accept/decline. -->
+  <div class="sqd-section" id="sqd-pending-section" style="display:none;">
+    <div class="sqd-section-head"><span>INVITED — AWAITING RESPONSE</span></div>
+    <div class="sqd-rows" id="sqd-pending-rows"></div>
+  </div>
+
+  <!-- The squad itself, once one exists (as leader or member). -->
+  <div class="sqd-section" id="sqd-squad-section" style="display:none;">
+    <div class="sqd-section-head">
+      <span id="sqd-squad-head">YOUR SQUAD</span>
+      <div class="sqd-section-actions">
+        <button class="sqd-btn sqd-btn-ghost" id="sqd-leave">LEAVE SQUAD</button>
+        <button class="sqd-btn sqd-btn-ghost" id="sqd-disband" style="display:none;">DISBAND</button>
+      </div>
+    </div>
+    <div class="sqd-rows" id="sqd-squad-rows"></div>
+  </div>
+</div>
+
+<script src="/assets/services/send-command.js"></script>
+<script type="module" src="/assets/pages/sqd/sqd.js"></script>
+</body>
+</html>

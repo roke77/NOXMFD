@@ -127,6 +127,7 @@ const BEZEL_EXTRAS = {
     { label: 'MDT', action: 'akf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
+    { label: 'SQD', action: 'sqd' },   // → SQD squad page (docs/squadron-transport.md)
   ],
   // No MAIN back-item under lyt here — picking CLASSIC already navigates back to MAIN (this shell),
   // so a separate way-back label would be redundant with it.

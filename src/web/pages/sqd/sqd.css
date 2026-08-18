@@ -1,0 +1,143 @@
+/* SQD (squad membership, docs/squadron-transport.md) page styles. Same panel shape as
+   wpt.css/rates.css/keybinds.css — everything reuses theme.css tokens, no new visual language. */
+
+html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this is a full page */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
+}
+html::-webkit-scrollbar { width: 6px; height: 6px; }
+html::-webkit-scrollbar-track { background: transparent; }
+html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
+
+.sqd-panel {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 26px 18px 40px;
+}
+
+.sqd-back {
+  float: left;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--no-green-dim);
+  text-decoration: none;
+  padding: 6px 2px;
+}
+.sqd-back:hover { color: var(--no-green); }
+
+.sqd-title {
+  font-size: 24px;
+  letter-spacing: 4px;
+  color: var(--no-green);
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.sqd-unavailable {
+  max-width: 552px;
+  margin: 0 auto 19px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--no-gray);
+  text-align: center;
+}
+
+.sqd-notice {
+  margin: 0 auto 18px;
+  max-width: 552px;
+  padding: 8px 12px;
+  border: 1px solid var(--no-amber);
+  color: var(--no-amber);
+  font-size: 12px;
+  text-align: center;
+}
+
+.sqd-section { margin-bottom: 28px; }
+
+.sqd-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--no-green-dim);
+  border-bottom: 1px solid var(--no-panel-border);
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+}
+.sqd-section-actions { display: flex; gap: 8px; }
+
+.sqd-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--no-green-dim);
+  background: none;
+  color: var(--no-green-dim);
+  font-family: var(--no-font);
+  font-size: 11px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.sqd-btn:hover { border-color: var(--no-green); color: var(--no-green); }
+.sqd-btn-ghost { border-color: var(--no-panel-border); color: var(--no-gray); }
+.sqd-btn-ghost:hover { border-color: var(--no-gray); color: var(--no-green-dim); }
+
+.sqd-invite-card {
+  padding: 12px;
+  border: 1px solid var(--no-amber);
+  background: var(--no-panel-bg);
+}
+.sqd-invite-text {
+  font-size: 13px;
+  color: var(--no-green);
+  margin-bottom: 10px;
+}
+.sqd-invite-actions { display: flex; gap: 8px; }
+
+.sqd-empty {
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: var(--no-gray);
+  text-align: center;
+  padding: 10px 0;
+}
+.sqd-rows:not(:empty) + .sqd-empty { display: none; }
+
+.sqd-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 7px;
+  border-bottom: 1px solid var(--no-panel-border);
+  font-size: 14px;
+}
+.sqd-row:last-child { border-bottom: none; }
+
+.sqd-row-name {
+  flex: 1;
+  color: var(--no-green-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sqd-row.leader .sqd-row-name { color: var(--no-green); }
+
+.sqd-row-mark {
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--no-amber);
+  flex: none;
+}
+
+.sqd-row-btn {
+  flex: none;
+  background: none;
+  border: 1px solid var(--no-panel-border);
+  color: var(--no-gray);
+  font-family: var(--no-font);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  padding: 3px 8px;
+}
+.sqd-row-btn:hover { border-color: var(--no-green-dim); color: var(--no-green); }

@@ -63,6 +63,8 @@
     // WPT (issue #38) gets a single MAIN-equivalent back-button, same shape as AVN/AFM/TGP/RWR/TGT —
     // but back to MAP, matching NAV.wpt (reached from MAP's own nav row, not MAIN).
     wpt: [ { side: 'left', slot: 0 } ],
+    // SQD (docs/squadron-transport.md), same single-back-button shape as HUD/WPT above.
+    sqd: [ { side: 'left', slot: 0 } ],
     // WPN is a valid split page but places no NAV labels: its MAIN/PREV + NEXT depend on the pane's
     // pagination state, so renderSplitLabels' list branch owns them (NAV.wpn is empty to match).
     wpn: [],

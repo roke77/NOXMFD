@@ -121,6 +121,7 @@
     { label: 'MDT', action: 'akf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md) — mirrors BEZEL_EXTRAS.main
     { label: 'AFM', action: 'afm' },   // → AFM airframe page — mirrors BEZEL_EXTRAS.main
+    { label: 'SQD', action: 'sqd' },   // → SQD squad page (docs/squadron-transport.md) — mirrors BEZEL_EXTRAS.main
   ];
 
   // Paging actions, and the direction each moves. Not pages, so they dispatch separately.

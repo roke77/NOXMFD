@@ -183,6 +183,9 @@ namespace NOXMFD
                     Vector3 advanceWorld = advanceAc.transform.position - Datum.originPosition;
                     RouteStore.AdvanceIfNear(advanceWorld.x, advanceWorld.z);
                 }
+                // SQD's roster picker (docs/squadron-transport.md) — who else is in this match, for
+                // the squad leader to invite. 1 Hz is ample; player join/leave isn't latency-sensitive.
+                PlayerRoster.Refresh();
             }
 
             if (_fastTimer >= FastInterval)

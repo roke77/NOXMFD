@@ -89,26 +89,6 @@
     <div class="wpt-empty" id="wpt-routes-empty">&mdash; NO ROUTES YET &mdash;</div>
   </div>
 
-  <!-- Squadron (docs/squadron-transport.md). Membership is a plain SteamID set — there is no lobby,
-       so the leader reads their own id here and squadmates paste it in. Hidden entirely when the
-       transport is unavailable (no Steam), rather than offering controls that cannot work. -->
-  <div class="wpt-section" id="wpt-sqd-section" style="display:none;">
-    <div class="wpt-section-head">
-      <span>SQUADRON</span>
-      <div class="wpt-section-actions">
-        <button class="wpt-btn pad-hoverable" id="wpt-sqd-copy">COPY MY ID</button>
-      </div>
-    </div>
-    <div class="wpt-sqd-self">YOUR ID <span id="wpt-sqd-selfid">&mdash;</span></div>
-    <div class="wpt-new-row">
-      <input type="text" id="wpt-sqd-peer" placeholder="Squadmate SteamID" maxlength="20" inputmode="numeric">
-      <button class="wpt-btn pad-hoverable" id="wpt-sqd-add">ADD</button>
-    </div>
-    <div class="wpt-sqd-error" id="wpt-sqd-error"></div>
-    <div class="wpt-routes" id="wpt-sqd-peers"></div>
-    <div class="wpt-empty" id="wpt-sqd-empty">&mdash; NO SQUADMATES &mdash;</div>
-  </div>
-
   <div class="wpt-section">
     <div class="wpt-section-head"><span>ACTIVE ROUTE WAYPOINTS</span></div>
     <div class="wpt-waypoints" id="wpt-waypoints"></div>

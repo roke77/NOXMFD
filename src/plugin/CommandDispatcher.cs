@@ -39,11 +39,15 @@ namespace NOXMFD
         public int    n;       // soi.panes : how many focusable surfaces that instance now shows
                                 // wpt.reorder-waypoint : the "to" index
         public float  hz;      // rates.set : desired rate in Hz (group picks which — "fast" | "tgp")
-        public string peer;    // squadron.add / squadron.remove : the peer's SteamID64, as text —
-                               // a string, not a long, because a 17-digit SteamID64 exceeds what
-                               // JavaScript's Number can represent exactly (docs/squadron-transport.md)
-        public string type;    // squadron.send : payload type ("wpt.route", ...)
-        public string payload; // squadron.send : the payload itself (small text only)
+        public string peer;    // sqd.invite / sqd.relinquish : a SteamID64, as text — a string, not
+                               // a long, because a 17-digit SteamID64 exceeds what JavaScript's
+                               // Number can represent exactly (docs/squadron-transport.md). Empty on
+                               // sqd.relinquish means "auto-pick the oldest member."
+        public string name;    // sqd.invite : the target's display name (for the invite envelope
+                                // and pendingSent list — cosmetic, the target's own client is
+                                // authoritative about its own name)
+        public string type;    // sqd.send : payload type ("wpt.route", ...)
+        public string payload; // sqd.send : the payload itself (small text only)
         public float  wx;      // wpt.add-waypoint : world X (floating-origin corrected)
         public float  wz;      // wpt.add-waypoint : world Z
         public string text;    // wpt.import : the pasted route-export JSON blob
@@ -73,14 +77,17 @@ namespace NOXMFD
                 // "tgp" is the camera feed, anything else (default "fast") is the main 10 Hz tick.
                 { "rates.set",       e => { if (e.group == "tgp") RatesConfig.SetTgpHz(e.hz); else RatesConfig.SetFastHz(e.hz); } },
                 { "master-arms.set", e => ImmersionState.MasterArmsOn = e.on },
-                // Squadron transport (docs/squadron-transport.md). Membership is a plain SteamID set;
-                // squadron.send broadcasts one small typed payload to every member. Parsing the peer
-                // id here (not in Squadron) keeps the wire-format tolerance at the trust boundary,
-                // where every other command's validation already lives.
-                { "squadron.add",    e => { if (TryPeer(e.peer, out ulong p)) Squadron.AddPeer(p); } },
-                { "squadron.remove", e => { if (TryPeer(e.peer, out ulong p)) Squadron.RemovePeer(p); } },
-                { "squadron.clear",  e => Squadron.Clear() },
-                { "squadron.send",   e => Squadron.Send(e.type, e.payload) },
+                // Squad protocol (docs/squadron-transport.md) — leader/member squad state built on
+                // the Squadron transport. Parsing the peer id here (not in Squad) keeps the
+                // wire-format tolerance at the trust boundary, where every other command's
+                // validation already lives.
+                { "sqd.invite",     e => { if (TryPeer(e.peer, out ulong p)) Squad.Invite(p, e.name ?? string.Empty); } },
+                { "sqd.accept",     e => Squad.AcceptInvite() },
+                { "sqd.decline",    e => Squad.DeclineInvite() },
+                { "sqd.leave",      e => Squad.Leave() },
+                { "sqd.relinquish", e => Squad.RelinquishLeadership(TryPeer(e.peer, out ulong p) ? (ulong?)p : null) },
+                { "sqd.disband",    e => Squad.Disband() },
+                { "sqd.send",       e => Squad.SendData(e.type, e.payload) },
                 // Routes through Keybinds.SetCombatMode (not a bare assignment) so the WPN page's own
                 // A/A · A/G controls (bezel and F-35) get the same weapon auto-switch as the physical
                 // keybind (docs/radar-master-arms.md, issue #32) — one behavior, one source, not a

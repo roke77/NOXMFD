@@ -154,22 +154,6 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   margin-top: 8px;
 }
 
-/* Squadron block (docs/squadron-transport.md). A SteamID is 17 digits and gets read aloud or copied,
-   so it sits on its own line in the same dim tone the section heads use rather than inline. */
-.wpt-sqd-self {
-  font-size: 11px;
-  letter-spacing: 1px;
-  color: var(--no-gray);
-  margin-bottom: 10px;
-}
-.wpt-sqd-self span { color: var(--no-green); }
-.wpt-sqd-error {
-  font-size: 11px;
-  color: var(--no-red);
-  min-height: 1em;
-  margin-bottom: 6px;
-}
-
 .wpt-empty {
   font-size: 11px;
   letter-spacing: 0.5px;
@@ -178,7 +162,6 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   padding: 10px 0;
 }
 .wpt-routes:not(:empty) + .wpt-empty,
-#wpt-sqd-peers:not(:empty) + .wpt-empty,
 .wpt-waypoints:not(:empty) + .wpt-empty { display: none; }
 
 .wpt-row {

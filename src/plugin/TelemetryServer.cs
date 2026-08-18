@@ -665,8 +665,10 @@ namespace NOXMFD
                         ServeKeybindsConfig(ctx);
                     else if (path == "/soi-instances")
                         ServeSoiInstances(ctx);
-                    else if (path == "/squadron")
-                        ServeSquadron(ctx);
+                    else if (path == "/squad")
+                        ServeSquad(ctx);
+                    else if (path == "/server-players")
+                        ServeServerPlayers(ctx);
                     else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                         ServeAsset(ctx, path);
                     else if (path == "/map-view")
@@ -697,6 +699,8 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/obj/obj.html");
                     else if (path == "/wpt")
                         ServeAssetRel(ctx, "pages/wpt/wpt.html");
+                    else if (path == "/sqd")
+                        ServeAssetRel(ctx, "pages/sqd/sqd.html");
                     else if (path == "/hud")
                         ServeAssetRel(ctx, "pages/hud/hud.html");
                     else if (path == "/keybinds")
@@ -835,34 +839,42 @@ namespace NOXMFD
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
-        // Squadron membership as JSON (docs/squadron-transport.md): this player's own SteamID — which
-        // is what they hand to squadmates, since there is no lobby — plus the current peer set and
-        // whether the transport is usable at all. `ready:false` is the honest answer on a non-Steam
-        // launch, and the page shows the feature as unavailable rather than silently failing to send.
-        //
-        // SteamIDs are emitted as STRINGS: a SteamID64 is 17 digits, past the point where JavaScript's
-        // Number keeps integers exact, so a bare number would round and address the wrong account.
-        private static void ServeSquadron(HttpListenerContext ctx)
+        // Squad state as JSON (docs/squadron-transport.md) — role, leader, members, any pending
+        // invite/sent-invites, and the latest notice. `ready:false` is the honest answer on a
+        // non-Steam launch, and the SQD page shows the feature as unavailable rather than silently
+        // failing to send. Squad.StateJson is prebuilt on the main thread (RebuildState) and only
+        // needs the Steam-readiness flag folded in here, so this stays a plain string read.
+        private static void ServeSquad(HttpListenerContext ctx)
         {
             try
             {
-                var sb = new StringBuilder();
-                sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"ready\":{0},\"self\":\"{1}\",\"peers\":[",
-                    Squadron.Ready ? "true" : "false", Squadron.SelfId());
-                ulong[] peers = Squadron.Peers();
-                for (int i = 0; i < peers.Length; i++)
-                {
-                    if (i > 0) sb.Append(',');
-                    sb.AppendFormat(CultureInfo.InvariantCulture, "\"{0}\"", peers[i]);
-                }
-                sb.Append("]}");
-                byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
+                string body = "{\"ready\":" + (Squadron.Ready ? "true" : "false") + ",\"state\":" + Squad.StateJson + "}";
+                byte[] bytes = Encoding.UTF8.GetBytes(body);
                 ctx.Response.StatusCode      = 200;
                 ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.ContentLength64 = bytes.Length;
                 ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                ctx.Response.OutputStream.Write(bytes, 0, bytes.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // Every other player in the LOCAL PLAYER'S OWN FACTION for the current match, for SQD's
+        // "pick a squadmate" list (docs/squadron-transport.md) — PlayerRoster.Json is prebuilt on
+        // the main thread (PlayerRoster.Refresh, TelemetryReader's 1 Hz slow scan), so this is a
+        // plain string read. Empty (not missing) outside a mission, at the main menu, or before any
+        // other player in the faction has been observed.
+        private static void ServeServerPlayers(HttpListenerContext ctx)
+        {
+            try
+            {
+                byte[] bytes = Encoding.UTF8.GetBytes(PlayerRoster.Json);
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = bytes.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(bytes, 0, bytes.Length);
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1417,12 +1429,15 @@ namespace NOXMFD
                 // stick costs one comparison per tick and no traffic at all.
                 string lastCursor = string.Empty;
                 int sinceFrame = FrameEveryMs;   // send a frame immediately on connect
-                // Squadron inbound (docs/squadron-transport.md): per-connection cursor into the
-                // shared inbox, starting at whatever has already arrived so a display that opens
-                // mid-session doesn't replay the backlog. Each message then reaches each display
-                // exactly once, unlike the cursor's latest-value-wins comparison above — a route
-                // that arrives while another is still being read must not be dropped.
-                long lastSquadronSeq = Squadron.LatestSeq();
+                // Squad state (docs/squadron-transport.md): same latest-value-wins comparison as the
+                // cursor above — role/leader/members/pending/notice is a snapshot, not a queue, so a
+                // display only needs the newest one, not every intermediate value.
+                string lastSquad = string.Empty;
+                // Leader-shared data payloads (wpt.route, ...) ARE a queue, not a snapshot: per-
+                // connection cursor into Squad's data inbox, starting at whatever has already
+                // arrived so a display that opens mid-session doesn't replay the backlog. Each
+                // payload then reaches each display exactly once.
+                long lastSquadDataSeq = Squad.LatestDataSeq();
                 while (!ct.IsCancellationRequested)
                 {
                     if (sinceFrame >= FrameEveryMs)
@@ -1443,18 +1458,27 @@ namespace NOXMFD
                         await ctx.Response.OutputStream.WriteAsync(cbytes, 0, cbytes.Length, ct).ConfigureAwait(false);
                     }
 
-                    // Squadron payloads, one named event each. Sent on their own event rather than
-                    // inside the telemetry frame so they arrive as soon as they land instead of
-                    // waiting for the next 10 Hz tick — the same reasoning the cursor event uses.
-                    var inbound = Squadron.Since(lastSquadronSeq);
-                    foreach (var msg in inbound)
+                    // Squad state, sent on its own event rather than inside the telemetry frame so a
+                    // role/roster/invite change arrives as soon as it lands instead of waiting for
+                    // the next 10 Hz tick — the same reasoning the cursor event uses.
+                    string squadState = Squad.StateJson;
+                    if (!string.Equals(squadState, lastSquad, StringComparison.Ordinal))
                     {
-                        lastSquadronSeq = msg.Seq;
+                        lastSquad = squadState;
+                        byte[] qbytes = Encoding.UTF8.GetBytes("event: sqd\ndata: " + squadState + "\n\n");
+                        await ctx.Response.OutputStream.WriteAsync(qbytes, 0, qbytes.Length, ct).ConfigureAwait(false);
+                    }
+
+                    // Leader-shared data payloads, one named event each.
+                    var dataInbound = Squad.DataSince(lastSquadDataSeq);
+                    foreach (var msg in dataInbound)
+                    {
+                        lastSquadDataSeq = msg.Seq;
                         string json = string.Format(CultureInfo.InvariantCulture,
-                            "{{\"seq\":{0},\"from\":\"{1}\",\"type\":\"{2}\",\"payload\":\"{3}\"}}",
-                            msg.Seq, msg.From, EscapeJson(msg.Type), EscapeJson(msg.Payload));
-                        byte[] sbytes = Encoding.UTF8.GetBytes("event: squadron\ndata: " + json + "\n\n");
-                        await ctx.Response.OutputStream.WriteAsync(sbytes, 0, sbytes.Length, ct).ConfigureAwait(false);
+                            "{{\"seq\":{0},\"type\":\"{1}\",\"payload\":\"{2}\"}}",
+                            msg.Seq, EscapeJson(msg.Type), EscapeJson(msg.Payload));
+                        byte[] dbytes = Encoding.UTF8.GetBytes("event: sqd-data\ndata: " + json + "\n\n");
+                        await ctx.Response.OutputStream.WriteAsync(dbytes, 0, dbytes.Length, ct).ConfigureAwait(false);
                     }
                     ctx.Response.OutputStream.Flush();
 

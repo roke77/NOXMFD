@@ -217,33 +217,86 @@ def _rates_config():
     return json.dumps({"fastHz": 10, "tgpHz": 15}).encode("utf-8")
 
 
-# Stateful mock of the plugin's /squadron + squadron.* commands (docs/squadron-transport.md), so the
-# WPT page's squadron block can be exercised here without Steam or a second player. `ready` is True
-# so the section renders; the real plugin reports False on a non-Steam launch and hides it. The
-# transport itself is NOT mocked — squadron.send is accepted and dropped, since there is no peer
-# here to receive it.
-_SQUADRON = {"ready": True, "self": "76561198000000001", "peers": []}
+# Stateful mock of the plugin's /squad + /server-players + sqd.* commands
+# (docs/squadron-transport.md), so the SQD page can be exercised here without Steam or a second
+# real player. `ready` is True so the page renders; the real plugin reports False on a non-Steam
+# launch and shows the unavailable notice instead. The transport itself is NOT simulated between
+# separate processes — there's only one browser here — so an invited mock player "accepts" on a
+# short countdown (see _SQD["pending"]) rather than a real accept round-trip, just enough to
+# exercise both the "awaiting response" and "joined" UI states. sqd.send is accepted and dropped,
+# since there is no real peer here to receive it.
+_SERVER_PLAYERS = [
+    {"id": "76561198000000002", "name": "Foxtrot"},
+    {"id": "76561198000000003", "name": "Ghost"},
+]
+_SQD = {
+    "role": "none", "leaderId": "", "leaderName": "",
+    "members": [], "pendingSent": {}, "pendingInvite": None,
+    "noticeSeq": 0, "notice": "",
+}
+_SQD_SELF = "76561198000000001"
+_SQD_ACCEPT_POLLS = 2   # how many /squad reads a pending mock invite stays "awaiting response"
 
 
-def _squadron_state():
-    return json.dumps(_SQUADRON).encode("utf-8")
+def _squad_state():
+    # Countdown any pending mock invites toward auto-accept — see the module comment above.
+    accepted = []
+    for peer, left in list(_SQD["pendingSent"].items()):
+        left -= 1
+        if left <= 0:
+            accepted.append(peer)
+            del _SQD["pendingSent"][peer]
+        else:
+            _SQD["pendingSent"][peer] = left
+    for peer in accepted:
+        name = next((p["name"] for p in _SERVER_PLAYERS if p["id"] == peer), peer)
+        if not any(m["id"] == peer for m in _SQD["members"]):
+            _SQD["members"].append({"id": peer, "name": name})
+
+    state = {
+        "role": _SQD["role"], "self": _SQD_SELF,
+        "leaderId": _SQD["leaderId"], "leaderName": _SQD["leaderName"],
+        "members": _SQD["members"],
+        "pendingInvite": _SQD["pendingInvite"],
+        "pendingSent": [
+            {"id": pid, "name": next((p["name"] for p in _SERVER_PLAYERS if p["id"] == pid), pid)}
+            for pid in _SQD["pendingSent"]
+        ],
+        "noticeSeq": _SQD["noticeSeq"], "notice": _SQD["notice"],
+    }
+    return json.dumps({"ready": True, "state": state}).encode("utf-8")
 
 
-def _squadron_command(env):
+def _server_players():
+    # Anyone already a member or pending isn't offered again — same "don't invite twice" rule
+    # sqd.js applies client-side, mirrored here so the mock behaves like the real roster would once
+    # a real invited player disappeared from FactionHQ's list.
+    taken = {m["id"] for m in _SQD["members"]} | set(_SQD["pendingSent"])
+    return json.dumps([p for p in _SERVER_PLAYERS if p["id"] not in taken]).encode("utf-8")
+
+
+def _squad_command(env):
     cmd = env.get("cmd") or ""
-    if not cmd.startswith("squadron."):
+    if not cmd.startswith("sqd."):
         return
     peer = str(env.get("peer") or "").strip()
-    if cmd == "squadron.add":
-        # Same digits-only shape the plugin's TryPeer enforces, so the harness rejects what the real
-        # build would reject rather than accepting ids that only work here.
-        if peer.isdigit() and peer != _SQUADRON["self"] and peer not in _SQUADRON["peers"]:
-            _SQUADRON["peers"].append(peer)
-    elif cmd == "squadron.remove":
-        if peer in _SQUADRON["peers"]:
-            _SQUADRON["peers"].remove(peer)
-    elif cmd == "squadron.clear":
-        _SQUADRON["peers"].clear()
+    if cmd == "sqd.invite":
+        if _SQD["role"] == "member" or _SQD["pendingInvite"] is not None:
+            return
+        if peer and peer not in _SQD["pendingSent"] and not any(m["id"] == peer for m in _SQD["members"]):
+            _SQD["role"] = "leader"
+            _SQD["pendingSent"][peer] = _SQD_ACCEPT_POLLS
+    elif cmd in ("sqd.leave", "sqd.disband"):
+        _SQD["role"] = "none"; _SQD["leaderId"] = ""; _SQD["leaderName"] = ""
+        _SQD["members"] = []; _SQD["pendingSent"] = {}
+    elif cmd == "sqd.relinquish":
+        # From OUR client's point of view, handing off leadership (auto or to a chosen member) ends
+        # the same way leaving does: we're no longer in the squad. There's no second real client
+        # here to become the new leader.
+        _SQD["role"] = "none"; _SQD["leaderId"] = ""; _SQD["leaderName"] = ""
+        _SQD["members"] = []; _SQD["pendingSent"] = {}
+    elif cmd in ("sqd.accept", "sqd.decline"):
+        _SQD["pendingInvite"] = None   # no simulated incoming invite exists to act on in this harness
 
 
 # WPT showcase route (issue #38) — a real route drawn by hand in this harness (6 waypoints, a loop
@@ -498,7 +551,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             except (ValueError, OSError):
                 env = {}
             _keybinds_command(env)
-            _squadron_command(env)
+            _squad_command(env)
             self.send_response(204)
             self.end_headers()
             return
@@ -522,8 +575,10 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(_keybinds_config(), 'application/json; charset=utf-8')
         if path == '/rates-config':
             return self._send(_rates_config(), 'application/json; charset=utf-8')
-        if path == '/squadron':
-            return self._send(_squadron_state(), 'application/json; charset=utf-8')
+        if path == '/squad':
+            return self._send(_squad_state(), 'application/json; charset=utf-8')
+        if path == '/server-players':
+            return self._send(_server_players(), 'application/json; charset=utf-8')
         if path == '/map-view':
             try:
                 return self._send(_map_page(), 'text/html; charset=utf-8')

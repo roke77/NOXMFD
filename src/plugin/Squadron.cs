@@ -7,10 +7,10 @@ using Steamworks;
 namespace NOXMFD
 {
     // ── Squadron transport ───────────────────────────────────────────────────────
-    // Small-text data sharing between players over Steam's peer-to-peer relay
-    // (docs/squadron-transport.md). A squadron is a set of SteamIDs; a send addresses each of them
-    // directly. Valve's relay handles NAT traversal, encryption and identity, so there is no server
-    // and no cost.
+    // Generic small-text messaging between two players over Steam's peer-to-peer relay
+    // (docs/squadron-transport.md). This layer only moves bytes between SteamIDs — it knows nothing
+    // about squads, leaders, or invites; that protocol lives in Squad.cs, on top of this. Valve's
+    // relay handles NAT traversal, encryption and identity, so there is no server and no cost.
     //
     // Why SteamNetworkingMessages and not the game's own connection: the game's transport is the
     // DISTINCT SteamNetworkingSockets interface (Mirage.SteamworksSocket uses CreateListenSocketP2P/
@@ -26,6 +26,14 @@ namespace NOXMFD
     // Steam ownership: the game's SteamManager calls SteamAPI.Init (and throws if initialised twice)
     // and pumps SteamAPI.RunCallbacks every frame from its own Update. This class therefore never
     // initialises, shuts down, or pumps Steam — it only registers a callback and polls its channel.
+    //
+    // Trust model: this layer accepts a session from ANYONE — an invite has to reach a stranger
+    // before they can decide to join a squad, so gating sessions by a pre-approved list (the old
+    // design) doesn't fit a leader/member protocol. Consent now lives at the Squad.cs layer: it
+    // decides, per message TYPE and sender, whether a message is meaningful (e.g. an sqd.invite is
+    // welcome from anyone, but an sqd.roster is only trusted from the current leader). The bounds
+    // that matter against an unsolicited sender — a size cap and a versioned, strictly-parsed
+    // envelope — are unchanged.
     internal static class Squadron
     {
         // Our own channel on the messaging interface. The game never touches this interface at all,
@@ -39,13 +47,12 @@ namespace NOXMFD
 
         private const int MaxReceivePerPoll = 32;   // bound the work done in one frame
 
-        // How many inbound messages stay queued for the browser to collect. Each SSE connection
-        // tracks the last sequence it forwarded, so a display that reconnects mid-mission picks up
-        // from wherever it left off rather than replaying everything or missing a burst.
+        // How many inbound messages stay queued for Squad.cs (and, for debugging, the browser) to
+        // collect. Each reader tracks the last sequence it consumed, so a late reader picks up from
+        // wherever it left off rather than replaying everything or missing a burst.
         private const int InboxCapacity = 64;
 
         private static readonly object _lock = new object();
-        private static readonly HashSet<ulong> _peers = new HashSet<ulong>();
         private static readonly List<Inbound> _inbox = new List<Inbound>();
         private static long _seq;
 
@@ -78,10 +85,7 @@ namespace NOXMFD
             try
             {
                 if (!SteamAPI.IsSteamRunning()) return false;
-                // An unsolicited session must be accepted before its messages arrive. Only peers the
-                // pilot already added are accepted, so a stranger who learns this SteamID cannot open
-                // a session by sending to it — see AcceptOrReject.
-                _sessionRequest = Callback<SteamNetworkingMessagesSessionRequest_t>.Create(AcceptOrReject);
+                _sessionRequest = Callback<SteamNetworkingMessagesSessionRequest_t>.Create(AcceptSession);
                 _inited = true;
                 Plugin.Log?.LogInfo("[NOXMFD] Squadron transport ready");
                 return true;
@@ -100,7 +104,7 @@ namespace NOXMFD
         }
 
         // Is Steam actually usable? Every entry point checks this so a non-Steam launch degrades to
-        // "squadron does nothing" rather than throwing into the frame loop.
+        // "squad does nothing" rather than throwing into the frame loop.
         internal static bool Ready => EnsureInit();
 
         internal static ulong SelfId()
@@ -110,88 +114,48 @@ namespace NOXMFD
             catch { return 0; }
         }
 
-        // ── Membership ───────────────────────────────────────────────────────────
+        // ── Sessions ─────────────────────────────────────────────────────────────
+        // Bookkeeping only — SendTo/AcceptSession work regardless of whether a session was opened
+        // here first (Steam opens one implicitly on first send/receive). Squad.cs calls these to
+        // proactively open a session before it has anything to send (e.g. a leader opening toward an
+        // invitee) and to close one when a relationship ends (a member leaving, a kick, disband).
 
-        internal static bool AddPeer(ulong steamId)
+        internal static void OpenSession(ulong steamId)
         {
-            if (steamId == 0 || steamId == SelfId()) return false;
-            lock (_lock)
-            {
-                if (!_peers.Add(steamId)) return true;   // already a member — idempotent
-            }
-            // Accept pre-emptively so the peer's first message is not dropped waiting for us to
-            // answer their session request.
+            if (!Ready || steamId == 0 || steamId == SelfId()) return;
             var id = Identity(steamId);
             try { SteamNetworkingMessages.AcceptSessionWithUser(ref id); } catch { }
-            Plugin.Log?.LogInfo($"[NOXMFD] Squadron peer added: {steamId}");
-            return true;
         }
 
-        internal static bool RemovePeer(ulong steamId)
+        internal static void CloseSession(ulong steamId)
         {
-            bool removed;
-            lock (_lock) { removed = _peers.Remove(steamId); }
-            if (removed)
-            {
-                var id = Identity(steamId);
-                try { SteamNetworkingMessages.CloseSessionWithUser(ref id); } catch { }
-                Plugin.Log?.LogInfo($"[NOXMFD] Squadron peer removed: {steamId}");
-            }
-            return removed;
+            if (!Ready || steamId == 0) return;
+            var id = Identity(steamId);
+            try { SteamNetworkingMessages.CloseSessionWithUser(ref id); } catch { }
         }
 
-        internal static void Clear()
+        internal static void CloseSessions(IEnumerable<ulong> steamIds)
         {
-            ulong[] all;
-            lock (_lock)
-            {
-                all = new ulong[_peers.Count];
-                _peers.CopyTo(all);
-                _peers.Clear();
-            }
-            foreach (ulong p in all)
-            {
-                var id = Identity(p);
-                try { SteamNetworkingMessages.CloseSessionWithUser(ref id); } catch { }
-            }
+            foreach (ulong p in steamIds) CloseSession(p);
         }
 
-        internal static ulong[] Peers()
-        {
-            lock (_lock)
-            {
-                var all = new ulong[_peers.Count];
-                _peers.CopyTo(all);
-                return all;
-            }
-        }
-
-        // Only peers the pilot added are accepted. Anyone else is closed out rather than left
-        // pending, so an unsolicited sender gets no session and no traffic.
-        private static void AcceptOrReject(SteamNetworkingMessagesSessionRequest_t req)
+        // Accept every incoming session request — see the trust-model note at the top of this file.
+        private static void AcceptSession(SteamNetworkingMessagesSessionRequest_t req)
         {
             ulong from = req.m_identityRemote.GetSteamID64();
-            bool known;
-            lock (_lock) { known = _peers.Contains(from); }
             var id = Identity(from);
-            try
-            {
-                if (known) SteamNetworkingMessages.AcceptSessionWithUser(ref id);
-                else       SteamNetworkingMessages.CloseSessionWithUser(ref id);
-            }
-            catch { }
-            if (!known) Plugin.Log?.LogInfo($"[NOXMFD] Squadron rejected session from unknown {from}");
+            try { SteamNetworkingMessages.AcceptSessionWithUser(ref id); } catch { }
         }
 
         // ── Send ─────────────────────────────────────────────────────────────────
 
-        // Broadcasts one typed payload to every peer, reliably and in order. Returns how many peers
-        // it went to. Reliable because routes and target designation must arrive — the deferred
-        // datalink/video features are the ones that want an unreliable channel instead, which is why
-        // the envelope carries a type rather than assuming one kind of message.
-        internal static int Send(string type, string payload)
+        // Sends one typed payload to exactly one peer, reliably and in order. True on success.
+        // Reliable because every squad-protocol message must arrive — an unreliable channel is only
+        // interesting for the deferred datalink/video features, which is why the envelope carries a
+        // type rather than assuming one kind of message.
+        internal static bool SendTo(ulong peer, string type, string payload)
         {
-            if (!Ready) return 0;
+            if (!Ready || peer == 0) return false;
             payload ??= string.Empty;
             type    ??= string.Empty;
 
@@ -200,40 +164,40 @@ namespace NOXMFD
             if (bytes.Length > MaxPayloadBytes)
             {
                 Plugin.Log?.LogWarning($"[NOXMFD] Squadron send rejected: {bytes.Length} B exceeds {MaxPayloadBytes} B");
-                return 0;
+                return false;
             }
 
-            ulong[] peers = Peers();
-            if (peers.Length == 0) return 0;
-
-            int sent = 0;
+            var id = Identity(peer);
             IntPtr buf = Marshal.AllocHGlobal(bytes.Length);
             try
             {
                 Marshal.Copy(bytes, 0, buf, bytes.Length);
-                foreach (ulong p in peers)
-                {
-                    var id = Identity(p);
-                    try
-                    {
-                        EResult r = SteamNetworkingMessages.SendMessageToUser(
-                            ref id, buf, (uint)bytes.Length,
-                            Constants.k_nSteamNetworkingSend_Reliable, Channel);
-                        if (r == EResult.k_EResultOK) sent++;
-                        else Plugin.Log?.LogWarning($"[NOXMFD] Squadron send to {p} failed: {r}");
-                    }
-                    catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] Squadron send to {p} threw: {ex.Message}"); }
-                }
+                EResult r = SteamNetworkingMessages.SendMessageToUser(
+                    ref id, buf, (uint)bytes.Length,
+                    Constants.k_nSteamNetworkingSend_Reliable, Channel);
+                if (r == EResult.k_EResultOK) return true;
+                Plugin.Log?.LogWarning($"[NOXMFD] Squadron send to {peer} failed: {r}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogWarning($"[NOXMFD] Squadron send to {peer} threw: {ex.Message}");
+                return false;
             }
             finally { Marshal.FreeHGlobal(buf); }
-            return sent;
+        }
+
+        // Convenience for the leader's broadcasts (roster, disband, shared data) — same send, looped.
+        internal static void SendToAll(IEnumerable<ulong> peers, string type, string payload)
+        {
+            foreach (ulong p in peers) SendTo(p, type, payload);
         }
 
         // ── Receive ──────────────────────────────────────────────────────────────
 
         // Drains this channel into the inbox. Called every frame from MissionLifecycle, the same
-        // persistent host that polls keybinds and drains commands — so squadron traffic flows at the
-        // main menu too, not only during a mission (route planning happens before a flight).
+        // persistent host that polls keybinds and drains commands — so squad traffic flows at the
+        // main menu too, not only during a mission (squad formation happens before a flight too).
         internal static void Poll()
         {
             if (!Ready) return;
@@ -252,10 +216,7 @@ namespace NOXMFD
                     ulong from = m.m_identityPeer.GetSteamID64();
 
                     // Everything past this point is untrusted input from another player's machine —
-                    // bounds first, parse second.
-                    bool known;
-                    lock (_lock) { known = _peers.Contains(from); }
-                    if (!known) continue;
+                    // bounds first, parse second. Who is allowed to say what is Squad.cs's job now.
                     if (m.m_cbSize <= 0 || m.m_cbSize > MaxPayloadBytes) continue;
 
                     byte[] data = new byte[m.m_cbSize];
@@ -283,8 +244,8 @@ namespace NOXMFD
             }
         }
 
-        // Everything newer than `afterSeq`, oldest first. The SSE loop passes the last sequence it
-        // forwarded on that connection, so each display gets each message once.
+        // Everything newer than `afterSeq`, oldest first. Squad.Drain() (and, for debugging, the SSE
+        // loop) passes the last sequence it consumed, so each reader sees each message once.
         internal static List<Inbound> Since(long afterSeq)
         {
             var outp = new List<Inbound>();
@@ -298,10 +259,10 @@ namespace NOXMFD
         internal static long LatestSeq() { lock (_lock) { return _seq; } }
 
         // ── Wire format ──────────────────────────────────────────────────────────
-        // Versioned from the first message: squadron members will run different mod versions, and a
-        // transport carrying several independently evolving features has to ignore what it cannot
-        // parse rather than misread it. Hand-rolled rather than JsonUtility because this runs off
-        // a Steam callback path and the format is two strings.
+        // Versioned from the first message: squad members will run different mod versions, and a
+        // transport carrying several independently evolving message types has to ignore what it
+        // cannot parse rather than misread it. Hand-rolled rather than JsonUtility because this runs
+        // off a Steam callback path and the format is two strings.
         private const int WireVersion = 1;
 
         private static string Envelope(string type, string payload) =>
