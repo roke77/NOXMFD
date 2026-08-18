@@ -197,8 +197,11 @@
   const orientMq = window.matchMedia('(orientation: portrait)');
   let   portals = [];   // the glass, left to right
 
-  function has(page) { return Object.prototype.hasOwnProperty.call(F35_PAGES, page); }
-  function feedsFor(page) { return PAGE_FEEDS[page] || []; }
+  // Extension pages (docs/extensions-api.md) have no F35_PAGES entry — folding
+  // ExtNav.isExtensionPage into `has` is what makes them a valid `showPage`/`dispatch`/`canDo`
+  // target everywhere those three already gate on it, with no other change needed here.
+  function has(page) { return Object.prototype.hasOwnProperty.call(F35_PAGES, page) || ExtNav.isExtensionPage(page); }
+  function feedsFor(page) { return PAGE_FEEDS[page] || (ExtNav.isExtensionPage(page) ? ['ext_' + page] : []); }
   function canDo(action) {
     return has(action) || (action in PAGER) || (action in MAP_ACTIONS) || (action in GLASS_ACTIONS) ||
            (action in MASTER_ARMS_ACTIONS) || (action in COMBAT_MODE_ACTIONS);
@@ -299,6 +302,11 @@
       if (type === 'avn' && currentPage === 'afm') return forwardAfm();
       const w = frameWin(), m = slices[type];
       if (!w || !m) return;
+      // Extension slices (docs/extensions-api.md) always rename to the plain 'ext' type on the
+      // wire — the same contract the classic bezel's forwardExtToPanes/Frame use — so an
+      // extension's page.js is written once and renders identically under either layout. `id`
+      // is dropped: the extension already knows who it is.
+      if (type.indexOf('ext_') === 0) { w.postMessage({ mfd: true, type: 'ext', data: m.data }, '*'); return; }
       w.postMessage(FEED_AS[type] ? Object.assign({}, m, { type: FEED_AS[type] }) : m, '*');
     }
     function forwardAfm() {
@@ -520,6 +528,11 @@
     }
 
     function dispatch(action) {
+      // EXT (docs/extensions-api.md): lands on whichever installed extension sorts first, the
+      // same way 'akf' is a fixed default landing page for the MDT fold — except this one's
+      // destination is discovered at runtime, not authored. No-op if none are installed. Checked
+      // before `has(action)` below since 'ext' itself is never a real page/extension id.
+      if (action === 'ext') { const extId = ExtNav.firstExtensionId(); if (extId) showPage(extId); return; }
       if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
       if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
       if (action in GLASS_ACTIONS) { GLASS_ACTIONS[action](); return; }
@@ -583,7 +596,7 @@
       wpnNavKey = '';   // entering any page redraws the grid; don't let a stale key suppress it
       // A page with no content of its own (MAIN) blanks the frame rather than hiding it: the
       // iframe's background is the glass colour, so what shows through is the label grid on black.
-      frame.src = F35_PAGES[name] || 'about:blank';
+      frame.src = F35_PAGES[name] || (ExtNav.isExtensionPage(name) ? '/ext/' + name : 'about:blank');
       renderNav();   // forwardToPage reruns on the frame's load
     }
 
@@ -1101,5 +1114,9 @@
 
   loadStripUrls();
   runStripBoot();
+  // Extension nav discovery (docs/extensions-api.md) — fetches /ext-manifest once and merges
+  // installed extensions into NAV.ext / NAV[<id>]. Fire-and-forget: a pilot can't reach EXT
+  // before this same-origin local fetch resolves in practice.
+  ExtNav.load(NAV);
   buildGlass();
 })();

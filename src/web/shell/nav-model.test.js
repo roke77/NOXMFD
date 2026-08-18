@@ -34,12 +34,14 @@ for (const [page, items] of Object.entries(NAV)) {
 // ── Ordering is the contract ────────────────────────────────────────────────────────
 // A layout renderer places by INDEX (bezel full view: item i → left key i; bezel split:
 // SPLIT_SLOTS[i] places NAV[i]). So order is meaningful and reordering is a behaviour change.
-assert.deepStrictEqual(NAV.main.map(i => i.label), ['AVN', 'MAP', 'RWR', 'TGP', 'TGT', 'WPN']);
+assert.deepStrictEqual(NAV.main.map(i => i.label), ['AVN', 'MAP', 'RWR', 'TGP', 'TGT', 'WPN', 'EXT']);
 assert.deepStrictEqual(NAV.map.map(i => i.label), ['MAIN', 'GRID', 'FLW', 'WPT', 'R+', 'R-', 'W+', 'W-', 'Z+', 'Z-']);
 assert.deepStrictEqual(NAV.rdr.map(i => i.label), ['MAIN', 'R+', 'R-']);
 
 // ── Every frame-hosted page can get back to MAIN ────────────────────────────────────
-for (const page of ['avn', 'afm', 'rwr', 'tgp', 'tgt', 'hud']) {
+// NAV.ext's static baseline is exactly this shape too — see ext-nav.js for how it grows at
+// runtime (untested here on purpose; this file only sees the compile-time baseline).
+for (const page of ['avn', 'afm', 'rwr', 'tgp', 'tgt', 'hud', 'ext']) {
   assert.deepStrictEqual(NAV[page], [{ label: 'MAIN', action: 'main' }], `${page} should be just a MAIN back-button`);
 }
 

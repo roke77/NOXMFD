@@ -71,6 +71,13 @@ const pageFrame = document.getElementById('page-frame');   // full-view host for
 // switches the frame's src as you move between them. This layout's full-view half of
 // layout-pages.js — see PAGE_URL below for the split-pane half.
 const FRAME_PAGES = LayoutPages.CLASSIC_FULL;
+// Extension pages (docs/extensions-api.md) have no entry in FRAME_PAGES/PAGE_URL — their URL is
+// always /ext/<id> (or ?bare for a split pane), computed generically instead of hand-authored
+// per extension, which is the whole point of this surface. Every FRAME_PAGES[name] lookup that
+// decides whether/where a page renders goes through this instead of the raw table.
+function frameUrlFor(name) {
+  return FRAME_PAGES[name] || (ExtNav.isExtensionPage(name) ? '/ext/' + name : undefined);
+}
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
@@ -266,7 +273,7 @@ const SPLIT_SLOTS = SplitSlots.SPLIT_SLOTS;
 // the F-35's table so the two can't quietly diverge. Pages without an entry render 'about:blank'
 // on navigation (paneUrl), a no-op signal rather than a crash.
 const PAGE_URL = LayoutPages.CLASSIC_SPLIT;
-function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
+function paneUrl(page) { return PAGE_URL[page] || (ExtNav.isExtensionPage(page) ? '/ext/' + page + '?bare' : 'about:blank'); }
 
 // Map a pane's pane-local (side, slot) label position to the physical bezel key {bank, index}
 // for the current split orientation (see split-keymap.js). Used by every split-mode key placer.
@@ -739,6 +746,21 @@ function forwardTgpToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage({ mfd: true, type: 'tgp', active: tgpActive }, '*');
 }
+// Extension pages (docs/extensions-api.md) — ONE generic forward pair for every installed
+// extension, unlike every page above which gets its own. An extension's page always receives
+// the same shape regardless of which one it is: {mfd:true, type:'ext', data:<its last published
+// slice>}. `page` is the extension's own id, doubling as its NAV/FRAME_PAGES-fallback page name.
+function forwardExtToPanes(page) {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== page) return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage({ mfd: true, type: 'ext', data: extData[page] }, '*');
+  });
+}
+function forwardExtToFrame(page) {
+  const w = frameWin(); if (!w) return;
+  w.postMessage({ mfd: true, type: 'ext', data: extData[page] }, '*');
+}
 function forwardRwrToPanes() {
   paneIframes.forEach(function(iframe, idx) {
     if (panePages[idx] !== 'rwr') return;
@@ -1000,7 +1022,7 @@ function frameWin() { return pageFrame && pageFrame.contentWindow; }
 // Point #page-frame at a frame-hosted page, switching its src when moving between frame pages
 // (WPN ↔ TGT) and lazy-loading on first entry. No-op if it already shows that page.
 function showFramePage(name) {
-  const url = FRAME_PAGES[name];
+  const url = frameUrlFor(name);
   if (url && pageFrame.getAttribute('src') !== url) pageFrame.src = url;
 }
 
@@ -1196,6 +1218,11 @@ function broadcastOrientation() { paneIframes.forEach(forwardOrientationToPane);
 orientMq.addEventListener('change', function() { applyShellOrientation(); broadcastOrientation(); });
 applyShellOrientation();
 
+// Extension nav discovery (docs/extensions-api.md) — fetches /ext-manifest once and merges
+// installed extensions into NAV.ext / NAV[<id>]. Fire-and-forget: a pilot can't reach EXT
+// before this same-origin local fetch resolves in practice.
+ExtNav.load(NAV);
+
 // On pane iframe load, push the latest snapshot for whichever page that pane is
 // rendering — the page may have been mid-update at the moment its iframe started
 // loading — plus the current app orientation (every bare page can use it).
@@ -1217,6 +1244,7 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'obj')  forwardObjToPanes();
     else if (page === 'wpt')  forwardWptToPanes();
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
+    else if (ExtNav.isExtensionPage(page)) forwardExtToPanes(page);
     // docs/page-cursor.md, docs/map-cursor.md: a fresh document means a fresh message listener, so
     // any earlier cursor-focus post (sent the moment this pane's src changed, before its script had
     // attached one) was silently dropped — a straight re-run of syncCursorFocus() wouldn't resend it
@@ -1231,7 +1259,7 @@ paneIframes.forEach(function(iframe, idx) {
 // Full-view frame load: push the current snapshot once it's ready (it may have started loading
 // mid-update, or its src just switched between frame pages), plus orientation + layout geometry.
 pageFrame.addEventListener('load', function() {
-  if (splitMode || !FRAME_PAGES[currentPage]) return;
+  if (splitMode || !frameUrlFor(currentPage)) return;
   forwardOrientationToPane(pageFrame);
   if (currentPage === 'wpn')      { forwardWpnLayoutToFrame(); forwardWpnToFrame(); forwardCmToFrame(); }
   else if (currentPage === 'tgp') { forwardTgpToFrame(); }
@@ -1246,6 +1274,7 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'obj') { forwardObjToFrame(); }
   else if (currentPage === 'akf') { forwardAkfToFrame(); }
   else if (currentPage === 'wpt') { forwardWptToFrame(); }
+  else if (ExtNav.isExtensionPage(currentPage)) forwardExtToFrame(currentPage);
   // docs/page-cursor.md: full-view TGT/HUD render in the shared #page-frame, which reloads (fresh
   // document, fresh listener) on every navigation onto the page — same dropped-cursor-focus gap
   // the split-pane fix above closes, just for the full-view frame instead of a pane.
@@ -1380,6 +1409,11 @@ let cmData = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 // produced, and back to false during the 3-second post-loss hold's expiry.
 let tgpActive = false;
 
+// Latest published slice per installed extension (docs/extensions-api.md), keyed by extension
+// id — mirrored from the map iframe the same way as every other slice above, just for a
+// runtime-discovered set of keys instead of one fixed field.
+const extData = {};
+
 // Latest selected-target list mirrored from the map iframe. The TGT page renders it under its
 // filters (forwardTgtTargetsToFrame) — the whole list, unpaginated, since that page scrolls.
 let targetsData = { targets: [] };
@@ -1483,7 +1517,7 @@ function showPage(name) {
   // See .overlay.vmain in mfd.css and isVmainPage below.
   overlayEl.classList.toggle('vmain', isVmainPage(name));
   infoBox.classList.toggle('show', name === 'main');
-  screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGT/TGP/AVN render in #page-frame
+  screenEl.classList.toggle('page-on', !!frameUrlFor(name));   // WPN/TGT/TGP/AVN render in #page-frame
   clearKeyActions();
   // Only wipe dynamic line-select labels (+ WPN's purely-decorative MASTER/MODE and MAP's ZOOM
   // labels, docs/radar-master-arms.md, issue #41); static children (info-box) stay put.
@@ -1625,6 +1659,12 @@ function showPage(name) {
     showFramePage('wpt');
     forwardWptToFrame();
   }
+  // Extension pages (docs/extensions-api.md) render in #page-frame too. Same shape as TGP/RC —
+  // static MAIN label, no extra nav wiring, just forward the extension's last published slice.
+  if (ExtNav.isExtensionPage(name)) {
+    showFramePage(name);
+    forwardExtToFrame(name);
+  }
 
   // refreshFollowIndicator (not just renderIndicators) because the FOLLOW chip's membership
   // depends on currentPage, which just changed: entering MAP with follow already on must add the
@@ -1732,6 +1772,15 @@ window.addEventListener('message', function(e) {
     // Only matters while the TGP page is in view — outside it the frame/pane isn't shown.
     if (currentPage === 'tgp' && !splitMode) forwardTgpToFrame();
     if (splitMode) forwardTgpToPanes();
+  } else if (m.type.indexOf('ext_') === 0) {
+    // Extension telemetry (docs/extensions-api.md) — one generic branch for every installed
+    // extension's slice, keyed by the 'ext_<id>' type telemetry-source.js posts up. `page` here
+    // IS the extension's own id (see forwardExtToPanes/Frame — the same string doubles as the
+    // page name FRAME_PAGES/PAGE_URL fall back on).
+    const page = m.type.slice(4);
+    extData[page] = m.data;
+    if (currentPage === page && !splitMode) forwardExtToFrame(page);
+    if (splitMode) forwardExtToPanes(page);
   } else if (m.type === 'avn') {
     avnData = {
       name: m.name || null,
@@ -2211,6 +2260,10 @@ function mfdButton(el) {
     case 'combat-mode-aa':  sendCommand('combat-mode.set', { group: 'aa'  }).catch(function() {}); break;
     case 'combat-mode-ag':  sendCommand('combat-mode.set', { group: 'ag'  }).catch(function() {}); break;
     case 'tgp':  showPage('tgp');  break;
+    // EXT (docs/extensions-api.md): lands on whichever installed extension sorts first, the
+    // same way 'akf' is a fixed default landing page for the MDT fold — except this one's
+    // destination is discovered at runtime, not authored. No-op if none are installed.
+    case 'ext':  { const extId = ExtNav.firstExtensionId(); if (extId) showPage(extId); break; }
     case 'hud':  showPage('hud');  break;
     case 'keys':  showPage('keys');  break;
     case 'rates': showPage('rates'); break;   // cfg-rates experiment (issue #39) — CFG group's RTS

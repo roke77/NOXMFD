@@ -39,8 +39,11 @@ for (const [page, items] of Object.entries(NAV))
 // active waypoint route, same shape as flw/grid/zin/zout, not a destination.
 // 'wpt-next'/'wpt-prev' (issue #38): MAP's manual waypoint step — same shape as rt-next/rt-prev,
 // acting on the active route's progress instead of which route is active.
+// 'ext' (docs/extensions-api.md): dispatched specially too — it lands on whichever installed
+// extension's id sorts first (ExtNav.firstExtensionId), a page name discovered at runtime and
+// never present in these compile-time tables, same as 'lyt' opens a chooser no table names.
 const BEHAVIOURS = new Set(['flw', 'grid', 'zin', 'zout', 'rng-in', 'rng-out', 'lyt', 'rt-next', 'rt-prev',
-  'wpt-next', 'wpt-prev']);
+  'wpt-next', 'wpt-prev', 'ext']);
 
 const destinations = Object.keys(origin).filter(a => !BEHAVIOURS.has(a)).sort();
 assert.ok(destinations.length > 0, 'no destinations found — NAV or this filter is wrong');

@@ -21,6 +21,9 @@ namespace NOXMFD
             // binds from the main menu, where no mission-scoped reader exists to drain the queue. Every
             // handler validates against live state, so gameplay commands just no-op without a mission.
             CommandDispatcher.Drain();
+            // Same reasoning, for extension mods' own commands (docs/extensions-api.md) — an
+            // extension's /ext/<id>/command endpoint should work at the main menu too.
+            ExtensionRegistry.Drain();
 
             bool missionRunning = MissionManager.IsRunning;
 

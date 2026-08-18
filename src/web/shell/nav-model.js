@@ -37,8 +37,16 @@
       { label: 'TGP', action: 'tgp' },     // → TGP page
       { label: 'TGT', action: 'tgt' },     // → TGT page (target-selection filter)
       { label: 'WPN', action: 'wpn' },     // → WPN page
+      { label: 'EXT', action: 'ext' },     // → the first installed extension (docs/extensions-api.md)
     ],
     tgp: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN
+    // EXT (docs/extensions-api.md) — unlike every other entry here, this one's CONTENTS are
+    // discovered at runtime, not authored: src/web/shell/ext-nav.js fetches /ext-manifest once
+    // at boot and appends one item per installed extension after this MAIN baseline. An
+    // extension's own page gets a matching NAV[<its id>], set the same way. Kept here (not
+    // just in ext-nav.js) so a page loaded before that fetch resolves still has a working
+    // MAIN back-link instead of an empty nav.
+    ext: [ { label: 'MAIN', action: 'main' } ],
     avn: [ { label: 'MAIN', action: 'main' } ],
     afm: [ { label: 'MAIN', action: 'main' } ],   // Airframe page — name + damage silhouette
     rwr: [ { label: 'MAIN', action: 'main' } ],

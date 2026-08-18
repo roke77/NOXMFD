@@ -48,6 +48,9 @@
     <Compile Remove="_scratch\**\*.cs" />
     <!-- tools/ holds standalone dev projects (apicheck) with their own csproj — never built into the plugin. -->
     <Compile Remove="tools\**\*.cs" />
+    <!-- extensions/ holds real, separate BepInEx plugins built against the public Api surface
+         (docs/extensions-api.md) — their own .csproj, never compiled into NOXMFD.dll itself. -->
+    <Compile Remove="extensions\**\*.cs" />
   </ItemGroup>
 
   <ItemGroup>

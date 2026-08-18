@@ -39,6 +39,11 @@
     avn: [ { side: 'left', slot: 0 } ],
     afm: [ { side: 'left', slot: 0 } ],
     tgp: [ { side: 'left', slot: 0 } ],
+    // EXT (docs/extensions-api.md): NAV.ext's static baseline is one item (MAIN), same shape as
+    // TGP/RWR — a runtime-added extension's own NAV[<id>] is also always exactly one item
+    // (ext-nav.js), so mfd.js falls back to this same slot for any of them rather than needing
+    // a per-extension entry here.
+    ext: [ { side: 'left', slot: 0 } ],
     rwr: [ { side: 'left', slot: 0 } ],
     // RDR gets MAIN plus the range rocker (R+/R-, issue #40 follow-up) all on the left column, right
     // after MAIN — unlike MAP's zoom rocker, which splits onto the right column (MAP has more items
