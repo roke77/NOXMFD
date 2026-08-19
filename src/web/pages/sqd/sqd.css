@@ -48,6 +48,34 @@
 #sqd-squad-head { color: var(--no-green); }
 .sqd-squad-callsign { color: var(--no-squad); }
 
+/* CREATE SQUAD (sqd.js) — deliberately bigger/bolder than the page's other .sqd-btn instances
+   (ACCEPT, LEAVE, ...): it's the one action that starts everything else on this page, not a
+   routine list action, so it earns the emphasis. Swaps for .sqd-create-form in place, same
+   idiom as the squad section's own EDIT-to-input swap. */
+.sqd-create-prompt { text-align: center; padding: 10px 0; }
+.sqd-create-btn {
+  padding: 12px 32px;
+  font-size: 13px;
+  letter-spacing: 2px;
+}
+.sqd-create-form {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+}
+.sqd-create-form input {
+  width: 220px;
+  background: var(--no-panel-bg);
+  border: 1px solid var(--no-panel-border);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  font-size: 13px;
+  padding: 8px 10px;
+}
+.sqd-create-form input:focus { outline: 1px solid var(--no-green-dim); }
+
 .sqd-btn {
   padding: 5px 12px;
   border: 1px solid var(--no-green);
@@ -59,6 +87,11 @@
   cursor: pointer;
 }
 .sqd-btn:hover { background: var(--no-green); color: var(--no-ink); }
+/* CREATE SQUAD while our own incoming invite(s) still await a decision (sqd.js) — Squad.cs's
+   CreateSquad rejects it until that's resolved, so this reads as unavailable (title carries why)
+   rather than clickable-but-silently-ignored. */
+.sqd-btn:disabled { color: var(--no-gray); border-color: var(--no-panel-border); cursor: default; }
+.sqd-btn:disabled:hover { background: none; color: var(--no-gray); }
 /* Secondary but still fully functional (DECLINE/LEAVE/DISBAND) — dim, not gray. --no-gray is the
    theme's disabled/inactive token (AVN's off annunciators, the EXT stub's dimmed MAIN label); using
    it here would misread these as non-functional when they're one click away from doing something. */
@@ -87,16 +120,21 @@
 }
 .sqd-callsign-edit input:focus { outline: 1px solid var(--no-green-dim); }
 
+/* One per queued invite (sqd.js's renderInviteCards) — stacked, oldest first. */
 .sqd-invite-card {
   padding: 12px;
   border: 1px solid var(--no-amber);
   background: var(--no-panel-bg);
 }
+.sqd-invite-card + .sqd-invite-card { margin-top: 8px; }
 .sqd-invite-text {
   font-size: 13px;
   color: var(--no-green);
   margin-bottom: 10px;
 }
+/* The inviting leader's own name — --no-squad (theme.css), the same token every other leader-
+   identity spot uses (WPT's pending-share sender, this page's own LEADER mark/callsign). */
+.sqd-invite-leader { color: var(--no-squad); }
 .sqd-invite-actions { display: flex; gap: 8px; }
 
 .sqd-empty {
@@ -196,7 +234,6 @@
   padding: 3px 8px;
 }
 .sqd-row-btn:hover { background: var(--no-green-dim); color: var(--no-ink); }
-
 /* Star (make leader) / x (kick) on each non-leader roster row (sqd.js) — plain icon buttons, no
    border, matching WPT's own row-action icons (shared/page-chrome.css's .wpt-row-btn/
    .sqd-row-icon-btn rule) rather than this page's pill-style .sqd-row-btn (kept for INVITE, the

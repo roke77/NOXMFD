@@ -232,10 +232,19 @@ leader).
 **Protocol (`Squad.cs`)** — the leader/member state machine, star-topology (leader holds a session
 with every member; members only ever talk to the leader, never each other):
 
-- `sqd.invite` / `sqd.accept` / `sqd.decline` — explicit accept required, no auto-join.
+- A squad comes into being via `Squad.CreateSquad` (SQD page's CREATE SQUAD button) — leader-only
+  from that point on, requiring a callsign up front rather than leaving the squad unnamed; there is
+  no implicit creation via a first invite anymore. `Invite` (and therefore the roster's own INVITE
+  button) is only reachable once `CreateSquad` has already made this pilot a leader.
+- `sqd.invite` / `sqd.accept` / `sqd.decline` — explicit accept required, no auto-join. Incoming
+  invites queue (oldest first) rather than the newest replacing an undecided one — a pilot can have
+  several outstanding at once, each independently accept/decline-able by its sender's SteamID;
+  accepting any one declines the rest automatically, since joining a squad is exclusive.
 - Single squad per player, enforced socially (no server to arbitrate): an invite target already in
   a squad sends back `sqd.conflict` (rejecting it) and, if they're a member, `sqd.poach` to their
-  *real* leader — a warning that someone tried to recruit one of their people.
+  *real* leader — a warning that someone tried to recruit one of their people. The same exclusivity
+  runs the other way too — `CreateSquad`/`Invite` both refuse to act while this pilot's own incoming
+  invite(s) are still undecided.
 - `sqd.roster` — the leader broadcasts the full member list on every change; members never need
   their own source of truth for who's in the squad.
 - `sqd.leave` (member) / `sqd.transfer` + `sqd.leader-changed` (leader handing off, explicit pick or
@@ -243,10 +252,10 @@ with every member; members only ever talk to the leader, never each other):
   member while the squad lives on — distinct from disband; the target gets its own `sqd.kick`
   message rather than just falling out of the next roster broadcast, since by the time that goes
   out they're no longer in `_members` to notice themselves missing).
-- `sqd.set-callsign` — leader-only, names (or renames) the squadron; carried through every roster/
-  invite envelope and a leadership handoff (`sqd.transfer`'s own envelope) so it survives both.
-  SQD's page title reads "`<CALLSIGN> SQUAD`" and doubles as the inline editor (EDIT swaps the
-  title for a text input in place).
+- `sqd.set-callsign` — leader-only, renames an existing squadron (the initial name comes from
+  `CreateSquad` above); carried through every roster/invite envelope and a leadership handoff
+  (`sqd.transfer`'s own envelope) so it survives both. SQD's page title reads "`<CALLSIGN> SQUAD`"
+  and doubles as the inline editor (EDIT swaps the title for a text input in place).
 - `sqd.data` — the generic "TBD payload" slot this doc's scope section describes; `wpt.route` is
   the first (and so far only) concrete use, wired to WPT's per-route share button, which only shows
   once you're the squad leader with at least one member. What actually shipped on top of the bare
@@ -297,6 +306,15 @@ MAP draws its blips from — blank, not a placeholder, whenever `AircraftFor` ha
 and a trailing LEADER badge or, on a subordinate's row when viewing as leader, a star (promote,
 `sqd.relinquish`) and an × (kick, `sqd.kick`). The pilot's own row highlights in place of the old
 "highlight the leader" behaviour, so a member can find themselves in their own squad at a glance.
+
+While there's no squad yet, a centered CREATE SQUAD button (swapping in place for a callsign
+input + CREATE/CANCEL, same idiom as the roster's own EDIT) is what starts one — there's no
+unnamed-squad state to render, since `CreateSquad` requires the name up front. Every section on
+the page (current squad, incoming invites, the match roster) shows or hides independently off
+current state rather than gating each other: an incoming invite no longer hides the roster below
+it, and the roster itself stays visible and browsable even while undecided — only its own INVITE
+button (and CREATE SQUAD) actually needs `role`/pending-invite state, so those are disabled with an
+explanatory tooltip rather than the whole section disappearing.
 
 ## Security and privacy consequences
 

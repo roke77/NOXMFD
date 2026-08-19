@@ -12,12 +12,15 @@ if (window.parent !== window) {
 
 const unavailableEl    = document.getElementById('sqd-unavailable');
 const noticeEl         = document.getElementById('sqd-notice');
+const createSection    = document.getElementById('sqd-create-section');
+const createPrompt     = document.getElementById('sqd-create-prompt');
+const createOpenBtn    = document.getElementById('sqd-create-open');
+const createForm       = document.getElementById('sqd-create-form');
+const createInput      = document.getElementById('sqd-create-input');
+const createConfirmBtn = document.getElementById('sqd-create-confirm');
+const createCancelBtn  = document.getElementById('sqd-create-cancel');
 const inviteSection    = document.getElementById('sqd-invite-section');
-const inviteLeaderEl   = document.getElementById('sqd-invite-leader');
-const inviteCountEl    = document.getElementById('sqd-invite-count');
-const invitePluralEl   = document.getElementById('sqd-invite-plural');
-const inviteAccept     = document.getElementById('sqd-invite-accept');
-const inviteDecline    = document.getElementById('sqd-invite-decline');
+const inviteCards      = document.getElementById('sqd-invite-cards');
 const rosterSection    = document.getElementById('sqd-roster-section');
 const rosterRows       = document.getElementById('sqd-roster-rows');
 const pendingSection   = document.getElementById('sqd-pending-section');
@@ -37,9 +40,26 @@ let noticeTimer = null;
 let state = null;   // last-known Squad.StateJson payload (null until the first successful poll)
 let players = [];   // last-known /server-players list
 let editingCallsign = false;   // EDIT swaps the title span for the input, in place
+let creatingSquad = false;   // CREATE SQUAD swaps the button for the callsign input, in place
 
-inviteAccept.onclick  = function () { sendCommand('sqd.accept', {}).catch(function () {}); };
-inviteDecline.onclick = function () { sendCommand('sqd.decline', {}).catch(function () {}); };
+function acceptInvite(leaderId) { sendCommand('sqd.accept', { peer: leaderId }).catch(function () {}); }
+function declineInvite(leaderId) { sendCommand('sqd.decline', { peer: leaderId }).catch(function () {}); }
+
+createOpenBtn.onclick = function () {
+  if (createOpenBtn.disabled) return;
+  creatingSquad = true;
+  render();
+  createInput.focus();
+};
+createCancelBtn.onclick = function () { creatingSquad = false; render(); };
+createConfirmBtn.onclick = function () {
+  const name = createInput.value.trim();
+  if (name) sendCommand('sqd.create', { name: name }).catch(function () {});
+  creatingSquad = false;
+  render();
+};
+createInput.onkeydown = function (e) { if (e.key === 'Enter') createConfirmBtn.click(); else if (e.key === 'Escape') createCancelBtn.click(); };
+
 disbandBtn.onclick    = function () { sendCommand('sqd.disband', {}).catch(function () {}); };
 leaveBtn.onclick = function () {
   if (!state) return;
@@ -112,19 +132,33 @@ function render() {
     noticeTimer = setTimeout(function () { noticeEl.style.display = 'none'; }, 6000);
   }
 
-  const hasPending = !!state.pendingInvite;
+  const invites = state.pendingInvites || [];
+  const hasPending = invites.length > 0;
   inviteSection.style.display = hasPending ? '' : 'none';
-  if (hasPending) {
-    const inv = state.pendingInvite;
-    inviteLeaderEl.textContent = inv.leaderName || inv.leaderId;
-    inviteCountEl.textContent = inv.members.length;
-    invitePluralEl.textContent = inv.members.length === 1 ? '' : 's';
+  if (hasPending) renderInviteCards(invites);
+
+  // CREATE SQUAD — only meaningful while role is "none" (Squad.cs's CreateSquad requires it).
+  // Disabled (with the same reasoning/tooltip as the old per-row disable) while our own incoming
+  // invite(s) are still undecided — CreateSquad refuses until that's resolved.
+  const showCreate = state.role === 'none';
+  createSection.style.display = showCreate ? '' : 'none';
+  if (showCreate) {
+    createOpenBtn.disabled = hasPending;
+    createOpenBtn.title = hasPending ? 'Decide your own pending invite(s) first' : '';
+    createPrompt.style.display = creatingSquad ? 'none' : '';
+    createForm.style.display = creatingSquad ? '' : 'none';
+  } else {
+    creatingSquad = false;
   }
 
-  // Roster picker: only meaningful while we're not already deciding on, or part of, a squad.
-  const canInvite = state.role !== 'member' && !hasPending;
+  // Roster: visible unless we're already a plain MEMBER of someone else's squad — browsing/
+  // deciding an incoming invite (above) doesn't hide it. Each row's own INVITE button only
+  // appears once we're actually a LEADER (Squad.cs's Invite() requires CreateSquad first); while
+  // role is "none" this is browse-only, which is why it's never disabled the way the create
+  // button above is — there's nothing here that could fail, just nothing to click yet.
+  const canInvite = state.role !== 'member';
   rosterSection.style.display = canInvite ? '' : 'none';
-  if (canInvite) renderRoster();
+  if (canInvite) renderRoster(state.role === 'leader');
 
   const showPending = state.role === 'leader' && state.pendingSent.length > 0;
   pendingSection.style.display = showPending ? '' : 'none';
@@ -146,7 +180,47 @@ function render() {
   if (inSquad) renderSquad();
 }
 
-function renderRoster() {
+// One card per queued incoming invite (state.pendingInvites, oldest first — Squad.cs's
+// _pendingReceived), each independently accept/decline-able by its own leaderId. Accepting any one
+// declines the rest server-side (Squad.cs's AcceptInvite), so this render doesn't need to do
+// anything special about the others disappearing — the next poll just reflects the empty list.
+function renderInviteCards(invites) {
+  inviteCards.innerHTML = '';
+  invites.forEach(function (inv) {
+    const card = document.createElement('div');
+    card.className = 'sqd-invite-card';
+
+    const text = document.createElement('div');
+    text.className = 'sqd-invite-text';
+    const leaderEl = document.createElement('span');
+    leaderEl.className = 'sqd-invite-leader';
+    leaderEl.textContent = inv.leaderName || inv.leaderId;
+    text.appendChild(leaderEl);
+    const count = inv.members.length;
+    text.appendChild(document.createTextNode(
+      ' invites you to their squad (' + count + ' member' + (count === 1 ? '' : 's') + ')'));
+
+    const actions = document.createElement('div');
+    actions.className = 'sqd-invite-actions';
+    const accept = document.createElement('button');
+    accept.className = 'sqd-btn pad-hoverable'; accept.textContent = 'ACCEPT';
+    accept.onclick = function () { acceptInvite(inv.leaderId); };
+    const decline = document.createElement('button');
+    decline.className = 'sqd-btn sqd-btn-ghost pad-hoverable'; decline.textContent = 'DECLINE';
+    decline.onclick = function () { declineInvite(inv.leaderId); };
+    actions.appendChild(accept); actions.appendChild(decline);
+
+    card.appendChild(text); card.appendChild(actions);
+    inviteCards.appendChild(card);
+  });
+}
+
+// showInvite: only true once we're a LEADER (Squad.cs's Invite() requires CreateSquad to have
+// already run) — while role is "none" this list is browse-only, pointing at the CREATE SQUAD
+// prompt above instead. Never disabled the way the create button is: a leader can never have an
+// undecided incoming invite of their own (HandleInvite refuses one while already in a squad), so
+// there's no state where this button would be visible but blocked.
+function renderRoster(showInvite) {
   rosterRows.innerHTML = '';
   const invited = {};
   if (state.role === 'leader') state.pendingSent.forEach(function (p) { invited[p.id] = true; });
@@ -157,10 +231,13 @@ function renderRoster() {
     const name = document.createElement('span');
     name.className = 'sqd-row-name';
     name.textContent = p.name || p.id;
-    const btn = document.createElement('button');
-    btn.className = 'sqd-row-btn pad-hoverable'; btn.textContent = 'INVITE';
-    btn.onclick = function () { invite(p.id, p.name); };
-    row.appendChild(name); row.appendChild(btn);
+    row.appendChild(name);
+    if (showInvite) {
+      const btn = document.createElement('button');
+      btn.className = 'sqd-row-btn pad-hoverable'; btn.textContent = 'INVITE';
+      btn.onclick = function () { invite(p.id, p.name); };
+      row.appendChild(btn);
+    }
     rosterRows.appendChild(row);
   });
 }

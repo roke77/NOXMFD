@@ -284,7 +284,7 @@ _SQD = {
         {"id": "76561198000000003",   "name": "Ghost",   "aircraft": "FS-12 Revoker"},
         {"id": "76561198000000004",   "name": "Havoc",   "aircraft": "FS-12 Revoker"},
     ],
-    "pendingSent": {}, "pendingInvite": None,
+    "pendingSent": {}, "pendingInvites": [],
     "noticeSeq": 0, "notice": "",
 }
 _SQD_ACCEPT_POLLS = 2   # how many /squad reads a pending mock invite stays "awaiting response"
@@ -314,7 +314,7 @@ def _squad_state():
         "leaderAircraft": "",
         "callsign": _SQD["callsign"],
         "members": _SQD["members"],
-        "pendingInvite": _SQD["pendingInvite"],
+        "pendingInvites": _SQD["pendingInvites"],
         "pendingSent": [
             {"id": pid, "name": next((p["name"] for p in _SERVER_PLAYERS if p["id"] == pid), pid)}
             for pid in _SQD["pendingSent"]
@@ -337,11 +337,17 @@ def _squad_command(env):
     if not cmd.startswith("sqd."):
         return
     peer = str(env.get("peer") or "").strip()
-    if cmd == "sqd.invite":
-        if _SQD["role"] == "member" or _SQD["pendingInvite"] is not None:
+    if cmd == "sqd.create":
+        if _SQD["role"] != "none" or _SQD["pendingInvites"]:
+            return
+        name = str(env.get("name") or "").strip()[:20]
+        if name:
+            _SQD["role"] = "leader"
+            _SQD["callsign"] = name
+    elif cmd == "sqd.invite":
+        if _SQD["role"] != "leader":
             return
         if peer and peer not in _SQD["pendingSent"] and not any(m["id"] == peer for m in _SQD["members"]):
-            _SQD["role"] = "leader"
             _SQD["pendingSent"][peer] = _SQD_ACCEPT_POLLS
     elif cmd == "sqd.set-callsign":
         if _SQD["role"] == "member":
@@ -363,7 +369,10 @@ def _squad_command(env):
         _SQD["role"] = "none"; _SQD["leaderId"] = ""; _SQD["leaderName"] = ""; _SQD["callsign"] = ""
         _SQD["members"] = []; _SQD["pendingSent"] = {}
     elif cmd in ("sqd.accept", "sqd.decline"):
-        _SQD["pendingInvite"] = None   # no simulated incoming invite exists to act on in this harness
+        # Removes just the acted-on invite by leaderId (peer) — mirrors Squad.cs's queue. Normally a
+        # no-op here (this mock's role never flips to "member" on its own, see the module comment
+        # above), but lets a manually-seeded _SQD["pendingInvites"] scenario be exercised correctly.
+        _SQD["pendingInvites"] = [i for i in _SQD["pendingInvites"] if i["leaderId"] != peer]
 
 
 # WPT showcase route (issue #38) — a real route drawn by hand in this harness (6 waypoints, a loop

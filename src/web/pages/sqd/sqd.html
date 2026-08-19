@@ -16,9 +16,9 @@
   talk to each other directly.
 
   All state and actions round-trip through the plugin: GET /squad for the current role/leader/
-  members/pending state, POST /command (sqd.invite / sqd.set-callsign / sqd.accept / sqd.decline /
-  sqd.leave / sqd.relinquish / sqd.disband). No shell relay — this page polls /squad and
-  /server-players directly (ponytail: a 1s poll is simple and plenty for a UI that isn't
+  members/pending state, POST /command (sqd.create / sqd.invite / sqd.set-callsign / sqd.accept /
+  sqd.decline / sqd.leave / sqd.relinquish / sqd.disband). No shell relay — this page polls /squad
+  and /server-players directly (ponytail: a 1s poll is simple and plenty for a UI that isn't
   latency-sensitive; an SSE 'sqd' event already exists server-side if this ever needs to be
   push-based instead).
 -->
@@ -43,26 +43,32 @@
 
   <div class="sqd-notice" id="sqd-notice" style="display:none;"></div>
 
-  <!-- An invite awaiting our own accept/decline (docs/squadron-transport.md). Only one at a time —
-       a newer invite replaces an older, unanswered one. -->
-  <div class="sqd-section" id="sqd-invite-section" style="display:none;">
-    <div class="sqd-section-head"><span>SQUAD INVITE</span></div>
-    <div class="sqd-invite-card">
-      <div class="sqd-invite-text">
-        <span id="sqd-invite-leader">—</span> invites you to their squad
-        (<span id="sqd-invite-count">0</span> member<span id="sqd-invite-plural">s</span>)
-      </div>
-      <div class="sqd-invite-actions">
-        <button class="sqd-btn pad-hoverable" id="sqd-invite-accept">ACCEPT</button>
-        <button class="sqd-btn sqd-btn-ghost pad-hoverable" id="sqd-invite-decline">DECLINE</button>
-      </div>
+  <!-- Each section below shows or hides independently, purely off current state — none of them
+       gate one another (docs/squadron-transport.md). In particular, a pending invite no longer
+       hides the roster below it: deciding on an invite and inviting/browsing players in this match
+       are two different things, and hiding the whole page down to just the invite card while one
+       was outstanding forced declining it just to get back to a page you could otherwise still use. -->
+
+  <!-- No squad yet (role "none") — starting one is explicit: a big centered CREATE SQUAD button,
+       which swaps in an inline callsign input + CREATE/CANCEL (same in-place-swap idiom as the
+       squad section's own EDIT below). Squad.cs's CreateSquad requires the name up front, so
+       there's no unnamed-squad state to render — INVITE only appears on the roster once this has
+       succeeded and role flips to "leader". Mutually exclusive with the squad section right below
+       it (role is never simultaneously "none" and "leader"/"member"). -->
+  <div class="sqd-section" id="sqd-create-section" style="display:none;">
+    <div class="sqd-create-prompt" id="sqd-create-prompt">
+      <button class="sqd-btn sqd-create-btn pad-hoverable" id="sqd-create-open">CREATE SQUAD</button>
+    </div>
+    <div class="sqd-create-form" id="sqd-create-form" style="display:none;">
+      <input type="text" id="sqd-create-input" placeholder="Callsign" maxlength="20">
+      <button class="sqd-btn pad-hoverable" id="sqd-create-confirm">CREATE</button>
+      <button class="sqd-btn sqd-btn-ghost pad-hoverable" id="sqd-create-cancel">CANCEL</button>
     </div>
   </div>
 
-  <!-- The squad itself, once one exists (as leader or member). Placed above the match roster
-       (below) since that list has no size cap and would otherwise push this out of view. The
-       title doubles as the callsign editor: EDIT (leader only, sqd.set-callsign) swaps the
-       <span> for an inline input + SET, in place, rather than a separate section. -->
+  <!-- The squad itself, once one exists (as leader or member). The title doubles as the callsign
+       editor: EDIT (leader only, sqd.set-callsign) swaps the <span> for an inline input + SET, in
+       place, rather than a separate section. -->
   <div class="sqd-section" id="sqd-squad-section" style="display:none;">
     <div class="sqd-section-head">
       <span id="sqd-squad-head">YOUR SQUAD</span>
@@ -79,13 +85,29 @@
     <div class="sqd-rows" id="sqd-squad-rows"></div>
   </div>
 
-  <!-- Invites sent, awaiting the target's own accept/decline. -->
+  <!-- Invites awaiting our own accept/decline — queued, oldest first: a second (or third...) leader
+       inviting us while we're still deciding on an earlier one no longer replaces it, it queues
+       alongside it. Accepting any one of these declines the rest automatically (Squad.cs's
+       AcceptInvite) since a pilot can only join one squad. Only ever populated while role is
+       "none" (Squad.cs's HandleInvite rejects an invite while already in a squad), so this and the
+       squad section above are naturally mutually exclusive without needing to say so here. -->
+  <div class="sqd-section" id="sqd-invite-section" style="display:none;">
+    <div class="sqd-section-head"><span>SQUAD INVITES</span></div>
+    <div id="sqd-invite-cards"><!-- one .sqd-invite-card per pending invite, built by sqd.js --></div>
+  </div>
+
+  <!-- Invites sent, awaiting the target's own accept/decline. Leader-only, so it's already gated to
+       the same audience as the roster below it. -->
   <div class="sqd-section" id="sqd-pending-section" style="display:none;">
     <div class="sqd-section-head"><span>INVITED — AWAITING RESPONSE</span></div>
     <div class="sqd-rows" id="sqd-pending-rows"></div>
   </div>
 
-  <!-- No squad yet — pick a squadmate from whoever else is in this match right now. -->
+  <!-- Whoever else is in this match right now. Visible unless we're already a plain MEMBER of
+       someone else's squad — deciding on an incoming invite (above) doesn't hide this, since
+       browsing and answering an invite are independent actions. Each row's own INVITE button only
+       appears once we're a LEADER (Squad.cs's Invite() requires CreateSquad to have already run);
+       while role is "none" this is browse-only, pointing at the CREATE SQUAD prompt above it. -->
   <div class="sqd-section" id="sqd-roster-section">
     <div class="sqd-section-head"><span>PLAYERS IN THIS MATCH</span></div>
     <div class="sqd-rows" id="sqd-roster-rows"></div>

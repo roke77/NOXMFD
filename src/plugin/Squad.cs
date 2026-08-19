@@ -84,9 +84,13 @@ namespace NOXMFD
         // identical to one that's simply thinking it over until this fires.
         private const float InviteTimeoutSeconds = 15f;
 
-        // Us: an invite we haven't answered yet. Only one at a time — a second invite while one is
-        // pending simply replaces it (last invite wins); there is no queue.
-        private static PendingInvite? _pendingReceived;
+        // Us: invites we haven't answered yet, oldest first. A second (or third...) invite while
+        // one is already pending used to silently replace it (last invite wins) — now it queues
+        // instead, so a pilot never loses visibility of an earlier offer just because a later one
+        // arrived. Accepting one clears the rest automatically (AcceptInvite declines them on the
+        // pilot's behalf, since joining a squad is exclusive); each stays independently
+        // accept/decline-able by its own leaderId in the meantime.
+        private static readonly List<PendingInvite> _pendingReceived = new List<PendingInvite>();
 
         // Server-thread-readable cache, same threading contract as RouteStore.RoutesJson: every
         // mutator below runs on the Unity main thread only (Drain(), or a command handler via
@@ -168,15 +172,29 @@ namespace NOXMFD
 
         // ── Outbound actions (called from CommandDispatcher, main thread) ─────────
 
-        // Inviting when not yet in a squad implicitly creates one and makes the inviter its leader —
-        // there is no separate "create squad" step, matching the user-facing flow: the leader's
-        // squad comes into being as the side effect of adding the first member.
+        // Explicitly starts a new squad with a chosen callsign — the SQD page's own CREATE SQUAD
+        // button. Requires the name up front rather than letting a squad exist unnamed the way an
+        // earlier design (invite-implicitly-creates-a-squad) did; INVITE only appears on the roster
+        // once this has made the pilot a leader.
+        internal static bool CreateSquad(string callsign)
+        {
+            if (_role != Role.None) return false;
+            if (_pendingReceived.Count > 0) return false;   // decide our own pending invite(s) first
+            string name = (callsign ?? string.Empty).Trim();
+            if (name.Length == 0 || name.Length > 20) return false;
+            _role = Role.Leader;
+            _members.Clear();
+            _callsign = name;
+            RebuildState();
+            return true;
+        }
+
+        // Leader-only — CreateSquad must be called first (there is no more implicit squad-creation
+        // via a first invite; see CreateSquad's own header comment).
         internal static bool Invite(ulong targetId, string targetName)
         {
             if (!Squadron.Ready || targetId == 0 || targetId == Squadron.SelfId()) return false;
-            if (_role == Role.Member) return false;   // a plain member cannot invite; only a leader can
-            if (_pendingReceived != null) return false;   // decide our own pending invite first
-            if (_role == Role.None) { _role = Role.Leader; _members.Clear(); }
+            if (_role != Role.Leader) return false;
             if (ContainsMember(targetId) || _pendingSent.ContainsKey(targetId)) return true;   // idempotent
 
             _pendingSent[targetId] = new SentInvite { Name = targetName ?? string.Empty, SentAt = Time.unscaledTime };
@@ -186,28 +204,36 @@ namespace NOXMFD
             return true;
         }
 
-        internal static bool AcceptInvite()
+        internal static bool AcceptInvite(ulong leaderId)
         {
-            if (_pendingReceived == null) return false;
-            var inv = _pendingReceived.Value;
+            int idx = _pendingReceived.FindIndex(p => p.LeaderId == leaderId);
+            if (idx < 0) return false;
+            var inv = _pendingReceived[idx];
+            _pendingReceived.RemoveAt(idx);
+
+            // Joining one squad means declining every other outstanding offer — a pilot can only
+            // ever be in one, so leaving the rest queued would just strand their senders waiting
+            // out the full InviteTimeoutSeconds for no reason.
+            foreach (var other in _pendingReceived) Squadron.SendTo(other.LeaderId, "sqd.decline", "{}");
+            _pendingReceived.Clear();
+
             _role = Role.Member;
             _leaderId = inv.LeaderId;
             _leaderName = inv.LeaderName;
             _callsign = inv.Callsign;
             _members.Clear();
             _members.AddRange(inv.Members);
-            _pendingReceived = null;
 
             Squadron.SendTo(_leaderId, "sqd.accept", "{\"name\":\"" + Esc(SelfName()) + "\"}");
             RebuildState();
             return true;
         }
 
-        internal static bool DeclineInvite()
+        internal static bool DeclineInvite(ulong leaderId)
         {
-            if (_pendingReceived == null) return false;
-            ulong leaderId = _pendingReceived.Value.LeaderId;
-            _pendingReceived = null;
+            int idx = _pendingReceived.FindIndex(p => p.LeaderId == leaderId);
+            if (idx < 0) return false;
+            _pendingReceived.RemoveAt(idx);
             Squadron.SendTo(leaderId, "sqd.decline", "{}");
             RebuildState();
             return true;
@@ -256,19 +282,16 @@ namespace NOXMFD
             return true;
         }
 
-        // Names (or renames) the squadron. Only the leader — or a pilot about to become one via
-        // their first Invite() — can do this; a plain member never owns the squad's identity.
-        // Re-broadcasts immediately if members already exist so everyone's copy stays in sync;
-        // a no-op while role is None just stores it for the roster/invite envelopes the eventual
-        // first Invite() will build.
+        // Renames the squadron. Leader-only — CreateSquad already requires a callsign up front, so
+        // the only remaining use for this is the SQD page's EDIT button on an existing squad.
         internal static bool SetCallsign(string name)
         {
-            if (_role == Role.Member) return false;
+            if (_role != Role.Leader) return false;
             name = (name ?? string.Empty).Trim();
             if (name.Length == 0 || name.Length > 20) return false;
             _callsign = name;
             RebuildState();
-            if (_role == Role.Leader) BroadcastRoster();
+            BroadcastRoster();
             return true;
         }
 
@@ -335,7 +358,12 @@ namespace NOXMFD
                 return;
             }
 
-            _pendingReceived = new PendingInvite { LeaderId = from, LeaderName = leaderName, Members = members, Callsign = callsign };
+            var invite = new PendingInvite { LeaderId = from, LeaderName = leaderName, Members = members, Callsign = callsign };
+            // A second invite from the SAME leader (a retry, or their roster changed before we
+            // answered) refreshes our copy in place rather than queuing a duplicate; a different
+            // leader's invite queues alongside whatever's already pending.
+            int idx = _pendingReceived.FindIndex(p => p.LeaderId == from);
+            if (idx >= 0) _pendingReceived[idx] = invite; else _pendingReceived.Add(invite);
             RebuildState();
         }
 
@@ -494,7 +522,7 @@ namespace NOXMFD
             _callsign = string.Empty;
             _members.Clear();
             _pendingSent.Clear();
-            _pendingReceived = null;
+            _pendingReceived.Clear();
             RebuildState();
         }
 
@@ -647,14 +675,17 @@ namespace NOXMFD
               .Append(Esc(_role == Role.Member ? PlayerRoster.AircraftFor(_leaderId) : string.Empty)).Append('"');
             sb.Append(",\"callsign\":\"").Append(Esc(_callsign)).Append('"');
             sb.Append(",\"members\":").Append(MembersJsonServed(_members));
-            if (_pendingReceived != null)
+            sb.Append(",\"pendingInvites\":[");
+            bool firstInv = true;
+            foreach (var inv in _pendingReceived)
             {
-                var inv = _pendingReceived.Value;
-                sb.Append(",\"pendingInvite\":{\"leaderId\":\"").Append(inv.LeaderId.ToString(CultureInfo.InvariantCulture))
+                if (!firstInv) sb.Append(',');
+                firstInv = false;
+                sb.Append("{\"leaderId\":\"").Append(inv.LeaderId.ToString(CultureInfo.InvariantCulture))
                   .Append("\",\"leaderName\":\"").Append(Esc(inv.LeaderName))
                   .Append("\",\"members\":").Append(MembersJson(inv.Members)).Append('}');
             }
-            else sb.Append(",\"pendingInvite\":null");
+            sb.Append(']');
             sb.Append(",\"pendingSent\":[");
             bool first = true;
             foreach (var kv in _pendingSent)

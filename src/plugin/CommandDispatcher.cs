@@ -39,14 +39,16 @@ namespace NOXMFD
         public int    n;       // soi.panes : how many focusable surfaces that instance now shows
                                 // wpt.reorder-waypoint : the "to" index
         public float  hz;      // rates.set : desired rate in Hz (group picks which — "fast" | "tgp")
-        public string peer;    // sqd.invite / sqd.relinquish : a SteamID64, as text — a string, not
-                               // a long, because a 17-digit SteamID64 exceeds what JavaScript's
-                               // Number can represent exactly (docs/squadron-transport.md). Empty on
-                               // sqd.relinquish means "auto-pick the oldest member."
+        public string peer;    // sqd.invite / sqd.relinquish / sqd.accept / sqd.decline : a SteamID64,
+                               // as text — a string, not a long, because a 17-digit SteamID64 exceeds
+                               // what JavaScript's Number can represent exactly
+                               // (docs/squadron-transport.md). Empty on sqd.relinquish means
+                               // "auto-pick the oldest member." sqd.accept/sqd.decline use it to pick
+                               // which queued incoming invite to act on (Squad.cs's _pendingReceived).
         public string name;    // sqd.invite : the target's display name (for the invite envelope
                                 // and pendingSent list — cosmetic, the target's own client is
                                 // authoritative about its own name)
-                                // sqd.set-callsign : the squadron's chosen callsign
+                                // sqd.create / sqd.set-callsign : the squadron's chosen callsign
         public string type;    // sqd.send : payload type ("wpt.route", ...)
         public string payload; // sqd.send : the payload itself (small text only)
         public float  wx;      // wpt.add-waypoint : world X (floating-origin corrected)
@@ -82,10 +84,11 @@ namespace NOXMFD
                 // the Squadron transport. Parsing the peer id here (not in Squad) keeps the
                 // wire-format tolerance at the trust boundary, where every other command's
                 // validation already lives.
+                { "sqd.create",     e => Squad.CreateSquad(e.name ?? string.Empty) },
                 { "sqd.invite",     e => { if (TryPeer(e.peer, out ulong p)) Squad.Invite(p, e.name ?? string.Empty); } },
                 { "sqd.set-callsign", e => Squad.SetCallsign(e.name ?? string.Empty) },
-                { "sqd.accept",     e => Squad.AcceptInvite() },
-                { "sqd.decline",    e => Squad.DeclineInvite() },
+                { "sqd.accept",     e => { if (TryPeer(e.peer, out ulong p)) Squad.AcceptInvite(p); } },
+                { "sqd.decline",    e => { if (TryPeer(e.peer, out ulong p)) Squad.DeclineInvite(p); } },
                 { "sqd.leave",      e => Squad.Leave() },
                 { "sqd.relinquish", e => Squad.RelinquishLeadership(TryPeer(e.peer, out ulong p) ? (ulong?)p : null) },
                 { "sqd.disband",    e => Squad.Disband() },
