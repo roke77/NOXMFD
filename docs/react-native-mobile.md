@@ -20,7 +20,7 @@ glass MFD while the game runs on the PC.
 **Security note:** the plugin's LAN server is **unauthenticated** — any
 device on the network that can reach the port sees the telemetry and can
 issue the same tap-to-target commands (see `SECURITY.md` and
-`docs/networking.md`). Fine on a trusted home Wi-Fi, which is the intended
+`NETWORKING.md`). Fine on a trusted home Wi-Fi, which is the intended
 use; a mobile app doesn't change that model, so don't expose the port to
 untrusted networks.
 

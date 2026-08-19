@@ -1,6 +1,6 @@
 # Building a NOXMFD extension
 
-NOXMFD can host MFD pages it didn't write. An **extension** is a separate BepInEx plugin — its
+NOXMFD supports third-party extensions that add their own MFD pages. An **extension** is a separate BepInEx plugin — its
 own `.dll`, its own repo, its own release cycle — that declares a dependency on NOXMFD and
 registers itself at runtime. Once registered, its page shows up under NOXMFD's **EXT** nav
 automatically: no fork of this repo, no pull request, no line of NOXMFD's own source changes.
@@ -275,7 +275,10 @@ nothing extra to make this happen; it's a consequence of registering, not a sepa
 EXT always lands on a hub page first — even with only your extension installed, a pilot presses
 EXT and sees a small menu (MAIN + your label), not a direct jump into your page. That's
 deliberate: it makes the EXT section legible as "a place multiple extensions can live," not a
-special case for whichever one happens to be installed.
+special case for whichever one happens to be installed. With none installed, the hub shows an
+empty state instead:
+
+![EXT hub with no extensions installed](docs/images/EXT.png)
 
 ## Reusing NOXMFD's shared assets
 
