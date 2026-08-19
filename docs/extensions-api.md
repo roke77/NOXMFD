@@ -2,18 +2,23 @@
 
 ## Status
 
-**Built (`extensions-api`, off `feature/rc-missile-camera`) and now proven by a real
-extension** (`rc-as-extension`, off `extensions-api`): `extensions/rc-missile-camera/` is
-RC rewritten as a genuinely separate BepInEx plugin, replacing PR #45's in-source version.
-Five surfaces now have a working implementation — page serving, telemetry publishing (the
-normal 10 Hz slice; the high-rate SSE-event variant exists server-side but nothing
-subscribes to it yet, see Deferred), command registration, the EXT nav fold, and a fifth
-added specifically because RC needed it: a continuous MJPEG video feed
+**Built (`extensions-api`, off `feature/rc-missile-camera`) and proven by a real, fully
+external extension.** Five surfaces have a working implementation — page serving, telemetry
+publishing (the normal 10 Hz slice; the high-rate SSE-event variant exists server-side but
+nothing subscribes to it yet, see Deferred), command registration, the EXT nav fold, and a
+fifth added specifically because RC needed it: a continuous MJPEG video feed
 (`Api.PushMjpegFrame`/`WantsMjpegFrames`, served at `/ext/<id>/feed.mjpg`) — RC's `/rc.mjpg`
 was a long-lived streaming response, not a static asset, which none of the original four
-surfaces could serve. Not yet verified in-game (no MissileCamera/MissileCameraRemoteControl
-install available to exercise the real feed against) — both projects build clean and the
-full web test suite passes, but that's static verification only.
+surfaces could serve.
+
+The proof isn't a folder inside this repo — it's a **separate GitHub repo**
+([NOXMFD-Extension-Remote-Control-Missile-Camera-POC](https://github.com/roke77/NOXMFD-Extension-Remote-Control-Missile-Camera-POC),
+a disposable POC for lupfine to fork into his real mod) that references only a prebuilt
+`NOXMFD.dll` and touches zero lines of this repo's source. In-game verified: the extension
+registers, its nav entry appears under EXT, its page loads and correctly shows its own
+"not installed" placeholder with no MissileCamera/MissileCameraRemoteControl install present.
+The camera feed itself (the part that needs those two mods actually installed) hasn't been
+exercised against a real install yet.
 
 ## Motivating case
 
@@ -111,19 +116,34 @@ shared shape for NOXMFD's own commands.
 
 ### 4. Nav registration — **built**
 
-A dedicated **EXT** entry in `NAV.main` (`nav-model.js`), landing on whichever installed
-extension's id sorts first — the same "one fold, one default landing page" shape
-`AKF`/`MIS`/`OBJ`/`BDF`/`PAL` already use under MDT (`akf` is MDT's hardcoded default; here
-the default is *discovered*, not authored). `NAV.ext`'s static baseline is just the MAIN
-back-link; `src/web/shell/ext-nav.js` fetches `/ext-manifest` once at boot and appends one
-sub-item per installed extension, plus a matching `NAV[<id>]` (also just a MAIN back-link —
-see the ponytail note below) so that extension's own page renders nav labels the same way any
-other frame-hosted page does. This is the one NAV entry whose *contents*, not just its
-presence, are runtime-discovered rather than hand-authored and test-pinned — `ext-nav.test.js`
-covers the pure merge logic (`buildExtNavPlan`); `nav-model.test.js`/`layout-coverage.test.js`/
-`split-slots.test.js` were updated to treat EXT's static baseline like any other
-MAIN-back-link-only page and classify the `'ext'` action itself as dispatched-specially
-(mirrors `'lyt'`), never table-resolved.
+A dedicated **EXT** entry in `NAV.main` (`nav-model.js`), landing on the **EXT hub page**
+(`/ext`, `layout-pages.js`) — a real, ordinary destination with real table entries in every
+layout, not a dispatched-special case like `'lyt'`. `NAV.ext`'s static baseline is just the
+MAIN back-link; `src/web/shell/ext-nav.js` fetches `/ext-manifest` once at boot and appends
+one sub-item per installed extension (rendered as an ordinary nav key in the surrounding
+bezel/glass chrome), plus a matching `NAV[<id>]` (also just a MAIN back-link — see the
+ponytail note below) so that extension's own page renders nav labels the same way any other
+frame-hosted page does.
+
+EXT always lands on the hub first, even with exactly one extension installed — it does not
+auto-jump into that extension's page. `src/web/pages/ext/ext.html` fetches `/ext-manifest`
+itself and hides its own "NO EXTENSIONS INSTALLED" placeholder once ≥1 extension is present
+(the surrounding nav chrome — MAIN plus each installed extension — is enough on its own).
+Clicking one of those nav items dispatches to that extension's own `/ext/<id>` page exactly
+like any other destination.
+
+An earlier version of this auto-jumped to the first installed extension's id (alphabetical),
+skipping the hub — removed once real use surfaced two problems with it: it made EXT
+impossible to reach as a hub at all with anything installed, and it had been masking a real
+dispatch bug (the classic bezel's full-view click `switch` had no `default:` case, so an
+extension's runtime-discovered nav id — which can't be a literal `case` — silently no-op'd if
+the hub was ever actually reached and one of its items clicked; fixed by adding one, mirroring
+the F-35 shell's `has(action)` fallback, which never had this gap).
+
+This is the one NAV entry whose *contents*, not just its presence, are runtime-discovered
+rather than hand-authored and test-pinned — `ext-nav.test.js` covers the pure merge logic
+(`buildExtNavPlan`); `nav-model.test.js`/`layout-coverage.test.js`/`split-slots.test.js` treat
+`'ext'` as an ordinary destination like any other, since it now behaves like one.
 
 Page-URL resolution generalizes with a fallback rather than a per-extension table row: both
 shells' `FRAME_PAGES`/`PAGE_URL`/`F35_PAGES` lookups fall back to `/ext/<id>` (`?bare` for
@@ -149,9 +169,9 @@ that. `Api.PushMjpegFrame(id, jpg)` / `ClearMjpegFrame(id)` / `WantsMjpegFrames(
 a generic per-id buffer in `ExtensionRegistry` (same shape as `TelemetryServer`'s own
 `_tgpJpg`/`_tgpFrameId`/`_tgpLock`/`_tgpSubscribers`, just keyed instead of hardcoded), served
 at `GET /ext/<id>/feed.mjpg` by a generic `HandleExtMjpegAsync` mirroring `HandleMjpegAsync`.
-`RcFeed.cs` — moved into `extensions/rc-missile-camera/` unchanged in shape, just repointed
-from `TelemetryServer.WantsRcFrames`/`PushRcFrame`/`ClearRcFrame` to the `Api` equivalents — is
-the proof this surface works.
+`RcFeed.cs` — moved into the standalone extension repo unchanged in shape, just repointed from
+`TelemetryServer.WantsRcFrames`/`PushRcFrame`/`ClearRcFrame` to the `Api` equivalents — is the
+proof this surface works.
 
 ## Versioning
 
@@ -186,29 +206,32 @@ branch, so there's nothing to pin against yet.
 
 ## Still open
 
-- **`theme.css`/`font.css` as-is — confirmed, not just reasoned.** `rc.html` references
-  `/assets/shared/{font,theme}.css` unchanged and it works: same origin, same paths every
-  first-party page already uses. **`send-command.js` — deliberately NOT reused.** It's
+- **`theme.css`/`font.css` as-is — confirmed, not just reasoned.** The extension's page
+  references `/assets/shared/{font,theme}.css` unchanged and it works: same origin, same paths
+  every first-party page already uses. **`send-command.js` — deliberately NOT reused.** It's
   hardcoded to POST `/command` against `CommandEnvelope`'s shape; rather than extend NOXMFD's
-  shared file for one extension's sake, `rc.js` posts to its own
+  shared file for one extension's sake, the extension's own page posts to its own
   `/ext/rc-missile-camera/command` with its own tiny inline helper (`postCmd`). Worth revisiting
   if a second extension wants the same thing — a shared `ext-command.js` taking an endpoint
   parameter might earn its keep at that point, but one caller doesn't justify it yet.
-- **Does an extension get its own `docs/` entry in this repo, or does that live in the
-  extension's own repo entirely?** Leaning: entirely theirs — NOXMFD's docs describe NOXMFD,
-  not what's built on it, same as this repo doesn't document what MissileCamera itself does.
-  `extensions/rc-missile-camera/` has none of its own beyond code comments, consistent with
-  that leaning.
+
+**Resolved:** an extension's own docs live entirely in the extension's own repo — NOXMFD's
+docs describe NOXMFD, not what's built on it, same as this repo doesn't document what
+MissileCamera itself does. Confirmed by the real example: the extension repo's own `README.md`
+covers build/install/release, nothing about it lives here.
 
 ## Related
 
-- `extensions/rc-missile-camera/` — the real, working proof: RC rewritten as a genuinely
-  separate BepInEx plugin, calling only `NOXMFD.Api`. Its own `Plugin.cs`/`RcLifecycle.cs`
+- [NOXMFD-Extension-Remote-Control-Missile-Camera-POC](https://github.com/roke77/NOXMFD-Extension-Remote-Control-Missile-Camera-POC)
+  — the real, working proof, in its own repo (deliberately not a folder in this one): RC
+  rewritten as a genuinely separate BepInEx plugin, calling only `NOXMFD.Api` and referencing a
+  prebuilt `NOXMFD.dll` rather than this repo's source. Its own `Plugin.cs`/`MissileCameraLifecycle.cs`
   mirror NOXMFD's own `Plugin.cs`/`MissionLifecycle.cs` boot pattern (a self-spawned,
   `DontDestroyOnLoad` GameObject — the Plugin GameObject itself doesn't survive the
-  boot → MainMenu scene transition in this Unity version).
+  boot → MainMenu scene transition in this Unity version). Disposable — meant to be forked into
+  lupfine's own real mod, not maintained long-term as-is.
 - [PR #45](https://github.com/roke77/NOXMFD/pull/45) — the RC page's *original*, in-source
-  version, kept as the historical before/after: what `extensions/rc-missile-camera/` replaced.
+  version, kept as the historical before/after: what the extension repo above replaced.
 - `_scratch/lupfine-review/NOISE.md` — what happens when a modder's fork drifts from a
   moving base; a real API surface sidesteps this entirely (an extension mod has no "base
   commit" to drift from — it only ever calls a versioned public API).
@@ -216,12 +239,13 @@ branch, so there's nothing to pin against yet.
   resources) surface #1 generalizes past "this one assembly's manifest."
 - `docs/layouts.md` — the `NAV`/layout-renderer seam, and the single-`/stream`-owner
   invariant surface #2 respects.
-- `extensions/rc-missile-camera/McBridge.cs`, `RcBridge.cs` — the reflection soft-dependency
-  pattern, kept here as the *contrast* case: correct for an extension depending on a mod that
-  has never heard of NOXMFD, wrong for the extension's own dependency on NOXMFD itself (which
-  uses the hard `[BepInDependency]` instead — see Versioning above).
+- The extension repo's `McBridge.cs`/`RcBridge.cs` — the reflection soft-dependency pattern,
+  kept here as the *contrast* case: correct for an extension depending on a mod that has never
+  heard of NOXMFD, wrong for the extension's own dependency on NOXMFD itself (which uses the
+  hard `[BepInDependency]` instead — see Versioning above).
 - `src/plugin/Api.cs`, `src/plugin/ExtensionRegistry.cs` — the public surface and its backing
-  store. `src/web/shell/ext-nav.js` — the web-side nav discovery. Every other touch point is
-  a small fallback added to existing machinery (`TelemetryServer.cs`'s route table and frame
+  store. `src/web/shell/ext-nav.js` — the web-side nav discovery. `src/web/pages/ext/ext.html`
+  — the EXT hub page every extension's nav entry surfaces under. Every other touch point is a
+  small fallback added to existing machinery (`TelemetryServer.cs`'s route table and frame
   serializer, `MissionLifecycle.cs`'s drain call, `telemetry-source.js`'s `_emit()`, both
   shells' page-URL/nav-dispatch lookups) rather than new machinery of its own.
