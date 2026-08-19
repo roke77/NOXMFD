@@ -1,16 +1,20 @@
 # Building a NOXMFD extension
 
 NOXMFD can host MFD pages it didn't write. An **extension** is a separate BepInEx plugin — its
-own `.dll`, its own repo, its own release cycle — that declares a hard dependency on NOXMFD and
+own `.dll`, its own repo, its own release cycle — that declares a dependency on NOXMFD and
 registers itself at runtime. Once registered, its page shows up under NOXMFD's **EXT** nav
 automatically: no fork of this repo, no pull request, no line of NOXMFD's own source changes.
+
+The common case is simple: you want your own MFD page — your own instruments, your own content,
+your own controls — reachable from the same display a pilot already has open, styled to match it.
+Nothing about your page needs to be aware of anything NOXMFD itself talks to; it just needs to
+register, serve some HTML, and optionally publish data or receive commands.
 
 This document is the manual for writing one. It's aimed at a third-party modder who has never
 seen NOXMFD's internals — everything you need is the public surface described here.
 
 ## Contents
 
-- [How this fits together](#how-this-fits-together)
 - [Prerequisites](#prerequisites)
 - [Quick start](#quick-start)
 - [The five surfaces](#the-five-surfaces)
@@ -22,27 +26,8 @@ seen NOXMFD's internals — everything you need is the public surface described 
 - [Appearing in the EXT nav — automatic](#appearing-in-the-ext-nav--automatic)
 - [Reusing NOXMFD's shared assets](#reusing-noxmfds-shared-assets)
 - [Versioning](#versioning)
-- [Full worked example](#full-worked-example)
 - [What's not supported yet](#whats-not-supported-yet)
 - [Troubleshooting](#troubleshooting)
-
-## How this fits together
-
-NOXMFD talks to other mods two different ways, and it's worth knowing both so you use the right
-one:
-
-- **Reflection soft-dependency** — how NOXMFD itself reaches into mods that have never heard of
-  it (see `McBridge.cs`/`RcBridge.cs` in the [reference extension](#full-worked-example) below).
-  No compile-time reference either direction; things degrade gracefully if the other mod isn't
-  installed. This is the *wrong* pattern for your extension talking to NOXMFD — you know NOXMFD
-  is there, you want it there, and a stale version should fail loudly, not half-work.
-- **Hard BepInEx dependency** — what your extension uses. You add
-  `[BepInDependency("com.roque.NOXMFD", MinimumVersion = "X.Y.Z")]` to your plugin class,
-  reference a copy of `NOXMFD.dll`, and call plain C# methods on `NOXMFD.Api`. If NOXMFD isn't
-  installed, or is older than the version you pinned, BepInEx refuses to load your extension at
-  all — a clear "extension mod doesn't appear" failure, not a crash at some arbitrary call site.
-
-Everything below assumes the second pattern.
 
 ## Prerequisites
 
@@ -164,8 +149,7 @@ internal static class MyAssets
 ```
 
 with an `<EmbeddedResource Include="web\**\*" />` in your `.csproj` (matching whatever folder you
-keep your web assets in). This is exactly the pattern NOXMFD uses for its own pages, and what the
-[reference extension](#full-worked-example) does.
+keep your web assets in). This is exactly the pattern NOXMFD uses for its own pages.
 
 **Your page's contract with the shell.** Both NOXMFD layouts (classic bezel, F-35) host your
 page in an `<iframe>` and talk to it via `postMessage`, the same contract every first-party
@@ -324,16 +308,6 @@ mechanism is BepInEx's own dependency check:
 Pin a minimum NOXMFD version once your extension depends on behavior introduced at some specific
 release. BepInEx then refuses to load your extension at all against an older NOXMFD, rather than
 your code half-working against a shape that moved out from under it.
-
-## Full worked example
-
-[NOXMFD-Extension-Remote-Control-Missile-Camera-POC](https://github.com/roke77/NOXMFD-Extension-Remote-Control-Missile-Camera-POC)
-is a real, complete extension built against this API — a missile-camera remote-control page,
-using all five surfaces including the MJPEG feed and its own command endpoint. It's a disposable
-proof-of-concept (meant to be forked into a real, independently-maintained mod, not used as-is
-long-term), but its structure is a faithful reference: a `.csproj` referencing a prebuilt
-`NOXMFD.dll`, `src/plugin/` + `src/web/` mirroring this repo's own layout, embedded-resource
-asset serving, and a `Plugin.cs` showing the full registration/lifecycle pattern.
 
 ## What's not supported yet
 
