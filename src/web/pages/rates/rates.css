@@ -1,39 +1,6 @@
-/* RTS (refresh rates, cfg-rates experiment issue #39) page styles. Same panel shape as keybinds.css
-   (.kb-panel/.kb-title/.kb-setting) — this is the first slider in the app, everything else reuses
-   theme.css tokens. */
-
-html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this is a full page */
-html {
-  scrollbar-width: thin;
-  scrollbar-color: var(--no-gray) transparent;
-}
-html::-webkit-scrollbar { width: 6px; height: 6px; }
-html::-webkit-scrollbar-track { background: transparent; }
-html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
-
-.rts-panel {
-  max-width: 620px;
-  margin: 0 auto;
-  padding: 26px 18px 40px;
-}
-
-.rts-back {
-  float: left;
-  font-size: 12px;
-  letter-spacing: 2px;
-  color: var(--no-green-dim);
-  text-decoration: none;
-  padding: 6px 2px;
-}
-.rts-back:hover { color: var(--no-green); }
-
-.rts-title {
-  font-size: 24px;
-  letter-spacing: 4px;
-  color: var(--no-green);
-  text-align: center;
-  margin-bottom: 14px;
-}
+/* RTS (refresh rates, cfg-rates experiment issue #39) page styles. Page chrome (.rts-panel/
+   .rts-back/.rts-title, the scrollbar rules) lives in shared/page-chrome.css now — everything
+   below is what's actually specific to this page. */
 
 .rts-warning {
   font-size: 11px;

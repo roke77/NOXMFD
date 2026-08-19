@@ -239,10 +239,37 @@ with every member; members only ever talk to the leader, never each other):
 - `sqd.roster` — the leader broadcasts the full member list on every change; members never need
   their own source of truth for who's in the squad.
 - `sqd.leave` (member) / `sqd.transfer` + `sqd.leader-changed` (leader handing off, explicit pick or
-  auto-picked oldest-joined member) / `sqd.disband` (leader only).
+  auto-picked oldest-joined member) / `sqd.disband` (leader only) / `sqd.kick` (leader removes one
+  member while the squad lives on — distinct from disband; the target gets its own `sqd.kick`
+  message rather than just falling out of the next roster broadcast, since by the time that goes
+  out they're no longer in `_members` to notice themselves missing).
+- `sqd.set-callsign` — leader-only, names (or renames) the squadron; carried through every roster/
+  invite envelope and a leadership handoff (`sqd.transfer`'s own envelope) so it survives both.
+  SQD's page title reads "`<CALLSIGN> SQUAD`" and doubles as the inline editor (EDIT swaps the
+  title for a text input in place).
 - `sqd.data` — the generic "TBD payload" slot this doc's scope section describes; `wpt.route` is
   the first (and so far only) concrete use, wired to WPT's per-route share button, which only shows
-  once you're the squad leader with at least one member.
+  once you're the squad leader with at least one member. What actually shipped on top of the bare
+  transport (`RouteStore.cs`):
+  - **Accept/reject.** An incoming share lands as a `PendingSharedRoute` (id/name/waypoints from
+    the leader, plus who sent it), never persisted to disk — it only makes sense within the live
+    squad session. WPT shows it as its own row with ACCEPT/REJECT, nothing else; accepting adds a
+    real, read-only route (`Route.SharedBy` non-empty gates every mutator).
+  - **Dedup, not just accept-once.** A repeat share of an id already pending just refreshes that
+    pending entry in place; a repeat share of an id already accepted updates that route's content
+    (`RouteStore.UpdateSharedRoute`), rather than either piling up duplicates or being silently
+    dropped.
+  - **Progress-preserving updates.** When the leader edits and re-shares, the member's own
+    `NextIndex` follows the same logical next waypoint to its new position (matched by name/x/z —
+    a re-shared waypoint carries no stable id) instead of resetting to zero; if that exact waypoint
+    was deleted, progress advances to just past whichever already-completed waypoints survive.
+  - **Auto-reshare.** Clicking share once sets `Route.SharedWithSquad`; every later edit to that
+    route re-broadcasts on its own from then on, no repeat click needed.
+  - **Unlocks when the squad ends.** `RouteStore.OnSquadEnded()` — called from `Squad.cs`'s
+    `HandleDisband`, `Leave()`'s member branch, and `HandleLeaderChanged` alike (one rule, not one
+    per event: `SendData` is leader-only, so a former leader is cut off from ever pushing another
+    update the moment they stop being leader, whether the squad itself lives on or not) — clears
+    any still-pending shares and clears `SharedBy` on every accepted route, unlocking it for editing.
 - Sent invites time out after 15s if nobody responds — there is no delivery acknowledgment at the
   Steam messaging level, so a target with no mod installed looks identical to one still deciding
   until the timeout fires and surfaces a notice.
@@ -254,8 +281,22 @@ the game's own scoreboard uses) — any client can read this, not just the host,
 ordinary spawned Mirage object with a synced SteamID. Scoped to one faction: a squad only makes
 sense among teammates.
 
+The same `FactionHQ.GetPlayers()` scan also builds a SteamID → current-aircraft-unitName lookup
+(`PlayerRoster.AircraftFor`), unrelated to the invite-candidate filtering above and unfiltered by
+Presence — it's a plain `Player.Aircraft` SyncVar read (null → "", the same as anyone not found at
+all), nothing to do with whether its owner is running NOXMFD. This is what lets SQD show every
+squad member's current plane without any new P2P message: the game already replicates it to every
+client in the faction, peer-to-peer relay was never needed for this specific piece of data.
+
 **UI** — a new SQD page (`src/web/pages/sqd/`), reachable from MAIN in both layouts, replacing the
-squadron block that used to live on WPT.
+squadron block that used to live on WPT. The roster renders as a table, not plain rows: first
+column is the squadron's callsign plus a join-order number (leader is always 1; `Squad.cs`'s own
+`_members` list only ever appends, so index order IS join order), second is the player's Steam
+display name, third is their current aircraft (icon reused from `/icon?type=`, the same endpoint
+MAP draws its blips from — blank, not a placeholder, whenever `AircraftFor` has nothing to report),
+and a trailing LEADER badge or, on a subordinate's row when viewing as leader, a star (promote,
+`sqd.relinquish`) and an × (kick, `sqd.kick`). The pilot's own row highlights in place of the old
+"highlight the leader" behaviour, so a member can find themselves in their own squad at a glance.
 
 ## Security and privacy consequences
 

@@ -1,46 +1,12 @@
 /* Extended-keybinds page — an in-game-menu style table: function | keyboard | joystick.
-   Colors from theme.css tokens only. */
+   Colors from theme.css tokens only. Page chrome (.kb-back, the scrollbar rules) lives in
+   shared/page-chrome.css now; .kb-panel/.kb-title keep their own rules below since this page's
+   wider panel (720px vs the shared 620px) and taller title margin are real, deliberate
+   differences, not copy-paste drift. */
 
-html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this is a full page */
-/* Match the thin overlay scrollbar a touch device draws, not the desktop default's chunky bar with
-   its light track: a slim grey thumb on a transparent track. scrollbar-* covers Firefox + the
-   standard; the ::-webkit rules below cover Chrome / Edge / Safari. Same treatment as BDF's/TGT's
-   list — this page scrolls as a whole (html/body above), so the rule targets that instead of an
-   inner panel. */
-html {
-  scrollbar-width: thin;
-  scrollbar-color: var(--no-gray) transparent;
-}
-html::-webkit-scrollbar { width: 6px; height: 6px; }
-html::-webkit-scrollbar-track { background: transparent; }
-html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
+.kb-panel { max-width: 720px; }
 
-.kb-panel {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 26px 18px 40px;
-}
-
-/* Way back to the display. Floated rather than absolutely placed so it reserves space on the
-   title's line — the centered title then shrinks into what's left instead of overlapping it on a
-   narrow screen. */
-.kb-back {
-  float: left;
-  font-size: 12px;
-  letter-spacing: 2px;
-  color: var(--no-green-dim);
-  text-decoration: none;
-  padding: 6px 2px;
-}
-.kb-back:hover { color: var(--no-green); }
-
-.kb-title {
-  font-size: 24px;
-  letter-spacing: 4px;
-  color: var(--no-green);
-  text-align: center;
-  margin-bottom: 22px;
-}
+.kb-title { margin-bottom: 22px; }
 
 /* header + rows share one grid template so the columns line up */
 .kb-head, .kb-row {

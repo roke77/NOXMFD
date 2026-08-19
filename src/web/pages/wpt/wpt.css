@@ -1,14 +1,6 @@
-/* WPT (waypoints/route creator, issue #38) page styles. Same panel shape as rates.css/keybinds.css
-   (.rts-panel/.kb-panel) — everything reuses theme.css tokens, no new visual language. */
-
-html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this is a full page */
-html {
-  scrollbar-width: thin;
-  scrollbar-color: var(--no-gray) transparent;
-}
-html::-webkit-scrollbar { width: 6px; height: 6px; }
-html::-webkit-scrollbar-track { background: transparent; }
-html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
+/* WPT (waypoints/route creator, issue #38) page styles. Page chrome (.wpt-panel/.wpt-back/
+   .wpt-title, the scrollbar rules, the row/row-btn pattern) lives in shared/page-chrome.css now —
+   everything below is what's actually specific to this page. */
 
 /* PAD cursor (docs/page-cursor.md): the shared .pad-cursor is position:absolute, which assumes a
    non-scrolling body (true for MAP/TGT/HUD's fixed-size panels) — WPT's own body scrolls (above),
@@ -16,30 +8,6 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
    it. position:fixed anchors it to the viewport instead; wpt.js's clampRect matches, using the
    viewport's own bounds rather than a panel's getBoundingClientRect(). */
 #pad-cursor { position: fixed; }
-
-.wpt-panel {
-  max-width: 620px;
-  margin: 0 auto;
-  padding: 26px 18px 40px;
-}
-
-.wpt-back {
-  float: left;
-  font-size: 12px;
-  letter-spacing: 2px;
-  color: var(--no-green-dim);
-  text-decoration: none;
-  padding: 6px 2px;
-}
-.wpt-back:hover { color: var(--no-green); }
-
-.wpt-title {
-  font-size: 24px;
-  letter-spacing: 4px;
-  color: var(--no-green);
-  text-align: center;
-  margin-bottom: 14px;
-}
 
 .wpt-help {
   max-width: 552px;
@@ -164,16 +132,6 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 .wpt-routes:not(:empty) + .wpt-empty,
 .wpt-waypoints:not(:empty) + .wpt-empty { display: none; }
 
-.wpt-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 7px;
-  border-bottom: 1px solid var(--no-panel-border);
-  font-size: 14px;
-}
-.wpt-row:last-child { border-bottom: none; }
-
 /* A squad-shared route awaiting accept/reject (docs/squadron-transport.md) — amber, same "needs a
    decision" color the ACTIVE/NEXT marks already use, dashed rather than solid to read as pending,
    not yet a real row in the list. */
@@ -223,17 +181,6 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   min-width: 53px;
 }
 
-.wpt-row-btn {
-  flex: none;
-  background: none;
-  border: none;
-  color: var(--no-gray);
-  font-size: 16px;
-  cursor: pointer;
-  padding: 2px 6px;
-  line-height: 1;
-}
-.wpt-row-btn:hover { color: var(--no-green); }
 .wpt-row-save { color: var(--no-green-dim); }
 .wpt-row-save:hover { color: var(--no-green); }
 
