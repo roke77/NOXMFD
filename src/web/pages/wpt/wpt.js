@@ -55,7 +55,11 @@ function renderRoutes(c) {
 
     const name = document.createElement('span');
     name.className = 'wpt-row-name';
-    name.textContent = p.name + ' (' + p.waypointCount + ') — from ' + (p.fromName || 'squad leader');
+    name.appendChild(document.createTextNode(p.name + ' (' + p.waypointCount + ') — from '));
+    const leaderName = document.createElement('span');
+    leaderName.className = 'wpt-row-pending-leader';
+    leaderName.textContent = p.fromName || 'squad leader';
+    name.appendChild(leaderName);
 
     const accept = document.createElement('button');
     accept.className = 'wpt-btn'; accept.textContent = 'ACCEPT';

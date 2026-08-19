@@ -34,6 +34,14 @@
      same colour with an alpha, and one source is one thing to tune. */
   --no-teal-rgb:   78, 201, 201;
   --no-teal:       rgb(var(--no-teal-rgb));
+  /* Squadron feature colour (docs/squadron-transport.md): SQD's own LEADER mark and WPT's SQD
+     label share this one token, so "shared with the squad" reads as the same colour everywhere a
+     page shows it. A close visual match to --no-teal above is deliberate (both read as
+     light blue/cyan) but this is its own token, not a reuse of it — --no-teal is the F-35 shell's
+     chrome colour (see its own comment: shell-only, a page must not read it, or it stops
+     rendering the same under the classic shell). Any PAGE wanting this colour reads --no-squad. */
+  --no-squad-rgb:  78, 201, 201;
+  --no-squad:      rgb(var(--no-squad-rgb));
   --no-purple-rgb: 179, 136, 255;  /* mod-only controls that aren't real game filters (e.g. TGT's DATALINK) */
   --no-purple:     rgb(var(--no-purple-rgb));
   --no-blue-rgb:   77, 159, 255;

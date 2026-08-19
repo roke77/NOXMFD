@@ -182,6 +182,10 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   padding: 8px 7px;
 }
 .wpt-row-pending .wpt-row-name { color: var(--no-amber); white-space: normal; cursor: default; }
+/* The leader's own name within a pending share row — --no-squad (theme.css), same token the
+   already-established SQD label/LEADER mark use, so a leader's identity reads consistently
+   wherever it appears. Amber above stays on the "you need to decide" part of the row. */
+.wpt-row-pending-leader { color: var(--no-squad); }
 
 .wpt-row-name {
   flex: 1;
@@ -202,13 +206,14 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 }
 
 /* Shared with the squad right now — leader's own route with auto-reshare on, or a route this
-   pilot accepted from the leader. Teal keeps it visually distinct from ACTIVE/NEXT's amber. Nested
-   INSIDE .wpt-row-name (wpt.js), not a sibling flex item, so it reads right after the route name
-   itself instead of trailing off at the row's far edge. */
+   pilot accepted from the leader. --no-squad (theme.css) is this whole feature's colour — SQD's
+   own LEADER mark uses the same token — and keeps this visually distinct from ACTIVE/NEXT's amber.
+   Nested INSIDE .wpt-row-name (wpt.js), not a sibling flex item, so it reads right after the route
+   name itself instead of trailing off at the row's far edge. */
 .wpt-row-sqd-mark {
   font-size: 12px;
   letter-spacing: 1px;
-  color: var(--no-teal);
+  color: var(--no-squad);
 }
 
 .wpt-row-grid {

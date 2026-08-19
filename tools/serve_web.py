@@ -212,7 +212,7 @@ def _wpt_options():
             },
             {
                 "id": "r_1dd9973ab97c415e8256e829921a2320", "name": "RT-6CA67", "nextIndex": 4,
-                "sharedBy": "Ghost",
+                "sharedBy": "Foxtrot",
                 "waypoints": [
                     {"id": "w_5eb7026834e0487982503ddf63a8ac07", "name": "", "x": 7113.0,  "z": 8578.7},
                     {"id": "w_5d989cdca24146deadf7d72527295197", "name": "", "x": 21153.2, "z": 7571.6},
@@ -255,16 +255,31 @@ def _rates_config():
 # short countdown (see _SQD["pending"]) rather than a real accept round-trip, just enough to
 # exercise both the "awaiting response" and "joined" UI states. sqd.send is accepted and dropped,
 # since there is no real peer here to receive it.
+#
+# Default state below is a squad MEMBER in a 4-player squad (this pilot + 2 squadmates, led by
+# Foxtrot) — the same scenario _wpt_options() defaults to: RT-6CA67's "sharedBy": "Foxtrot" is a
+# route already accepted from this leader, and the pendingShared entry is a second, newer route
+# the same leader just sent. SQD and WPT tell one consistent story out of the box this way, instead
+# of SQD showing "no squad" (or a different leader) while WPT shows routes shared by someone else.
 _SERVER_PLAYERS = [
-    {"id": "76561198000000002", "name": "Foxtrot"},
-    {"id": "76561198000000003", "name": "Ghost"},
+    {"id": "76561198000000005", "name": "Widow"},
+    {"id": "76561198000000006", "name": "Reaper"},
 ]
+_SQD_SELF = "76561198000000001"
+_SQD_SELF_NAME = "Falcon"   # only meaningful while role == leader — see _squad_state's selfName
 _SQD = {
-    "role": "none", "leaderId": "", "leaderName": "",
-    "members": [], "pendingSent": {}, "pendingInvite": None,
+    "role": "member", "leaderId": "76561198000000002", "leaderName": "Foxtrot", "callsign": "TALON",
+    "members": [
+        # The leader's roster broadcast lists every accepted member, self included — not just
+        # "the others" (Squad.cs's RosterEnvelope/MembersJson, sent identically to everyone via
+        # SendToAll) — so this pilot's own entry belongs in this list too, same as the real thing.
+        {"id": _SQD_SELF,             "name": _SQD_SELF_NAME},
+        {"id": "76561198000000003",   "name": "Ghost"},
+        {"id": "76561198000000004",   "name": "Havoc"},
+    ],
+    "pendingSent": {}, "pendingInvite": None,
     "noticeSeq": 0, "notice": "",
 }
-_SQD_SELF = "76561198000000001"
 _SQD_ACCEPT_POLLS = 2   # how many /squad reads a pending mock invite stays "awaiting response"
 
 
@@ -284,8 +299,8 @@ def _squad_state():
             _SQD["members"].append({"id": peer, "name": name})
 
     state = {
-        "role": _SQD["role"], "self": _SQD_SELF,
-        "leaderId": _SQD["leaderId"], "leaderName": _SQD["leaderName"],
+        "role": _SQD["role"], "self": _SQD_SELF, "selfName": _SQD_SELF_NAME,
+        "leaderId": _SQD["leaderId"], "leaderName": _SQD["leaderName"], "callsign": _SQD["callsign"],
         "members": _SQD["members"],
         "pendingInvite": _SQD["pendingInvite"],
         "pendingSent": [
@@ -316,14 +331,20 @@ def _squad_command(env):
         if peer and peer not in _SQD["pendingSent"] and not any(m["id"] == peer for m in _SQD["members"]):
             _SQD["role"] = "leader"
             _SQD["pendingSent"][peer] = _SQD_ACCEPT_POLLS
+    elif cmd == "sqd.set-callsign":
+        if _SQD["role"] == "member":
+            return
+        name = str(env.get("name") or "").strip()[:20]
+        if name:
+            _SQD["callsign"] = name
     elif cmd in ("sqd.leave", "sqd.disband"):
-        _SQD["role"] = "none"; _SQD["leaderId"] = ""; _SQD["leaderName"] = ""
+        _SQD["role"] = "none"; _SQD["leaderId"] = ""; _SQD["leaderName"] = ""; _SQD["callsign"] = ""
         _SQD["members"] = []; _SQD["pendingSent"] = {}
     elif cmd == "sqd.relinquish":
         # From OUR client's point of view, handing off leadership (auto or to a chosen member) ends
         # the same way leaving does: we're no longer in the squad. There's no second real client
         # here to become the new leader.
-        _SQD["role"] = "none"; _SQD["leaderId"] = ""; _SQD["leaderName"] = ""
+        _SQD["role"] = "none"; _SQD["leaderId"] = ""; _SQD["leaderName"] = ""; _SQD["callsign"] = ""
         _SQD["members"] = []; _SQD["pendingSent"] = {}
     elif cmd in ("sqd.accept", "sqd.decline"):
         _SQD["pendingInvite"] = None   # no simulated incoming invite exists to act on in this harness

@@ -9,23 +9,26 @@ if (window.parent !== window) {
   if (back) back.remove();
 }
 
-const unavailableEl = document.getElementById('sqd-unavailable');
-const noticeEl       = document.getElementById('sqd-notice');
-const inviteSection  = document.getElementById('sqd-invite-section');
-const inviteLeaderEl = document.getElementById('sqd-invite-leader');
-const inviteCountEl  = document.getElementById('sqd-invite-count');
-const invitePluralEl = document.getElementById('sqd-invite-plural');
-const inviteAccept   = document.getElementById('sqd-invite-accept');
-const inviteDecline  = document.getElementById('sqd-invite-decline');
-const rosterSection  = document.getElementById('sqd-roster-section');
-const rosterRows     = document.getElementById('sqd-roster-rows');
-const pendingSection = document.getElementById('sqd-pending-section');
-const pendingRows    = document.getElementById('sqd-pending-rows');
-const squadSection   = document.getElementById('sqd-squad-section');
-const squadHead      = document.getElementById('sqd-squad-head');
-const squadRows      = document.getElementById('sqd-squad-rows');
-const leaveBtn       = document.getElementById('sqd-leave');
-const disbandBtn     = document.getElementById('sqd-disband');
+const unavailableEl   = document.getElementById('sqd-unavailable');
+const noticeEl        = document.getElementById('sqd-notice');
+const inviteSection   = document.getElementById('sqd-invite-section');
+const inviteLeaderEl  = document.getElementById('sqd-invite-leader');
+const inviteCountEl   = document.getElementById('sqd-invite-count');
+const invitePluralEl  = document.getElementById('sqd-invite-plural');
+const inviteAccept    = document.getElementById('sqd-invite-accept');
+const inviteDecline   = document.getElementById('sqd-invite-decline');
+const callsignSection = document.getElementById('sqd-callsign-section');
+const callsignInput   = document.getElementById('sqd-callsign-input');
+const callsignSet     = document.getElementById('sqd-callsign-set');
+const rosterSection   = document.getElementById('sqd-roster-section');
+const rosterRows      = document.getElementById('sqd-roster-rows');
+const pendingSection  = document.getElementById('sqd-pending-section');
+const pendingRows     = document.getElementById('sqd-pending-rows');
+const squadSection    = document.getElementById('sqd-squad-section');
+const squadHead       = document.getElementById('sqd-squad-head');
+const squadRows       = document.getElementById('sqd-squad-rows');
+const leaveBtn        = document.getElementById('sqd-leave');
+const disbandBtn      = document.getElementById('sqd-disband');
 
 let lastNoticeSeq = -1;
 let noticeTimer = null;
@@ -47,6 +50,12 @@ leaveBtn.onclick = function () {
 function invite(id, name) {
   sendCommand('sqd.invite', { peer: id, name: name || '' }).catch(function () {});
 }
+
+callsignSet.onclick = function () {
+  const name = callsignInput.value.trim();
+  if (!name) return;
+  sendCommand('sqd.set-callsign', { name: name }).catch(function () {});
+};
 
 function relinquishTo(id) {
   sendCommand('sqd.relinquish', { peer: id }).catch(function () {});
@@ -73,10 +82,17 @@ function render() {
     invitePluralEl.textContent = inv.members.length === 1 ? '' : 's';
   }
 
-  // Roster picker: only meaningful while we're not already deciding on, or part of, a squad.
+  // Roster picker and callsign naming: only meaningful while we're not already deciding on, or
+  // part of, someone else's squad — same condition for both, a plain member owns neither.
   const canInvite = state.role !== 'member' && !hasPending;
   rosterSection.style.display = canInvite ? '' : 'none';
   if (canInvite) renderRoster();
+
+  callsignSection.style.display = canInvite ? '' : 'none';
+  // Don't clobber the input while the pilot is actively typing a new one.
+  if (canInvite && document.activeElement !== callsignInput) {
+    callsignInput.value = state.callsign || '';
+  }
 
   const showPending = state.role === 'leader' && state.pendingSent.length > 0;
   pendingSection.style.display = showPending ? '' : 'none';
@@ -117,38 +133,51 @@ function renderRoster() {
   });
 }
 
+// One row of the roster table: [callsign+number] [player name] [LEADER badge / MAKE LEADER btn].
+function addSquadRow(number, name, isLeaderRow, isSelf, memberId) {
+  const row = document.createElement('div');
+  row.className = 'sqd-row' + (isSelf ? ' self' : '');
+
+  const tag = document.createElement('span');
+  tag.className = 'sqd-row-tag';
+  tag.textContent = (state.callsign || 'SQD') + ' ' + number;
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'sqd-row-name';
+  nameEl.textContent = name;
+
+  row.appendChild(tag); row.appendChild(nameEl);
+
+  if (isLeaderRow) {
+    const mark = document.createElement('span');
+    mark.className = 'sqd-row-mark'; mark.textContent = 'LEADER';
+    row.appendChild(mark);
+  } else if (state.role === 'leader') {
+    const btn = document.createElement('button');
+    btn.className = 'sqd-row-btn'; btn.textContent = 'MAKE LEADER';
+    btn.onclick = function () { relinquishTo(memberId); };
+    row.appendChild(btn);
+  }
+  squadRows.appendChild(row);
+}
+
 function renderSquad() {
   squadRows.innerHTML = '';
   const isLeader = state.role === 'leader';
-  squadHead.textContent = isLeader ? 'YOUR SQUAD — LEADER' : 'YOUR SQUAD';
+  const callsignLabel = state.callsign ? state.callsign + ' SQUAD' : 'YOUR SQUAD';
+  squadHead.textContent = callsignLabel + (isLeader ? ' — LEADER' : '');
   disbandBtn.style.display = isLeader ? '' : 'none';
 
-  if (!isLeader) {
-    const leaderRow = document.createElement('div');
-    leaderRow.className = 'sqd-row leader';
-    const leaderName = document.createElement('span');
-    leaderName.className = 'sqd-row-name';
-    leaderName.textContent = state.leaderName || state.leaderId;
-    const mark = document.createElement('span');
-    mark.className = 'sqd-row-mark'; mark.textContent = 'LEADER';
-    leaderRow.appendChild(leaderName); leaderRow.appendChild(mark);
-    squadRows.appendChild(leaderRow);
-  }
+  // Number 1 is always the leader — this pilot themselves when leading (state.selfName, since a
+  // leader has no reason to appear in their own state.members list), or state.leaderName when a
+  // member. Every entry in state.members is numbered from there in join order (Squad.cs's own
+  // _members list only ever appends, per its own header comment, so index IS join order) —
+  // members[0] becomes 2, members[1] becomes 3, and so on.
+  const leaderName = isLeader ? (state.selfName || '—') : (state.leaderName || state.leaderId);
+  addSquadRow(1, leaderName, true, isLeader, null);
 
-  state.members.forEach(function (m) {
-    const row = document.createElement('div');
-    row.className = 'sqd-row';
-    const name = document.createElement('span');
-    name.className = 'sqd-row-name';
-    name.textContent = m.name || m.id;
-    row.appendChild(name);
-    if (isLeader) {
-      const btn = document.createElement('button');
-      btn.className = 'sqd-row-btn'; btn.textContent = 'MAKE LEADER';
-      btn.onclick = function () { relinquishTo(m.id); };
-      row.appendChild(btn);
-    }
-    squadRows.appendChild(row);
+  state.members.forEach(function (m, i) {
+    addSquadRow(i + 2, m.name || m.id, false, m.id === state.self, m.id);
   });
 }
 

@@ -46,6 +46,7 @@ namespace NOXMFD
         public string name;    // sqd.invite : the target's display name (for the invite envelope
                                 // and pendingSent list — cosmetic, the target's own client is
                                 // authoritative about its own name)
+                                // sqd.set-callsign : the squadron's chosen callsign
         public string type;    // sqd.send : payload type ("wpt.route", ...)
         public string payload; // sqd.send : the payload itself (small text only)
         public float  wx;      // wpt.add-waypoint : world X (floating-origin corrected)
@@ -82,6 +83,7 @@ namespace NOXMFD
                 // wire-format tolerance at the trust boundary, where every other command's
                 // validation already lives.
                 { "sqd.invite",     e => { if (TryPeer(e.peer, out ulong p)) Squad.Invite(p, e.name ?? string.Empty); } },
+                { "sqd.set-callsign", e => Squad.SetCallsign(e.name ?? string.Empty) },
                 { "sqd.accept",     e => Squad.AcceptInvite() },
                 { "sqd.decline",    e => Squad.DeclineInvite() },
                 { "sqd.leave",      e => Squad.Leave() },

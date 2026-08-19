@@ -16,10 +16,11 @@
   talk to each other directly.
 
   All state and actions round-trip through the plugin: GET /squad for the current role/leader/
-  members/pending state, POST /command (sqd.invite / sqd.accept / sqd.decline / sqd.leave /
-  sqd.relinquish / sqd.disband). No shell relay — this page polls /squad and /server-players
-  directly (ponytail: a 1s poll is simple and plenty for a UI that isn't latency-sensitive; an
-  SSE 'sqd' event already exists server-side if this ever needs to be push-based instead).
+  members/pending state, POST /command (sqd.invite / sqd.set-callsign / sqd.accept / sqd.decline /
+  sqd.leave / sqd.relinquish / sqd.disband). No shell relay — this page polls /squad and
+  /server-players directly (ponytail: a 1s poll is simple and plenty for a UI that isn't
+  latency-sensitive; an SSE 'sqd' event already exists server-side if this ever needs to be
+  push-based instead).
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -50,6 +51,17 @@
         <button class="sqd-btn" id="sqd-invite-accept">ACCEPT</button>
         <button class="sqd-btn sqd-btn-ghost" id="sqd-invite-decline">DECLINE</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Naming the squadron — only the leader (or a pilot about to become one via their first
+       invite) can do this; hidden entirely once a member, same visibility rule as the match
+       roster below (a plain member never owns the squad's identity, sqd.set-callsign). -->
+  <div class="sqd-section" id="sqd-callsign-section" style="display:none;">
+    <div class="sqd-section-head"><span>SQUADRON CALLSIGN</span></div>
+    <div class="sqd-callsign-row">
+      <input type="text" id="sqd-callsign-input" placeholder="Callsign" maxlength="20">
+      <button class="sqd-btn" id="sqd-callsign-set">SET</button>
     </div>
   </div>
 

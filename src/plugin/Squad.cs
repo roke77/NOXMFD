@@ -42,11 +42,19 @@ namespace NOXMFD
             internal ulong        LeaderId;
             internal string       LeaderName;
             internal List<Member> Members;
+            internal string       Callsign;
         }
 
         private static Role _role = Role.None;
         private static ulong  _leaderId;
         private static string _leaderName = string.Empty;
+
+        // The squadron's own name, chosen by whoever starts it (SetCallsign, "X SQUAD" on the SQD
+        // page). Empty until set — a squad can exist (via Invite's implicit creation) before its
+        // leader gets around to naming it. Carried through every roster broadcast and a leadership
+        // handoff so it's never lost partway through a squad's life; cleared in ResetToNone like
+        // everything else here, by the same no-persistence design the whole class already has.
+        private static string _callsign = string.Empty;
 
         // For RouteStore.cs to attribute an incoming shared route without the client having to pass
         // it through the payload itself — HandleData already only accepts data FROM the current
@@ -184,6 +192,7 @@ namespace NOXMFD
             _role = Role.Member;
             _leaderId = inv.LeaderId;
             _leaderName = inv.LeaderName;
+            _callsign = inv.Callsign;
             _members.Clear();
             _members.AddRange(inv.Members);
             _pendingReceived = null;
@@ -235,7 +244,7 @@ namespace NOXMFD
             var remaining = new List<Member>();
             foreach (var m in _members) if (m.Id != newLeader) remaining.Add(m);
 
-            Squadron.SendTo(newLeader, "sqd.transfer", MembersEnvelope(remaining));
+            Squadron.SendTo(newLeader, "sqd.transfer", TransferEnvelope(remaining));
             string leaderChanged = "{\"leaderId\":\"" + newLeader.ToString(CultureInfo.InvariantCulture) +
                                     "\",\"leaderName\":\"" + Esc(successor.Name) + "\"}";
             foreach (var m in remaining) Squadron.SendTo(m.Id, "sqd.leader-changed", leaderChanged);
@@ -243,6 +252,22 @@ namespace NOXMFD
             CancelAllPendingInvites();
             Squadron.CloseSessions(MemberIds());
             ResetToNone();
+            return true;
+        }
+
+        // Names (or renames) the squadron. Only the leader — or a pilot about to become one via
+        // their first Invite() — can do this; a plain member never owns the squad's identity.
+        // Re-broadcasts immediately if members already exist so everyone's copy stays in sync;
+        // a no-op while role is None just stores it for the roster/invite envelopes the eventual
+        // first Invite() will build.
+        internal static bool SetCallsign(string name)
+        {
+            if (_role == Role.Member) return false;
+            name = (name ?? string.Empty).Trim();
+            if (name.Length == 0 || name.Length > 20) return false;
+            _callsign = name;
+            RebuildState();
+            if (_role == Role.Leader) BroadcastRoster();
             return true;
         }
 
@@ -273,6 +298,7 @@ namespace NOXMFD
         {
             var obj = JsonLite.Parse(payload) as Dictionary<string, object?>;
             string leaderName = Str(obj, "leaderName");
+            string callsign = Str(obj, "callsign");
             List<Member> members = ParseMembers(obj != null && obj.TryGetValue("members", out object? mv) ? mv : null);
 
             if (_role != Role.None)
@@ -292,7 +318,7 @@ namespace NOXMFD
                 return;
             }
 
-            _pendingReceived = new PendingInvite { LeaderId = from, LeaderName = leaderName, Members = members };
+            _pendingReceived = new PendingInvite { LeaderId = from, LeaderName = leaderName, Members = members, Callsign = callsign };
             RebuildState();
         }
 
@@ -339,6 +365,7 @@ namespace NOXMFD
             if (_role != Role.Member || from != _leaderId) return;
             var obj = JsonLite.Parse(payload) as Dictionary<string, object?>;
             _leaderName = Str(obj, "leaderName");
+            _callsign = Str(obj, "callsign");
             _members.Clear();
             _members.AddRange(ParseMembers(obj != null && obj.TryGetValue("members", out object? mv) ? mv : null));
             RebuildState();
@@ -372,6 +399,7 @@ namespace NOXMFD
             _role = Role.Leader;
             _leaderId = 0;
             _leaderName = string.Empty;
+            _callsign = Str(obj, "callsign");
             _members.Clear();
             _members.AddRange(members);
             _pendingSent.Clear();
@@ -435,6 +463,7 @@ namespace NOXMFD
             _role = Role.None;
             _leaderId = 0;
             _leaderName = string.Empty;
+            _callsign = string.Empty;
             _members.Clear();
             _pendingSent.Clear();
             _pendingReceived = null;
@@ -493,17 +522,21 @@ namespace NOXMFD
             return sb.ToString();
         }
 
-        private static string MembersEnvelope(IEnumerable<Member> members) =>
-            "{\"members\":" + MembersJson(members) + "}";
+        // Leadership handoff (sqd.transfer) — carries the callsign along too, so the new leader's
+        // squad keeps its name instead of reverting to unnamed.
+        private static string TransferEnvelope(IEnumerable<Member> members) =>
+            "{\"members\":" + MembersJson(members) + ",\"callsign\":\"" + Esc(_callsign) + "\"}";
 
         private static string RosterEnvelope() =>
             "{\"leaderId\":\"" + Squadron.SelfId().ToString(CultureInfo.InvariantCulture) +
             "\",\"leaderName\":\"" + Esc(SelfName()) +
+            "\",\"callsign\":\"" + Esc(_callsign) +
             "\",\"members\":" + MembersJson(_members) + "}";
 
         private static string InviteEnvelope() =>
             "{\"leaderId\":\"" + Squadron.SelfId().ToString(CultureInfo.InvariantCulture) +
             "\",\"leaderName\":\"" + Esc(SelfName()) +
+            "\",\"callsign\":\"" + Esc(_callsign) +
             "\",\"members\":" + MembersJson(_members) + "}";
 
         private static List<Member> ParseMembers(object? arr)
@@ -537,8 +570,14 @@ namespace NOXMFD
             var sb = new StringBuilder();
             sb.Append("{\"role\":\"").Append(roleStr).Append('"');
             sb.Append(",\"self\":\"").Append(Squadron.SelfId().ToString(CultureInfo.InvariantCulture)).Append('"');
+            // This pilot's own display name — only the LEADER case actually needs it (a member
+            // already gets their own name back via the roster's members list, same as everyone
+            // else's), but it costs nothing to always include, so the client doesn't need to know
+            // which role makes it meaningful.
+            sb.Append(",\"selfName\":\"").Append(Esc(SelfName())).Append('"');
             sb.Append(",\"leaderId\":\"").Append(_leaderId.ToString(CultureInfo.InvariantCulture)).Append('"');
             sb.Append(",\"leaderName\":\"").Append(Esc(_leaderName)).Append('"');
+            sb.Append(",\"callsign\":\"").Append(Esc(_callsign)).Append('"');
             sb.Append(",\"members\":").Append(MembersJson(_members));
             if (_pendingReceived != null)
             {

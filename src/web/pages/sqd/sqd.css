@@ -85,6 +85,21 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 .sqd-btn-ghost { border-color: var(--no-green-dim); color: var(--no-green-dim); }
 .sqd-btn-ghost:hover { background: var(--no-green-dim); color: var(--no-ink); }
 
+.sqd-callsign-row {
+  display: flex;
+  gap: 8px;
+}
+.sqd-callsign-row input {
+  flex: 1;
+  background: var(--no-panel-bg);
+  border: 1px solid var(--no-panel-border);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  font-size: 12px;
+  padding: 5px 8px;
+}
+.sqd-callsign-row input:focus { outline: 1px solid var(--no-green-dim); }
+
 .sqd-invite-card {
   padding: 12px;
   border: 1px solid var(--no-amber);
@@ -116,6 +131,21 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 }
 .sqd-row:last-child { border-bottom: none; }
 
+/* First table column: this pilot's chosen callsign plus the row's number (1 = leader, then join
+   order — sqd.js's addSquadRow). Fixed width so the name column lines up across rows regardless
+   of how long the callsign or number gets. */
+.sqd-row-tag {
+  flex: none;
+  width: 70px;
+  color: var(--no-green-dim);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sqd-row.self .sqd-row-tag { color: var(--no-green); }
+
 .sqd-row-name {
   flex: 1;
   color: var(--no-green-dim);
@@ -123,12 +153,18 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sqd-row.leader .sqd-row-name { color: var(--no-green); }
+/* This pilot's OWN row in the member list (sqd.js matches it by state.self) — bright green so it
+   stands out from the rest of the roster at a glance. The leader's row is already marked by the
+   LEADER badge below; it doesn't also need a brighter name. */
+.sqd-row.self .sqd-row-name { color: var(--no-green); }
 
+/* The LEADER mark on the squad's own leader row (sqd.js) — --no-squad (theme.css) is the
+   Squadron feature's own colour, shared with WPT's SQD label so "this is squad-related" reads
+   the same regardless of which page shows it. */
 .sqd-row-mark {
   font-size: 12px;
   letter-spacing: 1px;
-  color: var(--no-amber);
+  color: var(--no-squad);
   flex: none;
 }
 
