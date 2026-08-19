@@ -200,6 +200,16 @@ pilot, with HOTAS-friendly keybinds to match.
 
   </details>
 
+- **SQD** — squadron membership over Steam: create a squad, invite players from the current match,
+  and manage your roster. Squadmates can share waypoint routes with each other from the WPT page.
+
+  <details>
+  <summary>$\color{green}\textsf{Show screenshot}$</summary>
+
+  ![SQD page](docs/images/SQD.png)
+
+  </details>
+
 - **TGP** — targeting-pod camera feed zoomed on the locked target, with range and bearing. (Low quality for now. Follow high quality development [here](https://github.com/roke77/NOXMFD/issues/10))
 
   <details>
