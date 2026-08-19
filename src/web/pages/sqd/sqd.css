@@ -1,38 +1,11 @@
-/* SQD (squad membership, docs/squadron-transport.md) page styles. Same panel shape as
-   wpt.css/rates.css/keybinds.css — everything reuses theme.css tokens, no new visual language. */
+/* SQD (squad membership, docs/squadron-transport.md) page styles. Page chrome (.sqd-panel/
+   .sqd-back/.sqd-title, the scrollbar rules, the row/row-icon-btn pattern) lives in
+   shared/page-chrome.css now — everything below is what's actually specific to this page. */
 
-html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this is a full page */
-html {
-  scrollbar-width: thin;
-  scrollbar-color: var(--no-gray) transparent;
-}
-html::-webkit-scrollbar { width: 6px; height: 6px; }
-html::-webkit-scrollbar-track { background: transparent; }
-html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
-
-.sqd-panel {
-  max-width: 620px;
-  margin: 0 auto;
-  padding: 26px 18px 40px;
-}
-
-.sqd-back {
-  float: left;
-  font-size: 12px;
-  letter-spacing: 2px;
-  color: var(--no-green-dim);
-  text-decoration: none;
-  padding: 6px 2px;
-}
-.sqd-back:hover { color: var(--no-green); }
-
-.sqd-title {
-  font-size: 24px;
-  letter-spacing: 4px;
-  color: var(--no-green);
-  text-align: center;
-  margin-bottom: 14px;
-}
+/* PAD cursor (docs/page-cursor.md): same override WPT uses (wpt.css) — this page's own body
+   scrolls rather than a fixed-size panel, so the crosshair needs position:fixed, not the shared
+   .pad-cursor's default :absolute. */
+#pad-cursor { position: fixed; }
 
 .sqd-unavailable {
   max-width: 552px;
@@ -135,16 +108,6 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 }
 .sqd-rows:not(:empty) + .sqd-empty { display: none; }
 
-.sqd-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 7px;
-  border-bottom: 1px solid var(--no-panel-border);
-  font-size: 14px;
-}
-.sqd-row:last-child { border-bottom: none; }
-
 /* First table column: this pilot's chosen callsign plus the row's number (1 = leader, then join
    order — sqd.js's addSquadRow). Fixed width so the name column lines up across rows regardless
    of how long the callsign or number gets. --no-squad (theme.css) matches the callsign in the
@@ -235,16 +198,6 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 .sqd-row-btn:hover { background: var(--no-green-dim); color: var(--no-ink); }
 
 /* Star (make leader) / x (kick) on each non-leader roster row (sqd.js) — plain icon buttons, no
-   border, matching WPT's own row-action icons (.wpt-row-btn) rather than this page's pill-style
-   .sqd-row-btn (kept for INVITE, the one text-labelled row action left). */
-.sqd-row-icon-btn {
-  flex: none;
-  background: none;
-  border: none;
-  color: var(--no-gray);
-  font-size: 16px;
-  cursor: pointer;
-  padding: 2px 6px;
-  line-height: 1;
-}
-.sqd-row-icon-btn:hover { color: var(--no-green); }
+   border, matching WPT's own row-action icons (shared/page-chrome.css's .wpt-row-btn/
+   .sqd-row-icon-btn rule) rather than this page's pill-style .sqd-row-btn (kept for INVITE, the
+   one text-labelled row action left). */

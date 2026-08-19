@@ -24,6 +24,7 @@
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/shared/page-chrome.css">
 <link rel="stylesheet" href="/assets/pages/sqd/sqd.css">
 </head>
 <body>
@@ -31,6 +32,10 @@
 <div class="sqd-panel" id="sqd-panel">
   <a class="sqd-back" href="/">&lt; MAIN</a>
   <div class="sqd-title">SQUADRON</div>
+
+  <!-- PAD cursor (docs/page-cursor.md) — same fixed-position crosshair WPT uses (this page's own
+       body scrolls too), driven while SQD is the SOI's focused surface. -->
+  <div id="pad-cursor" class="pad-cursor"></div>
 
   <div class="sqd-unavailable" id="sqd-unavailable" style="display:none;">
     Squad requires Steam. Unavailable on this launch.
@@ -48,8 +53,8 @@
         (<span id="sqd-invite-count">0</span> member<span id="sqd-invite-plural">s</span>)
       </div>
       <div class="sqd-invite-actions">
-        <button class="sqd-btn" id="sqd-invite-accept">ACCEPT</button>
-        <button class="sqd-btn sqd-btn-ghost" id="sqd-invite-decline">DECLINE</button>
+        <button class="sqd-btn pad-hoverable" id="sqd-invite-accept">ACCEPT</button>
+        <button class="sqd-btn sqd-btn-ghost pad-hoverable" id="sqd-invite-decline">DECLINE</button>
       </div>
     </div>
   </div>
@@ -63,12 +68,12 @@
       <span id="sqd-squad-head">YOUR SQUAD</span>
       <div class="sqd-callsign-edit" id="sqd-callsign-edit" style="display:none;">
         <input type="text" id="sqd-callsign-input" placeholder="Callsign" maxlength="20">
-        <button class="sqd-btn" id="sqd-callsign-set">SET</button>
+        <button class="sqd-btn pad-hoverable" id="sqd-callsign-set">SET</button>
       </div>
       <div class="sqd-section-actions">
-        <button class="sqd-btn sqd-btn-ghost" id="sqd-callsign-edit-btn" style="display:none;">EDIT</button>
-        <button class="sqd-btn sqd-btn-ghost" id="sqd-leave">LEAVE</button>
-        <button class="sqd-btn sqd-btn-ghost" id="sqd-disband" style="display:none;">DISBAND</button>
+        <button class="sqd-btn sqd-btn-ghost pad-hoverable" id="sqd-callsign-edit-btn" style="display:none;">EDIT</button>
+        <button class="sqd-btn sqd-btn-ghost pad-hoverable" id="sqd-leave">LEAVE</button>
+        <button class="sqd-btn sqd-btn-ghost pad-hoverable" id="sqd-disband" style="display:none;">DISBAND</button>
       </div>
     </div>
     <div class="sqd-rows" id="sqd-squad-rows"></div>
