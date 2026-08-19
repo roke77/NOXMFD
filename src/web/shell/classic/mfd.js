@@ -2465,7 +2465,8 @@ function forwardWptRoutesToMap() {
 // truth for routes now (docs/hud-waypoint-indicator.md) — this shell document loads its own copy
 // of waypoints-store.js (mfd.html), which polls /wpt-options and fires this event on any change,
 // from any page, any device (a squadmate's shared route, applied via applySquadronPayload below,
-// arrives the same way once RouteStore.ImportRoute takes effect and the next poll picks it up).
+// shows up as a pendingShared entry the same way once the next poll picks it up — WPT's own
+// ACCEPT/REJECT is what turns it into a real route, not this event).
 // Re-render live to pick that up while MAP is showing, full view or split, and push the new data
 // down to every embedded MAP/WPT iframe.
 window.addEventListener('wptroutes:changed', function() {
@@ -2484,7 +2485,9 @@ window.addEventListener('wptroutes:changed', function() {
 // poll picks it up — no squadron-specific refresh plumbing needed beyond issuing the command.
 function applySquadronPayload(payloadType, payload) {
   if (payloadType !== 'wpt.route') return;   // unknown type: ignore, don't guess (versioned wire)
-  WaypointsStore.importRoute(payload);
+  // receiveShared, not importRoute — a squad share needs the ACCEPT/REJECT step (WPT page) before
+  // it becomes a real route; see RouteStore.cs's own header comment on this group.
+  WaypointsStore.receiveShared(payload);
 }
 
 loadConfigUrls();

@@ -178,13 +178,20 @@ def _hud_options():
 # real snapshot pulled from a local mod session's BepInEx/config/com.roque.NOXMFD.routes.json
 # (2026-08-19), so MAP/WPT have real routes to render in the harness instead of "NO ROUTES YET".
 # Static, same as _hud_options — the write side (wpt.* commands) has no mock, POSTs are swallowed,
-# so editing here won't change this response; that path is only testable in game.
+# so editing here won't change this response; that path is only testable in game. sharedBy/
+# pendingShared (docs/squadron-transport.md) are sample data purely so the accept/reject and
+# read-only-shared-route UI states have something to render — same reasoning as _SQD's roster mock.
 def _wpt_options():
     return json.dumps({
-        "activeRouteId": "r_1dd9973ab97c415e8256e829921a2320",
+        # NOT the shared (sharedBy) route below — the active route's waypoints render in the
+        # "ACTIVE ROUTE WAYPOINTS" section, and a shared route's own waypoint icons are correctly
+        # hidden (read-only content). Keeping the active one unshared means the harness shows the
+        # normal, fully-editable icon set by default.
+        "activeRouteId": "r_6422161b6ecd4e0e8bc0a99c627ef397",
         "routes": [
             {
                 "id": "r_6422161b6ecd4e0e8bc0a99c627ef397", "name": "RT-8F6A9", "nextIndex": 4,
+                "sharedBy": "",
                 "waypoints": [
                     {"id": "w_df45b83cc4e5402cbf3be75e38f6103b", "name": "", "x": 7526.1,  "z": 8584.3},
                     {"id": "w_7f942f59e2104b50b8776839711810c3", "name": "", "x": 18355.2, "z": 8135.4},
@@ -197,6 +204,7 @@ def _wpt_options():
             },
             {
                 "id": "r_1dd9973ab97c415e8256e829921a2320", "name": "RT-6CA67", "nextIndex": 4,
+                "sharedBy": "Ghost",
                 "waypoints": [
                     {"id": "w_5eb7026834e0487982503ddf63a8ac07", "name": "", "x": 7113.0,  "z": 8578.7},
                     {"id": "w_5d989cdca24146deadf7d72527295197", "name": "", "x": 21153.2, "z": 7571.6},
@@ -205,6 +213,9 @@ def _wpt_options():
                     {"id": "w_9242d06d1e20411eac306da4b9a0078e", "name": "", "x": 6829.6,  "z": 21828.5},
                 ],
             },
+        ],
+        "pendingShared": [
+            {"id": "r_sample_pending_share", "name": "RT-9B21C", "fromName": "Foxtrot", "waypointCount": 6},
         ],
     }).encode("utf-8")
 

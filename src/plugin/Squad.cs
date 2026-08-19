@@ -48,6 +48,12 @@ namespace NOXMFD
         private static ulong  _leaderId;
         private static string _leaderName = string.Empty;
 
+        // For RouteStore.cs to attribute an incoming shared route without the client having to pass
+        // it through the payload itself — HandleData already only accepts data FROM the current
+        // leader (from != _leaderId is rejected), so the leader's identity is already known
+        // authoritatively server-side by the time a share arrives.
+        internal static string LeaderName => _leaderName;
+
         // Leader: who they lead. Member: the rest of the squad (not the leader, not self) — kept
         // current by the leader's sqd.roster broadcasts.
         private static readonly List<Member> _members = new List<Member>();

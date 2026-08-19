@@ -20,6 +20,25 @@ namespace NOXMFD
         public string Name = string.Empty;
         public int NextIndex;
         public List<Waypoint> Waypoints = new List<Waypoint>();
+
+        // Empty = a route this pilot created or pasted themselves — fully editable. Non-empty = the
+        // squad leader's display name at the moment this was accepted — the route's CONTENT
+        // (name/waypoints) is then read-only; only this pilot's own progress through it (NextIndex)
+        // and whether it's their active route are still theirs to change. Not persisted across a
+        // squad session ending — see AcceptShared.
+        public string SharedBy = string.Empty;
+        public bool IsShared => SharedBy.Length > 0;
+    }
+
+    // A shared route awaiting this pilot's accept/reject — not yet a real Route (docs/squadron-
+    // transport.md). Kept entirely in memory, not persisted to routes.json: like squad membership
+    // itself, a pending share only makes sense within the squad session that produced it.
+    internal sealed class PendingSharedRoute
+    {
+        public string Id = string.Empty;   // == the leader's own route id — see ReceiveSharedRoute
+        public string Name = string.Empty;
+        public string FromName = string.Empty;
+        public List<Waypoint> Waypoints = new List<Waypoint>();
     }
 
     // Waypoint/route storage (docs/hud-waypoint-indicator.md, Option 2) — the plugin, not any
@@ -38,6 +57,7 @@ namespace NOXMFD
 
         private static List<Route> _routes = new List<Route>();
         private static string? _activeRouteId;
+        private static readonly List<PendingSharedRoute> _pendingShared = new List<PendingSharedRoute>();
 
         // Server-thread-readable cache, mirrors TelemetryServer.HudOptionsJson's threading: every
         // mutator below runs on the Unity main thread only (CommandDispatcher.Drain, called from
@@ -73,7 +93,7 @@ namespace NOXMFD
                 _routes = new List<Route>();
                 _activeRouteId = null;
             }
-            RoutesJson = BuildJson();
+            RefreshServedJsonOnly();
         }
 
         private static List<Route> ParseRoutes(object? value)
@@ -88,6 +108,7 @@ namespace NOXMFD
                     Id        = d.TryGetValue("id", out object? id) ? (id as string ?? string.Empty) : string.Empty,
                     Name      = d.TryGetValue("name", out object? nm) ? (nm as string ?? string.Empty) : string.Empty,
                     NextIndex = d.TryGetValue("nextIndex", out object? ni) && ni is double nid ? (int)nid : 0,
+                    SharedBy  = d.TryGetValue("sharedBy", out object? sb) ? (sb as string ?? string.Empty) : string.Empty,
                 };
                 if (d.TryGetValue("waypoints", out object? wps) && wps is List<object?> wlist)
                 {
@@ -110,14 +131,43 @@ namespace NOXMFD
             return routes;
         }
 
+        // Two different JSON strings on purpose: the FILE (BuildFileJson) persists activeRouteId +
+        // routes only, same as always. The SERVED string (RoutesJson, what /wpt-options returns)
+        // also carries pendingShared — deliberately never written to disk, same "no persistence"
+        // choice Squad.cs itself makes for squad membership: a pending share only makes sense within
+        // the live squad session that produced it.
         private static void Save()
         {
-            RoutesJson = BuildJson();
-            try { File.WriteAllText(FilePath, RoutesJson); }
+            string fileJson = BuildFileJson();
+            try { File.WriteAllText(FilePath, fileJson); }
             catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] failed to persist routes: {ex.Message}"); }
+            RefreshServedJson(fileJson);
         }
 
-        private static string BuildJson()
+        // For pending-share mutations (ReceiveSharedRoute/AcceptShared/RejectShared): only the
+        // served view changes, nothing persisted-route-shaped did, so no file write is needed.
+        private static void RefreshServedJsonOnly() => RefreshServedJson(BuildFileJson());
+
+        private static void RefreshServedJson(string fileJson) =>
+            RoutesJson = fileJson.Substring(0, fileJson.Length - 1) + ",\"pendingShared\":" + BuildPendingJson() + "}";
+
+        private static string BuildPendingJson()
+        {
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < _pendingShared.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                PendingSharedRoute p = _pendingShared[i];
+                sb.Append("{\"id\":\"").Append(TelemetryServer.EscapeJson(p.Id))
+                  .Append("\",\"name\":\"").Append(TelemetryServer.EscapeJson(p.Name))
+                  .Append("\",\"fromName\":\"").Append(TelemetryServer.EscapeJson(p.FromName))
+                  .Append("\",\"waypointCount\":").Append(p.Waypoints.Count)
+                  .Append('}');
+            }
+            return sb.Append(']').ToString();
+        }
+
+        private static string BuildFileJson()
         {
             var sb = new StringBuilder();
             sb.Append("{\"activeRouteId\":")
@@ -130,6 +180,7 @@ namespace NOXMFD
                 sb.Append("{\"id\":\"").Append(TelemetryServer.EscapeJson(r.Id))
                   .Append("\",\"name\":\"").Append(TelemetryServer.EscapeJson(r.Name))
                   .Append("\",\"nextIndex\":").Append(r.NextIndex)
+                  .Append(",\"sharedBy\":\"").Append(TelemetryServer.EscapeJson(r.SharedBy)).Append('"')
                   .Append(",\"waypoints\":[");
                 for (int j = 0; j < r.Waypoints.Count; j++)
                 {
@@ -187,7 +238,7 @@ namespace NOXMFD
         public static bool RenameRoute(string id, string name)
         {
             Route? route = FindRoute(id);
-            if (route == null) return false;
+            if (route == null || route.IsShared) return false;   // shared content is read-only
             route.Name = UniqueRouteName(name, id);
             Save();
             return true;
@@ -253,10 +304,73 @@ namespace NOXMFD
             return true;
         }
 
+        // ── squad-shared routes (docs/squadron-transport.md) ──────────────────────────────────
+        // Distinct from ImportRoute above: a pasted route is deliberately stripped of identity (any
+        // paste always becomes a fresh, independent copy — see wpt-route.js's serializeRoute), but a
+        // squad share needs to carry the LEADER's own route id through, unchanged, every time it's
+        // (re)shared — that stable id is what makes "ignore a duplicate/repeat share" and "don't let
+        // a member edit a route that isn't theirs" possible at all. wpt.js's shareRoutePayload builds
+        // this shape ({id, name, waypoints}) specifically for this path.
+
+        // Called from CommandDispatcher when a squadmate's share arrives (via the shell's SSE
+        // listener, docs/squadron-transport.md). Silently ignores a share whose id we already have —
+        // either already accepted (in _routes) or still pending our own decision — so the leader
+        // spamming SHARE produces at most one pending entry, not a growing pile of duplicates.
+        public static bool ReceiveSharedRoute(string? text, string fromName)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            if (JsonLite.Parse(text) is not Dictionary<string, object?> data) return false;
+            string id = data.TryGetValue("id", out object? idv) && idv is string ids ? ids : string.Empty;
+            if (id.Length == 0) return false;   // not a squad-share payload (or malformed) — reject
+            if (_routes.Exists(r => r.Id == id) || _pendingShared.Exists(p => p.Id == id)) return true;   // duplicate — idempotent no-op
+            if (!(data.TryGetValue("waypoints", out object? wps) && wps is List<object?> wlist)) return false;
+
+            var waypoints = new List<Waypoint>();
+            foreach (object? item in wlist)
+            {
+                if (item is not Dictionary<string, object?> w) return false;
+                if (!(w.TryGetValue("x", out object? xv) && xv is double x)) return false;
+                if (!(w.TryGetValue("z", out object? zv) && zv is double z)) return false;
+                string wname = w.TryGetValue("name", out object? nm) && nm is string ns ? ns : string.Empty;
+                waypoints.Add(new Waypoint { Id = FreshId("w_"), Name = wname, X = (float)x, Z = (float)z });
+            }
+            string routeName = data.TryGetValue("name", out object? rn) && rn is string rns && rns.Trim().Length > 0
+                ? rns.Trim() : FreshRouteName();
+
+            _pendingShared.Add(new PendingSharedRoute { Id = id, Name = routeName, FromName = fromName, Waypoints = waypoints });
+            RefreshServedJsonOnly();
+            return true;
+        }
+
+        // Moves a pending share into the real route list, tagged read-only under the leader's name.
+        // Keeps the SAME id the leader's own copy has — accepting the identical share again later
+        // (e.g. after this pilot left and rejoined, or the leader re-shared) is then just another
+        // ReceiveSharedRoute no-op against an id already in _routes, not a second entry. Does not
+        // activate it — accepting only adds it to the library, same as any other new route; picking
+        // it as the active one is a separate, ordinary click, same as every other route.
+        public static bool AcceptShared(string id)
+        {
+            int idx = _pendingShared.FindIndex(p => p.Id == id);
+            if (idx < 0) return false;
+            PendingSharedRoute p = _pendingShared[idx];
+            _pendingShared.RemoveAt(idx);
+            _routes.Add(new Route { Id = p.Id, Name = UniqueRouteName(p.Name, null), NextIndex = 0, Waypoints = p.Waypoints, SharedBy = p.FromName });
+            Save();
+            return true;
+        }
+
+        public static bool RejectShared(string id)
+        {
+            int removed = _pendingShared.RemoveAll(p => p.Id == id);
+            if (removed == 0) return false;
+            RefreshServedJsonOnly();
+            return true;
+        }
+
         public static bool RenameWaypoint(int index, string name)
         {
             Route? route = ActiveRoute;
-            if (route == null || index < 0 || index >= route.Waypoints.Count) return false;
+            if (route == null || route.IsShared || index < 0 || index >= route.Waypoints.Count) return false;
             route.Waypoints[index].Name = name;
             Save();
             return true;
@@ -265,7 +379,7 @@ namespace NOXMFD
         public static bool ReorderWaypoint(int from, int to)
         {
             Route? route = ActiveRoute;
-            if (route == null || from < 0 || from >= route.Waypoints.Count || to < 0 || to >= route.Waypoints.Count) return false;
+            if (route == null || route.IsShared || from < 0 || from >= route.Waypoints.Count || to < 0 || to >= route.Waypoints.Count) return false;
             Waypoint moved = route.Waypoints[from];
             route.Waypoints.RemoveAt(from);
             route.Waypoints.Insert(to, moved);
@@ -292,7 +406,7 @@ namespace NOXMFD
         public static bool RemoveWaypoint(int index)
         {
             Route? route = ActiveRoute;
-            if (route == null || index < 0 || index >= route.Waypoints.Count) return false;
+            if (route == null || route.IsShared || index < 0 || index >= route.Waypoints.Count) return false;
             route.Waypoints.RemoveAt(index);
             if (index < route.NextIndex) route.NextIndex--;
             route.NextIndex = Math.Max(0, Math.Min(route.NextIndex, route.Waypoints.Count));
@@ -323,9 +437,12 @@ namespace NOXMFD
         }
 
         // Creates a default route first if none is active yet, mirroring addWaypointToActive — a
-        // long-press on MAP works before any visit to WPT.
+        // long-press on MAP works before any visit to WPT. A long-press while a SHARED route is
+        // active is a no-op rather than silently editing someone else's content — the pilot needs
+        // to activate/create their own route first, same as every other edit on a shared one.
         public static void AddWaypoint(float x, float z, string? name)
         {
+            if (ActiveRoute != null && ActiveRoute.IsShared) return;
             if (ActiveRoute == null)
             {
                 var route = new Route { Id = FreshId("r_"), Name = UniqueRouteName(FreshRouteName(), null), NextIndex = 0 };

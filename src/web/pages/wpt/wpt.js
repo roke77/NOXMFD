@@ -44,8 +44,34 @@ function render() {
 
 function renderRoutes(c) {
   routesEl.innerHTML = '';
+
+  // Shares awaiting THIS pilot's own accept/reject — rendered first (need attention), with only
+  // those two actions: not yet a real route, so nothing else (rename/reset/export/delete/activate)
+  // applies to it yet. See RouteStore.cs's own header comment on this group for why a duplicate
+  // share never produces a second one of these.
+  WaypointsStore.pendingShared().forEach(function (p) {
+    const row = document.createElement('div');
+    row.className = 'wpt-row wpt-row-pending';
+
+    const name = document.createElement('span');
+    name.className = 'wpt-row-name';
+    name.textContent = p.name + ' (' + p.waypointCount + ') — from ' + (p.fromName || 'squad leader');
+
+    const accept = document.createElement('button');
+    accept.className = 'wpt-btn'; accept.textContent = 'ACCEPT';
+    accept.onclick = function () { WaypointsStore.acceptShared(p.id).then(render); };
+
+    const reject = document.createElement('button');
+    reject.className = 'wpt-btn wpt-btn-ghost'; reject.textContent = 'REJECT';
+    reject.onclick = function () { WaypointsStore.rejectShared(p.id).then(render); };
+
+    row.appendChild(name); row.appendChild(accept); row.appendChild(reject);
+    routesEl.appendChild(row);
+  });
+
   c.routes.forEach(function (route) {
     const isActive = route.id === c.activeRouteId;
+    const isShared = !!route.sharedBy;
     const row = document.createElement('div');
     row.className = 'wpt-row' + (isActive ? ' active' : '');
 
@@ -59,14 +85,7 @@ function renderRoutes(c) {
 
     const mark = document.createElement('span');
     mark.className = 'wpt-row-mark';
-    mark.textContent = route.id === c.activeRouteId ? 'ACTIVE' : '';
-
-    const edit = document.createElement('button');
-    edit.className = 'wpt-row-btn pad-hoverable'; edit.textContent = '✎'; edit.title = 'Rename route';
-    // Empty stays the route's current (generated) name — a route always keeps SOME name.
-    edit.onclick = function () {
-      editRow(row, route.name, null, function (name) { return name ? WaypointsStore.renameRoute(route.id, name) : undefined; });
-    };
+    mark.textContent = isActive ? 'ACTIVE' : '';
 
     const reset = document.createElement('button');
     reset.className = 'wpt-row-btn pad-hoverable'; reset.textContent = '↺'; reset.title = 'Reset route (mark every waypoint not-reached)';
@@ -76,11 +95,11 @@ function renderRoutes(c) {
     exportBtn.className = 'wpt-row-btn pad-hoverable'; exportBtn.textContent = '⇩'; exportBtn.title = 'Export route as JSON';
     exportBtn.onclick = function () { openExportPanel(route.id); };
 
-    // Share with the squad (docs/squadron-transport.md, SQD page). Sends the SAME serialisation the
-    // export panel shows, so one format travels both paths — a shared route and a pasted one are
-    // the same bytes, and the receiving end runs the same importRoute validation either way. Only
-    // the LEADER can share (Squad.SendData is leader-only), and only once at least one member has
-    // joined — squad membership itself is managed on the SQD page, not here.
+    // Share with the squad (docs/squadron-transport.md, SQD page). Only the LEADER can share
+    // (Squad.SendData is leader-only), and only once at least one member has joined — squad
+    // membership itself is managed on the SQD page, not here. A route someone ELSE shared with US
+    // never shows this button at all: Squad.cs's Role is a single value (none/leader/member), so
+    // holding a route someone shared with us and being a leader ourselves can't both be true.
     const share = document.createElement('button');
     share.className = 'wpt-row-btn pad-hoverable'; share.textContent = '⇪'; share.title = 'Share route with squad';
     share.onclick = function () { shareRoute(route.id, share); };
@@ -88,12 +107,24 @@ function renderRoutes(c) {
     const del = document.createElement('button');
     del.className = 'wpt-row-btn pad-hoverable';
     del.textContent = '×';
-    del.title = 'Delete route';
+    del.title = isShared ? 'Remove from your routes' : 'Delete route';
     del.onclick = function () { WaypointsStore.deleteRoute(route.id).then(render); };
 
-    row.appendChild(name); row.appendChild(mark); row.appendChild(edit); row.appendChild(reset);
+    row.appendChild(name); row.appendChild(mark);
+    // Rename is content editing — not available on a route someone else shared with you. Everything
+    // else (progress reset, export, deleting YOUR OWN copy) still applies regardless of origin.
+    if (!isShared) {
+      const edit = document.createElement('button');
+      edit.className = 'wpt-row-btn pad-hoverable'; edit.textContent = '✎'; edit.title = 'Rename route';
+      // Empty stays the route's current (generated) name — a route always keeps SOME name.
+      edit.onclick = function () {
+        editRow(row, route.name, null, function (name) { return name ? WaypointsStore.renameRoute(route.id, name) : undefined; });
+      };
+      row.appendChild(edit);
+    }
+    row.appendChild(reset);
     row.appendChild(exportBtn);
-    if (sqd.role === 'leader' && sqd.members.length) row.appendChild(share);
+    if (!isShared && sqd.role === 'leader' && sqd.members.length) row.appendChild(share);
     row.appendChild(del);
     routesEl.appendChild(row);
   });
@@ -123,6 +154,7 @@ function editRow(row, value, placeholder, onSave) {
 function renderWaypoints(route) {
   waypointsEl.innerHTML = '';
   if (!route) return;
+  const isShared = !!route.sharedBy;   // content read-only — see renderRoutes' own comment
   route.waypoints.forEach(function (wp, i) {
     const row = document.createElement('div');
     row.className = 'wpt-row' + (i === route.nextIndex ? ' next' : '');
@@ -139,35 +171,45 @@ function renderWaypoints(route) {
     grid.className = 'wpt-row-grid';
     grid.textContent = gridLabel(wp.x, wp.z, { ox: mapinfo.ox, oy: mapinfo.oy });
 
-    const edit = document.createElement('button');
-    edit.className = 'wpt-row-btn pad-hoverable'; edit.textContent = '✎'; edit.title = 'Rename waypoint';
-    // Unlike routes, an empty save is valid here — it clears the name back to "unnamed" (position
-    // number only), matching a fresh waypoint's own default.
-    edit.onclick = function () {
-      editRow(row, wp.name, 'Name (optional)', function (name) { return WaypointsStore.renameWaypoint(i, name); });
-    };
-
-    const up = document.createElement('button');
-    up.className = 'wpt-row-btn pad-hoverable'; up.textContent = '▲'; up.title = 'Move up';
-    up.disabled = i === 0;
-    up.onclick = function () { WaypointsStore.reorderWaypoint(i, i - 1).then(render); };
-
-    const down = document.createElement('button');
-    down.className = 'wpt-row-btn pad-hoverable'; down.textContent = '▼'; down.title = 'Move down';
-    down.disabled = i === route.waypoints.length - 1;
-    down.onclick = function () { WaypointsStore.reorderWaypoint(i, i + 1).then(render); };
-
     const reset = document.createElement('button');
     reset.className = 'wpt-row-btn pad-hoverable'; reset.textContent = '↺';
     reset.title = 'Rewind here — this waypoint (and every one after it) becomes not-reached, this one NEXT';
     reset.onclick = function () { WaypointsStore.resetWaypoint(i).then(render); };
 
-    const del = document.createElement('button');
-    del.className = 'wpt-row-btn pad-hoverable'; del.textContent = '×'; del.title = 'Delete waypoint';
-    del.onclick = function () { WaypointsStore.removeWaypoint(i).then(render); };
-
     row.appendChild(name); row.appendChild(mark); row.appendChild(grid);
-    row.appendChild(edit); row.appendChild(reset); row.appendChild(up); row.appendChild(down); row.appendChild(del);
+    // Progress (NEXT/reset) is personal and always yours to change; the route's own content
+    // (rename/reorder/delete a waypoint) is read-only on a route someone else shared with you —
+    // RouteStore.cs's RenameWaypoint/ReorderWaypoint/RemoveWaypoint already refuse these
+    // server-side, so this only saves the pilot a wasted click, not the actual enforcement.
+    if (!isShared) {
+      const edit = document.createElement('button');
+      edit.className = 'wpt-row-btn pad-hoverable'; edit.textContent = '✎'; edit.title = 'Rename waypoint';
+      // Unlike routes, an empty save is valid here — it clears the name back to "unnamed" (position
+      // number only), matching a fresh waypoint's own default.
+      edit.onclick = function () {
+        editRow(row, wp.name, 'Name (optional)', function (name) { return WaypointsStore.renameWaypoint(i, name); });
+      };
+      row.appendChild(edit);
+    }
+    row.appendChild(reset);
+    if (!isShared) {
+      const up = document.createElement('button');
+      up.className = 'wpt-row-btn pad-hoverable'; up.textContent = '▲'; up.title = 'Move up';
+      up.disabled = i === 0;
+      up.onclick = function () { WaypointsStore.reorderWaypoint(i, i - 1).then(render); };
+      row.appendChild(up);
+
+      const down = document.createElement('button');
+      down.className = 'wpt-row-btn pad-hoverable'; down.textContent = '▼'; down.title = 'Move down';
+      down.disabled = i === route.waypoints.length - 1;
+      down.onclick = function () { WaypointsStore.reorderWaypoint(i, i + 1).then(render); };
+      row.appendChild(down);
+
+      const del = document.createElement('button');
+      del.className = 'wpt-row-btn pad-hoverable'; del.textContent = '×'; del.title = 'Delete waypoint';
+      del.onclick = function () { WaypointsStore.removeWaypoint(i).then(render); };
+      row.appendChild(del);
+    }
     waypointsEl.appendChild(row);
   });
 }
@@ -381,13 +423,21 @@ function refreshSquad() {
     .catch(function () { /* standalone/preview without the plugin — share stays hidden */ });
 }
 
+// Disabled while a send is in flight (and briefly after) so mashing the button can't fire a burst
+// of sqd.send commands — RouteStore.ReceiveSharedRoute already ignores a duplicate id server-side,
+// so this is a courtesy against needless network chatter, not the actual dedup enforcement.
 function shareRoute(id, btn) {
-  const json = WaypointsStore.exportRoute(id);
+  if (btn.disabled) return;
+  const json = WaypointsStore.shareRoutePayload(id);
   if (!json) return;
   const was = btn.textContent;
+  btn.disabled = true;
   sendCommand('sqd.send', { type: 'wpt.route', payload: json })
-    .then(function () { btn.textContent = '✓'; setTimeout(function () { btn.textContent = was; }, 1200); })
-    .catch(function () {});
+    .then(function () {
+      btn.textContent = '✓';
+      setTimeout(function () { btn.textContent = was; btn.disabled = false; }, 1200);
+    })
+    .catch(function () { btn.disabled = false; });
 }
 
 refreshSquad();

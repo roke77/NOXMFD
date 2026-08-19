@@ -140,6 +140,13 @@ namespace NOXMFD
                 { "wpt.cycle-route",      e => RouteStore.CycleActiveRoute(e.index) },
                 { "wpt.step-waypoint",    e => RouteStore.StepWaypoint(e.index) },
                 { "wpt.add-waypoint",     e => RouteStore.AddWaypoint(e.wx, e.wz, e.wname) },
+                // Squad share (docs/squadron-transport.md) — see RouteStore.cs's own header comment
+                // on this group for why it's a separate path from wpt.import. `e.bind` carries the
+                // shared route's id for accept/reject (same field wpt.set-active/wpt.delete use for
+                // an ordinary route id).
+                { "wpt.receive-shared",   e => LogWpt("receive-shared", RouteStore.ReceiveSharedRoute(e.text, Squad.LeaderName)) },
+                { "wpt.accept-shared",    e => LogWpt("accept-shared",  RouteStore.AcceptShared(e.bind)) },
+                { "wpt.reject-shared",    e => LogWpt("reject-shared",  RouteStore.RejectShared(e.bind)) },
             };
 
         // Keybind writes just delegate to the Keybinds registry; log rejections (unknown id / bad key).

@@ -96,11 +96,33 @@
     return route ? JSON.stringify(R.serializeRoute(route), null, 2) : null;
   }
 
+  // ── squad-shared routes (docs/squadron-transport.md) ──────────────────────────────────
+  // pendingShared rides the same /wpt-options payload cache already carries whole — nothing extra
+  // to fetch. See RouteStore.cs's own header comment for why this is a separate path from
+  // exportRoute/importRoute above (identity has to survive a repeat share; a paste never keeps it).
+  function pendingShared() { return cache.pendingShared || []; }
+
+  // Builds the SAME id-carrying payload RouteStore.ReceiveSharedRoute expects — never exportRoute's
+  // shape, which is deliberately id-free.
+  function shareRoutePayload(id) {
+    const route = R.findRoute(cache.routes, id);
+    return route ? JSON.stringify(R.shareRoutePayload(route)) : null;
+  }
+
+  // Called by the shell (mfd.js/f35.js's applySquadronPayload), not this page — a share must land
+  // even while WPT isn't open. Distinct command from wpt.import: this one preserves the sender's
+  // route id so RouteStore can recognise a repeat/duplicate send instead of piling up a fresh
+  // pending entry every time.
+  function receiveShared(text)   { return sendCommand('wpt.receive-shared', { text: text }).then(poll); }
+  function acceptShared(id)      { return sendCommand('wpt.accept-shared', { bind: id }).then(poll); }
+  function rejectShared(id)      { return sendCommand('wpt.reject-shared', { bind: id }).then(poll); }
+
   const api = {
     freshRouteName,
     load, poll, getActiveRoute, hasRoutes, setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute, clearRoutes,
     addWaypointToActive, renameWaypoint, removeWaypoint, reorderWaypoint,
     resetWaypoint, resetRoute, stepWaypoint, exportRoute, importRoute,
+    pendingShared, shareRoutePayload, receiveShared, acceptShared, rejectShared,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WaypointsStore = api;

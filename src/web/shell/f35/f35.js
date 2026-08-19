@@ -910,7 +910,8 @@
   // single source of truth for routes now (docs/hud-waypoint-indicator.md) — this shell document
   // loads its own copy of waypoints-store.js (f35.html), which polls /wpt-options and fires this
   // event on any change, from any page, any device (a squadmate's shared route, applied via
-  // applySquadronPayload below, arrives the same way once the next poll picks it up). refreshNav
+  // applySquadronPayload below, shows up as a pendingShared entry the same way once the next poll
+  // picks it up — WPT's own ACCEPT/REJECT is what turns it into a real route). refreshNav
   // (not showPage) so it can't reload — and so can't lose the pan/zoom of — a MAP portal that's
   // already showing.
   //
@@ -935,7 +936,9 @@
   // the command.
   function applySquadronPayload(payloadType, payload) {
     if (payloadType !== 'wpt.route') return;   // unknown type: ignore, don't guess (versioned wire)
-    WaypointsStore.importRoute(payload);
+    // receiveShared, not importRoute — a squad share needs the ACCEPT/REJECT step (WPT page)
+    // before it becomes a real route; see RouteStore.cs's own header comment on this group.
+    WaypointsStore.receiveShared(payload);
   }
 
   // ── Master strip ───────────────────────────────────────────────────────────────────────
