@@ -54,24 +54,20 @@
     </div>
   </div>
 
-  <!-- Naming the squadron — only the leader (or a pilot about to become one via their first
-       invite) can do this; hidden entirely once a member, same visibility rule as the match
-       roster below (a plain member never owns the squad's identity, sqd.set-callsign). -->
-  <div class="sqd-section" id="sqd-callsign-section" style="display:none;">
-    <div class="sqd-section-head"><span>SQUADRON CALLSIGN</span></div>
-    <div class="sqd-callsign-row">
-      <input type="text" id="sqd-callsign-input" placeholder="Callsign" maxlength="20">
-      <button class="sqd-btn" id="sqd-callsign-set">SET</button>
-    </div>
-  </div>
-
   <!-- The squad itself, once one exists (as leader or member). Placed above the match roster
-       (below) since that list has no size cap and would otherwise push this out of view. -->
+       (below) since that list has no size cap and would otherwise push this out of view. The
+       title doubles as the callsign editor: EDIT (leader only, sqd.set-callsign) swaps the
+       <span> for an inline input + SET, in place, rather than a separate section. -->
   <div class="sqd-section" id="sqd-squad-section" style="display:none;">
     <div class="sqd-section-head">
       <span id="sqd-squad-head">YOUR SQUAD</span>
+      <div class="sqd-callsign-edit" id="sqd-callsign-edit" style="display:none;">
+        <input type="text" id="sqd-callsign-input" placeholder="Callsign" maxlength="20">
+        <button class="sqd-btn" id="sqd-callsign-set">SET</button>
+      </div>
       <div class="sqd-section-actions">
-        <button class="sqd-btn sqd-btn-ghost" id="sqd-leave">LEAVE SQUAD</button>
+        <button class="sqd-btn sqd-btn-ghost" id="sqd-callsign-edit-btn" style="display:none;">EDIT</button>
+        <button class="sqd-btn sqd-btn-ghost" id="sqd-leave">LEAVE</button>
         <button class="sqd-btn sqd-btn-ghost" id="sqd-disband" style="display:none;">DISBAND</button>
       </div>
     </div>

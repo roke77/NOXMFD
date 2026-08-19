@@ -9,31 +9,33 @@ if (window.parent !== window) {
   if (back) back.remove();
 }
 
-const unavailableEl   = document.getElementById('sqd-unavailable');
-const noticeEl        = document.getElementById('sqd-notice');
-const inviteSection   = document.getElementById('sqd-invite-section');
-const inviteLeaderEl  = document.getElementById('sqd-invite-leader');
-const inviteCountEl   = document.getElementById('sqd-invite-count');
-const invitePluralEl  = document.getElementById('sqd-invite-plural');
-const inviteAccept    = document.getElementById('sqd-invite-accept');
-const inviteDecline   = document.getElementById('sqd-invite-decline');
-const callsignSection = document.getElementById('sqd-callsign-section');
-const callsignInput   = document.getElementById('sqd-callsign-input');
-const callsignSet     = document.getElementById('sqd-callsign-set');
-const rosterSection   = document.getElementById('sqd-roster-section');
-const rosterRows      = document.getElementById('sqd-roster-rows');
-const pendingSection  = document.getElementById('sqd-pending-section');
-const pendingRows     = document.getElementById('sqd-pending-rows');
-const squadSection    = document.getElementById('sqd-squad-section');
-const squadHead       = document.getElementById('sqd-squad-head');
-const squadRows       = document.getElementById('sqd-squad-rows');
-const leaveBtn        = document.getElementById('sqd-leave');
-const disbandBtn      = document.getElementById('sqd-disband');
+const unavailableEl    = document.getElementById('sqd-unavailable');
+const noticeEl         = document.getElementById('sqd-notice');
+const inviteSection    = document.getElementById('sqd-invite-section');
+const inviteLeaderEl   = document.getElementById('sqd-invite-leader');
+const inviteCountEl    = document.getElementById('sqd-invite-count');
+const invitePluralEl   = document.getElementById('sqd-invite-plural');
+const inviteAccept     = document.getElementById('sqd-invite-accept');
+const inviteDecline    = document.getElementById('sqd-invite-decline');
+const rosterSection    = document.getElementById('sqd-roster-section');
+const rosterRows       = document.getElementById('sqd-roster-rows');
+const pendingSection   = document.getElementById('sqd-pending-section');
+const pendingRows      = document.getElementById('sqd-pending-rows');
+const squadSection     = document.getElementById('sqd-squad-section');
+const squadHead        = document.getElementById('sqd-squad-head');
+const callsignEdit     = document.getElementById('sqd-callsign-edit');
+const callsignInput    = document.getElementById('sqd-callsign-input');
+const callsignSet      = document.getElementById('sqd-callsign-set');
+const callsignEditBtn  = document.getElementById('sqd-callsign-edit-btn');
+const squadRows        = document.getElementById('sqd-squad-rows');
+const leaveBtn         = document.getElementById('sqd-leave');
+const disbandBtn       = document.getElementById('sqd-disband');
 
 let lastNoticeSeq = -1;
 let noticeTimer = null;
 let state = null;   // last-known Squad.StateJson payload (null until the first successful poll)
 let players = [];   // last-known /server-players list
+let editingCallsign = false;   // EDIT swaps the title span for the input, in place
 
 inviteAccept.onclick  = function () { sendCommand('sqd.accept', {}).catch(function () {}); };
 inviteDecline.onclick = function () { sendCommand('sqd.decline', {}).catch(function () {}); };
@@ -51,14 +53,50 @@ function invite(id, name) {
   sendCommand('sqd.invite', { peer: id, name: name || '' }).catch(function () {});
 }
 
+callsignEditBtn.onclick = function () {
+  editingCallsign = !editingCallsign;
+  if (editingCallsign) callsignInput.value = (state && state.callsign) || '';
+  render();
+  if (editingCallsign) callsignInput.focus();
+};
 callsignSet.onclick = function () {
   const name = callsignInput.value.trim();
-  if (!name) return;
-  sendCommand('sqd.set-callsign', { name: name }).catch(function () {});
+  if (name) sendCommand('sqd.set-callsign', { name: name }).catch(function () {});
+  editingCallsign = false;
+  render();
 };
+
+// Aircraft icon cache, keyed by unitName — same idea as MAP's own loadIcon (map.js), scaled down
+// (no canvas tinting needed here, just an <img>). Without this, addSquadRow created a fresh <img>
+// every 1s poll regardless of whether the type had already 404'd, which spammed the console with
+// repeat failed requests AND caused the aircraft column to visibly jump every render (blank while
+// the fresh image request was in flight, then collapse again the instant it failed) — a type is
+// now only ever probed once per page load; a known result renders synchronously, no flash.
+const iconStatus = {};   // type -> 'pending' | 'ok' | 'none'
+
+function getIconStatus(type) {
+  if (!type) return null;
+  if (iconStatus[type]) return iconStatus[type];
+  iconStatus[type] = 'pending';
+  const img = new Image();
+  img.onload = function () {
+    // 1×1 = the server's "no icon" sentinel (real plugin only, not this static preview harness,
+    // which 404s outright instead) — treat the same as a load failure: nothing worth drawing.
+    iconStatus[type] = (img.naturalWidth <= 1 && img.naturalHeight <= 1) ? 'none' : 'ok';
+    render();   // now that the type is resolved, re-render so it shows without waiting for the
+                 // next 1s poll (state hasn't changed, but iconStatus has)
+  };
+  img.onerror = function () { iconStatus[type] = 'none'; render(); };
+  img.src = '/icon?type=' + encodeURIComponent(type);
+  return 'pending';
+}
 
 function relinquishTo(id) {
   sendCommand('sqd.relinquish', { peer: id }).catch(function () {});
+}
+
+function kick(id) {
+  sendCommand('sqd.kick', { peer: id }).catch(function () {});
 }
 
 function render() {
@@ -82,17 +120,10 @@ function render() {
     invitePluralEl.textContent = inv.members.length === 1 ? '' : 's';
   }
 
-  // Roster picker and callsign naming: only meaningful while we're not already deciding on, or
-  // part of, someone else's squad — same condition for both, a plain member owns neither.
+  // Roster picker: only meaningful while we're not already deciding on, or part of, a squad.
   const canInvite = state.role !== 'member' && !hasPending;
   rosterSection.style.display = canInvite ? '' : 'none';
   if (canInvite) renderRoster();
-
-  callsignSection.style.display = canInvite ? '' : 'none';
-  // Don't clobber the input while the pilot is actively typing a new one.
-  if (canInvite && document.activeElement !== callsignInput) {
-    callsignInput.value = state.callsign || '';
-  }
 
   const showPending = state.role === 'leader' && state.pendingSent.length > 0;
   pendingSection.style.display = showPending ? '' : 'none';
@@ -133,8 +164,15 @@ function renderRoster() {
   });
 }
 
-// One row of the roster table: [callsign+number] [player name] [LEADER badge / MAKE LEADER btn].
-function addSquadRow(number, name, isLeaderRow, isSelf, memberId) {
+// One row of the roster table: [callsign+number] [player name] [LEADER badge, or for the leader
+// viewing a subordinate: a star to promote them (relinquishTo) and a x to kick them (sqd.kick,
+// docs/squadron-transport.md)]. Plain Unicode symbols, not emoji — same rule the rest of the app's
+// row icons already follow (WPT's ✎/↺/⇩/⇪/×): U+2605 BLACK STAR has no emoji presentation, unlike
+// U+2B50 "star" emoji, which does.
+// aircraft is the unitName (e.g. "F-16C") from Squad.cs's BuildStateJson — "" whenever this pilot
+// has nothing to report (dead, ejected, not spawned yet) or isn't visible at all right now, which
+// this renders as a blank 3rd column rather than any placeholder text/icon.
+function addSquadRow(number, name, aircraft, isLeaderRow, isSelf, memberId) {
   const row = document.createElement('div');
   row.className = 'sqd-row' + (isSelf ? ' self' : '');
 
@@ -146,17 +184,42 @@ function addSquadRow(number, name, isLeaderRow, isSelf, memberId) {
   nameEl.className = 'sqd-row-name';
   nameEl.textContent = name;
 
-  row.appendChild(tag); row.appendChild(nameEl);
+  const aircraftEl = document.createElement('span');
+  aircraftEl.className = 'sqd-row-aircraft';
+  if (aircraft) {
+    // Reuses the same /icon?type= endpoint MAP already draws its blips from (TelemetryServer.cs).
+    // getIconStatus (above) resolves each type at most once — 'ok' shows the icon, 'none' (or
+    // still 'pending' this render) shows just the name, with no per-render flash either way.
+    if (getIconStatus(aircraft) === 'ok') {
+      const icon = document.createElement('img');
+      icon.className = 'sqd-row-aircraft-icon';
+      icon.src = '/icon?type=' + encodeURIComponent(aircraft);
+      icon.alt = '';
+      aircraftEl.appendChild(icon);
+    }
+    aircraftEl.appendChild(document.createTextNode(aircraft));
+  }
+
+  row.appendChild(tag); row.appendChild(nameEl); row.appendChild(aircraftEl);
 
   if (isLeaderRow) {
+    // sqd-row-trailing: pushes this whole trailing group to the row's right edge explicitly
+    // (margin-left: auto), rather than leaning on .sqd-row-name's flex:1 to soak up the leftover
+    // space as a side effect — every other column stays left-aligned by default (no text-align
+    // rule touches them), only this last one is ever meant to hug the right edge.
     const mark = document.createElement('span');
-    mark.className = 'sqd-row-mark'; mark.textContent = 'LEADER';
+    mark.className = 'sqd-row-mark sqd-row-trailing'; mark.textContent = 'LEADER';
     row.appendChild(mark);
   } else if (state.role === 'leader') {
-    const btn = document.createElement('button');
-    btn.className = 'sqd-row-btn'; btn.textContent = 'MAKE LEADER';
-    btn.onclick = function () { relinquishTo(memberId); };
-    row.appendChild(btn);
+    const star = document.createElement('button');
+    star.className = 'sqd-row-icon-btn sqd-row-trailing'; star.textContent = '★'; star.title = 'Make leader';
+    star.onclick = function () { relinquishTo(memberId); };
+    row.appendChild(star);
+
+    const kickBtn = document.createElement('button');
+    kickBtn.className = 'sqd-row-icon-btn'; kickBtn.textContent = '×'; kickBtn.title = 'Kick from squad';
+    kickBtn.onclick = function () { kick(memberId); };
+    row.appendChild(kickBtn);
   }
   squadRows.appendChild(row);
 }
@@ -164,8 +227,23 @@ function addSquadRow(number, name, isLeaderRow, isSelf, memberId) {
 function renderSquad() {
   squadRows.innerHTML = '';
   const isLeader = state.role === 'leader';
-  const callsignLabel = state.callsign ? state.callsign + ' SQUAD' : 'YOUR SQUAD';
-  squadHead.textContent = callsignLabel + (isLeader ? ' — LEADER' : '');
+
+  // The callsign itself in --no-squad (theme.css, the same token WPT's SQD label and this row
+  // table's LEADER mark use) — a nested span rather than colouring the whole title, so "SQUAD"
+  // stays this page's normal heading colour.
+  squadHead.innerHTML = '';
+  const callsignSpan = document.createElement('span');
+  callsignSpan.className = 'sqd-squad-callsign';
+  callsignSpan.textContent = state.callsign || 'YOUR';
+  squadHead.appendChild(callsignSpan);
+  squadHead.appendChild(document.createTextNode(' SQUAD'));
+
+  callsignEditBtn.style.display = isLeader ? '' : 'none';
+  const showEdit = isLeader && editingCallsign;
+  squadHead.style.display = showEdit ? 'none' : '';
+  callsignEdit.style.display = showEdit ? '' : 'none';
+  callsignEditBtn.textContent = showEdit ? 'CANCEL' : 'EDIT';
+
   disbandBtn.style.display = isLeader ? '' : 'none';
 
   // Number 1 is always the leader — this pilot themselves when leading (state.selfName, since a
@@ -174,10 +252,11 @@ function renderSquad() {
   // _members list only ever appends, per its own header comment, so index IS join order) —
   // members[0] becomes 2, members[1] becomes 3, and so on.
   const leaderName = isLeader ? (state.selfName || '—') : (state.leaderName || state.leaderId);
-  addSquadRow(1, leaderName, true, isLeader, null);
+  const leaderAircraft = isLeader ? state.selfAircraft : state.leaderAircraft;
+  addSquadRow(1, leaderName, leaderAircraft, true, isLeader, null);
 
   state.members.forEach(function (m, i) {
-    addSquadRow(i + 2, m.name || m.id, false, m.id === state.self, m.id);
+    addSquadRow(i + 2, m.name || m.id, m.aircraft, false, m.id === state.self, m.id);
   });
 }
 

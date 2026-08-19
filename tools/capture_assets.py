@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
-"""Capture the real game-served assets from a running session, so the static
-preview can replay them instead of the synthetic mocks.
+"""Capture the real game-served assets from a running session, into their own
+timestamped folder — NOT the live preview/assets/ the mocked pages actually
+serve from. This never overwrites the current mock scenario; review what got
+captured (preview/captures/<timestamp>/manifest.json + the PNGs alongside it)
+and copy over only the specific entries you want, one at a time.
 
 Run this WHILE Nuclear Option is running with a mission loaded and you are flying
 (so /stream serves real telemetry and the map/icons have been extracted by the
@@ -9,19 +12,24 @@ mod). It pulls, from http://localhost:5005:
   • one real telemetry frame  (/stream)         → the static scenario
                                                    (includes AKF's kill feed/rank/funds, live —
                                                    score a few kills first if you want it populated)
-  • the map image             (/map)            → assets/map.png
-  • each unit type's icon      (/icon?type=...)  → assets/icon_*.png
-  • each weapon's icon         (/weapon?name=..) → assets/weapon_*.png
-  • HUD vehicle/building icons (/tgt-icon, /building-icon) → assets/tgt_icon_*, building_icon_*
-  • HUD category-row glyphs   (/hud-cat-icon)              → assets/hud_cat_icon_*
+  • the map image             (/map)            → map.png
+  • each unit type's icon      (/icon?type=...)  → icon_*.png
+                                                   (from your own aircraft, current HUD/radar
+                                                   contacts, AND every type the plugin has actually
+                                                   captured this session per /icon-types — that last
+                                                   one is what picks up squadmates' aircraft, which
+                                                   are never "contacts" but the plugin already has
+                                                   their icon from just being spawned in the mission)
+  • each weapon's icon         (/weapon?name=..) → weapon_*.png
+  • HUD vehicle/building icons (/tgt-icon, /building-icon) → tgt_icon_*.png, building_icon_*.png
+  • HUD category-row glyphs   (/hud-cat-icon)              → hud_cat_icon_*.png
 
-...and writes preview/assets/manifest.json describing them. Then run:
-
-    python tools/serve_web.py --open
-
-Units/weapons that have no icon in-game simply 404 and are skipped — the preview
-shows the same square fallback the real HUD uses for them.
+...and writes manifest.json describing them, all under one new
+preview/captures/<timestamp>/ folder. To bring a capture into the live preview,
+tell Claude which entries you want — it'll copy just those PNGs into
+preview/assets/ and merge their keys into preview/assets/manifest.json.
 """
+import datetime
 import json
 import pathlib
 import sys
@@ -31,7 +39,9 @@ import urllib.request
 
 BASE = "http://localhost:5005"
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-ASSETS = ROOT / "preview" / "assets"
+CAPTURES = ROOT / "preview" / "captures"   # each run gets its own subfolder here — preview/assets/
+                                            # (the LIVE mocked data serve_web.py actually reads) is
+                                            # never touched by this script anymore.
 PING_LIMIT = 30   # give up after this many "no mission" pings
 
 
@@ -77,13 +87,13 @@ def fetch(path):
 
 
 def main():
-    ASSETS.mkdir(parents=True, exist_ok=True)
+    out = CAPTURES / datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # Grab the live frame FIRST. If the server is unreachable / no mission loaded,
-    # we bail before touching any existing assets — otherwise a failed capture would
-    # wipe the previous good one, leaving the preview with nothing to render.
+    # Grab the live frame FIRST, before creating anything on disk — if the server is unreachable
+    # or no mission is loaded, bail out with nothing written at all.
     frame = grab_frame()
     print(f"\nCaptured frame: {frame.get('name')}  —  {frame.get('mapName')} / {frame.get('mission')}")
+    out.mkdir(parents=True, exist_ok=True)
 
     # AKF (docs/akf-page.md) rides the same /stream frame as everything else — no separate capture
     # step needed, preview-mock.js already forwards frame['akf'] verbatim. But it's a snapshot of
@@ -96,30 +106,33 @@ def main():
         print("  NOTE: AKF feed is empty — score/take a few kills in-game, then capture again if you"
               " want the AKF page preview populated.")
 
-    # We've confirmed the game is reachable — safe to clear stale assets now.
-    for old in ASSETS.glob("*.png"):
-        old.unlink()
-    (ASSETS / "manifest.json").unlink(missing_ok=True)
-
     assets = {}
 
     data = fetch("/map")
     if not data:
         sys.exit("ERROR: /map returned no image yet — wait for the map to load in-game, then retry.")
-    (ASSETS / "map.png").write_bytes(data)
-    assets["map"] = "assets/map.png"
+    (out / "map.png").write_bytes(data)
+    assets["map"] = "map.png"
     print(f"  map     saved   ({len(data):,} bytes)")
 
-    # Icons: the player aircraft plus every distinct contact type.
-    types = list(dict.fromkeys([frame.get("name", "")] + [c["t"] for c in frame.get("contacts", [])]))
+    # Icons: the player aircraft, every distinct contact type, AND every type the plugin has
+    # actually captured server-side this session (/icon-types) — that last source is what makes
+    # squadmates' aircraft show up here even though they're never a "contact" (radar/HUD
+    # detection): AssetCapture.TryCaptureIcon runs off ScanWorld's FindObjectsByType<Unit> scan,
+    # every Unit actually spawned in the mission, not just ones on the player's own sensors, so the
+    # plugin already has them captured; this script previously had no way to ask for them.
+    icon_types_data = fetch("/icon-types")
+    known_types = json.loads(icon_types_data.decode("utf-8")) if icon_types_data else []
+    types = list(dict.fromkeys(
+        [frame.get("name", "")] + [c["t"] for c in frame.get("contacts", [])] + known_types))
     for i, t in enumerate(t for t in types if t):
         data = fetch("/icon?type=" + urllib.parse.quote(t))
         if not data:
             print(f"  icon    (none)  {t}")
             continue
         fn = f"icon_{i}.png"
-        (ASSETS / fn).write_bytes(data)
-        assets["icon:" + t] = "assets/" + fn
+        (out / fn).write_bytes(data)
+        assets["icon:" + t] = fn
         print(f"  icon    saved   {t}")
 
     # Weapon icons, keyed by loadout display name.
@@ -130,8 +143,8 @@ def main():
             print(f"  weapon  (none)  {n}")
             continue
         fn = f"weapon_{i}.png"
-        (ASSETS / fn).write_bytes(data)
-        assets["weapon:" + n] = "assets/" + fn
+        (out / fn).write_bytes(data)
+        assets["weapon:" + n] = fn
         print(f"  weapon  saved   {n}")
 
     # HUD OPTIONS type-sprite icons: one per vehicle type and per building type. The names come from
@@ -151,8 +164,8 @@ def main():
                     print(f"  {key:12s} (none)  {name}")
                     continue
                 fn = f"{key.replace('-', '_')}_{i}.png"
-                (ASSETS / fn).write_bytes(data)
-                assets[key + ":" + name] = "assets/" + fn
+                (out / fn).write_bytes(data)
+                assets[key + ":" + name] = fn
                 print(f"  {key:12s} saved   {name}")
 
         # HUD OPTIONS category-row glyphs — AIRCRAFT/MISSILES/VEHICLES/BUILDINGS/SHIPS, keyed by the
@@ -165,8 +178,8 @@ def main():
                 print(f"  hud-cat-icon (none)  {label}")
                 continue
             fn = f"hud_cat_icon_{i}.png"
-            (ASSETS / fn).write_bytes(data)
-            assets["hud-cat-icon:" + label] = "assets/" + fn
+            (out / fn).write_bytes(data)
+            assets["hud-cat-icon:" + label] = fn
             print(f"  hud-cat-icon saved   {label}")
 
     # AVN airframe silhouette: background PNG + one PNG per UI segment + the layout JSON.
@@ -188,8 +201,8 @@ def main():
             bg = fetch(f"/airframe?type={urllib.parse.quote(af_type)}&part=__bg")
             if bg:
                 fn = "airframe_bg.png"
-                (ASSETS / fn).write_bytes(bg)
-                assets[f"airframe:{af_type}|__bg"] = "assets/" + fn
+                (out / fn).write_bytes(bg)
+                assets[f"airframe:{af_type}|__bg"] = fn
                 print(f"  airframe bg     saved   ({len(bg):,} bytes)")
             saved = 0
             for i, p in enumerate(layout.get("parts", [])):
@@ -198,8 +211,8 @@ def main():
                 data = fetch(f"/airframe?type={urllib.parse.quote(af_type)}&part={urllib.parse.quote(name)}")
                 if not data: continue
                 fn = f"airframe_part_{i}.png"
-                (ASSETS / fn).write_bytes(data)
-                assets[f"airframe:{af_type}|{name}"] = "assets/" + fn
+                (out / fn).write_bytes(data)
+                assets[f"airframe:{af_type}|{name}"] = fn
                 saved += 1
             print(f"  airframe parts  saved   {saved} for '{af_type}'")
         else:
@@ -224,16 +237,17 @@ def main():
             front_bg = fetch(f"/airframe?type={urllib.parse.quote(af_type)}&part=__front")
             if front_bg:
                 fn = "airframe_front.png"
-                (ASSETS / fn).write_bytes(front_bg)
-                assets[f"airframe:{af_type}|__front"] = "assets/" + fn
+                (out / fn).write_bytes(front_bg)
+                assets[f"airframe:{af_type}|__front"] = fn
                 print(f"  airframe front  saved   ({len(front_bg):,} bytes)")
         else:
             print(f"  airframe front  (none)  for '{af_type}' — capture again once you're in the cockpit")
 
-    (ASSETS / "manifest.json").write_text(
+    (out / "manifest.json").write_text(
         json.dumps({"frame": frame, "assets": assets}, indent=2), encoding="utf-8")
-    print(f"\nWrote {len(assets)} assets + manifest to {ASSETS.relative_to(ROOT)}")
-    print("Now run:  python tools/serve_web.py --open")
+    print(f"\nWrote {len(assets)} assets + manifest to {out.relative_to(ROOT)}")
+    print("This is a standalone capture — preview/assets/ (the live mock data) was NOT touched.")
+    print("Tell Claude which of these you want brought into the live preview and it'll merge them in.")
 
 
 if __name__ == "__main__":

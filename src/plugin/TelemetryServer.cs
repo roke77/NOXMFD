@@ -539,6 +539,17 @@ namespace NOXMFD
             lock (_iconLock) _icons[unitName] = png;
         }
 
+        // Every unit type icon captured so far this session, for tools/capture_assets.py — it used
+        // to only pull the player's own aircraft + whatever's in the current /stream frame's
+        // "contacts" list, silently missing anything the plugin HAD already captured via
+        // AssetCapture.TryCaptureIcon (which runs off ScanWorld's FindObjectsByType<Unit> scan —
+        // every Unit actually spawned in the mission, squadmates' aircraft included, not just
+        // radar/HUD contacts) but that never showed up as a contact in that one frame.
+        public static string[] IconTypes()
+        {
+            lock (_iconLock) { var keys = new string[_icons.Count]; _icons.Keys.CopyTo(keys, 0); return keys; }
+        }
+
         // Called from Unity main thread once a weapon type's icon has been extracted.
         public static void SetWeaponIcon(string name, byte[] png)
         {
@@ -637,6 +648,8 @@ namespace NOXMFD
                         ServeMap(ctx);
                     else if (path == "/icon")
                         ServePng(ctx, _icons, _iconLock, "type");
+                    else if (path == "/icon-types")
+                        ServeIconTypes(ctx);
                     else if (path == "/weapon")
                         ServePng(ctx, _weaponIcons, _weaponLock, "name");
                     else if (path == "/cm")
@@ -1436,6 +1449,31 @@ namespace NOXMFD
                 ctx.Response.ContentType     = "image/png";
                 ctx.Response.ContentLength64 = png.Length;
                 ctx.Response.OutputStream.Write(png, 0, png.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // Every captured unit-type icon's key, as a JSON string array — tools/capture_assets.py's
+        // own IconTypes() header comment has the full reasoning.
+        private static void ServeIconTypes(HttpListenerContext ctx)
+        {
+            try
+            {
+                string[] types = IconTypes();
+                var sb = new StringBuilder("[");
+                for (int i = 0; i < types.Length; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    sb.Append('"').Append(EscapeJson(types[i])).Append('"');
+                }
+                sb.Append(']');
+                byte[] bytes = Encoding.UTF8.GetBytes(sb.ToString());
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = bytes.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(bytes, 0, bytes.Length);
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }

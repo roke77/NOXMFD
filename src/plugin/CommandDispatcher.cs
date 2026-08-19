@@ -89,6 +89,7 @@ namespace NOXMFD
                 { "sqd.leave",      e => Squad.Leave() },
                 { "sqd.relinquish", e => Squad.RelinquishLeadership(TryPeer(e.peer, out ulong p) ? (ulong?)p : null) },
                 { "sqd.disband",    e => Squad.Disband() },
+                { "sqd.kick",       e => { if (TryPeer(e.peer, out ulong p)) Squad.Kick(p); } },
                 { "sqd.send",       e => Squad.SendData(e.type, e.payload) },
                 // Routes through Keybinds.SetCombatMode (not a bare assignment) so the WPN page's own
                 // A/A · A/G controls (bezel and F-35) get the same weapon auto-switch as the physical

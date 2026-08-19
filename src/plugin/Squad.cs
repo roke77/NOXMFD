@@ -157,6 +157,7 @@ namespace NOXMFD
                 case "sqd.roster":          HandleRoster(from, payload); break;
                 case "sqd.leave":           HandleLeave(from); break;
                 case "sqd.disband":         HandleDisband(from); break;
+                case "sqd.kick":            HandleKick(from); break;
                 case "sqd.transfer":        HandleTransfer(from, payload); break;
                 case "sqd.leader-changed":  HandleLeaderChanged(from, payload); break;
                 case "sqd.data":            HandleData(from, payload); break;
@@ -268,6 +269,22 @@ namespace NOXMFD
             _callsign = name;
             RebuildState();
             if (_role == Role.Leader) BroadcastRoster();
+            return true;
+        }
+
+        // Removes one member while the squad itself lives on — distinct from Disband (everyone) or
+        // a member's own Leave (voluntary): this is the leader ending it for THEM specifically.
+        // Tells the target via its own message (sqd.kick) rather than folding it into the next
+        // sqd.roster broadcast — the remaining members learn about it that way already, but the
+        // kicked pilot is no longer in _members by the time that broadcast goes out, so they'd never
+        // see themselves drop off a roster they're not on anymore.
+        internal static bool Kick(ulong memberId)
+        {
+            if (_role != Role.Leader || !RemoveMember(memberId)) return false;
+            Squadron.SendTo(memberId, "sqd.kick", "{}");
+            Squadron.CloseSession(memberId);
+            BroadcastRoster();
+            RebuildState();
             return true;
         }
 
@@ -388,6 +405,17 @@ namespace NOXMFD
             SetNotice("Your squad was disbanded by the leader.");
         }
 
+        // Same treatment as HandleDisband — the squad this pilot was in is over FOR THEM either
+        // way, so the read-only/pending-share cleanup (OnSquadEnded) applies here too.
+        private static void HandleKick(ulong from)
+        {
+            if (_role != Role.Member || from != _leaderId) return;
+            Squadron.CloseSession(_leaderId);
+            ResetToNone();
+            RouteStore.OnSquadEnded();
+            SetNotice("You were removed from the squad by the leader.");
+        }
+
         private static void HandleTransfer(ulong from, string payload)
         {
             // Anyone can send this, but it's only meaningful right after being named a successor —
@@ -505,6 +533,15 @@ namespace NOXMFD
             catch { return string.Empty; }
         }
 
+        // This pilot's own current aircraft type (unitName), same field the map icon and HUD
+        // readouts already key off — "" whenever there's nothing to report (dead, ejected, not
+        // spawned yet, or between missions). Used for SQD's own roster row when leading a squad;
+        // a MEMBER's own row instead comes through PlayerRoster.AircraftFor like everyone else's,
+        // since state.members already carries self when viewing as a member (see MembersJsonServed).
+        private static string SelfAircraftUnitName() =>
+            GameManager.GetLocalAircraft(out Aircraft ac) && ac != null && ac.definition != null
+                ? (ac.definition.unitName ?? string.Empty) : string.Empty;
+
         private static string Esc(string s) => TelemetryServer.EscapeJson(s ?? string.Empty);
 
         private static string MembersJson(IEnumerable<Member> members)
@@ -517,6 +554,28 @@ namespace NOXMFD
                 first = false;
                 sb.Append("{\"id\":\"").Append(m.Id.ToString(CultureInfo.InvariantCulture))
                   .Append("\",\"name\":\"").Append(Esc(m.Name)).Append("\"}");
+            }
+            sb.Append(']');
+            return sb.ToString();
+        }
+
+        // Same shape as MembersJson PLUS each member's current aircraft — SERVED view only (never
+        // sent over Squadron: aircraft is a plain Player.Aircraft SyncVar every client can already
+        // read locally via PlayerRoster, so there's nothing useful to relay peer-to-peer, and a
+        // value relayed from someone else's client wouldn't be trustworthy anyway). Recomputed
+        // fresh from PlayerRoster.AircraftFor on every /squad poll, same "" -> empty-column
+        // fallback SQD's own header comment on this feature describes.
+        private static string MembersJsonServed(IEnumerable<Member> members)
+        {
+            var sb = new StringBuilder("[");
+            bool first = true;
+            foreach (var m in members)
+            {
+                if (!first) sb.Append(',');
+                first = false;
+                sb.Append("{\"id\":\"").Append(m.Id.ToString(CultureInfo.InvariantCulture))
+                  .Append("\",\"name\":\"").Append(Esc(m.Name))
+                  .Append("\",\"aircraft\":\"").Append(Esc(PlayerRoster.AircraftFor(m.Id))).Append("\"}");
             }
             sb.Append(']');
             return sb.ToString();
@@ -575,10 +634,19 @@ namespace NOXMFD
             // else's), but it costs nothing to always include, so the client doesn't need to know
             // which role makes it meaningful.
             sb.Append(",\"selfName\":\"").Append(Esc(SelfName())).Append('"');
+            // Same "only meaningful while leading" caveat as selfName — SelfAircraftUnitName's own
+            // header comment covers why a MEMBER's own row doesn't need this field at all.
+            sb.Append(",\"selfAircraft\":\"").Append(Esc(SelfAircraftUnitName())).Append('"');
             sb.Append(",\"leaderId\":\"").Append(_leaderId.ToString(CultureInfo.InvariantCulture)).Append('"');
             sb.Append(",\"leaderName\":\"").Append(Esc(_leaderName)).Append('"');
+            // The LEADER's aircraft, as seen through THIS pilot's own same-faction visibility — only
+            // meaningful as a MEMBER (as leader, the equivalent value is selfAircraft above); the
+            // leader row never comes from MembersJsonServed at all (_members excludes the leader by
+            // definition — see the field's own header comment), so it needs its own lookup here.
+            sb.Append(",\"leaderAircraft\":\"")
+              .Append(Esc(_role == Role.Member ? PlayerRoster.AircraftFor(_leaderId) : string.Empty)).Append('"');
             sb.Append(",\"callsign\":\"").Append(Esc(_callsign)).Append('"');
-            sb.Append(",\"members\":").Append(MembersJson(_members));
+            sb.Append(",\"members\":").Append(MembersJsonServed(_members));
             if (_pendingReceived != null)
             {
                 var inv = _pendingReceived.Value;

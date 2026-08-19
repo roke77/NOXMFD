@@ -256,26 +256,36 @@ def _rates_config():
 # exercise both the "awaiting response" and "joined" UI states. sqd.send is accepted and dropped,
 # since there is no real peer here to receive it.
 #
-# Default state below is a squad MEMBER in a 4-player squad (this pilot + 2 squadmates, led by
-# Foxtrot) — the same scenario _wpt_options() defaults to: RT-6CA67's "sharedBy": "Foxtrot" is a
-# route already accepted from this leader, and the pendingShared entry is a second, newer route
-# the same leader just sent. SQD and WPT tell one consistent story out of the box this way, instead
-# of SQD showing "no squad" (or a different leader) while WPT shows routes shared by someone else.
+# Default state below is this pilot as the squad LEADER of a 4-player squad "TALON" (self + 3
+# members) — exercises the leader-only UI (callsign section, INVITE roster, DISBAND, MAKE LEADER
+# on every member row) without any interaction needed. NOTE this deliberately does NOT match
+# _wpt_options()'s own default scenario, which is a squad MEMBER who accepted a route from leader
+# "Foxtrot" — a leader can't hold a pending/accepted share from themselves, so once one of these
+# two mocks needs to show the leader's own view, "SQD and WPT agree on one persona" can't hold for
+# both at once. Foxtrot is kept as an ordinary member here (rather than invented as someone new)
+# so the SQD roster still visually connects to WPT's cast, even though the leadership assignment
+# itself now differs between the two pages' default states.
 _SERVER_PLAYERS = [
     {"id": "76561198000000005", "name": "Widow"},
     {"id": "76561198000000006", "name": "Reaper"},
 ]
 _SQD_SELF = "76561198000000001"
 _SQD_SELF_NAME = "Falcon"   # only meaningful while role == leader — see _squad_state's selfName
+# Only meaningful while role == leader too (see _squad_state's selfAircraft). None of these three
+# have a captured /icon in this harness (preview/assets/manifest.json only has "T/A-30 Compass" —
+# same as the real plugin: AssetCapture only ever captures a type actually seen in a mission), so
+# the icon renders blank for all of them; only the text name shows. "KR-67 Ifrit" is the one exact
+# unitName confirmed elsewhere in this codebase (AssetCapture.cs's own comments); Medusa/Vortex are
+# used bare — no confirmed prefix code found in this repo or the game assembly.
+_SQD_SELF_AIRCRAFT = "Medusa"
 _SQD = {
-    "role": "member", "leaderId": "76561198000000002", "leaderName": "Foxtrot", "callsign": "TALON",
+    # leaderId/leaderName stay "" while role == leader — Squad.cs never sets them for its own
+    # leader (BuildStateJson), only for a MEMBER's view of who leads them.
+    "role": "leader", "leaderId": "", "leaderName": "", "callsign": "TALON",
     "members": [
-        # The leader's roster broadcast lists every accepted member, self included — not just
-        # "the others" (Squad.cs's RosterEnvelope/MembersJson, sent identically to everyone via
-        # SendToAll) — so this pilot's own entry belongs in this list too, same as the real thing.
-        {"id": _SQD_SELF,             "name": _SQD_SELF_NAME},
-        {"id": "76561198000000003",   "name": "Ghost"},
-        {"id": "76561198000000004",   "name": "Havoc"},
+        {"id": "76561198000000002",   "name": "Foxtrot", "aircraft": "KR-67 Ifrit"},
+        {"id": "76561198000000003",   "name": "Ghost",   "aircraft": "Vortex"},
+        {"id": "76561198000000004",   "name": "Havoc",   "aircraft": "Vortex"},
     ],
     "pendingSent": {}, "pendingInvite": None,
     "noticeSeq": 0, "notice": "",
@@ -296,11 +306,16 @@ def _squad_state():
     for peer in accepted:
         name = next((p["name"] for p in _SERVER_PLAYERS if p["id"] == peer), peer)
         if not any(m["id"] == peer for m in _SQD["members"]):
-            _SQD["members"].append({"id": peer, "name": name})
+            _SQD["members"].append({"id": peer, "name": name, "aircraft": ""})
 
     state = {
         "role": _SQD["role"], "self": _SQD_SELF, "selfName": _SQD_SELF_NAME,
-        "leaderId": _SQD["leaderId"], "leaderName": _SQD["leaderName"], "callsign": _SQD["callsign"],
+        "selfAircraft": _SQD_SELF_AIRCRAFT if _SQD["role"] == "leader" else "",
+        "leaderId": _SQD["leaderId"], "leaderName": _SQD["leaderName"],
+        # Never actually exercised — this mock's role never flips to "member" (no simulated
+        # incoming invite exists to accept), see the module comment above.
+        "leaderAircraft": "",
+        "callsign": _SQD["callsign"],
         "members": _SQD["members"],
         "pendingInvite": _SQD["pendingInvite"],
         "pendingSent": [
@@ -337,6 +352,10 @@ def _squad_command(env):
         name = str(env.get("name") or "").strip()[:20]
         if name:
             _SQD["callsign"] = name
+    elif cmd == "sqd.kick":
+        if _SQD["role"] != "leader":
+            return
+        _SQD["members"] = [m for m in _SQD["members"] if m["id"] != peer]
     elif cmd in ("sqd.leave", "sqd.disband"):
         _SQD["role"] = "none"; _SQD["leaderId"] = ""; _SQD["leaderName"] = ""; _SQD["callsign"] = ""
         _SQD["members"] = []; _SQD["pendingSent"] = {}
