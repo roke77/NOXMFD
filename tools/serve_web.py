@@ -271,21 +271,18 @@ _SERVER_PLAYERS = [
 ]
 _SQD_SELF = "76561198000000001"
 _SQD_SELF_NAME = "Falcon"   # only meaningful while role == leader — see _squad_state's selfName
-# Only meaningful while role == leader too (see _squad_state's selfAircraft). None of these three
-# have a captured /icon in this harness (preview/assets/manifest.json only has "T/A-30 Compass" —
-# same as the real plugin: AssetCapture only ever captures a type actually seen in a mission), so
-# the icon renders blank for all of them; only the text name shows. "KR-67 Ifrit" is the one exact
-# unitName confirmed elsewhere in this codebase (AssetCapture.cs's own comments); Medusa/Vortex are
-# used bare — no confirmed prefix code found in this repo or the game assembly.
-_SQD_SELF_AIRCRAFT = "Medusa"
+# Only meaningful while role == leader too (see _squad_state's selfAircraft). All four aircraft
+# below now have real captured icons in preview/assets/manifest.json (from actual in-game capture
+# sessions — see preview/captures/), pulled in from live captures rather than guessed names.
+_SQD_SELF_AIRCRAFT = "EW-25 Medusa"
 _SQD = {
     # leaderId/leaderName stay "" while role == leader — Squad.cs never sets them for its own
     # leader (BuildStateJson), only for a MEMBER's view of who leads them.
     "role": "leader", "leaderId": "", "leaderName": "", "callsign": "TALON",
     "members": [
         {"id": "76561198000000002",   "name": "Foxtrot", "aircraft": "KR-67 Ifrit"},
-        {"id": "76561198000000003",   "name": "Ghost",   "aircraft": "Vortex"},
-        {"id": "76561198000000004",   "name": "Havoc",   "aircraft": "Vortex"},
+        {"id": "76561198000000003",   "name": "Ghost",   "aircraft": "FS-12 Revoker"},
+        {"id": "76561198000000004",   "name": "Havoc",   "aircraft": "FS-12 Revoker"},
     ],
     "pendingSent": {}, "pendingInvite": None,
     "noticeSeq": 0, "notice": "",
