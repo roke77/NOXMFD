@@ -36,6 +36,12 @@
     rates: '/rates',
     wpt: '/wpt',
     sqd: '/sqd',
+    // EXT hub (docs/extensions-api.md) — always the EXT dispatch's landing page, regardless of
+    // how many extensions are installed. Its own content distinguishes "none installed" from
+    // "pick one below"; the picking itself happens via NAV.ext's per-extension entries, each its
+    // own /ext/<id> destination (not listed here — see ExtNav.isExtensionPage's fallback in
+    // paneUrl/frameUrlFor/F35_PAGES' `has`).
+    ext: '/ext',
   };
 
   // Classic bezel, SPLIT panes — the same destinations served ?bare, plus MAIN and MAP, which do
@@ -61,6 +67,7 @@
     rates: '/rates?bare',
     wpt: '/wpt?bare',
     sqd: '/sqd?bare',
+    ext: '/ext?bare',
   };
 
   // F-35 glass — the page each portal mounts. MAIN maps to no page and `null` is meaningful there
@@ -90,6 +97,7 @@
     rates: '/rates',
     wpt: '/wpt',
     sqd: '/sqd',
+    ext: '/ext',
   };
 
   const api = { CLASSIC_FULL, CLASSIC_SPLIT, F35 };

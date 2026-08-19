@@ -71,6 +71,13 @@ const pageFrame = document.getElementById('page-frame');   // full-view host for
 // switches the frame's src as you move between them. This layout's full-view half of
 // layout-pages.js — see PAGE_URL below for the split-pane half.
 const FRAME_PAGES = LayoutPages.CLASSIC_FULL;
+// Extension pages (docs/extensions-api.md) have no entry in FRAME_PAGES/PAGE_URL — their URL is
+// always /ext/<id> (or ?bare for a split pane), computed generically instead of hand-authored
+// per extension, which is the whole point of this surface. Every FRAME_PAGES[name] lookup that
+// decides whether/where a page renders goes through this instead of the raw table.
+function frameUrlFor(name) {
+  return FRAME_PAGES[name] || (ExtNav.isExtensionPage(name) ? '/ext/' + name : undefined);
+}
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
@@ -110,29 +117,28 @@ function fullViewSlot(i) { return i < 6 ? { bank: 'left', index: i } : { bank: '
 const BEZEL_EXTRAS = {
   // CFG, MDT, RDR, AFM and SQD — the layout-owned MAIN items the six shared NAV items don't
   // cover. CFG opens the CFG group (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39, HUD joined
-  // 2026-08-20 and, like RTS, has no MAIN entry of its own anymore), landing on HUD by default
+  // that group and, like RTS, has no MAIN entry of its own anymore), landing on HUD by default
   // (mirrors MDT's own sibling group below: action names whichever sibling is the landing page,
   // same as MDT staying 'akf'); MDT (Mission Data Table) folds AKF/MIS/OBJ/BDF/PAL together
   // — landing on AKF by default (issue #34 follow-up; the other four are a switch away via
   // NAV.akf/NAV.mis/NAV.obj/NAV.bdf/NAV.pal) rather than its own MAIN entry; AFM shows the aircraft
-  // name + damage silhouette (split out of AVN, which is avionics only now).
+  // name + damage silhouette (split out of AVN, which is avionics only now); SQD is squad
+  // membership/invites (docs/squadron-transport.md).
   // All are frame-hosted pages that get their MAIN back from NAV like every other, so none needs an
   // entry of its own here beyond this one.
   // No bank/index/mark here (unlike lyt below): MAIN_SPLIT_ITEMS is the only consumer, in both full
   // view and split (showPage / renderSplitLabels' 'main' branch), and it places by alphabetical
   // order, not a fixed key.
   main: [
-    { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now (2026-08-20)
+    { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now
     { label: 'MDT', action: 'akf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
     { label: 'SQD', action: 'sqd' },   // → SQD squad page (docs/squadron-transport.md)
-    // Stub for a future Extensions page — occupies the MAIN slot now so it's already in place
-    // when that page exists, but wired to nothing yet: no case in mfdButton, no showFramePage
-    // call, no layout-pages.js entry, no F35_PAGES entry. `pending` dims it and skips its click
-    // (placeOverlayLabel/placeSplitKey) the same way f35.js's canDo()-driven '.nav-item.pending'
-    // already dims an action with no F35_PAGES entry — same idiom, both layouts, one flag.
-    { label: 'EXT', action: 'ext', pending: true },
+    // EXT is NOT here — it's a real, shared NAV.main entry now (docs/extensions-api.md), not a
+    // layout-owned stub. This used to be a `pending: true` placeholder occupying the MAIN slot
+    // ahead of the real extension system; now that NAV.main carries EXT itself, keeping a second
+    // entry here would render a duplicate "EXT" label.
   ],
   // No MAIN back-item under lyt here — picking CLASSIC already navigates back to MAIN (this shell),
   // so a separate way-back label would be redundant with it.
@@ -272,7 +278,7 @@ const SPLIT_SLOTS = SplitSlots.SPLIT_SLOTS;
 // the F-35's table so the two can't quietly diverge. Pages without an entry render 'about:blank'
 // on navigation (paneUrl), a no-op signal rather than a crash.
 const PAGE_URL = LayoutPages.CLASSIC_SPLIT;
-function paneUrl(page) { return PAGE_URL[page] || 'about:blank'; }
+function paneUrl(page) { return PAGE_URL[page] || (ExtNav.isExtensionPage(page) ? '/ext/' + page + '?bare' : 'about:blank'); }
 
 // Map a pane's pane-local (side, slot) label position to the physical bezel key {bank, index}
 // for the current split orientation (see split-keymap.js). Used by every split-mode key placer.
@@ -385,8 +391,8 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // horizontal, not cramped enough to need the narrow vertical treatment.
 // KEY is not in this list either (cfg-rates experiment, issue #39): the CFG group's nav labels
 // read fine horizontal, per user preference — its table header sits far enough from the bezel edge.
-// HUD moved out of this list too (2026-08-20, joined the CFG group): its own CSS now reserves top
-// clearance for a horizontal label instead of standing the label up (hud.css).
+// HUD is not in this list either (joined the CFG group): its own CSS now reserves top clearance for
+// a horizontal label instead of standing the label up (hud.css).
 function isVmainPage(p) { return p === 'tgt' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
@@ -749,6 +755,21 @@ function forwardTgpToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage({ mfd: true, type: 'tgp', active: tgpActive }, '*');
 }
+// Extension pages (docs/extensions-api.md) — ONE generic forward pair for every installed
+// extension, unlike every page above which gets its own. An extension's page always receives
+// the same shape regardless of which one it is: {mfd:true, type:'ext', data:<its last published
+// slice>}. `page` is the extension's own id, doubling as its NAV/FRAME_PAGES-fallback page name.
+function forwardExtToPanes(page) {
+  paneIframes.forEach(function(iframe, idx) {
+    if (panePages[idx] !== page) return;
+    if (!iframe.contentWindow) return;
+    iframe.contentWindow.postMessage({ mfd: true, type: 'ext', data: extData[page] }, '*');
+  });
+}
+function forwardExtToFrame(page) {
+  const w = frameWin(); if (!w) return;
+  w.postMessage({ mfd: true, type: 'ext', data: extData[page] }, '*');
+}
 function forwardRwrToPanes() {
   paneIframes.forEach(function(iframe, idx) {
     if (panePages[idx] !== 'rwr') return;
@@ -1016,7 +1037,7 @@ function frameWin() { return pageFrame && pageFrame.contentWindow; }
 // docs/src-architecture.md's "Shell hooks" section; classic-button-wiring.test.js is the backstop
 // if either is missed.
 function showFramePage(name) {
-  const url = FRAME_PAGES[name];
+  const url = frameUrlFor(name);
   if (url && pageFrame.getAttribute('src') !== url) pageFrame.src = url;
 }
 
@@ -1212,6 +1233,11 @@ function broadcastOrientation() { paneIframes.forEach(forwardOrientationToPane);
 orientMq.addEventListener('change', function() { applyShellOrientation(); broadcastOrientation(); });
 applyShellOrientation();
 
+// Extension nav discovery (docs/extensions-api.md) — fetches /ext-manifest once and merges
+// installed extensions into NAV.ext / NAV[<id>]. Fire-and-forget: a pilot can't reach EXT
+// before this same-origin local fetch resolves in practice.
+ExtNav.load(NAV);
+
 // On pane iframe load, push the latest snapshot for whichever page that pane is
 // rendering — the page may have been mid-update at the moment its iframe started
 // loading — plus the current app orientation (every bare page can use it).
@@ -1233,6 +1259,7 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'obj')  forwardObjToPanes();
     else if (page === 'wpt')  forwardWptToPanes();
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
+    else if (ExtNav.isExtensionPage(page)) forwardExtToPanes(page);
     // docs/page-cursor.md, docs/map-cursor.md: a fresh document means a fresh message listener, so
     // any earlier cursor-focus post (sent the moment this pane's src changed, before its script had
     // attached one) was silently dropped — a straight re-run of syncCursorFocus() wouldn't resend it
@@ -1247,7 +1274,7 @@ paneIframes.forEach(function(iframe, idx) {
 // Full-view frame load: push the current snapshot once it's ready (it may have started loading
 // mid-update, or its src just switched between frame pages), plus orientation + layout geometry.
 pageFrame.addEventListener('load', function() {
-  if (splitMode || !FRAME_PAGES[currentPage]) return;
+  if (splitMode || !frameUrlFor(currentPage)) return;
   forwardOrientationToPane(pageFrame);
   if (currentPage === 'wpn')      { forwardWpnLayoutToFrame(); forwardWpnToFrame(); forwardCmToFrame(); }
   else if (currentPage === 'tgp') { forwardTgpToFrame(); }
@@ -1262,6 +1289,7 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'obj') { forwardObjToFrame(); }
   else if (currentPage === 'akf') { forwardAkfToFrame(); }
   else if (currentPage === 'wpt') { forwardWptToFrame(); }
+  else if (ExtNav.isExtensionPage(currentPage)) forwardExtToFrame(currentPage);
   // docs/page-cursor.md: full-view TGT/HUD render in the shared #page-frame, which reloads (fresh
   // document, fresh listener) on every navigation onto the page — same dropped-cursor-focus gap
   // the split-pane fix above closes, just for the full-view frame instead of a pane.
@@ -1396,6 +1424,11 @@ let cmData = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 // produced, and back to false during the 3-second post-loss hold's expiry.
 let tgpActive = false;
 
+// Latest published slice per installed extension (docs/extensions-api.md), keyed by extension
+// id — mirrored from the map iframe the same way as every other slice above, just for a
+// runtime-discovered set of keys instead of one fixed field.
+const extData = {};
+
 // Latest selected-target list mirrored from the map iframe. The TGT page renders it under its
 // filters (forwardTgtTargetsToFrame) — the whole list, unpaginated, since that page scrolls.
 let targetsData = { targets: [] };
@@ -1503,7 +1536,7 @@ function showPage(name) {
   // See .overlay.vmain in mfd.css and isVmainPage below.
   overlayEl.classList.toggle('vmain', isVmainPage(name));
   infoBox.classList.toggle('show', name === 'main');
-  screenEl.classList.toggle('page-on', !!FRAME_PAGES[name]);   // WPN/TGT/TGP/AVN render in #page-frame
+  screenEl.classList.toggle('page-on', !!frameUrlFor(name));   // WPN/TGT/TGP/AVN render in #page-frame
   clearKeyActions();
   // Only wipe dynamic line-select labels (+ WPN's purely-decorative MASTER/MODE and MAP's ZOOM
   // labels, docs/radar-master-arms.md, issue #41); static children (info-box) stay put.
@@ -1640,6 +1673,9 @@ function showPage(name) {
   // RTS (cfg-rates experiment, issue #39) renders in #page-frame too — same self-driven shape as
   // KEY/HUD: it polls /rates-config and POSTs its own rates.set commands.
   if (name === 'rates') showFramePage('rates');
+  // EXT's static "no extensions installed" fallback (docs/extensions-api.md) — fully static,
+  // no data to forward, unlike the ExtNav.isExtensionPage branch below for a real extension.
+  if (name === 'ext') showFramePage('ext');
   // WPT (issue #38) renders in #page-frame too — unlike KEY/RTS it isn't self-driven: it needs the
   // mapinfo slice (own-ship position/heading + map meta) forwarded for its readout.
   if (name === 'wpt') {
@@ -1649,6 +1685,12 @@ function showPage(name) {
   // SQD (docs/squadron-transport.md) renders in #page-frame too — self-driven like HUD/KEY/RTS: it
   // polls /squad and /server-players itself, so the shell forwards it nothing.
   if (name === 'sqd') showFramePage('sqd');
+  // Extension pages (docs/extensions-api.md) render in #page-frame too. Same shape as TGP —
+  // static MAIN label, no extra nav wiring, just forward the extension's last published slice.
+  if (ExtNav.isExtensionPage(name)) {
+    showFramePage(name);
+    forwardExtToFrame(name);
+  }
 
   // refreshFollowIndicator (not just renderIndicators) because the FOLLOW chip's membership
   // depends on currentPage, which just changed: entering MAP with follow already on must add the
@@ -1756,6 +1798,15 @@ window.addEventListener('message', function(e) {
     // Only matters while the TGP page is in view — outside it the frame/pane isn't shown.
     if (currentPage === 'tgp' && !splitMode) forwardTgpToFrame();
     if (splitMode) forwardTgpToPanes();
+  } else if (m.type.indexOf('ext_') === 0) {
+    // Extension telemetry (docs/extensions-api.md) — one generic branch for every installed
+    // extension's slice, keyed by the 'ext_<id>' type telemetry-source.js posts up. `page` here
+    // IS the extension's own id (see forwardExtToPanes/Frame — the same string doubles as the
+    // page name FRAME_PAGES/PAGE_URL fall back on).
+    const page = m.type.slice(4);
+    extData[page] = m.data;
+    if (currentPage === page && !splitMode) forwardExtToFrame(page);
+    if (splitMode) forwardExtToPanes(page);
   } else if (m.type === 'avn') {
     avnData = {
       name: m.name || null,
@@ -2240,6 +2291,11 @@ function mfdButton(el) {
     case 'combat-mode-aa':  sendCommand('combat-mode.set', { group: 'aa'  }).catch(function() {}); break;
     case 'combat-mode-ag':  sendCommand('combat-mode.set', { group: 'ag'  }).catch(function() {}); break;
     case 'tgp':  showPage('tgp');  break;
+    // EXT (docs/extensions-api.md) always lands on the EXT hub itself — NAV.ext (ext-nav.js)
+    // lists MAIN plus one entry per installed extension, rendered as ordinary full-view keys by
+    // the generic NAV sweep in showPage. Picking one of THOSE is handled by the `default` case
+    // below, since an extension id is a runtime string, not a literal `case` this switch can name.
+    case 'ext':  showPage('ext'); break;
     case 'hud':  showPage('hud');  break;
     case 'keys':  showPage('keys');  break;
     case 'rates': showPage('rates'); break;   // cfg-rates experiment (issue #39) — CFG group's RTS
@@ -2331,6 +2387,12 @@ function mfdButton(el) {
       renderIndicators();
       break;
     }
+    // Every other case above is a literal, authored page id — an installed extension's is a
+    // runtime string (its manifest id), so it can't be one of them. Mirrors f35.js dispatch's
+    // `if (has(action)) showPage(action)` tail.
+    default:
+      if (ExtNav.isExtensionPage(el.dataset.action)) showPage(el.dataset.action);
+      break;
   }
 }
 

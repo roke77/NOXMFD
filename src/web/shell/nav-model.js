@@ -37,8 +37,16 @@
       { label: 'TGP', action: 'tgp' },     // → TGP page
       { label: 'TGT', action: 'tgt' },     // → TGT page (target-selection filter)
       { label: 'WPN', action: 'wpn' },     // → WPN page
+      { label: 'EXT', action: 'ext' },     // → the EXT hub page (docs/extensions-api.md)
     ],
     tgp: [ { label: 'MAIN', action: 'main' } ],   // ← back to MAIN
+    // EXT (docs/extensions-api.md) — unlike every other entry here, this one's CONTENTS are
+    // discovered at runtime, not authored: src/web/shell/ext-nav.js fetches /ext-manifest once
+    // at boot and appends one item per installed extension after this MAIN baseline. An
+    // extension's own page gets a matching NAV[<its id>], set the same way. Kept here (not
+    // just in ext-nav.js) so a page loaded before that fetch resolves still has a working
+    // MAIN back-link instead of an empty nav.
+    ext: [ { label: 'MAIN', action: 'main' } ],
     avn: [ { label: 'MAIN', action: 'main' } ],
     afm: [ { label: 'MAIN', action: 'main' } ],   // Airframe page — name + damage silhouette
     rwr: [ { label: 'MAIN', action: 'main' } ],
@@ -95,12 +103,12 @@
       { label: 'BDF',  action: 'bdf' },
       { label: 'PAL',  action: 'pal', mark: true },
     ],
-    // CFG (cfg-rates experiment, issue #39) folds KEY, LYT and RTS under one MAIN entry — same
+    // CFG (cfg-rates experiment, issue #39) folds HUD, KEY, LYT and RTS under one MAIN entry — same
     // pattern as BDF/PAL/MIS/OBJ above. LYT's action is the pre-existing CLASSIC/F-35 chooser
     // (mfd.js BEZEL_EXTRAS.lyt / f35.js GLASS_ACTIONS.lyt) — only its entry point moved here, its
-    // own rendering is untouched. HUD joined the group later (2026-08-20): it no longer has a MAIN
-    // entry of its own (BEZEL_EXTRAS.main), only this sub-nav row, same as RTS never having one —
-    // and CFG's own MAIN-entry action was repointed from 'keys' to 'hud', so CFG now lands here.
+    // own rendering is untouched. HUD joined the group later: it no longer has a MAIN entry of its
+    // own (BEZEL_EXTRAS.main) — CFG's own MAIN-entry action was repointed from 'keys' to 'hud', so
+    // CFG now lands here.
     hud: [
       { label: 'MAIN', action: 'main' },
       { label: 'HUD',  action: 'hud', mark: true },

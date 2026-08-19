@@ -17,10 +17,10 @@ html, body {
   height: 100%;
   overflow-y: auto;
   padding: 12px 14px;
-  /* Capped + centered, not full-width: both shells draw the WHOLE CFG group (MAIN/HUD/KEY/LYT/RTS,
-     2026-08-20 — HUD joined that sub-nav) down the left edge now, one label per row, not just a
-     single MAIN at the top — the same column KEY's/RTS's own pages already clear this exact way
-     (keybinds.css .kb-panel, rates.css .rts-panel), rather than reserving space with padding. */
+  /* Capped + centered, not full-width: both shells draw the WHOLE CFG group (MAIN/HUD/KEY/LYT/RTS)
+     down the left edge now, one label per row, not just a single MAIN at the top — the same column
+     KEY's/RTS's own pages already clear this exact way (keybinds.css .kb-panel, rates.css
+     .rts-panel), rather than reserving space with padding. */
   max-width: 720px;
   margin: 0 auto;
   display: flex;

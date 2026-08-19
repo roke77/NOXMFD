@@ -24,6 +24,7 @@ any web browser, on the same PC or on another device on the same network.
   - [Immersion Options](#immersion-options)
 - [Reporting & collaboration](#reporting--collaboration)
 - [Mod compatibility](#mod-compatibility)
+- [Extensions](#extensions)
 - [Security & privacy](#security--privacy)
 - [License](#license)
 
@@ -49,7 +50,7 @@ NO XMFD for you, and keeps it up to date.
 2. **Find "Nuclear Option eXternal MFD"** in NOMM's mod list and install it. NOMM pulls in
    BepInEx automatically if it isn't already present.
 3. **Launch the game** and open `http://localhost:5005/` in a browser. To reach it from a
-   tablet or phone on your network, see [docs/networking.md](docs/networking.md).
+   tablet or phone on your network, see [NETWORKING.md](NETWORKING.md).
 
 </details>
 
@@ -69,7 +70,7 @@ NO XMFD for you, and keeps it up to date.
 
 4. **Launch the game.** Open `http://localhost:5005/` in a browser to see the
    display. To reach it from a tablet or phone on your network, see
-   [docs/networking.md](docs/networking.md).
+   [NETWORKING.md](NETWORKING.md).
 
 </details>
 
@@ -444,6 +445,13 @@ None of this is unique to NO XMFD — it's the standard risk profile of any
 BepInEx mod that reads input or patches game code. Uninstalling one of the two
 mods is the fastest way to confirm which side a conflict is coming from.
 
+## Extensions
+
+NO XMFD supports third-party extensions that add their own MFD pages. A separate BepInEx plugin can declare a dependency on
+NO XMFD and register its own page at runtime — no fork of this repo, no pull request — and it
+shows up automatically under the **EXT** nav alongside NO XMFD's own pages. See
+[EXTENSIONS.md](EXTENSIONS.md) for the full guide to building one.
+
 ## Security & privacy
 
 NO XMFD is open source and runs entirely on your machine and local network — it
@@ -453,7 +461,7 @@ for its own port. Like all BepInEx mods it runs unsandboxed, so it's worth
 knowing exactly what it can access: see **[SECURITY.md](SECURITY.md)** for the
 full capability disclosure, the one network caveat (the LAN server is
 unauthenticated), and how to verify the build yourself. Network/firewall setup
-is covered in [docs/networking.md](docs/networking.md).
+is covered in [NETWORKING.md](NETWORKING.md).
 
 ## License
 

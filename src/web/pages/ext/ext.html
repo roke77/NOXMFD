@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — EXT</title>
+<!--
+  EXT hub, served at /ext (docs/extensions-api.md) — always the EXT dispatch's landing page,
+  whether zero or several extensions are installed. NAV.ext (ext-nav.js) already lists MAIN plus
+  one entry per installed extension as ordinary nav keys in the surrounding bezel/glass chrome, so
+  this page's own content only needs to show while there's nothing to pick from there — once at
+  least one extension is installed, the nav chrome alone is enough and this stays blank rather
+  than showing a redundant "pick one" message. One fetch on load is enough — the extension set is
+  fixed for the whole session (BepInEx doesn't hot-reload plugins), so it can't change under the
+  page while it's open.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+</head>
+<body>
+  <div class="mfd-empty" id="ext-empty">
+    <span class="mfd-empty-title">EXT</span>&mdash; NO EXTENSIONS INSTALLED &mdash;
+  </div>
+<script>
+  fetch('/ext-manifest').then(function (r) { return r.ok ? r.json() : []; })
+    .then(function (items) {
+      if (Array.isArray(items) && items.length > 0)
+        document.getElementById('ext-empty').style.display = 'none';
+    })
+    .catch(function () { /* unreachable — same as "no extensions installed" */ });
+</script>
+</body>
+</html>

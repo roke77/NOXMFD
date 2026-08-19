@@ -24,7 +24,12 @@ which virus-scans and manually reviews uploads.
   image, unit icons, and the targeting-pod camera. This is the telemetry the display shows.
 - **Runs a local web server** — an HTTP/SSE server on TCP port **5005** (configurable), bound to
   all network interfaces so a tablet/phone on your Wi-Fi can open the display. It serves the MFD
-  web UI, the telemetry stream, and the captured images. See [docs/networking.md](docs/networking.md).
+  web UI, the telemetry stream, and the captured images. See [NETWORKING.md](NETWORKING.md).
+  If you've installed a third-party **extension** (see [EXTENSIONS.md](EXTENSIONS.md)), this same
+  server also serves that extension's own page, assets, and commands under `/ext/<id>/` — NO XMFD
+  routes the bytes but doesn't inspect or vouch for their content; that's the extension's own code
+  doing the same thing any other installed BepInEx plugin can already do (see the trust model
+  above).
 - **Sends input to the game, for explicit keybind actions** — tap-to-target, and the mod's own
   extended keybinds (countermeasures, gear, weapon cycling/fire, and the immersion binds: radar,
   engine, and Master Arms on/off, combat-mode select). Each goes through the game's own APIs (the
@@ -44,7 +49,7 @@ which virus-scans and manually reviews uploads.
   Administrator, and `AutoSetupLanAccess` is left on. It adds a Windows URL reservation and an
   inbound firewall rule **for its own port only**, so a tablet can connect. It never runs
   otherwise, never elevates on its own (no UAC prompt), and touches nothing but its own port's
-  rules. Full detail + the manual alternative: [docs/networking.md](docs/networking.md).
+  rules. Full detail + the manual alternative: [NETWORKING.md](NETWORKING.md).
 
 ## What NO XMFD does NOT do
 
@@ -67,6 +72,13 @@ touch anything outside the game's normal targeting). On a trusted home network t
 the whole point of the second-screen feature. On an untrusted or public network, treat it as
 exposed. To keep it strictly local, leave `AutoSetupLanAccess` **off** and don't open the firewall
 port: the server then binds localhost-only and nothing on the LAN can reach it.
+
+**If you've installed any extensions, this caveat covers them too.** An extension's own
+`/ext/<id>/command` endpoint is exposed on the same unauthenticated port — anyone who can reach
+it can send commands to *any installed extension*, not just NO XMFD's own tap-to-target/deselect.
+What that command endpoint is able to do is entirely up to that extension's own code, which NO
+XMFD neither reviews nor limits. The security properties of your whole display depend on which
+extensions you've chosen to install, not on NO XMFD's own code alone.
 
 ## Antivirus false positives
 

@@ -39,6 +39,11 @@
     avn: [ { side: 'left', slot: 0 } ],
     afm: [ { side: 'left', slot: 0 } ],
     tgp: [ { side: 'left', slot: 0 } ],
+    // EXT (docs/extensions-api.md): NAV.ext's static baseline is one item (MAIN), same shape as
+    // TGP/RWR — a runtime-added extension's own NAV[<id>] is also always exactly one item
+    // (ext-nav.js), so mfd.js falls back to this same slot for any of them rather than needing
+    // a per-extension entry here.
+    ext: [ { side: 'left', slot: 0 } ],
     rwr: [ { side: 'left', slot: 0 } ],
     // RDR gets MAIN plus the range rocker (R+/R-, issue #40 follow-up) all on the left column, right
     // after MAIN — unlike MAP's zoom rocker, which splits onto the right column (MAP has more items
@@ -54,7 +59,7 @@
     pal: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
     mis: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
     obj: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
-    // CFG group (issue #39, HUD joined 2026-08-20): MAIN/HUD/KEY/LYT switch directly between each
+    // CFG group (issue #39, HUD joined later): MAIN/HUD/KEY/LYT switch directly between each
     // other, same shape as BDF/PAL/MIS/OBJ above but only 5 items — MAIN+HUD+KEY fill the left
     // column's 0..2 budget, LYT+RTS spill onto right slots 0..1. Index-aligned with
     // NAV.hud/NAV.keys/NAV.rates.

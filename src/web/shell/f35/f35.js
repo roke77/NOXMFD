@@ -106,10 +106,10 @@
   // CFG, MDT, RDR, AFM and SQD are frame pages with an F35_PAGES entry — CFG opens the CFG group
   // (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39), landing on HUD by default (mirrors MDT
   // staying 'bdf' — the action names whichever sibling is the landing page; HUD joined this group
-  // 2026-08-20 and no longer has a MAIN entry of its own, same as RTS). Selecting LYT from that
-  // group still opens the layout chooser over the whole glass (GLASS_ACTIONS) exactly as before —
-  // only its entry point moved from top-level MAIN into the CFG group. All match where the bezel
-  // keeps them — MAIN — so a pilot finds the same names in the same place in either layout.
+  // and no longer has a MAIN entry of its own, same as RTS). Selecting LYT from that group still
+  // opens the layout chooser over the whole glass (GLASS_ACTIONS) exactly as before — only its
+  // entry point moved from top-level MAIN into the CFG group. All match where the bezel keeps them
+  // — MAIN — so a pilot finds the same names in the same place in either layout.
   //
   // MDT is one combined entry covering PAL/BDF — mirrors the bezel's own SCR→MDT rename and
   // BDF/PAL fold. Action is 'akf' (AKF is the group's default landing page); NAV.akf/NAV.mis/
@@ -117,16 +117,15 @@
   // MAIN/AKF/MIS/OBJ/BDF/PAL sub-nav once you're on any of them, with `mark` lighting whichever is
   // current — this layout already renders NAV[page] like any other.
   const MAIN_EXTRAS = [
-    { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now (2026-08-20)
+    { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now
     { label: 'MDT', action: 'akf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md) — mirrors BEZEL_EXTRAS.main
     { label: 'AFM', action: 'afm' },   // → AFM airframe page — mirrors BEZEL_EXTRAS.main
     { label: 'SQD', action: 'sqd' },   // → SQD squad page (docs/squadron-transport.md) — mirrors BEZEL_EXTRAS.main
-    // Stub for a future Extensions page, mirroring BEZEL_EXTRAS.main's EXT — needs no extra code
-    // here at all: 'ext' has no F35_PAGES entry, so canDo('ext') is already false and renderNav()
-    // renders it '.pending'/disabled the same way any not-yet-built page does (see the comment atop
-    // this file: "nothing renders dimmed except this layout's own placeholders").
-    { label: 'EXT', action: 'ext' },
+    // EXT is NOT here — it's a real, shared NAV.main entry now (docs/extensions-api.md), not this
+    // layout's own placeholder. This used to be a stub relying on F35_PAGES having no 'ext' entry
+    // to render it disabled; now that F35_PAGES.ext is real, keeping a second entry here would
+    // render a duplicate "EXT" item.
   ];
 
   // Paging actions, and the direction each moves. Not pages, so they dispatch separately.
@@ -203,8 +202,11 @@
   const orientMq = window.matchMedia('(orientation: portrait)');
   let   portals = [];   // the glass, left to right
 
-  function has(page) { return Object.prototype.hasOwnProperty.call(F35_PAGES, page); }
-  function feedsFor(page) { return PAGE_FEEDS[page] || []; }
+  // Extension pages (docs/extensions-api.md) have no F35_PAGES entry — folding
+  // ExtNav.isExtensionPage into `has` is what makes them a valid `showPage`/`dispatch`/`canDo`
+  // target everywhere those three already gate on it, with no other change needed here.
+  function has(page) { return Object.prototype.hasOwnProperty.call(F35_PAGES, page) || ExtNav.isExtensionPage(page); }
+  function feedsFor(page) { return PAGE_FEEDS[page] || (ExtNav.isExtensionPage(page) ? ['ext_' + page] : []); }
   function canDo(action) {
     return has(action) || (action in PAGER) || (action in MAP_ACTIONS) || (action in GLASS_ACTIONS) ||
            (action in MASTER_ARMS_ACTIONS) || (action in COMBAT_MODE_ACTIONS);
@@ -305,6 +307,11 @@
       if (type === 'avn' && currentPage === 'afm') return forwardAfm();
       const w = frameWin(), m = slices[type];
       if (!w || !m) return;
+      // Extension slices (docs/extensions-api.md) always rename to the plain 'ext' type on the
+      // wire — the same contract the classic bezel's forwardExtToPanes/Frame use — so an
+      // extension's page.js is written once and renders identically under either layout. `id`
+      // is dropped: the extension already knows who it is.
+      if (type.indexOf('ext_') === 0) { w.postMessage({ mfd: true, type: 'ext', data: m.data }, '*'); return; }
       w.postMessage(FEED_AS[type] ? Object.assign({}, m, { type: FEED_AS[type] }) : m, '*');
     }
     function forwardAfm() {
@@ -526,6 +533,10 @@
     }
 
     function dispatch(action) {
+      // EXT (docs/extensions-api.md) needs no special case: F35_PAGES.ext already names the hub
+      // page, so `has('ext')` is true and the generic showPage(action) tail below lands there like
+      // any other page. NAV.ext (ext-nav.js) lists MAIN plus one entry per installed extension;
+      // picking one of those is `has(action)` too, via ExtNav.isExtensionPage.
       if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
       if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
       if (action in GLASS_ACTIONS) { GLASS_ACTIONS[action](); return; }
@@ -589,7 +600,7 @@
       wpnNavKey = '';   // entering any page redraws the grid; don't let a stale key suppress it
       // A page with no content of its own (MAIN) blanks the frame rather than hiding it: the
       // iframe's background is the glass colour, so what shows through is the label grid on black.
-      frame.src = F35_PAGES[name] || 'about:blank';
+      frame.src = F35_PAGES[name] || (ExtNav.isExtensionPage(name) ? '/ext/' + name : 'about:blank');
       renderNav();   // forwardToPage reruns on the frame's load
     }
 
@@ -1130,5 +1141,9 @@
 
   loadStripUrls();
   runStripBoot();
+  // Extension nav discovery (docs/extensions-api.md) — fetches /ext-manifest once and merges
+  // installed extensions into NAV.ext / NAV[<id>]. Fire-and-forget: a pilot can't reach EXT
+  // before this same-origin local fetch resolves in practice.
+  ExtNav.load(NAV);
   buildGlass();
 })();

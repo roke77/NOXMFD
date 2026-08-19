@@ -669,6 +669,10 @@ namespace NOXMFD
                         ServeSquad(ctx);
                     else if (path == "/server-players")
                         ServeServerPlayers(ctx);
+                    else if (path == "/ext-manifest")
+                        ServeExtManifest(ctx);
+                    else if (path.StartsWith("/ext/", StringComparison.Ordinal))
+                        HandleExtRequest(ctx, path);
                     else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                         ServeAsset(ctx, path);
                     else if (path == "/map-view")
@@ -681,6 +685,11 @@ namespace NOXMFD
                         ServeAssetRel(ctx, "pages/afm/afm.html");
                     else if (path == "/tgp")
                         ServeAssetRel(ctx, "pages/tgp/tgp.html");
+                    // Static placeholder for EXT with nothing installed (docs/extensions-api.md) —
+                    // distinct from the /ext/<id>/* prefix (HandleExtRequest above), which needs
+                    // the trailing slash to match.
+                    else if (path == "/ext")
+                        ServeAssetRel(ctx, "pages/ext/ext.html");
                     else if (path == "/wpn")
                         ServeAssetRel(ctx, "pages/wpn/wpn.html");
                     else if (path == "/rwr")
@@ -787,6 +796,145 @@ namespace NOXMFD
             }
             env = null;
             return false;
+        }
+
+        // ── Extension API (docs/extensions-api.md) ────────────────────────────────
+
+        private static void ServeExtManifest(HttpListenerContext ctx)
+        {
+            try
+            {
+                List<ExtensionRegistry.Entry> list = ExtensionRegistry.Manifest();
+                var sb = new StringBuilder("[");
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    sb.Append("{\"id\":\"").Append(EscapeJson(list[i].Id))
+                      .Append("\",\"label\":\"").Append(EscapeJson(list[i].Label)).Append("\"}");
+                }
+                byte[] body = Encoding.UTF8.GetBytes(sb.Append(']').ToString());
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // Routes "/ext/<id>" (the page itself), "/ext/<id>/<relPath>" (its assets), and
+        // POST "/ext/<id>/command" (its command endpoint) — one generic handler for every
+        // registered extension rather than per-extension routing, the whole point of this
+        // surface (see docs/extensions-api.md).
+        private static void HandleExtRequest(HttpListenerContext ctx, string path)
+        {
+            string rest = path.Substring("/ext/".Length);
+            int slash = rest.IndexOf('/');
+            string id      = slash < 0 ? rest : rest.Substring(0, slash);
+            string relPath = slash < 0 ? string.Empty : rest.Substring(slash + 1);
+
+            if (!ExtensionRegistry.TryGet(id, out ExtensionRegistry.Entry entry))
+            {
+                ctx.Response.StatusCode = 404;
+                try { ctx.Response.Close(); } catch { }
+                return;
+            }
+
+            if (relPath == "command" && ctx.Request.HttpMethod == "POST")
+            {
+                HandleExtCommand(ctx, id);
+                return;
+            }
+
+            if (relPath == "feed.mjpg")
+            {
+                _ = Task.Run(() => HandleExtMjpegAsync(ctx, id, _cts.Token));
+                return;
+            }
+
+            try
+            {
+                byte[]? body = entry.Resolve(relPath);
+                if (body == null) { ctx.Response.StatusCode = 404; return; }
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = ContentTypeFor(relPath.Length == 0 ? "index.html" : relPath);
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogDebug($"[NOXMFD] /ext/{id}/{relPath} error: {ex.Message}");
+                try { ctx.Response.Abort(); } catch { }
+                return;
+            }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // Same accepted-fire-and-forget shape as HandleCommand above — the raw body is queued
+        // as-is (not parsed here, see Api.CommandHandler) and drained on the main thread by
+        // ExtensionRegistry.Drain.
+        private static void HandleExtCommand(HttpListenerContext ctx, string id)
+        {
+            try
+            {
+                string body;
+                using (var r = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
+                    body = r.ReadToEnd();
+
+                if (!ExtensionRegistry.TryEnqueueCommand(id, body))
+                    Plugin.Log?.LogDebug($"[NOXMFD] extension '{id}' command queue full — dropped.");
+                ctx.Response.StatusCode = 204;   // accepted (fire-and-forget); main thread acts next frame
+                ctx.Response.Close();
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogDebug($"[NOXMFD] /ext/{id}/command error: {ex.Message}");
+                try { ctx.Response.Abort(); } catch { }
+            }
+        }
+
+        // Same shape as HandleMjpegAsync, generalized to a runtime-registered
+        // extension id instead of a hardcoded page — see Api.PushMjpegFrame.
+        private static async Task HandleExtMjpegAsync(HttpListenerContext ctx, string id, CancellationToken ct)
+        {
+            const string boundary = "extframe";
+            ctx.Response.StatusCode  = 200;
+            ctx.Response.ContentType = "multipart/x-mixed-replace; boundary=" + boundary;
+            ctx.Response.SendChunked = true;
+            ctx.Response.Headers.Add("Cache-Control", "no-cache");
+            ctx.Response.Headers.Add("X-Accel-Buffering", "no");
+
+            long lastSeen = -1;
+            ExtensionRegistry.MjpegSubscribe(id);
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    if (ExtensionRegistry.TryGetMjpegFrame(id, out byte[]? jpg, out long frameId)
+                        && jpg != null && frameId != lastSeen)
+                    {
+                        lastSeen = frameId;
+                        string head = "\r\n--" + boundary + "\r\nContent-Type: image/jpeg\r\nContent-Length: " + jpg.Length + "\r\n\r\n";
+                        byte[] headBytes = Encoding.ASCII.GetBytes(head);
+                        await ctx.Response.OutputStream.WriteAsync(headBytes, 0, headBytes.Length, ct).ConfigureAwait(false);
+                        await ctx.Response.OutputStream.WriteAsync(jpg, 0, jpg.Length, ct).ConfigureAwait(false);
+                        ctx.Response.OutputStream.Flush();
+                    }
+
+                    // No fixed source rate to match (unlike TGP/RC's own hardcoded intervals) —
+                    // 30ms polling keeps this responsive to whatever cadence an extension publishes.
+                    await Task.Delay(30, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception) { /* client disconnected, normal */ }
+            finally
+            {
+                ExtensionRegistry.MjpegUnsubscribe(id);
+                try { ctx.Response.Close(); } catch { }
+            }
         }
 
         private static void ServeConfig(HttpListenerContext ctx)
@@ -1428,6 +1576,10 @@ namespace NOXMFD
                 // the expensive snapshot keeps its 10 Hz. lastCursor suppresses repeats, so a centred
                 // stick costs one comparison per tick and no traffic at all.
                 string lastCursor = string.Empty;
+                // Per-extension high-rate events (Api.PublishEvent) — one "last sent" entry per
+                // event name this connection has seen, same change-gating as cursor above but for
+                // a runtime-registered set of names instead of one fixed one.
+                var lastExtEvents = new Dictionary<string, string>(StringComparer.Ordinal);
                 int sinceFrame = FrameEveryMs;   // send a frame immediately on connect
                 // Squad state (docs/squadron-transport.md): same latest-value-wins comparison as the
                 // cursor above — role/leader/members/pending/notice is a snapshot, not a queue, so a
@@ -1479,6 +1631,14 @@ namespace NOXMFD
                             msg.Seq, EscapeJson(msg.Type), EscapeJson(msg.Payload));
                         byte[] dbytes = Encoding.UTF8.GetBytes("event: sqd-data\ndata: " + json + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(dbytes, 0, dbytes.Length, ct).ConfigureAwait(false);
+                    }
+
+                    foreach (var kv in ExtensionRegistry.EventsSnapshot())
+                    {
+                        if (lastExtEvents.TryGetValue(kv.Key, out string prev) && prev == kv.Value) continue;
+                        lastExtEvents[kv.Key] = kv.Value;
+                        byte[] ebytes = Encoding.UTF8.GetBytes("event: ext-" + kv.Key + "\ndata: " + kv.Value + "\n\n");
+                        await ctx.Response.OutputStream.WriteAsync(ebytes, 0, ebytes.Length, ct).ConfigureAwait(false);
                     }
                     ctx.Response.OutputStream.Flush();
 
@@ -1566,7 +1726,8 @@ namespace NOXMFD
                         + ",\"pal\":" + PalBlock(s)
                         + ",\"mis\":" + MisBlock(s)
                         + ",\"obj\":" + ObjBlock(s)
-                        + ",\"akf\":" + AkfBlock(s) + "}";
+                        + ",\"akf\":" + AkfBlock(s)
+                        + ",\"ext\":" + ExtensionRegistry.SlicesJson() + "}";
         }
 
         // AKF advanced kill feed (docs/akf-page.md). Always present while a mission runs (no "faction

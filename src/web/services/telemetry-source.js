@@ -461,6 +461,15 @@ export class TelemetrySource {
     // everyone's kills; player/kills/value/fundsGained/fundsSpent are scoped to the local player's
     // own kills only.
     this._postUp(Object.assign({ type: 'akf' }, d.akf || AKF_EMPTY));
+
+    // Extension telemetry (docs/extensions-api.md) — one generic forward for every registered
+    // extension's slice, rather than a named block per extension like everything above. `payload`
+    // is whatever JSON that extension published (Api.PublishSlice); it's wrapped in `data` rather
+    // than spread, since — unlike NOXMFD's own blocks — its shape isn't known here and might not
+    // even be a plain object (an extension could publish an array or a bare number).
+    if (d.ext) {
+      for (const id of Object.keys(d.ext)) this._postUp({ type: 'ext_' + id, data: d.ext[id] });
+    }
   }
 
   // On mission exit, tell every consumer the data is gone so no page renders stale state.

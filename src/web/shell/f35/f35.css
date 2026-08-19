@@ -569,7 +569,7 @@ html, body {
    .overlay.vmain .overlay-item.left in mfd.css — including pulling in to the edge, since 16px of
    margin would still leave the label overlapping. BDF/PAL/MIS/OBJ are one family (MDT —
    docs/mdt-pages.md) reachable from each other, so all four need the same treatment; the bezel's
-   isVmainPage() lists the same set (HUD moved out of both lists 2026-08-20 — see hud.css). */
+   isVmainPage() lists the same set (HUD moved out of both lists — see hud.css). */
 .nav-grid.edge[data-page="tgt"] .nav-item,
 .nav-grid.edge[data-page="bdf"] .nav-item,
 .nav-grid.edge[data-page="pal"] .nav-item,

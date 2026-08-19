@@ -34,18 +34,22 @@ for (const [page, items] of Object.entries(NAV)) {
 // ── Ordering is the contract ────────────────────────────────────────────────────────
 // A layout renderer places by INDEX (bezel full view: item i → left key i; bezel split:
 // SPLIT_SLOTS[i] places NAV[i]). So order is meaningful and reordering is a behaviour change.
-assert.deepStrictEqual(NAV.main.map(i => i.label), ['AVN', 'MAP', 'RWR', 'TGP', 'TGT', 'WPN']);
+assert.deepStrictEqual(NAV.main.map(i => i.label), ['AVN', 'MAP', 'RWR', 'TGP', 'TGT', 'WPN', 'EXT']);
 assert.deepStrictEqual(NAV.map.map(i => i.label), ['MAIN', 'GRID', 'FLW', 'WPT', 'R+', 'R-', 'W+', 'W-', 'Z+', 'Z-']);
 assert.deepStrictEqual(NAV.rdr.map(i => i.label), ['MAIN', 'R+', 'R-']);
 
 // ── Every frame-hosted page can get back to MAIN ────────────────────────────────────
-for (const page of ['avn', 'afm', 'rwr', 'tgp', 'tgt']) {
+// NAV.ext's static baseline is exactly this shape too — see ext-nav.js for how it grows at
+// runtime (untested here on purpose; this file only sees the compile-time baseline). NAV.sqd is
+// the same shape too — see nav-model.js's own comment on why (reached from MAIN, not another
+// page's own nav row, same as HUD/CFG/MDT/RDR/AFM).
+for (const page of ['avn', 'afm', 'rwr', 'tgp', 'tgt', 'ext', 'sqd']) {
   assert.deepStrictEqual(NAV[page], [{ label: 'MAIN', action: 'main' }], `${page} should be just a MAIN back-button`);
 }
 
-// CFG group (cfg-rates experiment, issue #39; HUD joined 2026-08-20): HUD/KEY/LYT/RTS folded
+// CFG group (cfg-rates experiment, issue #39; HUD joined later): HUD/KEY/LYT/RTS folded
 // together, same shape as BDF/PAL/MIS/OBJ below (reached from MAIN via CFG — mfd.js
-// BEZEL_EXTRAS.main, action still 'keys'). LYT has no `mark` slot of its own — see nav-model.js's
+// BEZEL_EXTRAS.main, action now 'hud'). LYT has no `mark` slot of its own — see nav-model.js's
 // comment on why NAV.lyt doesn't exist (BEZEL_EXTRAS.lyt places CLASSIC/F-35 at fixed keys that
 // would silently clobber it).
 assert.deepStrictEqual(NAV.hud, [
