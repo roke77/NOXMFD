@@ -13,6 +13,11 @@ namespace NOXMFD
     // scoreboard uses — so no host privilege and no new game-side plumbing is needed. Display names
     // come from Player.GetDisplayName(PlayerNameContext.Other), not a plain field — the game
     // resolves/caches the Steam persona name behind that call.
+    //
+    // Further filtered to faction-mates actually running NOXMFD right now (Presence.cs) — someone
+    // without the mod can't receive or answer an invite, so offering them just produces a silent
+    // 15s timeout (Squad.cs's InviteTimeoutSeconds) that reads as a bug rather than "they don't
+    // have it."
     internal static class PlayerRoster
     {
         // Server-thread-readable cache, same threading contract as RouteStore.RoutesJson: refreshed
@@ -32,15 +37,22 @@ namespace NOXMFD
             if (!GameManager.GetLocalHQ(out FactionHQ hq) || hq == null) { Json = "[]"; return; }
 
             ulong self = Squadron.SelfId();
-            var sb = new StringBuilder("[");
-            bool first = true;
             _scratch.Clear();
             _scratch.AddRange(hq.GetPlayers(sortByScore: false));
+
+            // Ping the WHOLE faction, including anyone filtered out below — someone who just
+            // (re)launched NOXMFD needs to start receiving beats before Presence.HasNoxmfd can ever
+            // return true for them, and this is the one place that already has the faction's peer ids.
+            var peerIds = new List<ulong>(_scratch.Count);
+            var sb = new StringBuilder("[");
+            bool first = true;
             foreach (Player p in _scratch)
             {
                 if (p == null) continue;
                 ulong id = p.SteamID;
                 if (id == 0 || id == self) continue;   // exclude self and anyone with no Steam id
+                peerIds.Add(id);
+                if (!Presence.HasNoxmfd(id)) continue;   // only offer players actually running NOXMFD
                 if (!first) sb.Append(',');
                 first = false;
                 string name = p.GetDisplayName(PlayerNameContext.Other) ?? string.Empty;
@@ -49,6 +61,8 @@ namespace NOXMFD
             }
             sb.Append(']');
             Json = sb.ToString();
+
+            Presence.Tick(peerIds);
         }
     }
 }

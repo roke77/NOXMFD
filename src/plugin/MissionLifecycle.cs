@@ -30,6 +30,9 @@ namespace NOXMFD
             // during a mission (docs/squadron-transport.md). No-ops when Steam is unavailable.
             Squadron.Poll();
             Squad.Drain();
+            // Presence.cs rides the same shared inbox with its own cursor (see its own header
+            // comment) — drained here too so "who's running NOXMFD" stays current at the main menu.
+            Presence.Drain();
 
             bool missionRunning = MissionManager.IsRunning;
 

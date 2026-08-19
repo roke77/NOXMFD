@@ -315,7 +315,12 @@ is untouched by the game. Of the rest:
   built — the SQD page's whole squad section hides when `Squadron.Ready` is false.
 - **Still open:** what is a real TGP frame's encoded size? Deferred with the video feature, but it
   gates any decision there.
-- **New, found during implementation:** inviting a player with no mod installed is silently
-  indistinguishable from inviting one who's still deciding — there's no delivery acknowledgment at
-  the Steam messaging level. Mitigated with a 15s invite timeout that surfaces a notice, but there's
-  still no way to *positively* confirm the invite reached a modded client.
+- ~~Inviting a player with no mod installed is silently indistinguishable from inviting one who's
+  still deciding — there's no delivery acknowledgment at the Steam messaging level.~~ **Answered:**
+  `Presence.cs` — every NOXMFD instance broadcasts a lightweight "presence" beacon to its whole
+  faction roster every 5s over this same transport (its own message type, its own drain cursor into
+  `Squadron`'s shared inbox) and tracks a per-peer last-seen time with a 15s TTL. `PlayerRoster.cs`
+  filters `/server-players` to only peers currently within that TTL, so SQD's invite roster only
+  ever offers players who could actually receive and answer an invite — the 15s timeout above still
+  exists as a belt-and-braces fallback (a beat can be lost even for someone genuinely present), but
+  the common case (no mod installed at all) no longer produces a dead-end invite in the first place.
