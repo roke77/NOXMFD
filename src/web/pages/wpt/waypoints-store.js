@@ -102,12 +102,9 @@
   // exportRoute/importRoute above (identity has to survive a repeat share; a paste never keeps it).
   function pendingShared() { return cache.pendingShared || []; }
 
-  // Builds the SAME id-carrying payload RouteStore.ReceiveSharedRoute expects — never exportRoute's
-  // shape, which is deliberately id-free.
-  function shareRoutePayload(id) {
-    const route = R.findRoute(cache.routes, id);
-    return route ? JSON.stringify(R.shareRoutePayload(route)) : null;
-  }
+  // The plugin builds the payload and sends it (RouteStore.ShareRoute), and flips on auto-reshare
+  // for this route — later edits push to the squad on their own, no repeat click needed here.
+  function shareRoute(id) { return sendCommand('wpt.share', { bind: id }).then(poll); }
 
   // Called by the shell (mfd.js/f35.js's applySquadronPayload), not this page — a share must land
   // even while WPT isn't open. Distinct command from wpt.import: this one preserves the sender's
@@ -122,7 +119,7 @@
     load, poll, getActiveRoute, hasRoutes, setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute, clearRoutes,
     addWaypointToActive, renameWaypoint, removeWaypoint, reorderWaypoint,
     resetWaypoint, resetRoute, stepWaypoint, exportRoute, importRoute,
-    pendingShared, shareRoutePayload, receiveShared, acceptShared, rejectShared,
+    pendingShared, shareRoute, receiveShared, acceptShared, rejectShared,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WaypointsStore = api;

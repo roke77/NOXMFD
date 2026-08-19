@@ -77,11 +77,24 @@ function renderRoutes(c) {
 
     const name = document.createElement('span');
     name.className = 'wpt-row-name pad-hoverable';
-    name.textContent = route.name + ' (' + route.waypoints.length + ')';
     name.title = isActive ? 'Click to deactivate' : 'Click to activate';
     // A route can be saved but none active (issue #38 follow-up) — clicking the already-ACTIVE
     // route deactivates it instead of being a no-op.
     name.onclick = function () { WaypointsStore.setActiveRoute(isActive ? null : route.id).then(render); };
+    name.appendChild(document.createTextNode(route.name + ' (' + route.waypoints.length + ')'));
+
+    // Shared with the squad right now — either this pilot accepted it FROM the leader (isShared,
+    // read-only, sharedBy non-empty) or it's this pilot's OWN route with the leader-side
+    // auto-reshare on (route.sharedWithSquad — only ever true while this pilot IS the leader,
+    // since ShareRoute/BroadcastIfShared are leader-only; a member never sees this on their own
+    // routes). Nested inside the name span (not a sibling flex item) so it sits right after the
+    // name text itself instead of being pushed to the row's far edge by name's flex:1 width.
+    if (isShared || route.sharedWithSquad) {
+      const sqdMark = document.createElement('span');
+      sqdMark.className = 'wpt-row-sqd-mark';
+      sqdMark.textContent = ' SQD';
+      name.appendChild(sqdMark);
+    }
 
     const mark = document.createElement('span');
     mark.className = 'wpt-row-mark';
@@ -424,15 +437,15 @@ function refreshSquad() {
 }
 
 // Disabled while a send is in flight (and briefly after) so mashing the button can't fire a burst
-// of sqd.send commands — RouteStore.ReceiveSharedRoute already ignores a duplicate id server-side,
-// so this is a courtesy against needless network chatter, not the actual dedup enforcement.
+// of wpt.share commands — RouteStore.ShareRoute/BroadcastIfShared already ignore a duplicate id
+// server-side, so this is a courtesy against needless network chatter, not the actual dedup
+// enforcement. Only the FIRST share needs this button at all — RouteStore flips on auto-reshare
+// for the route from then on, so later edits push on their own with no further clicks.
 function shareRoute(id, btn) {
   if (btn.disabled) return;
-  const json = WaypointsStore.shareRoutePayload(id);
-  if (!json) return;
   const was = btn.textContent;
   btn.disabled = true;
-  sendCommand('sqd.send', { type: 'wpt.route', payload: json })
+  WaypointsStore.shareRoute(id)
     .then(function () {
       btn.textContent = '✓';
       setTimeout(function () { btn.textContent = was; btn.disabled = false; }, 1200);

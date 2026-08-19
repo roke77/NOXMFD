@@ -64,17 +64,6 @@
     };
   }
 
-  // The squad-share shape: serializeRoute PLUS the route's own id — unlike copy/paste export, a
-  // squad share deliberately keeps identity, since RouteStore.ReceiveSharedRoute needs the SAME id
-  // every time this route is (re)shared to recognise a duplicate/repeat send and to know whose
-  // content a member may not edit (RouteStore.cs's own header comment on this group has the full
-  // reasoning). Never used for the copy/paste export panel — that stays serializeRoute, unchanged.
-  function shareRoutePayload(route) {
-    const s = serializeRoute(route);
-    s.id = route.id;
-    return s;
-  }
-
   // Parses + validates a pasted route export for IMMEDIATE client-side feedback in wpt.js's import
   // panel. The actual import is authoritative server-side (RouteStore.ImportRoute, which
   // independently re-parses) — POST /command is fire-and-forget, with no synchronous way for the
@@ -97,7 +86,7 @@
   const api = {
     distanceBearing, relativeBearing,
     waypointMarkerState, segmentReached,
-    findRoute, serializeRoute, shareRoutePayload, parseRouteJSON,
+    findRoute, serializeRoute, parseRouteJSON,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WptRoute = api;

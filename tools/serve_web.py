@@ -179,8 +179,15 @@ def _hud_options():
 # (2026-08-19), so MAP/WPT have real routes to render in the harness instead of "NO ROUTES YET".
 # Static, same as _hud_options — the write side (wpt.* commands) has no mock, POSTs are swallowed,
 # so editing here won't change this response; that path is only testable in game. sharedBy/
-# pendingShared (docs/squadron-transport.md) are sample data purely so the accept/reject and
-# read-only-shared-route UI states have something to render — same reasoning as _SQD's roster mock.
+# sharedWithSquad/pendingShared (docs/squadron-transport.md) are sample data purely so the
+# accept/reject, read-only-shared-route, and SQD-label UI states have something to render — same
+# reasoning as _SQD's roster mock.
+#
+# This whole mock is a squad MEMBER's view, not the leader's (see the SQD page's own mock role) —
+# sharedWithSquad is a LEADER-only flag (RouteStore.ShareRoute/BroadcastIfShared never set it for
+# anyone else), so the pilot's own two routes below (RT-8F6A9, RT-3F9C1) must NOT carry it. The
+# only route that legitimately gets the SQD label here is RT-6CA67, accepted FROM the leader
+# (sharedBy), same as it would be for a real member.
 def _wpt_options():
     return json.dumps({
         # NOT the shared (sharedBy) route below — the active route's waypoints render in the
@@ -190,6 +197,7 @@ def _wpt_options():
         "activeRouteId": "r_6422161b6ecd4e0e8bc0a99c627ef397",
         "routes": [
             {
+                # This pilot's OWN route, made locally — not shared, no SQD label (see file header).
                 "id": "r_6422161b6ecd4e0e8bc0a99c627ef397", "name": "RT-8F6A9", "nextIndex": 4,
                 "sharedBy": "",
                 "waypoints": [
@@ -211,6 +219,17 @@ def _wpt_options():
                     {"id": "w_23d2e0ac003e4bb2ab8758283d7be41d", "name": "", "x": 27480.7, "z": 18649.8},
                     {"id": "w_befad7e5757848928451f81123c0a6cf", "name": "", "x": 19925.4, "z": 29130.0},
                     {"id": "w_9242d06d1e20411eac306da4b9a0078e", "name": "", "x": 6829.6,  "z": 21828.5},
+                ],
+            },
+            {
+                # Also this pilot's OWN route, made locally, not active — again no SQD label; a
+                # member has no way to put one on a route of their own (see file header).
+                "id": "r_3f9c1a2b4e5d4c8ba17092836451affc", "name": "RT-3F9C1", "nextIndex": 2,
+                "sharedBy": "",
+                "waypoints": [
+                    {"id": "w_a15c8e2f9b3a4d6c8e0f1a2b3c4d5e6f", "name": "IP",  "x": 9820.4,  "z": 11230.7},
+                    {"id": "w_b26d9f3a0c4b5e7d9f1a2b3c4d5e6f70", "name": "",    "x": 15410.2, "z": 14880.5},
+                    {"id": "w_c37e0a4b1d5c6f8e0a2b3c4d5e6f7081", "name": "",    "x": 21005.9, "z": 9720.3},
                 ],
             },
         ],

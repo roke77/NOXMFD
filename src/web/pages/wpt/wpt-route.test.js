@@ -104,19 +104,4 @@ const route = (nextIndex, waypoints) => ({ id: 'r1', name: 'Route 1', nextIndex,
     { name: '', waypoints: [{ name: '', x: 1, z: 2 }] });
 }
 
-// ── shareRoutePayload: the ONE export shape that keeps the route's id ───────────────────
-{
-  const rt = route(1, [wp('a', 'IP', 100, 200)]);
-  const shared = R.shareRoutePayload(rt);
-  assert.deepStrictEqual(shared, {
-    name: 'Route 1',
-    waypoints: [{ name: 'IP', x: 100, z: 200 }],
-    id: 'r1',
-  }, 'shareRoutePayload must carry the route id — RouteStore.ReceiveSharedRoute needs it stable across repeat shares');
-  // Everything else about the shape matches serializeRoute exactly (same waypoint fields, same
-  // name field) — id is purely additive, not a different serialization.
-  const { id, ...withoutId } = shared;
-  assert.deepStrictEqual(withoutId, R.serializeRoute(rt));
-}
-
 console.log('wpt-route.test.js: OK');

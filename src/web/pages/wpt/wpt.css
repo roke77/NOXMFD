@@ -201,6 +201,16 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   flex: none;
 }
 
+/* Shared with the squad right now — leader's own route with auto-reshare on, or a route this
+   pilot accepted from the leader. Teal keeps it visually distinct from ACTIVE/NEXT's amber. Nested
+   INSIDE .wpt-row-name (wpt.js), not a sibling flex item, so it reads right after the route name
+   itself instead of trailing off at the row's far edge. */
+.wpt-row-sqd-mark {
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--no-teal);
+}
+
 .wpt-row-grid {
   font-size: 13px;
   color: var(--no-gray);
