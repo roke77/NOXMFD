@@ -454,6 +454,25 @@ namespace NOXMFD
             return true;
         }
 
+        // Called from Squad.cs when THIS pilot's squad membership ends (the leader disbands it, or
+        // this pilot leaves) — HandleDisband/Leave. Any share still awaiting accept/reject is
+        // dropped: same ephemeral, squad-session-scoped reasoning PendingSharedRoute's own header
+        // already gives for never persisting it — it stops meaning anything once the squad that
+        // sent it no longer exists. Every route already accepted from that squad is unlocked
+        // (SharedBy cleared) instead of staying read-only forever: the whole point of read-only was
+        // protecting the leader's ability to push further updates, and once the squad's gone nobody
+        // can ever do that again, so the lock would only get in this pilot's own way from here on.
+        public static void OnSquadEnded()
+        {
+            bool changed = _pendingShared.Count > 0;
+            _pendingShared.Clear();
+            foreach (Route r in _routes)
+            {
+                if (r.SharedBy.Length > 0) { r.SharedBy = string.Empty; changed = true; }
+            }
+            if (changed) Save();
+        }
+
         // WPT's share button (wpt.share). Sends the route now AND flips SharedWithSquad on so every
         // later edit re-broadcasts on its own (BroadcastIfShared) — the pilot never has to remember
         // to click share again after touching a route the squad already has.

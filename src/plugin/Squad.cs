@@ -211,6 +211,7 @@ namespace NOXMFD
                 Squadron.SendTo(_leaderId, "sqd.leave", "{}");
                 Squadron.CloseSession(_leaderId);
                 ResetToNone();
+                RouteStore.OnSquadEnded();
                 return true;
             }
             if (_role == Role.Leader && _members.Count == 0)
@@ -356,6 +357,7 @@ namespace NOXMFD
             if (_role != Role.Member || from != _leaderId) return;
             Squadron.CloseSession(_leaderId);
             ResetToNone();
+            RouteStore.OnSquadEnded();
             SetNotice("Your squad was disbanded by the leader.");
         }
 
@@ -385,6 +387,10 @@ namespace NOXMFD
             _leaderId = ULongOf(Str(obj, "leaderId"));
             _leaderName = Str(obj, "leaderName");
             // Roster stays as last known until the new leader's own sqd.roster confirms it.
+            // Same treatment as the squad actually ending (OnSquadEnded's own header has the full
+            // reasoning): SendData is leader-only, so the OLD leader just lost the ability to ever
+            // push another update, permanently, whether or not the squad itself lives on.
+            RouteStore.OnSquadEnded();
             RebuildState();
         }
 
