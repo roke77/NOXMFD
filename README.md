@@ -69,29 +69,6 @@ NO XMFD for you, and keeps it up to date.
 
 </details>
 
-<details>
-<summary><strong>Changing settings (ConfigurationManager)</strong></summary>
-
-NO XMFD's own settings — the extended keybinds — are changed either in the
-in-game **ConfigurationManager** menu or by hand in
-`BepInEx/config/com.roque.NOXMFD.cfg`. The plugin runs fine without any of this;
-you only need it to adjust those settings.
-
-To use the in-game menu, install **ConfigurationManager** — the settings editor,
-much friendlier than editing the config file by hand. Download the **BepInEx 5**
-build from its
-[releases](https://github.com/BepInEx/BepInEx.ConfigurationManager/releases) and
-extract the DLL into `BepInEx/plugins/`. It also needs `HideManagerGameObject =
-true` under `[Chainloader]` in `BepInEx/config/BepInEx.cfg`: Nuclear Option
-destroys BepInEx's manager GameObject on the boot → main-menu transition, and
-ConfigurationManager lives on it, so the menu will not open unless the setting is
-on. Its default open key is `F1`, rebindable in that menu's *General* section.
-
-Either way the settings work — skip ConfigurationManager and edit the `.cfg` by
-hand.
-
-</details>
-
 ## Features
 
 NO XMFD's features are built around flight immersion. It declutters Nuclear
