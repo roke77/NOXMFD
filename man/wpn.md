@@ -2,7 +2,7 @@
 
 Weapon loadout and rounds remaining, plus IR-flare count and jammer charge.
 
-![WPN page](../docs/images/WPN.png)
+![WPN page](images/WPN.png)
 
 ## Master Arms — ARM / SAFE
 

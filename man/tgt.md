@@ -3,7 +3,7 @@
 A clickable replica of the in-cockpit TARGET SELECTION panel — control which units can be
 targeted, and see what you currently have selected.
 
-![TGT page](../docs/images/TGT.png)
+![TGT page](images/TGT.png)
 
 ## Filters
 

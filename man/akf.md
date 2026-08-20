@@ -7,4 +7,4 @@ and a PLAYER column (yours — weapon name attached where resolvable, plus "inco
 you're the one shot down or your own ordnance gets intercepted), with session kill tally, funds
 gained/spent, and your current rank below.
 
-![AKF page](../docs/images/AKF.png)
+![AKF page](images/AKF.png)

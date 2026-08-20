@@ -3,7 +3,7 @@
 A circular radar-warning scope: a nose-up display (whatever's ahead of you is always toward the
 top, regardless of your actual heading) showing who's got a radar on you, by bearing.
 
-![RWR page](../docs/images/RWR.png)
+![RWR page](images/RWR.png)
 
 ## Reading the scope
 

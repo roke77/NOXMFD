@@ -4,7 +4,7 @@ Two sliders for the mod's live-adjustable refresh rates. Higher rates cost more 
 network bandwidth; lower rates save it at the cost of smoothness and latency. Changes apply
 immediately and persist across restarts.
 
-![RTS page](../docs/images/RTS.png)
+![RTS page](images/RTS.png)
 
 ## TLM
 

@@ -2,7 +2,7 @@
 
 Plot custom waypoints and chain them into an ordered route that guides you in-flight.
 
-![WPT page](../docs/images/WPT.png)
+![WPT page](images/WPT.png)
 
 ## Adding waypoints
 
@@ -42,4 +42,4 @@ tape at the waypoint's bearing, with a `WPT n · NAME` / distance · bearing rea
 ±45° of the nose — the tape only spans 90° — the bug becomes a sideways arrow pinned at the edge
 it left, pointing the way to turn. It shows whenever a route is active.
 
-![In-game HUD waypoint cue](../docs/images/WPT_HUD.png)
+![In-game HUD waypoint cue](images/WPT_HUD.png)

@@ -77,8 +77,6 @@ Still to decide before starting the actual split:
 
 - **Naming/layout** — `man/<page>.md` flat (as listed above), or `man/pages/<page>.md` mirroring
   `src/web/pages/`'s own layout.
-- **Screenshots** — move out of `docs/images/` into `man/` alongside the manual that uses them, or
-  stay centralized and get linked from wherever needs them.
 - **All at once or incrementally** — split every section in one pass, or start with the longest
   page entries (MD group, MAP, WPT, KEY) and leave short ones (RWR, TGP) inline until the split
   proves worth it there too. A partial split leaves README's own section inconsistent (some

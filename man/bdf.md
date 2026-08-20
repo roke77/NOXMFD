@@ -6,4 +6,4 @@ identity.
 Read-only replicas of the game's faction Forces panel, one per fixed identity (BOSCALI/PRIMEVA)
 — warheads, score, and funds, plus a ships/buildings/vehicles/aircraft breakdown.
 
-![BDF page](../docs/images/BDF.png)
+![BDF page](images/BDF.png)

@@ -3,7 +3,7 @@
 A clickable replica of the game's in-cockpit HUD OPTIONS screen, plus a declutter strip for the
 mod's own HUD-hiding toggles.
 
-![HUD page](../docs/images/HUD.png)
+![HUD page](images/HUD.png)
 
 ## Declutter
 

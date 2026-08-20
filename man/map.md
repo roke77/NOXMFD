@@ -3,7 +3,7 @@
 Full-screen tactical map showing friendly/hostile units and your own position. Click a unit to
 target it.
 
-![MAP page](../docs/images/MAP.png)
+![MAP page](images/MAP.png)
 
 ## Controls
 

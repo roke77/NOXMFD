@@ -5,4 +5,4 @@ Avionics at a glance: circular gauges for engine RPM, fuel, IR heat signature, a
 engine, flight assist, night vision, nav lights, turret — that show live state and double as
 bezel-actuated switches.
 
-![AVN page](../docs/images/AVN.png)
+![AVN page](images/AVN.png)

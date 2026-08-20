@@ -278,7 +278,7 @@ deliberate: it makes the EXT section legible as "a place multiple extensions can
 special case for whichever one happens to be installed. With none installed, the hub shows an
 empty state instead:
 
-![EXT hub with no extensions installed](docs/images/EXT.png)
+![EXT hub with no extensions installed](man/images/EXT.png)
 
 ## Reusing NOXMFD's shared assets
 

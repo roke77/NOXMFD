@@ -5,7 +5,7 @@ takes a keyboard/mouse key, a joystick/HOTAS button, or both — click a cell on
 the key or button to bind it. Multi-stick HOTAS setups are supported; each bind remembers which
 stick it came from.
 
-![Extended keybinds page](../docs/images/KEY.png)
+![Extended keybinds page](images/KEY.png)
 
 ## Weapons
 
@@ -68,9 +68,9 @@ is selected until you press a SOI key.
 - **Nav Up / Nav Down** — move the cursor over the selected screen's buttons.
 - **Nav Select** — press the button under the cursor.
 
-![SOI-selected screen](../docs/images/SOI1.png)
+![SOI-selected screen](images/SOI1.png)
 
-![SOI-selected screen](../docs/images/SOI2.png)
+![SOI-selected screen](images/SOI2.png)
 
 ## PAD cursor
 
@@ -107,4 +107,4 @@ configured in their own section at the bottom of this page.
   ALL (unrestricted) — there's no dedicated ALL bind, since neither showing lit already means ALL.
   [WPN](wpn.md)'s A/A · A/G controls mirror and drive the same state.
 
-![Immersion Options section](../docs/images/IMM.png)
+![Immersion Options section](images/IMM.png)

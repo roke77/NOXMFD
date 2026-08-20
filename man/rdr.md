@@ -3,7 +3,7 @@
 A radar scope (an F-16-style B-scope) showing your own ownship at the bottom, bearing spread
 left-right, and range stretching upward toward the top of the screen.
 
-![RDR page](../docs/images/RDR.png)
+![RDR page](images/RDR.png)
 
 ## Reading the scope
 
