@@ -1,11 +1,30 @@
 # MAP
 
-Full-screen tactical map with friendly/hostile units and your own position; click a unit to
-target it, FLW toggles follow, Z+/Z− zoom, GRID toggles a coordinate grid overlay (off by
-default), R+/R− switches the active waypoint route, W+/W− manually steps to the next/previous
-waypoint on the active route, and WPT opens the [waypoint/route editor](wpt.md). A bottom-right
-status row shows CURSOR (the grid square under the mouse/PAD cursor), GRID (your own square), and
-ROUTE (the active route's name) — each shown only while it applies. A HOTAS cursor can drive all
-of this without touching the screen — see [PAD cursor](keybinds.md#pad-cursor).
+Full-screen tactical map showing friendly/hostile units and your own position. Click a unit to
+target it.
 
 ![MAP page](../docs/images/MAP.png)
+
+## Controls
+
+- **FLW** — toggle follow: recenter the map on your own position as you fly, instead of staying
+  wherever you last panned it.
+- **GRID** — toggle a coordinate grid overlay on the map. Off by default.
+- **Z+ / Z−** — zoom in / out.
+- **WPT** — open the [waypoint/route editor](wpt.md).
+- **R+ / R−** — switch the active waypoint route to the next / previous one you've saved.
+- **W+ / W−** — manually step to the next / previous waypoint on the active route, without
+  waiting to fly to it.
+
+## Status row
+
+A row in the bottom-right corner, each item shown only while it applies:
+
+- **CURSOR** — the grid square under your mouse or PAD cursor.
+- **GRID** — the grid square you're currently in.
+- **ROUTE** — the active route's name.
+
+## HOTAS
+
+Every control above can be driven without touching the screen — a HOTAS cursor works the map the
+same way a mouse click does. See [PAD cursor](keybinds.md#pad-cursor).

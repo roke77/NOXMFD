@@ -1,25 +1,27 @@
 # LYT
 
 NO XMFD can render in more than one shell layout — a different frame, navigation, and split model
-over the same pages. Reached from MAIN via **CFG** in either layout, alongside [HUD](hud.md),
-[KEY](keybinds.md), and [RTS](rates.md). Two are supported for now: **CLASSIC** and **F-35**.
+over the same pages. Two are supported for now: **CLASSIC** and **F-35**.
 
 ## CLASSIC
 
-The metallic bezel layout. A single active page fills the screen (or splits into two panes), and
-dedicated bezel buttons frame it — function controls along the top, layout presets along the
+The metallic bezel layout. A single active page fills the screen, or splits into two panes,
+framed by dedicated bezel buttons — function controls along the top, layout presets along the
 bottom.
 
-**MFD shell** — the bezel chrome around the active page:
+**Function controls (top):**
 
 - **HIDE** — hide the bezel so the screen fills the viewport.
 - **FULL** — fullscreen toggle.
 - **PIN** — pin a page.
-- **SWAP** — jump to/from pin.
-- **F_VIEW** — single page.
+- **SWAP** — jump to/from the pinned page.
+
+**Layout presets (bottom):**
+
+- **F_VIEW** — single page, full screen.
 - **H_SPLIT** — top/bottom split.
 - **V_SPLIT** — left/right split.
-- **V_WIDE_SPLIT** — left/right 2:1 split.
+- **V_WIDE_SPLIT** — left/right split, 2:1.
 
 ![V_SPLIT (left) and H_SPLIT (right)](../docs/images/H_V_SPLIT.png)
 

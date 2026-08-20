@@ -1,12 +1,20 @@
 # RTS
 
-Two sliders for the mod's live-adjustable refresh rates: **TLM** (the main telemetry tick —
-own-ship state, weapons, MAP/RWR/RDR/MW contacts, TGT filters, faction stats) and **TGP** (the
-targeting-pod camera feed). Higher rates cost more CPU/GPU and network bandwidth; lower rates
-save it at the cost of smoothness and latency. Changes apply immediately and persist across
-restarts; a RESET TO DEFAULTS button restores both to 10 Hz / 15 Hz.
-
-Reached from MAIN via **CFG** in either layout, alongside [HUD](hud.md), [KEY](keybinds.md),
-and [LYT](layouts.md).
+Two sliders for the mod's live-adjustable refresh rates. Higher rates cost more CPU/GPU and
+network bandwidth; lower rates save it at the cost of smoothness and latency. Changes apply
+immediately and persist across restarts.
 
 ![RTS page](../docs/images/RTS.png)
+
+## TLM
+
+The main telemetry tick — own-ship state, weapons, [MAP](map.md)/[RWR](rwr.md)/[RDR](rdr.md)/MW
+contacts, [TGT](tgt.md) filters, and faction stats. Defaults to 10 Hz.
+
+## TGP
+
+The [targeting-pod camera feed](tgp.md). Defaults to 15 Hz.
+
+## RESET TO DEFAULTS
+
+Restores both sliders to their defaults (10 Hz / 15 Hz).

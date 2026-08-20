@@ -1,7 +1,6 @@
 # AKF
 
-Part of the **MDT** (Mission Data Table) five-way switch — MIS/OBJ/BDF/PAL — and its default
-landing page.
+Part of the **MDT** (Mission Data Table).
 
 A live replica of the game's own kill-feed ticker, split into an ALL column (everyone's kills)
 and a PLAYER column (yours — weapon name attached where resolvable, plus "incoming" lines when
