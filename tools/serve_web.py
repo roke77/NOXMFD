@@ -26,7 +26,11 @@ Usage:
     python tools/serve_web.py --port N
     python tools/serve_web.py --open
 
-Run tools/capture_assets.py while in-game to populate preview/assets/ with real assets.
+Run tools/capture_assets.py while in-game to populate preview/captures/<timestamp>/ with real
+assets — every run adds a new dated folder (a library, not one slot), and preview/captures/CURRENT
+names whichever one is live here. To switch which capture is live, just overwrite that file with a
+different folder's name; no server restart needed, it's read fresh on every request. Falls back to
+the older single-slot preview/assets/manifest.json if neither CURRENT nor its target exist.
 Ctrl+C to stop.
 """
 import argparse
@@ -45,7 +49,21 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 WEB = REPO / "src" / "web"
 PREV = REPO / "preview"
 MOCK = REPO / "tools" / "preview-mock.js"
-MANIFEST = PREV / "assets" / "manifest.json"
+CAPTURES = PREV / "captures"
+LEGACY_MANIFEST = PREV / "assets" / "manifest.json"   # pre-library single-slot capture, still honored
+
+
+def _manifest_path():
+    """Whichever capture CURRENT names, else the old single-slot preview/assets/manifest.json.
+    Resolved per-call (not cached) so switching CURRENT takes effect on the very next request —
+    no server restart to preview a different capture."""
+    cur = CAPTURES / "CURRENT"
+    if cur.exists():
+        name = cur.read_text(encoding="utf-8").strip()
+        p = CAPTURES / name / "manifest.json"
+        if name and p.exists():
+            return p
+    return LEGACY_MANIFEST
 
 WEAPON_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">'
               '<rect width="200" height="100" fill="none" stroke="#39ff14" stroke-width="3"/>'
@@ -67,6 +85,12 @@ BDF_ICON_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
                 '<polygon points="12,2 22,12 12,22 2,12" fill="none" stroke="#39ff14" '
                 'stroke-width="2"/></svg>')
 
+# Mock TGP feed frame (the real one is a captured still off /tgp.mjpg — see capture_assets.py).
+TGP_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240">'
+           '<rect width="320" height="240" fill="none" stroke="#39ff14" stroke-width="3"/>'
+           '<text x="160" y="128" fill="#39ff14" font-size="20" text-anchor="middle" '
+           'font-family="monospace">NO CAPTURE</text></svg>')
+
 MIME = {'.css': 'text/css', '.js': 'text/javascript', '.woff2': 'font/woff2', '.html': 'text/html',
         '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg'}
 
@@ -77,9 +101,9 @@ def _mime(rel):
 
 def _capture_injection():
     """If a capture exists, a <script> exposing the real frame + assets."""
-    if not MANIFEST.exists():
+    m = _manifest()
+    if not m:
         return ""
-    m = json.loads(MANIFEST.read_text(encoding="utf-8"))
     frame = json.dumps(m.get("frame", {})).replace("</", "<\\/")
     assets = json.dumps(m.get("assets", {})).replace("</", "<\\/")
     return ("<script>\n"
@@ -89,10 +113,11 @@ def _capture_injection():
 
 
 def _manifest():
-    if not MANIFEST.exists():
+    p = _manifest_path()
+    if not p.exists():
         return {}
     try:
-        return json.loads(MANIFEST.read_text(encoding="utf-8"))
+        return json.loads(p.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
 
@@ -105,6 +130,13 @@ def _asset_ref(key):
 def _asset_json(key):
     val = (_manifest().get("assets") or {}).get(key)
     return val if isinstance(val, dict) else None
+
+
+def _captured_or(key, fallback_fn):
+    """A capture's inlined JSON (hud-options/wpt-options/rates-config) if present, else the
+    harness's own hand-authored mock — same fallback shape every other captured asset uses."""
+    val = _asset_json(key)
+    return json.dumps(val).encode('utf-8') if val is not None else fallback_fn()
 
 
 def _preview_asset_path(ref):
@@ -485,13 +517,13 @@ class H(http.server.SimpleHTTPRequestHandler):
         if path == '/config':
             return self._send(_config(self.server.server_address[1]), 'application/json; charset=utf-8')
         if path == '/hud-options':
-            return self._send(_hud_options(), 'application/json; charset=utf-8')
+            return self._send(_captured_or('hud-options', _hud_options), 'application/json; charset=utf-8')
         if path == '/wpt-options':
-            return self._send(_wpt_options(), 'application/json; charset=utf-8')
+            return self._send(_captured_or('wpt-options', _wpt_options), 'application/json; charset=utf-8')
         if path == '/keybinds-config':
             return self._send(_keybinds_config(), 'application/json; charset=utf-8')
         if path == '/rates-config':
-            return self._send(_rates_config(), 'application/json; charset=utf-8')
+            return self._send(_captured_or('rates-config', _rates_config), 'application/json; charset=utf-8')
         if path == '/map-view':
             try:
                 return self._send(_map_page(), 'text/html; charset=utf-8')
@@ -548,7 +580,27 @@ class H(http.server.SimpleHTTPRequestHandler):
                     return self._file(fp, 'image/png')
             return self._send(TGT_ICON_SVG.encode('utf-8'), 'image/svg+xml')
         if path == '/bdf-icon':
+            # Real captured ship-type icon if a capture ran (manifest key 'bdf-icon:<t>');
+            # otherwise the generic diamond placeholder. Faction logos have no HTTP endpoint at
+            # all (Faction.factionColorLogo is in-game-only) so there's nothing to capture for
+            # those — BDF_ICON_SVG still stands in for the header logo either way.
+            typ = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('type', [''])[0]
+            ref = _asset_ref('bdf-icon:' + typ)
+            if ref:
+                fp = _preview_asset_path(ref)
+                if fp and fp.exists():
+                    return self._file(fp, 'image/png')
             return self._send(BDF_ICON_SVG.encode('utf-8'), 'image/svg+xml')
+        if path == '/tgp.mjpg':
+            # A captured still frame, served as a plain JPEG — an <img> tag can't tell the
+            # difference from a live multipart stream, it just won't update. No capture yet:
+            # the same placeholder shape as WEAPON_SVG/TGT_ICON_SVG.
+            ref = _asset_ref('tgp')
+            if ref:
+                fp = _preview_asset_path(ref)
+                if fp and fp.exists():
+                    return self._file(fp, 'image/jpeg')
+            return self._send(TGP_SVG.encode('utf-8'), 'image/svg+xml')
         if path == '/airframe-layout':
             typ = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('type', [''])[0]
             layout = _asset_json('airframe-layout:' + typ)

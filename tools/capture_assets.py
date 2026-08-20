@@ -6,32 +6,54 @@ Run this WHILE Nuclear Option is running with a mission loaded and you are flyin
 (so /stream serves real telemetry and the map/icons have been extracted by the
 mod). It pulls, from http://localhost:5005:
 
-  • one real telemetry frame  (/stream)         → the static scenario
-                                                   (includes AKF's kill feed/rank/funds, live —
-                                                   score a few kills first if you want it populated)
-  • the map image             (/map)            → assets/map.png
-  • each unit type's icon      (/icon?type=...)  → assets/icon_*.png
-  • each weapon's icon         (/weapon?name=..) → assets/weapon_*.png
-  • HUD vehicle/building icons (/tgt-icon, /building-icon) → assets/tgt_icon_*, building_icon_*
-  • HUD category-row glyphs   (/hud-cat-icon)              → assets/hud_cat_icon_*
+  • one real telemetry frame   (/stream)          → the static scenario (includes
+                                                      AKF/MIS/OBJ/BDF/PAL/TGT/RDR/RWR —
+                                                      score a few kills first if you
+                                                      want AKF's feed populated)
+  • the map image              (/map)             → map.png
+  • each unit type's icon      (/icon?type=...)   → icon_*.png
+  • each weapon's icon         (/weapon?name=..)  → weapon_*.png
+  • HUD vehicle/building icons (/tgt-icon, /building-icon) → tgt_icon_*, building_icon_*
+  • HUD category-row glyphs    (/hud-cat-icon)    → hud_cat_icon_*
+  • BDF/PAL ship-type icons    (/bdf-icon)        → bdf_icon_*
+  • the airframe silhouette    (/airframe[-layout]) → airframe_*
+  • one frame of the TGP feed  (/tgp.mjpg)        → tgp.jpg
+  • the raw HUD/WPT/RTS config (/hud-options, /wpt-options, /rates-config) —
+    inlined into the manifest so those three pages render real data too, not just
+    their hardcoded harness mocks
 
-...and writes preview/assets/manifest.json describing them. Then run:
+Every run writes into its OWN timestamped folder — a library of captures, not one
+slot that overwrites itself — so you can go back to how a mission looked five
+captures ago:
+
+    preview/captures/20260820_193045/manifest.json + every asset above
+    preview/captures/20260820_201112/...
+    preview/captures/CURRENT                 <- one line naming which one is "live"
+
+serve_web.py reads whichever capture CURRENT names (falling back to the pre-library
+preview/assets/manifest.json if neither exists, for anyone with an old-style single
+capture lying around). This script always points CURRENT at the capture it just
+took; to go back to an older one, just overwrite CURRENT with that folder's name —
+no copying, no server restart, it's read fresh on every request.
+
+Then run (or leave running):
 
     python tools/serve_web.py --open
 
-Units/weapons that have no icon in-game simply 404 and are skipped — the preview
-shows the same square fallback the real HUD uses for them.
+Units/weapons/ships that have no icon in-game simply 404 and are skipped — the
+preview shows the same square fallback the real HUD uses for them.
 """
 import json
 import pathlib
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 
 BASE = "http://localhost:5005"
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-ASSETS = ROOT / "preview" / "assets"
+LIBRARY = ROOT / "preview" / "captures"
 PING_LIMIT = 30   # give up after this many "no mission" pings
 
 
@@ -76,19 +98,52 @@ def fetch(path):
         raise
 
 
+def fetch_tgp_frame():
+    """One still JPEG out of the live /tgp.mjpg feed.
+
+    ponytail: scans raw bytes for a JPEG SOI/EOI pair instead of parsing the
+    multipart boundary properly — good enough to grab one frame out of a feed
+    this mod itself produces (a well-formed encoder, not adversarial input);
+    a real multipart parser would be the upgrade if this ever needs to handle
+    a feed from somewhere else. Gives up after ~2MB so a feed that never
+    resolves (TGP not active) doesn't hang the capture.
+    """
+    try:
+        resp = urllib.request.urlopen(BASE + "/tgp.mjpg", timeout=10)
+    except urllib.error.URLError:
+        return None
+    buf = b""
+    try:
+        while len(buf) < 2_000_000:
+            chunk = resp.read(65536)
+            if not chunk:
+                break
+            buf += chunk
+            start = buf.find(b"\xff\xd8")
+            if start == -1:
+                continue
+            end = buf.find(b"\xff\xd9", start)
+            if end != -1:
+                return buf[start:end + 2]
+    except (urllib.error.URLError, OSError):
+        return None
+    finally:
+        resp.close()
+    return None
+
+
 def main():
-    ASSETS.mkdir(parents=True, exist_ok=True)
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    assets_dir = LIBRARY / ts
+    rel_prefix = f"captures/{ts}/"
 
     # Grab the live frame FIRST. If the server is unreachable / no mission loaded,
-    # we bail before touching any existing assets — otherwise a failed capture would
-    # wipe the previous good one, leaving the preview with nothing to render.
+    # bail before creating anything — a failed capture shouldn't leave an empty
+    # folder cluttering the library, and CURRENT should keep pointing at the last
+    # good one.
     frame = grab_frame()
     print(f"\nCaptured frame: {frame.get('name')}  —  {frame.get('mapName')} / {frame.get('mission')}")
 
-    # AKF (docs/akf-page.md) rides the same /stream frame as everything else — no separate capture
-    # step needed, preview-mock.js already forwards frame['akf'] verbatim. But it's a snapshot of
-    # whatever's accumulated in the CURRENT mission by capture time, so an early capture just means
-    # an empty feed — flag that here instead of leaving it a silent, confusing blank page in preview.
     akf = frame.get("akf") or {}
     akf_all, akf_player = len(akf.get("all") or []), len(akf.get("player") or [])
     print(f"  akf     captured  {akf_all} all / {akf_player} player feed lines, rank {akf.get('rank', 0)}")
@@ -96,18 +151,14 @@ def main():
         print("  NOTE: AKF feed is empty — score/take a few kills in-game, then capture again if you"
               " want the AKF page preview populated.")
 
-    # We've confirmed the game is reachable — safe to clear stale assets now.
-    for old in ASSETS.glob("*.png"):
-        old.unlink()
-    (ASSETS / "manifest.json").unlink(missing_ok=True)
-
+    assets_dir.mkdir(parents=True, exist_ok=True)
     assets = {}
 
     data = fetch("/map")
     if not data:
         sys.exit("ERROR: /map returned no image yet — wait for the map to load in-game, then retry.")
-    (ASSETS / "map.png").write_bytes(data)
-    assets["map"] = "assets/map.png"
+    (assets_dir / "map.png").write_bytes(data)
+    assets["map"] = rel_prefix + "map.png"
     print(f"  map     saved   ({len(data):,} bytes)")
 
     # Icons: the player aircraft plus every distinct contact type.
@@ -118,8 +169,8 @@ def main():
             print(f"  icon    (none)  {t}")
             continue
         fn = f"icon_{i}.png"
-        (ASSETS / fn).write_bytes(data)
-        assets["icon:" + t] = "assets/" + fn
+        (assets_dir / fn).write_bytes(data)
+        assets["icon:" + t] = rel_prefix + fn
         print(f"  icon    saved   {t}")
 
     # Weapon icons, keyed by loadout display name.
@@ -130,9 +181,25 @@ def main():
             print(f"  weapon  (none)  {n}")
             continue
         fn = f"weapon_{i}.png"
-        (ASSETS / fn).write_bytes(data)
-        assets["weapon:" + n] = "assets/" + fn
+        (assets_dir / fn).write_bytes(data)
+        assets["weapon:" + n] = rel_prefix + fn
         print(f"  weapon  saved   {n}")
+
+    # BDF/PAL ship-type icons, keyed by the "n" field the bdf/pal telemetry blocks' ships
+    # array already carries (docs/bdf-page.md) — same shape as icon:/weapon: above.
+    ships = list(dict.fromkeys(
+        s["n"] for block in (frame.get("bdf") or {}, frame.get("pal") or {})
+        for s in (block.get("ships") or []) if s.get("n")
+    ))
+    for i, n in enumerate(ships):
+        data = fetch("/bdf-icon?type=" + urllib.parse.quote(n))
+        if not data:
+            print(f"  bdf-icon (none)  {n}")
+            continue
+        fn = f"bdf_icon_{i}.png"
+        (assets_dir / fn).write_bytes(data)
+        assets["bdf-icon:" + n] = rel_prefix + fn
+        print(f"  bdf-icon saved   {n}")
 
     # HUD OPTIONS type-sprite icons: one per vehicle type and per building type. The names come from
     # /hud-options (the same endpoint the HUD page reads); vehicles are served at /tgt-icon (shared
@@ -140,6 +207,9 @@ def main():
     hud = fetch("/hud-options")
     if hud:
         opts = json.loads(hud.decode("utf-8"))
+        assets["hud-options"] = opts   # inlined JSON (like airframe-layout below), not a file —
+                                        # lets the HUD page render real mode/category/type state
+                                        # instead of the harness's hand-authored mock.
         for endpoint, group, key in (("/tgt-icon", "vehicles", "tgt-icon"),
                                      ("/building-icon", "buildings", "building-icon")):
             for i, item in enumerate(opts.get(group) or []):
@@ -151,8 +221,8 @@ def main():
                     print(f"  {key:12s} (none)  {name}")
                     continue
                 fn = f"{key.replace('-', '_')}_{i}.png"
-                (ASSETS / fn).write_bytes(data)
-                assets[key + ":" + name] = "assets/" + fn
+                (assets_dir / fn).write_bytes(data)
+                assets[key + ":" + name] = rel_prefix + fn
                 print(f"  {key:12s} saved   {name}")
 
         # HUD OPTIONS category-row glyphs — AIRCRAFT/MISSILES/VEHICLES/BUILDINGS/SHIPS, keyed by the
@@ -165,9 +235,28 @@ def main():
                 print(f"  hud-cat-icon (none)  {label}")
                 continue
             fn = f"hud_cat_icon_{i}.png"
-            (ASSETS / fn).write_bytes(data)
-            assets["hud-cat-icon:" + label] = "assets/" + fn
+            (assets_dir / fn).write_bytes(data)
+            assets["hud-cat-icon:" + label] = rel_prefix + fn
             print(f"  hud-cat-icon saved   {label}")
+    else:
+        print("  hud-options (none)  — HUD page will fall back to the harness mock")
+
+    # WPT route library (RouteStore.RoutesJson) — inlined, same treatment as hud-options above, so
+    # WPT/MAP show your actual saved routes instead of the harness's fixed showcase route.
+    wpt = fetch("/wpt-options")
+    if wpt:
+        assets["wpt-options"] = json.loads(wpt.decode("utf-8"))
+        print("  wpt-options saved")
+    else:
+        print("  wpt-options (none)  — WPT page will fall back to the harness mock")
+
+    # RTS live refresh-rate config — inlined the same way.
+    rates = fetch("/rates-config")
+    if rates:
+        assets["rates-config"] = json.loads(rates.decode("utf-8"))
+        print("  rates-config saved")
+    else:
+        print("  rates-config (none)  — RTS page will fall back to the harness mock")
 
     # AVN airframe silhouette: background PNG + one PNG per UI segment + the layout JSON.
     # All one-shot per aircraft type — keyed by frame.name. If the layout 404s the airframe
@@ -188,8 +277,8 @@ def main():
             bg = fetch(f"/airframe?type={urllib.parse.quote(af_type)}&part=__bg")
             if bg:
                 fn = "airframe_bg.png"
-                (ASSETS / fn).write_bytes(bg)
-                assets[f"airframe:{af_type}|__bg"] = "assets/" + fn
+                (assets_dir / fn).write_bytes(bg)
+                assets[f"airframe:{af_type}|__bg"] = rel_prefix + fn
                 print(f"  airframe bg     saved   ({len(bg):,} bytes)")
             saved = 0
             for i, p in enumerate(layout.get("parts", [])):
@@ -198,8 +287,8 @@ def main():
                 data = fetch(f"/airframe?type={urllib.parse.quote(af_type)}&part={urllib.parse.quote(name)}")
                 if not data: continue
                 fn = f"airframe_part_{i}.png"
-                (ASSETS / fn).write_bytes(data)
-                assets[f"airframe:{af_type}|{name}"] = "assets/" + fn
+                (assets_dir / fn).write_bytes(data)
+                assets[f"airframe:{af_type}|{name}"] = rel_prefix + fn
                 saved += 1
             print(f"  airframe parts  saved   {saved} for '{af_type}'")
         else:
@@ -224,16 +313,27 @@ def main():
             front_bg = fetch(f"/airframe?type={urllib.parse.quote(af_type)}&part=__front")
             if front_bg:
                 fn = "airframe_front.png"
-                (ASSETS / fn).write_bytes(front_bg)
-                assets[f"airframe:{af_type}|__front"] = "assets/" + fn
+                (assets_dir / fn).write_bytes(front_bg)
+                assets[f"airframe:{af_type}|__front"] = rel_prefix + fn
                 print(f"  airframe front  saved   ({len(front_bg):,} bytes)")
         else:
             print(f"  airframe front  (none)  for '{af_type}' — capture again once you're in the cockpit")
 
-    (ASSETS / "manifest.json").write_text(
+    # TGP: one still frame out of the live MJPEG feed, so the page shows the real cockpit camera
+    # instead of a blank iframe (the harness never handled /tgp.mjpg at all before this).
+    tgp = fetch_tgp_frame()
+    if tgp:
+        (assets_dir / "tgp.jpg").write_bytes(tgp)
+        assets["tgp"] = rel_prefix + "tgp.jpg"
+        print(f"  tgp     saved   ({len(tgp):,} bytes)")
+    else:
+        print("  tgp     (none)  — lock a target with TGP active, then capture again")
+
+    (assets_dir / "manifest.json").write_text(
         json.dumps({"frame": frame, "assets": assets}, indent=2), encoding="utf-8")
-    print(f"\nWrote {len(assets)} assets + manifest to {ASSETS.relative_to(ROOT)}")
-    print("Now run:  python tools/serve_web.py --open")
+    (LIBRARY / "CURRENT").write_text(ts, encoding="utf-8")
+    print(f"\nWrote {len(assets)} assets + manifest to preview/captures/{ts}/")
+    print(f"CURRENT now points at it. Run:  python tools/serve_web.py --open")
 
 
 if __name__ == "__main__":
