@@ -41,3 +41,5 @@ The active waypoint also shows on the **in-game HUD**: an amber bug rides the ga
 tape at the waypoint's bearing, with a `WPT n · NAME` / distance · bearing readout beside it. Past
 ±45° of the nose — the tape only spans 90° — the bug becomes a sideways arrow pinned at the edge
 it left, pointing the way to turn. It shows whenever a route is active.
+
+![In-game HUD waypoint cue](../docs/images/WPT_HUD.png)
