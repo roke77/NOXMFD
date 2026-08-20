@@ -110,7 +110,10 @@ def fetch_tgp_frame():
     """
     try:
         resp = urllib.request.urlopen(BASE + "/tgp.mjpg", timeout=10)
-    except urllib.error.URLError:
+    except (urllib.error.URLError, OSError):
+        # OSError (not just URLError) because a server that accepts the connection but never
+        # writes a response within the timeout — exactly "TGP not active, feed never starts" —
+        # surfaces as a bare socket timeout here, not wrapped in URLError.
         return None
     buf = b""
     try:
