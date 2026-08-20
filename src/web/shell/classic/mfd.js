@@ -1219,9 +1219,9 @@ function broadcastOrientation() { paneIframes.forEach(forwardOrientationToPane);
 orientMq.addEventListener('change', function() { applyShellOrientation(); broadcastOrientation(); });
 applyShellOrientation();
 
-// Extension nav discovery (docs/extensions-api.md) — fetches /ext-manifest once and merges
-// installed extensions into NAV.ext / NAV[<id>]. Fire-and-forget: a pilot can't reach EXT
-// before this same-origin local fetch resolves in practice.
+// Extension nav discovery (docs/extensions-api.md) — fetches /ext-manifest and merges installed
+// extensions into NAV.ext / NAV[<id>]. Fire-and-forget at boot; also re-run every time EXT is
+// clicked (the 'ext' case below) to pick up an extension that registered after this tab loaded.
 ExtNav.load(NAV);
 
 // On pane iframe load, push the latest snapshot for whichever page that pane is
@@ -2268,7 +2268,15 @@ function mfdButton(el) {
     // lists MAIN plus one entry per installed extension, rendered as ordinary full-view keys by
     // the generic NAV sweep in showPage. Picking one of THOSE is handled by the `default` case
     // below, since an extension id is a runtime string, not a literal `case` this switch can name.
-    case 'ext':  showPage('ext'); break;
+    // Re-scans /ext-manifest on every click (not just at boot): an extension whose own Awake()
+    // hadn't registered it yet the first time this shell fetched now gets picked up without a
+    // full page reload. showPage('ext') again once the rescan lands — iframe.src assigned to its
+    // own current value is a no-op, so this only touches the nav labels, not a page reload — but
+    // only if EXT is still the page open by the time the fetch resolves.
+    case 'ext':
+      showPage('ext');
+      ExtNav.load(NAV).then(function () { if (currentPage === 'ext') showPage('ext'); });
+      break;
     case 'hud':  showPage('hud');  break;
     case 'keys':  showPage('keys');  break;
     case 'rates': showPage('rates'); break;   // cfg-rates experiment (issue #39) — CFG group's RTS

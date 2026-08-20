@@ -528,10 +528,19 @@
     }
 
     function dispatch(action) {
-      // EXT (docs/extensions-api.md) needs no special case: F35_PAGES.ext already names the hub
-      // page, so `has('ext')` is true and the generic showPage(action) tail below lands there like
-      // any other page. NAV.ext (ext-nav.js) lists MAIN plus one entry per installed extension;
-      // picking one of those is `has(action)` too, via ExtNav.isExtensionPage.
+      // EXT (docs/extensions-api.md): F35_PAGES.ext already names the hub page, so `has('ext')` is
+      // true and the generic showPage(action) tail below lands there like any other page. NAV.ext
+      // (ext-nav.js) lists MAIN plus one entry per installed extension; picking one of those is
+      // `has(action)` too, via ExtNav.isExtensionPage. The one thing EXT does need a special case
+      // for: a rescan on every click, not just at boot — an extension whose own Awake() hadn't
+      // registered it yet the first time this shell fetched now gets picked up without a full page
+      // reload. renderNav() alone (not showPage again) once the rescan lands, so this only rebuilds
+      // the nav grid, not the iframe's src — but only if EXT is still open when the fetch resolves.
+      if (action === 'ext') {
+        showPage('ext');
+        ExtNav.load(NAV).then(function () { if (currentPage === 'ext') renderNav(); });
+        return;
+      }
       if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
       if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
       if (action in GLASS_ACTIONS) { GLASS_ACTIONS[action](); return; }
@@ -1113,9 +1122,9 @@
 
   loadStripUrls();
   runStripBoot();
-  // Extension nav discovery (docs/extensions-api.md) — fetches /ext-manifest once and merges
-  // installed extensions into NAV.ext / NAV[<id>]. Fire-and-forget: a pilot can't reach EXT
-  // before this same-origin local fetch resolves in practice.
+  // Extension nav discovery (docs/extensions-api.md) — fetches /ext-manifest and merges installed
+  // extensions into NAV.ext / NAV[<id>]. Fire-and-forget at boot; also re-run every time EXT is
+  // clicked (dispatch's 'ext' case) to pick up an extension that registered after this tab loaded.
   ExtNav.load(NAV);
   buildGlass();
 })();
