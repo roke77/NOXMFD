@@ -109,7 +109,7 @@ Full detail, screenshots and instructions for each page now live in [`man/`](man
 - **[AVN](man/avn.md)** — avionics gauges and system toggles.
 - **[MAP](man/map.md)** — tactical map.
   - **[WPT](man/wpt.md)** — waypoint/route editor.
-- **MDT** (Mission Data Table) — a five-way switch, landing on AKF by default.
+- **MDT** — mission data hub.
   - **[AKF](man/akf.md)** — kill feed.
   - **[MIS](man/mis.md)** — mission info.
   - **[OBJ](man/obj.md)** — objectives.
