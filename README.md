@@ -17,11 +17,6 @@ any web browser, on the same PC or on another device on the same network.
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Features](#features)
-  - [MFD pages](#mfd-pages)
-  - [MFD shell](#mfd-shell)
-  - [MFD layouts](#mfd-layouts)
-  - [Extended Keybinds](#extended-keybinds)
-  - [Immersion Options](#immersion-options)
 - [Reporting & collaboration](#reporting--collaboration)
 - [Mod compatibility](#mod-compatibility)
 - [Extensions](#extensions)
@@ -107,305 +102,25 @@ pilot, with HOTAS-friendly keybinds to match.
 
 ### MFD pages
 
-- **MAIN** — landing page: connection status and the URL(s) to open the display.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![MAIN page](docs/images/MAIN.png)
-
-  </details>
-
-- **AFM** — airframe status: aircraft name, a nose-on view of your loadout's armed/exhausted hardpoints (mirroring the cockpit's own weapon-station panel), and a top-down silhouette that darkens per-part as it takes damage, with engine-fire and other critical failure callouts.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![AFM page](docs/images/AFM.png)
-
-  </details>
-
-- **AVN** — avionics at a glance: circular gauges for engine RPM, fuel, IR heat signature, and throttle (with an afterburner range on the dial), plus a bank of system toggles — gear, radar, guns, engine, flight assist, night vision, nav lights, turret — that show live state and double as bezel-actuated switches.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![AVN page](docs/images/AVN.png)
-
-  </details>
-
-- **CFG** — a dedicated page containing configuration options: **KEY** is the extended-keybinds
-  editor (bind a keyboard key and a joystick/HOTAS button to each of the mod's own cockpit
-  functions — see [Extended Keybinds](#extended-keybinds) below), **LYT** is the layout chooser
-  (switch the display to a different shell layout), and **RTS** tunes the mod's live
-  data-refresh rates (below).
-
-- **HUD** — a remote for the game's in-cockpit HUD OPTIONS: mode tabs (NAV/GUN/A2A/…) and per-category / per-type toggles for which unit icons show on the HUD, plus a declutter strip that hides native HUD widgets — the weapon panel, corner minimap, and boxed flight readouts.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![HUD page](docs/images/HUD.png)
-
-  </details>
-
-- **MAP** — full-screen tactical map with friendly/hostile units and your own position; click a unit to target it, FLW toggles follow, Z+/Z− zoom, GRID toggles a coordinate grid overlay (off by default), R+/R− switches the active waypoint route, W+/W− manually steps to the next/previous waypoint on the active route, and WPT opens the waypoint/route editor (below). A bottom-right status row shows CURSOR (the grid square under the mouse/PAD cursor), GRID (your own square), and ROUTE (the active route's name) — each shown only while it applies. A HOTAS cursor can drive all of this without touching the screen — see [PAD cursor](#pad-cursor) below.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![MAP page](docs/images/MAP.png)
-
-  </details>
-
-- **MDT** (Mission Data Table) — a five-way switch, landing on **AKF** by default: a live replica of the game's own kill-feed ticker, split into an ALL column (everyone's kills) and a PLAYER column (yours — weapon name attached where resolvable, plus "incoming" lines when you're the one shot down or your own ordnance gets intercepted), with session kill tally, funds gained/spent, and your current rank below. **BDF/PAL** are read-only replicas of the game's faction Forces panel, one per fixed identity (BOSCALI/PRIMEVA) — warheads, score, and funds, plus a ships/buildings/vehicles/aircraft breakdown. **MIS** shows the mission's name, in-mission clock/duration, escalation score/level, and full description text. **OBJ** lists the player faction's currently active objectives with status, completion percent, and collapsible per-objective position sub-rows (grid label + live range).
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![AKF page](docs/images/AKF.png)
-
-  ![BDF page](docs/images/BDF.png)
-
-  </details>
-
-- **RDR** — a radar scope showing air contacts from your own radar (green) and the faction's shared datalink picture (purple), with a PAD cursor to slew between the bars and lock/unlock a target, a selectable display range (R+/R-), and your own AA missiles once they go pitbull.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![RDR page](docs/images/RDR.png)
-
-  </details>
-
-- **RTS** — two sliders for the mod's live-adjustable refresh rates: **TLM** (the main telemetry
-  tick — own-ship state, weapons, MAP/RWR/RDR/MW contacts, TGT filters, faction stats) and **TGP**
-  (the targeting-pod camera feed). Higher rates cost more CPU/GPU and network bandwidth; lower
-  rates save it at the cost of smoothness and latency. Changes apply immediately and persist
-  across restarts; a RESET TO DEFAULTS button restores both to 10 Hz / 15 Hz.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![RTS page](docs/images/RTS.png)
-
-  </details>
-
-- **RWR** — radar threats around you by bearing, with incoming-missile warnings.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![RWR page](docs/images/RWR.png)
-
-  </details>
-
-- **TGP** — targeting-pod camera feed zoomed on the locked target, with range and bearing. (Low quality for now. Follow high quality development [here](https://github.com/roke77/NOXMFD/issues/10))
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![TGP page](docs/images/TGP.png)
-
-  </details>
-
-- **TGT** — target-selection filter mirroring the in-cockpit TARGET SELECTION panel: toggle which factions, categories, and vehicle types can be targeted (plus LASER/HUD), with RESET and CLEAR, above your live selected-target list. A DATALINK button bulk-deselects the datalink-only locks; a STALE button bulk-deselects locks whose relayed position the game no longer trusts (the same check behind the TGP's own "?" marker).
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![TGT page](docs/images/TGT.png)
-
-  </details>
-
-- **WPN** — weapon loadout and rounds remaining, plus IR-flare count and jammer charge. ARM/SAFE and
-  A/A · A/G controls reflect and drive Master Arms and combat mode — see
-  [Immersion Options](#immersion-options).
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![WPN page](docs/images/WPN.png)
-
-  </details>
-
-- **WPT** — plot custom waypoints on **MAP** (long-press a spot to drop one into the active
-  route) and chain them into an ordered route. The WPT page lists every route (create, rename,
-  delete, click to activate — click the active one again to deactivate it, leaving it saved but
-  unassigned) and the active route's waypoints (rename, reorder, delete, or reset progress back to
-  any waypoint), with a distance/bearing readout and a relative-bearing compass to the next one
-  that auto-advances as you approach it. CLEAR wipes every route at once. Routes are stored by the
-  mod itself, not any one browser — the same routes show on every connected display (PC, tablet,
-  phone), survive a full game restart, and advance whether or not the WPT page is even open.
-  IMPORT and each route's own export button turn a route into pasteable JSON, so you can back one
-  up or hand it to another pilot.
-
-  The active waypoint also shows on the **in-game HUD**: an amber bug rides the game's own heading
-  tape at the waypoint's bearing, with a `WPT n · NAME` / distance · bearing readout beside it. Past
-  ±45° of the nose — the tape only spans 90° — the bug becomes a sideways arrow pinned at the edge
-  it left, pointing the way to turn. It shows whenever a route is active.
-
-  <details>
-  <summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-  ![WPT page](docs/images/WPT.png)
-
-  </details>
-
-### MFD shell
-
-The shell frames the active page with dedicated bezel buttons — function
-controls along the top, layout presets along the bottom.
-
-- **HIDE** — hide the bezel so the screen fills the viewport.
-- **FULL** — fullscreen toggle.
-- **PIN** — pin a page.
-- **SWAP** — jump to/from pin.
-- **F_VIEW** — single page.
-- **H_SPLIT** — top/bottom split.
-- **V_SPLIT** — left/right split.
-- **V_WIDE_SPLIT** — left/right 2:1 split.
-
-<details>
-<summary>$\color{green}\textsf{See screenshots}$</summary>
-
-![V_SPLIT (left) and H_SPLIT (right)](docs/images/H_V_SPLIT.png)
-
-![V_WIDE_SPLIT](docs/images/V_WIDE_SPLIT.png)
-
-</details>
-
-### MFD layouts
-
-NO XMFD can render in more than one shell layout — a different frame,
-navigation, and split model over the same pages. Two are supported for now:
-**CLASSIC** (the metallic bezel above) and **F-35**.
-
-#### F-35
-
-A borderless, touch-driven layout modelled on the real F-35's panoramic cockpit
-display: there are no bezel keys — the navigation labels are drawn on the glass
-and tapped directly, and the screen divides into side-by-side portals, each an
-independent MFD, that you merge and split with corner grips. A fixed strip
-across the top carries the aircraft-level readouts — connection, throttle and
-fuel, and the avionics flags.
-
-<details>
-<summary>$\color{green}\textsf{See screenshots}$</summary>
-
-![F-35 layout — MAIN](docs/images/F-35%20MAIN.png)
-
-![F-35 layout — 1-2-1 portal split](docs/images/F-35%201-2-1.png)
-
-![F-35 layout — 2-2 portal split](docs/images/F-35%202-2.png)
-
-</details>
-
-### Extended Keybinds
-
-Optional dedicated keybinds for cockpit functions the game has no native bind for,
-configured on the **KEY** page, reached from MAIN via **CFG** in either layout (or opened
-directly at `http://localhost:5005/keybinds`). Each function takes a keyboard/mouse key, a
-joystick/HOTAS button, or both — click a cell and press the key or button to bind it.
-Multi-stick HOTAS setups are supported; each bind remembers which stick it came from.
-
-- **Flares** — select + deploy IR flares (tap to pop, hold to keep popping).
-- **Jammer** — select + activate the radar jammer (hold to jam).
-- **Jamming Pod** — select + activate a weapon-mounted radar jamming pod (e.g. the Medusa's). Hold
-  to keep jamming.
-- **Gear up / Gear down** — dedicated raise/lower (the stock bind is a single toggle).
-- **Cycle guns / missiles / bombs** — select the last soft-selected weapon of that type, or
-  the first in the list; repeated presses cycle to the next one, skipping depleted weapons.
-  Cycling to a different type leaves the current one soft-selected.
-- **Gun trigger / Weapon release** — per-class fire keys (hold for continuous fire). If the
-  active weapon is from the other class, the first press only switches — bringing up the
-  right reticle — and the next press fires. The current gun and missile/bomb choices show
-  as outlines on the WPN page.
-- **Follow / Zoom In / Zoom Out / Next Route / Previous Route / Next Waypoint / Previous Waypoint** —
-  direct binds for what the bezel's FLW, Z+/Z−, R+/R− and W+/W− keys already do on the focused MAP
-  or WPT display. Next/Previous Route stay usable to switch INTO a route as long as one is saved,
-  even with none currently active.
-- **Cursor Up / Down / Left / Right / Select**, plus two HOTAS axis binds (horizontal/vertical) —
-  drive the [PAD cursor](#pad-cursor) below.
-- **Next Target / Previous Target** — step a highlighted row through the focused TGT display's
-  locked-target list, without aiming the PAD cursor at it. The two are mutually exclusive: stepping
-  a row hides the crosshair and hands Cursor Select to that row instead (Select deselects it);
-  moving the crosshair hands Select back.
-- **Clear Datalink / Clear Stale** — the keybind equivalents of tapping TGT's own DATALINK/STALE
-  buttons.
-
-An **Input When Game Unfocused** toggle sits above the bind table (not a bind itself) — turn it on
-if you run the display in a browser on the same PC as the game, so your HOTAS stays live while
-that browser window has focus. Off by default; leave it off for a tablet or phone, where the game
-keeps focus anyway.
-
-<details>
-<summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-![Extended keybinds page](docs/images/KEY.png)
-
-</details>
-
-#### Sensor of Interest (SOI)
-
-Operate a display from your HOTAS without touching it. One screen at a time is selected — it is
-outlined in white — and the SOI keys move a cursor over its buttons and press them. In a split the
-selection is a single pane; on the F-35 it is a single portal. Nothing is selected until you press
-a SOI key. Five binds, on the **KEY** page:
-
-- **SOI Next / SOI Prev** — select the next / previous screen (every open display, and each F-35
-  portal).
-- **Nav Up / Nav Down** — move the cursor over the selected screen's buttons.
-- **Nav Select** — press the button under the cursor.
-
-<details>
-<summary>$\color{green}\textsf{See screenshots}$</summary>
-
-![SOI-selected screen](docs/images/SOI1.png)
-
-![SOI-selected screen](docs/images/SOI2.png)
-
-</details>
-
-#### PAD cursor
-
-When a display's focused page is interactible — MAP, HUD, TGT, or RDR — a crosshair can move over
-it and act on whatever's underneath, the same thing a mouse click or touch tap already does, but
-from the HOTAS, without touching the screen. Cursor Up/Down/Left/Right (or a bound analog axis)
-slews it, Cursor Select picks whatever it's over: a contact on MAP, a toggle on HUD, a filter or
-target row on TGT (holding it also mirrors that page's own long-press action, where it has one), or
-a contact on RDR (locking/unlocking it). On TGT specifically, Select instead deselects whichever row
-Next/Previous Target highlighted, if one is — the two are mutually exclusive, and moving the
-crosshair hands Select back to it (see the Extended Keybinds list above). Zoom In/Out zoom the MAP
-view as usual, or scroll the page up/down on HUD/TGT. On MAP, pushing the cursor against the edge
-with FLW off pans the view to
-reveal more terrain. It only acts on whichever display currently has both SOI focus and one of
-these pages open.
-
-### Immersion Options
-
-Optional cold-start behavior and dedicated binds for radar, engine, and weapons safety —
-configured in their own section at the bottom of the **KEY** page.
-
-- **Enable Radar / Engine / Master Arms on start** — three toggles, all ON by default (matching
-  the game's own behavior). Turn any of them off for more immersion: that system starts off when
-  you spawn into a new aircraft, and you arm/start it yourself.
-- **Radar ON / Radar OFF**, **Engine ON / Engine OFF**, **Master Arms ON / Master Arms OFF** —
-  dedicated binds for each, on top of the on-start toggles, so you can flip them mid-flight.
-  Master Arms OFF blocks guns, missiles, and bombs until it's back on — the WPN page shows a
-  full-screen SAFE warning while it's off, and its ARM/SAFE controls mirror and drive the same
-  state.
-- **A/A mode / A/G mode** — restrict missile cycling to air-to-air or air-to-ground weapons; guns
-  fire in either mode, bombs only cycle in A/G. Tap to set the mode; hold either bind to reset to
-  ALL (unrestricted) — there's no dedicated ALL bind, since neither showing lit already means ALL.
-  The WPN page's A/A · A/G controls mirror and drive the same state.
-
-<details>
-<summary>$\color{green}\textsf{Show screenshot}$</summary>
-
-![Immersion Options section](docs/images/IMM.png)
-
-</details>
+Full detail, screenshots and instructions for each page now live in [`man/`](man/):
+
+- **[MAIN](man/main.md)** — landing page.
+- **[AFM](man/afm.md)** — airframe status and damage.
+- **[AVN](man/avn.md)** — avionics gauges and system toggles.
+- **MAP** — tactical map ([man/map.md](man/map.md)), including the waypoint/route editor,
+  **[WPT](man/wpt.md)**.
+- **MDT** (Mission Data Table) — a five-way switch, landing on **[AKF](man/akf.md)** (kill feed)
+  by default, alongside **[MIS](man/mis.md)** (mission info), **[OBJ](man/obj.md)** (objectives),
+  and **[BDF / PAL](man/bdf.md)** (faction forces).
+- **[RDR](man/rdr.md)** — radar scope.
+- **[RWR](man/rwr.md)** — radar warning receiver.
+- **[TGP](man/tgp.md)** — targeting-pod camera feed.
+- **[TGT](man/tgt.md)** — target-selection filter.
+- **[WPN](man/wpn.md)** — weapon loadout.
+- **CFG** — configuration hub: **[HUD](man/hud.md)** (in-cockpit HUD remote), **[KEY](man/keybinds.md)**
+  (extended keybinds, SOI, PAD cursor, Immersion Options), **[LYT](man/layouts.md)** (layout
+  chooser), and **[RTS](man/rates.md)** (live refresh rates).
+- **[EXT](man/ext.md)** — third-party extension pages.
 
 ## Reporting & collaboration
 
@@ -447,10 +162,8 @@ mods is the fastest way to confirm which side a conflict is coming from.
 
 ## Extensions
 
-NO XMFD supports third-party extensions that add their own MFD pages. A separate BepInEx plugin can declare a dependency on
-NO XMFD and register its own page at runtime — no fork of this repo, no pull request — and it
-shows up automatically under the **EXT** nav alongside NO XMFD's own pages. See
-[EXTENSIONS.md](EXTENSIONS.md) for the full guide to building one.
+NO XMFD supports third-party extensions that add their own MFD pages — see [man/ext.md](man/ext.md)
+for how they show up in-app, and [EXTENSIONS.md](EXTENSIONS.md) for the full guide to building one.
 
 ## Security & privacy
 
