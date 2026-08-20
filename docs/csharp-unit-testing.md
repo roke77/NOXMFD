@@ -97,7 +97,10 @@ Smallest safe step first, each one a self-contained PR:
 1. **Stand up the project** against `JsonLite.cs` and `RouteStore.cs` — both already 100% pure,
    zero extraction work, immediate real coverage.
 2. **Extract `TelemetryServer.cs`'s JSON-writer layer** into its own class (`TelemetryJson.cs`?) —
-   the single highest-value move, given how much of that 2000-line file it is.
+   the single highest-value move, given how much of that 2000-line file it is. `docs/server-hardening.md`
+   picks up from here — further splitting the rest of `TelemetryServer.cs` (asset serving, the
+   command queue, SSE/MJPEG) once this piece is out, plus unrelated request-hygiene hardening on the
+   command endpoints.
 3. **Extract `AkfTracker.cs`'s attribution/bookkeeping logic** — swap `PersistentID`/
    `Time.unscaledTime` for plain parameters at the boundary.
 4. **Extract `Keybinds.cs`'s tap/hold arbitration** into a pure function.
@@ -117,5 +120,5 @@ the point of doing it.
 - [ ] Extract and test `Keybinds.cs`'s tap/hold arbitration
 - [ ] Extract and test `HudWaypointCue.cs`'s geometry kernel
 - [ ] Design a loadout DTO, then extract and test `WeaponSelectors.cs`'s cycle-selection algorithm
-- [ ] Confirm `dotnet test` runs clean in CI (if/when this repo gets CI) alongside the existing
-      `dotnet build` + `node *.test.js` checks
+- [ ] Confirm `dotnet test` runs clean in CI (if/when this repo gets CI — see
+      `docs/ci-smoke-check.md`) alongside the existing `dotnet build` + `node *.test.js` checks
