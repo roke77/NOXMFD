@@ -25,7 +25,7 @@ any web browser, on the same PC or on another device on the same network.
 
 ## Requirements
 
-- **Nuclear Option** (PC, via Steam). Currently tested against game version 0.34.
+- **Nuclear Option** (PC, via Steam). Currently tested against game version 0.34.2.
 - **BepInEx 5** (x64) installed into the game.
 - A device with a modern web browser — the same PC, or a tablet/phone on the
   same local network.
