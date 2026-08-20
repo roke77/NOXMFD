@@ -41,6 +41,7 @@ import pathlib
 import posixpath
 import socket
 import socketserver
+import sys
 import time
 import urllib.parse
 import webbrowser
@@ -52,11 +53,21 @@ MOCK = REPO / "tools" / "preview-mock.js"
 CAPTURES = PREV / "captures"
 LEGACY_MANIFEST = PREV / "assets" / "manifest.json"   # pre-library single-slot capture, still honored
 
+# Pin one specific preview/captures/<name>/ folder, bypassing CURRENT entirely — set directly by a
+# script that imports this module (capture_screenshots.py drives one capture at a time this way,
+# without touching the shared CURRENT pointer a manually-running server elsewhere might depend on)
+# or via --capture on the CLI. None means "follow CURRENT", the normal behavior.
+CAPTURE_OVERRIDE = None
+
 
 def _manifest_path():
-    """Whichever capture CURRENT names, else the old single-slot preview/assets/manifest.json.
-    Resolved per-call (not cached) so switching CURRENT takes effect on the very next request —
-    no server restart to preview a different capture."""
+    """CAPTURE_OVERRIDE if set, else whichever capture CURRENT names, else the old single-slot
+    preview/assets/manifest.json. Resolved per-call (not cached) so switching either takes effect
+    on the very next request — no server restart to preview a different capture."""
+    if CAPTURE_OVERRIDE:
+        p = CAPTURES / CAPTURE_OVERRIDE / "manifest.json"
+        if p.exists():
+            return p
     cur = CAPTURES / "CURRENT"
     if cur.exists():
         name = cur.read_text(encoding="utf-8").strip()
@@ -673,23 +684,42 @@ class H(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+# Threaded: the shell opens several connections at once (shell + map/page iframes + assets). A
+# single-threaded server serialises them and stalls if any one handler blocks; ThreadingTCPServer
+# keeps every reload responsive. daemon_threads so Ctrl+C (or a script that never calls shutdown())
+# exits without waiting on open sockets. Module-level (not main()-local) so capture_screenshots.py
+# can import this module and build its own instance without going through main()/argparse at all.
+class Server(socketserver.ThreadingTCPServer):
+    daemon_threads = True
+    # On Windows SO_REUSEADDR lets a SECOND instance bind the same port while the first is
+    # alive — stale servers then keep answering with old code. Windows doesn't need the flag
+    # to rebind after a normal exit, so only use it on POSIX (where it just skips TIME_WAIT).
+    allow_reuse_address = os.name != "nt"
+
+    def handle_error(self, request, client_address):
+        # A real browser (capture_screenshots.py's Playwright driver, or just navigating away
+        # mid-load) routinely aborts in-flight requests — a 404 probe it no longer needs, a
+        # cancelled prefetch. That surfaces here as ConnectionAbortedError/ConnectionResetError on
+        # whichever thread was mid-write; harmless, not a bug, but the default handler prints a
+        # full traceback per occurrence and buries anything that's an actual problem. Only an
+        # unexpected exception type still gets the traceback.
+        exc = sys.exc_info()[1]
+        if not isinstance(exc, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)):
+            super().handle_error(request, client_address)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8782)),
                     help="port to bind (default $PORT or 8782)")
     ap.add_argument("--open", action="store_true", help="open the shell in a browser on start")
+    ap.add_argument("--capture", default=None,
+                    help="serve this one preview/captures/<name>/ folder instead of following CURRENT")
     args = ap.parse_args()
     if not (WEB / "shell" / "classic" / "mfd.html").exists():
         raise SystemExit("ERROR: src/web/shell/classic/mfd.html missing.")
-    # Threaded: the shell opens several connections at once (shell + map/page iframes + assets).
-    # A single-threaded server serialises them and stalls if any one handler blocks; ThreadingTCPServer
-    # keeps every reload responsive. daemon_threads so Ctrl+C exits without waiting on open sockets.
-    class Server(socketserver.ThreadingTCPServer):
-        daemon_threads = True
-        # On Windows SO_REUSEADDR lets a SECOND instance bind the same port while the first is
-        # alive — stale servers then keep answering with old code. Windows doesn't need the flag
-        # to rebind after a normal exit, so only use it on POSIX (where it just skips TIME_WAIT).
-        allow_reuse_address = os.name != "nt"
+    global CAPTURE_OVERRIDE
+    CAPTURE_OVERRIDE = args.capture
     with Server(("127.0.0.1", args.port), H) as s:
         url = f"http://127.0.0.1:{args.port}/"
         print(f"serving on {url}")

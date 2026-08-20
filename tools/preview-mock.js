@@ -280,12 +280,14 @@
         { targets: window.__PREVIEW_FRAME__.targets || DEFAULT_FRAME.targets })
     : DEFAULT_FRAME;
 
-  // RWR/RDR always use the curated synthetic scenario below, even when a real capture supplies its
-  // own — a live capture's rwr/rdr is whatever sparse handful of contacts happened to be nearby at
-  // capture time, a much weaker demo than the authored one (deliberate bearing/range spread, mixed
-  // lock states). Drop whatever the capture carried so the fallback logic further down always fires.
-  delete FRAME.rwr;
-  delete FRAME.rdr;
+  // RWR/RDR: prefer a real capture's own contacts when it has any (tools/capture_screenshots.py's
+  // whole point is documenting real per-mission state, and a real capture with an empty scope is
+  // itself real information, not a gap to paper over). The curated synthetic scenario further down
+  // only fires when the frame has none — no capture loaded at all, or a capture taken at a moment
+  // with nothing on radar/RWR — same "real data wins if present" rule `targets` above already
+  // follows. Nothing to do here now; FRAME.rwr/.rdr are left exactly as the capture set them, and
+  // the `if (!FRAME.rdr)` / `if (!Array.isArray(FRAME.rwr) || !FRAME.rwr.length)` checks below
+  // decide from there.
 
   // Preview-only: pad the loadout to 6 weapons so the WPN page paginates in both layouts —
   // full view (5 per page → 5 + 1) and the split pane (WPN_SPLIT_MAX=4 → 4 + 2). These
