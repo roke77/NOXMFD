@@ -14,8 +14,9 @@ by convention, before calling a change done.
 
 - `dotnet build -c Release` — 0 errors is the bar (warnings tracked separately, see
   `docs/build-warning-cleanup.md`).
-- `find src/web -name '*.test.js' -exec node {} \;` — the full JS self-check suite (21 files as of
-  2026-08-20), plain `node` scripts with asserts, no framework.
+- `find src/web -name '*.test.js' -exec node {} \;` — the full JS self-check suite (22 files under
+  `src/web/`, plus 2 more under `tools/`, as of 2026-08-20), plain `node` scripts with asserts, no
+  framework.
 - Manual load of `tools/serve_web.py` in a browser after any frontend edit (CLAUDE.md's own "Build &
   preview" section) — currently a human-driven step, not scripted.
 
@@ -40,9 +41,12 @@ Actions workflow rather than a local-only script):
 2. Run every `src/web/**/*.test.js` and `tools/*.test.js` via `node`, fail on any non-zero exit or
    non-"OK"/"passed" output.
 3. Start `tools/serve_web.py` on a scratch port, `curl`/fetch `/` and a small representative set of
-   page routes (e.g. `/afm`, `/map`, `/hud`), assert HTTP 200, then stop the server. Not a substitute
-   for the manual in-browser verification workflow — just proves the harness itself still boots and
-   routes correctly.
+   page routes (e.g. `/afm`, `/map-view?bare`, `/hud`), assert HTTP 200, then stop the server. Not a
+   substitute for the manual in-browser verification workflow — just proves the harness itself
+   still boots and routes correctly. **Use `/map-view?bare`, not `/map`** — `/map` is the captured
+   map *image* endpoint (`serve_web.py`'s `_asset_ref('map')` lookup), which 404s in a clean CI
+   checkout with no `preview/captures/` populated; `/map-view` is the actual MAP page route and
+   always renders regardless of capture state, matching how the shell itself loads it.
 
 Local script first; a GitHub Actions workflow (`.github/workflows/ci.yml`) running the same script on
 every push/PR is the natural follow-on once the script exists and is trusted, but is a separate,

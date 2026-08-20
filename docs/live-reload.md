@@ -38,6 +38,13 @@ iframe-hosted content; the reload watcher belongs on the two **top-level shell p
 child iframe (the map iframe, `#page-frame`, split panes) with it — injecting the same watcher into
 every individual page would mean nested/duplicate reload triggers with no added benefit.
 
+**Known limitation, by design: a standalone page route opened directly won't auto-reload.**
+`/wpn`, `/tgt`, or any other `/pages/<name>/<name>.html` route hit directly in a browser tab
+(rather than through `/` or `/f35`) has no watcher on it — only the two shell pages get one. Editing
+that page's file still needs a manual refresh in that scenario. Worth stating explicitly rather than
+letting a future session assume every route auto-reloads; the fix, if this ever matters in
+practice, is opening the page through the shell instead of standalone.
+
 **Never touches the real embedded plugin.** Like the mock injection this reuses, the watcher script
 lives entirely in `serve_web.py`'s response-building code, not in `src/web/shell/*/*.html` source.
 The real mod DLL (which embeds those HTML files as resources, per `docs/src-architecture.md`) never

@@ -2,7 +2,9 @@
 
 ## Status
 
-Planning — not started. Branch `docs-manuals`.
+**Shipped.** `man/` now holds all 19 per-page manuals listed below, linked from README's MFD pages
+section. Kept as a historical record of the planning, per this repo's convention for `docs/`
+design docs (CLAUDE.md: kept permanently even after a feature ships, unlike user-facing docs).
 
 ## The problem
 
@@ -71,25 +73,23 @@ call — it's config that lives at the bottom of the KEY page itself.
 | 18 | `man/rates.md` | RTS (CFG group) |
 | 19 | `man/layouts.md` | LYT (CFG group) — CLASSIC (incl. its bezel/shell chrome) and F-35, both layouts fully explained |
 
-## Open questions
+## Open questions — resolved
 
-Still to decide before starting the actual split:
-
-- **Naming/layout** — `man/<page>.md` flat (as listed above), or `man/pages/<page>.md` mirroring
-  `src/web/pages/`'s own layout.
-- **All at once or incrementally** — split every section in one pass, or start with the longest
-  page entries (MD group, MAP, WPT, KEY) and leave short ones (RWR, TGP) inline until the split
-  proves worth it there too. A partial split leaves README's own section inconsistent (some
-  bullets short-with-link, others still the full paragraph) — leans toward doing it in one pass,
-  but worth confirming before committing to the larger diff.
-- **Link upkeep** — nothing today checks that a doc link actually resolves (`layout-coverage.test.js`
-  is the closest precedent, but for NAV destinations, not markdown links). Decide whether this is
-  worth a lightweight check or just manual care, given how infrequently these pages change.
+- **Naming/layout — resolved: flat.** `man/<page>.md`, exactly as listed in the table above, not
+  `man/pages/<page>.md`.
+- **All at once or incrementally — resolved: all at once.** Every section split in one pass;
+  README's "MFD pages"/"Extended Keybinds" sections don't carry a mix of short-with-link and
+  full-paragraph bullets.
+- **Link upkeep — still genuinely open.** Nothing checks that a `man/` link actually resolves.
+  Screenshots additionally moved once more after the initial split, from `docs/images/` to
+  `man/images/`, once every image turned out to be consumed 1:1 by a single `man/` page — a
+  lightweight link-check is still worth doing, low priority given how infrequently these pages
+  change.
 
 ## Scope
 
-- [ ] Resolve the remaining open questions above
-- [ ] `man/` folder created
-- [ ] All 19 manuals written (table above)
-- [ ] `README.md`'s "MFD pages" and "Extended Keybinds" sections rewritten to short summaries + links
-- [ ] Every new README link verified to resolve
+- [x] `man/` folder created
+- [x] All 19 manuals written (table above)
+- [x] `README.md`'s "MFD pages" and "Extended Keybinds" sections rewritten to short summaries + links
+- [x] Every new README link verified to resolve
+- [ ] Link-check tooling (the one open question above) — not started

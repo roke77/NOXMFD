@@ -2,10 +2,11 @@
 
 ## Status
 
-Planning only. No code yet. Triggered by observed symptoms in a
-high-activity match: noticeable lag in the RWR and MAP displays, plus a
-noticeable in-game FPS hit. Both scale with unit count, which is why a
-busy furball hits them at the same time.
+**Mixed — historical investigation with shipped fixes, plus open follow-ups tracked below.**
+Items #A/#1/#2 shipped (see "Status (as of the #A/#1/#2 work)" further down); items #4/#5 remain
+deliberately deferred; items #6/#7/#8 (added 2026-08-20) are open. Triggered originally by observed
+symptoms in a high-activity match: noticeable lag in the RWR and MAP displays, plus a noticeable
+in-game FPS hit. Both scale with unit count, which is why a busy furball hits them at the same time.
 
 ## The key insight
 
@@ -157,23 +158,28 @@ allocation churn" finding above already flagged, just at render-rate instead
 of tick-rate, and narrower in scope (nothing else in this mod writes to a
 Unity UI Text component outside a gated interval). See item #7 below.
 
-### Server → wasted CPU (indirect FPS pressure)
+### Server → wasted CPU (indirect FPS pressure) — HISTORICAL, fixed by item #2
 
-- **`Serialize` re-runs in full, per client, every 100 ms**
-  (`src/plugin/TelemetryServer.cs:526`, called from `HandleSseAsync` `:505`),
-  and `string.Format` boxes every float/int/bool. Open the combined MFD
-  + a separate RWR tab + a tablet = the entire contact list serialized
-  3× independently, 10×/sec. Should be serialized **once per tick** and
-  shared by all SSE clients.
+This section describes the pre-fix state, kept for context on why item #2 (below) exists — it is
+**not** current behavior. `Serialize` no longer re-runs per client; verify at
+`src/plugin/TelemetryServer.cs:504`'s frame-version cache.
 
-### Latent data race (fix opportunistically with #2/#3)
+- **`Serialize` re-ran in full, per client, every 100 ms**
+  (`src/plugin/TelemetryServer.cs:526`, called from `HandleSseAsync` `:505` —
+  line numbers as they stood at the time this was written), and `string.Format` boxed every
+  float/int/bool. Open the combined MFD + a separate RWR tab + a tablet = the entire contact list
+  serialized 3× independently, 10×/sec.
+
+### Latent data race — HISTORICAL, fixed by item #2
+
+Also pre-fix state, kept for context.
 
 `BuildParts` hands the shared `_partsBuf` reference into the snapshot
 (`src/plugin/TelemetryReader.cs:854`); the background SSE thread serializes it
 while the main thread overwrites it in place next tick. Units avoid this
 today only because `BuildUnits` does `.ToArray()`. Serializing
 once-per-tick (item #2) is the clean fix for both the duplicate work and
-the race.
+the race — and is shipped, per the "Status" section below.
 
 ### Watch-item, not currently a problem (found 2026-08-20)
 

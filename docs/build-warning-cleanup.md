@@ -41,14 +41,26 @@ By file:
 
 ## Two different problems hiding in one number
 
-**Most of `CommandDispatcher.cs`'s 28 warnings are false positives, not debt.** All 15 of the repo's
+**Most of `CommandDispatcher.cs`'s 28 warnings are false positives, not debt.** 14 of the repo's 15
 `CS0649` warnings live in `CommandDispatcher.cs`'s `CommandEnvelope` class (`cmd`, `group`, `on`,
 `hz`, `bind`, `n`, `index`, `text`, `wz`, `key`, `wname`, `id`, `cid`, `wx`) — every field the
 compiler thinks is "never assigned" is actually populated by `UnityEngine.JsonUtility.FromJson`
 via reflection, which the compiler can't see through. A single `#pragma warning disable CS0649` (or
 `[System.Diagnostics.CodeAnalysis.SuppressMessage]`) scoped to that one class, with a comment
-explaining why, correctly resolves all 15 in one deliberate move — not per-field annotation, and not
-"fixing" anything that's actually broken.
+explaining why, correctly resolves 14 of the 15 in one deliberate move — not per-field annotation,
+and not "fixing" anything that's actually broken.
+
+**The 15th `CS0649`, `Keybinds.cs:87`'s `BindDef.AxisValueNow`, is a different, more interesting
+case — not a false positive, and not warning-cleanup at all.** Its own comment claims "per-frame
+scratch (analog), valid only inside `Poll()`," and two other comments in the same file (`:259`,
+`:354`) say `Poll()` reads it via a stored `BindDef` reference — but grepping the whole file finds
+no assignment to it anywhere. The actual live analog-axis read path is `ReadAxis(BindDef bind)`
+(`:843`), which returns the value as a plain function result and never touches the field. Either
+the field is dead code left behind when `ReadAxis()` replaced whatever used to write it (and the
+three comments describing it are now wrong), or something that was meant to consume this field
+never got wired up. This isn't a documentation typo to fix in this doc — it needs someone to trace
+the axis-cursor code path in-game and confirm which. Flagged separately rather than folded into
+the pragma above.
 
 **The remaining ~89 (mostly CS8600/8618/8602/8603/8604) are real nullable-annotation gaps**,
 concentrated in `TelemetryReader.cs`, `WeaponSelectors.cs`, and `AssetCapture.cs` — the files doing
@@ -59,8 +71,9 @@ compete with 89 pre-existing ones to be noticed.
 
 ## Proposed order
 
-1. **`CommandDispatcher.cs`**: one scoped pragma with an explanatory comment. Removes 15 warnings
-   (~14% of the total) in one safe, well-understood move.
+1. **`CommandDispatcher.cs`**: one scoped pragma with an explanatory comment. Removes 14 warnings
+   (~13% of the total) in one safe, well-understood move. Its 15th `CS0649` sibling
+   (`Keybinds.cs:87`) is explicitly excluded — see above, it needs investigation, not suppression.
 2. **`TelemetryReader.cs`** (29) and **`AssetCapture.cs`** (13): both already on the
    `docs/csharp-unit-testing.md` radar as heavy-Unity-touchpoint files; annotate nullability
    opportunistically while touching either file for other reasons, rather than a dedicated sweep that
@@ -79,7 +92,10 @@ compete with 89 pre-existing ones to be noticed.
 
 ## Scope
 
-- [ ] Scope a `CS0649` suppression to `CommandDispatcher.CommandEnvelope` with an explanatory comment
+- [ ] Scope a `CS0649` suppression to `CommandDispatcher.CommandEnvelope` (14 of the 15) with an
+      explanatory comment
+- [ ] Investigate `Keybinds.cs:87`'s `AxisValueNow` separately (not a suppression candidate) —
+      confirm whether it's dead code or an unwired analog-cursor path
 - [ ] Fix nullable warnings in `TelemetryReader.cs`/`AssetCapture.cs` opportunistically (no dedicated
       sweep on untested code)
 - [ ] Fold `WeaponSelectors.cs`'s nullable fixes into its `docs/csharp-unit-testing.md` DTO extraction

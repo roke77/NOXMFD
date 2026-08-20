@@ -56,6 +56,39 @@ existing `rdrMsg()` pattern is effectively the shape this doc proposes generaliz
   not a candidate for this treatment), the relay functions have zero page-specific logic beyond the
   tag and the payload shape.
 
+## Caveats — not every pair is as uniform as the RWR example
+
+Checked every function, not just the representative one above. Three real deviations from the
+"same shape every time" claim, all still compatible with the proposed consolidation but worth
+knowing before migrating blind:
+
+- **Not every function has a `Panes`/`Frame` sibling.** `forwardStatusToPanes` (`:572`) has no
+  `forwardStatusToFrame` at all — it's pane-only. `forwardAfmLayoutToFrame` (`:688`) has no
+  `forwardAfmLayoutToPanes` — frame-only, the opposite gap. And `forwardWptRoutesToPanes`/`ToFrame`
+  (`:2426`-`:2430`) have a *third* sibling, `forwardWptRoutesToMap` (`:2438`), sending the same data
+  to yet another destination (the always-on MAP iframe, not a pane or the page frame). The
+  consolidation doesn't need every page to have both calls — it just means migrating a page means
+  calling `forwardToPanes`/`forwardToFrame` (or a third helper, for the MAP case) only where a
+  hand-written function already exists today, not forcing symmetry that isn't there now.
+- **WPN's `ToPanes`/`ToFrame` pair genuinely diverge, not just superficially.** `forwardWpnToPanes`
+  (`:927`) slices per-pane via `wpnPaneSlice(idx)`; `forwardWpnToFrame` (`:1030`) computes its own,
+  separate pagination (`wpnPage`/`WPN_MAX_DISPLAY`/`maxPage`) **and** does extra work with no pane
+  equivalent — wiring each visible weapon row to a physical bezel key
+  (`keyBanks.left[k+1].dataset.action = 'weapon.select'`), explicitly commented "split-mode weapon
+  rows aren't wired yet." This one isn't a `forwardToPanes(page, payload())` one-liner: the payload
+  itself needs page-specific pagination logic kept intact, and the frame side keeps its extra
+  bezel-wiring step outside the generic helper. Migrate WPN last, and expect it to stay a real
+  function, not collapse to a single call like RWR/RDR do.
+- **`f35.js` is not duplication-free by having zero `forward*` functions — it has several
+  (`forwardSlice`, `forwardAfm`, `forwardWpnLayout`, `forwardOrientation`, `:297`-on), just not the
+  duplicated pattern.** Correcting an earlier draft of this doc, which claimed zero. The real point
+  stands: `f35.js` never grew 44 near-identical pairs, because `forwardSlice(type)` is already a
+  generic dispatcher over a `slices` map, keyed by feed type, with per-type renames handled by a
+  small `FEED_AS` table rather than a bespoke function per page. **This is a working precedent for
+  exactly the consolidation this doc proposes for `mfd.js`** — not just supporting evidence that
+  the duplication is avoidable, but a second implementation already proving the shape works in this
+  codebase.
+
 ## Proposed shape
 
 Two small generic helpers replacing the 44 hand-written functions' boilerplate, keeping each page's
@@ -83,14 +116,19 @@ intended anywhere — this is pure de-duplication.
 
 **Not proposed:** touching the split-layout geometry functions (`renderSplitLabels` and friends).
 Those are real per-page logic, not boilerplate, and are already a reasonable size for what they do.
-**Also not in scope:** `src/web/shell/f35/f35.js` (1130 lines) — checked, it has zero `forward*`
-functions, so it doesn't share this duplication and needs no equivalent pass.
+**Also not in scope:** `src/web/shell/f35/f35.js` (1130 lines) — see the caveats section above, it
+already solved this differently (a generic `forwardSlice` dispatcher) and needs no equivalent pass.
 
 ## Scope
 
 - [ ] Add `forwardToPanes(page, payload)` / `forwardToFrame(payload)` helpers
-- [ ] Migrate each of the 44 `forward*` functions to a call site, one page at a time, verifying in
-      `tools/serve_web.py` (classic full view + split) after each
+- [ ] Migrate the uniform pairs first (RWR/RDR-shaped — most of the 44), one page at a time,
+      verifying in `tools/serve_web.py` (classic full view + split) after each
+- [ ] Migrate the pane-only/frame-only/third-destination cases (`forwardStatusToPanes`,
+      `forwardAfmLayoutToFrame`, the `forwardWptRoutes*` trio) — same helpers, just called on
+      whichever sides actually exist today
+- [ ] Migrate WPN last, keeping its pagination/bezel-wiring logic intact rather than forcing it
+      into the generic one-liner shape (see caveats above)
 - [ ] Delete the now-unused hand-written wrappers as each page migrates (no dead code left behind)
 - [ ] Confirm `layout-coverage.test.js` and `server-route-coverage.test.js` still pass after the full
       migration (no route/page coverage should change — this only touches how a payload gets to an

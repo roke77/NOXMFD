@@ -39,13 +39,17 @@ Verified in current code (`src/plugin/TelemetryServer.cs`):
 
 ### Proposed fix
 
-1. **Method check**: reject non-POST to `/command` and `/ext/<id>/command` with `405`, before
-   touching the body.
-2. **Body-size cap**: check `ctx.Request.ContentLength64` up front and reject (`413`) anything past a
-   generous ceiling (a command envelope is a few hundred bytes at most; something like 16 KB leaves
-   headroom without allowing multi-MB bodies). If `ContentLength64` is `-1` (chunked/unknown), cap the
-   `StreamReader` read itself rather than trusting the header.
-3. Apply the same two checks to any other endpoint that reads a body from an untrusted caller
+1. **Method check on `/command` only.** `/ext/<id>/command` already gates on
+   `ctx.Request.HttpMethod == "POST"` before calling `HandleExtCommand`
+   (`src/plugin/TelemetryServer.cs:838`) — verified in current code, nothing to do there. `/command`
+   itself has no such check (routing is pure path-matching at `:713`-`:714`); reject non-POST there
+   with `405` before touching the body.
+2. **Body-size cap on both.** Neither endpoint's method-gating (or lack of it) bounds body size —
+   check `ctx.Request.ContentLength64` up front and reject (`413`) anything past a generous ceiling
+   (a command envelope is a few hundred bytes at most; something like 16 KB leaves headroom without
+   allowing multi-MB bodies). If `ContentLength64` is `-1` (chunked/unknown), cap the `StreamReader`
+   read itself rather than trusting the header.
+3. Apply the same body-size check to any other endpoint that reads a body from an untrusted caller
    (grep for `ReadToEnd()` — same pattern likely wants the same fix everywhere it appears, not just
    these two call sites).
 
@@ -55,12 +59,19 @@ bodies); pure rejection of malformed/oversized input.
 ### Explicitly out of scope for this item
 
 - Token/pairing auth (see above).
-- Origin/CORS checks — lower priority: `HttpListener` doesn't send permissive CORS headers by
-  default, so a same-origin-policy-respecting browser can't `fetch()` this server cross-origin from
-  an arbitrary website anyway. The residual risk (a malicious LAN peer sending a crafted request
-  directly) is already covered by SECURITY.md's existing "treat an untrusted network as exposed"
-  guidance. Worth a one-line mention in SECURITY.md if this doc's method/size fixes ship, not its own
-  work item.
+- **Origin/Content-Type checks — worth a mention here, not dropped entirely.** Corrected from an
+  earlier draft of this doc: lacking permissive CORS headers stops a hostile page's JS from
+  *reading* this server's response cross-origin, but does **not** stop the browser from *sending*
+  the cross-origin request in the first place — that's the classic CSRF gap, distinct from the
+  "malicious LAN peer sending a request directly" risk SECURITY.md already covers. A page open in
+  the same browser, on any origin, could still fire a cross-origin POST to `/command` today; its JS
+  just can't read the 204 back (and there's nothing sensitive in that response to read anyway, so
+  the practical impact is bounded — the command still executes, but nothing leaks back). A cheap,
+  optional hardening step: reject `/command`/`/ext/<id>/command` requests whose `Content-Type`
+  isn't `application/json` (a plain HTML `<form>` POST can't set that header, which blocks the
+  simplest CSRF vector; a `fetch()`-based one still could, since JS can set any header it wants).
+  Lower priority than Part A's two fixes — flagged so it doesn't get silently forgotten, not
+  because it's not real.
 
 ## Part B — structural split of `TelemetryServer.cs`
 
@@ -91,8 +102,11 @@ outside what `docs/csharp-unit-testing.md`'s plan lands).
 ## Scope
 
 - [ ] Land `docs/csharp-unit-testing.md`'s `TelemetryJson` extraction first (shared prerequisite)
-- [ ] Add POST-only + body-size checks to `/command` and `/ext/<id>/command`
-- [ ] Audit other `ReadToEnd()` call sites for the same two checks
+- [ ] Add a POST-only check to `/command` (`/ext/<id>/command` already has one)
+- [ ] Add a body-size cap to both `/command` and `/ext/<id>/command`
+- [ ] Audit other `ReadToEnd()` call sites for the same body-size check
+- [ ] (Optional, lower priority) `Content-Type: application/json` check on both command endpoints
+      as cheap CSRF-style hardening
 - [ ] Extract `AssetServer.cs`
 - [ ] Extract `CommandQueue.cs`
 - [ ] Extract `SseHub.cs` (verify frame-version cache threading survives the move)
