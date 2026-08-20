@@ -102,8 +102,6 @@ pilot, with HOTAS-friendly keybinds to match.
 
 ### MFD pages
 
-Full detail, screenshots and instructions for each page now live in [`man/`](man/):
-
 - **[MAIN](man/main.md)** — landing page.
 - **[AFM](man/afm.md)** — airframe status and damage.
 - **[AVN](man/avn.md)** — avionics gauges and system toggles.
@@ -119,7 +117,7 @@ Full detail, screenshots and instructions for each page now live in [`man/`](man
 - **[TGP](man/tgp.md)** — targeting-pod camera feed.
 - **[TGT](man/tgt.md)** — target-selection table.
 - **[WPN](man/wpn.md)** — weapon loadout.
-- **CFG** — configuration hub.
+- **CFG** — configuration and settings hub.
   - **[HUD](man/hud.md)** — in-cockpit HUD config.
   - **[KEY](man/keybinds.md)** — extended keybinds, SOI, PAD cursor, Immersion Options.
   - **[LYT](man/layouts.md)** — layout chooser.
