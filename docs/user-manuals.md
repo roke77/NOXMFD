@@ -30,23 +30,57 @@ see "Open questions" below for what still needs deciding before the split itself
   per item plus a link into the matching `man/` page. Screenshots move with their content; README
   keeps at most a hero image.
 
+## Granularity — resolved
+
+One manual per real NAV destination (`src/web/shell/nav-model.js`'s `NAV` object — the ground truth,
+not README's own grouping, which is part of what made README's sections inconsistent: some NAV
+pages got their own bullet, some got folded into another's paragraph). Two deliberate merges:
+
+- **BDF + PAL → one manual.** Same underlying page (`bdf.js` doubles as PAL via `?pal`); two
+  manuals would just describe identical content with one flag different.
+- **MFD shell (HIDE/FULL/PIN/SWAP/F_VIEW/H_SPLIT/V_SPLIT/V_WIDE_SPLIT) → folds into the LYT manual,
+  not its own file.** That chrome is CLASSIC's own bezel, not a NAV page — LYT's manual becomes the
+  one place that explains every layout that exists (CLASSIC, with its bezel, and F-35, with its
+  portals/corner grips), so a pilot picking a layout there finds out how to drive it in the same
+  doc rather than being sent to a third page.
+
+Immersion Options stays a section inside the KEY manual, per the earlier "KEY includes everything"
+call — it's config that lives at the bottom of the KEY page itself.
+
+## The 19 documents
+
+| # | File | Covers |
+|---|------|--------|
+| 1 | `man/main.md` | MAIN |
+| 2 | `man/map.md` | MAP |
+| 3 | `man/wpt.md` | WPT (MAP sub-page) |
+| 4 | `man/avn.md` | AVN |
+| 5 | `man/afm.md` | AFM |
+| 6 | `man/rwr.md` | RWR |
+| 7 | `man/rdr.md` | RDR |
+| 8 | `man/tgp.md` | TGP |
+| 9 | `man/tgt.md` | TGT |
+| 10 | `man/wpn.md` | WPN |
+| 11 | `man/ext.md` | EXT hub (end-user side; building one stays in `EXTENSIONS.md`) |
+| 12 | `man/akf.md` | AKF (MDT group) |
+| 13 | `man/mis.md` | MIS (MDT group) |
+| 14 | `man/obj.md` | OBJ (MDT group) |
+| 15 | `man/bdf.md` | BDF **and** PAL (MDT group, same page) |
+| 16 | `man/hud.md` | HUD (CFG group) |
+| 17 | `man/keybinds.md` | KEY (CFG group) — binds, SOI, PAD cursor, Immersion Options, all as sections in one doc |
+| 18 | `man/rates.md` | RTS (CFG group) |
+| 19 | `man/layouts.md` | LYT (CFG group) — CLASSIC (incl. its bezel/shell chrome) and F-35, both layouts fully explained |
+
 ## Open questions
 
-Decide before starting the actual split:
+Still to decide before starting the actual split:
 
-- **Granularity** — one manual file per MFD page (13 files), or grouped by area (e.g. one file for
-  MDT's five sub-pages, since README already treats them as one bullet)? Same question for
-  Extended Keybinds: one file per keybind family, or one manual covering the whole KEY page
-  (binds + SOI + PAD cursor + Immersion Options) the way the page itself presents them together.
-- **Naming/layout** — `man/<page>.md` flat, or `man/pages/<page>.md` + `man/keybinds/<topic>.md`
-  mirroring `src/web/pages/`'s own layout.
+- **Naming/layout** — `man/<page>.md` flat (as listed above), or `man/pages/<page>.md` mirroring
+  `src/web/pages/`'s own layout.
 - **Screenshots** — move out of `docs/images/` into `man/` alongside the manual that uses them, or
   stay centralized and get linked from wherever needs them.
-- **MFD shell / MFD layouts / Immersion Options** — each currently a mid-sized README subsection.
-  Fold into an existing manual (Immersion Options under the KEY manual, MFD shell/layouts under a
-  general "using the display" manual) or give each its own file.
-- **All at once or incrementally** — split every section in one pass, or start with the three
-  longest page entries (MDT, MAP, WPT) and leave short ones (RWR, TGP) inline until the split
+- **All at once or incrementally** — split every section in one pass, or start with the longest
+  page entries (MDT group, MAP, WPT, KEY) and leave short ones (RWR, TGP) inline until the split
   proves worth it there too. A partial split leaves README's own section inconsistent (some
   bullets short-with-link, others still the full paragraph) — leans toward doing it in one pass,
   but worth confirming before committing to the larger diff.
@@ -56,10 +90,8 @@ Decide before starting the actual split:
 
 ## Scope
 
-- [ ] Resolve the open questions above
-- [ ] `man/` folder structure created
-- [ ] One manual per MFD page area (MAIN, AFM, AVN, CFG, HUD, MAP, MDT, RDR, RTS, RWR, TGP, TGT, WPN, WPT)
-- [ ] Manual(s) for Extended Keybinds (binds, SOI, PAD cursor, Immersion Options)
-- [ ] Manual for MFD shell / MFD layouts
+- [ ] Resolve the remaining open questions above
+- [ ] `man/` folder created
+- [ ] All 19 manuals written (table above)
 - [ ] `README.md`'s "MFD pages" and "Extended Keybinds" sections rewritten to short summaries + links
 - [ ] Every new README link verified to resolve
