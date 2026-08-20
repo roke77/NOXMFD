@@ -60,6 +60,11 @@ guesses — most exist because a past session violated them.
 - Perf A/B session reports go in `_scratch/perf-sessions/*.txt` (gitignored) — never
   commit or push them. The PerfLogging feature code and its docs are committed
   normally.
+- After a significant code change, `dotnet build -c Release` and let the
+  `DeployToGame` MSBuild target copy the fresh DLL into the real game's
+  `BepInEx/plugins` folder without waiting to be asked. This is a reversible, local
+  action (overwrites a DLL on disk) — it's a separate gate from `git push`, which
+  still needs the literal word per the Git workflow rules above.
 
 ## Docs & comments
 
@@ -103,6 +108,17 @@ guesses — most exist because a past session violated them.
 - **BepInEx config defaults**: changing a `ConfigEntry`'s default value only affects a
   freshly-generated config file. An existing user's `.cfg` on disk keeps whatever value
   it already has — changing a default is not a migration for existing installs.
+- **`BepInEx_Manager` doesn't survive boot → MainMenu**: in this game/Unity version,
+  anything living directly on `Plugin` (a `BaseUnityPlugin`) gets destroyed a few
+  hundred ms after chainloader startup, before any mission can start —
+  `DontDestroyOnLoad` is a no-op when called from BepInEx's preloader context, and
+  re-calling it from `Plugin.Awake` doesn't help. The fix already in place
+  (`Plugin.cs`): subscribe to `SceneManager.sceneLoaded`, and on the *first* real scene
+  load spawn a self-created `NOXMFD_Worker` GameObject and mark *that*
+  `DontDestroyOnLoad` — it survives because a real scene exists by then. Anything that
+  needs to outlive `Plugin` belongs on that Worker GameObject (or another
+  freshly-spawned persistent object created from a `sceneLoaded` callback), never
+  directly on `Plugin` itself.
 
 ## Build environment
 
@@ -129,6 +145,13 @@ guesses — most exist because a past session violated them.
   inside). A tag + notes with no asset silently breaks NOMM/NOMNOM auto-update — verify
   with `gh release view <tag> --json assets -q '.assets[].name'` before considering the
   release done.
+- **Build the zip with Python's `zipfile` module, not PowerShell's
+  `Compress-Archive`.** `Compress-Archive` has previously written backslash path
+  separators into the archive, which breaks extraction on Linux — `zipfile` always
+  writes forward slashes. Package as `NOXMFD/NOXMFD.dll` (the DLL from
+  `bin/Release/netstandard2.1/`, no `BepInEx/plugins/` prefix — NOMM adds that itself)
+  and verify with `python3 -c "import zipfile; print(zipfile.ZipFile('<zip>').namelist())"`
+  before uploading.
 - Release notes = a tight changelog of the actual changes only — no generic
   install/how-to instructions (that belongs in the README). Only include changes
   actually merged into the release's target branch (`main`); don't pull in changelog
