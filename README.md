@@ -120,10 +120,10 @@ Full detail, screenshots and instructions for each page now live in [`man/`](man
 - **[TGT](man/tgt.md)** — target-selection table.
 - **[WPN](man/wpn.md)** — weapon loadout.
 - **CFG** — configuration hub.
-  - **[HUD](man/hud.md)** — in-cockpit HUD remote.
+  - **[HUD](man/hud.md)** — in-cockpit HUD config.
   - **[KEY](man/keybinds.md)** — extended keybinds, SOI, PAD cursor, Immersion Options.
   - **[LYT](man/layouts.md)** — layout chooser.
-  - **[RTS](man/rates.md)** — live refresh rates.
+  - **[RTS](man/rates.md)** — live refresh rate settings.
 - **[EXT](man/ext.md)** — third-party extension pages.
 
 ## Reporting & collaboration
