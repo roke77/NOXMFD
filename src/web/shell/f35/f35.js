@@ -72,8 +72,8 @@
     wpn: ['loadout', 'cm'],   // 'loadout' is derived, not forwarded as-is — see DERIVED
     bdf: ['bdf'],             // read-only faction-forces block (docs/bdf-page.md)
     pal: ['pal'],             // same, for PRIMEVA
-    mis: ['mis'],             // mission-info block (docs/mdt-pages.md)
-    obj: ['obj'],             // active-objectives list (docs/mdt-pages.md)
+    mis: ['mis'],             // mission-info block (docs/md-pages.md)
+    obj: ['obj'],             // active-objectives list (docs/md-pages.md)
     akf: ['akf'],             // kill-feed/session-stats block (docs/akf-page.md)
     rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
     wpt: ['mapinfo', 'wpt-routes'],   // waypoint readout + the route library itself
@@ -101,24 +101,24 @@
 
   // Screens this layout puts on MAIN beyond NAV's — can't go in NAV since NAV is the bezel's menu
   // too, and it has six physical keys for six items. Kept here, they stay F-35's business and the
-  // bezel is unaffected (there CFG, MDT, RDR and AFM are their own BEZEL_EXTRAS keys). Each of
+  // bezel is unaffected (there CFG, MD, RDR and AFM are their own BEZEL_EXTRAS keys). Each of
   // these has an F35_PAGES entry and renders as a real page (docs/bdf-page.md, src-architecture.md).
-  // CFG, MDT, RDR and AFM are frame pages with an F35_PAGES entry — CFG opens the CFG group
-  // (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39), landing on HUD by default (mirrors MDT
+  // CFG, MD, RDR and AFM are frame pages with an F35_PAGES entry — CFG opens the CFG group
+  // (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39), landing on HUD by default (mirrors MD
   // staying 'bdf' — the action names whichever sibling is the landing page; HUD joined this group
   // and no longer has a MAIN entry of its own, same as RTS). Selecting LYT from that group still
   // opens the layout chooser over the whole glass (GLASS_ACTIONS) exactly as before — only its
   // entry point moved from top-level MAIN into the CFG group. All match where the bezel keeps them
   // — MAIN — so a pilot finds the same names in the same place in either layout.
   //
-  // MDT is one combined entry covering PAL/BDF — mirrors the bezel's own SCR→MDT rename and
+  // MD is one combined entry covering PAL/BDF — mirrors the bezel's own SCR→MD rename and
   // BDF/PAL fold. Action is 'akf' (AKF is the group's default landing page); NAV.akf/NAV.mis/
   // NAV.obj/NAV.bdf/NAV.pal (shared, consumed generically at line ~390 below) carry the
   // MAIN/AKF/MIS/OBJ/BDF/PAL sub-nav once you're on any of them, with `mark` lighting whichever is
   // current — this layout already renders NAV[page] like any other.
   const MAIN_EXTRAS = [
     { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now
-    { label: 'MDT', action: 'akf' },
+    { label: 'MD', action: 'akf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md) — mirrors BEZEL_EXTRAS.main
     { label: 'AFM', action: 'afm' },   // → AFM airframe page — mirrors BEZEL_EXTRAS.main
   ];

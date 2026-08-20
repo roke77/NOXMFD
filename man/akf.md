@@ -1,6 +1,6 @@
 # AKF
 
-Part of the **MDT** (Mission Data Table).
+Part of the **MD** (Mission Data).
 
 A live replica of the game's own kill-feed ticker, split into an ALL column (everyone's kills)
 and a PLAYER column (yours — weapon name attached where resolvable, plus "incoming" lines when

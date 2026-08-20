@@ -1,4 +1,4 @@
-# AKF — advanced kill feed MDT page
+# AKF — advanced kill feed MD page
 
 ## Status
 

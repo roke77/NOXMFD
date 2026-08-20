@@ -2,7 +2,7 @@
 // in Node (see bdf-funds.test.js).
 //
 // Mirrors the game's own UnitConverter.ValueReading scale-by-magnitude format (docs/bdf-page.md —
-// funds arrive in MILLIONS), so the MDT reads the same as the in-game panel. Formatted with a
+// funds arrive in MILLIONS), so the MD reads the same as the in-game panel. Formatted with a
 // period rather than the game's locale-dependent comma.
 //
 // The bands compare SQUARES rather than using Math.abs — the game's own trick, kept so the two stay

@@ -9,7 +9,7 @@ Planning — not started. Branch `docs-manuals`.
 `README.md` is 468 lines. Two sections carry almost all of that weight:
 
 - **MFD pages** (~150 lines) — 13 pages, each a paragraph of prose plus a collapsed screenshot.
-  MDT alone (AKF/BDF/PAL/MIS/OBJ folded into one bullet) is a single ~9-sentence paragraph.
+  MD alone (AKF/BDF/PAL/MIS/OBJ folded into one bullet) is a single ~9-sentence paragraph.
 - **Extended Keybinds** (~90 lines) — 15+ keybind groups, then three more full subsections (SOI,
   PAD cursor, Immersion Options) nested under it.
 
@@ -62,10 +62,10 @@ call — it's config that lives at the bottom of the KEY page itself.
 | 9 | `man/tgt.md` | TGT |
 | 10 | `man/wpn.md` | WPN |
 | 11 | `man/ext.md` | EXT hub (end-user side; building one stays in `EXTENSIONS.md`) |
-| 12 | `man/akf.md` | AKF (MDT group) |
-| 13 | `man/mis.md` | MIS (MDT group) |
-| 14 | `man/obj.md` | OBJ (MDT group) |
-| 15 | `man/bdf.md` | BDF **and** PAL (MDT group, same page) |
+| 12 | `man/akf.md` | AKF (MD group) |
+| 13 | `man/mis.md` | MIS (MD group) |
+| 14 | `man/obj.md` | OBJ (MD group) |
+| 15 | `man/bdf.md` | BDF **and** PAL (MD group, same page) |
 | 16 | `man/hud.md` | HUD (CFG group) |
 | 17 | `man/keybinds.md` | KEY (CFG group) — binds, SOI, PAD cursor, Immersion Options, all as sections in one doc |
 | 18 | `man/rates.md` | RTS (CFG group) |
@@ -80,7 +80,7 @@ Still to decide before starting the actual split:
 - **Screenshots** — move out of `docs/images/` into `man/` alongside the manual that uses them, or
   stay centralized and get linked from wherever needs them.
 - **All at once or incrementally** — split every section in one pass, or start with the longest
-  page entries (MDT group, MAP, WPT, KEY) and leave short ones (RWR, TGP) inline until the split
+  page entries (MD group, MAP, WPT, KEY) and leave short ones (RWR, TGP) inline until the split
   proves worth it there too. A partial split leaves README's own section inconsistent (some
   bullets short-with-link, others still the full paragraph) — leans toward doing it in one pass,
   but worth confirming before committing to the larger diff.

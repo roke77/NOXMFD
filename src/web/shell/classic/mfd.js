@@ -115,11 +115,11 @@ function fullViewSlot(i) { return i < 6 ? { bank: 'left', index: i } : { bank: '
 // no panel: every other page in this shell puts its items beside a physical key, and a chooser is
 // navigation, so it reads as one. `mark` is the layout you are already on.
 const BEZEL_EXTRAS = {
-  // CFG, MDT, RDR and AFM — the layout-owned MAIN items the six shared NAV items don't cover. CFG
+  // CFG, MD, RDR and AFM — the layout-owned MAIN items the six shared NAV items don't cover. CFG
   // opens the CFG group (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39, HUD joined that group and,
-  // like RTS, has no MAIN entry of its own anymore), landing on HUD by default (mirrors MDT's own
-  // sibling group below: action names whichever sibling is the landing page, same as MDT staying
-  // 'akf'); MDT (Mission Data Table) folds AKF/MIS/OBJ/BDF/PAL together — landing on AKF by default
+  // like RTS, has no MAIN entry of its own anymore), landing on HUD by default (mirrors MD's own
+  // sibling group below: action names whichever sibling is the landing page, same as MD staying
+  // 'akf'); MD (Mission Data) folds AKF/MIS/OBJ/BDF/PAL together — landing on AKF by default
   // (issue #34 follow-up; the other four are a switch away via NAV.akf/NAV.mis/NAV.obj/NAV.bdf/
   // NAV.pal) rather than its own MAIN entry; AFM shows the aircraft name + damage silhouette (split
   // out of AVN, which is avionics only now).
@@ -130,7 +130,7 @@ const BEZEL_EXTRAS = {
   // order, not a fixed key.
   main: [
     { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now
-    { label: 'MDT', action: 'akf' },
+    { label: 'MD', action: 'akf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
   ],
@@ -525,7 +525,7 @@ function renderSplitLabels() {
         const el = placeSplitKey(paneKey(paneIdx, s.side, s.slot), item.label, item.action, paneTag, item.mark);
         // TGT keeps clickable content under its MAIN label; stand it upright in the
         // pane too, the way full view does via .overlay.vmain — for that single-item page it's
-        // just MAIN. BDF/PAL/MIS/OBJ carry four MORE items each (their own MDT switch), split across
+        // just MAIN. BDF/PAL/MIS/OBJ carry four MORE items each (their own MD switch), split across
         // both the pane's left AND right columns (SPLIT_SLOTS.bdf/pal/mis/obj) — a horizontal "MIS"/
         // "OBJ" label would run wide over the pane's own content on that edge (both pages already
         // reserve only a narrow vertical-label inset on each side, matching BDF's). So every item of
@@ -820,12 +820,12 @@ function forwardPalToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage(Object.assign({ mfd: true, type: 'pal' }, palData), '*');
 }
-// Full-view MIS: forward the mission-info block (docs/mdt-pages.md). Same shape as BDF/PAL.
+// Full-view MIS: forward the mission-info block (docs/md-pages.md). Same shape as BDF/PAL.
 function forwardMisToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage(Object.assign({ mfd: true, type: 'mis' }, misData), '*');
 }
-// Full-view OBJ: forward the active-objectives list (docs/mdt-pages.md).
+// Full-view OBJ: forward the active-objectives list (docs/md-pages.md).
 function forwardObjToFrame() {
   const w = frameWin(); if (!w) return;
   w.postMessage(Object.assign({ mfd: true, type: 'obj' }, objData), '*');
@@ -1446,9 +1446,9 @@ let bdfData = { present: false };
 // Same, for PAL — the PRIMEVA faction's panel (docs/bdf-page.md).
 let palData = { present: false };
 
-// MIS mission-info panel (docs/mdt-pages.md), mirrored the same way.
+// MIS mission-info panel (docs/md-pages.md), mirrored the same way.
 let misData = { present: false };
-// OBJ active-objectives list (docs/mdt-pages.md), mirrored the same way.
+// OBJ active-objectives list (docs/md-pages.md), mirrored the same way.
 let objData = { present: false };
 
 // AKF advanced kill feed (docs/akf-page.md), mirrored the same way — no present:false gate (an
@@ -1616,14 +1616,14 @@ function showPage(name) {
     forwardTgtToFrame();
     forwardTgtTargetsToFrame();
   }
-  // AKF renders in #page-frame too — same MDT family as BDF/PAL/MIS/OBJ (NAV.akf marks AKF instead).
+  // AKF renders in #page-frame too — same MD family as BDF/PAL/MIS/OBJ (NAV.akf marks AKF instead).
   if (name === 'akf') {
     showFramePage('akf');
     forwardAkfToFrame();
   }
   // BDF renders in #page-frame too. Its bezel keys are MAIN/AKF/MIS/OBJ/BDF/PAL (NAV.bdf, placed by
   // the generic sweep above, `mark` lighting BDF since this is that page) — reached from MAIN via
-  // MDT (BEZEL_EXTRAS.main, action 'akf' lands on AKF instead) and carried into a split via
+  // MD (BEZEL_EXTRAS.main, action 'akf' lands on AKF instead) and carried into a split via
   // SPLIT_SLOTS.bdf. Forward state.
   if (name === 'bdf') {
     showFramePage('bdf');
@@ -1634,12 +1634,12 @@ function showPage(name) {
     showFramePage('pal');
     forwardPalToFrame();
   }
-  // MIS renders in #page-frame too — same MDT family as BDF/PAL (NAV.mis marks MIS instead).
+  // MIS renders in #page-frame too — same MD family as BDF/PAL (NAV.mis marks MIS instead).
   if (name === 'mis') {
     showFramePage('mis');
     forwardMisToFrame();
   }
-  // OBJ renders in #page-frame too — same MDT family (NAV.obj marks OBJ instead).
+  // OBJ renders in #page-frame too — same MD family (NAV.obj marks OBJ instead).
   if (name === 'obj') {
     showFramePage('obj');
     forwardObjToFrame();

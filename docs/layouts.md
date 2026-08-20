@@ -40,7 +40,7 @@ Nothing under `pages/` knows a layout exists.
 > portal — now blanks the whole panel** rather than leaving a silhouette behind,
 > since the silhouette it used to leave isn't on this page anymore. See
 > "Decluttering" below for the detail. The bezel's own `SCR` MAIN item was also
-> renamed to `MDT` (Mission Data Table) this session; F-35's `MAIN_EXTRAS` never
+> renamed to `MD` (Mission Data) this session; F-35's `MAIN_EXTRAS` never
 > had an equivalent single entry (it still lists `BDF`/`PAL` separately), so
 > nothing there needed renaming, but it's now inconsistent with the bezel's
 > design on that point too.

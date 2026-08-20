@@ -1,5 +1,5 @@
 // MIS page — a read-only reactive replica of the game's mission-info panel, driven by the shell
-// over postMessage (docs/mdt-pages.md). No interaction, no commands — pure render of the 'mis'
+// over postMessage (docs/md-pages.md). No interaction, no commands — pure render of the 'mis'
 // block. See mis.html for the message contract.
 
 const nameEl = document.getElementById('mis-name');

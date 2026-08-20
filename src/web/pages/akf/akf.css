@@ -17,7 +17,7 @@ html, body {
   display: flex; flex-direction: column;
   gap: clamp(4px, 1.2vh, 10px);
   padding: clamp(6px, 1.8vmin, 16px);
-  /* Extra side inset for the shell's vertical MAIN/MDT bezel label — matches BDF/MIS/OBJ's own
+  /* Extra side inset for the shell's vertical MAIN/MD bezel label — matches BDF/MIS/OBJ's own
      inset (isVmainPage). */
   padding-left: clamp(34px, 5vw, 48px);
   padding-right: clamp(34px, 5vw, 48px);

@@ -77,7 +77,7 @@ namespace NOXMFD
         private BdfCountInfo[] _palBuildings = Array.Empty<BdfCountInfo>();
         private BdfCountInfo[] _palAircraft  = Array.Empty<BdfCountInfo>();
 
-        // MIS mission-info panel (docs/mdt-pages.md), refreshed in the 1 Hz scan — same cadence the
+        // MIS mission-info panel (docs/md-pages.md), refreshed in the 1 Hz scan — same cadence the
         // game's own ObjectiveInfoList.Update() refreshes this panel at (refreshDelay = 1f).
         private bool   _misPresent;
         private string _misDescription = string.Empty;
@@ -86,7 +86,7 @@ namespace NOXMFD
         private float  _misScore;
         private byte   _misLevel;
 
-        // OBJ active-objectives list (docs/mdt-pages.md), refreshed alongside MIS.
+        // OBJ active-objectives list (docs/md-pages.md), refreshed alongside MIS.
         private bool       _objPresent;
         private ObjEntry[] _obj = Array.Empty<ObjEntry>();
         private readonly List<MissionPosition.PositionResult> _objPosScratch = new List<MissionPosition.PositionResult>();
@@ -292,7 +292,7 @@ namespace NOXMFD
             return arr;
         }
 
-        // MIS mission-info panel (docs/mdt-pages.md) — mirrors ObjectiveInfoList.UpdateMissionInfo /
+        // MIS mission-info panel (docs/md-pages.md) — mirrors ObjectiveInfoList.UpdateMissionInfo /
         // InitializeMission. Present only in singleplayer: the game reads the mission name/description
         // off MissionManager.CurrentMission there, but shows the Steam lobby name instead in
         // multiplayer (no equivalent description exists), which this mod doesn't plumb through.
@@ -317,7 +317,7 @@ namespace NOXMFD
                              : (byte)0;
         }
 
-        // OBJ active-objectives list (docs/mdt-pages.md) — mirrors ObjectiveInfoList.UpdateObjectiveInfo,
+        // OBJ active-objectives list (docs/md-pages.md) — mirrors ObjectiveInfoList.UpdateObjectiveInfo,
         // the player faction's currently active objectives. ObjPresent=false when the map's HQ isn't
         // resolved yet (e.g. between missions).
         private void BuildObj()

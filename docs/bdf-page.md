@@ -8,10 +8,10 @@ status panel as a new MFD page: header (faction name, WARHEADS, SCORE, FUNDS)
 full-view in `#page-frame` and, like TGT, as a split pane in both the CLASSIC
 bezel and the F-35 layout.
 
-> **Since then (2026-08-15) — BDF/PAL folded under MDT.** The standalone
+> **Since then (2026-08-15) — BDF/PAL folded under MD.** The standalone
 > `BEZEL_EXTRAS` bank/index slot described in Plan step 7 below no longer
 > exists. BDF and PAL now share one `BEZEL_EXTRAS.main` entry, labelled
-> **MDT** (Mission Data Table), action still `'bdf'`. `NAV.bdf`/`NAV.pal`
+> **MD** (Mission Data), action still `'bdf'`. `NAV.bdf`/`NAV.pal`
 > (`nav-model.js`) each carry `MAIN` / `BDF` / `PAL`, with `mark` lighting
 > whichever of the two is the live page — pressing BDF or PAL from either
 > switches the frame-hosted page in place rather than navigating through
@@ -223,7 +223,7 @@ reuse one page for two looks via `?nochrome` (docs/layouts.md):
 - ~~Bezel placement.~~ **Resolved (at the time): `BEZEL_EXTRAS.main` right
   bank, right after LYT** — `{ label: 'BDF', action: 'bdf', bank: 'right',
   index: 1 }`. **Superseded 2026-08-15** — see the Status addendum above;
-  BDF/PAL now share one `MDT` entry instead of BDF holding its own slot.
+  BDF/PAL now share one `MD` entry instead of BDF holding its own slot.
 - ~~The FORCES dropdown.~~ **Resolved: omitted entirely** — only a static
   "FORCES" label, no control, since the other six `DisplayType` modes are
   out of scope for this pass.

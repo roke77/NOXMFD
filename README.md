@@ -79,27 +79,27 @@ pilot, with HOTAS-friendly keybinds to match.
 
 ### MFD pages
 
-- **[MAIN](man/main.md)** — landing page.
 - **[AFM](man/afm.md)** — airframe status and damage.
 - **[AVN](man/avn.md)** — avionics gauges and system toggles.
-- **[MAP](man/map.md)** — tactical map.
-  - **[WPT](man/wpt.md)** — waypoint/route editor.
-- **MDT** — mission data hub.
-  - **[AKF](man/akf.md)** — kill feed.
-  - **[MIS](man/mis.md)** — mission info.
-  - **[OBJ](man/obj.md)** — objectives.
-  - **[BDF / PAL](man/bdf.md)** — faction forces.
-- **[RDR](man/rdr.md)** — radar scope.
-- **[RWR](man/rwr.md)** — radar warning receiver.
-- **[TGP](man/tgp.md)** — targeting-pod camera feed.
-- **[TGT](man/tgt.md)** — target-selection table.
-- **[WPN](man/wpn.md)** — weapon loadout.
 - **CFG** — configuration and settings hub.
   - **[HUD](man/hud.md)** — in-cockpit HUD config.
   - **[KEY](man/keybinds.md)** — extended keybinds, SOI, PAD cursor, Immersion Options.
   - **[LYT](man/layouts.md)** — layout chooser.
   - **[RTS](man/rates.md)** — live refresh rate settings.
 - **[EXT](man/ext.md)** — third-party extension pages.
+- **[MAIN](man/main.md)** — landing page.
+- **[MAP](man/map.md)** — tactical map.
+  - **[WPT](man/wpt.md)** — waypoint/route editor.
+- **MD** — mission data hub.
+  - **[AKF](man/akf.md)** — kill feed.
+  - **[BDF / PAL](man/bdf.md)** — faction forces.
+  - **[MIS](man/mis.md)** — mission info.
+  - **[OBJ](man/obj.md)** — objectives.
+- **[RDR](man/rdr.md)** — radar scope.
+- **[RWR](man/rwr.md)** — radar warning receiver.
+- **[TGP](man/tgp.md)** — targeting-pod camera feed.
+- **[TGT](man/tgt.md)** — target-selection table.
+- **[WPN](man/wpn.md)** — weapon loadout.
 
 ## Reporting & collaboration
 

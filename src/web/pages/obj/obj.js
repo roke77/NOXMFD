@@ -1,5 +1,5 @@
 // OBJ page — a read-only reactive replica of the game's active-objectives list, driven by the
-// shell over postMessage (docs/mdt-pages.md). No interaction beyond the local expand/collapse
+// shell over postMessage (docs/md-pages.md). No interaction beyond the local expand/collapse
 // toggle — pure render of the 'obj' block. See obj.html for the message contract.
 
 const listEl = document.getElementById('obj-list');

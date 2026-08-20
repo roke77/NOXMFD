@@ -57,12 +57,12 @@
       { label: 'R-',   action: 'rng-out' }, // → step the displayed range DOWN (smaller range number)
     ],
     tgt: [ { label: 'MAIN', action: 'main' } ],
-    // AKF, BDF, PAL, MIS and OBJ fold under one MAIN destination (MDT — BEZEL_EXTRAS.main, action
+    // AKF, BDF, PAL, MIS and OBJ fold under one MAIN destination (MD — BEZEL_EXTRAS.main, action
     // 'akf' so it lands on this list, on AKF specifically) rather than five separate items: each
     // carries the other four as a direct switch, plus the way back, with `mark` on whichever one is
-    // current (docs/mdt-pages.md). mfd.js's generic sweep (full view) and renderSplitLabels'
+    // current (docs/md-pages.md). mfd.js's generic sweep (full view) and renderSplitLabels'
     // static-nav branch (split) both honor `mark`. Order is AKF, MIS, OBJ, BDF, PAL (issue #34) —
-    // AKF leads and is MDT's default landing page.
+    // AKF leads and is MD's default landing page.
     akf: [
       { label: 'MAIN', action: 'main' },
       { label: 'AKF',  action: 'akf', mark: true },

@@ -1,6 +1,6 @@
 # MIS
 
-Part of the **MDT** (Mission Data Table).
+Part of the **MD** (Mission Data).
 
 Shows the mission's name, in-mission clock/duration, escalation score/level, and full
 description text.

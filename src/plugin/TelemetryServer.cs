@@ -1687,7 +1687,7 @@ namespace NOXMFD
             return sb.Append(']').ToString();
         }
 
-        // MIS mission-info panel (docs/mdt-pages.md). {present:false} in multiplayer or between
+        // MIS mission-info panel (docs/md-pages.md). {present:false} in multiplayer or between
         // missions. level: 0 Conventional, 1 Tactical, 2 Strategic (TelemetryReader.BuildMis).
         private static string MisBlock(TelemetrySnapshot s)
         {
@@ -1698,7 +1698,7 @@ namespace NOXMFD
                 s.MisTimeOfDay, s.MisDuration, s.MisScore, s.MisLevel);
         }
 
-        // OBJ active-objectives list (docs/mdt-pages.md). {present:false} when the player faction's
+        // OBJ active-objectives list (docs/md-pages.md). {present:false} when the player faction's
         // HQ isn't resolved yet.
         private static string ObjBlock(TelemetrySnapshot s)
         {

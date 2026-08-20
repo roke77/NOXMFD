@@ -420,11 +420,11 @@ export class TelemetrySource {
     // FactionHQ yet.
     this._postUp(Object.assign({ type: 'pal' }, d.pal || { present: false }));
 
-    // MIS mission-info panel (docs/mdt-pages.md) — name, time/duration, escalation score/level, and
+    // MIS mission-info panel (docs/md-pages.md) — name, time/duration, escalation score/level, and
     // the mission's own description text. present:false in multiplayer or between missions.
     this._postUp(Object.assign({ type: 'mis' }, d.mis || { present: false }));
 
-    // OBJ active-objectives list (docs/mdt-pages.md). present:false when the player faction's HQ
+    // OBJ active-objectives list (docs/md-pages.md). present:false when the player faction's HQ
     // isn't resolved yet. Each objective's position sub-rows (ObjectiveInfoList_Item — "DestroyUnits
     // / Lb105 / 18km") arrive as raw world x/z from the plugin; grid label and live range are derived
     // here the same way targets/rwr/mw already are, so range stays live at the base frame's own rate

@@ -2,7 +2,7 @@
 //
 // Worth pinning because the bands are easy to misread and impossible to eyeball: they compare
 // SQUARES instead of using Math.abs, so `m*m < 100` means "|m| under ten million", and every band
-// silently also covers the negative side. Get one threshold wrong and the MDT shows "$0.5m" where
+// silently also covers the negative side. Get one threshold wrong and the MD shows "$0.5m" where
 // the game shows "$500.0k" — plausible-looking, consistently wrong, and only visible if you happen
 // to have the in-game panel open beside it.
 //
