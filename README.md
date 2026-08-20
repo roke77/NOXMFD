@@ -107,19 +107,23 @@ Full detail, screenshots and instructions for each page now live in [`man/`](man
 - **[MAIN](man/main.md)** — landing page.
 - **[AFM](man/afm.md)** — airframe status and damage.
 - **[AVN](man/avn.md)** — avionics gauges and system toggles.
-- **MAP** — tactical map ([man/map.md](man/map.md)), including the waypoint/route editor,
-  **[WPT](man/wpt.md)**.
-- **MDT** (Mission Data Table) — a five-way switch, landing on **[AKF](man/akf.md)** (kill feed)
-  by default, alongside **[MIS](man/mis.md)** (mission info), **[OBJ](man/obj.md)** (objectives),
-  and **[BDF / PAL](man/bdf.md)** (faction forces).
+- **[MAP](man/map.md)** — tactical map.
+  - **[WPT](man/wpt.md)** — waypoint/route editor.
+- **MDT** (Mission Data Table) — a five-way switch, landing on AKF by default.
+  - **[AKF](man/akf.md)** — kill feed.
+  - **[MIS](man/mis.md)** — mission info.
+  - **[OBJ](man/obj.md)** — objectives.
+  - **[BDF / PAL](man/bdf.md)** — faction forces.
 - **[RDR](man/rdr.md)** — radar scope.
 - **[RWR](man/rwr.md)** — radar warning receiver.
 - **[TGP](man/tgp.md)** — targeting-pod camera feed.
-- **[TGT](man/tgt.md)** — target-selection filter.
+- **[TGT](man/tgt.md)** — target-selection table.
 - **[WPN](man/wpn.md)** — weapon loadout.
-- **CFG** — configuration hub: **[HUD](man/hud.md)** (in-cockpit HUD remote), **[KEY](man/keybinds.md)**
-  (extended keybinds, SOI, PAD cursor, Immersion Options), **[LYT](man/layouts.md)** (layout
-  chooser), and **[RTS](man/rates.md)** (live refresh rates).
+- **CFG** — configuration hub.
+  - **[HUD](man/hud.md)** — in-cockpit HUD remote.
+  - **[KEY](man/keybinds.md)** — extended keybinds, SOI, PAD cursor, Immersion Options.
+  - **[LYT](man/layouts.md)** — layout chooser.
+  - **[RTS](man/rates.md)** — live refresh rates.
 - **[EXT](man/ext.md)** — third-party extension pages.
 
 ## Reporting & collaboration
