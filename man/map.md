@@ -8,9 +8,4 @@ status row shows CURSOR (the grid square under the mouse/PAD cursor), GRID (your
 ROUTE (the active route's name) — each shown only while it applies. A HOTAS cursor can drive all
 of this without touching the screen — see [PAD cursor](keybinds.md#pad-cursor).
 
-<details>
-<summary>$\color{green}\textsf{Show screenshot}$</summary>
-
 ![MAP page](../docs/images/MAP.png)
-
-</details>

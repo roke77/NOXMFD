@@ -9,9 +9,4 @@ restarts; a RESET TO DEFAULTS button restores both to 10 Hz / 15 Hz.
 Reached from MAIN via **CFG** in either layout, alongside [HUD](hud.md), [KEY](keybinds.md),
 and [LYT](layouts.md).
 
-<details>
-<summary>$\color{green}\textsf{Show screenshot}$</summary>
-
 ![RTS page](../docs/images/RTS.png)
-
-</details>

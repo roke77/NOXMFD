@@ -40,12 +40,7 @@ if you run the display in a browser on the same PC as the game, so your HOTAS st
 that browser window has focus. Off by default; leave it off for a tablet or phone, where the game
 keeps focus anyway.
 
-<details>
-<summary>$\color{green}\textsf{Show screenshot}$</summary>
-
 ![Extended keybinds page](../docs/images/KEY.png)
-
-</details>
 
 ## Sensor of Interest (SOI)
 
@@ -59,14 +54,9 @@ a SOI key. Five binds, on the **KEY** page:
 - **Nav Up / Nav Down** — move the cursor over the selected screen's buttons.
 - **Nav Select** — press the button under the cursor.
 
-<details>
-<summary>$\color{green}\textsf{See screenshots}$</summary>
-
 ![SOI-selected screen](../docs/images/SOI1.png)
 
 ![SOI-selected screen](../docs/images/SOI2.png)
-
-</details>
 
 ## PAD cursor
 
@@ -101,9 +91,4 @@ configured in their own section at the bottom of the **KEY** page.
   ALL (unrestricted) — there's no dedicated ALL bind, since neither showing lit already means ALL.
   The WPN page's A/A · A/G controls mirror and drive the same state.
 
-<details>
-<summary>$\color{green}\textsf{Show screenshot}$</summary>
-
 ![Immersion Options section](../docs/images/IMM.png)
-
-</details>

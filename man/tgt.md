@@ -6,9 +6,4 @@ live selected-target list. A DATALINK button bulk-deselects the datalink-only lo
 button bulk-deselects locks whose relayed position the game no longer trusts (the same check
 behind the TGP's own "?" marker).
 
-<details>
-<summary>$\color{green}\textsf{Show screenshot}$</summary>
-
 ![TGT page](../docs/images/TGT.png)
-
-</details>

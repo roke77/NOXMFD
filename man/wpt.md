@@ -16,9 +16,4 @@ tape at the waypoint's bearing, with a `WPT n · NAME` / distance · bearing rea
 ±45° of the nose — the tape only spans 90° — the bug becomes a sideways arrow pinned at the edge
 it left, pointing the way to turn. It shows whenever a route is active.
 
-<details>
-<summary>$\color{green}\textsf{Show screenshot}$</summary>
-
 ![WPT page](../docs/images/WPT.png)
-
-</details>

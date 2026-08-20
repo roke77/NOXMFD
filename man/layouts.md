@@ -21,14 +21,9 @@ bottom.
 - **V_SPLIT** — left/right split.
 - **V_WIDE_SPLIT** — left/right 2:1 split.
 
-<details>
-<summary>$\color{green}\textsf{See screenshots}$</summary>
-
 ![V_SPLIT (left) and H_SPLIT (right)](../docs/images/H_V_SPLIT.png)
 
 ![V_WIDE_SPLIT](../docs/images/V_WIDE_SPLIT.png)
-
-</details>
 
 ## F-35
 
@@ -38,13 +33,8 @@ screen divides into side-by-side portals, each an independent MFD, that you merg
 corner grips. A fixed strip across the top carries the aircraft-level readouts — connection,
 throttle and fuel, and the avionics flags.
 
-<details>
-<summary>$\color{green}\textsf{See screenshots}$</summary>
-
 ![F-35 layout — MAIN](../docs/images/F-35%20MAIN.png)
 
 ![F-35 layout — 1-2-1 portal split](../docs/images/F-35%201-2-1.png)
 
 ![F-35 layout — 2-2 portal split](../docs/images/F-35%202-2.png)
-
-</details>
