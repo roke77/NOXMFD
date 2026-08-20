@@ -26,9 +26,18 @@ src/web/
   pages/
     map/    map.html  map.css  map.js     # the live map view (imports services/telemetry-source.js)
             map-transform.js              # its pure world⇄pixel maths (pan/zoom/letterbox)
-    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hud/  bdf/  mis/  obj/
-                                               # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal)
+    wpt/    wpt.html  wpt.css  wpt.js     # waypoint/route editor, thin client over the plugin's
+            waypoints-store.js            # RouteStore (docs/hud-waypoint-indicator.md) — fetch/poll
+            wpt-route.js  wpt-route.test.js  # /wpt-options + POST /command, no local persistence
+    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hud/  bdf/  mis/  obj/  akf/  rates/
+                                               # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
+                                               # akf = kill feed/session stats docs/akf-page.md; rates = RTS live
+                                               # refresh-rate sliders, folded under CFG)
                                                # some carry a pure sibling module — see below
+    ext/                                       # EXT hub — lists extensions discovered at runtime via
+                                               # /ext-manifest (shell/ext-nav.js), no fixed page content of
+                                               # its own; each extension serves its own page under /ext/<id>
+                                               # (docs/extensions-api.md)
     keybinds/                                  # frame-hosted like the pages above, not a standalone document
     main/                                      # the split-pane MAIN card (full-view MAIN is shell chrome)
 ```
@@ -45,7 +54,10 @@ Logic worth checking gets split into a **pure sibling module** the page loads an
 without a DOM — the page keeps the elements and live state and passes what the module needs in. The
 same move the shell makes with `nav-model.js` / `classic-paging.js`. Named for what it does:
 `map-transform.js` (world⇄pixel maths), `bdf-funds.js` (the magnitude-band money format),
-`keybinds-keymap.js` (KeyboardEvent.code ⇄ Unity KeyCode names), and `<x>-*-policy.js` where the
+`keybinds-keymap.js` (KeyboardEvent.code ⇄ Unity KeyCode names), `wpt-route.js` (route/waypoint
+display-derivation — bearing/distance math and a client-side pre-validator for pasted route JSON;
+the actual route data and its mutation live server-side in `RouteStore`, not here — see
+`waypoints-store.js`), and `<x>-*-policy.js` where the
 logic really is a classification rule (`avn-status-policy.js`, `avn-throttle-policy.js`,
 `afm-bg-policy.js`, `afm-failure-policy.js`). Everything else on a page is DOM-coupled rendering and
 is left to the harness and the eye, not to Node asserts.
