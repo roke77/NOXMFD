@@ -111,9 +111,13 @@ function fullViewSlot(i) { return i < 6 ? { bank: 'left', index: i } : { bank: '
 // there were room — the F-35 already offers this choice from its master strip, so a NAV entry would
 // put it on that layout's MAIN a second time.
 //
-// LAYOUT is three left-bank labels and nothing else — the way back, then the two layouts. It draws
-// no panel: every other page in this shell puts its items beside a physical key, and a chooser is
-// navigation, so it reads as one. `mark` is the layout you are already on.
+// LAYOUT is five left-bank labels and nothing else — CFG (the way back into the HUD/KEY/LYT/RTS
+// group LYT itself has no NAV entry for; see NAV.hud/keys/rates, which each already list HUD as
+// their own way back — LYT was the one member missing it), then the two layout choices, then
+// SAVE/LOAD LAYOUT (issue #51 follow-up: a touch-friendly path for a tablet with no keyboard,
+// alongside the keyboard shortcut). It draws no panel: every other page in this shell puts its
+// items beside a physical key, and a chooser is navigation, so it reads as one. `mark` is the
+// layout you are already on.
 const BEZEL_EXTRAS = {
   // CFG, MD, RDR and AFM — the layout-owned MAIN items the six shared NAV items don't cover. CFG
   // opens the CFG group (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39, HUD joined that group and,
@@ -135,10 +139,15 @@ const BEZEL_EXTRAS = {
     { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
   ],
   // No MAIN back-item under lyt here — picking CLASSIC already navigates back to MAIN (this shell),
-  // so a separate way-back label would be redundant with it.
+  // so a separate way-back label would be redundant with it. CFG *is* needed despite that: it goes
+  // back to HUD/KEY/RTS (the 'hud' action, same as MAIN's own CFG entry — HUD is that group's
+  // landing page), which picking CLASSIC does not reach.
   lyt:  [
-    { label: 'CLASSIC', action: 'lyt-classic', bank: 'left', index: 0, mark: true },
-    { label: 'F-35',    action: 'lyt-f35',     bank: 'left', index: 1 },
+    { label: 'CFG',     action: 'hud',         bank: 'left', index: 0 },
+    { label: 'CLASSIC', action: 'lyt-classic', bank: 'left', index: 1, mark: true },
+    { label: 'F-35',    action: 'lyt-f35',     bank: 'left', index: 2 },
+    { label: 'SAVE',    action: 'lyt-save-layout', bank: 'left', index: 3 },
+    { label: 'LOAD',    action: 'lyt-load-layout', bank: 'left', index: 4 },
   ],
 };
 
@@ -2288,6 +2297,12 @@ function mfdButton(el) {
     // guard in each shell's HTML redirects on that value (docs/layouts.md, Stage 3).
     case 'lyt-classic': setLayout('classic'); showPage('main'); mapSend('status-request'); break;
     case 'lyt-f35':     setLayout('f35'); location.href = '/f35'; break;
+    // Touch-friendly path for SAVE/LOAD LAYOUT (issue #51 follow-up) — same modals the keyboard
+    // shortcut opens, for a tablet with no keyboard attached. Saving from here means the layout
+    // remembers LYT itself as the current page (LYT has no per-pane content, so it's always
+    // full-view) — see applyLayoutState's pin restore below for how SWAP gets a pilot back off it.
+    case 'lyt-save-layout': openSaveLayoutModal(); break;
+    case 'lyt-load-layout': openLoadLayoutModal(); break;
     case 'avn':  showPage('avn');  break;
     case 'afm':  showPage('afm');  break;
     case 'rwr':  showPage('rwr');  break;
@@ -2452,6 +2467,84 @@ window.addEventListener('wptroutes:changed', function() {
   forwardWptRoutesToPanes();
   forwardWptRoutesToFrame();
   forwardWptRoutesToMap();
+});
+
+// ── SAVE/LOAD LAYOUT (issue #51) — browser-side keyboard shortcuts only, no joystick/HOTAS. ────
+// S saves the current arrangement (split mode + variant + per-pane pages, or the full-view page)
+// under a name; L opens a picker of every saved CLASSIC layout and applies the one clicked.
+// Storage is server-side (LayoutStore.cs), so a layout saved here shows up on every other
+// connected browser (including the F-35 shell, which keeps its own list — see f35.js's twin of
+// this block — filtered by `shell` so a browser is never offered an arrangement it can't apply).
+function captureLayoutState() {
+  const state = splitMode
+    ? { splitMode: true, splitVariant: splitVariant, pages: panePages.slice() }
+    : { splitMode: false, pages: [currentPage] };
+  // The PIN (issue #51 follow-up) — saving from LYT (SAVE has to be pressed there; LYT has no
+  // per-pane content, so it's always full-view) means the layout itself remembers LYT, not
+  // whatever page the pilot actually cares about. Carrying pinnedPage along lets a single SWAP
+  // after LOAD jump straight back to it, same as it would have before saving.
+  state.pinnedPage = pinnedPage;
+  return state;
+}
+
+function applyLayoutState(state) {
+  const pages = (state && state.pages && state.pages.length) ? state.pages : ['main'];
+  if (state && state.splitMode) {
+    setSplit(state.splitVariant === 'v' || state.splitVariant === 'vw' ? state.splitVariant : 'h');
+    paneNavigate(0, pages[0] || 'main');
+    paneNavigate(1, pages[1] || 'main');
+  } else if (splitMode) {
+    splitMode = false;
+    currentPage = pages[0] || 'main';
+    applySplitMode();   // its own showPage(currentPage) lands on the restored page directly
+  } else {
+    showPage(pages[0] || 'main');
+  }
+  // Restore the pin last — applySplitMode (above, on any full<->split transition) already clears
+  // it via clearPin(), so setting it before that point would just have it wiped again. 'main' is
+  // never a valid pin (mirrors the PIN key's own guard) — a corrupted/hand-edited layout blob
+  // degrades to no pin rather than an unreachable one.
+  const restoredPin = state && state.pinnedPage;
+  if (restoredPin && restoredPin !== 'main') {
+    pinnedPage = restoredPin;
+    swapPartner = null;
+    if (indicatorOrder.indexOf('pinned') === -1) indicatorOrder.push('pinned');
+    renderIndicators();
+  } else {
+    clearPin();
+  }
+}
+
+function openSaveLayoutModal() {
+  LayoutModal.prompt('SAVE LAYOUT', function (name) {
+    LayoutStore.save(name, 'classic', captureLayoutState()).catch(function () {});
+    LayoutModal.close();
+  });
+}
+
+function classicLayouts() {
+  return LayoutStore.list().then(function (data) {
+    return (data.layouts || []).filter(function (l) { return l.shell === 'classic'; });
+  });
+}
+
+function openLoadLayoutModal() {
+  LayoutModal.pickList('LOAD LAYOUT', classicLayouts, {
+    onPick: function (item) {
+      try { applyLayoutState(JSON.parse(item.data)); } catch (e) {}
+    },
+    onRename: function (item, name) { return LayoutStore.rename(item.id, name); },
+    onDelete: function (item) { return LayoutStore.remove(item.id); },
+  });
+}
+
+window.addEventListener('keydown', function (e) {
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  const action = LayoutKeybinds.match(e);
+  if (action === 'save') openSaveLayoutModal();
+  else if (action === 'load') openLoadLayoutModal();
 });
 
 loadConfigUrls();

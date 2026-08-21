@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
 <link rel="stylesheet" href="/assets/shell/classic/mfd.css">
+<link rel="stylesheet" href="/assets/shell/layout-modal.css">
 </head>
 <body>
 
@@ -97,6 +98,12 @@
      existing storage wrapper directly rather than re-deriving that check by hand. -->
 <script src="/assets/pages/wpt/wpt-route.js"></script>
 <script src="/assets/pages/wpt/waypoints-store.js"></script>
+<!-- SAVE/LOAD LAYOUT (issue #51) — shared with the F-35 shell. keybinds-keymap.js's KeyboardEvent
+     -> Unity KeyCode naming is reused so a configured key matches what the KEY page stores. -->
+<script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
+<script src="/assets/shell/layout-store.js"></script>
+<script src="/assets/shell/layout-modal.js"></script>
+<script src="/assets/shell/layout-keybinds.js"></script>
 <script src="/assets/shell/classic/mfd.js"></script>
 </body>
 </html>

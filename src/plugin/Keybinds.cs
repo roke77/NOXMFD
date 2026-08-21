@@ -262,6 +262,17 @@ namespace NOXMFD
             _cursorAxisV = AddAxis(config, "cursor-axis-v", cursor, "CursorAxisV", "Cursor Vertical",
                 "Analog axis driving the cursor up/down — overrides Cursor Up/Down when deflected. Only acts while a display with a cursor is focused.");
 
+            // Layout keybinds (issue #51 follow-up) — SAVE/LOAD LAYOUT. Unlike every bind above, the
+            // action isn't a Unity/Rewired call at all: it's a browser popping its own SAVE/LOAD
+            // LAYOUT modal (mfd.js/f35.js), so these are DefKeyOnly (no joystick/HOTAS, no Drive/
+            // DriveFree) — set here only so the assigned KEY is configured once and shared by every
+            // connected browser via /keybinds-config, instead of each browser guessing its own.
+            const string layout = "Layout Keybinds";
+            DefKeyOnly(config, "layout-save", layout, "LayoutSave", "Save Layout",
+                "Save the current screen layout under a name.");
+            DefKeyOnly(config, "layout-load", layout, "LayoutLoad", "Load Layout",
+                "Load a previously saved screen layout.");
+
             // Immersion keybinds — docs/radar-master-arms.md (issue #32). Registered LAST (and its
             // three start-state settings appended after this Bind() method, in the same order) so the
             // KEY page's "Immersion options" section — binds + settings together — lands at the very
@@ -313,8 +324,10 @@ namespace NOXMFD
 
             foreach (var b in _binds)
             {
-                if (b.KeyEntry != null)
-                    Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value}, joy={b.JoyEntry!.Value} (stick {b.JoyNumEntry!.Value}).");
+                if (b.KeyEntry != null && b.JoyEntry != null)
+                    Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value}, joy={b.JoyEntry.Value} (stick {b.JoyNumEntry!.Value}).");
+                else if (b.KeyEntry != null)
+                    Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value} (browser-only, no joystick).");
                 else
                     Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': axis={b.AxisEntry!.Value} (stick {b.AxisJoyNumEntry!.Value}, invert={b.AxisInvertEntry!.Value}).");
             }
@@ -333,7 +346,8 @@ namespace NOXMFD
             => Add(config, id, section, key, label, edge, description, null, drive);
 
         private static BindDef Add(ConfigFile config, string id, string section, string key, string label,
-                                bool edge, string description, Action<Aircraft>? drive, Action? driveFree)
+                                bool edge, string description, Action<Aircraft>? drive, Action? driveFree,
+                                bool joystick = true)
         {
             var b = new BindDef
             {
@@ -341,14 +355,31 @@ namespace NOXMFD
                 Drive = drive, DriveFree = driveFree,
                 KeyEntry = config.Bind(section, key, new KeyboardShortcut(),
                     new ConfigDescription("Keyboard/mouse key: " + description, null, Hidden())),
-                JoyEntry = config.Bind(section, key + "JoystickButton", -1,
-                    new ConfigDescription("Joystick/HOTAS button (Rewired index, -1 = off): " + description, null, Hidden())),
-                JoyNumEntry = config.Bind(section, key + "JoystickNumber", 0,
-                    new ConfigDescription("Which joystick the button index refers to (0 = any; pinned to the captured device).", null, Hidden())),
             };
+            // joystick:false (DefKeyOnly below) — no Rewired button entry at all, not merely unset,
+            // so the .cfg and the /keybinds page never offer a capture path this bind can't act on.
+            if (joystick)
+            {
+                b.JoyEntry = config.Bind(section, key + "JoystickButton", -1,
+                    new ConfigDescription("Joystick/HOTAS button (Rewired index, -1 = off): " + description, null, Hidden()));
+                b.JoyNumEntry = config.Bind(section, key + "JoystickNumber", 0,
+                    new ConfigDescription("Which joystick the button index refers to (0 = any; pinned to the captured device).", null, Hidden()));
+            }
             _binds.Add(b);
             return b;
         }
+
+        // A bind whose key is configured through the /keybinds page — so every browser agrees on it —
+        // but whose ACTION lives entirely in the browser's own JS (SAVE/LOAD LAYOUT, issue #51), not
+        // in a Unity/Rewired call: no Drive/DriveFree, and deliberately no joystick/HOTAS entry
+        // (browser-side keyboard shortcuts only, by design). Poll() still evaluates its digital state
+        // every frame like any other bind — harmless, since Drive/DriveFree are both null so nothing
+        // ever dispatches from it — but the real detection happens in mfd.js/f35.js's own keydown
+        // listener, which reads this same KeyEntry value via /keybinds-config instead of the game
+        // window's Input.
+        private static BindDef DefKeyOnly(ConfigFile config, string id, string section, string key, string label,
+                                string description)
+            => Add(config, id, section, key, label, edge: true, description, drive: null, driveFree: null, joystick: false);
 
         // An axis-only bind (docs/map-cursor.md): purely analog, no keyboard/button source and no
         // Drive/DriveFree dispatch (see the BindDef comment) — Poll() reads AxisValueNow directly via
@@ -385,6 +416,7 @@ namespace NOXMFD
             "TGT Keybinds"            => "TGT",
             "SOI Keybinds"            => "SOI",
             "Cursor Keybinds"         => "CURSOR",
+            "Layout Keybinds"         => "LAYOUT",
             "Immersion Keybinds"      => "IMMERSION OPTIONS",
             _ => section,
         };
@@ -414,6 +446,9 @@ namespace NOXMFD
                 "Cycle keys select the last soft-selected weapon of their type, or the first in the list. " +
                 "Repeated presses cycle to the next one, skipping depleted weapons. " +
                 "Cycling to a different type leaves the current one soft-selected.",
+            "Layout Keybinds" =>
+                "Keyboard only, no joystick/HOTAS. Acts on whichever browser window has focus when " +
+                "pressed, and applies to every connected browser.",
             "Immersion Keybinds" =>
                 "A/A and A/G each restrict Cycle Missile on a tap; hold either one to reset to ALL " +
                 "(unrestricted). Every other bind here is a plain dedicated action.",
@@ -819,7 +854,9 @@ namespace NOXMFD
             KeyCode k = sc.MainKey;
             bool kbd = k != KeyCode.None && k < KeyCode.JoystickButton0 &&
                        (edge ? Input.GetKeyDown(k) : Input.GetKey(k)) && ModifiersHeld(sc);
-            return kbd || JoyBtn(bind.JoyEntry!.Value, bind.JoyNumEntry!.Value, edge);
+            // JoyEntry is null for a key-only bind (DefKeyOnly, e.g. SAVE/LOAD LAYOUT) — no
+            // joystick/HOTAS source to check, so the keyboard result alone decides it.
+            return kbd || (bind.JoyEntry != null && JoyBtn(bind.JoyEntry.Value, bind.JoyNumEntry!.Value, edge));
         }
 
         // No bind in this codebase's own capture flow (SetKeyBind → new KeyboardShortcut(key)) ever

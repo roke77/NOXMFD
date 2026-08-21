@@ -89,6 +89,19 @@ mouse click or touch tap already does, but from the HOTAS, without touching the 
 
 It only acts on whichever display currently has both SOI focus and one of these pages open.
 
+## Layout
+
+- **Save Layout** — save the current split/portal arrangement and which page each pane or portal
+  shows, under a name.
+- **Load Layout** — pick a saved arrangement by name and apply it immediately.
+
+No joystick/HOTAS for these two — whichever browser window has keyboard focus when the key is
+pressed is the one that acts, and the key you set here applies to every connected browser. The
+same two actions are also available as **SAVE**/**LOAD** buttons on [LYT](layouts.md)'s own menu,
+for a tablet with no keyboard.
+
+![Layout section](images/LYT_KEY.png)
+
 ## Immersion Options
 
 Optional cold-start behavior and dedicated binds for radar, engine, and weapons safety,

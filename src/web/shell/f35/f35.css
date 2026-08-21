@@ -363,6 +363,13 @@ html, body {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 64px;
+}
+.layout-picker-row {
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 88px;
@@ -372,6 +379,10 @@ html, body {
 
 /* Bigger than a label on a page: these are the only things on the glass. */
 .layout-picker .nav-item { font-size: 30px; }
+
+/* SAVE/LOAD LAYOUT (issue #51 follow-up) — a smaller secondary row so it reads as a pair of
+   actions, not a third layout choice alongside CLASSIC/F-35. */
+.layout-picker-actions .nav-item { font-size: 20px; }
 
 /* The current layout needs no rule of its own: .nav-item.on already boxes a label in amber, and
    that is what this is — the same "engaged" the theme gives MAP's FLW. Hover stays the shared

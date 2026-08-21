@@ -120,6 +120,16 @@ namespace NOXMFD
                 { "wpt.cycle-route",      e => RouteStore.CycleActiveRoute(e.index) },
                 { "wpt.step-waypoint",    e => RouteStore.StepWaypoint(e.index) },
                 { "wpt.add-waypoint",     e => RouteStore.AddWaypoint(e.wx, e.wz, e.wname) },
+                // Save/load layout (issue #51) — SAVE LAYOUT is a browser-side keyboard shortcut
+                // only; LOAD reads GET /layout-options and applies a picked layout entirely
+                // client-side, so there's no matching "load" command here.
+                //   wname : layout name       group : shell ("classic"/"f35")
+                //   text  : the browser's own serialized arrangement, as JSON text (opaque here)
+                { "layout.save",   e => LogLayout("save",   LayoutStore.SaveLayout(e.wname, e.group, e.text)) },
+                // LOAD's picker manages the library — id : "bind" (matches wpt.*'s own route-id
+                // reuse of the field), new name : "wname".
+                { "layout.rename", e => LogLayout("rename", LayoutStore.RenameLayout(e.bind, e.wname)) },
+                { "layout.delete", e => LogLayout("delete", LayoutStore.DeleteLayout(e.bind)) },
             };
 
         // Keybind writes just delegate to the Keybinds registry; log rejections (unknown id / bad key).
@@ -133,6 +143,12 @@ namespace NOXMFD
         private static void LogWpt(string op, bool ok)
         {
             if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] wpt.{op}: rejected.");
+        }
+
+        // Same shape as LogWpt above, for the layout.* family.
+        private static void LogLayout(string op, bool ok)
+        {
+            if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] layout.{op}: rejected.");
         }
 
         // True for a cmd we have a handler for — lets the server reject unknown commands at the
