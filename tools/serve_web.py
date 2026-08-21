@@ -44,6 +44,7 @@ import socketserver
 import sys
 import time
 import urllib.parse
+import uuid
 import webbrowser
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
@@ -295,24 +296,63 @@ def _wpt_seed_script():
             "</script>\n")
 
 
-# Mock of the plugin's /layout-options (LayoutStore.LayoutsJson, issue #51 — save/load layout) —
-# one example layout per shell so LOAD's picker has something real to pick and apply in the
-# harness. Static, same as _wpt_options/_hud_options — the write side (layout.save) has no mock,
-# POSTs are swallowed, so saving here won't change this response; that path is only testable in
-# game. `data` is a JSON-encoded STRING field, matching the plugin's own wire shape (LayoutStore
-# never parses the arrangement's shape, so it stores/returns it as opaque text, same as
-# wpt.import's pasted blob) — the browser JSON.parses it when a picked layout is applied.
+# Stateful mock of the plugin's /layout-options + layout.* commands (LayoutStore.cs, issue #51 —
+# save/load layout), one example layout per shell to start — same shape as the KEYBINDS mock below
+# (a mutable Python list layout.save/rename/delete actually edit, not a static snapshot), so LOAD's
+# picker rename/delete round-trips are drivable in the harness, not just swallowed. `data` is a
+# JSON-encoded STRING field, matching the plugin's own wire shape (LayoutStore never parses the
+# arrangement's shape, so it stores/returns it as opaque text, same as wpt.import's pasted blob) —
+# the browser JSON.parses it when a picked layout is applied.
+LAYOUTS = [
+    {"id": "l_demo_classic", "name": "Classic split demo", "shell": "classic",
+     "data": json.dumps({"splitMode": True, "splitVariant": "h", "pages": ["rwr", "main"],
+                          "pinnedPage": "rwr"})},
+    {"id": "l_demo_f35", "name": "F-35 demo", "shell": "f35",
+     "data": json.dumps({"cells": [{"span": 2, "ate": "right"}, {"span": 1}, {"span": 1}],
+                          "pages": ["wpn", "main", "map"]})},
+]
+
+
 def _layout_options():
-    return json.dumps({
-        "layouts": [
-            {"id": "l_demo_classic", "name": "Classic split demo", "shell": "classic",
-             "data": json.dumps({"splitMode": True, "splitVariant": "h", "pages": ["rwr", "main"],
-                                  "pinnedPage": "rwr"})},
-            {"id": "l_demo_f35", "name": "F-35 demo", "shell": "f35",
-             "data": json.dumps({"cells": [{"span": 2, "ate": "right"}, {"span": 1}, {"span": 1}],
-                                  "pages": ["wpn", "main", "map"]})},
-        ],
-    }).encode("utf-8")
+    return json.dumps({"layouts": LAYOUTS}).encode("utf-8")
+
+
+# Unique-name dedup, mirroring LayoutStore.UniqueName (append " (2)", " (3)", ... on collision).
+def _unique_layout_name(name, exclude_id):
+    taken = {l["name"] for l in LAYOUTS if l["id"] != exclude_id}
+    if name not in taken:
+        return name
+    n = 2
+    while f"{name} ({n})" in taken:
+        n += 1
+    return f"{name} ({n})"
+
+
+def _layout_command(env):
+    cmd, bind = env.get("cmd", ""), env.get("bind", "")
+    if cmd == "layout.save":
+        name = (env.get("wname") or "").strip()
+        data = env.get("text") or ""
+        if not name or not data:
+            return False
+        try:
+            json.loads(data)
+        except ValueError:
+            return False
+        LAYOUTS.append({"id": f"l_{uuid.uuid4().hex}", "name": _unique_layout_name(name, None),
+                         "shell": env.get("group", ""), "data": data})
+        return True
+    row = next((l for l in LAYOUTS if l["id"] == bind), None)
+    if cmd == "layout.rename" and row is not None:
+        name = (env.get("wname") or "").strip()
+        if not name:
+            return False
+        row["name"] = _unique_layout_name(name, bind)
+        return True
+    if cmd == "layout.delete" and row is not None:
+        LAYOUTS.remove(row)
+        return True
+    return False
 
 
 # Stateful mock of the plugin's /keybinds-config + keybind.* commands, so the /keybinds page's
@@ -534,8 +574,8 @@ def _keybinds_command(env):
 
 class H(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
-        # /command mock: keybind.* commands mutate the keybind mock state; everything else is
-        # swallowed with 204, mirroring the plugin's fire-and-forget contract.
+        # /command mock: keybind.* and layout.* commands mutate their own mock state; everything
+        # else is swallowed with 204, mirroring the plugin's fire-and-forget contract.
         if self.path.split('?', 1)[0] == '/command':
             try:
                 n = int(self.headers.get('Content-Length') or 0)
@@ -543,6 +583,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             except (ValueError, OSError):
                 env = {}
             _keybinds_command(env)
+            _layout_command(env)
             self.send_response(204)
             self.end_headers()
             return

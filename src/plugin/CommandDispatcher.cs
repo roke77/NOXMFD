@@ -125,7 +125,11 @@ namespace NOXMFD
                 // client-side, so there's no matching "load" command here.
                 //   wname : layout name       group : shell ("classic"/"f35")
                 //   text  : the browser's own serialized arrangement, as JSON text (opaque here)
-                { "layout.save", e => LogLayout(LayoutStore.SaveLayout(e.wname, e.group, e.text)) },
+                { "layout.save",   e => LogLayout("save",   LayoutStore.SaveLayout(e.wname, e.group, e.text)) },
+                // LOAD's picker manages the library — id : "bind" (matches wpt.*'s own route-id
+                // reuse of the field), new name : "wname".
+                { "layout.rename", e => LogLayout("rename", LayoutStore.RenameLayout(e.bind, e.wname)) },
+                { "layout.delete", e => LogLayout("delete", LayoutStore.DeleteLayout(e.bind)) },
             };
 
         // Keybind writes just delegate to the Keybinds registry; log rejections (unknown id / bad key).
@@ -141,10 +145,10 @@ namespace NOXMFD
             if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] wpt.{op}: rejected.");
         }
 
-        // Same shape as LogWpt above, for layout.save.
-        private static void LogLayout(bool ok)
+        // Same shape as LogWpt above, for the layout.* family.
+        private static void LogLayout(string op, bool ok)
         {
-            if (!ok) Plugin.Log?.LogInfo("[NOXMFD] layout.save: rejected.");
+            if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] layout.{op}: rejected.");
         }
 
         // True for a cmd we have a handler for — lets the server reject unknown commands at the

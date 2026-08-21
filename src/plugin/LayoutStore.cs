@@ -138,5 +138,24 @@ namespace NOXMFD
             Save();
             return true;
         }
+
+        public static bool RenameLayout(string? id, string? name)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+            Layout? layout = _layouts.Find(l => l.Id == id);
+            if (layout == null) return false;
+            layout.Name = UniqueName(name!.Trim(), id);
+            Save();
+            return true;
+        }
+
+        public static bool DeleteLayout(string? id)
+        {
+            if (string.IsNullOrEmpty(id)) return false;
+            int removed = _layouts.RemoveAll(l => l.Id == id);
+            if (removed == 0) return false;
+            Save();
+            return true;
+        }
     }
 }

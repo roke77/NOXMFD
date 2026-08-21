@@ -19,6 +19,8 @@ merges F-35 portals into a favourite arrangement, rebuilds it by hand every sess
 - **LOAD LAYOUT**: opens a modal listing every saved layout by name; picking one applies it
   immediately.
 - Multiple named layouts coexist — a small library, not a single "remember my last state" slot.
+- LOAD's picker also lets a pilot rename or delete a saved layout, so the library stays curated
+  rather than only ever growing.
 
 ## Design decisions
 
@@ -83,21 +85,31 @@ it never touches `portals`/`cells`, so SAVE from there already captures the real
 arrangement, not a placeholder page. LOAD does close the picker afterward (`showPicker(false)`),
 so applying a layout is visible immediately rather than hidden behind the still-open chooser.
 
+**LOAD's picker manages the library, not just applies it.** Each row gets a rename (✎) and delete
+(×) control alongside picking it — `layout.rename`/`layout.delete` reuse `LayoutStore.cs`'s
+existing `UniqueName` dedup and `bind`/`wname` envelope fields (no new wire shape, same as
+`layout.save`). Rename is WPT's own inline-edit pattern (`wpt.js`'s `editRow`) ported to the
+modal: the row swaps for a text input + ✓ in place. Delete has no confirm step, mirroring WPT's
+own route/waypoint delete — a saved layout is low-stakes to redo, not real game data. Both
+mutations re-fetch and redraw the list in place rather than closing the modal, which is why
+`LayoutModal.pickList` takes a `fetchItems` function now instead of a static array — it owns its
+own "draw, then redraw after any row action" loop.
+
 ## What is built
 
 | File | Role |
 |---|---|
 | `src/plugin/LayoutStore.cs` | The layout library: storage, disk persistence (`com.roque.NOXMFD.layouts.json`) — opaque `data` blob |
 | `src/plugin/Keybinds.cs` | `DefKeyOnly` bind shape; `layout-save`/`layout-load` rows under a new LAYOUT section |
-| `src/plugin/CommandDispatcher.cs` | `layout.save` (reuses existing `wname`/`group`/`text` envelope fields — no new wire fields) |
+| `src/plugin/CommandDispatcher.cs` | `layout.save`/`layout.rename`/`layout.delete` (reuse existing `wname`/`group`/`text`/`bind` envelope fields — no new wire fields) |
 | `src/plugin/TelemetryServer.cs` | `GET /layout-options`; `ServeKeybindsConfig` emits `joyButton`/`joyNum` only when a bind actually has one |
 | `src/web/shell/layout-store.js` | Fetch-on-open client (`/layout-options`, `layout.save`) — no background poll, layouts don't change on their own |
-| `src/web/shell/layout-modal.js`, `layout-modal.css` | The shared modal primitive |
+| `src/web/shell/layout-modal.js`, `layout-modal.css` | The shared modal primitive; `pickList` also renders inline rename/delete per row |
 | `src/web/shell/layout-keybinds.js` | Polls `/keybinds-config`, matches a `keydown` against the configured save/load keys |
 | `src/web/shell/classic/mfd.js` | `captureLayoutState`/`applyLayoutState` — `{splitMode, splitVariant, pages, pinnedPage}`; two LYT nav items (`BEZEL_EXTRAS.lyt`) |
 | `src/web/shell/f35/f35.js`, `f35.html`, `f35.css` | `captureLayoutState`/`applyLayoutState` — `{cells, pages}`, rebuilding portals directly from a saved `F35Glass` arrangement rather than replaying merge/split actions; a second row of nav items in `#layout-picker` |
 | `src/web/pages/keybinds/keybinds.js` | Renders a key-only row (one wide keyboard cell, no joystick column) |
-| `tools/serve_web.py` | Mocks `/layout-options` (one CLASSIC + one F-35 demo layout, the CLASSIC one carrying a `pinnedPage`) and the two new `KEYBINDS` rows |
+| `tools/serve_web.py` | Stateful mock: `/layout-options` + `layout.save`/`rename`/`delete` actually edit a mutable `LAYOUTS` list (mirrors the existing `KEYBINDS` mock), seeded with one CLASSIC + one F-35 demo layout; plus the two new `KEYBINDS` rows |
 
 ## Verification performed
 
@@ -113,6 +125,9 @@ so applying a layout is visible immediately rather than hidden behind the still-
   `{splitMode:false, pages:['lyt'], pinnedPage:'rwr'}`; loading it back restores the PINNED chip,
   and one SWAP press lands on RWR. The F-35 picker's SAVE/LOAD row renders and opens the same
   modals; LOAD from the picker applies the arrangement and closes the picker to reveal it.
+- Renaming a saved layout in LOAD's picker round-trips through `layout.rename` and redraws the row
+  with the server-confirmed name, without closing the modal; deleting one round-trips through
+  `layout.delete` and correctly falls back to the "No saved layouts yet." empty state.
 - Not verified: real joystick/HOTAS is irrelevant here by design. Real in-game persistence
   (`BepInEx/config/com.roque.NOXMFD.layouts.json` surviving a restart) is unverified — the harness
   has no real plugin process to restart.
@@ -120,7 +135,4 @@ so applying a layout is visible immediately rather than hidden behind the still-
 ## Out of scope / deferred
 
 - Joystick/HOTAS binding for SAVE/LOAD LAYOUT.
-- Renaming or deleting a saved layout — the issue only asked for save/load; a growing
-  never-pruned list is a real usability gap worth a future look, not something to build
-  unasked.
 - Real in-game verification (build + deploy + fly).

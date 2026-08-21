@@ -85,30 +85,101 @@
     input.focus();
   }
 
-  // LOAD's picker: a list of {id,name,...} items; picking one calls onPick(item) and closes.
-  function pickList(titleText, items, onPick) {
+  // LOAD's picker: a list of {id,name,...} items, refetched fresh each time it needs to redraw
+  // (fetchItems() returns a Promise<items>) so a rename/delete shows up without closing the modal.
+  //   opts.onPick(item)          — required. Picking a row closes the modal and applies it.
+  //   opts.onRename(item, name)  — optional. Adds a pencil button per row: an inline text-input
+  //                                 swap (mirrors WPT's own editRow — wpt.js), Enter/✓ to commit.
+  //   opts.onDelete(item)        — optional. Adds a "×" button per row, no confirm step (mirrors
+  //                                 WPT's own route/waypoint delete — low-stakes, easy to redo).
+  // Both mutation callbacks return a promise; the list redraws (fetchItems again) once it resolves.
+  function pickList(titleText, fetchItems, opts) {
     const body = document.createElement('div');
     body.className = 'layout-modal-body';
-    if (!items.length) {
-      const empty = document.createElement('div');
-      empty.className = 'layout-modal-empty';
-      empty.textContent = 'No saved layouts yet.';
-      body.appendChild(empty);
-    } else {
-      const listEl = document.createElement('div');
-      listEl.className = 'layout-modal-list';
-      items.forEach(function (item) {
-        const row = document.createElement('button');
-        row.type = 'button';
-        row.className = 'layout-modal-item';
-        row.textContent = item.name;
-        row.addEventListener('click', function () { close(); onPick(item); });
-        listEl.appendChild(row);
-      });
-      body.appendChild(listEl);
-    }
+    const listEl = document.createElement('div');
+    listEl.className = 'layout-modal-list';
+    body.appendChild(listEl);
     body.appendChild(makeActions([{ label: 'Cancel', onClick: close }]));
+
+    function refresh() { fetchItems().then(draw); }
+
+    function draw(items) {
+      listEl.textContent = '';
+      if (!items.length) {
+        const empty = document.createElement('div');
+        empty.className = 'layout-modal-empty';
+        empty.textContent = 'No saved layouts yet.';
+        listEl.appendChild(empty);
+        return;
+      }
+      items.forEach(function (item) { listEl.appendChild(buildRow(item)); });
+    }
+
+    function buildRow(item) {
+      const row = document.createElement('div');
+      row.className = 'layout-modal-row';
+
+      const name = document.createElement('button');
+      name.type = 'button';
+      name.className = 'layout-modal-item';
+      name.textContent = item.name;
+      name.addEventListener('click', function () { close(); opts.onPick(item); });
+      row.appendChild(name);
+
+      if (opts.onRename) {
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'layout-modal-row-btn';
+        edit.textContent = '✎';
+        edit.title = 'Rename';
+        edit.addEventListener('click', function () { editRow(row, item); });
+        row.appendChild(edit);
+      }
+      if (opts.onDelete) {
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'layout-modal-row-btn';
+        del.textContent = '×';
+        del.title = 'Delete';
+        del.addEventListener('click', function () { opts.onDelete(item).then(refresh); });
+        row.appendChild(del);
+      }
+      return row;
+    }
+
+    // Swaps a row for a text input + ✓, in place — same shape as wpt.js's editRow. Enter commits;
+    // Escape or losing the rename discards by just redrawing from the last fetch.
+    function editRow(row, item) {
+      row.textContent = '';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'layout-modal-input';
+      input.maxLength = 60;
+      input.value = item.name;
+      const save = document.createElement('button');
+      save.type = 'button';
+      save.className = 'layout-modal-row-btn';
+      save.textContent = '✓';
+      save.title = 'Save';
+      function commit() {
+        const name = input.value.trim();
+        if (!name) return;
+        opts.onRename(item, name).then(refresh);
+      }
+      save.addEventListener('click', commit);
+      // No local Escape handling: the modal's own document-level Escape listener is capture-phase
+      // (runs before any listener on this input) and already closes the whole modal — same as
+      // typing in SAVE's prompt input, so this isn't a new inconsistency, just not overriding it
+      // with dead code that would never actually run first.
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') commit(); });
+      row.appendChild(input);
+      row.appendChild(save);
+      input.focus();
+      input.select();
+    }
+
     open(titleText, body);
+    refresh();
   }
 
   const api = { open: open, close: close, isOpen: isOpen, prompt: prompt, pickList: pickList };

@@ -69,7 +69,13 @@
   max-height: 40vh;
   overflow-y: auto;
 }
+.layout-modal-row {
+  display: flex;
+  gap: 4px;
+}
 .layout-modal-item {
+  flex: 1;
+  min-width: 0;
   background: var(--no-panel-bg);
   border: 1px solid var(--no-green-dark);
   color: var(--no-green-dim);
@@ -77,11 +83,34 @@
   font-size: 13px;
   text-align: left;
   padding: 8px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   cursor: pointer;
 }
 .layout-modal-item:hover {
   border-color: var(--no-green);
   color: var(--no-green);
+}
+/* Per-row rename/delete (issue #51 follow-up) — small icon buttons beside the name, same shape as
+   WPT's own .wpt-row-btn (wpt.css). */
+.layout-modal-row-btn {
+  flex: none;
+  background: var(--no-panel-bg);
+  border: 1px solid var(--no-green-dark);
+  color: var(--no-green-dim);
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 10px;
+  cursor: pointer;
+}
+.layout-modal-row-btn:hover {
+  border-color: var(--no-green);
+  color: var(--no-green);
+}
+.layout-modal-row input.layout-modal-input {
+  flex: 1;
+  min-width: 0;
 }
 .layout-modal-actions {
   display: flex;

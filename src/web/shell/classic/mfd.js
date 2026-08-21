@@ -2522,12 +2522,19 @@ function openSaveLayoutModal() {
   });
 }
 
+function classicLayouts() {
+  return LayoutStore.list().then(function (data) {
+    return (data.layouts || []).filter(function (l) { return l.shell === 'classic'; });
+  });
+}
+
 function openLoadLayoutModal() {
-  LayoutStore.list().then(function (data) {
-    const items = (data.layouts || []).filter(function (l) { return l.shell === 'classic'; });
-    LayoutModal.pickList('LOAD LAYOUT', items, function (item) {
+  LayoutModal.pickList('LOAD LAYOUT', classicLayouts, {
+    onPick: function (item) {
       try { applyLayoutState(JSON.parse(item.data)); } catch (e) {}
-    });
+    },
+    onRename: function (item, name) { return LayoutStore.rename(item.id, name); },
+    onDelete: function (item) { return LayoutStore.remove(item.id); },
   });
 }
 

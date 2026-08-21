@@ -21,7 +21,15 @@
     return sendCommand('layout.save', { wname: name, group: shell, text: JSON.stringify(dataObj) });
   }
 
-  const api = { list: list, save: save };
+  // LOAD's picker manages the library — rename/remove act on an existing saved layout by id.
+  function rename(id, name) {
+    return sendCommand('layout.rename', { bind: id, wname: name });
+  }
+  function remove(id) {
+    return sendCommand('layout.delete', { bind: id });
+  }
+
+  const api = { list: list, save: save, rename: rename, remove: remove };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LayoutStore = api;
 })(typeof self !== 'undefined' ? self : this);
