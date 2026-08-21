@@ -2538,14 +2538,32 @@ function openLoadLayoutModal() {
   });
 }
 
-window.addEventListener('keydown', function (e) {
+// A keydown only reaches window.addEventListener('keydown', ...) on the DOCUMENT it lands in —
+// it never bubbles across an iframe boundary to the parent. Almost everything a pilot clicks
+// (the map, a split pane, any #page-frame page) is inside an iframe, so a listener on just the
+// shell's own top document would miss most real presses (confirmed: SAVE/LOAD firing only
+// sometimes, e.g. reliably from MAIN's own chrome but not after clicking into the map or a page).
+// Same-origin, so attaching the identical handler directly onto each iframe's contentWindow needs
+// no postMessage relay — it just has to be re-attached after every navigation, since reassigning
+// iframe.src tears down that whole document (and any listeners on it), same as a real page load.
+function handleLayoutKeydown(e) {
   if (e.ctrlKey || e.altKey || e.metaKey) return;
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
   const action = LayoutKeybinds.match(e);
   if (action === 'save') openSaveLayoutModal();
   else if (action === 'load') openLoadLayoutModal();
-});
+}
+function wireLayoutKeydown(iframe) {
+  function attach() { try { iframe.contentWindow.addEventListener('keydown', handleLayoutKeydown); } catch (e) {} }
+  iframe.addEventListener('load', attach);
+  attach();   // in case it's already loaded
+}
+window.addEventListener('keydown', handleLayoutKeydown);
+wireLayoutKeydown(mapFrame);
+wireLayoutKeydown(pageFrame);
+wireLayoutKeydown(paneIframes[0]);
+wireLayoutKeydown(paneIframes[1]);
 
 loadConfigUrls();
 showPage('main');   // start on the MAIN page

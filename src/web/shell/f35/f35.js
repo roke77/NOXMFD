@@ -267,6 +267,9 @@
     grid.className  = 'nav-grid';
     el.appendChild(frame);
     el.appendChild(grid);
+    // SAVE/LOAD LAYOUT (issue #51) — see wireLayoutKeydown's own comment further down: every
+    // portal's content is its own iframe, so it needs the keydown handler re-attached here too.
+    wireLayoutKeydown(frame);
 
     let currentPage = null;
     let wpnPage     = 0;    // 0-indexed pagination state
@@ -1189,14 +1192,29 @@
     });
   }
 
-  window.addEventListener('keydown', function (e) {
+  // A keydown only reaches window.addEventListener('keydown', ...) on the DOCUMENT it lands in —
+  // it never bubbles across an iframe boundary to the parent. On the F-35 every portal's content
+  // (including MAIN) is inside its own iframe, so a listener on just this top document would miss
+  // almost every real press — confirmed: SAVE/LOAD firing inconsistently, since it only ever
+  // caught a keypress landing on the master strip itself. Same-origin, so attaching the identical
+  // handler directly onto each portal's contentWindow needs no postMessage relay — it just has to
+  // be re-attached after every navigation (wireLayoutKeydown, called from makePortal below), since
+  // reassigning frame.src tears down that whole document (and any listeners on it).
+  function handleLayoutKeydown(e) {
     if (e.ctrlKey || e.altKey || e.metaKey) return;
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
     const action = LayoutKeybinds.match(e);
     if (action === 'save') openSaveLayoutModal();
     else if (action === 'load') openLoadLayoutModal();
-  });
+  }
+  function wireLayoutKeydown(iframe) {
+    function attach() { try { iframe.contentWindow.addEventListener('keydown', handleLayoutKeydown); } catch (e) {} }
+    iframe.addEventListener('load', attach);
+    attach();   // in case it's already loaded
+  }
+  window.addEventListener('keydown', handleLayoutKeydown);
+  wireLayoutKeydown(mapTap);
 
   loadStripUrls();
   runStripBoot();

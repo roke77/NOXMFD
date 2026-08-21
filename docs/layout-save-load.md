@@ -95,6 +95,27 @@ mutations re-fetch and redraw the list in place rather than closing the modal, w
 `LayoutModal.pickList` takes a `fetchItems` function now instead of a static array — it owns its
 own "draw, then redraw after any row action" loop.
 
+## Post-ship fix, 2026-08-21: keydown only reached the top document
+
+Shipped in 0.25.0 with `window.addEventListener('keydown', ...)` on the shell's own top-level
+document only. Reported as SAVE/LOAD firing inconsistently — reliably from MAIN's own bezel/strip
+chrome, essentially never after clicking into the map, a split pane, a `#page-frame` page, or (on
+the F-35, where every portal's content is its own iframe) almost anywhere at all. Root cause: a
+keydown fires on whichever document currently has focus and never bubbles across an iframe
+boundary to its parent, so a listener on just the top window misses every press made while focus
+is inside any embedded page — which is most real usage, since interacting with a page means
+clicking into its iframe.
+
+Fixed by attaching the identical handler directly onto each iframe's `contentWindow` too (no
+`postMessage` relay needed — same-origin, so the parent's own script can call
+`iframe.contentWindow.addEventListener` directly), re-attached on every `load` since reassigning
+`iframe.src` tears down that whole document, listeners included, same as a real page navigation.
+CLASSIC wires `mapFrame`/`pageFrame`/both `paneIframes`; F-35 wires `#map-tap` and every portal's
+frame at creation time (`makePortal`). Verified with focus forced onto the map iframe, a
+`#page-frame` page, a split pane, and an F-35 portal (including after a merge + page navigation,
+to confirm the re-attach-on-load survives a destroyed/recreated document) — all now open the
+correct modal.
+
 ## What is built
 
 | File | Role |
@@ -106,8 +127,8 @@ own "draw, then redraw after any row action" loop.
 | `src/web/shell/layout-store.js` | Fetch-on-open client (`/layout-options`, `layout.save`) — no background poll, layouts don't change on their own |
 | `src/web/shell/layout-modal.js`, `layout-modal.css` | The shared modal primitive; `pickList` also renders inline rename/delete per row |
 | `src/web/shell/layout-keybinds.js` | Polls `/keybinds-config`, matches a `keydown` against the configured save/load keys |
-| `src/web/shell/classic/mfd.js` | `captureLayoutState`/`applyLayoutState` — `{splitMode, splitVariant, pages, pinnedPage}`; two LYT nav items (`BEZEL_EXTRAS.lyt`) |
-| `src/web/shell/f35/f35.js`, `f35.html`, `f35.css` | `captureLayoutState`/`applyLayoutState` — `{cells, pages}`, rebuilding portals directly from a saved `F35Glass` arrangement rather than replaying merge/split actions; a second row of nav items in `#layout-picker` |
+| `src/web/shell/classic/mfd.js` | `captureLayoutState`/`applyLayoutState` — `{splitMode, splitVariant, pages, pinnedPage}`; two LYT nav items (`BEZEL_EXTRAS.lyt`); `handleLayoutKeydown` attached to every iframe the shell owns (map, page-frame, both split panes), not just the top document |
+| `src/web/shell/f35/f35.js`, `f35.html`, `f35.css` | `captureLayoutState`/`applyLayoutState` — `{cells, pages}`, rebuilding portals directly from a saved `F35Glass` arrangement rather than replaying merge/split actions; a second row of nav items in `#layout-picker`; `handleLayoutKeydown` attached to `#map-tap` and every portal's frame (`makePortal`) |
 | `src/web/pages/keybinds/keybinds.js` | Renders a key-only row (one wide keyboard cell, no joystick column) |
 | `tools/serve_web.py` | Stateful mock: `/layout-options` + `layout.save`/`rename`/`delete` actually edit a mutable `LAYOUTS` list (mirrors the existing `KEYBINDS` mock), seeded with one CLASSIC + one F-35 demo layout; plus the two new `KEYBINDS` rows |
 
