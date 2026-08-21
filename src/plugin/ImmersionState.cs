@@ -22,7 +22,10 @@ namespace NOXMFD
             if (ReferenceEquals(ac, _spawnDefaultsAircraft)) return;
             _spawnDefaultsAircraft = ac;
             MasterArmsOn = ImmersionConfig.MasterArmsOnOnStart;
-            CombatMode = CombatMode.All;
+            // Through SetCombatMode, not a bare field write — so a respawn while A/A or A/G was
+            // active correctly restores the player's HUD baseline (issue #50) instead of silently
+            // leaving that mode's forced HUD preset applied under a now-idle CombatMode.
+            Keybinds.SetCombatMode(CombatMode.All);
         }
     }
 }

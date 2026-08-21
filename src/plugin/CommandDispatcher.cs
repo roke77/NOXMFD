@@ -481,6 +481,9 @@ namespace NOXMFD
                     return;
             }
             opt.ApplyHUDSettings();
+            // Only updates the baseline while idle — an edit made mid A/A or A/G must not overwrite
+            // what gets restored on exit (issue #50).
+            HudCombatModeFilters.CaptureIfIdle();
             Plugin.Log?.LogInfo($"[NOXMFD] hud.set {env.group}[{env.index}] = {env.on}.");
         }
 
@@ -496,6 +499,7 @@ namespace NOXMFD
             if (btn == null) { Plugin.Log?.LogInfo($"[NOXMFD] hud.mode[{env.index}] is null — ignored."); return; }
             opt.ToggleButtons(btn);
             opt.ApplyHUDSettings();
+            HudCombatModeFilters.CaptureIfIdle();
             Plugin.Log?.LogInfo($"[NOXMFD] hud.mode = {env.index}.");
         }
 

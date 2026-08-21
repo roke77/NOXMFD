@@ -674,9 +674,9 @@ namespace NOXMFD
             // as the cursor vector above: a release on an otherwise-idle frame must still reset
             // PressStartTime, or the next tap on that bind would misread as an instant hold.
             PollTapHold(_combatModeAa!, onTap: () => SetCombatMode(CombatMode.AirToAir),
-                                        onHold: () => ImmersionState.CombatMode = CombatMode.All);
+                                        onHold: () => SetCombatMode(CombatMode.All));
             PollTapHold(_combatModeAg!, onTap: () => SetCombatMode(CombatMode.AirToGround),
-                                        onHold: () => ImmersionState.CombatMode = CombatMode.All);
+                                        onHold: () => SetCombatMode(CombatMode.All));
 
             if (!any) return;   // common case — nothing this frame
 
@@ -725,9 +725,14 @@ namespace NOXMFD
         // combat mode can change, not just the physical keybind.
         internal static void SetCombatMode(CombatMode mode)
         {
+            CombatMode prev = ImmersionState.CombatMode;
             ImmersionState.CombatMode = mode;
             if (GameManager.GetLocalAircraft(out Aircraft ac) && ac != null && !ac.disabled)
                 WeaponSelectors.OnCombatModeChanged(ac, mode);
+            // HUD OPTIONS filter automation (issue #50) — only on an actual transition, so
+            // re-tapping an already-active mode never re-forces the preset over live edits made
+            // within it.
+            if (mode != prev) HudCombatModeFilters.OnCombatModeChanged(mode);
         }
 
         // Tap/hold binds (docs/radar-master-arms.md, issue #32 — currently just A/A and A/G, which

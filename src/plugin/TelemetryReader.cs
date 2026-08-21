@@ -174,6 +174,9 @@ namespace NOXMFD
                 // HUD OPTIONS snapshot for the /hud-options endpoint. Main thread, and cheap; options
                 // change only on a toggle, so 1 Hz is ample. Kept out of PushSnapshot's fast path.
                 TelemetryServer.RefreshHudOptions();
+                // Lazily captures the player's own HUD filter baseline the first time HUDOptions
+                // exists this session (issue #50) — a no-op once one has been captured.
+                HudCombatModeFilters.EnsureBootstrap();
                 // Waypoint route proximity-advance (docs/hud-waypoint-indicator.md) — the plugin now
                 // ticks this itself regardless of which page any browser has open, unlike the old
                 // browser-side check that only ran while the WPT page happened to be visible. 1 Hz is
