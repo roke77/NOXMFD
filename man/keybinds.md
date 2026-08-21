@@ -100,6 +100,8 @@ pressed is the one that acts, and the key you set here applies to every connecte
 same two actions are also available as **SAVE**/**LOAD** buttons on [LYT](layouts.md)'s own menu,
 for a tablet with no keyboard.
 
+![Layout section](images/LYT_KEY.png)
+
 ## Immersion Options
 
 Optional cold-start behavior and dedicated binds for radar, engine, and weapons safety,
