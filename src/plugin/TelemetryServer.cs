@@ -659,6 +659,8 @@ namespace NOXMFD
                         ServeHudOptions(ctx);
                     else if (path == "/wpt-options")
                         ServeWptOptions(ctx);
+                    else if (path == "/layout-options")
+                        ServeLayoutOptions(ctx);
                     else if (path == "/rates-config")
                         ServeRatesConfig(ctx);
                     else if (path == "/keybinds-config")
@@ -1002,13 +1004,18 @@ namespace NOXMFD
                       .Append("\",\"label\":\"").Append(EscapeJson(b.Label))
                       .Append("\",\"description\":\"").Append(EscapeJson(b.Description)).Append('"');
                     // Digital source — absent for an axis-only bind (docs/map-cursor.md); the page
-                    // renders no key/joy cell for a row that has no key/joyButton field.
+                    // renders no key/joy cell for a row that has no key/joyButton field. The two are
+                    // independently optional: a key-only bind (issue #51's SAVE/LOAD LAYOUT — browser-
+                    // side only, no joystick/HOTAS) has KeyEntry but no JoyEntry, so joyButton/joyNum
+                    // are omitted too — the page renders one wide key cell for that row instead of an
+                    // always-empty joystick cell next to it.
                     if (b.KeyEntry != null)
                     {
                         var key = b.KeyEntry.Value.MainKey;
-                        sb.Append(",\"key\":\"").Append(key == UnityEngine.KeyCode.None ? string.Empty : EscapeJson(key.ToString()))
-                          .Append("\",\"joyButton\":").Append(b.JoyEntry!.Value.ToString(CultureInfo.InvariantCulture))
-                          .Append(",\"joyNum\":").Append(b.JoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture));
+                        sb.Append(",\"key\":\"").Append(key == UnityEngine.KeyCode.None ? string.Empty : EscapeJson(key.ToString())).Append('"');
+                        if (b.JoyEntry != null)
+                            sb.Append(",\"joyButton\":").Append(b.JoyEntry.Value.ToString(CultureInfo.InvariantCulture))
+                              .Append(",\"joyNum\":").Append(b.JoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture));
                     }
                     // Analog source — present only for the MAP cursor's axis-capable rows.
                     if (b.AxisEntry != null)
@@ -1086,6 +1093,23 @@ namespace NOXMFD
             try
             {
                 byte[] body = Encoding.UTF8.GetBytes(RouteStore.RoutesJson ?? "{\"activeRouteId\":null,\"routes\":[]}");
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // Saved layouts (issue #51) — LayoutStore is the single source of truth, same pattern as
+        // /wpt-options. Mission-independent, so SAVE/LOAD LAYOUT work at the main menu too.
+        private static void ServeLayoutOptions(HttpListenerContext ctx)
+        {
+            try
+            {
+                byte[] body = Encoding.UTF8.GetBytes(LayoutStore.LayoutsJson ?? "{\"layouts\":[]}");
                 ctx.Response.StatusCode      = 200;
                 ctx.Response.ContentType     = "application/json; charset=utf-8";
                 ctx.Response.ContentLength64 = body.Length;

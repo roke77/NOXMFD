@@ -295,6 +295,25 @@ def _wpt_seed_script():
             "</script>\n")
 
 
+# Mock of the plugin's /layout-options (LayoutStore.LayoutsJson, issue #51 — save/load layout) —
+# one example layout per shell so LOAD's picker has something real to pick and apply in the
+# harness. Static, same as _wpt_options/_hud_options — the write side (layout.save) has no mock,
+# POSTs are swallowed, so saving here won't change this response; that path is only testable in
+# game. `data` is a JSON-encoded STRING field, matching the plugin's own wire shape (LayoutStore
+# never parses the arrangement's shape, so it stores/returns it as opaque text, same as
+# wpt.import's pasted blob) — the browser JSON.parses it when a picked layout is applied.
+def _layout_options():
+    return json.dumps({
+        "layouts": [
+            {"id": "l_demo_classic", "name": "Classic split demo", "shell": "classic",
+             "data": json.dumps({"splitMode": True, "splitVariant": "h", "pages": ["rwr", "main"]})},
+            {"id": "l_demo_f35", "name": "F-35 demo", "shell": "f35",
+             "data": json.dumps({"cells": [{"span": 2, "ate": "right"}, {"span": 1}, {"span": 1}],
+                                  "pages": ["wpn", "main", "map"]})},
+        ],
+    }).encode("utf-8")
+
+
 # Stateful mock of the plugin's /keybinds-config + keybind.* commands, so the /keybinds page's
 # whole flow (render, keyboard set, joystick arm-capture) is drivable in the harness. Arming a
 # joystick capture "captures" a fake button ~1.5s later (simulated on the next poll after the
@@ -398,6 +417,15 @@ KEYBINDS = [
      "description": "Analog axis driving the cursor up/down — overrides Cursor Up/Down when "
                      "deflected. Only acts while a display with a cursor is focused.",
      "axis": -1, "axisNum": 0, "axisInvert": False},
+    # Layout keybinds (issue #51 follow-up) — SAVE/LOAD LAYOUT. Key-only: no joyButton/joyNum
+    # fields at all (mirrors the axis-only rows omitting key/joyButton) — browser-side only,
+    # deliberately no joystick/HOTAS, so the page renders one wide key cell for these two.
+    {"id": "layout-save", "section": "LAYOUT", "label": "Save Layout",
+     "description": "Save the current screen layout under a name.",
+     "key": ""},
+    {"id": "layout-load", "section": "LAYOUT", "label": "Load Layout",
+     "description": "Load a previously saved screen layout.",
+     "key": ""},
     # Immersion keybinds (docs/radar-master-arms.md, issue #32) — deliberately last, so the
     # "Immersion options" block (this section + the three settings below) reads as one group at
     # the bottom of the page.
@@ -451,6 +479,8 @@ def _keybinds_config():
              "WEAPONS": "Cycle keys select the last soft-selected weapon of their type, or the first "
                         "in the list. Repeated presses cycle to the next one, skipping depleted "
                         "weapons. Cycling to a different type leaves the current one soft-selected.",
+             "LAYOUT": "Keyboard only, no joystick/HOTAS. Acts on whichever browser window has focus "
+                       "when pressed, and applies to every connected browser.",
              "IMMERSION OPTIONS": "A/A and A/G each restrict Cycle Missile on a tap; hold either one "
                         "to reset to ALL (unrestricted). Every other bind here is a plain dedicated "
                         "action."}
@@ -531,6 +561,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(_captured_or('hud-options', _hud_options), 'application/json; charset=utf-8')
         if path == '/wpt-options':
             return self._send(_captured_or('wpt-options', _wpt_options), 'application/json; charset=utf-8')
+        if path == '/layout-options':
+            return self._send(_captured_or('layout-options', _layout_options), 'application/json; charset=utf-8')
         if path == '/keybinds-config':
             return self._send(_keybinds_config(), 'application/json; charset=utf-8')
         if path == '/rates-config':

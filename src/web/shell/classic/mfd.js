@@ -2454,6 +2454,58 @@ window.addEventListener('wptroutes:changed', function() {
   forwardWptRoutesToMap();
 });
 
+// ── SAVE/LOAD LAYOUT (issue #51) — browser-side keyboard shortcuts only, no joystick/HOTAS. ────
+// S saves the current arrangement (split mode + variant + per-pane pages, or the full-view page)
+// under a name; L opens a picker of every saved CLASSIC layout and applies the one clicked.
+// Storage is server-side (LayoutStore.cs), so a layout saved here shows up on every other
+// connected browser (including the F-35 shell, which keeps its own list — see f35.js's twin of
+// this block — filtered by `shell` so a browser is never offered an arrangement it can't apply).
+function captureLayoutState() {
+  return splitMode
+    ? { splitMode: true, splitVariant: splitVariant, pages: panePages.slice() }
+    : { splitMode: false, pages: [currentPage] };
+}
+
+function applyLayoutState(state) {
+  const pages = (state && state.pages && state.pages.length) ? state.pages : ['main'];
+  if (state && state.splitMode) {
+    setSplit(state.splitVariant === 'v' || state.splitVariant === 'vw' ? state.splitVariant : 'h');
+    paneNavigate(0, pages[0] || 'main');
+    paneNavigate(1, pages[1] || 'main');
+  } else if (splitMode) {
+    splitMode = false;
+    currentPage = pages[0] || 'main';
+    applySplitMode();   // its own showPage(currentPage) lands on the restored page directly
+  } else {
+    showPage(pages[0] || 'main');
+  }
+}
+
+function openSaveLayoutModal() {
+  LayoutModal.prompt('SAVE LAYOUT', function (name) {
+    LayoutStore.save(name, 'classic', captureLayoutState()).catch(function () {});
+    LayoutModal.close();
+  });
+}
+
+function openLoadLayoutModal() {
+  LayoutStore.list().then(function (data) {
+    const items = (data.layouts || []).filter(function (l) { return l.shell === 'classic'; });
+    LayoutModal.pickList('LOAD LAYOUT', items, function (item) {
+      try { applyLayoutState(JSON.parse(item.data)); } catch (e) {}
+    });
+  });
+}
+
+window.addEventListener('keydown', function (e) {
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  const action = LayoutKeybinds.match(e);
+  if (action === 'save') openSaveLayoutModal();
+  else if (action === 'load') openLoadLayoutModal();
+});
+
 loadConfigUrls();
 showPage('main');   // start on the MAIN page
 flickerScreen();    // CRT boot flicker on first load

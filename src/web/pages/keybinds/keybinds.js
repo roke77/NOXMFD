@@ -173,6 +173,12 @@ function buildRow(b) {
     var wide = axisCell(b);
     wide.style.gridColumn = '2 / span 2';
     row.appendChild(wide);
+  } else if (b.key !== undefined && b.joyButton === undefined) {
+    // Key-only row (issue #51 — SAVE/LOAD LAYOUT): browser-side only, deliberately no joystick/
+    // HOTAS option, so there's no joyButton field to render a second cell for.
+    var wideKey = cell(b, 'key');
+    wideKey.style.gridColumn = '2 / span 2';
+    row.appendChild(wideKey);
   } else {
     row.appendChild(cell(b, 'key'));
     row.appendChild(cell(b, 'joy'));

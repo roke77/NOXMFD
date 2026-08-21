@@ -1120,6 +1120,64 @@
     }
   });
 
+  // ── SAVE/LOAD LAYOUT (issue #51) — browser-side keyboard shortcuts only, no joystick/HOTAS. ──
+  // S saves the glass's current arrangement (F35Glass cells + each portal's page) under a name;
+  // L opens a picker of every saved F-35 layout and applies the one clicked. Storage is
+  // server-side (LayoutStore.cs), so a layout saved here shows up on every other connected browser
+  // (including the bezel shell, which keeps its own list — see mfd.js's twin of this block —
+  // filtered by `shell` so a browser is never offered an arrangement it can't apply).
+  function captureLayoutState() {
+    return { cells: cells(), pages: portals.map(function (p) { return p.page(); }) };
+  }
+
+  // Rebuilds the glass directly from a saved arrangement, rather than replaying merge/split
+  // actions to reach it — buildGlass()'s own addPortal always starts a portal at span 1, so this
+  // is a small variant of it that seeds each portal's cell from the saved spec up front.
+  function applyLayoutState(state) {
+    const cs = state && state.cells;
+    if (!cs || !F35Glass.valid(cs)) { buildGlass(); return; }
+    portalsEl.textContent = '';
+    portals = cs.map(function (c) {
+      const p = makePortal(onGrip, onNavRendered);
+      p.cell.span = c.span;
+      if (c.ate) p.cell.ate = c.ate; else delete p.cell.ate;
+      portalsEl.appendChild(p.el);
+      return p;
+    });
+    const pages = state.pages || [];
+    portals.forEach(function (p, i) {
+      p.applySpan();
+      const pg = pages[i];
+      p.showPage(pg && has(pg) ? pg : 'main');
+    });
+    refreshGlass();
+  }
+
+  function openSaveLayoutModal() {
+    LayoutModal.prompt('SAVE LAYOUT', function (name) {
+      LayoutStore.save(name, 'f35', captureLayoutState()).catch(function () {});
+      LayoutModal.close();
+    });
+  }
+
+  function openLoadLayoutModal() {
+    LayoutStore.list().then(function (data) {
+      const items = (data.layouts || []).filter(function (l) { return l.shell === 'f35'; });
+      LayoutModal.pickList('LOAD LAYOUT', items, function (item) {
+        try { applyLayoutState(JSON.parse(item.data)); } catch (e) {}
+      });
+    });
+  }
+
+  window.addEventListener('keydown', function (e) {
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    const action = LayoutKeybinds.match(e);
+    if (action === 'save') openSaveLayoutModal();
+    else if (action === 'load') openLoadLayoutModal();
+  });
+
   loadStripUrls();
   runStripBoot();
   // Extension nav discovery (docs/extensions-api.md) — fetches /ext-manifest and merges installed

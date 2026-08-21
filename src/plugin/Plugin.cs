@@ -41,6 +41,7 @@ namespace NOXMFD
             TryBind("Harmony", HarmonyPatches.Init);                          // docs/radar-master-arms.md — spawn-default + Master Arms patches
             TryBind("JSON self-check", JsonLite.SelfCheck);                     // docs/hud-waypoint-indicator.md — pure parser, no C# test runner exists in this repo
             TryBind("Waypoint routes", RouteStore.Load);                       // docs/hud-waypoint-indicator.md — route library persisted to disk
+            TryBind("Saved layouts", LayoutStore.Load);                        // issue #51 — SAVE/LOAD LAYOUT library persisted to disk
 
             // Network: the port the tablet connects to, and whether to auto-open the Windows LAN
             // gates when the wildcard bind is denied (see docs/networking.md). Read once here —
