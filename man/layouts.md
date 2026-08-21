@@ -40,3 +40,23 @@ throttle and fuel, and the avionics flags.
 ![F-35 layout — 1-2-1 portal split](images/F-35%201-2-1.png)
 
 ![F-35 layout — 2-2 portal split](images/F-35%202-2.png)
+
+## Save/Load Layout
+
+Save the current arrangement — the split (or F-35 portal arrangement) and which page each pane or
+portal shows — under a name, and load it back later. Multiple named layouts can be saved at once.
+
+- **Save Layout** — prompts for a name, then saves.
+- **Load Layout** — lists every saved layout; pick one to apply it immediately. A pencil renames a
+  saved layout and an × deletes it, right in that list.
+
+Reach both from a keybind (configured on [KEY](keybinds.md), shared by every connected browser) or
+from the **SAVE**/**LOAD** buttons on this LYT page — the touch-friendly path for a tablet with no
+keyboard. **CFG** (top of the same menu) goes back to [KEY](keybinds.md) and the other CFG pages.
+
+On CLASSIC, saving while on this LYT menu remembers LYT itself as the current page — but if you
+had a page pinned, that's remembered too, so one SWAP after loading takes you straight back to it.
+
+![SAVE LAYOUT](images/SAVE.png)
+
+![LOAD LAYOUT](images/LOAD.png)
