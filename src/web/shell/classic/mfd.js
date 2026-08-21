@@ -2072,8 +2072,9 @@ function reportPanes() {
 
 // ── PAD cursor forwarding (docs/page-cursor.md, docs/map-cursor.md) ───────────────────
 // Pages that carry their own PAD cursor (pad-cursor.js) — MAP's canvas crosshair, and TGT/HUD/RDR/
-// WPT's DOM-hit-test cursor. BDF/PAL stays out: read-only, nothing to click (docs/page-cursor.md).
-const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true };
+// WPT/AKF's DOM-hit-test cursor. AKF joined once its ALL/PLAYER resizer gave it something to click
+// (issue #34 follow-up) — BDF/PAL stay out: read-only, nothing to click (docs/page-cursor.md).
+const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, akf: true };
 
 // The focused surface is drivable as a PAD cursor only while it's actually SHOWING an eligible
 // page — the SOI ring/bezel-key cursor above frames "the recess," but the cursor needs the real
