@@ -342,3 +342,33 @@ page already has. Existing sections/table are untouched.
   `OnStartClient()` could make a patch silently misbehave rather than throw. Worth a manual
   smoke-test of these four patches specifically after every game update, alongside the usual
   `apicheck` run.
+
+## HUD filter automation on combat mode — [issue #50](https://github.com/roke77/NOXMFD/issues/50)
+
+**Status:** built, not yet in-game tested. Reusing the game's own A2A/A2G HUD-mode presets
+unmodified for now — whether they already produce the desired effect, or need tuning, is to be
+confirmed in-game before any preset values themselves change.
+
+Combat mode now also drives the HUD page's own unit-icon filters
+([docs/hud-page.md](hud-page.md)), not just weapon selection:
+
+- **Entering A/A or A/G** force-loads that HUD mode tab's own saved preset — the same one the
+  player could apply by hand from the HUD page (`HUDOptions.listModes[A2A]`/`[A2G]`, applied via
+  the existing `ToggleButtons`/`ApplySettings` mechanism).
+- **Returning to idle** (long-press, same as resetting combat mode itself) restores a running
+  snapshot of the player's own HUD filter values — not a fixed default. The snapshot is updated on
+  every `hud.set`/`hud.mode` command, but **only while combat mode is idle**; edits made while A/A
+  or A/G is active are allowed to change the live HUD (the forced preset is a starting point, not a
+  lock) but never touch the snapshot, so they can't leak into what gets restored on exit.
+- **Bootstrap**: if no snapshot exists yet (fresh plugin session, HUD page never touched), the
+  first time `HUDOptions` exists is captured as the initial snapshot, so there's always something
+  valid to restore to.
+- New file: [`src/plugin/HudCombatModeFilters.cs`](../src/plugin/HudCombatModeFilters.cs). Driven
+  entirely through the same `Keybinds.SetCombatMode` choke point described above — both the WPN
+  page's A/A · A/G controls and the physical keybind (tap **and** hold-to-ALL, which previously
+  bypassed `SetCombatMode` with a bare field write and has been fixed to route through it) trigger
+  it identically. `ImmersionState.EnsureSpawnDefaults`'s per-respawn `CombatMode` reset was likewise
+  changed to route through `SetCombatMode` rather than a bare field write, so dying mid-A/A or A/G
+  still restores the HUD baseline instead of leaving that mode's preset visually stuck.
+- General named preset save/load for the HUD page (beyond the game's built-in A2A/A2G tabs) is
+  explicitly out of scope — a possible future follow-up.

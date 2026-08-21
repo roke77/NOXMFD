@@ -187,3 +187,9 @@ clean sprite to capture. Left off rather than faked; an inline-SVG approximation
   1.2 s (stage 3), so a change made from the in-cockpit screen shows on the MFD
   within ~1 s (the plugin's 1 Hz refresh tick), not only after the page's own
   writes.
+- **A second driver of the mode tabs.** [issue #50](https://github.com/roke77/NOXMFD/issues/50)
+  (docs/radar-master-arms.md) has weapons/combat mode force-apply the A2A/A2G mode preset
+  automatically, and restore the player's own last-edited values on returning to idle. That
+  snapshot lives outside `HUDOptions` entirely (`HudCombatModeFilters.cs`) — this page and its
+  1.2 s poll are unaware of it and need no changes; from the page's point of view it's just another
+  externally-driven change showing up on the next poll, same as an in-cockpit toggle.
