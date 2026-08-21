@@ -17,10 +17,19 @@ html, body {
   height: 100%;
   overflow-y: auto;
   padding: 12px 14px;
-  /* Capped + centered, not full-width: both shells draw the WHOLE CFG group (MAIN/HUD/KEY/LYT/RTS)
-     down the left edge now, one label per row, not just a single MAIN at the top — the same column
-     KEY's/RTS's own pages already clear this exact way (keybinds.css .kb-panel, rates.css
-     .rts-panel), rather than reserving space with padding. */
+  /* Extra side inset, same reasoning as TGT's .tgt-panel: the shell's vertical MAIN/HUD bezel label
+     hugs an edge here (mode tabs/category rows sit in that same top-left corner), and the page
+     doesn't know which edge it'll land on (left in full view and a left/top split pane, right in a
+     V-split's right pane or an F-35 portal), so both sides clear it. Own floor, not TGT's 34px:
+     measured against a real 4-portal F-35 glass, the label's actual footprint is a fixed ~43px
+     (.nav-item's 20px font + 4px/8px padding + margin-left, none of it viewport-scaled — a narrow
+     portal doesn't shrink it), so 34px left a ~9px overlap there. 48px clears it with margin. */
+  padding-left: clamp(48px, 5vw, 54px);
+  padding-right: clamp(48px, 5vw, 54px);
+  /* Capped + centered too, not just inset: both shells draw the WHOLE CFG group (MAIN/HUD/KEY/LYT/
+     RTS) down the left edge now, one label per row, not just a single MAIN at the top — the same
+     column KEY's/RTS's own pages already clear this way (keybinds.css .kb-panel, rates.css
+     .rts-panel), on top of the inset above. */
   max-width: 720px;
   margin: 0 auto;
   display: flex;
@@ -196,6 +205,42 @@ html, body {
   white-space: nowrap;
 }
 .hud-sub:active { opacity: 0.7; }
+
+/* ── HUD presets (issue #50 follow-up) ─────────────────────────────────────────────────
+   Bottom bar: current slot's "PRESET N: name" on the left, SAVE/LOAD on the right — a divider
+   above it, same shape as the declutter strip's own border-bottom separator at the top. */
+.hud-preset-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  margin-top: 4px;
+  border-top: 1px solid var(--no-gray);
+}
+.hud-preset-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 900;
+  letter-spacing: 1px;
+  font-size: clamp(11px, 2.8vw, 14px);
+  color: var(--no-label);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hud-preset-btn {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border: 1px solid var(--no-green);
+  background: none;
+  font: inherit;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: var(--no-green);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.hud-preset-btn:active { opacity: 0.7; }
 
 /* Unavailable (no mission / HUDOptions not up) — centred by the shared .mfd-empty rule alone
    (theme.css), like every other page's empty state (avn-empty, tgt-unavailable, wpn-empty, …).
