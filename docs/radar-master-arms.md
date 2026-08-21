@@ -345,10 +345,11 @@ page already has. Existing sections/table are untouched.
 
 ## HUD filter automation on combat mode — [issue #50](https://github.com/roke77/NOXMFD/issues/50)
 
-**Status:** built, not yet in-game tested. Reusing the game's own A2A/A2G HUD-mode presets
-unmodified for now — whether they already produce the desired effect, or need tuning, is to be
-confirmed in-game before any preset values themselves change. Off by default behind its own KEY
-page toggle (see below) — a pilot has to opt in before any of this runs at all.
+**Status:** in-game tested (2026-08-22), one bug found and fixed (see Related fixes below). Reusing
+the game's own A2A/A2G HUD-mode presets unmodified for now — whether they already produce the
+desired effect, or need tuning, is to be confirmed in-game before any preset values themselves
+change. Off by default behind its own KEY page toggle (see below) — a pilot has to opt in before
+any of this runs at all.
 
 Combat mode now also drives the HUD page's own unit-icon filters
 ([docs/hud-page.md](hud-page.md)), not just weapon selection:
@@ -408,3 +409,17 @@ Combat mode now also drives the HUD page's own unit-icon filters
   own `clamp()` values undershot the F-35 case by ~9px (measured against a real 4-portal glass:
   the label's fixed ~43px footprint doesn't shrink with a narrow portal), so HUD uses its own,
   larger floor.
+- **HUD filters still changed on A/A · A/G with `HudFiltersOnCombatMode` turned OFF.** Reported
+  in-game: switching combat mode moved HUD filter values even with the opt-in setting off, though
+  turning it on produced the correct A2A/A2G preset. `HudCombatModeFilters.OnCombatModeChanged`
+  itself was already gated correctly and returning immediately when off — the leak wasn't coming
+  from this class at all. The real cause: `WeaponSelectors.OnCombatModeChanged` (issue #32,
+  unconditional, no opt-in gate) auto-switches the selected weapon whenever the new combat mode
+  disables it, and that weapon-station change trips the game's own native
+  `HUDOptions.AutomaticToggle` — which re-lights whichever HUD mode tab matches the newly-selected
+  weapon's role, regardless of any setting of ours. Fixed in `Keybinds.SetCombatMode`: a snapshot
+  of the live HUD filter state is taken immediately before the weapon auto-switch
+  (`HudCombatModeFilters.CaptureBeforeSwitch`), and — only when the toggle is off —
+  `UndoNativeAutoToggleIfOff` restores it right after, undoing `AutomaticToggle`'s side effect.
+  When the toggle is on, this is a no-op, since `OnCombatModeChanged`'s own explicit apply already
+  produced the intended state.

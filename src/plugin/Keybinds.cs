@@ -742,6 +742,11 @@ namespace NOXMFD
         internal static void SetCombatMode(CombatMode mode)
         {
             ImmersionState.CombatMode = mode;
+            // Snapshot BEFORE the weapon auto-switch below — it can trigger the game's own
+            // HUDOptions.AutomaticToggle (any weapon-station selection change does, not just a
+            // pilot's own click), which changes the HUD filter values regardless of whether the
+            // HUD-filters-on-combat-mode feature is even turned on. See UndoNativeAutoToggleIfOff.
+            HudCombatModeFilters.CaptureBeforeSwitch();
             if (GameManager.GetLocalAircraft(out Aircraft ac) && ac != null && !ac.disabled)
                 WeaponSelectors.OnCombatModeChanged(ac, mode);
             // HUD OPTIONS filter automation (issue #50) — runs on EVERY call, not just an actual
@@ -749,6 +754,11 @@ namespace NOXMFD
             // that mode's HUD preset after tweaking filters by hand mid-mode, so a repeat press must
             // re-force it rather than no-op.
             HudCombatModeFilters.OnCombatModeChanged(mode);
+            // Confirmed (2026-08-22): with the toggle OFF, the weapon auto-switch above still
+            // changed HUD values via the game's own native AutomaticToggle — undo that side effect
+            // when this feature isn't opted into. No-op when the toggle is ON (OnCombatModeChanged
+            // already applied the intended state above).
+            HudCombatModeFilters.UndoNativeAutoToggleIfOff();
         }
 
         // Tap/hold binds (docs/radar-master-arms.md, issue #32 — currently just A/A and A/G, which
