@@ -394,9 +394,10 @@ function placeSplitKey(m, label, action, paneTag, mark) {
 // horizontal, not cramped enough to need the narrow vertical treatment.
 // KEY is not in this list either (cfg-rates experiment, issue #39): the CFG group's nav labels
 // read fine horizontal, per user preference — its table header sits far enough from the bezel edge.
-// HUD is not in this list either (joined the CFG group): its own CSS now reserves top clearance for
-// a horizontal label instead of standing the label up (hud.css).
-function isVmainPage(p) { return p === 'tgt' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
+// HUD IS back in this list: its mode tabs/category rows pack the same top-left corner as TGT/BDF,
+// and hud.css's own edge padding (matching .tgt-panel's) assumes the label stands upright here, not
+// the "top clearance" idea an earlier pass planned but never actually built into hud.css.
+function isVmainPage(p) { return p === 'tgt' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'hud'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
@@ -2411,10 +2412,44 @@ document.getElementById('shell-restore').addEventListener('click', function() {
   setShellHidden(false);
 });
 
+// A/A · A/G bezel keys: press-and-HOLD resets combat mode to ALL, mirroring the physical PC
+// keybind's own tap/hold pair (Keybinds.cs's PollTapHold, docs/radar-master-arms.md) — there was
+// no dedicated ALL control here because holding either key was assumed to cover it, but nothing
+// ever actually timed a hold on these two DOM keys (issue #50 follow-up). soiAct('select') below
+// calls mfdButton() directly with no pointer events to time, so this only covers a literal mouse/
+// touch press-and-hold on the on-screen key, not a SOI-navigated physical Select press.
+const COMBAT_MODE_HOLD_MS = 500;   // matches tgt.js's LONG_MS / pad-cursor.js's DEFAULT_HOLD_MS
+let combatModeHoldTimer = null;
+let combatModeHoldFired = false;
+function isCombatModeKey(el) {
+  return !!el && (el.dataset.action === 'combat-mode-aa' || el.dataset.action === 'combat-mode-ag');
+}
+function clearCombatModeHold() {
+  if (combatModeHoldTimer) { clearTimeout(combatModeHoldTimer); combatModeHoldTimer = null; }
+}
+document.querySelector('.mfd').addEventListener('pointerdown', function(e) {
+  const k = e.target.closest('.key');
+  if (!isCombatModeKey(k)) return;
+  combatModeHoldFired = false;
+  combatModeHoldTimer = setTimeout(function() {
+    combatModeHoldFired = true;
+    k.classList.add('lit');   // same brief press feedback mfdButton gives every tap
+    setTimeout(function() { k.classList.remove('lit'); }, 150);
+    sendCommand('combat-mode.set', { group: 'all' }).catch(function() {});
+  }, COMBAT_MODE_HOLD_MS);
+});
+document.querySelector('.mfd').addEventListener('pointerup', clearCombatModeHold);
+document.querySelector('.mfd').addEventListener('pointercancel', clearCombatModeHold);
+document.querySelector('.mfd').addEventListener('pointerleave', clearCombatModeHold);
+
 // Event delegation covers both generated keys and standalone controls.
 document.querySelector('.mfd').addEventListener('click', function(e) {
   const k = e.target.closest('.key');
-  if (k) mfdButton(k);
+  if (!k) return;
+  // The hold above already reset to ALL — the click that follows pointerup must not also
+  // re-engage aa/ag (a browser fires click after pointerup regardless of press duration).
+  if (isCombatModeKey(k) && combatModeHoldFired) { combatModeHoldFired = false; return; }
+  mfdButton(k);
 });
 
 window.addEventListener('resize', function() {

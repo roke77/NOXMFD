@@ -157,8 +157,11 @@
   // Combat mode (docs/radar-master-arms.md) — same shape as ARM/SAFE, one row lower: rows 4-5 of
   // the right column are free too (only col 1 rows 2..6 are spoken for, by the weapon-row hits).
   // No ALL item — holding A/A or A/G already resets to ALL (PollTapHold, Keybinds.cs), so ALL just
-  // reads as neither of these two lit, same as for the keybinds themselves.
+  // reads as neither of these two lit, same as for the keybinds themselves. That hold behavior
+  // wasn't actually wired up on THESE two on-screen buttons though (issue #50 follow-up) — see the
+  // pointerdown/pointerup pair on them in renderNav() below.
   const COMBAT_MODE_ACTIONS = { 'combat-mode-aa': 'aa', 'combat-mode-ag': 'ag' };
+  const COMBAT_MODE_HOLD_MS = 500;   // matches tgt.js's LONG_MS / pad-cursor.js's DEFAULT_HOLD_MS
   const COMBAT_MODE_NAV = [
     { label: 'A/A', action: 'combat-mode-aa', cell: { row: 4, col: 2 } },
     { label: 'A/G', action: 'combat-mode-ag', cell: { row: 5, col: 2 } },
@@ -583,8 +586,28 @@
           b.style.gridRow    = String(cell.row);
           b.style.gridColumn = String(cell.col);
         }
-        if (wired) b.addEventListener('click', function () { dispatch(item.action); });
-        else       b.disabled = true;
+        if (wired && item.action in COMBAT_MODE_ACTIONS) {
+          // Press-and-HOLD resets combat mode to ALL (see the COMBAT_MODE_ACTIONS comment above) —
+          // a real pointerdown/pointerup pair exists here (unlike soiAct-driven presses elsewhere),
+          // so a client-only timer is enough; no server plumbing needed for this on-screen button.
+          let holdTimer = null, holdFired = false;
+          const clearHold = function () { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } };
+          b.addEventListener('pointerdown', function () {
+            holdFired = false;
+            holdTimer = setTimeout(function () {
+              holdFired = true;
+              sendCommand('combat-mode.set', { group: 'all' }).catch(function () {});
+            }, COMBAT_MODE_HOLD_MS);
+          });
+          b.addEventListener('pointerup', clearHold);
+          b.addEventListener('pointercancel', clearHold);
+          b.addEventListener('pointerleave', clearHold);
+          b.addEventListener('click', function () { if (!holdFired) dispatch(item.action); });
+        } else if (wired) {
+          b.addEventListener('click', function () { dispatch(item.action); });
+        } else {
+          b.disabled = true;
+        }
         grid.appendChild(b);
       });
       if (currentPage === 'wpn') { addWeaponHits(); markMasterArms(); markCombatMode(); placeWpnDecorators(); }
