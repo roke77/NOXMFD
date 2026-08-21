@@ -19,6 +19,14 @@
     category MAXIMIZE                 → hud.set {group:'category', index, on}
     vehicle / building type chip      → hud.set {group:'vehicle'|'building', index, on}
 
+  HUD presets (issue #50 follow-up) — 5 fixed numbered slots (HudPresetStore), server-side so any
+  browser or the KEY page's own 5 recall keybinds can save/load one:
+    SAVE → opens LayoutModal.prompt for a name, then preset.save {wname} (always the CURRENT slot)
+    LOAD → opens LayoutModal.pickList over GET /hud-presets; picking an item applies it and makes
+           it current, the row's pencil/× send preset.rename/preset.delete {index, ...}
+  The bottom label's current index/name rides this page's existing /hud-options poll (a `preset`
+  field), not a separate endpoint.
+
   The seven category NAMES are the page's own, by index — the game exposes no per-category display
   name (see docs/hud-page.md). Vehicle/building names come from /hud-options (the Encyclopedia).
 
@@ -30,6 +38,7 @@
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/shell/layout-modal.css">
 <link rel="stylesheet" href="/assets/pages/hud/hud.css">
 </head>
 <body>
@@ -40,12 +49,19 @@
   <div class="hud-declutter" id="hud-declutter"></div>
   <div class="hud-modes" id="hud-modes"></div>
   <div class="hud-cats" id="hud-cats"></div>
+  <!-- HUD presets (issue #50 follow-up): current slot label + SAVE/LOAD, built by hud.js -->
+  <div class="hud-preset-bar" id="hud-preset-bar">
+    <span class="hud-preset-label" id="hud-preset-label"></span>
+    <button type="button" class="hud-preset-btn pad-hoverable" id="hud-preset-save">SAVE</button>
+    <button type="button" class="hud-preset-btn pad-hoverable" id="hud-preset-load">LOAD</button>
+  </div>
   <!-- shown when /hud-options is empty (no mission / HUDOptions not up) -->
   <div class="hud-empty mfd-empty" id="hud-empty"><span class="mfd-empty-title">HUD</span>&mdash; UNAVAILABLE &mdash;</div>
 </div>
 <div id="pad-cursor" class="pad-cursor"></div>
 
 <script src="/assets/services/send-command.js"></script>
+<script src="/assets/shell/layout-modal.js"></script>
 <script type="module" src="/assets/pages/hud/hud.js"></script>
 </body>
 </html>

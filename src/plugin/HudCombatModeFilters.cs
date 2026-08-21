@@ -10,9 +10,13 @@ namespace NOXMFD
     // while A/A or A/G is forcing its own preset are allowed to change the live HUD (the player can
     // still fine-tune) without corrupting the baseline that gets restored on exit.
     //
+    // Re-pressing an already-active A/A or A/G is the documented way to discard those hand tweaks
+    // and reload the mode's own preset — so OnCombatModeChanged runs on every SetCombatMode call,
+    // not just an actual transition (issue #50 follow-up).
+    //
     // Driven entirely through Keybinds.SetCombatMode, the one choke point both the WPN page and the
     // physical keybind (tap AND hold-to-reset) already funnel through — this class only reacts to
-    // mode transitions, it never reads input itself.
+    // mode changes, it never reads input itself.
     internal static class HudCombatModeFilters
     {
         private static bool _hasBaseline;
@@ -34,11 +38,19 @@ namespace NOXMFD
             if (!_hasBaseline) Capture();
         }
 
-        // Keybinds.SetCombatMode calls this on every ACTUAL mode change (guarded there against
-        // no-op reselects, so re-tapping an already-active mode never re-clobbers live edits made
-        // within it).
+        // Keybinds.SetCombatMode calls this on every call, including a repeat press of the mode
+        // already active — HUDOptions.ToggleButtons/HUDOptions_ToggleButton.Set have no "already
+        // this value" guard of their own, so re-applying the same mode's preset here correctly
+        // re-forces it over whatever the player tweaked by hand since it last applied.
+        //
+        // Gated on ImmersionConfig.HudFiltersOnCombatMode (KEY page, default OFF) — a pilot who
+        // hasn't opted in gets no HUD change at all on a mode switch, not just a skipped force-load;
+        // CaptureIfIdle/EnsureBootstrap keep running regardless, so the baseline is already warm the
+        // moment this gets turned on rather than restoring to a stale/empty snapshot.
         public static void OnCombatModeChanged(CombatMode mode)
         {
+            if (!ImmersionConfig.HudFiltersOnCombatMode) return;
+
             HUDOptions opt = SceneSingleton<HUDOptions>.i;
             if (opt == null) return;
 

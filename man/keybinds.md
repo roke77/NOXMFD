@@ -102,6 +102,13 @@ for a tablet with no keyboard.
 
 ![Layout section](images/LYT_KEY.png)
 
+## HUD Presets
+
+- **HUD Preset 1** through **HUD Preset 5** — five ordinary binds (keyboard and joystick/HOTAS
+  both work, unlike Layout's keyboard-only pair above). Pressing one instantly recalls that
+  numbered preset's saved filters onto [HUD](hud.md#presets) and makes it the current one shown at
+  the bottom of that page — the same thing clicking it in HUD's own LOAD list does.
+
 ## Immersion Options
 
 Optional cold-start behavior and dedicated binds for radar, engine, and weapons safety,
@@ -119,5 +126,10 @@ configured in their own section at the bottom of this page.
   fire in either mode, bombs only cycle in A/G. Tap to set the mode; hold either bind to reset to
   ALL (unrestricted) — there's no dedicated ALL bind, since neither showing lit already means ALL.
   [WPN](wpn.md)'s A/A · A/G controls mirror and drive the same state.
+- **Force HUD filters on combat mode** — off by default. Turn it on to have switching to A/A or
+  A/G automatically force [HUD](hud.md)'s matching preset (the same NAV/GUN/A2A/A2G/EW/LOG tabs
+  HUD's own mode row applies), restoring whatever you had set yourself on returning to ALL.
+  Pressing an already-active A/A or A/G again re-forces that preset, discarding any HUD tweaks
+  made since it last applied — a quick way to reset back to it without leaving WPN.
 
 ![Immersion Options section](images/IMM.png)

@@ -65,7 +65,7 @@
     <div class="kb-title">IMMERSION OPTIONS</div>
     <div class="kb-immersion-desc">Cold-start controls: whether radar, engine, and master arms start
       on or off when you spawn in a new aircraft, and dedicated binds to change any of them — plus
-      combat mode — in flight.</div>
+      combat mode — in flight. Also whether combat mode drives the HUD page's own filters.</div>
 
     <div class="kb-setting" id="kb-radar-on-start">
       <div class="kb-setting-text">
@@ -90,6 +90,15 @@
           a new aircraft. Turn OFF for more immersion: guns/missiles/bombs are blocked until you arm.</div>
       </div>
       <button class="kb-toggle" id="kb-master-arms-on-start-btn"></button>
+    </div>
+    <div class="kb-setting" id="kb-hud-filters-on-combat-mode">
+      <div class="kb-setting-text">
+        <div class="kb-name">FORCE HUD FILTERS ON COMBAT MODE</div>
+        <div class="kb-desc">Switching to A/A or A/G forces the HUD page's matching preset, restoring
+          your own values on returning to idle. Off by default (today's behaviour) — turn ON to have
+          combat mode drive the HUD automatically.</div>
+      </div>
+      <button class="kb-toggle" id="kb-hud-filters-on-combat-mode-btn"></button>
     </div>
 
     <!-- Shared-behaviour note for this section's binds (A/A-A/G tap/hold) — same server-provided

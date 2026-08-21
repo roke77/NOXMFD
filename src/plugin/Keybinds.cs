@@ -273,6 +273,21 @@ namespace NOXMFD
             DefKeyOnly(config, "layout-load", layout, "LayoutLoad", "Load Layout",
                 "Load a previously saved screen layout.");
 
+            // HUD preset keybinds (issue #50 follow-up) — unlike layout-save/load above, these ARE
+            // real DriveFree actions: pressing one directly recalls that numbered preset's saved HUD
+            // filters onto the live HUD (HudPresetStore.LoadPreset), the same direct-recall behaviour
+            // the HUD page's own LOAD picker gives a clicked item — no browser-side modal to pop, so
+            // no reason to leave the dispatch to a keydown listener the way SAVE/LOAD LAYOUT do.
+            // Works at the main menu too, same as every other HUD OPTIONS control.
+            const string hudPresets = "HUD Preset Keybinds";
+            for (int p = 1; p <= HudPresetStore.SlotCount; p++)
+            {
+                int presetIndex = p;   // capture per-iteration, not the loop variable
+                DefFree(config, "hud-preset-" + p, hudPresets, "HudPreset" + p, "HUD Preset " + p, edge: true,
+                    "Load HUD preset " + p + "'s saved filters onto the HUD page.",
+                    () => HudPresetStore.LoadPreset(presetIndex));
+            }
+
             // Immersion keybinds — docs/radar-master-arms.md (issue #32). Registered LAST (and its
             // three start-state settings appended after this Bind() method, in the same order) so the
             // KEY page's "Immersion options" section — binds + settings together — lands at the very
@@ -417,6 +432,7 @@ namespace NOXMFD
             "SOI Keybinds"            => "SOI",
             "Cursor Keybinds"         => "CURSOR",
             "Layout Keybinds"         => "LAYOUT",
+            "HUD Preset Keybinds"     => "HUD PRESETS",
             "Immersion Keybinds"      => "IMMERSION OPTIONS",
             _ => section,
         };
@@ -725,14 +741,14 @@ namespace NOXMFD
         // combat mode can change, not just the physical keybind.
         internal static void SetCombatMode(CombatMode mode)
         {
-            CombatMode prev = ImmersionState.CombatMode;
             ImmersionState.CombatMode = mode;
             if (GameManager.GetLocalAircraft(out Aircraft ac) && ac != null && !ac.disabled)
                 WeaponSelectors.OnCombatModeChanged(ac, mode);
-            // HUD OPTIONS filter automation (issue #50) — only on an actual transition, so
-            // re-tapping an already-active mode never re-forces the preset over live edits made
-            // within it.
-            if (mode != prev) HudCombatModeFilters.OnCombatModeChanged(mode);
+            // HUD OPTIONS filter automation (issue #50) — runs on EVERY call, not just an actual
+            // transition: re-pressing an already-active A/A or A/G is the documented way to reload
+            // that mode's HUD preset after tweaking filters by hand mid-mode, so a repeat press must
+            // re-force it rather than no-op.
+            HudCombatModeFilters.OnCombatModeChanged(mode);
         }
 
         // Tap/hold binds (docs/radar-master-arms.md, issue #32 — currently just A/A and A/G, which

@@ -206,6 +206,7 @@ def _config(port):
 def _hud_options():
     veh = ["TRUCK", "UGV", "LCV", "AFV", "MBT", "ART", "AAA", "IR_SAM", "R_SAM", "RDR"]
     bld = ["CIV", "FAC", "RDR", "DEP", "HGR", "DEF", "AMMO"]
+    current = PRESETS[PRESET_STATE["current"] - 1]
     return json.dumps({
         "mode": 1,  # GUN
         "modes": ["NAV", "GUN", "A2A", "A2G", "EW", "LOG"],
@@ -215,6 +216,9 @@ def _hud_options():
         # native-HUD declutter flags (HudDeclutterConfig) — true = that widget is hidden. One hidden
         # here so the off state is visible in the harness. The write side (declutter.set) has no mock.
         "declutter": {"weapon": False, "minimap": True, "boxes": False},
+        # Current HUD preset (issue #50 follow-up) — index/name only, stateful via PRESET_STATE/
+        # PRESETS below so the bottom label follows a save/rename/load in the harness.
+        "preset": {"index": current["index"], "name": current["name"]},
     }).encode("utf-8")
 
 
@@ -355,6 +359,48 @@ def _layout_command(env):
     return False
 
 
+# Stateful mock of HudPresetStore (issue #50 follow-up) — 5 fixed numbered slots, so the SAVE/LOAD/
+# rename/delete round-trip and the bottom "PRESET N: name" label are drivable in the harness, same
+# reasoning as LAYOUTS above. Unlike LayoutStore, there's no data blob from the browser to store:
+# the real plugin captures categories/vehicles/buildings straight from the live HUDOptions
+# singleton, which this harness has no stateful equivalent of (hud.set/hud.mode are unmocked — see
+# _hud_options above) — so "save" here just tags the slot as having data, without real filter
+# values behind it. The name/current-slot/list machinery this feature actually adds — the part
+# testable without the game — is fully exercised regardless.
+PRESETS = [{"index": i, "name": "", "hasData": False} for i in range(1, 6)]
+PRESET_STATE = {"current": 1}
+
+
+def _hud_presets_options():
+    return json.dumps({"current": PRESET_STATE["current"], "presets": PRESETS}).encode("utf-8")
+
+
+def _preset_command(env):
+    cmd = env.get("cmd", "")
+    if cmd == "preset.save":
+        name = (env.get("wname") or "").strip()
+        if not name:
+            return False
+        slot = PRESETS[PRESET_STATE["current"] - 1]
+        slot["name"], slot["hasData"] = name, True
+        return True
+    index = env.get("index", 0)
+    slot = PRESETS[index - 1] if 1 <= index <= 5 else None
+    if cmd == "preset.rename" and slot is not None:
+        name = (env.get("wname") or "").strip()
+        if not name:
+            return False
+        slot["name"] = name
+        return True
+    if cmd == "preset.delete" and slot is not None:
+        slot["name"], slot["hasData"] = "", False
+        return True
+    if cmd == "preset.load" and slot is not None:
+        PRESET_STATE["current"] = index
+        return True
+    return False
+
+
 # Stateful mock of the plugin's /keybinds-config + keybind.* commands, so the /keybinds page's
 # whole flow (render, keyboard set, joystick arm-capture) is drivable in the harness. Arming a
 # joystick capture "captures" a fake button ~1.5s later (simulated on the next poll after the
@@ -467,6 +513,11 @@ KEYBINDS = [
     {"id": "layout-load", "section": "LAYOUT", "label": "Load Layout",
      "description": "Load a previously saved screen layout.",
      "key": ""},
+    # HUD preset keybinds (issue #50 follow-up) — unlike layout-save/load above, these ARE real
+    # binds (joyButton/joyNum present): pressing one directly recalls that numbered preset.
+    *[{"id": f"hud-preset-{n}", "section": "HUD PRESETS", "label": f"HUD Preset {n}",
+       "description": f"Load HUD preset {n}'s saved filters onto the HUD page.",
+       "key": "", "joyButton": -1, "joyNum": 0} for n in range(1, 6)],
     # Immersion keybinds (docs/radar-master-arms.md, issue #32) — deliberately last, so the
     # "Immersion options" block (this section + the three settings below) reads as one group at
     # the bottom of the page.
@@ -490,7 +541,8 @@ KEYBINDS = [
                      "ALL (unrestricted).", "key": "", "joyButton": -1, "joyNum": 0},
 ]
 KB_STATE = {"capturing": None, "capturingKind": None, "armed_at": 0.0, "bgInput": False,
-            "radarOnOnStart": True, "engineOnOnStart": True, "masterArmsOnOnStart": True}
+            "radarOnOnStart": True, "engineOnOnStart": True, "masterArmsOnOnStart": True,
+            "hudFiltersOnCombatMode": False}
 
 
 def _keybinds_config():
@@ -531,7 +583,8 @@ def _keybinds_config():
                        "bgInput": KB_STATE["bgInput"],
                        "radarOnOnStart": KB_STATE["radarOnOnStart"],
                        "engineOnOnStart": KB_STATE["engineOnOnStart"],
-                       "masterArmsOnOnStart": KB_STATE["masterArmsOnOnStart"]}).encode("utf-8")
+                       "masterArmsOnOnStart": KB_STATE["masterArmsOnOnStart"],
+                       "hudFiltersOnCombatMode": KB_STATE["hudFiltersOnCombatMode"]}).encode("utf-8")
 
 
 def _keybinds_command(env):
@@ -567,6 +620,8 @@ def _keybinds_command(env):
         KB_STATE["engineOnOnStart"] = bool(env.get("on", False))
     elif cmd == "keybind.set-master-arms-on-start":
         KB_STATE["masterArmsOnOnStart"] = bool(env.get("on", False))
+    elif cmd == "keybind.set-hud-filters-on-combat-mode":
+        KB_STATE["hudFiltersOnCombatMode"] = bool(env.get("on", False))
     else:
         return False
     return True
@@ -584,6 +639,7 @@ class H(http.server.SimpleHTTPRequestHandler):
                 env = {}
             _keybinds_command(env)
             _layout_command(env)
+            _preset_command(env)
             self.send_response(204)
             self.end_headers()
             return
@@ -605,6 +661,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(_captured_or('wpt-options', _wpt_options), 'application/json; charset=utf-8')
         if path == '/layout-options':
             return self._send(_captured_or('layout-options', _layout_options), 'application/json; charset=utf-8')
+        if path == '/hud-presets':
+            return self._send(_hud_presets_options(), 'application/json; charset=utf-8')
         if path == '/keybinds-config':
             return self._send(_keybinds_config(), 'application/json; charset=utf-8')
         if path == '/rates-config':

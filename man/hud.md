@@ -31,6 +31,24 @@ friendly icons disappear entirely. Two things to know:
 Within VEHICLES and BUILDINGS, individual type chips (e.g. TRUCK, MBT, AAA for vehicles; FAC,
 HGR, DEF for buildings) toggle independently of their parent category.
 
+## Presets
+
+Up to 5 named presets of your own, saved server-side so any connected browser can save or load
+one. A label at the bottom of the page reads **PRESET N: name** — whichever of the 5 is current —
+followed by **SAVE** and **LOAD**.
+
+- **SAVE** — opens a name prompt; submitting it captures the page's current filters (every
+  category, vehicle, and building toggle above) into the current preset under that name.
+- **LOAD** — opens a list of all 5 presets. Clicking one applies its saved filters and makes it
+  the current preset; a pencil icon renames it in place, and a **×** clears it back to empty
+  (name and data both) — the slot itself stays, only its contents are gone.
+- The 5 numbered keybinds on [KEY](keybinds.md#hud-presets) recall a preset directly without
+  opening LOAD, and also become the current preset.
+- Presets are separate from the mode tabs above: a mode tab applies one of the game's own built-in
+  presets (NAV/GUN/A2A/A2G/EW/LOG); these 5 are your own, named by you.
+- See [KEY](keybinds.md#immersion-options)'s **Force HUD filters on combat mode** setting for how
+  switching weapons mode to A/A or A/G can automatically apply the matching mode tab here.
+
 ## PAD cursor
 
 This page is fully drivable from a HOTAS [PAD cursor](keybinds.md#pad-cursor).

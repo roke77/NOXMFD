@@ -23,16 +23,22 @@ namespace NOXMFD
         private static ConfigEntry<bool>? _radarOnOnStart;
         private static ConfigEntry<bool>? _engineOnOnStart;
         private static ConfigEntry<bool>? _masterArmsOnOnStart;
+        private static ConfigEntry<bool>? _hudFiltersOnCombatMode;
 
         public static bool RadarOnOnStart       => _radarOnOnStart?.Value ?? true;
         public static bool EngineOnOnStart      => _engineOnOnStart?.Value ?? true;
         public static bool MasterArmsOnOnStart  => _masterArmsOnOnStart?.Value ?? true;
+        // HudCombatModeFilters' own on/off switch (issue #50 follow-up) — unlike the three above,
+        // this one defaults OFF: forcing HUD filters on combat mode is a new, opinionated behavior
+        // a pilot has to opt into, not today's-behavior-preserved-by-default like the others.
+        public static bool HudFiltersOnCombatMode => _hudFiltersOnCombatMode?.Value ?? false;
 
-        // Runtime setters for the KEY page's three toggles (keybind.set-radar-on-start etc.).
+        // Runtime setters for the KEY page's toggles (keybind.set-radar-on-start etc.).
         // Writing .Value persists the choice to the .cfg immediately.
         public static void SetRadarOnOnStart(bool v)      { if (_radarOnOnStart      != null) _radarOnOnStart.Value      = v; }
         public static void SetEngineOnOnStart(bool v)     { if (_engineOnOnStart     != null) _engineOnOnStart.Value     = v; }
         public static void SetMasterArmsOnOnStart(bool v) { if (_masterArmsOnOnStart != null) _masterArmsOnOnStart.Value = v; }
+        public static void SetHudFiltersOnCombatMode(bool v) { if (_hudFiltersOnCombatMode != null) _hudFiltersOnCombatMode.Value = v; }
 
         // Called once from Plugin.Awake with the plugin's ConfigFile.
         public static void Bind(ConfigFile config)
@@ -44,6 +50,8 @@ namespace NOXMFD
                 new ConfigDescription("Engine starts ON when spawning in a new aircraft (the game's own default). Turn OFF for more immersion: engine starts off, start it yourself.", null, Hidden));
             _masterArmsOnOnStart = config.Bind(section, "MasterArmsOnOnStart", true,
                 new ConfigDescription("Master Arms starts ON (unrestricted, today's behaviour) when spawning in a new aircraft. Turn OFF for more immersion: guns/missiles/bombs are blocked until you arm.", null, Hidden));
+            _hudFiltersOnCombatMode = config.Bind(section, "HudFiltersOnCombatMode", false,
+                new ConfigDescription("Switching combat mode to A/A or A/G forces the HUD's matching preset onto the HUD page, restoring your own values on returning to idle. Off by default — turn ON to have combat mode drive the HUD automatically.", null, Hidden));
         }
     }
 }

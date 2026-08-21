@@ -160,9 +160,11 @@ selected range follows the same pattern under `noxmfd.rdr.view`.
   RDR steps its range — one HOTAS bind, per-page meaning (docs/page-cursor.md).
 - **Write commands:** `src/web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
   — from pages (MAP tap → `target.select`; TGT → `tgt.*` + `target.deselect`; AVN → `avn.toggle`;
-  HUD → `hud.*`/`declutter.set`; KEYBINDS → the `keybind.*` family) and from either shell (`soi.panes`,
-  `weapon.select`, `master-arms.set`, `combat-mode.set`, and `avn.toggle` again from the F-35 master
-  strip). Every handler is listed in [`src/plugin/README.md`](../plugin/README.md).
+  HUD → `hud.*`/`declutter.set`/`preset.*` (issue #50 follow-up); KEYBINDS → the `keybind.*` family)
+  and from either shell (`soi.panes`, `weapon.select`, `master-arms.set`, `combat-mode.set`,
+  `layout.save`/`.rename`/`.delete` (issue #51 — LOAD itself is a client-side `GET /layout-options`
+  read, no command), and `avn.toggle` again from the F-35 master strip). Every handler is listed in
+  [`src/plugin/README.md`](../plugin/README.md).
 
 ## Verifying without the game
 

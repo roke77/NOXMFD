@@ -122,7 +122,9 @@
       const name = document.createElement('button');
       name.type = 'button';
       name.className = 'layout-modal-item';
-      name.textContent = item.name;
+      // item.display is optional (HUD presets use it for a "PRESET N: name" row label distinct from
+      // the raw name a rename edits) — every existing caller leaves it unset and falls back to name.
+      name.textContent = item.display != null ? item.display : item.name;
       name.addEventListener('click', function () { close(); opts.onPick(item); });
       row.appendChild(name);
 

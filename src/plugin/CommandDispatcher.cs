@@ -25,12 +25,14 @@ namespace NOXMFD
         public long   id;      // target unit persistentID (target.select / target.deselect)
         public string wname;   // weapon type name (weapon.select) — matches LoadoutEntry.Name
                                 // wpt.* : route/waypoint display name
+                                // preset.save / preset.rename : preset name
         public string group;   // tgt.set / tgt.only : "faction" | "category" | "vehicle"
                                 // combat-mode.set : "all" | "aa" | "ag"
                                 // avn.toggle : "gear" | "radar" | "guns" | "eng" | "assist" | "nvg" |
                                 //              "lights" | "turret"
         public int    index;   // tgt.set / tgt.only : toggle index within the group
                                 // wpt.* : waypoint index, or a +-1 direction (cycle-route/step-waypoint)
+                                // preset.rename / preset.delete / preset.load : slot number 1-5
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
         public string bind;    // keybind.* : BindDef id ("flares", "gear-up", ...)
                                 // wpt.* : route id ("" = clear active route)
@@ -96,6 +98,9 @@ namespace NOXMFD
                 { "keybind.set-radar-on-start",       e => ImmersionConfig.SetRadarOnOnStart(e.on) },
                 { "keybind.set-engine-on-start",      e => ImmersionConfig.SetEngineOnOnStart(e.on) },
                 { "keybind.set-master-arms-on-start", e => ImmersionConfig.SetMasterArmsOnOnStart(e.on) },
+                // HudCombatModeFilters' own on/off switch (issue #50 follow-up) — default OFF, unlike
+                // the three start-state settings above.
+                { "keybind.set-hud-filters-on-combat-mode", e => ImmersionConfig.SetHudFiltersOnCombatMode(e.on) },
                 // SOI focus. These will get HOTAS binds of their own; as commands they are how focus
                 // is driven (and tested) from a browser, with no controller and no aircraft.
                 { "soi.next",           e => TelemetryServer.SoiCycle(1) },
@@ -130,6 +135,16 @@ namespace NOXMFD
                 // reuse of the field), new name : "wname".
                 { "layout.rename", e => LogLayout("rename", LayoutStore.RenameLayout(e.bind, e.wname)) },
                 { "layout.delete", e => LogLayout("delete", LayoutStore.DeleteLayout(e.bind)) },
+                // HUD filter presets (issue #50 follow-up) — 5 fixed numbered slots (HudPresetStore),
+                // not an arbitrary list like layout.* above: `index` (1-5) addresses a slot directly,
+                // reusing the same int field tgt.set/wpt.* already use for one. save always targets
+                // whichever slot is server-side CURRENT, never a client-picked index — the client only
+                // ever supplies a name (docs/radar-master-arms.md).
+                //   wname : preset name (save/rename)     index : slot number 1-5 (rename/delete/load)
+                { "preset.save",   e => LogPreset("save",   HudPresetStore.Save(e.wname)) },
+                { "preset.rename", e => LogPreset("rename", HudPresetStore.Rename(e.index, e.wname)) },
+                { "preset.delete", e => LogPreset("delete", HudPresetStore.Delete(e.index)) },
+                { "preset.load",   e => LogPreset("load",   HudPresetStore.LoadPreset(e.index)) },
             };
 
         // Keybind writes just delegate to the Keybinds registry; log rejections (unknown id / bad key).
@@ -149,6 +164,12 @@ namespace NOXMFD
         private static void LogLayout(string op, bool ok)
         {
             if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] layout.{op}: rejected.");
+        }
+
+        // Same shape again, for the preset.* family.
+        private static void LogPreset(string op, bool ok)
+        {
+            if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] preset.{op}: rejected.");
         }
 
         // True for a cmd we have a handler for — lets the server reject unknown commands at the

@@ -55,6 +55,10 @@ const dcEl    = document.getElementById('hud-declutter');
 const modesEl = document.getElementById('hud-modes');
 const catsEl  = document.getElementById('hud-cats');
 const emptyEl = document.getElementById('hud-empty');
+const presetBarEl   = document.getElementById('hud-preset-bar');
+const presetLabelEl = document.getElementById('hud-preset-label');
+const presetSaveBtn = document.getElementById('hud-preset-save');
+const presetLoadBtn = document.getElementById('hud-preset-load');
 
 let data = null;          // last /hud-options snapshot
 
@@ -79,15 +83,65 @@ function render(d) {
   // The declutter object rides the same payload but is its own axis; guard it separately so an older
   // plugin (or an empty payload) simply omits the strip rather than showing dead toggles.
   const hasDc = has && d.declutter && typeof d.declutter === 'object';
-  emptyEl.style.display = has ? 'none' : '';
-  dcEl.style.display    = hasDc ? '' : 'none';
-  modesEl.style.display = has ? '' : 'none';
-  catsEl.style.display  = has ? '' : 'none';
+  emptyEl.style.display     = has ? 'none' : '';
+  dcEl.style.display        = hasDc ? '' : 'none';
+  modesEl.style.display     = has ? '' : 'none';
+  catsEl.style.display      = has ? '' : 'none';
+  presetBarEl.style.display = has ? '' : 'none';
   if (!has) return;
   if (hasDc) renderDeclutter();
   renderModes();
   renderCats();
+  renderPreset();
 }
+
+// The bottom "PRESET N: name" label (issue #50 follow-up) — rides this page's existing
+// /hud-options poll (a `preset` field, TelemetryServer.RefreshHudOptions) rather than a second
+// endpoint; SAVE/LOAD themselves fetch /hud-presets on demand, only while their modal is open.
+function renderPreset() {
+  const p = data.preset || { index: 1, name: '' };
+  presetLabelEl.textContent = 'PRESET ' + p.index + ': ' + (p.name || '');
+}
+
+// LOAD's picker needs the full 5-slot list; the bottom label alone doesn't need it, so this is
+// fetched only when the LOAD modal opens, not on the page's regular poll.
+function fetchPresetItems() {
+  return fetch('/hud-presets', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : { presets: [] }; })
+    .then(function (d) {
+      return (d.presets || []).map(function (p) {
+        return {
+          index: p.index,
+          name: p.name || '',
+          hasData: !!p.hasData,
+          display: 'PRESET ' + p.index + (p.name ? ': ' + p.name : ''),
+        };
+      });
+    })
+    .catch(function () { return []; });
+}
+
+presetSaveBtn.addEventListener('click', function () {
+  LayoutModal.prompt('SAVE PRESET', function (name) {
+    send('preset.save', { wname: name });
+    // Optimistic: we know exactly which slot (whatever's current) and name this just set.
+    if (data.preset) data.preset.name = name;
+    renderPreset();
+    LayoutModal.close();
+  });
+});
+
+presetLoadBtn.addEventListener('click', function () {
+  LayoutModal.pickList('LOAD PRESET', fetchPresetItems, {
+    onPick: function (item) {
+      send('preset.load', { index: item.index });
+      data.preset = { index: item.index, name: item.name };   // optimistic; resync settles it
+      renderPreset();
+    },
+    onRename: function (item, name) { return sendCommand('preset.rename', { index: item.index, wname: name }); },
+    onDelete: function (item) { return sendCommand('preset.delete', { index: item.index }); },
+  });
+});
 
 // The declutter strip: one toggle per native widget. Lit = the widget is SHOWN on the HUD (flag off);
 // gray = hidden/decluttered. Inverts the reported HIDE flag so it reads like the rest of the page
@@ -212,7 +266,7 @@ function subIcon(group, name) {
 // is positioned in viewport coordinates instead of panel-local ones: a child positioned relative to
 // a scrolling ancestor would drift with the content on every scroll, which a cursor overlay must
 // never do (contrast TGT, whose .tgt-panel doesn't scroll, so panel-local coordinates work there).
-const CURSORABLE = '.hud-dc, .hud-mode, .hud-max, .hud-sub';
+const CURSORABLE = '.hud-dc, .hud-mode, .hud-max, .hud-sub, .hud-preset-btn';
 const hudPanel   = document.getElementById('hud-panel');
 const padCursorEl = document.getElementById('pad-cursor');
 const cursor = createPadCursor({

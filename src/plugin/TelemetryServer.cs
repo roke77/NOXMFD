@@ -674,6 +674,8 @@ namespace NOXMFD
                         ServeWptOptions(ctx);
                     else if (path == "/layout-options")
                         ServeLayoutOptions(ctx);
+                    else if (path == "/hud-presets")
+                        ServeHudPresets(ctx);
                     else if (path == "/rates-config")
                         ServeRatesConfig(ctx);
                     else if (path == "/keybinds-config")
@@ -1063,6 +1065,7 @@ namespace NOXMFD
                   .Append(",\"radarOnOnStart\":").Append(ImmersionConfig.RadarOnOnStart ? "true" : "false")
                   .Append(",\"engineOnOnStart\":").Append(ImmersionConfig.EngineOnOnStart ? "true" : "false")
                   .Append(",\"masterArmsOnOnStart\":").Append(ImmersionConfig.MasterArmsOnOnStart ? "true" : "false")
+                  .Append(",\"hudFiltersOnCombatMode\":").Append(ImmersionConfig.HudFiltersOnCombatMode ? "true" : "false")
                   .Append('}');
 
                 byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
@@ -1123,6 +1126,24 @@ namespace NOXMFD
             try
             {
                 byte[] body = Encoding.UTF8.GetBytes(LayoutStore.LayoutsJson ?? "{\"layouts\":[]}");
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // HUD filter presets (issue #50 follow-up) — HudPresetStore is the single source of truth,
+        // same pattern as /layout-options. The LOAD picker's on-demand fetch; the bottom label's
+        // current-slot summary rides /hud-options instead (RefreshHudOptions), not this endpoint.
+        private static void ServeHudPresets(HttpListenerContext ctx)
+        {
+            try
+            {
+                byte[] body = Encoding.UTF8.GetBytes(HudPresetStore.PresetsJson ?? "{\"current\":1,\"presets\":[]}");
                 ctx.Response.StatusCode      = 200;
                 ctx.Response.ContentType     = "application/json; charset=utf-8";
                 ctx.Response.ContentLength64 = body.Length;
@@ -1213,6 +1234,12 @@ namespace NOXMFD
               .Append(",\"boxes\":").Append(HudDeclutterConfig.HideTopBoxes ? "true" : "false")
               .Append(",\"feed\":").Append(HudDeclutterConfig.HideKillFeed ? "true" : "false")
               .Append('}');
+
+            // Current HUD preset (issue #50 follow-up) — just the slot the bottom label names;
+            // the full 5-slot list for the LOAD picker is a separate on-demand fetch (/hud-presets),
+            // not part of this 1.2s poll payload.
+            sb.Append(",\"preset\":{\"index\":").Append(HudPresetStore.CurrentIndex)
+              .Append(",\"name\":\"").Append(EscapeJson(HudPresetStore.CurrentName)).Append("\"}");
 
             sb.Append('}');
             HudOptionsJson = sb.ToString();

@@ -347,14 +347,28 @@ page already has. Existing sections/table are untouched.
 
 **Status:** built, not yet in-game tested. Reusing the game's own A2A/A2G HUD-mode presets
 unmodified for now — whether they already produce the desired effect, or need tuning, is to be
-confirmed in-game before any preset values themselves change.
+confirmed in-game before any preset values themselves change. Off by default behind its own KEY
+page toggle (see below) — a pilot has to opt in before any of this runs at all.
 
 Combat mode now also drives the HUD page's own unit-icon filters
 ([docs/hud-page.md](hud-page.md)), not just weapon selection:
 
-- **Entering A/A or A/G** force-loads that HUD mode tab's own saved preset — the same one the
-  player could apply by hand from the HUD page (`HUDOptions.listModes[A2A]`/`[A2G]`, applied via
-  the existing `ToggleButtons`/`ApplySettings` mechanism).
+- **Off by default — opt-in setting.** `ImmersionConfig.HudFiltersOnCombatMode` (KEY page, its own
+  toggle in the same "Immersion options" block as the three start-state settings above) gates all
+  of this: `HudCombatModeFilters.OnCombatModeChanged` returns immediately when it's off, so a pilot
+  who hasn't turned it on gets no HUD change at all from a combat-mode switch — not a silent
+  no-op-but-still-tracking, a complete skip. Unlike Radar/Engine/Master Arms' on-start settings,
+  this one defaults OFF: it's a new, opinionated behavior to opt into, not a preserved default.
+  `HudCombatModeFilters.CaptureIfIdle`/`EnsureBootstrap` keep running regardless of the setting, so
+  the baseline is already warm the moment it's turned on rather than restoring a stale/empty one.
+- **Entering A/A or A/G** (with the setting on) force-loads that HUD mode tab's own saved preset —
+  the same one the player could apply by hand from the HUD page (`HUDOptions.listModes[A2A]`/
+  `[A2G]`, applied via the existing `ToggleButtons`/`ApplySettings` mechanism).
+- **Re-pressing an already-active A/A or A/G re-forces that preset.** If the player tweaks HUD
+  filters by hand while A/A (say) is active and then wants the A/A preset back rather than their
+  own tweaks, pressing A/A again (bezel key or keybind) reloads it — this isn't gated on an actual
+  mode transition, since `HUDOptions.ToggleButtons`/`HUDOptions_ToggleButton.Set` have no "already
+  this value" guard of their own to fight.
 - **Returning to idle** (long-press, same as resetting combat mode itself) restores a running
   snapshot of the player's own HUD filter values — not a fixed default. The snapshot is updated on
   every `hud.set`/`hud.mode` command, but **only while combat mode is idle**; edits made while A/A
@@ -370,5 +384,27 @@ Combat mode now also drives the HUD page's own unit-icon filters
   it identically. `ImmersionState.EnsureSpawnDefaults`'s per-respawn `CombatMode` reset was likewise
   changed to route through `SetCombatMode` rather than a bare field write, so dying mid-A/A or A/G
   still restores the HUD baseline instead of leaving that mode's preset visually stuck.
-- General named preset save/load for the HUD page (beyond the game's built-in A2A/A2G tabs) is
-  explicitly out of scope — a possible future follow-up.
+- **Named preset save/load for the HUD page — built, as a separate feature.** What was "explicitly
+  out of scope" here shipped as [HUD presets](hud-presets.md): 5 player-named slots, independent of
+  this combat-mode automation (which only ever drives the game's own built-in A2A/A2G tabs). The
+  two share one touchpoint — loading a preset counts as a player edit for this feature's own idle
+  baseline (see hud-presets.md) — otherwise unrelated.
+
+### Related fixes found while building this
+
+- **WPN's on-screen A/A · A/G bezel keys had no hold detection at all.** The physical PC keybind's
+  tap/hold pair (`PollTapHold`) worked; a mouse/touch press-and-hold on the on-screen key did
+  nothing — every click always sent `combat-mode.set {group:'aa'|'ag'}`, nothing ever sent `'all'`.
+  Fixed with a `pointerdown`/`pointerup` timer (500ms, matching TGT's own `LONG_MS`) scoped to just
+  those two keys in both `mfd.js` and `f35.js`; a hold suppresses the tap action that would
+  otherwise also fire on release. The SOI/physical-Select path (`soiAct` calling `mfdButton()`
+  directly, no pointer events to time) still can't distinguish hold from tap — an accepted gap,
+  since a literal mouse/touch press is what this covers.
+- **HUD page content overlapped the bezel's vertical MAIN/HUD/KEY/LYT/RTS label.** `mfd.js`'s
+  `isVmainPage()` deliberately excluded `'hud'`, banking on a hud.css "top clearance" comment that
+  was never actually implemented — meanwhile `mfd.css`'s own comment already said the label should
+  stand upright for HUD, same as TGT/BDF. Fixed by putting `'hud'` back in `isVmainPage()` (and
+  F-35's matching CSS selector list) and giving `.hud-panel` real left/right edge padding — TGT's
+  own `clamp()` values undershot the F-35 case by ~9px (measured against a real 4-portal glass:
+  the label's fixed ~43px footprint doesn't shrink with a narrow portal), so HUD uses its own,
+  larger floor.
