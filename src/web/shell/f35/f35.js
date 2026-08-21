@@ -1108,6 +1108,13 @@
   pickerEl.querySelector('[data-layout="f35"]').addEventListener('click', function () { setLayout('f35'); showPicker(false); });
   pickerEl.querySelector('[data-layout="classic"]').addEventListener('click', function () { setLayout('classic'); location.href = '/'; });
 
+  // Touch-friendly path for SAVE/LOAD LAYOUT (issue #51 follow-up) — same modals the keyboard
+  // shortcut opens, for a tablet with no keyboard attached. Unlike CLASSIC's LYT, the picker never
+  // touches portals/cells — they keep running underneath, hidden — so SAVE from here always
+  // captures the real current arrangement, not a placeholder "picker" page.
+  document.getElementById('layout-picker-save').addEventListener('click', openSaveLayoutModal);
+  document.getElementById('layout-picker-load').addEventListener('click', openLoadLayoutModal);
+
   // ── Fullscreen ─────────────────────────────────────────────────────────────────────────
   // Same toggle as the bezel's top-key icon (mfd.js toggleFullscreen) — this shell has no bezel key
   // bank to carry it, so it gets its own button beside LAYOUT instead.
@@ -1135,22 +1142,28 @@
   // is a small variant of it that seeds each portal's cell from the saved spec up front.
   function applyLayoutState(state) {
     const cs = state && state.cells;
-    if (!cs || !F35Glass.valid(cs)) { buildGlass(); return; }
-    portalsEl.textContent = '';
-    portals = cs.map(function (c) {
-      const p = makePortal(onGrip, onNavRendered);
-      p.cell.span = c.span;
-      if (c.ate) p.cell.ate = c.ate; else delete p.cell.ate;
-      portalsEl.appendChild(p.el);
-      return p;
-    });
-    const pages = state.pages || [];
-    portals.forEach(function (p, i) {
-      p.applySpan();
-      const pg = pages[i];
-      p.showPage(pg && has(pg) ? pg : 'main');
-    });
-    refreshGlass();
+    if (!cs || !F35Glass.valid(cs)) {
+      buildGlass();
+    } else {
+      portalsEl.textContent = '';
+      portals = cs.map(function (c) {
+        const p = makePortal(onGrip, onNavRendered);
+        p.cell.span = c.span;
+        if (c.ate) p.cell.ate = c.ate; else delete p.cell.ate;
+        portalsEl.appendChild(p.el);
+        return p;
+      });
+      const pages = state.pages || [];
+      portals.forEach(function (p, i) {
+        p.applySpan();
+        const pg = pages[i];
+        p.showPage(pg && has(pg) ? pg : 'main');
+      });
+      refreshGlass();
+    }
+    // Reveal the result immediately even when LOAD was triggered from the picker (issue #51
+    // follow-up) — a no-op (already showing the glass) when it wasn't open.
+    showPicker(false);
   }
 
   function openSaveLayoutModal() {

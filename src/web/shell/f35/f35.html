@@ -139,8 +139,17 @@
        choice is always these two, and F-35 is marked as current here rather than in JS because this
        document IS the F-35 layout. -->
   <div class="layout-picker" id="layout-picker" hidden>
-    <button type="button" class="nav-item" data-layout="classic">CLASSIC</button>
-    <button type="button" class="nav-item on" data-layout="f35">F-35</button>
+    <div class="layout-picker-row">
+      <button type="button" class="nav-item" data-layout="classic">CLASSIC</button>
+      <button type="button" class="nav-item on" data-layout="f35">F-35</button>
+    </div>
+    <!-- SAVE/LOAD LAYOUT (issue #51 follow-up) — a touch-friendly path alongside the keyboard
+         shortcut, on the same menu the bezel offers it from (LYT). A separate row, smaller than the
+         CLASSIC/F-35 choice above, so it doesn't read as a third layout option. -->
+    <div class="layout-picker-row layout-picker-actions">
+      <button type="button" class="nav-item" id="layout-picker-save">SAVE LAYOUT</button>
+      <button type="button" class="nav-item" id="layout-picker-load">LOAD LAYOUT</button>
+    </div>
   </div>
 </div>
 

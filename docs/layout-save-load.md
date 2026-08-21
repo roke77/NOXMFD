@@ -61,9 +61,27 @@ name-prompt builder, a list-picker builder) that both shells load and both SAVE 
 on, rather than four one-off overlays. Styled only from `shared/theme.css` tokens so it looks and
 behaves the same whether it's opened over the bezel or the glass.
 
-**No LYT page nav item.** A LOAD entry on the LYT page was considered (unambiguous which browser,
-since a click is already local) but deferred to explore separately later — this feature covers
-the keyboard-shortcut path only.
+**LYT page nav items, for a tablet with no keyboard.** SAVE/LOAD LAYOUT also live as ordinary nav
+items on the LYT page (CLASSIC: two more `BEZEL_EXTRAS.lyt` labels; F-35: a second row in the
+`#layout-picker` overlay) — a touch-friendly path alongside the keyboard shortcut, both wired to
+the same `openSaveLayoutModal`/`openLoadLayoutModal` functions the keybind already calls. CLASSIC's
+LYT page also gained a **CFG** item (first in the list, `action: 'hud'`) — the one member of the
+HUD/KEY/LYT/RTS group with no way back into it; `NAV.hud`/`NAV.keys`/`NAV.rates` already list HUD
+as their own way back, but `NAV.lyt` deliberately doesn't exist (a generic sweep would collide with
+`BEZEL_EXTRAS.lyt`'s explicit key placement), so LYT needed this one added by hand.
+
+**CLASSIC's SAVE-from-LYT captures the pin, not just the page.** Pressing SAVE means navigating to
+LYT first, so the layout would otherwise remember LYT itself as the current page — not whatever
+page the pilot actually cares about (LYT is always full-view; it has no per-pane content). Rather
+than solve that with new UI, `captureLayoutState` also carries the current PIN (`pinnedPage`), and
+`applyLayoutState` restores it last (after any split/page changes, which already clear a stale pin
+via `applySplitMode`'s own `clearPin()`) — so one SWAP after LOAD jumps straight from LYT to
+whatever was pinned before saving. `'main'` is guarded out as an invalid pin, mirroring the PIN
+key's own rule. F-35 has no PIN/SWAP concept, so this only applies to CLASSIC; F-35's picker
+doesn't have the "you're always on the menu when you save" problem in the first place — showing
+it never touches `portals`/`cells`, so SAVE from there already captures the real underlying
+arrangement, not a placeholder page. LOAD does close the picker afterward (`showPicker(false)`),
+so applying a layout is visible immediately rather than hidden behind the still-open chooser.
 
 ## What is built
 
@@ -76,10 +94,10 @@ the keyboard-shortcut path only.
 | `src/web/shell/layout-store.js` | Fetch-on-open client (`/layout-options`, `layout.save`) — no background poll, layouts don't change on their own |
 | `src/web/shell/layout-modal.js`, `layout-modal.css` | The shared modal primitive |
 | `src/web/shell/layout-keybinds.js` | Polls `/keybinds-config`, matches a `keydown` against the configured save/load keys |
-| `src/web/shell/classic/mfd.js` | `captureLayoutState`/`applyLayoutState` — `{splitMode, splitVariant, pages}` |
-| `src/web/shell/f35/f35.js` | `captureLayoutState`/`applyLayoutState` — `{cells, pages}`, rebuilding portals directly from a saved `F35Glass` arrangement rather than replaying merge/split actions |
+| `src/web/shell/classic/mfd.js` | `captureLayoutState`/`applyLayoutState` — `{splitMode, splitVariant, pages, pinnedPage}`; two LYT nav items (`BEZEL_EXTRAS.lyt`) |
+| `src/web/shell/f35/f35.js`, `f35.html`, `f35.css` | `captureLayoutState`/`applyLayoutState` — `{cells, pages}`, rebuilding portals directly from a saved `F35Glass` arrangement rather than replaying merge/split actions; a second row of nav items in `#layout-picker` |
 | `src/web/pages/keybinds/keybinds.js` | Renders a key-only row (one wide keyboard cell, no joystick column) |
-| `tools/serve_web.py` | Mocks `/layout-options` (one CLASSIC + one F-35 demo layout) and the two new `KEYBINDS` rows |
+| `tools/serve_web.py` | Mocks `/layout-options` (one CLASSIC + one F-35 demo layout, the CLASSIC one carrying a `pinnedPage`) and the two new `KEYBINDS` rows |
 
 ## Verification performed
 
@@ -91,6 +109,10 @@ the keyboard-shortcut path only.
   portal's `flexGrow`/`page-frame.src`). Setting a key on the KEY page for `layout-save` round-trips
   through the generic `keybind.set-key` handler with no bind-specific code, and the shell's
   `LayoutKeybinds.match` correctly opens the SAVE modal for a matching `KeyboardEvent`.
+- SAVE from the CLASSIC LYT page with RWR pinned correctly captures
+  `{splitMode:false, pages:['lyt'], pinnedPage:'rwr'}`; loading it back restores the PINNED chip,
+  and one SWAP press lands on RWR. The F-35 picker's SAVE/LOAD row renders and opens the same
+  modals; LOAD from the picker applies the arrangement and closes the picker to reveal it.
 - Not verified: real joystick/HOTAS is irrelevant here by design. Real in-game persistence
   (`BepInEx/config/com.roque.NOXMFD.layouts.json` surviving a restart) is unverified — the harness
   has no real plugin process to restart.
@@ -98,7 +120,6 @@ the keyboard-shortcut path only.
 ## Out of scope / deferred
 
 - Joystick/HOTAS binding for SAVE/LOAD LAYOUT.
-- A LOAD entry on the LYT page.
 - Renaming or deleting a saved layout — the issue only asked for save/load; a growing
   never-pruned list is a real usability gap worth a future look, not something to build
   unasked.

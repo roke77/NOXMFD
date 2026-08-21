@@ -306,7 +306,8 @@ def _layout_options():
     return json.dumps({
         "layouts": [
             {"id": "l_demo_classic", "name": "Classic split demo", "shell": "classic",
-             "data": json.dumps({"splitMode": True, "splitVariant": "h", "pages": ["rwr", "main"]})},
+             "data": json.dumps({"splitMode": True, "splitVariant": "h", "pages": ["rwr", "main"],
+                                  "pinnedPage": "rwr"})},
             {"id": "l_demo_f35", "name": "F-35 demo", "shell": "f35",
              "data": json.dumps({"cells": [{"span": 2, "ate": "right"}, {"span": 1}, {"span": 1}],
                                   "pages": ["wpn", "main", "map"]})},
