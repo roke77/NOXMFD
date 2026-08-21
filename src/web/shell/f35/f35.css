@@ -374,6 +374,16 @@ html, body {
   justify-content: center;
   gap: 88px;
 }
+/* CLASSIC/F-35/SAVE/LOAD are wildly different word lengths ("F-35" vs "CLASSIC", "SAVE LAYOUT" vs
+   "LOAD LAYOUT"), so centering each row by its own total width still reads off-balance — the block
+   as a whole sits centered, but the shorter word's own visual weight lands well right (or left) of
+   where the eye expects it, and the two rows end up different total widths so they don't line up
+   as a stacked unit either. A shared fixed width makes both rows the same width and both buttons
+   in a row the same weight, so the whole picker reads as one centered, aligned block. */
+.layout-picker-row .nav-item {
+  min-width: 180px;
+  text-align: center;
+}
 .layout-picker[hidden] { display: none; }
 .portals[hidden]       { display: none; }
 
