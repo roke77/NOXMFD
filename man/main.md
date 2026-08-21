@@ -17,9 +17,10 @@ Up to two addresses are shown, whichever open the display:
 
 ## Connection status
 
-- **● CONNECTED** — green. The display is receiving live telemetry from an active mission.
+- **● CONNECTED** — green. A mission is loaded — whether or not you've picked an aircraft yet.
+  Live telemetry (position, weapons, etc.) only starts once you have.
 - **● CONNECTED — no mission** — amber. The server is reachable and sending keepalives, but no
-  mission is currently running (e.g. sitting at the main menu, or between missions).
+  mission is loaded (sitting at the main menu).
 - **● DISCONNECTED** / **● DISCONNECTED — retrying…** — red. No telemetry has arrived in the last
   ~2.5 seconds — the game isn't running, the plugin hasn't started yet, or the connection dropped.
   The display keeps retrying on its own; nothing to do but wait or check the game/plugin is up.
