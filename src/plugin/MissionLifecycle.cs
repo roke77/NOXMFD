@@ -26,6 +26,11 @@ namespace NOXMFD
             ExtensionRegistry.Drain();
 
             bool missionRunning = MissionManager.IsRunning;
+            // A mission can be running with no local aircraft yet (still on the spawn/loadout
+            // screen); TelemetryReader.PushSnapshot only pushes once one exists, so the ping
+            // frame needs this separately to tell "in a mission, no aircraft yet" apart from the
+            // main menu — see TelemetryServer.SetMissionRunning.
+            TelemetryServer.SetMissionRunning(missionRunning);
 
             if (missionRunning && !_readerActive)
                 StartReader();

@@ -220,7 +220,12 @@ export class TelemetrySource {
     }
 
     if (d.ping) {
-      this._setStatus('waiting', '● CONNECTED — no mission');
+      // A mission can be running with no local aircraft chosen yet (still on the spawn/loadout
+      // screen) — that's a real connection, not "no mission", even though there's no telemetry
+      // frame to show yet either. missionRunning tells the two apart; d.ping stays true for both,
+      // since neither has a real frame to emit.
+      if (d.missionRunning) this._setStatus('connected', '● CONNECTED');
+      else this._setStatus('waiting', '● CONNECTED — no mission');
       const didEnd = this._inMission;
       if (didEnd) { this._inMission = false; this._meta = null; this._emitEmpties(); }
       if (this._onNoMission) this._onNoMission(didEnd);

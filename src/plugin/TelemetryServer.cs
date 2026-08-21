@@ -47,8 +47,17 @@ namespace NOXMFD
         // re-serialized the full snapshot every tick — wasteful with 3+ screens open.
         private static long             _frameVersion = -1;
         private static long             _frameSoiVersion = -1;   // see SetSoiTarget — the target moves independently of the snapshot
+        private static bool             _frameMissionRunning;    // see SetMissionRunning — same reasoning, for a mission with no aircraft yet
         private static byte[]?          _frameBytes;
         private static readonly object  _frameLock = new object();
+
+        // True between a mission loading and it ending, independent of whether a local aircraft
+        // exists yet (MissionLifecycle.Update polls MissionManager.IsRunning and calls this every
+        // frame). PushSnapshot only pushes once an aircraft is chosen, so without this a pilot who
+        // loaded into a mission but hasn't picked an aircraft yet reads identically to the main
+        // menu — a plain ping, "no mission" — even though a mission genuinely is running.
+        private static volatile bool _missionRunning;
+        public static void SetMissionRunning(bool running) { _missionRunning = running; }
 
         // Captured in-game map image (PNG), set from the Unity main thread.
         private static byte[]?          _mapPng;
@@ -512,13 +521,17 @@ namespace NOXMFD
 
                 // SOI focus can move without a new snapshot, so it versions the cache too — a ping
                 // frame at the main menu is otherwise identical forever and the change never ships.
+                // MissionRunning is the same idea: a mission loading/ending with no aircraft chosen
+                // yet changes nothing else about a ping frame, so it needs the same invalidation.
                 long sv = Interlocked.Read(ref _soiVersion);
-                if (_frameVersion == v && _frameSoiVersion == sv && _frameBytes != null) return _frameBytes;
+                bool mr = _missionRunning;
+                if (_frameVersion == v && _frameSoiVersion == sv && _frameMissionRunning == mr && _frameBytes != null) return _frameBytes;
                 _frameSoiVersion = sv;
+                _frameMissionRunning = mr;
 
                 string payload = snap.Valid
                     ? Serialize(snap)
-                    : "{\"ping\":true," + SoiJson() + "}";
+                    : "{\"ping\":true,\"missionRunning\":" + (mr ? "true" : "false") + "," + SoiJson() + "}";
                 _frameBytes   = Encoding.UTF8.GetBytes("data: " + payload + "\n\n");
                 _frameVersion = v;
                 return _frameBytes;
