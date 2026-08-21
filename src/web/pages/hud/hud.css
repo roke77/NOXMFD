@@ -17,20 +17,25 @@ html, body {
   height: 100%;
   overflow-y: auto;
   padding: 12px 14px;
-  /* Extra side inset, same reasoning as TGT's .tgt-panel: the shell's vertical MAIN/HUD bezel label
-     hugs an edge here (mode tabs/category rows sit in that same top-left corner), and the page
-     doesn't know which edge it'll land on (left in full view and a left/top split pane, right in a
-     V-split's right pane or an F-35 portal), so both sides clear it. Own floor, not TGT's 34px:
-     measured against a real 4-portal F-35 glass, the label's actual footprint is a fixed ~43px
-     (.nav-item's 20px font + 4px/8px padding + margin-left, none of it viewport-scaled — a narrow
-     portal doesn't shrink it), so 34px left a ~9px overlap there. 48px clears it with margin. */
-  padding-left: clamp(48px, 5vw, 54px);
-  padding-right: clamp(48px, 5vw, 54px);
+  /* Extra side inset — unlike TGT/BDF, HUD's own bezel label stays HORIZONTAL (per user
+     preference), so this just needs to measure and clear it rather than standing it upright. The
+     shell's MAIN/HUD/KEY/LYT/RTS label hugs an edge here, and the page doesn't know which edge it'll
+     land on (left in full view and a left/top split pane, right in a V-split's right pane or an
+     F-35 portal), so both sides clear it. Measured against a real 4-portal F-35 glass: MAIN (the
+     widest of the five) is a fixed ~81px from the portal's edge (.nav-item's 20px font + padding +
+     position, none of it viewport-scaled — a narrow portal doesn't shrink it; CLASSIC's own full-view
+     MAIN measured ~69px, F-35's is the larger of the two). 88px clears it with a few px to spare. */
+  --edge-pad: clamp(88px, 6vw, 100px);
+  padding-left: var(--edge-pad);
+  padding-right: var(--edge-pad);
   /* Capped + centered too, not just inset: both shells draw the WHOLE CFG group (MAIN/HUD/KEY/LYT/
      RTS) down the left edge now, one label per row, not just a single MAIN at the top — the same
      column KEY's/RTS's own pages already clear this way (keybinds.css .kb-panel, rates.css
-     .rts-panel), on top of the inset above. */
-  max-width: 720px;
+     .rts-panel). max-width has to include the edge padding (not just the 720px content width): a
+     bezel/portal wider than 720px alone would otherwise ALSO get the auto-margin centering below,
+     stacking margin + padding into an oversized gutter — this way the padding IS the gutter up to
+     720px of content, and only a bezel wider than content+padding gets any extra margin at all. */
+  max-width: calc(720px + 2 * var(--edge-pad));
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -207,15 +212,13 @@ html, body {
 .hud-sub:active { opacity: 0.7; }
 
 /* ── HUD presets (issue #50 follow-up) ─────────────────────────────────────────────────
-   Bottom bar: current slot's "PRESET N: name" on the left, SAVE/LOAD on the right — a divider
-   above it, same shape as the declutter strip's own border-bottom separator at the top. */
+   Current slot's "PRESET N: name" on the left, SAVE/LOAD on the right. Sits right below the
+   declutter strip's own border-bottom separator (hud-panel's flex gap spaces it from that and
+   from the mode tabs below — no separator of its own needed, same as the tabs/category rows). */
 .hud-preset-bar {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-top: 8px;
-  margin-top: 4px;
-  border-top: 1px solid var(--no-gray);
 }
 .hud-preset-label {
   flex: 1 1 auto;

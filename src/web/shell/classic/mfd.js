@@ -394,10 +394,10 @@ function placeSplitKey(m, label, action, paneTag, mark) {
 // horizontal, not cramped enough to need the narrow vertical treatment.
 // KEY is not in this list either (cfg-rates experiment, issue #39): the CFG group's nav labels
 // read fine horizontal, per user preference — its table header sits far enough from the bezel edge.
-// HUD IS back in this list: its mode tabs/category rows pack the same top-left corner as TGT/BDF,
-// and hud.css's own edge padding (matching .tgt-panel's) assumes the label stands upright here, not
-// the "top clearance" idea an earlier pass planned but never actually built into hud.css.
-function isVmainPage(p) { return p === 'tgt' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'hud'; }
+// HUD is not in this list either (per user preference — the label reads horizontal, same as KEY):
+// hud.css instead reserves left/right padding sized to a horizontal label's own width, so the panel
+// clears it without needing the narrow vertical treatment.
+function isVmainPage(p) { return p === 'tgt' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
@@ -1524,8 +1524,8 @@ function showPage(name) {
   currentPage = name;
   overlayEl.classList.toggle('opaque', !!OPAQUE_PAGES[name]);
   // Stand the MAIN label up for pages with their own content in the top-left (TGT's RESET FILTER,
-  // HUD's mode/category rows, BDF's WARHEADS readout), so a horizontal label doesn't cover it.
-  // See .overlay.vmain in mfd.css and isVmainPage below.
+  // BDF's WARHEADS readout), so a horizontal label doesn't cover it. HUD clears the same corner a
+  // different way — see isVmainPage below. See .overlay.vmain in mfd.css and isVmainPage below.
   overlayEl.classList.toggle('vmain', isVmainPage(name));
   infoBox.classList.toggle('show', name === 'main');
   screenEl.classList.toggle('page-on', !!frameUrlFor(name));   // WPN/TGT/TGP/AVN render in #page-frame

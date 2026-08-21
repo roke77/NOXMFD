@@ -90,20 +90,20 @@ function render(d) {
   presetBarEl.style.display = has ? '' : 'none';
   if (!has) return;
   if (hasDc) renderDeclutter();
+  renderPreset();
   renderModes();
   renderCats();
-  renderPreset();
 }
 
-// The bottom "PRESET N: name" label (issue #50 follow-up) — rides this page's existing
-// /hud-options poll (a `preset` field, TelemetryServer.RefreshHudOptions) rather than a second
-// endpoint; SAVE/LOAD themselves fetch /hud-presets on demand, only while their modal is open.
+// The "PRESET N: name" label (issue #50 follow-up) — rides this page's existing /hud-options poll
+// (a `preset` field, TelemetryServer.RefreshHudOptions) rather than a second endpoint; SAVE/LOAD
+// themselves fetch /hud-presets on demand, only while their modal is open.
 function renderPreset() {
   const p = data.preset || { index: 1, name: '' };
   presetLabelEl.textContent = 'PRESET ' + p.index + ': ' + (p.name || '');
 }
 
-// LOAD's picker needs the full 5-slot list; the bottom label alone doesn't need it, so this is
+// LOAD's picker needs the full 5-slot list; the PRESET label alone doesn't need it, so this is
 // fetched only when the LOAD modal opens, not on the page's regular poll.
 function fetchPresetItems() {
   return fetch('/hud-presets', { cache: 'no-store' })

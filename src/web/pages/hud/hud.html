@@ -47,14 +47,15 @@
   <!-- declutter strip + mode tabs + category rows are built by hud.js from /hud-options -->
   <!-- native-HUD declutter toggles (the mod's own HudDeclutter flags): weapon panel / minimap / boxes -->
   <div class="hud-declutter" id="hud-declutter"></div>
-  <div class="hud-modes" id="hud-modes"></div>
-  <div class="hud-cats" id="hud-cats"></div>
-  <!-- HUD presets (issue #50 follow-up): current slot label + SAVE/LOAD, built by hud.js -->
+  <!-- HUD presets (issue #50 follow-up): current slot label + SAVE/LOAD, built by hud.js. Sits
+       right below the declutter strip's own separator, above the mode tabs. -->
   <div class="hud-preset-bar" id="hud-preset-bar">
     <span class="hud-preset-label" id="hud-preset-label"></span>
     <button type="button" class="hud-preset-btn pad-hoverable" id="hud-preset-save">SAVE</button>
     <button type="button" class="hud-preset-btn pad-hoverable" id="hud-preset-load">LOAD</button>
   </div>
+  <div class="hud-modes" id="hud-modes"></div>
+  <div class="hud-cats" id="hud-cats"></div>
   <!-- shown when /hud-options is empty (no mission / HUDOptions not up) -->
   <div class="hud-empty mfd-empty" id="hud-empty"><span class="mfd-empty-title">HUD</span>&mdash; UNAVAILABLE &mdash;</div>
 </div>

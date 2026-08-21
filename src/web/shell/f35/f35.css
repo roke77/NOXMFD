@@ -581,23 +581,25 @@ html, body {
   .wpn-hit:hover { background: rgba(var(--no-teal-rgb), 0.08); }
 }
 
-/* TGT and the MD family (BDF/PAL/MIS/OBJ) all pack their own content into the top-left,
+/* TGT, AKF, and the MD family (BDF/PAL/MIS/OBJ) all pack their own content into the top-left,
    exactly where the edge label sits — and because this layout draws labels ON the page, a
-   horizontal MAIN doesn't just look cramped, it covers that content (TGT's RESET FILTER,
-   BDF/PAL's WARHEADS readout, MIS's Time/Duration/Score line, OBJ's first row) and eats its
-   clicks (TGT) or just overlaps the text (the rest). Standing the text up narrows the label to
-   roughly one glyph so it clears them. Same fix, same properties, as the bezel's
+   horizontal MAIN doesn't just look cramped, it covers that content (TGT's RESET FILTER, AKF's
+   kill-feed rows, BDF/PAL's WARHEADS readout, MIS's Time/Duration/Score line, OBJ's first row) and
+   eats its clicks (TGT) or just overlaps the text (the rest). Standing the text up narrows the
+   label to roughly one glyph so it clears them. Same fix, same properties, as the bezel's
    .overlay.vmain .overlay-item.left in mfd.css — including pulling in to the edge, since 16px of
    margin would still leave the label overlapping. BDF/PAL/MIS/OBJ are one family (MD —
-   docs/md-pages.md) reachable from each other, so all four need the same treatment; the bezel's
-   isVmainPage() lists the same set, plus HUD (its mode tabs/category rows pack the same corner —
-   back in both lists, see hud.css). */
+   docs/md-pages.md) reachable from each other, so all four need the same treatment; AKF was
+   missing from this list even though the bezel's isVmainPage() already includes it (issue found
+   from an actual F-35 screenshot: AKF's rows read fine in CLASSIC but were overlapped by a
+   horizontal MAIN/AKF/MIS/OBJ/BDF/PAL label stack here). HUD stays horizontal (per user
+   preference) — its own CSS pads around the label's width instead of standing it up (hud.css). */
 .nav-grid.edge[data-page="tgt"] .nav-item,
+.nav-grid.edge[data-page="akf"] .nav-item,
 .nav-grid.edge[data-page="bdf"] .nav-item,
 .nav-grid.edge[data-page="pal"] .nav-item,
 .nav-grid.edge[data-page="mis"] .nav-item,
 .nav-grid.edge[data-page="obj"] .nav-item,
-.nav-grid.edge[data-page="hud"] .nav-item,
 .nav-grid.edge[data-page="rdr"] .nav-item {
   writing-mode: vertical-rl;
   text-orientation: upright;
