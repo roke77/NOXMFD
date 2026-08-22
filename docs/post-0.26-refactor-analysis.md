@@ -153,19 +153,70 @@ Recommendation: in a future cleanup, keep the current-behavior explanation and r
 
 Recommendation: keep these as manual release-check bullets unless/until the harness can simulate them.
 
-### 5. The Biggest Backend Extraction Is Still Pending
+#### Pre-Merge Live-Game Checklist For The Refactor Package
+
+Run this after `tools/ci-check.ps1` passes and before merging the `refactor-package-19-20-08`
+branch. These checks cover the areas CI cannot prove because they depend on Unity objects, browser
+cache behavior, or a live `HttpListener` instance inside the game.
+
+1. **KEY command path and config snapshot**
+   - Open `/keybinds` and confirm `/keybinds-config` renders all sections, notes, capture state, and
+     immersion toggles.
+   - Change one keyboard bind, confirm it round-trips in the page, then restore it.
+   - Arm/cancel one joystick capture and one axis capture; confirm the page leaves capture mode cleanly.
+   - Toggle `Input when unfocused`, `Radar on start`, `Engine on start`, `Master Arms on start`, and
+     `HUD filters on combat mode`; confirm each persists visually after refreshing `/keybinds`.
+
+2. **Telemetry stream shape**
+   - Open `/stream` or a browser devtools Network preview while a mission is running.
+   - Confirm top-level fields still parse after the `TelemetryJson` cleanup: `masterArmsOn`,
+     `combatMode`, `soiTarget`, `soiPane`, `loadout`, `contacts`, `tgt`, `bdf`, `pal`, `mis`, `obj`,
+     `akf`, and `ext`.
+   - Switch combat mode A/A, A/G, and ALL; confirm `combatMode` and weapon soft-selection behavior
+     still update on the WPN/KEY-facing UI.
+
+3. **Embedded page routes and asset caching**
+   - In the live plugin server, load `/`, `/map-view?bare`, `/hud`, `/afm`, and `/keybinds`; confirm
+     each page renders with CSS/JS loaded.
+   - Hard refresh one page, then refresh normally; confirm embedded assets return `ETag` and
+     `Cache-Control: no-cache`, and repeated asset requests can return `304` without breaking page
+     rendering.
+   - Load at least one direct `/assets/...` URL used by a page, such as a page CSS or JS file, and
+     confirm it returns the expected content type.
+
+4. **Extension/static content MIME behavior**
+   - If an extension is installed, open its `/ext/<id>/` route and at least one static asset under
+     that extension; confirm the page loads and CSS/JS content types are correct.
+   - If no extension is installed, confirm `/ext` still loads the built-in placeholder page and
+     `/ext-manifest` returns valid JSON.
+
+5. **HUD/MAP/AFM visual smoke**
+   - Load `/map-view?bare` during a mission and confirm the map grid, ownship, contacts, cursor, and
+     waypoint overlays still render.
+   - Load `/hud` and confirm HUD options, preset state, declutter toggles, and mode tabs reflect the
+     in-game HUD.
+   - Load `/afm` and confirm the aircraft silhouette/failure state still appears after selecting an
+     aircraft.
+
+6. **Existing Unity-only regression checks**
+   - Re-run the older release bullets above: BDF/PAL faction data, CM category display and cycling,
+     fresh-mission captured icons, split/full forwarding for live data pages, and fullscreen icon
+     visuals in both shells.
+
+### 5. Backend Extraction Has Started
 
 The broader proposal recommended extracting telemetry JSON serialization and/or route handling from `TelemetryServer.cs`.
 
-That has not happened yet. The response-helper work is useful, but it is not the same as:
+That work has now started. `TelemetryJson.cs` owns telemetry-frame serialization, and
+`TelemetryAssets.cs` owns embedded web asset serving plus MIME detection. The remaining backend seams
+are still meaningful, but they are narrower than the original "split `TelemetryServer`" proposal:
 
-- `TelemetryJson.cs`
 - `TelemetryHttpRouter`
-- `EmbeddedAssetServer`
 - `TelemetryStreamHub`
 - `CommandEndpoint`
 
-Recommendation: if continuing backend architecture work, `TelemetryJson` remains the best next step because it is the most testable and least tied to live Unity state.
+Recommendation: if continuing backend architecture work, do a small routing/endpoint extraction next
+or isolate SSE stream/session handling. Avoid mixing both in one branch.
 
 ## Current Line-Count Impact
 
@@ -173,17 +224,19 @@ The biggest files got smaller, except `map.js`, which changed only incidentally.
 
 | File | At `0.26.0` | Current | Net |
 | --- | ---: | ---: | ---: |
-| `src/web/shell/classic/mfd.js` | 2487 | 2248 | -239 |
-| `src/plugin/TelemetryServer.cs` | 1905 | 1860 | -45 |
+| `src/web/shell/classic/mfd.js` | 2487 | 2214 | -273 |
+| `src/plugin/TelemetryServer.cs` | 1905 | 1417 | -488 |
 | `src/plugin/TelemetryReader.cs` | 1231 | 1191 | -40 |
-| `src/web/shell/f35/f35.js` | 1156 | 1093 | -63 |
+| `src/web/shell/f35/f35.js` | 1156 | 1091 | -65 |
 | `src/web/pages/map/map.js` | 1005 | 1013 | +8 |
-| `src/plugin/Keybinds.cs` | 932 | 925 | -7 |
+| `src/plugin/Keybinds.cs` | 932 | 917 | -15 |
 | `tools/serve_web.py` | 787 | 761 | -26 |
 | `docs/layouts.md` | 652 | 338 | -314 |
-| `src/plugin/AssetCapture.cs` | 631 | 614 | -17 |
+| `src/plugin/AssetCapture.cs` | 631 | 573 | -58 |
 | `src/web/shell/classic/mfd.css` | 625 | 625 | 0 |
-| `src/web/shell/f35/f35.css` | 621 | 621 | 0 |
+| `src/web/shell/f35/f35.css` | 621 | 619 | -2 |
+| `src/plugin/TelemetryJson.cs` | 0 | 385 | +385 |
+| `src/plugin/TelemetryAssets.cs` | 0 | 90 | +90 |
 
 Line count is not the main quality metric here, but it does show the refactor mostly reduced large-file pressure without large behavioral churn.
 
@@ -200,8 +253,8 @@ These were discussed but not executed, and the current choice still looks reason
 
 These were discussed and remain good future work:
 
-- Extract `TelemetryJson`.
 - Consider an HTTP route table or endpoint classes in `TelemetryServer`.
+- Consider an SSE/session hub extraction after route handling is clearer.
 - Clean process/history comments from production code.
 - Update stale planning docs after execution.
 
@@ -225,8 +278,8 @@ Recommended direction:
 | Folder | Responsibility | Candidate files |
 | --- | --- | --- |
 | `src/plugin/Core/` | Plugin bootstrap and lifecycle coordination | `Plugin.cs`, `MissionLifecycle.cs`, `HarmonyPatches.cs` |
-| `src/plugin/Telemetry/` | Snapshot DTOs, telemetry reads, serialization | `TelemetrySnapshot.cs`, `TelemetryReader.cs`, future `TelemetryJson.cs` |
-| `src/plugin/Http/` | HTTP server, route handling, response helpers, streaming | `TelemetryServer.cs`, future `TelemetryHttpRouter.cs`, future `TelemetryStreamHub.cs`, future `EmbeddedAssetServer.cs` |
+| `src/plugin/Telemetry/` | Snapshot DTOs, telemetry reads, serialization | `TelemetrySnapshot.cs`, `TelemetryReader.cs`, `TelemetryJson.cs` |
+| `src/plugin/Http/` | HTTP server, route handling, response helpers, streaming | `TelemetryServer.cs`, `TelemetryAssets.cs`, future `TelemetryHttpRouter.cs`, future `TelemetryStreamHub.cs` |
 | `src/plugin/Commands/` | Browser command envelope and command handlers | `CommandDispatcher.cs`, future command handler classes |
 | `src/plugin/Stores/` | Persistent/in-memory JSON-backed stores | `RouteStore.cs`, `LayoutStore.cs`, `HudPresetStore.cs`, `ExtensionRegistry.cs` if kept store-like |
 | `src/plugin/Input/` | Keybind registry, polling, joystick capture, selection helpers | `Keybinds.cs`, `WeaponSelectors.cs`, future `TapHoldDetector.cs` |
@@ -239,7 +292,7 @@ Recommended direction:
 
 Notes:
 
-- `TelemetryServer.cs` should not be moved by itself until its internal responsibilities are split. A single giant file in `Http/` is clearer than before, but the real win is extracting `TelemetryJson`, route handlers, asset serving, and stream hubs.
+- `TelemetryServer.cs` should not be moved by itself until its internal responsibilities are split. A single giant file in `Http/` is clearer than before, but the real remaining wins are extracting route handlers and stream/session handling.
 - `TelemetryReader.cs` can stay intact until concrete seams are extracted. Do not create empty `Builders/` folders just because "snapshot builders" sound clean.
 - Store classes are good candidates for tests. Anything moved into `Stores/` should avoid direct Unity/BepInEx dependencies where possible.
 - Reflection helpers should live behind narrow names such as `CmReflection`, not a generic "ReflectionUtils" bucket.
@@ -300,8 +353,9 @@ Notes:
 2. Clean comment provenance references.
    Remove "docs/refactor-scan.md step N" from production comments while keeping the useful live-behavior explanation.
 
-3. Do the live-game verification checklist before the next release.
-   CI passed, but Unity-only behavior still needs manual confirmation.
+3. Do the pre-merge live-game checklist before the next release.
+   CI passed, but Unity-only behavior, embedded-asset caching, and browser/server interactions still
+   need manual confirmation.
 
 4. Choose one deeper backend refactor next.
    The best candidate is `TelemetryJson.cs`, with xUnit coverage for stable snapshot fixtures.
