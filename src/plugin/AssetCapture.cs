@@ -138,7 +138,7 @@ namespace NOXMFD
 
             // Per-part PNGs + layout entries.
             var sb = new StringBuilder();
-            sb.Append("{\"type\":\"").Append(EscapeJson(key)).Append("\",\"parts\":[");
+            sb.Append("{\"type\":\"").Append(JsonLite.EscapeJson(key)).Append("\",\"parts\":[");
             int partCount = 0;
             int flippedCount = 0;
             for (int i = 0; i < partsList.Count; i++)
@@ -177,7 +177,7 @@ namespace NOXMFD
                 partCount++;
                 if (sx < 0 || sy < 0) flippedCount++;
                 sb.Append('{')
-                  .Append("\"n\":\"").Append(EscapeJson(name)).Append("\",")
+                  .Append("\"n\":\"").Append(JsonLite.EscapeJson(name)).Append("\",")
                   .Append("\"cx\":").Append(cx.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
                   .Append("\"cy\":").Append(cy.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
                   .Append("\"w\":").Append(w.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
@@ -276,20 +276,6 @@ namespace NOXMFD
             return true;
         }
 
-        private static string EscapeJson(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return string.Empty;
-            var sb = new StringBuilder(s.Length);
-            foreach (char c in s)
-            {
-                if      (c == '"')  sb.Append("\\\"");
-                else if (c == '\\') sb.Append("\\\\");
-                else if (c < 0x20)  sb.Append("\\u").Append(((int)c).ToString("x4"));
-                else                sb.Append(c);
-            }
-            return sb.ToString();
-        }
-
         // One-shot per aircraft type: capture the cockpit's weapon-station-armed panel's frontal
         // silhouette (WeaponPanel/frontProfile, sprite named "<unitName>_front" — confirmed live via
         // a diagnostic hierarchy dump). Distinct from TryCaptureAirframe's top-down damage silhouette
@@ -352,7 +338,7 @@ namespace NOXMFD
                 if (n > 0) sb.Append(',');
                 n++;
                 sb.Append('{')
-                  .Append("\"n\":\"").Append(EscapeJson(child.name)).Append("\",")
+                  .Append("\"n\":\"").Append(JsonLite.EscapeJson(child.name)).Append("\",")
                   .Append("\"cx\":").Append(cx.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
                   .Append("\"cy\":").Append(cy.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
                   .Append("\"w\":").Append(w.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
@@ -494,20 +480,9 @@ namespace NOXMFD
         public void TryCaptureVehicleTypeIcons()
         {
             Encyclopedia enc = Encyclopedia.i;
-            if (enc == null || enc.vehicleTypes == null) return;   // not ready — retry next scan
-
-            for (int i = 0; i < enc.vehicleTypes.Count; i++)
-            {
-                var vt = enc.vehicleTypes[i];
-                if (vt == null || string.IsNullOrEmpty(vt.typeName) || _capturedTgtIcons.Contains(vt.typeName))
-                    continue;
-                _capturedTgtIcons.Add(vt.typeName);   // mark regardless so we never retry this type
-                if (vt.typeSprite == null) continue;
-
-                string name = vt.typeName;
-                SpriteCapture.Request(vt.typeSprite, SpriteCapture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
-                    png => { if (png != null) TelemetryServer.SetTgtIcon(name, png); });
-            }
+            if (enc == null) return;   // not ready — retry next scan
+            CaptureTypeIcons(enc.vehicleTypes, _capturedTgtIcons,
+                vt => vt.typeName, vt => vt.typeSprite, TelemetryServer.SetTgtIcon);
         }
 
         private readonly HashSet<string> _capturedBdfShipIcons = new HashSet<string>();
@@ -521,20 +496,9 @@ namespace NOXMFD
         public void TryCaptureShipTypeIcons()
         {
             Encyclopedia enc = Encyclopedia.i;
-            if (enc == null || enc.shipTypes == null) return;   // not ready — retry next scan
-
-            for (int i = 0; i < enc.shipTypes.Count; i++)
-            {
-                var st = enc.shipTypes[i];
-                if (st == null || string.IsNullOrEmpty(st.typeName) || _capturedBdfShipIcons.Contains(st.typeName))
-                    continue;
-                _capturedBdfShipIcons.Add(st.typeName);   // mark regardless so we never retry this type
-                if (st.typeSprite == null) continue;
-
-                string name = st.typeName;
-                SpriteCapture.Request(st.typeSprite, SpriteCapture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
-                    png => { if (png != null) TelemetryServer.SetBdfIcon(name, png); });
-            }
+            if (enc == null) return;   // not ready — retry next scan
+            CaptureTypeIcons(enc.shipTypes, _capturedBdfShipIcons,
+                st => st.typeName, st => st.typeSprite, TelemetryServer.SetBdfIcon);
         }
 
         private readonly HashSet<string> _capturedBdfLogos = new HashSet<string>();
@@ -563,19 +527,33 @@ namespace NOXMFD
         public void TryCaptureBuildingTypeIcons()
         {
             Encyclopedia enc = Encyclopedia.i;
-            if (enc == null || enc.buildingTypes == null) return;   // not ready — retry next scan
+            if (enc == null) return;   // not ready — retry next scan
+            CaptureTypeIcons(enc.buildingTypes, _capturedBuildingIcons,
+                bt => bt.typeName, bt => bt.typeSprite, TelemetryServer.SetBuildingIcon);
+        }
 
-            for (int i = 0; i < enc.buildingTypes.Count; i++)
+        // Shared shape behind TryCaptureVehicleTypeIcons/TryCaptureShipTypeIcons/
+        // TryCaptureBuildingTypeIcons above (docs/refactor-scan.md step 5): walk an Encyclopedia
+        // type list, skip names already captured (marking new ones regardless of whether they have a
+        // sprite yet, so a type with no icon is never retried), and request a PNG capture for the
+        // rest. TryCaptureHudCategoryIcons below walks a fixed 5-slot array via transform.Find
+        // instead of an Encyclopedia list — a genuinely different shape, not folded in here.
+        private static void CaptureTypeIcons<T>(
+            IEnumerable<T> list, HashSet<string> captured,
+            Func<T, string> nameOf, Func<T, Sprite> spriteOf, Action<string, byte[]> setIcon) where T : class
+        {
+            if (list == null) return;   // not ready — retry next scan
+            foreach (T item in list)
             {
-                var bt = enc.buildingTypes[i];
-                if (bt == null || string.IsNullOrEmpty(bt.typeName) || _capturedBuildingIcons.Contains(bt.typeName))
-                    continue;
-                _capturedBuildingIcons.Add(bt.typeName);   // mark regardless so we never retry this type
-                if (bt.typeSprite == null) continue;
+                if (item == null) continue;
+                string name = nameOf(item);
+                if (string.IsNullOrEmpty(name) || captured.Contains(name)) continue;
+                captured.Add(name);   // mark regardless so we never retry this type
+                Sprite sprite = spriteOf(item);
+                if (sprite == null) continue;
 
-                string name = bt.typeName;
-                SpriteCapture.Request(bt.typeSprite, SpriteCapture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
-                    png => { if (png != null) TelemetryServer.SetBuildingIcon(name, png); });
+                SpriteCapture.Request(sprite, SpriteCapture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
+                    png => { if (png != null) setIcon(name, png); });
             }
         }
 
