@@ -2,7 +2,8 @@
 
 ## Status
 
-Analysis — no changes made.
+**All 9 execution-plan steps done and merged to `main`.** See the checked-off
+list under "Execution plan" below.
 
 ## Where this came from
 
@@ -424,49 +425,49 @@ Each step below is sized to be one feature branch, per this repo's own git workf
 resolved as "don't do this." Say which step number to start; each is self-contained enough to work
 from this document alone.
 
-- [ ] **Step 1 — shared shell modules (`mfd.js` + `f35.js`)**. Items 1-2. Extract
+- [x] **Step 1 — shared shell modules (`mfd.js` + `f35.js`)**. Items 1-2. Extract
       `handleLayoutKeydown`/`wireLayoutKeydown` into one shared factory
       (`makeLayoutKeydownHandlers(shellName, captureState, applyState)`) and the boot-loader/
       typewriter pair into a shared `src/web/shell/boot-reveal.js`. Both are exact-duplicate code
       with no behavior-shape decisions to make. Verify: both shells' boot sequence and SAVE/LOAD
       LAYOUT keyboard shortcut still work in `tools/serve_web.py`, classic and F-35.
-- [ ] **Step 2 — `TelemetryServer.cs` response-writing helpers**. Item 3. Add `WriteJson(ctx, string
+- [x] **Step 2 — `TelemetryServer.cs` response-writing helpers**. Item 3. Add `WriteJson(ctx, string
       json)` and `WriteBinary(ctx, byte[] body, string contentType)`, and migrate the 9 JSON handlers
       + 4 binary handlers to call them. Mechanical, no behavior change. Verify: `dotnet build` +
       `ci-check.ps1`, then an in-game spot-check of a couple of the migrated endpoints (e.g. `/config`,
       `/map`).
-- [ ] **Step 3 — `TelemetryReader.cs`: collapse `BuildBdf`/`BuildPal`**. Item 4. One
+- [x] **Step 3 — `TelemetryReader.cs`: collapse `BuildBdf`/`BuildPal`**. Item 4. One
       `FactionForcesBlock BuildFactionForces(string factionName)` replacing both builders and both
       `Clear*` twins. Verify: `dotnet build`, then in-game BDF and PAL pages both still show correct
       faction data (funds/score/warheads/ship-vehicle-building counts).
-- [ ] **Step 4 — `serve_web.py`: `_serve_captured` helper**. Item 5. Add the helper and migrate the 8
+- [x] **Step 4 — `serve_web.py`: `_serve_captured` helper**. Item 5. Add the helper and migrate the 8
       manifest-asset routes (`/map`, `/icon`, `/weapon`, `/tgt-icon`, `/building-icon`,
       `/hud-cat-icon`, `/bdf-icon`, `/tgp.mjpg`, `/airframe`) to call it. Verify: `ci-check.ps1`'s
       route smoke, plus a manual check that a couple of these routes still serve real captured assets
       and still fall back correctly when nothing's captured.
-- [ ] **Step 5 — `AssetCapture.cs` cleanup**. Items 6-7 (optionally 14 in passing, not a dedicated
+- [x] **Step 5 — `AssetCapture.cs` cleanup**. Items 6-7 (optionally 14 in passing, not a dedicated
       move). Delete the private `EscapeJson`, call `JsonLite.EscapeJson` instead; collapse
       `TryCaptureVehicleTypeIcons`/`TryCaptureShipTypeIcons`/`TryCaptureBuildingTypeIcons` into one
       generic `CaptureTypeIcons<T>`. Verify: `dotnet build`, then in-game confirm vehicle/ship/
       building icons still populate on TGT/BDF/HUD pages (these are one-shot per-type captures, so
       check a fresh mission or an unseen unit type).
-- [ ] **Step 6 — shared fullscreen-icon token (`f35.css` + `mfd.css`)**. Item 8. One shared token
+- [x] **Step 6 — shared fullscreen-icon token (`f35.css` + `mfd.css`)**. Item 8. One shared token
       (CSS custom property, or a small shared `icons.css` partial in `theme.css`) replacing the two
       hand-synced `data:image/svg+xml` copies. Verify: the fullscreen button still renders identically
       in both shells, `tools/serve_web.py`.
-- [ ] **Step 7 — `mfd.js`: table-drive the message dispatcher**. Item 9. Replace the 8 verbatim
+- [x] **Step 7 — `mfd.js`: table-drive the message dispatcher**. Item 9. Replace the 8 verbatim
       `<X>Data = m; if (...) forward<X>ToFrame(); if (splitMode) forward<X>ToPanes();` branches with
       one table (`{ type, store, page, toFrame, toPanes }`) and one shared branch. Needs its own
       careful pass (this is the kind of dispatcher the WPN-forwarder caveat already burned once) —
       verify against real data for all 8 covered types (`tgt`/`bdf`/`pal`/`mis`/`obj`/`akf`/`wpt`/
       `rwr`+`mw`+`rdr`+`targets`), both split and full view, live in-game, not just `serve_web.py`.
-- [ ] **Step 8 — shared `CmReflection` helper (`TelemetryReader.cs` + `Keybinds.cs`)**. Item 10. One
+- [x] **Step 8 — shared `CmReflection` helper (`TelemetryReader.cs` + `Keybinds.cs`)**. Item 10. One
       `CmReflection.GetStations(mgr)` / `CmReflection.GetFirstCountermeasure(station)` pair replacing
       the duplicated `FieldInfo`/`MethodInfo` caches in both files, leaving each file's own
       read-one-vs-search-many logic untouched. Touches reflection into private game fields — verify
       live in-game: countermeasure category display (`TelemetryReader.cs`'s consumer) and the
       keybind-driven CM category cycle (`Keybinds.cs`'s consumer) both still work.
-- [ ] **Step 9 — `docs/layouts.md` restructure**. Item 11. Split the historical/build-log material
+- [x] **Step 9 — `docs/layouts.md` restructure**. Item 11. Split the historical/build-log material
       (Stage 1/2/3 narrative, the superseded-but-kept `?nochrome`/gauges asides) out of the
       current-state reference material, into something like `docs/layouts-f35-build-log.md`.
       Docs-only, no code changes, no build/runtime verification needed — just a careful read-through
