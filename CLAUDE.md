@@ -79,6 +79,10 @@ guesses — most exist because a past session violated them.
 
 ## Testing
 
+- `tools/ci-check.ps1` runs the checks below in one command (`dotnet build -c Release`,
+  every `*.test.js`, and a `serve_web.py` route smoke) — run it before calling a change
+  done instead of running the pieces by hand. It's not a substitute for the manual
+  in-browser verification workflow when the change is visual.
 - After any change under `src/web/`, run the JS self-checks (`*.test.js` files
   alongside the code, plain `node` scripts with asserts — no framework) before calling
   the change done.
