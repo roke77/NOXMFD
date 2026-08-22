@@ -2,9 +2,10 @@
 
 ## Status
 
-In progress — item 1 (`CommandDispatcher.cs` pragma) and the `Keybinds.cs:87` investigation are
-done (111 → 96 warnings). The rest (`TelemetryReader.cs`/`AssetCapture.cs`/`WeaponSelectors.cs`
-nullable fixes, the small-file sweep) stays opportunistic, per the proposed order below.
+In progress. The item-1 cleanup is now done: the command-envelope false positives, small-file
+nullable annotations, and test-project DTO `CS0649` noise have been cleaned up. The plugin build now
+has 54 distinct C# warnings, all in `TelemetryReader.cs`, `WeaponSelectors.cs`, and
+`AssetCapture.cs`; those remain deferred to their planned extraction/testing work.
 
 ## Where this came from
 
@@ -69,12 +70,13 @@ deserialized via `JsonUtility` reflection, so there's no hidden writer to accoun
 analog-cursor path (`Poll()` → `ReadAxis(bind)` → used inline in the cursor-vector calculation)
 never touched this field to begin with. Removed the field and corrected the three comments.
 
-**The remaining ~89 (mostly CS8600/8618/8602/8603/8604) are real nullable-annotation gaps**,
-concentrated in `TelemetryReader.cs`, `WeaponSelectors.cs`, and `AssetCapture.cs` — the files doing
-the most live Unity-object reads, where a `GetComponent`/`FindObjectsByType`/game-field lookup can
-legitimately return null and the surrounding code doesn't yet declare that in its signatures. These
-are the genuine "warnings becoming noise" risk: a real null-reference bug introduced later has to
-compete with 89 pre-existing ones to be noticed.
+**The remaining 54 distinct C# warnings (mostly CS8600/8618/8602/8603/8604) are real
+nullable-annotation gaps**, concentrated in `TelemetryReader.cs`, `WeaponSelectors.cs`, and
+`AssetCapture.cs` — the files doing the most live Unity-object reads, where a
+`GetComponent`/`FindObjectsByType`/game-field lookup can legitimately return null and the
+surrounding code doesn't yet declare that in its signatures. These are the genuine "warnings
+becoming noise" risk, and they should be reduced when those files get their planned extraction and
+test coverage.
 
 ## Proposed order
 
@@ -89,8 +91,9 @@ compete with 89 pre-existing ones to be noticed.
    plain loadout-entry DTO before its cycle-selection logic separates cleanly — that same DTO
    boundary is a natural place to also fix its null-handling, so sequence this warning cleanup as
    part of that extraction rather than before it.
-4. **`Keybinds.cs`** (7), **`TelemetryServer.cs`** (7), **`AkfTracker.cs`** (2), **`TgpFeed.cs`** (2):
-   small enough to fix opportunistically, no dedicated pass needed.
+4. **`Keybinds.cs`**, **`TelemetryServer.cs`**, **`CommandDispatcher.cs`**, **`AkfTracker.cs`**, and
+   **`TgpFeed.cs`**: done in the item-1 pass with nullable annotations/guards only, no behavior
+   refactor.
 5. **`MSB3277` (`System.IO.Compression` conflict)**: separate from the nullable debt above — an
    assembly-version conflict between `netstandard.library.ref`'s `System.IO.Compression.dll` and
    `Mirage`'s dependency graph, resolved in MSBuild's favor already (build succeeds), so this is
@@ -103,9 +106,11 @@ compete with 89 pre-existing ones to be noticed.
       explanatory comment
 - [x] Investigate `Keybinds.cs:87`'s `AxisValueNow` separately (not a suppression candidate) —
       confirm whether it's dead code or an unwired analog-cursor path (resolved: dead code, removed)
+- [x] Suppress test-project-only `CS0649` noise for linked DTO/support files in
+      `tools/tests/NOXMFD.Tests.csproj`
+- [x] Sweep nullable annotations/guards in the small files (`CommandDispatcher.cs`, `Keybinds.cs`,
+      `TelemetryServer.cs`, `AkfTracker.cs`, `TgpFeed.cs`)
 - [ ] Fix nullable warnings in `TelemetryReader.cs`/`AssetCapture.cs` opportunistically (no dedicated
       sweep on untested code)
 - [ ] Fold `WeaponSelectors.cs`'s nullable fixes into its `docs/csharp-unit-testing.md` DTO extraction
-- [ ] Sweep the remaining small files (`Keybinds.cs`, `TelemetryServer.cs`, `AkfTracker.cs`,
-      `TgpFeed.cs`) opportunistically
 - [ ] Leave `MSB3277` alone unless it starts causing a real runtime failure

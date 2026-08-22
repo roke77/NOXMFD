@@ -73,7 +73,8 @@ namespace NOXMFD
 
             // No mission / no aircraft / no TGP component → drop any cached frame and bail.
             GameManager.GetLocalAircraft(out Aircraft ac);
-            TargetCam? tc = ac != null ? ac.targetCam : null;
+            if (ac == null) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
+            TargetCam? tc = ac.targetCam;
             if (tc == null) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
 
             // Cache the three private fields once. cam = scene camera, UICam = overlay canvas
@@ -94,7 +95,7 @@ namespace NOXMFD
             // would crash on an empty list, and not calling it is what gives us the 3-second
             // post-loss hold (game's Update keeps aiming at the last targetPosition until
             // camTimeout expires).
-            List<Unit> targets = ac!.weaponManager != null ? ac.weaponManager.GetTargetList() : null;
+            List<Unit>? targets = ac.weaponManager != null ? ac.weaponManager.GetTargetList() : null;
             if (targets != null && targets.Count > 0)
             {
                 try { tc.SetTargetCam(); }
@@ -109,7 +110,7 @@ namespace NOXMFD
 
             // After the game's 3-second timeout expires, cam.enabled flips to false. Stop
             // pushing then so MJPEG clients see "no feed" and fall back to NO TARGET.
-            Camera cam = _camField.GetValue(tc) as Camera;
+            Camera? cam = _camField.GetValue(tc) as Camera;
             if (cam == null || !cam.enabled) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
 
             // Prefer the camera's own targetTexture; fall back to the cockpit renderer's

@@ -63,8 +63,8 @@ namespace NOXMFD
 
             var entry = new AkfKillEntry
             {
-                Attacker        = hasKiller ? killerUnit.unitName : null,
-                AttackerHostile = hasKiller && killerUnit.GetHQ() != localHq,
+                Attacker        = killerUnit != null ? killerUnit.unitName : null,
+                AttackerHostile = killerUnit != null && killerUnit.GetHQ() != localHq,
                 Victim          = killedUnit.unitName,
                 VictimHostile   = victimHostile,
                 Verb            = verb,

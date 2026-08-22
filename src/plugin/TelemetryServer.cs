@@ -809,7 +809,7 @@ namespace NOXMFD
                 }
                 if (!TryReadBoundedBody(ctx, out string body)) return;
 
-                CommandEnvelope env = null;
+                CommandEnvelope? env = null;
                 try { env = UnityEngine.JsonUtility.FromJson<CommandEnvelope>(body); }
                 catch { /* malformed JSON → handled below as 400 */ }
 
@@ -841,7 +841,7 @@ namespace NOXMFD
         }
 
         // Drained by the Unity main thread (CommandDispatcher) once per frame. False when empty.
-        internal static bool TryDequeueCommand(out CommandEnvelope env)
+        internal static bool TryDequeueCommand(out CommandEnvelope? env)
         {
             lock (_cmdLock)
             {
@@ -1108,15 +1108,15 @@ namespace NOXMFD
                 {
                     if (seen.Contains(b.Section)) continue;
                     seen.Add(b.Section);
-                    string note = Keybinds.SectionNote(b.Section);
+                    string? note = Keybinds.SectionNote(b.Section);
                     if (note == null) continue;
                     if (!firstNote) sb.Append(',');
                     firstNote = false;
                     sb.Append('"').Append(EscapeJson(Keybinds.SectionTitle(b.Section)))
                       .Append("\":\"").Append(EscapeJson(note)).Append('"');
                 }
-                string cap = Keybinds.CapturingId;
-                string capKind = Keybinds.CapturingKind;
+                string? cap = Keybinds.CapturingId;
+                string? capKind = Keybinds.CapturingKind;
                 sb.Append("},\"capturing\":").Append(cap == null ? "null" : "\"" + EscapeJson(cap) + "\"")
                   .Append(",\"capturingKind\":").Append(capKind == null ? "null" : "\"" + EscapeJson(capKind) + "\"")
                   .Append(",\"bgInput\":").Append(Keybinds.BackgroundInput ? "true" : "false")
@@ -1274,11 +1274,16 @@ namespace NOXMFD
         }
 
         private static void AppendTypeList(StringBuilder sb, string key,
-            System.Collections.Generic.List<HUDOptions_ToggleButton> toggles,
-            System.Collections.Generic.List<Encyclopedia.UnitType> types)
+            System.Collections.Generic.List<HUDOptions_ToggleButton>? toggles,
+            System.Collections.Generic.List<Encyclopedia.UnitType>? types)
         {
             sb.Append(key).Append('[');
-            int n = toggles == null ? 0 : toggles.Count;
+            if (toggles == null)
+            {
+                sb.Append(']');
+                return;
+            }
+            int n = toggles.Count;
             for (int i = 0; i < n; i++)
             {
                 if (i > 0) sb.Append(',');

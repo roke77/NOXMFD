@@ -59,10 +59,10 @@ namespace NOXMFD
         // does. Label/Description are the user-facing strings the /keybinds page renders.
         internal sealed class BindDef
         {
-            public string Id;                                  // stable id for the web API ("flares", "gear-up", ...)
-            public string Section;                             // grouping header on the page (and .cfg section)
-            public string Label;                               // row name on the page
-            public string Description;                         // row tooltip on the page
+            public string Id = string.Empty;                   // stable id for the web API ("flares", "gear-up", ...)
+            public string Section = string.Empty;              // grouping header on the page (and .cfg section)
+            public string Label = string.Empty;                // row name on the page
+            public string Description = string.Empty;          // row tooltip on the page
             public bool Edge;                                  // true = fire once per press; false = fire every frame held
             // Exactly one of these is set for a digital (KeyEntry != null) bind. Drive needs a live
             // aircraft and is skipped without one; DriveFree runs regardless, for binds that act on the
@@ -439,7 +439,7 @@ namespace NOXMFD
 
         // Optional note rendered under a section header — behaviour shared by the section's binds,
         // so the per-bind descriptions stay short. Keyed by .cfg section like SectionTitle.
-        internal static string SectionNote(string section) => section switch
+        internal static string? SectionNote(string section) => section switch
         {
             "MAP Keybinds" =>
                 "Follow / Zoom In / Zoom Out / Next & Previous Route / Next & Previous Waypoint are " +
@@ -487,7 +487,7 @@ namespace NOXMFD
             if (!clear && (!Enum.TryParse(keyName, ignoreCase: true, out key) || key >= KeyCode.JoystickButton0))
                 return false;
             BindDef? b = FindBind(id);
-            if (b == null) return false;
+            if (b == null || b.KeyEntry == null) return false;
             b.KeyEntry.Value = clear ? new KeyboardShortcut() : new KeyboardShortcut(key);
             return true;
         }
