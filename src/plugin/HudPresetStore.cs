@@ -14,9 +14,9 @@ namespace NOXMFD
         public bool[] Buildings = Array.Empty<bool>();
     }
 
-    // Up to 5 named HUD-filter presets (issue #50 follow-up), server-side so any browser can save/
-    // load one. Fixed numbered slots (1-5), NOT an arbitrary create/delete list like LayoutStore —
-    // "PRESET N" always exists; only its name/data start empty and can be cleared back to empty.
+    // Up to 5 named HUD-filter presets, server-side so any browser can save/load one. Fixed numbered
+    // slots (1-5), NOT an arbitrary create/delete list like LayoutStore — "PRESET N" always exists;
+    // only its name/data start empty and can be cleared back to empty.
     //
     // Captures/restores the live HUDOptions state directly (categories/vehicles/buildings) — the
     // same three arrays HudCombatModeFilters already snapshots for its own idle baseline. No opaque
@@ -36,7 +36,7 @@ namespace NOXMFD
 
         private static readonly HudPreset[] _slots = BuildEmptySlots();
         // Which slot SAVE targets and the bottom label names — plain in-memory, not persisted: it's
-        // a UI selection, not saved data, so it resets to 1 on a fresh session like CombatMode does.
+        // a UI selection, not saved data, so it resets to 1 on a fresh session.
         private static int _current = 1;
 
         // Server-thread-readable cache, same threading contract as LayoutStore.LayoutsJson: every
@@ -163,8 +163,8 @@ namespace NOXMFD
 
         // Captures the LIVE HUDOptions state into whichever slot is current, under the given name —
         // always targets `_current`, never an index the client picks (the client only ever supplies
-        // a name; see docs/radar-master-arms.md). Rejects an empty name/unavailable HUDOptions rather
-        // than silently saving a blank/stale slot.
+        // a name). Rejects an empty name/unavailable HUDOptions rather than silently saving a
+        // blank/stale slot.
         public static bool Save(string? name)
         {
             if (string.IsNullOrEmpty(name)) return false;
@@ -190,7 +190,7 @@ namespace NOXMFD
         }
 
         // Clears the slot back to empty (name + data) — the slot itself always exists (1-5 are fixed),
-        // so "delete" can't remove it, only blank it, matching "empty until a name is set" (issue #50).
+        // so "delete" can't remove it, only blank it.
         public static bool Delete(int index)
         {
             if (index < 1 || index > SlotCount) return false;
@@ -264,12 +264,11 @@ namespace NOXMFD
             for (int i = 0; i < n; i++) opt.listBuildingTypes[i].Set(slot.Buildings[i]);
         }
 
-        // The "one runnable check" for this store's own JSON round-trip (repo convention — see
-        // JsonLite.SelfCheck). Save/LoadPreset/Apply all touch the live HUDOptions singleton and can
-        // only be verified in-game; this is the pure data-plumbing slice (write -> parse -> read)
-        // where a silent field-name typo or off-by-one would otherwise corrupt saved presets without
-        // ever throwing. Runs entirely against a throwaway slot array — never touches the real
-        // _slots/_current the plugin is actually using. Called once from Plugin.Awake via TryBind.
+        // Verifies this store's own JSON round-trip. Save/LoadPreset/Apply all touch the live
+        // HUDOptions singleton and can only be verified in-game; this is the pure data-plumbing
+        // slice (write -> parse -> read) where a silent field-name typo or off-by-one would
+        // otherwise corrupt saved presets without ever throwing. Runs entirely against a throwaway
+        // slot array — never touches the real _slots/_current the plugin is actually using.
         public static void SelfCheck()
         {
             void Check(bool cond, string what)

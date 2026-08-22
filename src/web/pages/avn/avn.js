@@ -1,7 +1,6 @@
 // AVN page — avionics. A pure reactive renderer driven by the shell over postMessage; single
 // source of truth for BOTH layouts (full-screen iframe + split pane). No damage silhouette or
-// airframe name here — both moved out (the AFM page owns airframe status). See avn.html for
-// the message contract.
+// airframe name here — the AFM page owns airframe status. See avn.html for the message contract.
 
 // ── DOM refs ───────────────────────────────────────────────────────────────────────
 const avnPanel     = document.getElementById('avn-panel');
@@ -20,14 +19,14 @@ const avnTileNvg    = document.getElementById('avn-tile-nvg');
 const avnTileLights = document.getElementById('avn-tile-lights');
 const avnTileTurret = document.getElementById('avn-tile-turret');
 
-// F-35 portal (layout-pages.js's '/avn?f35'): the master strip already shows these 8 flags
-// (issue #35's click-to-toggle), so the page itself hides the icon grid and shows gauges only.
+// F-35 portal (layout-pages.js's '/avn?f35'): the master strip already shows these 8 flags, so
+// the page hides the icon grid and shows gauges only.
 const IS_F35 = new URLSearchParams(location.search).has('f35');
 document.body.classList.toggle('f35', IS_F35);
 
 // Direct tile clicks/taps — the only way to toggle these on the F-35 layout (no bezel keys there
 // to wire externally); on the bezel this is an additional path to the same command the physical
-// key already sends, not a replacement for it. Group ids match AvnStatusPolicy.tileClass's below.
+// key already sends. Group ids match the kind strings AvnStatusPolicy.tileClass expects.
 [[avnTileGear, 'gear'], [avnTileRadar, 'radar'], [avnTileGuns, 'guns'], [avnTileEng, 'eng'],
  [avnTileAssist, 'assist'], [avnTileNvg, 'nvg'], [avnTileLights, 'lights'], [avnTileTurret, 'turret']]
   .forEach(function(pair) {
@@ -40,8 +39,8 @@ document.body.classList.toggle('f35', IS_F35);
 let avnData = { name: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
 let layout         = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)
 // {frameTop, frameHeight} forwarded by the shell in full — the vertical band .avn-content centres
-// itself in (below the top bezel row). No per-tile geometry any more: the icon grid and gauge grid
-// are plain CSS grids, sized/positioned entirely by CSS once .avn-content itself is placed.
+// itself in (below the top bezel row). No per-tile geometry: the icon grid and gauge grid are
+// plain CSS grids, sized/positioned entirely by CSS once .avn-content itself is placed.
 let avnFullGeom    = null;
 let avnLastType    = null;   // last aircraft type rendered, so a respawn on the SAME type still re-renders
 
@@ -61,8 +60,8 @@ function renderAvn() {
   layoutAvnContent();
 }
 
-// Recolour each tile from the live booleans (avn-status-policy maps state -> the 'on'/'off'/
-// 'gear-down' modifier class; the CSS turns that into green/gray/red on label + icon).
+// avn-status-policy maps state -> the 'on'/'off'/'gear-down' modifier class; the CSS turns that
+// into green/gray/red on label + icon.
 function setAvnTile(el, kind, active) {
   el.classList.remove('on', 'off', 'gear-down');
   el.classList.add(AvnStatusPolicy.tileClass(kind, active));
@@ -79,8 +78,8 @@ function paintAvnStatus() {
 }
 
 // The vertical band .avn-content centres itself in: full uses the shell-forwarded bezel geometry
-// (the same "below the top bezel row" band the old icon columns sat within); compact has no such
-// geometry, so it's just a small top margin down to a small bottom margin.
+// (the band below the top bezel row); compact has no such geometry, so it's just a small top
+// margin down to a small bottom margin.
 const AVN_TOP_MARGIN = 12;
 const AVN_BOTTOM_MARGIN = 12;
 function avnContentVerticalExtent() {
@@ -91,10 +90,9 @@ function avnContentVerticalExtent() {
   return { top: AVN_TOP_MARGIN, height: Math.max(0, panelRect.height - AVN_TOP_MARGIN - AVN_BOTTOM_MARGIN) };
 }
 
-// .avn-content spans the FULL panel width (no more tile-column inset — the icon grid is now a
-// sibling row above the gauges, not side columns beside them) and the full vertical extent, so it
-// reads as "as wide as possible, vertically centred" per that extent. The icon grid and gauge grid
-// split that height between them via flex-grow (avn.css) — no further JS sizing needed for either.
+// .avn-content spans the full panel width and the full vertical extent, so it reads as "as wide as
+// possible, vertically centred" per that extent. The icon grid and gauge grid split that height
+// between them via flex-grow (avn.css) — no further JS sizing needed for either.
 function layoutAvnContent() {
   const panelRect = avnPanel.getBoundingClientRect();
   if (!panelRect.width || !panelRect.height) {
@@ -129,24 +127,21 @@ function paintAvnHeatColor() {
 // sweep every dial's tick ring covers (avn.html's shared <defs>).
 function avnNeedleAngle(v) { return (v * 270).toFixed(1) + 'deg'; }
 
-// Absolute arc-position math for THRL's AFTERBURNER placard (the needle above only ever needs a
-// relative CSS rotate(), convention-free — this is for an absolute <path> instead). Clock-angle
-// convention (0deg = 12 o'clock, increasing clockwise) reverse-engineered from the dial's own
-// hardcoded track path (avn.html: "M 23.13 23.13 A 38 38 0 1 1 23.13 76.87") — that path's two
-// endpoints solve to exactly 315deg (v=0) and 585deg==225deg (v=1) here, so this is the one
-// coordinate system every dial in this file already implicitly agrees on.
+// Absolute arc-position math for THRL's AFTERBURNER placard (the needle above only needs a
+// relative CSS rotate(); this is for an absolute <path> instead). Clock-angle convention (0deg =
+// 12 o'clock, increasing clockwise) matches the dial's hardcoded track path (avn.html: "M 23.13
+// 23.13 A 38 38 0 1 1 23.13 76.87"), whose two endpoints solve to exactly 315deg (v=0) and
+// 585deg==225deg (v=1) — the coordinate system every dial in this file agrees on.
 function avnClockPoint(r, thetaDeg) {
   const t = thetaDeg * Math.PI / 180;
   return { x: 50 + r * Math.sin(t), y: 50 - r * Math.cos(t) };
 }
 function avnClockAngle(v) { return 315 + v * 270; }
-// sweep is derived from the v0->v1 direction (not hardcoded to 1, like the needle-swept fills
-// above) because text laid on a path reads upright only when the path runs in the direction that
-// keeps "outward from the dial centre" on the glyphs' up side — on the bottom half of the dial
-// (where the reheat zone always lands, since it's the top of THRL's range) that means running
-// from the HIGH-v end toward the LOW-v end, backwards from every other arc in this file. Getting
-// the sweep flag wrong here doesn't just mis-orient the text, it draws the major (306deg) arc
-// instead of the minor one, so it's derived rather than left at the fills' constant 1.
+// sweep follows the v0->v1 direction (not hardcoded to 1, like the needle-swept fills above)
+// because text laid on a path reads upright only when the path runs with "outward from the dial
+// centre" on the glyphs' up side — on the bottom half of the dial (where the reheat zone always
+// lands) that means running from the HIGH-v end toward the LOW-v end. Getting the sweep flag
+// wrong here draws the major (306deg) arc instead of the minor one, not just mis-oriented text.
 function avnArcPath(r, v0, v1) {
   const p0 = avnClockPoint(r, avnClockAngle(v0));
   const p1 = avnClockPoint(r, avnClockAngle(v1));
@@ -203,17 +198,13 @@ function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt) {
   valEl.textContent = Math.round(v * 100) + '%';
 }
 
-// THROTTLE is its own paint: AvnThrottlePolicy gives the needle position (`fill`, still 0..1 even
-// though it's no longer a bar height), the readout text ('MIL nn%' / red 'AB nn%'), and the zone.
-// Non-AB airframes just get a plain 0-100% needle sweep, same as before. The fill itself mirrors
-// the old vertical bar's green/red split, but via masking rather than a variable-length dash range:
-// .avn-gauge-fill-hot is always revealed full-extent to the live value (same fixed-dasharray
-// reveal every other gauge uses — continuous by construction, see setAvnGaugeFill), and the green
-// .avn-gauge-fill paints on top of it (avn.html source order) capped at boundary, hiding red for
-// the MIL portion. Only the segment past boundary ever shows red. A variable-length dash range for
-// just the red segment was tried first and looked erratic — its dasharray had to be recomputed
-// every frame (dash length = value - boundary), which CSS can't tween the way a fixed-pattern
-// dashoffset transition can.
+// THROTTLE is its own paint: AvnThrottlePolicy gives the needle position (`fill`, 0..1), the
+// readout text ('MIL nn%' / red 'AB nn%'), and the zone. The green/red split is done via masking
+// rather than a variable-length dash range: .avn-gauge-fill-hot is always revealed full-extent to
+// the live value (the same fixed-dasharray reveal every other gauge uses, see setAvnGaugeFill),
+// and the green .avn-gauge-fill paints on top of it (avn.html source order) capped at boundary,
+// hiding red for the MIL portion — only the segment past boundary ever shows red. A fixed-pattern
+// dashoffset transition tweens with CSS; a dasharray recomputed every frame would not.
 // The AB placard's own arc only depends on abStart (a per-aircraft constant), not the live
 // throttle — re-set it whenever abStart changes rather than every paint, so its span never
 // tracks the needle even transiently.
@@ -246,7 +237,7 @@ window.addEventListener('message', function(e) {
   if (!m || m.mfd !== true) return;
   if (m.type === 'avn') {
     avnData = {
-      name: m.name || null,   // presence-only now — never displayed, just gates the empty state
+      name: m.name || null,   // presence-only — never displayed, just gates the empty state
       fuel:     typeof m.fuel     === 'number' ? m.fuel     : -1,
       throttle: typeof m.throttle === 'number' ? m.throttle : -1,
       heat:     typeof m.heat     === 'number' ? m.heat     : -1,
@@ -268,7 +259,7 @@ window.addEventListener('message', function(e) {
     else { paintAvnGauges(); paintAvnStatus(); }
   } else if (m.type === 'avn-layout') {
     // Geometry profile from the shell. full forwards the bezel-anchored vertical band
-    // (geom.frameTop/frameHeight); compact carries no geometry at all any more.
+    // (geom.frameTop/frameHeight); compact carries no geometry.
     layout = (m.layout === 'full') ? 'full' : 'compact';
     document.body.classList.toggle('full', layout === 'full');
     avnFullGeom = (layout === 'full') ? (m.geom || null) : null;

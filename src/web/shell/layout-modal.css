@@ -1,8 +1,7 @@
-/* Shared modal primitive (issue #51, layout-modal.js) — used by both shells for SAVE's name-prompt
-   and LOAD's layout-picker. Built only from shared/theme.css tokens so it looks the same, and
-   correct, whether it's opened over the bezel (mfd.css) or the glass (f35.css) — neither shell's
-   own chrome colour (e.g. f35.css's teal) belongs to a control that isn't part of that shell's own
-   frame. */
+/* Shared modal primitive (layout-modal.js) — used by both shells for SAVE's name-prompt and LOAD's
+   layout-picker. Built only from shared/theme.css tokens so it looks the same, and correct,
+   whether it's opened over the bezel (mfd.css) or the glass (f35.css) — neither shell's own chrome
+   colour (e.g. f35.css's teal) belongs to a control that isn't part of that shell's own frame. */
 .layout-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -92,8 +91,8 @@
   border-color: var(--no-green);
   color: var(--no-green);
 }
-/* Per-row rename/delete (issue #51 follow-up) — small icon buttons beside the name, same shape as
-   WPT's own .wpt-row-btn (wpt.css). */
+/* Per-row rename/delete — small icon buttons beside the name, same shape as WPT's own
+   .wpt-row-btn (wpt.css). */
 .layout-modal-row-btn {
   flex: none;
   background: var(--no-panel-bg);

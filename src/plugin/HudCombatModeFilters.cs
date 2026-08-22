@@ -1,9 +1,9 @@
 namespace NOXMFD
 {
-    // Ties the HUD OPTIONS unit-icon filters (SceneSingleton<HUDOptions>) to weapons/combat mode
-    // (issue #50): entering A/A or A/G force-loads that HUD mode tab's own saved preset (the same
-    // one the player could pick by hand — HUDOptions.listModes[A2A]/[A2G]); returning to idle
-    // restores whatever the player had configured before combat mode took over.
+    // Ties the HUD OPTIONS unit-icon filters (SceneSingleton<HUDOptions>) to weapons/combat mode:
+    // entering A/A or A/G force-loads that HUD mode tab's own saved preset (the same one the player
+    // could pick by hand — HUDOptions.listModes[A2A]/[A2G]); returning to idle restores whatever the
+    // player had configured before combat mode took over.
     //
     // The "before" state is a running snapshot, not a one-time capture: every hud.set/hud.mode
     // command (CommandDispatcher) updates it, but ONLY while combat mode is idle — so edits made
@@ -12,7 +12,7 @@ namespace NOXMFD
     //
     // Re-pressing an already-active A/A or A/G is the documented way to discard those hand tweaks
     // and reload the mode's own preset — so OnCombatModeChanged runs on every SetCombatMode call,
-    // not just an actual transition (issue #50 follow-up).
+    // not just an actual transition.
     //
     // Driven entirely through Keybinds.SetCombatMode, the one choke point both the WPN page and the
     // physical keybind (tap AND hold-to-reset) already funnel through — this class only reacts to
@@ -26,14 +26,13 @@ namespace NOXMFD
 
         // A second, short-lived snapshot — separate storage from the idle baseline above, taken
         // immediately before EVERY combat-mode switch regardless of the opt-in toggle (see
-        // CaptureBeforeSwitch/UndoNativeAutoToggleIfOff below). Confirmed via logging (2026-08-22):
-        // with the toggle OFF, switching A/A<->A/G still changed HUD filter values — not from this
-        // class (OnCombatModeChanged's own toggle-gated early return never even ran) but from the
-        // GAME's own HUDOptions.AutomaticToggle, which the game itself invokes on ANY weapon-station
-        // selection change, including the one WeaponSelectors.OnCombatModeChanged (issue #32) makes
-        // unconditionally when the new mode disables the currently-selected weapon. That auto-switch
-        // isn't gated by this feature's toggle at all, so its native HUD side effect wasn't either —
-        // this snapshot exists purely to undo that side effect when the pilot hasn't opted in.
+        // CaptureBeforeSwitch/UndoNativeAutoToggleIfOff below). With the toggle OFF, switching
+        // A/A<->A/G can still change HUD filter values through the GAME's own
+        // HUDOptions.AutomaticToggle, which the game invokes on ANY weapon-station selection change,
+        // including the one WeaponSelectors.OnCombatModeChanged makes unconditionally when the new
+        // mode disables the currently-selected weapon. That auto-switch isn't gated by this feature's
+        // toggle at all, so its native HUD side effect isn't either — this snapshot exists purely to
+        // undo that side effect when the pilot hasn't opted in.
         private static bool _hasPreSwitch;
         private static bool[] _preSwitchCategories = System.Array.Empty<bool>();
         private static bool[] _preSwitchVehicles = System.Array.Empty<bool>();

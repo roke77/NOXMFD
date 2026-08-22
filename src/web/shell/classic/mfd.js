@@ -1,9 +1,8 @@
-// Generate the line-select keys around the screen (easy to tune).
 const COUNTS = { 'keys-left': 6, 'keys-right': 6, 'keys-top': 4, 'keys-bottom': 4 };
 function addSep(c) { const s = document.createElement('div'); s.className = 'sep'; c.appendChild(s); }
 function addKey(c) { const b = document.createElement('button'); b.className = 'key'; b.type = 'button'; c.appendChild(b); }
 
-// Pattern: ridge, key, ridge, key, … ridge — separators top & bottom so keys sit centered.
+// Ridge, key, ridge, key, … ridge — a separator both above the first key and below the last so keys sit centered.
 for (const id in COUNTS) {
   const container = document.getElementById(id);
   addSep(container);
@@ -21,14 +20,12 @@ const keyBanks = {
 };
 const leftKeys  = keyBanks.left;    // compatibility aliases for side-specific renderers
 const rightKeys = keyBanks.right;
-// Name every key by its bank+index. placeOverlayLabel stamps the same string on the label it puts
-// there, which is what lets the SOI cursor go from a physical key to the label riding on it.
+// placeOverlayLabel stamps this same bank+index string on the label it places, which is what lets
+// the SOI cursor go from a physical key to the label riding on it.
 ['left', 'right', 'top', 'bottom'].forEach(function(side) {
   keyBanks[side].forEach(function(k, i) { k.dataset.pos = side + i; });
 });
-// Fixed-control icon banks. The top row holds page-independent functions; the bottom row
-// holds layout controls. Both are wired once at startup and excluded from clearKeyActions,
-// so they survive page switches.
+// Both banks are wired once at startup and excluded from clearKeyActions, so they survive page switches.
 const layoutIcons = [
   { cls: 'ic-square', title: 'Full view',            action: 'unsplit' },
   { cls: 'ic-2x1',    title: 'Split top/bottom',     action: 'split'   },   // H_SPLIT
@@ -57,9 +54,9 @@ function applyIconBank(bankName, icons) {
 applyIconBank('top', functionIcons);
 applyIconBank('bottom', layoutIcons);
 
-// Remember the chosen layout so a fresh load honors it (docs/layouts.md, Stage 3). The head guard
-// in each shell's HTML reads this value and redirects before paint. Guarded: localStorage throws
-// in some private-mode browsers, and a failed write just means the choice isn't sticky.
+// Remember the chosen layout so a fresh load honors it (docs/layouts.md). The head guard in each
+// shell's HTML reads this value and redirects before paint. Guarded: localStorage throws in some
+// private-mode browsers, and a failed write just means the choice isn't sticky.
 function setLayout(name) { try { localStorage.setItem('layout', name); } catch (e) {} }
 const overlayEl = document.getElementById('overlay');
 const mapFrame  = document.querySelector('.screen > iframe[title="map"]');
@@ -99,49 +96,38 @@ const sepElsRight = document.querySelectorAll('#keys-right .sep');   // same str
 const NAV = NavModel.NAV;
 
 // ── Bezel layout renderer: full-view placement ───────────────────────────────────────
-// NAV item i lands on left-column key i, overflowing onto the right bank once the left one's six
-// keys are full (MAP's R+/R-, issue #38, is the first page past that mark). Uniform across every
-// page today, so it's derived rather than declared — the answer to layouts.md's "is placement
-// derivable from the ordered list?" is YES for full view (and no for split; see SPLIT_SLOTS).
+// NAV item i lands on left-column key i, overflowing onto the right bank once the left column's six
+// keys are full. Uniform across every page, so placement is derived rather than declared here (see
+// SPLIT_SLOTS for the split case, where it isn't derivable).
 function fullViewSlot(i) { return i < 6 ? { bank: 'left', index: i } : { bank: 'right', index: i - 6 }; }
 
-// Screens this layout puts on the glass beyond NAV's. The mirror of the F-35's own MAIN_EXTRAS, and
-// here for the same reason: NAV is shared and pinned at MAIN's six items (nav-model.test.js), one
-// per left-bank key, so a layout that wants more names them itself. LYT could not go in NAV even if
-// there were room — the F-35 already offers this choice from its master strip, so a NAV entry would
-// put it on that layout's MAIN a second time.
+// Screens this layout puts on the glass beyond NAV's — the mirror of the F-35's own MAIN_EXTRAS. NAV
+// is shared and pinned at MAIN's six items (nav-model.test.js), one per left-bank key, so a layout
+// that wants more names them itself. LYT can't go in NAV even with room: the F-35 already offers
+// this choice from its own master strip, so a NAV entry would put it on that layout's MAIN a second
+// time.
 //
-// LAYOUT is five left-bank labels and nothing else — CFG (the way back into the HUD/KEY/LYT/RTS
-// group LYT itself has no NAV entry for; see NAV.hud/keys/rates, which each already list HUD as
-// their own way back — LYT was the one member missing it), then the two layout choices, then
-// SAVE/LOAD LAYOUT (issue #51 follow-up: a touch-friendly path for a tablet with no keyboard,
-// alongside the keyboard shortcut). It draws no panel: every other page in this shell puts its
-// items beside a physical key, and a chooser is navigation, so it reads as one. `mark` is the
-// layout you are already on.
+// LAYOUT is five left-bank labels and nothing else: CFG (the way back into the HUD/KEY/LYT/RTS
+// group, which LYT itself has no NAV entry for), the two layout choices, then SAVE/LOAD LAYOUT (a
+// touch-friendly path for a tablet with no keyboard, alongside the keyboard shortcut). It draws no
+// panel — every other page in this shell puts its items beside a physical key, and a chooser reads
+// the same way. `mark` flags the layout currently active.
 const BEZEL_EXTRAS = {
-  // CFG, MD, RDR and AFM — the layout-owned MAIN items the six shared NAV items don't cover. CFG
-  // opens the CFG group (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39, HUD joined that group and,
-  // like RTS, has no MAIN entry of its own anymore), landing on HUD by default (mirrors MD's own
-  // sibling group below: action names whichever sibling is the landing page, same as MD staying
-  // 'akf'); MD (Mission Data) folds AKF/MIS/OBJ/BDF/PAL together — landing on AKF by default
-  // (issue #34 follow-up; the other four are a switch away via NAV.akf/NAV.mis/NAV.obj/NAV.bdf/
-  // NAV.pal) rather than its own MAIN entry; AFM shows the aircraft name + damage silhouette (split
-  // out of AVN, which is avionics only now).
-  // All are frame-hosted pages that get their MAIN back from NAV like every other, so none needs an
+  // CFG opens the HUD/KEY/LYT/RTS group, landing on HUD by default. MD (Mission Data) folds
+  // AKF/MIS/OBJ/BDF/PAL together, landing on AKF by default (the other four are a switch away via
+  // NAV.akf/NAV.mis/NAV.obj/NAV.bdf/NAV.pal). AFM shows the aircraft name + damage silhouette. All
+  // are frame-hosted pages that get their MAIN back from NAV like every other, so none needs an
   // entry of its own here beyond this one.
   // No bank/index/mark here (unlike lyt below): MAIN_SPLIT_ITEMS is the only consumer, in both full
-  // view and split (showPage / renderSplitLabels' 'main' branch), and it places by alphabetical
-  // order, not a fixed key.
+  // view and split, and it places by alphabetical order, not a fixed key.
   main: [
-    { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now
+    { label: 'CFG', action: 'hud' },
     { label: 'MD', action: 'akf' },
-    { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
-    { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
+    { label: 'RDR', action: 'rdr' },   // docs/rdr-page.md
+    { label: 'AFM', action: 'afm' },
   ],
-  // No MAIN back-item under lyt here — picking CLASSIC already navigates back to MAIN (this shell),
-  // so a separate way-back label would be redundant with it. CFG *is* needed despite that: it goes
-  // back to HUD/KEY/RTS (the 'hud' action, same as MAIN's own CFG entry — HUD is that group's
-  // landing page), which picking CLASSIC does not reach.
+  // No MAIN back-item under lyt here — picking CLASSIC already navigates back to MAIN (this shell).
+  // CFG is still needed: it goes back to HUD/KEY/RTS, which picking CLASSIC does not reach.
   lyt:  [
     { label: 'CFG',     action: 'hud',         bank: 'left', index: 0 },
     { label: 'CLASSIC', action: 'lyt-classic', bank: 'left', index: 1, mark: true },
@@ -153,18 +139,16 @@ const BEZEL_EXTRAS = {
 
 // All eleven MAIN destinations, alphabetically — the single ordering both full view (showPage) and a
 // split pane's paginated list (renderSplitLabels' 'main' branch) place from. Full view has room for
-// all of them at once (six left-bank keys, five of the right bank's six); a split pane's budget is 6
-// physical keys, too few — including HUD/KEY/LYT/BDF/PAL, which a split pane couldn't reach at all
-// before (the right bank is the pane's own column there, not BEZEL_EXTRAS) — so MAIN becomes a
+// all of them at once; a split pane's budget is 6 physical keys, too few, so MAIN becomes a
 // paginated list there, the same idea as WPN's weapon list.
 const MAIN_SPLIT_ITEMS = NAV.main.concat(BEZEL_EXTRAS.main)
   .slice()
   .sort(function (a, b) { return a.label.localeCompare(b.label); });
 
 // action → NAV.map item, shared by every full-view/split MAP ordering below — each is just a list
-// of actions mapped through this once, rather than NAV.map's own array order (issue #38 follow-up:
-// full view now wants a fixed 5-left/5-right split that doesn't line up with NAV.map's own order,
-// same reasoning MAIN's full view already diverges from NAV.main via MAIN_SPLIT_ITEMS).
+// of actions mapped through this once, since full view's fixed 5-left/5-right split doesn't line up
+// with NAV.map's own array order (same reasoning MAIN's full view diverges from NAV.main via
+// MAIN_SPLIT_ITEMS).
 const mapItemByAction = (function () {
   const byAction = {};
   NAV.map.forEach(function (item) { byAction[item.action] = item; });
@@ -172,27 +156,24 @@ const mapItemByAction = (function () {
 })();
 
 // NAV.map's own order for split pagination — deliberately NOT NAV.map's own full-view order (same
-// divergence MAIN_SPLIT_ITEMS already has from full view's own MAIN placement). The order itself
+// divergence MAIN_SPLIT_ITEMS has from full view's own MAIN placement). The order itself
 // (SplitSlots.MAP_SPLIT_ORDER/MAP_SPLIT_ORDER_V/mapSplitOrder) lives in split-slots.js, tested there
-// against NAV.map directly — see those constants' own comments for why this reordering exists (the
-// ROUTE decorator bug), why 'h' vs 'v'/'vw' get different orders (WPT-leads-in-v-split follow-up:
-// only 'h' has a left/right bank split a pair could straddle), and why R+/R- filter out with no
-// route saved at all while W+/W- filter out with no route ACTIVE (issue #38 follow-up, deactivate
-// follow-up, mirroring MAP_FULL_RIGHT below). Read live rather than cached at load, same reason
-// MAP_FULL_RIGHT's route check is: routes/active route/orientation can all change without a reload.
+// against NAV.map directly — see those constants' own comments for why 'h' vs 'v'/'vw' get different
+// orders, and why R+/R- filter out with no route saved at all while W+/W- filter out with no route
+// ACTIVE (mirroring MAP_FULL_RIGHT below). Read live rather than cached at load: routes, the active
+// route, and orientation can all change without a reload.
 function mapSplitItems() {
   const c = WaypointsStore.load();
   return SplitSlots.mapSplitOrder(splitVariant, c.routes.length > 0, !!WaypointsStore.getActiveRoute()).map(function (a) { return mapItemByAction[a]; });
 }
 
-// MAP's full-view placement (issue #38 follow-up): a fixed 5-left/5-right split instead of the
-// generic 6-then-overflow fullViewSlot sweep every other page uses — MAIN/GRID/FLW/Z+/Z- read as
-// "map view controls" on the left, WPT/R+/R-/W+/W- as "waypoint controls" on the right. The action
-// lists themselves (SplitSlots.MAP_FULL_LEFT/RIGHT) live in split-slots.js, shared with f35.js's own
-// glass placement so the two layouts can't drift apart — see that module's own comment. showPage's
-// 'map' branch conditionally drops rt-next/rt-prev from the right list (via SplitSlots.mapFullRight)
-// when no route is saved at all, and wpt-next/wpt-prev when none is active — WPT itself always
-// stays, since it's how a pilot gets a route in the first place.
+// MAP's full-view placement: a fixed 5-left/5-right split instead of the generic 6-then-overflow
+// fullViewSlot sweep every other page uses — MAIN/GRID/FLW/Z+/Z- read as "map view controls" on the
+// left, WPT/R+/R-/W+/W- as "waypoint controls" on the right. The action lists (SplitSlots
+// .MAP_FULL_LEFT/RIGHT) live in split-slots.js, shared with f35.js's own glass placement so the two
+// layouts can't drift apart. showPage's 'map' branch drops rt-next/rt-prev from the right list (via
+// SplitSlots.mapFullRight) when no route is saved at all, and wpt-next/wpt-prev when none is active
+// — WPT itself always stays, since it's how a pilot gets a route in the first place.
 const MAP_FULL_LEFT = SplitSlots.MAP_FULL_LEFT.map(function (a) { return mapItemByAction[a]; });
 function mapFullRight(hasRoutes, hasActiveRoute) {
   return SplitSlots.mapFullRight(hasRoutes, hasActiveRoute).map(function (a) { return mapItemByAction[a]; });
@@ -214,8 +195,8 @@ let splitMode = false;
 // 'vw' = left/right 2:1 (V_WIDE_SPLIT). Drives the .split-<variant> CSS class and the
 // bezel key mapping (SplitKeymap.paneKey). Meaningful only while splitMode is on.
 let splitVariant = 'h';
-// [topPage, botPage]. Step 3 of the implementation sequence seeds both panes with
-// MAIN on entry; per-pane navigation updates this from MAIN's L0..L2 / R0..R2 keys.
+// [topPage, botPage], seeded with MAIN on entry; per-pane navigation updates this from MAIN's
+// L0..L2 / R0..R2 keys.
 let panePages = ['main', 'main'];
 // Per-pane WPN pagination index. WPN's weapon list can exceed one split page; each pane
 // scrolls independently via its PREV/NEXT bezel labels. Reset to 0 when a pane (re)enters
@@ -261,8 +242,8 @@ const buildWpnSplitPages = ClassicPaging.buildWpnSplitPages;
 let paneMainPage = [0, 0];
 
 // Per-pane MAP pagination index — NAV.map paged across the pane's keys the same way MAIN's list
-// is (mapNavPaneSlice), since issue #38's R+/R- and W+/W- pushed NAV.map's 10 items past a split
-// pane's 6-key budget. Reset to 0 when a pane (re)enters MAP (paneNavigate).
+// is (mapNavPaneSlice), since NAV.map's 10 items exceed a split pane's 6-key budget. Reset to 0
+// when a pane (re)enters MAP (paneNavigate).
 let paneMapNavPage = [0, 0];
 
 // Latest connection status mirrored from the map iframe — kept so we can push the
@@ -390,13 +371,11 @@ function placeSplitKey(m, label, action, paneTag, mark) {
 // (renderSplitLabels). TGT's RESET FILTER and BDF/PAL/MIS/OBJ's WARHEADS readout are that content —
 // on a narrow display the panel widens to the edge and a horizontal MAIN would sit over that
 // header. All are split-capable.
-// RDR is not in this list (issue #40 follow-up): it carries MAIN + R+ + R- and reads fine
-// horizontal, not cramped enough to need the narrow vertical treatment.
-// KEY is not in this list either (cfg-rates experiment, issue #39): the CFG group's nav labels
-// read fine horizontal, per user preference — its table header sits far enough from the bezel edge.
-// HUD is not in this list either (per user preference — the label reads horizontal, same as KEY):
-// hud.css instead reserves left/right padding sized to a horizontal label's own width, so the panel
-// clears it without needing the narrow vertical treatment.
+// RDR is not in this list: it carries MAIN + R+ + R- and reads fine horizontal, not cramped enough
+// to need the narrow vertical treatment. KEY is not in this list either: the CFG group's nav labels
+// read fine horizontal — its table header sits far enough from the bezel edge. HUD is not in this
+// list either: hud.css instead reserves left/right padding sized to a horizontal label's own width,
+// so the panel clears it without needing the narrow vertical treatment.
 function isVmainPage(p) { return p === 'tgt' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
@@ -416,7 +395,7 @@ function mainPaneSlice(idx) {
   return slice;
 }
 
-// This pane's slice of MAP_SPLIT_ITEMS, same shape as mainPaneSlice above (issue #38).
+// This pane's slice of MAP_SPLIT_ITEMS, same shape as mainPaneSlice above.
 function mapNavPaneSlice(idx) {
   const slice = ClassicPaging.mainPaneSlice(mapSplitItems(), paneMapNavPage[idx]);
   paneMapNavPage[idx] = slice.pageIndex;
@@ -425,8 +404,8 @@ function mapNavPaneSlice(idx) {
 
 function renderSplitLabels() {
   clearKeyActions();
-  // .wpn-decor too: full view's MASTER/MODE and ZOOM decorators (docs/radar-master-arms.md,
-  // issue #41) must not survive entering split mode — split doesn't place them.
+  // .wpn-decor too: full view's MASTER/MODE and ZOOM decorators (docs/radar-master-arms.md) must
+  // not survive entering split mode — split doesn't place them.
   overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
   for (let paneIdx = 0; paneIdx < 2; paneIdx++) {
     const page = panePages[paneIdx];
@@ -456,9 +435,9 @@ function renderSplitLabels() {
     }
 
     if (page === 'map') {
-      // MAP's own list paging (issue #38) — NAV.map grew past a split pane's 6-key budget once
-      // R+/R- were added, so it's paginated exactly like MAIN above (mapNavPaneSlice/mainPageSizes)
-      // rather than declaring SPLIT_SLOTS.map slots (map has none — see split-slots.js).
+      // MAP's own list paging — NAV.map exceeds a split pane's 6-key budget, so it's paginated
+      // exactly like MAIN above (mapNavPaneSlice/mainPageSizes) rather than declaring
+      // SPLIT_SLOTS.map slots (map has none — see split-slots.js).
       const L = listPaneLayout(paneIdx, 'map');
       const positions = [L.main, L.items[0], L.items[1], L.items[2], L.items[3], L.next];
       const slice = mapNavPaneSlice(paneIdx);
@@ -507,8 +486,8 @@ function renderSplitLabels() {
       wireWpnPaneWeaponKeys(slice.items, paneIdx, paneTag);
       // ARM/SAFE/A-A/A-G (docs/radar-master-arms.md) — appended after the weapon list into the same
       // 4 item slots (buildWpnSplitPages), since a split pane has no spare keys the way full view
-      // does. Weapon slots are already wired above; only 'ctrl' slots need placing here ('empty'
-      // slots need nothing — clearKeyActions already cleared them).
+      // does. Only 'ctrl' slots need placing here ('empty' slots need nothing — clearKeyActions
+      // already cleared them).
       slice.slots.forEach(function(s, i) {
         if (s.type !== 'ctrl') return;
         const mark = s.id === 'master-arms-on'  ? wpnData.masterArmsOn === true
@@ -533,19 +512,15 @@ function renderSplitLabels() {
         // silently not render here — the exact failure the old duplicated tables produced. Say so.
         if (!s) { console.warn('[mfd] NAV.' + page + '[' + i + '] "' + item.label + '" has no SPLIT_SLOTS entry — not placed'); return; }
         const el = placeSplitKey(paneKey(paneIdx, s.side, s.slot), item.label, item.action, paneTag, item.mark);
-        // TGT keeps clickable content under its MAIN label; stand it upright in the
-        // pane too, the way full view does via .overlay.vmain — for that single-item page it's
-        // just MAIN. BDF/PAL/MIS/OBJ carry four MORE items each (their own MD switch), split across
-        // both the pane's left AND right columns (SPLIT_SLOTS.bdf/pal/mis/obj) — a horizontal "MIS"/
-        // "OBJ" label would run wide over the pane's own content on that edge (both pages already
-        // reserve only a narrow vertical-label inset on each side, matching BDF's). So every item of
-        // a vmain page stands upright here, not just its MAIN back-item — full view's rule already
-        // covers every left-bank item the same way (BDF/PAL/MIS/OBJ all land on the left bank there),
-        // this just extends the same idea to whichever side a split pane put each item on.
+        // TGT keeps clickable content under its MAIN label; stand it upright in the pane too, the
+        // way full view does via .overlay.vmain. BDF/PAL/MIS/OBJ split their extra items across both
+        // the pane's left AND right columns (SPLIT_SLOTS.bdf/pal/mis/obj), and both pages reserve
+        // only a narrow vertical-label inset on each side, so every item of a vmain page stands
+        // upright here, not just its MAIN back-item.
         if (el && isVmainPage(page)) el.classList.add('vlabel');
       });
-      // RANGE decorator between R+/R- (issue #40 follow-up) — RDR's twin. R+ is NAV.rdr[1]/
-      // SPLIT_SLOTS.rdr[1]; paneKey resolves its physical key for this pane/orientation.
+      // RANGE decorator between R+/R- — RDR's twin. R+ is NAV.rdr[1]/SPLIT_SLOTS.rdr[1]; paneKey
+      // resolves its physical key for this pane/orientation.
       if (page === 'rdr') placeRdrDecorators(paneKey(paneIdx, slots[1].side, slots[1].slot));
     }
   }
@@ -634,9 +609,8 @@ function forwardAvnLayoutToPanes() {
 }
 // Forward the full-view geometry: AVN's content block (icon grid + gauges) centres itself in the
 // band below the top bezel row, from below the first separator sep[0]'s row (sep1) to the bottom
-// strip. No more per-tile leftSlots/rightSlots — the page's icon grid is a plain CSS grid now,
-// not anchored to individual bezel-key rects (see placeAvnNavLabels below for where that anchoring
-// moved to instead).
+// strip. The icon grid is a plain CSS grid, not anchored to individual bezel-key rects (see
+// placeAvnNavLabels below for the per-key label anchoring instead).
 function forwardAvnLayoutToFrame() {
   const w = frameWin(); if (!w) return;
   const frameTop = pageFrame.getBoundingClientRect().top;
@@ -656,10 +630,10 @@ function forwardAvnLayoutToFrame() {
 }
 
 // AFM (airframe: name + damage silhouette) shares avnData's name/parts/failures — the shell
-// already tracks them for AVN's own snapshot (unused there since the redesign that split this
-// page out), so AFM just reads the same fields rather than parsing its own copy. No per-pane
-// layout forwarding, unlike AVN: AFM has no bezel-actuated content in a split pane, so compact's
-// fixed CSS offsets are enough there — only full view needs its bezel-anchored geometry, below.
+// already tracks them for AVN's own snapshot, so AFM just reads the same fields rather than
+// parsing its own copy. No per-pane layout forwarding, unlike AVN: AFM has no bezel-actuated
+// content in a split pane, so compact's fixed CSS offsets are enough there — only full view
+// needs its bezel-anchored geometry, below.
 function afmMsg() {
   return { mfd: true, type: 'afm', name: avnData.name, parts: avnData.parts,
            failures: avnData.failures, pylons: avnData.pylons };
@@ -669,8 +643,7 @@ function forwardAfmToPanes() { forwardToPanes('afm', afmMsg()); }
 function forwardAfmToFrame() { forwardToFrame(afmMsg()); }
 // Forward the full-view geometry: AFM's name band fills the top bezel row — from below the first
 // separator sep[0] to above the second sep[1] — and the silhouette frame spans from below sep[1]
-// to the bottom strip (last sep). Mirrors AVN's own forwardAvnLayoutToFrame from before its
-// redesign dropped the header band (that page no longer needs one; this one does).
+// to the bottom strip (last sep).
 function forwardAfmLayoutToFrame() {
   const w = frameWin(); if (!w) return;
   const frameTop = pageFrame.getBoundingClientRect().top;
@@ -784,8 +757,8 @@ function forwardObjToPanes() { forwardToPanes('obj', objMsg()); }
 function akfMsg() { return Object.assign({ mfd: true, type: 'akf' }, akfData); }
 function forwardAkfToFrame() { forwardToFrame(akfMsg()); }
 function forwardAkfToPanes() { forwardToPanes('akf', akfMsg()); }
-// Full-view WPT (issue #38): forward the mapinfo slice (position/heading/grid meta) the readout
-// needs for its distance/bearing-to-next-waypoint calc. Split-pane twin sends the same payload to
+// Full-view WPT: forward the mapinfo slice (position/heading/grid meta) the readout needs for
+// its distance/bearing-to-next-waypoint calc. Split-pane twin sends the same payload to
 // any pane showing WPT. Not to be confused with forwardWptRoutes*/wptRoutesMsg below, which push
 // the route LIBRARY rather than this mapinfo slice.
 function wptMsg() { return Object.assign({ mfd: true, type: 'mapinfo' }, mapInfoData); }
@@ -929,7 +902,7 @@ function forwardCmToFrame() { forwardToFrame(cmMsg()); }
 // subtract the frame's top). sepEls: index 0 = above key0, i+1 = below key i (7 separators for
 // 6 keys). Weapon slot k (0..4) = key k+1, spanning sep[k+1].bottom → sep[k+2].top; CM band =
 // key-0 slot (sep[0].bottom → sep[1].top); the image area spans keys 1..5 (sep[1] → sep[6])
-// with a 20px inset top+bottom — matching the former overlay renderWpn/renderCm.
+// with a 20px inset top+bottom.
 function forwardWpnLayoutToFrame() {
   const w = frameWin(); if (!w) return;
   const frameTop = pageFrame.getBoundingClientRect().top;
@@ -976,8 +949,8 @@ function placeWpnNavLabels() {
 }
 
 // Purely decorative — a word + triangle above/below, centered in the gap BETWEEN a control pair
-// rather than on either key (docs/radar-master-arms.md, per the user's mockup-approved design;
-// issue #41 reuses it for MAP's Z+/Z- as ZOOM). Vertically centered on the separator between the
+// rather than on either key (docs/radar-master-arms.md; also reused for MAP's Z+/Z- as ZOOM).
+// Vertically centered on the separator between the
 // pair's two keys (sepElsRight[2] sits between right[1]/ARM and right[2]/SAFE; sepElsRight[4]
 // between right[3]/A-A and right[4]/A-G; sepEls[4] between left[3]/Z+ and left[4]/Z- — each side's
 // array has index i+1 = below key i). Horizontally centered on the pair's own labels rather than
@@ -1025,7 +998,7 @@ function placeWpnPaneDecorator(L, slots, idA, idB, word) {
   if (!a || !b || a.bank !== b.bank || Math.abs(a.index - b.index) !== 1) return;
   placeWpnDecorator(a.bank, Math.max(a.index, b.index), word, '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
-// MAP's own pane-pagination twin (issue #38): same "found by action, skip if the pair straddles a
+// MAP's own pane-pagination twin: same "found by action, skip if the pair straddles a
 // page or a bank" reasoning as placeWpnPaneDecorator above, adapted to mapNavPaneSlice's flat
 // { positions, cells } shape rather than buildWpnSplitPages' slot list. A pair CAN straddle a page
 // boundary here (mainPageSizes is a plain even-fill, no pairing awareness) — when it does, the
@@ -1038,7 +1011,7 @@ function placeMapPaneDecorator(positions, cells, actionA, actionB, word) {
   if (!a || !b || a.bank !== b.bank || Math.abs(a.index - b.index) !== 1) return;
   placeWpnDecorator(a.bank, Math.max(a.index, b.index), word, '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
-// MAP's twin (issue #41) — ZOOM between Z+/Z-, same word+triangle treatment. Takes Z+'s own
+// MAP's twin — ZOOM between Z+/Z-, same word+triangle treatment. Takes Z+'s own
 // physical key ({bank,index}) rather than hardcoding one: full view and each split pane/orientation
 // put Z+ on a different physical key (split-keymap.js's paneKey), but SPLIT_SLOTS.map always keeps
 // Z+/Z- adjacent (slot 0/1) on the same bank, so the separator directly below Z+ (index+1) is
@@ -1046,19 +1019,19 @@ function placeMapPaneDecorator(positions, cells, actionA, actionB, word) {
 function placeMapDecorators(zinKey) {
   placeWpnDecorator(zinKey.bank, zinKey.index + 1, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
-// MAP's ROUTE decorator (issue #38) — R+/R- switch the active waypoint route, same word+triangle
+// MAP's ROUTE decorator — R+/R- switch the active waypoint route, same word+triangle
 // treatment as ZOOM. Takes R+'s own physical key; in full view SPLIT_SLOTS doesn't apply (MAP is
 // paginated in split, see mapNavPaneSlice/placeMapPaneDecorator instead), so this is full-view only.
 function placeMapRouteDecorator(rPlusKey) {
   placeWpnDecorator(rPlusKey.bank, rPlusKey.index + 1, 'ROUTE', '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
-// MAP's WYPT decorator (issue #38) — W+/W- manually step the active waypoint, same word+triangle
+// MAP's WYPT decorator — W+/W- manually step the active waypoint, same word+triangle
 // treatment as ROUTE. Takes W+'s own physical key; full-view only (SPLIT_SLOTS doesn't apply to MAP —
 // see placeMapPaneDecorator for the split-pane twin).
 function placeMapWptDecorator(wPlusKey) {
   placeWpnDecorator(wPlusKey.bank, wPlusKey.index + 1, 'WYPT', '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
-// RDR's twin (issue #40 follow-up) — RANGE between R+/R-, same word+triangle treatment. Takes R+'s
+// RDR's twin — RANGE between R+/R-, same word+triangle treatment. Takes R+'s
 // own physical key, same reasoning as placeMapDecorators: SPLIT_SLOTS.rdr keeps R+/R- adjacent
 // (slot 1/2) on the same bank in every context, so index+1 is always the separator between them.
 function placeRdrDecorators(rPlusKey) {
@@ -1163,7 +1136,7 @@ let pinnedPage    = null;
 // and one per pane in a split, since each MAP pane follows independently. Both drive the FLW label.
 let followOn      = false;
 let paneFollowOn  = [false, false];
-// Grid overlay state, mirrored the same way (issue #41) — one for the full-view map, one per pane.
+// Grid overlay state, mirrored the same way — one for the full-view map, one per pane.
 // Default false (fresh-pane guess before the pane reports its own persisted state on load) since
 // the grid defaults off.
 let gridOn        = false;
@@ -1217,7 +1190,7 @@ function markFollowLabels() {
     });
   });
 }
-// GRID's twin of markFollowLabels — same "light the label, not a corner chip" reasoning (issue #41).
+// GRID's twin of markFollowLabels — same "light the label, not a corner chip" reasoning.
 function markGridLabels() {
   ['left', 'right'].forEach(function(side) {
     (keyBanks[side] || []).forEach(function(k) {
@@ -1325,7 +1298,7 @@ let objData = { present: false };
 let akfData = { all: [], player: [], kills: { aircraft: 0, ship: 0, vehicle: 0, building: 0 },
                  value: 0, fundsGained: 0, fundsSpent: 0 };
 
-// WPT waypoints/routes readout (issue #38) — the widened 'mapinfo' slice (mission/grid/x/z/hdg/
+// WPT waypoints/routes readout — the widened 'mapinfo' slice (mission/grid/x/z/hdg/
 // ox/oy), mirrored the same way as OBJ/MIS. Unlike those, WPT isn't the only consumer — the map
 // page itself derives the same values straight from its own frame — but WPT is a separate
 // document/iframe, so it needs its own copy forwarded the same way every other page's data is.
@@ -1390,7 +1363,7 @@ function showPage(name) {
   screenEl.classList.toggle('page-on', !!frameUrlFor(name));   // WPN/TGT/TGP/AVN render in #page-frame
   clearKeyActions();
   // Only wipe dynamic line-select labels (+ WPN's purely-decorative MASTER/MODE and MAP's ZOOM
-  // labels, docs/radar-master-arms.md, issue #41); static children (info-box) stay put.
+  // labels, docs/radar-master-arms.md); static children (info-box) stay put.
   overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
 
   if (name === 'main') {
@@ -1402,12 +1375,12 @@ function showPage(name) {
       placeOverlayLabel(bank, i < 6 ? i : i - 6, item.label, item.action);
     });
   } else if (name === 'map') {
-    // MAP_FULL_LEFT/RIGHT (issue #38 follow-up), not the generic NAV sweep — see their own comment.
+    // MAP_FULL_LEFT/RIGHT, not the generic NAV sweep — see their own comment.
     MAP_FULL_LEFT.forEach(function (item, i) { placeOverlayLabel('left', i, item.label, item.action); });
     // rt-next/rt-prev only show — and so only work, since clearKeyActions already wiped every key's
-    // action and nothing reassigns a skipped one's — while at least one route is saved (deactivate
-    // follow-up: they still work with none ACTIVE, cycling into one). wpt-next/wpt-prev need a route
-    // actually active, since they step ITS next waypoint. WPT (index 0) always shows regardless.
+    // action and nothing reassigns a skipped one's — while at least one route is saved (they still
+    // work with none ACTIVE, cycling into one). wpt-next/wpt-prev need a route actually active,
+    // since they step ITS next waypoint. WPT (index 0) always shows regardless.
     const hasRoutes = WaypointsStore.load().routes.length > 0;
     const hasActiveRoute = !!WaypointsStore.getActiveRoute();
     mapFullRight(hasRoutes, hasActiveRoute).forEach(function (item, i) { placeOverlayLabel('right', i, item.label, item.action); });
@@ -1520,14 +1493,14 @@ function showPage(name) {
   // KEY (extended keybinds) renders in #page-frame too. Like HUD it's self-driven — it polls
   // /keybinds-config and POSTs its own keybind.* commands — so the shell forwards it nothing.
   if (name === 'keys') showFramePage('keys');
-  // RTS (cfg-rates experiment, issue #39) renders in #page-frame too — same self-driven shape as
-  // KEY/HUD: it polls /rates-config and POSTs its own rates.set commands.
+  // RTS renders in #page-frame too — same self-driven shape as KEY/HUD: it polls /rates-config
+  // and POSTs its own rates.set commands.
   if (name === 'rates') showFramePage('rates');
   // EXT's static "no extensions installed" fallback (docs/extensions-api.md) — fully static,
   // no data to forward, unlike the ExtNav.isExtensionPage branch below for a real extension.
   if (name === 'ext') showFramePage('ext');
-  // WPT (issue #38) renders in #page-frame too — unlike KEY/RTS it isn't self-driven: it needs the
-  // mapinfo slice (own-ship position/heading + map meta) forwarded for its readout.
+  // WPT renders in #page-frame too — unlike KEY/RTS it isn't self-driven: it needs the mapinfo
+  // slice (own-ship position/heading + map meta) forwarded for its readout.
   if (name === 'wpt') {
     showFramePage('wpt');
     forwardWptToFrame();
@@ -1550,13 +1523,12 @@ function showPage(name) {
 
 // The map iframe broadcasts status + loadout + cm via postMessage; mirror onto the
 // info-box (MAIN page), the cached wpnData + cmData (WPN page).
-// docs/refactor-scan.md step 7: these 7 message types share one exact shape in the dispatcher
-// below — store the raw message verbatim, then forward it to whichever surface shows the page.
-// Everything else in the dispatcher derives its own store shape (targets/rwr/mw/rdr reshape
-// m.items, tgp/status/etc. pull single fields) or isn't a page-forward at all, so it stays its
-// own branch rather than being folded in here. `page` is the page whose visibility gates the
-// forward — 'mapinfo' messages feed WPT, not a 'mapinfo' page, so it's the one entry where the
-// map key and the page name differ.
+// These 7 message types share one exact shape in the dispatcher below — store the raw message
+// verbatim, then forward it to whichever surface shows the page. Everything else in the dispatcher
+// derives its own store shape (targets/rwr/mw/rdr reshape m.items, tgp/status/etc. pull single
+// fields) or isn't a page-forward at all, so it stays its own branch rather than being folded in
+// here. `page` is the page whose visibility gates the forward — 'mapinfo' messages feed WPT, not a
+// 'mapinfo' page, so it's the one entry where the map key and the page name differ.
 const RELAY_MESSAGES = Object.assign(Object.create(null), {
   tgt:     { page: 'tgt', set: function (m) { tgtData     = m; }, toFrame: forwardTgtToFrame, toPanes: forwardTgtToPanes },
   bdf:     { page: 'bdf', set: function (m) { bdfData     = m; }, toFrame: forwardBdfToFrame, toPanes: forwardBdfToPanes },
@@ -1573,13 +1545,12 @@ window.addEventListener('message', function(e) {
   // Telemetry-mirror messages come only from the canonical map iframe (mapFrame). In split mode
   // a MAP *pane* is a second map iframe that also streams to the shell; ignoring its duplicate
   // data posts keeps the RWR/AVN/etc. mirrors on a single source — otherwise two out-of-phase
-  // feeds drive them (jumpy in preview, redundant live). 'follow' and 'grid' (issue #41) are both
-  // per-pane and route by e.source itself, so they must pass through from any map source — this
-  // gate dropping 'grid' silently left a split pane's GRID label stuck unlit forever, even though
-  // the pane's own map correctly persisted and drew the grid regardless.
-  // 'wpt-routes-request': a freshly-loaded MAP/WPT pane or the full-view frame catching up on the
-  // route library (docs/hud-waypoint-indicator.md perf fix, 2026-08-18) — comes from whichever
-  // iframe just loaded, not necessarily mapFrame, same reasoning as 'follow'/'grid'.
+  // feeds drive them (jumpy in preview, redundant live). 'follow' and 'grid' are both per-pane and
+  // route by e.source itself, so they must pass through from any map source, or a split pane's
+  // label for that state gets stuck unlit even though its own map persisted and drew it regardless.
+  // 'wpt-routes-request' (a freshly-loaded MAP/WPT pane or the full-view frame catching up on the
+  // route library, docs/hud-waypoint-indicator.md) comes from whichever iframe just loaded, not
+  // necessarily mapFrame, same reasoning as 'follow'/'grid'.
   if (m.type !== 'follow' && m.type !== 'grid' && m.type !== 'wpt-routes-request' && e.source !== mapFrame.contentWindow) return;
   if (m.type === 'status') {
     lastStatusCls  = m.cls;
@@ -1712,7 +1683,7 @@ window.addEventListener('message', function(e) {
     refreshFollowIndicator();
   } else if (m.type === 'grid') {
     // Map iframe broadcasts its grid-overlay state on toggle / mission clear, same protocol as
-    // 'follow' above (issue #41) — routed by source, one state per map context.
+    // 'follow' above — routed by source, one state per map context.
     const on = !!m.on;
     if      (e.source === mapFrame.contentWindow)       gridOn = on;
     else if (e.source === paneIframes[0].contentWindow) paneGridOn[0] = on;
@@ -1745,9 +1716,8 @@ window.addEventListener('message', function(e) {
     if (currentPage === 'rdr' && !splitMode) forwardRdrToFrame();
     if (splitMode) forwardRdrToPanes();
   } else if (RELAY_MESSAGES[m.type]) {
-    // The 7 verbatim-store-and-forward types (docs/refactor-scan.md step 7) — see RELAY_MESSAGES
-    // above. Renders in the #page-frame iframe (full) or a pane (split); forward on when it's the
-    // page in view.
+    // The 7 verbatim-store-and-forward types — see RELAY_MESSAGES above. Renders in the #page-frame
+    // iframe (full) or a pane (split); forward on when it's the page in view.
     const r = RELAY_MESSAGES[m.type];
     r.set(m);
     if (currentPage === r.page && !splitMode) r.toFrame();
@@ -1778,9 +1748,9 @@ function flickerScreen() {
 }
 
 // Boot loader for the centre info box: shows a LOADING… line + a fill bar, keeps the title
-// visible, hides the data rows until the bar hits 100%. Runs alongside the first-load
-// boot flicker. docs/refactor-scan.md step 1: the fill-bar and typewriter mechanics are shared
-// with f35.js via src/web/shell/boot-reveal.js.
+// visible, hides the data rows until the bar hits 100%. Runs alongside the first-load boot
+// flicker. The fill-bar and typewriter mechanics are shared with f35.js via
+// src/web/shell/boot-reveal.js.
 function runBootLoading() {
   const fill = document.getElementById('ib-bar-fill');
   if (!infoBox || !fill) return;
@@ -1869,8 +1839,8 @@ function reportPanes() {
 
 // ── PAD cursor forwarding (docs/page-cursor.md, docs/map-cursor.md) ───────────────────
 // Pages that carry their own PAD cursor (pad-cursor.js) — MAP's canvas crosshair, and TGT/HUD/RDR/
-// WPT/AKF's DOM-hit-test cursor. AKF joined once its ALL/PLAYER resizer gave it something to click
-// (issue #34 follow-up) — BDF/PAL stay out: read-only, nothing to click (docs/page-cursor.md).
+// WPT/AKF's DOM-hit-test cursor. AKF has its ALL/PLAYER resizer to click; BDF/PAL stay out:
+// read-only, nothing to click (docs/page-cursor.md).
 const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, akf: true };
 
 // The focused surface is drivable as a PAD cursor only while it's actually SHOWING an eligible
@@ -2009,8 +1979,8 @@ function mfdButton(el) {
       paneMainPage[paneIdx] += (act === 'main-next' ? 1 : -1);
       renderSplitLabels();
     } else if (act === 'map-nav-prev' || act === 'map-nav-next') {
-      // MAP's own list paging (issue #38's R+/R- pushed NAV.map past a split pane's 6-key budget)
-      // — same idea as MAIN's own paging just above, bumping paneMapNavPage (mapNavPaneSlice).
+      // MAP's own list paging (NAV.map exceeds a split pane's 6-key budget) — same idea as MAIN's
+      // own paging just above, bumping paneMapNavPage (mapNavPaneSlice).
       paneMapNavPage[paneIdx] += (act === 'map-nav-next' ? 1 : -1);
       renderSplitLabels();
     } else if (act === 'lyt') {
@@ -2029,8 +1999,8 @@ function mfdButton(el) {
     } else if (act === 'rng-in' || act === 'rng-out') {
       // RDR's range rocker acts on the pane's own iframe, same as MAP's zoom above — paneMapSend
       // just posts to whichever iframe is in this pane, not MAP-specific despite the name. Reuses
-      // the SAME 'zoom-in'/'zoom-out' action names MAP's zoom sends (issue #40 follow-up), which is
-      // also what SOI's Zoom In/Out keybind sends when RDR is the focused surface (docs/page-cursor.md).
+      // the SAME 'zoom-in'/'zoom-out' action names MAP's zoom sends, which is also what SOI's Zoom
+      // In/Out keybind sends when RDR is the focused surface (docs/page-cursor.md).
       paneMapSend(paneIdx, act === 'rng-in' ? 'zoom-in' : 'zoom-out');
     } else if (act === 'weapon.select') {
       // A weapon row: selection is aircraft-global, not a destination page — same case as the
@@ -2087,17 +2057,17 @@ function mfdButton(el) {
       break;
     case 'hud':  showPage('hud');  break;
     case 'keys':  showPage('keys');  break;
-    case 'rates': showPage('rates'); break;   // cfg-rates experiment (issue #39) — CFG group's RTS
+    case 'rates': showPage('rates'); break;
     case 'lyt':   showPage('lyt');   break;
     // The LAYOUT page's two choices. CLASSIC is this document, so choosing it is just leaving the
     // menu — back to MAIN, where LYT was pressed, with a fresh status as MAIN's own key pulls.
     // F-35 is a different document, so it is a real navigation; that shell lands on its own MAIN.
     // Either choice is remembered (setLayout → localStorage) so a fresh load honors it — the head
-    // guard in each shell's HTML redirects on that value (docs/layouts.md, Stage 3).
+    // guard in each shell's HTML redirects on that value (docs/layouts.md).
     case 'lyt-classic': setLayout('classic'); showPage('main'); mapSend('status-request'); break;
     case 'lyt-f35':     setLayout('f35'); location.href = '/f35'; break;
-    // Touch-friendly path for SAVE/LOAD LAYOUT (issue #51 follow-up) — same modals the keyboard
-    // shortcut opens, for a tablet with no keyboard attached. Saving from here means the layout
+    // Touch-friendly path for SAVE/LOAD LAYOUT — same modals the keyboard shortcut opens, for a
+    // tablet with no keyboard attached. Saving from here means the layout
     // remembers LYT itself as the current page (LYT has no per-pane content, so it's always
     // full-view) — see applyLayoutState's pin restore below for how SWAP gets a pilot back off it.
     case 'lyt-save-layout': openSaveLayoutModal(); break;
@@ -2116,14 +2086,14 @@ function mfdButton(el) {
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;
     case 'grid': mapSend('toggle-grid'); break;
-    case 'rt-next': mapSend('route-next'); break;   // switch the active waypoint route (issue #38)
+    case 'rt-next': mapSend('route-next'); break;   // switch the active waypoint route
     case 'rt-prev': mapSend('route-prev'); break;
-    case 'wpt-next': mapSend('waypoint-next'); break;   // manually step the active waypoint (issue #38)
+    case 'wpt-next': mapSend('waypoint-next'); break;   // manually step the active waypoint
     case 'wpt-prev': mapSend('waypoint-prev'); break;
     // RDR's range rocker — mapSend() targets mapFrame specifically, wrong for RDR (a #page-frame
     // page), so this posts to frameWin() instead. Same 'zoom-in'/'zoom-out' action names as MAP's
-    // zin/zout above (issue #40 follow-up): reused, not new, so SOI's Zoom In/Out keybind (which
-    // sends the same names — docs/page-cursor.md) drives RDR range for free once RDR is SOI focus.
+    // zin/zout above: reused, not new, so SOI's Zoom In/Out keybind (which sends the same names —
+    // docs/page-cursor.md) drives RDR range for free once RDR is SOI focus.
     case 'rng-in':  { const w = frameWin(); if (w) w.postMessage({ mfd: true, action: 'zoom-in'  }, '*'); } break;
     case 'rng-out': { const w = frameWin(); if (w) w.postMessage({ mfd: true, action: 'zoom-out' }, '*'); } break;
     case 'hide-shell':
@@ -2211,11 +2181,10 @@ document.getElementById('shell-restore').addEventListener('click', function() {
 });
 
 // A/A · A/G bezel keys: press-and-HOLD resets combat mode to ALL, mirroring the physical PC
-// keybind's own tap/hold pair (Keybinds.cs's PollTapHold, docs/radar-master-arms.md) — there was
-// no dedicated ALL control here because holding either key was assumed to cover it, but nothing
-// ever actually timed a hold on these two DOM keys (issue #50 follow-up). soiAct('select') below
-// calls mfdButton() directly with no pointer events to time, so this only covers a literal mouse/
-// touch press-and-hold on the on-screen key, not a SOI-navigated physical Select press.
+// keybind's own tap/hold pair (Keybinds.cs's PollTapHold, docs/radar-master-arms.md). soiAct
+// ('select') below calls mfdButton() directly with no pointer events to time, so this only covers
+// a literal mouse/touch press-and-hold on the on-screen key, not a SOI-navigated physical Select
+// press.
 const COMBAT_MODE_HOLD_MS = 500;   // matches tgt.js's LONG_MS / pad-cursor.js's DEFAULT_HOLD_MS
 let combatModeHoldTimer = null;
 let combatModeHoldFired = false;
@@ -2264,13 +2233,11 @@ window.addEventListener('resize', function() {
 });
 // Route-LIBRARY forward (not to be confused with forwardWptToFrame/Panes above, which forward the
 // mapinfo readout slice specifically) — pushes RouteStore's data down to every pane/frame so only
-// this shell document ever polls /wpt-options (docs/hud-waypoint-indicator.md perf fix, 2026-08-18:
-// before this, every open MAP/WPT pane AND the shell each ran an independent poller, multiplying
-// requests and redraws by however many were open — confirmed by profiling: roughly 3x the expected
-// request rate for one device. Sent to every pane/frame unconditionally
-// rather than gated by panePages like the mapinfo forwards — routes matter to both MAP and WPT, and
-// an unused postMessage to a page that isn't listening for it is negligible next to the redundant
-// fetch/parse/compare loop it replaces.
+// this shell document polls /wpt-options (docs/hud-waypoint-indicator.md); an independent poller
+// per open MAP/WPT pane would multiply requests and redraws by however many were open. Sent to
+// every pane/frame unconditionally rather than gated by panePages like the mapinfo forwards —
+// routes matter to both MAP and WPT, and an unused postMessage to a page that isn't listening for
+// it is negligible next to the redundant fetch/parse/compare loop it replaces.
 function wptRoutesMsg() { return { mfd: true, type: 'wpt-routes', data: WaypointsStore.load() }; }
 // Unlike every other ToPanes function above, this one is unconditional — sent to every pane
 // regardless of page (routes matter to both MAP and WPT, see the comment above), so it doesn't
@@ -2282,8 +2249,8 @@ function forwardWptRoutesToPanes() {
 function forwardWptRoutesToFrame() { forwardToFrame(wptRoutesMsg()); }
 // MAP runs in its own always-loaded mapFrame (the tap), separate from both #page-frame and the
 // split panes, whether or not MAP is the currently visible page — so it needs this push too, not
-// just the two targets above. Missing this left the map iframe's own route overlay stuck on
-// whatever it caught up with at load, never seeing a later edit (caught in testing, 2026-08-18).
+// just the two targets above, or its route overlay stays stuck on whatever it caught up with at
+// load and never sees a later edit.
 function forwardWptRoutesToMap() {
   if (mapFrame && mapFrame.contentWindow)
     mapFrame.contentWindow.postMessage(wptRoutesMsg(), '*');
@@ -2303,7 +2270,7 @@ window.addEventListener('wptroutes:changed', function() {
   forwardWptRoutesToMap();
 });
 
-// ── SAVE/LOAD LAYOUT (issue #51) — browser-side keyboard shortcuts only, no joystick/HOTAS. ────
+// ── SAVE/LOAD LAYOUT — browser-side keyboard shortcuts only, no joystick/HOTAS. ────────────────
 // S saves the current arrangement (split mode + variant + per-pane pages, or the full-view page)
 // under a name; L opens a picker of every saved CLASSIC layout and applies the one clicked.
 // Storage is server-side (LayoutStore.cs), so a layout saved here shows up on every other
@@ -2313,7 +2280,7 @@ function captureLayoutState() {
   const state = splitMode
     ? { splitMode: true, splitVariant: splitVariant, pages: panePages.slice() }
     : { splitMode: false, pages: [currentPage] };
-  // The PIN (issue #51 follow-up) — saving from LYT (SAVE has to be pressed there; LYT has no
+  // The PIN — saving from LYT (SAVE has to be pressed there; LYT has no
   // per-pane content, so it's always full-view) means the layout itself remembers LYT, not
   // whatever page the pilot actually cares about. Carrying pinnedPage along lets a single SWAP
   // after LOAD jump straight back to it, same as it would have before saving.
@@ -2349,9 +2316,8 @@ function applyLayoutState(state) {
   }
 }
 
-// docs/refactor-scan.md step 1: SAVE/LOAD LAYOUT keyboard wiring is shared with f35.js via
-// src/web/shell/layout-keydown.js — only captureLayoutState/applyLayoutState (this shell's own
-// state shape) stay here.
+// SAVE/LOAD LAYOUT keyboard wiring is shared with f35.js via src/web/shell/layout-keydown.js —
+// only captureLayoutState/applyLayoutState (this shell's own state shape) stay here.
 const { openSaveLayoutModal, openLoadLayoutModal, handleLayoutKeydown, wireLayoutKeydown } =
   LayoutKeydown.makeLayoutKeydownHandlers('classic', captureLayoutState, applyLayoutState);
 window.addEventListener('keydown', handleLayoutKeydown);

@@ -1,8 +1,6 @@
-// SAVE/LOAD LAYOUT keyboard wiring, shared by both shells (docs/refactor-scan.md step 1) — mfd.js
-// and f35.js each had a byte-identical copy of this, differing only in the shell name string and
-// which capture/apply-state functions to call (those two genuinely differ per shell: classic's state
-// is {splitMode, splitVariant, pages, pinnedPage}, f35's is {cells, pages} — real per-layout data,
-// not accidental duplication, so they stay as constructor arguments rather than being folded in).
+// SAVE/LOAD LAYOUT keyboard wiring, shared by both shells (mfd.js, f35.js). captureLayoutState/
+// applyLayoutState are passed in per shell because the state shape genuinely differs: classic's is
+// {splitMode, splitVariant, pages, pinnedPage}, f35's is {cells, pages}.
 //
 // Classic <script>, not a module, same as layout-store.js/layout-modal.js — a plain global, no
 // build step.
@@ -33,7 +31,7 @@
       });
     }
 
-    // A keydown only reaches window.addEventListener('keydown', ...) on the DOCUMENT it lands in —
+    // A keydown only reaches window.addEventListener('keydown', ...) on the document it lands in —
     // it never bubbles across an iframe boundary to the parent. Almost everything a pilot clicks
     // (the map, a split pane/portal, any hosted page) is inside an iframe, so a listener on just the
     // shell's own top document misses most real presses. Same-origin, so attaching the identical

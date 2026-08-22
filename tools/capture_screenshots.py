@@ -24,17 +24,17 @@ import sys
 import threading
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-import serve_web  # noqa: E402 — path insert above must run first
+import serve_web  # noqa: E402 (import must follow the sys.path insert above)
 
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CAPTURES = ROOT / "preview" / "captures"
-PORT = 8783   # dedicated port, separate from serve_web.py's own default 8782, so a manually-running
-              # preview server is never disturbed by this script's own instance
+PORT = 8783   # separate from serve_web.py's own default 8782, so a manually-running preview
+              # server is never disturbed by this script's own instance
 
-# label -> showPage() action name. The 19 real NAV destinations (README's alphabetical MFD-pages
-# order, LYT excluded — see docs/user-manuals.md). showPage is a plain global in mfd.js (a classic
+# label -> showPage() action name. The 19 real NAV destinations, LYT excluded (a picker overlay,
+# not a distinct page — see docs/user-manuals.md). showPage is a plain global in mfd.js (a classic
 # script, not a module), so it's callable directly via page.evaluate() — far more robust than
 # simulating physical bezel-key clicks for each one.
 PAGES = [
@@ -49,8 +49,8 @@ PAGES = [
 
 
 def start_server():
-    """One server for the whole run — CAPTURE_OVERRIDE is read fresh per request (serve_web.py's
-    own design, see _manifest_path), so switching it between capture folders needs no restart."""
+    """One server for the whole run — CAPTURE_OVERRIDE is read fresh per request (see
+    serve_web._manifest_path), so switching it between capture folders needs no restart."""
     srv = serve_web.Server(("127.0.0.1", PORT), serve_web.H)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv

@@ -3,16 +3,9 @@ using UnityEngine;
 
 namespace NOXMFD
 {
-    // cfg-rates experiment (issue #39): live-adjustable refresh rates for the RTS page's two
-    // sliders. Same shape as HudDeclutterConfig — hidden ConfigEntry<float> (Hz), bound once from
-    // Plugin.Awake, persisted to the .cfg, and read/written at runtime via the rates.set command.
-    //
-    //   * TLM — the whole 10 Hz PushSnapshot tick (own-ship, weapons, contacts, TGT, BDF/PAL);
-    //     drives TelemetryReader.FastInterval.
-    //   * TGP — the targeting-pod camera feed; drives TgpFeed.Interval.
-    //
-    // Setting either writes straight into the reader's/feed's own interval field, so the change is
-    // live immediately — no restart, no waiting for the next .cfg reload.
+    // Live-adjustable refresh rates for the RTS page: FastHz drives TelemetryReader.FastInterval
+    // (own-ship, weapons, contacts, TGT, BDF/PAL); TgpHz drives TgpFeed.Interval. Persisted, hidden
+    // from the F1 menu. Setting either writes directly into the reader's/feed's interval field, live.
     internal static class RatesConfig
     {
         private sealed class ConfigurationManagerAttributes { public bool? Browsable; }
@@ -42,8 +35,7 @@ namespace NOXMFD
             TgpFeed.Interval = 1f / hz;
         }
 
-        // Called once from Plugin.Awake. Applies the persisted (or default) Hz to the reader/feed
-        // immediately, so a saved non-default rate takes effect without needing a slider touch first.
+        // Applies the persisted (or default) Hz to the reader/feed immediately on bind.
         public static void Bind(ConfigFile config)
         {
             const string section = "Refresh Rates";

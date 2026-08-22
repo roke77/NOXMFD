@@ -1,10 +1,6 @@
-// RTS page (issue #39). Reads /rates-config once on load to set the two sliders' starting
-// positions. The label updates live on every drag tick ('input'), but the rates.set command only
-// fires on 'change' (drag release / arrow-key commit) — a BepInEx ConfigEntry.Value write triggers
-// a synchronous .cfg save that measured up to ~9ms on the main thread (docs/performance.md,
-// 2026-08-16), so firing it on every 'input' tick during a drag would stack that cost per step
-// crossed. 'change' still fires once per distinct value settled on, same end-user behavior, far
-// fewer writes.
+// Reads /rates-config once on load for slider starting positions. Label updates live on 'input';
+// rates.set only fires on 'change' — a ConfigEntry.Value write does a synchronous .cfg save, too
+// costly to run on every drag tick.
 
 if (window.parent !== window) {
   var back = document.querySelector('.rts-back');
@@ -13,8 +9,7 @@ if (window.parent !== window) {
 
 var panelEl = document.getElementById('rts-panel');
 
-// Matches RatesConfig.cs's Bind() defaults (10 Hz / 15 Hz) — the RESET button's target.
-var DEFAULTS = { fastHz: 10, tgpHz: 15 };
+var DEFAULTS = { fastHz: 10, tgpHz: 15 };   // matches RatesConfig.cs Bind() defaults
 
 function setSlider(sliderId, valId, hz) {
   var slider = document.getElementById(sliderId);

@@ -1,6 +1,4 @@
-/* RTS (refresh rates, cfg-rates experiment issue #39) page styles. Same panel shape as keybinds.css
-   (.kb-panel/.kb-title/.kb-setting) — this is the first slider in the app, everything else reuses
-   theme.css tokens. */
+/* Refresh-rates settings page. Panel shape matches keybinds.css (.kb-panel/.kb-title/.kb-setting). */
 
 html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this is a full page */
 html {
@@ -104,10 +102,7 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   cursor: pointer;
 }
 
-/* One mark per 5 Hz step (min=5/max=30/step=5 -> 6 marks). ponytail: the 8px inset approximates
-   the WebKit thumb's half-width so marks line up under its travel range rather than the full
-   track edge-to-edge — Firefox's slightly narrower thumb makes this a close-enough eyeball match,
-   not a pixel-exact one; revisit if a future step count needs tighter alignment. */
+/* One mark per 5 Hz step. ponytail: 8px inset eyeballs the WebKit thumb half-width; not pixel-exact for Firefox's thumb, revisit if step count changes. */
 .rts-ticks {
   position: absolute;
   left: 8px;

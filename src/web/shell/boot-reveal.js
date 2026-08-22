@@ -1,21 +1,13 @@
-// Boot fill-bar + typewriter URL reveal, shared by both shells (docs/refactor-scan.md step 1) — the
-// two pieces mfd.js's runBootLoading/typewriterUrls and f35.js's runStripBoot/typeStripUrls each
-// hand-rolled a copy of, f35.js's own comment already calling its copy a "port" of the bezel's.
+// Boot fill-bar + typewriter URL reveal, shared by both shells.
+// pinWidthEl is opt-in: f35's .ms-url already clips via CSS ellipsis, so only the centered
+// bezel box needs its width frozen during typing.
+// The token supersede-guard below is a no-op for single-call sites; mfd.js relies on it when
+// /config arrives after boot already revealed the rows and re-triggers the reveal.
 //
-// The two callers aren't byte-identical, just close: f35's strip has no equivalent of the bezel info
-// box's centred, width-freezing container (its .ms-url already handles overflow via CSS
-// text-overflow: ellipsis), so that behavior is opt-in via opts.pinWidthEl rather than forced on
-// every caller. mfd.js also re-triggers typewriterUrls a second time if /config lands after boot
-// already revealed the rows; f35.js's typeStripUrls never re-runs (single /config fetch at load) —
-// the token-based supersede-guard below covers both, since it's a no-op for a caller that only ever
-// calls once.
-//
-// Classic <script>, not a module, same as layout-store.js/layout-modal.js — a plain global, no
-// build step.
+// Classic <script>, not a module (like layout-store.js/layout-modal.js) — no build step.
 (function (root) {
-  // Fills fillEl's width 0% -> 100% in 5% steps every 50ms (a 60ms CSS transition on the fill
-  // smooths each step into a continuous sweep, like the EW Jammer bar) and calls onComplete once,
-  // at 100%.
+  // Steps fillEl's width 0-100%; a CSS transition on the fill smooths each step into a sweep.
+  // Calls onComplete once, at 100%.
   function runBootFill(fillEl, onComplete) {
     if (!fillEl) return;
     let pct = 0;
@@ -27,15 +19,9 @@
     }, 50);
   }
 
-  // Types each element in `lines` out character-by-character with a blinking cursor, one line after
-  // another. Each line keeps its FULL text laid out the whole time — a visible "done" prefix + an
-  // invisible "rest" suffix (visibility:hidden, so it still reserves space) — so neither width nor
-  // height shifts as the text appears. Caches each element's original text in its own dataset.url
-  // the first time it's seen, so a second call on the same elements (a re-run superseding an
-  // in-flight type) re-types the real text rather than whatever partial spans the first run left
-  // behind. opts.pinWidthEl, if given, gets its rendered width frozen for the duration — belt-and-
-  // suspenders against the cursor glyph nudging a centred box; omit it for a container that already
-  // handles overflow on its own (e.g. via CSS ellipsis).
+  // Types each element in `lines` char-by-char with a blinking cursor, one line after another.
+  // Full text stays laid out the whole time (hidden "rest" span reserves its space) so width/height
+  // never shift. Caches original text in dataset.url so a re-run retypes full text, not a partial span.
   let revealToken = 0;
   function typewriterReveal(lines, opts) {
     opts = opts || {};
@@ -60,7 +46,7 @@
       const el = lines[idx];
       const done = el.children[0], cur = el.children[1], rest = el.children[2];
       const full = rest.textContent;
-      cur.style.display = '';                // reveal the blinking cursor on this line
+      cur.style.display = '';
       let i = 0;
       const timer = setInterval(function () {
         if (myToken !== revealToken) { clearInterval(timer); return; }
@@ -69,8 +55,8 @@
         rest.textContent = full.slice(i);
         if (i >= full.length) {
           clearInterval(timer);
-          el.textContent = full;             // collapse spans back to plain text
-          typeLine(idx + 1);                 // chain to the next line
+          el.textContent = full;
+          typeLine(idx + 1);
         }
       }, 32);
     }

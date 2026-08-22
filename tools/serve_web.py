@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Shell harness over HTTP — verify migrated src/web/ pages in a browser without the game.
+"""Shell harness over HTTP — exercises the real src/web/ pages in a browser without the game.
 
-Serves the real src/web/ MFD shell plus the migrated web assets, so the UI can be driven
-end-to-end without extracting C# blobs. The MAP iframe receives tools/preview-mock.js,
+Serves the real src/web/ MFD shell and its web assets, so the UI can be driven end-to-end
+without extracting C# blobs. The MAP iframe receives tools/preview-mock.js,
 which supplies the synthetic/captured /stream data that the shell forwards to page iframes.
 
   /                  -> src/web/shell/classic/mfd.html
@@ -11,7 +11,7 @@ which supplies the synthetic/captured /stream data that the shell forwards to pa
   /config            -> preview runtime URLs        (localhost/LAN URL for this harness port)
   /map-view[?bare]   -> src/web/pages/map/map.html      (the base map iframe; mock injected here)
   /wpt               -> src/web/pages/wpt/wpt.html   (showcase route seeded into localStorage)
-  /<page>            -> src/web/pages/<page>/<page>.html  (any migrated page, e.g. /wpn /tgt)
+  /<page>            -> src/web/pages/<page>/<page>.html  (any page, e.g. /wpn /tgt)
   /weapon?...        -> captured weapon icon, or a mock 2:1 icon
   /hud-cat-icon?cat= -> captured HUD OPTIONS category glyph, or a mock icon
   /airframe[-layout] -> captured AVN silhouette assets when available
@@ -223,10 +223,10 @@ def _hud_options():
 
 
 # Mock of the plugin's /wpt-options (RouteStore.RoutesJson, docs/hud-waypoint-indicator.md) — a
-# real snapshot pulled from a local mod session's BepInEx/config/com.roque.NOXMFD.routes.json
-# (2026-08-19), so MAP/WPT have real routes to render in the harness instead of "NO ROUTES YET".
-# Static, same as _hud_options — the write side (wpt.* commands) has no mock, POSTs are swallowed,
-# so editing here won't change this response; that path is only testable in game.
+# real snapshot pulled from a local mod session's BepInEx/config/com.roque.NOXMFD.routes.json, so
+# MAP/WPT have real routes to render in the harness instead of "NO ROUTES YET". Static, same as
+# _hud_options — the write side (wpt.* commands) has no mock, POSTs are swallowed, so editing here
+# won't change this response; that path is only testable in game.
 def _wpt_options():
     return json.dumps({
         "activeRouteId": "r_1dd9973ab97c415e8256e829921a2320",
@@ -647,7 +647,7 @@ class H(http.server.SimpleHTTPRequestHandler):
 
     # Resolves a manifest key to a captured asset file and serves it; otherwise falls back to
     # `fallback` bytes (served as image/svg+xml, the shape every placeholder here uses) or, with
-    # no fallback, a 404 carrying `not_found` (docs/refactor-scan.md step 4). `mime=None` derives
+    # no fallback, a 404 carrying `not_found`. `mime=None` derives
     # the content type from the resolved file's extension (only /map needs this — it can resolve
     # to either a captured .jpg or a dropped-in .png).
     def _serve_captured(self, key, mime=None, fallback=None, not_found=None):
@@ -741,7 +741,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             if web_fp.exists():
                 return self._file(web_fp, _mime(rel), cache=True)
             return self._file(PREV.joinpath('assets', *rel.split('/')), _mime(rel))
-        # Any migrated page: /<name> -> src/web/pages/<name>/<name>.html (wpn, tgt, ...).
+        # Any page: /<name> -> src/web/pages/<name>/<name>.html (wpn, tgt, ...).
         name = path.lstrip('/')
         page = WEB / 'pages' / name / f'{name}.html'
         if name and '/' not in name and page.exists():

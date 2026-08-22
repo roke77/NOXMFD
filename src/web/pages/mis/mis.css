@@ -1,5 +1,4 @@
-/* MIS page — read-only replica of the game's mission-info panel (ObjectiveInfoList.ShowMissionInfo).
-   Green-phosphor MFD theme via the shared --no-* tokens; no interaction. */
+/* Read-only replica of the game's mission-info panel (ObjectiveInfoList.ShowMissionInfo). */
 
 * { box-sizing: border-box; }
 

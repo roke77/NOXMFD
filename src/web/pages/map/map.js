@@ -42,7 +42,7 @@ function updateRouteChip() {
   if (waypointRoute) { routeBar.textContent = 'ROUTE: ' + waypointRoute.name; routeBar.className = 'mfd-chip'; }
   else { routeBar.className = 'mfd-chip empty'; }
 }
-// The plugin is the single source of truth for routes now (docs/hud-waypoint-indicator.md) — the
+// The plugin is the single source of truth for routes (docs/hud-waypoint-indicator.md) — the
 // WPT page (a separate iframe), another device's browser, or this map's own edits all converge
 // through WaypointsStore's poll of /wpt-options, which fires this event on any real change.
 window.addEventListener('wptroutes:changed', function() { refreshWaypointRoute(); drawOverlay(); });

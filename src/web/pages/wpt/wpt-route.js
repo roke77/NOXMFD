@@ -2,7 +2,7 @@
 // (wpt-route.test.js), the same treatment map-transform.js and nav-model.js get.
 //
 // docs/hud-waypoint-indicator.md (Option 2): route MUTATION (create/rename/delete/reorder/
-// advance/etc.) is now authoritative in the plugin's RouteStore.cs — the browser only ever
+// advance/etc.) is authoritative in the plugin's RouteStore.cs — the browser only ever
 // renders whatever /wpt-options reports. What's left here is the half that stays genuinely
 // client-side: math combining server-pushed route data with THIS browser's own live ownship
 // position, plus export/import's plain data-shape conversion (no route/waypoint identity

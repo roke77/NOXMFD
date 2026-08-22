@@ -5,15 +5,12 @@ using System.Text;
 namespace NOXMFD
 {
     // A minimal JSON VALUE reader — not a general JSON library. docs/hud-waypoint-indicator.md.
-    //
-    // ponytail: scoped to exactly the two shapes this feature needs (the routes persistence file,
-    // and a pasted route-export blob for wpt.import) — object/array/string-with-basic-escapes/
-    // number/bool/null, no unicode \uXXXX escapes, no exponent notation, no streaming, no schema
-    // validation. If a third distinct JSON-parsing need shows up in this codebase, that's the
-    // signal to pull in a real library instead of growing this one. Written from scratch because
-    // no JSON parser exists anywhere in this codebase (only hand-rolled StringBuilder writers) and
-    // Unity's JsonUtility is documented elsewhere (CommandDispatcher.cs) as unreliable for nested
-    // objects in this Mono runtime.
+    // Scoped to exactly the two shapes this feature needs (the routes persistence file, and a
+    // pasted route-export blob for wpt.import): object/array/string-with-basic-escapes/number/
+    // bool/null, no unicode \uXXXX escapes, no exponent notation, no streaming, no schema
+    // validation. A third distinct JSON-parsing need is the signal to pull in a real library
+    // instead of growing this one. Unity's JsonUtility is unreliable for nested objects in this
+    // Mono runtime (see CommandDispatcher.cs), so this exists in place of it.
     //
     // Parse returns a tree of Dictionary<string,object> / List<object> / string / double / bool /
     // null — callers walk it defensively with `is` checks, same style as the JS side's own
@@ -135,10 +132,9 @@ namespace NOXMFD
         private static bool Match(string s, int i, string token) =>
             i + token.Length <= s.Length && string.CompareOrdinal(s, i, token, 0, token.Length) == 0;
 
-        // Moved from TelemetryServer.cs (docs/csharp-unit-testing.md) — same pure escaper, just
-        // living next to the parser instead of a file with real game touchpoints, so RouteStore.cs
-        // (and any other pure caller) can compile standalone without pulling TelemetryServer in.
-        // TelemetryServer.EscapeJson forwards here so its existing call sites are unaffected.
+        // Lives next to the parser rather than in TelemetryServer.cs (which has real game
+        // touchpoints), so RouteStore.cs and any other pure caller can compile standalone
+        // (docs/csharp-unit-testing.md). TelemetryServer.EscapeJson forwards here.
         public static string EscapeJson(string s)
         {
             if (string.IsNullOrEmpty(s)) return s ?? string.Empty;
@@ -164,13 +160,12 @@ namespace NOXMFD
             return sb?.ToString() ?? s;
         }
 
-        // The "one runnable check" for this parser (repo convention: pure logic gets an
-        // assert-based self-check, no framework, no fixtures — same idea as the Node self-checks
-        // src/web's pure JS modules carry, just no C# test runner exists in this codebase to hang
-        // a "real" test off). Called once from Plugin.Awake via TryBind, so a broken parser logs a
-        // clear cause here instead of surfacing later as a cryptic empty route list. Covers exactly
-        // the shape RouteStore.BuildJson's writer produces (nested objects/arrays, escaped strings,
-        // numbers, bool/null) plus a couple of malformed inputs that must degrade, not throw.
+        // Assert-based self-check (no C# test runner exists in this codebase, same reasoning as the
+        // Node self-checks src/web's pure JS modules carry). Called once from Plugin.Awake via
+        // TryBind, so a broken parser logs a clear cause here instead of surfacing later as a
+        // cryptic empty route list. Covers exactly the shape RouteStore.BuildJson's writer produces
+        // (nested objects/arrays, escaped strings, numbers, bool/null) plus malformed inputs that
+        // must degrade, not throw.
         public static void SelfCheck()
         {
             void Check(bool cond, string what)

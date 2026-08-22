@@ -1,8 +1,7 @@
-// Client for the SAVE/LOAD LAYOUT feature (issue #51) — GET /layout-options + POST /command
-// layout.save. LayoutStore.cs (the plugin) is the single source of truth, same reasoning as
-// waypoints-store.js/RouteStore.cs, but layouts are a small library a pilot names deliberately,
-// not something that changes on its own — so this fetches fresh only when LOAD's picker opens,
-// rather than waypoints-store.js's continuous 1.2s background poll.
+// Client for the SAVE/LOAD LAYOUT feature — GET /layout-options + POST /command layout.save.
+// LayoutStore.cs (the plugin) is the single source of truth. Layouts are a small library a pilot
+// names deliberately, not something that changes on its own, so this fetches fresh only when
+// LOAD's picker opens rather than polling continuously in the background.
 //
 // Shared by both shells (mfd.js, f35.js) — a classic <script>, not a module, same as
 // waypoints-store.js, so it works with no build step.
@@ -15,8 +14,7 @@
 
   // dataObj is whatever shape the calling shell's own layout state serializes to (CLASSIC's
   // {splitMode,splitVariant,pages} or F-35's {cells,pages}) — this module doesn't need to know
-  // which; it just carries it as an opaque JSON blob, the same shape wpt.import's pasted-text
-  // field already uses on the wire.
+  // which; it just carries it as an opaque JSON blob.
   function save(name, shell, dataObj) {
     return sendCommand('layout.save', { wname: name, group: shell, text: JSON.stringify(dataObj) });
   }

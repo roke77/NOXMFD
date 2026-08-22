@@ -17,11 +17,10 @@
     }));
     var perExtension = {};
     items.forEach(function (it) {
-      // ponytail: every extension page gets the SAME single MAIN back-link today, not the full
-      // N-way sibling swap NAV.akf's group gives MIS/OBJ/BDF/PAL — jumping straight between two
-      // installed extensions costs a trip through MAIN for now. Upgrade path: once there's more
-      // than a couple of real extensions, give each NAV[id] the same sibling list NAV.ext
-      // carries (minus itself), mirroring the AKF fold exactly.
+      // Every extension page gets the same single MAIN back-link, not the full N-way sibling
+      // swap NAV.akf's group gives MIS/OBJ/BDF/PAL — jumping between two installed extensions
+      // costs a trip through MAIN. Once there are enough real extensions to matter, give each
+      // NAV[id] the same sibling list NAV.ext carries (minus itself), mirroring the AKF fold.
       perExtension[it.id] = [{ label: 'MAIN', action: 'main' }];
     });
     return { ext: ext, perExtension: perExtension };

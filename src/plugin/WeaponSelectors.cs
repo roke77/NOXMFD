@@ -48,8 +48,8 @@ namespace NOXMFD
         private static bool IsGun(WeaponInfo i)  => i.gun;
         private static bool IsBomb(WeaponInfo i) => i.bomb || i.glideBomb;
         // Missiles by flag, plus flagless launched ordnance (stock rockets set none of the class
-        // flags). ponytail: 'energy' weapons are included here if flagless — none known to exist as a
-        // non-gun station; revisit if one appears.
+        // flags). An 'energy' weapon would also fall in here if flagless — none known to exist as a
+        // non-gun station; revisit the classification if one appears.
         private static bool IsMissile(WeaponInfo i) =>
             !i.gun && !i.bomb && !i.glideBomb && !i.jammer && !i.cargo && !i.troops && !i.sling;
         private static bool IsRelease(WeaponInfo i) => IsMissile(i) || IsBomb(i);
@@ -62,10 +62,8 @@ namespace NOXMFD
         // Air-to-air missiles (docs/radar-master-arms.md, issue #32) — a maintained, exhaustive list;
         // every other IsMissile entry counts as air-to-ground by default (new A/A weapons from future
         // game updates land as A/G until this list is updated — accepted, A/G additions are the common
-        // case). Names are Encyclopedia/UnitDefinition names (_scratch/units.json); four of five —
-        // "AAM-29 Scythe", "AAM-36 Scimitar", "IRM-S2", "MMR-S3" — are confirmed matching the live
-        // WeaponInfo name from real session logs. "IRM-S1" hasn't turned up in a loadout yet and is
-        // still provisional.
+        // case). Names must match the live WeaponInfo name exactly (Encyclopedia/UnitDefinition names,
+        // _scratch/units.json); "IRM-S1" hasn't turned up in a loadout yet and is still provisional.
         private static readonly HashSet<string> AirToAirMissiles = new HashSet<string>(StringComparer.Ordinal)
         {
             "AAM-29 Scythe", "AAM-36 Scimitar", "IRM-S2", "MMR-S3", "IRM-S1",
@@ -164,8 +162,8 @@ namespace NOXMFD
         // trigger's hold behaviour, guns-linked included).
         //
         // Press-vs-hold is derived from Time.frameCount continuity: the drive runs every held frame,
-        // so a gap in frames = a fresh press. ponytail: misses a release+re-press within one frame —
-        // physically impossible on a real key.
+        // so a gap in frames = a fresh press. Misses a release+re-press within one frame — physically
+        // impossible on a real key.
         private static int  _gunFrame = -10, _relFrame = -10, _jamFrame = -10;
         private static bool _gunSwitchHold,  _relSwitchHold,  _jamSwitchHold;
 

@@ -1,6 +1,5 @@
-// MIS page — a read-only reactive replica of the game's mission-info panel, driven by the shell
-// over postMessage (docs/md-pages.md). No interaction, no commands — pure render of the 'mis'
-// block. See mis.html for the message contract.
+// Read-only replica of the game's mission-info panel, driven by the shell over postMessage.
+// No interaction, no commands.
 
 const nameEl = document.getElementById('mis-name');
 const timeEl = document.getElementById('mis-time');
@@ -11,8 +10,7 @@ const LEVEL_LABEL = ['Conventional', 'Tactical', 'Strategic'];
 
 let state = { present: false, name: '', description: '', tod: 0, duration: 0, score: 0, level: 0 };
 
-// Formats a fractional-hours value as HH:MM:SS, mirroring the game's own UnitConverter.TimeOfDay
-// (both "Time" — tod, 0..24 — and "Duration" — duration seconds / 3600 — go through this in-game).
+// Formats fractional hours as HH:MM:SS, matching the game's UnitConverter.TimeOfDay.
 function fmtHms(hours) {
   let total = Math.max(0, Math.round(hours * 3600));
   const hh = Math.floor(total / 3600);
@@ -50,4 +48,4 @@ window.addEventListener('message', function (e) {
   paint();
 });
 
-paint();   // initial paint — UNAVAILABLE until the first frame arrives
+paint();   // starts in unavailable state until the first frame arrives

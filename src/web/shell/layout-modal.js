@@ -1,7 +1,7 @@
-// Shared modal primitive (issue #51) — the first true overlay dialog in src/web/. The closest
-// precedent before this was WPT's inline editRow (src/web/pages/wpt/wpt.js), an in-place text-input
-// swap, not an overlay. Both shells (mfd.js, f35.js) load this and build SAVE's name-prompt and
-// LOAD's layout-picker list from the one primitive here, rather than each rolling its own.
+// Shared modal primitive — the only overlay dialog in src/web/ (contrast WPT's inline editRow in
+// src/web/pages/wpt/wpt.js, an in-place text-input swap, not an overlay). Both shells (mfd.js,
+// f35.js) load this and build SAVE's name-prompt and LOAD's layout-picker list from the one
+// primitive here, rather than each rolling its own.
 //
 // Classic <script>, not a module, same as layout-store.js — a plain global, no build step.
 (function (root) {
@@ -121,7 +121,7 @@
       name.type = 'button';
       name.className = 'layout-modal-item';
       // item.display is optional (HUD presets use it for a "PRESET N: name" row label distinct from
-      // the raw name a rename edits) — every existing caller leaves it unset and falls back to name.
+      // the raw name a rename edits) — falls back to name when unset.
       name.textContent = item.display != null ? item.display : item.name;
       name.addEventListener('click', function () { close(); opts.onPick(item); });
       row.appendChild(name);
@@ -168,9 +168,7 @@
       }
       save.addEventListener('click', commit);
       // No local Escape handling: the modal's own document-level Escape listener is capture-phase
-      // (runs before any listener on this input) and already closes the whole modal — same as
-      // typing in SAVE's prompt input, so this isn't a new inconsistency, just not overriding it
-      // with dead code that would never actually run first.
+      // (runs before any listener on this input) and already closes the whole modal.
       input.addEventListener('keydown', function (e) { if (e.key === 'Enter') commit(); });
       row.appendChild(input);
       row.appendChild(save);

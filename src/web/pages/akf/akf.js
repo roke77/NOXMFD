@@ -1,8 +1,6 @@
-// AKF page — advanced kill feed (issue #34), a reactive replica of the game's own HUD kill-feed
-// ticker plus session stats, driven by the shell over postMessage (docs/akf-page.md). The feed
-// content itself is read-only; the one interaction is the ALL/PLAYER resizer below (issue #34
-// follow-up), reachable from a mouse/touch drag or the PAD cursor. See akf.html for the message
-// contract.
+// Driven by the shell over postMessage (docs/akf-page.md, akf.html for the message contract).
+// Feed content is read-only; the one interaction is the ALL/PLAYER resizer below, reachable from
+// a mouse/touch drag or the PAD cursor.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 
 const allEl    = document.getElementById('akf-all');
@@ -23,14 +21,12 @@ function span(cls, text) {
   return el;
 }
 
-// DETAILED/COMPACT feed density (issue #34 follow-up) — DETAILED (default) renders the full
-// sentence exactly as before; COMPACT truncates every unit name to its first word, collapses
-// whichever verb it was to one glyph (the specific action doesn't matter once compacted), and
-// collapses "with" to another — the weapon name itself is left in full either way, since that's
-// the one piece of information compacting would actually lose.
+// COMPACT truncates every unit name to its first word and collapses the verb and "with" to single
+// glyphs; the weapon name is left in full either way since that's the one piece of information
+// compacting would actually lose.
 let compact = false;
-const VERB_GLYPH = '▸';   // ▸ small right-pointing triangle — "acted on"
-const WITH_GLYPH = '•';   // • bullet — "carrying"
+const VERB_GLYPH = '▸';   // "acted on"
+const WITH_GLYPH = '•';   // "carrying"
 
 function firstWord(name) {
   const s = String(name || '').trim();
@@ -40,9 +36,8 @@ function firstWord(name) {
 function nameText(raw) { return compact ? firstWord(raw) : raw; }
 function verbText(raw) { return compact ? VERB_GLYPH : raw; }
 
-// ALL feed: "Attacker verb Victim [with Weapon]" when there's a killer, "Victim verb" (e.g. "T-90
-// was destroyed") when there isn't — matches the game's own MessageManager.RpcKillMessage string
-// construction exactly (attacker-first only when an attacker exists).
+// Matches the game's own MessageManager.RpcKillMessage string construction exactly (attacker-first
+// only when an attacker exists).
 function renderAllLine(e) {
   const line = document.createElement('div');
   line.className = 'akf-line';
@@ -61,11 +56,10 @@ function renderAllLine(e) {
   return line;
 }
 
-// PLAYER feed: the attacker is normally the player's own aircraft, so naming it every line would be
-// redundant — "Victim verb [with Weapon]" instead ("MiG-29 shot down with AIM-9X"). An "incoming"
-// line (e.pv: the player was killed, or the player's own fired munition was intercepted) is the
-// opposite — the player is the VICTIM, not the attacker — so it renders in full like the ALL feed,
-// with an accent marking it as incoming rather than scored.
+// The attacker is normally the player's own aircraft, so naming it every line would be redundant —
+// victim-only phrasing instead. An "incoming" line (e.pv: the player was killed, or the player's
+// own fired munition was intercepted) is the opposite — the player is the VICTIM, not the attacker —
+// so it renders in full like the ALL feed, with an accent marking it as incoming rather than scored.
 function renderPlayerLine(e) {
   if (e.pv) {
     const line = renderAllLine(e);
@@ -89,9 +83,8 @@ function appendWeapon(line, weapon) {
   line.appendChild(span('akf-weapon', weapon));
 }
 
-// Rebuilds a feed column and pins the scroll to the bottom, so the newest (last) entry stays in
-// view — the panel grows downward, matching a chat log or terminal, not the game's own ticker
-// (which grows upward and ages lines out).
+// Pins scroll to the bottom so the newest (last) entry stays in view — the panel grows downward,
+// unlike the game's own ticker (which grows upward and ages lines out).
 function renderFeed(el, items, renderLine) {
   el.textContent = '';
   for (const e of items) el.appendChild(renderLine(e));
@@ -103,7 +96,7 @@ function fmtSigned(n) {
   return (r >= 0 ? '+' : '') + r.toLocaleString();
 }
 
-let lastState = {};   // re-rendered by the density toggle without waiting for the next 'akf' frame
+let lastState = {};   // lets the density toggle re-render without waiting for the next 'akf' frame
 
 function renderFeeds(state) {
   renderFeed(allEl, state.all || [], renderAllLine);
@@ -134,11 +127,10 @@ window.addEventListener('message', function (e) {
   paint(m);
 });
 
-paint({});   // initial paint — all-zero until the first frame arrives
+paint({});
 
-// ── DETAILED/COMPACT density toggle (issue #34 follow-up) ─────────────────────────────
-// Re-renders both feeds from the last received frame — no need to wait for the next 'akf' message,
-// and nothing here reaches the shell (purely a client-local display preference, not persisted).
+// ── DETAILED/COMPACT density toggle ────────────────────────────────────────────────────
+// Purely a client-local display preference: nothing here reaches the shell, and it isn't persisted.
 const densityToggleEl = document.getElementById('akf-density-toggle');
 densityToggleEl.addEventListener('click', function () {
   compact = !compact;
@@ -146,18 +138,17 @@ densityToggleEl.addEventListener('click', function () {
   renderFeeds(lastState);
 });
 
-// ── ALL/PLAYER split resizer (issue #34 follow-up) ────────────────────────────────────
+// ── ALL/PLAYER split resizer ───────────────────────────────────────────────────────────
 // Purely client-local UI state — nothing here reaches the shell or the plugin, and it isn't
-// persisted across a reload (the grid just reverts to its CSS default, akf-feeds' own
-// grid-template-columns, the next time this page loads).
+// persisted across a reload (the grid reverts to akf-feeds' own CSS grid-template-columns).
 const feedsEl    = document.getElementById('akf-feeds');
 const resizerEl  = document.getElementById('akf-resizer');
 const RESIZER_W  = 20;    // must match akf.css's middle grid track
 const MIN_FEED_W = 60;    // px a feed can shrink to before it collapses instead
 
 let dragging = false;
-let tapArmed = false;   // pointerdown started on an already-collapsed resizer — watch for a plain
-                         // release (a tap) to restore; a no-op while it's a real drag handle instead
+let tapArmed = false;   // pointerdown started on an already-collapsed resizer, so a plain release
+                         // (a tap) should restore instead of being treated as a drag
 let collapsed = null;      // null | 'all' | 'player' — which feed (if any) is currently collapsed
 let customSplit = null;    // null = default CSS fr ratio; else ALL's share (0..1) of usable width
 
@@ -165,9 +156,8 @@ function setColumns(leftPx, rightPx) {
   feedsEl.style.gridTemplateColumns = leftPx + 'px ' + RESIZER_W + 'px ' + rightPx + 'px';
 }
 
-// Back to the CSS default split, both feeds visible — the collapsed state's own restore action,
-// not exposed any other way (dragging back out never un-collapses; issue #34 follow-up asked for
-// a dedicated restore, not a symmetric drag back).
+// Back to the CSS default split, both feeds visible. This is the only way out of a collapsed
+// state — dragging back out never un-collapses.
 function resetSplit() {
   feedsEl.style.gridTemplateColumns = '';
   collapsed = null;
@@ -184,37 +174,36 @@ function collapseSide(side) {
 
 // A drag/collapse fixes the split in px at that instant, but this page can live inside an F-35
 // portal that later merges/splits (or a classic-shell pane that resizes) with no reload — so those
-// px would otherwise go stale, leaving dead space instead of the split filling the new width.
-// Re-derives the current pixel columns from the resize-safe state (collapsed side, or
-// customSplit's fraction) any time the feeds box actually changes size.
+// px would go stale, leaving dead space instead of the split filling the new width. Re-derives the
+// pixel columns from the resize-safe state (collapsed side, or customSplit's fraction) whenever the
+// feeds box changes size.
 function applyForCurrentWidth() {
-  if (!collapsed && customSplit === null) return;   // untouched default — CSS fr columns handle it
+  if (!collapsed && customSplit === null) return;   // untouched default: CSS fr columns handle it
   const usable = feedsEl.getBoundingClientRect().width - RESIZER_W;
   if (collapsed) setColumns(collapsed === 'all' ? 0 : usable, collapsed === 'player' ? 0 : usable);
   else setColumns(usable * customSplit, usable * (1 - customSplit));
 }
 new ResizeObserver(applyForCurrentWidth).observe(feedsEl);
 
-// Shared by both drag sources (a real pointer drag and the PAD cursor's held-select drag below) —
-// clientX is viewport-space either way, and the feeds rect is re-measured fresh each call rather
-// than cached at drag-start, so it can't drift out of sync with either input path.
+// Shared by both drag sources (a real pointer drag and the PAD cursor's held-select drag below):
+// clientX is viewport-space either way. The feeds rect is re-measured fresh each call rather than
+// cached at drag-start, so it can't drift out of sync with either input path.
 function applyDragX(clientX) {
   const rect = feedsEl.getBoundingClientRect();
   const x = clientX - rect.left - RESIZER_W / 2;
   const leftPx = Math.max(0, Math.min(rect.width - RESIZER_W, x));
   const rightPx = rect.width - RESIZER_W - leftPx;
 
-  // Reaching the threshold collapses immediately, mid-drag — not only once the pointer is
-  // released — matching a pilot yanking the handle all the way over in one motion.
+  // Reaching the threshold collapses immediately, mid-drag, not only once the pointer is released.
   if (leftPx < MIN_FEED_W) { endDrag(); collapseSide('all'); return; }
   if (rightPx < MIN_FEED_W) { endDrag(); collapseSide('player'); return; }
   customSplit = leftPx / (rect.width - RESIZER_W);
   setColumns(leftPx, rightPx);
 }
 
-// Cleans up drag bookkeeping only — deciding whether a tap-to-restore fires happens in pointerup
-// itself, not here, since this also runs mid-drag (the collapse branch above) where restoring
-// would just undo the collapse that instant.
+// Cleans up drag bookkeeping only. Tap-to-restore is decided in pointerup itself, not here, since
+// this also runs mid-drag (the collapse branch above) where restoring would just undo the collapse
+// that instant.
 function endDrag(e) {
   dragging = false;
   padDragging = false;
@@ -231,12 +220,11 @@ resizerEl.addEventListener('pointerdown', function (e) {
 resizerEl.addEventListener('pointermove', function (e) {
   if (dragging) applyDragX(e.clientX);
 });
-// Deciding tap-vs-drag directly from pointerdown/pointerup (not a native 'click' listener, which
-// this used to be) — a browser's synthesized 'click' event turned out to arrive late/out of order
-// under touch emulation, so a drag-to-collapse gesture's own trailing click could land AFTER a
-// separate follow-up tap had already started, stealing that tap's restore (reported: "first click
-// does nothing, second click resets"). Same tap/hold shape TGT's own pointerdown/pointerup pair
-// already uses, just simpler (no hold branch here).
+// Tap-vs-drag is decided directly from pointerdown/pointerup, not a native 'click' listener: a
+// browser's synthesized 'click' can arrive late/out of order under touch emulation, so a
+// drag-to-collapse gesture's trailing click could land after a separate follow-up tap had already
+// started and steal that tap's restore. Same tap/hold shape as TGT's pointerdown/pointerup pair,
+// just simpler (no hold branch here).
 resizerEl.addEventListener('pointerup', function (e) {
   const restore = tapArmed && collapsed;
   tapArmed = false;
@@ -250,17 +238,17 @@ resizerEl.addEventListener('pointercancel', function (e) {
 
 // ── PAD cursor (docs/page-cursor.md) ──────────────────────────────────────────────────
 // Same crosshair/transport TGT/HUD use, driven here only while this AKF is the SOI's focused
-// surface. .akf-panel doesn't scroll (unlike HUD's), so panel-local coordinates work the same way
-// TGT's do — no viewport-coordinate workaround needed.
+// surface. .akf-panel doesn't scroll (unlike HUD's), so panel-local coordinates work directly —
+// no viewport-coordinate workaround needed.
 const CURSORABLE = '.akf-resizer, .akf-density-toggle';
 const akfPanel = document.querySelector('.akf-panel');
 const padCursorEl = document.getElementById('pad-cursor');
 let hoveredEl = null;
 
-// True only while Select is held down over the resizer (armed by padCursorHoldAt below) — feeds
-// the crosshair's own x straight into the same applyDragX a mouse/touch drag uses, so a HOTAS
-// pilot can resize the split the same way. A plain tap (release before the hold threshold) instead
-// just selects whatever's under the point, same as every other PAD-cursor page.
+// True only while Select is held down over the resizer (armed by padCursorHoldAt below); feeds the
+// crosshair's x into the same applyDragX a mouse/touch drag uses, so a HOTAS pilot can resize the
+// split the same way. A plain tap (release before the hold threshold) just selects whatever's under
+// the point, same as every other PAD-cursor page.
 let padDragging = false;
 
 function elAt(px, py) {
@@ -270,9 +258,9 @@ function elAt(px, py) {
 }
 
 // The resizer decides its own tap outcome from real pointerdown/pointerup, not a native 'click'
-// (see the comment above resizerEl's pointerup listener), so a tap here restores it directly
-// rather than through el.click() — everything else on the page (the density toggle) is a plain
-// button, where .click() is exactly right.
+// (see resizerEl's pointerup listener above), so a tap here restores it directly rather than
+// through el.click() — everything else on the page (the density toggle) is a plain button, where
+// .click() is exactly right.
 function padCursorSelectAt(x, y) {
   const el = elAt(x, y);
   if (el === resizerEl) { if (collapsed) resetSplit(); return; }
@@ -285,7 +273,7 @@ function padCursorHoldAt(x, y) {
 
 function padCursorMoveAt(x, y) {
   if (padDragging) {
-    if (x == null) { padDragging = false; return; }   // lost focus mid-drag — bail safely
+    if (x == null) { padDragging = false; return; }   // lost focus mid-drag: bail safely
     applyDragX(akfPanel.getBoundingClientRect().left + x);
     return;
   }

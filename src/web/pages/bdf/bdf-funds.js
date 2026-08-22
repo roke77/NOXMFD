@@ -1,13 +1,12 @@
-// Faction funds formatting, split out of bdf.js so it carries no DOM refs and can be unit-checked
-// in Node (see bdf-funds.test.js).
+// No DOM refs so this can be unit-checked in Node (bdf-funds.test.js).
 //
 // Mirrors the game's own UnitConverter.ValueReading scale-by-magnitude format (docs/bdf-page.md —
-// funds arrive in MILLIONS), so the MD reads the same as the in-game panel. Formatted with a
-// period rather than the game's locale-dependent comma.
+// funds arrive in MILLIONS), so the MFD reads the same as the in-game panel. Uses a period rather
+// than the game's locale-dependent comma.
 //
-// The bands compare SQUARES rather than using Math.abs — the game's own trick, kept so the two stay
-// recognisably the same function. `m*m < 1` is `|m| < 1`, and so on; the effect is that negative
-// funds (a faction in debt) pick the same band as the equivalent positive amount.
+// Bands compare SQUARES rather than using Math.abs, matching the game's own implementation:
+// `m*m < 1` is `|m| < 1`, and so on. This also makes negative funds (a faction in debt) pick the
+// same band as the equivalent positive amount.
 (function (root) {
   function fmtFunds(m) {
     if (typeof m !== 'number' || !isFinite(m)) return '$0';

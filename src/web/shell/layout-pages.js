@@ -35,10 +35,10 @@
     keys: '/keybinds',
     rates: '/rates',
     wpt: '/wpt',
-    // EXT hub (docs/extensions-api.md) — always the EXT dispatch's landing page, regardless of
-    // how many extensions are installed. Its own content distinguishes "none installed" from
-    // "pick one below"; the picking itself happens via NAV.ext's per-extension entries, each its
-    // own /ext/<id> destination (not listed here — see ExtNav.isExtensionPage's fallback in
+    // EXT hub (docs/extensions-api.md) — the EXT dispatch's landing page regardless of how many
+    // extensions are installed. Its own content distinguishes "none installed" from "pick one
+    // below"; the picking itself happens via NAV.ext's per-extension entries, each its own
+    // /ext/<id> destination (not listed here — see ExtNav.isExtensionPage's fallback in
     // paneUrl/frameUrlFor/F35_PAGES' `has`).
     ext: '/ext',
   };
@@ -72,12 +72,12 @@
   // (the portal shows this layout's own chooser), so membership is tested with `in`, not truthiness.
   const F35 = {
     main: null,
-    // No ?nochrome: the master strip no longer carries the mission name/grid (removed to give the
-    // THRL/FUEL gauges more room), so a MAP portal draws its own mission bar + GRID chip again,
-    // same as the bezel's MAP.
+    // No ?nochrome: the master strip doesn't carry the mission name/grid (that room goes to the
+    // THRL/FUEL gauges instead), so a MAP portal draws its own mission bar + GRID chip, same as
+    // the bezel's MAP.
     map:  '/map-view?bare',
     // ?f35: AVN reads this to hide its status-icon grid (avn.js) — the F-35 master strip already
-    // shows those flags (issue #35), so the portal keeps just the gauges.
+    // shows those flags, so the portal keeps just the gauges.
     avn:  '/avn?f35',
     afm:  '/afm',   // reuses the avn feed — see PAGE_FEEDS in f35.js
     rwr:  '/rwr',

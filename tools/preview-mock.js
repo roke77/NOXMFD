@@ -13,8 +13,8 @@
         weapon names/icons, contacts and loadout.
      2. The built-in synthetic fallback below (no game ever required).
 
-   The telemetry is intentionally static — game-served values don't change. Only
-   the genuinely client-side features (zoom, pan, follow) stay interactive.
+   The telemetry is intentionally static — game-served values don't change here.
+   Only the genuinely client-side features (zoom, pan, follow) stay interactive.
    ─────────────────────────────────────────────────────────────────────────── */
 (function () {
   const CAPTURE = window.__PREVIEW_ASSETS__ || null;   // real game assets, if captured

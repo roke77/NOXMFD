@@ -1,17 +1,13 @@
-/* AFM page — airframe status (damage silhouette + failure labels + aircraft name). Single source
-   of truth for BOTH layouts. Base reset / colour tokens / font come from theme.css.
-   compact (split pane, the default) uses the fixed name/frame offsets below; the full profile
-   (body.full, single full-screen iframe) overrides name/frame placement at the bottom — the
-   shell forwards the bezel-anchored pixel geometry. */
+/* AFM page — airframe status (damage silhouette + failure labels + aircraft name).
+   compact (default) uses the fixed offsets below; body.full overrides name/frame
+   placement at the bottom with bezel-anchored geometry from the shell. */
 .afm-panel {
   position: absolute;
   inset: 0;
   color: var(--no-green);
   font-family: var(--no-font);
 }
-/* Header band — just the aircraft name. Sits at the top bezel row (min-height keeps it centred
-   there); the silhouette frame follows the header's actual bottom (layoutAfmFrame in afm.js).
-   full overrides top/min-height from bezel geometry. */
+/* Header band (aircraft name). full overrides top/min-height from bezel geometry. */
 .afm-header {
   position: absolute;
   left: 0; right: 0;
@@ -31,10 +27,8 @@
   letter-spacing: 2px;
   white-space: nowrap;
 }
-/* Middle band: the cockpit weapon-panel's frontal (nose-on) silhouette + its pylon-armed markers.
-   Sits between the name (.afm-header) and the big top-down damage silhouette (.afm-frame) — a
-   three-band vertical stack. top/height are the compact defaults; layoutAfmFrame (afm.js) sets
-   them inline once the header's actual rendered height is known, in both profiles. */
+/* Frontal (nose-on) silhouette + pylon markers, between header and the top-down frame below.
+   top/height are compact defaults; layoutAfmFrame (afm.js) overrides both inline. */
 .afm-front-section {
   position: absolute;
   left: 0; right: 0;
@@ -60,7 +54,7 @@
 .afm-frame {
   position: absolute;
   left: 0; right: 0;
-  top: 214px;   /* below the compact header + front-section bands; full overrides from bezel geometry */
+  top: 214px;   /* compact default; full overrides from bezel geometry */
   bottom: 12px;
   overflow: hidden;
 }
@@ -100,8 +94,5 @@
 }
 .afm-failure.active { display: block; }
 
-/* full profile (single full-screen iframe): the header band comes from the shell's bezel geometry;
-   the front-section + frame top/height are always computed in JS (layoutAfmFrame), in both
-   profiles, so no bottom-clearing override is needed here. */
 /* Portrait full is tall, so the name may grow past the landscape 32px cap. */
 body.full.portrait .afm-name { font-size: clamp(32px, 3.6vh, 51px); }

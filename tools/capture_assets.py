@@ -1,47 +1,29 @@
 #!/usr/bin/env python3
-"""Capture the real game-served assets from a running session, so the static
-preview can replay them instead of the synthetic mocks.
+"""Capture real game-served assets from a running session for the static preview to replay.
 
-Run this WHILE Nuclear Option is running with a mission loaded and you are flying
-(so /stream serves real telemetry and the map/icons have been extracted by the
-mod). It pulls, from http://localhost:5005:
+Run while Nuclear Option is running with a mission loaded and flying (so /stream
+serves telemetry and the map/icons exist). Pulls from http://localhost:5005:
+one telemetry frame (/stream), map image (/map), unit/weapon/BDF-PAL icons,
+HUD vehicle/building/category icons, airframe silhouette, one TGP frame, and the
+raw HUD/WPT/RTS config (inlined into the manifest).
 
-  • one real telemetry frame   (/stream)          → the static scenario (includes
-                                                      AKF/MIS/OBJ/BDF/PAL/TGT/RDR/RWR —
-                                                      score a few kills first if you
-                                                      want AKF's feed populated)
-  • the map image              (/map)             → map.png
-  • each unit type's icon      (/icon?type=...)   → icon_*.png
-  • each weapon's icon         (/weapon?name=..)  → weapon_*.png
-  • HUD vehicle/building icons (/tgt-icon, /building-icon) → tgt_icon_*, building_icon_*
-  • HUD category-row glyphs    (/hud-cat-icon)    → hud_cat_icon_*
-  • BDF/PAL ship-type icons    (/bdf-icon)        → bdf_icon_*
-  • the airframe silhouette    (/airframe[-layout]) → airframe_*
-  • one frame of the TGP feed  (/tgp.mjpg)        → tgp.jpg
-  • the raw HUD/WPT/RTS config (/hud-options, /wpt-options, /rates-config) —
-    inlined into the manifest so those three pages render real data too, not just
-    their hardcoded harness mocks
+Each run writes its own timestamped folder under preview/captures/ — a library,
+not a single overwritten slot:
 
-Every run writes into its OWN timestamped folder — a library of captures, not one
-slot that overwrites itself — so you can go back to how a mission looked five
-captures ago:
+    preview/captures/20260820_193045/manifest.json + assets
+    preview/captures/CURRENT                 <- names the live capture
 
-    preview/captures/20260820_193045/manifest.json + every asset above
-    preview/captures/20260820_201112/...
-    preview/captures/CURRENT                 <- one line naming which one is "live"
-
-serve_web.py reads whichever capture CURRENT names (falling back to the pre-library
-preview/assets/manifest.json if neither exists, for anyone with an old-style single
-capture lying around). This script always points CURRENT at the capture it just
-took; to go back to an older one, just overwrite CURRENT with that folder's name —
-no copying, no server restart, it's read fresh on every request.
+serve_web.py reads whichever capture CURRENT names (falls back to the older
+single-slot preview/assets/manifest.json). This script points CURRENT at the
+capture it just took; to switch to an older one, overwrite CURRENT with that
+folder's name (no restart needed).
 
 Then run (or leave running):
 
     python tools/serve_web.py --open
 
-Units/weapons/ships that have no icon in-game simply 404 and are skipped — the
-preview shows the same square fallback the real HUD uses for them.
+Units/weapons/ships with no in-game icon 404 and are skipped — the preview
+falls back to the same square placeholder the real HUD uses.
 """
 import json
 import pathlib

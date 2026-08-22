@@ -29,8 +29,8 @@ namespace NOXMFD
     //   (PilotPlayerState), which force-clears it every frame its OWN "Countermeasures" button isn't held
     //   — so setting it from here gets stomped before FixedUpdate can deploy. DeployCountermeasure is
     //   exactly what the game's FixedUpdate calls while the trigger is on; we just call it ourselves.
-    //   ponytail: this fires on the local sim (host/single-player). In multiplayer a non-host client's
-    //   deploy may not replicate — the networked path is the trigger SyncVar we deliberately bypass.
+    //   This fires on the local sim (host/single-player) only — in multiplayer a non-host client's
+    //   deploy may not replicate, since the networked path is the trigger SyncVar this bypasses.
     //
     // Gear up / gear down keys — dedicated raise/lower (the stock bind is a single toggle), EDGE-driven
     // (one action per press). Each mirrors the stock gear logic (PilotPlayerState): act only on a fully
@@ -752,10 +752,10 @@ namespace NOXMFD
             // that mode's HUD preset after tweaking filters by hand mid-mode, so a repeat press must
             // re-force it rather than no-op.
             HudCombatModeFilters.OnCombatModeChanged(mode);
-            // Confirmed (2026-08-22): with the toggle OFF, the weapon auto-switch above still
-            // changed HUD values via the game's own native AutomaticToggle — undo that side effect
-            // when this feature isn't opted into. No-op when the toggle is ON (OnCombatModeChanged
-            // already applied the intended state above).
+            // With the toggle OFF, the weapon auto-switch above still changes HUD values via the
+            // game's own native AutomaticToggle — undo that side effect when this feature isn't
+            // opted into. No-op when the toggle is ON (OnCombatModeChanged already applied the
+            // intended state above).
             HudCombatModeFilters.UndoNativeAutoToggleIfOff();
         }
 
@@ -866,11 +866,11 @@ namespace NOXMFD
         // action, but Poll() also wants its continuous held state every frame — see docs/page-cursor.md).
         //
         // Reads Unity's raw Input.GetKey/GetKeyDown directly rather than KeyboardShortcut.IsPressed()/
-        // IsDown() — confirmed by diagnostic logging (issue: countermeasure keys wouldn't fire while a
-        // WASD flight key was held, reported independently on two different keyboards) that BepInEx's
-        // own IsPressed()/IsDown() require that NO OTHER keyboard key is currently held besides this
-        // shortcut's own MainKey+Modifiers, treating any other key — even one with nothing to do with
-        // this shortcut, like a flight-control key — as disqualifying. That's a sensible default for a
+        // IsDown() — BepInEx's own IsPressed()/IsDown() require that NO OTHER keyboard key is
+        // currently held besides this shortcut's own MainKey+Modifiers, treating any other key — even
+        // one with nothing to do with this shortcut, like a flight-control key — as disqualifying,
+        // which otherwise silently blocks a countermeasure key while a WASD flight key is held. That's
+        // a sensible default for a
         // one-off UI hotkey (avoids firing a plain "F" shortcut when the user is really pressing a
         // longer chord that happens to include F), but wrong for gameplay keybinds meant to fire WHILE
         // flight-control keys are held. ModifiersHeld still honors any configured Modifiers manually,

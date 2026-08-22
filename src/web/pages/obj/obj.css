@@ -1,5 +1,4 @@
-/* OBJ page — read-only replica of the game's active-objectives list (ObjectiveInfoList.
-   ShowObjectiveList). Green-phosphor MFD theme via the shared --no-* tokens; no interaction. */
+/* Read-only replica of the game's active-objectives list (ObjectiveInfoList.ShowObjectiveList). */
 
 * { box-sizing: border-box; }
 
@@ -114,8 +113,7 @@ html, body {
 .obj-pos-grid { flex: 0 0 auto; min-width: clamp(40px, 7vw, 60px); text-align: right; }
 .obj-pos-dist { flex: 0 0 auto; min-width: clamp(40px, 7vw, 60px); text-align: right; }
 
-/* Empty-but-present state (mission running, no active objectives) — matches TGT's
-   .tgt-list-empty treatment: dim green, centered, no border/box. */
+/* Empty-but-present state: mission running, no active objectives. */
 .obj-list-empty {
   flex: 1 1 auto;
   display: flex; align-items: center; justify-content: center;

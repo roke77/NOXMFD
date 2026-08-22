@@ -1,10 +1,5 @@
-/* RDR page — F-16 FCR B-scope (docs/rdr-page.md). Single source of truth for BOTH layouts; the
-   520x600 SVG is centred by preserveAspectRatio, so it keeps its aspect at any container size
-   (like RWR/MAP/TGP). Colours follow the theme tokens: green search contacts, amber locks. */
-/* Mouse cursor matches the PAD acquisition gate's own two-bar look (green, same colour, and the
-   SAME proportions — bar separation 2*CUR_GAP=28, bar height 2*CUR_H=18, see rdr.js drawCursor) so
-   a mouse click reads as the same "aim between the bars" gesture as the HOTAS cursor. Hotspot
-   (18,13) is the gate's centre. */
+/* F-16 FCR B-scope. 520x600 SVG centred via preserveAspectRatio, keeps aspect at any container size. */
+/* Cursor matches the PAD acquisition gate's two-bar look (rdr.js drawCursor: bar separation 2*CUR_GAP=28, bar height 2*CUR_H=18). Hotspot (18,13) is the gate's centre. */
 .rdr-panel {
   position: relative; width: 100%; height: 100%;
   cursor: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzNiIgaGVpZ2h0PSIyNiIgdmlld0JveD0iMCAwIDM2IDI2Ij48bGluZSB4MT0iNCIgeTE9IjQiIHgyPSI0IiB5Mj0iMjIiIHN0cm9rZT0iIzM5ZmYxNCIgc3Ryb2tlLXdpZHRoPSIzIi8+PGxpbmUgeDE9IjMyIiB5MT0iNCIgeDI9IjMyIiB5Mj0iMjIiIHN0cm9rZT0iIzM5ZmYxNCIgc3Ryb2tlLXdpZHRoPSIzIi8+PC9zdmc+") 18 13, crosshair;
@@ -17,23 +12,13 @@
 .rdr-read { fill: var(--no-amber); font-size: 16px; }
 .rdr-read.big { font-size: 19px; letter-spacing: 0.5px; }
 
-/* PAD acquisition cursor — the invisible element pad-cursor.js moves (in panel px). The visible
-   F-16 two-bar gate is drawn inside the SVG (#rdr-cursor-g, viewBox units) so it scales with the
-   contact bricks; see rdr.js drawCursor. */
+/* Invisible element pad-cursor.js moves in panel px; visible gate drawn in #rdr-cursor-g (viewBox units) so it scales with contact bricks. */
 .rdr-cursor { position: absolute; top: 0; left: 0; width: 24px; height: 24px; pointer-events: none; display: none; }
 
-/* Antenna-sweep caret — a small inverted-T that sweeps left<->right along the frame's bottom edge
-   while the radar is emitting (docs comment in rdr.html has the shape/geometry). Hidden by default;
-   rdr.js's render() toggles .on off the radarOn flag. translateX is in the SVG's own viewBox units
-   (drawn at centre in rdr.html), so ±186 reaches the frame's left/right insets (L+14 / R-14) — the
-   50% keyframe passes back through the drawn centre position, satisfying "left, centre, right" with
-   one continuous back-and-forth motion (animation-direction: alternate reverses it forever). linear
-   (not ease-in-out) keeps the speed constant through the whole sweep, including through centre —
-   with three keyframes, per-segment easing would otherwise slow it down approaching 50%. 0%/100%
-   are +186/-186, not the more obvious -186/+186 — rdr.js's syncSweepPhase() phase-locks the TIMING
-   to the native MFD radar's needle correctly either way; empirically only this sign put our caret on
-   the same SIDE as the native needle at a given instant (a mirror of the whole motion, independent
-   of the phase-delay maths). */
+/* Antenna-sweep caret, hidden by default; rdr.js render() toggles .on with radarOn. translateX in
+   viewBox units, ±186 reaches the frame's left/right insets. linear easing keeps sweep speed
+   constant through centre. 0%/100% are +186/-186 (not -186/+186): matches the native needle's side,
+   found empirically; rdr.js syncSweepPhase() locks the timing independently of this sign. */
 @keyframes rdr-sweep-move {
   0%   { transform: translateX(186px); }
   50%  { transform: translateX(0); }
@@ -42,14 +27,11 @@
 #rdr-sweep { display: none; }
 #rdr-sweep.on {
   display: block;
-  /* 2s one-way (must match rdr.js's SWEEP_ONE_WAY) — the game's own MFD radar sweep takes exactly
-     2s edge-to-edge through centre (TacScreen.ScanRadar's 4s sine period), so this matches it. */
+  /* 2s one-way must match rdr.js's SWEEP_ONE_WAY (game's MFD radar sweep is a 4s sine period). */
   animation: rdr-sweep-move 2s linear infinite alternate;
 }
 
-/* Unavailable state (aircraft has no radar) — same shared .mfd-empty look every other page uses
-   (TGT/HUD/BDF/keybinds): a RDR title + "— NOT AVAILABLE —" via body.unavailable, not a page-local
-   placeholder style. */
+/* Unavailable state: aircraft has no radar. */
 .rdr-unavailable { display: none; }
 body.unavailable .rdr-panel { display: none; }
 body.unavailable .rdr-unavailable { display: block; }

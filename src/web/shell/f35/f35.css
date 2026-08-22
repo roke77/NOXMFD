@@ -281,14 +281,14 @@ html, body {
   align-items: center;
   gap: 2px;
   color: var(--no-gray);   /* off / dim; on / gear-down override below */
-  cursor: pointer;         /* click-to-toggle (issue #35); .pad-hoverable (theme.css) gives the hover wash */
+  cursor: pointer;         /* click-to-toggle; .pad-hoverable (theme.css) gives the hover wash */
   padding: 2px 4px;
   border-radius: 3px;
 }
 .ms-flag.on        { color: var(--no-green); }
 .ms-flag.gear-down { color: var(--no-red); }
 .ms-flag-label { font-size: 15px; font-weight: 900; letter-spacing: 1px; line-height: 1; }
-.ms-flag-icon  { width: 29px; height: 29px; display: block; }   /* 80% of the former 36px */
+.ms-flag-icon  { width: 29px; height: 29px; display: block; }
 /* GEAR reuses the game-captured glyph as a recolourable mask (same asset and technique as
    avn.css .avn-mask-icon), so it turns green/gray/red with the rest. */
 .ms-flag-mask {
@@ -390,8 +390,8 @@ html, body {
 /* Bigger than a label on a page: these are the only things on the glass. */
 .layout-picker .nav-item { font-size: 30px; }
 
-/* SAVE/LOAD LAYOUT (issue #51 follow-up) — a smaller secondary row so it reads as a pair of
-   actions, not a third layout choice alongside CLASSIC/F-35. */
+/* SAVE/LOAD LAYOUT — a smaller secondary row so it reads as a pair of actions, not a third layout
+   choice alongside CLASSIC/F-35. */
 .layout-picker-actions .nav-item { font-size: 20px; }
 
 /* The current layout needs no rule of its own: .nav-item.on already boxes a label in amber, and
@@ -589,11 +589,9 @@ html, body {
    label to roughly one glyph so it clears them. Same fix, same properties, as the bezel's
    .overlay.vmain .overlay-item.left in mfd.css — including pulling in to the edge, since 16px of
    margin would still leave the label overlapping. BDF/PAL/MIS/OBJ are one family (MD —
-   docs/md-pages.md) reachable from each other, so all four need the same treatment; AKF was
-   missing from this list even though the bezel's isVmainPage() already includes it (issue found
-   from an actual F-35 screenshot: AKF's rows read fine in CLASSIC but were overlapped by a
-   horizontal MAIN/AKF/MIS/OBJ/BDF/PAL label stack here). HUD stays horizontal (per user
-   preference) — its own CSS pads around the label's width instead of standing it up (hud.css). */
+   docs/md-pages.md) reachable from each other, and AKF matches the bezel's isVmainPage() list, so
+   all need the same treatment here. HUD stays horizontal (per user preference) — its own CSS pads
+   around the label's width instead of standing it up (hud.css). */
 .nav-grid.edge[data-page="tgt"] .nav-item,
 .nav-grid.edge[data-page="akf"] .nav-item,
 .nav-grid.edge[data-page="bdf"] .nav-item,

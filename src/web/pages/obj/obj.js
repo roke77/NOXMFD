@@ -1,15 +1,13 @@
-// OBJ page — a read-only reactive replica of the game's active-objectives list, driven by the
-// shell over postMessage (docs/md-pages.md). No interaction beyond the local expand/collapse
-// toggle — pure render of the 'obj' block. See obj.html for the message contract.
+// Read-only replica of the game's active-objectives list, driven by the shell over postMessage.
+// Only local interaction is the expand/collapse toggle.
 
 const listEl = document.getElementById('obj-list');
 
 const STATUS_LABEL = ['Not Started', 'Running', 'Complete'];
 
 let state = { present: false, items: [] };
-let builtKey = '';   // cache of the last-rendered item set, so a percent/position-only update skips rebuild
-// Which objectives (by name) are collapsed — expanded is the default, matching the in-game panel.
-const collapsed = new Set();
+let builtKey = '';   // last-rendered item signature; skips DOM rebuild on percent/position-only updates
+const collapsed = new Set();   // objective names currently collapsed; default is expanded
 
 function buildPosRow() {
   const row = document.createElement('div');
@@ -27,8 +25,7 @@ function buildPosRow() {
 }
 
 function buildRows() {
-  // Rebuild when the objective set OR any objective's position-row count changes (a fresh position
-  // list needs fresh DOM rows) — plain name signature alone would miss the latter.
+  // Signature includes position-row count so a changed sub-row list also triggers a rebuild.
   const sig = state.items.map(o => o.n + ':' + (o.pos ? o.pos.length : 0)).join('|');
   if (sig === builtKey) return;
   builtKey = sig;
@@ -112,4 +109,4 @@ window.addEventListener('message', function (e) {
   paint();
 });
 
-paint();   // initial paint — UNAVAILABLE until the first frame arrives
+paint();   // starts in unavailable state until the first frame arrives

@@ -1,6 +1,6 @@
 // TGP page — targeting-pod MJPEG feed. A pure reactive renderer driven by the shell over
 // postMessage; single source of truth for BOTH layouts (full-screen iframe + split pane).
-// The full-view overlay twin in MfdPage.cs is gone. See tgp.html for the message contract.
+// See tgp.html for the message contract.
 
 const tgpPanel = document.getElementById('tgp-panel');
 const tgpImg   = document.getElementById('tgp-img');

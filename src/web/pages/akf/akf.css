@@ -1,6 +1,5 @@
-/* AKF page — advanced kill feed (issue #34, docs/akf-page.md). Green-phosphor MFD theme via the
-   shared --no-* tokens. The feed content is read-only; the ALL/PLAYER resizer and the DETAILED/
-   COMPACT density toggle are the only interactive controls (issue #34 follow-up). */
+/* AKF page (docs/akf-page.md). Feed content is read-only; the ALL/PLAYER resizer and the
+   DETAILED/COMPACT density toggle are the only interactive controls. */
 
 * { box-sizing: border-box; }
 
@@ -15,17 +14,16 @@ html, body {
 
 .akf-panel {
   height: 100%;
-  position: relative;   /* positions the PAD cursor (docs/page-cursor.md, .pad-cursor) */
+  position: relative;   /* anchors the PAD cursor (docs/page-cursor.md, .pad-cursor) */
   display: flex; flex-direction: column;
   gap: clamp(4px, 1.2vh, 10px);
   padding: clamp(6px, 1.8vmin, 16px);
-  /* Extra side inset for the shell's vertical MAIN/MD bezel label — matches BDF/MIS/OBJ's own
-     inset (isVmainPage). */
+  /* Matches BDF/MIS/OBJ's own inset (isVmainPage) for the shell's vertical MAIN/MD bezel label. */
   padding-left: clamp(34px, 5vw, 48px);
   padding-right: clamp(34px, 5vw, 48px);
 }
 /* 3-column grid, not plain centered text: a matching spacer on the left keeps the title truly
-   centered regardless of the density toggle's own width on the right (issue #34 follow-up). */
+   centered regardless of the density toggle's own width on the right. */
 .akf-header {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -41,10 +39,9 @@ html, body {
   letter-spacing: 0.1em;
 }
 
-/* DETAILED/COMPACT feed density toggle (issue #34 follow-up) — a real sliding switch, not a
-   checkbox: the knob moves to whichever side is active, and that side's label brightens to match
-   (mirrors the amber/green "current choice" convention the rest of the app uses, just green-on-both
-   since there's no urgency axis here, only a density one). */
+/* A real sliding switch, not a checkbox: the knob moves to the active side and that side's label
+   brightens, mirroring the app's amber/green "current choice" convention (green-on-both here since
+   density has no urgency axis). */
 .akf-density-toggle {
   justify-self: end;
   display: flex;
@@ -90,8 +87,7 @@ html, body {
   margin-bottom: 4px;
 }
 
-/* ALL (left, wider) / PLAYER (right) — growing downward, newest line at the bottom (see akf.js).
-   Three grid tracks, not two: the resizer sits in its own fixed-width middle column (akf.js drags
+/* Three grid tracks, not two: the resizer sits in its own fixed-width middle column (akf.js drags
    by rewriting this property with explicit px tracks) rather than living in the gap between two
    fr-sized columns, so it has a real, stable width to anchor a drag handle to. */
 .akf-feeds {
@@ -107,9 +103,8 @@ html, body {
   overflow: hidden;
 }
 
-/* Drag handle between the two feeds (issue #34 follow-up) — a full-height hairline (::before) with
-   a pair of triangle "grips" sitting over its vertical center, background-matched to punch through
-   the line so they read as attached to it, not floating separately. */
+/* ::before is a full-height hairline; the triangle grips are background-matched to punch through it
+   so they read as attached to the line rather than floating separately. */
 .akf-resizer {
   position: relative;
   cursor: ew-resize;
@@ -142,8 +137,8 @@ html, body {
 .akf-resizer:hover .akf-resizer-arrow,
 .akf-resizer.pad-hover .akf-resizer-arrow,
 .akf-resizer.dragging .akf-resizer-arrow { color: var(--no-green); }
-/* Collapsed (one feed shrunk past its minimum, issue #34 follow-up): only the arrow pointing back
-   toward the remaining side survives, doubling as a restore-to-default button (akf.js). */
+/* Collapsed (one feed shrunk past its minimum): only the arrow pointing back toward the remaining
+   side survives, doubling as a restore-to-default button (akf.js). */
 .akf-resizer.collapsed-all .akf-resizer-arrow-left,
 .akf-resizer.collapsed-player .akf-resizer-arrow-right { display: none; }
 .akf-resizer.collapsed-all,

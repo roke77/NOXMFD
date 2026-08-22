@@ -93,8 +93,8 @@
 
   // Pages carrying their own PAD cursor (pad-cursor.js) — docs/page-cursor.md, docs/tgt-keybind-nav.md.
   // Mirrors the bezel's own PAD_CURSOR_PAGES (mfd.js) exactly; kept as its own copy since this
-  // layout has no shared module with the bezel to hang it on. AKF joined once its ALL/PLAYER
-  // resizer gave it something to click (issue #34 follow-up).
+  // layout has no shared module with the bezel to hang it on. AKF is included because its
+  // ALL/PLAYER resizer is clickable and needs cursor support.
   const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, akf: true };
 
   const WPN_MAX_DISPLAY = ROWS - 1;   // row 1 is the nav + CM band; rows 2..6 carry the weapons
@@ -105,18 +105,17 @@
   // bezel is unaffected (there CFG, MD, RDR and AFM are their own BEZEL_EXTRAS keys). Each of
   // these has an F35_PAGES entry and renders as a real page (docs/bdf-page.md, src-architecture.md).
   // CFG, MD, RDR and AFM are frame pages with an F35_PAGES entry — CFG opens the CFG group
-  // (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39), landing on HUD by default (mirrors MD
-  // staying 'bdf' — the action names whichever sibling is the landing page; HUD joined this group
-  // and no longer has a MAIN entry of its own, same as RTS). Selecting LYT from that group still
-  // opens the layout chooser over the whole glass (GLASS_ACTIONS) exactly as before — only its
-  // entry point moved from top-level MAIN into the CFG group. All match where the bezel keeps them
-  // — MAIN — so a pilot finds the same names in the same place in either layout.
+  // (HUD/KEY/LYT/RTS), landing on HUD by default (the action names whichever sibling is the
+  // landing page; HUD has no MAIN entry of its own, same as RTS). Selecting LYT from that group
+  // still opens the layout chooser over the whole glass (GLASS_ACTIONS) — its entry point lives in
+  // the CFG group rather than top-level MAIN. All match where the bezel keeps them — MAIN — so a
+  // pilot finds the same names in the same place in either layout.
   //
   // MD is one combined entry covering PAL/BDF — mirrors the bezel's own SCR→MD rename and
   // BDF/PAL fold. Action is 'akf' (AKF is the group's default landing page); NAV.akf/NAV.mis/
-  // NAV.obj/NAV.bdf/NAV.pal (shared, consumed generically at line ~390 below) carry the
-  // MAIN/AKF/MIS/OBJ/BDF/PAL sub-nav once you're on any of them, with `mark` lighting whichever is
-  // current — this layout already renders NAV[page] like any other.
+  // NAV.obj/NAV.bdf/NAV.pal (shared, consumed generically below) carry the MAIN/AKF/MIS/OBJ/BDF/PAL
+  // sub-nav once you're on any of them, with `mark` lighting whichever is current — this layout
+  // already renders NAV[page] like any other.
   const MAIN_EXTRAS = [
     { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now
     { label: 'MD', action: 'akf' },
@@ -136,13 +135,13 @@
   // MAP's own actions → the message the map view listens for. Also not pages: they drive the map
   // in place rather than navigating. Same protocol the bezel uses (mfd.js mapSend), but routed to
   // the portal's OWN map — with several maps on the glass, "the map" is no longer unambiguous.
-  // rng-in/rng-out (RDR's range rocker, issue #40 follow-up) reuse the same zoom-in/zoom-out action
-  // names MAP's zin/zout send — mapSend() here already targets frameWin() generically (unlike the
-  // classic shell's mapFrame-specific version), so RDR needs nothing beyond this mapping.
+  // rng-in/rng-out (RDR's range rocker) reuse the same zoom-in/zoom-out action names MAP's zin/zout
+  // send — mapSend() here already targets frameWin() generically (unlike the classic shell's
+  // mapFrame-specific version), so RDR needs nothing beyond this mapping.
   const MAP_ACTIONS = { flw: 'toggle-follow', zin: 'zoom-in', zout: 'zoom-out', grid: 'toggle-grid',
                          'rng-in': 'zoom-in', 'rng-out': 'zoom-out',
-                         'rt-next': 'route-next', 'rt-prev': 'route-prev',   // issue #38
-                         'wpt-next': 'waypoint-next', 'wpt-prev': 'waypoint-prev' };   // issue #38
+                         'rt-next': 'route-next', 'rt-prev': 'route-prev',
+                         'wpt-next': 'waypoint-next', 'wpt-prev': 'waypoint-prev' };
 
   // ARM/SAFE (docs/radar-master-arms.md) — WPN's own unconditional controls, same shape as
   // MAP_ACTIONS: an action name maps to what it sends, dispatched by command rather than page nav.
@@ -158,9 +157,9 @@
   // Combat mode (docs/radar-master-arms.md) — same shape as ARM/SAFE, one row lower: rows 4-5 of
   // the right column are free too (only col 1 rows 2..6 are spoken for, by the weapon-row hits).
   // No ALL item — holding A/A or A/G already resets to ALL (PollTapHold, Keybinds.cs), so ALL just
-  // reads as neither of these two lit, same as for the keybinds themselves. That hold behavior
-  // wasn't actually wired up on THESE two on-screen buttons though (issue #50 follow-up) — see the
-  // pointerdown/pointerup pair on them in renderNav() below.
+  // reads as neither of these two lit, same as for the keybinds themselves. That hold behavior is
+  // not wired up on these two on-screen buttons — see the pointerdown/pointerup pair on them in
+  // renderNav() below.
   const COMBAT_MODE_ACTIONS = { 'combat-mode-aa': 'aa', 'combat-mode-ag': 'ag' };
   const COMBAT_MODE_HOLD_MS = 500;   // matches tgt.js's LONG_MS / pad-cursor.js's DEFAULT_HOLD_MS
   const COMBAT_MODE_NAV = [
@@ -168,14 +167,14 @@
     { label: 'A/G', action: 'combat-mode-ag', cell: { row: 5, col: 2 } },
   ];
 
-  // MAP's own placement (issue #38 follow-up, mfd.js's own full view twin): a fixed 5-left/5-right
-  // split via explicit cells, rather than cellOf's generic index-into-6-rows overflow — MAIN/GRID/
-  // FLW/Z+/Z- read as "map view controls" in column 1, WPT/R+/R-/W+/W- as "waypoint controls" in
-  // column 2. The action lists (SplitSlots.MAP_FULL_LEFT/RIGHT/mapFullRight) are shared with the
-  // classic bezel — see that module's own comment — so the two layouts can't drift out of sync.
-  // R+/R- show as long as any route is saved (deactivate follow-up: still useful to cycle INTO one
-  // with none active); W+/W- need a route actually active, since they step ITS next waypoint. WPT
-  // itself always shows, since it's how a pilot gets a route in the first place.
+  // MAP's own placement (mfd.js's own full view twin): a fixed 5-left/5-right split via explicit
+  // cells, rather than cellOf's generic index-into-6-rows overflow — MAIN/GRID/FLW/Z+/Z- read as
+  // "map view controls" in column 1, WPT/R+/R-/W+/W- as "waypoint controls" in column 2. The action
+  // lists (SplitSlots.MAP_FULL_LEFT/RIGHT/mapFullRight) are shared with the classic bezel — see
+  // that module's own comment — so the two layouts can't drift out of sync. R+/R- show as long as
+  // any route is saved (still useful to cycle into one with none active); W+/W- need a route
+  // actually active, since they step ITS next waypoint. WPT itself always shows, since it's how a
+  // pilot gets a route in the first place.
   function mapNavItems() {
     const byAction = {};
     (NAV.map || []).forEach(function (item) { byAction[item.action] = item; });
@@ -213,10 +212,10 @@
 
   // 'edge' placement: an item's index → its cell. The left column, top-down, IS the bezel's left
   // key bank — the same derivation mfd.js fullViewSlot() uses, which is why NAV needs no placement
-  // hints for full view — including the overflow into column 2 once 6 rows fill (MAP's R+/R-,
-  // issue #38, is the first 'edge' page past that mark; WPN's NEXT already proved col 2 works via
-  // its own item.cell). ('center' needs no function: items flow in NAV order and the grid's own
-  // columns arrange them.)
+  // hints for full view — including the overflow into column 2 once 6 rows fill (MAP's R+/R- is
+  // the first 'edge' page past that mark; WPN's NEXT already proved col 2 works via its own
+  // item.cell). ('center' needs no function: items flow in NAV order and the grid's own columns
+  // arrange them.)
   function cellOf(i) { return i < ROWS ? { row: i + 1, col: 1 } : { row: i - ROWS + 1, col: 2 }; }
 
   // ── Corner grips ─────────────────────────────────────────────────────────────────────
@@ -271,8 +270,8 @@
     grid.className  = 'nav-grid';
     el.appendChild(frame);
     el.appendChild(grid);
-    // SAVE/LOAD LAYOUT (issue #51) — see wireLayoutKeydown's own comment further down: every
-    // portal's content is its own iframe, so it needs the keydown handler re-attached here too.
+    // SAVE/LOAD LAYOUT — see wireLayoutKeydown's own comment further down: every portal's content
+    // is its own iframe, so it needs the keydown handler re-attached here too.
     wireLayoutKeydown(frame);
 
     let currentPage = null;
@@ -447,7 +446,7 @@
     //          NAV items, where the bezel just shows NAV's six in their given order.
     //   wpn  — nothing from NAV (it's empty by design); its labels are pagination.
     //   map  — MAIN/GRID/FLW/Z+/Z- and WPT/R+/R-/W+/W- via explicit cells, not NAV.map's own order
-    //          (mapNavItems, issue #38 follow-up — see its own comment).
+    //          (mapNavItems — see its own comment).
     function itemsFor(page) {
       if (page === 'wpn') return wpnState().nav.concat(MASTER_ARMS_NAV, COMBAT_MODE_NAV);
       if (page === 'map') return mapNavItems();
@@ -473,8 +472,8 @@
       const b = grid.querySelector('.nav-item[data-action="flw"]');
       if (b) b.classList.toggle('on', followOn);
     }
-    // GRID's twin (issue #41) — same reasoning: the label is the control, so it carries the state,
-    // reflecting the map's own report rather than assuming the click won.
+    // GRID's twin — same reasoning: the label is the control, so it carries the state, reflecting
+    // the map's own report rather than assuming the click won.
     function setGrid(on) { gridOn = on; markGrid(); }
     function markGrid() {
       const b = grid.querySelector('.nav-item[data-action="grid"]');
@@ -612,11 +611,11 @@
         grid.appendChild(b);
       });
       if (currentPage === 'wpn') { addWeaponHits(); markMasterArms(); markCombatMode(); placeWpnDecorators(); }
-      // ZOOM between Z+/Z- (issue #41) and ROUTE between R+/R- (issue #38) — same decorator, MAP's
-      // twin of WPN's MASTER/MODE. Found by data-action, so the 2-column overflow (cellOf) needs no
+      // ZOOM between Z+/Z- and ROUTE between R+/R- — same decorator, MAP's twin of WPN's
+      // MASTER/MODE. Found by data-action, so the 2-column overflow (cellOf) needs no
       // special-casing here — the decorator just measures wherever the two buttons actually landed.
       if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); placeWpnDecorator('wpt-next', 'wpt-prev', 'WYPT'); }
-      // RANGE between R+/R- (issue #40 follow-up) — RDR's twin.
+      // RANGE between R+/R- — RDR's twin.
       if (currentPage === 'rdr') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
       markGrid();     // ...and the state to the new GRID
@@ -654,8 +653,8 @@
       // own PAD cursor (null otherwise), so the glass-level cursor forwarding can't target a page
       // with nothing listening for it.
       cursorWin: function () { return PAD_CURSOR_PAGES[currentPage] ? frameWin() : null; },
-      // Rebuilds just the label grid (issue #38 follow-up) — unlike showPage, doesn't touch
-      // frame.src, so it can't reload (and so lose pan/zoom on) an already-showing MAP. The glass's
+      // Rebuilds just the label grid — unlike showPage, doesn't touch frame.src, so it can't
+      // reload (and so lose pan/zoom on) an already-showing MAP. The glass's
       // own 'storage' listener uses this to pick up an active route appearing/disappearing live.
       refreshNav: renderNav,
       // Flex-grow tracks the span, so a merged portal takes exactly the two slots it owns and its
@@ -679,8 +678,8 @@
 
   // ── The glass ────────────────────────────────────────────────────────────────────────
   // The F-35's panoramic display is one wide sheet carrying four side-by-side portals, each an
-  // independent MFD — not a 2x2 grid (issue #8's reference shots). Four slots, and a portal fills
-  // one or two of them, so any two ADJACENT portals may merge. Which arrangements that allows, and
+  // independent MFD — not a 2x2 grid. Four slots, and a portal fills one or two of them, so any
+  // two ADJACENT portals may merge. Which arrangements that allows, and
   // which grips each portal gets, is f35-glass's rule (and f35-glass.test.js pins it): five
   // layouts, no triples, and every merge reachable from either side.
   //
@@ -859,15 +858,15 @@
       return;
     }
 
-    // 'grid' routes the same way, for the same reason (issue #41).
+    // 'grid' routes the same way, for the same reason.
     if (m.type === 'grid') {
       livePortals().forEach(function (p) { if (p.isMapWin(e.source)) p.setGrid(!!m.on); });
       return;
     }
 
     // 'wpt-routes-request' — a freshly-loaded portal catching up on the route library (docs/hud-
-    // waypoint-indicator.md perf fix, 2026-08-18) — comes from the portal's own iframe, not the
-    // tap, same reasoning as 'follow'/'grid' above.
+    // waypoint-indicator.md perf fix) — comes from the portal's own iframe, not the tap, same
+    // reasoning as 'follow'/'grid' above.
     if (m.type === 'wpt-routes-request') {
       if (e.source) e.source.postMessage({ mfd: true, type: 'wpt-routes', data: WaypointsStore.load() }, '*');
       return;
@@ -928,16 +927,16 @@
   orientMq.addEventListener('change', relayoutAll);
 
   // MAP's R+/R- portal buttons show while any route is saved, W+/W- only while one is active
-  // (issue #38 follow-up, deactivate follow-up, mfd.js's classic-shell twin). The plugin is the
-  // single source of truth for routes now (docs/hud-waypoint-indicator.md) — this shell document
-  // loads its own copy of waypoints-store.js (f35.html), which polls /wpt-options and fires this
-  // event on any change, from any page, any device. refreshNav (not showPage) so it can't reload
-  // — and so can't lose the pan/zoom of — a MAP portal that's already showing.
+  // (mfd.js's classic-shell twin). The plugin is the single source of truth for routes now
+  // (docs/hud-waypoint-indicator.md) — this shell document loads its own copy of
+  // waypoints-store.js (f35.html), which polls /wpt-options and fires this event on any change,
+  // from any page, any device. refreshNav (not showPage) so it can't reload — and so can't lose
+  // the pan/zoom of — a MAP portal that's already showing.
   //
-  // Also pushes the route data into the same slices/onSlice relay every other feed uses (perf fix,
-  // 2026-08-18) — only this shell polls /wpt-options now; each portal picks it up through the
-  // normal PAGE_FEEDS mechanism (map/wpt both list 'wpt-routes' above), including automatic
-  // catch-up on a freshly loaded portal via forwardToPage(), the same as every other slice.
+  // Also pushes the route data into the same slices/onSlice relay every other feed uses — only
+  // this shell polls /wpt-options now; each portal picks it up through the normal PAGE_FEEDS
+  // mechanism (map/wpt both list 'wpt-routes' above), including automatic catch-up on a freshly
+  // loaded portal via forwardToPage(), the same as every other slice.
   window.addEventListener('wptroutes:changed', function () {
     slices['wpt-routes'] = { mfd: true, type: 'wpt-routes', data: WaypointsStore.load() };
     livePortals().forEach(function (p) {
@@ -958,7 +957,7 @@
   const stripThr  = gauge('ms-thr', 'thr');
   const stripFuel = gauge('ms-fuel', 'fuel');
 
-  // Click-to-toggle (issue #35) — data-kind already names the avn.toggle group 1:1 (gear, radar,
+  // Click-to-toggle — data-kind already names the avn.toggle group 1:1 (gear, radar,
   // guns, eng, assist, nvg, lights, turret), so the click handler needs no mapping table. Fire-and-
   // forget: the next 'avn' telemetry frame repaints the tile via updateStripFlags below, same as
   // every other live-state indicator on this strip.
@@ -1114,8 +1113,8 @@
   pickerEl.querySelector('[data-layout="f35"]').addEventListener('click', function () { setLayout('f35'); showPicker(false); });
   pickerEl.querySelector('[data-layout="classic"]').addEventListener('click', function () { setLayout('classic'); location.href = '/'; });
 
-  // Touch-friendly path for SAVE/LOAD LAYOUT (issue #51 follow-up) — same modals the keyboard
-  // shortcut opens, for a tablet with no keyboard attached. Unlike CLASSIC's LYT, the picker never
+  // Touch-friendly path for SAVE/LOAD LAYOUT — same modals the keyboard shortcut opens, for a
+  // tablet with no keyboard attached. Unlike CLASSIC's LYT, the picker never
   // touches portals/cells — they keep running underneath, hidden — so SAVE from here always
   // captures the real current arrangement, not a placeholder "picker" page.
   document.getElementById('layout-picker-save').addEventListener('click', openSaveLayoutModal);
@@ -1133,7 +1132,7 @@
     }
   });
 
-  // ── SAVE/LOAD LAYOUT (issue #51) — browser-side keyboard shortcuts only, no joystick/HOTAS. ──
+  // ── SAVE/LOAD LAYOUT — browser-side keyboard shortcuts only, no joystick/HOTAS. ──
   // S saves the glass's current arrangement (F35Glass cells + each portal's page) under a name;
   // L opens a picker of every saved F-35 layout and applies the one clicked. Storage is
   // server-side (LayoutStore.cs), so a layout saved here shows up on every other connected browser
@@ -1167,8 +1166,8 @@
       });
       refreshGlass();
     }
-    // Reveal the result immediately even when LOAD was triggered from the picker (issue #51
-    // follow-up) — a no-op (already showing the glass) when it wasn't open.
+    // Reveal the result immediately even when LOAD was triggered from the picker — a no-op
+    // (already showing the glass) when it wasn't open.
     showPicker(false);
   }
 

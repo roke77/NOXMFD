@@ -1,24 +1,19 @@
-// apicheck — a pre-flight guard for Nuclear Option game updates.
+// apicheck: pre-flight guard for Nuclear Option game updates.
 //
-// The plugin reaches into the game's private internals by reflection (typeof(T).GetField("name"),
-// ...). Those calls compile fine no matter what the game does — they only break at RUNTIME, silently,
-// when an update renames or retypes the member: the reflected field resolves to null and the feature
-// just stops working, with no compiler error and often no log.
-//
-// This tool closes that blind spot. It scans the plugin source for every typeof(T).GetField/GetMethod/
-// GetProperty("name") call, then resolves each against the CURRENT game assembly via MetadataLoadContext
-// (metadata only — nothing is executed) and reports any member that vanished or changed type. Run it
-// after each game update; a non-zero exit means something needs attention.
+// The plugin reaches into game internals via reflection (typeof(T).GetField("name"), etc.). Those
+// calls compile regardless of the game's actual shape and only fail at runtime, silently, when a
+// member is renamed/retyped. This scans the plugin source for every such call, resolves each
+// against the current game assembly via MetadataLoadContext (metadata only, nothing executed), and
+// reports any member that's missing or changed type. Run after each game update; non-zero exit
+// means something needs a fix.
 //
 //   dotnet run --project tools/apicheck
 //   dotnet run --project tools/apicheck -- "D:\path\to\Nuclear Option"   # explicit game dir
 //
-// With no argument it reads GameDir from GameDir.props (the same gitignored file the plugin uses).
+// With no argument, reads GameDir from GameDir.props.
 //
-// Not covered: dynamic sites (someObj.GetType().GetField(...)) whose type isn't a literal typeof — these
-// are listed at the end for manual awareness. And this checks member SHAPE, not behaviour: a field that
-// still exists with the same type but is populated/ordered differently (enum/index drift) needs an
-// in-game check, not this.
+// Dynamic sites (someObj.GetType().GetField(...), not a literal typeof) aren't checked — only
+// listed for manual review. Checks member shape, not behavior (enum/index drift needs an in-game check).
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -43,14 +38,12 @@ static class Program
         string asmPath = Path.Combine(managed, "Assembly-CSharp.dll");
         if (!File.Exists(asmPath)) { Console.Error.WriteLine($"apicheck: Assembly-CSharp.dll not found under {managed}"); return 2; }
 
-        // (declaringType, kind, member) triples pulled straight from the plugin source, so this never
-        // drifts from the code: add a reflection call and it's checked automatically next run.
+        // Sites are extracted from the plugin source, so a new reflection call is picked up automatically.
         var pluginDir = Path.Combine(repoRoot, "src", "plugin");
         var sites = ExtractReflectionSites(pluginDir, out var dynamicSites);
         if (sites.Count == 0) { Console.Error.WriteLine($"apicheck: found no typeof(T).GetField/... sites under {pluginDir}"); return 2; }
 
-        // Unity's Managed folder ships the framework libs the game was built against — resolve from it
-        // alone (mixing in the host runtime's copies collides on duplicate assembly names).
+        // Resolve from Managed alone — mixing in the host runtime's copies collides on duplicate assembly names.
         var resolver = new PathAssemblyResolver(Directory.GetFiles(managed, "*.dll"));
         string core = File.Exists(Path.Combine(managed, "mscorlib.dll")) ? "mscorlib" : "netstandard";
         using var mlc = new MetadataLoadContext(resolver, coreAssemblyName: core);
@@ -88,7 +81,7 @@ static class Program
         return broken == 0 ? 0 : 1;
     }
 
-    // typeof(Type).GetField("name") / GetMethod / GetProperty — the statically-resolvable sites.
+    // Statically-resolvable sites: typeof(Type).GetField/GetMethod/GetProperty("name").
     static List<(string type, string kind, string member)> ExtractReflectionSites(string dir, out List<string> dynamicSites)
     {
         var staticRe  = new Regex(@"typeof\(\s*(\w+)\s*\)\s*\.\s*(GetField|GetMethod|GetProperty)\(\s*""([^""]+)""", RegexOptions.Compiled);

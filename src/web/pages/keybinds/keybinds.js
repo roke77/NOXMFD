@@ -29,8 +29,8 @@ var bgInput   = false;   // InputWhenGameUnfocused — a plain setting, not a bi
 var radarOnOnStart      = true;
 var engineOnOnStart     = true;
 var masterArmsOnOnStart = true;
-// HudCombatModeFilters' own on/off switch (issue #50 follow-up) — default OFF, unlike the three
-// above, so it starts false rather than true until the first /keybinds-config poll.
+// HudCombatModeFilters' own on/off switch — default OFF, unlike the three above, so it starts
+// false rather than true until the first /keybinds-config poll.
 var hudFiltersOnCombatMode = false;
 var lastJson  = '';      // skip re-render when nothing changed
 
@@ -179,8 +179,8 @@ function buildRow(b) {
     wide.style.gridColumn = '2 / span 2';
     row.appendChild(wide);
   } else if (b.key !== undefined && b.joyButton === undefined) {
-    // Key-only row (issue #51 — SAVE/LOAD LAYOUT): browser-side only, deliberately no joystick/
-    // HOTAS option, so there's no joyButton field to render a second cell for.
+    // Key-only row (e.g. SAVE/LOAD LAYOUT): browser-side only, deliberately no joystick/HOTAS
+    // option, so there's no joyButton field to render a second cell for.
     var wideKey = cell(b, 'key');
     wideKey.style.gridColumn = '2 / span 2';
     row.appendChild(wideKey);

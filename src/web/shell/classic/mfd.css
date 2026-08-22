@@ -1,5 +1,5 @@
-/* MFD shell styles. Extracted from MfdPage.cs's inline <style>; the
-   embedded @font-face moved to src/web/shared/font.css (linked before this). */
+/* MFD shell styles. Depends on the @font-face in src/web/shared/font.css being
+   linked before this file. */
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
@@ -41,9 +41,9 @@
      hosted pages (AVN/WPN) derive their FULL-view geometry from the left column's separator
      rows, so those rows must keep their vertical positions across the now-full-height screen;
      display:none would zero those rects and collapse the pages. gap:0 so the two 0-width side
-     tracks add no margin and the 1fr screen cell fills the width.
-     ponytail: reuses the existing bezel-anchored geometry instead of a hidden-only layout path —
-     the coupling to .keys.v is the ceiling; a future square/5-per-side frame fit would replace it. */
+     tracks add no margin and the 1fr screen cell fills the width. This reuses the existing
+     bezel-anchored geometry rather than a dedicated hidden-only layout; it depends on the
+     .keys.v structure, so a future square or 5-per-side frame fit needs its own layout path. */
   .mfd.shell-hidden .mid    { grid-template-columns: 0 1fr 0; gap: 0; }
   .mfd.shell-hidden .keys.v { visibility: hidden; overflow: hidden; }
   .mfd.shell-hidden .overlay-item { display: none; }
@@ -532,7 +532,7 @@
     display: none;
     min-width: 280px;
     /* Sized off vmax (the longer viewport edge) so the card stays the same physical size
-       whether the device is portrait or landscape — it no longer resizes on rotation. */
+       across portrait and landscape orientation. */
     padding: clamp(22px, 2.4vmax, 35px) clamp(36px, 4vmax, 58px);
     border: 1px solid var(--no-green);
     background: rgba(var(--no-panel-bg-rgb), 0.9);

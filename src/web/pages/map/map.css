@@ -1,7 +1,5 @@
-/* MAP page styles. Extracted from ClientPage.cs's inline <style>; the embedded @font-face
-   moved to src/web/shared/font.css (linked before this). Body font stays 'Courier New' (the map
-   only uses Share Tech Mono for the NO SIGNAL placeholder), so the theme.css body font is
-   overridden here on purpose. */
+/* MAP page styles. Body font stays 'Courier New' (the map only uses Share Tech Mono for the
+   NO SIGNAL placeholder), so the theme.css body font is overridden here on purpose. */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -17,9 +15,9 @@ body {
 
 main { flex: 1; display: flex; overflow: hidden; }
 
-/* --map-crosshair (the shared PAD cursor sprite) lives in shared/theme.css now — reused by
-   TGT/HUD's own cursor (docs/page-cursor.md). Still used here as the mouse pointer over the map
-   too, so a HOTAS pilot and a mouse user see the exact same mark. */
+/* --map-crosshair (the shared PAD cursor sprite, shared/theme.css, also used by TGT/HUD —
+   docs/page-cursor.md) also serves as the mouse pointer here, so a HOTAS pilot and a mouse user
+   see the exact same mark. */
 
 #map-panel {
   flex: 1;
@@ -30,16 +28,14 @@ main { flex: 1; display: flex; overflow: hidden; }
   cursor: var(--map-crosshair) 12 12, crosshair;
 }
 
-/* #soi-cursor's box/position/transform styling is the shared .pad-cursor class (theme.css) now —
-   see map.html. Moving it never touches the map canvas: a full drawOverlay per frame to shift 24px
+/* #soi-cursor's box/position/transform styling is the shared .pad-cursor class (theme.css; see
+   map.html). Moving it never touches the map canvas: a full drawOverlay per frame to shift 24px
    was making the crosshair the most expensive thing on the page, and the first casualty when the
    browser throttles. */
-#map-panel.has-map { background: var(--no-bg); }   /* black letterbox once a map is loaded */
-/* Source sprite only — the map is blitted into #overlay so it shares the icons' transform. */
+#map-panel.has-map { background: var(--no-bg); }
+/* The map is blitted into #overlay so it shares the icons' transform; this stays the source sprite. */
 #map-img { display: none; }
-#map-missing {
-  display: block;   /* shown by default (no mission / no map yet); hidden once a map loads */
-}
+#map-missing { display: block; }
 #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
 
 /* Bottom-right status row: CURSOR, GRID, ROUTE (left to right), pushed to the right edge. A flex
@@ -54,11 +50,8 @@ main { flex: 1; display: flex; overflow: hidden; }
   justify-content: flex-end;
 }
 
-/* CURSOR — the grid square under whichever pointer is active (mouse or PAD cursor).
-   updateCursorChip (map.js) toggles 'empty' as the pointer enters/leaves the map. GRID is the
-   ownship's own square. ROUTE (issue #38) is the active waypoint route's name, shown only while
-   one exists — updateRouteChip (map.js). All three are plain .mfd-chip content now — #map-status-bar
-   above owns their layout, so none of the three needs its own position/spacing rule. */
+/* CURSOR, GRID, and ROUTE (issue #38) chips are plain .mfd-chip content — #map-status-bar above
+   owns their layout, so none needs its own position/spacing rule. */
 
 /* FOLLOW is shown by the MFD shell's own indicator (stacked alongside PINNED), not here —
    MAP just mirrors its follow state up via source.emitFollow(). */

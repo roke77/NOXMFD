@@ -8,9 +8,9 @@ namespace NOXMFD
 {
     internal class TelemetryReader : MonoBehaviour
     {
-        // cfg-rates experiment: was `const`; RatesConfig.SetFastHz (rates.set command) now writes
-        // this live from the RTS page's TLM slider, so PushSnapshot's whole 10 Hz group — own-ship,
-        // weapons, contacts, TGT, BDF/PAL — moves together.
+        // Not a const: RatesConfig.SetFastHz (rates.set command) writes this live from the RTS
+        // page's TLM slider, so PushSnapshot's whole 10 Hz group — own-ship, weapons, contacts,
+        // TGT, BDF/PAL — moves together.
         internal static float FastInterval = 0.1f; // 10 Hz — position / speed
         private const  float SlowInterval  = 1.0f; // 1 Hz  — world scan + map metadata (FindObjectsByType is expensive)
 
@@ -40,8 +40,8 @@ namespace NOXMFD
         // source, Radar.IsJammed() doesn't remember it — so we hook every radar-equipped unit once
         // and remember its last jammer. Radar.IsJammed() (polled fresh each scan) gates whether a
         // unit is CURRENTLY jammed; _jammedBy just answers "by whom" once it is.
-        // ponytail: hooked units are never unhooked (a despawned unit's entry just sits inert) —
-        // bounded by total units spawned in one mission, not worth pruning for a HOTAS MFD mod.
+        // Hooked units are never unhooked (a despawned unit's entry just sits inert) — bounded by
+        // total units spawned in one mission, not worth pruning for a HOTAS MFD mod.
         private readonly HashSet<Unit> _jamHooked = new HashSet<Unit>();
         private readonly Dictionary<Unit, Unit> _jammedBy = new Dictionary<Unit, Unit>();
 
@@ -376,8 +376,8 @@ namespace NOXMFD
         }
 
         // Faction-forces breakdown for the BDF/PAL pages (docs/bdf-page.md) — always a fixed faction
-        // identity (BOSCALI for BDF, PRIMEVA for PAL), never "whichever faction the player is on".
-        // Confirmed in-game: switching sides did not change which faction either key opens.
+        // identity (BOSCALI for BDF, PRIMEVA for PAL), never "whichever faction the player is on":
+        // switching sides does not change which faction either key opens.
         // FactionHelper.Boscali/Primeva are the game's own two literal faction-name constants
         // (FactionHelper.cs) — InfoPanel_Faction.cs resolves its BDF/PALA-equivalent keys the same
         // fixed-name way. Present=false when that faction has no FactionHQ yet (e.g. between missions).

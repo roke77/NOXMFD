@@ -1,6 +1,6 @@
 // WPT page (issue #38) — route/waypoint list editor + distance/bearing readout. DOM-coupled, not
 // unit-tested. docs/hud-waypoint-indicator.md (Option 2): route data and its mutation logic are
-// now authoritative in the plugin (RouteStore.cs) — every WaypointsStore mutator is a POST
+// authoritative in the plugin (RouteStore.cs) — every WaypointsStore mutator is a POST
 // /command that resolves once the plugin's response has been polled back in, so callers chain
 // .then(render) instead of calling render() synchronously afterward. WptRoute/WaypointsStore are
 // classic <script> globals (wpt.html), loaded before this module.
@@ -324,7 +324,7 @@ function padCursorMoveAt(x, y) {
 
 // Zoom In/Out (map-act's zoom-in/zoom-out) are repurposed here to scroll the page — nothing on this
 // page to zoom, and the binds already exist end-to-end (docs/page-cursor.md), same as TGT/HUD.
-const SCROLL_STEP = 60;   // ponytail: flat constant tuned by feel, like pad-cursor.js's own SPEED
+const SCROLL_STEP = 60;   // flat constant tuned by feel, like pad-cursor.js's own SPEED
 
 window.addEventListener('message', function (e) {
   const m = e.data;
@@ -345,7 +345,7 @@ window.addEventListener('message', function (e) {
 });
 
 // Another tab/pane, another DEVICE, or MAP itself changed a route — the plugin is the single
-// source of truth now (docs/hud-waypoint-indicator.md), so this fires off WaypointsStore's own
+// source of truth (docs/hud-waypoint-indicator.md), so this fires off WaypointsStore's own
 // poll of /wpt-options rather than a same-PC-only localStorage 'storage' event.
 window.addEventListener('wptroutes:changed', render);
 
