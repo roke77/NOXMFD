@@ -212,7 +212,7 @@ need a browser to push anything, so there was nothing to keep them for.
 |---|---|
 | `src/plugin/RouteStore.cs` | The route library: storage, every mutation, disk persistence, `AdvanceIfNear` |
 | `src/plugin/JsonLite.cs` | Minimal JSON reader — the persisted file and pasted imports; `SelfCheck()` is its runnable check, called once from `Plugin.Awake` |
-| `src/plugin/HudWaypointCue.cs` | The renderer — chevron on the tape + two-line readout, reads `RouteStore` in-process |
+| `src/plugin/Hud/HudWaypointCue.cs` | The renderer — chevron on the tape + two-line readout, reads `RouteStore` in-process |
 | `src/plugin/CommandDispatcher.cs` | 14 `wpt.*` commands; `text` added to the envelope |
 | `src/plugin/TelemetryServer.cs` | `GET /wpt-options` — the route library, mission-independent |
 | `src/web/pages/wpt/waypoints-store.js` | Fetch/poll (`/wpt-options`, top window only) + `POST /command` client |

@@ -148,7 +148,7 @@ missing.
 
 ### Game main thread → per-frame UI churn (new, found 2026-08-20)
 
-`HudWaypointCue.LateUpdate` (`src/plugin/HudWaypointCue.cs:75`) rebuilds a
+`HudWaypointCue.LateUpdate` (`src/plugin/Hud/HudWaypointCue.cs:75`) rebuilds a
 `string.Format` and sets Unity `Text.text` **every rendered frame** (60 Hz+,
 not gated to any interval) whenever a waypoint route is active — even when
 the displayed distance/bearing round to the same value as last frame.
