@@ -18,6 +18,10 @@ namespace NOXMFD
     // [Serializable] class but is flaky deserializing nested [Serializable] objects in the game's
     // Mono runtime (it silently left a nested args.id at 0). So all command params live here as a
     // flat union; each handler reads the fields it cares about and absent ones default to 0.
+    // Every field below is populated by UnityEngine.JsonUtility.FromJson via reflection, which the
+    // compiler can't see through — hence CS0649 ("never assigned") on all of them. Suppressed here,
+    // scoped to just this class, rather than fixed per-field (docs/build-warning-cleanup.md).
+#pragma warning disable CS0649
     [Serializable]
     internal class CommandEnvelope
     {
@@ -45,6 +49,7 @@ namespace NOXMFD
         public float  wz;      // wpt.add-waypoint : world Z
         public string text;    // wpt.import : the pasted route-export JSON blob
     }
+#pragma warning restore CS0649
 
     internal static class CommandDispatcher
     {

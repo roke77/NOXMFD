@@ -2,7 +2,9 @@
 
 ## Status
 
-Planning — not started.
+In progress — item 1 (`CommandDispatcher.cs` pragma) and the `Keybinds.cs:87` investigation are
+done (111 → 96 warnings). The rest (`TelemetryReader.cs`/`AssetCapture.cs`/`WeaponSelectors.cs`
+nullable fixes, the small-file sweep) stays opportunistic, per the proposed order below.
 
 ## Where this came from
 
@@ -58,9 +60,14 @@ no assignment to it anywhere. The actual live analog-axis read path is `ReadAxis
 (`:843`), which returns the value as a plain function result and never touches the field. Either
 the field is dead code left behind when `ReadAxis()` replaced whatever used to write it (and the
 three comments describing it are now wrong), or something that was meant to consume this field
-never got wired up. This isn't a documentation typo to fix in this doc — it needs someone to trace
-the axis-cursor code path in-game and confirm which. Flagged separately rather than folded into
-the pragma above.
+never got wired up. Flagged separately rather than folded into the pragma above.
+
+**Resolved:** it's dead code, confirmed without needing an in-game trace — a full-repo grep found
+only the field declaration and the three (now-corrected) comments, no read or write anywhere,
+and unlike `CommandEnvelope`, `BindDef` is built with plain object initializers (`AddAxis`), never
+deserialized via `JsonUtility` reflection, so there's no hidden writer to account for. The live
+analog-cursor path (`Poll()` → `ReadAxis(bind)` → used inline in the cursor-vector calculation)
+never touched this field to begin with. Removed the field and corrected the three comments.
 
 **The remaining ~89 (mostly CS8600/8618/8602/8603/8604) are real nullable-annotation gaps**,
 concentrated in `TelemetryReader.cs`, `WeaponSelectors.cs`, and `AssetCapture.cs` — the files doing
@@ -92,10 +99,10 @@ compete with 89 pre-existing ones to be noticed.
 
 ## Scope
 
-- [ ] Scope a `CS0649` suppression to `CommandDispatcher.CommandEnvelope` (14 of the 15) with an
+- [x] Scope a `CS0649` suppression to `CommandDispatcher.CommandEnvelope` (14 of the 15) with an
       explanatory comment
-- [ ] Investigate `Keybinds.cs:87`'s `AxisValueNow` separately (not a suppression candidate) —
-      confirm whether it's dead code or an unwired analog-cursor path
+- [x] Investigate `Keybinds.cs:87`'s `AxisValueNow` separately (not a suppression candidate) —
+      confirm whether it's dead code or an unwired analog-cursor path (resolved: dead code, removed)
 - [ ] Fix nullable warnings in `TelemetryReader.cs`/`AssetCapture.cs` opportunistically (no dedicated
       sweep on untested code)
 - [ ] Fold `WeaponSelectors.cs`'s nullable fixes into its `docs/csharp-unit-testing.md` DTO extraction

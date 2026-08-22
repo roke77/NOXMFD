@@ -69,8 +69,8 @@ namespace NOXMFD
             // aircraft and is skipped without one; DriveFree runs regardless, for binds that act on the
             // mod rather than on the aeroplane (SOI) and so must work at the main menu, where there is
             // no aircraft at all. Both are null for an axis-only bind (docs/map-cursor.md) — it has no
-            // digital press to dispatch; Poll() reads AxisValueNow via the stored reference instead,
-            // the same way it already reads the four MAP direction binds' ActiveNow.
+            // digital press to dispatch; Poll() reads its live value via ReadAxis(bind) instead,
+            // used inline rather than stored on the bind the way ActiveNow is for a digital one.
             public Action<Aircraft>? Drive;
             public Action? DriveFree;
             // Digital source (keyboard/mouse + joystick button) — null for an axis-only bind.
@@ -84,7 +84,6 @@ namespace NOXMFD
             public ConfigEntry<int>? AxisJoyNumEntry;          // which joystick the axis index refers to (0 = any; pinned on capture)
             public ConfigEntry<bool>? AxisInvertEntry;         // flip polarity — arbitrary per device
             public bool  ActiveNow;                            // per-frame scratch (digital), valid only inside Poll()
-            public float AxisValueNow;                         // per-frame scratch (analog), valid only inside Poll()
             // Tap/hold binds only (see PollTapHold): when ActiveNow went true, -1 while not pressed.
             public float PressStartTime = -1f;
             public bool  HoldFired;                            // whether the hold action already fired this press
@@ -256,7 +255,7 @@ namespace NOXMFD
             // diagonal control the keys can't (only one axis can be held "active" at a time on a
             // digital pad). Axis-only: no keyboard/button source makes sense for a continuous value,
             // so these use AddAxis rather than DefFree — no Drive/DriveFree at all; Poll() reads
-            // AxisValueNow via the stored references, exactly like the four direction keys' ActiveNow.
+            // their live value via ReadAxis(bind), used inline rather than stored on the bind.
             _cursorAxisH = AddAxis(config, "cursor-axis-h", cursor, "CursorAxisH", "Cursor Horizontal",
                 "Analog axis (HOTAS mini-stick/hat) driving the cursor left/right — overrides Cursor Left/Right when deflected. Only acts while a display with a cursor is focused.");
             _cursorAxisV = AddAxis(config, "cursor-axis-v", cursor, "CursorAxisV", "Cursor Vertical",
@@ -397,8 +396,8 @@ namespace NOXMFD
             => Add(config, id, section, key, label, edge: true, description, drive: null, driveFree: null, joystick: false);
 
         // An axis-only bind (docs/map-cursor.md): purely analog, no keyboard/button source and no
-        // Drive/DriveFree dispatch (see the BindDef comment) — Poll() reads AxisValueNow directly via
-        // the stored reference. section/key follow the same .cfg-identity convention as Add().
+        // Drive/DriveFree dispatch (see the BindDef comment) — Poll() reads its value via ReadAxis(bind)
+        // instead. section/key follow the same .cfg-identity convention as Add().
         private static BindDef AddAxis(ConfigFile config, string id, string section, string key, string label,
                                 string description)
         {
