@@ -28,7 +28,7 @@ just the stale locks.
 1. **`UnitInfo.Stale`** ([TelemetrySnapshot.cs](../src/plugin/TelemetrySnapshot.cs)) — set in
    `BuildUnits()` ([TelemetryReader.cs](../src/plugin/TelemetryReader.cs)) right after `Datalink`:
    `datalink && !playerHQ.IsTargetPositionAccurate(u, 20f)`.
-2. **Serialization** ([TelemetryServer.cs](../src/plugin/TelemetryServer.cs)) — one more terse key,
+2. **Serialization** ([TelemetryJson.cs](../src/plugin/TelemetryJson.cs)) — one more terse key,
    `"st"`, on `UnitsArray`'s per-contact JSON, next to `dl`.
 3. **Client derivation** ([telemetry-source.js](../src/web/services/telemetry-source.js)) — `st`
    rides along into each pushed target item the same way `dl` does.

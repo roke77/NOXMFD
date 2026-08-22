@@ -1,5 +1,5 @@
 // Self-check that every page URL the shell can navigate to (layout-pages.js) has a matching route
-// in the C# HTTP server (src/plugin/TelemetryServer.cs). Run: `node server-route-coverage.test.js`.
+// in the C# HTTP server (src/plugin/Http/TelemetryServer.cs). Run: `node server-route-coverage.test.js`.
 //
 // layout-coverage.test.js catches a page missing from one of the JS routing tables. It can't catch
 // this: a page present in every JS table but never wired into the server's own path switch. The
@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const { CLASSIC_FULL, CLASSIC_SPLIT, F35 } = require('./layout-pages.js');
 
-const serverPath = path.join(__dirname, '..', '..', 'plugin', 'TelemetryServer.cs');
+const serverPath = path.join(__dirname, '..', '..', 'plugin', 'Http', 'TelemetryServer.cs');
 const serverSrc = fs.readFileSync(serverPath, 'utf8');
 
 // Every `path == "/xyz"` literal in the routing chain (else-if or plain if), wherever it appears —

@@ -58,7 +58,7 @@ which virus-scans and manually reviews uploads.
   network syscall outside the web server is a UDP socket briefly opened toward `8.8.8.8` purely
   to ask Windows which local network interface would route outbound — **no data is ever sent**
   through it; it exists only to discover your LAN IP to show on the display. See `DetectLanIp` in
-  [`TelemetryServer.cs`](src/plugin/TelemetryServer.cs).)
+  [`TelemetryServer.cs`](src/plugin/Http/TelemetryServer.cs).)
 - **No file access beyond BepInEx.** It reads/writes only its own config file
   (`BepInEx/config/com.roque.NOXMFD.cfg`) and BepInEx's log. Captured game images are held in
   memory and served over HTTP — they are not written to disk. It reads no personal files.

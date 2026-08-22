@@ -70,7 +70,7 @@ noted below.
 |---|---|
 | [`src/plugin/HudPresetStore.cs`](../src/plugin/HudPresetStore.cs) | The 5-slot library: `Save`/`Rename`/`Delete`/`LoadPreset`, persisted to `com.roque.NOXMFD.hud-presets.json`. `SelfCheck()` round-trips the disk JSON — the one pure, non-game-object-dependent slice, same reasoning as `JsonLite.SelfCheck`. |
 | [`src/plugin/CommandDispatcher.cs`](../src/plugin/CommandDispatcher.cs) | `preset.save` / `.rename` / `.delete` / `.load` — `wname` for a name, `index` for a slot number 1-5. |
-| [`src/plugin/TelemetryServer.cs`](../src/plugin/TelemetryServer.cs) | `RefreshHudOptions` gained a `preset:{index,name}` field; new `GET /hud-presets` serves the full 5-slot summary for the LOAD picker. |
+| [`src/plugin/Http/TelemetryServer.cs`](../src/plugin/Http/TelemetryServer.cs) | `RefreshHudOptions` gained a `preset:{index,name}` field; new `GET /hud-presets` serves the full 5-slot summary for the LOAD picker. |
 | [`src/plugin/Keybinds.cs`](../src/plugin/Keybinds.cs) | 5 `DefFree` binds (**HUD Preset 1**-**5**), section `HUD Preset Keybinds` → displayed as **HUD PRESETS**. |
 | [`src/web/pages/hud/hud.html`](../src/web/pages/hud/hud.html), [`hud.js`](../src/web/pages/hud/hud.js), [`hud.css`](../src/web/pages/hud/hud.css) | The bottom bar, SAVE/LOAD wiring, `fetchPresetItems` (on-demand `/hud-presets` fetch for the LOAD list only — the bottom label rides the existing `/hud-options` poll). |
 | [`src/web/shell/layout-modal.js`](../src/web/shell/layout-modal.js) | `item.display` addition (backward compatible). |

@@ -55,7 +55,7 @@
 
   <ItemGroup>
     <!-- Embedded web frontend: real .html/.css/.js files under src/web/
-         baked into the DLL and served by TelemetryServer.ServeAsset under /assets/.
+         baked into the DLL and served by TelemetryAssets under /assets/.
          Resource names include ".src.web.<dotted path>", matched by ".web.<dotted path>"
          suffix so the public /assets/ paths stay unchanged.
          Excluded, because the glob would otherwise ship them to every user: *.test.js (Node

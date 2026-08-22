@@ -1,9 +1,9 @@
 # `src/web/` — the MFD frontend
 
 The whole in-mod UI lives here as real `.html` / `.css` / `.js` files, baked into the DLL as
-embedded resources and served by `src/plugin/TelemetryServer.cs` (`ServeAssetRel`, suffix-matched
-against the resource manifest). No C# string blobs, no bundler, no framework — vanilla JS +
-`postMessage`.
+embedded resources and served by `src/plugin/Http/TelemetryAssets.cs` (`ServeAssetRel`,
+suffix-matched against the resource manifest). No C# string blobs, no bundler, no framework —
+vanilla JS + `postMessage`.
 
 Full design history and decisions: [`docs/src-architecture.md`](../../docs/src-architecture.md).
 
