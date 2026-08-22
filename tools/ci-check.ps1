@@ -1,4 +1,4 @@
-# CI smoke check — runs the three checks this repo already relies on by hand, in one command.
+# CI smoke check — runs the checks this repo already relies on by hand, in one command.
 # See docs/ci-smoke-check.md. Warnings are tracked separately (docs/build-warning-cleanup.md) and
 # do not fail this check; only a build error or a failing test/route does.
 #
@@ -30,7 +30,12 @@ foreach ($f in $testFiles) {
 }
 Write-Host "  $($testFiles.Count) test file(s) passed"
 
-# 3. serve_web.py smoke — start on a scratch port, hit a few page routes, assert 200, stop it.
+# 3. dotnet test — the xUnit project covering pure logic extracted per docs/csharp-unit-testing.md.
+Write-Host "== dotnet test (tools/tests) ==" -ForegroundColor Cyan
+dotnet test tools/tests/NOXMFD.Tests.csproj
+if ($LASTEXITCODE -ne 0) { Fail "dotnet test failed (exit $LASTEXITCODE)" }
+
+# 4. serve_web.py smoke — start on a scratch port, hit a few page routes, assert 200, stop it.
 Write-Host "== serve_web.py smoke ==" -ForegroundColor Cyan
 $scratchPort = 8799
 $proc = Start-Process -FilePath "python" `

@@ -135,6 +135,35 @@ namespace NOXMFD
         private static bool Match(string s, int i, string token) =>
             i + token.Length <= s.Length && string.CompareOrdinal(s, i, token, 0, token.Length) == 0;
 
+        // Moved from TelemetryServer.cs (docs/csharp-unit-testing.md) — same pure escaper, just
+        // living next to the parser instead of a file with real game touchpoints, so RouteStore.cs
+        // (and any other pure caller) can compile standalone without pulling TelemetryServer in.
+        // TelemetryServer.EscapeJson forwards here so its existing call sites are unaffected.
+        public static string EscapeJson(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return s ?? string.Empty;
+            StringBuilder? sb = null;
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                string? esc = c switch
+                {
+                    '\\' => "\\\\",
+                    '"'  => "\\\"",
+                    '\n' => "\\n",
+                    '\r' => "\\r",
+                    '\t' => "\\t",
+                    '\b' => "\\b",
+                    '\f' => "\\f",
+                    _ => c < 0x20 ? "\\u" + ((int)c).ToString("x4", CultureInfo.InvariantCulture) : null
+                };
+                if (esc == null) { sb?.Append(c); continue; }
+                if (sb == null) { sb = new StringBuilder(s.Length + 8); sb.Append(s, 0, i); }
+                sb.Append(esc);
+            }
+            return sb?.ToString() ?? s;
+        }
+
         // The "one runnable check" for this parser (repo convention: pure logic gets an
         // assert-based self-check, no framework, no fixtures — same idea as the Node self-checks
         // src/web's pure JS modules carry, just no C# test runner exists in this codebase to hang

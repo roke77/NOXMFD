@@ -2046,38 +2046,9 @@ namespace NOXMFD
             CursorX, CursorY, CursorSelSeq, EscapeJson(MapAct), MapActSeq,
             Volatile.Read(ref _cursorSelHeld) ? "true" : "false");
 
-        // Escapes every character the JSON spec forbids raw inside a string literal — not just the
-        // ones a prior caller happened to hit. Earlier versions only handled \, ", \n, \r, \t (added
-        // for MIS's mission description); that missed the rest of the C0 control range (0x00-0x1F,
-        // e.g. \b, \f, a stray control char in a unit/weapon name from the game's own data), which
-        // JSON.parse rejects as "Bad control character in string literal" — the same failure mode
-        // as the untranslated-decimal-point bug, just a different source field each time. Escaping
-        // the whole class here means no future caller needs to remember this. Lazily allocates only
-        // when a string actually needs escaping (every prior caller was escape-free, hot path stays
-        // allocation-free).
-        internal static string EscapeJson(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return s ?? string.Empty;
-            StringBuilder? sb = null;
-            for (int i = 0; i < s.Length; i++)
-            {
-                char c = s[i];
-                string? esc = c switch
-                {
-                    '\\' => "\\\\",
-                    '"'  => "\\\"",
-                    '\n' => "\\n",
-                    '\r' => "\\r",
-                    '\t' => "\\t",
-                    '\b' => "\\b",
-                    '\f' => "\\f",
-                    _ => c < 0x20 ? "\\u" + ((int)c).ToString("x4", CultureInfo.InvariantCulture) : null
-                };
-                if (esc == null) { sb?.Append(c); continue; }
-                if (sb == null) { sb = new StringBuilder(s.Length + 8); sb.Append(s, 0, i); }
-                sb.Append(esc);
-            }
-            return sb?.ToString() ?? s;
-        }
+        // Moved to JsonLite.cs (docs/csharp-unit-testing.md) so pure callers like RouteStore.cs can
+        // compile standalone in a test project without pulling this file's game touchpoints in.
+        // Forwards here so none of this file's own ~50 unqualified call sites need to change.
+        internal static string EscapeJson(string s) => JsonLite.EscapeJson(s);
     }
 }

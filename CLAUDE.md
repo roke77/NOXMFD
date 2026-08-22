@@ -80,19 +80,26 @@ guesses — most exist because a past session violated them.
 ## Testing
 
 - `tools/ci-check.ps1` runs the checks below in one command (`dotnet build -c Release`,
-  every `*.test.js`, and a `serve_web.py` route smoke) — run it before calling a change
-  done instead of running the pieces by hand. It's not a substitute for the manual
-  in-browser verification workflow when the change is visual.
+  every `*.test.js`, `dotnet test` on `tools/tests/`, and a `serve_web.py` route smoke)
+  — run it before calling a change done instead of running the pieces by hand. It's not
+  a substitute for the manual in-browser verification workflow when the change is
+  visual.
 - After any change under `src/web/`, run the JS self-checks (`*.test.js` files
   alongside the code, plain `node` scripts with asserts — no framework) before calling
   the change done.
-- `src/plugin/` (the C# side) intentionally has no automated tests today — most of it
-  reflects into live Unity/game objects or subclasses `MonoBehaviour` and needs the
-  game running to exercise; failures there are loud (crash/exception) rather than
-  silent. The one deliberately-scoped exception is the JSON serialization layer, which
-  is plain BCL code with no Unity dependency and is a good target for a standalone test
-  project if that work is picked up. Don't treat the current lack of C# tests as an
-  oversight to fix opportunistically — it's a scoped decision.
+- `src/plugin/` (the C# side) is mostly untested by design — most of it reflects into
+  live Unity/game objects or subclasses `MonoBehaviour` and needs the game running to
+  exercise; failures there are loud (crash/exception) rather than silent. The exception
+  is `tools/tests/` (xUnit, `docs/csharp-unit-testing.md`), a standalone project
+  covering the plugin's pure-logic files (`JsonLite.cs`, `RouteStore.cs` so far) by
+  compiling them directly rather than referencing `NOXMFD.csproj` — that would drag in
+  the `$(GameDir)`-relative Unity/game references and require a real Nuclear Option
+  install just to build tests. Extending it to another file means giving that file the
+  same BepInEx/Unity-free seam RouteStore.cs has (injectable fields instead of direct
+  `BepInEx.Paths`/`Plugin.Log`/etc. references) before it can compile standalone; don't
+  treat the rest of `src/plugin/` still lacking tests as an oversight — the
+  Harmony/`MonoBehaviour`/game-object files are correctly out of scope for this, not
+  merely not-yet-done.
 
 ## Unity / BepInEx safety
 

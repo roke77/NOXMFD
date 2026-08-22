@@ -46,8 +46,17 @@ namespace NOXMFD
         // reference, never the underlying List<Route>, so no lock is needed.
         internal static volatile string RoutesJson = "{\"activeRouteId\":null,\"routes\":[]}";
 
+        // Storage/log seam (docs/csharp-unit-testing.md) — keeps this file free of any BepInEx/
+        // Plugin reference so a standalone test project can compile and exercise the mutators
+        // directly. Plugin.Awake sets both before calling Load(); a test project leaves ConfigDir
+        // null (FilePath then resolves under the test run's own working directory) and can set
+        // PersistToDisk false to exercise the mutators without touching disk at all.
+        internal static string? ConfigDir;
+        internal static Action<string>? LogWarning;
+        internal static bool PersistToDisk = true;
+
         private static string FilePath =>
-            Path.Combine(BepInEx.Paths.ConfigPath, "com.roque.NOXMFD.routes.json");
+            Path.Combine(ConfigDir ?? ".", "com.roque.NOXMFD.routes.json");
 
         // ── lifecycle ────────────────────────────────────────────────────────────────────────
 
@@ -69,7 +78,7 @@ namespace NOXMFD
             }
             catch (Exception ex)
             {
-                Plugin.Log?.LogWarning($"[NOXMFD] routes file unreadable, starting empty: {ex.Message}");
+                LogWarning?.Invoke($"[NOXMFD] routes file unreadable, starting empty: {ex.Message}");
                 _routes = new List<Route>();
                 _activeRouteId = null;
             }
@@ -113,30 +122,31 @@ namespace NOXMFD
         private static void Save()
         {
             RoutesJson = BuildJson();
+            if (!PersistToDisk) return;
             try { File.WriteAllText(FilePath, RoutesJson); }
-            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] failed to persist routes: {ex.Message}"); }
+            catch (Exception ex) { LogWarning?.Invoke($"[NOXMFD] failed to persist routes: {ex.Message}"); }
         }
 
         private static string BuildJson()
         {
             var sb = new StringBuilder();
             sb.Append("{\"activeRouteId\":")
-              .Append(_activeRouteId != null ? "\"" + TelemetryServer.EscapeJson(_activeRouteId) + "\"" : "null")
+              .Append(_activeRouteId != null ? "\"" + JsonLite.EscapeJson(_activeRouteId) + "\"" : "null")
               .Append(",\"routes\":[");
             for (int i = 0; i < _routes.Count; i++)
             {
                 if (i > 0) sb.Append(',');
                 Route r = _routes[i];
-                sb.Append("{\"id\":\"").Append(TelemetryServer.EscapeJson(r.Id))
-                  .Append("\",\"name\":\"").Append(TelemetryServer.EscapeJson(r.Name))
+                sb.Append("{\"id\":\"").Append(JsonLite.EscapeJson(r.Id))
+                  .Append("\",\"name\":\"").Append(JsonLite.EscapeJson(r.Name))
                   .Append("\",\"nextIndex\":").Append(r.NextIndex)
                   .Append(",\"waypoints\":[");
                 for (int j = 0; j < r.Waypoints.Count; j++)
                 {
                     if (j > 0) sb.Append(',');
                     Waypoint w = r.Waypoints[j];
-                    sb.Append("{\"id\":\"").Append(TelemetryServer.EscapeJson(w.Id))
-                      .Append("\",\"name\":\"").Append(TelemetryServer.EscapeJson(w.Name))
+                    sb.Append("{\"id\":\"").Append(JsonLite.EscapeJson(w.Id))
+                      .Append("\",\"name\":\"").Append(JsonLite.EscapeJson(w.Name))
                       .Append("\",\"x\":").Append(w.X.ToString("0.0", CultureInfo.InvariantCulture))
                       .Append(",\"z\":").Append(w.Z.ToString("0.0", CultureInfo.InvariantCulture))
                       .Append('}');
@@ -359,6 +369,16 @@ namespace NOXMFD
             Waypoint wp = route.Waypoints[route.NextIndex];
             x = wp.X; z = wp.Z; name = wp.Name; index = route.NextIndex;
             return true;
+        }
+
+        // Test-only: _routes/_activeRouteId are static (plugin-lifetime by design, see the class
+        // comment), so NOXMFD.Tests' RouteStoreTests resets them between test methods to avoid one
+        // test's routes leaking into the next. Never called from plugin code.
+        internal static void ResetForTests()
+        {
+            _routes = new List<Route>();
+            _activeRouteId = null;
+            RoutesJson = "{\"activeRouteId\":null,\"routes\":[]}";
         }
     }
 }
