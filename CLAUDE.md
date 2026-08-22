@@ -144,6 +144,12 @@ guesses — most exist because a past session violated them.
   - [ ] RDR/RWR/MW contact rendering with a live radar-equipped aircraft and nearby
     threats — the session tested against had no radar and no contacts nearby, so the
     arrays were empty but unexercised.
+  - [x] `Keybinds.cs`'s `FindBind(id)` extraction (`docs/refactor-scan.md` step 11) —
+    confirmed live 2026-08-22: `keybind.set-key` round-trips, `arm-joy`/`cancel-joy` and
+    `arm-axis`/`cancel-axis` no-op cleanly, `set-axis-invert` round-trips, an unknown
+    bind id no-ops instead of erroring. `clear-joy` confirmed on an already-unassigned
+    bind; `clear-axis` not exercised against a real HOTAS axis binding (would have wiped
+    it) but shares identical code with the five tested paths.
 
 ## Unity / BepInEx safety
 

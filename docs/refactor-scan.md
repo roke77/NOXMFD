@@ -4,7 +4,8 @@
 
 **All 9 original execution-plan steps done and merged to `main`.** See the checked-off
 list under "Execution plan" below. Of the "Follow-up execution plan" steps, Step 10 is
-done (not yet merged — see its own branch); Steps 11-12 are not started.
+done and merged; Step 11 is done, not yet merged (see its own branch); Step 12 is not
+started.
 
 **Post-execution note:** the line counts in the table below and elsewhere in this doc are
 pre-execution measurements, kept as-is since this file is a historical record, not a live
@@ -507,12 +508,27 @@ document alone.
       running Free Flight mission) confirming the `/stream` SSE payload's `bdf`/`pal`/`mis`/`obj`/
       `akf`/`tgt` blocks are all shaped and populated correctly post-extraction — see CLAUDE.md's
       live-game verification checklist.
-- [ ] **Step 11 — re-check the deferred splits**. Revisit `map.js`, `Keybinds.cs`,
-      `TelemetryReader.cs`, and `serve_web.py`'s route table/mock split (items 12-14 above,
-      deferred after Step 9) for whether real, concrete duplication has emerged since — not a
-      scheduled rewrite, just a grep-and-compare pass like the original two scans used. Only turn a
-      finding into its own step if it clears the same bar as the original nine (proven duplication,
-      not textbook shape).
+- [x] **Step 11 — re-check the deferred splits**. Done. Re-scanned all four against the same
+      standard as the original two passes (every finding verified against the actual code, not
+      just shape). Verdicts:
+      - `map.js` — still correctly deferred. `zoomAbout` (wheel/pinch) and the click/waypoint flash
+        helpers are still small (~10 lines each), unchanged since the original scan.
+      - `TelemetryReader.cs` — still correctly deferred. The two previously-fixed items
+        (`BuildFactionForces`, `CmReflection`) are confirmed landed and not re-flagged; nothing else
+        in the file has real cross-call duplication.
+      - `serve_web.py` — still correctly deferred. `_serve_captured` (Step 4) covers all 8+3 routes
+        that need it; the remaining if-chain and the three independent stateful mocks are cosmetic
+        for a single-maintainer dev tool, not DRY violations.
+      - `Keybinds.cs` — split into multiple files still correctly deferred, but found one small,
+        verified duplication: `SetKeyBind`/`ArmJoyCapture`/`ClearJoyBind`/`ArmAxisCapture`/
+        `ClearAxisBind`/`SetAxisInvert` each independently linear-scanned `_binds` for `b.Id == id`.
+        Fixed in this same step (small enough not to need its own branch) — added
+        `FindBind(id)` and had all six call it. Verified: `dotnet build` + `ci-check.ps1` green,
+        plus a live in-game check (2026-08-22) posting each command directly — `set-key`
+        round-trips, `arm-joy`/`cancel-joy` and `arm-axis`/`cancel-axis` no-op cleanly,
+        `set-axis-invert` round-trips, an unknown bind id no-ops instead of erroring. `clear-joy`
+        confirmed on an already-unassigned bind; `clear-axis` not exercised against a real HOTAS
+        axis binding (would have wiped it) but shares identical code with the five tested paths.
 - [ ] **Step 12 — evaluate an incremental folder-structure move**. Per CLAUDE.md's "Folder
       architecture" section, pick whichever of the target `src/plugin/`/`src/web/` groupings has
       the most files ready to move today (e.g. `Stores/`, `Hud/`, `Immersion/`, or `shell/shared/`)
