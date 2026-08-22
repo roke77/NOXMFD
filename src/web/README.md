@@ -16,6 +16,8 @@ src/web/
             pad-cursor.js                                 # the shared PAD crosshair (docs/page-cursor.md)
   shell/    nav-model.js                                  # NAV registry — the layout seam, BOTH shells load it
             layout-pages.js                               # where each layout mounts each NAV destination
+            layout-keydown.js                             # shared SAVE/LOAD LAYOUT keyboard wiring
+            boot-reveal.js                                # shared boot loading-bar + typewriter mechanics
             layout-sticky.test.js                         # the classic⇄f35 redirect handoff — belongs to neither
             layout-coverage.test.js                       # every NAV destination reachable in BOTH layouts
             classic/       mfd.html  mfd.css  mfd.js       # the classic bezel shell (host + router)
@@ -43,8 +45,10 @@ src/web/
 ```
 
 Two shells render the same pages: the classic bezel (`shell/classic/mfd.js`) and the F-35 glass
-(`shell/f35/f35.js`), sharing the NAV model, the page-routing tables (`shell/layout-pages.js`) and
-`sendCommand` — see [`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
+(`shell/f35/f35.js`), sharing the NAV model, the page-routing tables (`shell/layout-pages.js`),
+`sendCommand`, and (docs/refactor-scan.md step 1) the SAVE/LOAD LAYOUT keyboard wiring
+(`shell/layout-keydown.js`) and the boot loading-bar/typewriter mechanics
+(`shell/boot-reveal.js`) — see [`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
 `nav-model.test.js`, `f35-glass.test.js`, `classic-paging.test.js`) are Node self-checks, run by hand
 (`node src/web/<path>/whatever.test.js` from anywhere), never fetched by a browser (excluded from the
 embedded-resource glob). The whole suite: `find src/web -name '*.test.js' -exec node {} \;`. Most are
