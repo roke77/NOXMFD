@@ -584,10 +584,8 @@ namespace NOXMFD
         }
 
         // The active countermeasure index points into CountermeasureManager's private station
-        // list, so we reflect into it once (cached) and check the active station's type.
-        private static FieldInfo?  _cmStationsField;
-        private static MethodInfo? _cmGetFirstMethod;
-
+        // list, so we reflect into it (via the shared CmReflection, docs/refactor-scan.md step 8)
+        // and check the active station's type.
         private static byte GetSelectedCmCategory(Aircraft ac)
         {
             CountermeasureManager mgr = ac.countermeasureManager;
@@ -595,12 +593,8 @@ namespace NOXMFD
 
             try
             {
-                if (_cmStationsField == null)
-                    _cmStationsField = typeof(CountermeasureManager)
-                        .GetField("countermeasureStations", BindingFlags.NonPublic | BindingFlags.Instance);
-
-                if (_cmStationsField?.GetValue(mgr) is not System.Collections.IList list || list.Count == 0)
-                    return 0;
+                System.Collections.IList? list = CmReflection.GetStations(mgr);
+                if (list == null || list.Count == 0) return 0;
 
                 int idx = mgr.activeIndex;
                 if (idx < 0 || idx >= list.Count) return 0;
@@ -608,11 +602,8 @@ namespace NOXMFD
                 object station = list[idx];
                 if (station == null) return 0;
 
-                if (_cmGetFirstMethod == null)
-                    _cmGetFirstMethod = station.GetType()
-                        .GetMethod("GetFirstCountermeasure", BindingFlags.Public | BindingFlags.Instance);
-
-                if (_cmGetFirstMethod?.Invoke(station, null) is not Countermeasure cm) return 0;
+                Countermeasure? cm = CmReflection.GetFirstCountermeasure(station);
+                if (cm == null) return 0;
                 if (cm is FlareEjector) return 1;
                 if (cm is RadarJammer)  return 2;
                 if (cm is ChaffEjector) return 3;

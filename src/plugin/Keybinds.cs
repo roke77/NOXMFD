@@ -4,7 +4,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using UnityEngine;
 
 namespace NOXMFD
@@ -971,27 +970,22 @@ namespace NOXMFD
         }
 
         // Finds the station index whose first countermeasure is the requested category. Mirrors the
-        // read-path reflection in TelemetryReader.GetSelectedCmCategory (the station list and each
-        // station's countermeasure are both private). Returns -1 if no station matches.
-        private static FieldInfo?  _stationsField;
-        private static MethodInfo? _getFirstMethod;
+        // read-path reflection in TelemetryReader.GetSelectedCmCategory — both go through the shared
+        // CmReflection (docs/refactor-scan.md step 8) since the station list and each station's
+        // countermeasure are both private. Returns -1 if no station matches.
         private static int IndexOfCategory(CountermeasureManager mgr, byte category)
         {
             try
             {
-                if (_stationsField == null)
-                    _stationsField = typeof(CountermeasureManager)
-                        .GetField("countermeasureStations", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (_stationsField?.GetValue(mgr) is not IList list || list.Count == 0) return -1;
+                IList? list = CmReflection.GetStations(mgr);
+                if (list == null || list.Count == 0) return -1;
 
                 for (int i = 0; i < list.Count; i++)
                 {
                     object station = list[i];
                     if (station == null) continue;
-                    if (_getFirstMethod == null)
-                        _getFirstMethod = station.GetType()
-                            .GetMethod("GetFirstCountermeasure", BindingFlags.Public | BindingFlags.Instance);
-                    if (_getFirstMethod?.Invoke(station, null) is not Countermeasure cm) continue;
+                    Countermeasure? cm = CmReflection.GetFirstCountermeasure(station);
+                    if (cm == null) continue;
                     if (category == Flare  && cm is FlareEjector) return i;
                     if (category == Jammer && cm is RadarJammer)  return i;
                 }
