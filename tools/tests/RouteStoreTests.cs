@@ -118,5 +118,138 @@ namespace NOXMFD.Tests
             Assert.False(RouteStore.ImportRoute(null));
             Assert.False(RouteStore.ImportRoute(""));
         }
+
+        // ── squad-shared routes (docs/squadron-transport.md) ──────────────────────────────────
+
+        [Fact]
+        public void ShareRoute_marks_shared_with_squad_and_returns_the_delegate_result()
+        {
+            Route r = RouteStore.CreateRoute("R");
+            RouteStore.SendSquadData = (type, payload) => type == "wpt.route";
+            Assert.True(RouteStore.ShareRoute(r.Id));
+            Assert.Contains("\"sharedWithSquad\":true", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void ShareRoute_with_no_delegate_wired_still_marks_shared_but_returns_false()
+        {
+            Route r = RouteStore.CreateRoute("R");
+            Assert.False(RouteStore.ShareRoute(r.Id));   // SendSquadData is null after ResetForTests
+        }
+
+        [Fact]
+        public void ShareRoute_rejects_a_route_that_is_itself_someone_elses_shared_content()
+        {
+            RouteStore.ReceiveSharedRoute(
+                "{\"id\":\"r_shared\",\"name\":\"S\",\"waypoints\":[{\"name\":\"W\",\"x\":1,\"z\":1}]}",
+                "Leader");
+            RouteStore.AcceptShared("r_shared");
+            Assert.False(RouteStore.ShareRoute("r_shared"));   // can't re-share someone else's route
+        }
+
+        [Fact]
+        public void Edit_after_share_rebroadcasts_via_the_delegate()
+        {
+            Route r = RouteStore.CreateRoute("R");
+            int sends = 0;
+            RouteStore.SendSquadData = (type, payload) => { sends++; return true; };
+            RouteStore.ShareRoute(r.Id);       // 1st send
+            RouteStore.RenameRoute(r.Id, "R2"); // auto-reshare on edit
+            Assert.Equal(2, sends);
+        }
+
+        [Fact]
+        public void ReceiveSharedRoute_creates_a_pending_entry()
+        {
+            bool ok = RouteStore.ReceiveSharedRoute(
+                "{\"id\":\"r_x\",\"name\":\"Shared\",\"waypoints\":[{\"name\":\"W\",\"x\":1,\"z\":2}]}",
+                "Leader");
+            Assert.True(ok);
+            Assert.Contains("\"id\":\"r_x\",\"name\":\"Shared\",\"fromName\":\"Leader\",\"waypointCount\":1",
+                RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void ReceiveSharedRoute_repeat_of_a_pending_share_updates_it_in_place()
+        {
+            RouteStore.ReceiveSharedRoute(
+                "{\"id\":\"r_x\",\"name\":\"First\",\"waypoints\":[{\"name\":\"W\",\"x\":1,\"z\":2}]}", "Leader");
+            RouteStore.ReceiveSharedRoute(
+                "{\"id\":\"r_x\",\"name\":\"Renamed\",\"waypoints\":[{\"name\":\"W\",\"x\":1,\"z\":2}]}", "Leader");
+            Assert.Contains("\"waypointCount\":1", RouteStore.RoutesJson);
+            Assert.Contains("\"name\":\"Renamed\"", RouteStore.RoutesJson);
+            Assert.DoesNotContain("\"name\":\"First\"", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void AcceptShared_moves_a_pending_entry_into_a_readonly_route()
+        {
+            RouteStore.ReceiveSharedRoute(
+                "{\"id\":\"r_x\",\"name\":\"Shared\",\"waypoints\":[{\"name\":\"W\",\"x\":1,\"z\":2}]}", "Leader");
+            Assert.True(RouteStore.AcceptShared("r_x"));
+            Assert.Contains("\"id\":\"r_x\"", RouteStore.RoutesJson);
+            Assert.Contains("\"sharedBy\":\"Leader\"", RouteStore.RoutesJson);
+            Assert.DoesNotContain("\"pendingShared\":[{", RouteStore.RoutesJson);   // no longer pending
+        }
+
+        [Fact]
+        public void RejectShared_removes_the_pending_entry_without_creating_a_route()
+        {
+            RouteStore.ReceiveSharedRoute(
+                "{\"id\":\"r_x\",\"name\":\"Shared\",\"waypoints\":[{\"name\":\"W\",\"x\":1,\"z\":2}]}", "Leader");
+            Assert.True(RouteStore.RejectShared("r_x"));
+            Assert.DoesNotContain("\"id\":\"r_x\"", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void Mutators_reject_edits_on_an_accepted_shared_route()
+        {
+            RouteStore.ReceiveSharedRoute(
+                "{\"id\":\"r_x\",\"name\":\"Shared\",\"waypoints\":[{\"name\":\"W\",\"x\":1,\"z\":2}]}", "Leader");
+            RouteStore.AcceptShared("r_x");
+            RouteStore.SetActiveRoute("r_x");
+
+            Assert.False(RouteStore.RenameRoute("r_x", "Mine now"));
+            Assert.False(RouteStore.RenameWaypoint(0, "Mine now"));
+            Assert.False(RouteStore.RemoveWaypoint(0));
+            RouteStore.AddWaypoint(9f, 9f, "Sneaky");   // no-op: active route is shared
+            Assert.DoesNotContain("Sneaky", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void ReceiveSharedRoute_reshare_preserves_progress_by_matching_the_surviving_waypoint()
+        {
+            RouteStore.ReceiveSharedRoute(
+                "{\"id\":\"r_x\",\"name\":\"Shared\",\"waypoints\":[" +
+                "{\"name\":\"WA\",\"x\":1,\"z\":1},{\"name\":\"WB\",\"x\":2,\"z\":2}]}", "Leader");
+            RouteStore.AcceptShared("r_x");
+            RouteStore.SetActiveRoute("r_x");
+            RouteStore.ResetWaypoint(1);   // NextIndex = 1, pointing at WB
+
+            // Leader re-shares: WA dropped, WB kept (same name/x/z), WC appended.
+            RouteStore.ReceiveSharedRoute(
+                "{\"id\":\"r_x\",\"name\":\"Shared\",\"waypoints\":[" +
+                "{\"name\":\"WB\",\"x\":2,\"z\":2},{\"name\":\"WC\",\"x\":3,\"z\":3}]}", "Leader");
+
+            Assert.True(RouteStore.TryGetActiveWaypoint(out _, out _, out string name, out _));
+            Assert.Equal("WB", name);   // progress followed WB to its new index (0), not reset to 0 blindly
+        }
+
+        [Fact]
+        public void OnSquadEnded_clears_pending_shares_and_unlocks_accepted_routes()
+        {
+            RouteStore.ReceiveSharedRoute(
+                "{\"id\":\"r_pending\",\"name\":\"P\",\"waypoints\":[{\"name\":\"W\",\"x\":1,\"z\":1}]}", "Leader");
+            RouteStore.ReceiveSharedRoute(
+                "{\"id\":\"r_x\",\"name\":\"Shared\",\"waypoints\":[{\"name\":\"W\",\"x\":1,\"z\":2}]}", "Leader");
+            RouteStore.AcceptShared("r_x");
+
+            RouteStore.OnSquadEnded();
+
+            Assert.DoesNotContain("\"id\":\"r_pending\"", RouteStore.RoutesJson);   // pending share dropped
+            Assert.Contains("\"id\":\"r_x\"", RouteStore.RoutesJson);
+            Assert.Contains("\"sharedBy\":\"\"", RouteStore.RoutesJson);            // unlocked, not deleted
+            Assert.True(RouteStore.RenameRoute("r_x", "Now mine"));                 // editable again
+        }
     }
 }

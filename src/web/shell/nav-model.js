@@ -134,7 +134,7 @@
     // reasoning as tgp/avn/etc.'s single-entry back links.
     wpt: [ { label: 'MAP', action: 'map' } ],
     // SQD (docs/squadron-transport.md) — squad membership/invites, reached from MAIN like HUD/CFG/
-    // MDT/RDR/AFM (BEZEL_EXTRAS.main / f35.js's MAIN_EXTRAS), not from another page's own nav row.
+    // MD/RDR/AFM (BEZEL_EXTRAS.main / f35.js's MAIN_EXTRAS), not from another page's own nav row.
     sqd: [ { label: 'MAIN', action: 'main' } ],
   };
 

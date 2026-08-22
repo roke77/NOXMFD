@@ -496,6 +496,7 @@ namespace NOXMFD
             Route? route = FindRoute(id);
             if (route == null || route.IsShared) return false;   // can't share someone else's content
             route.SharedWithSquad = true;
+            RefreshServedJsonOnly();   // WPT's SQD label reflects the flag immediately, not just on the next Save()
             return SendSquadData?.Invoke("wpt.route", BuildSharePayloadJson(route)) ?? false;
         }
 
@@ -651,6 +652,7 @@ namespace NOXMFD
             _routes = new List<Route>();
             _activeRouteId = null;
             _pendingShared.Clear();
+            SendSquadData = null;
             RoutesJson = "{\"activeRouteId\":null,\"routes\":[]}";
         }
     }

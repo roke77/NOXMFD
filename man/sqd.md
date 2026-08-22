@@ -25,8 +25,10 @@ squad membership is exclusive. An invite times out after 15s with no response.
 
 ## Leaving
 
-**LEAVE** exits a squad you don't lead. Leadership passes to the next-oldest member automatically
-if the leader leaves, or **DISBAND** ends the squad for everyone.
+**LEAVE** always exits your own squad: immediate as a member; as the leader, it hands off to the
+oldest remaining member first, then exits. The star on any other member's row does the same
+hand-off-and-exit but lets you pick who takes over instead. **DISBAND** (leader only) ends the
+squad for every member at once, rather than just yourself.
 
 ## Sharing waypoint routes
 

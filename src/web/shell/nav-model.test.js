@@ -42,7 +42,7 @@ assert.deepStrictEqual(NAV.rdr.map(i => i.label), ['MAIN', 'R+', 'R-']);
 // NAV.ext's static baseline is exactly this shape too — see ext-nav.js for how it grows at
 // runtime (untested here on purpose; this file only sees the compile-time baseline). NAV.sqd is
 // the same shape too — see nav-model.js's own comment on why (reached from MAIN, not another
-// page's own nav row, same as HUD/CFG/MDT/RDR/AFM).
+// page's own nav row, same as HUD/CFG/MD/RDR/AFM).
 for (const page of ['avn', 'afm', 'rwr', 'tgp', 'tgt', 'ext', 'sqd']) {
   assert.deepStrictEqual(NAV[page], [{ label: 'MAIN', action: 'main' }], `${page} should be just a MAIN back-button`);
 }
