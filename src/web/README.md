@@ -46,7 +46,7 @@ src/web/
 
 Two shells render the same pages: the classic bezel (`shell/classic/mfd.js`) and the F-35 glass
 (`shell/f35/f35.js`), sharing the NAV model, the page-routing tables (`shell/layout-pages.js`),
-`sendCommand`, and (docs/refactor-scan.md step 1) the SAVE/LOAD LAYOUT keyboard wiring
+`sendCommand`, and the SAVE/LOAD LAYOUT keyboard wiring
 (`shell/layout-keydown.js`) and the boot loading-bar/typewriter mechanics
 (`shell/boot-reveal.js`) — see [`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
 `nav-model.test.js`, `f35-glass.test.js`, `classic-paging.test.js`) are Node self-checks, run by hand

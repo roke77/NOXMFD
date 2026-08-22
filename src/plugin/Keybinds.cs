@@ -971,8 +971,8 @@ namespace NOXMFD
 
         // Finds the station index whose first countermeasure is the requested category. Mirrors the
         // read-path reflection in TelemetryReader.GetSelectedCmCategory — both go through the shared
-        // CmReflection (docs/refactor-scan.md step 8) since the station list and each station's
-        // countermeasure are both private. Returns -1 if no station matches.
+        // CmReflection since the station list and each station's countermeasure are both private.
+        // Returns -1 if no station matches.
         private static int IndexOfCategory(CountermeasureManager mgr, byte category)
         {
             try

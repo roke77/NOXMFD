@@ -56,7 +56,7 @@ namespace NOXMFD
 
         // BDF/PAL faction-forces panels (docs/bdf-page.md), refreshed in the 1 Hz scan alongside
         // the loadout — forces counts change on unit spawn/loss, not frame to frame. Same block
-        // shape for both, always the fixed BOSCALI/PRIMEVA identities (docs/refactor-scan.md step 3).
+        // shape for both, always the fixed BOSCALI/PRIMEVA identities.
         private FactionForcesBlock _bdf = FactionForcesBlock.Empty;
         private FactionForcesBlock _pal = FactionForcesBlock.Empty;
 
@@ -351,7 +351,7 @@ namespace NOXMFD
         }
 
         // One faction's forces snapshot — the exact same shape BDF and PAL each need, just for a
-        // different fixed faction identity (docs/refactor-scan.md step 3).
+        // different fixed faction identity.
         private struct FactionForcesBlock
         {
             public bool           Present;
@@ -584,8 +584,8 @@ namespace NOXMFD
         }
 
         // The active countermeasure index points into CountermeasureManager's private station
-        // list, so we reflect into it (via the shared CmReflection, docs/refactor-scan.md step 8)
-        // and check the active station's type.
+        // list, so we reflect into it (via the shared CmReflection) and check the active station's
+        // type.
         private static byte GetSelectedCmCategory(Aircraft ac)
         {
             CountermeasureManager mgr = ac.countermeasureManager;

@@ -849,7 +849,7 @@ namespace NOXMFD
             return false;
         }
 
-        // ── Response helpers (docs/refactor-scan.md step 2) ───────────────────────
+        // ── Response helpers ────────────────────────────────────────────────────
         // The HTTP response mechanics every Serve* handler repeats regardless of what it's
         // serving: status/content-type/length/write/close, plus Cache-Control for the small
         // on-demand JSON snapshots. Orthogonal to *what* gets serialized (that's the JSON-writer

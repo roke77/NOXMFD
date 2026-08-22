@@ -2,8 +2,18 @@
 
 ## Status
 
-**All 9 execution-plan steps done and merged to `main`.** See the checked-off
-list under "Execution plan" below.
+**All 9 original execution-plan steps done and merged to `main`.** See the checked-off
+list under "Execution plan" below. Steps 10-12 under "Follow-up execution plan" are new,
+not yet started.
+
+**Post-execution note:** the line counts in the table below and elsewhere in this doc are
+pre-execution measurements, kept as-is since this file is a historical record, not a live
+reference — see `docs/post-0.26-refactor-analysis.md` for current counts and a review of
+what actually landed. One correction to the plan text itself: Step 7's table-driven
+dispatcher covers only the seven verbatim raw-store-and-forward messages (`tgt`/`bdf`/
+`pal`/`mis`/`obj`/`akf`/`mapinfo`); `targets`/`rwr`/`mw`/`rdr` were intentionally left as
+explicit branches because they reshape/validate payloads rather than store-and-forward
+verbatim.
 
 ## Where this came from
 
@@ -477,3 +487,30 @@ Not planned unless asked (items 12-14, lower priority/skip): `map.js`'s `zoomAbo
 extractions, `serve_web.py`'s route-table/mock-module split, and `AssetCapture.cs`'s
 diagnostic-logging seam. All three are real but small enough that folding them into an unrelated
 future touch of the same file makes more sense than a dedicated step.
+
+## Follow-up execution plan (post-`0.26.0`)
+
+Added after `docs/post-0.26-refactor-analysis.md` reviewed what actually landed from the plan
+above. Same format: each step is one feature branch, self-contained enough to work from this
+document alone.
+
+- [ ] **Step 10 — extract `TelemetryJson.cs` from `TelemetryServer.cs`**. The response-helper work
+      (Step 2) reduced repeated HTTP mechanics, but telemetry JSON serialization itself is still
+      inline in `TelemetryServer.cs`. Pull it into its own file with the same Unity-free seam
+      `RouteStore.cs` has, and cover it with xUnit stable-snapshot fixtures in `tools/tests/`
+      (`docs/csharp-unit-testing.md`). This is the largest remaining backend extraction and the most
+      testable piece of `TelemetryServer.cs` left. Verify: `dotnet build` + `ci-check.ps1`, new
+      xUnit fixtures passing, then an in-game spot-check that a couple of live telemetry consumers
+      (e.g. MAIN, AVN) still receive correct data.
+- [ ] **Step 11 — re-check the deferred splits**. Revisit `map.js`, `Keybinds.cs`,
+      `TelemetryReader.cs`, and `serve_web.py`'s route table/mock split (items 12-14 above,
+      deferred after Step 9) for whether real, concrete duplication has emerged since — not a
+      scheduled rewrite, just a grep-and-compare pass like the original two scans used. Only turn a
+      finding into its own step if it clears the same bar as the original nine (proven duplication,
+      not textbook shape).
+- [ ] **Step 12 — evaluate an incremental folder-structure move**. Per CLAUDE.md's "Folder
+      architecture" section, pick whichever of the target `src/plugin/`/`src/web/` groupings has
+      the most files ready to move today (e.g. `Stores/`, `Hud/`, `Immersion/`, or `shell/shared/`)
+      and do just that one move — update `NOXMFD.csproj`/embedded-resource paths in the same commit,
+      one responsibility-group per commit per the migration strategy. Don't create a folder for a
+      single file or move everything at once.

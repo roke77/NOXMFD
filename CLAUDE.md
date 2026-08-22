@@ -115,6 +115,20 @@ guesses — most exist because a past session violated them.
   treat the rest of `src/plugin/` still lacking tests as an oversight — the
   Harmony/`MonoBehaviour`/game-object files are correctly out of scope for this, not
   merely not-yet-done.
+- **Live-game verification.** `ci-check.ps1` and the browser-preview workflow can't
+  exercise real Unity/game state (live telemetry, reflection into private game fields,
+  in-mission behavior). When a change touches that kind of code, track what still needs
+  a manual in-game check as a bullet list — in the PR/commit description for a small
+  change, or in the relevant `docs/` design doc for a larger one — instead of letting it
+  go unverified silently. Currently pending from the post-0.26.0 refactor pass
+  (`docs/post-0.26-refactor-analysis.md`), to run before the next release:
+  - BDF/PAL faction data displays correctly after `BuildFactionForces`.
+  - CM category display and keybind-driven CM category cycling after `CmReflection`.
+  - Fresh-mission vehicle/ship/building icon capture after `CaptureTypeIcons<T>` (needs
+    an unseen unit type or a fresh mission — these are one-shot per-type captures).
+  - Classic split/full page forwarding with live `tgt`/`bdf`/`pal`/`mis`/`obj`/`akf`/
+    `wpt` data.
+  - Fullscreen icon renders identically in both shells (classic and F-35).
 
 ## Unity / BepInEx safety
 
@@ -186,6 +200,48 @@ guesses — most exist because a past session violated them.
 - Version bump: feature-sized merges have historically bumped minor (0.16.0, 0.17.0),
   isolated fixes bump patch. Flag once if the user names a version that doesn't match
   this pattern, then follow their explicit choice without re-raising it.
+
+## Folder architecture
+
+Current split: `src/plugin/` (C# runtime), `src/web/pages/` (page-specific browser code),
+`src/web/shell/` (shell/layout code, mixing shared shell mechanics with classic/f35
+subfolders), `src/web/services/` (shared browser services), `src/web/shared/` (shared
+CSS/fonts/tokens), `tools/` (preview, capture, CI, tests).
+
+Grow this incrementally, not as a big-bang reshuffle — create a folder only when moving
+at least two related files or extracting a real new module, don't pre-create empty
+folders for a single file or a "someday" grouping (e.g. no `Builders/` folder until
+there's a second builder to put in it). Move pure/testable code before risky
+runtime-coupled code. Keep composition roots (`Plugin.cs`, `TelemetryServer.cs`,
+`mfd.js`, `f35.js`, page `<name>.js` files) easy to find even as they shrink. Update
+`NOXMFD.csproj`/embedded-resource paths in the same commit as any move. One
+responsibility-group per commit — large reshuffles are hard to review and wreck blame.
+
+If `src/plugin/` or `src/web/shell/` grow enough to need internal structure, this is the
+target shape:
+
+- **`src/plugin/`**: `Core/` (`Plugin.cs`, `MissionLifecycle.cs`, `HarmonyPatches.cs`) ·
+  `Telemetry/` (`TelemetrySnapshot.cs`, `TelemetryReader.cs`, a future `TelemetryJson.cs`)
+  · `Http/` (`TelemetryServer.cs` — don't move it alone until its own responsibilities
+  split into route/asset/stream handlers) · `Commands/` (`CommandDispatcher.cs`) ·
+  `Stores/` (`RouteStore.cs`, `LayoutStore.cs`, `HudPresetStore.cs` — JSON-backed,
+  test-friendly, avoid direct Unity/BepInEx coupling) · `Input/` (`Keybinds.cs`,
+  `WeaponSelectors.cs`) · `Assets/` (`AssetCapture.cs`, `SpriteCapture.cs`) · `Hud/`
+  (`HudDeclutter*.cs`, `HudCombatModeFilters.cs`, `HudWaypointCue.cs`) · `Immersion/`
+  (`ImmersionConfig.cs`, `ImmersionState.cs`) · `Config/` (`RatesConfig.cs`,
+  `ConfigurationManagerAttributes.cs`) · `Interop/` (`CmReflection.cs` and future narrow,
+  specifically-named reflection adapters — never a generic `ReflectionUtils` bucket) ·
+  `Util/` (`JsonLite.cs`).
+- **`src/web/`**: a `shell/shared/` subfolder for shell-agnostic mechanics
+  (`boot-reveal.js`, `layout-keydown.js`, `layout-modal.js`, `layout-store.js`,
+  `layout-pages.js`, `nav-model.js`), separate from `shell/classic/` and `shell/f35/`'s
+  own composition. A `protocol/` folder for shared message names/payload contracts is
+  worth creating once contracts are actually centralized, not for one file. Keep
+  page-specific policy files beside their page (as `avn-throttle-policy.js`,
+  `afm-bg-policy.js`, `map-transform.js` already do) — don't invent a generic
+  `components/`/`utils/` bucket for a shell/page-oriented app.
+- **`tools/`**: split `serve_web.py` into `preview/` + `preview/mocks/` only when its
+  route helpers or mocks are being touched for real work, not preemptively.
 
 ## Repo-wide coding rules
 

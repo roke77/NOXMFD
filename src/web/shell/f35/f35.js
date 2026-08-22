@@ -1044,11 +1044,10 @@
       .catch(function () { setStripUrls({ localhost: 'http://localhost:5005' }); });
   }
 
-  // Boot loader: a LOADING… bar filling 0→100% over ~1s, then the URLs type in.
-  // docs/refactor-scan.md step 1: the fill-bar and typewriter mechanics are shared with mfd.js's
-  // runBootLoading/typewriterUrls via src/web/shell/boot-reveal.js. The strip starts in .booting
-  // from the HTML so nothing flashes before the bar; this only drives the fill and lifts .booting
-  // at 100%.
+  // Boot loader: a LOADING… bar filling 0→100% over ~1s, then the URLs type in. The fill-bar and
+  // typewriter mechanics are shared with mfd.js's runBootLoading/typewriterUrls via
+  // src/web/shell/boot-reveal.js. The strip starts in .booting from the HTML so nothing flashes
+  // before the bar; this only drives the fill and lifts .booting at 100%.
   function runStripBoot() {
     const fill = document.getElementById('ms-bar-fill');
     if (!stripEl || !fill) return;
@@ -1071,8 +1070,8 @@
     BootReveal.typewriterReveal(lines);
   }
 
-  // docs/refactor-scan.md step 1: SAVE/LOAD LAYOUT keyboard + modal wiring is shared with mfd.js
-  // via src/web/shell/layout-keydown.js — only captureLayoutState/applyLayoutState (this shell's
+  // SAVE/LOAD LAYOUT keyboard + modal wiring is shared with mfd.js via
+  // src/web/shell/layout-keydown.js — only captureLayoutState/applyLayoutState (this shell's
   // own state shape, below) stay here. Declared here (ahead of its own captureLayoutState/
   // applyLayoutState definitions further down, which are hoisted function declarations so the
   // reference is fine) because the picker wiring just below needs openSaveLayoutModal/
