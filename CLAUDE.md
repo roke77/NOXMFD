@@ -79,9 +79,18 @@ guesses — most exist because a past session violated them.
 - No reader-directed meta-commentary ("this is the part people miss", "you'd be
   surprised how often"). State the fact plainly; justifying a design choice is fine,
   editorializing about the reader is not.
+- Comments explain **why**, not what: a non-obvious choice, a runtime/engine/API
+  constraint, an invariant a future edit must preserve, or a threading/lifecycle/
+  ordering/caching assumption. A workaround's comment says when it can be removed.
+  Don't restate what the code already says, don't excuse unclear code instead of
+  naming/simplifying it, and — same present-tense rule as above — don't narrate
+  history or process (migrations, prior implementations, "moved from X", agent/session
+  actions); that belongs in commits/PRs/docs, not the comment. Skip exact line numbers
+  likely to drift. A `TODO` needs a concrete condition or a linked issue/doc, not a bare
+  marker.
 - `docs/` holds feature design docs (markdown). These are kept permanently as a
   historical record of how a feature was planned, even after it ships — unlike
-  user-facing docs (README, etc.), which stay present-tense-only.
+  user-facing docs (README, etc.) and code comments, which stay present-tense-only.
 
 ## Testing
 
