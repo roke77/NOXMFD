@@ -2,7 +2,9 @@
 
 ## Status
 
-Planning — not started.
+In progress. `tools/tests/` is stood up with `JsonLite.cs` + `RouteStore.cs` covered (step 1 below),
+and `TelemetryServer.cs`'s JSON-writer layer is extracted into `TelemetryJson.cs` and covered (step
+2). Steps 3-6 are not started — see the Scope checklist.
 
 ## The problem
 
@@ -115,9 +117,10 @@ the point of doing it.
 
 ## Scope
 
-- [ ] Decide `tools/tests/` vs a root-level `NOXMFD.Tests/` project name/location
-- [ ] Stand up the xUnit project, wire `JsonLite.cs` + `RouteStore.cs` in as the first real tests
-- [ ] Extract and test `TelemetryServer.cs`'s JSON-writer layer
+- [x] Decide `tools/tests/` vs a root-level `NOXMFD.Tests/` project name/location
+- [x] Stand up the xUnit project, wire `JsonLite.cs` + `RouteStore.cs` in as the first real tests
+- [x] Extract and test `TelemetryServer.cs`'s JSON-writer layer — `TelemetryJson.cs`,
+      `TelemetryJsonTests.cs`
 - [ ] Extract and test `AkfTracker.cs`'s attribution/bookkeeping logic
 - [ ] Extract and test `Keybinds.cs`'s tap/hold arbitration
 - [ ] Extract and test `HudWaypointCue.cs`'s geometry kernel

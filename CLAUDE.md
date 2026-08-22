@@ -120,15 +120,30 @@ guesses — most exist because a past session violated them.
   in-mission behavior). When a change touches that kind of code, track what still needs
   a manual in-game check as a bullet list — in the PR/commit description for a small
   change, or in the relevant `docs/` design doc for a larger one — instead of letting it
-  go unverified silently. Currently pending from the post-0.26.0 refactor pass
-  (`docs/post-0.26-refactor-analysis.md`), to run before the next release:
-  - BDF/PAL faction data displays correctly after `BuildFactionForces`.
-  - CM category display and keybind-driven CM category cycling after `CmReflection`.
-  - Fresh-mission vehicle/ship/building icon capture after `CaptureTypeIcons<T>` (needs
-    an unseen unit type or a fresh mission — these are one-shot per-type captures).
-  - Classic split/full page forwarding with live `tgt`/`bdf`/`pal`/`mis`/`obj`/`akf`/
-    `wpt` data.
-  - Fullscreen icon renders identically in both shells (classic and F-35).
+  go unverified silently. From the post-0.26.0 refactor pass
+  (`docs/post-0.26-refactor-analysis.md`) — confirmed live 2026-08-22 against a running
+  Free Flight mission:
+  - [x] BDF/PAL faction data displays correctly after `BuildFactionForces` (classic
+    full-view, real Boscali/Primeva funds/ships/vehicles/buildings/aircraft counts).
+  - [x] Fresh-mission vehicle/ship/building icon capture after `CaptureTypeIcons<T>`
+    (TGT page's vehicle-type icons load with real pixel data, not broken images).
+  - [x] Classic full-view page forwarding with live `bdf`/`pal` data, and classic
+    split-view forwarding with live `map` data — both confirmed via the shell's actual
+    `page-frame`/`pane-*` iframes, not just the raw SSE payload.
+  - [x] Live telemetry frame still matches its pre-refactor shape after the
+    `TelemetryJson.cs` extraction (`docs/refactor-scan.md` step 10) — confirmed against
+    the actual rebuilt/redeployed/restarted plugin (not just the pre-extraction one),
+    `/stream`'s `bdf`/`pal`/`mis`/`obj`/`akf`/`tgt` blocks all shaped and populated as
+    expected.
+  - [x] Fullscreen icon: the shared `--icon-fullscreen` token resolves to the same
+    non-empty inline-SVG value in both classic and F-35 shells (pixel-identical
+    rendering itself still wants a quick human eyeball — not verifiable headlessly).
+  - [ ] CM category display and keybind-driven CM category cycling after
+    `CmReflection` — needs an actual keypress in-game, not verifiable from the browser
+    side; still pending.
+  - [ ] RDR/RWR/MW contact rendering with a live radar-equipped aircraft and nearby
+    threats — the session tested against had no radar and no contacts nearby, so the
+    arrays were empty but unexercised.
 
 ## Unity / BepInEx safety
 
