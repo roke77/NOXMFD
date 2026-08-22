@@ -759,13 +759,53 @@ namespace NOXMFD
         private static readonly Queue<CommandEnvelope> _cmdQueue = new Queue<CommandEnvelope>();
         private static readonly object                 _cmdLock  = new object();
 
+        // docs/server-hardening.md — a command envelope is a few hundred bytes at most; 16 KB
+        // leaves headroom without letting a single request allocate an arbitrarily large string.
+        // Checks the declared Content-Length first (the common case, rejected before any body read
+        // at all), but also caps the actual bytes read when the length is unknown (-1, e.g. chunked
+        // transfer) rather than trusting the header alone. Shared by both command endpoints below —
+        // the only two places in this file that read a request body from an untrusted caller.
+        private const int MaxCommandBodyBytes = 16 * 1024;
+
+        private static bool TryReadBoundedBody(HttpListenerContext ctx, out string body)
+        {
+            body = string.Empty;
+            if (ctx.Request.ContentLength64 > MaxCommandBodyBytes)
+            {
+                ctx.Response.StatusCode = 413;
+                ctx.Response.Close();
+                return false;
+            }
+
+            using var ms = new MemoryStream();
+            var buffer = new byte[4096];
+            Stream input = ctx.Request.InputStream;
+            int read;
+            while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                if (ms.Length + read > MaxCommandBodyBytes)
+                {
+                    ctx.Response.StatusCode = 413;
+                    ctx.Response.Close();
+                    return false;
+                }
+                ms.Write(buffer, 0, read);
+            }
+            body = Encoding.UTF8.GetString(ms.ToArray());
+            return true;
+        }
+
         private static void HandleCommand(HttpListenerContext ctx)
         {
             try
             {
-                string body;
-                using (var r = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
-                    body = r.ReadToEnd();
+                if (ctx.Request.HttpMethod != "POST")
+                {
+                    ctx.Response.StatusCode = 405;   // /ext/<id>/command already gates on POST at the routing site
+                    ctx.Response.Close();
+                    return;
+                }
+                if (!TryReadBoundedBody(ctx, out string body)) return;
 
                 CommandEnvelope env = null;
                 try { env = UnityEngine.JsonUtility.FromJson<CommandEnvelope>(body); }
@@ -890,9 +930,7 @@ namespace NOXMFD
         {
             try
             {
-                string body;
-                using (var r = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
-                    body = r.ReadToEnd();
+                if (!TryReadBoundedBody(ctx, out string body)) return;
 
                 if (!ExtensionRegistry.TryEnqueueCommand(id, body))
                     Plugin.Log?.LogDebug($"[NOXMFD] extension '{id}' command queue full — dropped.");
