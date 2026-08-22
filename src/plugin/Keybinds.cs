@@ -91,6 +91,8 @@ namespace NOXMFD
         private static readonly List<BindDef> _binds = new List<BindDef>();
         internal static IReadOnlyList<BindDef> Binds => _binds;   // for the /keybinds page JSON
 
+        private static BindDef? FindBind(string id) => _binds.Find(b => b.Id == id);
+
         // The bind whose joystick entry is currently armed for capture (via ArmJoyCapture), or null.
         // While non-null, the next joystick button pressed is written into it (see CaptureJoyButton).
         // Mutually exclusive with _capturingAxis — arming one disarms the other, matching the page's
@@ -484,13 +486,10 @@ namespace NOXMFD
             bool clear = string.IsNullOrEmpty(keyName) || keyName == "None";
             if (!clear && (!Enum.TryParse(keyName, ignoreCase: true, out key) || key >= KeyCode.JoystickButton0))
                 return false;
-            foreach (var b in _binds)
-                if (b.Id == id)
-                {
-                    b.KeyEntry.Value = clear ? new KeyboardShortcut() : new KeyboardShortcut(key);
-                    return true;
-                }
-            return false;
+            BindDef? b = FindBind(id);
+            if (b == null) return false;
+            b.KeyEntry.Value = clear ? new KeyboardShortcut() : new KeyboardShortcut(key);
+            return true;
         }
 
         // ── Joystick capture (driven by the /keybinds page) ─────────────────────────────────────────
@@ -515,27 +514,26 @@ namespace NOXMFD
 
         internal static bool ArmJoyCapture(string id)
         {
-            foreach (var b in _binds)
-            {
-                if (b.Id != id || b.JoyEntry == null) continue;
-                if (_capturing == null && _capturingAxis == null) EnableBackgroundInput();
-                _capturing = b;
-                _capturingAxis = null;   // mutually exclusive
-                _captureSettle = SettleFrames;
-                _latched.Clear();
-                LogJoysticks();
-                return true;
-            }
-            return false;
+            BindDef? b = FindBind(id);
+            if (b == null || b.JoyEntry == null) return false;
+            if (_capturing == null && _capturingAxis == null) EnableBackgroundInput();
+            _capturing = b;
+            _capturingAxis = null;   // mutually exclusive
+            _captureSettle = SettleFrames;
+            _latched.Clear();
+            LogJoysticks();
+            return true;
         }
 
         internal static void CancelJoyCapture() => Disarm();
 
         internal static bool ClearJoyBind(string id)
         {
-            foreach (var b in _binds)
-                if (b.Id == id && b.JoyEntry != null) { b.JoyEntry.Value = -1; b.JoyNumEntry!.Value = 0; if (_capturing == b) Disarm(); return true; }
-            return false;
+            BindDef? b = FindBind(id);
+            if (b == null || b.JoyEntry == null) return false;
+            b.JoyEntry.Value = -1; b.JoyNumEntry!.Value = 0;
+            if (_capturing == b) Disarm();
+            return true;
         }
 
         // ── Axis capture (docs/map-cursor.md) ───────────────────────────────────────────────────────
@@ -550,39 +548,34 @@ namespace NOXMFD
 
         internal static bool ArmAxisCapture(string id)
         {
-            foreach (var b in _binds)
-            {
-                if (b.Id != id || b.AxisEntry == null) continue;
-                if (_capturing == null && _capturingAxis == null) EnableBackgroundInput();
-                _capturingAxis = b;
-                _capturing = null;   // mutually exclusive
-                _axisSettle = AxisSettleFrames;
-                _axisRest.Clear();
-                LogJoysticks();
-                return true;
-            }
-            return false;
+            BindDef? b = FindBind(id);
+            if (b == null || b.AxisEntry == null) return false;
+            if (_capturing == null && _capturingAxis == null) EnableBackgroundInput();
+            _capturingAxis = b;
+            _capturing = null;   // mutually exclusive
+            _axisSettle = AxisSettleFrames;
+            _axisRest.Clear();
+            LogJoysticks();
+            return true;
         }
 
         internal static void CancelAxisCapture() => Disarm();
 
         internal static bool ClearAxisBind(string id)
         {
-            foreach (var b in _binds)
-                if (b.Id == id && b.AxisEntry != null)
-                {
-                    b.AxisEntry.Value = -1; b.AxisJoyNumEntry!.Value = 0; b.AxisInvertEntry!.Value = false;
-                    if (_capturingAxis == b) Disarm();
-                    return true;
-                }
-            return false;
+            BindDef? b = FindBind(id);
+            if (b == null || b.AxisEntry == null) return false;
+            b.AxisEntry.Value = -1; b.AxisJoyNumEntry!.Value = 0; b.AxisInvertEntry!.Value = false;
+            if (_capturingAxis == b) Disarm();
+            return true;
         }
 
         internal static bool SetAxisInvert(string id, bool invert)
         {
-            foreach (var b in _binds)
-                if (b.Id == id && b.AxisInvertEntry != null) { b.AxisInvertEntry.Value = invert; return true; }
-            return false;
+            BindDef? b = FindBind(id);
+            if (b == null || b.AxisInvertEntry == null) return false;
+            b.AxisInvertEntry.Value = invert;
+            return true;
         }
 
         // Rewired ignores ALL joystick input while the app isn't focused (ignoreInputWhenAppNotInFocus
