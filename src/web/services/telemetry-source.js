@@ -169,7 +169,7 @@ export class TelemetrySource {
   _onMessage(e) {
     this._lastMsgAt = performance.now();
     // Drop a malformed frame instead of dying on it. The server hand-rolls its JSON
-    // (TelemetryServer.cs), so a serializer bug lands here as a parse throw — an uncaught one
+    // (TelemetryJson.cs), so a serializer bug lands here as a parse throw — an uncaught one
     // would take down the whole tick's fan-out, freezing every page while the SSE connection stays
     // open and the watchdog below stays quiet. Skipping costs one frame; the next good one
     // (~100 ms) repaints everything. Logged rather than swallowed, since the console error is what

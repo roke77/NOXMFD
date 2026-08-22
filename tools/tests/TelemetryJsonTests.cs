@@ -3,8 +3,8 @@ using NOXMFD;
 
 namespace NOXMFD.Tests
 {
-    // Stable-snapshot fixtures for TelemetryJson.Serialize (docs/refactor-scan.md step 10). Asserts
-    // by parsing the output back through JsonLite rather than matching substrings, so a field
+    // Stable-snapshot fixtures for TelemetryJson.Serialize. Asserts by parsing the output back
+    // through JsonLite rather than matching substrings, so a field
     // reordering doesn't break these — only an actual value/shape change does.
     public class TelemetryJsonTests
     {

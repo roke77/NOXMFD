@@ -643,101 +643,7 @@ namespace NOXMFD
                     var ctx  = _listener!.GetContext();
                     var path = ctx.Request.Url?.AbsolutePath ?? "/";
 
-                    if (path == "/stream")
-                        _ = Task.Run(() => HandleSseAsync(ctx, _cts.Token));
-                    else if (path == "/tgp.mjpg")
-                        _ = Task.Run(() => HandleMjpegAsync(ctx, _cts.Token));
-                    else if (path == "/map" || path == "/map.png" || path == "/map.jpg")
-                        ServeMap(ctx);
-                    else if (path == "/icon")
-                        ServePng(ctx, _icons, _iconLock, "type");
-                    else if (path == "/weapon")
-                        ServePng(ctx, _weaponIcons, _weaponLock, "name");
-                    else if (path == "/cm")
-                        ServePng(ctx, _cmIcons, _cmLock, "type");
-                    else if (path == "/tgt-icon")
-                        ServePng(ctx, _tgtIcons, _tgtLock, "type");
-                    else if (path == "/bdf-icon")
-                        ServePng(ctx, _bdfIcons, _bdfLock, "type");
-                    else if (path == "/building-icon")
-                        ServePng(ctx, _buildingIcons, _buildingLock, "type");
-                    else if (path == "/hud-cat-icon")
-                        ServePng(ctx, _hudCatIcons, _hudCatLock, "cat");
-                    else if (path == "/airframe")
-                        ServeAirframeImage(ctx);
-                    else if (path == "/airframe-layout")
-                        ServeAirframeLayout(ctx);
-                    else if (path == "/config")
-                        ServeConfig(ctx);
-                    else if (path == "/hud-options")
-                        ServeHudOptions(ctx);
-                    else if (path == "/wpt-options")
-                        ServeWptOptions(ctx);
-                    else if (path == "/layout-options")
-                        ServeLayoutOptions(ctx);
-                    else if (path == "/hud-presets")
-                        ServeHudPresets(ctx);
-                    else if (path == "/rates-config")
-                        ServeRatesConfig(ctx);
-                    else if (path == "/keybinds-config")
-                        ServeKeybindsConfig(ctx);
-                    else if (path == "/soi-instances")
-                        ServeSoiInstances(ctx);
-                    else if (path == "/ext-manifest")
-                        ServeExtManifest(ctx);
-                    else if (path.StartsWith("/ext/", StringComparison.Ordinal))
-                        HandleExtRequest(ctx, path);
-                    else if (path.StartsWith("/assets/", StringComparison.Ordinal))
-                        TelemetryAssets.ServeAsset(ctx, path);
-                    else if (path == "/map-view")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/map/map.html");
-                    else if (path == "/main")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/main/main.html");
-                    else if (path == "/avn")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/avn/avn.html");
-                    else if (path == "/afm")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/afm/afm.html");
-                    else if (path == "/tgp")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/tgp/tgp.html");
-                    // Static placeholder for EXT with nothing installed (docs/extensions-api.md) —
-                    // distinct from the /ext/<id>/* prefix (HandleExtRequest above), which needs
-                    // the trailing slash to match.
-                    else if (path == "/ext")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/ext/ext.html");
-                    else if (path == "/wpn")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/wpn/wpn.html");
-                    else if (path == "/rwr")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/rwr/rwr.html");
-                    else if (path == "/rdr")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/rdr/rdr.html");
-                    else if (path == "/tgt")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/tgt/tgt.html");
-                    else if (path == "/akf")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/akf/akf.html");
-                    else if (path == "/bdf")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/bdf/bdf.html");
-                    else if (path == "/mis")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/mis/mis.html");
-                    else if (path == "/obj")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/obj/obj.html");
-                    else if (path == "/wpt")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/wpt/wpt.html");
-                    else if (path == "/hud")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/hud/hud.html");
-                    else if (path == "/keybinds")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/keybinds/keybinds.html");
-                    else if (path == "/rates")
-                        TelemetryAssets.ServeAssetRel(ctx, "pages/rates/rates.html");
-                    else if (path == "/command")
-                        HandleCommand(ctx);
-                    else if (path == "/mfd")
-                        Redirect(ctx, "/");
-                    else if (path == "/f35")
-                        TelemetryAssets.ServeAssetRel(ctx, "shell/f35/f35.html");
-                    else if (path == "/" || path == "/index.html")
-                        TelemetryAssets.ServeAssetRel(ctx, "shell/classic/mfd.html");
-                    else
-                        Redirect(ctx, "/");
+                    TelemetryHttpRouter.Route(ctx, path, _cts.Token);
                 }
                 catch (HttpListenerException) { break; }
                 catch (ObjectDisposedException) { break; }
@@ -796,7 +702,7 @@ namespace NOXMFD
             return true;
         }
 
-        private static void HandleCommand(HttpListenerContext ctx)
+        internal static void HandleCommand(HttpListenerContext ctx)
         {
             try
             {
@@ -885,7 +791,7 @@ namespace NOXMFD
 
         // ── Extension API (docs/extensions-api.md) ────────────────────────────────
 
-        private static void ServeExtManifest(HttpListenerContext ctx)
+        internal static void ServeExtManifest(HttpListenerContext ctx)
         {
             try
             {
@@ -907,7 +813,7 @@ namespace NOXMFD
         // POST "/ext/<id>/command" (its command endpoint) — one generic handler for every
         // registered extension rather than per-extension routing, the whole point of this
         // surface (see docs/extensions-api.md).
-        private static void HandleExtRequest(HttpListenerContext ctx, string path)
+        internal static void HandleExtRequest(HttpListenerContext ctx, string path)
         {
             string rest = path.Substring("/ext/".Length);
             int slash = rest.IndexOf('/');
@@ -1015,7 +921,7 @@ namespace NOXMFD
             }
         }
 
-        private static void ServeConfig(HttpListenerContext ctx)
+        internal static void ServeConfig(HttpListenerContext ctx)
         {
             try
             {
@@ -1033,7 +939,7 @@ namespace NOXMFD
         // of SOI is wired to it, and it stays useful afterwards for "which displays does the server
         // think are open?". Safe off the main thread — the dictionary is concurrent and touches no
         // Unity state.
-        private static void ServeSoiInstances(HttpListenerContext ctx)
+        internal static void ServeSoiInstances(HttpListenerContext ctx)
         {
             try
             {
@@ -1060,7 +966,7 @@ namespace NOXMFD
         // it's also how a capture result comes back. Safe off the main thread: the registry list is
         // built once at Awake and never mutated, and ConfigEntry/CapturingId reads are plain field reads
         // (worst case one poll stale).
-        private static void ServeKeybindsConfig(HttpListenerContext ctx)
+        internal static void ServeKeybindsConfig(HttpListenerContext ctx)
         {
             try
             {
@@ -1137,7 +1043,7 @@ namespace NOXMFD
         // a live HUDOptions is up; the page treats that as "unavailable".
         internal static volatile string HudOptionsJson = "{}";
 
-        private static void ServeHudOptions(HttpListenerContext ctx)
+        internal static void ServeHudOptions(HttpListenerContext ctx)
         {
             try
             {
@@ -1151,7 +1057,7 @@ namespace NOXMFD
         // single source of truth now, not any browser's localStorage. Mission-independent, like
         // /hud-options, so the WPT page works at the main menu too. Cached the same way
         // (RouteStore.RoutesJson is volatile, rebuilt on the main thread after every mutation).
-        private static void ServeWptOptions(HttpListenerContext ctx)
+        internal static void ServeWptOptions(HttpListenerContext ctx)
         {
             try
             {
@@ -1163,7 +1069,7 @@ namespace NOXMFD
 
         // Saved layouts (issue #51) — LayoutStore is the single source of truth, same pattern as
         // /wpt-options. Mission-independent, so SAVE/LOAD LAYOUT work at the main menu too.
-        private static void ServeLayoutOptions(HttpListenerContext ctx)
+        internal static void ServeLayoutOptions(HttpListenerContext ctx)
         {
             try
             {
@@ -1176,7 +1082,7 @@ namespace NOXMFD
         // HUD filter presets (issue #50 follow-up) — HudPresetStore is the single source of truth,
         // same pattern as /layout-options. The LOAD picker's on-demand fetch; the bottom label's
         // current-slot summary rides /hud-options instead (RefreshHudOptions), not this endpoint.
-        private static void ServeHudPresets(HttpListenerContext ctx)
+        internal static void ServeHudPresets(HttpListenerContext ctx)
         {
             try
             {
@@ -1190,7 +1096,7 @@ namespace NOXMFD
         // from here on load, same shape as /hud-options — a small on-demand JSON snapshot rather
         // than something streamed. Built fresh per request (RatesConfig's getters are plain floats,
         // no game-object reads), so no caching/refresh-on-tick needed like HudOptionsJson.
-        private static void ServeRatesConfig(HttpListenerContext ctx)
+        internal static void ServeRatesConfig(HttpListenerContext ctx)
         {
             try
             {
@@ -1297,7 +1203,7 @@ namespace NOXMFD
 
         // ── Map image handler ──────────────────────────────────────────────────
 
-        private static void Redirect(HttpListenerContext ctx, string location)
+        internal static void Redirect(HttpListenerContext ctx, string location)
         {
             try
             {
@@ -1308,7 +1214,7 @@ namespace NOXMFD
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
-        private static void ServeMap(HttpListenerContext ctx)
+        internal static void ServeMap(HttpListenerContext ctx)
         {
             // Prefer the map image we extracted straight from the game — its bounds match the
             // world coordinates exactly, so the plane lines up with no calibration.
@@ -1354,6 +1260,14 @@ namespace NOXMFD
 
         // ── Icon / weapon-image handler ──────────────────────────────────────────
 
+        internal static void ServeIcon(HttpListenerContext ctx) => ServePng(ctx, _icons, _iconLock, "type");
+        internal static void ServeWeaponIcon(HttpListenerContext ctx) => ServePng(ctx, _weaponIcons, _weaponLock, "name");
+        internal static void ServeCmIcon(HttpListenerContext ctx) => ServePng(ctx, _cmIcons, _cmLock, "type");
+        internal static void ServeTgtIcon(HttpListenerContext ctx) => ServePng(ctx, _tgtIcons, _tgtLock, "type");
+        internal static void ServeBdfIcon(HttpListenerContext ctx) => ServePng(ctx, _bdfIcons, _bdfLock, "type");
+        internal static void ServeBuildingIcon(HttpListenerContext ctx) => ServePng(ctx, _buildingIcons, _buildingLock, "type");
+        internal static void ServeHudCategoryIcon(HttpListenerContext ctx) => ServePng(ctx, _hudCatIcons, _hudCatLock, "cat");
+
         private static void ServePng(HttpListenerContext ctx, Dictionary<string, byte[]> dict, object dictLock, string queryKey)
         {
             string key = ctx.Request.QueryString[queryKey] ?? string.Empty;
@@ -1373,7 +1287,7 @@ namespace NOXMFD
 
         // ── Airframe handlers ───────────────────────────────────────────────────
 
-        private static void ServeAirframeImage(HttpListenerContext ctx)
+        internal static void ServeAirframeImage(HttpListenerContext ctx)
         {
             string type = ctx.Request.QueryString["type"] ?? string.Empty;
             string part = ctx.Request.QueryString["part"] ?? string.Empty;
@@ -1385,7 +1299,7 @@ namespace NOXMFD
             WriteBinary(ctx, png, "image/png");
         }
 
-        private static void ServeAirframeLayout(HttpListenerContext ctx)
+        internal static void ServeAirframeLayout(HttpListenerContext ctx)
         {
             string type = ctx.Request.QueryString["type"] ?? string.Empty;
             string? json = null;
@@ -1400,7 +1314,7 @@ namespace NOXMFD
 
         // Long-lived multipart/x-mixed-replace response. Browsers render this directly in
         // an <img> tag — when a new JPEG is written, the image swaps in place.
-        private static async Task HandleMjpegAsync(HttpListenerContext ctx, CancellationToken ct)
+        internal static async Task HandleMjpegAsync(HttpListenerContext ctx, CancellationToken ct)
         {
             const string boundary = "tgpframe";
             ctx.Response.StatusCode  = 200;
@@ -1444,7 +1358,7 @@ namespace NOXMFD
 
         // ── SSE handler ────────────────────────────────────────────────────────
 
-        private static async Task HandleSseAsync(HttpListenerContext ctx, CancellationToken ct)
+        internal static async Task HandleSseAsync(HttpListenerContext ctx, CancellationToken ct)
         {
             ctx.Response.StatusCode   = 200;
             ctx.Response.ContentType  = "text/event-stream; charset=utf-8";
@@ -1557,9 +1471,9 @@ namespace NOXMFD
             CursorX, CursorY, CursorSelSeq, EscapeJson(MapAct), MapActSeq,
             Volatile.Read(ref _cursorSelHeld) ? "true" : "false");
 
-        // Moved to JsonLite.cs (docs/csharp-unit-testing.md) so pure callers like RouteStore.cs can
-        // compile standalone in a test project without pulling this file's game touchpoints in.
-        // Forwards here so none of this file's own ~50 unqualified call sites need to change.
+        // Kept in JsonLite.cs so pure callers like RouteStore.cs can compile standalone in a test
+        // project without pulling this file's game touchpoints in. This wrapper preserves this
+        // file's local call sites.
         internal static string EscapeJson(string s) => JsonLite.EscapeJson(s);
     }
 }

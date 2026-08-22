@@ -162,10 +162,10 @@ Unity UI Text component outside a gated interval). See item #7 below.
 
 This section describes the pre-fix state, kept for context on why item #2 (below) exists — it is
 **not** current behavior. `Serialize` no longer re-runs per client; verify at
-`src/plugin/TelemetryServer.cs:504`'s frame-version cache.
+`src/plugin/Http/TelemetryServer.cs`'s frame-version cache.
 
 - **`Serialize` re-ran in full, per client, every 100 ms**
-  (`src/plugin/TelemetryServer.cs:526`, called from `HandleSseAsync` `:505` —
+  (`src/plugin/Http/TelemetryServer.cs`, called from `HandleSseAsync` —
   line numbers as they stood at the time this was written), and `string.Format` boxed every
   float/int/bool. Open the combined MFD + a separate RWR tab + a tablet = the entire contact list
   serialized 3× independently, 10×/sec.
@@ -183,7 +183,7 @@ the race — and is shipped, per the "Status" section below.
 
 ### Watch-item, not currently a problem (found 2026-08-20)
 
-`RouteStore.Save()` (`src/plugin/RouteStore.cs:113`) does a synchronous
+`RouteStore.Save()` (`src/plugin/Stores/RouteStore.cs`) does a synchronous
 `File.WriteAllText` on the main thread on every route/waypoint mutation —
 the same shape as the ~9 ms `ConfigEntry.Value` write stall the 2026-08-16
 section below found and fixed (by moving the RTS sliders from `input` to

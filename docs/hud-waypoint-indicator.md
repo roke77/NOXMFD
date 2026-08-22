@@ -210,11 +210,11 @@ need a browser to push anything, so there was nothing to keep them for.
 
 | File | Role |
 |---|---|
-| `src/plugin/RouteStore.cs` | The route library: storage, every mutation, disk persistence, `AdvanceIfNear` |
+| `src/plugin/Stores/RouteStore.cs` | The route library: storage, every mutation, disk persistence, `AdvanceIfNear` |
 | `src/plugin/JsonLite.cs` | Minimal JSON reader — the persisted file and pasted imports; `SelfCheck()` is its runnable check, called once from `Plugin.Awake` |
 | `src/plugin/Hud/HudWaypointCue.cs` | The renderer — chevron on the tape + two-line readout, reads `RouteStore` in-process |
 | `src/plugin/CommandDispatcher.cs` | 14 `wpt.*` commands; `text` added to the envelope |
-| `src/plugin/TelemetryServer.cs` | `GET /wpt-options` — the route library, mission-independent |
+| `src/plugin/Http/TelemetryServer.cs`, `src/plugin/Http/TelemetryHttpRouter.cs` | `GET /wpt-options` — the route library, mission-independent |
 | `src/web/pages/wpt/waypoints-store.js` | Fetch/poll (`/wpt-options`, top window only) + `POST /command` client |
 | `src/web/pages/wpt/wpt-route.js` | Trimmed to display-derivation only — mutation logic moved to `RouteStore.cs` |
 | `src/web/shell/classic/mfd.js`, `src/web/shell/f35/f35.js` | Relay `/wpt-options` data to embedded MAP/WPT pages — see the perf fix above |

@@ -46,11 +46,11 @@ namespace NOXMFD
         // reference, never the underlying List<Route>, so no lock is needed.
         internal static volatile string RoutesJson = "{\"activeRouteId\":null,\"routes\":[]}";
 
-        // Storage/log seam (docs/csharp-unit-testing.md) — keeps this file free of any BepInEx/
-        // Plugin reference so a standalone test project can compile and exercise the mutators
-        // directly. Plugin.Awake sets both before calling Load(); a test project leaves ConfigDir
-        // null (FilePath then resolves under the test run's own working directory) and can set
-        // PersistToDisk false to exercise the mutators without touching disk at all.
+        // Storage/log seam: keeps this file free of any BepInEx/Plugin reference so a standalone
+        // test project can compile and exercise the mutators directly. Plugin.Awake sets both
+        // before calling Load(); a test project leaves ConfigDir null (FilePath then resolves under
+        // the test run's own working directory) and can set PersistToDisk false to exercise the
+        // mutators without touching disk at all.
         internal static string? ConfigDir;
         internal static Action<string>? LogWarning;
         internal static bool PersistToDisk = true;

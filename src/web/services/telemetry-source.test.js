@@ -1,7 +1,7 @@
 // Self-check for the telemetry frame handler. Run: `node telemetry-source.test.js`.
 //
 // The ONE property guarded here: a malformed frame must cost exactly one frame, never the session.
-// The server hand-rolls its JSON (src/plugin/TelemetryServer.cs), so a serializer bug arrives as a
+// The plugin hand-rolls its telemetry JSON (src/plugin/TelemetryJson.cs), so a serializer bug arrives as a
 // parse throw in _onMessage — and an uncaught one takes down that tick's whole fan-out, freezing
 // every page while the SSE connection stays open and the watchdog stays quiet. That failure has
 // happened twice for real (a format string that dropped its decimal placeholder; unescaped control

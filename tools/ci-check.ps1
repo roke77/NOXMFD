@@ -30,7 +30,7 @@ foreach ($f in $testFiles) {
 }
 Write-Host "  $($testFiles.Count) test file(s) passed"
 
-# 3. dotnet test — the xUnit project covering pure logic extracted per docs/csharp-unit-testing.md.
+# 3. dotnet test — the xUnit project covering pure plugin logic.
 Write-Host "== dotnet test (tools/tests) ==" -ForegroundColor Cyan
 dotnet test tools/tests/NOXMFD.Tests.csproj
 if ($LASTEXITCODE -ne 0) { Fail "dotnet test failed (exit $LASTEXITCODE)" }

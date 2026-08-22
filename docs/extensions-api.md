@@ -246,6 +246,6 @@ covers build/install/release, nothing about it lives here.
 - `src/plugin/Api.cs`, `src/plugin/ExtensionRegistry.cs` — the public surface and its backing
   store. `src/web/shell/ext-nav.js` — the web-side nav discovery. `src/web/pages/ext/ext.html`
   — the EXT hub page every extension's nav entry surfaces under. Every other touch point is a
-  small fallback added to existing machinery (`TelemetryServer.cs`'s route table and frame
+  small fallback added to existing machinery (`TelemetryHttpRouter.cs`'s route table and frame
   serializer, `MissionLifecycle.cs`'s drain call, `telemetry-source.js`'s `_emit()`, both
   shells' page-URL/nav-dispatch lookups) rather than new machinery of its own.

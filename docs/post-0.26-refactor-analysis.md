@@ -6,20 +6,20 @@ Status: analysis only. This document reviews the work merged after release `0.26
 
 Baseline tag: `0.26.0` (`6e58a74`).
 
-Current reviewed head: `a6314ae` on `main`.
+Current reviewed head: `ad3b1f2` on `main`.
 
 Post-release scope:
 
-- 21 commits after `0.26.0`.
-- 36 files changed.
-- 2039 insertions, 1326 deletions.
+- 34 commits after `0.26.0`.
+- 118 files changed.
+- 4698 insertions, 3783 deletions.
 - Main touched areas: `src/plugin/`, `src/web/shell/`, `tools/`, `tools/tests/`, and `docs/`.
 
 Verification run during this review:
 
 - `powershell -ExecutionPolicy Bypass -File tools/ci-check.ps1`
 - Result: passed.
-- Coverage from that script: Release build, 25 JS test files, 22 xUnit tests, and route smoke for `/`, `/afm`, `/map-view?bare`, `/hud`.
+- Coverage from that script: Release build, 25 JS test files, 30 xUnit tests, and route smoke for `/`, `/afm`, `/map-view?bare`, `/hud`.
 - Caveat: `dotnet build` still emits warnings. The smoke check treats warnings as tracked debt, not failure.
 
 ## Overall Verdict
@@ -207,16 +207,16 @@ cache behavior, or a live `HttpListener` instance inside the game.
 
 The broader proposal recommended extracting telemetry JSON serialization and/or route handling from `TelemetryServer.cs`.
 
-That work has now started. `TelemetryJson.cs` owns telemetry-frame serialization, and
-`TelemetryAssets.cs` owns embedded web asset serving plus MIME detection. The remaining backend seams
-are still meaningful, but they are narrower than the original "split `TelemetryServer`" proposal:
+That work has now started. `TelemetryJson.cs` owns telemetry-frame serialization,
+`TelemetryAssets.cs` owns embedded web asset serving plus MIME detection, and `TelemetryHttpRouter.cs`
+owns URL dispatch. The remaining backend seams are still meaningful, but they are narrower than the
+original "split `TelemetryServer`" proposal:
 
-- `TelemetryHttpRouter`
 - `TelemetryStreamHub`
 - `CommandEndpoint`
 
-Recommendation: if continuing backend architecture work, do a small routing/endpoint extraction next
-or isolate SSE stream/session handling. Avoid mixing both in one branch.
+Recommendation: if continuing backend architecture work, isolate SSE stream/session handling or the
+command endpoint next. Avoid mixing both in one branch.
 
 ## Current Line-Count Impact
 
@@ -225,7 +225,7 @@ The biggest files got smaller, except `map.js`, which changed only incidentally.
 | File | At `0.26.0` | Current | Net |
 | --- | ---: | ---: | ---: |
 | `src/web/shell/classic/mfd.js` | 2487 | 2214 | -273 |
-| `src/plugin/TelemetryServer.cs` | 1905 | 1417 | -488 |
+| `src/plugin/Http/TelemetryServer.cs` | 1905 | 1417 | -488 |
 | `src/plugin/TelemetryReader.cs` | 1231 | 1191 | -40 |
 | `src/web/shell/f35/f35.js` | 1156 | 1091 | -65 |
 | `src/web/pages/map/map.js` | 1005 | 1013 | +8 |
@@ -236,7 +236,7 @@ The biggest files got smaller, except `map.js`, which changed only incidentally.
 | `src/web/shell/classic/mfd.css` | 625 | 625 | 0 |
 | `src/web/shell/f35/f35.css` | 621 | 619 | -2 |
 | `src/plugin/TelemetryJson.cs` | 0 | 385 | +385 |
-| `src/plugin/TelemetryAssets.cs` | 0 | 90 | +90 |
+| `src/plugin/Http/TelemetryAssets.cs` | 0 | 90 | +90 |
 
 Line count is not the main quality metric here, but it does show the refactor mostly reduced large-file pressure without large behavioral churn.
 
@@ -253,8 +253,8 @@ These were discussed but not executed, and the current choice still looks reason
 
 These were discussed and remain good future work:
 
-- Consider an HTTP route table or endpoint classes in `TelemetryServer`.
-- Consider an SSE/session hub extraction after route handling is clearer.
+- Consider an SSE/session hub extraction after the route table extraction has settled.
+- Consider moving command queue/body handling into a focused command endpoint.
 - Clean process/history comments from production code.
 - Update stale planning docs after execution.
 
@@ -269,7 +269,7 @@ The current repo already has a useful first-level split:
 - `src/web/shared/` for shared CSS/fonts/tokens.
 - `tools/` for preview, capture, CI, and tests.
 
-The next architecture improvement would be to make responsibilities visible inside the largest folders, especially `src/plugin/` and `src/web/shell/`. This should be incremental. Moving every file at once would create noisy history without changing behavior.
+The next architecture improvement would be to keep making responsibilities visible inside the largest folders, especially `src/plugin/` and `src/web/shell/`. This should be incremental. Moving every file at once would create noisy history without changing behavior.
 
 ### Suggested C# Plugin Shape
 
@@ -279,9 +279,9 @@ Recommended direction:
 | --- | --- | --- |
 | `src/plugin/Core/` | Plugin bootstrap and lifecycle coordination | `Plugin.cs`, `MissionLifecycle.cs`, `HarmonyPatches.cs` |
 | `src/plugin/Telemetry/` | Snapshot DTOs, telemetry reads, serialization | `TelemetrySnapshot.cs`, `TelemetryReader.cs`, `TelemetryJson.cs` |
-| `src/plugin/Http/` | HTTP server, route handling, response helpers, streaming | `TelemetryServer.cs`, `TelemetryAssets.cs`, future `TelemetryHttpRouter.cs`, future `TelemetryStreamHub.cs` |
+| `src/plugin/Http/` | HTTP server, route handling, response helpers, streaming | `TelemetryServer.cs`, `TelemetryAssets.cs`, `TelemetryHttpRouter.cs`, future `TelemetryStreamHub.cs` |
 | `src/plugin/Commands/` | Browser command envelope and command handlers | `CommandDispatcher.cs`, future command handler classes |
-| `src/plugin/Stores/` | Persistent/in-memory JSON-backed stores | `RouteStore.cs`, `LayoutStore.cs`, `HudPresetStore.cs`, `ExtensionRegistry.cs` if kept store-like |
+| `src/plugin/Stores/` | Persistent/in-memory JSON-backed stores | `RouteStore.cs`, `LayoutStore.cs`, `HudPresetStore.cs`; `ExtensionRegistry.cs` could join later if it becomes more store-like than extension API surface |
 | `src/plugin/Input/` | Keybind registry, polling, joystick capture, selection helpers | `Keybinds.cs`, `WeaponSelectors.cs`, future `TapHoldDetector.cs` |
 | `src/plugin/Assets/` | Sprite/image capture and asset reflection helpers | `AssetCapture.cs`, `SpriteCapture.cs` |
 | `src/plugin/Hud/` | HUD-specific runtime behavior and config | `HudDeclutter.cs`, `HudDeclutterConfig.cs`, `HudCombatModeFilters.cs`, `HudWaypointCue.cs` |
@@ -292,7 +292,7 @@ Recommended direction:
 
 Notes:
 
-- `TelemetryServer.cs` should not be moved by itself until its internal responsibilities are split. A single giant file in `Http/` is clearer than before, but the real remaining wins are extracting route handlers and stream/session handling.
+- `TelemetryServer.cs` has already moved under `Http/`, with asset serving and route dispatch split out. The real remaining wins are stream/session handling and command endpoint extraction.
 - `TelemetryReader.cs` can stay intact until concrete seams are extracted. Do not create empty `Builders/` folders just because "snapshot builders" sound clean.
 - Store classes are good candidates for tests. Anything moved into `Stores/` should avoid direct Unity/BepInEx dependencies where possible.
 - Reflection helpers should live behind narrow names such as `CmReflection`, not a generic "ReflectionUtils" bucket.

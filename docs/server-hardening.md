@@ -2,7 +2,9 @@
 
 ## Status
 
-Planning — not started.
+Partly implemented. Request hygiene, telemetry JSON extraction, embedded web asset serving, and
+HTTP route dispatch have shipped. Remaining structural candidates are the command endpoint/queue,
+SSE stream hub, and MJPEG handler.
 
 ## Where this came from
 
@@ -27,7 +29,8 @@ regardless of whether the network is trusted.
 
 ## Part A — command-endpoint request hygiene
 
-Verified in current code (`src/plugin/TelemetryServer.cs`):
+Original findings, now resolved in current code (`src/plugin/Http/TelemetryServer.cs` and
+`src/plugin/Http/TelemetryHttpRouter.cs`):
 
 - **No HTTP method check.** Routing is pure path-matching (`else if (path == "/command")
   HandleCommand(ctx);`, `:713`) — a GET to `/command` reaches the same handler as a POST. Harmless
@@ -41,7 +44,7 @@ Verified in current code (`src/plugin/TelemetryServer.cs`):
 
 1. **Method check on `/command` only.** `/ext/<id>/command` already gates on
    `ctx.Request.HttpMethod == "POST"` before calling `HandleExtCommand`
-   (`src/plugin/TelemetryServer.cs:838`) — verified in current code, nothing to do there. `/command`
+   (`src/plugin/Http/TelemetryServer.cs`) — verified in current code, nothing to do there. `/command`
    itself has no such check (routing is pure path-matching at `:713`-`:714`); reject non-POST there
    with `405` before touching the body.
 2. **Body-size cap on both.** Neither endpoint's method-gating (or lack of it) bounds body size —
@@ -81,19 +84,18 @@ bodies); pure rejection of malformed/oversized input.
 real game touchpoints. **Don't duplicate that work here — see that doc for the extraction plan and
 land it first.**
 
-What that doc doesn't cover, because it's scoped to testability rather than file size, is the rest of
-`TelemetryServer.cs`'s responsibilities: routing, static-asset serving (`ServeAssetRel`), SSE
-(`HandleSseAsync`, `:1487`), MJPEG (`:1439`), config endpoints (`ServeHudOptions` and its siblings),
-and extension routing. Once the JSON layer is out, the remaining file is still large. Candidate
-further splits, **lowest-risk first**:
+What remains after the shipped splits is mostly transport runtime state: command queue/body handling,
+SSE (`HandleSseAsync`), MJPEG (`HandleMjpegAsync`), config endpoints (`ServeHudOptions` and its
+siblings), and extension request handlers. Candidate further splits, **lowest-risk first**:
 
 | Split | What moves | Risk |
 |---|---|---|
-| `TelemetryJson.cs` | JSON-writer layer | **Already scoped in `docs/csharp-unit-testing.md` — do this first, not here.** |
-| `AssetServer.cs` | `ServeAssetRel` + static-file/embedded-resource serving | Low — self-contained, no shared mutable state with the rest of the class |
+| `TelemetryJson.cs` | JSON-writer layer | Done |
+| `TelemetryAssets.cs` | `ServeAssetRel` + static-file/embedded-resource serving | Done |
+| `TelemetryHttpRouter.cs` | URL dispatch from path to endpoint handler | Done |
 | `CommandQueue.cs` | `HandleCommand`/`TryDequeueCommand`/`_cmdQueue`/`_cmdLock` | Low — already a clean unit, just needs to move |
 | `SseHub.cs` | `HandleSseAsync` + the per-client SSE loop | Medium — touches the frame-version cache from item #2 of `docs/performance.md`; verify that cache's threading contract survives the move |
-| MJPEG handler | The `:1439` block | Low — mirrors the SSE split's shape but simpler (no per-client state) |
+| MJPEG handler | `HandleMjpegAsync` | Low — mirrors the SSE split's shape but simpler (no per-client state) |
 
 Don't attempt all of these in one PR — each is independently useful and independently testable via
 `dotnet build` + the existing in-game verification checklist (no C# test harness covers this file yet
@@ -101,13 +103,14 @@ outside what `docs/csharp-unit-testing.md`'s plan lands).
 
 ## Scope
 
-- [ ] Land `docs/csharp-unit-testing.md`'s `TelemetryJson` extraction first (shared prerequisite)
-- [ ] Add a POST-only check to `/command` (`/ext/<id>/command` already has one)
-- [ ] Add a body-size cap to both `/command` and `/ext/<id>/command`
-- [ ] Audit other `ReadToEnd()` call sites for the same body-size check
+- [x] Land `TelemetryJson` extraction first (shared prerequisite)
+- [x] Add a POST-only check to `/command` (`/ext/<id>/command` already has one)
+- [x] Add a body-size cap to both `/command` and `/ext/<id>/command`
+- [x] Audit other `ReadToEnd()` call sites for the same body-size check
 - [ ] (Optional, lower priority) `Content-Type: application/json` check on both command endpoints
       as cheap CSRF-style hardening
-- [ ] Extract `AssetServer.cs`
+- [x] Extract embedded asset serving (`TelemetryAssets.cs`)
+- [x] Extract HTTP route dispatch (`TelemetryHttpRouter.cs`)
 - [ ] Extract `CommandQueue.cs`
 - [ ] Extract `SseHub.cs` (verify frame-version cache threading survives the move)
 - [ ] Extract the MJPEG handler

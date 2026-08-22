@@ -239,15 +239,14 @@ runtime-coupled code. Keep composition roots (`Plugin.cs`, `TelemetryServer.cs`,
 `NOXMFD.csproj`/embedded-resource paths in the same commit as any move. One
 responsibility-group per commit — large reshuffles are hard to review and wreck blame.
 
-`src/plugin/Hud/` (`HudDeclutter.cs`, `HudDeclutterConfig.cs`, `HudCombatModeFilters.cs`,
-`HudWaypointCue.cs`) is done — the rest of `src/plugin/` and all of `src/web/shell/` stay
-flat until enough files are ready to move together. If/when they grow enough to need more
-internal structure, this is the target shape:
+`src/plugin/Hud/`, `src/plugin/Http/`, and `src/plugin/Stores/` are done — the rest of
+`src/plugin/` and all of `src/web/shell/` stay flat until enough files are ready to move
+together. If/when they grow enough to need more internal structure, this is the target shape:
 
 - **`src/plugin/`**: `Core/` (`Plugin.cs`, `MissionLifecycle.cs`, `HarmonyPatches.cs`) ·
   `Telemetry/` (`TelemetrySnapshot.cs`, `TelemetryReader.cs`, `TelemetryJson.cs`) ·
-  `Http/` (`TelemetryServer.cs` — don't move it alone until its own responsibilities
-  split into route/asset/stream handlers) · `Commands/` (`CommandDispatcher.cs`) ·
+  `Http/` (`TelemetryServer.cs`, `TelemetryAssets.cs`, `TelemetryHttpRouter.cs`; remaining
+  candidates are stream/session and command-endpoint extraction) · `Commands/` (`CommandDispatcher.cs`) ·
   `Stores/` (`RouteStore.cs`, `LayoutStore.cs`, `HudPresetStore.cs` — JSON-backed,
   test-friendly, avoid direct Unity/BepInEx coupling) · `Input/` (`Keybinds.cs`,
   `WeaponSelectors.cs`) · `Assets/` (`AssetCapture.cs`, `SpriteCapture.cs`) ·

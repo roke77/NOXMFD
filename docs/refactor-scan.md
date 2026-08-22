@@ -2,9 +2,8 @@
 
 ## Status
 
-**All 9 original execution-plan steps done and merged to `main`.** See the checked-off
-list under "Execution plan" below. All three "Follow-up execution plan" steps (10-12) are
-done; Step 12 is not yet merged (see its own branch).
+**All 9 original execution-plan steps and all three follow-up steps (10-12) are done and
+merged to `main`.** See the checked-off lists below.
 
 **Post-execution note:** the line counts in the table below and elsewhere in this doc are
 pre-execution measurements, kept as-is since this file is a historical record, not a live

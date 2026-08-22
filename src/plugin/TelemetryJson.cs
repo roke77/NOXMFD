@@ -3,12 +3,11 @@ using System.Text;
 
 namespace NOXMFD
 {
-    // Telemetry-frame JSON serialization, split out of TelemetryServer.cs (docs/refactor-scan.md
-    // step 10). Pure string-building over TelemetrySnapshot and its DTOs — no Unity/BepInEx
-    // references, no live server/session state — which is what lets tools/tests/ compile and cover
-    // it directly (docs/csharp-unit-testing.md). Callers pass in the handful of values that live
-    // outside the snapshot (SOI focus, mod-global immersion state, extension slices) rather than
-    // this class reaching for TelemetryServer/ImmersionState/ExtensionRegistry itself.
+    // Telemetry-frame JSON serialization. Pure string-building over TelemetrySnapshot and its
+    // DTOs — no Unity/BepInEx references, no live server/session state — which lets tools/tests/
+    // compile and cover it directly. Callers pass in the handful of values that live outside the
+    // snapshot (SOI focus, mod-global immersion state, extension slices) rather than this class
+    // reaching for TelemetryServer/ImmersionState/ExtensionRegistry itself.
     internal static class TelemetryJson
     {
         internal static string Serialize(TelemetrySnapshot s, string soiJson, bool masterArmsOn, string combatModeLabel, string extSlicesJson)
