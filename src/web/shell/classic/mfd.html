@@ -40,7 +40,11 @@
           <div class="split-divider"></div>
           <iframe class="split-pane" id="pane-bot" title="bottom pane"></iframe>
         </div>
-        <div class="overlay" id="overlay">
+        <!-- opaque by default: the map iframe is always loaded behind this overlay, and MAIN
+             (the boot-time default page) is an opaque page — starting opaque in markup means
+             the map can never flash through during the window before mfd.js finishes loading
+             and calls showPage('main'). JS keeps toggling this normally after that. -->
+        <div class="overlay opaque" id="overlay">
           <div class="mfd-indicators" id="mfd-indicators"></div>
           <div class="pane-mainpage top" id="mainpage-top"></div>
           <div class="pane-mainpage bot" id="mainpage-bot"></div>
