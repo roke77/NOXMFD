@@ -645,6 +645,21 @@ class H(http.server.SimpleHTTPRequestHandler):
             return
         self.send_error(404)
 
+    # Resolves a manifest key to a captured asset file and serves it; otherwise falls back to
+    # `fallback` bytes (served as image/svg+xml, the shape every placeholder here uses) or, with
+    # no fallback, a 404 carrying `not_found` (docs/refactor-scan.md step 4). `mime=None` derives
+    # the content type from the resolved file's extension (only /map needs this — it can resolve
+    # to either a captured .jpg or a dropped-in .png).
+    def _serve_captured(self, key, mime=None, fallback=None, not_found=None):
+        ref = _asset_ref(key)
+        if ref:
+            fp = _preview_asset_path(ref)
+            if fp and fp.exists():
+                return self._file(fp, mime or _mime(str(fp)))
+        if fallback is not None:
+            return self._send(fallback, 'image/svg+xml')
+        return self.send_error(404, not_found)
+
     def do_GET(self):
         path = self.path.split('?', 1)[0]
         if path in ('/', '/index.html'):
@@ -678,72 +693,37 @@ class H(http.server.SimpleHTTPRequestHandler):
             except OSError as e:
                 return self.send_error(404, str(e))
         if path in ('/map', '/map.png', '/map.jpg'):
-            ref = _asset_ref('map')
-            if ref:
-                fp = _preview_asset_path(ref)
-                if fp and fp.exists():
-                    return self._file(fp, _mime(str(fp)))
-            return self.send_error(404, 'no captured map')
+            return self._serve_captured('map', not_found='no captured map')
         if path == '/icon':
             typ = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('type', [''])[0]
-            ref = _asset_ref('icon:' + typ)
-            if ref:
-                fp = _preview_asset_path(ref)
-                if fp and fp.exists():
-                    return self._file(fp, 'image/png')
-            return self.send_error(404, 'no captured icon')
+            return self._serve_captured('icon:' + typ, mime='image/png', not_found='no captured icon')
         if path == '/weapon':
             name = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('name', [''])[0]
-            ref = _asset_ref('weapon:' + name)
-            if ref:
-                fp = _preview_asset_path(ref)
-                if fp and fp.exists():
-                    return self._file(fp, 'image/png')
-            return self._send(WEAPON_SVG.encode('utf-8'), 'image/svg+xml')
+            return self._serve_captured('weapon:' + name, mime='image/png', fallback=WEAPON_SVG.encode('utf-8'))
         if path in ('/tgt-icon', '/building-icon'):
             # Real captured type sprite if a capture ran (manifest key 'tgt-icon:<t>' /
             # 'building-icon:<t>'); otherwise the generic placeholder, so both the vehicle and
             # building chips show *an* icon in the mock harness.
             typ = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('type', [''])[0]
-            ref = _asset_ref(path.lstrip('/') + ':' + typ)
-            if ref:
-                fp = _preview_asset_path(ref)
-                if fp and fp.exists():
-                    return self._file(fp, 'image/png')
-            return self._send(TGT_ICON_SVG.encode('utf-8'), 'image/svg+xml')
+            return self._serve_captured(path.lstrip('/') + ':' + typ, mime='image/png', fallback=TGT_ICON_SVG.encode('utf-8'))
         if path == '/hud-cat-icon':
             # Real captured category-row glyph if a capture ran (manifest key
             # 'hud-cat-icon:<CAT>'); otherwise the same generic placeholder as the vehicle/building
             # chips above, so the HUD page's category rows show *an* icon in the mock harness.
             cat = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('cat', [''])[0]
-            ref = _asset_ref('hud-cat-icon:' + cat)
-            if ref:
-                fp = _preview_asset_path(ref)
-                if fp and fp.exists():
-                    return self._file(fp, 'image/png')
-            return self._send(TGT_ICON_SVG.encode('utf-8'), 'image/svg+xml')
+            return self._serve_captured('hud-cat-icon:' + cat, mime='image/png', fallback=TGT_ICON_SVG.encode('utf-8'))
         if path == '/bdf-icon':
             # Real captured ship-type icon if a capture ran (manifest key 'bdf-icon:<t>');
             # otherwise the generic diamond placeholder. Faction logos have no HTTP endpoint at
             # all (Faction.factionColorLogo is in-game-only) so there's nothing to capture for
             # those — BDF_ICON_SVG still stands in for the header logo either way.
             typ = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('type', [''])[0]
-            ref = _asset_ref('bdf-icon:' + typ)
-            if ref:
-                fp = _preview_asset_path(ref)
-                if fp and fp.exists():
-                    return self._file(fp, 'image/png')
-            return self._send(BDF_ICON_SVG.encode('utf-8'), 'image/svg+xml')
+            return self._serve_captured('bdf-icon:' + typ, mime='image/png', fallback=BDF_ICON_SVG.encode('utf-8'))
         if path == '/tgp.mjpg':
             # A captured still frame, served as a plain JPEG — an <img> tag can't tell the
             # difference from a live multipart stream, it just won't update. No capture yet:
             # the same placeholder shape as WEAPON_SVG/TGT_ICON_SVG.
-            ref = _asset_ref('tgp')
-            if ref:
-                fp = _preview_asset_path(ref)
-                if fp and fp.exists():
-                    return self._file(fp, 'image/jpeg')
-            return self._send(TGP_SVG.encode('utf-8'), 'image/svg+xml')
+            return self._serve_captured('tgp', mime='image/jpeg', fallback=TGP_SVG.encode('utf-8'))
         if path == '/airframe-layout':
             typ = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('type', [''])[0]
             layout = _asset_json('airframe-layout:' + typ)
@@ -754,12 +734,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             typ = qs.get('type', [''])[0]
             part = qs.get('part', [''])[0]
-            ref = _asset_ref('airframe:' + typ + '|' + part)
-            if ref:
-                fp = _preview_asset_path(ref)
-                if fp and fp.exists():
-                    return self._file(fp, 'image/png')
-            return self.send_error(404, 'no captured airframe part')
+            return self._serve_captured('airframe:' + typ + '|' + part, mime='image/png', not_found='no captured airframe part')
         if path.startswith('/assets/'):
             rel = posixpath.normpath(path[len('/assets/'):]).lstrip('/\\')
             web_fp = WEB.joinpath(*rel.split('/'))
