@@ -158,6 +158,8 @@ namespace NOXMFD
                 { "wpt.receive-shared",   e => LogWpt("receive-shared", RouteStore.ReceiveSharedRoute(e.text, Squad.LeaderName)) },
                 { "wpt.accept-shared",    e => LogWpt("accept-shared",  RouteStore.AcceptShared(e.bind)) },
                 { "wpt.reject-shared",    e => LogWpt("reject-shared",  RouteStore.RejectShared(e.bind)) },
+                // The leader deleted a route this pilot had pending or accepted (BroadcastDeleteIfShared).
+                { "wpt.remove-shared",    e => LogWpt("remove-shared",  RouteStore.RemoveSharedRoute(e.bind)) },
                 // WPT's share button. Marks the route auto-resharing (RouteStore's own mutators push
                 // a fresh copy after any future edit) and sends the first copy now.
                 { "wpt.share",            e => LogWpt("share",          RouteStore.ShareRoute(e.bind)) },

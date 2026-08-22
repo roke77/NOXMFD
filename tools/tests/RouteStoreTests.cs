@@ -251,5 +251,69 @@ namespace NOXMFD.Tests
             Assert.Contains("\"sharedBy\":\"\"", RouteStore.RoutesJson);            // unlocked, not deleted
             Assert.True(RouteStore.RenameRoute("r_x", "Now mine"));                 // editable again
         }
+
+        [Fact]
+        public void DeleteRoute_of_a_shared_route_broadcasts_a_delete_tombstone()
+        {
+            Route r = RouteStore.CreateRoute("R");
+            int sends = 0;
+            string? lastType = null, lastPayload = null;
+            RouteStore.SendSquadData = (type, payload) => { sends++; lastType = type; lastPayload = payload; return true; };
+            RouteStore.ShareRoute(r.Id);   // 1st send: the share itself
+
+            Assert.True(RouteStore.DeleteRoute(r.Id));
+
+            Assert.Equal(2, sends);
+            Assert.Equal("wpt.route-deleted", lastType);
+            Assert.Equal(r.Id, lastPayload);
+        }
+
+        [Fact]
+        public void DeleteRoute_of_a_never_shared_route_sends_nothing()
+        {
+            Route r = RouteStore.CreateRoute("R");
+            int sends = 0;
+            RouteStore.SendSquadData = (type, payload) => { sends++; return true; };
+
+            Assert.True(RouteStore.DeleteRoute(r.Id));
+            Assert.Equal(0, sends);
+        }
+
+        [Fact]
+        public void RemoveSharedRoute_drops_a_pending_share()
+        {
+            RouteStore.ReceiveSharedRoute(
+                "{\"id\":\"r_x\",\"name\":\"Shared\",\"waypoints\":[{\"name\":\"W\",\"x\":1,\"z\":2}]}", "Leader");
+            Assert.True(RouteStore.RemoveSharedRoute("r_x"));
+            Assert.DoesNotContain("\"id\":\"r_x\"", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void RemoveSharedRoute_drops_an_already_accepted_route()
+        {
+            RouteStore.ReceiveSharedRoute(
+                "{\"id\":\"r_x\",\"name\":\"Shared\",\"waypoints\":[{\"name\":\"W\",\"x\":1,\"z\":2}]}", "Leader");
+            RouteStore.AcceptShared("r_x");
+            RouteStore.SetActiveRoute("r_x");
+
+            Assert.True(RouteStore.RemoveSharedRoute("r_x"));
+
+            Assert.DoesNotContain("\"id\":\"r_x\"", RouteStore.RoutesJson);
+            Assert.Contains("\"activeRouteId\":null", RouteStore.RoutesJson);   // fell back cleanly
+        }
+
+        [Fact]
+        public void RemoveSharedRoute_never_touches_a_route_the_pilot_made_themselves()
+        {
+            Route r = RouteStore.CreateRoute("Mine");   // SharedBy empty — not a shared copy
+            Assert.False(RouteStore.RemoveSharedRoute(r.Id));
+            Assert.Contains("\"id\":\"" + r.Id + "\"", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void RemoveSharedRoute_on_an_unknown_id_returns_false()
+        {
+            Assert.False(RouteStore.RemoveSharedRoute("does-not-exist"));
+        }
     }
 }

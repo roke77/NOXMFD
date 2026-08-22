@@ -272,10 +272,12 @@ namespace NOXMFD
 
         public static bool DeleteRoute(string id)
         {
-            int removed = _routes.RemoveAll(r => r.Id == id);
-            if (removed == 0) return false;
+            Route? route = FindRoute(id);
+            if (route == null) return false;
+            _routes.Remove(route);
             if (_activeRouteId == id) _activeRouteId = _routes.Count > 0 ? _routes[0].Id : null;
             Save();
+            BroadcastDeleteIfShared(route);
             return true;
         }
 
@@ -469,6 +471,26 @@ namespace NOXMFD
             return true;
         }
 
+        // Called from CommandDispatcher when a squadmate's delete-tombstone arrives (the leader
+        // deleted a route this pilot had pending or already accepted — BroadcastDeleteIfShared
+        // above). Removes either without an accept/reject step: unlike ReceiveSharedRoute this never
+        // creates anything, so there's no ambiguity to resolve, just something to take away.
+        public static bool RemoveSharedRoute(string id)
+        {
+            bool removedPending = _pendingShared.RemoveAll(p => p.Id == id) > 0;
+            Route? accepted = _routes.Find(r => r.Id == id && r.IsShared);
+            if (accepted == null)
+            {
+                if (removedPending) RefreshServedJsonOnly();
+                return removedPending;
+            }
+
+            _routes.Remove(accepted);
+            if (_activeRouteId == id) _activeRouteId = _routes.Count > 0 ? _routes[0].Id : null;
+            Save();
+            return true;
+        }
+
         // Called from Squad.cs when THIS pilot's squad membership ends (the leader disbands it, or
         // this pilot leaves) — HandleDisband/Leave. Any share still awaiting accept/reject is
         // dropped: same ephemeral, squad-session-scoped reasoning PendingSharedRoute's own header
@@ -506,6 +528,15 @@ namespace NOXMFD
         private static void BroadcastIfShared(Route route)
         {
             if (route.SharedWithSquad) SendSquadData?.Invoke("wpt.route", BuildSharePayloadJson(route));
+        }
+
+        // Fires when a route that was shared with the squad gets deleted — without this, a member's
+        // accepted copy would sit stale forever with no way to learn the leader removed it (unlike an
+        // edit, there's no new content to re-share; the payload is just the id to drop). Same
+        // SharedWithSquad guard as BroadcastIfShared — a route never shared has nothing to tell.
+        private static void BroadcastDeleteIfShared(Route route)
+        {
+            if (route.SharedWithSquad) SendSquadData?.Invoke("wpt.route-deleted", route.Id);
         }
 
         // {id, name, waypoints:[{name,x,z}]} — the same shape ReceiveSharedRoute expects, now built

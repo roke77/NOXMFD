@@ -971,10 +971,16 @@
   // once the next poll picks it up — no squadron-specific refresh plumbing needed beyond issuing
   // the command.
   function applySquadronPayload(payloadType, payload) {
-    if (payloadType !== 'wpt.route') return;   // unknown type: ignore, don't guess (versioned wire)
-    // receiveShared, not importRoute — a squad share needs the ACCEPT/REJECT step (WPT page)
-    // before it becomes a real route; see RouteStore.cs's own header comment on this group.
-    WaypointsStore.receiveShared(payload);
+    if (payloadType === 'wpt.route') {
+      // receiveShared, not importRoute — a squad share needs the ACCEPT/REJECT step (WPT page)
+      // before it becomes a real route; see RouteStore.cs's own header comment on this group.
+      WaypointsStore.receiveShared(payload);
+    } else if (payloadType === 'wpt.route-deleted') {
+      // The leader deleted a route this pilot had pending or already accepted (RouteStore.cs's
+      // BroadcastDeleteIfShared) — payload is the bare route id, nothing left to send but that.
+      WaypointsStore.receiveDeleted(payload);
+    }
+    // else: unknown type — ignore, don't guess (versioned wire)
   }
 
   // ── Master strip ───────────────────────────────────────────────────────────────────────

@@ -1722,7 +1722,7 @@ namespace NOXMFD
                         string json = string.Format(CultureInfo.InvariantCulture,
                             "{{\"seq\":{0},\"type\":\"{1}\",\"payload\":\"{2}\"}}",
                             msg.Seq, EscapeJson(msg.Type), EscapeJson(msg.Payload));
-                        byte[] dbytes = Encoding.UTF8.GetBytes("event: sqd-data\ndata: " + json + "\n\n");
+                        byte[] dbytes = Encoding.UTF8.GetBytes("event: squadron\ndata: " + json + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(dbytes, 0, dbytes.Length, ct).ConfigureAwait(false);
                     }
 

@@ -274,6 +274,9 @@ with every member; members only ever talk to the leader, never each other):
     was deleted, progress advances to just past whichever already-completed waypoints survive.
   - **Auto-reshare.** Clicking share once sets `Route.SharedWithSquad`; every later edit to that
     route re-broadcasts on its own from then on, no repeat click needed.
+  - **Delete tombstone.** Deleting a route that was ever shared (`Route.SharedWithSquad`) sends a
+    `wpt.route-deleted` payload — just the route id — so members drop their pending or accepted
+    copy instead of keeping a stale one forever with no way to learn it's gone.
   - **Unlocks when the squad ends.** `RouteStore.OnSquadEnded()` — called from `Squad.cs`'s
     `HandleDisband`, `Leave()`'s member branch, and `HandleLeaderChanged` alike (one rule, not one
     per event: `SendData` is leader-only, so a former leader is cut off from ever pushing another
