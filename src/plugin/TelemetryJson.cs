@@ -13,7 +13,15 @@ namespace NOXMFD
     {
         internal static string Serialize(TelemetrySnapshot s, string soiJson, bool masterArmsOn, string combatModeLabel, string extSlicesJson)
         {
-            string head = string.Format(CultureInfo.InvariantCulture,
+            var sb = new StringBuilder(2048);
+            AppendFrameHeader(sb, s, soiJson, masterArmsOn, combatModeLabel);
+            AppendFramePayload(sb, s, extSlicesJson);
+            return sb.Append('}').ToString();
+        }
+
+        private static void AppendFrameHeader(StringBuilder sb, TelemetrySnapshot s, string soiJson, bool masterArmsOn, string combatModeLabel)
+        {
+            sb.AppendFormat(CultureInfo.InvariantCulture,
                 "{{\"ping\":false,\"t\":{0:0.000},\"name\":\"{1}\"," +
                 "\"mission\":\"{2}\",\"mapName\":\"{3}\"," +
                 "\"world\":{{\"x\":{4:0.0},\"y\":{5:0.0},\"z\":{6:0.0}}}," +
@@ -24,7 +32,7 @@ namespace NOXMFD
                 "\"flares\":{20},\"flaresMax\":{21},\"ewKJ\":{22:0.0},\"ewKJMax\":{23:0.0}," +
                 "\"selWeapon\":\"{24}\",\"cmCat\":{25},\"tgpActive\":{26}," +
                 "\"fuel\":{27:0.000},\"thr\":{28:0.000},\"hasAb\":{29},\"abStart\":{30:0.000}," +
-                "\"softGun\":\"{31}\",\"softRel\":\"{32}\",\"masterArmsOn\":{34},\"combatMode\":\"{35}\",{33},",
+                "\"softGun\":\"{31}\",\"softRel\":\"{32}\",\"masterArmsOn\":{33},\"combatMode\":\"{34}\",",
                 s.Time,
                 JsonLite.EscapeJson(s.PlaneName ?? string.Empty),
                 JsonLite.EscapeJson(s.MissionName ?? string.Empty),
@@ -33,54 +41,59 @@ namespace NOXMFD
                 s.Heading, s.TAS, s.AGL,
                 s.GearDown ? "down" : "up",
                 s.TotalUnits, s.TotalAircraft,
-                s.MapValid ? "true" : "false",
+                JsonBool(s.MapValid),
                 s.MapW, s.MapH,
                 s.GridOffsetX, s.GridOffsetY,
-                s.IconOrient ? "true" : "false",
+                JsonBool(s.IconOrient),
                 s.IconScale,
                 s.Flares, s.FlaresMax, s.EwKJ, s.EwKJMax,
                 JsonLite.EscapeJson(s.SelWeapon ?? string.Empty), s.CmCategory,
-                s.TgpActive ? "true" : "false",
+                JsonBool(s.TgpActive),
                 s.Fuel, s.Throttle,
-                s.HasAfterburner ? "true" : "false", s.AbStart,
-                JsonLite.EscapeJson(s.SoftGun ?? string.Empty), JsonLite.EscapeJson(s.SoftRel ?? string.Empty),
-                soiJson,
-                masterArmsOn ? "true" : "false",
-                combatModeLabel);
-
-            return head + "\"loadout\":" + LoadoutArray(s.Loadout)
-                        + ",\"colors\":{"
-                        +   "\"f\":\"" + JsonLite.EscapeJson(s.ColFriendly ?? "#39ff14") + "\","
-                        +   "\"e\":\"" + JsonLite.EscapeJson(s.ColHostile  ?? "#ff4040") + "\","
-                        +   "\"n\":\"" + JsonLite.EscapeJson(s.ColNeutral  ?? "#9aa0a6") + "\"}"
-                        + ",\"contacts\":" + UnitsArray(s.Units)
-                        + ",\"playerId\":" + s.PlayerId
-                        + ",\"pjm\":" + (s.PlayerJammed ? "true" : "false")
-                        + ",\"pjb\":" + s.PlayerJammedBy
-                        + ",\"parts\":" + PartsArray(s.Parts)
-                        + ",\"pylons\":" + PylonsArray(s.Pylons)
-                        + ",\"rwr\":" + RwrArray(s.Rwr)
-                        + ",\"mw\":" + MwArray(s.Mw)
-                        + ",\"rdr\":" + RdrBlock(s)
-                        + ",\"radar\":" + (s.RadarOn ? "true" : "false")
-                        + ",\"guns\":" + (s.GunsLinked ? "true" : "false")
-                        + ",\"ign\":" + (s.Ignition ? "true" : "false")
-                        + ",\"assist\":" + (s.FlightAssist ? "true" : "false")
-                        + ",\"turret\":" + (s.TurretAuto ? "true" : "false")
-                        + ",\"nvg\":" + (s.NightVision ? "true" : "false")
-                        + ",\"navlt\":" + (s.NavLightsOn ? "true" : "false")
-                        + ",\"heat\":" + s.Heat.ToString("0.000", CultureInfo.InvariantCulture)
-                        + ",\"heatColor\":\"" + JsonLite.EscapeJson(s.HeatColor ?? "#39ff14") + "\""
-                        + ",\"rpm\":" + s.Rpm.ToString("0.000", CultureInfo.InvariantCulture)
-                        + ",\"failures\":" + StringArray(s.Failures)
-                        + ",\"tgt\":" + TgtBlock(s)
-                        + ",\"bdf\":" + BdfBlock(s)
-                        + ",\"pal\":" + PalBlock(s)
-                        + ",\"mis\":" + MisBlock(s)
-                        + ",\"obj\":" + ObjBlock(s)
-                        + ",\"akf\":" + AkfBlock(s)
-                        + ",\"ext\":" + extSlicesJson + "}";
+                JsonBool(s.HasAfterburner), s.AbStart,
+                JsonLite.EscapeJson(s.SoftGun ?? string.Empty),
+                JsonLite.EscapeJson(s.SoftRel ?? string.Empty),
+                JsonBool(masterArmsOn),
+                JsonLite.EscapeJson(combatModeLabel ?? string.Empty));
+            sb.Append(soiJson).Append(',');
         }
+
+        private static void AppendFramePayload(StringBuilder sb, TelemetrySnapshot s, string extSlicesJson)
+        {
+            sb.Append("\"loadout\":").Append(LoadoutArray(s.Loadout))
+              .Append(",\"colors\":{\"f\":\"").Append(JsonLite.EscapeJson(s.ColFriendly ?? "#39ff14"))
+              .Append("\",\"e\":\"").Append(JsonLite.EscapeJson(s.ColHostile ?? "#ff4040"))
+              .Append("\",\"n\":\"").Append(JsonLite.EscapeJson(s.ColNeutral ?? "#9aa0a6")).Append("\"}")
+              .Append(",\"contacts\":").Append(UnitsArray(s.Units))
+              .Append(",\"playerId\":").Append(s.PlayerId)
+              .Append(",\"pjm\":").Append(JsonBool(s.PlayerJammed))
+              .Append(",\"pjb\":").Append(s.PlayerJammedBy)
+              .Append(",\"parts\":").Append(PartsArray(s.Parts))
+              .Append(",\"pylons\":").Append(PylonsArray(s.Pylons))
+              .Append(",\"rwr\":").Append(RwrArray(s.Rwr))
+              .Append(",\"mw\":").Append(MwArray(s.Mw))
+              .Append(",\"rdr\":").Append(RdrBlock(s))
+              .Append(",\"radar\":").Append(JsonBool(s.RadarOn))
+              .Append(",\"guns\":").Append(JsonBool(s.GunsLinked))
+              .Append(",\"ign\":").Append(JsonBool(s.Ignition))
+              .Append(",\"assist\":").Append(JsonBool(s.FlightAssist))
+              .Append(",\"turret\":").Append(JsonBool(s.TurretAuto))
+              .Append(",\"nvg\":").Append(JsonBool(s.NightVision))
+              .Append(",\"navlt\":").Append(JsonBool(s.NavLightsOn))
+              .Append(",\"heat\":").Append(s.Heat.ToString("0.000", CultureInfo.InvariantCulture))
+              .Append(",\"heatColor\":\"").Append(JsonLite.EscapeJson(s.HeatColor ?? "#39ff14")).Append('"')
+              .Append(",\"rpm\":").Append(s.Rpm.ToString("0.000", CultureInfo.InvariantCulture))
+              .Append(",\"failures\":").Append(StringArray(s.Failures))
+              .Append(",\"tgt\":").Append(TgtBlock(s))
+              .Append(",\"bdf\":").Append(BdfBlock(s))
+              .Append(",\"pal\":").Append(PalBlock(s))
+              .Append(",\"mis\":").Append(MisBlock(s))
+              .Append(",\"obj\":").Append(ObjBlock(s))
+              .Append(",\"akf\":").Append(AkfBlock(s))
+              .Append(",\"ext\":").Append(extSlicesJson);
+        }
+
+        private static string JsonBool(bool value) => value ? "true" : "false";
 
         // AKF advanced kill feed (docs/akf-page.md). Always present while a mission runs (no "faction
         // has no HQ yet" gate like MIS/OBJ — an empty session just reads as all-zero). Kills are
