@@ -849,6 +849,39 @@ namespace NOXMFD
             return false;
         }
 
+        // ── Response helpers (docs/refactor-scan.md step 2) ───────────────────────
+        // The HTTP response mechanics every Serve* handler repeats regardless of what it's
+        // serving: status/content-type/length/write/close, plus Cache-Control for the small
+        // on-demand JSON snapshots. Orthogonal to *what* gets serialized (that's the JSON-writer
+        // layer docs/server-hardening.md already scopes) — this is just the plumbing.
+        private static void WriteJson(HttpListenerContext ctx, string json)
+        {
+            try
+            {
+                byte[] body = Encoding.UTF8.GetBytes(json);
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        private static void WriteBinary(HttpListenerContext ctx, byte[] body, string contentType)
+        {
+            try
+            {
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = contentType;
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
         // ── Extension API (docs/extensions-api.md) ────────────────────────────────
 
         private static void ServeExtManifest(HttpListenerContext ctx)
@@ -863,12 +896,7 @@ namespace NOXMFD
                     sb.Append("{\"id\":\"").Append(EscapeJson(list[i].Id))
                       .Append("\",\"label\":\"").Append(EscapeJson(list[i].Label)).Append("\"}");
                 }
-                byte[] body = Encoding.UTF8.GetBytes(sb.Append(']').ToString());
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, sb.Append(']').ToString());
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -993,12 +1021,7 @@ namespace NOXMFD
                 string json = string.Format(CultureInfo.InvariantCulture,
                     "{{\"localhost\":\"http://localhost:{0}\",\"lanUrl\":\"{1}\",\"port\":{0}}}",
                     Port, EscapeJson(LanUrl ?? string.Empty));
-                byte[] body = Encoding.UTF8.GetBytes(json);
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, json);
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1025,12 +1048,7 @@ namespace NOXMFD
                         (DateTime.UtcNow - it.ConnectedUtc).TotalSeconds);
                 }
                 sb.Append("]}");
-                byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, sb.ToString());
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1106,12 +1124,7 @@ namespace NOXMFD
                   .Append(",\"hudFiltersOnCombatMode\":").Append(ImmersionConfig.HudFiltersOnCombatMode ? "true" : "false")
                   .Append('}');
 
-                byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, sb.ToString());
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1127,12 +1140,7 @@ namespace NOXMFD
         {
             try
             {
-                byte[] body = Encoding.UTF8.GetBytes(HudOptionsJson ?? "{}");
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, HudOptionsJson ?? "{}");
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1146,12 +1154,7 @@ namespace NOXMFD
         {
             try
             {
-                byte[] body = Encoding.UTF8.GetBytes(RouteStore.RoutesJson ?? "{\"activeRouteId\":null,\"routes\":[]}");
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, RouteStore.RoutesJson ?? "{\"activeRouteId\":null,\"routes\":[]}");
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1163,12 +1166,7 @@ namespace NOXMFD
         {
             try
             {
-                byte[] body = Encoding.UTF8.GetBytes(LayoutStore.LayoutsJson ?? "{\"layouts\":[]}");
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, LayoutStore.LayoutsJson ?? "{\"layouts\":[]}");
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1181,12 +1179,7 @@ namespace NOXMFD
         {
             try
             {
-                byte[] body = Encoding.UTF8.GetBytes(HudPresetStore.PresetsJson ?? "{\"current\":1,\"presets\":[]}");
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, HudPresetStore.PresetsJson ?? "{\"current\":1,\"presets\":[]}");
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1202,12 +1195,7 @@ namespace NOXMFD
             {
                 string json = string.Format(CultureInfo.InvariantCulture,
                     "{{\"fastHz\":{0},\"tgpHz\":{1}}}", RatesConfig.FastHz, RatesConfig.TgpHz);
-                byte[] body = Encoding.UTF8.GetBytes(json);
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, json);
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1421,16 +1409,8 @@ namespace NOXMFD
             lock (_mapLock) captured = _mapPng;
             if (captured != null)
             {
-                try
-                {
-                    // The captured map is JPEG (downscaled in TelemetryReader.MapSpriteToJpg).
-                    ctx.Response.StatusCode      = 200;
-                    ctx.Response.ContentType     = "image/jpeg";
-                    ctx.Response.ContentLength64 = captured.Length;
-                    ctx.Response.OutputStream.Write(captured, 0, captured.Length);
-                }
-                catch { }
-                finally { try { ctx.Response.Close(); } catch { } }
+                // The captured map is JPEG (downscaled in TelemetryReader.MapSpriteToJpg).
+                WriteBinary(ctx, captured, "image/jpeg");
                 return;
             }
 
@@ -1459,11 +1439,7 @@ namespace NOXMFD
 
             try
             {
-                byte[] body = File.ReadAllBytes(filePath);
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = contentType;
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteBinary(ctx, File.ReadAllBytes(filePath), contentType);
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1485,15 +1461,7 @@ namespace NOXMFD
                 return;
             }
 
-            try
-            {
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "image/png";
-                ctx.Response.ContentLength64 = png.Length;
-                ctx.Response.OutputStream.Write(png, 0, png.Length);
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
+            WriteBinary(ctx, png, "image/png");
         }
 
         // ── Airframe handlers ───────────────────────────────────────────────────
@@ -1507,15 +1475,7 @@ namespace NOXMFD
                 lock (_airframeLock) _airframeImages.TryGetValue(type + "|" + part, out png);
 
             if (png == null) { ctx.Response.StatusCode = 404; try { ctx.Response.Close(); } catch { } return; }
-            try
-            {
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "image/png";
-                ctx.Response.ContentLength64 = png.Length;
-                ctx.Response.OutputStream.Write(png, 0, png.Length);
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
+            WriteBinary(ctx, png, "image/png");
         }
 
         private static void ServeAirframeLayout(HttpListenerContext ctx)
@@ -1526,16 +1486,7 @@ namespace NOXMFD
                 lock (_airframeLock) _airframeLayouts.TryGetValue(type, out json);
 
             if (json == null) { ctx.Response.StatusCode = 404; try { ctx.Response.Close(); } catch { } return; }
-            try
-            {
-                byte[] body = Encoding.UTF8.GetBytes(json);
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
+            WriteBinary(ctx, Encoding.UTF8.GetBytes(json), "application/json; charset=utf-8");
         }
 
         // ── MJPEG handler ──────────────────────────────────────────────────────
