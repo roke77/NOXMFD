@@ -539,3 +539,23 @@ document alone.
       `docs/radar-master-arms.md`) and CLAUDE.md's "Folder architecture" section to mark
       `Hud/` done. Verified: `dotnet build` + `ci-check.ps1` green — a pure file move with
       no behavior change, no in-game check needed.
+
+## Next refactor targets
+
+Added after the `Http/` route extraction and `Stores/` folder move. These are intentionally ordered;
+do not bundle them into one pass.
+
+- [ ] **Next A — command endpoint/queue extraction.** Move `/command` request validation,
+      command enqueue/dequeue state, and `TryDequeueCommand` out of `TelemetryServer.cs` into a
+      focused helper under `src/plugin/Http/` or `src/plugin/Commands/`. Verify `ci-check.ps1`,
+      then spot-check `/command` with a small valid POST, a non-POST request, and an oversized body.
+- [ ] **Next B — SSE/session hub extraction.** Move `HandleSseAsync`, per-connection instance
+      registration, cursor/ext event emission, and shared-frame cache coordination into a stream/session
+      helper. Verify `ci-check.ps1`, then live-check multiple connected displays, SOI next/prev,
+      disconnect/reconnect behavior, MAP cursor events, and extension high-rate events if an extension
+      is installed.
+- [ ] **Next C — MJPEG handler extraction.** Move `HandleMjpegAsync` after the SSE split settles.
+      Verify `/tgp.mjpg` still streams and subscriber tracking still gates TGP capture work.
+- [ ] **Later folder moves.** Consider `src/plugin/Commands/`, `Telemetry/`, `Input/`, or `Assets/`
+      only when moving at least two related files or extracting a real module. Avoid a broad reshuffle
+      just to satisfy the folder map.

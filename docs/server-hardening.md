@@ -101,6 +101,18 @@ Don't attempt all of these in one PR — each is independently useful and indepe
 `dotnet build` + the existing in-game verification checklist (no C# test harness covers this file yet
 outside what `docs/csharp-unit-testing.md`'s plan lands).
 
+### Next recommended targets
+
+1. **Extract command endpoint/queue first.** Move `/command` body validation, enqueue/dequeue state,
+   and `TryDequeueCommand` into a focused command endpoint/queue helper. This is the lowest-risk
+   remaining backend split because it is already a compact unit and touches no streaming loop.
+2. **Extract SSE/session handling second.** Move `HandleSseAsync`, per-connection instance
+   registration, cursor/ext event emission, and the shared-frame cache boundary only after the
+   command endpoint is settled. Verify route smoke plus live multi-display SOI behavior because this
+   path owns browser instance lifetime.
+3. **Consider the MJPEG handler after SSE.** It is smaller, but it shares the same long-lived response
+   style; doing it after the SSE split should make the pattern clearer.
+
 ## Scope
 
 - [x] Land `TelemetryJson` extraction first (shared prerequisite)
@@ -111,8 +123,8 @@ outside what `docs/csharp-unit-testing.md`'s plan lands).
       as cheap CSRF-style hardening
 - [x] Extract embedded asset serving (`TelemetryAssets.cs`)
 - [x] Extract HTTP route dispatch (`TelemetryHttpRouter.cs`)
-- [ ] Extract `CommandQueue.cs`
-- [ ] Extract `SseHub.cs` (verify frame-version cache threading survives the move)
-- [ ] Extract the MJPEG handler
+- [ ] Extract command endpoint/queue
+- [ ] Extract SSE/session hub (verify frame-version cache threading and SOI lifetime survive the move)
+- [ ] Extract the MJPEG handler after the SSE pattern is clear
 - [ ] One-line SECURITY.md note once the method/size hardening ships (not a trust-model change, just
       documents that these two checks now exist)

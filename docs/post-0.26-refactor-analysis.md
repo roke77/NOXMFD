@@ -253,8 +253,9 @@ These were discussed but not executed, and the current choice still looks reason
 
 These were discussed and remain good future work:
 
-- Consider an SSE/session hub extraction after the route table extraction has settled.
-- Consider moving command queue/body handling into a focused command endpoint.
+- Extract command queue/body handling into a focused command endpoint first.
+- Extract an SSE/session hub after the command endpoint settles.
+- Consider the MJPEG handler after the SSE split establishes the long-lived-response pattern.
 - Clean process/history comments from production code.
 - Update stale planning docs after execution.
 
@@ -293,6 +294,8 @@ Recommended direction:
 Notes:
 
 - `TelemetryServer.cs` has already moved under `Http/`, with asset serving and route dispatch split out. The real remaining wins are stream/session handling and command endpoint extraction.
+- Prefer command endpoint extraction before SSE/session extraction. It is smaller, easier to verify,
+  and leaves the more delicate multi-client SOI/SSE lifetime behavior for its own focused pass.
 - `TelemetryReader.cs` can stay intact until concrete seams are extracted. Do not create empty `Builders/` folders just because "snapshot builders" sound clean.
 - Store classes are good candidates for tests. Anything moved into `Stores/` should avoid direct Unity/BepInEx dependencies where possible.
 - Reflection helpers should live behind narrow names such as `CmReflection`, not a generic "ReflectionUtils" bucket.
