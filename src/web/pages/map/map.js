@@ -637,15 +637,18 @@ function ensureThreatAnimation() {
 
 // ── Image load / error ─────────────────────────────────────────────────────────
 // The captured map image is produced asynchronously on the server, so it can lag the first
-// telemetry frame that reports map.valid (and a mission/map change re-captures it). A single
-// early /map fetch then 404s and sticks as NO SIGNAL until a manual page reload. So on error we
-// retry — while a mission is active — until the image loads, cache-busting each attempt.
+// telemetry frame that reports map.valid (and a mission/map change re-captures it). So on error we
+// retry — while a mission is active — until the image loads, cache-busting each attempt. While
+// mapMeta is set (telemetry has already confirmed a real mission/map), an early 404 retries
+// silently in the background instead of flashing NO SIGNAL back on — renderFrame already cleared
+// it the moment telemetry confirmed the mission, and the image itself is a slower, separate
+// asset lagging behind that same confirmed-valid state, not a sign the connection dropped.
 let mapRetryTimer = null, mapRetries = 0;
 const MAP_MAX_RETRIES = 30;   // ~24 s at 800 ms — covers a slow capture, then gives up
 function setNoSignal(on) { document.getElementById('map-missing').style.display = on ? 'block' : 'none'; }
 mapImg.onerror = function() {
   mapImg.classList.add('missing');
-  setNoSignal(true);
+  if (!mapMeta) setNoSignal(true);   // no confirmed mission yet — a real "nothing to show" state
   if (mapMeta && !mapRetryTimer && mapRetries < MAP_MAX_RETRIES) {
     mapRetryTimer = setTimeout(function() {
       mapRetryTimer = null;
@@ -673,6 +676,11 @@ function renderFrame(d) {
 
   if (d.map && d.map.valid) {
     mapMeta = { w: d.map.w, h: d.map.h, ox: d.map.ox, oy: d.map.oy };
+    // A valid frame means a real mission/map exists — clear NO SIGNAL now rather than waiting on
+    // mapImg's own onload. That image is a slower, separate asset (captured async server-side,
+    // see the retry loop below); gating the placeholder on it instead of on telemetry left NO
+    // SIGNAL showing for a few extra seconds after a normal boot even once real data had arrived.
+    setNoSignal(false);
     // The game's map image becomes available shortly after the mission loads; refresh once (the
     // onerror retry covers the case where the capture isn't ready yet at this first attempt).
     if (!mapWasValid) {
