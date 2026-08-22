@@ -5,7 +5,6 @@ using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -689,54 +688,54 @@ namespace NOXMFD
                     else if (path.StartsWith("/ext/", StringComparison.Ordinal))
                         HandleExtRequest(ctx, path);
                     else if (path.StartsWith("/assets/", StringComparison.Ordinal))
-                        ServeAsset(ctx, path);
+                        TelemetryAssets.ServeAsset(ctx, path);
                     else if (path == "/map-view")
-                        ServeAssetRel(ctx, "pages/map/map.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/map/map.html");
                     else if (path == "/main")
-                        ServeAssetRel(ctx, "pages/main/main.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/main/main.html");
                     else if (path == "/avn")
-                        ServeAssetRel(ctx, "pages/avn/avn.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/avn/avn.html");
                     else if (path == "/afm")
-                        ServeAssetRel(ctx, "pages/afm/afm.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/afm/afm.html");
                     else if (path == "/tgp")
-                        ServeAssetRel(ctx, "pages/tgp/tgp.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/tgp/tgp.html");
                     // Static placeholder for EXT with nothing installed (docs/extensions-api.md) —
                     // distinct from the /ext/<id>/* prefix (HandleExtRequest above), which needs
                     // the trailing slash to match.
                     else if (path == "/ext")
-                        ServeAssetRel(ctx, "pages/ext/ext.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/ext/ext.html");
                     else if (path == "/wpn")
-                        ServeAssetRel(ctx, "pages/wpn/wpn.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/wpn/wpn.html");
                     else if (path == "/rwr")
-                        ServeAssetRel(ctx, "pages/rwr/rwr.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/rwr/rwr.html");
                     else if (path == "/rdr")
-                        ServeAssetRel(ctx, "pages/rdr/rdr.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/rdr/rdr.html");
                     else if (path == "/tgt")
-                        ServeAssetRel(ctx, "pages/tgt/tgt.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/tgt/tgt.html");
                     else if (path == "/akf")
-                        ServeAssetRel(ctx, "pages/akf/akf.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/akf/akf.html");
                     else if (path == "/bdf")
-                        ServeAssetRel(ctx, "pages/bdf/bdf.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/bdf/bdf.html");
                     else if (path == "/mis")
-                        ServeAssetRel(ctx, "pages/mis/mis.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/mis/mis.html");
                     else if (path == "/obj")
-                        ServeAssetRel(ctx, "pages/obj/obj.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/obj/obj.html");
                     else if (path == "/wpt")
-                        ServeAssetRel(ctx, "pages/wpt/wpt.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/wpt/wpt.html");
                     else if (path == "/hud")
-                        ServeAssetRel(ctx, "pages/hud/hud.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/hud/hud.html");
                     else if (path == "/keybinds")
-                        ServeAssetRel(ctx, "pages/keybinds/keybinds.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/keybinds/keybinds.html");
                     else if (path == "/rates")
-                        ServeAssetRel(ctx, "pages/rates/rates.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "pages/rates/rates.html");
                     else if (path == "/command")
                         HandleCommand(ctx);
                     else if (path == "/mfd")
                         Redirect(ctx, "/");
                     else if (path == "/f35")
-                        ServeAssetRel(ctx, "shell/f35/f35.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "shell/f35/f35.html");
                     else if (path == "/" || path == "/index.html")
-                        ServeAssetRel(ctx, "shell/classic/mfd.html");
+                        TelemetryAssets.ServeAssetRel(ctx, "shell/classic/mfd.html");
                     else
                         Redirect(ctx, "/");
                 }
@@ -939,7 +938,7 @@ namespace NOXMFD
                 byte[]? body = entry.Resolve(relPath);
                 if (body == null) { ctx.Response.StatusCode = 404; return; }
                 ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = ContentTypeFor(relPath.Length == 0 ? "index.html" : relPath);
+                ctx.Response.ContentType     = TelemetryAssets.ContentTypeFor(relPath.Length == 0 ? "index.html" : relPath);
                 ctx.Response.ContentLength64 = body.Length;
                 ctx.Response.Headers.Add("Cache-Control", "no-cache");
                 ctx.Response.OutputStream.Write(body, 0, body.Length);
@@ -1294,105 +1293,6 @@ namespace NOXMFD
                 sb.Append("{\"n\":\"").Append(EscapeJson(name)).Append("\",\"on\":").Append(on ? "true" : "false").Append('}');
             }
             sb.Append(']');
-        }
-
-        // ── Embedded web-asset serving ─────────────────────────────────────────
-        // Real files under src/web/ are baked into the DLL as embedded resources and served
-        // here under /assets/. MSBuild names a resource like
-        // "<RootNamespace>.src.web.<dotted path>" (and may mangle odd characters), so we
-        // match by the stable ".web.<dotted path>" suffix against the actual manifest rather
-        // than reconstruct the whole name. Path traversal is moot — the manifest is a flat,
-        // fixed set baked at build time, not a filesystem.
-        private static readonly Assembly _asm = typeof(TelemetryServer).Assembly;
-        private static string[]? _resourceNames;
-        private static string[] ResourceNames => _resourceNames ??= _asm.GetManifestResourceNames();
-
-        // ETag for all embedded web assets. They're baked into the DLL, so they're immutable for a
-        // given build and ALL change together on rebuild — so one build-stamped tag (the module's
-        // MVID, which changes every compile) validates every asset. Served with Cache-Control:
-        // no-cache, so the browser caches but revalidates each load via If-None-Match; an unchanged
-        // asset gets a tiny 304 (no body), and a new build's MVID busts the whole set automatically.
-        private static readonly string AssetETag =
-            "\"" + _asm.ManifestModule.ModuleVersionId.ToString("N") + "\"";
-
-        private static void ServeAsset(HttpListenerContext ctx, string path)
-            => ServeAssetRel(ctx, path.Substring("/assets/".Length).Trim('/'));
-
-        // Serve an embedded web asset by its source-relative path under src/web/ (e.g.
-        // "pages/wpn.html"). Used both by the /assets/ route and by the page routes
-        // (e.g. /wpn) that serve a file directly.
-        private static void ServeAssetRel(HttpListenerContext ctx, string rel)
-        {
-            try
-            {
-                // "shared/theme.css" -> suffix ".web.shared.theme.css"
-                string suffix = "." + ("web/" + rel).Replace('/', '.');
-
-                string? resourceName = null;
-                foreach (string n in ResourceNames)
-                {
-                    if (n.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) { resourceName = n; break; }
-                }
-
-                if (resourceName == null)
-                {
-                    ctx.Response.StatusCode = 404;
-                    return;
-                }
-
-                // Conditional GET: assets cache but revalidate. If the client's cached validator
-                // still matches this build's tag, the asset is unchanged → 304 with no body.
-                ctx.Response.Headers["ETag"]          = AssetETag;
-                ctx.Response.Headers["Cache-Control"] = "no-cache";
-                if (ctx.Request.Headers["If-None-Match"] == AssetETag)
-                {
-                    ctx.Response.StatusCode      = 304;
-                    ctx.Response.ContentLength64 = 0;
-                    return;
-                }
-
-                using Stream? s = _asm.GetManifestResourceStream(resourceName);
-                if (s == null)
-                {
-                    ctx.Response.StatusCode = 404;
-                    return;
-                }
-
-                byte[] body;
-                using (var ms = new MemoryStream())
-                {
-                    s.CopyTo(ms);
-                    body = ms.ToArray();
-                }
-
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = ContentTypeFor(rel);
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
-
-        private static string ContentTypeFor(string path)
-        {
-            int dot = path.LastIndexOf('.');
-            string ext = dot >= 0 ? path.Substring(dot).ToLowerInvariant() : "";
-            switch (ext)
-            {
-                case ".html": return "text/html; charset=utf-8";
-                case ".css":  return "text/css; charset=utf-8";
-                case ".js":   return "text/javascript; charset=utf-8";
-                case ".json": return "application/json; charset=utf-8";
-                case ".svg":  return "image/svg+xml";
-                case ".woff2": return "font/woff2";
-                case ".woff": return "font/woff";
-                case ".png":  return "image/png";
-                case ".jpg":
-                case ".jpeg": return "image/jpeg";
-                case ".txt":  return "text/plain; charset=utf-8";
-                default:      return "application/octet-stream";
-            }
         }
 
         // ── Map image handler ──────────────────────────────────────────────────
