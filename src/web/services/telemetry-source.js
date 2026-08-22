@@ -1,14 +1,13 @@
-// TelemetrySource — the MAP page's "data provider" half, split out from the map view so each has
-// a single responsibility (SRP). It owns the ONE EventSource('/stream') connection, parses each
-// frame, and is the source of truth for telemetry in the whole MFD:
+// TelemetrySource owns the ONE EventSource('/stream') connection, parses each frame, and is the
+// source of truth for telemetry in the whole MFD:
 //   • derives the slices (status/loadout/cm/tgp/targets/rwr/mw/avn/follow, and mapinfo) and posts
 //     them UP to the shell, which re-forwards them to the other pages. All but the last are
 //     per-page; mapinfo is for shell chrome that shows no map — see _emit; and
 //   • hands the raw parsed frame to the local map view via callbacks so it can render.
-// It knows nothing about canvas, DOM, zoom/pan, or gestures — that all lives in map.js (the view),
-// which instantiates this and consumes it. Co-located in the same iframe on purpose: the view
+// It knows nothing about canvas, DOM, zoom/pan, or gestures — that lives in map.js (the view),
+// which instantiates this and consumes it. Co-located with the view in the same iframe: the view
 // needs the full frame every tick, so keeping the parse in-process avoids serializing it across an
-// iframe boundary (see src/web/README.md — MAP is the telemetry tap, deliberately).
+// iframe boundary (MAP is the telemetry tap — see src/web/README.md).
 //
 // View → source:  new TelemetrySource({ onFrame, onNoMission, onStatus }).connect()
 //                 .emitFollow(on)        — the view's FLW toggle, mirrored up
@@ -39,11 +38,11 @@ const AKF_EMPTY = { all: [], player: [], kills: { aircraft: 0, ship: 0, vehicle:
                      value: 0, fundsGained: 0, fundsSpent: 0 };
 
 // This document's MFD-instance id, for the server's instance registry (SOI — docs/keybinds-page.md).
-// sessionStorage, NOT localStorage: sessionStorage is scoped to the browsing context, so it is the
-// same across a reload (a tablet that refreshes stays the instance it was) and different in a second
-// tab (two displays on one PC are two instances). localStorage is per-origin and every tab would
-// have claimed the same id. Read from an iframe, it resolves to the TAB's store — which is what we
-// want, since the instance is the whole document, not this tap.
+// sessionStorage, NOT localStorage: sessionStorage is scoped to the browsing context, so it stays
+// the same across a reload (a tablet that refreshes stays the instance it was) but differs in a
+// second tab (two displays on one PC are two instances) — localStorage is per-origin and every tab
+// would claim the same id. Read from an iframe, it resolves to the TAB's store, which is what's
+// wanted since the instance is the whole document, not this tap.
 //
 // Guarded on every hop: sessionStorage throws in some private-mode browsers, and randomUUID needs a
 // secure context — plain http:// over the LAN is exactly how this mod is used. A per-load fallback
@@ -74,8 +73,8 @@ export class TelemetrySource {
     this._soiFocused = null;            // null = never reported; forces the first post either way
     this._soiPane = -1;                 // which of this instance's surfaces is focused (-1 = none)
     this._soiSeq = null;                // null = the first frame's counter is a starting point, not a press
-    // MAP cursor (docs/map-cursor.md) — same idempotent-counter idea as soiSeq/soiAct, plus the
-    // continuous vector tracked every frame (see the justFocused note in _onMessage for why).
+    // MAP cursor (docs/map-cursor.md): same idempotent-counter idea as soiSeq/soiAct, plus the
+    // continuous vector tracked every frame — see the justFocused note in _onMessage.
     this._cursorX = 0;
     this._cursorY = 0;
     this._cursorSelSeq = null;
@@ -88,15 +87,15 @@ export class TelemetrySource {
   connect() {
     this._cid = instanceId();
     const es = new EventSource('/stream?cid=' + encodeURIComponent(this._cid));
-    // The server answers with the id it actually filed us under. Normally that's the one we just
-    // sent; when our storage is unavailable we sent nothing and it named us itself. Either way this
-    // is the id SOI focus is broadcast by, so it is the one to compare against — and it is not
-    // persisted, since a server-named id belongs to this connection only.
+    // The server answers with the id it actually filed us under. Normally that's the one just
+    // sent; when storage is unavailable nothing was sent and the server named us itself. Either
+    // way this is the id SOI focus is broadcast by, so it's the one to compare against — and it's
+    // not persisted, since a server-named id belongs to this connection only.
     es.addEventListener('hello', (e) => {
       try { this._cid = JSON.parse(e.data).cid || this._cid; } catch (err) { /* keep ours */ }
-      // Tell the shell which id it is, so it can report its surface count (soi.panes) under it. Fires
-      // on every hello, including an SSE reconnect — the server assigns a fresh connection (pane
-      // count back to 1) each time, so the shell must re-report, and this is its cue.
+      // Tells the shell which id it is so it can report its surface count (soi.panes) under it.
+      // Fires on every hello, including an SSE reconnect — the server resets pane count to 1 on a
+      // fresh connection, so the shell must re-report.
       this._postUp({ type: 'soi-cid', cid: this._cid });
     });
     // The MAP cursor rides its own event at a much higher rate than the telemetry frame
@@ -132,9 +131,9 @@ export class TelemetrySource {
   }
   rebroadcastStatus() { this._postUp({ type: 'status', cls: this._lastStatus.cls, text: this._lastStatus.text }); }
   emitFollow(on) { this._postUp({ type: 'follow', on: !!on }); }
-  // The view's GRID toggle, mirrored up the same way (issue #41) — a view-local display
-  // preference, not derived from the telemetry frame, so unlike 'follow' it has no _emitEmpties
-  // reset: there's nothing wrong with the grid staying on/off across a no-mission gap.
+  // A view-local display preference, not derived from the telemetry frame, so unlike 'follow' it
+  // has no _emitEmpties reset: there's nothing wrong with the grid staying on/off across a
+  // no-mission gap.
   emitGrid(on) { this._postUp({ type: 'grid', on: !!on }); }
 
   _postUp(msg) {
@@ -158,8 +157,8 @@ export class TelemetrySource {
     if (this._soiFocused && changed) this._postUp({ type: 'cursor', x, y, pane });
 
     // Cursor Select's LIVE held state (docs/page-cursor.md) — a page with its own tap/long-press
-    // controls (TGT) needs the true→false transition to tell a tap from a hold, which the edge
-    // counter below can't express. Tracked regardless of focus, same reasoning as the vector above.
+    // controls needs the true→false transition to tell a tap from a hold, which the edge counter
+    // below can't express. Tracked regardless of focus, same reasoning as the vector above.
     const held = !!c.held;
     if (held !== this._cursorSelHeld) {
       this._cursorSelHeld = held;
@@ -181,12 +180,11 @@ export class TelemetrySource {
   _onMessage(e) {
     this._lastMsgAt = performance.now();
     // Drop a malformed frame instead of dying on it. The server hand-rolls its JSON
-    // (TelemetryServer.cs), so a serializer bug lands here as a parse throw — and an uncaught one
-    // takes down the whole tick's fan-out, freezing every page while the SSE connection stays open
-    // and the watchdog below stays quiet. Skipping costs one frame; the next good one (~100 ms)
-    // repaints everything. Logged, never swallowed: every such bug so far has been persistent
-    // rather than a blip, and the console error is what located it. Rate-limited so a persistent
-    // one leaves the console readable instead of burying it at 10 errors a second.
+    // (TelemetryServer.cs), so a serializer bug lands here as a parse throw — an uncaught one
+    // would take down the whole tick's fan-out, freezing every page while the SSE connection stays
+    // open and the watchdog below stays quiet. Skipping costs one frame; the next good one
+    // (~100 ms) repaints everything. Logged rather than swallowed, since the console error is what
+    // locates such bugs; rate-limited so a persistent one leaves the console readable.
     let d;
     try {
       d = JSON.parse(e.data);
@@ -213,17 +211,17 @@ export class TelemetrySource {
       this._soiFocused = focused;
       this._soiPane = pane;
       this._postUp({ type: 'soi', focused, pane });
-      // map.js zeroes its own cursor when it loses focus, so a regain has to resend the vector even
-      // if it is unchanged since this display was last focused — otherwise the crosshair sits still
-      // under a already-deflected stick until the pilot happens to move it.
+      // map.js zeroes its own cursor when it loses focus, so a regain has to resend the vector
+      // even if unchanged since this display was last focused — otherwise the crosshair sits still
+      // under an already-deflected stick until the pilot happens to move it.
       if (justFocused) this._postUp({ type: 'cursor', x: this._cursorX, y: this._cursorY, pane });
     }
 
-    // A SOI key press. The counter is what makes this safe to broadcast: act only when it CHANGES,
-    // so a repeated frame can't double-press and a dropped one costs nothing. The first frame only
+    // A SOI key press. The counter makes this safe to broadcast: act only when it CHANGES, so a
+    // repeated frame can't double-press and a dropped one costs nothing. The first frame only
     // records where the counter is — presses made before this display connected are history, not
-    // input. Unfocused displays see the same fields and ignore them. `pane` rides along so the shell
-    // acts on the focused surface.
+    // input. Unfocused displays see the same fields and ignore them; `pane` rides along so the
+    // shell acts on the focused surface.
     if (typeof d.soiSeq === 'number' && d.soiSeq !== this._soiSeq) {
       const first = this._soiSeq === null;
       this._soiSeq = d.soiSeq;
@@ -231,7 +229,12 @@ export class TelemetrySource {
     }
 
     if (d.ping) {
-      this._setStatus('waiting', '● CONNECTED — no mission');
+      // A mission can be running with no local aircraft chosen yet (still on the spawn/loadout
+      // screen) — that's a real connection, not "no mission", even though there's no telemetry
+      // frame to show yet either. missionRunning tells the two apart; d.ping stays true for both,
+      // since neither has a real frame to emit.
+      if (d.missionRunning) this._setStatus('connected', '● CONNECTED');
+      else this._setStatus('waiting', '● CONNECTED — no mission');
       const didEnd = this._inMission;
       if (didEnd) { this._inMission = false; this._meta = null; this._emitEmpties(); }
       if (this._onNoMission) this._onNoMission(didEnd);
@@ -250,7 +253,7 @@ export class TelemetrySource {
   _emit(d) {
     if (window.parent === window) return;   // standalone /map-view: nobody to mirror to
 
-    // Countermeasures (-1 = the aircraft has no such system).
+    // -1 = the aircraft has no such countermeasure system.
     this._postUp({
       type: 'cm',
       flares:    typeof d.flares    === 'number' ? d.flares    : -1,
@@ -263,12 +266,10 @@ export class TelemetrySource {
     // TGP feed state (so the MFD's TGP page can swap to NO TARGET when the feed stops).
     this._postUp({ type: 'tgp', active: !!d.tgpActive });
 
-    // The mission name, the ownship's grid, and (issue #38) the raw position/heading/map-meta a
-    // non-map page needs to compute distance/bearing to a waypoint and its own grid labels. What
-    // the map page draws on itself (its mission bar and GRID chip) plus what WPT needs — no other
-    // page consumed this slice before WPT (it existed only for chrome that shows NO map, e.g. the
-    // F-35's master strip). The map page still renders its own HUD straight from `d`; this is the
-    // same pair, derived once more for anyone outside the iframe.
+    // The mission name, the ownship's grid, and the raw position/heading/map-meta a non-map page
+    // needs to compute distance/bearing to a waypoint and its own grid labels — for chrome that
+    // shows no map (e.g. the F-35's master strip). The map page still renders its own HUD straight
+    // from `d`; this is the same pair, derived once more for anyone outside the iframe.
     this._postUp({
       type: 'mapinfo',
       mission: d.mission || null,
@@ -348,10 +349,10 @@ export class TelemetrySource {
                         tg: c.tg || 0, radar: !!c.rd, dl: !!c.dl, n: c.n || '' });
       }
     }
-    // Pitbull missiles (issue #40): the player's own AA missiles whose active-radar seeker has
-    // locked. Same az/rng B-scope projection as the ordinary contacts above — independent of
-    // rb.present (it's the missile's own radar, not the aircraft's), so this runs off d.rdr.pb
-    // directly rather than being gated by rb.present.
+    // Pitbull missiles: the player's own AA missiles whose active-radar seeker has locked. Same
+    // az/rng B-scope projection as the ordinary contacts above — independent of rb.present (it's
+    // the missile's own radar, not the aircraft's), so this runs off d.rdr.pb directly rather than
+    // being gated by rb.present.
     let pbItems = [];
     if (rb && Array.isArray(rb.pb) && d.world) {
       const hdg = d.hdg || 0;
@@ -411,9 +412,9 @@ export class TelemetrySource {
     });
 
     // Loadout (the WPN page mirrors it without opening its own /stream). masterArmsOn is mod state
-    // (docs/radar-master-arms.md), not per-loadout, but rides the same message since the WPN page is
-    // the only consumer of either — its ARM/SAFE controls always show, regardless of the immersion
-    // setting (see the ticket's Goal), so this is never null/absent, just true or false.
+    // (docs/radar-master-arms.md), not per-loadout, but rides the same message since the WPN page
+    // is the only consumer of either — its ARM/SAFE controls always show regardless of the
+    // immersion setting, so this is never null/absent, just true or false.
     this._postUp({ type: 'loadout', items: d.loadout || [], selWeapon: d.selWeapon || null,
                    softGun: d.softGun || null, softRel: d.softRel || null,
                    masterArmsOn: d.masterArmsOn === true, combatMode: d.combatMode || 'all' });
@@ -431,15 +432,14 @@ export class TelemetrySource {
     // FactionHQ yet.
     this._postUp(Object.assign({ type: 'pal' }, d.pal || { present: false }));
 
-    // MIS mission-info panel (docs/mdt-pages.md) — name, time/duration, escalation score/level, and
+    // MIS mission-info panel (docs/md-pages.md) — name, time/duration, escalation score/level, and
     // the mission's own description text. present:false in multiplayer or between missions.
     this._postUp(Object.assign({ type: 'mis' }, d.mis || { present: false }));
 
-    // OBJ active-objectives list (docs/mdt-pages.md). present:false when the player faction's HQ
-    // isn't resolved yet. Each objective's position sub-rows (ObjectiveInfoList_Item — "DestroyUnits
-    // / Lb105 / 18km") arrive as raw world x/z from the plugin; grid label and live range are derived
-    // here the same way targets/rwr/mw already are, so range stays live at the base frame's own rate
-    // rather than the plugin's 1 Hz refresh — the game itself recomputes distance at render time too.
+    // OBJ active-objectives list (docs/md-pages.md). present:false when the player faction's HQ
+    // isn't resolved yet. Each objective's position sub-rows arrive as raw world x/z from the
+    // plugin; grid label and live range are derived here the same way targets/rwr/mw already are,
+    // so range stays live at the base frame's own rate rather than the plugin's 1 Hz refresh.
     const objBlock = d.obj || { present: false };
     const objItems = [];
     if (objBlock.present && Array.isArray(objBlock.items)) {
@@ -463,10 +463,9 @@ export class TelemetrySource {
     this._postUp(Object.assign({ type: 'akf' }, d.akf || AKF_EMPTY));
 
     // Extension telemetry (docs/extensions-api.md) — one generic forward for every registered
-    // extension's slice, rather than a named block per extension like everything above. `payload`
-    // is whatever JSON that extension published (Api.PublishSlice); it's wrapped in `data` rather
-    // than spread, since — unlike NOXMFD's own blocks — its shape isn't known here and might not
-    // even be a plain object (an extension could publish an array or a bare number).
+    // extension's slice, rather than a named block per extension like everything above. Wrapped in
+    // `data` rather than spread, since — unlike NOXMFD's own blocks — its shape isn't known here
+    // and might not even be a plain object (an extension could publish an array or a bare number).
     if (d.ext) {
       for (const id of Object.keys(d.ext)) this._postUp({ type: 'ext_' + id, data: d.ext[id] });
     }

@@ -1,0 +1,139 @@
+/* Shared modal primitive (layout-modal.js) — used by both shells for SAVE's name-prompt and LOAD's
+   layout-picker. Built only from shared/theme.css tokens so it looks the same, and correct,
+   whether it's opened over the bezel (mfd.css) or the glass (f35.css) — neither shell's own chrome
+   colour (e.g. f35.css's teal) belongs to a control that isn't part of that shell's own frame. */
+.layout-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+}
+.layout-modal {
+  min-width: 280px;
+  max-width: min(90vw, 420px);
+  max-height: 80vh;
+  background: var(--no-bg);
+  border: 1px solid var(--no-green-dark);
+  box-shadow: 0 0 0 1px rgba(var(--no-green-rgb), 0.15), 0 8px 32px rgba(0, 0, 0, 0.6);
+  font-family: var(--no-font);
+  color: var(--no-green);
+  display: flex;
+  flex-direction: column;
+}
+.layout-modal-title {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--no-green-dark);
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: var(--no-green);
+}
+.layout-modal-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+.layout-modal-input {
+  background: var(--no-panel-bg);
+  border: 1px solid var(--no-green-dark);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+}
+.layout-modal-input:focus {
+  border-color: var(--no-green);
+}
+.layout-modal-error {
+  min-height: 1.2em;
+  font-size: 11px;
+  color: var(--no-red);
+}
+.layout-modal-empty {
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--no-green-dark);
+  text-align: center;
+  padding: 8px 0;
+}
+.layout-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.layout-modal-row {
+  display: flex;
+  gap: 4px;
+}
+.layout-modal-item {
+  flex: 1;
+  min-width: 0;
+  background: var(--no-panel-bg);
+  border: 1px solid var(--no-green-dark);
+  color: var(--no-green-dim);
+  font-family: var(--no-font);
+  font-size: 13px;
+  text-align: left;
+  padding: 8px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.layout-modal-item:hover {
+  border-color: var(--no-green);
+  color: var(--no-green);
+}
+/* Per-row rename/delete — small icon buttons beside the name, same shape as WPT's own
+   .wpt-row-btn (wpt.css). */
+.layout-modal-row-btn {
+  flex: none;
+  background: var(--no-panel-bg);
+  border: 1px solid var(--no-green-dark);
+  color: var(--no-green-dim);
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 10px;
+  cursor: pointer;
+}
+.layout-modal-row-btn:hover {
+  border-color: var(--no-green);
+  color: var(--no-green);
+}
+.layout-modal-row input.layout-modal-input {
+  flex: 1;
+  min-width: 0;
+}
+.layout-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.layout-modal-btn {
+  background: transparent;
+  border: 1px solid var(--no-green-dark);
+  color: var(--no-green-dim);
+  font-family: var(--no-font);
+  font-size: 12px;
+  letter-spacing: 1px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+.layout-modal-btn:hover {
+  border-color: var(--no-green);
+  color: var(--no-green);
+}
+.layout-modal-btn.primary {
+  border-color: var(--no-green);
+  color: var(--no-green);
+}
+.layout-modal-btn.primary:hover {
+  background: rgba(var(--no-green-rgb), 0.12);
+}

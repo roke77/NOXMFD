@@ -17,11 +17,10 @@
     }));
     var perExtension = {};
     items.forEach(function (it) {
-      // ponytail: every extension page gets the SAME single MAIN back-link today, not the full
-      // N-way sibling swap NAV.akf's group gives MIS/OBJ/BDF/PAL — jumping straight between two
-      // installed extensions costs a trip through MAIN for now. Upgrade path: once there's more
-      // than a couple of real extensions, give each NAV[id] the same sibling list NAV.ext
-      // carries (minus itself), mirroring the AKF fold exactly.
+      // Every extension page gets the same single MAIN back-link, not the full N-way sibling
+      // swap NAV.akf's group gives MIS/OBJ/BDF/PAL — jumping between two installed extensions
+      // costs a trip through MAIN. Once there are enough real extensions to matter, give each
+      // NAV[id] the same sibling list NAV.ext carries (minus itself), mirroring the AKF fold.
       perExtension[it.id] = [{ label: 'MAIN', action: 'main' }];
     });
     return { ext: ext, perExtension: perExtension };
@@ -31,15 +30,25 @@
 
   function isExtensionPage(name) { return extIds.has(name); }
 
-  // Fetches /ext-manifest once and applies the plan into the live, shared NAV object — the same
-  // object every page/shell already holds a reference to via NavModel.NAV. Mutating it in place
-  // is deliberate: BepInEx doesn't hot-reload plugins, so the extension set is fixed for the
-  // whole session and this only ever needs to run once, before a pilot could plausibly reach EXT.
+  // NAV.ext's pristine static baseline (just the MAIN back-link, from nav-model.js), snapshotted
+  // the first time load() runs — BEFORE anything appends to it. Every load() rebuilds NAV.ext from
+  // THIS, never from NAV.ext itself, so a rescan (EXT clicked again) replaces the extension list
+  // instead of concatenating a second copy onto what an earlier scan already added.
+  var extBase = null;
+
+  // Fetches /ext-manifest and applies the plan into the live, shared NAV object — the same object
+  // every page/shell already holds a reference to via NavModel.NAV. Mutating it in place is
+  // deliberate. Called once at boot, and again every time the EXT nav item is clicked (mfd.js/
+  // f35.js) — BepInEx doesn't hot-reload plugins, so an extension already found never needs to be
+  // un-found, but one that registers AFTER this browser tab loaded (a real, observed race: the
+  // extension's own Awake() hadn't run yet when EXT was first fetched) needs a later click to
+  // still pick it up rather than requiring a full page reload.
   function load(NAV) {
+    if (!extBase) extBase = NAV.ext.slice();
     return fetch('/ext-manifest').then(function (r) { return r.ok ? r.json() : []; })
       .then(function (items) {
         if (!Array.isArray(items) || items.length === 0) return;
-        var plan = buildExtNavPlan(NAV.ext, items);
+        var plan = buildExtNavPlan(extBase, items);
         NAV.ext = plan.ext;
         Object.keys(plan.perExtension).forEach(function (id) {
           NAV[id] = plan.perExtension[id];

@@ -9,11 +9,10 @@ using UnityEngine.UI;
 
 namespace NOXMFD
 {
-    // One-shot game-asset extraction, peeled out of TelemetryReader so the reader stays focused on
-    // per-frame telemetry. Everything here turns a live game Sprite / cockpit widget into PNG/JPEG
-    // bytes (or a JSON layout) ONCE per type/session and hands it to TelemetryServer for serving at
-    // /map, /icon, /weapon, /cm, /airframe. Each method dedupes via its own captured-set, so the
-    // reader can call them every scan cheaply; the actual encode is async (SpriteCapture.Request — GPU
+    // One-shot game-asset extraction: turns a live game Sprite / cockpit widget into PNG/JPEG bytes
+    // (or a JSON layout) ONCE per type/session and hands it to TelemetryServer for serving at /map,
+    // /icon, /weapon, /cm, /airframe. Each method dedupes via its own captured-set, so the reader
+    // can call them every scan cheaply; the actual encode is async (SpriteCapture.Request — GPU
     // readback + background encode) so none of this runs on the frame's critical path.
     //
     // The lone piece of live state produced here is FailureIndicators: the cockpit StatusDisplay's
@@ -22,20 +21,19 @@ namespace NOXMFD
     // the reader owns one instance and drives it from ScanWorld / PushSnapshot.
     internal class AssetCapture
     {
-        // Map capture: the in-game map sprite can be huge — a multi-K texture whose full-res
-        // ReadPixels + EncodeToPNG would freeze the main thread ~670 ms on mission load (a 16 MB
-        // PNG). So we GPU-downscale to a sane cap and encode JPEG instead — typically a ~10-50×
-        // size cut (also much lighter for a tablet to fetch) for one one-time capture.
+        // The in-game map sprite can be a multi-K texture whose full-res ReadPixels + EncodeToPNG
+        // would freeze the main thread (~670 ms, a 16 MB PNG). GPU-downscaling to a cap and encoding
+        // JPEG instead cuts that by ~10-50x and is much lighter for a tablet to fetch.
         private const int MapMaxDim      = 4096; // cap the longer side; preserves aspect
-        private const int MapJpegQuality = 85;   // JPEG quality 0–100; 85 keeps grid/coast detail readable
+        private const int MapJpegQuality = 85;   // 85 keeps grid/coast detail readable
 
         // Cap on new icon extractions per world scan, so a busy match's first sight of many new unit
         // types doesn't hitch. The reader budgets its per-unit icon sweep against this.
         internal const int IconsPerScan = 16;
 
-        // Reserved /icon key for the game's missile-warning sprite (GameAssets.missileWarningSprite).
-        // The MAP page draws incoming missiles with this real in-game shape (tinted + flashed
-        // client-side) instead of a hand-drawn triangle. Captured once, then reused.
+        // Reserved /icon key for the game's missile-warning sprite. The MAP page draws incoming
+        // missiles with this real in-game shape (tinted + flashed client-side) instead of a
+        // hand-drawn triangle.
         internal const string MissileIconKey = "__missilewarn";
 
 
@@ -65,14 +63,10 @@ namespace NOXMFD
         private GameObject[] _failureIndicators = Array.Empty<GameObject>();
         public GameObject[] FailureIndicators => _failureIndicators;
 
-        // One-shot per aircraft type: walk the cockpit's StatusDisplay, capture the
-        // aircraft-background silhouette + every per-part Image sprite to PNG, and emit a JSON
-        // layout descriptor so the AVN page can re-compose the same picture on the web.
-        //
-        // The StatusDisplay's `statusDisplays` and `aircraftBackground` are private serialized
-        // fields, so we reflect into them once and cache the FieldInfos. Part layouts are
-        // normalized 0..1 in the background's local UI rect, so the web side just multiplies
-        // by its rendered silhouette size.
+        // StatusDisplay's `statusDisplays` and `aircraftBackground` are private serialized fields,
+        // so reflection is needed to reach them (cached once below). Part layouts are emitted
+        // normalized 0..1 in the background's local UI rect, so the web side just multiplies by
+        // its rendered silhouette size.
         public void TryCaptureAirframe(Aircraft ac)
         {
             string key = ac.definition != null ? ac.definition.unitName : null;
@@ -101,23 +95,20 @@ namespace NOXMFD
 
             RectTransform bgRT = bgImage.rectTransform;
 
-            // Wait for the silhouette to have its sprite AND be laid out before we commit the capture.
-            // Right after a respawn / plane change the StatusDisplay can exist for a beat with a zero-size
-            // rect; capturing then makes GetPartPlacement reject every part (its zero-rect guard) and we'd
-            // cache an EMPTY layout for this type forever (key added to _capturedAirframes, never retried,
-            // so the AVN page shows a bare or stale silhouette). Returning here re-tries on the next slow
-            // scan until the cockpit panel is measured.
+            // Right after a respawn / plane change the StatusDisplay can exist for a beat with a
+            // zero-size rect; capturing then makes GetPartPlacement reject every part (its zero-rect
+            // guard) and would cache an EMPTY layout for this type forever (key already added to
+            // _capturedAirframes, never retried). Returning here re-tries on the next slow scan
+            // until the cockpit panel is measured.
             if (bgImage.sprite == null || bgRT.rect.width <= 0.0001f || bgRT.rect.height <= 0.0001f)
                 return;
 
             _capturedAirframes.Add(key);
 
-            // Diagnostic: dump the bg's full orientation in world space so we can see
-            // exactly what flip / rotation the cockpit canvas applies. The .right/.up
-            // axes give the world direction of the bg's local +X / +Y; if either points
-            // the "wrong" way, GetPartPlacement below mirrors cx/cy to match the visible
-            // orientation. Scale alone misses 180° rotation flips (rotation negates an
-            // axis without changing lossyScale), which is why we check directions too.
+            // Logs the bg's world-space orientation: the .right/.up axes give the world direction
+            // of the bg's local +X/+Y, which GetPartPlacement below uses to mirror cx/cy — scale
+            // alone misses a 180° rotation flip (rotation negates an axis without changing
+            // lossyScale).
             Vector3 bgLs = bgRT.lossyScale;
             Vector3 bgR  = bgRT.right;
             Vector3 bgU  = bgRT.up;
@@ -138,7 +129,7 @@ namespace NOXMFD
 
             // Per-part PNGs + layout entries.
             var sb = new StringBuilder();
-            sb.Append("{\"type\":\"").Append(EscapeJson(key)).Append("\",\"parts\":[");
+            sb.Append("{\"type\":\"").Append(JsonLite.EscapeJson(key)).Append("\",\"parts\":[");
             int partCount = 0;
             int flippedCount = 0;
             for (int i = 0; i < partsList.Count; i++)
@@ -154,15 +145,14 @@ namespace NOXMFD
                     continue;
 
                 // Skip degenerate "full-frame" parts: rect == the whole bg, centred (w/h ≈ 1, cx/cy ≈ 0.5).
-                // These come from mods that author each part as a full-canvas overlay sprite instead of a
-                // small positioned one (FS-3 Ternion: all 32 parts; F-99 Shrike: its intake/strake/belly
-                // text-label parts). Our per-part mask stacks those into a frame-filling blob / mirror-
-                // reversed labels over the silhouette; dropping them leaves the clean bg outline plus any
-                // normally-placed parts. No stock aircraft has a part remotely this large (max ~0.26), and
-                // mods that place large overlay parts CORRECTLY sit off-centre (MC-260 Chimera's are w≈0.87,
-                // cx≈0.44), so the centred-AND-full-frame test can't catch a part that would render right.
-                // ponytail: heuristic on placement, not intent — a genuinely frame-sized, centred, meaningful
-                // part (none known) would be dropped too. Ceiling: revisit if such an aircraft appears.
+                // Some mods author a part as a full-canvas overlay sprite instead of a small positioned
+                // one; stacking those into the per-part mask produces a frame-filling blob or mirror-
+                // reversed labels over the silhouette, so they're dropped, leaving the clean bg outline
+                // plus any normally-placed parts. No stock aircraft has a part remotely this large (max
+                // ~0.26), and mods that place large overlay parts correctly sit off-centre, so the
+                // centred-AND-full-frame test doesn't catch a part that would render right. This is a
+                // heuristic on placement, not intent — a genuinely frame-sized, centred, meaningful part
+                // would be dropped too; revisit if one appears.
                 if (w >= 0.98f && h >= 0.98f && Mathf.Abs(cx - 0.5f) < 0.02f && Mathf.Abs(cy - 0.5f) < 0.02f)
                     continue;
 
@@ -177,7 +167,7 @@ namespace NOXMFD
                 partCount++;
                 if (sx < 0 || sy < 0) flippedCount++;
                 sb.Append('{')
-                  .Append("\"n\":\"").Append(EscapeJson(name)).Append("\",")
+                  .Append("\"n\":\"").Append(JsonLite.EscapeJson(name)).Append("\",")
                   .Append("\"cx\":").Append(cx.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
                   .Append("\"cy\":").Append(cy.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
                   .Append("\"w\":").Append(w.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
@@ -191,10 +181,9 @@ namespace NOXMFD
             sb.Append("]}");
             TelemetryServer.SetAirframeLayout(key, sb.ToString());
 
-            // Cache the cockpit's failure-indicator GameObjects (e.g. "LEFT ENGINE FIRE",
-            // "FUEL LOW"). We don't capture their positions or rendered text — visual
-            // styling is the AVN page's concern. The cached references just let the reader poll
-            // activeSelf each tick to know which messages are currently firing.
+            // Only the GameObject references are cached, not position or rendered text — the AVN
+            // page owns visual styling. The reader polls activeSelf on these each tick to know
+            // which messages are currently firing.
             var failureGOs = new List<GameObject>();
             System.Collections.IList failureList = _sdFailureIndicatorsField?.GetValue(sd) as System.Collections.IList;
             if (failureList != null)
@@ -210,17 +199,14 @@ namespace NOXMFD
             Plugin.Log?.LogInfo($"[NOXMFD] Captured airframe silhouette '{key}' (bg + {partCount} parts, {flippedCount} flipped, {_failureIndicators.Length} failure messages: {string.Join(", ", System.Linq.Enumerable.Select(_failureIndicators, g => g.name))}).");
         }
 
-        // Computes a part's placement relative to the background's local rect, in normalized
-        // 0..1 coords (origin top-left to match web layout). All math is done in the bg's
-        // LOCAL space (via InverseTransformPoint), so any parent transforms — including
-        // mirroring flips applied by the cockpit canvas — are handled cleanly, and the cx/cy
-        // values match what the player sees on the cockpit screen.
-        // sx/sy report per-part flips relative to the bg's coordinate frame: ±1 each. The
-        // cockpit prefab often re-uses a single sprite for symmetric parts and flips one
-        // via the RectTransform's scale (e.g. wing1_R = wing1_L sprite with scale.x = -1).
-        // Our /airframe endpoint returns the raw sprite so the renderer can apply the same
-        // flip via CSS transform: scale(sx, sy) — otherwise the R parts would render mirror-
-        // reversed and look out of place.
+        // Computes a part's placement relative to the background's local rect, in normalized 0..1
+        // coords (origin top-left to match web layout). All math is done in the bg's LOCAL space
+        // (via InverseTransformPoint) so parent transforms — including mirroring flips applied by
+        // the cockpit canvas — are handled cleanly and cx/cy match what the player sees.
+        // sx/sy report per-part flips relative to the bg's coordinate frame: the cockpit prefab
+        // often reuses one sprite for symmetric parts and flips one via RectTransform scale (e.g.
+        // wing1_R = wing1_L with scale.x = -1); the /airframe endpoint returns the raw sprite so the
+        // renderer applies the same flip via CSS transform: scale(sx, sy).
         // Returns false if the bg rect has zero size (silhouette not laid out yet).
         private static bool GetPartPlacement(RectTransform partRT, RectTransform bgRT,
             out float cx, out float cy, out float w, out float h, out float rotZ,
@@ -233,9 +219,8 @@ namespace NOXMFD
             Rect bgRect = bgRT.rect;
             if (bgRect.width <= 0.0001f || bgRect.height <= 0.0001f) return false;
 
-            // Part's centre in BG-local coords. World ↔ local round-trip absorbs any
-            // intermediate transforms (offsets, rotations, scales), so what we read is
-            // strictly "where the part sits inside the bg's own rect".
+            // Part's centre in BG-local coords. The world <-> local round-trip absorbs any
+            // intermediate transforms (offsets, rotations, scales).
             Vector3 partWorldCenter = partRT.TransformPoint(partRT.rect.center);
             Vector3 partBgLocal     = bgRT.InverseTransformPoint(partWorldCenter);
 
@@ -243,18 +228,15 @@ namespace NOXMFD
             cy = (partBgLocal.y - bgRect.yMin) / bgRect.height;
             cy = 1f - cy;                                       // origin top-left for web
 
-            // Mirror to match what the player actually sees. Two cases produce a mirror:
-            //   (a) A negative lossyScale on the axis (the obvious flip), or
-            //   (b) A 180° rotation around the orthogonal axis (rotation negates the axis
-            //       direction without touching lossyScale).
-            // We check the bg's world-space "right" / "up" axis directions instead of
-            // scale because that covers both cases — if local +X ends up pointing in
-            // world -X, the visual is mirrored regardless of *how* it got there.
+            // Mirror to match what the player sees. Checking the bg's world-space right/up axis
+            // directions (rather than lossyScale directly) covers both mirror causes — a negative
+            // scale on the axis, or a 180° rotation around the orthogonal axis (which negates the
+            // axis direction without changing lossyScale).
             if (bgRT.right.x < 0f) cx = 1f - cx;
             if (bgRT.up.y    < 0f) cy = 1f - cy;
 
-            // Size in fractions of bg width/height. The part's lossy-scale ratio against
-            // the bg accounts for any chain of scales between them.
+            // Size in fractions of bg width/height, scaled by the part/bg lossy-scale ratio to
+            // account for any chain of scales between them.
             float bgSx   = bgRT.lossyScale.x   == 0f ? 1f : Mathf.Abs(bgRT.lossyScale.x);
             float bgSy   = bgRT.lossyScale.y   == 0f ? 1f : Mathf.Abs(bgRT.lossyScale.y);
             float partSx = Mathf.Abs(partRT.lossyScale.x);
@@ -262,13 +244,12 @@ namespace NOXMFD
             w = partRT.rect.width  * (partSx / bgSx) / bgRect.width;
             h = partRT.rect.height * (partSy / bgSy) / bgRect.height;
 
-            // Z rotation: report local so it survives the bg-local re-frame. CCW positive.
+            // Reports local rotation (not world) so it survives the bg-local re-frame. CCW positive.
             rotZ = partRT.localEulerAngles.z;
             if (rotZ > 180f) rotZ -= 360f;
 
-            // Per-part flip sign, expressed relative to the bg's frame. If the part and
-            // bg have opposite-sign lossy-scale on an axis, the part is mirrored on that
-            // axis. The renderer applies CSS transform: scale(sx, sy) to match.
+            // Opposite-sign lossy-scale between part and bg on an axis means the part is mirrored
+            // on that axis; the renderer applies CSS transform: scale(sx, sy) to match.
             float pSx = partRT.lossyScale.x, pSy = partRT.lossyScale.y;
             float bSx = bgRT.lossyScale.x,   bSy = bgRT.lossyScale.y;
             sx = (pSx == 0f || bSx == 0f) ? 1 : ((pSx * bSx) < 0f ? -1 : 1);
@@ -276,35 +257,18 @@ namespace NOXMFD
             return true;
         }
 
-        private static string EscapeJson(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return string.Empty;
-            var sb = new StringBuilder(s.Length);
-            foreach (char c in s)
-            {
-                if      (c == '"')  sb.Append("\\\"");
-                else if (c == '\\') sb.Append("\\\\");
-                else if (c < 0x20)  sb.Append("\\u").Append(((int)c).ToString("x4"));
-                else                sb.Append(c);
-            }
-            return sb.ToString();
-        }
-
-        // One-shot per aircraft type: capture the cockpit's weapon-station-armed panel's frontal
-        // silhouette (WeaponPanel/frontProfile, sprite named "<unitName>_front" — confirmed live via
-        // a diagnostic hierarchy dump). Distinct from TryCaptureAirframe's top-down damage silhouette
-        // (StatusDisplay.aircraftBackground) — this is the OTHER cockpit panel, the one with the
-        // GUN/TIP/PYLON/BAY "WEAPON ARMED" boxes. Served at the same /airframe endpoint as the
-        // damage silhouette's parts, just under part key "__front", so no new server plumbing.
+        // Captures the cockpit's weapon-station-armed panel's frontal silhouette
+        // (WeaponPanel/frontProfile, sprite named "<unitName>_front"). Distinct from
+        // TryCaptureAirframe's top-down damage silhouette — this is the OTHER cockpit panel, the one
+        // with the GUN/TIP/PYLON/BAY "WEAPON ARMED" boxes. Served at the same /airframe endpoint,
+        // under part key "__front", so no new server plumbing is needed.
         //
-        // Also captures the panel's per-station hardpoint markers (hardpoint_TipR/PylonR/Bay/Gun/...
-        // — small colored squares overlaid on the silhouette). Their LAYOUT is static (captured once,
-        // via the same GetPartPlacement math as the damage-silhouette parts — these are UI
-        // RectTransforms too, no reflection needed). Their COLOR is live game state (green = ammo
-        // remaining, red = exhausted) computed by the game's own script every frame; rather than
-        // re-deriving armed/exhausted ourselves — which would need a name↔WeaponStation mapping that
-        // doesn't exist anywhere reliable — we just mirror the same Image.color the player already
-        // sees (ReadFrontalMarkerColors, polled per snapshot tick).
+        // Also captures the panel's per-station hardpoint markers. Their LAYOUT is static (captured
+        // once, via the same GetPartPlacement math as the damage-silhouette parts). Their COLOR is
+        // live game state (green = ammo remaining, red = exhausted) computed by the game's own
+        // script every frame; rather than re-deriving armed/exhausted — which would need a
+        // name<->WeaponStation mapping that doesn't exist anywhere reliable — this mirrors the same
+        // Image.color the player already sees (ReadFrontalMarkerStates, polled per snapshot tick).
         private readonly HashSet<string> _capturedFrontal = new HashSet<string>();
         private readonly Dictionary<string, List<(string name, Image img)>> _frontalMarkers =
             new Dictionary<string, List<(string, Image)>>();
@@ -314,8 +278,8 @@ namespace NOXMFD
             string key = ac.definition != null ? ac.definition.unitName : null;
             if (string.IsNullOrEmpty(key) || _capturedFrontal.Contains(key)) return;
 
-            // frontProfile only exists inside the LIVE (instantiated) WeaponPanel, not the inactive
-            // template prefabs for other aircraft types that FindObjectsOfTypeAll also returns.
+            // frontProfile only exists inside the LIVE (instantiated) WeaponPanel; FindObjectsOfTypeAll
+            // also returns inactive template prefabs for other aircraft types, which must be skipped.
             Image frontImg = null;
             foreach (Image img in Resources.FindObjectsOfTypeAll<Image>())
             {
@@ -339,9 +303,8 @@ namespace NOXMFD
             for (int i = 0; i < frontRT.childCount; i++)
             {
                 Transform child = frontRT.GetChild(i);
-                // "hardpoint_Gun"/"hardpoint_TipR" on some airframes, "hardpoint0".."hardpoint8" (no
-                // underscore) on others (e.g. KR-67 Ifrit) — match the common prefix, not either
-                // exact shape.
+                // Naming varies by airframe ("hardpoint_Gun" vs "hardpoint0"), so match the common
+                // prefix rather than either exact shape.
                 if (!child.name.StartsWith("hardpoint", StringComparison.OrdinalIgnoreCase)) continue;
                 Image mImg = child.GetComponent<Image>();
                 if (mImg == null) continue;
@@ -352,7 +315,7 @@ namespace NOXMFD
                 if (n > 0) sb.Append(',');
                 n++;
                 sb.Append('{')
-                  .Append("\"n\":\"").Append(EscapeJson(child.name)).Append("\",")
+                  .Append("\"n\":\"").Append(JsonLite.EscapeJson(child.name)).Append("\",")
                   .Append("\"cx\":").Append(cx.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
                   .Append("\"cy\":").Append(cy.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
                   .Append("\"w\":").Append(w.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
@@ -364,22 +327,19 @@ namespace NOXMFD
             TelemetryServer.SetAirframeLayout(key + "__front", sb.ToString());
         }
 
-        // Armed/exhausted, not the raw color: the AFM page renders these in the theme's own
-        // solid green/red (matching the rest of its text), not a mirrored, semi-transparent
-        // in-game hue. WeaponStatus.cs (decompiled) sets the marker to exactly Color.green when
-        // armed or Color.red when exhausted (briefly lerped toward a flash color on a hit) — so
-        // "which channel dominates" cleanly classifies both the resting and flashing states.
-        // Three states, confirmed live (2026-08-15, KR-67 Ifrit with empty pylons): armed = pure
-        // green (0,1,0), exhausted = pure red (1,0,0), and a station with nothing mounted is flat
-        // gray (0.5,0.5,0.5) — equal channels, which a plain g>=r check misreads as armed. Gray is
-        // checked first since it's the one case a simple green/red split can't tell apart.
+        // Reports armed/exhausted, not the raw color: the AFM page renders these in the theme's own
+        // solid green/red, not a mirrored, semi-transparent in-game hue. The game sets the marker to
+        // exactly Color.green when armed or Color.red when exhausted (briefly lerped toward a flash
+        // color on a hit), so "which channel dominates" cleanly classifies both states. A station
+        // with nothing mounted is flat gray (equal channels), which a plain g>=r check would
+        // misread as armed — gray is checked first to catch that case.
         public List<(string name, string state)> ReadFrontalMarkerStates(string type)
         {
             var result = new List<(string, string)>();
             if (string.IsNullOrEmpty(type) || !_frontalMarkers.TryGetValue(type, out var markers)) return result;
             foreach (var (name, img) in markers)
             {
-                if (img == null) continue;   // scene reloaded since capture; stale reference
+                if (img == null) continue;   // stale reference from before a scene reload
                 Color c = img.color;
                 string state = (c.r == c.g && c.g == c.b) ? "empty" : (c.g >= c.r ? "armed" : "exhausted");
                 result.Add((name, state));
@@ -387,11 +347,10 @@ namespace NOXMFD
             return result;
         }
 
-        // One-shot debug aid for the AVN-page silhouette design: walks Aircraft.partLookup and
-        // logs every UnitPart's name + HP + critical flag + detached state. Fires once per
-        // aircraft definition name per session. Mirrors the data the game's own StatusDisplay
-        // uses to colour its silhouette segments (StatusDisplay matches Image.gameObject.name
-        // against UnitPart.gameObject.name — see decompiled/StatusDisplay.decompiled.cs).
+        // Debug aid for the AVN-page silhouette design: walks Aircraft.partLookup and logs every
+        // UnitPart's name, HP, and detached state, once per aircraft definition per session. Mirrors
+        // the data the game's own StatusDisplay uses to colour its silhouette segments (it matches
+        // Image.gameObject.name against UnitPart.gameObject.name).
         public void TryLogPartLayout(Aircraft ac)
         {
             string key = ac.definition != null ? ac.definition.unitName : null;
@@ -413,16 +372,14 @@ namespace NOXMFD
 
         // WeaponInfo assets already dumped to the log this session, keyed by the asset's own Unity
         // object name (stable identity — unlike weaponName/shortName, which can be blank or shared
-        // across variants). One line per distinct weapon, across every aircraft type seen this
+        // across variants). One line per distinct weapon across all aircraft types seen this
         // session, not per-aircraft.
         private readonly HashSet<string> _loggedWeapons = new HashSet<string>();
 
-        // One-shot diagnostic dump of every weapon's full WeaponInfo data — every classification
-        // flag plus the numbers behind it — as ac.weaponStations turns them up. Data-mining pass for
-        // design questions (e.g. "does anything besides the Medusa's pod set the jammer flag") that
-        // don't need a proper asset-extraction tool, just a flight over a few loadouts and a look at
-        // LogOutput.log afterward. Walks EVERY station, including ones BuildLoadout hides
-        // (hideInDisplay, cargo/troops/sling) — those are exactly the kind of thing worth seeing.
+        // Diagnostic dump of every weapon's full WeaponInfo data to LogOutput.log, for design
+        // questions that don't need a dedicated extraction tool. Walks EVERY station, including
+        // ones BuildLoadout hides (hideInDisplay, cargo/troops/sling), since those are exactly the
+        // kind of thing worth seeing here.
         public void TryLogWeaponInfo(Aircraft ac)
         {
             var stations = ac.weaponStations;
@@ -494,20 +451,9 @@ namespace NOXMFD
         public void TryCaptureVehicleTypeIcons()
         {
             Encyclopedia enc = Encyclopedia.i;
-            if (enc == null || enc.vehicleTypes == null) return;   // not ready — retry next scan
-
-            for (int i = 0; i < enc.vehicleTypes.Count; i++)
-            {
-                var vt = enc.vehicleTypes[i];
-                if (vt == null || string.IsNullOrEmpty(vt.typeName) || _capturedTgtIcons.Contains(vt.typeName))
-                    continue;
-                _capturedTgtIcons.Add(vt.typeName);   // mark regardless so we never retry this type
-                if (vt.typeSprite == null) continue;
-
-                string name = vt.typeName;
-                SpriteCapture.Request(vt.typeSprite, SpriteCapture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
-                    png => { if (png != null) TelemetryServer.SetTgtIcon(name, png); });
-            }
+            if (enc == null) return;   // not ready — retry next scan
+            CaptureTypeIcons(enc.vehicleTypes, _capturedTgtIcons,
+                vt => vt.typeName, vt => vt.typeSprite, TelemetryServer.SetTgtIcon);
         }
 
         private readonly HashSet<string> _capturedBdfShipIcons = new HashSet<string>();
@@ -515,26 +461,15 @@ namespace NOXMFD
         // Extracts the BDF page's ship-type icons (CV … LC) to PNG once each, keyed by typeName so
         // the web BDF page's /bdf-icon?type= requests match the "bdf" telemetry block's ship-row
         // names. Source is Encyclopedia.i.shipTypes — the same list the game's InfoPanel_Faction
-        // builds its Ships row from (docs/bdf-page.md). Straight mirror of
-        // TryCaptureVehicleTypeIcons above; a dedicated /bdf-icon keeps the key space separate from
-        // the generic /icon (aircraft unitNames) rather than risking a collision.
+        // builds its Ships row from. Straight mirror of TryCaptureVehicleTypeIcons above; a
+        // dedicated /bdf-icon keeps the key space separate from the generic /icon (aircraft
+        // unitNames) rather than risking a collision.
         public void TryCaptureShipTypeIcons()
         {
             Encyclopedia enc = Encyclopedia.i;
-            if (enc == null || enc.shipTypes == null) return;   // not ready — retry next scan
-
-            for (int i = 0; i < enc.shipTypes.Count; i++)
-            {
-                var st = enc.shipTypes[i];
-                if (st == null || string.IsNullOrEmpty(st.typeName) || _capturedBdfShipIcons.Contains(st.typeName))
-                    continue;
-                _capturedBdfShipIcons.Add(st.typeName);   // mark regardless so we never retry this type
-                if (st.typeSprite == null) continue;
-
-                string name = st.typeName;
-                SpriteCapture.Request(st.typeSprite, SpriteCapture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
-                    png => { if (png != null) TelemetryServer.SetBdfIcon(name, png); });
-            }
+            if (enc == null) return;   // not ready — retry next scan
+            CaptureTypeIcons(enc.shipTypes, _capturedBdfShipIcons,
+                st => st.typeName, st => st.typeSprite, TelemetryServer.SetBdfIcon);
         }
 
         private readonly HashSet<string> _capturedBdfLogos = new HashSet<string>();
@@ -563,41 +498,49 @@ namespace NOXMFD
         public void TryCaptureBuildingTypeIcons()
         {
             Encyclopedia enc = Encyclopedia.i;
-            if (enc == null || enc.buildingTypes == null) return;   // not ready — retry next scan
+            if (enc == null) return;   // not ready — retry next scan
+            CaptureTypeIcons(enc.buildingTypes, _capturedBuildingIcons,
+                bt => bt.typeName, bt => bt.typeSprite, TelemetryServer.SetBuildingIcon);
+        }
 
-            for (int i = 0; i < enc.buildingTypes.Count; i++)
+        // Shared shape behind TryCaptureVehicleTypeIcons/TryCaptureShipTypeIcons/
+        // TryCaptureBuildingTypeIcons above: marks a name captured regardless of whether it has a
+        // sprite yet, so a type with no icon is never retried. TryCaptureHudCategoryIcons below
+        // walks a fixed 5-slot array via transform.Find instead of an Encyclopedia list — a
+        // genuinely different shape, not folded in here.
+        private static void CaptureTypeIcons<T>(
+            IEnumerable<T> list, HashSet<string> captured,
+            Func<T, string> nameOf, Func<T, Sprite> spriteOf, Action<string, byte[]> setIcon) where T : class
+        {
+            if (list == null) return;   // not ready — retry next scan
+            foreach (T item in list)
             {
-                var bt = enc.buildingTypes[i];
-                if (bt == null || string.IsNullOrEmpty(bt.typeName) || _capturedBuildingIcons.Contains(bt.typeName))
-                    continue;
-                _capturedBuildingIcons.Add(bt.typeName);   // mark regardless so we never retry this type
-                if (bt.typeSprite == null) continue;
+                if (item == null) continue;
+                string name = nameOf(item);
+                if (string.IsNullOrEmpty(name) || captured.Contains(name)) continue;
+                captured.Add(name);   // mark regardless so we never retry this type
+                Sprite sprite = spriteOf(item);
+                if (sprite == null) continue;
 
-                string name = bt.typeName;
-                SpriteCapture.Request(bt.typeSprite, SpriteCapture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
-                    png => { if (png != null) TelemetryServer.SetBuildingIcon(name, png); });
+                SpriteCapture.Request(sprite, SpriteCapture.Encoding.Png, synthAlpha: true, quality: 0, maxDim: 0,
+                    png => { if (png != null) setIcon(name, png); });
             }
         }
 
         private readonly HashSet<string> _capturedHudCatIcons = new HashSet<string>();
 
-        // Category index -> the fixed HUD-page label used both as the display name (hud.js
-        // CATEGORY_LABELS) and this icon's server key — the game exposes no per-category name to key
-        // by instead (docs/hud-page.md). FRIENDLY (0) / ENEMY (1) are omitted: a one-shot hierarchy
-        // dump confirmed those two rows have no "TopContainer/Icon" child at all, matching the
-        // reference screen (no glyph on those rows).
+        // Category index -> the fixed HUD-page label used both as the display name and this icon's
+        // server key — the game exposes no per-category name to key by instead. FRIENDLY (0) and
+        // ENEMY (1) are omitted: those rows have no "TopContainer/Icon" child at all.
         private static readonly (int index, string key)[] HudCategoryIconSlots =
         {
             (2, "AIRCRAFT"), (3, "MISSILES"), (4, "VEHICLES"), (5, "BUILDINGS"), (6, "SHIPS"),
         };
 
-        // The HUD page's category-row type glyph (AIRCRAFT/MISSILES/VEHICLES/BUILDINGS/SHIPS), centred
-        // in each row as in game. HUDOptions_Category exposes no Sprite field for it — unlike the
-        // vehicle/building buttons above, whose icon is HUDOptions_ToggleButton.image — so there was
-        // nothing to read by field name; a one-shot dump of each row's child Images found it as a
-        // plain "TopContainer/Icon" placed by hand in the prefab, the same way GearIndicator and
-        // StatusDisplay's parts were mined by reflection rather than a clean API. Served at
-        // /hud-cat-icon?cat=. One-time per category.
+        // The HUD page's category-row type glyph, centred in each row as in game. HUDOptions_Category
+        // exposes no Sprite field for it — unlike the vehicle/building buttons above, whose icon is
+        // HUDOptions_ToggleButton.image — so it's located by child path instead: a plain
+        // "TopContainer/Icon" placed by hand in the prefab. Served at /hud-cat-icon?cat=.
         public void TryCaptureHudCategoryIcons()
         {
             HUDOptions opt = SceneSingleton<HUDOptions>.i;
@@ -621,8 +564,7 @@ namespace NOXMFD
             }
         }
 
-        // Extracts a weapon type's icon to PNG, once per name, and registers it. Called from the
-        // reader's BuildLoadout as it iterates the live weapon stations.
+        // Called from the reader's BuildLoadout as it iterates the live weapon stations.
         public void TryCaptureWeaponIcon(string name, Sprite icon)
         {
             if (string.IsNullOrEmpty(name) || _capturedWeaponIcons.Contains(name)) return;
@@ -634,10 +576,6 @@ namespace NOXMFD
                 png => { if (png != null) TelemetryServer.SetWeaponIcon(weaponName, png); });
         }
 
-        // Pulls MapSettings.MapImage (the actual in-game map sprite) into JPEG bytes and hands
-        // them to the server. GPU-downscaled to MapMaxDim and JPEG-encoded so this one-time
-        // capture doesn't freeze the main thread (a full-res PNG capture costs ~670 ms) and
-        // so a tablet isn't fetching a 16 MB map.
         public void TryCaptureMap(MapSettings ms)
         {
             if (_mapCaptured) return;
@@ -650,9 +588,8 @@ namespace NOXMFD
             int sw = src != null ? src.width : 0;
             int sh = src != null ? src.height : 0;
 
-            // Async + JPEG: removes the ~670 ms / 222 ms main-thread freeze the synchronous
-            // full-res PNG path caused on mission load. Downscaled to MapMaxDim and JPEG-encoded
-            // (maps are opaque) so the tablet also fetches a few hundred KB, not 16 MB.
+            // Async + downscaled + JPEG-encoded (maps are opaque) — avoids the main-thread freeze a
+            // synchronous full-res PNG capture would cause, and keeps the tablet's fetch small.
             bool started = SpriteCapture.Request(mapSprite, SpriteCapture.Encoding.Jpg, synthAlpha: false,
                 quality: MapJpegQuality, maxDim: MapMaxDim, jpg =>
                 {

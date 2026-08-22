@@ -1,30 +1,27 @@
 // HUD page — a clickable replica of the game's HUD OPTIONS screen (HUDOptions). Fetch-driven, not
-// telemetry-pushed: it GETs the current state from /hud-options and POSTs hud.* commands back. See
-// hud.html for the control contract and docs/hud-page.md for the model.
+// telemetry-pushed: it GETs the current state from /hud-options and POSTs hud.* commands back.
+// See hud.html for the control contract and docs/hud-page.md for the model.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 
-// The seven categories in listCategories order. The game exposes no per-category display name, and
-// this order is fixed in its inspector, so the labels live here (docs/hud-page.md). The count from
-// /hud-options is checked against this so a game-side reorder surfaces rather than mislabels.
+// The game exposes no per-category display name; this order is fixed in its inspector (docs/hud-page.md).
+// The count from /hud-options is checked against this so a game-side reorder surfaces rather than mislabels.
 const CATEGORY_LABELS = ['FRIENDLY', 'ENEMY', 'AIRCRAFT', 'MISSILES', 'VEHICLES', 'BUILDINGS', 'SHIPS'];
 // Which category rows own a sub-type chip grid, and the hud.set group that drives it.
 const SUBTYPE_GROUP = { 4: 'vehicle', 5: 'building' };
-// The mod's captured type sprites, by group — the real in-game icons. Vehicle names reuse the TGT
-// page's capture; buildings have their own (a name like RDR is in both, so they can't share).
+// Vehicle names reuse the TGT page's capture; buildings have their own (a name like RDR is in both,
+// so they can't share).
 const ICON_BASE = { vehicle: '/tgt-icon', building: '/building-icon' };
-// The two faction categories are coloured apart from the green type categories, as in game — see
-// hud.css. Index into CATEGORY_LABELS.
+// Index into CATEGORY_LABELS. The two faction categories are coloured apart from the green type
+// categories, as in game — see hud.css.
 const FACTION_CLASS = { 0: 'friendly', 1: 'enemy' };
 
-// The in-game screen centres a real type glyph on AIRCRAFT/MISSILES/VEHICLES/BUILDINGS/SHIPS (not the
-// two faction rows). HUDOptions exposes no per-category icon field for it, but it turned out to be a
-// plain child Image ("TopContainer/Icon") on each row, found by a one-shot hierarchy dump and captured
-// to /hud-cat-icon keyed by this label (docs/hud-page.md, AssetCapture.TryCaptureHudCategoryIcons).
-// FRIENDLY/ENEMY (0, 1) have no entry — the game draws no glyph on those rows either.
+// HUDOptions exposes no per-category icon field; the glyph is captured from a plain child Image
+// ("TopContainer/Icon") on each row, keyed by this label (docs/hud-page.md,
+// AssetCapture.TryCaptureHudCategoryIcons). FRIENDLY/ENEMY (0, 1) have no entry.
 const CAT_ICON_INDICES = new Set([2, 3, 4, 5, 6]);
 
-// The category's captured glyph, or null for a row with none. Same retry-on-404 approach as subIcon
-// below: the mod extracts these over the mission's first few scans, so an early request can 404.
+// Same retry-on-404 approach as subIcon below: the mod extracts these over the mission's first few
+// scans, so an early request can 404.
 function catIcon(index) {
   if (!CAT_ICON_INDICES.has(index)) return null;
   const img = document.createElement('img');
@@ -41,25 +38,29 @@ function catIcon(index) {
   return img;
 }
 
-// Native-HUD declutter toggles — the mod's own HudDeclutter flags (declutter.set), a separate axis
-// from the HUDOptions unit-icon controls: they hide native game HUD widgets. `key` is the group the
-// command carries; the /hud-options `declutter` object reports each flag's HIDE state (true = hidden).
+// The mod's own HudDeclutter flags (declutter.set), a separate axis from the HUDOptions unit-icon
+// controls. `key` is the group the command carries; the /hud-options `declutter` object reports
+// each flag's HIDE state (true = hidden).
 const DECLUTTER = [
   { key: 'weapon',  label: 'WEAPONS' },
   { key: 'minimap', label: 'MINIMAP' },
   { key: 'boxes',   label: 'FLIGHT' },
-  { key: 'feed',    label: 'FEED' },   // native kill-feed ticker (issue #34, docs/akf-page.md)
+  { key: 'feed',    label: 'FEED' },   // native kill-feed ticker (docs/akf-page.md)
 ];
 
 const dcEl    = document.getElementById('hud-declutter');
 const modesEl = document.getElementById('hud-modes');
 const catsEl  = document.getElementById('hud-cats');
 const emptyEl = document.getElementById('hud-empty');
+const presetBarEl   = document.getElementById('hud-preset-bar');
+const presetLabelEl = document.getElementById('hud-preset-label');
+const presetSaveBtn = document.getElementById('hud-preset-save');
+const presetLoadBtn = document.getElementById('hud-preset-load');
 
 let data = null;          // last /hud-options snapshot
 
-// The game builds the toggles from the Encyclopedia with underscored names (IR_SAM); the in-game
-// screen shows them spaced. Match that.
+// The game builds toggle names from the Encyclopedia with underscores (IR_SAM); the in-game screen
+// shows them spaced.
 function pretty(name) { return String(name).replace(/_/g, ' '); }
 
 function load() {
@@ -79,15 +80,65 @@ function render(d) {
   // The declutter object rides the same payload but is its own axis; guard it separately so an older
   // plugin (or an empty payload) simply omits the strip rather than showing dead toggles.
   const hasDc = has && d.declutter && typeof d.declutter === 'object';
-  emptyEl.style.display = has ? 'none' : '';
-  dcEl.style.display    = hasDc ? '' : 'none';
-  modesEl.style.display = has ? '' : 'none';
-  catsEl.style.display  = has ? '' : 'none';
+  emptyEl.style.display     = has ? 'none' : '';
+  dcEl.style.display        = hasDc ? '' : 'none';
+  modesEl.style.display     = has ? '' : 'none';
+  catsEl.style.display      = has ? '' : 'none';
+  presetBarEl.style.display = has ? '' : 'none';
   if (!has) return;
   if (hasDc) renderDeclutter();
+  renderPreset();
   renderModes();
   renderCats();
 }
+
+// The "PRESET N: name" label rides this page's existing /hud-options poll (a `preset` field,
+// TelemetryServer.RefreshHudOptions) rather than a second endpoint; SAVE/LOAD fetch /hud-presets
+// on demand, only while their modal is open.
+function renderPreset() {
+  const p = data.preset || { index: 1, name: '' };
+  presetLabelEl.textContent = 'PRESET ' + p.index + ': ' + (p.name || '');
+}
+
+// LOAD's picker needs the full 5-slot list; the PRESET label alone doesn't need it, so this is
+// fetched only when the LOAD modal opens, not on the page's regular poll.
+function fetchPresetItems() {
+  return fetch('/hud-presets', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : { presets: [] }; })
+    .then(function (d) {
+      return (d.presets || []).map(function (p) {
+        return {
+          index: p.index,
+          name: p.name || '',
+          hasData: !!p.hasData,
+          display: 'PRESET ' + p.index + (p.name ? ': ' + p.name : ''),
+        };
+      });
+    })
+    .catch(function () { return []; });
+}
+
+presetSaveBtn.addEventListener('click', function () {
+  LayoutModal.prompt('SAVE PRESET', function (name) {
+    send('preset.save', { wname: name });
+    // Optimistic: we know exactly which slot (whatever's current) and name this just set.
+    if (data.preset) data.preset.name = name;
+    renderPreset();
+    LayoutModal.close();
+  });
+});
+
+presetLoadBtn.addEventListener('click', function () {
+  LayoutModal.pickList('LOAD PRESET', fetchPresetItems, {
+    onPick: function (item) {
+      send('preset.load', { index: item.index });
+      data.preset = { index: item.index, name: item.name };   // optimistic; resync settles it
+      renderPreset();
+    },
+    onRename: function (item, name) { return sendCommand('preset.rename', { index: item.index, wname: name }); },
+    onDelete: function (item) { return sendCommand('preset.delete', { index: item.index }); },
+  });
+});
 
 // The declutter strip: one toggle per native widget. Lit = the widget is SHOWN on the HUD (flag off);
 // gray = hidden/decluttered. Inverts the reported HIDE flag so it reads like the rest of the page
@@ -212,7 +263,7 @@ function subIcon(group, name) {
 // is positioned in viewport coordinates instead of panel-local ones: a child positioned relative to
 // a scrolling ancestor would drift with the content on every scroll, which a cursor overlay must
 // never do (contrast TGT, whose .tgt-panel doesn't scroll, so panel-local coordinates work there).
-const CURSORABLE = '.hud-dc, .hud-mode, .hud-max, .hud-sub';
+const CURSORABLE = '.hud-dc, .hud-mode, .hud-max, .hud-sub, .hud-preset-btn';
 const hudPanel   = document.getElementById('hud-panel');
 const padCursorEl = document.getElementById('pad-cursor');
 const cursor = createPadCursor({
@@ -249,7 +300,7 @@ function padCursorMoveAt(x, y) {
 
 // Zoom In/Out (map-act's zoom-in/zoom-out) are repurposed here to scroll the panel — nothing on
 // this page to zoom, and the binds already exist end-to-end (docs/page-cursor.md).
-const SCROLL_STEP = 60;   // ponytail: flat constant tuned by feel, like pad-cursor.js's own SPEED
+const SCROLL_STEP = 60;   // flat constant tuned by feel, like pad-cursor.js's own SPEED
 
 window.addEventListener('message', function (e) {
   const m = e.data;

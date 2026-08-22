@@ -1,0 +1,40 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Standalone test project (docs/csharp-unit-testing.md) — NOT a ProjectReference to
+       NOXMFD.csproj, which would drag in the $(GameDir)-relative Assembly-CSharp/
+       UnityEngine.Modules/Mirage/Rewired references and require a real Nuclear Option install just
+       to build tests. Instead compiles the specific pure .cs files directly (see the ItemGroup
+       below), same standalone-sibling shape as tools/apicheck/. Excluded from the main plugin
+       build already, via NOXMFD.csproj's blanket `<Compile Remove="tools\**\*.cs" />`. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Both files are already 100% BCL — no Unity/BepInEx types — after the small storage/log/
+         escape seam described in docs/csharp-unit-testing.md (RouteStore.ConfigDir/LogWarning/
+         PersistToDisk fields, EscapeJson moved to JsonLite.cs). -->
+    <Compile Include="..\..\src\plugin\JsonLite.cs" Link="Source\JsonLite.cs" />
+    <Compile Include="..\..\src\plugin\RouteStore.cs" Link="Source\RouteStore.cs" />
+    <!-- TelemetrySnapshot.cs is the plain DTO the frame is built from; TelemetryJson.cs is the
+         pure serializer split out of TelemetryServer.cs (docs/refactor-scan.md step 10) — neither
+         has a Unity/BepInEx touchpoint. -->
+    <Compile Include="..\..\src\plugin\TelemetrySnapshot.cs" Link="Source\TelemetrySnapshot.cs" />
+    <Compile Include="..\..\src\plugin\TelemetryJson.cs" Link="Source\TelemetryJson.cs" />
+  </ItemGroup>
+
+</Project>

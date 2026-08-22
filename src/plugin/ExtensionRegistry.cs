@@ -9,7 +9,7 @@ namespace NOXMFD
     // Backing store for Api.cs — kept separate so Api.cs stays a small, purely documented public
     // surface while this holds whatever bookkeeping it needs without that becoming part of the
     // contract. TelemetryServer reads from this for routing/serialization; MissionLifecycle.Update
-    // drains the command queue, the same pattern CommandDispatcher.Drain already uses.
+    // drains the command queue.
     internal static class ExtensionRegistry
     {
         internal sealed class Entry
@@ -23,16 +23,15 @@ namespace NOXMFD
         private static readonly Dictionary<string, Entry> _extensions = new Dictionary<string, Entry>(StringComparer.Ordinal);
         private static readonly object _extLock = new object();
 
-        // Latest published slice JSON per extension id — same volatile-latest-wins shape as
-        // RouteStore.RoutesJson: written from an extension's own Update(), read by
-        // TelemetryServer's frame serializer every tick.
+        // Latest published slice JSON per extension id — volatile-latest-wins: written from an
+        // extension's own Update(), read by TelemetryServer's frame serializer every tick.
         private static readonly ConcurrentDictionary<string, string> _slices = new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
 
         // Latest published high-rate event JSON per event name, same shape as _slices.
         private static readonly ConcurrentDictionary<string, string> _events = new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
         private static readonly Dictionary<string, string> _emptyEvents = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        private const int MaxQueuedCommands = 64;   // same bound TelemetryServer's own /command queue uses
+        private const int MaxQueuedCommands = 64;
         private static readonly Queue<(string Id, string Json)> _cmdQueue = new Queue<(string, string)>();
         private static readonly object _cmdLock = new object();
 
@@ -63,9 +62,9 @@ namespace NOXMFD
             lock (_extLock) return _extensions.TryGetValue(id, out entry!);
         }
 
-        // For GET /ext-manifest — id+label only, sorted by id for a deterministic order (a plain
-        // Dictionary's enumeration order isn't a contract worth relying on, and the EXT hub's nav
-        // list — ext-nav.js buildExtNavPlan — should render in the same order every load).
+        // For GET /ext-manifest — sorted by id for a deterministic order, since a plain Dictionary's
+        // enumeration order isn't a contract worth relying on and the EXT hub's nav should render in
+        // the same order every load.
         internal static List<Entry> Manifest()
         {
             lock (_extLock)
@@ -82,9 +81,8 @@ namespace NOXMFD
             _slices[id] = json;
         }
 
-        // "{}" when nothing is registered/published — the common case (host JSON gets this
-        // appended every frame regardless). Built fresh per frame; the expected extension count
-        // is small, so no caching is worth the complexity.
+        // Built fresh per frame — the expected extension count is small, so no caching is worth the
+        // complexity.
         internal static string SlicesJson()
         {
             if (_slices.IsEmpty) return "{}";
@@ -105,16 +103,14 @@ namespace NOXMFD
             _events[eventName] = json;
         }
 
-        // Snapshot for one SSE connection's per-tick diff pass (HandleSseAsync) — a copy so that
-        // connection's own "last sent per name" comparison isn't racing a concurrent publish
-        // mid-iteration. Returns a shared empty instance when nothing's published, so the common
-        // zero-extension case costs no allocation on the connection's ~16-30ms tick.
+        // Snapshot for one SSE connection's per-tick diff pass — a copy so that connection's own
+        // "last sent per name" comparison isn't racing a concurrent publish mid-iteration. Returns a
+        // shared empty instance when nothing's published, so the common zero-extension case costs no
+        // allocation.
         internal static Dictionary<string, string> EventsSnapshot()
             => _events.IsEmpty ? _emptyEvents : new Dictionary<string, string>(_events, StringComparer.Ordinal);
 
-        // Continuous MJPEG feed state, one per extension id that ever calls PushMjpegFrame — same
-        // shape as TelemetryServer's own _tgpJpg/_tgpFrameId/_tgpLock/_tgpSubscribers, just keyed
-        // instead of hardcoded to one page.
+        // Continuous MJPEG feed state, one per extension id that ever calls PushMjpegFrame.
         internal sealed class MjpegState
         {
             public byte[]? Jpg;
@@ -142,8 +138,7 @@ namespace NOXMFD
         internal static bool WantsMjpegFrames(string id)
             => !string.IsNullOrEmpty(id) && _mjpeg.TryGetValue(id, out MjpegState st) && Volatile.Read(ref st.Subscribers) > 0;
 
-        // Bumped/dropped by HandleExtMjpegAsync's try/finally, same lifecycle as
-        // TelemetryServer's own _tgpSubscribers counter.
+        // Bumped/dropped by HandleExtMjpegAsync's try/finally.
         internal static void MjpegSubscribe(string id) => Interlocked.Increment(ref GetOrAddMjpeg(id).Subscribers);
         internal static void MjpegUnsubscribe(string id) { if (_mjpeg.TryGetValue(id, out MjpegState st)) Interlocked.Decrement(ref st.Subscribers); }
 
@@ -166,9 +161,8 @@ namespace NOXMFD
         }
 
         // Drained once per frame on the main thread (MissionLifecycle.Update, alongside
-        // CommandDispatcher.Drain) — see that call site for why it runs there rather than a
-        // mission-scoped reader (the /keybinds page's own reasoning applies here too: an
-        // extension's command endpoint should work at the main menu, not just in-mission).
+        // CommandDispatcher.Drain), not a mission-scoped reader — an extension's command endpoint
+        // must work at the main menu, not just in-mission.
         internal static void Drain()
         {
             while (true)

@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
 <link rel="stylesheet" href="/assets/shell/f35/f35.css">
+<link rel="stylesheet" href="/assets/shell/layout-modal.css">
 </head>
 <body>
 
@@ -138,8 +139,17 @@
        choice is always these two, and F-35 is marked as current here rather than in JS because this
        document IS the F-35 layout. -->
   <div class="layout-picker" id="layout-picker" hidden>
-    <button type="button" class="nav-item" data-layout="classic">CLASSIC</button>
-    <button type="button" class="nav-item on" data-layout="f35">F-35</button>
+    <div class="layout-picker-row">
+      <button type="button" class="nav-item" data-layout="classic">CLASSIC</button>
+      <button type="button" class="nav-item on" data-layout="f35">F-35</button>
+    </div>
+    <!-- SAVE/LOAD LAYOUT (issue #51 follow-up) — a touch-friendly path alongside the keyboard
+         shortcut, on the same menu the bezel offers it from (LYT). A separate row, smaller than the
+         CLASSIC/F-35 choice above, so it doesn't read as a third layout option. -->
+    <div class="layout-picker-row layout-picker-actions">
+      <button type="button" class="nav-item" id="layout-picker-save">SAVE LAYOUT</button>
+      <button type="button" class="nav-item" id="layout-picker-load">LOAD LAYOUT</button>
+    </div>
   </div>
 </div>
 
@@ -162,6 +172,14 @@
      rather than re-deriving that check by hand (mirrors mfd.html's classic-shell twin). -->
 <script src="/assets/pages/wpt/wpt-route.js"></script>
 <script src="/assets/pages/wpt/waypoints-store.js"></script>
+<!-- SAVE/LOAD LAYOUT (issue #51) — shared with the CLASSIC shell. keybinds-keymap.js's KeyboardEvent
+     -> Unity KeyCode naming is reused so a configured key matches what the KEY page stores. -->
+<script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
+<script src="/assets/shell/layout-store.js"></script>
+<script src="/assets/shell/layout-modal.js"></script>
+<script src="/assets/shell/layout-keybinds.js"></script>
+<script src="/assets/shell/layout-keydown.js"></script>
+<script src="/assets/shell/boot-reveal.js"></script>
 <script src="/assets/shell/f35/f35.js"></script>
 </body>
 </html>

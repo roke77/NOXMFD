@@ -120,7 +120,7 @@ mislabelled.
 
 Above the HUDOptions replica sits a one-row strip of three toggles — WEAPONS,
 MINIMAP, FLIGHT — that drive the mod's **own** `HudDeclutter` feature
-([HudDeclutter.cs](../src/plugin/HudDeclutter.cs)), not the game's `HUDOptions`.
+([HudDeclutter.cs](../src/plugin/Hud/HudDeclutter.cs)), not the game's `HUDOptions`.
 It is a separate axis: HUDOptions gates which *unit icons* draw on the HUD; these
 hide native HUD *widgets* (the top-right weapon/ammo/CM cluster, the corner
 minimap, the boxed heading/speed/alt readouts). They share the page because both
@@ -178,8 +178,9 @@ clean sprite to capture. Left off rather than faked; an inline-SVG approximation
   own, same as any other externally-driven change.
 - **Persistence.** `HUDOptions.SaveSettings()` writes the current mode's preset
   to JSON. The page does not need to call it — toggles apply live and the game
-  owns persistence — but a "save this as the mode default" control is a possible
-  later nicety.
+  owns persistence. The "save this as a named default" nicety this note used to
+  flag is now built — see [HUD presets](hud-presets.md) — as the page's own
+  separate save/load, not a change to how the game's own mode presets persist.
 - **Category label drift.** See "Why category names are the page's". If it ever
   bites, the fix is to derive names plugin-side (faction flag for the first two,
   unit-definition type for the rest) and emit them like vehicles/buildings.
@@ -187,3 +188,14 @@ clean sprite to capture. Left off rather than faked; an inline-SVG approximation
   1.2 s (stage 3), so a change made from the in-cockpit screen shows on the MFD
   within ~1 s (the plugin's 1 Hz refresh tick), not only after the page's own
   writes.
+- **A second driver of the mode tabs.** [issue #50](https://github.com/roke77/NOXMFD/issues/50)
+  (docs/radar-master-arms.md) has weapons/combat mode force-apply the A2A/A2G mode preset
+  automatically, and restore the player's own last-edited values on returning to idle — opt-in, off
+  by default (KEY page toggle). That snapshot lives outside `HUDOptions` entirely
+  (`HudCombatModeFilters.cs`) — this page and its 1.2 s poll are unaware of it and need no changes;
+  from the page's point of view it's just another externally-driven change showing up on the next
+  poll, same as an in-cockpit toggle.
+- **HUD presets** ([docs/hud-presets.md](hud-presets.md)) — a separate feature, the page's own 5
+  named save/load slots (bottom bar, `preset` field on `/hud-options`, `/hud-presets` for the LOAD
+  list). Independent of the mode tabs and of the combat-mode automation above; the only touchpoint
+  is that loading a preset counts as a player edit for that automation's own idle baseline.

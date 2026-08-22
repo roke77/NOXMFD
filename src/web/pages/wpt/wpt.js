@@ -1,6 +1,6 @@
 // WPT page (issue #38) — route/waypoint list editor + distance/bearing readout. DOM-coupled, not
 // unit-tested. docs/hud-waypoint-indicator.md (Option 2): route data and its mutation logic are
-// now authoritative in the plugin (RouteStore.cs) — every WaypointsStore mutator is a POST
+// authoritative in the plugin (RouteStore.cs) — every WaypointsStore mutator is a POST
 // /command that resolves once the plugin's response has been polled back in, so callers chain
 // .then(render) instead of calling render() synchronously afterward. WptRoute/WaypointsStore are
 // classic <script> globals (wpt.html), loaded before this module.
@@ -394,7 +394,7 @@ function padCursorMoveAt(x, y) {
 
 // Zoom In/Out (map-act's zoom-in/zoom-out) are repurposed here to scroll the page — nothing on this
 // page to zoom, and the binds already exist end-to-end (docs/page-cursor.md), same as TGT/HUD.
-const SCROLL_STEP = 60;   // ponytail: flat constant tuned by feel, like pad-cursor.js's own SPEED
+const SCROLL_STEP = 60;   // flat constant tuned by feel, like pad-cursor.js's own SPEED
 
 window.addEventListener('message', function (e) {
   const m = e.data;

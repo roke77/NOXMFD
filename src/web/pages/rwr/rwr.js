@@ -1,6 +1,6 @@
 // RWR page — radar-warning scope. A pure reactive renderer driven by the shell over
 // postMessage; single source of truth for BOTH layouts (full-screen iframe + split pane).
-// The full-view overlay twin in MfdPage.cs is gone. See rwr.html for the message contract.
+// See rwr.html for the message contract.
 
 // Contacts: each 'rwr' postMessage carries nose-up plot data, already converted by ClientPage —
 // { az (deg clockwise from nose), d (0..1 radius), tr (tier 0 search / 1 track / 2 lock),

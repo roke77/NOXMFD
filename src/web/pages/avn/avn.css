@@ -1,7 +1,7 @@
 /* AVN page — avionics (the 8 avn.toggle status tiles + FUEL/RPM/HEAT/THRL gauges). Single source
    of truth for BOTH layouts. Base reset / colour tokens / font come from theme.css. No damage
-   silhouette or airframe name here — both moved out (the AFM page owns airframe status; this
-   page is avionics only). */
+   silhouette or airframe name here — the AFM page owns airframe status; this page is avionics
+   only. */
 .avn-panel {
   position: absolute;
   inset: 0;
@@ -9,12 +9,10 @@
   font-family: var(--no-font);
 }
 
-/* .avn-content wraps the icon grid + gauge grid as one flex column, positioned/sized entirely by
-   avn.js's layoutAvnContent (left/top/width/height inline, full panel width, the vertical band
-   avnContentVerticalExtent names) — CSS only splits that box's height between the two grids (below)
-   and centres them as a unit via justify-content. Replaces the old side-column tile layout (tiles
-   anchored to bezel-key geometry the shell forwarded) — that anchoring moved to the shell itself:
-   CLASSIC's full view now draws its own NAV labels at those 8 keys instead (mfd.js
+/* .avn-content wraps the icon grid + gauge grid as one flex column; avn.js's layoutAvnContent sets
+   left/top/width/height inline (the vertical band avnContentVerticalExtent computes) — CSS only
+   splits that box's height between the two grids (below) and centres them as a unit via
+   justify-content. CLASSIC's full view draws its own NAV labels at the bezel keys (mfd.js
    placeAvnNavLabels), so this page needs no per-tile geometry from the shell in either profile. */
 .avn-content {
   position: absolute;
@@ -29,15 +27,13 @@
 }
 .avn-content.placed { display: flex; }
 
-/* Status-icon grid: 2 rows x 4 cols, fixed reading order (matches mfd.js's AVN_TOGGLE_GROUPS: GEAR/
-   RADAR/GUNS/ENG, then ASSIST/NVG/LIGHTS/TURRET). Muted green dividers between cells only — no
-   outer border, so the grid reads as one instrument cluster rather than a boxed panel. Sized to its
-   own content (icons are a fixed size, not stretched — see .avn-tile-icon below) rather than
-   flex-growing, so the gauge grid below gets the rest of the available height.
-   AVN_TILE_COL_W-wide side padding (matches the old side-column inset, and the shell's bezel NAV
-   labels it's clearing) keeps every tile AND its divider borders off the bezel-key label zone —
-   the gauges never needed this because a circular dial has natural margin inside its own grid cell,
-   but a tile (and its full-bleed border lines) fills its cell edge to edge. */
+/* Status-icon grid: 2 rows x 4 cols, fixed reading order matching mfd.js's AVN_TOGGLE_GROUPS
+   (GEAR/RADAR/GUNS/ENG, then ASSIST/NVG/LIGHTS/TURRET). No outer border, so the grid reads as one
+   instrument cluster rather than a boxed panel. Sized to its own content (icons are a fixed size,
+   not stretched — see .avn-tile-icon below) rather than flex-growing, so the gauge grid below gets
+   the rest of the available height. Side padding keeps every tile and its divider borders off the
+   bezel-key NAV label zone — the gauges never need this because a circular dial has natural margin
+   inside its own grid cell, but a tile's full-bleed border lines fill its cell edge to edge. */
 .avn-icon-grid {
   flex: 0 0 auto;
   width: 100%;
@@ -47,8 +43,8 @@
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(2, auto);
 }
-/* F-35 portal (avn.js's IS_F35): the master strip already shows these 8 flags (issue #35), so the
-   page hides the grid and leaves the gauge grid (flex:1 1 auto) to fill the freed height. */
+/* F-35 portal (avn.js's IS_F35): the master strip already shows these 8 flags, so the page hides
+   the grid and leaves the gauge grid (flex:1 1 auto) to fill the freed height. */
 body.f35 .avn-icon-grid { display: none; }
 .avn-tile {
   display: flex;
@@ -58,20 +54,17 @@ body.f35 .avn-icon-grid { display: none; }
   gap: 4px;
   padding: 10px 0;
   border: 0 solid var(--no-green-dark);   /* muted inner dividers only, see the two rules below */
-  color: var(--no-gray);   /* off / dim; on/gear-down override below. Drives label + icon. */
-  cursor: pointer;   /* directly clickable/touchable — see avn.js's click wiring */
-  /* .avn-content (the flex column wrapping both grids) is pointer-events:none so the empty space
-     around the tiles/gauges never eats a click meant for the page behind it — but pointer-events
-     inherits, so without this override a REAL mouse/touch click hit-tests straight through the tile
-     to whatever's underneath and never reaches it at all. A JS-dispatched el.click() bypasses
-     hit-testing entirely and fires anyway, which is why that looked fine in an automated check. */
+  color: var(--no-gray);   /* off/dim; on/gear-down override below */
+  cursor: pointer;
+  /* .avn-content is pointer-events:none so empty space around the tiles/gauges doesn't eat clicks
+     meant for the page behind it — but pointer-events inherits, so without this override a real
+     mouse/touch click hit-tests straight through the tile instead of reaching it. */
   pointer-events: auto;
 }
-.avn-tile:not(:nth-child(4n)) { border-right-width: 1px; }   /* between columns 1-2, 2-3, 3-4 */
-.avn-tile:nth-child(-n+4)     { border-bottom-width: 1px; }  /* between row 1 and row 2 */
-/* Bottom-row tiles read icon-then-label (label under the icon) instead of the top row's
-   label-then-icon — reversing the flex order rather than the markup, so avn.js's DOM-order lookups
-   (querySelector by id) don't need to change. */
+.avn-tile:not(:nth-child(4n)) { border-right-width: 1px; }
+.avn-tile:nth-child(-n+4)     { border-bottom-width: 1px; }
+/* Bottom row reverses flex order (icon-then-label) rather than markup order, so avn.js's
+   DOM-order lookups (querySelector by id) don't need to change. */
 .avn-tile:nth-child(n+5) { flex-direction: column-reverse; }
 .avn-tile.on        { color: var(--no-green); }
 .avn-tile.gear-down { color: var(--no-red); }
@@ -91,9 +84,8 @@ body.f35 .avn-icon-grid { display: none; }
   height: clamp(27px, 4.9vh, 40px);
   display: block;
 }
-/* GEAR uses a recolourable mask of the REAL in-game glyph — captured once from the game and baked
-   as gear-icon.png — rather than inline SVG, so it turns green/gray/red like the others.
-   background-color = currentColor drives the recolour; mask contain/center keeps it aligned. */
+/* GEAR uses a recolourable mask of the in-game glyph (baked as gear-icon.png) rather than inline
+   SVG, so it turns green/gray/red like the others via background-color = currentColor. */
 :root { --gear-mask: url("/assets/pages/avn/gear-icon.png"); }
 .avn-mask-icon {
   background-color: currentColor;
@@ -101,17 +93,12 @@ body.f35 .avn-icon-grid { display: none; }
           mask: var(--gear-mask) no-repeat center / contain;
 }
 
-/* FUEL/RPM/HEAT/THRL as a 2x2 grid of needle dials — mockup-tested with the user across three
-   styles (this needle+value-inside-dial look, a no-needle progress-ring, and a needle-only style
-   with the label above) before landing on the first: a sweep needle over the muted tick arc, with
-   both the name and the value inside the dial — name above centre, value below, a mirrored pair
-   rather than a label-then-icon stack. A lit progress arc (.avn-gauge-fill, zero to the current
-   value) rides the same track — a first attempt at this was thicker and glowing and read as two
-   concentric bars with a gap between rather than one gauge; matching the track's own width fixed
-   it. Takes all the height the icon grid above doesn't use (that one is flex:0 0 auto,
-   content-sized) — .avn-content's own positioning covers both grids, so this one just needs to
-   fill whatever's left of that box. Each dial's own face is plain CSS + the shared tick-ring
-   <defs> in avn.html. */
+/* FUEL/RPM/HEAT/THRL as a 2x2 grid of needle dials: a sweep needle over the muted tick arc, with
+   the name above centre and value below inside the dial — a mirrored pair rather than a
+   label-then-icon stack. The lit progress arc (.avn-gauge-fill) matches the track's own width so
+   it reads as one gauge rather than two concentric bars with a gap. Takes all the height the icon
+   grid above doesn't use (that one is flex:0 0 auto, content-sized). Each dial's own face is
+   plain CSS + the shared tick-ring <defs> in avn.html. */
 .avn-gauge-grid {
   flex: 1 1 auto;
   min-height: 0;
@@ -128,21 +115,18 @@ body.f35 .avn-icon-grid { display: none; }
   height: 100%;
   min-height: 0;
   min-width: 0;
-  /* The dials report in white, not the screen's green — they read as a distinct instrument cluster
-     next to the green status tiles above them. `color` drives the needle, hub, value and label
-     (all currentColor); the dial FACE below picks the matching --no-white-dark/-dim. The
-     caution/critical/AB overrides further down still win over this, so a warning is still amber/red. */
+  /* White, not the screen's green, so the dials read as a distinct instrument cluster next to the
+     green status tiles above. `color` drives the needle, hub, value and label (all currentColor);
+     the caution/critical/AB overrides further down still take priority, so a warning still shows
+     amber/red. */
   color: var(--no-white);
   font-family: var(--no-font);
   text-shadow: 0 0 4px rgba(var(--no-white-rgb), 0.3);
 }
-/* The dial fills whichever of the cell's own width/height is tighter, via container query units
-   (cqmin = min(cqw,cqh)) — so a wide-but-short cell (grid wider than tall) still gets a full circle
-   sized off its height, with the leftover width just becoming breathing room around it, rather than
-   the dial shrinking to fit some fixed vh cap regardless of how much room is actually available.
-   position:relative so .avn-gauge-label/.avn-gauge-val (HTML divs, not SVG text — plain CSS
-   typography is simpler than sizing/centring an SVG <text> node) can centre themselves over the
-   dial's face, one above centre and one below — a mirrored pair, not a label-then-icon stack. */
+/* cqmin (min(cqw,cqh)) sizing so a wide-but-short cell still gets a full circle sized off its
+   height, with leftover width becoming breathing room, rather than the dial shrinking to a fixed
+   vh cap regardless of available room. position:relative lets .avn-gauge-label/.avn-gauge-val
+   (HTML divs — simpler than sizing/centring an SVG <text> node) centre over the dial's face. */
 .avn-gauge-dial-wrap {
   position: relative;
   flex: 1 1 auto;
@@ -159,16 +143,12 @@ body.f35 .avn-icon-grid { display: none; }
   height: 100cqmin;
   overflow: visible;
 }
-/* top is in cqh/cqmin, not a plain %: the dial itself is only 100cqmin tall (.avn-gauge-dial above),
-   centred inside a wrap that's however tall the flex layout gives it (100cqh) — the two only match
-   when the wrap happens to be square. A plain `top: 26%` reads as 26% of the WRAP, which drifts away
-   from 26% of the DIAL as soon as the wrap gets much taller than it is wide (e.g. stretching the
-   window vertically), since the dial then shrinks to the width-capped cqmin while the wrap keeps
-   growing. 50cqh is the wrap's (and dial's, since it's centred) vertical middle; ±24cqmin is 26%/74%
-   of the dial's own 100cqmin height, offset from that middle — so this tracks the dial's actual
-   rendered circle regardless of how non-square the wrap is. left stays a plain 50%: horizontal
-   centring puts the dial's centre at the wrap's 50% mark regardless of size, so only the two
-   off-centre (26%/74%) vertical positions were ever exposed to this. */
+/* top uses cqh/cqmin, not a plain %: the dial is only 100cqmin tall (.avn-gauge-dial above) inside
+   a wrap that's 100cqh tall, and the two only match when the wrap is square. A plain `top: 26%`
+   would be 26% of the wrap, which drifts from 26% of the dial once the wrap gets much taller than
+   wide (the dial then shrinks to the width-capped cqmin while the wrap keeps growing). 50cqh is
+   the shared vertical middle; ±24cqmin is 26%/74% of the dial's own height offset from that
+   middle, so this tracks the dial's actual rendered circle regardless of wrap aspect ratio. */
 .avn-gauge-label {
   position: absolute;
   top: calc(50cqh - 24cqmin);
@@ -193,8 +173,8 @@ body.f35 .avn-icon-grid { display: none; }
   white-space: nowrap;
   pointer-events: none;
 }
-/* The dial face — rim, track and ticks. Fixed neutral tokens rather than currentColor, so the face
-   stays put while the needle/value go amber or red on a warning (see the state rules below). */
+/* Fixed neutral tokens rather than currentColor, so the face stays put while the needle/value go
+   amber or red on a warning (see the state rules below). */
 .avn-gauge-rim {
   fill: none;
   stroke: var(--no-white-dark);
@@ -208,28 +188,19 @@ body.f35 .avn-icon-grid { display: none; }
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
 }
-/* The progress fill — zero to the current value, a smaller-radius (35 vs. .avn-gauge-track's 38)
-   copy of the same sweep, so its outer edge sits right up against the track's inner edge (their
-   3px strokes: fill spans r 33.5-36.5, track spans r 36.5-39.5) rather than retracing the track's
-   exact line — close, not nested deep inside it. Painted FIRST in the SVG (avn.html), below the
-   rim, track and ticks, so all of those still show cleanly on top of it. Fixed green rather than currentColor:
-   it's its own accent (the screen's own primary green, not a restatement of the needle's state
-   colour), and stays that way even when the needle goes red on a warning. Flat (butt) caps, not
-   round — a round cap on a dash this thin reads as a soft dot at each end; the reference gauge's
-   tips are square-cut. Same stroke-width as the track (no glow, no extra thickness) so it reads
-   as a proportionally-thinner inner ring, not a second bar competing with it — a thicker/glowing
-   version of this was tried once already and read exactly that way. avn.js sets
-   stroke-dasharray/-dashoffset (the standard SVG "circular progress" trick) off getTotalLength(),
-   which always reports the path's LOCAL (~0-100 viewBox)
-   length — deliberately NO vector-effect:non-scaling-stroke here, unlike every other stroke on
-   this dial: that property also re-bases dasharray/dashoffset into rendered SCREEN pixels, so on a
-   dial actually drawn at a few hundred px (100cqmin) the ~179-unit dash cycle tiled 1-2 times
-   around the real on-screen arc length instead of running once continuously — the "several
-   disconnected patches" bug. Dropping it makes the dash math and stroke-width share the path's own
-   coordinate space, so the pattern scales exactly with the arc regardless of the dial's rendered
-   size — the trade is this stroke isn't pixel-frozen like the others, but it scales in lockstep
-   across all 4 dials (same viewBox, same cqmin sizing), so nothing looks inconsistent between
-   them. */
+/* Smaller radius (35 vs. .avn-gauge-track's 38) so its outer edge sits against the track's inner
+   edge rather than retracing the track's own line. Painted FIRST in the SVG (avn.html), below the
+   rim, track and ticks, so those still show on top of it. Fixed green rather than currentColor:
+   it's the screen's own primary accent, not a restatement of the needle's state colour, and stays
+   green even when the needle goes red on a warning. Flat (butt) caps, not round: a round cap on a
+   dash this thin reads as a soft dot; the reference gauge's tips are square-cut.
+   Deliberately NO vector-effect:non-scaling-stroke here, unlike every other stroke on this dial:
+   avn.js drives stroke-dasharray/-dashoffset off getTotalLength(), which reports the path's LOCAL
+   (~0-100 viewBox) length, but non-scaling-stroke re-bases dasharray/dashoffset into rendered
+   screen pixels — on a dial actually drawn at a few hundred px (100cqmin) that tiles the ~179-unit
+   dash cycle 1-2 times around the real arc length instead of running once continuously. Dropping
+   it keeps the dash math and stroke-width in the path's own coordinate space, so the pattern
+   scales exactly with the arc regardless of the dial's rendered size. */
 .avn-gauge-fill {
   fill: none;
   stroke: var(--no-green);
@@ -243,10 +214,9 @@ body.f35 .avn-icon-grid { display: none; }
   vector-effect: non-scaling-stroke;
 }
 .avn-gauge-tick.major { stroke: var(--no-white-dim); }
-/* The needle is drawn pointing at the dial's zero position (avn.html); avn.js only ever sets a
-   `rotate()` transform on this group, sweeping it around the dial's own centre — transform-box
-   makes that centre (50,50) the rotation origin instead of the SVG's default (the whole document's
-   top-left corner), which is what lets a plain CSS transform work here at all. */
+/* The needle is drawn pointing at the dial's zero position (avn.html); avn.js sets a `rotate()`
+   transform to sweep it around the dial's own centre. transform-box makes that centre (50,50) the
+   rotation origin instead of the SVG default (the document's top-left corner). */
 .avn-gauge-needle {
   transform-box: view-box;
   transform-origin: 50px 50px;
@@ -257,10 +227,9 @@ body.f35 .avn-icon-grid { display: none; }
 }
 .avn-gauge-hub { fill: currentColor; }
 /* Caution/critical (FUEL: 25%/10%, avn.js paintAvnGauges) recolour ONLY the fill arc — needle,
-   value and label stay white throughout. Deliberately narrower than .na/.ab-active below, which
-   both still recolour the whole gauge (`color`, i.e. everything using currentColor): those mark
-   "this reading is unavailable" / "this is a different mode," not "this value is low," and the
-   needle/value going neutral or red there is the point. */
+   value and label stay white. .na/.ab-active below still recolour the whole gauge (`color`):
+   those mark "this reading is unavailable" / "this is a different mode," not "this value is low,"
+   so the needle/value going neutral or red there is intentional. */
 .avn-gauge.caution  .avn-gauge-fill { stroke: var(--no-amber); }
 .avn-gauge.critical .avn-gauge-fill { stroke: var(--no-red); }
 .avn-gauge.na { color: var(--no-white-dark); text-shadow: none; }
@@ -268,10 +237,8 @@ body.f35 .avn-icon-grid { display: none; }
 /* Reheat fill: same path as .avn-gauge-fill, painted BELOW it (avn.html source order) and always
    revealed full-extent to the live throttle value (avn.js paintAvnThrottle) — .avn-gauge-fill
    painting on top, capped at abStart, masks red for the MIL portion, so the only red that shows
-   through is [abStart, value]. Mirrors the old vertical bar's green-below/red-above split fill,
-   just applied to an arc instead of a straight gradient. Needle/label/value stay white throughout
-   (unlike the old bar's red readout) — the red fill segment plus the AB tag below are enough to
-   flag reheat without recolouring the whole gauge. */
+   through is [abStart, value]. Needle/label/value stay white — the red fill segment plus the AB
+   tag below are enough to flag reheat without recolouring the whole gauge. */
 .avn-gauge-fill-hot {
   fill: none;
   stroke: var(--no-red);
@@ -282,10 +249,9 @@ body.f35 .avn-icon-grid { display: none; }
 /* AB annunciator (avn.html, THR only): "AB" arced along the fill's own inner edge (avn.js sets
    the underlying <path>'s `d`, spanning the fixed [abStart, 1] zone — not the live value, so this
    is the whole label or nothing, never a partial arc that grows with the needle). A real SVG
-   <text>, not an HTML overlay like .avn-gauge-label/-val — font-size is in the dial's own viewBox
-   units, so it scales with the dial exactly like the rim/ticks do, no cqmin clamp needed. Hidden
-   unless the throttle is in the reheat zone (avn.js toggles .ab-active), same "hidden unless
-   active" rule the old .avn-vbar-ab had. */
+   <text>, not an HTML overlay like .avn-gauge-label/-val, so font-size is in the dial's own
+   viewBox units and scales with it exactly like the rim/ticks do, no cqmin clamp needed. Hidden
+   unless the throttle is in the reheat zone (avn.js toggles .ab-active). */
 .avn-gauge-ab-arc {
   font-size: 6px;
   font-weight: 900;

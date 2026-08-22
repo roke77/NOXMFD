@@ -8,9 +8,9 @@ namespace NOXMFD
 {
     internal class TelemetryReader : MonoBehaviour
     {
-        // cfg-rates experiment: was `const`; RatesConfig.SetFastHz (rates.set command) now writes
-        // this live from the RTS page's TLM slider, so PushSnapshot's whole 10 Hz group — own-ship,
-        // weapons, contacts, TGT, BDF/PAL — moves together.
+        // Not a const: RatesConfig.SetFastHz (rates.set command) writes this live from the RTS
+        // page's TLM slider, so PushSnapshot's whole 10 Hz group — own-ship, weapons, contacts,
+        // TGT, BDF/PAL — moves together.
         internal static float FastInterval = 0.1f; // 10 Hz — position / speed
         private const  float SlowInterval  = 1.0f; // 1 Hz  — world scan + map metadata (FindObjectsByType is expensive)
 
@@ -40,8 +40,8 @@ namespace NOXMFD
         // source, Radar.IsJammed() doesn't remember it — so we hook every radar-equipped unit once
         // and remember its last jammer. Radar.IsJammed() (polled fresh each scan) gates whether a
         // unit is CURRENTLY jammed; _jammedBy just answers "by whom" once it is.
-        // ponytail: hooked units are never unhooked (a despawned unit's entry just sits inert) —
-        // bounded by total units spawned in one mission, not worth pruning for a HOTAS MFD mod.
+        // Hooked units are never unhooked (a despawned unit's entry just sits inert) — bounded by
+        // total units spawned in one mission, not worth pruning for a HOTAS MFD mod.
         private readonly HashSet<Unit> _jamHooked = new HashSet<Unit>();
         private readonly Dictionary<Unit, Unit> _jammedBy = new Dictionary<Unit, Unit>();
 
@@ -54,30 +54,13 @@ namespace NOXMFD
         private int _flares    = -1;   // IR flares remaining (refreshed in the 1 Hz scan)
         private int _flaresMax = -1;   // IR flares capacity   (refreshed in the 1 Hz scan)
 
-        // BDF faction-forces panel (docs/bdf-page.md), refreshed in the 1 Hz scan alongside the
-        // loadout — forces counts change on unit spawn/loss, not frame to frame.
-        private bool           _bdfPresent;
-        private string         _bdfFaction   = string.Empty;
-        private float          _bdfFunds;
-        private float          _bdfScore;
-        private int            _bdfWarheads;
-        private BdfCountInfo[] _bdfShips     = Array.Empty<BdfCountInfo>();
-        private BdfCountInfo[] _bdfVehicles  = Array.Empty<BdfCountInfo>();
-        private BdfCountInfo[] _bdfBuildings = Array.Empty<BdfCountInfo>();
-        private BdfCountInfo[] _bdfAircraft  = Array.Empty<BdfCountInfo>();
+        // BDF/PAL faction-forces panels (docs/bdf-page.md), refreshed in the 1 Hz scan alongside
+        // the loadout — forces counts change on unit spawn/loss, not frame to frame. Same block
+        // shape for both, always the fixed BOSCALI/PRIMEVA identities.
+        private FactionForcesBlock _bdf = FactionForcesBlock.Empty;
+        private FactionForcesBlock _pal = FactionForcesBlock.Empty;
 
-        // PAL — same panel, always PRIMEVA (docs/bdf-page.md). Refreshed alongside BDF.
-        private bool           _palPresent;
-        private string         _palFaction   = string.Empty;
-        private float          _palFunds;
-        private float          _palScore;
-        private int            _palWarheads;
-        private BdfCountInfo[] _palShips     = Array.Empty<BdfCountInfo>();
-        private BdfCountInfo[] _palVehicles  = Array.Empty<BdfCountInfo>();
-        private BdfCountInfo[] _palBuildings = Array.Empty<BdfCountInfo>();
-        private BdfCountInfo[] _palAircraft  = Array.Empty<BdfCountInfo>();
-
-        // MIS mission-info panel (docs/mdt-pages.md), refreshed in the 1 Hz scan — same cadence the
+        // MIS mission-info panel (docs/md-pages.md), refreshed in the 1 Hz scan — same cadence the
         // game's own ObjectiveInfoList.Update() refreshes this panel at (refreshDelay = 1f).
         private bool   _misPresent;
         private string _misDescription = string.Empty;
@@ -86,7 +69,7 @@ namespace NOXMFD
         private float  _misScore;
         private byte   _misLevel;
 
-        // OBJ active-objectives list (docs/mdt-pages.md), refreshed alongside MIS.
+        // OBJ active-objectives list (docs/md-pages.md), refreshed alongside MIS.
         private bool       _objPresent;
         private ObjEntry[] _obj = Array.Empty<ObjEntry>();
         private readonly List<MissionPosition.PositionResult> _objPosScratch = new List<MissionPosition.PositionResult>();
@@ -174,6 +157,9 @@ namespace NOXMFD
                 // HUD OPTIONS snapshot for the /hud-options endpoint. Main thread, and cheap; options
                 // change only on a toggle, so 1 Hz is ample. Kept out of PushSnapshot's fast path.
                 TelemetryServer.RefreshHudOptions();
+                // Lazily captures the player's own HUD filter baseline the first time HUDOptions
+                // exists this session (issue #50) — a no-op once one has been captured.
+                HudCombatModeFilters.EnsureBootstrap();
                 // Waypoint route proximity-advance (docs/hud-waypoint-indicator.md) — the plugin now
                 // ticks this itself regardless of which page any browser has open, unlike the old
                 // browser-side check that only ran while the WPT page happened to be visible. 1 Hz is
@@ -265,8 +251,8 @@ namespace NOXMFD
             }
             // BDF/PAL need no local aircraft — each resolves a fixed faction identity straight from
             // FactionRegistry, so both are built unconditionally.
-            BuildBdf();
-            BuildPal();
+            _bdf = BuildFactionForces(FactionHelper.Boscali);
+            _pal = BuildFactionForces(FactionHelper.Primeva);
             BuildMis();
             BuildObj();
             BuildAkf();
@@ -295,7 +281,7 @@ namespace NOXMFD
             return arr;
         }
 
-        // MIS mission-info panel (docs/mdt-pages.md) — mirrors ObjectiveInfoList.UpdateMissionInfo /
+        // MIS mission-info panel (docs/md-pages.md) — mirrors ObjectiveInfoList.UpdateMissionInfo /
         // InitializeMission. Present only in singleplayer: the game reads the mission name/description
         // off MissionManager.CurrentMission there, but shows the Steam lobby name instead in
         // multiplayer (no equivalent description exists), which this mod doesn't plumb through.
@@ -320,7 +306,7 @@ namespace NOXMFD
                              : (byte)0;
         }
 
-        // OBJ active-objectives list (docs/mdt-pages.md) — mirrors ObjectiveInfoList.UpdateObjectiveInfo,
+        // OBJ active-objectives list (docs/md-pages.md) — mirrors ObjectiveInfoList.UpdateObjectiveInfo,
         // the player faction's currently active objectives. ObjPresent=false when the map's HQ isn't
         // resolved yet (e.g. between missions).
         private void BuildObj()
@@ -367,79 +353,58 @@ namespace NOXMFD
             _obj = list.ToArray();
         }
 
-        // Faction-forces breakdown for the BDF page (docs/bdf-page.md) — always the BOSCALI faction,
-        // a fixed identity (like the game's own BDF key), not "whichever faction the player is on".
-        // Confirmed in-game: switching sides did not change which faction this key opens. BdfPresent
-        // =false when that faction has no FactionHQ yet (e.g. between missions).
-        private void BuildBdf()
+        // One faction's forces snapshot — the exact same shape BDF and PAL each need, just for a
+        // different fixed faction identity.
+        private struct FactionForcesBlock
         {
-            FactionHQ hq = FactionRegistry.HqFromName(FactionHelper.Boscali);
+            public bool           Present;
+            public string         Faction;
+            public float          Funds;
+            public float          Score;
+            public int            Warheads;
+            public BdfCountInfo[] Ships;
+            public BdfCountInfo[] Vehicles;
+            public BdfCountInfo[] Buildings;
+            public BdfCountInfo[] Aircraft;
+
+            public static readonly FactionForcesBlock Empty = new FactionForcesBlock
+            {
+                Present   = false,
+                Faction   = string.Empty,
+                Ships     = Array.Empty<BdfCountInfo>(),
+                Vehicles  = Array.Empty<BdfCountInfo>(),
+                Buildings = Array.Empty<BdfCountInfo>(),
+                Aircraft  = Array.Empty<BdfCountInfo>(),
+            };
+        }
+
+        // Faction-forces breakdown for the BDF/PAL pages (docs/bdf-page.md) — always a fixed faction
+        // identity (BOSCALI for BDF, PRIMEVA for PAL), never "whichever faction the player is on":
+        // switching sides does not change which faction either key opens.
+        // FactionHelper.Boscali/Primeva are the game's own two literal faction-name constants
+        // (FactionHelper.cs) — InfoPanel_Faction.cs resolves its BDF/PALA-equivalent keys the same
+        // fixed-name way. Present=false when that faction has no FactionHQ yet (e.g. between missions).
+        private FactionForcesBlock BuildFactionForces(string factionName)
+        {
+            FactionHQ hq = FactionRegistry.HqFromName(factionName);
             MissionStatsTracker tracker = hq != null ? hq.missionStatsTracker : null;
-            if (hq == null || tracker == null) { ClearBdf(); return; }
+            if (hq == null || tracker == null) return FactionForcesBlock.Empty;
 
             Encyclopedia enc = Encyclopedia.i;
             _assets.TryCaptureFactionLogo(hq);
 
-            _bdfPresent   = true;
-            _bdfFaction   = hq.faction != null ? hq.faction.factionName : string.Empty;
-            _bdfFunds     = hq.factionFunds;
-            _bdfScore     = hq.factionScore;
-            _bdfWarheads  = hq.GetWarheadStockpile();
-            _bdfShips     = BdfTypeCounts(enc?.shipTypes,     enc?.ships,     tracker, d => ((ShipDefinition)d).shipType.ToString());
-            _bdfVehicles  = BdfTypeCounts(enc?.vehicleTypes,  enc?.vehicles,  tracker, d => ((VehicleDefinition)d).vehicleType.ToString());
-            _bdfBuildings = BdfTypeCounts(enc?.buildingTypes, enc?.buildings, tracker, d => ((BuildingDefinition)d).buildingType.ToString());
-            _bdfAircraft  = BdfAircraftCounts(enc, tracker);
-        }
-
-        private void ClearBdf()
-        {
-            _bdfPresent   = false;
-            _bdfFaction   = string.Empty;
-            _bdfFunds     = 0f;
-            _bdfScore     = 0f;
-            _bdfWarheads  = 0;
-            _bdfShips     = Array.Empty<BdfCountInfo>();
-            _bdfVehicles  = Array.Empty<BdfCountInfo>();
-            _bdfBuildings = Array.Empty<BdfCountInfo>();
-            _bdfAircraft  = Array.Empty<BdfCountInfo>();
-        }
-
-        // Faction-forces breakdown for the PAL page (docs/bdf-page.md) — same panel as BDF, always
-        // the PRIMEVA faction (the fixed "other" identity, like the game's own PALA key), regardless
-        // of which faction the player is on. FactionHelper.Boscali/Primeva are the game's own two
-        // literal faction-name constants (FactionHelper.cs) — InfoPanel_Faction.cs resolves its BDF/
-        // PALA-equivalent keys the same fixed-name way, not by "current vs other faction".
-        private void BuildPal()
-        {
-            FactionHQ hq = FactionRegistry.HqFromName(FactionHelper.Primeva);
-            MissionStatsTracker tracker = hq != null ? hq.missionStatsTracker : null;
-            if (hq == null || tracker == null) { ClearPal(); return; }
-
-            Encyclopedia enc = Encyclopedia.i;
-            _assets.TryCaptureFactionLogo(hq);
-
-            _palPresent   = true;
-            _palFaction   = hq.faction != null ? hq.faction.factionName : string.Empty;
-            _palFunds     = hq.factionFunds;
-            _palScore     = hq.factionScore;
-            _palWarheads  = hq.GetWarheadStockpile();
-            _palShips     = BdfTypeCounts(enc?.shipTypes,     enc?.ships,     tracker, d => ((ShipDefinition)d).shipType.ToString());
-            _palVehicles  = BdfTypeCounts(enc?.vehicleTypes,  enc?.vehicles,  tracker, d => ((VehicleDefinition)d).vehicleType.ToString());
-            _palBuildings = BdfTypeCounts(enc?.buildingTypes, enc?.buildings, tracker, d => ((BuildingDefinition)d).buildingType.ToString());
-            _palAircraft  = BdfAircraftCounts(enc, tracker);
-        }
-
-        private void ClearPal()
-        {
-            _palPresent   = false;
-            _palFaction   = string.Empty;
-            _palFunds     = 0f;
-            _palScore     = 0f;
-            _palWarheads  = 0;
-            _palShips     = Array.Empty<BdfCountInfo>();
-            _palVehicles  = Array.Empty<BdfCountInfo>();
-            _palBuildings = Array.Empty<BdfCountInfo>();
-            _palAircraft  = Array.Empty<BdfCountInfo>();
+            return new FactionForcesBlock
+            {
+                Present   = true,
+                Faction   = hq.faction != null ? hq.faction.factionName : string.Empty,
+                Funds     = hq.factionFunds,
+                Score     = hq.factionScore,
+                Warheads  = hq.GetWarheadStockpile(),
+                Ships     = BdfTypeCounts(enc?.shipTypes,     enc?.ships,     tracker, d => ((ShipDefinition)d).shipType.ToString()),
+                Vehicles  = BdfTypeCounts(enc?.vehicleTypes,  enc?.vehicles,  tracker, d => ((VehicleDefinition)d).vehicleType.ToString()),
+                Buildings = BdfTypeCounts(enc?.buildingTypes, enc?.buildings, tracker, d => ((BuildingDefinition)d).buildingType.ToString()),
+                Aircraft  = BdfAircraftCounts(enc, tracker),
+            };
         }
 
         // Sums current-unit counts per named type (SHIPS: CV/LHA/…, VEHICLES: TRUCK/UGV/…,
@@ -622,10 +587,8 @@ namespace NOXMFD
         }
 
         // The active countermeasure index points into CountermeasureManager's private station
-        // list, so we reflect into it once (cached) and check the active station's type.
-        private static FieldInfo?  _cmStationsField;
-        private static MethodInfo? _cmGetFirstMethod;
-
+        // list, so we reflect into it (via the shared CmReflection) and check the active station's
+        // type.
         private static byte GetSelectedCmCategory(Aircraft ac)
         {
             CountermeasureManager mgr = ac.countermeasureManager;
@@ -633,12 +596,8 @@ namespace NOXMFD
 
             try
             {
-                if (_cmStationsField == null)
-                    _cmStationsField = typeof(CountermeasureManager)
-                        .GetField("countermeasureStations", BindingFlags.NonPublic | BindingFlags.Instance);
-
-                if (_cmStationsField?.GetValue(mgr) is not System.Collections.IList list || list.Count == 0)
-                    return 0;
+                System.Collections.IList? list = CmReflection.GetStations(mgr);
+                if (list == null || list.Count == 0) return 0;
 
                 int idx = mgr.activeIndex;
                 if (idx < 0 || idx >= list.Count) return 0;
@@ -646,11 +605,8 @@ namespace NOXMFD
                 object station = list[idx];
                 if (station == null) return 0;
 
-                if (_cmGetFirstMethod == null)
-                    _cmGetFirstMethod = station.GetType()
-                        .GetMethod("GetFirstCountermeasure", BindingFlags.Public | BindingFlags.Instance);
-
-                if (_cmGetFirstMethod?.Invoke(station, null) is not Countermeasure cm) return 0;
+                Countermeasure? cm = CmReflection.GetFirstCountermeasure(station);
+                if (cm == null) return 0;
                 if (cm is FlareEjector) return 1;
                 if (cm is RadarJammer)  return 2;
                 if (cm is ChaffEjector) return 3;
@@ -862,24 +818,24 @@ namespace NOXMFD
                 TgtFaction     = tgtOk ? ReadToggles(tgtSel.toggleFactionItems)      : Array.Empty<TgtToggleInfo>(),
                 TgtCategory    = tgtOk ? ReadToggles(tgtSel.toggleUnitTypesItems)    : Array.Empty<TgtToggleInfo>(),
                 TgtVehicle     = tgtOk ? ReadToggles(tgtSel.toggleVehicleTypesItems) : Array.Empty<TgtToggleInfo>(),
-                BdfPresent     = _bdfPresent,
-                BdfFaction     = _bdfFaction,
-                BdfFunds       = _bdfFunds,
-                BdfScore       = _bdfScore,
-                BdfWarheads    = _bdfWarheads,
-                BdfShips       = _bdfShips,
-                BdfVehicles    = _bdfVehicles,
-                BdfBuildings   = _bdfBuildings,
-                BdfAircraft    = _bdfAircraft,
-                PalPresent     = _palPresent,
-                PalFaction     = _palFaction,
-                PalFunds       = _palFunds,
-                PalScore       = _palScore,
-                PalWarheads    = _palWarheads,
-                PalShips       = _palShips,
-                PalVehicles    = _palVehicles,
-                PalBuildings   = _palBuildings,
-                PalAircraft    = _palAircraft,
+                BdfPresent     = _bdf.Present,
+                BdfFaction     = _bdf.Faction,
+                BdfFunds       = _bdf.Funds,
+                BdfScore       = _bdf.Score,
+                BdfWarheads    = _bdf.Warheads,
+                BdfShips       = _bdf.Ships,
+                BdfVehicles    = _bdf.Vehicles,
+                BdfBuildings   = _bdf.Buildings,
+                BdfAircraft    = _bdf.Aircraft,
+                PalPresent     = _pal.Present,
+                PalFaction     = _pal.Faction,
+                PalFunds       = _pal.Funds,
+                PalScore       = _pal.Score,
+                PalWarheads    = _pal.Warheads,
+                PalShips       = _pal.Ships,
+                PalVehicles    = _pal.Vehicles,
+                PalBuildings   = _pal.Buildings,
+                PalAircraft    = _pal.Aircraft,
                 MisPresent     = _misPresent,
                 MisDescription = _misDescription,
                 MisTimeOfDay   = _misTimeOfDay,

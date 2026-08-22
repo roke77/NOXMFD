@@ -75,11 +75,11 @@ assert.deepStrictEqual(NAV.rates, [
 ]);
 assert.ok(!('lyt' in NAV), 'NAV.lyt must not exist — BEZEL_EXTRAS.lyt owns that page\'s placement');
 
-// WPT (waypoints/route creator, issue #38) is reached from MAP's own nav row, not MDT/CFG's
+// WPT (waypoints/route creator, issue #38) is reached from MAP's own nav row, not MD/CFG's
 // sibling-group pattern — its way back is MAP, not MAIN.
 assert.deepStrictEqual(NAV.wpt, [ { label: 'MAP', action: 'map' } ]);
 
-// AKF/BDF/PAL/MIS/OBJ are folded together (reached from MAIN via MDT — mfd.js BEZEL_EXTRAS.main,
+// AKF/BDF/PAL/MIS/OBJ are folded together (reached from MAIN via MD — mfd.js BEZEL_EXTRAS.main,
 // action still 'bdf'): each gets MAIN plus a direct switch to the other four, with `mark` on
 // whichever is live. Order is AKF, MIS, OBJ, BDF, PAL (issue #34).
 assert.deepStrictEqual(NAV.akf, [

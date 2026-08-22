@@ -47,8 +47,17 @@ namespace NOXMFD
         // re-serialized the full snapshot every tick — wasteful with 3+ screens open.
         private static long             _frameVersion = -1;
         private static long             _frameSoiVersion = -1;   // see SetSoiTarget — the target moves independently of the snapshot
+        private static bool             _frameMissionRunning;    // see SetMissionRunning — same reasoning, for a mission with no aircraft yet
         private static byte[]?          _frameBytes;
         private static readonly object  _frameLock = new object();
+
+        // True between a mission loading and it ending, independent of whether a local aircraft
+        // exists yet (MissionLifecycle.Update polls MissionManager.IsRunning and calls this every
+        // frame). PushSnapshot only pushes once an aircraft is chosen, so without this a pilot who
+        // loaded into a mission but hasn't picked an aircraft yet reads identically to the main
+        // menu — a plain ping, "no mission" — even though a mission genuinely is running.
+        private static volatile bool _missionRunning;
+        public static void SetMissionRunning(bool running) { _missionRunning = running; }
 
         // Captured in-game map image (PNG), set from the Unity main thread.
         private static byte[]?          _mapPng;
@@ -512,13 +521,19 @@ namespace NOXMFD
 
                 // SOI focus can move without a new snapshot, so it versions the cache too — a ping
                 // frame at the main menu is otherwise identical forever and the change never ships.
+                // MissionRunning is the same idea: a mission loading/ending with no aircraft chosen
+                // yet changes nothing else about a ping frame, so it needs the same invalidation.
                 long sv = Interlocked.Read(ref _soiVersion);
-                if (_frameVersion == v && _frameSoiVersion == sv && _frameBytes != null) return _frameBytes;
+                bool mr = _missionRunning;
+                if (_frameVersion == v && _frameSoiVersion == sv && _frameMissionRunning == mr && _frameBytes != null) return _frameBytes;
                 _frameSoiVersion = sv;
+                _frameMissionRunning = mr;
 
                 string payload = snap.Valid
-                    ? Serialize(snap)
-                    : "{\"ping\":true," + SoiJson() + "}";
+                    ? TelemetryJson.Serialize(snap, SoiJson(), ImmersionState.MasterArmsOn,
+                        ImmersionState.CombatMode switch { CombatMode.AirToAir => "aa", CombatMode.AirToGround => "ag", _ => "all" },
+                        ExtensionRegistry.SlicesJson())
+                    : "{\"ping\":true,\"missionRunning\":" + (mr ? "true" : "false") + "," + SoiJson() + "}";
                 _frameBytes   = Encoding.UTF8.GetBytes("data: " + payload + "\n\n");
                 _frameVersion = v;
                 return _frameBytes;
@@ -672,6 +687,10 @@ namespace NOXMFD
                         ServeHudOptions(ctx);
                     else if (path == "/wpt-options")
                         ServeWptOptions(ctx);
+                    else if (path == "/layout-options")
+                        ServeLayoutOptions(ctx);
+                    else if (path == "/hud-presets")
+                        ServeHudPresets(ctx);
                     else if (path == "/rates-config")
                         ServeRatesConfig(ctx);
                     else if (path == "/keybinds-config")
@@ -761,13 +780,53 @@ namespace NOXMFD
         private static readonly Queue<CommandEnvelope> _cmdQueue = new Queue<CommandEnvelope>();
         private static readonly object                 _cmdLock  = new object();
 
+        // docs/server-hardening.md — a command envelope is a few hundred bytes at most; 16 KB
+        // leaves headroom without letting a single request allocate an arbitrarily large string.
+        // Checks the declared Content-Length first (the common case, rejected before any body read
+        // at all), but also caps the actual bytes read when the length is unknown (-1, e.g. chunked
+        // transfer) rather than trusting the header alone. Shared by both command endpoints below —
+        // the only two places in this file that read a request body from an untrusted caller.
+        private const int MaxCommandBodyBytes = 16 * 1024;
+
+        private static bool TryReadBoundedBody(HttpListenerContext ctx, out string body)
+        {
+            body = string.Empty;
+            if (ctx.Request.ContentLength64 > MaxCommandBodyBytes)
+            {
+                ctx.Response.StatusCode = 413;
+                ctx.Response.Close();
+                return false;
+            }
+
+            using var ms = new MemoryStream();
+            var buffer = new byte[4096];
+            Stream input = ctx.Request.InputStream;
+            int read;
+            while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                if (ms.Length + read > MaxCommandBodyBytes)
+                {
+                    ctx.Response.StatusCode = 413;
+                    ctx.Response.Close();
+                    return false;
+                }
+                ms.Write(buffer, 0, read);
+            }
+            body = Encoding.UTF8.GetString(ms.ToArray());
+            return true;
+        }
+
         private static void HandleCommand(HttpListenerContext ctx)
         {
             try
             {
-                string body;
-                using (var r = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
-                    body = r.ReadToEnd();
+                if (ctx.Request.HttpMethod != "POST")
+                {
+                    ctx.Response.StatusCode = 405;   // /ext/<id>/command already gates on POST at the routing site
+                    ctx.Response.Close();
+                    return;
+                }
+                if (!TryReadBoundedBody(ctx, out string body)) return;
 
                 CommandEnvelope env = null;
                 try { env = UnityEngine.JsonUtility.FromJson<CommandEnvelope>(body); }
@@ -811,6 +870,39 @@ namespace NOXMFD
             return false;
         }
 
+        // ── Response helpers ────────────────────────────────────────────────────
+        // The HTTP response mechanics every Serve* handler repeats regardless of what it's
+        // serving: status/content-type/length/write/close, plus Cache-Control for the small
+        // on-demand JSON snapshots. Orthogonal to *what* gets serialized (that's the JSON-writer
+        // layer docs/server-hardening.md already scopes) — this is just the plumbing.
+        private static void WriteJson(HttpListenerContext ctx, string json)
+        {
+            try
+            {
+                byte[] body = Encoding.UTF8.GetBytes(json);
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        private static void WriteBinary(HttpListenerContext ctx, byte[] body, string contentType)
+        {
+            try
+            {
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = contentType;
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
         // ── Extension API (docs/extensions-api.md) ────────────────────────────────
 
         private static void ServeExtManifest(HttpListenerContext ctx)
@@ -825,12 +917,7 @@ namespace NOXMFD
                     sb.Append("{\"id\":\"").Append(EscapeJson(list[i].Id))
                       .Append("\",\"label\":\"").Append(EscapeJson(list[i].Label)).Append("\"}");
                 }
-                byte[] body = Encoding.UTF8.GetBytes(sb.Append(']').ToString());
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, sb.Append(']').ToString());
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -892,9 +979,7 @@ namespace NOXMFD
         {
             try
             {
-                string body;
-                using (var r = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
-                    body = r.ReadToEnd();
+                if (!TryReadBoundedBody(ctx, out string body)) return;
 
                 if (!ExtensionRegistry.TryEnqueueCommand(id, body))
                     Plugin.Log?.LogDebug($"[NOXMFD] extension '{id}' command queue full — dropped.");
@@ -957,12 +1042,7 @@ namespace NOXMFD
                 string json = string.Format(CultureInfo.InvariantCulture,
                     "{{\"localhost\":\"http://localhost:{0}\",\"lanUrl\":\"{1}\",\"port\":{0}}}",
                     Port, EscapeJson(LanUrl ?? string.Empty));
-                byte[] body = Encoding.UTF8.GetBytes(json);
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, json);
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -989,12 +1069,7 @@ namespace NOXMFD
                         (DateTime.UtcNow - it.ConnectedUtc).TotalSeconds);
                 }
                 sb.Append("]}");
-                byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, sb.ToString());
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1062,13 +1137,18 @@ namespace NOXMFD
                       .Append("\",\"label\":\"").Append(EscapeJson(b.Label))
                       .Append("\",\"description\":\"").Append(EscapeJson(b.Description)).Append('"');
                     // Digital source — absent for an axis-only bind (docs/map-cursor.md); the page
-                    // renders no key/joy cell for a row that has no key/joyButton field.
+                    // renders no key/joy cell for a row that has no key/joyButton field. The two are
+                    // independently optional: a key-only bind (issue #51's SAVE/LOAD LAYOUT — browser-
+                    // side only, no joystick/HOTAS) has KeyEntry but no JoyEntry, so joyButton/joyNum
+                    // are omitted too — the page renders one wide key cell for that row instead of an
+                    // always-empty joystick cell next to it.
                     if (b.KeyEntry != null)
                     {
                         var key = b.KeyEntry.Value.MainKey;
-                        sb.Append(",\"key\":\"").Append(key == UnityEngine.KeyCode.None ? string.Empty : EscapeJson(key.ToString()))
-                          .Append("\",\"joyButton\":").Append(b.JoyEntry!.Value.ToString(CultureInfo.InvariantCulture))
-                          .Append(",\"joyNum\":").Append(b.JoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture));
+                        sb.Append(",\"key\":\"").Append(key == UnityEngine.KeyCode.None ? string.Empty : EscapeJson(key.ToString())).Append('"');
+                        if (b.JoyEntry != null)
+                            sb.Append(",\"joyButton\":").Append(b.JoyEntry.Value.ToString(CultureInfo.InvariantCulture))
+                              .Append(",\"joyNum\":").Append(b.JoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture));
                     }
                     // Analog source — present only for the MAP cursor's axis-capable rows.
                     if (b.AxisEntry != null)
@@ -1103,14 +1183,10 @@ namespace NOXMFD
                   .Append(",\"radarOnOnStart\":").Append(ImmersionConfig.RadarOnOnStart ? "true" : "false")
                   .Append(",\"engineOnOnStart\":").Append(ImmersionConfig.EngineOnOnStart ? "true" : "false")
                   .Append(",\"masterArmsOnOnStart\":").Append(ImmersionConfig.MasterArmsOnOnStart ? "true" : "false")
+                  .Append(",\"hudFiltersOnCombatMode\":").Append(ImmersionConfig.HudFiltersOnCombatMode ? "true" : "false")
                   .Append('}');
 
-                byte[] body = Encoding.UTF8.GetBytes(sb.ToString());
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, sb.ToString());
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1126,12 +1202,7 @@ namespace NOXMFD
         {
             try
             {
-                byte[] body = Encoding.UTF8.GetBytes(HudOptionsJson ?? "{}");
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, HudOptionsJson ?? "{}");
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1145,12 +1216,32 @@ namespace NOXMFD
         {
             try
             {
-                byte[] body = Encoding.UTF8.GetBytes(RouteStore.RoutesJson ?? "{\"activeRouteId\":null,\"routes\":[]}");
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, RouteStore.RoutesJson ?? "{\"activeRouteId\":null,\"routes\":[]}");
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // Saved layouts (issue #51) — LayoutStore is the single source of truth, same pattern as
+        // /wpt-options. Mission-independent, so SAVE/LOAD LAYOUT work at the main menu too.
+        private static void ServeLayoutOptions(HttpListenerContext ctx)
+        {
+            try
+            {
+                WriteJson(ctx, LayoutStore.LayoutsJson ?? "{\"layouts\":[]}");
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // HUD filter presets (issue #50 follow-up) — HudPresetStore is the single source of truth,
+        // same pattern as /layout-options. The LOAD picker's on-demand fetch; the bottom label's
+        // current-slot summary rides /hud-options instead (RefreshHudOptions), not this endpoint.
+        private static void ServeHudPresets(HttpListenerContext ctx)
+        {
+            try
+            {
+                WriteJson(ctx, HudPresetStore.PresetsJson ?? "{\"current\":1,\"presets\":[]}");
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1166,12 +1257,7 @@ namespace NOXMFD
             {
                 string json = string.Format(CultureInfo.InvariantCulture,
                     "{{\"fastHz\":{0},\"tgpHz\":{1}}}", RatesConfig.FastHz, RatesConfig.TgpHz);
-                byte[] body = Encoding.UTF8.GetBytes(json);
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteJson(ctx, json);
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1236,6 +1322,12 @@ namespace NOXMFD
               .Append(",\"boxes\":").Append(HudDeclutterConfig.HideTopBoxes ? "true" : "false")
               .Append(",\"feed\":").Append(HudDeclutterConfig.HideKillFeed ? "true" : "false")
               .Append('}');
+
+            // Current HUD preset (issue #50 follow-up) — just the slot the bottom label names;
+            // the full 5-slot list for the LOAD picker is a separate on-demand fetch (/hud-presets),
+            // not part of this 1.2s poll payload.
+            sb.Append(",\"preset\":{\"index\":").Append(HudPresetStore.CurrentIndex)
+              .Append(",\"name\":\"").Append(EscapeJson(HudPresetStore.CurrentName)).Append("\"}");
 
             sb.Append('}');
             HudOptionsJson = sb.ToString();
@@ -1379,16 +1471,8 @@ namespace NOXMFD
             lock (_mapLock) captured = _mapPng;
             if (captured != null)
             {
-                try
-                {
-                    // The captured map is JPEG (downscaled in TelemetryReader.MapSpriteToJpg).
-                    ctx.Response.StatusCode      = 200;
-                    ctx.Response.ContentType     = "image/jpeg";
-                    ctx.Response.ContentLength64 = captured.Length;
-                    ctx.Response.OutputStream.Write(captured, 0, captured.Length);
-                }
-                catch { }
-                finally { try { ctx.Response.Close(); } catch { } }
+                // The captured map is JPEG (downscaled in TelemetryReader.MapSpriteToJpg).
+                WriteBinary(ctx, captured, "image/jpeg");
                 return;
             }
 
@@ -1417,11 +1501,7 @@ namespace NOXMFD
 
             try
             {
-                byte[] body = File.ReadAllBytes(filePath);
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = contentType;
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
+                WriteBinary(ctx, File.ReadAllBytes(filePath), contentType);
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -1443,15 +1523,7 @@ namespace NOXMFD
                 return;
             }
 
-            try
-            {
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "image/png";
-                ctx.Response.ContentLength64 = png.Length;
-                ctx.Response.OutputStream.Write(png, 0, png.Length);
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
+            WriteBinary(ctx, png, "image/png");
         }
 
         // Every captured unit-type icon's key, as a JSON string array — tools/capture_assets.py's
@@ -1490,15 +1562,7 @@ namespace NOXMFD
                 lock (_airframeLock) _airframeImages.TryGetValue(type + "|" + part, out png);
 
             if (png == null) { ctx.Response.StatusCode = 404; try { ctx.Response.Close(); } catch { } return; }
-            try
-            {
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "image/png";
-                ctx.Response.ContentLength64 = png.Length;
-                ctx.Response.OutputStream.Write(png, 0, png.Length);
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
+            WriteBinary(ctx, png, "image/png");
         }
 
         private static void ServeAirframeLayout(HttpListenerContext ctx)
@@ -1509,16 +1573,7 @@ namespace NOXMFD
                 lock (_airframeLock) _airframeLayouts.TryGetValue(type, out json);
 
             if (json == null) { ctx.Response.StatusCode = 404; try { ctx.Response.Close(); } catch { } return; }
-            try
-            {
-                byte[] body = Encoding.UTF8.GetBytes(json);
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
+            WriteBinary(ctx, Encoding.UTF8.GetBytes(json), "application/json; charset=utf-8");
         }
 
         // ── MJPEG handler ──────────────────────────────────────────────────────
@@ -1695,391 +1750,6 @@ namespace NOXMFD
             }
         }
 
-        // ── Serialization ──────────────────────────────────────────────────────
-
-        private static string Serialize(TelemetrySnapshot s)
-        {
-            string head = string.Format(CultureInfo.InvariantCulture,
-                "{{\"ping\":false,\"t\":{0:0.000},\"name\":\"{1}\"," +
-                "\"mission\":\"{2}\",\"mapName\":\"{3}\"," +
-                "\"world\":{{\"x\":{4:0.0},\"y\":{5:0.0},\"z\":{6:0.0}}}," +
-                "\"hdg\":{7:0.0},\"tas\":{8:0.0},\"agl\":{9:0.0},\"gear\":\"{10}\"," +
-                "\"units\":{11},\"aircraft\":{12}," +
-                "\"map\":{{\"valid\":{13},\"w\":{14:0.0},\"h\":{15:0.0},\"ox\":{16},\"oy\":{17}}}," +
-                "\"iconOrient\":{18},\"iconScale\":{19:0.000}," +
-                "\"flares\":{20},\"flaresMax\":{21},\"ewKJ\":{22:0.0},\"ewKJMax\":{23:0.0}," +
-                "\"selWeapon\":\"{24}\",\"cmCat\":{25},\"tgpActive\":{26}," +
-                "\"fuel\":{27:0.000},\"thr\":{28:0.000},\"hasAb\":{29},\"abStart\":{30:0.000}," +
-                "\"softGun\":\"{31}\",\"softRel\":\"{32}\",\"masterArmsOn\":{34},\"combatMode\":\"{35}\",{33},",
-                s.Time,
-                EscapeJson(s.PlaneName ?? string.Empty),
-                EscapeJson(s.MissionName ?? string.Empty),
-                EscapeJson(s.MapName ?? string.Empty),
-                s.WorldX, s.WorldY, s.WorldZ,
-                s.Heading, s.TAS, s.AGL,
-                s.GearDown ? "down" : "up",
-                s.TotalUnits, s.TotalAircraft,
-                s.MapValid ? "true" : "false",
-                s.MapW, s.MapH,
-                s.GridOffsetX, s.GridOffsetY,
-                s.IconOrient ? "true" : "false",
-                s.IconScale,
-                s.Flares, s.FlaresMax, s.EwKJ, s.EwKJMax,
-                EscapeJson(s.SelWeapon ?? string.Empty), s.CmCategory,
-                s.TgpActive ? "true" : "false",
-                s.Fuel, s.Throttle,
-                s.HasAfterburner ? "true" : "false", s.AbStart,
-                EscapeJson(s.SoftGun ?? string.Empty), EscapeJson(s.SoftRel ?? string.Empty),
-                SoiJson(),   // server state, not the snapshot's — see SetSoiTarget
-                ImmersionState.MasterArmsOn ? "true" : "false",   // mod state, not the snapshot's — docs/radar-master-arms.md
-                ImmersionState.CombatMode switch { CombatMode.AirToAir => "aa", CombatMode.AirToGround => "ag", _ => "all" });
-
-            return head + "\"loadout\":" + LoadoutArray(s.Loadout)
-                        + ",\"colors\":{"
-                        +   "\"f\":\"" + EscapeJson(s.ColFriendly ?? "#39ff14") + "\","
-                        +   "\"e\":\"" + EscapeJson(s.ColHostile  ?? "#ff4040") + "\","
-                        +   "\"n\":\"" + EscapeJson(s.ColNeutral  ?? "#9aa0a6") + "\"}"
-                        + ",\"contacts\":" + UnitsArray(s.Units)
-                        + ",\"playerId\":" + s.PlayerId
-                        + ",\"pjm\":" + (s.PlayerJammed ? "true" : "false")
-                        + ",\"pjb\":" + s.PlayerJammedBy
-                        + ",\"parts\":" + PartsArray(s.Parts)
-                        + ",\"pylons\":" + PylonsArray(s.Pylons)
-                        + ",\"rwr\":" + RwrArray(s.Rwr)
-                        + ",\"mw\":" + MwArray(s.Mw)
-                        + ",\"rdr\":" + RdrBlock(s)
-                        + ",\"radar\":" + (s.RadarOn ? "true" : "false")
-                        + ",\"guns\":" + (s.GunsLinked ? "true" : "false")
-                        + ",\"ign\":" + (s.Ignition ? "true" : "false")
-                        + ",\"assist\":" + (s.FlightAssist ? "true" : "false")
-                        + ",\"turret\":" + (s.TurretAuto ? "true" : "false")
-                        + ",\"nvg\":" + (s.NightVision ? "true" : "false")
-                        + ",\"navlt\":" + (s.NavLightsOn ? "true" : "false")
-                        + ",\"heat\":" + s.Heat.ToString("0.000", CultureInfo.InvariantCulture)
-                        + ",\"heatColor\":\"" + EscapeJson(s.HeatColor ?? "#39ff14") + "\""
-                        + ",\"rpm\":" + s.Rpm.ToString("0.000", CultureInfo.InvariantCulture)
-                        + ",\"failures\":" + StringArray(s.Failures)
-                        + ",\"tgt\":" + TgtBlock(s)
-                        + ",\"bdf\":" + BdfBlock(s)
-                        + ",\"pal\":" + PalBlock(s)
-                        + ",\"mis\":" + MisBlock(s)
-                        + ",\"obj\":" + ObjBlock(s)
-                        + ",\"akf\":" + AkfBlock(s)
-                        + ",\"ext\":" + ExtensionRegistry.SlicesJson() + "}";
-        }
-
-        // AKF advanced kill feed (docs/akf-page.md). Always present while a mission runs (no "faction
-        // has no HQ yet" gate like MIS/OBJ — an empty session just reads as all-zero). Kills are
-        // scoped to the local player's own kills; all is everyone's, matching the game's own feed.
-        // rank is the player's persistent Player.PlayerRank, not session-scoped.
-        private static string AkfBlock(TelemetrySnapshot s)
-        {
-            return "{\"all\":" + AkfArray(s.AkfAll) + ",\"player\":" + AkfArray(s.AkfPlayer)
-                + string.Format(CultureInfo.InvariantCulture,
-                    ",\"kills\":{{\"aircraft\":{0},\"ship\":{1},\"vehicle\":{2},\"building\":{3}}}" +
-                    ",\"rank\":{4},\"fundsGained\":{5:0.0},\"fundsSpent\":{6:0.0}}}",
-                    s.AkfKillsAircraft, s.AkfKillsShip, s.AkfKillsVehicle, s.AkfKillsBuilding,
-                    s.AkfRank, s.AkfFundsGained, s.AkfFundsSpent);
-        }
-
-        private static string AkfArray(AkfKillEntry[]? items)
-        {
-            if (items == null || items.Length == 0) return "[]";
-            var sb = new StringBuilder("[");
-            for (int i = 0; i < items.Length; i++)
-            {
-                if (i > 0) sb.Append(',');
-                AkfKillEntry e = items[i];
-                sb.Append('{');
-                if (e.Attacker != null)
-                    sb.Append("\"a\":\"").Append(EscapeJson(e.Attacker)).Append("\",\"h\":").Append(e.AttackerHostile ? "true" : "false").Append(',');
-                sb.Append("\"v\":\"").Append(EscapeJson(e.Victim)).Append("\",\"vh\":").Append(e.VictimHostile ? "true" : "false")
-                  .Append(",\"verb\":\"").Append(EscapeJson(e.Verb)).Append('"');
-                if (e.Weapon != null)
-                    sb.Append(",\"w\":\"").Append(EscapeJson(e.Weapon)).Append('"');
-                if (e.PlayerIsVictim)
-                    sb.Append(",\"pv\":true");
-                sb.Append('}');
-            }
-            return sb.Append(']').ToString();
-        }
-
-        // MIS mission-info panel (docs/mdt-pages.md). {present:false} in multiplayer or between
-        // missions. level: 0 Conventional, 1 Tactical, 2 Strategic (TelemetryReader.BuildMis).
-        private static string MisBlock(TelemetrySnapshot s)
-        {
-            if (!s.MisPresent) return "{\"present\":false}";
-            return string.Format(CultureInfo.InvariantCulture,
-                "{{\"present\":true,\"name\":\"{0}\",\"description\":\"{1}\",\"tod\":{2:0.000},\"duration\":{3:0.0},\"score\":{4:0.0},\"level\":{5}}}",
-                EscapeJson(s.MissionName ?? string.Empty), EscapeJson(s.MisDescription ?? string.Empty),
-                s.MisTimeOfDay, s.MisDuration, s.MisScore, s.MisLevel);
-        }
-
-        // OBJ active-objectives list (docs/mdt-pages.md). {present:false} when the player faction's
-        // HQ isn't resolved yet.
-        private static string ObjBlock(TelemetrySnapshot s)
-        {
-            if (!s.ObjPresent) return "{\"present\":false}";
-            return "{\"present\":true,\"items\":" + ObjArray(s.Obj) + "}";
-        }
-
-        private static string ObjArray(ObjEntry[]? items)
-        {
-            if (items == null || items.Length == 0) return "[]";
-            var sb = new StringBuilder("[");
-            for (int i = 0; i < items.Length; i++)
-            {
-                if (i > 0) sb.Append(',');
-                sb.Append(string.Format(CultureInfo.InvariantCulture,
-                    "{{\"n\":\"{0}\",\"s\":{1},\"p\":{2:0.000},\"pos\":{3}}}",
-                    EscapeJson(items[i].Name ?? string.Empty), items[i].Status, items[i].Percent,
-                    ObjPositionArray(items[i].Positions)));
-            }
-            return sb.Append(']').ToString();
-        }
-
-        // Position sub-rows under one objective (ObjectiveInfoList_Item — "DestroyUnits / Lb105 /
-        // 18km"). x/z are true world coords; the page derives the grid label and live distance itself.
-        private static string ObjPositionArray(ObjPosition[]? items)
-        {
-            if (items == null || items.Length == 0) return "[]";
-            var sb = new StringBuilder("[");
-            for (int i = 0; i < items.Length; i++)
-            {
-                if (i > 0) sb.Append(',');
-                sb.Append(string.Format(CultureInfo.InvariantCulture,
-                    "{{\"n\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0}}}",
-                    EscapeJson(items[i].Name ?? string.Empty), items[i].X, items[i].Z));
-            }
-            return sb.Append(']').ToString();
-        }
-
-        // TGT filter panel state (docs/tgt-page.md). {present:false} when the game's TargetListSelector
-        // isn't up; otherwise the three toggle groups (ordered as the tgt.* commands index them) plus
-        // the two standalone toggles.
-        private static string TgtBlock(TelemetrySnapshot s)
-        {
-            if (!s.TgtPresent) return "{\"present\":false}";
-            return "{\"present\":true"
-                 + ",\"laser\":" + (s.TgtLaser ? "true" : "false")
-                 + ",\"hud\":"   + (s.TgtHud   ? "true" : "false")
-                 + ",\"faction\":"  + TgtToggleArray(s.TgtFaction)
-                 + ",\"category\":" + TgtToggleArray(s.TgtCategory)
-                 + ",\"vehicle\":"  + TgtToggleArray(s.TgtVehicle)
-                 + "}";
-        }
-
-        private static string TgtToggleArray(TgtToggleInfo[]? items)
-        {
-            if (items == null || items.Length == 0) return "[]";
-            var sb = new StringBuilder("[");
-            for (int i = 0; i < items.Length; i++)
-            {
-                if (i > 0) sb.Append(',');
-                sb.Append("{\"n\":\"").Append(EscapeJson(items[i].Name ?? string.Empty))
-                  .Append("\",\"on\":").Append(items[i].On ? "true" : "false").Append('}');
-            }
-            return sb.Append(']').ToString();
-        }
-
-        // BDF faction-forces panel (docs/bdf-page.md) — always BOSCALI, a fixed identity.
-        // {present:false} when Boscali has no FactionHQ yet; otherwise the header scalars plus the
-        // four breakdown rows.
-        private static string BdfBlock(TelemetrySnapshot s)
-        {
-            if (!s.BdfPresent) return "{\"present\":false}";
-            return string.Format(CultureInfo.InvariantCulture,
-                "{{\"present\":true,\"faction\":\"{0}\",\"funds\":{1:0.000},\"score\":{2:0.0},\"warheads\":{3},",
-                EscapeJson(s.BdfFaction ?? string.Empty), s.BdfFunds, s.BdfScore, s.BdfWarheads)
-                + "\"ships\":"     + BdfCountArray(s.BdfShips)
-                + ",\"vehicles\":"  + BdfCountArray(s.BdfVehicles)
-                + ",\"buildings\":" + BdfCountArray(s.BdfBuildings)
-                + ",\"aircraft\":"  + BdfCountArray(s.BdfAircraft)
-                + "}";
-        }
-
-        // PAL — the same faction-forces panel as BDF, always PRIMEVA (a fixed identity, like BDF is
-        // always BOSCALI — docs/bdf-page.md). {present:false} when Primeva has no FactionHQ yet.
-        private static string PalBlock(TelemetrySnapshot s)
-        {
-            if (!s.PalPresent) return "{\"present\":false}";
-            return string.Format(CultureInfo.InvariantCulture,
-                "{{\"present\":true,\"faction\":\"{0}\",\"funds\":{1:0.000},\"score\":{2:0.0},\"warheads\":{3},",
-                EscapeJson(s.PalFaction ?? string.Empty), s.PalFunds, s.PalScore, s.PalWarheads)
-                + "\"ships\":"     + BdfCountArray(s.PalShips)
-                + ",\"vehicles\":"  + BdfCountArray(s.PalVehicles)
-                + ",\"buildings\":" + BdfCountArray(s.PalBuildings)
-                + ",\"aircraft\":"  + BdfCountArray(s.PalAircraft)
-                + "}";
-        }
-
-        private static string BdfCountArray(BdfCountInfo[]? items)
-        {
-            if (items == null || items.Length == 0) return "[]";
-            var sb = new StringBuilder("[");
-            for (int i = 0; i < items.Length; i++)
-            {
-                if (i > 0) sb.Append(',');
-                sb.Append("{\"n\":\"").Append(EscapeJson(items[i].Name ?? string.Empty))
-                  .Append("\",\"c\":").Append(items[i].Count).Append('}');
-            }
-            return sb.Append(']').ToString();
-        }
-
-        private static string MwArray(MwContact[]? items)
-        {
-            if (items == null || items.Length == 0) return "[]";
-            var sb = new StringBuilder("[");
-            for (int i = 0; i < items.Length; i++)
-            {
-                if (i > 0) sb.Append(',');
-                sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"x\":{0:0.0},\"z\":{1:0.0},\"st\":\"{2}\",\"nb\":{3:0.0},\"h\":{4:0.0}}}",
-                    items[i].X, items[i].Z, EscapeJson(items[i].Seeker ?? string.Empty), items[i].Notch, items[i].Heading);
-            }
-            return sb.Append(']').ToString();
-        }
-
-        // RDR page (docs/rdr-page.md). {present:false} when the aircraft has no radar; otherwise the
-        // scope's range scale + cone half-angle and the air contacts the own radar detects. Contacts
-        // carry world x/z (client derives bearing/range from the player's own position), altitude,
-        // travel heading (velocity stub), lock state (tg) and label.
-        private static string RdrBlock(TelemetrySnapshot s)
-        {
-            string pb = PitbullArray(s.Pitbull);
-            if (!s.RadarPresent) return "{\"present\":false,\"pb\":" + pb + "}";
-            return string.Format(CultureInfo.InvariantCulture,
-                "{{\"present\":true,\"range\":{0:0.0},\"cone\":{1:0.0},\"metric\":{2},\"lvlt\":{3:0.000},\"items\":{4},\"pb\":{5}}}",
-                s.RadarRange, s.RadarConeDeg, s.RdrMetric ? "true" : "false", s.RdrLevelTime, RdrArray(s.Rdr), pb);
-        }
-
-        // Pitbull missiles (issue #40): the player's own AA missiles with an active-radar seeker
-        // currently locked. tid is the designated target's persistentID.Id, 0 if none/unresolved —
-        // the client only draws the dashed target line when it can resolve tid against a live
-        // RDR/MAP contact.
-        private static string PitbullArray(PitbullContact[]? items)
-        {
-            if (items == null || items.Length == 0) return "[]";
-            var sb = new StringBuilder("[");
-            for (int i = 0; i < items.Length; i++)
-            {
-                if (i > 0) sb.Append(',');
-                sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"id\":{0},\"x\":{1:0.0},\"z\":{2:0.0},\"alt\":{3:0.0},\"hdg\":{4:0.0},\"tid\":{5}}}",
-                    items[i].Id, items[i].X, items[i].Z, items[i].Alt, items[i].Heading, items[i].TargetId);
-            }
-            return sb.Append(']').ToString();
-        }
-
-        private static string RdrArray(RdrContact[]? items)
-        {
-            if (items == null || items.Length == 0) return "[]";
-            var sb = new StringBuilder("[");
-            for (int i = 0; i < items.Length; i++)
-            {
-                if (i > 0) sb.Append(',');
-                sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"id\":{0},\"x\":{1:0.0},\"z\":{2:0.0},\"alt\":{3:0.0},\"hdg\":{4:0.0},\"tg\":{5},\"rd\":{6},\"dl\":{7},\"n\":\"{8}\"}}",
-                    items[i].Id, items[i].X, items[i].Z, items[i].Alt, items[i].Heading,
-                    items[i].Targeted ? 1 : 0, items[i].Radar ? 1 : 0, items[i].Datalink ? 1 : 0,
-                    EscapeJson(items[i].Name ?? string.Empty));
-            }
-            return sb.Append(']').ToString();
-        }
-
-        private static string RwrArray(RwrContact[]? items)
-        {
-            if (items == null || items.Length == 0) return "[]";
-            var sb = new StringBuilder("[");
-            for (int i = 0; i < items.Length; i++)
-            {
-                if (i > 0) sb.Append(',');
-                sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"x\":{0:0.0},\"z\":{1:0.0},\"tr\":{2},\"pw\":{3:0.000},\"fr\":{4:0.000},\"n\":\"{5}\",\"k\":{6}}}",
-                    items[i].X, items[i].Z, items[i].Tier, items[i].Power, items[i].Fresh,
-                    EscapeJson(items[i].Name ?? string.Empty), items[i].Kind);
-            }
-            return sb.Append(']').ToString();
-        }
-
-        private static string StringArray(string[]? items)
-        {
-            if (items == null || items.Length == 0) return "[]";
-            var sb = new StringBuilder("[");
-            for (int i = 0; i < items.Length; i++)
-            {
-                if (i > 0) sb.Append(',');
-                sb.Append('"').Append(EscapeJson(items[i] ?? string.Empty)).Append('"');
-            }
-            return sb.Append(']').ToString();
-        }
-
-        private static string PartsArray(PartHp[]? parts)
-        {
-            if (parts == null || parts.Length == 0) return "[]";
-            var sb = new StringBuilder("[");
-            for (int i = 0; i < parts.Length; i++)
-            {
-                if (i > 0) sb.Append(',');
-                sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"n\":\"{0}\",\"hp\":{1:0.#},\"d\":{2}}}",
-                    EscapeJson(parts[i].Name ?? string.Empty),
-                    parts[i].Hp,
-                    parts[i].Detached ? 1 : 0);
-            }
-            return sb.Append(']').ToString();
-        }
-
-        private static string PylonsArray(PylonMarker[]? pylons)
-        {
-            if (pylons == null || pylons.Length == 0) return "[]";
-            var sb = new StringBuilder("[");
-            for (int i = 0; i < pylons.Length; i++)
-            {
-                if (i > 0) sb.Append(',');
-                sb.Append("{\"n\":\"").Append(EscapeJson(pylons[i].Name ?? string.Empty)).Append("\",")
-                  .Append("\"s\":\"").Append(EscapeJson(pylons[i].State ?? "empty")).Append("\"}");
-            }
-            return sb.Append(']').ToString();
-        }
-
-        private static string UnitsArray(UnitInfo[]? units)
-        {
-            if (units == null || units.Length == 0) return "[]";
-            var sb = new StringBuilder("[");
-            for (int i = 0; i < units.Length; i++)
-            {
-                UnitInfo u = units[i];
-                if (i > 0) sb.Append(',');
-                sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"id\":{8},\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7},\"jm\":{9},\"jb\":{10},\"dl\":{11},\"st\":{12}}}",
-                    EscapeJson(u.Type ?? string.Empty),
-                    u.X, u.Z, u.Heading, u.Faction,
-                    u.Orient ? "true" : "false", u.Scale,
-                    u.Targeted ? 1 : 0,
-                    u.Id,
-                    u.Jammed ? 1 : 0,
-                    u.JammedBy,
-                    u.Datalink ? 1 : 0,
-                    u.Stale ? 1 : 0);
-            }
-            return sb.Append(']').ToString();
-        }
-
-        private static string LoadoutArray(LoadoutEntry[]? items)
-        {
-            if (items == null || items.Length == 0) return "[]";
-            var sb = new StringBuilder("[");
-            for (int i = 0; i < items.Length; i++)
-            {
-                if (i > 0) sb.Append(',');
-                sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"n\":\"{0}\",\"a\":{1},\"f\":{2}}}",
-                    EscapeJson(items[i].Name ?? string.Empty), items[i].Ammo, items[i].FullAmmo);
-            }
-            return sb.Append(']').ToString();
-        }
-
         // SOI's slice of a frame. Shared by the real payload and the no-mission ping, because a display
         // is focusable and drivable at the main menu, where the ping is the only frame there is.
         private static string SoiJson() => string.Format(CultureInfo.InvariantCulture,
@@ -2099,41 +1769,9 @@ namespace NOXMFD
             CursorX, CursorY, CursorSelSeq, EscapeJson(MapAct), MapActSeq,
             Volatile.Read(ref _cursorSelHeld) ? "true" : "false");
 
-        // Escapes every character the JSON spec forbids raw inside a string literal — not just the
-        // ones a prior caller happened to hit. Earlier versions only handled \, ", \n, \r, \t (added
-        // for MIS's mission description); that missed the rest of the C0 control range (0x00-0x1F,
-        // e.g. \b, \f, a stray control char in a unit/weapon name from the game's own data), which
-        // JSON.parse rejects as "Bad control character in string literal" — the same failure mode
-        // as the untranslated-decimal-point bug, just a different source field each time. Escaping
-        // the whole class here means no future caller needs to remember this. Lazily allocates only
-        // when a string actually needs escaping (every prior caller was escape-free, hot path stays
-        // allocation-free).
-        // internal, not private: Squadron.cs (and RouteStore.cs) serialise with this same escape
-        // rather than keeping a second copy that could miss the same control characters this one
-        // was widened to cover.
-        internal static string EscapeJson(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return s ?? string.Empty;
-            StringBuilder? sb = null;
-            for (int i = 0; i < s.Length; i++)
-            {
-                char c = s[i];
-                string? esc = c switch
-                {
-                    '\\' => "\\\\",
-                    '"'  => "\\\"",
-                    '\n' => "\\n",
-                    '\r' => "\\r",
-                    '\t' => "\\t",
-                    '\b' => "\\b",
-                    '\f' => "\\f",
-                    _ => c < 0x20 ? "\\u" + ((int)c).ToString("x4", CultureInfo.InvariantCulture) : null
-                };
-                if (esc == null) { sb?.Append(c); continue; }
-                if (sb == null) { sb = new StringBuilder(s.Length + 8); sb.Append(s, 0, i); }
-                sb.Append(esc);
-            }
-            return sb?.ToString() ?? s;
-        }
+        // Moved to JsonLite.cs (docs/csharp-unit-testing.md) so pure callers like RouteStore.cs can
+        // compile standalone in a test project without pulling this file's game touchpoints in.
+        // Forwards here so none of this file's own ~50 unqualified call sites need to change.
+        internal static string EscapeJson(string s) => JsonLite.EscapeJson(s);
     }
 }

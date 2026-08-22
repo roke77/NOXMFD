@@ -54,6 +54,29 @@ const assert = require('assert');
       'past 260km the leading letter runs off Z — the scheme needs revisiting if a map gets this tall');
   }
 
+  // A mission running with no local aircraft chosen yet is still a real connection, not "no
+  // mission" — both are a `ping` frame (no telemetry to show either way), so `missionRunning` is
+  // what tells them apart (docs: TelemetryServer.SetMissionRunning).
+  {
+    const statuses = [];
+    const src2 = new TelemetrySource({ onStatus: (cls, text) => statuses.push({ cls, text }) });
+    src2._postUp = () => {};
+
+    src2._onMessage({ data: JSON.stringify({ ping: true, missionRunning: true, soiSeq: 0 }) });
+    assert.deepStrictEqual(statuses.pop(), { cls: 'connected', text: '● CONNECTED' },
+      'a mission running with no aircraft yet should read as connected, not "no mission"');
+
+    src2._onMessage({ data: JSON.stringify({ ping: true, missionRunning: false, soiSeq: 1 }) });
+    assert.deepStrictEqual(statuses.pop(), { cls: 'waiting', text: '● CONNECTED — no mission' },
+      'no mission running (main menu) should still read as "no mission"');
+
+    // Absent (older/malformed payload) must default to the safe "no mission" reading, not to
+    // truthy — a missing field should never look MORE connected than an explicit false.
+    src2._onMessage({ data: JSON.stringify({ ping: true, soiSeq: 2 }) });
+    assert.deepStrictEqual(statuses.pop(), { cls: 'waiting', text: '● CONNECTED — no mission' },
+      'missing missionRunning should default to "no mission", not "connected"');
+  }
+
   const src = new TelemetrySource({});
   src._postUp = () => {};                 // no parent window outside a browser
 

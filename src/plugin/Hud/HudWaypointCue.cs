@@ -5,9 +5,9 @@ using UnityEngine.UI;
 
 namespace NOXMFD
 {
-    // The in-game HUD waypoint cue (docs/hud-waypoint-indicator.md, design A): a bug riding the
-    // native heading tape plus a two-line readout at its top right. Data comes from RouteStore, the
-    // plugin's own authoritative route library (Option 2) — this class is only the drawing.
+    // The in-game HUD waypoint cue: a bug riding the native heading tape plus a two-line readout at
+    // its top right. Data comes from RouteStore, the plugin's own authoritative route library —
+    // this class is only the drawing.
     //
     // This is the mod's first ADDITIVE HUD change — HudDeclutter, the only other HUD toucher, just
     // finds existing components and disables them. Mission-scoped alongside it (created in
@@ -26,9 +26,9 @@ namespace NOXMFD
         private const float HalfArc        = TapeArcDegrees * 0.5f;
 
         // Amber, not HUD green. The tick labels immediately behind the bug are green, and a green
-        // bug competes with them at exactly the moment it matters. The cost is that this ignores the
-        // player's hudColorR/G/B setting, unlike every native element — accepted (see the doc).
-        // #FFAA00 — matches theme.css's --no-amber (the web frontend's WPT compass needle and MAP's
+        // bug competes with them at exactly the moment it matters — at the cost of ignoring the
+        // player's hudColorR/G/B setting, unlike every native element.
+        // #FFAA00 matches theme.css's --no-amber (the web frontend's WPT compass needle and MAP's
         // active-waypoint marker), one color scheme across the HUD cue and both web pages.
         private static readonly Color Amber = new Color(1f, 0.6667f, 0f, 1f);
 
@@ -50,8 +50,8 @@ namespace NOXMFD
                 if (!Build()) return;
             }
 
-            // RouteStore is the plugin's own in-process route data (docs/hud-waypoint-indicator.md,
-            // Option 2) — reading it needs no network round trip.
+            // RouteStore is the plugin's own in-process route data — reading it needs no network
+            // round trip.
             if (!RouteStore.TryGetActiveWaypoint(out float wx, out float wz, out string wpName, out int wpIndex)
                 || !ResolveOwnship(out Vector3 world, out float hdg))
             {
@@ -60,9 +60,9 @@ namespace NOXMFD
             }
 
             // Bearing math runs entirely in the floating-origin-corrected world frame RouteStore
-            // stores waypoints in (TelemetryReader: position - Datum.originPosition). Raw Unity
-            // positions drift as the world re-centers, so mixing the two frames would put the bug
-            // progressively further off the longer a mission runs.
+            // stores waypoints in (position - Datum.originPosition). Raw Unity positions drift as
+            // the world re-centers, so mixing the two frames would put the bug progressively
+            // further off the longer a mission runs.
             float dx = wx - world.x;
             float dz = wz - world.z;
             float bearing  = Mathf.Repeat(Mathf.Atan2(dx, dz) * Mathf.Rad2Deg, 360f);
@@ -104,9 +104,9 @@ namespace NOXMFD
         }
 
         // Ownship's world position and the heading the TAPE is scrolled by. FlightHud drives the tape
-        // off cockpitRB.transform.eulerAngles.y, NOT aircraft.transform.eulerAngles.y (which is what
-        // TelemetryReader publishes) — the cockpit is its own rigidbody, so reading the aircraft's
-        // heading here would leave the bug lagging the tick marks it sits among.
+        // off cockpitRB.transform.eulerAngles.y, NOT aircraft.transform.eulerAngles.y — the cockpit
+        // is its own rigidbody, so reading the aircraft's heading here would leave the bug lagging
+        // the tick marks it sits among.
         private static bool ResolveOwnship(out Vector3 world, out float heading)
         {
             world = Vector3.zero;

@@ -243,7 +243,7 @@ function renderPitbull() {
       ? (Math.atan2(target.x - p.x, -(target.y - p.y)) * 180 / Math.PI).toFixed(1)
       : (m.rhdg || 0).toFixed(1);
     // Slender dart (RWR's HL/HB/HW proportions, scaled to RDR's ~16px contact size): a long tip and
-    // a narrow base, not the fatter brick-sized triangle this used to be.
+    // a narrow base.
     out += '<polygon points="' + p.x.toFixed(1) + ',' + (p.y - 13).toFixed(1) + ' ' +
            (p.x - 4).toFixed(1) + ',' + (p.y + 3).toFixed(1) + ' ' +
            (p.x + 4).toFixed(1) + ',' + (p.y + 3).toFixed(1) +

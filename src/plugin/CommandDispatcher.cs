@@ -3,7 +3,6 @@ using System.Collections.Generic;
 
 namespace NOXMFD
 {
-    // ── Inbound command channel ──────────────────────────────────────────────────
     // The web client POSTs JSON commands to /command; TelemetryServer parses + queues them on a
     // server thread, and this dispatcher drains the queue on the Unity main thread (called from
     // TelemetryReader.Update) and runs the matching handler.
@@ -16,8 +15,12 @@ namespace NOXMFD
     // Wire envelope: { "cmd": "target.select", "id": 1234 }. Deliberately FLAT — every field is a
     // top-level primitive. Unity's JsonUtility reliably populates top-level fields of a
     // [Serializable] class but is flaky deserializing nested [Serializable] objects in the game's
-    // Mono runtime (it silently left a nested args.id at 0). So all command params live here as a
-    // flat union; each handler reads the fields it cares about and absent ones default to 0.
+    // Mono runtime (it silently leaves a nested args.id at 0). So all command params live here as a
+    // flat union; each handler reads the fields it cares about, and absent ones default to 0.
+    // Every field below is populated by UnityEngine.JsonUtility.FromJson via reflection, which the
+    // compiler can't see through — hence CS0649 ("never assigned"), suppressed for the whole class
+    // rather than per-field.
+#pragma warning disable CS0649
     [Serializable]
     internal class CommandEnvelope
     {
@@ -25,12 +28,14 @@ namespace NOXMFD
         public long   id;      // target unit persistentID (target.select / target.deselect)
         public string wname;   // weapon type name (weapon.select) — matches LoadoutEntry.Name
                                 // wpt.* : route/waypoint display name
+                                // preset.save / preset.rename : preset name
         public string group;   // tgt.set / tgt.only : "faction" | "category" | "vehicle"
                                 // combat-mode.set : "all" | "aa" | "ag"
                                 // avn.toggle : "gear" | "radar" | "guns" | "eng" | "assist" | "nvg" |
                                 //              "lights" | "turret"
         public int    index;   // tgt.set / tgt.only : toggle index within the group
                                 // wpt.* : waypoint index, or a +-1 direction (cycle-route/step-waypoint)
+                                // preset.rename / preset.delete / preset.load : slot number 1-5
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
         public string bind;    // keybind.* : BindDef id ("flares", "gear-up", ...)
                                 // wpt.* : route id ("" = clear active route)
@@ -55,6 +60,7 @@ namespace NOXMFD
         public float  wz;      // wpt.add-waypoint : world Z
         public string text;    // wpt.import : the pasted route-export JSON blob
     }
+#pragma warning restore CS0649
 
     internal static class CommandDispatcher
     {
@@ -76,8 +82,8 @@ namespace NOXMFD
                 { "hud.mode",        HudMode },
                 { "declutter.set",   DeclutterSet },
                 { "avn.toggle",      AvnToggle },
-                // cfg-rates experiment (issue #39) — RTS page's two sliders. group picks which rate;
-                // "tgp" is the camera feed, anything else (default "fast") is the main 10 Hz tick.
+                // RTS page's two sliders. group picks which rate: "tgp" is the camera feed, anything
+                // else (default "fast") is the main 10 Hz tick.
                 { "rates.set",       e => { if (e.group == "tgp") RatesConfig.SetTgpHz(e.hz); else RatesConfig.SetFastHz(e.hz); } },
                 { "master-arms.set", e => ImmersionState.MasterArmsOn = e.on },
                 // Squad protocol (docs/squadron-transport.md) — leader/member squad state built on
@@ -95,9 +101,8 @@ namespace NOXMFD
                 { "sqd.kick",       e => { if (TryPeer(e.peer, out ulong p)) Squad.Kick(p); } },
                 { "sqd.send",       e => Squad.SendData(e.type, e.payload) },
                 // Routes through Keybinds.SetCombatMode (not a bare assignment) so the WPN page's own
-                // A/A · A/G controls (bezel and F-35) get the same weapon auto-switch as the physical
-                // keybind (docs/radar-master-arms.md, issue #32) — one behavior, one source, not a
-                // second copy that could drift from it.
+                // A/A / A/G controls get the same weapon auto-switch as the physical keybind — one
+                // behavior, one source, not a second copy that could drift from it.
                 { "combat-mode.set", e => Keybinds.SetCombatMode(e.group switch
                     {
                         "aa" => CombatMode.AirToAir,
@@ -108,8 +113,8 @@ namespace NOXMFD
                 { "keybind.arm-joy",    e => Log("arm-joy",    e.bind, Keybinds.ArmJoyCapture(e.bind)) },
                 { "keybind.cancel-joy", e => Keybinds.CancelJoyCapture() },
                 { "keybind.clear-joy",  e => Log("clear-joy",  e.bind, Keybinds.ClearJoyBind(e.bind)) },
-                // Analog axis capture/clear/invert (docs/map-cursor.md) — the MAP cursor's Horizontal/
-                // Vertical rows only; same arm/cancel/clear shape as the joystick-button commands above.
+                // Analog axis capture/clear/invert — the MAP cursor's Horizontal/Vertical rows only;
+                // same arm/cancel/clear shape as the joystick-button commands above.
                 { "keybind.arm-axis",       e => Log("arm-axis",       e.bind, Keybinds.ArmAxisCapture(e.bind)) },
                 { "keybind.cancel-axis",    e => Keybinds.CancelAxisCapture() },
                 { "keybind.clear-axis",     e => Log("clear-axis",     e.bind, Keybinds.ClearAxisBind(e.bind)) },
@@ -117,21 +122,21 @@ namespace NOXMFD
                 // Input-while-unfocused toggle — the /keybinds page's first entry, not a bind (no
                 // key/joy/axis source of its own).
                 { "keybind.set-bg-input", e => Keybinds.SetBackgroundInput(e.on) },
-                // Immersion start-state toggles (docs/radar-master-arms.md) — the KEY page's other
-                // non-bind rows, same shape as keybind.set-bg-input.
+                // Immersion start-state toggles — the KEY page's other non-bind rows, same shape as
+                // keybind.set-bg-input.
                 { "keybind.set-radar-on-start",       e => ImmersionConfig.SetRadarOnOnStart(e.on) },
                 { "keybind.set-engine-on-start",      e => ImmersionConfig.SetEngineOnOnStart(e.on) },
                 { "keybind.set-master-arms-on-start", e => ImmersionConfig.SetMasterArmsOnOnStart(e.on) },
-                // SOI focus. These will get HOTAS binds of their own; as commands they are how focus
-                // is driven (and tested) from a browser, with no controller and no aircraft.
+                // HudCombatModeFilters' own on/off switch — default OFF, unlike the three start-state
+                // settings above.
+                { "keybind.set-hud-filters-on-combat-mode", e => ImmersionConfig.SetHudFiltersOnCombatMode(e.on) },
+                // SOI focus — driven from a browser with no controller and no aircraft.
                 { "soi.next",           e => TelemetryServer.SoiCycle(1) },
                 { "soi.prev",           e => TelemetryServer.SoiCycle(-1) },
-                // A client reports its current surface count so SOI can cycle surfaces, not documents
-                // (docs/keybinds-page.md, "surface-level focus"). Carries its own cid — a POST isn't
-                // tied to the /stream connection the count belongs to.
+                // A client reports its current surface count so SOI can cycle surfaces, not documents.
+                // Carries its own cid — a POST isn't tied to the /stream connection the count belongs to.
                 { "soi.panes",          e => TelemetryServer.SetPaneCount(e.cid ?? string.Empty, e.n) },
-                // Waypoint/route editing (docs/hud-waypoint-indicator.md, Option 2) — RouteStore is
-                // the plugin's own authoritative route library now, not any browser's localStorage.
+                // Waypoint/route editing — RouteStore is the plugin's own authoritative route library.
                 { "wpt.create",           e => LogWpt("create",           RouteStore.CreateRoute(e.wname) != null) },
                 { "wpt.rename",           e => LogWpt("rename",           RouteStore.RenameRoute(e.bind, e.wname)) },
                 { "wpt.delete",           e => LogWpt("delete",           RouteStore.DeleteRoute(e.bind)) },
@@ -156,6 +161,25 @@ namespace NOXMFD
                 // WPT's share button. Marks the route auto-resharing (RouteStore's own mutators push
                 // a fresh copy after any future edit) and sends the first copy now.
                 { "wpt.share",            e => LogWpt("share",          RouteStore.ShareRoute(e.bind)) },
+                // SAVE LAYOUT is a browser-side keyboard shortcut only; LOAD reads GET /layout-options
+                // and applies a picked layout entirely client-side, so there's no matching "load"
+                // command here.
+                //   wname : layout name       group : shell ("classic"/"f35")
+                //   text  : the browser's own serialized arrangement, as JSON text (opaque here)
+                { "layout.save",   e => LogLayout("save",   LayoutStore.SaveLayout(e.wname, e.group, e.text)) },
+                // LOAD's picker manages the library — id : "bind" (matches wpt.*'s own route-id
+                // reuse of the field), new name : "wname".
+                { "layout.rename", e => LogLayout("rename", LayoutStore.RenameLayout(e.bind, e.wname)) },
+                { "layout.delete", e => LogLayout("delete", LayoutStore.DeleteLayout(e.bind)) },
+                // HUD filter presets — 5 fixed numbered slots (HudPresetStore), not an arbitrary list
+                // like layout.* above: `index` (1-5) addresses a slot directly. save always targets
+                // whichever slot is server-side CURRENT, never a client-picked index — the client
+                // only ever supplies a name.
+                //   wname : preset name (save/rename)     index : slot number 1-5 (rename/delete/load)
+                { "preset.save",   e => LogPreset("save",   HudPresetStore.Save(e.wname)) },
+                { "preset.rename", e => LogPreset("rename", HudPresetStore.Rename(e.index, e.wname)) },
+                { "preset.delete", e => LogPreset("delete", HudPresetStore.Delete(e.index)) },
+                { "preset.load",   e => LogPreset("load",   HudPresetStore.LoadPreset(e.index)) },
             };
 
         // Keybind writes just delegate to the Keybinds registry; log rejections (unknown id / bad key).
@@ -187,6 +211,18 @@ namespace NOXMFD
             if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] wpt.{op}: rejected.");
         }
 
+        // Same shape as LogWpt above, for the layout.* family.
+        private static void LogLayout(string op, bool ok)
+        {
+            if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] layout.{op}: rejected.");
+        }
+
+        // Same shape again, for the preset.* family.
+        private static void LogPreset(string op, bool ok)
+        {
+            if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] preset.{op}: rejected.");
+        }
+
         // True for a cmd we have a handler for — lets the server reject unknown commands at the
         // boundary (422) instead of silently queueing them.
         public static bool IsKnown(string cmd) => cmd != null && _handlers.ContainsKey(cmd);
@@ -211,11 +247,10 @@ namespace NOXMFD
 
         // ── Handlers ─────────────────────────────────────────────────────────────
 
-        // Add a unit to the player's weapon target list (map tap-to-target). Select-only: never
-        // deselects, and no-ops if the unit is already targeted (AddTargetList has no de-dup).
-        // Routes through CombatHUD.SelectUnit so the cockpit marker recolours (faction → green),
-        // the select beep plays, and the DynamicMap icon syncs; falls back to the bare
-        // weaponManager op for a contact the HUD isn't tracking.
+        // Select-only: never deselects, and no-ops if the unit is already targeted (AddTargetList
+        // has no de-dup). Routes through CombatHUD.SelectUnit so the cockpit marker recolours, the
+        // select beep plays, and the DynamicMap icon syncs; falls back to the bare weaponManager op
+        // for a contact the HUD isn't tracking.
         private static void TargetSelect(CommandEnvelope env)
         {
             uint id = unchecked((uint)env.id);
@@ -233,12 +268,10 @@ namespace NOXMFD
 
             string name = unit.definition?.unitName ?? "?";
 
-            // Neutral (no-faction) units are never selectable by default. The game's own TGT filter
-            // panel has no toggle for them at all — TargetListSelector_ToggleButton.CheckFactions
-            // only gates Friendly/Enemy, so a no-faction contact always passes it — which meant a
-            // MAP tap or RDR lock could weapon-lock something the pilot's own filters were never
-            // built to offer. Issue: a player targeted grey/white contacts via MAP that then never
-            // appeared in the in-game TGT list at all.
+            // Neutral (no-faction) units are never selectable. The game's own TGT filter panel has
+            // no toggle for them at all — TargetListSelector_ToggleButton.CheckFactions only gates
+            // Friendly/Enemy, so a no-faction contact always passes it — which would let a MAP tap
+            // or RDR lock weapon-lock something the pilot's own filters were never built to offer.
             if (DynamicMap.GetFactionMode(unit.NetworkHQ) == FactionMode.NoFaction)
             {
                 Plugin.Log?.LogInfo($"[NOXMFD] target.select '{name}' (id={id}): no-faction unit — ignored.");
@@ -247,8 +280,8 @@ namespace NOXMFD
 
             // Respect the TGT filter panel's current faction/category/vehicle/laser toggles — a MAP
             // tap or RDR lock shouldn't be able to select anything the pilot has filtered out there.
-            // Reuses the game's own exclusion check (docs/tgt-page.md's "Option A"); if the singleton
-            // isn't up yet, fail open rather than block every selection.
+            // Reuses the game's own exclusion check; if the singleton isn't up yet, fail open rather
+            // than block every selection.
             TargetListSelector tgtSel = SceneSingleton<TargetListSelector>.i;
             if (tgtSel != null && tgtSel.CheckExclusions(unit))
             {
@@ -270,10 +303,9 @@ namespace NOXMFD
             Plugin.Log?.LogInfo($"[NOXMFD] target.select → '{name}' (id={id}, viaHud={viaHud}).");
         }
 
-        // Drop a unit from the player's weapon target list (TGT page's list checkbox). Mirrors the
-        // in-cockpit deselect via CombatHUD.DeSelectUnit, which reverts the marker colour, plays
-        // the deselect beep, and syncs the DynamicMap icon; falls back to the bare weaponManager
-        // op when the HUD isn't tracking the contact. No-ops if it isn't currently a target.
+        // Mirrors the in-cockpit deselect via CombatHUD.DeSelectUnit, which reverts the marker
+        // colour, plays the deselect beep, and syncs the DynamicMap icon; falls back to the bare
+        // weaponManager op when the HUD isn't tracking the contact. No-ops if not currently a target.
         private static void TargetDeselect(CommandEnvelope env)
         {
             uint id = unchecked((uint)env.id);
@@ -303,13 +335,10 @@ namespace NOXMFD
             Plugin.Log?.LogInfo($"[NOXMFD] target.deselect ← '{name}' (id={id}, viaHud={viaHud}).");
         }
 
-        // Make the aircraft's active weapon the first station of the requested type (WPN page bezel
-        // key → the weapon aligned with it). The loadout aggregates stations by name, so we match on
-        // the same weaponName/shortName BuildLoadout uses and pick the first visible station of that
-        // type; the game cycles any duplicate stations of the same type with its own next/prev.
-        // Replays the game's own NextWeaponStation() sequence — point the manager at the station,
-        // activate it (networked-aware), sync the cockpit HUD — so the marker + select beep come
-        // along. No-ops if that weapon is already selected.
+        // Matches on the same weaponName/shortName BuildLoadout uses to pick the first visible
+        // station of the requested type; the game cycles duplicate stations of the same type with
+        // its own next/prev. Replays the game's own NextWeaponStation() sequence so the marker and
+        // select beep come along. No-ops if that weapon is already selected.
         private static void WeaponSelect(CommandEnvelope env)
         {
             string wname = env.wname;
@@ -332,12 +361,11 @@ namespace NOXMFD
             Plugin.Log?.LogInfo($"[NOXMFD] weapon.select → '{wname}' (station {target.Number}).");
         }
 
-        // ── TGT filter panel (docs/tgt-page.md) ──────────────────────────────────
-        // Option A: we don't reimplement the filter — we drive the game's own
-        // TargetListSelector singleton, so its prune of the current selection, its live gate on
-        // future selections, and the map-icon recolour all come along for free. The singleton is a
-        // SceneSingleton present for the whole mission (confirmed by TgtProbe), but every handler
-        // still null-guards so it no-ops rather than throws if the game hasn't built it.
+        // ── TGT filter panel ──────────────────────────────────────────────────────
+        // These drive the game's own TargetListSelector singleton rather than reimplementing the
+        // filter, so its prune of the current selection, its live gate on future selections, and
+        // the map-icon recolour all come along for free. Every handler still null-guards so it
+        // no-ops rather than throws if the game hasn't built the singleton yet.
 
         private static List<TargetListSelector_ToggleButton> TgtGroup(TargetListSelector sel, string group)
         {
@@ -408,19 +436,19 @@ namespace NOXMFD
             Plugin.Log?.LogInfo("[NOXMFD] tgt.clear — deselected all targets.");
         }
 
-        // TGT page's DATALINK button (docs/tgt-datalink-cancel.md): tap deselects datalink-only
-        // targets. Same staleness check as TelemetryReader.BuildUnits' Datalink field, duplicated
-        // here since it's a one-line read with no shared game-query helper in this codebase yet.
+        // TGT page's DATALINK button: tap deselects datalink-only targets. Same check as
+        // TelemetryReader.BuildUnits' Datalink field, duplicated here since it's a one-line read
+        // with no shared game-query helper in this codebase yet.
         private static bool IsDatalinkOnly(FactionHQ playerHQ, Unit unit)
         {
             if (unit == null || unit.NetworkHQ == playerHQ) return false;   // only enemy/other-faction targets can be datalink-only
             return !(playerHQ.GetTrackingData(unit.persistentID)?.Observed() ?? false);
         }
 
-        // TGT page's STALE button (docs/tgt-stale-lock.md): tap deselects locked targets whose
-        // relayed position the game itself no longer trusts — the same FactionHQ check that swaps a
-        // locked target's TGP box for the "?" (outdated) sprite (TargetScreenUI.outdatedSprite), same
-        // 20m threshold. Duplicated from TelemetryReader.BuildUnits' Stale field for the reason above.
+        // TGT page's STALE button: tap deselects locked targets whose relayed position the game
+        // itself no longer trusts — the same FactionHQ check (20m threshold) that swaps a locked
+        // target's TGP box for the "?" (outdated) sprite. Duplicated from TelemetryReader.BuildUnits'
+        // Stale field for the reason above.
         private static bool IsStale(FactionHQ playerHQ, Unit unit)
         {
             if (unit == null || unit.NetworkHQ == playerHQ) return false;
@@ -475,11 +503,10 @@ namespace NOXMFD
             Plugin.Log?.LogInfo($"[NOXMFD] tgt.hud = {env.on}.");
         }
 
-        // HUD OPTIONS — the in-game MFD "HUD OPTIONS" page (SceneSingleton<HUDOptions>). It gates
-        // each unit's HUD icon: CheckMaximizeIcon() returns 0 when a unit's category or type is off,
-        // so its marker shrinks to a minimized dot (enemy) or vanishes (friendly). Toggling any of
-        // these live, then ApplyHUDSettings() to fire OnApplyOptions so the HUD re-renders now
-        // rather than after the ~1s idle refresh. Proven in game (issue #20).
+        // HUDOptions gates each unit's HUD icon: CheckMaximizeIcon() returns 0 when a unit's category
+        // or type is off, so its marker shrinks to a minimized dot (enemy) or vanishes (friendly).
+        // ApplyHUDSettings() fires OnApplyOptions so the HUD re-renders immediately rather than
+        // after the ~1s idle refresh.
         //
         // hud.set flips one toggle within a group; the page reads the current state and names from
         // /hud-options (TelemetryServer.RefreshHudOptions), so indices here are always paired with
@@ -517,6 +544,9 @@ namespace NOXMFD
                     return;
             }
             opt.ApplyHUDSettings();
+            // Only updates the baseline while idle — an edit made mid A/A or A/G must not overwrite
+            // what gets restored on exit.
+            HudCombatModeFilters.CaptureIfIdle();
             Plugin.Log?.LogInfo($"[NOXMFD] hud.set {env.group}[{env.index}] = {env.on}.");
         }
 
@@ -532,13 +562,13 @@ namespace NOXMFD
             if (btn == null) { Plugin.Log?.LogInfo($"[NOXMFD] hud.mode[{env.index}] is null — ignored."); return; }
             opt.ToggleButtons(btn);
             opt.ApplyHUDSettings();
+            HudCombatModeFilters.CaptureIfIdle();
             Plugin.Log?.LogInfo($"[NOXMFD] hud.mode = {env.index}.");
         }
 
-        // Native-HUD declutter — the mod's OWN HudDeclutter flags (HudDeclutterConfig), not the game's
-        // HUDOptions. These hide native HUD widgets: env.group is "weapon" (top-right weapon/ammo/CM
-        // cluster), "minimap" (bottom-left corner map), "boxes" (boxed heading/speed/alt readouts) or
-        // "feed" (native kill-feed ticker, issue #34).
+        // The mod's OWN HudDeclutter flags (HudDeclutterConfig), not the game's HUDOptions. env.group
+        // is "weapon" (top-right weapon/ammo/CM cluster), "minimap" (bottom-left corner map), "boxes"
+        // (boxed heading/speed/alt readouts) or "feed" (native kill-feed ticker).
         // Writing the ConfigEntry persists it and fires SettingChanged, so the in-game F1 checkbox
         // follows; HudDeclutter reads the flag each tick and hides/restores within ~0.5s (the minimap
         // within a frame), so there's nothing to apply here. env.on is the desired HIDE state.
@@ -557,14 +587,12 @@ namespace NOXMFD
             Plugin.Log?.LogInfo($"[NOXMFD] declutter.set {env.group} hide={env.on}.");
         }
 
-        // F-35 master-strip status icons (issue #35) — toggles the same
-        // systems the AVN annunciators already read (TelemetryReader.BuildAvn). gear/radar/eng go
-        // through the game's own networked Cmd calls, the same path the immersion keybinds use;
-        // guns/assist/lights/turret are local, client-only toggles; nvg is a player-camera setting,
-        // not per-aircraft, but still gated on a live aircraft so the icon only works in flight,
-        // matching the row it lives in. Each game-side call already self-guards on the airframe's
-        // own capability (no turret stations, no flight-assist-capable controls filter, etc.), so
-        // this just fires it — no capability check duplicated here.
+        // F-35 master-strip status icons — toggles the same systems the AVN annunciators already
+        // read. gear/radar/eng go through the game's own networked Cmd calls, the same path the
+        // immersion keybinds use; guns/assist/lights/turret are local, client-only toggles; nvg is a
+        // player-camera setting, not per-aircraft, but still gated on a live aircraft so the icon
+        // only works in flight, matching the row it lives in. Each game-side call already self-guards
+        // on the airframe's own capability, so this just fires it — no capability check duplicated.
         private static void AvnToggle(CommandEnvelope env)
         {
             GameManager.GetLocalAircraft(out Aircraft ac);

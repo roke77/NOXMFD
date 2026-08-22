@@ -1,33 +1,28 @@
-// The PAD cursor (docs/page-cursor.md, docs/map-cursor.md) — a crosshair standing in for the
-// mouse/touch while a page is the HOTAS-driven SOI's focused surface. Extracted from map.js (the
-// first page to have one) so TGT/HUD can reuse the exact same feel: a velocity vector integrated
+// The PAD cursor: a crosshair standing in for the mouse/touch while a page is the HOTAS-driven
+// SOI's focused surface (docs/page-cursor.md, docs/map-cursor.md). Integrates a velocity vector
 // locally at ~60 Hz between the ~10 Hz transport frames, clamped to a page-supplied rect, plus a
-// discrete Select edge. This module owns the crosshair element, its position, and the integrator;
-// it knows nothing about what's under the cursor — that's the caller's onSelect/onHold/onMove.
+// discrete Select edge. Owns the crosshair element, its position, and the integrator; knows
+// nothing about what's under the cursor — that's the caller's onSelect/onHold/onMove.
 //
-// ponytail: SPEED is a flat constant tuned by feel (crosses a typical panel in ~1.5-2s at full
-// deflection), same as map.js's original CURSOR_SPEED; a config entry can come later if anyone
-// wants to tune it live instead.
+// SPEED is a flat constant tuned by feel (crosses a typical panel in ~1.5-2s at full deflection);
+// a config entry can come later if anyone wants to tune it live instead.
 const DEFAULT_SPEED = 700;   // px/second at full deflection
-const DEFAULT_HOLD_MS = 500; // matches the DOM press/hold pages already use (e.g. tgt.js's LONG_MS)
+const DEFAULT_HOLD_MS = 500; // matches the DOM press/hold pages already use
 
 // clampRect() returns { dx, dy, dw, dh } — the rect (in the same px space as the crosshair
 // element's positioned ancestor) the cursor may not leave.
 //
-// onSelect(x, y)   — Cursor Select released before holdMs (or a page with no onHold at all, like
-//                     MAP): the caller decides what "select" means (MAP's nearest-contact hit-test,
-//                     a page's DOM elementFromPoint).
-// onHold(x, y)     — optional: Cursor Select held past holdMs — a page's long-press equivalent
-//                     (docs/page-cursor.md). Omit it and every press is a plain onSelect, exactly
-//                     MAP's original behaviour (its instant edge-driven select, unaffected).
-// onMove(x, y)     — optional: called with the cursor's current point every time it's visible and
-//                     placed, and with (null, null) when it's hidden/unfocused — a page uses this to
-//                     highlight whatever's under the crosshair (docs/page-cursor.md #2). Cheap to
-//                     omit (MAP doesn't use it).
-// onEdge(ex, ey, dt) — optional: called during the drive integration when the (pre-clamp) position
-//                     has overshot clampRect by (ex, ey) px — a page can react (MAP pans its view
-//                     under a screen-pinned cursor, docs/page-cursor.md #3). The cursor is clamped
-//                     to the rect regardless, right after this fires.
+// onSelect(x, y)     — Select released before holdMs, or no onHold registered at all: the caller
+//                       decides what "select" means (a hit-test, DOM elementFromPoint, etc).
+// onHold(x, y)       — optional: Select held past holdMs, a page's long-press equivalent
+//                       (docs/page-cursor.md). Omitting it makes every press a plain onSelect.
+// onMove(x, y)       — optional: called with the cursor's current point whenever it's visible and
+//                       placed, and with (null, null) when hidden/unfocused, so a page can
+//                       highlight whatever's under the crosshair (docs/page-cursor.md #2).
+// onEdge(ex, ey, dt) — optional: called during integration when the pre-clamp position has
+//                       overshot clampRect by (ex, ey) px, so a page can react (e.g. pan its view
+//                       under a screen-pinned cursor, docs/page-cursor.md #3). The cursor is
+//                       clamped to the rect regardless, right after this fires.
 export function createPadCursor({ el, clampRect, onSelect, onHold, onMove, onEdge, speed, holdMs }) {
   const SPEED = speed || DEFAULT_SPEED;
   const HOLD_MS = holdMs || DEFAULT_HOLD_MS;
@@ -36,11 +31,9 @@ export function createPadCursor({ el, clampRect, onSelect, onHold, onMove, onEdg
   let vec = { x: 0, y: 0 };   // last reported [-1,1] velocity, held between broadcasts
   let timer = null, lastT = 0;
   let holdTimer = null, holdFired = false;   // Select press/hold arbitration (see setSelectHeld)
-  // Externally forced invisible (docs/tgt-keybind-nav.md) — a page can have its own second selection
-  // mode (TGT's Next/Previous Target row-stepper) that's mutually exclusive with the free crosshair;
-  // setHidden lets it suppress the crosshair without touching `on`/`pos`, so the crosshair picks up
-  // exactly where it was left the moment it's un-hidden (same "parked, not forgotten" contract focus
-  // loss already has). Unused by MAP/HUD — plain false forever, paint() behaves exactly as before.
+  // Externally forced invisible (docs/tgt-keybind-nav.md): a page can have its own selection mode
+  // (e.g. a row-stepper) that's mutually exclusive with the free crosshair. setHidden suppresses
+  // the crosshair without touching `on`/`pos`, so un-hiding resumes exactly where it was.
   let hidden = false;
 
   function clamp() {
@@ -50,8 +43,8 @@ export function createPadCursor({ el, clampRect, onSelect, onHold, onMove, onEdg
     pos.y = Math.max(r.dy, Math.min(r.dy + r.dh, pos.y));
   }
 
-  // Transform, not left/top, so it stays a compositor move and never reflows/repaints the page
-  // underneath it.
+  // Transform, not left/top, so moving the cursor stays a compositor-only operation and never
+  // reflows/repaints the page underneath it.
   function paint() {
     if (!on || !pos || hidden) {
       el.style.display = 'none';
@@ -63,9 +56,9 @@ export function createPadCursor({ el, clampRect, onSelect, onHold, onMove, onEdg
     if (onMove) onMove(pos.x, pos.y);
   }
 
-  // Integrates the last-known velocity between broadcasts, uses performance.now() rather than the
-  // rAF callback's own timestamp so it doesn't depend on how a given embedder invokes
-  // requestAnimationFrame. Self-stops once the vector is zero; ensureAnim restarts it.
+  // Integrates the last-known velocity between broadcasts using performance.now() rather than the
+  // rAF timestamp, so it doesn't depend on how the embedder invokes requestAnimationFrame.
+  // Self-stops once the vector is zero; ensureAnim restarts it.
   function drive() {
     if (!on || !pos || (!vec.x && !vec.y)) { timer = null; lastT = 0; return; }
     const now = performance.now();
@@ -88,8 +81,8 @@ export function createPadCursor({ el, clampRect, onSelect, onHold, onMove, onEdg
   }
 
   return {
-    // Focus changed: center it the first time this surface is focused (predictable), then leave it
-    // wherever the pilot parks it — losing focus hides it rather than forgetting its spot.
+    // Center only the first time this surface is focused; afterward leave the cursor wherever the
+    // pilot parked it — losing focus hides it rather than forgetting its position.
     setFocus(v, centerX, centerY) {
       on = v;
       if (on && !pos) pos = { x: centerX, y: centerY };
@@ -97,12 +90,12 @@ export function createPadCursor({ el, clampRect, onSelect, onHold, onMove, onEdg
       paint();
     },
     setVector(x, y) { vec = { x: x || 0, y: y || 0 }; ensureAnim(); },
-    // Plain edge-driven select — a press that never needs to be told from a hold (MAP; also the
-    // default for any page that doesn't pass onHold).
+    // Default select path for a press that never needs to be told apart from a hold, or for any
+    // page that doesn't pass onHold.
     select() { if (on && pos && onSelect) onSelect(pos.x, pos.y); },
-    // Cursor Select's LIVE held state (docs/page-cursor.md) — only meaningful when the page passed
-    // onHold. Mirrors a real pointerdown/pointerup pair: rising edge arms a HOLD_MS timer: if it
-    // fires while still held, that's the hold outcome; falling edge without a fired timer is a tap.
+    // Meaningful only when the page passed onHold. Mirrors a pointerdown/pointerup pair: rising
+    // edge arms a HOLD_MS timer (fires while still held → hold outcome); falling edge without a
+    // fired timer is a tap.
     setSelectHeld(held) {
       if (!onHold) { if (held) this.select(); return; }   // no hold behaviour registered — plain tap-on-press
       if (held) {
@@ -118,11 +111,11 @@ export function createPadCursor({ el, clampRect, onSelect, onHold, onMove, onEdg
     },
     // Re-clamp + repaint after the clamp rect changed (a resize) without moving the cursor itself.
     resize() { clamp(); paint(); },
-    // Force the crosshair invisible (true) or let it paint normally again (false) — docs/tgt-keybind-nav.md.
-    // `pos`/`vec` are untouched, so un-hiding shows it exactly where it was, and a still-deflected
-    // vector keeps driving underneath while hidden (paint() just skips the visible repaint).
+    // `pos`/`vec` stay untouched while hidden, so a still-deflected vector keeps driving
+    // underneath (paint() just skips the visible repaint), and un-hiding shows the cursor exactly
+    // where it was.
     setHidden(h) { hidden = !!h; paint(); },
-    // Drop the cursor entirely (a mission boundary) — no lingering position across it.
+    // Drop the cursor entirely (e.g. a mission boundary) — no lingering position across it.
     reset() {
       if (timer) { cancelAnimationFrame(timer); timer = null; }
       if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }

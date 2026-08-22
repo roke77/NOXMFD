@@ -288,7 +288,7 @@ function padCursorMoveAt(px, py) {
 
 // Zoom In/Out (map-act's zoom-in/zoom-out) are repurposed here to scroll the target list — nothing
 // on this page to zoom, and the binds already exist end-to-end (docs/page-cursor.md).
-const SCROLL_STEP = 60;   // ponytail: flat constant tuned by feel, like pad-cursor.js's own SPEED
+const SCROLL_STEP = 60;   // flat constant tuned by feel, like pad-cursor.js's own SPEED
 
 // ── Shell → page ─────────────────────────────────────────────────────────────────────
 window.addEventListener('message', function (e) {

@@ -73,8 +73,22 @@ namespace NOXMFD
         // reference, never the underlying List<Route>, so no lock is needed.
         internal static volatile string RoutesJson = "{\"activeRouteId\":null,\"routes\":[]}";
 
+        // Storage/log seam (docs/csharp-unit-testing.md) — keeps this file free of any BepInEx/
+        // Plugin reference so a standalone test project can compile and exercise the mutators
+        // directly. Plugin.Awake sets both before calling Load(); a test project leaves ConfigDir
+        // null (FilePath then resolves under the test run's own working directory) and can set
+        // PersistToDisk false to exercise the mutators without touching disk at all.
+        internal static string? ConfigDir;
+        internal static Action<string>? LogWarning;
+        internal static bool PersistToDisk = true;
+
+        // Same seam, for Squad.cs (Steam/BepInEx-dependent, also outside the test project):
+        // Plugin.Awake wires this to Squad.SendData; left null in tests, where ShareRoute/
+        // BroadcastIfShared's null-conditional invoke below just no-ops instead of throwing.
+        internal static Func<string, string, bool>? SendSquadData;
+
         private static string FilePath =>
-            Path.Combine(BepInEx.Paths.ConfigPath, "com.roque.NOXMFD.routes.json");
+            Path.Combine(ConfigDir ?? ".", "com.roque.NOXMFD.routes.json");
 
         // ── lifecycle ────────────────────────────────────────────────────────────────────────
 
@@ -96,7 +110,7 @@ namespace NOXMFD
             }
             catch (Exception ex)
             {
-                Plugin.Log?.LogWarning($"[NOXMFD] routes file unreadable, starting empty: {ex.Message}");
+                LogWarning?.Invoke($"[NOXMFD] routes file unreadable, starting empty: {ex.Message}");
                 _routes = new List<Route>();
                 _activeRouteId = null;
             }
@@ -145,10 +159,11 @@ namespace NOXMFD
         // both only make sense within the live squad session that produced them.
         private static void Save()
         {
+            RefreshServedJsonOnly();
+            if (!PersistToDisk) return;
             string fileJson = BuildFileJson();
             try { File.WriteAllText(FilePath, fileJson); }
-            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] failed to persist routes: {ex.Message}"); }
-            RefreshServedJsonOnly();
+            catch (Exception ex) { LogWarning?.Invoke($"[NOXMFD] failed to persist routes: {ex.Message}"); }
         }
 
         // For mutations that don't touch persisted route shape (pending-share bookkeeping): only the
@@ -162,9 +177,9 @@ namespace NOXMFD
             {
                 if (i > 0) sb.Append(',');
                 PendingSharedRoute p = _pendingShared[i];
-                sb.Append("{\"id\":\"").Append(TelemetryServer.EscapeJson(p.Id))
-                  .Append("\",\"name\":\"").Append(TelemetryServer.EscapeJson(p.Name))
-                  .Append("\",\"fromName\":\"").Append(TelemetryServer.EscapeJson(p.FromName))
+                sb.Append("{\"id\":\"").Append(JsonLite.EscapeJson(p.Id))
+                  .Append("\",\"name\":\"").Append(JsonLite.EscapeJson(p.Name))
+                  .Append("\",\"fromName\":\"").Append(JsonLite.EscapeJson(p.FromName))
                   .Append("\",\"waypointCount\":").Append(p.Waypoints.Count)
                   .Append('}');
             }
@@ -179,24 +194,24 @@ namespace NOXMFD
         {
             var sb = new StringBuilder();
             sb.Append("{\"activeRouteId\":")
-              .Append(_activeRouteId != null ? "\"" + TelemetryServer.EscapeJson(_activeRouteId) + "\"" : "null")
+              .Append(_activeRouteId != null ? "\"" + JsonLite.EscapeJson(_activeRouteId) + "\"" : "null")
               .Append(",\"routes\":[");
             for (int i = 0; i < _routes.Count; i++)
             {
                 if (i > 0) sb.Append(',');
                 Route r = _routes[i];
-                sb.Append("{\"id\":\"").Append(TelemetryServer.EscapeJson(r.Id))
-                  .Append("\",\"name\":\"").Append(TelemetryServer.EscapeJson(r.Name))
+                sb.Append("{\"id\":\"").Append(JsonLite.EscapeJson(r.Id))
+                  .Append("\",\"name\":\"").Append(JsonLite.EscapeJson(r.Name))
                   .Append("\",\"nextIndex\":").Append(r.NextIndex)
-                  .Append(",\"sharedBy\":\"").Append(TelemetryServer.EscapeJson(r.SharedBy)).Append('"');
+                  .Append(",\"sharedBy\":\"").Append(JsonLite.EscapeJson(r.SharedBy)).Append('"');
                 if (served) sb.Append(",\"sharedWithSquad\":").Append(r.SharedWithSquad ? "true" : "false");
                 sb.Append(",\"waypoints\":[");
                 for (int j = 0; j < r.Waypoints.Count; j++)
                 {
                     if (j > 0) sb.Append(',');
                     Waypoint w = r.Waypoints[j];
-                    sb.Append("{\"id\":\"").Append(TelemetryServer.EscapeJson(w.Id))
-                      .Append("\",\"name\":\"").Append(TelemetryServer.EscapeJson(w.Name))
+                    sb.Append("{\"id\":\"").Append(JsonLite.EscapeJson(w.Id))
+                      .Append("\",\"name\":\"").Append(JsonLite.EscapeJson(w.Name))
                       .Append("\",\"x\":").Append(w.X.ToString("0.0", CultureInfo.InvariantCulture))
                       .Append(",\"z\":").Append(w.Z.ToString("0.0", CultureInfo.InvariantCulture))
                       .Append('}');
@@ -481,7 +496,7 @@ namespace NOXMFD
             Route? route = FindRoute(id);
             if (route == null || route.IsShared) return false;   // can't share someone else's content
             route.SharedWithSquad = true;
-            return Squad.SendData("wpt.route", BuildSharePayloadJson(route));
+            return SendSquadData?.Invoke("wpt.route", BuildSharePayloadJson(route)) ?? false;
         }
 
         // Fires after any mutation to a route that was previously shared — silently does nothing if
@@ -489,7 +504,7 @@ namespace NOXMFD
         // itself checks role/membership, same guard the manual share button already relies on).
         private static void BroadcastIfShared(Route route)
         {
-            if (route.SharedWithSquad) Squad.SendData("wpt.route", BuildSharePayloadJson(route));
+            if (route.SharedWithSquad) SendSquadData?.Invoke("wpt.route", BuildSharePayloadJson(route));
         }
 
         // {id, name, waypoints:[{name,x,z}]} — the same shape ReceiveSharedRoute expects, now built
@@ -497,14 +512,14 @@ namespace NOXMFD
         private static string BuildSharePayloadJson(Route route)
         {
             var sb = new StringBuilder();
-            sb.Append("{\"id\":\"").Append(TelemetryServer.EscapeJson(route.Id))
-              .Append("\",\"name\":\"").Append(TelemetryServer.EscapeJson(route.Name))
+            sb.Append("{\"id\":\"").Append(JsonLite.EscapeJson(route.Id))
+              .Append("\",\"name\":\"").Append(JsonLite.EscapeJson(route.Name))
               .Append("\",\"waypoints\":[");
             for (int i = 0; i < route.Waypoints.Count; i++)
             {
                 if (i > 0) sb.Append(',');
                 Waypoint w = route.Waypoints[i];
-                sb.Append("{\"name\":\"").Append(TelemetryServer.EscapeJson(w.Name))
+                sb.Append("{\"name\":\"").Append(JsonLite.EscapeJson(w.Name))
                   .Append("\",\"x\":").Append(w.X.ToString("0.0", CultureInfo.InvariantCulture))
                   .Append(",\"z\":").Append(w.Z.ToString("0.0", CultureInfo.InvariantCulture))
                   .Append('}');
@@ -626,6 +641,17 @@ namespace NOXMFD
             Waypoint wp = route.Waypoints[route.NextIndex];
             x = wp.X; z = wp.Z; name = wp.Name; index = route.NextIndex;
             return true;
+        }
+
+        // Test-only: _routes/_activeRouteId are static (plugin-lifetime by design, see the class
+        // comment), so NOXMFD.Tests' RouteStoreTests resets them between test methods to avoid one
+        // test's routes leaking into the next. Never called from plugin code.
+        internal static void ResetForTests()
+        {
+            _routes = new List<Route>();
+            _activeRouteId = null;
+            _pendingShared.Clear();
+            RoutesJson = "{\"activeRouteId\":null,\"routes\":[]}";
         }
     }
 }

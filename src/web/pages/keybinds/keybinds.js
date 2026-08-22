@@ -29,6 +29,9 @@ var bgInput   = false;   // InputWhenGameUnfocused — a plain setting, not a bi
 var radarOnOnStart      = true;
 var engineOnOnStart     = true;
 var masterArmsOnOnStart = true;
+// HudCombatModeFilters' own on/off switch — default OFF, unlike the three above, so it starts
+// false rather than true until the first /keybinds-config poll.
+var hudFiltersOnCombatMode = false;
 var lastJson  = '';      // skip re-render when nothing changed
 
 // ── Input-when-unfocused toggle ──────────────────────────────────────────────────────────────
@@ -66,6 +69,8 @@ var renderEngineOnStart = makeSettingToggle('kb-engine-on-start-btn', 'keybind.s
   function () { return engineOnOnStart; }, function (v) { engineOnOnStart = v; });
 var renderMasterArmsOnStart = makeSettingToggle('kb-master-arms-on-start-btn', 'keybind.set-master-arms-on-start',
   function () { return masterArmsOnOnStart; }, function (v) { masterArmsOnOnStart = v; });
+var renderHudFiltersOnCombatMode = makeSettingToggle('kb-hud-filters-on-combat-mode-btn', 'keybind.set-hud-filters-on-combat-mode',
+  function () { return hudFiltersOnCombatMode; }, function (v) { hudFiltersOnCombatMode = v; });
 
 // Key naming (KeyboardEvent.code → Unity KeyCode name, and its compact display form) lives in
 // keybinds-keymap.js, pure and unit-checked.
@@ -173,6 +178,12 @@ function buildRow(b) {
     var wide = axisCell(b);
     wide.style.gridColumn = '2 / span 2';
     row.appendChild(wide);
+  } else if (b.key !== undefined && b.joyButton === undefined) {
+    // Key-only row (e.g. SAVE/LOAD LAYOUT): browser-side only, deliberately no joystick/HOTAS
+    // option, so there's no joyButton field to render a second cell for.
+    var wideKey = cell(b, 'key');
+    wideKey.style.gridColumn = '2 / span 2';
+    row.appendChild(wideKey);
   } else {
     row.appendChild(cell(b, 'key'));
     row.appendChild(cell(b, 'joy'));
@@ -289,9 +300,11 @@ function refresh() {
     radarOnOnStart      = cfg.radarOnOnStart      !== false;
     engineOnOnStart     = cfg.engineOnOnStart     !== false;
     masterArmsOnOnStart = cfg.masterArmsOnOnStart !== false;
+    hudFiltersOnCombatMode = !!cfg.hudFiltersOnCombatMode;   // defaults OFF, not ON like the three above
     renderRadarOnStart();
     renderEngineOnStart();
     renderMasterArmsOnStart();
+    renderHudFiltersOnCombatMode();
     render();
   }).catch(function () { panelEl.classList.add('unavailable'); });
 }
@@ -300,5 +313,6 @@ renderBgToggle();   // OFF until the first fetch resolves, rather than a blank b
 renderRadarOnStart();          // ON until the first fetch resolves — true is the actual default
 renderEngineOnStart();
 renderMasterArmsOnStart();
+renderHudFiltersOnCombatMode();   // OFF until the first fetch resolves — false is the actual default
 refresh();
 setInterval(refresh, 600);

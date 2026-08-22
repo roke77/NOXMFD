@@ -10,6 +10,12 @@ guesses — most exist because a past session violated them.
   into `main` when ready. **Delete the branch (local + remote) immediately after
   merging** — do this in the same sitting as the merge, before moving on to
   versioning/release work.
+- **"push" and "merge to main" are separate authorizations — "push" never implies the
+  other.** "push" (on a feature branch) pushes that branch only, exactly as-is; it does
+  not fast-forward-merge into `main`, and does not push `main`. Merging into `main`
+  needs its own explicit instruction ("merge to main", "merge it in") given
+  separately, even right after a "push" in the same turn. Default assumption on any
+  feature branch is "stays a branch" until that explicit merge instruction arrives.
 - **Never push unless the user's current message literally contains the word "push"**
   (or "upload"/"publish to remote"). This is the single most-violated rule in this
   project (10 documented incidents). None of the following authorize a push: "yes",
@@ -60,6 +66,11 @@ guesses — most exist because a past session violated them.
 - Perf A/B session reports go in `_scratch/perf-sessions/*.txt` (gitignored) — never
   commit or push them. The PerfLogging feature code and its docs are committed
   normally.
+- After a significant code change, `dotnet build -c Release` and let the
+  `DeployToGame` MSBuild target copy the fresh DLL into the real game's
+  `BepInEx/plugins` folder without waiting to be asked. This is a reversible, local
+  action (overwrites a DLL on disk) — it's a separate gate from `git push`, which
+  still needs the literal word per the Git workflow rules above.
 
 ## Docs & comments
 
@@ -68,12 +79,26 @@ guesses — most exist because a past session violated them.
 - No reader-directed meta-commentary ("this is the part people miss", "you'd be
   surprised how often"). State the fact plainly; justifying a design choice is fine,
   editorializing about the reader is not.
+- Comments explain **why**, not what: a non-obvious choice, a runtime/engine/API
+  constraint, an invariant a future edit must preserve, or a threading/lifecycle/
+  ordering/caching assumption. A workaround's comment says when it can be removed.
+  Don't restate what the code already says, don't excuse unclear code instead of
+  naming/simplifying it, and — same present-tense rule as above — don't narrate
+  history or process (migrations, prior implementations, "moved from X", agent/session
+  actions); that belongs in commits/PRs/docs, not the comment. Skip exact line numbers
+  likely to drift. A `TODO` needs a concrete condition or a linked issue/doc, not a bare
+  marker.
 - `docs/` holds feature design docs (markdown). These are kept permanently as a
   historical record of how a feature was planned, even after it ships — unlike
-  user-facing docs (README, etc.), which stay present-tense-only.
+  user-facing docs (README, etc.) and code comments, which stay present-tense-only.
 
 ## Testing
 
+- `tools/ci-check.ps1` runs the checks below in one command (`dotnet build -c Release`,
+  every `*.test.js`, `dotnet test` on `tools/tests/`, and a `serve_web.py` route smoke)
+  — run it before calling a change done instead of running the pieces by hand. It's not
+  a substitute for the manual in-browser verification workflow when the change is
+  visual.
 - After any change under `src/web/`, run the JS self-checks (`*.test.js` files
   alongside the code, plain `node` scripts with asserts — no framework) before calling
   the change done.
@@ -83,13 +108,54 @@ guesses — most exist because a past session violated them.
   test backstops each step. A page that passes every self-check and still does nothing
   when clicked in full view is missing one of those two `mfd.js` switches — that
   specific gap is what `classic-button-wiring.test.js` exists to catch.
-- `src/plugin/` (the C# side) intentionally has no automated tests today — most of it
-  reflects into live Unity/game objects or subclasses `MonoBehaviour` and needs the
-  game running to exercise; failures there are loud (crash/exception) rather than
-  silent. The one deliberately-scoped exception is the JSON serialization layer, which
-  is plain BCL code with no Unity dependency and is a good target for a standalone test
-  project if that work is picked up. Don't treat the current lack of C# tests as an
-  oversight to fix opportunistically — it's a scoped decision.
+- `src/plugin/` (the C# side) is mostly untested by design — most of it reflects into
+  live Unity/game objects or subclasses `MonoBehaviour` and needs the game running to
+  exercise; failures there are loud (crash/exception) rather than silent. The exception
+  is `tools/tests/` (xUnit, `docs/csharp-unit-testing.md`), a standalone project
+  covering the plugin's pure-logic files (`JsonLite.cs`, `RouteStore.cs` so far) by
+  compiling them directly rather than referencing `NOXMFD.csproj` — that would drag in
+  the `$(GameDir)`-relative Unity/game references and require a real Nuclear Option
+  install just to build tests. Extending it to another file means giving that file the
+  same BepInEx/Unity-free seam RouteStore.cs has (injectable fields instead of direct
+  `BepInEx.Paths`/`Plugin.Log`/etc. references) before it can compile standalone; don't
+  treat the rest of `src/plugin/` still lacking tests as an oversight — the
+  Harmony/`MonoBehaviour`/game-object files are correctly out of scope for this, not
+  merely not-yet-done.
+- **Live-game verification.** `ci-check.ps1` and the browser-preview workflow can't
+  exercise real Unity/game state (live telemetry, reflection into private game fields,
+  in-mission behavior). When a change touches that kind of code, track what still needs
+  a manual in-game check as a bullet list — in the PR/commit description for a small
+  change, or in the relevant `docs/` design doc for a larger one — instead of letting it
+  go unverified silently. From the post-0.26.0 refactor pass
+  (`docs/post-0.26-refactor-analysis.md`) — confirmed live 2026-08-22 against a running
+  Free Flight mission:
+  - [x] BDF/PAL faction data displays correctly after `BuildFactionForces` (classic
+    full-view, real Boscali/Primeva funds/ships/vehicles/buildings/aircraft counts).
+  - [x] Fresh-mission vehicle/ship/building icon capture after `CaptureTypeIcons<T>`
+    (TGT page's vehicle-type icons load with real pixel data, not broken images).
+  - [x] Classic full-view page forwarding with live `bdf`/`pal` data, and classic
+    split-view forwarding with live `map` data — both confirmed via the shell's actual
+    `page-frame`/`pane-*` iframes, not just the raw SSE payload.
+  - [x] Live telemetry frame still matches its pre-refactor shape after the
+    `TelemetryJson.cs` extraction (`docs/refactor-scan.md` step 10) — confirmed against
+    the actual rebuilt/redeployed/restarted plugin (not just the pre-extraction one),
+    `/stream`'s `bdf`/`pal`/`mis`/`obj`/`akf`/`tgt` blocks all shaped and populated as
+    expected.
+  - [x] Fullscreen icon: the shared `--icon-fullscreen` token resolves to the same
+    non-empty inline-SVG value in both classic and F-35 shells (pixel-identical
+    rendering itself still wants a quick human eyeball — not verifiable headlessly).
+  - [ ] CM category display and keybind-driven CM category cycling after
+    `CmReflection` — needs an actual keypress in-game, not verifiable from the browser
+    side; still pending.
+  - [ ] RDR/RWR/MW contact rendering with a live radar-equipped aircraft and nearby
+    threats — the session tested against had no radar and no contacts nearby, so the
+    arrays were empty but unexercised.
+  - [x] `Keybinds.cs`'s `FindBind(id)` extraction (`docs/refactor-scan.md` step 11) —
+    confirmed live 2026-08-22: `keybind.set-key` round-trips, `arm-joy`/`cancel-joy` and
+    `arm-axis`/`cancel-axis` no-op cleanly, `set-axis-invert` round-trips, an unknown
+    bind id no-ops instead of erroring. `clear-joy` confirmed on an already-unassigned
+    bind; `clear-axis` not exercised against a real HOTAS axis binding (would have wiped
+    it) but shares identical code with the five tested paths.
 
 ## Unity / BepInEx safety
 
@@ -109,6 +175,17 @@ guesses — most exist because a past session violated them.
 - **BepInEx config defaults**: changing a `ConfigEntry`'s default value only affects a
   freshly-generated config file. An existing user's `.cfg` on disk keeps whatever value
   it already has — changing a default is not a migration for existing installs.
+- **`BepInEx_Manager` doesn't survive boot → MainMenu**: in this game/Unity version,
+  anything living directly on `Plugin` (a `BaseUnityPlugin`) gets destroyed a few
+  hundred ms after chainloader startup, before any mission can start —
+  `DontDestroyOnLoad` is a no-op when called from BepInEx's preloader context, and
+  re-calling it from `Plugin.Awake` doesn't help. The fix already in place
+  (`Plugin.cs`): subscribe to `SceneManager.sceneLoaded`, and on the *first* real scene
+  load spawn a self-created `NOXMFD_Worker` GameObject and mark *that*
+  `DontDestroyOnLoad` — it survives because a real scene exists by then. Anything that
+  needs to outlive `Plugin` belongs on that Worker GameObject (or another
+  freshly-spawned persistent object created from a `sceneLoaded` callback), never
+  directly on `Plugin` itself.
 
 ## Build environment
 
@@ -135,6 +212,13 @@ guesses — most exist because a past session violated them.
   inside). A tag + notes with no asset silently breaks NOMM/NOMNOM auto-update — verify
   with `gh release view <tag> --json assets -q '.assets[].name'` before considering the
   release done.
+- **Build the zip with Python's `zipfile` module, not PowerShell's
+  `Compress-Archive`.** `Compress-Archive` has previously written backslash path
+  separators into the archive, which breaks extraction on Linux — `zipfile` always
+  writes forward slashes. Package as `NOXMFD/NOXMFD.dll` (the DLL from
+  `bin/Release/netstandard2.1/`, no `BepInEx/plugins/` prefix — NOMM adds that itself)
+  and verify with `python3 -c "import zipfile; print(zipfile.ZipFile('<zip>').namelist())"`
+  before uploading.
 - Release notes = a tight changelog of the actual changes only — no generic
   install/how-to instructions (that belongs in the README). Only include changes
   actually merged into the release's target branch (`main`); don't pull in changelog
@@ -143,6 +227,50 @@ guesses — most exist because a past session violated them.
 - Version bump: feature-sized merges have historically bumped minor (0.16.0, 0.17.0),
   isolated fixes bump patch. Flag once if the user names a version that doesn't match
   this pattern, then follow their explicit choice without re-raising it.
+
+## Folder architecture
+
+Current split: `src/plugin/` (C# runtime; `Hud/` already broken out as its first internal
+grouping — see below), `src/web/pages/` (page-specific browser code), `src/web/shell/`
+(shell/layout code, mixing shared shell mechanics with classic/f35 subfolders),
+`src/web/services/` (shared browser services), `src/web/shared/` (shared CSS/fonts/
+tokens), `tools/` (preview, capture, CI, tests).
+
+Grow this incrementally, not as a big-bang reshuffle — create a folder only when moving
+at least two related files or extracting a real new module, don't pre-create empty
+folders for a single file or a "someday" grouping (e.g. no `Builders/` folder until
+there's a second builder to put in it). Move pure/testable code before risky
+runtime-coupled code. Keep composition roots (`Plugin.cs`, `TelemetryServer.cs`,
+`mfd.js`, `f35.js`, page `<name>.js` files) easy to find even as they shrink. Update
+`NOXMFD.csproj`/embedded-resource paths in the same commit as any move. One
+responsibility-group per commit — large reshuffles are hard to review and wreck blame.
+
+`src/plugin/Hud/` (`HudDeclutter.cs`, `HudDeclutterConfig.cs`, `HudCombatModeFilters.cs`,
+`HudWaypointCue.cs`) is done — the rest of `src/plugin/` and all of `src/web/shell/` stay
+flat until enough files are ready to move together. If/when they grow enough to need more
+internal structure, this is the target shape:
+
+- **`src/plugin/`**: `Core/` (`Plugin.cs`, `MissionLifecycle.cs`, `HarmonyPatches.cs`) ·
+  `Telemetry/` (`TelemetrySnapshot.cs`, `TelemetryReader.cs`, `TelemetryJson.cs`) ·
+  `Http/` (`TelemetryServer.cs` — don't move it alone until its own responsibilities
+  split into route/asset/stream handlers) · `Commands/` (`CommandDispatcher.cs`) ·
+  `Stores/` (`RouteStore.cs`, `LayoutStore.cs`, `HudPresetStore.cs` — JSON-backed,
+  test-friendly, avoid direct Unity/BepInEx coupling) · `Input/` (`Keybinds.cs`,
+  `WeaponSelectors.cs`) · `Assets/` (`AssetCapture.cs`, `SpriteCapture.cs`) ·
+  `Immersion/` (`ImmersionConfig.cs`, `ImmersionState.cs`) · `Config/` (`RatesConfig.cs`,
+  `ConfigurationManagerAttributes.cs`) · `Interop/` (`CmReflection.cs` and future narrow,
+  specifically-named reflection adapters — never a generic `ReflectionUtils` bucket) ·
+  `Util/` (`JsonLite.cs`).
+- **`src/web/`**: a `shell/shared/` subfolder for shell-agnostic mechanics
+  (`boot-reveal.js`, `layout-keydown.js`, `layout-modal.js`, `layout-store.js`,
+  `layout-pages.js`, `nav-model.js`), separate from `shell/classic/` and `shell/f35/`'s
+  own composition. A `protocol/` folder for shared message names/payload contracts is
+  worth creating once contracts are actually centralized, not for one file. Keep
+  page-specific policy files beside their page (as `avn-throttle-policy.js`,
+  `afm-bg-policy.js`, `map-transform.js` already do) — don't invent a generic
+  `components/`/`utils/` bucket for a shell/page-oriented app.
+- **`tools/`**: split `serve_web.py` into `preview/` + `preview/mocks/` only when its
+  route helpers or mocks are being touched for real work, not preemptively.
 
 ## Repo-wide coding rules
 

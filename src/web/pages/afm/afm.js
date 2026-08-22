@@ -1,8 +1,5 @@
-// AFM page — airframe status. A pure reactive renderer driven by the shell over postMessage;
-// single source of truth for BOTH layouts (full-screen iframe + split pane). See afm.html for
-// the message contract.
-//
-// compact (default) places name + frame with fixed CSS offsets. full (body.full) overrides the
+// AFM page — airframe status. Reactive renderer driven by the shell over postMessage.
+// compact (default) places name + frame with fixed CSS offsets. full (body.full) overrides
 // name/frame placement from the bezel geometry the shell forwards in 'afm-layout'.
 
 // ── DOM refs ───────────────────────────────────────────────────────────────────────
@@ -20,28 +17,25 @@ const afmEmptyEl = document.getElementById('afm-empty');
 // ── State ──────────────────────────────────────────────────────────────────────────
 let afmData        = { name: null, parts: null, failures: null, pylons: null };
 let layout          = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)
-let afmFullGeom     = null;        // {headerTop, headerHeight, frameTop, frameHeight} forwarded by the shell in full
+let afmFullGeom     = null;        // {headerTop, headerHeight, frameTop, frameHeight} from the shell in full
 let afmLayoutType   = null;
 let afmLayoutCache  = Object.create(null);
-let afmLayoutTries  = Object.create(null);   // per-type layout-fetch retry counts
+let afmLayoutTries  = Object.create(null);
 let afmPartEls      = Object.create(null);
-let afmFailureEls   = [];   // current failure-label DOM nodes, rebuilt each paint (see paintAfmFailures)
-let afmBgType = null, afmBgTries = 0, afmBgLoaded = false;   // background-image request/retry state
-const AFM_BG_RETRY_CAP = 120;                // ~60 s @ 500 ms — safety bound; the async server capture lands far sooner
-let afmFrontType = null, afmFrontTries = 0, afmFrontLoaded = false;   // frontal-silhouette image request/retry state
+let afmFailureEls   = [];
+let afmBgType = null, afmBgTries = 0, afmBgLoaded = false;
+const AFM_BG_RETRY_CAP = 120;   // ~60s @ 500ms; safety bound, not the expected latency
+let afmFrontType = null, afmFrontTries = 0, afmFrontLoaded = false;
 let afmFrontLayoutType  = null;
 let afmFrontLayoutCache = Object.create(null);
-let afmFrontLayoutTries = Object.create(null);   // per-type pylon-marker-layout fetch retry counts
+let afmFrontLayoutTries = Object.create(null);
 let afmFrontMarkerEls   = Object.create(null);
 
-// Failure-label placement on the silhouette. The strings themselves vary per aircraft and are
-// parsed by afm-failure-policy (side + display text); here we just decide where each column sits.
-// Sided failures cluster over their engine (left/right); side-less ones stack in a centre column.
-const AFM_FAIL_COL = { L: 0.20, R: 0.80, C: 0.50 };   // silhouette x per column (0..1)
-const AFM_FAIL_BASE_CY = 0.78;                        // first row y — over the engines / lower body
-const AFM_FAIL_ROW_DY  = 0.07;                        // vertical step when a column stacks
-// ponytail: naive upward stack — with many simultaneous failures in one column the labels could
-// climb off the top of the silhouette. Fine for the handful the game ever raises at once.
+// Failure label placement: sided failures cluster over their engine, side-less ones center-stack.
+const AFM_FAIL_COL = { L: 0.20, R: 0.80, C: 0.50 };
+const AFM_FAIL_BASE_CY = 0.78;
+const AFM_FAIL_ROW_DY  = 0.07;
+// ponytail: naive upward stack — many simultaneous failures in one column could climb off-frame.
 
 // ── Renderer ───────────────────────────────────────────────────────────────────────
 function renderAfm() {

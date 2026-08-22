@@ -7,7 +7,7 @@
   Bare AKF page served at /akf — the advanced kill feed (issue #34), a live replica of the game's
   own HUD kill-feed ticker plus session stats scoped to the local player's own kills. Renders
   full-view in #page-frame and as a split pane, like BDF/PAL/MIS/OBJ — its bezel keys are the shared
-  MDT switch (NAV.akf: MAIN + AKF + MIS + OBJ + BDF + PAL), reached from MAIN via MDT
+  MD switch (NAV.akf: MAIN + AKF + MIS + OBJ + BDF + PAL), reached from MAIN via MD
   (BEZEL_EXTRAS.main, action 'akf' — AKF is the group's default landing page; NAV.akf marks this
   one). See docs/akf-page.md.
 
@@ -21,7 +21,21 @@
                  PLAYER-feed line where the player is the omitted attacker }
     No present:false gate — an empty session (no kills yet) just reads as all-zero, always shown.
 
-  Read-only: no commands, no interaction.
+  No commands: the feed content itself is read-only. The interactions are purely client-local, not
+  persisted across a reload —
+    - dragging #akf-resizer resizes the ALL/PLAYER split, and past a minimum width the shrinking
+      side collapses to just its arrow (click it to restore) — see akf.js.
+    - #akf-density-toggle (top right, issue #34 follow-up) switches both feeds between DETAILED
+      (today's full sentence) and COMPACT: each name truncates to its first word, the verb becomes
+      a single arrow glyph regardless of which verb it was, and "with" becomes a dot glyph — the
+      weapon name itself stays in full either way. See akf.js's nameText/verbText helpers.
+
+  PAD cursor (docs/page-cursor.md) — while this AKF is the SOI's focused surface, the shell forwards
+  the same cursor/cursor-held transport TGT uses ({mfd:true, action:'cursor'|'cursor-held'|
+  'cursor-focus'}). A quick Select tap clicks the resizer (only meaningful once collapsed); holding
+  Select down over the resizer drags it, feeding the crosshair's x into the same resize the mouse
+  path uses. #pad-cursor sits inside .akf-panel (which doesn't scroll) so panel-local coordinates
+  work directly, same as TGT — see akf.js.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -29,15 +43,34 @@
 </head>
 <body>
   <div class="akf-panel">
-    <div class="akf-header">ADVANCED KILL FEED</div>
+    <div class="akf-header">
+      <span class="akf-header-spacer" aria-hidden="true"></span>
+      <span class="akf-header-title">ADVANCED KILL FEED</span>
+      <!-- DETAILED/COMPACT feed density toggle (issue #34 follow-up) — see akf.js. -->
+      <div class="akf-density-toggle pad-hoverable" id="akf-density-toggle" title="Toggle feed detail level">
+        <span class="akf-density-label akf-density-label-left">DETAILED</span>
+        <span class="akf-density-switch"><span class="akf-density-knob"></span></span>
+        <span class="akf-density-label akf-density-label-right">COMPACT</span>
+      </div>
+    </div>
 
-    <div class="akf-feeds">
-      <div class="akf-feed">
+    <div class="akf-feeds" id="akf-feeds">
+      <div class="akf-feed" id="akf-feed-all">
         <div class="akf-section-label">ALL</div>
         <div class="akf-feed-lines" id="akf-all"></div>
       </div>
 
-      <div class="akf-feed">
+      <!-- Drag to resize the ALL/PLAYER split (issue #34 follow-up); dragging a side below its
+           minimum width collapses it, leaving only the arrow pointing back toward the remaining
+           side — click it to restore the default split. See akf.js. -->
+      <div class="akf-resizer pad-hoverable" id="akf-resizer" title="Drag to resize">
+        <div class="akf-resizer-arrows">
+          <span class="akf-resizer-arrow akf-resizer-arrow-left">&#9664;</span>
+          <span class="akf-resizer-arrow akf-resizer-arrow-right">&#9654;</span>
+        </div>
+      </div>
+
+      <div class="akf-feed" id="akf-feed-player">
         <div class="akf-section-label">PLAYER</div>
         <div class="akf-feed-lines" id="akf-player"></div>
       </div>
@@ -66,8 +99,12 @@
         <div class="akf-value-figure" id="akf-rank">0</div>
       </div>
     </div>
+
+    <!-- PAD cursor (docs/page-cursor.md) — same crosshair/transport TGT uses, driven here only
+         while this AKF is the SOI's focused surface. See akf.js. -->
+    <div id="pad-cursor" class="pad-cursor"></div>
   </div>
 
-<script src="/assets/pages/akf/akf.js"></script>
+<script type="module" src="/assets/pages/akf/akf.js"></script>
 </body>
 </html>

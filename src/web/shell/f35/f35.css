@@ -281,14 +281,14 @@ html, body {
   align-items: center;
   gap: 2px;
   color: var(--no-gray);   /* off / dim; on / gear-down override below */
-  cursor: pointer;         /* click-to-toggle (issue #35); .pad-hoverable (theme.css) gives the hover wash */
+  cursor: pointer;         /* click-to-toggle; .pad-hoverable (theme.css) gives the hover wash */
   padding: 2px 4px;
   border-radius: 3px;
 }
 .ms-flag.on        { color: var(--no-green); }
 .ms-flag.gear-down { color: var(--no-red); }
 .ms-flag-label { font-size: 15px; font-weight: 900; letter-spacing: 1px; line-height: 1; }
-.ms-flag-icon  { width: 29px; height: 29px; display: block; }   /* 80% of the former 36px */
+.ms-flag-icon  { width: 29px; height: 29px; display: block; }
 /* GEAR reuses the game-captured glyph as a recolourable mask (same asset and technique as
    avn.css .avn-mask-icon), so it turns green/gray/red with the rest. */
 .ms-flag-mask {
@@ -318,8 +318,8 @@ html, body {
   width: 16px;
   height: 16px;
   background-color: currentColor;
-  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' d='M1 5V1H5 M9 1H13V5 M13 9V13H9 M5 13H1V9'/></svg>") center/contain no-repeat;
-          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' d='M1 5V1H5 M9 1H13V5 M13 9V13H9 M5 13H1V9'/></svg>") center/contain no-repeat;
+  -webkit-mask: var(--icon-fullscreen) center/contain no-repeat;
+          mask: var(--icon-fullscreen) center/contain no-repeat;
 }
 
 /* The telemetry tap. Never seen: the MAP page owns the only EventSource('/stream') and posts the
@@ -363,15 +363,36 @@ html, body {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 64px;
+}
+.layout-picker-row {
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 88px;
+}
+/* CLASSIC/F-35/SAVE/LOAD are wildly different word lengths ("F-35" vs "CLASSIC", "SAVE LAYOUT" vs
+   "LOAD LAYOUT"), so centering each row by its own total width still reads off-balance — the block
+   as a whole sits centered, but the shorter word's own visual weight lands well right (or left) of
+   where the eye expects it, and the two rows end up different total widths so they don't line up
+   as a stacked unit either. A shared fixed width makes both rows the same width and both buttons
+   in a row the same weight, so the whole picker reads as one centered, aligned block. */
+.layout-picker-row .nav-item {
+  min-width: 180px;
+  text-align: center;
 }
 .layout-picker[hidden] { display: none; }
 .portals[hidden]       { display: none; }
 
 /* Bigger than a label on a page: these are the only things on the glass. */
 .layout-picker .nav-item { font-size: 30px; }
+
+/* SAVE/LOAD LAYOUT — a smaller secondary row so it reads as a pair of actions, not a third layout
+   choice alongside CLASSIC/F-35. */
+.layout-picker-actions .nav-item { font-size: 20px; }
 
 /* The current layout needs no rule of its own: .nav-item.on already boxes a label in amber, and
    that is what this is — the same "engaged" the theme gives MAP's FLW. Hover stays the shared
@@ -560,17 +581,19 @@ html, body {
   .wpn-hit:hover { background: rgba(var(--no-teal-rgb), 0.08); }
 }
 
-/* TGT and the MDT family (BDF/PAL/MIS/OBJ) all pack their own content into the top-left,
+/* TGT, AKF, and the MD family (BDF/PAL/MIS/OBJ) all pack their own content into the top-left,
    exactly where the edge label sits — and because this layout draws labels ON the page, a
-   horizontal MAIN doesn't just look cramped, it covers that content (TGT's RESET FILTER,
-   BDF/PAL's WARHEADS readout, MIS's Time/Duration/Score line, OBJ's first row) and eats its
-   clicks (TGT) or just overlaps the text (the rest). Standing the text up narrows the label to
-   roughly one glyph so it clears them. Same fix, same properties, as the bezel's
+   horizontal MAIN doesn't just look cramped, it covers that content (TGT's RESET FILTER, AKF's
+   kill-feed rows, BDF/PAL's WARHEADS readout, MIS's Time/Duration/Score line, OBJ's first row) and
+   eats its clicks (TGT) or just overlaps the text (the rest). Standing the text up narrows the
+   label to roughly one glyph so it clears them. Same fix, same properties, as the bezel's
    .overlay.vmain .overlay-item.left in mfd.css — including pulling in to the edge, since 16px of
-   margin would still leave the label overlapping. BDF/PAL/MIS/OBJ are one family (MDT —
-   docs/mdt-pages.md) reachable from each other, so all four need the same treatment; the bezel's
-   isVmainPage() lists the same set (HUD moved out of both lists — see hud.css). */
+   margin would still leave the label overlapping. BDF/PAL/MIS/OBJ are one family (MD —
+   docs/md-pages.md) reachable from each other, and AKF matches the bezel's isVmainPage() list, so
+   all need the same treatment here. HUD stays horizontal (per user preference) — its own CSS pads
+   around the label's width instead of standing it up (hud.css). */
 .nav-grid.edge[data-page="tgt"] .nav-item,
+.nav-grid.edge[data-page="akf"] .nav-item,
 .nav-grid.edge[data-page="bdf"] .nav-item,
 .nav-grid.edge[data-page="pal"] .nav-item,
 .nav-grid.edge[data-page="mis"] .nav-item,

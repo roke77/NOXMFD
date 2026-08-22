@@ -24,10 +24,8 @@ function loadConfigUrls() {
 
 loadConfigUrls();
 
-// Status comes from the shell via postMessage — the shell already mirrors it from
-// the embedded map iframe (the SSE source), so this page doesn't open its own
-// stream. The shell pushes the latest status both on every change and on this
-// iframe's 'load' event.
+// Status arrives via postMessage from the shell, which already mirrors it from the
+// map iframe's SSE stream — this page never opens its own SSE connection.
 const ibStatus = document.getElementById('ib-status');
 window.addEventListener('message', function(e) {
   const m = e.data;
@@ -36,8 +34,8 @@ window.addEventListener('message', function(e) {
     ibStatus.className = 'ib-status mfd-status ' + m.cls;
     ibStatus.textContent = m.text;
   } else if (m.type === 'orient') {
-    // App-wide orientation forwarded by the shell — a pane iframe can't read it from its
-    // own (wide+short) box, so the shell tells it. Drives body.portrait/.landscape rules.
+    // Forwarded by the shell: this pane's own box is wide+short regardless of app
+    // orientation, so it can't detect portrait/landscape itself.
     document.body.classList.toggle('portrait',  m.orientation === 'portrait');
     document.body.classList.toggle('landscape', m.orientation !== 'portrait');
   }

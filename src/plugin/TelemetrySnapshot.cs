@@ -189,7 +189,7 @@ namespace NOXMFD
         public BdfCountInfo[] PalBuildings;
         public BdfCountInfo[] PalAircraft;
 
-        // MIS — mission info panel (docs/mdt-pages.md), mirroring the game's ObjectiveInfoList
+        // MIS — mission info panel (docs/md-pages.md), mirroring the game's ObjectiveInfoList
         // "MIS" tab (ShowMissionInfo). MisPresent=false when no mission is running (or the mod
         // can't read one — e.g. multiplayer, where the game shows the Steam lobby name instead of
         // MissionManager.CurrentMission and NOXMFD doesn't plumb that). Name reuses MissionName.
@@ -200,7 +200,7 @@ namespace NOXMFD
         public float  MisScore;         // MissionManager.currentEscalation ("Score")
         public byte   MisLevel;         // 0 Conventional, 1 Tactical, 2 Strategic (vs. the two thresholds)
 
-        // OBJ — active-objectives list (docs/mdt-pages.md), mirroring the same component's
+        // OBJ — active-objectives list (docs/md-pages.md), mirroring the same component's
         // ShowObjectiveList tab. ObjPresent=false when the player's faction has no HQ yet (the page
         // then shows an unavailable state); Obj is empty when the HQ has no active objectives.
         public bool       ObjPresent;

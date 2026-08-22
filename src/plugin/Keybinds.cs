@@ -4,7 +4,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using UnityEngine;
 
 namespace NOXMFD
@@ -30,8 +29,8 @@ namespace NOXMFD
     //   (PilotPlayerState), which force-clears it every frame its OWN "Countermeasures" button isn't held
     //   — so setting it from here gets stomped before FixedUpdate can deploy. DeployCountermeasure is
     //   exactly what the game's FixedUpdate calls while the trigger is on; we just call it ourselves.
-    //   ponytail: this fires on the local sim (host/single-player). In multiplayer a non-host client's
-    //   deploy may not replicate — the networked path is the trigger SyncVar we deliberately bypass.
+    //   This fires on the local sim (host/single-player) only — in multiplayer a non-host client's
+    //   deploy may not replicate, since the networked path is the trigger SyncVar this bypasses.
     //
     // Gear up / gear down keys — dedicated raise/lower (the stock bind is a single toggle), EDGE-driven
     // (one action per press). Each mirrors the stock gear logic (PilotPlayerState): act only on a fully
@@ -69,8 +68,8 @@ namespace NOXMFD
             // aircraft and is skipped without one; DriveFree runs regardless, for binds that act on the
             // mod rather than on the aeroplane (SOI) and so must work at the main menu, where there is
             // no aircraft at all. Both are null for an axis-only bind (docs/map-cursor.md) — it has no
-            // digital press to dispatch; Poll() reads AxisValueNow via the stored reference instead,
-            // the same way it already reads the four MAP direction binds' ActiveNow.
+            // digital press to dispatch; Poll() reads its live value via ReadAxis(bind) instead,
+            // used inline rather than stored on the bind the way ActiveNow is for a digital one.
             public Action<Aircraft>? Drive;
             public Action? DriveFree;
             // Digital source (keyboard/mouse + joystick button) — null for an axis-only bind.
@@ -84,7 +83,6 @@ namespace NOXMFD
             public ConfigEntry<int>? AxisJoyNumEntry;          // which joystick the axis index refers to (0 = any; pinned on capture)
             public ConfigEntry<bool>? AxisInvertEntry;         // flip polarity — arbitrary per device
             public bool  ActiveNow;                            // per-frame scratch (digital), valid only inside Poll()
-            public float AxisValueNow;                         // per-frame scratch (analog), valid only inside Poll()
             // Tap/hold binds only (see PollTapHold): when ActiveNow went true, -1 while not pressed.
             public float PressStartTime = -1f;
             public bool  HoldFired;                            // whether the hold action already fired this press
@@ -92,6 +90,8 @@ namespace NOXMFD
 
         private static readonly List<BindDef> _binds = new List<BindDef>();
         internal static IReadOnlyList<BindDef> Binds => _binds;   // for the /keybinds page JSON
+
+        private static BindDef? FindBind(string id) => _binds.Find(b => b.Id == id);
 
         // The bind whose joystick entry is currently armed for capture (via ArmJoyCapture), or null.
         // While non-null, the next joystick button pressed is written into it (see CaptureJoyButton).
@@ -256,11 +256,37 @@ namespace NOXMFD
             // diagonal control the keys can't (only one axis can be held "active" at a time on a
             // digital pad). Axis-only: no keyboard/button source makes sense for a continuous value,
             // so these use AddAxis rather than DefFree — no Drive/DriveFree at all; Poll() reads
-            // AxisValueNow via the stored references, exactly like the four direction keys' ActiveNow.
+            // their live value via ReadAxis(bind), used inline rather than stored on the bind.
             _cursorAxisH = AddAxis(config, "cursor-axis-h", cursor, "CursorAxisH", "Cursor Horizontal",
                 "Analog axis (HOTAS mini-stick/hat) driving the cursor left/right — overrides Cursor Left/Right when deflected. Only acts while a display with a cursor is focused.");
             _cursorAxisV = AddAxis(config, "cursor-axis-v", cursor, "CursorAxisV", "Cursor Vertical",
                 "Analog axis driving the cursor up/down — overrides Cursor Up/Down when deflected. Only acts while a display with a cursor is focused.");
+
+            // Layout keybinds (issue #51 follow-up) — SAVE/LOAD LAYOUT. Unlike every bind above, the
+            // action isn't a Unity/Rewired call at all: it's a browser popping its own SAVE/LOAD
+            // LAYOUT modal (mfd.js/f35.js), so these are DefKeyOnly (no joystick/HOTAS, no Drive/
+            // DriveFree) — set here only so the assigned KEY is configured once and shared by every
+            // connected browser via /keybinds-config, instead of each browser guessing its own.
+            const string layout = "Layout Keybinds";
+            DefKeyOnly(config, "layout-save", layout, "LayoutSave", "Save Layout",
+                "Save the current screen layout under a name.");
+            DefKeyOnly(config, "layout-load", layout, "LayoutLoad", "Load Layout",
+                "Load a previously saved screen layout.");
+
+            // HUD preset keybinds (issue #50 follow-up) — unlike layout-save/load above, these ARE
+            // real DriveFree actions: pressing one directly recalls that numbered preset's saved HUD
+            // filters onto the live HUD (HudPresetStore.LoadPreset), the same direct-recall behaviour
+            // the HUD page's own LOAD picker gives a clicked item — no browser-side modal to pop, so
+            // no reason to leave the dispatch to a keydown listener the way SAVE/LOAD LAYOUT do.
+            // Works at the main menu too, same as every other HUD OPTIONS control.
+            const string hudPresets = "HUD Preset Keybinds";
+            for (int p = 1; p <= HudPresetStore.SlotCount; p++)
+            {
+                int presetIndex = p;   // capture per-iteration, not the loop variable
+                DefFree(config, "hud-preset-" + p, hudPresets, "HudPreset" + p, "HUD Preset " + p, edge: true,
+                    "Load HUD preset " + p + "'s saved filters onto the HUD page.",
+                    () => HudPresetStore.LoadPreset(presetIndex));
+            }
 
             // Immersion keybinds — docs/radar-master-arms.md (issue #32). Registered LAST (and its
             // three start-state settings appended after this Bind() method, in the same order) so the
@@ -313,8 +339,10 @@ namespace NOXMFD
 
             foreach (var b in _binds)
             {
-                if (b.KeyEntry != null)
-                    Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value}, joy={b.JoyEntry!.Value} (stick {b.JoyNumEntry!.Value}).");
+                if (b.KeyEntry != null && b.JoyEntry != null)
+                    Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value}, joy={b.JoyEntry.Value} (stick {b.JoyNumEntry!.Value}).");
+                else if (b.KeyEntry != null)
+                    Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value} (browser-only, no joystick).");
                 else
                     Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': axis={b.AxisEntry!.Value} (stick {b.AxisJoyNumEntry!.Value}, invert={b.AxisInvertEntry!.Value}).");
             }
@@ -333,7 +361,8 @@ namespace NOXMFD
             => Add(config, id, section, key, label, edge, description, null, drive);
 
         private static BindDef Add(ConfigFile config, string id, string section, string key, string label,
-                                bool edge, string description, Action<Aircraft>? drive, Action? driveFree)
+                                bool edge, string description, Action<Aircraft>? drive, Action? driveFree,
+                                bool joystick = true)
         {
             var b = new BindDef
             {
@@ -341,18 +370,35 @@ namespace NOXMFD
                 Drive = drive, DriveFree = driveFree,
                 KeyEntry = config.Bind(section, key, new KeyboardShortcut(),
                     new ConfigDescription("Keyboard/mouse key: " + description, null, Hidden())),
-                JoyEntry = config.Bind(section, key + "JoystickButton", -1,
-                    new ConfigDescription("Joystick/HOTAS button (Rewired index, -1 = off): " + description, null, Hidden())),
-                JoyNumEntry = config.Bind(section, key + "JoystickNumber", 0,
-                    new ConfigDescription("Which joystick the button index refers to (0 = any; pinned to the captured device).", null, Hidden())),
             };
+            // joystick:false (DefKeyOnly below) — no Rewired button entry at all, not merely unset,
+            // so the .cfg and the /keybinds page never offer a capture path this bind can't act on.
+            if (joystick)
+            {
+                b.JoyEntry = config.Bind(section, key + "JoystickButton", -1,
+                    new ConfigDescription("Joystick/HOTAS button (Rewired index, -1 = off): " + description, null, Hidden()));
+                b.JoyNumEntry = config.Bind(section, key + "JoystickNumber", 0,
+                    new ConfigDescription("Which joystick the button index refers to (0 = any; pinned to the captured device).", null, Hidden()));
+            }
             _binds.Add(b);
             return b;
         }
 
+        // A bind whose key is configured through the /keybinds page — so every browser agrees on it —
+        // but whose ACTION lives entirely in the browser's own JS (SAVE/LOAD LAYOUT, issue #51), not
+        // in a Unity/Rewired call: no Drive/DriveFree, and deliberately no joystick/HOTAS entry
+        // (browser-side keyboard shortcuts only, by design). Poll() still evaluates its digital state
+        // every frame like any other bind — harmless, since Drive/DriveFree are both null so nothing
+        // ever dispatches from it — but the real detection happens in mfd.js/f35.js's own keydown
+        // listener, which reads this same KeyEntry value via /keybinds-config instead of the game
+        // window's Input.
+        private static BindDef DefKeyOnly(ConfigFile config, string id, string section, string key, string label,
+                                string description)
+            => Add(config, id, section, key, label, edge: true, description, drive: null, driveFree: null, joystick: false);
+
         // An axis-only bind (docs/map-cursor.md): purely analog, no keyboard/button source and no
-        // Drive/DriveFree dispatch (see the BindDef comment) — Poll() reads AxisValueNow directly via
-        // the stored reference. section/key follow the same .cfg-identity convention as Add().
+        // Drive/DriveFree dispatch (see the BindDef comment) — Poll() reads its value via ReadAxis(bind)
+        // instead. section/key follow the same .cfg-identity convention as Add().
         private static BindDef AddAxis(ConfigFile config, string id, string section, string key, string label,
                                 string description)
         {
@@ -385,6 +431,8 @@ namespace NOXMFD
             "TGT Keybinds"            => "TGT",
             "SOI Keybinds"            => "SOI",
             "Cursor Keybinds"         => "CURSOR",
+            "Layout Keybinds"         => "LAYOUT",
+            "HUD Preset Keybinds"     => "HUD PRESETS",
             "Immersion Keybinds"      => "IMMERSION OPTIONS",
             _ => section,
         };
@@ -414,6 +462,9 @@ namespace NOXMFD
                 "Cycle keys select the last soft-selected weapon of their type, or the first in the list. " +
                 "Repeated presses cycle to the next one, skipping depleted weapons. " +
                 "Cycling to a different type leaves the current one soft-selected.",
+            "Layout Keybinds" =>
+                "Keyboard only, no joystick/HOTAS. Acts on whichever browser window has focus when " +
+                "pressed, and applies to every connected browser.",
             "Immersion Keybinds" =>
                 "A/A and A/G each restrict Cycle Missile on a tap; hold either one to reset to ALL " +
                 "(unrestricted). Every other bind here is a plain dedicated action.",
@@ -435,13 +486,10 @@ namespace NOXMFD
             bool clear = string.IsNullOrEmpty(keyName) || keyName == "None";
             if (!clear && (!Enum.TryParse(keyName, ignoreCase: true, out key) || key >= KeyCode.JoystickButton0))
                 return false;
-            foreach (var b in _binds)
-                if (b.Id == id)
-                {
-                    b.KeyEntry.Value = clear ? new KeyboardShortcut() : new KeyboardShortcut(key);
-                    return true;
-                }
-            return false;
+            BindDef? b = FindBind(id);
+            if (b == null) return false;
+            b.KeyEntry.Value = clear ? new KeyboardShortcut() : new KeyboardShortcut(key);
+            return true;
         }
 
         // ── Joystick capture (driven by the /keybinds page) ─────────────────────────────────────────
@@ -466,27 +514,26 @@ namespace NOXMFD
 
         internal static bool ArmJoyCapture(string id)
         {
-            foreach (var b in _binds)
-            {
-                if (b.Id != id || b.JoyEntry == null) continue;
-                if (_capturing == null && _capturingAxis == null) EnableBackgroundInput();
-                _capturing = b;
-                _capturingAxis = null;   // mutually exclusive
-                _captureSettle = SettleFrames;
-                _latched.Clear();
-                LogJoysticks();
-                return true;
-            }
-            return false;
+            BindDef? b = FindBind(id);
+            if (b == null || b.JoyEntry == null) return false;
+            if (_capturing == null && _capturingAxis == null) EnableBackgroundInput();
+            _capturing = b;
+            _capturingAxis = null;   // mutually exclusive
+            _captureSettle = SettleFrames;
+            _latched.Clear();
+            LogJoysticks();
+            return true;
         }
 
         internal static void CancelJoyCapture() => Disarm();
 
         internal static bool ClearJoyBind(string id)
         {
-            foreach (var b in _binds)
-                if (b.Id == id && b.JoyEntry != null) { b.JoyEntry.Value = -1; b.JoyNumEntry!.Value = 0; if (_capturing == b) Disarm(); return true; }
-            return false;
+            BindDef? b = FindBind(id);
+            if (b == null || b.JoyEntry == null) return false;
+            b.JoyEntry.Value = -1; b.JoyNumEntry!.Value = 0;
+            if (_capturing == b) Disarm();
+            return true;
         }
 
         // ── Axis capture (docs/map-cursor.md) ───────────────────────────────────────────────────────
@@ -501,39 +548,34 @@ namespace NOXMFD
 
         internal static bool ArmAxisCapture(string id)
         {
-            foreach (var b in _binds)
-            {
-                if (b.Id != id || b.AxisEntry == null) continue;
-                if (_capturing == null && _capturingAxis == null) EnableBackgroundInput();
-                _capturingAxis = b;
-                _capturing = null;   // mutually exclusive
-                _axisSettle = AxisSettleFrames;
-                _axisRest.Clear();
-                LogJoysticks();
-                return true;
-            }
-            return false;
+            BindDef? b = FindBind(id);
+            if (b == null || b.AxisEntry == null) return false;
+            if (_capturing == null && _capturingAxis == null) EnableBackgroundInput();
+            _capturingAxis = b;
+            _capturing = null;   // mutually exclusive
+            _axisSettle = AxisSettleFrames;
+            _axisRest.Clear();
+            LogJoysticks();
+            return true;
         }
 
         internal static void CancelAxisCapture() => Disarm();
 
         internal static bool ClearAxisBind(string id)
         {
-            foreach (var b in _binds)
-                if (b.Id == id && b.AxisEntry != null)
-                {
-                    b.AxisEntry.Value = -1; b.AxisJoyNumEntry!.Value = 0; b.AxisInvertEntry!.Value = false;
-                    if (_capturingAxis == b) Disarm();
-                    return true;
-                }
-            return false;
+            BindDef? b = FindBind(id);
+            if (b == null || b.AxisEntry == null) return false;
+            b.AxisEntry.Value = -1; b.AxisJoyNumEntry!.Value = 0; b.AxisInvertEntry!.Value = false;
+            if (_capturingAxis == b) Disarm();
+            return true;
         }
 
         internal static bool SetAxisInvert(string id, bool invert)
         {
-            foreach (var b in _binds)
-                if (b.Id == id && b.AxisInvertEntry != null) { b.AxisInvertEntry.Value = invert; return true; }
-            return false;
+            BindDef? b = FindBind(id);
+            if (b == null || b.AxisInvertEntry == null) return false;
+            b.AxisInvertEntry.Value = invert;
+            return true;
         }
 
         // Rewired ignores ALL joystick input while the app isn't focused (ignoreInputWhenAppNotInFocus
@@ -639,9 +681,9 @@ namespace NOXMFD
             // as the cursor vector above: a release on an otherwise-idle frame must still reset
             // PressStartTime, or the next tap on that bind would misread as an instant hold.
             PollTapHold(_combatModeAa!, onTap: () => SetCombatMode(CombatMode.AirToAir),
-                                        onHold: () => ImmersionState.CombatMode = CombatMode.All);
+                                        onHold: () => SetCombatMode(CombatMode.All));
             PollTapHold(_combatModeAg!, onTap: () => SetCombatMode(CombatMode.AirToGround),
-                                        onHold: () => ImmersionState.CombatMode = CombatMode.All);
+                                        onHold: () => SetCombatMode(CombatMode.All));
 
             if (!any) return;   // common case — nothing this frame
 
@@ -691,8 +733,23 @@ namespace NOXMFD
         internal static void SetCombatMode(CombatMode mode)
         {
             ImmersionState.CombatMode = mode;
+            // Snapshot BEFORE the weapon auto-switch below — it can trigger the game's own
+            // HUDOptions.AutomaticToggle (any weapon-station selection change does, not just a
+            // pilot's own click), which changes the HUD filter values regardless of whether the
+            // HUD-filters-on-combat-mode feature is even turned on. See UndoNativeAutoToggleIfOff.
+            HudCombatModeFilters.CaptureBeforeSwitch();
             if (GameManager.GetLocalAircraft(out Aircraft ac) && ac != null && !ac.disabled)
                 WeaponSelectors.OnCombatModeChanged(ac, mode);
+            // HUD OPTIONS filter automation (issue #50) — runs on EVERY call, not just an actual
+            // transition: re-pressing an already-active A/A or A/G is the documented way to reload
+            // that mode's HUD preset after tweaking filters by hand mid-mode, so a repeat press must
+            // re-force it rather than no-op.
+            HudCombatModeFilters.OnCombatModeChanged(mode);
+            // With the toggle OFF, the weapon auto-switch above still changes HUD values via the
+            // game's own native AutomaticToggle — undo that side effect when this feature isn't
+            // opted into. No-op when the toggle is ON (OnCombatModeChanged already applied the
+            // intended state above).
+            HudCombatModeFilters.UndoNativeAutoToggleIfOff();
         }
 
         // Tap/hold binds (docs/radar-master-arms.md, issue #32 — currently just A/A and A/G, which
@@ -802,11 +859,11 @@ namespace NOXMFD
         // action, but Poll() also wants its continuous held state every frame — see docs/page-cursor.md).
         //
         // Reads Unity's raw Input.GetKey/GetKeyDown directly rather than KeyboardShortcut.IsPressed()/
-        // IsDown() — confirmed by diagnostic logging (issue: countermeasure keys wouldn't fire while a
-        // WASD flight key was held, reported independently on two different keyboards) that BepInEx's
-        // own IsPressed()/IsDown() require that NO OTHER keyboard key is currently held besides this
-        // shortcut's own MainKey+Modifiers, treating any other key — even one with nothing to do with
-        // this shortcut, like a flight-control key — as disqualifying. That's a sensible default for a
+        // IsDown() — BepInEx's own IsPressed()/IsDown() require that NO OTHER keyboard key is
+        // currently held besides this shortcut's own MainKey+Modifiers, treating any other key — even
+        // one with nothing to do with this shortcut, like a flight-control key — as disqualifying,
+        // which otherwise silently blocks a countermeasure key while a WASD flight key is held. That's
+        // a sensible default for a
         // one-off UI hotkey (avoids firing a plain "F" shortcut when the user is really pressing a
         // longer chord that happens to include F), but wrong for gameplay keybinds meant to fire WHILE
         // flight-control keys are held. ModifiersHeld still honors any configured Modifiers manually,
@@ -819,7 +876,9 @@ namespace NOXMFD
             KeyCode k = sc.MainKey;
             bool kbd = k != KeyCode.None && k < KeyCode.JoystickButton0 &&
                        (edge ? Input.GetKeyDown(k) : Input.GetKey(k)) && ModifiersHeld(sc);
-            return kbd || JoyBtn(bind.JoyEntry!.Value, bind.JoyNumEntry!.Value, edge);
+            // JoyEntry is null for a key-only bind (DefKeyOnly, e.g. SAVE/LOAD LAYOUT) — no
+            // joystick/HOTAS source to check, so the keyboard result alone decides it.
+            return kbd || (bind.JoyEntry != null && JoyBtn(bind.JoyEntry.Value, bind.JoyNumEntry!.Value, edge));
         }
 
         // No bind in this codebase's own capture flow (SetKeyBind → new KeyboardShortcut(key)) ever
@@ -904,27 +963,22 @@ namespace NOXMFD
         }
 
         // Finds the station index whose first countermeasure is the requested category. Mirrors the
-        // read-path reflection in TelemetryReader.GetSelectedCmCategory (the station list and each
-        // station's countermeasure are both private). Returns -1 if no station matches.
-        private static FieldInfo?  _stationsField;
-        private static MethodInfo? _getFirstMethod;
+        // read-path reflection in TelemetryReader.GetSelectedCmCategory — both go through the shared
+        // CmReflection since the station list and each station's countermeasure are both private.
+        // Returns -1 if no station matches.
         private static int IndexOfCategory(CountermeasureManager mgr, byte category)
         {
             try
             {
-                if (_stationsField == null)
-                    _stationsField = typeof(CountermeasureManager)
-                        .GetField("countermeasureStations", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (_stationsField?.GetValue(mgr) is not IList list || list.Count == 0) return -1;
+                IList? list = CmReflection.GetStations(mgr);
+                if (list == null || list.Count == 0) return -1;
 
                 for (int i = 0; i < list.Count; i++)
                 {
                     object station = list[i];
                     if (station == null) continue;
-                    if (_getFirstMethod == null)
-                        _getFirstMethod = station.GetType()
-                            .GetMethod("GetFirstCountermeasure", BindingFlags.Public | BindingFlags.Instance);
-                    if (_getFirstMethod?.Invoke(station, null) is not Countermeasure cm) continue;
+                    Countermeasure? cm = CmReflection.GetFirstCountermeasure(station);
+                    if (cm == null) continue;
                     if (category == Flare  && cm is FlareEjector) return i;
                     if (category == Jammer && cm is RadarJammer)  return i;
                 }

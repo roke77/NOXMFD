@@ -17,11 +17,10 @@ html, body {
   display: flex; flex-direction: column;
   gap: clamp(4px, 1.4vh, 12px);
   padding: clamp(6px, 1.8vmin, 16px);
-  /* Extra side inset: the shell's vertical MAIN bezel label hugs an edge here. Both sides get the
-     inset because the label can land on either edge — the left in full view and the left/top split
-     pane, the right in a V-split's right pane — and the page can't know which, so it clears both.
-     The 34px floor matters in a half-width split pane, where 5vw collapses below the label's fixed
-     ~28px footprint; full view stays at the 48px cap. Matches TGT's own inset. */
+  /* Extra side inset for the shell's vertical MAIN bezel label. Both sides get it because the label
+     can land on either edge depending on layout (full view, split pane) and the page can't know
+     which, so it clears both. The 34px floor matters in a half-width split pane, where 5vw
+     collapses below the label's fixed ~28px footprint. Matches TGT's own inset. */
   padding-left: clamp(34px, 5vw, 48px);
   padding-right: clamp(34px, 5vw, 48px);
 }
@@ -92,9 +91,9 @@ html, body {
   display: flex; flex-direction: column;
   gap: clamp(4px, 1.2vh, 12px);
   overflow-y: auto;
-  /* Match the thin overlay scrollbar a touch device draws, not the desktop default's chunky bar with
-     its light track: a slim grey thumb on a transparent track. scrollbar-* covers Firefox + the
-     standard; the ::-webkit rules below cover Chrome / Edge / Safari. Same treatment as TGT's list. */
+  /* Thin overlay-style scrollbar (slim grey thumb, transparent track) instead of the desktop
+     default's chunky bar. scrollbar-* covers Firefox + the standard; ::-webkit rules below cover
+     Chrome / Edge / Safari. Same treatment as TGT's list. */
   scrollbar-width: thin;
   scrollbar-color: var(--no-gray) transparent;
 }
@@ -122,9 +121,8 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Type-cell grid — icon-or-label over count. One row that shrinks to fit rather than wrapping
-   (mirrors TGT's vehicle-type grid), except AIRCRAFT which is allowed to wrap since the game's own
-   panel shows it as two rows. */
+/* One row that shrinks to fit rather than wrapping (mirrors TGT's vehicle-type grid), except
+   AIRCRAFT which is allowed to wrap since the game's own panel shows it as two rows. */
 .bdf-section-grid {
   flex: 1 1 auto;
   display: grid;

@@ -16,6 +16,8 @@ src/web/
             pad-cursor.js                                 # the shared PAD crosshair (docs/page-cursor.md)
   shell/    nav-model.js                                  # NAV registry — the layout seam, BOTH shells load it
             layout-pages.js                               # where each layout mounts each NAV destination
+            layout-keydown.js                             # shared SAVE/LOAD LAYOUT keyboard wiring
+            boot-reveal.js                                # shared boot loading-bar + typewriter mechanics
             layout-sticky.test.js                         # the classic⇄f35 redirect handoff — belongs to neither
             layout-coverage.test.js                       # every NAV destination reachable in BOTH layouts
             classic/       mfd.html  mfd.css  mfd.js       # the classic bezel shell (host + router)
@@ -26,16 +28,27 @@ src/web/
   pages/
     map/    map.html  map.css  map.js     # the live map view (imports services/telemetry-source.js)
             map-transform.js              # its pure world⇄pixel maths (pan/zoom/letterbox)
-    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hud/  bdf/  mis/  obj/
-                                               # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal)
+    wpt/    wpt.html  wpt.css  wpt.js     # waypoint/route editor, thin client over the plugin's
+            waypoints-store.js            # RouteStore (docs/hud-waypoint-indicator.md) — fetch/poll
+            wpt-route.js  wpt-route.test.js  # /wpt-options + POST /command, no local persistence
+    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hud/  bdf/  mis/  obj/  akf/  rates/
+                                               # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
+                                               # akf = kill feed/session stats docs/akf-page.md; rates = RTS live
+                                               # refresh-rate sliders, folded under CFG)
                                                # some carry a pure sibling module — see below
+    ext/                                       # EXT hub — lists extensions discovered at runtime via
+                                               # /ext-manifest (shell/ext-nav.js), no fixed page content of
+                                               # its own; each extension serves its own page under /ext/<id>
+                                               # (docs/extensions-api.md)
     keybinds/                                  # frame-hosted like the pages above, not a standalone document
     main/                                      # the split-pane MAIN card (full-view MAIN is shell chrome)
 ```
 
 Two shells render the same pages: the classic bezel (`shell/classic/mfd.js`) and the F-35 glass
-(`shell/f35/f35.js`), sharing the NAV model, the page-routing tables (`shell/layout-pages.js`) and
-`sendCommand` — see [`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
+(`shell/f35/f35.js`), sharing the NAV model, the page-routing tables (`shell/layout-pages.js`),
+`sendCommand`, and the SAVE/LOAD LAYOUT keyboard wiring
+(`shell/layout-keydown.js`) and the boot loading-bar/typewriter mechanics
+(`shell/boot-reveal.js`) — see [`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
 `nav-model.test.js`, `f35-glass.test.js`, `classic-paging.test.js`) are Node self-checks, run by hand
 (`node src/web/<path>/whatever.test.js` from anywhere), never fetched by a browser (excluded from the
 embedded-resource glob). The whole suite: `find src/web -name '*.test.js' -exec node {} \;`. Most are
@@ -45,7 +58,10 @@ Logic worth checking gets split into a **pure sibling module** the page loads an
 without a DOM — the page keeps the elements and live state and passes what the module needs in. The
 same move the shell makes with `nav-model.js` / `classic-paging.js`. Named for what it does:
 `map-transform.js` (world⇄pixel maths), `bdf-funds.js` (the magnitude-band money format),
-`keybinds-keymap.js` (KeyboardEvent.code ⇄ Unity KeyCode names), and `<x>-*-policy.js` where the
+`keybinds-keymap.js` (KeyboardEvent.code ⇄ Unity KeyCode names), `wpt-route.js` (route/waypoint
+display-derivation — bearing/distance math and a client-side pre-validator for pasted route JSON;
+the actual route data and its mutation live server-side in `RouteStore`, not here — see
+`waypoints-store.js`), and `<x>-*-policy.js` where the
 logic really is a classification rule (`avn-status-policy.js`, `avn-throttle-policy.js`,
 `afm-bg-policy.js`, `afm-failure-policy.js`). Everything else on a page is DOM-coupled rendering and
 is left to the harness and the eye, not to Node asserts.
@@ -148,9 +164,11 @@ selected range follows the same pattern under `noxmfd.rdr.view`.
   RDR steps its range — one HOTAS bind, per-page meaning (docs/page-cursor.md).
 - **Write commands:** `src/web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
   — from pages (MAP tap → `target.select`; TGT → `tgt.*` + `target.deselect`; AVN → `avn.toggle`;
-  HUD → `hud.*`/`declutter.set`; KEYBINDS → the `keybind.*` family) and from either shell (`soi.panes`,
-  `weapon.select`, `master-arms.set`, `combat-mode.set`, and `avn.toggle` again from the F-35 master
-  strip). Every handler is listed in [`src/plugin/README.md`](../plugin/README.md).
+  HUD → `hud.*`/`declutter.set`/`preset.*` (issue #50 follow-up); KEYBINDS → the `keybind.*` family)
+  and from either shell (`soi.panes`, `weapon.select`, `master-arms.set`, `combat-mode.set`,
+  `layout.save`/`.rename`/`.delete` (issue #51 — LOAD itself is a client-side `GET /layout-options`
+  read, no command), and `avn.toggle` again from the F-35 master strip). Every handler is listed in
+  [`src/plugin/README.md`](../plugin/README.md).
 
 ## Verifying without the game
 

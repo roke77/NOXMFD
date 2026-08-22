@@ -1,6 +1,6 @@
-/* WPN page — split/compact layout (half-height pane). Transcribed verbatim from the
-   former WpnPage.cs <style>; the @font-face and html/body base now come from the shared
-   font.css + theme.css this page links first. See wpn.html header for the layout contract. */
+/* WPN page — split/compact layout (half-height pane). The @font-face and html/body base come
+   from the shared font.css + theme.css this page links first. See wpn.html header for the
+   layout contract. */
 .wpn-panel { position: absolute; inset: 0; }
 .wpn-panel.has-loadout .wpn-empty { display: none; }
 
@@ -183,8 +183,7 @@
    view). Weapons run as one left column spanning each line-select key (slot top+height
    forwarded by the shell); the right ~45% shows a big image of the selected weapon. The
    shell sets layout:'full' in the wpn-layout message, which adds body.full. These rules
-   override the compact base by specificity; compact (no .full class) is unaffected.
-   Transcribed from the former MfdPage.cs full-view WPN <style>. */
+   override the compact base by specificity; compact (no .full class) is unaffected. */
 body.full .wp-item {
   left: 18px;                      /* hug the screen's left edge, same as portrait */
   right: calc(45% + 10px);         /* name list takes the left 55%; image the right 45% */

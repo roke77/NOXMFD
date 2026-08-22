@@ -47,9 +47,9 @@ namespace NOXMFD
         // borderless boresight-following center readouts and the heading tape itself are kept.
         public static bool HideTopBoxes => _hideTopBoxes?.Value ?? false;
 
-        // The native kill-feed ticker (MessageUI.killFeedText), issue #34 — hidden once the AKF page
-        // replaces it. Only the kill feed; MessageUI's general message feed (join/disconnect/HQ
-        // messages) is untouched.
+        // The native kill-feed ticker (MessageUI.killFeedText) — hidden once the AKF page replaces
+        // it. Only the kill feed; MessageUI's general message feed (join/disconnect/HQ messages) is
+        // untouched.
         public static bool HideKillFeed => _hideKillFeed?.Value ?? false;
 
         // Runtime setters for the web MFD's declutter toggles (declutter.set command). Writing .Value

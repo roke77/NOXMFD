@@ -1,23 +1,16 @@
-// Split-pane pagination for the classic bezel, split out of mfd.js so it carries no DOM refs and
-// can be unit-checked in Node (see classic-paging.test.js) — the same treatment split-keymap.js
-// and nav-model.js already get, and the bezel counterpart to f35/f35-wpn-paging.js.
+// Split-pane pagination for the classic bezel. No DOM refs, so it's unit-testable in Node
+// (classic-paging.test.js).
 //
-// A split pane exposes a fixed number of physical keys, so the shell owns *which* rows show. Each
-// slice function is pure: it takes the full list plus the CURRENT page index and returns the
-// clamped page alongside the visible window. Clamping is returned rather than applied, so the
-// caller writes `pageIndex` back into its own per-pane state (mfd.js does this in thin wrappers)
-// and this module stays free of mutable state.
+// Each slice function is pure: takes the full list + current page index, returns the clamped
+// page plus the visible window. Clamping is returned, not applied — callers write pageIndex
+// back into their own state.
 (function (root) {
-  // WPN: a pane shows at most 4 weapons (slots L1, L2, R1, R2); the top band is reserved for
-  // MAIN/PREV (L0) and NEXT (R0).
+  // A pane shows at most 4 weapons (slots L1, L2, R1, R2); top band is MAIN/PREV (L0) and NEXT (R0).
   const WPN_SPLIT_MAX = 4;
 
-  // ARM/SAFE/A-A/A-G (docs/radar-master-arms.md) in a split pane: appended after the weapon list,
-  // sharing the same 4-slot-per-page window weapons use (unlike full view, which has dedicated
-  // right-column keys free for them). A pair is never split across a page boundary — since
-  // (ARM,SAFE) and (A/A,A/G) are always two adjacent entries in the combined list, a pair only ever
-  // splits when its first item would land on a page's LAST slot, so one empty slot inserted right
-  // before the pair pushes the whole thing to the next page, leaving the leftover slot(s) blank.
+  // ARM/SAFE and A-A/A-G are appended after the weapon list, sharing its 4-slot page window.
+  // Each pair must stay on one page: an empty slot is inserted before a pair whose first item
+  // would otherwise land on a page's last slot, pushing the pair to the next page.
   const WPN_SPLIT_CONTROLS = [
     { id: 'master-arms-on',  label: 'ARM'  },
     { id: 'master-arms-off', label: 'SAFE' },
@@ -25,13 +18,13 @@
     { id: 'combat-mode-ag',  label: 'A/G'  },
   ];
 
-  // Full view has more room than a pane: 5 line-select slots (keys 1..5).
+  // Full view: 5 line-select slots (keys 1..5).
   const WPN_MAX_DISPLAY = 5;
 
-  // AVN: a pane shows 4 of the 8 avn.toggle groups per page (item slots L1,L2,R1,R2 like WPN's).
+  // AVN: a pane shows 4 of the 8 avn.toggle groups per page.
   const AVN_PANE_PAGE_SIZE = 4;
 
-  // MAIN: the physical keys a split pane exposes for the MAIN list.
+  // Physical keys a split pane exposes for the MAIN list.
   const MAIN_PANE_SLOTS = 6;
 
   function buildWpnSplitPages(weaponCount) {
@@ -51,13 +44,9 @@
     return pages;
   }
 
-  // 0-indexed page holding the named selection, or -1 when nothing is selected or the selection
-  // isn't in the list. Serves both layouts — the only difference between them is perPage
-  // (WPN_SPLIT_MAX in a pane, WPN_MAX_DISPLAY in full view).
-  //
-  // A plain divide is correct even though buildWpnSplitPages inserts padding: the padding only ever
-  // lands AFTER the weapon run (it exists to align the control pairs that follow), so weapons stay
-  // contiguous from slot 0 and their index is their position.
+  // 0-indexed page holding the named selection, or -1 if unselected/not found.
+  // A plain divide works even though buildWpnSplitPages inserts padding, because that padding
+  // always lands after the weapon run — weapons stay contiguous from slot 0.
   function pageOfSelection(list, sel, perPage) {
     if (!sel) return -1;
     const i = (list || []).findIndex(function (w) { return w.n === sel; });
@@ -90,16 +79,13 @@
       items: list.slice(start, start + AVN_PANE_PAGE_SIZE),
       hasPrev: p > 0,
       hasNext: p < maxPage,
-      // 1-indexed, mirrors wpnPaneSlice's page/pages — lets the page show a "PAGE x/y" indicator
-      // (avn.js) so a pilot in a split pane knows 4 of the 8 groups are a NEXT press away.
-      page: p + 1,
+      page: p + 1,   // 1-indexed, mirrors wpnPaneSlice, for a "PAGE x/y" indicator
       pages: maxPage + 1,
       pageIndex: p,
     };
   }
 
-  // How many MAIN items fit on each page: fill the pane's keys, minus PREV on every page but the
-  // first and NEXT on every page but the last.
+  // MAIN items per page: fills the pane's keys, minus PREV (all but first page) and NEXT (all but last).
   function mainPageSizes(total) {
     const sizes = [];
     let placed = 0;
@@ -122,15 +108,10 @@
              hasPrev: p > 0, hasNext: p < sizes.length - 1, pageIndex: p };
   }
 
-  // Where a list page's nav and item rows land on the physical bezel keys, per split orientation.
-  // The companion to split-keymap.js's paneKey: that maps a page's own pane-local slot, this one
-  // hands a LIST page (which owns the whole pane) its fixed positions directly.
-  //
-  // 'h' (top/bottom): each pane keeps both columns, offset by 3 for the bottom pane. WPN and AVN
-  // put NEXT top-right and take four item keys below the top band; every other list page has no
-  // top-right control of its own, so NEXT sits at the column's end and the items start higher.
-  // 'v'/'vw' (left/right): the pane owns one adjacent column — MAIN at its top key, NEXT at its
-  // bottom, items filling the four between.
+  // Fixed bezel key positions for a list page's nav/item rows, per split orientation.
+  // 'h' (top/bottom): both columns kept, offset by 3 for the bottom pane. WPN/AVN put NEXT
+  // top-right; other pages have no top-right control, so NEXT sits at the column end instead.
+  // 'v'/'vw' (left/right): pane owns one column — MAIN at top, NEXT at bottom, items between.
   function listPaneLayout(variant, paneIdx, page) {
     if (variant === 'h') {
       const off = paneIdx * 3;

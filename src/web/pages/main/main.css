@@ -1,14 +1,13 @@
-/* MAIN split-pane card styles. Extracted from MainPage.cs's inline <style>; the
-   embedded @font-face moved to src/web/shared/font.css (linked before this). */
+/* src/web/shared/font.css must be linked before this file for @font-face to apply. */
   body {
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--no-green);
   }
-  /* Card sized smaller than the single-pane info-box because the iframe lives in
-     half the screen height in split mode — clamps scale with the iframe's own vh,
-     so the card gracefully shrinks as the pane height drops. */
+  /* Sized smaller than the single-pane info-box: the iframe gets half the screen
+     height in split mode, and clamps scale with the iframe's own vh so the card
+     shrinks along with the pane. */
   .info-box {
     min-width: 200px;
     padding: clamp(14px, 2vh, 26px) clamp(22px, 3vh, 44px);

@@ -1,12 +1,10 @@
-// BDF page — a read-only reactive replica of the game's faction/HQ status panel, driven by the
-// shell over postMessage (docs/bdf-page.md). No interaction, no commands — pure render of the
-// 'bdf' block. See bdf.html for the message contract.
+// Read-only faction/HQ panel driven by postMessage from the shell (docs/bdf-page.md); renders the
+// 'bdf' block only. See bdf.html for the message contract.
 //
-// This same script doubles as PAL (the PRIMEVA faction's panel — BDF is always BOSCALI, a fixed
-// identity, not "the enemy": see docs/bdf-page.md) when the page is embedded with a `?pal` URL
-// flag — everything below is already driven purely by the incoming message, so the flag only has
-// to pick which message type to listen for and swap the two hardcoded "BDF" strings (the title and
-// the UNAVAILABLE label); the faction name/logo/counts are data, not identity.
+// Also serves as PAL (PRIMEVA's panel) when opened with a `?pal` flag — BDF is always BOSCALI, not
+// "the enemy" (docs/bdf-page.md). Everything below is already driven purely by the incoming
+// message, so PAL mode only needs to pick which message type to listen for and swap the two
+// hardcoded "BDF" strings; faction name/logo/counts are data, not identity.
 const IS_PAL   = new URLSearchParams(location.search).has('pal');
 const MSG_TYPE = IS_PAL ? 'pal' : 'bdf';
 if (IS_PAL) {
@@ -20,9 +18,8 @@ const warheadsEl = document.getElementById('bdf-warheads');
 const scoreEl    = document.getElementById('bdf-score');
 const fundsEl    = document.getElementById('bdf-funds');
 
-// Section config: how each row's cells are built. `icon(name)` returns the sprite URL, or null for
-// a text-only row (buildings/vehicles); `label` controls whether the type name renders under/over
-// the count (aircraft is icon+count only, no name — matches the game's ungrouped aircraft grid).
+// `icon: null` marks a text-only row (buildings/vehicles). `label: false` for aircraft matches the
+// game's ungrouped aircraft grid, which shows icon+count only, no type name.
 const SECTIONS = {
   ships:     { grid: document.getElementById('grid-ships'),     total: null,
                icon: n => '/bdf-icon?type=' + encodeURIComponent(n), label: true },
@@ -36,14 +33,13 @@ const SECTIONS = {
 
 let state = { present: false, faction: '', funds: 0, score: 0, warheads: 0,
               ships: [], buildings: [], vehicles: [], aircraft: [] };
-// Cache of each row's built name signature, so we only rebuild DOM when the set of types changes —
-// the per-frame work is just updating count text/colour (same pattern as TGT's builtKey).
+// Rebuild a section's DOM only when its set of type names changes; per-frame work is otherwise
+// just updating count text/colour (same pattern as TGT's builtKey).
 const builtKey  = { ships: '', buildings: '', vehicles: '', aircraft: '' };
-let loadedLogo  = '';   // faction name whose logo <img> src is currently set
+let loadedLogo  = '';
 
 function label(n) { return (n || '').replace(/_/g, ' '); }
 
-// Builds one section's cell grid only when its set of type names changes.
 function buildSection(key) {
   const cfg = SECTIONS[key];
   const list = state[key] || [];
@@ -59,8 +55,8 @@ function buildSection(key) {
       const img = document.createElement('img');
       img.className = 'bdf-icon';
       // The mod captures these sprites over the first few mission scans, so a request can 404 if
-      // the page is opened early. Retry a handful of times and reveal once it lands (same pattern
-      // as TGT's vehicle-icon loader) — otherwise an early open leaves it blank for the session.
+      // the page is opened early. Retry a handful of times (same pattern as TGT's vehicle-icon
+      // loader) — otherwise an early open leaves it blank for the session.
       let tries = 0;
       img.addEventListener('error', function () {
         img.classList.remove('ready');
@@ -103,7 +99,6 @@ function paintSection(key) {
   if (cfg.total) cfg.total.textContent = total;
 }
 
-// The scale-by-magnitude format lives in bdf-funds.js, pure and unit-checked.
 const fmtFunds = BdfFunds.fmtFunds;
 
 function paint() {
@@ -144,4 +139,4 @@ window.addEventListener('message', function (e) {
   paint();
 });
 
-paint();   // initial paint — UNAVAILABLE until the first frame arrives
+paint();   // UNAVAILABLE until the first frame arrives

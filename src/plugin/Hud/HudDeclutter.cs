@@ -12,8 +12,8 @@ namespace NOXMFD
     //
     // Re-applied on a slow interval because the game rebuilds the HUD per aircraft spawn and (for
     // the boxed readouts) the HeadMountedDisplay toggles their GameObjects active/inactive every
-    // frame. Reading HudDeclutterConfig each tick lets a future keybind/UI flip a flag and have us hide or
-    // restore within one interval.
+    // frame. Reading HudDeclutterConfig each tick means a flag flip elsewhere hides or restores
+    // within one interval.
     internal class HudDeclutter : MonoBehaviour
     {
         private const float Interval = 0.5f;
@@ -42,10 +42,10 @@ namespace NOXMFD
         {
             // Top-right weapon / ammo / countermeasure / capacitor cluster. This is CombatHUD's
             // private 'topRightPanel' GameObject — NOT the WeaponIndicator/CountermeasureIndicator
-            // HUDApps (those are a separate, off-screen copy). Same target NO_Tactitools uses.
+            // HUDApps (those are a separate, off-screen copy).
             UpdateWeaponPanel(HudDeclutterConfig.HideWeaponAmmo);
 
-            // Native kill-feed ticker (issue #34) — MessageUI's private 'killFeedText' Graphic. Same
+            // Native kill-feed ticker — MessageUI's private 'killFeedText' Graphic. Same
             // disable-the-graphic idiom as the boxed readouts below: the underlying MessageFeed queue
             // keeps running either way, only the on-screen text is hidden.
             UpdateKillFeed(HudDeclutterConfig.HideKillFeed);
@@ -58,12 +58,12 @@ namespace NOXMFD
             {
                 // Only pay for the 3x FindObjectsByType scene scan when there's something to (re)find:
                 // nothing hidden yet, or a tracked graphic was destroyed because the HUD was rebuilt on
-                // aircraft respawn. Otherwise the graphics we disabled stay disabled — the HMD re-toggles
-                // the GameObject's active state each frame but never re-enables the graphic.enabled we
-                // set — so re-scanning every tick is pure waste (it was the mod's one real per-frame cost).
-                // ponytail: assumes new bordered readouts only appear via a respawn that destroys the old
-                // ones (true for NO's single-aircraft HUD). If a bordered copy could ever appear WITHOUT
-                // the tracked set losing an entry, it'd stay visible until the next respawn.
+                // aircraft respawn. Otherwise the graphics stay disabled — the HMD re-toggles the
+                // GameObject's active state each frame but never re-enables the graphic.enabled set
+                // here — so re-scanning every tick would be pure waste. This assumes new bordered
+                // readouts only appear via a respawn that destroys the old ones; if a bordered copy
+                // could ever appear WITHOUT the tracked set losing an entry, it'd stay visible until
+                // the next respawn.
                 if (_hiddenGraphics.Count == 0 || AnyHiddenDestroyed())
                 {
                     _hiddenGraphics.RemoveWhere(g => g == null);
@@ -97,7 +97,7 @@ namespace NOXMFD
         }
 
         // Top-right weapon / ammo / countermeasure / capacitor cluster = CombatHUD's private
-        // 'topRightPanel' GameObject. SetActive(false) on it (same as NO_Tactitools).
+        // 'topRightPanel' GameObject.
         private static FieldInfo? _topRightPanelField;
         private bool _weaponPanelHidden;
 
@@ -124,11 +124,11 @@ namespace NOXMFD
             }
         }
 
-        // Native kill-feed ticker (issue #34) = MessageUI's private 'killFeedText' TextMeshProUGUI —
-        // a Graphic, so it's disabled/restored the same way the boxed readouts below are, not
-        // SetActive'd: the underlying MessageFeed queue (MessageUI.cs) keeps enqueueing/dequeuing
-        // lines regardless, only the on-screen text needs to disappear. MessageUI's general message
-        // feed ('messageText') is a separate field, untouched.
+        // Native kill-feed ticker = MessageUI's private 'killFeedText' TextMeshProUGUI — a Graphic,
+        // so it's disabled/restored the same way the boxed readouts below are, not SetActive'd: the
+        // underlying MessageFeed queue keeps enqueueing/dequeuing lines regardless, only the
+        // on-screen text needs to disappear. MessageUI's general message feed ('messageText') is a
+        // separate field, untouched.
         private static FieldInfo? _killFeedTextField;
         private bool _killFeedHidden;
 

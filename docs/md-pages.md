@@ -1,16 +1,16 @@
-# MIS and OBJ — mission-info and objective-list MDT pages
+# MIS and OBJ — mission-info and objective-list MD pages
 
 ## Status
 
 **In-game verified, not yet merged** (branch `mission-objective`, ticket
 [#37](https://github.com/roke77/NOXMFD/issues/37)). Backend telemetry, JSON
-wire format, both bare pages, and the four-way MDT switch (including its
+wire format, both bare pages, and the four-way MD switch (including its
 vertical-label treatment in split mode and F-35) are implemented, wired, and
 confirmed working in a live mission — including OBJ's collapsible
 position sub-rows, added after the ticket's original scope.
 
 AKF (advanced kill feed, branch `advanced-kill-feed`, ticket
-[#34](https://github.com/roke77/NOXMFD/issues/34)) has joined the MDT switch
+[#34](https://github.com/roke77/NOXMFD/issues/34)) has joined the MD switch
 as its default landing page and is fully implemented and in-game verified —
 see [docs/akf-page.md](akf-page.md) for its own data model and design notes,
 kept separate from this doc rather than folded in here.
@@ -29,11 +29,11 @@ predates this and doesn't have it), which toggles between two views:
   objectives, one row each — name, status, completion percent, and
   collapsible position sub-rows (grid label + live range) where applicable.
 
-MDT (Mission Data Table) is now a five-way switch: **AKF / MIS / OBJ / BDF /
+MD (Mission Data) is now a five-way switch: **AKF / MIS / OBJ / BDF /
 PAL**, all reachable from each other (`nav-model.js` `NAV.akf`/`NAV.mis`/
 `NAV.obj`/`NAV.bdf`/`NAV.pal`, each the same six items with `mark` on
 whichever is live). MAIN still reaches the family via `BEZEL_EXTRAS.main`'s
-`MDT` label, action `'akf'` — AKF is the group's default landing page
+`MD` label, action `'akf'` — AKF is the group's default landing page
 (issue #34 follow-up; was `'bdf'`).
 
 ## Data model

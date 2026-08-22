@@ -1,19 +1,12 @@
 // Self-check for the classic bezel's split-pane pagination. Run: `node classic-paging.test.js`.
-//
-// Unlike the model-based checks next door (layout-sticky.test.js), this imports the REAL module,
-// so it fails when mfd.js's behaviour changes rather than when a copy of it does.
-//
-// The properties worth pinning are the ones a pilot notices when they break: a control pair split
-// across two pages (you press ARM and there is no SAFE), a page asking for more keys than the pane
-// has, or a stale page index surviving a loadout change and showing a blank pane.
+// Imports the real module directly.
 const assert = require('assert');
 const P = require('./classic-paging.js');
 
 const { WPN_SPLIT_MAX, MAIN_PANE_SLOTS } = P;
 
 // ── WPN: the pair invariant ────────────────────────────────────────────────────────────
-// (ARM,SAFE) and (A/A,A/G) are adjacent entries; a pair must never straddle a page boundary,
-// because a pane showing one half of a toggle is a control the pilot cannot complete.
+// A pair (ARM,SAFE / A-A,A-G) must never straddle a page boundary.
 for (let n = 0; n <= 24; n++) {
   const pages = P.buildWpnSplitPages(n);
 
@@ -22,7 +15,7 @@ for (let n = 0; n <= 24; n++) {
       `${n} weapons: page ${i} has ${page.length} slots, pane only has ${WPN_SPLIT_MAX}`);
   });
 
-  // Every weapon still appears exactly once, in order — padding must not drop or reorder any.
+  // Every weapon appears exactly once, in order.
   const weaponIdx = pages.flat().filter(s => s.type === 'weapon').map(s => s.index);
   assert.deepStrictEqual(weaponIdx, [...Array(n).keys()], `${n} weapons: weapon slots lost or reordered`);
 
@@ -40,10 +33,8 @@ for (let n = 0; n <= 24; n++) {
     `${n} weapons: A/A · A/G split across pages`);
 }
 
-// The padding only fires when it must — a count that already leaves a pair aligned gains no blanks.
 assert.strictEqual(P.buildWpnSplitPages(4).flat().filter(s => s.type === 'empty').length, 0,
   '4 weapons needs no padding (pairs already land aligned)');
-// 3 weapons would put ARM on the last slot of page 0, so one blank is inserted to push the pair on.
 assert.strictEqual(P.buildWpnSplitPages(3).flat().filter(s => s.type === 'empty').length, 1,
   '3 weapons should pad exactly one slot');
 

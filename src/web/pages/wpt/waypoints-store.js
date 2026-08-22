@@ -13,7 +13,7 @@
 (function (root) {
   const R = (typeof module !== 'undefined' && module.exports) ? require('./wpt-route.js') : root.WptRoute;
 
-  // Last-known server state, refreshed by poll() — every sync read (load/getActiveRoute/hasRoutes/
+  // Last-known server state, refreshed by poll() — every sync read (load/getActiveRoute/
   // exportRoute) reads this cache rather than fetching, same as hud.js's own `data` cache.
   let cache = { activeRouteId: null, routes: [] };
 
@@ -26,15 +26,13 @@
       if (changed && typeof window !== 'undefined') window.dispatchEvent(new Event('wptroutes:changed'));
     }).catch(function () { /* transient network error — next poll retries */ });
   }
-  // Perf fix (2026-08-18, docs/hud-waypoint-indicator.md): only the TOP window runs the recurring
-  // poll — before this, every document that loaded this file (the shell, plus each open MAP/WPT
-  // iframe/pane) ran its OWN independent 1.2s loop, multiplying requests and the redraws each one
-  // triggers by however many were open (confirmed by profiling: ~3x the expected request rate for
-  // one device). An embedded page instead asks its parent for the current cache once on load (the
-  // parent only pushes on real changes, so a freshly loaded iframe needs to explicitly catch up)
-  // and then just listens — poll() itself is unchanged and still called directly by every mutator
-  // below for instant feedback on THIS document's own edits; only the recurring background loop is
-  // gated.
+  // Only the TOP window runs the recurring poll — every document that loads this file (the shell,
+  // plus each open MAP/WPT iframe/pane) would otherwise run its own independent 1.2s loop,
+  // multiplying requests and the redraws each one triggers by however many are open. An embedded
+  // page instead asks its parent for the current cache once on load (the parent only pushes on real
+  // changes, so a freshly loaded iframe needs to explicitly catch up) and then just listens —
+  // poll() itself is still called directly by every mutator below for instant feedback on THIS
+  // document's own edits; only the recurring background loop is gated.
   const isTop = typeof window !== 'undefined' && window === window.top;
   if (isTop) {
     poll(); setInterval(poll, 1200);   // same cadence as hud.js's /hud-options poll
@@ -53,12 +51,6 @@
 
   function getActiveRoute() {
     return R.findRoute(cache.routes, cache.activeRouteId);
-  }
-
-  // Whether any route exists at all, active or not — R+/R- (issue #38 follow-up) stay usable to
-  // cycle INTO a route as long as one is saved, unlike W+/W- which need an active route to step.
-  function hasRoutes() {
-    return cache.routes.length > 0;
   }
 
   // A short, human-typeable default DISPLAY name for a new route — the UI pre-fills its rename
@@ -116,7 +108,7 @@
 
   const api = {
     freshRouteName,
-    load, poll, getActiveRoute, hasRoutes, setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute, clearRoutes,
+    load, poll, getActiveRoute, setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute, clearRoutes,
     addWaypointToActive, renameWaypoint, removeWaypoint, reorderWaypoint,
     resetWaypoint, resetRoute, stepWaypoint, exportRoute, importRoute,
     pendingShared, shareRoute, receiveShared, acceptShared, rejectShared,

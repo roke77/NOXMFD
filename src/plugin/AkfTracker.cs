@@ -4,23 +4,20 @@ using UnityEngine;
 
 namespace NOXMFD
 {
-    // Session-scoped kill-feed/session-stat tracker (issue #34, docs/akf-page.md). A plain class
-    // (not a MonoBehaviour) owned by TelemetryReader, so it lives and dies with it — TelemetryReader
-    // is already mission-scoped (MissionLifecycle.StartReader/StopReader), which is exactly the
-    // session-reset boundary this feature needs, with nothing extra to clear here.
+    // A plain class (not a MonoBehaviour), owned by TelemetryReader so it lives and dies with the
+    // mission-scoped reader (MissionLifecycle.StartReader/StopReader) — exactly the session-reset
+    // boundary this feature needs.
     //
-    // Fed by Harmony patches (HarmonyPatches.cs): kill events (MessageManager's kill-message RPC) and
-    // best-effort weapon attribution (Missile.PenetrateObject / Missile.Detonate / DamageEffects.
-    // BlastFrag — three entry points because a missile's terminal sequence can reach a kill through
-    // any of them, at different points in the same frame) — see docs/akf-page.md for why each hook
-    // was chosen. All patches are static and have no other way to reach the live mission's tracker,
-    // hence the static Active pointer below.
+    // Fed by Harmony patches (HarmonyPatches.cs): kill events and best-effort weapon attribution
+    // from three missile terminal-sequence entry points, since a kill can reach any of them first,
+    // in the same frame. Patches are static and have no other way to reach the live tracker, hence
+    // the static Active pointer below.
     internal class AkfTracker
     {
         internal static AkfTracker? Active;
 
         private const int   MaxFeedLines = 50;
-        private const float WeaponTtl    = 5f;   // seconds a "last fired weapon" stays attributable to a kill
+        private const float WeaponTtl    = 5f;   // window a recorded weapon hit stays attributable to a later kill
 
         private readonly List<AkfKillEntry> _allFeed    = new List<AkfKillEntry>();
         private readonly List<AkfKillEntry> _playerFeed = new List<AkfKillEntry>();
@@ -31,7 +28,7 @@ namespace NOXMFD
         private float _fundsGained, _fundsSpent, _prevFunds;
         private bool  _fundsInit;
 
-        // dealerID -> (weapon unitName, Time.unscaledTime it was recorded). See RecordWeaponHit.
+        // dealerID -> (weapon unitName, time recorded). Populated by RecordWeaponHit.
         private readonly Dictionary<PersistentID, (string Name, float Time)> _lastWeaponByAttacker =
             new Dictionary<PersistentID, (string, float)>();
 
@@ -45,14 +42,12 @@ namespace NOXMFD
         public float FundsGained   => _fundsGained;
         public float FundsSpent    => _fundsSpent;
 
-        // Harmony postfix on MessageManager's kill-message handler calls this for every kill —
-        // exactly the event that drives the game's own HUD kill-feed ticker (MessageUI.KillFeed).
+        // Called via Harmony postfix for every kill message — the same event that drives the game's
+        // own HUD kill-feed ticker (MessageUI.KillFeed).
         internal void RecordKill(PersistentID killerID, PersistentID killedID, KillType killedType)
         {
-            // The only point a real kill message can be silently dropped from both feeds: the victim
-            // must already be resolvable via UnitRegistry at kill-message time. Checked against a real
-            // session's log (no drops observed) after an earlier report of missing kills turned out to
-            // be the feed-overlap CSS bug instead (see akf.css's .akf-line flex fix).
+            // Drops the kill from both feeds if the victim isn't resolvable via UnitRegistry at
+            // kill-message time — the only way a real kill message goes missing here.
             if (!UnitRegistry.TryGetPersistentUnit(killedID, out PersistentUnit killedUnit) || killedUnit == null) return;
 
             bool hasKiller = UnitRegistry.TryGetPersistentUnit(killerID, out PersistentUnit killerUnit) && killerUnit != null;
@@ -92,11 +87,9 @@ namespace NOXMFD
                 return;
             }
 
-            // Incoming interactions (not the player's own scored kills, so no tally changes — see
-            // docs/akf-page.md): the player's own aircraft was destroyed, or a munition the player
-            // fired was intercepted before reaching its target. Same entry shape as ALL (attacker is
-            // whatever/whoever did this to the player, not the player), flagged so the page renders
-            // it in full instead of the player-is-attacker abbreviated form.
+            // Incoming interactions — the player's aircraft was destroyed, or a munition the player
+            // fired was intercepted — don't change the tally. PlayerIsVictim flags the entry so the
+            // page renders it in full instead of the player-is-attacker abbreviated form.
             bool isPlayerVictim = localAc != null && killedID == localAc.persistentID;
             bool isPlayerOrdnance = !isPlayerVictim && killedType == KillType.Missile && localAc != null
                 && killedUnit.unit is Missile firedMissile && firedMissile.ownerID == localAc.persistentID;
@@ -107,10 +100,9 @@ namespace NOXMFD
             }
         }
 
-        // Harmony prefix on DamageEffects.BlastFrag — see docs/akf-page.md's "Weapon attribution"
-        // section for why this is a last-fired-by-attacker heuristic, not per-victim tracking:
-        // BlastFrag receives the detonating missile's own PersistentID (missileID) alongside the
-        // attacking aircraft's (dealerID) but never uses it for anything else.
+        // Called via Harmony prefix on DamageEffects.BlastFrag. This is a last-fired-by-attacker
+        // heuristic, not per-victim tracking: BlastFrag carries the detonating missile's own
+        // PersistentID (missileID) alongside the attacker's (dealerID) but never uses it otherwise.
         internal void RecordWeaponHit(PersistentID dealerID, PersistentID missileID)
         {
             if (!UnitRegistry.TryGetPersistentUnit(missileID, out PersistentUnit missileUnit) || missileUnit == null) return;
@@ -122,11 +114,10 @@ namespace NOXMFD
         // Polled once per 1 Hz scan (TelemetryReader.BuildAkf) — funds aren't an event, just a value
         // that drifts; diff against the previous read and bucket the delta into GAINED or SPENT.
         //
-        // ponytail: `hq.factionFunds` is the WHOLE FACTION's balance (the same field BDF/PAL read for
-        // BOSCALI/PRIMEVA), not a per-player figure — Nuclear Option has no such thing. In solo play
-        // this tracks 1:1 with the local player's own actions; in multiplayer any teammate's purchase
-        // or AI-earned kill reward shows up here too, misattributed as "the player's own" gained/spent.
-        // Known ceiling, accepted: there's no per-player funds figure in the game to read instead.
+        // `hq.factionFunds` is the WHOLE FACTION's balance, not a per-player figure — the game has no
+        // such thing. In solo play this tracks 1:1 with the player's own actions; in multiplayer any
+        // teammate's purchase or AI-earned kill reward shows up here too, misattributed as the
+        // player's own gained/spent. There's no per-player funds figure in the game to read instead.
         internal void TickFunds()
         {
             if (!GameManager.GetLocalHQ(out FactionHQ hq) || hq == null) { _fundsInit = false; return; }
@@ -141,8 +132,8 @@ namespace NOXMFD
             _fundsInit = true;
         }
 
-        // Polled once per 1 Hz scan (TelemetryReader.BuildAkf) — Player.PlayerRank is a live SyncVar,
-        // not an event this tracker needs to react to; a snapshot read is all AKF's RANK card needs.
+        // Player.PlayerRank is a live SyncVar, not an event this tracker needs to react to; a
+        // snapshot read on each 1 Hz scan is all AKF's RANK card needs.
         internal void TickRank()
         {
             _rank = GameManager.GetLocalPlayer<Player>(out var player) ? player.PlayerRank : 0;
