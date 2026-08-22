@@ -1550,6 +1550,23 @@ function showPage(name) {
 
 // The map iframe broadcasts status + loadout + cm via postMessage; mirror onto the
 // info-box (MAIN page), the cached wpnData + cmData (WPN page).
+// docs/refactor-scan.md step 7: these 7 message types share one exact shape in the dispatcher
+// below — store the raw message verbatim, then forward it to whichever surface shows the page.
+// Everything else in the dispatcher derives its own store shape (targets/rwr/mw/rdr reshape
+// m.items, tgp/status/etc. pull single fields) or isn't a page-forward at all, so it stays its
+// own branch rather than being folded in here. `page` is the page whose visibility gates the
+// forward — 'mapinfo' messages feed WPT, not a 'mapinfo' page, so it's the one entry where the
+// map key and the page name differ.
+const RELAY_MESSAGES = Object.assign(Object.create(null), {
+  tgt:     { page: 'tgt', set: function (m) { tgtData     = m; }, toFrame: forwardTgtToFrame, toPanes: forwardTgtToPanes },
+  bdf:     { page: 'bdf', set: function (m) { bdfData     = m; }, toFrame: forwardBdfToFrame, toPanes: forwardBdfToPanes },
+  pal:     { page: 'pal', set: function (m) { palData     = m; }, toFrame: forwardPalToFrame, toPanes: forwardPalToPanes },
+  mis:     { page: 'mis', set: function (m) { misData     = m; }, toFrame: forwardMisToFrame, toPanes: forwardMisToPanes },
+  obj:     { page: 'obj', set: function (m) { objData     = m; }, toFrame: forwardObjToFrame, toPanes: forwardObjToPanes },
+  akf:     { page: 'akf', set: function (m) { akfData     = m; }, toFrame: forwardAkfToFrame, toPanes: forwardAkfToPanes },
+  mapinfo: { page: 'wpt', set: function (m) { mapInfoData = m; }, toFrame: forwardWptToFrame, toPanes: forwardWptToPanes },
+});
+
 window.addEventListener('message', function(e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
@@ -1727,44 +1744,14 @@ window.addEventListener('message', function(e) {
                 pb: Array.isArray(m.pb) ? m.pb : [] };
     if (currentPage === 'rdr' && !splitMode) forwardRdrToFrame();
     if (splitMode) forwardRdrToPanes();
-  } else if (m.type === 'tgt') {
-    // Mirror the TGT filter state (present + toggle groups). Renders in the #page-frame iframe (full)
-    // or a pane (split); forward on when it's the page in view.
-    tgtData = m;
-    if (currentPage === 'tgt' && !splitMode) forwardTgtToFrame();
-    if (splitMode) forwardTgtToPanes();
-  } else if (m.type === 'bdf') {
-    // Mirror the BDF faction-forces state. Renders in the #page-frame iframe (full) or a pane
-    // (split); forward on when it's the page in view.
-    bdfData = m;
-    if (currentPage === 'bdf' && !splitMode) forwardBdfToFrame();
-    if (splitMode) forwardBdfToPanes();
-  } else if (m.type === 'pal') {
-    // Same as 'bdf', for the PRIMEVA block.
-    palData = m;
-    if (currentPage === 'pal' && !splitMode) forwardPalToFrame();
-    if (splitMode) forwardPalToPanes();
-  } else if (m.type === 'mis') {
-    // Mirror the MIS mission-info block. Renders in the #page-frame iframe (full) or a pane
-    // (split); forward on when it's the page in view.
-    misData = m;
-    if (currentPage === 'mis' && !splitMode) forwardMisToFrame();
-    if (splitMode) forwardMisToPanes();
-  } else if (m.type === 'obj') {
-    // Mirror the OBJ active-objectives list, same forwarding shape as MIS.
-    objData = m;
-    if (currentPage === 'obj' && !splitMode) forwardObjToFrame();
-    if (splitMode) forwardObjToPanes();
-  } else if (m.type === 'akf') {
-    // Mirror the AKF kill-feed/session-stats block, same forwarding shape as MIS/OBJ.
-    akfData = m;
-    if (currentPage === 'akf' && !splitMode) forwardAkfToFrame();
-    if (splitMode) forwardAkfToPanes();
-  } else if (m.type === 'mapinfo') {
-    // Mirror the mapinfo slice for WPT (issue #38), same forwarding shape as MIS/OBJ.
-    mapInfoData = m;
-    if (currentPage === 'wpt' && !splitMode) forwardWptToFrame();
-    if (splitMode) forwardWptToPanes();
+  } else if (RELAY_MESSAGES[m.type]) {
+    // The 7 verbatim-store-and-forward types (docs/refactor-scan.md step 7) — see RELAY_MESSAGES
+    // above. Renders in the #page-frame iframe (full) or a pane (split); forward on when it's the
+    // page in view.
+    const r = RELAY_MESSAGES[m.type];
+    r.set(m);
+    if (currentPage === r.page && !splitMode) r.toFrame();
+    if (splitMode) r.toPanes();
   } else if (m.type === 'wpt-routes-request') {
     // A freshly-loaded MAP/WPT iframe catching up (docs/hud-waypoint-indicator.md perf fix) —
     // only this shell polls /wpt-options now, so a new iframe starts with an empty cache until
