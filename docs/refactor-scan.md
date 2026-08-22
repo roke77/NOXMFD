@@ -3,8 +3,8 @@
 ## Status
 
 **All 9 original execution-plan steps done and merged to `main`.** See the checked-off
-list under "Execution plan" below. Steps 10-12 under "Follow-up execution plan" are new,
-not yet started.
+list under "Execution plan" below. Of the "Follow-up execution plan" steps, Step 10 is
+done (not yet merged — see its own branch); Steps 11-12 are not started.
 
 **Post-execution note:** the line counts in the table below and elsewhere in this doc are
 pre-execution measurements, kept as-is since this file is a historical record, not a live
@@ -494,14 +494,19 @@ Added after `docs/post-0.26-refactor-analysis.md` reviewed what actually landed 
 above. Same format: each step is one feature branch, self-contained enough to work from this
 document alone.
 
-- [ ] **Step 10 — extract `TelemetryJson.cs` from `TelemetryServer.cs`**. The response-helper work
-      (Step 2) reduced repeated HTTP mechanics, but telemetry JSON serialization itself is still
-      inline in `TelemetryServer.cs`. Pull it into its own file with the same Unity-free seam
-      `RouteStore.cs` has, and cover it with xUnit stable-snapshot fixtures in `tools/tests/`
-      (`docs/csharp-unit-testing.md`). This is the largest remaining backend extraction and the most
-      testable piece of `TelemetryServer.cs` left. Verify: `dotnet build` + `ci-check.ps1`, new
-      xUnit fixtures passing, then an in-game spot-check that a couple of live telemetry consumers
-      (e.g. MAIN, AVN) still receive correct data.
+- [x] **Step 10 — extract `TelemetryJson.cs` from `TelemetryServer.cs`**. Done. The full
+      `Serialize`/`*Block`/`*Array` layer (`TelemetryServer.cs`'s "Serialization" region) moved to
+      `src/plugin/TelemetryJson.cs` as a pure function of `TelemetrySnapshot` plus four explicit
+      parameters (`soiJson`, `masterArmsOn`, `combatModeLabel`, `extSlicesJson`) for the handful of
+      values that live outside the snapshot — no `ImmersionState`/`ExtensionRegistry`/session-state
+      references, so it compiles standalone in `tools/tests/` alongside `TelemetrySnapshot.cs`.
+      Covered by `tools/tests/TelemetryJsonTests.cs` (stable-snapshot fixtures, parsed back through
+      `JsonLite` rather than substring-matched). `SoiJson`/`CursorJson` stayed in `TelemetryServer.cs`
+      (per-connection/session state, not snapshot data). Verified: `dotnet build` + `ci-check.ps1`
+      green, 30/30 xUnit tests passing, plus a live in-game spot-check (2026-08-22, against a
+      running Free Flight mission) confirming the `/stream` SSE payload's `bdf`/`pal`/`mis`/`obj`/
+      `akf`/`tgt` blocks are all shaped and populated correctly post-extraction — see CLAUDE.md's
+      live-game verification checklist.
 - [ ] **Step 11 — re-check the deferred splits**. Revisit `map.js`, `Keybinds.cs`,
       `TelemetryReader.cs`, and `serve_web.py`'s route table/mock split (items 12-14 above,
       deferred after Step 9) for whether real, concrete duplication has emerged since — not a

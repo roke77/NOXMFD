@@ -30,6 +30,11 @@
          PersistToDisk fields, EscapeJson moved to JsonLite.cs). -->
     <Compile Include="..\..\src\plugin\JsonLite.cs" Link="Source\JsonLite.cs" />
     <Compile Include="..\..\src\plugin\RouteStore.cs" Link="Source\RouteStore.cs" />
+    <!-- TelemetrySnapshot.cs is the plain DTO the frame is built from; TelemetryJson.cs is the
+         pure serializer split out of TelemetryServer.cs (docs/refactor-scan.md step 10) — neither
+         has a Unity/BepInEx touchpoint. -->
+    <Compile Include="..\..\src\plugin\TelemetrySnapshot.cs" Link="Source\TelemetrySnapshot.cs" />
+    <Compile Include="..\..\src\plugin\TelemetryJson.cs" Link="Source\TelemetryJson.cs" />
   </ItemGroup>
 
 </Project>
