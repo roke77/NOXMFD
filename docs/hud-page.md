@@ -120,7 +120,7 @@ mislabelled.
 
 Above the HUDOptions replica sits a one-row strip of three toggles — WEAPONS,
 MINIMAP, FLIGHT — that drive the mod's **own** `HudDeclutter` feature
-([HudDeclutter.cs](../src/plugin/HudDeclutter.cs)), not the game's `HUDOptions`.
+([HudDeclutter.cs](../src/plugin/Hud/HudDeclutter.cs)), not the game's `HUDOptions`.
 It is a separate axis: HUDOptions gates which *unit icons* draw on the HUD; these
 hide native HUD *widgets* (the top-right weapon/ammo/CM cluster, the corner
 minimap, the boxed heading/speed/alt readouts). They share the page because both

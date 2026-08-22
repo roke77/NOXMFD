@@ -3,9 +3,8 @@
 ## Status
 
 **All 9 original execution-plan steps done and merged to `main`.** See the checked-off
-list under "Execution plan" below. Of the "Follow-up execution plan" steps, Step 10 is
-done and merged; Step 11 is done, not yet merged (see its own branch); Step 12 is not
-started.
+list under "Execution plan" below. All three "Follow-up execution plan" steps (10-12) are
+done; Step 12 is not yet merged (see its own branch).
 
 **Post-execution note:** the line counts in the table below and elsewhere in this doc are
 pre-execution measurements, kept as-is since this file is a historical record, not a live
@@ -529,9 +528,15 @@ document alone.
         `set-axis-invert` round-trips, an unknown bind id no-ops instead of erroring. `clear-joy`
         confirmed on an already-unassigned bind; `clear-axis` not exercised against a real HOTAS
         axis binding (would have wiped it) but shares identical code with the five tested paths.
-- [ ] **Step 12 — evaluate an incremental folder-structure move**. Per CLAUDE.md's "Folder
-      architecture" section, pick whichever of the target `src/plugin/`/`src/web/` groupings has
-      the most files ready to move today (e.g. `Stores/`, `Hud/`, `Immersion/`, or `shell/shared/`)
-      and do just that one move — update `NOXMFD.csproj`/embedded-resource paths in the same commit,
-      one responsibility-group per commit per the migration strategy. Don't create a folder for a
-      single file or move everything at once.
+- [x] **Step 12 — evaluate an incremental folder-structure move**. Done. Picked `Hud/`
+      (4 files: `HudDeclutter.cs`, `HudDeclutterConfig.cs`, `HudCombatModeFilters.cs`,
+      `HudWaypointCue.cs`) over `Stores/` (3 files), `Immersion/` (2 files), and
+      `shell/shared/` (6 JS files, but each referenced by `<script src>` in two shell
+      HTML files plus the embedded-resource glob, making it a larger and riskier move for
+      a first cut). `NOXMFD.csproj` needed zero changes — `.cs` files compile via the
+      SDK's default glob, so a subfolder move is pure `git mv`, no reference updates.
+      Updated the 4 doc links that pointed at the old paths
+      (`docs/hud-page.md`, `docs/hud-waypoint-indicator.md`, `docs/performance.md`,
+      `docs/radar-master-arms.md`) and CLAUDE.md's "Folder architecture" section to mark
+      `Hud/` done. Verified: `dotnet build` + `ci-check.ps1` green — a pure file move with
+      no behavior change, no in-game check needed.

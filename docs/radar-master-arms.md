@@ -378,7 +378,7 @@ Combat mode now also drives the HUD page's own unit-icon filters
 - **Bootstrap**: if no snapshot exists yet (fresh plugin session, HUD page never touched), the
   first time `HUDOptions` exists is captured as the initial snapshot, so there's always something
   valid to restore to.
-- New file: [`src/plugin/HudCombatModeFilters.cs`](../src/plugin/HudCombatModeFilters.cs). Driven
+- New file: [`src/plugin/Hud/HudCombatModeFilters.cs`](../src/plugin/Hud/HudCombatModeFilters.cs). Driven
   entirely through the same `Keybinds.SetCombatMode` choke point described above — both the WPN
   page's A/A · A/G controls and the physical keybind (tap **and** hold-to-ALL, which previously
   bypassed `SetCombatMode` with a bare field write and has been fixed to route through it) trigger
