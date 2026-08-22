@@ -10,6 +10,12 @@ guesses — most exist because a past session violated them.
   into `main` when ready. **Delete the branch (local + remote) immediately after
   merging** — do this in the same sitting as the merge, before moving on to
   versioning/release work.
+- **"push" and "merge to main" are separate authorizations — "push" never implies the
+  other.** "push" (on a feature branch) pushes that branch only, exactly as-is; it does
+  not fast-forward-merge into `main`, and does not push `main`. Merging into `main`
+  needs its own explicit instruction ("merge to main", "merge it in") given
+  separately, even right after a "push" in the same turn. Default assumption on any
+  feature branch is "stays a branch" until that explicit merge instruction arrives.
 - **Never push unless the user's current message literally contains the word "push"**
   (or "upload"/"publish to remote"). This is the single most-violated rule in this
   project (10 documented incidents). None of the following authorize a push: "yes",
