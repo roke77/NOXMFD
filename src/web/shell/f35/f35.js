@@ -1045,62 +1045,41 @@
       .catch(function () { setStripUrls({ localhost: 'http://localhost:5005' }); });
   }
 
-  // Boot loader: a LOADING… bar filling 0→100% over ~1s (5% every 50ms; the 60ms CSS transition on
-  // the fill smooths each step into a sweep), then the URLs type in. Ports the bezel MAIN's
-  // runBootLoading (mfd.js). The strip starts in .booting from the HTML so nothing flashes before
-  // the bar; this only drives the fill and lifts .booting at 100%.
+  // Boot loader: a LOADING… bar filling 0→100% over ~1s, then the URLs type in.
+  // docs/refactor-scan.md step 1: the fill-bar and typewriter mechanics are shared with mfd.js's
+  // runBootLoading/typewriterUrls via src/web/shell/boot-reveal.js. The strip starts in .booting
+  // from the HTML so nothing flashes before the bar; this only drives the fill and lifts .booting
+  // at 100%.
   function runStripBoot() {
     const fill = document.getElementById('ms-bar-fill');
     if (!stripEl || !fill) return;
-    fill.style.width = '0%';
-    let pct = 0;
-    const timer = setInterval(function () {
-      pct += 5;
-      fill.style.width = Math.min(pct, 100) + '%';
-      if (pct >= 100) {
-        clearInterval(timer);
-        stripEl.classList.remove('booting');   // reveal the connection block
-        bootDone = true;
-        maybeRevealUrls();
-      }
-    }, 50);
+    BootReveal.runBootFill(fill, function () {
+      stripEl.classList.remove('booting');   // reveal the connection block
+      bootDone = true;
+      maybeRevealUrls();
+    });
   }
 
   function maybeRevealUrls() {
     if (bootDone && urlsLoaded) typeStripUrls();
   }
 
-  // Type the URL lines out character by character with a blinking caret, the same reveal the bezel
-  // MAIN gives its URLs (mfd.js typewriterUrls) — minus the boot loader, which is bezel-only. Each
-  // line splits into typed / caret / hidden-rest so neither the caret nor the untyped tail ever
-  // changes the line's width as it fills. Runs once, when /config lands. (ponytail: single-shot;
-  // /config is fetched once at load, so no re-entrancy guard is needed.)
+  // Type the URL lines out. Runs once, when /config lands — BootReveal.typewriterReveal's
+  // supersede-guard is a no-op here since this is only ever called once.
   function typeStripUrls() {
     const lines = [].slice.call(document.querySelectorAll('.ms-url'))
       .filter(function (el) { return el.textContent; });
-    lines.forEach(function (el) {
-      const full = el.textContent;
-      el.textContent = '';
-      const done = document.createElement('span'); done.className = 'tw-done';
-      const cur  = document.createElement('span'); cur.className  = 'tw-cursor'; cur.textContent = '▌'; cur.style.display = 'none';
-      const rest = document.createElement('span'); rest.className = 'tw-rest';  rest.textContent = full;
-      el.appendChild(done); el.appendChild(cur); el.appendChild(rest);
-    });
-    function typeLine(idx) {
-      if (idx >= lines.length) return;
-      const el = lines[idx], done = el.children[0], cur = el.children[1], rest = el.children[2];
-      const full = rest.textContent;
-      cur.style.display = '';   // reveal the caret on the line being typed
-      let i = 0;
-      const timer = setInterval(function () {
-        i++;
-        done.textContent = full.slice(0, i);
-        rest.textContent = full.slice(i);
-        if (i >= full.length) { clearInterval(timer); el.textContent = full; typeLine(idx + 1); }
-      }, 32);
-    }
-    typeLine(0);
+    BootReveal.typewriterReveal(lines);
   }
+
+  // docs/refactor-scan.md step 1: SAVE/LOAD LAYOUT keyboard + modal wiring is shared with mfd.js
+  // via src/web/shell/layout-keydown.js — only captureLayoutState/applyLayoutState (this shell's
+  // own state shape, below) stay here. Declared here (ahead of its own captureLayoutState/
+  // applyLayoutState definitions further down, which are hoisted function declarations so the
+  // reference is fine) because the picker wiring just below needs openSaveLayoutModal/
+  // openLoadLayoutModal as values, not just calls deferred to click time.
+  const { openSaveLayoutModal, openLoadLayoutModal, handleLayoutKeydown, wireLayoutKeydown } =
+    LayoutKeydown.makeLayoutKeydownHandlers('f35', captureLayoutState, applyLayoutState);
 
   // ── Layout picker ──────────────────────────────────────────────────────────────────────
   // LYT (a portal's MAIN, GLASS_ACTIONS) swaps the portals for a two-item chooser — the same place
@@ -1193,50 +1172,6 @@
     showPicker(false);
   }
 
-  function openSaveLayoutModal() {
-    LayoutModal.prompt('SAVE LAYOUT', function (name) {
-      LayoutStore.save(name, 'f35', captureLayoutState()).catch(function () {});
-      LayoutModal.close();
-    });
-  }
-
-  function f35Layouts() {
-    return LayoutStore.list().then(function (data) {
-      return (data.layouts || []).filter(function (l) { return l.shell === 'f35'; });
-    });
-  }
-
-  function openLoadLayoutModal() {
-    LayoutModal.pickList('LOAD LAYOUT', f35Layouts, {
-      onPick: function (item) {
-        try { applyLayoutState(JSON.parse(item.data)); } catch (e) {}
-      },
-      onRename: function (item, name) { return LayoutStore.rename(item.id, name); },
-      onDelete: function (item) { return LayoutStore.remove(item.id); },
-    });
-  }
-
-  // A keydown only reaches window.addEventListener('keydown', ...) on the DOCUMENT it lands in —
-  // it never bubbles across an iframe boundary to the parent. On the F-35 every portal's content
-  // (including MAIN) is inside its own iframe, so a listener on just this top document would miss
-  // almost every real press — confirmed: SAVE/LOAD firing inconsistently, since it only ever
-  // caught a keypress landing on the master strip itself. Same-origin, so attaching the identical
-  // handler directly onto each portal's contentWindow needs no postMessage relay — it just has to
-  // be re-attached after every navigation (wireLayoutKeydown, called from makePortal below), since
-  // reassigning frame.src tears down that whole document (and any listeners on it).
-  function handleLayoutKeydown(e) {
-    if (e.ctrlKey || e.altKey || e.metaKey) return;
-    const t = e.target;
-    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-    const action = LayoutKeybinds.match(e);
-    if (action === 'save') openSaveLayoutModal();
-    else if (action === 'load') openLoadLayoutModal();
-  }
-  function wireLayoutKeydown(iframe) {
-    function attach() { try { iframe.contentWindow.addEventListener('keydown', handleLayoutKeydown); } catch (e) {} }
-    iframe.addEventListener('load', attach);
-    attach();   // in case it's already loaded
-  }
   window.addEventListener('keydown', handleLayoutKeydown);
   wireLayoutKeydown(mapTap);
 

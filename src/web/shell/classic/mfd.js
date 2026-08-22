@@ -1792,77 +1792,28 @@ function flickerScreen() {
 
 // Boot loader for the centre info box: shows a LOADING… line + a fill bar, keeps the title
 // visible, hides the data rows until the bar hits 100%. Runs alongside the first-load
-// boot flicker. Fills in 5% steps every 50ms = 1.0s (the 60ms CSS transition on the
-// fill smooths each step into a continuous sweep, like the EW Jammer bar).
-let bootTimer = null;
+// boot flicker. docs/refactor-scan.md step 1: the fill-bar and typewriter mechanics are shared
+// with f35.js via src/web/shell/boot-reveal.js.
 function runBootLoading() {
   const fill = document.getElementById('ib-bar-fill');
   if (!infoBox || !fill) return;
-  if (bootTimer) { clearInterval(bootTimer); bootTimer = null; }
-  let pct = 0;
   infoBox.classList.add('booting');            // CSS swaps data rows → loading block
-  fill.style.width = '0%';
-  bootTimer = setInterval(function() {
-    pct += 5;
-    fill.style.width = Math.min(pct, 100) + '%';
-    if (pct >= 100) {
-      clearInterval(bootTimer); bootTimer = null;
-      infoBox.classList.remove('booting');     // reveal the data rows
-      typewriterUrls();                        // then type the URL lines out
-    }
-  }, 50);
+  BootReveal.runBootFill(fill, function() {
+    infoBox.classList.remove('booting');       // reveal the data rows
+    typewriterUrls();                          // then type the URL lines out
+  });
 }
 
-// Type the info box's URL line(s) out character-by-character with a blinking cursor, one
-// line after the other. Called once the boot loader reveals the data. Each line keeps its
-// FULL text laid out the whole time — a visible "done" prefix + an invisible "rest" suffix
-// (visibility:hidden, so it still reserves space) — so neither width nor height shifts as
-// the text appears, and a not-yet-typed line stays blank-but-reserved. We also freeze
-// .ib-body's width as belt-and-suspenders (the cursor glyph aside). A token guards against
-// overlap if another boot starts mid-type.
-let twToken = 0;
+// Type the info box's URL line(s) out character-by-character. Called once the boot loader
+// reveals the data, and again if /config lands after that (setInfoUrls, below) — pinWidthEl
+// freezes .ib-body's width for the duration so neither the cursor nor sub-pixel kerning at the
+// typed/untyped split can nudge the centred box's frame.
 function typewriterUrls() {
   if (!infoBox) return;
   const body  = infoBox.querySelector('.ib-body');
   const lines = [].slice.call(infoBox.querySelectorAll('.ib-data .ib-url'));
   if (!body || !lines.length) return;
-  const myToken = ++twToken;
-  // Pin the body to a FIXED width (not just a floor) for the duration, so neither the cursor
-  // nor sub-pixel kerning at the typed/untyped split can nudge the centred box's frame.
-  body.style.width = body.getBoundingClientRect().width + 'px';
-  // Set every line up front: full text in the hidden 'rest', nothing typed, cursor parked.
-  lines.forEach(function(el) {
-    // Cache the ORIGINAL text once. A re-run (new boot superseding an in-flight type) must
-    // read this, not the cursor/partial spans a prior run left in the DOM.
-    if (el.dataset.url === undefined) el.dataset.url = el.textContent;
-    const full = el.dataset.url;
-    el.textContent = '';
-    const done = document.createElement('span'); done.className = 'tw-done';
-    const cur  = document.createElement('span'); cur.className  = 'tw-cursor'; cur.textContent = '▌'; cur.style.display = 'none';
-    const rest = document.createElement('span'); rest.className = 'tw-rest';  rest.textContent = full;
-    el.appendChild(done); el.appendChild(cur); el.appendChild(rest);
-  });
-  function typeLine(idx) {
-    if (myToken !== twToken) return;                 // superseded by a newer boot
-    if (idx >= lines.length) { body.style.width = ''; return; }
-    const el = lines[idx];
-    const done = el.children[0], cur = el.children[1], rest = el.children[2];
-    const full = rest.textContent;
-    cur.style.display = '';                           // reveal the blinking cursor on this line
-    let i = 0;
-    const timer = setInterval(function() {
-      if (myToken !== twToken) { clearInterval(timer); return; }
-      i++;
-      done.textContent = full.slice(0, i);
-      rest.textContent = full.slice(i);
-      if (i >= full.length) {
-        clearInterval(timer);
-        el.textContent = full;                       // collapse spans back to plain text
-        typeLine(idx + 1);                           // chain to the next line
-      }
-    }, 32);
-  }
-  typeLine(0);
+  BootReveal.typewriterReveal(lines, { pinWidthEl: body });
 }
 
 function setInfoUrls(cfg) {
@@ -2411,50 +2362,11 @@ function applyLayoutState(state) {
   }
 }
 
-function openSaveLayoutModal() {
-  LayoutModal.prompt('SAVE LAYOUT', function (name) {
-    LayoutStore.save(name, 'classic', captureLayoutState()).catch(function () {});
-    LayoutModal.close();
-  });
-}
-
-function classicLayouts() {
-  return LayoutStore.list().then(function (data) {
-    return (data.layouts || []).filter(function (l) { return l.shell === 'classic'; });
-  });
-}
-
-function openLoadLayoutModal() {
-  LayoutModal.pickList('LOAD LAYOUT', classicLayouts, {
-    onPick: function (item) {
-      try { applyLayoutState(JSON.parse(item.data)); } catch (e) {}
-    },
-    onRename: function (item, name) { return LayoutStore.rename(item.id, name); },
-    onDelete: function (item) { return LayoutStore.remove(item.id); },
-  });
-}
-
-// A keydown only reaches window.addEventListener('keydown', ...) on the DOCUMENT it lands in —
-// it never bubbles across an iframe boundary to the parent. Almost everything a pilot clicks
-// (the map, a split pane, any #page-frame page) is inside an iframe, so a listener on just the
-// shell's own top document would miss most real presses (confirmed: SAVE/LOAD firing only
-// sometimes, e.g. reliably from MAIN's own chrome but not after clicking into the map or a page).
-// Same-origin, so attaching the identical handler directly onto each iframe's contentWindow needs
-// no postMessage relay — it just has to be re-attached after every navigation, since reassigning
-// iframe.src tears down that whole document (and any listeners on it), same as a real page load.
-function handleLayoutKeydown(e) {
-  if (e.ctrlKey || e.altKey || e.metaKey) return;
-  const t = e.target;
-  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-  const action = LayoutKeybinds.match(e);
-  if (action === 'save') openSaveLayoutModal();
-  else if (action === 'load') openLoadLayoutModal();
-}
-function wireLayoutKeydown(iframe) {
-  function attach() { try { iframe.contentWindow.addEventListener('keydown', handleLayoutKeydown); } catch (e) {} }
-  iframe.addEventListener('load', attach);
-  attach();   // in case it's already loaded
-}
+// docs/refactor-scan.md step 1: SAVE/LOAD LAYOUT keyboard wiring is shared with f35.js via
+// src/web/shell/layout-keydown.js — only captureLayoutState/applyLayoutState (this shell's own
+// state shape) stay here.
+const { openSaveLayoutModal, openLoadLayoutModal, handleLayoutKeydown, wireLayoutKeydown } =
+  LayoutKeydown.makeLayoutKeydownHandlers('classic', captureLayoutState, applyLayoutState);
 window.addEventListener('keydown', handleLayoutKeydown);
 wireLayoutKeydown(mapFrame);
 wireLayoutKeydown(pageFrame);
