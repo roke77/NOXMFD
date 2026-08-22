@@ -576,60 +576,45 @@ function paneNavigate(paneIdx, page) {
   refreshFollowIndicator();        // entering/leaving MAP changes whether the chip shows
 }
 
-// Forwarding from shell → pane iframes. The shell already mirrors all the data
-// streams from the map iframe (status, avn, tgp, etc.); this just relays the
-// latest snapshot to whichever pane needs it.
-function forwardStatusToPanes() {
+// Forwarding from shell → pane iframes. The shell already mirrors all the data streams from the
+// map iframe (status, avn, tgp, etc.); this just relays the latest snapshot to whichever pane
+// needs it. Every page's pair follows the same shape (docs/mfd-shell-relay-consolidation.md): a
+// small xMsg() builds that page's payload once, and these two generic helpers do the actual
+// iterate-filter-postMessage/single-postMessage work every page used to hand-write separately.
+// Not every page uses both — a pane-only or frame-only page just calls the one side it needs.
+// Geometry-forwarding functions (*LayoutToPanes/*LayoutToFrame, and WPN's whole cluster) are
+// excluded: their payload is computed per-destination from live bezel-key rects, not a single
+// shared value, so they don't fit this shape and stay hand-written.
+function forwardToPanes(page, payload) {
   paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'main') return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage(
-      { mfd: true, type: 'status', cls: lastStatusCls, text: lastStatusText }, '*');
+    if (panePages[idx] !== page || !iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(payload, '*');
   });
 }
-function forwardAvnToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'avn') return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage({
-      mfd: true, type: 'avn',
-      name: avnData.name,
-      parts: avnData.parts,
-      failures: avnData.failures,
-      fuel: avnData.fuel,
-      throttle: avnData.throttle,
-      heat: avnData.heat,
-      heatColor: avnData.heatColor,
-      rpm: avnData.rpm,
-      hasAb: avnData.hasAb,
-      abStart: avnData.abStart,
-      gearDown: avnData.gearDown,
-      radar: avnData.radar,
-      guns: avnData.guns,
-      ignition: avnData.ignition,
-      assist: avnData.assist,
-      turret: avnData.turret,
-      nvg: avnData.nvg,
-      navLights: avnData.navLights,
-      // No `visible`/page/pages any more: the icon grid always shows all 8, split or full — only
-      // the pane's 4 physical toggle KEYS still page (avnPaneSlice, renderSplitLabels' avn branch),
-      // same as WPN's list ever needing more rows than keys. The grid and the keys page
-      // independently now: the page's own tiles show current state at a glance regardless of which
-      // 4 groups the bezel can actuate this page.
-    }, '*');
-  });
-}
-// Full-view AVN: forward the snapshot to the #page-frame iframe (same payload as the panes).
-function forwardAvnToFrame() {
+function forwardToFrame(payload) {
   const w = frameWin(); if (!w) return;
-  w.postMessage({ mfd: true, type: 'avn', name: avnData.name, parts: avnData.parts,
-                  failures: avnData.failures, fuel: avnData.fuel, throttle: avnData.throttle,
-                  heat: avnData.heat, heatColor: avnData.heatColor, rpm: avnData.rpm,
-                  hasAb: avnData.hasAb, abStart: avnData.abStart,
-                  gearDown: avnData.gearDown, radar: avnData.radar, guns: avnData.guns,
-                  ignition: avnData.ignition, assist: avnData.assist, turret: avnData.turret,
-                  nvg: avnData.nvg, navLights: avnData.navLights }, '*');
+  w.postMessage(payload, '*');
 }
+function forwardStatusToPanes() {
+  forwardToPanes('main', { mfd: true, type: 'status', cls: lastStatusCls, text: lastStatusText });
+}
+// No `visible`/page/pages any more: the icon grid always shows all 8, split or full — only the
+// pane's 4 physical toggle KEYS still page (avnPaneSlice, renderSplitLabels' avn branch), same as
+// WPN's list ever needing more rows than keys. The grid and the keys page independently now: the
+// page's own tiles show current state at a glance regardless of which 4 groups the bezel can
+// actuate this page.
+function avnMsg() {
+  return { mfd: true, type: 'avn', name: avnData.name, parts: avnData.parts,
+           failures: avnData.failures, fuel: avnData.fuel, throttle: avnData.throttle,
+           heat: avnData.heat, heatColor: avnData.heatColor, rpm: avnData.rpm,
+           hasAb: avnData.hasAb, abStart: avnData.abStart, gearDown: avnData.gearDown,
+           radar: avnData.radar, guns: avnData.guns, ignition: avnData.ignition,
+           assist: avnData.assist, turret: avnData.turret, nvg: avnData.nvg,
+           navLights: avnData.navLights };
+}
+function forwardAvnToPanes() { forwardToPanes('avn', avnMsg()); }
+// Full-view AVN: forward the snapshot to the #page-frame iframe (same payload as the panes).
+function forwardAvnToFrame() { forwardToFrame(avnMsg()); }
 // Split-pane AVN geometry: the pane's 4 visible toggle rows (avnPaneSlice) sit on the same
 // physical keys wireAvnPaneToggleKeys just wired — forward their vertical centres (+ per-item
 // side) the same way forwardWpnLayoutToPanes does for weapon rows, so the page can position its
@@ -675,22 +660,13 @@ function forwardAvnLayoutToFrame() {
 // page out), so AFM just reads the same fields rather than parsing its own copy. No per-pane
 // layout forwarding, unlike AVN: AFM has no bezel-actuated content in a split pane, so compact's
 // fixed CSS offsets are enough there — only full view needs its bezel-anchored geometry, below.
-function forwardAfmToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'afm') return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage({
-      mfd: true, type: 'afm', name: avnData.name, parts: avnData.parts, failures: avnData.failures, pylons: avnData.pylons,
-    }, '*');
-  });
+function afmMsg() {
+  return { mfd: true, type: 'afm', name: avnData.name, parts: avnData.parts,
+           failures: avnData.failures, pylons: avnData.pylons };
 }
+function forwardAfmToPanes() { forwardToPanes('afm', afmMsg()); }
 // Full-view AFM: forward the snapshot to the #page-frame iframe (same payload as the panes).
-function forwardAfmToFrame() {
-  const w = frameWin(); if (!w) return;
-  w.postMessage({
-    mfd: true, type: 'afm', name: avnData.name, parts: avnData.parts, failures: avnData.failures, pylons: avnData.pylons,
-  }, '*');
-}
+function forwardAfmToFrame() { forwardToFrame(afmMsg()); }
 // Forward the full-view geometry: AFM's name band fills the top bezel row — from below the first
 // separator sep[0] to above the second sep[1] — and the silhouette frame spans from below sep[1]
 // to the bottom strip (last sep). Mirrors AVN's own forwardAvnLayoutToFrame from before its
@@ -744,186 +720,77 @@ function avnNavLabelText(group) {
   const upper = group.toUpperCase();
   return upper.length > 4 ? upper.replace(/[AEIOU]/g, '') : upper;
 }
-function forwardTgpToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'tgp') return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage({ mfd: true, type: 'tgp', active: tgpActive }, '*');
-  });
-}
+function tgpMsg() { return { mfd: true, type: 'tgp', active: tgpActive }; }
+function forwardTgpToPanes() { forwardToPanes('tgp', tgpMsg()); }
 // Full-view TGP: forward the lock flag to the #page-frame iframe (the page toggles its feed).
 // No geometry to forward — the feed is a single centred box, not key-band rows.
-function forwardTgpToFrame() {
-  const w = frameWin(); if (!w) return;
-  w.postMessage({ mfd: true, type: 'tgp', active: tgpActive }, '*');
-}
+function forwardTgpToFrame() { forwardToFrame(tgpMsg()); }
 // Extension pages (docs/extensions-api.md) — ONE generic forward pair for every installed
 // extension, unlike every page above which gets its own. An extension's page always receives
 // the same shape regardless of which one it is: {mfd:true, type:'ext', data:<its last published
 // slice>}. `page` is the extension's own id, doubling as its NAV/FRAME_PAGES-fallback page name.
-function forwardExtToPanes(page) {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== page) return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage({ mfd: true, type: 'ext', data: extData[page] }, '*');
-  });
-}
-function forwardExtToFrame(page) {
-  const w = frameWin(); if (!w) return;
-  w.postMessage({ mfd: true, type: 'ext', data: extData[page] }, '*');
-}
-function forwardRwrToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'rwr') return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage({ mfd: true, type: 'rwr', items: rwrData.items || [] }, '*');
-  });
-}
+function extMsg(page) { return { mfd: true, type: 'ext', data: extData[page] }; }
+function forwardExtToPanes(page) { forwardToPanes(page, extMsg(page)); }
+function forwardExtToFrame(page) { forwardToFrame(extMsg(page)); }
+function rwrMsg() { return { mfd: true, type: 'rwr', items: rwrData.items || [] }; }
+function forwardRwrToPanes() { forwardToPanes('rwr', rwrMsg()); }
 // Full-view RWR: forward the contact + missile streams to the #page-frame iframe (same payloads
 // as the panes). RWR is one responsive SVG, so there's no geometry to forward.
-function forwardRwrToFrame() {
-  const w = frameWin(); if (!w) return;
-  w.postMessage({ mfd: true, type: 'rwr', items: rwrData.items || [] }, '*');
-}
+function forwardRwrToFrame() { forwardToFrame(rwrMsg()); }
 // RDR (docs/rdr-page.md): forward the whole B-scope block (present/range/cone/hdg/items) to the
 // pane(s) or the full-view frame. Like RWR it's one responsive SVG — no geometry to forward.
-function forwardRdrToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'rdr' || !iframe.contentWindow) return;
-    iframe.contentWindow.postMessage(rdrMsg(), '*');
-  });
-}
-function forwardRdrToFrame() {
-  const w = frameWin(); if (!w) return;
-  w.postMessage(rdrMsg(), '*');
-}
+function forwardRdrToPanes() { forwardToPanes('rdr', rdrMsg()); }
+function forwardRdrToFrame() { forwardToFrame(rdrMsg()); }
 function rdrMsg() {
   return { mfd: true, type: 'rdr', present: rdrData.present, range: rdrData.range,
            cone: rdrData.cone, metric: rdrData.metric, radarOn: rdrData.radarOn,
            levelTime: rdrData.levelTime, hdg: rdrData.hdg, items: rdrData.items || [],
            pb: rdrData.pb || [] };
 }
-function forwardMwToFrame() {
-  const w = frameWin(); if (!w) return;
-  w.postMessage({ mfd: true, type: 'mw', items: mwData.items || [] }, '*');
-}
+function mwMsg() { return { mfd: true, type: 'mw', items: mwData.items || [] }; }
+// MW shares RWR's pane/page (no separate NAV entry), hence the 'rwr' filter on the Panes side.
+function forwardMwToFrame() { forwardToFrame(mwMsg()); }
+function forwardMwToPanes() { forwardToPanes('rwr', mwMsg()); }
 // Full-view TGT: forward the whole filter-state block to the #page-frame iframe. It's a plain
-// state mirror (no geometry — the page is fully clickable, not bezel-anchored).
-function forwardTgtToFrame() {
-  const w = frameWin(); if (!w) return;
-  w.postMessage(Object.assign({ mfd: true, type: 'tgt' }, tgtData), '*');
-}
+// state mirror (no geometry — the page is fully clickable, not bezel-anchored). Split-pane twin
+// sends the same payload to any pane showing TGT — nothing else (no bezel-key wiring) is needed.
+function tgtMsg() { return Object.assign({ mfd: true, type: 'tgt' }, tgtData); }
+function forwardTgtToFrame() { forwardToFrame(tgtMsg()); }
+function forwardTgtToPanes() { forwardToPanes('tgt', tgtMsg()); }
 // The TGT page shows the selected-target list under its filters (mirrored in targetsData).
-// No pagination — the page scrolls — so forward the whole list.
-function forwardTgtTargetsToFrame() {
-  const w = frameWin(); if (!w) return;
-  w.postMessage({ mfd: true, type: 'tgt-targets', items: targetsData.targets || [] }, '*');
-}
+// No pagination — the page scrolls — so forward the whole list, to the frame and any TGT pane.
+function tgtTargetsMsg() { return { mfd: true, type: 'tgt-targets', items: targetsData.targets || [] }; }
+function forwardTgtTargetsToFrame() { forwardToFrame(tgtTargetsMsg()); }
+function forwardTgtTargetsToPanes() { forwardToPanes('tgt', tgtTargetsMsg()); }
 // Full-view BDF: forward the whole faction-forces block to the #page-frame iframe (docs/bdf-page.md).
-// A plain state mirror, same shape as TGT — no geometry, the page isn't bezel-anchored.
-function forwardBdfToFrame() {
-  const w = frameWin(); if (!w) return;
-  w.postMessage(Object.assign({ mfd: true, type: 'bdf' }, bdfData), '*');
-}
-// Full-view PAL: same as forwardBdfToFrame, for the PRIMEVA block (docs/bdf-page.md).
-function forwardPalToFrame() {
-  const w = frameWin(); if (!w) return;
-  w.postMessage(Object.assign({ mfd: true, type: 'pal' }, palData), '*');
-}
+// A plain state mirror, same shape as TGT — no geometry, the page isn't bezel-anchored. Split-pane
+// twin sends the same payload to any pane showing BDF.
+function bdfMsg() { return Object.assign({ mfd: true, type: 'bdf' }, bdfData); }
+function forwardBdfToFrame() { forwardToFrame(bdfMsg()); }
+function forwardBdfToPanes() { forwardToPanes('bdf', bdfMsg()); }
+// Full-view PAL: same as BDF, for the PRIMEVA block (docs/bdf-page.md). Split-pane twin as above.
+function palMsg() { return Object.assign({ mfd: true, type: 'pal' }, palData); }
+function forwardPalToFrame() { forwardToFrame(palMsg()); }
+function forwardPalToPanes() { forwardToPanes('pal', palMsg()); }
 // Full-view MIS: forward the mission-info block (docs/md-pages.md). Same shape as BDF/PAL.
-function forwardMisToFrame() {
-  const w = frameWin(); if (!w) return;
-  w.postMessage(Object.assign({ mfd: true, type: 'mis' }, misData), '*');
-}
+function misMsg() { return Object.assign({ mfd: true, type: 'mis' }, misData); }
+function forwardMisToFrame() { forwardToFrame(misMsg()); }
+function forwardMisToPanes() { forwardToPanes('mis', misMsg()); }
 // Full-view OBJ: forward the active-objectives list (docs/md-pages.md).
-function forwardObjToFrame() {
-  const w = frameWin(); if (!w) return;
-  w.postMessage(Object.assign({ mfd: true, type: 'obj' }, objData), '*');
-}
+function objMsg() { return Object.assign({ mfd: true, type: 'obj' }, objData); }
+function forwardObjToFrame() { forwardToFrame(objMsg()); }
+function forwardObjToPanes() { forwardToPanes('obj', objMsg()); }
 // Full-view AKF: forward the kill-feed/session-stats block (docs/akf-page.md).
-function forwardAkfToFrame() {
-  const w = frameWin(); if (!w) return;
-  w.postMessage(Object.assign({ mfd: true, type: 'akf' }, akfData), '*');
-}
-// Split-pane twins of the two TGT forwarders — same payloads, sent to any pane showing TGT. The
-// page is fully clickable inside the pane, so nothing else (no bezel-key wiring) is needed.
-function forwardTgtToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'tgt') return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'tgt' }, tgtData), '*');
-  });
-}
-function forwardTgtTargetsToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'tgt') return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage({ mfd: true, type: 'tgt-targets', items: targetsData.targets || [] }, '*');
-  });
-}
-function forwardMwToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'rwr') return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage({ mfd: true, type: 'mw', items: mwData.items || [] }, '*');
-  });
-}
-// Split-pane twin of forwardBdfToFrame — same faction-forces payload, sent to any pane showing BDF.
-// Read-only, so like TGT nothing else (no bezel-key wiring) is needed beyond the pane's MAIN.
-function forwardBdfToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'bdf') return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'bdf' }, bdfData), '*');
-  });
-}
-// Split-pane twin of forwardPalToFrame — same as forwardBdfToPanes, for PAL panes.
-function forwardPalToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'pal') return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'pal' }, palData), '*');
-  });
-}
-// Split-pane twin of forwardMisToFrame — same mission-info payload, sent to any pane showing MIS.
-function forwardMisToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'mis') return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'mis' }, misData), '*');
-  });
-}
-// Split-pane twin of forwardObjToFrame — same objectives payload, sent to any pane showing OBJ.
-function forwardObjToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'obj') return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'obj' }, objData), '*');
-  });
-}
-// Split-pane twin of forwardAkfToFrame — same kill-feed/session-stats payload, sent to any pane
-// showing AKF.
-function forwardAkfToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'akf') return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'akf' }, akfData), '*');
-  });
-}
+function akfMsg() { return Object.assign({ mfd: true, type: 'akf' }, akfData); }
+function forwardAkfToFrame() { forwardToFrame(akfMsg()); }
+function forwardAkfToPanes() { forwardToPanes('akf', akfMsg()); }
 // Full-view WPT (issue #38): forward the mapinfo slice (position/heading/grid meta) the readout
-// needs for its distance/bearing-to-next-waypoint calc.
-function forwardWptToFrame() {
-  const w = frameWin(); if (!w) return;
-  w.postMessage(Object.assign({ mfd: true, type: 'mapinfo' }, mapInfoData), '*');
-}
-// Split-pane twin of forwardWptToFrame — same payload, sent to any pane showing WPT.
-function forwardWptToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'wpt') return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage(Object.assign({ mfd: true, type: 'mapinfo' }, mapInfoData), '*');
-  });
-}
+// needs for its distance/bearing-to-next-waypoint calc. Split-pane twin sends the same payload to
+// any pane showing WPT. Not to be confused with forwardWptRoutes*/wptRoutesMsg below, which push
+// the route LIBRARY rather than this mapinfo slice.
+function wptMsg() { return Object.assign({ mfd: true, type: 'mapinfo' }, mapInfoData); }
+function forwardWptToFrame() { forwardToFrame(wptMsg()); }
+function forwardWptToPanes() { forwardToPanes('wpt', wptMsg()); }
 // Slice the full loadout+controls to the page a given pane is scrolled to. Returns the visible
 // weapon rows (items — always a prefix of the page's 4 slots, since weapons never follow a control
 // within one page, see buildWpnSplitPages) plus the raw per-slot descriptors (slots — renderSplitLabels
@@ -964,17 +831,12 @@ function autoPageToSelection() {
     if (panePages[idx] === 'wpn') paneWpnPage[idx] = page;
   });
 }
-function forwardCmToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'wpn') return;
-    if (!iframe.contentWindow) return;
-    iframe.contentWindow.postMessage({
-      mfd: true, type: 'cm',
-      flares: cmData.flares, flaresMax: cmData.flaresMax,
-      ewKJ: cmData.ewKJ, ewKJMax: cmData.ewKJMax, cmCat: cmData.cmCat,
-    }, '*');
-  });
+// CM shares WPN's pane/page (no separate NAV entry), hence the 'wpn' filter on the Panes side.
+function cmMsg() {
+  return { mfd: true, type: 'cm', flares: cmData.flares, flaresMax: cmData.flaresMax,
+           ewKJ: cmData.ewKJ, ewKJMax: cmData.ewKJMax, cmCat: cmData.cmCat };
 }
+function forwardCmToPanes() { forwardToPanes('wpn', cmMsg()); }
 // Tell each WPN pane where its weapon-row slots should sit so the rows line up with the
 // physical bezel keys flanking that pane. Slot order matches the pane's fill order:
 // L1, L2 (the two left keys below MAIN at L0), then R0, R1, R2. Positions are the keys'
@@ -1062,11 +924,7 @@ function forwardWpnToFrame() {
     else                  { delete key.dataset.action; delete key.dataset.wname; }
   }
 }
-function forwardCmToFrame() {
-  const w = frameWin(); if (!w) return;
-  w.postMessage({ mfd: true, type: 'cm', flares: cmData.flares, flaresMax: cmData.flaresMax,
-                  ewKJ: cmData.ewKJ, ewKJMax: cmData.ewKJMax, cmCat: cmData.cmCat }, '*');
-}
+function forwardCmToFrame() { forwardToFrame(cmMsg()); }
 // Full-view geometry, mapped into the frame's own coordinate space (sepEls are shell-side, so
 // subtract the frame's top). sepEls: index 0 = above key0, i+1 = below key i (7 separators for
 // 6 keys). Weapon slot k (0..4) = key k+1, spanning sep[k+1].bottom → sep[k+2].top; CM band =
@@ -1253,6 +1111,7 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'pal')  forwardPalToPanes();
     else if (page === 'mis')  forwardMisToPanes();
     else if (page === 'obj')  forwardObjToPanes();
+    else if (page === 'akf')  forwardAkfToPanes();
     else if (page === 'wpt')  forwardWptToPanes();
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
     else if (ExtNav.isExtensionPage(page)) forwardExtToPanes(page);
@@ -2474,21 +2333,22 @@ window.addEventListener('resize', function() {
 // rather than gated by panePages like the mapinfo forwards — routes matter to both MAP and WPT, and
 // an unused postMessage to a page that isn't listening for it is negligible next to the redundant
 // fetch/parse/compare loop it replaces.
+function wptRoutesMsg() { return { mfd: true, type: 'wpt-routes', data: WaypointsStore.load() }; }
+// Unlike every other ToPanes function above, this one is unconditional — sent to every pane
+// regardless of page (routes matter to both MAP and WPT, see the comment above), so it doesn't
+// filter by panePages and can't go through the generic forwardToPanes(page, payload) helper.
 function forwardWptRoutesToPanes() {
-  const payload = { mfd: true, type: 'wpt-routes', data: WaypointsStore.load() };
+  const payload = wptRoutesMsg();
   paneIframes.forEach(function (iframe) { if (iframe.contentWindow) iframe.contentWindow.postMessage(payload, '*'); });
 }
-function forwardWptRoutesToFrame() {
-  const w = frameWin(); if (!w) return;
-  w.postMessage({ mfd: true, type: 'wpt-routes', data: WaypointsStore.load() }, '*');
-}
+function forwardWptRoutesToFrame() { forwardToFrame(wptRoutesMsg()); }
 // MAP runs in its own always-loaded mapFrame (the tap), separate from both #page-frame and the
 // split panes, whether or not MAP is the currently visible page — so it needs this push too, not
 // just the two targets above. Missing this left the map iframe's own route overlay stuck on
 // whatever it caught up with at load, never seeing a later edit (caught in testing, 2026-08-18).
 function forwardWptRoutesToMap() {
   if (mapFrame && mapFrame.contentWindow)
-    mapFrame.contentWindow.postMessage({ mfd: true, type: 'wpt-routes', data: WaypointsStore.load() }, '*');
+    mapFrame.contentWindow.postMessage(wptRoutesMsg(), '*');
 }
 
 // MAP's R+/R- visibility depends on whether any route is saved, W+/W-'s on whether one is active

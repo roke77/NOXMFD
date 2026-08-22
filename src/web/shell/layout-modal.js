@@ -39,8 +39,6 @@
     return panel;
   }
 
-  function isOpen() { return !!openEl; }
-
   function makeActions(buttons) {
     const actions = document.createElement('div');
     actions.className = 'layout-modal-actions';
@@ -184,7 +182,7 @@
     refresh();
   }
 
-  const api = { open: open, close: close, isOpen: isOpen, prompt: prompt, pickList: pickList };
+  const api = { open: open, close: close, prompt: prompt, pickList: pickList };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LayoutModal = api;
 })(typeof self !== 'undefined' ? self : this);

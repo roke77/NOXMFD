@@ -2,7 +2,9 @@
 
 ## Status
 
-Planning — not started.
+Done. Also folded in as part of the same branch: removed two dead functions found by a separate
+codebase-wide dead-code scan (`LayoutModal.isOpen`, `WaypointsStore.hasRoutes` — both exported but
+never called anywhere; see git history for detail).
 
 ## Where this came from
 
@@ -107,12 +109,27 @@ function forwardToFrame(payload) {
 }
 ```
 
-Call sites become one line each at whatever already triggers the forward today (e.g. on `/stream`
-frame arrival): `forwardToPanes('rwr', rwrMsg()); forwardToFrame(rwrMsg());` — same two calls as
-today, just without the hand-written wrapper around each. This is a mechanical, page-by-page
-migration (44 call-site conversions), not a rewrite: convert one page, verify it in the
-`tools/serve_web.py` harness + a live split-mode check, move to the next. No behavior change is
-intended anywhere — this is pure de-duplication.
+**Corrected during implementation:** call sites do NOT inline `forwardToPanes('rwr', rwrMsg())`
+directly as first drafted above — each page's forwarders (~140 call sites total, across the
+on-pane-load, on-frame-load, `showPage`, and periodic-tick dispatch tables) still call
+`forwardAvnToPanes()`/`forwardAvnToFrame()` etc. by their original names. Only each function's
+BODY shrank to a one-liner (`function forwardAvnToPanes() { forwardToPanes('avn', avnMsg()); }`),
+and each page's previously-inlined-twice payload was factored into a small `xMsg()` builder
+(`avnMsg()`, `tgtMsg()`, …) alongside the existing `rdrMsg()` precedent. This gets the identical
+de-duplication result — a bug in the shared boilerplate now needs fixing in exactly one place, not
+44 — without touching a single call site, which is a much smaller, lower-risk diff than rewriting
+~140 call sites across four separate dispatch tables. No behavior change anywhere.
+
+**Also discovered during implementation:** the geometry-computing forwarders aren't confined to
+WPN. `forwardAvnLayoutToPanes`/`ToFrame`, `forwardAfmLayoutToFrame`, and `forwardWpnLayoutToPanes`/
+`ToFrame` all compute their payload from live bezel-key `getBoundingClientRect()` reads — per-pane
+for the `ToPanes` side (each pane has a different `paneTop`) — not a single shared value the two
+generic helpers assume. These stay hand-written, same reasoning as `renderSplitLabels` below, not
+just WPN's pagination/bezel-wiring divergence. Separately, `forwardWptRoutesToPanes`/`ToMap` have
+no `panePages` filter at all (unconditional broadcast to every pane/the map iframe) — they don't
+fit `forwardToPanes(page, payload)`'s shape either, so only `forwardWptRoutesToFrame` migrated;
+all three now at least share one `wptRoutesMsg()` builder instead of the same payload written out
+three times.
 
 **Not proposed:** touching the split-layout geometry functions (`renderSplitLabels` and friends).
 Those are real per-page logic, not boilerplate, and are already a reasonable size for what they do.
@@ -121,15 +138,21 @@ already solved this differently (a generic `forwardSlice` dispatcher) and needs 
 
 ## Scope
 
-- [ ] Add `forwardToPanes(page, payload)` / `forwardToFrame(payload)` helpers
-- [ ] Migrate the uniform pairs first (RWR/RDR-shaped — most of the 44), one page at a time,
-      verifying in `tools/serve_web.py` (classic full view + split) after each
-- [ ] Migrate the pane-only/frame-only/third-destination cases (`forwardStatusToPanes`,
-      `forwardAfmLayoutToFrame`, the `forwardWptRoutes*` trio) — same helpers, just called on
-      whichever sides actually exist today
-- [ ] Migrate WPN last, keeping its pagination/bezel-wiring logic intact rather than forcing it
-      into the generic one-liner shape (see caveats above)
-- [ ] Delete the now-unused hand-written wrappers as each page migrates (no dead code left behind)
-- [ ] Confirm `layout-coverage.test.js` and `server-route-coverage.test.js` still pass after the full
+- [x] Add `forwardToPanes(page, payload)` / `forwardToFrame(payload)` helpers
+- [x] Migrate the uniform pairs (RWR/RDR-shaped — most of the 44) — done for all of them: Status,
+      Avn, Afm, Tgp, Ext, Rwr, Rdr, Mw, Tgt, TgtTargets, Bdf, Pal, Mis, Obj, Akf, Wpt, Cm
+- [x] Migrate the pane-only/frame-only/third-destination cases (`forwardStatusToPanes`,
+      `forwardWptRoutesToFrame`) — same helpers, just called on whichever sides actually exist
+      today. `forwardAfmLayoutToFrame` turned out to be geometry (see above) — excluded, not
+      migrated. `forwardWptRoutesToPanes`/`ToMap` have no page filter to key off — stayed
+      hand-written, now sharing `wptRoutesMsg()` with the migrated `ToFrame` side.
+- [x] Migrate WPN — reconsidered: its whole cluster (`ToPanes`/`ToFrame` AND
+      `LayoutToPanes`/`LayoutToFrame`) stays hand-written, not just the pagination/bezel-wiring
+      pair called out above. The Layout pair computes per-pane bezel geometry, the same reason
+      `forwardAvnLayoutToPanes`/`ToFrame` also don't fit the generic shape (see above).
+- [x] Delete the now-unused hand-written wrappers as each page migrates (no dead code left behind)
+      — N/A as implemented: the wrapper functions themselves are what stayed (see the corrected
+      call-site note above), so there was nothing separate left to delete.
+- [x] Confirm `layout-coverage.test.js` and `server-route-coverage.test.js` still pass after the full
       migration (no route/page coverage should change — this only touches how a payload gets to an
       already-reachable page)

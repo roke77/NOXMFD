@@ -13,7 +13,7 @@
 (function (root) {
   const R = (typeof module !== 'undefined' && module.exports) ? require('./wpt-route.js') : root.WptRoute;
 
-  // Last-known server state, refreshed by poll() — every sync read (load/getActiveRoute/hasRoutes/
+  // Last-known server state, refreshed by poll() — every sync read (load/getActiveRoute/
   // exportRoute) reads this cache rather than fetching, same as hud.js's own `data` cache.
   let cache = { activeRouteId: null, routes: [] };
 
@@ -55,12 +55,6 @@
     return R.findRoute(cache.routes, cache.activeRouteId);
   }
 
-  // Whether any route exists at all, active or not — R+/R- (issue #38 follow-up) stay usable to
-  // cycle INTO a route as long as one is saved, unlike W+/W- which need an active route to step.
-  function hasRoutes() {
-    return cache.routes.length > 0;
-  }
-
   // A short, human-typeable default DISPLAY name for a new route — the UI pre-fills its rename
   // field with this so the pilot can accept it as-is or type over it before confirming (wpt.js's
   // "+ NEW ROUTE" flow). Purely cosmetic; the plugin generates its own if this is sent empty.
@@ -98,7 +92,7 @@
 
   const api = {
     freshRouteName,
-    load, poll, getActiveRoute, hasRoutes, setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute, clearRoutes,
+    load, poll, getActiveRoute, setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute, clearRoutes,
     addWaypointToActive, renameWaypoint, removeWaypoint, reorderWaypoint,
     resetWaypoint, resetRoute, stepWaypoint, exportRoute, importRoute,
   };
