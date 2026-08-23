@@ -32,45 +32,80 @@
    camera has no UICam counterpart to bake this into the video the way Native does. Only shown
    when the shell says quality:"hq" AND a lock is active; see tgp.js's applyOverlay. Positioned
    over the same box the <img> occupies, so its corners track the feed exactly regardless of
-   panel size. */
+   panel size. Sizing/layout matches the in-cockpit TargetScreenUI screen (stacked corner groups,
+   dark pill-background stat lines, a bearing compass bottom-left) rather than the field list's
+   own declaration order.
+*/
 .tgp-overlay {
   position: absolute;
   inset: 0;
   display: none;
   pointer-events: none;
-  font-size: 11px;
+  font-size: 15px;
+  font-weight: 700;
   letter-spacing: 0.5px;
   color: var(--no-white);
-  text-shadow: 0 0 3px #000, 0 0 3px #000;
 }
 .tgp-panel.show-overlay .tgp-overlay { display: block; }
 
-.tgp-ov-corner { position: absolute; padding: 4px 6px; }
-.tgp-ov-tl { top: 0;    left: 0; }
-.tgp-ov-tr { top: 0;    right: 0; text-align: right; }
-.tgp-ov-bl { bottom: 0; left: 0; }
-.tgp-ov-br { bottom: 0; right: 0; text-align: right; }
-
-.tgp-ov-target {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 4px 6px;
-  text-align: center;
+.tgp-ov-stat, .tgp-ov-title {
+  display: inline-block;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 8px;
+  margin-bottom: 3px;
+  border-radius: 2px;
 }
-.tgp-ov-type  { font-size: 12px; }
-.tgp-ov-type.friendly { color: var(--no-green); }
-.tgp-ov-type.hostile  { color: var(--no-red); }
-.tgp-ov-tag   { color: var(--no-amber); margin-left: 4px; }
-.tgp-ov-pilot { color: var(--no-white-dim); font-size: 10px; }
+.tgp-ov-title { font-size: 18px; }
+.tgp-ov-title.friendly { color: var(--no-green); }
+.tgp-ov-title.hostile  { color: var(--no-red); }
+.tgp-ov-tag   { color: var(--no-amber); margin-left: 5px; }
+.tgp-ov-pilot {
+  display: block;
+  color: var(--no-white-dim);
+  font-size: 12px;
+  font-weight: 400;
+  margin: -2px 0 4px 2px;
+}
+.tgp-ov-pilot:empty { display: none; }
 
-.tgp-ov-detail {
+.tgp-ov-stack {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+}
+.tgp-ov-tl { top: 0; left: 0;  align-items: flex-start; }
+.tgp-ov-tr { top: 0; right: 0; align-items: flex-end; }
+.tgp-ov-br { bottom: 0; right: 0; align-items: flex-end; }
+
+.tgp-ov-bl {
   position: absolute;
   bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 4px 6px;
+  left: 0;
+  padding: 8px;
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
+}
+.tgp-ov-compass {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border: 2px dashed var(--no-white-dim);
+  border-radius: 50%;
+}
+.tgp-ov-needle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 18px;
+  background: var(--no-white);
+  transform-origin: 50% 0%;
+  margin-left: -1px;
+}
+.tgp-ov-brg {
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 8px;
+  border-radius: 2px;
 }

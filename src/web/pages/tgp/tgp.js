@@ -29,18 +29,21 @@ tgpImg.addEventListener('error', function() {
 // HQ-mode stat overlay (docs/tgp-high-quality-mode.md) — drawn from the shell's 'tgp' message.
 // Native mode already has this baked into the video (the game's own stacked-camera UICam), so it
 // only shows when quality is "hq" AND a lock is active. Target lock box deliberately deferred to
-// its own branch — see tgp.html's comment.
-const ovMag    = document.getElementById('tgp-ov-mag');
-const ovMode   = document.getElementById('tgp-ov-mode');
-const ovGrid   = document.getElementById('tgp-ov-grid');
-const ovBrg    = document.getElementById('tgp-ov-bearing');
-const ovType   = document.getElementById('tgp-ov-type');
-const ovPilot  = document.getElementById('tgp-ov-pilot');
-const ovHdg    = document.getElementById('tgp-ov-hdg');
-const ovAlt    = document.getElementById('tgp-ov-alt');
-const ovRelAlt = document.getElementById('tgp-ov-relalt');
-const ovSpd    = document.getElementById('tgp-ov-spd');
-const ovRelSpd = document.getElementById('tgp-ov-relspd');
+// its own branch — see tgp.html's comment. Layout matches the in-cockpit TargetScreenUI screen
+// (stacked corner groups + a bearing compass), not the raw field order.
+const ovType    = document.getElementById('tgp-ov-type');
+const ovPilot   = document.getElementById('tgp-ov-pilot');
+const ovRng     = document.getElementById('tgp-ov-rng');
+const ovAlt     = document.getElementById('tgp-ov-alt');
+const ovSpd     = document.getElementById('tgp-ov-spd');
+const ovHdg     = document.getElementById('tgp-ov-hdg');
+const ovRelAlt  = document.getElementById('tgp-ov-relalt');
+const ovRelSpd  = document.getElementById('tgp-ov-relspd');
+const ovNeedle  = document.getElementById('tgp-ov-needle');
+const ovBrg     = document.getElementById('tgp-ov-bearing');
+const ovGrid    = document.getElementById('tgp-ov-grid');
+const ovMode    = document.getElementById('tgp-ov-mode');
+const ovMag     = document.getElementById('tgp-ov-mag');
 
 const TGP_STATUS_TAG = { jammed: 'JAM', lased: 'LASE', outdated: 'OLD' };
 
@@ -54,13 +57,8 @@ function applyOverlay(quality, data) {
   tgpPanel.classList.toggle('show-overlay', show);
   if (!show) return;
 
-  ovMag.textContent  = 'MAG x' + data.mag.toFixed(1);
-  ovMode.textContent = 'MODE: ' + (data.ir ? 'IR' : 'COLOR');
-  ovGrid.textContent = 'GRID: ' + data.grid;
-  ovBrg.textContent  = Math.round(data.brg) + '°';
-
   ovType.textContent = data.type;
-  ovType.className   = 'tgp-ov-type' + (data.status === 'friendly' ? ' friendly' : ' hostile');
+  ovType.className   = 'tgp-ov-title' + (data.status === 'friendly' ? ' friendly' : ' hostile');
   const tag = TGP_STATUS_TAG[data.status];
   if (tag) {
     const span = document.createElement('span');
@@ -69,18 +67,25 @@ function applyOverlay(quality, data) {
     ovType.appendChild(span);
   }
   ovPilot.textContent = data.pilot || '';
-  ovPilot.style.display = data.pilot ? '' : 'none';
+
+  ovRng.textContent = 'RNG ' + (data.range / 1000).toFixed(1) + 'km';
 
   if (data.hasDetail) {
-    ovHdg.textContent    = 'HDG ' + fmtDash(data.hdg, '°');
     ovAlt.textContent    = 'ALT ' + fmtDash(data.alt, 'm');
-    ovRelAlt.textContent = 'REL ' + fmtDash(data.relAlt, 'm');
     ovSpd.textContent    = 'SPD ' + fmtDash(data.spd, 'm/s');
+    ovHdg.textContent    = 'HDG ' + fmtDash(data.hdg, '°');
+    ovRelAlt.textContent = 'REL ' + fmtDash(data.relAlt, 'm');
     ovRelSpd.textContent = 'REL ' + fmtDash(data.relSpd, 'm/s');
   } else {
-    ovHdg.textContent = 'HDG -'; ovAlt.textContent = 'ALT -'; ovRelAlt.textContent = 'REL -';
-    ovSpd.textContent = 'SPD -'; ovRelSpd.textContent = 'REL -';
+    ovAlt.textContent = 'ALT -'; ovSpd.textContent = 'SPD -'; ovHdg.textContent = 'HDG -';
+    ovRelAlt.textContent = 'REL -'; ovRelSpd.textContent = 'REL -';
   }
+
+  ovNeedle.style.transform = 'rotate(' + data.brg + 'deg)';
+  ovBrg.textContent = Math.round(data.brg) + '°';
+  ovGrid.textContent = 'GRID: ' + data.grid;
+  ovMode.textContent = 'MODE: ' + (data.ir ? 'IR' : 'COLOR');
+  ovMag.textContent  = 'Mag x' + data.mag.toFixed(1);
 }
 
 window.addEventListener('message', function(e) {

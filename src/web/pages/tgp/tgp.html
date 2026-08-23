@@ -31,20 +31,28 @@
     <div class="tgp-empty mfd-empty"><span class="mfd-empty-title">TGP</span>&mdash; NO LOCK &mdash;</div>
     <img class="tgp-img" id="tgp-img" alt="">
     <div class="tgp-overlay" id="tgp-overlay">
-      <div class="tgp-ov-corner tgp-ov-tl" id="tgp-ov-mag"></div>
-      <div class="tgp-ov-corner tgp-ov-tr" id="tgp-ov-mode"></div>
-      <div class="tgp-ov-corner tgp-ov-bl" id="tgp-ov-grid"></div>
-      <div class="tgp-ov-corner tgp-ov-br" id="tgp-ov-bearing"></div>
-      <div class="tgp-ov-target" id="tgp-ov-target">
-        <div class="tgp-ov-type" id="tgp-ov-type"></div>
+      <div class="tgp-ov-stack tgp-ov-tl">
+        <div class="tgp-ov-title" id="tgp-ov-type"></div>
         <div class="tgp-ov-pilot" id="tgp-ov-pilot"></div>
+        <div class="tgp-ov-stat" id="tgp-ov-rng"></div>
+        <div class="tgp-ov-stat" id="tgp-ov-alt"></div>
+        <div class="tgp-ov-stat" id="tgp-ov-spd"></div>
       </div>
-      <div class="tgp-ov-detail" id="tgp-ov-detail">
-        <span id="tgp-ov-hdg"></span>
-        <span id="tgp-ov-alt"></span>
-        <span id="tgp-ov-relalt"></span>
-        <span id="tgp-ov-spd"></span>
-        <span id="tgp-ov-relspd"></span>
+      <div class="tgp-ov-stack tgp-ov-tr">
+        <div class="tgp-ov-stat" id="tgp-ov-hdg"></div>
+        <div class="tgp-ov-stat" id="tgp-ov-relalt"></div>
+        <div class="tgp-ov-stat" id="tgp-ov-relspd"></div>
+      </div>
+      <div class="tgp-ov-bl">
+        <div class="tgp-ov-compass" id="tgp-ov-compass">
+          <div class="tgp-ov-needle" id="tgp-ov-needle"></div>
+        </div>
+        <div class="tgp-ov-brg" id="tgp-ov-bearing"></div>
+      </div>
+      <div class="tgp-ov-stack tgp-ov-br">
+        <div class="tgp-ov-stat" id="tgp-ov-grid"></div>
+        <div class="tgp-ov-stat" id="tgp-ov-mode"></div>
+        <div class="tgp-ov-stat" id="tgp-ov-mag"></div>
       </div>
     </div>
   </div>
