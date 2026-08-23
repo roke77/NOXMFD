@@ -58,7 +58,7 @@ namespace NOXMFD
             _tgpHz = config.Bind(section, "TgpHz", 15f,
                 new ConfigDescription("TGP camera feed capture rate. 1-30 Hz.", null, Hidden));
             _tgpQuality = config.Bind(section, "TgpQuality", "native",
-                new ConfigDescription("TGP camera feed source: native, performance, or full.", null, Hidden));
+                new ConfigDescription("TGP camera feed source: native or hq.", null, Hidden));
 
             SetFastHz(_fastHz.Value);
             SetTgpHz(_tgpHz.Value);

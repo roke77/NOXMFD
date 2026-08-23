@@ -146,8 +146,11 @@ namespace NOXMFD
             catch (Exception ex)
             {
                 // Touches a lot of game state (pilots, faction HQ, radar jam state) — if anything
-                // throws, keep the video capture path alive and just skip this tick's overlay data
-                // rather than losing the feed over a supplementary field.
+                // throws, keep the video capture path alive rather than losing the feed over a
+                // supplementary field. Fail CLOSED though: TargetCount = 0 hides the overlay
+                // client-side (see TgpBlock in TelemetryJson.cs), so a mid-update throw can't leave
+                // stale target data on screen until the next successful tick or disengage.
+                TargetCount = 0;
                 Plugin.Log?.LogDebug($"[NOXMFD] TGP overlay update threw: {ex.Message}");
             }
 
