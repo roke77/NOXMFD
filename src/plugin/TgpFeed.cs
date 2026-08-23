@@ -26,8 +26,16 @@ namespace NOXMFD
         // Not a const: RatesConfig.SetTgpHz (rates.set command) writes this live from the RTS
         // page's TGP slider.
         internal static float Interval    = 1f / 15f;   // 15 Hz — enough for a small MFD pane, keeps readback+encode rate low
-        private  const int   MaxDim      = 720;        // cap for the encoded frame (native source is smaller, so this is a no-op today)
+        private  const int   MaxDim      = 720;        // cap for the encoded frame — a no-op at Native res, an exact match at Hq res (below)
         private  const int   JpegQuality = 50;         // JPEG quality 0–100; 50 is visually fine for a small MFD pane
+
+        // RatesConfig.SetTgpQuality (rates.set command, group "tgpQuality") writes this live from
+        // the RTS page. HqWidth/HqHeight match the native source's ~3:2 aspect (docs/tgp-high-
+        // quality-mode.md's stated default) so the existing letterbox-avoidance math below needs no
+        // change for either HQ mode.
+        internal static TgpQuality Quality  = TgpQuality.Native;
+        private  const int         HqWidth  = 720;
+        private  const int         HqHeight = 480;
 
         private float          _timer;
         private RenderTexture? _rt;                    // Blit destination, source for AsyncGPUReadback
@@ -39,6 +47,7 @@ namespace NOXMFD
         private bool           _active;                // last capture pushed a frame — mirrored into the snapshot
         private bool           _srcLogged;             // logged the source texture dimensions once
         private bool           _readbackInFlight;      // an AsyncGPUReadback is outstanding — skip new captures until it completes
+        private TgpMirrorCam?  _mirror;                // only allocated once Quality != Native (see CaptureFrame)
 
         // Last capture pushed a frame — mirrored into the snapshot's TgpActive.
         public bool Active => _active;
@@ -113,16 +122,35 @@ namespace NOXMFD
             Camera? cam = _camField.GetValue(tc) as Camera;
             if (cam == null || !cam.enabled) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
 
-            // Prefer the camera's own targetTexture; fall back to the cockpit renderer's
-            // material (which the game points at the same RT) if the prefab puts the
-            // assignment there instead of on the Camera.
-            Texture src = cam.targetTexture;
-            if (src == null)
+            Texture src;
+            if (Quality == TgpQuality.Native)
             {
-                if (_screenRendererField.GetValue(tc) is Renderer rend && rend.material != null)
-                    src = rend.material.mainTexture;
+                _mirror?.Disengage();
+
+                // Prefer the camera's own targetTexture; fall back to the cockpit renderer's
+                // material (which the game points at the same RT) if the prefab puts the
+                // assignment there instead of on the Camera.
+                src = cam.targetTexture;
+                if (src == null)
+                {
+                    if (_screenRendererField.GetValue(tc) is Renderer rend && rend.material != null)
+                        src = rend.material.mainTexture;
+                }
+                if (src == null) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
             }
-            if (src == null) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
+            else
+            {
+                // HQ path: read from TgpMirrorCam's own higher-res RenderTexture instead of the
+                // game's native TargetCam RT. RenderTick() is what actually puts a fresh frame in
+                // it this tick (either a manual Camera.Render() for HqPerformance, or nothing —
+                // HqFull is already rendered every Unity frame by the pipeline on its own).
+                _mirror ??= new TgpMirrorCam();
+                _mirror.Engage(tc, HqWidth, HqHeight);
+                _mirror.SyncFromSource(cam);
+                _mirror.RenderTick();
+                src = _mirror.Texture;
+                if (src == null) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
+            }
 
             // Match the captured frame to the source's aspect ratio. Forcing a square output
             // squashed the in-game (wider-than-tall) feed; capturing at the native aspect lets
@@ -215,6 +243,7 @@ namespace NOXMFD
         {
             if (_rt  != null) { _rt.Release();  UnityEngine.Object.Destroy(_rt);  _rt  = null; }
             if (_tex != null) {                 UnityEngine.Object.Destroy(_tex); _tex = null; }
+            _mirror?.Disengage();
 
             bool wasEngaged    = _engaged;
             _engaged           = false;

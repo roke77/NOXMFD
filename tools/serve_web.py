@@ -258,11 +258,11 @@ def _wpt_options():
 
 
 # Mock of the plugin's /rates-config (cfg-rates experiment, issue #39), so the /rates page's two
-# sliders have something to initialize from in the harness. The write side (rates.set) has no
-# mock — commands POST and are swallowed — so moving a slider here won't change this response;
-# that path is only testable in game.
+# sliders and the TGP quality picker have something to initialize from in the harness. The write
+# side (rates.set) has no mock — commands POST and are swallowed — so moving a slider/button here
+# won't change this response; that path is only testable in game.
 def _rates_config():
-    return json.dumps({"fastHz": 10, "tgpHz": 15}).encode("utf-8")
+    return json.dumps({"fastHz": 10, "tgpHz": 15, "tgpQuality": "native"}).encode("utf-8")
 
 
 # WPT showcase route (issue #38) — a real route drawn by hand in this harness (6 waypoints, a loop

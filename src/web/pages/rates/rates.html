@@ -61,6 +61,22 @@
       50ms. Raise this only if you have GPU headroom to spend.</div>
   </div>
 
+  <div class="rts-setting" id="rts-tgp-quality">
+    <div class="rts-setting-text">
+      <div class="rts-name">TGP — FEED QUALITY</div>
+      <div class="rts-desc">NATIVE (default) reads the game's own targeting-pod camera as-is. HQ
+        renders a separate, higher-resolution camera every frame instead — sharper picture, real
+        tree/grass detail, at the cost of an extra render pass. Still an early-pass feature: no
+        thermal/IR look or on-screen mag/dist readout in HQ yet.</div>
+    </div>
+    <div class="rts-quality-row" id="rts-tgp-quality-row">
+      <button class="rts-quality-btn" data-quality="native">NATIVE</button>
+      <button class="rts-quality-btn" data-quality="hq">HQ</button>
+    </div>
+    <div class="rts-hz-warning" id="rts-tgp-quality-warning">HQ is an early-pass feature — expect
+      rough edges. It renders a second camera every frame and may cost noticeable FPS.</div>
+  </div>
+
   <!-- shown while /rates-config is unreachable (plugin not running) -->
   <div class="mfd-empty" id="rts-empty"><span class="mfd-empty-title">RATES</span>&mdash; UNAVAILABLE &mdash;</div>
 </div>

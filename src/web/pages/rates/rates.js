@@ -9,7 +9,7 @@ if (window.parent !== window) {
 
 var panelEl = document.getElementById('rts-panel');
 
-var DEFAULTS = { fastHz: 10, tgpHz: 15 };   // matches RatesConfig.cs Bind() defaults
+var DEFAULTS = { fastHz: 10, tgpHz: 15, tgpQuality: 'native' };   // matches RatesConfig.cs Bind() defaults
 
 function setSlider(sliderId, valId, hz) {
   var slider = document.getElementById(sliderId);
@@ -42,18 +42,37 @@ function wireSlider(sliderId, valId, group) {
 wireSlider('rts-tlm-slider', 'rts-tlm-val', 'fast');
 wireSlider('rts-tgp-slider', 'rts-tgp-val', 'tgp');
 
+function setQuality(quality) {
+  var buttons = document.querySelectorAll('#rts-tgp-quality-row .rts-quality-btn');
+  buttons.forEach(function (btn) {
+    btn.classList.toggle('active', btn.dataset.quality === quality);
+  });
+  document.getElementById('rts-tgp-quality-warning').classList.toggle('shown', quality !== 'native');
+}
+
+document.querySelectorAll('#rts-tgp-quality-row .rts-quality-btn').forEach(function (btn) {
+  btn.onclick = function () {
+    var quality = btn.dataset.quality;
+    setQuality(quality);
+    sendCommand('rates.set', { group: 'tgpQuality', wname: quality }).catch(function () {});
+  };
+});
+
 document.getElementById('rts-reset').onclick = function () {
   setSlider('rts-tlm-slider', 'rts-tlm-val', DEFAULTS.fastHz);
   setSlider('rts-tgp-slider', 'rts-tgp-val', DEFAULTS.tgpHz);
   updateTgpWarning(DEFAULTS.tgpHz);
+  setQuality(DEFAULTS.tgpQuality);
   sendCommand('rates.set', { group: 'fast', hz: DEFAULTS.fastHz }).catch(function () {});
   sendCommand('rates.set', { group: 'tgp',  hz: DEFAULTS.tgpHz  }).catch(function () {});
+  sendCommand('rates.set', { group: 'tgpQuality', wname: DEFAULTS.tgpQuality }).catch(function () {});
 };
 
 function applyConfig(cfg) {
   setSlider('rts-tlm-slider', 'rts-tlm-val', cfg.fastHz);
   setSlider('rts-tgp-slider', 'rts-tgp-val', cfg.tgpHz);
   updateTgpWarning(cfg.tgpHz);
+  setQuality(cfg.tgpQuality || 'native');
   panelEl.classList.remove('unavailable');
 }
 

@@ -29,6 +29,7 @@ namespace NOXMFD
         public string? wname;  // weapon type name (weapon.select) — matches LoadoutEntry.Name
                                 // wpt.* : route/waypoint display name
                                 // preset.save / preset.rename : preset name
+                                // rates.set (group "tgpQuality") : "native" | "hq"
         public string? group;  // tgt.set / tgt.only : "faction" | "category" | "vehicle"
                                 // combat-mode.set : "all" | "aa" | "ag"
                                 // avn.toggle : "gear" | "radar" | "guns" | "eng" | "assist" | "nvg" |
@@ -70,9 +71,14 @@ namespace NOXMFD
                 { "hud.mode",        HudMode },
                 { "declutter.set",   DeclutterSet },
                 { "avn.toggle",      AvnToggle },
-                // RTS page's two sliders. group picks which rate: "tgp" is the camera feed, anything
+                // RTS page's sliders + HQ quality picker. group selects which: "tgp" is the camera
+                // feed rate, "tgpQuality" is the HQ mode picker (payload in wname, not hz), anything
                 // else (default "fast") is the main 10 Hz tick.
-                { "rates.set",       e => { if (e.group == "tgp") RatesConfig.SetTgpHz(e.hz); else RatesConfig.SetFastHz(e.hz); } },
+                { "rates.set",       e => {
+                    if (e.group == "tgp") RatesConfig.SetTgpHz(e.hz);
+                    else if (e.group == "tgpQuality") RatesConfig.SetTgpQuality(e.wname ?? "native");
+                    else RatesConfig.SetFastHz(e.hz);
+                } },
                 { "master-arms.set", e => ImmersionState.MasterArmsOn = e.on },
                 // Routes through Keybinds.SetCombatMode (not a bare assignment) so the WPN page's own
                 // A/A / A/G controls get the same weapon auto-switch as the physical keybind — one

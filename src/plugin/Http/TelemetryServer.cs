@@ -1153,7 +1153,8 @@ namespace NOXMFD
             try
             {
                 string json = string.Format(CultureInfo.InvariantCulture,
-                    "{{\"fastHz\":{0},\"tgpHz\":{1}}}", RatesConfig.FastHz, RatesConfig.TgpHz);
+                    "{{\"fastHz\":{0},\"tgpHz\":{1},\"tgpQuality\":\"{2}\"}}",
+                    RatesConfig.FastHz, RatesConfig.TgpHz, RatesConfig.TgpQualityName);
                 WriteJson(ctx, json);
             }
             catch { }

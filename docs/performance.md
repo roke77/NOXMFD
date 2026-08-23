@@ -559,6 +559,74 @@ the pre-fix behavior.
 **Decision:** shipped. Third branch (HQ mirror camera) is next; `PerfLog.cs` stays until that one
 also lands.
 
+## 2026-08-23 — tgp-hq-mirror-camera branch: HQ mode built, live-tested, simplified to one tier
+
+Third and last of the `docs/tgp-high-quality-mode.md` follow-up branches, off `tgp-mjpeg-cold-
+start`. Built the mirror camera (`TgpMirrorCam.cs`) this doc's implementation sketch describes —
+parented to `TargetCam.GetCamMount()`, never touching `TargetCam.cam`/`UICam`/anything
+`CameraStateManager` owns. Deliberately shipped as a **visual validation pass first**: no attempt
+to port the reference mod's `MissileCameraRenderPrep.cs` (terrain shader-global sync + a
+`DetailRenderer.camera` reflection hijack for correct tree/grass culling) up front — the plan was
+to look at the live result and only add that plumbing if it turned out to be needed.
+
+### Two tiers were built and A/B tested; one was dropped
+
+Went in with two HQ render styles, mirroring the reference mod's own approach for the same
+particle-vs-cost tradeoff:
+- **Performance** — camera disabled/URP Overlay; a manual `Camera.Render()` call transiently
+  flipped it to Base+enabled once per TGP capture tick only (cost scales with the TGP Hz slider,
+  not framerate).
+- **Full** — camera enabled/URP Base permanently; rendered every Unity frame by the pipeline,
+  independent of TGP Hz.
+
+**Visual result, live in-game:** Performance mode's tree/grass line did not render (the predicted
+risk from reading the reference mod's terrain-detail plumbing, confirmed). Full mode's did —
+correctly, with no extra plumbing ported. Both modes showed particles/VFX correctly (explosions,
+helicopter dust) and shadows — the transient-render trick worked for Performance, matching the
+reference mod's own technique.
+
+**Cost result, live A/B (steady-state averages, one session, one machine, 15 Hz TGP rate):**
+
+| Metric | Performance | Full |
+|---|---|---|
+| `TgpFeed.CaptureFrame` | 0.90ms | 0.03ms |
+| `TgpFeed.EncodeToJPG` | 3.04ms | 3.04ms |
+| `frame(tgpOpen)` (the metric that reflects real cost) | 8.09ms | 8.54ms |
+| `tgpSkipped` | 0 | 0 |
+
+Full was only ~0.45ms (~5.6%) more expensive than Performance on `frame(tgpOpen)` — nowhere near
+the cost jump expected going in for "renders every frame instead of only at capture ticks."
+`CaptureFrame`'s own numbers are misleading in isolation: Performance's ~0.9ms is the manual
+`Camera.Render()` call's cost landing synchronously inside that timed block; Full's ~0.03ms is
+low because its render happens in Unity's normal pipeline, invisible to that specific timer.
+`EncodeToJPG` is ~3ms for both — resolution-driven, mode-independent, as expected. Both modes hit
+`tgpSkipped=0` throughout, so no readback backlog at the 15 Hz default even at HQ resolution.
+
+**Decision: keep Full only, rename it to the sole `HighQuality` tier, drop Performance from the
+shipped feature.** It cost about the same as rendering every frame while giving up real terrain
+detail for no measured benefit — there was no case left for it once the numbers came back this
+close. `TgpMirrorCam.cs` and `TgpFeed.cs` were simplified accordingly (no more `_mode` field, no
+transient render-style flip, camera is always enabled+Base once engaged); the RTS page's picker
+went from three buttons to two (NATIVE / HQ). Performance's numbers are preserved above as a
+historical record in case a future machine/scenario ever makes the tradeoff look different again —
+it is not currently reachable from the UI or config.
+
+### Known gaps in the shipped HQ mode (not fixed this branch)
+
+- **No thermal/IR look.** The game applies IR desaturation as a `Volume` scoped to `TargetCam`'s
+  own camera; the mirror camera was never wired to it. Open question in the design doc, unaddressed.
+- **No on-screen mag/dist/grid/mode overlay.** In Native mode this isn't a separate overlay at all
+  — `TargetCam` runs a second `UICam` stacked onto the main one specifically to draw it, so it's
+  baked into the picture being read. The mirror camera has no `UICam` counterpart. The doc's own
+  recommendation is to draw this client-side from telemetry instead of replicating `UICam` — that's
+  unbuilt in either mode today, not an HQ-specific regression.
+- **`BeforeRender`/`AfterRender` hooks are no-ops.** Kept as an explicit extension point for the
+  terrain/shader-global plumbing in case a future scenario shows it's needed — none has so far.
+
+**Decision:** all three `docs/tgp-high-quality-mode.md` follow-up branches are done. `PerfLog.cs`
+and its call sites can come out once this branch and its two predecessors are merged — restore
+from history (this time it really is in history) if perf work reopens on TGP again.
+
 ## Marginal polish (deferred — data doesn't justify it yet)
 
 - **#4 — split rates.** Contacts at map scale don't need 10 Hz; own-ship

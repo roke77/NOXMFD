@@ -101,6 +101,12 @@
       <HintPath>$(GameDir)\NuclearOption_Data\Managed\Unity.TextMeshPro.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- The game runs URP. TgpMirrorCam.cs needs UniversalAdditionalCameraData/CameraRenderType to
+         drive the HQ mirror camera's Base/Overlay render-type toggle (docs/tgp-high-quality-mode.md). -->
+    <Reference Include="Unity.RenderPipelines.Universal.Runtime">
+      <HintPath>$(GameDir)\NuclearOption_Data\Managed\Unity.RenderPipelines.Universal.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <Target Name="DeployToGame" AfterTargets="Build">
