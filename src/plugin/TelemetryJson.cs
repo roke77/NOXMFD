@@ -279,14 +279,32 @@ namespace NOXMFD
         private static string TgpBlock(TelemetrySnapshot s)
         {
             if (s.TgpTargetCount <= 0) return "{\"cnt\":0}";
-            return string.Format(CultureInfo.InvariantCulture,
+            string head = string.Format(CultureInfo.InvariantCulture,
                 "{{\"cnt\":{0},\"mag\":{1:0.0},\"range\":{2:0.0},\"grid\":\"{3}\",\"ir\":{4}," +
                 "\"brg\":{5:0.0},\"type\":\"{6}\",\"pilot\":\"{7}\",\"status\":\"{8}\",\"hasDetail\":{9}," +
-                "\"hdg\":{10:0.0},\"alt\":{11:0.0},\"relAlt\":{12:0.0},\"spd\":{13:0.0},\"relSpd\":{14:0.0}}}",
+                "\"hdg\":{10:0.0},\"alt\":{11:0.0},\"relAlt\":{12:0.0},\"spd\":{13:0.0},\"relSpd\":{14:0.0}",
                 s.TgpTargetCount, s.TgpMag, s.TgpRangeM, JsonLite.EscapeJson(s.TgpGrid ?? ""), JsonBool(s.TgpIR),
                 s.TgpBearingDeg, JsonLite.EscapeJson(s.TgpType ?? ""), JsonLite.EscapeJson(s.TgpPilot ?? ""),
                 JsonLite.EscapeJson(s.TgpStatus ?? "normal"), JsonBool(s.TgpHasDetail),
                 s.TgpHeadingDeg, s.TgpAltitudeM, s.TgpRelAltitudeM, s.TgpSpeedMps, s.TgpRelSpeedMps);
+            return head + ",\"boxes\":" + TgpBoxArray(s.TgpBoxes) + "}";
+        }
+
+        // Screen-projected lock boxes, one per locked target — see TgpBoxInfo's doc comment in
+        // TelemetrySnapshot.cs. x/y are viewport fractions (0-1); the client flips y and hides a
+        // box outside [0,1] or with vis:false (behind the camera).
+        private static string TgpBoxArray(TgpBoxInfo[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.AppendFormat(CultureInfo.InvariantCulture,
+                    "{{\"x\":{0:0.000},\"y\":{1:0.000},\"vis\":{2},\"status\":\"{3}\"}}",
+                    items[i].X, items[i].Y, JsonBool(items[i].Visible), JsonLite.EscapeJson(items[i].Status ?? "target"));
+            }
+            return sb.Append(']').ToString();
         }
 
         private static string RdrBlock(TelemetrySnapshot s)

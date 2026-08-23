@@ -40,6 +40,12 @@ namespace NOXMFD
 
         internal Texture? Texture => _rt;
 
+        // WorldToViewportPoint, not WorldToScreenPoint — the box overlay needs a resolution-
+        // independent [0,1] fraction it can position a CSS box with directly, not render-texture
+        // pixels. z is a behind-camera/inactive sentinel (<=0) when there's no camera yet.
+        internal Vector3 WorldToViewport(Vector3 worldPos) =>
+            _cam != null ? _cam.WorldToViewportPoint(worldPos) : new Vector3(0f, 0f, -1f);
+
         // Creates the rig on first use, reparents if the active mount changed (forward/rear/
         // landing), and reallocates the RT if the requested size changed. Cheap to call every
         // capture tick — all the real work is gated on an actual difference.

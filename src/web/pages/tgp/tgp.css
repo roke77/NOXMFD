@@ -109,3 +109,20 @@
   padding: 2px 8px;
   border-radius: 2px;
 }
+
+/* Per-target lock box (tgp.js's renderBoxes) — positioned via left/top percentages set inline
+   from the server's WorldToViewportPoint output, so this only needs to define the box's own
+   look. Centered on its (x,y) point rather than corner-anchored, matching a crosshair-style lock
+   marker instead of a top-left-anchored rectangle. */
+.tgp-ov-box {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--no-red);
+  box-shadow: 0 0 2px #000;
+}
+.tgp-ov-box.friendly { border-color: var(--no-green); }
+.tgp-ov-box.jammed,
+.tgp-ov-box.outdated { border-color: var(--no-amber); border-style: dashed; }
+.tgp-ov-box.lased    { border-color: var(--no-amber); }

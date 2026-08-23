@@ -71,6 +71,7 @@ namespace NOXMFD
         public float  RelAltitudeM { get; private set; }
         public float  SpeedMps     { get; private set; }
         public float  RelSpeedMps  { get; private set; }
+        public TgpBoxInfo[] Boxes  { get; private set; } = Array.Empty<TgpBoxInfo>();
 
         // Accumulate frame time and capture at Interval. Called every Update from the reader.
         public void Tick(float dt)
@@ -142,18 +143,6 @@ namespace NOXMFD
             Camera? cam = _camField.GetValue(tc) as Camera;
             if (cam == null || !cam.enabled) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
 
-            try { PopulateOverlay(tc, targets, ac); }
-            catch (Exception ex)
-            {
-                // Touches a lot of game state (pilots, faction HQ, radar jam state) — if anything
-                // throws, keep the video capture path alive rather than losing the feed over a
-                // supplementary field. Fail CLOSED though: TargetCount = 0 hides the overlay
-                // client-side (see TgpBlock in TelemetryJson.cs), so a mid-update throw can't leave
-                // stale target data on screen until the next successful tick or disengage.
-                TargetCount = 0;
-                Plugin.Log?.LogDebug($"[NOXMFD] TGP overlay update threw: {ex.Message}");
-            }
-
             Texture src;
             if (Quality == TgpQuality.Native)
             {
@@ -174,14 +163,36 @@ namespace NOXMFD
             {
                 // HQ path: read from TgpMirrorCam's own higher-res RenderTexture instead of the
                 // game's native TargetCam RT. RenderTick() is what actually puts a fresh frame in
-                // it this tick (either a manual Camera.Render() for HqPerformance, or nothing —
-                // HqFull is already rendered every Unity frame by the pipeline on its own).
+                // it this tick — the camera is enabled+Base once Engage()'d, so the pipeline
+                // renders it every Unity frame on its own.
                 _mirror ??= new TgpMirrorCam();
                 _mirror.Engage(tc, HqWidth, HqHeight);
                 _mirror.SyncFromSource(cam);
                 _mirror.RenderTick();
                 src = _mirror.Texture;
                 if (src == null) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
+            }
+
+            // Overlay data (including the per-target lock box) projects through whichever camera
+            // is actually producing the picture — cam itself for Native, the mirror camera for HQ
+            // — so this runs after src is resolved, once that camera is guaranteed ready.
+            try
+            {
+                Func<Vector3, Vector3> project = Quality == TgpQuality.Native
+                    ? (Func<Vector3, Vector3>)(pos => cam.WorldToViewportPoint(pos))
+                    : (pos => _mirror != null ? _mirror.WorldToViewport(pos) : new Vector3(0f, 0f, -1f));
+                PopulateOverlay(tc, targets, ac, project);
+            }
+            catch (Exception ex)
+            {
+                // Touches a lot of game state (pilots, faction HQ, radar jam state) — if anything
+                // throws, keep the video capture path alive rather than losing the feed over a
+                // supplementary field. Fail CLOSED though: TargetCount = 0 hides the overlay
+                // client-side (see TgpBlock in TelemetryJson.cs), so a mid-update throw can't leave
+                // stale target data on screen until the next successful tick or disengage.
+                TargetCount = 0;
+                Boxes = Array.Empty<TgpBoxInfo>();
+                Plugin.Log?.LogDebug($"[NOXMFD] TGP overlay update threw: {ex.Message}");
             }
 
             // Match the captured frame to the source's aspect ratio. Forcing a square output
@@ -251,11 +262,12 @@ namespace NOXMFD
         // field, using the same public TargetCam accessors and the same Unit/FactionHQ state it
         // reads — see the class-level comment on Tgp* in TelemetrySnapshot.cs for why this exists
         // at all (Native mode gets this baked into the video for free; HQ mode does not).
-        private void PopulateOverlay(TargetCam tc, List<Unit>? targets, Aircraft player)
+        private void PopulateOverlay(TargetCam tc, List<Unit>? targets, Aircraft player, Func<Vector3, Vector3> project)
         {
             if (targets == null || targets.Count == 0)
             {
                 TargetCount = 0;
+                Boxes = Array.Empty<TgpBoxInfo>();
                 return;
             }
 
@@ -304,17 +316,38 @@ namespace NOXMFD
                 HeadingDeg = AltitudeM = RelAltitudeM = SpeedMps = RelSpeedMps = 0f;
             }
 
-            Status = "normal";
-            if (hq != null)
+            Status = TargetStatus(primary, hq);
+
+            // Lock box per target — TargetScreenUI.LateUpdate's own reference calculation
+            // (targetBoxes[i].transform.localPosition = cam.WorldToScreenPoint(knownPosition.
+            // ToLocalPosition())), adapted to WorldToViewportPoint for a resolution-independent
+            // client-side position (see TgpBoxInfo's doc comment in TelemetrySnapshot.cs).
+            var boxes = new TgpBoxInfo[targets.Count];
+            for (int i = 0; i < targets.Count; i++)
             {
-                if (primary.NetworkHQ == hq) Status = "friendly";
-                else
+                Unit u = targets[i];
+                string status = i == 0 ? Status : TargetStatus(u, hq);
+                if (hq == null || !hq.TryGetKnownPosition(u, out GlobalPosition known))
                 {
-                    if (primary.HasRadarEmission() && primary.radar is Radar radar && radar.IsJammed()) Status = "jammed";
-                    if (hq.IsTargetLased(primary)) Status = "lased";
-                    if (!hq.IsTargetPositionAccurate(primary, 20f)) Status = "outdated";
+                    boxes[i] = new TgpBoxInfo { Visible = false, Status = status };
+                    continue;
                 }
+                Vector3 vp = project(known.ToLocalPosition());
+                boxes[i] = new TgpBoxInfo { X = vp.x, Y = vp.y, Visible = vp.z > 0f, Status = status };
             }
+            Boxes = boxes;
+        }
+
+        // Mirrors the sprite-selection logic in TargetScreenUI.UpdateTargetInfo's targetBoxes loop.
+        private static string TargetStatus(Unit u, FactionHQ? hq)
+        {
+            if (hq == null) return "normal";
+            if (u.NetworkHQ == hq) return "friendly";
+            string status = "normal";
+            if (u.HasRadarEmission() && u.radar is Radar radar && radar.IsJammed()) status = "jammed";
+            if (hq.IsTargetLased(u)) status = "lased";
+            if (!hq.IsTargetPositionAccurate(u, 20f)) status = "outdated";
+            return status;
         }
 
         // Async readback callback — runs on the Unity main thread. Bail cleanly if the GPU errored
@@ -353,6 +386,7 @@ namespace NOXMFD
             _srcLogged         = false;
             _readbackInFlight  = false;   // any in-flight callback will see !WantsTgpFrames / null _tex and bail
             TargetCount        = 0;       // stale overlay data shouldn't linger once the feed goes idle
+            Boxes              = Array.Empty<TgpBoxInfo>();
             TelemetryServer.ClearTgpFrame();
             if (wasEngaged) Plugin.Log?.LogInfo("[NOXMFD] TGP: disengaged (no subscribers).");
         }

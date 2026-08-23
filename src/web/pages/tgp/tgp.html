@@ -13,11 +13,11 @@
     'tgp'    : { active, quality, data } — active: whether a target is locked (mirrored from the
                map iframe's SSE). Toggles .has-feed, swapping the live MJPEG for the NO LOCK
                placeholder. quality: "native" | "hq" (RatesConfig.TgpQualityName). data: the stat
-               overlay block (TelemetryJson.cs's TgpBlock) or null when there's no lock — drawn
+               overlay block (TelemetryJson.cs's TgpBlock, including data.boxes — one screen-
+               projected lock box per locked target) or null when there's no lock — drawn
                client-side only in HQ mode, since Native's video already has the game's own
                baked-in overlay (TargetScreenUI's stacked UICam has no HQ-mode counterpart; see
-               docs/tgp-high-quality-mode.md). Target lock box is deliberately NOT drawn here yet
-               (deferred to its own branch — needs isolated testing of the camera projection math).
+               docs/tgp-high-quality-mode.md).
     'orient' : app-wide orientation (kept for parity).
   The MJPEG <img> connects to /tgp.mjpg directly; the server only emits frames while a target
   is locked, so it stays hidden (NO LOCK shown) until 'tgp' active flips true.
@@ -54,6 +54,7 @@
         <div class="tgp-ov-stat" id="tgp-ov-mode"></div>
         <div class="tgp-ov-stat" id="tgp-ov-mag"></div>
       </div>
+      <div id="tgp-ov-boxes"></div>
     </div>
   </div>
 <script src="/assets/pages/tgp/tgp.js"></script>

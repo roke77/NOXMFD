@@ -28,9 +28,9 @@ tgpImg.addEventListener('error', function() {
 
 // HQ-mode stat overlay (docs/tgp-high-quality-mode.md) — drawn from the shell's 'tgp' message.
 // Native mode already has this baked into the video (the game's own stacked-camera UICam), so it
-// only shows when quality is "hq" AND a lock is active. Target lock box deliberately deferred to
-// its own branch — see tgp.html's comment. Layout matches the in-cockpit TargetScreenUI screen
-// (stacked corner groups + a bearing compass), not the raw field order.
+// only shows when quality is "hq" AND a lock is active. Layout matches the in-cockpit
+// TargetScreenUI screen (stacked corner groups + a bearing compass + a lock box per target), not
+// the raw field order.
 const ovType    = document.getElementById('tgp-ov-type');
 const ovPilot   = document.getElementById('tgp-ov-pilot');
 const ovRng     = document.getElementById('tgp-ov-rng');
@@ -44,6 +44,7 @@ const ovBrg     = document.getElementById('tgp-ov-bearing');
 const ovGrid    = document.getElementById('tgp-ov-grid');
 const ovMode    = document.getElementById('tgp-ov-mode');
 const ovMag     = document.getElementById('tgp-ov-mag');
+const ovBoxes   = document.getElementById('tgp-ov-boxes');
 
 const TGP_STATUS_TAG = { jammed: 'JAM', lased: 'LASE', outdated: 'OLD' };
 
@@ -55,7 +56,7 @@ function fmtDash(value, suffix) { return value == null ? '-' : Math.round(value)
 function applyOverlay(quality, data) {
   const show = quality === 'hq' && !!data && data.cnt > 0;
   tgpPanel.classList.toggle('show-overlay', show);
-  if (!show) return;
+  if (!show) { renderBoxes([]); return; }
 
   ovType.textContent = data.type;
   ovType.className   = 'tgp-ov-title' + (data.status === 'friendly' ? ' friendly' : ' hostile');
@@ -86,6 +87,24 @@ function applyOverlay(quality, data) {
   ovGrid.textContent = 'GRID: ' + data.grid;
   ovMode.textContent = 'MODE: ' + (data.ir ? 'IR' : 'COLOR');
   ovMag.textContent  = 'Mag x' + data.mag.toFixed(1);
+
+  renderBoxes(data.boxes);
+}
+
+// One <div> per locked target, positioned from the server's WorldToViewportPoint output
+// (0-1, y-up — flipped here since CSS top is top-down). Rebuilt each update; box counts are
+// small (typically 1-3 targets) so this is simpler than diffing/pooling elements.
+function renderBoxes(boxes) {
+  ovBoxes.replaceChildren();
+  if (!Array.isArray(boxes)) return;
+  for (const b of boxes) {
+    if (!b.vis || b.x < 0 || b.x > 1 || b.y < 0 || b.y > 1) continue;
+    const div = document.createElement('div');
+    div.className = 'tgp-ov-box ' + (b.status || 'target');
+    div.style.left = (b.x * 100) + '%';
+    div.style.top  = ((1 - b.y) * 100) + '%';
+    ovBoxes.appendChild(div);
+  }
 }
 
 window.addEventListener('message', function(e) {

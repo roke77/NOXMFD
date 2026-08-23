@@ -819,6 +819,7 @@ namespace NOXMFD
                 TgpRelAltitudeM = _tgp.RelAltitudeM,
                 TgpSpeedMps     = _tgp.SpeedMps,
                 TgpRelSpeedMps  = _tgp.RelSpeedMps,
+                TgpBoxes        = _tgp.Boxes,
                 Parts          = BuildParts(aircraft),
                 Failures       = BuildFailures(),
                 Rwr            = BuildRwr(aircraft),
