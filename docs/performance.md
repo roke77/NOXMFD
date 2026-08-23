@@ -533,6 +533,32 @@ cold-start questions, and reproduced the 30 Hz skip-rate risk live. Remove `Perf
 call sites once the next two follow-up branches (MJPEG cold-start fix, HQ mirror camera) are done,
 same lifecycle as `PerfDiag` before it.
 
+## 2026-08-23 — tgp-mjpeg-cold-start branch: cold-start fix shipped, live-verified
+
+Second of the three `docs/tgp-high-quality-mode.md` follow-up branches, off `tgp-safety-baseline`.
+`HandleMjpegAsync` now writes a precomputed 4x4 dark-gray placeholder JPEG immediately on connect
+if no real `_tgpJpg` exists yet, so a fresh client never sits on literal zero bytes. Deliberately
+**not** the source integration's approach verbatim (its own placeholder fix was tried and reverted
+there, undocumented why) — this one is a static, compile-time byte array rather than anything
+generated at request time, so there's no runtime Unity-API-off-main-thread risk and no per-connect
+allocation to reason about.
+
+Live-verified end to end: Network tab showed the connection holding at ~0.3KB (the placeholder)
+while idle with the TGP page open and nothing locked — previously this window was 0 bytes and the
+theorized failure state. On locking a target the feed transitioned to a growing real stream (17.9MB
+over a 4.3-minute mixed lock/unlock session), and correctly stopped growing on unlock. No errors,
+no dropped readbacks (15 Hz session).
+
+The cold-start diagnostic's logged duration is measuring wall-clock time from connect to the first
+*real* frame, which includes however long the player takes to lock a target — not pipeline latency
+alone. A 105-second reading during this test was the player's own delay before locking, not a
+regression; the diagnostic doesn't distinguish the two. Fine to leave as-is since the number it
+logs was never load-bearing for a pass/fail signal, only a "did it ever say near-zero" check for
+the pre-fix behavior.
+
+**Decision:** shipped. Third branch (HQ mirror camera) is next; `PerfLog.cs` stays until that one
+also lands.
+
 ## Marginal polish (deferred — data doesn't justify it yet)
 
 - **#4 — split rates.** Contacts at map scale don't need 10 Hz; own-ship
