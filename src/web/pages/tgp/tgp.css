@@ -27,3 +27,50 @@
    so without this the player would see a frozen stale picture instead of NO LOCK. */
 .tgp-panel:not(.has-feed) .tgp-img { visibility: hidden; }
 .tgp-panel.has-feed .tgp-empty { display: none; }
+
+/* HQ-mode stat overlay (docs/tgp-high-quality-mode.md) — drawn client-side because HQ's mirror
+   camera has no UICam counterpart to bake this into the video the way Native does. Only shown
+   when the shell says quality:"hq" AND a lock is active; see tgp.js's applyOverlay. Positioned
+   over the same box the <img> occupies, so its corners track the feed exactly regardless of
+   panel size. */
+.tgp-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  pointer-events: none;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: var(--no-white);
+  text-shadow: 0 0 3px #000, 0 0 3px #000;
+}
+.tgp-panel.show-overlay .tgp-overlay { display: block; }
+
+.tgp-ov-corner { position: absolute; padding: 4px 6px; }
+.tgp-ov-tl { top: 0;    left: 0; }
+.tgp-ov-tr { top: 0;    right: 0; text-align: right; }
+.tgp-ov-bl { bottom: 0; left: 0; }
+.tgp-ov-br { bottom: 0; right: 0; text-align: right; }
+
+.tgp-ov-target {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 6px;
+  text-align: center;
+}
+.tgp-ov-type  { font-size: 12px; }
+.tgp-ov-type.friendly { color: var(--no-green); }
+.tgp-ov-type.hostile  { color: var(--no-red); }
+.tgp-ov-tag   { color: var(--no-amber); margin-left: 4px; }
+.tgp-ov-pilot { color: var(--no-white-dim); font-size: 10px; }
+
+.tgp-ov-detail {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 6px;
+  display: flex;
+  gap: 10px;
+}

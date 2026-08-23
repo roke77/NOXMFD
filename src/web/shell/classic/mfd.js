@@ -693,7 +693,7 @@ function avnNavLabelText(group) {
   const upper = group.toUpperCase();
   return upper.length > 4 ? upper.replace(/[AEIOU]/g, '') : upper;
 }
-function tgpMsg() { return { mfd: true, type: 'tgp', active: tgpActive }; }
+function tgpMsg() { return { mfd: true, type: 'tgp', active: tgpActive, quality: tgpQuality, data: tgpData }; }
 function forwardTgpToPanes() { forwardToPanes('tgp', tgpMsg()); }
 // Full-view TGP: forward the lock flag to the #page-frame iframe (the page toggles its feed).
 // No geometry to forward — the feed is a single centred box, not key-band rows.
@@ -1249,8 +1249,12 @@ function selWpnPageFull() {
 let cmData = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 
 // Latest TGP feed state mirrored from the map iframe. False until the first frame is
-// produced, and back to false during the 3-second post-loss hold's expiry.
+// produced, and back to false during the 3-second post-loss hold's expiry. tgpQuality/tgpData
+// are the HQ-mode stat overlay (docs/tgp-high-quality-mode.md) — data is null whenever there's
+// no lock, regardless of quality.
 let tgpActive = false;
+let tgpQuality = 'native';
+let tgpData = null;
 
 // Latest published slice per installed extension (docs/extensions-api.md), keyed by extension
 // id — mirrored from the map iframe the same way as every other slice above, just for a
@@ -1629,7 +1633,9 @@ window.addEventListener('message', function(e) {
     if (currentPage === 'wpn' && !splitMode) forwardCmToFrame();
     if (splitMode) forwardCmToPanes();
   } else if (m.type === 'tgp') {
-    tgpActive = !!m.active;
+    tgpActive  = !!m.active;
+    tgpQuality = m.quality || 'native';
+    tgpData    = m.data || null;
     // Only matters while the TGP page is in view — outside it the frame/pane isn't shown.
     if (currentPage === 'tgp' && !splitMode) forwardTgpToFrame();
     if (splitMode) forwardTgpToPanes();

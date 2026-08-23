@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using NuclearOption.Networking;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -51,6 +52,25 @@ namespace NOXMFD
 
         // Last capture pushed a frame — mirrored into the snapshot's TgpActive.
         public bool Active => _active;
+
+        // Text/status overlay data, mirrored into the snapshot's Tgp* fields each capture tick —
+        // see TelemetrySnapshot.cs for what each means and PopulateOverlay below for how it's
+        // derived. Defaults are the "no target" values TargetScreenUI itself falls back to.
+        public float  Mag          { get; private set; }
+        public float  RangeM       { get; private set; }
+        public string Grid         { get; private set; } = "";
+        public bool   IR           { get; private set; }
+        public float  BearingDeg   { get; private set; }
+        public int    TargetCount  { get; private set; }
+        public string TargetType   { get; private set; } = "";
+        public string Pilot        { get; private set; } = "";
+        public string Status       { get; private set; } = "normal";
+        public bool   HasDetail    { get; private set; }
+        public float  HeadingDeg   { get; private set; }
+        public float  AltitudeM    { get; private set; }
+        public float  RelAltitudeM { get; private set; }
+        public float  SpeedMps     { get; private set; }
+        public float  RelSpeedMps  { get; private set; }
 
         // Accumulate frame time and capture at Interval. Called every Update from the reader.
         public void Tick(float dt)
@@ -121,6 +141,15 @@ namespace NOXMFD
             // pushing then so MJPEG clients see "no feed" and fall back to NO TARGET.
             Camera? cam = _camField.GetValue(tc) as Camera;
             if (cam == null || !cam.enabled) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
+
+            try { PopulateOverlay(tc, targets, ac); }
+            catch (Exception ex)
+            {
+                // Touches a lot of game state (pilots, faction HQ, radar jam state) — if anything
+                // throws, keep the video capture path alive and just skip this tick's overlay data
+                // rather than losing the feed over a supplementary field.
+                Plugin.Log?.LogDebug($"[NOXMFD] TGP overlay update threw: {ex.Message}");
+            }
 
             Texture src;
             if (Quality == TgpQuality.Native)
@@ -215,6 +244,76 @@ namespace NOXMFD
             AsyncGPUReadback.Request(_rt, 0, request => OnReadbackComplete(request, captureW, captureH));
         }
 
+        // Mirrors TargetScreenUI.UpdateTargetInfo (the game's in-cockpit TGP overlay) field for
+        // field, using the same public TargetCam accessors and the same Unit/FactionHQ state it
+        // reads — see the class-level comment on Tgp* in TelemetrySnapshot.cs for why this exists
+        // at all (Native mode gets this baked into the video for free; HQ mode does not).
+        private void PopulateOverlay(TargetCam tc, List<Unit>? targets, Aircraft player)
+        {
+            if (targets == null || targets.Count == 0)
+            {
+                TargetCount = 0;
+                return;
+            }
+
+            Mag        = tc.GetMag();
+            RangeM     = tc.GetDist();
+            Grid       = tc.GetGrid();
+            IR         = tc.UsingIR();
+            Transform? mount = tc.GetCamMount();
+            BearingDeg = mount != null ? mount.localEulerAngles.y : 0f;
+            TargetCount = targets.Count;
+
+            FactionHQ? hq = player.NetworkHQ;
+            Unit primary = targets[0];
+            bool isAircraftOrMissile = primary is Aircraft || primary is Missile;
+
+            if (targets.Count > 1)
+            {
+                TargetType = $"{targets.Count} targets";
+                HasDetail  = false;
+            }
+            else
+            {
+                TargetType = primary is Aircraft ? primary.definition.unitName : primary.unitName;
+                HasDetail  = isAircraftOrMissile && hq != null && hq.IsTargetPositionAccurate(primary, 20f);
+            }
+
+            Pilot = "";
+            if (isAircraftOrMissile && primary is Aircraft pilotedAc && pilotedAc.pilots.Length > 0
+                && pilotedAc.pilots[0].player != null)
+            {
+                Pilot = pilotedAc.pilots[0].player.GetDisplayName(PlayerNameContext.Other);
+            }
+
+            if (HasDetail)
+            {
+                GlobalPosition targetPos = primary.GlobalPosition();
+                Vector3 rel = targetPos - player.GlobalPosition();
+                HeadingDeg   = primary.transform.eulerAngles.y;
+                AltitudeM    = targetPos.y;
+                RelAltitudeM = rel.y;
+                SpeedMps     = primary.speed;
+                RelSpeedMps  = Vector3.Dot(player.rb.velocity, rel.normalized) - Vector3.Dot(primary.rb.velocity, rel.normalized);
+            }
+            else
+            {
+                HeadingDeg = AltitudeM = RelAltitudeM = SpeedMps = RelSpeedMps = 0f;
+            }
+
+            Status = "normal";
+            if (hq != null)
+            {
+                if (primary.NetworkHQ == hq) Status = "friendly";
+                else
+                {
+                    if (primary.HasRadarEmission() && primary.radar is Radar radar && radar.IsJammed()) Status = "jammed";
+                    if (hq.IsTargetLased(primary)) Status = "lased";
+                    if (!hq.IsTargetPositionAccurate(primary, 20f)) Status = "outdated";
+                }
+            }
+        }
+
         // Async readback callback — runs on the Unity main thread. Bail cleanly if the GPU errored
         // or the user disengaged the TGP page mid-flight. Disengage() nulls _tex on teardown, so the
         // size check below also covers "the reader was destroyed while this readback was in flight".
@@ -250,6 +349,7 @@ namespace NOXMFD
             _active            = false;
             _srcLogged         = false;
             _readbackInFlight  = false;   // any in-flight callback will see !WantsTgpFrames / null _tex and bail
+            TargetCount        = 0;       // stale overlay data shouldn't linger once the feed goes idle
             TelemetryServer.ClearTgpFrame();
             if (wasEngaged) Plugin.Log?.LogInfo("[NOXMFD] TGP: disengaged (no subscribers).");
         }

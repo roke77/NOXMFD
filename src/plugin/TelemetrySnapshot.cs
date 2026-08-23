@@ -100,6 +100,41 @@ namespace NOXMFD
         // game's 3-second post-loss hold is still running). Drives the MFD's NO TARGET fallback.
         public bool   TgpActive;
 
+        // "native" | "hq" (RatesConfig.TgpQualityName) — the page uses this to decide whether to
+        // draw its own overlay at all. Native's video already has the game's own baked-in overlay
+        // (TargetScreenUI's stacked UICam); drawing this one on top of it would duplicate the text.
+        public string TgpQuality;
+
+        // The stat overlay the game bakes into the cockpit TGP screen via a second stacked camera
+        // (TargetScreenUI) — Native mode gets this for free in the video pixels; HQ mode's mirror
+        // camera has no such second camera, so the page draws it itself from these fields instead
+        // (docs/tgp-high-quality-mode.md's open question, resolved this way). Populated by
+        // TgpFeed each capture tick, mirroring TargetScreenUI.UpdateTargetInfo's own field set.
+        //
+        // Text/status fields only for now — the screen-projected target lock box is deliberately
+        // deferred to its own branch (needs isolated testing across FOV zoom, aspect ratio, and
+        // stale/last-known-position edge cases). When that branch lands: project via the feed
+        // camera's WorldToViewportPoint (NOT WorldToScreenPoint, which returns render-texture
+        // pixels), using FactionHQ.TryGetKnownPosition + GlobalPosition.ToLocalPosition() for each
+        // target's world position — see TargetScreenUI.LateUpdate in the decompiled game code for
+        // the exact reference calculation.
+        public float  TgpMag;          // targetCam.GetMag()
+        public float  TgpRangeM;       // targetCam.GetDist(), meters — client formats to the player's units
+        public string TgpGrid;         // targetCam.GetGrid()
+        public bool   TgpIR;           // targetCam.UsingIR()
+        public float  TgpBearingDeg;   // active cam mount's local Y euler
+        public int    TgpTargetCount;  // 0 when TgpActive is true but the list emptied mid-frame
+        public string TgpType;         // unitName, or "N targets" when TgpTargetCount > 1
+        public string TgpPilot;        // empty when not a player-flown aircraft
+        public string TgpStatus;       // "friendly" | "jammed" | "lased" | "outdated" | "normal"
+        public bool   TgpHasDetail;    // false ⇒ client shows "-" for hdg/alt/relAlt/spd/relSpd,
+                                        // matching TargetScreenUI's own >1-target / stale-position fallback
+        public float  TgpHeadingDeg;
+        public float  TgpAltitudeM;
+        public float  TgpRelAltitudeM;
+        public float  TgpSpeedMps;
+        public float  TgpRelSpeedMps;
+
         // Per-part HP for the AVN page. Built from Aircraft.partLookup, one entry per
         // damageable UnitPart. Names match the silhouette layout served at /airframe-layout.
         public PartHp[] Parts;

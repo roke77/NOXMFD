@@ -10,8 +10,14 @@
   the centred 3:2 feed renders identically at any container size (like MAP).
 
   Shell -> page messages (all {mfd:true, ...}):
-    'tgp'    : { active } — whether a target is locked (mirrored from the map iframe's SSE).
-               Toggles .has-feed, swapping the live MJPEG for the NO LOCK placeholder.
+    'tgp'    : { active, quality, data } — active: whether a target is locked (mirrored from the
+               map iframe's SSE). Toggles .has-feed, swapping the live MJPEG for the NO LOCK
+               placeholder. quality: "native" | "hq" (RatesConfig.TgpQualityName). data: the stat
+               overlay block (TelemetryJson.cs's TgpBlock) or null when there's no lock — drawn
+               client-side only in HQ mode, since Native's video already has the game's own
+               baked-in overlay (TargetScreenUI's stacked UICam has no HQ-mode counterpart; see
+               docs/tgp-high-quality-mode.md). Target lock box is deliberately NOT drawn here yet
+               (deferred to its own branch — needs isolated testing of the camera projection math).
     'orient' : app-wide orientation (kept for parity).
   The MJPEG <img> connects to /tgp.mjpg directly; the server only emits frames while a target
   is locked, so it stays hidden (NO LOCK shown) until 'tgp' active flips true.
@@ -24,6 +30,23 @@
   <div class="tgp-panel" id="tgp-panel">
     <div class="tgp-empty mfd-empty"><span class="mfd-empty-title">TGP</span>&mdash; NO LOCK &mdash;</div>
     <img class="tgp-img" id="tgp-img" alt="">
+    <div class="tgp-overlay" id="tgp-overlay">
+      <div class="tgp-ov-corner tgp-ov-tl" id="tgp-ov-mag"></div>
+      <div class="tgp-ov-corner tgp-ov-tr" id="tgp-ov-mode"></div>
+      <div class="tgp-ov-corner tgp-ov-bl" id="tgp-ov-grid"></div>
+      <div class="tgp-ov-corner tgp-ov-br" id="tgp-ov-bearing"></div>
+      <div class="tgp-ov-target" id="tgp-ov-target">
+        <div class="tgp-ov-type" id="tgp-ov-type"></div>
+        <div class="tgp-ov-pilot" id="tgp-ov-pilot"></div>
+      </div>
+      <div class="tgp-ov-detail" id="tgp-ov-detail">
+        <span id="tgp-ov-hdg"></span>
+        <span id="tgp-ov-alt"></span>
+        <span id="tgp-ov-relalt"></span>
+        <span id="tgp-ov-spd"></span>
+        <span id="tgp-ov-relspd"></span>
+      </div>
+    </div>
   </div>
 <script src="/assets/pages/tgp/tgp.js"></script>
 </body>
