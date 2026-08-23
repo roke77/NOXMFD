@@ -123,6 +123,8 @@
   box-shadow: 0 0 2px #000;
 }
 .tgp-ov-box.friendly { border-color: var(--no-green); }
-.tgp-ov-box.jammed,
-.tgp-ov-box.outdated { border-color: var(--no-amber); border-style: dashed; }
+/* Same yellow the MAP page's JammedMarker line already uses (map.js's drawJamLines) — kept
+   consistent rather than reusing --no-amber, which lased/outdated also need to stay distinct. */
+.tgp-ov-box.jammed   { border-color: rgba(255, 221, 0, 0.85); }
+.tgp-ov-box.outdated { border-color: var(--no-white); border-style: dashed; }
 .tgp-ov-box.lased    { border-color: var(--no-amber); }
