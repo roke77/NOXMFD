@@ -483,6 +483,56 @@ in their hot paths. Items #4/#5 remain not implemented, still genuinely optional
    2 (below) already found once. Recorded so a future continuous-fire caller doesn't reintroduce
    it silently.
 
+## 2026-08-23 — tgp-safety-baseline branch: PerfLog recreated, cold-start bug confirmed
+
+First of the three `docs/tgp-high-quality-mode.md` follow-up branches. `src/plugin/PerfLog.cs` had
+to be **recreated**, not restored — despite this doc's own instruction to restore it from history,
+it turns out the original was never committed; only its description here survived. Extended with
+`TgpFeed.EncodeToJPG` timing (closing the "measure the JPEG step" blind spot from the HQ doc's
+experiment menu) and a diagnostic warning for `HandleMjpegAsync`'s cold-start-stall theory. Item #6
+above (TGP slider risk, no cap or warning) is also fixed on this branch — the RTS page now shows an
+amber warning above 15 Hz, no hard cap.
+
+Live-tested at the default 15 Hz and manually raised to 30 Hz via the RTS page.
+
+**TGP GPU cost at 15 Hz, this session:** `frame(tgpOpen)` avg 7-9ms, max mostly 8-20ms, 0 spikes
+(>20ms threshold) across ~20 rollup windows, `tgpSkipped=0` throughout. This doesn't match the
+2026-08-16 numbers (avg 6.6ms but max 57-100ms with 1-3 spikes/window) — flagged as a discrepancy,
+not a contradiction, since test conditions (target type, scene load, hardware) weren't controlled
+to match between sessions. Don't treat either session's numbers as the definitive floor without a
+controlled re-run.
+
+**`EncodeToJPG` measured for the first time — not the bottleneck.** Consistently ~0.7-0.9ms avg
+regardless of capture rate (15 or 30 Hz), a small fixed slice of the 7-9ms open-frame cost. The
+JPEG step is not worth optimizing; the cost lives in the Blit + AsyncGPUReadback path, as already
+suspected.
+
+**30 Hz reproduces the 2026-08-16 skip-rate finding almost exactly.** `tgpSkipped` per 5s window:
+36, 72, 19, 1, 11, 14, 6, 5, 30, 43, 5 (avg ~22/window, worst 72 of ~150 attempted ≈ 48%) — matches
+the original "33-69 dropped ticks per 5s window, up to ~45%" on a different session. Confirms the
+30 Hz risk is real and repeatable, not a one-off. Frame time itself did **not** degrade further at
+30 Hz (still avg 6-8ms, close to the 15 Hz numbers) — the cost shows up as dropped/skipped captures
+(a choppier delivered feed), not as worse overall frame stutter. One large spike (max≈46,700ms,
+2/4397 samples in-window) appeared in the rollup immediately after switching to 30 Hz, but coincided
+with an in-game map-capture burst — an unrelated scene-load artifact, excluded from the numbers
+above.
+
+**MJPEG cold-start bug: confirmed, twice, not just a theory anymore.**
+```
+TGP MJPEG cold start: client waited 3255ms with zero bytes before the first frame.
+TGP MJPEG cold start: client waited 4297ms with zero bytes before the first frame.
+```
+Two separate cold connects, both multi-second silent stalls before any byte reached the client —
+squarely in the range that can cause a browser to give up on a `multipart/x-mixed-replace` stream.
+Follow-up ticket: fix it, but don't blindly port the source integration's placeholder-frame
+workaround (`docs/tgp-high-quality-mode.md`) — that fix was tried and reverted there, for reasons
+not documented on their side. Understand why before choosing an approach.
+
+**Decision:** this branch's scope is done — the instrumentation answered the JPEG-cost and
+cold-start questions, and reproduced the 30 Hz skip-rate risk live. Remove `PerfLog.cs` and its
+call sites once the next two follow-up branches (MJPEG cold-start fix, HQ mirror camera) are done,
+same lifecycle as `PerfDiag` before it.
+
 ## Marginal polish (deferred — data doesn't justify it yet)
 
 - **#4 — split rates.** Contacts at map scale don't need 10 Hz; own-ship

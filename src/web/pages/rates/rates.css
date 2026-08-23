@@ -128,6 +128,15 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   color: var(--no-amber);
 }
 
+.rts-hz-warning {
+  display: none;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--no-amber);
+  margin-top: 10px;
+}
+.rts-hz-warning.shown { display: block; }
+
 #rts-empty { display: none; }
 .rts-panel.unavailable .rts-setting { display: none; }
 .rts-panel.unavailable #rts-empty { display: block; }

@@ -1325,12 +1325,27 @@ namespace NOXMFD
 
             long lastSeen = -1;
             Interlocked.Increment(ref _tgpSubscribers);
+            // ponytail: diagnostic only, for the MJPEG cold-start-stall theory
+            // (docs/tgp-high-quality-mode.md) — logs how long a client sat with zero bytes written
+            // before the first frame existed. Remove alongside PerfLog.cs once the theory is
+            // confirmed or ruled out; a positive log here does not by itself justify shipping the
+            // placeholder-frame workaround, which the source integration this theory came from
+            // already tried and reverted.
+            var coldStartWatch = Stopwatch.StartNew();
+            bool coldStartLogged = false;
             try
             {
                 while (!ct.IsCancellationRequested)
                 {
                     byte[]? jpg; long id;
                     lock (_tgpLock) { jpg = _tgpJpg; id = _tgpFrameId; }
+
+                    if (!coldStartLogged && jpg != null)
+                    {
+                        coldStartLogged = true;
+                        if (coldStartWatch.ElapsedMilliseconds > 500)
+                            Plugin.Log?.LogWarning($"[NOXMFD] TGP MJPEG cold start: client waited {coldStartWatch.ElapsedMilliseconds}ms with zero bytes before the first frame.");
+                    }
 
                     if (jpg != null && id != lastSeen)
                     {

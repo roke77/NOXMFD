@@ -49,7 +49,7 @@ namespace NOXMFD
             _timer += dt;
             if (_timer < Interval) return;
             _timer = 0f;
-            CaptureFrame();
+            using (PerfLog.Time("TgpFeed.CaptureFrame")) CaptureFrame();
         }
 
         // The game's own TargetCam tracks the player's current target, including IR mode and
@@ -158,7 +158,7 @@ namespace NOXMFD
             // this tick instead. At the 15 Hz default AsyncGPUReadback usually completes in
             // 1–3 frames, so this skips rarely; at higher rates (RTS page's TGP slider) the GPU can
             // fall behind and skip much more often (docs/performance.md).
-            if (_readbackInFlight) return;
+            if (_readbackInFlight) { PerfLog.RecordTgpSkip(); return; }
 
             // (Re)allocate the downscale RT + readback texture when the source dimensions change.
             // RGBA32 on both sides so the bytes from AsyncGPUReadback can be fed straight into
@@ -201,7 +201,8 @@ namespace NOXMFD
             _tex.LoadRawTextureData(data);
             _tex.Apply(false, false);
 
-            byte[] jpg = _tex.EncodeToJPG(JpegQuality);
+            byte[] jpg;
+            using (PerfLog.Time("TgpFeed.EncodeToJPG")) jpg = _tex.EncodeToJPG(JpegQuality);
             TelemetryServer.PushTgpFrame(jpg);
             _active  = true;
             _engaged = true;

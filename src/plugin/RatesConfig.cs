@@ -24,14 +24,14 @@ namespace NOXMFD
         public static void SetFastHz(float hz)
         {
             hz = Mathf.Clamp(hz, MinHz, MaxHz);
-            if (_fastHz != null) _fastHz.Value = hz;
+            if (_fastHz != null) using (PerfLog.Time("RatesConfig.FastHz.Value-write")) _fastHz.Value = hz;
             TelemetryReader.FastInterval = 1f / hz;
         }
 
         public static void SetTgpHz(float hz)
         {
             hz = Mathf.Clamp(hz, MinHz, MaxHz);
-            if (_tgpHz != null) _tgpHz.Value = hz;
+            if (_tgpHz != null) using (PerfLog.Time("RatesConfig.TgpHz.Value-write")) _tgpHz.Value = hz;
             TgpFeed.Interval = 1f / hz;
         }
 

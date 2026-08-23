@@ -18,10 +18,22 @@ function setSlider(sliderId, valId, hz) {
   val.textContent = hz + ' Hz';
 }
 
+// Measured (docs/performance.md, cfg-rates branch): 15 Hz is the shipped-safe default; 30 Hz drops
+// up to ~45% of captures with 50ms+ frame spikes. No fixed cap — the player can still choose a
+// higher rate if they have the GPU headroom — but they should see the cost before picking it.
+var TGP_HZ_WARNING_ABOVE = 15;
+
+function updateTgpWarning(hz) {
+  var warning = document.getElementById('rts-tgp-hz-warning');
+  warning.classList.toggle('shown', hz > TGP_HZ_WARNING_ABOVE);
+}
+
 function wireSlider(sliderId, valId, group) {
   var slider = document.getElementById(sliderId);
   slider.oninput = function () {
-    document.getElementById(valId).textContent = Number(slider.value) + ' Hz';
+    var hz = Number(slider.value);
+    document.getElementById(valId).textContent = hz + ' Hz';
+    if (group === 'tgp') updateTgpWarning(hz);
   };
   slider.onchange = function () {
     sendCommand('rates.set', { group: group, hz: Number(slider.value) }).catch(function () {});
@@ -33,6 +45,7 @@ wireSlider('rts-tgp-slider', 'rts-tgp-val', 'tgp');
 document.getElementById('rts-reset').onclick = function () {
   setSlider('rts-tlm-slider', 'rts-tlm-val', DEFAULTS.fastHz);
   setSlider('rts-tgp-slider', 'rts-tgp-val', DEFAULTS.tgpHz);
+  updateTgpWarning(DEFAULTS.tgpHz);
   sendCommand('rates.set', { group: 'fast', hz: DEFAULTS.fastHz }).catch(function () {});
   sendCommand('rates.set', { group: 'tgp',  hz: DEFAULTS.tgpHz  }).catch(function () {});
 };
@@ -40,6 +53,7 @@ document.getElementById('rts-reset').onclick = function () {
 function applyConfig(cfg) {
   setSlider('rts-tlm-slider', 'rts-tlm-val', cfg.fastHz);
   setSlider('rts-tgp-slider', 'rts-tgp-val', cfg.tgpHz);
+  updateTgpWarning(cfg.tgpHz);
   panelEl.classList.remove('unavailable');
 }
 
