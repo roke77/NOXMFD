@@ -137,3 +137,28 @@
 .tgp-ov-box.jammed   { border-color: rgba(255, 221, 0, 0.85); }
 .tgp-ov-box.outdated { border-color: var(--no-white); border-style: dashed; }
 .tgp-ov-box.lased    { border-color: var(--no-amber); }
+
+/* Friendly gets an X through the box, matching TargetScreenUI's friendlyBoxSprite. Corner-to-
+   corner diagonal of a 34px box is 34*sqrt(2)≈48px — sized to that, not to the box's own edge
+   length, so the lines actually reach the corners once rotated 45°. */
+.tgp-ov-box.friendly::before, .tgp-ov-box.friendly::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 48px;
+  height: 2px;
+  background: var(--no-blue);
+}
+.tgp-ov-box.friendly::before { transform: translate(-50%, -50%) rotate(45deg); }
+.tgp-ov-box.friendly::after  { transform: translate(-50%, -50%) rotate(-45deg); }
+
+/* Lased gets a small red target cross in the middle of the box, on top of whatever the box's own
+   border color is (amber) — the laser-designation state, not the box's faction/status color. */
+.tgp-ov-box.lased::before, .tgp-ov-box.lased::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  background: var(--no-red);
+}
+.tgp-ov-box.lased::before { width: 16px; height: 2px; transform: translate(-50%, -50%); }
+.tgp-ov-box.lased::after  { width: 2px; height: 16px; transform: translate(-50%, -50%); }
