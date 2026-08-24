@@ -60,8 +60,8 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
     'MAP_SPLIT_ORDER must contain exactly NAV.map\'s actions — a NAV.map item added/removed here has no matching update');
   assert.deepStrictEqual(MAP_SPLIT_ORDER_V.slice().sort(), NAV.map.map(i => i.action).sort(),
     'MAP_SPLIT_ORDER_V must contain exactly NAV.map\'s actions — a NAV.map item added/removed here has no matching update');
-  assert.deepStrictEqual(MAP_SPLIT_ORDER_V, ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev'],
-    'MAP_SPLIT_ORDER_V should lead page 2 with WPT ahead of R+/R-/W+/W- (v/vw split has no bank boundary to straddle)');
+  assert.deepStrictEqual(MAP_SPLIT_ORDER_V, ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev'],
+    'MAP_SPLIT_ORDER_V should lead page 2 with WPT ahead of CFG/R+/R-/W+/W- (v/vw split has no bank boundary to straddle)');
 
   const byAction = {};
   NAV.map.forEach(item => { byAction[item.action] = item; });
@@ -142,10 +142,10 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
   // (nothing active to step) — the deactivate-follow-up case, in both variant groups.
   {
     const orderH = mapSplitOrder('h', true, false);
-    assert.deepStrictEqual(orderH, ['main', 'grid', 'flw', 'zin', 'zout', 'rt-next', 'rt-prev', 'wpt'],
+    assert.deepStrictEqual(orderH, ['main', 'grid', 'flw', 'zin', 'zout', 'rt-next', 'rt-prev', 'mapcfg', 'wpt'],
       "mapSplitOrder('h', true, false) should keep R+/R- but drop W+/W- — a route is saved but none is active");
     const orderV = mapSplitOrder('v', true, false);
-    assert.deepStrictEqual(orderV, ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'rt-next', 'rt-prev'],
+    assert.deepStrictEqual(orderV, ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'rt-next', 'rt-prev'],
       "mapSplitOrder('v', true, false) should lead with WPT, keep R+/R-, drop W+/W-");
     for (const [order, variants] of [[orderH, ['h']], [orderV, ['v', 'vw']]]) {
       for (const action of order)
@@ -163,14 +163,19 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
   }
 
   // No routes saved at all: R+/R-/W+/W- both filter out entirely (mfd.js's showPage 'map' branch
-  // drops them from full view for the same reason) — this pins the resulting 6-item list down
-  // exactly, so it stays MAIN/GRID/FLW/Z+/Z- then WPT (the same regardless of variant, since WPT is
-  // the only survivor either way), the same grouping full view's MAP_FULL_LEFT/RIGHT use, and
-  // confirms it fits a split pane's 6-key budget with no pagination.
+  // drops them from full view for the same reason) — this pins the resulting 7-item list down
+  // exactly: MAIN/GRID/FLW/Z+/Z- then CFG/WPT, in whichever order each variant leads with (H
+  // trails CFG then WPT since CFG sat ahead of WPT in MAP_SPLIT_ORDER's page 2; V leads WPT then
+  // CFG per MAP_SPLIT_ORDER_V's "WPT leads" design). Unlike before mapcfg existed, 7 items no
+  // longer fits a split pane's 6-key budget in one page — this now spills a lone item onto a
+  // second (PREV-only) page, same as any other list that crosses the boundary.
   for (const variants of VARIANT_GROUPS) {
     const order = mapSplitOrder(variants[0], false, false);
-    assert.deepStrictEqual(order, ['main', 'grid', 'flw', 'zin', 'zout', 'wpt'],
-      `mapSplitOrder('${variants[0]}', false, false) should be MAIN/GRID/FLW/Z+/Z- then WPT — every route-dependent action filtered out`);
+    const expected = variants[0] === 'h'
+      ? ['main', 'grid', 'flw', 'zin', 'zout', 'mapcfg', 'wpt']
+      : ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg'];
+    assert.deepStrictEqual(order, expected,
+      `mapSplitOrder('${variants[0]}', false, false) should be MAIN/GRID/FLW/Z+/Z- then CFG/WPT (order per variant) — every route-dependent action filtered out`);
     for (const action of order) {
       assert.ok(!MAP_ROUTE_ACTIONS.has(action), `mapSplitOrder(false, false) should never include route action '${action}'`);
       assert.ok(!MAP_WAYPOINT_ACTIONS.has(action), `mapSplitOrder(false, false) should never include waypoint action '${action}'`);
@@ -193,8 +198,8 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
 // to only one) with no test catching it. Pinning the lists' content down here, plus mapFullRight's
 // no-route collapse, is what makes that drift impossible without a test failure.
 {
-  assert.deepStrictEqual(MAP_FULL_LEFT, ['main', 'grid', 'flw', 'zin', 'zout'],
-    'MAP_FULL_LEFT should be MAIN/GRID/FLW/Z+/Z- — mfd.js full view and f35.js both place this column verbatim');
+  assert.deepStrictEqual(MAP_FULL_LEFT, ['main', 'grid', 'flw', 'mapcfg', 'zin', 'zout'],
+    'MAP_FULL_LEFT should be MAIN/GRID/FLW/CFG/Z+/Z- — mfd.js full view and f35.js both place this column verbatim');
   assert.deepStrictEqual(MAP_FULL_RIGHT, ['wpt', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev'],
     'MAP_FULL_RIGHT should be WPT/R+/R-/W+/W- — mfd.js full view and f35.js both place this column (filtered by mapFullRight) verbatim');
 

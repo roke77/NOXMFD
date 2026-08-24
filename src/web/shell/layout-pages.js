@@ -33,8 +33,9 @@
     mis:  '/mis',
     obj:  '/obj',
     keys: '/keybinds',
-    rates: '/rates',
     wpt: '/wpt',
+    mapcfg: '/mapcfg',
+    tgpcfg: '/tgpcfg',
     // EXT hub (docs/extensions-api.md) — the EXT dispatch's landing page regardless of how many
     // extensions are installed. Its own content distinguishes "none installed" from "pick one
     // below"; the picking itself happens via NAV.ext's per-extension entries, each its own
@@ -63,8 +64,9 @@
     obj:  '/obj?bare',
     hud:  '/hud?bare',
     keys: '/keybinds?bare',
-    rates: '/rates?bare',
     wpt: '/wpt?bare',
+    mapcfg: '/mapcfg?bare',
+    tgpcfg: '/tgpcfg?bare',
     ext: '/ext?bare',
   };
 
@@ -92,8 +94,9 @@
     obj:  '/obj',
     hud:  '/hud',
     keys: '/keybinds',
-    rates: '/rates',
     wpt: '/wpt',
+    mapcfg: '/mapcfg',
+    tgpcfg: '/tgpcfg',
     ext: '/ext',
   };
 

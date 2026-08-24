@@ -1388,13 +1388,20 @@ function showPage(name) {
     const hasRoutes = WaypointsStore.load().routes.length > 0;
     const hasActiveRoute = !!WaypointsStore.getActiveRoute();
     mapFullRight(hasRoutes, hasActiveRoute).forEach(function (item, i) { placeOverlayLabel('right', i, item.label, item.action); });
-    placeMapDecorators({ bank: 'left', index: 3 });                  // ZOOM between Z+/Z- (left3/left4)
+    placeMapDecorators({ bank: 'left', index: 4 });                  // ZOOM between Z+/Z- (left4/left5)
     if (hasRoutes) {
       placeMapRouteDecorator({ bank: 'right', index: 1 });           // ROUTE between R+/R- (right1/right2)
     }
     if (hasActiveRoute) {
       placeMapWptDecorator({ bank: 'right', index: 3 });             // WYPT between W+/W- (right3/right4)
     }
+  } else if (name === 'tgp') {
+    // TGP's own branch, not the generic fullViewSlot sweep every other single-MAIN page uses:
+    // CFG is pinned to the bottom of the left column (left5) regardless of how few items sit
+    // above it — NAV.tgp[0] (MAIN) still reads naturally at left0, but a plain item-i sweep would
+    // put NAV.tgp[1] (CFG) at left1 instead. Mirrors SPLIT_SLOTS.tgp's own bottom-of-column slot.
+    placeOverlayLabel('left', 0, NAV.tgp[0].label, NAV.tgp[0].action);
+    placeOverlayLabel('left', 5, NAV.tgp[1].label, NAV.tgp[1].action);
   } else {
     // Bezel full-view rendering of the navigation model: item i → left-column key i. `mark` lights
     // an item active (e.g. NAV.bdf/NAV.pal flagging whichever of BDF/PAL is the current page).
@@ -1497,9 +1504,11 @@ function showPage(name) {
   // KEY (extended keybinds) renders in #page-frame too. Like HUD it's self-driven — it polls
   // /keybinds-config and POSTs its own keybind.* commands — so the shell forwards it nothing.
   if (name === 'keys') showFramePage('keys');
-  // RTS renders in #page-frame too — same self-driven shape as KEY/HUD: it polls /rates-config
-  // and POSTs its own rates.set commands.
-  if (name === 'rates') showFramePage('rates');
+  // MAP's and TGP's own CFG pages render in #page-frame too — same self-driven shape as KEY/HUD
+  // (the old RTS page's shape, before its two sliders split apart onto these): each polls
+  // /rates-config and POSTs its own rates.set commands, so the shell forwards them nothing.
+  if (name === 'mapcfg') showFramePage('mapcfg');
+  if (name === 'tgpcfg') showFramePage('tgpcfg');
   // EXT's static "no extensions installed" fallback (docs/extensions-api.md) — fully static,
   // no data to forward, unlike the ExtNav.isExtensionPage branch below for a real extension.
   if (name === 'ext') showFramePage('ext');
@@ -2063,7 +2072,8 @@ function mfdButton(el) {
       break;
     case 'hud':  showPage('hud');  break;
     case 'keys':  showPage('keys');  break;
-    case 'rates': showPage('rates'); break;
+    case 'mapcfg': showPage('mapcfg'); break;
+    case 'tgpcfg': showPage('tgpcfg'); break;
     case 'lyt':   showPage('lyt');   break;
     // The LAYOUT page's two choices. CLASSIC is this document, so choosing it is just leaving the
     // menu — back to MAIN, where LYT was pressed, with a fresh status as MAIN's own key pulls.

@@ -35,47 +35,46 @@ for (const [page, items] of Object.entries(NAV)) {
 // A layout renderer places by INDEX (bezel full view: item i → left key i; bezel split:
 // SPLIT_SLOTS[i] places NAV[i]). So order is meaningful and reordering is a behaviour change.
 assert.deepStrictEqual(NAV.main.map(i => i.label), ['AVN', 'MAP', 'RWR', 'TGP', 'TGT', 'WPN', 'EXT']);
-assert.deepStrictEqual(NAV.map.map(i => i.label), ['MAIN', 'GRID', 'FLW', 'WPT', 'R+', 'R-', 'W+', 'W-', 'Z+', 'Z-']);
+assert.deepStrictEqual(NAV.map.map(i => i.label), ['MAIN', 'GRID', 'FLW', 'CFG', 'WPT', 'R+', 'R-', 'W+', 'W-', 'Z+', 'Z-']);
 assert.deepStrictEqual(NAV.rdr.map(i => i.label), ['MAIN', 'R+', 'R-']);
 
 // ── Every frame-hosted page can get back to MAIN ────────────────────────────────────
 // NAV.ext's static baseline is exactly this shape too — see ext-nav.js for how it grows at
 // runtime (untested here on purpose; this file only sees the compile-time baseline).
-for (const page of ['avn', 'afm', 'rwr', 'tgp', 'tgt', 'ext']) {
+for (const page of ['avn', 'afm', 'rwr', 'tgt', 'ext']) {
   assert.deepStrictEqual(NAV[page], [{ label: 'MAIN', action: 'main' }], `${page} should be just a MAIN back-button`);
 }
 
-// CFG group (cfg-rates experiment, issue #39; HUD joined later): HUD/KEY/LYT/RTS folded
-// together, same shape as BDF/PAL/MIS/OBJ below (reached from MAIN via CFG — mfd.js
-// BEZEL_EXTRAS.main, action now 'hud'). LYT has no `mark` slot of its own — see nav-model.js's
-// comment on why NAV.lyt doesn't exist (BEZEL_EXTRAS.lyt places CLASSIC/F-35 at fixed keys that
-// would silently clobber it).
+// TGP gets a second item, CFG — its own layout renderer pins it to the bottom of its column
+// rather than wherever the generic sweep would put it (mfd.js's dedicated 'tgp' branch).
+assert.deepStrictEqual(NAV.tgp, [ { label: 'MAIN', action: 'main' }, { label: 'CFG', action: 'tgpcfg' } ]);
+
+// CFG group (cfg-rates experiment, issue #39; HUD joined later): HUD/KEY/LYT folded together, same
+// shape as BDF/PAL/MIS/OBJ below (reached from MAIN via CFG — mfd.js BEZEL_EXTRAS.main, action now
+// 'hud'). LYT has no `mark` slot of its own — see nav-model.js's comment on why NAV.lyt doesn't
+// exist (BEZEL_EXTRAS.lyt places CLASSIC/F-35 at fixed keys that would silently clobber it). RTS
+// (the old fourth sibling here) split apart onto NAV.mapcfg/NAV.tgpcfg below.
 assert.deepStrictEqual(NAV.hud, [
   { label: 'MAIN', action: 'main' },
   { label: 'HUD',  action: 'hud', mark: true },
   { label: 'KEY',  action: 'keys' },
   { label: 'LYT',  action: 'lyt'  },
-  { label: 'RTS',  action: 'rates' },
 ]);
 assert.deepStrictEqual(NAV.keys, [
   { label: 'MAIN', action: 'main' },
   { label: 'HUD',  action: 'hud' },
   { label: 'KEY',  action: 'keys', mark: true },
   { label: 'LYT',  action: 'lyt'  },
-  { label: 'RTS',  action: 'rates' },
-]);
-assert.deepStrictEqual(NAV.rates, [
-  { label: 'MAIN', action: 'main' },
-  { label: 'HUD',  action: 'hud' },
-  { label: 'KEY',  action: 'keys' },
-  { label: 'LYT',  action: 'lyt'  },
-  { label: 'RTS',  action: 'rates', mark: true },
 ]);
 assert.ok(!('lyt' in NAV), 'NAV.lyt must not exist — BEZEL_EXTRAS.lyt owns that page\'s placement');
+assert.ok(!('rates' in NAV), 'NAV.rates must not exist — its two settings moved to NAV.mapcfg/NAV.tgpcfg');
 
 // WPT (waypoints/route creator, issue #38) is reached from MAP's own nav row, not MD/CFG's
-// sibling-group pattern — its way back is MAP, not MAIN.
+// sibling-group pattern — its way back is MAP, not MAIN. MAPCFG/TGPCFG (this branch) follow the
+// same shape, each reached from its own page's nav row rather than MAIN.
 assert.deepStrictEqual(NAV.wpt, [ { label: 'MAP', action: 'map' } ]);
+assert.deepStrictEqual(NAV.mapcfg, [ { label: 'MAP', action: 'map' } ]);
+assert.deepStrictEqual(NAV.tgpcfg, [ { label: 'TGP', action: 'tgp' } ]);
 
 // AKF/BDF/PAL/MIS/OBJ are folded together (reached from MAIN via MD — mfd.js BEZEL_EXTRAS.main,
 // action still 'bdf'): each gets MAIN plus a direct switch to the other four, with `mark` on
