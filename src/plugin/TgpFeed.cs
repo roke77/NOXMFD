@@ -34,12 +34,12 @@ namespace NOXMFD
         internal static float Interval    = 1f / 15f;   // 15 Hz — enough for a small MFD pane, keeps readback+encode rate low
         private  const int   MaxDim      = 720;        // cap for the encoded frame — a no-op at Native res, an exact match at Hq res (below)
         private  const int   JpegQuality = 50;         // JPEG quality 0–100; 50 is visually fine for a small MFD pane
-
         // RatesConfig.SetTgpQuality (rates.set command, group "tgpQuality") writes this live from
         // the TGP CFG page. HqWidth/HqHeight match the native source's ~3:2 aspect (docs/tgp-high-
         // quality-mode.md's stated default) so the existing letterbox-avoidance math below needs no
         // change for either HQ mode.
         internal static TgpQuality Quality  = TgpQuality.Native;
+        internal static bool       SuppressNativeDisplay;
         private  const int         HqWidth  = 720;
         private  const int         HqHeight = 480;
 
@@ -48,12 +48,20 @@ namespace NOXMFD
         private Texture2D?     _tex;                   // CPU-side buffer the readback writes into via LoadRawTextureData
         private FieldInfo?     _camField;              // TargetCam.cam (Camera) — private, cached
         private FieldInfo?     _screenRendererField;   // TargetCam.targetScreenRenderer — private, cached
+        private FieldInfo?     _onCamToggleField;      // TargetCam.onCamToggle event backing field — private, cached
         private bool           _reflectionTried;
         private bool           _engaged;               // true while we're actively capturing (for clean disengage logging)
         private bool           _active;                // last capture pushed a frame — mirrored into the snapshot
         private bool           _srcLogged;             // logged the source texture dimensions once
         private bool           _readbackInFlight;      // an AsyncGPUReadback is outstanding — skip new captures until it completes
         private TgpMirrorCam?  _mirror;                // only allocated once Quality != Native (see CaptureFrame)
+        private bool           _cockpitDisplaySuppressed;
+        private bool           _toggleMissingLogged;
+        private bool           _lastDiagWantsTgp;
+        private bool           _lastDiagSuppressSetting;
+        private bool           _lastDiagCockpitSuppressed;
+        private int            _lastDiagTargetCount = -2;
+        private TgpQuality     _lastDiagQuality;
 
         // Last capture pushed a frame — mirrored into the snapshot's TgpActive.
         public bool Active => _active;
@@ -65,6 +73,16 @@ namespace NOXMFD
         // Accumulate frame time and capture at Interval. Called every Update from the reader.
         public void Tick(float dt)
         {
+            if (!TelemetryServer.WantsTgpFrames || !SuppressNativeDisplay)
+            {
+                LogSuppressionState("gate-off", targetCount: -1);
+                RestoreNativeScreen(showTargetCam: true);
+            }
+            else
+            {
+                UpdateNativeSuppressionGate();
+            }
+
             _timer += dt;
             if (_timer < Interval) return;
             _timer = 0f;
@@ -86,36 +104,36 @@ namespace NOXMFD
             // on the transition out so we leave nothing allocated while idle.
             if (!TelemetryServer.WantsTgpFrames)
             {
+                RestoreNativeScreen(showTargetCam: true);
                 if (_engaged) Disengage();
                 return;
             }
 
             // No mission / no aircraft / no TGP component → drop any cached frame and bail.
             GameManager.GetLocalAircraft(out Aircraft ac);
-            if (ac == null) { ClearFeed(); return; }
+            if (ac == null) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay); return; }
             TargetCam? tc = ac.targetCam;
-            if (tc == null) { ClearFeed(); return; }
+            if (tc == null) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay); return; }
 
-            // Cache the three private fields once. cam = scene camera, UICam = overlay canvas
-            // camera, targetScreenRenderer = the in-cockpit display whose material is bound
-            // to the camera's render texture.
+            // Cache private fields once. cam = scene camera; targetScreenRenderer = the in-cockpit
+            // display material fallback for Native capture; onCamToggle is what TacScreen listens
+            // to when it shows/hides the cockpit TGP overlay over the normal radar screen.
             if (!_reflectionTried)
             {
-                _reflectionTried = true;
-                var t = typeof(TargetCam);
-                _camField            = t.GetField("cam",                  BindingFlags.NonPublic | BindingFlags.Instance);
-                _screenRendererField = t.GetField("targetScreenRenderer", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (_camField == null || _screenRendererField == null)
-                    Plugin.Log?.LogWarning("[NOXMFD] TGP: could not locate TargetCam private fields — feed disabled.");
+                CacheTargetCamFields();
             }
-            if (_camField == null || _screenRendererField == null) { ClearFeed(); return; }
+            if (_camField == null || _screenRendererField == null) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay); return; }
+
+            Camera? cam = _camField.GetValue(tc) as Camera;
+            Renderer? screenRenderer = _screenRendererField.GetValue(tc) as Renderer;
 
             // Only refresh the camTimeout while a target is actually locked — SetTargetCam
             // would crash on an empty list, and not calling it is what gives us the 3-second
             // post-loss hold (game's Update keeps aiming at the last targetPosition until
             // camTimeout expires).
             List<Unit>? targets = ac.weaponManager != null ? ac.weaponManager.GetTargetList() : null;
-            if (targets != null && targets.Count > 0)
+            bool hasTargets = targets != null && targets.Count > 0;
+            if (hasTargets)
             {
                 try { tc.SetTargetCam(); }
                 catch (Exception ex)
@@ -129,10 +147,11 @@ namespace NOXMFD
 
             // After the game's 3-second timeout expires, cam.enabled flips to false. Stop
             // pushing then so MJPEG clients see "no feed" and fall back to NO TARGET.
-            Camera? cam = _camField.GetValue(tc) as Camera;
-            if (cam == null || !cam.enabled) { ClearFeed(); return; }
+            cam = _camField.GetValue(tc) as Camera;
+            screenRenderer = _screenRendererField.GetValue(tc) as Renderer;
+            if (cam == null || !cam.enabled) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay); return; }
 
-            Texture src;
+            Texture? src;
             if (Quality == TgpQuality.Native)
             {
                 _mirror?.Disengage();
@@ -143,10 +162,10 @@ namespace NOXMFD
                 src = cam.targetTexture;
                 if (src == null)
                 {
-                    if (_screenRendererField.GetValue(tc) is Renderer rend && rend.material != null)
-                        src = rend.material.mainTexture;
+                    if (screenRenderer != null && screenRenderer.material != null)
+                        src = screenRenderer.material.mainTexture;
                 }
-                if (src == null) { ClearFeed(); return; }
+                if (src == null) { ClearFeed(showTargetCam: hasTargets, restoreCockpit: !SuppressNativeDisplay); return; }
             }
             else
             {
@@ -158,8 +177,9 @@ namespace NOXMFD
                 _mirror.Engage(tc, HqWidth, HqHeight);
                 _mirror.SyncFromSource(cam);
                 src = _mirror.Texture;
-                if (src == null) { ClearFeed(); return; }
+                if (src == null) { ClearFeed(showTargetCam: hasTargets, restoreCockpit: !SuppressNativeDisplay); return; }
             }
+            Texture source = src;
 
             // Overlay data (including the per-target lock box) projects through whichever camera
             // is actually producing the picture — cam itself for Native, the mirror camera for HQ
@@ -182,13 +202,21 @@ namespace NOXMFD
                 Plugin.Log?.LogDebug($"[NOXMFD] TGP overlay update threw: {ex.Message}");
             }
 
+            // Suppress only the cockpit's TargetCam overlay, not TargetCam.cam/UICam or any screen
+            // renderer/material. TacScreen receives the same toggle event the game uses and falls
+            // back to its normal radar/time content, while HQ still syncs from the live TargetCam.
+            if (SuppressNativeDisplay && hasTargets)
+                SuppressNativeScreen(tc);
+            else if (!SuppressNativeDisplay)
+                RestoreNativeScreen(showTargetCam: hasTargets);
+
             // Match the captured frame to the source's aspect ratio. Forcing a square output
             // squashed the in-game (wider-than-tall) feed; capturing at the native aspect lets
             // the MFD's object-fit:contain letterbox naturally, so the visible cam rectangle
             // shrinks and pixelation drops without distorting the picture. Cap at source size
             // — upsampling here adds no detail, just bytes.
-            int sw = Mathf.Max(1, src.width);
-            int sh = Mathf.Max(1, src.height);
+            int sw = Mathf.Max(1, source.width);
+            int sh = Mathf.Max(1, source.height);
             int targetW, targetH;
             int maxSide = Mathf.Max(sw, sh);
             if (maxSide <= MaxDim)
@@ -238,7 +266,7 @@ namespace NOXMFD
             // flush (a synchronous ReadPixels here would be the dominant per-frame cost).
             // The callback fires on the main thread once the GPU has the bytes ready (typically
             // 1–3 frames later); we then copy into _tex, encode, and push.
-            Graphics.Blit(src, _rt);
+            Graphics.Blit(source, _rt);
             _readbackInFlight = true;
             int captureW = targetW;
             int captureH = targetH;
@@ -329,18 +357,21 @@ namespace NOXMFD
         // itself has gone dark. Doesn't touch the buffers Disengage() releases — those guards fire
         // far more often than an actual disengage (every tick with no lock at all), so reallocating
         // them each time would be wasteful.
-        private void ClearFeed()
+        private void ClearFeed(bool showTargetCam, bool restoreCockpit = true)
         {
+            if (restoreCockpit)
+                RestoreNativeScreen(showTargetCam);
             TelemetryServer.ClearTgpFrame();
             _active = false;
             Overlay.Clear();
         }
 
-        // Release the buffers we lazily allocate during capture and clear the published
-        // frame. Safe to call from the gating fast-path or from the reader's OnDestroy. We never
-        // swap any game-side RTs, so there's nothing to restore.
+        // Release the buffers we lazily allocate during capture, restore any native cockpit-screen
+        // state this instance suppressed, and clear the published frame. Safe to call from the
+        // gating fast-path or from the reader's OnDestroy.
         public void Disengage()
         {
+            RestoreNativeScreen(showTargetCam: true);
             if (_rt  != null) { _rt.Release();  UnityEngine.Object.Destroy(_rt);  _rt  = null; }
             if (_tex != null) {                 UnityEngine.Object.Destroy(_tex); _tex = null; }
             _mirror?.Disengage();
@@ -354,6 +385,94 @@ namespace NOXMFD
             Overlay.Clear();              // stale overlay data shouldn't linger once the feed goes idle
             TelemetryServer.ClearTgpFrame();
             if (wasEngaged) Plugin.Log?.LogInfo("[NOXMFD] TGP: disengaged (no subscribers).");
+        }
+
+        private void CacheTargetCamFields()
+        {
+            if (_reflectionTried) return;
+            _reflectionTried = true;
+            var t = typeof(TargetCam);
+            _camField            = t.GetField("cam",                  BindingFlags.NonPublic | BindingFlags.Instance);
+            _screenRendererField = t.GetField("targetScreenRenderer", BindingFlags.NonPublic | BindingFlags.Instance);
+            _onCamToggleField    = t.GetField("onCamToggle",          BindingFlags.NonPublic | BindingFlags.Instance);
+            if (_camField == null || _screenRendererField == null)
+                Plugin.Log?.LogWarning("[NOXMFD] TGP: could not locate TargetCam private fields — feed disabled.");
+        }
+
+        private void UpdateNativeSuppressionGate()
+        {
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            if (ac == null || ac.targetCam == null)
+            {
+                RestoreNativeScreen(showTargetCam: false);
+                return;
+            }
+
+            TargetCam tc = ac.targetCam;
+            List<Unit>? targets = ac.weaponManager != null ? ac.weaponManager.GetTargetList() : null;
+            int targetCount = targets != null ? targets.Count : 0;
+            LogSuppressionState("gate", targetCount);
+            SuppressNativeScreen(tc);
+        }
+
+        private void SuppressNativeScreen(TargetCam tc)
+        {
+            if (!_cockpitDisplaySuppressed)
+                Plugin.Log?.LogInfo($"[NOXMFD] TGP cockpit hide: ON (quality={Quality}).");
+            InvokeTargetCamToggle(tc, enabled: false);
+            _cockpitDisplaySuppressed = true;
+        }
+
+        private void RestoreNativeScreen(bool showTargetCam)
+        {
+            if (!_cockpitDisplaySuppressed)
+                return;
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            TargetCam? tc = ac != null ? ac.targetCam : null;
+            Plugin.Log?.LogInfo($"[NOXMFD] TGP cockpit hide: OFF (showTargetCam={showTargetCam}, hasTargetCam={tc != null}).");
+            if (showTargetCam && tc != null)
+                InvokeTargetCamToggle(tc, enabled: true);
+            _cockpitDisplaySuppressed = false;
+        }
+
+        private void LogSuppressionState(string reason, int targetCount)
+        {
+            bool wants = TelemetryServer.WantsTgpFrames;
+            bool changed = wants != _lastDiagWantsTgp ||
+                           SuppressNativeDisplay != _lastDiagSuppressSetting ||
+                           _cockpitDisplaySuppressed != _lastDiagCockpitSuppressed ||
+                           targetCount != _lastDiagTargetCount ||
+                           Quality != _lastDiagQuality;
+            if (!changed) return;
+
+            Plugin.Log?.LogInfo(
+                $"[NOXMFD] TGP cockpit hide state ({reason}): wants={wants}, setting={SuppressNativeDisplay}, quality={Quality}, targets={(targetCount < 0 ? "n/a" : targetCount.ToString())}, suppressed={_cockpitDisplaySuppressed}.");
+
+            _lastDiagWantsTgp = wants;
+            _lastDiagSuppressSetting = SuppressNativeDisplay;
+            _lastDiagCockpitSuppressed = _cockpitDisplaySuppressed;
+            _lastDiagTargetCount = targetCount;
+            _lastDiagQuality = Quality;
+        }
+
+        private void InvokeTargetCamToggle(TargetCam tc, bool enabled)
+        {
+            if (_onCamToggleField?.GetValue(tc) is Action<TargetCam.OnCamToggle> toggle)
+            {
+                toggle.Invoke(new TargetCam.OnCamToggle
+                {
+                    enabled = enabled,
+                    camMode = TargetCam.CamMode.targetForward
+                });
+            }
+            else
+            {
+                if (!_toggleMissingLogged)
+                {
+                    _toggleMissingLogged = true;
+                    Plugin.Log?.LogDebug("[NOXMFD] TGP: TargetCam onCamToggle event not found; cockpit suppression skipped.");
+                }
+            }
         }
     }
 }

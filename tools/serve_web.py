@@ -257,12 +257,31 @@ def _wpt_options():
     }).encode("utf-8")
 
 
-# Mock of the plugin's /rates-config (cfg-rates experiment, issue #39), so the /rates page's two
-# sliders and the TGP quality picker have something to initialize from in the harness. The write
+# Mock of the plugin's /rates-config, so MAP CFG/TGP CFG controls have something to initialize
+# from in the harness. The write
 # side (rates.set) has no mock — commands POST and are swallowed — so moving a slider/button here
 # won't change this response; that path is only testable in game.
 def _rates_config():
-    return json.dumps({"fastHz": 10, "tgpHz": 15, "tgpQuality": "native"}).encode("utf-8")
+    return json.dumps({
+        "fastHz": 10,
+        "tgpHz": 15,
+        "tgpQuality": "native",
+        "tgpSuppressNative": False
+    }).encode("utf-8")
+
+
+def _rates_config_merged():
+    val = _asset_json("rates-config")
+    if val is None:
+        return _rates_config()
+    merged = {
+        "fastHz": 10,
+        "tgpHz": 15,
+        "tgpQuality": "native",
+        "tgpSuppressNative": False
+    }
+    merged.update(val)
+    return json.dumps(merged).encode("utf-8")
 
 
 # WPT showcase route (issue #38) — a real route drawn by hand in this harness (6 waypoints, a loop
@@ -681,7 +700,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         if path == '/keybinds-config':
             return self._send(_keybinds_config(), 'application/json; charset=utf-8')
         if path == '/rates-config':
-            return self._send(_captured_or('rates-config', _rates_config), 'application/json; charset=utf-8')
+            return self._send(_rates_config_merged(), 'application/json; charset=utf-8')
         if path == '/map-view':
             try:
                 return self._send(_map_page(), 'text/html; charset=utf-8')

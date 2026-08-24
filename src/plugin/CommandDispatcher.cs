@@ -30,6 +30,7 @@ namespace NOXMFD
                                 // wpt.* : route/waypoint display name
                                 // preset.save / preset.rename : preset name
                                 // rates.set (group "tgpQuality") : "native" | "hq"
+                                // rates.set (group "tgpSuppressNative") : "on" | anything else
         public string? group;  // tgt.set / tgt.only : "faction" | "category" | "vehicle"
                                 // combat-mode.set : "all" | "aa" | "ag"
                                 // avn.toggle : "gear" | "radar" | "guns" | "eng" | "assist" | "nvg" |
@@ -78,11 +79,12 @@ namespace NOXMFD
                 { "avn.toggle",      AvnToggle },
                 { "avn.set",         AvnSet },
                 // MAP CFG's and TGP CFG's sliders/picker. group selects which: "tgp" is the camera
-                // feed rate, "tgpQuality" is the HQ mode picker (payload in wname, not hz), anything
-                // else (default "fast") is the main 10 Hz tick.
+                // feed rate, "tgpQuality" is the HQ mode picker, "tgpSuppressNative" is the cockpit
+                // TargetCam overlay suppression toggle, anything else (default "fast") is the main 10 Hz tick.
                 { "rates.set",       e => {
                     if (e.group == "tgp") RatesConfig.SetTgpHz(e.hz);
                     else if (e.group == "tgpQuality") RatesConfig.SetTgpQuality(e.wname ?? "native");
+                    else if (e.group == "tgpSuppressNative") RatesConfig.SetTgpSuppressNative(e.wname == "on" || e.on);
                     else RatesConfig.SetFastHz(e.hz);
                 } },
                 { "master-arms.set", e => ImmersionState.MasterArmsOn = e.on },

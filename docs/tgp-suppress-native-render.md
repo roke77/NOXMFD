@@ -1,50 +1,78 @@
-# TGP — suppress native render while HQ is active (planning)
+# TGP - suppress native cockpit screen while external feed is active
 
 ## Status
 
-**Planning.** Not started. Requested after `docs/tgp-high-quality-mode.md` shipped, as a follow-up
-that only makes sense once HQ mode exists.
+**Implemented on `tgp-suppress-native-render`, with one known visual race still open.** Config,
+TGP CFG UI, `/rates-config`, `rates.set`, and `TgpFeed` integration are built and have been
+live-tested in LOW/native and HIGH/HQ modes.
+
+Live testing rejected the first camera-toggle approach. Disabling `TargetCam.cam`/`UICam` made the
+external HQ feed lose the game's normal target zoom/FOV tracking until another game UI path, such
+as opening the in-game map, woke that state back up. Current implementation therefore leaves
+`TargetCam.cam` and `UICam` enabled.
+
+Live testing also rejected renderer/material approaches:
+
+- `targetScreenRenderer.enabled = false` removed a front cockpit/airframe section on the T/A-30,
+  because that renderer owns more than the display glass.
+- A narrow `material.mainTexture` swap was not enough; the cockpit video stayed visible.
+- Blanking every reported material texture slot overreached and blacked other cockpit display
+  content.
+
+Current implementation keeps the renderer, materials, and cameras enabled. It uses the game's own
+`TargetCam.onCamToggle` event to tell `TacScreen` to hide only its `targetCamDisplay` overlay,
+letting the cockpit MFD fall back to its normal radar/time content while the external feed still
+syncs from the live TargetCam state. The hide is reasserted while an external TGP page is
+subscribed, not only while a target is locked.
+
+This should be treated as primarily cosmetic. It removes the duplicate moving cockpit TGP picture
+while the external TGP feed is active, but it should not be sold as a meaningful GPU saving unless
+future profiling proves this display-overlay suppression is measurable.
+
+Known remaining issue: rapid target deselect/reselect can still flash the cockpit TGP overlay for a
+brief instant. Reasserting suppression every frame, preserving suppression through capture cleanup,
+and switching from a post-target-loss grace period to indefinite suppression while the external TGP
+page is open did **not** fully eliminate the flash. This points to a game-side `TacScreen`/target
+transition repaint or toggle happening after NOXMFD's per-frame suppression call. A complete fix
+likely needs a deeper Harmony hook around the game's own show/toggle path rather than another
+polling timer.
 
 ## Goal
 
-When TGP quality is **HQ**, the game keeps rendering the native in-cockpit `TargetCam` picture at
-the same time NOXMFD's `TgpMirrorCam` renders the external feed — two cameras, two pictures, of
-the same target. Let the player suppress the native one while HQ is active:
+When the external TGP feed is active, the game also shows the native in-cockpit `TargetCam` picture.
+The player may want the external MFD to be the only visible TGP picture, whether the external feed
+is LOW/native or HIGH/HQ.
 
-- **Primarily cosmetic.** A player who only looks at the external HQ feed (a second monitor, a
-  tablet MFD) doesn't want the in-cockpit screen showing a different, lower-quality picture at the
-  same time. This is the main ask — ship it even if the perf win turns out to be negligible.
-- **Secondarily, a small perf win, if it's real.** Skipping a render pass should cost less GPU
-  time. "If possible" — this document's job is to find out how much, and whether it can be done
-  without side effects, before promising it.
+Add an opt-in toggle on the TGP CFG page:
 
-Opt-in, TGP CFG page, next to the existing quality picker. Off by default — suppressing the
-cockpit screen is a bigger behavioral change than picking HQ itself, and shouldn't surprise anyone
-who didn't ask for it.
+- Off by default.
+- Available in both LOW/native and HIGH/HQ quality modes.
+- Persisted through `RatesConfig`.
+- Restored cleanly when the toggle is disabled, the TGP page closes, the aircraft changes, or the
+  plugin shuts down.
 
-## The complication: NOXMFD already drives the thing it would suppress
+## Why Not Disable The Camera?
 
-This isn't a fresh camera to gate — `TgpFeed.CaptureFrame()` (`src/plugin/TgpFeed.cs:113-133`)
-already touches `TargetCam` every tick, for reasons unrelated to this feature:
+`TgpFeed.CaptureFrame()` already drives the game's `TargetCam` each capture tick:
 
 ```csharp
 if (targets != null && targets.Count > 0)
 {
-    try { tc.SetTargetCam(); }   // keeps the native cam's camTimeout alive
-    ...
+    tc.SetTargetCam();
 }
+
 Camera? cam = _camField.GetValue(tc) as Camera;
 if (cam == null || !cam.enabled) { ClearFeed(); return; }
 ```
 
-`SetTargetCam()` is what keeps `cam.enabled` true while a target is locked — NOXMFD calls it
-every capture tick specifically so the mirror cam (in HQ mode) still gets a live FOV/mount to
-copy from `SyncFromSource(cam)`. **Confirmed against the decompiled source
-(`_scratch/full/TargetCam.cs:289-332`):** `SetTargetCam()` gates its whole mount/FOV/position/mode
-reset block on `if (!cam.enabled)`:
+That is required even in HQ mode. `TgpMirrorCam.SyncFromSource(cam)` copies the native camera's
+mount, FOV, clip planes, and orientation so the external feed tracks the same target state as the
+game.
+
+The decompiled `TargetCam.SetTargetCam()` resets mount/FOV/position/mode whenever `cam.enabled`
+is false:
 
 ```csharp
-// TargetCam.SetTargetCam(), decompiled
 if (!cam.enabled)
 {
     currentMount = camMountForward;
@@ -56,87 +84,48 @@ if (!cam.enabled)
     cam.farClipPlane = 60000f;
     currentMode = CamMode.targetForward;
     cam.enabled = true;
-    ...
 }
 camTimeout = 3f;
-...
 ```
 
-So this isn't a race that might lose — it's a guaranteed hit. If `TgpFeed` leaves `cam.enabled ==
-false` from the previous tick's suppression and then calls `SetTargetCam()`, the game snaps the
-mount back to `camMountForward`, resets FOV to `10f`, and re-enables the camera — every tick,
-whether or not the mount/FOV actually needs resetting. `TgpMirrorCam.SyncFromSource(cam)` then
-copies that clobbered FOV, so the HQ mirror's zoom-on-target behavior would visibly break (FOV
-pinned near 10° instead of tracking the target) the moment suppression is turned on. This is not
-an unverified risk anymore — it is the implementation shape the feature must use:
+Live testing confirmed the practical consequence: toggling camera `enabled` interfered with the
+game's own zoom/FOV behavior. That design is ruled out for this feature.
 
-**Restore-before-drive, every tick:**
+## Current Implementation Shape
 
-1. If native render was suppressed last tick, set `cam.enabled = true` again *before* calling
-   `SetTargetCam()` — so the `!cam.enabled` branch doesn't fire and nothing gets reset.
-2. Call `SetTargetCam()` as today; target state, FOV, mount, IR, and `camTimeout` update normally.
-3. `SyncFromSource(cam)` for the mirror cam, as today — now reading the real, undisturbed FOV.
-4. Re-suppress: `cam.enabled = false`, after the game's own render pass for this frame (see the
-   ordering note below), so the frozen frame stays current with the state that was just computed.
-5. Restore `cam.enabled = true` permanently on every exit path: quality switches back to Native,
-   the toggle is switched off, no subscribers, no aircraft, `cam`/`TargetCam` gone, or plugin
-   `OnDestroy` — same discipline `TgpMirrorCam.Disengage()` already follows for the mirror rig.
+`TgpFeed` now suppresses only the cockpit TargetCam overlay:
 
-Step 4's "after the game's own render pass" is itself unverified — `TgpFeed.CaptureFrame()` runs
-on `Update()`, and whether toggling `enabled` there lands before or after Unity's render for that
-frame determines whether *this* frame or *next* frame is the one suppressed. Off-by-one-frame
-either way is harmless for a cosmetic freeze; it only matters if it causes flicker (enabled for a
-half-frame, visible as a flash) — verify visually once built.
+1. Reflect `TargetCam.cam` as before.
+2. Reflect `TargetCam.targetScreenRenderer`.
+3. Call `SetTargetCam()` while a target is locked, as before.
+4. Sync `TgpMirrorCam` from the native camera, as before.
+5. Populate the HQ overlay, as before.
+6. If suppression is enabled and an external TGP page is subscribed, invoke
+   `TargetCam.onCamToggle` with `{ enabled = false, camMode = targetForward }`.
+7. Run that hide check every frame, separate from the configured TGP capture Hz, and keep
+   reasserting it even when there is no locked target.
+8. Capture cleanup may clear the external frame and overlay data, but does not restore the
+   cockpit overlay while suppression is enabled; the suppression gate owns restore timing.
+9. When suppression ends, invoke the same event with `enabled = true` so the cockpit TargetCam
+   overlay can return if the target camera is still active.
 
-## `UICam`: the overlay camera, not just `cam`
+The feature intentionally does **not** touch:
 
-The native feed the pilot sees in-cockpit is not one camera — `TargetCam` creates **two** on
-`Initialize()` (`TargetCam.cs:127-129`):
+- `TargetCam.cam.enabled`
+- `UICam.enabled`
+- `Renderer.enabled`
+- material textures
+- camera render targets
+- `TargetCam` component state
+- target lock state
+- zoom/FOV state
+- mount selection
+- IR mode
+- `TgpMirrorCam`
 
-```csharp
-Camera[] componentsInChildren = UnityEngine.Object.Instantiate(GameAssets.i.targetCam, currentMount).GetComponentsInChildren<Camera>();
-cam   = componentsInChildren[0];   // scene camera — what TgpFeed reflects into today
-UICam = componentsInChildren[1];   // overlay camera — the targeting reticle/box drawn on screen
-```
+## Toggle Wiring
 
-`TgpFeed` only ever reflects into `cam` (`_camField`) — it has no `UICam` field at all, so today's
-Native capture path only ever reads the scene picture, never the overlay. That's fine for
-capture (the overlay is redrawn client-side from `TgpOverlay` data instead, per
-`docs/tgp-high-quality-mode.md`'s "What actually shipped"), but it means this feature's own
-`_camField`-only view of the world is incomplete for *suppression*: disabling `cam` alone may
-still leave `UICam` rendering the in-cockpit reticle over a frozen/stale scene, or may not — URP
-camera stacking usually drives overlay cameras through their base camera's own render call, which
-would mean disabling `cam` silently stops `UICam` too, with no separate action needed. This is
-plausible from the stacking pattern but **not confirmed** by anything read so far, and is exactly
-the kind of assumption that caused the swap-based approach's own overlay-positioning bug
-(`docs/tgp-high-quality-mode.md`'s "Why this is a separate planning doc"). Add a
-`_uiCamField` reflection lookup alongside `_camField` during implementation, and verify in-cockpit
-whether `UICam` needs its own suppress/restore step or genuinely rides along with `cam`'s.
-
-## Camera safety
-
-`docs/tgp-high-quality-mode.md` already surfaces the reference mod's `CAMERA_SAFETY.md`: don't
-touch `CameraStateManager.mainCamera`, `cameraPivot`, or `cameraMode`, and don't Harmony-block
-`CameraBaseState.UpdateState`. `TargetCam.cam` is not in that forbidden list — it's the same
-camera `TgpFeed` already reflects into for the Native capture path — so toggling its `enabled`
-flag is a smaller intervention than anything that doc warns against. Still: **don't disable the
-`TargetCam` component itself**, only its `cam`'s render. `TargetCam` also owns target-lock state,
-zoom, mount selection, and IR mode, all of which the overlay and the mirror cam depend on and must
-keep working exactly as today.
-
-## What "suppressed" should mean
-
-The camera's last-rendered frame stays in its `RenderTexture` until something renders into it
-again — `cam.enabled = false` freezes the cockpit screen on whatever it last showed, it doesn't
-blank it. That's likely fine (arguably better — a frozen "last real picture" reads less like a
-bug than a blank panel), but confirm it looks acceptable in-cockpit before treating it as
-final; a static placeholder texture is a fallback if the frozen frame looks broken (e.g. mid-pan
-motion blur baked in).
-
-## Toggle wiring
-
-Follows `RatesConfig`'s existing shape exactly (`src/plugin/RatesConfig.cs`) — a `ConfigEntry`,
-a setter, live-apply on bind:
+`RatesConfig` owns the persisted option:
 
 ```csharp
 private static ConfigEntry<bool>? _tgpSuppressNative;
@@ -145,101 +134,120 @@ public static bool TgpSuppressNative => _tgpSuppressNative?.Value ?? false;
 public static void SetTgpSuppressNative(bool on)
 {
     if (_tgpSuppressNative != null) _tgpSuppressNative.Value = on;
-    TgpFeed.SuppressNativeInHq = on;
+    TgpFeed.SuppressNativeDisplay = on;
 }
 ```
 
-Bound in the same `"Refresh Rates"` section, hidden from F1 like its siblings. `rates.set` gets
-one more `group`, matching the `"tgpQuality"` pattern in `CommandDispatcher.cs:74-81`:
+`CommandDispatcher` handles:
 
 ```csharp
-else if (e.group == "tgpSuppressNative") RatesConfig.SetTgpSuppressNative(e.wname == "on");
+rates.set { group: "tgpSuppressNative", wname: "on" | "off", on: bool }
 ```
 
-`/rates-config`'s response payload gains one more field (`tgpSuppressNative: bool`) alongside
-`tgpQuality`, read by `tgpcfg.js` on load like the others.
+`/rates-config` includes:
 
-### TGP CFG page
+```json
+{
+  "tgpSuppressNative": false
+}
+```
 
-A third control under the existing HQ quality row in `src/web/pages/tgpcfg/tgpcfg.html` — a
-checkbox or small toggle button, **disabled/hidden while quality is NATIVE** (it has no effect
-there, so don't offer it — mirrors how the HQ warning banner already only shows for `quality !==
-'native'` in `tgpcfg.js:44`). Label something like "HIDE COCKPIT FEED WHILE HQ" with a one-line
-description: freezes the in-cockpit TGP screen while HQ is active, so you're not watching two
-different pictures at once.
+`tgpcfg` shows the control under the quality picker. It remains available for both LOW/native and
+HIGH/HQ quality modes.
 
-## Implementation sketch
+UI details captured during testing:
 
-1. `TgpFeed` gets `internal static bool SuppressNativeInHq;` (same pattern as `Quality`), plus a
-   private `bool _nativeSuppressed;` to track whether *this instance* currently has `cam`/`UICam`
-   disabled — needed because step 2 below must know whether to restore before driving.
-2. In `CaptureFrame()`, **before** the `targets.Count > 0` block that calls `SetTargetCam()`: if
-   `_nativeSuppressed`, set `cam.enabled = true` (and `UICam.enabled = true`, pending the `UICam`
-   open question above) so `SetTargetCam()`'s `!cam.enabled` branch doesn't fire and clobber
-   mount/FOV. Then call `SetTargetCam()` as today.
-3. After `SyncFromSource(cam)` (mirror cam) and the overlay `Populate()` call, if
-   `Quality == TgpQuality.HighQuality && SuppressNativeInHq`: set `cam.enabled = false` (+`UICam`
-   if needed), `_nativeSuppressed = true`. Otherwise `_nativeSuppressed = false` and leave both
-   enabled.
-4. Restore on every exit path — `ClearFeed()`, `Disengage()`, and the toggle/quality setters
-   themselves (`RatesConfig.SetTgpSuppressNative`/`SetTgpQuality` forwarding into `TgpFeed`) — set
-   `cam.enabled = true` (+`UICam`) and `_nativeSuppressed = false` unconditionally. This must not
-   depend on another `CaptureFrame()` tick running afterward (e.g. mission exit, plugin destroy,
-   or the player un-locking a target all stop ticking `SetTargetCam()`'s reset branch, so an
-   exit-path restore is the only thing that un-freezes the screen in those cases).
-5. Verify: does the toggle-off restore (step 4) itself trigger a visible mount/FOV snap, since
-   `cam.enabled` was false and the next real `SetTargetCam()` call will hit the same `!cam.enabled`
-   reset branch? Likely yes and likely fine (it's the same reset that already happens on a fresh
-   lock today), but confirm it doesn't look like a glitch rather than a expected re-init.
+- `TGP - CAMERA FEED` was renamed to `TGP - REFRESH RATE`.
+- `TGP - COCKPIT FEED` was renamed to `TGP - HIDE COCKPIT FEED`.
+- The toggle row follows the KEY page's row shape: label/description on the left, toggle pushed
+  right on the same line.
+- The ON hover state keeps text readable on the green background.
+- The toggle must not be hidden or disabled in LOW/native mode; suppression applies in both LOW and
+  HIGH whenever it is ON and a TGP page is subscribed.
 
-## Open questions to settle before implementing
+## Live Findings
 
-- **Does `UICam` need its own suppress/restore, or does disabling `cam` take it with it?**
-  Resolved by inspection whether it's a genuine open question — check how `GameAssets.i.targetCam`
-  wires its URP camera stack (does `cam` list `UICam` as a stacked overlay?) before assuming
-  either answer; confirm live in-cockpit either way.
-- **Frame-timing of the suppress/restore toggle** (implementation sketch step 3/5's ordering) —
-  does flipping `cam.enabled` inside `Update()` suppress *this* frame or *next* frame, and does
-  the toggle-off restore cause a visible mount/FOV snap? Cosmetic-only concerns, but worth an
-  in-cockpit look before calling this done.
-- **Is the perf win measurable at all?** Restore `PerfLog` (per `docs/tgp-high-quality-mode.md`'s
-  own pre-flight note — it's the only instrument that answers this) and compare `frame(tgpOpen)`
-  HQ-with-suppress vs HQ-without, both with a target locked. If the saving is in the noise, ship
-  the toggle purely as the cosmetic feature it was asked for and say so plainly in the CFG page
-  copy — don't oversell a perf benefit that isn't real.
+### Rejected approaches
 
-## Fallback if the restore-before-drive pattern doesn't hold up
+- **Disable `TargetCam.cam`/`UICam`: rejected.** It broke or desynced normal TGP zoom/FOV tracking
+  in the external HQ feed. Opening the in-game map could make zoom start working again, which is a
+  strong sign this path interferes with the game's own camera/UI state ordering.
+- **Disable `targetScreenRenderer`: rejected.** On the T/A-30 it removed a whole visible forward
+  cockpit/airframe section, not only the MFD glass.
+- **Swap only `material.mainTexture`: rejected.** The cockpit TGP picture remained visible.
+- **Blank all material texture slots: rejected.** It overreached and blacked unrelated cockpit
+  display content.
 
-The design above (restore → drive → re-suppress, every tick) is the intended implementation, not
-a maybe — the decompiled source confirms the naive "just set `cam.enabled = false` after HQ
-capture" shape would fight `SetTargetCam()`'s own reset every tick, so that naive shape is already
-ruled out, not a fallback to fall into accidentally. If the restore-before-drive pattern *itself*
-still produces visible glitches once built (frame-timing flicker, a mount/FOV snap on toggle,
-`UICam` not cooperating), the feature does not ship silently degraded to a no-op — **no feature
-ships until a cosmetic-only alternative is found**, such as swapping the cockpit screen's
-material/texture to a static placeholder instead of toggling the camera at all (parallel to the
-"IR mode" section of `docs/tgp-high-quality-mode.md`, which chose a CPU post-process over fighting
-the game's own camera-bound IR volume for the same kind of reason). Don't ship a version of this
-toggle that quietly does nothing when switched on.
+### Confirmed working pieces
 
-## Out of scope
+- Invoking `TargetCam.onCamToggle(false)` hides only the cockpit TargetCam overlay and lets the
+  cockpit display show its normal radar/time content.
+- Leaving `TargetCam.cam`, `UICam`, render targets, renderers, and materials alone preserves the
+  external feed's target tracking and HQ mirror sync.
+- The feature works in both LOW/native and HIGH/HQ modes.
+- The external TGP feed continues to work while the cockpit overlay is hidden.
+- The default radar/content fallback appears correctly when the cockpit TGP overlay is hidden.
+  The radar sweep animation may be absent in that fallback during suppression, but that was judged
+  acceptable for now.
+- Build/deploy and browser-side page tests pass with the current implementation.
 
-- Native mode. This toggle has no meaning and no effect unless `Quality == HighQuality`.
-- Suppressing the overlay data (`TgpOverlay`), target-lock state, zoom, or mount selection — none
-  of that changes; only the native camera's own render output is affected.
-- Any change to `TgpMirrorCam` or the HQ capture pipeline itself.
-- Auto-enabling this based on framerate or any other heuristic — same reasoning
-  `tgp-high-quality-mode.md` already gives for not auto-falling-back on quality: the player chooses
-  explicitly.
+### Debugging lessons
 
-## Pre-flight before implementing
+- The first anti-flicker attempt used a `1.25s` post-target-loss hold. Logs showed the timer was
+  being initialized, but `ClearFeed()` restored the cockpit overlay almost immediately with nearly
+  the full hold still remaining.
+- `ClearFeed()` was changed so capture cleanup can clear NOXMFD's published external frame and
+  overlay data without also restoring the cockpit overlay while suppression is enabled.
+- After that fix, logs confirmed the hold timer counted down correctly, but live testing still
+  showed a brief flash on fast deselect/reselect.
+- The current implementation removed the hold and instead keeps suppression active indefinitely
+  while a TGP page is subscribed and the toggle is ON. Live testing still showed a flash, which
+  strongly suggests the remaining issue is not ordinary NOXMFD cleanup timing.
 
-- Read `docs/tgp-high-quality-mode.md` in full, especially "Camera safety constraints in this
-  game" and "What actually shipped" — this feature only exists because HQ mode does, and inherits
-  its constraints.
-- Re-read `_scratch/full/TargetCam.cs`'s `Initialize()` and `SetTargetCam()` — already read once
-  for this doc (see "The complication" and "`UICam`" above), but re-confirm against whatever
-  version is on disk if time has passed, and check `GameAssets.i.targetCam`'s stack setup for the
-  `UICam` question.
-- Restore `src/plugin/PerfLog.cs` from history (same note `tgp-high-quality-mode.md` ends on) if
-  the perf claim is going to be measured rather than assumed.
+### Remaining problem
+
+Rapidly deselecting/reselecting targets can still produce a brief in-cockpit TGP flash. Since the
+flash survives continuous per-frame suppression, the likely cause is that the game re-shows or
+repaints `TacScreen.targetCamDisplay` during its own target transition after NOXMFD has already
+sent the hide event for that frame.
+
+Potential next investigation:
+
+- Decompile the relevant `TacScreen` target-camera display update/toggle path.
+- Identify the exact method that reacts to target selection/loss and re-enables the target-camera
+  display.
+- Consider a narrow Harmony postfix/prefix that prevents `targetCamDisplay` from being enabled
+  while `TgpFeed.SuppressNativeDisplay && TelemetryServer.WantsTgpFrames`.
+- Keep avoiding camera/renderer/material mutation unless a deeper inspection proves a safer,
+  display-only target exists.
+
+## Verification Checklist
+
+- LOW/HIGH + suppression OFF: native cockpit screen and external feed behave as before.
+- LOW/HIGH + suppression ON: cockpit display shows its normal radar/time content, external feed
+  keeps normal target zoom/FOV.
+- Toggle OFF while locked: cockpit screen returns cleanly.
+- Switch quality while suppression is ON: cockpit suppression remains active.
+- Close the external TGP page while suppression is ON: cockpit screen returns cleanly.
+- Lose target while suppression is ON: cockpit TargetCam overlay remains hidden while the external
+  TGP page is subscribed; native `camTimeout` behavior remains game-owned.
+- Rapidly deselect/reselect targets while suppression is ON: known remaining problem. Brief cockpit
+  TargetCam flash may still occur.
+- No exceptions or noisy log spam in `Player.log`.
+
+## Open Questions
+
+- Does invoking `onCamToggle(false)` have any side effect beyond `TacScreen.targetCamDisplay` and
+  the hidden time widget? Decompile says no for current `TacScreen`, but test across aircraft.
+- Is there any measurable performance change? Because the cameras and renderer remain enabled,
+  expect little or no GPU render-pass saving from this safe implementation.
+- Can a narrow `TacScreen` hook eliminate the remaining fast deselect/reselect flash without
+  touching camera state or cockpit renderers?
+
+## Out Of Scope
+
+- Native/LOW capture behavior beyond hiding the cockpit TargetCam overlay.
+- Auto-enabling based on framerate or client count.
+- Suppressing `TgpOverlay` data.
+- Any new HQ capture pipeline changes.
+- Camera-state interventions warned against by `docs/tgp-high-quality-mode.md`.

@@ -4,9 +4,9 @@ using UnityEngine;
 namespace NOXMFD
 {
     // Live-adjustable refresh rates: FastHz (MAP CFG page) drives TelemetryReader.FastInterval
-    // (own-ship, weapons, contacts, TGT, BDF/PAL); TgpHz/TgpQuality (TGP CFG page) drive
-    // TgpFeed.Interval/Quality. Persisted, hidden from the F1 menu. Setting any of them writes
-    // directly into the reader's/feed's own field, live.
+    // (own-ship, weapons, contacts, TGT, BDF/PAL); TgpHz/TgpQuality/TgpSuppressNative (TGP CFG page)
+    // drive TgpFeed. Persisted, hidden from the F1 menu. Setting any of them writes directly into
+    // the reader's/feed's own field, live.
     internal static class RatesConfig
     {
         private sealed class ConfigurationManagerAttributes { public bool? Browsable; }
@@ -23,10 +23,12 @@ namespace NOXMFD
         private static ConfigEntry<float>?  _fastHz;
         private static ConfigEntry<float>?  _tgpHz;
         private static ConfigEntry<string>? _tgpQuality;
+        private static ConfigEntry<bool>?   _tgpSuppressNative;
 
         public static float FastHz => _fastHz?.Value ?? 10f;
         public static float TgpHz  => _tgpHz?.Value  ?? 15f;
         public static string TgpQualityName => _tgpQuality?.Value ?? "native";
+        public static bool TgpSuppressNative => _tgpSuppressNative?.Value ?? false;
 
         public static void SetFastHz(float hz)
         {
@@ -55,6 +57,13 @@ namespace NOXMFD
             TgpFeed.Quality = quality;
         }
 
+        public static void SetTgpSuppressNative(bool on)
+        {
+            if (_tgpSuppressNative != null) _tgpSuppressNative.Value = on;
+            TgpFeed.SuppressNativeDisplay = on;
+            Plugin.Log?.LogInfo($"[NOXMFD] TGP cockpit feed hide = {on}.");
+        }
+
         // Applies the persisted (or default) Hz to the reader/feed immediately on bind.
         public static void Bind(ConfigFile config)
         {
@@ -65,10 +74,13 @@ namespace NOXMFD
                 new ConfigDescription("TGP camera feed capture rate. 1-60 Hz.", null, Hidden));
             _tgpQuality = config.Bind(section, "TgpQuality", "native",
                 new ConfigDescription("TGP camera feed source: native or hq.", null, Hidden));
+            _tgpSuppressNative = config.Bind(section, "TgpSuppressNative", false,
+                new ConfigDescription("When the TGP feed is active, hide the native in-cockpit TGP overlay so the normal cockpit display remains visible.", null, Hidden));
 
             SetFastHz(_fastHz.Value);
             SetTgpHz(_tgpHz.Value);
             SetTgpQuality(_tgpQuality.Value);
+            SetTgpSuppressNative(_tgpSuppressNative.Value);
         }
     }
 }

@@ -160,6 +160,42 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   color: var(--no-panel-bg);
   background: var(--no-green);
 }
+.tcfg-setting.disabled {
+  opacity: 0.52;
+}
+#tcfg-tgp-suppress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tcfg-setting-text { flex: 1; }
+.tcfg-toggle {
+  flex: none;
+  margin-top: 0;
+  min-width: 72px;
+  padding: 8px 12px;
+  border: 1px solid var(--no-green-dim);
+  background: none;
+  color: var(--no-green-dim);
+  font-family: var(--no-font);
+  font-size: 11px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.tcfg-toggle:hover:not(:disabled) { border-color: var(--no-green); color: var(--no-green); }
+.tcfg-toggle.on {
+  border-color: var(--no-green);
+  color: var(--no-panel-bg);
+  background: var(--no-green);
+}
+.tcfg-toggle.on:hover:not(:disabled) {
+  color: var(--no-panel-bg);
+}
+.tcfg-toggle:disabled {
+  cursor: default;
+  border-color: var(--no-gray);
+  color: var(--no-gray);
+}
 /* #tcfg-tgp-quality-warning reuses .tcfg-hz-warning's look but is shown any time a non-Native
    quality is active, not just above a slider threshold. */
 #tcfg-tgp-quality-warning.shown { display: block; }

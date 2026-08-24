@@ -45,3 +45,8 @@ color — a basic simulated thermal look, not a full radiometric simulation.
 The feed's update rate is a live-adjustable slider on [TGP CFG](tgpcfg.md) — higher costs more
 CPU/GPU and network bandwidth, lower saves it at the cost of smoothness and latency. Defaults to
 15 Hz.
+
+## Cockpit feed
+
+[TGP CFG](tgpcfg.md) also has a HIDE COCKPIT FEED toggle. When enabled, the in-cockpit TGP picture
+is hidden while an external TGP page is open, leaving the external MFD as the only moving TGP feed.

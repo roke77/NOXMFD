@@ -5,10 +5,11 @@
 <title>NO XMFD — TGP CFG</title>
 <!--
   TGP's own CFG page, served at /tgpcfg. Reached from TGP's own nav row (nav-model.js's NAV.tgp),
-  not MD/CFG's MAIN-rooted sibling groups — same reasoning as WPT/MAPCFG. Two settings:
+  not MD/CFG's MAIN-rooted sibling groups — same reasoning as WPT/MAPCFG. Three settings:
     TGP  — the targeting-pod camera feed capture rate (TgpFeed.cs's Interval).
     HQ   — the feed's picture source: NATIVE (the game's own camera) or HQ (a separate,
            higher-resolution mirror camera — see docs/tgp-high-quality-mode.md).
+    COCKPIT FEED — optional hiding of the native in-cockpit TGP overlay.
   The main telemetry-tick slider lives on MAP's own CFG page instead (/mapcfg) — each page only
   carries the setting relevant to it.
   Fetch-driven like /keybinds: reads /rates-config once on load to set the slider position, then
@@ -32,7 +33,7 @@
 
   <div class="tcfg-setting" id="tcfg-tgp">
     <div class="tcfg-setting-text">
-      <div class="tcfg-name">TGP — CAMERA FEED</div>
+      <div class="tcfg-name">TGP — REFRESH RATE</div>
       <div class="tcfg-desc">The targeting-pod pane's capture rate. Independent of MAP's own
         telemetry rate (/mapcfg).</div>
     </div>
@@ -63,6 +64,15 @@
     </div>
     <div class="tcfg-hz-warning" id="tcfg-tgp-quality-warning">HQ is an early-pass feature — expect
       rough edges. It renders a second camera every frame and may cost noticeable FPS.</div>
+  </div>
+
+  <div class="tcfg-setting" id="tcfg-tgp-suppress">
+    <div class="tcfg-setting-text">
+      <div class="tcfg-name">TGP — HIDE COCKPIT FEED</div>
+      <div class="tcfg-desc">When ON, hide the in-cockpit TGP overlay so the cockpit display can show
+        its normal content and the external feed is the only TGP picture.</div>
+    </div>
+    <button class="tcfg-toggle" id="tcfg-tgp-suppress-btn">OFF</button>
   </div>
 
   <!-- shown while /rates-config is unreachable (plugin not running) -->

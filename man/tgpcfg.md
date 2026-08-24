@@ -1,7 +1,7 @@
 # TGP — CFG
 
-[TGP](tgp.md)'s own settings page, reached from TGP's CFG key. One live-adjustable slider plus a
-picture-quality toggle.
+[TGP](tgp.md)'s own settings page, reached from TGP's CFG key. It controls the feed refresh rate,
+picture quality, and an optional cockpit-feed hide toggle.
 
 ![TGP CFG page](images/TGP_CFG.jpeg)
 
@@ -23,6 +23,16 @@ Picks the feed's picture source:
   basic thermal-style black-and-white look when the pod is in IR mode. Costs an extra render pass —
   still an early-pass feature, expect rough edges.
 
+## HIDE COCKPIT FEED
+
+When ON, NO XMFD hides the game's in-cockpit TGP picture while an external TGP page is open, so the
+external MFD is the only moving TGP feed. The cockpit display falls back to its normal content
+instead.
+
+This applies in both LOW and HIGH quality. It is off by default and restores when the toggle is
+turned OFF or the external TGP page is closed. A very brief cockpit-feed flash can still happen
+during rapid target deselect/reselect transitions.
+
 ## RESET TO DEFAULTS
 
-Restores the slider to 15 Hz and the quality to LOW.
+Restores the slider to 15 Hz, quality to LOW, and HIDE COCKPIT FEED to OFF.
