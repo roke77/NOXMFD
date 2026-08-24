@@ -113,11 +113,11 @@ function applyOverlay(quality, data) {
     ovRelAlt.textContent = 'REL -'; ovRelSpd.textContent = 'REL -';
   }
 
-  // +180: a plain rotate(brg) (matching wpt.js's compass convention) landed exactly opposite the
-  // real needle across four confirmed clock positions (9/10/11/12 real -> 3/4/5/6 shown, a clean
-  // point reflection, not a mirror) — camMount's local yaw isn't nose-relative the way wpt.js's
-  // relativeBearing is; it's 180° off that. Confirmed by precise in-game clock-position reads
-  // rather than screenshot pixel-reading, unlike the two earlier guesses here.
+  // +180: camMount's local yaw isn't nose-relative the way wpt.js's relativeBearing is — it's 180°
+  // off that, so a plain rotate(brg) (matching wpt.js's compass convention) lands exactly opposite
+  // the real needle across four confirmed clock positions (9/10/11/12 real -> 3/4/5/6 shown, a
+  // clean point reflection, not a mirror). Confirmed via precise in-game clock-position reads, not
+  // screenshot pixel-reading — the latter isn't reliable enough for a calibration this exact.
   ovNeedle.style.transform = 'rotate(' + (data.brg + 180) + 'deg)';
   ovBrg.textContent = Math.round(data.brg) + '°';
   ovGrid.textContent = 'GRID: ' + data.grid;
