@@ -693,7 +693,7 @@ function avnNavLabelText(group) {
   const upper = group.toUpperCase();
   return upper.length > 4 ? upper.replace(/[AEIOU]/g, '') : upper;
 }
-function tgpMsg() { return { mfd: true, type: 'tgp', active: tgpActive }; }
+function tgpMsg() { return { mfd: true, type: 'tgp', active: tgpActive, quality: tgpQuality, data: tgpData }; }
 function forwardTgpToPanes() { forwardToPanes('tgp', tgpMsg()); }
 // Full-view TGP: forward the lock flag to the #page-frame iframe (the page toggles its feed).
 // No geometry to forward — the feed is a single centred box, not key-band rows.
@@ -1249,8 +1249,12 @@ function selWpnPageFull() {
 let cmData = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 
 // Latest TGP feed state mirrored from the map iframe. False until the first frame is
-// produced, and back to false during the 3-second post-loss hold's expiry.
+// produced, and back to false during the 3-second post-loss hold's expiry. tgpQuality/tgpData
+// are the HQ-mode stat overlay (docs/tgp-high-quality-mode.md) — data is null whenever there's
+// no lock, regardless of quality.
 let tgpActive = false;
+let tgpQuality = 'native';
+let tgpData = null;
 
 // Latest published slice per installed extension (docs/extensions-api.md), keyed by extension
 // id — mirrored from the map iframe the same way as every other slice above, just for a
@@ -1384,13 +1388,20 @@ function showPage(name) {
     const hasRoutes = WaypointsStore.load().routes.length > 0;
     const hasActiveRoute = !!WaypointsStore.getActiveRoute();
     mapFullRight(hasRoutes, hasActiveRoute).forEach(function (item, i) { placeOverlayLabel('right', i, item.label, item.action); });
-    placeMapDecorators({ bank: 'left', index: 3 });                  // ZOOM between Z+/Z- (left3/left4)
+    placeMapDecorators({ bank: 'left', index: 4 });                  // ZOOM between Z+/Z- (left4/left5)
     if (hasRoutes) {
       placeMapRouteDecorator({ bank: 'right', index: 1 });           // ROUTE between R+/R- (right1/right2)
     }
     if (hasActiveRoute) {
       placeMapWptDecorator({ bank: 'right', index: 3 });             // WYPT between W+/W- (right3/right4)
     }
+  } else if (name === 'tgp') {
+    // TGP's own branch, not the generic fullViewSlot sweep every other single-MAIN page uses:
+    // CFG is pinned to the bottom of the left column (left5) regardless of how few items sit
+    // above it — NAV.tgp[0] (MAIN) still reads naturally at left0, but a plain item-i sweep would
+    // put NAV.tgp[1] (CFG) at left1 instead. Mirrors SPLIT_SLOTS.tgp's own bottom-of-column slot.
+    placeOverlayLabel('left', 0, NAV.tgp[0].label, NAV.tgp[0].action);
+    placeOverlayLabel('left', 5, NAV.tgp[1].label, NAV.tgp[1].action);
   } else {
     // Bezel full-view rendering of the navigation model: item i → left-column key i. `mark` lights
     // an item active (e.g. NAV.bdf/NAV.pal flagging whichever of BDF/PAL is the current page).
@@ -1493,9 +1504,11 @@ function showPage(name) {
   // KEY (extended keybinds) renders in #page-frame too. Like HUD it's self-driven — it polls
   // /keybinds-config and POSTs its own keybind.* commands — so the shell forwards it nothing.
   if (name === 'keys') showFramePage('keys');
-  // RTS renders in #page-frame too — same self-driven shape as KEY/HUD: it polls /rates-config
-  // and POSTs its own rates.set commands.
-  if (name === 'rates') showFramePage('rates');
+  // MAP's and TGP's own CFG pages render in #page-frame too — same self-driven shape as KEY/HUD:
+  // each polls /rates-config and POSTs its own rates.set commands, so the shell forwards them
+  // nothing.
+  if (name === 'mapcfg') showFramePage('mapcfg');
+  if (name === 'tgpcfg') showFramePage('tgpcfg');
   // EXT's static "no extensions installed" fallback (docs/extensions-api.md) — fully static,
   // no data to forward, unlike the ExtNav.isExtensionPage branch below for a real extension.
   if (name === 'ext') showFramePage('ext');
@@ -1629,7 +1642,9 @@ window.addEventListener('message', function(e) {
     if (currentPage === 'wpn' && !splitMode) forwardCmToFrame();
     if (splitMode) forwardCmToPanes();
   } else if (m.type === 'tgp') {
-    tgpActive = !!m.active;
+    tgpActive  = !!m.active;
+    tgpQuality = m.quality || 'native';
+    tgpData    = m.data || null;
     // Only matters while the TGP page is in view — outside it the frame/pane isn't shown.
     if (currentPage === 'tgp' && !splitMode) forwardTgpToFrame();
     if (splitMode) forwardTgpToPanes();
@@ -2057,7 +2072,8 @@ function mfdButton(el) {
       break;
     case 'hud':  showPage('hud');  break;
     case 'keys':  showPage('keys');  break;
-    case 'rates': showPage('rates'); break;
+    case 'mapcfg': showPage('mapcfg'); break;
+    case 'tgpcfg': showPage('tgpcfg'); break;
     case 'lyt':   showPage('lyt');   break;
     // The LAYOUT page's two choices. CLASSIC is this document, so choosing it is just leaving the
     // menu — back to MAIN, where LYT was pressed, with a fresh status as MAIN's own key pulls.

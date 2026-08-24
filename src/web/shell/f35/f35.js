@@ -188,6 +188,16 @@
     }));
   }
 
+  // TGP's own placement (mfd.js's own full-view twin, its dedicated 'tgp' branch): CFG pinned to
+  // the bottom of the column (row ROWS) regardless of cellOf's generic index-into-6-rows overflow,
+  // matching the bezel's own left0/left5 split rather than landing at row 2 right under MAIN.
+  function tgpNavItems() {
+    return [
+      Object.assign({}, NAV.tgp[0], { cell: { row: 1, col: 1 } }),
+      Object.assign({}, NAV.tgp[1], { cell: { row: ROWS, col: 1 } }),
+    ];
+  }
+
   // Where a screen's NAV items sit. Default 'edge' = the bezel's left key bank, minus the bezel.
   // MAIN is 'center': its labels ARE the screen, so they own the middle of the glass instead of
   // hugging an edge that frames nothing. Both modes consume NAV in order — only placement differs,
@@ -447,9 +457,12 @@
     //   wpn  — nothing from NAV (it's empty by design); its labels are pagination.
     //   map  — MAIN/GRID/FLW/Z+/Z- and WPT/R+/R-/W+/W- via explicit cells, not NAV.map's own order
     //          (mapNavItems — see its own comment).
+    //   tgp  — MAIN + CFG via explicit cells (tgpNavItems), CFG pinned to the bottom row rather
+    //          than landing right under MAIN via the generic index-into-6-rows overflow.
     function itemsFor(page) {
       if (page === 'wpn') return wpnState().nav.concat(MASTER_ARMS_NAV, COMBAT_MODE_NAV);
       if (page === 'map') return mapNavItems();
+      if (page === 'tgp') return tgpNavItems();
       const items = (NAV[page] || []).slice();
       if (page !== 'main') return items;
       return items.concat(MAIN_EXTRAS).sort(function (a, b) { return a.label.localeCompare(b.label); });

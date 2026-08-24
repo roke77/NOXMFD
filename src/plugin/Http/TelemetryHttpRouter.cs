@@ -91,8 +91,10 @@ namespace NOXMFD
                 TelemetryAssets.ServeAssetRel(ctx, "pages/hud/hud.html");
             else if (path == "/keybinds")
                 TelemetryAssets.ServeAssetRel(ctx, "pages/keybinds/keybinds.html");
-            else if (path == "/rates")
-                TelemetryAssets.ServeAssetRel(ctx, "pages/rates/rates.html");
+            else if (path == "/mapcfg")
+                TelemetryAssets.ServeAssetRel(ctx, "pages/mapcfg/mapcfg.html");
+            else if (path == "/tgpcfg")
+                TelemetryAssets.ServeAssetRel(ctx, "pages/tgpcfg/tgpcfg.html");
             else if (path == "/command")
                 TelemetryServer.HandleCommand(ctx);
             else if (path == "/mfd")

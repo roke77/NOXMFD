@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — TGP CFG</title>
+<!--
+  TGP's own CFG page, served at /tgpcfg. Reached from TGP's own nav row (nav-model.js's NAV.tgp),
+  not MD/CFG's MAIN-rooted sibling groups — same reasoning as WPT/MAPCFG. Two settings:
+    TGP  — the targeting-pod camera feed capture rate (TgpFeed.cs's Interval).
+    HQ   — the feed's picture source: NATIVE (the game's own camera) or HQ (a separate,
+           higher-resolution mirror camera — see docs/tgp-high-quality-mode.md).
+  The main telemetry-tick slider lives on MAP's own CFG page instead (/mapcfg) — each page only
+  carries the setting relevant to it.
+  Fetch-driven like /keybinds: reads /rates-config once on load to set the slider position, then
+  POSTs rates.set (send-command.js -> CommandDispatcher) on every slider move / quality pick, same
+  optimistic-update pattern keybinds.js uses for its toggles.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/tgpcfg/tgpcfg.css">
+</head>
+<body>
+
+<div class="tcfg-panel" id="tcfg-panel">
+  <!-- Way back to the display when opened standalone; hidden when embedded in a shell (classic
+       #page-frame or an F-35 portal) — same check keybinds.js uses (window.parent !== window). -->
+  <a class="tcfg-back" href="/tgp">&lt; TGP</a>
+  <div class="tcfg-title">TGP — CONFIG</div>
+  <div class="tcfg-warning">Higher rates cost more CPU / bandwidth; lower rates save it at the cost
+    of smoothness and latency. Changes apply immediately and persist across restarts.</div>
+  <button class="tcfg-reset" id="tcfg-reset">RESET TO DEFAULTS</button>
+
+  <div class="tcfg-setting" id="tcfg-tgp">
+    <div class="tcfg-setting-text">
+      <div class="tcfg-name">TGP — CAMERA FEED</div>
+      <div class="tcfg-desc">The targeting-pod pane's capture rate. Independent of MAP's own
+        telemetry rate (/mapcfg).</div>
+    </div>
+    <div class="tcfg-slider-row">
+      <div class="tcfg-slider-wrap">
+        <input type="range" id="tcfg-tgp-slider" min="5" max="60" step="5">
+        <div class="tcfg-ticks" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      </div>
+      <span class="tcfg-val" id="tcfg-tgp-val">15 Hz</span>
+    </div>
+    <div class="tcfg-hz-warning" id="tcfg-tgp-hz-warning">Above 15 Hz the GPU readback can't keep up
+      on modest hardware — measured up to ~45% of captures dropped at 30 Hz, with frame spikes over
+      50ms. Raise this only if you have GPU headroom to spend.</div>
+  </div>
+
+  <div class="tcfg-setting" id="tcfg-tgp-quality">
+    <div class="tcfg-setting-text">
+      <div class="tcfg-name">TGP — FEED QUALITY</div>
+      <div class="tcfg-desc">NATIVE (default) reads the game's own targeting-pod camera as-is. HQ
+        renders a separate, higher-resolution camera every frame instead — sharper picture, real
+        tree/grass detail, a mag/range/grid/target-detail overlay with a per-target lock box, and a
+        basic thermal-style IR look, at the cost of an extra render pass. Still an early-pass
+        feature: expect rough edges.</div>
+    </div>
+    <div class="tcfg-quality-row" id="tcfg-tgp-quality-row">
+      <button class="tcfg-quality-btn" data-quality="native">LOW</button>
+      <button class="tcfg-quality-btn" data-quality="hq">HIGH</button>
+    </div>
+    <div class="tcfg-hz-warning" id="tcfg-tgp-quality-warning">HQ is an early-pass feature — expect
+      rough edges. It renders a second camera every frame and may cost noticeable FPS.</div>
+  </div>
+
+  <!-- shown while /rates-config is unreachable (plugin not running) -->
+  <div class="mfd-empty" id="tcfg-empty"><span class="mfd-empty-title">TGP CFG</span>&mdash; UNAVAILABLE &mdash;</div>
+</div>
+
+<script src="/assets/services/send-command.js"></script>
+<script src="/assets/pages/tgpcfg/tgpcfg.js"></script>
+</body>
+</html>

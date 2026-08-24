@@ -21,6 +21,7 @@
       { label: 'MAIN', action: 'main' },
       { label: 'GRID', action: 'grid' },
       { label: 'FLW',  action: 'flw'  },
+      { label: 'CFG',  action: 'mapcfg' },
       { label: 'WPT',  action: 'wpt'  },
       { label: 'R+',   action: 'rt-next' },
       { label: 'R-',   action: 'rt-prev' },
@@ -38,7 +39,11 @@
       { label: 'WPN', action: 'wpn' },
       { label: 'EXT', action: 'ext' },
     ],
-    tgp: [ { label: 'MAIN', action: 'main' } ],
+    // TGP's own CFG (docs/tgp-high-quality-mode.md follow-up) — unlike every other single-MAIN
+    // page below, its layout renderer pins CFG to the bottom of its column rather than wherever
+    // the generic item-i-to-slot sweep would put it (mfd.js's own 'tgp' branch, f35.js needs no
+    // equivalent since its glass has no fixed-slot column to pin against).
+    tgp: [ { label: 'MAIN', action: 'main' }, { label: 'CFG', action: 'tgpcfg' } ],
     // EXT (docs/extensions-api.md) — unlike every other entry here, this one's contents are
     // discovered at runtime, not authored: ext-nav.js fetches /ext-manifest at boot and appends
     // one item per installed extension after this MAIN baseline. An extension's own page gets a
@@ -101,38 +106,39 @@
       { label: 'BDF',  action: 'bdf' },
       { label: 'PAL',  action: 'pal', mark: true },
     ],
-    // CFG folds HUD, KEY, LYT and RTS under one MAIN entry, same pattern as BDF/PAL/MIS/OBJ
-    // above. LYT's action is the CLASSIC/F-35 chooser (mfd.js BEZEL_EXTRAS.lyt / f35.js
-    // GLASS_ACTIONS.lyt) — only its entry point lives here, its own rendering is untouched.
+    // CFG folds HUD, KEY and LYT under one MAIN entry, same pattern as BDF/PAL/MIS/OBJ above.
+    // LYT's action is the CLASSIC/F-35 chooser (mfd.js BEZEL_EXTRAS.lyt / f35.js
+    // GLASS_ACTIONS.lyt) — only its entry point lives here, its own rendering is untouched. The
+    // TLM/TGP refresh-rate sliders live on MAP's and TGP's own CFG items instead (NAV.map/NAV.tgp
+    // above, NAV.mapcfg/NAV.tgpcfg below), since each one only ever matters to a single page.
     hud: [
       { label: 'MAIN', action: 'main' },
       { label: 'HUD',  action: 'hud', mark: true },
       { label: 'KEY',  action: 'keys' },
       { label: 'LYT',  action: 'lyt'  },
-      { label: 'RTS',  action: 'rates' },
     ],
     keys: [
       { label: 'MAIN', action: 'main' },
       { label: 'HUD',  action: 'hud' },
       { label: 'KEY',  action: 'keys', mark: true },
       { label: 'LYT',  action: 'lyt'  },
-      { label: 'RTS',  action: 'rates' },
     ],
     // No NAV.lyt entry: BEZEL_EXTRAS.lyt places CLASSIC/F-35 at explicit left0/left1 after the
     // generic NAV[name] sweep (showPage), so a NAV.lyt list here would just get silently
     // overwritten at those two slots — no MAIN back-item is needed since CLASSIC/F-35 already
     // returns to MAIN.
-    rates: [
-      { label: 'MAIN', action: 'main' },
-      { label: 'HUD',  action: 'hud' },
-      { label: 'KEY',  action: 'keys' },
-      { label: 'LYT',  action: 'lyt'  },
-      { label: 'RTS',  action: 'rates', mark: true },
-    ],
     wpn: [],
     // WPT is reached from MAP's own nav row (above), so its way back is MAP, not MAIN — same
     // reasoning as tgp/avn/etc.'s single-entry back links.
     wpt: [ { label: 'MAP', action: 'map' } ],
+    // MAP's CFG (docs/tgp-high-quality-mode.md follow-up, NAV amendment) — just the MAP/telemetry
+    // refresh-rate slider, formerly RTS's TLM setting. Reached from MAP's own nav row, so its way
+    // back is MAP, same reasoning as WPT above.
+    mapcfg: [ { label: 'MAP', action: 'map' } ],
+    // TGP's CFG — the TGP camera feed rate + quality settings, formerly RTS's TGP settings. Its
+    // way back is TGP, not MAIN, matching every other page reached from a single-purpose sibling
+    // rather than MAIN itself.
+    tgpcfg: [ { label: 'TGP', action: 'tgp' } ],
   };
 
   const api = { NAV };

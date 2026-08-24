@@ -483,6 +483,213 @@ in their hot paths. Items #4/#5 remain not implemented, still genuinely optional
    2 (below) already found once. Recorded so a future continuous-fire caller doesn't reintroduce
    it silently.
 
+## 2026-08-23 — tgp-safety-baseline branch: PerfLog recreated, cold-start bug confirmed
+
+First of the three `docs/tgp-high-quality-mode.md` follow-up branches. `src/plugin/PerfLog.cs` had
+to be **recreated**, not restored — despite this doc's own instruction to restore it from history,
+it turns out the original was never committed; only its description here survived. Extended with
+`TgpFeed.EncodeToJPG` timing (closing the "measure the JPEG step" blind spot from the HQ doc's
+experiment menu) and a diagnostic warning for `HandleMjpegAsync`'s cold-start-stall theory. Item #6
+above (TGP slider risk, no cap or warning) is also fixed on this branch — the RTS page now shows an
+amber warning above 15 Hz, no hard cap.
+
+Live-tested at the default 15 Hz and manually raised to 30 Hz via the RTS page.
+
+**TGP GPU cost at 15 Hz, this session:** `frame(tgpOpen)` avg 7-9ms, max mostly 8-20ms, 0 spikes
+(>20ms threshold) across ~20 rollup windows, `tgpSkipped=0` throughout. This doesn't match the
+2026-08-16 numbers (avg 6.6ms but max 57-100ms with 1-3 spikes/window) — flagged as a discrepancy,
+not a contradiction, since test conditions (target type, scene load, hardware) weren't controlled
+to match between sessions. Don't treat either session's numbers as the definitive floor without a
+controlled re-run.
+
+**`EncodeToJPG` measured for the first time — not the bottleneck.** Consistently ~0.7-0.9ms avg
+regardless of capture rate (15 or 30 Hz), a small fixed slice of the 7-9ms open-frame cost. The
+JPEG step is not worth optimizing; the cost lives in the Blit + AsyncGPUReadback path, as already
+suspected.
+
+**30 Hz reproduces the 2026-08-16 skip-rate finding almost exactly.** `tgpSkipped` per 5s window:
+36, 72, 19, 1, 11, 14, 6, 5, 30, 43, 5 (avg ~22/window, worst 72 of ~150 attempted ≈ 48%) — matches
+the original "33-69 dropped ticks per 5s window, up to ~45%" on a different session. Confirms the
+30 Hz risk is real and repeatable, not a one-off. Frame time itself did **not** degrade further at
+30 Hz (still avg 6-8ms, close to the 15 Hz numbers) — the cost shows up as dropped/skipped captures
+(a choppier delivered feed), not as worse overall frame stutter. One large spike (max≈46,700ms,
+2/4397 samples in-window) appeared in the rollup immediately after switching to 30 Hz, but coincided
+with an in-game map-capture burst — an unrelated scene-load artifact, excluded from the numbers
+above.
+
+**MJPEG cold-start bug: confirmed, twice, not just a theory anymore.**
+```
+TGP MJPEG cold start: client waited 3255ms with zero bytes before the first frame.
+TGP MJPEG cold start: client waited 4297ms with zero bytes before the first frame.
+```
+Two separate cold connects, both multi-second silent stalls before any byte reached the client —
+squarely in the range that can cause a browser to give up on a `multipart/x-mixed-replace` stream.
+Follow-up ticket: fix it, but don't blindly port the source integration's placeholder-frame
+workaround (`docs/tgp-high-quality-mode.md`) — that fix was tried and reverted there, for reasons
+not documented on their side. Understand why before choosing an approach.
+
+**Decision:** this branch's scope is done — the instrumentation answered the JPEG-cost and
+cold-start questions, and reproduced the 30 Hz skip-rate risk live. Remove `PerfLog.cs` and its
+call sites once the next two follow-up branches (MJPEG cold-start fix, HQ mirror camera) are done,
+same lifecycle as `PerfDiag` before it.
+
+## 2026-08-23 — tgp-mjpeg-cold-start branch: cold-start fix shipped, live-verified
+
+Second of the three `docs/tgp-high-quality-mode.md` follow-up branches, off `tgp-safety-baseline`.
+`HandleMjpegAsync` now writes a precomputed 4x4 dark-gray placeholder JPEG immediately on connect
+if no real `_tgpJpg` exists yet, so a fresh client never sits on literal zero bytes. Deliberately
+**not** the source integration's approach verbatim (its own placeholder fix was tried and reverted
+there, undocumented why) — this one is a static, compile-time byte array rather than anything
+generated at request time, so there's no runtime Unity-API-off-main-thread risk and no per-connect
+allocation to reason about.
+
+Live-verified end to end: Network tab showed the connection holding at ~0.3KB (the placeholder)
+while idle with the TGP page open and nothing locked — previously this window was 0 bytes and the
+theorized failure state. On locking a target the feed transitioned to a growing real stream (17.9MB
+over a 4.3-minute mixed lock/unlock session), and correctly stopped growing on unlock. No errors,
+no dropped readbacks (15 Hz session).
+
+The cold-start diagnostic's logged duration is measuring wall-clock time from connect to the first
+*real* frame, which includes however long the player takes to lock a target — not pipeline latency
+alone. A 105-second reading during this test was the player's own delay before locking, not a
+regression; the diagnostic doesn't distinguish the two. Fine to leave as-is since the number it
+logs was never load-bearing for a pass/fail signal, only a "did it ever say near-zero" check for
+the pre-fix behavior.
+
+**Decision:** shipped. Third branch (HQ mirror camera) is next; `PerfLog.cs` stays until that one
+also lands.
+
+## 2026-08-23 — tgp-hq-mirror-camera branch: HQ mode built, live-tested, simplified to one tier
+
+Third and last of the `docs/tgp-high-quality-mode.md` follow-up branches, off `tgp-mjpeg-cold-
+start`. Built the mirror camera (`TgpMirrorCam.cs`) this doc's implementation sketch describes —
+parented to `TargetCam.GetCamMount()`, never touching `TargetCam.cam`/`UICam`/anything
+`CameraStateManager` owns. Deliberately shipped as a **visual validation pass first**: no attempt
+to port the reference mod's `MissileCameraRenderPrep.cs` (terrain shader-global sync + a
+`DetailRenderer.camera` reflection hijack for correct tree/grass culling) up front — the plan was
+to look at the live result and only add that plumbing if it turned out to be needed.
+
+### Two tiers were built and A/B tested; one was dropped
+
+Went in with two HQ render styles, mirroring the reference mod's own approach for the same
+particle-vs-cost tradeoff:
+- **Performance** — camera disabled/URP Overlay; a manual `Camera.Render()` call transiently
+  flipped it to Base+enabled once per TGP capture tick only (cost scales with the TGP Hz slider,
+  not framerate).
+- **Full** — camera enabled/URP Base permanently; rendered every Unity frame by the pipeline,
+  independent of TGP Hz.
+
+**Visual result, live in-game:** Performance mode's tree/grass line did not render (the predicted
+risk from reading the reference mod's terrain-detail plumbing, confirmed). Full mode's did —
+correctly, with no extra plumbing ported. Both modes showed particles/VFX correctly (explosions,
+helicopter dust) and shadows — the transient-render trick worked for Performance, matching the
+reference mod's own technique.
+
+**Cost result, live A/B (steady-state averages, one session, one machine, 15 Hz TGP rate):**
+
+| Metric | Performance | Full |
+|---|---|---|
+| `TgpFeed.CaptureFrame` | 0.90ms | 0.03ms |
+| `TgpFeed.EncodeToJPG` | 3.04ms | 3.04ms |
+| `frame(tgpOpen)` (the metric that reflects real cost) | 8.09ms | 8.54ms |
+| `tgpSkipped` | 0 | 0 |
+
+Full was only ~0.45ms (~5.6%) more expensive than Performance on `frame(tgpOpen)` — nowhere near
+the cost jump expected going in for "renders every frame instead of only at capture ticks."
+`CaptureFrame`'s own numbers are misleading in isolation: Performance's ~0.9ms is the manual
+`Camera.Render()` call's cost landing synchronously inside that timed block; Full's ~0.03ms is
+low because its render happens in Unity's normal pipeline, invisible to that specific timer.
+`EncodeToJPG` is ~3ms for both — resolution-driven, mode-independent, as expected. Both modes hit
+`tgpSkipped=0` throughout, so no readback backlog at the 15 Hz default even at HQ resolution.
+
+**Decision: keep Full only, rename it to the sole `HighQuality` tier, drop Performance from the
+shipped feature.** It cost about the same as rendering every frame while giving up real terrain
+detail for no measured benefit — there was no case left for it once the numbers came back this
+close. `TgpMirrorCam.cs` and `TgpFeed.cs` were simplified accordingly (no more `_mode` field, no
+transient render-style flip, camera is always enabled+Base once engaged); the RTS page's picker
+went from three buttons to two (NATIVE / HQ). Performance's numbers are preserved above as a
+historical record in case a future machine/scenario ever makes the tradeoff look different again —
+it is not currently reachable from the UI or config.
+
+### Known gaps in the shipped HQ mode (not fixed this branch)
+
+- **No thermal/IR look.** The game applies IR desaturation as a `Volume` scoped to `TargetCam`'s
+  own camera; the mirror camera was never wired to it. Open question in the design doc, unaddressed.
+- **No on-screen mag/dist/grid/mode overlay.** In Native mode this isn't a separate overlay at all
+  — `TargetCam` runs a second `UICam` stacked onto the main one specifically to draw it, so it's
+  baked into the picture being read. The mirror camera has no `UICam` counterpart. The doc's own
+  recommendation is to draw this client-side from telemetry instead of replicating `UICam` — that's
+  unbuilt in either mode today, not an HQ-specific regression.
+- **`BeforeRender`/`AfterRender` hooks are no-ops.** Kept as an explicit extension point for the
+  terrain/shader-global plumbing in case a future scenario shows it's needed — none has so far.
+
+**Decision:** all three `docs/tgp-high-quality-mode.md` follow-up branches are done. `PerfLog.cs`
+and its call sites can come out once this branch and its two predecessors are merged — restore
+from history (this time it really is in history) if perf work reopens on TGP again.
+
+## 2026-08-24 — tgp-hq-overlay/lockbox/ir branches: the two "known gaps" above closed, plus fixes
+
+Closes both gaps the mirror-camera branch shipped with, live-tested and iterated against real
+in-game screenshots rather than assumptions:
+
+**Overlay + lock box (tgp-hq-overlay, tgp-hq-lockbox).** Built as the previous entry's own
+recommendation — client-side, from a `Tgp*` block riding the existing telemetry snapshot, not a
+second `UICam`. Two bugs found only by live testing, both in `TgpFeed.cs`'s early-return guards:
+
+- The overlay/lock box data (`TargetCount`, `Boxes`) wasn't cleared on the same paths that clear
+  the video frame (no aircraft, reflection failure, camera timed out) — only `Disengage()` cleared
+  it, so unlocking the last target left a stale lock box on screen over the NO-LOCK placeholder.
+  Fixed by factoring a shared `ClearFeed()` helper all four guards now call.
+- The overlay's screen rect was computed once on the MJPEG `<img>`'s `load` event, which can fire
+  before the panel's own layout has settled (especially on first lock) — the overlay would render
+  offset until something else (a resize) recomputed it. Fixed by resyncing the rect on every
+  telemetry update instead of relying on `load` alone.
+
+**IR/thermal mode (tgp-hq-ir).** The design doc's open question — shared post-process vs. reading
+`TargetCam`'s own shader values — turned out to be the wrong pair of options. `TargetCam`'s IR
+`Volume` is scoped to its own camera via URP's layer-based volume matching, and building a parallel
+volume for the mirror camera risked leaking onto other cameras if their `volumeLayerMask` ever
+overlapped (never fully ruled out, see `docs/tgp-high-quality-mode.md`). Shipped instead as a CPU
+conversion on the already-in-hand readback bytes, no camera/volume/layer plumbing at all:
+
+- First pass: flat luma grayscale. Visually flat/washed out next to the real in-cockpit IR view.
+- Second pass: fixed contrast pivot around mid-gray. Made it worse — a bright daytime scene's luma
+  already sits above 128, so pushing further from 128 clipped most of the frame to white.
+- Shipped: auto-levels (stretch the frame's own actual min→max luma to fill 0-255). Self-adjusting
+  to whatever the scene's real brightness is, no fixed assumption to get wrong. Two passes over the
+  pixel buffer (find range, then remap) — a real but small added CPU cost, gated on IR being active
+  (`Quality == HighQuality && tc.UsingIR()`), timed under `PerfLog.Time("TgpFeed.Grayscale")`.
+
+**Also found: the HQ feed was washed out in *color* mode too**, unrelated to IR. Root cause: the
+mirror camera's `UniversalAdditionalCameraData.renderPostProcessing` defaults to `false` on a
+freshly created camera, so it never picked up the scene's global tonemapping/color-grading volume —
+`TargetCam`'s own camera gets this for free since it's a normal in-scene camera. One-line fix
+(`urp.renderPostProcessing = true` in `TgpMirrorCam.cs`'s `Engage()`), fixes both modes.
+
+**Compass needle direction:** got this wrong twice from screenshot-reading before a precise,
+user-confirmed in-game reading (a known bearing/heading pair, read as an exact clock position) gave
+an unambiguous fix. Two lessons for next time this comes up: (1) a plain sign-flip guess from a
+blurry screenshot is not a substitute for one real data point; (2) **web asset edits are embedded
+resources baked into the DLL at build time** — a `dotnet build` is required before any `src/web/`
+change takes effect in-game, "just reload the page" is not enough, and two of the wrong-needle
+iterations shipped nothing because that step was skipped.
+
+**Not measured this branch:** whether the `Grayscale` CPU pass or the two-pass min/max scan show up
+in `frame(tgpOpen)` at any meaningful level — `PerfLog.Time` wraps it, but no dedicated A/B pass was
+run the way the mirror-camera tiers were. Low priority: it only runs while IR is active in HQ mode,
+a small fraction of TGP's total usage, and the per-pixel work is simple arithmetic over a buffer
+already in hand.
+
+## 2026-08-24 — nav-items branch: TGP rate slider raised to 60 Hz, no clamp
+
+The RTS page's TGP-rate slider ceiling was raised from 30 Hz to 60 Hz (own clamp,
+`RatesConfig.TgpMaxHz`, separate from `FastHz`'s 30 Hz cap) at the user's request, specifically to
+gather real cost data past the point `docs/tgp-high-quality-mode.md` already flags as unaffordable
+combined with HQ quality. No results banked here yet — this is a note that the combination is now
+reachable, not a report of what it costs. The RTS page itself was later split apart into a CFG page
+per source page (MAP's own `/mapcfg`, TGP's own `/tgpcfg`); the 60 Hz ceiling carried over to
+`/tgpcfg`'s slider unchanged.
+
 ## Marginal polish (deferred — data doesn't justify it yet)
 
 - **#4 — split rates.** Contacts at map scale don't need 10 Hz; own-ship

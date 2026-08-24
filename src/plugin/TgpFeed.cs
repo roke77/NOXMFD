@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using NuclearOption.Networking;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -21,13 +23,25 @@ namespace NOXMFD
     // A plain object (not a MonoBehaviour): TelemetryReader owns one, drives it via Tick(dt) each
     // frame, reads Active for the snapshot, and calls Disengage() from its OnDestroy. Disengage()
     // nulls the buffers, so a readback callback that lands after teardown bails on its own guards.
+    //
+    // Owns only the capture/GPU pipeline (source resolution, downscale, async readback, JPEG encode,
+    // IR grayscale). The text/status overlay data captures derive alongside each frame lives in
+    // TgpOverlay.cs instead (TgpFeed.Overlay) — a distinct concern from how the picture gets there.
     internal class TgpFeed
     {
-        // Not a const: RatesConfig.SetTgpHz (rates.set command) writes this live from the RTS
-        // page's TGP slider.
+        // Not a const: RatesConfig.SetTgpHz (rates.set command) writes this live from the TGP CFG
+        // page's rate slider.
         internal static float Interval    = 1f / 15f;   // 15 Hz — enough for a small MFD pane, keeps readback+encode rate low
-        private  const int   MaxDim      = 720;        // cap for the encoded frame (native source is smaller, so this is a no-op today)
+        private  const int   MaxDim      = 720;        // cap for the encoded frame — a no-op at Native res, an exact match at Hq res (below)
         private  const int   JpegQuality = 50;         // JPEG quality 0–100; 50 is visually fine for a small MFD pane
+
+        // RatesConfig.SetTgpQuality (rates.set command, group "tgpQuality") writes this live from
+        // the TGP CFG page. HqWidth/HqHeight match the native source's ~3:2 aspect (docs/tgp-high-
+        // quality-mode.md's stated default) so the existing letterbox-avoidance math below needs no
+        // change for either HQ mode.
+        internal static TgpQuality Quality  = TgpQuality.Native;
+        private  const int         HqWidth  = 720;
+        private  const int         HqHeight = 480;
 
         private float          _timer;
         private RenderTexture? _rt;                    // Blit destination, source for AsyncGPUReadback
@@ -39,9 +53,14 @@ namespace NOXMFD
         private bool           _active;                // last capture pushed a frame — mirrored into the snapshot
         private bool           _srcLogged;             // logged the source texture dimensions once
         private bool           _readbackInFlight;      // an AsyncGPUReadback is outstanding — skip new captures until it completes
+        private TgpMirrorCam?  _mirror;                // only allocated once Quality != Native (see CaptureFrame)
 
         // Last capture pushed a frame — mirrored into the snapshot's TgpActive.
         public bool Active => _active;
+
+        // Text/status overlay data, mirrored into the snapshot's Tgp* fields each capture tick —
+        // see TgpOverlay.cs for what each means and how it's derived.
+        public TgpOverlay Overlay { get; } = new TgpOverlay();
 
         // Accumulate frame time and capture at Interval. Called every Update from the reader.
         public void Tick(float dt)
@@ -73,9 +92,9 @@ namespace NOXMFD
 
             // No mission / no aircraft / no TGP component → drop any cached frame and bail.
             GameManager.GetLocalAircraft(out Aircraft ac);
-            if (ac == null) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
+            if (ac == null) { ClearFeed(); return; }
             TargetCam? tc = ac.targetCam;
-            if (tc == null) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
+            if (tc == null) { ClearFeed(); return; }
 
             // Cache the three private fields once. cam = scene camera, UICam = overlay canvas
             // camera, targetScreenRenderer = the in-cockpit display whose material is bound
@@ -89,7 +108,7 @@ namespace NOXMFD
                 if (_camField == null || _screenRendererField == null)
                     Plugin.Log?.LogWarning("[NOXMFD] TGP: could not locate TargetCam private fields — feed disabled.");
             }
-            if (_camField == null || _screenRendererField == null) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
+            if (_camField == null || _screenRendererField == null) { ClearFeed(); return; }
 
             // Only refresh the camTimeout while a target is actually locked — SetTargetCam
             // would crash on an empty list, and not calling it is what gives us the 3-second
@@ -111,18 +130,57 @@ namespace NOXMFD
             // After the game's 3-second timeout expires, cam.enabled flips to false. Stop
             // pushing then so MJPEG clients see "no feed" and fall back to NO TARGET.
             Camera? cam = _camField.GetValue(tc) as Camera;
-            if (cam == null || !cam.enabled) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
+            if (cam == null || !cam.enabled) { ClearFeed(); return; }
 
-            // Prefer the camera's own targetTexture; fall back to the cockpit renderer's
-            // material (which the game points at the same RT) if the prefab puts the
-            // assignment there instead of on the Camera.
-            Texture src = cam.targetTexture;
-            if (src == null)
+            Texture src;
+            if (Quality == TgpQuality.Native)
             {
-                if (_screenRendererField.GetValue(tc) is Renderer rend && rend.material != null)
-                    src = rend.material.mainTexture;
+                _mirror?.Disengage();
+
+                // Prefer the camera's own targetTexture; fall back to the cockpit renderer's
+                // material (which the game points at the same RT) if the prefab puts the
+                // assignment there instead of on the Camera.
+                src = cam.targetTexture;
+                if (src == null)
+                {
+                    if (_screenRendererField.GetValue(tc) is Renderer rend && rend.material != null)
+                        src = rend.material.mainTexture;
+                }
+                if (src == null) { ClearFeed(); return; }
             }
-            if (src == null) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
+            else
+            {
+                // HQ path: read from TgpMirrorCam's own higher-res RenderTexture instead of the
+                // game's native TargetCam RT. The mirror camera is enabled+Base once Engage()'d, so
+                // the pipeline renders a fresh frame into it every Unity frame on its own — nothing
+                // here needs to trigger that render.
+                _mirror ??= new TgpMirrorCam();
+                _mirror.Engage(tc, HqWidth, HqHeight);
+                _mirror.SyncFromSource(cam);
+                src = _mirror.Texture;
+                if (src == null) { ClearFeed(); return; }
+            }
+
+            // Overlay data (including the per-target lock box) projects through whichever camera
+            // is actually producing the picture — cam itself for Native, the mirror camera for HQ
+            // — so this runs after src is resolved, once that camera is guaranteed ready.
+            try
+            {
+                Func<Vector3, Vector3> project = Quality == TgpQuality.Native
+                    ? (Func<Vector3, Vector3>)(pos => cam.WorldToViewportPoint(pos))
+                    : (pos => _mirror != null ? _mirror.WorldToViewport(pos) : new Vector3(0f, 0f, -1f));
+                Overlay.Populate(tc, targets, ac, project);
+            }
+            catch (Exception ex)
+            {
+                // Touches a lot of game state (pilots, faction HQ, radar jam state) — if anything
+                // throws, keep the video capture path alive rather than losing the feed over a
+                // supplementary field. Fail CLOSED though: Overlay.Clear() hides the overlay
+                // client-side (see TgpBlock in TelemetryJson.cs), so a mid-update throw can't leave
+                // stale target data on screen until the next successful tick or disengage.
+                Overlay.Clear();
+                Plugin.Log?.LogDebug($"[NOXMFD] TGP overlay update threw: {ex.Message}");
+            }
 
             // Match the captured frame to the source's aspect ratio. Forcing a square output
             // squashed the in-game (wider-than-tall) feed; capturing at the native aspect lets
@@ -156,8 +214,8 @@ namespace NOXMFD
 
             // Don't stack readbacks if the GPU is still working on the previous one — drop
             // this tick instead. At the 15 Hz default AsyncGPUReadback usually completes in
-            // 1–3 frames, so this skips rarely; at higher rates (RTS page's TGP slider) the GPU can
-            // fall behind and skip much more often (docs/performance.md).
+            // 1–3 frames, so this skips rarely; at higher rates (TGP CFG page's rate slider) the
+            // GPU can fall behind and skip much more often (docs/performance.md).
             if (_readbackInFlight) return;
 
             // (Re)allocate the downscale RT + readback texture when the source dimensions change.
@@ -184,13 +242,21 @@ namespace NOXMFD
             _readbackInFlight = true;
             int captureW = targetW;
             int captureH = targetH;
-            AsyncGPUReadback.Request(_rt, 0, request => OnReadbackComplete(request, captureW, captureH));
+            // Native bakes the game's own thermal look into the video for free (it's really
+            // TargetCam's own camera, with TargetCam's own local IR post-process volume already
+            // applied upstream). The HQ mirror camera has no such volume, so without this the HQ
+            // feed stays full-color even when the pod is in IR mode. Cheapest correct fix: convert
+            // to grayscale on the CPU after readback, on the bytes we already have in hand for JPEG
+            // encoding — no shader/volume/layer-mask plumbing, and it can't leak onto any other
+            // camera since it only touches our own capture buffer.
+            bool ir = Quality == TgpQuality.HighQuality && tc.UsingIR();
+            AsyncGPUReadback.Request(_rt, 0, request => OnReadbackComplete(request, captureW, captureH, ir));
         }
 
         // Async readback callback — runs on the Unity main thread. Bail cleanly if the GPU errored
         // or the user disengaged the TGP page mid-flight. Disengage() nulls _tex on teardown, so the
         // size check below also covers "the reader was destroyed while this readback was in flight".
-        private void OnReadbackComplete(AsyncGPUReadbackRequest request, int w, int h)
+        private void OnReadbackComplete(AsyncGPUReadbackRequest request, int w, int h, bool ir)
         {
             _readbackInFlight = false;
             if (request.hasError) return;
@@ -199,12 +265,75 @@ namespace NOXMFD
 
             var data = request.GetData<byte>();
             _tex.LoadRawTextureData(data);
+            if (ir) Grayscale(_tex.GetRawTextureData<byte>());
             _tex.Apply(false, false);
 
             byte[] jpg = _tex.EncodeToJPG(JpegQuality);
             TelemetryServer.PushTgpFrame(jpg);
             _active  = true;
             _engaged = true;
+        }
+
+        // ponytail: stretches the frame's own min..max luma to fill 0..255 (auto-levels) rather than
+        // a flat luma conversion or a fixed contrast pivot around mid-gray — a bright daytime scene's
+        // luma already sits well above 128, so pushing away from a fixed pivot just clips almost
+        // everything to white. Self-adjusting to the scene's actual brightness avoids that blowout;
+        // it's still not the real thermal shader's simulated heat curve, way past what a "basic
+        // black/white cam" needs, but much closer without the blowout risk.
+        // Ceiling: a flat-scene frame (all sky, no ground) has a near-zero luma range, so the
+        // stretch divisor floors at 1 rather than dividing by ~0 — that just leaves it unstretched
+        // rather than amplifying sensor-noise-level differences into full contrast.
+        //
+        // The min/max feeding that stretch is smoothed across frames (_irMinEma/_irMaxEma) rather
+        // than trusting each frame's raw values outright — a bare per-frame min/max jumps whenever a
+        // bright/dark pixel enters or leaves the picture (a highlight, camera jitter), which reads as
+        // a visible brightness/contrast pulse between consecutive frames; more noticeable at high
+        // capture rates, where shown frames are more likely to differ from each other and dropped
+        // readbacks (docs/performance.md) widen the gap between them further.
+        // ponytail: fixed smoothing factor, tuned by feel rather than measured — revisit (e.g. a
+        // faster factor, or reset-on-large-jump) if it visibly lags a fast real brightness change
+        // such as an HQ zoom snapping onto a new target.
+        private const float IrLevelsSmoothing = 0.25f;
+        private float _irMinEma = -1f;
+        private float _irMaxEma = -1f;
+
+        private void Grayscale(NativeArray<byte> px)
+        {
+            byte rawMin = 255, rawMax = 0;
+            for (int i = 0; i + 3 < px.Length; i += 4)
+            {
+                byte luma = (byte)(0.299f * px[i] + 0.587f * px[i + 1] + 0.114f * px[i + 2]);
+                if (luma < rawMin) rawMin = luma;
+                if (luma > rawMax) rawMax = luma;
+            }
+
+            if (_irMinEma < 0f) { _irMinEma = rawMin; _irMaxEma = rawMax; }
+            else
+            {
+                _irMinEma += (rawMin - _irMinEma) * IrLevelsSmoothing;
+                _irMaxEma += (rawMax - _irMaxEma) * IrLevelsSmoothing;
+            }
+
+            float range = Mathf.Max(1f, _irMaxEma - _irMinEma);
+            for (int i = 0; i + 3 < px.Length; i += 4)
+            {
+                float luma = 0.299f * px[i] + 0.587f * px[i + 1] + 0.114f * px[i + 2];
+                byte gray = (byte)Mathf.Clamp((luma - _irMinEma) / range * 255f, 0f, 255f);
+                px[i] = px[i + 1] = px[i + 2] = gray;
+            }
+        }
+
+        // Shared by every early-return guard in CaptureFrame() (no aircraft, no TGP component,
+        // reflection failed, cam disabled/timed out) — clearing Overlay alongside _active keeps the
+        // HQ overlay (driven by Overlay, not by Active) from showing a stale lock once the feed
+        // itself has gone dark. Doesn't touch the buffers Disengage() releases — those guards fire
+        // far more often than an actual disengage (every tick with no lock at all), so reallocating
+        // them each time would be wasteful.
+        private void ClearFeed()
+        {
+            TelemetryServer.ClearTgpFrame();
+            _active = false;
+            Overlay.Clear();
         }
 
         // Release the buffers we lazily allocate during capture and clear the published
@@ -214,12 +343,15 @@ namespace NOXMFD
         {
             if (_rt  != null) { _rt.Release();  UnityEngine.Object.Destroy(_rt);  _rt  = null; }
             if (_tex != null) {                 UnityEngine.Object.Destroy(_tex); _tex = null; }
+            _mirror?.Disengage();
 
             bool wasEngaged    = _engaged;
             _engaged           = false;
             _active            = false;
             _srcLogged         = false;
             _readbackInFlight  = false;   // any in-flight callback will see !WantsTgpFrames / null _tex and bail
+            _irMinEma = _irMaxEma = -1f;  // re-seed from the next lock's own scene, not this one's brightness
+            Overlay.Clear();              // stale overlay data shouldn't linger once the feed goes idle
             TelemetryServer.ClearTgpFrame();
             if (wasEngaged) Plugin.Log?.LogInfo("[NOXMFD] TGP: disengaged (no subscribers).");
         }

@@ -1,4 +1,5 @@
-/* Refresh-rates settings page. Panel shape matches keybinds.css (.kb-panel/.kb-title/.kb-setting). */
+/* TGP's own CFG page. Panel shape matches MAP CFG's (keybinds.css's
+   .kb-panel/.kb-title/.kb-setting lineage). */
 
 html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this is a full page */
 html {
@@ -9,13 +10,13 @@ html::-webkit-scrollbar { width: 6px; height: 6px; }
 html::-webkit-scrollbar-track { background: transparent; }
 html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
 
-.rts-panel {
+.tcfg-panel {
   max-width: 620px;
   margin: 0 auto;
   padding: 26px 18px 40px;
 }
 
-.rts-back {
+.tcfg-back {
   float: left;
   font-size: 12px;
   letter-spacing: 2px;
@@ -23,9 +24,9 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   text-decoration: none;
   padding: 6px 2px;
 }
-.rts-back:hover { color: var(--no-green); }
+.tcfg-back:hover { color: var(--no-green); }
 
-.rts-title {
+.tcfg-title {
   font-size: 24px;
   letter-spacing: 4px;
   color: var(--no-green);
@@ -33,7 +34,7 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   margin-bottom: 14px;
 }
 
-.rts-warning {
+.tcfg-warning {
   font-size: 11px;
   letter-spacing: 0.5px;
   color: var(--no-amber);
@@ -42,7 +43,7 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   margin: 0 auto 26px;
 }
 
-.rts-reset {
+.tcfg-reset {
   display: block;
   margin: 0 auto 24px;
   padding: 6px 14px;
@@ -54,29 +55,29 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   letter-spacing: 1px;
   cursor: pointer;
 }
-.rts-reset:hover { border-color: var(--no-green); color: var(--no-green); }
+.tcfg-reset:hover { border-color: var(--no-green); color: var(--no-green); }
 
-.rts-setting {
+.tcfg-setting {
   padding: 16px 10px 20px;
   margin-bottom: 4px;
   border-bottom: 1px solid var(--no-panel-border);
 }
-.rts-setting:last-of-type { border-bottom: none; }
+.tcfg-setting:last-of-type { border-bottom: none; }
 
-.rts-name { font-size: 14px; letter-spacing: 1px; color: var(--no-green); }
-.rts-desc { font-size: 10px; letter-spacing: 0.5px; color: var(--no-green-dim); margin-top: 3px; }
+.tcfg-name { font-size: 14px; letter-spacing: 1px; color: var(--no-green); }
+.tcfg-desc { font-size: 10px; letter-spacing: 0.5px; color: var(--no-green-dim); margin-top: 3px; }
 
-.rts-slider-row {
+.tcfg-slider-row {
   display: flex;
   align-items: center;
   gap: 14px;
   margin-top: 14px;
 }
 
-.rts-slider-wrap { position: relative; flex: 1; }
+.tcfg-slider-wrap { position: relative; flex: 1; }
 
 /* Plain range input, styled to match the mod's toggle/border look rather than the browser default. */
-.rts-slider-wrap input[type="range"] {
+.tcfg-slider-wrap input[type="range"] {
   width: 100%;
   display: block;
   -webkit-appearance: none;
@@ -85,7 +86,7 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   background: var(--no-green-dark);
   outline: none;
 }
-.rts-slider-wrap input[type="range"]::-webkit-slider-thumb {
+.tcfg-slider-wrap input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 16px;
@@ -94,7 +95,7 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   background: var(--no-panel-bg);
   cursor: pointer;
 }
-.rts-slider-wrap input[type="range"]::-moz-range-thumb {
+.tcfg-slider-wrap input[type="range"]::-moz-range-thumb {
   width: 14px;
   height: 14px;
   border: 1px solid var(--no-green);
@@ -103,7 +104,7 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 }
 
 /* One mark per 5 Hz step. ponytail: 8px inset eyeballs the WebKit thumb half-width; not pixel-exact for Firefox's thumb, revisit if step count changes. */
-.rts-ticks {
+.tcfg-ticks {
   position: absolute;
   left: 8px;
   right: 8px;
@@ -113,13 +114,13 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   justify-content: space-between;
   pointer-events: none;
 }
-.rts-ticks span {
+.tcfg-ticks span {
   width: 1px;
   height: 5px;
   background: var(--no-green-dark);
 }
 
-.rts-val {
+.tcfg-val {
   flex: none;
   min-width: 56px;
   text-align: right;
@@ -128,6 +129,41 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   color: var(--no-amber);
 }
 
-#rts-empty { display: none; }
-.rts-panel.unavailable .rts-setting { display: none; }
-.rts-panel.unavailable #rts-empty { display: block; }
+.tcfg-hz-warning {
+  display: none;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--no-amber);
+  margin-top: 10px;
+}
+.tcfg-hz-warning.shown { display: block; }
+
+.tcfg-quality-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.tcfg-quality-btn {
+  flex: 1;
+  padding: 8px 6px;
+  border: 1px solid var(--no-green-dim);
+  background: none;
+  color: var(--no-green-dim);
+  font-family: var(--no-font);
+  font-size: 11px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.tcfg-quality-btn:hover { border-color: var(--no-green); color: var(--no-green); }
+.tcfg-quality-btn.active {
+  border-color: var(--no-green);
+  color: var(--no-panel-bg);
+  background: var(--no-green);
+}
+/* #tcfg-tgp-quality-warning reuses .tcfg-hz-warning's look but is shown any time a non-Native
+   quality is active, not just above a slider threshold. */
+#tcfg-tgp-quality-warning.shown { display: block; }
+
+#tcfg-empty { display: none; }
+.tcfg-panel.unavailable .tcfg-setting { display: none; }
+.tcfg-panel.unavailable #tcfg-empty { display: block; }

@@ -31,10 +31,11 @@ src/web/
     wpt/    wpt.html  wpt.css  wpt.js     # waypoint/route editor, thin client over the plugin's
             waypoints-store.js            # RouteStore (docs/hud-waypoint-indicator.md) — fetch/poll
             wpt-route.js  wpt-route.test.js  # /wpt-options + POST /command, no local persistence
-    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hud/  bdf/  mis/  obj/  akf/  rates/
+    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
                                                # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
-                                               # akf = kill feed/session stats docs/akf-page.md; rates = RTS live
-                                               # refresh-rate sliders, folded under CFG)
+                                               # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg =
+                                               # each page's own refresh-rate/quality settings, reached from that
+                                               # page's own nav row, not CFG — see nav-model.js's NAV.mapcfg/tgpcfg)
                                                # some carry a pure sibling module — see below
     ext/                                       # EXT hub — lists extensions discovered at runtime via
                                                # /ext-manifest (shell/ext-nav.js), no fixed page content of

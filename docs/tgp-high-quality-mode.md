@@ -2,14 +2,48 @@
 
 ## Status
 
-Planning only. No code yet. Default TGP behavior is the
-native-resolution path that ships today; this document describes an
-opt-in toggle for a sharper feed.
+**Shipped**, on the `tgp-hq-mirror-camera` / `tgp-hq-overlay` / `tgp-hq-lockbox` / `tgp-hq-ir`
+branch stack (menu entry #3 below, plus the overlay and IR follow-ups this doc left as open
+questions). Kept as a historical record of the planning, per this repo's convention for `docs/`
+design docs. See "What actually shipped" for how the real implementation diverged from this plan,
+and "Open questions" for which ones are now resolved.
 
 Two layers here: the **experiment menu** below is the wider option space
 for the TGP feed as a whole (cost and quality both), meant to be picked
 from when spinning up experiment branches. Everything after it is the
 detailed design for one of those entries — the mirror camera.
+
+## What actually shipped
+
+- **Render-on-demand was dropped.** This doc's whole affordability argument rests on rendering the
+  mirror camera only at capture ticks instead of every Unity frame. Two tiers were actually built
+  and A/B tested live (`docs/performance.md`'s 2026-08-23 entry) — a render-on-demand
+  "Performance" tier and an always-enabled "Full" tier — and Performance lost: it cost about the
+  same as Full on `frame(tgpOpen)` (the manual `Camera.Render()` call's cost just moved from the
+  render loop into the timed capture block) while giving up correct tree/grass rendering (the
+  predicted risk from this doc's own reference-mod reading, confirmed live). Full was kept as the
+  sole `HighQuality` tier — the mirror camera is a normal `enabled = true`, URP `Base` camera,
+  rendered every frame like any other, not render-on-demand at all.
+- **The overlay is drawn from telemetry, exactly as recommended** ("Does the mirror cam need its
+  own `UICam`? Almost certainly no") — `TgpFeed.PopulateOverlay` mirrors `TargetScreenUI`'s own
+  fields into the snapshot, `tgp.js` renders them client-side. Includes the per-target lock box
+  (screen-projected via the mirror camera's own `WorldToViewportPoint`, per this doc's explicit
+  warning not to use `WorldToScreenPoint`), color-coded by status (friendly/jammed/lased/outdated),
+  with a friendly X and a lased target's red crosshair added afterward.
+- **IR mode shipped, not via a shared post-process or a shader port.** The open question asked
+  whether the mirror cam needs its own post-process to match the game's IR look, or could read the
+  same shader values off `TargetCam`. Neither: `TargetCam`'s IR volume is scoped to its own camera
+  and not straightforwardly shareable, and a custom shader/volume risked leaking onto other cameras
+  through URP's layer-based volume matching. Shipped instead as a CPU auto-levels grayscale
+  conversion on the captured bytes, after readback, gated on `TargetCam.UsingIR()` — a basic
+  black-and-white look, not a simulated heat curve.
+- **The toggle moved off RTS.** "How the player toggles the mode" below describes an RTS-page
+  control; RTS itself was later split apart (`nav-items` branch) into a CFG page per source page.
+  The quality picker (relabeled LOW/HIGH) now lives on TGP's own CFG page (`/tgpcfg`), not RTS.
+- **No resolution/rate clamp was added.** The "whether HQ needs to clamp the TGP rate slider" open
+  question was never resolved either way — the slider was later raised to 60 Hz with no clamp tied
+  to quality mode, which is the exact "HQ + high Hz" combination this doc's cost analysis flags as
+  unaffordable. Still open; see `docs/performance.md`.
 
 ## Goal
 
@@ -132,6 +166,14 @@ it at an arbitrary moment does not reliably yield the final picture.
 temporal effects), the captured picture may not match what the cockpit
 screen shows. This presents as the feed looking subtly wrong, not as a
 failure, which is why it would not have surfaced as a bug report.
+
+**Still open.** Nobody has checked whether `TargetCam.cam.targetTexture` is genuinely the final
+picture in this game — the shipped mirror camera reads it the same direct way `TgpFeed` reads the
+native path (`OnReadbackComplete` in `TgpFeed.cs`), unchanged by anything this branch stack built.
+If Nuclear Option's `TargetCam` does have an HDR-intermediate step like the reference mod's, both
+Native and HighQuality would already be quietly affected, and the visual brightness/contrast issues
+found and fixed while shipping the IR mode (see `docs/performance.md`) may be a symptom of exactly
+this rather than something this doc's own gap analysis anticipated.
 
 **Thermal modes double as the colour-depth justification.** That
 integration exposes the vision filter (Color / NightVision / WhiteHot /
@@ -329,6 +371,13 @@ in the MFD nav (CFG/KEY/LYT/RTS), and already has the whole
 `rates.set` → `RatesConfig` → live-apply path this needs — a quality
 toggle is one more control on an existing surface rather than a new one.
 
+**As shipped:** RTS itself didn't survive — it split apart (`nav-items` branch, after this doc's
+implementation landed) into a CFG page per source page, since each of its two settings only ever
+mattered to one page. The quality toggle (relabeled LOW/HIGH) lives on TGP's own CFG page
+(`/tgpcfg`) instead, alongside the TGP rate slider — same page, same cost budget, same
+`rates.set` → `RatesConfig` path this section describes, just reached from TGP's own nav row
+rather than a shared CFG/KEY/LYT/RTS group.
+
 Follow `RatesConfig`'s existing shape: a `ConfigEntry` for persistence,
 a setter the command dispatcher calls, and `SettingChanged` forwarding
 the new value to a `SetMode(...)` on the feed that engages/releases the
@@ -390,29 +439,23 @@ is shared.
 
 ## Open questions to settle while implementing (not now)
 
-- Default HQ resolution. 720×480 keeps aspect with the native source and
-  fits `TgpFeed.MaxDim`; 1280×720 is sharper but roughly triples the
-  readback bytes again, on the transfer the measurements already flag.
-  Ship 720×480 and let the readback numbers decide whether a higher rung
-  is even offerable.
-- Does the mirror cam stay correct across a floating-origin shift? Unknown,
-  and the one failure mode in this area that has already burned another
-  mod in this game. Test a long flight, not a spawn-and-look.
-- Do particles render on the manual `Camera.Render()` path? If not,
-  choose deliberately between fidelity (enabled camera, higher cost) and
-  cost (manual render, no particles) rather than discovering it late.
-- Whether HQ needs to clamp the TGP rate slider. Rate and resolution
-  multiply into the same readback budget, so 30 Hz + HQ is a combination
-  the measurements say cannot work. Capping the slider while HQ is
-  engaged may be simpler than letting the player find the cliff.
-- Does the mirror cam need its own `UICam` to draw the overlay
-  (mag/dist/grid/mode)? Almost certainly no — we'd render those
-  overlays on the MFD client from the SSE snapshot, which is free.
-- IR mode: does the mirror cam need its own post-process to match the
-  game's IR look, or can we read the same shader values off the
-  TargetCam? No longer purely cosmetic — a monochrome thermal mode is
-  also what makes menu entry #2 free of judgement, so this rides with
-  the colour-depth experiment rather than being deferred.
+- ~~Default HQ resolution.~~ **Resolved, shipped as planned:** 720×480 (`TgpFeed.HqWidth`/`HqHeight`).
+- **Still open.** Does the mirror cam stay correct across a floating-origin shift? Unknown, and the
+  one failure mode in this area that has already burned another mod in this game. Nobody has tested
+  a long flight, only spawn-and-look sessions — this is the biggest unverified risk left in the
+  shipped feature.
+- ~~Do particles render on the manual `Camera.Render()` path?~~ **Resolved, moot:** render-on-demand
+  was dropped (see "What actually shipped") — the shipped mirror cam is always enabled/`Base`, so
+  it renders through the normal pipeline, particles included. Live-tested and confirmed correct.
+- **Still open, and now live.** Whether HQ needs to clamp the TGP rate slider — no clamp was ever
+  added, and the slider's ceiling was later raised from 30 Hz to 60 Hz with no tie to quality mode.
+  30 Hz + HQ was already flagged as unaffordable; 60 Hz + HQ is untested territory past that.
+- ~~Does the mirror cam need its own `UICam`?~~ **Resolved, shipped as recommended:** no — the
+  overlay renders client-side from the telemetry snapshot.
+- ~~IR mode~~ **Resolved, but not as scoped here:** shipped as a CPU auto-levels grayscale
+  conversion after readback, not a shared post-process or a shader-value read off `TargetCam` —
+  see "What actually shipped" for why. Menu entry #2 (drop colour depth as a general bandwidth
+  lever, independent of IR mode) was never built as its own toggle.
 
 ## Out of scope
 

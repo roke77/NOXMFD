@@ -8,7 +8,7 @@ namespace NOXMFD
 {
     internal class TelemetryReader : MonoBehaviour
     {
-        // Not a const: RatesConfig.SetFastHz (rates.set command) writes this live from the RTS
+        // Not a const: RatesConfig.SetFastHz (rates.set command) writes this live from the MAP CFG
         // page's TLM slider, so PushSnapshot's whole 10 Hz group — own-ship, weapons, contacts,
         // TGT, BDF/PAL — moves together.
         internal static float FastInterval = 0.1f; // 10 Hz — position / speed
@@ -798,6 +798,23 @@ namespace NOXMFD
                 ColHostile     = _colHostile,
                 ColNeutral     = _colNeutral,
                 TgpActive      = _tgp.Active,
+                TgpQuality      = RatesConfig.TgpQualityName,
+                TgpMag          = _tgp.Overlay.Mag,
+                TgpRangeM       = _tgp.Overlay.RangeM,
+                TgpGrid         = _tgp.Overlay.Grid,
+                TgpIR           = _tgp.Overlay.IR,
+                TgpBearingDeg   = _tgp.Overlay.BearingDeg,
+                TgpTargetCount  = _tgp.Overlay.TargetCount,
+                TgpType         = _tgp.Overlay.TargetType,
+                TgpPilot        = _tgp.Overlay.Pilot,
+                TgpStatus       = _tgp.Overlay.Status,
+                TgpHasDetail    = _tgp.Overlay.HasDetail,
+                TgpHeadingDeg   = _tgp.Overlay.HeadingDeg,
+                TgpAltitudeM    = _tgp.Overlay.AltitudeM,
+                TgpRelAltitudeM = _tgp.Overlay.RelAltitudeM,
+                TgpSpeedMps     = _tgp.Overlay.SpeedMps,
+                TgpRelSpeedMps  = _tgp.Overlay.RelSpeedMps,
+                TgpBoxes        = _tgp.Overlay.Boxes,
                 Parts          = BuildParts(aircraft),
                 Failures       = BuildFailures(),
                 Rwr            = BuildRwr(aircraft),

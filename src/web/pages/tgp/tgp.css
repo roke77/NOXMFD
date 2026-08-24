@@ -27,3 +27,139 @@
    so without this the player would see a frozen stale picture instead of NO LOCK. */
 .tgp-panel:not(.has-feed) .tgp-img { visibility: hidden; }
 .tgp-panel.has-feed .tgp-empty { display: none; }
+
+/* HQ-mode stat overlay (docs/tgp-high-quality-mode.md) — drawn client-side because HQ's mirror
+   camera has no UICam counterpart to bake this into the video the way Native does. Only shown
+   when the shell says quality:"hq" AND a lock is active; see tgp.js's applyOverlay. Sizing/layout
+   matches the in-cockpit TargetScreenUI screen (stacked corner groups, dark pill-background stat
+   lines, a bearing compass bottom-left) rather than the field list's own declaration order.
+
+   inset:0 here is only the pre-JS fallback. object-fit:contain letterboxes the <img> whenever the
+   panel's own box (width:100% + aspect-ratio, clamped by max-height:100%) isn't an exact match for
+   the frame's real aspect, so a plain inset:0 (matching the *panel*, not the *picture*) drifts off
+   the actual image content by the letterbox bars — worse the more the container's own shape
+   diverges from 3:2. tgp.js's syncOverlayRect() sets explicit left/top/width/height inline to the
+   image's real letterbox-corrected content box, so this stays in lockstep with the picture at any
+   panel size.
+*/
+.tgp-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  pointer-events: none;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--no-white);
+}
+.tgp-panel.show-overlay .tgp-overlay { display: block; }
+
+.tgp-ov-stat, .tgp-ov-title {
+  display: inline-block;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 8px;
+  margin-bottom: 3px;
+  border-radius: 2px;
+}
+.tgp-ov-title { font-size: 18px; }
+.tgp-ov-title.friendly { color: var(--no-blue); }
+.tgp-ov-title.hostile  { color: var(--no-red); }
+.tgp-ov-tag   { color: var(--no-amber); margin-left: 5px; }
+.tgp-ov-pilot {
+  display: block;
+  color: var(--no-white-dim);
+  font-size: 12px;
+  font-weight: 400;
+  margin: -2px 0 4px 2px;
+}
+.tgp-ov-pilot:empty { display: none; }
+
+.tgp-ov-stack {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+}
+.tgp-ov-tl { top: 0; left: 0;  align-items: flex-start; }
+.tgp-ov-tr { top: 0; right: 0; align-items: flex-end; }
+.tgp-ov-br { bottom: 0; right: 0; align-items: flex-end; }
+
+.tgp-ov-bl {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tgp-ov-compass {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border: 2px dashed var(--no-white-dim);
+  border-radius: 50%;
+  /* Same translucent pill background as the stat lines (.tgp-ov-stat etc.) — the ring alone
+     read poorly over a bright/busy patch of the picture. */
+  background: rgba(0, 0, 0, 0.6);
+}
+.tgp-ov-needle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 18px;
+  background: var(--no-white);
+  transform-origin: 50% 0%;
+  margin-left: -1px;
+}
+.tgp-ov-brg {
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 8px;
+  border-radius: 2px;
+}
+
+/* Per-target lock box (tgp.js's renderBoxes) — positioned via left/top percentages set inline
+   from the server's WorldToViewportPoint output, so this only needs to define the box's own
+   look. Centered on its (x,y) point rather than corner-anchored, matching a crosshair-style lock
+   marker instead of a top-left-anchored rectangle. */
+.tgp-ov-box {
+  --tgp-box-size: 34px;
+  position: absolute;
+  width: var(--tgp-box-size);
+  height: var(--tgp-box-size);
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--no-red);
+  box-shadow: 0 0 2px #000;
+}
+.tgp-ov-box.friendly { border-color: var(--no-blue); }
+/* Same yellow the MAP page's JammedMarker line already uses (map.js's drawJamLines) — kept
+   consistent rather than reusing --no-amber, which lased/outdated also need to stay distinct. */
+.tgp-ov-box.jammed   { border-color: rgba(255, 221, 0, 0.85); }
+.tgp-ov-box.outdated { border-color: var(--no-white); border-style: dashed; }
+.tgp-ov-box.lased    { border-color: var(--no-amber); }
+
+/* Friendly gets an X through the box, matching TargetScreenUI's friendlyBoxSprite. Sized to the
+   box's own corner-to-corner diagonal (--tgp-box-size * sqrt(2)), not its edge length, so the
+   lines actually reach the corners once rotated 45°. */
+.tgp-ov-box.friendly::before, .tgp-ov-box.friendly::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: calc(var(--tgp-box-size) * 1.41421356);
+  height: 2px;
+  background: var(--no-blue);
+}
+.tgp-ov-box.friendly::before { transform: translate(-50%, -50%) rotate(45deg); }
+.tgp-ov-box.friendly::after  { transform: translate(-50%, -50%) rotate(-45deg); }
+
+/* Lased gets a small red target cross in the middle of the box, on top of whatever the box's own
+   border color is (amber) — the laser-designation state, not the box's faction/status color. */
+.tgp-ov-box.lased::before, .tgp-ov-box.lased::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  background: var(--no-red);
+}
+.tgp-ov-box.lased::before { width: 16px; height: 2px; transform: translate(-50%, -50%); }
+.tgp-ov-box.lased::after  { width: 2px; height: 16px; transform: translate(-50%, -50%); }

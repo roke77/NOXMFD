@@ -85,10 +85,10 @@ pilot, with HOTAS-friendly keybinds to match.
   - **[HUD](man/hud.md)** — in-cockpit HUD config.
   - **[KEY](man/keybinds.md)** — extended keybinds, SOI, PAD cursor, Immersion Options.
   - **[LYT](man/layouts.md)** — layout chooser.
-  - **[RTS](man/rates.md)** — live refresh rate settings.
 - **[EXT](man/ext.md)** — third-party extension pages.
 - **[MAIN](man/main.md)** — landing page.
 - **[MAP](man/map.md)** — tactical map.
+  - **[CFG](man/mapcfg.md)** — MAP's own refresh-rate setting.
   - **[WPT](man/wpt.md)** — waypoint/route editor.
 - **MD** — mission data hub.
   - **[AKF](man/akf.md)** — kill feed.
@@ -98,6 +98,7 @@ pilot, with HOTAS-friendly keybinds to match.
 - **[RDR](man/rdr.md)** — radar scope.
 - **[RWR](man/rwr.md)** — radar warning receiver.
 - **[TGP](man/tgp.md)** — targeting-pod camera feed.
+  - **[CFG](man/tgpcfg.md)** — TGP's own feed rate and quality settings.
 - **[TGT](man/tgt.md)** — target-selection table.
 - **[WPN](man/wpn.md)** — weapon loadout.
 
