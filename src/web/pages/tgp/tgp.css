@@ -30,11 +30,17 @@
 
 /* HQ-mode stat overlay (docs/tgp-high-quality-mode.md) — drawn client-side because HQ's mirror
    camera has no UICam counterpart to bake this into the video the way Native does. Only shown
-   when the shell says quality:"hq" AND a lock is active; see tgp.js's applyOverlay. Positioned
-   over the same box the <img> occupies, so its corners track the feed exactly regardless of
-   panel size. Sizing/layout matches the in-cockpit TargetScreenUI screen (stacked corner groups,
-   dark pill-background stat lines, a bearing compass bottom-left) rather than the field list's
-   own declaration order.
+   when the shell says quality:"hq" AND a lock is active; see tgp.js's applyOverlay. Sizing/layout
+   matches the in-cockpit TargetScreenUI screen (stacked corner groups, dark pill-background stat
+   lines, a bearing compass bottom-left) rather than the field list's own declaration order.
+
+   inset:0 here is only the pre-JS fallback. object-fit:contain letterboxes the <img> whenever the
+   panel's own box (width:100% + aspect-ratio, clamped by max-height:100%) isn't an exact match for
+   the frame's real aspect, so a plain inset:0 (matching the *panel*, not the *picture*) drifts off
+   the actual image content by the letterbox bars — worse the more the container's own shape
+   diverges from 3:2. tgp.js's syncOverlayRect() sets explicit left/top/width/height inline to the
+   image's real letterbox-corrected content box, so this stays in lockstep with the picture at any
+   panel size.
 */
 .tgp-overlay {
   position: absolute;
@@ -56,7 +62,7 @@
   border-radius: 2px;
 }
 .tgp-ov-title { font-size: 18px; }
-.tgp-ov-title.friendly { color: var(--no-green); }
+.tgp-ov-title.friendly { color: var(--no-blue); }
 .tgp-ov-title.hostile  { color: var(--no-red); }
 .tgp-ov-tag   { color: var(--no-amber); margin-left: 5px; }
 .tgp-ov-pilot {
@@ -93,6 +99,9 @@
   height: 40px;
   border: 2px dashed var(--no-white-dim);
   border-radius: 50%;
+  /* Same translucent pill background as the stat lines (.tgp-ov-stat etc.) — the ring alone
+     read poorly over a bright/busy patch of the picture. */
+  background: rgba(0, 0, 0, 0.6);
 }
 .tgp-ov-needle {
   position: absolute;
@@ -122,7 +131,7 @@
   border: 2px solid var(--no-red);
   box-shadow: 0 0 2px #000;
 }
-.tgp-ov-box.friendly { border-color: var(--no-green); }
+.tgp-ov-box.friendly { border-color: var(--no-blue); }
 /* Same yellow the MAP page's JammedMarker line already uses (map.js's drawJamLines) — kept
    consistent rather than reusing --no-amber, which lased/outdated also need to stay distinct. */
 .tgp-ov-box.jammed   { border-color: rgba(255, 221, 0, 0.85); }

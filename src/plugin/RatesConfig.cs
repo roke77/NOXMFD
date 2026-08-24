@@ -14,6 +14,10 @@ namespace NOXMFD
 
         private const float MinHz = 1f;
         private const float MaxHz = 30f;
+        // TGP's own ceiling, separate from MaxHz — raised for perf experimentation (docs/
+        // performance.md already documents heavy drop rates above 15 Hz at 30; this just lets
+        // that same measurement be taken up to 60 without also raising FastHz's cap).
+        private const float TgpMaxHz = 60f;
 
         private static ConfigEntry<float>?  _fastHz;
         private static ConfigEntry<float>?  _tgpHz;
@@ -32,7 +36,7 @@ namespace NOXMFD
 
         public static void SetTgpHz(float hz)
         {
-            hz = Mathf.Clamp(hz, MinHz, MaxHz);
+            hz = Mathf.Clamp(hz, MinHz, TgpMaxHz);
             if (_tgpHz != null) using (PerfLog.Time("RatesConfig.TgpHz.Value-write")) _tgpHz.Value = hz;
             TgpFeed.Interval = 1f / hz;
         }
@@ -56,7 +60,7 @@ namespace NOXMFD
             _fastHz = config.Bind(section, "FastHz", 10f,
                 new ConfigDescription("Main telemetry tick (own-ship, weapons, contacts, TGT, BDF/PAL). 1-30 Hz.", null, Hidden));
             _tgpHz = config.Bind(section, "TgpHz", 15f,
-                new ConfigDescription("TGP camera feed capture rate. 1-30 Hz.", null, Hidden));
+                new ConfigDescription("TGP camera feed capture rate. 1-60 Hz.", null, Hidden));
             _tgpQuality = config.Bind(section, "TgpQuality", "native",
                 new ConfigDescription("TGP camera feed source: native or hq.", null, Hidden));
 

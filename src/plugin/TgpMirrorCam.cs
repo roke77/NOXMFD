@@ -66,6 +66,11 @@ namespace NOXMFD
                 urp.requiresColorOption = CameraOverrideOption.UsePipelineSettings;
                 urp.requiresDepthOption = CameraOverrideOption.UsePipelineSettings;
                 urp.renderType = CameraRenderType.Base;
+                // A freshly created UniversalAdditionalCameraData defaults this to false, which
+                // skips the scene's global post-process Volume (tonemapping/color grading)
+                // entirely — the washed-out, low-contrast look the HQ feed had next to the real
+                // TargetCam picture (which, being a normal in-scene camera, already gets it).
+                urp.renderPostProcessing = true;
                 _cam.enabled = true;
             }
 

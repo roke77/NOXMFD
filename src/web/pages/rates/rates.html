@@ -51,8 +51,8 @@
     </div>
     <div class="rts-slider-row">
       <div class="rts-slider-wrap">
-        <input type="range" id="rts-tgp-slider" min="5" max="30" step="5">
-        <div class="rts-ticks" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        <input type="range" id="rts-tgp-slider" min="5" max="60" step="5">
+        <div class="rts-ticks" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
       </div>
       <span class="rts-val" id="rts-tgp-val">15 Hz</span>
     </div>
@@ -66,9 +66,9 @@
       <div class="rts-name">TGP — FEED QUALITY</div>
       <div class="rts-desc">NATIVE (default) reads the game's own targeting-pod camera as-is. HQ
         renders a separate, higher-resolution camera every frame instead — sharper picture, real
-        tree/grass detail, mag/range/grid/target-detail overlay, at the cost of an extra render
-        pass. Still an early-pass feature: no thermal/IR look, and no box drawn on the target
-        itself yet.</div>
+        tree/grass detail, a mag/range/grid/target-detail overlay with a per-target lock box, and a
+        basic thermal-style IR look, at the cost of an extra render pass. Still an early-pass
+        feature: expect rough edges.</div>
     </div>
     <div class="rts-quality-row" id="rts-tgp-quality-row">
       <button class="rts-quality-btn" data-quality="native">NATIVE</button>

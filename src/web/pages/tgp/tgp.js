@@ -2,8 +2,9 @@
 // postMessage; single source of truth for BOTH layouts (full-screen iframe + split pane).
 // See tgp.html for the message contract.
 
-const tgpPanel = document.getElementById('tgp-panel');
-const tgpImg   = document.getElementById('tgp-img');
+const tgpPanel   = document.getElementById('tgp-panel');
+const tgpImg     = document.getElementById('tgp-img');
+const tgpOverlay = document.getElementById('tgp-overlay');
 
 // Start the MJPEG connection immediately; the server only emits frames while a target is
 // locked, so the img stays hidden (NO LOCK shown) until the shell forwards active:true.
@@ -25,6 +26,30 @@ tgpImg.addEventListener('error', function() {
   tgpPanel.classList.remove('has-feed');
   scheduleTgpRetry();
 });
+
+// Keeps the overlay's box pinned to the <img>'s real letterboxed content rect, not the panel's
+// own box — object-fit:contain centers the picture inside whatever box the panel ends up with,
+// and that box's aspect only matches the frame's 3:2 when the container's own shape allows it
+// (see tgp.css's .tgp-overlay comment). 'load' only fires once per MJPEG connection, but that's
+// enough to learn naturalWidth/naturalHeight since the capture size doesn't change frame to frame;
+// ResizeObserver re-derives the rect whenever the panel itself changes shape (split-pane resize,
+// orientation change, browser resize).
+function syncOverlayRect() {
+  const nw = tgpImg.naturalWidth, nh = tgpImg.naturalHeight;
+  if (!nw || !nh) return;
+  const pw = tgpPanel.clientWidth, ph = tgpPanel.clientHeight;
+  if (!pw || !ph) return;
+  const panelAspect = pw / ph, imgAspect = nw / nh;
+  let w, h;
+  if (imgAspect > panelAspect) { w = pw; h = w / imgAspect; }
+  else                          { h = ph; w = h * imgAspect; }
+  tgpOverlay.style.left   = ((pw - w) / 2) + 'px';
+  tgpOverlay.style.top    = ((ph - h) / 2) + 'px';
+  tgpOverlay.style.width  = w + 'px';
+  tgpOverlay.style.height = h + 'px';
+}
+tgpImg.addEventListener('load', syncOverlayRect);
+new ResizeObserver(syncOverlayRect).observe(tgpPanel);
 
 // HQ-mode stat overlay (docs/tgp-high-quality-mode.md) — drawn from the shell's 'tgp' message.
 // Native mode already has this baked into the video (the game's own stacked-camera UICam), so it
@@ -58,6 +83,12 @@ function applyOverlay(quality, data) {
   tgpPanel.classList.toggle('show-overlay', show);
   if (!show) { renderBoxes([]); return; }
 
+  // Resync every update rather than trusting 'load'/ResizeObserver alone — on first lock,
+  // ResizeObserver's initial callback can fire before the MJPEG <img> has a naturalWidth yet, and
+  // syncOverlayRect() silently no-ops until something un-stale triggers it again (a manual resize
+  // is what synced it before). This makes it correct on the very first frame, at negligible cost.
+  syncOverlayRect();
+
   ovType.textContent = data.type;
   ovType.className   = 'tgp-ov-title' + (data.status === 'friendly' ? ' friendly' : ' hostile');
   const tag = TGP_STATUS_TAG[data.status];
@@ -82,7 +113,12 @@ function applyOverlay(quality, data) {
     ovRelAlt.textContent = 'REL -'; ovRelSpd.textContent = 'REL -';
   }
 
-  ovNeedle.style.transform = 'rotate(' + data.brg + 'deg)';
+  // +180: a plain rotate(brg) (matching wpt.js's compass convention) landed exactly opposite the
+  // real needle across four confirmed clock positions (9/10/11/12 real -> 3/4/5/6 shown, a clean
+  // point reflection, not a mirror) — camMount's local yaw isn't nose-relative the way wpt.js's
+  // relativeBearing is; it's 180° off that. Confirmed by precise in-game clock-position reads
+  // rather than screenshot pixel-reading, unlike the two earlier guesses here.
+  ovNeedle.style.transform = 'rotate(' + (data.brg + 180) + 'deg)';
   ovBrg.textContent = Math.round(data.brg) + '°';
   ovGrid.textContent = 'GRID: ' + data.grid;
   ovMode.textContent = 'MODE: ' + (data.ir ? 'IR' : 'COLOR');
