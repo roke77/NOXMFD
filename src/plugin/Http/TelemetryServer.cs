@@ -1387,9 +1387,10 @@ namespace NOXMFD
 
             long lastSeen = -1;
             Interlocked.Increment(ref _tgpSubscribers);
-            // Diagnostic: logs how long a client sat with zero bytes written before the first real
-            // frame existed. Confirmed live 2026-08-23 (3.25s and 4.3s cold starts) — kept as an
-            // ongoing signal that the fix below is actually working, not removed alongside PerfLog.
+            // Diagnostic: logs how long a client waited for the first REAL frame after the
+            // placeholder below streamed. Confirmed live 2026-08-23 (3.25s and 4.3s cold starts) —
+            // kept as an ongoing signal that TargetCam's own capture lag, not this server, is what
+            // gates the real picture.
             var coldStartWatch = Stopwatch.StartNew();
             bool coldStartLogged = false;
             try
@@ -1407,7 +1408,7 @@ namespace NOXMFD
                     {
                         coldStartLogged = true;
                         if (coldStartWatch.ElapsedMilliseconds > 500)
-                            Plugin.Log?.LogWarning($"[NOXMFD] TGP MJPEG cold start: client waited {coldStartWatch.ElapsedMilliseconds}ms with zero bytes before the first frame.");
+                            Plugin.Log?.LogWarning($"[NOXMFD] TGP MJPEG cold start: client waited {coldStartWatch.ElapsedMilliseconds}ms for the first real frame (placeholder streamed immediately).");
                     }
 
                     if (jpg != null && id != lastSeen)

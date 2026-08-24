@@ -6,15 +6,9 @@ namespace NOXMFD
     // Native is the default and unchanged path (TgpFeed.cs reads the game's own
     // TargetCam.cam.targetTexture directly — no mirror camera involved). HighQuality reads from
     // TgpMirrorCam's own higher-resolution RenderTexture instead, rendered every Unity frame like a
-    // normal camera (enabled + URP Base) rather than only at the TGP capture rate.
-    //
-    // An earlier build of this branch also had a cheaper "Performance" tier (camera disabled/URP
-    // Overlay, driven by an explicit Camera.Render() only on capture ticks) that traded away tree/
-    // grass rendering for a lower cost. Live A/B testing (docs/performance.md, 2026-08-23) found
-    // its main-thread frame cost was actually *higher* on average than just rendering every frame —
-    // the manual Camera.Render() call's cost showed up synchronously in that tick instead of being
-    // absorbed into the normal render loop — so it bought a real visual downgrade (no tree/grass
-    // detail) for no measured benefit. Dropped; HighQuality is now the only HQ tier.
+    // normal camera (enabled + URP Base) rather than only at the TGP capture rate — the only tier
+    // this camera supports; a cheaper disabled/manual-render tier measured no cheaper on average
+    // (docs/performance.md) while losing tree/grass detail, so it isn't worth the extra mode.
     internal enum TgpQuality { Native, HighQuality }
 
     // A second camera, parented to TargetCam's active mount (docs/tgp-high-quality-mode.md), used
@@ -23,11 +17,9 @@ namespace NOXMFD
     // documents a real incident from a *different* approach (reparenting/overlaying the vanilla
     // camera) that this design avoids entirely by creating an independent camera instead.
     //
-    // Deliberately does NOT replicate that reference mod's MissileCameraRenderPrep.cs (terrain
-    // shader-global sync + a private-field DetailRenderer.camera hijack that redirects tree/grass
-    // culling to the manual camera) — live testing (2026-08-23) already shows correct tree/grass
-    // rendering without it, so there's nothing currently known to port. BeforeRender/AfterRender
-    // stay as an explicit extension point in case a future case turns up where it's needed.
+    // Renders correct tree/grass detail with no terrain shader-global sync or DetailRenderer.camera
+    // hijack (unlike that reference mod's MissileCameraRenderPrep.cs) — a plain enabled+Base camera
+    // is enough on its own.
     internal sealed class TgpMirrorCam
     {
         private const float NearClip = 2f;
@@ -108,16 +100,6 @@ namespace NOXMFD
             if (_cam.allowMSAA   != src.allowMSAA)   _cam.allowMSAA   = src.allowMSAA;
             if (_cam.clearFlags  != src.clearFlags)  _cam.clearFlags  = src.clearFlags;
         }
-
-        // The camera is enabled + Base once Engage()'d, so the pipeline renders it every Unity
-        // frame on its own — this is only the hook for any per-tick prep a future case needs
-        // (terrain/shader-global sync etc.), currently a no-op (see class comment).
-        internal void RenderTick()
-        {
-            if (_cam != null) BeforeRender(_cam);
-        }
-
-        private static void BeforeRender(Camera feedCamera) { }
 
         internal void Disengage()
         {

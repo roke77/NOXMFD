@@ -124,9 +124,10 @@
    look. Centered on its (x,y) point rather than corner-anchored, matching a crosshair-style lock
    marker instead of a top-left-anchored rectangle. */
 .tgp-ov-box {
+  --tgp-box-size: 34px;
   position: absolute;
-  width: 34px;
-  height: 34px;
+  width: var(--tgp-box-size);
+  height: var(--tgp-box-size);
   transform: translate(-50%, -50%);
   border: 2px solid var(--no-red);
   box-shadow: 0 0 2px #000;
@@ -138,14 +139,14 @@
 .tgp-ov-box.outdated { border-color: var(--no-white); border-style: dashed; }
 .tgp-ov-box.lased    { border-color: var(--no-amber); }
 
-/* Friendly gets an X through the box, matching TargetScreenUI's friendlyBoxSprite. Corner-to-
-   corner diagonal of a 34px box is 34*sqrt(2)≈48px — sized to that, not to the box's own edge
-   length, so the lines actually reach the corners once rotated 45°. */
+/* Friendly gets an X through the box, matching TargetScreenUI's friendlyBoxSprite. Sized to the
+   box's own corner-to-corner diagonal (--tgp-box-size * sqrt(2)), not its edge length, so the
+   lines actually reach the corners once rotated 45°. */
 .tgp-ov-box.friendly::before, .tgp-ov-box.friendly::after {
   content: '';
   position: absolute;
   top: 50%; left: 50%;
-  width: 48px;
+  width: calc(var(--tgp-box-size) * 1.41421356);
   height: 2px;
   background: var(--no-blue);
 }

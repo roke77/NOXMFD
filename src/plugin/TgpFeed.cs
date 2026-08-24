@@ -25,14 +25,14 @@ namespace NOXMFD
     // nulls the buffers, so a readback callback that lands after teardown bails on its own guards.
     internal class TgpFeed
     {
-        // Not a const: RatesConfig.SetTgpHz (rates.set command) writes this live from the RTS
-        // page's TGP slider.
+        // Not a const: RatesConfig.SetTgpHz (rates.set command) writes this live from the TGP CFG
+        // page's rate slider.
         internal static float Interval    = 1f / 15f;   // 15 Hz — enough for a small MFD pane, keeps readback+encode rate low
         private  const int   MaxDim      = 720;        // cap for the encoded frame — a no-op at Native res, an exact match at Hq res (below)
         private  const int   JpegQuality = 50;         // JPEG quality 0–100; 50 is visually fine for a small MFD pane
 
         // RatesConfig.SetTgpQuality (rates.set command, group "tgpQuality") writes this live from
-        // the RTS page. HqWidth/HqHeight match the native source's ~3:2 aspect (docs/tgp-high-
+        // the TGP CFG page. HqWidth/HqHeight match the native source's ~3:2 aspect (docs/tgp-high-
         // quality-mode.md's stated default) so the existing letterbox-avoidance math below needs no
         // change for either HQ mode.
         internal static TgpQuality Quality  = TgpQuality.Native;
@@ -80,7 +80,7 @@ namespace NOXMFD
             _timer += dt;
             if (_timer < Interval) return;
             _timer = 0f;
-            using (PerfLog.Time("TgpFeed.CaptureFrame")) CaptureFrame();
+            CaptureFrame();
         }
 
         // The game's own TargetCam tracks the player's current target, including IR mode and
@@ -158,20 +158,19 @@ namespace NOXMFD
                     if (_screenRendererField.GetValue(tc) is Renderer rend && rend.material != null)
                         src = rend.material.mainTexture;
                 }
-                if (src == null) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
+                if (src == null) { ClearFeed(); return; }
             }
             else
             {
                 // HQ path: read from TgpMirrorCam's own higher-res RenderTexture instead of the
-                // game's native TargetCam RT. RenderTick() is what actually puts a fresh frame in
-                // it this tick — the camera is enabled+Base once Engage()'d, so the pipeline
-                // renders it every Unity frame on its own.
+                // game's native TargetCam RT. The mirror camera is enabled+Base once Engage()'d, so
+                // the pipeline renders a fresh frame into it every Unity frame on its own — nothing
+                // here needs to trigger that render.
                 _mirror ??= new TgpMirrorCam();
                 _mirror.Engage(tc, HqWidth, HqHeight);
                 _mirror.SyncFromSource(cam);
-                _mirror.RenderTick();
                 src = _mirror.Texture;
-                if (src == null) { TelemetryServer.ClearTgpFrame(); _active = false; return; }
+                if (src == null) { ClearFeed(); return; }
             }
 
             // Overlay data (including the per-target lock box) projects through whichever camera
@@ -228,9 +227,9 @@ namespace NOXMFD
 
             // Don't stack readbacks if the GPU is still working on the previous one — drop
             // this tick instead. At the 15 Hz default AsyncGPUReadback usually completes in
-            // 1–3 frames, so this skips rarely; at higher rates (RTS page's TGP slider) the GPU can
-            // fall behind and skip much more often (docs/performance.md).
-            if (_readbackInFlight) { PerfLog.RecordTgpSkip(); return; }
+            // 1–3 frames, so this skips rarely; at higher rates (TGP CFG page's rate slider) the
+            // GPU can fall behind and skip much more often (docs/performance.md).
+            if (_readbackInFlight) return;
 
             // (Re)allocate the downscale RT + readback texture when the source dimensions change.
             // RGBA32 on both sides so the bytes from AsyncGPUReadback can be fed straight into
@@ -371,23 +370,21 @@ namespace NOXMFD
 
             var data = request.GetData<byte>();
             _tex.LoadRawTextureData(data);
-            if (ir) using (PerfLog.Time("TgpFeed.Grayscale")) Grayscale(_tex.GetRawTextureData<byte>());
+            if (ir) Grayscale(_tex.GetRawTextureData<byte>());
             _tex.Apply(false, false);
 
-            byte[] jpg;
-            using (PerfLog.Time("TgpFeed.EncodeToJPG")) jpg = _tex.EncodeToJPG(JpegQuality);
+            byte[] jpg = _tex.EncodeToJPG(JpegQuality);
             TelemetryServer.PushTgpFrame(jpg);
             _active  = true;
             _engaged = true;
         }
 
-        // ponytail: a flat luma conversion alone came out much brighter/flatter than the real
-        // in-cockpit IR view, and a *fixed* contrast pivot around mid-gray (tried first) was worse
-        // — a bright daytime scene's luma already sits well above 128, so pushing it further from
-        // 128 just clips almost everything to white. Auto-levels (stretch the frame's own min..max
-        // luma to fill 0..255) self-adjusts to whatever the scene's actual brightness is instead of
-        // assuming it's centered — still not the real thermal shader's simulated heat curve, way
-        // past what a "basic black/white cam" needs, but much closer without a blowout risk.
+        // ponytail: stretches the frame's own min..max luma to fill 0..255 (auto-levels) rather than
+        // a flat luma conversion or a fixed contrast pivot around mid-gray — a bright daytime scene's
+        // luma already sits well above 128, so pushing away from a fixed pivot just clips almost
+        // everything to white. Self-adjusting to the scene's actual brightness avoids that blowout;
+        // it's still not the real thermal shader's simulated heat curve, way past what a "basic
+        // black/white cam" needs, but much closer without the blowout risk.
         // Ceiling: a flat-scene frame (all sky, no ground) has a near-zero luma range, so the
         // stretch divisor floors at 1 rather than dividing by ~0 — that just leaves it unstretched
         // rather than amplifying sensor-noise-level differences into full contrast.

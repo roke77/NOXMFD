@@ -8,7 +8,7 @@ namespace NOXMFD
 {
     internal class TelemetryReader : MonoBehaviour
     {
-        // Not a const: RatesConfig.SetFastHz (rates.set command) writes this live from the RTS
+        // Not a const: RatesConfig.SetFastHz (rates.set command) writes this live from the MAP CFG
         // page's TLM slider, so PushSnapshot's whole 10 Hz group — own-ship, weapons, contacts,
         // TGT, BDF/PAL — moves together.
         internal static float FastInterval = 0.1f; // 10 Hz — position / speed
@@ -150,15 +150,10 @@ namespace NOXMFD
             _fastTimer += dt;
             _slowTimer += dt;
 
-            // ponytail: TGP-safety-baseline instrumentation (docs/performance.md, "cfg-rates
-            // branch"). Delete alongside PerfLog.cs once findings are re-banked.
-            PerfLog.Frame(dt * 1000f, TelemetryServer.WantsTgpFrames);
-            PerfLog.Tick(dt);
-
             if (_slowTimer >= SlowInterval)
             {
                 _slowTimer = 0f;
-                using (PerfLog.Time("ScanWorld")) ScanWorld();
+                ScanWorld();
                 // HUD OPTIONS snapshot for the /hud-options endpoint. Main thread, and cheap; options
                 // change only on a toggle, so 1 Hz is ample. Kept out of PushSnapshot's fast path.
                 TelemetryServer.RefreshHudOptions();
@@ -179,7 +174,7 @@ namespace NOXMFD
             if (_fastTimer >= FastInterval)
             {
                 _fastTimer = 0f;
-                using (PerfLog.Time("PushSnapshot")) PushSnapshot();
+                PushSnapshot();
             }
 
             _tgp.Tick(dt);   // TGP feed cadence is owned by TgpFeed (captures at its own interval)

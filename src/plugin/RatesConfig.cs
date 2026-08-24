@@ -3,9 +3,10 @@ using UnityEngine;
 
 namespace NOXMFD
 {
-    // Live-adjustable refresh rates for the RTS page: FastHz drives TelemetryReader.FastInterval
-    // (own-ship, weapons, contacts, TGT, BDF/PAL); TgpHz drives TgpFeed.Interval. Persisted, hidden
-    // from the F1 menu. Setting either writes directly into the reader's/feed's interval field, live.
+    // Live-adjustable refresh rates: FastHz (MAP CFG page) drives TelemetryReader.FastInterval
+    // (own-ship, weapons, contacts, TGT, BDF/PAL); TgpHz/TgpQuality (TGP CFG page) drive
+    // TgpFeed.Interval/Quality. Persisted, hidden from the F1 menu. Setting any of them writes
+    // directly into the reader's/feed's own field, live.
     internal static class RatesConfig
     {
         private sealed class ConfigurationManagerAttributes { public bool? Browsable; }
@@ -30,26 +31,27 @@ namespace NOXMFD
         public static void SetFastHz(float hz)
         {
             hz = Mathf.Clamp(hz, MinHz, MaxHz);
-            if (_fastHz != null) using (PerfLog.Time("RatesConfig.FastHz.Value-write")) _fastHz.Value = hz;
+            if (_fastHz != null) _fastHz.Value = hz;
             TelemetryReader.FastInterval = 1f / hz;
         }
 
         public static void SetTgpHz(float hz)
         {
             hz = Mathf.Clamp(hz, MinHz, TgpMaxHz);
-            if (_tgpHz != null) using (PerfLog.Time("RatesConfig.TgpHz.Value-write")) _tgpHz.Value = hz;
+            if (_tgpHz != null) _tgpHz.Value = hz;
             TgpFeed.Interval = 1f / hz;
         }
 
-        // "native" | "hq" (anything else falls back to native). See TgpQuality in TgpMirrorCam.cs
-        // for what HQ actually does. An earlier build also had "performance" as a cheaper HQ tier;
-        // dropped after live testing (docs/performance.md, 2026-08-23) found it cost about the same
-        // as rendering every frame while also losing tree/grass detail — kept here as a comment
-        // rather than a case so a config file with the old value just falls back to native.
+        // Any input other than "hq" normalizes to native. See TgpQuality in TgpMirrorCam.cs for what
+        // HQ actually does. Persists the normalized value, not the raw input — otherwise a stale
+        // config value (e.g. a dropped tier name from an older build) would keep reading back out of
+        // TgpQualityName unchanged even though SetTgpQuality itself already treats it as native, and
+        // the CFG page's LOW/HIGH buttons would then both show inactive.
         public static void SetTgpQuality(string name)
         {
             TgpQuality quality = name == "hq" ? TgpQuality.HighQuality : TgpQuality.Native;
-            if (_tgpQuality != null) using (PerfLog.Time("RatesConfig.TgpQuality.Value-write")) _tgpQuality.Value = name;
+            string normalized = quality == TgpQuality.HighQuality ? "hq" : "native";
+            if (_tgpQuality != null) _tgpQuality.Value = normalized;
             TgpFeed.Quality = quality;
         }
 

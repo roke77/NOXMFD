@@ -8,8 +8,8 @@
   not MD/CFG's MAIN-rooted sibling groups — same reasoning as WPT. One slider:
     TLM — the main 10 Hz telemetry tick (own-ship, weapons, contacts, TGT, BDF/PAL, and MAP itself
           — everything on TelemetrySnapshot rides this one tick, TelemetryReader.cs's FastInterval).
-  Split off the old combined RTS page (nav-model.js's NAV.mapcfg/NAV.tgpcfg comment) — TGP's own
-  feed-rate/quality settings now live on their own CFG page (/tgpcfg) instead.
+  TGP's own feed-rate/quality settings live on their own CFG page instead (/tgpcfg) — each page
+  only carries the setting relevant to it.
   Fetch-driven like /keybinds: reads /rates-config once on load to set the slider position, then
   POSTs rates.set (send-command.js -> CommandDispatcher) on every slider move, same
   optimistic-update pattern keybinds.js uses for its toggles.
