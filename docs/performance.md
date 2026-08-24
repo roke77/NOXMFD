@@ -627,6 +627,69 @@ it is not currently reachable from the UI or config.
 and its call sites can come out once this branch and its two predecessors are merged — restore
 from history (this time it really is in history) if perf work reopens on TGP again.
 
+## 2026-08-24 — tgp-hq-overlay/lockbox/ir branches: the two "known gaps" above closed, plus fixes
+
+Closes both gaps the mirror-camera branch shipped with, live-tested and iterated against real
+in-game screenshots rather than assumptions:
+
+**Overlay + lock box (tgp-hq-overlay, tgp-hq-lockbox).** Built as the previous entry's own
+recommendation — client-side, from a `Tgp*` block riding the existing telemetry snapshot, not a
+second `UICam`. Two bugs found only by live testing, both in `TgpFeed.cs`'s early-return guards:
+
+- The overlay/lock box data (`TargetCount`, `Boxes`) wasn't cleared on the same paths that clear
+  the video frame (no aircraft, reflection failure, camera timed out) — only `Disengage()` cleared
+  it, so unlocking the last target left a stale lock box on screen over the NO-LOCK placeholder.
+  Fixed by factoring a shared `ClearFeed()` helper all four guards now call.
+- The overlay's screen rect was computed once on the MJPEG `<img>`'s `load` event, which can fire
+  before the panel's own layout has settled (especially on first lock) — the overlay would render
+  offset until something else (a resize) recomputed it. Fixed by resyncing the rect on every
+  telemetry update instead of relying on `load` alone.
+
+**IR/thermal mode (tgp-hq-ir).** The design doc's open question — shared post-process vs. reading
+`TargetCam`'s own shader values — turned out to be the wrong pair of options. `TargetCam`'s IR
+`Volume` is scoped to its own camera via URP's layer-based volume matching, and building a parallel
+volume for the mirror camera risked leaking onto other cameras if their `volumeLayerMask` ever
+overlapped (never fully ruled out, see `docs/tgp-high-quality-mode.md`). Shipped instead as a CPU
+conversion on the already-in-hand readback bytes, no camera/volume/layer plumbing at all:
+
+- First pass: flat luma grayscale. Visually flat/washed out next to the real in-cockpit IR view.
+- Second pass: fixed contrast pivot around mid-gray. Made it worse — a bright daytime scene's luma
+  already sits above 128, so pushing further from 128 clipped most of the frame to white.
+- Shipped: auto-levels (stretch the frame's own actual min→max luma to fill 0-255). Self-adjusting
+  to whatever the scene's real brightness is, no fixed assumption to get wrong. Two passes over the
+  pixel buffer (find range, then remap) — a real but small added CPU cost, gated on IR being active
+  (`Quality == HighQuality && tc.UsingIR()`), timed under `PerfLog.Time("TgpFeed.Grayscale")`.
+
+**Also found: the HQ feed was washed out in *color* mode too**, unrelated to IR. Root cause: the
+mirror camera's `UniversalAdditionalCameraData.renderPostProcessing` defaults to `false` on a
+freshly created camera, so it never picked up the scene's global tonemapping/color-grading volume —
+`TargetCam`'s own camera gets this for free since it's a normal in-scene camera. One-line fix
+(`urp.renderPostProcessing = true` in `TgpMirrorCam.cs`'s `Engage()`), fixes both modes.
+
+**Compass needle direction:** got this wrong twice from screenshot-reading before a precise,
+user-confirmed in-game reading (a known bearing/heading pair, read as an exact clock position) gave
+an unambiguous fix. Two lessons for next time this comes up: (1) a plain sign-flip guess from a
+blurry screenshot is not a substitute for one real data point; (2) **web asset edits are embedded
+resources baked into the DLL at build time** — a `dotnet build` is required before any `src/web/`
+change takes effect in-game, "just reload the page" is not enough, and two of the wrong-needle
+iterations shipped nothing because that step was skipped.
+
+**Not measured this branch:** whether the `Grayscale` CPU pass or the two-pass min/max scan show up
+in `frame(tgpOpen)` at any meaningful level — `PerfLog.Time` wraps it, but no dedicated A/B pass was
+run the way the mirror-camera tiers were. Low priority: it only runs while IR is active in HQ mode,
+a small fraction of TGP's total usage, and the per-pixel work is simple arithmetic over a buffer
+already in hand.
+
+## 2026-08-24 — nav-items branch: TGP rate slider raised to 60 Hz, no clamp
+
+The RTS page's TGP-rate slider ceiling was raised from 30 Hz to 60 Hz (own clamp,
+`RatesConfig.TgpMaxHz`, separate from `FastHz`'s 30 Hz cap) at the user's request, specifically to
+gather real cost data past the point `docs/tgp-high-quality-mode.md` already flags as unaffordable
+combined with HQ quality. No results banked here yet — this is a note that the combination is now
+reachable, not a report of what it costs. The RTS page itself was later split apart into a CFG page
+per source page (MAP's own `/mapcfg`, TGP's own `/tgpcfg`); the 60 Hz ceiling carried over to
+`/tgpcfg`'s slider unchanged.
+
 ## Marginal polish (deferred — data doesn't justify it yet)
 
 - **#4 — split rates.** Contacts at map scale don't need 10 Hz; own-ship

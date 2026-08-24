@@ -9,6 +9,7 @@ target it.
 
 - **FLW** — toggle follow: recenter the map on your own position as you fly, instead of staying
   wherever you last panned it.
+- **CFG** — open [MAP's own settings page](mapcfg.md) (the telemetry refresh rate).
 - **GRID** — toggle a coordinate grid overlay on the map. Off by default.
 - **Z+ / Z−** — zoom in / out.
 - **WPT** — open the [waypoint/route editor](wpt.md).

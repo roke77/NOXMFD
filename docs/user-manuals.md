@@ -49,18 +49,25 @@ pages got their own bullet, some got folded into another's paragraph). Two delib
 Immersion Options stays a section inside the KEY manual, per the earlier "KEY includes everything"
 call — it's config that lives at the bottom of the KEY page itself.
 
-## The 19 documents
+## The 20 documents
+
+Originally 19 (table below was `man/rates.md` → RTS at #18); RTS later split apart (`nav-items`
+branch) into a CFG page per source page, following `nav-model.js`'s NAV.mapcfg/NAV.tgpcfg — each
+reached from its own page's nav row, not the CFG group, so this granularity rule's "one manual per
+real NAV destination" still holds even though there's no `rates`/`RTS` destination left to name.
 
 | # | File | Covers |
 |---|------|--------|
 | 1 | `man/main.md` | MAIN |
 | 2 | `man/map.md` | MAP |
 | 3 | `man/wpt.md` | WPT (MAP sub-page) |
+| 3b | `man/mapcfg.md` | MAP's own CFG (MAP sub-page) |
 | 4 | `man/avn.md` | AVN |
 | 5 | `man/afm.md` | AFM |
 | 6 | `man/rwr.md` | RWR |
 | 7 | `man/rdr.md` | RDR |
 | 8 | `man/tgp.md` | TGP |
+| 8b | `man/tgpcfg.md` | TGP's own CFG (TGP sub-page) |
 | 9 | `man/tgt.md` | TGT |
 | 10 | `man/wpn.md` | WPN |
 | 11 | `man/ext.md` | EXT hub (end-user side; building one stays in `EXTENSIONS.md`) |
@@ -70,8 +77,7 @@ call — it's config that lives at the bottom of the KEY page itself.
 | 15 | `man/bdf.md` | BDF **and** PAL (MD group, same page) |
 | 16 | `man/hud.md` | HUD (CFG group) |
 | 17 | `man/keybinds.md` | KEY (CFG group) — binds, SOI, PAD cursor, Immersion Options, all as sections in one doc |
-| 18 | `man/rates.md` | RTS (CFG group) |
-| 19 | `man/layouts.md` | LYT (CFG group) — CLASSIC (incl. its bezel/shell chrome) and F-35, both layouts fully explained |
+| 18 | `man/layouts.md` | LYT (CFG group) — CLASSIC (incl. its bezel/shell chrome) and F-35, both layouts fully explained |
 
 ## Open questions — resolved
 
