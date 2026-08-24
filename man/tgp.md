@@ -31,10 +31,14 @@ game's own picture. Reads:
   - White dashed — the tracked position is stale.
   - Amber, with a small red cross in the middle — actively laser-designated.
 
+![HQ overlay, COLOR mode — a laser-designated target](images/TGP_HQ_COLOR.jpeg)
+
 ## IR mode
 
 When the pod is in IR (thermal) mode, HIGH quality shows a black-and-white picture instead of
 color — a basic simulated thermal look, not a full radiometric simulation.
+
+![HQ overlay, IR mode — a friendly lock](images/TGP_HQ_BW.jpeg)
 
 ## Refresh rate
 

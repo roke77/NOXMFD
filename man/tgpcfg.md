@@ -3,6 +3,8 @@
 [TGP](tgp.md)'s own settings page, reached from TGP's CFG key. One live-adjustable slider plus a
 picture-quality toggle.
 
+![TGP CFG page](images/TGP_CFG.jpeg)
+
 ## TGP
 
 The [targeting-pod camera feed](tgp.md)'s capture rate, independent of MAP's own telemetry rate.
