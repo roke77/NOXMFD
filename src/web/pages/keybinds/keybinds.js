@@ -24,6 +24,8 @@ var capturing = null;    // plugin-side joy/axis capture: bind id or null (serve
 var capturingKind = null; // 'joy' | 'axis' | null — which capture `capturing` refers to
 var kbCapture = null;    // browser-side keyboard capture: bind id or null (local state)
 var bgInput   = false;   // InputWhenGameUnfocused — a plain setting, not a bind (server state)
+var remoteKeybinds = false;  // per-browser remote-listening toggle (localStorage, not server state)
+var remoteKeybindsSamePc = false;
 // Immersion start-state settings (docs/radar-master-arms.md) — same shape as bgInput above: plain
 // settings, not binds, default true (today's behaviour) until the first /keybinds-config poll.
 var radarOnOnStart      = true;
@@ -45,6 +47,35 @@ bgInputBtn.onclick = function () {
   sendCommand('keybind.set-bg-input', { on: next }).catch(function () {});
   bgInput = next;   // optimistic: show it now, the poll confirms
   renderBgToggle();
+};
+
+// ── Remote keybind listener toggle (docs/remote-keybinds.md) ────────────────────────────────
+var REMOTE_KEYBINDS_STORAGE = 'noxmfd.remoteKeybinds.enabled';
+var remoteKeybindsBtn = document.getElementById('kb-remote-keybinds-btn');
+var remoteWarning = document.getElementById('kb-remote-same-pc-warning');
+
+function readRemoteKeybinds() {
+  try { return localStorage.getItem(REMOTE_KEYBINDS_STORAGE) === '1'; }
+  catch (e) { return false; }
+}
+
+function writeRemoteKeybinds(on) {
+  try { localStorage.setItem(REMOTE_KEYBINDS_STORAGE, on ? '1' : '0'); } catch (e) {}
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'remote-keybinds-enabled', enabled: !!on }, '*');
+  }
+}
+
+function renderRemoteKeybindsToggle() {
+  remoteKeybindsBtn.textContent = remoteKeybinds ? 'ON' : 'OFF';
+  remoteKeybindsBtn.classList.toggle('on', remoteKeybinds);
+  remoteWarning.classList.toggle('shown', remoteKeybindsSamePc);
+}
+
+remoteKeybindsBtn.onclick = function () {
+  remoteKeybinds = !remoteKeybinds;
+  writeRemoteKeybinds(remoteKeybinds);
+  renderRemoteKeybindsToggle();
 };
 
 // ── Immersion start-state toggles (docs/radar-master-arms.md) ───────────────────────────────
@@ -297,6 +328,9 @@ function refresh() {
     capturingKind = cfg.capturingKind || null;
     bgInput = !!cfg.bgInput;
     renderBgToggle();
+    remoteKeybinds = readRemoteKeybinds();
+    remoteKeybindsSamePc = !!cfg.remoteKeybindsSamePc;
+    renderRemoteKeybindsToggle();
     radarOnOnStart      = cfg.radarOnOnStart      !== false;
     engineOnOnStart     = cfg.engineOnOnStart     !== false;
     masterArmsOnOnStart = cfg.masterArmsOnOnStart !== false;
@@ -310,6 +344,8 @@ function refresh() {
 }
 
 renderBgToggle();   // OFF until the first fetch resolves, rather than a blank button
+remoteKeybinds = readRemoteKeybinds();
+renderRemoteKeybindsToggle();
 renderRadarOnStart();          // ON until the first fetch resolves — true is the actual default
 renderEngineOnStart();
 renderMasterArmsOnStart();

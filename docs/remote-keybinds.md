@@ -2,7 +2,7 @@
 
 ## Status
 
-**Planning.** Not started. Requested after a player asked about a two-person cockpit setup —
+**V1 built on `remote-keybinds`.** Requested after a player asked about a two-person cockpit setup —
 one person flying, a second person ("WSO," weapons systems officer) connected to NOXMFD from a
 separate device over the LAN, working MAP/TGT/weapon-selection. That's the scenario that
 surfaced the idea, but the feature itself is generic: **any** browser, on any device, opting in to
@@ -11,6 +11,12 @@ trigger. A two-person WSO setup is one use case; a single player who wants to tr
 a second device (a tablet next to the keyboard, a phone, a second PC) without touching the game
 PC's own input is another, equally in scope. Nothing about the design below is WSO-specific — it's
 written for "a browser, opted in" throughout, with WSO used only where an example is useful.
+
+The branch now covers V1 plus the held-state actions: weapon cycling, countermeasure deploy,
+dedicated gear up/down, MAP/TGT/SOI one-shot actions, master arms, radar/engine set, combat-mode
+tap actions, HUD preset loads, remote MAP/TGT cursor movement/select, and remote
+gun/release/jammer-pod fire. Cursor and fire were intentionally built outside the simple
+`keydown -> /command` map because they need live held-state semantics.
 
 ## Goal
 
@@ -77,8 +83,8 @@ it.
 | Dedicated gear up / down | No | one entry → existing `Keybinds.DriveGear` (make internal) |
 | MAP/TGT highlight nav (`tgt-next`/`tgt-prev`/etc.) | No | one entry → existing `TelemetryServer.MapAction` |
 | SOI nav up/down/select (one-shot) | No | one entry → existing `TelemetryServer.SoiAction` |
-| Cursor move / cursor select | No | **held-state, not one-shot** — see below, not just plumbing |
-| Gun Trigger / Weapon Release / Jammer Pod fire | No | needs a hold-vs-tap design, see below — not just plumbing |
+| Cursor move / cursor select | Yes (`cursor.set` / `cursor.select`) | built as remote held-state merged into the existing cursor stream |
+| Gun Trigger / Weapon Release / Jammer Pod fire | Yes (`fire.set`) | built as remote held-state merged into `Keybinds.Poll()` |
 
 Nothing in this table requires new Harmony patches or previously-untouched game systems — every
 row bottoms out in a method NOXMFD's own keybind path already calls. Two rows, though, aren't
@@ -93,43 +99,31 @@ cy)` and `TelemetryServer.SetCursorSelectHeld(...)` (`Keybinds.cs:673,678`). A p
 cursor needs to see the held flag go `true -> false` to distinguish a tap from a hold
 (`docs/page-cursor.md`) — an edge-only "the key was pressed" event can't express that.
 
-So this pair can't be wired as `keydown -> sendCommand('cursor.move')` the way the one-shot rows
-above can. The remote client needs explicit `keydown`/`keyup` pairs that set/clear local held-key
-state, then send the resulting vector/held-flag continuously (or on every change) for as long as
-the relevant keys are down — mirroring what `Poll()` does every frame, just driven by browser key
-state instead of `Input.GetKey`. This is closer in shape to the fire-action problem below than to
-the rest of the gap table, and should be scoped and tested as its own piece, not assumed to fall
-out of the generic `id -> cmd` mapping the simpler rows use.
+This is now built as a separate held-state path rather than folded into the one-shot id -> command
+map. The remote client keeps browser `keydown`/`keyup` state for `cursor-up/down/left/right/select`,
+sends the current vector through `cursor.set` on change and as a short keepalive, and emits
+`cursor.select` once on the select key's down edge. The server stores that remote cursor source with
+a short expiry, and `Keybinds.Poll()` merges it with the physical keyboard/axis state before
+calling `TelemetryServer.SetCursorVector(...)` and `SetCursorSelectHeld(...)`. That keeps the
+existing SSE cursor transport authoritative while avoiding a stuck cursor if the browser tab closes
+or drops a keyup.
 
 ### Fire actions (Gun Trigger / Weapon Release / Jammer Pod)
 
 `WeaponSelectors.FireGun/FireRelease/FireJammerPod` are driven every frame from `Keybinds.Poll()`
-and use frame-gap tracking (`_gunFrame`/`_relFrame`) to tell a held key from a tapped one. A single
-`/command` POST is an edge, not a level — it can't represent "held." Two ways to bridge that,
-neither requiring new game-side work:
+and use frame-gap tracking (`_gunFrame`/`_relFrame`) to tell a held key from a fresh press. A
+single `/command` POST is an edge, not a level, so the implementation uses explicit held state:
+the remote browser sends `fire.set` true on keydown, false on keyup, plus a short keepalive while
+held. The server stores independent short-lived flags for gun, release, and jammer-pod, and
+`Keybinds.Poll()` merges those flags with the local binds before calling each `WeaponSelectors`
+fire method at most once per frame.
 
-1. **Client-managed hold-repeat.** The remote browser sends the fire command once per `keydown`
-   (or its own repeat interval) for as long as the key is physically held, and stops on `keyup` —
-   same shape as a keyboard's own OS-level key-repeat, just carried over HTTP instead of into
-   `Input.GetKey`. Simplest to build, but weaker than it first looks: `FireGun`/`FireRelease`
-   (`WeaponSelectors.cs:170-` onward) infer "held" from **consecutive Unity frames**
-   (`_gunFrame`/`_relFrame` gap tracking), not from an explicit flag. Browser-cadence HTTP repeats
-   arriving as discrete POSTs, each one processed on whatever main-thread frame it happens to land
-   on, don't naturally reproduce "consecutive frame" — without care, the game may read each repeat
-   as a fresh tap rather than a continued hold, defeating the whole point.
-2. **Explicit start/stop commands.** `keydown` sends `fire.start`, `keyup` sends `fire.stop`, and
-   `CommandDispatcher` keeps its own tiny per-action held-state flag that's read every frame
-   (main-thread side, same cadence `Poll()` already runs at) rather than being event-driven —
-   giving `WeaponSelectors` the same "is this held right now" signal shape it already expects,
-   just sourced from network state instead of `Input.GetKey`. More plumbing than option 1, but
-   avoids reshaping frame-gap-sensitive logic to tolerate irregular network-timed repeats.
-
-**Leaning toward option 2** given the frame-gap dependency above — option 1's appeal (simpler)
-trades against a real risk of subtly-wrong fire behavior (missed shots, unintended taps) that's
-easy to miss in casual testing and only shows up under real network jitter. Either is buildable
-without touching `WeaponSelectors` itself. Not a blocker for shipping the rest of the feature —
-target/weapon-select/master-arms/etc. are useful on their own even before fire actions are wired
-up, so this can land as a phase-2 addition.
+That preserves the existing two-stage switch-then-fire behavior and avoids relying on HTTP repeat
+cadence to mimic Unity frame continuity. The server-side expiry is the safety valve: if a browser
+tab closes or a keyup is lost, the held flag drops back to false automatically. Browser taps can
+deliver `true -> false` between Unity frames, so `fire.set` uses a tiny minimum press window before
+honoring release; `Keybinds.Poll()` also includes remote fire in its early-return check so
+remote-only presses are not skipped while all local binds are idle.
 
 ## Same-PC redundancy: the toggle's central risk
 
@@ -226,8 +220,7 @@ arbitrates.
   different device entirely, should NOT inherit whatever this toggle is set to elsewhere. The row's
   copy should make that local-only scope clear despite sitting in a section whose other rows are
   all shared/global, so it doesn't read as "this is a plugin-wide setting" by visual association.
-- **Label and copy, brief and instructive, generic rather than WSO-specific** — something in this
-  shape (exact wording at implementation time):
+- **Label and copy, brief and instructive, generic rather than WSO-specific**:
   - Label: **"LISTEN FOR KEYBINDS (REMOTE)"**, default OFF.
   - One-line description: *"Lets this browser send your configured keybinds to the game as if
     pressed here — for controlling from a second device, solo or with someone else at the
@@ -240,17 +233,16 @@ arbitrates.
   remote browser can touch — noted here as a design lever, not designed in detail, since the actual
   ask is "let a second browser use the same keybinds," not "restrict them."
 
-## Implementation sketch
+## V1 implementation shape
 
 1. **`CommandDispatcher` additions** — one entry each for cycle guns/missiles/bombs, flares/jammer,
-   dedicated gear up/down, MAP/TGT highlight nav, and one-shot SOI nav up/down/select, each calling
-   the existing method (making it `internal` where it's currently `private`). Cursor move/select
-   and fire actions are held-state, not one-shot — see their own sections above — and are
-   candidates for deferring to a later phase alongside fire actions rather than the v1 pass.
-2. **Same-PC detection field** on `/keybinds-config` (or a new tiny endpoint) — compute once per
+   dedicated gear up/down, MAP/TGT highlight nav, one-shot SOI nav up/down/select, and cursor
+   edge/held-state commands, plus `fire.set` for the remote fire held-state holder. These call the
+   existing method or state holder, making helpers `internal` where they were previously `private`.
+2. **Same-PC detection field** on `/keybinds-config` — compute once per
    request from `ctx.Request.RemoteEndPoint`, compare against loopback + enumerated local
    interface addresses.
-3. **New client module**, e.g. `src/web/pages/keybinds/remote-keybinds.js`, following
+3. **New client module**, `src/web/services/remote-keybinds.js`, following
    `layout-keybinds.js`'s shape almost exactly: fetch `/keybinds-config` (already polled by the KEY
    page), build a `key -> id` map from `binds`, listen for `keydown`/`keyup`, translate matched
    events into `sendCommand(...)` calls using each bind's `id` — reusing whatever mapping
@@ -264,15 +256,13 @@ arbitrates.
 5. **KEY page UI**: the toggle, label, description, and the conditional same-PC warning from
    `/keybinds-config`'s new field.
 
-## Open questions to settle while implementing
+## Follow-up questions
 
-- Exact id→command mapping for binds whose `Keybinds.cs` id doesn't match a `CommandDispatcher`
-  `cmd` string 1:1 — needs a small lookup table in the new client module, not solved by this doc.
-- Whether fire actions ship in v1 or as a phase-2 follow-up (leaning phase 2, per "Fire actions"
-  above).
-- Whether the same-PC warning should be dismissible-and-remembered (`localStorage`) or reappear
-  every time the toggle is touched — err toward reappearing, since the risk is about a mistake
-  made once per session, not a nag.
+- Whether the V1 id→command mapping should grow an allow-list UI later; the current fixed lookup
+  lives in `src/web/services/remote-keybinds.js`, with cursor held-state kept in its own lookup,
+  and both are pinned by `remote-keybinds.test.js`.
+- Whether the same-PC warning should ever become dismissible-and-remembered (`localStorage`). It
+  currently reappears because the risk is about a mistake made once per session, not a nag.
 - Whether an allow-list of exposed binds is worth building now or left for later (see "Toggle UX").
 
 ## Out of scope
@@ -286,14 +276,16 @@ arbitrates.
 - Authentication or per-client trust levels on `/command` generally — a bigger, separate change
   this feature doesn't need to wait on (the existing LAN-trust model already covers this
   feature's addition the same way it covers every existing command sender).
-- Building the fire-action hold-vs-tap mechanism as part of the initial pass (see "Fire actions").
+- Changing `WeaponSelectors`' two-stage switch-then-fire model; remote fire feeds that existing
+  model instead of redefining it.
 
-## Pre-flight before implementing
+## Relevant implementation references
 
-- Read `src/web/shell/layout-keybinds.js` in full — it's the shape this feature's client module
-  should follow almost exactly, just paired with `sendCommand` instead of a client-only action.
-- Read `src/plugin/Keybinds.cs`'s `Poll()`/`PollTapHold()` to confirm the exact fire-action
-  frame-gap logic before choosing between the two hold-vs-tap options above.
-- Read `TelemetryServer.cs`'s `MfdInstance`/`/soi-instances` handling (`TelemetryServer.cs:179-`)
-  before adding the same-PC detection field — reuse its remote-address plumbing rather than
-  building a second copy.
+- `src/web/shell/layout-keybinds.js` is the closest existing browser-side keydown pattern; the
+  remote listener uses the same key-name vocabulary but sends `/command` actions instead of opening
+  a client-only modal.
+- `src/plugin/Keybinds.cs`'s `Poll()`/`PollTapHold()` defines the local held-state and tap/hold
+  behavior that remote cursor/fire state must merge into.
+- `TelemetryServer.cs`'s `MfdInstance`/`/soi-instances` handling is the nearby precedent for
+  server-observed remote addresses; `/keybinds-config` uses the request address directly for the
+  same-PC warning.

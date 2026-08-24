@@ -45,6 +45,8 @@ namespace NOXMFD
         public int    n;       // soi.panes : how many focusable surfaces that instance now shows
                                 // wpt.reorder-waypoint : the "to" index
         public float  hz;      // rates.set : desired rate in Hz (group picks which — "fast" | "tgp")
+        public float  x;       // cursor.set : live cursor velocity X [-1,1]
+        public float  y;       // cursor.set : live cursor velocity Y [-1,1]
         public float  wx;      // wpt.add-waypoint : world X (floating-origin corrected)
         public float  wz;      // wpt.add-waypoint : world Z
         public string? text;   // wpt.import : the pasted route-export JSON blob
@@ -59,6 +61,9 @@ namespace NOXMFD
                 { "target.select",   TargetSelect },
                 { "target.deselect", TargetDeselect },
                 { "weapon.select",   WeaponSelect },
+                { "weapon.cycle",    WeaponCycle },
+                { "cm.deploy",       CountermeasureDeploy },
+                { "gear.set",        GearSet },
                 { "tgt.set",         TgtSet },
                 { "tgt.only",        TgtOnly },
                 { "tgt.reset",       TgtReset },
@@ -71,6 +76,7 @@ namespace NOXMFD
                 { "hud.mode",        HudMode },
                 { "declutter.set",   DeclutterSet },
                 { "avn.toggle",      AvnToggle },
+                { "avn.set",         AvnSet },
                 // MAP CFG's and TGP CFG's sliders/picker. group selects which: "tgp" is the camera
                 // feed rate, "tgpQuality" is the HQ mode picker (payload in wname, not hz), anything
                 // else (default "fast") is the main 10 Hz tick.
@@ -113,6 +119,11 @@ namespace NOXMFD
                 // SOI focus — driven from a browser with no controller and no aircraft.
                 { "soi.next",           e => TelemetryServer.SoiCycle(1) },
                 { "soi.prev",           e => TelemetryServer.SoiCycle(-1) },
+                { "soi.action",         e => TelemetryServer.SoiAction(e.wname ?? string.Empty) },
+                { "map.action",         e => TelemetryServer.MapAction(e.wname ?? string.Empty) },
+                { "cursor.select",      e => TelemetryServer.CursorSelect() },
+                { "cursor.set",         CursorSet },
+                { "fire.set",           FireSet },
                 // A client reports its current surface count so SOI can cycle surfaces, not documents.
                 // Carries its own cid — a POST isn't tied to the /stream connection the count belongs to.
                 { "soi.panes",          e => TelemetryServer.SetPaneCount(e.cid ?? string.Empty, e.n) },
@@ -313,6 +324,74 @@ namespace NOXMFD
 
             WeaponSelectors.SelectStation(ac, target);
             Plugin.Log?.LogInfo($"[NOXMFD] weapon.select → '{wname}' (station {target.Number}).");
+        }
+
+        private static bool LocalAircraft(string op, out Aircraft ac)
+        {
+            GameManager.GetLocalAircraft(out ac);
+            if (ac == null || ac.disabled)
+            {
+                Plugin.Log?.LogInfo($"[NOXMFD] {op}: no local aircraft — ignored.");
+                return false;
+            }
+            return true;
+        }
+
+        private static void WeaponCycle(CommandEnvelope env)
+        {
+            if (!LocalAircraft("weapon.cycle", out Aircraft ac)) return;
+            switch (env.group)
+            {
+                case "guns":     WeaponSelectors.CycleGun(ac);     break;
+                case "missiles": WeaponSelectors.CycleMissile(ac); break;
+                case "bombs":    WeaponSelectors.CycleBomb(ac);    break;
+                default:
+                    Plugin.Log?.LogInfo($"[NOXMFD] weapon.cycle: unknown group '{env.group}' — ignored.");
+                    break;
+            }
+        }
+
+        private static void CountermeasureDeploy(CommandEnvelope env)
+        {
+            if (!LocalAircraft("cm.deploy", out Aircraft ac)) return;
+            switch (env.group)
+            {
+                case "flares": Keybinds.DriveCountermeasure(ac, 1); break;
+                case "jammer": Keybinds.DriveCountermeasure(ac, 2); break;
+                default:
+                    Plugin.Log?.LogInfo($"[NOXMFD] cm.deploy: unknown group '{env.group}' — ignored.");
+                    break;
+            }
+        }
+
+        private static void GearSet(CommandEnvelope env)
+        {
+            if (!LocalAircraft("gear.set", out Aircraft ac)) return;
+            switch (env.group)
+            {
+                case "up":   Keybinds.DriveGear(ac, up: true,  down: false); break;
+                case "down": Keybinds.DriveGear(ac, up: false, down: true);  break;
+                default:
+                    Plugin.Log?.LogInfo($"[NOXMFD] gear.set: unknown group '{env.group}' — ignored.");
+                    break;
+            }
+        }
+
+        private static void CursorSet(CommandEnvelope env)
+        {
+            TelemetryServer.SetRemoteCursorState(ClampUnit(env.x), ClampUnit(env.y), env.on);
+        }
+
+        private static void FireSet(CommandEnvelope env)
+        {
+            TelemetryServer.SetRemoteFireState(env.group ?? string.Empty, env.on);
+        }
+
+        private static float ClampUnit(float value)
+        {
+            if (value < -1f) return -1f;
+            if (value > 1f) return 1f;
+            return value;
         }
 
         // ── TGT filter panel ──────────────────────────────────────────────────────
@@ -569,6 +648,21 @@ namespace NOXMFD
                     return;
             }
             Plugin.Log?.LogInfo($"[NOXMFD] avn.toggle {env.group}.");
+        }
+
+        private static void AvnSet(CommandEnvelope env)
+        {
+            if (!LocalAircraft("avn.set", out Aircraft ac)) return;
+
+            switch (env.group)
+            {
+                case "radar": Keybinds.SetRadar(ac, env.on);  break;
+                case "eng":   Keybinds.SetEngine(ac, env.on); break;
+                default:
+                    Plugin.Log?.LogInfo($"[NOXMFD] avn.set: unknown group '{env.group}' — ignored.");
+                    return;
+            }
+            Plugin.Log?.LogInfo($"[NOXMFD] avn.set {env.group} = {env.on}.");
         }
 
         // Bounds guard shared by the HUD handlers: true when index addresses a live element.

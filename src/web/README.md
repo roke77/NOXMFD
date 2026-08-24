@@ -14,6 +14,7 @@ src/web/
   shared/   font.css  theme.css  share-tech-mono.woff2   # passive cross-page assets
   services/ telemetry-source.js  send-command.js          # active shared code (the providers)
             pad-cursor.js                                 # the shared PAD crosshair (docs/page-cursor.md)
+            remote-keybinds.js                            # opt-in browser keybind listener
   shell/    nav-model.js                                  # NAV registry — the layout seam, BOTH shells load it
             layout-pages.js                               # where each layout mounts each NAV destination
             layout-keydown.js                             # shared SAVE/LOAD LAYOUT keyboard wiring
@@ -47,7 +48,8 @@ src/web/
 
 Two shells render the same pages: the classic bezel (`shell/classic/mfd.js`) and the F-35 glass
 (`shell/f35/f35.js`), sharing the NAV model, the page-routing tables (`shell/layout-pages.js`),
-`sendCommand`, and the SAVE/LOAD LAYOUT keyboard wiring
+`sendCommand`, the opt-in remote keybind listener (`services/remote-keybinds.js`), and the
+SAVE/LOAD LAYOUT keyboard wiring
 (`shell/layout-keydown.js`) and the boot loading-bar/typewriter mechanics
 (`shell/boot-reveal.js`) — see [`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
 `nav-model.test.js`, `f35-glass.test.js`, `classic-paging.test.js`) are Node self-checks, run by hand
@@ -59,7 +61,9 @@ Logic worth checking gets split into a **pure sibling module** the page loads an
 without a DOM — the page keeps the elements and live state and passes what the module needs in. The
 same move the shell makes with `nav-model.js` / `classic-paging.js`. Named for what it does:
 `map-transform.js` (world⇄pixel maths), `bdf-funds.js` (the magnitude-band money format),
-`keybinds-keymap.js` (KeyboardEvent.code ⇄ Unity KeyCode names), `wpt-route.js` (route/waypoint
+`keybinds-keymap.js` (KeyboardEvent.code ⇄ Unity KeyCode names), `remote-keybinds.js` (the
+per-browser KEY-page listener that maps configured keys into `/command` posts), `wpt-route.js`
+(route/waypoint
 display-derivation — bearing/distance math and a client-side pre-validator for pasted route JSON;
 the actual route data and its mutation live server-side in `RouteStore`, not here — see
 `waypoints-store.js`), and `<x>-*-policy.js` where the
@@ -170,6 +174,10 @@ selected range follows the same pattern under `noxmfd.rdr.view`.
   `layout.save`/`.rename`/`.delete` (issue #51 — LOAD itself is a client-side `GET /layout-options`
   read, no command), and `avn.toggle` again from the F-35 master strip). Every handler is listed in
   [`src/plugin/README.md`](../plugin/README.md).
+- **Remote keybinds:** `src/web/services/remote-keybinds.js` is loaded by shells and standalone
+  pages. It stays idle unless the per-browser KEY toggle is on, then polls `/keybinds-config`,
+  translates configured keys into `/command` posts, and uses explicit held-state commands for
+  cursor/fire actions so browser keyup/blur can release them.
 
 ## Verifying without the game
 

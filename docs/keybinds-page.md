@@ -108,11 +108,30 @@ Capture is split by source, because each side can only see its own input:
   off and on again while armed to bind it deliberately. Each bind pins its own joystick
   number (`0` = any), so a multi-device HOTAS can spread binds across sticks.
 
+## Remote keybind listener
+
+The page also owns the opt-in **LISTEN FOR KEYBINDS (REMOTE)** setting. Unlike the bind registry
+and immersion toggles, this is deliberately per browser: `keybinds.js` stores it in
+`localStorage` under `noxmfd.remoteKeybinds.enabled` and notifies the parent shell with
+`postMessage`, so only that browser begins listening.
+
+When enabled, `src/web/services/remote-keybinds.js` fetches `/keybinds-config`, builds keyboard
+maps from the same configured bind ids, and translates keydown/keyup into `/command` posts.
+Ordinary edge actions use fixed id -> command mappings. Cursor and fire actions use explicit
+held-state commands instead: `cursor.set` / `cursor.select` and `fire.set`, with short server-side
+expiry so a closed tab or lost keyup cannot leave an input stuck on.
+
+`/keybinds-config` also reports `remoteKeybindsSamePc`, computed from the request's remote address
+against loopback and local interface addresses. The KEY page shows a warning when true because the
+game PC already polls the physical keyboard/HOTAS locally; enabling the browser listener on that
+same machine can send the same keypress twice.
+
 ## Plumbing
 
 - `GET /keybinds-config` — the bind registry (id, section title, label, description,
-  current key + joy button/stick), the per-section `notes`, and which bind is armed for
-  capture. The page polls it at 600 ms; the poll is also how a capture result arrives.
+  current key + joy button/stick), the per-section `notes`, which bind is armed for capture, and
+  `remoteKeybindsSamePc` for the remote-listener warning. The page polls it at 600 ms; the poll is
+  also how a capture result arrives.
   Section display titles and notes come from `Keybinds.SectionTitle`/`SectionNote` — the
   `.cfg` section names underneath are persistence identity and never change.
 - `POST /command`: `keybind.set-key { bind, key }` (`""`/`"None"` clears),

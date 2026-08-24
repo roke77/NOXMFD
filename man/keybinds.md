@@ -56,6 +56,13 @@ if you run the display in a browser on the same PC as the game, so your HOTAS st
 that browser window has focus. Off by default; leave it off for a tablet or phone, where the game
 keeps focus anyway.
 
+**Listen for Keybinds (Remote)** lets this browser send the keyboard binds configured on this page
+back to the game, so a tablet, laptop, or WSO station can operate the same MAP/TGT/SOI/weapon
+actions without physical access to the game PC. It is off by default and stored per browser. Keep it
+enabled only on the browser you intend to use for input; if the page detects that it is running on
+the game PC, it warns that the game may also receive the same physical keypress and double-fire an
+action.
+
 ## Sensor of Interest (SOI)
 
 Operate a display from your HOTAS without touching it. One screen at a time is selected — it is

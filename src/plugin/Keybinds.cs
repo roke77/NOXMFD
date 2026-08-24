@@ -108,6 +108,7 @@ namespace NOXMFD
         // The two MAP cursor axis binds (docs/map-cursor.md) — analog alternative to the four keys
         // above; a deflected axis overrides its keys for that component (Poll()).
         private static BindDef? _cursorAxisH, _cursorAxisV;
+        private static BindDef? _gunTrigger, _weaponRelease, _jammerPod;
 
         // Combat-mode tap/hold binds (docs/radar-master-arms.md, issue #32) — see PollTapHold. Kept by
         // reference, same reasoning as the cursor binds above: Poll() drives their real behavior
@@ -137,7 +138,7 @@ namespace NOXMFD
             // gun/missile/bomb binds below (two-stage switch-then-fire), but sits here with the other
             // countermeasure-flavoured binds since there's exactly one soft selection and no cycle key
             // (see WeaponSelectors.cs).
-            Def(config, "jammer-pod", cm, "ActivateJammerPod", "Jamming Pod", edge: false,
+            _jammerPod = Def(config, "jammer-pod", cm, "ActivateJammerPod", "Jamming Pod", edge: false,
                 "Select + activate a weapon-mounted radar jamming pod. HOLD to keep jamming. With another weapon selected, the first press only switches to it — press again to activate. No-op if the aircraft has no jamming pod.",
                 WeaponSelectors.FireJammerPod);
 
@@ -153,10 +154,10 @@ namespace NOXMFD
             Def(config, "cycle-bombs", wpn, "CycleBombs", "Cycle Bombs", edge: true,
                 "Select a bomb.",
                 WeaponSelectors.CycleBomb);
-            Def(config, "gun-trigger", wpn, "GunTrigger", "Gun Trigger", edge: false,
+            _gunTrigger = Def(config, "gun-trigger", wpn, "GunTrigger", "Gun Trigger", edge: false,
                 "Fire your gun; HOLD for continuous fire. With a non-gun selected, the first press only switches to the gun — press again to fire.",
                 WeaponSelectors.FireGun);
-            Def(config, "weapon-release", wpn, "WeaponRelease", "Weapon Release", edge: false,
+            _weaponRelease = Def(config, "weapon-release", wpn, "WeaponRelease", "Weapon Release", edge: false,
                 "Release your missile/bomb; HOLD to keep releasing. With a gun selected, the first press only switches to it — press again to release.",
                 WeaponSelectors.FireRelease);
 
@@ -670,12 +671,15 @@ namespace NOXMFD
             float ay = ReadAxis(_cursorAxisV!);
             if (ax != 0f) cx = ax;
             if (ay != 0f) cy = ay;
+            TelemetryServer.GetRemoteCursorState(out float rcx, out float rcy, out bool remoteCursorSelectHeld);
+            cx = ClampUnit(cx + rcx);
+            cy = ClampUnit(cy + rcy);
             TelemetryServer.SetCursorVector(cx, cy);
 
             // Cursor Select's LIVE held state (not the edge above) — reported every frame, same
             // reasoning as the vector: a page needs to see it go true→false to tell a tap from a hold
             // (docs/page-cursor.md), which an edge-only counter can't express.
-            TelemetryServer.SetCursorSelectHeld(Active(_cursorSelect!, edgeOverride: false));
+            TelemetryServer.SetCursorSelectHeld(Active(_cursorSelect!, edgeOverride: false) || remoteCursorSelectHeld);
 
             // Combat-mode tap/hold binds (docs/radar-master-arms.md) — run every frame, same reasoning
             // as the cursor vector above: a release on an otherwise-idle frame must still reset
@@ -685,7 +689,10 @@ namespace NOXMFD
             PollTapHold(_combatModeAg!, onTap: () => SetCombatMode(CombatMode.AirToGround),
                                         onHold: () => SetCombatMode(CombatMode.All));
 
-            if (!any) return;   // common case — nothing this frame
+            TelemetryServer.GetRemoteFireState(out bool remoteGun, out bool remoteRelease, out bool remoteJammerPod);
+            bool anyRemoteFire = remoteGun || remoteRelease || remoteJammerPod;
+
+            if (!any && !anyRemoteFire) return;   // common case — nothing this frame
 
             // Aircraft-free binds first (SOI): they drive the mod's own displays, so they have to work
             // at the main menu — the aircraft check below would otherwise swallow them.
@@ -695,15 +702,29 @@ namespace NOXMFD
             GameManager.GetLocalAircraft(out Aircraft ac);
             if (ac == null || ac.disabled) return;
 
+            if ((_gunTrigger?.ActiveNow ?? false) || remoteGun) WeaponSelectors.FireGun(ac);
+            if ((_weaponRelease?.ActiveNow ?? false) || remoteRelease) WeaponSelectors.FireRelease(ac);
+            if ((_jammerPod?.ActiveNow ?? false) || remoteJammerPod) WeaponSelectors.FireJammerPod(ac);
+
             foreach (var b in _binds)
-                if (b.ActiveNow && b.Drive != null) b.Drive(ac);
+                if (b.ActiveNow && b.Drive != null && !IsCombinedFireBind(b)) b.Drive(ac);
+        }
+
+        private static bool IsCombinedFireBind(BindDef b) =>
+            ReferenceEquals(b, _gunTrigger) || ReferenceEquals(b, _weaponRelease) || ReferenceEquals(b, _jammerPod);
+
+        private static float ClampUnit(float value)
+        {
+            if (value < -1f) return -1f;
+            if (value > 1f) return 1f;
+            return value;
         }
 
         // Dedicated gear raise/lower, mirroring the stock toggle (PilotPlayerState.cs): only changes a
         // fully locked gear, and only while airborne (radarAlt > 0.2 — the game's anti-ground-collapse
         // guard). SetGear is the canonical, network-correct entry. A gear mid-transition (Extending/
         // Retracting) matches neither locked state and is left alone — exactly the requested no-op spec.
-        private static void DriveGear(Aircraft ac, bool up, bool down)
+        internal static void DriveGear(Aircraft ac, bool up, bool down)
         {
             if (ac.radarAlt <= 0.2f) return;
             if (up   && ac.gearState == LandingGear.GearState.LockedExtended)  ac.SetGear(false);   // raise if down
@@ -714,11 +735,11 @@ namespace NOXMFD
         // change, so pressing "on" while already on (or "off" while already off) is a clean no-op —
         // same reasoning as DriveGear above. CmdToggleRadar()/CmdToggleIgnition() only flip whatever
         // the current state is; there's no direct "set" call on the game side.
-        private static void SetRadar(Aircraft ac, bool on)
+        internal static void SetRadar(Aircraft ac, bool on)
         {
             if (ac.radar != null && ac.radar.activated != on) ac.CmdToggleRadar();
         }
-        private static void SetEngine(Aircraft ac, bool on)
+        internal static void SetEngine(Aircraft ac, bool on)
         {
             if (ac.Ignition != on) ac.CmdToggleIgnition();
         }
@@ -950,6 +971,12 @@ namespace NOXMFD
 
         // Select this countermeasure (activeIndex; the game's UpdateHUD syncs the readout) and fire the
         // active station now. No-op if the airframe carries no countermeasure of that category.
+        internal static void DriveCountermeasure(Aircraft ac, byte category)
+        {
+            var mgr = ac.countermeasureManager;
+            if (mgr != null) Drive(ac, mgr, category);
+        }
+
         private static void Drive(Aircraft ac, CountermeasureManager mgr, byte category)
         {
             int idx = IndexOfCategory(mgr, category);
