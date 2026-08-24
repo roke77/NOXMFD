@@ -283,20 +283,42 @@ namespace NOXMFD
         // Ceiling: a flat-scene frame (all sky, no ground) has a near-zero luma range, so the
         // stretch divisor floors at 1 rather than dividing by ~0 — that just leaves it unstretched
         // rather than amplifying sensor-noise-level differences into full contrast.
-        private static void Grayscale(NativeArray<byte> px)
+        //
+        // The min/max feeding that stretch is smoothed across frames (_irMinEma/_irMaxEma) rather
+        // than trusting each frame's raw values outright — a bare per-frame min/max jumps whenever a
+        // bright/dark pixel enters or leaves the picture (a highlight, camera jitter), which reads as
+        // a visible brightness/contrast pulse between consecutive frames; more noticeable at high
+        // capture rates, where shown frames are more likely to differ from each other and dropped
+        // readbacks (docs/performance.md) widen the gap between them further.
+        // ponytail: fixed smoothing factor, tuned by feel rather than measured — revisit (e.g. a
+        // faster factor, or reset-on-large-jump) if it visibly lags a fast real brightness change
+        // such as an HQ zoom snapping onto a new target.
+        private const float IrLevelsSmoothing = 0.25f;
+        private float _irMinEma = -1f;
+        private float _irMaxEma = -1f;
+
+        private void Grayscale(NativeArray<byte> px)
         {
-            byte min = 255, max = 0;
+            byte rawMin = 255, rawMax = 0;
             for (int i = 0; i + 3 < px.Length; i += 4)
             {
                 byte luma = (byte)(0.299f * px[i] + 0.587f * px[i + 1] + 0.114f * px[i + 2]);
-                if (luma < min) min = luma;
-                if (luma > max) max = luma;
+                if (luma < rawMin) rawMin = luma;
+                if (luma > rawMax) rawMax = luma;
             }
-            float range = Mathf.Max(1, max - min);
+
+            if (_irMinEma < 0f) { _irMinEma = rawMin; _irMaxEma = rawMax; }
+            else
+            {
+                _irMinEma += (rawMin - _irMinEma) * IrLevelsSmoothing;
+                _irMaxEma += (rawMax - _irMaxEma) * IrLevelsSmoothing;
+            }
+
+            float range = Mathf.Max(1f, _irMaxEma - _irMinEma);
             for (int i = 0; i + 3 < px.Length; i += 4)
             {
                 float luma = 0.299f * px[i] + 0.587f * px[i + 1] + 0.114f * px[i + 2];
-                byte gray = (byte)Mathf.Clamp((luma - min) / range * 255f, 0f, 255f);
+                byte gray = (byte)Mathf.Clamp((luma - _irMinEma) / range * 255f, 0f, 255f);
                 px[i] = px[i + 1] = px[i + 2] = gray;
             }
         }
@@ -328,6 +350,7 @@ namespace NOXMFD
             _active            = false;
             _srcLogged         = false;
             _readbackInFlight  = false;   // any in-flight callback will see !WantsTgpFrames / null _tex and bail
+            _irMinEma = _irMaxEma = -1f;  // re-seed from the next lock's own scene, not this one's brightness
             Overlay.Clear();              // stale overlay data shouldn't linger once the feed goes idle
             TelemetryServer.ClearTgpFrame();
             if (wasEngaged) Plugin.Log?.LogInfo("[NOXMFD] TGP: disengaged (no subscribers).");
