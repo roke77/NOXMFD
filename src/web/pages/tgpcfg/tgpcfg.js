@@ -62,11 +62,7 @@ function setSuppressNative(on) {
 }
 
 function renderSuppressToggle() {
-  var row = document.getElementById('tcfg-tgp-suppress');
   var btn = document.getElementById('tcfg-tgp-suppress-btn');
-  row.hidden = false;
-  row.classList.remove('disabled');
-  btn.disabled = false;
   btn.textContent = tgpSuppressNative ? 'ON' : 'OFF';
   btn.classList.toggle('on', tgpSuppressNative);
 }

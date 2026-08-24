@@ -160,9 +160,6 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   color: var(--no-panel-bg);
   background: var(--no-green);
 }
-.tcfg-setting.disabled {
-  opacity: 0.52;
-}
 #tcfg-tgp-suppress {
   display: flex;
   align-items: center;
