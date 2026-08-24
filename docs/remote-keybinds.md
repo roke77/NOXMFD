@@ -1,19 +1,23 @@
-# WSO — remote keybind listening from a second browser (planning)
+# Remote keybind listening from a second browser (planning)
 
 ## Status
 
-**Planning.** Not started. Requested by a player who flies with a second person acting as WSO
-(weapons systems officer): the pilot flies, the WSO connects to NOXMFD from a separate device over
-the LAN and works MAP/TGT/weapon-selection. The WSO currently has no way to trigger those actions
-with a keypress the way the pilot does at the keyboard/HOTAS — every WSO action has to be a mouse
-click on the web page.
+**Planning.** Not started. Requested after a player asked about a two-person cockpit setup —
+one person flying, a second person ("WSO," weapons systems officer) connected to NOXMFD from a
+separate device over the LAN, working MAP/TGT/weapon-selection. That's the scenario that
+surfaced the idea, but the feature itself is generic: **any** browser, on any device, opting in to
+translate its own keydown/keyup events into the same commands NOXMFD's own keybinds already
+trigger. A two-person WSO setup is one use case; a single player who wants to trigger actions from
+a second device (a tablet next to the keyboard, a phone, a second PC) without touching the game
+PC's own input is another, equally in scope. Nothing about the design below is WSO-specific — it's
+written for "a browser, opted in" throughout, with WSO used only where an example is useful.
 
 ## Goal
 
 Let a browser optionally listen for keydown/keyup events and translate them into the same
-`/command` POSTs NOXMFD's own bind registry already understands — so a WSO's browser can use the
-same key layout the pilot configured on the KEY page, without the WSO needing physical access to
-the game PC's keyboard or HOTAS.
+`/command` POSTs NOXMFD's own bind registry already understands — so any connected browser can use
+the same key layout configured on the KEY page, from whatever device that browser happens to be
+running on, without needing physical access to the game PC's keyboard or HOTAS.
 
 **Opt-in, off by default, one browser tab at a time in practice.** This is the important framing
 for the whole feature: it isn't "give every connected browser a keyboard," it's "let one
@@ -31,10 +35,11 @@ it.
   fetches to match a raw browser `KeyboardEvent` against one configured key (for SAVE/LOAD LAYOUT,
   a client-side-only action). That module is the direct precedent for this feature's steps (a) and
   (b) — fetch the table, match keydown against it — just not yet paired with a `sendCommand` call.
-- **Most WSO-relevant actions are already invokable via `/command` today**: `target.select`,
-  `target.deselect`, `weapon.select`, `master-arms.set`, `combat-mode.set`, `avn.toggle` (radar,
-  gear, engine, guns-linked, turret), the full `tgt.*` filter panel, `soi.next`/`soi.prev`. No new
-  game-side plumbing needed for these — a keydown handler can call `sendCommand` today.
+- **Most of the actions this feature targets are already invokable via `/command` today**:
+  `target.select`, `target.deselect`, `weapon.select`, `master-arms.set`, `combat-mode.set`,
+  `avn.toggle` (radar, gear, engine, guns-linked, turret), the full `tgt.*` filter panel,
+  `soi.next`/`soi.prev`. No new game-side plumbing needed for these — a keydown handler can call
+  `sendCommand` today.
 - **A handful of actions need one new `CommandDispatcher` entry each**, calling an existing
   (currently `private`) method the keybind `Poll()` path already uses — cycle guns/missiles/bombs
   (`WeaponSelectors.CycleGun/CycleMissile/CycleBomb`), flares/jammer
@@ -56,7 +61,7 @@ it.
   This is the seam the same-PC detection below reuses — nothing new has to be built to *see* who's
   connected, only to *use* that for a warning.
 
-## Gap analysis: command-channel coverage for WSO-relevant actions
+## Gap analysis: command-channel coverage for the actions this feature targets
 
 | Action | `/command` today? | Work needed |
 |---|---|---|
@@ -89,7 +94,7 @@ cursor needs to see the held flag go `true -> false` to distinguish a tap from a
 (`docs/page-cursor.md`) — an edge-only "the key was pressed" event can't express that.
 
 So this pair can't be wired as `keydown -> sendCommand('cursor.move')` the way the one-shot rows
-above can. The WSO client needs explicit `keydown`/`keyup` pairs that set/clear local held-key
+above can. The remote client needs explicit `keydown`/`keyup` pairs that set/clear local held-key
 state, then send the resulting vector/held-flag continuously (or on every change) for as long as
 the relevant keys are down — mirroring what `Poll()` does every frame, just driven by browser key
 state instead of `Input.GetKey`. This is closer in shape to the fire-action problem below than to
@@ -103,9 +108,9 @@ and use frame-gap tracking (`_gunFrame`/`_relFrame`) to tell a held key from a t
 `/command` POST is an edge, not a level — it can't represent "held." Two ways to bridge that,
 neither requiring new game-side work:
 
-1. **Client-managed hold-repeat.** The WSO browser sends the fire command once per `keydown` (or
-   its own repeat interval) for as long as the key is physically held, and stops on `keyup` — same
-   shape as a keyboard's own OS-level key-repeat, just carried over HTTP instead of into
+1. **Client-managed hold-repeat.** The remote browser sends the fire command once per `keydown`
+   (or its own repeat interval) for as long as the key is physically held, and stops on `keyup` —
+   same shape as a keyboard's own OS-level key-repeat, just carried over HTTP instead of into
    `Input.GetKey`. Simplest to build, but weaker than it first looks: `FireGun`/`FireRelease`
    (`WeaponSelectors.cs:170-` onward) infer "held" from **consecutive Unity frames**
    (`_gunFrame`/`_relFrame` gap tracking), not from an explicit flag. Browser-cadence HTTP repeats
@@ -130,35 +135,36 @@ up, so this can land as a phase-2 addition.
 
 NOXMFD's own keybind system doesn't listen through a browser at all — `Keybinds.Poll()` reads
 `Input.GetKey`/`GetKeyDown` **directly, in the game process**, on whatever PC the game is running
-on, regardless of whether any browser page is even open. That's the pilot's existing input path,
-and it is always active on the game's own PC.
+on, regardless of whether any browser page is even open. That's the existing input path for
+whoever is at the game PC's own keyboard/HOTAS, and it is always active on that PC.
 
-So the redundancy risk isn't really "two WSO browsers might conflict" (that's the separate,
+So the redundancy risk isn't really "two remote browsers might conflict" (that's the separate,
 smaller concern below) — it's that **the game PC itself is already a live keybind listener**. If
-someone opens a WSO-mode browser tab *on that same PC* (testing locally, or a second monitor
-driven by the same machine) and binds it to the same keys the pilot's physical keyboard already
+someone opens a remote-listening browser tab *on that same PC* (testing locally, or a second
+monitor driven by the same machine) and it's bound to the same keys the physical keyboard already
 triggers, every keypress fires twice: once through `Input.GetKey` in the game process, once
-through the WSO tab's `keydown` → `/command` round trip. That's a confusing, hard-to-diagnose bug
-for exactly the audience least likely to expect it — someone testing the feature on their own PC
-before handing it to a remote WSO.
+through the browser tab's `keydown` → `/command` round trip. That's a confusing, hard-to-diagnose
+bug for exactly the audience least likely to expect it — someone testing the feature on their own
+PC before handing a second device to a WSO, or a solo player who forgets they left a second local
+browser tab in this mode.
 
 **Detection approach**: `/soi-instances` (`MfdInstance.Remote`, `TelemetryServer.cs:192`) is
 useful *precedent* — it shows the server already tracks each connection's remote address — but
 it's not the mechanism to build on directly: it only lists browsers with an open SSE `/stream`
-connection, and a KEY page fetching `/keybinds-config` for the WSO toggle has no reason to also
-hold a `/stream` open, so it wouldn't reliably show up there. The primary source should be
-simpler and self-contained: `ServeKeybindsConfig` (`TelemetryServer.cs:1021`) already runs once
-per `/keybinds-config` request and has direct access to `ctx.Request.RemoteEndPoint` for *that*
+connection, and a KEY page fetching `/keybinds-config` for this toggle has no reason to also hold
+a `/stream` open, so it wouldn't reliably show up there. The primary source should be simpler and
+self-contained: `ServeKeybindsConfig` (`TelemetryServer.cs:1021`) already runs once per
+`/keybinds-config` request and has direct access to `ctx.Request.RemoteEndPoint` for *that*
 request — compute the same-PC check right there (loopback `127.0.0.1`/`::1`, or a match against
 the host machine's own local network interface addresses, `System.Net.NetworkInterface`
 enumerated once at startup) and add it as one more field on the response. No dependency on
 `/soi-instances` or on the requesting page having any other connection open.
 
-When that's true, the WSO toggle's page shows a clear, hard-to-miss warning before the toggle can
-be switched on — not necessarily a hard block (someone might have a real reason to test locally
-with the game's own keyboard unplugged/unfocused), but framed strongly: *"This browser is running
-on the same PC as the game — NOXMFD's own keybinds are already listening here. Turning this on
-will likely double-fire your inputs."*
+When that's true, the page shows a clear, hard-to-miss warning before the toggle can be switched
+on — not necessarily a hard block (someone might have a real reason to test locally with the
+game's own keyboard unplugged/unfocused), but framed strongly: *"This browser is running on the
+same PC as the game — NOXMFD's own keybinds are already listening here. Turning this on will
+likely double-fire your inputs."*
 
 This heuristic isn't perfect (a VPN, a second NIC, or genuinely unusual network topology could
 produce a false negative), so document it as best-effort in the UI copy rather than a guarantee —
@@ -166,29 +172,29 @@ produce a false negative), so document it as best-effort in the UI copy rather t
 
 ## Multiple senders: conflict and desync analysis
 
-Two or more people (or the pilot's own native input plus a WSO's remote commands) sending actions
-concurrently doesn't introduce a new race class — `CommandDispatcher.Drain()` already runs every
-queued command sequentially on the main thread each frame, and every handler already assumes
+Two or more people (or one player's native input plus a second browser's remote commands) sending
+actions concurrently doesn't introduce a new race class — `CommandDispatcher.Drain()` already runs
+every queued command sequentially on the main thread each frame, and every handler already assumes
 "could be triggered from more than one source" (a HOTAS bind and its keyboard fallback already
 fire the same action independently today, and nothing breaks — see `Keybinds.cs`'s own "fires if
 EITHER source is active" model). Concretely, for the actions in the gap-analysis table:
 
 - **Set-style commands** (`target.select`, `weapon.select`, `tgt.set`, `combat-mode.set`,
   `master-arms.set`) carry the desired end state explicitly (which target, which weapon, on vs.
-  off) — two people sending the same value twice is a true no-op, and two people sending
+  off) — two senders sending the same value twice is a true no-op, and two senders sending
   *different* values just means the second POST processed wins, same as if one person changed
   their mind twice. Safe by construction; the only "conflict" is a **gameplay** one (two people
   wanting different targets/weapons active), not a software bug.
 - **Toggle-style commands** (`avn.toggle` for radar/engine/gear/guns-linked/turret) carry no
   target state at all — each POST just flips whatever the current value is. This is the one place
-  where two senders can genuinely **cancel each other out**: if the WSO and the pilot's native
-  keybind both toggle the same thing within the same frame window (or even a second apart, without
-  either seeing the other's action), the net effect can be "it looks like nothing happened" or
-  "it ended up in the wrong state," and neither side gets a clear signal why. Worth naming
-  explicitly in the toggle's warning copy — not because it needs a code fix (the ordinary
-  last-write-wins behavior is correct and matches how two physical keybinds already interact
-  today), but because "toggle" conflicts are more confusing to debug in the moment than "set"
-  conflicts, since there's no wrong *value* to point at, just an unexpected state flip.
+  where two senders can genuinely **cancel each other out**: if two sources both toggle the same
+  thing within the same frame window (or even a second apart, without either seeing the other's
+  action), the net effect can be "it looks like nothing happened" or "it ended up in the wrong
+  state," and neither side gets a clear signal why. Worth naming explicitly in the toggle's warning
+  copy — not because it needs a code fix (the ordinary last-write-wins behavior is correct and
+  matches how two physical keybinds already interact today), but because "toggle" conflicts are
+  more confusing to debug in the moment than "set" conflicts, since there's no wrong *value* to
+  point at, just an unexpected state flip.
 - **Fire actions** — whichever hold-tracking shape is chosen above, two independent senders
   holding "fire" simultaneously is exactly the existing "either source active" model already
   tolerates for HOTAS + keyboard. No new design needed there either, once the single-sender
@@ -201,28 +207,38 @@ EITHER source is active" model). Concretely, for the actions in the gap-analysis
 
 **Verdict: no server-side conflict-resolution work needed beyond what already exists.** The real
 mitigation is social/UX — the toggle's warning copy should say plainly that enabling this on more
-than one browser at once means both people can trigger the same actions, and that's a coordination
-question between the pilot and WSO, not something the software arbitrates.
+than one browser at once means both sources can trigger the same actions, and that's a
+coordination question between whoever's controlling each browser, not something the software
+arbitrates.
 
 ## Toggle UX
 
 - **Off by default.** A pilot upgrading NOXMFD should see no behavior change; this is opt-in per
   browser, not a global setting.
-- **Location**: most likely its own small section on the KEY page (`src/web/pages/keybinds/`),
-  since it's directly about how that page's own bind registry gets used — not a new top-level nav
-  entry. Exact placement is an implementation-time call.
-- **Label and copy, brief and instructive** — something in this shape (exact wording at
-  implementation time):
+- **Location**: inside the KEY page's existing **IMMERSION OPTIONS** section
+  (`src/web/pages/keybinds/keybinds.html:64-112`, `kb-immersion`) — one more `kb-setting`/
+  `kb-toggle` row alongside ENABLE RADAR/ENGINE/MASTER ARMS ON START and FORCE HUD FILTERS ON
+  COMBAT MODE, not a new page or a separate section. Visually consistent with its neighbors, but
+  **behaviorally different** in one respect worth calling out in implementation: every existing
+  row in that section is a server-persisted `ImmersionConfig` setting (`radarOnOnStart` etc.,
+  shared across every browser that connects), while this toggle is deliberately per-browser
+  `localStorage` state (see "Toggle wiring" below) — the same PC's second browser tab, or a
+  different device entirely, should NOT inherit whatever this toggle is set to elsewhere. The row's
+  copy should make that local-only scope clear despite sitting in a section whose other rows are
+  all shared/global, so it doesn't read as "this is a plugin-wide setting" by visual association.
+- **Label and copy, brief and instructive, generic rather than WSO-specific** — something in this
+  shape (exact wording at implementation time):
   - Label: **"LISTEN FOR KEYBINDS (REMOTE)"**, default OFF.
   - One-line description: *"Lets this browser send your configured keybinds to the game as if
-    pressed here — for a second player (WSO) working MAP/TGT from another device."*
+    pressed here — for controlling from a second device, solo or with someone else at the
+    controls."*
   - The same-PC warning (above) shown inline, conditionally, when detected — not a generic
     disclaimer always present, since that would train users to ignore it.
 - **Scope consideration for later, not blocking v1**: an allow-list of which binds are exposed to
   remote triggering (e.g. targeting/weapon-select yes, flight-critical toggles maybe not) is a
   reasonable future refinement if this sees real use and someone wants tighter control over what a
-  WSO can touch — noted here as a design lever, not designed in detail, since the player's actual
-  ask is "let the WSO use the same keybinds," not "restrict them."
+  remote browser can touch — noted here as a design lever, not designed in detail, since the actual
+  ask is "let a second browser use the same keybinds," not "restrict them."
 
 ## Implementation sketch
 
@@ -234,7 +250,7 @@ question between the pilot and WSO, not something the software arbitrates.
 2. **Same-PC detection field** on `/keybinds-config` (or a new tiny endpoint) — compute once per
    request from `ctx.Request.RemoteEndPoint`, compare against loopback + enumerated local
    interface addresses.
-3. **New client module**, e.g. `src/web/pages/keybinds/wso-remote.js`, following
+3. **New client module**, e.g. `src/web/pages/keybinds/remote-keybinds.js`, following
    `layout-keybinds.js`'s shape almost exactly: fetch `/keybinds-config` (already polled by the KEY
    page), build a `key -> id` map from `binds`, listen for `keydown`/`keyup`, translate matched
    events into `sendCommand(...)` calls using each bind's `id` — reusing whatever mapping
@@ -261,10 +277,10 @@ question between the pilot and WSO, not something the software arbitrates.
 
 ## Out of scope
 
-- Reading the game's own native Rewired keybind configuration. The WSO doesn't need "the pilot's
-  actual in-game binds" in that sense — NOXMFD's own bind registry (`/keybinds-config`) is a
-  materially smaller, already-networked surface, and is what "the same keybinds the main player
-  defined" means in practice for every action this feature covers.
+- Reading the game's own native Rewired keybind configuration. A remote browser doesn't need "the
+  in-game player's actual native binds" in that sense — NOXMFD's own bind registry
+  (`/keybinds-config`) is a materially smaller, already-networked surface, and is what "the same
+  keybinds already configured" means in practice for every action this feature covers.
 - Any server-side arbitration of who's "allowed" to send a given command — per "Multiple senders"
   above, this is a social/coordination question, not a software one, for the action set in scope.
 - Authentication or per-client trust levels on `/command` generally — a bigger, separate change
