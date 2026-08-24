@@ -1,4 +1,4 @@
-/* TGP's own CFG page. Panel shape cloned from the old combined RTS page (keybinds.css's
+/* TGP's own CFG page. Panel shape matches MAP CFG's (keybinds.css's
    .kb-panel/.kb-title/.kb-setting lineage). */
 
 html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this is a full page */

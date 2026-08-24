@@ -108,10 +108,9 @@
     ],
     // CFG folds HUD, KEY and LYT under one MAIN entry, same pattern as BDF/PAL/MIS/OBJ above.
     // LYT's action is the CLASSIC/F-35 chooser (mfd.js BEZEL_EXTRAS.lyt / f35.js
-    // GLASS_ACTIONS.lyt) — only its entry point lives here, its own rendering is untouched. RTS
-    // (the old TLM+TGP refresh-rate sliders) used to be a fourth sibling here — split apart and
-    // moved to MAP's and TGP's own CFG items (NAV.map/NAV.tgp above, NAV.mapcfg/NAV.tgpcfg
-    // below) since each slider only ever mattered to one page, not this whole group.
+    // GLASS_ACTIONS.lyt) — only its entry point lives here, its own rendering is untouched. The
+    // TLM/TGP refresh-rate sliders live on MAP's and TGP's own CFG items instead (NAV.map/NAV.tgp
+    // above, NAV.mapcfg/NAV.tgpcfg below), since each one only ever matters to a single page.
     hud: [
       { label: 'MAIN', action: 'main' },
       { label: 'HUD',  action: 'hud', mark: true },

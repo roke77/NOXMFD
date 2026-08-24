@@ -1144,10 +1144,10 @@ namespace NOXMFD
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
-        // cfg-rates experiment (issue #39): the RTS page's two sliders read their starting position
-        // from here on load, same shape as /hud-options — a small on-demand JSON snapshot rather
-        // than something streamed. Built fresh per request (RatesConfig's getters are plain floats,
-        // no game-object reads), so no caching/refresh-on-tick needed like HudOptionsJson.
+        // MAP CFG's and TGP CFG's sliders/picker read their starting position from here on load,
+        // same shape as /hud-options — a small on-demand JSON snapshot rather than something
+        // streamed. Built fresh per request (RatesConfig's getters are plain floats, no game-object
+        // reads), so no caching/refresh-on-tick needed like HudOptionsJson.
         internal static void ServeRatesConfig(HttpListenerContext ctx)
         {
             try

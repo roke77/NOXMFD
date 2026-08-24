@@ -301,13 +301,12 @@ namespace NOXMFD
             }
         }
 
-        // The early-return guards in CaptureFrame() (no aircraft, no TGP component, reflection
-        // failed, cam disabled/timed out) all stop the video frame the same way — but without
-        // clearing Overlay too they left it at whatever it was on the last successful tick, so the
-        // HQ overlay (driven by Overlay, not by Active) kept showing a stale lock after the feed
-        // itself had already gone dark. Doesn't touch the buffers Disengage() releases — those
-        // guards fire far more often than an actual disengage (every tick with no lock at all), so
-        // reallocating them each time would be wasteful.
+        // Shared by every early-return guard in CaptureFrame() (no aircraft, no TGP component,
+        // reflection failed, cam disabled/timed out) — clearing Overlay alongside _active keeps the
+        // HQ overlay (driven by Overlay, not by Active) from showing a stale lock once the feed
+        // itself has gone dark. Doesn't touch the buffers Disengage() releases — those guards fire
+        // far more often than an actual disengage (every tick with no lock at all), so reallocating
+        // them each time would be wasteful.
         private void ClearFeed()
         {
             TelemetryServer.ClearTgpFrame();

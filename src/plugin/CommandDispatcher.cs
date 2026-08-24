@@ -71,7 +71,7 @@ namespace NOXMFD
                 { "hud.mode",        HudMode },
                 { "declutter.set",   DeclutterSet },
                 { "avn.toggle",      AvnToggle },
-                // RTS page's sliders + HQ quality picker. group selects which: "tgp" is the camera
+                // MAP CFG's and TGP CFG's sliders/picker. group selects which: "tgp" is the camera
                 // feed rate, "tgpQuality" is the HQ mode picker (payload in wname, not hz), anything
                 // else (default "fast") is the main 10 Hz tick.
                 { "rates.set",       e => {

@@ -1504,9 +1504,9 @@ function showPage(name) {
   // KEY (extended keybinds) renders in #page-frame too. Like HUD it's self-driven — it polls
   // /keybinds-config and POSTs its own keybind.* commands — so the shell forwards it nothing.
   if (name === 'keys') showFramePage('keys');
-  // MAP's and TGP's own CFG pages render in #page-frame too — same self-driven shape as KEY/HUD
-  // (the old RTS page's shape, before its two sliders split apart onto these): each polls
-  // /rates-config and POSTs its own rates.set commands, so the shell forwards them nothing.
+  // MAP's and TGP's own CFG pages render in #page-frame too — same self-driven shape as KEY/HUD:
+  // each polls /rates-config and POSTs its own rates.set commands, so the shell forwards them
+  // nothing.
   if (name === 'mapcfg') showFramePage('mapcfg');
   if (name === 'tgpcfg') showFramePage('tgpcfg');
   // EXT's static "no extensions installed" fallback (docs/extensions-api.md) — fully static,

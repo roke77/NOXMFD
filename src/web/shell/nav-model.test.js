@@ -49,11 +49,11 @@ for (const page of ['avn', 'afm', 'rwr', 'tgt', 'ext']) {
 // rather than wherever the generic sweep would put it (mfd.js's dedicated 'tgp' branch).
 assert.deepStrictEqual(NAV.tgp, [ { label: 'MAIN', action: 'main' }, { label: 'CFG', action: 'tgpcfg' } ]);
 
-// CFG group (cfg-rates experiment, issue #39; HUD joined later): HUD/KEY/LYT folded together, same
-// shape as BDF/PAL/MIS/OBJ below (reached from MAIN via CFG — mfd.js BEZEL_EXTRAS.main, action now
-// 'hud'). LYT has no `mark` slot of its own — see nav-model.js's comment on why NAV.lyt doesn't
-// exist (BEZEL_EXTRAS.lyt places CLASSIC/F-35 at fixed keys that would silently clobber it). RTS
-// (the old fourth sibling here) split apart onto NAV.mapcfg/NAV.tgpcfg below.
+// CFG group: HUD/KEY/LYT folded together, same shape as BDF/PAL/MIS/OBJ below (reached from MAIN
+// via CFG — mfd.js BEZEL_EXTRAS.main, action now 'hud'). LYT has no `mark` slot of its own — see
+// nav-model.js's comment on why NAV.lyt doesn't exist (BEZEL_EXTRAS.lyt places CLASSIC/F-35 at
+// fixed keys that would silently clobber it). The TLM/TGP refresh-rate sliders live on
+// NAV.mapcfg/NAV.tgpcfg below instead, not in this group.
 assert.deepStrictEqual(NAV.hud, [
   { label: 'MAIN', action: 'main' },
   { label: 'HUD',  action: 'hud', mark: true },
