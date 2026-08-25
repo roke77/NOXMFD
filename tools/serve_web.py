@@ -551,13 +551,25 @@ KEYBINDS = [
     {"id": "tgp-zoom-out", "section": "TGP", "label": "Zoom Out",
      "description": "Zoom the TGP manual camera out. Only acts while TGP manual control is on.",
      "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgp-zoom-axis", "section": "TGP", "label": "Zoom Axis",
+     "description": "Calibrated analog axis (e.g. a HOTAS slider) — the axis's own position IS "
+                     "the zoom level, min to max, once bound. Overrides Zoom In/Out entirely "
+                     "while bound.",
+     "axis": -1, "axisNum": 0, "axisInvert": False},
     {"id": "tgp-manual-toggle", "section": "TGP", "label": "Manual Control Toggle",
-     "description": "Toggle manual TGP pointing on/off. Auto-exits on a real target lock, the "
-                     "external TGP page closing, aircraft loss, or a landing-gear/cam conflict.",
+     "description": "Toggle manual TGP pointing on/off. Centers on the aircraft's nose at "
+                     "minimum zoom on entry. Auto-exits on a real target lock, the external TGP "
+                     "page closing, aircraft loss, or a landing-gear/cam conflict.",
      "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "tgp-manual-reset", "section": "TGP", "label": "Manual Control Reset",
-     "description": "Recenter the TGP manual camera on the aircraft's forward direction and "
-                     "default zoom.",
+     "description": "Recenter the TGP manual camera on the aircraft's forward direction at "
+                     "minimum zoom.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgp-point-track", "section": "TGP", "label": "Point Track",
+     "description": "Lock the TGP manual camera onto whatever it's currently pointed at — it "
+                     "holds that world point steady as the aircraft moves, instead of a fixed "
+                     "direction. Press again, or use any Pan/Tilt input, to release it back to "
+                     "free aiming. Only acts while TGP manual control is on.",
      "key": "", "joyButton": -1, "joyNum": 0},
     # Layout keybinds (issue #51 follow-up) — SAVE/LOAD LAYOUT. Key-only: no joyButton/joyNum
     # fields at all (mirrors the axis-only rows omitting key/joyButton) — browser-side only,
@@ -626,9 +638,13 @@ def _keybinds_config():
                        "analog HOTAS axis — bind either or both; a deflected axis overrides its two keys.",
              "TGP": "Manual pointing of the targeting-pod camera, independent of the "
                        "game's own auto-lock. Pan/Tilt Axis are the same movement as an analog HOTAS "
-                       "axis — bind either or both; a deflected axis overrides its two keys. Off by "
-                       "default; toggling on auto-exits the moment a real target locks, the external "
-                       "TGP page closes, the aircraft is lost, or gear/landing cam takes over.",
+                       "axis — bind either or both; a deflected axis overrides its two keys. Zoom Axis "
+                       "is different: once bound, a calibrated slider's own position IS the zoom "
+                       "level, replacing Zoom In/Out outright. Point Track locks the camera onto "
+                       "whatever it's aimed at; any Pan/Tilt input releases it. Off by default; "
+                       "toggling on centers at minimum zoom, and auto-exits the moment a real target "
+                       "locks, the external TGP page closes, the aircraft is lost, or gear/landing cam "
+                       "takes over.",
              "WEAPONS": "Cycle keys select the last soft-selected weapon of their type, or the first "
                         "in the list. Repeated presses cycle to the next one, skipping depleted "
                         "weapons. Cycling to a different type leaves the current one soft-selected.",

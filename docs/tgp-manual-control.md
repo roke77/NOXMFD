@@ -2,17 +2,38 @@
 
 ## Status
 
-**Planning.** Not started. Written after pulling the full source of a third `9138noms` mod,
-`TargetCamControl`, which ships exactly this feature standalone — a DCS-style manual override of
-the same `TargetCam` NOXMFD's `TgpFeed` already reflects into.
+**Built and confirmed working in-game.** Written after pulling the full source of a third
+`9138noms` mod, `TargetCamControl`, which ships exactly this feature standalone — a DCS-style
+manual override of the same `TargetCam` NOXMFD's `TgpFeed` already reflects into.
 
-Reviewed once. Agreed: targets the real `TargetCam` (not just the HQ mirror), the Harmony
-requirement is justified, and auto-exit-on-real-lock is the right v1 default. Four changes made
-from that review, folded into the sections below: (1) this ships as a new `TgpManualControl.cs`,
-not inside `TgpFeed.cs`; (2) the command surface is designed remote-capable from the start, even
-though v1 ships local-only; (3) lifecycle rules — page close, gear/landing-cam, aircraft loss — are
-now explicit exit triggers, not just "real lock acquired"; (4) skipping world-hit raycasting is now
-framed as a v1 validation spike to confirm/deny, not a settled scope cut.
+Reviewed once before implementation. Agreed: targets the real `TargetCam` (not just the HQ
+mirror), the Harmony requirement is justified, and auto-exit-on-real-lock is the right default.
+Four changes made from that review, folded into the sections below: (1) ships as a new
+`TgpManualControl.cs`, not inside `TgpFeed.cs`; (2) the command surface is designed remote-capable
+from the start, even though it ships local-only; (3) lifecycle rules — gear/landing-cam, aircraft
+loss — are explicit exit triggers, not just "real lock acquired"; (4) world-hit raycasting, floated
+as a "validation spike," was built out fully as **Point Track** (see below) rather than deferred —
+the spike confirmed the drift was bad enough to need it.
+
+Shipped beyond the original scope after live testing surfaced real needs: **Point Track**
+(lock the aim to a fixed world point instead of a free direction), a **calibrated Zoom Axis**
+(a physical slider whose position *is* the zoom level, not rate-based), a **boresight crosshair**
+on the TGP page, and **Area Track following the airframe** (a centered/reset camera now turns
+with the aircraft instead of holding a frozen world bearing). All four were explicitly requested
+during testing, not scope creep — see [What actually shipped](#what-actually-shipped-v1-revised)
+and [Debugging findings](#debugging-findings-worth-keeping) below for what each one is and the
+real bugs found getting there.
+
+**Reversed during testing:** the "external TGP page closes" exit trigger described below never
+shipped as designed. First in-game test toggled the bind with no `/tgp` browser page open
+anywhere, and manual mode engaged then auto-exited on the very next tick — reading as "nothing
+happened." That trigger's own reasoning (reuse `TgpFeed`'s "is anyone watching" signal) was sound
+for what it protected against, but it wrongly coupled manual *pointing* to whether anything was
+*watching the external feed* — the in-cockpit MFD is a legitimate audience on its own, and manual
+control drives `TargetCam` directly, the same component the native screen renders from, so it
+never needed `TgpFeed` or a page to work. The "cockpit-only manual mode" this section originally
+called a separate, out-of-scope feature is now just how it always behaves — not a mode switch, no
+added flag.
 
 ## Goal
 
@@ -200,13 +221,11 @@ cleanly (mirroring `TargetCamControl.ExitManual`: zero the mount/cam local rotat
 - **Player toggle off** — the obvious one, `tgp-manual-toggle` pressed again.
 - **Real target lock acquired** — `WeaponManager.GetTargetList().Count > 0` (the auto-exit already
   discussed).
-- **External TGP page closes** — `!TelemetryServer.WantsTgpFrames`. This is the exact signal
-  `TgpFeed.Tick()` already gates on (`src/plugin/TgpFeed.cs`'s `WantsTgpFrames` check, added for
-  cockpit-hide in 0.29.1) — reuse it, don't invent a second "is anyone watching" signal. **Default:
-  closing the page exits manual mode.** A "let me keep pointing the cockpit MFD manually with no
-  external page open" mode is a real but separate feature (nobody's watching the external feed, so
-  the only audience is the native cockpit display) — out of scope for v1, worth its own toggle if
-  ever requested, not a default behavior to build speculatively now.
+- ~~External TGP page closes~~ — **removed** (see Status). Manual control never depended on
+  `TelemetryServer.WantsTgpFrames`/`TgpFeed` for the pointing itself; it drives `TargetCam` directly,
+  so it works with no browser page open, visible on the native in-cockpit MFD alone. If a page *is*
+  open, `TgpFeed.CaptureFrame()` picks up the same already-enabled camera automatically — no
+  coordination needed either way.
 - **Aircraft changes or is destroyed** — same guard `TgpFeed.CaptureFrame()` already has
   (`GameManager.GetLocalAircraft(out Aircraft ac); if (ac == null) ...`); manual mode must not hold
   a reference to a `TargetCam` belonging to a previous aircraft.
@@ -239,73 +258,160 @@ integration work.
 only touches where the camera points and its FOV. Both can be on simultaneously with no interaction
 expected — worth confirming in the verification pass, not assumed risk-free without a check.
 
-## What v1 should probably skip
+## What actually shipped (v1, revised)
 
-`TargetCamControl` includes several pieces that read as valuable but separable. One of them —
-world-hit raycasting — is a **validation spike, not a settled scope cut**; the rest are safe to
-defer without re-checking:
+Four pieces beyond the original scope, all added in response to real problems hit during live
+testing, not spec'd up front:
 
-- **World-hit raycasting + `GlobalPosition` tracking** for a stable pointed-at world spot. This is
-  the single most valuable piece of the reference implementation (it's what makes "point at a place
-  and have it stay there"), and the risk of skipping it isn't hypothetical: a pure aircraft-relative
-  pan/tilt with no world-relock will visibly drift off whatever the player was looking at every
-  time the aircraft banks or turns, which is likely to read as broken rather than as an acceptable
-  v1 limitation. **Build the simpler aircraft-relative version first specifically to find out how
-  bad this is in practice** (a quick spike, not a ship decision), and treat "add the raycast/
-  relock system" as the probable very-next-step rather than a maybe. Don't call v1 done on the
-  simple version without that check.
-- **In-cockpit MFD info-panel patch** (`TargetScreenUI.UpdateTargetInfo` prefix, populating RNG/ALT/
-  HDG/GRID/MODE from the manual hit point). Cosmetic polish for the native cockpit display; the
-  external TGP feed is NOXMFD's primary surface and doesn't depend on this.
-- **In-cockpit crosshair reticle.** Same reasoning — nice on the native MFD, not required for the
-  external feed (the pointed-at spot is implicitly screen-center on the external picture too).
-- **Manual IR toggle** (`ACT_FORCE_COL`, the `SwitchIRState` patch). NOXMFD's HQ overlay already has
-  its own separate simulated-IR look (`docs/tgp-high-quality-mode.md`); native IR toggling from
-  manual mode is a nice-to-have, not core to "point the camera and zoom."
+- **Point Track** (`tgp-point-track` bind) — an internal toggle, not a hold. Raycasts along the
+  current aim against a world-geometry-only layer mask (see [Debugging
+  findings](#debugging-findings-worth-keeping) — this mask matters a lot) and locks onto whatever
+  it hits. While locked, the aim tracks that fixed world point every tick, immune to the aircraft's
+  own translation/rotation — the exact "world-hit raycasting" this doc originally floated as a
+  validation spike. Pan/tilt input while locked does **not** release the lock; it nudges the aim
+  off the tracked point as an independent offset (see below), and releasing the stick commits one
+  fresh raycast to redesignate a new locked point at the new aim. Pressing the bind again, or any
+  lifecycle exit trigger, releases back to free Area Track.
+- **Calibrated Zoom Axis** (`tgp-zoom-axis` bind, an `AddAxis` bind like Pan/Tilt Axis) — a
+  physical analog control (e.g. a HOTAS slider) whose raw position directly *is* the zoom level
+  (linear map, `-1` = `MaxFov`/widest, `+1` = `MinFov`/tightest), not a rate like the Zoom In/Out
+  buttons. Once bound it's authoritative outright — the buttons stop mattering. Deliberately
+  **not** rate-limited or smoothed (see Debugging findings) — a calibrated control's whole point is
+  instant, 1:1 response.
+- **Boresight crosshair** — a small white reticle with a gap at center, shown on the TGP page only
+  while manual control is on (`.tgp-manual` class already used for the status badge). Screen-
+  centered, not synced to the letterbox-corrected overlay rect the HQ stat overlay uses:
+  `object-fit: contain` already keeps the picture's own center at the panel's center regardless of
+  letterboxing, so plain 50/50% CSS positioning lines up correctly on its own.
+- **Area Track follows the airframe.** A centered/reset camera now turns *with* the aircraft as it
+  banks/turns, instead of holding whatever world bearing was forward at reset time. Implemented as
+  an offset from the aircraft's own forward, expressed in the aircraft's local space
+  (`_localPanDir`, `Vector3.forward` = boresight) — the world-space direction actually sent to the
+  mount is re-derived from the aircraft's *current* attitude every tick, not just when there's
+  pan/tilt input.
+
+Two pieces from `TargetCamControl`'s reference shape stayed genuinely out of scope — see
+[Out of scope](#out-of-scope).
+
+## Debugging findings worth keeping
+
+Live testing surfaced several real bugs, each with a root cause worth remembering rather than
+re-discovering:
+
+- **Raycasting from inside your own aircraft self-hits the fuselage.** `Physics.Raycast` with no
+  layer mask checks every collider, including the aircraft the camera is mounted on/in — a ray
+  fired from the mount would immediately hit the airframe at point-blank range, producing "Point
+  Track snaps to face backward into the aircraft" on the very first lock attempt. Fixed by passing
+  `layerMask = 64`, the exact literal the game's own spectator camera states already use for
+  terrain-only collision checks (`_scratch/full/CameraOrbitState.cs`, `CameraChaseState.cs`,
+  `CameraControlledState.cs` — all `Physics.Linecast(..., layerMask)` against scenery, never
+  aircraft). Worth checking the decompile for prior art like this before inventing a filter.
+- **Re-raycasting every tick while nudging trembles near any surface edge.** An early version
+  redesignated Point Track's locked point on every tick a nudge was active. Near any
+  discontinuity — two adjacent surfaces a meter or two apart, e.g. a raised platform next to open
+  ground — a ray sweeping a fraction of a degree can alternately hit one surface then the other on
+  consecutive ticks, each becoming a new "locked" point and fighting the drift-correction into a
+  visible back-and-forth. Fixed by raycasting **once**, only when the nudge input drops back below
+  threshold (i.e. on release), not every tick during the drag.
+- **Coupling aircraft-motion correction and pilot nudge into one variable breaks in two different
+  ways depending on which one "wins."** Two sequential bugs came from this: (1) running the
+  correction-toward-the-locked-point unconditionally every tick, then applying the nudge on top,
+  let the correction snap most of the way back to the old point before the nudge landed — "stuck,
+  can't pan." (2) The opposite version — skipping the correction entirely while nudging — left
+  nothing anchoring the aim to the locked point during a drag, so it just carried the aircraft's
+  own motion for as long as the stick was held — "drifts with the plane." The fix was to stop
+  treating them as one value two different writers fight over: `_pointTrackBaseline` (the
+  aircraft-motion correction, a direct `LookRotation`-style recompute toward the locked point
+  every tick, unconditionally, never touched by input) and `(_pointTrackOffsetAz,
+  _pointTrackOffsetEl)` (the nudge, only ever changed by input) are independent state, combined
+  additively (`aim = baseline rotated by offset`). Neither can fight the other because neither
+  writes to what the other reads.
+- **World-angle-per-second rates are blind to zoom, and that reads as "the more zoom, the more
+  jumpy."** At `MinFov` (~40x magnification, 0.25° wide), even a fraction of a degree of motion
+  crosses a huge share of the visible picture — a rate tuned to feel right at wide FOV is violent
+  shake once zoomed in. This wasn't a logic bug (a dense per-tick diagnostic log showed azimuth/
+  elevation changing smoothly, no oscillation, at every zoom level) — it was the *visual
+  amplification* of normal, correct motion. Fixed by scaling every user-driven angular rate
+  (`PanSpeedDegPerSec`, `TiltSpeedDegPerSec`) by `currentFOV / MaxFov`, so the on-screen rate of
+  motion stays roughly constant across the zoom range instead of the world-angular rate staying
+  fixed while its visual effect balloons — the same reason real gimbal/TGP slew rate drops as
+  magnification rises. Deliberately **not** applied to Point Track's baseline correction itself
+  (see the coupling bug above) — only to genuinely user-driven slew.
+- **A calibrated axis wants instant response, not smoothing.** The Zoom Axis was briefly
+  rate-limited (`Mathf.MoveTowards`) to tame an erratic-looking raw signal, which made zoom feel
+  sluggish — wrong fix for wrong problem. A rate cap can't distinguish "genuine fast intentional
+  slider movement" from "noise"; both look identical to a limiter. The actual evidence (the axis
+  value dwelling at each extreme for a full second or more, not single-frame spikes) didn't match
+  ordinary pot noise anyway — that pattern points at a real signal from the wrong physical control,
+  not something software smoothing fixes. Reverted to direct, instant response; if a zoom axis
+  still reads as erratic, the fix is checking its binding on `/keybinds`, not adding lag.
+- **A held key or a mis-centered axis can silently undo a `Reset()` one frame later.** If pan/tilt
+  input is still non-zero at the exact moment `Reset()` runs, the very next `Tick()` immediately
+  pans away from the just-centered direction — the reset looks like it "sometimes doesn't work."
+  Fixed by zeroing pan input inside `Reset()` (matching what `Engage()` already did), plus a
+  `LogWarning` specifically when this condition is detected, so a genuinely stuck/noisy axis is
+  visible in the log instead of just "reset is flaky."
+- **`src/web/**/*` is embedded into the plugin DLL** (`NOXMFD.csproj`'s
+  `<EmbeddedResource Include="src\web\**\*">`) — editing an `.html`/`.css`/`.js` file has zero
+  effect in the running game until `dotnet build -c Release` runs, exactly like a C# change. Easy
+  to forget when a change (like the crosshair) is CSS/HTML-only and feels like "just a web asset."
 
 ## Open questions
 
-- **Zoom limits.** `TargetCamControl` exposes `MinFOV`/`MaxFOV` as tunable config (defaults 0.25°/
-  80°, i.e. up to ~40x). Decide whether NOXMFD exposes this as config or ships fixed limits for v1.
-- **Where does the toggle status live?** Recommend a minimal read-only `MANUAL`/`AUTO` indicator on
-  the TGP page itself (alongside the existing feed), not a TGP CFG button — this is a live,
-  keybind-driven control (consistent with `docs/remote-keybinds.md`'s toggle-vs-set distinction),
-  not a set-once preference, so it shouldn't live where the other CFG-page settings do. A reset/
-  control hint (e.g. "TGP MANUAL — press RESET to recenter") is worth pairing with it so the state
-  isn't silent.
-- **Does `camTimeout` pinned high fight anything else?** `TgpFeed` doesn't read `camTimeout`
-  directly today, but confirm no other system depends on it counting down normally while manual mode
-  is engaged.
+- **Zoom limits** — resolved: fixed at `MinFov = 0.25°` / `MaxFov = 20°`, matching
+  `TargetCam.SetTargetCam()`'s own native clamp range rather than `TargetCamControl`'s
+  0.25°/80° — no new config needed since the native camera never goes tighter/wider than this
+  either. The Zoom Axis bind (see [What actually shipped](#what-actually-shipped-v1-revised)) maps
+  its full physical travel across exactly this range.
+- **Where does the toggle status live?** — resolved: a `MANUAL — RESET to recenter` badge on the
+  TGP page itself, screen-top-center, shown via the same `tgp-manual` class the crosshair uses.
+  Not on TGP CFG, per the original reasoning (a live control, not a set-once preference).
+- **Does `camTimeout` pinned high fight anything else?** Not hit in testing — no other system reads
+  `camTimeout` while manual mode is active. Not exhaustively audited, but no longer a live concern.
+- **Near-overhead "keyhole" swings during Point Track.** Point Track's baseline correction is a
+  direct, unlimited recompute toward the locked point every tick (see [Debugging
+  findings](#debugging-findings-worth-keeping) — a rate cap here previously fought the nudge
+  offset and had to be removed). Flying near-overhead of a fixed ground point can still make the
+  required look angle swing through large angles quickly, same as a real gimbal's keyhole. Not
+  reported as a problem in testing so far; if it does become one, the fix is a dedicated guard
+  (e.g. auto-releasing the lock past some rate-of-change threshold), not slowing down normal
+  tracking for everyone.
 
 ## v1 implementation shape
 
-1. `TgpManualControl.cs` — state (`ManualMode`, pan/tilt direction, `DesiredFOV`), the reflection
-   cache, engage/exit/reset, and the public `SetPan`/`SetZoom`/`Toggle`/`Reset` API (remote-ready
-   per [above](#fit-with-noxmfds-existing-architecture), local-only wired for v1).
-2. `HarmonyPatches.cs` — add the `TargetCam.Update`/`AimCamera`/`SwitchIRState` prefixes as three
-   more nested classes, matching the file's existing one-class-per-patch convention.
-3. `Keybinds.cs` — new KEY-page binds: toggle, reset, pan/tilt button pairs, pan/tilt axes,
-   zoom in/out.
-4. TGP page — minimal `MANUAL`/`AUTO` status indicator (see the toggle-placement open question
-   above).
-5. Wire every exit trigger from [Lifecycle](#lifecycle-every-exit-trigger): real lock, page close,
-   aircraft loss, gear/landing-cam conflict (via the `currentMode == landingMode` check), toggle
-   off.
-6. Verify: Native and HQ quality, cockpit-hide ON and OFF, gear extend/retract and full landing
-   while manual mode is active, a fast lock/unlock cycle (does auto-exit and auto-re-entry feel
-   clean, not jittery), and the aircraft-relative-drift spike from
-   [What v1 should probably skip](#what-v1-should-probably-skip).
+Delivered, including the four additions in [What actually shipped](#what-actually-shipped-v1-revised):
+
+1. `TgpManualControl.cs` — state, reflection cache, engage/exit/reset, Point Track (raycast lock +
+   decoupled baseline/offset), zoom-scaled pan/tilt sensitivity, and the public `SetPan`/`SetZoom`/
+   `SetZoomAxis`/`Toggle`/`Reset`/`TogglePointTrack` API (remote-ready per
+   [above](#fit-with-noxmfds-existing-architecture), local-only wired so far).
+2. `HarmonyPatches.cs` — the `TargetCam.Update`/`AimCamera` prefixes, matching the file's existing
+   one-class-per-patch convention. `SwitchIRState` was not patched — manual IR toggling stayed out
+   of scope (see below).
+3. `Keybinds.cs` — KEY-page binds: toggle, reset, Point Track, pan/tilt button pairs, pan/tilt
+   axes, zoom in/out, and the calibrated zoom axis.
+4. TGP page — `MANUAL`/reset-hint badge and the boresight crosshair, both gated on the same
+   `tgp-manual` class.
+5. Every exit trigger from [Lifecycle](#lifecycle-every-exit-trigger) except the removed page-close
+   one: real lock, aircraft loss, gear/landing-cam conflict.
+6. Verified in-game: Native quality, a fast lock/unlock cycle, Point Track lock/nudge/release/
+   redesignate, the calibrated zoom axis, and the airframe-follow behavior. HQ quality and
+   cockpit-hide interaction not specifically re-verified after the debugging pass — worth a look if
+   either one is touched again.
 
 ## Out of scope
 
 - Any weapon-lock or targeting integration — this is camera pointing only.
-- In-cockpit info-panel patch and crosshair reticle (separable additions, listed above).
-- The world-hit raycast/relock system is **not** flatly out of scope — see
-  [What v1 should probably skip](#what-v1-should-probably-skip): build without it first, then
-  decide from the spike result.
-- Manual IR toggling.
+- In-cockpit `TargetScreenUI` info-panel patch (RNG/ALT/HDG/GRID/MODE from the manual hit point) —
+  cosmetic polish for the native cockpit display; the external TGP feed remains NOXMFD's primary
+  surface and doesn't depend on this. (The crosshair reticle itself shipped — see
+  [What actually shipped](#what-actually-shipped-v1-revised) — this is only the native MFD's own
+  telemetry readout, a separate thing.)
+- Manual IR toggling (`SwitchIRState`/`ACT_FORCE_COL`). NOXMFD's HQ overlay already has its own
+  separate simulated-IR look (`docs/tgp-high-quality-mode.md`); native IR toggling from manual mode
+  is a nice-to-have, not core to "point the camera and zoom."
 - Remote-keybind wiring for TGP pointing — the command surface is designed for it (see
-  [above](#fit-with-noxmfds-existing-architecture)), but only local KEY binds ship in v1.
+  [above](#fit-with-noxmfds-existing-architecture)), but only local KEY binds are wired so far.
 - Changes to `tgp-suppress-native-render.md`'s cockpit-hide feature or `tgp-high-quality-mode.md`'s
   HQ mirror pipeline — related, unmodified by this feature.
 
