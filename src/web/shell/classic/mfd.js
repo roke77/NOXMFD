@@ -693,7 +693,7 @@ function avnNavLabelText(group) {
   const upper = group.toUpperCase();
   return upper.length > 4 ? upper.replace(/[AEIOU]/g, '') : upper;
 }
-function tgpMsg() { return { mfd: true, type: 'tgp', active: tgpActive, quality: tgpQuality, data: tgpData }; }
+function tgpMsg() { return { mfd: true, type: 'tgp', active: tgpActive, quality: tgpQuality, data: tgpData, manual: tgpManual }; }
 function forwardTgpToPanes() { forwardToPanes('tgp', tgpMsg()); }
 // Full-view TGP: forward the lock flag to the #page-frame iframe (the page toggles its feed).
 // No geometry to forward — the feed is a single centred box, not key-band rows.
@@ -1255,6 +1255,7 @@ let cmData = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 let tgpActive = false;
 let tgpQuality = 'native';
 let tgpData = null;
+let tgpManual = false;   // docs/tgp-manual-control.md — TgpManualControl.ManualMode, mirrored for the TGP page's status indicator
 
 // Latest published slice per installed extension (docs/extensions-api.md), keyed by extension
 // id — mirrored from the map iframe the same way as every other slice above, just for a
@@ -1645,6 +1646,7 @@ window.addEventListener('message', function(e) {
     tgpActive  = !!m.active;
     tgpQuality = m.quality || 'native';
     tgpData    = m.data || null;
+    tgpManual  = !!m.manual;
     // Only matters while the TGP page is in view — outside it the frame/pane isn't shown.
     if (currentPage === 'tgp' && !splitMode) forwardTgpToFrame();
     if (splitMode) forwardTgpToPanes();

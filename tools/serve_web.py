@@ -523,6 +523,42 @@ KEYBINDS = [
      "description": "Analog axis driving the cursor up/down — overrides Cursor Up/Down when "
                      "deflected. Only acts while a display with a cursor is focused.",
      "axis": -1, "axisNum": 0, "axisInvert": False},
+    # TGP manual control keybinds (docs/tgp-manual-control.md) — same shape as the CURSOR block
+    # above (held keys + optional axis), plus two edge binds (toggle/reset).
+    {"id": "tgp-pan-left", "section": "TGP", "label": "Pan Left",
+     "description": "Pan the TGP manual camera left. Only acts while TGP manual control is on.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgp-pan-right", "section": "TGP", "label": "Pan Right",
+     "description": "Pan the TGP manual camera right. Only acts while TGP manual control is on.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgp-tilt-up", "section": "TGP", "label": "Tilt Up",
+     "description": "Tilt the TGP manual camera up. Only acts while TGP manual control is on.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgp-tilt-down", "section": "TGP", "label": "Tilt Down",
+     "description": "Tilt the TGP manual camera down. Only acts while TGP manual control is on.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgp-pan-axis", "section": "TGP", "label": "Pan Axis",
+     "description": "Analog axis (HOTAS mini-stick/hat) panning the TGP manual camera left/right — "
+                     "overrides Pan Left/Right when deflected.",
+     "axis": -1, "axisNum": 0, "axisInvert": False},
+    {"id": "tgp-tilt-axis", "section": "TGP", "label": "Tilt Axis",
+     "description": "Analog axis tilting the TGP manual camera up/down — overrides Tilt Up/Down "
+                     "when deflected.",
+     "axis": -1, "axisNum": 0, "axisInvert": False},
+    {"id": "tgp-zoom-in", "section": "TGP", "label": "Zoom In",
+     "description": "Zoom the TGP manual camera in. Only acts while TGP manual control is on.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgp-zoom-out", "section": "TGP", "label": "Zoom Out",
+     "description": "Zoom the TGP manual camera out. Only acts while TGP manual control is on.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgp-manual-toggle", "section": "TGP", "label": "Manual Control Toggle",
+     "description": "Toggle manual TGP pointing on/off. Auto-exits on a real target lock, the "
+                     "external TGP page closing, aircraft loss, or a landing-gear/cam conflict.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgp-manual-reset", "section": "TGP", "label": "Manual Control Reset",
+     "description": "Recenter the TGP manual camera on the aircraft's forward direction and "
+                     "default zoom.",
+     "key": "", "joyButton": -1, "joyNum": 0},
     # Layout keybinds (issue #51 follow-up) — SAVE/LOAD LAYOUT. Key-only: no joyButton/joyNum
     # fields at all (mirrors the axis-only rows omitting key/joyButton) — browser-side only,
     # deliberately no joystick/HOTAS, so the page renders one wide key cell for these two.
@@ -588,6 +624,11 @@ def _keybinds_config():
              "CURSOR": "Moves a cursor over whichever focused display has one (MAP, for now) and "
                        "selects what it's on. Cursor Horizontal/Vertical are the same movement as an "
                        "analog HOTAS axis — bind either or both; a deflected axis overrides its two keys.",
+             "TGP": "Manual pointing of the targeting-pod camera, independent of the "
+                       "game's own auto-lock. Pan/Tilt Axis are the same movement as an analog HOTAS "
+                       "axis — bind either or both; a deflected axis overrides its two keys. Off by "
+                       "default; toggling on auto-exits the moment a real target locks, the external "
+                       "TGP page closes, the aircraft is lost, or gear/landing cam takes over.",
              "WEAPONS": "Cycle keys select the last soft-selected weapon of their type, or the first "
                         "in the list. Repeated presses cycle to the next one, skipping depleted "
                         "weapons. Cycling to a different type leaves the current one soft-selected.",
@@ -859,3 +900,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

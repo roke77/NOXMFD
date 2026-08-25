@@ -28,6 +28,28 @@
 .tgp-panel:not(.has-feed) .tgp-img { visibility: hidden; }
 .tgp-panel.has-feed .tgp-empty { display: none; }
 
+/* Manual pointing status (docs/tgp-manual-control.md) — a live keybind-driven control, not a
+   set-once preference, so it lives on the TGP page itself rather than TGP CFG (matches
+   docs/remote-keybinds.md's toggle-vs-set distinction). Shown regardless of quality/lock state,
+   since manual mode can be on with no lock at all. */
+.tgp-manual-badge {
+  display: none;
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.65);
+  color: var(--no-amber);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 10px;
+  border: 1px solid var(--no-amber);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.tgp-panel.tgp-manual .tgp-manual-badge { display: block; }
+
 /* HQ-mode stat overlay (docs/tgp-high-quality-mode.md) — drawn client-side because HQ's mirror
    camera has no UICam counterpart to bake this into the video the way Native does. Only shown
    when the shell says quality:"hq" AND a lock is active; see tgp.js's applyOverlay. Sizing/layout

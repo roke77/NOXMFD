@@ -110,6 +110,14 @@ namespace NOXMFD
         private static BindDef? _cursorAxisH, _cursorAxisV;
         private static BindDef? _gunTrigger, _weaponRelease, _jammerPod;
 
+        // TGP manual control binds (docs/tgp-manual-control.md) — same held-key + optional-axis
+        // shape as the MAP cursor above; Poll() folds them into one pan/tilt call every frame and
+        // reads Zoom In/Out directly (they need a live held state each frame, not a Drive dispatch
+        // that only fires on the frame something becomes active — see the cursor comment above).
+        private static BindDef? _tgpPanLeft, _tgpPanRight, _tgpTiltUp, _tgpTiltDown;
+        private static BindDef? _tgpPanAxis, _tgpTiltAxis;
+        private static BindDef? _tgpZoomIn, _tgpZoomOut;
+
         // Combat-mode tap/hold binds (docs/radar-master-arms.md, issue #32) — see PollTapHold. Kept by
         // reference, same reasoning as the cursor binds above: Poll() drives their real behavior
         // directly rather than through the generic Drive/DriveFree per-frame dispatch.
@@ -262,6 +270,36 @@ namespace NOXMFD
                 "Analog axis (HOTAS mini-stick/hat) driving the cursor left/right — overrides Cursor Left/Right when deflected. Only acts while a display with a cursor is focused.");
             _cursorAxisV = AddAxis(config, "cursor-axis-v", cursor, "CursorAxisV", "Cursor Vertical",
                 "Analog axis driving the cursor up/down — overrides Cursor Up/Down when deflected. Only acts while a display with a cursor is focused.");
+
+            // TGP manual control binds (docs/tgp-manual-control.md) — pointing control only, off
+            // by default. Toggle/Reset are DefFree edge binds like SOI above (act on the mod, not
+            // the aeroplane, so they work even without a live TargetCam — TgpManualControl.Toggle
+            // itself no-ops cleanly with none). Pan/Tilt/Zoom follow the MAP cursor's held-key +
+            // optional-axis shape; Poll() drives them directly (see the field comment above), so
+            // their own actions here are no-ops.
+            const string tgp = "TGP Keybinds";
+            _tgpPanLeft  = DefFree(config, "tgp-pan-left", tgp, "TgpPanLeft", "Pan Left", edge: false,
+                "Pan the TGP manual camera left. Only acts while TGP manual control is on.", () => { });
+            _tgpPanRight = DefFree(config, "tgp-pan-right", tgp, "TgpPanRight", "Pan Right", edge: false,
+                "Pan the TGP manual camera right. Only acts while TGP manual control is on.", () => { });
+            _tgpTiltUp   = DefFree(config, "tgp-tilt-up", tgp, "TgpTiltUp", "Tilt Up", edge: false,
+                "Tilt the TGP manual camera up. Only acts while TGP manual control is on.", () => { });
+            _tgpTiltDown = DefFree(config, "tgp-tilt-down", tgp, "TgpTiltDown", "Tilt Down", edge: false,
+                "Tilt the TGP manual camera down. Only acts while TGP manual control is on.", () => { });
+            _tgpPanAxis  = AddAxis(config, "tgp-pan-axis", tgp, "TgpPanAxis", "Pan Axis",
+                "Analog axis (HOTAS mini-stick/hat) panning the TGP manual camera left/right — overrides Pan Left/Right when deflected.");
+            _tgpTiltAxis = AddAxis(config, "tgp-tilt-axis", tgp, "TgpTiltAxis", "Tilt Axis",
+                "Analog axis tilting the TGP manual camera up/down — overrides Tilt Up/Down when deflected.");
+            _tgpZoomIn   = DefFree(config, "tgp-zoom-in", tgp, "TgpZoomIn", "Zoom In", edge: false,
+                "Zoom the TGP manual camera in. Only acts while TGP manual control is on.", () => { });
+            _tgpZoomOut  = DefFree(config, "tgp-zoom-out", tgp, "TgpZoomOut", "Zoom Out", edge: false,
+                "Zoom the TGP manual camera out. Only acts while TGP manual control is on.", () => { });
+            DefFree(config, "tgp-manual-toggle", tgp, "TgpManualToggle", "Manual Control Toggle", edge: true,
+                "Toggle manual TGP pointing on/off. Auto-exits on a real target lock, the external TGP page closing, aircraft loss, or a landing-gear/cam conflict.",
+                () => TgpManualControl.Toggle());
+            DefFree(config, "tgp-manual-reset", tgp, "TgpManualReset", "Manual Control Reset", edge: true,
+                "Recenter the TGP manual camera on the aircraft's forward direction and default zoom.",
+                () => TgpManualControl.Reset());
 
             // Layout keybinds (issue #51 follow-up) — SAVE/LOAD LAYOUT. Unlike every bind above, the
             // action isn't a Unity/Rewired call at all: it's a browser popping its own SAVE/LOAD
@@ -432,6 +470,7 @@ namespace NOXMFD
             "TGT Keybinds"            => "TGT",
             "SOI Keybinds"            => "SOI",
             "Cursor Keybinds"         => "CURSOR",
+            "TGP Keybinds"            => "TGP",
             "Layout Keybinds"         => "LAYOUT",
             "HUD Preset Keybinds"     => "HUD PRESETS",
             "Immersion Keybinds"      => "IMMERSION OPTIONS",
@@ -463,6 +502,12 @@ namespace NOXMFD
                 "Cycle keys select the last soft-selected weapon of their type, or the first in the list. " +
                 "Repeated presses cycle to the next one, skipping depleted weapons. " +
                 "Cycling to a different type leaves the current one soft-selected.",
+            "TGP Keybinds" =>
+                "Manual pointing of the targeting-pod camera, independent of the game's own auto-lock. " +
+                "Pan/Tilt Axis are the same movement as an analog HOTAS axis — bind either or both; a " +
+                "deflected axis overrides its two keys. Off by default; toggling on auto-exits the moment " +
+                "a real target locks, the external TGP page closes, the aircraft is lost, or gear/landing " +
+                "cam takes over.",
             "Layout Keybinds" =>
                 "Keyboard only, no joystick/HOTAS. Acts on whichever browser window has focus when " +
                 "pressed, and applies to every connected browser.",
@@ -680,6 +725,24 @@ namespace NOXMFD
             // reasoning as the vector: a page needs to see it go true→false to tell a tap from a hold
             // (docs/page-cursor.md), which an edge-only counter can't express.
             TelemetryServer.SetCursorSelectHeld(Active(_cursorSelect!, edgeOverride: false) || remoteCursorSelectHeld);
+
+            // TGP manual pan/tilt/zoom (docs/tgp-manual-control.md) — same unconditional-every-frame
+            // pattern as the cursor vector above: must run even on an idle frame so releasing the
+            // last key reports 0 instead of latching, and Zoom In/Out need their live held state
+            // every frame (a Drive dispatch only fires on the frame ActiveNow is true, never on
+            // release). TgpManualControl itself no-ops all of these while manual mode is off.
+            float tpx = 0, tpy = 0;
+            if (_tgpPanLeft!.ActiveNow)  tpx -= 1;
+            if (_tgpPanRight!.ActiveNow) tpx += 1;
+            if (_tgpTiltDown!.ActiveNow) tpy -= 1;
+            if (_tgpTiltUp!.ActiveNow)   tpy += 1;
+            float tax = ReadAxis(_tgpPanAxis!);
+            float tay = ReadAxis(_tgpTiltAxis!);
+            if (tax != 0f) tpx = tax;
+            if (tay != 0f) tpy = tay;
+            TgpManualControl.SetPan(ClampUnit(tpx), ClampUnit(tpy));
+            TgpManualControl.SetZoom(1, _tgpZoomIn!.ActiveNow);
+            TgpManualControl.SetZoom(-1, _tgpZoomOut!.ActiveNow);
 
             // Combat-mode tap/hold binds (docs/radar-master-arms.md) — run every frame, same reasoning
             // as the cursor vector above: a release on an otherwise-idle frame must still reset

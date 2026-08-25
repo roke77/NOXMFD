@@ -178,6 +178,7 @@ namespace NOXMFD
             }
 
             _tgp.Tick(dt);   // TGP feed cadence is owned by TgpFeed (captures at its own interval)
+            TgpManualControl.Tick(dt);   // docs/tgp-manual-control.md — no-op while manual mode is off
         }
 
         private void ScanWorld()
@@ -805,6 +806,7 @@ namespace NOXMFD
                 TgpIR           = _tgp.Overlay.IR,
                 TgpBearingDeg   = _tgp.Overlay.BearingDeg,
                 TgpTargetCount  = _tgp.Overlay.TargetCount,
+                TgpManualActive = TgpManualControl.ManualMode,
                 TgpType         = _tgp.Overlay.TargetType,
                 TgpPilot        = _tgp.Overlay.Pilot,
                 TgpStatus       = _tgp.Overlay.Status,

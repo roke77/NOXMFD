@@ -255,7 +255,7 @@ export class TelemetrySource {
     // TGP feed state (so the MFD's TGP page can swap to NO TARGET when the feed stops), plus the
     // quality mode and stat-overlay block HQ mode draws client-side (see docs/tgp-high-quality-
     // mode.md — Native already has this baked into the video by the game's own TargetScreenUI).
-    this._postUp({ type: 'tgp', active: !!d.tgpActive, quality: d.tgpQuality || 'native', data: d.tgp || null });
+    this._postUp({ type: 'tgp', active: !!d.tgpActive, quality: d.tgpQuality || 'native', data: d.tgp || null, manual: !!d.tgpManual });
 
     // The mission name, the ownship's grid, and the raw position/heading/map-meta a non-map page
     // needs to compute distance/bearing to a waypoint and its own grid labels — for chrome that
@@ -466,7 +466,7 @@ export class TelemetrySource {
   _emitEmpties() {
     this._postUp({ type: 'loadout', items: [], selWeapon: null, softGun: null, softRel: null, masterArmsOn: true, combatMode: 'all' });
     this._postUp({ type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 });
-    this._postUp({ type: 'tgp', active: false, quality: 'native', data: null });
+    this._postUp({ type: 'tgp', active: false, quality: 'native', data: null, manual: false });
     this._postUp({ type: 'mapinfo', mission: null, grid: null, x: null, z: null, hdg: null, ox: null, oy: null });
     this._postUp({ type: 'targets', items: [] });
     this._postUp({ type: 'rwr', items: [] });

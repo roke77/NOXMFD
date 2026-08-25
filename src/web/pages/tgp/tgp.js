@@ -148,6 +148,7 @@ window.addEventListener('message', function(e) {
   if (!m || m.mfd !== true) return;
   if (m.type === 'tgp') {
     tgpPanel.classList.toggle('has-feed', !!m.active);
+    tgpPanel.classList.toggle('tgp-manual', !!m.manual);
     applyOverlay(m.quality || 'native', m.data || null);
   } else if (m.type === 'orient') {
     // App-wide orientation forwarded by the shell — drives body.portrait/.landscape so any

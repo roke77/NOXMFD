@@ -117,6 +117,10 @@ namespace NOXMFD
         public bool   TgpIR;           // targetCam.UsingIR()
         public float  TgpBearingDeg;   // active cam mount's local Y euler
         public int    TgpTargetCount;  // 0 when TgpActive is true but the list emptied mid-frame
+
+        // True while TgpManualControl.ManualMode is on (docs/tgp-manual-control.md) — drives the
+        // TGP page's MANUAL/AUTO status indicator.
+        public bool   TgpManualActive;
         public string TgpType;         // unitName, or "N targets" when TgpTargetCount > 1
         public string TgpPilot;        // empty when not a player-flown aircraft
         public string TgpStatus;       // "friendly" | "jammed" | "lased" | "outdated" | "normal"

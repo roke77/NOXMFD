@@ -163,5 +163,29 @@ namespace NOXMFD
                 AkfTracker.Active?.RecordWeaponHit(__instance.ownerID, __instance.persistentID);
             }
         }
+
+        // TGP manual camera control (docs/tgp-manual-control.md). While TgpManualControl.ManualMode
+        // is on, these two prefixes skip TargetCam's own auto-pointing so a pilot's pan/tilt/zoom
+        // input (applied directly by TgpManualControl.Tick, every frame) isn't fought: Update()
+        // would otherwise keep lerping fieldOfView toward its own targetFOV, switching currentMount
+        // between forward/rear based on angle-to-target (unstable with no real target locked), and
+        // counting camTimeout down toward auto-disable; AimCamera() would keep slerping the mount
+        // toward a stale/empty targetPosition. SwitchIRState isn't patched — manual IR toggling is
+        // out of scope for v1 (docs/tgp-manual-control.md's "Out of scope").
+        [HarmonyPatch(typeof(TargetCam), "Update")]
+        private static class TargetCam_Update_ManualGate
+        {
+            // ponytail: skips the cosmetic per-second exposure ramp (UpdateExposure) along with the
+            // rest of Update() while manual mode is on — losing that lerp reads as negligible next
+            // to not fighting manual pointing every frame. Upgrade path: reimplement the exposure
+            // call inline here (it's a private no-arg method) if it's ever visibly missed.
+            private static bool Prefix() => !TgpManualControl.ManualMode;
+        }
+
+        [HarmonyPatch(typeof(TargetCam), "AimCamera")]
+        private static class TargetCam_AimCamera_ManualGate
+        {
+            private static bool Prefix() => !TgpManualControl.ManualMode;
+        }
     }
 }
