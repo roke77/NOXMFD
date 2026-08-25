@@ -263,8 +263,12 @@ namespace NOXMFD
             // the reference below, for pages that need to tell a tap from a hold (docs/page-cursor.md
             // — TGT's PAD-cursor Select mirrors its tap/long-press cell behaviour).
             _cursorSelect = DefFree(config, "cursor-select", cursor, "CursorSelect", "Cursor Select", edge: true,
-                "Select whatever the cursor is on. Only acts while a display with a cursor is focused.",
-                () => TelemetryServer.CursorSelect());
+                "Select whatever the cursor is on. In manual TGP Point Track, locks a nearby unit and returns to the normal target camera.",
+                () =>
+                {
+                    TelemetryServer.CursorSelect();
+                    TgpManualControl.TryLockTrackedUnit();
+                });
             // Analog alternative to the four direction keys above — a HOTAS mini-stick/hat gives full
             // diagonal control the keys can't (only one axis can be held "active" at a time on a
             // digital pad). Axis-only: no keyboard/button source makes sense for a continuous value,

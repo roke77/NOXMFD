@@ -274,6 +274,13 @@ testing, not spec'd up front:
   off the tracked point as an independent offset (see below), and releasing the stick commits one
   fresh raycast to redesignate a new locked point at the new aim. Pressing the bind again, or any
   lifecycle exit trigger, releases back to free Area Track.
+- **Point Track to unit-lock handoff** — pressing the existing **PAD Cursor Select** bind while
+  Point Track is active searches for the closest selectable live unit to the tracked world point.
+  The normal acquisition radius is 50 m, expanded to one full unit length for unusually large
+  units. A match goes through the same select-only path used by MAP/RDR commands (TGT filters,
+  no neutral/scenery/self targets, HUD marker/audio when available, and multiplayer target-list propagation), then
+  manual mode exits and the game's normal locked `TargetCam` takes over. With no nearby match the
+  press is still delivered to the focused web display and manual Point Track remains unchanged.
 - **Calibrated Zoom Axis** (`tgp-zoom-axis` bind, an `AddAxis` bind like Pan/Tilt Axis) — a
   physical analog control (e.g. a HOTAS slider) whose raw position directly *is* the zoom level
   (linear map, `-1` = `MaxFov`/widest, `+1` = `MinFov`/tightest), not a rate like the Zoom In/Out
@@ -596,7 +603,7 @@ Delivered, including the five additions in [What actually shipped](#what-actuall
 
 1. `TgpManualControl.cs` — state, engage/exit/reset, Point Track (raycast lock + decoupled
    baseline/offset), and the public `SetPan`/`SetZoom`/`SetZoomAxis`/`Toggle`/`Reset`/
-   `TogglePointTrack` API (remote-ready per [above](#fit-with-noxmfds-existing-architecture),
+   `TogglePointTrack`/`TryLockTrackedUnit` API (remote-ready per [above](#fit-with-noxmfds-existing-architecture),
    local-only wired so far).
 2. `TgpManualAimMath.cs` — pure pan/tilt/zoom geometry (`az/el`, FOV-scaled nudge, Zoom Axis
    mapping), covered by `tools/tests/TgpManualAimMathTests.cs`.
@@ -608,7 +615,8 @@ Delivered, including the five additions in [What actually shipped](#what-actuall
 5. `TgpNativeOverlay.cs` — native in-cockpit `TargetScreenUI` text/crosshair population, separated
    from manual-control lifecycle/state.
 6. `Keybinds.cs` — KEY-page binds: toggle, reset, Point Track, pan/tilt button pairs, pan/tilt
-   axes, zoom in/out, the calibrated zoom axis, and manual COLOR/IR toggle.
+   axes, zoom in/out, the calibrated zoom axis, and manual COLOR/IR toggle; the existing PAD Cursor
+   Select bind also promotes a Point Track near a unit into the normal game lock.
 7. TGP page — boresight crosshair gated on the `tgp-manual` class.
 8. Every exit trigger from [Lifecycle](#lifecycle-every-exit-trigger) except the removed page-close
    one: real lock, aircraft loss, gear/landing-cam conflict.
@@ -619,7 +627,7 @@ Delivered, including the five additions in [What actually shipped](#what-actuall
 
 ## Out of scope
 
-- Any weapon-lock or targeting integration — this is camera pointing only.
+- Additional weapon-lock/targeting controls beyond the PAD Cursor Select Point Track handoff.
 - ~~In-cockpit `TargetScreenUI` info-panel patch (RNG/ALT/HDG/GRID/MODE from the manual hit
   point)~~ — **built**, see [In-cockpit overlay](#in-cockpit-overlay-v2).
 - ~~Manual IR toggling (`SwitchIRState`)~~ — **built**: a `tgp-manual-ir-toggle` bind flips

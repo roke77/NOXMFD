@@ -229,9 +229,18 @@ namespace NOXMFD
                 return;
             }
 
+            TrySelectTarget(unit, "target.select");
+        }
+
+        // Shared by command-driven MAP/RDR selection and the manual TGP's point-track handoff.
+        // Select-only: AddTargetList does not de-duplicate, so callers must come through here.
+        internal static bool TrySelectTarget(Unit unit, string source)
+        {
+            if (unit == null || unit.disabled) return false;
+
             GameManager.GetLocalAircraft(out Aircraft ac);
-            if (ac == null || ac.weaponManager == null) return;
-            if (ReferenceEquals(unit, ac)) return;   // can't target yourself
+            if (ac == null || ac.weaponManager == null) return false;
+            if (ReferenceEquals(unit, ac)) return false;   // can't target yourself
 
             string name = unit.definition?.unitName ?? "?";
 
@@ -241,8 +250,8 @@ namespace NOXMFD
             // or RDR lock weapon-lock something the pilot's own filters were never built to offer.
             if (DynamicMap.GetFactionMode(unit.NetworkHQ) == FactionMode.NoFaction)
             {
-                Plugin.Log?.LogInfo($"[NOXMFD] target.select '{name}' (id={id}): no-faction unit — ignored.");
-                return;
+                Plugin.Log?.LogInfo($"[NOXMFD] {source} '{name}' (id={unit.persistentID.Id}): no-faction unit — ignored.");
+                return false;
             }
 
             // Respect the TGT filter panel's current faction/category/vehicle/laser toggles — a MAP
@@ -252,22 +261,23 @@ namespace NOXMFD
             TargetListSelector tgtSel = SceneSingleton<TargetListSelector>.i;
             if (tgtSel != null && tgtSel.CheckExclusions(unit))
             {
-                Plugin.Log?.LogInfo($"[NOXMFD] target.select '{name}' (id={id}): excluded by TGT filters — ignored.");
-                return;
+                Plugin.Log?.LogInfo($"[NOXMFD] {source} '{name}' (id={unit.persistentID.Id}): excluded by TGT filters — ignored.");
+                return false;
             }
 
             WeaponManager wm = ac.weaponManager;
             if (wm.CheckIsTarget(unit))
             {
-                Plugin.Log?.LogInfo($"[NOXMFD] target.select '{name}' (id={id}): already targeted — no-op.");
-                return;
+                Plugin.Log?.LogInfo($"[NOXMFD] {source} '{name}' (id={unit.persistentID.Id}): already targeted — no-op.");
+                return false;
             }
 
             CombatHUD hud = SceneSingleton<CombatHUD>.i;
             bool viaHud = hud != null && ReferenceEquals(hud.aircraft, ac) && hud.MarkerExists(unit);
             if (hud != null && viaHud) hud.SelectUnit(unit);
             else                       wm.AddTargetList(unit);
-            Plugin.Log?.LogInfo($"[NOXMFD] target.select → '{name}' (id={id}, viaHud={viaHud}).");
+            Plugin.Log?.LogInfo($"[NOXMFD] {source} → '{name}' (id={unit.persistentID.Id}, viaHud={viaHud}).");
+            return true;
         }
 
         // Mirrors the in-cockpit deselect via CombatHUD.DeSelectUnit, which reverts the marker
