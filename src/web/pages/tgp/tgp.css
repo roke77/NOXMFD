@@ -28,28 +28,6 @@
 .tgp-panel:not(.has-feed) .tgp-img { visibility: hidden; }
 .tgp-panel.has-feed .tgp-empty { display: none; }
 
-/* Manual pointing status (docs/tgp-manual-control.md) — a live keybind-driven control, not a
-   set-once preference, so it lives on the TGP page itself rather than TGP CFG (matches
-   docs/remote-keybinds.md's toggle-vs-set distinction). Shown regardless of quality/lock state,
-   since manual mode can be on with no lock at all. */
-.tgp-manual-badge {
-  display: none;
-  position: absolute;
-  top: 6px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.65);
-  color: var(--no-amber);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  padding: 2px 10px;
-  border: 1px solid var(--no-amber);
-  border-radius: 2px;
-  pointer-events: none;
-}
-.tgp-panel.tgp-manual .tgp-manual-badge { display: block; }
-
 /* Boresight reticle (docs/tgp-manual-control.md) — shown only while manually pointing, since
    that's the one mode with no lock box to show where the camera is actually aimed. A screen-
    centered anchor, not synced to tgp.js's letterbox-corrected overlay rect the way the HQ stat

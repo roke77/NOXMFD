@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace NOXMFD
 {
@@ -449,6 +451,209 @@ namespace NOXMFD
             }
             Plugin.Log?.LogInfo($"[NOXMFD] TGP manual control: OFF ({reason}).");
         }
+
+        // What the aim is currently pointed at (docs/tgp-manual-control.md's "In-cockpit overlay").
+        // While Point Track is locked, reuses the already-tracked point directly — Tick() is already
+        // recomputing toward it every frame, so a second raycast here would be redundant. Otherwise
+        // (free Area Track), fires one fresh raycast along the current aim, same mask Point Track
+        // itself uses to avoid self-hitting the fuselage. Called at whatever cadence the caller
+        // needs (TargetScreenUI's own overlay ticks at 10 Hz) — cheap enough not to need throttling
+        // of its own.
+        private static bool TryGetLookPoint(Transform mount, out Vector3 hitPointLocal, out float rangeM)
+        {
+            if (_pointTrackActive)
+            {
+                hitPointLocal = _trackedPoint.ToLocalPosition();
+                rangeM = (hitPointLocal - mount.position).magnitude;
+                return true;
+            }
+            if (Physics.Raycast(mount.position, _panDir, out RaycastHit hit, PointTrackRayDistance, WorldGeometryLayerMask))
+            {
+                hitPointLocal = hit.point;
+                rangeM = hit.distance;
+                return true;
+            }
+            hitPointLocal = default;
+            rangeM = 0f;
+            return false;
+        }
+
+        private static GameObject? _crosshairRoot;
+        private static GameObject? _pointTrackBox;
+
+        // Boresight crosshair + Point Track marker for the in-cockpit feed (docs/tgp-manual-control.md
+        // "In-cockpit overlay"), built once and lazily re-created if TargetScreenUI's canvas is ever
+        // destroyed/recreated (Unity's overridden == treats a destroyed reference as null, so this
+        // check doubles as respawn handling). Both the crosshair arms and the Point Track box are
+        // plain UI Image bars, not the game's own targetLockBox prefab — that prefab's border is a
+        // fixed-width sliced sprite that stayed visually thin no matter how the box was resized, so
+        // hand-building it from the same bars as the crosshair is what actually guarantees a border
+        // as thick as the crosshair lines. Called every tick from the Harmony prefix regardless of
+        // ManualMode, so the crosshair is hidden the instant manual mode ends, not left stuck on.
+        internal static void SyncNativeCrosshair(Canvas displayCanvas, bool visible)
+        {
+            if (displayCanvas == null) return;
+            if (_crosshairRoot == null)
+            {
+                // Anchor-stretched (0..1 of the parent rect), not fixed pixel/world-unit sizes: the
+                // first version computed sizes from canvasRect.rect.width/height as absolute units,
+                // which rendered as "minute" — that canvas's rect isn't necessarily in screen pixels
+                // (could be world-space units for a Screen Space - Camera or World Space canvas), so
+                // a size computed as "42% of rect.height" has no guaranteed relationship to how big
+                // it actually looks on screen. Anchors sidestep that entirely: 0..1 always spans the
+                // full parent regardless of its absolute unit scale.
+                // Box side length = 2 * gap (a square, half-size = gap). Each crosshair arm's own
+                // length must be exactly 2x that box side — i.e. 4 * gap — so armEnd is derived from
+                // gap rather than set independently, keeping that ratio exact by construction instead
+                // of by hand-tuned numbers that can drift out of the requested 2:1 relationship.
+                const float gap = 0.028125f;              // 25% smaller than the previous pass
+                const float armLength = 4f * gap;         // = 2x the box's side length (2 * (2 * gap))
+                const float armEnd = 0.5f + gap + armLength;
+                const float thickness = 0.005f;   // 50% thinner than the previous pass
+                float half = thickness / 2f;
+
+                _crosshairRoot = new GameObject("NOXMFD_ManualCrosshair", typeof(RectTransform));
+                _crosshairRoot.transform.SetParent(displayCanvas.transform, false);
+                var rootRt = (RectTransform)_crosshairRoot.transform;
+                rootRt.anchorMin = Vector2.zero;
+                rootRt.anchorMax = Vector2.one;
+                rootRt.offsetMin = rootRt.offsetMax = Vector2.zero;   // fills the canvas; each arm positions itself via its own anchors below
+
+                CreateBar(rootRt, "Top",    new Vector2(0.5f - half, 0.5f + gap),      new Vector2(0.5f + half, armEnd));
+                CreateBar(rootRt, "Bottom", new Vector2(0.5f - half, 1f - armEnd),     new Vector2(0.5f + half, 0.5f - gap));
+                CreateBar(rootRt, "Left",   new Vector2(1f - armEnd, 0.5f - half),     new Vector2(0.5f - gap, 0.5f + half));
+                CreateBar(rootRt, "Right",  new Vector2(0.5f + gap, 0.5f - half),      new Vector2(armEnd, 0.5f + half));
+
+                // Point Track box — a hollow square built from four bars at the SAME thickness as the
+                // crosshair arms, sized so its edges sit exactly at the arms' inner tips (gap).
+                _pointTrackBox = new GameObject("PointTrackBox", typeof(RectTransform));
+                _pointTrackBox.transform.SetParent(rootRt, false);
+                var boxRt = (RectTransform)_pointTrackBox.transform;
+                boxRt.anchorMin = Vector2.zero;
+                boxRt.anchorMax = Vector2.one;
+                boxRt.offsetMin = boxRt.offsetMax = Vector2.zero;
+
+                CreateBar(boxRt, "BoxTop",    new Vector2(0.5f - gap, 0.5f + gap - half), new Vector2(0.5f + gap, 0.5f + gap + half));
+                CreateBar(boxRt, "BoxBottom", new Vector2(0.5f - gap, 0.5f - gap - half), new Vector2(0.5f + gap, 0.5f - gap + half));
+                CreateBar(boxRt, "BoxLeft",   new Vector2(0.5f - gap - half, 0.5f - gap), new Vector2(0.5f - gap + half, 0.5f + gap));
+                CreateBar(boxRt, "BoxRight",  new Vector2(0.5f + gap - half, 0.5f - gap), new Vector2(0.5f + gap + half, 0.5f + gap));
+            }
+
+            _crosshairRoot.SetActive(visible);
+            if (_pointTrackBox != null) _pointTrackBox.SetActive(visible && _pointTrackActive);
+        }
+
+        private static void CreateBar(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            Image img = go.GetComponent<Image>();
+            img.color = Color.white;
+            RectTransform rt = img.rectTransform;
+            rt.anchorMin = anchorMin;
+            rt.anchorMax = anchorMax;
+            rt.offsetMin = rt.offsetMax = Vector2.zero;
+        }
+
+        // Drives TargetScreenUI's own TextMeshProUGUI/Image elements (docs/tgp-manual-control.md's
+        // "In-cockpit overlay") — called from a Harmony prefix (HarmonyPatches.cs) that skips
+        // TargetScreenUI.UpdateTargetInfo entirely whenever ManualMode is true, since ManualMode
+        // always implies zero real targets (Tick() auto-exits the instant a real lock exists), so
+        // there's never a "which one wins" conflict with the native lock display. Reuses the game's
+        // own fields rather than adding new Unity UI — see the doc's field-mapping table for what
+        // each one shows here vs. its native meaning.
+        //
+        // TextMeshProUGUI, not UnityEngine.UI.Text: the decompiled reference source
+        // (_scratch/full/TargetScreenUI.cs) declares these as legacy Text, but the live 0.34+ game
+        // build has switched them to TMP (see NOXMFD.csproj's Unity.TextMeshPro reference comment).
+        // Declaring the Harmony ___field parameters as Text anyway didn't fail to patch or throw —
+        // it silently produced a type-confused field access that crashed the whole game a few ticks
+        // later, deep inside TextMeshProUGUI's own internals (SetArraySizes), not at the call site —
+        // caught via a Unity crash dump stack trace, not a caught exception or a Harmony patch-apply
+        // warning. Confirm a field's real type against a live crash/decompile before trusting an
+        // older decompiled source on a UI type, not just its name.
+        internal static void PopulateNativeOverlay(TargetCam tc, Transform mount,
+            TextMeshProUGUI typeText, TextMeshProUGUI pilotText, TextMeshProUGUI noLock,
+            TextMeshProUGUI distanceText, TextMeshProUGUI headingText, TextMeshProUGUI altitudeText,
+            TextMeshProUGUI relAltitudeText, TextMeshProUGUI speedText, TextMeshProUGUI relSpeedText,
+            TextMeshProUGUI magText, TextMeshProUGUI modeText, TextMeshProUGUI bearingText,
+            TextMeshProUGUI gridText, Image bearingImg)
+        {
+            noLock.gameObject.SetActive(false);
+            typeText.gameObject.SetActive(true);
+            pilotText.gameObject.SetActive(false);   // no pilot without a real target
+            distanceText.gameObject.SetActive(true);
+            headingText.gameObject.SetActive(true);
+            altitudeText.gameObject.SetActive(true);
+            relAltitudeText.gameObject.SetActive(true);
+            speedText.gameObject.SetActive(false);   // own aircraft speed — already on the flight HUD
+            relSpeedText.gameObject.SetActive(true);
+            magText.gameObject.SetActive(true);
+            modeText.gameObject.SetActive(true);
+            bearingText.gameObject.SetActive(true);
+            bearingImg.gameObject.SetActive(true);
+            gridText.gameObject.SetActive(true);
+
+            typeText.text = _pointTrackActive ? "POINT TRACK" : "MANUAL";
+            typeText.color = Color.white;
+
+            magText.text = $"Mag x{10f / _desiredFov:F1}";
+            modeText.text = tc.UsingIR() ? "MODE: IR" : "MODE: COLOR";
+
+            GameManager.GetLocalAircraft(out Aircraft ac);
+
+            // Aircraft-relative az/el (0° = nose), matching the native bearing readout's own frame
+            // (camMount.transform.localEulerAngles.y) — NOT the world-frame azimuth ToAzimuthElevation
+            // gives on _panDir directly. A Point Track lock on a fixed ground point makes the WORLD
+            // bearing to that point drift continuously just from the aircraft flying past it, which
+            // reads as "the needle moves for no reason" even with zero pilot input. Computed from a
+            // direction vector via InverseTransformDirection, not Transform.localEulerAngles, to avoid
+            // Euler wraparound on the elevation axis (native code never showed elevation, so never hit
+            // that problem).
+            Vector3 localDir = ac != null ? ac.transform.InverseTransformDirection(_panDir) : _panDir;
+            (float az, float el) = ToAzimuthElevation(localDir);
+            bearingText.text = $"{az:F0}°";
+            bearingImg.rectTransform.localEulerAngles = new Vector3(0f, 0f, -az);
+            headingText.text = $"EL {el:F0}°";   // repurposed — elevation has no native readout
+
+            Vector3 hitLocal = default;
+            float rangeM = 0f;
+            bool hasHit = ac != null && TryGetLookPoint(mount, out hitLocal, out rangeM);
+            if (hasHit)
+            {
+                GlobalPosition hitGlobal = hitLocal.ToGlobalPosition();
+                Vector3 rel = hitGlobal - ac!.GlobalPosition();
+                // Positive = closing (moving toward the look point, range decreasing) — this is a
+                // new label ("CLO", not the native "REL"), so it defines its own clear sign
+                // convention rather than matching the native rel_speed formula for a moving target.
+                float closure = Vector3.Dot(ac.rb.velocity, rel.normalized);
+
+                distanceText.text    = "RNG " + UnitConverter.DistanceReading(rangeM);
+                altitudeText.text    = "ALT " + UnitConverter.AltitudeReading(hitGlobal.y);
+                relAltitudeText.text = "REL " + UnitConverter.AltitudeReading(rel.y);
+                relSpeedText.text    = "CLO " + UnitConverter.SpeedReading(closure);
+                gridText.text        = "GRID: " + SceneSingleton<DynamicMap>.i.gridLabels.GetGridPosition(hitGlobal);
+            }
+            else
+            {
+                distanceText.text    = "RNG -";
+                altitudeText.text    = "ALT -";
+                relAltitudeText.text = "REL -";
+                relSpeedText.text    = "CLO -";
+                gridText.text        = "GRID: -";
+            }
+
+            // Throttled diagnostic (docs/tgp-manual-control.md testing) — confirms this patch is
+            // actually firing and shows what it's computing, since TargetScreenUI.UpdateTargetInfo
+            // runs on the game's own SlowUpdate timer, outside TgpManualControl.Tick()'s own diag log.
+            if (Time.time - _overlayDiagLastLog > 1f)
+            {
+                _overlayDiagLastLog = Time.time;
+                Plugin.Log?.LogInfo($"[NOXMFD] TGP native overlay diag: az={az:0.0} el={el:0.0} pointTrack={_pointTrackActive} hit={hasHit} rangeM={(hasHit ? rangeM.ToString("0") : "-")}.");
+            }
+        }
+
+        private static float _overlayDiagLastLog;
 
         private static bool EnsureReflection()
         {

@@ -293,6 +293,95 @@ testing, not spec'd up front:
 Two pieces from `TargetCamControl`'s reference shape stayed genuinely out of scope — see
 [Out of scope](#out-of-scope).
 
+## In-cockpit overlay (v2)
+
+The web TGP page's overlay (`TgpOverlay.cs`/`tgp.js`) and the native in-cockpit MFD's overlay
+(`TargetScreenUI`) are two separate rendering paths reading the same `TargetCam`/telemetry state —
+this section is the second one, which the original [Out of scope](#out-of-scope) list deliberately
+deferred as "cosmetic polish." Revisited because the in-cockpit screen is a legitimate, self-
+contained audience for manual pointing (see [Status](#status) — this was already established when
+the page-close exit trigger was removed), and a data-blank screen while manually pointing is a real
+usability gap, not just missing polish.
+
+**Why this works with no target lock.** `TargetScreenUI.UpdateTargetInfo` already runs on its own
+`StartSlowUpdate(0.1f, ...)` timer regardless of manual mode — it isn't one of the methods
+`TgpManualControl`'s Harmony patches gate. It just early-returns to "NO LOCK" the instant
+`targetList.Count == 0` (`_scratch/full/TargetScreenUI.cs`), which is always true while `ManualMode`
+is on: `Tick()` already auto-exits manual mode the instant a real lock exists, so there's never a
+"which one wins" race between a real lock's data and manual mode's synthetic data.
+
+**What's available without a lock:**
+- Own-aircraft state — heading/altitude/speed, no target needed.
+- Aim direction — azimuth (already computed for the native bearing readout) and elevation (not
+  shown anywhere natively — the native overlay only ever needed a target's bearing, never the
+  camera's own tilt, because a locked target only needs one number to point back at it).
+- Magnification — `10f / cam.fieldOfView`, identical math to `TargetCam.GetMag()`.
+- A "look point" — one raycast along the current aim (`WorldGeometryLayerMask = 64`, the same mask
+  Point Track already uses to avoid self-hitting the fuselage), or the already-tracked point
+  directly while Point Track is locked (no extra raycast — `Tick()` is already recomputing toward
+  it every frame). Gives range, world altitude, and map grid of whatever's actually in the
+  crosshair — not stale the way `tc.GetDist()`/`tc.GetGrid()` are in manual mode (they're written by
+  `AimCamera()`, which the manual-mode Harmony gate skips entirely).
+- **Not available:** target type, pilot name, faction/jam/lase/outdated status — all require a real
+  `Unit`, which manual mode by definition doesn't have.
+
+**Field mapping.** Reuses `TargetScreenUI`'s own TextMeshProUGUI/Image elements — no new Unity UI added. A
+Harmony prefix on `UpdateTargetInfo`, gated on `ManualMode`, skips the original method entirely
+(which would otherwise show "NO LOCK") and drives the same fields from `TgpManualControl`'s state
+via Harmony's `___field` injection — reaches the private serialized fields directly, no separate
+reflection cache needed the way the `TargetCam` fields require.
+
+| Native field                | Native meaning        | Manual-mode content                                                |
+|------------------------------|------------------------|----------------------------------------------------------------------|
+| `typeText`                   | target type/count      | `MANUAL` / `POINT TRACK`                                             |
+| `pilotText`                  | pilot name              | hidden                                                                |
+| `magText`                    | magnification           | unchanged math, sourced from `_desiredFov`                           |
+| `modeText`                   | COLOR/IR                | unchanged (`tc.UsingIR()` still valid — untouched by manual mode)    |
+| `bearingText` / `bearingImg` | target bearing          | aim azimuth (same `camMount`-derived value the native code already used) |
+| `heading`                    | target heading          | **repurposed:** aim elevation (`EL {el}°`) — fills a gap the native display never had |
+| `distance`                   | target range            | look-point range (raycast / Point Track hit)                         |
+| `altitude`                   | target altitude         | look-point world altitude                                            |
+| `rel_altitude`               | target rel. altitude    | look-point altitude relative to own aircraft                         |
+| `speed`                      | target speed            | **hidden** — own aircraft speed duplicated the flight HUD, removed after testing |
+| `rel_speed`                  | target closing speed    | **repurposed:** closure rate toward the look point (`CLO`, positive = closing) |
+| `gridText`                   | target grid             | look-point grid                                                      |
+
+Turret-aiming reticle (`aimingBoxBgd`/`aimingDotImg`) is untouched — it's already gated behind the
+same `targetList.Count == 0` early return today (no lock, no turret-aim box), so skipping the whole
+method while `ManualMode` is on preserves that existing behavior exactly, not a new gap.
+
+**Boresight crosshair + Point Track marker.** The in-cockpit feed gets a crosshair — 4 arms reaching
+nearly to the frame edges, built from plain `Image` bars since there's no matching native element to
+reuse for a full-frame pointing reticle (a departure from the web TGP page's much smaller gapped
+cross, `.tgp-crosshair`, sized for a different context). Synced every tick from the same Harmony
+prefix regardless of `ManualMode`, so it's hidden the instant manual mode ends rather than sticking
+around. All sizing is anchor-stretched (0..1 of the canvas's own rect) rather than computed from
+`RectTransform.rect.width/height` as absolute units — the first pass did the latter and rendered as
+essentially invisible, because that canvas's rect isn't guaranteed to be in screen pixels (could be
+world-space units for a Screen Space - Camera or World Space canvas). While Point Track is locked, a
+small square box appears at center, its side exactly matching where the crosshair arms start — hand-
+built from the same bars as the crosshair, not `TargetScreenUI`'s own `targetLockBox` prefab. That
+prefab was tried first (reusing the same art real target locks use elsewhere on this screen) but its
+border is a fixed-width sliced sprite that stayed visually thin no matter how big the box's
+`RectTransform` was resized, so matching border thickness to the crosshair required building it by
+hand instead. Each crosshair arm's length is derived as `4 * gap` (`gap` = the box's own half-size)
+so it stays exactly 2x the box's side length by construction, not by hand-tuned numbers that could
+drift off that ratio during later tuning passes.
+
+**Debugging finding: a decompile can be wrong about a UI field's type, and Harmony won't tell you.**
+The first build declared the injected `___field` parameters as `UnityEngine.UI.Text`, matching
+`_scratch/full/TargetScreenUI.cs`. That decompile is stale — the live 0.34+ game build switched
+`TargetScreenUI`'s text fields to `TMPro.TextMeshProUGUI` (`NOXMFD.csproj` already carries a
+`Unity.TextMeshPro` reference with a comment saying as much, added for an earlier feature). Harmony
+patched cleanly with the wrong type — no patch-apply failure, no caught exception at the call site —
+it just produced a type-confused field access that displayed plausible-looking values for a few
+ticks and then crashed the whole game process, deep inside `TextMeshProUGUI`'s own internals
+(`SetArraySizes`), nowhere near the actual bug. Root-caused from a Unity crash dump stack trace
+(`%AppData%/LocalLow/Shockfront/NuclearOption/Player.log`), not from BepInEx's own log, which showed
+nothing wrong. Fixed by declaring every text field as `TextMeshProUGUI` instead. Worth checking a
+field's real type against a crash or a live inspector, not just an older decompile, whenever a
+Harmony `___field` injection targets game UI.
+
 ## Debugging findings worth keeping
 
 Live testing surfaced several real bugs, each with a root cause worth remembering rather than
@@ -402,11 +491,8 @@ Delivered, including the four additions in [What actually shipped](#what-actuall
 ## Out of scope
 
 - Any weapon-lock or targeting integration — this is camera pointing only.
-- In-cockpit `TargetScreenUI` info-panel patch (RNG/ALT/HDG/GRID/MODE from the manual hit point) —
-  cosmetic polish for the native cockpit display; the external TGP feed remains NOXMFD's primary
-  surface and doesn't depend on this. (The crosshair reticle itself shipped — see
-  [What actually shipped](#what-actually-shipped-v1-revised) — this is only the native MFD's own
-  telemetry readout, a separate thing.)
+- ~~In-cockpit `TargetScreenUI` info-panel patch (RNG/ALT/HDG/GRID/MODE from the manual hit
+  point)~~ — **built**, see [In-cockpit overlay](#in-cockpit-overlay-v2).
 - Manual IR toggling (`SwitchIRState`/`ACT_FORCE_COL`). NOXMFD's HQ overlay already has its own
   separate simulated-IR look (`docs/tgp-high-quality-mode.md`); native IR toggling from manual mode
   is a nice-to-have, not core to "point the camera and zoom."

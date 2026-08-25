@@ -1,7 +1,9 @@
 using System;
 using System.Reflection;
 using HarmonyLib;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace NOXMFD
 {
@@ -186,6 +188,43 @@ namespace NOXMFD
         private static class TargetCam_AimCamera_ManualGate
         {
             private static bool Prefix() => !TgpManualControl.ManualMode;
+        }
+
+        // In-cockpit TGP overlay for manual control (docs/tgp-manual-control.md's "In-cockpit
+        // overlay"). TargetScreenUI.UpdateTargetInfo already runs on its own 0.1s StartSlowUpdate
+        // timer regardless of manual mode, but early-returns to "NO LOCK" the instant
+        // targetList.Count == 0 — always true while ManualMode is on, since Tick() auto-exits the
+        // instant a real lock exists (no "which one wins" race with real lock data). Prefix skips
+        // the original entirely and drives the same Text/Image elements from TgpManualControl's own
+        // state instead, via Harmony's ___field injection — reaches TargetScreenUI's private
+        // serialized fields directly, no separate reflection cache needed.
+        [HarmonyPatch(typeof(TargetScreenUI), "UpdateTargetInfo")]
+        private static class TargetScreenUI_UpdateTargetInfo_ManualOverlay
+        {
+            // TextMeshProUGUI, not UnityEngine.UI.Text — see TgpManualControl.PopulateNativeOverlay's
+            // own comment. The live 0.34+ game build switched TargetScreenUI's text fields to TMP;
+            // declaring these as Text still let Harmony inject them (no patch-apply failure, no
+            // caught exception) but crashed the game a few ticks later from the resulting type
+            // confusion. Canvas (for the crosshair) is a stable Unity type, not part of that migration.
+            private static bool Prefix(TargetCam ___targetCam, Canvas ___displayCanvas,
+                TextMeshProUGUI ___typeText, TextMeshProUGUI ___pilotText, TextMeshProUGUI ___noLock,
+                TextMeshProUGUI ___distance, TextMeshProUGUI ___heading, TextMeshProUGUI ___altitude,
+                TextMeshProUGUI ___rel_altitude, TextMeshProUGUI ___speed, TextMeshProUGUI ___rel_speed,
+                TextMeshProUGUI ___magText, TextMeshProUGUI ___modeText, TextMeshProUGUI ___bearingText,
+                TextMeshProUGUI ___gridText, Image ___bearingImg)
+            {
+                // Always synced, regardless of ManualMode, so the crosshair is hidden the instant
+                // manual mode ends (the very next native-path tick) instead of staying stuck on.
+                TgpManualControl.SyncNativeCrosshair(___displayCanvas, TgpManualControl.ManualMode);
+
+                if (!TgpManualControl.ManualMode || ___targetCam == null) return true;
+                Transform mount = ___targetCam.GetCamMount();
+                if (mount == null) return true;
+                TgpManualControl.PopulateNativeOverlay(___targetCam, mount, ___typeText, ___pilotText,
+                    ___noLock, ___distance, ___heading, ___altitude, ___rel_altitude, ___speed,
+                    ___rel_speed, ___magText, ___modeText, ___bearingText, ___gridText, ___bearingImg);
+                return false;
+            }
         }
     }
 }
