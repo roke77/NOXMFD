@@ -32,6 +32,21 @@ namespace NOXMFD
         public float  RelSpeedMps  { get; private set; }
         public TgpBoxInfo[] Boxes  { get; private set; } = Array.Empty<TgpBoxInfo>();
 
+        // Manual-mode-only fields (docs/tgp-manual-control.md's "In-cockpit overlay" / web parity)
+        // — populated by PopulateManual instead of Populate, when TgpManualControl.ManualMode is on
+        // and there's no real lock. ElevationDeg has no locked-target equivalent (a locked target
+        // only ever needed bearing, since it's the one shown bearing on the native compass); the
+        // rest reuse existing fields (Mag/RangeM/Grid/IR/BearingDeg/AltitudeM/RelAltitudeM/
+        // RelSpeedMps-as-closure) the same way TgpNativeOverlay's native TextMeshPro fields do.
+        public float  ElevationDeg     { get; private set; }
+        public bool   PointTrackActive { get; private set; }
+        // Pre-formatted via UnitConverter.SpeedReading (km/h or kt, matching the player's unit
+        // setting) rather than sent as a raw m/s number for the client to format itself — closure
+        // is new to the web page (there's no locked-target equivalent to stay consistent with), so
+        // it can just match the in-cockpit overlay exactly instead of inheriting that overlay's
+        // pre-existing raw-units simplification (tgp.js's own fmtDash comment).
+        public string ClosureReading   { get; private set; } = "-";
+
         public void Populate(TargetCam tc, List<Unit>? targets, Aircraft player, Func<Vector3, Vector3> project)
         {
             if (targets == null || targets.Count == 0) { Clear(); return; }
@@ -101,6 +116,37 @@ namespace NOXMFD
                 boxes[i] = new TgpBoxInfo { X = vp.x, Y = vp.y, Visible = vp.z > 0f, Status = status };
             }
             Boxes = boxes;
+        }
+
+        // The manual-mode counterpart to Populate() above — called instead of it (by TgpFeed.
+        // CaptureFrame) whenever TgpManualControl.ManualMode is on and there's no real lock, so the
+        // external web TGP page gets the same RNG/ALT/REL/CLO/GRID/MODE/MAG/EL data the in-cockpit
+        // overlay already shows (TgpNativeOverlay.Populate) instead of going blank. Shares the exact
+        // same computation (TgpManualControl.ComputeOverlaySample) so the two surfaces can't drift
+        // apart on the underlying numbers, only on how each one renders them.
+        public void PopulateManual(TargetCam tc, Transform mount, Aircraft player)
+        {
+            TgpManualControl.ManualOverlaySample s = TgpManualControl.ComputeOverlaySample(tc, mount, player);
+
+            Mag              = s.Mag;
+            IR               = s.IR;
+            BearingDeg       = s.AzimuthDeg;
+            ElevationDeg     = s.ElevationDeg;
+            PointTrackActive = s.PointTrackActive;
+            TargetCount      = 0;     // no real lock — client distinguishes "manual" from "locked" via the manual flag, not cnt
+            TargetType       = s.PointTrackActive ? "POINT TRACK" : "MANUAL";
+            Pilot            = "";
+            Status           = "normal";
+            HasDetail        = s.HasHit;
+            HeadingDeg       = 0f;    // unused in manual mode — the client reads ElevationDeg instead
+            AltitudeM        = s.AltitudeM;
+            RelAltitudeM     = s.RelAltitudeM;
+            SpeedMps         = 0f;    // own-aircraft speed — not sent; duplicates the flight HUD (same call as the native overlay)
+            RelSpeedMps      = s.ClosureMps;
+            ClosureReading   = s.HasHit ? UnitConverter.SpeedReading(s.ClosureMps) : "-";
+            RangeM           = s.RangeM;
+            Grid             = s.Grid;
+            Boxes            = Array.Empty<TgpBoxInfo>();
         }
 
         // TgpFeed.CaptureFrame()'s early-return guards (no aircraft, no TGP component, reflection

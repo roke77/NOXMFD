@@ -64,6 +64,54 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
+        public void Tgp_block_carries_manual_data_even_with_zero_target_count()
+        {
+            // Manual mode never has a real lock (TgpManualControl.Tick() auto-exits the instant one
+            // exists), so TgpTargetCount stays 0 the whole time it's on — the "cnt <= 0" shortcut
+            // that hides the LOCKED-target overlay must not also swallow manual-mode data.
+            var s = default(TelemetrySnapshot);
+            s.TgpTargetCount = 0;
+            s.TgpManualActive = true;
+            s.TgpManualPointTrack = true;
+            s.TgpMag = 4.5f;
+            s.TgpRangeM = 2400f;
+            s.TgpGrid = "Kf53";
+            s.TgpElevationDeg = -8f;
+            s.TgpBearingDeg = 135f;
+            s.TgpAltitudeM = 68f;
+            s.TgpRelAltitudeM = -934f;
+            s.TgpRelSpeedMps = -33f;
+            s.TgpClosureReading = "-119km/h";
+
+            var tgp = Obj(Root(s)["tgp"]);
+
+            Assert.Equal(0.0, tgp["cnt"]);
+            Assert.True((bool)tgp["manual"]!);
+            Assert.True((bool)tgp["pointTrack"]!);
+            Assert.Equal(-8.0, tgp["el"]);
+            Assert.Equal(4.5, tgp["mag"]);
+            Assert.Equal(2400.0, tgp["range"]);
+            Assert.Equal("Kf53", tgp["grid"]);
+            // Pre-formatted server-side (UnitConverter.SpeedReading) rather than a raw m/s number —
+            // closure is new to the web page, so it matches the in-cockpit overlay's units exactly
+            // instead of inheriting the page's pre-existing raw-units simplification for RNG/ALT/etc.
+            Assert.Equal("-119km/h", tgp["clo"]);
+        }
+
+        [Fact]
+        public void Tgp_block_hides_entirely_when_no_lock_and_not_manual()
+        {
+            var s = default(TelemetrySnapshot);
+            s.TgpTargetCount = 0;
+            s.TgpManualActive = false;
+
+            var tgp = Obj(Root(s)["tgp"]);
+
+            Assert.Equal(0.0, tgp["cnt"]);
+            Assert.False(tgp.ContainsKey("manual"));
+        }
+
+        [Fact]
         public void Soi_and_ext_are_spliced_through_verbatim_not_reserialized()
         {
             var s = default(TelemetrySnapshot);

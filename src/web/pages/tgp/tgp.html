@@ -14,11 +14,22 @@
                map iframe's SSE). Toggles .has-feed, swapping the live MJPEG for the NO LOCK
                placeholder. quality: "native" | "hq" (RatesConfig.TgpQualityName). data: the stat
                overlay block (TelemetryJson.cs's TgpBlock, including data.boxes — one screen-
-               projected lock box per locked target) or null when there's no lock — drawn
-               client-side only in HQ mode, since Native's video already has the game's own
-               baked-in overlay (TargetScreenUI's stacked UICam has no HQ-mode counterpart; see
-               docs/tgp-high-quality-mode.md). manual: TgpManualControl.ManualMode
-               (docs/tgp-manual-control.md) — shows the manual crosshair when a feed is present.
+               projected lock box per locked target) or null when there's no lock. Both the
+               locked-target case (data.cnt > 0) and manual mode (data.manual,
+               docs/tgp-manual-control.md's "In-cockpit overlay" / web parity — same corner-group
+               layout, different field mapping via tgp.js's applyManualOverlay) only draw
+               client-side in HQ quality: Native's captured video already has this baked in for
+               free either way, since Native captures the game's own stacked-camera UICam output
+               directly and TgpNativeOverlay populates those exact same TargetScreenUI fields
+               (and its own crosshair) for manual mode too. Drawing it client-side in Native as
+               well double-shows everything — text baked into the pixels AND drawn again as HTML
+               on top — which is a real bug this comment used to get wrong (an earlier version
+               claimed manual mode had no baked-in overlay in either quality). manual:
+               TgpManualControl.ManualMode — shows the crosshair when a feed is present AND
+               quality is HQ (.show-overlay, gated the same way as the stat block above); the
+               Point Track box additionally needs data.pointTrack (tgp.js toggles
+               .tgp-point-track from inside applyOverlay, since that's only known once 'data'
+               arrives, not from the top-level flag alone).
     'orient' : app-wide orientation (kept for parity).
   The MJPEG <img> connects to /tgp.mjpg directly; the server only emits frames while a target
   is locked, so it stays hidden (NO LOCK shown) until 'tgp' active flips true.
@@ -36,6 +47,12 @@
       <span class="tgp-ch-arm tgp-ch-bottom"></span>
       <span class="tgp-ch-arm tgp-ch-left"></span>
       <span class="tgp-ch-arm tgp-ch-right"></span>
+      <div class="tgp-ch-box" id="tgp-ch-box">
+        <span class="tgp-ch-box-edge tgp-ch-box-top"></span>
+        <span class="tgp-ch-box-edge tgp-ch-box-bottom"></span>
+        <span class="tgp-ch-box-edge tgp-ch-box-left"></span>
+        <span class="tgp-ch-box-edge tgp-ch-box-right"></span>
+      </div>
     </div>
     <div class="tgp-overlay" id="tgp-overlay">
       <div class="tgp-ov-stack tgp-ov-tl">

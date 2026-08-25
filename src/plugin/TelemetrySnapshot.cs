@@ -119,8 +119,20 @@ namespace NOXMFD
         public int    TgpTargetCount;  // 0 when TgpActive is true but the list emptied mid-frame
 
         // True while TgpManualControl.ManualMode is on (docs/tgp-manual-control.md) — drives the
-        // TGP page's MANUAL/AUTO status indicator.
+        // TGP page's MANUAL/AUTO status indicator, and (with no real lock) tells the client the
+        // rest of this block's fields carry manual-mode data (TgpOverlay.PopulateManual) rather
+        // than being empty just because TgpTargetCount is 0.
         public bool   TgpManualActive;
+        // True while Point Track is locked (docs/tgp-manual-control.md) — manual mode only;
+        // distinguishes the "POINT TRACK" vs "MANUAL" label client-side.
+        public bool   TgpManualPointTrack;
+        // Aim elevation, degrees, aircraft-relative (0 = nose) — manual mode only; a locked target
+        // never needed this (bearing alone was enough to point back at it).
+        public float  TgpElevationDeg;
+        // Closure rate toward the manual look point, pre-formatted via UnitConverter.SpeedReading
+        // (km/h or kt, matching the player's unit setting) — sent as a ready string, not a raw m/s
+        // number, so the client doesn't need to duplicate that unit-conversion logic itself.
+        public string TgpClosureReading;
         public string TgpType;         // unitName, or "N targets" when TgpTargetCount > 1
         public string TgpPilot;        // empty when not a player-flown aircraft
         public string TgpStatus;       // "friendly" | "jammed" | "lased" | "outdated" | "normal"

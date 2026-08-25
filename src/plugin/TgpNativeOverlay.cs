@@ -8,8 +8,6 @@ namespace NOXMFD
     // state; this class owns TargetScreenUI text/crosshair population.
     internal static class TgpNativeOverlay
     {
-        internal delegate bool LookPointProvider(Transform mount, out Vector3 hitPointLocal, out float rangeM);
-
         private static GameObject? _crosshairRoot;
         private static GameObject? _pointTrackBox;
         private static Canvas? _crosshairCanvas;
@@ -80,13 +78,17 @@ namespace NOXMFD
 
         // TextMeshProUGUI, not UnityEngine.UI.Text: TargetScreenUI uses TMP in the live game build.
         // Harmony field injection will not necessarily fail loudly if the declared type is stale.
+        //
+        // The actual numbers come from TgpManualControl.ComputeOverlaySample — shared with
+        // TgpOverlay.PopulateManual (the external web TGP page gets the same data, docs/tgp-
+        // manual-control.md's "In-cockpit overlay") so neither one re-derives the az/el/raycast
+        // math independently.
         internal static void Populate(TargetCam tc, Transform mount,
             TextMeshProUGUI typeText, TextMeshProUGUI pilotText, TextMeshProUGUI noLock,
             TextMeshProUGUI distanceText, TextMeshProUGUI headingText, TextMeshProUGUI altitudeText,
             TextMeshProUGUI relAltitudeText, TextMeshProUGUI speedText, TextMeshProUGUI relSpeedText,
             TextMeshProUGUI magText, TextMeshProUGUI modeText, TextMeshProUGUI bearingText,
-            TextMeshProUGUI gridText, Image bearingImg,
-            bool pointTrackActive, Vector3 panDir, float desiredFov, LookPointProvider lookPointProvider)
+            TextMeshProUGUI gridText, Image bearingImg)
         {
             noLock.gameObject.SetActive(false);
             typeText.gameObject.SetActive(true);
@@ -103,35 +105,26 @@ namespace NOXMFD
             bearingImg.gameObject.SetActive(true);
             gridText.gameObject.SetActive(true);
 
-            typeText.text = pointTrackActive ? "POINT TRACK" : "MANUAL";
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            TgpManualControl.ManualOverlaySample s = TgpManualControl.ComputeOverlaySample(tc, mount, ac);
+
+            typeText.text = s.PointTrackActive ? "POINT TRACK" : "MANUAL";
             typeText.color = Color.white;
 
-            magText.text = $"Mag x{10f / desiredFov:F1}";
-            modeText.text = tc.UsingIR() ? "MODE: IR" : "MODE: COLOR";
+            magText.text = $"Mag x{s.Mag:F1}";
+            modeText.text = s.IR ? "MODE: IR" : "MODE: COLOR";
 
-            GameManager.GetLocalAircraft(out Aircraft ac);
+            bearingText.text = $"{s.AzimuthDeg:F0}°";
+            bearingImg.rectTransform.localEulerAngles = new Vector3(0f, 0f, -s.AzimuthDeg);
+            headingText.text = $"EL {s.ElevationDeg:F0}°";
 
-            Vector3 localDir = ac != null ? ac.transform.InverseTransformDirection(panDir) : panDir;
-            (float az, float el) = TgpManualAimMath.ToAzimuthElevation(localDir.x, localDir.y, localDir.z);
-            bearingText.text = $"{az:F0}°";
-            bearingImg.rectTransform.localEulerAngles = new Vector3(0f, 0f, -az);
-            headingText.text = $"EL {el:F0}°";
-
-            Vector3 hitLocal = default;
-            float rangeM = 0f;
-            bool hasHit = ac != null && lookPointProvider(mount, out hitLocal, out rangeM);
-            if (hasHit && ac != null)
+            if (s.HasHit)
             {
-                GlobalPosition hitGlobal = hitLocal.ToGlobalPosition();
-                Vector3 rel = hitGlobal - ac.GlobalPosition();
-                Vector3 velocity = ac.rb != null ? ac.rb.velocity : Vector3.zero;
-                float closure = Vector3.Dot(velocity, rel.normalized);
-
-                distanceText.text    = "RNG " + UnitConverter.DistanceReading(rangeM);
-                altitudeText.text    = "ALT " + UnitConverter.AltitudeReading(hitGlobal.y);
-                relAltitudeText.text = "REL " + UnitConverter.AltitudeReading(rel.y);
-                relSpeedText.text    = "CLO " + UnitConverter.SpeedReading(closure);
-                gridText.text        = "GRID: " + SceneSingleton<DynamicMap>.i.gridLabels.GetGridPosition(hitGlobal);
+                distanceText.text    = "RNG " + UnitConverter.DistanceReading(s.RangeM);
+                altitudeText.text    = "ALT " + UnitConverter.AltitudeReading(s.AltitudeM);
+                relAltitudeText.text = "REL " + UnitConverter.AltitudeReading(s.RelAltitudeM);
+                relSpeedText.text    = "CLO " + UnitConverter.SpeedReading(s.ClosureMps);
+                gridText.text        = "GRID: " + s.Grid;
             }
             else
             {
@@ -145,7 +138,7 @@ namespace NOXMFD
             if (Time.time - _overlayDiagLastLog > 1f)
             {
                 _overlayDiagLastLog = Time.time;
-                Plugin.Log?.LogDebug($"[NOXMFD] TGP native overlay diag: az={az:0.0} el={el:0.0} pointTrack={pointTrackActive} hit={hasHit} rangeM={(hasHit ? rangeM.ToString("0") : "-")}.");
+                Plugin.Log?.LogDebug($"[NOXMFD] TGP native overlay diag: az={s.AzimuthDeg:0.0} el={s.ElevationDeg:0.0} pointTrack={s.PointTrackActive} hit={s.HasHit} rangeM={(s.HasHit ? s.RangeM.ToString("0") : "-")}.");
             }
         }
     }

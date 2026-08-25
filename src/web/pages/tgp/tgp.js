@@ -52,10 +52,14 @@ tgpImg.addEventListener('load', syncOverlayRect);
 new ResizeObserver(syncOverlayRect).observe(tgpPanel);
 
 // HQ-mode stat overlay (docs/tgp-high-quality-mode.md) — drawn from the shell's 'tgp' message.
-// Native mode already has this baked into the video (the game's own stacked-camera UICam), so it
-// only shows when quality is "hq" AND a lock is active. Layout matches the in-cockpit
-// TargetScreenUI screen (stacked corner groups + a bearing compass + a lock box per target), not
-// the raw field order.
+// Native mode already has this baked into the video for free, because Native captures the game's
+// own stacked-camera UICam output directly — true for a locked target AND for manual mode
+// (TgpNativeOverlay populates the exact same TargetScreenUI fields either way, docs/tgp-manual-
+// control.md's "In-cockpit overlay"). So this only ever draws client-side in HQ quality, for
+// EITHER case — drawing it in Native too double-shows everything (baked into the pixels AND drawn
+// again as HTML on top), which is exactly what happened before this comment was corrected. Layout
+// matches the in-cockpit TargetScreenUI screen (stacked corner groups + a bearing compass + a lock
+// box per target), not the raw field order.
 const ovType    = document.getElementById('tgp-ov-type');
 const ovPilot   = document.getElementById('tgp-ov-pilot');
 const ovRng     = document.getElementById('tgp-ov-rng');
@@ -79,8 +83,11 @@ const TGP_STATUS_TAG = { jammed: 'JAM', lased: 'LASE', outdated: 'OLD' };
 function fmtDash(value, suffix) { return value == null ? '-' : Math.round(value) + suffix; }
 
 function applyOverlay(quality, data) {
-  const show = quality === 'hq' && !!data && data.cnt > 0;
+  const manual = !!data && !!data.manual;
+  const locked = !!data && data.cnt > 0;
+  const show = quality === 'hq' && (manual || locked);
   tgpPanel.classList.toggle('show-overlay', show);
+  tgpPanel.classList.toggle('tgp-point-track', manual && !!data.pointTrack);
   if (!show) { renderBoxes([]); return; }
 
   // Resync every update rather than trusting 'load'/ResizeObserver alone — on first lock,
@@ -88,6 +95,8 @@ function applyOverlay(quality, data) {
   // syncOverlayRect() silently no-ops until something un-stale triggers it again (a manual resize
   // is what synced it before). This makes it correct on the very first frame, at negligible cost.
   syncOverlayRect();
+
+  if (manual) { applyManualOverlay(data); return; }
 
   ovType.textContent = data.type;
   ovType.className   = 'tgp-ov-title' + (data.status === 'friendly' ? ' friendly' : ' hostile');
@@ -99,6 +108,7 @@ function applyOverlay(quality, data) {
     ovType.appendChild(span);
   }
   ovPilot.textContent = data.pilot || '';
+  ovSpd.classList.remove('tgp-ov-hidden');
 
   ovRng.textContent = 'RNG ' + (data.range / 1000).toFixed(1) + 'km';
 
@@ -125,6 +135,37 @@ function applyOverlay(quality, data) {
   ovMag.textContent  = 'Mag x' + data.mag.toFixed(1);
 
   renderBoxes(data.boxes);
+}
+
+// Manual mode's own field mapping — same server-computed values TgpNativeOverlay draws onto the
+// in-cockpit screen (TgpManualControl.ComputeOverlaySample), just rendered into this page's
+// existing corner-group elements instead of duplicating that layout. No pilot (never a real
+// target), no per-target lock boxes, and no own-aircraft SPD (duplicates the flight HUD — same
+// call TgpNativeOverlay made). HDG's slot carries elevation instead, matching the in-cockpit
+// overlay's own repurposing (a locked target only ever needed bearing; manual pointing has both).
+// CLO (closure rate) arrives pre-formatted (data.clo, via UnitConverter.SpeedReading server-side)
+// rather than a raw m/s number — closure is new to this page, so unlike RNG/ALT/etc. above (which
+// keep the page's existing raw-units simplification, see fmtDash's own comment) there was no
+// reason to introduce a fresh native/web unit mismatch for it.
+function applyManualOverlay(data) {
+  ovType.textContent = data.pointTrack ? 'POINT TRACK' : 'MANUAL';
+  ovType.className   = 'tgp-ov-title';
+  ovPilot.textContent = '';
+  ovSpd.classList.add('tgp-ov-hidden');
+
+  ovRng.textContent = data.hasDetail ? 'RNG ' + (data.range / 1000).toFixed(1) + 'km' : 'RNG -';
+  ovAlt.textContent    = data.hasDetail ? 'ALT ' + fmtDash(data.alt, 'm')    : 'ALT -';
+  ovRelAlt.textContent = data.hasDetail ? 'REL ' + fmtDash(data.relAlt, 'm') : 'REL -';
+  ovRelSpd.textContent = 'CLO ' + (data.clo || '-');
+  ovHdg.textContent    = 'EL ' + Math.round(data.el) + '°';
+
+  ovNeedle.style.transform = 'rotate(' + (data.brg + 180) + 'deg)';
+  ovBrg.textContent = Math.round(data.brg) + '°';
+  ovGrid.textContent = data.hasDetail ? 'GRID: ' + data.grid : 'GRID: -';
+  ovMode.textContent = 'MODE: ' + (data.ir ? 'IR' : 'COLOR');
+  ovMag.textContent  = 'Mag x' + data.mag.toFixed(1);
+
+  renderBoxes([]);
 }
 
 // One <div> per locked target, positioned from the server's WorldToViewportPoint output

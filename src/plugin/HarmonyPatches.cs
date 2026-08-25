@@ -217,9 +217,7 @@ namespace NOXMFD
                 if (mount == null) return true;
                 TgpNativeOverlay.Populate(___targetCam, mount, ___typeText, ___pilotText,
                     ___noLock, ___distance, ___heading, ___altitude, ___rel_altitude, ___speed,
-                    ___rel_speed, ___magText, ___modeText, ___bearingText, ___gridText, ___bearingImg,
-                    TgpManualControl.PointTrackActive, TgpManualControl.PanDirection,
-                    TgpManualControl.DesiredFov, TgpManualControl.TryGetLookPointForOverlay);
+                    ___rel_speed, ___magText, ___modeText, ___bearingText, ___gridText, ___bearingImg);
                 return false;
             }
         }

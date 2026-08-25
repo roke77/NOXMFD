@@ -274,20 +274,25 @@ namespace NOXMFD
         // carry world x/z (client derives bearing/range from the player's own position), altitude,
         // travel heading (velocity stub), lock state (tg) and label.
         // TGP stat overlay (mag/range/grid/mode/target detail) — see the Tgp* fields' doc comment
-        // in TelemetrySnapshot.cs. "cnt":0 is the client's cue to hide the overlay entirely (no
-        // lock at all, as distinct from a lock present but hasDetail:false for a multi-target or
-        // stale-position case).
+        // in TelemetrySnapshot.cs. "cnt":0 is the client's cue to hide the LOCKED-target overlay
+        // (no lock at all, as distinct from a lock present but hasDetail:false for a multi-target
+        // or stale-position case) — but the block still carries data when TgpManualActive is true
+        // with no lock, so the client's "manual" flag (not "cnt > 0") is what gates the manual-mode
+        // overlay (docs/tgp-manual-control.md's "In-cockpit overlay" / web parity).
         private static string TgpBlock(TelemetrySnapshot s)
         {
-            if (s.TgpTargetCount <= 0) return "{\"cnt\":0}";
+            if (s.TgpTargetCount <= 0 && !s.TgpManualActive) return "{\"cnt\":0}";
             string head = string.Format(CultureInfo.InvariantCulture,
                 "{{\"cnt\":{0},\"mag\":{1:0.0},\"range\":{2:0.0},\"grid\":\"{3}\",\"ir\":{4}," +
                 "\"brg\":{5:0.0},\"type\":\"{6}\",\"pilot\":\"{7}\",\"status\":\"{8}\",\"hasDetail\":{9}," +
-                "\"hdg\":{10:0.0},\"alt\":{11:0.0},\"relAlt\":{12:0.0},\"spd\":{13:0.0},\"relSpd\":{14:0.0}",
+                "\"hdg\":{10:0.0},\"alt\":{11:0.0},\"relAlt\":{12:0.0},\"spd\":{13:0.0},\"relSpd\":{14:0.0}," +
+                "\"manual\":{15},\"pointTrack\":{16},\"el\":{17:0.0},\"clo\":\"{18}\"",
                 s.TgpTargetCount, s.TgpMag, s.TgpRangeM, JsonLite.EscapeJson(s.TgpGrid ?? ""), JsonBool(s.TgpIR),
                 s.TgpBearingDeg, JsonLite.EscapeJson(s.TgpType ?? ""), JsonLite.EscapeJson(s.TgpPilot ?? ""),
                 JsonLite.EscapeJson(s.TgpStatus ?? "normal"), JsonBool(s.TgpHasDetail),
-                s.TgpHeadingDeg, s.TgpAltitudeM, s.TgpRelAltitudeM, s.TgpSpeedMps, s.TgpRelSpeedMps);
+                s.TgpHeadingDeg, s.TgpAltitudeM, s.TgpRelAltitudeM, s.TgpSpeedMps, s.TgpRelSpeedMps,
+                JsonBool(s.TgpManualActive), JsonBool(s.TgpManualPointTrack), s.TgpElevationDeg,
+                JsonLite.EscapeJson(s.TgpClosureReading ?? "-"));
             return head + ",\"boxes\":" + TgpBoxArray(s.TgpBoxes) + "}";
         }
 

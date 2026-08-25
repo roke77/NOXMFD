@@ -39,8 +39,6 @@ namespace NOXMFD
 
         internal static bool ManualMode { get; private set; }
         internal static bool PointTrackActive => _pointTrackActive;
-        internal static Vector3 PanDirection => _panDir;
-        internal static float DesiredFov => _desiredFov;
 
         // How far a Point Track raycast reaches — matches AimCamera's own far clip plane (60000f)
         // in the decompile, so a locked point can't sit further out than the camera could ever draw it.
@@ -490,8 +488,67 @@ namespace NOXMFD
             return false;
         }
 
-        internal static bool TryGetLookPointForOverlay(Transform mount, out Vector3 hitPointLocal, out float rangeM) =>
-            TryGetLookPoint(mount, out hitPointLocal, out rangeM);
+        // Everything a manual-mode overlay needs to show, computed once and shared by both
+        // consumers instead of each re-deriving it: TgpNativeOverlay (in-cockpit TextMeshPro
+        // fields) and TgpOverlay.PopulateManual (the external web TGP page, docs/tgp-manual-
+        // control.md's "In-cockpit overlay" — same data, second surface). Az/el are aircraft-
+        // relative (0° = nose) for the same reason TgpNativeOverlay always used that frame: a
+        // Point Track lock on a fixed ground point drifts the WORLD bearing continuously just
+        // from the aircraft's own translation, which reads as "the needle moves for no reason"
+        // with zero pilot input.
+        internal readonly struct ManualOverlaySample
+        {
+            public float AzimuthDeg { get; }
+            public float ElevationDeg { get; }
+            public float Mag { get; }
+            public bool IR { get; }
+            public bool PointTrackActive { get; }
+            public bool HasHit { get; }
+            public float RangeM { get; }
+            public float AltitudeM { get; }
+            public float RelAltitudeM { get; }
+            public float ClosureMps { get; }
+            public string Grid { get; }
 
+            public ManualOverlaySample(float azimuthDeg, float elevationDeg, float mag, bool ir,
+                bool pointTrackActive, bool hasHit, float rangeM, float altitudeM, float relAltitudeM,
+                float closureMps, string grid)
+            {
+                AzimuthDeg = azimuthDeg;
+                ElevationDeg = elevationDeg;
+                Mag = mag;
+                IR = ir;
+                PointTrackActive = pointTrackActive;
+                HasHit = hasHit;
+                RangeM = rangeM;
+                AltitudeM = altitudeM;
+                RelAltitudeM = relAltitudeM;
+                ClosureMps = closureMps;
+                Grid = grid;
+            }
+        }
+
+        internal static ManualOverlaySample ComputeOverlaySample(TargetCam tc, Transform mount, Aircraft? ac)
+        {
+            Vector3 localDir = ac != null ? ac.transform.InverseTransformDirection(_panDir) : _panDir;
+            (float az, float el) = ToAzimuthElevation(localDir);
+            float mag = 10f / _desiredFov;
+            bool ir = tc.UsingIR();
+
+            Vector3 hitLocal = default;
+            float rangeM = 0f;
+            bool hasHit = ac != null && TryGetLookPoint(mount, out hitLocal, out rangeM);
+            if (!hasHit)
+                return new ManualOverlaySample(az, el, mag, ir, _pointTrackActive, false, 0f, 0f, 0f, 0f, "");
+
+            GlobalPosition hitGlobal = hitLocal.ToGlobalPosition();
+            Vector3 rel = hitGlobal - ac!.GlobalPosition();
+            // Positive = closing (moving toward the look point, range decreasing) — a new value
+            // ("CLO"), not the native rel_speed formula for a moving target, so it defines its
+            // own clear sign convention instead.
+            float closure = Vector3.Dot(ac.rb.velocity, rel.normalized);
+            string grid = SceneSingleton<DynamicMap>.i.gridLabels.GetGridPosition(hitGlobal);
+            return new ManualOverlaySample(az, el, mag, ir, _pointTrackActive, true, rangeM, hitGlobal.y, rel.y, closure, grid);
+        }
     }
 }

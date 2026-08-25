@@ -384,6 +384,118 @@ nothing wrong. Fixed by declaring every text field as `TextMeshProUGUI` instead.
 field's real type against a crash or a live inspector, not just an older decompile, whenever a
 Harmony `___field` injection targets game UI.
 
+## Web overlay parity (v3, `tgp-manual-web-overlay` branch)
+
+The in-cockpit overlay above (v2) only ever reached the native screen — the external web TGP page
+(the MFD's own `/tgp` iframe, used from a phone/tablet/second monitor) still showed nothing but a
+small, fixed-size crosshair while pointing manually: `TgpFeed.CaptureFrame()`'s `Overlay.Populate()`
+call unconditionally cleared the whole stat block whenever the real target list was empty, which is
+always true in manual mode (`Tick()` auto-exits the instant a real lock exists). This branch gives
+the web page the same RNG/ALT/REL/CLO/GRID/MODE/MAG/EL data the in-cockpit screen already has, and
+replaces the crosshair with the same final proportions the in-cockpit one settled on.
+
+**Shared computation, not two implementations.** `TgpManualControl.ComputeOverlaySample(tc, mount,
+ac)` — a new method returning a small `ManualOverlaySample` struct (az/el/mag/IR/point-track/hit/
+range/altitude/relAltitude/closure/grid) — is the single source of truth both surfaces read from.
+`TgpNativeOverlay.Populate` (in-cockpit TextMeshPro fields) was refactored to call it instead of
+re-deriving the same raycast/trig math inline; `TgpOverlay.PopulateManual` (new, mirrors `TgpOverlay
+.Populate`'s existing locked-target path) calls it too, from `TgpFeed.CaptureFrame()` whenever
+`!hasTargets && TgpManualControl.ManualMode`. Neither surface can drift from the other on the
+underlying numbers now — only on how each one renders them.
+
+**Wire format.** `TelemetrySnapshot` gained two fields (`TgpManualPointTrack`, `TgpElevationDeg`) —
+everything else reuses the existing locked-target `Tgp*` fields (`TgpMag`, `TgpRangeM`, `TgpGrid`,
+`TgpIR`, `TgpBearingDeg`, `TgpAltitudeM`, `TgpRelAltitudeM`, `TgpRelSpeedMps`-as-closure), the same
+way the in-cockpit TextMeshPro fields were repurposed. `TelemetryJson.TgpBlock()`'s `"cnt":0`
+short-circuit — the client's original cue to hide the overlay entirely — had to learn a second
+condition: `TgpTargetCount <= 0 && !TgpManualActive`, since manual mode legitimately has zero real
+targets but still has real data to show. Three new JSON fields inside the `tgp` block: `manual`,
+`pointTrack`, `el`. No change needed in `telemetry-source.js` — the whole `tgp` block already flows
+through to the page's `data` object unchanged; only `tgp.js` needed to read the new fields.
+
+**Client-side gating stays "HQ quality," for manual mode too.** The original `applyOverlay` only
+ever drew for `quality === 'hq' && data.cnt > 0` — Native mode's locked-target case relies on the
+game's own baked-in video overlay instead, since Native captures the stacked-camera UICam output
+directly. This branch's first pass assumed manual mode had no such baked-in overlay in *either*
+quality (there's no lock for the native UICam to draw) and drew client-side regardless of quality —
+wrong: `TgpNativeOverlay` populates those exact same `TargetScreenUI` fields (and its own crosshair)
+for manual mode too, so Native's captured video already shows manual data, the same as it always
+did for a lock. Drawing it again as HTML on top double-showed everything in Native quality — caught
+in live testing, not before. Fixed by keeping the original "HQ only" gate and just adding `manual`
+as an alternative to `locked` *within* it: `show = quality === 'hq' && (manual || locked)`. The
+crosshair CSS needed the identical fix — `.tgp-crosshair` now also requires `.show-overlay` (which
+is only ever set for HQ), not just `.tgp-manual`, so Native doesn't draw a second crosshair on top
+of the one already baked into the frame. A new `applyManualOverlay(data)` handles the manual field
+mapping into the same corner-group elements `applyOverlay`'s locked-target path already uses — no
+pilot, no per-target boxes, own-aircraft SPD hidden via a new `.tgp-ov-hidden` utility class (not
+dashed — matches the in-cockpit overlay's `SetActive(false)`), HDG's slot carrying elevation instead
+(`EL {n}°`) the same way the in-cockpit TextMeshPro `heading` field was repurposed.
+
+**Crosshair rewritten to match the in-cockpit design's final proportions**, not the smaller gapped
+cross this page shipped with in v1 (sized for a corner-badge context, not as the primary aiming
+reference the page now needs). CSS percentages (not fixed px) so it scales with the panel:
+`.tgp-panel` is already the containing block (`position: absolute`) these resolve against, so no JS
+sizing code was needed the way the in-cockpit version needed anchor-stretched `RectTransform`s to
+work around Unity's canvas-unit ambiguity. Same constants as `TgpNativeOverlay.SyncCrosshair` (`gap
+= 0.028125`, arm length `= 4 * gap`, box side `= 2 * gap`) converted straight to percentages — keep
+the two in sync if either changes. A new Point Track box (four bars, not the CSS-art `.tgp-ov-box`
+lock-box style already used for real target locks) shown via a `.tgp-point-track` class tgp.js
+toggles from inside `applyOverlay`, since `pointTrack` only arrives with `data`, not the top-level
+flags the shell forwards before `data` exists.
+
+**Verified without the live game** — a rare case for this feature, since the web page is pure
+HTML/CSS/JS driven by a JSON contract that's easy to fake. Confirmed via `tools/serve_web.py` +
+injected `postMessage` calls in a real browser: the manual overlay renders correctly in native
+quality (impossible before this branch), the Point Track box's geometry lands exactly on the
+designed percentages (measured via `getBoundingClientRect()`, not just eyeballed), own-aircraft SPD
+hides via the class rather than showing a stale dash, and the locked-target HQ path is provably
+unaffected (same test session, same page, switched payloads).
+
+**Debugging finding: CLO shipped in raw m/s, while the in-cockpit reading is player-unit-aware.**
+`UnitConverter.SpeedReading()` — what `TgpNativeOverlay` already used for the in-cockpit CLO line —
+respects `PlayerSettings.unitSystem` (km/h metric, kt imperial); the first web version sent the raw
+`ClosureMps` float and formatted it client-side as a hardcoded `m/s`, so the two surfaces disagreed
+by a factor of 3.6x for a metric player (and used the wrong unit outright for an imperial one).
+tgp.js's own `fmtDash` comment already flags RNG/ALT/etc. as raw/unconverted — a known, accepted
+simplification predating this branch — but CLO didn't exist on the web page before this branch, so
+there was nothing worth staying "consistent" with by repeating that simplification for a brand-new
+field. Fixed by having the server format it via the same `UnitConverter.SpeedReading()` call and
+send the ready string (`TgpOverlay.ClosureReading`, JSON `clo`) — the same approach `GRID` already
+used — rather than teaching the client its own copy of the unit-conversion math.
+
+**Debugging finding: reusing one percentage number on both axes assumes a square container, and
+`.tgp-panel` isn't one.** The crosshair/box CSS's first pass used identical percentage values for
+lengths on both the X and Y axes (e.g. `thickness: 0.5%` for both a bar's width and another bar's
+height). `.tgp-panel` has a fixed `aspect-ratio: 3/2` — width is always 1.5x height — so `0.5%` of
+width is a 1.5x bigger physical length than `0.5%` of height. The visible symptoms were exactly
+what CSS math predicts: vertical and horizontal crosshair arms rendered at visibly different
+thicknesses, and the Point Track box came out as a 1.5x-wide rectangle whose four independently-
+placed edge bars didn't quite reach each other at the corners. Fixed by treating height as the
+master reference axis and dividing every width-relative counterpart by 1.5 (multiplying by 2/3),
+verified by measuring actual rendered `getBoundingClientRect()` pixel sizes in a properly-3:2-shaped
+container — a bare/unshelled test page doesn't reliably reproduce that shape on its own (the harness
+session used to confirm the fix had to fake a 900×600 body to see `.tgp-panel` actually resolve to
+3:2; a wider bare viewport left it stuck at whatever aspect the raw window happened to be, since
+`aspect-ratio` plus `max-height: 100%` doesn't shrink width back down to compensate once height gets
+clamped). Worth remembering whenever a CSS value is meant to represent one physical length but has
+to be expressed twice, once per axis, against a non-square container.
+
+**Debugging finding: this branch shipped a double overlay in Native quality, found in live testing,
+not before.** The premise the whole client-side gating change rested on — "manual mode has no
+baked-in overlay in either quality" — was simply false for Native. Native's captured video is the
+game's own stacked-camera UICam output directly, and `TgpNativeOverlay` (the v2 in-cockpit feature)
+populates the exact same `TargetScreenUI` fields *and draws its own crosshair* on that same canvas
+for manual mode, exactly like it always did for a real lock. So switching a low-quality TGP feed to
+manual pointing showed the RNG/ALT/etc. text and crosshair twice: once baked into the MJPEG pixels
+(from `TgpNativeOverlay`, already working correctly), once more drawn as HTML on top (from this
+branch's `applyOverlay`/`.tgp-crosshair`, based on the false premise). The fix was mechanical once
+diagnosed — `show = quality === 'hq' && (manual || locked)` instead of `manual || (quality ===
+'hq' && locked)`, and the crosshair's CSS selector gaining `.show-overlay` alongside `.tgp-manual` —
+but the *lesson* is that "does X already exist somewhere" needs checking against every rendering
+path a feature touches, not just the one being worked on directly: this branch's own author had
+built the very code (`TgpNativeOverlay`) that made its central assumption wrong, and didn't
+cross-check against it before writing the opposite claim in a comment.
+
 ## Debugging findings worth keeping
 
 Live testing surfaced several real bugs, each with a root cause worth remembering rather than
@@ -533,3 +645,117 @@ Delivered, including the five additions in [What actually shipped](#what-actuall
   `AimCamera`/`SetTargetCam`/`CancelTarget` are verified against.
 - `github.com/9138noms/TargetCamControl` — the reference implementation this doc is built from
   (`Plugin.cs`, `Runner.cs`, both pulled and read in full, not summarized).
+
+## Annex: TargetCamControl comparison after implementation
+
+Reviewed again after the NOXMFD manual-TGP work was already implemented and refactored. Source:
+`https://github.com/9138noms/TargetCamControl`, latest reviewed commit
+`405c8d78c17aac6212aca0028d8f44585eefcd30`.
+
+TargetCamControl is a small standalone BepInEx plugin for the same underlying Nuclear Option
+`TargetCam`. It is highly relevant as prior art, but not as a project-architecture model for
+NOXMFD. It has three commits, all from 2026-05-04, and roughly 815 lines across two code files
+(`Plugin.cs` and `Runner.cs`). That shape is reasonable for a focused standalone utility mod, but
+NOXMFD has more surrounding responsibilities: external web MFDs, native/HQ video capture modes,
+telemetry JSON, browser-rendered overlays, a KEY-page binding UI, remote-command concerns, tests,
+and planning/manual docs.
+
+### What it validates
+
+The external project independently validates the main technical direction used here:
+
+- Manual TGP control should drive the real game `TargetCam`, not only NOXMFD's HQ mirror camera.
+- Vanilla `TargetCam.Update()` must be gated while manual mode owns the camera, because it would
+  otherwise keep changing FOV, switching mounts, and counting down `camTimeout`.
+- Vanilla `TargetCam.AimCamera()` must also be gated, or it will keep steering toward the game's
+  own target position instead of the pilot's manual aim.
+- Manual mode should exit when the game gets a real target lock, so vanilla targeting remains the
+  owner of lock-driven behavior.
+- Ground/point tracking needs world-position stability. TargetCamControl stores the hit point as a
+  `GlobalPosition`, which matches NOXMFD's Point Track design and avoids floating-origin drift.
+- Pan/tilt rate needs to be zoom-aware. Both projects reached the same user-facing lesson: a fixed
+  world-angle rate feels increasingly jumpy as FOV narrows.
+- Exiting through `TargetCam.CancelTarget()` is the correct clean handoff because it lets the game
+  fire the normal camera-toggle event that cockpit UI systems already listen to.
+
+### Important differences
+
+TargetCamControl's default behavior is closer to "always auto ground-lock": it raycasts along the
+camera direction, stores the last hit, and re-aims at that hit point as the aircraft moves. NOXMFD
+now separates that into two explicit pilot concepts:
+
+- Area Track: free manual aim is stored aircraft-local, so a centered camera turns with the
+  aircraft. This matched the live in-game feel requested during testing.
+- Point Track: a deliberate toggle locks the aim to a fixed world point, then allows nudge and
+  redesignate on release.
+
+That explicit split is preferable for NOXMFD because it makes mode ownership legible. Free scanning
+does not silently keep re-designating a ground point, and Point Track is available when stabilization
+is actually wanted.
+
+TargetCamControl also registers its own Rewired actions in the game's controls UI. NOXMFD should
+not copy that. The repo already has a KEY page, its own bind registry, joystick/axis capture, and
+remote-command conventions. Keeping TGP binds inside that system avoids a second input model.
+
+Its overlay path uses `UnityEngine.UI.Text`/Harmony Traverse-style field access. NOXMFD's live
+testing found the current game build uses `TextMeshProUGUI` for the relevant `TargetScreenUI`
+fields, so the safer NOXMFD design is the current one: the Harmony patch injects TMP fields and
+delegates population to `TgpNativeOverlay`.
+
+### Useful implementation details already absorbed
+
+Several TargetCamControl ideas are already present in NOXMFD:
+
+- `TargetCam.Update` and `AimCamera` Harmony gates while manual mode is active.
+- `camTimeout` pinning while manual mode owns the camera.
+- Landing-camera conflict handling: force out of landing mode on engage and exit if landing mode
+  appears while manual mode is active.
+- Manual COLOR/IR toggle through the private `SwitchIRState` method.
+- Native in-cockpit overlay population for manual state.
+- Point/ground tracking with `GlobalPosition`.
+- Zoom-aware pan/tilt scaling.
+
+NOXMFD's implementation is intentionally more split by responsibility:
+
+- `TgpManualControl.cs`: state machine, lifecycle, Point Track, input API.
+- `TgpManualAimMath.cs`: pure pan/tilt/zoom math, covered by unit tests.
+- `TgpManualTargetCamAccess.cs`: private `TargetCam` reflection.
+- `TgpNativeOverlay.cs`: in-cockpit text/crosshair population.
+- `HarmonyPatches.cs`: the actual game method gates/prefixes.
+- TGP web page files: external-MFD display state and overlay.
+
+### Shortlist improvement: explicit forward-mount hardening
+
+The one implementation detail still worth considering is TargetCamControl's explicit forward-mount
+reset on manual engage. In simpler terms: the game's TGP camera can internally sit on different
+"mounts" or camera positions, such as forward target cam, rear target cam, and landing cam. Manual
+mode wants a clean starting point: use the normal forward TGP mount, put the camera exactly on that
+mount, clear leftover local position/rotation, then let manual pan/tilt/zoom take over.
+
+Vanilla `SetTargetCam()` already does this when the target camera is disabled. The decompiled game
+code sets `currentMount = camMountForward`, reparents `cam.transform` to `camMountForward`, zeros
+local rotation/position, resets the forward mount, sets FOV/clip planes, marks
+`currentMode = targetForward`, and enables the camera.
+
+The edge case is entering manual mode while the target camera is already enabled from previous game
+state. In that case, vanilla `SetTargetCam()` may not run its full "camera was disabled" reset path,
+so manual mode could inherit a stale mount or transform.
+
+What that would feel like in-game:
+
+- Manual mode starts looking backward, sideways, or offset from boresight.
+- Pan left/right feels inverted or strangely rotated.
+- Reset does not feel perfectly centered.
+- The first manual view after a real lock, landing-cam transition, or fast lock/unlock sequence
+  starts from a surprising angle.
+- The external HQ feed still works technically, but the view direction feels wrong.
+
+The hardening would be small and defensive: cache `camMountForward` in
+`TgpManualTargetCamAccess`, and on manual engage explicitly set `currentMount` to it, reparent the
+camera to it, zero the camera's local position/rotation, zero the forward mount, and mark
+`currentMode = targetForward`. This is not a new feature; it is just making the starting camera
+state deterministic before giving control to the pilot.
+
+Do not copy TargetCamControl's full two-file structure, `PatchAll()` initialization, or standalone
+Rewired action registration into NOXMFD. The useful part is the game-specific TargetCam behavior,
+not its architecture.

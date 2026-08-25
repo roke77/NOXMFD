@@ -186,10 +186,22 @@ namespace NOXMFD
             // — so this runs after src is resolved, once that camera is guaranteed ready.
             try
             {
-                Func<Vector3, Vector3> project = Quality == TgpQuality.Native
-                    ? (Func<Vector3, Vector3>)(pos => cam.WorldToViewportPoint(pos))
-                    : (pos => _mirror != null ? _mirror.WorldToViewport(pos) : new Vector3(0f, 0f, -1f));
-                Overlay.Populate(tc, targets, ac, project);
+                // Manual mode never has a real lock (Tick() auto-exits the instant one exists), so
+                // this and the real-lock Populate() path never compete — the external web TGP page
+                // gets the same RNG/ALT/REL/CLO/GRID/MODE/MAG/EL data the in-cockpit overlay already
+                // shows (TgpNativeOverlay), instead of the overlay just going blank while pointing
+                // manually (docs/tgp-manual-control.md's "In-cockpit overlay" / web parity).
+                if (!hasTargets && TgpManualControl.ManualMode)
+                {
+                    Overlay.PopulateManual(tc, tc.GetCamMount(), ac);
+                }
+                else
+                {
+                    Func<Vector3, Vector3> project = Quality == TgpQuality.Native
+                        ? (Func<Vector3, Vector3>)(pos => cam.WorldToViewportPoint(pos))
+                        : (pos => _mirror != null ? _mirror.WorldToViewport(pos) : new Vector3(0f, 0f, -1f));
+                    Overlay.Populate(tc, targets, ac, project);
+                }
             }
             catch (Exception ex)
             {
