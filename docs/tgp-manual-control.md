@@ -444,6 +444,16 @@ re-discovering:
   `<EmbeddedResource Include="src\web\**\*">`) — editing an `.html`/`.css`/`.js` file has zero
   effect in the running game until `dotnet build -c Release` runs, exactly like a C# change. Easy
   to forget when a change (like the crosshair) is CSS/HTML-only and feels like "just a web asset."
+- **First manual engage of a fresh mission looked darker/lower-contrast than the normal feed.**
+  Root cause: gating all of `TargetCam.Update()` also gated its cosmetic per-second exposure ramp
+  (`UpdateExposure` — ambient-light-driven `postExposure`/`contrast` on the screen's post-process
+  volume), which this doc's own `TargetCam_Update_ManualGate` comment had already flagged as a
+  possible future issue and named the fix for. On a real lock this is invisible, since a prior real
+  lock already ran `Update()` at least once and left the volume adapted — but on the very first
+  manual engage of a mission, before any real lock has ever run it, the volume is still sitting at
+  `Awake()`'s cold-start values. Fixed by having `Tick()` call the same private `UpdateExposure()`
+  directly every tick (reflection, not reimplementing its ambient-light formula) — cheap (a couple
+  of field writes) and stays correct if the game's formula changes later.
 
 ## Open questions
 

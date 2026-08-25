@@ -177,10 +177,11 @@ namespace NOXMFD
         [HarmonyPatch(typeof(TargetCam), "Update")]
         private static class TargetCam_Update_ManualGate
         {
-            // ponytail: skips the cosmetic per-second exposure ramp (UpdateExposure) along with the
-            // rest of Update() while manual mode is on — losing that lerp reads as negligible next
-            // to not fighting manual pointing every frame. Upgrade path: reimplement the exposure
-            // call inline here (it's a private no-arg method) if it's ever visibly missed.
+            // Skips the rest of Update() (mount-switch/FOV-lerp/camTimeout countdown) while manual
+            // mode is on, but NOT the cosmetic per-second exposure ramp (UpdateExposure) — that one
+            // WAS visibly missed (a fresh mission's first manual engage, before any real lock had
+            // ever run it, showed a darker/lower-contrast picture than normal), so
+            // TgpManualControl.Tick() calls it directly every tick instead. See Tick()'s own comment.
             private static bool Prefix() => !TgpManualControl.ManualMode;
         }
 

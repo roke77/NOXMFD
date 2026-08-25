@@ -107,6 +107,7 @@ namespace NOXMFD
         private static FieldInfo? _canvasObjectLandingField;
         private static FieldInfo? _camTimeoutField;
         private static MethodInfo? _switchIrStateMethod;
+        private static MethodInfo? _updateExposureMethod;
 
         // ── Input (Keybinds.Poll calls these every frame, remote-ready per docs/tgp-manual-
         // control.md — CommandDispatcher can call the same API from a network command later) ────
@@ -271,6 +272,17 @@ namespace NOXMFD
                 ExitManual(tc, "gear/landing-cam conflict");
                 return;
             }
+
+            // The upgrade path TargetCam_Update_ManualGate's own comment names (HarmonyPatches.cs):
+            // skipping the whole native Update() also skips its cosmetic per-second exposure ramp
+            // (UpdateExposure — ambient-light-driven postExposure/contrast on the screen volume).
+            // Harmless on a real lock, where a prior tick already ran it — but on the FIRST manual
+            // engage of a fresh mission, before any real lock has ever run Update() even once, the
+            // volume is still sitting at Awake()'s cold-start values: a visibly darker, lower-
+            // contrast picture than the normal feed, until a real lock finally ran the ramp for the
+            // first time. Calling the same private method directly here (not reimplementing its
+            // ambient-light formula) keeps this correct even if the game changes that formula later.
+            _updateExposureMethod?.Invoke(tc, null);
 
             // Point Track: aim = _pointTrackBaseline (aircraft-motion correction) rotated by the
             // (_pointTrackOffsetAz, _pointTrackOffsetEl) nudge offset — two independent writers,
@@ -684,6 +696,7 @@ namespace NOXMFD
             _canvasObjectLandingField = t.GetField("canvasObjectLanding", BindingFlags.NonPublic | BindingFlags.Instance);
             _camTimeoutField         = t.GetField("camTimeout",           BindingFlags.NonPublic | BindingFlags.Instance);
             _switchIrStateMethod     = t.GetMethod("SwitchIRState",       BindingFlags.NonPublic | BindingFlags.Instance);
+            _updateExposureMethod    = t.GetMethod("UpdateExposure",      BindingFlags.NonPublic | BindingFlags.Instance);
             if (_camField == null || _currentMountField == null || _currentModeField == null)
                 Plugin.Log?.LogWarning("[NOXMFD] TGP manual control: could not locate TargetCam private fields.");
             return _camField != null && _currentMountField != null && _currentModeField != null;
