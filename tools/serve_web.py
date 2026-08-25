@@ -571,6 +571,12 @@ KEYBINDS = [
                      "direction. Press again, or use any Pan/Tilt input, to release it back to "
                      "free aiming. Only acts while TGP manual control is on.",
      "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgp-manual-ir-toggle", "section": "TGP", "label": "Toggle IR",
+     "description": "Switch the TGP manual camera between COLOR and IR. Normally the game "
+                     "switches this automatically by time of day/distance, but that logic is "
+                     "suspended while TGP manual control is on, so this bind drives it directly. "
+                     "Only acts while TGP manual control is on.",
+     "key": "", "joyButton": -1, "joyNum": 0},
     # Layout keybinds (issue #51 follow-up) — SAVE/LOAD LAYOUT. Key-only: no joyButton/joyNum
     # fields at all (mirrors the axis-only rows omitting key/joyButton) — browser-side only,
     # deliberately no joystick/HOTAS, so the page renders one wide key cell for these two.

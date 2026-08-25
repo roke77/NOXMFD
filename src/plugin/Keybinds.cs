@@ -312,6 +312,11 @@ namespace NOXMFD
                 "or use any Pan/Tilt input, to release it back to free aiming. Only acts while TGP " +
                 "manual control is on.",
                 () => TgpManualControl.TogglePointTrack());
+            DefFree(config, "tgp-manual-ir-toggle", tgp, "TgpManualIrToggle", "Toggle IR", edge: true,
+                "Switch the TGP manual camera between COLOR and IR. Normally the game switches this " +
+                "automatically by time of day/distance, but that logic is suspended while TGP manual " +
+                "control is on, so this bind drives it directly. Only acts while TGP manual control is on.",
+                () => TgpManualControl.ToggleIR());
 
             // Layout keybinds (issue #51 follow-up) — SAVE/LOAD LAYOUT. Unlike every bind above, the
             // action isn't a Unity/Rewired call at all: it's a browser popping its own SAVE/LOAD

@@ -106,6 +106,7 @@ namespace NOXMFD
         private static FieldInfo? _currentModeField;
         private static FieldInfo? _canvasObjectLandingField;
         private static FieldInfo? _camTimeoutField;
+        private static MethodInfo? _switchIrStateMethod;
 
         // ── Input (Keybinds.Poll calls these every frame, remote-ready per docs/tgp-manual-
         // control.md — CommandDispatcher can call the same API from a network command later) ────
@@ -224,6 +225,23 @@ namespace NOXMFD
             {
                 Plugin.Log?.LogInfo("[NOXMFD] TGP manual control: Point Track found nothing to lock onto — ignored.");
             }
+        }
+
+        // Manual COLOR/IR toggle. AimCamera() normally decides this automatically by time-of-day/
+        // distance (_scratch/full/TargetCam.cs), but that whole method is skipped while ManualMode is
+        // on (TargetCam_AimCamera_ManualGate, HarmonyPatches.cs), so IRMode just freezes at whatever
+        // it was on entry — nothing else drives it during manual mode, so there's no automatic logic
+        // for this to fight. SwitchIRState itself is private but otherwise self-contained (sets a
+        // bool, tweaks a post-process ColorAdjustments volume) and isn't patched by anything else.
+        internal static void ToggleIR()
+        {
+            if (!ManualMode) return;
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            TargetCam? tc = ac != null ? ac.targetCam : null;
+            if (tc == null || !EnsureReflection() || _switchIrStateMethod == null) return;
+            bool next = !tc.UsingIR();
+            _switchIrStateMethod.Invoke(tc, new object[] { next });
+            Plugin.Log?.LogInfo($"[NOXMFD] TGP manual control: IR {(next ? "ON" : "OFF")}.");
         }
 
         // Called every frame from TelemetryReader alongside TgpFeed.Tick — cheap no-op while off.
@@ -665,6 +683,7 @@ namespace NOXMFD
             _currentModeField        = t.GetField("currentMode",          BindingFlags.NonPublic | BindingFlags.Instance);
             _canvasObjectLandingField = t.GetField("canvasObjectLanding", BindingFlags.NonPublic | BindingFlags.Instance);
             _camTimeoutField         = t.GetField("camTimeout",           BindingFlags.NonPublic | BindingFlags.Instance);
+            _switchIrStateMethod     = t.GetMethod("SwitchIRState",       BindingFlags.NonPublic | BindingFlags.Instance);
             if (_camField == null || _currentMountField == null || _currentModeField == null)
                 Plugin.Log?.LogWarning("[NOXMFD] TGP manual control: could not locate TargetCam private fields.");
             return _camField != null && _currentMountField != null && _currentModeField != null;

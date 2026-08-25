@@ -493,9 +493,14 @@ Delivered, including the four additions in [What actually shipped](#what-actuall
 - Any weapon-lock or targeting integration — this is camera pointing only.
 - ~~In-cockpit `TargetScreenUI` info-panel patch (RNG/ALT/HDG/GRID/MODE from the manual hit
   point)~~ — **built**, see [In-cockpit overlay](#in-cockpit-overlay-v2).
-- Manual IR toggling (`SwitchIRState`/`ACT_FORCE_COL`). NOXMFD's HQ overlay already has its own
-  separate simulated-IR look (`docs/tgp-high-quality-mode.md`); native IR toggling from manual mode
-  is a nice-to-have, not core to "point the camera and zoom."
+- ~~Manual IR toggling (`SwitchIRState`)~~ — **built**: a `tgp-manual-ir-toggle` bind flips
+  `IRMode` via reflection (`SwitchIRState` is private but self-contained, and unpatched by anything
+  else). Safe because `AimCamera()` — the only thing that would otherwise fight a manual flip with
+  its own automatic time-of-day/distance-based switching — is already skipped entirely while
+  `ManualMode` is on (`TargetCam_AimCamera_ManualGate`), so `IRMode` just holds whatever it's set
+  to. NOXMFD's HQ overlay's separate simulated-IR look (`docs/tgp-high-quality-mode.md`) is
+  unrelated — this is the Native-mode camera's own IR, baked into the video like the rest of Native
+  mode's picture.
 - Remote-keybind wiring for TGP pointing — the command surface is designed for it (see
   [above](#fit-with-noxmfds-existing-architecture)), but only local KEY binds are wired so far.
 - Changes to `tgp-suppress-native-render.md`'s cockpit-hide feature or `tgp-high-quality-mode.md`'s
