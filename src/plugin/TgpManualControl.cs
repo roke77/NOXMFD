@@ -1,9 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
-using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace NOXMFD
 {
@@ -41,6 +38,9 @@ namespace NOXMFD
         private const float MaxElevationDeg = 85f;          // stay short of straight up/down — LookRotation degrades near the poles
 
         internal static bool ManualMode { get; private set; }
+        internal static bool PointTrackActive => _pointTrackActive;
+        internal static Vector3 PanDirection => _panDir;
+        internal static float DesiredFov => _desiredFov;
 
         // How far a Point Track raycast reaches — matches AimCamera's own far clip plane (60000f)
         // in the decompile, so a locked point can't sit further out than the camera could ever draw it.
@@ -72,7 +72,7 @@ namespace NOXMFD
         private static float   _desiredFov = MaxFov;
         private static float   _panInputX, _panInputY;      // held state, written every frame by Keybinds.Poll
         private static bool    _zoomInHeld, _zoomOutHeld;
-        private static float?  _zoomAxisValue;               // non-null while a calibrated zoom axis is bound — absolute, overrides in/out
+        private static float?  _zoomAxisValue;               // non-null while a calibrated zoom axis is bound — absolute, applied when moved
         private static float?  _zoomAxisAppliedValue;         // the axis value FOV was last set from — compared each tick to detect real movement
 
         // Point Track (docs/tgp-manual-control.md's "world-hit raycasting" — real TGP pods call
@@ -84,10 +84,8 @@ namespace NOXMFD
         // writers. Baseline recomputes directly toward _trackedPoint every tick, unconditionally
         // (this is what counters the aircraft's own translation/rotation — matches TargetCam's own
         // AimCamera(): a direct Quaternion.LookRotation at the target, no rate limit). The offset
-        // only changes from nudge input. Coupling these into a single variable (an earlier version
-        // did: correction and nudge both writing the same field) either let the correction cancel
-        // the nudge every tick (stuck, couldn't pan) or let the nudge run with no correction at all
-        // (drifted with the aircraft) depending on which one "won" — decoupling them fixes both.
+        // only changes from nudge input. Keeping these separate prevents aircraft-motion correction
+        // from fighting pilot nudge input.
         private static bool           _pointTrackActive;
         private static GlobalPosition _trackedPoint;
         private static Vector3        _pointTrackBaseline = Vector3.forward;
@@ -100,15 +98,6 @@ namespace NOXMFD
         private const float DiagLogInterval = 1f;
         private static float _diagTimer;
 
-        private static bool      _reflectionTried;
-        private static FieldInfo? _camField;
-        private static FieldInfo? _currentMountField;
-        private static FieldInfo? _currentModeField;
-        private static FieldInfo? _canvasObjectLandingField;
-        private static FieldInfo? _camTimeoutField;
-        private static MethodInfo? _switchIrStateMethod;
-        private static MethodInfo? _updateExposureMethod;
-
         // ── Input (Keybinds.Poll calls these every frame, remote-ready per docs/tgp-manual-
         // control.md — CommandDispatcher can call the same API from a network command later) ────
         internal static void SetPan(float x, float y)
@@ -118,8 +107,9 @@ namespace NOXMFD
         }
 
         // dir: +1 = zoom in (narrower FOV), -1 = zoom out. Mirrors the remote fire.set shape
-        // ({group, on}) so a future remote zoom command needs no new dispatch pattern. Ignored
-        // while a calibrated zoom axis is bound (SetZoomAxis) — the axis is authoritative then.
+        // ({group, on}) so a future remote zoom command needs no new dispatch pattern. Zoom Axis
+        // and buttons coexist: a moved axis jumps to its absolute value, then buttons work while
+        // that axis is stationary.
         internal static void SetZoom(int dir, bool on)
         {
             if (dir > 0) _zoomInHeld = on;
@@ -151,7 +141,7 @@ namespace NOXMFD
                 Plugin.Log?.LogInfo("[NOXMFD] TGP manual control: aircraft has no TargetCam — ignored.");
                 return;
             }
-            if (!EnsureReflection())
+            if (!TgpManualTargetCamAccess.Ensure())
             {
                 Plugin.Log?.LogWarning("[NOXMFD] TGP manual control: could not locate TargetCam fields — feature disabled.");
                 return;
@@ -209,8 +199,8 @@ namespace NOXMFD
             }
 
             TargetCam? tc = ac != null ? ac.targetCam : null;
-            if (tc == null || !EnsureReflection()) return;
-            Transform? mount = _currentMountField!.GetValue(tc) as Transform;
+            if (tc == null || !TgpManualTargetCamAccess.Ensure()) return;
+            Transform? mount = TgpManualTargetCamAccess.GetMount(tc);
             if (mount == null) return;
 
             if (Physics.Raycast(mount.position, _panDir, out RaycastHit hit, PointTrackRayDistance, WorldGeometryLayerMask))
@@ -239,9 +229,9 @@ namespace NOXMFD
             if (!ManualMode) return;
             GameManager.GetLocalAircraft(out Aircraft ac);
             TargetCam? tc = ac != null ? ac.targetCam : null;
-            if (tc == null || !EnsureReflection() || _switchIrStateMethod == null) return;
+            if (tc == null || !TgpManualTargetCamAccess.Ensure()) return;
             bool next = !tc.UsingIR();
-            _switchIrStateMethod.Invoke(tc, new object[] { next });
+            if (!TgpManualTargetCamAccess.SwitchIR(tc, next)) return;
             Plugin.Log?.LogInfo($"[NOXMFD] TGP manual control: IR {(next ? "ON" : "OFF")}.");
         }
 
@@ -262,12 +252,12 @@ namespace NOXMFD
             List<Unit>? targets = ac.weaponManager != null ? ac.weaponManager.GetTargetList() : null;
             if (targets != null && targets.Count > 0) { ExitManual(tc, "real target lock acquired"); return; }
 
-            if (!EnsureReflection()) { ExitManual(tc, "TargetCam reflection failed"); return; }
-            Camera? cam = _camField!.GetValue(tc) as Camera;
-            Transform? mount = _currentMountField!.GetValue(tc) as Transform;
+            if (!TgpManualTargetCamAccess.Ensure()) { ExitManual(tc, "TargetCam reflection failed"); return; }
+            Camera? cam = TgpManualTargetCamAccess.GetCamera(tc);
+            Transform? mount = TgpManualTargetCamAccess.GetMount(tc);
             if (cam == null || mount == null) { ExitManual(tc, "TargetCam/mount torn down"); return; }
 
-            if (_currentModeField!.GetValue(tc) is TargetCam.CamMode mode && mode == TargetCam.CamMode.landingMode)
+            if (TgpManualTargetCamAccess.IsLandingMode(tc))
             {
                 ExitManual(tc, "gear/landing-cam conflict");
                 return;
@@ -282,13 +272,11 @@ namespace NOXMFD
             // contrast picture than the normal feed, until a real lock finally ran the ramp for the
             // first time. Calling the same private method directly here (not reimplementing its
             // ambient-light formula) keeps this correct even if the game changes that formula later.
-            _updateExposureMethod?.Invoke(tc, null);
+            TgpManualTargetCamAccess.UpdateExposure(tc);
 
             // Point Track: aim = _pointTrackBaseline (aircraft-motion correction) rotated by the
             // (_pointTrackOffsetAz, _pointTrackOffsetEl) nudge offset — two independent writers,
-            // not one field both fight over. See the field comment for why that decoupling matters
-            // (two earlier versions each had this coupled, and each broke a different way: stuck
-            // unable to pan, or drifting with the aircraft while nudging).
+            // not one field both fight over. See the field comment for why that decoupling matters.
             if (_pointTrackActive)
             {
                 bool nudging = Mathf.Abs(_panInputX) > PointTrackNudgeThreshold || Mathf.Abs(_panInputY) > PointTrackNudgeThreshold;
@@ -331,7 +319,6 @@ namespace NOXMFD
                 (float baseAz, float baseEl) = ToAzimuthElevation(_pointTrackBaseline);
                 _panDir = FromAzimuthElevation(baseAz + _pointTrackOffsetAz, Mathf.Clamp(baseEl + _pointTrackOffsetEl, -MaxElevationDeg, MaxElevationDeg));
 
-                Plugin.Log?.LogInfo($"[NOXMFD] TGP Point Track tick: nudging={nudging} panRaw=({_panInputX:0.000},{_panInputY:0.000}) offset=({_pointTrackOffsetAz:0.0},{_pointTrackOffsetEl:0.0}) baseAzEl=({baseAz:0.0},{baseEl:0.0}) panDirAzEl=({ToAzimuthElevation(_panDir).az:0.0},{ToAzimuthElevation(_panDir).el:0.0}).");
             }
             else
             {
@@ -362,8 +349,7 @@ namespace NOXMFD
                 // doesn't match ordinary pot/slider noise a low-pass would fix — it looks like a
                 // real signal from the wrong physical control. Smoothing just added lag without
                 // addressing that; if it's still erratic, check the Zoom Axis row on /keybinds.
-                float t = Mathf.Clamp01((_zoomAxisValue!.Value + 1f) * 0.5f);
-                _desiredFov = Mathf.Lerp(MaxFov, MinFov, t);
+                _desiredFov = TgpManualAimMath.ZoomFromAxis(_zoomAxisValue!.Value, MinFov, MaxFov);
                 _zoomAxisAppliedValue = _zoomAxisValue.Value;
             }
             else
@@ -376,7 +362,7 @@ namespace NOXMFD
             // Belt-and-suspenders: Update()'s own countdown never runs while ManualMode is true
             // (Harmony-gated, HarmonyPatches.cs), but pin it high anyway in case anything else
             // ever reads camTimeout directly.
-            _camTimeoutField?.SetValue(tc, 99f);
+            TgpManualTargetCamAccess.SetCamTimeout(tc, 99f);
 
             _diagTimer += dt;
             if (_diagTimer >= DiagLogInterval)
@@ -384,7 +370,7 @@ namespace NOXMFD
                 _diagTimer = 0f;
                 (float az, float el) = ToAzimuthElevation(_panDir);
                 string zoomAxisStr = _zoomAxisValue.HasValue ? _zoomAxisValue.Value.ToString("0.00") : "unbound";
-                Plugin.Log?.LogInfo($"[NOXMFD] TGP manual control diag: az={az:0.0} el={el:0.0} fov={_desiredFov:0.00} pointTrack={_pointTrackActive} panIn=({_panInputX:0.00},{_panInputY:0.00}) zoomIn={_zoomInHeld} zoomOut={_zoomOutHeld} zoomAxis={zoomAxisStr}.");
+                Plugin.Log?.LogDebug($"[NOXMFD] TGP manual control diag: az={az:0.0} el={el:0.0} fov={_desiredFov:0.00} pointTrack={_pointTrackActive} panIn=({_panInputX:0.00},{_panInputY:0.00}) zoomIn={_zoomInHeld} zoomOut={_zoomOutHeld} zoomAxis={zoomAxisStr}.");
             }
         }
 
@@ -396,11 +382,11 @@ namespace NOXMFD
         private static Vector3 NudgeDirection(Vector3 dir, float dt)
         {
             if (_panInputX == 0f && _panInputY == 0f) return dir;
-            float scale = ZoomScale();
-            (float azimuth, float elevation) = ToAzimuthElevation(dir);
-            azimuth += _panInputX * PanSpeedDegPerSec * scale * dt;
-            elevation = Mathf.Clamp(elevation + _panInputY * TiltSpeedDegPerSec * scale * dt, -MaxElevationDeg, MaxElevationDeg);
-            return FromAzimuthElevation(azimuth, elevation);
+            TgpManualAimMath.AimVector v = TgpManualAimMath.NudgeDirection(dir.x, dir.y, dir.z,
+                _panInputX, _panInputY, dt,
+                _desiredFov, MaxFov,
+                PanSpeedDegPerSec, TiltSpeedDegPerSec, MaxElevationDeg);
+            return new Vector3(v.X, v.Y, v.Z);
         }
 
         // World-angle-per-second rates (PanSpeedDegPerSec, TiltSpeedDegPerSec) are blind to how
@@ -411,17 +397,15 @@ namespace NOXMFD
         // current FOV / MaxFov keeps the picture-relative (on-screen) rate roughly constant across
         // the whole zoom range instead of the world-angular rate staying constant while its visual
         // effect balloons — the same reason real gimbal/TGP slew rate drops as magnification rises.
-        private static float ZoomScale() => _desiredFov / MaxFov;
+        private static float ZoomScale() => TgpManualAimMath.ZoomScale(_desiredFov, MaxFov);
 
         private static (float az, float el) ToAzimuthElevation(Vector3 dir) =>
-            (Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg, Mathf.Asin(Mathf.Clamp(dir.y, -1f, 1f)) * Mathf.Rad2Deg);
+            TgpManualAimMath.ToAzimuthElevation(dir.x, dir.y, dir.z);
 
         private static Vector3 FromAzimuthElevation(float azimuthDeg, float elevationDeg)
         {
-            float az = azimuthDeg * Mathf.Deg2Rad;
-            float el = elevationDeg * Mathf.Deg2Rad;
-            float cosEl = Mathf.Cos(el);
-            return new Vector3(Mathf.Sin(az) * cosEl, Mathf.Sin(el), Mathf.Cos(az) * cosEl);
+            TgpManualAimMath.AimVector v = TgpManualAimMath.FromAzimuthElevation(azimuthDeg, elevationDeg);
+            return new Vector3(v.X, v.Y, v.Z);
         }
 
         // Ordering matters: ManualMode must already be true before tc.SetTargetCam() is called,
@@ -431,12 +415,10 @@ namespace NOXMFD
         {
             ManualMode = true;
 
-            if (_currentModeField!.GetValue(tc) is TargetCam.CamMode mode && mode == TargetCam.CamMode.landingMode)
-                _currentModeField.SetValue(tc, TargetCam.CamMode.targetForward);
-            if (_canvasObjectLandingField?.GetValue(tc) is GameObject landingCanvas && landingCanvas.activeSelf)
-                landingCanvas.SetActive(false);
+            TgpManualTargetCamAccess.ForceTargetForward(tc);
+            TgpManualTargetCamAccess.HideLandingCanvas(tc);
 
-            Camera? cam = _camField!.GetValue(tc) as Camera;
+            Camera? cam = TgpManualTargetCamAccess.GetCamera(tc);
             if (cam == null || !cam.enabled)
             {
                 try { tc.SetTargetCam(); }
@@ -446,11 +428,11 @@ namespace NOXMFD
                     ManualMode = false;
                     return;
                 }
-                cam = _camField.GetValue(tc) as Camera;
+                cam = TgpManualTargetCamAccess.GetCamera(tc);
             }
             if (cam == null) { ManualMode = false; return; }
 
-            _camTimeoutField?.SetValue(tc, 99f);
+            TgpManualTargetCamAccess.SetCamTimeout(tc, 99f);
             // Centered on the aircraft's nose and minimum zoom, not wherever the native camera
             // happened to leave the mount/FOV — every toggle-on starts from the same known state.
             _localPanDir = Vector3.forward;
@@ -470,10 +452,10 @@ namespace NOXMFD
             if (!ManualMode) return;
             ManualMode = false;
             _pointTrackActive = false;
-            if (tc != null && EnsureReflection())
+            if (tc != null && TgpManualTargetCamAccess.Ensure())
             {
-                Camera? cam = _camField!.GetValue(tc) as Camera;
-                Transform? mount = _currentMountField!.GetValue(tc) as Transform;
+                Camera? cam = TgpManualTargetCamAccess.GetCamera(tc);
+                Transform? mount = TgpManualTargetCamAccess.GetMount(tc);
                 if (cam != null) cam.transform.localRotation = Quaternion.identity;
                 if (mount != null) mount.localRotation = Quaternion.identity;
                 try { tc.CancelTarget(); }
@@ -508,198 +490,8 @@ namespace NOXMFD
             return false;
         }
 
-        private static GameObject? _crosshairRoot;
-        private static GameObject? _pointTrackBox;
+        internal static bool TryGetLookPointForOverlay(Transform mount, out Vector3 hitPointLocal, out float rangeM) =>
+            TryGetLookPoint(mount, out hitPointLocal, out rangeM);
 
-        // Boresight crosshair + Point Track marker for the in-cockpit feed (docs/tgp-manual-control.md
-        // "In-cockpit overlay"), built once and lazily re-created if TargetScreenUI's canvas is ever
-        // destroyed/recreated (Unity's overridden == treats a destroyed reference as null, so this
-        // check doubles as respawn handling). Both the crosshair arms and the Point Track box are
-        // plain UI Image bars, not the game's own targetLockBox prefab — that prefab's border is a
-        // fixed-width sliced sprite that stayed visually thin no matter how the box was resized, so
-        // hand-building it from the same bars as the crosshair is what actually guarantees a border
-        // as thick as the crosshair lines. Called every tick from the Harmony prefix regardless of
-        // ManualMode, so the crosshair is hidden the instant manual mode ends, not left stuck on.
-        internal static void SyncNativeCrosshair(Canvas displayCanvas, bool visible)
-        {
-            if (displayCanvas == null) return;
-            if (_crosshairRoot == null)
-            {
-                // Anchor-stretched (0..1 of the parent rect), not fixed pixel/world-unit sizes: the
-                // first version computed sizes from canvasRect.rect.width/height as absolute units,
-                // which rendered as "minute" — that canvas's rect isn't necessarily in screen pixels
-                // (could be world-space units for a Screen Space - Camera or World Space canvas), so
-                // a size computed as "42% of rect.height" has no guaranteed relationship to how big
-                // it actually looks on screen. Anchors sidestep that entirely: 0..1 always spans the
-                // full parent regardless of its absolute unit scale.
-                // Box side length = 2 * gap (a square, half-size = gap). Each crosshair arm's own
-                // length must be exactly 2x that box side — i.e. 4 * gap — so armEnd is derived from
-                // gap rather than set independently, keeping that ratio exact by construction instead
-                // of by hand-tuned numbers that can drift out of the requested 2:1 relationship.
-                const float gap = 0.028125f;              // 25% smaller than the previous pass
-                const float armLength = 4f * gap;         // = 2x the box's side length (2 * (2 * gap))
-                const float armEnd = 0.5f + gap + armLength;
-                const float thickness = 0.005f;   // 50% thinner than the previous pass
-                float half = thickness / 2f;
-
-                _crosshairRoot = new GameObject("NOXMFD_ManualCrosshair", typeof(RectTransform));
-                _crosshairRoot.transform.SetParent(displayCanvas.transform, false);
-                var rootRt = (RectTransform)_crosshairRoot.transform;
-                rootRt.anchorMin = Vector2.zero;
-                rootRt.anchorMax = Vector2.one;
-                rootRt.offsetMin = rootRt.offsetMax = Vector2.zero;   // fills the canvas; each arm positions itself via its own anchors below
-
-                CreateBar(rootRt, "Top",    new Vector2(0.5f - half, 0.5f + gap),      new Vector2(0.5f + half, armEnd));
-                CreateBar(rootRt, "Bottom", new Vector2(0.5f - half, 1f - armEnd),     new Vector2(0.5f + half, 0.5f - gap));
-                CreateBar(rootRt, "Left",   new Vector2(1f - armEnd, 0.5f - half),     new Vector2(0.5f - gap, 0.5f + half));
-                CreateBar(rootRt, "Right",  new Vector2(0.5f + gap, 0.5f - half),      new Vector2(armEnd, 0.5f + half));
-
-                // Point Track box — a hollow square built from four bars at the SAME thickness as the
-                // crosshair arms, sized so its edges sit exactly at the arms' inner tips (gap).
-                _pointTrackBox = new GameObject("PointTrackBox", typeof(RectTransform));
-                _pointTrackBox.transform.SetParent(rootRt, false);
-                var boxRt = (RectTransform)_pointTrackBox.transform;
-                boxRt.anchorMin = Vector2.zero;
-                boxRt.anchorMax = Vector2.one;
-                boxRt.offsetMin = boxRt.offsetMax = Vector2.zero;
-
-                CreateBar(boxRt, "BoxTop",    new Vector2(0.5f - gap, 0.5f + gap - half), new Vector2(0.5f + gap, 0.5f + gap + half));
-                CreateBar(boxRt, "BoxBottom", new Vector2(0.5f - gap, 0.5f - gap - half), new Vector2(0.5f + gap, 0.5f - gap + half));
-                CreateBar(boxRt, "BoxLeft",   new Vector2(0.5f - gap - half, 0.5f - gap), new Vector2(0.5f - gap + half, 0.5f + gap));
-                CreateBar(boxRt, "BoxRight",  new Vector2(0.5f + gap - half, 0.5f - gap), new Vector2(0.5f + gap + half, 0.5f + gap));
-            }
-
-            _crosshairRoot.SetActive(visible);
-            if (_pointTrackBox != null) _pointTrackBox.SetActive(visible && _pointTrackActive);
-        }
-
-        private static void CreateBar(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax)
-        {
-            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
-            go.transform.SetParent(parent, false);
-            Image img = go.GetComponent<Image>();
-            img.color = Color.white;
-            RectTransform rt = img.rectTransform;
-            rt.anchorMin = anchorMin;
-            rt.anchorMax = anchorMax;
-            rt.offsetMin = rt.offsetMax = Vector2.zero;
-        }
-
-        // Drives TargetScreenUI's own TextMeshProUGUI/Image elements (docs/tgp-manual-control.md's
-        // "In-cockpit overlay") — called from a Harmony prefix (HarmonyPatches.cs) that skips
-        // TargetScreenUI.UpdateTargetInfo entirely whenever ManualMode is true, since ManualMode
-        // always implies zero real targets (Tick() auto-exits the instant a real lock exists), so
-        // there's never a "which one wins" conflict with the native lock display. Reuses the game's
-        // own fields rather than adding new Unity UI — see the doc's field-mapping table for what
-        // each one shows here vs. its native meaning.
-        //
-        // TextMeshProUGUI, not UnityEngine.UI.Text: the decompiled reference source
-        // (_scratch/full/TargetScreenUI.cs) declares these as legacy Text, but the live 0.34+ game
-        // build has switched them to TMP (see NOXMFD.csproj's Unity.TextMeshPro reference comment).
-        // Declaring the Harmony ___field parameters as Text anyway didn't fail to patch or throw —
-        // it silently produced a type-confused field access that crashed the whole game a few ticks
-        // later, deep inside TextMeshProUGUI's own internals (SetArraySizes), not at the call site —
-        // caught via a Unity crash dump stack trace, not a caught exception or a Harmony patch-apply
-        // warning. Confirm a field's real type against a live crash/decompile before trusting an
-        // older decompiled source on a UI type, not just its name.
-        internal static void PopulateNativeOverlay(TargetCam tc, Transform mount,
-            TextMeshProUGUI typeText, TextMeshProUGUI pilotText, TextMeshProUGUI noLock,
-            TextMeshProUGUI distanceText, TextMeshProUGUI headingText, TextMeshProUGUI altitudeText,
-            TextMeshProUGUI relAltitudeText, TextMeshProUGUI speedText, TextMeshProUGUI relSpeedText,
-            TextMeshProUGUI magText, TextMeshProUGUI modeText, TextMeshProUGUI bearingText,
-            TextMeshProUGUI gridText, Image bearingImg)
-        {
-            noLock.gameObject.SetActive(false);
-            typeText.gameObject.SetActive(true);
-            pilotText.gameObject.SetActive(false);   // no pilot without a real target
-            distanceText.gameObject.SetActive(true);
-            headingText.gameObject.SetActive(true);
-            altitudeText.gameObject.SetActive(true);
-            relAltitudeText.gameObject.SetActive(true);
-            speedText.gameObject.SetActive(false);   // own aircraft speed — already on the flight HUD
-            relSpeedText.gameObject.SetActive(true);
-            magText.gameObject.SetActive(true);
-            modeText.gameObject.SetActive(true);
-            bearingText.gameObject.SetActive(true);
-            bearingImg.gameObject.SetActive(true);
-            gridText.gameObject.SetActive(true);
-
-            typeText.text = _pointTrackActive ? "POINT TRACK" : "MANUAL";
-            typeText.color = Color.white;
-
-            magText.text = $"Mag x{10f / _desiredFov:F1}";
-            modeText.text = tc.UsingIR() ? "MODE: IR" : "MODE: COLOR";
-
-            GameManager.GetLocalAircraft(out Aircraft ac);
-
-            // Aircraft-relative az/el (0° = nose), matching the native bearing readout's own frame
-            // (camMount.transform.localEulerAngles.y) — NOT the world-frame azimuth ToAzimuthElevation
-            // gives on _panDir directly. A Point Track lock on a fixed ground point makes the WORLD
-            // bearing to that point drift continuously just from the aircraft flying past it, which
-            // reads as "the needle moves for no reason" even with zero pilot input. Computed from a
-            // direction vector via InverseTransformDirection, not Transform.localEulerAngles, to avoid
-            // Euler wraparound on the elevation axis (native code never showed elevation, so never hit
-            // that problem).
-            Vector3 localDir = ac != null ? ac.transform.InverseTransformDirection(_panDir) : _panDir;
-            (float az, float el) = ToAzimuthElevation(localDir);
-            bearingText.text = $"{az:F0}°";
-            bearingImg.rectTransform.localEulerAngles = new Vector3(0f, 0f, -az);
-            headingText.text = $"EL {el:F0}°";   // repurposed — elevation has no native readout
-
-            Vector3 hitLocal = default;
-            float rangeM = 0f;
-            bool hasHit = ac != null && TryGetLookPoint(mount, out hitLocal, out rangeM);
-            if (hasHit)
-            {
-                GlobalPosition hitGlobal = hitLocal.ToGlobalPosition();
-                Vector3 rel = hitGlobal - ac!.GlobalPosition();
-                // Positive = closing (moving toward the look point, range decreasing) — this is a
-                // new label ("CLO", not the native "REL"), so it defines its own clear sign
-                // convention rather than matching the native rel_speed formula for a moving target.
-                float closure = Vector3.Dot(ac.rb.velocity, rel.normalized);
-
-                distanceText.text    = "RNG " + UnitConverter.DistanceReading(rangeM);
-                altitudeText.text    = "ALT " + UnitConverter.AltitudeReading(hitGlobal.y);
-                relAltitudeText.text = "REL " + UnitConverter.AltitudeReading(rel.y);
-                relSpeedText.text    = "CLO " + UnitConverter.SpeedReading(closure);
-                gridText.text        = "GRID: " + SceneSingleton<DynamicMap>.i.gridLabels.GetGridPosition(hitGlobal);
-            }
-            else
-            {
-                distanceText.text    = "RNG -";
-                altitudeText.text    = "ALT -";
-                relAltitudeText.text = "REL -";
-                relSpeedText.text    = "CLO -";
-                gridText.text        = "GRID: -";
-            }
-
-            // Throttled diagnostic (docs/tgp-manual-control.md testing) — confirms this patch is
-            // actually firing and shows what it's computing, since TargetScreenUI.UpdateTargetInfo
-            // runs on the game's own SlowUpdate timer, outside TgpManualControl.Tick()'s own diag log.
-            if (Time.time - _overlayDiagLastLog > 1f)
-            {
-                _overlayDiagLastLog = Time.time;
-                Plugin.Log?.LogInfo($"[NOXMFD] TGP native overlay diag: az={az:0.0} el={el:0.0} pointTrack={_pointTrackActive} hit={hasHit} rangeM={(hasHit ? rangeM.ToString("0") : "-")}.");
-            }
-        }
-
-        private static float _overlayDiagLastLog;
-
-        private static bool EnsureReflection()
-        {
-            if (_reflectionTried) return _camField != null && _currentMountField != null && _currentModeField != null;
-            _reflectionTried = true;
-            var t = typeof(TargetCam);
-            _camField                = t.GetField("cam",                  BindingFlags.NonPublic | BindingFlags.Instance);
-            _currentMountField       = t.GetField("currentMount",         BindingFlags.NonPublic | BindingFlags.Instance);
-            _currentModeField        = t.GetField("currentMode",          BindingFlags.NonPublic | BindingFlags.Instance);
-            _canvasObjectLandingField = t.GetField("canvasObjectLanding", BindingFlags.NonPublic | BindingFlags.Instance);
-            _camTimeoutField         = t.GetField("camTimeout",           BindingFlags.NonPublic | BindingFlags.Instance);
-            _switchIrStateMethod     = t.GetMethod("SwitchIRState",       BindingFlags.NonPublic | BindingFlags.Instance);
-            _updateExposureMethod    = t.GetMethod("UpdateExposure",      BindingFlags.NonPublic | BindingFlags.Instance);
-            if (_camField == null || _currentMountField == null || _currentModeField == null)
-                Plugin.Log?.LogWarning("[NOXMFD] TGP manual control: could not locate TargetCam private fields.");
-            return _camField != null && _currentMountField != null && _currentModeField != null;
-        }
     }
 }

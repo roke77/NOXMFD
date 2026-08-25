@@ -553,13 +553,13 @@ KEYBINDS = [
      "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "tgp-zoom-axis", "section": "TGP", "label": "Zoom Axis",
      "description": "Calibrated analog axis (e.g. a HOTAS slider) — the axis's own position IS "
-                     "the zoom level, min to max, once bound. Overrides Zoom In/Out entirely "
-                     "while bound.",
+                     "the zoom level, min to max. Moving it jumps zoom to that position; Zoom "
+                     "In/Out still work while the axis is stationary.",
      "axis": -1, "axisNum": 0, "axisInvert": False},
     {"id": "tgp-manual-toggle", "section": "TGP", "label": "Manual Control Toggle",
      "description": "Toggle manual TGP pointing on/off. Centers on the aircraft's nose at "
-                     "minimum zoom on entry. Auto-exits on a real target lock, the external TGP "
-                     "page closing, aircraft loss, or a landing-gear/cam conflict.",
+                     "minimum zoom on entry. Auto-exits on a real target lock, aircraft loss, "
+                     "or a landing-gear/cam conflict.",
      "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "tgp-manual-reset", "section": "TGP", "label": "Manual Control Reset",
      "description": "Recenter the TGP manual camera on the aircraft's forward direction at "
@@ -568,8 +568,8 @@ KEYBINDS = [
     {"id": "tgp-point-track", "section": "TGP", "label": "Point Track",
      "description": "Lock the TGP manual camera onto whatever it's currently pointed at — it "
                      "holds that world point steady as the aircraft moves, instead of a fixed "
-                     "direction. Press again, or use any Pan/Tilt input, to release it back to "
-                     "free aiming. Only acts while TGP manual control is on.",
+                     "direction. Press again to release; Pan/Tilt nudges the point and "
+                     "redesignates on release. Only acts while TGP manual control is on.",
      "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "tgp-manual-ir-toggle", "section": "TGP", "label": "Toggle IR",
      "description": "Switch the TGP manual camera between COLOR and IR. Normally the game "
@@ -645,12 +645,11 @@ def _keybinds_config():
              "TGP": "Manual pointing of the targeting-pod camera, independent of the "
                        "game's own auto-lock. Pan/Tilt Axis are the same movement as an analog HOTAS "
                        "axis — bind either or both; a deflected axis overrides its two keys. Zoom Axis "
-                       "is different: once bound, a calibrated slider's own position IS the zoom "
-                       "level, replacing Zoom In/Out outright. Point Track locks the camera onto "
-                       "whatever it's aimed at; any Pan/Tilt input releases it. Off by default; "
+                       "is different: moving a calibrated slider jumps zoom to that absolute level, "
+                       "while Zoom In/Out still work between axis moves. Point Track locks the camera "
+                       "onto whatever it's aimed at; Pan/Tilt nudges and redesignates on release. Off by default; "
                        "toggling on centers at minimum zoom, and auto-exits the moment a real target "
-                       "locks, the external TGP page closes, the aircraft is lost, or gear/landing cam "
-                       "takes over.",
+                       "locks, the aircraft is lost, or gear/landing cam takes over.",
              "WEAPONS": "Cycle keys select the last soft-selected weapon of their type, or the first "
                         "in the list. Repeated presses cycle to the next one, skipping depleted "
                         "weapons. Cycling to a different type leaves the current one soft-selected.",
@@ -922,4 +921,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

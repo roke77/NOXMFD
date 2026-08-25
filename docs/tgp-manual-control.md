@@ -17,9 +17,10 @@ the spike confirmed the drift was bad enough to need it.
 
 Shipped beyond the original scope after live testing surfaced real needs: **Point Track**
 (lock the aim to a fixed world point instead of a free direction), a **calibrated Zoom Axis**
-(a physical slider whose position *is* the zoom level, not rate-based), a **boresight crosshair**
-on the TGP page, and **Area Track following the airframe** (a centered/reset camera now turns
-with the aircraft instead of holding a frozen world bearing). All four were explicitly requested
+(a physical slider whose moved position *is* the zoom level, not rate-based), a **boresight crosshair**
+on the TGP page, **Area Track following the airframe** (a centered/reset camera now turns
+with the aircraft instead of holding a frozen world bearing), and **manual COLOR/IR toggling**.
+All five were explicitly requested
 during testing, not scope creep — see [What actually shipped](#what-actually-shipped-v1-revised)
 and [Debugging findings](#debugging-findings-worth-keeping) below for what each one is and the
 real bugs found getting there.
@@ -152,13 +153,14 @@ suppression work):
 **New file: `TgpManualControl.cs`, not inside `TgpFeed.cs`.** `TgpFeed` is capture/overlay/
 cockpit-hide plumbing — reflecting `cam`/`targetScreenRenderer`, driving the JPEG capture pipeline,
 and (as of 0.29.1) the cockpit-hide toggle. Manual pointing is a different responsibility: it owns
-its own state (`ManualMode`, `PanDir`/mount rotation, `DesiredFOV`), its own reflection cache
-(`currentMount`, `camMountForward`, `targetFOV`, `camTimeout`, `currentMode`,
-`canvasObjectLanding`), and its own per-tick drive logic. `TgpFeed` only needs to *ask* this new
-class one thing each capture tick — is manual mode active? — to decide whether to skip its own
-`tc.SetTargetCam()` call (see below). Keeping them separate means `TgpFeed` doesn't grow a second
-unrelated state machine, and manual control doesn't need to know anything about JPEG capture,
-readback, or the cockpit-hide overlay event.
+its own state (`ManualMode`, `PanDir`/mount rotation, `DesiredFOV`) and its own per-tick drive
+logic. Private `TargetCam` access is centralized in `TgpManualTargetCamAccess.cs` (`currentMount`,
+`cam`, `camTimeout`, `currentMode`, `canvasObjectLanding`, IR/exposure methods) so the state
+machine does not also own reflection details. `TgpFeed` only needs to *ask* this new class one thing
+each capture tick — is manual mode active? — to decide whether to skip its own `tc.SetTargetCam()`
+call (see below). Keeping them separate means `TgpFeed` doesn't grow a second unrelated state
+machine, and manual control doesn't need to know anything about JPEG capture, readback, or the
+cockpit-hide overlay event.
 
 **Harmony is not a new dependency.** `src/plugin/HarmonyPatches.cs` already exists, with an
 established convention this feature should follow exactly: one nested `static class` per patch,
@@ -260,7 +262,7 @@ expected — worth confirming in the verification pass, not assumed risk-free wi
 
 ## What actually shipped (v1, revised)
 
-Four pieces beyond the original scope, all added in response to real problems hit during live
+Five pieces beyond the original scope, all added in response to real problems hit during live
 testing, not spec'd up front:
 
 - **Point Track** (`tgp-point-track` bind) — an internal toggle, not a hold. Raycasts along the
@@ -275,12 +277,12 @@ testing, not spec'd up front:
 - **Calibrated Zoom Axis** (`tgp-zoom-axis` bind, an `AddAxis` bind like Pan/Tilt Axis) — a
   physical analog control (e.g. a HOTAS slider) whose raw position directly *is* the zoom level
   (linear map, `-1` = `MaxFov`/widest, `+1` = `MinFov`/tightest), not a rate like the Zoom In/Out
-  buttons. Once bound it's authoritative outright — the buttons stop mattering. Deliberately
-  **not** rate-limited or smoothed (see Debugging findings) — a calibrated control's whole point is
-  instant, 1:1 response.
+  buttons. When the axis moves, it jumps zoom to that absolute position; while it is stationary,
+  Zoom In/Out can still adjust the camera. Deliberately **not** rate-limited or smoothed (see
+  Debugging findings) — a calibrated control's whole point is instant, 1:1 response.
 - **Boresight crosshair** — a small white reticle with a gap at center, shown on the TGP page only
-  while manual control is on (`.tgp-manual` class already used for the status badge). Screen-
-  centered, not synced to the letterbox-corrected overlay rect the HQ stat overlay uses:
+  while manual control is on via the `.tgp-manual` class. Screen-centered, not synced to the
+  letterbox-corrected overlay rect the HQ stat overlay uses:
   `object-fit: contain` already keeps the picture's own center at the panel's center regardless of
   letterboxing, so plain 50/50% CSS positioning lines up correctly on its own.
 - **Area Track follows the airframe.** A centered/reset camera now turns *with* the aircraft as it
@@ -462,9 +464,9 @@ re-discovering:
   0.25°/80° — no new config needed since the native camera never goes tighter/wider than this
   either. The Zoom Axis bind (see [What actually shipped](#what-actually-shipped-v1-revised)) maps
   its full physical travel across exactly this range.
-- **Where does the toggle status live?** — resolved: a `MANUAL — RESET to recenter` badge on the
-  TGP page itself, screen-top-center, shown via the same `tgp-manual` class the crosshair uses.
-  Not on TGP CFG, per the original reasoning (a live control, not a set-once preference).
+- **Where does the toggle status live?** — resolved: manual mode is indicated by the TGP page
+  crosshair and the native in-cockpit `MANUAL` / `POINT TRACK` overlay state. Not on TGP CFG, per
+  the original reasoning (a live control, not a set-once preference).
 - **Does `camTimeout` pinned high fight anything else?** Not hit in testing — no other system reads
   `camTimeout` while manual mode is active. Not exhaustively audited, but no longer a live concern.
 - **Near-overhead "keyhole" swings during Point Track.** Point Track's baseline correction is a
@@ -478,22 +480,27 @@ re-discovering:
 
 ## v1 implementation shape
 
-Delivered, including the four additions in [What actually shipped](#what-actually-shipped-v1-revised):
+Delivered, including the five additions in [What actually shipped](#what-actually-shipped-v1-revised):
 
-1. `TgpManualControl.cs` — state, reflection cache, engage/exit/reset, Point Track (raycast lock +
-   decoupled baseline/offset), zoom-scaled pan/tilt sensitivity, and the public `SetPan`/`SetZoom`/
-   `SetZoomAxis`/`Toggle`/`Reset`/`TogglePointTrack` API (remote-ready per
-   [above](#fit-with-noxmfds-existing-architecture), local-only wired so far).
-2. `HarmonyPatches.cs` — the `TargetCam.Update`/`AimCamera` prefixes, matching the file's existing
-   one-class-per-patch convention. `SwitchIRState` was not patched — manual IR toggling stayed out
-   of scope (see below).
-3. `Keybinds.cs` — KEY-page binds: toggle, reset, Point Track, pan/tilt button pairs, pan/tilt
-   axes, zoom in/out, and the calibrated zoom axis.
-4. TGP page — `MANUAL`/reset-hint badge and the boresight crosshair, both gated on the same
-   `tgp-manual` class.
-5. Every exit trigger from [Lifecycle](#lifecycle-every-exit-trigger) except the removed page-close
+1. `TgpManualControl.cs` — state, engage/exit/reset, Point Track (raycast lock + decoupled
+   baseline/offset), and the public `SetPan`/`SetZoom`/`SetZoomAxis`/`Toggle`/`Reset`/
+   `TogglePointTrack` API (remote-ready per [above](#fit-with-noxmfds-existing-architecture),
+   local-only wired so far).
+2. `TgpManualAimMath.cs` — pure pan/tilt/zoom geometry (`az/el`, FOV-scaled nudge, Zoom Axis
+   mapping), covered by `tools/tests/TgpManualAimMathTests.cs`.
+3. `TgpManualTargetCamAccess.cs` — cached private `TargetCam` field/method access for the game
+   camera, current mount/mode, landing canvas, timeout, IR toggle, and exposure update.
+4. `HarmonyPatches.cs` — the `TargetCam.Update`/`AimCamera` prefixes and the
+   `TargetScreenUI.UpdateTargetInfo` prefix, matching the file's existing one-class-per-patch
+   convention. `SwitchIRState` is called through `TgpManualTargetCamAccess`, not patched.
+5. `TgpNativeOverlay.cs` — native in-cockpit `TargetScreenUI` text/crosshair population, separated
+   from manual-control lifecycle/state.
+6. `Keybinds.cs` — KEY-page binds: toggle, reset, Point Track, pan/tilt button pairs, pan/tilt
+   axes, zoom in/out, the calibrated zoom axis, and manual COLOR/IR toggle.
+7. TGP page — boresight crosshair gated on the `tgp-manual` class.
+8. Every exit trigger from [Lifecycle](#lifecycle-every-exit-trigger) except the removed page-close
    one: real lock, aircraft loss, gear/landing-cam conflict.
-6. Verified in-game: Native quality, a fast lock/unlock cycle, Point Track lock/nudge/release/
+9. Verified in-game: Native quality, a fast lock/unlock cycle, Point Track lock/nudge/release/
    redesignate, the calibrated zoom axis, and the airframe-follow behavior. HQ quality and
    cockpit-hide interaction not specifically re-verified after the debugging pass — worth a look if
    either one is touched again.
@@ -504,13 +511,13 @@ Delivered, including the four additions in [What actually shipped](#what-actuall
 - ~~In-cockpit `TargetScreenUI` info-panel patch (RNG/ALT/HDG/GRID/MODE from the manual hit
   point)~~ — **built**, see [In-cockpit overlay](#in-cockpit-overlay-v2).
 - ~~Manual IR toggling (`SwitchIRState`)~~ — **built**: a `tgp-manual-ir-toggle` bind flips
-  `IRMode` via reflection (`SwitchIRState` is private but self-contained, and unpatched by anything
-  else). Safe because `AimCamera()` — the only thing that would otherwise fight a manual flip with
-  its own automatic time-of-day/distance-based switching — is already skipped entirely while
-  `ManualMode` is on (`TargetCam_AimCamera_ManualGate`), so `IRMode` just holds whatever it's set
-  to. NOXMFD's HQ overlay's separate simulated-IR look (`docs/tgp-high-quality-mode.md`) is
-  unrelated — this is the Native-mode camera's own IR, baked into the video like the rest of Native
-  mode's picture.
+  `IRMode` through `TgpManualTargetCamAccess` (`SwitchIRState` is private but self-contained, and
+  unpatched by anything else). Safe because `AimCamera()` — the only thing that would otherwise
+  fight a manual flip with its own automatic time-of-day/distance-based switching — is already
+  skipped entirely while `ManualMode` is on (`TargetCam_AimCamera_ManualGate`), so `IRMode` just
+  holds whatever it's set to. NOXMFD's HQ overlay's separate simulated-IR look
+  (`docs/tgp-high-quality-mode.md`) is unrelated — this is the Native-mode camera's own IR, baked
+  into the video like the rest of Native mode's picture.
 - Remote-keybind wiring for TGP pointing — the command surface is designed for it (see
   [above](#fit-with-noxmfds-existing-architecture)), but only local KEY binds are wired so far.
 - Changes to `tgp-suppress-native-render.md`'s cockpit-hide feature or `tgp-high-quality-mode.md`'s

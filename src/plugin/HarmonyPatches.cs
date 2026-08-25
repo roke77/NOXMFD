@@ -172,16 +172,13 @@ namespace NOXMFD
         // would otherwise keep lerping fieldOfView toward its own targetFOV, switching currentMount
         // between forward/rear based on angle-to-target (unstable with no real target locked), and
         // counting camTimeout down toward auto-disable; AimCamera() would keep slerping the mount
-        // toward a stale/empty targetPosition. SwitchIRState isn't patched — manual IR toggling is
-        // out of scope for v1 (docs/tgp-manual-control.md's "Out of scope").
+        // toward a stale/empty targetPosition. SwitchIRState is not patched; manual IR toggling
+        // calls that private method directly when requested.
         [HarmonyPatch(typeof(TargetCam), "Update")]
         private static class TargetCam_Update_ManualGate
         {
-            // Skips the rest of Update() (mount-switch/FOV-lerp/camTimeout countdown) while manual
-            // mode is on, but NOT the cosmetic per-second exposure ramp (UpdateExposure) — that one
-            // WAS visibly missed (a fresh mission's first manual engage, before any real lock had
-            // ever run it, showed a darker/lower-contrast picture than normal), so
-            // TgpManualControl.Tick() calls it directly every tick instead. See Tick()'s own comment.
+            // TgpManualControl.Tick() calls UpdateExposure directly while this skips the rest of
+            // Update()'s mount-switch/FOV-lerp/camTimeout behavior.
             private static bool Prefix() => !TgpManualControl.ManualMode;
         }
 
@@ -202,11 +199,8 @@ namespace NOXMFD
         [HarmonyPatch(typeof(TargetScreenUI), "UpdateTargetInfo")]
         private static class TargetScreenUI_UpdateTargetInfo_ManualOverlay
         {
-            // TextMeshProUGUI, not UnityEngine.UI.Text — see TgpManualControl.PopulateNativeOverlay's
-            // own comment. The live 0.34+ game build switched TargetScreenUI's text fields to TMP;
-            // declaring these as Text still let Harmony inject them (no patch-apply failure, no
-            // caught exception) but crashed the game a few ticks later from the resulting type
-            // confusion. Canvas (for the crosshair) is a stable Unity type, not part of that migration.
+            // TextMeshProUGUI, not UnityEngine.UI.Text — see TgpNativeOverlay.Populate's
+            // own comment. Harmony may not fail loudly if a private UI field type is stale.
             private static bool Prefix(TargetCam ___targetCam, Canvas ___displayCanvas,
                 TextMeshProUGUI ___typeText, TextMeshProUGUI ___pilotText, TextMeshProUGUI ___noLock,
                 TextMeshProUGUI ___distance, TextMeshProUGUI ___heading, TextMeshProUGUI ___altitude,
@@ -216,14 +210,16 @@ namespace NOXMFD
             {
                 // Always synced, regardless of ManualMode, so the crosshair is hidden the instant
                 // manual mode ends (the very next native-path tick) instead of staying stuck on.
-                TgpManualControl.SyncNativeCrosshair(___displayCanvas, TgpManualControl.ManualMode);
+                TgpNativeOverlay.SyncCrosshair(___displayCanvas, TgpManualControl.ManualMode, TgpManualControl.PointTrackActive);
 
                 if (!TgpManualControl.ManualMode || ___targetCam == null) return true;
                 Transform mount = ___targetCam.GetCamMount();
                 if (mount == null) return true;
-                TgpManualControl.PopulateNativeOverlay(___targetCam, mount, ___typeText, ___pilotText,
+                TgpNativeOverlay.Populate(___targetCam, mount, ___typeText, ___pilotText,
                     ___noLock, ___distance, ___heading, ___altitude, ___rel_altitude, ___speed,
-                    ___rel_speed, ___magText, ___modeText, ___bearingText, ___gridText, ___bearingImg);
+                    ___rel_speed, ___magText, ___modeText, ___bearingText, ___gridText, ___bearingImg,
+                    TgpManualControl.PointTrackActive, TgpManualControl.PanDirection,
+                    TgpManualControl.DesiredFov, TgpManualControl.TryGetLookPointForOverlay);
                 return false;
             }
         }

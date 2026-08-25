@@ -35,6 +35,7 @@
          pure serializer. Neither has a Unity/BepInEx touchpoint. -->
     <Compile Include="..\..\src\plugin\TelemetrySnapshot.cs" Link="Source\TelemetrySnapshot.cs" />
     <Compile Include="..\..\src\plugin\TelemetryJson.cs" Link="Source\TelemetryJson.cs" />
+    <Compile Include="..\..\src\plugin\TgpManualAimMath.cs" Link="Source\TgpManualAimMath.cs" />
   </ItemGroup>
 
 </Project>

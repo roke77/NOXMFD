@@ -18,7 +18,7 @@
                client-side only in HQ mode, since Native's video already has the game's own
                baked-in overlay (TargetScreenUI's stacked UICam has no HQ-mode counterpart; see
                docs/tgp-high-quality-mode.md). manual: TgpManualControl.ManualMode
-               (docs/tgp-manual-control.md) — shows the MANUAL badge, independent of quality/lock.
+               (docs/tgp-manual-control.md) — shows the manual crosshair when a feed is present.
     'orient' : app-wide orientation (kept for parity).
   The MJPEG <img> connects to /tgp.mjpg directly; the server only emits frames while a target
   is locked, so it stays hidden (NO LOCK shown) until 'tgp' active flips true.

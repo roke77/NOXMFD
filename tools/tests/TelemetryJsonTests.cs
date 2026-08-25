@@ -31,6 +31,7 @@ namespace NOXMFD.Tests
             Assert.False((bool)Obj(root["bdf"])["present"]!);
             Assert.False((bool)Obj(root["pal"])["present"]!);
             Assert.False((bool)Obj(root["rdr"])["present"]!);
+            Assert.False((bool)root["tgpManual"]!);
             Assert.Empty(Arr(Obj(root["rdr"])["pb"]));
             Assert.Empty(Arr(root["contacts"]));
             Assert.Empty(Arr(root["loadout"]));
@@ -45,6 +46,21 @@ namespace NOXMFD.Tests
             Assert.Empty(Arr(akf["all"]));
             Assert.Empty(Arr(akf["player"]));
             Assert.Equal(0.0, Obj(akf["kills"])["aircraft"]);
+        }
+
+        [Fact]
+        public void Tgp_manual_state_round_trips_as_top_level_flag()
+        {
+            var s = default(TelemetrySnapshot);
+            s.TgpActive = true;
+            s.TgpQuality = "hq";
+            s.TgpManualActive = true;
+
+            var root = Root(s);
+
+            Assert.True((bool)root["tgpActive"]!);
+            Assert.Equal("hq", root["tgpQuality"]);
+            Assert.True((bool)root["tgpManual"]!);
         }
 
         [Fact]

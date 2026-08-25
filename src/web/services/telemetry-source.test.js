@@ -114,5 +114,32 @@ const assert = require('assert');
     console.error = realErr;
   }
 
+  // TGP manual state is a top-level telemetry flag that the shell forwards to the TGP iframe
+  // as `manual`, independent of the lock overlay payload.
+  {
+    const messages = [];
+    const realWindow = global.window;
+    global.window = { parent: {} };
+    const src3 = new TelemetrySource({});
+    src3._postUp = (m) => messages.push(m);
+
+    try {
+      src3._emit({ tgpActive: true, tgpQuality: 'hq', tgpManual: true, tgp: { cnt: 1 } });
+      assert.deepStrictEqual(
+        messages.find((m) => m.type === 'tgp'),
+        { type: 'tgp', active: true, quality: 'hq', data: { cnt: 1 }, manual: true },
+        'tgpManual should forward to the TGP page as manual:true');
+
+      messages.length = 0;
+      src3._emitEmpties();
+      assert.deepStrictEqual(
+        messages.find((m) => m.type === 'tgp'),
+        { type: 'tgp', active: false, quality: 'native', data: null, manual: false },
+        'mission-end empties should clear manual state');
+    } finally {
+      global.window = realWindow;
+    }
+  }
+
   console.log('telemetry-source.test.js: OK');
 })();

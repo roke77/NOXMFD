@@ -119,7 +119,7 @@ namespace NOXMFD
         private static BindDef? _tgpZoomIn, _tgpZoomOut;
         // A calibrated physical axis (e.g. a HOTAS slider) driving zoom as an absolute position —
         // different shape from Pan/Tilt Axis above, which only overrides its two keys when
-        // deflected: this one, once bound, is authoritative outright (TgpManualControl.SetZoomAxis).
+        // deflected: this one applies only when moved, so Zoom In/Out can still work between axis moves.
         private static BindDef? _tgpZoomAxis;
 
         // Combat-mode tap/hold binds (docs/radar-master-arms.md, issue #32) — see PollTapHold. Kept by
@@ -299,18 +299,18 @@ namespace NOXMFD
             _tgpZoomOut  = DefFree(config, "tgp-zoom-out", tgp, "TgpZoomOut", "Zoom Out", edge: false,
                 "Zoom the TGP manual camera out. Only acts while TGP manual control is on.", () => { });
             _tgpZoomAxis = AddAxis(config, "tgp-zoom-axis", tgp, "TgpZoomAxis", "Zoom Axis",
-                "Calibrated analog axis (e.g. a HOTAS slider) — the axis's own position IS the zoom level, min to max, once bound. Overrides Zoom In/Out entirely while bound.");
+                "Calibrated analog axis (e.g. a HOTAS slider) — moving the axis jumps zoom to that absolute position, min to max. Zoom In/Out still work while the axis is stationary.");
             DefFree(config, "tgp-manual-toggle", tgp, "TgpManualToggle", "Manual Control Toggle", edge: true,
-                "Toggle manual TGP pointing on/off. Centers on the aircraft's nose at minimum zoom on entry. Auto-exits on a real target lock, the external TGP page closing, aircraft loss, or a landing-gear/cam conflict.",
+                "Toggle manual TGP pointing on/off. Centers on the aircraft's nose at minimum zoom on entry. Auto-exits on a real target lock, aircraft loss, or a landing-gear/cam conflict.",
                 () => TgpManualControl.Toggle());
             DefFree(config, "tgp-manual-reset", tgp, "TgpManualReset", "Manual Control Reset", edge: true,
                 "Recenter the TGP manual camera on the aircraft's forward direction at minimum zoom.",
                 () => TgpManualControl.Reset());
             DefFree(config, "tgp-point-track", tgp, "TgpPointTrack", "Point Track", edge: true,
                 "Lock the TGP manual camera onto whatever it's currently pointed at — it holds that " +
-                "world point steady as the aircraft moves, instead of a fixed direction. Press again, " +
-                "or use any Pan/Tilt input, to release it back to free aiming. Only acts while TGP " +
-                "manual control is on.",
+                "world point steady as the aircraft moves, instead of a fixed direction. Press again " +
+                "to release; Pan/Tilt nudges the point and redesignates on release. Only acts while " +
+                "TGP manual control is on.",
                 () => TgpManualControl.TogglePointTrack());
             DefFree(config, "tgp-manual-ir-toggle", tgp, "TgpManualIrToggle", "Toggle IR", edge: true,
                 "Switch the TGP manual camera between COLOR and IR. Normally the game switches this " +
@@ -523,10 +523,11 @@ namespace NOXMFD
                 "Manual pointing of the targeting-pod camera, independent of the game's own auto-lock. " +
                 "Pan/Tilt Axis are the same movement as an analog HOTAS axis — bind either or both; a " +
                 "deflected axis overrides its two keys. Zoom Axis is different: once bound, a calibrated " +
-                "slider's own position IS the zoom level, replacing Zoom In/Out outright. Point Track " +
-                "locks the camera onto whatever it's aimed at; any Pan/Tilt input releases it. Off by " +
+                "slider's moved position jumps zoom to that absolute level, while Zoom In/Out still " +
+                "work between axis moves. Point Track locks the camera onto whatever it's aimed at; " +
+                "Pan/Tilt nudges and redesignates on release. Off by " +
                 "default; toggling on centers at minimum zoom, and auto-exits the moment a real target " +
-                "locks, the external TGP page closes, the aircraft is lost, or gear/landing cam takes over.",
+                "locks, the aircraft is lost, or gear/landing cam takes over.",
             "Layout Keybinds" =>
                 "Keyboard only, no joystick/HOTAS. Acts on whichever browser window has focus when " +
                 "pressed, and applies to every connected browser.",
@@ -762,9 +763,9 @@ namespace NOXMFD
             TgpManualControl.SetPan(ClampUnit(tpx), ClampUnit(tpy));
             TgpManualControl.SetZoom(1, _tgpZoomIn!.ActiveNow);
             TgpManualControl.SetZoom(-1, _tgpZoomOut!.ActiveNow);
-            // Zoom Axis is authoritative once bound (unlike Pan/Tilt Axis, it doesn't coexist with
-            // the in/out buttons) — AxisEntry.Value >= 0 is "bound at all", distinct from ReadAxis's
-            // 0 return (which also means "centered" for a bound axis, not just "unbound").
+            // AxisEntry.Value >= 0 is "bound at all", distinct from ReadAxis's 0 return (which
+            // also means "centered" for a bound axis, not just "unbound"). TgpManualControl applies
+            // the axis only when it moves, so Zoom In/Out can coexist while the axis is stationary.
             TgpManualControl.SetZoomAxis(_tgpZoomAxis!.AxisEntry!.Value >= 0 ? (float?)ReadAxis(_tgpZoomAxis) : null);
 
             // Combat-mode tap/hold binds (docs/radar-master-arms.md) — run every frame, same reasoning
