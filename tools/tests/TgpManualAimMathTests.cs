@@ -58,8 +58,29 @@ namespace NOXMFD.Tests
         {
             Near(TgpManualAimMath.ZoomFromAxis(-1f, minFov: 0.25f, maxFov: 20f), 20f);
             Near(TgpManualAimMath.ZoomFromAxis(1f, minFov: 0.25f, maxFov: 20f), 0.25f);
-            Near(TgpManualAimMath.ZoomFromAxis(0f, minFov: 0.25f, maxFov: 20f), 10.125f);
+            // Midpoint is the geometric mean of the FOV range (log-linear interpolation), not the
+            // arithmetic mean — sqrt(0.25 * 20).
+            Near(TgpManualAimMath.ZoomFromAxis(0f, minFov: 0.25f, maxFov: 20f), (float)Math.Sqrt(0.25 * 20));
             Near(TgpManualAimMath.ZoomFromAxis(2f, minFov: 0.25f, maxFov: 20f), 0.25f);
+        }
+
+        [Fact]
+        public void Zoom_axis_moves_magnification_by_equal_ratios_not_equal_amounts()
+        {
+            // mag = 10 / fov (TgpManualControl.ComputeOverlaySample). Log-linear FOV interpolation
+            // means equal axis steps produce equal *ratios* of mag change, not equal absolute
+            // deltas — going from 1x to 2x should take the same amount of stick as 10x to 20x, so
+            // the low-zoom range pilots actually use most isn't squeezed into a sliver of travel.
+            float MagAt(float axis) => 10f / TgpManualAimMath.ZoomFromAxis(axis, minFov: 0.25f, maxFov: 20f);
+
+            float magLow  = MagAt(-1f);   // widest FOV -> lowest mag
+            float magMid  = MagAt(0f);
+            float magHigh = MagAt(1f);    // narrowest FOV -> highest mag
+
+            float ratioLow  = magMid / magLow;
+            float ratioHigh = magHigh / magMid;
+            Assert.True(Math.Abs(ratioHigh - ratioLow) < 0.01f,
+                $"expected equal mag ratios across axis halves, got low-half={ratioLow:0.###}x high-half={ratioHigh:0.###}x");
         }
     }
 }
