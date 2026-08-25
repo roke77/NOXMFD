@@ -30,6 +30,10 @@ namespace NOXMFD
         private const float MinFov = 0.25f;
         private const float MaxFov = 20f;
         private const float ZoomRateFovPerSec = 6f;
+        // How far a bound zoom axis has to move (in its own -1..1 units) before it's treated as
+        // "the pilot actually moved it" and reclaims authority from Zoom In/Out — see Tick()'s
+        // axisMoved check. Small enough to catch a deliberate nudge, bigger than float noise.
+        private const float ZoomAxisMoveEpsilon = 0.01f;
         private const float PanSpeedDegPerSec = 60f;
         private const float TiltSpeedDegPerSec = 45f;
         private const float MaxElevationDeg = 85f;          // stay short of straight up/down — LookRotation degrades near the poles
@@ -67,6 +71,7 @@ namespace NOXMFD
         private static float   _panInputX, _panInputY;      // held state, written every frame by Keybinds.Poll
         private static bool    _zoomInHeld, _zoomOutHeld;
         private static float?  _zoomAxisValue;               // non-null while a calibrated zoom axis is bound — absolute, overrides in/out
+        private static float?  _zoomAxisAppliedValue;         // the axis value FOV was last set from — compared each tick to detect real movement
 
         // Point Track (docs/tgp-manual-control.md's "world-hit raycasting" — real TGP pods call
         // this mode "Point Track" vs. free "Area Track" slewing). A raycast hit is stored as a
@@ -307,7 +312,15 @@ namespace NOXMFD
             }
             mount.rotation = Quaternion.LookRotation(_panDir, Vector3.up);
 
-            if (_zoomAxisValue.HasValue)
+            // Axis and buttons coexist by taking turns, not by one permanently overriding the
+            // other: the axis is authoritative only on a tick where it's actually MOVED since the
+            // last tick it was applied — a stationary slider stops claiming authority, so Zoom
+            // In/Out work normally the rest of the time. Without this, a bound-but-untouched axis
+            // silently ate every button press forever (its value never changes on its own, so it
+            // "wins" every tick with a value that's just sitting there).
+            bool axisMoved = _zoomAxisValue.HasValue &&
+                (!_zoomAxisAppliedValue.HasValue || Mathf.Abs(_zoomAxisValue.Value - _zoomAxisAppliedValue.Value) > ZoomAxisMoveEpsilon);
+            if (axisMoved)
             {
                 // Direct, not rate-limited: a calibrated slider's whole point is that its physical
                 // position IS the zoom level, matched instantly — that's what "calibrated to the
@@ -317,8 +330,9 @@ namespace NOXMFD
                 // doesn't match ordinary pot/slider noise a low-pass would fix — it looks like a
                 // real signal from the wrong physical control. Smoothing just added lag without
                 // addressing that; if it's still erratic, check the Zoom Axis row on /keybinds.
-                float t = Mathf.Clamp01((_zoomAxisValue.Value + 1f) * 0.5f);
+                float t = Mathf.Clamp01((_zoomAxisValue!.Value + 1f) * 0.5f);
                 _desiredFov = Mathf.Lerp(MaxFov, MinFov, t);
+                _zoomAxisAppliedValue = _zoomAxisValue.Value;
             }
             else
             {
@@ -412,6 +426,7 @@ namespace NOXMFD
             _desiredFov = MaxFov;
             _panInputX = _panInputY = 0f;
             _zoomInHeld = _zoomOutHeld = false;
+            _zoomAxisAppliedValue = null;   // force a fresh sync to the axis's current position on the first tick, if one's bound
             _pointTrackActive = false;
             _diagTimer = 0f;
 
