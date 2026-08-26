@@ -25,8 +25,9 @@ during testing, not scope creep — see [What actually shipped](#what-actually-s
 and [Debugging findings](#debugging-findings-worth-keeping) below for what each one is and the
 real bugs found getting there.
 
-The later `tgp-hud-tracker` branch added the full-screen pilot-HUD line-of-sight cue and extended
-PAD Cursor Select's nearby-unit handoff to work from both Area Track and Point Track.
+A later development pass — originally its own `tgp-hud-tracker` branch, since merged into this one
+— added the full-screen pilot-HUD line-of-sight cue and extended PAD Cursor Select's nearby-unit
+handoff to work from both Area Track and Point Track.
 
 **Reversed during testing:** the "external TGP page closes" exit trigger described below never
 shipped as designed. First in-game test toggled the bind with no `/tgp` browser page open
@@ -783,8 +784,10 @@ TGT/MAN, `IMG` between CLR/IR), same word-plus-triangle treatment as WPN's MASTE
 live game state rather than "which page is this." `TGT` lights when a real unit is locked
 (`!manual && data.cnt > 0`); `MAN` lights when `TgpManualControl.ManualMode` is on; `CLR`/`IR`
 mirror whichever feed is actually active's `data.ir` flag. All four go dark with no feed up at all
-(`data` is only ever `{cnt:0}` in that case — `TelemetryJson.cs`'s `TgpBlock`). Because this needs
-live data no static table has, `TGT`/`MAN`/`CLR`/`IR` are **not** NAV.tgp entries — `NAV.tgp` stays
+(`data` is only ever `{cnt:0}` in that case — `TelemetryJson.cs`'s `TgpBlock`). The rule itself is
+one shared `tgpMarks(cnt, manual, ir)` (`src/web/shell/tgp-marks.js`), called by both `mfd.js` and
+`f35.js` rather than each shell computing it independently, so the two can't drift. Because this
+needs live data no static table has, `TGT`/`MAN`/`CLR`/`IR` are **not** NAV.tgp entries — `NAV.tgp` stays
 exactly `[MAIN, CFG]`, and the four are hand-placed by each layout's own renderer, the same
 "NAV stays empty, the layout hand-rolls it" shape WPN's ARM/SAFE/A-A/A-G already use for the same
 reason (`combatMode`/`masterArmsOn` are live state too).
@@ -858,7 +861,9 @@ manual control is on or a real target is locked — no separate bind or button w
   skipped entirely while `ManualMode` is on (`TargetCam_AimCamera_ManualGate`), so `IRMode` just
   holds whatever it's set to. NOXMFD's HQ overlay's separate simulated-IR look
   (`docs/tgp-high-quality-mode.md`) is unrelated — this is the Native-mode camera's own IR, baked
-  into the video like the rest of Native mode's picture.
+  into the video like the rest of Native mode's picture. Since extended to also override a real
+  (native) unit lock's own automatic switching — see
+  [Native-lock CLR/IR override](#native-lock-clrir-override-built) below.
 - Remote-keybind wiring for TGP pointing — the command surface is designed for it (see
   [above](#fit-with-noxmfds-existing-architecture)), but only local KEY binds are wired so far.
 - Changes to `tgp-suppress-native-render.md`'s cockpit-hide feature or `tgp-high-quality-mode.md`'s
@@ -866,6 +871,9 @@ manual control is on or a real target is locked — no separate bind or button w
 
 ## Related
 
+- [`tgp-hud-tracker.md`](tgp-hud-tracker.md) — the full-screen pilot-HUD line-of-sight cue (see
+  [Pilot-HUD line-of-sight cue](#pilot-hud-line-of-sight-cue-v4-tgp-hud-tracker-branch) above),
+  its own extended validation matrix.
 - [`tgp-suppress-native-render.md`](tgp-suppress-native-render.md) — same `TargetCam`, same
   `onCamToggle`/`CancelTarget` surface, shipped 0.29.1, composes with this feature.
 - [`internal-mfd.md`](internal-mfd.md) — same precedent-gathering session; unrelated feature

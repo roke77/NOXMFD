@@ -2,7 +2,9 @@
 
 ## Status
 
-Implemented on branch `tgp-hud-tracker`. Core cockpit behavior has been live-tested, including the
+Implemented — originally on its own `tgp-hud-tracker` branch, since merged into `tgp-manual-mode`
+(the other stacked TGP branches were consolidated there too; `tgp-hud-tracker` no longer exists as
+a separate branch). Core cockpit behavior has been live-tested, including the
 in-view brackets, off-screen caret, reduced visual scale, centre precision dot, and PAD Cursor
 Select handoff into the normal game lock. The extended free-look/TrackIR, respawn, resolution/UI
 scale, and dense-overlap matrix below remains useful release validation rather than an
