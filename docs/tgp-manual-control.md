@@ -625,6 +625,67 @@ Delivered, including the five additions in [What actually shipped](#what-actuall
    cockpit-hide interaction not specifically re-verified after the debugging pass — worth a look if
    either one is touched again.
 
+## Planned: PAD Cursor consolidation (not yet built)
+
+**Status: designed, not implemented.** Manual TGP currently owns its own pan/tilt/zoom binds
+(`tgp-pan-left/right`, `tgp-tilt-up/down`, `tgp-pan-axis`, `tgp-tilt-axis`, `tgp-zoom-in/out`,
+`tgp-zoom-axis`), independent of the PAD Cursor binds (`cursor-up/down/left/right`,
+`cursor-axis-h/v`, `cursor-select`) that every MFD page's cursor already shares. Two separate
+input systems means a HOTAS with limited axes/buttons can't avoid binding the same physical
+control to both — using the TGP camera and having any other cursor-driven MFD page as SOI at the
+same time collides. The fix folds TGP pointing into the same generic PAD Cursor tool, and makes
+the manual camera itself a first-class, cyclable SOI target instead of a parallel always-on input
+path.
+
+**Bind changes:**
+- Remove `tgp-pan-left/right`, `tgp-tilt-up/down`, `tgp-pan-axis`, `tgp-tilt-axis`,
+  `tgp-zoom-in/out`, `tgp-zoom-axis` from the KEY page's TGP section. It keeps only the four
+  lifecycle binds: `tgp-manual-toggle`, `tgp-manual-reset`, `tgp-point-track`,
+  `tgp-manual-ir-toggle` (camera mode / COLOR-IR).
+- Add `cursor-zoom-in`/`cursor-zoom-out` (digital) and `cursor-zoom-axis` (calibrated, reusing the
+  log-linear FOV curve from [Debugging findings](#debugging-findings-worth-keeping)) to the PAD
+  Cursor Keybinds section — PAD currently has no zoom concept at all, since MAP/TGT/RDR reuse the
+  separate `mapAct` Zoom In/Out bind instead.
+
+**SOI ring membership:** `TelemetryServer`'s SOI ring is currently built purely from connected
+browser (cid, pane) clients (`SoiRingLocked()`) — it has no concept of anything that isn't a web
+document. A new synthetic ring entry represents the manual TGP camera, but it exists in the ring
+**only while `TgpManualControl.ManualMode` is true** — not merely while an aircraft/`TargetCam`
+exists. Turning manual mode off (the toggle bind, or any existing lifecycle exit trigger) removes
+the entry from the ring; if it was SOI when that happens, SOI reassigns to the next ring member,
+the same way a disconnecting client is handled today.
+
+**Auto-steal on engage:** pressing `tgp-manual-toggle` to turn manual mode **on** both inserts the
+synthetic entry into the ring and immediately steals SOI onto it — the pilot doesn't have to Tab
+to it manually the first time. From then on it's an ordinary ring member: `SOI Next`/`SOI Prev`
+cycles through it alongside every MFD pane, and it can be tabbed away from and back to.
+
+**Headless while un-focused:** tabbing SOI away from the camera to a different pane does **not**
+exit manual mode — it keeps running exactly as it does today (still pointing, still capturing),
+just deaf to PAD input, until one of the existing [Lifecycle](#lifecycle-every-exit-trigger) exit
+triggers fires (real lock, aircraft loss, gear/landing-cam conflict, or the toggle bind again).
+
+**Input routing:** `Keybinds.Poll()` already computes one cursor vector + select/zoom state per
+frame regardless of what's SOI. It gains a check for whether the current SOI resolves to the
+synthetic camera entry: if so, that same per-frame vector/zoom goes to
+`TgpManualControl.SetPan`/`SetZoom`/`SetZoomAxis` instead of a browser pane; `cursor-select` keeps
+doing exactly what it does today (`TryLockTrackedUnit`, already self-gated on `ManualMode` and
+Point Track — see [Point Track to unit-lock handoff](#point-track-to-unit-lock-handoff)).
+`TelemetryServer.CursorSelect()`'s own broadcast is a harmless no-op when nothing is listening, so
+it doesn't need special-casing here. When SOI is an ordinary pane, none of this changes.
+
+**UI feedback:** `mfd.js`'s `#soi-ring` is positioned by matching this shell's own pane to the
+server's `(cid, pane)` SOI target — but the camera isn't a pane, so there's nothing to match by
+index. When the synthetic camera entry is SOI, each shell instead highlights whichever of its own
+panes (if any) is currently paged to `tgp` — matched by page content instead of pane identity. If
+no pane anywhere is showing TGP, no ring shows anywhere; the in-cockpit crosshair/overlay is still
+the primary tell that manual control has input focus.
+
+**Open implementation detail:** confirm `TelemetryServer.CursorSelect()`'s broadcast path degrades
+safely (no stale-pane misfire) when the server-side SOI target is the synthetic entry rather than
+a real `(cid, pane)`, before wiring `Keybinds.cs`'s existing `cursor-select` handler through
+unchanged.
+
 ## Out of scope
 
 - Additional weapon-lock/targeting controls beyond the PAD Cursor Select Point Track handoff.
