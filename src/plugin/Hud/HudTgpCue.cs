@@ -12,6 +12,7 @@ namespace NOXMFD
         private const float MarkerSize = 31f;
         private const float CornerArmLength = 7.5f;
         private const float StrokeWidth = 1f;
+        private const float CenterDotSize = 2f;
         private const float EdgeArrowLength = 9.5f;
         private const float EdgeArrowAngle = 35f;
         // The label stays at a readable size while the brackets/caret are half-scale, so its lower
@@ -88,6 +89,7 @@ namespace NOXMFD
             AddCorner(_brackets, +1f, +1f, "TopRight");
             AddCorner(_brackets, -1f, -1f, "BottomLeft");
             AddCorner(_brackets, +1f, -1f, "BottomRight");
+            AddBar(_brackets, "CenterDot", new Vector2(CenterDotSize, CenterDotSize), Vector2.zero, 0f);
 
             _edgeArrow = NewRect("EdgeArrow", _root, Vector2.zero, Vector2.zero);
             AddArrowArm(_edgeArrow, +EdgeArrowAngle);

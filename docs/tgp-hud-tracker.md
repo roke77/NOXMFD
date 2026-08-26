@@ -221,7 +221,8 @@ Baseline from the approved mockup:
 - approximately 31x31 reference pixels at the baseline UI scale;
 - approximately 7.5-pixel corner arms;
 - approximately 1-pixel strokes;
-- empty centre with a generous gap;
+- a small 2x2-pixel centre dot for precise line-of-sight placement;
+- otherwise empty centre with a generous gap;
 - amber/yellow colour, distinct from the native green centre diamond;
 - subtle glow only, without a filled background;
 - small uppercase `TGP` label centred below the brackets.
