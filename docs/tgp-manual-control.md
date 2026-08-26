@@ -794,10 +794,10 @@ is a no-op, matching `master-arms.set`/`combat-mode.set`'s own shape rather than
 `tgp-manual-toggle`/`tgp-manual-ir-toggle`'s blind flip:
 - `tgp.manual.set { on }` → `TgpManualControl.SetManual(on)` — idempotent twin of `Toggle()`;
   `on:true` engages (same aircraft/TargetCam guards as the keybind), `on:false` exits.
-- `tgp.ir.set { on }` → `TgpManualControl.SetIR(on)` — idempotent twin of `ToggleIR()`; still only
-  acts while `ManualMode` is on (COLOR/IR is native-automatic otherwise), so pressing CLR/IR while
-  a real target is locked is a silent no-op — that pairing exists to switch the manual camera before
-  or after using it, not to drive a locked target's own automatic IR switching.
+- `tgp.ir.set { on }` → `TgpManualControl.SetIR(on)` — idempotent twin of `ToggleIR()`, and unlike
+  `tgp.manual.set` it acts identically whether `ManualMode` is on or a real target is locked. See
+  [Native-lock CLR/IR override](#native-lock-clrir-override-built) below for the real-lock half —
+  the automatic behavior it overrides, and why it needs its own Harmony patch to stick.
 
 **Layout placement:**
 - Classic bezel, full view (`mfd.js`'s `placeTgpNavLabels`): `MAIN, TGT, MAN, CLR, IR, CFG` fill
@@ -813,6 +813,38 @@ is a no-op, matching `master-arms.set`/`combat-mode.set`'s own shape rather than
   shape as `MASTER_ARMS_NAV`/`COMBAT_MODE_NAV`. `markTgpMode`/`markTgpImg` re-apply the highlight
   off the cached `tgp` slice on every tick (`onSlice`) and on nav rebuild, mirroring
   `markMasterArms`/`markCombatMode`.
+
+## Native-lock CLR/IR override (built)
+
+A real (native) unit lock picks COLOR vs. IR on its own — `TargetCam.SetTargetCam`
+(`_scratch/full/TargetCam.cs`) switches to IR when it's night, the target is beyond 10km, **or**
+the player has the game's own "always IR" setting on (`PlayerSettings.tacScreenIR`), and back to
+COLOR otherwise — every single frame a target stays locked, with no toggle of its own. That switch
+lives inline in `SetTargetCam` itself, not in `AimCamera()` (an old comment on `ToggleIR` misnamed
+it; `AimCamera()` only ever handles FOV/mount slewing).
+
+Manual mode gets to just flip `IRMode` directly and leave it alone, because
+`TargetCam_AimCamera_ManualGate` (`HarmonyPatches.cs`) already skips the whole call chain that
+would otherwise fight it (see `ToggleIR`'s own comment). A real lock has no such gate — the
+automatic switch keeps running every frame regardless — so a one-time flip from `SetIR` would be
+silently overwritten on the very next frame.
+
+Fixed with a second Harmony patch **and** a piece of persisted state:
+- `TgpManualControl._nativeIrOverride` (`bool?`) — `null` until the player uses CLR/IR outside
+  manual mode; sticky afterward, since there's no "revert to automatic" control, only CLR/IR, so it
+  persists across a new lock too (deliberately — the whole point is "this mod's choice wins").
+- `TargetCam_SetTargetCam_IrOverride` (`HarmonyPatches.cs`) — a **Postfix** on `SetTargetCam`
+  (not a Prefix/skip: the rest of that method's camera-positioning/zoom/timeout work must still run
+  normally for a real lock). Once the native method — and its own auto-switch — has already run for
+  this frame, the postfix re-asserts `_nativeIrOverride` if it's set and doesn't already match,
+  calling the same `TgpManualTargetCamAccess.SwitchIR` helper `SetIR` uses. No-ops instantly while
+  `ManualMode` is on, since that path owns IR directly and never needs re-asserting.
+
+`SetIR`/`ToggleIR` themselves dropped their `if (!ManualMode) return;` guard — they now read
+`tc.UsingIR()` and flip it the same way regardless of mode, only additionally recording
+`_nativeIrOverride` when `!ManualMode` so the postfix has something to re-assert. This means the
+`tgp-manual-ir-toggle` keybind and the TGP page's CLR/IR buttons already work identically whether
+manual control is on or a real target is locked — no separate bind or button was needed.
 
 ## Out of scope
 

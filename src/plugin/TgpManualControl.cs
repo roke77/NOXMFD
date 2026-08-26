@@ -306,34 +306,47 @@ namespace NOXMFD
             }
         }
 
-        // Manual COLOR/IR toggle. AimCamera() normally decides this automatically by time-of-day/
-        // distance (_scratch/full/TargetCam.cs), but that whole method is skipped while ManualMode is
-        // on (TargetCam_AimCamera_ManualGate, HarmonyPatches.cs), so IRMode just freezes at whatever
-        // it was on entry — nothing else drives it during manual mode, so there's no automatic logic
-        // for this to fight. SwitchIRState itself is private but otherwise self-contained (sets a
+        // COLOR/IR toggle — shared by manual control AND a real (native) unit lock. In manual mode,
+        // AimCamera() normally decides this automatically by time-of-day/distance
+        // (_scratch/full/TargetCam.cs's SetTargetCam, not AimCamera itself despite this method's old
+        // name for it), but that whole call chain is skipped while ManualMode is on
+        // (TargetCam_AimCamera_ManualGate, HarmonyPatches.cs), so IRMode just freezes at whatever it
+        // was on entry — nothing else drives it during manual mode, so there's no automatic logic for
+        // this to fight, and SetIR can flip it directly. A real lock has no such gate — SetTargetCam's
+        // own auto-switch (and the "always IR" PlayerSettings.tacScreenIR setting) runs every frame
+        // regardless — so SetIR instead records the choice in _nativeIrOverride and
+        // TargetCam_SetTargetCam_IrOverride (HarmonyPatches.cs) re-asserts it every frame right after
+        // the native logic runs. SwitchIRState itself is private but otherwise self-contained (sets a
         // bool, tweaks a post-process ColorAdjustments volume) and isn't patched by anything else.
         internal static void ToggleIR()
         {
-            if (!ManualMode) return;
             GameManager.GetLocalAircraft(out Aircraft ac);
             TargetCam? tc = ac != null ? ac.targetCam : null;
             if (tc == null || !TgpManualTargetCamAccess.Ensure()) return;
             SetIR(!tc.UsingIR());
         }
 
+        // The native lock's own CLR/IR choice (docs/tgp-manual-control.md's NAV additions) — null
+        // until the player uses CLR/IR outside manual mode. Sticky once set: there's no "revert to
+        // automatic" control, only CLR/IR, so it persists across a new lock too, the same "this mod's
+        // choice wins" reasoning ManualMode's own frozen IRMode already gets for free.
+        private static bool? _nativeIrOverride;
+        internal static bool? NativeIrOverride => _nativeIrOverride;
+
         // Explicit-state twin of ToggleIR — the TGP page's CLR/IR buttons (docs/tgp-manual-
         // control.md's NAV additions) are a two-button mutually-exclusive pair like WPN's ARM/SAFE,
-        // so they need an idempotent "set to X" rather than a blind flip. No-ops (same as ToggleIR)
-        // unless manual mode is on.
+        // so they need an idempotent "set to X" rather than a blind flip.
         internal static void SetIR(bool ir)
         {
-            if (!ManualMode) return;
             GameManager.GetLocalAircraft(out Aircraft ac);
             TargetCam? tc = ac != null ? ac.targetCam : null;
             if (tc == null || !TgpManualTargetCamAccess.Ensure()) return;
+
+            if (!ManualMode) _nativeIrOverride = ir;
+
             if (tc.UsingIR() == ir) return;
             if (!TgpManualTargetCamAccess.SwitchIR(tc, ir)) return;
-            Plugin.Log?.LogInfo($"[NOXMFD] TGP manual control: IR {(ir ? "ON" : "OFF")}.");
+            Plugin.Log?.LogInfo($"[NOXMFD] TGP {(ManualMode ? "manual control" : "native lock")}: IR {(ir ? "ON" : "OFF")}.");
         }
 
         // Called every frame from TelemetryReader alongside TgpFeed.Tick — cheap no-op while off.

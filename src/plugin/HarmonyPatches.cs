@@ -188,6 +188,26 @@ namespace NOXMFD
             private static bool Prefix() => !TgpManualControl.ManualMode;
         }
 
+        // Real (native) unit lock's own CLR/IR override (docs/tgp-manual-control.md's NAV
+        // additions). SetTargetCam's own auto color/IR switch (time-of-day, target distance, or the
+        // "always IR" PlayerSettings.tacScreenIR setting) runs unconditionally every frame a real
+        // target is locked — unlike ManualMode, nothing skips it. Re-assert the player's own CLR/IR
+        // choice right after, so this mod's control has the last word instead of getting overwritten
+        // next frame. No-ops with no override set (TgpManualControl.SetIR never called outside
+        // manual mode yet), or while ManualMode owns IR directly (SetIR/ToggleIR flip it immediately
+        // there instead — this native lock is never the thing rendering during manual mode anyway).
+        [HarmonyPatch(typeof(TargetCam), "SetTargetCam")]
+        private static class TargetCam_SetTargetCam_IrOverride
+        {
+            private static void Postfix(TargetCam __instance)
+            {
+                if (TgpManualControl.ManualMode) return;
+                bool? ir = TgpManualControl.NativeIrOverride;
+                if (ir == null || __instance.UsingIR() == ir.Value || !TgpManualTargetCamAccess.Ensure()) return;
+                TgpManualTargetCamAccess.SwitchIR(__instance, ir.Value);
+            }
+        }
+
         // In-cockpit TGP overlay for manual control (docs/tgp-manual-control.md's "In-cockpit
         // overlay"). TargetScreenUI.UpdateTargetInfo already runs on its own 0.1s StartSlowUpdate
         // timer regardless of manual mode, but early-returns to "NO LOCK" the instant
