@@ -706,16 +706,20 @@ literal pane directly, and lighting it up for the camera's unrelated focus was a
 The ring is strictly per-target identity now: a real TGP pane rings when IT is genuinely SOI (plain
 pane matching, nothing camera-specific), and never rings for the camera's own focus.
 
-**UI feedback — in-cockpit.** `TgpNativeOverlay.SyncCrosshair` creates a small "SOI" TextMeshPro
-label the first time the crosshair itself is built, parented under the same crosshair root so it
-shares its 0–1 canvas-normalized coordinate space, and toggles it with `IsTgpSoi` (so it also lights
-up when a real TGP pane — not just the camera's own ring entry — has focus). Positioned horizontally
-centered, vertically centered between the bottom of the camera feed (y=0) and the bottom edge of
-the crosshair's own Bottom arm (y = `1 - armEnd`, the same constant the crosshair bars are built
-from) — reads as attached to the crosshair without overlapping it. Auto-sized to its box rather
-than a fixed point size, since the canvas's real pixel scale isn't known here; uses TMP's default
-font rather than copying the game's own `TargetScreenUI` style, a known simplification worth
-revisiting if it looks visually mismatched next to the real fields.
+**UI feedback — in-cockpit.** `TgpNativeOverlay.SyncCrosshair` creates a small "SOI" tag — a tight
+translucent-black chip (`rgba(0,0,0,0.6)`, matching the web TGP page's own data-field chips in
+`tgp.css`) behind centered TextMeshPro text — the first time the crosshair itself is built,
+parented under the same crosshair root so it shares its 0–1 canvas-normalized coordinate space.
+Toggled with `IsNativeTgpSoi` (**not** the broader `IsTgpSoi` the input-routing check above uses):
+the in-cockpit tag lights up only when the camera's own synthetic ring entry is literally focused,
+not merely whenever a real TGP pane holds SOI — the web ring already covers that case, and showing
+both at once as "focused" read as confusing. Positioned horizontally centered, vertically centered
+between the bottom of the camera feed (y=0) and the bottom edge of the crosshair's own Bottom arm
+(y = `1 - armEnd`, the same constant the crosshair bars are built from) — reads as attached to the
+crosshair without overlapping it. Auto-sized to its box rather than a fixed point size, since the
+canvas's real pixel scale isn't known here; uses TMP's default font rather than copying the game's
+own `TargetScreenUI` style, a known simplification worth revisiting if it looks visually mismatched
+next to the real fields.
 
 **Implementation notes:**
 - The synthetic ring cid is `TelemetryServer.NativeTgpCid` (`" tgp-camera"`, a leading space) —

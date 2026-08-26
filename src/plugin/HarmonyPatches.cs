@@ -210,7 +210,13 @@ namespace NOXMFD
             {
                 // Always synced, regardless of ManualMode, so the crosshair is hidden the instant
                 // manual mode ends (the very next native-path tick) instead of staying stuck on.
-                TgpNativeOverlay.SyncCrosshair(___displayCanvas, TgpManualControl.ManualMode, TgpManualControl.PointTrackActive, TelemetryServer.IsTgpSoi);
+                // IsNativeTgpSoi, not the broader IsTgpSoi: the in-cockpit tag should only light up
+                // when the camera's own ring entry is literally focused, not whenever a real TGP pane
+                // is SOI — the web ring already shows that case, and the pilot asked not to see both
+                // read as "focused" at once (docs/tgp-manual-control.md's PAD Cursor consolidation
+                // plan). Keybinds.cs's PAD Cursor input routing still uses IsTgpSoi (functional, not
+                // visual) so pointing control keeps working through either route.
+                TgpNativeOverlay.SyncCrosshair(___displayCanvas, TgpManualControl.ManualMode, TgpManualControl.PointTrackActive, TelemetryServer.IsNativeTgpSoi);
 
                 if (!TgpManualControl.ManualMode || ___targetCam == null) return true;
                 Transform mount = ___targetCam.GetCamMount();

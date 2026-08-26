@@ -64,20 +64,39 @@ namespace NOXMFD
                 // "SOI" tag (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — centered
                 // horizontally, vertically centered between the bottom of the camera feed (y=0) and
                 // the bottom edge of the Bottom arm above (y = 1 - armEnd), so it reads as attached
-                // to the crosshair without overlapping it. Auto-sized to its box rather than a fixed
-                // point size, since this canvas's real pixel scale isn't known here. Uses TMP's
-                // default font rather than copying the game's own TargetScreenUI style — a known
-                // simplification; revisit if it looks visually mismatched next to the real fields.
+                // to the crosshair without overlapping it. A tight chip (~12% wide), not a wide bar —
+                // sized to the 3-letter text, matching the other data fields' own translucent
+                // background (see tgp.css's rgba(0,0,0,0.6) chips on the web TGP page — same look,
+                // separate rendering surface). Auto-sized to its box rather than a fixed point size,
+                // since this canvas's real pixel scale isn't known here. Uses TMP's default font
+                // rather than copying the game's own TargetScreenUI style — a known simplification;
+                // revisit if it looks visually mismatched next to the real fields.
                 float lowerArmBottom = 1f - armEnd;
                 float soiY = lowerArmBottom / 2f;
-                const float soiHalfHeight = 0.03f;
+                const float soiHalfWidth = 0.06f;
+                const float soiHalfHeight = 0.025f;
                 _soiLabel = new GameObject("NOXMFD_SoiLabel", typeof(RectTransform));
                 _soiLabel.transform.SetParent(rootRt, false);
                 var soiRt = (RectTransform)_soiLabel.transform;
-                soiRt.anchorMin = new Vector2(0.3f, soiY - soiHalfHeight);
-                soiRt.anchorMax = new Vector2(0.7f, soiY + soiHalfHeight);
+                soiRt.anchorMin = new Vector2(0.5f - soiHalfWidth, soiY - soiHalfHeight);
+                soiRt.anchorMax = new Vector2(0.5f + soiHalfWidth, soiY + soiHalfHeight);
                 soiRt.offsetMin = soiRt.offsetMax = Vector2.zero;
-                var soiText = _soiLabel.AddComponent<TextMeshProUGUI>();
+
+                var soiBg = new GameObject("Bg", typeof(RectTransform), typeof(Image));
+                soiBg.transform.SetParent(soiRt, false);
+                var soiBgRt = (RectTransform)soiBg.transform;
+                soiBgRt.anchorMin = Vector2.zero;
+                soiBgRt.anchorMax = Vector2.one;
+                soiBgRt.offsetMin = soiBgRt.offsetMax = Vector2.zero;
+                soiBg.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.6f);
+
+                var soiTextGo = new GameObject("Text", typeof(RectTransform));
+                soiTextGo.transform.SetParent(soiRt, false);
+                var soiTextRt = (RectTransform)soiTextGo.transform;
+                soiTextRt.anchorMin = Vector2.zero;
+                soiTextRt.anchorMax = Vector2.one;
+                soiTextRt.offsetMin = soiTextRt.offsetMax = Vector2.zero;
+                var soiText = soiTextGo.AddComponent<TextMeshProUGUI>();
                 soiText.text = "SOI";
                 soiText.alignment = TextAlignmentOptions.Center;
                 soiText.color = Color.white;
