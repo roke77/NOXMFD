@@ -1300,15 +1300,11 @@ let tgpQuality = 'native';
 let tgpData = null;
 let tgpManual = false;   // docs/tgp-manual-control.md — TgpManualControl.ManualMode, mirrored for the TGP page's status indicator
 
-// TGT/MAN/CLR/IR highlight state (docs/tgp-manual-control.md's NAV additions) — TGT lights for a
-// real (non-manual) unit lock, MAN for the manual camera; CLR/IR mirror whichever feed the active
-// camera (either one) is currently showing. tgpData is only ever {cnt:0} with no lock and no
-// manual mode (TelemetryJson.cs's TgpBlock), so hasFeed — not tgpActive, a separate "is the MJPEG
-// stream itself connected" flag — is what gates ir/clr meaningfully having a value at all.
+// TGT/MAN/CLR/IR highlight state (docs/tgp-manual-control.md's NAV additions) — the actual rule
+// lives in tgp-marks.js (shared with f35.js's own equivalent, so the two can't drift). tgpData is
+// only ever {cnt:0} with no lock and no manual mode (TelemetryJson.cs's TgpBlock).
 function tgpMarks() {
-  const hasFeed = !!tgpData && (tgpData.cnt > 0 || tgpManual);
-  const ir = hasFeed && !!tgpData.ir;
-  return { tgt: hasFeed && !tgpManual, man: tgpManual, clr: hasFeed && !ir, ir: ir };
+  return TgpMarks.tgpMarks(tgpData ? tgpData.cnt : 0, tgpManual, tgpData && tgpData.ir);
 }
 
 // Latest published slice per installed extension (docs/extensions-api.md), keyed by extension

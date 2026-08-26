@@ -535,18 +535,14 @@
       });
     }
 
-    // TGT/MAN/CLR/IR (docs/tgp-manual-control.md's NAV additions) — the bezel's mfd.js tgpMarks()
-    // equivalent, read straight off the cached tgp slice rather than tracked local state (no click
-    // here can change it on its own, unlike followOn/gridOn). tgpData is only ever {cnt:0} with no
-    // lock and no manual mode (TelemetryJson.cs's TgpBlock), so hasFeed gates ir meaningfully
-    // having a value at all. Called on every 'tgp' slice tick (onSlice) as well as on nav rebuild.
+    // TGT/MAN/CLR/IR (docs/tgp-manual-control.md's NAV additions) — read straight off the cached
+    // tgp slice rather than tracked local state (no click here can change it on its own, unlike
+    // followOn/gridOn). The actual rule lives in tgp-marks.js (shared with mfd.js's own equivalent,
+    // so the two can't drift). Called on every 'tgp' slice tick (onSlice) as well as on nav rebuild.
     function tgpMarks() {
       const s = slices.tgp;
-      const manual = !!(s && s.manual);
       const data = s && s.data;
-      const hasFeed = !!data && (data.cnt > 0 || manual);
-      const ir = hasFeed && !!data.ir;
-      return { tgt: hasFeed && !manual, man: manual, clr: hasFeed && !ir, ir: ir };
+      return TgpMarks.tgpMarks(data ? data.cnt : 0, s && s.manual, data && data.ir);
     }
     function markTgpMode() {
       const marks = tgpMarks();
