@@ -27,13 +27,16 @@ stick it came from.
 
 ## Map & waypoints
 
-Direct binds for what [MAP](map.md)'s FLW/Z+/Z−/R+/R− keys and [WPT](wpt.md)'s W+/W− keys already
-do on the focused display:
+Direct binds for what [MAP](map.md)'s FLW/R+/R− keys and [WPT](wpt.md)'s W+/W− keys already do on
+the focused display:
 
-- **Follow**, **Zoom In**, **Zoom Out**
+- **Follow**
 - **Next Route**, **Previous Route** — stay usable to switch INTO a route as long as one is saved,
   even with none currently active.
 - **Next Waypoint**, **Previous Waypoint**
+
+Zoom In/Out aren't here — they're the shared **Cursor Zoom In/Out** pair under [Cursor](#cursor)
+below, which also drives [manual TGP camera](tgp.md#manual-camera-control) zoom.
 
 ## Target list
 
@@ -48,6 +51,31 @@ do on the focused display:
 
 **Cursor Up / Down / Left / Right / Select**, plus two HOTAS axis binds (horizontal/vertical) —
 drive the [PAD cursor](#pad-cursor) below.
+
+**Cursor Zoom In / Zoom Out**, plus a calibrated **Cursor Zoom Axis**, zoom the focused MAP display
+(or scroll a scrollable page) the same way MAP's old dedicated Zoom In/Out did — see
+[PAD cursor](#pad-cursor) below — and additionally drive [manual TGP camera](tgp.md#pointing-the-camera)
+zoom while it holds SOI. Zoom Axis is camera-only: a calibrated slider (e.g. a HOTAS throttle
+slider) whose moved position jumps the camera straight to that zoom level; Zoom In/Out still work
+between axis moves.
+
+## TGP
+
+Manual pointing of the targeting-pod camera, independent of the game's own auto-lock — see
+[TGP](tgp.md#manual-camera-control) for what manual control actually does. Pointing itself uses
+the shared [PAD cursor](#pad-cursor) binds above, not a dedicated pan/tilt/zoom of its own.
+
+- **Manual Control Toggle** — turn manual camera control on/off. Centers on the aircraft's nose at
+  minimum zoom on entry, and claims PAD Cursor SOI immediately. Turns off on its own the moment a
+  real target locks, the aircraft is lost, or the landing-gear camera takes over.
+- **Manual Control Reset** — recenter the camera on the aircraft's forward direction at minimum
+  zoom, without turning it off.
+- **Point Track** — lock the camera onto whatever it's currently pointed at, holding that world
+  point steady as the aircraft moves. Press again to release. Only acts while manual control is on.
+- **Toggle IR** — switch the active TGP camera between COLOR and IR: the manual camera, or a real
+  unit lock. The game normally switches this automatically by time of day, distance, or the
+  "always IR" setting; this overrides that with your own choice, which sticks until you flip it
+  again.
 
 ## Other settings
 
@@ -95,6 +123,14 @@ mouse click or touch tap already does, but from the HOTAS, without touching the 
 - On MAP, pushing the cursor against the edge with FLW off pans the view to reveal more terrain.
 
 It only acts on whichever display currently has both SOI focus and one of these pages open.
+
+**[Manual TGP camera control](tgp.md#manual-camera-control) works a little differently:** it's not
+a crosshair drawn on a page, it's its own [SOI](#sensor-of-interest-soi) target — cycled to with
+SOI Next/Prev, or reached by having the [TGP](tgp.md) page itself focused, since that page is the
+camera's own display. While it holds SOI, the same Cursor Up/Down/Left/Right/axis pan and tilt the
+camera instead of moving a crosshair, Zoom In/Out/Axis zoom it instead of the MAP view, and Cursor
+Select tries to lock a real unit near the camera's aim instead of picking something under a
+crosshair — see [TGP](tgp.md#pointing-the-camera) for the details.
 
 ## Layout
 

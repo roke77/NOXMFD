@@ -15,13 +15,16 @@ Changes apply immediately and persist across restarts.
 
 ## LOW / HIGH
 
-Picks the feed's picture source:
+Picks the feed's picture source — the same choice applies whether [TGP](tgp.md) is showing a real
+unit lock or [manual camera control](tgp.md#manual-camera-control):
 
-- **LOW** (default) — reads the game's own targeting-pod camera as-is.
+- **LOW** (default) — reads the game's own targeting-pod camera as-is, stat overlay and crosshair
+  already baked into the picture either way.
 - **HIGH** — renders a separate, higher-resolution camera every frame instead: a sharper picture,
-  real tree/grass detail, a mag/range/grid/target-detail overlay with a per-target lock box, and a
-  basic thermal-style black-and-white look when the pod is in IR mode. Costs an extra render pass —
-  still an early-pass feature, expect rough edges.
+  real tree/grass detail, a stat overlay drawn on top of the page instead (target details when
+  locked, [pointing details](tgp.md#manual-mode-overlay) in manual control), and a basic
+  thermal-style black-and-white look when the pod is in IR mode. Costs an extra render pass — still
+  an early-pass feature, expect rough edges.
 
 ## HIDE COCKPIT FEED
 
