@@ -265,7 +265,7 @@ namespace NOXMFD
             // the reference below, for pages that need to tell a tap from a hold (docs/page-cursor.md
             // — TGT's PAD-cursor Select mirrors its tap/long-press cell behaviour).
             _cursorSelect = DefFree(config, "cursor-select", cursor, "CursorSelect", "Cursor Select", edge: true,
-                "Select whatever the cursor is on. In manual TGP Point Track, locks a nearby unit and returns to the normal target camera.",
+                "Select whatever the cursor is on. In manual TGP Area or Point Track, locks a nearby unit and returns to the normal target camera.",
                 () =>
                 {
                     TelemetryServer.CursorSelect();

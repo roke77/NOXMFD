@@ -76,10 +76,11 @@ namespace NOXMFD
         // tick — a tiny, imperceptible aim change is enough for the ray to land on a different
         // nearby surface feature each time, which reads as trembling between two close points.
         private const float PointTrackNudgeThreshold = 0.15f;
-        // Cursor Select can promote Point Track into the game's normal unit lock. The tracked
-        // ground point must be within this many metres of a unit's pivot, or within one full unit
-        // length for unusually large units. This is deliberately tighter than the camera view:
-        // zooming out should not make an unrelated unit elsewhere in frame selectable.
+        // Cursor Select can promote either manual tracking mode into the game's normal unit lock.
+        // The current ground look point must be within this many metres of a unit's pivot, or
+        // within one full unit length for unusually large units. This is deliberately tighter than
+        // the camera view: zooming out should not make an unrelated unit elsewhere in frame
+        // selectable.
         private const float UnitLockMinRadiusM = 50f;
 
         private static Vector3 _panDir = Vector3.forward;   // world-space, unit length — what mount.rotation is actually set from
@@ -239,13 +240,27 @@ namespace NOXMFD
             }
         }
 
-        // PAD Cursor Select handoff: when Point Track is close to a live/selectable unit, put that
-        // unit into WeaponManager's real target list, then release manual ownership immediately;
-        // TargetCam/TgpFeed resume the native locked-camera path on their next update.
+        // PAD Cursor Select handoff: resolve the current ground look point from either Point Track's
+        // retained position or Area Track's live aim ray. When it is close to a live/selectable
+        // unit, put that unit into WeaponManager's real target list, then release manual ownership
+        // immediately; TargetCam/TgpFeed resume the native locked-camera path on their next update.
         internal static void TryLockTrackedUnit()
         {
-            if (!ManualMode || !_pointTrackActive) return;
+            if (!ManualMode) return;
             if (!GameManager.GetLocalAircraft(out Aircraft ac) || ac == null || ac.weaponManager == null) return;
+
+            TargetCam? tc = ac.targetCam;
+            if (tc == null || !TgpManualTargetCamAccess.Ensure()) return;
+            Transform? mount = TgpManualTargetCamAccess.GetMount(tc);
+            if (mount == null) return;
+            if (!TryGetLookPoint(mount, out Vector3 lookPointLocal, out _))
+            {
+                Plugin.Log?.LogInfo($"[NOXMFD] TGP unit lock: no surface under {(_pointTrackActive ? "Point Track" : "Area Track")} aim — ignored.");
+                return;
+            }
+
+            GlobalPosition lookPoint = lookPointLocal.ToGlobalPosition();
+            string trackMode = _pointTrackActive ? "Point Track" : "Area Track";
 
             TargetListSelector tgtSel = SceneSingleton<TargetListSelector>.i;
             Unit? nearest = null;
@@ -258,7 +273,7 @@ namespace NOXMFD
                 if (tgtSel != null && tgtSel.CheckExclusions(unit)) continue;
                 if (ac.weaponManager.CheckIsTarget(unit)) continue;
 
-                float distance = (unit.GlobalPosition() - _trackedPoint).magnitude;
+                float distance = (unit.GlobalPosition() - lookPoint).magnitude;
                 float unitLength = unit.definition != null ? unit.definition.length : 0f;
                 float lockRadius = Mathf.Max(UnitLockMinRadiusM, unitLength);
                 if (distance <= lockRadius && distance < nearestDistance)
@@ -270,14 +285,14 @@ namespace NOXMFD
 
             if (nearest == null)
             {
-                Plugin.Log?.LogInfo("[NOXMFD] TGP unit lock: no selectable unit near Point Track — ignored.");
+                Plugin.Log?.LogInfo($"[NOXMFD] TGP unit lock: no selectable unit near {trackMode} aim — ignored.");
                 return;
             }
 
             if (CommandDispatcher.TrySelectTarget(nearest, "TGP unit lock"))
             {
-                Plugin.Log?.LogInfo($"[NOXMFD] TGP unit lock: Point Track handoff at {nearestDistance:0}m.");
-                ExitManual(ac.targetCam, "Point Track promoted to unit lock");
+                Plugin.Log?.LogInfo($"[NOXMFD] TGP unit lock: {trackMode} handoff at {nearestDistance:0}m.");
+                ExitManual(tc, $"{trackMode} promoted to unit lock");
             }
         }
 

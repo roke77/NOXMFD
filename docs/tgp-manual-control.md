@@ -274,13 +274,16 @@ testing, not spec'd up front:
   off the tracked point as an independent offset (see below), and releasing the stick commits one
   fresh raycast to redesignate a new locked point at the new aim. Pressing the bind again, or any
   lifecycle exit trigger, releases back to free Area Track.
-- **Point Track to unit-lock handoff** — pressing the existing **PAD Cursor Select** bind while
-  Point Track is active searches for the closest selectable live unit to the tracked world point.
+- **Manual track to unit-lock handoff** — pressing the existing **PAD Cursor Select** bind in
+  either Point Track or Area Track searches for the closest selectable live unit to the current
+  ground look point. Point Track reuses its retained world point; Area Track raycasts its live aim
+  using the same world-geometry query that supplies the manual TGP overlay.
   The normal acquisition radius is 50 m, expanded to one full unit length for unusually large
   units. A match goes through the same select-only path used by MAP/RDR commands (TGT filters,
   no neutral/scenery/self targets, HUD marker/audio when available, and multiplayer target-list propagation), then
   manual mode exits and the game's normal locked `TargetCam` takes over. With no nearby match the
-  press is still delivered to the focused web display and manual Point Track remains unchanged.
+  press is still delivered to the focused web display and the current manual tracking mode remains
+  unchanged.
 - **Calibrated Zoom Axis** (`cursor-zoom-axis` bind — one of the shared PAD Cursor binds, see
   [PAD Cursor consolidation](#pad-cursor-consolidation-built) — an `AddAxis` bind like Cursor
   Horizontal/Vertical) — a physical analog control (e.g. a HOTAS slider) whose raw position
@@ -645,7 +648,7 @@ Delivered, including the five additions in [What actually shipped](#what-actuall
 6. `Keybinds.cs` — KEY-page binds: toggle, reset, Point Track, and manual COLOR/IR toggle.
    Pan/tilt/zoom are the shared PAD Cursor binds instead of dedicated TGP ones (see
    [PAD Cursor consolidation](#pad-cursor-consolidation-built)); the existing PAD Cursor Select
-   bind also promotes a Point Track near a unit into the normal game lock.
+   bind also promotes either manual tracking mode near a unit into the normal game lock.
 7. TGP page — boresight crosshair gated on the `tgp-manual` class.
 8. Every exit trigger from [Lifecycle](#lifecycle-every-exit-trigger) except the removed page-close
    one: real lock, aircraft loss, gear/landing-cam conflict.
@@ -705,8 +708,8 @@ the TGP page. That same per-frame vector/zoom goes to
 the camera's own ring entry is literally focused: the TGP page IS this camera's display, so a
 pilot who Tabs directly onto an already-open TGP pane (without ever Tabbing onto the camera's own
 entry, or even with the in-cockpit view hidden entirely) still expects pointing control to work.
-`cursor-select` keeps doing exactly what it does today (`TryLockTrackedUnit`, already self-gated on
-`ManualMode` and Point Track — see [Point Track to unit-lock handoff](#point-track-to-unit-lock-handoff)).
+`cursor-select` keeps doing exactly what it does today (`TryLockTrackedUnit`, self-gated on
+`ManualMode` — see [Manual track to unit-lock handoff](#manual-track-to-unit-lock-handoff)).
 `TelemetryServer.CursorSelect()`'s own broadcast is a harmless no-op when nothing is listening, so
 it doesn't need special-casing here. When SOI is an ordinary pane not showing TGP, none of this
 changes.
@@ -760,11 +763,11 @@ next to the real fields.
 - `TelemetryServer.CursorSelect()`'s broadcast (a sequence counter bump) is a harmless no-op when
   nothing is listening, so `Keybinds.cs`'s `cursor-select` handler needed no special-casing for the
   synthetic SOI target — it already just calls `TryLockTrackedUnit()` unconditionally, self-gated
-  on `ManualMode` and Point Track.
+  on `ManualMode`; that method resolves the current look point for either Area or Point Track.
 
 ## Out of scope
 
-- Additional weapon-lock/targeting controls beyond the PAD Cursor Select Point Track handoff.
+- Additional weapon-lock/targeting controls beyond the PAD Cursor Select manual-track handoff.
 - ~~In-cockpit `TargetScreenUI` info-panel patch (RNG/ALT/HDG/GRID/MODE from the manual hit
   point)~~ — **built**, see [In-cockpit overlay](#in-cockpit-overlay-v2).
 - ~~Manual IR toggling (`SwitchIRState`)~~ — **built**: a `tgp-manual-ir-toggle` bind flips
