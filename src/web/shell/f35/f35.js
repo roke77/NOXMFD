@@ -848,11 +848,11 @@
   //
   // The manual TGP camera (docs/tgp-manual-control.md's PAD Cursor consolidation plan) is a native
   // target, not a portal — soiPane never matches it, so focusedPortal() naturally returns null and
-  // this rings nothing while the camera itself holds focus, with no special case needed. Ringing
-  // whichever portal happened to be showing the TGP page instead was tried and was wrong: a real
-  // TGP portal is its own separate, independently focusable ring member, and lighting it up for a
-  // different target's focus was a real reported bug. The in-cockpit "SOI" tag
-  // (TgpNativeOverlay.SyncCrosshair) is the tell when the camera itself holds focus.
+  // this rings nothing while the camera itself holds focus, with no special case needed. A real
+  // TGP portal is its own separate, independently focusable ring member, so the ring must never
+  // light up a TGP-showing portal just because the camera — a different ring member — holds focus.
+  // The in-cockpit "SOI" tag (TgpNativeOverlay.SyncCrosshair) is the tell when the camera itself
+  // holds focus.
   function renderSoiRing() {
     const fp = focusedPortal();
     portals.forEach(function (p) { p.el.classList.toggle('soi', p === fp); });

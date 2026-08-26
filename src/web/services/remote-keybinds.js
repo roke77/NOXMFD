@@ -43,10 +43,10 @@
       case 'gear-up':        return { cmd: 'gear.set', args: { group: 'up' } };
       case 'gear-down':      return { cmd: 'gear.set', args: { group: 'down' } };
       case 'map-follow':        return { cmd: 'map.action', args: { wname: 'toggle-follow' } };
-      // Zoom In/Out moved to the shared Cursor Zoom In/Out binds (docs/tgp-manual-control.md's
-      // PAD Cursor consolidation plan) — held-style like Cursor Up/Down/Left/Right, so they'd need
-      // the same cursorByKey/cursor.set-style live plumbing those use, not this fire-and-forget
-      // command map. Not wired for remote keybinds yet.
+      // Zoom In/Out (Cursor Zoom In/Out, docs/tgp-manual-control.md's PAD Cursor consolidation
+      // plan) has no entry here: it's held-style like Cursor Up/Down/Left/Right, needing the same
+      // cursorByKey/cursor.set-style live plumbing those use, not this fire-and-forget command
+      // map. Remote-keybind support for it needs that same press/release transport built first.
       case 'map-route-next':    return { cmd: 'map.action', args: { wname: 'route-next' } };
       case 'map-route-prev':    return { cmd: 'map.action', args: { wname: 'route-prev' } };
       case 'map-waypoint-next': return { cmd: 'map.action', args: { wname: 'waypoint-next' } };

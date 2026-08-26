@@ -23,8 +23,7 @@
                directly and TgpNativeOverlay populates those exact same TargetScreenUI fields
                (and its own crosshair) for manual mode too. Drawing it client-side in Native as
                well double-shows everything — text baked into the pixels AND drawn again as HTML
-               on top — which is a real bug this comment used to get wrong (an earlier version
-               claimed manual mode had no baked-in overlay in either quality). manual:
+               on top. manual:
                TgpManualControl.ManualMode — shows the crosshair when a feed is present AND
                quality is HQ (.show-overlay, gated the same way as the stat block above); the
                Point Track box additionally needs data.pointTrack (tgp.js toggles

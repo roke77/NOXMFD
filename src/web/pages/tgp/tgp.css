@@ -97,14 +97,15 @@
 .tgp-ch-box-left   { top: 47.1875%;   height: 5.625%; left: 47.9583%; width: 0.3333%; }
 .tgp-ch-box-right  { top: 47.1875%;   height: 5.625%; left: 51.7083%; width: 0.3333%; }
 
-/* Stat overlay — two distinct sources feed the same corner-group layout (tgp.js's applyOverlay):
-   the locked-target HQ overlay (docs/tgp-high-quality-mode.md, drawn client-side because HQ's
-   mirror camera has no UICam counterpart to bake this into the video the way Native does — shown
-   only when quality:"hq" AND a lock is active) and the manual-mode overlay (docs/tgp-manual-
-   control.md's "In-cockpit overlay" / web parity, shown in EITHER quality whenever manual mode is
-   on, since neither quality has a baked-in overlay with no lock to draw). Sizing/layout matches
-   the in-cockpit TargetScreenUI screen (stacked corner groups, dark pill-background stat lines, a
-   bearing compass bottom-left) rather than the field list's own declaration order.
+/* Stat overlay — two distinct sources feed the same corner-group layout (tgp.js's applyOverlay),
+   both shown only in HQ quality: Native's captured video already bakes this in for both cases (see
+   the crosshair comment above), so drawing it client-side there too would double it up. The locked-
+   target overlay (docs/tgp-high-quality-mode.md, drawn client-side because HQ's mirror camera has
+   no UICam counterpart to bake this into the video the way Native does) shows when quality:"hq" AND
+   a lock is active; the manual-mode overlay (docs/tgp-manual-control.md's "In-cockpit overlay" /
+   web parity) shows when quality:"hq" AND manual mode is on. Sizing/layout matches the in-cockpit
+   TargetScreenUI screen (stacked corner groups, dark pill-background stat lines, a bearing compass
+   bottom-left) rather than the field list's own declaration order.
 
    inset:0 here is only the pre-JS fallback. object-fit:contain letterboxes the <img> whenever the
    panel's own box (width:100% + aspect-ratio, clamped by max-height:100%) isn't an exact match for

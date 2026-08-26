@@ -6,9 +6,10 @@ namespace NOXMFD
 {
     // Manual pan/tilt/zoom override of the game's own TargetCam (docs/tgp-manual-control.md).
     // Off by default, keybind-driven; auto-exits the instant a real target lock exists, the
-    // aircraft is lost, or the native landing cam takes over (NOT on an external /tgp page
-    // closing — removed after testing showed manual control is equally useful pointed at the
-    // native in-cockpit MFD alone; see docs/tgp-manual-control.md's Status section).
+    // aircraft is lost, or the native landing cam takes over. Does NOT exit when an external
+    // /tgp page closes — pointing at the native in-cockpit MFD alone is equally useful, so the
+    // mod's own camera state doesn't depend on whether a browser happens to be open (see
+    // docs/tgp-manual-control.md's Status section).
     //
     // A static class (like Keybinds/RatesConfig), not an instance TgpFeed owns: it has its own
     // state machine (ManualMode, pan direction, desired FOV) and its own TargetCam reflection
@@ -16,8 +17,9 @@ namespace NOXMFD
     // arranges by calling the same public TargetCam.SetTargetCam() TgpFeed itself calls on a
     // real lock. No coupling between the two beyond that shared camera.
     //
-    // Ported from github.com/9138noms/TargetCamControl's Runner.cs (full source reviewed), with one
-    // deliberate departure: Area Track (free aiming, no Point Track lock) stores its aim as an
+    // See docs/tgp-manual-control.md's Precedent/Annex sections for the reference implementation
+    // (github.com/9138noms/TargetCamControl) this design is built against. One deliberate
+    // departure from it: Area Track (free aiming, no Point Track lock) stores its aim as an
     // offset from the aircraft's OWN forward (aircraft-local, not world-space) so a centered camera
     // turns with the airframe as it banks/turns, rather than staying pinned to a frozen world
     // bearing — see _localPanDir. Point Track ignores that offset entirely; it drives the world-
@@ -25,7 +27,7 @@ namespace NOXMFD
     internal static class TgpManualControl
     {
         // Matches TargetCam.SetTargetCam()'s own targetFOV clamp range — the native camera never
-        // goes tighter/wider than this, so reusing it needs no new config for v1.
+        // goes tighter/wider than this, so reusing it needs no separate config.
         private const float MinFov = 0.25f;
         private const float MaxFov = 20f;
         private const float ZoomRateFovPerSec = 6f;
@@ -457,12 +459,12 @@ namespace NOXMFD
             {
                 // Direct, not rate-limited: a calibrated slider's whole point is that its physical
                 // position IS the zoom level, matched instantly — that's what "calibrated to the
-                // min and max values of the zoom" means. A rate cap was tried here to tame an
-                // erratic-looking raw signal, but the evidence (BepInEx log: the axis value
-                // dwelling at each extreme for a full second or more, not single-frame spikes)
-                // doesn't match ordinary pot/slider noise a low-pass would fix — it looks like a
-                // real signal from the wrong physical control. Smoothing just added lag without
-                // addressing that; if it's still erratic, check the Zoom Axis row on /keybinds.
+                // min and max values of the zoom" means. Do not add a rate cap or smoothing here to
+                // tame an erratic-looking raw signal: the axis value dwelling at each extreme for a
+                // full second or more (not single-frame spikes) isn't the noise pattern a low-pass
+                // fixes — it's a real signal from a miscalibrated or wrong physical control, which
+                // smoothing only masks with added lag instead of fixing. If Zoom Axis still looks
+                // erratic, check its row on /keybinds first.
                 _desiredFov = TgpManualAimMath.ZoomFromAxis(_zoomAxisValue!.Value, MinFov, MaxFov);
                 _zoomAxisAppliedValue = _zoomAxisValue.Value;
             }

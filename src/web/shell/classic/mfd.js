@@ -1953,11 +1953,11 @@ function syncCursorFocus() {
 // target, not a browser surface — every display's own `soiFocused` compares against ITS OWN cid,
 // which the camera's synthetic one never matches (telemetry-source.js), so `soiPane` is already -1
 // everywhere while the camera holds focus and this naturally hides the ring on every display, with
-// no special case needed here. Ringing whichever pane happened to be showing the TGP page instead
-// was tried and was wrong: a real TGP pane is its own separate, independently focusable ring member
-// (SOI can be tabbed onto it directly, distinct from the camera), and lighting it up for a
-// different target's focus was a real reported bug. The in-cockpit "SOI" tag
-// (TgpNativeOverlay.SyncCrosshair) is the tell when the camera itself — not a pane — holds focus.
+// no special case needed here. A real TGP pane is its own separate, independently focusable ring
+// member (SOI can be tabbed onto it directly, distinct from the camera), so the ring must never
+// light up a TGP-showing pane just because the camera — a different ring member — holds focus. The
+// in-cockpit "SOI" tag (TgpNativeOverlay.SyncCrosshair) is the tell when the camera itself — not a
+// pane — holds focus.
 function positionSoiRing() {
   if (soiPane < 0) { soiRingEl.style.display = 'none'; return; }
   const target = splitMode ? paneIframes[soiPane === 1 ? 1 : 0] : mapFrame;

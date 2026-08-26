@@ -299,9 +299,9 @@ namespace NOXMFD
         // SOI entry is focused (Tab'd onto directly), or an ordinary pane/portal that happens to be
         // showing the TGP page is focused. Distinct from IsNativeTgpSoi (ring identity — exactly the
         // synthetic entry, no more) — this one is about function, not the visual ring, so the two
-        // must stay separate: ringing every TGP-showing pane whenever the CAMERA itself is focused
-        // was tried and was wrong (a real TGP pane is its own separate, independently focusable ring
-        // member, and lighting it up for a different target's focus was a real reported bug).
+        // must stay separate: a real TGP pane is its own independently focusable ring member, so the
+        // ring must never light it up just because the CAMERA — a different ring member — is
+        // focused; conflating the two would mis-highlight a pane that isn't actually SOI.
         internal static bool IsTgpSoi =>
             IsNativeTgpSoi || string.Equals(Volatile.Read(ref _soiFocusedPage), "tgp", StringComparison.Ordinal);
 

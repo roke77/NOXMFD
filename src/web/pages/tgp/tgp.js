@@ -57,9 +57,8 @@ new ResizeObserver(syncOverlayRect).observe(tgpPanel);
 // (TgpNativeOverlay populates the exact same TargetScreenUI fields either way, docs/tgp-manual-
 // control.md's "In-cockpit overlay"). So this only ever draws client-side in HQ quality, for
 // EITHER case — drawing it in Native too double-shows everything (baked into the pixels AND drawn
-// again as HTML on top), which is exactly what happened before this comment was corrected. Layout
-// matches the in-cockpit TargetScreenUI screen (stacked corner groups + a bearing compass + a lock
-// box per target), not the raw field order.
+// again as HTML on top). Layout matches the in-cockpit TargetScreenUI screen (stacked corner
+// groups + a bearing compass + a lock box per target), not the raw field order.
 const ovType    = document.getElementById('tgp-ov-type');
 const ovPilot   = document.getElementById('tgp-ov-pilot');
 const ovRng     = document.getElementById('tgp-ov-rng');

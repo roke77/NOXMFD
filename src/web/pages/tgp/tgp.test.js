@@ -64,8 +64,6 @@ assert.ok(!elements['tgp-panel'].classList.contains('show-overlay'), 'no data pa
 // Manual mode in NATIVE quality must NOT draw the client-side overlay: Native's captured video
 // already bakes this in (TgpNativeOverlay populates the same TargetScreenUI fields the video
 // capture reads, including its own crosshair) — drawing it again here double-shows everything.
-// This was a real shipped bug (an earlier version of this comment claimed manual mode had no
-// baked-in overlay in either quality, which is only true for HQ).
 const nativeManualData = {
   cnt: 0, manual: true, pointTrack: false, hasDetail: true,
   mag: 4.5, range: 2400, alt: 68, relAlt: -934, clo: '-267km/h', el: -8, brg: 135, grid: 'Kf53', ir: false,

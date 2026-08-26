@@ -453,12 +453,6 @@ KEYBINDS = [
     {"id": "map-follow", "section": "MAP", "label": "Follow",
      "description": "Toggle FLW on the focused MAP display.",
      "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "map-zoom-in", "section": "MAP", "label": "Zoom In",
-     "description": "Zoom in on the focused MAP display.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "map-zoom-out", "section": "MAP", "label": "Zoom Out",
-     "description": "Zoom out on the focused MAP display.",
-     "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "map-route-next", "section": "MAP", "label": "Next Route",
      "description": "Switch the focused MAP display's active waypoint route to the next one (R+).",
      "key": "", "joyButton": -1, "joyNum": 0},
@@ -523,39 +517,25 @@ KEYBINDS = [
      "description": "Analog axis driving the cursor up/down — overrides Cursor Up/Down when "
                      "deflected. Only acts while a display with a cursor is focused.",
      "axis": -1, "axisNum": 0, "axisInvert": False},
-    # TGP manual control keybinds (docs/tgp-manual-control.md) — same shape as the CURSOR block
-    # above (held keys + optional axis), plus two edge binds (toggle/reset).
-    {"id": "tgp-pan-left", "section": "TGP", "label": "Pan Left",
-     "description": "Pan the TGP manual camera left. Only acts while TGP manual control is on.",
+    # PAD Cursor zoom (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — one bind pair
+    # drives both the manual TGP camera's zoom (while it holds SOI) and every other display's
+    # MAP-style zoom.
+    {"id": "cursor-zoom-in", "section": "CURSOR", "label": "Cursor Zoom In",
+     "description": "Zoom in the manual TGP camera while it holds SOI. Otherwise, zooms in on the "
+                     "focused MAP display — on a scrollable page, scrolls it up instead.",
      "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "tgp-pan-right", "section": "TGP", "label": "Pan Right",
-     "description": "Pan the TGP manual camera right. Only acts while TGP manual control is on.",
+    {"id": "cursor-zoom-out", "section": "CURSOR", "label": "Cursor Zoom Out",
+     "description": "Zoom out the manual TGP camera while it holds SOI. Otherwise, zooms out on "
+                     "the focused MAP display — on a scrollable page, scrolls it down instead.",
      "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "tgp-tilt-up", "section": "TGP", "label": "Tilt Up",
-     "description": "Tilt the TGP manual camera up. Only acts while TGP manual control is on.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "tgp-tilt-down", "section": "TGP", "label": "Tilt Down",
-     "description": "Tilt the TGP manual camera down. Only acts while TGP manual control is on.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "tgp-pan-axis", "section": "TGP", "label": "Pan Axis",
-     "description": "Analog axis (HOTAS mini-stick/hat) panning the TGP manual camera left/right — "
-                     "overrides Pan Left/Right when deflected.",
+    {"id": "cursor-zoom-axis", "section": "CURSOR", "label": "Cursor Zoom Axis",
+     "description": "Calibrated analog axis (e.g. a HOTAS slider) — moving the axis jumps the "
+                     "manual TGP camera's zoom to that absolute position, min to max. Cursor Zoom "
+                     "In/Out still work while the axis is stationary. Only acts while the manual "
+                     "TGP camera holds SOI.",
      "axis": -1, "axisNum": 0, "axisInvert": False},
-    {"id": "tgp-tilt-axis", "section": "TGP", "label": "Tilt Axis",
-     "description": "Analog axis tilting the TGP manual camera up/down — overrides Tilt Up/Down "
-                     "when deflected.",
-     "axis": -1, "axisNum": 0, "axisInvert": False},
-    {"id": "tgp-zoom-in", "section": "TGP", "label": "Zoom In",
-     "description": "Zoom the TGP manual camera in. Only acts while TGP manual control is on.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "tgp-zoom-out", "section": "TGP", "label": "Zoom Out",
-     "description": "Zoom the TGP manual camera out. Only acts while TGP manual control is on.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "tgp-zoom-axis", "section": "TGP", "label": "Zoom Axis",
-     "description": "Calibrated analog axis (e.g. a HOTAS slider) — the axis's own position IS "
-                     "the zoom level, min to max. Moving it jumps zoom to that position; Zoom "
-                     "In/Out still work while the axis is stationary.",
-     "axis": -1, "axisNum": 0, "axisInvert": False},
+    # TGP manual control keybinds (docs/tgp-manual-control.md) — lifecycle only; pan/tilt/zoom live
+    # on the CURSOR block above instead (the PAD Cursor consolidation plan).
     {"id": "tgp-manual-toggle", "section": "TGP", "label": "Manual Control Toggle",
      "description": "Toggle manual TGP pointing on/off. Centers on the aircraft's nose at "
                      "minimum zoom on entry. Auto-exits on a real target lock, aircraft loss, "
@@ -572,10 +552,10 @@ KEYBINDS = [
                      "redesignates on release. Only acts while TGP manual control is on.",
      "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "tgp-manual-ir-toggle", "section": "TGP", "label": "Toggle IR",
-     "description": "Switch the TGP manual camera between COLOR and IR. Normally the game "
-                     "switches this automatically by time of day/distance, but that logic is "
-                     "suspended while TGP manual control is on, so this bind drives it directly. "
-                     "Only acts while TGP manual control is on.",
+     "description": "Switch the active TGP camera between COLOR and IR — the manual camera, or a "
+                     "real unit lock. The game normally switches this automatically by time of "
+                     "day/distance/the \"always IR\" setting; this bind overrides that with your "
+                     "own choice, which sticks until you flip it again.",
      "key": "", "joyButton": -1, "joyNum": 0},
     # Layout keybinds (issue #51 follow-up) — SAVE/LOAD LAYOUT. Key-only: no joyButton/joyNum
     # fields at all (mirrors the axis-only rows omitting key/joyButton) — browser-side only,

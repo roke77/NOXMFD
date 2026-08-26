@@ -43,12 +43,12 @@ namespace NOXMFD
 
         // Interpolates geometrically (log-linear) in FOV, matching how physical camera zoom lenses
         // are calibrated: each unit of axis travel changes magnification by a constant *ratio*, not
-        // a constant absolute amount. A straight linear-in-1/FOV scheme (tried first) made each axis
-        // step move mag by a constant absolute amount, which packs most of the useful low-zoom range
-        // (0.5x..~5x) into a small sliver of travel since the full range runs all the way to 40x —
-        // still hard to control precisely at low zoom. Log-linear instead makes going from 1x to 2x
-        // feel like the same amount of stick as going from 10x to 20x, which is the range pilots
-        // actually work in and matches how zoom rings/wheels are perceived as "linear" in practice.
+        // a constant absolute amount. A linear-in-1/FOV scheme has the same flaw at a smaller scale:
+        // it packs most of the useful low-zoom range (0.5x..~5x) into a small sliver of travel since
+        // the full range runs all the way to 40x, still hard to control precisely at low zoom.
+        // Log-linear instead makes going from 1x to 2x feel like the same amount of stick as going
+        // from 10x to 20x, which is the range pilots actually work in and matches how zoom
+        // rings/wheels are perceived as "linear" in practice.
         internal static float ZoomFromAxis(float normalized, float minFov, float maxFov)
         {
             float t = Math.Max(0f, Math.Min(1f, (normalized + 1f) * 0.5f));

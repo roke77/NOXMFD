@@ -110,15 +110,15 @@ namespace NOXMFD
         private static BindDef? _cursorAxisH, _cursorAxisV;
         private static BindDef? _gunTrigger, _weaponRelease, _jammerPod;
 
-        // PAD Cursor zoom (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — same
-        // held-key + calibrated-axis shape TGP's own zoom used to have, folded into this generic
-        // set along with MAP's old dedicated Zoom In/Out. Poll() reads them directly and routes them
-        // one of two ways depending on current SOI (see the cursor comment above): held, every
-        // frame, into the manual TGP camera while it holds SOI; edge-triggered, into
-        // TelemetryServer.MapAction("zoom-in"/"zoom-out") — same as MAP's old dedicated binds — for
-        // any other focused display. _prevCursorZoomIn/Out remember last frame's held state so the
-        // edge can be detected manually, since these binds themselves are edge:false (their
-        // DriveFree is a no-op; Poll() drives both behaviors directly).
+        // PAD Cursor zoom (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — one bind
+        // pair covers both the manual TGP camera's zoom and every other display's MAP-style zoom,
+        // so a HOTAS needs only one zoom control bound to reach either target. Poll() reads them
+        // directly and routes them one of two ways depending on current SOI (see the cursor comment
+        // above): held, every frame, into the manual TGP camera while it holds SOI; edge-triggered,
+        // into TelemetryServer.MapAction("zoom-in"/"zoom-out") for any other focused display.
+        // _prevCursorZoomIn/Out remember last frame's held state so the edge can be detected
+        // manually, since these binds themselves are edge:false (their DriveFree is a no-op;
+        // Poll() drives both behaviors directly).
         private static BindDef? _cursorZoomIn, _cursorZoomOut;
         private static bool _prevCursorZoomIn, _prevCursorZoomOut;
         // A calibrated physical axis (e.g. a HOTAS slider) driving zoom as an absolute position —
@@ -190,9 +190,10 @@ namespace NOXMFD
             DefFree(config, "map-follow", map, "MapFollow", "Follow", edge: true,
                 "Toggle FLW on the focused MAP display.",
                 () => TelemetryServer.MapAction("toggle-follow"));
-            // Zoom In/Out used to be dedicated MAP binds; moved onto the shared PAD Cursor Zoom
-            // In/Out buttons (Cursor Keybinds) — see Poll()'s tgpSoi branch — so a HOTAS doesn't
-            // need two separate zoom controls bound to reach both MAP and the manual TGP camera.
+            // MAP has no dedicated Zoom In/Out bind here — that's the shared Cursor Zoom In/Out
+            // pair (Cursor Keybinds), which also drives the manual TGP camera while it holds SOI
+            // (see Poll()'s tgpSoi branch), so a HOTAS needs only one zoom control bound to reach
+            // either target.
             DefFree(config, "map-route-next", map, "MapRouteNext", "Next Route", edge: true,
                 "Switch the focused MAP display's active waypoint route to the next one (R+).",
                 () => TelemetryServer.MapAction("route-next"));
@@ -280,9 +281,10 @@ namespace NOXMFD
                 "Analog axis (HOTAS mini-stick/hat) driving the cursor left/right — overrides Cursor Left/Right when deflected. Only acts while a display with a cursor is focused.");
             _cursorAxisV = AddAxis(config, "cursor-axis-v", cursor, "CursorAxisV", "Cursor Vertical",
                 "Analog axis driving the cursor up/down — overrides Cursor Up/Down when deflected. Only acts while a display with a cursor is focused.");
-            // PAD zoom (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — replaces both
-            // TGP's old dedicated zoom binds AND MAP's old dedicated Zoom In/Out; Poll() routes them
-            // to whichever one applies to the current SOI target (see the field comment above).
+            // PAD zoom (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — the manual
+            // TGP camera's zoom and every other display's MAP-style zoom share this one bind pair;
+            // Poll() routes it to whichever one applies to the current SOI target (see the field
+            // comment above).
             _cursorZoomIn  = DefFree(config, "cursor-zoom-in", cursor, "CursorZoomIn", "Cursor Zoom In", edge: false,
                 "Zoom in the manual TGP camera while it holds SOI. Otherwise, zooms in on the focused MAP display — on a scrollable page, scrolls it up instead.", () => { });
             _cursorZoomOut = DefFree(config, "cursor-zoom-out", cursor, "CursorZoomOut", "Cursor Zoom Out", edge: false,
@@ -290,11 +292,11 @@ namespace NOXMFD
             _cursorZoomAxis = AddAxis(config, "cursor-zoom-axis", cursor, "CursorZoomAxis", "Cursor Zoom Axis",
                 "Calibrated analog axis (e.g. a HOTAS slider) — moving the axis jumps the manual TGP camera's zoom to that absolute position, min to max. Cursor Zoom In/Out still work while the axis is stationary. Only acts while the manual TGP camera holds SOI.");
 
-            // TGP manual control binds (docs/tgp-manual-control.md) — pointing control only, off by
-            // default. Pan/Tilt/Zoom moved onto the PAD Cursor set above (the PAD Cursor
-            // consolidation plan) — this section keeps only the lifecycle binds, which act on the
-            // mod rather than the aeroplane (DefFree, like SOI above), so they work even without a
-            // live TargetCam.
+            // TGP manual control binds (docs/tgp-manual-control.md) — lifecycle only; pan/tilt/zoom
+            // live on the PAD Cursor set above instead (the PAD Cursor consolidation plan), so a
+            // HOTAS binds pointing once for every display rather than per-page. These act on the mod
+            // rather than the aeroplane (DefFree, like SOI above), so they work even without a live
+            // TargetCam.
             const string tgp = "TGP Keybinds";
             DefFree(config, "tgp-manual-toggle", tgp, "TgpManualToggle", "Manual Control Toggle", edge: true,
                 "Toggle manual TGP pointing on/off. Centers on the aircraft's nose at minimum zoom on entry, and claims PAD Cursor SOI immediately. Auto-exits on a real target lock, aircraft loss, or a landing-gear/cam conflict.",
@@ -309,9 +311,10 @@ namespace NOXMFD
                 "TGP manual control is on.",
                 () => TgpManualControl.TogglePointTrack());
             DefFree(config, "tgp-manual-ir-toggle", tgp, "TgpManualIrToggle", "Toggle IR", edge: true,
-                "Switch the TGP manual camera between COLOR and IR. Normally the game switches this " +
-                "automatically by time of day/distance, but that logic is suspended while TGP manual " +
-                "control is on, so this bind drives it directly. Only acts while TGP manual control is on.",
+                "Switch the active TGP camera between COLOR and IR — the manual camera, or a real " +
+                "unit lock. The game normally switches this automatically by time of day/distance/" +
+                "the \"always IR\" setting; this bind overrides that with your own choice, which " +
+                "sticks until you flip it again.",
                 () => TgpManualControl.ToggleIR());
 
             // Layout keybinds (issue #51 follow-up) — SAVE/LOAD LAYOUT. Unlike every bind above, the
@@ -767,11 +770,11 @@ namespace NOXMFD
             TgpManualControl.SetZoomAxis(
                 tgpSoi && _cursorZoomAxis!.AxisEntry!.Value >= 0 ? (float?)ReadAxis(_cursorZoomAxis) : null);
 
-            // Cursor Zoom In/Out also replace MAP's old dedicated Zoom In/Out binds for any OTHER
-            // focused display (MAP itself, or TGT/RDR/WPT/HUD's own scroll/step repurposing of the
-            // same "zoom-in"/"zoom-out" map-act — docs/page-cursor.md). Unlike the camera's held
-            // rate above, MapAction wants one discrete press per tap, so the rising edge is tracked
-            // manually here — these binds are edge:false, so Poll() owns the whole gesture itself.
+            // Cursor Zoom In/Out also drive the MAP-style zoom for any OTHER focused display (MAP
+            // itself, or TGT/RDR/WPT/HUD's own scroll/step repurposing of the same "zoom-in"/
+            // "zoom-out" map-act — docs/page-cursor.md). Unlike the camera's held rate above,
+            // MapAction wants one discrete press per tap, so the rising edge is tracked manually
+            // here — these binds are edge:false, so Poll() owns the whole gesture itself.
             if (!tgpSoi)
             {
                 if (zoomInNow  && !_prevCursorZoomIn)  TelemetryServer.MapAction("zoom-in");

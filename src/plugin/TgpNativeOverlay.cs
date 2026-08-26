@@ -69,8 +69,9 @@ namespace NOXMFD
                 // background (see tgp.css's rgba(0,0,0,0.6) chips on the web TGP page — same look,
                 // separate rendering surface). Auto-sized to its box rather than a fixed point size,
                 // since this canvas's real pixel scale isn't known here. Uses TMP's default font
-                // rather than copying the game's own TargetScreenUI style — a known simplification;
-                // revisit if it looks visually mismatched next to the real fields.
+                // rather than the game's own TargetScreenUI style, keeping this label's construction
+                // self-contained instead of reflecting into a live TargetScreenUI Text component
+                // just to borrow its font asset.
                 float lowerArmBottom = 1f - armEnd;
                 float soiY = lowerArmBottom / 2f;
                 const float soiHalfWidth = 0.06f;

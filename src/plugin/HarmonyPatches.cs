@@ -193,9 +193,10 @@ namespace NOXMFD
         // "always IR" PlayerSettings.tacScreenIR setting) runs unconditionally every frame a real
         // target is locked — unlike ManualMode, nothing skips it. Re-assert the player's own CLR/IR
         // choice right after, so this mod's control has the last word instead of getting overwritten
-        // next frame. No-ops with no override set (TgpManualControl.SetIR never called outside
-        // manual mode yet), or while ManualMode owns IR directly (SetIR/ToggleIR flip it immediately
-        // there instead — this native lock is never the thing rendering during manual mode anyway).
+        // next frame. No-ops until the player has used CLR/IR outside manual mode at least once
+        // (TgpManualControl.NativeIrOverride is what that sets), or while ManualMode owns IR
+        // directly (SetIR/ToggleIR flip it immediately there instead — this native lock is never
+        // the thing rendering during manual mode anyway).
         [HarmonyPatch(typeof(TargetCam), "SetTargetCam")]
         private static class TargetCam_SetTargetCam_IrOverride
         {
@@ -232,10 +233,11 @@ namespace NOXMFD
                 // manual mode ends (the very next native-path tick) instead of staying stuck on.
                 // IsNativeTgpSoi, not the broader IsTgpSoi: the in-cockpit tag should only light up
                 // when the camera's own ring entry is literally focused, not whenever a real TGP pane
-                // is SOI — the web ring already shows that case, and the pilot asked not to see both
-                // read as "focused" at once (docs/tgp-manual-control.md's PAD Cursor consolidation
-                // plan). Keybinds.cs's PAD Cursor input routing still uses IsTgpSoi (functional, not
-                // visual) so pointing control keeps working through either route.
+                // is SOI — those are two independent ring members, and the web ring already shows the
+                // pane's own focus, so lighting up both at once would read as "wait, which one is
+                // actually SOI?" (docs/tgp-manual-control.md's PAD Cursor consolidation plan).
+                // Keybinds.cs's PAD Cursor input routing still uses IsTgpSoi (functional, not visual)
+                // so pointing control keeps working through either route.
                 TgpNativeOverlay.SyncCrosshair(___displayCanvas, TgpManualControl.ManualMode, TgpManualControl.PointTrackActive, TelemetryServer.IsNativeTgpSoi);
 
                 if (!TgpManualControl.ManualMode || ___targetCam == null) return true;
