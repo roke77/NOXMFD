@@ -97,6 +97,21 @@ Manual control reuses the same PAD Cursor every other display already uses (see
 - Manual control keeps running even while SOI is elsewhere on another display — it doesn't stop
   pointing, it just stops listening for input until SOI comes back to it.
 
+## In-game HUD cue
+
+While manual control is on and you're looking through the cockpit, an amber **TGP** marker on the
+main flight HUD shows where the camera is pointed — visible from anywhere you look, not just
+toward the nose. Four small corner brackets and a centre dot mark it while it's within view; past
+the edge of the screen it becomes a caret pinned to that edge instead, pointing toward it. It
+disappears the instant manual control ends.
+
+![Area Track, centered dead ahead — the default on entering manual control](images/TGP_HUD_OVERLAY.jpg)
+
+Once [Point Track](#area-track-and-point-track) locks onto a point, the marker moves off-center to
+track it — here, aimed down at a vehicle in the field below rather than straight ahead:
+
+![Point Track locked onto a ground vehicle — the marker has moved off-center to follow it](images/TGP_HUD_OVERLAY_MOVE.jpg)
+
 ## Locking a nearby unit
 
 **Cursor Select** — from either Area Track or Point Track — checks for a real, selectable unit
@@ -122,21 +137,6 @@ to show which camera is live, CLR/IR show that camera's current color mode — a
 no feed up at all.
 
 ![MAN and CLR lit during Point Track, locked onto a helicopter](images/TPG_MAN.png)
-
-## In-game HUD cue
-
-While manual control is on and you're looking through the cockpit, an amber **TGP** marker on the
-main flight HUD shows where the camera is pointed — visible from anywhere you look, not just
-toward the nose. Four small corner brackets and a centre dot mark it while it's within view; past
-the edge of the screen it becomes a caret pinned to that edge instead, pointing toward it. It
-disappears the instant manual control ends.
-
-![Area Track, centered dead ahead — the default on entering manual control](images/TGP_HUD_OVERLAY.jpg)
-
-Once [Point Track](#area-track-and-point-track) locks onto a point, the marker moves off-center to
-track it — here, aimed down at a vehicle in the field below rather than straight ahead:
-
-![Point Track locked onto a ground vehicle — the marker has moved off-center to follow it](images/TGP_HUD_OVERLAY_MOVE.jpg)
 
 ## Manual mode overlay
 
