@@ -246,22 +246,7 @@ namespace NOXMFD
             // — upsampling here adds no detail, just bytes.
             int sw = Mathf.Max(1, source.width);
             int sh = Mathf.Max(1, source.height);
-            int targetW, targetH;
-            int maxSide = Mathf.Max(sw, sh);
-            if (maxSide <= settings.MaxDimension)
-            {
-                targetW = sw; targetH = sh;
-            }
-            else if (sw >= sh)
-            {
-                targetW = settings.MaxDimension;
-                targetH = Mathf.Max(1, Mathf.RoundToInt(settings.MaxDimension * (float)sh / sw));
-            }
-            else
-            {
-                targetH = settings.MaxDimension;
-                targetW = Mathf.Max(1, Mathf.RoundToInt(settings.MaxDimension * (float)sw / sh));
-            }
+            (int targetW, int targetH) = TgpFeedSettings.FitWithinMaxDimension(sw, sh, settings.MaxDimension);
 
             if (_lastSourceWidth != sw || _lastSourceHeight != sh || _lastSourceResolution != Resolution)
             {
@@ -432,56 +417,19 @@ namespace NOXMFD
             internal int SettingsGeneration { get; }
         }
 
-        // ponytail: stretches the frame's own min..max luma to fill 0..255 (auto-levels) rather than
-        // a flat luma conversion or a fixed contrast pivot around mid-gray — a bright daytime scene's
-        // luma already sits well above 128, so pushing away from a fixed pivot just clips almost
-        // everything to white. Self-adjusting to the scene's actual brightness avoids that blowout;
-        // it's still not the real thermal shader's simulated heat curve, way past what a "basic
-        // black/white cam" needs, but much closer without the blowout risk.
-        // Ceiling: a flat-scene frame (all sky, no ground) has a near-zero luma range, so the
-        // stretch divisor floors at 1 rather than dividing by ~0 — that just leaves it unstretched
-        // rather than amplifying sensor-noise-level differences into full contrast.
-        //
-        // The min/max feeding that stretch is smoothed across frames (_irMinEma/_irMaxEma) rather
-        // than trusting each frame's raw values outright — a bare per-frame min/max jumps whenever a
-        // bright/dark pixel enters or leaves the picture (a highlight, camera jitter), which reads as
-        // a visible brightness/contrast pulse between consecutive frames; more noticeable at high
-        // capture rates, where shown frames are more likely to differ from each other and dropped
-        // readbacks (docs/performance.md) widen the gap between them further.
-        // ponytail: fixed smoothing factor, tuned by feel rather than measured — revisit (e.g. a
-        // faster factor, or reset-on-large-jump) if it visibly lags a fast real brightness change
-        // such as an HQ zoom snapping onto a new target.
+        // The actual auto-levels algorithm (and its ponytail/design-rationale notes) lives in
+        // TgpFeedSettings.ApplyIrAutoLevels — pure byte-array math, linked into tools/tests. This
+        // class only owns the smoothing state across frames and when to reset it (a resolution/
+        // quality change or a fresh capture generation re-seeds from that frame's own min/max
+        // instead of easing in from the previous scene's brightness).
         private const float IrLevelsSmoothing = 0.25f;
         private float _irMinEma = -1f;
         private float _irMaxEma = -1f;
         private int _irCaptureGeneration = -1;
         private int _irSettingsGeneration = -1;
 
-        private void Grayscale(byte[] px)
-        {
-            byte rawMin = 255, rawMax = 0;
-            for (int i = 0; i + 3 < px.Length; i += 4)
-            {
-                byte luma = (byte)(0.299f * px[i] + 0.587f * px[i + 1] + 0.114f * px[i + 2]);
-                if (luma < rawMin) rawMin = luma;
-                if (luma > rawMax) rawMax = luma;
-            }
-
-            if (_irMinEma < 0f) { _irMinEma = rawMin; _irMaxEma = rawMax; }
-            else
-            {
-                _irMinEma += (rawMin - _irMinEma) * IrLevelsSmoothing;
-                _irMaxEma += (rawMax - _irMaxEma) * IrLevelsSmoothing;
-            }
-
-            float range = Mathf.Max(1f, _irMaxEma - _irMinEma);
-            for (int i = 0; i + 3 < px.Length; i += 4)
-            {
-                float luma = 0.299f * px[i] + 0.587f * px[i + 1] + 0.114f * px[i + 2];
-                byte gray = (byte)Mathf.Clamp((luma - _irMinEma) / range * 255f, 0f, 255f);
-                px[i] = px[i + 1] = px[i + 2] = gray;
-            }
-        }
+        private void Grayscale(byte[] px) =>
+            TgpFeedSettings.ApplyIrAutoLevels(px, ref _irMinEma, ref _irMaxEma, IrLevelsSmoothing);
 
         // Shared by every early-return guard in CaptureFrame() (no aircraft, no TGP component,
         // reflection failed, cam disabled/timed out) — clearing Overlay alongside _active keeps the

@@ -73,9 +73,9 @@ assert.ok(!elements['tgp-panel'].classList.contains('show-overlay'), 'manual dat
 assert.ok(!elements['tgp-panel'].classList.contains('tgp-point-track'), 'no client overlay in native quality means no client Point Track box either');
 
 // Manual-mode overlay data (docs/tgp-manual-control.md's "In-cockpit overlay" / web parity) draws
-// in HQ quality, same corner-group elements as the locked-target case but a different field
-// mapping (applyManualOverlay). Own-aircraft SPD is hidden, not dashed, matching the in-cockpit
-// overlay's own SetActive(false).
+// at MID or HIGH resolution, same corner-group elements as the locked-target case but a different
+// field mapping (applyManualOverlay). Own-aircraft SPD is hidden, not dashed, matching the
+// in-cockpit overlay's own SetActive(false).
 listeners.message({ data: { mfd: true, type: 'tgp', active: true, resolution: 'high', quality: 'native', manual: true, data: {
   cnt: 0, manual: true, pointTrack: false, hasDetail: true,
   mag: 4.5, range: 2400, alt: 68, relAlt: -934, clo: '-267km/h', el: -8, brg: 135, grid: 'Kf53', ir: false,
@@ -93,6 +93,15 @@ assert.strictEqual(elements['tgp-ov-hdg'].textContent, 'EL -8°', 'manual mode s
 assert.strictEqual(elements['tgp-ov-relspd'].textContent, 'CLO -267km/h', 'manual mode shows closure rate, not target closing speed');
 assert.strictEqual(elements['tgp-ov-grid'].textContent, 'GRID: Kf53', 'manual grid');
 assert.strictEqual(elements['tgp-ov-mag'].textContent, 'Mag x4.5', 'manual magnification');
+
+// MID resolution must show the overlay too, not just HIGH — a regression that narrowed the gate to
+// resolution === 'high' would otherwise pass every other test in this file (the Point Track/dash
+// tests below only ever check field formatting, not show-overlay itself).
+listeners.message({ data: { mfd: true, type: 'tgp', active: true, resolution: 'mid', manual: true, data: {
+  cnt: 0, manual: true, pointTrack: false, hasDetail: false,
+  mag: 1.0, range: 0, alt: 0, relAlt: 0, clo: '-', el: 0, brg: 0, grid: '', ir: false,
+} } });
+assert.ok(elements['tgp-panel'].classList.contains('show-overlay'), 'manual data should show the overlay at MID resolution too');
 
 // Point Track locked — label and box both flip.
 listeners.message({ data: { mfd: true, type: 'tgp', active: true, quality: 'hq', manual: true, data: {

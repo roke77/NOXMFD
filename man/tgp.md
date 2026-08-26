@@ -7,17 +7,19 @@ Targeting-pod camera feed — zoomed on a locked target, or pointed yourself wit
 
 ## Picture quality
 
-Two picture sources, picked on the [TGP CFG](tgpcfg.md) page:
+Two independent settings on the [TGP CFG](tgpcfg.md) page — resolution (which camera) and JPEG
+quality (how hard the stream is compressed) — covered in full there. The short version: **LOW**
+resolution (default) reads the game's own targeting-pod camera exactly as it renders in the
+cockpit; **MID**/**HIGH** render a separate, sharper camera instead, with real tree/grass detail
+and everything below.
 
-- **LOW** (default) — the game's own targeting-pod camera, exactly as it renders in the cockpit.
-- **HIGH** — a separate, sharper camera with real tree/grass detail, plus everything below.
+## Mirror-camera overlay
 
-## HQ overlay
-
-Only shown in HIGH quality, while a target is locked or [manual camera control](#manual-camera-control)
-is on — LOW quality already has this baked into the game's own picture either way. Manual mode's
-own fields are covered separately under [Manual mode overlay](#manual-mode-overlay); the rest of
-this section is the locked-target reading. Reads:
+Only shown at MID or HIGH resolution, while a target is locked or
+[manual camera control](#manual-camera-control) is on — LOW resolution already has this baked into
+the game's own picture either way. Manual mode's own fields are covered separately under
+[Manual mode overlay](#manual-mode-overlay); the rest of this section is the locked-target reading.
+Reads:
 
 - Target type/name, top-left, with a pilot callsign line underneath when known.
 - **[JAM]** / **[LASE]** / **[OLD]** tag next to the name when the target is jammed, actively
@@ -34,14 +36,14 @@ this section is the locked-target reading. Reads:
   - White dashed — the tracked position is stale.
   - Amber, with a small red cross in the middle — actively laser-designated.
 
-![HQ overlay, COLOR mode — a laser-designated target](images/TGP_HQ_COLOR.jpeg)
+![Mirror-camera overlay, COLOR mode — a laser-designated target](images/TGP_HQ_COLOR.jpeg)
 
 ## IR mode
 
-When the pod is in IR (thermal) mode, HIGH quality shows a black-and-white picture instead of
-color — a basic simulated thermal look, not a full radiometric simulation.
+When the pod is in IR (thermal) mode, MID/HIGH resolution shows a black-and-white picture instead
+of color — a basic simulated thermal look, not a full radiometric simulation.
 
-![HQ overlay, IR mode — a friendly lock](images/TGP_HQ_BW.jpeg)
+![Mirror-camera overlay, IR mode — a friendly lock](images/TGP_HQ_BW.jpeg)
 
 ## Refresh rate
 
@@ -127,8 +129,8 @@ disappears the instant manual control ends.
 
 ## Manual mode overlay
 
-The stat readout matches the locked-target [HQ overlay](#hq-overlay)'s own corner layout and
-HIGH-quality-only rule, with fields specific to pointing instead of a target:
+The stat readout matches the locked-target [mirror-camera overlay](#mirror-camera-overlay)'s own
+corner layout and MID/HIGH-only rule, with fields specific to pointing instead of a target:
 
 - **RNG / ALT / REL** — range, altitude, and relative altitude to whatever the camera's current aim
   actually hits; blank when it isn't looking at anything.

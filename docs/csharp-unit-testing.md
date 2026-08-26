@@ -11,8 +11,10 @@ otherwise not started — see the Scope checklist.
 
 ## The problem
 
-No C# test harness exists anywhere in this repo. Every one of the 24 files in `src/plugin/` is
-verified today by `dotnet build` (compiles, 0 errors) plus a manual in-game checklist — the same
+No C# test harness exists anywhere in this repo. Every one of the 28 files in `src/plugin/`
+(count as of the `tgp-extended-high-quality` branch — this rises as features land, and isn't
+re-verified on every touch of this doc) is verified today by `dotnet build` (compiles, 0 errors)
+plus a manual in-game checklist — the same
 norm this codebase already applies to any Harmony/game-object-dependent class. That's a reasonable
 default for code that genuinely can't run outside Unity, but a real share of the plugin isn't that
 kind of code — it just hasn't been separated from the kind that is.
@@ -45,6 +47,8 @@ Coupling measured as a rough signal: hits for `SceneSingleton<`, `GameManager.`,
 | `JsonLite.cs` | 184 | The JSON parser. Already the obvious first target. |
 | `ExtensionRegistry.cs` | 188 | Registration table, bounded command queue, manifest sort — mostly state bookkeeping, some real logic. |
 | `HudDirectionCueMath.cs` | 108 | Pure screen-rectangle placement for the manual-TGP HUD cue; already linked into `tools/tests` with edge, rear, invalid-input, and stabilization coverage. |
+| `TgpManualAimMath.cs` | 76 | Pure azimuth/elevation/zoom-axis math for manual TGP pointing; linked into `tools/tests`. |
+| `TgpFeedSettings.cs` | ~140 | TGP resolution/JPEG-quality name normalization and dimension resolution, plus the aspect-preserving resize and IR auto-levels math extracted from `TgpFeed.cs`/`SpriteCapture.cs`; linked into `tools/tests`. |
 
 ### Real logic worth partially extracting
 

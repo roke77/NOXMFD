@@ -457,7 +457,10 @@ targets but still has real data to show. Three new JSON fields inside the `tgp` 
 `pointTrack`, `el`. No change needed in `telemetry-source.js` — the whole `tgp` block already flows
 through to the page's `data` object unchanged; only `tgp.js` needed to read the new fields.
 
-**Client-side gating stays "HQ quality," for manual mode too.** The original `applyOverlay` only
+**Client-side gating stays "HQ quality," for manual mode too.** (The `tgp-extended-quality`
+follow-up later renamed this axis and its gate to `resolution !== 'native'`, and `hq`/`native` to
+mirror-vs-native — the `quality === 'hq'` shown below is the exact expression at the time this bug
+was found, not what's in `tgp.js` today.) The original `applyOverlay` only
 ever drew for `quality === 'hq' && data.cnt > 0` — Native mode's locked-target case relies on the
 game's own baked-in video overlay instead, since Native captures the stacked-camera UICam output
 directly. This branch's first pass assumed manual mode had no such baked-in overlay in *either*

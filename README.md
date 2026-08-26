@@ -100,7 +100,7 @@ pilot, with HOTAS-friendly keybinds to match.
 - **[RWR](man/rwr.md)** — radar warning receiver.
 - **[TGP](man/tgp.md)** — targeting-pod camera feed, with manual pointing control and an
   in-cockpit HUD tracker cue.
-  - **[CFG](man/tgpcfg.md)** — TGP's own feed rate and quality settings.
+  - **[CFG](man/tgpcfg.md)** — TGP's own feed rate, resolution, and JPEG quality settings.
 - **[TGT](man/tgt.md)** — target-selection table.
 - **[WPN](man/wpn.md)** — weapon loadout.
 

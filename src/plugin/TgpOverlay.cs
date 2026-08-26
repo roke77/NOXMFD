@@ -7,8 +7,8 @@ namespace NOXMFD
 {
     // TGP text/status overlay data, peeled out of TgpFeed — mirrors TargetScreenUI.UpdateTargetInfo
     // (the game's in-cockpit TGP overlay) field for field, using the same public TargetCam accessors
-    // and the same Unit/FactionHQ state it reads. Native mode gets this baked into the video for
-    // free (the game's own stacked-camera UICam); HQ mode (TgpMirrorCam) has no such camera, so
+    // and the same Unit/FactionHQ state it reads. Native resolution gets this baked into the video
+    // for free (the game's own stacked-camera UICam); MID/HIGH (TgpMirrorCam) has no such camera, so
     // TgpFeed derives it here every capture tick instead, and the client renders it (tgp.js's
     // applyOverlay) — see the class-level comment on Tgp* in TelemetrySnapshot.cs for the full
     // picture. Owned by TgpFeed (TgpFeed.Overlay); has no capture/GPU concerns of its own.

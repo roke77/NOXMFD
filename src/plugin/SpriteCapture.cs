@@ -44,17 +44,10 @@ namespace NOXMFD
             int rh = Mathf.RoundToInt(r.height);
             if (rw <= 0 || rh <= 0) { rw = tex.width; rh = tex.height; r = new Rect(0f, 0f, rw, rh); }
 
-            int tw = rw, th = rh;
-            if (maxDim > 0)
-            {
-                int maxSide = Mathf.Max(rw, rh);
-                if (maxSide > maxDim)
-                {
-                    float k = (float)maxDim / maxSide;
-                    tw = Mathf.Max(1, Mathf.RoundToInt(rw * k));
-                    th = Mathf.Max(1, Mathf.RoundToInt(rh * k));
-                }
-            }
+            // Same aspect-preserving cap TgpFeed's per-frame downscale uses (TgpFeedSettings.
+            // FitWithinMaxDimension) — one implementation instead of two independently-written
+            // copies of "scale to fit within a max dimension."
+            (int tw, int th) = TgpFeedSettings.FitWithinMaxDimension(rw, rh, maxDim);
 
             // Atlas-safe sub-rect blit: scale/offset are in normalized source-texture coords, so
             // we copy exactly the sprite's region out of the shared atlas texture.

@@ -8,6 +8,9 @@ questions). Kept as a historical record of the planning, per this repo's convent
 design docs. See "What actually shipped" for how the real implementation diverged from this plan,
 and "Open questions" for which ones are now resolved.
 
+**Follow-up:** the single HIGH tier this doc designed was later split into independent
+resolution/JPEG-quality controls — see [`tgp-extended-quality.md`](tgp-extended-quality.md).
+
 Two layers here: the **experiment menu** below is the wider option space
 for the TGP feed as a whole (cost and quality both), meant to be picked
 from when spinning up experiment branches. Everything after it is the

@@ -57,14 +57,13 @@ global.sendCommand = (cmd, args) => {
   commands.push({ cmd, args });
   return Promise.resolve();
 };
-global.fetch = () => Promise.resolve({
-  json: () => Promise.resolve({
-    tgpHz: 20,
-    tgpResolution: 'high',
-    tgpJpegQuality: 'high',
-    tgpSuppressNative: true,
-  }),
-});
+let fetchResponse = {
+  tgpHz: 20,
+  tgpResolution: 'high',
+  tgpJpegQuality: 'high',
+  tgpSuppressNative: true,
+};
+global.fetch = () => Promise.resolve({ json: () => Promise.resolve(fetchResponse) });
 
 (async function run() {
   require('./tgpcfg.js');
@@ -85,6 +84,21 @@ global.fetch = () => Promise.resolve({
   elements['tcfg-reset'].onclick();
   assert.ok(resolutionButtons[0].classList.contains('active'), 'reset should restore native resolution');
   assert.ok(qualityButtons[1].classList.contains('active'), 'reset should restore JPEG 50/MID');
+
+  // A pre-extended-quality client only ever persisted tgpQuality: "hq" — no tgpResolution/
+  // tgpJpegQuality keys at all. Re-run the module against that exact shape to prove the fallback
+  // in tgpcfg.js's own fetch handler (not just telemetry-source.js's) resolves it to MID/MID
+  // rather than leaving every resolution button unlit.
+  for (const el of Object.values(elements)) el.classList = new ClassList();
+  for (const btn of resolutionButtons.concat(qualityButtons)) btn.classList = new ClassList();
+  commands.length = 0;
+  fetchResponse = { tgpHz: 15, tgpQuality: 'hq', tgpSuppressNative: false };
+  delete require.cache[require.resolve('./tgpcfg.js')];
+  require('./tgpcfg.js');
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.ok(resolutionButtons[1].classList.contains('active'), 'legacy tgpQuality:"hq" alone should restore MID resolution');
+  assert.ok(qualityButtons[1].classList.contains('active'), 'a config with no tgpJpegQuality key should default JPEG quality to MID');
 
   console.log('tgpcfg.test.js: OK');
 })().catch((error) => {

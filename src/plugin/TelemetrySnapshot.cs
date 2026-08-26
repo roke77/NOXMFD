@@ -106,8 +106,8 @@ namespace NOXMFD
         public string TgpQuality;
 
         // The stat overlay the game bakes into the cockpit TGP screen via a second stacked camera
-        // (TargetScreenUI) — Native mode gets this for free in the video pixels; HQ mode's mirror
-        // camera has no such second camera, so the page draws it itself from these fields instead
+        // (TargetScreenUI) — Native resolution gets this for free in the video pixels; the MID/HIGH
+        // mirror camera has no such second camera, so the page draws it itself from these fields instead
         // (docs/tgp-high-quality-mode.md's open question, resolved this way). Populated by
         // TgpFeed each capture tick, mirroring TargetScreenUI.UpdateTargetInfo's own field set.
         //

@@ -4,7 +4,10 @@
 
 **Implemented on `tgp-suppress-native-render`, with one known visual race still open.** Config,
 TGP CFG UI, `/rates-config`, `rates.set`, and `TgpFeed` integration are built and have been
-live-tested in LOW/native and HIGH/HQ modes.
+live-tested in LOW/native and HIGH/HQ modes (the two tiers that existed at the time — see
+[`tgp-extended-quality.md`](tgp-extended-quality.md) for the later MID/HIGH split). The suppress
+mechanism itself (`TargetCam.onCamToggle` -> `TacScreen`) doesn't branch on resolution at all, so
+MID is expected to behave identically, but hasn't been separately spot-checked live.
 
 Live testing rejected the first camera-toggle approach. Disabling `TargetCam.cam`/`UICam` made the
 external HQ feed lose the game's normal target zoom/FOV tracking until another game UI path, such

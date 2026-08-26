@@ -66,26 +66,35 @@ testing on real TGP scenes before they are treated as settled.
 Keeping MID at 50 is important: upgrading NOXMFD must not change the appearance, CPU cost, or
 bandwidth of a user who leaves both new controls at their defaults.
 
-## What the current feed actually produces
+## What the feed produced before this plan (pre-implementation baseline)
 
-There are currently two modes:
+The investigation below (through "Moving JPEG encoding off the main thread") was written before
+any of it was built, to establish why the change was worth making — kept as-is since this doc is a
+permanent planning record, not a live reference. See the Status section above for what actually
+shipped: three resolution tiers (not two), independent JPEG values, and a background encoder
+worker, not the synchronous main-thread path this section and "Current pipeline and its main-thread
+cost" below describe.
 
-| Current UI | Internal value | Actual encoded dimensions | JPEG quality |
+There were two modes:
+
+| Then-current UI | Internal value | Encoded dimensions | JPEG quality |
 |---|---|---:|---:|
 | LOW | `native` | 360x240 | 50 |
 | HIGH | `hq` | 720x480 | 50 |
 
-The native resolution is exact, not an estimate. Inspection of the installed game's
+The native resolution was exact, not an estimate. Inspection of the installed game's
 `resources.assets` shows a `TargetWindowRender` RenderTexture at 360x240. Both `TargetCamera` and
 `targetCamUICamera` target that same texture, which is why the LOW/native video already includes
-the game's UI overlay in its pixels.
+the game's UI overlay in its pixels — still true today.
 
-The current mirror camera is fixed at 720x480 in `TgpFeed.HqWidth/HqHeight`. The shared capture
-path also has `MaxDim = 720`, so merely creating a larger mirror texture would not currently
-produce a larger JPEG: the capture stage would downscale it back to a 720-pixel longest side.
+The mirror camera was fixed at 720x480 in `TgpFeed.HqWidth/HqHeight` (now `TgpFeedSettings.Resolve`,
+parameterized per tier). The shared capture path also had `MaxDim = 720`, so merely creating a
+larger mirror texture would not have produced a larger JPEG: the capture stage downscaled it back
+to a 720-pixel longest side.
 
-Every frame is encoded with `JpegQuality = 50`. The default capture rate is 15 Hz and the player
-can currently select up to 60 Hz, with a warning above 15 Hz but no quality-dependent hard cap.
+Every frame was encoded with `JpegQuality = 50`. The default capture rate was 15 Hz and the player
+could already select up to 60 Hz, with a warning above 15 Hz but no quality-dependent hard cap —
+the rate slider itself was untouched by this plan.
 
 ## What the JPEG value means
 
@@ -143,9 +152,9 @@ JPEG quality does not reduce the mirror-camera render or raw readback cost. Choo
 resolution with LOW JPEG quality still renders and reads back all 777,600 pixels; it only compresses
 the resulting bytes more aggressively afterward.
 
-## Current pipeline and its main-thread cost
+## Pre-implementation pipeline and its main-thread cost
 
-The current frame path is:
+Also pre-implementation baseline (see the note above) — the frame path was:
 
 ```text
 TargetCam or mirror camera renders on GPU
@@ -160,15 +169,19 @@ TargetCam or mirror camera renders on GPU
   -> MJPEG clients receive the cached JPEG
 ```
 
-The GPU readback is already asynchronous. `AsyncGPUReadback` avoids blocking the Unity main thread
-until the GPU finishes, at the cost of a few frames of latency. `_readbackInFlight` prevents
-requests from stacking: if the previous readback has not completed, the new capture tick is
-dropped.
+The shipped path instead hands the readback's raw bytes straight to a bounded background encoder
+worker (`ImageConversion.EncodeArrayToJPG`, no intermediate `Texture2D`) — see
+"Moving JPEG encoding off the main thread" below, which this baseline motivated.
 
-The callback's CPU work is synchronous. `Texture2D.EncodeToJPG` does not return until it has built
-the complete JPEG byte array, and the project currently performs it in the Unity/main-thread frame
-path. The server push itself is only a short locked assignment; HTTP/MJPEG writing is not the
-expensive part on the Unity main thread.
+The GPU readback was already asynchronous. `AsyncGPUReadback` avoids blocking the Unity main thread
+until the GPU finishes, at the cost of a few frames of latency. `_readbackInFlight` prevented
+requests from stacking: if the previous readback had not completed, the new capture tick was
+dropped — still true of the shipped pipeline.
+
+The callback's CPU work was synchronous. `Texture2D.EncodeToJPG` does not return until it has built
+the complete JPEG byte array, and the project performed it in the Unity/main-thread frame path at
+the time this was written. The server push itself was only a short locked assignment; HTTP/MJPEG
+writing was not the expensive part on the Unity main thread.
 
 Measured history at 15 Hz:
 
@@ -190,13 +203,13 @@ frame, especially when IR's two pixel scans happen on the same capture.
 
 ### The avoidable CPU-to-GPU round trip
 
-After readback, the current code copies raw bytes into a CPU-readable `Texture2D` and calls
+After readback, the code at the time copied raw bytes into a CPU-readable `Texture2D` and called
 `Texture2D.Apply(false, false)`. `Apply` uploads the CPU texture data back to the GPU. The pipeline
-does not render that Texture2D afterward; it only feeds it to the JPEG encoder.
+did not render that Texture2D afterward; it only fed it to the JPEG encoder.
 
-Moving to Unity's raw-array JPEG API can remove the intermediate Texture2D, its raw-data load, and
-the `Apply` upload entirely. That should be tested as an independent change before attributing all
-improvement to background threading.
+Moving to Unity's raw-array JPEG API removes the intermediate Texture2D, its raw-data load, and the
+`Apply` upload entirely — this is what shipped (`EncodeArrayToJPG` straight off the readback bytes,
+`TgpFeed.cs`'s `OnReadbackComplete`/`EncoderLoop`).
 
 ## Moving JPEG encoding off the main thread
 
