@@ -35,7 +35,7 @@ namespace NOXMFD.Tests
         [Theory]
         [InlineData("low", 0, 30)]
         [InlineData("mid", 1, 50)]
-        [InlineData("high", 2, 75)]
+        [InlineData("high", 2, 90)]
         [InlineData("unknown", 1, 50)]
         public void Jpeg_quality_names_map_to_encoder_values(
             string input, int expected, int encoderValue)

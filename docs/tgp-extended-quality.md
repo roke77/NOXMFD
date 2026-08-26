@@ -7,7 +7,7 @@ Implementation is active on `tgp-extended-high-quality`.
 Implemented in the first pass:
 
 - LOW/MID/HIGH resolution tiers at native 360x240, 720x480, and 1080x720;
-- independent JPEG LOW/MID/HIGH values at 30, 50, and 75;
+- independent JPEG LOW/MID/HIGH values at 30, 50, and 90;
 - legacy `hq` config and command input migration to MID plus temporary telemetry compatibility;
 - direct raw-array JPEG encoding on one bounded background worker;
 - generation invalidation for disengage and live setting changes;
@@ -56,9 +56,9 @@ aggressive as the first higher tier on the existing readback/MJPEG pipeline.
 |---|---|---:|---|---|
 | **LOW** | `low` | 30 | no | Smaller stream; more visible block/ringing loss |
 | **MID** | `mid` | 50 | yes | Today's shipped behavior |
-| **HIGH** | `high` | 75 | no | Retain more fine detail; larger stream |
+| **HIGH** | `high` | 90 | no | Retain more fine detail; larger stream |
 
-The numeric mapping is an initial test proposal, not a claim that 30/50/75 are equally spaced in
+The numeric mapping is an initial test proposal, not a claim that 30/50/90 are equally spaced in
 perceived quality or file size. Unity accepts JPEG quality values from 1 through 100 and defaults
 to 75. The scale is nonlinear, so the final LOW/HIGH numbers need screenshot and file-size A/B
 testing on real TGP scenes before they are treated as settled.
@@ -97,12 +97,12 @@ The encoder receives a complete uncompressed image plus an integer quality value
 4. quantizes those coefficients, discarding increasingly subtle information;
 5. entropy-compresses the remaining values into the final JPEG byte stream.
 
-The `30`, `50`, or `75` setting principally controls quantization. A lower number uses larger
+The `30`, `50`, or `90` setting principally controls quantization. A lower number uses larger
 quantization steps, which throws away more fine detail and produces a smaller file. A higher number
 preserves more coefficients and normally produces a larger file.
 
-It does **not** mean "30/50/75 percent of the original image," and the scale is not linear. A
-quality-75 frame is not predictably 50% larger or 50% better than quality 50. Output size depends
+It does **not** mean "30/50/90 percent of the original image," and the scale is not linear. A
+quality-90 frame is not predictably 80% larger or 80% better than quality 50. Output size depends
 heavily on scene content: flat sky compresses cheaply, while foliage, grass, smoke, explosions,
 sensor noise, and sharp overlay edges require more data.
 
@@ -280,7 +280,7 @@ mean.
 - Rename `TgpFeed.Quality` to `TgpFeed.Resolution`.
 - Rename `HqWidth/HqHeight` to tier-specific resolution constants or a small settings lookup.
 - Add a separate JPEG-quality enum/value, e.g. `TgpJpegQuality.Low/Medium/High` mapping to
-  30/50/75.
+  30/50/90.
 - IR and client-side overlay decisions must use `Resolution != Native`, not equality with one
   particular mirror tier.
 
@@ -391,7 +391,7 @@ render, readback, IR, and encode cost.
 
 - LOW — JPEG 30.
 - MID — JPEG 50, current/default behavior.
-- HIGH — JPEG 75.
+- HIGH — JPEG 90.
 
 The description must explain that JPEG quality changes compression/detail and network size but not
 resolution or raw readback cost.
@@ -427,7 +427,7 @@ Measure at least:
 
 At a fixed 15 Hz, test all nine combinations:
 
-| Resolution | JPEG LOW/30 | JPEG MID/50 | JPEG HIGH/75 |
+| Resolution | JPEG LOW/30 | JPEG MID/50 | JPEG HIGH/90 |
 |---|---|---|---|
 | 360x240 | test | test (current default baseline) | test |
 | 720x480 | test | test (current HIGH baseline) | test |
@@ -529,7 +529,7 @@ Defer until 1080x720 plus worker encoding has measured headroom.
 - Separate resolution and JPEG quality into independent settings.
 - Rename current HIGH/720x480 to MID without changing existing users' effective mode.
 - Add HIGH at 1080x720.
-- Use JPEG 30/50/75 as the initial LOW/MID/HIGH test values; retain 50 as default.
+- Use JPEG 30/50/90 as the initial LOW/MID/HIGH test values; retain 50 as default.
 - Keep native 360x240 + JPEG 50 + 15 Hz as the default combination.
 - Preserve `hq` as a legacy MID input and preserve old command/telemetry behavior during a
   compatibility window.
@@ -539,7 +539,7 @@ Defer until 1080x720 plus worker encoding has measured headroom.
 
 ## Remaining decisions and live verification
 
-1. Confirm JPEG 30 and 75 visually; adjust the endpoints if they are too destructive or too large.
+1. Confirm JPEG 30 and 90 visually; adjust the endpoints if they are too destructive or too large.
 2. Decide whether HIGH gets a hard 15 Hz ceiling, a stronger warning only, or an automatically
    suggested lower rate. Do not silently change the user's rate without explicit UI feedback.
 3. Decide how long to retain legacy `tgpQuality` command/telemetry aliases.

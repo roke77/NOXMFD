@@ -73,7 +73,7 @@ namespace NOXMFD
         internal static int JpegQualityValue(TgpJpegQuality quality) => quality switch
         {
             TgpJpegQuality.Low => 30,
-            TgpJpegQuality.High => 75,
+            TgpJpegQuality.High => 90,
             _ => 50,
         };
 
