@@ -218,17 +218,19 @@ Recommended behavior:
 Baseline from the approved mockup:
 
 - four separated L-shaped corner brackets;
-- approximately 62x62 reference pixels at the baseline UI scale;
-- approximately 15-pixel corner arms;
-- approximately 2-pixel strokes;
+- approximately 31x31 reference pixels at the baseline UI scale;
+- approximately 7.5-pixel corner arms;
+- approximately 1-pixel strokes;
 - empty centre with a generous gap;
 - amber/yellow colour, distinct from the native green centre diamond;
 - subtle glow only, without a filled background;
 - small uppercase `TGP` label centred below the brackets.
 
-These are reference dimensions, not constants to ship blindly. The implementation should express
-them as a compact group of named constants and tune them at 1080p, higher resolutions, ultrawide,
-and the game's UI scaling options.
+These are reference dimensions, halved after the first live cockpit pass showed the original
+62x62 treatment was too prominent. The implementation keeps them as a compact group of named
+constants for further tuning at 1080p, higher resolutions, ultrawide, and the game's UI scaling
+options. The off-screen caret is halved by the same factor; the `TGP` label remains readable rather
+than scaling all the way down with the geometry.
 
 The amber treatment matches NOXMFD's waypoint cue family and keeps the TGP indicator distinguishable
 from green native flight/selection symbology. Like the waypoint cue, this means it intentionally does

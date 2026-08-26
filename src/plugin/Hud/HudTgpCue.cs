@@ -9,13 +9,14 @@ namespace NOXMFD
     internal sealed class HudTgpCue : MonoBehaviour
     {
         private const float ProjectionDistance = 10000f;
-        private const float MarkerSize = 62f;
-        private const float CornerArmLength = 15f;
-        private const float StrokeWidth = 2f;
-        private const float EdgeArrowLength = 19f;
+        private const float MarkerSize = 31f;
+        private const float CornerArmLength = 7.5f;
+        private const float StrokeWidth = 1f;
+        private const float EdgeArrowLength = 9.5f;
         private const float EdgeArrowAngle = 35f;
-        // Leaves enough room for the 31 px half-marker and the label beneath it at every edge.
-        private const float EdgeInset = 50f;
+        // The label stays at a readable size while the brackets/caret are half-scale, so its lower
+        // edge remains the controlling margin when the cue is pinned near a screen boundary.
+        private const float EdgeInset = 36f;
 
         // Same amber family as the WPT heading bug; deliberately distinct from the game's green
         // centre-view diamond and unit markers when all three overlap.
@@ -98,7 +99,7 @@ namespace NOXMFD
             labelRect.SetParent(_root, false);
             labelRect.anchorMin = labelRect.anchorMax = new Vector2(0.5f, 0.5f);
             labelRect.pivot = new Vector2(0.5f, 0.5f);
-            labelRect.anchoredPosition = new Vector2(0f, -40f);
+            labelRect.anchoredPosition = new Vector2(0f, -24f);
             labelRect.sizeDelta = new Vector2(70f, 18f);
 
             Text label = labelObject.GetComponent<Text>();
