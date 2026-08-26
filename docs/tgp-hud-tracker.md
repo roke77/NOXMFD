@@ -2,7 +2,19 @@
 
 ## Status
 
-Planning only. Nothing in this document is implemented yet.
+Implemented on branch `tgp-hud-tracker`; in-game visual and lifecycle validation remains pending.
+
+Current implementation state:
+
+- `HudTgpCue` is attached mission-side and draws on `CombatHUD.iconLayer` only in cockpit mode.
+- `TgpManualControl.TryGetAimDirection` exposes the controller's final normalized direction without
+  exposing mutation.
+- In-view four-corner brackets and the independent off-screen edge chevron are built from
+  untextured Unity UI primitives.
+- `HudDirectionCueMath` owns screen-edge placement, behind-camera inversion, and exact-rear
+  stabilization; its standalone tests pass.
+- The plugin compiles against the installed game assemblies without new warnings.
+- Live free-look, TrackIR, respawn, overlap, and visual-size tuning are not yet verified.
 
 This plan covers [issue #59, “(in) HUD: TGP tracker”](https://github.com/roke77/NOXMFD/issues/59).
 The issue currently has no description. This document does not backfill or otherwise modify the
@@ -485,4 +497,3 @@ overlay data may continue raycasting at its own lower cadence independently.
 6. Run the full build/test suite and repeat lifecycle checks across respawn and mission changes.
 7. Update implementation documentation and evidence.
 8. Backfill issue #59 only after separate explicit authorization.
-

@@ -393,6 +393,32 @@ nothing wrong. Fixed by declaring every text field as `TextMeshProUGUI` instead.
 field's real type against a crash or a live inspector, not just an older decompile, whenever a
 Harmony `___field` injection targets game UI.
 
+## Pilot-HUD line-of-sight cue (v4, `tgp-hud-tracker` branch)
+
+Issue #59 adds a second in-game surface beyond the native TGP screen: an amber `TGP` cue on the
+pilot's full-screen combat HUD while manual mode is active. It is deliberately parented to
+`CombatHUD.iconLayer`, not the aircraft-fixed `FlightHud.HUDCenter` or heading tape. The game's
+current `mainCamera` projection therefore carries normal free-look, TrackIR, padlock and cockpit-FOV
+changes automatically, including views well outside the forward combiner area.
+
+`TgpManualControl.TryGetAimDirection` exposes the final normalized world-space `_panDir` through a
+read-only seam. `HudTgpCue.LateUpdate` projects that direction from the pilot camera, after the
+controller's normal `Update` tick has settled it. The cue shows four separated, empty-centre corner
+brackets while in view, leaving the native centre-view diamond/unit marker readable inside them. An
+independent chevron clamps to an inset screen edge while the direction is out of view; it never
+borrows `CombatHUD.SetTargetArrow`, which the native target-list state machine owns.
+
+`HudDirectionCueMath` contains the BCL-only screen rectangle math: behind-camera inversion, inset
+edge intersection, and a retained last direction around the otherwise ambiguous exact-rear point.
+It is linked into `tools/tests`, so those boundaries run without Unity. The renderer performs one
+camera projection and UI position update per active frame, with no target scan, raycast, reflection,
+network work or recurring allocation. It is cockpit-only and hides immediately when manual mode
+ends; the normal Point Track-to-unit-lock handoff therefore replaces it with native target state.
+
+Implementation and automated checks are complete on the branch. Free-look/TrackIR placement,
+visual dimensions, overlap, external-camera gating and respawn teardown still require live game
+validation; the complete matrix is in `docs/tgp-hud-tracker.md`.
+
 ## Web overlay parity (v3, `tgp-manual-web-overlay` branch)
 
 The in-cockpit overlay above (v2) only ever reached the native screen — the external web TGP page

@@ -36,6 +36,7 @@
     <Compile Include="..\..\src\plugin\TelemetrySnapshot.cs" Link="Source\TelemetrySnapshot.cs" />
     <Compile Include="..\..\src\plugin\TelemetryJson.cs" Link="Source\TelemetryJson.cs" />
     <Compile Include="..\..\src\plugin\TgpManualAimMath.cs" Link="Source\TgpManualAimMath.cs" />
+    <Compile Include="..\..\src\plugin\Hud\HudDirectionCueMath.cs" Link="Source\HudDirectionCueMath.cs" />
   </ItemGroup>
 
 </Project>

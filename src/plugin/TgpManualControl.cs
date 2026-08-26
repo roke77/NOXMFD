@@ -40,6 +40,24 @@ namespace NOXMFD
         internal static bool ManualMode { get; private set; }
         internal static bool PointTrackActive => _pointTrackActive;
 
+        // Read-only seam for the in-game HUD line-of-sight cue. The controller remains the sole
+        // writer of _panDir; consumers get the final normalized world direction only while manual
+        // mode actually owns TargetCam.
+        internal static bool TryGetAimDirection(out Vector3 direction)
+        {
+            direction = _panDir;
+            if (!ManualMode || float.IsNaN(direction.x) || float.IsNaN(direction.y) || float.IsNaN(direction.z) ||
+                float.IsInfinity(direction.x) || float.IsInfinity(direction.y) || float.IsInfinity(direction.z) ||
+                direction.sqrMagnitude <= 0.0001f)
+            {
+                direction = Vector3.zero;
+                return false;
+            }
+
+            direction.Normalize();
+            return true;
+        }
+
         // How far a Point Track raycast reaches — matches AimCamera's own far clip plane (60000f)
         // in the decompile, so a locked point can't sit further out than the camera could ever draw it.
         private const float PointTrackRayDistance = 60000f;
