@@ -10,12 +10,13 @@ namespace NOXMFD
     {
         private static GameObject? _crosshairRoot;
         private static GameObject? _pointTrackBox;
+        private static GameObject? _soiLabel;
         private static Canvas? _crosshairCanvas;
         private static float _overlayDiagLastLog;
 
         // Boresight crosshair + Point Track marker for the in-cockpit feed. Built from anchor-
         // stretched Image bars so it stays proportional on whatever display canvas the game uses.
-        internal static void SyncCrosshair(Canvas displayCanvas, bool visible, bool pointTrackActive)
+        internal static void SyncCrosshair(Canvas displayCanvas, bool visible, bool pointTrackActive, bool isTgpSoi)
         {
             if (displayCanvas == null) return;
             if (_crosshairRoot != null && _crosshairCanvas != null && _crosshairCanvas != displayCanvas)
@@ -23,6 +24,7 @@ namespace NOXMFD
                 UnityEngine.Object.Destroy(_crosshairRoot);
                 _crosshairRoot = null;
                 _pointTrackBox = null;
+                _soiLabel = null;
                 _crosshairCanvas = null;
             }
             if (_crosshairRoot == null)
@@ -58,10 +60,35 @@ namespace NOXMFD
                 CreateBar(boxRt, "BoxBottom", new Vector2(0.5f - gap, 0.5f - gap - half), new Vector2(0.5f + gap, 0.5f - gap + half));
                 CreateBar(boxRt, "BoxLeft",   new Vector2(0.5f - gap - half, 0.5f - gap), new Vector2(0.5f - gap + half, 0.5f + gap));
                 CreateBar(boxRt, "BoxRight",  new Vector2(0.5f + gap - half, 0.5f - gap), new Vector2(0.5f + gap + half, 0.5f + gap));
+
+                // "SOI" tag (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — centered
+                // horizontally, vertically centered between the bottom of the camera feed (y=0) and
+                // the bottom edge of the Bottom arm above (y = 1 - armEnd), so it reads as attached
+                // to the crosshair without overlapping it. Auto-sized to its box rather than a fixed
+                // point size, since this canvas's real pixel scale isn't known here. Uses TMP's
+                // default font rather than copying the game's own TargetScreenUI style — a known
+                // simplification; revisit if it looks visually mismatched next to the real fields.
+                float lowerArmBottom = 1f - armEnd;
+                float soiY = lowerArmBottom / 2f;
+                const float soiHalfHeight = 0.03f;
+                _soiLabel = new GameObject("NOXMFD_SoiLabel", typeof(RectTransform));
+                _soiLabel.transform.SetParent(rootRt, false);
+                var soiRt = (RectTransform)_soiLabel.transform;
+                soiRt.anchorMin = new Vector2(0.3f, soiY - soiHalfHeight);
+                soiRt.anchorMax = new Vector2(0.7f, soiY + soiHalfHeight);
+                soiRt.offsetMin = soiRt.offsetMax = Vector2.zero;
+                var soiText = _soiLabel.AddComponent<TextMeshProUGUI>();
+                soiText.text = "SOI";
+                soiText.alignment = TextAlignmentOptions.Center;
+                soiText.color = Color.white;
+                soiText.enableAutoSizing = true;
+                soiText.fontSizeMin = 8f;
+                soiText.fontSizeMax = 36f;
             }
 
             _crosshairRoot.SetActive(visible);
             if (_pointTrackBox != null) _pointTrackBox.SetActive(visible && pointTrackActive);
+            if (_soiLabel != null) _soiLabel.SetActive(visible && isTgpSoi);
         }
 
         private static void CreateBar(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax)
@@ -97,6 +124,8 @@ namespace NOXMFD
             headingText.gameObject.SetActive(true);
             altitudeText.gameObject.SetActive(true);
             relAltitudeText.gameObject.SetActive(true);
+            // speedText (own-aircraft SPD) duplicates the flight HUD (same call the web TGP page's
+            // applyManualOverlay makes), so it's always hidden in manual mode.
             speedText.gameObject.SetActive(false);
             relSpeedText.gameObject.SetActive(true);
             magText.gameObject.SetActive(true);

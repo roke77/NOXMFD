@@ -111,13 +111,20 @@ namespace NOXMFD
         private static BindDef? _gunTrigger, _weaponRelease, _jammerPod;
 
         // PAD Cursor zoom (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — same
-        // held-key + calibrated-axis shape TGP's own zoom used to have before it was folded into
-        // this generic set; Poll() reads them directly and only forwards them to the manual TGP
-        // camera while it holds SOI (see the cursor comment above).
+        // held-key + calibrated-axis shape TGP's own zoom used to have, folded into this generic
+        // set along with MAP's old dedicated Zoom In/Out. Poll() reads them directly and routes them
+        // one of two ways depending on current SOI (see the cursor comment above): held, every
+        // frame, into the manual TGP camera while it holds SOI; edge-triggered, into
+        // TelemetryServer.MapAction("zoom-in"/"zoom-out") — same as MAP's old dedicated binds — for
+        // any other focused display. _prevCursorZoomIn/Out remember last frame's held state so the
+        // edge can be detected manually, since these binds themselves are edge:false (their
+        // DriveFree is a no-op; Poll() drives both behaviors directly).
         private static BindDef? _cursorZoomIn, _cursorZoomOut;
+        private static bool _prevCursorZoomIn, _prevCursorZoomOut;
         // A calibrated physical axis (e.g. a HOTAS slider) driving zoom as an absolute position —
         // different shape from Cursor Axis H/V above, which only overrides its two keys when
-        // deflected: this one applies only when moved, so Zoom In/Out can still work between axis moves.
+        // deflected: this one applies only when moved, so Zoom In/Out can still work between axis
+        // moves. Camera-only: MAP/TGT/RDR/WPT/HUD have no absolute-zoom concept to drive.
         private static BindDef? _cursorZoomAxis;
 
         // Combat-mode tap/hold binds (docs/radar-master-arms.md, issue #32) — see PollTapHold. Kept by
@@ -183,12 +190,9 @@ namespace NOXMFD
             DefFree(config, "map-follow", map, "MapFollow", "Follow", edge: true,
                 "Toggle FLW on the focused MAP display.",
                 () => TelemetryServer.MapAction("toggle-follow"));
-            DefFree(config, "map-zoom-in", map, "MapZoomIn", "Zoom In", edge: true,
-                "Zoom in on the focused MAP display. On a scrollable page, scrolls it up instead.",
-                () => TelemetryServer.MapAction("zoom-in"));
-            DefFree(config, "map-zoom-out", map, "MapZoomOut", "Zoom Out", edge: true,
-                "Zoom out on the focused MAP display. On a scrollable page, scrolls it down instead.",
-                () => TelemetryServer.MapAction("zoom-out"));
+            // Zoom In/Out used to be dedicated MAP binds; moved onto the shared PAD Cursor Zoom
+            // In/Out buttons (Cursor Keybinds) — see Poll()'s tgpSoi branch — so a HOTAS doesn't
+            // need two separate zoom controls bound to reach both MAP and the manual TGP camera.
             DefFree(config, "map-route-next", map, "MapRouteNext", "Next Route", edge: true,
                 "Switch the focused MAP display's active waypoint route to the next one (R+).",
                 () => TelemetryServer.MapAction("route-next"));
@@ -276,15 +280,15 @@ namespace NOXMFD
                 "Analog axis (HOTAS mini-stick/hat) driving the cursor left/right — overrides Cursor Left/Right when deflected. Only acts while a display with a cursor is focused.");
             _cursorAxisV = AddAxis(config, "cursor-axis-v", cursor, "CursorAxisV", "Cursor Vertical",
                 "Analog axis driving the cursor up/down — overrides Cursor Up/Down when deflected. Only acts while a display with a cursor is focused.");
-            // PAD zoom (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — generic, like
-            // the rest of the PAD Cursor set, but currently only consumed by the manual TGP camera
-            // while it holds SOI; every other page still uses the separate MAP Zoom In/Out bind.
+            // PAD zoom (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — replaces both
+            // TGP's old dedicated zoom binds AND MAP's old dedicated Zoom In/Out; Poll() routes them
+            // to whichever one applies to the current SOI target (see the field comment above).
             _cursorZoomIn  = DefFree(config, "cursor-zoom-in", cursor, "CursorZoomIn", "Cursor Zoom In", edge: false,
-                "Zoom in on whatever the PAD cursor currently controls. Only acts while the manual TGP camera holds SOI.", () => { });
+                "Zoom in the manual TGP camera while it holds SOI. Otherwise, zooms in on the focused MAP display — on a scrollable page, scrolls it up instead.", () => { });
             _cursorZoomOut = DefFree(config, "cursor-zoom-out", cursor, "CursorZoomOut", "Cursor Zoom Out", edge: false,
-                "Zoom out on whatever the PAD cursor currently controls. Only acts while the manual TGP camera holds SOI.", () => { });
+                "Zoom out the manual TGP camera while it holds SOI. Otherwise, zooms out on the focused MAP display — on a scrollable page, scrolls it down instead.", () => { });
             _cursorZoomAxis = AddAxis(config, "cursor-zoom-axis", cursor, "CursorZoomAxis", "Cursor Zoom Axis",
-                "Calibrated analog axis (e.g. a HOTAS slider) — moving the axis jumps zoom to that absolute position, min to max. Cursor Zoom In/Out still work while the axis is stationary. Only acts while the manual TGP camera holds SOI.");
+                "Calibrated analog axis (e.g. a HOTAS slider) — moving the axis jumps the manual TGP camera's zoom to that absolute position, min to max. Cursor Zoom In/Out still work while the axis is stationary. Only acts while the manual TGP camera holds SOI.");
 
             // TGP manual control binds (docs/tgp-manual-control.md) — pointing control only, off by
             // default. Pan/Tilt/Zoom moved onto the PAD Cursor set above (the PAD Cursor
@@ -491,9 +495,9 @@ namespace NOXMFD
         internal static string? SectionNote(string section) => section switch
         {
             "MAP Keybinds" =>
-                "Follow / Zoom In / Zoom Out / Next & Previous Route / Next & Previous Waypoint are " +
-                "direct binds for what the bezel's FLW, Z+/Z-, R+/R- and W+/W- keys already do on the " +
-                "focused MAP display.",
+                "Follow / Next & Previous Route / Next & Previous Waypoint are direct binds for what " +
+                "the bezel's FLW, R+/R- and W+/W- keys already do on the focused MAP display. Zoom " +
+                "In/Out moved to the shared Cursor Zoom In/Out (see Cursor Keybinds).",
             "TGT Keybinds" =>
                 "Next/Previous highlight a row instead of moving the crosshair — moving Cursor Up/Down/" +
                 "Left/Right (or its axis) clears the highlight and hands Cursor Select back to the " +
@@ -506,10 +510,12 @@ namespace NOXMFD
             "Cursor Keybinds" =>
                 "Moves a cursor over whichever focused display has one (MAP, for now) and selects what " +
                 "it's on. Cursor Horizontal/Vertical are the same movement as an analog HOTAS axis — " +
-                "bind either or both; a deflected axis overrides its two keys. Cursor Zoom In/Out/Axis " +
-                "only act while the manual TGP camera holds SOI (see TGP Keybinds) — Zoom Axis is a " +
-                "calibrated slider whose moved position jumps zoom to that absolute level, while Zoom " +
-                "In/Out still work between axis moves.",
+                "bind either or both; a deflected axis overrides its two keys. Cursor Zoom In/Out zoom " +
+                "the manual TGP camera (see TGP Keybinds) while it holds SOI, and otherwise zoom the " +
+                "focused MAP display (or scroll a scrollable page) — the same behavior MAP's old " +
+                "dedicated Zoom In/Out gave. Zoom Axis is camera-only: a calibrated slider whose moved " +
+                "position jumps the camera's zoom to that absolute level, while Zoom In/Out still work " +
+                "between axis moves.",
             "Weapon Keybinds" =>
                 "Cycle keys select the last soft-selected weapon of their type, or the first in the list. " +
                 "Repeated presses cycle to the next one, skipping depleted weapons. " +
@@ -742,21 +748,37 @@ namespace NOXMFD
             TelemetryServer.SetCursorSelectHeld(Active(_cursorSelect!, edgeOverride: false) || remoteCursorSelectHeld);
 
             // PAD cursor -> manual TGP camera (docs/tgp-manual-control.md's PAD Cursor consolidation
-            // plan): the camera is just another SOI target now, so it only receives the cursor
-            // vector/zoom while it actually holds SOI — same unconditional-every-frame pattern as
+            // plan): receives the cursor vector/zoom while it holds SOI (IsTgpSoi — either its own
+            // synthetic ring entry directly, or an ordinary pane/portal that's showing the TGP page,
+            // since that page IS this camera's display) — same unconditional-every-frame pattern as
             // the cursor vector above, so losing SOI on a held key/axis reports 0 instead of leaving
             // the camera slewing on stale input ("headless" mode holds its last aim, it doesn't keep
             // listening). Y is negated: screen-space cursor Y grows downward (Cursor Down is +1), but
             // SetPan's Y is elevation-positive-up.
-            bool tgpSoi = TelemetryServer.IsNativeTgpSoi;
+            bool tgpSoi = TelemetryServer.IsTgpSoi;
             TgpManualControl.SetPan(tgpSoi ? cx : 0f, tgpSoi ? -cy : 0f);
-            TgpManualControl.SetZoom(1, tgpSoi && _cursorZoomIn!.ActiveNow);
-            TgpManualControl.SetZoom(-1, tgpSoi && _cursorZoomOut!.ActiveNow);
+            bool zoomInNow  = _cursorZoomIn!.ActiveNow;
+            bool zoomOutNow = _cursorZoomOut!.ActiveNow;
+            TgpManualControl.SetZoom(1, tgpSoi && zoomInNow);
+            TgpManualControl.SetZoom(-1, tgpSoi && zoomOutNow);
             // AxisEntry.Value >= 0 is "bound at all", distinct from ReadAxis's 0 return (which
             // also means "centered" for a bound axis, not just "unbound"). TgpManualControl applies
             // the axis only when it moves, so Cursor Zoom In/Out can coexist while the axis is stationary.
             TgpManualControl.SetZoomAxis(
                 tgpSoi && _cursorZoomAxis!.AxisEntry!.Value >= 0 ? (float?)ReadAxis(_cursorZoomAxis) : null);
+
+            // Cursor Zoom In/Out also replace MAP's old dedicated Zoom In/Out binds for any OTHER
+            // focused display (MAP itself, or TGT/RDR/WPT/HUD's own scroll/step repurposing of the
+            // same "zoom-in"/"zoom-out" map-act — docs/page-cursor.md). Unlike the camera's held
+            // rate above, MapAction wants one discrete press per tap, so the rising edge is tracked
+            // manually here — these binds are edge:false, so Poll() owns the whole gesture itself.
+            if (!tgpSoi)
+            {
+                if (zoomInNow  && !_prevCursorZoomIn)  TelemetryServer.MapAction("zoom-in");
+                if (zoomOutNow && !_prevCursorZoomOut) TelemetryServer.MapAction("zoom-out");
+            }
+            _prevCursorZoomIn  = zoomInNow;
+            _prevCursorZoomOut = zoomOutNow;
 
             // Combat-mode tap/hold binds (docs/radar-master-arms.md) — run every frame, same reasoning
             // as the cursor vector above: a release on an otherwise-idle frame must still reset

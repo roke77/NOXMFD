@@ -770,13 +770,13 @@
   // has no physical keys. soiPane is the focused portal's index (-1 = this glass isn't the SOI);
   // soiCursor indexes that portal's nav items.
   let soiPane = -1, soiCursor = -1, myCid = '';
-  // True while the manual TGP camera, not any portal, holds SOI — see renderSoiRing()'s comment.
-  let soiTgpOn = false;
 
   // Report the live surface count so the server cycles portals, not documents. Needs the cid, which
   // the tap supplies (soi-cid); until then this no-ops and the soi-cid handler re-invokes it.
   function reportPanes() {
-    if (myCid) sendCommand('soi.panes', { cid: myCid, n: portals.length }).catch(function () {});
+    if (!myCid) return;
+    sendCommand('soi.panes', { cid: myCid, n: portals.length }).catch(function () {});
+    reportSoiPage();   // myCid may have just arrived after focus was already established (reconnect)
   }
 
   function focusedPortal() { return (soiPane >= 0 && soiPane < portals.length) ? portals[soiPane] : null; }
@@ -784,14 +784,25 @@
   // Ring the focused portal (a class on its box; f35.css draws it). Out of range — a merge just
   // removed it, before the server's clamped target lands — rings nothing, which is the safe default.
   //
-  // While the manual TGP camera holds SOI (docs/tgp-manual-control.md's PAD Cursor consolidation
-  // plan) it isn't a portal at all, so soiPane never applies to it (mfd.js's positionSoiRing has
-  // the full story) — ring whichever portal, if any, happens to be showing the TGP page instead.
+  // The manual TGP camera (docs/tgp-manual-control.md's PAD Cursor consolidation plan) is a native
+  // target, not a portal — soiPane never matches it, so focusedPortal() naturally returns null and
+  // this rings nothing while the camera itself holds focus, with no special case needed. Ringing
+  // whichever portal happened to be showing the TGP page instead was tried and was wrong: a real
+  // TGP portal is its own separate, independently focusable ring member, and lighting it up for a
+  // different target's focus was a real reported bug. The in-cockpit "SOI" tag
+  // (TgpNativeOverlay.SyncCrosshair) is the tell when the camera itself holds focus.
   function renderSoiRing() {
-    const fp = soiTgpOn ? null : focusedPortal();
-    portals.forEach(function (p) {
-      p.el.classList.toggle('soi', soiTgpOn ? p.page() === 'tgp' : p === fp);
-    });
+    const fp = focusedPortal();
+    portals.forEach(function (p) { p.el.classList.toggle('soi', p === fp); });
+  }
+
+  // Report which page the SOI-focused portal is showing (docs/tgp-manual-control.md's PAD Cursor
+  // consolidation plan) — see mfd.js's twin for the full reasoning. Harmless no-op if this glass
+  // isn't the SOI.
+  function reportSoiPage() {
+    const fp = focusedPortal();
+    if (!fp || !myCid) return;
+    sendCommand('soi.page', { cid: myCid, n: soiPane, wname: fp.page() || '' }).catch(function () {});
   }
 
   // Paint the cursor on the focused portal's cursored nav item, clearing any elsewhere. Clamped, so
@@ -818,6 +829,7 @@
     renderSoiRing();
     renderSoiCursor();
     syncCursorFocus();
+    reportSoiPage();   // newly (or still) focused — tell the server what page this portal shows
   }
 
   // A SOI key press, applied to the focused portal. SELECT clicks the cursored label through its own
@@ -843,15 +855,14 @@
     else setSoiCursor(((soiCursor + dir) % items.length + items.length) % items.length);
   }
 
-  // A portal just rebuilt its nav grid (page change, WPN paging). Always re-check the ring — while
-  // soiTgpOn, this portal's own page may have just paged onto/off TGP, which renderSoiRing() keys
-  // off directly (focusedPortal() is null in that state, so it can't gate this the way it gates the
-  // cursor-specific work below, which only ever concerns the ONE portal SOI focus actually owns).
+  // A focused portal just rebuilt its nav grid (page change, WPN paging) — re-apply the cursor mark,
+  // and tell the server if this changed what page the SOI-focused portal shows (docs/tgp-manual-
+  // control.md's PAD Cursor consolidation plan).
   function onNavRendered(p) {
-    renderSoiRing();
     if (p !== focusedPortal()) return;
     renderSoiCursor();
     syncCursorFocus();   // the focused portal may have paged onto/off MAP under it
+    reportSoiPage();
   }
 
   // ── PAD cursor forwarding (docs/page-cursor.md, docs/map-cursor.md) ───────────────────
@@ -905,7 +916,6 @@
     // SOI control messages from the tap — not telemetry slices, so handle and return before caching.
     if (m.type === 'soi-cid') { myCid = m.cid || ''; reportPanes(); return; }
     if (m.type === 'soi')     { onSoiFocus(m); return; }
-    if (m.type === 'soi-tgp') { soiTgpOn = !!m.on; renderSoiRing(); return; }
     if (m.type === 'soi-act') { onSoiAct(m.act); return; }
     if (m.type === 'cursor') {
       const w = focusedCursorWindow();

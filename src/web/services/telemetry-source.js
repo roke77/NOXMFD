@@ -72,7 +72,6 @@ export class TelemetrySource {
     this._cid = '';                     // this instance's SOI id — settled by the server's hello
     this._soiFocused = null;            // null = never reported; forces the first post either way
     this._soiPane = -1;                 // which of this instance's surfaces is focused (-1 = none)
-    this._soiTgp = null;                // null = never reported; forces the first post either way
     this._soiSeq = null;                // null = the first frame's counter is a starting point, not a press
     // MAP cursor (docs/map-cursor.md): same idempotent-counter idea as soiSeq/soiAct, plus the
     // continuous vector tracked every frame — see the justFocused note in _onMessage.
@@ -205,17 +204,6 @@ export class TelemetrySource {
       // even if unchanged since this display was last focused — otherwise the crosshair sits still
       // under an already-deflected stick until the pilot happens to move it.
       if (justFocused) this._postUp({ type: 'cursor', x: this._cursorX, y: this._cursorY, pane });
-    }
-
-    // Whether the manual TGP camera (not any browser display) currently holds SOI — the same
-    // value on every connected instance, unlike `focused` above which only ever matches ONE
-    // specific instance's own cid. Lets a page showing the TGP feed ring itself like a focused
-    // pane would, without the shell needing to know the plugin's synthetic-cid implementation
-    // detail (docs/tgp-manual-control.md's PAD Cursor consolidation plan).
-    const soiTgp = !!d.soiTgp;
-    if (soiTgp !== this._soiTgp) {
-      this._soiTgp = soiTgp;
-      this._postUp({ type: 'soi-tgp', on: soiTgp });
     }
 
     // A SOI key press. The counter makes this safe to broadcast: act only when it CHANGES, so a

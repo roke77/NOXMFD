@@ -646,8 +646,12 @@ first-class, cyclable SOI target instead of a parallel always-on input path.
   `tgp-manual-ir-toggle` (camera mode / COLOR-IR).
 - Add `cursor-zoom-in`/`cursor-zoom-out` (digital) and `cursor-zoom-axis` (calibrated, reusing the
   log-linear FOV curve from [Debugging findings](#debugging-findings-worth-keeping)) to the PAD
-  Cursor Keybinds section — PAD currently has no zoom concept at all, since MAP/TGT/RDR reuse the
-  separate `mapAct` Zoom In/Out bind instead.
+  Cursor Keybinds section. These also absorb MAP's old dedicated `map-zoom-in`/`map-zoom-out`
+  binds (removed): `Keybinds.Poll()` routes Cursor Zoom In/Out to the manual camera (held, every
+  frame) while it holds SOI, or edge-triggered into `TelemetryServer.MapAction("zoom-in"/"zoom-out")`
+  — the same action MAP's old binds sent, which TGT/RDR/WPT/HUD already repurpose as scroll/step on
+  their own pages (docs/page-cursor.md) — for any other focused display. Cursor Zoom Axis stays
+  camera-only; nothing else has an absolute-zoom concept to drive.
 
 **SOI ring membership:** `TelemetryServer`'s SOI ring is currently built purely from connected
 browser (cid, pane) clients (`SoiRingLocked()`) — it has no concept of anything that isn't a web
@@ -668,25 +672,50 @@ just deaf to PAD input, until one of the existing [Lifecycle](#lifecycle-every-e
 triggers fires (real lock, aircraft loss, gear/landing-cam conflict, or the toggle bind again).
 
 **Input routing:** `Keybinds.Poll()` already computes one cursor vector + select/zoom state per
-frame regardless of what's SOI. It gains a check for whether the current SOI resolves to the
-synthetic camera entry: if so, that same per-frame vector/zoom goes to
-`TgpManualControl.SetPan`/`SetZoom`/`SetZoomAxis` instead of a browser pane; `cursor-select` keeps
-doing exactly what it does today (`TryLockTrackedUnit`, already self-gated on `ManualMode` and
-Point Track — see [Point Track to unit-lock handoff](#point-track-to-unit-lock-handoff)).
+frame regardless of what's SOI. It gains a check for `TelemetryServer.IsTgpSoi` — true when the
+current SOI is either the synthetic camera entry itself, OR an ordinary pane/portal that's showing
+the TGP page. That same per-frame vector/zoom goes to
+`TgpManualControl.SetPan`/`SetZoom`/`SetZoomAxis` whenever `IsTgpSoi` is true, instead of only when
+the camera's own ring entry is literally focused: the TGP page IS this camera's display, so a
+pilot who Tabs directly onto an already-open TGP pane (without ever Tabbing onto the camera's own
+entry, or even with the in-cockpit view hidden entirely) still expects pointing control to work.
+`cursor-select` keeps doing exactly what it does today (`TryLockTrackedUnit`, already self-gated on
+`ManualMode` and Point Track — see [Point Track to unit-lock handoff](#point-track-to-unit-lock-handoff)).
 `TelemetryServer.CursorSelect()`'s own broadcast is a harmless no-op when nothing is listening, so
-it doesn't need special-casing here. When SOI is an ordinary pane, none of this changes.
+it doesn't need special-casing here. When SOI is an ordinary pane not showing TGP, none of this
+changes.
 
-**UI feedback:** `mfd.js`'s `#soi-ring` (and its F-35 shell twin, `f35.js`'s `renderSoiRing`) is
-normally positioned by matching this shell's own pane/portal to the server's `(cid, pane)` SOI
-target — but the camera isn't a pane, so there's nothing to match by index. The server adds a
-`soiTgp` boolean to the SOI slice of every telemetry frame (`TelemetryServer.SoiJson`,
-`IsNativeTgpSoi`) — true on every connected client identically, unlike `soiTarget`'s cid, which
-only ever matches ONE specific instance. `telemetry-source.js` forwards it up as a `soi-tgp`
-message; each shell, while it's on, highlights whichever of its own panes/portals (if any) is
-currently paged to `tgp` — matched by page content instead of pane identity — instead of using its
-usual `soiPane`/`focusedPortal()` lookup. If no pane anywhere is showing TGP, no ring shows
-anywhere; the in-cockpit crosshair/overlay is still the primary tell that manual control has input
-focus.
+Since the plugin has no way to know what page a pane's content shows on its own, the SOI-focused
+shell reports it: a new `soi.page` command (`cid`, `n` = pane index, `wname` = page name), sent by
+`mfd.js`/`f35.js` whenever their own SOI focus changes or their focused pane's page changes
+(`reportSoiPage()` in each). `TelemetryServer.ReportSoiPage` only accepts a report that matches the
+CURRENT `(cid, pane)` target — a stale report arriving after focus already moved elsewhere is
+ignored — and `SetSoiTargetLocked` clears the remembered page on every target change, so a leftover
+"tgp" reading can't survive a Tab to a different real pane that hasn't reported in yet.
+`TelemetryServer.IsTgpSoi = IsNativeTgpSoi || <focused page is "tgp">`.
+
+**UI feedback — the ring.** `mfd.js`'s `#soi-ring` (and its F-35 shell twin, `f35.js`'s
+`renderSoiRing`) is positioned/toggled purely by matching this shell's own pane/portal identity to
+the server's `(cid, pane)` SOI target, completely unchanged from before this feature — the camera's
+synthetic cid never equals any real client's own cid, so every display's `soiFocused` naturally
+reads false and no ring shows anywhere while the camera itself holds focus, with no special case
+needed. An earlier version of this content-matched instead — ringing whichever pane happened to be
+*showing* the TGP page while the camera was SOI — which was wrong the moment a real TGP pane also
+existed as its own separate, independently-focusable ring member: SOI could be tabbed onto that
+literal pane directly, and lighting it up for the camera's unrelated focus was a real reported bug.
+The ring is strictly per-target identity now: a real TGP pane rings when IT is genuinely SOI (plain
+pane matching, nothing camera-specific), and never rings for the camera's own focus.
+
+**UI feedback — in-cockpit.** `TgpNativeOverlay.SyncCrosshair` creates a small "SOI" TextMeshPro
+label the first time the crosshair itself is built, parented under the same crosshair root so it
+shares its 0–1 canvas-normalized coordinate space, and toggles it with `IsTgpSoi` (so it also lights
+up when a real TGP pane — not just the camera's own ring entry — has focus). Positioned horizontally
+centered, vertically centered between the bottom of the camera feed (y=0) and the bottom edge of
+the crosshair's own Bottom arm (y = `1 - armEnd`, the same constant the crosshair bars are built
+from) — reads as attached to the crosshair without overlapping it. Auto-sized to its box rather
+than a fixed point size, since the canvas's real pixel scale isn't known here; uses TMP's default
+font rather than copying the game's own `TargetScreenUI` style, a known simplification worth
+revisiting if it looks visually mismatched next to the real fields.
 
 **Implementation notes:**
 - The synthetic ring cid is `TelemetryServer.NativeTgpCid` (`" tgp-camera"`, a leading space) —

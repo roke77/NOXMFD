@@ -549,8 +549,8 @@ function paneNavigate(paneIdx, page) {
   paneIframes[paneIdx].src = paneUrl(page);
   renderSplitLabels();
   refreshFollowIndicator();        // entering/leaving MAP changes whether the chip shows
-  positionSoiRing();               // this pane's content changed — may need to pick up/drop the
-                                    // TGP ring if the manual camera currently holds SOI
+  reportSoiPage();                 // this pane's content changed — tell the server if it's now
+                                    // (or no longer) TGP, for the manual camera's PAD Cursor input
 }
 
 // Forwarding from shell → pane iframes. The shell already mirrors all the data streams from the
@@ -1535,8 +1535,8 @@ function showPage(name) {
   refreshFollowIndicator();
   renderSoiCursor();   // the labels were just rebuilt; re-mark the cursored one (and clamp it)
   syncCursorFocus();   // full view just navigated onto/off MAP — the focused surface may be it
-  positionSoiRing();   // full view just navigated onto/off TGP — may need to pick up/drop the
-                        // ring if the manual camera currently holds SOI
+  reportSoiPage();     // full view just navigated onto/off TGP — tell the server, for the manual
+                        // camera's PAD Cursor input
 }
 
 // The map iframe broadcasts status + loadout + cm via postMessage; mirror onto the
@@ -1591,11 +1591,7 @@ window.addEventListener('message', function(e) {
     if (soiPane !== prevPane) setSoiCursor(-1);
     positionSoiRing();
     syncCursorFocus();   // the focused surface itself changed — re-evaluate who owns the map cursor
-  } else if (m.type === 'soi-tgp') {
-    // The manual TGP camera claimed/released SOI — see positionSoiRing()'s comment. Independent
-    // of this instance's own soiPane/soiFocused: every connected display sees the same value.
-    soiTgpOn = !!m.on;
-    positionSoiRing();
+    reportSoiPage();     // newly (or still) focused — tell the server what page this surface shows
   } else if (m.type === 'soi-act') {
     soiAct(m.act);
   } else if (m.type === 'cursor') {
@@ -1853,10 +1849,7 @@ function loadConfigUrls() {
 // display, and the cursor no longer spans both panes.
 let soiCursor = -1;   // index into soiKeys(); -1 = no cursor
 let soiPane   = -1;   // focused surface index of this instance, from the tap; -1 = not the SOI
-let myCid     = '';   // this instance's cid, for soi.panes reports (from the tap's soi-cid)
-// True while the manual TGP camera, not any browser display, holds SOI (docs/tgp-manual-
-// control.md's PAD Cursor consolidation plan) — see positionSoiRing()'s comment.
-let soiTgpOn  = false;
+let myCid     = '';   // this instance's cid, for soi.panes/soi.page reports (from the tap's soi-cid)
 
 // Report how many focusable surfaces this display shows now — 1 in full view, 2 in a split — so the
 // server cycles surfaces, not whole documents. Needs the cid, which arrives from the tap; until then
@@ -1864,6 +1857,7 @@ let soiTgpOn  = false;
 function reportPanes() {
   if (!myCid) return;
   sendCommand('soi.panes', { cid: myCid, n: splitMode ? 2 : 1 }).catch(function() {});
+  reportSoiPage();   // myCid may have just arrived after focus was already established (reconnect)
 }
 
 // ── PAD cursor forwarding (docs/page-cursor.md, docs/map-cursor.md) ───────────────────
@@ -1903,16 +1897,18 @@ function syncCursorFocus() {
 // fills it), one pane's box in a split. Measured rather than CSS-placed so a flex-sized pane
 // (V_WIDE is 2:1) is framed exactly. Hidden when this display isn't the SOI.
 //
-// The manual TGP camera (docs/tgp-manual-control.md's PAD Cursor consolidation plan) is a
-// different case: it's a native target, not a browser surface, so `soiPane` never applies to it —
-// every display's own `soiFocused` compares against ITS OWN cid, which the camera's synthetic one
-// never matches (telemetry-source.js), so soiPane is already -1 everywhere while it holds focus.
-// `soiTgpOn` carries that fact directly instead, and the ring keys off page CONTENT (whichever
-// pane, if any, happens to be showing the TGP page) rather than a pane index.
+// The manual TGP camera (docs/tgp-manual-control.md's PAD Cursor consolidation plan) is a native
+// target, not a browser surface — every display's own `soiFocused` compares against ITS OWN cid,
+// which the camera's synthetic one never matches (telemetry-source.js), so `soiPane` is already -1
+// everywhere while the camera holds focus and this naturally hides the ring on every display, with
+// no special case needed here. Ringing whichever pane happened to be showing the TGP page instead
+// was tried and was wrong: a real TGP pane is its own separate, independently focusable ring member
+// (SOI can be tabbed onto it directly, distinct from the camera), and lighting it up for a
+// different target's focus was a real reported bug. The in-cockpit "SOI" tag
+// (TgpNativeOverlay.SyncCrosshair) is the tell when the camera itself — not a pane — holds focus.
 function positionSoiRing() {
-  const target = soiTgpOn ? tgpPaneTarget()
-               : soiPane < 0 ? null
-               : (splitMode ? paneIframes[soiPane === 1 ? 1 : 0] : mapFrame);
+  if (soiPane < 0) { soiRingEl.style.display = 'none'; return; }
+  const target = splitMode ? paneIframes[soiPane === 1 ? 1 : 0] : mapFrame;
   if (!target) { soiRingEl.style.display = 'none'; return; }
   const s = screenEl.getBoundingClientRect();
   const t = target.getBoundingClientRect();
@@ -1923,13 +1919,15 @@ function positionSoiRing() {
   soiRingEl.style.display = 'block';
 }
 
-// Which iframe element (if any) is currently showing the TGP page — used only while soiTgpOn.
-function tgpPaneTarget() {
-  if (splitMode) {
-    const idx = panePages.indexOf('tgp');
-    return idx >= 0 ? paneIframes[idx] : null;
-  }
-  return currentPage === 'tgp' ? pageFrame : null;
+// Report which page the SOI-focused surface is showing (docs/tgp-manual-control.md's PAD Cursor
+// consolidation plan) — the plugin can't know a pane's content on its own, but needs to know when
+// it's 'tgp' so the manual camera also receives PAD Cursor input while the pilot is looking at the
+// external TGP page directly, not just when they've Tab'd onto the camera's own ring entry. Skips
+// silently until myCid arrives (mirrors reportPanes()); harmless no-op if this isn't the SOI.
+function reportSoiPage() {
+  if (soiPane < 0 || !myCid) return;
+  const page = splitMode ? panePages[soiPane] : currentPage;
+  sendCommand('soi.page', { cid: myCid, n: soiPane, wname: page || '' }).catch(function () {});
 }
 
 // The focused surface's keys. In a split, only the focused pane's — each split key carries its

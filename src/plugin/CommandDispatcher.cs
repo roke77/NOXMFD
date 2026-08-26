@@ -31,6 +31,7 @@ namespace NOXMFD
                                 // preset.save / preset.rename : preset name
                                 // rates.set (group "tgpQuality") : "native" | "hq"
                                 // rates.set (group "tgpSuppressNative") : "on" | anything else
+                                // soi.page : the page name the reported pane is showing
         public string? group;  // tgt.set / tgt.only : "faction" | "category" | "vehicle"
                                 // combat-mode.set : "all" | "aa" | "ag"
                                 // avn.toggle : "gear" | "radar" | "guns" | "eng" | "assist" | "nvg" |
@@ -42,8 +43,9 @@ namespace NOXMFD
         public string? bind;   // keybind.* : BindDef id ("flares", "gear-up", ...)
                                 // wpt.* : route id ("" = clear active route)
         public string? key;    // keybind.set-key : Unity KeyCode name ("" or "None" clears)
-        public string? cid;    // soi.panes : which instance is reporting (a POST isn't tied to its /stream)
+        public string? cid;    // soi.panes / soi.page : which instance is reporting (a POST isn't tied to its /stream)
         public int    n;       // soi.panes : how many focusable surfaces that instance now shows
+                                // soi.page : which of that instance's surfaces (pane index)
                                 // wpt.reorder-waypoint : the "to" index
         public float  hz;      // rates.set : desired rate in Hz (group picks which — "fast" | "tgp")
         public float  x;       // cursor.set : live cursor velocity X [-1,1]
@@ -129,6 +131,12 @@ namespace NOXMFD
                 // A client reports its current surface count so SOI can cycle surfaces, not documents.
                 // Carries its own cid — a POST isn't tied to the /stream connection the count belongs to.
                 { "soi.panes",          e => TelemetryServer.SetPaneCount(e.cid ?? string.Empty, e.n) },
+                // The SOI-focused shell reports which page its focused surface is showing (n : pane
+                // index, wname : page name) — the plugin has no way to know a pane's content on its
+                // own. Lets the manual TGP camera also receive PAD Cursor input when the pilot is
+                // looking at the external TGP page directly (docs/tgp-manual-control.md's PAD
+                // Cursor consolidation plan, TelemetryServer.IsTgpSoi).
+                { "soi.page",           e => TelemetryServer.ReportSoiPage(e.cid ?? string.Empty, e.n, e.wname ?? string.Empty) },
                 // Waypoint/route editing — RouteStore is the plugin's own authoritative route library.
                 { "wpt.create",           e => LogWpt("create",           RouteStore.CreateRoute(e.wname ?? string.Empty) != null) },
                 { "wpt.rename",           e => LogWpt("rename",           RouteStore.RenameRoute(e.bind ?? string.Empty, e.wname ?? string.Empty)) },

@@ -271,8 +271,39 @@ namespace NOXMFD
             if (string.Equals(_soiTargetCid, cid, StringComparison.Ordinal) && _soiTargetPane == pane) return;
             Volatile.Write(ref _soiTargetCid, cid);
             Volatile.Write(ref _soiTargetPane, pane);
+            Volatile.Write(ref _soiFocusedPage, string.Empty);   // stale until the new target reports in
             Interlocked.Increment(ref _soiVersion);
         }
+
+        // Which page the SOI-focused surface is currently showing, as reported by the shell that
+        // owns it (soi.page — the plugin has no way to know a pane's content on its own, unlike
+        // (cid, pane) identity). Lets the manual TGP camera (docs/tgp-manual-control.md's PAD
+        // Cursor consolidation plan) also receive PAD Cursor input when the pilot is looking at the
+        // external TGP page directly, instead of only when they've Tab'd onto the camera's own
+        // synthetic ring entry — the TGP page IS this camera's display, so a pilot who never opens
+        // the in-cockpit view (or hides it) still expects pointing control to work through it.
+        private static string _soiFocusedPage = string.Empty;
+
+        internal static void ReportSoiPage(string cid, int pane, string page)
+        {
+            lock (_soiLock)
+            {
+                // Ignore a report that doesn't match the CURRENT target — it's either stale (focus
+                // already moved on before this arrived) or from a surface that was never focused.
+                if (!string.Equals(_soiTargetCid, cid, StringComparison.Ordinal) || _soiTargetPane != pane) return;
+                Volatile.Write(ref _soiFocusedPage, page ?? string.Empty);
+            }
+        }
+
+        // True while PAD Cursor input should reach the manual TGP camera: either its own synthetic
+        // SOI entry is focused (Tab'd onto directly), or an ordinary pane/portal that happens to be
+        // showing the TGP page is focused. Distinct from IsNativeTgpSoi (ring identity — exactly the
+        // synthetic entry, no more) — this one is about function, not the visual ring, so the two
+        // must stay separate: ringing every TGP-showing pane whenever the CAMERA itself is focused
+        // was tried and was wrong (a real TGP pane is its own separate, independently focusable ring
+        // member, and lighting it up for a different target's focus was a real reported bug).
+        internal static bool IsTgpSoi =>
+            IsNativeTgpSoi || string.Equals(Volatile.Read(ref _soiFocusedPage), "tgp", StringComparison.Ordinal);
 
         // The last SOI key pressed, and a counter that makes it idempotent to broadcast. A client acts
         // when the counter CHANGES and ignores the field otherwise, so a duplicated frame can't
@@ -1720,14 +1751,9 @@ namespace NOXMFD
 
         // SOI's slice of a frame. Shared by the real payload and the no-mission ping, because a display
         // is focusable and drivable at the main menu, where the ping is the only frame there is.
-        // soiTgp: true while the manual TGP camera (not any browser display) holds SOI — every
-        // connected client can read this directly, unlike soiTarget's cid, which is only ever equal
-        // to ONE specific browser instance's own id and never matches the camera's synthetic one
-        // (docs/tgp-manual-control.md's PAD Cursor consolidation plan). Lets any page showing the
-        // TGP feed ring itself the same way a focused pane does, without leaking the sentinel cid.
         private static string SoiJson() => string.Format(CultureInfo.InvariantCulture,
-            "\"soiTarget\":\"{0}\",\"soiPane\":{1},\"soiSeq\":{2},\"soiAct\":\"{3}\",\"soiTgp\":{4}",
-            EscapeJson(SoiTarget), SoiTargetPane, SoiSeq, EscapeJson(SoiAct), IsNativeTgpSoi ? "true" : "false");
+            "\"soiTarget\":\"{0}\",\"soiPane\":{1},\"soiSeq\":{2},\"soiAct\":\"{3}\"",
+            EscapeJson(SoiTarget), SoiTargetPane, SoiSeq, EscapeJson(SoiAct));
 
         // The MAP cursor's own payload (docs/map-cursor.md), sent as its OWN SSE event rather than in
         // the telemetry frame above. A slewed axis is continuous and wants the lowest latency we can

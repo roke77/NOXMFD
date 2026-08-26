@@ -141,27 +141,5 @@ const assert = require('assert');
     }
   }
 
-  // soiTgp (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — a flat boolean every
-  // connected instance reads identically, unlike soiTarget's cid (which only ever matches ONE
-  // instance's own id). Posted only on change, same idempotent shape as the soi/soi-act fields.
-  {
-    const messages = [];
-    const src4 = new TelemetrySource({});
-    src4._postUp = (m) => messages.push(m);
-
-    src4._onMessage({ data: JSON.stringify({ ping: true, soiSeq: 0, soiTgp: true }) });
-    assert.deepStrictEqual(messages.find((m) => m.type === 'soi-tgp'), { type: 'soi-tgp', on: true },
-      'soiTgp:true on the first frame should post soi-tgp on:true');
-
-    messages.length = 0;
-    src4._onMessage({ data: JSON.stringify({ ping: true, soiSeq: 0, soiTgp: true }) });
-    assert.ok(!messages.some((m) => m.type === 'soi-tgp'), 'an unchanged soiTgp should not re-post');
-
-    messages.length = 0;
-    src4._onMessage({ data: JSON.stringify({ ping: true, soiSeq: 0, soiTgp: false }) });
-    assert.deepStrictEqual(messages.find((m) => m.type === 'soi-tgp'), { type: 'soi-tgp', on: false },
-      'soiTgp turning false should post soi-tgp on:false');
-  }
-
   console.log('telemetry-source.test.js: OK');
 })();

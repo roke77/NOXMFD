@@ -210,7 +210,7 @@ namespace NOXMFD
             {
                 // Always synced, regardless of ManualMode, so the crosshair is hidden the instant
                 // manual mode ends (the very next native-path tick) instead of staying stuck on.
-                TgpNativeOverlay.SyncCrosshair(___displayCanvas, TgpManualControl.ManualMode, TgpManualControl.PointTrackActive);
+                TgpNativeOverlay.SyncCrosshair(___displayCanvas, TgpManualControl.ManualMode, TgpManualControl.PointTrackActive, TelemetryServer.IsTgpSoi);
 
                 if (!TgpManualControl.ManualMode || ___targetCam == null) return true;
                 Transform mount = ___targetCam.GetCamMount();
