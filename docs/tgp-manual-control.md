@@ -25,6 +25,9 @@ during testing, not scope creep — see [What actually shipped](#what-actually-s
 and [Debugging findings](#debugging-findings-worth-keeping) below for what each one is and the
 real bugs found getting there.
 
+The later `tgp-hud-tracker` branch added the full-screen pilot-HUD line-of-sight cue and extended
+PAD Cursor Select's nearby-unit handoff to work from both Area Track and Point Track.
+
 **Reversed during testing:** the "external TGP page closes" exit trigger described below never
 shipped as designed. First in-game test toggled the bind with no `/tgp` browser page open
 anywhere, and manual mode engaged then auto-exited on the very next tick — reading as "nothing
@@ -406,21 +409,23 @@ changes automatically, including views well outside the forward combiner area.
 
 `TgpManualControl.TryGetAimDirection` exposes the final normalized world-space `_panDir` through a
 read-only seam. `HudTgpCue.LateUpdate` projects that direction from the pilot camera, after the
-controller's normal `Update` tick has settled it. The cue shows four separated, empty-centre corner
-brackets while in view, leaving the native centre-view diamond/unit marker readable inside them. An
-independent chevron clamps to an inset screen edge while the direction is out of view; it never
-borrows `CombatHUD.SetTargetArrow`, which the native target-list state machine owns.
+controller's normal `Update` tick has settled it. The cue shows four separated corner brackets and
+a 2x2 precision dot while in view, leaving the rest of the interior readable around native HUD/unit
+symbology. An independent caret clamps to an inset screen edge while the direction is out of view;
+it never borrows `CombatHUD.SetTargetArrow`, which the native target-list state machine owns.
 
 `HudDirectionCueMath` contains the BCL-only screen rectangle math: behind-camera inversion, inset
 edge intersection, and a retained last direction around the otherwise ambiguous exact-rear point.
 It is linked into `tools/tests`, so those boundaries run without Unity. The renderer performs one
 camera projection and UI position update per active frame, with no target scan, raycast, reflection,
 network work or recurring allocation. It is cockpit-only and hides immediately when manual mode
-ends; the normal Point Track-to-unit-lock handoff therefore replaces it with native target state.
+ends; a successful Area Track or Point Track unit-lock handoff therefore replaces it with native
+target state.
 
-Implementation and automated checks are complete on the branch. Free-look/TrackIR placement,
-visual dimensions, overlap, external-camera gating and respawn teardown still require live game
-validation; the complete matrix is in `docs/tgp-hud-tracker.md`.
+Implementation and automated checks are complete. The core cockpit cue, off-screen caret, revised
+half-scale geometry, centre dot, and unit-lock handoff have been exercised in game. Full TrackIR,
+respawn, unusual resolution/UI-scale, dense-overlap, and external-camera validation remains in
+`docs/tgp-hud-tracker.md`'s extended matrix.
 
 ## Web overlay parity (v3, `tgp-manual-web-overlay` branch)
 

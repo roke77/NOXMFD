@@ -4,7 +4,10 @@
 
 In progress. `tools/tests/` is stood up with `JsonLite.cs` + `RouteStore.cs` covered (step 1 below),
 and `TelemetryServer.cs`'s JSON-writer layer is extracted into `TelemetryJson.cs` and covered (step
-2). Steps 3-6 are not started — see the Scope checklist.
+2). Later feature work also links the pure `TgpManualAimMath.cs` and
+`Hud/HudDirectionCueMath.cs` helpers directly into the standalone project; the latter covers the
+TGP HUD cue's edge placement, behind-camera behavior, and exact-rear stabilization. Steps 3-6 are
+otherwise not started — see the Scope checklist.
 
 ## The problem
 
@@ -41,6 +44,7 @@ Coupling measured as a rough signal: hits for `SceneSingleton<`, `GameManager.`,
 | `RouteStore.cs` | 364 | Route/waypoint mutators, name-dedup, proximity-advance — already ported from `wpt-route.js`'s pure functions, and those specific methods are genuinely pure. **Correction (2026-08-21): the file as a whole is not "zero touchpoints."** `Load()`/`Save()` reference `BepInEx.Paths.ConfigPath` (`:50`) and `Plugin.Log` (`:117`), and `BuildJson()` calls `TelemetryServer.EscapeJson` (`:124`) — none of those are Unity/game-object coupling (the survey's grep signal below doesn't catch them, which is why it missed this), but a standalone test project still can't compile against this file without either those three symbols available or a small extraction of the pure mutators into their own seam. Still the single biggest win here, just not a zero-touchpoint one — budget a small storage/log/escape seam alongside step 1 below, not a bigger effort than that. |
 | `JsonLite.cs` | 184 | The JSON parser. Already the obvious first target. |
 | `ExtensionRegistry.cs` | 188 | Registration table, bounded command queue, manifest sort — mostly state bookkeeping, some real logic. |
+| `HudDirectionCueMath.cs` | 108 | Pure screen-rectangle placement for the manual-TGP HUD cue; already linked into `tools/tests` with edge, rear, invalid-input, and stabilization coverage. |
 
 ### Real logic worth partially extracting
 

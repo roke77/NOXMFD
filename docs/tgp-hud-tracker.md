@@ -2,23 +2,28 @@
 
 ## Status
 
-Implemented on branch `tgp-hud-tracker`; in-game visual and lifecycle validation remains pending.
+Implemented on branch `tgp-hud-tracker`. Core cockpit behavior has been live-tested, including the
+in-view brackets, off-screen caret, reduced visual scale, centre precision dot, and PAD Cursor
+Select handoff into the normal game lock. The extended free-look/TrackIR, respawn, resolution/UI
+scale, and dense-overlap matrix below remains useful release validation rather than an
+implementation blocker.
 
 Current implementation state:
 
 - `HudTgpCue` is attached mission-side and draws on `CombatHUD.iconLayer` only in cockpit mode.
 - `TgpManualControl.TryGetAimDirection` exposes the controller's final normalized direction without
   exposing mutation.
-- In-view four-corner brackets and the independent off-screen edge chevron are built from
-  untextured Unity UI primitives.
+- In-view four-corner brackets, 2x2 precision dot, and the independent off-screen edge caret are
+  built from untextured Unity UI primitives.
 - `HudDirectionCueMath` owns screen-edge placement, behind-camera inversion, and exact-rear
   stabilization; its standalone tests pass.
 - The plugin compiles against the installed game assemblies without new warnings.
-- Live free-look, TrackIR, respawn, overlap, and visual-size tuning are not yet verified.
+- The first live cockpit pass reduced the brackets and caret to half their original linear size;
+  the revised size and centre dot are confirmed working in game.
+- Full TrackIR, respawn, unusual resolution/UI-scale, and dense-overlap coverage is still pending.
 
-This plan covers [issue #59, “(in) HUD: TGP tracker”](https://github.com/roke77/NOXMFD/issues/59).
-The issue currently has no description. This document does not backfill or otherwise modify the
-ticket; ticket wording remains a separate, explicitly-authorized follow-up.
+This implementation covers [issue #59, “(in) HUD: TGP tracker”](https://github.com/roke77/NOXMFD/issues/59).
+Its description was backfilled from the agreed requirements after separate user authorization.
 
 ## Goal
 
@@ -30,9 +35,8 @@ full-screen, head-relative display space as the game's native centre-view diamon
 unit markers, so it remains useful while the pilot looks left, right, up, down, or almost directly
 behind the aircraft.
 
-The agreed initial symbol is four separated corner brackets with an empty centre. The standard
-mockup variant is the baseline: medium-sized amber brackets with a small `TGP` label. Exact pixel
-dimensions remain subject to an in-game legibility pass.
+The shipped symbol is four separated amber corner brackets with a small centre precision dot and a
+readable `TGP` label. Its dimensions were reduced after the initial in-game legibility pass.
 
 ## Required behavior
 
@@ -43,9 +47,10 @@ dimensions remain subject to an in-game legibility pass.
   aircraft-forward HUD symbology.
 - When the line of sight is outside the current viewport, show a dedicated inset edge cue pointing
   toward it.
-- Keep the centre of the bracket symbol empty so the native view-centre diamond, unit marker, and
-  terrain remain readable when they overlap.
-- Hide immediately when manual mode exits, including a successful Point Track-to-unit-lock handoff,
+- Keep the bracket interior clear apart from the small precision dot so the native view-centre
+  diamond, unit marker, and terrain remain readable when they overlap.
+- Hide immediately when manual mode exits, including a successful unit-lock handoff from either
+  Area Track or Point Track,
   aircraft loss, landing-camera takeover, or mission exit.
 - Rebuild correctly after an aircraft respawn rebuilds the game HUD.
 - Never intercept clicks or native target-selection input.
@@ -110,15 +115,13 @@ to the TargetCam mount every frame:
 - Point Track recomputes it toward the tracked `GlobalPosition`, then applies any active nudge.
 
 No telemetry, HTTP request, browser state, target list, or additional world query is required. The
-only missing seam is a narrow read-only accessor for the HUD renderer.
-
-Recommended API shape:
+renderer reads it through the shipped narrow read-only accessor:
 
 ```csharp
 internal static bool TryGetAimDirection(out Vector3 direction)
 ```
 
-It should return `false` unless manual mode is active and the stored direction is valid. It must not
+It returns `false` unless manual mode is active and the stored direction is valid, and does not
 expose mutation of the controller's state.
 
 ### Waypoint HUD precedent
@@ -132,13 +135,13 @@ coordinate space for a head-relative TGP line-of-sight marker.
 
 ### Update ordering
 
-`TelemetryReader.Update` calls `TgpManualControl.Tick(dt)`. A new `HudTgpCue.LateUpdate` will
-therefore see the manual controller's final aim direction for the current frame, after normal
+`TelemetryReader.Update` calls `TgpManualControl.Tick(dt)`. `HudTgpCue.LateUpdate` therefore sees
+the manual controller's final aim direction for the current frame, after normal
 `Update` work and before presentation completes.
 
 ## Line-of-sight semantics
 
-The cue should represent the TGP's angular look direction, not require a terrain or unit hit.
+The cue represents the TGP's angular look direction and does not require a terrain or unit hit.
 
 Recommended projection point:
 
@@ -184,28 +187,27 @@ as native `HUDUnitMarker` objects.
 
 ### Off-screen state
 
-When the direction is outside the current viewport:
+When the direction is outside the current viewport, the implementation:
 
-1. Determine its direction from screen centre in camera-relative space.
-2. Intersect that direction with a rectangle inset from the physical screen edges.
-3. Place a reduced two-corner/chevron form at the intersection.
-4. Rotate it to point toward the off-screen TGP line of sight.
-5. Keep the `TGP` label upright.
+1. Determines its direction from screen centre in camera-relative space.
+2. Intersects that direction with a rectangle inset from the physical screen edges.
+3. Places a reduced two-arm caret at the intersection.
+4. Rotates it to point toward the off-screen TGP line of sight.
+5. Keeps the `TGP` label upright.
 
 The game exposes `HUDFunctions.PinToScreenEdge`, but the new cue should not call
 `CombatHUD.SetTargetArrow`. The native targeting system owns that shared arrow and enables/disables
 it as the target list changes, which would cause ownership conflicts and flicker.
 
-A small NOXMFD-owned clamping helper is preferable to calling the native pinning helper directly:
-it can reserve a safe inset, define exact-rear behavior, and be covered by unit tests without the
-game runtime.
+The shipped NOXMFD-owned clamping helper reserves a safe inset, defines exact-rear behavior, and is
+covered by unit tests without the game runtime.
 
 ### Exact-rear degeneracy
 
 A direction exactly 180° behind the current camera has no unique left/right/up/down screen edge.
 Near that point, tiny floating-point changes can otherwise make the edge cue jump between sides.
 
-Recommended behavior:
+Shipped behavior:
 
 - retain the last stable non-degenerate edge direction while manual mode remains active;
 - if no prior direction exists, use a documented bottom-edge fallback;
@@ -224,7 +226,7 @@ Baseline from the approved mockup:
 - a small 2x2-pixel centre dot for precise line-of-sight placement;
 - otherwise empty centre with a generous gap;
 - amber/yellow colour, distinct from the native green centre diamond;
-- subtle glow only, without a filled background;
+- no filled background;
 - small uppercase `TGP` label centred below the brackets.
 
 These are reference dimensions, halved after the first live cockpit pass showed the original
@@ -240,38 +242,37 @@ custom HUD palette, colour configurability can be considered separately.
 
 ### Alignment with the native diamond
 
-When the pilot looks directly along the TGP line of sight, the native centre-view diamond sits in
-the open middle of the four brackets. Neither symbol needs to be hidden:
+When the pilot looks directly along the TGP line of sight, the native centre-view diamond and the
+tiny TGP precision dot coincide in the open middle of the four brackets. The dot is small enough to
+read as a pinpoint within the native symbol rather than a replacement for it:
 
 ```text
     ┌             ┐
-          ◇
+          ◈
     └             ┘
           TGP
 ```
 
-The empty centre is essential. A filled diamond, dot, or crosshair would obscure the native selector
-and make it harder to see a unit marker under the same point.
+The open interior is essential. The 2x2 precision dot marks the exact sensor line of sight without
+the obstruction a filled diamond or crosshair would cause.
 
-Every generated `Image` and any label must set `raycastTarget = false`.
+Every generated `Image` and the label set `raycastTarget = false`.
 
 ### Drawing order
 
-The root should sit late enough under `iconLayer` to remain visible above ordinary unit icons, but
-it must not alter the sibling order or enabled state of native objects. Reasserting “last sibling”
-every frame is unnecessary and could fight native UI creation; set the initial sibling once when
-building and verify the result in game.
+The root is placed last under `iconLayer` when built so it remains visible above ordinary unit
+icons, without altering the sibling order or enabled state of native objects afterward.
 
-## Proposed implementation
+## Implemented design
 
-### 1. Add a read-only aim accessor
+### 1. Read-only aim accessor
 
-Modify `TgpManualControl.cs` to expose the current normalized direction only while manual mode is
-active. Keep `_panDir` private and preserve the state machine as the sole writer.
+`TgpManualControl.cs` exposes the current normalized direction only while manual mode is active.
+`_panDir` remains private and the state machine remains its sole writer.
 
-### 2. Add a pure edge-clamping helper
+### 2. Pure edge-clamping helper
 
-Add a small Unity-independent geometry helper, tentatively `HudDirectionCueMath.cs`, that accepts:
+`HudDirectionCueMath.cs` is the Unity-independent geometry helper. It accepts:
 
 - projected X/Y coordinates relative to screen centre;
 - whether the direction is behind the camera;
@@ -279,21 +280,21 @@ Add a small Unity-independent geometry helper, tentatively `HudDirectionCueMath.
 - edge inset;
 - optional previous stable direction.
 
-Return:
+It returns:
 
 - whether the marker is on screen;
 - final screen X/Y;
 - edge-arrow angle;
 - the new stable edge direction.
 
-Keep world-to-screen projection in the Unity-facing renderer; only the screen rectangle math needs
-to be pure.
+World-to-screen projection stays in the Unity-facing renderer; only the screen rectangle math is
+pure.
 
-### 3. Add `HudTgpCue`
+### 3. `HudTgpCue`
 
-Create `src/plugin/Hud/HudTgpCue.cs` as a mission-scoped `MonoBehaviour`.
+`src/plugin/Hud/HudTgpCue.cs` is a mission-scoped `MonoBehaviour`.
 
-Its `LateUpdate` should:
+Its `LateUpdate`:
 
 1. Hide and return unless manual mode is active.
 2. Hide and return unless the current camera mode is the local player's cockpit view.
@@ -311,65 +312,60 @@ choice.
 
 ### 4. Build the symbol from primitives
 
-Create one root `RectTransform` under `iconLayer`, four child `Image` arms/corners, and one small
-label. No sprite or external art is required.
+The renderer creates one root `RectTransform` under `iconLayer`, eight bracket-arm `Image` objects,
+one centre-dot `Image`, two caret-arm `Image` objects, and one small label. No sprite or external
+art is required.
 
-Build once per HUD lifetime. Visibility changes should toggle the existing root rather than create
-and destroy GameObjects repeatedly.
+The symbol is built once per HUD lifetime. Visibility changes toggle the existing root rather than
+create and destroy GameObjects repeatedly.
 
 ### 5. Register mission lifecycle
 
-Add `HudTgpCue` beside `TelemetryReader`, `HudDeclutter`, and `HudWaypointCue` in
-`MissionLifecycle.StartReader`.
+`MissionLifecycle.StartReader` adds `HudTgpCue` beside `TelemetryReader`, `HudDeclutter`, and
+`HudWaypointCue`.
 
-On mission stop, destroying `NOXMFD_Runner` invokes the cue's `OnDestroy`, which must clean up any
+On mission stop, destroying `NOXMFD_Runner` invokes the cue's `OnDestroy`, which cleans up any
 surviving generated UI objects. If the aircraft HUD was already destroyed, Unity fake-null makes
 that cleanup a safe no-op.
 
 ### 6. Document the shipped behavior
 
-After implementation and live validation, update:
+`src/plugin/README.md`, `docs/tgp-manual-control.md`, and this implementation record describe the
+shipped component and lifecycle. Issue #59 was updated separately after explicit permission.
 
-- `src/plugin/README.md` with the new component and responsibility;
-- `docs/tgp-manual-control.md` with the HUD cue behavior and lifecycle;
-- this document's status and live-test results.
+## Performance characteristics
 
-Updating issue #59's description remains a separate action requiring explicit permission.
-
-## Performance expectations
-
-The active per-frame work is expected to be negligible:
+The active per-frame work is deliberately small:
 
 - one read of an already-computed normalized direction;
 - one camera projection;
 - a few scalar clamp/angle operations;
 - one UI position update and occasional state toggles.
 
-The renderer should perform no raycast, target scan, network work, reflection, string formatting,
-or per-frame allocation. When manual mode is off, it should reduce to a visibility check and early
-return.
+The renderer performs no raycast, target scan, network work, reflection, string formatting, or
+per-frame allocation. When manual mode is off, it reduces to a visibility check and early return.
 
 This is significantly cheaper than the existing manual TGP image/readback pipeline and should not
 need independent rate limiting.
 
 ## Automated tests
 
-The pure geometry helper should cover at least:
+The shipped geometry tests cover:
 
 - screen centre;
-- visible left, right, above, and below positions;
 - all four off-screen edges;
-- all four off-screen corners;
+- an off-screen corner and safe-edge intersection;
 - a direction behind the camera;
-- exact and near-exact rear directions;
-- previous-direction stabilization across the rear discontinuity;
+- exact rear fallback and previous-direction stabilization;
 - edge inset enforcement;
-- 16:9, ultrawide, and narrower aspect ratios;
 - zero/invalid screen dimensions returning a safe hidden result;
-- no NaN or infinity for vertical or almost-zero direction components.
+- invalid insets and non-finite projected coordinates.
+
+Additional aspect-ratio and near-rear cases can be added if the remaining live matrix exposes a
+geometry problem; the pure helper is already isolated for that purpose.
 
 The plugin build verifies access to the public game APIs and compilation of the Unity-facing
-component. No Harmony patch or new reflection site should be needed.
+component. No Harmony patch or new reflection site was needed.
 
 ## In-game validation matrix
 
@@ -378,9 +374,11 @@ component. No Harmony patch or new reflection site should be needed.
 - Manual mode off: no TGP cue.
 - Engage manual mode: cue appears immediately.
 - Toggle between Area Track and Point Track: cue remains continuous.
-- Successful PAD Cursor Select unit-lock handoff: manual cue disappears and the normal game target
-  state takes over without a one-frame stale marker.
-- Failed unit-lock handoff: manual mode and cue remain unchanged.
+- Successful PAD Cursor Select unit-lock handoff from Area Track: manual cue disappears and the
+  normal game target state takes over without a one-frame stale marker.
+- Successful PAD Cursor Select unit-lock handoff from Point Track: same transition and 50 m/large-
+  unit acquisition rule.
+- Failed unit-lock handoff in either mode: manual mode and cue remain unchanged.
 - Landing camera takeover: cue disappears with manual mode.
 - Aircraft death/respawn: no orphaned marker; cue rebuilds on the new HUD.
 - Mission exit/re-entry: no surviving old marker.
@@ -424,24 +422,27 @@ component. No Harmony patch or new reflection site should be needed.
 - The standard four-corner marker remains readable without obscuring the native centre diamond.
 - Native unit selection behaves exactly as before.
 - The cue disappears immediately whenever manual mode ends.
+- PAD Cursor Select can promote a nearby selectable unit from either Area Track or Point Track.
 - Respawn and mission transitions create no orphaned or duplicated UI objects.
 - The implementation creates no recurring garbage allocation and performs no per-frame raycast.
 - Full plugin build and geometry tests pass.
-- The head-look, TrackIR, overlap, and lifecycle matrix is verified in game before shipping.
+- The remaining head-look, TrackIR, overlap, and lifecycle matrix is recommended before a release.
 
-## Likely files involved
+## Files involved
 
 - `src/plugin/TgpManualControl.cs` — read-only aim-direction accessor.
 - `src/plugin/Hud/HudTgpCue.cs` — new Unity-facing renderer and HUD lifecycle.
-- `src/plugin/Hud/HudDirectionCueMath.cs` — proposed pure edge-clamping geometry.
-- `src/plugin/MissionLifecycle.cs` — attach the mission-scoped cue.
+- `src/plugin/Hud/HudDirectionCueMath.cs` — pure edge-clamping geometry.
+- `src/plugin/MissionLifecycle.cs` — attaches the mission-scoped cue.
 - `tools/tests/HudDirectionCueMathTests.cs` — projection/clamping boundary tests.
-- `tools/tests/NOXMFD.Tests.csproj` — include the pure helper and tests explicitly.
-- `src/plugin/README.md` — component inventory after implementation.
-- `docs/tgp-manual-control.md` — manual-mode HUD behavior after implementation.
+- `tools/tests/NOXMFD.Tests.csproj` — includes the pure helper and tests explicitly.
+- `src/plugin/README.md` — component inventory.
+- `docs/tgp-manual-control.md` — manual-mode HUD behavior.
+- `src/plugin/Keybinds.cs` — documents Area/Point Track selection in the existing PAD Cursor Select
+  bind description.
 
 No changes should be required in telemetry snapshots, telemetry JSON, HTTP endpoints, the browser
-TGP page, keybind definitions, `TgpFeed`, or Harmony patches.
+TGP page, `TgpFeed`, or Harmony patches.
 
 ## Alternatives rejected
 
@@ -479,24 +480,22 @@ Rejected as the primary behavior because Area Track can point into empty sky, a 
 unnecessary, and surface-point parallax is not the requested line-of-sight meaning. Existing TGP
 overlay data may continue raycasting at its own lower cadence independently.
 
-## Open implementation decisions
+## Remaining validation and tuning questions
 
-1. Tune bracket size, arm length, line width, label spacing, glow, and screen-edge inset in game.
-2. Confirm whether the `TGP` text remains legible enough at low resolutions or should hide below a
+1. Confirm whether the `TGP` text remains legible enough at low resolutions or should hide below a
    scale threshold.
-3. Confirm the fixed amber colour against user-custom HUD colours and night scenes.
-4. Choose the exact reduced off-screen chevron geometry while preserving the approved four-corner
-   in-view symbol.
-5. Confirm the cockpit-only camera gate; do not extend to external modes without deliberate testing.
-6. Decide the precise exact-rear fallback after observing native head-look motion near ±165°.
+2. Confirm the fixed amber colour against user-custom HUD colours and night scenes.
+3. Confirm the cockpit-only camera gate; do not extend to external modes without deliberate testing.
+4. Exercise TrackIR, respawn, unusual aspect ratios, and the exact-rear transition in the extended
+   live matrix.
 
-## Proposed delivery sequence
+## Delivery record
 
-1. Implement and test the pure screen-edge geometry.
-2. Expose the manual aim direction without changing control behavior.
-3. Build the full-screen `HudTgpCue` using the standard bracket design.
-4. Validate forward view, free-look, TrackIR, off-screen behavior, and unit-marker overlap.
-5. Tune visual constants and rear-edge stabilization from live footage.
-6. Run the full build/test suite and repeat lifecycle checks across respawn and mission changes.
-7. Update implementation documentation and evidence.
-8. Backfill issue #59 only after separate explicit authorization.
+1. Implemented and tested the pure screen-edge geometry.
+2. Exposed the manual aim direction without changing control behavior.
+3. Built the full-screen `HudTgpCue` using the approved bracket/caret design.
+4. Completed the initial cockpit pass and tuned the visual constants to half scale.
+5. Added the centre precision dot and extended PAD Cursor Select to both Area and Point Track.
+6. Ran the full build/test suite and deployed each code change to the game folder.
+7. Updated the internal implementation documentation.
+8. Backfilled issue #59 after separate explicit authorization.
