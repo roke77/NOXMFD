@@ -171,6 +171,16 @@ namespace NOXMFD
             Engage(tc, aircraft);
         }
 
+        // Explicit-state twin of Toggle() — the TGP page's TGT/MAN buttons (docs/tgp-manual-
+        // control.md's NAV additions) are a two-button mutually-exclusive pair like WPN's ARM/SAFE,
+        // so they need an idempotent "set to X" rather than a blind flip. Reuses Toggle()'s own
+        // aircraft/TargetCam guards rather than duplicating them.
+        internal static void SetManual(bool on)
+        {
+            if (on == ManualMode) return;
+            Toggle();
+        }
+
         internal static void Reset()
         {
             if (!ManualMode) return;
@@ -308,9 +318,22 @@ namespace NOXMFD
             GameManager.GetLocalAircraft(out Aircraft ac);
             TargetCam? tc = ac != null ? ac.targetCam : null;
             if (tc == null || !TgpManualTargetCamAccess.Ensure()) return;
-            bool next = !tc.UsingIR();
-            if (!TgpManualTargetCamAccess.SwitchIR(tc, next)) return;
-            Plugin.Log?.LogInfo($"[NOXMFD] TGP manual control: IR {(next ? "ON" : "OFF")}.");
+            SetIR(!tc.UsingIR());
+        }
+
+        // Explicit-state twin of ToggleIR — the TGP page's CLR/IR buttons (docs/tgp-manual-
+        // control.md's NAV additions) are a two-button mutually-exclusive pair like WPN's ARM/SAFE,
+        // so they need an idempotent "set to X" rather than a blind flip. No-ops (same as ToggleIR)
+        // unless manual mode is on.
+        internal static void SetIR(bool ir)
+        {
+            if (!ManualMode) return;
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            TargetCam? tc = ac != null ? ac.targetCam : null;
+            if (tc == null || !TgpManualTargetCamAccess.Ensure()) return;
+            if (tc.UsingIR() == ir) return;
+            if (!TgpManualTargetCamAccess.SwitchIR(tc, ir)) return;
+            Plugin.Log?.LogInfo($"[NOXMFD] TGP manual control: IR {(ir ? "ON" : "OFF")}.");
         }
 
         // Called every frame from TelemetryReader alongside TgpFeed.Tick — cheap no-op while off.

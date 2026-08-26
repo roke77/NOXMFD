@@ -167,6 +167,22 @@
     { label: 'A/G', action: 'combat-mode-ag', cell: { row: 5, col: 2 } },
   ];
 
+  // TGT/MAN and CLR/IR (docs/tgp-manual-control.md's NAV additions) — the bezel's mfd.js twin
+  // (placeTgpNavLabels/tgpMarks), same shape as MASTER_ARMS_ACTIONS/COMBAT_MODE_ACTIONS above:
+  // an unconditional command pair, dispatched rather than paged to, with its own mark state
+  // (markTgpMode/markTgpImg) since NAV.tgp carries no dynamic `mark`. TGP's column 1 has only
+  // MAIN (row 1) and CFG (row ROWS, tgpNavItems) spoken for, so rows 2-5 are free.
+  const TGP_MODE_ACTIONS = { 'tgp-manual-on': true, 'tgp-manual-off': false };
+  const TGP_MODE_NAV = [
+    { label: 'TGT', action: 'tgp-manual-off', cell: { row: 2, col: 1 } },
+    { label: 'MAN', action: 'tgp-manual-on',  cell: { row: 3, col: 1 } },
+  ];
+  const TGP_IR_ACTIONS = { 'tgp-ir-on': true, 'tgp-ir-off': false };
+  const TGP_IR_NAV = [
+    { label: 'CLR', action: 'tgp-ir-off', cell: { row: 4, col: 1 } },
+    { label: 'IR',  action: 'tgp-ir-on',  cell: { row: 5, col: 1 } },
+  ];
+
   // MAP's own placement (mfd.js's own full view twin): a fixed 5-left/5-right split via explicit
   // cells, rather than cellOf's generic index-into-6-rows overflow — MAIN/GRID/FLW/Z+/Z- read as
   // "map view controls" in column 1, WPT/R+/R-/W+/W- as "waypoint controls" in column 2. The action
@@ -217,7 +233,8 @@
   function feedsFor(page) { return PAGE_FEEDS[page] || (ExtNav.isExtensionPage(page) ? ['ext_' + page] : []); }
   function canDo(action) {
     return has(action) || (action in PAGER) || (action in MAP_ACTIONS) || (action in GLASS_ACTIONS) ||
-           (action in MASTER_ARMS_ACTIONS) || (action in COMBAT_MODE_ACTIONS);
+           (action in MASTER_ARMS_ACTIONS) || (action in COMBAT_MODE_ACTIONS) ||
+           (action in TGP_MODE_ACTIONS) || (action in TGP_IR_ACTIONS);
   }
 
   // 'edge' placement: an item's index → its cell. The left column, top-down, IS the bezel's left
@@ -332,6 +349,10 @@
     }
     function onSlice(type) {
       if (feedsFor(currentPage).indexOf(type) !== -1) forwardSlice(type);
+      // TGT/MAN/CLR/IR can change without the page changing (docs/tgp-manual-control.md's NAV
+      // additions) — same "re-apply on every tick" need as markMasterArms/markCombatMode, which
+      // get theirs via the 'loadout' feed's own forwardWpn() instead since WPN is a DERIVED feed.
+      if (type === 'tgp' && currentPage === 'tgp') { markTgpMode(); markTgpImg(); }
     }
     // Everything the current page needs — on its load, and whenever it changes.
     function forwardToPage() {
@@ -462,7 +483,7 @@
     function itemsFor(page) {
       if (page === 'wpn') return wpnState().nav.concat(MASTER_ARMS_NAV, COMBAT_MODE_NAV);
       if (page === 'map') return mapNavItems();
-      if (page === 'tgp') return tgpNavItems();
+      if (page === 'tgp') return tgpNavItems().concat(TGP_MODE_NAV, TGP_IR_NAV);
       const items = (NAV[page] || []).slice();
       if (page !== 'main') return items;
       return items.concat(MAIN_EXTRAS).sort(function (a, b) { return a.label.localeCompare(b.label); });
@@ -512,6 +533,34 @@
         const b = grid.querySelector('.nav-item[data-action="' + item.action + '"]');
         if (b) b.classList.toggle('on', COMBAT_MODE_ACTIONS[item.action] === mode);
       });
+    }
+
+    // TGT/MAN/CLR/IR (docs/tgp-manual-control.md's NAV additions) — the bezel's mfd.js tgpMarks()
+    // equivalent, read straight off the cached tgp slice rather than tracked local state (no click
+    // here can change it on its own, unlike followOn/gridOn). tgpData is only ever {cnt:0} with no
+    // lock and no manual mode (TelemetryJson.cs's TgpBlock), so hasFeed gates ir meaningfully
+    // having a value at all. Called on every 'tgp' slice tick (onSlice) as well as on nav rebuild.
+    function tgpMarks() {
+      const s = slices.tgp;
+      const manual = !!(s && s.manual);
+      const data = s && s.data;
+      const hasFeed = !!data && (data.cnt > 0 || manual);
+      const ir = hasFeed && !!data.ir;
+      return { tgt: hasFeed && !manual, man: manual, clr: hasFeed && !ir, ir: ir };
+    }
+    function markTgpMode() {
+      const marks = tgpMarks();
+      const tgt = grid.querySelector('.nav-item[data-action="tgp-manual-off"]');
+      const man = grid.querySelector('.nav-item[data-action="tgp-manual-on"]');
+      if (tgt) tgt.classList.toggle('on', marks.tgt);
+      if (man) man.classList.toggle('on', marks.man);
+    }
+    function markTgpImg() {
+      const marks = tgpMarks();
+      const clr = grid.querySelector('.nav-item[data-action="tgp-ir-off"]');
+      const ir  = grid.querySelector('.nav-item[data-action="tgp-ir-on"]');
+      if (clr) clr.classList.toggle('on', marks.clr);
+      if (ir)  ir.classList.toggle('on', marks.ir);
     }
 
     // Decorative MASTER/MODE labels (docs/radar-master-arms.md) — the bezel's mfd.js equivalent,
@@ -571,6 +620,14 @@
         sendCommand('combat-mode.set', { group: COMBAT_MODE_ACTIONS[action] }).catch(function () {});
         return;
       }
+      if (action in TGP_MODE_ACTIONS) {
+        sendCommand('tgp.manual.set', { on: TGP_MODE_ACTIONS[action] }).catch(function () {});
+        return;
+      }
+      if (action in TGP_IR_ACTIONS) {
+        sendCommand('tgp.ir.set', { on: TGP_IR_ACTIONS[action] }).catch(function () {});
+        return;
+      }
       if (has(action)) showPage(action);
     }
 
@@ -624,6 +681,11 @@
         grid.appendChild(b);
       });
       if (currentPage === 'wpn') { addWeaponHits(); markMasterArms(); markCombatMode(); placeWpnDecorators(); }
+      if (currentPage === 'tgp') {
+        markTgpMode(); markTgpImg();
+        placeWpnDecorator('tgp-manual-off', 'tgp-manual-on', 'MODE');
+        placeWpnDecorator('tgp-ir-off', 'tgp-ir-on', 'IMG');
+      }
       // ZOOM between Z+/Z- and ROUTE between R+/R- — same decorator, MAP's twin of WPN's
       // MASTER/MODE. Found by data-action, so the 2-column overflow (cellOf) needs no
       // special-casing here — the decorator just measures wherever the two buttons actually landed.

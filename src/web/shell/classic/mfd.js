@@ -461,6 +461,28 @@ function renderSplitLabels() {
       continue;
     }
 
+    if (page === 'tgp') {
+      // TGP's split-pane twin of placeTgpNavLabels (full view) — TGT/MAN/CLR/IR are dynamic
+      // (tgpMarks()), so like full view they're hand-placed rather than read off NAV.tgp/
+      // SPLIT_SLOTS.tgp (which stay MAIN+CFG only, same "empty NAV, hand-rolled labels" shape as
+      // WPN's ARM/SAFE/A-A/A-G split rendering). A pane only has 3 slots per bank, so the pair
+      // MAIN/TGT/MAN fills the left bank and CLR/IR/CFG fills the right — keeps each decorator's
+      // pair adjacent on one bank, same requirement placeMapPaneDecorator/placeWpnPaneDecorator
+      // enforce for theirs.
+      const marks = tgpMarks();
+      placeSplitKey(paneKey(paneIdx, 'left', 0), NAV.tgp[0].label, NAV.tgp[0].action, paneTag);
+      placeSplitKey(paneKey(paneIdx, 'left', 1), 'TGT', 'tgp-manual-off', paneTag, marks.tgt);
+      placeSplitKey(paneKey(paneIdx, 'left', 2), 'MAN', 'tgp-manual-on',  paneTag, marks.man);
+      placeSplitKey(paneKey(paneIdx, 'right', 0), 'CLR', 'tgp-ir-off',    paneTag, marks.clr);
+      placeSplitKey(paneKey(paneIdx, 'right', 1), 'IR',  'tgp-ir-on',     paneTag, marks.ir);
+      placeSplitKey(paneKey(paneIdx, 'right', 2), NAV.tgp[1].label, NAV.tgp[1].action, paneTag);
+      const tgtKey = paneKey(paneIdx, 'left', 1);
+      const clrKey = paneKey(paneIdx, 'right', 0);
+      placeWpnDecorator(tgtKey.bank, tgtKey.index + 1, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
+      placeWpnDecorator(clrKey.bank, clrKey.index + 1, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
+      continue;
+    }
+
     const slots = SPLIT_SLOTS[page];
     if (!slots) continue;                            // not a split-capable page (e.g. LYT)
 
@@ -986,6 +1008,25 @@ function placeWpnDecorators() {
   placeWpnDecorator('right', 2, 'MASTER', '6,0 12,8 0,8', '0,0 12,0 6,8');
   placeWpnDecorator('right', 4, 'MODE',   '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
+
+// TGP's full-view nav (docs/tgp-manual-control.md's NAV additions) — not the generic fullViewSlot
+// sweep every other single-MAIN page uses: TGT/MAN and CLR/IR light dynamically off tgpMarks(), so
+// like WPN's ARM/SAFE/A-A/A-G (NAV.wpn is empty by design) they're hand-placed here rather than
+// carrying a static `mark` in NAV.tgp. CFG keeps its bottom-of-column slot (left5) either way.
+// Called once on page entry (showPage) and again on every tgp telemetry tick so the highlight
+// tracks live state, the same re-render-in-place shape as placeWpnNavLabels above.
+function placeTgpNavLabels() {
+  overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
+  const marks = tgpMarks();
+  placeOverlayLabel('left', 0, NAV.tgp[0].label, NAV.tgp[0].action);
+  placeOverlayLabel('left', 1, 'TGT', 'tgp-manual-off', marks.tgt);
+  placeOverlayLabel('left', 2, 'MAN', 'tgp-manual-on',  marks.man);
+  placeOverlayLabel('left', 3, 'CLR', 'tgp-ir-off',     marks.clr);
+  placeOverlayLabel('left', 4, 'IR',  'tgp-ir-on',      marks.ir);
+  placeOverlayLabel('left', 5, NAV.tgp[1].label, NAV.tgp[1].action);
+  placeWpnDecorator('left', 2, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
+  placeWpnDecorator('left', 4, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
+}
 // Split-pane MASTER/MODE: unlike full view's fixed right2/right4, a split pane's ctrl pair can land
 // on any of its 4 item slots depending on pagination (buildWpnSplitPages) — found here by id rather
 // than a hardcoded position. buildWpnSplitPages pads so a pair never straddles a PAGE boundary, but
@@ -1259,6 +1300,17 @@ let tgpQuality = 'native';
 let tgpData = null;
 let tgpManual = false;   // docs/tgp-manual-control.md — TgpManualControl.ManualMode, mirrored for the TGP page's status indicator
 
+// TGT/MAN/CLR/IR highlight state (docs/tgp-manual-control.md's NAV additions) — TGT lights for a
+// real (non-manual) unit lock, MAN for the manual camera; CLR/IR mirror whichever feed the active
+// camera (either one) is currently showing. tgpData is only ever {cnt:0} with no lock and no
+// manual mode (TelemetryJson.cs's TgpBlock), so hasFeed — not tgpActive, a separate "is the MJPEG
+// stream itself connected" flag — is what gates ir/clr meaningfully having a value at all.
+function tgpMarks() {
+  const hasFeed = !!tgpData && (tgpData.cnt > 0 || tgpManual);
+  const ir = hasFeed && !!tgpData.ir;
+  return { tgt: hasFeed && !tgpManual, man: tgpManual, clr: hasFeed && !ir, ir: ir };
+}
+
 // Latest published slice per installed extension (docs/extensions-api.md), keyed by extension
 // id — mirrored from the map iframe the same way as every other slice above, just for a
 // runtime-discovered set of keys instead of one fixed field.
@@ -1399,12 +1451,7 @@ function showPage(name) {
       placeMapWptDecorator({ bank: 'right', index: 3 });             // WYPT between W+/W- (right3/right4)
     }
   } else if (name === 'tgp') {
-    // TGP's own branch, not the generic fullViewSlot sweep every other single-MAIN page uses:
-    // CFG is pinned to the bottom of the left column (left5) regardless of how few items sit
-    // above it — NAV.tgp[0] (MAIN) still reads naturally at left0, but a plain item-i sweep would
-    // put NAV.tgp[1] (CFG) at left1 instead. Mirrors SPLIT_SLOTS.tgp's own bottom-of-column slot.
-    placeOverlayLabel('left', 0, NAV.tgp[0].label, NAV.tgp[0].action);
-    placeOverlayLabel('left', 5, NAV.tgp[1].label, NAV.tgp[1].action);
+    placeTgpNavLabels();
   } else {
     // Bezel full-view rendering of the navigation model: item i → left-column key i. `mark` lights
     // an item active (e.g. NAV.bdf/NAV.pal flagging whichever of BDF/PAL is the current page).
@@ -1652,9 +1699,14 @@ window.addEventListener('message', function(e) {
     tgpQuality = m.quality || 'native';
     tgpData    = m.data || null;
     tgpManual  = !!m.manual;
-    // Only matters while the TGP page is in view — outside it the frame/pane isn't shown.
-    if (currentPage === 'tgp' && !splitMode) forwardTgpToFrame();
-    if (splitMode) forwardTgpToPanes();
+    // Only matters while the TGP page is in view — outside it the frame/pane isn't shown. Full
+    // view also refreshes the TGT/MAN/CLR/IR highlight (placeTgpNavLabels); split only re-renders
+    // when a pane is actually showing TGP, same guard MAP's own tick-driven re-render uses below.
+    if (currentPage === 'tgp' && !splitMode) { forwardTgpToFrame(); placeTgpNavLabels(); }
+    if (splitMode) {
+      forwardTgpToPanes();
+      if (panePages.indexOf('tgp') !== -1) renderSplitLabels();
+    }
   } else if (m.type.indexOf('ext_') === 0) {
     // Extension telemetry (docs/extensions-api.md) — one generic branch for every installed
     // extension's slice, keyed by the 'ext_<id>' type telemetry-source.js posts up. `page` here
@@ -2086,6 +2138,12 @@ function mfdButton(el) {
     case 'combat-mode-aa':  sendCommand('combat-mode.set', { group: 'aa'  }).catch(function() {}); break;
     case 'combat-mode-ag':  sendCommand('combat-mode.set', { group: 'ag'  }).catch(function() {}); break;
     case 'tgp':  showPage('tgp');  break;
+    // TGT/MAN and CLR/IR (docs/tgp-manual-control.md's NAV additions) — explicit-state commands,
+    // same shape as master-arms.set/combat-mode.set above rather than a blind toggle.
+    case 'tgp-manual-on':  sendCommand('tgp.manual.set', { on: true  }).catch(function() {}); break;
+    case 'tgp-manual-off': sendCommand('tgp.manual.set', { on: false }).catch(function() {}); break;
+    case 'tgp-ir-on':      sendCommand('tgp.ir.set', { on: true  }).catch(function() {}); break;
+    case 'tgp-ir-off':     sendCommand('tgp.ir.set', { on: false }).catch(function() {}); break;
     // EXT (docs/extensions-api.md) always lands on the EXT hub itself — NAV.ext (ext-nav.js)
     // lists MAIN plus one entry per installed extension, rendered as ordinary full-view keys by
     // the generic NAV sweep in showPage. Picking one of THOSE is handled by the `default` case

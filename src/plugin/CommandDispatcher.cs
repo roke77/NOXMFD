@@ -40,6 +40,8 @@ namespace NOXMFD
                                 // wpt.* : waypoint index, or a +-1 direction (cycle-route/step-waypoint)
                                 // preset.rename / preset.delete / preset.load : slot number 1-5
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
+                                // tgp.manual.set : desired ManualMode state
+                                // tgp.ir.set : desired IR state (true = IR, false = COLOR)
         public string? bind;   // keybind.* : BindDef id ("flares", "gear-up", ...)
                                 // wpt.* : route id ("" = clear active route)
         public string? key;    // keybind.set-key : Unity KeyCode name ("" or "None" clears)
@@ -90,6 +92,11 @@ namespace NOXMFD
                     else RatesConfig.SetFastHz(e.hz);
                 } },
                 { "master-arms.set", e => ImmersionState.MasterArmsOn = e.on },
+                // TGP page's TGT/MAN and CLR/IR button pairs (docs/tgp-manual-control.md's NAV
+                // additions) — explicit-state twins of the tgp-manual-toggle/tgp-manual-ir-toggle
+                // keybinds, same "set" shape as master-arms.set above rather than a blind flip.
+                { "tgp.manual.set", e => TgpManualControl.SetManual(e.on) },
+                { "tgp.ir.set",     e => TgpManualControl.SetIR(e.on) },
                 // Routes through Keybinds.SetCombatMode (not a bare assignment) so the WPN page's own
                 // A/A / A/G controls get the same weapon auto-switch as the physical keybind — one
                 // behavior, one source, not a second copy that could drift from it.
