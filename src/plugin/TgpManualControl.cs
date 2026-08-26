@@ -489,6 +489,11 @@ namespace NOXMFD
             _pointTrackActive = false;
             _diagTimer = 0f;
 
+            // PAD Cursor consolidation (docs/tgp-manual-control.md) — the camera is now a cyclable
+            // SOI target; engaging steals focus onto it immediately rather than making the pilot Tab
+            // to the newly-added ring entry by hand.
+            TelemetryServer.ClaimNativeTgpSoi();
+
             Plugin.Log?.LogInfo("[NOXMFD] TGP manual control: ON (centered, minimum zoom).");
         }
 
@@ -497,6 +502,9 @@ namespace NOXMFD
             if (!ManualMode) return;
             ManualMode = false;
             _pointTrackActive = false;
+            // Must run after ManualMode flips false, so the camera is already gone from the SOI
+            // ring by the time this looks for somewhere else to send focus.
+            TelemetryServer.ReleaseNativeTgpSoi();
             if (tc != null && TgpManualTargetCamAccess.Ensure())
             {
                 Camera? cam = TgpManualTargetCamAccess.GetCamera(tc);

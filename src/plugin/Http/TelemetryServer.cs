@@ -234,6 +234,35 @@ namespace NOXMFD
         internal static string SoiTarget     => Volatile.Read(ref _soiTargetCid);
         internal static int    SoiTargetPane => Volatile.Read(ref _soiTargetPane);
 
+        // The manual TGP camera's synthetic SOI ring entry (docs/tgp-manual-control.md's PAD Cursor
+        // consolidation plan) — a native, non-browser target folded into the same ring real (cid,
+        // pane) clients use, so SOI Next/Prev tabs onto it like any other display. The leading space
+        // can never arrive from a real client — SanitizeCid below only lets [a-zA-Z0-9-] through —
+        // so a client can't pick this exact cid for itself even by coincidence.
+        internal const string NativeTgpCid = " tgp-camera";
+        internal static bool IsNativeTgpSoi =>
+            string.Equals(Volatile.Read(ref _soiTargetCid), NativeTgpCid, StringComparison.Ordinal);
+
+        // Called by TgpManualControl.Engage() — turning manual mode on steals SOI onto the camera
+        // immediately, so the pilot doesn't have to Tab to the newly-added ring entry by hand.
+        internal static void ClaimNativeTgpSoi() { lock (_soiLock) SetSoiTargetLocked(NativeTgpCid, 0); }
+
+        // Called by TgpManualControl.ExitManual() — mirrors SoiReleaseOnDisconnect below: only acts
+        // if the camera actually held focus. Unlike a disconnect there's always something else left
+        // to focus (every real pane is still in the ring), so this moves to the ring's first member
+        // instead of clearing focus outright. Must run after ManualMode has already flipped false,
+        // so SoiRingLocked() below no longer offers the camera as a candidate.
+        internal static void ReleaseNativeTgpSoi()
+        {
+            lock (_soiLock)
+            {
+                if (!string.Equals(_soiTargetCid, NativeTgpCid, StringComparison.Ordinal)) return;
+                var ring = SoiRingLocked();
+                if (ring.Count == 0) { SetSoiTargetLocked(string.Empty, -1); return; }
+                SetSoiTargetLocked(ring[0].cid, ring[0].pane);
+            }
+        }
+
         private static void SetSoiTarget(string cid, int pane) { lock (_soiLock) SetSoiTargetLocked(cid, pane); }
 
         private static void SetSoiTargetLocked(string cid, int pane)
@@ -475,6 +504,10 @@ namespace NOXMFD
                 if (!seen.Add(inst.Cid)) continue;
                 for (int p = 0; p < inst.PaneCount; p++) ring.Add((inst.Cid, p));
             }
+            // The manual TGP camera joins the same ring, but only while it's actually engaged
+            // (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — appended last so an
+            // existing pane layout's cycle order doesn't shift under a pilot who never touches it.
+            if (TgpManualControl.ManualMode) ring.Add((NativeTgpCid, 0));
             return ring;
         }
 
@@ -1687,9 +1720,14 @@ namespace NOXMFD
 
         // SOI's slice of a frame. Shared by the real payload and the no-mission ping, because a display
         // is focusable and drivable at the main menu, where the ping is the only frame there is.
+        // soiTgp: true while the manual TGP camera (not any browser display) holds SOI — every
+        // connected client can read this directly, unlike soiTarget's cid, which is only ever equal
+        // to ONE specific browser instance's own id and never matches the camera's synthetic one
+        // (docs/tgp-manual-control.md's PAD Cursor consolidation plan). Lets any page showing the
+        // TGP feed ring itself the same way a focused pane does, without leaking the sentinel cid.
         private static string SoiJson() => string.Format(CultureInfo.InvariantCulture,
-            "\"soiTarget\":\"{0}\",\"soiPane\":{1},\"soiSeq\":{2},\"soiAct\":\"{3}\"",
-            EscapeJson(SoiTarget), SoiTargetPane, SoiSeq, EscapeJson(SoiAct));
+            "\"soiTarget\":\"{0}\",\"soiPane\":{1},\"soiSeq\":{2},\"soiAct\":\"{3}\",\"soiTgp\":{4}",
+            EscapeJson(SoiTarget), SoiTargetPane, SoiSeq, EscapeJson(SoiAct), IsNativeTgpSoi ? "true" : "false");
 
         // The MAP cursor's own payload (docs/map-cursor.md), sent as its OWN SSE event rather than in
         // the telemetry frame above. A slewed axis is continuous and wants the lowest latency we can

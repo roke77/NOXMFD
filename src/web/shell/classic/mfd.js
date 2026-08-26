@@ -549,6 +549,8 @@ function paneNavigate(paneIdx, page) {
   paneIframes[paneIdx].src = paneUrl(page);
   renderSplitLabels();
   refreshFollowIndicator();        // entering/leaving MAP changes whether the chip shows
+  positionSoiRing();               // this pane's content changed — may need to pick up/drop the
+                                    // TGP ring if the manual camera currently holds SOI
 }
 
 // Forwarding from shell → pane iframes. The shell already mirrors all the data streams from the
@@ -1533,6 +1535,8 @@ function showPage(name) {
   refreshFollowIndicator();
   renderSoiCursor();   // the labels were just rebuilt; re-mark the cursored one (and clamp it)
   syncCursorFocus();   // full view just navigated onto/off MAP — the focused surface may be it
+  positionSoiRing();   // full view just navigated onto/off TGP — may need to pick up/drop the
+                        // ring if the manual camera currently holds SOI
 }
 
 // The map iframe broadcasts status + loadout + cm via postMessage; mirror onto the
@@ -1587,6 +1591,11 @@ window.addEventListener('message', function(e) {
     if (soiPane !== prevPane) setSoiCursor(-1);
     positionSoiRing();
     syncCursorFocus();   // the focused surface itself changed — re-evaluate who owns the map cursor
+  } else if (m.type === 'soi-tgp') {
+    // The manual TGP camera claimed/released SOI — see positionSoiRing()'s comment. Independent
+    // of this instance's own soiPane/soiFocused: every connected display sees the same value.
+    soiTgpOn = !!m.on;
+    positionSoiRing();
   } else if (m.type === 'soi-act') {
     soiAct(m.act);
   } else if (m.type === 'cursor') {
@@ -1845,6 +1854,9 @@ function loadConfigUrls() {
 let soiCursor = -1;   // index into soiKeys(); -1 = no cursor
 let soiPane   = -1;   // focused surface index of this instance, from the tap; -1 = not the SOI
 let myCid     = '';   // this instance's cid, for soi.panes reports (from the tap's soi-cid)
+// True while the manual TGP camera, not any browser display, holds SOI (docs/tgp-manual-
+// control.md's PAD Cursor consolidation plan) — see positionSoiRing()'s comment.
+let soiTgpOn  = false;
 
 // Report how many focusable surfaces this display shows now — 1 in full view, 2 in a split — so the
 // server cycles surfaces, not whole documents. Needs the cid, which arrives from the tap; until then
@@ -1890,9 +1902,17 @@ function syncCursorFocus() {
 // Position the SOI ring over the focused surface: the whole recess in full view (the map iframe
 // fills it), one pane's box in a split. Measured rather than CSS-placed so a flex-sized pane
 // (V_WIDE is 2:1) is framed exactly. Hidden when this display isn't the SOI.
+//
+// The manual TGP camera (docs/tgp-manual-control.md's PAD Cursor consolidation plan) is a
+// different case: it's a native target, not a browser surface, so `soiPane` never applies to it —
+// every display's own `soiFocused` compares against ITS OWN cid, which the camera's synthetic one
+// never matches (telemetry-source.js), so soiPane is already -1 everywhere while it holds focus.
+// `soiTgpOn` carries that fact directly instead, and the ring keys off page CONTENT (whichever
+// pane, if any, happens to be showing the TGP page) rather than a pane index.
 function positionSoiRing() {
-  if (soiPane < 0) { soiRingEl.style.display = 'none'; return; }
-  const target = splitMode ? paneIframes[soiPane === 1 ? 1 : 0] : mapFrame;
+  const target = soiTgpOn ? tgpPaneTarget()
+               : soiPane < 0 ? null
+               : (splitMode ? paneIframes[soiPane === 1 ? 1 : 0] : mapFrame);
   if (!target) { soiRingEl.style.display = 'none'; return; }
   const s = screenEl.getBoundingClientRect();
   const t = target.getBoundingClientRect();
@@ -1901,6 +1921,15 @@ function positionSoiRing() {
   soiRingEl.style.width  = t.width  + 'px';
   soiRingEl.style.height = t.height + 'px';
   soiRingEl.style.display = 'block';
+}
+
+// Which iframe element (if any) is currently showing the TGP page — used only while soiTgpOn.
+function tgpPaneTarget() {
+  if (splitMode) {
+    const idx = panePages.indexOf('tgp');
+    return idx >= 0 ? paneIframes[idx] : null;
+  }
+  return currentPage === 'tgp' ? pageFrame : null;
 }
 
 // The focused surface's keys. In a split, only the focused pane's — each split key carries its

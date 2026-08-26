@@ -281,12 +281,14 @@ testing, not spec'd up front:
   no neutral/scenery/self targets, HUD marker/audio when available, and multiplayer target-list propagation), then
   manual mode exits and the game's normal locked `TargetCam` takes over. With no nearby match the
   press is still delivered to the focused web display and manual Point Track remains unchanged.
-- **Calibrated Zoom Axis** (`tgp-zoom-axis` bind, an `AddAxis` bind like Pan/Tilt Axis) — a
-  physical analog control (e.g. a HOTAS slider) whose raw position directly *is* the zoom level
-  (linear map, `-1` = `MaxFov`/widest, `+1` = `MinFov`/tightest), not a rate like the Zoom In/Out
-  buttons. When the axis moves, it jumps zoom to that absolute position; while it is stationary,
-  Zoom In/Out can still adjust the camera. Deliberately **not** rate-limited or smoothed (see
-  Debugging findings) — a calibrated control's whole point is instant, 1:1 response.
+- **Calibrated Zoom Axis** (`cursor-zoom-axis` bind — one of the shared PAD Cursor binds, see
+  [PAD Cursor consolidation](#pad-cursor-consolidation-built) — an `AddAxis` bind like Cursor
+  Horizontal/Vertical) — a physical analog control (e.g. a HOTAS slider) whose raw position
+  directly *is* the zoom level, log-linear from `MaxFov` (widest) to `MinFov` (tightest, see
+  Debugging findings' log-linear curve note), not a rate like the Cursor Zoom In/Out buttons. When
+  the axis moves, it jumps zoom to that position; while it is stationary, Zoom In/Out can still
+  adjust the camera. Deliberately **not** rate-limited or smoothed — a calibrated control's whole
+  point is instant, 1:1 response.
 - **Boresight crosshair** — a small white reticle with a gap at center, shown on the TGP page only
   while manual control is on via the `.tgp-manual` class. Screen-centered, not synced to the
   letterbox-corrected overlay rect the HQ stat overlay uses:
@@ -614,9 +616,10 @@ Delivered, including the five additions in [What actually shipped](#what-actuall
    convention. `SwitchIRState` is called through `TgpManualTargetCamAccess`, not patched.
 5. `TgpNativeOverlay.cs` — native in-cockpit `TargetScreenUI` text/crosshair population, separated
    from manual-control lifecycle/state.
-6. `Keybinds.cs` — KEY-page binds: toggle, reset, Point Track, pan/tilt button pairs, pan/tilt
-   axes, zoom in/out, the calibrated zoom axis, and manual COLOR/IR toggle; the existing PAD Cursor
-   Select bind also promotes a Point Track near a unit into the normal game lock.
+6. `Keybinds.cs` — KEY-page binds: toggle, reset, Point Track, and manual COLOR/IR toggle.
+   Pan/tilt/zoom are the shared PAD Cursor binds instead of dedicated TGP ones (see
+   [PAD Cursor consolidation](#pad-cursor-consolidation-built)); the existing PAD Cursor Select
+   bind also promotes a Point Track near a unit into the normal game lock.
 7. TGP page — boresight crosshair gated on the `tgp-manual` class.
 8. Every exit trigger from [Lifecycle](#lifecycle-every-exit-trigger) except the removed page-close
    one: real lock, aircraft loss, gear/landing-cam conflict.
@@ -625,17 +628,16 @@ Delivered, including the five additions in [What actually shipped](#what-actuall
    cockpit-hide interaction not specifically re-verified after the debugging pass — worth a look if
    either one is touched again.
 
-## Planned: PAD Cursor consolidation (not yet built)
+## PAD Cursor consolidation (built)
 
-**Status: designed, not implemented.** Manual TGP currently owns its own pan/tilt/zoom binds
-(`tgp-pan-left/right`, `tgp-tilt-up/down`, `tgp-pan-axis`, `tgp-tilt-axis`, `tgp-zoom-in/out`,
-`tgp-zoom-axis`), independent of the PAD Cursor binds (`cursor-up/down/left/right`,
-`cursor-axis-h/v`, `cursor-select`) that every MFD page's cursor already shares. Two separate
-input systems means a HOTAS with limited axes/buttons can't avoid binding the same physical
-control to both — using the TGP camera and having any other cursor-driven MFD page as SOI at the
-same time collides. The fix folds TGP pointing into the same generic PAD Cursor tool, and makes
-the manual camera itself a first-class, cyclable SOI target instead of a parallel always-on input
-path.
+**Status: built.** Manual TGP used to own its own pan/tilt/zoom binds (`tgp-pan-left/right`,
+`tgp-tilt-up/down`, `tgp-pan-axis`, `tgp-tilt-axis`, `tgp-zoom-in/out`, `tgp-zoom-axis`),
+independent of the PAD Cursor binds (`cursor-up/down/left/right`, `cursor-axis-h/v`,
+`cursor-select`) that every MFD page's cursor already shares. Two separate input systems meant a
+HOTAS with limited axes/buttons couldn't avoid binding the same physical control to both — using
+the TGP camera and having any other cursor-driven MFD page as SOI at the same time collided. The
+fix folds TGP pointing into the same generic PAD Cursor tool, and makes the manual camera itself a
+first-class, cyclable SOI target instead of a parallel always-on input path.
 
 **Bind changes:**
 - Remove `tgp-pan-left/right`, `tgp-tilt-up/down`, `tgp-pan-axis`, `tgp-tilt-axis`,
@@ -674,17 +676,32 @@ Point Track — see [Point Track to unit-lock handoff](#point-track-to-unit-lock
 `TelemetryServer.CursorSelect()`'s own broadcast is a harmless no-op when nothing is listening, so
 it doesn't need special-casing here. When SOI is an ordinary pane, none of this changes.
 
-**UI feedback:** `mfd.js`'s `#soi-ring` is positioned by matching this shell's own pane to the
-server's `(cid, pane)` SOI target — but the camera isn't a pane, so there's nothing to match by
-index. When the synthetic camera entry is SOI, each shell instead highlights whichever of its own
-panes (if any) is currently paged to `tgp` — matched by page content instead of pane identity. If
-no pane anywhere is showing TGP, no ring shows anywhere; the in-cockpit crosshair/overlay is still
-the primary tell that manual control has input focus.
+**UI feedback:** `mfd.js`'s `#soi-ring` (and its F-35 shell twin, `f35.js`'s `renderSoiRing`) is
+normally positioned by matching this shell's own pane/portal to the server's `(cid, pane)` SOI
+target — but the camera isn't a pane, so there's nothing to match by index. The server adds a
+`soiTgp` boolean to the SOI slice of every telemetry frame (`TelemetryServer.SoiJson`,
+`IsNativeTgpSoi`) — true on every connected client identically, unlike `soiTarget`'s cid, which
+only ever matches ONE specific instance. `telemetry-source.js` forwards it up as a `soi-tgp`
+message; each shell, while it's on, highlights whichever of its own panes/portals (if any) is
+currently paged to `tgp` — matched by page content instead of pane identity — instead of using its
+usual `soiPane`/`focusedPortal()` lookup. If no pane anywhere is showing TGP, no ring shows
+anywhere; the in-cockpit crosshair/overlay is still the primary tell that manual control has input
+focus.
 
-**Open implementation detail:** confirm `TelemetryServer.CursorSelect()`'s broadcast path degrades
-safely (no stale-pane misfire) when the server-side SOI target is the synthetic entry rather than
-a real `(cid, pane)`, before wiring `Keybinds.cs`'s existing `cursor-select` handler through
-unchanged.
+**Implementation notes:**
+- The synthetic ring cid is `TelemetryServer.NativeTgpCid` (`" tgp-camera"`, a leading space) —
+  `SanitizeCid` only lets `[a-zA-Z0-9-]` through a real client's reported cid, so this can never
+  collide with one, even by coincidence.
+- `TgpManualControl.Engage()`/`ExitManual()` are the sole choke points for every entry/exit path
+  (`Toggle()`, the unit-lock handoff, and every [lifecycle exit trigger](#lifecycle-every-exit-trigger)),
+  so hooking `TelemetryServer.ClaimNativeTgpSoi()`/`ReleaseNativeTgpSoi()` there covers all of them
+  without touching each call site individually.
+- `Keybinds.Poll()`'s cursor vector feeds `TgpManualControl.SetPan` with Y negated: screen-space
+  cursor Y grows downward (Cursor Down is `+1`), but `SetPan`'s Y is elevation-positive-up.
+- `TelemetryServer.CursorSelect()`'s broadcast (a sequence counter bump) is a harmless no-op when
+  nothing is listening, so `Keybinds.cs`'s `cursor-select` handler needed no special-casing for the
+  synthetic SOI target — it already just calls `TryLockTrackedUnit()` unconditionally, self-gated
+  on `ManualMode` and Point Track.
 
 ## Out of scope
 

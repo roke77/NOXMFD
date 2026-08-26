@@ -110,17 +110,15 @@ namespace NOXMFD
         private static BindDef? _cursorAxisH, _cursorAxisV;
         private static BindDef? _gunTrigger, _weaponRelease, _jammerPod;
 
-        // TGP manual control binds (docs/tgp-manual-control.md) — same held-key + optional-axis
-        // shape as the MAP cursor above; Poll() folds them into one pan/tilt call every frame and
-        // reads Zoom In/Out directly (they need a live held state each frame, not a Drive dispatch
-        // that only fires on the frame something becomes active — see the cursor comment above).
-        private static BindDef? _tgpPanLeft, _tgpPanRight, _tgpTiltUp, _tgpTiltDown;
-        private static BindDef? _tgpPanAxis, _tgpTiltAxis;
-        private static BindDef? _tgpZoomIn, _tgpZoomOut;
+        // PAD Cursor zoom (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — same
+        // held-key + calibrated-axis shape TGP's own zoom used to have before it was folded into
+        // this generic set; Poll() reads them directly and only forwards them to the manual TGP
+        // camera while it holds SOI (see the cursor comment above).
+        private static BindDef? _cursorZoomIn, _cursorZoomOut;
         // A calibrated physical axis (e.g. a HOTAS slider) driving zoom as an absolute position —
-        // different shape from Pan/Tilt Axis above, which only overrides its two keys when
+        // different shape from Cursor Axis H/V above, which only overrides its two keys when
         // deflected: this one applies only when moved, so Zoom In/Out can still work between axis moves.
-        private static BindDef? _tgpZoomAxis;
+        private static BindDef? _cursorZoomAxis;
 
         // Combat-mode tap/hold binds (docs/radar-master-arms.md, issue #32) — see PollTapHold. Kept by
         // reference, same reasoning as the cursor binds above: Poll() drives their real behavior
@@ -278,34 +276,24 @@ namespace NOXMFD
                 "Analog axis (HOTAS mini-stick/hat) driving the cursor left/right — overrides Cursor Left/Right when deflected. Only acts while a display with a cursor is focused.");
             _cursorAxisV = AddAxis(config, "cursor-axis-v", cursor, "CursorAxisV", "Cursor Vertical",
                 "Analog axis driving the cursor up/down — overrides Cursor Up/Down when deflected. Only acts while a display with a cursor is focused.");
+            // PAD zoom (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — generic, like
+            // the rest of the PAD Cursor set, but currently only consumed by the manual TGP camera
+            // while it holds SOI; every other page still uses the separate MAP Zoom In/Out bind.
+            _cursorZoomIn  = DefFree(config, "cursor-zoom-in", cursor, "CursorZoomIn", "Cursor Zoom In", edge: false,
+                "Zoom in on whatever the PAD cursor currently controls. Only acts while the manual TGP camera holds SOI.", () => { });
+            _cursorZoomOut = DefFree(config, "cursor-zoom-out", cursor, "CursorZoomOut", "Cursor Zoom Out", edge: false,
+                "Zoom out on whatever the PAD cursor currently controls. Only acts while the manual TGP camera holds SOI.", () => { });
+            _cursorZoomAxis = AddAxis(config, "cursor-zoom-axis", cursor, "CursorZoomAxis", "Cursor Zoom Axis",
+                "Calibrated analog axis (e.g. a HOTAS slider) — moving the axis jumps zoom to that absolute position, min to max. Cursor Zoom In/Out still work while the axis is stationary. Only acts while the manual TGP camera holds SOI.");
 
-            // TGP manual control binds (docs/tgp-manual-control.md) — pointing control only, off
-            // by default. Toggle/Reset are DefFree edge binds like SOI above (act on the mod, not
-            // the aeroplane, so they work even without a live TargetCam — TgpManualControl.Toggle
-            // itself no-ops cleanly with none). Pan/Tilt/Zoom follow the MAP cursor's held-key +
-            // optional-axis shape; Poll() drives them directly (see the field comment above), so
-            // their own actions here are no-ops.
+            // TGP manual control binds (docs/tgp-manual-control.md) — pointing control only, off by
+            // default. Pan/Tilt/Zoom moved onto the PAD Cursor set above (the PAD Cursor
+            // consolidation plan) — this section keeps only the lifecycle binds, which act on the
+            // mod rather than the aeroplane (DefFree, like SOI above), so they work even without a
+            // live TargetCam.
             const string tgp = "TGP Keybinds";
-            _tgpPanLeft  = DefFree(config, "tgp-pan-left", tgp, "TgpPanLeft", "Pan Left", edge: false,
-                "Pan the TGP manual camera left. Only acts while TGP manual control is on.", () => { });
-            _tgpPanRight = DefFree(config, "tgp-pan-right", tgp, "TgpPanRight", "Pan Right", edge: false,
-                "Pan the TGP manual camera right. Only acts while TGP manual control is on.", () => { });
-            _tgpTiltUp   = DefFree(config, "tgp-tilt-up", tgp, "TgpTiltUp", "Tilt Up", edge: false,
-                "Tilt the TGP manual camera up. Only acts while TGP manual control is on.", () => { });
-            _tgpTiltDown = DefFree(config, "tgp-tilt-down", tgp, "TgpTiltDown", "Tilt Down", edge: false,
-                "Tilt the TGP manual camera down. Only acts while TGP manual control is on.", () => { });
-            _tgpPanAxis  = AddAxis(config, "tgp-pan-axis", tgp, "TgpPanAxis", "Pan Axis",
-                "Analog axis (HOTAS mini-stick/hat) panning the TGP manual camera left/right — overrides Pan Left/Right when deflected.");
-            _tgpTiltAxis = AddAxis(config, "tgp-tilt-axis", tgp, "TgpTiltAxis", "Tilt Axis",
-                "Analog axis tilting the TGP manual camera up/down — overrides Tilt Up/Down when deflected.");
-            _tgpZoomIn   = DefFree(config, "tgp-zoom-in", tgp, "TgpZoomIn", "Zoom In", edge: false,
-                "Zoom the TGP manual camera in. Only acts while TGP manual control is on.", () => { });
-            _tgpZoomOut  = DefFree(config, "tgp-zoom-out", tgp, "TgpZoomOut", "Zoom Out", edge: false,
-                "Zoom the TGP manual camera out. Only acts while TGP manual control is on.", () => { });
-            _tgpZoomAxis = AddAxis(config, "tgp-zoom-axis", tgp, "TgpZoomAxis", "Zoom Axis",
-                "Calibrated analog axis (e.g. a HOTAS slider) — moving the axis jumps zoom to that absolute position, min to max. Zoom In/Out still work while the axis is stationary.");
             DefFree(config, "tgp-manual-toggle", tgp, "TgpManualToggle", "Manual Control Toggle", edge: true,
-                "Toggle manual TGP pointing on/off. Centers on the aircraft's nose at minimum zoom on entry. Auto-exits on a real target lock, aircraft loss, or a landing-gear/cam conflict.",
+                "Toggle manual TGP pointing on/off. Centers on the aircraft's nose at minimum zoom on entry, and claims PAD Cursor SOI immediately. Auto-exits on a real target lock, aircraft loss, or a landing-gear/cam conflict.",
                 () => TgpManualControl.Toggle());
             DefFree(config, "tgp-manual-reset", tgp, "TgpManualReset", "Manual Control Reset", edge: true,
                 "Recenter the TGP manual camera on the aircraft's forward direction at minimum zoom.",
@@ -518,20 +506,23 @@ namespace NOXMFD
             "Cursor Keybinds" =>
                 "Moves a cursor over whichever focused display has one (MAP, for now) and selects what " +
                 "it's on. Cursor Horizontal/Vertical are the same movement as an analog HOTAS axis — " +
-                "bind either or both; a deflected axis overrides its two keys.",
+                "bind either or both; a deflected axis overrides its two keys. Cursor Zoom In/Out/Axis " +
+                "only act while the manual TGP camera holds SOI (see TGP Keybinds) — Zoom Axis is a " +
+                "calibrated slider whose moved position jumps zoom to that absolute level, while Zoom " +
+                "In/Out still work between axis moves.",
             "Weapon Keybinds" =>
                 "Cycle keys select the last soft-selected weapon of their type, or the first in the list. " +
                 "Repeated presses cycle to the next one, skipping depleted weapons. " +
                 "Cycling to a different type leaves the current one soft-selected.",
             "TGP Keybinds" =>
                 "Manual pointing of the targeting-pod camera, independent of the game's own auto-lock. " +
-                "Pan/Tilt Axis are the same movement as an analog HOTAS axis — bind either or both; a " +
-                "deflected axis overrides its two keys. Zoom Axis is different: once bound, a calibrated " +
-                "slider's moved position jumps zoom to that absolute level, while Zoom In/Out still " +
-                "work between axis moves. Point Track locks the camera onto whatever it's aimed at; " +
-                "Pan/Tilt nudges and redesignates on release. Off by " +
-                "default; toggling on centers at minimum zoom, and auto-exits the moment a real target " +
-                "locks, the aircraft is lost, or gear/landing cam takes over.",
+                "Pointing itself uses the shared PAD Cursor binds (see Cursor Keybinds), not a " +
+                "dedicated pan/tilt/zoom of its own — toggling manual control on claims PAD Cursor SOI " +
+                "immediately, and SOI Next/Prev can tab away to another display and back without " +
+                "exiting manual mode. Point Track locks the camera onto whatever it's aimed at; the " +
+                "cursor nudges and redesignates on release. Off by default; toggling on centers at " +
+                "minimum zoom, and auto-exits the moment a real target locks, the aircraft is lost, or " +
+                "gear/landing cam takes over.",
             "Layout Keybinds" =>
                 "Keyboard only, no joystick/HOTAS. Acts on whichever browser window has focus when " +
                 "pressed, and applies to every connected browser.",
@@ -750,27 +741,22 @@ namespace NOXMFD
             // (docs/page-cursor.md), which an edge-only counter can't express.
             TelemetryServer.SetCursorSelectHeld(Active(_cursorSelect!, edgeOverride: false) || remoteCursorSelectHeld);
 
-            // TGP manual pan/tilt/zoom (docs/tgp-manual-control.md) — same unconditional-every-frame
-            // pattern as the cursor vector above: must run even on an idle frame so releasing the
-            // last key reports 0 instead of latching, and Zoom In/Out need their live held state
-            // every frame (a Drive dispatch only fires on the frame ActiveNow is true, never on
-            // release). TgpManualControl itself no-ops all of these while manual mode is off.
-            float tpx = 0, tpy = 0;
-            if (_tgpPanLeft!.ActiveNow)  tpx -= 1;
-            if (_tgpPanRight!.ActiveNow) tpx += 1;
-            if (_tgpTiltDown!.ActiveNow) tpy -= 1;
-            if (_tgpTiltUp!.ActiveNow)   tpy += 1;
-            float tax = ReadAxis(_tgpPanAxis!);
-            float tay = ReadAxis(_tgpTiltAxis!);
-            if (tax != 0f) tpx = tax;
-            if (tay != 0f) tpy = tay;
-            TgpManualControl.SetPan(ClampUnit(tpx), ClampUnit(tpy));
-            TgpManualControl.SetZoom(1, _tgpZoomIn!.ActiveNow);
-            TgpManualControl.SetZoom(-1, _tgpZoomOut!.ActiveNow);
+            // PAD cursor -> manual TGP camera (docs/tgp-manual-control.md's PAD Cursor consolidation
+            // plan): the camera is just another SOI target now, so it only receives the cursor
+            // vector/zoom while it actually holds SOI — same unconditional-every-frame pattern as
+            // the cursor vector above, so losing SOI on a held key/axis reports 0 instead of leaving
+            // the camera slewing on stale input ("headless" mode holds its last aim, it doesn't keep
+            // listening). Y is negated: screen-space cursor Y grows downward (Cursor Down is +1), but
+            // SetPan's Y is elevation-positive-up.
+            bool tgpSoi = TelemetryServer.IsNativeTgpSoi;
+            TgpManualControl.SetPan(tgpSoi ? cx : 0f, tgpSoi ? -cy : 0f);
+            TgpManualControl.SetZoom(1, tgpSoi && _cursorZoomIn!.ActiveNow);
+            TgpManualControl.SetZoom(-1, tgpSoi && _cursorZoomOut!.ActiveNow);
             // AxisEntry.Value >= 0 is "bound at all", distinct from ReadAxis's 0 return (which
             // also means "centered" for a bound axis, not just "unbound"). TgpManualControl applies
-            // the axis only when it moves, so Zoom In/Out can coexist while the axis is stationary.
-            TgpManualControl.SetZoomAxis(_tgpZoomAxis!.AxisEntry!.Value >= 0 ? (float?)ReadAxis(_tgpZoomAxis) : null);
+            // the axis only when it moves, so Cursor Zoom In/Out can coexist while the axis is stationary.
+            TgpManualControl.SetZoomAxis(
+                tgpSoi && _cursorZoomAxis!.AxisEntry!.Value >= 0 ? (float?)ReadAxis(_cursorZoomAxis) : null);
 
             // Combat-mode tap/hold binds (docs/radar-master-arms.md) — run every frame, same reasoning
             // as the cursor vector above: a release on an otherwise-idle frame must still reset
