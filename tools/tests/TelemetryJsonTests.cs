@@ -53,12 +53,14 @@ namespace NOXMFD.Tests
         {
             var s = default(TelemetrySnapshot);
             s.TgpActive = true;
+            s.TgpResolution = "high";
             s.TgpQuality = "hq";
             s.TgpManualActive = true;
 
             var root = Root(s);
 
             Assert.True((bool)root["tgpActive"]!);
+            Assert.Equal("high", root["tgpResolution"]);
             Assert.Equal("hq", root["tgpQuality"]);
             Assert.True((bool)root["tgpManual"]!);
         }

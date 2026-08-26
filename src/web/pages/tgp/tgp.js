@@ -81,10 +81,10 @@ const TGP_STATUS_TAG = { jammed: 'JAM', lased: 'LASE', outdated: 'OLD' };
 // in-cockpit readout's units exactly.
 function fmtDash(value, suffix) { return value == null ? '-' : Math.round(value) + suffix; }
 
-function applyOverlay(quality, data) {
+function applyOverlay(resolution, data) {
   const manual = !!data && !!data.manual;
   const locked = !!data && data.cnt > 0;
-  const show = quality === 'hq' && (manual || locked);
+  const show = resolution !== 'native' && (manual || locked);
   tgpPanel.classList.toggle('show-overlay', show);
   tgpPanel.classList.toggle('tgp-point-track', manual && !!data.pointTrack);
   if (!show) { renderBoxes([]); return; }
@@ -189,7 +189,8 @@ window.addEventListener('message', function(e) {
   if (m.type === 'tgp') {
     tgpPanel.classList.toggle('has-feed', !!m.active);
     tgpPanel.classList.toggle('tgp-manual', !!m.manual);
-    applyOverlay(m.quality || 'native', m.data || null);
+    const resolution = m.resolution || (m.quality === 'hq' ? 'mid' : 'native');
+    applyOverlay(resolution, m.data || null);
   } else if (m.type === 'orient') {
     // App-wide orientation forwarded by the shell — drives body.portrait/.landscape so any
     // orientation rules track the device, not the (wide+short) pane box.

@@ -29,7 +29,7 @@ namespace NOXMFD
         public string? wname;  // weapon type name (weapon.select) — matches LoadoutEntry.Name
                                 // wpt.* : route/waypoint display name
                                 // preset.save / preset.rename : preset name
-                                // rates.set (group "tgpQuality") : "native" | "hq"
+                                // rates.set TGP resolution/quality groups: their stable wire names
                                 // rates.set (group "tgpSuppressNative") : "on" | anything else
                                 // soi.page : the page name the reported pane is showing
         public string? group;  // tgt.set / tgt.only : "faction" | "category" | "vehicle"
@@ -82,12 +82,12 @@ namespace NOXMFD
                 { "declutter.set",   DeclutterSet },
                 { "avn.toggle",      AvnToggle },
                 { "avn.set",         AvnSet },
-                // MAP CFG's and TGP CFG's sliders/picker. group selects which: "tgp" is the camera
-                // feed rate, "tgpQuality" is the HQ mode picker, "tgpSuppressNative" is the cockpit
-                // TargetCam overlay suppression toggle, anything else (default "fast") is the main 10 Hz tick.
+                // MAP CFG's and TGP CFG's controls. The old tgpQuality group remains a resolution
+                // alias so an older page can still switch between native and the mirror feed.
                 { "rates.set",       e => {
                     if (e.group == "tgp") RatesConfig.SetTgpHz(e.hz);
-                    else if (e.group == "tgpQuality") RatesConfig.SetTgpQuality(e.wname ?? "native");
+                    else if (e.group == "tgpResolution" || e.group == "tgpQuality") RatesConfig.SetTgpResolution(e.wname ?? "native");
+                    else if (e.group == "tgpJpegQuality") RatesConfig.SetTgpJpegQuality(e.wname ?? "mid");
                     else if (e.group == "tgpSuppressNative") RatesConfig.SetTgpSuppressNative(e.wname == "on" || e.on);
                     else RatesConfig.SetFastHz(e.hz);
                 } },

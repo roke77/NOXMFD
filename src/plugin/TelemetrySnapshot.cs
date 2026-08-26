@@ -100,9 +100,9 @@ namespace NOXMFD
         // game's 3-second post-loss hold is still running). Drives the MFD's NO TARGET fallback.
         public bool   TgpActive;
 
-        // "native" | "hq" (RatesConfig.TgpQualityName) — the page uses this to decide whether to
-        // draw its own overlay at all. Native's video already has the game's own baked-in overlay
-        // (TargetScreenUI's stacked UICam); drawing this one on top of it would duplicate the text.
+        // Resolution is the current native|mid|high contract. Quality is the temporary native|hq
+        // compatibility alias older clients use to distinguish baked and client-side overlays.
+        public string TgpResolution;
         public string TgpQuality;
 
         // The stat overlay the game bakes into the cockpit TGP screen via a second stacked camera

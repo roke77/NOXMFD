@@ -76,11 +76,11 @@ assert.ok(!elements['tgp-panel'].classList.contains('tgp-point-track'), 'no clie
 // in HQ quality, same corner-group elements as the locked-target case but a different field
 // mapping (applyManualOverlay). Own-aircraft SPD is hidden, not dashed, matching the in-cockpit
 // overlay's own SetActive(false).
-listeners.message({ data: { mfd: true, type: 'tgp', active: true, quality: 'hq', manual: true, data: {
+listeners.message({ data: { mfd: true, type: 'tgp', active: true, resolution: 'high', quality: 'native', manual: true, data: {
   cnt: 0, manual: true, pointTrack: false, hasDetail: true,
   mag: 4.5, range: 2400, alt: 68, relAlt: -934, clo: '-267km/h', el: -8, brg: 135, grid: 'Kf53', ir: false,
 } } });
-assert.ok(elements['tgp-panel'].classList.contains('show-overlay'), 'manual data should show the overlay in HQ quality');
+assert.ok(elements['tgp-panel'].classList.contains('show-overlay'), 'manual data should show the overlay at HIGH resolution');
 assert.ok(!elements['tgp-panel'].classList.contains('tgp-point-track'), 'pointTrack:false should not set tgp-point-track');
 assert.strictEqual(elements['tgp-ov-type'].textContent, 'MANUAL', 'manual type label');
 assert.strictEqual(elements['tgp-ov-pilot'].textContent, '', 'manual mode has no pilot');

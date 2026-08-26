@@ -799,7 +799,8 @@ namespace NOXMFD
                 ColHostile     = _colHostile,
                 ColNeutral     = _colNeutral,
                 TgpActive      = _tgp.Active,
-                TgpQuality      = RatesConfig.TgpQualityName,
+                TgpResolution   = RatesConfig.TgpResolutionName,
+                TgpQuality      = RatesConfig.TgpLegacyQualityName,
                 TgpMag          = _tgp.Overlay.Mag,
                 TgpRangeM       = _tgp.Overlay.RangeM,
                 TgpGrid         = _tgp.Overlay.Grid,
@@ -1340,7 +1341,7 @@ namespace NOXMFD
 
         private void OnDestroy()
         {
-            _tgp.Disengage();
+            _tgp.Shutdown();
             if (_rwrSubscribed != null) { _rwrSubscribed.onRadarWarning -= OnRadarWarning; _rwrSubscribed = null; }
             if (AkfTracker.Active == _akf) AkfTracker.Active = null;
         }

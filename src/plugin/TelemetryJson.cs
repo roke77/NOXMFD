@@ -54,6 +54,7 @@ namespace NOXMFD
                 JsonLite.EscapeJson(s.SoftRel ?? string.Empty),
                 JsonBool(masterArmsOn),
                 JsonLite.EscapeJson(combatModeLabel ?? string.Empty));
+            sb.Append("\"tgpResolution\":\"").Append(JsonLite.EscapeJson(s.TgpResolution ?? "native")).Append("\",");
             sb.Append("\"tgpQuality\":\"").Append(JsonLite.EscapeJson(s.TgpQuality ?? "native")).Append("\",");
             sb.Append("\"tgpManual\":").Append(JsonBool(s.TgpManualActive)).Append(',');
             sb.Append(soiJson).Append(',');

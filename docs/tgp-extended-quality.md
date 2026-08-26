@@ -1,8 +1,21 @@
-# TGP — extended resolution and JPEG quality controls (planning)
+# TGP — extended resolution and JPEG quality controls
 
 ## Status
 
-Planning only. Nothing in this document is implemented yet.
+Implementation is active on `tgp-extended-high-quality`.
+
+Implemented in the first pass:
+
+- LOW/MID/HIGH resolution tiers at native 360x240, 720x480, and 1080x720;
+- independent JPEG LOW/MID/HIGH values at 30, 50, and 75;
+- legacy `hq` config and command input migration to MID plus temporary telemetry compatibility;
+- direct raw-array JPEG encoding on one bounded background worker;
+- generation invalidation for disengage and live setting changes;
+- TGP CFG controls, specific cost warnings, reset behavior, preview values, and automated tests.
+
+Live-game performance and image-quality validation remains open. The test checklist under
+"Acceptance criteria" is the handoff for that session; automated checks do not establish the
+visual benefit or safe capture-rate ceiling of 1080x720.
 
 This plan replaces the current single **TGP — FEED QUALITY** choice with two independent
 settings:
@@ -524,18 +537,19 @@ Defer until 1080x720 plus worker encoding has measured headroom.
   per frame.
 - Measure all nine combinations before adding a quality-dependent refresh-rate clamp.
 
-## Open decisions before implementation
+## Remaining decisions and live verification
 
 1. Confirm JPEG 30 and 75 visually; adjust the endpoints if they are too destructive or too large.
-2. Decide whether worker offload is a prerequisite for exposing HIGH or a directly-following
-   branch. The recommendation is prerequisite unless synchronous 1080x720 measurements are safe.
-3. Decide whether HIGH gets a hard 15 Hz ceiling, a stronger warning only, or an automatically
+2. Decide whether HIGH gets a hard 15 Hz ceiling, a stronger warning only, or an automatically
    suggested lower rate. Do not silently change the user's rate without explicit UI feedback.
-4. Decide how long to retain legacy `tgpQuality` command/telemetry aliases.
-5. Verify raw pixel channel order and colour space when switching from Texture2D encoding to the
+3. Decide how long to retain legacy `tgpQuality` command/telemetry aliases.
+4. Verify raw pixel channel order and colour space after the switch from Texture2D encoding to the
    array encoder on the actual Direct3D runtime.
-6. Re-test the mirror camera across a long flight/floating-origin shift; this remains an open risk
+5. Re-test the mirror camera across a long flight/floating-origin shift; this remains an open risk
    from the original HQ implementation and becomes more important before expanding its use.
+6. Measure raw-buffer allocation/GC pressure. The bounded worker prevents queue growth, but the
+   readback callback currently owns one exact-size managed byte array per accepted frame rather
+   than a reusable native-buffer ring.
 
 ## References
 

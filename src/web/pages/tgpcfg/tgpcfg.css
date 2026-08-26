@@ -193,10 +193,6 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   border-color: var(--no-gray);
   color: var(--no-gray);
 }
-/* #tcfg-tgp-quality-warning reuses .tcfg-hz-warning's look but is shown any time a non-Native
-   quality is active, not just above a slider threshold. */
-#tcfg-tgp-quality-warning.shown { display: block; }
-
 #tcfg-empty { display: none; }
 .tcfg-panel.unavailable .tcfg-setting { display: none; }
 .tcfg-panel.unavailable #tcfg-empty { display: block; }

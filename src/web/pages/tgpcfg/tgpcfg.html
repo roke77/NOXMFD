@@ -5,10 +5,10 @@
 <title>NO XMFD — TGP CFG</title>
 <!--
   TGP's own CFG page, served at /tgpcfg. Reached from TGP's own nav row (nav-model.js's NAV.tgp),
-  not MD/CFG's MAIN-rooted sibling groups — same reasoning as WPT/MAPCFG. Three settings:
+  not MD/CFG's MAIN-rooted sibling groups — same reasoning as WPT/MAPCFG. Four settings:
     TGP  — the targeting-pod camera feed capture rate (TgpFeed.cs's Interval).
-    HQ   — the feed's picture source: NATIVE (the game's own camera) or HQ (a separate,
-           higher-resolution mirror camera — see docs/tgp-high-quality-mode.md).
+    RESOLUTION — native 360x240 or a separate 720x480/1080x720 mirror camera.
+    QUALITY — JPEG compression quality, independent of resolution.
     COCKPIT FEED — optional hiding of the native in-cockpit TGP overlay.
   The main telemetry-tick slider lives on MAP's own CFG page instead (/mapcfg) — each page only
   carries the setting relevant to it.
@@ -49,21 +49,39 @@
       50ms. Raise this only if you have GPU headroom to spend.</div>
   </div>
 
-  <div class="tcfg-setting" id="tcfg-tgp-quality">
+  <div class="tcfg-setting" id="tcfg-tgp-resolution">
+    <div class="tcfg-setting-text">
+      <div class="tcfg-name">TGP — FEED RESOLUTION</div>
+      <div class="tcfg-desc">LOW (default) uses the game's native 360×240 camera. MID uses a
+        720×480 mirror camera. HIGH uses a 1080×720 mirror camera. MID and HIGH render an additional
+        camera and increase readback and encoding work.</div>
+    </div>
+    <div class="tcfg-quality-row" id="tcfg-tgp-resolution-row">
+      <button class="tcfg-quality-btn" data-resolution="native">LOW</button>
+      <button class="tcfg-quality-btn" data-resolution="mid">MID</button>
+      <button class="tcfg-quality-btn" data-resolution="high">HIGH</button>
+    </div>
+    <div class="tcfg-hz-warning" id="tcfg-tgp-resolution-warning">MID and HIGH render a second
+      camera and may cost noticeable FPS. HIGH also reads back and encodes 2.25× as many pixels as
+      MID.</div>
+  </div>
+
+  <div class="tcfg-setting" id="tcfg-tgp-jpeg-quality">
     <div class="tcfg-setting-text">
       <div class="tcfg-name">TGP — FEED QUALITY</div>
-      <div class="tcfg-desc">NATIVE (default) reads the game's own targeting-pod camera as-is. HQ
-        renders a separate, higher-resolution camera every frame instead — sharper picture, real
-        tree/grass detail, a mag/range/grid/target-detail overlay with a per-target lock box, and a
-        basic thermal-style IR look, at the cost of an extra render pass. Still an early-pass
-        feature: expect rough edges.</div>
+      <div class="tcfg-desc">Controls JPEG compression only: LOW uses 30, MID (default) uses 50,
+        and HIGH uses 75. Higher quality retains more fine detail and produces larger MJPEG frames;
+        it does not change the camera resolution.</div>
     </div>
-    <div class="tcfg-quality-row" id="tcfg-tgp-quality-row">
-      <button class="tcfg-quality-btn" data-quality="native">LOW</button>
-      <button class="tcfg-quality-btn" data-quality="hq">HIGH</button>
+    <div class="tcfg-quality-row" id="tcfg-tgp-jpeg-quality-row">
+      <button class="tcfg-quality-btn" data-jpeg-quality="low">LOW</button>
+      <button class="tcfg-quality-btn" data-jpeg-quality="mid">MID</button>
+      <button class="tcfg-quality-btn" data-jpeg-quality="high">HIGH</button>
     </div>
-    <div class="tcfg-hz-warning" id="tcfg-tgp-quality-warning">HQ is an early-pass feature — expect
-      rough edges. It renders a second camera every frame and may cost noticeable FPS.</div>
+    <div class="tcfg-hz-warning" id="tcfg-tgp-jpeg-quality-warning">HIGH retains more detail but
+      increases MJPEG frame size, bandwidth, and encoder pressure.</div>
+    <div class="tcfg-hz-warning" id="tcfg-tgp-combined-warning">HIGH resolution with HIGH quality
+      is the maximum GPU, CPU, and bandwidth setting.</div>
   </div>
 
   <div class="tcfg-setting" id="tcfg-tgp-suppress">

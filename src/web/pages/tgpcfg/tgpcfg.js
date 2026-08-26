@@ -9,8 +9,9 @@ if (window.parent !== window) {
 
 var panelEl = document.getElementById('tcfg-panel');
 
-var DEFAULTS = { tgpHz: 15, tgpQuality: 'native', tgpSuppressNative: false };   // matches RatesConfig.cs Bind() defaults
-var tgpQuality = DEFAULTS.tgpQuality;
+var DEFAULTS = { tgpHz: 15, tgpResolution: 'native', tgpJpegQuality: 'mid', tgpSuppressNative: false };
+var tgpResolution = DEFAULTS.tgpResolution;
+var tgpJpegQuality = DEFAULTS.tgpJpegQuality;
 var tgpSuppressNative = DEFAULTS.tgpSuppressNative;
 
 function setSlider(hz) {
@@ -38,21 +39,44 @@ document.getElementById('tcfg-tgp-slider').onchange = function () {
   sendCommand('rates.set', { group: 'tgp', hz: Number(this.value) }).catch(function () {});
 };
 
-function setQuality(quality) {
-  tgpQuality = quality;
-  var buttons = document.querySelectorAll('#tcfg-tgp-quality-row .tcfg-quality-btn');
-  buttons.forEach(function (btn) {
-    btn.classList.toggle('active', btn.dataset.quality === quality);
-  });
-  document.getElementById('tcfg-tgp-quality-warning').classList.toggle('shown', quality !== 'native');
-  renderSuppressToggle();
+function updateFeedWarnings() {
+  document.getElementById('tcfg-tgp-resolution-warning').classList.toggle('shown', tgpResolution !== 'native');
+  document.getElementById('tcfg-tgp-jpeg-quality-warning').classList.toggle('shown', tgpJpegQuality === 'high');
+  document.getElementById('tcfg-tgp-combined-warning').classList.toggle('shown',
+    tgpResolution === 'high' && tgpJpegQuality === 'high');
 }
 
-document.querySelectorAll('#tcfg-tgp-quality-row .tcfg-quality-btn').forEach(function (btn) {
+function setResolution(resolution) {
+  tgpResolution = resolution;
+  var buttons = document.querySelectorAll('#tcfg-tgp-resolution-row .tcfg-quality-btn');
+  buttons.forEach(function (btn) {
+    btn.classList.toggle('active', btn.dataset.resolution === resolution);
+  });
+  updateFeedWarnings();
+}
+
+document.querySelectorAll('#tcfg-tgp-resolution-row .tcfg-quality-btn').forEach(function (btn) {
   btn.onclick = function () {
-    var quality = btn.dataset.quality;
-    setQuality(quality);
-    sendCommand('rates.set', { group: 'tgpQuality', wname: quality }).catch(function () {});
+    var resolution = btn.dataset.resolution;
+    setResolution(resolution);
+    sendCommand('rates.set', { group: 'tgpResolution', wname: resolution }).catch(function () {});
+  };
+});
+
+function setJpegQuality(quality) {
+  tgpJpegQuality = quality;
+  var buttons = document.querySelectorAll('#tcfg-tgp-jpeg-quality-row .tcfg-quality-btn');
+  buttons.forEach(function (btn) {
+    btn.classList.toggle('active', btn.dataset.jpegQuality === quality);
+  });
+  updateFeedWarnings();
+}
+
+document.querySelectorAll('#tcfg-tgp-jpeg-quality-row .tcfg-quality-btn').forEach(function (btn) {
+  btn.onclick = function () {
+    var quality = btn.dataset.jpegQuality;
+    setJpegQuality(quality);
+    sendCommand('rates.set', { group: 'tgpJpegQuality', wname: quality }).catch(function () {});
   };
 });
 
@@ -79,10 +103,12 @@ document.getElementById('tcfg-tgp-suppress-btn').onclick = function () {
 document.getElementById('tcfg-reset').onclick = function () {
   setSlider(DEFAULTS.tgpHz);
   updateTgpWarning(DEFAULTS.tgpHz);
-  setQuality(DEFAULTS.tgpQuality);
+  setResolution(DEFAULTS.tgpResolution);
+  setJpegQuality(DEFAULTS.tgpJpegQuality);
   setSuppressNative(DEFAULTS.tgpSuppressNative);
   sendCommand('rates.set', { group: 'tgp', hz: DEFAULTS.tgpHz }).catch(function () {});
-  sendCommand('rates.set', { group: 'tgpQuality', wname: DEFAULTS.tgpQuality }).catch(function () {});
+  sendCommand('rates.set', { group: 'tgpResolution', wname: DEFAULTS.tgpResolution }).catch(function () {});
+  sendCommand('rates.set', { group: 'tgpJpegQuality', wname: DEFAULTS.tgpJpegQuality }).catch(function () {});
   sendCommand('rates.set', { group: 'tgpSuppressNative', wname: 'off', on: false }).catch(function () {});
 };
 
@@ -91,7 +117,8 @@ fetch('/rates-config')
   .then(function (cfg) {
     setSlider(cfg.tgpHz);
     updateTgpWarning(cfg.tgpHz);
-    setQuality(cfg.tgpQuality || 'native');
+    setResolution(cfg.tgpResolution || (cfg.tgpQuality === 'hq' ? 'mid' : 'native'));
+    setJpegQuality(cfg.tgpJpegQuality || 'mid');
     setSuppressNative(!!cfg.tgpSuppressNative);
     panelEl.classList.remove('unavailable');
   })

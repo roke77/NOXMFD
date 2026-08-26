@@ -3,16 +3,10 @@ using UnityEngine.Rendering.Universal;
 
 namespace NOXMFD
 {
-    // Native is the default and unchanged path (TgpFeed.cs reads the game's own
-    // TargetCam.cam.targetTexture directly — no mirror camera involved). HighQuality reads from
-    // TgpMirrorCam's own higher-resolution RenderTexture instead, rendered every Unity frame like a
-    // normal camera (enabled + URP Base) rather than only at the TGP capture rate — the only tier
-    // this camera supports; a cheaper disabled/manual-render tier measured no cheaper on average
-    // (docs/performance.md) while losing tree/grass detail, so it isn't worth the extra mode.
-    internal enum TgpQuality { Native, HighQuality }
-
+    // MID and HIGH use this camera at different RenderTexture sizes. It stays enabled as a URP Base
+    // camera because manual Camera.Render() loses tree/grass detail in this game.
     // A second camera, parented to TargetCam's active mount (docs/tgp-high-quality-mode.md), used
-    // only when TgpFeed.Quality != Native. Never touches TargetCam.cam, its UICam, or anything
+    // only when TgpFeed.Resolution != Native. Never touches TargetCam.cam, its UICam, or anything
     // CameraStateManager owns — see Mursisru/MissileCamera's Fullscreen/CAMERA_SAFETY.md, which
     // documents a real incident from a *different* approach (reparenting/overlaying the vanilla
     // camera) that this design avoids entirely by creating an independent camera instead.

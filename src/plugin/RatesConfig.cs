@@ -4,8 +4,8 @@ using UnityEngine;
 namespace NOXMFD
 {
     // Live-adjustable refresh rates: FastHz (MAP CFG page) drives TelemetryReader.FastInterval
-    // (own-ship, weapons, contacts, TGT, BDF/PAL); TgpHz/TgpQuality/TgpSuppressNative (TGP CFG page)
-    // drive TgpFeed. Persisted, hidden from the F1 menu. Setting any of them writes directly into
+    // (own-ship, weapons, contacts, TGT, BDF/PAL); the TGP settings drive TgpFeed. Persisted and
+    // hidden from the F1 menu, setting any of them writes directly into
     // the reader's/feed's own field, live.
     internal static class RatesConfig
     {
@@ -23,11 +23,17 @@ namespace NOXMFD
         private static ConfigEntry<float>?  _fastHz;
         private static ConfigEntry<float>?  _tgpHz;
         private static ConfigEntry<string>? _tgpQuality;
+        private static ConfigEntry<string>? _tgpJpegQuality;
         private static ConfigEntry<bool>?   _tgpSuppressNative;
 
         public static float FastHz => _fastHz?.Value ?? 10f;
         public static float TgpHz  => _tgpHz?.Value  ?? 15f;
-        public static string TgpQualityName => _tgpQuality?.Value ?? "native";
+        public static string TgpResolutionName =>
+            TgpFeedSettings.NormalizeResolutionName(_tgpQuality?.Value);
+        public static string TgpJpegQualityName =>
+            TgpFeedSettings.NormalizeJpegQualityName(_tgpJpegQuality?.Value);
+        public static string TgpLegacyQualityName =>
+            TgpFeedSettings.LegacyQualityName(TgpFeedSettings.ParseResolution(TgpResolutionName));
         public static bool TgpSuppressNative => _tgpSuppressNative?.Value ?? false;
 
         public static void SetFastHz(float hz)
@@ -44,17 +50,18 @@ namespace NOXMFD
             TgpFeed.Interval = 1f / hz;
         }
 
-        // Any input other than "hq" normalizes to native. See TgpQuality in TgpMirrorCam.cs for what
-        // HQ actually does. Persists the normalized value, not the raw input — otherwise a stale
-        // config value (e.g. a dropped tier name from an older build) would keep reading back out of
-        // TgpQualityName unchanged even though SetTgpQuality itself already treats it as native, and
-        // the CFG page's LOW/HIGH buttons would then both show inactive.
-        public static void SetTgpQuality(string name)
+        public static void SetTgpResolution(string name)
         {
-            TgpQuality quality = name == "hq" ? TgpQuality.HighQuality : TgpQuality.Native;
-            string normalized = quality == TgpQuality.HighQuality ? "hq" : "native";
+            string normalized = TgpFeedSettings.NormalizeResolutionName(name);
             if (_tgpQuality != null) _tgpQuality.Value = normalized;
-            TgpFeed.Quality = quality;
+            TgpFeed.SetResolution(TgpFeedSettings.ParseResolution(normalized));
+        }
+
+        public static void SetTgpJpegQuality(string name)
+        {
+            string normalized = TgpFeedSettings.NormalizeJpegQualityName(name);
+            if (_tgpJpegQuality != null) _tgpJpegQuality.Value = normalized;
+            TgpFeed.SetJpegQuality(TgpFeedSettings.ParseJpegQuality(normalized));
         }
 
         public static void SetTgpSuppressNative(bool on)
@@ -73,13 +80,16 @@ namespace NOXMFD
             _tgpHz = config.Bind(section, "TgpHz", 15f,
                 new ConfigDescription("TGP camera feed capture rate. 1-60 Hz.", null, Hidden));
             _tgpQuality = config.Bind(section, "TgpQuality", "native",
-                new ConfigDescription("TGP camera feed source: native or hq.", null, Hidden));
+                new ConfigDescription("TGP feed resolution: native, mid, or high. The key name is retained for compatibility.", null, Hidden));
+            _tgpJpegQuality = config.Bind(section, "TgpJpegQuality", "mid",
+                new ConfigDescription("TGP JPEG quality: low, mid, or high.", null, Hidden));
             _tgpSuppressNative = config.Bind(section, "TgpSuppressNative", false,
                 new ConfigDescription("When the TGP feed is active, hide the native in-cockpit TGP overlay so the normal cockpit display remains visible.", null, Hidden));
 
             SetFastHz(_fastHz.Value);
             SetTgpHz(_tgpHz.Value);
-            SetTgpQuality(_tgpQuality.Value);
+            SetTgpResolution(_tgpQuality.Value);
+            SetTgpJpegQuality(_tgpJpegQuality.Value);
             SetTgpSuppressNative(_tgpSuppressNative.Value);
         }
     }

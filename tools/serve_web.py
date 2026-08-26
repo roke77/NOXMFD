@@ -265,6 +265,8 @@ def _rates_config():
     return json.dumps({
         "fastHz": 10,
         "tgpHz": 15,
+        "tgpResolution": "native",
+        "tgpJpegQuality": "mid",
         "tgpQuality": "native",
         "tgpSuppressNative": False
     }).encode("utf-8")
@@ -277,6 +279,8 @@ def _rates_config_merged():
     merged = {
         "fastHz": 10,
         "tgpHz": 15,
+        "tgpResolution": "native",
+        "tgpJpegQuality": "mid",
         "tgpQuality": "native",
         "tgpSuppressNative": False
     }

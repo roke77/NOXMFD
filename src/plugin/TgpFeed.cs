@@ -1,28 +1,26 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading;
 using NuclearOption.Networking;
-using Unity.Collections;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 
 namespace NOXMFD
 {
     // The TGP (targeting-pod) camera feed, peeled out of TelemetryReader. Unlike AssetCapture's
     // one-shot extraction, this is a CONTINUOUS feed: each tick it reads the game's own TargetCam
-    // render texture, GPU-downscales + JPEG-encodes it (async readback, off the frame's critical
-    // path) and pushes it to the server's MJPEG endpoint. Buffers are allocated lazily and freed on
-    // disengage, so the cost is zero until the MFD's TGP page actually opens a subscriber.
+    // render texture, GPU-downscales it, reads it back asynchronously, and hands raw pixels to one
+    // bounded JPEG worker before pushing the result to the MJPEG endpoint. Buffers and the worker
+    // are created lazily, so the cost is zero until the TGP page opens a subscriber.
     //
-    // We let the game render the TargetCam at its prefab-native resolution (~360×240) and just READ
-    // that RT, rather than swapping in a larger RT for a higher-quality feed. A bigger RT would (a)
-    // quadruple per-frame render cost for cam + UICam, and (b) reposition UI canvas-anchored
-    // elements (the targeting box/crosshair) on the in-cockpit screen, since the canvas snaps to
-    // the RT edges. Reading the native RT avoids both — the cockpit screen is undisturbed.
+    // LOW reads the game's native TargetCam RT. MID/HIGH use an independent mirror camera, leaving
+    // the game's camera, UI canvas, and cockpit screen untouched.
     //
     // A plain object (not a MonoBehaviour): TelemetryReader owns one, drives it via Tick(dt) each
-    // frame, reads Active for the snapshot, and calls Disengage() from its OnDestroy. Disengage()
-    // nulls the buffers, so a readback callback that lands after teardown bails on its own guards.
+    // frame, reads Active for the snapshot, and calls Shutdown() from its OnDestroy. Generation
+    // checks make a readback or encode completion after teardown harmless.
     //
     // Owns only the capture/GPU pipeline (source resolution, downscale, async readback, JPEG encode,
     // IR grayscale). The text/status overlay data captures derive alongside each frame lives in
@@ -32,36 +30,54 @@ namespace NOXMFD
         // Not a const: RatesConfig.SetTgpHz (rates.set command) writes this live from the TGP CFG
         // page's rate slider.
         internal static float Interval    = 1f / 15f;   // 15 Hz — enough for a small MFD pane, keeps readback+encode rate low
-        private  const int   MaxDim      = 720;        // cap for the encoded frame — a no-op at Native res, an exact match at Hq res (below)
-        private  const int   JpegQuality = 50;         // JPEG quality 0–100; 50 is visually fine for a small MFD pane
-        // RatesConfig.SetTgpQuality (rates.set command, group "tgpQuality") writes this live from
-        // the TGP CFG page. HqWidth/HqHeight match the native source's ~3:2 aspect (docs/tgp-high-
-        // quality-mode.md's stated default) so the existing letterbox-avoidance math below needs no
-        // change for either HQ mode.
-        internal static TgpQuality Quality  = TgpQuality.Native;
+        internal static TgpResolution Resolution = TgpResolution.Native;
+        internal static TgpJpegQuality JpegQuality = TgpJpegQuality.Medium;
         internal static bool       SuppressNativeDisplay;
-        private  const int         HqWidth  = 720;
-        private  const int         HqHeight = 480;
+        private static int         _settingsGeneration;
+
+        internal static void SetResolution(TgpResolution resolution)
+        {
+            if (Resolution == resolution) return;
+            Resolution = resolution;
+            Interlocked.Increment(ref _settingsGeneration);
+            TelemetryServer.ClearTgpFrame();
+        }
+
+        internal static void SetJpegQuality(TgpJpegQuality quality)
+        {
+            if (JpegQuality == quality) return;
+            JpegQuality = quality;
+            Interlocked.Increment(ref _settingsGeneration);
+            TelemetryServer.ClearTgpFrame();
+        }
 
         private float          _timer;
         private RenderTexture? _rt;                    // Blit destination, source for AsyncGPUReadback
-        private Texture2D?     _tex;                   // CPU-side buffer the readback writes into via LoadRawTextureData
         private FieldInfo?     _camField;              // TargetCam.cam (Camera) — private, cached
         private FieldInfo?     _screenRendererField;   // TargetCam.targetScreenRenderer — private, cached
         private FieldInfo?     _onCamToggleField;      // TargetCam.onCamToggle event backing field — private, cached
         private bool           _reflectionTried;
-        private bool           _engaged;               // true while we're actively capturing (for clean disengage logging)
-        private bool           _active;                // last capture pushed a frame — mirrored into the snapshot
-        private bool           _srcLogged;             // logged the source texture dimensions once
+        private volatile bool  _engaged;               // true while we're actively capturing (for clean disengage logging)
+        private volatile bool  _active;                // last capture pushed a frame — mirrored into the snapshot
         private bool           _readbackInFlight;      // an AsyncGPUReadback is outstanding — skip new captures until it completes
-        private TgpMirrorCam?  _mirror;                // only allocated once Quality != Native (see CaptureFrame)
+        private TgpMirrorCam?  _mirror;                // only allocated for a mirror resolution
+        private int            _captureGeneration;
+        private int            _lastSourceWidth = -1;
+        private int            _lastSourceHeight = -1;
+        private TgpResolution  _lastSourceResolution = (TgpResolution)(-1);
+        private readonly object _encoderGate = new object();
+        private readonly AutoResetEvent _encoderSignal = new AutoResetEvent(false);
+        private EncodeWork?    _pendingEncode;
+        private bool           _encoderStarted;
+        private volatile bool  _encoderStopping;
+        private int            _encoderDrops;
         private bool           _cockpitDisplaySuppressed;
         private bool           _toggleMissingLogged;
         private bool           _lastDiagWantsTgp;
         private bool           _lastDiagSuppressSetting;
         private bool           _lastDiagCockpitSuppressed;
         private int            _lastDiagTargetCount = -2;
-        private TgpQuality     _lastDiagQuality;
+        private TgpResolution  _lastDiagResolution;
 
         // Last capture pushed a frame — mirrored into the snapshot's TgpActive.
         public bool Active => _active;
@@ -105,7 +121,7 @@ namespace NOXMFD
             if (!TelemetryServer.WantsTgpFrames)
             {
                 RestoreNativeScreen(showTargetCam: true);
-                if (_engaged) Disengage();
+                if (_engaged || _rt != null) Disengage();
                 return;
             }
 
@@ -151,8 +167,9 @@ namespace NOXMFD
             screenRenderer = _screenRendererField.GetValue(tc) as Renderer;
             if (cam == null || !cam.enabled) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay); return; }
 
+            TgpCaptureSettings settings = TgpFeedSettings.Resolve(Resolution, JpegQuality);
             Texture? src;
-            if (Quality == TgpQuality.Native)
+            if (!settings.UsesMirror)
             {
                 _mirror?.Disengage();
 
@@ -169,12 +186,12 @@ namespace NOXMFD
             }
             else
             {
-                // HQ path: read from TgpMirrorCam's own higher-res RenderTexture instead of the
+                // Mirror path: read from TgpMirrorCam's own higher-res RenderTexture instead of the
                 // game's native TargetCam RT. The mirror camera is enabled+Base once Engage()'d, so
                 // the pipeline renders a fresh frame into it every Unity frame on its own — nothing
                 // here needs to trigger that render.
                 _mirror ??= new TgpMirrorCam();
-                _mirror.Engage(tc, HqWidth, HqHeight);
+                _mirror.Engage(tc, settings.Width, settings.Height);
                 _mirror.SyncFromSource(cam);
                 src = _mirror.Texture;
                 if (src == null) { ClearFeed(showTargetCam: hasTargets, restoreCockpit: !SuppressNativeDisplay); return; }
@@ -197,7 +214,7 @@ namespace NOXMFD
                 }
                 else
                 {
-                    Func<Vector3, Vector3> project = Quality == TgpQuality.Native
+                    Func<Vector3, Vector3> project = Resolution == TgpResolution.Native
                         ? (Func<Vector3, Vector3>)(pos => cam.WorldToViewportPoint(pos))
                         : (pos => _mirror != null ? _mirror.WorldToViewport(pos) : new Vector3(0f, 0f, -1f));
                     Overlay.Populate(tc, targets, ac, project);
@@ -231,25 +248,27 @@ namespace NOXMFD
             int sh = Mathf.Max(1, source.height);
             int targetW, targetH;
             int maxSide = Mathf.Max(sw, sh);
-            if (maxSide <= MaxDim)
+            if (maxSide <= settings.MaxDimension)
             {
                 targetW = sw; targetH = sh;
             }
             else if (sw >= sh)
             {
-                targetW = MaxDim;
-                targetH = Mathf.Max(1, Mathf.RoundToInt(MaxDim * (float)sh / sw));
+                targetW = settings.MaxDimension;
+                targetH = Mathf.Max(1, Mathf.RoundToInt(settings.MaxDimension * (float)sh / sw));
             }
             else
             {
-                targetH = MaxDim;
-                targetW = Mathf.Max(1, Mathf.RoundToInt(MaxDim * (float)sw / sh));
+                targetH = settings.MaxDimension;
+                targetW = Mathf.Max(1, Mathf.RoundToInt(settings.MaxDimension * (float)sw / sh));
             }
 
-            if (!_srcLogged)
+            if (_lastSourceWidth != sw || _lastSourceHeight != sh || _lastSourceResolution != Resolution)
             {
-                _srcLogged = true;
-                Plugin.Log?.LogInfo($"[NOXMFD] TGP source texture {sw}x{sh} (aspect {(float)sw/sh:0.000}); capturing at {targetW}x{targetH}.");
+                _lastSourceWidth = sw;
+                _lastSourceHeight = sh;
+                _lastSourceResolution = Resolution;
+                Plugin.Log?.LogInfo($"[NOXMFD] TGP {Resolution} source {sw}x{sh}; capturing at {targetW}x{targetH}, JPEG {settings.JpegQuality}.");
             }
 
             // Don't stack readbacks if the GPU is still working on the previous one — drop
@@ -258,26 +277,18 @@ namespace NOXMFD
             // GPU can fall behind and skip much more often (docs/performance.md).
             if (_readbackInFlight) return;
 
-            // (Re)allocate the downscale RT + readback texture when the source dimensions change.
-            // RGBA32 on both sides so the bytes from AsyncGPUReadback can be fed straight into
-            // LoadRawTextureData without a format conversion.
+            // (Re)allocate the downscale RT when the source dimensions change.
             if (_rt == null || _rt.width != targetW || _rt.height != targetH)
             {
                 if (_rt != null) { _rt.Release(); UnityEngine.Object.Destroy(_rt); }
                 _rt = new RenderTexture(targetW, targetH, 0, RenderTextureFormat.ARGB32);
                 _rt.Create();
             }
-            if (_tex == null || _tex.width != targetW || _tex.height != targetH)
-            {
-                if (_tex != null) UnityEngine.Object.Destroy(_tex);
-                _tex = new Texture2D(targetW, targetH, TextureFormat.RGBA32, false);
-            }
-
             // GPU downscale, then ASYNC readback. AsyncGPUReadback dispatches the readback to
             // the GPU and returns immediately — no main-thread stall waiting on a pipeline
             // flush (a synchronous ReadPixels here would be the dominant per-frame cost).
             // The callback fires on the main thread once the GPU has the bytes ready (typically
-            // 1–3 frames later); we then copy into _tex, encode, and push.
+            // 1–3 frames later); we then copy the request-owned bytes for the encoder worker.
             Graphics.Blit(source, _rt);
             _readbackInFlight = true;
             int captureW = targetW;
@@ -289,29 +300,136 @@ namespace NOXMFD
             // to grayscale on the CPU after readback, on the bytes we already have in hand for JPEG
             // encoding — no shader/volume/layer-mask plumbing, and it can't leak onto any other
             // camera since it only touches our own capture buffer.
-            bool ir = Quality == TgpQuality.HighQuality && tc.UsingIR();
-            AsyncGPUReadback.Request(_rt, 0, request => OnReadbackComplete(request, captureW, captureH, ir));
+            bool ir = settings.UsesMirror && tc.UsingIR();
+            int captureGeneration = _captureGeneration;
+            int settingsGeneration = Volatile.Read(ref _settingsGeneration);
+            int jpegQuality = settings.JpegQuality;
+            AsyncGPUReadback.Request(_rt, 0, request =>
+                OnReadbackComplete(request, captureW, captureH, ir, jpegQuality,
+                                   captureGeneration, settingsGeneration));
         }
 
-        // Async readback callback — runs on the Unity main thread. Bail cleanly if the GPU errored
-        // or the user disengaged the TGP page mid-flight. Disengage() nulls _tex on teardown, so the
-        // size check below also covers "the reader was destroyed while this readback was in flight".
-        private void OnReadbackComplete(AsyncGPUReadbackRequest request, int w, int h, bool ir)
+        // The callback copies request-owned memory before returning, then hands ownership to the
+        // bounded encoder worker. At most one frame waits behind the frame currently encoding.
+        private void OnReadbackComplete(AsyncGPUReadbackRequest request, int w, int h, bool ir,
+                                        int jpegQuality, int captureGeneration,
+                                        int settingsGeneration)
         {
+            if (captureGeneration != _captureGeneration) return;
             _readbackInFlight = false;
             if (request.hasError) return;
             if (!TelemetryServer.WantsTgpFrames) return;              // disengaged while in flight
-            if (_tex == null || _tex.width != w || _tex.height != h) return;
+            if (settingsGeneration != Volatile.Read(ref _settingsGeneration)) return;
 
-            var data = request.GetData<byte>();
-            _tex.LoadRawTextureData(data);
-            if (ir) Grayscale(_tex.GetRawTextureData<byte>());
-            _tex.Apply(false, false);
+            byte[] data = request.GetData<byte>().ToArray();
+            EnqueueEncode(new EncodeWork(data, w, h, ir, jpegQuality,
+                                         captureGeneration, settingsGeneration));
+        }
 
-            byte[] jpg = _tex.EncodeToJPG(JpegQuality);
-            TelemetryServer.PushTgpFrame(jpg);
-            _active  = true;
-            _engaged = true;
+        private void EnqueueEncode(EncodeWork work)
+        {
+            bool startWorker = false;
+            lock (_encoderGate)
+            {
+                if (_encoderStopping) return;
+                if (_pendingEncode != null)
+                    Interlocked.Increment(ref _encoderDrops);
+                _pendingEncode = work;
+                if (!_encoderStarted)
+                {
+                    _encoderStarted = true;
+                    startWorker = true;
+                }
+            }
+            if (startWorker)
+            {
+                var worker = new Thread(EncoderLoop)
+                {
+                    IsBackground = true,
+                    Name = "NOXMFD TGP JPEG",
+                };
+                worker.Start();
+            }
+            _encoderSignal.Set();
+        }
+
+        private void EncoderLoop()
+        {
+            while (true)
+            {
+                _encoderSignal.WaitOne();
+                if (_encoderStopping) return;
+
+                while (true)
+                {
+                    EncodeWork work;
+                    lock (_encoderGate)
+                    {
+                        if (_pendingEncode == null) break;
+                        work = _pendingEncode;
+                        _pendingEncode = null;
+                    }
+
+                    try
+                    {
+                        if (work.CaptureGeneration != Volatile.Read(ref _captureGeneration) ||
+                            work.SettingsGeneration != Volatile.Read(ref _settingsGeneration) ||
+                            !TelemetryServer.WantsTgpFrames)
+                            continue;
+
+                        if (work.IR)
+                        {
+                            if (_irCaptureGeneration != work.CaptureGeneration ||
+                                _irSettingsGeneration != work.SettingsGeneration)
+                            {
+                                _irMinEma = _irMaxEma = -1f;
+                                _irCaptureGeneration = work.CaptureGeneration;
+                                _irSettingsGeneration = work.SettingsGeneration;
+                            }
+                            Grayscale(work.Data);
+                        }
+
+                        byte[] jpg = ImageConversion.EncodeArrayToJPG(
+                            work.Data, GraphicsFormat.R8G8B8A8_UNorm,
+                            (uint)work.Width, (uint)work.Height, 0, work.JpegQuality);
+                        if (work.CaptureGeneration != Volatile.Read(ref _captureGeneration) ||
+                            work.SettingsGeneration != Volatile.Read(ref _settingsGeneration) ||
+                            !TelemetryServer.WantsTgpFrames)
+                            continue;
+
+                        TelemetryServer.PushTgpFrame(jpg);
+                        _active = true;
+                        _engaged = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        Plugin.Log?.LogWarning($"[NOXMFD] TGP JPEG encode failed: {ex.Message}");
+                    }
+                }
+            }
+        }
+
+        private sealed class EncodeWork
+        {
+            internal EncodeWork(byte[] data, int width, int height, bool ir, int jpegQuality,
+                                int captureGeneration, int settingsGeneration)
+            {
+                Data = data;
+                Width = width;
+                Height = height;
+                IR = ir;
+                JpegQuality = jpegQuality;
+                CaptureGeneration = captureGeneration;
+                SettingsGeneration = settingsGeneration;
+            }
+
+            internal byte[] Data { get; }
+            internal int Width { get; }
+            internal int Height { get; }
+            internal bool IR { get; }
+            internal int JpegQuality { get; }
+            internal int CaptureGeneration { get; }
+            internal int SettingsGeneration { get; }
         }
 
         // ponytail: stretches the frame's own min..max luma to fill 0..255 (auto-levels) rather than
@@ -336,8 +454,10 @@ namespace NOXMFD
         private const float IrLevelsSmoothing = 0.25f;
         private float _irMinEma = -1f;
         private float _irMaxEma = -1f;
+        private int _irCaptureGeneration = -1;
+        private int _irSettingsGeneration = -1;
 
-        private void Grayscale(NativeArray<byte> px)
+        private void Grayscale(byte[] px)
         {
             byte rawMin = 255, rawMax = 0;
             for (int i = 0; i + 3 < px.Length; i += 4)
@@ -371,6 +491,8 @@ namespace NOXMFD
         // them each time would be wasteful.
         private void ClearFeed(bool showTargetCam, bool restoreCockpit = true)
         {
+            InvalidatePendingWork();
+            _mirror?.Disengage();
             if (restoreCockpit)
                 RestoreNativeScreen(showTargetCam);
             TelemetryServer.ClearTgpFrame();
@@ -385,18 +507,32 @@ namespace NOXMFD
         {
             RestoreNativeScreen(showTargetCam: true);
             if (_rt  != null) { _rt.Release();  UnityEngine.Object.Destroy(_rt);  _rt  = null; }
-            if (_tex != null) {                 UnityEngine.Object.Destroy(_tex); _tex = null; }
             _mirror?.Disengage();
 
             bool wasEngaged    = _engaged;
             _engaged           = false;
             _active            = false;
-            _srcLogged         = false;
-            _readbackInFlight  = false;   // any in-flight callback will see !WantsTgpFrames / null _tex and bail
-            _irMinEma = _irMaxEma = -1f;  // re-seed from the next lock's own scene, not this one's brightness
+            InvalidatePendingWork();
+            _lastSourceWidth = _lastSourceHeight = -1;
+            _lastSourceResolution = (TgpResolution)(-1);
             Overlay.Clear();              // stale overlay data shouldn't linger once the feed goes idle
             TelemetryServer.ClearTgpFrame();
-            if (wasEngaged) Plugin.Log?.LogInfo("[NOXMFD] TGP: disengaged (no subscribers).");
+            if (wasEngaged)
+                Plugin.Log?.LogInfo($"[NOXMFD] TGP: disengaged (no subscribers, encoderDrops={Volatile.Read(ref _encoderDrops)}).");
+        }
+
+        public void Shutdown()
+        {
+            Disengage();
+            _encoderStopping = true;
+            _encoderSignal.Set();
+        }
+
+        private void InvalidatePendingWork()
+        {
+            Interlocked.Increment(ref _captureGeneration);
+            _readbackInFlight = false;
+            lock (_encoderGate) _pendingEncode = null;
         }
 
         private void CacheTargetCamFields()
@@ -430,7 +566,7 @@ namespace NOXMFD
         private void SuppressNativeScreen(TargetCam tc)
         {
             if (!_cockpitDisplaySuppressed)
-                Plugin.Log?.LogInfo($"[NOXMFD] TGP cockpit hide: ON (quality={Quality}).");
+                Plugin.Log?.LogInfo($"[NOXMFD] TGP cockpit hide: ON (resolution={Resolution}).");
             InvokeTargetCamToggle(tc, enabled: false);
             _cockpitDisplaySuppressed = true;
         }
@@ -454,17 +590,17 @@ namespace NOXMFD
                            SuppressNativeDisplay != _lastDiagSuppressSetting ||
                            _cockpitDisplaySuppressed != _lastDiagCockpitSuppressed ||
                            targetCount != _lastDiagTargetCount ||
-                           Quality != _lastDiagQuality;
+                           Resolution != _lastDiagResolution;
             if (!changed) return;
 
             Plugin.Log?.LogInfo(
-                $"[NOXMFD] TGP cockpit hide state ({reason}): wants={wants}, setting={SuppressNativeDisplay}, quality={Quality}, targets={(targetCount < 0 ? "n/a" : targetCount.ToString())}, suppressed={_cockpitDisplaySuppressed}.");
+                $"[NOXMFD] TGP cockpit hide state ({reason}): wants={wants}, setting={SuppressNativeDisplay}, resolution={Resolution}, targets={(targetCount < 0 ? "n/a" : targetCount.ToString())}, suppressed={_cockpitDisplaySuppressed}.");
 
             _lastDiagWantsTgp = wants;
             _lastDiagSuppressSetting = SuppressNativeDisplay;
             _lastDiagCockpitSuppressed = _cockpitDisplaySuppressed;
             _lastDiagTargetCount = targetCount;
-            _lastDiagQuality = Quality;
+            _lastDiagResolution = Resolution;
         }
 
         private void InvokeTargetCamToggle(TargetCam tc, bool enabled)

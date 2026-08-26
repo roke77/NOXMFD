@@ -124,17 +124,17 @@ const assert = require('assert');
     src3._postUp = (m) => messages.push(m);
 
     try {
-      src3._emit({ tgpActive: true, tgpQuality: 'hq', tgpManual: true, tgp: { cnt: 1 } });
+      src3._emit({ tgpActive: true, tgpResolution: 'high', tgpQuality: 'hq', tgpManual: true, tgp: { cnt: 1 } });
       assert.deepStrictEqual(
         messages.find((m) => m.type === 'tgp'),
-        { type: 'tgp', active: true, quality: 'hq', data: { cnt: 1 }, manual: true },
+        { type: 'tgp', active: true, resolution: 'high', quality: 'hq', data: { cnt: 1 }, manual: true },
         'tgpManual should forward to the TGP page as manual:true');
 
       messages.length = 0;
       src3._emitEmpties();
       assert.deepStrictEqual(
         messages.find((m) => m.type === 'tgp'),
-        { type: 'tgp', active: false, quality: 'native', data: null, manual: false },
+        { type: 'tgp', active: false, resolution: 'native', quality: 'native', data: null, manual: false },
         'mission-end empties should clear manual state');
     } finally {
       global.window = realWindow;

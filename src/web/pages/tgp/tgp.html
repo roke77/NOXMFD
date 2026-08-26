@@ -10,22 +10,23 @@
   the centred 3:2 feed renders identically at any container size (like MAP).
 
   Shell -> page messages (all {mfd:true, ...}):
-    'tgp'    : { active, quality, data } — active: whether a target is locked (mirrored from the
+    'tgp'    : { active, resolution, quality, data } — active: whether a target is locked (mirrored from the
                map iframe's SSE). Toggles .has-feed, swapping the live MJPEG for the NO LOCK
-               placeholder. quality: "native" | "hq" (RatesConfig.TgpQualityName). data: the stat
+               placeholder. resolution is native|mid|high; quality is the temporary native|hq
+               compatibility alias. data: the stat
                overlay block (TelemetryJson.cs's TgpBlock, including data.boxes — one screen-
                projected lock box per locked target) or null when there's no lock. Both the
                locked-target case (data.cnt > 0) and manual mode (data.manual,
                docs/tgp-manual-control.md's "In-cockpit overlay" / web parity — same corner-group
                layout, different field mapping via tgp.js's applyManualOverlay) only draw
-               client-side in HQ quality: Native's captured video already has this baked in for
+               client-side at either mirror resolution: Native's captured video already has this baked in for
                free either way, since Native captures the game's own stacked-camera UICam output
                directly and TgpNativeOverlay populates those exact same TargetScreenUI fields
                (and its own crosshair) for manual mode too. Drawing it client-side in Native as
                well double-shows everything — text baked into the pixels AND drawn again as HTML
                on top. manual:
                TgpManualControl.ManualMode — shows the crosshair when a feed is present AND
-               quality is HQ (.show-overlay, gated the same way as the stat block above); the
+               resolution is MID/HIGH (.show-overlay, gated the same way as the stat block above); the
                Point Track box additionally needs data.pointTrack (tgp.js toggles
                .tgp-point-track from inside applyOverlay, since that's only known once 'data'
                arrives, not from the top-level flag alone).
