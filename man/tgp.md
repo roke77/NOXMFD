@@ -36,14 +36,14 @@ Reads:
   - White dashed — the tracked position is stale.
   - Amber, with a small red cross in the middle — actively laser-designated.
 
-![Mirror-camera overlay, COLOR mode — a laser-designated target](images/TGP_HQ_COLOR.jpeg)
+![Mirror-camera overlay, COLOR mode — a laser-designated target](images/TGP_HQ_COLOR.png)
 
 ## IR mode
 
 When the pod is in IR (thermal) mode, MID/HIGH resolution shows a black-and-white picture instead
 of color — a basic simulated thermal look, not a full radiometric simulation.
 
-![Mirror-camera overlay, IR mode — a friendly lock](images/TGP_HQ_BW.jpeg)
+![Mirror-camera overlay, IR mode — a friendly lock](images/TGP_HQ_BW.png)
 
 ## Refresh rate
 
@@ -104,6 +104,8 @@ near wherever the camera is currently looking. If one's close enough, it's put u
 target lock and manual control hands off to the game's own camera immediately; otherwise nothing
 happens.
 
+![Cursor Select just promoted the tracked unit to a real lock — the amber TGP marker is gone, replaced by the game's own target reticle](images/TGP_HUD_OVERLAY_TARGET.jpg)
+
 ## TGT/MAN, CLR/IR
 
 Four extra buttons on this page's own nav row, alongside MAIN/CFG:
@@ -119,6 +121,8 @@ All four reflect what's actually showing rather than acting like a page switch �
 to show which camera is live, CLR/IR show that camera's current color mode — and all go dark with
 no feed up at all.
 
+![MAN and CLR lit during Point Track, locked onto a helicopter](images/TPG_MAN.png)
+
 ## In-game HUD cue
 
 While manual control is on and you're looking through the cockpit, an amber **TGP** marker on the
@@ -126,6 +130,13 @@ main flight HUD shows where the camera is pointed — visible from anywhere you 
 toward the nose. Four small corner brackets and a centre dot mark it while it's within view; past
 the edge of the screen it becomes a caret pinned to that edge instead, pointing toward it. It
 disappears the instant manual control ends.
+
+![Area Track, centered dead ahead — the default on entering manual control](images/TGP_HUD_OVERLAY.jpg)
+
+Once [Point Track](#area-track-and-point-track) locks onto a point, the marker moves off-center to
+track it — here, aimed down at a vehicle in the field below rather than straight ahead:
+
+![Point Track locked onto a ground vehicle — the marker has moved off-center to follow it](images/TGP_HUD_OVERLAY_MOVE.jpg)
 
 ## Manual mode overlay
 

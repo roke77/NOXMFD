@@ -3,7 +3,7 @@
 [TGP](tgp.md)'s own settings page, reached from TGP's CFG key. It controls the feed refresh rate,
 resolution, JPEG quality, and an optional cockpit-feed hide toggle.
 
-![TGP CFG page](images/TGP_CFG.jpeg)
+![TGP CFG page](images/TGP_CFG.png)
 
 ## TGP
 
