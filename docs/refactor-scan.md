@@ -144,6 +144,9 @@ already called out:
   would do the same. This is orthogonal to the already-planned JSON-writer-layer extraction — that's
   about *what* gets serialized; this is the *HTTP response mechanics* every handler repeats regardless
   of what it's serving, and is still worth doing after `TelemetryJson.cs` lands.
+  **Resolved in the stacked server-hardening work:** `CapturedAssetEndpoint.cs` now owns these
+  captured-image/layout routes, and the shared `WriteBinary` response helper is reusable across
+  extracted HTTP endpoints.
 - Everything else — routing (`AcceptLoop`, `:636`-`:749`), the command queue (`:751`-`:850`), SSE
   (`:1587`-`:1681`), MJPEG (`:1541`-`:1585`) — is exactly what `docs/server-hardening.md` already
   describes; re-reading it end to end didn't turn up anything that doc missed.

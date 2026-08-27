@@ -86,14 +86,16 @@ real game touchpoints. **Don't duplicate that work here — see that doc for the
 land it first.**
 
 The low-risk HTTP splits identified here are now done. The endpoint-specific config/options routes
-also moved out after the original checklist, so `TelemetryServer.cs` now mostly keeps transport-owned
-state and captured image endpoints. Historical split order:
+and captured game-asset endpoints also moved out after the original checklist, so
+`TelemetryServer.cs` now mostly keeps transport-owned state plus the shared frame/TGP caches.
+Historical split order:
 
 | Split | What moves | Risk |
 |---|---|---|
 | `TelemetryJson.cs` | JSON-writer layer | Done |
 | `TelemetryAssets.cs` | `ServeAssetRel` + static-file/embedded-resource serving | Done |
 | `TelemetryHttpRouter.cs` | URL dispatch from path to endpoint handler | Done |
+| `CapturedAssetEndpoint.cs` | `/map`, icon PNG endpoints, and airframe image/layout endpoints | Done |
 | `CommandEndpoint.cs` | `HandleCommand`/`TryDequeueCommand`/`_cmdQueue`/`_cmdLock` + extension command body hygiene | Done |
 | `ConfigEndpoint.cs` | `/config`, `/keybinds-config`, `/hud-options`, `/wpt-options`, `/layout-options`, `/hud-presets`, and `/rates-config` | Done |
 | `ExtensionEndpoint.cs` | `/ext-manifest`, `/ext/<id>` assets, `/ext/<id>/command`, and `/ext/<id>/feed.mjpg` | Done |
@@ -119,6 +121,7 @@ should be scoped from a fresh scan, not assumed from this checklist.
       as cheap CSRF-style hardening
 - [x] Extract embedded asset serving (`TelemetryAssets.cs`)
 - [x] Extract HTTP route dispatch (`TelemetryHttpRouter.cs`)
+- [x] Extract captured game-asset endpoints (`CapturedAssetEndpoint.cs`)
 - [x] Extract command endpoint/queue (`CommandEndpoint.cs`)
 - [x] Extract config/options endpoints (`ConfigEndpoint.cs`)
 - [x] Extract SSE/session hub (`SseHub.cs`; live multi-display SOI behavior still wants an in-game/browser spot-check before release)
