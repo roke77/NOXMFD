@@ -167,8 +167,9 @@ feed (`/rc.mjpg` in PR #45) is a long-lived `multipart/x-mixed-replace` streamin
 `RegisterExtension`'s asset `resolve` returns one `byte[]` per request and has no way to serve
 that. `Api.PushMjpegFrame(id, jpg)` / `ClearMjpegFrame(id)` / `WantsMjpegFrames(id)`, backed by
 a generic per-id buffer in `ExtensionRegistry` (same shape as `TelemetryServer`'s own
-`_tgpJpg`/`_tgpFrameId`/`_tgpLock`/`_tgpSubscribers`, just keyed instead of hardcoded), served
-at `GET /ext/<id>/feed.mjpg` by a generic `HandleExtMjpegAsync` mirroring `HandleMjpegAsync`.
+`_tgpJpg`/`_tgpFrameId`/`_tgpLock` plus `TgpMjpegHandler`'s subscriber count, just keyed instead
+of hardcoded), served at `GET /ext/<id>/feed.mjpg` by a generic `HandleExtMjpegAsync` mirroring
+the TGP MJPEG handler.
 `RcFeed.cs` — moved into the standalone extension repo unchanged in shape, just repointed from
 `TelemetryServer.WantsRcFrames`/`PushRcFrame`/`ClearRcFrame` to the `Api` equivalents — is the
 proof this surface works.

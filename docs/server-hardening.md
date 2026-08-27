@@ -2,9 +2,9 @@
 
 ## Status
 
-Partly implemented. Request hygiene, command endpoint/queue extraction, SSE/session extraction,
-telemetry JSON extraction, embedded web asset serving, and HTTP route dispatch have shipped. The
-remaining structural candidate is the MJPEG handler.
+Implemented. Request hygiene, command endpoint/queue extraction, SSE/session extraction, TGP MJPEG
+handler extraction, telemetry JSON extraction, embedded web asset serving, and HTTP route dispatch
+have shipped.
 
 ## Where this came from
 
@@ -85,9 +85,9 @@ bodies); pure rejection of malformed/oversized input.
 real game touchpoints. **Don't duplicate that work here — see that doc for the extraction plan and
 land it first.**
 
-What remains after the shipped splits is mostly transport runtime state: MJPEG
-(`HandleMjpegAsync`), config endpoints (`ServeHudOptions` and its siblings), and extension request
-handlers. Candidate further splits, **lowest-risk first**:
+What remains after the shipped splits is mostly smaller endpoint-specific runtime state: config
+endpoints (`ServeHudOptions` and its siblings) and extension request handlers. Candidate splits,
+**lowest-risk first**:
 
 | Split | What moves | Risk |
 |---|---|---|
@@ -96,7 +96,7 @@ handlers. Candidate further splits, **lowest-risk first**:
 | `TelemetryHttpRouter.cs` | URL dispatch from path to endpoint handler | Done |
 | `CommandEndpoint.cs` | `HandleCommand`/`TryDequeueCommand`/`_cmdQueue`/`_cmdLock` + extension command body hygiene | Done |
 | `SseHub.cs` | `/stream` connection lifetime, per-client instance registry, hello/cursor/ext SSE events, and `/soi-instances` diagnostics | Done |
-| MJPEG handler | `HandleMjpegAsync` | Low — mirrors the SSE split's shape but simpler (no per-client state) |
+| `TgpMjpegHandler.cs` | `/tgp.mjpg` long-lived response and subscriber tracking | Done |
 
 Don't attempt all of these in one PR — each is independently useful and independently testable via
 `dotnet build` + the existing in-game verification checklist (no C# test harness covers this file yet
@@ -104,8 +104,8 @@ outside what `docs/csharp-unit-testing.md`'s plan lands).
 
 ### Next recommended targets
 
-1. **Consider the MJPEG handler next.** It is smaller, but it shares the same long-lived response
-   style; doing it after the SSE split should make the pattern clearer.
+The planned low-risk HTTP splits in this document are done. Any further `TelemetryServer.cs` split
+should be scoped from a fresh scan, not assumed from this checklist.
 
 ## Scope
 
@@ -119,6 +119,6 @@ outside what `docs/csharp-unit-testing.md`'s plan lands).
 - [x] Extract HTTP route dispatch (`TelemetryHttpRouter.cs`)
 - [x] Extract command endpoint/queue (`CommandEndpoint.cs`)
 - [x] Extract SSE/session hub (`SseHub.cs`; live multi-display SOI behavior still wants an in-game/browser spot-check before release)
-- [ ] Extract the MJPEG handler after the SSE pattern is clear
+- [x] Extract the TGP MJPEG handler (`TgpMjpegHandler.cs`; `/tgp.mjpg` live viewing still wants an in-game/browser spot-check before release)
 - [x] One-line SECURITY.md note once the method/size hardening ships (not a trust-model change, just
       documents that these two checks now exist)

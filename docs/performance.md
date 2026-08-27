@@ -477,7 +477,7 @@ First of the three `docs/tgp-high-quality-mode.md` follow-up branches. `src/plug
 to be **recreated**, not restored — despite this doc's own instruction to restore it from history,
 it turns out the original was never committed; only its description here survived. Extended with
 `TgpFeed.EncodeToJPG` timing (closing the "measure the JPEG step" blind spot from the HQ doc's
-experiment menu) and a diagnostic warning for `HandleMjpegAsync`'s cold-start-stall theory. Item #6
+experiment menu) and a diagnostic warning for the TGP MJPEG cold-start-stall theory. Item #6
 above (TGP slider risk, no cap or warning) is also fixed on this branch — the RTS page now shows an
 amber warning above 15 Hz, no hard cap.
 
@@ -524,7 +524,7 @@ same lifecycle as `PerfDiag` before it.
 ## 2026-08-23 — tgp-mjpeg-cold-start branch: cold-start fix shipped, live-verified
 
 Second of the three `docs/tgp-high-quality-mode.md` follow-up branches, off `tgp-safety-baseline`.
-`HandleMjpegAsync` now writes a precomputed 4x4 dark-gray placeholder JPEG immediately on connect
+`TgpMjpegHandler` now writes a precomputed 4x4 dark-gray placeholder JPEG immediately on connect
 if no real `_tgpJpg` exists yet, so a fresh client never sits on literal zero bytes. Deliberately
 **not** the source integration's approach verbatim (its own placeholder fix was tried and reverted
 there, undocumented why) — this one is a static, compile-time byte array rather than anything

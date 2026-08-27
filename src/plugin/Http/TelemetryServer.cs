@@ -113,13 +113,13 @@ namespace NOXMFD
 
         // Sent immediately to a fresh MJPEG connection when no real frame exists yet — a 4x4
         // dark-gray JPEG, precomputed offline (not generated at runtime: Texture2D.EncodeToJPG
-        // needs the Unity main thread, and HandleMjpegAsync runs on the HTTP listener's own
+        // needs the Unity main thread, and TgpMjpegHandler runs on the HTTP listener's own
         // thread). Without this, a client that connects before TgpFeed's pipeline has produced
         // its first frame (target lock + first capture + first async readback, confirmed to take
         // several seconds — docs/performance.md, 2026-08-23) sits on zero bytes, which some
         // browsers can mark the stream failed for and never recover from without a page reload
         // (docs/tgp-high-quality-mode.md).
-        private static readonly byte[] TgpPlaceholderJpg =
+        internal static readonly byte[] TgpPlaceholderJpg =
         {
             0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01,
             0x00, 0x01, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43, 0x00, 0x14, 0x0E, 0x0F, 0x12, 0x0F, 0x0D, 0x14,
@@ -163,12 +163,7 @@ namespace NOXMFD
             0x68, 0xA2, 0x8A, 0x00, 0xFF, 0xD9,
         };
 
-        // Number of HTTP clients currently subscribed to /tgp.mjpg. The reader checks this
-        // each tick and skips the entire capture pipeline (cam swap, GPU readback, JPEG
-        // encode) while nobody is watching — that's where most of the per-target FPS hit
-        // comes from. Counter is bumped in HandleMjpegAsync's try and decremented in finally.
-        private static int _tgpSubscribers;
-        public static bool WantsTgpFrames => Volatile.Read(ref _tgpSubscribers) > 0;
+        public static bool WantsTgpFrames => TgpMjpegHandler.WantsFrames;
 
         // ── SOI focus ──────────────────────────────────────────────────────────
         // Which instance the SOI keys drive, as its cid. Broadcast in every frame so each client can
@@ -798,6 +793,15 @@ namespace NOXMFD
             lock (_tgpLock) { _tgpJpg = null; _tgpFrameId++; }
         }
 
+        internal static byte[]? GetTgpFrame(out long frameId)
+        {
+            lock (_tgpLock)
+            {
+                frameId = _tgpFrameId;
+                return _tgpJpg;
+            }
+        }
+
         // Called from Unity main thread when a mission ends — clears all per-mission state so
         // the client drops back to "no mission" and wipes its display. Icons are static
         // per-type assets and stay cached across missions.
@@ -938,7 +942,7 @@ namespace NOXMFD
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
-        // Same shape as HandleMjpegAsync, generalized to a runtime-registered
+        // Same shape as TgpMjpegHandler, generalized to a runtime-registered
         // extension id instead of a hardcoded page — see Api.PushMjpegFrame.
         private static async Task HandleExtMjpegAsync(HttpListenerContext ctx, string id, CancellationToken ct)
         {
@@ -1387,74 +1391,6 @@ namespace NOXMFD
 
             if (json == null) { ctx.Response.StatusCode = 404; try { ctx.Response.Close(); } catch { } return; }
             WriteBinary(ctx, Encoding.UTF8.GetBytes(json), "application/json; charset=utf-8");
-        }
-
-        // ── MJPEG handler ──────────────────────────────────────────────────────
-
-        // Long-lived multipart/x-mixed-replace response. Browsers render this directly in
-        // an <img> tag — when a new JPEG is written, the image swaps in place.
-        internal static async Task HandleMjpegAsync(HttpListenerContext ctx, CancellationToken ct)
-        {
-            const string boundary = "tgpframe";
-            ctx.Response.StatusCode  = 200;
-            ctx.Response.ContentType = "multipart/x-mixed-replace; boundary=" + boundary;
-            ctx.Response.SendChunked = true;
-            ctx.Response.Headers.Add("Cache-Control", "no-cache");
-            ctx.Response.Headers.Add("X-Accel-Buffering", "no");
-
-            async Task WritePart(byte[] jpg)
-            {
-                string head = "\r\n--" + boundary + "\r\nContent-Type: image/jpeg\r\nContent-Length: " + jpg.Length + "\r\n\r\n";
-                byte[] headBytes = Encoding.ASCII.GetBytes(head);
-                await ctx.Response.OutputStream.WriteAsync(headBytes, 0, headBytes.Length, ct).ConfigureAwait(false);
-                await ctx.Response.OutputStream.WriteAsync(jpg, 0, jpg.Length, ct).ConfigureAwait(false);
-                ctx.Response.OutputStream.Flush();
-            }
-
-            long lastSeen = -1;
-            Interlocked.Increment(ref _tgpSubscribers);
-            // Diagnostic: logs how long a client waited for the first REAL frame after the
-            // placeholder below streamed. Confirmed live 2026-08-23 (3.25s and 4.3s cold starts) —
-            // kept as an ongoing signal that TargetCam's own capture lag, not this server, is what
-            // gates the real picture.
-            var coldStartWatch = Stopwatch.StartNew();
-            bool coldStartLogged = false;
-            try
-            {
-                byte[]? initialJpg;
-                lock (_tgpLock) { initialJpg = _tgpJpg; }
-                if (initialJpg == null) await WritePart(TgpPlaceholderJpg).ConfigureAwait(false);
-
-                while (!ct.IsCancellationRequested)
-                {
-                    byte[]? jpg; long id;
-                    lock (_tgpLock) { jpg = _tgpJpg; id = _tgpFrameId; }
-
-                    if (!coldStartLogged && jpg != null)
-                    {
-                        coldStartLogged = true;
-                        if (coldStartWatch.ElapsedMilliseconds > 500)
-                            Plugin.Log?.LogWarning($"[NOXMFD] TGP MJPEG cold start: client waited {coldStartWatch.ElapsedMilliseconds}ms for the first real frame (placeholder streamed immediately).");
-                    }
-
-                    if (jpg != null && id != lastSeen)
-                    {
-                        lastSeen = id;
-                        await WritePart(jpg).ConfigureAwait(false);
-                    }
-
-                    // Source publishes at 15 Hz (~66 ms/frame); 40 ms polls stay ahead so we
-                    // don't drop alternate frames waiting for the next wake-up.
-                    await Task.Delay(40, ct).ConfigureAwait(false);
-                }
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception) { /* client disconnected, normal */ }
-            finally
-            {
-                Interlocked.Decrement(ref _tgpSubscribers);
-                try { ctx.Response.Close(); } catch { }
-            }
         }
 
         // SOI's slice of a frame. Shared by the real payload and the no-mission ping, because a display

@@ -556,8 +556,12 @@ do not bundle them into one pass.
       client needs a frame. Verified by `ci-check.ps1`; still worth live-checking multiple connected
       displays, SOI next/prev, disconnect/reconnect behavior, MAP cursor events, and extension
       high-rate events before release.
-- [ ] **Next C — MJPEG handler extraction.** Move `HandleMjpegAsync` after the SSE split settles.
-      Verify `/tgp.mjpg` still streams and subscriber tracking still gates TGP capture work.
+- [x] **Next C — MJPEG handler extraction.** Moved `/tgp.mjpg` streaming and subscriber tracking into
+      `src/plugin/Http/TgpMjpegHandler.cs`. `TelemetryServer` keeps the latest-frame storage and the
+      existing `PushTgpFrame`/`ClearTgpFrame` API used by `TgpFeed`, while `WantsTgpFrames` now
+      delegates to the handler's subscriber count. Verified by `ci-check.ps1`; still worth
+      live-checking that `/tgp.mjpg` streams and subscriber tracking gates TGP capture work before
+      release.
 - [ ] **Later folder moves.** Consider `src/plugin/Commands/`, `Telemetry/`, `Input/`, or `Assets/`
       only when moving at least two related files or extracting a real module. Avoid a broad reshuffle
       just to satisfy the folder map.

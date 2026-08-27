@@ -12,7 +12,7 @@ namespace NOXMFD
             if (path == "/stream")
                 _ = Task.Run(() => SseHub.HandleAsync(ctx, ct));
             else if (path == "/tgp.mjpg")
-                _ = Task.Run(() => TelemetryServer.HandleMjpegAsync(ctx, ct));
+                _ = Task.Run(() => TgpMjpegHandler.HandleAsync(ctx, ct));
             else if (path == "/map" || path == "/map.png" || path == "/map.jpg")
                 TelemetryServer.ServeMap(ctx);
             else if (path == "/icon")
