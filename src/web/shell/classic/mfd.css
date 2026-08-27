@@ -262,37 +262,26 @@
     width: 1px;
     background: currentColor;
   }
-  /* Left/right 2/3 icon: square split into a wide left pane and a narrow right pane */
-  .ic-lr23 {
-    position: relative;
-    width: 14px; height: 14px;
-    border: 1px solid currentColor;
-    border-radius: 1px;
-  }
-  .ic-lr23::before {
-    content: '';
-    position: absolute;
-    top: 0; bottom: 0;
-    left: 66%;
-    width: 1px;
-    background: currentColor;
-  }
-  /* V_WIDE_SPLIT_R's icon — .ic-lr23 mirrored: divider at 33% instead of 66%, so the box reads as
-     a narrow left pane and a wide right pane. */
+  /* Left/right 2/3 icons: a square split into a wide pane and a narrow one. ic-lr23 (wide left,
+     V_WIDE_SPLIT_L) and ic-rl23 (wide right, V_WIDE_SPLIT_R) are the same box with the divider
+     mirrored — 66%/33% from the left, the same 2:1 split their split-vw/split-vwr CSS applies. */
+  .ic-lr23,
   .ic-rl23 {
     position: relative;
     width: 14px; height: 14px;
     border: 1px solid currentColor;
     border-radius: 1px;
   }
+  .ic-lr23::before,
   .ic-rl23::before {
     content: '';
     position: absolute;
     top: 0; bottom: 0;
-    left: 33%;
     width: 1px;
     background: currentColor;
   }
+  .ic-lr23::before { left: 66%; }
+  .ic-rl23::before { left: 33%; }
   /* Hide-shell icon: a square (the screen) with a diagonal stroke bottom-left→top-right —
      the counterpart to the restore button's plain inset square. */
   .ic-hide-shell {

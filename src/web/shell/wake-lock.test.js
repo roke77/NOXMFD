@@ -31,6 +31,32 @@ function fakeSentinel() {
   };
 }
 
+// A document that can build the real createVideoFallback's <canvas>/<video> pair, for testing
+// that function directly rather than only through a fully-fake fallback (as the controller tests
+// above do). `playResult` lets a test control whether video.play() resolves or rejects.
+function fakeCanvasDocument(playResult) {
+  const tracks = [{ stopped: false, stop() { this.stopped = true; } }];
+  const appended = [];
+  const stream = { getTracks: () => tracks };
+  const canvas = {
+    width: 0, height: 0,
+    getContext: () => ({ fillStyle: '', fillRect() {} }),
+    captureStream: (fps) => { canvas.capturedAtFps = fps; return stream; },
+  };
+  const video = {
+    muted: false, playsInline: false, srcObject: null, paused: false, removed: false, style: {},
+    setAttribute() {},
+    play() { return playResult ? playResult() : Promise.resolve(); },
+    pause() { this.paused = true; },
+    remove() { this.removed = true; },
+  };
+  const doc = {
+    body: { appendChild(el) { appended.push(el); } },
+    createElement(tag) { return tag === 'canvas' ? canvas : video; },
+  };
+  return { doc, canvas, video, tracks, appended };
+}
+
 function deferred() {
   let resolve, reject;
   const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
@@ -200,6 +226,92 @@ async function storage_throwing_does_not_throw_out_of_the_controller() {
   await flush();
 }
 
+async function browser_controller_wires_real_globals_and_survives_no_storage() {
+  // createBrowserController (both shells' actual entry point) reaches for the real
+  // document/localStorage/navigator.wakeLock directly rather than taking them as options — stub
+  // just enough of each to prove it wires them through instead of silently no-op'ing, and that a
+  // localStorage that throws on access (private-mode Safari) doesn't stop construction.
+  const realDocument = global.document, realNavigator = global.navigator, realLocalStorage = global.localStorage;
+  let requested = null;
+  // Plain assignment doesn't work for navigator: modern Node ships its own global `navigator` as a
+  // getter-only accessor with no setter, so `global.navigator = x` silently no-ops (non-strict
+  // assignment to a setter-less accessor) rather than throwing — defineProperty is required to
+  // actually replace it, so do the same for all three for consistency.
+  function stubGlobal(name, value) { Object.defineProperty(global, name, { configurable: true, value: value, writable: true }); }
+  stubGlobal('document', fakeDocument());
+  stubGlobal('navigator', { wakeLock: { request: async (type) => { requested = type; return fakeSentinel(); } } });
+  Object.defineProperty(global, 'localStorage', { configurable: true, get() { throw new Error('blocked'); } });
+  try {
+    const states = [];
+    const controller = WakeLock.createBrowserController({ onState: s => states.push(s) });
+    controller.toggle();
+    await flush();
+    assert.strictEqual(requested, 'screen');            // reached navigator.wakeLock, not a stub
+    assert.strictEqual(controller.active(), true);
+    assert.ok(states.some(s => s.active === true));
+  } finally {
+    stubGlobal('document', realDocument);
+    stubGlobal('navigator', realNavigator);
+    stubGlobal('localStorage', realLocalStorage);
+  }
+}
+
+// createVideoFallback itself (the LAN/plain-HTTP path — docs/screen-wake-lock.md "Native lock vs.
+// fallback") is only ever exercised above through a fully-fake fallback object; these test the
+// real implementation's canvas/video wiring and teardown directly.
+
+async function video_fallback_rejects_when_capture_stream_is_unsupported() {
+  const { doc } = fakeCanvasDocument();
+  doc.createElement = (tag) => (tag === 'canvas' ? {} : {});   // no captureStream on this canvas
+  const fallback = WakeLock.createVideoFallback(doc);
+  await assert.rejects(() => fallback.acquire(), /captureStream/);
+  assert.strictEqual(fallback.active(), false);
+}
+
+async function video_fallback_acquires_and_becomes_active() {
+  const { doc, canvas, video, appended } = fakeCanvasDocument();
+  const fallback = WakeLock.createVideoFallback(doc);
+  await fallback.acquire();
+  assert.strictEqual(fallback.active(), true);
+  assert.strictEqual(canvas.capturedAtFps, 1);
+  assert.strictEqual(video.muted, true);
+  assert.strictEqual(video.playsInline, true);
+  assert.ok(appended.includes(video));   // actually attached, not just configured
+  await fallback.release();   // drop the draw interval so the test process can exit
+}
+
+async function video_fallback_release_tears_everything_down() {
+  const { doc, video, tracks } = fakeCanvasDocument();
+  const fallback = WakeLock.createVideoFallback(doc);
+  await fallback.acquire();
+  await fallback.release();
+  assert.strictEqual(fallback.active(), false);
+  assert.strictEqual(video.paused, true);
+  assert.strictEqual(video.removed, true);
+  assert.strictEqual(tracks[0].stopped, true);
+}
+
+async function video_fallback_second_acquire_is_a_noop_while_active() {
+  let canvasBuilds = 0;
+  const { doc } = fakeCanvasDocument();
+  const realCreateElement = doc.createElement;
+  doc.createElement = (tag) => { if (tag === 'canvas') canvasBuilds++; return realCreateElement(tag); };
+  const fallback = WakeLock.createVideoFallback(doc);
+  await fallback.acquire();
+  await fallback.acquire();   // must not build a second canvas/video while already playing
+  assert.strictEqual(canvasBuilds, 1);
+  await fallback.release();   // drop the draw interval so the test process can exit
+}
+
+async function video_fallback_play_rejection_tears_down_and_rejects() {
+  const { doc, video, tracks } = fakeCanvasDocument(() => Promise.reject(new Error('NotAllowedError')));
+  const fallback = WakeLock.createVideoFallback(doc);
+  await assert.rejects(() => fallback.acquire(), /NotAllowedError/);
+  assert.strictEqual(fallback.active(), false);
+  assert.strictEqual(video.removed, true);      // no leaked <video>/track after a failed play()
+  assert.strictEqual(tracks[0].stopped, true);
+}
+
 (async function main() {
   await no_persisted_preference_starts_off();
   await persisted_on_acquires_immediately_on_start();
@@ -209,5 +321,11 @@ async function storage_throwing_does_not_throw_out_of_the_controller() {
   await disabling_mid_acquire_leaves_no_lock_once_it_settles();
   await visibility_hidden_releases_but_keeps_preference();
   await storage_throwing_does_not_throw_out_of_the_controller();
+  await browser_controller_wires_real_globals_and_survives_no_storage();
+  await video_fallback_rejects_when_capture_stream_is_unsupported();
+  await video_fallback_acquires_and_becomes_active();
+  await video_fallback_release_tears_everything_down();
+  await video_fallback_second_acquire_is_a_noop_while_active();
+  await video_fallback_play_rejection_tears_down_and_rejects();
   console.log('wake-lock: all assertions passed');
 })();

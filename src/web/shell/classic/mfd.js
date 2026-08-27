@@ -1199,16 +1199,12 @@ let swapPartner   = null;
 let wakeLockError = '';
 let wakeLockErrorTimer = null;
 
-// Screen wake-lock toggle (docs/screen-wake-lock.md) — the 5th top function key. onState lights
+// Screen wake-lock toggle (docs/screen-wake-lock.md) — the WAKE top function key. onState lights
 // the key amber while the preference is on (regardless of whether a lock is actually held from
 // moment to moment — e.g. briefly released while the tab is hidden); onError surfaces the 5s
 // WAKE LOCK FAILED chip through the existing indicator stack above.
 const wakeKey = keyBanks.top[2];
-const wakeController = WakeLock.createController({
-  document: document,
-  storage: (function () { try { return localStorage; } catch (e) { return null; } })(),
-  wakeLock: navigator.wakeLock,
-  createFallback: function () { return WakeLock.createVideoFallback(document); },
+const wakeController = WakeLock.createBrowserController({
   onState: function (state) {
     if (!wakeKey) return;
     wakeKey.classList.toggle('on', state.enabled);

@@ -1233,11 +1233,7 @@
     const wakeButton = document.getElementById('ms-wake');
     const wakeError = document.getElementById('ms-wake-error');
     let wakeErrorTimer = null;
-    const wakeController = WakeLock.createController({
-      document: document,
-      storage: (function () { try { return localStorage; } catch (e) { return null; } })(),
-      wakeLock: navigator.wakeLock,
-      createFallback: function () { return WakeLock.createVideoFallback(document); },
+    const wakeController = WakeLock.createBrowserController({
       onState: function (state) {
         wakeButton.classList.toggle('on', state.enabled);
         wakeButton.setAttribute('aria-pressed', state.enabled ? 'true' : 'false');

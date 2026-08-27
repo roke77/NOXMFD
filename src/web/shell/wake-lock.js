@@ -230,7 +230,27 @@
     };
   }
 
-  var api = { STORAGE_KEY: STORAGE_KEY, createController: createController, createVideoFallback: createVideoFallback };
+  // Both shells wire this up identically (real document/localStorage/navigator.wakeLock, the real
+  // video fallback) and differ only in onState/onError, which touch shell-specific DOM — this is
+  // just that shared plumbing factored out so neither shell repeats it.
+  function createBrowserController(options) {
+    options = options || {};
+    return createController({
+      document: document,
+      storage: (function () { try { return localStorage; } catch (e) { return null; } })(),
+      wakeLock: navigator.wakeLock,
+      createFallback: function () { return createVideoFallback(document); },
+      onState: options.onState,
+      onError: options.onError,
+    });
+  }
+
+  var api = {
+    STORAGE_KEY: STORAGE_KEY,
+    createController: createController,
+    createVideoFallback: createVideoFallback,
+    createBrowserController: createBrowserController,
+  };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WakeLock = api;
 })(typeof self !== 'undefined' ? self : this);
