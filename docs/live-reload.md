@@ -2,7 +2,7 @@
 
 ## Status
 
-Planning — not started.
+Built, per the proposed shape below.
 
 ## The problem
 
@@ -76,10 +76,10 @@ Roughly a dozen lines of Python (the endpoint) and a dozen lines of vanilla JS (
 
 ## Scope
 
-- [ ] Add `GET /__reload-token` returning `max(mtime)` across `src/web/` + `tools/preview-mock.js`
-- [ ] Add `_shell_page(fp)` following `_map_page()`'s shape, with the poll-and-reload `<script>`
-- [ ] Wire `/` and `/f35` through it
-- [ ] Verify: edit a page's `.js`/`.css`/`.html` while the harness is open, confirm the browser
+- [x] Add `GET /__reload-token` returning `max(mtime)` across `src/web/` + `tools/preview-mock.js`
+- [x] Add `_shell_page(fp)` following `_map_page()`'s shape, with the poll-and-reload `<script>`
+- [x] Wire `/` and `/f35` through it
+- [x] Verify: edit a page's `.js`/`.css`/`.html` while the harness is open, confirm the browser
       reloads within ~1s with no manual refresh
-- [ ] Verify `capture_screenshots.py`'s Playwright-driven runs are unaffected (no file edits happen
+- [x] Verify `capture_screenshots.py`'s Playwright-driven runs are unaffected (no file edits happen
       mid-run today, so this should be a non-issue, but worth one confirming run)

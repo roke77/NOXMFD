@@ -55,8 +55,10 @@ guesses — most exist because a past session violated them.
   Start-Process -FilePath "python" -ArgumentList "tools/serve_web.py","--port","8782" -WorkingDirectory "<repo-root>" -WindowStyle Hidden -PassThru
   ```
   Start it once per session and leave it running — it reads files off disk per
-  request, so edits are picked up live. Never stop it as a "cleanup" step after
-  verifying; restart only if `serve_web.py` itself changed. If a port check is needed,
+  request, so edits are picked up live, and `/`/`/f35` auto-reload the browser within
+  ~1s of a saved edit (docs/live-reload.md) — no manual refresh needed. Never stop it
+  as a "cleanup" step after verifying; restart only if `serve_web.py` itself changed
+  (that one case the auto-reload can't cover). If a port check is needed,
   use `Get-NetTCPConnection -LocalPort 8782 -State Listen` (port-based) to find the
   real owner — process-name filters can miss it (e.g. Windows Store Python).
 - Use the shared `src/web/shared/theme.css` `var(--no-*)` color tokens instead of
