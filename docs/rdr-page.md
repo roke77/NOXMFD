@@ -9,10 +9,10 @@ is currently detecting, plus purple datalink-only air contacts that the shared f
 about but the radar is not painting. If the player's aircraft has no radar, the page shows a
 `— not available —` placeholder for the FCR picture instead.
 
-Current scope: **air-only** contacts (aircraft/missiles that are `air`), with green bricks for
-local-radar detections and purple bricks for faction-datalink-only contacts. It still ignores RWR
-and visual/IR-only detections. This is deliberately narrower than TGT (which shows the whole shared
-target picture).
+Current scope: **air-only** contacts (aircraft/missiles that are `air`), colored by source — see the
+note under "Layout — locked" below for where the color scheme is documented now. It still ignores
+RWR and visual/IR-only detections. This is deliberately narrower than TGT (which shows the whole
+shared target picture).
 
 ## Feasibility — explored, confirmed viable
 
@@ -61,9 +61,11 @@ not per frame. (This matches how a real radar display sweeps, so it's a feature,
 
 ## Layout — locked (F-16 FCR B-scope)
 
-Imitates the F-16 Fire Control Radar B-scope, drawn in the page's native green-on-black
-(`--no-green` contacts, smoked-white grid, `--no-amber` for the locked target), same SVG-scope
-approach as RWR but **rectangular** instead of polar.
+Imitates the F-16 Fire Control Radar B-scope, same SVG-scope approach as RWR but **rectangular**
+instead of polar. The color specifics below (own-radar contact color, and what happens when more
+than one target is locked) predate the later HSD sibling work and are superseded by
+[RDR hub — FCR and HSD pages](rdr-fcr-hsd.md) and [man/rdr.md](../man/rdr.md) — kept here as the
+original design record rather than rewritten in place.
 
 - **Frame:** ownship implied at bottom-center (white caret). Horizontal axis = relative bearing
   off the nose; vertical axis = range, 0 at ownship → max at top.
