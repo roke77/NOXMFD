@@ -372,10 +372,11 @@ function placeSplitKey(m, label, action, paneTag, mark) {
 // on a narrow display the panel widens to the edge and a horizontal MAIN would sit over that
 // header. All are split-capable.
 // RDR/HSD are not in this list: their MAIN + FCR/HSD + R+ + R- row reads fine horizontal, not
-// cramped enough to need the narrow vertical treatment. KEY is not in this list either: the CFG group's nav labels
-// read fine horizontal — its table header sits far enough from the bezel edge. HUD is not in this
-// list either: hud.css instead reserves left/right padding sized to a horizontal label's own width,
-// so the panel clears it without needing the narrow vertical treatment.
+// cramped enough to need the narrow vertical treatment. KEY is not in this list either: the CFG
+// group's nav labels read fine horizontal — its table header sits far enough from the bezel edge.
+// HUD is not in this list either: hud.css instead reserves left/right padding sized to a
+// horizontal label's own width, so the panel clears it without needing the narrow vertical
+// treatment.
 function isVmainPage(p) { return p === 'tgt' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
@@ -1931,8 +1932,8 @@ function reportPanes() {
 }
 
 // ── PAD cursor forwarding (docs/page-cursor.md, docs/map-cursor.md) ───────────────────
-// Pages that carry their own PAD cursor (pad-cursor.js) — MAP's canvas crosshair, and TGT/HUD/RDR/
-// WPT/AKF's DOM-hit-test cursor. AKF has its ALL/PLAYER resizer to click; BDF/PAL stay out:
+// Pages that carry their own PAD cursor (pad-cursor.js) — MAP's canvas crosshair, and TGT/HUD/
+// RDR/HSD/WPT/AKF's DOM-hit-test cursor. AKF has its ALL/PLAYER resizer to click; BDF/PAL stay out:
 // read-only, nothing to click (docs/page-cursor.md).
 const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, akf: true, hsd: true };
 

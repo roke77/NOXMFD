@@ -163,10 +163,8 @@ function renderContacts() {
     if (!p) return;
     plotted.push({ id: c.id, x: p.x, y: p.y });
     count++;
-    // The target set can hold more than one lock (a planned cycling-locked-targets follow-up,
-    // docs/rdr-fcr-hsd.md); until a real "which lock is focused" field exists, the first one
-    // encountered is the one the bottom readout describes, same as FCR's own firstLocked — only
-    // that one's icon goes amber below.
+    // "Focused" here just means "first locked contact this loop reaches" (see contactColor's own
+    // comment above for why) — same stand-in FCR's firstLocked uses.
     var focused = false;
     if (c.tg) {
       locks++;
@@ -187,8 +185,8 @@ function renderContacts() {
            (p.x + Math.sin((hdg - state.hdg) * Math.PI / 180) * 18).toFixed(1) + '" y2="' +
            (p.y - Math.cos((hdg - state.hdg) * Math.PI / 180) * 18).toFixed(1) +
            '" stroke="' + col + '" stroke-width="2"/>';
-    // Lock circle — always amber regardless of focus, close around the small contact triangle
-    // (radius 10, was 15: noticeably too large a ring around a 12x16 symbol).
+    // Lock circle — always amber regardless of focus, sized close around the small contact
+    // triangle rather than floating loose around it.
     if (c.tg)
       out += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) +
              '" r="10" fill="none" stroke="' + AMBER + '" stroke-width="2"/>';
@@ -283,10 +281,10 @@ function renderScale() {
   if (r) r.textContent = (mode === 'dep' ? 'DEP ' : 'CEN ') + rangeLabel(displayRangeM());
 }
 
-// Same aircraft symbol every mode uses, just redrawn at the current CY — DEP's whole point is
-// moving ownship, so this can't stay the static markup CEN's fixed centre let it be before.
-// Same size as a contact triangle (renderContacts' "M0 -9 L-6 7 L0 4 L6 7 Z") — ownship used to be
-// drawn much larger, which read as a different, oversized symbol next to the contacts around it.
+// Same aircraft symbol every mode uses, just redrawn at the current CY — DEP moves ownship, so
+// this can't be static markup with a fixed center the way CEN alone could get away with. Sized to
+// match a contact triangle exactly (renderContacts' "M0 -9 L-6 7 L0 4 L6 7 Z") so it reads as one
+// of the same family of symbols, not a different kind of marker.
 function renderOwnship() {
   var g = document.getElementById('hsd-ownship');
   if (!g) return;

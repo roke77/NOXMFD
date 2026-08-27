@@ -366,8 +366,10 @@ namespace NOXMFD
         public float  X, Z;     // known world position (GlobalPosition, same space as UnitInfo)
         public float  Alt;      // altitude (GlobalPosition.y)
         public float  Heading;  // travel heading, degrees
-        public bool   Targeted; // in the player's weapon target list — drives amber lock symbol
-        public bool   Radar;    // detected by the player's OWN radar (green HSD symbol)
+        public bool   Targeted; // in the player's weapon target list — amber lock ring, plus a
+                                 // fully amber symbol for whichever locked contact the page is
+                                 // currently reading out (man/rdr.md's "focused lock")
+        public bool   Radar;    // detected by the player's OWN radar (red HSD symbol)
         public bool   Datalink; // known via the faction's shared tracking (purple HSD symbol)
         public string Name;     // display label
     }

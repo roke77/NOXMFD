@@ -15,9 +15,10 @@
              items:[{ id, x, z, alt, hdg, tg, rd, dl, n }] }
            x/z are known world positions, hdg is ownship heading, metric selects km vs nm labels.
            radarRange/radarCone describe the FCR coverage wedge to overlay on the HSD range rings.
-    action: 'zoom-in'/'zoom-out' step the selected HSD range, independently per CEN/DEP mode.
+    action: 'zoom-in'/'zoom-out' step the selected HSD range.
     action: 'hsd-mode' toggles CEN <-> DEP (docs/rdr-fcr-hsd.md) — ownship recenters and the grid
-            ring count/spacing changes; each mode keeps its own separately-remembered range.
+            ring count/spacing changes; the selected range carries across the switch rather than
+            each mode remembering its own (CEN/DEP share one index into their own NM ladder).
     action: 'cursor'/'cursor-held'/'cursor-focus' drive the shared PAD cursor (services/pad-cursor.js)
             exactly like FCR/TGT/MAP — see hsd.js's cursor wiring.
 -->
@@ -34,7 +35,7 @@
       <g id="hsd-radar"></g>
       <g id="hsd-contacts"></g>
       <!-- Filled by hsd.js's renderOwnship() — the symbol itself is fixed, but its centre (CY)
-           moves between CEN and DEP mode, so it can't stay static markup like before. -->
+           moves between CEN and DEP mode, so it has to be drawn in script rather than fixed markup. -->
       <g id="hsd-ownship"></g>
       <!-- PAD acquisition gate (docs/page-cursor.md), same two-bar look as FCR's #rdr-cursor-g —
            pad-cursor.js moves the invisible #hsd-cursor div below in panel px; hsd.js converts

@@ -1,6 +1,6 @@
-// FCR page — F-16 fire-control-radar B-scope. A pure reactive renderer driven by the shell over postMessage;
-// single source of truth for BOTH layouts. See rdr.html for the message contract, docs/rdr-page.md
-// for the design.
+// FCR page — F-16 fire-control-radar B-scope. A pure reactive renderer driven by the shell over
+// postMessage; single source of truth for BOTH layouts. See rdr.html for the message contract,
+// docs/rdr-page.md for the design.
 
 // Scope geometry in the 520x600 viewBox: ownship at bottom-centre, bearing across, range up.
 var L = 60, R = 460, TOP = 70, BOT = 510;      // scope rectangle
@@ -14,8 +14,8 @@ var M_PER_NM = 1852, M_PER_KM = 1000, M_TO_FT = 3.28084;
 // Mirror theme.css's --no-white/--no-red/--no-amber/--no-purple/--no-blue — SVG string-building
 // here can't use CSS var(), so these are plain literals kept in sync by hand.
 // CURSOR_WHITE is the PAD cursor gate's own color (drawCursor/bar below), matching HSD's own
-// cursor — unrelated to contact source color, which used to be green for "own radar detected it"
-// until enemy-air contacts moved to RED (dropping green there in case friendlies are ever added).
+// cursor — unrelated to RED, the enemy-air own-radar contact color (not green, which stays free
+// to mean "friendly" if that symbology is ever added).
 var CURSOR_WHITE = '#e6ebef', RED = '#ff4040', AMBER = '#ffaa00', PURPLE = 'rgb(179, 136, 255)';
 var BLUE = '#4d9fff';   // pitbull missile triangle fill (issue #40) — the "this is MY missile" cue,
                          // distinct from RWR's inbound-threat red/yellow
@@ -200,8 +200,7 @@ function renderContacts() {
     var locked = !!c.tg;
     // The target set can hold more than one lock (a planned cycling-locked-targets follow-up,
     // docs/rdr-fcr-hsd.md); until a real "which lock is focused" field exists, the first locked
-    // contact encountered is the one the bottom readout describes, same as before — just named
-    // explicitly now so the color logic below can tell it apart from any other simultaneous lock.
+    // contact encountered is the one the bottom readout describes — see renderReadout below.
     var focused = locked && !first;
     if (focused) first = c;
     // Source colour: the FOCUSED lock (readout's own target) is amber — otherwise a contact's

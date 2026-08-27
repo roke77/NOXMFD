@@ -380,9 +380,8 @@
 
   // Same "real data wins if present, but an empty/missing list still falls back" rule as
   // RWR/RDR above — no existing capture predates this field with a present-but-empty block yet
-  // (HSD is new), but the guard is written array-emptiness-aware from the start so a future
-  // capture that does carry an empty FRAME.hsd doesn't silently blank the page the way an empty
-  // FRAME.rdr used to before this guard was fixed to match.
+  // (HSD is new), but the guard is array-emptiness-aware from the start so a future capture that
+  // does carry an empty FRAME.hsd can't silently blank the page.
   if (!FRAME.hsd || !Array.isArray(FRAME.hsd.items) || !FRAME.hsd.items.length) {
     const ow = FRAME.world || { x: 0, z: 0 }, hdg = FRAME.hdg || 0;
     const contacts = [
