@@ -50,9 +50,9 @@ namespace NOXMFD
             else if (path == "/soi-instances")
                 TelemetryServer.ServeSoiInstances(ctx);
             else if (path == "/ext-manifest")
-                TelemetryServer.ServeExtManifest(ctx);
+                ExtensionEndpoint.ServeManifest(ctx);
             else if (path.StartsWith("/ext/", StringComparison.Ordinal))
-                TelemetryServer.HandleExtRequest(ctx, path);
+                ExtensionEndpoint.HandleRequest(ctx, path, ct);
             else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                 TelemetryAssets.ServeAsset(ctx, path);
             else if (path == "/map-view")

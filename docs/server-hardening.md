@@ -2,9 +2,9 @@
 
 ## Status
 
-Implemented. Request hygiene, command endpoint/queue extraction, SSE/session extraction, TGP MJPEG
-handler extraction, telemetry JSON extraction, embedded web asset serving, and HTTP route dispatch
-have shipped.
+Implemented. Request hygiene, command endpoint/queue extraction, extension endpoint extraction,
+SSE/session extraction, TGP MJPEG handler extraction, telemetry JSON extraction, embedded web asset
+serving, and HTTP route dispatch have shipped.
 
 ## Where this came from
 
@@ -86,8 +86,7 @@ real game touchpoints. **Don't duplicate that work here — see that doc for the
 land it first.**
 
 What remains after the shipped splits is mostly smaller endpoint-specific runtime state: config
-endpoints (`ServeHudOptions` and its siblings) and extension request handlers. Candidate splits,
-**lowest-risk first**:
+endpoints (`ServeHudOptions` and its siblings). Candidate splits, **lowest-risk first**:
 
 | Split | What moves | Risk |
 |---|---|---|
@@ -95,6 +94,7 @@ endpoints (`ServeHudOptions` and its siblings) and extension request handlers. C
 | `TelemetryAssets.cs` | `ServeAssetRel` + static-file/embedded-resource serving | Done |
 | `TelemetryHttpRouter.cs` | URL dispatch from path to endpoint handler | Done |
 | `CommandEndpoint.cs` | `HandleCommand`/`TryDequeueCommand`/`_cmdQueue`/`_cmdLock` + extension command body hygiene | Done |
+| `ExtensionEndpoint.cs` | `/ext-manifest`, `/ext/<id>` assets, `/ext/<id>/command`, and `/ext/<id>/feed.mjpg` | Done |
 | `SseHub.cs` | `/stream` connection lifetime, per-client instance registry, hello/cursor/ext SSE events, and `/soi-instances` diagnostics | Done |
 | `TgpMjpegHandler.cs` | `/tgp.mjpg` long-lived response and subscriber tracking | Done |
 
