@@ -111,9 +111,11 @@ Found a bug, or want a feature? Open an issue on the
 NO XMFD versions, and steps to reproduce for bugs. It's also where planned and
 in-progress work is tracked.
 
-Pull requests are welcome. For anything non-trivial, open an issue first so we
-can agree on the approach before you write code. Security issues have their own
-process — see [Verifying and reporting](SECURITY.md#verifying-and-reporting).
+Pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for dev setup,
+testing, and what's expected of a change before it's ready for review. For anything
+non-trivial, open an issue first so we can agree on the approach before you write
+code. Security issues have their own process — see
+[Verifying and reporting](SECURITY.md#verifying-and-reporting).
 
 ## Mod compatibility
 
