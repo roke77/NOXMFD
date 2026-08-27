@@ -25,7 +25,7 @@ assert.strictEqual(altUnitsForTest(false, 1000), 3281);
 assert.ok(radarConePath(80 * 1852, 40 * 1852, 60).includes('A110.0 110.0'), '40nm radar cone reaches half of an 80nm HSD');
 assert.strictEqual(radarConePath(80 * 1852, 0, 60), '', 'missing radar range hides cone');
 assert.strictEqual(contactColor({ dl: 1 }), 'var(--no-purple)');
-assert.strictEqual(contactColor({ rd: 1 }), 'var(--no-green)');
+assert.strictEqual(contactColor({ rd: 1 }), 'var(--no-red)');
 assert.strictEqual(contactColor({ tg: 1, rd: 1 }), 'var(--no-amber)');
 
 const demo = demoContacts(0, 0, 20);

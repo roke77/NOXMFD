@@ -144,7 +144,7 @@ Start as a basic DCS F-16 HSD-inspired plan view, not a full replica:
 - closed teal FCR radar-coverage cone overlaid forward of ownship, clipped to the radar's own max
   range inside the currently selected HSD scale;
 - datalink aerial contacts plotted in ownship-relative x/z space across 360 degrees;
-- contact symbols use the same source colors as FCR: datalink-only purple, own-radar green, amber
+- contact symbols use the same source colors as FCR: datalink-only purple, own-radar red, amber
   when locked;
 - optional simple velocity stubs once position plotting is proven.
 - bottom-left readout mirrors FCR for the first locked contact: target name plus RNG/ALT/HDG in

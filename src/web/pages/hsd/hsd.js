@@ -12,7 +12,9 @@ var CEN_CY = 300, CEN_OUTER = 220;
 var DEP_CY = 500, DEP_OUTER = 420;
 var CY = CEN_CY, OUTER = CEN_OUTER;
 var M_PER_NM = 1852, M_PER_KM = 1000;
-var HSD_PINK = 'var(--no-purple)', RADAR_GREEN = 'var(--no-green)', AMBER = 'var(--no-amber)';
+// RED (not green) for own-radar-detected contacts — these are enemy air contacts, and dropping
+// green here leaves it free to mean "friendly" if that symbology is ever added, matching FCR.
+var HSD_PINK = 'var(--no-purple)', RED = 'var(--no-red)', AMBER = 'var(--no-amber)';
 var HSD_PINK_RGB = 'var(--no-hsd-pink-rgb)', TEAL_RGB = 'var(--no-teal-rgb)';
 var CURSOR_WHITE = 'rgba(255,255,255,0.85)';
 var state = { ownX: 0, ownZ: 0, hdg: 0, metric: false, radarPresent: false, radarRange: 0, radarCone: 0, items: [] };
@@ -116,7 +118,7 @@ function radarConePath(rangeM, radarRange, radarCone) {
 
 function contactColor(c) {
   if (c && c.tg) return AMBER;
-  if (c && c.rd) return RADAR_GREEN;
+  if (c && c.rd) return RED;
   return HSD_PINK;
 }
 

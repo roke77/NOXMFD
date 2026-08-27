@@ -11,9 +11,13 @@ var DEF_CONE = 60;                             // fallback azimuth half-angle wh
 // scope's range unit; M_TO_FT is the plain metres->feet factor UnitConverter.AltitudeReading uses.
 var M_PER_NM = 1852, M_PER_KM = 1000, M_TO_FT = 3.28084;
 
-// Mirror theme.css's --no-green/--no-amber/--no-purple/--no-blue — SVG string-building here can't
-// use CSS var(), so these are plain literals kept in sync by hand.
-var GREEN = '#39ff14', AMBER = '#ffaa00', PURPLE = 'rgb(179, 136, 255)';
+// Mirror theme.css's --no-green/--no-red/--no-amber/--no-purple/--no-blue — SVG string-building
+// here can't use CSS var(), so these are plain literals kept in sync by hand.
+// GREEN is the PAD cursor gate's own color (drawCursor/bar below) — unrelated to contact source
+// color, which used to also be GREEN for "own radar detected it" until enemy-air contacts moved
+// to RED (dropping green there in case friendlies are ever added, at which point green would be
+// free to mean "friendly" instead of being reused for two different things).
+var GREEN = '#39ff14', RED = '#ff4040', AMBER = '#ffaa00', PURPLE = 'rgb(179, 136, 255)';
 var BLUE = '#4d9fff';   // pitbull missile triangle fill (issue #40) — the "this is MY missile" cue,
                          // distinct from RWR's inbound-threat red/yellow
 var state = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, items: [], pb: [] };
@@ -195,10 +199,12 @@ function renderContacts() {
     if (!p) return;
     plotted.push({ id: c.id, x: p.x, y: p.y });
     var locked = !!c.tg;
-    // Source colour: radar (own radar detected it, regardless of datalink too) = green,
-    // datalink-only (not currently painted by the player's own radar) = purple (matching TGT's
-    // DATALINK button) — locked always wins, same as before (docs/rdr-page.md).
-    var col = locked ? AMBER : (c.radar ? GREEN : PURPLE);
+    // Source colour: radar (own radar detected it, regardless of datalink too) = red — these are
+    // enemy air contacts, and red is reserved for that rather than green so a future friendly
+    // symbol has green free to mean "friendly" instead of clashing with it — datalink-only (not
+    // currently painted by the player's own radar) = purple (matching TGT's DATALINK button) —
+    // locked always wins, same as before (docs/rdr-page.md).
+    var col = locked ? AMBER : (c.radar ? RED : PURPLE);
     if (locked && !first) first = c;
     // Hover highlight: a soft ring under whatever the cursor is nearest (docs/rdr-page.md).
     if (c.id === hoveredId)

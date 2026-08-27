@@ -347,9 +347,9 @@
   const SYNTH_RDR = [
     { az: -20, rf: 0.35, rh: 190, tg: 1, rd: 1, dl: 1, n: 'FS-20 Vortex', alt: 5500 },   // locked, both
     { az:  25, rf: 0.52, rh: 205, tg: 1, rd: 1, dl: 0, n: 'KR-67 Ifrit',  alt: 7200 },   // locked, radar-only
-    { az: -46, rf: 0.70, rh:  15, tg: 0, rd: 1, dl: 0, n: 'SFB-81',       alt: 9100 },   // radar-only (green)
+    { az: -46, rf: 0.70, rh:  15, tg: 0, rd: 1, dl: 0, n: 'SFB-81',       alt: 9100 },   // radar-only (red)
     { az:  10, rf: 0.86, rh: 335, tg: 0, rd: 0, dl: 1, n: 'EW-25 Medusa', alt: 10500 },  // datalink-only (purple)
-    { az:  40, rf: 0.60, rh: 100, tg: 0, rd: 1, dl: 1, n: 'AB-4 Alkyon',  alt: 8200 },   // both, unlocked (green + purple centre)
+    { az:  40, rf: 0.60, rh: 100, tg: 0, rd: 1, dl: 1, n: 'AB-4 Alkyon',  alt: 8200 },   // both, unlocked (red + purple centre)
   ];
   if (!FRAME.rdr || !FRAME.rdr.present || !Array.isArray(FRAME.rdr.items) || !FRAME.rdr.items.length) {
     const ow = FRAME.world || { x: 0, z: 0 }, hdg = FRAME.hdg || 0, range = 74000, cone = 60;
