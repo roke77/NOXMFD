@@ -162,12 +162,12 @@ for a tablet with no keyboard.
 Optional cold-start behavior and dedicated binds for radar, engine, and weapons safety,
 configured in their own section at the bottom of this page.
 
-- **Enable Radar / Engine / Master Arms on start** — three toggles, all ON by default (matching
+- **Enable Radar / Engine / Master Arm on start** — three toggles, all ON by default (matching
   the game's own behavior). Turn any of them off for more immersion: that system starts off when
   you spawn into a new aircraft, and you arm/start it yourself.
-- **Radar ON / Radar OFF**, **Engine ON / Engine OFF**, **Master Arms ON / Master Arms OFF** —
+- **Radar ON / Radar OFF**, **Engine ON / Engine OFF**, **Master Arm ON / Master Arm OFF** —
   dedicated binds for each, on top of the on-start toggles, so you can flip them mid-flight.
-  Master Arms OFF blocks guns, missiles, and bombs until it's back on — [WPN](wpn.md) shows a
+  Master Arm OFF blocks guns, missiles, and bombs until it's back on — [WPN](wpn.md) shows a
   full-screen SAFE warning while it's off, and its ARM/SAFE controls mirror and drive the same
   state.
 - **A/A mode / A/G mode** — restrict missile cycling to air-to-air or air-to-ground weapons; guns

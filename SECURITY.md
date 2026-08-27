@@ -32,13 +32,13 @@ which virus-scans and manually reviews uploads.
   above).
 - **Sends input to the game, for explicit keybind actions** — tap-to-target, and the mod's own
   extended keybinds (countermeasures, gear, weapon cycling/fire, and the immersion binds: radar,
-  engine, and Master Arms on/off, combat-mode select). Each goes through the game's own APIs (the
+  engine, and Master Arm on/off, combat-mode select). Each goes through the game's own APIs (the
   same calls the cockpit makes), so it behaves exactly like normal input and replicates over
   multiplayer the same way.
 - **Patches eleven game methods with Harmony, in three groups.** Harmony is a well-established
   patching library used across the BepInEx modding ecosystem (already a transitive dependency of
-  `BepInEx.Core` — no separate install). (1) **Master Arms + radar/engine spawn defaults** —
-  `WeaponManager.Fire` (guns/missiles/bombs) is blocked outright while Master Arms is off
+  `BepInEx.Core` — no separate install). (1) **Master Arm + radar/engine spawn defaults** —
+  `WeaponManager.Fire` (guns/missiles/bombs) is blocked outright while Master Arm is off
   (including the stock keybind, not just this mod's own fire keys); `Aircraft.OnStartClient`/
   `OnStartServer` set the radar/engine's initial on/off state when you spawn into a new aircraft,
   per the KEY page's on-start toggles — each of these three checks `GameManager.GetLocalAircraft`

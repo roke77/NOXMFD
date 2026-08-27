@@ -1,11 +1,11 @@
-# Radar & Master Arms — [issue #32](https://github.com/roke77/NOXMFD/issues/32)
+# Radar & Master Arm — [issue #32](https://github.com/roke77/NOXMFD/issues/32)
 
 **Status:** merged to `main` and partly in-game tested. The first real play-test caught the Radar
 spawn-default bug (see the Radar section below) — fixed. RDR was also found missing from the F-35
 layout's MAIN list (a pre-existing gap unrelated to this feature, fixed in passing). Combat-mode
 HUD filtering was later tested in-game and one bug was fixed. Four of five A/A missile names are
 confirmed against real session logs (see Decisions confirmed); only `IRM-S1` remains provisional.
-The remaining live matrix is the Radar fix, Engine behavior, all eight keybinds, Master Arms
+The remaining live matrix is the Radar fix, Engine behavior, all eight keybinds, Master Arm
 enforcement, and weapon-selection combat-mode filtering.
 
 ## Goal
@@ -18,8 +18,8 @@ unless the pilot turns it on:
    radar starts off — silently, with no flicker (see **Harmony**, below).
 2. **Engine start state** — same shape: a persistent setting, **default ON** (today's behavior).
    Switched OFF, a freshly-spawned aircraft's engine(s) start off — also silently, no startup sound.
-3. **Master Arms start state** — same shape again: a persistent setting, **default ON**
-   (unrestricted, today's behavior). Switched OFF, a new mod-only "master arms" flag starts off on
+3. **Master Arm start state** — same shape again: a persistent setting, **default ON**
+   (unrestricted, today's behavior). Switched OFF, a new mod-only "master arm" flag starts off on
    every spawn; a dedicated keybind lets the pilot arm/disarm it in flight. OFF blocks **all** gun/
    missile/bomb fire — the mod's own keybinds *and* the game's own stock trigger/mouse/joystick fire
    path.
@@ -41,7 +41,7 @@ approach structurally can't:
   `AttachToUnit` directly) sets the *initial* value directly, before it's ever observable, instead of
   reactively toggling it back off a tick later. This removes the engine-startup-sound artifact
   entirely (see the old "known limitation" below, now resolved) rather than just cutting it short.
-- **Full Master Arms coverage** — a patch on the weapon-fire path blocks firing at the source, so OFF
+- **Full Master Arm coverage** — a patch on the weapon-fire path blocks firing at the source, so OFF
   blocks *every* way to fire guns/missiles/bombs, not just the mod's own keybinds.
 
 The trade-off is real but bounded: Harmony patches are more brittle across game updates than this
@@ -54,8 +54,8 @@ key — same shape as the existing **Input When Game Unfocused** toggle):
 
 | Bind | Tap | Hold |
 |---|---|---|
-| **Master Arms ON** | arm (`MasterArms.On = true`) | — (dedicated; no hold behavior) |
-| **Master Arms OFF** | disarm (`= false`) | — (dedicated; no hold behavior) |
+| **Master Arm ON** | arm (`MasterArms.On = true`) | — (dedicated; no hold behavior) |
+| **Master Arm OFF** | disarm (`= false`) | — (dedicated; no hold behavior) |
 | **Radar ON** | radar on | — (dedicated; no hold behavior) |
 | **Radar OFF** | radar off | — (dedicated; no hold behavior) |
 | **Engine ON** | engine on | — (dedicated; no hold behavior) |
@@ -63,7 +63,7 @@ key — same shape as the existing **Input When Game Unfocused** toggle):
 | **A/A** | combat mode → A/A | combat mode → ALL |
 | **A/G** | combat mode → A/G | combat mode → ALL |
 
-Master Arms/Radar/Engine ended up as **plain dedicated ON+OFF pairs, no tap/hold** — the game
+Master Arm/Radar/Engine ended up as **plain dedicated ON+OFF pairs, no tap/hold** — the game
 already has its own single-toggle bind for each (Radar, Toggle Engine), so anyone who wants
 one-key-does-both already has that; a tap/hold trick on top would only add complexity for no new
 capability. **A/A and A/G keep the tap/hold pair** because there's no stock "reset combat mode"
@@ -71,9 +71,9 @@ control to fall back on — without the hold, there'd be no keybind way back to 
 
 ### WPN page — ARM / SAFE and A/A / A/G controls, always present
 
-The WPN page always gains four new selectable controls: **ARM**/**SAFE** (Master Arms) and
+The WPN page always gains four new selectable controls: **ARM**/**SAFE** (Master Arm) and
 **A/A**/**A/G** (combat mode) — all unconditional, regardless of the relevant setting (even a pilot
-who leaves Master Arms' default ON can arm/disarm mid-flight straight from the WPN page, not just
+who leaves Master Arm' default ON can arm/disarm mid-flight straight from the WPN page, not just
 via keybind). Whichever matches the live state renders active (amber box, same as every other
 engaged control); clicking, tapping, or SOI-navigating to it and pressing Select sets that state.
 
@@ -86,7 +86,7 @@ engaged control); clicking, tapping, or SOI-navigating to it and pressing Select
   (bordered, glow), red instead of green, but solid black fill (not the translucent `--no-panel-bg`
   other cards use — this card IS the alert, not a status readout layered over live data). A
   hazard-stripe band forms the card's own top and bottom edge (not a full-screen bar — mockup-tested
-  against the user before landing on this). Reads **MASTER ARMS** (smaller) over **SAFE** (bigger,
+  against the user before landing on this). Reads **MASTER ARM** (smaller) over **SAFE** (bigger,
   heavier: the state is what matters at a glance). Content-level, not a bezel/nav element, drawn by
   `wpn.js`/`wpn.css` regardless of layout. Combat mode has no equivalent content-level overlay —
   only the nav controls.
@@ -141,7 +141,7 @@ page already has. Existing sections/table are untouched.
 - **Ignition ≠ engine health**, unaffected by this change — `operable`/`hasFuel` are separate
   per-engine concerns; the patch only changes the *initial* value the pilot's switch starts at.
 
-### Master Arms — mod-only flag; enforced via Harmony, including the stock trigger
+### Master Arm — mod-only flag; enforced via Harmony, including the stock trigger
 
 - Decompiled source has **no** master-arms/safety-switch concept on `Aircraft`/`WeaponManager`.
   `WeaponStation.SafetyIsOn()` exists but is a *ground/gear* safety, unrelated — `MasterArms.On`
@@ -233,7 +233,7 @@ page already has. Existing sections/table are untouched.
   fires `onTap` the instant the bind is pressed, `onHold` once if still held past 0.35s. Registered as
   no-op held binds (`edge: false`), same shape as the existing cursor-direction binds, with `Poll()`
   driving them directly instead of through the generic per-frame dispatch. **Used for A/A and A/G
-  only** — Master Arms/Radar/Engine turned out not to need it (see Goal): they ended up as plain
+  only** — Master Arm/Radar/Engine turned out not to need it (see Goal): they ended up as plain
   dedicated `edge: true` ON+OFF pairs, the same shape as `gear-up`/`gear-down`, since the game's own
   single-toggle bind already covers the "one key does both" case for those three.
 - **The three start-state settings are not binds** — no key/joystick capture, just an on/off value.
@@ -267,7 +267,7 @@ page already has. Existing sections/table are untouched.
    tap/hold branching per the table above. Radar/Engine keybinds still call the existing
    `CmdToggleRadar()`/`CmdToggleIgnition()` — only the spawn default changed, not the in-flight
    controls.
-6. **Master Arms enforcement patch** — a prefix on `WeaponManager.Fire()`, short-circuiting when
+6. **Master Arm enforcement patch** — a prefix on `WeaponManager.Fire()`, short-circuiting when
    `MasterArms.On` is false. Covers the mod's own keybinds and the game's stock trigger/mouse/joystick
    input in one patch, since both call the same method underneath.
 7. **Combat-mode enforcement** (`WeaponSelectors.cs`, no Harmony needed — this is the mod's own
@@ -292,7 +292,7 @@ page already has. Existing sections/table are untouched.
 
 ## Decisions confirmed
 
-- **Combat mode resets to ALL on every new-aircraft spawn** — same as Radar/Engine/Master Arms,
+- **Combat mode resets to ALL on every new-aircraft spawn** — same as Radar/Engine/Master Arm,
   nothing here carries over between spawns.
 - **A/A name-string verification — 4 of 5 confirmed against real session logs**
   (`TryLogWeaponInfo` output, two separate in-game sessions): `AAM-29 Scythe`, `AAM-36 Scimitar`,
@@ -359,7 +359,7 @@ Combat mode now also drives the HUD page's own unit-icon filters
   toggle in the same "Immersion options" block as the three start-state settings above) gates all
   of this: `HudCombatModeFilters.OnCombatModeChanged` returns immediately when it's off, so a pilot
   who hasn't turned it on gets no HUD change at all from a combat-mode switch — not a silent
-  no-op-but-still-tracking, a complete skip. Unlike Radar/Engine/Master Arms' on-start settings,
+  no-op-but-still-tracking, a complete skip. Unlike Radar/Engine/Master Arm' on-start settings,
   this one defaults OFF: it's a new, opinionated behavior to opt into, not a preserved default.
   `HudCombatModeFilters.CaptureIfIdle`/`EnsureBootstrap` keep running regardless of the setting, so
   the baseline is already warm the moment it's turned on rather than restoring a stale/empty one.

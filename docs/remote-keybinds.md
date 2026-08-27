@@ -13,7 +13,7 @@ PC's own input is another, equally in scope. Nothing about the design below is W
 written for "a browser, opted in" throughout, with WSO used only where an example is useful.
 
 The branch now covers V1 plus the held-state actions: weapon cycling, countermeasure deploy,
-dedicated gear up/down, MAP/TGT/SOI one-shot actions, master arms, radar/engine set, combat-mode
+dedicated gear up/down, MAP/TGT/SOI one-shot actions, master arm, radar/engine set, combat-mode
 tap actions, HUD preset loads, remote MAP/TGT cursor movement/select, and remote
 gun/release/jammer-pod fire. Cursor and fire were intentionally built outside the simple
 `keydown -> /command` map because they need live held-state semantics.
@@ -73,7 +73,7 @@ it.
 |---|---|---|
 | Target select / deselect | Yes | none |
 | Weapon select (by name) | Yes | none |
-| Master Arms on/off | Yes | none |
+| Master Arm on/off | Yes | none |
 | Combat mode A/A · A/G · ALL | Yes | none |
 | Radar / engine / gear / guns-linked / turret toggle | Yes (`avn.toggle`) | none |
 | TGT filter set/only/reset/clear/datalink/stale/laser/hud | Yes (`tgt.*`) | none |
@@ -210,7 +210,7 @@ arbitrates.
 - **Off by default.** A pilot upgrading NOXMFD should see no behavior change; this is opt-in per
   browser, not a global setting.
 - **Location**: originally placed inside the KEY page's **IMMERSION OPTIONS** section, alongside
-  ENABLE RADAR/ENGINE/MASTER ARMS ON START and FORCE HUD FILTERS ON COMBAT MODE — visually
+  ENABLE RADAR/ENGINE/MASTER ARM ON START and FORCE HUD FILTERS ON COMBAT MODE — visually
   consistent with its neighbors, but **behaviorally different** in one respect: every other row in
   that section is a server-persisted `ImmersionConfig` setting (`radarOnOnStart` etc., shared
   across every browser that connects), while this toggle is deliberately per-browser `localStorage`
