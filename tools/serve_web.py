@@ -21,6 +21,9 @@ which supplies the synthetic/captured /stream data that the shell forwards to pa
 The MAP page is the only EventSource('/stream') consumer, so the mock (which stubs /stream,
 /map, /icon, /weapon) is injected into it here. The shell loads /map-view?bare absolutely.
 
+/ and /f35 poll /__reload-token (max mtime across src/web/ + preview-mock.js) and reload the whole
+shell on change, so an edit shows up without an alt-tab-and-refresh — see docs/live-reload.md.
+
 Usage:
     python tools/serve_web.py            # serve on http://127.0.0.1:8782
     python tools/serve_web.py --port N
@@ -178,6 +181,57 @@ def _wpt_page():
     first)."""
     html = (WEB / "pages" / "wpt" / "wpt.html").read_text(encoding="utf-8")
     return html.replace("</head>", _wpt_seed_script() + "</head>", 1).encode("utf-8")
+
+
+def _reload_token():
+    """max(mtime) across every served web asset (see docs/live-reload.md) — a cheap comparable
+    value that changes whenever a saved edit would change what the browser sees. Includes MOCK
+    since the MAP page's mock injection is as much "what a browser sees" as src/web/ itself.
+    Also includes the CURRENT pointer file (so re-pointing which capture is live triggers a
+    reload) and the currently-active capture folder itself (so a fresh capture_assets.py run —
+    new/updated icons, map.jpg, screenshots — does too), rather than every capture in the library:
+    old captures aren't served, so their mtimes are noise a rebuild wouldn't touch anyway."""
+    newest = MOCK.stat().st_mtime
+    for fp in WEB.rglob("*"):
+        if fp.is_file():
+            newest = max(newest, fp.stat().st_mtime)
+    cur = CAPTURES / "CURRENT"
+    if cur.exists():
+        newest = max(newest, cur.stat().st_mtime)
+    manifest = _manifest_path()
+    if manifest.exists():
+        for fp in manifest.parent.rglob("*"):
+            if fp.is_file():
+                newest = max(newest, fp.stat().st_mtime)
+    return newest
+
+
+_RELOAD_WATCHER_SCRIPT = """
+<script>
+(function () {
+  var last = null;
+  function poll() {
+    fetch('/__reload-token', { cache: 'no-store' }).then(function (r) { return r.text(); })
+      .then(function (t) {
+        if (last !== null && t !== last) { window.location.reload(); return; }
+        last = t;
+      }).catch(function () { /* server restarting or unreachable — next poll retries */ });
+  }
+  poll();
+  setInterval(poll, 750);
+})();
+</script>
+"""
+
+
+def _shell_page(fp):
+    """A top-level shell page (mfd.html / f35.html) with the live-reload watcher spliced before
+    </head> — see docs/live-reload.md. Built fresh per request, same as _map_page()/_wpt_page(),
+    so edits to the shell itself show up on reload too. Only the two top-level shells get this:
+    a full-page reload there already re-fetches every iframe/pane beneath it, so injecting the
+    same watcher into every individual page would just mean duplicate reload triggers."""
+    html = fp.read_text(encoding="utf-8")
+    return html.replace("</head>", _RELOAD_WATCHER_SCRIPT + "</head>", 1).encode("utf-8")
 
 
 def _detect_lan_ip():
@@ -730,9 +784,11 @@ class H(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split('?', 1)[0]
         if path in ('/', '/index.html'):
-            return self._file(WEB / 'shell' / 'classic' / 'mfd.html', 'text/html; charset=utf-8', cache=True)
+            return self._send(_shell_page(WEB / 'shell' / 'classic' / 'mfd.html'), 'text/html; charset=utf-8')
         if path == '/f35':
-            return self._file(WEB / 'shell' / 'f35' / 'f35.html', 'text/html; charset=utf-8', cache=True)
+            return self._send(_shell_page(WEB / 'shell' / 'f35' / 'f35.html'), 'text/html; charset=utf-8')
+        if path == '/__reload-token':
+            return self._send(str(_reload_token()).encode('utf-8'), 'text/plain; charset=utf-8')
         if path == '/thrl-demo':
             return self._file(REPO / 'tools' / 'thrl-demo.html', 'text/html; charset=utf-8')
         if path == '/config':

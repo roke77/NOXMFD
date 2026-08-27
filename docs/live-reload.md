@@ -2,7 +2,7 @@
 
 ## Status
 
-Planning — not started.
+Built, per the proposed shape below.
 
 ## The problem
 
@@ -53,7 +53,22 @@ sees this script — it only exists in the harness's own served bytes.
 **Editing `serve_web.py` itself isn't covered**, and can't be with this design — it's the running
 process; a change to it needs a manual restart same as today. Worth a one-line callout in the
 injected page (or just accepted as a known limitation) rather than solved — restarting the harness
-after touching `serve_web.py` is already the existing habit.
+after touching `serve_web.py` is already the existing habit. Hit for real while building this: a
+mock function (`_rates_config_merged()`) was edited while an old server instance was still running,
+and it kept serving the stale response until manually killed and restarted.
+
+**A capture refresh does reload, but only the active capture.** `_reload_token()` includes the
+`CURRENT` pointer file and the currently-active `preview/captures/<name>/` folder's own contents,
+so re-running `capture_assets.py` (new icons/map.jpg) or switching which capture `CURRENT` points
+at both trigger a reload — but the rest of the capture library is intentionally excluded from the
+mtime scan (those folders aren't served, so their mtimes are noise, and the library can grow to
+many dated folders over time).
+
+**Not a live-reload bug, but easy to mistake for one: split vs. full-view CSS are different
+files for what looks like the same box.** `main.html`/`main.css` only render `/main?bare` — the
+split-pane iframe. Full-view MAIN (`/`) is separate shell chrome baked into
+`src/web/shell/classic/mfd.html`/`mfd.css`. The watcher reloads correctly either way; editing the
+wrong one just has nothing to show in the view you're looking at.
 
 ## Proposed shape
 
@@ -76,10 +91,10 @@ Roughly a dozen lines of Python (the endpoint) and a dozen lines of vanilla JS (
 
 ## Scope
 
-- [ ] Add `GET /__reload-token` returning `max(mtime)` across `src/web/` + `tools/preview-mock.js`
-- [ ] Add `_shell_page(fp)` following `_map_page()`'s shape, with the poll-and-reload `<script>`
-- [ ] Wire `/` and `/f35` through it
-- [ ] Verify: edit a page's `.js`/`.css`/`.html` while the harness is open, confirm the browser
+- [x] Add `GET /__reload-token` returning `max(mtime)` across `src/web/` + `tools/preview-mock.js`
+- [x] Add `_shell_page(fp)` following `_map_page()`'s shape, with the poll-and-reload `<script>`
+- [x] Wire `/` and `/f35` through it
+- [x] Verify: edit a page's `.js`/`.css`/`.html` while the harness is open, confirm the browser
       reloads within ~1s with no manual refresh
-- [ ] Verify `capture_screenshots.py`'s Playwright-driven runs are unaffected (no file edits happen
+- [x] Verify `capture_screenshots.py`'s Playwright-driven runs are unaffected (no file edits happen
       mid-run today, so this should be a non-issue, but worth one confirming run)
