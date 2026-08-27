@@ -275,13 +275,15 @@ function renderScale() {
 
 // Same aircraft symbol every mode uses, just redrawn at the current CY — DEP's whole point is
 // moving ownship, so this can't stay the static markup CEN's fixed centre let it be before.
+// Same size as a contact triangle (renderContacts' "M0 -9 L-6 7 L0 4 L6 7 Z") — ownship used to be
+// drawn much larger, which read as a different, oversized symbol next to the contacts around it.
 function renderOwnship() {
   var g = document.getElementById('hsd-ownship');
   if (!g) return;
   g.innerHTML =
-    '<path d="M' + CX + ' ' + (CY - 32) + ' L' + (CX - 14) + ' ' + (CY + 26) + ' L' + CX + ' ' +
-    (CY + 16) + ' L' + (CX + 14) + ' ' + (CY + 26) + ' Z" fill="rgba(255,255,255,0.78)"/>' +
-    '<line x1="' + CX + '" y1="' + (CY - 52) + '" x2="' + CX + '" y2="' + (CY - 28) +
+    '<path d="M' + CX + ' ' + (CY - 9) + ' L' + (CX - 6) + ' ' + (CY + 7) + ' L' + CX + ' ' +
+    (CY + 4) + ' L' + (CX + 6) + ' ' + (CY + 7) + ' Z" fill="rgba(255,255,255,0.78)"/>' +
+    '<line x1="' + CX + '" y1="' + (CY - 18) + '" x2="' + CX + '" y2="' + (CY - 9) +
     '" stroke="rgba(255,255,255,0.45)" stroke-width="2"/>';
 }
 
