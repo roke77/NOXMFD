@@ -340,7 +340,7 @@ namespace NOXMFD
             if (ac == null || ac.weaponManager == null || ac.weaponStations == null) return;
             WeaponManager wm = ac.weaponManager;
 
-            WeaponStation target = WeaponSelectors.FindStationByName(ac, wname);
+            WeaponStation? target = WeaponSelectors.FindStationByName(ac, wname);
             if (target == null) { Plugin.Log?.LogInfo($"[NOXMFD] weapon.select '{wname}': no matching station — ignored."); return; }
 
             if (ReferenceEquals(wm.currentWeaponStation, target))

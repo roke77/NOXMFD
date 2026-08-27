@@ -54,7 +54,7 @@ Coupling measured as a rough signal: hits for `SceneSingleton<`, `GameManager.`,
 | `TelemetryServer.cs` | 2019 | 6 | The standout: only 6 real game touchpoints across 2000 lines. Nearly the whole file is JSON-string-building (`BdfBlock`, `MisBlock`, `ObjBlock`, `EscapeJson`, …) over already-extracted snapshot data, not live game state. Pulling that serialization layer into its own class is the highest-value single move here. |
 | `AkfTracker.cs` | 157 | 6 | Weapon-attribution TTL bookkeeping, funds delta, kill categorization. Needs `PersistentID` and `Time.unscaledTime` swapped for a plain id/float parameter to go fully pure. |
 | `Keybinds.cs` | 936 | 11 | Low density for its size. The tap-vs-hold arbitration (`PollTapHold`) is clean, separable logic buried in a large bind-table file. |
-| `WeaponSelectors.cs` | 336 | 21 | Real cycle-selection algorithm (recall/advance/skip-depleted), tightly interleaved with live loadout reads — needs a plain loadout-entry DTO before it separates cleanly. |
+| `WeaponSelectors.cs` | 336 | 21 | Real cycle-selection algorithm (recall/advance/skip-depleted), now extracted through a plain loadout DTO into `WeaponSelectorLogic.cs` with unit coverage. |
 | `HudWaypointCue.cs` | 220 | 25 | Small pure geometry kernel (bearing → tape position, edge-clamp math) inside an otherwise Unity-heavy `MonoBehaviour`. |
 
 ### Pure Unity/game glue — not a testability-refactor target
@@ -116,8 +116,10 @@ Smallest safe step first, each one a self-contained PR:
    `KeybindTapHold.cs`, covered by `KeybindTapHoldTests.cs`.
 5. **Extract `HudWaypointCue.cs`'s geometry kernel**. — done in `HudWaypointCueMath.cs`,
    covered by `HudWaypointCueMathTests.cs`.
-6. **`WeaponSelectors.cs`** — lowest priority of the five; needs a loadout DTO layer first, more
-   design work than the others before it's separable.
+6. **Extract `WeaponSelectors.cs`'s cycle-selection algorithm**. — done in
+   `WeaponSelectorLogic.cs`, covered by `WeaponSelectorLogicTests.cs`. The live
+   `WeaponSelectors.cs` file now adapts game `WeaponStation`/`WeaponInfo` objects into a plain
+   loadout DTO list and delegates cycle/effective/first-available decisions to the pure helper.
 
 Each step should land with its own tests in the same PR — no extraction without the test that was
 the point of doing it.
@@ -133,6 +135,7 @@ the point of doing it.
       `KeybindTapHoldTests.cs`
 - [x] Extract and test `HudWaypointCue.cs`'s geometry kernel — `HudWaypointCueMath.cs`,
       `HudWaypointCueMathTests.cs`
-- [ ] Design a loadout DTO, then extract and test `WeaponSelectors.cs`'s cycle-selection algorithm
+- [x] Design a loadout DTO, then extract and test `WeaponSelectors.cs`'s cycle-selection algorithm —
+      `WeaponSelectorLogic.cs`, `WeaponSelectorLogicTests.cs`
 - [ ] Confirm `dotnet test` runs clean in CI (if/when this repo gets CI — see
       `docs/ci-smoke-check.md`) alongside the existing `dotnet build` + `node *.test.js` checks
