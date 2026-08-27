@@ -126,10 +126,11 @@ Start as a basic DCS F-16 HSD-inspired plan view, not a full replica:
 - ownship aircraft icon at the center, nose-up;
 - concentric dark-pink/magenta range circles centered on ownship, using shared theme token
   `--no-hsd-pink`;
+- white text labels/readouts, reserving pink for HSD symbology instead of page text;
 - no cardinal letters; they are easy to misread if the page evolves between nose-up and other
   orientation modes;
-- closed FCR radar-coverage cone overlaid forward of ownship, clipped to the radar's own max range
-  inside the currently selected HSD scale;
+- closed teal FCR radar-coverage cone overlaid forward of ownship, clipped to the radar's own max
+  range inside the currently selected HSD scale;
 - datalink aerial contacts plotted in ownship-relative x/z space across 360 degrees;
 - contact symbols in HSD pink by default, amber when locked;
 - optional simple velocity stubs once position plotting is proven.

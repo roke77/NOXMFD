@@ -2,7 +2,7 @@
 var CX = 300, CY = 300, OUTER = 220;
 var M_PER_NM = 1852, M_PER_KM = 1000;
 var HSD_PINK = 'var(--no-hsd-pink)', AMBER = 'var(--no-amber)';
-var HSD_PINK_RGB = 'var(--no-hsd-pink-rgb)';
+var HSD_PINK_RGB = 'var(--no-hsd-pink-rgb)', TEAL_RGB = 'var(--no-teal-rgb)';
 var state = { ownX: 0, ownZ: 0, hdg: 0, metric: false, radarPresent: false, radarRange: 0, radarCone: 0, items: [] };
 
 var RANGE_NM = [10, 20, 40, 80];
@@ -41,11 +41,6 @@ function hsdXY(ownX, ownZ, hdg, x, z, rangeM) {
   return { x: CX + Math.sin(rel) * r, y: CY - Math.cos(rel) * r, dist: dist, rel: rel * 180 / Math.PI };
 }
 
-function line(x1, y1, x2, y2, col, w) {
-  return '<line x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) +
-         '" y2="' + y2.toFixed(1) + '" stroke="' + col + '" stroke-width="' + w + '"/>';
-}
-
 function polarPoint(angleDeg, radiusPx) {
   var a = angleDeg * Math.PI / 180;
   return { x: CX + Math.sin(a) * radiusPx, y: CY - Math.cos(a) * radiusPx };
@@ -74,8 +69,6 @@ function renderGrid() {
            '" fill="none" stroke="rgba(' + HSD_PINK_RGB + ',' + (f === 1 ? '0.70' : '0.36') + ')" stroke-width="' +
            (f === 1 ? '2' : '1.5') + '"/>';
   });
-  out += line(CX, CY - OUTER, CX, CY + OUTER, 'rgba(' + HSD_PINK_RGB + ',0.20)', 1);
-  out += line(CX - OUTER, CY, CX + OUTER, CY, 'rgba(' + HSD_PINK_RGB + ',0.20)', 1);
   g.innerHTML = out;
 }
 
@@ -83,8 +76,8 @@ function renderRadarCone() {
   var g = document.getElementById('hsd-radar');
   if (!g) return;
   var path = state.radarPresent ? radarConePath(displayRangeM(), state.radarRange, state.radarCone) : '';
-  g.innerHTML = path ? '<path d="' + path + '" fill="rgba(' + HSD_PINK_RGB + ',0.07)" ' +
-                      'stroke="rgba(' + HSD_PINK_RGB + ',0.58)" stroke-width="2"/>' : '';
+  g.innerHTML = path ? '<path d="' + path + '" fill="rgba(' + TEAL_RGB + ',0.07)" ' +
+                      'stroke="rgba(' + TEAL_RGB + ',0.64)" stroke-width="2"/>' : '';
 }
 
 function renderContacts() {

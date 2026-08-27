@@ -11,12 +11,11 @@
 }
 .hsd-scope text {
   font-family: var(--no-font);
+  fill: var(--no-white);
 }
 .hsd-hdr {
-  fill: var(--no-hsd-pink);
   font-size: 23px;
 }
 .hsd-read {
-  fill: var(--no-hsd-pink);
   font-size: 16px;
 }
