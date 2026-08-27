@@ -116,8 +116,12 @@ function radarConePath(rangeM, radarRange, radarCone) {
          ' Z';
 }
 
-function contactColor(c) {
-  if (c && c.tg) return AMBER;
+// `focused` distinguishes the one locked target the bottom readout currently describes from any
+// other simultaneous lock (a planned cycling-locked-targets follow-up, docs/rdr-fcr-hsd.md) —
+// only the focused one's icon is amber; any other lock still reads red (its ring stays amber
+// regardless, drawn by the caller).
+function contactColor(c, focused) {
+  if (c && c.tg) return focused ? AMBER : RED;
   if (c && c.rd) return RED;
   return HSD_PINK;
 }
@@ -158,11 +162,16 @@ function renderContacts() {
     if (!p) return;
     plotted.push({ id: c.id, x: p.x, y: p.y });
     count++;
+    // The target set can hold more than one lock (a planned cycling-locked-targets follow-up,
+    // docs/rdr-fcr-hsd.md); until a real "which lock is focused" field exists, the first one
+    // encountered is the one the bottom readout describes, same as FCR's own firstLocked — only
+    // that one's icon goes amber below.
+    var focused = false;
     if (c.tg) {
       locks++;
-      if (!firstLocked) firstLocked = { c: c, dist: p.dist };
+      if (!firstLocked) { firstLocked = { c: c, dist: p.dist }; focused = true; }
     }
-    var col = contactColor(c);
+    var col = contactColor(c, focused);
     var hdg = typeof c.hdg === 'number' ? c.hdg : 0;
     var rot = ((hdg - state.hdg) % 360 + 360) % 360;
     // Hover highlight: a soft ring under whatever the cursor is nearest, same treatment FCR gives
@@ -177,9 +186,11 @@ function renderContacts() {
            (p.x + Math.sin((hdg - state.hdg) * Math.PI / 180) * 18).toFixed(1) + '" y2="' +
            (p.y - Math.cos((hdg - state.hdg) * Math.PI / 180) * 18).toFixed(1) +
            '" stroke="' + col + '" stroke-width="2"/>';
+    // Lock circle — always amber regardless of focus, close around the small contact triangle
+    // (radius 10, was 15: noticeably too large a ring around a 12x16 symbol).
     if (c.tg)
       out += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) +
-             '" r="15" fill="none" stroke="' + AMBER + '" stroke-width="2"/>';
+             '" r="10" fill="none" stroke="' + AMBER + '" stroke-width="2"/>';
   });
   g.innerHTML = out;
   renderReadout(firstLocked, count, locks);

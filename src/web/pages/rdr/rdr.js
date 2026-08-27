@@ -199,13 +199,18 @@ function renderContacts() {
     if (!p) return;
     plotted.push({ id: c.id, x: p.x, y: p.y });
     var locked = !!c.tg;
-    // Source colour: radar (own radar detected it, regardless of datalink too) = red — these are
-    // enemy air contacts, and red is reserved for that rather than green so a future friendly
-    // symbol has green free to mean "friendly" instead of clashing with it — datalink-only (not
-    // currently painted by the player's own radar) = purple (matching TGT's DATALINK button) —
-    // locked always wins, same as before (docs/rdr-page.md).
-    var col = locked ? AMBER : (c.radar ? RED : PURPLE);
-    if (locked && !first) first = c;
+    // The target set can hold more than one lock (a planned cycling-locked-targets follow-up,
+    // docs/rdr-fcr-hsd.md); until a real "which lock is focused" field exists, the first locked
+    // contact encountered is the one the bottom readout describes, same as before — just named
+    // explicitly now so the color logic below can tell it apart from any other simultaneous lock.
+    var focused = locked && !first;
+    if (focused) first = c;
+    // Source colour: the FOCUSED lock (readout's own target) is amber, same as its ring below. Any
+    // other simultaneous lock reads the same red an unlocked own-radar contact would — still
+    // locked (its ring stays amber either way), just not the one currently being read out.
+    // Own-radar red (not green) frees green to mean "friendly" if that's ever added; datalink-only
+    // (not currently painted by the player's own radar) = purple (matching TGT's DATALINK button).
+    var col = focused ? AMBER : ((locked || c.radar) ? RED : PURPLE);
     // Hover highlight: a soft ring under whatever the cursor is nearest (docs/rdr-page.md).
     if (c.id === hoveredId)
       out += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) +

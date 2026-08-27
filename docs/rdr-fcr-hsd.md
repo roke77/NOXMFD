@@ -222,6 +222,25 @@ HSD carries the same cursor and reuses the identical target-set commands:
 No HSD-specific lock state — `tg` on an item is the same target-set membership flag FCR and TGT
 already read.
 
+### Focused lock vs. locked (cycling-locked-targets follow-up)
+
+The target set can already legitimately hold more than one `tg:1` contact at once (Select can lock
+several in a row); the bottom readout has always described only the first one encountered, without
+a real concept of "which lock is the one currently being read." Both pages now distinguish this
+explicitly ahead of a planned cycling-locked-targets feature (a HOTAS action to step which lock is
+focused, not built yet):
+
+- **Focused lock** — the one the bottom readout currently describes. Icon amber, ring amber.
+- **Any other simultaneous lock** — still part of the target set, but not what's being read out
+  right now. Icon red (the same red an unlocked own-radar contact uses), ring stays amber — the
+  ring is "this is locked," independent of which lock is focused.
+
+Until a real focus field exists, "focused" is simply the first locked contact each page's own
+render loop encounters, matching the bottom readout's existing behavior exactly (`rdr.js`'s
+`first`, `hsd.js`'s `firstLocked`) — swapping in a genuine focused-target id later needs no other
+change here, since the color logic already only asks "is this contact the focused one," not "is
+this contact literally first."
+
 ## Telemetry and protocol
 
 Preferred first shape:
