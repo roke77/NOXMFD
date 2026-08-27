@@ -34,19 +34,19 @@ namespace NOXMFD
             else if (path == "/airframe-layout")
                 TelemetryServer.ServeAirframeLayout(ctx);
             else if (path == "/config")
-                TelemetryServer.ServeConfig(ctx);
+                ConfigEndpoint.ServeConfig(ctx);
             else if (path == "/hud-options")
-                TelemetryServer.ServeHudOptions(ctx);
+                ConfigEndpoint.ServeHudOptions(ctx);
             else if (path == "/wpt-options")
-                TelemetryServer.ServeWptOptions(ctx);
+                ConfigEndpoint.ServeWptOptions(ctx);
             else if (path == "/layout-options")
-                TelemetryServer.ServeLayoutOptions(ctx);
+                ConfigEndpoint.ServeLayoutOptions(ctx);
             else if (path == "/hud-presets")
-                TelemetryServer.ServeHudPresets(ctx);
+                ConfigEndpoint.ServeHudPresets(ctx);
             else if (path == "/rates-config")
-                TelemetryServer.ServeRatesConfig(ctx);
+                ConfigEndpoint.ServeRatesConfig(ctx);
             else if (path == "/keybinds-config")
-                TelemetryServer.ServeKeybindsConfig(ctx);
+                ConfigEndpoint.ServeKeybindsConfig(ctx);
             else if (path == "/soi-instances")
                 TelemetryServer.ServeSoiInstances(ctx);
             else if (path == "/ext-manifest")

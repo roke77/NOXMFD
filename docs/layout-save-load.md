@@ -54,7 +54,7 @@ compares a browser `KeyboardEvent` against them using the same `KeyboardEvent.co
 than duplicated). Default unbound, same as every other bind. Adding a bind shape with a key but
 no joystick meant three call sites that had assumed "every digital bind has a joystick entry"
 needed an explicit null-check instead (`Keybinds.Active`, the boot-time log loop, and
-`TelemetryServer.ServeKeybindsConfig`'s JSON writer) — `key`/`joyButton`/`joyNum` are now
+`ConfigEndpoint.ServeKeybindsConfig`'s JSON writer) — `key`/`joyButton`/`joyNum` are now
 independently optional fields, not a pair that only ever appears together.
 
 **One shared modal primitive.** No modal/dialog existed anywhere in `src/web/` before this — the
@@ -124,7 +124,7 @@ correct modal.
 | `src/plugin/Stores/LayoutStore.cs` | The layout library: storage, disk persistence (`com.roque.NOXMFD.layouts.json`) — opaque `data` blob |
 | `src/plugin/Input/Keybinds.cs` | `DefKeyOnly` bind shape; `layout-save`/`layout-load` rows under a new LAYOUT section |
 | `src/plugin/CommandDispatcher.cs` | `layout.save`/`layout.rename`/`layout.delete` (reuse existing `wname`/`group`/`text`/`bind` envelope fields — no new wire fields) |
-| `src/plugin/Http/TelemetryServer.cs`, `src/plugin/Http/TelemetryHttpRouter.cs` | `GET /layout-options`; `ServeKeybindsConfig` emits `joyButton`/`joyNum` only when a bind actually has one |
+| `src/plugin/Http/ConfigEndpoint.cs`, `src/plugin/Http/TelemetryHttpRouter.cs` | `GET /layout-options`; `ServeKeybindsConfig` emits `joyButton`/`joyNum` only when a bind actually has one |
 | `src/web/shell/shared/layout-store.js` | Fetch-on-open client (`/layout-options`, `layout.save`) — no background poll, layouts don't change on their own |
 | `src/web/shell/shared/layout-modal.js`, `layout-modal.css` | The shared modal primitive; `pickList` also renders inline rename/delete per row |
 | `src/web/shell/shared/layout-keybinds.js` | Polls `/keybinds-config`, matches a `keydown` against the configured save/load keys |

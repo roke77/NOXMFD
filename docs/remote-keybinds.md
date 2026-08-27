@@ -147,7 +147,7 @@ useful *precedent* — it shows the server already tracks each connection's remo
 it's not the mechanism to build on directly: it only lists browsers with an open SSE `/stream`
 connection, and a KEY page fetching `/keybinds-config` for this toggle has no reason to also hold
 a `/stream` open, so it wouldn't reliably show up there. The primary source should be simpler and
-self-contained: `ServeKeybindsConfig` (`TelemetryServer.cs:1021`) already runs once per
+self-contained: `ConfigEndpoint.ServeKeybindsConfig` already runs once per
 `/keybinds-config` request and has direct access to `ctx.Request.RemoteEndPoint` for *that*
 request — compute the same-PC check right there (loopback `127.0.0.1`/`::1`, or a match against
 the host machine's own local network interface addresses, `System.Net.NetworkInterface`

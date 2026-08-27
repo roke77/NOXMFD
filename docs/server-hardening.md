@@ -85,8 +85,9 @@ bodies); pure rejection of malformed/oversized input.
 real game touchpoints. **Don't duplicate that work here — see that doc for the extraction plan and
 land it first.**
 
-What remains after the shipped splits is mostly smaller endpoint-specific runtime state: config
-endpoints (`ServeHudOptions` and its siblings). Candidate splits, **lowest-risk first**:
+The low-risk HTTP splits identified here are now done. The endpoint-specific config/options routes
+also moved out after the original checklist, so `TelemetryServer.cs` now mostly keeps transport-owned
+state and captured image endpoints. Historical split order:
 
 | Split | What moves | Risk |
 |---|---|---|
@@ -94,6 +95,7 @@ endpoints (`ServeHudOptions` and its siblings). Candidate splits, **lowest-risk 
 | `TelemetryAssets.cs` | `ServeAssetRel` + static-file/embedded-resource serving | Done |
 | `TelemetryHttpRouter.cs` | URL dispatch from path to endpoint handler | Done |
 | `CommandEndpoint.cs` | `HandleCommand`/`TryDequeueCommand`/`_cmdQueue`/`_cmdLock` + extension command body hygiene | Done |
+| `ConfigEndpoint.cs` | `/config`, `/keybinds-config`, `/hud-options`, `/wpt-options`, `/layout-options`, `/hud-presets`, and `/rates-config` | Done |
 | `ExtensionEndpoint.cs` | `/ext-manifest`, `/ext/<id>` assets, `/ext/<id>/command`, and `/ext/<id>/feed.mjpg` | Done |
 | `SseHub.cs` | `/stream` connection lifetime, per-client instance registry, hello/cursor/ext SSE events, and `/soi-instances` diagnostics | Done |
 | `TgpMjpegHandler.cs` | `/tgp.mjpg` long-lived response and subscriber tracking | Done |
@@ -118,6 +120,7 @@ should be scoped from a fresh scan, not assumed from this checklist.
 - [x] Extract embedded asset serving (`TelemetryAssets.cs`)
 - [x] Extract HTTP route dispatch (`TelemetryHttpRouter.cs`)
 - [x] Extract command endpoint/queue (`CommandEndpoint.cs`)
+- [x] Extract config/options endpoints (`ConfigEndpoint.cs`)
 - [x] Extract SSE/session hub (`SseHub.cs`; live multi-display SOI behavior still wants an in-game/browser spot-check before release)
 - [x] Extract the TGP MJPEG handler (`TgpMjpegHandler.cs`; `/tgp.mjpg` live viewing still wants an in-game/browser spot-check before release)
 - [x] One-line SECURITY.md note once the method/size hardening ships (not a trust-model change, just
