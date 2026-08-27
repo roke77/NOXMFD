@@ -4,7 +4,7 @@
 For each preview/captures/<timestamp>/ folder that has a manifest.json, renders that capture's
 data through the same harness serve_web.py uses — pinned via CAPTURE_OVERRIDE (imported directly,
 in-process, not a subprocess) rather than the shared CURRENT pointer, so this never disturbs a
-preview server you might already have open manually — and screenshots all 19 real NAV destinations
+preview server you might already have open manually — and screenshots the real NAV destinations
 (everything except LYT, a picker overlay rather than a distinct page) at 1000x1000, saving them
 into preview/captures/<timestamp>/screenshots/<PAGE>.png.
 
@@ -44,7 +44,7 @@ PAGES = [
     ("MAIN", "main"),
     ("MAP", "map"), ("WPT", "wpt"),
     ("AKF", "akf"), ("BDF", "bdf"), ("PAL", "pal"), ("MIS", "mis"), ("OBJ", "obj"),
-    ("RDR", "rdr"), ("RWR", "rwr"), ("TGP", "tgp"), ("TGT", "tgt"), ("WPN", "wpn"),
+    ("RDR", "rdr"), ("HSD", "hsd"), ("RWR", "rwr"), ("TGP", "tgp"), ("TGT", "tgt"), ("WPN", "wpn"),
 ]
 
 

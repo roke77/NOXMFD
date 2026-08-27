@@ -371,8 +371,8 @@ function placeSplitKey(m, label, action, paneTag, mark) {
 // (renderSplitLabels). TGT's RESET FILTER and BDF/PAL/MIS/OBJ's WARHEADS readout are that content —
 // on a narrow display the panel widens to the edge and a horizontal MAIN would sit over that
 // header. All are split-capable.
-// RDR is not in this list: it carries MAIN + R+ + R- and reads fine horizontal, not cramped enough
-// to need the narrow vertical treatment. KEY is not in this list either: the CFG group's nav labels
+// RDR/HSD are not in this list: their MAIN + FCR/HSD + R+ + R- row reads fine horizontal, not
+// cramped enough to need the narrow vertical treatment. KEY is not in this list either: the CFG group's nav labels
 // read fine horizontal — its table header sits far enough from the bezel edge. HUD is not in this
 // list either: hud.css instead reserves left/right padding sized to a horizontal label's own width,
 // so the panel clears it without needing the narrow vertical treatment.
@@ -541,9 +541,8 @@ function renderSplitLabels() {
         // upright here, not just its MAIN back-item.
         if (el && isVmainPage(page)) el.classList.add('vlabel');
       });
-      // RANGE decorator between R+/R- — RDR's twin. R+ is NAV.rdr[1]/SPLIT_SLOTS.rdr[1]; paneKey
-      // resolves its physical key for this pane/orientation.
-      if (page === 'rdr') placeRdrDecorators(paneKey(paneIdx, slots[1].side, slots[1].slot));
+      // RANGE decorator between R+/R-. R+ is NAV[page][3]/SPLIT_SLOTS[page][3].
+      if (page === 'rdr' || page === 'hsd') placeRdrDecorators(paneKey(paneIdx, slots[3].side, slots[3].slot));
     }
   }
   renderPaneMainPageInd();   // main-prev/next (mfdButton) calls renderSplitLabels directly, not
@@ -743,6 +742,12 @@ function rdrMsg() {
            cone: rdrData.cone, metric: rdrData.metric, radarOn: rdrData.radarOn,
            levelTime: rdrData.levelTime, hdg: rdrData.hdg, items: rdrData.items || [],
            pb: rdrData.pb || [] };
+}
+function forwardHsdToPanes() { forwardToPanes('hsd', hsdMsg()); }
+function forwardHsdToFrame() { forwardToFrame(hsdMsg()); }
+function hsdMsg() {
+  return { mfd: true, type: 'hsd', metric: hsdData.metric, hdg: mapInfoData.hdg || 0,
+           ownX: mapInfoData.x || 0, ownZ: mapInfoData.z || 0, items: hsdData.items || [] };
 }
 function mwMsg() { return { mfd: true, type: 'mw', items: mwData.items || [] }; }
 // MW shares RWR's pane/page (no separate NAV entry), hence the 'rwr' filter on the Panes side.
@@ -1122,6 +1127,7 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'tgp')  forwardTgpToPanes();
     else if (page === 'rwr')  { forwardRwrToPanes(); forwardMwToPanes(); }
     else if (page === 'rdr')  forwardRdrToPanes();
+    else if (page === 'hsd')  forwardHsdToPanes();
     else if (page === 'tgt')  { forwardTgtToPanes(); forwardTgtTargetsToPanes(); }
     else if (page === 'bdf')  forwardBdfToPanes();
     else if (page === 'pal')  forwardPalToPanes();
@@ -1153,6 +1159,7 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'afm') { forwardAfmLayoutToFrame(); forwardAfmToFrame(); }
   else if (currentPage === 'rwr') { forwardRwrToFrame(); forwardMwToFrame(); }
   else if (currentPage === 'rdr') { forwardRdrToFrame(); }
+  else if (currentPage === 'hsd') { forwardHsdToFrame(); }
   else if (currentPage === 'tgt') { forwardTgtToFrame(); forwardTgtTargetsToFrame(); }
   else if (currentPage === 'bdf') { forwardBdfToFrame(); }
   else if (currentPage === 'pal') { forwardPalToFrame(); }
@@ -1333,6 +1340,7 @@ let mwData  = { items: [] };
 // Latest RDR B-scope block (docs/rdr-page.md), mirrored from the map iframe's SSE feed. present is
 // false when the aircraft has no radar; the page draws its own scale/contacts from range/cone/items.
 let rdrData = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, hdg: 0, items: [], pb: [] };
+let hsdData = { metric: false, items: [] };
 
 // Latest TGT filter state, mirrored from the map iframe's SSE feed. The shell keeps only this
 // state and forwards it to the frame; the page renders the toggles + POSTs the tgt.* commands.
@@ -1464,9 +1472,8 @@ function showPage(name) {
     });
   }
 
-  // RDR's twin — RANGE decorator between R+/R-. R+ is NAV.rdr[1], so fullViewSlot(1) is its
-  // physical key in full view (left1).
-  if (name === 'rdr') placeRdrDecorators(fullViewSlot(1));
+  // RDR/HSD range rocker. R+ is the fourth sibling-nav item, so fullViewSlot(3) is its physical key.
+  if (name === 'rdr' || name === 'hsd') placeRdrDecorators(fullViewSlot(3));
 
   // WPN owns its own nav labels (PREV/MAIN + NEXT) because they depend on the page state; run
   // after the generic label sweep so they don't get clobbered. It renders in #page-frame: point
@@ -1503,11 +1510,16 @@ function showPage(name) {
     showFramePage('rwr');
     forwardRwrToFrame(); forwardMwToFrame();
   }
-  // RDR renders in #page-frame too (docs/rdr-page.md). Its only bezel key is the static MAIN label
-  // (NAV.rdr, placed by the generic sweep above); the PAD cursor + lock work inside the page.
+  // FCR renders at the historical /rdr route in #page-frame too (docs/rdr-page.md). The sibling
+  // NAV row (MAIN/FCR/HSD/R+/R-) is placed by the generic sweep above; the PAD cursor + lock work
+  // inside the FCR page.
   if (name === 'rdr') {
     showFramePage('rdr');
     forwardRdrToFrame();
+  }
+  if (name === 'hsd') {
+    showFramePage('hsd');
+    forwardHsdToFrame();
   }
   // TGT renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.tgt,
   // placed by the generic sweep above); everything else is clickable in the page. Forward state.
@@ -1787,6 +1799,10 @@ window.addEventListener('message', function(e) {
                 pb: Array.isArray(m.pb) ? m.pb : [] };
     if (currentPage === 'rdr' && !splitMode) forwardRdrToFrame();
     if (splitMode) forwardRdrToPanes();
+  } else if (m.type === 'hsd') {
+    hsdData = { metric: !!m.metric, items: Array.isArray(m.items) ? m.items : [] };
+    if (currentPage === 'hsd' && !splitMode) forwardHsdToFrame();
+    if (splitMode) forwardHsdToPanes();
   } else if (RELAY_MESSAGES[m.type]) {
     // The 7 verbatim-store-and-forward types — see RELAY_MESSAGES above. Renders in the #page-frame
     // iframe (full) or a pane (split); forward on when it's the page in view.
@@ -2177,6 +2193,7 @@ function mfdButton(el) {
     case 'afm':  showPage('afm');  break;
     case 'rwr':  showPage('rwr');  break;
     case 'rdr':  showPage('rdr');  break;
+    case 'hsd':  showPage('hsd');  break;
     case 'tgt':  showPage('tgt');  break;
     case 'akf':  showPage('akf');  break;
     case 'bdf':  showPage('bdf');  break;

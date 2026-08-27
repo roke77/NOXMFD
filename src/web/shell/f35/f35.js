@@ -76,6 +76,7 @@
     obj: ['obj'],             // active-objectives list (docs/md-pages.md)
     akf: ['akf'],             // kill-feed/session-stats block (docs/akf-page.md)
     rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
+    hsd: ['hsd', 'mapinfo'],  // 360-degree datalink picture (docs/rdr-fcr-hsd.md)
     wpt: ['mapinfo', 'wpt-routes'],   // waypoint readout + the route library itself
     map: ['wpt-routes'],              // the route library (docs/hud-waypoint-indicator.md perf fix) —
                                        // MAP mounts its own map.js/telemetry, so this is its only feed
@@ -119,7 +120,7 @@
   const MAIN_EXTRAS = [
     { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now
     { label: 'MD', action: 'akf' },
-    { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md) — mirrors BEZEL_EXTRAS.main
+    { label: 'RDR', action: 'rdr' },   // → RDR hub, landing on FCR at /rdr (docs/rdr-fcr-hsd.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page — mirrors BEZEL_EXTRAS.main
   ];
 
@@ -135,9 +136,9 @@
   // MAP's own actions → the message the map view listens for. Also not pages: they drive the map
   // in place rather than navigating. Same protocol the bezel uses (mfd.js mapSend), but routed to
   // the portal's OWN map — with several maps on the glass, "the map" is no longer unambiguous.
-  // rng-in/rng-out (RDR's range rocker) reuse the same zoom-in/zoom-out action names MAP's zin/zout
-  // send — mapSend() here already targets frameWin() generically (unlike the classic shell's
-  // mapFrame-specific version), so RDR needs nothing beyond this mapping.
+  // rng-in/rng-out (RDR hub range rocker) reuse the same zoom-in/zoom-out action names MAP's
+  // zin/zout send — mapSend() here already targets frameWin() generically (unlike the classic
+  // shell's mapFrame-specific version), so FCR/HSD need nothing beyond this mapping.
   const MAP_ACTIONS = { flw: 'toggle-follow', zin: 'zoom-in', zout: 'zoom-out', grid: 'toggle-grid',
                          'rng-in': 'zoom-in', 'rng-out': 'zoom-out',
                          'rt-next': 'route-next', 'rt-prev': 'route-prev',
@@ -329,6 +330,7 @@
     // ── Feeds ──────────────────────────────────────────────────────────────────────────
     function forwardSlice(type) {
       if (DERIVED[type]) return forwardWpn();
+      if (currentPage === 'hsd' && (type === 'hsd' || type === 'mapinfo')) return forwardHsd();
       // AFM reuses the 'avn' feed but under its own message type (mirrors mfd.js
       // forwardAfmToFrame) — a per-page rename, unlike FEED_AS below which is global per type and
       // would also rename AVN's own 'avn' feed if used for this.
@@ -346,6 +348,13 @@
       const w = frameWin(), m = slices.avn;
       if (!w || !m) return;
       w.postMessage({ mfd: true, type: 'afm', name: m.name, parts: m.parts, failures: m.failures, pylons: m.pylons }, '*');
+    }
+    function forwardHsd() {
+      const w = frameWin(), hsd = slices.hsd || {}, mapinfo = slices.mapinfo || {};
+      if (!w) return;
+      w.postMessage({ mfd: true, type: 'hsd', metric: !!hsd.metric, hdg: mapinfo.hdg || 0,
+                      ownX: mapinfo.x || 0, ownZ: mapinfo.z || 0,
+                      items: Array.isArray(hsd.items) ? hsd.items : [] }, '*');
     }
     function onSlice(type) {
       if (feedsFor(currentPage).indexOf(type) !== -1) forwardSlice(type);
@@ -686,8 +695,8 @@
       // MASTER/MODE. Found by data-action, so the 2-column overflow (cellOf) needs no
       // special-casing here — the decorator just measures wherever the two buttons actually landed.
       if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); placeWpnDecorator('wpt-next', 'wpt-prev', 'WYPT'); }
-      // RANGE between R+/R- — RDR's twin.
-      if (currentPage === 'rdr') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
+      // RANGE between R+/R- — RDR/HSD's twin.
+      if (currentPage === 'rdr' || currentPage === 'hsd') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
       markGrid();     // ...and the state to the new GRID
       // The grid was just rebuilt, so an SOI cursor mark on one of its items is gone — let the shell
@@ -740,7 +749,7 @@
       resized: function () {
         if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); placeWpnDecorators(); }
         if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); placeWpnDecorator('wpt-next', 'wpt-prev', 'WYPT'); }
-        if (currentPage === 'rdr') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
+        if (currentPage === 'rdr' || currentPage === 'hsd') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
       },
       destroy: function () { el.remove(); },
     };

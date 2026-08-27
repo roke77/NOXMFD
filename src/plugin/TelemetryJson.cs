@@ -75,6 +75,7 @@ namespace NOXMFD
               .Append(",\"rwr\":").Append(RwrArray(s.Rwr))
               .Append(",\"mw\":").Append(MwArray(s.Mw))
               .Append(",\"rdr\":").Append(RdrBlock(s))
+              .Append(",\"hsd\":").Append(HsdBlock(s))
               .Append(",\"tgp\":").Append(TgpBlock(s))
               .Append(",\"radar\":").Append(JsonBool(s.RadarOn))
               .Append(",\"guns\":").Append(JsonBool(s.GunsLinked))
@@ -323,6 +324,11 @@ namespace NOXMFD
                 s.RadarRange, s.RadarConeDeg, s.RdrMetric ? "true" : "false", s.RdrLevelTime, RdrArray(s.Rdr), pb);
         }
 
+        private static string HsdBlock(TelemetrySnapshot s)
+        {
+            return "{\"metric\":" + (s.RdrMetric ? "true" : "false") + ",\"items\":" + HsdArray(s.Hsd) + "}";
+        }
+
         // Pitbull missiles (issue #40): the player's own AA missiles with an active-radar seeker
         // currently locked. tid is the designated target's persistentID.Id, 0 if none/unresolved —
         // the client only draws the dashed target line when it can resolve tid against a live
@@ -353,6 +359,21 @@ namespace NOXMFD
                     items[i].Id, items[i].X, items[i].Z, items[i].Alt, items[i].Heading,
                     items[i].Targeted ? 1 : 0, items[i].Radar ? 1 : 0, items[i].Datalink ? 1 : 0,
                     JsonLite.EscapeJson(items[i].Name ?? string.Empty));
+            }
+            return sb.Append(']').ToString();
+        }
+
+        private static string HsdArray(HsdContact[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.AppendFormat(CultureInfo.InvariantCulture,
+                    "{{\"id\":{0},\"x\":{1:0.0},\"z\":{2:0.0},\"alt\":{3:0.0},\"hdg\":{4:0.0},\"tg\":{5},\"n\":\"{6}\"}}",
+                    items[i].Id, items[i].X, items[i].Z, items[i].Alt, items[i].Heading,
+                    items[i].Targeted ? 1 : 0, JsonLite.EscapeJson(items[i].Name ?? string.Empty));
             }
             return sb.Append(']').ToString();
         }

@@ -40,10 +40,9 @@
     // back to this same slot for any of them rather than needing a per-extension entry here.
     ext: [ { side: 'left', slot: 0 } ],
     rwr: [ { side: 'left', slot: 0 } ],
-    // RDR gets MAIN plus the range rocker on the left column, right after MAIN — unlike MAP's
-    // zoom rocker, which splits onto the right column (MAP has more items filling the left column
-    // already; RDR doesn't).
-    rdr: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 } ],
+    // RDR/HSD are one sibling group: MAIN, FCR, HSD, then the page-local range rocker.
+    rdr: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
+    hsd: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
     tgt: [ { side: 'left', slot: 0 } ],
     // AKF/BDF/PAL/MIS/OBJ get 6: MAIN, then the other four as a direct switch (NAV.akf/NAV.bdf/
     // NAV.pal/NAV.mis/NAV.obj), index-aligned with this list. Left holds MAIN+AKF+MIS; OBJ/BDF/PAL

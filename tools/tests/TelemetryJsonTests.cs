@@ -33,6 +33,7 @@ namespace NOXMFD.Tests
             Assert.False((bool)Obj(root["rdr"])["present"]!);
             Assert.False((bool)root["tgpManual"]!);
             Assert.Empty(Arr(Obj(root["rdr"])["pb"]));
+            Assert.Empty(Arr(Obj(root["hsd"])["items"]));
             Assert.Empty(Arr(root["contacts"]));
             Assert.Empty(Arr(root["loadout"]));
             Assert.Empty(Arr(root["parts"]));
@@ -243,6 +244,29 @@ namespace NOXMFD.Tests
             var rdr = Obj(Root(s)["rdr"]);
             Assert.False((bool)rdr["present"]!);
             Assert.Equal(5.0, Obj(Arr(rdr["pb"])[0])["id"]);
+        }
+
+        [Fact]
+        public void Hsd_carries_datalink_contacts_and_metric_flag()
+        {
+            var s = default(TelemetrySnapshot);
+            s.RdrMetric = true;
+            s.Hsd = new[]
+            {
+                new HsdContact { Id = 8, X = 100f, Z = -200f, Alt = 3000f, Heading = 45f, Targeted = true, Name = "F-16" },
+            };
+
+            var hsd = Obj(Root(s)["hsd"]);
+            var item = Obj(Arr(hsd["items"])[0]);
+
+            Assert.True((bool)hsd["metric"]!);
+            Assert.Equal(8.0, item["id"]);
+            Assert.Equal(100.0, item["x"]);
+            Assert.Equal(-200.0, item["z"]);
+            Assert.Equal(3000.0, item["alt"]);
+            Assert.Equal(45.0, item["hdg"]);
+            Assert.Equal(1.0, item["tg"]);
+            Assert.Equal("F-16", item["n"]);
         }
     }
 }

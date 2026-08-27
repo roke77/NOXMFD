@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD - HSD</title>
+<!--
+  HSD page served at /hsd (docs/rdr-fcr-hsd.md). Read-only first pass: a 360-degree
+  datalink air picture around ownship, using the shell-provided ownship position/heading.
+
+  Shell -> page messages (all {mfd:true, ...}):
+    'hsd': { ownX, ownZ, hdg, metric, items:[{ id, x, z, alt, hdg, tg, n }] }
+           x/z are known world positions, hdg is ownship heading, metric selects km vs nm labels.
+    action: 'zoom-in'/'zoom-out' step the selected HSD range.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/hsd/hsd.css">
+</head>
+<body>
+  <div class="hsd-panel">
+    <svg class="hsd-scope" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <text x="48" y="44" class="hsd-hdr">HSD</text>
+      <text id="hsd-range" x="552" y="44" class="hsd-hdr" text-anchor="end"></text>
+
+      <g id="hsd-grid"></g>
+      <g id="hsd-contacts"></g>
+      <g id="hsd-ownship">
+        <path d="M300 268 L286 326 L300 316 L314 326 Z" fill="rgba(255,255,255,0.78)"/>
+        <line x1="300" y1="248" x2="300" y2="272" stroke="rgba(255,255,255,0.45)" stroke-width="2"/>
+      </g>
+
+      <text x="300" y="76" class="hsd-bearing" text-anchor="middle">N</text>
+      <text x="300" y="548" class="hsd-bearing" text-anchor="middle">S</text>
+      <text x="548" y="306" class="hsd-bearing" text-anchor="middle">E</text>
+      <text x="52"  y="306" class="hsd-bearing" text-anchor="middle">W</text>
+      <text id="hsd-count" x="48" y="566" class="hsd-read"></text>
+      <text id="hsd-locks" x="552" y="566" class="hsd-read" text-anchor="end"></text>
+    </svg>
+  </div>
+
+<script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
+<script src="/assets/services/remote-keybinds.js"></script>
+<script src="/assets/pages/hsd/hsd.js"></script>
+</body>
+</html>

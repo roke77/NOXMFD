@@ -2,8 +2,7 @@
 
 ## Status
 
-Planning for [issue #60](https://github.com/roke77/NOXMFD/issues/60). No implementation is
-selected yet.
+In progress on branch `rdr-fcr-hsd` for [issue #60](https://github.com/roke77/NOXMFD/issues/60).
 
 The current `RDR` page is a radar-style B-scope with own-radar contacts, datalink-only contacts,
 lock markers, pitbull missile markers, range stepping, and the PAD acquisition cursor. This ticket
@@ -196,34 +195,35 @@ culling.
 ## Implementation steps
 
 1. **Navigation and routes**
-   - Add `hsd` to `nav-model.js`, `layout-pages.js`, route coverage, and shell dispatch.
-   - Update `NAV.rdr` into the FCR/HSD sibling group with marks.
-   - Update split-slot placement and range decorators.
+   - [x] Add `hsd` to `nav-model.js`, `layout-pages.js`, route coverage, and shell dispatch.
+   - [x] Update `NAV.rdr` into the FCR/HSD sibling group with marks.
+   - [x] Update split-slot placement and range decorators.
 
 2. **FCR naming pass**
-   - Keep route/action `/rdr` and action `rdr`.
-   - Update visible labels from RDR to FCR where they name the sensor page, while preserving route
+   - [x] Keep route/action `/rdr` and action `rdr`.
+   - [x] Update visible labels from RDR to FCR where they name the sensor page, while preserving route
      names where they name existing infrastructure.
-   - Decide whether FCR keeps or drops purple datalink-only bricks.
+   - [x] Keep purple datalink-only bricks for this first pass so existing RDR behavior is preserved.
 
 3. **Telemetry**
-   - Add an `hsd` block to `TelemetrySnapshot`/`TelemetryJson`.
-   - Build aerial datalink contacts from the player's faction-known picture.
-   - Include lock membership and unit names consistently with FCR/TGT.
+   - [x] Add an `hsd` block to `TelemetrySnapshot`/`TelemetryJson`.
+   - [x] Build aerial datalink contacts from the player's faction-known picture.
+   - [x] Include lock membership and unit names consistently with FCR/TGT.
 
 4. **HSD page**
-   - Add `src/web/pages/hsd/hsd.html`, `.css`, `.js`, and a small projection test.
-   - Draw ownship, purple rings, labels, contacts, and locked markers.
-   - Add HSD-specific range persistence and R+/R- actions.
+   - [x] Add `src/web/pages/hsd/hsd.html`, `.css`, `.js`, and a small projection test.
+   - [x] Draw ownship, purple rings, labels, contacts, and locked markers.
+   - [x] Add HSD-specific range persistence and R+/R- actions.
 
 5. **Shell forwarding**
-   - Mirror the latest `hsd` block in classic and F-35 shells.
-   - Forward it to full-view frames and split/portal panes exactly like `rdr`.
+   - [x] Mirror the latest `hsd` block in classic and F-35 shells.
+   - [x] Forward it to full-view frames and split/portal panes.
 
 6. **Preview and verification**
-   - Extend `tools/serve_web.py` mocks/routes for `/hsd`.
-   - Run JS tests and `tools/ci-check.ps1`.
-   - Verify in `serve_web.py` classic full, classic split, and F-35 layouts.
+   - [x] Extend preview mocks/routes for `/hsd`.
+   - [x] Run JS tests and `tools/ci-check.ps1`.
+   - [x] Verify `/hsd` in `serve_web.py`; full visual layout has a Playwright render check.
+   - [x] Verify in `serve_web.py` classic full, classic split, and F-35 layouts.
 
 ## Manual game checks
 
@@ -239,10 +239,10 @@ These need a live mission:
 
 ## Open questions
 
-- Should FCR drop datalink-only purple contacts now that HSD exists, or keep them as a forward-scope
-  cue?
+- Should FCR drop datalink-only purple contacts after HSD has been live-tested, or keep them as a
+  forward-scope cue?
 - Should HSD show friendlies, enemies only, or eventually both with different symbols?
-- Should HSD be selectable in v1, or read-only until the projection and datalink source are proven?
+- Should HSD become selectable after the projection and datalink source are proven?
 - What range presets feel right for Nuclear Option's map scale and aircraft speeds?
 - Should the MAIN entry continue to say RDR, or should the visible destination eventually become
   FCR with HSD reachable only from inside it?

@@ -56,8 +56,17 @@
     rwr: [ { label: 'MAIN', action: 'main' } ],
     rdr: [
       { label: 'MAIN', action: 'main' },
+      { label: 'FCR',  action: 'rdr', mark: true },
+      { label: 'HSD',  action: 'hsd' },
       { label: 'R+',   action: 'rng-in' },  // steps the displayed range up; sends the same
                                              // 'zoom-in' message MAP's Zoom In sends
+      { label: 'R-',   action: 'rng-out' },
+    ],
+    hsd: [
+      { label: 'MAIN', action: 'main' },
+      { label: 'FCR',  action: 'rdr' },
+      { label: 'HSD',  action: 'hsd', mark: true },
+      { label: 'R+',   action: 'rng-in' },
       { label: 'R-',   action: 'rng-out' },
     ],
     tgt: [ { label: 'MAIN', action: 'main' } ],

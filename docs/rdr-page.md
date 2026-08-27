@@ -1,12 +1,18 @@
-# RDR page
+# RDR/FCR page
 
-A new NAV item, **RDR**, showing the live air contacts the player's *own onboard radar*
-is currently detecting. If the player's aircraft has no radar, the page shows a
-`— not available —` placeholder instead.
+This page is now the **FCR** member of the RDR hub group. It remains served at `/rdr` and still uses
+the `rdr` action so existing layout state and controls continue to work. The sibling HSD page is
+tracked in [RDR hub — FCR and HSD pages](rdr-fcr-hsd.md).
 
-Scope for this first pass: **air-only** contacts (aircraft/missiles that are `air`), sourced
-**only** from the local aircraft's radar — not the faction datalink, not RWR, not visual/IR
-sensors. This is deliberately narrower than TGT (which shows the whole shared target picture).
+The **FCR** sibling shows the live air contacts the player's *own onboard radar*
+is currently detecting, plus purple datalink-only air contacts that the shared faction picture knows
+about but the radar is not painting. If the player's aircraft has no radar, the page shows a
+`— not available —` placeholder for the FCR picture instead.
+
+Current scope: **air-only** contacts (aircraft/missiles that are `air`), with green bricks for
+local-radar detections and purple bricks for faction-datalink-only contacts. It still ignores RWR
+and visual/IR-only detections. This is deliberately narrower than TGT (which shows the whole shared
+target picture).
 
 ## Feasibility — explored, confirmed viable
 

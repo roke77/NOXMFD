@@ -1,0 +1,26 @@
+.hsd-panel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--no-bg);
+}
+.hsd-scope {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.hsd-scope text {
+  font-family: var(--no-font);
+}
+.hsd-hdr {
+  fill: var(--no-purple);
+  font-size: 23px;
+}
+.hsd-bearing {
+  fill: rgba(var(--no-purple-rgb), 0.72);
+  font-size: 15px;
+}
+.hsd-read {
+  fill: var(--no-purple);
+  font-size: 16px;
+}

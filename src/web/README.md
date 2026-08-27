@@ -32,7 +32,7 @@ src/web/
     wpt/    wpt.html  wpt.css  wpt.js     # waypoint/route editor, thin client over the plugin's
             waypoints-store.js            # RouteStore (docs/hud-waypoint-indicator.md) — fetch/poll
             wpt-route.js  wpt-route.test.js  # /wpt-options + POST /command, no local persistence
-    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
+    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
                                                # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
                                                # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg =
                                                # each page's own refresh-rate/quality settings, reached from that
@@ -132,12 +132,13 @@ same-origin across the base map iframe and any split-pane map — so it survives
 split-pane reloads, and the mission-exit reset, and follow is mirrored up to the shell's FOLLOW
 chip on (re)entry. First run seeds the defaults (follow **on**, a medium zoom). It's view-local —
 not part of the data path; `map.js` owns it (`loadPersistedView` / `savePersistedView`). RDR's
-selected range follows the same pattern under `noxmfd.rdr.view`.
+selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps its own
+360-degree range under `noxmfd.hsd.view`.
 
 ## Hosting model
 
 - **Full view (bezel):** the visible page renders in the shell's single `#page-frame` iframe
-  (`FRAME_PAGES = {wpn, tgp, avn, afm, rwr, rdr, tgt, hud, bdf, pal, mis, obj, keys}` — the key is
+  (`FRAME_PAGES = {wpn, tgp, avn, afm, rwr, rdr, hsd, tgt, hud, bdf, pal, mis, obj, keys}` — the key is
   the NAV action, the value the route, which is why `pal` maps to `/bdf?pal` and `keys` to
   `/keybinds`). MAP is the base iframe *under* it; MAIN's full view is the shell's own info-box
   chrome (not a hosted page).
@@ -161,12 +162,13 @@ selected range follows the same pattern under `noxmfd.rdr.view`.
   (`{act, pane}`, on a HOTAS keypress) up to whichever shell hosts it; the shell reports its own
   surface count back down via `soi.panes` (below). Most pages carry no SOI-specific code — the
   shell derives their bezel/NAV cursor from their own `data-action` / `.nav-item` elements.
-- **PAD cursor (the exception):** a page in `PAD_CURSOR_PAGES` (`map`, `tgt`, `hud`, `rdr`) draws a
+- **PAD cursor (the exception):** a page in `PAD_CURSOR_PAGES` (`map`, `tgt`, `hud`, `rdr`, `wpt`, `akf`) draws a
   real crosshair over its own content, so the shell forwards the raw `'cursor'` / `'cursor-held'` /
   `'cursor-select'` / `'map-act'` events down to whichever eligible page is focused
   (`focusedCursorWindow()`), and the page integrates them with `services/pad-cursor.js`. Each page
   decides what the events *mean*: MAP hit-tests contacts and pans at the edge, TGT walks its rows,
-  RDR steps its range — one HOTAS bind, per-page meaning (docs/page-cursor.md).
+  RDR/FCR steps its range — one HOTAS bind, per-page meaning (docs/page-cursor.md). HSD stays
+  read-only for now, so it is intentionally not in this cursor set.
 - **Write commands:** `src/web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
   — from pages (MAP tap → `target.select`; TGT → `tgt.*` + `target.deselect`; AVN → `avn.toggle`;
   HUD → `hud.*`/`declutter.set`/`preset.*` (issue #50 follow-up); KEYBINDS → the `keybind.*` family)

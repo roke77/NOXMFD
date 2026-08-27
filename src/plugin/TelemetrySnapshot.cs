@@ -179,6 +179,10 @@ namespace NOXMFD
         public float       RadarConeDeg;
         public RdrContact[] Rdr;
 
+        // HSD page (docs/rdr-fcr-hsd.md): 360-degree aerial datalink picture around the player.
+        // Contacts come from the player's faction-known positions, not from the own-radar cone.
+        public HsdContact[] Hsd;
+
         // RDR page pitbull missiles (issue #40): the player's own AA missiles whose active-radar
         // seeker has gone lock — independent of RadarPresent, since it's the missile's own radar,
         // not the aircraft's. Empty when the player has none in flight.
@@ -353,6 +357,17 @@ namespace NOXMFD
         public bool   Radar;    // detected by the player's OWN radar (Radar.detectedTargets)
         public bool   Datalink; // known via the faction's shared tracking (playerHQ.TryGetKnownPosition)
         public string Name;     // display label (unitName, bogey fallback)
+    }
+
+    // One aerial datalink contact on the HSD plan view. Serialized terse as {id,x,z,alt,hdg,tg,n}.
+    internal struct HsdContact
+    {
+        public uint   Id;       // Unit.persistentID.Id — correlates with UnitInfo / the target set
+        public float  X, Z;     // known world position (GlobalPosition, same space as UnitInfo)
+        public float  Alt;      // altitude (GlobalPosition.y)
+        public float  Heading;  // travel heading, degrees
+        public bool   Targeted; // in the player's weapon target list — drives amber lock symbol
+        public string Name;     // display label
     }
 
     // One incoming missile on the RWR. Serialized terse as {x,z,st,nb,h}.

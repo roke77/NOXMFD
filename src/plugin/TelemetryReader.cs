@@ -735,6 +735,7 @@ namespace NOXMFD
             bool playerJammed = GetJamState(aircraft, out uint playerJammedBy);
 
             RdrContact[] rdr = BuildRdr(aircraft, out bool radarPresent, out float radarRange, out float radarConeDeg);
+            HsdContact[] hsd = BuildHsd(aircraft);
             bool rdrMetric = PlayerSettings.unitSystem == PlayerSettings.UnitSystem.Metric;
             float rdrLevelTime = Time.timeSinceLevelLoad;
 
@@ -829,6 +830,7 @@ namespace NOXMFD
                 RadarRange     = radarRange,
                 RadarConeDeg   = radarConeDeg,
                 Rdr            = rdr,
+                Hsd            = hsd,
                 Pitbull        = BuildPitbull(aircraft),
                 RdrMetric      = rdrMetric,
                 RdrLevelTime   = rdrLevelTime,
@@ -1070,6 +1072,7 @@ namespace NOXMFD
 
         private readonly List<RdrContact> _rdrBuf = new List<RdrContact>(32);
         private readonly HashSet<Unit> _rdrSeenScratch = new HashSet<Unit>();
+        private readonly List<HsdContact> _hsdBuf = new List<HsdContact>(64);
 
         // Reflection handle for Radar's private cone half-angle (degrees). Cached once — it's a
         // SerializeField baked per radar prefab, so it never changes at runtime.
@@ -1163,6 +1166,42 @@ namespace NOXMFD
             }
 
             return _rdrBuf.Count == 0 ? Array.Empty<RdrContact>() : _rdrBuf.ToArray();
+        }
+
+        // HSD (docs/rdr-fcr-hsd.md): enemy aerial contacts known to the player's faction, without
+        // applying the own-radar cone/range limits that shape the FCR B-scope.
+        private HsdContact[] BuildHsd(Aircraft player)
+        {
+            var playerHQ = player.NetworkHQ;
+            if (playerHQ == null) return Array.Empty<HsdContact>();
+
+            List<Unit> targets = player.weaponManager != null ? player.weaponManager.GetTargetList() : null;
+            bool hasTargets = targets != null && targets.Count > 0;
+
+            _hsdBuf.Clear();
+            foreach (Unit u in _units)
+            {
+                if (u == null || u.disabled || ReferenceEquals(u, player)) continue;
+
+                UnitDefinition def = u.definition;
+                if (def == null || def.typeIdentity.air <= 0.5f) continue;
+
+                var hq = u.NetworkHQ;
+                if (hq == null || hq == playerHQ) continue;
+                if (!playerHQ.TryGetKnownPosition(u, out GlobalPosition gp)) continue;
+
+                _hsdBuf.Add(new HsdContact
+                {
+                    Id       = u.persistentID.Id,
+                    X        = gp.x,
+                    Z        = gp.z,
+                    Alt      = gp.y,
+                    Heading  = u.transform.eulerAngles.y,
+                    Targeted = hasTargets && targets.Contains(u),
+                    Name     = RwrLabel(u)
+                });
+            }
+            return _hsdBuf.Count == 0 ? Array.Empty<HsdContact>() : _hsdBuf.ToArray();
         }
 
         // Player's own AA missiles that have gone pitbull (RDR page, issue #40): active-radar (ARH)

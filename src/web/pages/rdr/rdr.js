@@ -1,4 +1,4 @@
-// RDR page — F-16 FCR B-scope. A pure reactive renderer driven by the shell over postMessage;
+// FCR page — F-16 fire-control-radar B-scope. A pure reactive renderer driven by the shell over postMessage;
 // single source of truth for BOTH layouts. See rdr.html for the message contract, docs/rdr-page.md
 // for the design.
 

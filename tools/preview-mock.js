@@ -367,6 +367,25 @@
     };
   }
 
+  if (!FRAME.hsd) {
+    const ow = FRAME.world || { x: 0, z: 0 }, hdg = FRAME.hdg || 0;
+    const contacts = [
+      { az: -150, rng: 26000, hdg: 20,  tg: 0, n: 'EW-25 Medusa', alt: 9700 },
+      { az:  -70, rng: 48000, hdg: 110, tg: 0, n: 'FS-12 Revoker', alt: 7600 },
+      { az:   35, rng: 32000, hdg: 260, tg: 1, n: 'KR-67 Ifrit', alt: 6500 },
+      { az:  145, rng: 61000, hdg: 315, tg: 0, n: 'SFB-81', alt: 8900 },
+    ];
+    FRAME.hsd = {
+      metric: !!window.__RDR_METRIC__,
+      items: contacts.map((c, i) => {
+        const ab = (c.az + hdg) * Math.PI / 180;
+        return { id: 9201 + i,
+                 x: Math.round(ow.x + Math.sin(ab) * c.rng), z: Math.round(ow.z + Math.cos(ab) * c.rng),
+                 alt: c.alt, hdg: c.hdg, tg: c.tg, n: c.n };
+      })
+    };
+  }
+
   // Synthetic incoming missile for the RWR launch indicator. Authored as a bearing + an
   // animated range that closes from _r0 to _r1 km over _period s (then loops), so the preview
   // shows the connecting line shortening as it bears in. mwTickApproach below recomputes its
