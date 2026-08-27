@@ -95,7 +95,9 @@ pilot, with HOTAS-friendly keybinds to match.
   - **[BDF / PAL](man/bdf.md)** — faction forces.
   - **[MIS](man/mis.md)** — mission info.
   - **[OBJ](man/obj.md)** — objectives.
-- **[RDR](man/rdr.md)** — radar scope.
+- **RDR** — radar hub.
+  - **[FCR](man/rdr.md#fcr)** — Fire Control Radar
+  - **[HSD](man/rdr.md#hsd)** — Horizontal Situation Display
 - **[RWR](man/rwr.md)** — radar warning receiver.
 - **[TGP](man/tgp.md)** — targeting-pod camera.
   - **[CFG](man/tgpcfg.md)** — feed rate, resolution, and quality settings.
