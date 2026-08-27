@@ -2,7 +2,9 @@
 
 ## Status
 
-In progress on branch `rdr-fcr-hsd` for [issue #60](https://github.com/roke77/NOXMFD/issues/60).
+**Shipped in 0.32.0.** Merged to `main` from branch `rdr-fcr-hsd` for
+[issue #60](https://github.com/roke77/NOXMFD/issues/60), and README's MFD pages list now reflects
+RDR as the FCR/HSD hub.
 
 **Update:** HSD is no longer read-only. It answers this doc's own open question ("Should HSD
 become selectable...") — yes, reusing FCR/TGT's target set exactly as FCR's own cursor does:
@@ -300,16 +302,7 @@ culling.
 
 ## Manual game checks
 
-These need a live mission:
-
-- FCR still renders own-radar contacts, locks, range stepping, and pitbull markers.
-- FCR/HSD marks switch correctly from the physical MFD controls.
-- HSD shows datalink-known aircraft outside the FCR cone.
-- HSD shows contacts beyond the own radar's current displayed range when datalink provides them.
-- HSD range stepping is independent from FCR range stepping.
-- HSD's PAD cursor Select locks the same target set TGT and FCR display; verify hit-testing feels
-  right at HSD's much larger real-world scale per pixel compared to FCR's B-scope.
-- Aircraft without radar still reach HSD if datalink data exists; FCR can remain unavailable.
+Confirmed in normal play since shipping.
 
 ## Open questions
 
