@@ -2,12 +2,11 @@
 
 ## Status
 
-In progress. `tools/tests/` is stood up with `JsonLite.cs` + `RouteStore.cs` covered (step 1 below),
-and `TelemetryServer.cs`'s JSON-writer layer is extracted into `TelemetryJson.cs` and covered (step
-2). Later feature work also links the pure `TgpManualAimMath.cs` and
-`Hud/HudDirectionCueMath.cs` helpers directly into the standalone project; the latter covers the
-TGP HUD cue's edge placement, behind-camera behavior, and exact-rear stabilization. Steps 3-6 are
-otherwise not started — see the Scope checklist.
+Complete for the planned local C# unit-test extractions. `tools/tests/` covers the pure seams listed
+below, `tools/ci-check.ps1` runs `dotnet test tools/tests/NOXMFD.Tests.csproj`, and
+`tools/ci-check-selftest.ps1` validates that a deliberately failing xUnit test makes the local check
+fail. Hosted CI remains optional and blocked for the full plugin build on ordinary GitHub-hosted
+runners unless they can provide `GameDir` and the Nuclear Option managed DLLs.
 
 ## The problem
 
@@ -140,5 +139,6 @@ the point of doing it.
       `HudWaypointCueMathTests.cs`
 - [x] Design a loadout DTO, then extract and test `WeaponSelectors.cs`'s cycle-selection algorithm —
       `WeaponSelectorLogic.cs`, `WeaponSelectorLogicTests.cs`
-- [ ] Confirm `dotnet test` runs clean in CI (if/when this repo gets CI — see
-      `docs/ci-smoke-check.md`) alongside the existing `dotnet build` + `node *.test.js` checks
+- [ ] Confirm `dotnet test` runs clean in hosted CI if/when this repo gets CI. Local validation is
+      done via `tools/ci-check.ps1` and `tools/ci-check-selftest.ps1`; hosted CI remains optional
+      because the full build needs `GameDir`/Nuclear Option DLLs (see `docs/ci-smoke-check.md`).
