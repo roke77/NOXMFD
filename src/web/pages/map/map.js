@@ -162,6 +162,12 @@ function worldToBase(wx, wz) { return MapTransform.worldToBase(geom(), wx, wz); 
 function worldToOverlay(wx, wz) { return MapTransform.worldToOverlay(geom(), wx, wz); }
 function overlayToWorld(sx, sy) { return MapTransform.overlayToWorld(geom(), sx, sy); }
 
+function onScreen(p, pad) {
+  return p && p.cx != null && p.cy != null &&
+         p.cx >= -pad && p.cx <= overlay.width + pad &&
+         p.cy >= -pad && p.cy <= overlay.height + pad;
+}
+
 // The module returns the clamped pair rather than mutating; the live view state stays owned here.
 function clampPan() {
   const c = MapTransform.clampPan(geom(), view.panX, view.panY);
@@ -326,7 +332,7 @@ function drawMissiles() {
   const base = zoomedIn() ? MISSILE_BASE_IN : MISSILE_BASE_OUT;
   for (const m of lastData.mw) {
     const mp = worldToOverlay(m.x, m.z);
-    if (!mp) continue;
+    if (!onScreen(mp, 48)) continue;
     ensureIconImage(MISSILE_ICON);
     // Orient to the missile's travel heading (like the game's map icon); 1.2× flash boost.
     const r = drawIcon(MISSILE_ICON, hex, mp.cx, mp.cy, m.h || 0, typeof m.h === 'number', base, 1.2);
@@ -491,7 +497,7 @@ function drawWaypoints() {
   }
   oc.setLineDash([]);
   pts.forEach((p, i) => {
-    if (p.cx == null) return;
+    if (!onScreen(p, 48)) return;
     const state = WptRoute.waypointMarkerState(i, waypointRoute.nextIndex);   // pure + tested, wpt-route.js
     const next = state === 'next';
     const color = next ? WPT_NEXT_COLOR : state === 'reached' ? WPT_REACHED_COLOR : WPT_LINE_COLOR;
@@ -557,7 +563,7 @@ function drawOverlay() {
   if (lastData.contacts) {
     for (const u of lastData.contacts) {
       const p = worldToOverlay(u.x, u.z);
-      if (!p) continue;
+      if (!onScreen(p, 48)) continue;
       ensureIconImage(u.t);
       const hex = factionColors[u.f] || factionColors[0];
       const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, iconBase(), u.s);
@@ -569,10 +575,11 @@ function drawOverlay() {
 
   // Player plane (kept green regardless of faction colors), drawn and hit-tested last = on top.
   const pos = worldToOverlay(lastData.world.x, lastData.world.z);
-  if (!pos) return;
-  const pr = drawIcon(lastData.name, PLAYER_COLOR, pos.cx, pos.cy, lastData.hdg, lastData.iconOrient, iconBase(), lastData.iconScale);
-  if (lastData.pjm) drawJamGlyph(pos.cx, pos.cy, pr);
-  hitTargets.push({ cx: pos.cx, cy: pos.cy, r: pr + HIT_PAD, label: lastData.name, color: PLAYER_COLOR });
+  if (onScreen(pos, 48)) {
+    const pr = drawIcon(lastData.name, PLAYER_COLOR, pos.cx, pos.cy, lastData.hdg, lastData.iconOrient, iconBase(), lastData.iconScale);
+    if (lastData.pjm) drawJamGlyph(pos.cx, pos.cy, pr);
+    hitTargets.push({ cx: pos.cx, cy: pos.cy, r: pr + HIT_PAD, label: lastData.name, color: PLAYER_COLOR });
+  }
 
   // Incoming-missile triangles last = on top of everything (most urgent cue).
   drawMissiles();
@@ -624,7 +631,7 @@ function drawOverlay() {
 
 // Drives the click-flash fade between telemetry frames (which only arrive ~10 Hz).
 let clickFlash = null;
-function pumpFlash() { if (!clickFlash) return; drawOverlay(); requestAnimationFrame(pumpFlash); }
+function pumpFlash() { if (!clickFlash) return; requestDraw(); requestAnimationFrame(pumpFlash); }
 function flashSelect(id) { clickFlash = { id: id, until: performance.now() + 450 }; requestAnimationFrame(pumpFlash); }
 
 // Missiles flash faster than the data rate, so while any are inbound we redraw on a ~20 fps
@@ -635,7 +642,7 @@ function ensureThreatAnimation() {
   const active = lastData && Array.isArray(lastData.mw) && lastData.mw.length;
   if (active && !threatTimer) {
     threatTimer = setInterval(function() {
-      if (lastData && Array.isArray(lastData.mw) && lastData.mw.length) drawOverlay();
+      if (lastData && Array.isArray(lastData.mw) && lastData.mw.length) requestDraw();
       else { clearInterval(threatTimer); threatTimer = null; }
     }, 50);
   } else if (!active && threatTimer) {
@@ -674,6 +681,15 @@ mapImg.onload = function() {
 
 // ── Frame rendering (driven by TelemetrySource) ──────────────────────────────────
 let mapWasValid = false;
+let drawPending = false;
+function requestDraw() {
+  if (drawPending) return;
+  drawPending = true;
+  requestAnimationFrame(function() {
+    drawPending = false;
+    drawOverlay();
+  });
+}
 
 // A real telemetry frame arrived — render the map + HUD. The provider slices were already derived
 // and posted up to the shell by the source; this is purely the local render.
@@ -706,7 +722,7 @@ function renderFrame(d) {
   }
 
   updateHUD(d);
-  drawOverlay();
+  requestDraw();
   ensureThreatAnimation();   // start/keep the missile-flash loop while any missile is inbound
 }
 
@@ -822,7 +838,7 @@ function armLongPress(pointerId, clientX, clientY) {
   }, WPT_LONG_MS);
 }
 let wptFlash = null;   // brief confirmation ring at a just-placed waypoint (screen px, not unit id)
-function pumpWptFlash() { if (!wptFlash) return; drawOverlay(); requestAnimationFrame(pumpWptFlash); }
+function pumpWptFlash() { if (!wptFlash) return; requestDraw(); requestAnimationFrame(pumpWptFlash); }
 function flashWaypoint(cx, cy) { wptFlash = { cx: cx, cy: cy, until: performance.now() + 450 }; requestAnimationFrame(pumpWptFlash); }
 function placeWaypointAt(sx, sy) {
   if (!mapMeta) return;

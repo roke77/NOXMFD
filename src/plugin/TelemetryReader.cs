@@ -9,10 +9,11 @@ namespace NOXMFD
     internal class TelemetryReader : MonoBehaviour
     {
         // Not a const: RatesConfig.SetFastHz (rates.set command) writes this live from the MAP CFG
-        // page's TLM slider, so PushSnapshot's whole 10 Hz group — own-ship, weapons, contacts,
-        // TGT, BDF/PAL — moves together.
+        // page's TLM slider, so PushSnapshot's fast group — own-ship, weapons, RWR/MW, TGT,
+        // BDF/PAL — moves together.
         internal static float FastInterval = 0.1f; // 10 Hz — position / speed
         private const  float SlowInterval  = 1.0f; // 1 Hz  — world scan + map metadata (FindObjectsByType is expensive)
+        private const  float ContactInterval = 0.25f; // 4 Hz — MAP/RDR contacts are expensive and don't need 10 Hz
 
         // One-shot game-asset extraction (map / unit icons / weapon + CM icons / airframe silhouette).
         // Owned here; driven from ScanWorld / PushSnapshot. See AssetCapture.cs.
@@ -20,6 +21,7 @@ namespace NOXMFD
 
         private float _fastTimer;
         private float _slowTimer;
+        private float _contactTimer = ContactInterval;
         private int   _totalUnits;
         private int   _totalAircraft;
 
@@ -33,8 +35,19 @@ namespace NOXMFD
         // AssetCapture and read back via _assets.FailureIndicators).
         private readonly List<string> _failureScratch = new List<string>();
 
-        // Cached unit list from the 1 Hz scan; positions are read from it at 10 Hz.
+        // Cached unit list from the 1 Hz scan; positions are sampled into contact snapshots at 4 Hz.
         private Unit[] _units = Array.Empty<Unit>();
+
+        // Contacts are rebuilt at 4 Hz, then reused by the fast snapshots. Own-ship, RWR, and MW stay
+        // on FastInterval; full unit and radar-contact lists are visually fine at map scale at 4 Hz
+        // and include most of PushSnapshot's per-unit work.
+        private Aircraft? _contactAircraft;
+        private UnitInfo[] _cachedUnits = Array.Empty<UnitInfo>();
+        private RdrContact[] _cachedRdr = Array.Empty<RdrContact>();
+        private PitbullContact[] _cachedPitbull = Array.Empty<PitbullContact>();
+        private bool _cachedRadarPresent;
+        private float _cachedRadarRange;
+        private float _cachedRadarConeDeg;
 
         // MAP jam markers (docs comment on UnitInfo.Jammed): Unit.onJam only fires the jamming
         // source, Radar.IsJammed() doesn't remember it — so we hook every radar-equipped unit once
@@ -149,6 +162,7 @@ namespace NOXMFD
 
             _fastTimer += dt;
             _slowTimer += dt;
+            _contactTimer += dt;
 
             if (_slowTimer >= SlowInterval)
             {
@@ -731,10 +745,9 @@ namespace NOXMFD
 
             _assets.TryCaptureIcon(aircraft.definition);
 
-            UnitInfo[] units = BuildUnits(aircraft);
+            RefreshContactSnapshotIfNeeded(aircraft);
             bool playerJammed = GetJamState(aircraft, out uint playerJammedBy);
 
-            RdrContact[] rdr = BuildRdr(aircraft, out bool radarPresent, out float radarRange, out float radarConeDeg);
             bool rdrMetric = PlayerSettings.unitSystem == PlayerSettings.UnitSystem.Metric;
             float rdrLevelTime = Time.timeSinceLevelLoad;
 
@@ -791,7 +804,7 @@ namespace NOXMFD
                 MapH           = _mapH,
                 GridOffsetX    = _gridOffsetX,
                 GridOffsetY    = _gridOffsetY,
-                Units          = units,
+                Units          = _cachedUnits,
                 PlayerId       = aircraft.persistentID.Id,
                 PlayerJammed   = playerJammed,
                 PlayerJammedBy = playerJammedBy,
@@ -825,11 +838,11 @@ namespace NOXMFD
                 Failures       = BuildFailures(),
                 Rwr            = BuildRwr(aircraft),
                 Mw             = BuildMw(aircraft),
-                RadarPresent   = radarPresent,
-                RadarRange     = radarRange,
-                RadarConeDeg   = radarConeDeg,
-                Rdr            = rdr,
-                Pitbull        = BuildPitbull(aircraft),
+                RadarPresent   = _cachedRadarPresent,
+                RadarRange     = _cachedRadarRange,
+                RadarConeDeg   = _cachedRadarConeDeg,
+                Rdr            = _cachedRdr,
+                Pitbull        = _cachedPitbull,
                 RdrMetric      = rdrMetric,
                 RdrLevelTime   = rdrLevelTime,
                 TgtPresent     = tgtOk,
@@ -874,6 +887,18 @@ namespace NOXMFD
                 AkfFundsGained     = _akfFundsGained,
                 AkfFundsSpent      = _akfFundsSpent
             });
+        }
+
+        private void RefreshContactSnapshotIfNeeded(Aircraft aircraft)
+        {
+            if (_contactTimer < ContactInterval && ReferenceEquals(_contactAircraft, aircraft))
+                return;
+
+            _contactTimer = 0f;
+            _contactAircraft = aircraft;
+            _cachedUnits = BuildUnits(aircraft);
+            _cachedRdr = BuildRdr(aircraft, out _cachedRadarPresent, out _cachedRadarRange, out _cachedRadarConeDeg);
+            _cachedPitbull = BuildPitbull(aircraft);
         }
 
         // Snapshots a TGT toggle group's labels + on/off states, preserving the game's ordering
