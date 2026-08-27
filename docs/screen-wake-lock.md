@@ -329,7 +329,7 @@ Mirrors the ticket's own checklist:
 3. **Sun icon**: a simple circle + eight rays, `--icon-wake` in `theme.css`, masked the same way as
    `--icon-fullscreen`.
 4. **F-35 banner placement**: `#ms-wake-error` sits as a strip-level sibling ahead of the buttons
-   (`ms-fll`, then `ms-wake`) — verified it doesn't crowd the avionics flags in the browser preview.
+   (`ms-wake`, then `ms-fll`) — verified it doesn't crowd the avionics flags in the browser preview.
 
 ## References
 
