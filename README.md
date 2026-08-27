@@ -123,7 +123,7 @@ and versions.
 Some ways two mods can step on each other, so you know what to check first if
 something breaks:
 
-- **Keybinds** — extended keybinds (flares, gear, weapon cycling, Master Arms,
+- **Keybinds** — extended keybinds (flares, gear, weapon cycling, Master Arm,
   radar/engine, combat mode) are read directly from raw keyboard/joystick state,
   the same way most mods do it. Two mods bound to the same physical key/button
   will both fire; NO XMFD doesn't and can't detect that for you.

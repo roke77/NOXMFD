@@ -701,7 +701,7 @@ namespace NOXMFD
             // Resolve the afterburner gauge shape when the aircraft changes (cached; static per airframe).
             EnsureAfterburnerCache(aircraft);
 
-            // Master Arms / combat mode have no game field to patch at spawn (unlike radar/engine,
+            // Master Arm / combat mode have no game field to patch at spawn (unlike radar/engine,
             // handled by HarmonyPatches instead) — reset them here on every new aircraft.
             ImmersionState.EnsureSpawnDefaults(aircraft);
 
