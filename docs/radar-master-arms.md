@@ -222,7 +222,7 @@ page already has. Existing sections/table are untouched.
 
 ### Keybind registration — eight ordinary binds, three ordinary settings
 
-- **File:** `src/plugin/Keybinds.cs`. **Built, and turned out to need genuinely new plumbing** — the
+- **File:** `src/plugin/Input/Keybinds.cs`. **Built, and turned out to need genuinely new plumbing** — the
   plan originally assumed `Jammer`'s `Drive(...)` was a working tap-vs-hold precedent to reuse, but on
   closer inspection it isn't one: Jammer just re-fires the *same* action every frame held, and only
   looks tap/hold-shaped because the underlying game method self-limits to ~0.1s per call. TGT's

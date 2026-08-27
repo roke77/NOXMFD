@@ -93,11 +93,11 @@ game-vs-mod split, but the instrumentation already makes the case.
 
 ### Game main thread → FPS hit
 
-Everything in `TelemetryReader.Update` (`src/plugin/TelemetryReader.cs:123`)
+Everything in `TelemetryReader.Update` (`src/plugin/Telemetry/TelemetryReader.cs:123`)
 runs on Unity's main thread.
 
 - **10 Hz allocation churn (GC stutter).** Every 100 ms,
-  `PushSnapshot` (`src/plugin/TelemetryReader.cs:599`) allocates fresh arrays:
+  `PushSnapshot` (`src/plugin/Telemetry/TelemetryReader.cs:599`) allocates fresh arrays:
   `BuildUnits` does `_unitBuf.ToArray()` (`:960`), plus `BuildRwr`,
   `BuildMw`, `BuildFailures` each allocate. In a busy match that's KBs
   of garbage 10×/sec → GC spikes → the "stutter" feel. `BuildParts`
@@ -170,7 +170,7 @@ This section describes the pre-fix state, kept for context on why item #2 (below
 Also pre-fix state, kept for context.
 
 `BuildParts` hands the shared `_partsBuf` reference into the snapshot
-(`src/plugin/TelemetryReader.cs:854`); the background SSE thread serializes it
+(`src/plugin/Telemetry/TelemetryReader.cs:854`); the background SSE thread serializes it
 while the main thread overwrites it in place next tick. Units avoid this
 today only because `BuildUnits` does `.ToArray()`. Serializing
 once-per-tick (item #2) is the clean fix for both the duplicate work and

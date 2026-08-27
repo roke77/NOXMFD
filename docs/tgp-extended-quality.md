@@ -490,12 +490,12 @@ hardware in some sessions, and HIGH multiplies raw bytes per capture by another 
 
 ## Likely files involved
 
-- `src/plugin/TgpMirrorCam.cs` — rename the resolution enum; no fundamental camera redesign.
-- `src/plugin/TgpFeed.cs` — resolution lookup, quality lookup, per-tier cap, direct-array encode,
+- `src/plugin/Tgp/TgpMirrorCam.cs` — rename the resolution enum; no fundamental camera redesign.
+- `src/plugin/Tgp/TgpFeed.cs` — resolution lookup, quality lookup, per-tier cap, direct-array encode,
   worker/buffer lifecycle, metrics and compatibility behavior.
 - `src/plugin/RatesConfig.cs` — two independent persisted settings and legacy normalization.
 - `src/plugin/CommandDispatcher.cs` — new command groups plus the old alias.
-- `src/plugin/TelemetrySnapshot.cs` / `TelemetryReader.cs` / `TelemetryJson.cs` — resolution field and
+- `src/plugin/Telemetry/TelemetrySnapshot.cs` / `TelemetryReader.cs` / `TelemetryJson.cs` — resolution field and
   temporary legacy alias if streamed compatibility is retained.
 - `src/plugin/Http/TelemetryServer.cs` — `/rates-config` response and thread-safe completed-frame
   handoff.
@@ -570,8 +570,8 @@ Defer until 1080x720 plus worker encoding has measured headroom.
 
 ## References
 
-- `src/plugin/TgpFeed.cs` — current readback, IR and JPEG pipeline.
-- `src/plugin/TgpMirrorCam.cs` — current 720x480/1080x720 mirror camera.
+- `src/plugin/Tgp/TgpFeed.cs` — current readback, IR and JPEG pipeline.
+- `src/plugin/Tgp/TgpMirrorCam.cs` — current 720x480/1080x720 mirror camera.
 - `src/plugin/RatesConfig.cs` — existing rate/quality persistence.
 - `src/web/pages/tgpcfg/` — current LOW/MID/HIGH resolution and JPEG-quality pickers.
 - `docs/tgp-high-quality-mode.md` — mirror-camera design and historical alternatives.

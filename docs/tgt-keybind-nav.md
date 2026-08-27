@@ -12,7 +12,7 @@ DATALINK/STALE buttons (`docs/tgt-datalink-cancel.md`, `docs/tgt-stale-lock.md`)
 
 ## The four binds
 
-All four are `TGT Keybinds` (`src/plugin/Keybinds.cs`), placed right after `MAP Keybinds` — DefFree
+All four are `TGT Keybinds` (`src/plugin/Input/Keybinds.cs`), placed right after `MAP Keybinds` — DefFree
 like MAP/SOI, since they drive the mod's own display rather than the aeroplane:
 
 - **Next Target** / **Previous Target** — step a highlighted row through the locked-target list,

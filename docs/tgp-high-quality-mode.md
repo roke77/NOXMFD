@@ -471,7 +471,7 @@ is shared.
 
 ## Pre-flight before implementing
 
-- Read `src/plugin/TgpFeed.cs` — it maps the relevant `TargetCam`
+- Read `src/plugin/Tgp/TgpFeed.cs` — it maps the relevant `TargetCam`
   internals (cam / mount / fov reflection) and implements the subscriber
   gating + async readback this mode has to carry over. `TgpFeed.cs` is
   the source of truth for the pipeline.

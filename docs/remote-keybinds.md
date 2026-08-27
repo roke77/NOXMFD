@@ -284,7 +284,7 @@ arbitrates.
 - `src/web/shell/layout-keybinds.js` is the closest existing browser-side keydown pattern; the
   remote listener uses the same key-name vocabulary but sends `/command` actions instead of opening
   a client-only modal.
-- `src/plugin/Keybinds.cs`'s `Poll()`/`PollTapHold()` defines the local held-state and tap/hold
+- `src/plugin/Input/Keybinds.cs`'s `Poll()`/`PollTapHold()` defines the local held-state and tap/hold
   behavior that remote cursor/fire state must merge into.
 - `TelemetryServer.cs`'s `MfdInstance`/`/soi-instances` handling is the nearby precedent for
   server-observed remote addresses; `/keybinds-config` uses the request address directly for the

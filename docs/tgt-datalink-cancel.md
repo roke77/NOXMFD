@@ -51,11 +51,11 @@ always comes from `NetworkHQ == this`, not the tracking database.)
 
 ## The plan (as built)
 
-1. **`UnitInfo.Datalink`** ([TelemetrySnapshot.cs](../src/plugin/TelemetrySnapshot.cs)) — set in
-   `BuildUnits()` ([TelemetryReader.cs](../src/plugin/TelemetryReader.cs)) alongside the existing
+1. **`UnitInfo.Datalink`** ([TelemetrySnapshot.cs](../src/plugin/Telemetry/TelemetrySnapshot.cs)) — set in
+   `BuildUnits()` ([TelemetryReader.cs](../src/plugin/Telemetry/TelemetryReader.cs)) alongside the existing
    `Faction`/`Targeted` fields, using the lookup above. Enemy contacts only; friendly/neutral always
    false.
-2. **Serialization** ([TelemetryJson.cs](../src/plugin/TelemetryJson.cs)) — one more terse key,
+2. **Serialization** ([TelemetryJson.cs](../src/plugin/Telemetry/TelemetryJson.cs)) — one more terse key,
    `"dl"`, on `UnitsArray`'s per-contact JSON, next to the existing `tg`.
 3. **Client derivation** ([telemetry-source.js](../src/web/services/telemetry-source.js)) — the TGT
    page's target list is *already derived client-side from `contacts`*, filtered by `tg` (see the

@@ -212,7 +212,7 @@ rearchitecture.
 
 **`TgpFeed.CaptureFrame()`'s existing gate needs one more condition.** Today it calls
 `tc.SetTargetCam()` every capture tick only when `hasTargets` is true
-(`src/plugin/TgpFeed.cs`). Manual mode auto-exits on a real lock (see
+(`src/plugin/Tgp/TgpFeed.cs`). Manual mode auto-exits on a real lock (see
 [Lifecycle: every exit trigger](#lifecycle-every-exit-trigger) below), so this call site needs no
 change: manual mode is never active at the same time `hasTargets` is true.
 
