@@ -83,8 +83,7 @@ pilot, with HOTAS-friendly keybinds to match.
 - **[AVN](man/avn.md)** — avionics gauges and system toggles.
 - **CFG** — configuration and settings hub.
   - **[HUD](man/hud.md)** — in-cockpit HUD config.
-  - **[KEY](man/keybinds.md)** — extended keybinds, SOI, PAD cursor, manual TGP control,
-    Immersion Options.
+  - **[KEY](man/keybinds.md)** — extended keybinds.
   - **[LYT](man/layouts.md)** — layout chooser.
 - **[EXT](man/ext.md)** — third-party extension pages.
 - **[MAIN](man/main.md)** — landing page.
@@ -98,9 +97,8 @@ pilot, with HOTAS-friendly keybinds to match.
   - **[OBJ](man/obj.md)** — objectives.
 - **[RDR](man/rdr.md)** — radar scope.
 - **[RWR](man/rwr.md)** — radar warning receiver.
-- **[TGP](man/tgp.md)** — targeting-pod camera feed, with manual pointing control and an
-  in-cockpit HUD tracker cue.
-  - **[CFG](man/tgpcfg.md)** — TGP's own feed rate, resolution, and JPEG quality settings.
+- **[TGP](man/tgp.md)** — targeting-pod camera.
+  - **[CFG](man/tgpcfg.md)** — feed rate, resolution, and quality settings.
 - **[TGT](man/tgt.md)** — target-selection table.
 - **[WPN](man/wpn.md)** — weapon loadout.
 
