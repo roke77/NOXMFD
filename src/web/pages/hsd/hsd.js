@@ -98,6 +98,36 @@ function render() {
   renderContacts();
 }
 
+function demoContacts(ownX, ownZ, hdg) {
+  var contacts = [
+    { az: -150, rng: 26000, hdg: 20,  tg: 0, n: 'EW-25 Medusa', alt: 9700 },
+    { az:  -70, rng: 48000, hdg: 110, tg: 0, n: 'FS-12 Revoker', alt: 7600 },
+    { az:   35, rng: 32000, hdg: 260, tg: 1, n: 'KR-67 Ifrit', alt: 6500 },
+    { az:  145, rng: 61000, hdg: 315, tg: 0, n: 'SFB-81', alt: 8900 }
+  ];
+  return contacts.map(function (c, i) {
+    var ab = (c.az + hdg) * Math.PI / 180;
+    return {
+      id: 9201 + i,
+      x: Math.round(ownX + Math.sin(ab) * c.rng),
+      z: Math.round(ownZ + Math.cos(ab) * c.rng),
+      alt: c.alt,
+      hdg: c.hdg,
+      tg: c.tg,
+      n: c.n
+    };
+  });
+}
+
+function shouldSeedStandalonePreview() {
+  if (typeof window === 'undefined') return false;
+  if (window.top !== window) return false;
+  if (window.__NOXMFD_DISABLE_HSD_PREVIEW__) return false;
+  if (window.__NOXMFD_HSD_PREVIEW__) return true;
+  var host = window.location && window.location.hostname;
+  return host === '127.0.0.1' || host === 'localhost';
+}
+
 if (typeof window !== 'undefined' && window.addEventListener) {
   loadRange();
   window.addEventListener('message', function (e) {
@@ -118,9 +148,12 @@ if (typeof window !== 'undefined' && window.addEventListener) {
       setRangeIdx(rangeIdx - 1);
     }
   });
+  if (shouldSeedStandalonePreview()) {
+    state = { ownX: 0, ownZ: 0, hdg: 20, metric: false, items: demoContacts(0, 0, 20) };
+  }
   render();
 }
 
 if (typeof module !== 'undefined' && module.exports)
   module.exports = { hsdXY: hsdXY, rangeLabelForTest: function (metric, meters) { state.metric = metric; return rangeLabel(meters); },
-                     geom: { CX: CX, CY: CY, OUTER: OUTER } };
+                     demoContacts: demoContacts, geom: { CX: CX, CY: CY, OUTER: OUTER } };

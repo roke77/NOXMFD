@@ -6,6 +6,8 @@
 <!--
   HSD page served at /hsd (docs/rdr-fcr-hsd.md). Read-only first pass: a 360-degree
   datalink air picture around ownship, using the shell-provided ownship position/heading.
+  When opened standalone on localhost for the preview server, hsd.js seeds a tiny demo picture so
+  the page is visible without the parent MFD shell.
 
   Shell -> page messages (all {mfd:true, ...}):
     'hsd': { ownX, ownZ, hdg, metric, items:[{ id, x, z, alt, hdg, tg, n }] }

@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { hsdXY, rangeLabelForTest, geom } = require('./hsd.js');
+const { hsdXY, rangeLabelForTest, demoContacts, geom } = require('./hsd.js');
 
 function near(a, b, label) {
   assert.ok(Math.abs(a - b) < 1e-6, `${label}: got ${a}, expected ${b}`);
@@ -20,5 +20,10 @@ near(p.y, geom.CY, 'heading east y');
 assert.strictEqual(hsdXY(0, 0, 0, 0, 3000, 2000), null, 'outside range culled');
 assert.strictEqual(rangeLabelForTest(false, 1852 * 20), '20nm');
 assert.strictEqual(rangeLabelForTest(true, 1000 * 40), '40km');
+
+const demo = demoContacts(0, 0, 20);
+assert.strictEqual(demo.length, 4, 'standalone preview seeds four contacts');
+assert.strictEqual(demo.filter(c => c.tg).length, 1, 'standalone preview includes one lock');
+assert.ok(demo.every(c => hsdXY(0, 0, 20, c.x, c.z, 40 * 1852)), 'default preview range shows every demo contact');
 
 console.log('hsd.test.js: OK');
