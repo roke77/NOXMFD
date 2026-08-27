@@ -10,49 +10,49 @@ namespace NOXMFD
         internal static void Route(HttpListenerContext ctx, string path, CancellationToken ct)
         {
             if (path == "/stream")
-                _ = Task.Run(() => TelemetryServer.HandleSseAsync(ctx, ct));
+                _ = Task.Run(() => SseHub.HandleAsync(ctx, ct));
             else if (path == "/tgp.mjpg")
-                _ = Task.Run(() => TelemetryServer.HandleMjpegAsync(ctx, ct));
+                _ = Task.Run(() => TgpMjpegHandler.HandleAsync(ctx, ct));
             else if (path == "/map" || path == "/map.png" || path == "/map.jpg")
-                TelemetryServer.ServeMap(ctx);
+                CapturedAssetEndpoint.ServeMap(ctx);
             else if (path == "/icon")
-                TelemetryServer.ServeIcon(ctx);
+                CapturedAssetEndpoint.ServeIcon(ctx);
             else if (path == "/weapon")
-                TelemetryServer.ServeWeaponIcon(ctx);
+                CapturedAssetEndpoint.ServeWeaponIcon(ctx);
             else if (path == "/cm")
-                TelemetryServer.ServeCmIcon(ctx);
+                CapturedAssetEndpoint.ServeCmIcon(ctx);
             else if (path == "/tgt-icon")
-                TelemetryServer.ServeTgtIcon(ctx);
+                CapturedAssetEndpoint.ServeTgtIcon(ctx);
             else if (path == "/bdf-icon")
-                TelemetryServer.ServeBdfIcon(ctx);
+                CapturedAssetEndpoint.ServeBdfIcon(ctx);
             else if (path == "/building-icon")
-                TelemetryServer.ServeBuildingIcon(ctx);
+                CapturedAssetEndpoint.ServeBuildingIcon(ctx);
             else if (path == "/hud-cat-icon")
-                TelemetryServer.ServeHudCategoryIcon(ctx);
+                CapturedAssetEndpoint.ServeHudCategoryIcon(ctx);
             else if (path == "/airframe")
-                TelemetryServer.ServeAirframeImage(ctx);
+                CapturedAssetEndpoint.ServeAirframeImage(ctx);
             else if (path == "/airframe-layout")
-                TelemetryServer.ServeAirframeLayout(ctx);
+                CapturedAssetEndpoint.ServeAirframeLayout(ctx);
             else if (path == "/config")
-                TelemetryServer.ServeConfig(ctx);
+                ConfigEndpoint.ServeConfig(ctx);
             else if (path == "/hud-options")
-                TelemetryServer.ServeHudOptions(ctx);
+                ConfigEndpoint.ServeHudOptions(ctx);
             else if (path == "/wpt-options")
-                TelemetryServer.ServeWptOptions(ctx);
+                ConfigEndpoint.ServeWptOptions(ctx);
             else if (path == "/layout-options")
-                TelemetryServer.ServeLayoutOptions(ctx);
+                ConfigEndpoint.ServeLayoutOptions(ctx);
             else if (path == "/hud-presets")
-                TelemetryServer.ServeHudPresets(ctx);
+                ConfigEndpoint.ServeHudPresets(ctx);
             else if (path == "/rates-config")
-                TelemetryServer.ServeRatesConfig(ctx);
+                ConfigEndpoint.ServeRatesConfig(ctx);
             else if (path == "/keybinds-config")
-                TelemetryServer.ServeKeybindsConfig(ctx);
+                ConfigEndpoint.ServeKeybindsConfig(ctx);
             else if (path == "/soi-instances")
                 TelemetryServer.ServeSoiInstances(ctx);
             else if (path == "/ext-manifest")
-                TelemetryServer.ServeExtManifest(ctx);
+                ExtensionEndpoint.ServeManifest(ctx);
             else if (path.StartsWith("/ext/", StringComparison.Ordinal))
-                TelemetryServer.HandleExtRequest(ctx, path);
+                ExtensionEndpoint.HandleRequest(ctx, path, ct);
             else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                 TelemetryAssets.ServeAsset(ctx, path);
             else if (path == "/map-view")
@@ -98,7 +98,7 @@ namespace NOXMFD
             else if (path == "/tgpcfg")
                 TelemetryAssets.ServeAssetRel(ctx, "pages/tgpcfg/tgpcfg.html");
             else if (path == "/command")
-                TelemetryServer.HandleCommand(ctx);
+                CommandEndpoint.HandleCommand(ctx);
             else if (path == "/mfd")
                 TelemetryServer.Redirect(ctx, "/");
             else if (path == "/f35")

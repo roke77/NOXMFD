@@ -1,10 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
-using System.IO;
 using System.Net;
-using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -26,13 +22,6 @@ namespace NOXMFD
             if (port > 0 && port <= 65535) Port = port;
             _autoSetupLan = autoSetupLan;
         }
-
-        // SSE cadences. The loop ticks at CursorTickMs (the MAP cursor's rate — a continuous analog
-        // signal, so latency here is felt directly as a heavy, lagging crosshair) and emits the
-        // telemetry frame every FrameEveryMs. 10 Hz for telemetry both during a mission and at the
-        // main menu, where SOI focus changes must still feel immediate.
-        private const int CursorTickMs = 16;    // ~60 Hz, but only ~60 bytes and only when it changes
-        private const int FrameEveryMs = 100;   // 10 Hz
 
         private static HttpListener?           _listener;
         private static Thread?                 _acceptThread;
@@ -59,74 +48,17 @@ namespace NOXMFD
         private static volatile bool _missionRunning;
         public static void SetMissionRunning(bool running) { _missionRunning = running; }
 
-        // Captured in-game map image (PNG), set from the Unity main thread.
-        private static byte[]?          _mapPng;
-        private static readonly object  _mapLock = new object();
-
-        // Per-aircraft-type map icons (PNG), keyed by unitName.
-        private static readonly Dictionary<string, byte[]> _icons    = new Dictionary<string, byte[]>();
-        private static readonly object                     _iconLock = new object();
-
-        // A 1×1 fully-transparent PNG registered for types that have no map icon (buildings, etc.).
-        // Serving this with HTTP 200 — instead of 404 — stops the client re-requesting icon-less
-        // types and keeps the browser console clean; the client spots the 1×1 size and falls back
-        // to its generic square marker.
-        internal static readonly byte[] NoIconPng = Convert.FromBase64String(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC");
-
-        // Per-weapon-type icons (PNG), keyed by weapon display name.
-        private static readonly Dictionary<string, byte[]> _weaponIcons = new Dictionary<string, byte[]>();
-        private static readonly object                     _weaponLock  = new object();
-
-        // Per-countermeasure icons (PNG), keyed by short name ("flares", "jammer").
-        private static readonly Dictionary<string, byte[]> _cmIcons = new Dictionary<string, byte[]>();
-        private static readonly object                     _cmLock  = new object();
-
-        // TGT filter vehicle-type icons (PNG), keyed by vehicle typeName ("TRUCK" … "RDR") — the
-        // same names the "tgt" telemetry block's vehicle row carries. Served at /tgt-icon?type=.
-        private static readonly Dictionary<string, byte[]> _tgtIcons = new Dictionary<string, byte[]>();
-        private static readonly object                     _tgtLock  = new object();
-
-        // BDF ship-type icons (PNG), keyed by ship typeName ("CV" … "LC") — the same names the
-        // "bdf" telemetry block's ship row carries (docs/bdf-page.md). Served at /bdf-icon?type=.
-        private static readonly Dictionary<string, byte[]> _bdfIcons = new Dictionary<string, byte[]>();
-        private static readonly object                     _bdfLock  = new object();
-
-        // HUD-page building-type icons (PNG), keyed by building typeName ("CIV" … "AMMO"). A separate
-        // map from _tgtIcons on purpose: a name like "RDR" is BOTH a vehicle and a building type, so
-        // sharing one keyspace would collide. Served at /building-icon?type=.
-        private static readonly Dictionary<string, byte[]> _buildingIcons = new Dictionary<string, byte[]>();
-        private static readonly object                     _buildingLock  = new object();
-
-        // HUD OPTIONS category-row icons (PNG) — AIRCRAFT/MISSILES/VEHICLES/BUILDINGS/SHIPS, keyed by
-        // the same fixed label the HUD page's CATEGORY_LABELS carries (the game exposes no per-category
-        // name to key by instead). FRIENDLY/ENEMY have no entry — the game draws no glyph on those rows
-        // either. Served at /hud-cat-icon?cat=.
-        private static readonly Dictionary<string, byte[]> _hudCatIcons = new Dictionary<string, byte[]>();
-        private static readonly object                     _hudCatLock  = new object();
-
-        // Airframe silhouette assets. Images keyed by "unitName|partName" — partName is the
-        // GameObject name from Aircraft.partLookup (e.g. "wing1_L") or "__bg" for the background
-        // silhouette. Layouts keyed by unitName, value is a JSON descriptor of part placements.
-        private static readonly Dictionary<string, byte[]> _airframeImages = new Dictionary<string, byte[]>();
-        private static readonly Dictionary<string, string> _airframeLayouts = new Dictionary<string, string>();
-        private static readonly object                     _airframeLock    = new object();
-
-        // Latest TGP camera frame as a JPEG, refreshed ~10 Hz from TelemetryReader.
-        // The frame id lets each MJPEG client only send when it changes.
-        private static byte[]? _tgpJpg;
-        private static long    _tgpFrameId;
-        private static readonly object _tgpLock = new object();
+        internal static byte[] NoIconPng => CapturedAssetEndpoint.NoIconPng;
 
         // Sent immediately to a fresh MJPEG connection when no real frame exists yet — a 4x4
         // dark-gray JPEG, precomputed offline (not generated at runtime: Texture2D.EncodeToJPG
-        // needs the Unity main thread, and HandleMjpegAsync runs on the HTTP listener's own
+        // needs the Unity main thread, and TgpMjpegHandler runs on the HTTP listener's own
         // thread). Without this, a client that connects before TgpFeed's pipeline has produced
         // its first frame (target lock + first capture + first async readback, confirmed to take
         // several seconds — docs/performance.md, 2026-08-23) sits on zero bytes, which some
         // browsers can mark the stream failed for and never recover from without a page reload
         // (docs/tgp-high-quality-mode.md).
-        private static readonly byte[] TgpPlaceholderJpg =
+        internal static readonly byte[] TgpPlaceholderJpg =
         {
             0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01,
             0x00, 0x01, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43, 0x00, 0x14, 0x0E, 0x0F, 0x12, 0x0F, 0x0D, 0x14,
@@ -170,429 +102,47 @@ namespace NOXMFD
             0x68, 0xA2, 0x8A, 0x00, 0xFF, 0xD9,
         };
 
-        // Number of HTTP clients currently subscribed to /tgp.mjpg. The reader checks this
-        // each tick and skips the entire capture pipeline (cam swap, GPU readback, JPEG
-        // encode) while nobody is watching — that's where most of the per-target FPS hit
-        // comes from. Counter is bumped in HandleMjpegAsync's try and decremented in finally.
-        private static int _tgpSubscribers;
-        public static bool WantsTgpFrames => Volatile.Read(ref _tgpSubscribers) > 0;
+        public static bool WantsTgpFrames => TgpMjpegHandler.WantsFrames;
 
-        // ── Connected MFD instances (SOI — docs/keybinds-page.md) ──────────────
-        // One /stream connection IS one MFD instance: HandleSseAsync runs for exactly as long as a
-        // browser sits on the display, so registering on entry and dropping in its existing finally
-        // is the whole of the registry. Nothing else needs to track anything.
-        //
-        // Keyed by a server-side connection number, not by the client's cid. A duplicated browser tab
-        // copies its sessionStorage and so claims a cid that is already in use — keying on that would
-        // let the copy evict a live connection from the list, and let either one's disconnect remove
-        // the other. The connection number is unique by construction; the cid rides along as data.
-        internal sealed class MfdInstance
-        {
-            public long     Conn;
-            public string   Cid    = string.Empty;
-            public string   Remote = string.Empty;
-            public DateTime ConnectedUtc;
-            // How many independently-focusable SURFACES this instance shows right now — 1 in full
-            // view, 2 in a classic split, up to 4 F-35 portals. The client reports it (soi.panes) and
-            // re-reports on every layout change; SOI cycles surfaces, not whole documents. Defaults to
-            // 1 so a client that never reports behaves exactly as before (whole-instance focus).
-            public int      PaneCount = 1;
-        }
-        private static readonly System.Collections.Concurrent.ConcurrentDictionary<long, MfdInstance>
-            _instances = new System.Collections.Concurrent.ConcurrentDictionary<long, MfdInstance>();
-        private static long _nextConn;
+        // SOI focus + MAP cursor/action state — see src/plugin/Http/SoiFocus.cs. Kept as thin
+        // facades so existing call sites (CommandDispatcher.cs, Keybinds.cs, HarmonyPatches.cs,
+        // TgpManualControl.cs, SseHub.cs) don't need to change.
+        internal static string SoiTarget           => SoiFocus.Target;
+        internal static int    SoiTargetPane       => SoiFocus.TargetPane;
+        internal const  string NativeTgpCid        = SoiFocus.NativeTgpCid;
+        internal static bool   IsNativeTgpSoi      => SoiFocus.IsNativeTgpSoi;
+        internal static bool   IsTgpSoi            => SoiFocus.IsTgpSoi;
+        internal static long   SoiSeq              => SoiFocus.Seq;
+        internal static string SoiAct              => SoiFocus.Act;
+        internal static float  CursorX             => SoiFocus.CursorX;
+        internal static float  CursorY             => SoiFocus.CursorY;
+        internal static long   CursorSelSeq        => SoiFocus.CursorSelSeq;
+        internal static long   MapActSeq           => SoiFocus.MapActSeq;
+        internal static string MapAct              => SoiFocus.MapAct;
 
-        // Snapshot of the live instances, oldest connection first — a stable order to cycle SOI
-        // through, unlike the dictionary's own.
-        internal static List<MfdInstance> Instances()
-        {
-            var all = new List<MfdInstance>(_instances.Values);
-            all.Sort((a, b) => a.Conn.CompareTo(b.Conn));
-            return all;
-        }
+        internal static void ClaimNativeTgpSoi() => SoiFocus.ClaimNativeTgpSoi();
+        internal static void ReleaseNativeTgpSoi() => SoiFocus.ReleaseNativeTgpSoi();
+        internal static void ReportSoiPage(string cid, int pane, string page) => SoiFocus.ReportPage(cid, pane, page);
+        internal static void SoiAction(string act) => SoiFocus.Action(act);
+        internal static void SetCursorVector(float x, float y) => SoiFocus.SetCursorVector(x, y);
+        internal static void CursorSelect() => SoiFocus.CursorSelect();
+        internal static void SetCursorSelectHeld(bool held) => SoiFocus.SetCursorSelectHeld(held);
+        internal static void MapAction(string act) => SoiFocus.MapAction(act);
+        internal static void SoiReleaseOnDisconnect(string cid) => SoiFocus.ReleaseOnDisconnect(cid);
+        internal static void SoiCycle(int dir) => SoiFocus.Cycle(dir);
+        internal static void SetPaneCount(string cid, int n) => SoiFocus.SetPaneCount(cid, n);
 
-        // ── SOI focus ──────────────────────────────────────────────────────────
-        // Which instance the SOI keys drive, as its cid. Broadcast in every frame so each client can
-        // compare it against its own — see the shared-frame note on GetFrameBytes. Empty = nothing
-        // focused, which is the state at startup and after the focused display disconnects.
-        //
-        // _soiVersion is what keeps the frame cache honest: the cache is keyed on the snapshot
-        // version, and the target can change without a new snapshot — at the main menu, where frames
-        // are 1 Hz pings, a stale cached frame would otherwise hide the change indefinitely.
-        // Focus is a SURFACE, not a whole document: a cid PLUS which of that instance's surfaces
-        // (panes/portals) is focused. An instance shows 1 surface in full view, 2 in a classic split,
-        // up to 4 F-35 portals — the client reports the count (soi.panes). _soiTargetPane is -1 when
-        // nothing is focused.
-        private static string _soiTargetCid  = string.Empty;
-        private static int    _soiTargetPane = -1;
-        private static long   _soiVersion;
-        // Guards every change of focus. Connects and disconnects arrive on their own threadpool
-        // threads and both can move the target, so "is anything focused?" and the write that follows
-        // it have to be one step — otherwise two displays connecting together both see no focus and
-        // the second silently steals it.
-        private static readonly object _soiLock = new object();
-        internal static string SoiTarget     => Volatile.Read(ref _soiTargetCid);
-        internal static int    SoiTargetPane => Volatile.Read(ref _soiTargetPane);
+        internal static void SetRemoteCursorState(float x, float y, bool selectHeld) =>
+            RemoteInputState.SetCursor(x, y, selectHeld);
 
-        // The manual TGP camera's synthetic SOI ring entry (docs/tgp-manual-control.md's PAD Cursor
-        // consolidation plan) — a native, non-browser target folded into the same ring real (cid,
-        // pane) clients use, so SOI Next/Prev tabs onto it like any other display. The leading space
-        // can never arrive from a real client — SanitizeCid below only lets [a-zA-Z0-9-] through —
-        // so a client can't pick this exact cid for itself even by coincidence.
-        internal const string NativeTgpCid = " tgp-camera";
-        internal static bool IsNativeTgpSoi =>
-            string.Equals(Volatile.Read(ref _soiTargetCid), NativeTgpCid, StringComparison.Ordinal);
+        internal static void GetRemoteCursorState(out float x, out float y, out bool selectHeld) =>
+            RemoteInputState.GetCursor(out x, out y, out selectHeld);
 
-        // Called by TgpManualControl.Engage() — turning manual mode on steals SOI onto the camera
-        // immediately, so the pilot doesn't have to Tab to the newly-added ring entry by hand.
-        internal static void ClaimNativeTgpSoi() { lock (_soiLock) SetSoiTargetLocked(NativeTgpCid, 0); }
+        internal static void SetRemoteFireState(string group, bool held) =>
+            RemoteInputState.SetFire(group, held);
 
-        // Called by TgpManualControl.ExitManual() — mirrors SoiReleaseOnDisconnect below: only acts
-        // if the camera actually held focus. Unlike a disconnect there's always something else left
-        // to focus (every real pane is still in the ring), so this moves to the ring's first member
-        // instead of clearing focus outright. Must run after ManualMode has already flipped false,
-        // so SoiRingLocked() below no longer offers the camera as a candidate.
-        internal static void ReleaseNativeTgpSoi()
-        {
-            lock (_soiLock)
-            {
-                if (!string.Equals(_soiTargetCid, NativeTgpCid, StringComparison.Ordinal)) return;
-                var ring = SoiRingLocked();
-                if (ring.Count == 0) { SetSoiTargetLocked(string.Empty, -1); return; }
-                SetSoiTargetLocked(ring[0].cid, ring[0].pane);
-            }
-        }
-
-        private static void SetSoiTarget(string cid, int pane) { lock (_soiLock) SetSoiTargetLocked(cid, pane); }
-
-        private static void SetSoiTargetLocked(string cid, int pane)
-        {
-            if (cid.Length == 0) pane = -1;   // "nothing focused" has no surface
-            if (string.Equals(_soiTargetCid, cid, StringComparison.Ordinal) && _soiTargetPane == pane) return;
-            Volatile.Write(ref _soiTargetCid, cid);
-            Volatile.Write(ref _soiTargetPane, pane);
-            Volatile.Write(ref _soiFocusedPage, string.Empty);   // stale until the new target reports in
-            Interlocked.Increment(ref _soiVersion);
-        }
-
-        // Which page the SOI-focused surface is currently showing, as reported by the shell that
-        // owns it (soi.page — the plugin has no way to know a pane's content on its own, unlike
-        // (cid, pane) identity). Lets the manual TGP camera (docs/tgp-manual-control.md's PAD
-        // Cursor consolidation plan) also receive PAD Cursor input when the pilot is looking at the
-        // external TGP page directly, instead of only when they've Tab'd onto the camera's own
-        // synthetic ring entry — the TGP page IS this camera's display, so a pilot who never opens
-        // the in-cockpit view (or hides it) still expects pointing control to work through it.
-        private static string _soiFocusedPage = string.Empty;
-
-        internal static void ReportSoiPage(string cid, int pane, string page)
-        {
-            lock (_soiLock)
-            {
-                // Ignore a report that doesn't match the CURRENT target — it's either stale (focus
-                // already moved on before this arrived) or from a surface that was never focused.
-                if (!string.Equals(_soiTargetCid, cid, StringComparison.Ordinal) || _soiTargetPane != pane) return;
-                Volatile.Write(ref _soiFocusedPage, page ?? string.Empty);
-            }
-        }
-
-        // True while PAD Cursor input should reach the manual TGP camera: either its own synthetic
-        // SOI entry is focused (Tab'd onto directly), or an ordinary pane/portal that happens to be
-        // showing the TGP page is focused. Distinct from IsNativeTgpSoi (ring identity — exactly the
-        // synthetic entry, no more) — this one is about function, not the visual ring, so the two
-        // must stay separate: a real TGP pane is its own independently focusable ring member, so the
-        // ring must never light it up just because the CAMERA — a different ring member — is
-        // focused; conflating the two would mis-highlight a pane that isn't actually SOI.
-        internal static bool IsTgpSoi =>
-            IsNativeTgpSoi || string.Equals(Volatile.Read(ref _soiFocusedPage), "tgp", StringComparison.Ordinal);
-
-        // The last SOI key pressed, and a counter that makes it idempotent to broadcast. A client acts
-        // when the counter CHANGES and ignores the field otherwise, so a duplicated frame can't
-        // double-press and a dropped one costs at most a repeat of the same value. The plugin has no
-        // idea what "up" means on a page — it only says a key was pressed.
-        private static long   _soiSeq;
-        private static string _soiAct = string.Empty;
-        internal static long   SoiSeq => Interlocked.Read(ref _soiSeq);
-        internal static string SoiAct => Volatile.Read(ref _soiAct);
-
-        internal static void SoiAction(string act)
-        {
-            lock (_soiLock)
-            {
-                Volatile.Write(ref _soiAct, act);
-                Interlocked.Increment(ref _soiSeq);
-                Interlocked.Increment(ref _soiVersion);   // rebuild the cached frame so the press ships
-            }
-        }
-
-        // ── MAP cursor (docs/map-cursor.md) ──────────────────────────────────────
-        // A velocity, not a position: the plugin only says which way the cursor should move this
-        // frame ([-1,1] per axis — held direction keys give ±1, an axis gives its analog deflection),
-        // and the focused MAP integrates it locally against real elapsed time. That's what lets a
-        // digital key and an analog axis drive the exact same field, and what avoids trying to
-        // animate smooth motion over a 10 Hz transport. Only meaningful while the SOI focus is a MAP;
-        // otherwise the map that would read it isn't there to read it.
-        private static float _cursorX, _cursorY;
-        internal static float CursorX => Volatile.Read(ref _cursorX);
-        internal static float CursorY => Volatile.Read(ref _cursorY);
-
-        // Quantized to 1% before comparing: an analog axis jitters in the last decimals even when the
-        // pilot is holding it still, and every distinct value would otherwise bump _soiVersion and
-        // force a full frame re-serialize on the next tick. 1% is far below what the eye can see in
-        // cursor speed, so this costs nothing visible and keeps a steady hold genuinely steady.
-        // None of the cursor writers touch _soiVersion: they ride their own SSE event (CursorJson),
-        // so invalidating the shared telemetry frame for them would re-serialize the whole snapshot
-        // for a value that frame no longer carries.
-        internal static void SetCursorVector(float x, float y)
-        {
-            x = (float)Math.Round(x, 2);
-            y = (float)Math.Round(y, 2);
-            lock (_soiLock)
-            {
-                if (_cursorX == x && _cursorY == y) return;   // steady hold — nothing to ship
-                Volatile.Write(ref _cursorX, x);
-                Volatile.Write(ref _cursorY, y);
-            }
-        }
-
-        // Cursor Select: a discrete press, same idempotent-counter shape as SoiAction/SoiSeq — the
-        // map acts when this changes, not on any particular value.
-        private static long _cursorSelSeq;
-        internal static long CursorSelSeq => Interlocked.Read(ref _cursorSelSeq);
-
-        internal static void CursorSelect()
-        {
-            Interlocked.Increment(ref _cursorSelSeq);
-        }
-
-        // Cursor Select's LIVE held state (docs/page-cursor.md) — separate from the edge counter
-        // above: MAP only ever wants the instant-select edge, but a page with its own tap/long-press
-        // controls (TGT) needs to see the press through to release to tell the two apart, the same
-        // way a real pointerdown/pointerup pair would. Rides the same 'cursor' SSE event as x/y, so
-        // it costs nothing extra to transport — a change here just makes that event fire sooner.
-        private static bool _cursorSelHeld;
-        internal static void SetCursorSelectHeld(bool held) => Volatile.Write(ref _cursorSelHeld, held);
-
-        // Remote browser cursor input is a second held source, merged by Keybinds.Poll() with the
-        // local keyboard/axis state. It expires quickly so a lost keyup, closed tab, or network drop
-        // cannot strand the MAP/TGT cursor in a held direction.
-        private const long RemoteCursorTtlTicks = TimeSpan.TicksPerMillisecond * 250;
-        private static readonly object _remoteCursorLock = new object();
-        private static float _remoteCursorX, _remoteCursorY;
-        private static bool _remoteCursorSelectHeld;
-        private static long _remoteCursorUntilUtcTicks;
-
-        internal static void SetRemoteCursorState(float x, float y, bool selectHeld)
-        {
-            lock (_remoteCursorLock)
-            {
-                _remoteCursorX = x;
-                _remoteCursorY = y;
-                _remoteCursorSelectHeld = selectHeld;
-                _remoteCursorUntilUtcTicks = DateTime.UtcNow.Ticks + RemoteCursorTtlTicks;
-            }
-        }
-
-        internal static void GetRemoteCursorState(out float x, out float y, out bool selectHeld)
-        {
-            lock (_remoteCursorLock)
-            {
-                if (DateTime.UtcNow.Ticks > _remoteCursorUntilUtcTicks)
-                {
-                    _remoteCursorX = 0f;
-                    _remoteCursorY = 0f;
-                    _remoteCursorSelectHeld = false;
-                }
-                x = _remoteCursorX;
-                y = _remoteCursorY;
-                selectHeld = _remoteCursorSelectHeld;
-            }
-        }
-
-        private const long RemoteFireTtlTicks = TimeSpan.TicksPerMillisecond * 250;
-        // A fast browser tap can send down/up between Unity frames; keep the press visible long
-        // enough for Keybinds.Poll() to observe at least one held frame.
-        private const long RemoteFireMinPressTicks = TimeSpan.TicksPerMillisecond * 90;
-        private static readonly object _remoteFireLock = new object();
-        private static bool _remoteFireGun, _remoteFireRelease, _remoteFireJammerPod;
-        private static long _remoteFireGunUntilUtcTicks, _remoteFireReleaseUntilUtcTicks, _remoteFireJammerPodUntilUtcTicks;
-        private static long _remoteFireGunMinUntilUtcTicks, _remoteFireReleaseMinUntilUtcTicks, _remoteFireJammerPodMinUntilUtcTicks;
-
-        internal static void SetRemoteFireState(string group, bool held)
-        {
-            long now = DateTime.UtcNow.Ticks;
-            long until = held ? now + RemoteFireTtlTicks : 0L;
-            long minUntil = held ? now + RemoteFireMinPressTicks : 0L;
-            lock (_remoteFireLock)
-            {
-                switch (group)
-                {
-                    case "gun":
-                        if (held)
-                        {
-                            _remoteFireGun = true;
-                            _remoteFireGunUntilUtcTicks = until;
-                            _remoteFireGunMinUntilUtcTicks = minUntil;
-                        }
-                        else
-                        {
-                            _remoteFireGunUntilUtcTicks = 0L;
-                        }
-                        break;
-                    case "release":
-                        if (held)
-                        {
-                            _remoteFireRelease = true;
-                            _remoteFireReleaseUntilUtcTicks = until;
-                            _remoteFireReleaseMinUntilUtcTicks = minUntil;
-                        }
-                        else
-                        {
-                            _remoteFireReleaseUntilUtcTicks = 0L;
-                        }
-                        break;
-                    case "jammer-pod":
-                        if (held)
-                        {
-                            _remoteFireJammerPod = true;
-                            _remoteFireJammerPodUntilUtcTicks = until;
-                            _remoteFireJammerPodMinUntilUtcTicks = minUntil;
-                        }
-                        else
-                        {
-                            _remoteFireJammerPodUntilUtcTicks = 0L;
-                        }
-                        break;
-                    default:
-                        Plugin.Log?.LogInfo($"[NOXMFD] fire.set: unknown group '{group}' — ignored.");
-                        break;
-                }
-            }
-        }
-
-        internal static void GetRemoteFireState(out bool gun, out bool release, out bool jammerPod)
-        {
-            long now = DateTime.UtcNow.Ticks;
-            lock (_remoteFireLock)
-            {
-                if (_remoteFireGun && now > _remoteFireGunUntilUtcTicks && now > _remoteFireGunMinUntilUtcTicks)
-                    _remoteFireGun = false;
-                if (_remoteFireRelease && now > _remoteFireReleaseUntilUtcTicks && now > _remoteFireReleaseMinUntilUtcTicks)
-                    _remoteFireRelease = false;
-                if (_remoteFireJammerPod && now > _remoteFireJammerPodUntilUtcTicks && now > _remoteFireJammerPodMinUntilUtcTicks)
-                    _remoteFireJammerPod = false;
-                gun = _remoteFireGun;
-                release = _remoteFireRelease;
-                jammerPod = _remoteFireJammerPod;
-            }
-        }
-
-        // MAP view actions (Follow / Zoom In / Zoom Out) — binds for what the bezel's FLW/Z+/Z- keys
-        // already do. Same idempotent-counter shape again: the focused map's mfd.js/f35.js forwarding
-        // reads mapAct only when mapActSeq changes, then maps the string straight onto the existing
-        // toggle-follow/zoom-in/zoom-out postMessage it already sends for those bezel keys.
-        private static long   _mapActSeq;
-        private static string _mapAct = string.Empty;
-        internal static long   MapActSeq => Interlocked.Read(ref _mapActSeq);
-        internal static string MapAct    => Volatile.Read(ref _mapAct);
-
-        internal static void MapAction(string act)
-        {
-            lock (_soiLock)
-            {
-                Volatile.Write(ref _mapAct, act);
-                Interlocked.Increment(ref _mapActSeq);
-            }
-        }
-
-        // A display drops. If it was the focused one, focus clears — it does NOT move to another
-        // display on its own. SOI is opt-in: the ring only ever appears once the pilot presses a SOI
-        // key (SoiCycle from empty), so it must never re-appear on a display they didn't pick. A
-        // mouse/touch user who never touches the keys therefore never sees it. Nothing to do unless
-        // the dropped display held focus.
-        private static void SoiReleaseOnDisconnect(string cid)
-        {
-            lock (_soiLock)
-            {
-                if (!string.Equals(_soiTargetCid, cid, StringComparison.Ordinal)) return;
-                var all = Instances();   // the disconnecting one is already out of the registry
-                // A duplicated tab copies its cid, so a twin may still be holding that display open —
-                // keep focus if so, otherwise clear it (the next SOI keypress re-picks a display).
-                if (all.Exists(x => string.Equals(x.Cid, cid, StringComparison.Ordinal))) return;
-                SetSoiTargetLocked(string.Empty, -1);
-            }
-        }
-
-        // The flat ring SOI cycles through: every instance's every surface, instance-major and
-        // surface-minor, oldest connection first. Deduped by cid so a twin (same cid, second
-        // connection) doesn't put the same document in the ring twice. Built under _soiLock by the
-        // callers that need it.
-        private static List<(string cid, int pane)> SoiRingLocked()
-        {
-            var ring = new List<(string, int)>();
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var inst in Instances())
-            {
-                if (!seen.Add(inst.Cid)) continue;
-                for (int p = 0; p < inst.PaneCount; p++) ring.Add((inst.Cid, p));
-            }
-            // The manual TGP camera joins the same ring, but only while it's actually engaged
-            // (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — appended last so an
-            // existing pane layout's cycle order doesn't shift under a pilot who never touches it.
-            if (TgpManualControl.ManualMode) ring.Add((NativeTgpCid, 0));
-            return ring;
-        }
-
-        // Move focus one step along that ring. From no focus, NEXT takes the first surface and PREV
-        // the last, so either key lights something up on the first press.
-        internal static void SoiCycle(int dir)
-        {
-            lock (_soiLock)
-            {
-                var ring = SoiRingLocked();
-                if (ring.Count == 0) { SetSoiTargetLocked(string.Empty, -1); return; }
-
-                int i = ring.FindIndex(s => string.Equals(s.cid, _soiTargetCid, StringComparison.Ordinal)
-                                            && s.pane == _soiTargetPane);
-                int next = i < 0
-                    ? (dir >= 0 ? 0 : ring.Count - 1)
-                    : ((i + dir) % ring.Count + ring.Count) % ring.Count;
-                SetSoiTargetLocked(ring[next].cid, ring[next].pane);
-            }
-        }
-
-        // A client reports how many surfaces it now shows (soi.panes). Update every instance on that
-        // cid (twins share one), and if that display is the focused one and a merge has shrunk it
-        // below the focused surface, clamp — the pilot stays on the glass they were driving rather
-        // than being dropped. This is the one focus move not caused by a keypress, and it never
-        // leaves the instance.
-        internal static void SetPaneCount(string cid, int n)
-        {
-            if (cid.Length == 0) return;
-            if (n < 1) n = 1;
-            lock (_soiLock)
-            {
-                foreach (var inst in Instances())
-                    if (string.Equals(inst.Cid, cid, StringComparison.Ordinal)) inst.PaneCount = n;
-
-                if (string.Equals(_soiTargetCid, cid, StringComparison.Ordinal) && _soiTargetPane >= n)
-                    SetSoiTargetLocked(cid, n - 1);
-            }
-        }
-
-        // The cid arrives over the network, so it is untrusted: it lands in JSON and, later, in an
-        // SOI target comparison. Keep it to what the client is supposed to send — a UUID or the
-        // fallback id — and drop anything else rather than escaping it downstream. An empty cid is
-        // legal and means "this instance has no durable identity" (private mode, storage blocked).
-        private const int MaxCidLength = 64;
-        private static string SanitizeCid(string? raw)
-        {
-            if (string.IsNullOrEmpty(raw) || raw!.Length > MaxCidLength) return string.Empty;
-            foreach (char c in raw)
-                if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-                      (c >= '0' && c <= '9') || c == '-'))
-                    return string.Empty;
-            return raw;
-        }
+        internal static void GetRemoteFireState(out bool gun, out bool release, out bool jammerPod) =>
+            RemoteInputState.GetFire(out gun, out release, out jammerPod);
 
         // ── Lifecycle ──────────────────────────────────────────────────────────
 
@@ -740,7 +290,7 @@ namespace NOXMFD
         // second concurrent client waits rather than duplicating the work); everyone else reuses
         // the cached bytes. `valid` mirrors the snapshot's Valid flag (drives the 10 Hz vs 1 Hz
         // ping cadence). Runs on background SSE threads — never the Unity main thread.
-        private static byte[] GetFrameBytes(out bool valid)
+        internal static byte[] GetFrameBytes(out bool valid)
         {
             lock (_frameLock)
             {
@@ -753,106 +303,36 @@ namespace NOXMFD
                 // frame at the main menu is otherwise identical forever and the change never ships.
                 // MissionRunning is the same idea: a mission loading/ending with no aircraft chosen
                 // yet changes nothing else about a ping frame, so it needs the same invalidation.
-                long sv = Interlocked.Read(ref _soiVersion);
+                long sv = SoiFocus.Version;
                 bool mr = _missionRunning;
                 if (_frameVersion == v && _frameSoiVersion == sv && _frameMissionRunning == mr && _frameBytes != null) return _frameBytes;
                 _frameSoiVersion = sv;
                 _frameMissionRunning = mr;
 
                 string payload = snap.Valid
-                    ? TelemetryJson.Serialize(snap, SoiJson(), ImmersionState.MasterArmsOn,
+                    ? TelemetryJson.Serialize(snap, SoiFocus.SoiJson(), ImmersionState.MasterArmsOn,
                         ImmersionState.CombatMode switch { CombatMode.AirToAir => "aa", CombatMode.AirToGround => "ag", _ => "all" },
                         ExtensionRegistry.SlicesJson())
-                    : "{\"ping\":true,\"missionRunning\":" + (mr ? "true" : "false") + "," + SoiJson() + "}";
+                    : "{\"ping\":true,\"missionRunning\":" + (mr ? "true" : "false") + "," + SoiFocus.SoiJson() + "}";
                 _frameBytes   = Encoding.UTF8.GetBytes("data: " + payload + "\n\n");
                 _frameVersion = v;
                 return _frameBytes;
             }
         }
 
-        // Called from Unity main thread once the map image has been extracted.
-        public static void SetMapImage(byte[] png)
-        {
-            lock (_mapLock) _mapPng = png;
-            Plugin.Log?.LogInfo($"[NOXMFD] In-game map image ready ({png.Length} bytes) — serving at /map.");
-        }
+        public static void SetMapImage(byte[] png) => CapturedAssetEndpoint.SetMapImage(png);
+        public static void SetIcon(string unitName, byte[] png) => CapturedAssetEndpoint.SetIcon(unitName, png);
+        public static void SetWeaponIcon(string name, byte[] png) => CapturedAssetEndpoint.SetWeaponIcon(name, png);
+        public static void SetTgtIcon(string name, byte[] png) => CapturedAssetEndpoint.SetTgtIcon(name, png);
+        public static void SetBdfIcon(string name, byte[] png) => CapturedAssetEndpoint.SetBdfIcon(name, png);
+        public static void SetBuildingIcon(string name, byte[] png) => CapturedAssetEndpoint.SetBuildingIcon(name, png);
+        public static void SetHudCategoryIcon(string name, byte[] png) => CapturedAssetEndpoint.SetHudCategoryIcon(name, png);
+        public static void SetCmIcon(string key, byte[] png) => CapturedAssetEndpoint.SetCmIcon(key, png);
+        public static void SetAirframeImage(string unitName, string partName, byte[] png) => CapturedAssetEndpoint.SetAirframeImage(unitName, partName, png);
+        public static void SetAirframeLayout(string unitName, string json) => CapturedAssetEndpoint.SetAirframeLayout(unitName, json);
 
-        // Called from Unity main thread once an aircraft type's map icon has been extracted.
-        public static void SetIcon(string unitName, byte[] png)
-        {
-            if (string.IsNullOrEmpty(unitName)) return;
-            lock (_iconLock) _icons[unitName] = png;
-        }
-
-        // Called from Unity main thread once a weapon type's icon has been extracted.
-        public static void SetWeaponIcon(string name, byte[] png)
-        {
-            if (string.IsNullOrEmpty(name)) return;
-            lock (_weaponLock) _weaponIcons[name] = png;
-        }
-
-        // Called from Unity main thread once a TGT vehicle-type sprite has been extracted.
-        public static void SetTgtIcon(string name, byte[] png)
-        {
-            if (string.IsNullOrEmpty(name)) return;
-            lock (_tgtLock) _tgtIcons[name] = png;
-        }
-
-        // Called from Unity main thread once a BDF ship-type sprite has been extracted.
-        public static void SetBdfIcon(string name, byte[] png)
-        {
-            if (string.IsNullOrEmpty(name)) return;
-            lock (_bdfLock) _bdfIcons[name] = png;
-        }
-
-        // Called from Unity main thread once a HUD building-type sprite has been extracted.
-        public static void SetBuildingIcon(string name, byte[] png)
-        {
-            if (string.IsNullOrEmpty(name)) return;
-            lock (_buildingLock) _buildingIcons[name] = png;
-        }
-
-        // Called from Unity main thread once a HUD OPTIONS category-row icon sprite has been extracted.
-        public static void SetHudCategoryIcon(string name, byte[] png)
-        {
-            if (string.IsNullOrEmpty(name)) return;
-            lock (_hudCatLock) _hudCatIcons[name] = png;
-        }
-
-        // Called from Unity main thread once a countermeasure's display sprite has been extracted.
-        public static void SetCmIcon(string key, byte[] png)
-        {
-            if (string.IsNullOrEmpty(key)) return;
-            lock (_cmLock) _cmIcons[key] = png;
-        }
-
-        // Called from Unity main thread once a part of an airframe silhouette has been extracted.
-        // partName == "__bg" for the aircraftBackground image.
-        public static void SetAirframeImage(string unitName, string partName, byte[] png)
-        {
-            if (string.IsNullOrEmpty(unitName) || string.IsNullOrEmpty(partName) || png == null) return;
-            lock (_airframeLock) _airframeImages[unitName + "|" + partName] = png;
-        }
-
-        // Called from Unity main thread once an airframe's part-layout descriptor is built.
-        public static void SetAirframeLayout(string unitName, string json)
-        {
-            if (string.IsNullOrEmpty(unitName) || json == null) return;
-            lock (_airframeLock) _airframeLayouts[unitName] = json;
-        }
-
-        // Called from Unity main thread with each captured TGP camera frame.
-        public static void PushTgpFrame(byte[] jpg)
-        {
-            if (jpg == null || jpg.Length == 0) return;
-            lock (_tgpLock) { _tgpJpg = jpg; _tgpFrameId++; }
-        }
-
-        // Drops the cached TGP frame so MJPEG clients see "no frame" again.
-        public static void ClearTgpFrame()
-        {
-            lock (_tgpLock) { _tgpJpg = null; _tgpFrameId++; }
-        }
+        public static void PushTgpFrame(byte[] jpg) => TgpMjpegHandler.PushFrame(jpg);
+        public static void ClearTgpFrame() => TgpMjpegHandler.ClearFrame();
 
         // Called from Unity main thread when a mission ends — clears all per-mission state so
         // the client drops back to "no mission" and wipes its display. Icons are static
@@ -860,7 +340,7 @@ namespace NOXMFD
         public static void Reset()
         {
             lock (_lock)    { _latest = default; _snapVersion++; }
-            lock (_mapLock) _mapPng = null;
+            CapturedAssetEndpoint.ClearMissionState();
         }
 
         // ── Accept loop ────────────────────────────────────────────────────────
@@ -886,113 +366,12 @@ namespace NOXMFD
             }
         }
 
-        // ── Inbound command channel ──────────────────────────────────────────────
-        // The web client POSTs JSON commands to /command (e.g. tap-to-target, TGT deselect).
-        // HttpListener dispatches this on a threadpool thread, where touching Unity/game state is
-        // illegal — so we only parse + validate + ENQUEUE here, and the Unity main thread
-        // (CommandDispatcher, drained from TelemetryReader.Update) executes each command. This is a
-        // built-in feature, always live; commands only invoke the player's own legitimate cockpit
-        // actions on their own aircraft.
-        private const int MaxQueuedCommands = 64;   // bound the queue so a misbehaving client can't grow it unbounded
-        private static readonly Queue<CommandEnvelope> _cmdQueue = new Queue<CommandEnvelope>();
-        private static readonly object                 _cmdLock  = new object();
-
-        // docs/server-hardening.md — a command envelope is a few hundred bytes at most; 16 KB
-        // leaves headroom without letting a single request allocate an arbitrarily large string.
-        // Checks the declared Content-Length first (the common case, rejected before any body read
-        // at all), but also caps the actual bytes read when the length is unknown (-1, e.g. chunked
-        // transfer) rather than trusting the header alone. Shared by both command endpoints below —
-        // the only two places in this file that read a request body from an untrusted caller.
-        private const int MaxCommandBodyBytes = 16 * 1024;
-
-        private static bool TryReadBoundedBody(HttpListenerContext ctx, out string body)
-        {
-            body = string.Empty;
-            if (ctx.Request.ContentLength64 > MaxCommandBodyBytes)
-            {
-                ctx.Response.StatusCode = 413;
-                ctx.Response.Close();
-                return false;
-            }
-
-            using var ms = new MemoryStream();
-            var buffer = new byte[4096];
-            Stream input = ctx.Request.InputStream;
-            int read;
-            while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
-            {
-                if (ms.Length + read > MaxCommandBodyBytes)
-                {
-                    ctx.Response.StatusCode = 413;
-                    ctx.Response.Close();
-                    return false;
-                }
-                ms.Write(buffer, 0, read);
-            }
-            body = Encoding.UTF8.GetString(ms.ToArray());
-            return true;
-        }
-
-        internal static void HandleCommand(HttpListenerContext ctx)
-        {
-            try
-            {
-                if (ctx.Request.HttpMethod != "POST")
-                {
-                    ctx.Response.StatusCode = 405;   // /ext/<id>/command already gates on POST at the routing site
-                    ctx.Response.Close();
-                    return;
-                }
-                if (!TryReadBoundedBody(ctx, out string body)) return;
-
-                CommandEnvelope? env = null;
-                try { env = UnityEngine.JsonUtility.FromJson<CommandEnvelope>(body); }
-                catch { /* malformed JSON → handled below as 400 */ }
-
-                if (env == null || string.IsNullOrEmpty(env.cmd))
-                {
-                    ctx.Response.StatusCode = 400;   // malformed / no cmd
-                }
-                else if (!CommandDispatcher.IsKnown(env.cmd))
-                {
-                    ctx.Response.StatusCode = 422;   // well-formed but no handler
-                }
-                else
-                {
-                    bool queued = false;
-                    lock (_cmdLock)
-                    {
-                        if (_cmdQueue.Count < MaxQueuedCommands) { _cmdQueue.Enqueue(env); queued = true; }
-                    }
-                    if (!queued) Plugin.Log?.LogDebug("[NOXMFD] command queue full — dropped.");
-                    ctx.Response.StatusCode = 204;   // accepted (fire-and-forget); main thread acts next frame
-                }
-                ctx.Response.Close();
-            }
-            catch (Exception ex)
-            {
-                Plugin.Log?.LogDebug($"[NOXMFD] /command error: {ex.Message}");
-                try { ctx.Response.Abort(); } catch { /* client gone */ }
-            }
-        }
-
-        // Drained by the Unity main thread (CommandDispatcher) once per frame. False when empty.
-        internal static bool TryDequeueCommand(out CommandEnvelope? env)
-        {
-            lock (_cmdLock)
-            {
-                if (_cmdQueue.Count > 0) { env = _cmdQueue.Dequeue(); return true; }
-            }
-            env = null;
-            return false;
-        }
-
         // ── Response helpers ────────────────────────────────────────────────────
         // The HTTP response mechanics every Serve* handler repeats regardless of what it's
         // serving: status/content-type/length/write/close, plus Cache-Control for the small
         // on-demand JSON snapshots. Orthogonal to *what* gets serialized (that's the JSON-writer
         // layer docs/server-hardening.md already scopes) — this is just the plumbing.
-        private static void WriteJson(HttpListenerContext ctx, string json)
+        internal static void WriteJson(HttpListenerContext ctx, string json)
         {
             try
             {
@@ -1007,7 +386,7 @@ namespace NOXMFD
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
-        private static void WriteBinary(HttpListenerContext ctx, byte[] body, string contentType)
+        internal static void WriteBinary(HttpListenerContext ctx, byte[] body, string contentType)
         {
             try
             {
@@ -1020,369 +399,13 @@ namespace NOXMFD
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
-        // ── Extension API (docs/extensions-api.md) ────────────────────────────────
-
-        internal static void ServeExtManifest(HttpListenerContext ctx)
-        {
-            try
-            {
-                List<ExtensionRegistry.Entry> list = ExtensionRegistry.Manifest();
-                var sb = new StringBuilder("[");
-                for (int i = 0; i < list.Count; i++)
-                {
-                    if (i > 0) sb.Append(',');
-                    sb.Append("{\"id\":\"").Append(EscapeJson(list[i].Id))
-                      .Append("\",\"label\":\"").Append(EscapeJson(list[i].Label)).Append("\"}");
-                }
-                WriteJson(ctx, sb.Append(']').ToString());
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
-
-        // Routes "/ext/<id>" (the page itself), "/ext/<id>/<relPath>" (its assets), and
-        // POST "/ext/<id>/command" (its command endpoint) — one generic handler for every
-        // registered extension rather than per-extension routing, the whole point of this
-        // surface (see docs/extensions-api.md).
-        internal static void HandleExtRequest(HttpListenerContext ctx, string path)
-        {
-            string rest = path.Substring("/ext/".Length);
-            int slash = rest.IndexOf('/');
-            string id      = slash < 0 ? rest : rest.Substring(0, slash);
-            string relPath = slash < 0 ? string.Empty : rest.Substring(slash + 1);
-
-            if (!ExtensionRegistry.TryGet(id, out ExtensionRegistry.Entry entry))
-            {
-                ctx.Response.StatusCode = 404;
-                try { ctx.Response.Close(); } catch { }
-                return;
-            }
-
-            if (relPath == "command" && ctx.Request.HttpMethod == "POST")
-            {
-                HandleExtCommand(ctx, id);
-                return;
-            }
-
-            if (relPath == "feed.mjpg")
-            {
-                _ = Task.Run(() => HandleExtMjpegAsync(ctx, id, _cts.Token));
-                return;
-            }
-
-            try
-            {
-                byte[]? body = entry.Resolve(relPath);
-                if (body == null) { ctx.Response.StatusCode = 404; return; }
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = TelemetryAssets.ContentTypeFor(relPath.Length == 0 ? "index.html" : relPath);
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
-            }
-            catch (Exception ex)
-            {
-                Plugin.Log?.LogDebug($"[NOXMFD] /ext/{id}/{relPath} error: {ex.Message}");
-                try { ctx.Response.Abort(); } catch { }
-                return;
-            }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
-
-        // Same accepted-fire-and-forget shape as HandleCommand above — the raw body is queued
-        // as-is (not parsed here, see Api.CommandHandler) and drained on the main thread by
-        // ExtensionRegistry.Drain.
-        private static void HandleExtCommand(HttpListenerContext ctx, string id)
-        {
-            try
-            {
-                if (!TryReadBoundedBody(ctx, out string body)) return;
-
-                if (!ExtensionRegistry.TryEnqueueCommand(id, body))
-                    Plugin.Log?.LogDebug($"[NOXMFD] extension '{id}' command queue full — dropped.");
-                ctx.Response.StatusCode = 204;   // accepted (fire-and-forget); main thread acts next frame
-                ctx.Response.Close();
-            }
-            catch (Exception ex)
-            {
-                Plugin.Log?.LogDebug($"[NOXMFD] /ext/{id}/command error: {ex.Message}");
-                try { ctx.Response.Abort(); } catch { }
-            }
-        }
-
-        // Same shape as HandleMjpegAsync, generalized to a runtime-registered
-        // extension id instead of a hardcoded page — see Api.PushMjpegFrame.
-        private static async Task HandleExtMjpegAsync(HttpListenerContext ctx, string id, CancellationToken ct)
-        {
-            const string boundary = "extframe";
-            ctx.Response.StatusCode  = 200;
-            ctx.Response.ContentType = "multipart/x-mixed-replace; boundary=" + boundary;
-            ctx.Response.SendChunked = true;
-            ctx.Response.Headers.Add("Cache-Control", "no-cache");
-            ctx.Response.Headers.Add("X-Accel-Buffering", "no");
-
-            long lastSeen = -1;
-            ExtensionRegistry.MjpegSubscribe(id);
-            try
-            {
-                while (!ct.IsCancellationRequested)
-                {
-                    if (ExtensionRegistry.TryGetMjpegFrame(id, out byte[]? jpg, out long frameId)
-                        && jpg != null && frameId != lastSeen)
-                    {
-                        lastSeen = frameId;
-                        string head = "\r\n--" + boundary + "\r\nContent-Type: image/jpeg\r\nContent-Length: " + jpg.Length + "\r\n\r\n";
-                        byte[] headBytes = Encoding.ASCII.GetBytes(head);
-                        await ctx.Response.OutputStream.WriteAsync(headBytes, 0, headBytes.Length, ct).ConfigureAwait(false);
-                        await ctx.Response.OutputStream.WriteAsync(jpg, 0, jpg.Length, ct).ConfigureAwait(false);
-                        ctx.Response.OutputStream.Flush();
-                    }
-
-                    // No fixed source rate to match (unlike TGP/RC's own hardcoded intervals) —
-                    // 30ms polling keeps this responsive to whatever cadence an extension publishes.
-                    await Task.Delay(30, ct).ConfigureAwait(false);
-                }
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception) { /* client disconnected, normal */ }
-            finally
-            {
-                ExtensionRegistry.MjpegUnsubscribe(id);
-                try { ctx.Response.Close(); } catch { }
-            }
-        }
-
-        internal static void ServeConfig(HttpListenerContext ctx)
-        {
-            try
-            {
-                string json = string.Format(CultureInfo.InvariantCulture,
-                    "{{\"localhost\":\"http://localhost:{0}\",\"lanUrl\":\"{1}\",\"port\":{0}}}",
-                    Port, EscapeJson(LanUrl ?? string.Empty));
-                WriteJson(ctx, json);
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
-
-        // The live MFD instances as JSON — the SOI instance registry made visible. Diagnostic for now:
-        // it is what proves the registry tracks connects, disconnects and reloads correctly before any
-        // of SOI is wired to it, and it stays useful afterwards for "which displays does the server
-        // think are open?". Safe off the main thread — the dictionary is concurrent and touches no
-        // Unity state.
-        internal static void ServeSoiInstances(HttpListenerContext ctx)
-        {
-            try
-            {
-                var sb = new StringBuilder("{\"instances\":[");
-                var all = Instances();
-                for (int i = 0; i < all.Count; i++)
-                {
-                    var it = all[i];
-                    if (i > 0) sb.Append(',');
-                    sb.AppendFormat(CultureInfo.InvariantCulture,
-                        "{{\"conn\":{0},\"cid\":\"{1}\",\"remote\":\"{2}\",\"upSec\":{3:0.0}}}",
-                        it.Conn, EscapeJson(it.Cid), EscapeJson(it.Remote),
-                        (DateTime.UtcNow - it.ConnectedUtc).TotalSeconds);
-                }
-                sb.Append("]}");
-                WriteJson(ctx, sb.ToString());
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
-
-        // The keybind registry as JSON for the /keybinds page: every bind's identity + current values,
-        // plus which bind (if any) is armed for joystick capture — the page polls this while open, and
-        // it's also how a capture result comes back. Safe off the main thread: the registry list is
-        // built once at Awake and never mutated, and ConfigEntry/CapturingId reads are plain field reads
-        // (worst case one poll stale).
-        internal static void ServeKeybindsConfig(HttpListenerContext ctx)
-        {
-            try
-            {
-                var sb = new StringBuilder(512);
-                sb.Append("{\"binds\":[");
-                bool first = true;
-                foreach (var b in Keybinds.Binds)
-                {
-                    if (!first) sb.Append(',');
-                    first = false;
-                    sb.Append("{\"id\":\"").Append(EscapeJson(b.Id))
-                      .Append("\",\"section\":\"").Append(EscapeJson(Keybinds.SectionTitle(b.Section)))
-                      .Append("\",\"label\":\"").Append(EscapeJson(b.Label))
-                      .Append("\",\"description\":\"").Append(EscapeJson(b.Description)).Append('"');
-                    // Digital source — absent for an axis-only bind (docs/map-cursor.md); the page
-                    // renders no key/joy cell for a row that has no key/joyButton field. The two are
-                    // independently optional: a key-only bind (issue #51's SAVE/LOAD LAYOUT — browser-
-                    // side only, no joystick/HOTAS) has KeyEntry but no JoyEntry, so joyButton/joyNum
-                    // are omitted too — the page renders one wide key cell for that row instead of an
-                    // always-empty joystick cell next to it.
-                    if (b.KeyEntry != null)
-                    {
-                        var key = b.KeyEntry.Value.MainKey;
-                        sb.Append(",\"key\":\"").Append(key == UnityEngine.KeyCode.None ? string.Empty : EscapeJson(key.ToString())).Append('"');
-                        if (b.JoyEntry != null)
-                            sb.Append(",\"joyButton\":").Append(b.JoyEntry.Value.ToString(CultureInfo.InvariantCulture))
-                              .Append(",\"joyNum\":").Append(b.JoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture));
-                    }
-                    // Analog source — present only for the MAP cursor's axis-capable rows.
-                    if (b.AxisEntry != null)
-                    {
-                        sb.Append(",\"axis\":").Append(b.AxisEntry.Value.ToString(CultureInfo.InvariantCulture))
-                          .Append(",\"axisNum\":").Append(b.AxisJoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture))
-                          .Append(",\"axisInvert\":").Append(b.AxisInvertEntry!.Value ? "true" : "false");
-                    }
-                    sb.Append('}');
-                }
-                // Per-section notes (shared behaviour text under a section header), keyed by the
-                // display title the binds carry in "section".
-                sb.Append("],\"notes\":{");
-                bool firstNote = true;
-                var seen = new List<string>(4);
-                foreach (var b in Keybinds.Binds)
-                {
-                    if (seen.Contains(b.Section)) continue;
-                    seen.Add(b.Section);
-                    string? note = Keybinds.SectionNote(b.Section);
-                    if (note == null) continue;
-                    if (!firstNote) sb.Append(',');
-                    firstNote = false;
-                    sb.Append('"').Append(EscapeJson(Keybinds.SectionTitle(b.Section)))
-                      .Append("\":\"").Append(EscapeJson(note)).Append('"');
-                }
-                string? cap = Keybinds.CapturingId;
-                string? capKind = Keybinds.CapturingKind;
-                sb.Append("},\"capturing\":").Append(cap == null ? "null" : "\"" + EscapeJson(cap) + "\"")
-                  .Append(",\"capturingKind\":").Append(capKind == null ? "null" : "\"" + EscapeJson(capKind) + "\"")
-                  .Append(",\"bgInput\":").Append(Keybinds.BackgroundInput ? "true" : "false")
-                  .Append(",\"radarOnOnStart\":").Append(ImmersionConfig.RadarOnOnStart ? "true" : "false")
-                  .Append(",\"engineOnOnStart\":").Append(ImmersionConfig.EngineOnOnStart ? "true" : "false")
-                  .Append(",\"masterArmsOnOnStart\":").Append(ImmersionConfig.MasterArmsOnOnStart ? "true" : "false")
-                  .Append(",\"hudFiltersOnCombatMode\":").Append(ImmersionConfig.HudFiltersOnCombatMode ? "true" : "false")
-                  .Append(",\"remoteKeybindsSamePc\":").Append(IsSameMachineRequest(ctx) ? "true" : "false")
-                  .Append('}');
-
-                WriteJson(ctx, sb.ToString());
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
-
-        private static HashSet<string>? _localAddressCache;
-
-        private static bool IsSameMachineRequest(HttpListenerContext ctx)
-        {
-            IPAddress? remote = ctx.Request.RemoteEndPoint?.Address;
-            if (remote == null) return false;
-            if (IPAddress.IsLoopback(remote)) return true;
-            string addr = NormalizeAddress(remote);
-            if (addr.Length == 0) return false;
-            return LocalAddresses().Contains(addr);
-        }
-
-        private static HashSet<string> LocalAddresses()
-        {
-            if (_localAddressCache != null) return _localAddressCache;
-            var set = new HashSet<string>(StringComparer.Ordinal);
-            try
-            {
-                foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
-                {
-                    if (ni.OperationalStatus != OperationalStatus.Up) continue;
-                    foreach (UnicastIPAddressInformation uni in ni.GetIPProperties().UnicastAddresses)
-                    {
-                        string normalized = NormalizeAddress(uni.Address);
-                        if (normalized.Length > 0) set.Add(normalized);
-                    }
-                }
-            }
-            catch { }
-            _localAddressCache = set;
-            return set;
-        }
-
-        private static string NormalizeAddress(IPAddress ip)
-        {
-            if (ip.IsIPv4MappedToIPv6) ip = ip.MapToIPv4();
-            if (ip.AddressFamily != AddressFamily.InterNetwork && ip.AddressFamily != AddressFamily.InterNetworkV6)
-                return string.Empty;
-            return ip.ToString();
-        }
+        internal static void ServeSoiInstances(HttpListenerContext ctx) => SseHub.ServeInstances(ctx);
 
         // The in-game HUD OPTIONS state, as JSON, for the HUD page to render. Built on the main
         // thread by RefreshHudOptions (below) and cached here — HUD options change only on a toggle,
         // so this is fetched on demand rather than streamed, like /config. "{}" until a mission with
         // a live HUDOptions is up; the page treats that as "unavailable".
         internal static volatile string HudOptionsJson = "{}";
-
-        internal static void ServeHudOptions(HttpListenerContext ctx)
-        {
-            try
-            {
-                WriteJson(ctx, HudOptionsJson ?? "{}");
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
-
-        // The waypoint/route library (docs/hud-waypoint-indicator.md, Option 2) — RouteStore is the
-        // single source of truth now, not any browser's localStorage. Mission-independent, like
-        // /hud-options, so the WPT page works at the main menu too. Cached the same way
-        // (RouteStore.RoutesJson is volatile, rebuilt on the main thread after every mutation).
-        internal static void ServeWptOptions(HttpListenerContext ctx)
-        {
-            try
-            {
-                WriteJson(ctx, RouteStore.RoutesJson ?? "{\"activeRouteId\":null,\"routes\":[]}");
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
-
-        // Saved layouts (issue #51) — LayoutStore is the single source of truth, same pattern as
-        // /wpt-options. Mission-independent, so SAVE/LOAD LAYOUT work at the main menu too.
-        internal static void ServeLayoutOptions(HttpListenerContext ctx)
-        {
-            try
-            {
-                WriteJson(ctx, LayoutStore.LayoutsJson ?? "{\"layouts\":[]}");
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
-
-        // HUD filter presets (issue #50 follow-up) — HudPresetStore is the single source of truth,
-        // same pattern as /layout-options. The LOAD picker's on-demand fetch; the bottom label's
-        // current-slot summary rides /hud-options instead (RefreshHudOptions), not this endpoint.
-        internal static void ServeHudPresets(HttpListenerContext ctx)
-        {
-            try
-            {
-                WriteJson(ctx, HudPresetStore.PresetsJson ?? "{\"current\":1,\"presets\":[]}");
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
-
-        // MAP CFG's and TGP CFG's sliders/picker read their starting position from here on load,
-        // same shape as /hud-options — a small on-demand JSON snapshot rather than something
-        // streamed. Built fresh per request (RatesConfig's getters are plain floats, no game-object
-        // reads), so no caching/refresh-on-tick needed like HudOptionsJson.
-        internal static void ServeRatesConfig(HttpListenerContext ctx)
-        {
-            try
-            {
-                string json = string.Format(CultureInfo.InvariantCulture,
-                    "{{\"fastHz\":{0},\"contactHz\":{1},\"tgpHz\":{2},\"tgpResolution\":\"{3}\",\"tgpJpegQuality\":\"{4}\",\"tgpQuality\":\"{5}\",\"tgpSuppressNative\":{6}}}",
-                    RatesConfig.FastHz, RatesConfig.ContactHz, RatesConfig.TgpHz, RatesConfig.TgpResolutionName,
-                    RatesConfig.TgpJpegQualityName, RatesConfig.TgpLegacyQualityName,
-                    RatesConfig.TgpSuppressNative ? "true" : "false");
-                WriteJson(ctx, json);
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
 
         // Snapshot HUDOptions into HudOptionsJson. MAIN THREAD ONLY — reads live game objects; the
         // reader calls it on the slow (1 Hz) tick, since options change only when the pilot toggles.
@@ -1477,8 +500,6 @@ namespace NOXMFD
             sb.Append(']');
         }
 
-        // ── Map image handler ──────────────────────────────────────────────────
-
         internal static void Redirect(HttpListenerContext ctx, string location)
         {
             try
@@ -1490,284 +511,9 @@ namespace NOXMFD
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
-        internal static void ServeMap(HttpListenerContext ctx)
-        {
-            // Prefer the map image we extracted straight from the game — its bounds match the
-            // world coordinates exactly, so the plane lines up with no calibration.
-            byte[]? captured;
-            lock (_mapLock) captured = _mapPng;
-            if (captured != null)
-            {
-                // The captured map is JPEG (downscaled in TelemetryReader.MapSpriteToJpg).
-                WriteBinary(ctx, captured, "image/jpeg");
-                return;
-            }
-
-            // Fallback: a map file dropped into the plugins folder (used until a mission loads).
-            string dir       = BepInEx.Paths.PluginPath;
-            string pngPath   = Path.Combine(dir, "map.png");
-            string jpgPath   = Path.Combine(dir, "map.jpg");
-            string jpegPath  = Path.Combine(dir, "map.jpeg");
-            string noExtPath = Path.Combine(dir, "map");          // Windows sometimes hides extensions
-
-            string filePath = File.Exists(pngPath)   ? pngPath
-                            : File.Exists(jpgPath)   ? jpgPath
-                            : File.Exists(jpegPath)  ? jpegPath
-                            : File.Exists(noExtPath) ? noExtPath
-                            : string.Empty;
-
-            string contentType = filePath.EndsWith(".png") ? "image/png" : "image/jpeg";
-
-            if (filePath == string.Empty)
-            {
-                ctx.Response.StatusCode = 404;
-                try { ctx.Response.Close(); } catch { }
-                Plugin.Log?.LogWarning($"[NOXMFD] Map not found in: {dir}");
-                return;
-            }
-
-            try
-            {
-                WriteBinary(ctx, File.ReadAllBytes(filePath), contentType);
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
-
-        // ── Icon / weapon-image handler ──────────────────────────────────────────
-
-        internal static void ServeIcon(HttpListenerContext ctx) => ServePng(ctx, _icons, _iconLock, "type");
-        internal static void ServeWeaponIcon(HttpListenerContext ctx) => ServePng(ctx, _weaponIcons, _weaponLock, "name");
-        internal static void ServeCmIcon(HttpListenerContext ctx) => ServePng(ctx, _cmIcons, _cmLock, "type");
-        internal static void ServeTgtIcon(HttpListenerContext ctx) => ServePng(ctx, _tgtIcons, _tgtLock, "type");
-        internal static void ServeBdfIcon(HttpListenerContext ctx) => ServePng(ctx, _bdfIcons, _bdfLock, "type");
-        internal static void ServeBuildingIcon(HttpListenerContext ctx) => ServePng(ctx, _buildingIcons, _buildingLock, "type");
-        internal static void ServeHudCategoryIcon(HttpListenerContext ctx) => ServePng(ctx, _hudCatIcons, _hudCatLock, "cat");
-
-        private static void ServePng(HttpListenerContext ctx, Dictionary<string, byte[]> dict, object dictLock, string queryKey)
-        {
-            string key = ctx.Request.QueryString[queryKey] ?? string.Empty;
-            byte[]? png = null;
-            if (key.Length > 0)
-                lock (dictLock) dict.TryGetValue(key, out png);
-
-            if (png == null)
-            {
-                ctx.Response.StatusCode = 404;
-                try { ctx.Response.Close(); } catch { }
-                return;
-            }
-
-            WriteBinary(ctx, png, "image/png");
-        }
-
-        // ── Airframe handlers ───────────────────────────────────────────────────
-
-        internal static void ServeAirframeImage(HttpListenerContext ctx)
-        {
-            string type = ctx.Request.QueryString["type"] ?? string.Empty;
-            string part = ctx.Request.QueryString["part"] ?? string.Empty;
-            byte[]? png = null;
-            if (type.Length > 0 && part.Length > 0)
-                lock (_airframeLock) _airframeImages.TryGetValue(type + "|" + part, out png);
-
-            if (png == null) { ctx.Response.StatusCode = 404; try { ctx.Response.Close(); } catch { } return; }
-            WriteBinary(ctx, png, "image/png");
-        }
-
-        internal static void ServeAirframeLayout(HttpListenerContext ctx)
-        {
-            string type = ctx.Request.QueryString["type"] ?? string.Empty;
-            string? json = null;
-            if (type.Length > 0)
-                lock (_airframeLock) _airframeLayouts.TryGetValue(type, out json);
-
-            if (json == null) { ctx.Response.StatusCode = 404; try { ctx.Response.Close(); } catch { } return; }
-            WriteBinary(ctx, Encoding.UTF8.GetBytes(json), "application/json; charset=utf-8");
-        }
-
-        // ── MJPEG handler ──────────────────────────────────────────────────────
-
-        // Long-lived multipart/x-mixed-replace response. Browsers render this directly in
-        // an <img> tag — when a new JPEG is written, the image swaps in place.
-        internal static async Task HandleMjpegAsync(HttpListenerContext ctx, CancellationToken ct)
-        {
-            const string boundary = "tgpframe";
-            ctx.Response.StatusCode  = 200;
-            ctx.Response.ContentType = "multipart/x-mixed-replace; boundary=" + boundary;
-            ctx.Response.SendChunked = true;
-            ctx.Response.Headers.Add("Cache-Control", "no-cache");
-            ctx.Response.Headers.Add("X-Accel-Buffering", "no");
-
-            async Task WritePart(byte[] jpg)
-            {
-                string head = "\r\n--" + boundary + "\r\nContent-Type: image/jpeg\r\nContent-Length: " + jpg.Length + "\r\n\r\n";
-                byte[] headBytes = Encoding.ASCII.GetBytes(head);
-                await ctx.Response.OutputStream.WriteAsync(headBytes, 0, headBytes.Length, ct).ConfigureAwait(false);
-                await ctx.Response.OutputStream.WriteAsync(jpg, 0, jpg.Length, ct).ConfigureAwait(false);
-                ctx.Response.OutputStream.Flush();
-            }
-
-            long lastSeen = -1;
-            Interlocked.Increment(ref _tgpSubscribers);
-            // Diagnostic: logs how long a client waited for the first REAL frame after the
-            // placeholder below streamed. Confirmed live 2026-08-23 (3.25s and 4.3s cold starts) —
-            // kept as an ongoing signal that TargetCam's own capture lag, not this server, is what
-            // gates the real picture.
-            var coldStartWatch = Stopwatch.StartNew();
-            bool coldStartLogged = false;
-            try
-            {
-                byte[]? initialJpg;
-                lock (_tgpLock) { initialJpg = _tgpJpg; }
-                if (initialJpg == null) await WritePart(TgpPlaceholderJpg).ConfigureAwait(false);
-
-                while (!ct.IsCancellationRequested)
-                {
-                    byte[]? jpg; long id;
-                    lock (_tgpLock) { jpg = _tgpJpg; id = _tgpFrameId; }
-
-                    if (!coldStartLogged && jpg != null)
-                    {
-                        coldStartLogged = true;
-                        if (coldStartWatch.ElapsedMilliseconds > 500)
-                            Plugin.Log?.LogWarning($"[NOXMFD] TGP MJPEG cold start: client waited {coldStartWatch.ElapsedMilliseconds}ms for the first real frame (placeholder streamed immediately).");
-                    }
-
-                    if (jpg != null && id != lastSeen)
-                    {
-                        lastSeen = id;
-                        await WritePart(jpg).ConfigureAwait(false);
-                    }
-
-                    // Source publishes at 15 Hz (~66 ms/frame); 40 ms polls stay ahead so we
-                    // don't drop alternate frames waiting for the next wake-up.
-                    await Task.Delay(40, ct).ConfigureAwait(false);
-                }
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception) { /* client disconnected, normal */ }
-            finally
-            {
-                Interlocked.Decrement(ref _tgpSubscribers);
-                try { ctx.Response.Close(); } catch { }
-            }
-        }
-
-        // ── SSE handler ────────────────────────────────────────────────────────
-
-        internal static async Task HandleSseAsync(HttpListenerContext ctx, CancellationToken ct)
-        {
-            ctx.Response.StatusCode   = 200;
-            ctx.Response.ContentType  = "text/event-stream; charset=utf-8";
-            ctx.Response.SendChunked  = true;
-            ctx.Response.Headers.Add("Cache-Control", "no-cache");
-            ctx.Response.Headers.Add("X-Accel-Buffering", "no");
-
-            // Register this instance for its whole lifetime — see MfdInstance. The cid is the
-            // client's own durable id (telemetry-source.js), empty when its storage is unavailable.
-            long conn = Interlocked.Increment(ref _nextConn);
-            // A client with no usable storage sends nothing; give it a connection-scoped id anyway so
-            // that every instance is addressable. It is told which id it got (the hello event below),
-            // because focus is broadcast BY cid and a client that doesn't know its own can never
-            // recognise itself. Such an id lasts only as long as the connection — which is exactly
-            // what "no durable identity" means.
-            string cid = SanitizeCid(ctx.Request.QueryString["cid"]);
-            if (cid.Length == 0) cid = "conn-" + conn.ToString(CultureInfo.InvariantCulture);
-
-            _instances[conn] = new MfdInstance
-            {
-                Conn         = conn,
-                Cid          = cid,
-                Remote       = ctx.Request.RemoteEndPoint?.ToString() ?? string.Empty,
-                ConnectedUtc = DateTime.UtcNow,
-            };
-            // No auto-claim: a fresh display does NOT become the SOI on its own. Focus stays empty
-            // until the pilot presses a SOI key, so mouse/touch users never get the ring.
-
-            Plugin.Log?.LogInfo($"[NOXMFD] Client connected from {ctx.Request.RemoteEndPoint} (instance {conn})");
-
-            try
-            {
-                // Tell this client which id it is known by, once, before the stream proper. A named
-                // SSE event so it can't be mistaken for a telemetry frame, and written to this one
-                // connection only — the shared frame stays shared.
-                byte[] hello = Encoding.UTF8.GetBytes(
-                    "event: hello\ndata: {\"cid\":\"" + EscapeJson(cid) + "\"}\n\n");
-                await ctx.Response.OutputStream.WriteAsync(hello, 0, hello.Length, ct).ConfigureAwait(false);
-
-                // The loop ticks at the CURSOR's rate and sends the telemetry frame every Nth tick, so
-                // the two cadences are independent: a slewed axis gets ~60 Hz of tiny updates while
-                // the expensive snapshot keeps its 10 Hz. lastCursor suppresses repeats, so a centred
-                // stick costs one comparison per tick and no traffic at all.
-                string lastCursor = string.Empty;
-                // Per-extension high-rate events (Api.PublishEvent) — one "last sent" entry per
-                // event name this connection has seen, same change-gating as cursor above but for
-                // a runtime-registered set of names instead of one fixed one.
-                var lastExtEvents = new Dictionary<string, string>(StringComparer.Ordinal);
-                int sinceFrame = FrameEveryMs;   // send a frame immediately on connect
-                while (!ct.IsCancellationRequested)
-                {
-                    if (sinceFrame >= FrameEveryMs)
-                    {
-                        // Shared frame: serialized at most once per snapshot version, regardless of
-                        // how many clients are connected. Always send something — real data during a
-                        // mission, a ping otherwise.
-                        byte[] bytes = GetFrameBytes(out _);
-                        await ctx.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct).ConfigureAwait(false);
-                        sinceFrame = 0;
-                    }
-
-                    string cursor = CursorJson();
-                    if (!string.Equals(cursor, lastCursor, StringComparison.Ordinal))
-                    {
-                        lastCursor = cursor;
-                        byte[] cbytes = Encoding.UTF8.GetBytes("event: cursor\ndata: " + cursor + "\n\n");
-                        await ctx.Response.OutputStream.WriteAsync(cbytes, 0, cbytes.Length, ct).ConfigureAwait(false);
-                    }
-
-                    foreach (var kv in ExtensionRegistry.EventsSnapshot())
-                    {
-                        if (lastExtEvents.TryGetValue(kv.Key, out string prev) && prev == kv.Value) continue;
-                        lastExtEvents[kv.Key] = kv.Value;
-                        byte[] ebytes = Encoding.UTF8.GetBytes("event: ext-" + kv.Key + "\ndata: " + kv.Value + "\n\n");
-                        await ctx.Response.OutputStream.WriteAsync(ebytes, 0, ebytes.Length, ct).ConfigureAwait(false);
-                    }
-                    ctx.Response.OutputStream.Flush();
-
-                    await Task.Delay(CursorTickMs, ct).ConfigureAwait(false);
-                    sinceFrame += CursorTickMs;
-                }
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] Client error: {ex.Message}"); }
-            finally
-            {
-                _instances.TryRemove(conn, out _);
-                SoiReleaseOnDisconnect(cid);
-                try { ctx.Response.Close(); } catch { }
-                Plugin.Log?.LogInfo($"[NOXMFD] Client disconnected from {ctx.Request.RemoteEndPoint} (instance {conn})");
-            }
-        }
-
-        // SOI's slice of a frame. Shared by the real payload and the no-mission ping, because a display
-        // is focusable and drivable at the main menu, where the ping is the only frame there is.
-        private static string SoiJson() => string.Format(CultureInfo.InvariantCulture,
-            "\"soiTarget\":\"{0}\",\"soiPane\":{1},\"soiSeq\":{2},\"soiAct\":\"{3}\"",
-            EscapeJson(SoiTarget), SoiTargetPane, SoiSeq, EscapeJson(SoiAct));
-
-        // The MAP cursor's own payload (docs/map-cursor.md), sent as its OWN SSE event rather than in
-        // the telemetry frame above. A slewed axis is continuous and wants the lowest latency we can
-        // give it, but the telemetry frame is the most expensive thing we build — so pushing the
-        // frame faster to chase the cursor would re-serialize every contact, every RWR emitter and
-        // every loadout row dozens of times a second, and on a tablet over wifi the extra bulk costs
-        // more latency than the faster tick buys back. This is ~60 bytes: it can go out many times
-        // per telemetry frame and still be free. It is the ONLY place these fields travel — carrying
-        // them in both would let a cached (older) frame overwrite a fresher event.
-        private static string CursorJson() => string.Format(CultureInfo.InvariantCulture,
-            "{{\"x\":{0:0.00},\"y\":{1:0.00},\"selSeq\":{2},\"act\":\"{3}\",\"actSeq\":{4},\"held\":{5}}}",
-            CursorX, CursorY, CursorSelSeq, EscapeJson(MapAct), MapActSeq,
-            Volatile.Read(ref _cursorSelHeld) ? "true" : "false");
+        // The MAP cursor's own SSE payload (docs/map-cursor.md) — see SoiFocus.CursorJson. Kept as a
+        // facade since SseHub.cs calls it as TelemetryServer.CursorJson().
+        internal static string CursorJson() => SoiFocus.CursorJson();
 
         // Kept in JsonLite.cs so pure callers like RouteStore.cs can compile standalone in a test
         // project without pulling this file's game touchpoints in. This wrapper preserves this

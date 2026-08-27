@@ -191,9 +191,9 @@ needs, proven twice over:
 
 - **Pan/tilt** is a continuous, held, two-axis input — the same shape as MAP's remote cursor
   (`cursorRoleForBind`/`cursorStateFromActive`/`cursor.set`, with a server-side TTL in
-  `TelemetryServer.cs`'s `GetRemoteCursorState`/`SetRemoteCursorState`). A `tgp-pan`/`tgp-tilt`
+  `RemoteInputState` behind `TelemetryServer.GetRemoteCursorState`/`SetRemoteCursorState`). A `tgp-pan`/`tgp-tilt`
   pair of roles and a `tgp-pan.set { x, y }` command, with its own TTL state alongside the existing
-  cursor/fire TTL blocks in `TelemetryServer.cs`, is the same pattern, not a new one.
+  cursor/fire TTL blocks in `RemoteInputState`, is the same pattern, not a new one.
 - **Zoom in/out** is a continuous, held, single-direction input — the same shape as the remote fire
   actions (`fireRoleForBind`/`fireGroupsFromActive`/`fire.set`, `RemoteFireMinPressTicks` guaranteeing
   a fast tap survives at least one `Poll()` frame). `tgp-zoom-in`/`tgp-zoom-out` roles and a
@@ -761,8 +761,8 @@ next to the real fields.
 
 **Implementation notes:**
 - The synthetic ring cid is `TelemetryServer.NativeTgpCid` (`" tgp-camera"`, a leading space) —
-  `SanitizeCid` only lets `[a-zA-Z0-9-]` through a real client's reported cid, so this can never
-  collide with one, even by coincidence.
+  `SseHub`'s cid sanitizer only lets `[a-zA-Z0-9-]` through a real client's reported cid, so this
+  can never collide with one, even by coincidence.
 - `TgpManualControl.Engage()`/`ExitManual()` are the sole choke points for every entry/exit path
   (`Toggle()`, the unit-lock handoff, and every [lifecycle exit trigger](#lifecycle-every-exit-trigger)),
   so hooking `TelemetryServer.ClaimNativeTgpSoi()`/`ReleaseNativeTgpSoi()` there covers all of them

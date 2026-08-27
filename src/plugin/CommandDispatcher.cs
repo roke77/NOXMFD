@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace NOXMFD
 {
-    // The web client POSTs JSON commands to /command; TelemetryServer parses + queues them on a
+    // The web client POSTs JSON commands to /command; CommandEndpoint parses + queues them on a
     // server thread, and this dispatcher drains the queue on the Unity main thread (called from
     // TelemetryReader.Update) and runs the matching handler.
     //
@@ -213,7 +213,7 @@ namespace NOXMFD
         // Drained once per frame on the main thread.
         public static void Drain()
         {
-            while (TelemetryServer.TryDequeueCommand(out CommandEnvelope? env))
+            while (CommandEndpoint.TryDequeueCommand(out CommandEnvelope? env))
             {
                 if (env == null) continue;
                 if (_handlers.TryGetValue(env.cmd ?? string.Empty, out Action<CommandEnvelope> handler))

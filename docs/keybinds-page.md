@@ -174,8 +174,8 @@ when `GetLocalAircraft` comes back empty, and these have to work at the main men
 
 Each frontend document opens exactly one `EventSource('/stream')` (`telemetry-source.js` owns
 the only one; the shell and every page read it second-hand), and each of those lands in its
-own `HandleSseAsync` task that lives as long as the browser stays on the page. One live task
-= one instance, so the server registers on entry and drops the entry in that method's existing
+own `SseHub.HandleAsync` task that lives as long as the browser stays on the page. One live task
+= one instance, so `SseHub` registers on entry and drops the entry in that method's existing
 `finally`. `GET /soi-instances` lists them (`conn`, `cid`, `remote`, `upSec`) — a diagnostic,
 and the way the registry was proven before anything was wired to it.
 
@@ -356,9 +356,9 @@ the cursor is scoped to that surface's nav.
 The server change is **backward-compatible**: a client that never reports its surface count stays
 at `PaneCount = 1` and behaves exactly as today (whole-instance focus). So it lands in three stages.
 
-### Step 1 — server (`TelemetryServer.cs`, `CommandDispatcher.cs`) — **built**
+### Step 1 — server (`SseHub.cs`, `TelemetryServer.cs`, `CommandDispatcher.cs`) — **built**
 
-- `MfdInstance` gains `int PaneCount = 1`.
+- `SseHub.MfdInstance` gains `int PaneCount = 1`.
 - Focus state gains `_soiTargetPane` (int, `-1` = none) beside `_soiTargetCid`, under the same
   `_soiLock` / `_soiVersion`. `SetSoiTarget(cid, pane)` replaces the string-only setter.
 - `SoiCycle(dir)` walks the flat ring built from `Instances()` × `0..PaneCount-1` (deduped by cid so

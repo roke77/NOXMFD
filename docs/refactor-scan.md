@@ -144,6 +144,9 @@ already called out:
   would do the same. This is orthogonal to the already-planned JSON-writer-layer extraction — that's
   about *what* gets serialized; this is the *HTTP response mechanics* every handler repeats regardless
   of what it's serving, and is still worth doing after `TelemetryJson.cs` lands.
+  **Resolved in the stacked server-hardening work:** `CapturedAssetEndpoint.cs` now owns these
+  captured-image/layout routes, and the shared `WriteBinary` response helper is reusable across
+  extracted HTTP endpoints.
 - Everything else — routing (`AcceptLoop`, `:636`-`:749`), the command queue (`:751`-`:850`), SSE
   (`:1587`-`:1681`), MJPEG (`:1541`-`:1585`) — is exactly what `docs/server-hardening.md` already
   describes; re-reading it end to end didn't turn up anything that doc missed.
@@ -545,17 +548,23 @@ document alone.
 Added after the `Http/` route extraction and `Stores/` folder move. These are intentionally ordered;
 do not bundle them into one pass.
 
-- [ ] **Next A — command endpoint/queue extraction.** Move `/command` request validation,
+- [x] **Next A — command endpoint/queue extraction.** Moved `/command` request validation,
       command enqueue/dequeue state, and `TryDequeueCommand` out of `TelemetryServer.cs` into a
-      focused helper under `src/plugin/Http/` or `src/plugin/Commands/`. Verify `ci-check.ps1`,
-      then spot-check `/command` with a small valid POST, a non-POST request, and an oversized body.
-- [ ] **Next B — SSE/session hub extraction.** Move `HandleSseAsync`, per-connection instance
-      registration, cursor/ext event emission, and shared-frame cache coordination into a stream/session
-      helper. Verify `ci-check.ps1`, then live-check multiple connected displays, SOI next/prev,
-      disconnect/reconnect behavior, MAP cursor events, and extension high-rate events if an extension
-      is installed.
-- [ ] **Next C — MJPEG handler extraction.** Move `HandleMjpegAsync` after the SSE split settles.
-      Verify `/tgp.mjpg` still streams and subscriber tracking still gates TGP capture work.
+      focused helper under `src/plugin/Http/CommandEndpoint.cs`. The same helper also owns the
+      shared bounded body read and JSON `Content-Type` gate for `/ext/<id>/command`.
+- [x] **Next B — SSE/session hub extraction.** Moved `/stream` connection lifetime,
+      per-connection instance registration, hello/cursor/ext event emission, cid sanitizing, and
+      `/soi-instances` diagnostics into `src/plugin/Http/SseHub.cs`. `TelemetryServer` still owns
+      SOI state and the shared serialized-frame cache; `SseHub` calls that narrow boundary when a
+      client needs a frame. Verified by `ci-check.ps1`; still worth live-checking multiple connected
+      displays, SOI next/prev, disconnect/reconnect behavior, MAP cursor events, and extension
+      high-rate events before release.
+- [x] **Next C — MJPEG handler extraction.** Moved `/tgp.mjpg` streaming and subscriber tracking into
+      `src/plugin/Http/TgpMjpegHandler.cs`. `TelemetryServer` keeps the latest-frame storage and the
+      existing `PushTgpFrame`/`ClearTgpFrame` API used by `TgpFeed`, while `WantsTgpFrames` now
+      delegates to the handler's subscriber count. Verified by `ci-check.ps1`; still worth
+      live-checking that `/tgp.mjpg` streams and subscriber tracking gates TGP capture work before
+      release.
 - [ ] **Later folder moves.** Consider `src/plugin/Commands/`, `Telemetry/`, `Input/`, or `Assets/`
       only when moving at least two related files or extracting a real module. Avoid a broad reshuffle
       just to satisfy the folder map.

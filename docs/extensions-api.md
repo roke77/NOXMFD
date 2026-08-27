@@ -71,7 +71,7 @@ extension simply fails to load rather than half-working against a shape that mov
 `src/plugin/Api.cs` (`RegisterExtension`) + `src/plugin/ExtensionRegistry.cs` (the backing
 store). An extension calls `Api.RegisterExtension(id, label, resolve, command)` once from its
 own `Awake()`; `resolve` is a `Func<string relPath, byte[]?>` — `""` means the page's own
-HTML, anything else an asset under it. `TelemetryServer.HandleExtRequest` routes
+HTML, anything else an asset under it. `ExtensionEndpoint.HandleRequest` routes
 `/ext/<id>[/<relPath>]` generically to whichever extension's `resolve` matches, inferring
 Content-Type from `relPath`'s extension the same way `ServeAssetRel` does for NOXMFD's own
 pages — an extension never needs to know MIME types. Same origin as everything else (no CORS
@@ -167,8 +167,8 @@ feed (`/rc.mjpg` in PR #45) is a long-lived `multipart/x-mixed-replace` streamin
 `RegisterExtension`'s asset `resolve` returns one `byte[]` per request and has no way to serve
 that. `Api.PushMjpegFrame(id, jpg)` / `ClearMjpegFrame(id)` / `WantsMjpegFrames(id)`, backed by
 a generic per-id buffer in `ExtensionRegistry` (same shape as `TelemetryServer`'s own
-`_tgpJpg`/`_tgpFrameId`/`_tgpLock`/`_tgpSubscribers`, just keyed instead of hardcoded), served
-at `GET /ext/<id>/feed.mjpg` by a generic `HandleExtMjpegAsync` mirroring `HandleMjpegAsync`.
+`_tgpJpg`/`_tgpFrameId`/`_tgpLock` plus `TgpMjpegHandler`'s subscriber count, just keyed instead
+of hardcoded), served at `GET /ext/<id>/feed.mjpg` by `ExtensionEndpoint`'s generic MJPEG handler.
 `RcFeed.cs` — moved into the standalone extension repo unchanged in shape, just repointed from
 `TelemetryServer.WantsRcFrames`/`PushRcFrame`/`ClearRcFrame` to the `Api` equivalents — is the
 proof this surface works.

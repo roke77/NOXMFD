@@ -255,7 +255,8 @@ These were discussed and remain good future work:
 
 - Extract command queue/body handling into a focused command endpoint first.
 - Extract an SSE/session hub after the command endpoint settles.
-- Consider the MJPEG handler after the SSE split establishes the long-lived-response pattern.
+- MJPEG handler extraction: done later as `TgpMjpegHandler.cs`, after the SSE split established the
+  long-lived-response pattern.
 
 The production-comment cleanup and a planning-doc status refresh have since landed. The three
 backend extractions above remain the current ordered structural work.

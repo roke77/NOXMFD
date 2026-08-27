@@ -2,9 +2,9 @@
 
 ## Status
 
-Partly implemented. Request hygiene, telemetry JSON extraction, embedded web asset serving, and
-HTTP route dispatch have shipped. Remaining structural candidates are the command endpoint/queue,
-SSE stream hub, and MJPEG handler.
+Implemented. Request hygiene, command endpoint/queue extraction, extension endpoint extraction,
+SSE/session extraction, TGP MJPEG handler extraction, telemetry JSON extraction, embedded web asset
+serving, and HTTP route dispatch have shipped.
 
 ## Where this came from
 
@@ -29,7 +29,7 @@ regardless of whether the network is trusted.
 
 ## Part A — command-endpoint request hygiene
 
-Original findings, now resolved in current code (`src/plugin/Http/TelemetryServer.cs` and
+Original findings, now resolved in current code (`src/plugin/Http/CommandEndpoint.cs` and
 `src/plugin/Http/TelemetryHttpRouter.cs`):
 
 - **No HTTP method check.** Routing is pure path-matching (`else if (path == "/command")
@@ -40,7 +40,7 @@ Original findings, now resolved in current code (`src/plugin/Http/TelemetryServe
   size cap before parsing. The command queue itself is bounded (`MaxQueuedCommands`), but nothing
   stops a single oversized request from allocating an arbitrarily large string first.
 
-### Proposed fix
+### Shipped fix
 
 1. **Method check on `/command` only.** `/ext/<id>/command` already gates on
    `ctx.Request.HttpMethod == "POST"` before calling `HandleExtCommand`
@@ -55,6 +55,10 @@ Original findings, now resolved in current code (`src/plugin/Http/TelemetryServe
 3. Apply the same body-size check to any other endpoint that reads a body from an untrusted caller
    (grep for `ReadToEnd()` — same pattern likely wants the same fix everywhere it appears, not just
    these two call sites).
+4. **Content-Type check on both command endpoints.** `/command` and `/ext/<id>/command` now reject
+   non-JSON request bodies with `415`. The built-in web clients already send
+   `Content-Type: application/json`, so this only rejects malformed/manual requests and the simplest
+   HTML-form CSRF shape.
 
 Effort: **XS**. No behavior change for any legitimate client (the web UI already sends small POST
 bodies); pure rejection of malformed/oversized input.
@@ -62,19 +66,16 @@ bodies); pure rejection of malformed/oversized input.
 ### Explicitly out of scope for this item
 
 - Token/pairing auth (see above).
-- **Origin/Content-Type checks — worth a mention here, not dropped entirely.** Corrected from an
+- **Origin checks — worth a mention here, not dropped entirely.** Corrected from an
   earlier draft of this doc: lacking permissive CORS headers stops a hostile page's JS from
   *reading* this server's response cross-origin, but does **not** stop the browser from *sending*
   the cross-origin request in the first place — that's the classic CSRF gap, distinct from the
   "malicious LAN peer sending a request directly" risk SECURITY.md already covers. A page open in
-  the same browser, on any origin, could still fire a cross-origin POST to `/command` today; its JS
+  the same browser, on any origin, could still fire a cross-origin POST to `/command`; its JS
   just can't read the 204 back (and there's nothing sensitive in that response to read anyway, so
-  the practical impact is bounded — the command still executes, but nothing leaks back). A cheap,
-  optional hardening step: reject `/command`/`/ext/<id>/command` requests whose `Content-Type`
-  isn't `application/json` (a plain HTML `<form>` POST can't set that header, which blocks the
-  simplest CSRF vector; a `fetch()`-based one still could, since JS can set any header it wants).
-  Lower priority than Part A's two fixes — flagged so it doesn't get silently forgotten, not
-  because it's not real.
+  the practical impact is bounded). The shipped JSON `Content-Type` gate blocks the simplest HTML
+  `<form>` CSRF vector. A `fetch()`-based origin can still set that header, so this remains request
+  hygiene, not token/pairing auth.
 
 ## Part B — structural split of `TelemetryServer.cs`
 
@@ -84,18 +85,23 @@ bodies); pure rejection of malformed/oversized input.
 real game touchpoints. **Don't duplicate that work here — see that doc for the extraction plan and
 land it first.**
 
-What remains after the shipped splits is mostly transport runtime state: command queue/body handling,
-SSE (`HandleSseAsync`), MJPEG (`HandleMjpegAsync`), config endpoints (`ServeHudOptions` and its
-siblings), and extension request handlers. Candidate further splits, **lowest-risk first**:
+The low-risk HTTP splits identified here are now done. The endpoint-specific config/options routes
+and captured game-asset endpoints also moved out after the original checklist, so
+`TelemetryServer.cs` now mostly keeps transport-owned state plus the shared SSE frame cache.
+Historical split order:
 
 | Split | What moves | Risk |
 |---|---|---|
 | `TelemetryJson.cs` | JSON-writer layer | Done |
 | `TelemetryAssets.cs` | `ServeAssetRel` + static-file/embedded-resource serving | Done |
 | `TelemetryHttpRouter.cs` | URL dispatch from path to endpoint handler | Done |
-| `CommandQueue.cs` | `HandleCommand`/`TryDequeueCommand`/`_cmdQueue`/`_cmdLock` | Low — already a clean unit, just needs to move |
-| `SseHub.cs` | `HandleSseAsync` + the per-client SSE loop | Medium — touches the frame-version cache from item #2 of `docs/performance.md`; verify that cache's threading contract survives the move |
-| MJPEG handler | `HandleMjpegAsync` | Low — mirrors the SSE split's shape but simpler (no per-client state) |
+| `CapturedAssetEndpoint.cs` | `/map`, icon PNG endpoints, and airframe image/layout endpoints | Done |
+| `CommandEndpoint.cs` | `HandleCommand`/`TryDequeueCommand`/`_cmdQueue`/`_cmdLock` + extension command body hygiene | Done |
+| `ConfigEndpoint.cs` | `/config`, `/keybinds-config`, `/hud-options`, `/wpt-options`, `/layout-options`, `/hud-presets`, and `/rates-config` | Done |
+| `ExtensionEndpoint.cs` | `/ext-manifest`, `/ext/<id>` assets, `/ext/<id>/command`, and `/ext/<id>/feed.mjpg` | Done |
+| `SseHub.cs` | `/stream` connection lifetime, per-client instance registry, hello/cursor/ext SSE events, and `/soi-instances` diagnostics | Done |
+| `TgpMjpegHandler.cs` | `/tgp.mjpg` long-lived response, live JPEG frame cache, and subscriber tracking | Done |
+| `SoiFocus.cs` | SOI focus (target cid/pane, versioned action counter) + MAP cursor/action state | Done |
 
 Don't attempt all of these in one PR — each is independently useful and independently testable via
 `dotnet build` + the existing in-game verification checklist (no C# test harness covers this file yet
@@ -103,15 +109,11 @@ outside what `docs/csharp-unit-testing.md`'s plan lands).
 
 ### Next recommended targets
 
-1. **Extract command endpoint/queue first.** Move `/command` body validation, enqueue/dequeue state,
-   and `TryDequeueCommand` into a focused command endpoint/queue helper. This is the lowest-risk
-   remaining backend split because it is already a compact unit and touches no streaming loop.
-2. **Extract SSE/session handling second.** Move `HandleSseAsync`, per-connection instance
-   registration, cursor/ext event emission, and the shared-frame cache boundary only after the
-   command endpoint is settled. Verify route smoke plus live multi-display SOI behavior because this
-   path owns browser instance lifetime.
-3. **Consider the MJPEG handler after SSE.** It is smaller, but it shares the same long-lived response
-   style; doing it after the SSE split should make the pattern clearer.
+The planned low-risk HTTP splits in this document are done, plus one more (`SoiFocus.cs`) identified
+by a fresh scan after the fact. `TelemetryServer.cs` still owns the LAN/netsh auto-setup lifecycle
+(`Start`/`TryBindWildcard`/`TryAutoSetupLanAccess`/`RunNetsh`/`DetectLanIp`) and the SSE frame
+cache/`RefreshHudOptions` snapshot builder — plausible future candidates, not yet scoped. Any further
+split should be scoped from a fresh scan, not assumed from this checklist.
 
 ## Scope
 
@@ -119,12 +121,15 @@ outside what `docs/csharp-unit-testing.md`'s plan lands).
 - [x] Add a POST-only check to `/command` (`/ext/<id>/command` already has one)
 - [x] Add a body-size cap to both `/command` and `/ext/<id>/command`
 - [x] Audit other `ReadToEnd()` call sites for the same body-size check
-- [ ] (Optional, lower priority) `Content-Type: application/json` check on both command endpoints
+- [x] `Content-Type: application/json` check on both command endpoints
       as cheap CSRF-style hardening
 - [x] Extract embedded asset serving (`TelemetryAssets.cs`)
 - [x] Extract HTTP route dispatch (`TelemetryHttpRouter.cs`)
-- [ ] Extract command endpoint/queue
-- [ ] Extract SSE/session hub (verify frame-version cache threading and SOI lifetime survive the move)
-- [ ] Extract the MJPEG handler after the SSE pattern is clear
+- [x] Extract captured game-asset endpoints (`CapturedAssetEndpoint.cs`)
+- [x] Extract command endpoint/queue (`CommandEndpoint.cs`)
+- [x] Extract config/options endpoints (`ConfigEndpoint.cs`)
+- [x] Extract SSE/session hub (`SseHub.cs`; live multi-display SOI behavior still wants an in-game/browser spot-check before release)
+- [x] Extract the TGP MJPEG handler (`TgpMjpegHandler.cs`; `/tgp.mjpg` live viewing still wants an in-game/browser spot-check before release)
+- [x] Extract SOI focus + MAP cursor/action state (`SoiFocus.cs`; live multi-display SOI behavior still wants an in-game/browser spot-check before release, same as the SSE hub above)
 - [x] One-line SECURITY.md note once the method/size hardening ships (not a trust-model change, just
       documents that these two checks now exist)

@@ -194,7 +194,7 @@ warms up can be marked failed by the browser and never recover once real
 frames arrive — presenting as "works after one page reload." That
 workaround was reverted and the issue left open on their side.
 
-`TelemetryServer.HandleMjpegAsync` has the same shape: it writes nothing
+The TGP MJPEG handler used to have the same shape: it wrote nothing
 until `_tgpJpg != null && id != lastSeen`. TGP's warm-up is shorter than
 a missile camera's (no missile-selection step), which may be why it has
 not been reported, but the failure mode is identical. This is a
