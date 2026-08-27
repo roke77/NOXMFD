@@ -98,7 +98,7 @@ namespace NOXMFD
             else if (path == "/tgpcfg")
                 TelemetryAssets.ServeAssetRel(ctx, "pages/tgpcfg/tgpcfg.html");
             else if (path == "/command")
-                TelemetryServer.HandleCommand(ctx);
+                CommandEndpoint.HandleCommand(ctx);
             else if (path == "/mfd")
                 TelemetryServer.Redirect(ctx, "/");
             else if (path == "/f35")

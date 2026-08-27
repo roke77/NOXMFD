@@ -88,9 +88,9 @@ What that command endpoint is able to do is entirely up to that extension's own 
 XMFD neither reviews nor limits. The security properties of your whole display depend on which
 extensions you've chosen to install, not on NO XMFD's own code alone.
 
-Both command endpoints reject non-POST requests and cap the request body at 16 KB — request
-hygiene, not a change to the trust model above; the port is still unauthenticated exactly as
-described.
+Both command endpoints reject non-POST and non-JSON requests and cap the request body at 16 KB —
+request hygiene, not a change to the trust model above; the port is still unauthenticated exactly
+as described.
 
 ## Antivirus false positives
 

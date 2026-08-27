@@ -545,10 +545,10 @@ document alone.
 Added after the `Http/` route extraction and `Stores/` folder move. These are intentionally ordered;
 do not bundle them into one pass.
 
-- [ ] **Next A — command endpoint/queue extraction.** Move `/command` request validation,
+- [x] **Next A — command endpoint/queue extraction.** Moved `/command` request validation,
       command enqueue/dequeue state, and `TryDequeueCommand` out of `TelemetryServer.cs` into a
-      focused helper under `src/plugin/Http/` or `src/plugin/Commands/`. Verify `ci-check.ps1`,
-      then spot-check `/command` with a small valid POST, a non-POST request, and an oversized body.
+      focused helper under `src/plugin/Http/CommandEndpoint.cs`. The same helper also owns the
+      shared bounded body read and JSON `Content-Type` gate for `/ext/<id>/command`.
 - [ ] **Next B — SSE/session hub extraction.** Move `HandleSseAsync`, per-connection instance
       registration, cursor/ext event emission, and shared-frame cache coordination into a stream/session
       helper. Verify `ci-check.ps1`, then live-check multiple connected displays, SOI next/prev,
