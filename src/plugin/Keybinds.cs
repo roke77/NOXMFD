@@ -888,18 +888,11 @@ namespace NOXMFD
         // Must be called every frame for every tap/hold bind regardless of ActiveNow — see the call
         // site in Poll(), before the "nothing active" early return — so a release on an otherwise-idle
         // frame still resets PressStartTime.
-        private const float HoldSeconds = 0.35f;
         private static void PollTapHold(BindDef b, Action onTap, Action onHold)
         {
-            if (b.ActiveNow)
-            {
-                if (b.PressStartTime < 0f) { b.PressStartTime = Time.unscaledTime; b.HoldFired = false; onTap(); }
-                else if (!b.HoldFired && Time.unscaledTime - b.PressStartTime >= HoldSeconds) { b.HoldFired = true; onHold(); }
-            }
-            else
-            {
-                b.PressStartTime = -1f;
-            }
+            var ev = KeybindTapHold.Poll(b.ActiveNow, Time.unscaledTime, ref b.PressStartTime, ref b.HoldFired);
+            if (ev == KeybindTapHold.Event.Tap) onTap();
+            else if (ev == KeybindTapHold.Event.Hold) onHold();
         }
 
         // Runs on the main-thread Poll while a joy capture is armed. Writes the first joystick button that

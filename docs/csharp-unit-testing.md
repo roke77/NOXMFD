@@ -112,7 +112,8 @@ Smallest safe step first, each one a self-contained PR:
    command endpoints.
 3. **Extract `AkfTracker.cs`'s attribution/bookkeeping logic** — swap `PersistentID`/
    `Time.unscaledTime` for plain parameters at the boundary.
-4. **Extract `Keybinds.cs`'s tap/hold arbitration** into a pure function.
+4. **Extract `Keybinds.cs`'s tap/hold arbitration** into a pure function. — done in
+   `KeybindTapHold.cs`, covered by `KeybindTapHoldTests.cs`.
 5. **Extract `HudWaypointCue.cs`'s geometry kernel**.
 6. **`WeaponSelectors.cs`** — lowest priority of the five; needs a loadout DTO layer first, more
    design work than the others before it's separable.
@@ -127,7 +128,8 @@ the point of doing it.
 - [x] Extract and test `TelemetryServer.cs`'s JSON-writer layer — `TelemetryJson.cs`,
       `TelemetryJsonTests.cs`
 - [ ] Extract and test `AkfTracker.cs`'s attribution/bookkeeping logic
-- [ ] Extract and test `Keybinds.cs`'s tap/hold arbitration
+- [x] Extract and test `Keybinds.cs`'s tap/hold arbitration — `KeybindTapHold.cs`,
+      `KeybindTapHoldTests.cs`
 - [ ] Extract and test `HudWaypointCue.cs`'s geometry kernel
 - [ ] Design a loadout DTO, then extract and test `WeaponSelectors.cs`'s cycle-selection algorithm
 - [ ] Confirm `dotnet test` runs clean in CI (if/when this repo gets CI — see
