@@ -39,8 +39,10 @@ for (const [page, items] of Object.entries(NAV))
 // active waypoint route, same shape as flw/grid/zin/zout, not a destination.
 // 'wpt-next'/'wpt-prev' (issue #38): MAP's manual waypoint step — same shape as rt-next/rt-prev,
 // acting on the active route's progress instead of which route is active.
-const BEHAVIOURS = new Set(['flw', 'grid', 'zin', 'zout', 'rng-in', 'rng-out', 'lyt', 'rt-next', 'rt-prev',
-  'wpt-next', 'wpt-prev']);
+// 'hsd-mode' (docs/rdr-fcr-hsd.md): HSD's own CEN<->DEP toggle, same shape as rng-in/rng-out —
+// acts on the page in place, doesn't navigate.
+const BEHAVIOURS = new Set(['flw', 'grid', 'zin', 'zout', 'rng-in', 'rng-out', 'hsd-mode', 'lyt',
+  'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev']);
 
 const destinations = Object.keys(origin).filter(a => !BEHAVIOURS.has(a)).sort();
 assert.ok(destinations.length > 0, 'no destinations found — NAV or this filter is wrong');

@@ -36,7 +36,21 @@ for (const [page, items] of Object.entries(NAV)) {
 // SPLIT_SLOTS[i] places NAV[i]). So order is meaningful and reordering is a behaviour change.
 assert.deepStrictEqual(NAV.main.map(i => i.label), ['AVN', 'MAP', 'RWR', 'TGP', 'TGT', 'WPN', 'EXT']);
 assert.deepStrictEqual(NAV.map.map(i => i.label), ['MAIN', 'GRID', 'FLW', 'CFG', 'WPT', 'R+', 'R-', 'W+', 'W-', 'Z+', 'Z-']);
-assert.deepStrictEqual(NAV.rdr.map(i => i.label), ['MAIN', 'R+', 'R-']);
+assert.deepStrictEqual(NAV.rdr, [
+  { label: 'MAIN', action: 'main' },
+  { label: 'FCR',  action: 'rdr', mark: true },
+  { label: 'HSD',  action: 'hsd' },
+  { label: 'R+',   action: 'rng-in' },
+  { label: 'R-',   action: 'rng-out' },
+]);
+assert.deepStrictEqual(NAV.hsd, [
+  { label: 'MAIN', action: 'main' },
+  { label: 'FCR',  action: 'rdr' },
+  { label: 'HSD',  action: 'hsd', mark: true },
+  { label: 'R+',   action: 'rng-in' },
+  { label: 'R-',   action: 'rng-out' },
+  { label: 'MODE', action: 'hsd-mode' },
+]);
 
 // ── Every frame-hosted page can get back to MAIN ────────────────────────────────────
 // NAV.ext's static baseline is exactly this shape too — see ext-nav.js for how it grows at

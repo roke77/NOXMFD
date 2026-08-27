@@ -1,6 +1,6 @@
 // TelemetrySource owns the ONE EventSource('/stream') connection, parses each frame, and is the
 // source of truth for telemetry in the whole MFD:
-//   • derives the slices (status/loadout/cm/tgp/targets/rwr/mw/avn/follow, and mapinfo) and posts
+//   • derives the slices (status/loadout/cm/tgp/targets/rwr/mw/rdr/hsd/avn/follow, and mapinfo) and posts
 //     them UP to the shell, which re-forwards them to the other pages. All but the last are
 //     per-page; mapinfo is for shell chrome that shows no map — see _emit; and
 //   • hands the raw parsed frame to the local map view via callbacks so it can render.
@@ -375,6 +375,12 @@ export class TelemetrySource {
       pb: pbItems
     });
 
+    this._postUp({
+      type: 'hsd',
+      metric: !!(d.hsd && d.hsd.metric),
+      items: d.hsd && Array.isArray(d.hsd.items) ? d.hsd.items : []
+    });
+
     // Aircraft name + per-part HP (the AVN damage silhouette; assets fetched on demand by the page).
     this._postUp({
       type: 'avn',
@@ -472,6 +478,7 @@ export class TelemetrySource {
     this._postUp({ type: 'targets', items: [] });
     this._postUp({ type: 'rwr', items: [] });
     this._postUp({ type: 'mw', items: [] });
+    this._postUp({ type: 'hsd', metric: false, items: [] });
     this._postUp({ type: 'avn', name: null, parts: null, failures: null, pylons: null, fuel: -1, throttle: -1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false });
     this._postUp({ type: 'tgt', present: false });
     this._postUp({ type: 'bdf', present: false });

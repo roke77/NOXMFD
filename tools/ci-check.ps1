@@ -57,7 +57,7 @@ try {
 
     # Note: /map is the captured map IMAGE endpoint (404s with no preview/captures/ populated),
     # not the MAP page — use /map-view?bare, which is the actual page route (docs/ci-smoke-check.md).
-    $routes = @("/", "/afm", "/map-view?bare", "/hud")
+    $routes = @("/", "/afm", "/map-view?bare", "/hud", "/hsd")
     foreach ($r in $routes) {
         try {
             $resp = Invoke-WebRequest -Uri "$base$r" -UseBasicParsing -TimeoutSec 5
