@@ -16,8 +16,9 @@ namespace NOXMFD
             try
             {
                 string json = string.Format(CultureInfo.InvariantCulture,
-                    "{{\"localhost\":\"http://localhost:{0}\",\"lanUrl\":\"{1}\",\"port\":{0}}}",
-                    TelemetryServer.Port, TelemetryServer.EscapeJson(TelemetryServer.LanUrl ?? string.Empty));
+                    "{{\"localhost\":\"http://localhost:{0}\",\"lanUrl\":\"{1}\",\"port\":{0},\"version\":\"{2}\"}}",
+                    TelemetryServer.Port, TelemetryServer.EscapeJson(TelemetryServer.LanUrl ?? string.Empty),
+                    TelemetryServer.EscapeJson(MyPluginInfo.PLUGIN_VERSION));
                 TelemetryServer.WriteJson(ctx, json);
             }
             catch { }

@@ -42,6 +42,7 @@ import json
 import os
 import pathlib
 import posixpath
+import re
 import socket
 import socketserver
 import sys
@@ -244,12 +245,20 @@ def _detect_lan_ip():
         return ""
 
 
+def _plugin_version():
+    """Read <Version> straight from NOXMFD.csproj so the harness mock never drifts from the real
+    plugin version the DLL would actually report."""
+    m = re.search(r"<Version>([^<]+)</Version>", (REPO / "NOXMFD.csproj").read_text(encoding="utf-8"))
+    return m.group(1) if m else "0.0.0"
+
+
 def _config(port):
     lan_ip = _detect_lan_ip()
     return json.dumps({
         "localhost": f"http://localhost:{port}",
         "lanUrl": f"http://{lan_ip}:{port}" if lan_ip else "",
         "port": port,
+        "version": _plugin_version(),
     }).encode("utf-8")
 
 

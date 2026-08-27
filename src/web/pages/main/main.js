@@ -13,6 +13,9 @@ function setConfigUrls(cfg) {
     el.textContent = url;
     status.parentNode.insertBefore(el, status);
   });
+
+  const versionEl = document.getElementById('ib-version');
+  if (versionEl && cfg && cfg.version) versionEl.textContent = 'v' + cfg.version;
 }
 
 function loadConfigUrls() {

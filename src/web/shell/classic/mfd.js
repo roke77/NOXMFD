@@ -1927,6 +1927,9 @@ function setInfoUrls(cfg) {
   // If /config arrives after the boot loader has revealed the rows, replay the typewriter
   // against the fresh URL nodes. During boot, runBootLoading() will call typewriterUrls().
   if (!infoBox.classList.contains('booting')) typewriterUrls();
+
+  const versionEl = document.getElementById('ib-version');
+  if (versionEl && cfg && cfg.version) versionEl.textContent = 'v' + cfg.version;
 }
 
 function loadConfigUrls() {

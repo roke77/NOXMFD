@@ -588,6 +588,17 @@
   }
   .info-box.show       { display: block; }
 
+  /* Mod version, tucked in the card's own bottom-right corner — quiet gray so it doesn't compete
+     with the green status readout above it. Empty (invisible) until /config answers. */
+  .ib-version {
+    position: absolute;
+    bottom: clamp(6px, 0.8vmax, 10px);
+    right: clamp(10px, 1.2vmax, 16px);
+    font-size: clamp(8px, 0.9vmax, 11px);
+    color: var(--no-gray);
+    letter-spacing: 1px;
+  }
+
   /* The LAYOUT page's current item (CLASSIC). The theme's "engaged" amber, boxed — the same mark
      the F-35's picker gives its own, so the two chooser screens agree. This is the only overlay
      label that ever carries a state: the rest name a page, while these two name a choice and one of
