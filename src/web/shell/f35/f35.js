@@ -96,7 +96,7 @@
   // Mirrors the bezel's own PAD_CURSOR_PAGES (mfd.js) exactly; kept as its own copy since this
   // layout has no shared module with the bezel to hang it on. AKF is included because its
   // ALL/PLAYER resizer is clickable and needs cursor support.
-  const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, akf: true };
+  const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, akf: true, hsd: true };
 
   const WPN_MAX_DISPLAY = ROWS - 1;   // row 1 is the nav + CM band; rows 2..6 carry the weapons
   const WPN_ICON_INSET  = 20;         // keeps the image off its band edges, as the bezel does

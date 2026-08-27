@@ -162,13 +162,13 @@ selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps i
   (`{act, pane}`, on a HOTAS keypress) up to whichever shell hosts it; the shell reports its own
   surface count back down via `soi.panes` (below). Most pages carry no SOI-specific code — the
   shell derives their bezel/NAV cursor from their own `data-action` / `.nav-item` elements.
-- **PAD cursor (the exception):** a page in `PAD_CURSOR_PAGES` (`map`, `tgt`, `hud`, `rdr`, `wpt`, `akf`) draws a
+- **PAD cursor (the exception):** a page in `PAD_CURSOR_PAGES` (`map`, `tgt`, `hud`, `rdr`, `wpt`, `akf`, `hsd`) draws a
   real crosshair over its own content, so the shell forwards the raw `'cursor'` / `'cursor-held'` /
   `'cursor-select'` / `'map-act'` events down to whichever eligible page is focused
   (`focusedCursorWindow()`), and the page integrates them with `services/pad-cursor.js`. Each page
   decides what the events *mean*: MAP hit-tests contacts and pans at the edge, TGT walks its rows,
-  RDR/FCR steps its range — one HOTAS bind, per-page meaning (docs/page-cursor.md). HSD stays
-  read-only for now, so it is intentionally not in this cursor set.
+  RDR/FCR and HSD both hit-test the same aerial target set (Select toggles a lock, reused by TGT
+  too) — one HOTAS bind, per-page meaning (docs/page-cursor.md).
 - **Write commands:** `src/web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
   — from pages (MAP tap → `target.select`; TGT → `tgt.*` + `target.deselect`; AVN → `avn.toggle`;
   HUD → `hud.*`/`declutter.set`/`preset.*` (issue #50 follow-up); KEYBINDS → the `keybind.*` family)

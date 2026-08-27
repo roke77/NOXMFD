@@ -3,6 +3,7 @@ var CX = 300, CY = 300, OUTER = 220;
 var M_PER_NM = 1852, M_PER_KM = 1000;
 var HSD_PINK = 'var(--no-purple)', RADAR_GREEN = 'var(--no-green)', AMBER = 'var(--no-amber)';
 var HSD_PINK_RGB = 'var(--no-hsd-pink-rgb)', TEAL_RGB = 'var(--no-teal-rgb)';
+var CURSOR_WHITE = 'rgba(255,255,255,0.85)';
 var state = { ownX: 0, ownZ: 0, hdg: 0, metric: false, radarPresent: false, radarRange: 0, radarCone: 0, items: [] };
 
 var RANGE_NM = [10, 20, 40, 80];
@@ -97,13 +98,21 @@ function renderRadarCone() {
                       'stroke="rgba(' + TEAL_RGB + ',0.64)" stroke-width="2"/>' : '';
 }
 
+// PAD acquisition cursor (docs/page-cursor.md): plotted holds each on-scope contact's current
+// viewBox position so nearestContact() (below) can hit-test against it, same split FCR's own
+// plotted/hoveredId pair uses — renderContacts() must run before a hit-test is meaningful.
+var plotted = [];
+var hoveredId = null;
+
 function renderContacts() {
   var g = document.getElementById('hsd-contacts');
   if (!g) return;
   var out = '', count = 0, locks = 0, firstLocked = null, rangeM = displayRangeM();
+  plotted = [];
   (state.items || []).forEach(function (c) {
     var p = hsdXY(state.ownX, state.ownZ, state.hdg, c.x || 0, c.z || 0, rangeM);
     if (!p) return;
+    plotted.push({ id: c.id, x: p.x, y: p.y });
     count++;
     if (c.tg) {
       locks++;
@@ -112,6 +121,11 @@ function renderContacts() {
     var col = contactColor(c);
     var hdg = typeof c.hdg === 'number' ? c.hdg : 0;
     var rot = ((hdg - state.hdg) % 360 + 360) % 360;
+    // Hover highlight: a soft ring under whatever the cursor is nearest, same treatment FCR gives
+    // its own hoveredId brick.
+    if (c.id === hoveredId)
+      out += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) +
+             '" r="16" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="2"/>';
     out += '<g transform="translate(' + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ') rotate(' + rot.toFixed(1) + ')">';
     out += '<path d="M0 -9 L-6 7 L0 4 L6 7 Z" fill="' + col + '"/>';
     out += '</g>';
@@ -125,6 +139,68 @@ function renderContacts() {
   });
   g.innerHTML = out;
   renderReadout(firstLocked, count, locks);
+}
+
+// ── PAD acquisition cursor (docs/page-cursor.md) ────────────────────────────────────────
+// Select over a contact toggles its lock — reuses FCR's own target set (target.select/deselect
+// by id), same reasoning as FCR's own padSelect: this is the same aerial target set TGT and FCR
+// display, so selecting from HSD has to mean the same thing.
+var HIT_PAD = 26;   // grab radius in viewBox units (contact triangles are ~12 wide)
+
+function send(cmd, args) { if (typeof sendCommand === 'function') sendCommand(cmd, args).catch(function () {}); }
+function itemById(id) { return (state.items || []).find(function (c) { return c.id === id; }); }
+
+// The SVG's rendered transform in panel px: uniform scale s (xMidYMid meet) + letterbox offsets.
+// Unlike FCR's B-scope band, HSD's whole 600x600 viewBox IS the scope, so the clamp rect is the
+// full letterboxed square rather than a sub-rectangle.
+function viewport() {
+  var p = document.querySelector('.hsd-panel');
+  var s = Math.min(p.clientWidth / 600, p.clientHeight / 600);
+  return { s: s, ox: (p.clientWidth - 600 * s) / 2, oy: (p.clientHeight - 600 * s) / 2 };
+}
+function scopeRectPx() {
+  var v = viewport();
+  return { dx: v.ox, dy: v.oy, dw: 600 * v.s, dh: 600 * v.s };
+}
+// Nearest plotted contact to a panel-px point, within HIT_PAD (viewBox units); null if none close.
+function nearestContact(px, py) {
+  var v = viewport(), vx = (px - v.ox) / v.s, vy = (py - v.oy) / v.s;
+  var best = null, bestD = HIT_PAD;
+  plotted.forEach(function (pt) {
+    var d = Math.hypot(pt.x - vx, pt.y - vy);
+    if (d <= bestD) { bestD = d; best = pt; }
+  });
+  return best;
+}
+function padSelect(px, py) {
+  var pt = nearestContact(px, py);
+  if (!pt) return;
+  var c = itemById(pt.id);
+  send(c && c.tg ? 'target.deselect' : 'target.select', { id: pt.id });
+}
+// Draw the same F-16 two-bar acquisition gate FCR uses, in viewBox units so it scales with the
+// contact symbols. CUR_GAP/CUR_H match FCR's own drawCursor proportions.
+var CUR_GAP = 14, CUR_H = 9;
+function drawCursor(px, py) {
+  var g = document.getElementById('hsd-cursor-g');
+  if (!g) return;
+  if (px == null) { g.innerHTML = ''; return; }
+  var v = viewport(), vx = (px - v.ox) / v.s, vy = (py - v.oy) / v.s;
+  g.innerHTML = bar(vx - CUR_GAP, vy) + bar(vx + CUR_GAP, vy);
+}
+function bar(x, y) {
+  return '<line x1="' + x.toFixed(1) + '" y1="' + (y - CUR_H).toFixed(1) +
+         '" x2="' + x.toFixed(1) + '" y2="' + (y + CUR_H).toFixed(1) +
+         '" stroke="' + CURSOR_WHITE + '" stroke-width="3"/>';
+}
+// Move the gate and highlight the contact under the cursor (or clear both when it leaves/hides).
+function padMove(px, py) {
+  drawCursor(px, py);
+  var pt = px == null ? null : nearestContact(px, py);
+  var id = pt ? pt.id : null;
+  if (id === hoveredId) return;
+  hoveredId = id;
+  renderContacts();
 }
 
 function renderReadout(firstLocked, count, locks) {
@@ -193,6 +269,33 @@ function shouldSeedStandalonePreview() {
 
 if (typeof window !== 'undefined' && window.addEventListener) {
   loadRange();
+
+  // The PAD acquisition cursor (two vertical bars) reuses the shared pad-cursor integrator, same
+  // as FCR. Loaded via dynamic import so this file stays a classic script the Node self-check can
+  // require; any cursor message that arrives before it resolves is parked and applied on creation.
+  var cursor = null, pendingFocus = null, pendingVec = null;
+  function centerFocus(on) {
+    var r = scopeRectPx();
+    cursor.setFocus(on, r.dx + r.dw / 2, r.dy + r.dh / 2);
+  }
+  import('/assets/services/pad-cursor.js').then(function (mod) {
+    cursor = mod.createPadCursor({
+      el: document.getElementById('hsd-cursor'),
+      clampRect: scopeRectPx,
+      onSelect: padSelect,
+      onMove: padMove
+    });
+    if (pendingFocus) { centerFocus(pendingFocus.on); pendingFocus = null; }
+    if (pendingVec) { cursor.setVector(pendingVec.x, pendingVec.y); pendingVec = null; }
+  });
+
+  // A mouse/touch tap selects the same way the PAD cursor's Select does — same hit-test, same
+  // toggle-lock, matching FCR's own click handler.
+  document.querySelector('.hsd-panel').addEventListener('click', function (e) {
+    var r = this.getBoundingClientRect();
+    padSelect(e.clientX - r.left, e.clientY - r.top);
+  });
+
   window.addEventListener('message', function (e) {
     var m = e.data;
     if (!m || !m.mfd) return;
@@ -208,6 +311,12 @@ if (typeof window !== 'undefined' && window.addEventListener) {
         items: Array.isArray(m.items) ? m.items : []
       };
       render();
+    } else if (m.action === 'cursor-focus') {
+      if (cursor) centerFocus(!!m.on); else pendingFocus = { on: !!m.on };
+    } else if (m.action === 'cursor') {
+      if (cursor) cursor.setVector(m.x, m.y); else pendingVec = { x: m.x, y: m.y };
+    } else if (m.action === 'cursor-held') {
+      if (cursor) cursor.setSelectHeld(!!m.held);
     } else if (m.action === 'zoom-in') {
       setRangeIdx(rangeIdx + 1);
     } else if (m.action === 'zoom-out') {

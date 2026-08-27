@@ -4,6 +4,12 @@
 
 In progress on branch `rdr-fcr-hsd` for [issue #60](https://github.com/roke77/NOXMFD/issues/60).
 
+**Update:** HSD is no longer read-only. It answers this doc's own open question ("Should HSD
+become selectable...") — yes, reusing FCR/TGT's target set exactly as FCR's own cursor does:
+`hsd` joined `PAD_CURSOR_PAGES` (mfd.js, f35.js), and `hsd.js` gained the same acquisition-gate
+cursor, hit-test, and Select-toggles-lock behavior as `rdr.js`'s (see "Interaction" below, kept as
+originally written since the design it describes for FCR now applies to HSD unchanged too).
+
 The current `RDR` page is a radar-style B-scope with own-radar contacts, datalink-only contacts,
 lock markers, pitbull missile markers, range stepping, and the PAD acquisition cursor. This ticket
 splits that surface into two sibling pages:
@@ -62,8 +68,8 @@ radar cone.
 - Classic split slots: add slots for the five `NAV.rdr`/`NAV.hsd` entries. Keep FCR/HSD adjacent.
 - F-35 edge grid: keep the FCR/HSD mark lights from the `NAV` table; add a RANGE decorator between
   the HSD R+/R- entries if the labels stay adjacent there.
-- PAD cursor focus: include `hsd` only if the first implementation makes contact selection or cursor
-  panning active. If HSD starts read-only, leave it out of `PAD_CURSOR_PAGES`.
+- PAD cursor focus: `hsd` is in `PAD_CURSOR_PAGES` — contact selection (Select toggles a lock) is
+  live from the start; no cursor-driven panning (HSD keeps its own R+/R- range stepping instead).
 
 ## Page split
 
@@ -171,14 +177,14 @@ user wants them visible.
 
 FCR keeps its acquisition cursor and Select-to-lock behavior.
 
-HSD v1 can be read-only. If cursor selection is added in the first implementation, reuse the same
-target-set commands:
+HSD carries the same cursor and reuses the identical target-set commands:
 
 - Select on unlocked contact: `target.select`;
 - Select on locked contact: `target.deselect`;
 - hover/nearest-contact behavior follows FCR's existing hit-test pattern.
 
-Do not add HSD-specific lock state.
+No HSD-specific lock state — `tg` on an item is the same target-set membership flag FCR and TGT
+already read.
 
 ## Telemetry and protocol
 
@@ -242,7 +248,8 @@ These need a live mission:
 - HSD shows datalink-known aircraft outside the FCR cone.
 - HSD shows contacts beyond the own radar's current displayed range when datalink provides them.
 - HSD range stepping is independent from FCR range stepping.
-- Selection, if implemented, locks the same target set TGT and FCR display.
+- HSD's PAD cursor Select locks the same target set TGT and FCR display; verify hit-testing feels
+  right at HSD's much larger real-world scale per pixel compared to FCR's B-scope.
 - Aircraft without radar still reach HSD if datalink data exists; FCR can remain unavailable.
 
 ## Open questions
@@ -250,7 +257,6 @@ These need a live mission:
 - Should FCR drop datalink-only purple contacts after HSD has been live-tested, or keep them as a
   forward-scope cue?
 - Should HSD show friendlies, enemies only, or eventually both with different symbols?
-- Should HSD become selectable after the projection and datalink source are proven?
 - What range presets feel right for Nuclear Option's map scale and aircraft speeds?
 - Should the MAIN entry continue to say RDR, or should the visible destination eventually become
   FCR with HSD reachable only from inside it?

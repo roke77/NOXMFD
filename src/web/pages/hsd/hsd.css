@@ -3,6 +3,21 @@
   width: 100%;
   height: 100%;
   background: var(--no-bg);
+  /* Matches the PAD acquisition gate's two-bar look (rdr.css's own cursor image, hsd.js drawCursor:
+     same bar separation/height) so the mouse/touch pointer previews the same gate the HOTAS cursor
+     draws — same image FCR uses, since both pages share the same gate shape. */
+  cursor: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzNiIgaGVpZ2h0PSIyNiIgdmlld0JveD0iMCAwIDM2IDI2Ij48bGluZSB4MT0iNCIgeTE9IjQiIHgyPSI0IiB5Mj0iMjIiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSIzIi8+PGxpbmUgeDE9IjMyIiB5MT0iNCIgeDI9IjMyIiB5Mj0iMjIiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSIzIi8+PC9zdmc+") 18 13, crosshair;
+}
+/* Invisible element pad-cursor.js moves in panel px; visible gate drawn in #hsd-cursor-g (viewBox
+   units) so it scales with the scope, same split FCR's own #rdr-cursor/#rdr-cursor-g pair uses. */
+.hsd-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+  display: none;
 }
 .hsd-scope {
   display: block;
