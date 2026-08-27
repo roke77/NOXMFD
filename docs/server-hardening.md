@@ -87,7 +87,7 @@ land it first.**
 
 The low-risk HTTP splits identified here are now done. The endpoint-specific config/options routes
 and captured game-asset endpoints also moved out after the original checklist, so
-`TelemetryServer.cs` now mostly keeps transport-owned state plus the shared frame/TGP caches.
+`TelemetryServer.cs` now mostly keeps transport-owned state plus the shared SSE frame cache.
 Historical split order:
 
 | Split | What moves | Risk |
@@ -100,7 +100,7 @@ Historical split order:
 | `ConfigEndpoint.cs` | `/config`, `/keybinds-config`, `/hud-options`, `/wpt-options`, `/layout-options`, `/hud-presets`, and `/rates-config` | Done |
 | `ExtensionEndpoint.cs` | `/ext-manifest`, `/ext/<id>` assets, `/ext/<id>/command`, and `/ext/<id>/feed.mjpg` | Done |
 | `SseHub.cs` | `/stream` connection lifetime, per-client instance registry, hello/cursor/ext SSE events, and `/soi-instances` diagnostics | Done |
-| `TgpMjpegHandler.cs` | `/tgp.mjpg` long-lived response and subscriber tracking | Done |
+| `TgpMjpegHandler.cs` | `/tgp.mjpg` long-lived response, live JPEG frame cache, and subscriber tracking | Done |
 
 Don't attempt all of these in one PR — each is independently useful and independently testable via
 `dotnet build` + the existing in-game verification checklist (no C# test harness covers this file yet

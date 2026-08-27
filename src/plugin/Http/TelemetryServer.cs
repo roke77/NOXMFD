@@ -53,12 +53,6 @@ namespace NOXMFD
 
         internal static byte[] NoIconPng => CapturedAssetEndpoint.NoIconPng;
 
-        // Latest TGP camera frame as a JPEG, refreshed ~10 Hz from TelemetryReader.
-        // The frame id lets each MJPEG client only send when it changes.
-        private static byte[]? _tgpJpg;
-        private static long    _tgpFrameId;
-        private static readonly object _tgpLock = new object();
-
         // Sent immediately to a fresh MJPEG connection when no real frame exists yet — a 4x4
         // dark-gray JPEG, precomputed offline (not generated at runtime: Texture2D.EncodeToJPG
         // needs the Unity main thread, and TgpMjpegHandler runs on the HTTP listener's own
@@ -668,27 +662,8 @@ namespace NOXMFD
         public static void SetAirframeImage(string unitName, string partName, byte[] png) => CapturedAssetEndpoint.SetAirframeImage(unitName, partName, png);
         public static void SetAirframeLayout(string unitName, string json) => CapturedAssetEndpoint.SetAirframeLayout(unitName, json);
 
-        // Called from Unity main thread with each captured TGP camera frame.
-        public static void PushTgpFrame(byte[] jpg)
-        {
-            if (jpg == null || jpg.Length == 0) return;
-            lock (_tgpLock) { _tgpJpg = jpg; _tgpFrameId++; }
-        }
-
-        // Drops the cached TGP frame so MJPEG clients see "no frame" again.
-        public static void ClearTgpFrame()
-        {
-            lock (_tgpLock) { _tgpJpg = null; _tgpFrameId++; }
-        }
-
-        internal static byte[]? GetTgpFrame(out long frameId)
-        {
-            lock (_tgpLock)
-            {
-                frameId = _tgpFrameId;
-                return _tgpJpg;
-            }
-        }
+        public static void PushTgpFrame(byte[] jpg) => TgpMjpegHandler.PushFrame(jpg);
+        public static void ClearTgpFrame() => TgpMjpegHandler.ClearFrame();
 
         // Called from Unity main thread when a mission ends — clears all per-mission state so
         // the client drops back to "no mission" and wipes its display. Icons are static

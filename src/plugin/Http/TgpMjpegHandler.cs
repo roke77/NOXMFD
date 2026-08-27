@@ -15,6 +15,32 @@ namespace NOXMFD
         private static int _subscribers;
         internal static bool WantsFrames => Volatile.Read(ref _subscribers) > 0;
 
+        // Latest TGP camera frame as a JPEG, refreshed from TgpFeed.
+        // The frame id lets each MJPEG client only send when it changes.
+        private static byte[]? _latestJpg;
+        private static long _frameId;
+        private static readonly object _frameLock = new object();
+
+        internal static void PushFrame(byte[] jpg)
+        {
+            if (jpg == null || jpg.Length == 0) return;
+            lock (_frameLock) { _latestJpg = jpg; _frameId++; }
+        }
+
+        internal static void ClearFrame()
+        {
+            lock (_frameLock) { _latestJpg = null; _frameId++; }
+        }
+
+        private static byte[]? GetFrame(out long frameId)
+        {
+            lock (_frameLock)
+            {
+                frameId = _frameId;
+                return _latestJpg;
+            }
+        }
+
         // Long-lived multipart/x-mixed-replace response. Browsers render this directly in an <img>
         // tag — when a new JPEG is written, the image swaps in place.
         internal static async Task HandleAsync(HttpListenerContext ctx, CancellationToken ct)
@@ -45,12 +71,12 @@ namespace NOXMFD
             bool coldStartLogged = false;
             try
             {
-                byte[]? initialJpg = TelemetryServer.GetTgpFrame(out _);
+                byte[]? initialJpg = GetFrame(out _);
                 if (initialJpg == null) await WritePart(TelemetryServer.TgpPlaceholderJpg).ConfigureAwait(false);
 
                 while (!ct.IsCancellationRequested)
                 {
-                    byte[]? jpg = TelemetryServer.GetTgpFrame(out long id);
+                    byte[]? jpg = GetFrame(out long id);
 
                     if (!coldStartLogged && jpg != null)
                     {
