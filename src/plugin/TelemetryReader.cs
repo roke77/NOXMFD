@@ -39,11 +39,12 @@ namespace NOXMFD
         private Unit[] _units = Array.Empty<Unit>();
 
         // Contacts are rebuilt at 4 Hz, then reused by the fast snapshots. Own-ship, RWR, and MW stay
-        // on FastInterval; full unit and radar-contact lists are visually fine at map scale at 4 Hz
-        // and include most of PushSnapshot's per-unit work.
+        // on FastInterval; full unit, radar, and HSD datalink contact lists are visually fine at map
+        // scale at 4 Hz and include most of PushSnapshot's per-unit work.
         private Aircraft? _contactAircraft;
         private UnitInfo[] _cachedUnits = Array.Empty<UnitInfo>();
         private RdrContact[] _cachedRdr = Array.Empty<RdrContact>();
+        private HsdContact[] _cachedHsd = Array.Empty<HsdContact>();
         private PitbullContact[] _cachedPitbull = Array.Empty<PitbullContact>();
         private bool _cachedRadarPresent;
         private float _cachedRadarRange;
@@ -842,6 +843,7 @@ namespace NOXMFD
                 RadarRange     = _cachedRadarRange,
                 RadarConeDeg   = _cachedRadarConeDeg,
                 Rdr            = _cachedRdr,
+                Hsd            = _cachedHsd,
                 Pitbull        = _cachedPitbull,
                 RdrMetric      = rdrMetric,
                 RdrLevelTime   = rdrLevelTime,
@@ -898,6 +900,7 @@ namespace NOXMFD
             _contactAircraft = aircraft;
             _cachedUnits = BuildUnits(aircraft);
             _cachedRdr = BuildRdr(aircraft, out _cachedRadarPresent, out _cachedRadarRange, out _cachedRadarConeDeg);
+            _cachedHsd = BuildHsd(aircraft);
             _cachedPitbull = BuildPitbull(aircraft);
         }
 
@@ -1095,6 +1098,7 @@ namespace NOXMFD
 
         private readonly List<RdrContact> _rdrBuf = new List<RdrContact>(32);
         private readonly HashSet<Unit> _rdrSeenScratch = new HashSet<Unit>();
+        private readonly List<HsdContact> _hsdBuf = new List<HsdContact>(64);
 
         // Reflection handle for Radar's private cone half-angle (degrees). Cached once — it's a
         // SerializeField baked per radar prefab, so it never changes at runtime.
@@ -1187,6 +1191,49 @@ namespace NOXMFD
             }
 
             return _rdrBuf.Count == 0 ? Array.Empty<RdrContact>() : _rdrBuf.ToArray();
+        }
+
+        // HSD (docs/rdr-fcr-hsd.md): enemy aerial contacts known to the player's faction, without
+        // applying the own-radar cone/range limits that shape the FCR B-scope.
+        private HsdContact[] BuildHsd(Aircraft player)
+        {
+            var playerHQ = player.NetworkHQ;
+            if (playerHQ == null) return Array.Empty<HsdContact>();
+
+            List<Unit> targets = player.weaponManager != null ? player.weaponManager.GetTargetList() : null;
+            bool hasTargets = targets != null && targets.Count > 0;
+            List<Unit> radarTargets = player.radar != null ? player.radar.detectedTargets : null;
+            bool hasRadarTargets = radarTargets != null && radarTargets.Count > 0;
+
+            _hsdBuf.Clear();
+            foreach (Unit u in _units)
+            {
+                if (u == null || u.disabled || ReferenceEquals(u, player)) continue;
+
+                UnitDefinition def = u.definition;
+                if (def == null || def.typeIdentity.air <= 0.5f) continue;
+
+                var hq = u.NetworkHQ;
+                if (hq == null || hq == playerHQ) continue;
+                bool radarDetected = hasRadarTargets && radarTargets.Contains(u);
+                bool datalinkKnown = playerHQ.TryGetKnownPosition(u, out GlobalPosition gp);
+                if (!datalinkKnown && !radarDetected) continue;
+                if (!datalinkKnown) gp = u.GlobalPosition();
+
+                _hsdBuf.Add(new HsdContact
+                {
+                    Id       = u.persistentID.Id,
+                    X        = gp.x,
+                    Z        = gp.z,
+                    Alt      = gp.y,
+                    Heading  = u.transform.eulerAngles.y,
+                    Targeted = hasTargets && targets.Contains(u),
+                    Radar    = radarDetected,
+                    Datalink = datalinkKnown,
+                    Name     = RwrLabel(u)
+                });
+            }
+            return _hsdBuf.Count == 0 ? Array.Empty<HsdContact>() : _hsdBuf.ToArray();
         }
 
         // Player's own AA missiles that have gone pitbull (RDR page, issue #40): active-radar (ARH)

@@ -1,12 +1,18 @@
-# RDR page
+# RDR/FCR page
 
-A new NAV item, **RDR**, showing the live air contacts the player's *own onboard radar*
-is currently detecting. If the player's aircraft has no radar, the page shows a
-`— not available —` placeholder instead.
+This page is now the **FCR** member of the RDR hub group. It remains served at `/rdr` and still uses
+the `rdr` action so existing layout state and controls continue to work. The sibling HSD page is
+tracked in [RDR hub — FCR and HSD pages](rdr-fcr-hsd.md).
 
-Scope for this first pass: **air-only** contacts (aircraft/missiles that are `air`), sourced
-**only** from the local aircraft's radar — not the faction datalink, not RWR, not visual/IR
-sensors. This is deliberately narrower than TGT (which shows the whole shared target picture).
+The **FCR** sibling shows the live air contacts the player's *own onboard radar*
+is currently detecting, plus purple datalink-only air contacts that the shared faction picture knows
+about but the radar is not painting. If the player's aircraft has no radar, the page shows a
+`— not available —` placeholder for the FCR picture instead.
+
+Current scope: **air-only** contacts (aircraft/missiles that are `air`), colored by source — see the
+note under "Layout — locked" below for where the color scheme is documented now. It still ignores
+RWR and visual/IR-only detections. This is deliberately narrower than TGT (which shows the whole
+shared target picture).
 
 ## Feasibility — explored, confirmed viable
 
@@ -55,9 +61,11 @@ not per frame. (This matches how a real radar display sweeps, so it's a feature,
 
 ## Layout — locked (F-16 FCR B-scope)
 
-Imitates the F-16 Fire Control Radar B-scope, drawn in the page's native green-on-black
-(`--no-green` contacts, smoked-white grid, `--no-amber` for the locked target), same SVG-scope
-approach as RWR but **rectangular** instead of polar.
+Imitates the F-16 Fire Control Radar B-scope, same SVG-scope approach as RWR but **rectangular**
+instead of polar. The color specifics below (own-radar contact color, and what happens when more
+than one target is locked) predate the later HSD sibling work and are superseded by
+[RDR hub — FCR and HSD pages](rdr-fcr-hsd.md) and [man/rdr.md](../man/rdr.md) — kept here as the
+original design record rather than rewritten in place.
 
 - **Frame:** ownship implied at bottom-center (white caret). Horizontal axis = relative bearing
   off the nose; vertical axis = range, 0 at ownship → max at top.

@@ -25,6 +25,7 @@
     afm:  '/afm',
     rwr:  '/rwr',
     rdr:  '/rdr',
+    hsd:  '/hsd',
     tgt:  '/tgt',
     hud:  '/hud',
     akf:  '/akf',
@@ -56,6 +57,7 @@
     wpn:  '/wpn?bare',
     rwr:  '/rwr?bare',
     rdr:  '/rdr?bare',
+    hsd:  '/hsd?bare',
     tgt:  '/tgt?bare',
     akf:  '/akf?bare',
     bdf:  '/bdf?bare',
@@ -84,6 +86,7 @@
     afm:  '/afm',   // reuses the avn feed — see PAGE_FEEDS in f35.js
     rwr:  '/rwr',
     rdr:  '/rdr',
+    hsd:  '/hsd',
     tgt:  '/tgt',
     tgp:  '/tgp',
     wpn:  '/wpn',

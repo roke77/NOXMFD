@@ -2,15 +2,18 @@
 /* Cursor matches the PAD acquisition gate's two-bar look (rdr.js drawCursor: bar separation 2*CUR_GAP=28, bar height 2*CUR_H=18). Hotspot (18,13) is the gate's centre. */
 .rdr-panel {
   position: relative; width: 100%; height: 100%;
-  cursor: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzNiIgaGVpZ2h0PSIyNiIgdmlld0JveD0iMCAwIDM2IDI2Ij48bGluZSB4MT0iNCIgeTE9IjQiIHgyPSI0IiB5Mj0iMjIiIHN0cm9rZT0iIzM5ZmYxNCIgc3Ryb2tlLXdpZHRoPSIzIi8+PGxpbmUgeDE9IjMyIiB5MT0iNCIgeDI9IjMyIiB5Mj0iMjIiIHN0cm9rZT0iIzM5ZmYxNCIgc3Ryb2tlLXdpZHRoPSIzIi8+PC9zdmc+") 18 13, crosshair;
+  cursor: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzNiIgaGVpZ2h0PSIyNiIgdmlld0JveD0iMCAwIDM2IDI2Ij48bGluZSB4MT0iNCIgeTE9IjQiIHgyPSI0IiB5Mj0iMjIiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSIzIi8+PGxpbmUgeDE9IjMyIiB5MT0iNCIgeDI9IjMyIiB5Mj0iMjIiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSIzIi8+PC9zdmc+") 18 13, crosshair;
 }
 .rdr-scope { display: block; width: 100%; height: 100%; }
 .rdr-scope text { font-family: var(--no-font); }
 
-.rdr-hdr  { fill: var(--no-green); font-size: 22px; letter-spacing: 1px; }
+.rdr-hdr  { fill: var(--no-white); font-size: 22px; letter-spacing: 1px; }
 .rdr-az   { fill: var(--no-green-dim); font-size: 15px; }
 .rdr-read { fill: var(--no-amber); font-size: 16px; }
 .rdr-read.big { font-size: 19px; letter-spacing: 0.5px; }
+/* LOCK count is a plain status readout, not the focused target's own data (rdr-r1/rdr-r2 keep
+   .rdr-read's amber, tying them visually to the focused-lock color) — white like RWS/range above. */
+#rdr-lk   { fill: var(--no-white); }
 
 /* Invisible element pad-cursor.js moves in panel px; visible gate drawn in #rdr-cursor-g (viewBox units) so it scales with contact bricks. */
 .rdr-cursor { position: absolute; top: 0; left: 0; width: 24px; height: 24px; pointer-events: none; display: none; }
