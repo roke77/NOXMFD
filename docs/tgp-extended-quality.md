@@ -2,9 +2,12 @@
 
 ## Status
 
-Implementation is active on `tgp-extended-high-quality`.
+Implemented and merged to `main`. The current TGP CFG page exposes independent LOW/MID/HIGH
+resolution and JPEG-quality controls, and the current manuals/screenshots exercise the shipped
+UI and mirror feed. Controlled performance, endpoint-quality, long-flight, and allocation
+validation remains open below.
 
-Implemented in the first pass:
+Implemented:
 
 - LOW/MID/HIGH resolution tiers at native 360x240, 720x480, and 1080x720;
 - independent JPEG LOW/MID/HIGH values at 30, 50, and 90;
@@ -550,11 +553,12 @@ Defer until 1080x720 plus worker encoding has measured headroom.
   per frame.
 - Measure all nine combinations before adding a quality-dependent refresh-rate clamp.
 
-## Remaining decisions and live verification
+## Decisions and remaining live verification
 
 1. Confirm JPEG 30 and 90 visually; adjust the endpoints if they are too destructive or too large.
-2. Decide whether HIGH gets a hard 15 Hz ceiling, a stronger warning only, or an automatically
-   suggested lower rate. Do not silently change the user's rate without explicit UI feedback.
+2. **Resolved:** keep the user-selectable 60 Hz ceiling and show explicit warnings above 15 Hz,
+   for MID/HIGH resolution, for HIGH JPEG quality, and for the HIGH/HIGH combination. Do not
+   silently change the user's rate.
 3. Decide how long to retain legacy `tgpQuality` command/telemetry aliases.
 4. Verify raw pixel channel order and colour space after the switch from Texture2D encoding to the
    array encoder on the actual Direct3D runtime.
@@ -567,9 +571,9 @@ Defer until 1080x720 plus worker encoding has measured headroom.
 ## References
 
 - `src/plugin/TgpFeed.cs` — current readback, IR and JPEG pipeline.
-- `src/plugin/TgpMirrorCam.cs` — current 720x480 mirror camera.
+- `src/plugin/TgpMirrorCam.cs` — current 720x480/1080x720 mirror camera.
 - `src/plugin/RatesConfig.cs` — existing rate/quality persistence.
-- `src/web/pages/tgpcfg/` — current LOW/HIGH picker.
+- `src/web/pages/tgpcfg/` — current LOW/MID/HIGH resolution and JPEG-quality pickers.
 - `docs/tgp-high-quality-mode.md` — mirror-camera design and historical alternatives.
 - `docs/performance.md` — live TGP readback/encode measurements.
 - Unity 2022.3 `ImageConversion.EncodeToJPG` documentation — quality range and Texture2D encoder.

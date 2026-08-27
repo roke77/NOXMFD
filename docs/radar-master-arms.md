@@ -1,11 +1,12 @@
 # Radar & Master Arms — [issue #32](https://github.com/roke77/NOXMFD/issues/32)
 
-**Branch:** `radar-master-arms`. **Status:** built and partly in-game tested. First real play-test
-caught the Radar spawn-default bug (see the Radar section below) — fixed. RDR was also found missing
-from the F-35 layout's MAIN list (a pre-existing gap unrelated to this feature, fixed in passing).
-4 of 5 A/A missile names are now confirmed against real session logs (see Decisions confirmed) —
-only `IRM-S1` remains provisional. Still remaining before merge: verify the Radar fix, Engine, all
-eight keybinds, Master Arms enforcement, and combat-mode filtering in-game.
+**Status:** merged to `main` and partly in-game tested. The first real play-test caught the Radar
+spawn-default bug (see the Radar section below) — fixed. RDR was also found missing from the F-35
+layout's MAIN list (a pre-existing gap unrelated to this feature, fixed in passing). Combat-mode
+HUD filtering was later tested in-game and one bug was fixed. Four of five A/A missile names are
+confirmed against real session logs (see Decisions confirmed); only `IRM-S1` remains provisional.
+The remaining live matrix is the Radar fix, Engine behavior, all eight keybinds, Master Arms
+enforcement, and weapon-selection combat-mode filtering.
 
 ## Goal
 

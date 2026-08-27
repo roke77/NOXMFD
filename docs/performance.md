@@ -3,10 +3,11 @@
 ## Status
 
 **Mixed — historical investigation with shipped fixes, plus open follow-ups tracked below.**
-Items #A/#1/#2 shipped (see "Status (as of the #A/#1/#2 work)" further down); items #4/#5 remain
-deliberately deferred; items #6/#7/#8 (added 2026-08-20) are open. Triggered originally by observed
-symptoms in a high-activity match: noticeable lag in the RWR and MAP displays, plus a noticeable
-in-game FPS hit. Both scale with unit count, which is why a busy furball hits them at the same time.
+Items #A/#1/#2/#6 shipped (see "Status (as of the #A/#1/#2 work)" and the later TGP sections);
+items #4/#5 remain deliberately deferred; items #7/#8 (added 2026-08-20) are open. Triggered
+originally by observed symptoms in a high-activity match: noticeable lag in the RWR and MAP
+displays, plus a noticeable in-game FPS hit. Both scale with unit count, which is why a busy
+furball hits them at the same time.
 
 ## The key insight
 
@@ -207,7 +208,7 @@ split noted in Finding 2 below.
 | 4 | Split rates: contacts ~3–4 Hz; RWR/MW + own-ship 10 Hz | both | M | Cuts redraw cost; modest server win | optional |
 | 5 | rAF-coalesce client redraw + off-screen contact cull | client | S | Smoother when zoomed in | optional |
 | ~~3~~ | ~~Reuse buffers / eliminate 10 Hz `.ToArray()` churn~~ | — | — | **Dropped** — BuildUnits measured at 0.08 ms; not a bottleneck | dropped |
-| 6 | Cap the TGP slider below 30 Hz (or add an in-UI cost warning near it), or move toward render-on-demand | client+plugin | S–M | **Closes the one confirmed-and-measured, still-unfixed cost** — see the GPU/TGP section above | open |
+| 6 | Warn about the measured TGP cost above 15 Hz and expensive resolution/quality combinations | client+plugin | S–M | Keeps experimental rates reachable without hiding their measured cost | **DONE** — warnings ship on TGP CFG; the slider remains user-selectable up to 60 Hz |
 | 7 | Throttle `HudWaypointCue`'s readout rebuild (skip the `Text.text` write when rounded values haven't changed, or gate to ~5–10 Hz) | main thread | XS | Removes 60 Hz string alloc + Unity UI layout-dirty churn | open |
 | 8 | Extend #1's fix to `drawTargetBox` and the waypoint markers (two-stroke glow like `drawRwrLines`, or bake into a cached canvas) | client | XS | Removes the two live-`shadowBlur` spots #1 missed | open |
 

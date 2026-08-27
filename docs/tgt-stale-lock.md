@@ -11,12 +11,14 @@ just the stale locks.
 
 ## The game's own distinction (decompiled reference, `_scratch/full/`)
 
-- **`FactionHQ.IsTargetPositionAccurate(target, threshold)`** ([FactionHQ.cs](../_scratch/full/FactionHQ.cs))
+- **`FactionHQ.IsTargetPositionAccurate(target, threshold)`** (`_scratch/full/FactionHQ.cs`, local
+  decompilation reference; not committed)
   is stricter than the freshness check `Datalink` already uses (`TrackingInfo.Observed()`, < 4s since
   last sensed). It returns `true` immediately while fresh, but once stale it falls back to comparing
   the target's **actual current position** (server-authoritative) against the last-known relayed one:
   still within `threshold` metres → still trusted; drifted past it → not trusted.
-- **`TargetScreenUI`** ([TargetScreenUI.cs:207](../_scratch/full/TargetScreenUI.cs)) calls this with a
+- **`TargetScreenUI`** (`_scratch/full/TargetScreenUI.cs`, local decompilation reference; not
+  committed) calls this with a
   20m threshold to decide whether a locked target's TGP box gets the normal sprite or `outdatedSprite`
   (the "?"). NO XMFD reuses the same 20m so its STALE flag lines up with what the pilot would see in
   the real TGP.

@@ -2,8 +2,8 @@
 
 ## Status
 
-**Built (`extensions-api`, off `feature/rc-missile-camera`) and proven by a real, fully
-external extension.** Five surfaces have a working implementation — page serving, telemetry
+**Built, merged to `main`, and proven by a real, fully external extension.** Five surfaces have a
+working implementation — page serving, telemetry
 publishing (the normal 10 Hz slice; the high-rate SSE-event variant exists server-side but
 nothing subscribes to it yet, see Deferred), command registration, the EXT nav fold, and a
 fifth added specifically because RC needed it: a continuous MJPEG video feed

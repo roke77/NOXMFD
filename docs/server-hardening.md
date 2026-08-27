@@ -126,5 +126,5 @@ outside what `docs/csharp-unit-testing.md`'s plan lands).
 - [ ] Extract command endpoint/queue
 - [ ] Extract SSE/session hub (verify frame-version cache threading and SOI lifetime survive the move)
 - [ ] Extract the MJPEG handler after the SSE pattern is clear
-- [ ] One-line SECURITY.md note once the method/size hardening ships (not a trust-model change, just
+- [x] One-line SECURITY.md note once the method/size hardening ships (not a trust-model change, just
       documents that these two checks now exist)

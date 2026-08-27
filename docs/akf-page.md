@@ -2,7 +2,7 @@
 
 ## Status
 
-**Implemented and in-game verified** (branch `advanced-kill-feed`, ticket
+**Implemented on `main` and in-game verified** (original branch `advanced-kill-feed`, ticket
 [#34](https://github.com/roke77/NOXMFD/issues/34)). Confirmed across several
 live sessions: the kill-message and weapon-attribution Harmony patches fire
 correctly on real kills (including the AGM-48 salvo/gun-kill investigation

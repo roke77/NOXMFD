@@ -256,8 +256,9 @@ These were discussed and remain good future work:
 - Extract command queue/body handling into a focused command endpoint first.
 - Extract an SSE/session hub after the command endpoint settles.
 - Consider the MJPEG handler after the SSE split establishes the long-lived-response pattern.
-- Clean process/history comments from production code.
-- Update stale planning docs after execution.
+
+The production-comment cleanup and a planning-doc status refresh have since landed. The three
+backend extractions above remain the current ordered structural work.
 
 ## Folder Architecture Suggestions
 

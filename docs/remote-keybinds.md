@@ -1,8 +1,8 @@
-# Remote keybind listening from a second browser (planning)
+# Remote keybind listening from a second browser
 
 ## Status
 
-**V1 built on `remote-keybinds`.** Requested after a player asked about a two-person cockpit setup —
+**V1 built and merged to `main`.** Requested after a player asked about a two-person cockpit setup —
 one person flying, a second person ("WSO," weapons systems officer) connected to NOXMFD from a
 separate device over the LAN, working MAP/TGT/weapon-selection. That's the scenario that
 surfaced the idea, but the feature itself is generic: **any** browser, on any device, opting in to

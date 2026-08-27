@@ -11,13 +11,11 @@ otherwise not started — see the Scope checklist.
 
 ## The problem
 
-No C# test harness exists anywhere in this repo. Every one of the 28 files in `src/plugin/`
-(count as of the `tgp-extended-high-quality` branch — this rises as features land, and isn't
-re-verified on every touch of this doc) is verified today by `dotnet build` (compiles, 0 errors)
-plus a manual in-game checklist — the same
-norm this codebase already applies to any Harmony/game-object-dependent class. That's a reasonable
-default for code that genuinely can't run outside Unity, but a real share of the plugin isn't that
-kind of code — it just hasn't been separated from the kind that is.
+The standalone `tools/tests/` xUnit project covers the plugin's pure, Unity-free seams by compiling
+those source files directly. Most `src/plugin/` files still rely on `dotnet build` plus a manual
+in-game checklist because they reflect into live Unity/game objects. That's a reasonable default
+for code that genuinely can't run outside Unity, while the remaining checklist below identifies
+business logic that can still be separated and tested safely.
 
 ## Why a blanket refactor is the wrong shape
 
@@ -27,8 +25,7 @@ why that's not the plan: several files — `HarmonyPatches.cs`, `AssetCapture.cs
 *are* the Unity/game integration seam by design. There's no business rule hiding inside a Harmony
 prefix that just returns `ImmersionState.MasterArmsOn`, or inside a GPU capture pipeline
 (Blit → AsyncGPUReadback → JPEG). Refactoring those for testability would move code around for
-zero testing benefit, on a codebase with no existing test safety net to catch a mistake — real risk
-for no payoff.
+zero testing benefit and add risk without expanding meaningful coverage.
 
 The other files split differently: some already have zero Unity coupling and just need tests
 written against them today; others have real, extractable business logic sitting mixed in with a

@@ -1,6 +1,6 @@
 # TGT: telling datalink-only locks apart — [issue #29](https://github.com/roke77/NOXMFD/issues/29)
 
-**Branch:** `tgt-datalink-cancel`. **Status:** built, `serve_web`-harness verified. Not yet tested in-game.
+**Status:** implemented on `main` and `serve_web`-harness verified. Not yet tested in-game.
 
 ## Goal
 

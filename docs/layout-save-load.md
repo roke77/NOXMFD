@@ -2,7 +2,8 @@
 
 ## Status
 
-Shipped on branch `feature/layout-save-load` (uncommitted). [Issue #51](https://github.com/roke77/NOXMFD/issues/51).
+Merged to `main` and harness-verified. Real plugin persistence across a full game restart remains
+the one unverified runtime check. [Issue #51](https://github.com/roke77/NOXMFD/issues/51).
 
 ## The problem
 

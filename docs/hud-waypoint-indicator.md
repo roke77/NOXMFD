@@ -2,8 +2,8 @@
 
 ## Status
 
-Design A is implemented on branch `hud-waypoint-indicator`, no ticket filed,
-with route storage fully owned by the plugin (Option 2, below — not the
+Design A is implemented and merged to `main`, with route storage fully owned by the plugin
+(Option 2, below — not the
 Option 1 mirror this doc originally shipped with). Design B (a cloned
 `ObjectiveOverlay`) is not built. The build is clean and the web self-checks
 pass; the cue's absolute placement on the tape is **not yet verified

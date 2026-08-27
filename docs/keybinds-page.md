@@ -148,9 +148,9 @@ same machine can send the same keypress twice.
 
 # SOI (sensor of interest)
 
-**Status: working on the `soi` branch, classic layout.** All five binds, the focus ring and the
-cursor are in. Not done: focus is per display rather than per pane, pages whose controls live
-inside their iframe can be reached but not operated, and the F-35 has no cursor of its own.
+**Initial stage (historical): implemented on the classic layout.** All five binds, the focus ring,
+and the cursor landed here. The per-display limitations described in this section are resolved by
+the surface-level implementation below.
 
 Borrowed from DCS: one display at a time is the *sensor of interest*, and a fixed set of
 HOTAS keys drives whichever display that is. Here a "display" is one MFD instance — a
@@ -338,10 +338,10 @@ layout-agnostic and carries over unchanged.
   from the one it just left. A brief marker on every display when the target changes is cheap, if
   it turns out to be missed.
 
-## Planned: surface-level focus (Option B) — the F-35, and the split done right
+## Surface-level focus (Option B) — the F-35, and the split done right
 
-**Status: on the `soi-surfaces` branch — all three steps built.** Server, classic per-pane client,
-and F-35 portal client are done; SOI now works in both layouts, per surface.
+**Status: implemented and merged to `main`.** Server, classic per-pane client, and F-35 portal
+client are done; SOI works in both layouts, per surface.
 
 Today the unit of SOI focus is an *instance* (a `cid` = one document). That already strains the
 classic split — the whole screen rings and the cursor walks *both* panes as one flat list — and it

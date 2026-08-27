@@ -1,6 +1,6 @@
 # HUD presets — [issue #50](https://github.com/roke77/NOXMFD/issues/50) follow-up
 
-**Status:** built, not yet in-game tested. The plugin's own build (`dotnet build -c Release`, 0
+**Status:** merged to `main`, not yet in-game tested. The plugin's own build (`dotnet build -c Release`, 0
 errors) and the harness (`tools/serve_web.py`) both exercise the full save/load/rename/delete
 round-trip; applying a preset onto the live `HUDOptions` singleton itself is only testable in game.
 

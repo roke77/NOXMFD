@@ -1,7 +1,8 @@
 # PAD cursor for TGT/HUD — reusing MAP's crosshair on DOM pages
 
-**Branch:** none — working directly on `main`. **Status:** built, `serve_web`-harness verified.
-Not yet tested in-game.
+**Status:** implemented on `main` and `serve_web`-harness verified. The later manual-TGP work
+exercises the shared PAD-cursor transport in game; MAP-specific visual glide/edge-panning and the
+TGT/HUD page behavior still need their dedicated in-game checks below.
 
 ## Goal
 

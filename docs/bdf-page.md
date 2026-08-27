@@ -23,8 +23,8 @@ Both are fixed identities, not "mine vs the enemy's" — an earlier "current vs
 other" design was tried first and shipped in 0.16.0, but an in-game test
 playing as Primeva showed it swapped BDF/PAL's content with the side you're
 on, which reads as a bug against labels that name a specific faction. Fixed
-to resolve both by fixed name instead; verified in the `serve_web` harness,
-a real in-game re-test (as Primeva) still outstanding.
+to resolve both by fixed name instead; verified in the `serve_web` harness
+and live in-game with real Boscali/Primeva faction data on 2026-08-22.
 
 ## What the in-game BDF page is
 

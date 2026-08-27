@@ -1,10 +1,10 @@
-# TGP — optional high-quality mode (planning)
+# TGP — optional high-quality mode
 
 ## Status
 
-**Shipped**, on the `tgp-hq-mirror-camera` / `tgp-hq-overlay` / `tgp-hq-lockbox` / `tgp-hq-ir`
-branch stack (menu entry #3 below, plus the overlay and IR follow-ups this doc left as open
-questions). Kept as a historical record of the planning, per this repo's convention for `docs/`
+**Shipped on `main`** from the `tgp-hq-mirror-camera` / `tgp-hq-overlay` / `tgp-hq-lockbox` /
+`tgp-hq-ir` branch stack (menu entry #3 below, plus the overlay and IR follow-ups this doc left as
+open questions). Kept as a historical record of the planning, per this repo's convention for `docs/`
 design docs. See "What actually shipped" for how the real implementation diverged from this plan,
 and "Open questions" for which ones are now resolved.
 

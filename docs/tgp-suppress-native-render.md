@@ -2,7 +2,7 @@
 
 ## Status
 
-**Implemented on `tgp-suppress-native-render`, with one known visual race still open.** Config,
+**Implemented on `main`, with one known visual race still open.** Config,
 TGP CFG UI, `/rates-config`, `rates.set`, and `TgpFeed` integration are built and have been
 live-tested in LOW/native and HIGH/HQ modes (the two tiers that existed at the time — see
 [`tgp-extended-quality.md`](tgp-extended-quality.md) for the later MID/HIGH split). The suppress
