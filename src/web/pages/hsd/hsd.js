@@ -117,11 +117,12 @@ function radarConePath(rangeM, radarRange, radarCone) {
 }
 
 // `focused` distinguishes the one locked target the bottom readout currently describes from any
-// other simultaneous lock (a planned cycling-locked-targets follow-up, docs/rdr-fcr-hsd.md) —
-// only the focused one's icon is amber; any other lock still reads red (its ring stays amber
-// regardless, drawn by the caller).
+// other simultaneous lock (a planned cycling-locked-targets follow-up, docs/rdr-fcr-hsd.md) — only
+// the focused one's icon goes amber. Any other contact's color is purely its source regardless of
+// lock state: an unfocused lock keeps its ordinary red/purple, since its ring (drawn by the
+// caller) is what shows it's still locked, not its icon.
 function contactColor(c, focused) {
-  if (c && c.tg) return focused ? AMBER : RED;
+  if (focused) return AMBER;
   if (c && c.rd) return RED;
   return HSD_PINK;
 }

@@ -11,13 +11,12 @@ var DEF_CONE = 60;                             // fallback azimuth half-angle wh
 // scope's range unit; M_TO_FT is the plain metres->feet factor UnitConverter.AltitudeReading uses.
 var M_PER_NM = 1852, M_PER_KM = 1000, M_TO_FT = 3.28084;
 
-// Mirror theme.css's --no-green/--no-red/--no-amber/--no-purple/--no-blue — SVG string-building
+// Mirror theme.css's --no-white/--no-red/--no-amber/--no-purple/--no-blue — SVG string-building
 // here can't use CSS var(), so these are plain literals kept in sync by hand.
-// GREEN is the PAD cursor gate's own color (drawCursor/bar below) — unrelated to contact source
-// color, which used to also be GREEN for "own radar detected it" until enemy-air contacts moved
-// to RED (dropping green there in case friendlies are ever added, at which point green would be
-// free to mean "friendly" instead of being reused for two different things).
-var GREEN = '#39ff14', RED = '#ff4040', AMBER = '#ffaa00', PURPLE = 'rgb(179, 136, 255)';
+// CURSOR_WHITE is the PAD cursor gate's own color (drawCursor/bar below), matching HSD's own
+// cursor — unrelated to contact source color, which used to be green for "own radar detected it"
+// until enemy-air contacts moved to RED (dropping green there in case friendlies are ever added).
+var CURSOR_WHITE = '#e6ebef', RED = '#ff4040', AMBER = '#ffaa00', PURPLE = 'rgb(179, 136, 255)';
 var BLUE = '#4d9fff';   // pitbull missile triangle fill (issue #40) — the "this is MY missile" cue,
                          // distinct from RWR's inbound-threat red/yellow
 var state = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, items: [], pb: [] };
@@ -150,7 +149,7 @@ function drawCursor(px, py) {
 function bar(x, y) {
   return '<line x1="' + x.toFixed(1) + '" y1="' + (y - CUR_H).toFixed(1) +
          '" x2="' + x.toFixed(1) + '" y2="' + (y + CUR_H).toFixed(1) +
-         '" stroke="' + GREEN + '" stroke-width="3"/>';
+         '" stroke="' + CURSOR_WHITE + '" stroke-width="3"/>';
 }
 
 // Move the gate and highlight the contact under the cursor (or clear both when it leaves/hides).
@@ -205,12 +204,13 @@ function renderContacts() {
     // explicitly now so the color logic below can tell it apart from any other simultaneous lock.
     var focused = locked && !first;
     if (focused) first = c;
-    // Source colour: the FOCUSED lock (readout's own target) is amber, same as its ring below. Any
-    // other simultaneous lock reads the same red an unlocked own-radar contact would — still
-    // locked (its ring stays amber either way), just not the one currently being read out.
-    // Own-radar red (not green) frees green to mean "friendly" if that's ever added; datalink-only
-    // (not currently painted by the player's own radar) = purple (matching TGT's DATALINK button).
-    var col = focused ? AMBER : ((locked || c.radar) ? RED : PURPLE);
+    // Source colour: the FOCUSED lock (readout's own target) is amber — otherwise a contact's
+    // color is purely its source, whether locked or not: own-radar red (own radar detected this
+    // enemy; not green, which stays free to mean "friendly" if that's ever added), datalink-only
+    // (not currently painted by the player's own radar) = purple, matching TGT's DATALINK button.
+    // An unfocused lock therefore keeps its ordinary source color — its ring (drawn below) is what
+    // shows it's still locked, not its icon.
+    var col = focused ? AMBER : (c.radar ? RED : PURPLE);
     // Hover highlight: a soft ring under whatever the cursor is nearest (docs/rdr-page.md).
     if (c.id === hoveredId)
       out += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) +

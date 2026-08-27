@@ -232,8 +232,9 @@ focused, not built yet):
 
 - **Focused lock** — the one the bottom readout currently describes. Icon amber, ring amber.
 - **Any other simultaneous lock** — still part of the target set, but not what's being read out
-  right now. Icon red (the same red an unlocked own-radar contact uses), ring stays amber — the
-  ring is "this is locked," independent of which lock is focused.
+  right now. Icon keeps its ordinary source color (red if own-radar, purple if datalink-only —
+  same as an unlocked contact of that source), ring stays amber — the ring is "this is locked,"
+  independent of which lock is focused or what detected it.
 
 Until a real focus field exists, "focused" is simply the first locked contact each page's own
 render loop encounters, matching the bottom readout's existing behavior exactly (`rdr.js`'s
