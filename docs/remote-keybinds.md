@@ -238,7 +238,7 @@ arbitrates.
 1. **`CommandDispatcher` additions** — one entry each for cycle guns/missiles/bombs, flares/jammer,
    dedicated gear up/down, MAP/TGT highlight nav, one-shot SOI nav up/down/select, and cursor
    edge/held-state commands, plus `fire.set` for the remote fire held-state holder. These call the
-   existing method or state holder, making helpers `internal` where they were previously `private`.
+   existing method or `RemoteInputState` holder, making helpers `internal` where they were previously `private`.
 2. **Same-PC detection field** on `/keybinds-config` — compute once per
    request from `ctx.Request.RemoteEndPoint`, compare against loopback + enumerated local
    interface addresses.
