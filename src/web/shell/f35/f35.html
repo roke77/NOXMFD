@@ -123,6 +123,15 @@
       </div>
     </div>
 
+    <!-- WAKE LOCK FAILED (docs/screen-wake-lock.md) — hidden by default, shown for 5s by f35.js's
+         wake controller onError. Sits ahead of the buttons so it never gets clipped by them at a
+         narrow width. -->
+    <span class="ms-wake-error" id="ms-wake-error" role="status" hidden></span>
+    <!-- Screen wake-lock toggle (docs/screen-wake-lock.md), beside fullscreen per the feature's
+         own spec. Same shared controller as the bezel shell's WAKE key (shell/wake-lock.js). -->
+    <button type="button" class="nav-item ms-wake" id="ms-wake" title="Keep screen awake" aria-pressed="false">
+      <span class="ms-wake-icon" aria-hidden="true"></span>
+    </button>
     <!-- Same fullscreen toggle as the bezel's top-key icon (mfd.css .ic-fullscreen), reused here
          since the F-35 shell has no bezel key bank to carry it. -->
     <button type="button" class="nav-item ms-fll" id="ms-fll" title="Fullscreen">
@@ -182,6 +191,7 @@
 <script src="/assets/services/remote-keybinds.js"></script>
 <script src="/assets/shell/layout-keydown.js"></script>
 <script src="/assets/shell/boot-reveal.js"></script>
+<script src="/assets/shell/wake-lock.js"></script>
 <script src="/assets/shell/f35/f35.js"></script>
 </body>
 </html>

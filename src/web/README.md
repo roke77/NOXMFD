@@ -19,6 +19,7 @@ src/web/
             layout-pages.js                               # where each layout mounts each NAV destination
             layout-keydown.js                             # shared SAVE/LOAD LAYOUT keyboard wiring
             boot-reveal.js                                # shared boot loading-bar + typewriter mechanics
+            wake-lock.js  wake-lock.test.js                # screen wake-lock controller (docs/screen-wake-lock.md)
             layout-sticky.test.js                         # the classic⇄f35 redirect handoff — belongs to neither
             layout-coverage.test.js                       # every NAV destination reachable in BOTH layouts
             classic/       mfd.html  mfd.css  mfd.js       # the classic bezel shell (host + router)

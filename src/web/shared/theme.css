@@ -49,6 +49,9 @@
   /* Fullscreen-toggle glyph (four corner brackets), shared by both shells' fullscreen button —
      one token so both stay visually identical. */
   --icon-fullscreen: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' d='M1 5V1H5 M9 1H13V5 M13 9V13H9 M5 13H1V9'/></svg>");
+  /* Screen wake-lock toggle glyph (docs/screen-wake-lock.md), a sun — shared by both shells' wake
+     button the same way --icon-fullscreen is shared by their fullscreen buttons. */
+  --icon-wake: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='4.2' fill='none' stroke='black' stroke-width='1.8'/><path fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' d='M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.5 5.5l2 2M16.5 16.5l2 2M18.5 5.5l-2 2M7.5 16.5l-2 2'/></svg>");
 }
 /* The PAD cursor element itself (docs/page-cursor.md). Moved by transform only, on its own layer
    (will-change), so slewing it never touches the rest of the page — a full page redraw per frame

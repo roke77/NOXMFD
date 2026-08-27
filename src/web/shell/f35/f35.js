@@ -1225,6 +1225,36 @@
     }
   });
 
+  // ── Screen wake-lock (docs/screen-wake-lock.md) ───────────────────────────────────────────
+  // Same shared controller the bezel shell's WAKE key uses (shell/wake-lock.js) — this shell's
+  // .nav-item.on already gives a master-strip button the amber engaged treatment, so no new CSS
+  // state is needed here the way the bezel key needed one.
+  (function () {
+    const wakeButton = document.getElementById('ms-wake');
+    const wakeError = document.getElementById('ms-wake-error');
+    let wakeErrorTimer = null;
+    const wakeController = WakeLock.createController({
+      document: document,
+      storage: (function () { try { return localStorage; } catch (e) { return null; } })(),
+      wakeLock: navigator.wakeLock,
+      createFallback: function () { return WakeLock.createVideoFallback(document); },
+      onState: function (state) {
+        wakeButton.classList.toggle('on', state.enabled);
+        wakeButton.setAttribute('aria-pressed', state.enabled ? 'true' : 'false');
+        wakeButton.title = state.enabled ? 'Allow screen sleep' : 'Keep screen awake';
+      },
+      onError: function (error) {
+        console.error('Wake lock failed:', error);
+        wakeError.textContent = 'WAKE LOCK FAILED';
+        wakeError.hidden = false;
+        if (wakeErrorTimer !== null) clearTimeout(wakeErrorTimer);
+        wakeErrorTimer = setTimeout(function () { wakeError.hidden = true; wakeErrorTimer = null; }, 5000);
+      },
+    });
+    wakeButton.addEventListener('click', function () { wakeController.toggle(); });
+    wakeController.start();
+  })();
+
   // ── SAVE/LOAD LAYOUT — browser-side keyboard shortcuts only, no joystick/HOTAS. ──
   // S saves the glass's current arrangement (F35Glass cells + each portal's page) under a name;
   // L opens a picker of every saved F-35 layout and applies the one clicked. Storage is

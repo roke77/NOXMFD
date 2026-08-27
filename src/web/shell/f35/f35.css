@@ -322,6 +322,37 @@ html, body {
           mask: var(--icon-fullscreen) center/contain no-repeat;
 }
 
+/* WAKE (docs/screen-wake-lock.md) — same button box as FULLSCREEN, beside it per the feature's own
+   spec. .nav-item.on already gives this shell's buttons the amber engaged treatment, so the "on"
+   state needs no rule of its own here (unlike the bezel key, which had no equivalent). */
+.master-strip .ms-wake {
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ms-wake-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  -webkit-mask: var(--icon-wake) center/contain no-repeat;
+          mask: var(--icon-wake) center/contain no-repeat;
+}
+/* WAKE LOCK FAILED — plain alert text, not a boxed chip like the buttons beside it, since it's a
+   transient message rather than a persistent control. --no-red matches the bezel shell's own
+   failure chip (mfd.css .mfd-indicator.error). */
+.ms-wake-error {
+  color: var(--no-red);
+  font-size: 11px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
 /* The telemetry tap. Never seen: the MAP page owns the only EventSource('/stream') and posts the
    derived slices up to its host, so this shell carries a map iframe purely as a data source — even
    though a MAP portal mounts its own map to display. Full-size despite being invisible, so the

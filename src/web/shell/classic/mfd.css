@@ -169,6 +169,16 @@
   }
   .key.icon { width: 36px; height: 30px; }
   .key.sun  { color: #ffffff; }
+  /* WAKE key while the wake-lock preference is on (docs/screen-wake-lock.md) — no other top
+     function key persists an on/off state on the key itself today (PIN's is shown by the PINNED
+     corner chip instead), so this borrows the engaged-amber idiom .overlay-item.on already uses
+     for a persistent choice, applied here to the physical key rather than an overlay label, and
+     the same border+glow shape .key.cursor already uses for a different steady state. */
+  .key.icon.on {
+    border-color: var(--no-amber);
+    color: var(--no-amber);
+    box-shadow: inset 0 1px 0 #62666d, inset 0 -2px 3px rgba(0,0,0,0.4), 0 0 8px var(--no-amber);
+  }
 
   /* Plain square outline */
   .ic-square {
@@ -227,6 +237,15 @@
     background-color: currentColor;
     -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='black' stroke-width='1.5' stroke-linecap='square' stroke-linejoin='round' d='M3 4H10 M8 2L10 4L8 6 M11 10H4 M6 8L4 10L6 12'/></svg>") center/contain no-repeat;
             mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='black' stroke-width='1.5' stroke-linecap='square' stroke-linejoin='round' d='M3 4H10 M8 2L10 4L8 6 M11 10H4 M6 8L4 10L6 12'/></svg>") center/contain no-repeat;
+  }
+  /* Wake-lock icon: the shared sun token (theme.css --icon-wake), same mask idiom as .ic-fullscreen
+     so the F-35 master strip's button (f35.css .ms-wake-icon) shows the identical glyph. */
+  .ic-wake {
+    display: inline-block;
+    width: 14px; height: 14px;
+    background-color: currentColor;
+    -webkit-mask: var(--icon-wake) center/contain no-repeat;
+            mask: var(--icon-wake) center/contain no-repeat;
   }
   /* Wide layout icon: box split into a wide left pane and a narrow right pane */
   .ic-split {
@@ -434,6 +453,13 @@
     letter-spacing: 1px;
     color: var(--no-amber);
     user-select: none;
+  }
+  /* WAKE LOCK FAILED (docs/screen-wake-lock.md) — the one chip in this stack that reports a
+     failure rather than an engaged choice, so it borrows --no-red (the same "alert" token
+     .mfd-status.disconnected already uses) instead of the stack's usual amber. */
+  .mfd-indicator.error {
+    border-color: var(--no-red);
+    color: var(--no-red);
   }
   /* Per-pane "PAGE x/y" chip for MAIN's own pagination (mfd.js renderPaneMainPageInd) — same
      bottom-right spot WPN's #page-ind sits in inside its own framed page, but drawn on the shared

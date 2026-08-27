@@ -1,4 +1,4 @@
-const COUNTS = { 'keys-left': 6, 'keys-right': 6, 'keys-top': 4, 'keys-bottom': 4 };
+const COUNTS = { 'keys-left': 6, 'keys-right': 6, 'keys-top': 5, 'keys-bottom': 4 };
 function addSep(c) { const s = document.createElement('div'); s.className = 'sep'; c.appendChild(s); }
 function addKey(c) { const b = document.createElement('button'); b.className = 'key'; b.type = 'button'; c.appendChild(b); }
 
@@ -33,10 +33,11 @@ const layoutIcons = [
   { cls: 'ic-lr23',   title: 'Split left/right 2:1', action: 'vwsplit' },   // V_WIDE_SPLIT (2:1)
 ];
 const functionIcons = [
-  { cls: 'ic-hide-shell', title: 'Hide shell', action: 'hide-shell' },
-  { cls: 'ic-fullscreen', title: 'Fullscreen', action: 'fll' },
-  { cls: 'ic-pin',        title: 'Pin',        action: 'pin' },
-  { cls: 'ic-swap',       title: 'Swap',       action: 'swap' },
+  { cls: 'ic-hide-shell', title: 'Hide shell',         action: 'hide-shell' },
+  { cls: 'ic-fullscreen', title: 'Fullscreen',         action: 'fll' },
+  { cls: 'ic-pin',        title: 'Pin',                action: 'pin' },
+  { cls: 'ic-swap',       title: 'Swap',               action: 'swap' },
+  { cls: 'ic-wake',       title: 'Keep screen awake',  action: 'wake' },
 ];
 function applyIconBank(bankName, icons) {
   icons.forEach(function(icon, i) {
@@ -1189,6 +1190,38 @@ let indicatorOrder = [];   // ['pinned'] — kept a list, since the stack is bui
 // press return there. Cleared whenever the pin itself changes (re-pin or unpin) since
 // the partner relationship is tied to the current pin.
 let swapPartner   = null;
+// WAKE LOCK FAILED text (docs/screen-wake-lock.md) — set by the wake controller's onError below,
+// cleared by its own 5s timer or by renderIndicators() the next time it's re-rendered false.
+let wakeLockError = '';
+let wakeLockErrorTimer = null;
+
+// Screen wake-lock toggle (docs/screen-wake-lock.md) — the 5th top function key. onState lights
+// the key amber while the preference is on (regardless of whether a lock is actually held from
+// moment to moment — e.g. briefly released while the tab is hidden); onError surfaces the 5s
+// WAKE LOCK FAILED chip through the existing indicator stack above.
+const wakeKey = keyBanks.top[4];
+const wakeController = WakeLock.createController({
+  document: document,
+  storage: (function () { try { return localStorage; } catch (e) { return null; } })(),
+  wakeLock: navigator.wakeLock,
+  createFallback: function () { return WakeLock.createVideoFallback(document); },
+  onState: function (state) {
+    if (!wakeKey) return;
+    wakeKey.classList.toggle('on', state.enabled);
+    wakeKey.title = state.enabled ? 'Allow screen sleep' : 'Keep screen awake';
+  },
+  onError: function (error) {
+    console.error('Wake lock failed:', error);
+    wakeLockError = 'WAKE LOCK FAILED';
+    renderIndicators();
+    if (wakeLockErrorTimer !== null) clearTimeout(wakeLockErrorTimer);
+    wakeLockErrorTimer = setTimeout(function () {
+      wakeLockError = '';
+      wakeLockErrorTimer = null;
+      renderIndicators();
+    }, 5000);
+  },
+});
 
 // Which pane sits in the screen's top-right corner — where PIN/SWAP act in split mode. H_SPLIT
 // stacks top/bottom so it's the top pane (0); the V splits sit left/right so it's the right pane (1).
@@ -1275,6 +1308,15 @@ function renderIndicators() {
     el.textContent = 'PINNED';
     indicatorsEl.appendChild(el);
   });
+  // WAKE LOCK FAILED (docs/screen-wake-lock.md): a transient failure message, not a named
+  // persistent state like PINNED, so it rides alongside indicatorOrder rather than joining it —
+  // wakeLockError clears itself on its own timer (see the wake controller's onError below).
+  if (wakeLockError) {
+    const el = document.createElement('div');
+    el.className = 'mfd-indicator error';
+    el.textContent = wakeLockError;
+    indicatorsEl.appendChild(el);
+  }
 }
 
 // Latest loadout snapshot mirrored from the map iframe (postMessage). Even when WPN isn't
@@ -2203,6 +2245,7 @@ function mfdButton(el) {
       setShellHidden(true);
       break;
     case 'fll':  toggleFullscreen(); break;
+    case 'wake': wakeController.toggle(); break;
     // Layout presets. Each enters split (carrying the full-view page into the top/left pane,
     // MAIN into the other) or, if already split, switches orientation in place. The square
     // (unsplit) below collapses back to single.
@@ -2427,6 +2470,7 @@ wireLayoutKeydown(pageFrame);
 wireLayoutKeydown(paneIframes[0]);
 wireLayoutKeydown(paneIframes[1]);
 
+wakeController.start();
 loadConfigUrls();
 showPage('main');   // start on the MAIN page
 flickerScreen();    // CRT boot flicker on first load
