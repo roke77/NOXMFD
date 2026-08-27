@@ -371,9 +371,10 @@ namespace NOXMFD
             {
                 if (i > 0) sb.Append(',');
                 sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"id\":{0},\"x\":{1:0.0},\"z\":{2:0.0},\"alt\":{3:0.0},\"hdg\":{4:0.0},\"tg\":{5},\"n\":\"{6}\"}}",
+                    "{{\"id\":{0},\"x\":{1:0.0},\"z\":{2:0.0},\"alt\":{3:0.0},\"hdg\":{4:0.0},\"tg\":{5},\"rd\":{6},\"dl\":{7},\"n\":\"{8}\"}}",
                     items[i].Id, items[i].X, items[i].Z, items[i].Alt, items[i].Heading,
-                    items[i].Targeted ? 1 : 0, JsonLite.EscapeJson(items[i].Name ?? string.Empty));
+                    items[i].Targeted ? 1 : 0, items[i].Radar ? 1 : 0, items[i].Datalink ? 1 : 0,
+                    JsonLite.EscapeJson(items[i].Name ?? string.Empty));
             }
             return sb.Append(']').ToString();
         }

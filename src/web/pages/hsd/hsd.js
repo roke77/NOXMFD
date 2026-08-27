@@ -1,7 +1,7 @@
 // HSD page - 360-degree datalink plan view. See docs/rdr-fcr-hsd.md.
 var CX = 300, CY = 300, OUTER = 220;
 var M_PER_NM = 1852, M_PER_KM = 1000;
-var HSD_PINK = 'var(--no-hsd-pink)', AMBER = 'var(--no-amber)';
+var HSD_PINK = 'var(--no-purple)', RADAR_GREEN = 'var(--no-green)', AMBER = 'var(--no-amber)';
 var HSD_PINK_RGB = 'var(--no-hsd-pink-rgb)', TEAL_RGB = 'var(--no-teal-rgb)';
 var state = { ownX: 0, ownZ: 0, hdg: 0, metric: false, radarPresent: false, radarRange: 0, radarCone: 0, items: [] };
 
@@ -28,6 +28,17 @@ function setRangeIdx(i) {
 function displayRangeM() { return RANGE_NM[rangeIdx] * M_PER_NM; }
 function rangeLabel(meters) {
   return state.metric ? Math.round(meters / M_PER_KM) + 'km' : Math.round(meters / M_PER_NM) + 'nm';
+}
+function rangeUnits(meters) {
+  return state.metric ? (meters / M_PER_KM).toFixed(1) : (meters / M_PER_NM).toFixed(1);
+}
+function altUnits(meters) {
+  return state.metric ? Math.round(meters) : Math.round(meters * 3.28084);
+}
+function pad3(n) { return ('00' + (((n % 360) + 360) % 360)).slice(-3); }
+function short(s) {
+  s = (s || 'BOGEY').toString().toUpperCase();
+  return s.length > 18 ? s.slice(0, 18) : s;
 }
 
 // World x/z -> ownship-relative, nose-up screen coordinate. x is east, z is north, heading is deg.
@@ -60,6 +71,12 @@ function radarConePath(rangeM, radarRange, radarCone) {
          ' Z';
 }
 
+function contactColor(c) {
+  if (c && c.tg) return AMBER;
+  if (c && c.rd) return RADAR_GREEN;
+  return HSD_PINK;
+}
+
 function renderGrid() {
   var g = document.getElementById('hsd-grid');
   if (!g) return;
@@ -83,13 +100,16 @@ function renderRadarCone() {
 function renderContacts() {
   var g = document.getElementById('hsd-contacts');
   if (!g) return;
-  var out = '', count = 0, locks = 0, rangeM = displayRangeM();
+  var out = '', count = 0, locks = 0, firstLocked = null, rangeM = displayRangeM();
   (state.items || []).forEach(function (c) {
     var p = hsdXY(state.ownX, state.ownZ, state.hdg, c.x || 0, c.z || 0, rangeM);
     if (!p) return;
     count++;
-    if (c.tg) locks++;
-    var col = c.tg ? AMBER : HSD_PINK;
+    if (c.tg) {
+      locks++;
+      if (!firstLocked) firstLocked = { c: c, dist: p.dist };
+    }
+    var col = contactColor(c);
     var hdg = typeof c.hdg === 'number' ? c.hdg : 0;
     var rot = ((hdg - state.hdg) % 360 + 360) % 360;
     out += '<g transform="translate(' + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ') rotate(' + rot.toFixed(1) + ')">';
@@ -104,8 +124,26 @@ function renderContacts() {
              '" r="15" fill="none" stroke="' + AMBER + '" stroke-width="2"/>';
   });
   g.innerHTML = out;
-  document.getElementById('hsd-count').textContent = count ? 'LINK ' + count : 'LINK 0';
-  document.getElementById('hsd-locks').textContent = locks ? 'LOCK ' + locks : '';
+  renderReadout(firstLocked, count, locks);
+}
+
+function renderReadout(firstLocked, count, locks) {
+  var r1 = document.getElementById('hsd-r1'), r2 = document.getElementById('hsd-r2'),
+      link = document.getElementById('hsd-link'), lk = document.getElementById('hsd-locks');
+  if (firstLocked) {
+    var c = firstLocked.c;
+    r1.classList.add('big');
+    r1.textContent = short(c.n);
+    r2.textContent = 'RNG ' + rangeUnits(firstLocked.dist) +
+                     '   ALT ' + altUnits(c.alt || 0) +
+                     '   HDG ' + pad3(Math.round(c.hdg || 0));
+  } else {
+    r1.classList.remove('big');
+    r1.textContent = '';
+    r2.textContent = '';
+  }
+  link.textContent = count ? 'LINK ' + count : 'LINK 0';
+  lk.textContent = locks ? 'LOCK ' + locks : '';
 }
 
 function renderScale() {
@@ -122,10 +160,11 @@ function render() {
 
 function demoContacts(ownX, ownZ, hdg) {
   var contacts = [
-    { az: -150, rng: 26000, hdg: 20,  tg: 0, n: 'EW-25 Medusa', alt: 9700 },
-    { az:  -70, rng: 48000, hdg: 110, tg: 0, n: 'FS-12 Revoker', alt: 7600 },
-    { az:   35, rng: 32000, hdg: 260, tg: 1, n: 'KR-67 Ifrit', alt: 6500 },
-    { az:  145, rng: 61000, hdg: 315, tg: 0, n: 'SFB-81', alt: 8900 }
+    { az: -150, rng: 26000, hdg: 20,  tg: 0, rd: 0, dl: 1, n: 'EW-25 Medusa', alt: 9700 },
+    { az:  -70, rng: 48000, hdg: 110, tg: 0, rd: 0, dl: 1, n: 'FS-12 Revoker', alt: 7600 },
+    { az:   35, rng: 32000, hdg: 260, tg: 1, rd: 0, dl: 1, n: 'KR-67 Ifrit', alt: 6500 },
+    { az:   18, rng: 41000, hdg: 205, tg: 0, rd: 1, dl: 0, n: 'SFB-81', alt: 8900 },
+    { az:  145, rng: 61000, hdg: 315, tg: 0, rd: 0, dl: 1, n: 'AB-4 Alkyon', alt: 8300 }
   ];
   return contacts.map(function (c, i) {
     var ab = (c.az + hdg) * Math.PI / 180;
@@ -136,6 +175,8 @@ function demoContacts(ownX, ownZ, hdg) {
       alt: c.alt,
       hdg: c.hdg,
       tg: c.tg,
+      rd: c.rd,
+      dl: c.dl,
       n: c.n
     };
   });
@@ -183,4 +224,7 @@ if (typeof window !== 'undefined' && window.addEventListener) {
 
 if (typeof module !== 'undefined' && module.exports)
   module.exports = { hsdXY: hsdXY, rangeLabelForTest: function (metric, meters) { state.metric = metric; return rangeLabel(meters); },
-                     radarConePath: radarConePath, demoContacts: demoContacts, geom: { CX: CX, CY: CY, OUTER: OUTER } };
+                     rangeUnitsForTest: function (metric, meters) { state.metric = metric; return rangeUnits(meters); },
+                     altUnitsForTest: function (metric, meters) { state.metric = metric; return altUnits(meters); },
+                     contactColor: contactColor, radarConePath: radarConePath, demoContacts: demoContacts,
+                     geom: { CX: CX, CY: CY, OUTER: OUTER } };

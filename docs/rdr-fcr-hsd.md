@@ -132,8 +132,11 @@ Start as a basic DCS F-16 HSD-inspired plan view, not a full replica:
 - closed teal FCR radar-coverage cone overlaid forward of ownship, clipped to the radar's own max
   range inside the currently selected HSD scale;
 - datalink aerial contacts plotted in ownship-relative x/z space across 360 degrees;
-- contact symbols in HSD pink by default, amber when locked;
+- contact symbols use the same source colors as FCR: datalink-only purple, own-radar green, amber
+  when locked;
 - optional simple velocity stubs once position plotting is proven.
+- bottom-left readout mirrors FCR for the first locked contact: target name plus RNG/ALT/HDG in
+  amber; the right footer stacks LINK count above LOCK count.
 
 Keep the first version deliberately austere. The HSD's job is 360-degree awareness, so stable range
 geometry and correct bearing are more important than decorative fidelity.
@@ -217,7 +220,7 @@ culling.
 
 4. **HSD page**
    - [x] Add `src/web/pages/hsd/hsd.html`, `.css`, `.js`, and a small projection test.
-   - [x] Draw ownship, dark-pink rings, FCR coverage cone, contacts, and locked markers.
+   - [x] Draw ownship, dark-pink rings, FCR coverage cone, source-colored contacts, and locked markers.
    - [x] Add HSD-specific range persistence and R+/R- actions.
 
 5. **Shell forwarding**

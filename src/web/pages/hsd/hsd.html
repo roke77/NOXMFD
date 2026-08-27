@@ -11,7 +11,7 @@
 
   Shell -> page messages (all {mfd:true, ...}):
     'hsd': { ownX, ownZ, hdg, metric, radarPresent, radarRange, radarCone,
-             items:[{ id, x, z, alt, hdg, tg, n }] }
+             items:[{ id, x, z, alt, hdg, tg, rd, dl, n }] }
            x/z are known world positions, hdg is ownship heading, metric selects km vs nm labels.
            radarRange/radarCone describe the FCR coverage wedge to overlay on the HSD range rings.
     action: 'zoom-in'/'zoom-out' step the selected HSD range.
@@ -34,7 +34,9 @@
         <line x1="300" y1="248" x2="300" y2="272" stroke="rgba(255,255,255,0.45)" stroke-width="2"/>
       </g>
 
-      <text id="hsd-count" x="48" y="566" class="hsd-read"></text>
+      <text id="hsd-r1" x="48" y="544" class="hsd-read hsd-lock-read"></text>
+      <text id="hsd-r2" x="48" y="566" class="hsd-read hsd-lock-read"></text>
+      <text id="hsd-link" x="552" y="544" class="hsd-read" text-anchor="end"></text>
       <text id="hsd-locks" x="552" y="566" class="hsd-read" text-anchor="end"></text>
     </svg>
   </div>

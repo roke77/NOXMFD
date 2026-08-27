@@ -1177,6 +1177,8 @@ namespace NOXMFD
 
             List<Unit> targets = player.weaponManager != null ? player.weaponManager.GetTargetList() : null;
             bool hasTargets = targets != null && targets.Count > 0;
+            List<Unit> radarTargets = player.radar != null ? player.radar.detectedTargets : null;
+            bool hasRadarTargets = radarTargets != null && radarTargets.Count > 0;
 
             _hsdBuf.Clear();
             foreach (Unit u in _units)
@@ -1188,7 +1190,10 @@ namespace NOXMFD
 
                 var hq = u.NetworkHQ;
                 if (hq == null || hq == playerHQ) continue;
-                if (!playerHQ.TryGetKnownPosition(u, out GlobalPosition gp)) continue;
+                bool radarDetected = hasRadarTargets && radarTargets.Contains(u);
+                bool datalinkKnown = playerHQ.TryGetKnownPosition(u, out GlobalPosition gp);
+                if (!datalinkKnown && !radarDetected) continue;
+                if (!datalinkKnown) gp = u.GlobalPosition();
 
                 _hsdBuf.Add(new HsdContact
                 {
@@ -1198,6 +1203,8 @@ namespace NOXMFD
                     Alt      = gp.y,
                     Heading  = u.transform.eulerAngles.y,
                     Targeted = hasTargets && targets.Contains(u),
+                    Radar    = radarDetected,
+                    Datalink = datalinkKnown,
                     Name     = RwrLabel(u)
                 });
             }

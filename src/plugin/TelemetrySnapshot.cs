@@ -359,7 +359,7 @@ namespace NOXMFD
         public string Name;     // display label (unitName, bogey fallback)
     }
 
-    // One aerial datalink contact on the HSD plan view. Serialized terse as {id,x,z,alt,hdg,tg,n}.
+    // One aerial contact on the HSD plan view. Serialized terse as {id,x,z,alt,hdg,tg,rd,dl,n}.
     internal struct HsdContact
     {
         public uint   Id;       // Unit.persistentID.Id — correlates with UnitInfo / the target set
@@ -367,6 +367,8 @@ namespace NOXMFD
         public float  Alt;      // altitude (GlobalPosition.y)
         public float  Heading;  // travel heading, degrees
         public bool   Targeted; // in the player's weapon target list — drives amber lock symbol
+        public bool   Radar;    // detected by the player's OWN radar (green HSD symbol)
+        public bool   Datalink; // known via the faction's shared tracking (purple HSD symbol)
         public string Name;     // display label
     }
 
