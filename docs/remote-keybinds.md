@@ -209,17 +209,17 @@ arbitrates.
 
 - **Off by default.** A pilot upgrading NOXMFD should see no behavior change; this is opt-in per
   browser, not a global setting.
-- **Location**: inside the KEY page's existing **IMMERSION OPTIONS** section
-  (`src/web/pages/keybinds/keybinds.html:64-112`, `kb-immersion`) — one more `kb-setting`/
-  `kb-toggle` row alongside ENABLE RADAR/ENGINE/MASTER ARMS ON START and FORCE HUD FILTERS ON
-  COMBAT MODE, not a new page or a separate section. Visually consistent with its neighbors, but
-  **behaviorally different** in one respect worth calling out in implementation: every existing
-  row in that section is a server-persisted `ImmersionConfig` setting (`radarOnOnStart` etc.,
-  shared across every browser that connects), while this toggle is deliberately per-browser
-  `localStorage` state (see "Toggle wiring" below) — the same PC's second browser tab, or a
-  different device entirely, should NOT inherit whatever this toggle is set to elsewhere. The row's
-  copy should make that local-only scope clear despite sitting in a section whose other rows are
-  all shared/global, so it doesn't read as "this is a plugin-wide setting" by visual association.
+- **Location**: originally placed inside the KEY page's **IMMERSION OPTIONS** section, alongside
+  ENABLE RADAR/ENGINE/MASTER ARMS ON START and FORCE HUD FILTERS ON COMBAT MODE — visually
+  consistent with its neighbors, but **behaviorally different** in one respect: every other row in
+  that section is a server-persisted `ImmersionConfig` setting (`radarOnOnStart` etc., shared
+  across every browser that connects), while this toggle is deliberately per-browser `localStorage`
+  state (see "Toggle wiring" below) — the same PC's second browser tab, or a different device
+  entirely, should NOT inherit whatever this toggle is set to elsewhere. That tension (a
+  local-only, client-side toggle sitting in a section whose other rows are all shared/global) is
+  why it later moved to the top of the page instead, right after INPUT WHEN GAME UNFOCUSED — the
+  page's other client-only, non-bind setting — leaving IMMERSION OPTIONS to hold only real
+  server-persisted settings.
 - **Label and copy, brief and instructive, generic rather than WSO-specific**:
   - Label: **"LISTEN FOR KEYBINDS (REMOTE)"**, default OFF.
   - One-line description: *"Lets this browser send your configured keybinds to the game as if

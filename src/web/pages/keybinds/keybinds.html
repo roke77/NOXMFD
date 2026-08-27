@@ -51,6 +51,22 @@
     </div>
     <button class="kb-toggle" id="kb-bg-input-btn"></button>
   </div>
+  <!-- Also a plain on/off setting, not a bind — and unlike every other setting/toggle on this page,
+       it's purely client-side (localStorage, docs/remote-keybinds.md), not server config, so it
+       still works even while #kb-panel is .unavailable. Kept right after INPUT WHEN GAME
+       UNFOCUSED — the two most commonly-toggled settings — rather than down with IMMERSION
+       OPTIONS below, which it isn't one of. -->
+  <div class="kb-setting" id="kb-remote-keybinds">
+    <div class="kb-setting-text">
+      <div class="kb-name">LISTEN FOR KEYBINDS (REMOTE)</div>
+      <div class="kb-desc">Lets this browser send your configured keybinds to the game. Use this for
+        a second device or WSO station, and keep it enabled on only the browser you intend to use for
+        input.</div>
+      <div class="kb-warning" id="kb-remote-same-pc-warning">This browser appears to be on the game
+        PC. The game already listens for these keys there, so enabling this can double-fire inputs.</div>
+    </div>
+    <button class="kb-toggle" id="kb-remote-keybinds-btn"></button>
+  </div>
   <div class="kb-head">
     <span>FUNCTION</span><span>KEYBOARD</span><span>JOYSTICK / HOTAS</span>
   </div>
@@ -99,17 +115,6 @@
           combat mode drive the HUD automatically.</div>
       </div>
       <button class="kb-toggle" id="kb-hud-filters-on-combat-mode-btn"></button>
-    </div>
-    <div class="kb-setting" id="kb-remote-keybinds">
-      <div class="kb-setting-text">
-        <div class="kb-name">LISTEN FOR KEYBINDS (REMOTE)</div>
-        <div class="kb-desc">Lets this browser send your configured keybinds to the game. Use this for
-          a second device or WSO station, and keep it enabled on only the browser you intend to use for
-          input.</div>
-        <div class="kb-warning" id="kb-remote-same-pc-warning">This browser appears to be on the game
-          PC. The game already listens for these keys there, so enabling this can double-fire inputs.</div>
-      </div>
-      <button class="kb-toggle" id="kb-remote-keybinds-btn"></button>
     </div>
 
     <!-- Shared-behaviour note for this section's binds (A/A-A/G tap/hold) — same server-provided
