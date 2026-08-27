@@ -35,9 +35,9 @@ const layoutIcons = [
 const functionIcons = [
   { cls: 'ic-hide-shell', title: 'Hide shell',         action: 'hide-shell' },
   { cls: 'ic-fullscreen', title: 'Fullscreen',         action: 'fll' },
+  { cls: 'ic-wake',       title: 'Keep screen awake',  action: 'wake' },
   { cls: 'ic-pin',        title: 'Pin',                action: 'pin' },
   { cls: 'ic-swap',       title: 'Swap',               action: 'swap' },
-  { cls: 'ic-wake',       title: 'Keep screen awake',  action: 'wake' },
 ];
 function applyIconBank(bankName, icons) {
   icons.forEach(function(icon, i) {
@@ -1199,7 +1199,7 @@ let wakeLockErrorTimer = null;
 // the key amber while the preference is on (regardless of whether a lock is actually held from
 // moment to moment — e.g. briefly released while the tab is hidden); onError surfaces the 5s
 // WAKE LOCK FAILED chip through the existing indicator stack above.
-const wakeKey = keyBanks.top[4];
+const wakeKey = keyBanks.top[2];
 const wakeController = WakeLock.createController({
   document: document,
   storage: (function () { try { return localStorage; } catch (e) { return null; } })(),

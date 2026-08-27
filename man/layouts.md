@@ -13,12 +13,12 @@ bottom.
 
 - **HIDE** — hide the bezel so the screen fills the viewport.
 - **FULL** — fullscreen toggle.
-- **PIN** — pin a page.
-- **SWAP** — jump to/from the pinned page.
 - **WAKE** — keep the screen from sleeping while NO XMFD is open. Off by default; lights amber
   while on. The preference is remembered by the browser and reapplies after a reload. If the
   device can't be kept awake at all, the key turns itself back off and **WAKE LOCK FAILED**
   briefly appears in the corner of the screen.
+- **PIN** — pin a page.
+- **SWAP** — jump to/from the pinned page.
 
 **Layout presets (bottom):**
 
