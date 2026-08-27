@@ -761,8 +761,8 @@ next to the real fields.
 
 **Implementation notes:**
 - The synthetic ring cid is `TelemetryServer.NativeTgpCid` (`" tgp-camera"`, a leading space) —
-  `SanitizeCid` only lets `[a-zA-Z0-9-]` through a real client's reported cid, so this can never
-  collide with one, even by coincidence.
+  `SseHub`'s cid sanitizer only lets `[a-zA-Z0-9-]` through a real client's reported cid, so this
+  can never collide with one, even by coincidence.
 - `TgpManualControl.Engage()`/`ExitManual()` are the sole choke points for every entry/exit path
   (`Toggle()`, the unit-lock handoff, and every [lifecycle exit trigger](#lifecycle-every-exit-trigger)),
   so hooking `TelemetryServer.ClaimNativeTgpSoi()`/`ReleaseNativeTgpSoi()` there covers all of them

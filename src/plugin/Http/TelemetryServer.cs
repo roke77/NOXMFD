@@ -27,13 +27,6 @@ namespace NOXMFD
             _autoSetupLan = autoSetupLan;
         }
 
-        // SSE cadences. The loop ticks at CursorTickMs (the MAP cursor's rate — a continuous analog
-        // signal, so latency here is felt directly as a heavy, lagging crosshair) and emits the
-        // telemetry frame every FrameEveryMs. 10 Hz for telemetry both during a mission and at the
-        // main menu, where SOI focus changes must still feel immediate.
-        private const int CursorTickMs = 16;    // ~60 Hz, but only ~60 bytes and only when it changes
-        private const int FrameEveryMs = 100;   // 10 Hz
-
         private static HttpListener?           _listener;
         private static Thread?                 _acceptThread;
         private static CancellationTokenSource _cts = new CancellationTokenSource();
@@ -177,40 +170,6 @@ namespace NOXMFD
         private static int _tgpSubscribers;
         public static bool WantsTgpFrames => Volatile.Read(ref _tgpSubscribers) > 0;
 
-        // ── Connected MFD instances (SOI — docs/keybinds-page.md) ──────────────
-        // One /stream connection IS one MFD instance: HandleSseAsync runs for exactly as long as a
-        // browser sits on the display, so registering on entry and dropping in its existing finally
-        // is the whole of the registry. Nothing else needs to track anything.
-        //
-        // Keyed by a server-side connection number, not by the client's cid. A duplicated browser tab
-        // copies its sessionStorage and so claims a cid that is already in use — keying on that would
-        // let the copy evict a live connection from the list, and let either one's disconnect remove
-        // the other. The connection number is unique by construction; the cid rides along as data.
-        internal sealed class MfdInstance
-        {
-            public long     Conn;
-            public string   Cid    = string.Empty;
-            public string   Remote = string.Empty;
-            public DateTime ConnectedUtc;
-            // How many independently-focusable SURFACES this instance shows right now — 1 in full
-            // view, 2 in a classic split, up to 4 F-35 portals. The client reports it (soi.panes) and
-            // re-reports on every layout change; SOI cycles surfaces, not whole documents. Defaults to
-            // 1 so a client that never reports behaves exactly as before (whole-instance focus).
-            public int      PaneCount = 1;
-        }
-        private static readonly System.Collections.Concurrent.ConcurrentDictionary<long, MfdInstance>
-            _instances = new System.Collections.Concurrent.ConcurrentDictionary<long, MfdInstance>();
-        private static long _nextConn;
-
-        // Snapshot of the live instances, oldest connection first — a stable order to cycle SOI
-        // through, unlike the dictionary's own.
-        internal static List<MfdInstance> Instances()
-        {
-            var all = new List<MfdInstance>(_instances.Values);
-            all.Sort((a, b) => a.Conn.CompareTo(b.Conn));
-            return all;
-        }
-
         // ── SOI focus ──────────────────────────────────────────────────────────
         // Which instance the SOI keys drive, as its cid. Broadcast in every frame so each client can
         // compare it against its own — see the shared-frame note on GetFrameBytes. Empty = nothing
@@ -237,7 +196,7 @@ namespace NOXMFD
         // The manual TGP camera's synthetic SOI ring entry (docs/tgp-manual-control.md's PAD Cursor
         // consolidation plan) — a native, non-browser target folded into the same ring real (cid,
         // pane) clients use, so SOI Next/Prev tabs onto it like any other display. The leading space
-        // can never arrive from a real client — SanitizeCid below only lets [a-zA-Z0-9-] through —
+        // can never arrive from a real client — SseHub's cid sanitizer only lets [a-zA-Z0-9-] through —
         // so a client can't pick this exact cid for itself even by coincidence.
         internal const string NativeTgpCid = " tgp-camera";
         internal static bool IsNativeTgpSoi =>
@@ -247,7 +206,7 @@ namespace NOXMFD
         // immediately, so the pilot doesn't have to Tab to the newly-added ring entry by hand.
         internal static void ClaimNativeTgpSoi() { lock (_soiLock) SetSoiTargetLocked(NativeTgpCid, 0); }
 
-        // Called by TgpManualControl.ExitManual() — mirrors SoiReleaseOnDisconnect below: only acts
+        // Called by TgpManualControl.ExitManual() — mirrors SoiReleaseOnDisconnect: only acts
         // if the camera actually held focus. Unlike a disconnect there's always something else left
         // to focus (every real pane is still in the ring), so this moves to the ring's first member
         // instead of clearing focus outright. Must run after ManualMode has already flipped false,
@@ -509,12 +468,12 @@ namespace NOXMFD
         // key (SoiCycle from empty), so it must never re-appear on a display they didn't pick. A
         // mouse/touch user who never touches the keys therefore never sees it. Nothing to do unless
         // the dropped display held focus.
-        private static void SoiReleaseOnDisconnect(string cid)
+        internal static void SoiReleaseOnDisconnect(string cid)
         {
             lock (_soiLock)
             {
                 if (!string.Equals(_soiTargetCid, cid, StringComparison.Ordinal)) return;
-                var all = Instances();   // the disconnecting one is already out of the registry
+                var all = SseHub.Instances();   // the disconnecting one is already out of the registry
                 // A duplicated tab copies its cid, so a twin may still be holding that display open —
                 // keep focus if so, otherwise clear it (the next SOI keypress re-picks a display).
                 if (all.Exists(x => string.Equals(x.Cid, cid, StringComparison.Ordinal))) return;
@@ -530,7 +489,7 @@ namespace NOXMFD
         {
             var ring = new List<(string, int)>();
             var seen = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var inst in Instances())
+            foreach (var inst in SseHub.Instances())
             {
                 if (!seen.Add(inst.Cid)) continue;
                 for (int p = 0; p < inst.PaneCount; p++) ring.Add((inst.Cid, p));
@@ -571,27 +530,12 @@ namespace NOXMFD
             if (n < 1) n = 1;
             lock (_soiLock)
             {
-                foreach (var inst in Instances())
+                foreach (var inst in SseHub.Instances())
                     if (string.Equals(inst.Cid, cid, StringComparison.Ordinal)) inst.PaneCount = n;
 
                 if (string.Equals(_soiTargetCid, cid, StringComparison.Ordinal) && _soiTargetPane >= n)
                     SetSoiTargetLocked(cid, n - 1);
             }
-        }
-
-        // The cid arrives over the network, so it is untrusted: it lands in JSON and, later, in an
-        // SOI target comparison. Keep it to what the client is supposed to send — a UUID or the
-        // fallback id — and drop anything else rather than escaping it downstream. An empty cid is
-        // legal and means "this instance has no durable identity" (private mode, storage blocked).
-        private const int MaxCidLength = 64;
-        private static string SanitizeCid(string? raw)
-        {
-            if (string.IsNullOrEmpty(raw) || raw!.Length > MaxCidLength) return string.Empty;
-            foreach (char c in raw)
-                if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-                      (c >= '0' && c <= '9') || c == '-'))
-                    return string.Empty;
-            return raw;
         }
 
         // ── Lifecycle ──────────────────────────────────────────────────────────
@@ -740,7 +684,7 @@ namespace NOXMFD
         // second concurrent client waits rather than duplicating the work); everyone else reuses
         // the cached bytes. `valid` mirrors the snapshot's Valid flag (drives the 10 Hz vs 1 Hz
         // ping cadence). Runs on background SSE threads — never the Unity main thread.
-        private static byte[] GetFrameBytes(out bool valid)
+        internal static byte[] GetFrameBytes(out bool valid)
         {
             lock (_frameLock)
             {
@@ -891,7 +835,7 @@ namespace NOXMFD
         // serving: status/content-type/length/write/close, plus Cache-Control for the small
         // on-demand JSON snapshots. Orthogonal to *what* gets serialized (that's the JSON-writer
         // layer docs/server-hardening.md already scopes) — this is just the plumbing.
-        private static void WriteJson(HttpListenerContext ctx, string json)
+        internal static void WriteJson(HttpListenerContext ctx, string json)
         {
             try
             {
@@ -1049,32 +993,7 @@ namespace NOXMFD
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
-        // The live MFD instances as JSON — the SOI instance registry made visible. Diagnostic for now:
-        // it is what proves the registry tracks connects, disconnects and reloads correctly before any
-        // of SOI is wired to it, and it stays useful afterwards for "which displays does the server
-        // think are open?". Safe off the main thread — the dictionary is concurrent and touches no
-        // Unity state.
-        internal static void ServeSoiInstances(HttpListenerContext ctx)
-        {
-            try
-            {
-                var sb = new StringBuilder("{\"instances\":[");
-                var all = Instances();
-                for (int i = 0; i < all.Count; i++)
-                {
-                    var it = all[i];
-                    if (i > 0) sb.Append(',');
-                    sb.AppendFormat(CultureInfo.InvariantCulture,
-                        "{{\"conn\":{0},\"cid\":\"{1}\",\"remote\":\"{2}\",\"upSec\":{3:0.0}}}",
-                        it.Conn, EscapeJson(it.Cid), EscapeJson(it.Remote),
-                        (DateTime.UtcNow - it.ConnectedUtc).TotalSeconds);
-                }
-                sb.Append("]}");
-                WriteJson(ctx, sb.ToString());
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
+        internal static void ServeSoiInstances(HttpListenerContext ctx) => SseHub.ServeInstances(ctx);
 
         // The keybind registry as JSON for the /keybinds page: every bind's identity + current values,
         // plus which bind (if any) is armed for joystick capture — the page polls this while open, and
@@ -1538,102 +1457,6 @@ namespace NOXMFD
             }
         }
 
-        // ── SSE handler ────────────────────────────────────────────────────────
-
-        internal static async Task HandleSseAsync(HttpListenerContext ctx, CancellationToken ct)
-        {
-            ctx.Response.StatusCode   = 200;
-            ctx.Response.ContentType  = "text/event-stream; charset=utf-8";
-            ctx.Response.SendChunked  = true;
-            ctx.Response.Headers.Add("Cache-Control", "no-cache");
-            ctx.Response.Headers.Add("X-Accel-Buffering", "no");
-
-            // Register this instance for its whole lifetime — see MfdInstance. The cid is the
-            // client's own durable id (telemetry-source.js), empty when its storage is unavailable.
-            long conn = Interlocked.Increment(ref _nextConn);
-            // A client with no usable storage sends nothing; give it a connection-scoped id anyway so
-            // that every instance is addressable. It is told which id it got (the hello event below),
-            // because focus is broadcast BY cid and a client that doesn't know its own can never
-            // recognise itself. Such an id lasts only as long as the connection — which is exactly
-            // what "no durable identity" means.
-            string cid = SanitizeCid(ctx.Request.QueryString["cid"]);
-            if (cid.Length == 0) cid = "conn-" + conn.ToString(CultureInfo.InvariantCulture);
-
-            _instances[conn] = new MfdInstance
-            {
-                Conn         = conn,
-                Cid          = cid,
-                Remote       = ctx.Request.RemoteEndPoint?.ToString() ?? string.Empty,
-                ConnectedUtc = DateTime.UtcNow,
-            };
-            // No auto-claim: a fresh display does NOT become the SOI on its own. Focus stays empty
-            // until the pilot presses a SOI key, so mouse/touch users never get the ring.
-
-            Plugin.Log?.LogInfo($"[NOXMFD] Client connected from {ctx.Request.RemoteEndPoint} (instance {conn})");
-
-            try
-            {
-                // Tell this client which id it is known by, once, before the stream proper. A named
-                // SSE event so it can't be mistaken for a telemetry frame, and written to this one
-                // connection only — the shared frame stays shared.
-                byte[] hello = Encoding.UTF8.GetBytes(
-                    "event: hello\ndata: {\"cid\":\"" + EscapeJson(cid) + "\"}\n\n");
-                await ctx.Response.OutputStream.WriteAsync(hello, 0, hello.Length, ct).ConfigureAwait(false);
-
-                // The loop ticks at the CURSOR's rate and sends the telemetry frame every Nth tick, so
-                // the two cadences are independent: a slewed axis gets ~60 Hz of tiny updates while
-                // the expensive snapshot keeps its 10 Hz. lastCursor suppresses repeats, so a centred
-                // stick costs one comparison per tick and no traffic at all.
-                string lastCursor = string.Empty;
-                // Per-extension high-rate events (Api.PublishEvent) — one "last sent" entry per
-                // event name this connection has seen, same change-gating as cursor above but for
-                // a runtime-registered set of names instead of one fixed one.
-                var lastExtEvents = new Dictionary<string, string>(StringComparer.Ordinal);
-                int sinceFrame = FrameEveryMs;   // send a frame immediately on connect
-                while (!ct.IsCancellationRequested)
-                {
-                    if (sinceFrame >= FrameEveryMs)
-                    {
-                        // Shared frame: serialized at most once per snapshot version, regardless of
-                        // how many clients are connected. Always send something — real data during a
-                        // mission, a ping otherwise.
-                        byte[] bytes = GetFrameBytes(out _);
-                        await ctx.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct).ConfigureAwait(false);
-                        sinceFrame = 0;
-                    }
-
-                    string cursor = CursorJson();
-                    if (!string.Equals(cursor, lastCursor, StringComparison.Ordinal))
-                    {
-                        lastCursor = cursor;
-                        byte[] cbytes = Encoding.UTF8.GetBytes("event: cursor\ndata: " + cursor + "\n\n");
-                        await ctx.Response.OutputStream.WriteAsync(cbytes, 0, cbytes.Length, ct).ConfigureAwait(false);
-                    }
-
-                    foreach (var kv in ExtensionRegistry.EventsSnapshot())
-                    {
-                        if (lastExtEvents.TryGetValue(kv.Key, out string prev) && prev == kv.Value) continue;
-                        lastExtEvents[kv.Key] = kv.Value;
-                        byte[] ebytes = Encoding.UTF8.GetBytes("event: ext-" + kv.Key + "\ndata: " + kv.Value + "\n\n");
-                        await ctx.Response.OutputStream.WriteAsync(ebytes, 0, ebytes.Length, ct).ConfigureAwait(false);
-                    }
-                    ctx.Response.OutputStream.Flush();
-
-                    await Task.Delay(CursorTickMs, ct).ConfigureAwait(false);
-                    sinceFrame += CursorTickMs;
-                }
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] Client error: {ex.Message}"); }
-            finally
-            {
-                _instances.TryRemove(conn, out _);
-                SoiReleaseOnDisconnect(cid);
-                try { ctx.Response.Close(); } catch { }
-                Plugin.Log?.LogInfo($"[NOXMFD] Client disconnected from {ctx.Request.RemoteEndPoint} (instance {conn})");
-            }
-        }
-
         // SOI's slice of a frame. Shared by the real payload and the no-mission ping, because a display
         // is focusable and drivable at the main menu, where the ping is the only frame there is.
         private static string SoiJson() => string.Format(CultureInfo.InvariantCulture,
@@ -1648,7 +1471,7 @@ namespace NOXMFD
         // more latency than the faster tick buys back. This is ~60 bytes: it can go out many times
         // per telemetry frame and still be free. It is the ONLY place these fields travel — carrying
         // them in both would let a cached (older) frame overwrite a fresher event.
-        private static string CursorJson() => string.Format(CultureInfo.InvariantCulture,
+        internal static string CursorJson() => string.Format(CultureInfo.InvariantCulture,
             "{{\"x\":{0:0.00},\"y\":{1:0.00},\"selSeq\":{2},\"act\":\"{3}\",\"actSeq\":{4},\"held\":{5}}}",
             CursorX, CursorY, CursorSelSeq, EscapeJson(MapAct), MapActSeq,
             Volatile.Read(ref _cursorSelHeld) ? "true" : "false");

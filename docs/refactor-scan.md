@@ -549,11 +549,13 @@ do not bundle them into one pass.
       command enqueue/dequeue state, and `TryDequeueCommand` out of `TelemetryServer.cs` into a
       focused helper under `src/plugin/Http/CommandEndpoint.cs`. The same helper also owns the
       shared bounded body read and JSON `Content-Type` gate for `/ext/<id>/command`.
-- [ ] **Next B — SSE/session hub extraction.** Move `HandleSseAsync`, per-connection instance
-      registration, cursor/ext event emission, and shared-frame cache coordination into a stream/session
-      helper. Verify `ci-check.ps1`, then live-check multiple connected displays, SOI next/prev,
-      disconnect/reconnect behavior, MAP cursor events, and extension high-rate events if an extension
-      is installed.
+- [x] **Next B — SSE/session hub extraction.** Moved `/stream` connection lifetime,
+      per-connection instance registration, hello/cursor/ext event emission, cid sanitizing, and
+      `/soi-instances` diagnostics into `src/plugin/Http/SseHub.cs`. `TelemetryServer` still owns
+      SOI state and the shared serialized-frame cache; `SseHub` calls that narrow boundary when a
+      client needs a frame. Verified by `ci-check.ps1`; still worth live-checking multiple connected
+      displays, SOI next/prev, disconnect/reconnect behavior, MAP cursor events, and extension
+      high-rate events before release.
 - [ ] **Next C — MJPEG handler extraction.** Move `HandleMjpegAsync` after the SSE split settles.
       Verify `/tgp.mjpg` still streams and subscriber tracking still gates TGP capture work.
 - [ ] **Later folder moves.** Consider `src/plugin/Commands/`, `Telemetry/`, `Input/`, or `Assets/`

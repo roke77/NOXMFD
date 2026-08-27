@@ -142,7 +142,7 @@ bug for exactly the audience least likely to expect it — someone testing the f
 PC before handing a second device to a WSO, or a solo player who forgets they left a second local
 browser tab in this mode.
 
-**Detection approach**: `/soi-instances` (`MfdInstance.Remote`, `TelemetryServer.cs:192`) is
+**Detection approach**: `/soi-instances` (`SseHub.MfdInstance.Remote`) is
 useful *precedent* — it shows the server already tracks each connection's remote address — but
 it's not the mechanism to build on directly: it only lists browsers with an open SSE `/stream`
 connection, and a KEY page fetching `/keybinds-config` for this toggle has no reason to also hold
@@ -286,6 +286,6 @@ arbitrates.
   a client-only modal.
 - `src/plugin/Input/Keybinds.cs`'s `Poll()`/`PollTapHold()` defines the local held-state and tap/hold
   behavior that remote cursor/fire state must merge into.
-- `TelemetryServer.cs`'s `MfdInstance`/`/soi-instances` handling is the nearby precedent for
+- `SseHub.cs`'s `MfdInstance`/`/soi-instances` handling is the nearby precedent for
   server-observed remote addresses; `/keybinds-config` uses the request address directly for the
   same-PC warning.

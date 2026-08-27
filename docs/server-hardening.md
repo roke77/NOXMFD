@@ -2,9 +2,9 @@
 
 ## Status
 
-Partly implemented. Request hygiene, command endpoint/queue extraction, telemetry JSON extraction,
-embedded web asset serving, and HTTP route dispatch have shipped. Remaining structural candidates
-are the SSE stream hub and MJPEG handler.
+Partly implemented. Request hygiene, command endpoint/queue extraction, SSE/session extraction,
+telemetry JSON extraction, embedded web asset serving, and HTTP route dispatch have shipped. The
+remaining structural candidate is the MJPEG handler.
 
 ## Where this came from
 
@@ -85,9 +85,9 @@ bodies); pure rejection of malformed/oversized input.
 real game touchpoints. **Don't duplicate that work here — see that doc for the extraction plan and
 land it first.**
 
-What remains after the shipped splits is mostly transport runtime state: command queue/body handling,
-SSE (`HandleSseAsync`), MJPEG (`HandleMjpegAsync`), config endpoints (`ServeHudOptions` and its
-siblings), and extension request handlers. Candidate further splits, **lowest-risk first**:
+What remains after the shipped splits is mostly transport runtime state: MJPEG
+(`HandleMjpegAsync`), config endpoints (`ServeHudOptions` and its siblings), and extension request
+handlers. Candidate further splits, **lowest-risk first**:
 
 | Split | What moves | Risk |
 |---|---|---|
@@ -95,7 +95,7 @@ siblings), and extension request handlers. Candidate further splits, **lowest-ri
 | `TelemetryAssets.cs` | `ServeAssetRel` + static-file/embedded-resource serving | Done |
 | `TelemetryHttpRouter.cs` | URL dispatch from path to endpoint handler | Done |
 | `CommandEndpoint.cs` | `HandleCommand`/`TryDequeueCommand`/`_cmdQueue`/`_cmdLock` + extension command body hygiene | Done |
-| `SseHub.cs` | `HandleSseAsync` + the per-client SSE loop | Medium — touches the frame-version cache from item #2 of `docs/performance.md`; verify that cache's threading contract survives the move |
+| `SseHub.cs` | `/stream` connection lifetime, per-client instance registry, hello/cursor/ext SSE events, and `/soi-instances` diagnostics | Done |
 | MJPEG handler | `HandleMjpegAsync` | Low — mirrors the SSE split's shape but simpler (no per-client state) |
 
 Don't attempt all of these in one PR — each is independently useful and independently testable via
@@ -104,11 +104,7 @@ outside what `docs/csharp-unit-testing.md`'s plan lands).
 
 ### Next recommended targets
 
-1. **Extract SSE/session handling next.** Move `HandleSseAsync`, per-connection instance
-   registration, cursor/ext event emission, and the shared-frame cache boundary only after the
-   command endpoint is settled. Verify route smoke plus live multi-display SOI behavior because this
-   path owns browser instance lifetime.
-2. **Consider the MJPEG handler after SSE.** It is smaller, but it shares the same long-lived response
+1. **Consider the MJPEG handler next.** It is smaller, but it shares the same long-lived response
    style; doing it after the SSE split should make the pattern clearer.
 
 ## Scope
@@ -122,7 +118,7 @@ outside what `docs/csharp-unit-testing.md`'s plan lands).
 - [x] Extract embedded asset serving (`TelemetryAssets.cs`)
 - [x] Extract HTTP route dispatch (`TelemetryHttpRouter.cs`)
 - [x] Extract command endpoint/queue (`CommandEndpoint.cs`)
-- [ ] Extract SSE/session hub (verify frame-version cache threading and SOI lifetime survive the move)
+- [x] Extract SSE/session hub (`SseHub.cs`; live multi-display SOI behavior still wants an in-game/browser spot-check before release)
 - [ ] Extract the MJPEG handler after the SSE pattern is clear
 - [x] One-line SECURITY.md note once the method/size hardening ships (not a trust-model change, just
       documents that these two checks now exist)

@@ -160,7 +160,7 @@ This section describes the pre-fix state, kept for context on why item #2 (below
 `src/plugin/Http/TelemetryServer.cs`'s frame-version cache.
 
 - **`Serialize` re-ran in full, per client, every 100 ms**
-  (`src/plugin/Http/TelemetryServer.cs`, called from `HandleSseAsync` —
+  (`src/plugin/Http/TelemetryServer.cs`, called by the `/stream` loop now in `SseHub` —
   line numbers as they stood at the time this was written), and `string.Format` boxed every
   float/int/bool. Open the combined MFD + a separate RWR tab + a tablet = the entire contact list
   serialized 3× independently, 10×/sec.

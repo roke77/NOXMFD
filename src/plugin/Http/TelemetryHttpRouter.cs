@@ -10,7 +10,7 @@ namespace NOXMFD
         internal static void Route(HttpListenerContext ctx, string path, CancellationToken ct)
         {
             if (path == "/stream")
-                _ = Task.Run(() => TelemetryServer.HandleSseAsync(ctx, ct));
+                _ = Task.Run(() => SseHub.HandleAsync(ctx, ct));
             else if (path == "/tgp.mjpg")
                 _ = Task.Run(() => TelemetryServer.HandleMjpegAsync(ctx, ct));
             else if (path == "/map" || path == "/map.png" || path == "/map.jpg")
