@@ -34,7 +34,7 @@ see "Open questions" below for what still needs deciding before the split itself
 
 ## Granularity — resolved
 
-One manual per real NAV destination (`src/web/shell/nav-model.js`'s `NAV` object — the ground truth,
+One manual per real NAV destination (`src/web/shell/shared/nav-model.js`'s `NAV` object — the ground truth,
 not README's own grouping, which is part of what made README's sections inconsistent: some NAV
 pages got their own bullet, some got folded into another's paragraph). Two deliberate merges:
 

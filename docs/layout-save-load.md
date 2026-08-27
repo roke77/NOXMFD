@@ -125,9 +125,9 @@ correct modal.
 | `src/plugin/Input/Keybinds.cs` | `DefKeyOnly` bind shape; `layout-save`/`layout-load` rows under a new LAYOUT section |
 | `src/plugin/CommandDispatcher.cs` | `layout.save`/`layout.rename`/`layout.delete` (reuse existing `wname`/`group`/`text`/`bind` envelope fields — no new wire fields) |
 | `src/plugin/Http/TelemetryServer.cs`, `src/plugin/Http/TelemetryHttpRouter.cs` | `GET /layout-options`; `ServeKeybindsConfig` emits `joyButton`/`joyNum` only when a bind actually has one |
-| `src/web/shell/layout-store.js` | Fetch-on-open client (`/layout-options`, `layout.save`) — no background poll, layouts don't change on their own |
-| `src/web/shell/layout-modal.js`, `layout-modal.css` | The shared modal primitive; `pickList` also renders inline rename/delete per row |
-| `src/web/shell/layout-keybinds.js` | Polls `/keybinds-config`, matches a `keydown` against the configured save/load keys |
+| `src/web/shell/shared/layout-store.js` | Fetch-on-open client (`/layout-options`, `layout.save`) — no background poll, layouts don't change on their own |
+| `src/web/shell/shared/layout-modal.js`, `layout-modal.css` | The shared modal primitive; `pickList` also renders inline rename/delete per row |
+| `src/web/shell/shared/layout-keybinds.js` | Polls `/keybinds-config`, matches a `keydown` against the configured save/load keys |
 | `src/web/shell/classic/mfd.js` | `captureLayoutState`/`applyLayoutState` — `{splitMode, splitVariant, pages, pinnedPage}`; two LYT nav items (`BEZEL_EXTRAS.lyt`); `handleLayoutKeydown` attached to every iframe the shell owns (map, page-frame, both split panes), not just the top document |
 | `src/web/shell/f35/f35.js`, `f35.html`, `f35.css` | `captureLayoutState`/`applyLayoutState` — `{cells, pages}`, rebuilding portals directly from a saved `F35Glass` arrangement rather than replaying merge/split actions; a second row of nav items in `#layout-picker`; `handleLayoutKeydown` attached to `#map-tap` and every portal's frame (`makePortal`) |
 | `src/web/pages/keybinds/keybinds.js` | Renders a key-only row (one wide keyboard cell, no joystick column) |

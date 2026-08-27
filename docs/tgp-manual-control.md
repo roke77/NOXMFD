@@ -788,7 +788,7 @@ live game state rather than "which page is this." `TGT` lights when a real unit 
 (`!manual && data.cnt > 0`); `MAN` lights when `TgpManualControl.ManualMode` is on; `CLR`/`IR`
 mirror whichever feed is actually active's `data.ir` flag. All four go dark with no feed up at all
 (`data` is only ever `{cnt:0}` in that case — `TelemetryJson.cs`'s `TgpBlock`). The rule itself is
-one shared `tgpMarks(cnt, manual, ir)` (`src/web/shell/tgp-marks.js`), called by both `mfd.js` and
+one shared `tgpMarks(cnt, manual, ir)` (`src/web/shell/shared/tgp-marks.js`), called by both `mfd.js` and
 `f35.js` rather than each shell computing it independently, so the two can't drift. Because this
 needs live data no static table has, `TGT`/`MAN`/`CLR`/`IR` are **not** NAV.tgp entries — `NAV.tgp` stays
 exactly `[MAIN, CFG]`, and the four are hand-placed by each layout's own renderer, the same

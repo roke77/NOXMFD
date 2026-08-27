@@ -166,7 +166,7 @@ Two qualifications, both learned by building the second layout:
 
 `PAGES` was split into two layers. Both are now real files:
 
-1. **Navigation model** — `src/web/shell/nav-model.js`. Layout-independent
+1. **Navigation model** — `src/web/shell/shared/nav-model.js`. Layout-independent
    data: per page, an ordered list of `{ label, action }`. No `key`, no
    `side`, no `slot`. This is "what a pilot can do from this page," and it is
    identical on an F-35. `nav-model.test.js` enforces the invariant — an item
@@ -381,7 +381,7 @@ grids need nothing (`edge` is rows of the portal's height, `center` is
 
 Symbol names, not line numbers — this code is actively moving.
 
-- **Shared:** `src/web/shell/nav-model.js` (+ its test) — `NAV`.
+- **Shared:** `src/web/shell/shared/nav-model.js` (+ its test) — `NAV`.
   `src/web/services/telemetry-source.js` — the one `EventSource`, inside the
   MAP page. `src/web/services/send-command.js` — `sendCommand`.
   `src/web/shared/theme.css` — the common tokens.

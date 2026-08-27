@@ -37,7 +37,7 @@ it.
 - **`/keybinds-config`** already exposes NOXMFD's own bind registry as JSON: `{binds: [{id,
   section, label, description, key, joyButton, joyNum, ...}], ...}` — `key` is a Unity `KeyCode`
   name, `id` is the stable action id (`"flares"`, `"cycle-guns"`, `"tgt-next"`, ...). This is the
-  same registry the KEY page renders and the same data `src/web/shell/layout-keybinds.js` already
+  same registry the KEY page renders and the same data `src/web/shell/shared/layout-keybinds.js` already
   fetches to match a raw browser `KeyboardEvent` against one configured key (for SAVE/LOAD LAYOUT,
   a client-side-only action). That module is the direct precedent for this feature's steps (a) and
   (b) — fetch the table, match keydown against it — just not yet paired with a `sendCommand` call.
@@ -281,7 +281,7 @@ arbitrates.
 
 ## Relevant implementation references
 
-- `src/web/shell/layout-keybinds.js` is the closest existing browser-side keydown pattern; the
+- `src/web/shell/shared/layout-keybinds.js` is the closest existing browser-side keydown pattern; the
   remote listener uses the same key-name vocabulary but sends `/command` actions instead of opening
   a client-only modal.
 - `src/plugin/Input/Keybinds.cs`'s `Poll()`/`PollTapHold()` defines the local held-state and tap/hold

@@ -11,7 +11,7 @@
 // browser; requires it directly under Node so matchKey is unit-checkable (layout-keybinds.test.js).
 (function (root) {
   const Keymap = (typeof module !== 'undefined' && module.exports)
-    ? require('../pages/keybinds/keybinds-keymap.js') : root.KeybindsKeymap;
+    ? require('../../pages/keybinds/keybinds-keymap.js') : root.KeybindsKeymap;
 
   let saveKey = null, loadKey = null;   // Unity KeyCode names, or null = unbound
 

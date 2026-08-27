@@ -241,9 +241,9 @@ runtime-coupled code. Keep composition roots (`Plugin.cs`, `TelemetryServer.cs`,
 responsibility-group per commit — large reshuffles are hard to review and wreck blame.
 
 `src/plugin/Hud/`, `src/plugin/Http/`, `src/plugin/Stores/`, `src/plugin/Telemetry/`,
-`src/plugin/Input/`, `src/plugin/Tgp/`, and `src/plugin/Akf/` are done — the rest of
-`src/plugin/` and all of `src/web/shell/` stay flat until enough files are ready to move
-together. If/when they grow enough to need more internal structure, this is the target shape:
+`src/plugin/Input/`, `src/plugin/Tgp/`, `src/plugin/Akf/`, and `src/web/shell/shared/` are
+done — the rest of `src/plugin/` stays flat until enough files are ready to move together.
+If/when it grows enough to need more internal structure, this is the target shape:
 
 - **`src/plugin/`**: `Core/` (`Plugin.cs`, `MissionLifecycle.cs`, `HarmonyPatches.cs`) ·
   `Http/` (`TelemetryServer.cs`, `TelemetryAssets.cs`, `TelemetryHttpRouter.cs`; remaining
@@ -254,10 +254,7 @@ together. If/when they grow enough to need more internal structure, this is the 
   `ConfigurationManagerAttributes.cs`) · `Interop/` (`CmReflection.cs` and future narrow,
   specifically-named reflection adapters — never a generic `ReflectionUtils` bucket) ·
   `Util/` (`JsonLite.cs`).
-- **`src/web/`**: a `shell/shared/` subfolder for shell-agnostic mechanics
-  (`boot-reveal.js`, `layout-keydown.js`, `layout-modal.js`, `layout-store.js`,
-  `layout-pages.js`, `nav-model.js`), separate from `shell/classic/` and `shell/f35/`'s
-  own composition. A `protocol/` folder for shared message names/payload contracts is
+- **`src/web/`**: a `protocol/` folder for shared message names/payload contracts is
   worth creating once contracts are actually centralized, not for one file. Keep
   page-specific policy files beside their page (as `avn-throttle-policy.js`,
   `afm-bg-policy.js`, `map-transform.js` already do) — don't invent a generic

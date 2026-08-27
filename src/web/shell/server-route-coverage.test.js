@@ -11,7 +11,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { CLASSIC_FULL, CLASSIC_SPLIT, F35 } = require('./layout-pages.js');
+const { CLASSIC_FULL, CLASSIC_SPLIT, F35 } = require('./shared/layout-pages.js');
 
 const serverPath = path.join(__dirname, '..', '..', 'plugin', 'Http', 'TelemetryHttpRouter.cs');
 const serverSrc = fs.readFileSync(serverPath, 'utf8');

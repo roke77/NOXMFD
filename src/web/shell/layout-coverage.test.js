@@ -14,8 +14,8 @@
 // be a hand-written copy that can drift from the code it claims to check. Destinations are the
 // recurring risk anyway — every new page is one.
 const assert = require('assert');
-const { NAV } = require('./nav-model.js');
-const { CLASSIC_FULL, CLASSIC_SPLIT, F35 } = require('./layout-pages.js');
+const { NAV } = require('./shared/nav-model.js');
+const { CLASSIC_FULL, CLASSIC_SPLIT, F35 } = require('./shared/layout-pages.js');
 
 // The bezel routes full view and split panes from separate tables, so the same page can be present
 // in one and missing from the other — it would work in a split pane and render blank in full view.
