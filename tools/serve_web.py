@@ -186,11 +186,23 @@ def _wpt_page():
 def _reload_token():
     """max(mtime) across every served web asset (see docs/live-reload.md) — a cheap comparable
     value that changes whenever a saved edit would change what the browser sees. Includes MOCK
-    since the MAP page's mock injection is as much "what a browser sees" as src/web/ itself."""
+    since the MAP page's mock injection is as much "what a browser sees" as src/web/ itself.
+    Also includes the CURRENT pointer file (so re-pointing which capture is live triggers a
+    reload) and the currently-active capture folder itself (so a fresh capture_assets.py run —
+    new/updated icons, map.jpg, screenshots — does too), rather than every capture in the library:
+    old captures aren't served, so their mtimes are noise a rebuild wouldn't touch anyway."""
     newest = MOCK.stat().st_mtime
     for fp in WEB.rglob("*"):
         if fp.is_file():
             newest = max(newest, fp.stat().st_mtime)
+    cur = CAPTURES / "CURRENT"
+    if cur.exists():
+        newest = max(newest, cur.stat().st_mtime)
+    manifest = _manifest_path()
+    if manifest.exists():
+        for fp in manifest.parent.rglob("*"):
+            if fp.is_file():
+                newest = max(newest, fp.stat().st_mtime)
     return newest
 
 
