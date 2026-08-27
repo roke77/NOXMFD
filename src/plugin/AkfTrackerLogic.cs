@@ -12,6 +12,8 @@ namespace NOXMFD
         Missile,
     }
 
+    // Pure AKF session state. The game adapter supplies resolved names, hostility, ids, and
+    // timestamps so this class can preserve the feed/tally invariants without Unity or game objects.
     internal sealed class AkfTrackerLogic<TId> where TId : notnull
     {
         public const int MaxFeedLines = 50;
@@ -75,6 +77,8 @@ namespace NOXMFD
             };
             AddCapped(_allFeed, entry);
 
+            // The PLAYER feed contains outgoing player kills plus incoming interactions involving
+            // the player's aircraft or fired ordnance; only outgoing kills affect the tally cards.
             if (killerIsPlayer)
             {
                 AddCapped(_playerFeed, entry);
@@ -99,6 +103,8 @@ namespace NOXMFD
         {
             if (!hasFunds)
             {
+                // A missing HQ breaks the diff chain; the next visible balance is a new baseline,
+                // not a giant gain/loss accumulated while the local faction was unavailable.
                 _fundsInit = false;
                 return;
             }

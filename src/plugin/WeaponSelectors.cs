@@ -91,9 +91,8 @@ namespace NOXMFD
             _softRel = CycleAndSelect(ac, WeaponSelectorBucket.Bomb, _softRel);
         }
 
-        // Same restriction, applied to Weapon Release's own switch-then-fire stage (issue: a GUN
-        // selected in A/G mode with only A/A missiles loaded could still switch to one on Weapon
-        // Release, overriding the mode — Cycle Missile already blocked this, Weapon Release didn't).
+        // Same restriction, applied to Weapon Release's own switch-then-fire stage: a GUN selected
+        // in A/G mode with only A/A missiles loaded must not switch to one on Weapon Release.
         // Bombs stay excluded entirely in A/A (mirrors CycleBomb's own no-op there); a Bomb already
         // selected when entering A/A is handled separately by OnCombatModeChanged.
         private static string? CycleAndSelect(Aircraft ac, WeaponSelectorBucket bucket, string? soft)
