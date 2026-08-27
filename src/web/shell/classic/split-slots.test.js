@@ -118,9 +118,10 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
   }
 
   // mapSplitOrder is variant-aware now (WPT-leads-in-v-split follow-up): 'h' gets MAP_SPLIT_ORDER
-  // (bank-safe), 'v'/'vw' both get MAP_SPLIT_ORDER_V (WPT-first) — checked against their own real
-  // pane layouts only, since MAP_SPLIT_ORDER_V would legitimately fail 'h''s bank-adjacency check.
-  const VARIANT_GROUPS = [['h'], ['v', 'vw']];
+  // (bank-safe), 'v'/'vw'/'vwr' (V_SPLIT, V_WIDE_SPLIT_L, V_WIDE_SPLIT_R) all get
+  // MAP_SPLIT_ORDER_V (WPT-first) — checked against their own real pane layouts only, since
+  // MAP_SPLIT_ORDER_V would legitimately fail 'h''s bank-adjacency check.
+  const VARIANT_GROUPS = [['h'], ['v', 'vw', 'vwr']];
 
   // With an active route (routes exist AND one is active): all 10 items, all three pairs must
   // survive pagination, in both variant groups.
@@ -147,7 +148,7 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
     const orderV = mapSplitOrder('v', true, false);
     assert.deepStrictEqual(orderV, ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'rt-next', 'rt-prev'],
       "mapSplitOrder('v', true, false) should lead with WPT, keep R+/R-, drop W+/W-");
-    for (const [order, variants] of [[orderH, ['h']], [orderV, ['v', 'vw']]]) {
+    for (const [order, variants] of [[orderH, ['h']], [orderV, ['v', 'vw', 'vwr']]]) {
       for (const action of order)
         assert.ok(!MAP_WAYPOINT_ACTIONS.has(action), `mapSplitOrder(..., true, false) should never include waypoint action '${action}'`);
       const { assertSamePagePair, assertAdjacentPair } = checkOrder(order, `hasRoutesNoneActive(${variants[0]})`);

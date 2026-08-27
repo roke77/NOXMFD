@@ -25,11 +25,12 @@ bottom.
 - **F_VIEW** — single page, full screen.
 - **H_SPLIT** — top/bottom split.
 - **V_SPLIT** — left/right split.
-- **V_WIDE_SPLIT** — left/right split, 2:1.
+- **V_WIDE_SPLIT_L** — left/right split, 2:1, wide pane on the left.
+- **V_WIDE_SPLIT_R** — left/right split, 2:1, wide pane on the right.
 
 ![V_SPLIT (left) and H_SPLIT (right)](images/H_V_SPLIT.png)
 
-![V_WIDE_SPLIT](images/V_WIDE_SPLIT.png)
+![V_WIDE_SPLIT_L](images/V_WIDE_SPLIT.png)
 
 ## F-35
 

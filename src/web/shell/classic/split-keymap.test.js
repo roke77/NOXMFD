@@ -19,12 +19,15 @@ assert.deepStrictEqual(paneKey('v', 0, 'right', 2), { bank: 'left', index: 5 });
 // Pane 1 = RIGHT pane → right column, same slot arithmetic.
 assert.deepStrictEqual(paneKey('v', 1, 'left',  0), { bank: 'right', index: 0 });
 assert.deepStrictEqual(paneKey('v', 1, 'right', 1), { bank: 'right', index: 4 });
-// vw shares the v mapping (only the pane widths differ, not the keys).
+// vw / vwr (V_WIDE_SPLIT_L / _R) share the v mapping (only the pane widths differ, not the keys —
+// pane 0 is still the left pane and pane 1 still the right one in both).
 assert.deepStrictEqual(paneKey('vw', 1, 'right', 2), { bank: 'right', index: 5 });
 assert.deepStrictEqual(paneKey('vw', 0, 'left',  1), { bank: 'left',  index: 1 });
+assert.deepStrictEqual(paneKey('vwr', 1, 'right', 2), { bank: 'right', index: 5 });
+assert.deepStrictEqual(paneKey('vwr', 0, 'left',  1), { bank: 'left',  index: 1 });
 
 // The left/right panes must never share a physical key (each owns a distinct column).
-for (const v of ['v', 'vw']) {
+for (const v of ['v', 'vw', 'vwr']) {
   for (const side of ['left', 'right']) {
     for (let slot = 0; slot <= 2; slot++) {
       assert.notStrictEqual(paneKey(v, 0, side, slot).bank, paneKey(v, 1, side, slot).bank);

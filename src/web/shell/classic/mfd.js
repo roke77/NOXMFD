@@ -1,4 +1,4 @@
-const COUNTS = { 'keys-left': 6, 'keys-right': 6, 'keys-top': 5, 'keys-bottom': 4 };
+const COUNTS = { 'keys-left': 6, 'keys-right': 6, 'keys-top': 5, 'keys-bottom': 5 };
 function addSep(c) { const s = document.createElement('div'); s.className = 'sep'; c.appendChild(s); }
 function addKey(c) { const b = document.createElement('button'); b.className = 'key'; b.type = 'button'; c.appendChild(b); }
 
@@ -27,10 +27,11 @@ const rightKeys = keyBanks.right;
 });
 // Both banks are wired once at startup and excluded from clearKeyActions, so they survive page switches.
 const layoutIcons = [
-  { cls: 'ic-square', title: 'Full view',            action: 'unsplit' },
-  { cls: 'ic-2x1',    title: 'Split top/bottom',     action: 'split'   },   // H_SPLIT
-  { cls: 'ic-1x2',    title: 'Split left/right',     action: 'vsplit'  },   // V_SPLIT (50/50)
-  { cls: 'ic-lr23',   title: 'Split left/right 2:1', action: 'vwsplit' },   // V_WIDE_SPLIT (2:1)
+  { cls: 'ic-square', title: 'Full view',                        action: 'unsplit'   },
+  { cls: 'ic-2x1',    title: 'Split top/bottom',                 action: 'split'     },   // H_SPLIT
+  { cls: 'ic-1x2',    title: 'Split left/right',                 action: 'vsplit'    },   // V_SPLIT (50/50)
+  { cls: 'ic-lr23',   title: 'Split left/right 2:1, wide left',  action: 'vwsplit'   },   // V_WIDE_SPLIT_L (2:1)
+  { cls: 'ic-rl23',   title: 'Split left/right 2:1, wide right', action: 'vwsplit-r' },   // V_WIDE_SPLIT_R (2:1)
 ];
 const functionIcons = [
   { cls: 'ic-hide-shell', title: 'Hide shell',         action: 'hide-shell' },
@@ -193,8 +194,11 @@ let currentPage = 'map';
 // See docs/mfd-split-screen.md — Strategy A, implementation sequence steps 1-4.
 let splitMode = false;
 // Split orientation: 'h' = top/bottom (H_SPLIT), 'v' = left/right 50/50 (V_SPLIT),
-// 'vw' = left/right 2:1 (V_WIDE_SPLIT). Drives the .split-<variant> CSS class and the
-// bezel key mapping (SplitKeymap.paneKey). Meaningful only while splitMode is on.
+// 'vw' = left/right 2:1, wide left (V_WIDE_SPLIT_L), 'vwr' = left/right 2:1, wide right
+// (V_WIDE_SPLIT_R) — pane 0 (pane-top) is always the left pane; only its share of the width
+// flips between 'vw' and 'vwr' (mfd.css). Drives the .split-<variant> CSS class and the bezel
+// key mapping (SplitKeymap.paneKey), which treats every non-'h' variant identically — column
+// ownership doesn't depend on which side is wider. Meaningful only while splitMode is on.
 let splitVariant = 'h';
 // [topPage, botPage], seeded with MAIN on entry; per-pane navigation updates this from MAIN's
 // L0..L2 / R0..R2 keys.
@@ -273,7 +277,7 @@ function paneKey(paneIdx, side, slot) { return SplitKeymap.paneKey(splitVariant,
 // the orientation (h = top/bottom, v = left/right 50/50, vw = left/right 2:1).
 function applySplitClasses() {
   screenEl.classList.toggle('split', splitMode);
-  screenEl.classList.remove('split-h', 'split-v', 'split-vw');
+  screenEl.classList.remove('split-h', 'split-v', 'split-vw', 'split-vwr');
   if (splitMode) screenEl.classList.add('split-' + splitVariant);
 }
 
@@ -2251,7 +2255,8 @@ function mfdButton(el) {
     // (unsplit) below collapses back to single.
     case 'split':   setSplit('h');  break;   // H_SPLIT — top/bottom
     case 'vsplit':  setSplit('v');  break;   // V_SPLIT — left/right 50/50
-    case 'vwsplit': setSplit('vw'); break;   // V_WIDE_SPLIT — left/right 2:1
+    case 'vwsplit':   setSplit('vw');  break;   // V_WIDE_SPLIT_L — left/right 2:1, wide left
+    case 'vwsplit-r': setSplit('vwr'); break;   // V_WIDE_SPLIT_R — left/right 2:1, wide right
     case 'unsplit':
       // One-way: collapse split back to single. No-op if already in single mode.
       // The full-screen pane adopts whatever the TOP pane was showing.
@@ -2435,7 +2440,8 @@ function captureLayoutState() {
 function applyLayoutState(state) {
   const pages = (state && state.pages && state.pages.length) ? state.pages : ['main'];
   if (state && state.splitMode) {
-    setSplit(state.splitVariant === 'v' || state.splitVariant === 'vw' ? state.splitVariant : 'h');
+    const validVariant = ['v', 'vw', 'vwr'].indexOf(state.splitVariant) !== -1;
+    setSplit(validVariant ? state.splitVariant : 'h');
     paneNavigate(0, pages[0] || 'main');
     paneNavigate(1, pages[1] || 'main');
   } else if (splitMode) {
