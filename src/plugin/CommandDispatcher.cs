@@ -49,7 +49,7 @@ namespace NOXMFD
         public int    n;       // soi.panes : how many focusable surfaces that instance now shows
                                 // soi.page : which of that instance's surfaces (pane index)
                                 // wpt.reorder-waypoint : the "to" index
-        public float  hz;      // rates.set : desired rate in Hz (group picks which — "fast" | "tgp")
+        public float  hz;      // rates.set : desired rate in Hz (group picks which — "fast" | "contact" | "tgp")
         public float  x;       // cursor.set : live cursor velocity X [-1,1]
         public float  y;       // cursor.set : live cursor velocity Y [-1,1]
         public float  wx;      // wpt.add-waypoint : world X (floating-origin corrected)
@@ -86,6 +86,7 @@ namespace NOXMFD
                 // alias so an older page can still switch between native and the mirror feed.
                 { "rates.set",       e => {
                     if (e.group == "tgp") RatesConfig.SetTgpHz(e.hz);
+                    else if (e.group == "contact") RatesConfig.SetContactHz(e.hz);
                     else if (e.group == "tgpResolution" || e.group == "tgpQuality") RatesConfig.SetTgpResolution(e.wname ?? "native");
                     else if (e.group == "tgpJpegQuality") RatesConfig.SetTgpJpegQuality(e.wname ?? "mid");
                     else if (e.group == "tgpSuppressNative") RatesConfig.SetTgpSuppressNative(e.wname == "on" || e.on);

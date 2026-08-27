@@ -13,7 +13,9 @@ namespace NOXMFD
         // BDF/PAL — moves together.
         internal static float FastInterval = 0.1f; // 10 Hz — position / speed
         private const  float SlowInterval  = 1.0f; // 1 Hz  — world scan + map metadata (FindObjectsByType is expensive)
-        private const  float ContactInterval = 0.25f; // 4 Hz — MAP/RDR contacts are expensive and don't need 10 Hz
+        // Not a const either: RatesConfig.SetContactHz (rates.set group "contact", MAP CFG page's
+        // own CONTACTS slider) writes this live, independently of FastHz above.
+        internal static float ContactInterval = 0.25f; // 4 Hz default — MAP/RDR/HSD contacts are expensive and don't need 10 Hz
 
         // One-shot game-asset extraction (map / unit icons / weapon + CM icons / airframe silhouette).
         // Owned here; driven from ScanWorld / PushSnapshot. See AssetCapture.cs.
@@ -1220,6 +1222,11 @@ namespace NOXMFD
                 if (!datalinkKnown && !radarDetected) continue;
                 if (!datalinkKnown) gp = u.GlobalPosition();
 
+                // Same 20m trust-radius check BuildUnits uses for UnitInfo.Stale (docs/tgt-stale-lock.md)
+                // — returns true immediately while a datalink track is fresh, so this only fires once
+                // the position has actually drifted, regardless of whether own radar also sees it.
+                bool stale = datalinkKnown && !playerHQ.IsTargetPositionAccurate(u, 20f);
+
                 _hsdBuf.Add(new HsdContact
                 {
                     Id       = u.persistentID.Id,
@@ -1230,6 +1237,7 @@ namespace NOXMFD
                     Targeted = hasTargets && targets.Contains(u),
                     Radar    = radarDetected,
                     Datalink = datalinkKnown,
+                    Stale    = stale,
                     Name     = RwrLabel(u)
                 });
             }

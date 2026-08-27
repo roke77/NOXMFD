@@ -264,6 +264,7 @@ def _wpt_options():
 def _rates_config():
     return json.dumps({
         "fastHz": 10,
+        "contactHz": 4,
         "tgpHz": 15,
         "tgpResolution": "native",
         "tgpJpegQuality": "mid",
@@ -278,6 +279,7 @@ def _rates_config_merged():
         return _rates_config()
     merged = {
         "fastHz": 10,
+        "contactHz": 4,
         "tgpHz": 15,
         "tgpResolution": "native",
         "tgpJpegQuality": "mid",

@@ -4,9 +4,10 @@ using UnityEngine;
 namespace NOXMFD
 {
     // Live-adjustable refresh rates: FastHz (MAP CFG page) drives TelemetryReader.FastInterval
-    // (own-ship, weapons, contacts, TGT, BDF/PAL); the TGP settings drive TgpFeed. Persisted and
-    // hidden from the F1 menu, setting any of them writes directly into
-    // the reader's/feed's own field, live.
+    // (own-ship, weapons, RWR/MW, TGT, BDF/PAL); ContactHz (MAP CFG page's own CONTACTS slider)
+    // drives TelemetryReader.ContactInterval (MAP/RDR/HSD contact + pitbull snapshots, split off
+    // FastHz — docs/performance.md item #4); the TGP settings drive TgpFeed. Persisted and hidden
+    // from the F1 menu, setting any of them writes directly into the reader's/feed's own field, live.
     internal static class RatesConfig
     {
         private sealed class ConfigurationManagerAttributes { public bool? Browsable; }
@@ -21,13 +22,15 @@ namespace NOXMFD
         private const float TgpMaxHz = 60f;
 
         private static ConfigEntry<float>?  _fastHz;
+        private static ConfigEntry<float>?  _contactHz;
         private static ConfigEntry<float>?  _tgpHz;
         private static ConfigEntry<string>? _tgpQuality;
         private static ConfigEntry<string>? _tgpJpegQuality;
         private static ConfigEntry<bool>?   _tgpSuppressNative;
 
-        public static float FastHz => _fastHz?.Value ?? 10f;
-        public static float TgpHz  => _tgpHz?.Value  ?? 15f;
+        public static float FastHz    => _fastHz?.Value    ?? 10f;
+        public static float ContactHz => _contactHz?.Value ?? 4f;
+        public static float TgpHz     => _tgpHz?.Value      ?? 15f;
         public static string TgpResolutionName =>
             TgpFeedSettings.NormalizeResolutionName(_tgpQuality?.Value);
         public static string TgpJpegQualityName =>
@@ -41,6 +44,13 @@ namespace NOXMFD
             hz = Mathf.Clamp(hz, MinHz, MaxHz);
             if (_fastHz != null) _fastHz.Value = hz;
             TelemetryReader.FastInterval = 1f / hz;
+        }
+
+        public static void SetContactHz(float hz)
+        {
+            hz = Mathf.Clamp(hz, MinHz, MaxHz);
+            if (_contactHz != null) _contactHz.Value = hz;
+            TelemetryReader.ContactInterval = 1f / hz;
         }
 
         public static void SetTgpHz(float hz)
@@ -76,7 +86,9 @@ namespace NOXMFD
         {
             const string section = "Refresh Rates";
             _fastHz = config.Bind(section, "FastHz", 10f,
-                new ConfigDescription("Main telemetry tick (own-ship, weapons, contacts, TGT, BDF/PAL). 1-30 Hz.", null, Hidden));
+                new ConfigDescription("Main telemetry tick (own-ship, weapons, RWR/MW, TGT, BDF/PAL). 1-30 Hz.", null, Hidden));
+            _contactHz = config.Bind(section, "ContactHz", 4f,
+                new ConfigDescription("MAP/RDR/HSD contact + pitbull refresh rate. 1-30 Hz.", null, Hidden));
             _tgpHz = config.Bind(section, "TgpHz", 15f,
                 new ConfigDescription("TGP camera feed capture rate. 1-60 Hz.", null, Hidden));
             _tgpQuality = config.Bind(section, "TgpQuality", "native",
@@ -87,6 +99,7 @@ namespace NOXMFD
                 new ConfigDescription("When the TGP feed is active, hide the native in-cockpit TGP overlay so the normal cockpit display remains visible.", null, Hidden));
 
             SetFastHz(_fastHz.Value);
+            SetContactHz(_contactHz.Value);
             SetTgpHz(_tgpHz.Value);
             SetTgpResolution(_tgpQuality.Value);
             SetTgpJpegQuality(_tgpJpegQuality.Value);
