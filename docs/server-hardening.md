@@ -101,6 +101,7 @@ Historical split order:
 | `ExtensionEndpoint.cs` | `/ext-manifest`, `/ext/<id>` assets, `/ext/<id>/command`, and `/ext/<id>/feed.mjpg` | Done |
 | `SseHub.cs` | `/stream` connection lifetime, per-client instance registry, hello/cursor/ext SSE events, and `/soi-instances` diagnostics | Done |
 | `TgpMjpegHandler.cs` | `/tgp.mjpg` long-lived response, live JPEG frame cache, and subscriber tracking | Done |
+| `SoiFocus.cs` | SOI focus (target cid/pane, versioned action counter) + MAP cursor/action state | Done |
 
 Don't attempt all of these in one PR — each is independently useful and independently testable via
 `dotnet build` + the existing in-game verification checklist (no C# test harness covers this file yet
@@ -108,8 +109,11 @@ outside what `docs/csharp-unit-testing.md`'s plan lands).
 
 ### Next recommended targets
 
-The planned low-risk HTTP splits in this document are done. Any further `TelemetryServer.cs` split
-should be scoped from a fresh scan, not assumed from this checklist.
+The planned low-risk HTTP splits in this document are done, plus one more (`SoiFocus.cs`) identified
+by a fresh scan after the fact. `TelemetryServer.cs` still owns the LAN/netsh auto-setup lifecycle
+(`Start`/`TryBindWildcard`/`TryAutoSetupLanAccess`/`RunNetsh`/`DetectLanIp`) and the SSE frame
+cache/`RefreshHudOptions` snapshot builder — plausible future candidates, not yet scoped. Any further
+split should be scoped from a fresh scan, not assumed from this checklist.
 
 ## Scope
 
@@ -126,5 +130,6 @@ should be scoped from a fresh scan, not assumed from this checklist.
 - [x] Extract config/options endpoints (`ConfigEndpoint.cs`)
 - [x] Extract SSE/session hub (`SseHub.cs`; live multi-display SOI behavior still wants an in-game/browser spot-check before release)
 - [x] Extract the TGP MJPEG handler (`TgpMjpegHandler.cs`; `/tgp.mjpg` live viewing still wants an in-game/browser spot-check before release)
+- [x] Extract SOI focus + MAP cursor/action state (`SoiFocus.cs`; live multi-display SOI behavior still wants an in-game/browser spot-check before release, same as the SSE hub above)
 - [x] One-line SECURITY.md note once the method/size hardening ships (not a trust-model change, just
       documents that these two checks now exist)
