@@ -286,8 +286,8 @@
   // only fires when the frame has none — no capture loaded at all, or a capture taken at a moment
   // with nothing on radar/RWR — same "real data wins if present" rule `targets` above already
   // follows. Nothing to do here now; FRAME.rwr/.rdr are left exactly as the capture set them, and
-  // the `if (!FRAME.rdr)` / `if (!Array.isArray(FRAME.rwr) || !FRAME.rwr.length)` checks below
-  // decide from there.
+  // the `if (!FRAME.rdr || !FRAME.rdr.present || ...)` / `if (!Array.isArray(FRAME.rwr) ||
+  // !FRAME.rwr.length)` checks below decide from there.
 
   // Preview-only: pad the loadout to 6 weapons so the WPN page paginates in both layouts —
   // full view (5 per page → 5 + 1) and the split pane (WPN_SPLIT_MAX=4 → 4 + 2). These
@@ -311,7 +311,8 @@
   // so they land at the intended bearings/ranges whether the frame is the synthetic one above
   // or a real capture (which carries a different world/hdg). This also round-trips the real
   // wire shape: we emit x,z + tr/pw, and ClientPage converts it right back to az + radius.
-  // Always applied — see the `delete FRAME.rwr` above.
+  // Only applied when the capture didn't already supply a non-empty FRAME.rwr, per the "real
+  // data wins if present" rule above.
   const SYNTH_RWR = [
     { az: 28,  pw: 0.66, tr: 2, n: 'SA-10',  k: 1, period: 2.4 },   // lock,   close, ground-SAM
     { az: 104, pw: 0.40, tr: 1, n: 'SA-11',  k: 1, period: 1.6 },   // track,  mid
@@ -331,8 +332,11 @@
   // Synthetic RDR block for the radar page (docs/rdr-page.md): air contacts the own radar
   // "detects", authored as nose-relative bearing (az), range fraction (rf), travel heading
   // relative to nose (rh, for the velocity stub) and lock flag (tg), converted to the plugin's
-  // wire shape (world x,z + world hdg + present/range/cone). Always applied — see the
-  // `delete FRAME.rdr` above.
+  // wire shape (world x,z + world hdg + present/range/cone). Only applied when the capture didn't
+  // already supply a present, non-empty FRAME.rdr, per the "real data wins if present" rule above
+  // — this also covers a capture whose `rdr` field exists but is empty (radar off/absent at the
+  // moment it was captured), which must fall back the same as no field at all, not shadow the
+  // curated scenario with nothing to show.
   const SYNTH_RDR = [
     { az: -20, rf: 0.35, rh: 190, tg: 1, rd: 1, dl: 1, n: 'FS-20 Vortex', alt: 5500 },   // locked, both
     { az:  25, rf: 0.52, rh: 205, tg: 1, rd: 1, dl: 0, n: 'KR-67 Ifrit',  alt: 7200 },   // locked, radar-only
@@ -340,7 +344,7 @@
     { az:  10, rf: 0.86, rh: 335, tg: 0, rd: 0, dl: 1, n: 'EW-25 Medusa', alt: 10500 },  // datalink-only (purple)
     { az:  40, rf: 0.60, rh: 100, tg: 0, rd: 1, dl: 1, n: 'AB-4 Alkyon',  alt: 8200 },   // both, unlocked (green + purple centre)
   ];
-  if (!FRAME.rdr) {
+  if (!FRAME.rdr || !FRAME.rdr.present || !Array.isArray(FRAME.rdr.items) || !FRAME.rdr.items.length) {
     const ow = FRAME.world || { x: 0, z: 0 }, hdg = FRAME.hdg || 0, range = 74000, cone = 60;
     // metric toggles the corner scale (KM/M) vs default (NM/FT) — flip via window.__PREVIEW_FRAME__
     // = { rdr: { metric: true } } or just window.__RDR_METRIC__ = true before load, for a quick check.
@@ -367,7 +371,12 @@
     };
   }
 
-  if (!FRAME.hsd) {
+  // Same "real data wins if present, but an empty/missing list still falls back" rule as
+  // RWR/RDR above — no existing capture predates this field with a present-but-empty block yet
+  // (HSD is new), but the guard is written array-emptiness-aware from the start so a future
+  // capture that does carry an empty FRAME.hsd doesn't silently blank the page the way an empty
+  // FRAME.rdr used to before this guard was fixed to match.
+  if (!FRAME.hsd || !Array.isArray(FRAME.hsd.items) || !FRAME.hsd.items.length) {
     const ow = FRAME.world || { x: 0, z: 0 }, hdg = FRAME.hdg || 0;
     const contacts = [
       { az: -150, rng: 26000, hdg: 20,  tg: 0, rd: 0, dl: 1, n: 'EW-25 Medusa', alt: 9700 },
