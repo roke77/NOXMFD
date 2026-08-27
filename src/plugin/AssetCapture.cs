@@ -69,7 +69,7 @@ namespace NOXMFD
         // its rendered silhouette size.
         public void TryCaptureAirframe(Aircraft ac)
         {
-            string key = ac.definition != null ? ac.definition.unitName : null;
+            string? key = ac.definition != null ? ac.definition.unitName : null;
             if (string.IsNullOrEmpty(key) || _capturedAirframes.Contains(key)) return;
 
             StatusDisplay sd = UnityEngine.Object.FindObjectOfType<StatusDisplay>(includeInactive: true);
@@ -88,8 +88,8 @@ namespace NOXMFD
                 return;
             }
 
-            Image bgImage     = _sdBackgroundField.GetValue(sd)     as Image;
-            System.Collections.IList partsList = _sdStatusDisplaysField.GetValue(sd) as System.Collections.IList;
+            Image? bgImage = _sdBackgroundField.GetValue(sd) as Image;
+            System.Collections.IList? partsList = _sdStatusDisplaysField.GetValue(sd) as System.Collections.IList;
             if (bgImage == null || partsList == null)
                 return;   // StatusDisplay found but not populated yet — retry next slow scan (don't cache a miss)
 
@@ -134,11 +134,11 @@ namespace NOXMFD
             int flippedCount = 0;
             for (int i = 0; i < partsList.Count; i++)
             {
-                PartStatusDisplay psd = partsList[i] as PartStatusDisplay;
+                PartStatusDisplay? psd = partsList[i] as PartStatusDisplay;
                 if (psd == null || psd.partImage == null) continue;
 
                 Image img = psd.partImage;
-                string name = img.gameObject != null ? img.gameObject.name : null;
+                string? name = img.gameObject != null ? img.gameObject.name : null;
                 if (string.IsNullOrEmpty(name)) continue;
 
                 if (!GetPartPlacement(img.rectTransform, bgRT, out float cx, out float cy, out float w, out float h, out float rotZ, out int sx, out int sy))
@@ -185,12 +185,12 @@ namespace NOXMFD
             // page owns visual styling. The reader polls activeSelf on these each tick to know
             // which messages are currently firing.
             var failureGOs = new List<GameObject>();
-            System.Collections.IList failureList = _sdFailureIndicatorsField?.GetValue(sd) as System.Collections.IList;
+            System.Collections.IList? failureList = _sdFailureIndicatorsField?.GetValue(sd) as System.Collections.IList;
             if (failureList != null)
             {
                 for (int i = 0; i < failureList.Count; i++)
                 {
-                    GameObject go = failureList[i] as GameObject;
+                    GameObject? go = failureList[i] as GameObject;
                     if (go != null) failureGOs.Add(go);
                 }
             }
@@ -275,12 +275,12 @@ namespace NOXMFD
 
         public void TryCaptureFrontalSilhouette(Aircraft ac)
         {
-            string key = ac.definition != null ? ac.definition.unitName : null;
+            string? key = ac.definition != null ? ac.definition.unitName : null;
             if (string.IsNullOrEmpty(key) || _capturedFrontal.Contains(key)) return;
 
             // frontProfile only exists inside the LIVE (instantiated) WeaponPanel; FindObjectsOfTypeAll
             // also returns inactive template prefabs for other aircraft types, which must be skipped.
-            Image frontImg = null;
+            Image? frontImg = null;
             foreach (Image img in Resources.FindObjectsOfTypeAll<Image>())
             {
                 if (img == null || img.gameObject.name != "frontProfile") continue;
@@ -333,7 +333,7 @@ namespace NOXMFD
         // color on a hit), so "which channel dominates" cleanly classifies both states. A station
         // with nothing mounted is flat gray (equal channels), which a plain g>=r check would
         // misread as armed — gray is checked first to catch that case.
-        public List<(string name, string state)> ReadFrontalMarkerStates(string type)
+        public List<(string name, string state)> ReadFrontalMarkerStates(string? type)
         {
             var result = new List<(string, string)>();
             if (string.IsNullOrEmpty(type) || !_frontalMarkers.TryGetValue(type, out var markers)) return result;
@@ -353,7 +353,7 @@ namespace NOXMFD
         // Image.gameObject.name against UnitPart.gameObject.name).
         public void TryLogPartLayout(Aircraft ac)
         {
-            string key = ac.definition != null ? ac.definition.unitName : null;
+            string? key = ac.definition != null ? ac.definition.unitName : null;
             if (string.IsNullOrEmpty(key) || _loggedPartLayouts.Contains(key)) return;
 
             var parts = ac.partLookup;
@@ -387,7 +387,7 @@ namespace NOXMFD
 
             foreach (WeaponStation st in stations)
             {
-                WeaponInfo info = st != null ? st.WeaponInfo : null;
+                WeaponInfo? info = st != null ? st.WeaponInfo : null;
                 if (info == null) continue;
                 string key = !string.IsNullOrEmpty(info.name) ? info.name
                            : !string.IsNullOrEmpty(info.weaponName) ? info.weaponName
@@ -479,7 +479,7 @@ namespace NOXMFD
         // collide with the short ship-type codes ("CV" … "LC").
         public void TryCaptureFactionLogo(FactionHQ hq)
         {
-            Faction faction = hq != null ? hq.faction : null;
+            Faction? faction = hq != null ? hq.faction : null;
             if (faction == null || string.IsNullOrEmpty(faction.factionName)) return;
             string name = faction.factionName;
             if (_capturedBdfLogos.Contains(name)) return;
@@ -553,8 +553,8 @@ namespace NOXMFD
                 HUDOptions_Category cat = opt.listCategories[slot.index];
                 if (cat == null) continue;   // retry — list still filling in
 
-                Transform iconT = cat.transform.Find("TopContainer/Icon");
-                Image img = iconT != null ? iconT.GetComponent<Image>() : null;
+                Transform? iconT = cat.transform.Find("TopContainer/Icon");
+                Image? img = iconT != null ? iconT.GetComponent<Image>() : null;
                 if (img == null || img.sprite == null) continue;   // not ready — retry next scan
 
                 _capturedHudCatIcons.Add(slot.key);   // mark regardless so we never retry this one

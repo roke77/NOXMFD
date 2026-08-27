@@ -2,10 +2,10 @@
 
 ## Status
 
-Complete for compiler warning cleanup. A fresh `dotnet build -c Release` on 2026-08-27 emits no C#
-nullable or unassigned-field warnings. The only remaining build warning is the deliberately
-deferred `MSB3277` `System.IO.Compression` assembly-version conflict described below; the build
-succeeds and MSBuild resolves it consistently.
+Complete for compiler warning cleanup. A fresh `dotnet build -c Release --no-incremental` on
+2026-08-27 emits no C# nullable or unassigned-field warnings. The only remaining build warning is
+the deliberately deferred `MSB3277` `System.IO.Compression` assembly-version conflict described
+below; the build succeeds and MSBuild resolves it consistently.
 
 ## Where this came from
 
@@ -93,6 +93,10 @@ longer depends on those refactors.
    `Mirage`'s dependency graph, resolved in MSBuild's favor already (build succeeds), so this is
    cosmetic today. Worth a `<Compile>`/binding-redirect investigation only if it ever starts causing
    an actual runtime `MissingMethodException` — not before.
+6. **Follow-up no-incremental pass**: a later branch-local audit found warnings that an incremental
+   build could hide. The reopened nullable sites in `AssetCapture.cs`, `TelemetryReader.cs`, and
+   `TgpManualControl.cs` were resolved with null-aware signatures, local guards, and safe fallbacks.
+   Use `--no-incremental` for future warning audits.
 
 ## Scope
 
