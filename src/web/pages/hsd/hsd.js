@@ -14,7 +14,7 @@ var CY = CEN_CY, OUTER = CEN_OUTER;
 var M_PER_NM = 1852, M_PER_KM = 1000;
 // RED (not green) for own-radar-detected contacts — these are enemy air contacts, and dropping
 // green here leaves it free to mean "friendly" if that symbology is ever added, matching FCR.
-var HSD_PINK = 'var(--no-purple)', RED = 'var(--no-red)', AMBER = 'var(--no-amber)';
+var HSD_PINK = 'var(--no-purple)', RED = 'var(--no-red)', AMBER = 'var(--no-amber)', STALE_WHITE = 'var(--no-white)';
 var HSD_PINK_RGB = 'var(--no-hsd-pink-rgb)', TEAL_RGB = 'var(--no-teal-rgb)';
 var CURSOR_WHITE = 'rgba(255,255,255,0.85)';
 var state = { ownX: 0, ownZ: 0, hdg: 0, metric: false, radarPresent: false, radarRange: 0, radarCone: 0, items: [] };
@@ -120,9 +120,13 @@ function radarConePath(rangeM, radarRange, radarCone) {
 // other simultaneous lock (a planned cycling-locked-targets follow-up, docs/rdr-fcr-hsd.md) — only
 // the focused one's icon goes amber. Any other contact's color is purely its source regardless of
 // lock state: an unfocused lock keeps its ordinary red/purple, since its ring (drawn by the
-// caller) is what shows it's still locked, not its icon.
+// caller) is what shows it's still locked, not its icon. A stale datalink track (its position has
+// drifted past the game's own trust radius, docs/tgt-stale-lock.md) goes white instead of its
+// source color — still below focused-amber, since a lock stays the more important cue even if the
+// position backing it is untrustworthy.
 function contactColor(c, focused) {
   if (focused) return AMBER;
+  if (c && c.st) return STALE_WHITE;
   if (c && c.rd) return RED;
   return HSD_PINK;
 }
@@ -309,7 +313,7 @@ function demoContacts(ownX, ownZ, hdg) {
     { az:  -70, rng: 48000, hdg: 110, tg: 0, rd: 0, dl: 1, n: 'FS-12 Revoker', alt: 7600 },
     { az:   35, rng: 32000, hdg: 260, tg: 1, rd: 0, dl: 1, n: 'KR-67 Ifrit', alt: 6500 },
     { az:   18, rng: 41000, hdg: 205, tg: 0, rd: 1, dl: 0, n: 'SFB-81', alt: 8900 },
-    { az:  145, rng: 61000, hdg: 315, tg: 0, rd: 0, dl: 1, n: 'AB-4 Alkyon', alt: 8300 }
+    { az:  145, rng: 61000, hdg: 315, tg: 0, rd: 0, dl: 1, st: 1, n: 'AB-4 Alkyon', alt: 8300 }
   ];
   return contacts.map(function (c, i) {
     var ab = (c.az + hdg) * Math.PI / 180;
@@ -322,6 +326,7 @@ function demoContacts(ownX, ownZ, hdg) {
       tg: c.tg,
       rd: c.rd,
       dl: c.dl,
+      st: c.st,
       n: c.n
     };
   });

@@ -389,7 +389,7 @@
       { az:  -70, rng: 48000, hdg: 110, tg: 0, rd: 0, dl: 1, n: 'FS-12 Revoker', alt: 7600 },
       { az:   35, rng: 32000, hdg: 260, tg: 1, rd: 0, dl: 1, n: 'KR-67 Ifrit', alt: 6500 },
       { az:   18, rng: 41000, hdg: 205, tg: 0, rd: 1, dl: 0, n: 'SFB-81', alt: 8900 },
-      { az:  145, rng: 61000, hdg: 315, tg: 0, rd: 0, dl: 1, n: 'AB-4 Alkyon', alt: 8300 },
+      { az:  145, rng: 61000, hdg: 315, tg: 0, rd: 0, dl: 1, st: 1, n: 'AB-4 Alkyon', alt: 8300 },
     ];
     FRAME.hsd = {
       metric: !!window.__RDR_METRIC__,
@@ -397,7 +397,7 @@
         const ab = (c.az + hdg) * Math.PI / 180;
         return { id: 9201 + i,
                  x: Math.round(ow.x + Math.sin(ab) * c.rng), z: Math.round(ow.z + Math.cos(ab) * c.rng),
-                 alt: c.alt, hdg: c.hdg, tg: c.tg, rd: c.rd, dl: c.dl, n: c.n };
+                 alt: c.alt, hdg: c.hdg, tg: c.tg, rd: c.rd, dl: c.dl, st: c.st, n: c.n };
       })
     };
   }

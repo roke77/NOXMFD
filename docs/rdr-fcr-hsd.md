@@ -145,7 +145,10 @@ Start as a basic DCS F-16 HSD-inspired plan view, not a full replica:
   range inside the currently selected HSD scale;
 - datalink aerial contacts plotted in ownship-relative x/z space across 360 degrees;
 - contact symbols use the same source colors as FCR: datalink-only purple, own-radar red, amber
-  when locked;
+  when locked (see "Focused lock vs. locked" below for the focused/other-lock split actually
+  shipped); a stale datalink track (`HsdContact.Stale`, same 20m trust-radius check as
+  `UnitInfo.Stale`, docs/tgt-stale-lock.md) goes white instead of its source color, since HSD has
+  no other way to show "this position may no longer be accurate";
 - optional simple velocity stubs once position plotting is proven.
 - bottom-left readout mirrors FCR for the first locked contact: target name plus RNG/ALT/HDG in
   amber; the right footer stacks LINK count above LOCK count.

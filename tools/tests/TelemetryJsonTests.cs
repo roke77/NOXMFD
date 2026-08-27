@@ -253,7 +253,7 @@ namespace NOXMFD.Tests
             s.RdrMetric = true;
             s.Hsd = new[]
             {
-                new HsdContact { Id = 8, X = 100f, Z = -200f, Alt = 3000f, Heading = 45f, Targeted = true, Radar = true, Datalink = true, Name = "F-16" },
+                new HsdContact { Id = 8, X = 100f, Z = -200f, Alt = 3000f, Heading = 45f, Targeted = true, Radar = true, Datalink = true, Stale = true, Name = "F-16" },
             };
 
             var hsd = Obj(Root(s)["hsd"]);
@@ -268,6 +268,7 @@ namespace NOXMFD.Tests
             Assert.Equal(1.0, item["tg"]);
             Assert.Equal(1.0, item["rd"]);
             Assert.Equal(1.0, item["dl"]);
+            Assert.Equal(1.0, item["st"]);
             Assert.Equal("F-16", item["n"]);
         }
     }

@@ -59,6 +59,8 @@ long as someone else's does.
   how much of what you're seeing here your own radar could also reach.
 - **Contacts** — same meaning and colors as FCR's: red (your own radar), purple (datalink-only),
   amber with a ring (the focused lock), or their ordinary color with just a ring (any other lock).
+  A datalink contact whose position has gone stale (your faction hasn't refreshed it recently)
+  shows white instead — still a real, known contact, just not necessarily where it's drawn anymore.
 
 ### CEN and DEP modes
 
