@@ -52,7 +52,7 @@ Coupling measured as a rough signal: hits for `SceneSingleton<`, `GameManager.`,
 | File | Lines | Touchpoints | The extractable core |
 |---|---|---|---|
 | `TelemetryServer.cs` | 2019 | 6 | The standout: only 6 real game touchpoints across 2000 lines. Nearly the whole file is JSON-string-building (`BdfBlock`, `MisBlock`, `ObjBlock`, `EscapeJson`, …) over already-extracted snapshot data, not live game state. Pulling that serialization layer into its own class is the highest-value single move here. |
-| `AkfTracker.cs` | 157 | 6 | Weapon-attribution TTL bookkeeping, funds delta, kill categorization. Needs `PersistentID` and `Time.unscaledTime` swapped for a plain id/float parameter to go fully pure. |
+| `AkfTracker.cs` | 157 | 6 | Weapon-attribution TTL bookkeeping, funds delta, kill categorization, now extracted into generic pure `AkfTrackerLogic<TId>` with plain ids/timestamps and unit coverage. |
 | `Keybinds.cs` | 936 | 11 | Low density for its size. The tap-vs-hold arbitration (`PollTapHold`) is clean, separable logic buried in a large bind-table file. |
 | `WeaponSelectors.cs` | 336 | 21 | Real cycle-selection algorithm (recall/advance/skip-depleted), now extracted through a plain loadout DTO into `WeaponSelectorLogic.cs` with unit coverage. |
 | `HudWaypointCue.cs` | 220 | 25 | Small pure geometry kernel (bearing → tape position, edge-clamp math) inside an otherwise Unity-heavy `MonoBehaviour`. |
@@ -110,8 +110,10 @@ Smallest safe step first, each one a self-contained PR:
    picks up from here — further splitting the rest of `TelemetryServer.cs` (asset serving, the
    command queue, SSE/MJPEG) once this piece is out, plus unrelated request-hygiene hardening on the
    command endpoints.
-3. **Extract `AkfTracker.cs`'s attribution/bookkeeping logic** — swap `PersistentID`/
-   `Time.unscaledTime` for plain parameters at the boundary.
+3. **Extract `AkfTracker.cs`'s attribution/bookkeeping logic**. — done in
+   `AkfTrackerLogic.cs`, covered by `AkfTrackerLogicTests.cs`. The live `AkfTracker.cs` file now
+   resolves game units/HQ/local-aircraft state and delegates feed, tally, TTL-attribution, funds,
+   and rank state to the pure helper.
 4. **Extract `Keybinds.cs`'s tap/hold arbitration** into a pure function. — done in
    `KeybindTapHold.cs`, covered by `KeybindTapHoldTests.cs`.
 5. **Extract `HudWaypointCue.cs`'s geometry kernel**. — done in `HudWaypointCueMath.cs`,
@@ -130,7 +132,8 @@ the point of doing it.
 - [x] Stand up the xUnit project, wire `JsonLite.cs` + `RouteStore.cs` in as the first real tests
 - [x] Extract and test `TelemetryServer.cs`'s JSON-writer layer — `TelemetryJson.cs`,
       `TelemetryJsonTests.cs`
-- [ ] Extract and test `AkfTracker.cs`'s attribution/bookkeeping logic
+- [x] Extract and test `AkfTracker.cs`'s attribution/bookkeeping logic —
+      `AkfTrackerLogic.cs`, `AkfTrackerLogicTests.cs`
 - [x] Extract and test `Keybinds.cs`'s tap/hold arbitration — `KeybindTapHold.cs`,
       `KeybindTapHoldTests.cs`
 - [x] Extract and test `HudWaypointCue.cs`'s geometry kernel — `HudWaypointCueMath.cs`,
