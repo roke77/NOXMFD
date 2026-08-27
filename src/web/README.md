@@ -15,11 +15,15 @@ src/web/
   services/ telemetry-source.js  send-command.js          # active shared code (the providers)
             pad-cursor.js                                 # the shared PAD crosshair (docs/page-cursor.md)
             remote-keybinds.js                            # opt-in browser keybind listener
-  shell/    nav-model.js                                  # NAV registry — the layout seam, BOTH shells load it
-            layout-pages.js                               # where each layout mounts each NAV destination
-            layout-keydown.js                             # shared SAVE/LOAD LAYOUT keyboard wiring
-            boot-reveal.js                                # shared boot loading-bar + typewriter mechanics
-            wake-lock.js  wake-lock.test.js                # screen wake-lock controller (docs/screen-wake-lock.md)
+  shell/    shared/        nav-model.js                   # NAV registry — the layout seam, BOTH shells load it
+                           layout-pages.js                # where each layout mounts each NAV destination
+                           layout-keydown.js               # shared SAVE/LOAD LAYOUT keyboard wiring
+                           layout-store.js  layout-modal.js/.css  # SAVE/LOAD LAYOUT storage + dialog
+                           layout-keybinds.js              # SAVE/LOAD LAYOUT keybind matching
+                           boot-reveal.js                 # shared boot loading-bar + typewriter mechanics
+                           wake-lock.js  wake-lock.test.js # screen wake-lock controller (docs/screen-wake-lock.md)
+                           ext-nav.js                     # EXT hub's runtime extension-nav plan builder
+                           tgp-marks.js                   # shared TGP mark-light derivation
             layout-sticky.test.js                         # the classic⇄f35 redirect handoff — belongs to neither
             layout-coverage.test.js                       # every NAV destination reachable in BOTH layouts
             classic/       mfd.html  mfd.css  mfd.js       # the classic bezel shell (host + router)
@@ -40,7 +44,7 @@ src/web/
                                                # page's own nav row, not CFG — see nav-model.js's NAV.mapcfg/tgpcfg)
                                                # some carry a pure sibling module — see below
     ext/                                       # EXT hub — lists extensions discovered at runtime via
-                                               # /ext-manifest (shell/ext-nav.js), no fixed page content of
+                                               # /ext-manifest (shell/shared/ext-nav.js), no fixed page content of
                                                # its own; each extension serves its own page under /ext/<id>
                                                # (docs/extensions-api.md)
     keybinds/                                  # frame-hosted like the pages above, not a standalone document
@@ -48,11 +52,11 @@ src/web/
 ```
 
 Two shells render the same pages: the classic bezel (`shell/classic/mfd.js`) and the F-35 glass
-(`shell/f35/f35.js`), sharing the NAV model, the page-routing tables (`shell/layout-pages.js`),
+(`shell/f35/f35.js`), sharing the NAV model, the page-routing tables (`shell/shared/layout-pages.js`),
 `sendCommand`, the opt-in remote keybind listener (`services/remote-keybinds.js`), and the
 SAVE/LOAD LAYOUT keyboard wiring
-(`shell/layout-keydown.js`) and the boot loading-bar/typewriter mechanics
-(`shell/boot-reveal.js`) — see [`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
+(`shell/shared/layout-keydown.js`) and the boot loading-bar/typewriter mechanics
+(`shell/shared/boot-reveal.js`) — see [`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
 `nav-model.test.js`, `f35-glass.test.js`, `classic-paging.test.js`) are Node self-checks, run by hand
 (`node src/web/<path>/whatever.test.js` from anywhere), never fetched by a browser (excluded from the
 embedded-resource glob). The whole suite: `find src/web -name '*.test.js' -exec node {} \;`. Most are
@@ -149,7 +153,7 @@ selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps i
   independent `/<page>?bare` iframe; corner grips merge/split them (`f35-glass.js`). WPN's own
   pagination is `f35-wpn-paging.js`.
 - **Every NAV destination resolves in both layouts**, so nothing renders dimmed. The two routing
-  tables sit together in `shell/layout-pages.js` for that reason, and `layout-coverage.test.js`
+  tables sit together in `shell/shared/layout-pages.js` for that reason, and `layout-coverage.test.js`
   fails by name if one layout gains a page the other lacks.
 - A page is the **single source of truth** across all of these — one file, with an optional
   `body.full` profile toggled by a `layout:'full'` field in its layout message.

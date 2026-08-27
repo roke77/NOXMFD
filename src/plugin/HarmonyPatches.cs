@@ -77,7 +77,7 @@ namespace NOXMFD
             }
         }
 
-        // Master Arms enforcement. A prefix on WeaponManager.Fire(), short-circuiting (skipping the
+        // Master Arm enforcement. A prefix on WeaponManager.Fire(), short-circuiting (skipping the
         // original) when ImmersionState.MasterArmsOn is false. Covers the mod's own keybinds AND the
         // game's own stock trigger/mouse/joystick input in one patch, since both paths call this
         // same method underneath.

@@ -2,10 +2,10 @@
 
 ## Status
 
-Complete for compiler warning cleanup. A fresh `dotnet build -c Release` on 2026-08-27 emits no C#
-nullable or unassigned-field warnings. The only remaining build warning is the deliberately
-deferred `MSB3277` `System.IO.Compression` assembly-version conflict described below; the build
-succeeds and MSBuild resolves it consistently.
+Complete for compiler warning cleanup. A fresh `dotnet build -c Release --no-incremental` on
+2026-08-27 emits no C# nullable or unassigned-field warnings. The only remaining build warning is
+the deliberately deferred `MSB3277` `System.IO.Compression` assembly-version conflict described
+below; the build succeeds and MSBuild resolves it consistently.
 
 ## Where this came from
 
@@ -71,8 +71,9 @@ analog-cursor path (`Poll()` → `ReadAxis(bind)` → used inline in the cursor-
 never touched this field to begin with. Removed the field and corrected the three comments.
 
 **Current result:** later nullability cleanup removed the remaining 54 C# warnings from
-`TelemetryReader.cs`, `WeaponSelectors.cs`, and `AssetCapture.cs`. Their planned pure-logic
-extractions and tests remain separate tasks in `docs/csharp-unit-testing.md`; compiler cleanup no
+`TelemetryReader.cs`, `WeaponSelectors.cs`, and `AssetCapture.cs`. The planned `WeaponSelectors.cs`
+loadout DTO / cycle-selection extraction has since landed in `WeaponSelectorLogic.cs`; the other
+pure-logic extractions remain separate tasks in `docs/csharp-unit-testing.md`. Compiler cleanup no
 longer depends on those refactors.
 
 ## Execution record
@@ -82,8 +83,8 @@ longer depends on those refactors.
    suppression and resolved as dead code, as recorded above.
 2. **`TelemetryReader.cs`** (29) and **`AssetCapture.cs`** (13): resolved by later nullable
    annotations and guards. Their Unity-heavy behavior remains covered by build/live verification.
-3. **`WeaponSelectors.cs`** (16): nullable warnings resolved. The loadout DTO and cycle-selection
-   tests remain pending for testability, not warning cleanup.
+3. **`WeaponSelectors.cs`** (16): nullable warnings resolved. Its loadout DTO and cycle-selection
+   testability extraction later landed in `WeaponSelectorLogic.cs`.
 4. **`Keybinds.cs`**, **`TelemetryServer.cs`**, **`CommandDispatcher.cs`**, **`AkfTracker.cs`**, and
    **`TgpFeed.cs`**: done in the item-1 pass with nullable annotations/guards only, no behavior
    refactor.
@@ -92,6 +93,10 @@ longer depends on those refactors.
    `Mirage`'s dependency graph, resolved in MSBuild's favor already (build succeeds), so this is
    cosmetic today. Worth a `<Compile>`/binding-redirect investigation only if it ever starts causing
    an actual runtime `MissingMethodException` — not before.
+6. **Follow-up no-incremental pass**: a later branch-local audit found warnings that an incremental
+   build could hide. The reopened nullable sites in `AssetCapture.cs`, `TelemetryReader.cs`, and
+   `TgpManualControl.cs` were resolved with null-aware signatures, local guards, and safe fallbacks.
+   Use `--no-incremental` for future warning audits.
 
 ## Scope
 
@@ -105,6 +110,6 @@ longer depends on those refactors.
       `TelemetryServer.cs`, `AkfTracker.cs`, `TgpFeed.cs`)
 - [x] Fix nullable warnings in `TelemetryReader.cs`/`AssetCapture.cs` opportunistically (no dedicated
       sweep on untested code)
-- [x] Resolve `WeaponSelectors.cs`'s nullable warnings; its DTO/test extraction remains separately
-      tracked in `docs/csharp-unit-testing.md`
+- [x] Resolve `WeaponSelectors.cs`'s nullable warnings; its DTO/test extraction later landed in
+      `WeaponSelectorLogic.cs`
 - [x] Leave `MSB3277` alone unless it starts causing a real runtime failure

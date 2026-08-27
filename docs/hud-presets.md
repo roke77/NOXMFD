@@ -56,9 +56,9 @@ noted below.
   idle, loading a preset updates that feature's own idle baseline too, so it isn't silently
   discarded the next time A/A or A/G exits back to idle. The two features stay otherwise
   independent; this is the one place they touch.
-- **Reused `LayoutModal` rather than building a new modal system.** `src/web/shell/layout-modal.js`
+- **Reused `LayoutModal` rather than building a new modal system.** `src/web/shell/shared/layout-modal.js`
   already generalized past its "layout" name — `prompt`/`pickList` take no layout-specific
-  arguments — so `hud.html` just also loads it (`/assets/shell/layout-modal.css`/`.js`) and calls
+  arguments — so `hud.html` just also loads it (`/assets/shell/shared/layout-modal.css`/`.js`) and calls
   the same two functions SAVE/LOAD LAYOUT use. One addition was needed: an optional `item.display`
   field on a `pickList` row (falls back to `item.name` — every existing caller is unaffected), so
   the LOAD list can show "PRESET N: name" without that prefix leaking into the rename input, which
@@ -71,9 +71,9 @@ noted below.
 | [`src/plugin/Stores/HudPresetStore.cs`](../src/plugin/Stores/HudPresetStore.cs) | The 5-slot library: `Save`/`Rename`/`Delete`/`LoadPreset`, persisted to `com.roque.NOXMFD.hud-presets.json`. `SelfCheck()` round-trips the disk JSON — the one pure, non-game-object-dependent slice, same reasoning as `JsonLite.SelfCheck`. |
 | [`src/plugin/CommandDispatcher.cs`](../src/plugin/CommandDispatcher.cs) | `preset.save` / `.rename` / `.delete` / `.load` — `wname` for a name, `index` for a slot number 1-5. |
 | [`src/plugin/Http/TelemetryServer.cs`](../src/plugin/Http/TelemetryServer.cs) | `RefreshHudOptions` gained a `preset:{index,name}` field; new `GET /hud-presets` serves the full 5-slot summary for the LOAD picker. |
-| [`src/plugin/Keybinds.cs`](../src/plugin/Keybinds.cs) | 5 `DefFree` binds (**HUD Preset 1**-**5**), section `HUD Preset Keybinds` → displayed as **HUD PRESETS**. |
+| [`src/plugin/Input/Keybinds.cs`](../src/plugin/Input/Keybinds.cs) | 5 `DefFree` binds (**HUD Preset 1**-**5**), section `HUD Preset Keybinds` → displayed as **HUD PRESETS**. |
 | [`src/web/pages/hud/hud.html`](../src/web/pages/hud/hud.html), [`hud.js`](../src/web/pages/hud/hud.js), [`hud.css`](../src/web/pages/hud/hud.css) | The bottom bar, SAVE/LOAD wiring, `fetchPresetItems` (on-demand `/hud-presets` fetch for the LOAD list only — the bottom label rides the existing `/hud-options` poll). |
-| [`src/web/shell/layout-modal.js`](../src/web/shell/layout-modal.js) | `item.display` addition (backward compatible). |
+| [`src/web/shell/shared/layout-modal.js`](../src/web/shell/shared/layout-modal.js) | `item.display` addition (backward compatible). |
 | [`tools/serve_web.py`](../tools/serve_web.py) | Stateful mock (`PRESETS`/`PRESET_STATE`), same shape as `LAYOUTS` — the name/list/rename/delete/current-slot machinery is fully exercised in the harness; the actual filter values behind a slot are not (there's no stateful `HUDOptions` mock, same pre-existing gap `hud.set`/`hud.mode` already have there). |
 
 ## Verification performed

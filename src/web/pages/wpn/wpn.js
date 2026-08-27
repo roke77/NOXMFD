@@ -166,7 +166,7 @@ function renderWpn() {
   renderMasterArms();
 }
 
-// Master Arms OFF (docs/radar-master-arms.md) — full-screen X + SAFE label. Independent of the
+// Master Arm OFF (docs/radar-master-arms.md) — full-screen X + SAFE label. Independent of the
 // ARM/SAFE bezel/nav controls (those are shell-owned labels); this is page content, driven by
 // the same masterArmsOn field riding the 'wpn' message.
 function renderMasterArms() {

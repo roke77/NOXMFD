@@ -37,7 +37,7 @@ namespace NOXMFD
             _engineOnOnStart = config.Bind(section, "EngineOnOnStart", true,
                 new ConfigDescription("Engine starts ON when spawning in a new aircraft (the game's own default). Turn OFF for more immersion: engine starts off, start it yourself.", null, Hidden));
             _masterArmsOnOnStart = config.Bind(section, "MasterArmsOnOnStart", true,
-                new ConfigDescription("Master Arms starts ON (unrestricted, today's behaviour) when spawning in a new aircraft. Turn OFF for more immersion: guns/missiles/bombs are blocked until you arm.", null, Hidden));
+                new ConfigDescription("Master Arm starts ON (unrestricted, today's behaviour) when spawning in a new aircraft. Turn OFF for more immersion: guns/missiles/bombs are blocked until you arm.", null, Hidden));
             _hudFiltersOnCombatMode = config.Bind(section, "HudFiltersOnCombatMode", false,
                 new ConfigDescription("Switching combat mode to A/A or A/G forces the HUD's matching preset onto the HUD page, restoring your own values on returning to idle. Off by default — turn ON to have combat mode drive the HUD automatically.", null, Hidden));
         }

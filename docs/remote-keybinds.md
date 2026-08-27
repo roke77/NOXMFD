@@ -13,7 +13,7 @@ PC's own input is another, equally in scope. Nothing about the design below is W
 written for "a browser, opted in" throughout, with WSO used only where an example is useful.
 
 The branch now covers V1 plus the held-state actions: weapon cycling, countermeasure deploy,
-dedicated gear up/down, MAP/TGT/SOI one-shot actions, master arms, radar/engine set, combat-mode
+dedicated gear up/down, MAP/TGT/SOI one-shot actions, master arm, radar/engine set, combat-mode
 tap actions, HUD preset loads, remote MAP/TGT cursor movement/select, and remote
 gun/release/jammer-pod fire. Cursor and fire were intentionally built outside the simple
 `keydown -> /command` map because they need live held-state semantics.
@@ -37,7 +37,7 @@ it.
 - **`/keybinds-config`** already exposes NOXMFD's own bind registry as JSON: `{binds: [{id,
   section, label, description, key, joyButton, joyNum, ...}], ...}` — `key` is a Unity `KeyCode`
   name, `id` is the stable action id (`"flares"`, `"cycle-guns"`, `"tgt-next"`, ...). This is the
-  same registry the KEY page renders and the same data `src/web/shell/layout-keybinds.js` already
+  same registry the KEY page renders and the same data `src/web/shell/shared/layout-keybinds.js` already
   fetches to match a raw browser `KeyboardEvent` against one configured key (for SAVE/LOAD LAYOUT,
   a client-side-only action). That module is the direct precedent for this feature's steps (a) and
   (b) — fetch the table, match keydown against it — just not yet paired with a `sendCommand` call.
@@ -73,7 +73,7 @@ it.
 |---|---|---|
 | Target select / deselect | Yes | none |
 | Weapon select (by name) | Yes | none |
-| Master Arms on/off | Yes | none |
+| Master Arm on/off | Yes | none |
 | Combat mode A/A · A/G · ALL | Yes | none |
 | Radar / engine / gear / guns-linked / turret toggle | Yes (`avn.toggle`) | none |
 | TGT filter set/only/reset/clear/datalink/stale/laser/hud | Yes (`tgt.*`) | none |
@@ -209,17 +209,17 @@ arbitrates.
 
 - **Off by default.** A pilot upgrading NOXMFD should see no behavior change; this is opt-in per
   browser, not a global setting.
-- **Location**: inside the KEY page's existing **IMMERSION OPTIONS** section
-  (`src/web/pages/keybinds/keybinds.html:64-112`, `kb-immersion`) — one more `kb-setting`/
-  `kb-toggle` row alongside ENABLE RADAR/ENGINE/MASTER ARMS ON START and FORCE HUD FILTERS ON
-  COMBAT MODE, not a new page or a separate section. Visually consistent with its neighbors, but
-  **behaviorally different** in one respect worth calling out in implementation: every existing
-  row in that section is a server-persisted `ImmersionConfig` setting (`radarOnOnStart` etc.,
-  shared across every browser that connects), while this toggle is deliberately per-browser
-  `localStorage` state (see "Toggle wiring" below) — the same PC's second browser tab, or a
-  different device entirely, should NOT inherit whatever this toggle is set to elsewhere. The row's
-  copy should make that local-only scope clear despite sitting in a section whose other rows are
-  all shared/global, so it doesn't read as "this is a plugin-wide setting" by visual association.
+- **Location**: originally placed inside the KEY page's **IMMERSION OPTIONS** section, alongside
+  ENABLE RADAR/ENGINE/MASTER ARM ON START and FORCE HUD FILTERS ON COMBAT MODE — visually
+  consistent with its neighbors, but **behaviorally different** in one respect: every other row in
+  that section is a server-persisted `ImmersionConfig` setting (`radarOnOnStart` etc., shared
+  across every browser that connects), while this toggle is deliberately per-browser `localStorage`
+  state (see "Toggle wiring" below) — the same PC's second browser tab, or a different device
+  entirely, should NOT inherit whatever this toggle is set to elsewhere. That tension (a
+  local-only, client-side toggle sitting in a section whose other rows are all shared/global) is
+  why it later moved to the top of the page instead, right after INPUT WHEN GAME UNFOCUSED — the
+  page's other client-only, non-bind setting — leaving IMMERSION OPTIONS to hold only real
+  server-persisted settings.
 - **Label and copy, brief and instructive, generic rather than WSO-specific**:
   - Label: **"LISTEN FOR KEYBINDS (REMOTE)"**, default OFF.
   - One-line description: *"Lets this browser send your configured keybinds to the game as if
@@ -281,10 +281,10 @@ arbitrates.
 
 ## Relevant implementation references
 
-- `src/web/shell/layout-keybinds.js` is the closest existing browser-side keydown pattern; the
+- `src/web/shell/shared/layout-keybinds.js` is the closest existing browser-side keydown pattern; the
   remote listener uses the same key-name vocabulary but sends `/command` actions instead of opening
   a client-only modal.
-- `src/plugin/Keybinds.cs`'s `Poll()`/`PollTapHold()` defines the local held-state and tap/hold
+- `src/plugin/Input/Keybinds.cs`'s `Poll()`/`PollTapHold()` defines the local held-state and tap/hold
   behavior that remote cursor/fire state must merge into.
 - `TelemetryServer.cs`'s `MfdInstance`/`/soi-instances` handling is the nearby precedent for
   server-observed remote addresses; `/keybinds-config` uses the request address directly for the

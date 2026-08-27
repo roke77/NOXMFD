@@ -33,11 +33,15 @@
     <Compile Include="..\..\src\plugin\Stores\RouteStore.cs" Link="Source\RouteStore.cs" />
     <!-- TelemetrySnapshot.cs is the plain DTO the frame is built from; TelemetryJson.cs is the
          pure serializer. Neither has a Unity/BepInEx touchpoint. -->
-    <Compile Include="..\..\src\plugin\TelemetrySnapshot.cs" Link="Source\TelemetrySnapshot.cs" />
-    <Compile Include="..\..\src\plugin\TelemetryJson.cs" Link="Source\TelemetryJson.cs" />
-    <Compile Include="..\..\src\plugin\TgpManualAimMath.cs" Link="Source\TgpManualAimMath.cs" />
-    <Compile Include="..\..\src\plugin\TgpFeedSettings.cs" Link="Source\TgpFeedSettings.cs" />
+    <Compile Include="..\..\src\plugin\Telemetry\TelemetrySnapshot.cs" Link="Source\TelemetrySnapshot.cs" />
+    <Compile Include="..\..\src\plugin\Telemetry\TelemetryJson.cs" Link="Source\TelemetryJson.cs" />
+    <Compile Include="..\..\src\plugin\Akf\AkfTrackerLogic.cs" Link="Source\AkfTrackerLogic.cs" />
+    <Compile Include="..\..\src\plugin\Input\KeybindTapHold.cs" Link="Source\KeybindTapHold.cs" />
+    <Compile Include="..\..\src\plugin\Input\WeaponSelectorLogic.cs" Link="Source\WeaponSelectorLogic.cs" />
+    <Compile Include="..\..\src\plugin\Tgp\TgpManualAimMath.cs" Link="Source\TgpManualAimMath.cs" />
+    <Compile Include="..\..\src\plugin\Tgp\TgpFeedSettings.cs" Link="Source\TgpFeedSettings.cs" />
     <Compile Include="..\..\src\plugin\Hud\HudDirectionCueMath.cs" Link="Source\HudDirectionCueMath.cs" />
+    <Compile Include="..\..\src\plugin\Hud\HudWaypointCueMath.cs" Link="Source\HudWaypointCueMath.cs" />
   </ItemGroup>
 
 </Project>

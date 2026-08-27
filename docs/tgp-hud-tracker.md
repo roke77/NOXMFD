@@ -432,7 +432,7 @@ component. No Harmony patch or new reflection site was needed.
 
 ## Files involved
 
-- `src/plugin/TgpManualControl.cs` — read-only aim-direction accessor.
+- `src/plugin/Tgp/TgpManualControl.cs` — read-only aim-direction accessor.
 - `src/plugin/Hud/HudTgpCue.cs` — new Unity-facing renderer and HUD lifecycle.
 - `src/plugin/Hud/HudDirectionCueMath.cs` — pure edge-clamping geometry.
 - `src/plugin/MissionLifecycle.cs` — attaches the mission-scoped cue.
@@ -440,7 +440,7 @@ component. No Harmony patch or new reflection site was needed.
 - `tools/tests/NOXMFD.Tests.csproj` — includes the pure helper and tests explicitly.
 - `src/plugin/README.md` — component inventory.
 - `docs/tgp-manual-control.md` — manual-mode HUD behavior.
-- `src/plugin/Keybinds.cs` — documents Area/Point Track selection in the existing PAD Cursor Select
+- `src/plugin/Input/Keybinds.cs` — documents Area/Point Track selection in the existing PAD Cursor Select
   bind description.
 
 No changes should be required in telemetry snapshots, telemetry JSON, HTTP endpoints, the browser

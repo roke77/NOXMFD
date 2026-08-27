@@ -7,7 +7,7 @@
 // KEY/LYT/RTS were unreachable in a split pane until caught by hand in-game. This test exists so
 // the next one is caught here instead.
 const assert = require('assert');
-const { NAV } = require('../nav-model.js');
+const { NAV } = require('../shared/nav-model.js');
 const { SPLIT_SLOTS, MAP_SPLIT_ORDER, MAP_SPLIT_ORDER_V, MAP_ROUTE_ACTIONS, MAP_WAYPOINT_ACTIONS, mapSplitOrder,
         MAP_FULL_LEFT, MAP_FULL_RIGHT, mapFullRight } = require('./split-slots.js');
 const { mainPageSizes, mainPaneSlice, listPaneLayout } = require('./classic-paging.js');

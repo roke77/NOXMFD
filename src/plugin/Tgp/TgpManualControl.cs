@@ -663,17 +663,17 @@ namespace NOXMFD
 
             Vector3 hitLocal = default;
             float rangeM = 0f;
-            bool hasHit = ac != null && TryGetLookPoint(mount, out hitLocal, out rangeM);
-            if (!hasHit)
+            if (ac == null || !TryGetLookPoint(mount, out hitLocal, out rangeM))
                 return new ManualOverlaySample(az, el, mag, ir, _pointTrackActive, false, 0f, 0f, 0f, 0f, "");
 
             GlobalPosition hitGlobal = hitLocal.ToGlobalPosition();
-            Vector3 rel = hitGlobal - ac!.GlobalPosition();
+            Vector3 rel = hitGlobal - ac.GlobalPosition();
             // Positive = closing (moving toward the look point, range decreasing) — a new value
             // ("CLO"), not the native rel_speed formula for a moving target, so it defines its
             // own clear sign convention instead.
-            float closure = Vector3.Dot(ac.rb.velocity, rel.normalized);
-            string grid = SceneSingleton<DynamicMap>.i.gridLabels.GetGridPosition(hitGlobal);
+            float closure = ac.rb != null ? Vector3.Dot(ac.rb.velocity, rel.normalized) : 0f;
+            DynamicMap? map = SceneSingleton<DynamicMap>.i;
+            string grid = map != null && map.gridLabels != null ? map.gridLabels.GetGridPosition(hitGlobal) : "";
             return new ManualOverlaySample(az, el, mag, ir, _pointTrackActive, true, rangeM, hitGlobal.y, rel.y, closure, grid);
         }
     }

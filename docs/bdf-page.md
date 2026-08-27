@@ -132,7 +132,7 @@ reuse one page for two looks via `?nochrome` (docs/layouts.md):
 
 ## Plan
 
-1. **[done] Telemetry snapshot** (`src/plugin/TelemetrySnapshot.cs`) — add a `Bdf*`
+1. **[done] Telemetry snapshot** (`src/plugin/Telemetry/TelemetrySnapshot.cs`) — add a `Bdf*`
    block: `BdfPresent` (bool), `BdfFaction` (string), `BdfFunds` (float),
    `BdfScore` (float), `BdfWarheads` (int), and four arrays of a small
    `{Name, Count}` struct (mirrors `TgtToggleInfo`'s `{Name, On}` shape) —

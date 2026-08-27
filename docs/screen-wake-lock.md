@@ -51,8 +51,8 @@ anything that doesn't fit this repo's actual conventions.
 - A generation/operation counter guarding against a stale acquire/release race when the toggle
   fires again before the previous request settles.
 - One shared module wired into both shells via its own `<script>` tag, rather than duplicating the
-  logic per shell — this repo's established pattern (see `src/web/shell/tgp-marks.js` and its
-  `tgp-marks.test.js`, `src/web/shell/nav-model.js`).
+  logic per shell — this repo's established pattern (see `src/web/shell/shared/tgp-marks.js` and its
+  `tgp-marks.test.js`, `src/web/shell/shared/nav-model.js`).
 
 ### What not to take
 
@@ -99,8 +99,8 @@ anything that doesn't fit this repo's actual conventions.
 
 ### Shared controller module
 
-Add `src/web/shell/wake-lock.js`, a DOM-free IIFE module in this repo's standard shape (compare
-`src/web/shell/tgp-marks.js`, `src/web/shell/nav-model.js`): exports via `module.exports` under
+Add `src/web/shell/shared/wake-lock.js`, a DOM-free IIFE module in this repo's standard shape (compare
+`src/web/shell/shared/tgp-marks.js`, `src/web/shell/shared/nav-model.js`): exports via `module.exports` under
 Node and `root.WakeLock` (pick a name; the fork used `ScreenWakeLock`) in the browser, paired with
 `src/web/shell/wake-lock.test.js` — a plain `assert`-based self-check runnable via
 `node wake-lock.test.js`, no framework, per `docs/csharp-unit-testing.md`'s testing philosophy
@@ -198,7 +198,7 @@ Either way: never cover or replace the active page content — the ticket is exp
 - Call `wakeController.start()` once, alongside the existing shell boot sequence (near
   `loadConfigUrls(); showPage('main');` at the end of the file).
 
-`src/web/shell/classic/mfd.html`: add `<script src="/assets/shell/wake-lock.js"></script>` before
+`src/web/shell/classic/mfd.html`: add `<script src="/assets/shell/shared/wake-lock.js"></script>` before
 the `mfd.js` script tag (same ordering the other shared shell modules use).
 
 `src/web/shell/classic/mfd.css`: this repo already has an established "engaged" amber idiom —
@@ -306,7 +306,7 @@ Mirrors the ticket's own checklist:
 
 ## Likely files involved
 
-- `src/web/shell/wake-lock.js` (new) — the shared controller + fallback factory.
+- `src/web/shell/shared/wake-lock.js` (new) — the shared controller + fallback factory.
 - `src/web/shell/wake-lock.test.js` (new) — self-check.
 - `src/web/shell/classic/mfd.js` — `COUNTS`, `functionIcons`, `mfdButton()` case, boot wiring,
   failure-banner state.
@@ -338,7 +338,7 @@ Mirrors the ticket's own checklist:
 - `github.com/Genide/NOXMFD` branch `feature/screen-wake-lock` — community reference
   implementation; consult for approach, do not port files directly (see "Origin" above).
 - [MDN: Screen Wake Lock API](https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API)
-- `src/web/shell/tgp-marks.js` / `tgp-marks.test.js` — the shared-pure-module + self-check pattern
+- `src/web/shell/shared/tgp-marks.js` / `tgp-marks.test.js` — the shared-pure-module + self-check pattern
   this plan follows.
 - `man/layouts.md` — where the new control gets documented.
 - `docs/tgp-extended-quality.md` — an example of this repo's planning-doc format and of a

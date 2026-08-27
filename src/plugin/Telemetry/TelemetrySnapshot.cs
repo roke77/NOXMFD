@@ -371,6 +371,9 @@ namespace NOXMFD
                                  // currently reading out (man/rdr.md's "focused lock")
         public bool   Radar;    // detected by the player's OWN radar (red HSD symbol)
         public bool   Datalink; // known via the faction's shared tracking (purple HSD symbol)
+        public bool   Stale;    // datalink-known position has drifted past the trust radius (white
+                                 // HSD symbol) — same IsTargetPositionAccurate check as UnitInfo.Stale
+                                 // (docs/tgt-stale-lock.md), independent of Targeted/focused-lock color
         public string Name;     // display label
     }
 

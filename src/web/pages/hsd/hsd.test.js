@@ -35,6 +35,12 @@ assert.strictEqual(contactColor({ tg: 1, rd: 1 }, true), 'var(--no-amber)');
 assert.strictEqual(contactColor({ tg: 1, rd: 1 }, false), 'var(--no-red)');
 assert.strictEqual(contactColor({ tg: 1, dl: 1 }, false), 'var(--no-purple)');
 
+// A stale datalink track (position drifted past the trust radius, docs/tgt-stale-lock.md) goes
+// white instead of its source color, but a focused lock still wins over staleness.
+assert.strictEqual(contactColor({ rd: 1, st: 1 }), 'var(--no-white)');
+assert.strictEqual(contactColor({ dl: 1, st: 1 }), 'var(--no-white)');
+assert.strictEqual(contactColor({ tg: 1, dl: 1, st: 1 }, true), 'var(--no-amber)');
+
 // CEN/DEP display modes (docs/rdr-fcr-hsd.md). The whole "one shared range index instead of a
 // per-mode one" design (hsd.js's applyMode) depends on DEP's ladder being exactly 1.5x CEN's at
 // every step, matching real DCS's DEP-range-equals-1.5x-FCR-range ratio — this pins that down so

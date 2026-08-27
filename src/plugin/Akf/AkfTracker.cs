@@ -16,31 +16,17 @@ namespace NOXMFD
     {
         internal static AkfTracker? Active;
 
-        private const int   MaxFeedLines = 50;
-        private const float WeaponTtl    = 5f;   // window a recorded weapon hit stays attributable to a later kill
+        private readonly AkfTrackerLogic<PersistentID> _logic = new AkfTrackerLogic<PersistentID>();
 
-        private readonly List<AkfKillEntry> _allFeed    = new List<AkfKillEntry>();
-        private readonly List<AkfKillEntry> _playerFeed = new List<AkfKillEntry>();
-
-        private int _killsAircraft, _killsShip, _killsVehicle, _killsBuilding;
-        private int _rank;
-
-        private float _fundsGained, _fundsSpent, _prevFunds;
-        private bool  _fundsInit;
-
-        // dealerID -> (weapon unitName, time recorded). Populated by RecordWeaponHit.
-        private readonly Dictionary<PersistentID, (string Name, float Time)> _lastWeaponByAttacker =
-            new Dictionary<PersistentID, (string, float)>();
-
-        public IReadOnlyList<AkfKillEntry> AllFeed    => _allFeed;
-        public IReadOnlyList<AkfKillEntry> PlayerFeed => _playerFeed;
-        public int   KillsAircraft => _killsAircraft;
-        public int   KillsShip     => _killsShip;
-        public int   KillsVehicle  => _killsVehicle;
-        public int   KillsBuilding => _killsBuilding;
-        public int   Rank          => _rank;
-        public float FundsGained   => _fundsGained;
-        public float FundsSpent    => _fundsSpent;
+        public IReadOnlyList<AkfKillEntry> AllFeed    => _logic.AllFeed;
+        public IReadOnlyList<AkfKillEntry> PlayerFeed => _logic.PlayerFeed;
+        public int   KillsAircraft => _logic.KillsAircraft;
+        public int   KillsShip     => _logic.KillsShip;
+        public int   KillsVehicle  => _logic.KillsVehicle;
+        public int   KillsBuilding => _logic.KillsBuilding;
+        public int   Rank          => _logic.Rank;
+        public float FundsGained   => _logic.FundsGained;
+        public float FundsSpent    => _logic.FundsSpent;
 
         // Called via Harmony postfix for every kill message — the same event that drives the game's
         // own HUD kill-feed ticker (MessageUI.KillFeed).
@@ -56,36 +42,8 @@ namespace NOXMFD
             GameManager.GetLocalHQ(out FactionHQ localHq);
             bool victimHostile = killedUnit.GetHQ() != localHq;
 
-            string? weapon = null;
-            if (hasKiller && _lastWeaponByAttacker.TryGetValue(killerID, out var hit)
-                && Time.unscaledTime - hit.Time <= WeaponTtl)
-                weapon = hit.Name;
-
-            var entry = new AkfKillEntry
-            {
-                Attacker        = killerUnit != null ? killerUnit.unitName : null,
-                AttackerHostile = killerUnit != null && killerUnit.GetHQ() != localHq,
-                Victim          = killedUnit.unitName,
-                VictimHostile   = victimHostile,
-                Verb            = verb,
-                Weapon          = weapon,
-            };
-            AddCapped(_allFeed, entry);
-
             GameManager.GetLocalAircraft(out Aircraft localAc);
             bool isPlayerKill = hasKiller && localAc != null && killerID == localAc.persistentID;
-            if (isPlayerKill)
-            {
-                AddCapped(_playerFeed, entry);
-                switch (killedType)
-                {
-                    case KillType.Aircraft: _killsAircraft++; break;
-                    case KillType.Ship:     _killsShip++;     break;
-                    case KillType.Vehicle:  _killsVehicle++;  break;
-                    case KillType.Building: _killsBuilding++; break;
-                }
-                return;
-            }
 
             // Incoming interactions — the player's aircraft was destroyed, or a munition the player
             // fired was intercepted — don't change the tally. PlayerIsVictim flags the entry so the
@@ -93,11 +51,20 @@ namespace NOXMFD
             bool isPlayerVictim = localAc != null && killedID == localAc.persistentID;
             bool isPlayerOrdnance = !isPlayerVictim && killedType == KillType.Missile && localAc != null
                 && killedUnit.unit is Missile firedMissile && firedMissile.ownerID == localAc.persistentID;
-            if (isPlayerVictim || isPlayerOrdnance)
-            {
-                entry.PlayerIsVictim = true;
-                AddCapped(_playerFeed, entry);
-            }
+
+            _logic.RecordKill(
+                killerID,
+                hasKiller,
+                killerUnit != null ? killerUnit.unitName : null,
+                killerUnit != null && killerUnit.GetHQ() != localHq,
+                killedUnit.unitName,
+                victimHostile,
+                ToKind(killedType),
+                verb,
+                Time.unscaledTime,
+                isPlayerKill,
+                isPlayerVictim,
+                isPlayerOrdnance);
         }
 
         // Called via Harmony prefix on DamageEffects.BlastFrag. This is a last-fired-by-attacker
@@ -107,8 +74,7 @@ namespace NOXMFD
         {
             if (!UnitRegistry.TryGetPersistentUnit(missileID, out PersistentUnit missileUnit) || missileUnit == null) return;
             string name = missileUnit.definition != null ? missileUnit.definition.unitName : missileUnit.unitName;
-            if (string.IsNullOrEmpty(name)) return;
-            _lastWeaponByAttacker[dealerID] = (name, Time.unscaledTime);
+            _logic.RecordWeaponHit(dealerID, name, Time.unscaledTime);
         }
 
         // Polled once per 1 Hz scan (TelemetryReader.BuildAkf) — funds aren't an event, just a value
@@ -120,29 +86,28 @@ namespace NOXMFD
         // player's own gained/spent. There's no per-player funds figure in the game to read instead.
         internal void TickFunds()
         {
-            if (!GameManager.GetLocalHQ(out FactionHQ hq) || hq == null) { _fundsInit = false; return; }
-            float current = hq.factionFunds;
-            if (_fundsInit)
-            {
-                float delta = current - _prevFunds;
-                if (delta > 0f) _fundsGained += delta;
-                else if (delta < 0f) _fundsSpent += -delta;
-            }
-            _prevFunds = current;
-            _fundsInit = true;
+            bool hasFunds = GameManager.GetLocalHQ(out FactionHQ hq) && hq != null;
+            float current = hasFunds ? hq!.factionFunds : 0f;
+            _logic.TickFunds(hasFunds, current);
         }
 
         // Player.PlayerRank is a live SyncVar, not an event this tracker needs to react to; a
         // snapshot read on each 1 Hz scan is all AKF's RANK card needs.
         internal void TickRank()
         {
-            _rank = GameManager.GetLocalPlayer<Player>(out var player) ? player.PlayerRank : 0;
+            _logic.SetRank(GameManager.GetLocalPlayer<Player>(out var player) ? player.PlayerRank : 0);
         }
 
-        private static void AddCapped(List<AkfKillEntry> list, AkfKillEntry entry)
+        private static AkfKillKind ToKind(KillType type)
         {
-            list.Add(entry);
-            if (list.Count > MaxFeedLines) list.RemoveAt(0);
+            switch (type)
+            {
+                case KillType.Aircraft: return AkfKillKind.Aircraft;
+                case KillType.Ship: return AkfKillKind.Ship;
+                case KillType.Vehicle: return AkfKillKind.Vehicle;
+                case KillType.Building: return AkfKillKind.Building;
+                default: return AkfKillKind.Missile;
+            }
         }
     }
 }

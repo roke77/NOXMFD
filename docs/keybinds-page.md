@@ -36,7 +36,7 @@ binds (WEAPONS uses it for how the cycle keys work), keeping the per-row text sh
 | Gear Up / Gear Down | dedicated raise/lower (stock bind is a toggle); no-op if already there, mid-transition, or on the ground | edge |
 | Cycle Guns / Missiles / Bombs | select within the class — see below | edge |
 | Gun Trigger / Weapon Release | two-stage class fire keys — see below | held |
-| Master Arms ON / OFF, Radar ON / OFF, Engine ON / OFF | plain dedicated pairs — see below | edge |
+| Master Arm ON / OFF, Radar ON / OFF, Engine ON / OFF | plain dedicated pairs — see below | edge |
 | A/A / A/G | restrict Cycle Missile to one class; hold either to reset to ALL — see below | held (tap/hold) |
 
 ### Weapon selectors (WeaponSelectors.cs)
@@ -77,18 +77,18 @@ settings, then its own table (own header row, own rows) for the eight binds belo
 the dedicated-server gap for Engine).
 
 - **Three settings**, right after the title/description (not binds — same shape as **Input When
-  Game Unfocused**): Enable Radar on start, Enable Engine on start, Enable Master Arms on start. All
+  Game Unfocused**): Enable Radar on start, Enable Engine on start, Enable Master Arm on start. All
   default ON (today's behaviour); switch one OFF for the corresponding system to start off on every
   new aircraft.
-- **Master Arms ON / OFF, Radar ON / OFF, Engine ON / OFF** — plain dedicated pairs, no tap/hold
-  (the game already has its own single-toggle bind for Radar/Engine). Master Arms OFF blocks all
+- **Master Arm ON / OFF, Radar ON / OFF, Engine ON / OFF** — plain dedicated pairs, no tap/hold
+  (the game already has its own single-toggle bind for Radar/Engine). Master Arm OFF blocks all
   gun/missile/bomb fire, including the stock trigger.
 - **A/A / A/G** — restrict Cycle Missile to air-to-air or air-to-ground missiles only; A/A also
   disables Cycle Bombs. Hold either to reset to ALL (unrestricted) — there's no dedicated ALL bind,
   since holding already gets there.
-- **WPN page:** always shows **ARM**/**SAFE** (Master Arms) and **A/A**/**A/G** (combat mode)
+- **WPN page:** always shows **ARM**/**SAFE** (Master Arm) and **A/A**/**A/G** (combat mode)
   controls, independent of these keybinds — no dedicated ALL control there either, same reasoning.
-  Master Arms OFF also draws a full-screen X with a SAFE label over the WPN page.
+  Master Arm OFF also draws a full-screen X with a SAFE label over the WPN page.
 
 ## Capture
 

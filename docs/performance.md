@@ -2,9 +2,9 @@
 
 ## Status
 
-**Mixed — historical investigation with shipped fixes, plus open follow-ups tracked below.**
-Items #A/#1/#2/#6 shipped (see "Status (as of the #A/#1/#2 work)" and the later TGP sections);
-items #4/#5 remain deliberately deferred; items #7/#8 (added 2026-08-20) are open. Triggered
+**Mixed — historical investigation with shipped fixes, plus live-test-only follow-ups tracked below.**
+Items #A/#1/#2/#4/#5/#6/#7/#8 shipped (see "Status (as of the #A/#1/#2 work)" and the later TGP sections).
+Triggered
 originally by observed symptoms in a high-activity match: noticeable lag in the RWR and MAP
 displays, plus a noticeable in-game FPS hit. Both scale with unit count, which is why a busy
 furball hits them at the same time.
@@ -93,11 +93,11 @@ game-vs-mod split, but the instrumentation already makes the case.
 
 ### Game main thread → FPS hit
 
-Everything in `TelemetryReader.Update` (`src/plugin/TelemetryReader.cs:123`)
+Everything in `TelemetryReader.Update` (`src/plugin/Telemetry/TelemetryReader.cs:123`)
 runs on Unity's main thread.
 
 - **10 Hz allocation churn (GC stutter).** Every 100 ms,
-  `PushSnapshot` (`src/plugin/TelemetryReader.cs:599`) allocates fresh arrays:
+  `PushSnapshot` (`src/plugin/Telemetry/TelemetryReader.cs:599`) allocates fresh arrays:
   `BuildUnits` does `_unitBuf.ToArray()` (`:960`), plus `BuildRwr`,
   `BuildMw`, `BuildFailures` each allocate. In a busy match that's KBs
   of garbage 10×/sec → GC spikes → the "stutter" feel. `BuildParts`
@@ -121,15 +121,11 @@ every SSE message (~10 Hz).
   single biggest client-side lag source, and the cheapest to fix:
   pre-bake the glow into the cached tinted-icon canvas
   (`tintedIcon`, `:368`) once, instead of blurring live every frame.
-- **Two spots added after the #1 fix still use live `shadowBlur`,
-  missed by it (found 2026-08-20):** `drawTargetBox`
-  (`src/web/pages/map/map.js:265`, the locked-target corner brackets)
-  and the route waypoint markers (`:497`) both set `shadowBlur` fresh
-  on every draw, the exact pattern #1 eliminated for icons and RWR
-  lines. Lower severity than the original finding — locked targets and
-  route waypoints are usually a handful, not 40+ — but the fix is the
-  same two-stroke technique `drawRwrLines` already uses two functions
-  above `drawTargetBox` in the same file (see item #8 below).
+- **Resolved:** two spots added after the #1 fix still used live `shadowBlur`,
+  missed by it (found 2026-08-20): `drawTargetBox` (locked-target corner
+  brackets) and the route waypoint markers. Both now use the same two-stroke
+  technique as `drawRwrLines` — a wide translucent underlay plus a bright core —
+  so MAP's hot redraw path no longer sets live `shadowBlur`.
 - **Redraw driven directly by data arrival**, not `requestAnimationFrame`,
   so bursts aren't coalesced and redraw doesn't align to refresh.
 - **No off-screen cull** — every contact is transformed and drawn even
@@ -149,15 +145,13 @@ missing.
 
 ### Game main thread → per-frame UI churn (new, found 2026-08-20)
 
-`HudWaypointCue.LateUpdate` (`src/plugin/Hud/HudWaypointCue.cs:75`) rebuilds a
-`string.Format` and sets Unity `Text.text` **every rendered frame** (60 Hz+,
-not gated to any interval) whenever a waypoint route is active — even when
-the displayed distance/bearing round to the same value as last frame.
-`Text.text`'s setter dirties Unity UI layout on every set regardless of
-whether the content actually changed. Same class of cost the "10 Hz
-allocation churn" finding above already flagged, just at render-rate instead
-of tick-rate, and narrower in scope (nothing else in this mod writes to a
-Unity UI Text component outside a gated interval). See item #7 below.
+`HudWaypointCue.LateUpdate` (`src/plugin/Hud/HudWaypointCue.cs`) used to rebuild a
+readout and set Unity `Text.text` **every rendered frame** (60 Hz+, not gated to
+any interval) whenever a waypoint route was active — even when the displayed
+distance/bearing rounded to the same value as last frame. `Text.text`'s setter
+dirties Unity UI layout on every set regardless of whether the content actually
+changed. **Resolved:** the cue now compares the formatted readout against the
+last value written and skips the setter when it is unchanged.
 
 ### Server → wasted CPU (indirect FPS pressure) — HISTORICAL, fixed by item #2
 
@@ -176,7 +170,7 @@ This section describes the pre-fix state, kept for context on why item #2 (below
 Also pre-fix state, kept for context.
 
 `BuildParts` hands the shared `_partsBuf` reference into the snapshot
-(`src/plugin/TelemetryReader.cs:854`); the background SSE thread serializes it
+(`src/plugin/Telemetry/TelemetryReader.cs:854`); the background SSE thread serializes it
 while the main thread overwrites it in place next tick. Units avoid this
 today only because `BuildUnits` does `.ToArray()`. Serializing
 once-per-tick (item #2) is the clean fix for both the duplicate work and
@@ -205,12 +199,12 @@ split noted in Finding 2 below.
 | A | Async-ify captures (`AsyncGPUReadback`) + shrink the 16 MB map | main thread | M | **Kills the 673 ms load freeze + the mid-combat hitches — the real FPS cost** | **DONE** (commit eb2ecc7) |
 | 1 | Pre-bake icon/line glow; kill live `shadowBlur` | client | S | **Biggest MAP/RWR lag win** (confirmed client-side) | **DONE** — glow baked into the tinted-icon cache; RWR lines use a 2-stroke glow. Verified in browser + in-game |
 | 2 | Serialize once per tick, cache by version, all SSE clients write the same bytes | server | M | Kills N×-per-client cost + boxing; fixes the data race | **DONE** — GetFrameBytes version cache; BuildParts now owned. Verified in-game: 3 clients → Serialize ≈47/5 s window (≈10/s), not 3×. |
-| 4 | Split rates: contacts ~3–4 Hz; RWR/MW + own-ship 10 Hz | both | M | Cuts redraw cost; modest server win | optional |
-| 5 | rAF-coalesce client redraw + off-screen contact cull | client | S | Smoother when zoomed in | optional |
+| 4 | Split rates: contacts ~3–4 Hz; RWR/MW + own-ship 10 Hz | both | M | Cuts contact rebuild cost; preserves fast own-ship/threat cues | **DONE** — contact/RDR/HSD/pitbull snapshots rebuild at 4 Hz and are reused by fast frames; both rates are user-adjustable on MAP CFG (TLM / CONTACTS sliders) |
+| 5 | rAF-coalesce client redraw + off-screen contact cull | client | S | Smoother when zoomed in | **DONE** — telemetry redraws are rAF-coalesced; off-screen contacts, missiles, and waypoint markers are skipped |
 | ~~3~~ | ~~Reuse buffers / eliminate 10 Hz `.ToArray()` churn~~ | — | — | **Dropped** — BuildUnits measured at 0.08 ms; not a bottleneck | dropped |
 | 6 | Warn about the measured TGP cost above 15 Hz and expensive resolution/quality combinations | client+plugin | S–M | Keeps experimental rates reachable without hiding their measured cost | **DONE** — warnings ship on TGP CFG; the slider remains user-selectable up to 60 Hz |
-| 7 | Throttle `HudWaypointCue`'s readout rebuild (skip the `Text.text` write when rounded values haven't changed, or gate to ~5–10 Hz) | main thread | XS | Removes 60 Hz string alloc + Unity UI layout-dirty churn | open |
-| 8 | Extend #1's fix to `drawTargetBox` and the waypoint markers (two-stroke glow like `drawRwrLines`, or bake into a cached canvas) | client | XS | Removes the two live-`shadowBlur` spots #1 missed | open |
+| 7 | Throttle `HudWaypointCue`'s readout rebuild (skip the `Text.text` write when rounded values haven't changed, or gate to ~5–10 Hz) | main thread | XS | Removes 60 Hz Unity UI layout-dirty churn | **DONE** — readout setter skipped unless formatted text changed |
+| 8 | Extend #1's fix to `drawTargetBox` and the waypoint markers (two-stroke glow like `drawRwrLines`, or bake into a cached canvas) | client | XS | Removes the two live-`shadowBlur` spots #1 missed | **DONE** — target brackets and waypoint markers use two-stroke glow |
 
 ### Item #A — RESULT (done, commit eb2ecc7)
 
@@ -259,12 +253,13 @@ thread, called from `ScanWorld` for icons (`TryCaptureIcon`), the map
 - **#3 (buffer reuse).** Extend the `_partsBuf` pattern to units/rwr/mw.
   Must coordinate with #2 so a reused buffer isn't read by the SSE thread
   mid-mutation (double-buffer/swap, or serialize-on-push-version).
-- **#4 (split rates).** Contacts at map scale don't need 10 Hz; own-ship
-  motion and threat cues do. Cuts cost on all three layers at once. Bigger
-  change — sequence it after #1/#2 prove insufficient.
-- **#5 (rAF + cull).** Coalesce: set `lastData` on message, request a
-  single rAF redraw. Add a visible-bounds check before drawing each
-  contact.
+- **#4 (split rates).** Done: `TelemetryReader` rebuilds the contact-heavy
+  MAP/RDR/HSD/pitbull snapshots at 4 Hz, then reuses them in the fast frames
+  where own-ship, RWR, and MW still update at `FastInterval`. This keeps the
+  existing JSON shape stable while moving the per-unit work off the 10 Hz path.
+- **#5 (rAF + cull).** Done: MAP's telemetry frames now set `lastData` and
+  request one `requestAnimationFrame` redraw, and the renderer skips off-screen
+  contacts, missiles, and waypoint markers with a small padding margin.
 - **#6 (TGP slider risk).** The measurements already exist (2026-08-16
   section below) — this item is closing the gap between "measured" and
   "fixed." Cheapest version: lower `RatesConfig.MaxHz` for the TGP group
@@ -273,17 +268,14 @@ thread, called from `ScanWorld` for icons (`TryCaptureIcon`), the map
   page near the slider. The fuller version is render-on-demand or the
   mirror-cam approach `docs/tgp-high-quality-mode.md` scoped for an
   unrelated feature but with the same GPU-cost tradeoff shape.
-- **#7 (waypoint HUD readout).** Simplest fix: compare the new formatted
-  string against the last one written and skip the `Text.text` set when
-  unchanged (cheap since the string is already built for the compare) —
-  keeps the exact same visual update cadence a player would perceive as
-  live, while eliminating the churn on frames where nothing moved enough to
-  change the displayed digits.
-- **#8 (target box / waypoint marker glow).** Same fix shape as #1: either
-  bake into a small cached canvas per color (few distinct colors: target
-  lock, next/reached/pending waypoint), or switch to `drawRwrLines`'s
-  two-stroke technique (wide faint underlay + bright core, no `shadowBlur`
-  at all) since both draw simple strokes/arcs, not a raster icon.
+- **#7 (waypoint HUD readout).** Done: compares the new formatted string
+  against the last one written and skips the `Text.text` set when unchanged.
+  This keeps the exact same visual update cadence a player would perceive as
+  live, while eliminating the Unity UI setter churn on frames where nothing
+  moved enough to change the displayed digits.
+- **#8 (target box / waypoint marker glow).** Done: switched both simple
+  vector shapes to `drawRwrLines`'s two-stroke technique (wide faint underlay
+  + bright core, no live `shadowBlur`).
 
 ## Recommended sequencing (revised after Step 0)
 
@@ -294,18 +286,17 @@ thread, called from `ScanWorld` for icons (`TryCaptureIcon`), the map
    #1 kills the RWR/MAP lag. Ship and live-test each separately.
    - Quickest single win inside #A: shrink the 16 MB map (downscale/JPEG)
      — removes the 673 ms load freeze with a small, contained change.
-3. **#2 / #4 / #5** — only if still warranted after #A/#1, or if the user
-   routinely opens many web clients (which multiplies #2).
+3. **#2 / #4 / #5** — #2 shipped after #A/#1; #4/#5 later shipped as small
+   polish once the contact/redraw scope was clear.
 
 ## Status (as of the #A/#1/#2 work)
 
-The three measured targets are shipped: **#A** (async captures), **#1**
-(pre-baked glow), **#2** (serialize-once). Per Step 0, the mod's
+The measured and later polish targets are shipped: **#A** (async captures), **#1**
+(pre-baked glow), **#2** (serialize-once), **#4** (contact split rate), and **#5**
+(rAF/coalesced MAP redraw + cull). Per Step 0, the mod's
 steady-state main-thread cost is ~3 ms/sec — under 0.3% of a 60 fps
 frame — so there is **no remaining 10×-type win in the mod's CPU path**;
-the sustained FPS hit in a busy match is the game rendering N units, not
-us. The items below are what's left to *evaluate* before declaring the
-floor, plus the marginal polish we deliberately deferred.
+the sustained FPS hit in a busy match is the game rendering N units, not us.
 
 > **The instrumentation is no longer in the build.** `PerfDiag` and its two
 > `Diagnostics` toggles (`PerfLogging`, `FeaturesActive`) were removed once the
@@ -465,20 +456,16 @@ already established, applied to the files that didn't exist yet when this doc wa
 **Confirmed unchanged / still correct:** the three shipped fixes (#A, #1, #2) are still in place
 in current code. `HudOptionsJson`'s 1 Hz unconditional refresh is deliberately cheap and already
 reasoned about, not an issue. `AkfTracker.cs`/`WeaponSelectors.cs` — no LINQ or array allocation
-in their hot paths. Items #4/#5 remain not implemented, still genuinely optional per the existing
-"data doesn't justify it yet" call — nothing found that changes that.
+in their hot paths. Items #4/#5 were later implemented as small polish: contacts rebuild at 4 Hz,
+and MAP redraws coalesce/cull in the browser.
 
 **New, in priority order:**
 
-1. **TGP slider risk (item #6) is the highest-value open item.** The 2026-08-16 measurements
-   below already proved 30 Hz drops up to 45% of readback ticks with 100 ms worst-case frame
-   times — that risk is still fully exposed to the player via the RTS page with no cap or
-   warning. The investigation is done; only the fix is missing.
-2. **`HudWaypointCue`'s per-frame readout rebuild (item #7)** — found while reading the newest
-   HUD-drawing code, not present in the 2026-08-16 pass since the file didn't exist yet.
-3. **Two live-`shadowBlur` spots in `map.js` missed the #1 fix (item #8)** — `drawTargetBox` and
-   the waypoint markers, both added after #1 shipped. Same class of cost, smaller magnitude
-   (few contacts vs. 40+).
+1. **TGP slider risk (item #6)** is resolved by warning text on TGP CFG rather than a hard cap.
+2. **`HudWaypointCue`'s per-frame readout rebuild (item #7)** — fixed by skipping the `Text.text`
+   setter when the rounded/formatted readout is unchanged.
+3. **Two live-`shadowBlur` spots in `map.js` missed the #1 fix (item #8)** — fixed in
+   `drawTargetBox` and the waypoint markers with the same two-stroke glow used by RWR lines.
 4. **`RouteStore.Save()`'s synchronous write is a watch-item, not a current bug** — no caller
    fires it continuously today, but it's the same shape as the `ConfigEntry.Value` stall Finding
    2 (below) already found once. Recorded so a future continuous-fire caller doesn't reintroduce
@@ -691,16 +678,15 @@ reachable, not a report of what it costs. The RTS page itself was later split ap
 per source page (MAP's own `/mapcfg`, TGP's own `/tgpcfg`); the 60 Hz ceiling carried over to
 `/tgpcfg`'s slider unchanged.
 
-## Marginal polish (deferred — data doesn't justify it yet)
+## Marginal polish — implemented
 
-- **#4 — split rates.** Contacts at map scale don't need 10 Hz; own-ship
-  motion and threat cues do. Would cut redraw + serialize cost, but with
-  #1/#2 done the remaining cost is already low. Revisit only if a future
-  measurement shows client redraw still hurting.
-- **#5 — rAF-coalesce + off-screen cull.** Coalesce redraws to one per
-  frame (set `lastData` on message, request a single rAF) and skip
-  contacts outside the visible canvas. Smoother when zoomed in with many
-  contacts; small win post-#1.
+- **#4 — split rates.** Contacts at map scale no longer rebuild at the full
+  own-ship/threat rate. The server still includes the cached contact arrays in
+  each fast JSON frame, so existing pages keep their contract while the contact
+  work runs at 4 Hz.
+- **#5 — rAF-coalesce + off-screen cull.** MAP redraw now coalesces telemetry
+  bursts to the browser's next animation frame and skips off-screen contacts,
+  missiles, and waypoint markers when zoomed/panned.
 
 ## Out of scope
 

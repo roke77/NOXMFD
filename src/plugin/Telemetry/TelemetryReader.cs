@@ -9,10 +9,13 @@ namespace NOXMFD
     internal class TelemetryReader : MonoBehaviour
     {
         // Not a const: RatesConfig.SetFastHz (rates.set command) writes this live from the MAP CFG
-        // page's TLM slider, so PushSnapshot's whole 10 Hz group — own-ship, weapons, contacts,
-        // TGT, BDF/PAL — moves together.
+        // page's TLM slider, so PushSnapshot's fast group — own-ship, weapons, RWR/MW, TGT,
+        // BDF/PAL — moves together.
         internal static float FastInterval = 0.1f; // 10 Hz — position / speed
         private const  float SlowInterval  = 1.0f; // 1 Hz  — world scan + map metadata (FindObjectsByType is expensive)
+        // Not a const either: RatesConfig.SetContactHz (rates.set group "contact", MAP CFG page's
+        // own CONTACTS slider) writes this live, independently of FastHz above.
+        internal static float ContactInterval = 0.25f; // 4 Hz default — MAP/RDR/HSD contacts are expensive and don't need 10 Hz
 
         // One-shot game-asset extraction (map / unit icons / weapon + CM icons / airframe silhouette).
         // Owned here; driven from ScanWorld / PushSnapshot. See AssetCapture.cs.
@@ -20,6 +23,7 @@ namespace NOXMFD
 
         private float _fastTimer;
         private float _slowTimer;
+        private float _contactTimer = ContactInterval;
         private int   _totalUnits;
         private int   _totalAircraft;
 
@@ -33,8 +37,20 @@ namespace NOXMFD
         // AssetCapture and read back via _assets.FailureIndicators).
         private readonly List<string> _failureScratch = new List<string>();
 
-        // Cached unit list from the 1 Hz scan; positions are read from it at 10 Hz.
+        // Cached unit list from the 1 Hz scan; positions are sampled into contact snapshots at 4 Hz.
         private Unit[] _units = Array.Empty<Unit>();
+
+        // Contacts are rebuilt at 4 Hz, then reused by the fast snapshots. Own-ship, RWR, and MW stay
+        // on FastInterval; full unit, radar, and HSD datalink contact lists are visually fine at map
+        // scale at 4 Hz and include most of PushSnapshot's per-unit work.
+        private Aircraft? _contactAircraft;
+        private UnitInfo[] _cachedUnits = Array.Empty<UnitInfo>();
+        private RdrContact[] _cachedRdr = Array.Empty<RdrContact>();
+        private HsdContact[] _cachedHsd = Array.Empty<HsdContact>();
+        private PitbullContact[] _cachedPitbull = Array.Empty<PitbullContact>();
+        private bool _cachedRadarPresent;
+        private float _cachedRadarRange;
+        private float _cachedRadarConeDeg;
 
         // MAP jam markers (docs comment on UnitInfo.Jammed): Unit.onJam only fires the jamming
         // source, Radar.IsJammed() doesn't remember it — so we hook every radar-equipped unit once
@@ -103,7 +119,7 @@ namespace NOXMFD
         // (mirroring DynamicMap: search 1 s, track 2 s, lock 4 s) and snapshot the survivors.
         private sealed class RwrEmitter
         {
-            public Unit  Unit;
+            public Unit? Unit;
             public byte  Tier;       // 0 search, 1 track (detected), 2 lock (we are its target)
             public float Range;      // emitting radar's max range, for closeness normalisation
             public float LastSeen;   // Time.time of the most recent ping
@@ -111,12 +127,12 @@ namespace NOXMFD
         private readonly Dictionary<Unit, RwrEmitter> _rwrEmitters = new Dictionary<Unit, RwrEmitter>();
         private readonly List<Unit> _rwrExpireScratch = new List<Unit>();
         private readonly List<RwrContact> _rwrBuf = new List<RwrContact>(32);
-        private Aircraft _rwrSubscribed;   // the aircraft whose onRadarWarning we're hooked to
+        private Aircraft? _rwrSubscribed;   // the aircraft whose onRadarWarning we're hooked to
 
         // Afterburner gauge shape, resolved once per aircraft from the game's own ThrottleGauge
         // (a HUDApp that owns the MIL/reheat region config). Static per airframe, so we cache it
         // on aircraft change rather than reflecting every frame. See EnsureAfterburnerCache.
-        private Aircraft _abAircraft;          // aircraft the cache below was resolved for
+        private Aircraft? _abAircraft;          // aircraft the cache below was resolved for
         private bool     _hasAfterburner;      // airframe has a reheat zone
         private float    _abStart = 1f;        // throttle fraction where afterburner begins (1 = none)
         private static readonly FieldInfo _tgAfterburnerField =
@@ -149,6 +165,7 @@ namespace NOXMFD
 
             _fastTimer += dt;
             _slowTimer += dt;
+            _contactTimer += dt;
 
             if (_slowTimer >= SlowInterval)
             {
@@ -384,8 +401,8 @@ namespace NOXMFD
         // fixed-name way. Present=false when that faction has no FactionHQ yet (e.g. between missions).
         private FactionForcesBlock BuildFactionForces(string factionName)
         {
-            FactionHQ hq = FactionRegistry.HqFromName(factionName);
-            MissionStatsTracker tracker = hq != null ? hq.missionStatsTracker : null;
+            FactionHQ? hq = FactionRegistry.HqFromName(factionName);
+            MissionStatsTracker? tracker = hq != null ? hq.missionStatsTracker : null;
             if (hq == null || tracker == null) return FactionForcesBlock.Empty;
 
             Encyclopedia enc = Encyclopedia.i;
@@ -411,7 +428,7 @@ namespace NOXMFD
         // that list whose type-enum name matches. Enum order comes from the *Types list itself
         // (the same list the game builds its panel rows from), not a hardcoded enum dump.
         private static BdfCountInfo[] BdfTypeCounts(
-            List<Encyclopedia.UnitType> types, IEnumerable<UnitDefinition> defs,
+            List<Encyclopedia.UnitType>? types, IEnumerable<UnitDefinition>? defs,
             MissionStatsTracker tracker, Func<UnitDefinition, string> typeNameOf)
         {
             if (types == null) return Array.Empty<BdfCountInfo>();
@@ -433,7 +450,7 @@ namespace NOXMFD
         // aren't grouped by type in-game (each is its own icon). Name is the unitName, doubling as
         // the /icon key. Also proactively captures each definition's icon here (not just ones the
         // world-scan has spotted this mission), so the BDF grid has an icon for every airframe.
-        private BdfCountInfo[] BdfAircraftCounts(Encyclopedia enc, MissionStatsTracker tracker)
+        private BdfCountInfo[] BdfAircraftCounts(Encyclopedia? enc, MissionStatsTracker tracker)
         {
             if (enc == null || enc.aircraft == null) return Array.Empty<BdfCountInfo>();
             var list = new List<BdfCountInfo>(enc.aircraft.Count);
@@ -699,7 +716,7 @@ namespace NOXMFD
             // Resolve the afterburner gauge shape when the aircraft changes (cached; static per airframe).
             EnsureAfterburnerCache(aircraft);
 
-            // Master Arms / combat mode have no game field to patch at spawn (unlike radar/engine,
+            // Master Arm / combat mode have no game field to patch at spawn (unlike radar/engine,
             // handled by HarmonyPatches instead) — reset them here on every new aircraft.
             ImmersionState.EnsureSpawnDefaults(aircraft);
 
@@ -713,8 +730,8 @@ namespace NOXMFD
             float       ewKJMax = ps != null ? GetEwMaxKJ(ps)  : -1f;
 
             string selWeapon = string.Empty;
-            WeaponManager wm = aircraft.weaponManager;
-            WeaponInfo selInfo = wm != null && wm.currentWeaponStation != null ? wm.currentWeaponStation.WeaponInfo : null;
+            WeaponManager? wm = aircraft.weaponManager;
+            WeaponInfo? selInfo = wm != null && wm.currentWeaponStation != null ? wm.currentWeaponStation.WeaponInfo : null;
             if (selInfo != null)
                 selWeapon = !string.IsNullOrEmpty(selInfo.weaponName) ? selInfo.weaponName : selInfo.shortName;
 
@@ -731,11 +748,9 @@ namespace NOXMFD
 
             _assets.TryCaptureIcon(aircraft.definition);
 
-            UnitInfo[] units = BuildUnits(aircraft);
+            RefreshContactSnapshotIfNeeded(aircraft);
             bool playerJammed = GetJamState(aircraft, out uint playerJammedBy);
 
-            RdrContact[] rdr = BuildRdr(aircraft, out bool radarPresent, out float radarRange, out float radarConeDeg);
-            HsdContact[] hsd = BuildHsd(aircraft);
             bool rdrMetric = PlayerSettings.unitSystem == PlayerSettings.UnitSystem.Metric;
             float rdrLevelTime = Time.timeSinceLevelLoad;
 
@@ -792,7 +807,7 @@ namespace NOXMFD
                 MapH           = _mapH,
                 GridOffsetX    = _gridOffsetX,
                 GridOffsetY    = _gridOffsetY,
-                Units          = units,
+                Units          = _cachedUnits,
                 PlayerId       = aircraft.persistentID.Id,
                 PlayerJammed   = playerJammed,
                 PlayerJammedBy = playerJammedBy,
@@ -826,20 +841,20 @@ namespace NOXMFD
                 Failures       = BuildFailures(),
                 Rwr            = BuildRwr(aircraft),
                 Mw             = BuildMw(aircraft),
-                RadarPresent   = radarPresent,
-                RadarRange     = radarRange,
-                RadarConeDeg   = radarConeDeg,
-                Rdr            = rdr,
-                Hsd            = hsd,
-                Pitbull        = BuildPitbull(aircraft),
+                RadarPresent   = _cachedRadarPresent,
+                RadarRange     = _cachedRadarRange,
+                RadarConeDeg   = _cachedRadarConeDeg,
+                Rdr            = _cachedRdr,
+                Hsd            = _cachedHsd,
+                Pitbull        = _cachedPitbull,
                 RdrMetric      = rdrMetric,
                 RdrLevelTime   = rdrLevelTime,
                 TgtPresent     = tgtOk,
-                TgtLaser       = tgtOk && tgtSel.toggleLaser      != null && tgtSel.toggleLaser.status,
-                TgtHud         = tgtOk && tgtSel.toggleFollowHUD  != null && tgtSel.toggleFollowHUD.status,
-                TgtFaction     = tgtOk ? ReadToggles(tgtSel.toggleFactionItems)      : Array.Empty<TgtToggleInfo>(),
-                TgtCategory    = tgtOk ? ReadToggles(tgtSel.toggleUnitTypesItems)    : Array.Empty<TgtToggleInfo>(),
-                TgtVehicle     = tgtOk ? ReadToggles(tgtSel.toggleVehicleTypesItems) : Array.Empty<TgtToggleInfo>(),
+                TgtLaser       = tgtOk && tgtSel != null && tgtSel.toggleLaser      != null && tgtSel.toggleLaser.status,
+                TgtHud         = tgtOk && tgtSel != null && tgtSel.toggleFollowHUD  != null && tgtSel.toggleFollowHUD.status,
+                TgtFaction     = tgtOk && tgtSel != null ? ReadToggles(tgtSel.toggleFactionItems)      : Array.Empty<TgtToggleInfo>(),
+                TgtCategory    = tgtOk && tgtSel != null ? ReadToggles(tgtSel.toggleUnitTypesItems)    : Array.Empty<TgtToggleInfo>(),
+                TgtVehicle     = tgtOk && tgtSel != null ? ReadToggles(tgtSel.toggleVehicleTypesItems) : Array.Empty<TgtToggleInfo>(),
                 BdfPresent     = _bdf.Present,
                 BdfFaction     = _bdf.Faction,
                 BdfFunds       = _bdf.Funds,
@@ -878,6 +893,19 @@ namespace NOXMFD
             });
         }
 
+        private void RefreshContactSnapshotIfNeeded(Aircraft aircraft)
+        {
+            if (_contactTimer < ContactInterval && ReferenceEquals(_contactAircraft, aircraft))
+                return;
+
+            _contactTimer = 0f;
+            _contactAircraft = aircraft;
+            _cachedUnits = BuildUnits(aircraft);
+            _cachedRdr = BuildRdr(aircraft, out _cachedRadarPresent, out _cachedRadarRange, out _cachedRadarConeDeg);
+            _cachedHsd = BuildHsd(aircraft);
+            _cachedPitbull = BuildPitbull(aircraft);
+        }
+
         // Snapshots a TGT toggle group's labels + on/off states, preserving the game's ordering
         // (which the tgt.set/tgt.only commands index by). The vehicle row's labels are the game's
         // "_"→"\n"-wrapped typeNames; we reverse the wrap so the name is the canonical typeName that
@@ -905,7 +933,7 @@ namespace NOXMFD
         private MwContact[] BuildMw(Aircraft player)
         {
             MissileWarning mw = player.GetMissileWarningSystem();
-            List<Missile> known = mw != null ? mw.knownMissiles : null;
+            List<Missile>? known = mw != null ? mw.knownMissiles : null;
             if (known == null || known.Count == 0) return Array.Empty<MwContact>();
 
             _mwBuf.Clear();
@@ -972,8 +1000,8 @@ namespace NOXMFD
 
             try
             {
-                CombatHUD hud = SceneSingleton<CombatHUD>.i;
-                ThrottleGauge gauge = hud != null ? hud.GetComponentInChildren<ThrottleGauge>(true) : null;
+                CombatHUD? hud = SceneSingleton<CombatHUD>.i;
+                ThrottleGauge? gauge = hud != null ? hud.GetComponentInChildren<ThrottleGauge>(true) : null;
                 if (gauge == null) gauge = UnityEngine.Object.FindObjectOfType<ThrottleGauge>(true);
                 if (gauge == null) return;
 
@@ -986,8 +1014,8 @@ namespace NOXMFD
                 var regions = _tgRegionsField?.GetValue(gauge) as Array;
                 if (regions != null && regions.Length > 0)
                 {
-                    object last = regions.GetValue(regions.Length - 1);
-                    FieldInfo startField = last?.GetType().GetField("start", BindingFlags.Instance | BindingFlags.NonPublic);
+                    object? last = regions.GetValue(regions.Length - 1);
+                    FieldInfo? startField = last?.GetType().GetField("start", BindingFlags.Instance | BindingFlags.NonPublic);
                     if (startField != null)
                         _abStart = Mathf.Clamp01((float)startField.GetValue(last));
                 }
@@ -1033,7 +1061,7 @@ namespace NOXMFD
             foreach (var kv in _rwrEmitters)
             {
                 RwrEmitter em = kv.Value;
-                Unit u = em.Unit;
+                Unit? u = em.Unit;
                 float ttl = em.Tier == 2 ? 6f : (em.Tier == 1 ? 3f : 1.5f);
                 float age = now - em.LastSeen;
                 if (u == null || u.disabled || age > ttl) { _rwrExpireScratch.Add(kv.Key); continue; }
@@ -1076,7 +1104,7 @@ namespace NOXMFD
 
         // Reflection handle for Radar's private cone half-angle (degrees). Cached once — it's a
         // SerializeField baked per radar prefab, so it never changes at runtime.
-        private static FieldInfo _radarConeField;
+        private static FieldInfo? _radarConeField;
 
         // The air contacts the player's OWN radar currently detects (docs/rdr-page.md). The game's
         // Radar already maintains this per scan as TargetDetector.detectedTargets (cleared + refilled
@@ -1087,7 +1115,7 @@ namespace NOXMFD
         private RdrContact[] BuildRdr(Aircraft player, out bool present, out float range, out float coneDeg)
         {
             present = false; range = 0f; coneDeg = 0f;
-            Radar radar = player.radar as Radar;
+            Radar? radar = player.radar as Radar;
             if (radar == null) return Array.Empty<RdrContact>();
 
             present = true;
@@ -1096,8 +1124,7 @@ namespace NOXMFD
 
             // Same target-set reference the TGT page / target.select drive — an RDR "lock" IS
             // membership here (reused, not a new mechanism — see docs/rdr-page.md).
-            List<Unit> targets = player.weaponManager != null ? player.weaponManager.GetTargetList() : null;
-            bool hasTargets = targets != null && targets.Count > 0;
+            List<Unit>? targets = player.weaponManager != null ? player.weaponManager.GetTargetList() : null;
             var playerHQ = player.NetworkHQ;
 
             _rdrBuf.Clear();
@@ -1126,7 +1153,7 @@ namespace NOXMFD
                         Z        = gp.z,
                         Alt      = gp.y,
                         Heading  = u.transform.eulerAngles.y,
-                        Targeted = hasTargets && targets.Contains(u),
+                        Targeted = targets != null && targets.Contains(u),
                         Radar    = true,
                         Datalink = dl,
                         Name     = RwrLabel(u)
@@ -1157,7 +1184,7 @@ namespace NOXMFD
                         Z        = gp.z,
                         Alt      = gp.y,
                         Heading  = u.transform.eulerAngles.y,
-                        Targeted = hasTargets && targets.Contains(u),
+                        Targeted = targets != null && targets.Contains(u),
                         Radar    = false,
                         Datalink = true,
                         Name     = RwrLabel(u)
@@ -1195,6 +1222,11 @@ namespace NOXMFD
                 if (!datalinkKnown && !radarDetected) continue;
                 if (!datalinkKnown) gp = u.GlobalPosition();
 
+                // Same 20m trust-radius check BuildUnits uses for UnitInfo.Stale (docs/tgt-stale-lock.md)
+                // — returns true immediately while a datalink track is fresh, so this only fires once
+                // the position has actually drifted, regardless of whether own radar also sees it.
+                bool stale = datalinkKnown && !playerHQ.IsTargetPositionAccurate(u, 20f);
+
                 _hsdBuf.Add(new HsdContact
                 {
                     Id       = u.persistentID.Id,
@@ -1205,6 +1237,7 @@ namespace NOXMFD
                     Targeted = hasTargets && targets.Contains(u),
                     Radar    = radarDetected,
                     Datalink = datalinkKnown,
+                    Stale    = stale,
                     Name     = RwrLabel(u)
                 });
             }
@@ -1323,8 +1356,7 @@ namespace NOXMFD
 
             // The player's current target(s): the live weapon target list (public API, no
             // reflection). Reference-matched against each scanned unit below.
-            List<Unit> targets = player.weaponManager != null ? player.weaponManager.GetTargetList() : null;
-            bool hasTargets = targets != null && targets.Count > 0;
+            List<Unit>? targets = player.weaponManager != null ? player.weaponManager.GetTargetList() : null;
 
             _unitBuf.Clear();
             foreach (Unit u in _units)
@@ -1365,7 +1397,7 @@ namespace NOXMFD
                     Faction  = faction,
                     Orient   = def.mapOrient,
                     Scale    = def.mapIconSize,
-                    Targeted = hasTargets && targets.Contains(u),
+                    Targeted = targets != null && targets.Contains(u),
                     Jammed   = jammed,
                     JammedBy = jammedBy,
                     Datalink = datalink,

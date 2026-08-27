@@ -3,8 +3,11 @@
 ## Status
 
 Implemented locally. `tools/ci-check.ps1` runs the Release build, every JavaScript self-check,
-the standalone xUnit project, and a `serve_web.py` route smoke in one command. A hosted GitHub
-Actions workflow remains an optional follow-on; the manual in-browser workflow remains separate.
+the standalone xUnit project, and a `serve_web.py` route smoke in one command. `tools/ci-check-selftest.ps1`
+validates that the script fails when each class of check is deliberately broken. A hosted GitHub
+Actions workflow remains an optional follow-on, but the full plugin build is blocked on ordinary
+GitHub-hosted runners unless the workflow can provide `GameDir` and the Nuclear Option managed DLLs;
+the manual in-browser workflow remains separate.
 
 ## Where this came from
 
@@ -48,20 +51,28 @@ Actions workflow is added later:
    always renders regardless of capture state, matching how the shell itself loads it.
 4. Run `dotnet test tools/tests/NOXMFD.Tests.csproj`.
 
-A GitHub Actions workflow (`.github/workflows/ci.yml`) running the same checks on every push is an
-optional follow-on. This document's implemented scope is the local one-command check.
+A GitHub Actions workflow (`.github/workflows/ci.yml`) running checks on every push is an optional
+follow-on. A full hosted workflow cannot run the current `dotnet build -c Release` step on an
+ordinary GitHub-hosted runner because `NOXMFD.csproj` references `$(GameDir)\NuclearOption_Data\Managed`
+assemblies and deploys to `$(GameDir)\BepInEx\plugins`. Practical CI choices are either a partial
+portable workflow (`dotnet test tools/tests/NOXMFD.Tests.csproj`, Node tests, and `serve_web.py`
+smoke) or a self-hosted Windows runner with Nuclear Option installed. This document's implemented
+scope remains the local one-command check plus its self-test.
 
 ## Relationship to `docs/csharp-unit-testing.md`
 
 That doc's own scope checklist already ends with "Confirm `dotnet test` runs clean in CI (if/when
 this repo gets CI) alongside the existing `dotnet build` + `node *.test.js` checks" — this doc is
-what makes "if/when this repo gets CI" concrete, and gives that future `dotnet test` step something
-to plug into rather than starting CI from scratch at that point.
+what makes "if/when this repo gets CI" concrete. Locally, the xUnit step is already part of
+`tools/ci-check.ps1` and covered by `tools/ci-check-selftest.ps1`; hosted CI remains a separate
+decision because of the `GameDir` dependency above.
 
 ## Scope
 
 - [x] Write `tools/ci-check.ps1` covering steps 1-3 above
-- [ ] Verify it catches a deliberately-broken build, a deliberately-failing JS test, and a
-      deliberately-broken `serve_web.py` route as a sanity check on the check itself
-- [ ] (Optional, separate follow-on) Wire the script into a GitHub Actions workflow
+- [x] Verify it catches a deliberately-broken build, a deliberately-failing JS test, a
+      deliberately-failing xUnit test, and a deliberately-broken `serve_web.py` route —
+      `tools/ci-check-selftest.ps1`
+- [ ] (Optional, separate follow-on) Wire checks into GitHub Actions, either as a portable partial
+      workflow or on a self-hosted runner that can provide `GameDir`
 - [x] Add `dotnet test` as a fourth step

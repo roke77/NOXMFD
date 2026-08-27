@@ -1374,8 +1374,8 @@ namespace NOXMFD
             try
             {
                 string json = string.Format(CultureInfo.InvariantCulture,
-                    "{{\"fastHz\":{0},\"tgpHz\":{1},\"tgpResolution\":\"{2}\",\"tgpJpegQuality\":\"{3}\",\"tgpQuality\":\"{4}\",\"tgpSuppressNative\":{5}}}",
-                    RatesConfig.FastHz, RatesConfig.TgpHz, RatesConfig.TgpResolutionName,
+                    "{{\"fastHz\":{0},\"contactHz\":{1},\"tgpHz\":{2},\"tgpResolution\":\"{3}\",\"tgpJpegQuality\":\"{4}\",\"tgpQuality\":\"{5}\",\"tgpSuppressNative\":{6}}}",
+                    RatesConfig.FastHz, RatesConfig.ContactHz, RatesConfig.TgpHz, RatesConfig.TgpResolutionName,
                     RatesConfig.TgpJpegQualityName, RatesConfig.TgpLegacyQualityName,
                     RatesConfig.TgpSuppressNative ? "true" : "false");
                 WriteJson(ctx, json);

@@ -119,7 +119,7 @@ shared shape for NOXMFD's own commands.
 A dedicated **EXT** entry in `NAV.main` (`nav-model.js`), landing on the **EXT hub page**
 (`/ext`, `layout-pages.js`) — a real, ordinary destination with real table entries in every
 layout, not a dispatched-special case like `'lyt'`. `NAV.ext`'s static baseline is just the
-MAIN back-link; `src/web/shell/ext-nav.js` fetches `/ext-manifest` once at boot and appends
+MAIN back-link; `src/web/shell/shared/ext-nav.js` fetches `/ext-manifest` once at boot and appends
 one sub-item per installed extension (rendered as an ordinary nav key in the surrounding
 bezel/glass chrome), plus a matching `NAV[<id>]` (also just a MAIN back-link — see the
 ponytail note below) so that extension's own page renders nav labels the same way any other
@@ -244,7 +244,7 @@ covers build/install/release, nothing about it lives here.
   heard of NOXMFD, wrong for the extension's own dependency on NOXMFD itself (which uses the
   hard `[BepInDependency]` instead — see Versioning above).
 - `src/plugin/Api.cs`, `src/plugin/ExtensionRegistry.cs` — the public surface and its backing
-  store. `src/web/shell/ext-nav.js` — the web-side nav discovery. `src/web/pages/ext/ext.html`
+  store. `src/web/shell/shared/ext-nav.js` — the web-side nav discovery. `src/web/pages/ext/ext.html`
   — the EXT hub page every extension's nav entry surfaces under. Every other touch point is a
   small fallback added to existing machinery (`TelemetryHttpRouter.cs`'s route table and frame
   serializer, `MissionLifecycle.cs`'s drain call, `telemetry-source.js`'s `_emit()`, both

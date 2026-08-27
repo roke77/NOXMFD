@@ -252,5 +252,5 @@ Only a successful prototype and measured need justify replacing the current MJPE
 - `docs/tgp-extended-quality.md` — current resolution, JPEG-quality, and background-worker design.
 - `docs/tgp-high-quality-mode.md` — mirror-camera design and earlier capture alternatives.
 - `docs/performance.md` — measured TGP capture and mirror-camera results.
-- `src/plugin/TgpFeed.cs` — active readback, queue, grayscale, and JPEG pipeline.
-- `src/plugin/TgpMirrorCam.cs` — active MID/HIGH mirror camera.
+- `src/plugin/Tgp/TgpFeed.cs` — active readback, queue, grayscale, and JPEG pipeline.
+- `src/plugin/Tgp/TgpMirrorCam.cs` — active MID/HIGH mirror camera.

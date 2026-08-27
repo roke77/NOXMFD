@@ -4,9 +4,9 @@ Weapon loadout and rounds remaining, plus IR-flare count and jammer charge.
 
 ![WPN page](images/WPN.png)
 
-## Master Arms — ARM / SAFE
+## Master Arm — ARM / SAFE
 
-Two bezel controls next to the weapon list. **ARM** lights up when Master Arms is on; **SAFE**
+Two bezel controls next to the weapon list. **ARM** lights up when Master Arm is on; **SAFE**
 lights up when it's off — click either to switch. While it's off, guns, missiles, and bombs are
 all blocked from firing (including the stock keybind), and the page shows a full-screen SAFE
 warning until it's back on. Also has its own dedicated keybinds — see

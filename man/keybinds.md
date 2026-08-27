@@ -79,10 +79,11 @@ the shared [PAD cursor](#pad-cursor) binds above, not a dedicated pan/tilt/zoom 
 
 ## Other settings
 
-An **Input When Game Unfocused** toggle sits above the bind table (not a bind itself) — turn it on
-if you run the display in a browser on the same PC as the game, so your HOTAS stays live while
-that browser window has focus. Off by default; leave it off for a tablet or phone, where the game
-keeps focus anyway.
+Two toggles sit above the bind table (neither is a bind itself):
+
+An **Input When Game Unfocused** toggle — turn it on if you run the display in a browser on the
+same PC as the game, so your HOTAS stays live while that browser window has focus. Off by default;
+leave it off for a tablet or phone, where the game keeps focus anyway.
 
 **Listen for Keybinds (Remote)** lets this browser send the keyboard binds configured on this page
 back to the game, so a tablet, laptop, or WSO station can operate the same MAP/TGT/SOI/weapon
@@ -161,12 +162,12 @@ for a tablet with no keyboard.
 Optional cold-start behavior and dedicated binds for radar, engine, and weapons safety,
 configured in their own section at the bottom of this page.
 
-- **Enable Radar / Engine / Master Arms on start** — three toggles, all ON by default (matching
+- **Enable Radar / Engine / Master Arm on start** — three toggles, all ON by default (matching
   the game's own behavior). Turn any of them off for more immersion: that system starts off when
   you spawn into a new aircraft, and you arm/start it yourself.
-- **Radar ON / Radar OFF**, **Engine ON / Engine OFF**, **Master Arms ON / Master Arms OFF** —
+- **Radar ON / Radar OFF**, **Engine ON / Engine OFF**, **Master Arm ON / Master Arm OFF** —
   dedicated binds for each, on top of the on-start toggles, so you can flip them mid-flight.
-  Master Arms OFF blocks guns, missiles, and bombs until it's back on — [WPN](wpn.md) shows a
+  Master Arm OFF blocks guns, missiles, and bombs until it's back on — [WPN](wpn.md) shows a
   full-screen SAFE warning while it's off, and its ARM/SAFE controls mirror and drive the same
   state.
 - **A/A mode / A/G mode** — restrict missile cycling to air-to-air or air-to-ground weapons; guns

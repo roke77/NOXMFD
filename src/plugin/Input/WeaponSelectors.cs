@@ -36,13 +36,12 @@ namespace NOXMFD
     // telemetry reader).
     internal static class WeaponSelectors
     {
-        private static string _softGun;         // gun-bucket entry name, or null
-        private static string _softRel;         // missile/bomb-bucket entry name, or null
-        private static string _softJam;         // jammer-pod-bucket entry name, or null
-        private static WeaponStation _lastActive;
+        private static string? _softGun;         // gun-bucket entry name, or null
+        private static string? _softRel;         // missile/bomb-bucket entry name, or null
+        private static string? _softJam;         // jammer-pod-bucket entry name, or null
+        private static WeaponStation? _lastActive;
 
-        private static readonly List<string> _entries = new List<string>(8);   // reused scratch
-        private static readonly List<int>    _ammo    = new List<int>(8);      // remaining ammo per entry (parallel)
+        private static readonly List<WeaponSelectorLoadoutItem> _loadout = new List<WeaponSelectorLoadoutItem>(16);   // reused scratch
 
         // ── Classification ───────────────────────────────────────────────────────────────────────
         private static bool IsGun(WeaponInfo i)  => i.gun;
@@ -78,80 +77,45 @@ namespace NOXMFD
         // it advances to the next entry and makes it active; with another class active it recalls the
         // class's remembered soft selection (or the first entry) and makes THAT active — so the first
         // press is "switch into this class where I left it", the second press cycles.
-        public static void CycleGun(Aircraft ac)     => _softGun = CycleAndSelect(ac, IsGun, _softGun);
+        public static void CycleGun(Aircraft ac)     => _softGun = CycleAndSelect(ac, WeaponSelectorBucket.Gun, _softGun);
 
         // Combat mode (docs/radar-master-arms.md, issue #32) narrows which missiles Cycle Missile
         // reaches: unrestricted in ALL, air-to-air-only or air-to-ground-only otherwise. Guns are
         // unaffected by combat mode (see CycleGun above); bombs are handled below.
-        public static void CycleMissile(Aircraft ac) => _softRel = CycleAndSelect(ac, MissileFilter(), _softRel);
+        public static void CycleMissile(Aircraft ac) => _softRel = CycleAndSelect(ac, WeaponSelectorBucket.Missile, _softRel);
 
         // Bombs are disabled entirely while in A/A mode — no-op, doesn't touch _softRel.
         public static void CycleBomb(Aircraft ac)
         {
             if (ImmersionState.CombatMode == CombatMode.AirToAir) return;
-            _softRel = CycleAndSelect(ac, IsBomb, _softRel);
+            _softRel = CycleAndSelect(ac, WeaponSelectorBucket.Bomb, _softRel);
         }
 
-        private static Func<WeaponInfo, bool> MissileFilter() => ImmersionState.CombatMode switch
-        {
-            CombatMode.AirToAir    => i => IsMissile(i) && IsAirToAir(i),
-            CombatMode.AirToGround => i => IsMissile(i) && !IsAirToAir(i),
-            _                      => IsMissile,
-        };
-
-        // Same restriction, applied to Weapon Release's own switch-then-fire stage (issue: a GUN
-        // selected in A/G mode with only A/A missiles loaded could still switch to one on Weapon
-        // Release, overriding the mode — Cycle Missile already blocked this, Weapon Release didn't).
+        // Same restriction, applied to Weapon Release's own switch-then-fire stage: a GUN selected
+        // in A/G mode with only A/A missiles loaded must not switch to one on Weapon Release.
         // Bombs stay excluded entirely in A/A (mirrors CycleBomb's own no-op there); a Bomb already
         // selected when entering A/A is handled separately by OnCombatModeChanged.
-        private static Func<WeaponInfo, bool> ReleaseFilter() => ImmersionState.CombatMode switch
-        {
-            CombatMode.AirToAir    => i => IsMissile(i) && IsAirToAir(i),
-            CombatMode.AirToGround => i => (IsMissile(i) && !IsAirToAir(i)) || IsBomb(i),
-            _                      => IsRelease,
-        };
-
-        private static string CycleAndSelect(Aircraft ac, Func<WeaponInfo, bool> cls, string soft)
+        private static string? CycleAndSelect(Aircraft ac, WeaponSelectorBucket bucket, string? soft)
         {
             Follow(ac);
-            BuildEntries(ac, cls);
-            if (_entries.Count == 0) return soft;   // wrong-class press: keep the remembered name
+            BuildLoadout(ac);
 
             WeaponManager wm = ac.weaponManager;
-            WeaponStation cur = wm != null ? wm.currentWeaponStation : null;
-            string curName = cur != null && cur.WeaponInfo != null ? EntryName(cur.WeaponInfo) : null;
+            WeaponStation? cur = wm != null ? wm.currentWeaponStation : null;
+            string? curName = cur != null && cur.WeaponInfo != null ? EntryName(cur.WeaponInfo) : null;
 
             // Cycling never lands on a depleted entry (fire keys can still commit one — the game
             // allows selecting an empty weapon; Ready() just won't fire it).
-            string next;
-            int idx = curName != null ? _entries.IndexOf(curName) : -1;
-            if (idx >= 0)
-            {
-                // in-class: advance to the next entry with ammo, wrapping past depleted ones
-                next = null;
-                for (int k = 1; k <= _entries.Count; k++)
-                {
-                    int cand = (idx + k) % _entries.Count;
-                    if (_ammo[cand] > 0) { next = _entries[cand]; break; }
-                }
-            }
-            else
-            {
-                // cross-class: recall the remembered entry if it still has ammo, else the first with ammo
-                int si = soft != null ? _entries.IndexOf(soft) : -1;
-                next = si >= 0 && _ammo[si] > 0 ? soft : null;
-                for (int k = 0; next == null && k < _entries.Count; k++)
-                    if (_ammo[k] > 0) next = _entries[k];
-            }
-            if (next == null) return soft;   // whole class depleted — no-op
+            WeaponSelectorCycleResult result = WeaponSelectorLogic.Cycle(_loadout, bucket, CurrentMode(), curName, soft);
+            if (result.TargetName == null) return result.SoftName;   // wrong class, empty, or depleted — no-op
 
-            WeaponStation target = FindStationByName(ac, next);
+            WeaponStation? target = FindStationByName(ac, result.TargetName);
             if (target != null && !ReferenceEquals(cur, target))
             {
                 SelectStation(ac, target);
                 _lastActive = target;   // our own commit is not a pilot change — don't re-snap on it
             }
-            return next;
+            return result.SoftName;
         }
 
         // ── Fire keys ────────────────────────────────────────────────────────────────────────────
@@ -173,19 +137,18 @@ namespace NOXMFD
 
         // The entry a fire key would commit right now: the soft selection if it's still a live entry
         // of the class, else the first entry of the class, else null. Also what the WPN page outlines.
-        public static string EffectiveGun(Aircraft ac)       => Effective(ac, IsGun,       _softGun);
-        public static string EffectiveRelease(Aircraft ac)   => Effective(ac, ReleaseFilter(), _softRel);
-        public static string EffectiveJammerPod(Aircraft ac) => Effective(ac, IsJammerPod, _softJam);
+        public static string? EffectiveGun(Aircraft ac)       => Effective(ac, WeaponSelectorBucket.Gun,       _softGun);
+        public static string? EffectiveRelease(Aircraft ac)   => Effective(ac, WeaponSelectorBucket.Release,   _softRel);
+        public static string? EffectiveJammerPod(Aircraft ac) => Effective(ac, WeaponSelectorBucket.JammerPod, _softJam);
 
-        private static string Effective(Aircraft ac, Func<WeaponInfo, bool> cls, string soft)
+        private static string? Effective(Aircraft ac, WeaponSelectorBucket bucket, string? soft)
         {
             Follow(ac);
-            BuildEntries(ac, cls);
-            if (_entries.Count == 0) return null;
-            return soft != null && _entries.Contains(soft) ? soft : _entries[0];
+            BuildLoadout(ac);
+            return WeaponSelectorLogic.Effective(_loadout, bucket, CurrentMode(), soft);
         }
 
-        private static void Fire(Aircraft ac, string name, ref int lastFrame, ref bool switchHold)
+        private static void Fire(Aircraft ac, string? name, ref int lastFrame, ref bool switchHold)
         {
             bool fresh = UnityEngine.Time.frameCount != lastFrame + 1;   // gap = new press
             lastFrame = UnityEngine.Time.frameCount;
@@ -194,11 +157,11 @@ namespace NOXMFD
             WeaponManager wm = ac.weaponManager;
             if (wm == null || name == null) return;
 
-            WeaponStation cur = wm.currentWeaponStation;
-            string curName = cur != null && cur.WeaponInfo != null ? EntryName(cur.WeaponInfo) : null;
+            WeaponStation? cur = wm.currentWeaponStation;
+            string? curName = cur != null && cur.WeaponInfo != null ? EntryName(cur.WeaponInfo) : null;
             if (!string.Equals(curName, name, StringComparison.Ordinal))
             {
-                WeaponStation target = FindStationByName(ac, name);
+                WeaponStation? target = FindStationByName(ac, name);
                 if (target == null) return;
                 SelectStation(ac, target);
                 _lastActive = target;   // our own commit is not a pilot change — don't re-snap on it
@@ -214,10 +177,10 @@ namespace NOXMFD
         {
             WeaponManager wm = ac.weaponManager;
             if (wm == null) return;
-            WeaponStation cur = wm.currentWeaponStation;
+            WeaponStation? cur = wm.currentWeaponStation;
             if (ReferenceEquals(cur, _lastActive)) return;
             _lastActive = cur;
-            WeaponInfo info = cur != null ? cur.WeaponInfo : null;
+            WeaponInfo? info = cur != null ? cur.WeaponInfo : null;
             if (info == null || info.hideInDisplay) return;
             if (IsGun(info))            _softGun = EntryName(info);
             else if (IsRelease(info))   _softRel = EntryName(info);
@@ -238,20 +201,20 @@ namespace NOXMFD
         {
             Follow(ac);
             WeaponManager wm = ac.weaponManager;
-            WeaponStation cur = wm != null ? wm.currentWeaponStation : null;
-            WeaponInfo info = cur != null ? cur.WeaponInfo : null;
+            WeaponStation? cur = wm != null ? wm.currentWeaponStation : null;
+            WeaponInfo? info = cur != null ? cur.WeaponInfo : null;
             if (info == null || IsGun(info)) return;
 
             if (mode == CombatMode.AirToAir && (IsBomb(info) || (IsMissile(info) && !IsAirToAir(info))))
             {
-                if (!SelectFirstAvailable(ac, i => IsMissile(i) && IsAirToAir(i)))
-                    SelectFirstAvailable(ac, IsGun);
+                if (!SelectFirstAvailable(ac, WeaponSelectorBucket.Missile, WeaponSelectorCombatMode.AirToAir))
+                    SelectFirstAvailable(ac, WeaponSelectorBucket.Gun, WeaponSelectorCombatMode.All);
             }
             else if (mode == CombatMode.AirToGround && IsMissile(info) && IsAirToAir(info))
             {
-                if (!SelectFirstAvailable(ac, i => IsMissile(i) && !IsAirToAir(i)) &&
-                    !SelectFirstAvailable(ac, IsBomb))
-                    SelectFirstAvailable(ac, IsGun);
+                if (!SelectFirstAvailable(ac, WeaponSelectorBucket.Missile, WeaponSelectorCombatMode.AirToGround) &&
+                    !SelectFirstAvailable(ac, WeaponSelectorBucket.Bomb, WeaponSelectorCombatMode.AirToGround))
+                    SelectFirstAvailable(ac, WeaponSelectorBucket.Gun, WeaponSelectorCombatMode.All);
             }
         }
 
@@ -259,20 +222,18 @@ namespace NOXMFD
         // since there's no meaningful "current" once the active weapon sits outside the new mode's
         // allowed set. Returns false (no-op) if the class is empty or fully depleted, so callers can
         // fall back to the next class in line.
-        private static bool SelectFirstAvailable(Aircraft ac, Func<WeaponInfo, bool> cls)
+        private static bool SelectFirstAvailable(Aircraft ac, WeaponSelectorBucket bucket, WeaponSelectorCombatMode mode)
         {
-            BuildEntries(ac, cls);
-            for (int i = 0; i < _entries.Count; i++)
-            {
-                if (_ammo[i] <= 0) continue;
-                WeaponStation target = FindStationByName(ac, _entries[i]);
-                if (target == null) continue;
-                SelectStation(ac, target);
-                _lastActive = target;
-                SnapSoft(target.WeaponInfo, _entries[i]);
-                return true;
-            }
-            return false;
+            BuildLoadout(ac);
+            string? name = WeaponSelectorLogic.FirstAvailable(_loadout, bucket, mode);
+            if (name == null) return false;
+
+            WeaponStation? target = FindStationByName(ac, name);
+            if (target == null) return false;
+            SelectStation(ac, target);
+            _lastActive = target;
+            SnapSoft(target.WeaponInfo, name);
+            return true;
         }
 
         // Mirrors Follow's own classification — sets whichever soft selector matches the newly
@@ -287,7 +248,7 @@ namespace NOXMFD
         // ── Shared station lookup + select (also used by CommandDispatcher.WeaponSelect) ─────────
         // First visible station whose entry name matches — the same aggregation BuildLoadout uses;
         // the game cycles duplicate stations of one type itself.
-        internal static WeaponStation FindStationByName(Aircraft ac, string name)
+        internal static WeaponStation? FindStationByName(Aircraft ac, string name)
         {
             if (ac.weaponStations == null) return null;
             foreach (WeaponStation st in ac.weaponStations)
@@ -310,24 +271,39 @@ namespace NOXMFD
             if (hud != null && ReferenceEquals(hud.aircraft, ac)) hud.ShowWeaponStation(target);
         }
 
-        // Entry names of the class, aggregated by name in first-appearance order (BuildLoadout's
-        // order), into the reused _entries scratch list, with per-entry remaining ammo summed across
-        // stations into the parallel _ammo list (so cycling can skip depleted entries).
-        private static void BuildEntries(Aircraft ac, Func<WeaponInfo, bool> cls)
+        private static WeaponSelectorCombatMode CurrentMode()
         {
-            _entries.Clear();
-            _ammo.Clear();
+            switch (ImmersionState.CombatMode)
+            {
+                case CombatMode.AirToAir: return WeaponSelectorCombatMode.AirToAir;
+                case CombatMode.AirToGround: return WeaponSelectorCombatMode.AirToGround;
+                default: return WeaponSelectorCombatMode.All;
+            }
+        }
+
+        // Live-game adapter: turns weapon stations into a plain loadout list for the pure selector
+        // logic. Aggregation and combat-mode filtering happen in WeaponSelectorLogic, so this layer
+        // stays responsible only for reading WeaponInfo flags and preserving station order.
+        private static void BuildLoadout(Aircraft ac)
+        {
+            _loadout.Clear();
             if (ac.weaponStations == null) return;
             foreach (WeaponStation st in ac.weaponStations)
             {
                 if (st == null) continue;
                 WeaponInfo info = st.WeaponInfo;
-                if (info == null || info.hideInDisplay || !cls(info)) continue;
+                if (info == null || info.hideInDisplay) continue;
                 string name = EntryName(info);
                 if (string.IsNullOrEmpty(name)) continue;
-                int i = _entries.IndexOf(name);
-                if (i < 0) { _entries.Add(name); _ammo.Add(st.Ammo); }
-                else _ammo[i] += st.Ammo;
+
+                WeaponSelectorRole role;
+                if (IsGun(info)) role = WeaponSelectorRole.Gun;
+                else if (IsBomb(info)) role = WeaponSelectorRole.Bomb;
+                else if (IsMissile(info)) role = WeaponSelectorRole.Missile;
+                else if (IsJammerPod(info)) role = WeaponSelectorRole.JammerPod;
+                else continue;
+
+                _loadout.Add(new WeaponSelectorLoadoutItem(name, role, st.Ammo, IsAirToAir(info)));
             }
         }
     }

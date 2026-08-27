@@ -347,7 +347,7 @@ namespace NOXMFD
             // three start-state settings appended after this Bind() method, in the same order) so the
             // KEY page's "Immersion options" section — binds + settings together — lands at the very
             // bottom of the page, below a separator, per the user's request: appended, not interleaved
-            // with the existing sections above. Master Arms/Radar/Engine are plain dedicated ON+OFF
+            // with the existing sections above. Master Arm/Radar/Engine are plain dedicated ON+OFF
             // pairs (edge:true, always the same action) — the game already has its own single-toggle
             // Radar/Engine bind for anyone who doesn't want a dedicated pair, so there's no tap/hold
             // trick here. A/A and A/G are different: there's no stock "reset combat mode" control at
@@ -356,10 +356,10 @@ namespace NOXMFD
             // direction binds above — Poll() drives them directly via PollTapHold instead of the
             // generic per-frame dispatch, since tap and hold must each fire exactly once, not repeatedly.
             const string immersion = "Immersion Keybinds";
-            DefFree(config, "master-arms-on", immersion, "MasterArmsOn", "Master Arms ON", edge: true,
+            DefFree(config, "master-arms-on", immersion, "MasterArmsOn", "Master Arm ON", edge: true,
                 "Arm — guns/missiles/bombs free to fire.",
                 () => ImmersionState.MasterArmsOn = true);
-            DefFree(config, "master-arms-off", immersion, "MasterArmsOff", "Master Arms OFF", edge: true,
+            DefFree(config, "master-arms-off", immersion, "MasterArmsOff", "Master Arm OFF", edge: true,
                 "Disarm — guns/missiles/bombs blocked.",
                 () => ImmersionState.MasterArmsOn = false);
             Def(config, "radar-on", immersion, "RadarOn", "Radar ON", edge: true,
@@ -876,7 +876,7 @@ namespace NOXMFD
         }
 
         // Tap/hold binds (docs/radar-master-arms.md, issue #32 — currently just A/A and A/G, which
-        // have no stock "reset combat mode" bind to fall back on; Master Arms/Radar/Engine turned out
+        // have no stock "reset combat mode" bind to fall back on; Master Arm/Radar/Engine turned out
         // not to need this, since the game's own single-toggle bind already covers that case) — a tap
         // and a hold are two DIFFERENT actions, unlike the held-repeat binds above (Jammer, Flares)
         // where the same action just re-fires every frame held. Nothing in this codebase already
@@ -888,18 +888,11 @@ namespace NOXMFD
         // Must be called every frame for every tap/hold bind regardless of ActiveNow — see the call
         // site in Poll(), before the "nothing active" early return — so a release on an otherwise-idle
         // frame still resets PressStartTime.
-        private const float HoldSeconds = 0.35f;
         private static void PollTapHold(BindDef b, Action onTap, Action onHold)
         {
-            if (b.ActiveNow)
-            {
-                if (b.PressStartTime < 0f) { b.PressStartTime = Time.unscaledTime; b.HoldFired = false; onTap(); }
-                else if (!b.HoldFired && Time.unscaledTime - b.PressStartTime >= HoldSeconds) { b.HoldFired = true; onHold(); }
-            }
-            else
-            {
-                b.PressStartTime = -1f;
-            }
+            var ev = KeybindTapHold.Poll(b.ActiveNow, Time.unscaledTime, ref b.PressStartTime, ref b.HoldFired);
+            if (ev == KeybindTapHold.Event.Tap) onTap();
+            else if (ev == KeybindTapHold.Event.Hold) onHold();
         }
 
         // Runs on the main-thread Poll while a joy capture is armed. Writes the first joystick button that
