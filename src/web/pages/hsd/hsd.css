@@ -13,14 +13,10 @@
   font-family: var(--no-font);
 }
 .hsd-hdr {
-  fill: var(--no-purple);
+  fill: var(--no-hsd-pink);
   font-size: 23px;
 }
-.hsd-bearing {
-  fill: rgba(var(--no-purple-rgb), 0.72);
-  font-size: 15px;
-}
 .hsd-read {
-  fill: var(--no-purple);
+  fill: var(--no-hsd-pink);
   font-size: 16px;
 }

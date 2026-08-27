@@ -1,8 +1,9 @@
 // HSD page - 360-degree datalink plan view. See docs/rdr-fcr-hsd.md.
 var CX = 300, CY = 300, OUTER = 220;
 var M_PER_NM = 1852, M_PER_KM = 1000;
-var PURPLE = 'rgb(179, 136, 255)', AMBER = '#ffaa00', GREEN = '#39ff14';
-var state = { ownX: 0, ownZ: 0, hdg: 0, metric: false, items: [] };
+var HSD_PINK = 'var(--no-hsd-pink)', AMBER = 'var(--no-amber)';
+var HSD_PINK_RGB = 'var(--no-hsd-pink-rgb)';
+var state = { ownX: 0, ownZ: 0, hdg: 0, metric: false, radarPresent: false, radarRange: 0, radarCone: 0, items: [] };
 
 var RANGE_NM = [10, 20, 40, 80];
 var RANGE_STORE_KEY = 'noxmfd.hsd.view';
@@ -45,18 +46,45 @@ function line(x1, y1, x2, y2, col, w) {
          '" y2="' + y2.toFixed(1) + '" stroke="' + col + '" stroke-width="' + w + '"/>';
 }
 
+function polarPoint(angleDeg, radiusPx) {
+  var a = angleDeg * Math.PI / 180;
+  return { x: CX + Math.sin(a) * radiusPx, y: CY - Math.cos(a) * radiusPx };
+}
+
+function radarConePath(rangeM, radarRange, radarCone) {
+  if (rangeM <= 0 || radarRange <= 0 || radarCone <= 0) return '';
+  var cone = Math.max(1, Math.min(89, radarCone));
+  var r = OUTER * (Math.min(radarRange, rangeM) / rangeM);
+  if (r <= 0) return '';
+  var left = polarPoint(-cone, r);
+  var right = polarPoint(cone, r);
+  return 'M' + CX + ' ' + CY +
+         ' L' + left.x.toFixed(1) + ' ' + left.y.toFixed(1) +
+         ' A' + r.toFixed(1) + ' ' + r.toFixed(1) + ' 0 0 1 ' +
+         right.x.toFixed(1) + ' ' + right.y.toFixed(1) +
+         ' Z';
+}
+
 function renderGrid() {
   var g = document.getElementById('hsd-grid');
   if (!g) return;
   var out = '';
   [0.25, 0.5, 0.75, 1].forEach(function (f) {
     out += '<circle cx="' + CX + '" cy="' + CY + '" r="' + (OUTER * f).toFixed(1) +
-           '" fill="none" stroke="rgba(179,136,255,' + (f === 1 ? '0.70' : '0.36') + ')" stroke-width="' +
+           '" fill="none" stroke="rgba(' + HSD_PINK_RGB + ',' + (f === 1 ? '0.70' : '0.36') + ')" stroke-width="' +
            (f === 1 ? '2' : '1.5') + '"/>';
   });
-  out += line(CX, CY - OUTER, CX, CY + OUTER, 'rgba(179,136,255,0.20)', 1);
-  out += line(CX - OUTER, CY, CX + OUTER, CY, 'rgba(179,136,255,0.20)', 1);
+  out += line(CX, CY - OUTER, CX, CY + OUTER, 'rgba(' + HSD_PINK_RGB + ',0.20)', 1);
+  out += line(CX - OUTER, CY, CX + OUTER, CY, 'rgba(' + HSD_PINK_RGB + ',0.20)', 1);
   g.innerHTML = out;
+}
+
+function renderRadarCone() {
+  var g = document.getElementById('hsd-radar');
+  if (!g) return;
+  var path = state.radarPresent ? radarConePath(displayRangeM(), state.radarRange, state.radarCone) : '';
+  g.innerHTML = path ? '<path d="' + path + '" fill="rgba(' + HSD_PINK_RGB + ',0.07)" ' +
+                      'stroke="rgba(' + HSD_PINK_RGB + ',0.58)" stroke-width="2"/>' : '';
 }
 
 function renderContacts() {
@@ -68,7 +96,7 @@ function renderContacts() {
     if (!p) return;
     count++;
     if (c.tg) locks++;
-    var col = c.tg ? AMBER : PURPLE;
+    var col = c.tg ? AMBER : HSD_PINK;
     var hdg = typeof c.hdg === 'number' ? c.hdg : 0;
     var rot = ((hdg - state.hdg) % 360 + 360) % 360;
     out += '<g transform="translate(' + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ') rotate(' + rot.toFixed(1) + ')">';
@@ -83,7 +111,7 @@ function renderContacts() {
              '" r="15" fill="none" stroke="' + AMBER + '" stroke-width="2"/>';
   });
   g.innerHTML = out;
-  document.getElementById('hsd-count').textContent = count ? 'DL ' + count : 'DL 0';
+  document.getElementById('hsd-count').textContent = count ? 'LINK ' + count : 'LINK 0';
   document.getElementById('hsd-locks').textContent = locks ? 'LOCK ' + locks : '';
 }
 
@@ -95,6 +123,7 @@ function renderScale() {
 function render() {
   renderScale();
   renderGrid();
+  renderRadarCone();
   renderContacts();
 }
 
@@ -139,6 +168,9 @@ if (typeof window !== 'undefined' && window.addEventListener) {
         ownZ: typeof m.ownZ === 'number' ? m.ownZ : 0,
         hdg: typeof m.hdg === 'number' ? m.hdg : 0,
         metric: !!m.metric,
+        radarPresent: !!m.radarPresent,
+        radarRange: typeof m.radarRange === 'number' ? m.radarRange : 0,
+        radarCone: typeof m.radarCone === 'number' ? m.radarCone : 0,
         items: Array.isArray(m.items) ? m.items : []
       };
       render();
@@ -149,11 +181,13 @@ if (typeof window !== 'undefined' && window.addEventListener) {
     }
   });
   if (shouldSeedStandalonePreview()) {
-    state = { ownX: 0, ownZ: 0, hdg: 20, metric: false, items: demoContacts(0, 0, 20) };
+    rangeIdx = 3;
+    state = { ownX: 0, ownZ: 0, hdg: 20, metric: false, radarPresent: true,
+              radarRange: 40 * M_PER_NM, radarCone: 60, items: demoContacts(0, 0, 20) };
   }
   render();
 }
 
 if (typeof module !== 'undefined' && module.exports)
   module.exports = { hsdXY: hsdXY, rangeLabelForTest: function (metric, meters) { state.metric = metric; return rangeLabel(meters); },
-                     demoContacts: demoContacts, geom: { CX: CX, CY: CY, OUTER: OUTER } };
+                     radarConePath: radarConePath, demoContacts: demoContacts, geom: { CX: CX, CY: CY, OUTER: OUTER } };

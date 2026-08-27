@@ -76,7 +76,7 @@
     obj: ['obj'],             // active-objectives list (docs/md-pages.md)
     akf: ['akf'],             // kill-feed/session-stats block (docs/akf-page.md)
     rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
-    hsd: ['hsd', 'mapinfo'],  // 360-degree datalink picture (docs/rdr-fcr-hsd.md)
+    hsd: ['hsd', 'mapinfo', 'rdr'],  // 360-degree datalink picture + FCR cone (docs/rdr-fcr-hsd.md)
     wpt: ['mapinfo', 'wpt-routes'],   // waypoint readout + the route library itself
     map: ['wpt-routes'],              // the route library (docs/hud-waypoint-indicator.md perf fix) —
                                        // MAP mounts its own map.js/telemetry, so this is its only feed
@@ -330,7 +330,7 @@
     // ── Feeds ──────────────────────────────────────────────────────────────────────────
     function forwardSlice(type) {
       if (DERIVED[type]) return forwardWpn();
-      if (currentPage === 'hsd' && (type === 'hsd' || type === 'mapinfo')) return forwardHsd();
+      if (currentPage === 'hsd' && (type === 'hsd' || type === 'mapinfo' || type === 'rdr')) return forwardHsd();
       // AFM reuses the 'avn' feed but under its own message type (mirrors mfd.js
       // forwardAfmToFrame) — a per-page rename, unlike FEED_AS below which is global per type and
       // would also rename AVN's own 'avn' feed if used for this.
@@ -350,10 +350,11 @@
       w.postMessage({ mfd: true, type: 'afm', name: m.name, parts: m.parts, failures: m.failures, pylons: m.pylons }, '*');
     }
     function forwardHsd() {
-      const w = frameWin(), hsd = slices.hsd || {}, mapinfo = slices.mapinfo || {};
+      const w = frameWin(), hsd = slices.hsd || {}, mapinfo = slices.mapinfo || {}, rdr = slices.rdr || {};
       if (!w) return;
       w.postMessage({ mfd: true, type: 'hsd', metric: !!hsd.metric, hdg: mapinfo.hdg || 0,
                       ownX: mapinfo.x || 0, ownZ: mapinfo.z || 0,
+                      radarPresent: !!rdr.present, radarRange: rdr.range || 0, radarCone: rdr.cone || 0,
                       items: Array.isArray(hsd.items) ? hsd.items : [] }, '*');
     }
     function onSlice(type) {

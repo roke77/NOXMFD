@@ -747,7 +747,9 @@ function forwardHsdToPanes() { forwardToPanes('hsd', hsdMsg()); }
 function forwardHsdToFrame() { forwardToFrame(hsdMsg()); }
 function hsdMsg() {
   return { mfd: true, type: 'hsd', metric: hsdData.metric, hdg: mapInfoData.hdg || 0,
-           ownX: mapInfoData.x || 0, ownZ: mapInfoData.z || 0, items: hsdData.items || [] };
+           ownX: mapInfoData.x || 0, ownZ: mapInfoData.z || 0,
+           radarPresent: !!rdrData.present, radarRange: rdrData.range || 0, radarCone: rdrData.cone || 0,
+           items: hsdData.items || [] };
 }
 function mwMsg() { return { mfd: true, type: 'mw', items: mwData.items || [] }; }
 // MW shares RWR's pane/page (no separate NAV entry), hence the 'rwr' filter on the Panes side.
@@ -1798,7 +1800,9 @@ window.addEventListener('message', function(e) {
                 items: Array.isArray(m.items) ? m.items : [],
                 pb: Array.isArray(m.pb) ? m.pb : [] };
     if (currentPage === 'rdr' && !splitMode) forwardRdrToFrame();
+    if (currentPage === 'hsd' && !splitMode) forwardHsdToFrame();
     if (splitMode) forwardRdrToPanes();
+    if (splitMode) forwardHsdToPanes();
   } else if (m.type === 'hsd') {
     hsdData = { metric: !!m.metric, items: Array.isArray(m.items) ? m.items : [] };
     if (currentPage === 'hsd' && !splitMode) forwardHsdToFrame();
