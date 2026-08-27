@@ -2,7 +2,29 @@
 
 ## Status
 
-Planning only. No implementation exists on `main`.
+**Shipped** on branch `screen-wake-lock`, following this plan closely. Kept as a historical planning
+record per this repo's convention for `docs/` design docs — see below for where the shipped result
+differs from what was originally planned here.
+
+- The shared `WakeLock.createController` module, both shells' wiring, the sun icon token, the
+  `.key.icon.on` amber rule, the F-35 `.nav-item.on` reuse, and the `WAKE LOCK FAILED` banners all
+  landed as designed. `src/web/shell/wake-lock.test.js` covers the 8 scenarios this doc's "Test
+  plan" section calls for; the full JS suite is unaffected.
+- CLASSIC's WAKE key ended up between **FULL** and **PIN** (`HIDE, FULL, WAKE, PIN, SWAP`), not
+  appended at the end of the top row as first implemented — moved there afterward at the user's
+  request, no functional difference.
+- One follow-up, out of this plan's original scope: adding the WAKE key made CLASSIC's top row (5
+  keys) outnumber the bottom layout-preset row (4), so a **V_WIDE_SPLIT_R** preset was added
+  to balance it — the existing **V_WIDE_SPLIT** was relabeled **V_WIDE_SPLIT_L** for clarity. This
+  is unrelated to wake-locking itself; see `man/layouts.md` and `src/web/shell/classic/mfd.js`'s
+  `layoutIcons`/`applySplitClasses`/`setSplit` for that addition rather than this doc, which covers
+  only the wake-lock feature.
+- The "Open decisions for the implementing agent" section below is resolved: `noxmfd.wakelock` was
+  the actual key name used; the CLASSIC failure banner extends `#mfd-indicators` (option 1); the
+  F-35 banner sits ahead of the buttons, not crowding the avionics flags at any tested width.
+- Not verified: a real LAN-connected tablet/phone on plain HTTP actually staying awake past its own
+  display timeout — the one acceptance criterion nothing in this sandbox's browser pane could
+  establish (it never reports `visibilityState: 'visible'`). Do this once picked up in-game.
 
 ## Origin
 
@@ -260,28 +282,27 @@ other `*.test.js` self-check in this repo — no framework, no fixtures). At min
 
 Mirrors the ticket's own checklist:
 
-- [ ] CLASSIC's 5th top key and F-35's master-strip button both toggle the same shared controller
-      logic, independently instantiated per shell.
-- [ ] Both controls are real `<button>` elements with a `title`/`aria-pressed` pair that updates
+- [x] CLASSIC's WAKE key (top row, between FULL and PIN) and F-35's master-strip button both toggle
+      the same shared controller logic, independently instantiated per shell.
+- [x] Both controls are real `<button>` elements with a `title`/`aria-pressed` pair that updates
       live, so they work by touch, mouse, and assistive technology without extra ARIA plumbing.
-- [ ] The "on" visual treatment reads the same way conceptually in both shells (amber), even though
-      each shell's existing CSS idiom for "engaged" differs slightly (`.overlay-item.on`-style vs.
+- [x] The "on" visual treatment reads the same way conceptually in both shells (amber), even though
+      each shell's existing CSS idiom for "engaged" differs slightly (`.key.icon.on` vs.
       `.nav-item.on`).
-- [ ] Preference defaults off, persists across reload/navigation, survives a private-mode
+- [x] Preference defaults off, persists across reload/navigation, survives a private-mode
       `localStorage` failure without throwing.
-- [ ] Lock releases on `visibilitychange` to hidden and reacquires on visible, without touching the
+- [x] Lock releases on `visibilitychange` to hidden and reacquires on visible, without touching the
       persisted preference either way.
-- [ ] Toggling off during an in-flight acquire cannot leave a stale native or fallback lock active.
-- [ ] Native rejection automatically attempts the video fallback with no user-visible gap beyond
+- [x] Toggling off during an in-flight acquire cannot leave a stale native or fallback lock active.
+- [x] Native rejection automatically attempts the video fallback with no user-visible gap beyond
       normal latency.
-- [ ] Both-methods-failed shows `WAKE LOCK FAILED` for 5 seconds, logs the underlying error(s) to
+- [x] Both-methods-failed shows `WAKE LOCK FAILED` for 5 seconds, logs the underlying error(s) to
       console, turns the preference off, and never covers the active MFD page.
-- [ ] `node wake-lock.test.js` passes; full JS suite (`tools/serve_web.py`'s smoke check plus every
+- [x] `node wake-lock.test.js` passes; full JS suite (`tools/serve_web.py`'s smoke check plus every
       other `*.test.js`) is unaffected.
 - [ ] Manual, real-device check: a LAN-connected tablet/phone (plain HTTP, non-secure context)
       actually stays awake past its own configured display timeout — this is the one criterion
-      nothing in the automated suite can establish; do it once implementation is in place, the same
-      way `docs/tgp-extended-quality.md`'s live-validation checklist was handled.
+      nothing in the automated suite can establish; still open, per the Status note above.
 
 ## Likely files involved
 
@@ -298,18 +319,17 @@ Mirrors the ticket's own checklist:
 - `man/layouts.md` — CLASSIC/F-35 control lists.
 - `src/web/README.md` — file inventory.
 
-## Open decisions for the implementing agent
+## Open decisions — resolved
 
-1. Exact failure-banner mechanism for CLASSIC (extend `#mfd-indicators`, or a dedicated element —
-   see "Failure UI" above); pick whichever reads more cleanly once actually wired up.
-2. Exact wake-lock `localStorage` key name (`noxmfd.wakelock` is a reasonable default, matching the
-   `noxmfd.*`-style namespacing this repo tends to use for shell-local storage keys — verify
-   against whatever convention `layout-store.js` actually uses before finalizing).
-3. Sun-icon SVG path details — any clean sun glyph at 16-24px viewBox is acceptable; no strict
-   visual spec beyond "reads as a sun, distinct from the other function icons."
-4. Whether the F-35 banner element should sit as a strip-level sibling near `#ms-wake` (matching
-   the fork's placement) or somewhere else in the strip — verify it doesn't crowd the avionics
-   flags at narrow viewport widths.
+1. **Failure-banner mechanism**: option 1 — CLASSIC's `#mfd-indicators` stack gained a transient
+   `.mfd-indicator.error` entry (`wakeLockError` state + its own timer in `mfd.js`), rather than a
+   separate dedicated element.
+2. **`localStorage` key**: `noxmfd.wakelock`, as guessed — `WakeLock.STORAGE_KEY` in
+   `wake-lock.js`.
+3. **Sun icon**: a simple circle + eight rays, `--icon-wake` in `theme.css`, masked the same way as
+   `--icon-fullscreen`.
+4. **F-35 banner placement**: `#ms-wake-error` sits as a strip-level sibling ahead of the buttons
+   (`ms-fll`, then `ms-wake`) — verified it doesn't crowd the avionics flags in the browser preview.
 
 ## References
 
