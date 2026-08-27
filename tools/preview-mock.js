@@ -329,6 +329,13 @@
                tr: c.tr, pw: c.pw, fr: 1, n: c.n, k: c.k, _p: c.period };
     });
   }
+  // Top-level radar-emission flag (telemetry-source.js: radarOn: d.radar === true) drives FCR's
+  // antenna-sweep caret (rdr.js render(), rdr.css #rdr-sweep.on) — distinct from FRAME.rdr.present
+  // above (has-a-radar vs. actively-emitting-right-now). A boolean has no "empty" state to defer
+  // to the way an array does, so unlike SYNTH_RDR/SYNTH_RWR below there's nothing to gate this on:
+  // force it on so the sweep always animates in this harness, regardless of whether the loaded
+  // capture happened to record a moment with the radar off.
+  FRAME.radar = true;
   // Synthetic RDR block for the radar page (docs/rdr-page.md): air contacts the own radar
   // "detects", authored as nose-relative bearing (az), range fraction (rf), travel heading
   // relative to nose (rh, for the velocity stub) and lock flag (tg), converted to the plugin's
