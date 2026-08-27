@@ -114,7 +114,8 @@ Smallest safe step first, each one a self-contained PR:
    `Time.unscaledTime` for plain parameters at the boundary.
 4. **Extract `Keybinds.cs`'s tap/hold arbitration** into a pure function. — done in
    `KeybindTapHold.cs`, covered by `KeybindTapHoldTests.cs`.
-5. **Extract `HudWaypointCue.cs`'s geometry kernel**.
+5. **Extract `HudWaypointCue.cs`'s geometry kernel**. — done in `HudWaypointCueMath.cs`,
+   covered by `HudWaypointCueMathTests.cs`.
 6. **`WeaponSelectors.cs`** — lowest priority of the five; needs a loadout DTO layer first, more
    design work than the others before it's separable.
 
@@ -130,7 +131,8 @@ the point of doing it.
 - [ ] Extract and test `AkfTracker.cs`'s attribution/bookkeeping logic
 - [x] Extract and test `Keybinds.cs`'s tap/hold arbitration — `KeybindTapHold.cs`,
       `KeybindTapHoldTests.cs`
-- [ ] Extract and test `HudWaypointCue.cs`'s geometry kernel
+- [x] Extract and test `HudWaypointCue.cs`'s geometry kernel — `HudWaypointCueMath.cs`,
+      `HudWaypointCueMathTests.cs`
 - [ ] Design a loadout DTO, then extract and test `WeaponSelectors.cs`'s cycle-selection algorithm
 - [ ] Confirm `dotnet test` runs clean in CI (if/when this repo gets CI — see
       `docs/ci-smoke-check.md`) alongside the existing `dotnet build` + `node *.test.js` checks

@@ -39,6 +39,7 @@
     <Compile Include="..\..\src\plugin\TgpManualAimMath.cs" Link="Source\TgpManualAimMath.cs" />
     <Compile Include="..\..\src\plugin\TgpFeedSettings.cs" Link="Source\TgpFeedSettings.cs" />
     <Compile Include="..\..\src\plugin\Hud\HudDirectionCueMath.cs" Link="Source\HudDirectionCueMath.cs" />
+    <Compile Include="..\..\src\plugin\Hud\HudWaypointCueMath.cs" Link="Source\HudWaypointCueMath.cs" />
   </ItemGroup>
 
 </Project>

@@ -19,12 +19,6 @@ namespace NOXMFD
     // rather than introducing a second typeface.
     internal class HudWaypointCue : MonoBehaviour
     {
-        // The heading tape shows 0.25 of a texture that wraps 360° (FlightHud.Update:
-        // compass.uvRect = new Rect((hdg + 135f) / 360f, 0f, 0.25f, 1f)), so the visible arc is 90°
-        // and a bug is only meaningful within ±45° of the nose.
-        private const float TapeArcDegrees = 90f;
-        private const float HalfArc        = TapeArcDegrees * 0.5f;
-
         // Amber, not HUD green. The tick labels immediately behind the bug are green, and a green
         // bug competes with them at exactly the moment it matters — at the cost of ignoring the
         // player's hudColorR/G/B setting, unlike every native element.
@@ -63,11 +57,9 @@ namespace NOXMFD
             // stores waypoints in (position - Datum.originPosition). Raw Unity positions drift as
             // the world re-centers, so mixing the two frames would put the bug progressively
             // further off the longer a mission runs.
-            float dx = wx - world.x;
-            float dz = wz - world.z;
-            float bearing  = Mathf.Repeat(Mathf.Atan2(dx, dz) * Mathf.Rad2Deg, 360f);
-            float relative = Mathf.DeltaAngle(hdg, bearing);           // -180..180, + = turn right
-            float distanceKm = Mathf.Sqrt(dx * dx + dz * dz) / 1000f;
+            float bearing = HudWaypointCueMath.BearingDeg(world.x, world.z, wx, wz);
+            float relative = HudWaypointCueMath.RelativeDeg(hdg, bearing); // -180..180, + = turn right
+            float distanceKm = HudWaypointCueMath.DistanceKm(world.x, world.z, wx, wz);
 
             SetVisible(true);
             PlaceBug(relative);
@@ -86,15 +78,12 @@ namespace NOXMFD
         // silently clamped bug would be actively misleading.
         private void PlaceBug(float relative)
         {
-            float halfWidth      = _compass!.rectTransform.rect.width * 0.5f;
-            float pixelsPerDegree = _compass.rectTransform.rect.width / TapeArcDegrees;
+            var placement = HudWaypointCueMath.PlaceBug(
+                relative, _compass!.rectTransform.rect.width, _compass.rectTransform.rect.height);
 
-            bool onTape = Mathf.Abs(relative) <= HalfArc;
-            float x = onTape ? relative * pixelsPerDegree : (relative > 0f ? halfWidth : -halfWidth);
-
-            _bug!.anchoredPosition = new Vector2(x, _compass.rectTransform.rect.height * 0.5f + 2f);
+            _bug!.anchoredPosition = new Vector2(placement.X, placement.Y);
             // The chevron is built pointing down; -90 aims it right, +90 aims it left.
-            _bug.localEulerAngles = new Vector3(0f, 0f, onTape ? 0f : (relative > 0f ? -90f : 90f));
+            _bug.localEulerAngles = new Vector3(0f, 0f, placement.RotationZ);
         }
 
         private void SetVisible(bool on)
