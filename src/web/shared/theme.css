@@ -34,7 +34,7 @@
   --no-teal:       rgb(var(--no-teal-rgb));
   --no-purple-rgb: 179, 136, 255;  /* mod-only controls that aren't real game filters (e.g. TGT's DATALINK) */
   --no-purple:     rgb(var(--no-purple-rgb));
-  --no-hsd-pink-rgb: 161, 70, 162;  /* #A146A2 — F-16 HSD-style dark pink/magenta symbology */
+  --no-hsd-pink-rgb: 121, 21, 81;   /* #791551 — F-16 HSD-style dark pink/magenta symbology */
   --no-hsd-pink:     rgb(var(--no-hsd-pink-rgb));
   --no-blue-rgb:   77, 159, 255;
   --no-blue:       rgb(var(--no-blue-rgb));  /* mod-only decorative accent (WPN's MODE label, docs/radar-master-arms.md) */
