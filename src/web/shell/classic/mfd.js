@@ -2116,6 +2116,9 @@ function mfdButton(el) {
       // the SAME 'zoom-in'/'zoom-out' action names MAP's zoom sends, which is also what SOI's Zoom
       // In/Out keybind sends when RDR is the focused surface (docs/page-cursor.md).
       paneMapSend(paneIdx, act === 'rng-in' ? 'zoom-in' : 'zoom-out');
+    } else if (act === 'hsd-mode') {
+      // HSD's CEN<->DEP toggle, same per-pane targeting as the range rocker above.
+      paneMapSend(paneIdx, 'hsd-mode');
     } else if (act === 'weapon.select') {
       // A weapon row: selection is aircraft-global, not a destination page — same case as the
       // full-view/shared switch below. It carries a data-pane tag only so the SOI cursor (soiKeys())
@@ -2218,6 +2221,10 @@ function mfdButton(el) {
     // docs/page-cursor.md) drives RDR range for free once RDR is SOI focus.
     case 'rng-in':  { const w = frameWin(); if (w) w.postMessage({ mfd: true, action: 'zoom-in'  }, '*'); } break;
     case 'rng-out': { const w = frameWin(); if (w) w.postMessage({ mfd: true, action: 'zoom-out' }, '*'); } break;
+    // HSD's own CEN<->DEP toggle (docs/rdr-fcr-hsd.md) — same frameWin() targeting as the range
+    // rocker above, since it's the same #page-frame page. FCR has no MODE key, so this action
+    // name only ever fires from HSD's nav row.
+    case 'hsd-mode': { const w = frameWin(); if (w) w.postMessage({ mfd: true, action: 'hsd-mode' }, '*'); } break;
     case 'hide-shell':
       // Collapse the whole shell (frame + strips + side keys) so the screen fills the
       // viewport — for fitting behind a physical MFD frame. Restore button brings it back.

@@ -40,9 +40,11 @@
     // back to this same slot for any of them rather than needing a per-extension entry here.
     ext: [ { side: 'left', slot: 0 } ],
     rwr: [ { side: 'left', slot: 0 } ],
-    // RDR/HSD are one sibling group: MAIN, FCR, HSD, then the page-local range rocker.
+    // RDR/HSD are one sibling group: MAIN, FCR, HSD, then the page-local range rocker. HSD gets a
+    // 6th slot (right,0) for its own MODE toggle (CEN<->DEP, docs/rdr-fcr-hsd.md) — FCR has no
+    // such control, so it stays at 5.
     rdr: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
-    hsd: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
+    hsd: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
     tgt: [ { side: 'left', slot: 0 } ],
     // AKF/BDF/PAL/MIS/OBJ get 6: MAIN, then the other four as a direct switch (NAV.akf/NAV.bdf/
     // NAV.pal/NAV.mis/NAV.obj), index-aligned with this list. Left holds MAIN+AKF+MIS; OBJ/BDF/PAL

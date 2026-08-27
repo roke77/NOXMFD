@@ -66,6 +66,8 @@
       { label: 'MAIN', action: 'main' },
       { label: 'FCR',  action: 'rdr' },
       { label: 'HSD',  action: 'hsd', mark: true },
+      { label: 'MODE', action: 'hsd-mode' },   // toggles CEN<->DEP (docs/rdr-fcr-hsd.md); current
+                                                // mode shows on HSD's own range readout, not here
       { label: 'R+',   action: 'rng-in' },
       { label: 'R-',   action: 'rng-out' },
     ],

@@ -48,13 +48,17 @@ NAV.hsd = [
   { label: 'MAIN', action: 'main' },
   { label: 'FCR',  action: 'rdr' },
   { label: 'HSD',  action: 'hsd', mark: true },
-  { label: 'R+',   action: 'hsd-range-in' },
-  { label: 'R-',   action: 'hsd-range-out' },
+  { label: 'MODE', action: 'hsd-mode' },   // CEN<->DEP toggle — see "CEN/DEP display modes" below
+  { label: 'R+',   action: 'rng-in' },
+  { label: 'R-',   action: 'rng-out' },
 ]
 ```
 
 Keep action `rdr` for FCR so existing routes, shell dispatch, focused-cursor behavior, and saved
-layouts continue to land on the inherited page. Add action `hsd` for the new page.
+layouts continue to land on the inherited page. Add action `hsd` for the new page. HSD's R+/R- use
+the SAME `rng-in`/`rng-out` action names FCR's own do (not a separate `hsd-range-in`/`-out` pair) —
+the shell dispatches both identically regardless of which page is showing (mfd.js/f35.js), so one
+name pair covers both.
 
 The R+/R- row remains a page-local range rocker. FCR keeps the current radar-range stepping. HSD
 gets its own range stepping because its scale is a real circular map range, not a fraction of a
@@ -65,7 +69,8 @@ radar cone.
 - Classic full view: add `hsd` to `LayoutPages.CLASSIC_FULL`.
 - Classic split view: add `hsd` to `LayoutPages.CLASSIC_SPLIT`.
 - F-35 glass: add `hsd` to `LayoutPages.F35`.
-- Classic split slots: add slots for the five `NAV.rdr`/`NAV.hsd` entries. Keep FCR/HSD adjacent.
+- Classic split slots: add slots for `NAV.rdr`'s five entries and `NAV.hsd`'s six (the extra one is
+  its own MODE key). Keep FCR/HSD adjacent.
 - F-35 edge grid: keep the FCR/HSD mark lights from the `NAV` table; add a RANGE decorator between
   the HSD R+/R- entries if the labels stay adjacent there.
 - PAD cursor focus: `hsd` is in `PAD_CURSOR_PAGES` — contact selection (Select toggles a lock) is
@@ -129,7 +134,8 @@ geometry, not through a unique contact source.
 Start as a basic DCS F-16 HSD-inspired plan view, not a full replica:
 
 - black background using the existing MFD theme;
-- ownship aircraft icon at the center, nose-up;
+- ownship aircraft icon nose-up, centered in CEN mode — see "CEN/DEP display modes" below for DEP,
+  which moves it;
 - concentric dark-pink/magenta range circles centered on ownship, using shared theme token
   `--no-hsd-pink`;
 - white text labels/readouts, reserving pink for HSD symbology instead of page text;
@@ -150,14 +156,37 @@ geometry and correct bearing are more important than decorative fidelity.
 ### Range scale
 
 Use absolute display ranges rather than a fraction of radar max range. HSD is not bound to the
-player radar's cone or maximum range. Initial candidates:
+player radar's cone or maximum range. Shipped: the real DCS F-16 HSD ladders, independent per mode
+(see "CEN/DEP display modes" below) — CEN 10/20/40/80/160 NM, DEP 15/30/60/120/240 NM. Metric labels
+share the same underlying metre ranges and render via the player's unit system, same as FCR.
 
-- Imperial: 10, 20, 40, 80 nautical miles;
-- Metric: nearest clean kilometre equivalents, or share the same underlying metre ranges and render
-  labels in the player's unit system.
+R+/R- step whichever mode's range is currently active and persist both in `sessionStorage` under
+`noxmfd.hsd.view`, separate from FCR's own `noxmfd.rdr.view`.
 
-R+/R- should step this HSD-specific range and persist it in `sessionStorage` under a separate key
-from FCR's current `noxmfd.rdr.view`.
+## CEN/DEP display modes
+
+DCS's F-16 HSD has two formats, toggled by its own physical control — shipped here as HSD's MODE
+nav key (`hsd-mode` action, `hsd.js`'s `toggleMode()`):
+
+- **CEN (Centered)** — ownship at the display's center, as described above. Grid rings at quarter
+  fractions of the selected range (25/50/75/100%).
+- **DEP (Depressed)** — ownship moved down near the bottom of the display, trading rearward picture
+  for a much larger forward one on the same screen: the outer ring is still the full selected
+  range, with inner rings at 1/3 and 2/3 of it (not quarters). This is also why DEP's range ladder
+  reaches higher (240 NM max) than CEN's (160 NM max) — the extra forward screen space is what
+  makes a bigger number still readable.
+
+Each mode remembers its own last-selected range independently — switching modes doesn't reset or
+share the other's setting. No FCR-range coupling (real DCS ties DEP's range to 1.5x whatever the
+FCR is set to); HSD's DEP range steps on its own for now, per this doc's own "Open questions"
+philosophy of not building a coupling nobody asked for yet.
+
+Real DCS's exact ownship-offset and ring-radius pixels aren't published anywhere this doc could
+verify against, so `hsd.js`'s `CEN_CY`/`CEN_OUTER`/`DEP_CY`/`DEP_OUTER` are a reasoned approximation
+(marked `ponytail:` in the source) rather than a pixel-accurate replica: DEP pushes ownship to
+roughly 83% of the way down the panel and sizes the outer ring to reach the same header clearance
+CEN's does, leaving only a small sliver of range visible behind. Retune against real DCS reference
+screenshots if pixel-accurate matching ever matters.
 
 ### Contact filtering
 
@@ -257,7 +286,10 @@ These need a live mission:
 - Should FCR drop datalink-only purple contacts after HSD has been live-tested, or keep them as a
   forward-scope cue?
 - Should HSD show friendlies, enemies only, or eventually both with different symbols?
-- What range presets feel right for Nuclear Option's map scale and aircraft speeds?
+- What range presets feel right for Nuclear Option's map scale and aircraft speeds? (DEP/CEN ship
+  with DCS's own ladders as a starting point — see "CEN/DEP display modes".)
+- Should DEP's range eventually couple to FCR's (real DCS: DEP range = 1.5x FCR range), or stay
+  independent as shipped?
 - Should the MAIN entry continue to say RDR, or should the visible destination eventually become
   FCR with HSD reachable only from inside it?
 

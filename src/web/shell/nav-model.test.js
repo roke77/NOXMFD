@@ -47,6 +47,7 @@ assert.deepStrictEqual(NAV.hsd, [
   { label: 'MAIN', action: 'main' },
   { label: 'FCR',  action: 'rdr' },
   { label: 'HSD',  action: 'hsd', mark: true },
+  { label: 'MODE', action: 'hsd-mode' },
   { label: 'R+',   action: 'rng-in' },
   { label: 'R-',   action: 'rng-out' },
 ]);

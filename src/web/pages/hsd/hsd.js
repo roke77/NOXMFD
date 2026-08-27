@@ -1,28 +1,74 @@
 // HSD page - 360-degree datalink plan view. See docs/rdr-fcr-hsd.md.
-var CX = 300, CY = 300, OUTER = 220;
+// CEN/DEP display modes (DCS F-16 HSD): CEN centers ownship with quarter-range grid rings; DEP
+// (Depressed) pushes ownship down near the bottom edge so the same screen shows much more range
+// ahead of the nose, at the cost of most of the rearward picture — the outer ring is still the
+// full selected range, at 1/3 and 2/3 for the inner two. Real DCS geometry isn't published to the
+// pixel; ponytail: CEN_CY/OUTER and DEP_CY/OUTER below are a reasoned approximation (same 80px
+// header/footer clearance in both modes, DEP's ownship placed low enough that only a small sliver
+// of range shows behind) rather than a verified match — retune against real DCS reference
+// screenshots if pixel-accurate matching is ever needed.
+var CX = 300;
+var CEN_CY = 300, CEN_OUTER = 220;
+var DEP_CY = 500, DEP_OUTER = 420;
+var CY = CEN_CY, OUTER = CEN_OUTER;
 var M_PER_NM = 1852, M_PER_KM = 1000;
 var HSD_PINK = 'var(--no-purple)', RADAR_GREEN = 'var(--no-green)', AMBER = 'var(--no-amber)';
 var HSD_PINK_RGB = 'var(--no-hsd-pink-rgb)', TEAL_RGB = 'var(--no-teal-rgb)';
 var CURSOR_WHITE = 'rgba(255,255,255,0.85)';
 var state = { ownX: 0, ownZ: 0, hdg: 0, metric: false, radarPresent: false, radarRange: 0, radarCone: 0, items: [] };
 
-var RANGE_NM = [10, 20, 40, 80];
+// DCS's own DEP/CEN range ladders (NM) — independent per mode, each remembers its own last
+// setting across a mode switch (docs request: "keep them independent per mode").
+var CEN_RANGE_NM = [10, 20, 40, 80, 160];
+var DEP_RANGE_NM = [15, 30, 60, 120, 240];
 var RANGE_STORE_KEY = 'noxmfd.hsd.view';
-var rangeIdx = 2;
+var mode = 'cen';           // 'cen' | 'dep'
+var RANGE_NM = CEN_RANGE_NM;   // whichever mode's ladder is active — kept as its own var so
+                                // displayRangeM()/setRangeIdx() below don't need to know about modes
+var cenRangeIdx = 2, depRangeIdx = 2;
+var rangeIdx = cenRangeIdx;
+
+// Applies `mode`'s geometry/ladder/index to the module vars every other function reads —
+// called on load and on every toggleMode(), so nothing else needs an explicit mode check.
+function applyMode() {
+  RANGE_NM = mode === 'dep' ? DEP_RANGE_NM : CEN_RANGE_NM;
+  rangeIdx = mode === 'dep' ? depRangeIdx : cenRangeIdx;
+  CY = mode === 'dep' ? DEP_CY : CEN_CY;
+  OUTER = mode === 'dep' ? DEP_OUTER : CEN_OUTER;
+}
+function gridFractions() { return mode === 'dep' ? [1 / 3, 2 / 3, 1] : [0.25, 0.5, 0.75, 1]; }
 
 function loadRange() {
   var saved = null;
   try { saved = JSON.parse(sessionStorage.getItem(RANGE_STORE_KEY) || 'null'); } catch (_) {}
-  if (saved && typeof saved.rangeIdx === 'number')
-    rangeIdx = Math.max(0, Math.min(RANGE_NM.length - 1, saved.rangeIdx));
+  if (saved) {
+    if (saved.mode === 'dep') mode = 'dep';
+    if (typeof saved.cenRangeIdx === 'number')
+      cenRangeIdx = Math.max(0, Math.min(CEN_RANGE_NM.length - 1, saved.cenRangeIdx));
+    if (typeof saved.depRangeIdx === 'number')
+      depRangeIdx = Math.max(0, Math.min(DEP_RANGE_NM.length - 1, saved.depRangeIdx));
+  }
+  applyMode();
 }
 function saveRange() {
-  try { sessionStorage.setItem(RANGE_STORE_KEY, JSON.stringify({ rangeIdx: rangeIdx })); } catch (_) {}
+  try {
+    sessionStorage.setItem(RANGE_STORE_KEY, JSON.stringify(
+      { mode: mode, cenRangeIdx: cenRangeIdx, depRangeIdx: depRangeIdx }));
+  } catch (_) {}
 }
 function setRangeIdx(i) {
   var clamped = Math.max(0, Math.min(RANGE_NM.length - 1, i));
   if (clamped === rangeIdx) return;
   rangeIdx = clamped;
+  if (mode === 'dep') depRangeIdx = clamped; else cenRangeIdx = clamped;
+  saveRange();
+  render();
+}
+// The MODE bezel/nav key (docs/rdr-fcr-hsd.md) — a plain toggle, unlike R+/R- which step within
+// one mode's ladder. No cursor-panning meaning, so it isn't PAD-cursor-driven.
+function toggleMode() {
+  mode = mode === 'dep' ? 'cen' : 'dep';
+  applyMode();
   saveRange();
   render();
 }
@@ -82,7 +128,7 @@ function renderGrid() {
   var g = document.getElementById('hsd-grid');
   if (!g) return;
   var out = '';
-  [0.25, 0.5, 0.75, 1].forEach(function (f) {
+  gridFractions().forEach(function (f) {
     out += '<circle cx="' + CX + '" cy="' + CY + '" r="' + (OUTER * f).toFixed(1) +
            '" fill="none" stroke="rgba(' + HSD_PINK_RGB + ',' + (f === 1 ? '0.70' : '0.36') + ')" stroke-width="' +
            (f === 1 ? '2' : '1.5') + '"/>';
@@ -224,12 +270,25 @@ function renderReadout(firstLocked, count, locks) {
 
 function renderScale() {
   var r = document.getElementById('hsd-range');
-  if (r) r.textContent = rangeLabel(displayRangeM());
+  if (r) r.textContent = (mode === 'dep' ? 'DEP ' : 'CEN ') + rangeLabel(displayRangeM());
+}
+
+// Same aircraft symbol every mode uses, just redrawn at the current CY — DEP's whole point is
+// moving ownship, so this can't stay the static markup CEN's fixed centre let it be before.
+function renderOwnship() {
+  var g = document.getElementById('hsd-ownship');
+  if (!g) return;
+  g.innerHTML =
+    '<path d="M' + CX + ' ' + (CY - 32) + ' L' + (CX - 14) + ' ' + (CY + 26) + ' L' + CX + ' ' +
+    (CY + 16) + ' L' + (CX + 14) + ' ' + (CY + 26) + ' Z" fill="rgba(255,255,255,0.78)"/>' +
+    '<line x1="' + CX + '" y1="' + (CY - 52) + '" x2="' + CX + '" y2="' + (CY - 28) +
+    '" stroke="rgba(255,255,255,0.45)" stroke-width="2"/>';
 }
 
 function render() {
   renderScale();
   renderGrid();
+  renderOwnship();
   renderRadarCone();
   renderContacts();
 }
@@ -321,10 +380,12 @@ if (typeof window !== 'undefined' && window.addEventListener) {
       setRangeIdx(rangeIdx + 1);
     } else if (m.action === 'zoom-out') {
       setRangeIdx(rangeIdx - 1);
+    } else if (m.action === 'hsd-mode') {
+      toggleMode();
     }
   });
   if (shouldSeedStandalonePreview()) {
-    rangeIdx = 3;
+    rangeIdx = cenRangeIdx = 3;
     state = { ownX: 0, ownZ: 0, hdg: 20, metric: false, radarPresent: true,
               radarRange: 40 * M_PER_NM, radarCone: 60, items: demoContacts(0, 0, 20) };
   }

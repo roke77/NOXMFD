@@ -142,7 +142,11 @@
   const MAP_ACTIONS = { flw: 'toggle-follow', zin: 'zoom-in', zout: 'zoom-out', grid: 'toggle-grid',
                          'rng-in': 'zoom-in', 'rng-out': 'zoom-out',
                          'rt-next': 'route-next', 'rt-prev': 'route-prev',
-                         'wpt-next': 'waypoint-next', 'wpt-prev': 'waypoint-prev' };
+                         'wpt-next': 'waypoint-next', 'wpt-prev': 'waypoint-prev',
+                         // HSD's CEN<->DEP toggle (docs/rdr-fcr-hsd.md) — self-mapped since it's
+                         // not a MAP relay action, just reusing this generic "post straight to
+                         // frameWin()" mechanism the same way rng-in/rng-out already do.
+                         'hsd-mode': 'hsd-mode' };
 
   // ARM/SAFE (docs/radar-master-arms.md) — WPN's own unconditional controls, same shape as
   // MAP_ACTIONS: an action name maps to what it sends, dispatched by command rather than page nav.
