@@ -41,10 +41,13 @@
     ext: [ { side: 'left', slot: 0 } ],
     rwr: [ { side: 'left', slot: 0 } ],
     // RDR/HSD are one sibling group: MAIN, FCR, HSD, then the page-local range rocker. HSD gets a
-    // 6th slot (right,0) for its own MODE toggle after R+/R- (CEN<->DEP, docs/rdr-fcr-hsd.md) —
-    // FCR has no such control, so it stays at 5. Slots are matched to NAV.hsd purely by index, so
+    // 6th slot (right,2) for its own MODE toggle after R+/R- (CEN<->DEP, docs/rdr-fcr-hsd.md) —
+    // FCR has no such control, so it stays at 5. R+/R- sit at right,0/right,1 (not right,1/right,2)
+    // so the right column has no empty leading slot — a 'v' split's right column renders
+    // top-to-bottom starting at slot 0, and leaving slot 0 empty left a visible gap between HSD
+    // (left,2) and R+/R- in that orientation. Slots are matched to NAV.hsd purely by index, so
     // this list doesn't need to change if NAV.hsd's own item order does — only its length matters.
-    rdr: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
+    rdr: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
     hsd: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
     tgt: [ { side: 'left', slot: 0 } ],
     // AKF/BDF/PAL/MIS/OBJ get 6: MAIN, then the other four as a direct switch (NAV.akf/NAV.bdf/

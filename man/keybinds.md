@@ -110,14 +110,16 @@ is selected until you press a SOI key.
 ## PAD cursor
 
 When a display's focused page is interactible — [MAP](map.md), [HUD](hud.md), [TGT](tgt.md),
-[FCR](rdr.md#fcr), or [HSD](rdr.md#hsd) — a crosshair can move over it and act on whatever's
-underneath, the same thing a mouse click or touch tap already does, but from the HOTAS, without
-touching the screen.
+[FCR](rdr.md#fcr), [HSD](rdr.md#hsd), [WPT](wpt.md), or [AKF](akf.md) — a crosshair can move over
+it and act on whatever's underneath, the same thing a mouse click or touch tap already does, but
+from the HOTAS, without touching the screen.
 
 - **Cursor Up/Down/Left/Right** (or a bound analog axis) slews it.
 - **Cursor Select** picks whatever it's over: a contact on MAP, a toggle on HUD, a filter or
   target row on TGT (holding it also mirrors that page's own long-press action, where it has one),
-  or a contact on FCR or HSD (locking/unlocking it — the same target set TGT itself reads). On TGT
+  a contact on FCR or HSD (locking/unlocking it — the same target set TGT itself reads), a
+  waypoint row or button on WPT, or the density toggle on AKF (holding it over AKF's pane divider
+  drags the split instead, and a tap there while collapsed restores it). On TGT
   specifically, Select instead deselects
   whichever row Next/Previous Target highlighted, if one is — see [Target list](#target-list)
   above.
