@@ -260,10 +260,6 @@ function drawIcon(type, hex, cx, cy, hdg, orient, basePx, scale) {
 function drawTargetBox(cx, cy, half) {
   oc.save();
   oc.translate(cx, cy);
-  oc.strokeStyle = TARGET_COLOR;
-  oc.shadowColor = TARGET_COLOR;
-  oc.shadowBlur  = 8;
-  oc.lineWidth   = 1.5;
   oc.lineCap     = 'round';
   const s = half;
   const k = Math.max(3, s * 0.5);   // corner arm length
@@ -272,6 +268,14 @@ function drawTargetBox(cx, cy, half) {
   oc.moveTo( s - k, -s); oc.lineTo( s, -s); oc.lineTo( s, -s + k);   // top-right
   oc.moveTo( s,  s - k); oc.lineTo( s,  s); oc.lineTo( s - k,  s);   // bottom-right
   oc.moveTo(-s + k,  s); oc.lineTo(-s,  s); oc.lineTo(-s,  s - k);   // bottom-left
+  // Cheap glow: a wide translucent underlay plus the bright core. This keeps the lock brackets
+  // legible without paying canvas' live shadowBlur cost on every target redraw.
+  oc.strokeStyle = TARGET_COLOR;
+  oc.globalAlpha = 0.35;
+  oc.lineWidth   = 5;
+  oc.stroke();
+  oc.globalAlpha = 1;
+  oc.lineWidth   = 1.5;
   oc.stroke();
   oc.restore();
 }
@@ -491,14 +495,18 @@ function drawWaypoints() {
     const state = WptRoute.waypointMarkerState(i, waypointRoute.nextIndex);   // pure + tested, wpt-route.js
     const next = state === 'next';
     const color = next ? WPT_NEXT_COLOR : state === 'reached' ? WPT_REACHED_COLOR : WPT_LINE_COLOR;
-    oc.fillStyle = color;
+    const r = next ? 6 : 4;
     oc.strokeStyle = color;
-    oc.shadowColor = color;
-    oc.shadowBlur = next ? 10 : 4;
     oc.beginPath();
-    oc.arc(p.cx, p.cy, next ? 6 : 4, 0, Math.PI * 2);
+    oc.arc(p.cx, p.cy, r, 0, Math.PI * 2);
+    oc.globalAlpha = next ? 0.45 : 0.3;
+    oc.lineWidth = next ? 5 : 3;
+    oc.stroke();
+    oc.globalAlpha = 1;
+    oc.fillStyle = color;
+    oc.beginPath();
+    oc.arc(p.cx, p.cy, r, 0, Math.PI * 2);
     oc.fill();
-    oc.shadowBlur = 0;
     oc.font = '13px "Courier New", monospace';
     oc.textBaseline = 'bottom';
     oc.fillText(p.name ? (i + 1) + ' ' + p.name : String(i + 1), p.cx + 8, p.cy - 4);

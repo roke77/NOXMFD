@@ -2,9 +2,9 @@
 
 ## Status
 
-**Mixed — historical investigation with shipped fixes, plus open follow-ups tracked below.**
-Items #A/#1/#2/#6 shipped (see "Status (as of the #A/#1/#2 work)" and the later TGP sections);
-items #4/#5 remain deliberately deferred; items #7/#8 (added 2026-08-20) are open. Triggered
+**Mixed — historical investigation with shipped fixes, plus deferred optional follow-ups tracked below.**
+Items #A/#1/#2/#6/#7/#8 shipped (see "Status (as of the #A/#1/#2 work)" and the later TGP sections);
+items #4/#5 remain deliberately deferred. Triggered
 originally by observed symptoms in a high-activity match: noticeable lag in the RWR and MAP
 displays, plus a noticeable in-game FPS hit. Both scale with unit count, which is why a busy
 furball hits them at the same time.
@@ -121,15 +121,11 @@ every SSE message (~10 Hz).
   single biggest client-side lag source, and the cheapest to fix:
   pre-bake the glow into the cached tinted-icon canvas
   (`tintedIcon`, `:368`) once, instead of blurring live every frame.
-- **Two spots added after the #1 fix still use live `shadowBlur`,
-  missed by it (found 2026-08-20):** `drawTargetBox`
-  (`src/web/pages/map/map.js:265`, the locked-target corner brackets)
-  and the route waypoint markers (`:497`) both set `shadowBlur` fresh
-  on every draw, the exact pattern #1 eliminated for icons and RWR
-  lines. Lower severity than the original finding — locked targets and
-  route waypoints are usually a handful, not 40+ — but the fix is the
-  same two-stroke technique `drawRwrLines` already uses two functions
-  above `drawTargetBox` in the same file (see item #8 below).
+- **Resolved:** two spots added after the #1 fix still used live `shadowBlur`,
+  missed by it (found 2026-08-20): `drawTargetBox` (locked-target corner
+  brackets) and the route waypoint markers. Both now use the same two-stroke
+  technique as `drawRwrLines` — a wide translucent underlay plus a bright core —
+  so MAP's hot redraw path no longer sets live `shadowBlur`.
 - **Redraw driven directly by data arrival**, not `requestAnimationFrame`,
   so bursts aren't coalesced and redraw doesn't align to refresh.
 - **No off-screen cull** — every contact is transformed and drawn even
@@ -149,15 +145,13 @@ missing.
 
 ### Game main thread → per-frame UI churn (new, found 2026-08-20)
 
-`HudWaypointCue.LateUpdate` (`src/plugin/Hud/HudWaypointCue.cs:75`) rebuilds a
-`string.Format` and sets Unity `Text.text` **every rendered frame** (60 Hz+,
-not gated to any interval) whenever a waypoint route is active — even when
-the displayed distance/bearing round to the same value as last frame.
-`Text.text`'s setter dirties Unity UI layout on every set regardless of
-whether the content actually changed. Same class of cost the "10 Hz
-allocation churn" finding above already flagged, just at render-rate instead
-of tick-rate, and narrower in scope (nothing else in this mod writes to a
-Unity UI Text component outside a gated interval). See item #7 below.
+`HudWaypointCue.LateUpdate` (`src/plugin/Hud/HudWaypointCue.cs`) used to rebuild a
+readout and set Unity `Text.text` **every rendered frame** (60 Hz+, not gated to
+any interval) whenever a waypoint route was active — even when the displayed
+distance/bearing rounded to the same value as last frame. `Text.text`'s setter
+dirties Unity UI layout on every set regardless of whether the content actually
+changed. **Resolved:** the cue now compares the formatted readout against the
+last value written and skips the setter when it is unchanged.
 
 ### Server → wasted CPU (indirect FPS pressure) — HISTORICAL, fixed by item #2
 
@@ -209,8 +203,8 @@ split noted in Finding 2 below.
 | 5 | rAF-coalesce client redraw + off-screen contact cull | client | S | Smoother when zoomed in | optional |
 | ~~3~~ | ~~Reuse buffers / eliminate 10 Hz `.ToArray()` churn~~ | — | — | **Dropped** — BuildUnits measured at 0.08 ms; not a bottleneck | dropped |
 | 6 | Warn about the measured TGP cost above 15 Hz and expensive resolution/quality combinations | client+plugin | S–M | Keeps experimental rates reachable without hiding their measured cost | **DONE** — warnings ship on TGP CFG; the slider remains user-selectable up to 60 Hz |
-| 7 | Throttle `HudWaypointCue`'s readout rebuild (skip the `Text.text` write when rounded values haven't changed, or gate to ~5–10 Hz) | main thread | XS | Removes 60 Hz string alloc + Unity UI layout-dirty churn | open |
-| 8 | Extend #1's fix to `drawTargetBox` and the waypoint markers (two-stroke glow like `drawRwrLines`, or bake into a cached canvas) | client | XS | Removes the two live-`shadowBlur` spots #1 missed | open |
+| 7 | Throttle `HudWaypointCue`'s readout rebuild (skip the `Text.text` write when rounded values haven't changed, or gate to ~5–10 Hz) | main thread | XS | Removes 60 Hz Unity UI layout-dirty churn | **DONE** — readout setter skipped unless formatted text changed |
+| 8 | Extend #1's fix to `drawTargetBox` and the waypoint markers (two-stroke glow like `drawRwrLines`, or bake into a cached canvas) | client | XS | Removes the two live-`shadowBlur` spots #1 missed | **DONE** — target brackets and waypoint markers use two-stroke glow |
 
 ### Item #A — RESULT (done, commit eb2ecc7)
 
@@ -273,17 +267,14 @@ thread, called from `ScanWorld` for icons (`TryCaptureIcon`), the map
   page near the slider. The fuller version is render-on-demand or the
   mirror-cam approach `docs/tgp-high-quality-mode.md` scoped for an
   unrelated feature but with the same GPU-cost tradeoff shape.
-- **#7 (waypoint HUD readout).** Simplest fix: compare the new formatted
-  string against the last one written and skip the `Text.text` set when
-  unchanged (cheap since the string is already built for the compare) —
-  keeps the exact same visual update cadence a player would perceive as
-  live, while eliminating the churn on frames where nothing moved enough to
-  change the displayed digits.
-- **#8 (target box / waypoint marker glow).** Same fix shape as #1: either
-  bake into a small cached canvas per color (few distinct colors: target
-  lock, next/reached/pending waypoint), or switch to `drawRwrLines`'s
-  two-stroke technique (wide faint underlay + bright core, no `shadowBlur`
-  at all) since both draw simple strokes/arcs, not a raster icon.
+- **#7 (waypoint HUD readout).** Done: compares the new formatted string
+  against the last one written and skips the `Text.text` set when unchanged.
+  This keeps the exact same visual update cadence a player would perceive as
+  live, while eliminating the Unity UI setter churn on frames where nothing
+  moved enough to change the displayed digits.
+- **#8 (target box / waypoint marker glow).** Done: switched both simple
+  vector shapes to `drawRwrLines`'s two-stroke technique (wide faint underlay
+  + bright core, no live `shadowBlur`).
 
 ## Recommended sequencing (revised after Step 0)
 
@@ -474,11 +465,10 @@ in their hot paths. Items #4/#5 remain not implemented, still genuinely optional
    below already proved 30 Hz drops up to 45% of readback ticks with 100 ms worst-case frame
    times — that risk is still fully exposed to the player via the RTS page with no cap or
    warning. The investigation is done; only the fix is missing.
-2. **`HudWaypointCue`'s per-frame readout rebuild (item #7)** — found while reading the newest
-   HUD-drawing code, not present in the 2026-08-16 pass since the file didn't exist yet.
-3. **Two live-`shadowBlur` spots in `map.js` missed the #1 fix (item #8)** — `drawTargetBox` and
-   the waypoint markers, both added after #1 shipped. Same class of cost, smaller magnitude
-   (few contacts vs. 40+).
+2. **`HudWaypointCue`'s per-frame readout rebuild (item #7)** — fixed by skipping the `Text.text`
+   setter when the rounded/formatted readout is unchanged.
+3. **Two live-`shadowBlur` spots in `map.js` missed the #1 fix (item #8)** — fixed in
+   `drawTargetBox` and the waypoint markers with the same two-stroke glow used by RWR lines.
 4. **`RouteStore.Save()`'s synchronous write is a watch-item, not a current bug** — no caller
    fires it continuously today, but it's the same shape as the `ConfigEntry.Value` stall Finding
    2 (below) already found once. Recorded so a future continuous-fire caller doesn't reintroduce

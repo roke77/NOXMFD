@@ -32,6 +32,7 @@ namespace NOXMFD
         private RawImage?     _compass;    // the tape we're anchored to; fake-null after a respawn
         private RectTransform? _bug;       // the caret container — rotating it aims the chevron
         private Text?          _readout;
+        private string?        _lastReadoutText;
 
         private void LateUpdate()
         {
@@ -64,12 +65,17 @@ namespace NOXMFD
             SetVisible(true);
             PlaceBug(relative);
 
-            _readout!.text = string.Format(CultureInfo.InvariantCulture,
+            string readoutText = string.Format(CultureInfo.InvariantCulture,
                 "WPT {0}{1}\n{2:0.0} km · brg {3:000}",
                 wpIndex + 1,
                 wpName.Length > 0 ? " · " + wpName : string.Empty,
                 distanceKm,
                 Mathf.RoundToInt(bearing) % 360);
+            if (_lastReadoutText != readoutText)
+            {
+                _readout!.text = readoutText;
+                _lastReadoutText = readoutText;
+            }
         }
 
         // On tape: a chevron at the bearing's own position. Off tape: the same chevron rotated a
@@ -123,6 +129,7 @@ namespace NOXMFD
             _compass = compass;
             _bug     = BuildChevron(compass.rectTransform);
             _readout = BuildReadout(compass.rectTransform);
+            _lastReadoutText = null;
             return true;
         }
 
