@@ -407,4 +407,15 @@ if (typeof module !== 'undefined' && module.exports)
                      rangeUnitsForTest: function (metric, meters) { state.metric = metric; return rangeUnits(meters); },
                      altUnitsForTest: function (metric, meters) { state.metric = metric; return altUnits(meters); },
                      contactColor: contactColor, radarConePath: radarConePath, demoContacts: demoContacts,
-                     geom: { CX: CX, CY: CY, OUTER: OUTER } };
+                     geom: { CX: CX, CY: CY, OUTER: OUTER },
+                     // CEN/DEP mode (docs/rdr-fcr-hsd.md) — DOM-free, so testable directly rather
+                     // than through toggleMode()/render(), which touch the page's real DOM.
+                     CEN_RANGE_NM: CEN_RANGE_NM, DEP_RANGE_NM: DEP_RANGE_NM,
+                     gridFractionsForTest: function (m) { var save = mode; mode = m; var r = gridFractions(); mode = save; return r; },
+                     applyModeForTest: function (m, idx) {
+                       var saveMode = mode, saveIdx = rangeIdx;
+                       mode = m; rangeIdx = idx; applyMode();
+                       var result = { RANGE_NM: RANGE_NM, CY: CY, OUTER: OUTER, rangeIdx: rangeIdx };
+                       mode = saveMode; rangeIdx = saveIdx; applyMode();
+                       return result;
+                     } };
