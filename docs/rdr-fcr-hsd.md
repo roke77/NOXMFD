@@ -48,9 +48,9 @@ NAV.hsd = [
   { label: 'MAIN', action: 'main' },
   { label: 'FCR',  action: 'rdr' },
   { label: 'HSD',  action: 'hsd', mark: true },
-  { label: 'MODE', action: 'hsd-mode' },   // CEN<->DEP toggle — see "CEN/DEP display modes" below
   { label: 'R+',   action: 'rng-in' },
   { label: 'R-',   action: 'rng-out' },
+  { label: 'MODE', action: 'hsd-mode' },   // CEN<->DEP toggle — see "CEN/DEP display modes" below
 ]
 ```
 
@@ -160,8 +160,9 @@ player radar's cone or maximum range. Shipped: the real DCS F-16 HSD ladders, in
 (see "CEN/DEP display modes" below) — CEN 10/20/40/80/160 NM, DEP 15/30/60/120/240 NM. Metric labels
 share the same underlying metre ranges and render via the player's unit system, same as FCR.
 
-R+/R- step whichever mode's range is currently active and persist both in `sessionStorage` under
-`noxmfd.hsd.view`, separate from FCR's own `noxmfd.rdr.view`.
+R+/R- step the one shared range index (see "CEN/DEP display modes" below for why it's shared, not
+per-mode) and persist it in `sessionStorage` under `noxmfd.hsd.view`, separate from FCR's own
+`noxmfd.rdr.view`.
 
 ## CEN/DEP display modes
 
@@ -176,10 +177,16 @@ nav key (`hsd-mode` action, `hsd.js`'s `toggleMode()`):
   reaches higher (240 NM max) than CEN's (160 NM max) — the extra forward screen space is what
   makes a bigger number still readable.
 
-Each mode remembers its own last-selected range independently — switching modes doesn't reset or
-share the other's setting. No FCR-range coupling (real DCS ties DEP's range to 1.5x whatever the
-FCR is set to); HSD's DEP range steps on its own for now, per this doc's own "Open questions"
-philosophy of not building a coupling nobody asked for yet.
+The range setting carries across a mode switch rather than each mode remembering its own: CEN 40NM
+and DEP 60NM are treated as "the same" range, not two independent settings, because both ladders
+are the same length and DEP[i] is exactly 1.5x CEN[i] at every step — the same ratio real DCS uses
+to couple DEP's range to FCR's, coincidentally already built into the two ladders themselves. One
+shared range index (`hsd.js`'s `rangeIdx`) into whichever ladder the current mode selects is enough
+to get that translation for free, no separate coupling logic needed.
+
+No FCR-range coupling itself, though (real DCS ties DEP's range to 1.5x whatever the FCR is set
+to, not to HSD's own CEN setting) — HSD's range steps independently of FCR for now, per this doc's
+own "Open questions" philosophy of not building a coupling nobody asked for yet.
 
 Real DCS's exact ownship-offset and ring-radius pixels aren't published anywhere this doc could
 verify against, so `hsd.js`'s `CEN_CY`/`CEN_OUTER`/`DEP_CY`/`DEP_OUTER` are a reasoned approximation

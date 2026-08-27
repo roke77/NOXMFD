@@ -41,8 +41,9 @@
     ext: [ { side: 'left', slot: 0 } ],
     rwr: [ { side: 'left', slot: 0 } ],
     // RDR/HSD are one sibling group: MAIN, FCR, HSD, then the page-local range rocker. HSD gets a
-    // 6th slot (right,0) for its own MODE toggle (CEN<->DEP, docs/rdr-fcr-hsd.md) — FCR has no
-    // such control, so it stays at 5.
+    // 6th slot (right,0) for its own MODE toggle after R+/R- (CEN<->DEP, docs/rdr-fcr-hsd.md) —
+    // FCR has no such control, so it stays at 5. Slots are matched to NAV.hsd purely by index, so
+    // this list doesn't need to change if NAV.hsd's own item order does — only its length matters.
     rdr: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
     hsd: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
     tgt: [ { side: 'left', slot: 0 } ],

@@ -66,10 +66,10 @@
       { label: 'MAIN', action: 'main' },
       { label: 'FCR',  action: 'rdr' },
       { label: 'HSD',  action: 'hsd', mark: true },
-      { label: 'MODE', action: 'hsd-mode' },   // toggles CEN<->DEP (docs/rdr-fcr-hsd.md); current
-                                                // mode shows on HSD's own range readout, not here
       { label: 'R+',   action: 'rng-in' },
       { label: 'R-',   action: 'rng-out' },
+      { label: 'MODE', action: 'hsd-mode' },   // toggles CEN<->DEP (docs/rdr-fcr-hsd.md); current
+                                                // mode shows on HSD's own range readout, not here
     ],
     tgt: [ { label: 'MAIN', action: 'main' } ],
     // AKF, BDF, PAL, MIS and OBJ fold under one MAIN destination rather than five separate items:

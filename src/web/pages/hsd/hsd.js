@@ -17,22 +17,23 @@ var HSD_PINK_RGB = 'var(--no-hsd-pink-rgb)', TEAL_RGB = 'var(--no-teal-rgb)';
 var CURSOR_WHITE = 'rgba(255,255,255,0.85)';
 var state = { ownX: 0, ownZ: 0, hdg: 0, metric: false, radarPresent: false, radarRange: 0, radarCone: 0, items: [] };
 
-// DCS's own DEP/CEN range ladders (NM) — independent per mode, each remembers its own last
-// setting across a mode switch (docs request: "keep them independent per mode").
+// DCS's own DEP/CEN range ladders (NM) — same length, and DEP[i] is exactly 1.5x CEN[i] at every
+// step (matching real DCS's DEP-range-equals-1.5x-FCR-range relationship), so a single shared
+// index translates the selected range across a mode switch instead of each mode remembering its
+// own separately: CEN 40nm <-> DEP 60nm are "the same" range setting, not two unrelated ones.
 var CEN_RANGE_NM = [10, 20, 40, 80, 160];
 var DEP_RANGE_NM = [15, 30, 60, 120, 240];
 var RANGE_STORE_KEY = 'noxmfd.hsd.view';
 var mode = 'cen';           // 'cen' | 'dep'
 var RANGE_NM = CEN_RANGE_NM;   // whichever mode's ladder is active — kept as its own var so
                                 // displayRangeM()/setRangeIdx() below don't need to know about modes
-var cenRangeIdx = 2, depRangeIdx = 2;
-var rangeIdx = cenRangeIdx;
+var rangeIdx = 2;
 
-// Applies `mode`'s geometry/ladder/index to the module vars every other function reads —
-// called on load and on every toggleMode(), so nothing else needs an explicit mode check.
+// Applies `mode`'s geometry/ladder to the module vars every other function reads — called on load
+// and on every toggleMode(), so nothing else needs an explicit mode check. rangeIdx itself carries
+// straight across (see the ladder comment above), so it isn't touched here.
 function applyMode() {
   RANGE_NM = mode === 'dep' ? DEP_RANGE_NM : CEN_RANGE_NM;
-  rangeIdx = mode === 'dep' ? depRangeIdx : cenRangeIdx;
   CY = mode === 'dep' ? DEP_CY : CEN_CY;
   OUTER = mode === 'dep' ? DEP_OUTER : CEN_OUTER;
 }
@@ -43,24 +44,19 @@ function loadRange() {
   try { saved = JSON.parse(sessionStorage.getItem(RANGE_STORE_KEY) || 'null'); } catch (_) {}
   if (saved) {
     if (saved.mode === 'dep') mode = 'dep';
-    if (typeof saved.cenRangeIdx === 'number')
-      cenRangeIdx = Math.max(0, Math.min(CEN_RANGE_NM.length - 1, saved.cenRangeIdx));
-    if (typeof saved.depRangeIdx === 'number')
-      depRangeIdx = Math.max(0, Math.min(DEP_RANGE_NM.length - 1, saved.depRangeIdx));
+    if (typeof saved.rangeIdx === 'number')
+      rangeIdx = Math.max(0, Math.min(CEN_RANGE_NM.length - 1, saved.rangeIdx));
   }
   applyMode();
 }
 function saveRange() {
-  try {
-    sessionStorage.setItem(RANGE_STORE_KEY, JSON.stringify(
-      { mode: mode, cenRangeIdx: cenRangeIdx, depRangeIdx: depRangeIdx }));
-  } catch (_) {}
+  try { sessionStorage.setItem(RANGE_STORE_KEY, JSON.stringify({ mode: mode, rangeIdx: rangeIdx })); }
+  catch (_) {}
 }
 function setRangeIdx(i) {
   var clamped = Math.max(0, Math.min(RANGE_NM.length - 1, i));
   if (clamped === rangeIdx) return;
   rangeIdx = clamped;
-  if (mode === 'dep') depRangeIdx = clamped; else cenRangeIdx = clamped;
   saveRange();
   render();
 }
@@ -387,7 +383,7 @@ if (typeof window !== 'undefined' && window.addEventListener) {
     }
   });
   if (shouldSeedStandalonePreview()) {
-    rangeIdx = cenRangeIdx = 3;
+    rangeIdx = 3;
     state = { ownX: 0, ownZ: 0, hdg: 20, metric: false, radarPresent: true,
               radarRange: 40 * M_PER_NM, radarCone: 60, items: demoContacts(0, 0, 20) };
   }
