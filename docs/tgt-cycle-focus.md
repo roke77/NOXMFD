@@ -40,6 +40,10 @@ without touching SOI.
   - 0 locks remaining clears focus;
   - exactly 1 lock remaining always focuses it (matches "first locked" being the always-true case
     when there's only one target locked);
+  - nothing focused yet but 2+ are already locked (locked several before ever touching
+    Next/Previous) defaults to the first one — matches `WeaponManager.Fire()`'s own `targetList[0]`
+    convention. Found missing during in-game testing (issue #67's HUD TTI report): locking two
+    targets from the MAP without ever pressing Next/Prev left focus stuck at "none" indefinitely;
   - losing the focused lock specifically (but others remain) drops focus to none, rather than
     silently jumping the pilot's attention to some other target they didn't choose.
 

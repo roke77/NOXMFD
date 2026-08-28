@@ -33,6 +33,10 @@ namespace NOXMFD
         //  - 0 remaining clears focus, nothing to focus;
         //  - exactly 1 remaining always focuses it, matching "first locked" being the always-true
         //    case today when there's only one (docs/rdr-fcr-hsd.md);
+        //  - nothing focused yet but 2+ are already locked (the pilot locked several before ever
+        //    touching Next/Previous) defaults to the first one, matching WeaponManager.Fire()'s own
+        //    targetList[0] convention — found live (issue #67's HUD TTI report) after locking two
+        //    targets from the MAP left focus stuck at "none" with no Next/Prev press to seed it;
         //  - losing the currently focused one (but others remain) drops back to none rather than
         //    silently jumping the pilot's attention to a target they didn't choose.
         internal static void Reconcile(IReadOnlyList<uint> lockedIds)
@@ -42,7 +46,8 @@ namespace NOXMFD
                 if (lockedIds.Count == 0) { SetIdLocked(0); return; }
                 if (lockedIds.Count == 1) { SetIdLocked(lockedIds[0]); return; }
                 uint id = Volatile.Read(ref _id);
-                if (id != 0 && IndexOf(lockedIds, id) < 0) SetIdLocked(0);
+                if (id == 0) { SetIdLocked(lockedIds[0]); return; }
+                if (IndexOf(lockedIds, id) < 0) SetIdLocked(0);
             }
         }
 

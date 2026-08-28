@@ -118,6 +118,10 @@ namespace NOXMFD
             return _radarAltField != null;
         }
 
+        // TEMPORARY (issue #67 in-game diagnosis, remove once the "never shows" report is
+        // resolved): last focused id we logged a transition for, so a held focus doesn't spam.
+        private static uint _lastLoggedFocusId = uint.MaxValue;
+
         // Smallest time-to-impact among the player's own in-flight guided weapons tracking the
         // focused, locked target — the one closest to hitting, per the ticket's own "first or
         // closest weapon release" wording. -1 when there's nothing to show: no target focused, the
@@ -126,20 +130,35 @@ namespace NOXMFD
         private static float ComputeTti(uint playerId)
         {
             uint focusedId = TargetFocus.Id;
+            if (focusedId != _lastLoggedFocusId)
+            {
+                _lastLoggedFocusId = focusedId;
+                string name = focusedId != 0 && UnitRegistry.TryGetUnit(new PersistentID { Id = focusedId }, out Unit fu) && fu != null
+                    ? (fu.definition?.unitName ?? "?") : "none";
+                Plugin.Log?.LogInfo($"[NOXMFD] HUD TTI: focus -> id={focusedId} name='{name}'.");
+            }
             if (focusedId == 0) return -1f;
             if (!UnitRegistry.TryGetUnit(new PersistentID { Id = focusedId }, out Unit target) ||
                 target == null || target.disabled)
                 return -1f;
 
             float best = -1f;
+            int ownMissiles = 0, trackingAnyTarget = 0, trackingFocused = 0;
             foreach (Unit u in UnitRegistry.allUnits)
             {
                 if (u is not Missile m || m.disabled) continue;
-                if (m.ownerID.Id != playerId || m.targetID.Id != focusedId) continue;
+                if (m.ownerID.Id != playerId) continue;
+                ownMissiles++;
+                if (m.targetID.Id != 0) trackingAnyTarget++;
+                if (m.targetID.Id != focusedId) continue;
+                trackingFocused++;
 
                 float t = EstimateImpactTime(m, target);
                 if (t >= 0f && (best < 0f || t < best)) best = t;
             }
+            Plugin.Log?.LogInfo(
+                $"[NOXMFD] HUD TTI: focus={focusedId} ownMissiles={ownMissiles} " +
+                $"trackingAnyTarget={trackingAnyTarget} trackingFocused={trackingFocused} best={best:0.0}.");
             return best;
         }
 
