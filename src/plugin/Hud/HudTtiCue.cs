@@ -32,8 +32,25 @@ namespace NOXMFD
         private Text?   _label;
         private string? _lastLabelText;
 
+        // TEMPORARY (issue #67 in-game diagnosis, remove once the "never shows" report is
+        // resolved): an unconditional once-a-second heartbeat, independent of every early-return
+        // below, so a silent LateUpdate (component never runs) is distinguishable in the log from
+        // TargetFocus genuinely staying 0 or the label failing to Build().
+        private float _heartbeatTimer;
+
         private void LateUpdate()
         {
+            _heartbeatTimer += Time.deltaTime;
+            if (_heartbeatTimer >= 1f)
+            {
+                _heartbeatTimer = 0f;
+                bool hasAc = GameManager.GetLocalAircraft(out Aircraft hbAc) && hbAc != null;
+                int lockCount = hasAc && hbAc.weaponManager != null ? hbAc.weaponManager.GetTargetList().Count : -1;
+                Plugin.Log?.LogInfo(
+                    $"[NOXMFD] HUD TTI heartbeat: hasAircraft={hasAc} lockCount={lockCount} " +
+                    $"focusId={TargetFocus.Id} labelBuilt={_label != null}.");
+            }
+
             if (!GameManager.GetLocalAircraft(out Aircraft ac) || ac == null || TargetFocus.Id == 0)
             {
                 Hide();
