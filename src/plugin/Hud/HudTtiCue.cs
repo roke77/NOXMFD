@@ -14,8 +14,9 @@ namespace NOXMFD
     {
         // Same amber family as HudTgpCue's own marker/label — distinct from radarAlt's native
         // green so a TTI countdown reads as "mod-added, watch this" rather than blending into the
-        // stock readout it sits under.
-        private static readonly Color Amber = new Color(1f, 0.6667f, 0f, 1f);
+        // stock readout it sits under. Brighter/more saturated than HudTgpCue's own shade
+        // (confirmed in-game: the original read dim against the glowing native green text).
+        private static readonly Color Amber = new Color(1f, 0.78f, 0.15f, 1f);
 
         // 50% larger than HudWaypointCue's own in-game readout text (fontSize 13), by request —
         // a fixed size rather than cloned from radarAlt, which auto-sizes to fill its box and so
@@ -138,6 +139,10 @@ namespace NOXMFD
 
             _label = labelObject.GetComponent<TextMeshProUGUI>();
             _label.font = radarAlt.font;
+            // radarAlt's own material, not TMP's default — the native HUD's glow/bloom treatment
+            // lives on the material, not the font asset, and Amber below still tints on top of it
+            // (Graphic.color multiplies the material's own face color rather than replacing it).
+            _label.fontSharedMaterial = radarAlt.fontSharedMaterial;
             // Fixed, not cloned from radarAlt: radarAlt auto-sizes to fill its box, so copying that
             // config (confirmed in-game) scaled TTI's short strings ("TTI", "0:08") up far past
             // every surrounding readout — auto-size reacts to content length, not a stable size.
