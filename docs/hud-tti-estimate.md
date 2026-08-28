@@ -136,8 +136,14 @@ No telemetry/web changes — this lives entirely in the native HUD, unlike issue
 
 `dotnet build` (0 errors). `tools/tests/HudTtiMathTests.cs` covers `TimeToImpact`'s closing-speed
 projection (head-on, stationary-target, sideways-motion-ignored, non-closing-floors-at-minimum,
-coincident-points cases) and `FormatTti`'s rounding. Full `tools/ci-check.ps1` green. Not yet tested
-in-game — the HUD placement and the TTI numbers themselves both need a real flight to confirm.
+coincident-points cases) and `FormatTti`'s rounding. `tools/tests/TargetFocusTests.cs` adds a
+regression test for the `Reconcile` bug this ticket's own in-game testing found (locking 2+ targets
+with nothing previously focused). Full `tools/ci-check.ps1` green.
+
+**Confirmed in-game**: label placement, size, and color all tested and adjusted live (see "Status"
+above); TTI counted down correctly against a real shot. Not yet tested: multiple simultaneous
+tracking weapons against the same focused target (the "smallest TTI wins" branch in `ComputeTti`
+has no live confirmation yet, only the single-weapon path).
 
 ## Related documents
 
