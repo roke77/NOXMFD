@@ -126,11 +126,13 @@ No telemetry/web changes — this lives entirely in the native HUD, unlike issue
 - **"First or closest weapon release"** is read here as: among the player's own in-flight guided
   weapons already tracking the focused target, show whichever is closest to impact (smallest TTI) —
   not literally "whichever was released first" (which could be a slower weapon that would arrive
-  later than one fired afterward on a shorter path). Confirm this reading once tested.
-- **Placement offset** below `radarAlt` — sign and magnitude are a first guess
-  (`radarAlt`'s own height plus 4px), not yet confirmed against a real flight.
-- **Display format** — `"TTI M:SS"` chosen for this pass; `Altitude` itself uses a `R[...]` bracket
-  convention (`"R[500ft]"`) that a `"TTI[0:07]"` form might match more closely once seen in-game.
+  later than one fired afterward on a shorter path). Confirmed correct for a single tracking weapon;
+  the actual "pick the smallest among several" branch still has no live confirmation (see
+  "Verification").
+
+Resolved during in-game testing (see "Status"): placement offset (now `TtiFontSize + 2px` below
+`radarAlt`, not its box height) and display format (`"TTI M:SS"` kept as-is — no request to switch
+to `Altitude`'s own `R[...]` bracket convention once seen on screen).
 
 ## Verification
 
