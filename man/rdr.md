@@ -99,6 +99,13 @@ own highlighted row, and the focus they set shows up on TGT's list too.
 
 Range and altitude use the same unit setting as the rest of the game (nm/ft or km/m).
 
+## In-game HUD cue
+
+The focused lock also gets a **time-to-impact** readout on the in-game HUD, directly below the
+radar altitude in the corner of your screen — `TTI M:SS`. It shows while at least one of your own
+missiles or guided bombs is in flight and tracking the focused target; it disappears once nothing
+of yours is chasing that lock, and it doesn't estimate anything before you've actually fired.
+
 ## Locking a target
 
 Click or tap directly on a contact to lock it; click again to unlock — on either page. The same

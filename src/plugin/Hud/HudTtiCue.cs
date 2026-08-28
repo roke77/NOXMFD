@@ -15,11 +15,21 @@ namespace NOXMFD
         private static bool _reflectionTried;
         private static FieldInfo? _radarAltField;
 
-        private Text? _label;
+        // Recomputing TTI means walking UnitRegistry.allUnits (docs/performance.md's own standard
+        // for this shape of scan — TelemetryReader.ContactInterval throttles its own MAP/RDR/HSD
+        // contact scans the same way, for the same reason). A HUD countdown reads fine refreshed
+        // at this rate; visibility itself still reacts every frame via the cheap TargetFocus check
+        // below, so losing a lock hides the cue immediately rather than lagging a quarter-second.
+        private const float RecomputeInterval = 0.25f;
+        private float _recomputeTimer;
+        private float _cachedTti = -1f;
+
+        private Text?   _label;
+        private string? _lastLabelText;
 
         private void LateUpdate()
         {
-            if (!GameManager.GetLocalAircraft(out Aircraft ac) || ac == null)
+            if (!GameManager.GetLocalAircraft(out Aircraft ac) || ac == null || TargetFocus.Id == 0)
             {
                 Hide();
                 return;
@@ -31,14 +41,31 @@ namespace NOXMFD
                 return;
             }
 
-            float tti = ComputeTti(ac.persistentID.Id);
-            if (tti < 0f)
+            _recomputeTimer += Time.deltaTime;
+            if (_recomputeTimer >= RecomputeInterval || _cachedTti < 0f)
+            {
+                _recomputeTimer = 0f;
+                _cachedTti = ComputeTti(ac.persistentID.Id);
+            }
+
+            if (_cachedTti < 0f)
             {
                 Hide();
                 return;
             }
-            _label!.text = "TTI " + HudTtiMath.FormatTti(tti);
+            SetLabelText("TTI " + HudTtiMath.FormatTti(_cachedTti));
             SetVisible(true);
+        }
+
+        // Text.text dirties Unity UI layout on every set regardless of whether the content
+        // actually changed (docs/performance.md's "Game main thread → per-frame UI churn" —
+        // HudWaypointCue hit this same cost and fixed it the same way: skip the setter when the
+        // formatted string hasn't moved since last frame).
+        private void SetLabelText(string text)
+        {
+            if (_lastLabelText == text) return;
+            _lastLabelText = text;
+            _label!.text = text;
         }
 
         private bool Build()
@@ -69,6 +96,7 @@ namespace NOXMFD
             _label.verticalOverflow = radarAlt.verticalOverflow;
             _label.raycastTarget = false;
             _label.gameObject.SetActive(false);
+            _lastLabelText = null;
             return true;
         }
 
@@ -123,7 +151,15 @@ namespace NOXMFD
                 _label.gameObject.SetActive(visible);
         }
 
-        private void Hide() => SetVisible(false);
+        // Drops the cached TTI too, not just visibility — otherwise reappearing (a new lock, right
+        // after the throttle window froze mid-count) could briefly show a stale number left over
+        // from whatever was focused before, until the next scheduled recompute caught up.
+        private void Hide()
+        {
+            SetVisible(false);
+            _cachedTti = -1f;
+            _recomputeTimer = 0f;
+        }
 
         private void OnDestroy()
         {

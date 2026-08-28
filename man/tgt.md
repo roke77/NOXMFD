@@ -27,7 +27,8 @@ Every target you currently have selected, one row per target:
 
 If you have more than one target selected, an amber accent bar marks whichever one is currently
 *focused* — the same one [FCR/HSD](rdr.md#when-a-target-is-locked) read out at the bottom of their
-own screens. **Next Target / Previous Target** (below) step which one that is.
+own screens, and the one the in-game HUD's own [time-to-impact readout](rdr.md#in-game-hud-cue)
+tracks. **Next Target / Previous Target** (below) step which one that is.
 
 **Tap anywhere on a row** to deselect that target. **CLEAR TARGETS** deselects everything at once.
 

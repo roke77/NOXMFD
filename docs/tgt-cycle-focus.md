@@ -20,10 +20,14 @@ to TGT, unaffected by anything here. Next/Previous now does both things on every
 
 ## Shared state: TargetFocus
 
-`src/plugin/Http/TargetFocus.cs` holds one id (a `Unit.persistentID.Id`, 0 = none) plus a version
-counter, the same shape `SoiFocus.cs` uses for its own idempotent fields — a different concept,
-though: SoiFocus tracks which *surface* (display/pane) is focused; TargetFocus tracks which *target*
-is focused. The two are independent by design — a pilot cycles target focus without touching SOI.
+`src/plugin/Http/TargetFocus.cs` holds one id (a `Unit.persistentID.Id`, 0 = none) — no version
+counter, unlike `SoiFocus.cs`'s own idempotent fields: `FocusedTargetId` rides inside
+`TelemetrySnapshot` itself (`TelemetryReader.PushSnapshot`), so it's already covered by the
+snapshot's own version, whereas SOI state is serialized live off `SoiFocus` at request time
+(`TelemetryServer.GetFrameBytes`) and genuinely needs its own. `TargetFocus` is a different concept
+from `SoiFocus` regardless: SoiFocus tracks which *surface* (display/pane) is focused; TargetFocus
+tracks which *target* is focused. The two are independent by design — a pilot cycles target focus
+without touching SOI.
 
 - **`Cycle(dir, lockedIds)`** — steps to the next/previous id in `lockedIds`' own order, wrapping at
   both ends (matches TGT's `navHighlight` wrap). Called from `Keybinds.cs`'s new
