@@ -18,6 +18,10 @@ const staleBtn = document.getElementById('stale-btn');
 let state = { present: false, laser: false, hud: false, faction: [], category: [], vehicle: [] };
 let targets = [];        // selected-target list (from 'tgt-targets'): [{ id, n, g, r, f, dl }]
 let targetsKey = '';     // id-set signature; rebuild rows only when it changes
+// The single locked target Next/Previous currently focuses, shared with FCR/HSD (issue #62,
+// docs/tgt-cycle-focus.md) — every row here is already locked, so this is a plain id match, unlike
+// FCR/HSD which also carry unlocked contacts. 0 = none focused.
+let focusedTargetId = 0;
 // Next/Previous Target's row-stepper (docs/tgt-keybind-nav.md) — an index into `targets`, -1 when
 // nothing's highlighted. Mutually exclusive with the PAD cursor: entering this mode hides the free
 // crosshair, and moving the crosshair clears this back to -1 (see the 'cursor' message handler).
@@ -141,6 +145,7 @@ function renderTargets() {
     el.classList.toggle('stale', !!t.st);
     el.querySelector('.tl-src').textContent = t.st ? 'STALE' : t.dl ? 'DATALINK' : 'SENSOR';
     el.classList.toggle('nav-highlight', i === highlightIndex);
+    el.classList.toggle('tgt-focused', focusedTargetId !== 0 && t.id === focusedTargetId);
   }
 }
 
@@ -306,6 +311,7 @@ window.addEventListener('message', function (e) {
     paint();
   } else if (m.type === 'tgt-targets') {
     targets = Array.isArray(m.items) ? m.items : [];
+    focusedTargetId = m.focusedTargetId || 0;
     renderTargets();
   } else if (m.action === 'cursor-focus') {
     cursor.setFocus(!!m.on, panel.clientWidth / 2, panel.clientHeight / 2);

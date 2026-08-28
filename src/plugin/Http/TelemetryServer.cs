@@ -132,6 +132,11 @@ namespace NOXMFD
         internal static void SoiCycle(int dir) => SoiFocus.Cycle(dir);
         internal static void SetPaneCount(string cid, int n) => SoiFocus.SetPaneCount(cid, n);
 
+        // Which locked target Next/Previous currently focuses (issue #62) — see TargetFocus.cs.
+        // Read-only facade: the cycling itself needs the live player aircraft's target list, so it
+        // runs from Keybinds.cs (which already touches Aircraft for its other binds) rather than here.
+        internal static uint FocusedTargetId => TargetFocus.Id;
+
         internal static void SetRemoteCursorState(float x, float y, bool selectHeld) =>
             RemoteInputState.SetCursor(x, y, selectHeld);
 

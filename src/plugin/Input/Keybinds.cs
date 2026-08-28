@@ -212,13 +212,18 @@ namespace NOXMFD
             // mutually exclusive with) the PAD cursor's free crosshair: using either one hides the
             // crosshair and hands Cursor Select to the highlighted row instead; moving the crosshair
             // (Cursor Up/Down/Left/Right or its axis) clears the highlight and hands Select back to it.
+            // Next/Previous also step which locked target is FOCUSED (issue #62,
+            // docs/tgt-cycle-focus.md) — shared by TGT/FCR/HSD in every open browser regardless of
+            // SOI, alongside (not instead of) TGT's own SOI-gated row-highlight above.
             const string tgt = "TGT Keybinds";
             DefFree(config, "tgt-next", tgt, "TgtNext", "Next Target", edge: true,
-                "Highlight the next locked target on the focused TGT display.",
-                () => TelemetryServer.MapAction("tgt-next"));
+                "Highlight the next locked target on the focused TGT display, and step which locked " +
+                "target is focused on TGT/FCR/HSD everywhere they're open.",
+                () => { TelemetryServer.MapAction("tgt-next"); CycleTargetFocus(1); });
             DefFree(config, "tgt-prev", tgt, "TgtPrev", "Previous Target", edge: true,
-                "Highlight the previous locked target on the focused TGT display.",
-                () => TelemetryServer.MapAction("tgt-prev"));
+                "Highlight the previous locked target on the focused TGT display, and step which " +
+                "locked target is focused on TGT/FCR/HSD everywhere they're open.",
+                () => { TelemetryServer.MapAction("tgt-prev"); CycleTargetFocus(-1); });
             DefFree(config, "tgt-datalink", tgt, "TgtDatalink", "Clear Datalink", edge: true,
                 "Deselect the datalink-only locks on the focused TGT display — same as tapping its DATALINK button.",
                 () => TelemetryServer.MapAction("tgt-datalink"));
@@ -831,6 +836,18 @@ namespace NOXMFD
             if (ac.radarAlt <= 0.2f) return;
             if (up   && ac.gearState == LandingGear.GearState.LockedExtended)  ac.SetGear(false);   // raise if down
             if (down && ac.gearState == LandingGear.GearState.LockedRetracted) ac.SetGear(true);    // lower if up
+        }
+
+        // Next/Previous Target's OTHER effect (issue #62, docs/tgt-cycle-focus.md): steps
+        // TargetFocus using the player's own weaponManager lock order, independent of SOI focus and
+        // of the SOI-gated tgt-next/tgt-prev MapAction above — so it reaches every open TGT/FCR/HSD
+        // page in every browser, not just whichever one is SOI-focused. A DefFree bind with no
+        // aircraft (main menu, or between missions) is simply a no-op — nothing is locked yet either.
+        private static void CycleTargetFocus(int dir)
+        {
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            if (ac == null || ac.weaponManager == null) return;
+            TargetFocus.Cycle(dir, TelemetryReader.TargetIds(ac.weaponManager.GetTargetList()));
         }
 
         // Direct, not a blind toggle: only calls the game's Cmd when the state actually needs to

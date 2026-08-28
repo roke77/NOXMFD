@@ -19,7 +19,7 @@ var M_PER_NM = 1852, M_PER_KM = 1000, M_TO_FT = 3.28084;
 var CURSOR_WHITE = '#e6ebef', RED = '#ff4040', AMBER = '#ffaa00', PURPLE = 'rgb(179, 136, 255)';
 var BLUE = '#4d9fff';   // pitbull missile triangle fill (issue #40) — the "this is MY missile" cue,
                          // distinct from RWR's inbound-threat red/yellow
-var state = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, items: [], pb: [] };
+var state = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, items: [], pb: [], focusedTargetId: 0 };
 
 // The caret's one-way sweep time (rdr.css's animation-duration must match). 2s one-way / 4s round
 // trip mirrors the game's own MFD radar sweep exactly (TacScreen.ScanRadar: needle angle =
@@ -191,18 +191,17 @@ function short(n) {
 function renderContacts() {
   var g = document.getElementById('rdr-contacts');
   if (!g) return;
-  var out = '', first = null;
+  var out = '', focusedContact = null;
   plotted = [];
   (state.items || []).forEach(function (c) {
     var p = plot(c);
     if (!p) return;
     plotted.push({ id: c.id, x: p.x, y: p.y });
     var locked = !!c.tg;
-    // The target set can hold more than one lock (a planned cycling-locked-targets follow-up,
-    // docs/rdr-fcr-hsd.md); until a real "which lock is focused" field exists, the first locked
-    // contact encountered is the one the bottom readout describes — see renderReadout below.
-    var focused = locked && !first;
-    if (focused) first = c;
+    // The single locked contact Next/Previous currently focuses (issue #62, docs/tgt-cycle-focus.md)
+    // — shared across TGT/FCR/HSD via state.focusedTargetId, described by the readout below.
+    var focused = locked && c.id === state.focusedTargetId;
+    if (focused) focusedContact = c;
     // Source colour: the FOCUSED lock (readout's own target) is amber — otherwise a contact's
     // color is purely its source, whether locked or not: own-radar red (own radar detected this
     // enemy; not green, which stays free to mean "friendly" if that's ever added), datalink-only
@@ -228,7 +227,7 @@ function renderContacts() {
              '" r="17" fill="none" stroke="' + AMBER + '" stroke-width="2"/>';
   });
   g.innerHTML = out;
-  renderReadout(first);
+  renderReadout(focusedContact);
 }
 
 // Pitbull missiles (issue #40): the player's own AA missiles with a locked active-radar seeker.
@@ -265,17 +264,18 @@ function renderPitbull() {
   g.innerHTML = out;
 }
 
-// Bottom readout: always the FIRST locked contact (or blank), plus the total locked count.
-function renderReadout(first) {
+// Bottom readout: the FOCUSED locked contact (issue #62, or blank if none), plus the total locked
+// count.
+function renderReadout(focused) {
   var r1 = document.getElementById('rdr-r1'), r2 = document.getElementById('rdr-r2'),
       lk = document.getElementById('rdr-lk');
   var locked = (state.items || []).filter(function (c) { return c.tg; }).length;
-  if (first) {
+  if (focused) {
     r1.classList.add('big');
-    r1.textContent = short(first.n);
-    r2.textContent = 'RNG ' + rangeUnits(first.rng) +
-                     '   ALT ' + altUnits(first.alt) +
-                     '   HDG ' + pad3(Math.round(((first.rhdg + heading()) % 360 + 360) % 360));
+    r1.textContent = short(focused.n);
+    r2.textContent = 'RNG ' + rangeUnits(focused.rng) +
+                     '   ALT ' + altUnits(focused.alt) +
+                     '   HDG ' + pad3(Math.round(((focused.rhdg + heading()) % 360 + 360) % 360));
   } else {
     r1.classList.remove('big');
     r1.textContent = '';
@@ -374,7 +374,8 @@ if (typeof window !== 'undefined' && window.addEventListener) {
         radarOn: !!m.radarOn,
         levelTime: m.levelTime || 0,
         items: Array.isArray(m.items) ? m.items : [],
-        pb: Array.isArray(m.pb) ? m.pb : []
+        pb: Array.isArray(m.pb) ? m.pb : [],
+        focusedTargetId: m.focusedTargetId || 0
       };
       if (typeof m.hdg === 'number') _hdg = m.hdg;
       render();

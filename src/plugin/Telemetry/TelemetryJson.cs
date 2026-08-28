@@ -59,6 +59,9 @@ namespace NOXMFD
             // doesn't force renumbering every placeholder after it.
             sb.Append("\"mapReach\":{\"w\":").Append(s.MapReachW.ToString("0.0", CultureInfo.InvariantCulture))
               .Append(",\"h\":").Append(s.MapReachH.ToString("0.0", CultureInfo.InvariantCulture)).Append("},");
+            // The Next/Previous-focused locked target (issue #62) — a top-level id like mapReach,
+            // since it's one value TGT/FCR/HSD all read, not scoped into any one of their own blocks.
+            sb.Append("\"focusedTargetId\":").Append(s.FocusedTargetId).Append(',');
             sb.Append("\"tgpResolution\":\"").Append(JsonLite.EscapeJson(s.TgpResolution ?? "native")).Append("\",");
             sb.Append("\"tgpQuality\":\"").Append(JsonLite.EscapeJson(s.TgpQuality ?? "native")).Append("\",");
             sb.Append("\"tgpManual\":").Append(JsonBool(s.TgpManualActive)).Append(',');

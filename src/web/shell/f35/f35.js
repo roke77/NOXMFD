@@ -359,7 +359,8 @@
       w.postMessage({ mfd: true, type: 'hsd', metric: !!hsd.metric, hdg: mapinfo.hdg || 0,
                       ownX: mapinfo.x || 0, ownZ: mapinfo.z || 0,
                       radarPresent: !!rdr.present, radarRange: rdr.range || 0, radarCone: rdr.cone || 0,
-                      items: Array.isArray(hsd.items) ? hsd.items : [] }, '*');
+                      items: Array.isArray(hsd.items) ? hsd.items : [],
+                      focusedTargetId: hsd.focusedTargetId || 0 }, '*');
     }
     function onSlice(type) {
       if (feedsFor(currentPage).indexOf(type) !== -1) forwardSlice(type);

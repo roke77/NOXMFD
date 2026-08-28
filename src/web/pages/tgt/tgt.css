@@ -202,6 +202,12 @@ html, body {
    --no-amber matches its existing "selected/waiting state" meaning elsewhere in the theme. */
 .tl-row.nav-highlight { outline: 2px solid var(--no-amber); outline-offset: -2px; background: rgba(255,170,0,0.10); }
 
+/* The single locked target Next/Previous currently focuses, shared with FCR/HSD (issue #62,
+   docs/tgt-cycle-focus.md) — an inset left accent bar rather than .nav-highlight's outline, so the
+   two stay visually distinct on the rare row both apply to at once (aiming Select at a row is a
+   different action from which lock is focused). */
+.tl-row.tgt-focused { box-shadow: inset 3px 0 0 var(--no-amber); }
+
 .tgt-list-empty {
   flex: 1 1 auto;
   display: flex; align-items: center; justify-content: center;

@@ -747,7 +747,7 @@ function rdrMsg() {
   return { mfd: true, type: 'rdr', present: rdrData.present, range: rdrData.range,
            cone: rdrData.cone, metric: rdrData.metric, radarOn: rdrData.radarOn,
            levelTime: rdrData.levelTime, hdg: rdrData.hdg, items: rdrData.items || [],
-           pb: rdrData.pb || [] };
+           pb: rdrData.pb || [], focusedTargetId: rdrData.focusedTargetId || 0 };
 }
 function forwardHsdToPanes() { forwardToPanes('hsd', hsdMsg()); }
 function forwardHsdToFrame() { forwardToFrame(hsdMsg()); }
@@ -755,7 +755,7 @@ function hsdMsg() {
   return { mfd: true, type: 'hsd', metric: hsdData.metric, hdg: mapInfoData.hdg || 0,
            ownX: mapInfoData.x || 0, ownZ: mapInfoData.z || 0,
            radarPresent: !!rdrData.present, radarRange: rdrData.range || 0, radarCone: rdrData.cone || 0,
-           items: hsdData.items || [] };
+           items: hsdData.items || [], focusedTargetId: hsdData.focusedTargetId || 0 };
 }
 function mwMsg() { return { mfd: true, type: 'mw', items: mwData.items || [] }; }
 // MW shares RWR's pane/page (no separate NAV entry), hence the 'rwr' filter on the Panes side.
@@ -769,7 +769,10 @@ function forwardTgtToFrame() { forwardToFrame(tgtMsg()); }
 function forwardTgtToPanes() { forwardToPanes('tgt', tgtMsg()); }
 // The TGT page shows the selected-target list under its filters (mirrored in targetsData).
 // No pagination — the page scrolls — so forward the whole list, to the frame and any TGT pane.
-function tgtTargetsMsg() { return { mfd: true, type: 'tgt-targets', items: targetsData.targets || [] }; }
+function tgtTargetsMsg() {
+  return { mfd: true, type: 'tgt-targets', items: targetsData.targets || [],
+           focusedTargetId: targetsData.focusedTargetId || 0 };
+}
 function forwardTgtTargetsToFrame() { forwardToFrame(tgtTargetsMsg()); }
 function forwardTgtTargetsToPanes() { forwardToPanes('tgt', tgtTargetsMsg()); }
 // Full-view BDF: forward the whole faction-forces block to the #page-frame iframe (docs/bdf-page.md).
@@ -1367,7 +1370,7 @@ const extData = {};
 
 // Latest selected-target list mirrored from the map iframe. The TGT page renders it under its
 // filters (forwardTgtTargetsToFrame) — the whole list, unpaginated, since that page scrolls.
-let targetsData = { targets: [] };
+let targetsData = { targets: [], focusedTargetId: 0 };
 
 // Latest avionics snapshot mirrored from the map iframe. name = aircraft display name (also
 // the key for /airframe + /airframe-layout); parts = the live HP list from the snapshot;
@@ -1384,8 +1387,8 @@ let mwData  = { items: [] };
 
 // Latest RDR B-scope block (docs/rdr-page.md), mirrored from the map iframe's SSE feed. present is
 // false when the aircraft has no radar; the page draws its own scale/contacts from range/cone/items.
-let rdrData = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, hdg: 0, items: [], pb: [] };
-let hsdData = { metric: false, items: [] };
+let rdrData = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, hdg: 0, items: [], pb: [], focusedTargetId: 0 };
+let hsdData = { metric: false, items: [], focusedTargetId: 0 };
 
 // Latest TGT filter state, mirrored from the map iframe's SSE feed. The shell keeps only this
 // state and forwards it to the frame; the page renders the toggles + POSTs the tgt.* commands.
@@ -1821,7 +1824,7 @@ window.addEventListener('message', function(e) {
     refreshFollowIndicator();
   } else if (m.type === 'targets') {
     // Mirror the selected-target list; the TGT page renders it under its filters.
-    targetsData = { targets: Array.isArray(m.items) ? m.items : [] };
+    targetsData = { targets: Array.isArray(m.items) ? m.items : [], focusedTargetId: m.focusedTargetId || 0 };
     if (currentPage === 'tgt' && !splitMode) forwardTgtTargetsToFrame();
     if (splitMode) forwardTgtTargetsToPanes();
   } else if (m.type === 'rwr') {
@@ -1841,13 +1844,15 @@ window.addEventListener('message', function(e) {
     rdrData = { present: !!m.present, range: m.range || 0, cone: m.cone || 0, metric: !!m.metric,
                 radarOn: !!m.radarOn, levelTime: m.levelTime || 0, hdg: m.hdg || 0,
                 items: Array.isArray(m.items) ? m.items : [],
-                pb: Array.isArray(m.pb) ? m.pb : [] };
+                pb: Array.isArray(m.pb) ? m.pb : [],
+                focusedTargetId: m.focusedTargetId || 0 };
     if (currentPage === 'rdr' && !splitMode) forwardRdrToFrame();
     if (currentPage === 'hsd' && !splitMode) forwardHsdToFrame();
     if (splitMode) forwardRdrToPanes();
     if (splitMode) forwardHsdToPanes();
   } else if (m.type === 'hsd') {
-    hsdData = { metric: !!m.metric, items: Array.isArray(m.items) ? m.items : [] };
+    hsdData = { metric: !!m.metric, items: Array.isArray(m.items) ? m.items : [],
+                focusedTargetId: m.focusedTargetId || 0 };
     if (currentPage === 'hsd' && !splitMode) forwardHsdToFrame();
     if (splitMode) forwardHsdToPanes();
   } else if (RELAY_MESSAGES[m.type]) {

@@ -35,6 +35,9 @@
          pure serializer. Neither has a Unity/BepInEx touchpoint. -->
     <Compile Include="..\..\src\plugin\Telemetry\TelemetrySnapshot.cs" Link="Source\TelemetrySnapshot.cs" />
     <Compile Include="..\..\src\plugin\Telemetry\TelemetryJson.cs" Link="Source\TelemetryJson.cs" />
+    <!-- TargetFocus.cs (issue #62) has no Unity/BepInEx touchpoint either — same pure-state shape
+         as SoiFocus.cs, just never pulled in before since nothing there needed testing standalone. -->
+    <Compile Include="..\..\src\plugin\Http\TargetFocus.cs" Link="Source\TargetFocus.cs" />
     <Compile Include="..\..\src\plugin\Http\CommandContentType.cs" Link="Source\CommandContentType.cs" />
     <Compile Include="..\..\src\plugin\Akf\AkfTrackerLogic.cs" Link="Source\AkfTrackerLogic.cs" />
     <Compile Include="..\..\src\plugin\Input\KeybindTapHold.cs" Link="Source\KeybindTapHold.cs" />

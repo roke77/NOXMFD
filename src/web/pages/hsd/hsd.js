@@ -17,7 +17,7 @@ var M_PER_NM = 1852, M_PER_KM = 1000;
 var HSD_PINK = 'var(--no-purple)', RED = 'var(--no-red)', AMBER = 'var(--no-amber)', STALE_WHITE = 'var(--no-white)';
 var HSD_PINK_RGB = 'var(--no-hsd-pink-rgb)', TEAL_RGB = 'var(--no-teal-rgb)';
 var CURSOR_WHITE = 'rgba(255,255,255,0.85)';
-var state = { ownX: 0, ownZ: 0, hdg: 0, metric: false, radarPresent: false, radarRange: 0, radarCone: 0, items: [] };
+var state = { ownX: 0, ownZ: 0, hdg: 0, metric: false, radarPresent: false, radarRange: 0, radarCone: 0, items: [], focusedTargetId: 0 };
 
 // DCS's own DEP/CEN range ladders (NM) — same length, and DEP[i] is exactly 1.5x CEN[i] at every
 // step (matching real DCS's DEP-range-equals-1.5x-FCR-range relationship), so a single shared
@@ -160,19 +160,19 @@ var hoveredId = null;
 function renderContacts() {
   var g = document.getElementById('hsd-contacts');
   if (!g) return;
-  var out = '', count = 0, locks = 0, firstLocked = null, rangeM = displayRangeM();
+  var out = '', count = 0, locks = 0, focusedLocked = null, rangeM = displayRangeM();
   plotted = [];
   (state.items || []).forEach(function (c) {
     var p = hsdXY(state.ownX, state.ownZ, state.hdg, c.x || 0, c.z || 0, rangeM);
     if (!p) return;
     plotted.push({ id: c.id, x: p.x, y: p.y });
     count++;
-    // "Focused" here just means "first locked contact this loop reaches" (see contactColor's own
-    // comment above for why) — same stand-in FCR's firstLocked uses.
+    // The single locked contact Next/Previous currently focuses (issue #62, docs/tgt-cycle-focus.md)
+    // — shared across TGT/FCR/HSD via state.focusedTargetId, described by the readout below.
     var focused = false;
     if (c.tg) {
       locks++;
-      if (!firstLocked) { firstLocked = { c: c, dist: p.dist }; focused = true; }
+      if (c.id === state.focusedTargetId) { focusedLocked = { c: c, dist: p.dist }; focused = true; }
     }
     var col = contactColor(c, focused);
     var hdg = typeof c.hdg === 'number' ? c.hdg : 0;
@@ -196,7 +196,7 @@ function renderContacts() {
              '" r="10" fill="none" stroke="' + AMBER + '" stroke-width="2"/>';
   });
   g.innerHTML = out;
-  renderReadout(firstLocked, count, locks);
+  renderReadout(focusedLocked, count, locks);
 }
 
 // ── PAD acquisition cursor (docs/page-cursor.md) ────────────────────────────────────────
@@ -261,14 +261,14 @@ function padMove(px, py) {
   renderContacts();
 }
 
-function renderReadout(firstLocked, count, locks) {
+function renderReadout(focusedLocked, count, locks) {
   var r1 = document.getElementById('hsd-r1'), r2 = document.getElementById('hsd-r2'),
       link = document.getElementById('hsd-link'), lk = document.getElementById('hsd-locks');
-  if (firstLocked) {
-    var c = firstLocked.c;
+  if (focusedLocked) {
+    var c = focusedLocked.c;
     r1.classList.add('big');
     r1.textContent = short(c.n);
-    r2.textContent = 'RNG ' + rangeUnits(firstLocked.dist) +
+    r2.textContent = 'RNG ' + rangeUnits(focusedLocked.dist) +
                      '   ALT ' + altUnits(c.alt || 0) +
                      '   HDG ' + pad3(Math.round(c.hdg || 0));
   } else {
@@ -386,7 +386,8 @@ if (typeof window !== 'undefined' && window.addEventListener) {
         radarPresent: !!m.radarPresent,
         radarRange: typeof m.radarRange === 'number' ? m.radarRange : 0,
         radarCone: typeof m.radarCone === 'number' ? m.radarCone : 0,
-        items: Array.isArray(m.items) ? m.items : []
+        items: Array.isArray(m.items) ? m.items : [],
+        focusedTargetId: m.focusedTargetId || 0
       };
       render();
     } else if (m.action === 'cursor-focus') {

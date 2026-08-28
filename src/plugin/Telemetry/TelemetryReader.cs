@@ -822,6 +822,7 @@ namespace NOXMFD
                 PlayerId       = aircraft.persistentID.Id,
                 PlayerJammed   = playerJammed,
                 PlayerJammedBy = playerJammedBy,
+                FocusedTargetId = TargetFocus.Id,
                 ColFriendly    = _colFriendly,
                 ColHostile     = _colHostile,
                 ColNeutral     = _colNeutral,
@@ -915,6 +916,25 @@ namespace NOXMFD
             _cachedRdr = BuildRdr(aircraft, out _cachedRadarPresent, out _cachedRadarRange, out _cachedRadarConeDeg);
             _cachedHsd = BuildHsd(aircraft);
             _cachedPitbull = BuildPitbull(aircraft);
+
+            // Reconcile Next/Previous's shared target focus (issue #62) against locks that changed
+            // for reasons other than a Next/Prev press — a lock destroyed, deselected elsewhere, or
+            // freshly the only one left. Same list/order Next/Prev itself cycles through
+            // (Keybinds.cs's CycleTargetFocus) — see TargetFocus.Reconcile.
+            List<Unit>? targets = aircraft?.weaponManager?.GetTargetList();
+            TargetFocus.Reconcile(TargetIds(targets));
+        }
+
+        // Shared with Keybinds.cs's CycleTargetFocus (issue #62) — both need the same
+        // weaponManager.GetTargetList() -> persistentID.Id conversion, one reconciling focus every
+        // scan tick, the other cycling it on a Next/Previous press.
+        internal static List<uint> TargetIds(List<Unit>? targets)
+        {
+            var ids = new List<uint>(targets?.Count ?? 0);
+            if (targets == null) return ids;
+            for (int i = 0; i < targets.Count; i++)
+                if (targets[i] != null) ids.Add(targets[i].persistentID.Id);
+            return ids;
         }
 
         // Snapshots a TGT toggle group's labels + on/off states, preserving the game's ordering

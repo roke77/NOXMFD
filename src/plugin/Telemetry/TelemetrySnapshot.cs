@@ -98,6 +98,10 @@ namespace NOXMFD
         public bool PlayerJammed;
         public uint PlayerJammedBy;   // persistentID.Id of the jamming unit; 0 = jammed but source unknown/not tracked
 
+        // The single locked target Next/Previous currently focuses, shared across TGT/FCR/HSD
+        // (issue #62, docs/tgt-cycle-focus.md — see TargetFocus.cs). persistentID.Id, 0 = none.
+        public uint FocusedTargetId;
+
         // The game's own HUD faction colors (hex), so the web map matches the game.
         public string ColFriendly;
         public string ColHostile;

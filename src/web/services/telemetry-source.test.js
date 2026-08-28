@@ -141,5 +141,38 @@ const assert = require('assert');
     }
   }
 
+  // The Next/Previous-focused locked target (issue #62, docs/tgt-cycle-focus.md) is one top-level
+  // frame field that has to reach three independent feeds (TGT's 'targets', FCR's 'rdr', HSD's
+  // 'hsd') unchanged, since each page compares its own contacts' ids against it. Also confirms the
+  // safe default (0, "nothing focused") when an older/malformed frame omits the field entirely.
+  {
+    const messages = [];
+    const realWindow = global.window;
+    global.window = { parent: {} };
+    const src4 = new TelemetrySource({});
+    src4._postUp = (m) => messages.push(m);
+
+    try {
+      src4._emit({ focusedTargetId: 7, targets: [{ id: 1, n: 'BOGEY' }] });
+      assert.strictEqual(messages.find((m) => m.type === 'targets').focusedTargetId, 7,
+        'targets feed should carry the focused id');
+      assert.strictEqual(messages.find((m) => m.type === 'rdr').focusedTargetId, 7,
+        'rdr feed should carry the focused id');
+      assert.strictEqual(messages.find((m) => m.type === 'hsd').focusedTargetId, 7,
+        'hsd feed should carry the focused id');
+
+      messages.length = 0;
+      src4._emit({ targets: [] });   // field absent — the shape an older frame would still have
+      assert.strictEqual(messages.find((m) => m.type === 'targets').focusedTargetId, 0,
+        'missing focusedTargetId should default to 0, not undefined/NaN');
+      assert.strictEqual(messages.find((m) => m.type === 'rdr').focusedTargetId, 0,
+        'missing focusedTargetId should default to 0 on rdr too');
+      assert.strictEqual(messages.find((m) => m.type === 'hsd').focusedTargetId, 0,
+        'missing focusedTargetId should default to 0 on hsd too');
+    } finally {
+      global.window = realWindow;
+    }
+  }
+
   console.log('telemetry-source.test.js: OK');
 })();

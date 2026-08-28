@@ -10,6 +10,10 @@ simpler shape for exactly this: a discrete row-stepper (`TargetListController.cs
 is current. This adds the same shape to NO XMFD's TGT page, plus two more keybinds that mirror the
 DATALINK/STALE buttons (`docs/tgt-datalink-cancel.md`, `docs/tgt-stale-lock.md`).
 
+Next/Previous Target also drive a second, independent effect: which locked target TGT/FCR/HSD treat
+as "focused," everywhere those pages are open — see docs/tgt-cycle-focus.md. This doc covers only
+the row-stepper (`highlightIndex`) described below.
+
 ## The four binds
 
 All four are `TGT Keybinds` (`src/plugin/Input/Keybinds.cs`), placed right after `MAP Keybinds` — DefFree
