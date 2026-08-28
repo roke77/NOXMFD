@@ -125,12 +125,18 @@ namespace NOXMFD
             rect.anchorMax = src.anchorMax;
             rect.pivot = src.pivot;
             rect.sizeDelta = src.sizeDelta;
-            // Directly below radarAlt, offset by its own height plus a small gap — sign/magnitude
-            // not yet verified in-game (docs/hud-tti-estimate.md's own open question).
-            rect.anchoredPosition = src.anchoredPosition + new Vector2(0f, -(src.sizeDelta.y + 4f));
+            // Directly below radarAlt, offset by its rendered font size plus a small gap — not
+            // sizeDelta.y (the box height, confirmed in-game to be much taller than the actual
+            // glyph line, which left a visible gap with the native VVI ladder marks between them).
+            rect.anchoredPosition = src.anchoredPosition + new Vector2(0f, -(radarAlt.fontSize + 2f));
 
             _label = labelObject.GetComponent<TextMeshProUGUI>();
             _label.font = radarAlt.font;
+            // fontSize alone isn't enough when the source auto-sizes to its box (confirmed in-game:
+            // without these, the clone rendered far larger than every surrounding HUD readout).
+            _label.enableAutoSizing = radarAlt.enableAutoSizing;
+            _label.fontSizeMin = radarAlt.fontSizeMin;
+            _label.fontSizeMax = radarAlt.fontSizeMax;
             _label.fontSize = radarAlt.fontSize;
             _label.color = Amber;
             _label.alignment = radarAlt.alignment;

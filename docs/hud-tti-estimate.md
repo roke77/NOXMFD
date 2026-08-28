@@ -15,8 +15,16 @@ In-game testing found and fixed two real bugs the design didn't anticipate:
    `TgpNativeOverlay.cs` already had to work around for `TargetScreenUI`'s fields — the same
    migration bit this readout too. `HudTtiCue.cs` now reflects/clones a `TMP_Text` instead.
 
-Placement (the offset below `radarAlt`) is still unconfirmed — that needs the label actually
-rendering on screen to check, which the TMP fix above should now allow.
+**Confirmed working in-game** after the fixes above: the label builds, and TTI counts down in real
+time as a locked, focused target's tracking weapon closes (logged 30.6s → 0.1s on one live shot).
+Two cosmetic issues surfaced on first sight and were fixed:
+
+- The clone rendered far larger than every surrounding HUD readout — `radarAlt` auto-sizes its font
+  to its box (`enableAutoSizing`/`fontSizeMin`/`fontSizeMax`), and copying only `fontSize` isn't
+  enough; the clone now copies all three.
+- The vertical offset used `radarAlt`'s own box height (`sizeDelta.y`), which is much taller than
+  its actual glyph line, leaving a visible gap (the native VVI ladder marks sat in it). Now offsets
+  by `radarAlt.fontSize` instead, so it sits snug directly under the rendered text.
 
 ## Goal
 
