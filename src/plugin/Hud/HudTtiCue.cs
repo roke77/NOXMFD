@@ -12,11 +12,11 @@ namespace NOXMFD
     // iconLayer does there.
     internal sealed class HudTtiCue : MonoBehaviour
     {
-        // Same amber family as HudTgpCue's own marker/label — distinct from radarAlt's native
-        // green so a TTI countdown reads as "mod-added, watch this" rather than blending into the
-        // stock readout it sits under. Brighter/more saturated than HudTgpCue's own shade
-        // (confirmed in-game: the original read dim against the glowing native green text).
-        private static readonly Color Amber = new Color(1f, 0.78f, 0.15f, 1f);
+        // Same amber as HudWaypointCue's own readout (#FFAA00, alpha 1 — fully opaque, confirmed no
+        // transparency), rather than a distinct shade — one amber across every mod-added HUD cue.
+        // Distinct from radarAlt's native green so a TTI countdown reads as "mod-added, watch this"
+        // rather than blending into the stock readout it sits under.
+        private static readonly Color Amber = new Color(1f, 0.6667f, 0f, 1f);
 
         // 50% larger than HudWaypointCue's own in-game readout text (fontSize 13), by request —
         // a fixed size rather than cloned from radarAlt, which auto-sizes to fill its box and so

@@ -28,6 +28,10 @@ Three cosmetic issues surfaced on first sight and were fixed:
 - The vertical offset used `radarAlt`'s own box height (`sizeDelta.y`), which is much taller than
   its actual glyph line, leaving a visible gap (the native VVI ladder marks sat in it). Now offsets
   by the fixed size above instead, so it sits snug directly under the rendered text.
+- The color read dim against the glowing native green text. Tried a brighter/more saturated amber
+  first, then settled on matching `HudWaypointCue`'s own `#FFAA00` exactly instead (one amber across
+  every mod-added HUD cue, confirmed no transparency — alpha 1), plus reusing `radarAlt`'s own
+  `fontSharedMaterial` so the clone gets the same glow treatment the native text has.
 
 ## Goal
 
@@ -95,11 +99,12 @@ it without a live game install:
 (spawned when a mission starts, torn down when it ends).
 
 - **Build**: find the live `Altitude`, reflect its `radarAlt` label (`TMP_Text`, confirmed in-game
-  — see "Status"), and instantiate a new sibling `TextMeshProUGUI` cloned from it (font/size/
-  alignment/overflow copied, not reinvented) anchored directly below via a fixed
-  `anchoredPosition` offset (`radarAlt`'s own height plus a small gap). Color is
-  the one exception — amber (`HudTgpCue`'s own shade), not `radarAlt`'s native green, so the
-  readout reads as mod-added rather than blending into the stock HUD.
+  — see "Status"), and instantiate a new sibling `TextMeshProUGUI` cloned from it (font/alignment/
+  overflow copied, not reinvented, plus `radarAlt`'s own `fontSharedMaterial` so it gets the same
+  glow treatment) anchored directly below via a fixed `anchoredPosition` offset. Color and size are
+  the two exceptions — amber (`HudWaypointCue`'s own `#FFAA00`, one amber across every mod-added HUD
+  cue, not `radarAlt`'s native green) at a fixed size (see "Status"), so the readout reads as
+  mod-added rather than blending into the stock HUD.
 - **Refresh**: no local aircraft, no focused target (`TargetFocus.Id == 0`), or the focused unit
   gone/disabled → hide. Otherwise scan `UnitRegistry.allUnits` for the player's own live `Missile`s
   whose `targetID` matches; none found → hide (no pre-release estimate — see "Non-goals"). Among any
