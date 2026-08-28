@@ -76,7 +76,9 @@ radar cone.
 - F-35 edge grid: keep the FCR/HSD mark lights from the `NAV` table; add a RANGE decorator between
   the HSD R+/R- entries if the labels stay adjacent there.
 - PAD cursor focus: `hsd` is in `PAD_CURSOR_PAGES` — contact selection (Select toggles a lock) is
-  live from the start; no cursor-driven panning (HSD keeps its own R+/R- range stepping instead).
+  live from the start. No cursor-driven panning (HSD has no map to pan), but the cursor pushed
+  against the top/bottom scope edge steps range the same way FCR's own does (issue #66) — same
+  `onCursorEdge` cooldown, same top-increases/bottom-decreases convention, ported verbatim.
 
 ## Page split
 

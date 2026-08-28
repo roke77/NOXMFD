@@ -352,16 +352,20 @@ if (typeof window !== 'undefined' && window.addEventListener) {
     var r = scopeRectPx();
     cursor.setFocus(on, r.dx + r.dw / 2, r.dy + r.dh / 2);
   }
-  import('/assets/services/pad-cursor.js').then(function (mod) {
-    cursor = mod.createPadCursor({
-      el: document.getElementById('hsd-cursor'),
-      clampRect: scopeRectPx,
-      onSelect: padSelect,
-      onMove: padMove
+  // Cursor overflow at the top/bottom edge also steps range (issue #66) — shared with FCR's
+  // identical behavior (docs/rdr-fcr-hsd.md), see edge-range-step.js.
+  Promise.all([import('/assets/services/pad-cursor.js'), import('/assets/services/edge-range-step.js')])
+    .then(function (mods) {
+      cursor = mods[0].createPadCursor({
+        el: document.getElementById('hsd-cursor'),
+        clampRect: scopeRectPx,
+        onSelect: padSelect,
+        onMove: padMove,
+        onEdge: mods[1].createEdgeRangeStepper(function (dir) { setRangeIdx(rangeIdx + dir); })
+      });
+      if (pendingFocus) { centerFocus(pendingFocus.on); pendingFocus = null; }
+      if (pendingVec) { cursor.setVector(pendingVec.x, pendingVec.y); pendingVec = null; }
     });
-    if (pendingFocus) { centerFocus(pendingFocus.on); pendingFocus = null; }
-    if (pendingVec) { cursor.setVector(pendingVec.x, pendingVec.y); pendingVec = null; }
-  });
 
   // A mouse/touch tap selects the same way the PAD cursor's Select does — same hit-test, same
   // toggle-lock, matching FCR's own click handler.

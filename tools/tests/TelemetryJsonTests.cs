@@ -271,5 +271,29 @@ namespace NOXMFD.Tests
             Assert.Equal(1.0, item["st"]);
             Assert.Equal("F-16", item["n"]);
         }
+
+        [Fact]
+        public void MapReach_is_a_separate_block_alongside_map_and_survives_the_round_trip()
+        {
+            // Appended via plain StringBuilder.Append rather than a numbered {N} slot in
+            // AppendFrameHeader's format string (issue #65) — this is what would have caught a
+            // malformed append (bad braces/comma) producing invalid JSON or a silently wrong value.
+            var s = default(TelemetrySnapshot);
+            s.MapValid = true;
+            s.MapW = 81920f;
+            s.MapH = 81920f;
+            s.MapReachW = 160000f;
+            s.MapReachH = 160000f;
+
+            var root = Root(s);
+            var map = Obj(root["map"]);
+            var mapReach = Obj(root["mapReach"]);
+
+            Assert.True((bool)map["valid"]!);
+            Assert.Equal(81920.0, map["w"]);
+            Assert.Equal(81920.0, map["h"]);
+            Assert.Equal(160000.0, mapReach["w"]);
+            Assert.Equal(160000.0, mapReach["h"]);
+        }
     }
 }

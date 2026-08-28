@@ -31,6 +31,7 @@ namespace NOXMFD
         private LevelInfo? _level;
         private bool  _mapValid;
         private float _mapW, _mapH;
+        private float _mapReachW, _mapReachH;   // see the reach comment on TelemetrySnapshot.MapReachW
         private int   _gridOffsetX, _gridOffsetY;
 
         // Scratch for BuildFailures (the failure-indicator GameObjects themselves are captured by
@@ -241,6 +242,14 @@ namespace NOXMFD
                 _mapValid    = _mapW > 0f && _mapH > 0f;
                 _mapName     = CleanName(ms.name);
                 _assets.TryCaptureMap(ms);
+
+                // issue #65: MapSettings.GridSizeX/Y (10km grid-letter bands) is the mission's real
+                // reachable extent — confirmed in-game to run past MapSize, the smaller square the
+                // minimap IMAGE was captured at (a carrier deck and its surrounding terrain sat
+                // beyond MapSize but within GridSize). Falls back to MapSize when GridSizeX/Y isn't
+                // authored (0), so a mission without it keeps today's exact behavior.
+                _mapReachW = ms.GridSizeX > 0 ? ms.GridSizeX * 10000f : _mapW;
+                _mapReachH = ms.GridSizeY > 0 ? ms.GridSizeY * 10000f : _mapH;
             }
 
             _missionName = MissionManager.CurrentMission?.Name ?? string.Empty;
@@ -805,6 +814,8 @@ namespace NOXMFD
                 MapValid       = _mapValid,
                 MapW           = _mapW,
                 MapH           = _mapH,
+                MapReachW      = _mapReachW,
+                MapReachH      = _mapReachH,
                 GridOffsetX    = _gridOffsetX,
                 GridOffsetY    = _gridOffsetY,
                 Units          = _cachedUnits,
