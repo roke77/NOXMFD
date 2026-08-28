@@ -118,6 +118,13 @@ const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) < eps, `${msg}: ${a} 
   // zoom to MIN_ZOOM=1..MAX_ZOOM=8 (including when reading the persisted view), so that input
   // cannot occur. Pinning behaviour for it would freeze an accident rather than a contract — the
   // precondition is noted on clampPan instead.
+
+  // marginFrac (issue #65) grants extra slack past the zoom=1 footprint, proportional to zoom;
+  // omitting it (or passing 0) must reproduce the exact behaviour asserted above.
+  eqPan(T.clampPan(g1, 999, -999, 0), 0, 0, 'marginFrac 0 must match the no-margin behaviour');
+  const marginX = r.dw * 0.1, marginY = r.dh * 0.1;   // zoom 1 here, so margin isn't scaled further
+  eqPan(T.clampPan(base({ view: { zoom: 1, panX: 0, panY: 0 } }), 1e6, 1e6, 0.1), marginX, marginY,
+    'marginFrac should extend the clamp past the zoom=1 footprint');
 }
 
 // ── No map metadata yet ─────────────────────────────────────────────────────────────────

@@ -79,8 +79,15 @@ namespace NOXMFD
         // Map metadata — constant for a given map, lets the client place the plane
         // directly without calibration and reproduce the in-game grid label (e.g. "Hc87").
         public bool   MapValid;
-        public float  MapW, MapH;               // world units spanned by the map (centered on origin)
+        public float  MapW, MapH;               // world units spanned by the MAP IMAGE (centered on origin)
         public int    GridOffsetX, GridOffsetY; // grid label offsets from MapSettings
+        // The mission's real reachable extent (MapSettings.GridSizeX/Y * 10000, its 10km grid-letter
+        // bands) — issue #65: terrain/spawns can sit past MapW/H, the smaller square the minimap
+        // IMAGE itself was captured at. Falls back to MapW/H when GridSizeX/Y isn't set, so callers
+        // needn't special-case a mission without it. Used for the pan/cursor edge margin and the
+        // MAP page's own coordinate-grid overlay — never for placing the map image itself, which is
+        // still sized to MapW/H, its true pixel coverage.
+        public float  MapReachW, MapReachH;
 
         // Other units the player's faction can see (fog-of-war respected).
         public UnitInfo[] Units;

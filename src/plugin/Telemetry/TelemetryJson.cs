@@ -54,6 +54,11 @@ namespace NOXMFD
                 JsonLite.EscapeJson(s.SoftRel ?? string.Empty),
                 JsonBool(masterArmsOn),
                 JsonLite.EscapeJson(combatModeLabel ?? string.Empty));
+            // The mission's real reachable extent (issue #65) — see TelemetrySnapshot.MapReachW.
+            // A separate append rather than a new {N} slot in the format string above, so adding it
+            // doesn't force renumbering every placeholder after it.
+            sb.Append("\"mapReach\":{\"w\":").Append(s.MapReachW.ToString("0.0", CultureInfo.InvariantCulture))
+              .Append(",\"h\":").Append(s.MapReachH.ToString("0.0", CultureInfo.InvariantCulture)).Append("},");
             sb.Append("\"tgpResolution\":\"").Append(JsonLite.EscapeJson(s.TgpResolution ?? "native")).Append("\",");
             sb.Append("\"tgpQuality\":\"").Append(JsonLite.EscapeJson(s.TgpQuality ?? "native")).Append("\",");
             sb.Append("\"tgpManual\":").Append(JsonBool(s.TgpManualActive)).Append(',');
