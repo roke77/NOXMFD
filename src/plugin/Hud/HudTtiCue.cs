@@ -17,6 +17,11 @@ namespace NOXMFD
         // stock readout it sits under.
         private static readonly Color Amber = new Color(1f, 0.6667f, 0f, 1f);
 
+        // 50% larger than HudWaypointCue's own in-game readout text (fontSize 13), by request —
+        // a fixed size rather than cloned from radarAlt, which auto-sizes to fill its box and so
+        // has no single "size" a short string like "TTI"/"0:08" can borrow (see Build()).
+        private const float TtiFontSize = 13f * 1.5f;
+
         private static bool _reflectionTried;
         private static FieldInfo? _radarAltField;
 
@@ -125,19 +130,19 @@ namespace NOXMFD
             rect.anchorMax = src.anchorMax;
             rect.pivot = src.pivot;
             rect.sizeDelta = src.sizeDelta;
-            // Directly below radarAlt, offset by its rendered font size plus a small gap — not
-            // sizeDelta.y (the box height, confirmed in-game to be much taller than the actual
-            // glyph line, which left a visible gap with the native VVI ladder marks between them).
-            rect.anchoredPosition = src.anchoredPosition + new Vector2(0f, -(radarAlt.fontSize + 2f));
+            // Directly below radarAlt, offset by TtiFontSize (its own rendered line height) plus a
+            // small gap — not sizeDelta.y (the box height, confirmed in-game to be much taller than
+            // the actual glyph line, which left a visible gap with the native VVI ladder marks
+            // between them).
+            rect.anchoredPosition = src.anchoredPosition + new Vector2(0f, -(TtiFontSize + 2f));
 
             _label = labelObject.GetComponent<TextMeshProUGUI>();
             _label.font = radarAlt.font;
-            // fontSize alone isn't enough when the source auto-sizes to its box (confirmed in-game:
-            // without these, the clone rendered far larger than every surrounding HUD readout).
-            _label.enableAutoSizing = radarAlt.enableAutoSizing;
-            _label.fontSizeMin = radarAlt.fontSizeMin;
-            _label.fontSizeMax = radarAlt.fontSizeMax;
-            _label.fontSize = radarAlt.fontSize;
+            // Fixed, not cloned from radarAlt: radarAlt auto-sizes to fill its box, so copying that
+            // config (confirmed in-game) scaled TTI's short strings ("TTI", "0:08") up far past
+            // every surrounding readout — auto-size reacts to content length, not a stable size.
+            _label.enableAutoSizing = false;
+            _label.fontSize = TtiFontSize;
             _label.color = Amber;
             _label.alignment = radarAlt.alignment;
             _label.overflowMode = radarAlt.overflowMode;

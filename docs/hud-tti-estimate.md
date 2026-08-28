@@ -17,14 +17,17 @@ In-game testing found and fixed two real bugs the design didn't anticipate:
 
 **Confirmed working in-game** after the fixes above: the label builds, and TTI counts down in real
 time as a locked, focused target's tracking weapon closes (logged 30.6s → 0.1s on one live shot).
-Two cosmetic issues surfaced on first sight and were fixed:
+Three cosmetic issues surfaced on first sight and were fixed:
 
-- The clone rendered far larger than every surrounding HUD readout — `radarAlt` auto-sizes its font
-  to its box (`enableAutoSizing`/`fontSizeMin`/`fontSizeMax`), and copying only `fontSize` isn't
-  enough; the clone now copies all three.
+- The clone first rendered far larger than every surrounding HUD readout — tried cloning
+  `radarAlt`'s auto-size config (`enableAutoSizing`/`fontSizeMin`/`fontSizeMax`), but auto-sizing
+  reacts to content length, and TTI's short strings ("TTI", "0:08") scaled up to fill the same box
+  `radarAlt`'s own longer text fills at a smaller size — worse, not better. Settled on a fixed size
+  instead: 50% larger than `HudWaypointCue`'s own in-game readout text (`fontSize` 13), by request,
+  auto-sizing off entirely.
 - The vertical offset used `radarAlt`'s own box height (`sizeDelta.y`), which is much taller than
   its actual glyph line, leaving a visible gap (the native VVI ladder marks sat in it). Now offsets
-  by `radarAlt.fontSize` instead, so it sits snug directly under the rendered text.
+  by the fixed size above instead, so it sits snug directly under the rendered text.
 
 ## Goal
 
