@@ -4,9 +4,19 @@
 
 ## Status
 
-V1 implemented, not yet verified in-game — the placement offset below `Altitude.radarAlt` in
-particular needs a real flight to confirm, same caveat every other native HUD addition
-(`docs/hud-waypoint-indicator.md`, `HudTgpCue.cs`) has carried at first.
+In-game testing found and fixed two real bugs the design didn't anticipate:
+
+1. **`TargetFocus.Reconcile` could get stuck unfocused.** Locking two or more targets before ever
+   pressing Next/Previous Target left focus at `0` indefinitely — the reconcile logic only knew how
+   to auto-pick a focus for exactly one lock, not "nothing focused yet, several already exist."
+   Fixed in `TargetFocus.cs`; see `docs/tgt-cycle-focus.md`.
+2. **`Altitude.radarAlt` is `TMP_Text`, not `UnityEngine.UI.Text`.** The decompile snapshot
+   (`_scratch/full/Altitude.cs`) predates the game's own Text→TextMeshPro migration that
+   `TgpNativeOverlay.cs` already had to work around for `TargetScreenUI`'s fields — the same
+   migration bit this readout too. `HudTtiCue.cs` now reflects/clones a `TMP_Text` instead.
+
+Placement (the offset below `radarAlt`) is still unconfirmed — that needs the label actually
+rendering on screen to check, which the TMP fix above should now allow.
 
 ## Goal
 
@@ -18,9 +28,10 @@ shared `TargetFocus`) — not a pre-release "if I fired now" estimate.
 ## What the game already gives us
 
 **Radar altitude's native home**: `Altitude : HUDApp` (`_scratch/full/Altitude.cs`) holds two
-`[SerializeField] private Text` fields, `radarAlt` (`"R[" + altitude + "]"`) and `absAlt`. Neither
-is public, and `Altitude` isn't a scene singleton — the same access shape `TgpManualTargetCamAccess.cs`
-already solves for `TargetCam`'s internals: cache one reflected `FieldInfo`, find the live instance
+private fields, `radarAlt` (`"R[" + altitude + "]"`) and `absAlt` — the decompile shows them typed
+`Text`, but the live game build has them as `TMP_Text` (see "Status" above). Neither is public, and
+`Altitude` isn't a scene singleton — the same access shape `TgpManualTargetCamAccess.cs` already
+solves for `TargetCam`'s internals: cache one reflected `FieldInfo`, find the live instance
 (`FindFirstObjectByType`), rebuild if it goes Unity fake-null (the HUD is rebuilt per aircraft spawn,
 same as `CombatHUD.iconLayer` in `HudTgpCue.cs`).
 
@@ -51,7 +62,7 @@ instead answers "is this weapon of mine tracking my focused target," for any gui
 
 **Enumerating live weapons needs no reflection**: `UnitRegistry.allUnits` (public) and
 `UnitRegistry.TryGetUnit(PersistentID?, out Unit)` (already used by `CommandDispatcher`) are both
-public API. Only `Altitude`'s Text fields need the reflection treatment.
+public API. Only `Altitude`'s label fields need the reflection treatment.
 
 **Unguided weapons (dumb bombs, guns) have no `targetID`** — nothing to compute an intercept from
 without a real ballistics simulation. Out of scope (see "Non-goals").
@@ -72,9 +83,10 @@ it without a live game install:
 `HudWaypointCue`/`HudTgpCue` in `MissionLifecycle.StartReader`, so its lifetime matches theirs
 (spawned when a mission starts, torn down when it ends).
 
-- **Build**: find the live `Altitude`, reflect its `radarAlt` Text, and instantiate a new sibling
-  `Text` cloned from it (font/size/alignment/overflow copied, not reinvented) anchored directly
-  below via a fixed `anchoredPosition` offset (`radarAlt`'s own height plus a small gap). Color is
+- **Build**: find the live `Altitude`, reflect its `radarAlt` label (`TMP_Text`, confirmed in-game
+  — see "Status"), and instantiate a new sibling `TextMeshProUGUI` cloned from it (font/size/
+  alignment/overflow copied, not reinvented) anchored directly below via a fixed
+  `anchoredPosition` offset (`radarAlt`'s own height plus a small gap). Color is
   the one exception — amber (`HudTgpCue`'s own shade), not `radarAlt`'s native green, so the
   readout reads as mod-added rather than blending into the stock HUD.
 - **Refresh**: no local aircraft, no focused target (`TargetFocus.Id == 0`), or the focused unit

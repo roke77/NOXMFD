@@ -1,6 +1,6 @@
 using System.Reflection;
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace NOXMFD
 {
@@ -8,7 +8,7 @@ namespace NOXMFD
     // focused target (TargetFocus.cs, issue #62), shown directly below the native radar altitude
     // readout (issue #67, docs/hud-tti-estimate.md). Follows HudTgpCue.cs's shape: build once
     // against the live HUD, refresh every frame, rebuild if the HUD tears down and comes back
-    // (aircraft respawn) — Altitude's radarAlt Text goes Unity fake-null the same way CombatHUD's
+    // (aircraft respawn) — Altitude's radarAlt label goes Unity fake-null the same way CombatHUD's
     // iconLayer does there.
     internal sealed class HudTtiCue : MonoBehaviour
     {
@@ -29,8 +29,8 @@ namespace NOXMFD
         private float _recomputeTimer;
         private float _cachedTti = -1f;
 
-        private Text?   _label;
-        private string? _lastLabelText;
+        private TMP_Text? _label;
+        private string?   _lastLabelText;
 
         // TEMPORARY (issue #67 in-game diagnosis, remove once the "never shows" report is
         // resolved): an unconditional once-a-second heartbeat, independent of every early-return
@@ -108,13 +108,16 @@ namespace NOXMFD
                 if (!_loggedNoAltitude) { _loggedNoAltitude = true; Plugin.Log?.LogInfo("[NOXMFD] HUD TTI: FindFirstObjectByType<Altitude> found nothing."); }
                 return false;
             }
-            if (_radarAltField!.GetValue(altitude) is not Text radarAlt || radarAlt == null)
+            // TMP_Text, not UnityEngine.UI.Text: confirmed in-game (issue #67) that Altitude's
+            // radarAlt is TextMeshPro now, matching the same 0.34 Text->TMP migration
+            // TgpNativeOverlay.cs already worked around for TargetScreenUI's fields.
+            if (_radarAltField!.GetValue(altitude) is not TMP_Text radarAlt || radarAlt == null)
             {
                 if (!_loggedBadField) { _loggedBadField = true; Plugin.Log?.LogInfo("[NOXMFD] HUD TTI: Altitude found, but radarAlt field read null/wrong type."); }
                 return false;
             }
 
-            var labelObject = new GameObject("NOXMFD_TtiCue", typeof(RectTransform), typeof(Text));
+            var labelObject = new GameObject("NOXMFD_TtiCue", typeof(RectTransform), typeof(TextMeshProUGUI));
             RectTransform rect = labelObject.GetComponent<RectTransform>();
             rect.SetParent(radarAlt.transform.parent, false);
             RectTransform src = radarAlt.rectTransform;
@@ -126,13 +129,12 @@ namespace NOXMFD
             // not yet verified in-game (docs/hud-tti-estimate.md's own open question).
             rect.anchoredPosition = src.anchoredPosition + new Vector2(0f, -(src.sizeDelta.y + 4f));
 
-            _label = labelObject.GetComponent<Text>();
+            _label = labelObject.GetComponent<TextMeshProUGUI>();
             _label.font = radarAlt.font;
             _label.fontSize = radarAlt.fontSize;
             _label.color = Amber;
             _label.alignment = radarAlt.alignment;
-            _label.horizontalOverflow = radarAlt.horizontalOverflow;
-            _label.verticalOverflow = radarAlt.verticalOverflow;
+            _label.overflowMode = radarAlt.overflowMode;
             _label.raycastTarget = false;
             _label.gameObject.SetActive(false);
             _lastLabelText = null;
