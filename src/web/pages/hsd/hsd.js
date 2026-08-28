@@ -357,11 +357,26 @@ if (typeof window !== 'undefined' && window.addEventListener) {
       el: document.getElementById('hsd-cursor'),
       clampRect: scopeRectPx,
       onSelect: padSelect,
-      onMove: padMove
+      onMove: padMove,
+      onEdge: onCursorEdge
     });
     if (pendingFocus) { centerFocus(pendingFocus.on); pendingFocus = null; }
     if (pendingVec) { cursor.setVector(pendingVec.x, pendingVec.y); pendingVec = null; }
   });
+
+  // Cursor overflow at the top/bottom edge also steps range (issue #66) — same RNG+/- behavior
+  // FCR's own onCursorEdge gives its B-scope (rdr.js), including the discrete-step cooldown: onEdge
+  // fires every animation frame while overshot, but a range step needs one push = one step, not a
+  // whole ladder blown through in a single frame.
+  var EDGE_STEP_COOLDOWN_MS = 400;
+  var lastEdgeStepAt = 0;
+  function onCursorEdge(ex, ey) {
+    if (!ey) return;
+    var now = performance.now();
+    if (now - lastEdgeStepAt < EDGE_STEP_COOLDOWN_MS) return;
+    lastEdgeStepAt = now;
+    setRangeIdx(rangeIdx + (ey < 0 ? 1 : -1));
+  }
 
   // A mouse/touch tap selects the same way the PAD cursor's Select does — same hit-test, same
   // toggle-lock, matching FCR's own click handler.
