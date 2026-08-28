@@ -90,6 +90,12 @@ namespace NOXMFD
             _label!.text = text;
         }
 
+        // TEMPORARY (issue #67 in-game diagnosis): logs Build()'s failure once per distinct cause,
+        // so "never builds" (confirmed by the heartbeat) can be traced to the actual missing piece
+        // instead of staying a silent no-op.
+        private static bool _loggedNoAltitude;
+        private static bool _loggedBadField;
+
         private bool Build()
         {
             if (!EnsureReflection()) return false;
@@ -97,8 +103,16 @@ namespace NOXMFD
             // finding Altitude actually requires it (or an ancestor) to be active right now, so
             // there's no reason to risk missing it over a momentary/conditional inactive state.
             Altitude? altitude = UnityEngine.Object.FindFirstObjectByType<Altitude>(FindObjectsInactive.Include);
-            if (altitude == null) return false;
-            if (_radarAltField!.GetValue(altitude) is not Text radarAlt || radarAlt == null) return false;
+            if (altitude == null)
+            {
+                if (!_loggedNoAltitude) { _loggedNoAltitude = true; Plugin.Log?.LogInfo("[NOXMFD] HUD TTI: FindFirstObjectByType<Altitude> found nothing."); }
+                return false;
+            }
+            if (_radarAltField!.GetValue(altitude) is not Text radarAlt || radarAlt == null)
+            {
+                if (!_loggedBadField) { _loggedBadField = true; Plugin.Log?.LogInfo("[NOXMFD] HUD TTI: Altitude found, but radarAlt field read null/wrong type."); }
+                return false;
+            }
 
             var labelObject = new GameObject("NOXMFD_TtiCue", typeof(RectTransform), typeof(Text));
             RectTransform rect = labelObject.GetComponent<RectTransform>();
@@ -122,6 +136,9 @@ namespace NOXMFD
             _label.raycastTarget = false;
             _label.gameObject.SetActive(false);
             _lastLabelText = null;
+            Plugin.Log?.LogInfo(
+                $"[NOXMFD] HUD TTI: label built OK, parent='{radarAlt.transform.parent?.name}' " +
+                $"srcAnchoredPos={src.anchoredPosition} srcSize={src.sizeDelta}.");
             return true;
         }
 
