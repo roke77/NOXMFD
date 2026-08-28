@@ -38,25 +38,8 @@ namespace NOXMFD
         private TMP_Text? _label;
         private string?   _lastLabelText;
 
-        // TEMPORARY (issue #67 in-game diagnosis, remove once the "never shows" report is
-        // resolved): an unconditional once-a-second heartbeat, independent of every early-return
-        // below, so a silent LateUpdate (component never runs) is distinguishable in the log from
-        // TargetFocus genuinely staying 0 or the label failing to Build().
-        private float _heartbeatTimer;
-
         private void LateUpdate()
         {
-            _heartbeatTimer += Time.deltaTime;
-            if (_heartbeatTimer >= 1f)
-            {
-                _heartbeatTimer = 0f;
-                bool hasAc = GameManager.GetLocalAircraft(out Aircraft hbAc) && hbAc != null;
-                int lockCount = hasAc && hbAc.weaponManager != null ? hbAc.weaponManager.GetTargetList().Count : -1;
-                Plugin.Log?.LogInfo(
-                    $"[NOXMFD] HUD TTI heartbeat: hasAircraft={hasAc} lockCount={lockCount} " +
-                    $"focusId={TargetFocus.Id} labelBuilt={_label != null}.");
-            }
-
             if (!GameManager.GetLocalAircraft(out Aircraft ac) || ac == null || TargetFocus.Id == 0)
             {
                 Hide();
@@ -96,9 +79,8 @@ namespace NOXMFD
             _label!.text = text;
         }
 
-        // TEMPORARY (issue #67 in-game diagnosis): logs Build()'s failure once per distinct cause,
-        // so "never builds" (confirmed by the heartbeat) can be traced to the actual missing piece
-        // instead of staying a silent no-op.
+        // Logged once each (like EnsureReflection's own warning below) rather than left silent —
+        // both are real "the native HUD changed shape again" failure modes, not just this one bug.
         private static bool _loggedNoAltitude;
         private static bool _loggedBadField;
 
@@ -111,7 +93,7 @@ namespace NOXMFD
             Altitude? altitude = UnityEngine.Object.FindFirstObjectByType<Altitude>(FindObjectsInactive.Include);
             if (altitude == null)
             {
-                if (!_loggedNoAltitude) { _loggedNoAltitude = true; Plugin.Log?.LogInfo("[NOXMFD] HUD TTI: FindFirstObjectByType<Altitude> found nothing."); }
+                if (!_loggedNoAltitude) { _loggedNoAltitude = true; Plugin.Log?.LogWarning("[NOXMFD] HUD TTI: FindFirstObjectByType<Altitude> found nothing — cue disabled."); }
                 return false;
             }
             // TMP_Text, not UnityEngine.UI.Text: confirmed in-game (issue #67) that Altitude's
@@ -119,7 +101,7 @@ namespace NOXMFD
             // TgpNativeOverlay.cs already worked around for TargetScreenUI's fields.
             if (_radarAltField!.GetValue(altitude) is not TMP_Text radarAlt || radarAlt == null)
             {
-                if (!_loggedBadField) { _loggedBadField = true; Plugin.Log?.LogInfo("[NOXMFD] HUD TTI: Altitude found, but radarAlt field read null/wrong type."); }
+                if (!_loggedBadField) { _loggedBadField = true; Plugin.Log?.LogWarning("[NOXMFD] HUD TTI: Altitude found, but radarAlt field read null/wrong type — cue disabled."); }
                 return false;
             }
 
@@ -154,9 +136,6 @@ namespace NOXMFD
             _label.raycastTarget = false;
             _label.gameObject.SetActive(false);
             _lastLabelText = null;
-            Plugin.Log?.LogInfo(
-                $"[NOXMFD] HUD TTI: label built OK, parent='{radarAlt.transform.parent?.name}' " +
-                $"srcAnchoredPos={src.anchoredPosition} srcSize={src.sizeDelta}.");
             return true;
         }
 
@@ -170,10 +149,6 @@ namespace NOXMFD
             return _radarAltField != null;
         }
 
-        // TEMPORARY (issue #67 in-game diagnosis, remove once the "never shows" report is
-        // resolved): last focused id we logged a transition for, so a held focus doesn't spam.
-        private static uint _lastLoggedFocusId = uint.MaxValue;
-
         // Smallest time-to-impact among the player's own in-flight guided weapons tracking the
         // focused, locked target — the one closest to hitting, per the ticket's own "first or
         // closest weapon release" wording. -1 when there's nothing to show: no target focused, the
@@ -182,35 +157,20 @@ namespace NOXMFD
         private static float ComputeTti(uint playerId)
         {
             uint focusedId = TargetFocus.Id;
-            if (focusedId != _lastLoggedFocusId)
-            {
-                _lastLoggedFocusId = focusedId;
-                string name = focusedId != 0 && UnitRegistry.TryGetUnit(new PersistentID { Id = focusedId }, out Unit fu) && fu != null
-                    ? (fu.definition?.unitName ?? "?") : "none";
-                Plugin.Log?.LogInfo($"[NOXMFD] HUD TTI: focus -> id={focusedId} name='{name}'.");
-            }
             if (focusedId == 0) return -1f;
             if (!UnitRegistry.TryGetUnit(new PersistentID { Id = focusedId }, out Unit target) ||
                 target == null || target.disabled)
                 return -1f;
 
             float best = -1f;
-            int ownMissiles = 0, trackingAnyTarget = 0, trackingFocused = 0;
             foreach (Unit u in UnitRegistry.allUnits)
             {
                 if (u is not Missile m || m.disabled) continue;
-                if (m.ownerID.Id != playerId) continue;
-                ownMissiles++;
-                if (m.targetID.Id != 0) trackingAnyTarget++;
-                if (m.targetID.Id != focusedId) continue;
-                trackingFocused++;
+                if (m.ownerID.Id != playerId || m.targetID.Id != focusedId) continue;
 
                 float t = EstimateImpactTime(m, target);
                 if (t >= 0f && (best < 0f || t < best)) best = t;
             }
-            Plugin.Log?.LogInfo(
-                $"[NOXMFD] HUD TTI: focus={focusedId} ownMissiles={ownMissiles} " +
-                $"trackingAnyTarget={trackingAnyTarget} trackingFocused={trackingFocused} best={best:0.0}.");
             return best;
         }
 
