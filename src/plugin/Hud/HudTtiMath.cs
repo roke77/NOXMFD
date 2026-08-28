@@ -11,6 +11,11 @@ namespace NOXMFD
     // barely-closing geometry doesn't produce a huge or negative time. Same shape, just applied to
     // our own outgoing weapon against our own focused target instead of an incoming missile
     // against us.
+    //
+    // ponytail: this is the game's own accepted approximation for a maneuvering, guided intercept,
+    // not a real prediction — no foresight of a hard turn by either side between frames. Upgrade
+    // path, if ever needed: sample position/velocity over a couple of frames and extrapolate a
+    // proper closing curve instead of this instant's straight-line rate.
     internal static class HudTtiMath
     {
         private const float MinClosingSpeedMps = 1f;

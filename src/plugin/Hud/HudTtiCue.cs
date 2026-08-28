@@ -107,10 +107,8 @@ namespace NOXMFD
             return best;
         }
 
-        // ponytail: HudTtiMath's own formula is a range/closing-speed approximation, not a real
-        // intercept prediction — no foresight of a hard turn by either side between frames. Matches
-        // the game's own incoming-missile evasion math (AIPilotCombatModes.EvadeModeRadar), which
-        // accepts the same approximation for a maneuvering, guided threat.
+        // Feeds live positions/velocities into HudTtiMath (see its own header for the formula and
+        // its ponytail-labeled approximation limits).
         private static float EstimateImpactTime(Missile missile, Unit target)
         {
             if (missile.rb == null || target.rb == null) return -1f;
