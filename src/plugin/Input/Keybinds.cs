@@ -836,14 +836,11 @@ namespace NOXMFD
             if (down && ac.gearState == LandingGear.GearState.LockedRetracted) ac.SetGear(true);    // lower if up
         }
 
-        // Next/Previous Target's OTHER effect (issue #62, docs/tgt-cycle-focus.md): steps
-        // TargetFocus using the player's own weaponManager lock order, independent of SOI focus and
-        // of the SOI-gated tgt-next/tgt-prev MapAction above — so it reaches every open TGT/FCR/HSD
-        // page in every browser, not just whichever one is SOI-focused. A DefFree bind with no
-        // aircraft (main menu, or between missions) is simply a no-op — nothing is locked yet either.
-        // Internal, not private: CommandDispatcher's "map.action" also calls this directly, so a
-        // remote/WSO device (docs/remote-keybinds.md) pressing the same Next/Previous Target bind
-        // gets this second effect too, not just the SOI-gated TGT highlight MapAction itself covers.
+        // Next/Previous Target's OTHER effect (docs/tgt-cycle-focus.md): steps TargetFocus using the
+        // player's own weaponManager lock order, unlike the SOI-gated tgt-next/tgt-prev MapAction
+        // above — reaches every open TGT/FCR/HSD page regardless of SOI. No aircraft is simply a
+        // no-op. Internal, not private: CommandDispatcher's "map.action" calls this too, so a
+        // remote/WSO device gets the same effect a physical press does.
         internal static void CycleTargetFocus(int dir)
         {
             GameManager.GetLocalAircraft(out Aircraft ac);

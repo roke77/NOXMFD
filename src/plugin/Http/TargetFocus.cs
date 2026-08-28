@@ -15,18 +15,16 @@ namespace NOXMFD
     internal static class TargetFocus
     {
         private static uint _id;
-        private static long _version;
         private static readonly object _lock = new object();
 
-        internal static uint Id      => Volatile.Read(ref _id);
-        internal static long Version => Interlocked.Read(ref _version);
+        internal static uint Id => Volatile.Read(ref _id);
 
-        private static void SetIdLocked(uint id)
-        {
-            if (Volatile.Read(ref _id) == id) return;
-            Volatile.Write(ref _id, id);
-            Interlocked.Increment(ref _version);
-        }
+        // No version counter, unlike SoiFocus's own SetTargetLocked: that one needs one because SOI
+        // state is serialized straight off SoiFocus at request time (TelemetryServer.GetFrameBytes).
+        // FocusedTargetId instead rides inside TelemetrySnapshot itself (TelemetryReader.PushSnapshot),
+        // so it's already covered by the snapshot's own version — a separate counter here would have
+        // no reader.
+        private static void SetIdLocked(uint id) => Volatile.Write(ref _id, id);
 
         // Called once per contact scan (TelemetryReader.RefreshContactSnapshotIfNeeded) with the
         // player's CURRENT lock list, in the game's own weaponManager.GetTargetList() order —

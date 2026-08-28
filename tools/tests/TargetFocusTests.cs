@@ -89,18 +89,5 @@ namespace NOXMFD.Tests
             TargetFocus.Cycle(-1, ids);
             Assert.Equal(start, TargetFocus.Id);
         }
-
-        [Fact]
-        public void Version_only_bumps_when_the_id_actually_changes()
-        {
-            TargetFocus.Reconcile(new List<uint> { 55 });
-            long v = TargetFocus.Version;
-
-            TargetFocus.Reconcile(new List<uint> { 55 });   // no change
-            Assert.Equal(v, TargetFocus.Version);
-
-            TargetFocus.Reconcile(new List<uint> { 66 });   // now the only lock — changes
-            Assert.True(TargetFocus.Version > v);
-        }
     }
 }
