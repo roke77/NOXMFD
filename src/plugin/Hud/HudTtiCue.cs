@@ -12,6 +12,11 @@ namespace NOXMFD
     // iconLayer does there.
     internal sealed class HudTtiCue : MonoBehaviour
     {
+        // Same amber family as HudTgpCue's own marker/label — distinct from radarAlt's native
+        // green so a TTI countdown reads as "mod-added, watch this" rather than blending into the
+        // stock readout it sits under.
+        private static readonly Color Amber = new Color(1f, 0.6667f, 0f, 1f);
+
         private static bool _reflectionTried;
         private static FieldInfo? _radarAltField;
 
@@ -71,7 +76,10 @@ namespace NOXMFD
         private bool Build()
         {
             if (!EnsureReflection()) return false;
-            Altitude? altitude = UnityEngine.Object.FindFirstObjectByType<Altitude>();
+            // Include inactive, matching HudTgpCue.ResolveFont's own find call — nothing about
+            // finding Altitude actually requires it (or an ancestor) to be active right now, so
+            // there's no reason to risk missing it over a momentary/conditional inactive state.
+            Altitude? altitude = UnityEngine.Object.FindFirstObjectByType<Altitude>(FindObjectsInactive.Include);
             if (altitude == null) return false;
             if (_radarAltField!.GetValue(altitude) is not Text radarAlt || radarAlt == null) return false;
 
@@ -90,7 +98,7 @@ namespace NOXMFD
             _label = labelObject.GetComponent<Text>();
             _label.font = radarAlt.font;
             _label.fontSize = radarAlt.fontSize;
-            _label.color = radarAlt.color;
+            _label.color = Amber;
             _label.alignment = radarAlt.alignment;
             _label.horizontalOverflow = radarAlt.horizontalOverflow;
             _label.verticalOverflow = radarAlt.verticalOverflow;

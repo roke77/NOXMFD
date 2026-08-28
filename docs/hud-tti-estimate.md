@@ -73,8 +73,10 @@ it without a live game install:
 (spawned when a mission starts, torn down when it ends).
 
 - **Build**: find the live `Altitude`, reflect its `radarAlt` Text, and instantiate a new sibling
-  `Text` cloned from it (font/size/color/alignment/overflow all copied, not reinvented) anchored
-  directly below via a fixed `anchoredPosition` offset (`radarAlt`'s own height plus a small gap).
+  `Text` cloned from it (font/size/alignment/overflow copied, not reinvented) anchored directly
+  below via a fixed `anchoredPosition` offset (`radarAlt`'s own height plus a small gap). Color is
+  the one exception — amber (`HudTgpCue`'s own shade), not `radarAlt`'s native green, so the
+  readout reads as mod-added rather than blending into the stock HUD.
 - **Refresh**: no local aircraft, no focused target (`TargetFocus.Id == 0`), or the focused unit
   gone/disabled → hide. Otherwise scan `UnitRegistry.allUnits` for the player's own live `Missile`s
   whose `targetID` matches; none found → hide (no pre-release estimate — see "Non-goals"). Among any
