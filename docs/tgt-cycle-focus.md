@@ -4,15 +4,13 @@
 
 ## Goal
 
-Next/Previous Target (`docs/tgt-keybind-nav.md`) previously only drove TGT's own row-stepper, and
-only when TGT held SOI focus. This adds a second, independent effect the same two binds drive: which
-locked target TGT/FCR/HSD treat as "focused" among however many are locked — reaching every open
-TGT/FCR/HSD page in every connected browser, regardless of SOI.
+Next/Previous Target (`docs/tgt-keybind-nav.md`) drives TGT's own row-stepper, and — the effect this
+doc covers — also steps which locked target TGT/FCR/HSD treat as "focused" among however many are
+locked, reaching every open TGT/FCR/HSD page in every connected browser regardless of SOI.
 
-This is the foundation `docs/rdr-fcr-hsd.md`'s "Focused lock vs. locked" section already
-anticipated: FCR and HSD have always drawn a distinction between "the lock the bottom readout
-describes" and "any other simultaneous lock," but until now that distinction was just "whichever one
-each page's own render loop reached first" — never a real, shared value.
+This is the foundation `docs/rdr-fcr-hsd.md`'s "Focused lock vs. locked" section describes: FCR and
+HSD draw a distinction between "the lock the bottom readout describes" and "any other simultaneous
+lock," using this shared focus id as that distinction rather than each page guessing independently.
 
 ## What stays untouched
 

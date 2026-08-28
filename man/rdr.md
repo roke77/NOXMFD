@@ -93,8 +93,9 @@ currently focused:
 
 If you have more than one contact locked at once, only the focused one is shown here and drawn in
 amber — the rest still carry their lock ring, just in their ordinary color, since they aren't the
-one being read out. There's no way yet to change which lock is focused; a control for that is
-planned.
+one being read out. **Next Target / Previous Target** (see [KEY](keybinds.md#target-list)) step
+which lock is focused, on FCR and HSD together — the same keybinds [TGT](tgt.md) uses to step its
+own highlighted row, and the focus they set shows up on TGT's list too.
 
 Range and altitude use the same unit setting as the rest of the game (nm/ft or km/m).
 

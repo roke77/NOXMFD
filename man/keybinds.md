@@ -40,10 +40,16 @@ below, which also drives [manual TGP camera](tgp.md#manual-camera-control) zoom.
 
 ## Target list
 
-- **Next Target / Previous Target** — step a highlighted row through the focused [TGT](tgt.md)
-  display's locked-target list, without aiming the PAD cursor at it. Mutually exclusive with the
-  cursor: stepping a row hides the crosshair and hands Cursor Select to that row instead (Select
-  deselects it); moving the crosshair hands Select back.
+- **Next Target / Previous Target** — two effects at once, on every open [TGT](tgt.md)/[FCR/HSD](rdr.md)
+  page, in every browser, regardless of which one currently has SOI focus:
+  - Steps a highlighted row through the focused [TGT](tgt.md) display's locked-target list, without
+    aiming the PAD cursor at it. Mutually exclusive with the cursor: stepping a row hides the
+    crosshair and hands Cursor Select to that row instead (Select deselects it); moving the
+    crosshair hands Select back. This part still only acts on whichever TGT display is SOI-focused.
+  - Steps which one of your locked targets is the *focused* lock — the one [TGT](tgt.md) marks with
+    an amber accent bar and [FCR/HSD](rdr.md#when-a-target-is-locked) both draw amber and read out
+    in the bottom readout. This part isn't SOI-gated: it moves on every open TGT/FCR/HSD page at
+    once, so it works even from a page that isn't currently focused.
 - **Clear Datalink / Clear Stale** — the keybind equivalents of tapping [TGT](tgt.md)'s own
   DATALINK/STALE buttons.
 

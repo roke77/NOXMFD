@@ -212,9 +212,7 @@ namespace NOXMFD
             // mutually exclusive with) the PAD cursor's free crosshair: using either one hides the
             // crosshair and hands Cursor Select to the highlighted row instead; moving the crosshair
             // (Cursor Up/Down/Left/Right or its axis) clears the highlight and hands Select back to it.
-            // Next/Previous also step which locked target is FOCUSED (issue #62,
-            // docs/tgt-cycle-focus.md) — shared by TGT/FCR/HSD in every open browser regardless of
-            // SOI, alongside (not instead of) TGT's own SOI-gated row-highlight above.
+            // Next/Previous also drive a second, independent effect — see CycleTargetFocus below.
             const string tgt = "TGT Keybinds";
             DefFree(config, "tgt-next", tgt, "TgtNext", "Next Target", edge: true,
                 "Highlight the next locked target on the focused TGT display, and step which locked " +

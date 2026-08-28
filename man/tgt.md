@@ -25,6 +25,10 @@ Every target you currently have selected, one row per target:
 - **RNG** — range to the target.
 - **GRID** — its grid position.
 
+If you have more than one target selected, an amber accent bar marks whichever one is currently
+*focused* — the same one [FCR/HSD](rdr.md#when-a-target-is-locked) read out at the bottom of their
+own screens. **Next Target / Previous Target** (below) step which one that is.
+
 **Tap anywhere on a row** to deselect that target. **CLEAR TARGETS** deselects everything at once.
 
 ## Bulk-clearing by source

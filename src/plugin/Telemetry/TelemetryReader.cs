@@ -917,10 +917,8 @@ namespace NOXMFD
             _cachedHsd = BuildHsd(aircraft);
             _cachedPitbull = BuildPitbull(aircraft);
 
-            // Reconcile Next/Previous's shared target focus (issue #62) against locks that changed
-            // for reasons other than a Next/Prev press — a lock destroyed, deselected elsewhere, or
-            // freshly the only one left. Same list/order Next/Prev itself cycles through
-            // (Keybinds.cs's CycleTargetFocus) — see TargetFocus.Reconcile.
+            // Keeps TargetFocus honest against locks changing here rather than via a Next/Prev press
+            // (issue #62) — see TargetFocus.Reconcile for the actual rules.
             List<Unit>? targets = aircraft?.weaponManager?.GetTargetList();
             TargetFocus.Reconcile(TargetIds(targets));
         }
