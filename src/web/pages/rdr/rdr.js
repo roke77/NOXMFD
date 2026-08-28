@@ -339,32 +339,20 @@ if (typeof window !== 'undefined' && window.addEventListener) {
     var r = scopeRectPx();
     cursor.setFocus(on, r.dx + r.dw / 2, r.dy + r.dh / 2);
   }
-  import('/assets/services/pad-cursor.js').then(function (mod) {
-    cursor = mod.createPadCursor({
-      el: document.getElementById('rdr-cursor'),
-      clampRect: scopeRectPx,
-      onSelect: padSelect,
-      onMove: padMove,
-      onEdge: onCursorEdge
+  // Cursor overflow at the scope's top/bottom edge also steps range (RNG+/-) — shared with HSD's
+  // identical behavior (docs/rdr-fcr-hsd.md), see edge-range-step.js.
+  Promise.all([import('/assets/services/pad-cursor.js'), import('/assets/services/edge-range-step.js')])
+    .then(function (mods) {
+      cursor = mods[0].createPadCursor({
+        el: document.getElementById('rdr-cursor'),
+        clampRect: scopeRectPx,
+        onSelect: padSelect,
+        onMove: padMove,
+        onEdge: mods[1].createEdgeRangeStepper(function (dir) { setRangeIdx(rangeIdx + dir); })
+      });
+      if (pendingFocus) { centerFocus(pendingFocus.on); pendingFocus = null; }
+      if (pendingVec) { cursor.setVector(pendingVec.x, pendingVec.y); pendingVec = null; }
     });
-    if (pendingFocus) { centerFocus(pendingFocus.on); pendingFocus = null; }
-    if (pendingVec) { cursor.setVector(pendingVec.x, pendingVec.y); pendingVec = null; }
-  });
-
-  // Cursor overflow at the scope's top/bottom edge also steps range (RNG+/-): pushing past the top
-  // (further than max displayed range) widens back out; pushing past the bottom (toward/through
-  // ownship) narrows in. onEdge fires every animation frame while overshot (fine for MAP's
-  // continuous pan, map.js:onCursorEdge) — a discrete range step needs a cooldown instead, or one
-  // push would blow through every step in a single frame.
-  var EDGE_STEP_COOLDOWN_MS = 400;
-  var lastEdgeStepAt = 0;
-  function onCursorEdge(ex, ey) {
-    if (!ey) return;
-    var now = performance.now();
-    if (now - lastEdgeStepAt < EDGE_STEP_COOLDOWN_MS) return;
-    lastEdgeStepAt = now;
-    setRangeIdx(rangeIdx + (ey < 0 ? 1 : -1));
-  }
 
   // A mouse/touch tap selects the same way the PAD cursor's Select does — same hit-test, same
   // toggle-lock (target.select/deselect). The panel's own CSS cursor already matches the PAD gate's
