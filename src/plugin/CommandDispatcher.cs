@@ -132,7 +132,7 @@ namespace NOXMFD
                 { "soi.next",           e => TelemetryServer.SoiCycle(1) },
                 { "soi.prev",           e => TelemetryServer.SoiCycle(-1) },
                 { "soi.action",         e => TelemetryServer.SoiAction(e.wname ?? string.Empty) },
-                { "map.action",         e => TelemetryServer.MapAction(e.wname ?? string.Empty) },
+                { "map.action",         MapAction },
                 { "cursor.select",      e => TelemetryServer.CursorSelect() },
                 { "cursor.set",         CursorSet },
                 { "fire.set",           FireSet },
@@ -413,6 +413,18 @@ namespace NOXMFD
         private static void FireSet(CommandEnvelope env)
         {
             TelemetryServer.SetRemoteFireState(env.group ?? string.Empty, env.on);
+        }
+
+        // tgt-next/tgt-prev carry a second effect Keybinds.cs's own binds also trigger (issue #62,
+        // docs/tgt-cycle-focus.md): stepping the shared, non-SOI-gated target focus, not just the
+        // SOI-gated TGT highlight TelemetryServer.MapAction alone covers. A remote/WSO device
+        // (docs/remote-keybinds.md) posting this command needs both, same as a real keypress.
+        private static void MapAction(CommandEnvelope env)
+        {
+            string act = env.wname ?? string.Empty;
+            TelemetryServer.MapAction(act);
+            if (act == "tgt-next") Keybinds.CycleTargetFocus(1);
+            else if (act == "tgt-prev") Keybinds.CycleTargetFocus(-1);
         }
 
         private static float ClampUnit(float value)

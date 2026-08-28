@@ -841,7 +841,10 @@ namespace NOXMFD
         // of the SOI-gated tgt-next/tgt-prev MapAction above — so it reaches every open TGT/FCR/HSD
         // page in every browser, not just whichever one is SOI-focused. A DefFree bind with no
         // aircraft (main menu, or between missions) is simply a no-op — nothing is locked yet either.
-        private static void CycleTargetFocus(int dir)
+        // Internal, not private: CommandDispatcher's "map.action" also calls this directly, so a
+        // remote/WSO device (docs/remote-keybinds.md) pressing the same Next/Previous Target bind
+        // gets this second effect too, not just the SOI-gated TGT highlight MapAction itself covers.
+        internal static void CycleTargetFocus(int dir)
         {
             GameManager.GetLocalAircraft(out Aircraft ac);
             if (ac == null || ac.weaponManager == null) return;

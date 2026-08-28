@@ -81,7 +81,7 @@ it.
 | Cycle guns / missiles / bombs | No | one `CommandDispatcher` entry each → existing `WeaponSelectors.Cycle*` |
 | Flares / radar jammer | No | one entry → existing `Keybinds.Drive` (make internal) |
 | Dedicated gear up / down | No | one entry → existing `Keybinds.DriveGear` (make internal) |
-| MAP/TGT highlight nav (`tgt-next`/`tgt-prev`/etc.) | No | one entry → existing `TelemetryServer.MapAction` |
+| MAP/TGT highlight nav (`tgt-next`/`tgt-prev`/etc.) | No | one entry → existing `TelemetryServer.MapAction`, plus `Keybinds.CycleTargetFocus` for `tgt-next`/`tgt-prev` specifically (issue #62, docs/tgt-cycle-focus.md) |
 | SOI nav up/down/select (one-shot) | No | one entry → existing `TelemetryServer.SoiAction` |
 | Cursor move / cursor select | Yes (`cursor.set` / `cursor.select`) | built as remote held-state merged into the existing cursor stream |
 | Gun Trigger / Weapon Release / Jammer Pod fire | Yes (`fire.set`) | built as remote held-state merged into `Keybinds.Poll()` |
