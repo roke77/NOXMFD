@@ -185,5 +185,18 @@ let PadCursor;
     assert.deepStrictEqual(seen.move.at(-1), [null, null], 'onMove should report null once it is not visible');
   }
 
+  // ── getPos: a zoom anchor only while actually shown (issue #64) ──────────────────────
+  {
+    const { cur } = make();
+    assert.strictEqual(cur.getPos(), null, 'unfocused cursor has no position to anchor on');
+    cur.setFocus(true, 100, 100);
+    assert.deepStrictEqual(cur.getPos(), { x: 100, y: 100 }, 'focused + placed should report its position');
+    cur.setHidden(true);
+    assert.strictEqual(cur.getPos(), null, 'hidden must not offer a position even while parked');
+    cur.setHidden(false);
+    cur.reset();
+    assert.strictEqual(cur.getPos(), null, 'reset drops the position entirely');
+  }
+
   console.log('pad-cursor.test.js: OK');
 })();

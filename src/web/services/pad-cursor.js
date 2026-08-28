@@ -111,6 +111,11 @@ export function createPadCursor({ el, clampRect, onSelect, onHold, onMove, onEdg
     },
     // Re-clamp + repaint after the clamp rect changed (a resize) without moving the cursor itself.
     resize() { clamp(); paint(); },
+    // Current cursor position (clampRect's px space), or null when not shown — focused, placed,
+    // and not hidden. A page can use this as a zoom/action anchor when the cursor is standing in
+    // for the mouse (issue #64: bezel/keybind zoom should target the cursor, same as a mouse wheel
+    // targets the pointer).
+    getPos() { return (on && pos && !hidden) ? { x: pos.x, y: pos.y } : null; },
     // `pos`/`vec` stay untouched while hidden, so a still-deflected vector keeps driving
     // underneath (paint() just skips the visible repaint), and un-hiding shows the cursor exactly
     // where it was.
