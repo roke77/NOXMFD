@@ -128,8 +128,8 @@ namespace NOXMFD
         // Press-vs-hold is derived from Time.frameCount continuity: the drive runs every held frame,
         // so a gap in frames = a fresh press. Misses a release+re-press within one frame — physically
         // impossible on a real key.
-        private static int  _gunFrame = -10, _relFrame = -10, _jamFrame = -10, _relSingleFrame = -10;
-        private static bool _gunSwitchHold,  _relSwitchHold,  _jamSwitchHold,  _relSingleSwitchHold;
+        private static int  _gunFrame = -10, _relFrame = -10, _relSingleFrame = -10, _jamFrame = -10;
+        private static bool _gunSwitchHold,  _relSwitchHold,  _relSingleSwitchHold,  _jamSwitchHold;
 
         public static void FireGun(Aircraft ac)       => Fire(ac, EffectiveGun(ac),       ref _gunFrame, ref _gunSwitchHold, wm => wm.Fire());
         public static void FireRelease(Aircraft ac)   => Fire(ac, EffectiveRelease(ac),   ref _relFrame, ref _relSwitchHold, wm => wm.Fire());
@@ -159,9 +159,11 @@ namespace NOXMFD
             return WeaponSelectorLogic.Effective(_loadout, bucket, CurrentMode(), soft);
         }
 
-        // `commit` is what stage 2 (already on the right weapon) actually does — wm.Fire() for the
-        // stock binds, FireSingleAtFocused for issue #68's — so the switch-then-fire arbitration
-        // stays shared instead of copy-pasted per bind.
+        // `commit` is what stage 2 (already on the right weapon) actually does, so the
+        // switch-then-fire arbitration below stays shared instead of copy-pasted per bind: wm.Fire()
+        // for the three stock binds — the stock trigger's own entry point, covering safety,
+        // guns-linked, salvo, and the network path in one call — or FireSingleAtFocused for issue
+        // #68's, which reimplements just enough of that to redirect the target.
         private static void Fire(Aircraft ac, string? name, ref int lastFrame, ref bool switchHold, Action<WeaponManager> commit)
         {
             bool fresh = UnityEngine.Time.frameCount != lastFrame + 1;   // gap = new press
