@@ -29,14 +29,30 @@ Every target you currently have selected, one row per target:
 - **GRID** — its grid position.
 
 If you have more than one target selected, an outline marks whichever one is currently *focused* —
-the same one [FCR/HSD](rdr.md#when-a-target-is-locked) read out at the bottom of their own screens,
-and the one the in-game HUD's own [time-to-impact readout](rdr.md#in-game-hud-cue) tracks. **Next
-Target / Previous Target** step which one that is. The outline is **amber** right after pressing
-Next/Previous — **Cursor Select** deselects that target directly, no aiming needed. Move the PAD
-cursor instead and the outline turns **grey**: the same target is still focused (FCR/HSD/the HUD
+the same one [FCR/HSD](rdr.md#when-a-target-is-locked) read out at the bottom of their own screens.
+**Next Target / Previous Target** step which one that is. The outline is **amber** right after
+pressing Next/Previous — **Cursor Select** deselects that target directly, no aiming needed. Move
+the PAD cursor instead and the outline turns **grey**: the same target is still focused (FCR/HSD
 still read it out), but Select now acts on whatever the cursor is pointing at instead.
 
 **Tap anywhere on a row** to deselect that target. **CLEAR TARGETS** deselects everything at once.
+
+## Out in the world
+
+The focused lock isn't just a TGT/FCR/HSD thing — it follows you out of the MFD and onto the real
+cockpit view:
+
+![Native HUD showing the time-to-impact readout and the amber focus mark on a locked target](images/TTI.jpg)
+
+- A **time-to-impact** countdown (`TTI M:SS`, amber) appears on the HUD below the radar altitude
+  while one of your own missiles or guided bombs is in flight and tracking the focused target — see
+  [RDR](rdr.md#in-game-hud-cue) for the full readout and its own per-row version of this same value.
+- The focused target's own native lock symbol — the green diamond/square the game already draws
+  over anything you've locked — gets a small amber **+** at its top-left, so with several targets
+  locked you can tell which one is focused just by looking through the canopy.
+- **Single Target Weapon Release** (see [KEY](keybinds.md#weapons)) fires one missile/bomb at
+  exactly this target, even with others also locked — instead of the stock Weapon Release trigger's
+  own behavior of firing one round at *every* locked target in sequence.
 
 ## Bulk-clearing by source
 

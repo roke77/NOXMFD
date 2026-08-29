@@ -110,6 +110,8 @@ With more than one target locked, the focused one also gets a small amber **+** 
 its own lock symbol out in the world — so you can tell which lock [Single Target Weapon
 Release](keybinds.md#weapons) will fire at just by looking through the canopy.
 
+![Native HUD showing the TTI readout and the amber focus mark on a locked target](images/TTI.jpg)
+
 ## Locking a target
 
 Click or tap directly on a contact to lock it; click again to unlock — on either page. The same
