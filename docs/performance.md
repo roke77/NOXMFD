@@ -552,26 +552,23 @@ also lands.
 Third and last of the `docs/tgp-high-quality-mode.md` follow-up branches, off `tgp-mjpeg-cold-
 start`. Built the mirror camera (`TgpMirrorCam.cs`) this doc's implementation sketch describes —
 parented to `TargetCam.GetCamMount()`, never touching `TargetCam.cam`/`UICam`/anything
-`CameraStateManager` owns. Deliberately shipped as a **visual validation pass first**: no attempt
-to port the reference mod's `MissileCameraRenderPrep.cs` (terrain shader-global sync + a
-`DetailRenderer.camera` reflection hijack for correct tree/grass culling) up front — the plan was
-to look at the live result and only add that plumbing if it turned out to be needed.
+`CameraStateManager` owns. Deliberately shipped as a **visual validation pass first**, without
+terrain shader-global synchronization or replacing `DetailRenderer.camera`; that plumbing would
+only be justified if live testing showed the mirror camera needed it.
 
 ### Two tiers were built and A/B tested; one was dropped
 
-Went in with two HQ render styles, mirroring the reference mod's own approach for the same
-particle-vs-cost tradeoff:
+Two HQ render styles were built for the particle-versus-cost tradeoff:
 - **Performance** — camera disabled/URP Overlay; a manual `Camera.Render()` call transiently
   flipped it to Base+enabled once per TGP capture tick only (cost scales with the TGP Hz slider,
   not framerate).
 - **Full** — camera enabled/URP Base permanently; rendered every Unity frame by the pipeline,
   independent of TGP Hz.
 
-**Visual result, live in-game:** Performance mode's tree/grass line did not render (the predicted
-risk from reading the reference mod's terrain-detail plumbing, confirmed). Full mode's did —
-correctly, with no extra plumbing ported. Both modes showed particles/VFX correctly (explosions,
-helicopter dust) and shadows — the transient-render trick worked for Performance, matching the
-reference mod's own technique.
+**Visual result, live in-game:** Performance mode's tree/grass line did not render. Full mode's did,
+with no additional terrain plumbing. Both modes showed particles/VFX correctly (explosions,
+helicopter dust) and shadows, confirming that the transient render itself worked in Performance
+mode even though terrain detail did not.
 
 **Cost result, live A/B (steady-state averages, one session, one machine, 15 Hz TGP rate):**
 

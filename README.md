@@ -117,32 +117,27 @@ non-trivial, open an issue first so we can agree on the approach before you writ
 code. Security issues have their own process — see
 [Verifying and reporting](SECURITY.md#verifying-and-reporting).
 
-## Mod compatibility
+## Compatibility
 
-NO XMFD hasn't been systematically tested against other mods — that's real
-investigation work, tracked but not yet underway. If you hit a conflict, please
-[open an issue](https://github.com/roke77/NOXMFD/issues) with both mods' names
-and versions.
+Mixed BepInEx installations have not been systematically tested. If you hit a conflict, please
+[open an issue](https://github.com/roke77/NOXMFD/issues) with the names and versions of every
+installed plugin involved.
 
-Some ways two mods can step on each other, so you know what to check first if
-something breaks:
+The main shared surfaces to check are:
 
 - **Keybinds** — extended keybinds (flares, gear, weapon cycling, Master Arm,
-  radar/engine, combat mode) are read directly from raw keyboard/joystick state,
-  the same way most mods do it. Two mods bound to the same physical key/button
-  will both fire; NO XMFD doesn't and can't detect that for you.
+  radar/engine, combat mode) are read directly from raw keyboard/joystick state. Two plugins bound
+  to the same physical key/button will both fire; NO XMFD cannot detect that collision.
 - **Harmony patches** — a handful of game methods are patched to enforce Master
   Arms and set radar/engine spawn defaults (see
-  [SECURITY.md](SECURITY.md#what-no-xmfd-does) for the exact list). Another mod
-  patching the same methods can change behavior depending on patch order, which
-  isn't something either mod controls.
+  [SECURITY.md](SECURITY.md#what-no-xmfd-does) for the exact list). Additional patches on the same
+  methods can change behavior according to Harmony's patch order.
 - **HUD declutter** — hiding native HUD elements (weapon panel, minimap, boxed
-  readouts) works by directly toggling those elements' visibility. A mod that
-  also touches them can end up fighting NO XMFD over the same on/off state.
+  readouts) works by directly toggling those elements' visibility. A second writer can conflict
+  with NO XMFD over the same on/off state.
 
-None of this is unique to NO XMFD — it's the standard risk profile of any
-BepInEx mod that reads input or patches game code. Uninstalling one of the two
-mods is the fastest way to confirm which side a conflict is coming from.
+Temporarily disabling plugins one at a time is the fastest way to isolate which component owns a
+conflict.
 
 ## Extensions
 

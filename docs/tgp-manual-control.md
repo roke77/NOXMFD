@@ -2,18 +2,13 @@
 
 ## Status
 
-**Built and confirmed working in-game.** Written after pulling the full source of a third
-`9138noms` mod, `TargetCamControl`, which ships exactly this feature standalone — a DCS-style
-manual override of the same `TargetCam` NOXMFD's `TgpFeed` already reflects into.
-
-Reviewed once before implementation. Agreed: targets the real `TargetCam` (not just the HQ
-mirror), the Harmony requirement is justified, and auto-exit-on-real-lock is the right default.
-Four changes made from that review, folded into the sections below: (1) ships as a new
-`TgpManualControl.cs`, not inside `TgpFeed.cs`; (2) the command surface is designed remote-capable
-from the start, even though it ships local-only; (3) lifecycle rules — gear/landing-cam, aircraft
-loss — are explicit exit triggers, not just "real lock acquired"; (4) world-hit raycasting, floated
-as a "validation spike," was built out fully as **Point Track** (see below) rather than deferred —
-the spike confirmed the drift was bad enough to need it.
+**Built and confirmed working in-game.** Manual control targets the real `TargetCam`, not only the
+HQ mirror. Harmony gates the native drive methods while manual mode owns the camera, and a real
+target lock returns ownership to the game immediately. `TgpManualControl.cs` owns the feature
+instead of `TgpFeed.cs`; its command surface remains remote-capable even though only local controls
+are wired. Gear or landing-camera activation and aircraft loss are explicit exit triggers. Point
+Track stores its world hit through `GlobalPosition` because a direction alone drifts as the aircraft
+moves and the floating origin rebases.
 
 Shipped beyond the original scope after live testing surfaced real needs: **Point Track**
 (lock the aim to a fixed world point instead of a free direction), a **calibrated Zoom Axis**
@@ -50,104 +45,31 @@ This is explicitly scoped as **pointing control**, not a targeting feature: it d
 weapon lock, doesn't feed `WeaponManager`, and isn't meant to replace the existing lock-driven TGP
 feed — it's an additional mode the player switches into and out of.
 
-## Precedent — `TargetCamControl` (full source reviewed)
+## Control invariants
 
-`github.com/9138noms/TargetCamControl` (`Plugin.cs` + `Runner.cs`, both pulled in full) ships this
-today as a standalone mod. Its shape, in order:
-
-**Reflection cache** (`Plugin.Awake()`), all against the same `TargetCam` type `TgpFeed` already
-reflects into: `cam`, `targetFOV`, `IRMode`, `camTimeout`, `currentMount`, `camMountForward`,
-`canvasObjectTarget`, `currentMode`, `canvasObjectLanding`, plus a `MethodInfo` for
-`SetTargetCam`. (`CancelTarget` and `SetTargetCam` are actually `public` on `TargetCam` — see
-[Reflection surface](#reflection-surface-decompiled) below; this mod reflects `SetTargetCam` too,
-but doesn't need to.)
-
-**Three Harmony prefixes**, all gated on a `ManualMode` bool flag:
-
-```csharp
-[HarmonyPatch(typeof(TargetCam), "Update")]
-static class Patch_TargetCam_Update
-{
-    [HarmonyPrefix]
-    static bool Prefix(TargetCam __instance)
-    {
-        if (!Plugin.ManualMode) return true;
-        // ...preserve the cosmetic exposure update...
-        return false; // skip the rest of vanilla Update
-    }
-}
-
-[HarmonyPatch(typeof(TargetCam), "AimCamera")]
-static class Patch_TargetCam_AimCamera
-{
-    [HarmonyPrefix]
-    static bool Prefix() => !Plugin.ManualMode;
-}
-
-[HarmonyPatch(typeof(TargetCam), "SwitchIRState")]
-static class Patch_TargetCam_SwitchIRState
-{
-    public static bool AllowNext = false; // set true just before an intentional manual IR call
-    [HarmonyPrefix]
-    static bool Prefix()
-    {
-        if (!Plugin.ManualMode) return true;
-        if (AllowNext) { AllowNext = false; return true; }
-        return false;
-    }
-}
-```
-
-The `Update` patch's own comment explains why all three are needed, not just `AimCamera`: without
-it, the game's own `Update()` would keep lerping `cam.fieldOfView` toward its own `targetFOV`
-(fighting manual zoom), switching `currentMount` between forward/rear based on angle-to-target
-(unstable with no real target — `targetPosition` sits near the origin), and counting down
-`camTimeout` toward the auto-disable path.
-
-**Engaging manual mode without a real target lock** (`Runner.ForceEnableManualCam`): force
-`currentMode` out of `landingMode` (or `SetTargetCam()` early-returns), deactivate the landing
-canvas if active, call `tc.SetTargetCam()` once if `cam.enabled` is false (this is what actually
-allocates `canvasObjectTarget`/`screenVolume` and flips `cam.enabled = true` — the same call
-`TgpFeed.CaptureFrame()` already makes every capture tick while a real target is locked), then pin
-`camTimeout` to a large value (`99f`) and set an initial `targetFOV`.
-
-**Driving pan/tilt/zoom every frame** (`Runner.LateUpdate`, only while `ManualMode`): zoom writes
-`cam.fieldOfView` directly (lerped toward a `DesiredFOV` clamped to `[MinFOV, MaxFOV]`), pointing is
-tracked as a **world-space direction** (`PanDir`), not a raw mount rotation — user pan/tilt input
-rotates `PanDir` around world-up (yaw) and the current right vector (pitch), then `mount.rotation =
-LookRotation(PanDir, Vector3.up)` is applied directly every frame. A periodic raycast in `PanDir`
-re-derives a world hit point (`LastHitGP`, stored as the game's own `GlobalPosition` so it survives
-floating-origin rebasing) and `PanDir` is re-computed from that hit point each frame before applying
-new input deltas — this is what keeps the pointed-at spot stable as the aircraft translates, instead
-of the view slowly drifting off target the way naive constant-rate rotation would.
-
-**Auto-exit on a real lock** (`Runner.LateUpdate`): if the game's own `WeaponManager.GetTargetList()`
-becomes non-empty while manual mode is active, manual mode exits automatically, handing control back
-to vanilla logic. This is the load-bearing simplification that lets the whole feature avoid patching
-whatever vanilla call site normally invokes `SetTargetCam()` on a real lock (not found in the
-decompile reviewed for this doc — TargetCamControl doesn't need to know where it is, because it
-just cedes control the moment a lock exists instead of fighting it).
-
-**Exiting manual mode** (`Runner.ExitManual`): reset `cam.transform.localRotation` and
-`mount.localRotation` to identity, then call `tc.CancelTarget()` — the same public method
-`docs/tgp-suppress-native-render.md`'s design space is built around — which flips `cam.enabled =
-false` and fires `onCamToggle(enabled:false)`, letting `TacScreen` revert the cockpit overlay
-cleanly.
+- Cache private `TargetCam` state in `TgpManualTargetCamAccess`; call public `SetTargetCam()` and
+  `CancelTarget()` directly.
+- Gate native `Update()` and `AimCamera()` behavior while manual mode owns the camera. Otherwise the
+  game changes FOV and mounts, counts down `camTimeout`, and steers back toward its target position.
+- Engage only outside landing mode, enable the camera through `SetTargetCam()`, and keep
+  `camTimeout` alive while manual control is active.
+- Store Area Track aim aircraft-locally so it follows the airframe. Store Point Track destinations
+  as `GlobalPosition` so floating-origin rebases do not move the designated point.
+- Exit immediately when a real lock appears and call `CancelTarget()` so the normal camera-toggle
+  event restores cockpit UI ownership.
 
 ## Reflection surface (decompiled)
 
 Confirmed directly against `_scratch/full/TargetCam.cs` (already in this repo, used for the TGP
 suppression work):
 
-- `SetTargetCam()` and `CancelTarget()` are **public** — no reflection needed to call either from
-  `TgpFeed`/a new manual-control class, unlike `TargetCamControl` which reflects `SetTargetCam` as
-  a `MethodInfo` anyway (harmless, just unnecessary for NOXMFD's case).
+- `SetTargetCam()` and `CancelTarget()` are **public** — no reflection is needed to call either from
+  `TgpFeed` or the manual-control class.
 - `currentMount`, `camMountForward`, `targetFOV`, `camTimeout`, `currentMode`, `canvasObjectLanding`
-  are all `private` fields — reflection required, same as `TargetCamControl`'s cache.
+  are all `private` fields and require cached reflection access.
 - `Update()`'s mount-switch/FOV-lerp/`camTimeout` countdown and `AimCamera()`'s `LookRotation`
   toward `targetPosition` are exactly what the `Update`/`AimCamera` Harmony prefixes above must
-  suppress — confirmed line-for-line against the decompile, not just inferred from
-  `TargetCamControl`'s comments.
+  suppress — confirmed directly against the decompiled game implementation.
 - `SetTargetCam()` calling `AimCamera()` at its own tail matters here too: the one-time engage call
   (`ForceEnableManualCam`'s `tc.SetTargetCam()`) would itself trigger a real `AimCamera()` call
   unless `ManualMode` is already `true` *before* that call — ordering matters when porting this.
@@ -174,9 +96,8 @@ in a per-class `try/catch` inside `HarmonyPatches.Init()` — so a failure to ap
 not a crash of every other patch in the file.
 
 **Keybinds reuse the existing axis-capable bind pattern**, not a new input-registration path.
-`TargetCamControl` had to hand-register brand-new Rewired actions into the game's Debug category
-because it's a standalone mod with no existing bind UI. NOXMFD already has exactly this shape of
-control for MAP's cursor (`docs/map-cursor.md`, `Keybinds.cs`'s `AddAxis` + the two
+NOXMFD already has exactly this shape of control for MAP's cursor (`docs/map-cursor.md`,
+`Keybinds.cs`'s `AddAxis` + the two
 `cursor-axis-h`/`cursor-axis-v` binds, "a deflected axis overrides its two keys"). TGP pan/tilt
 should be new KEY-page binds following that same pattern — button pairs (`tgp-pan-left/right`,
 `tgp-tilt-up/down`) plus optional axis binds (`tgp-pan-axis`, `tgp-tilt-axis`) for a HOTAS mini-stick
@@ -221,8 +142,8 @@ change: manual mode is never active at the same time `hasTargets` is true.
 Manual mode has more ways to end than "the player toggled it off," and the review's "haunted
 feature" risk is exactly what happens if any of them are missed. `TgpManualControl` should check
 all of these every tick (cheap — it's already ticking every frame to drive pan/tilt) and exit
-cleanly (mirroring `TargetCamControl.ExitManual`: zero the mount/cam local rotation, call
-`tc.CancelTarget()`) the instant any of them is true:
+cleanly (zero the mount/camera local rotation, then call `tc.CancelTarget()`) the instant any of
+them is true:
 
 - **Player toggle off** — the obvious one, `tgp-manual-toggle` pressed again.
 - **Real target lock acquired** — `WeaponManager.GetTargetList().Count > 0` (the auto-exit already
@@ -308,8 +229,7 @@ testing, not spec'd up front:
   mount is re-derived from the aircraft's *current* attitude every tick, not just when there's
   pan/tilt input.
 
-Two pieces from `TargetCamControl`'s reference shape stayed genuinely out of scope — see
-[Out of scope](#out-of-scope).
+Two related pieces stayed out of scope — see [Out of scope](#out-of-scope).
 
 ## In-cockpit overlay (v2)
 
@@ -619,9 +539,9 @@ re-discovering:
 ## Open questions
 
 - **Zoom limits** — resolved: fixed at `MinFov = 0.25°` / `MaxFov = 20°`, matching
-  `TargetCam.SetTargetCam()`'s own native clamp range rather than `TargetCamControl`'s
-  0.25°/80° — no new config needed since the native camera never goes tighter/wider than this
-  either. The Zoom Axis bind (see [What actually shipped](#what-actually-shipped-v1-revised)) maps
+  `TargetCam.SetTargetCam()`'s native clamp range. No new config is needed because the native
+  camera never goes tighter or wider. The Zoom Axis bind (see
+  [What actually shipped](#what-actually-shipped-v1-revised)) maps
   its full physical travel across exactly this range.
 - **Where does the toggle status live?** — resolved: manual mode is indicated by the TGP page
   crosshair and the native in-cockpit `MANUAL` / `POINT TRACK` overlay state. Not on TGP CFG, per
@@ -879,72 +799,28 @@ manual control is on or a real target is locked — no separate bind or button w
   its own extended validation matrix.
 - [`tgp-suppress-native-render.md`](tgp-suppress-native-render.md) — same `TargetCam`, same
   `onCamToggle`/`CancelTarget` surface, shipped 0.29.1, composes with this feature.
-- [`internal-mfd.md`](internal-mfd.md) — same precedent-gathering session; unrelated feature
-  (native cockpit MFD content), different target camera problem.
+- [`internal-mfd.md`](internal-mfd.md) — unrelated native cockpit-MFD content planning with a
+  different target-camera problem.
 - `_scratch/full/TargetCam.cs` — the decompiled source this doc's claims about `Update`/
   `AimCamera`/`SetTargetCam`/`CancelTarget` are verified against.
-- `github.com/9138noms/TargetCamControl` — the reference implementation this doc is built from
-  (`Plugin.cs`, `Runner.cs`, both pulled and read in full, not summarized).
 
-## Annex: TargetCamControl comparison after implementation
+## Implementation notes after live testing
 
-Reviewed again after the NOXMFD manual-TGP work was already implemented and refactored. Source:
-`https://github.com/9138noms/TargetCamControl`, latest reviewed commit
-`405c8d78c17aac6212aca0028d8f44585eefcd30`.
-
-TargetCamControl is a small standalone BepInEx plugin for the same underlying Nuclear Option
-`TargetCam`. It is highly relevant as prior art, but not as a project-architecture model for
-NOXMFD. It has three commits, all from 2026-05-04, and roughly 815 lines across two code files
-(`Plugin.cs` and `Runner.cs`). That shape is reasonable for a focused standalone utility mod, but
-NOXMFD has more surrounding responsibilities: external web MFDs, native/HQ video capture modes,
-telemetry JSON, browser-rendered overlays, a KEY-page binding UI, remote-command concerns, tests,
-and planning/manual docs.
-
-### What it validates
-
-The external project independently validates the main technical direction used here:
-
-- Manual TGP control should drive the real game `TargetCam`, not only NOXMFD's HQ mirror camera.
-- Vanilla `TargetCam.Update()` must be gated while manual mode owns the camera, because it would
-  otherwise keep changing FOV, switching mounts, and counting down `camTimeout`.
-- Vanilla `TargetCam.AimCamera()` must also be gated, or it will keep steering toward the game's
-  own target position instead of the pilot's manual aim.
-- Manual mode should exit when the game gets a real target lock, so vanilla targeting remains the
-  owner of lock-driven behavior.
-- Ground/point tracking needs world-position stability. TargetCamControl stores the hit point as a
-  `GlobalPosition`, which matches NOXMFD's Point Track design and avoids floating-origin drift.
-- Pan/tilt rate needs to be zoom-aware. Both projects reached the same user-facing lesson: a fixed
-  world-angle rate feels increasingly jumpy as FOV narrows.
-- Exiting through `TargetCam.CancelTarget()` is the correct clean handoff because it lets the game
-  fire the normal camera-toggle event that cockpit UI systems already listen to.
-
-### Important differences
-
-TargetCamControl's default behavior is closer to "always auto ground-lock": it raycasts along the
-camera direction, stores the last hit, and re-aims at that hit point as the aircraft moves. NOXMFD
-now separates that into two explicit pilot concepts:
+NOXMFD separates manual pointing into two explicit pilot concepts:
 
 - Area Track: free manual aim is stored aircraft-local, so a centered camera turns with the
   aircraft. This matched the live in-game feel requested during testing.
 - Point Track: a deliberate toggle locks the aim to a fixed world point, then allows nudge and
   redesignate on release.
 
-That explicit split is preferable for NOXMFD because it makes mode ownership legible. Free scanning
-does not silently keep re-designating a ground point, and Point Track is available when stabilization
-is actually wanted.
+The explicit split keeps mode ownership legible. Free scanning does not silently re-designate a
+ground point, and Point Track is available when stabilization is wanted. TGP inputs remain in the
+existing KEY-page bind registry so joystick, axis, and remote-command behavior share one input
+model. Live testing confirms the current game build uses `TextMeshProUGUI` for the relevant
+`TargetScreenUI` fields, so the Harmony patch injects TMP fields and delegates their population to
+`TgpNativeOverlay`.
 
-TargetCamControl also registers its own Rewired actions in the game's controls UI. NOXMFD should
-not copy that. The repo already has a KEY page, its own bind registry, joystick/axis capture, and
-remote-command conventions. Keeping TGP binds inside that system avoids a second input model.
-
-Its overlay path uses `UnityEngine.UI.Text`/Harmony Traverse-style field access. NOXMFD's live
-testing found the current game build uses `TextMeshProUGUI` for the relevant `TargetScreenUI`
-fields, so the safer NOXMFD design is the current one: the Harmony patch injects TMP fields and
-delegates population to `TgpNativeOverlay`.
-
-### Useful implementation details already absorbed
-
-Several TargetCamControl ideas are already present in NOXMFD:
+The implementation preserves these invariants:
 
 - `TargetCam.Update` and `AimCamera` Harmony gates while manual mode is active.
 - `camTimeout` pinning while manual mode owns the camera.
@@ -955,7 +831,7 @@ Several TargetCamControl ideas are already present in NOXMFD:
 - Point/ground tracking with `GlobalPosition`.
 - Zoom-aware pan/tilt scaling.
 
-NOXMFD's implementation is intentionally more split by responsibility:
+Responsibilities remain split as follows:
 
 - `TgpManualControl.cs`: state machine, lifecycle, Point Track, input API.
 - `TgpManualAimMath.cs`: pure pan/tilt/zoom math, covered by unit tests.
@@ -964,13 +840,12 @@ NOXMFD's implementation is intentionally more split by responsibility:
 - `HarmonyPatches.cs`: the actual game method gates/prefixes.
 - TGP web page files: external-MFD display state and overlay.
 
-### Shortlist improvement: explicit forward-mount hardening
+### Remaining hardening: deterministic forward mount
 
-The one implementation detail still worth considering is TargetCamControl's explicit forward-mount
-reset on manual engage. In simpler terms: the game's TGP camera can internally sit on different
-"mounts" or camera positions, such as forward target cam, rear target cam, and landing cam. Manual
-mode wants a clean starting point: use the normal forward TGP mount, put the camera exactly on that
-mount, clear leftover local position/rotation, then let manual pan/tilt/zoom take over.
+The game's TGP camera can internally sit on different mounts, including the forward target camera,
+rear target camera, and landing camera. Manual mode needs a deterministic starting point: the normal
+forward TGP mount with leftover local position and rotation cleared before pan, tilt, and zoom take
+over.
 
 Vanilla `SetTargetCam()` already does this when the target camera is disabled. The decompiled game
 code sets `currentMount = camMountForward`, reparents `cam.transform` to `camMountForward`, zeros
@@ -990,12 +865,8 @@ What that would feel like in-game:
   starts from a surprising angle.
 - The external HQ feed still works technically, but the view direction feels wrong.
 
-The hardening would be small and defensive: cache `camMountForward` in
+The hardening is small and defensive: cache `camMountForward` in
 `TgpManualTargetCamAccess`, and on manual engage explicitly set `currentMount` to it, reparent the
 camera to it, zero the camera's local position/rotation, zero the forward mount, and mark
-`currentMode = targetForward`. This is not a new feature; it is just making the starting camera
-state deterministic before giving control to the pilot.
-
-Do not copy TargetCamControl's full two-file structure, `PatchAll()` initialization, or standalone
-Rewired action registration into NOXMFD. The useful part is the game-specific TargetCam behavior,
-not its architecture.
+`currentMode = targetForward`. This makes the starting camera state deterministic before giving
+control to the pilot.

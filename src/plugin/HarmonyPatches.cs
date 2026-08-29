@@ -64,9 +64,8 @@ namespace NOXMFD
         // OnStartServer only executes on the network SERVER. In single-player or a player-hosted
         // lobby the host process is both client and server, so this works correctly. Connecting as a
         // plain client to someone else's dedicated NuclearOptionServer.exe means this patch never
-        // fires for your own aircraft — that method runs on their machine, not yours, and a mod
-        // normally isn't installed server-side — so the setting silently has no effect in that
-        // topology.
+        // fires for your own aircraft: that method runs on the server, where NOXMFD is normally not
+        // installed, so the setting silently has no effect in that topology.
         [HarmonyPatch(typeof(Aircraft), "OnStartServer")]
         private static class Aircraft_OnStartServer_Patch
         {

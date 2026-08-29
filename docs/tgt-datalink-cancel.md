@@ -4,12 +4,11 @@
 
 ## Goal
 
-A user request, referencing [NO_Tactitools](https://github.com/clumzy/NO_Tactitools) (NOTT), which
-apparently has the same control already: a way to cancel a **datalink-only** lock on the TGT page —
-a target your own aircraft isn't actually sensing, just relayed to you by a friendly unit's radar via
-the faction's shared tracking database — without disturbing a target you're genuinely tracking
-yourself. Today the TGT page's selected-target list shows every locked target the same way; there's
-no way to tell which ones are stale/relayed vs. actively sensed.
+A user needs a way to cancel a **datalink-only** lock on the TGT page — a target the aircraft is not
+actually sensing, but which a friendly unit's radar relays through the faction's shared tracking
+database — without disturbing a target the aircraft is genuinely tracking. The TGT page's selected-
+target list otherwise shows every locked target the same way, with no indication of which entries are
+stale or relayed rather than actively sensed.
 
 - **Primary ask:** a dedicated control to cancel a datalink-only lock specifically.
 - **Fallback ask:** at minimum, show which entries are datalink-sourced so the pilot can tell them

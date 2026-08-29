@@ -33,17 +33,12 @@ cockpit display (tablet, phone, second monitor) can dim or lock its screen on it
 inactivity timeout, even while telemetry keeps updating. There is no way today to tell the browser
 to keep the display awake.
 
-A non-owner contributor, Genide, proposed a fix and posted a working implementation on their own
-fork: `github.com/Genide/NOXMFD` branch `feature/screen-wake-lock` (single commit `b46e526`,
-against a `main` commit from well before this repo's TGP manual-mode work landed — see
-`docs/tgp-manual-control.md` / `docs/tgp-extended-quality.md` for that unrelated history). That
-fork is **not** being merged. This plan is for an independent implementation, built by an agent
-that treats the fork as reference material only — reusing the ideas that hold up, discarding
-anything that doesn't fit this repo's actual conventions.
+The implementation uses a shared browser-side controller so both shells get identical lifecycle,
+fallback, persistence, and error behavior.
 
-### What to take from the fork
+### Design constraints
 
-- The overall shape is sound: a DOM-free, framework-free controller object exposing
+- Use a DOM-free, framework-free controller object exposing
   `start/stop/enable/disable/toggle/enabled/active`, constructed with injected `document`,
   `storage`, and `wakeLock` so it's unit-testable under plain `node`.
 - The native-lock → canvas/video fallback strategy, in that order, is the right approach for the
@@ -54,20 +49,10 @@ anything that doesn't fit this repo's actual conventions.
   logic per shell — this repo's established pattern (see `src/web/shell/shared/tgp-marks.js` and its
   `tgp-marks.test.js`, `src/web/shell/shared/nav-model.js`).
 
-### What not to take
-
-- **Do not copy files verbatim.** The fork's `f35.html` was run through an HTML auto-formatter,
-  reindenting the entire file for a one-button change — a real diff-hygiene problem, not a design
-  one, but reason enough to hand-write the integration against current `main` rather than port the
-  file.
-- The fork predates 67 commits of unrelated work on `main` (TGP manual control, extended
-  resolution/quality, the `rates` page, etc.) and its raw diff against current `main` looks like it
-  deletes huge amounts of code that it simply never had. None of that is relevant — build against
-  current `main`, not against the fork's base.
-- The fork's failure-indicator CSS (`.mfd-indicator.error` with a hardcoded red border) and its
-  `.key.icon.on` amber-glow styling are reasonable starting points but were written without
-  reference to this repo's existing conventions for the same states — see the CLASSIC integration
-  section below for the actual established idioms to reuse instead.
+- Keep the controller DOM-free and framework-free so its lifecycle can be tested under plain
+  `node` with injected browser dependencies.
+- Reuse the shells' existing error-indicator and active-button conventions instead of introducing
+  feature-specific colors or state styles.
 
 ## Player-facing spec (from the ticket)
 
@@ -101,7 +86,7 @@ anything that doesn't fit this repo's actual conventions.
 
 Add `src/web/shell/shared/wake-lock.js`, a DOM-free IIFE module in this repo's standard shape (compare
 `src/web/shell/shared/tgp-marks.js`, `src/web/shell/shared/nav-model.js`): exports via `module.exports` under
-Node and `root.WakeLock` (pick a name; the fork used `ScreenWakeLock`) in the browser, paired with
+Node and `root.WakeLock` in the browser, paired with
 `src/web/shell/wake-lock.test.js` — a plain `assert`-based self-check runnable via
 `node wake-lock.test.js`, no framework, per `docs/csharp-unit-testing.md`'s testing philosophy
 (that doc is C#-specific but the "pure logic, DOM-free, one self-check file" principle is the same
@@ -133,7 +118,7 @@ Responsibilities:
 - Guard every acquire/release path with a monotonic operation token so a `toggle()` that fires
   again before the previous async operation settles cannot end up holding a lock nobody asked for,
   or leaking one nobody released — this is the one piece of real concurrency risk in an otherwise
-  simple feature, and the fork's generation-counter approach is a reasonable model to build from.
+  simple feature; a generation counter invalidates stale asynchronous completions.
 - Native-lock request rejecting (insecure context, permission denial, etc.) falls through to the
   fallback automatically, without the caller needing to distinguish the two paths.
 - Visibility change while enabled: release on hidden, reacquire on visible — but only the *lock*,
@@ -174,7 +159,7 @@ is the existing top-right corner stack, but it is purpose-built for *named, pers
 (currently only `pinned`) looked up via `indicatorVisible()` — it is not a generic toast queue.
 Two reasonable options, left to the implementing agent to pick based on how it reads once wired up:
 
-1. Extend that stack with one more transient, self-timing entry (closest to what the fork did),
+1. Extend that stack with one more transient, self-timing entry,
    accepting that it slightly stretches the stack's "named persistent indicator" contract.
 2. Add a small dedicated element near the bezel's top-key bank instead, independent of
    `#mfd-indicators`, avoiding that stretch entirely.
@@ -220,9 +205,7 @@ aria-hidden="true"></span></button>`, placed immediately before or after `#ms-fl
 element (see Failure UI above). Add the `wake-lock.js` `<script>` tag before `f35.js`'s, matching
 the CLASSIC placement.
 
-**Make this edit directly against current `main`'s `f35.html`, not by porting any part of the
-fork's copy** — the fork's version of this file was reformatted wholesale and is not a usable diff
-source.
+Edit the current `f35.html` directly and keep the change scoped to the wake-lock integration.
 
 `src/web/shell/f35/f35.css`: `.nav-item.on` (line 646) already gives a button the amber-box
 "engaged" treatment used elsewhere in this shell (e.g. layout picker, per the comment at line 397)
@@ -335,8 +318,6 @@ Mirrors the ticket's own checklist:
 
 - [Issue #53](https://github.com/roke77/NOXMFD/issues/53) — the original request and full
   acceptance criteria.
-- `github.com/Genide/NOXMFD` branch `feature/screen-wake-lock` — community reference
-  implementation; consult for approach, do not port files directly (see "Origin" above).
 - [MDN: Screen Wake Lock API](https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API)
 - `src/web/shell/shared/tgp-marks.js` / `tgp-marks.test.js` — the shared-pure-module + self-check pattern
   this plan follows.

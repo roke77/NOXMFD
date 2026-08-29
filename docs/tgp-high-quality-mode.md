@@ -24,7 +24,7 @@ detailed design for one of those entries — the mirror camera.
   "Performance" tier and an always-enabled "Full" tier — and Performance lost: it cost about the
   same as Full on `frame(tgpOpen)` (the manual `Camera.Render()` call's cost just moved from the
   render loop into the timed capture block) while giving up correct tree/grass rendering (the
-  predicted risk from this doc's own reference-mod reading, confirmed live). Full was kept as the
+  predicted terrain-detail risk, confirmed live). Full was kept as the
   sole `HighQuality` tier — the mirror camera is a normal `enabled = true`, URP `Base` camera,
   rendered every frame like any other, not render-on-demand at all.
 - **The overlay is drawn from telemetry, exactly as recommended** ("Does the mirror cam need its
@@ -140,31 +140,21 @@ mirror camera cannot offer. Worth a branch to characterise the two
 failures properly rather than inheriting the earlier verdict. The mirror
 camera remains the default plan unless that investigation finds something.
 
-## Findings from a third-party integration
+## Additional camera-pipeline findings
 
-Menu entries #12 and #13 come from reading a community integration that
-bridges the "Missile Camera" mod into a NOXMFD page (lupfine's forks of
-`Mursisru/MissileCamera` and of this repo). That work solves a different
-problem — making a feed exist at all, where the owning mod only renders
-while its own cockpit panel or fullscreen view is up — and it reuses
-`TgpFeed`'s capture pipeline unchanged, so it contributes nothing to the
-cost question. Four things in it are relevant here anyway.
+Menu entries #12 and #13 cover two questions that apply before building a
+second render path: whether the game already exposes a higher-resolution
+mode, and whether `Camera.targetTexture` is the authoritative final image.
 
-**Resolution negotiation (#12).** That integration didn't build a camera
-to get better quality. It set a flag the owning mod already consulted, so
-its existing size-resolution logic returned fullscreen-grade dimensions
-instead of the small cockpit-panel size. The quality path already
-existed; it just had to be asked for. The equivalent question for TGP has
-never been asked: whether the game itself renders `TargetCam` larger in
-some context we could trigger. If it does, high quality costs nothing
-that a mirror camera or an RT swap would cost.
+**Resolution negotiation (#12).** Check whether the game itself renders
+`TargetCam` at fullscreen-grade dimensions in a context NOXMFD can request.
+If that quality path already exists, it avoids the extra cost of a mirror
+camera or render-texture swap.
 
-**Authoritative texture (#13).** That integration deliberately reads a
-dedicated output texture rather than the feed camera's own
-`targetTexture`, because the camera's target is swapped to an
-intermediate HDR buffer mid-render and restored afterwards — so reading
-it at an arbitrary moment does not reliably yield the final picture.
-`TgpFeed` reads `cam.targetTexture` directly. If Nuclear Option's
+**Authoritative texture (#13).** `TgpFeed` reads `cam.targetTexture`
+directly. A render pipeline may swap that property to an intermediate HDR
+buffer and restore it after rendering, so an arbitrary read does not
+necessarily yield the final picture. If Nuclear Option's
 `TargetCam` does anything comparable (post-processing, HDR intermediate,
 temporal effects), the captured picture may not match what the cockpit
 screen shows. This presents as the feed looking subtly wrong, not as a
@@ -173,64 +163,48 @@ failure, which is why it would not have surfaced as a bug report.
 **Still open.** Nobody has checked whether `TargetCam.cam.targetTexture` is genuinely the final
 picture in this game — the shipped mirror camera reads it the same direct way `TgpFeed` reads the
 native path (`OnReadbackComplete` in `TgpFeed.cs`), unchanged by anything this branch stack built.
-If Nuclear Option's `TargetCam` does have an HDR-intermediate step like the reference mod's, both
-Native and HighQuality would already be quietly affected, and the visual brightness/contrast issues
-found and fixed while shipping the IR mode (see `docs/performance.md`) may be a symptom of exactly
-this rather than something this doc's own gap analysis anticipated.
+If Nuclear Option's `TargetCam` has an HDR-intermediate step, both Native and HighQuality are already
+affected. The brightness and contrast issues found while shipping IR mode (see
+`docs/performance.md`) may be evidence of that pipeline detail.
 
-**Thermal modes double as the colour-depth justification.** That
-integration exposes the vision filter (Color / NightVision / WhiteHot /
-BlackHot / Contour) as a page-cyclable feature. WhiteHot and BlackHot are
+**Thermal modes double as the colour-depth justification.** WhiteHot and BlackHot are
 monochrome by definition, so offering thermal modes on the TGP page makes
 menu entry #2 unambiguous rather than a judgement call — in those modes
 there is no colour to discard. A feature and a bandwidth optimisation
 that happen to be the same change. This supersedes the IR question filed
 under open questions below as "cosmetic detail, defer."
 
-**MJPEG cold-start stall — likely a live bug here.** Their `/rc.mjpg`
-handler originally sent a 1×1 placeholder JPEG immediately on connect,
-because a fresh connection that receives zero bytes while the pipeline
-warms up can be marked failed by the browser and never recover once real
-frames arrive — presenting as "works after one page reload." That
-workaround was reverted and the issue left open on their side.
-
-The TGP MJPEG handler used to have the same shape: it wrote nothing
-until `_tgpJpg != null && id != lastSeen`. TGP's warm-up is shorter than
-a missile camera's (no missile-selection step), which may be why it has
-not been reported, but the failure mode is identical. This is a
+**MJPEG cold-start stall.** A fresh connection that receives zero bytes while
+the pipeline warms up can be marked failed by the browser and never recover
+once real frames arrive, presenting as "works after one page reload."
+The TGP MJPEG handler used to write nothing
+until `_tgpJpg != null && id != lastSeen`. Its source can become available as soon as the target
+camera produces a frame, but the zero-byte cold-start failure is still possible. This is a
 correctness bug rather than a cost or quality question, so it is not a
 menu entry — it wants its own ticket, and reproducing it deliberately
 (connect a client before the first frame exists) is the first step.
 
-## Reference implementation: the MissileCamera rig
+## Mirror-camera implementation constraints
 
-The same reading turned up something more useful than the integration
-itself. The base "Missile Camera" mod (`Mursisru/MissileCamera`) is a
-**working implementation of menu entry #3, in this game and this Unity
-version** — a self-created camera rendering to its own RenderTexture at
-player-configurable resolution. Several of this document's open questions
-are answered there rather than needing to be rediscovered.
+A self-created camera rendering to its own configurable `RenderTexture`
+must satisfy these constraints in this game and Unity version:
 
-What it establishes:
-
-- **Render-on-demand works.** Its rig creates a camera, holds it
+- **Render-on-demand works.** A rig can create a camera, hold it
   `enabled = false`, and drives it with explicit `Camera.Render()` at a
   config-driven rate (default 30 fps), decoupled from the game's
   framerate. It mirrors a reference camera's `cullingMask`, `allowHDR`,
   `allowMSAA` and `clearFlags`, caching so it only writes on change.
-- **High resolution is viable.** Feed size is configurable, clamped
+- **High resolution is viable.** Feed size can be configurable and clamped
   128-2048 for its panel path and 640-3840 for fullscreen.
 - **The URP requirement and the particle caveat** — both folded into the
   render-on-demand section above.
-- **An HDR intermediate is real, not hypothetical.** The rig keeps a
-  second `ARGBHalf` RenderTexture and blits through it for its
-  thermal/NVG modes. This is the concrete basis for menu entry #13:
+- **An HDR intermediate must be accounted for.** A thermal or NVG path may keep a
+  second `ARGBHalf` RenderTexture and blit through it. This is the basis for menu entry #13:
   a camera's `targetTexture` is not necessarily the final picture.
 
 Practices worth copying:
 
-- **Zoom via FOV, never by reallocating the RT.** Its quality-scale
-  helper is hardcoded to 1 with the note that optical zoom must not
+- **Zoom via FOV, never by reallocating the RT.** Optical zoom must not
   recreate RT buckets. `TgpFeed` currently reallocates whenever source
   dimensions change; coupling resolution to zoom would reproduce exactly
   the stutter that rule exists to prevent.
@@ -241,15 +215,13 @@ Practices worth copying:
 
 ### Camera safety constraints in this game
 
-That mod ships a `CAMERA_SAFETY.md` written after breaking these. It
-forbids modifying `CameraStateManager.mainCamera` transform/FOV/nearClip,
+Do not modify `CameraStateManager.mainCamera` transform/FOV/nearClip,
 `cameraPivot` parent/pose/scale, or `cameraMode`, and forbids Harmony
 -blocking `CameraBaseState.UpdateState`.
 
-The stated cause is the part that matters here: reparenting left
-`cameraPivot` with huge local offsets **because of FloatingOrigin plus
-`cockpitViewPoint`**, and on exit the stock cockpit camera flew out of
-bounds.
+Reparenting can leave `cameraPivot` with huge local offsets because of
+`FloatingOrigin` plus `cockpitViewPoint`, causing the stock cockpit camera
+to move out of bounds on exit.
 
 Nuclear Option runs a floating-origin system. This document's plan parents
 a new camera to `TargetCam.GetCamMount()`, which is not the same mistake
@@ -258,16 +230,14 @@ game camera — but any camera created and positioned in the world has to
 stay correct across origin shifts, and nothing here has accounted for
 that. Treat it as a first-class risk for #3.
 
-Also filed there, relevant the moment any overlay is drawn on a mirror
-feed: project world positions with the feed camera's
+When drawing an overlay on a mirror feed, project world positions with the feed camera's
 `WorldToViewportPoint` scaled to screen, **not** `WorldToScreenPoint`,
 which returns render-texture pixels.
 
-### What it does not help with
+### What this does not establish
 
-Its in-game path is RenderTexture → `RawImage`. The picture never leaves
-the GPU; there is no readback anywhere in the base mod. It therefore
-de-risks the render half of #3 and says nothing about the transfer half,
+A RenderTexture-to-`RawImage` path never leaves the GPU and therefore
+de-risks the render half of #3 but says nothing about the transfer half,
 which is the half `cfg-rates` measured. The mirror camera is a solved
 problem in this game; the readback is ours alone. That is an argument for
 the first batch, not against it.
@@ -332,20 +302,15 @@ mirror cam is a genuinely additional render pass. Rendering on demand
 takes it from 60/s down to the capture rate; it does not take it to
 zero, and it will not be cheaper than what ships today.
 
-Two constraints on this, both from the reference implementation
-documented below:
+The render-on-demand experiment began with two constraints:
 
 - **`enabled = false` alone is not enough under URP.** An enabled camera
   joins the pipeline's camera stack rather than merely costing a draw.
   The rig has to be `renderType = Overlay` *and* disabled, rendered
-  manually. Leaving it enabled cost that project measurable framerate
-  with the camera doing nothing else differently.
-- **Manual rendering appears to lose particles.** That project keeps a
-  pipeline-driven enabled camera specifically for its colour path, noting
-  particles depend on it, and uses the manual path only for its
-  thermal/NVG modes. For a targeting view — smoke, explosions,
-  countermeasures — that is a real fidelity cost, not a detail. Verify
-  before assuming render-on-demand is a free equivalence.
+  manually. This prevents it from joining the normal camera stack between capture ticks.
+- **Manual rendering may omit pipeline-driven effects.** For a targeting view, smoke, explosions,
+  and countermeasures are required fidelity, so the experiment must verify them before treating
+  render-on-demand as equivalent.
 
 The remaining honest tradeoff is the readback: 4× the bytes per tick,
 on a transfer already shown to back up. If HQ at 15 Hz produces a
@@ -443,10 +408,9 @@ is shared.
 ## Open questions to settle while implementing (not now)
 
 - ~~Default HQ resolution.~~ **Resolved, shipped as planned:** 720×480 (`TgpFeed.HqWidth`/`HqHeight`).
-- **Still open.** Does the mirror cam stay correct across a floating-origin shift? Unknown, and the
-  one failure mode in this area that has already burned another mod in this game. Nobody has tested
-  a long flight, only spawn-and-look sessions — this is the biggest unverified risk left in the
-  shipped feature.
+- **Still open.** Does the mirror cam stay correct across a floating-origin shift? Nobody has
+  tested a long flight, only spawn-and-look sessions, so this remains the biggest unverified risk
+  in the shipped feature.
 - ~~Do particles render on the manual `Camera.Render()` path?~~ **Resolved, moot:** render-on-demand
   was dropped (see "What actually shipped") — the shipped mirror cam is always enabled/`Base`, so
   it renders through the normal pipeline, particles included. Live-tested and confirmed correct.
@@ -477,11 +441,6 @@ is shared.
   the source of truth for the pipeline.
 - Read `docs/performance.md`'s `cfg-rates` section in full. It is the
   only measurement this feature has.
-- Read `Mursisru/MissileCamera`'s `Camera/MissileCameraRig.cs`,
-  `Camera/MissileCameraRenderPrep.cs` and `Fullscreen/CAMERA_SAFETY.md`
-  before writing the mirror cam. That rig is a working version of #3 in
-  this game, and its safety doc is a list of camera mistakes already made
-  here and paid for.
 - **Restore `src/plugin/PerfLog.cs` and its call sites from history
   first.** It was removed once the `cfg-rates` findings were banked, but
   its two key instruments — `frame(tgpOpen)` vs `frame(tgpClosed)` split

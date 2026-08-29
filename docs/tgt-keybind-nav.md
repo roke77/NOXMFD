@@ -3,12 +3,11 @@
 ## Goal
 
 The PAD cursor (`docs/page-cursor.md`) already lets a HOTAS pilot aim a free crosshair at a target
-row and press Select to deselect it — but aiming a 2D crosshair at a specific row in a scrolling list
-is fussier than it needs to be. [NO_Tactitools](https://github.com/clumzy/NO_Tactitools) proves out a
-simpler shape for exactly this: a discrete row-stepper (`TargetListController.cs`'s
-`targetIndex`) walked by two dedicated Next/Previous binds, with a third bind acting on whichever row
-is current. This adds the same shape to NO XMFD's TGT page, plus two more keybinds that mirror the
-DATALINK/STALE buttons (`docs/tgt-datalink-cancel.md`, `docs/tgt-stale-lock.md`).
+row and press Select to deselect it, but aiming a 2D crosshair at a specific row in a scrolling list
+is fussier than necessary. A discrete row-stepper provides two dedicated Next/Previous binds and a
+third bind that acts on the current row. This adds that interaction to NO XMFD's TGT page, plus two
+more keybinds that mirror the DATALINK/STALE buttons (`docs/tgt-datalink-cancel.md`,
+`docs/tgt-stale-lock.md`).
 
 ## The four binds
 
