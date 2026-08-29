@@ -49,6 +49,8 @@ namespace NOXMFD
         private RdrContact[] _cachedRdr = Array.Empty<RdrContact>();
         private HsdContact[] _cachedHsd = Array.Empty<HsdContact>();
         private PitbullContact[] _cachedPitbull = Array.Empty<PitbullContact>();
+        private uint[] _cachedLockedIds = Array.Empty<uint>();
+        private float[] _cachedLockedTti = Array.Empty<float>();
         private bool _cachedRadarPresent;
         private float _cachedRadarRange;
         private float _cachedRadarConeDeg;
@@ -822,6 +824,9 @@ namespace NOXMFD
                 PlayerId       = aircraft.persistentID.Id,
                 PlayerJammed   = playerJammed,
                 PlayerJammedBy = playerJammedBy,
+                FocusedTargetId = TargetFocus.Id,
+                LockedTargetIds = _cachedLockedIds,
+                LockedTargetTti = _cachedLockedTti,
                 ColFriendly    = _colFriendly,
                 ColHostile     = _colHostile,
                 ColNeutral     = _colNeutral,
@@ -906,6 +911,7 @@ namespace NOXMFD
 
         private void RefreshContactSnapshotIfNeeded(Aircraft aircraft)
         {
+            if (aircraft is null) return;
             if (_contactTimer < ContactInterval && ReferenceEquals(_contactAircraft, aircraft))
                 return;
 
@@ -915,6 +921,33 @@ namespace NOXMFD
             _cachedRdr = BuildRdr(aircraft, out _cachedRadarPresent, out _cachedRadarRange, out _cachedRadarConeDeg);
             _cachedHsd = BuildHsd(aircraft);
             _cachedPitbull = BuildPitbull(aircraft);
+
+            // Keeps TargetFocus honest against locks changing here rather than via a Next/Prev press
+            // (issue #62) — see TargetFocus.Reconcile for the actual rules.
+            List<Unit>? targets = aircraft?.weaponManager?.GetTargetList();
+            _cachedLockedIds = TargetIds(targets).ToArray();
+            TargetFocus.Reconcile(_cachedLockedIds);
+
+            // A TTI reading per locked target, using this contact-scan cadence rather than adding
+            // another UnitRegistry.allUnits scan timer for the TGT page.
+            PersistentID? playerPersistentId = aircraft!.persistentID;
+            uint playerId = playerPersistentId.HasValue ? playerPersistentId.Value.Id : 0;
+            var lockedTti = new float[_cachedLockedIds.Length];
+            for (int i = 0; i < _cachedLockedIds.Length; i++)
+                lockedTti[i] = TargetTtiEstimator.ComputeTti(_cachedLockedIds[i], playerId);
+            _cachedLockedTti = lockedTti;
+        }
+
+        // Shared with Keybinds.cs's CycleTargetFocus (issue #62) — both need the same
+        // weaponManager.GetTargetList() -> persistentID.Id conversion, one reconciling focus every
+        // scan tick, the other cycling it on a Next/Previous press.
+        internal static List<uint> TargetIds(List<Unit>? targets)
+        {
+            var ids = new List<uint>(targets?.Count ?? 0);
+            if (targets == null) return ids;
+            for (int i = 0; i < targets.Count; i++)
+                if (targets[i] != null) ids.Add(targets[i].persistentID.Id);
+            return ids;
         }
 
         // Snapshots a TGT toggle group's labels + on/off states, preserving the game's ordering

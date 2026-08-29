@@ -128,12 +128,23 @@ namespace NOXMFD
         // Press-vs-hold is derived from Time.frameCount continuity: the drive runs every held frame,
         // so a gap in frames = a fresh press. Misses a release+re-press within one frame — physically
         // impossible on a real key.
-        private static int  _gunFrame = -10, _relFrame = -10, _jamFrame = -10;
-        private static bool _gunSwitchHold,  _relSwitchHold,  _jamSwitchHold;
+        private static int  _gunFrame = -10, _relFrame = -10, _relSingleFrame = -10, _jamFrame = -10;
+        private static bool _gunSwitchHold,  _relSwitchHold,  _relSingleSwitchHold,  _jamSwitchHold;
 
-        public static void FireGun(Aircraft ac)       => Fire(ac, EffectiveGun(ac),       ref _gunFrame, ref _gunSwitchHold);
-        public static void FireRelease(Aircraft ac)   => Fire(ac, EffectiveRelease(ac),   ref _relFrame, ref _relSwitchHold);
-        public static void FireJammerPod(Aircraft ac) => Fire(ac, EffectiveJammerPod(ac), ref _jamFrame, ref _jamSwitchHold);
+        public static void FireGun(Aircraft ac)       => Fire(ac, EffectiveGun(ac),       ref _gunFrame, ref _gunSwitchHold, wm => wm.Fire());
+        public static void FireRelease(Aircraft ac)   => Fire(ac, EffectiveRelease(ac),   ref _relFrame, ref _relSwitchHold, wm => wm.Fire());
+        public static void FireJammerPod(Aircraft ac) => Fire(ac, EffectiveJammerPod(ac), ref _jamFrame, ref _jamSwitchHold, wm => wm.Fire());
+
+        // Single Target Weapon Release (issue #68): same two-stage switch-then-fire as FireRelease
+        // above, sharing its EffectiveRelease selection (so both binds agree on "which weapon"), but
+        // its own frame/switchHold pair — a distinct keybind a pilot can press without having
+        // pressed Weapon Release first, so it needs its own independent press/hold tracking rather
+        // than one shared with FireRelease's. Commits via FireSingleAtFocused instead of the stock
+        // wm.Fire(), which — with 2+ locks — fires one round per lock in a staggered salvo
+        // (WeaponManager.Fire(), _scratch/full/WeaponManager.cs); this always fires exactly one
+        // round, and only ever at the focused lock.
+        public static void FireReleaseSingle(Aircraft ac) =>
+            Fire(ac, EffectiveRelease(ac), ref _relSingleFrame, ref _relSingleSwitchHold, wm => FireSingleAtFocused(ac, wm));
 
         // The entry a fire key would commit right now: the soft selection if it's still a live entry
         // of the class, else the first entry of the class, else null. Also what the WPN page outlines.
@@ -148,7 +159,12 @@ namespace NOXMFD
             return WeaponSelectorLogic.Effective(_loadout, bucket, CurrentMode(), soft);
         }
 
-        private static void Fire(Aircraft ac, string? name, ref int lastFrame, ref bool switchHold)
+        // `commit` is what stage 2 (already on the right weapon) actually does, so the
+        // switch-then-fire arbitration below stays shared instead of copy-pasted per bind: wm.Fire()
+        // for the three stock binds — the stock trigger's own entry point, covering safety,
+        // guns-linked, salvo, and the network path in one call — or FireSingleAtFocused for issue
+        // #68's, which reimplements just enough of that to redirect the target.
+        private static void Fire(Aircraft ac, string? name, ref int lastFrame, ref bool switchHold, Action<WeaponManager> commit)
         {
             bool fresh = UnityEngine.Time.frameCount != lastFrame + 1;   // gap = new press
             lastFrame = UnityEngine.Time.frameCount;
@@ -169,7 +185,36 @@ namespace NOXMFD
                 return;
             }
             if (switchHold) return;     // still the hold that did the switch
-            wm.Fire();                  // the stock trigger's entry: safety, guns-linked, salvo, network path
+            commit(wm);
+        }
+
+        // Single-target counterpart to WeaponManager.Fire() (_scratch/full/WeaponManager.cs, issue
+        // #68): mirrors its guard chain and its single-target branches (Fire() for a zero-interval/
+        // sling weapon, LaunchMount() otherwise) exactly, but resolves the target to TargetFocus.Id
+        // and always takes that single-target path — never the stock trigger's own
+        // `targetList.Count > 1` branch, which staggers one round across every locked target
+        // instead of just the one the pilot is focused on. Guns are never reached here (this only
+        // ever runs via FireReleaseSingle, whose EffectiveRelease selection excludes the gun
+        // bucket), so there's no need to replicate Fire()'s own gun/guns-linked special case.
+        private static void FireSingleAtFocused(Aircraft ac, WeaponManager wm)
+        {
+            WeaponStation? ws = wm.currentWeaponStation;
+            if (ws == null || ws.SafetyIsOn(ac) || ac.weaponStations.Count == 0) return;
+            if (ac.remoteSim || !ws.Ready() || ws.SalvoInProgress) return;
+
+            // Reconcile (TargetFocus.cs) only ever leaves this 0 when nothing is locked at all, so
+            // there's genuinely nothing to release at rather than an unpicked default to fall back to.
+            uint focusedId = TargetFocus.Id;
+            if (focusedId == 0) return;
+            if (!UnitRegistry.TryGetUnit(new PersistentID { Id = focusedId }, out Unit target) ||
+                target == null || target.disabled)
+                return;
+            if (!wm.GetTargetList().Contains(target)) return;   // focus stale relative to this station's own locks
+
+            if (ws.WeaponInfo.fireInterval == 0f || ws.WeaponInfo.sling)
+                ws.Fire(ac, target);
+            else
+                ws.LaunchMount(ac, target, ac.GlobalPosition() + ac.transform.forward * 50000f);
         }
 
         // ── Follow the active selection ──────────────────────────────────────────────────────────

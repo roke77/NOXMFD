@@ -59,6 +59,32 @@ namespace NOXMFD
             // doesn't force renumbering every placeholder after it.
             sb.Append("\"mapReach\":{\"w\":").Append(s.MapReachW.ToString("0.0", CultureInfo.InvariantCulture))
               .Append(",\"h\":").Append(s.MapReachH.ToString("0.0", CultureInfo.InvariantCulture)).Append("},");
+            // The Next/Previous-focused locked target (issue #62) — a top-level id like mapReach,
+            // since it's one value TGT/FCR/HSD all read, not scoped into any one of their own blocks.
+            sb.Append("\"focusedTargetId\":").Append(s.FocusedTargetId).Append(',');
+            // weaponManager.GetTargetList()'s own order (TargetFocus.cs) — lets TGT sort its own
+            // selected-target list to match, so it visibly walks in the same order Next/Previous
+            // steps focus through, rather than the list's own (unrelated) contact-scan order.
+            sb.Append("\"lockedTargetIds\":[");
+            uint[] lockedIds = s.LockedTargetIds;
+            if (lockedIds != null)
+                for (int i = 0; i < lockedIds.Length; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    sb.Append(lockedIds[i]);
+                }
+            sb.Append("],");
+            // Same index/length as lockedTargetIds above; -1 means nothing of the player's is
+            // tracking that lock.
+            sb.Append("\"lockedTargetTti\":[");
+            float[] lockedTti = s.LockedTargetTti;
+            if (lockedTti != null)
+                for (int i = 0; i < lockedTti.Length; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    sb.Append(lockedTti[i].ToString("0.0", CultureInfo.InvariantCulture));
+                }
+            sb.Append("],");
             sb.Append("\"tgpResolution\":\"").Append(JsonLite.EscapeJson(s.TgpResolution ?? "native")).Append("\",");
             sb.Append("\"tgpQuality\":\"").Append(JsonLite.EscapeJson(s.TgpQuality ?? "native")).Append("\",");
             sb.Append("\"tgpManual\":").Append(JsonBool(s.TgpManualActive)).Append(',');

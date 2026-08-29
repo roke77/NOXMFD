@@ -229,13 +229,12 @@ HSD carries the same cursor and reuses the identical target-set commands:
 No HSD-specific lock state — `tg` on an item is the same target-set membership flag FCR and TGT
 already read.
 
-### Focused lock vs. locked (cycling-locked-targets follow-up)
+### Focused lock vs. locked
 
-The target set can already legitimately hold more than one `tg:1` contact at once (Select can lock
-several in a row); the bottom readout has always described only the first one encountered, without
-a real concept of "which lock is the one currently being read." Both pages now distinguish this
-explicitly ahead of a planned cycling-locked-targets feature (a HOTAS action to step which lock is
-focused, not built yet):
+The target set can legitimately hold more than one `tg:1` contact at once (Select can lock several
+in a row). Which one the bottom readout describes is a real, shared focus id — Next/Previous Target
+steps it, and it's the same id TGT highlights on its own list (issue #62,
+docs/tgt-cycle-focus.md) — not a per-page "whichever came first" guess:
 
 - **Focused lock** — the one the bottom readout currently describes. Icon amber, ring amber.
 - **Any other simultaneous lock** — still part of the target set, but not what's being read out
@@ -243,11 +242,9 @@ focused, not built yet):
   same as an unlocked contact of that source), ring stays amber — the ring is "this is locked,"
   independent of which lock is focused or what detected it.
 
-Until a real focus field exists, "focused" is simply the first locked contact each page's own
-render loop encounters, matching the bottom readout's existing behavior exactly (`rdr.js`'s
-`first`, `hsd.js`'s `firstLocked`) — swapping in a genuine focused-target id later needs no other
-change here, since the color logic already only asks "is this contact the focused one," not "is
-this contact literally first."
+`rdr.js`'s `renderContacts` and `hsd.js`'s `renderContacts` both compare each locked contact's id
+against the shared `focusedTargetId` field (`state.focusedTargetId`) rather than picking whichever
+one their own render loop reaches first.
 
 ## Telemetry and protocol
 

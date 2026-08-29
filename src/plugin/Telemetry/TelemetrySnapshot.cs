@@ -98,6 +98,24 @@ namespace NOXMFD
         public bool PlayerJammed;
         public uint PlayerJammedBy;   // persistentID.Id of the jamming unit; 0 = jammed but source unknown/not tracked
 
+        // The single locked target Next/Previous currently focuses, shared across TGT/FCR/HSD
+        // (issue #62, docs/tgt-cycle-focus.md — see TargetFocus.cs). persistentID.Id, 0 = none.
+        // Also TGT's only row-highlight source; keeping one tracker prevents page-local selection
+        // state from drifting when locks change outside a Next/Previous press.
+        public uint FocusedTargetId;
+
+        // weaponManager.GetTargetList()'s own order (persistentID.Id) — the exact order
+        // TargetFocus's Cycle/Reconcile step through (TargetFocus.cs). TGT sorts its own
+        // selected-target list to match, so Next/Previous visibly walks the table in the same
+        // order it steps focus in, rather than the list's own (unrelated) contact-scan order.
+        public uint[] LockedTargetIds;
+
+        // Time-to-impact per entry in LockedTargetIds (same index, same length) — the smallest TTI
+        // among the player's own in-flight guided weapons tracking that lock, or -1 when nothing of
+        // the player's is tracking it. Lets TGT show a TTI next to any locked row, not just the
+        // focused one the native HUD cue already does.
+        public float[] LockedTargetTti;
+
         // The game's own HUD faction colors (hex), so the web map matches the game.
         public string ColFriendly;
         public string ColHostile;

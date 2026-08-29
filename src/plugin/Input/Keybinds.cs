@@ -177,6 +177,15 @@ namespace NOXMFD
             _weaponRelease = Def(config, "weapon-release", wpn, "WeaponRelease", "Weapon Release", edge: false,
                 "Release your missile/bomb; HOLD to keep releasing. With a gun selected, the first press only switches to it — press again to release.",
                 WeaponSelectors.FireRelease);
+            // Single Target Weapon Release (issue #68, docs/single-target-weapon-release.md): the
+            // stock trigger above fires one round per LOCKED target when 2+ are locked
+            // (WeaponManager.Fire()'s own staggered salvo) — this always fires exactly one round,
+            // and only ever at the focused lock (issue #62's TargetFocus.Id). Not a combined fire
+            // bind (no remote/PWA counterpart for this pass), so it drives through the ordinary
+            // per-frame Drive loop rather than IsCombinedFireBind's special-cased list below.
+            Def(config, "weapon-release-single", wpn, "WeaponReleaseSingle", "Single Target Weapon Release", edge: false,
+                "Release one missile/bomb at only the focused locked target, even with others also locked. HOLD to keep releasing at that same target. Same switch-then-fire arbitration as Weapon Release.",
+                WeaponSelectors.FireReleaseSingle);
 
             Def(config, "gear-up", gear, "GearUp", "Gear Up", edge: true,
                 "Raise the landing gear. No-op if the gear is already up, still moving, or while on the ground.",
@@ -207,18 +216,18 @@ namespace NOXMFD
                 "Manually step the focused MAP display's active route to the previous waypoint (W-).",
                 () => TelemetryServer.MapAction("waypoint-prev"));
 
-            // TGT binds — act on the focused TGT display, so DefFree like MAP above (docs/tgt-keybind-nav.md).
-            // Next/Previous step a highlighted row through the locked-target list, independent of (and
-            // mutually exclusive with) the PAD cursor's free crosshair: using either one hides the
-            // crosshair and hands Cursor Select to the highlighted row instead; moving the crosshair
-            // (Cursor Up/Down/Left/Right or its axis) clears the highlight and hands Select back to it.
+            // TGT binds are DefFree like MAP above because they drive mod displays, not the aircraft.
+            // Next/Previous move the shared focused lock everywhere, and the SOI-focused TGT display
+            // also treats the press as a handoff from PAD-cursor hit-testing to direct row Select.
             const string tgt = "TGT Keybinds";
             DefFree(config, "tgt-next", tgt, "TgtNext", "Next Target", edge: true,
-                "Highlight the next locked target on the focused TGT display.",
-                () => TelemetryServer.MapAction("tgt-next"));
+                "Focus the next locked target across TGT/FCR/HSD; on the focused TGT display, " +
+                "Cursor Select deselects that focused row without aiming the crosshair.",
+                () => { TelemetryServer.MapAction("tgt-next"); CycleTargetFocus(1); });
             DefFree(config, "tgt-prev", tgt, "TgtPrev", "Previous Target", edge: true,
-                "Highlight the previous locked target on the focused TGT display.",
-                () => TelemetryServer.MapAction("tgt-prev"));
+                "Focus the previous locked target across TGT/FCR/HSD; on the focused TGT display, " +
+                "Cursor Select deselects that focused row without aiming the crosshair.",
+                () => { TelemetryServer.MapAction("tgt-prev"); CycleTargetFocus(-1); });
             DefFree(config, "tgt-datalink", tgt, "TgtDatalink", "Clear Datalink", edge: true,
                 "Deselect the datalink-only locks on the focused TGT display — same as tapping its DATALINK button.",
                 () => TelemetryServer.MapAction("tgt-datalink"));
@@ -502,9 +511,9 @@ namespace NOXMFD
                 "the bezel's FLW, R+/R- and W+/W- keys already do on the focused MAP display. Zoom " +
                 "In/Out moved to the shared Cursor Zoom In/Out (see Cursor Keybinds).",
             "TGT Keybinds" =>
-                "Next/Previous highlight a row instead of moving the crosshair — moving Cursor Up/Down/" +
-                "Left/Right (or its axis) clears the highlight and hands Cursor Select back to the " +
-                "crosshair. While a row is highlighted, Cursor Select deselects it. Datalink/Stale " +
+                "Next/Previous focus a locked target across TGT/FCR/HSD. On the focused TGT display, " +
+                "they hide the crosshair and hand Cursor Select to the focused row; moving Cursor " +
+                "Up/Down/Left/Right (or its axis) hands Select back to the crosshair. Datalink/Stale " +
                 "mirror the DATALINK/STALE buttons.",
             "SOI Keybinds" =>
                 "One display at a time is the sensor of interest — it rings itself in white, and these " +
@@ -831,6 +840,16 @@ namespace NOXMFD
             if (ac.radarAlt <= 0.2f) return;
             if (up   && ac.gearState == LandingGear.GearState.LockedExtended)  ac.SetGear(false);   // raise if down
             if (down && ac.gearState == LandingGear.GearState.LockedRetracted) ac.SetGear(true);    // lower if up
+        }
+
+        // Steps TargetFocus using the player's own weaponManager lock order, reaching every open
+        // TGT/FCR/HSD page regardless of SOI. Internal, not private, so remote/WSO map.action posts
+        // get the same shared-focus effect a physical press does.
+        internal static void CycleTargetFocus(int dir)
+        {
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            if (ac == null || ac.weaponManager == null) return;
+            TargetFocus.Cycle(dir, TelemetryReader.TargetIds(ac.weaponManager.GetTargetList()));
         }
 
         // Direct, not a blind toggle: only calls the game's Cmd when the state actually needs to

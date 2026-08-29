@@ -18,12 +18,23 @@ buttons:
 
 Every target you currently have selected, one row per target:
 
-- **NAME** — the unit's name.
+- **NAME** — the unit's name, with a **TTI** (time-to-impact) reading beside it whenever one of
+  your own missiles or guided bombs is currently in flight and tracking that lock — the same
+  reading the in-game HUD's own [time-to-impact readout](rdr.md#in-game-hud-cue) shows for whichever
+  target is focused, just available here for every locked target at once, not only the focused one.
 - **SRC** — where the lock is coming from: **SENSOR** (your own live sensors), **DATALINK**
   (relayed by your faction, still trustworthy), or **STALE** (relayed, but the game no longer
   trusts the position — the same check behind the TGP page's own "?" marker).
 - **RNG** — range to the target.
 - **GRID** — its grid position.
+
+If you have more than one target selected, an outline marks whichever one is currently *focused* —
+the same one [FCR/HSD](rdr.md#when-a-target-is-locked) read out at the bottom of their own screens,
+and the one the in-game HUD's own [time-to-impact readout](rdr.md#in-game-hud-cue) tracks. **Next
+Target / Previous Target** step which one that is. The outline is **amber** right after pressing
+Next/Previous — **Cursor Select** deselects that target directly, no aiming needed. Move the PAD
+cursor instead and the outline turns **grey**: the same target is still focused (FCR/HSD/the HUD
+still read it out), but Select now acts on whatever the cursor is pointing at instead.
 
 **Tap anywhere on a row** to deselect that target. **CLEAR TARGETS** deselects everything at once.
 

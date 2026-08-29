@@ -286,10 +286,27 @@ export class TelemetrySource {
         const dz = u.z - d.world.z;
         targets.push({ id: u.id, n: u.t, g: gridLabel(u.x, u.z, this._meta), r: Math.hypot(dx, dz) / 1000, f: u.f, dl: !!u.dl, st: !!u.st });
       }
+      // Sort to match weaponManager.GetTargetList()'s own order (TargetFocus.cs, lockedTargetIds) —
+      // the contact scan above walks an unrelated order, so without this TGT's Next/Previous would
+      // step focus in one order while the table displayed the locks in a different one.
+      if (Array.isArray(d.lockedTargetIds) && d.lockedTargetIds.length > 1) {
+        const order = d.lockedTargetIds;
+        targets.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+      }
     } else {
       targets = [];
     }
-    this._postUp({ type: 'targets', items: targets });
+    // Attach each row's own TTI. The parallel arrays use -1 for "nothing of the player's is
+    // tracking this lock," and preview mocks can opt in by supplying the same fields.
+    if (Array.isArray(d.lockedTargetIds) && Array.isArray(d.lockedTargetTti)) {
+      const ttiById = new Map();
+      for (let i = 0; i < d.lockedTargetIds.length; i++) ttiById.set(d.lockedTargetIds[i], d.lockedTargetTti[i]);
+      for (const t of targets) {
+        const v = ttiById.get(t.id);
+        if (typeof v === 'number' && v >= 0) t.tti = v;
+      }
+    }
+    this._postUp({ type: 'targets', items: targets, focusedTargetId: d.focusedTargetId || 0 });
 
     // Radar-warning emitters → nose-up plot (az = bearing relative to heading, dist = 1 - power).
     let rwr = [];
@@ -372,13 +389,17 @@ export class TelemetrySource {
       levelTime: rb ? (rb.lvlt || 0) : 0,
       hdg: d.hdg || 0,
       items: rdrItems,
-      pb: pbItems
+      pb: pbItems,
+      // The single locked target Next/Previous currently focuses (issue #62) — one id shared by
+      // TGT/FCR/HSD, not scoped into any one page's own block; 0 = none.
+      focusedTargetId: d.focusedTargetId || 0
     });
 
     this._postUp({
       type: 'hsd',
       metric: !!(d.hsd && d.hsd.metric),
-      items: d.hsd && Array.isArray(d.hsd.items) ? d.hsd.items : []
+      items: d.hsd && Array.isArray(d.hsd.items) ? d.hsd.items : [],
+      focusedTargetId: d.focusedTargetId || 0
     });
 
     // Aircraft name + per-part HP (the AVN damage silhouette; assets fetched on demand by the page).

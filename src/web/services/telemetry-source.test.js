@@ -141,5 +141,94 @@ const assert = require('assert');
     }
   }
 
+  // The Next/Previous-focused locked target (issue #62, docs/tgt-cycle-focus.md) is one top-level
+  // frame field that has to reach three independent feeds (TGT's 'targets', FCR's 'rdr', HSD's
+  // 'hsd') unchanged, since each page compares its own contacts' ids against it. Also confirms the
+  // safe default (0, "nothing focused") when an older/malformed frame omits the field entirely.
+  {
+    const messages = [];
+    const realWindow = global.window;
+    global.window = { parent: {} };
+    const src4 = new TelemetrySource({});
+    src4._postUp = (m) => messages.push(m);
+
+    try {
+      src4._emit({ focusedTargetId: 7, targets: [{ id: 1, n: 'BOGEY' }] });
+      assert.strictEqual(messages.find((m) => m.type === 'targets').focusedTargetId, 7,
+        'targets feed should carry the focused id');
+      assert.strictEqual(messages.find((m) => m.type === 'rdr').focusedTargetId, 7,
+        'rdr feed should carry the focused id');
+      assert.strictEqual(messages.find((m) => m.type === 'hsd').focusedTargetId, 7,
+        'hsd feed should carry the focused id');
+
+      messages.length = 0;
+      src4._emit({ targets: [] });   // field absent — the shape an older frame would still have
+      assert.strictEqual(messages.find((m) => m.type === 'targets').focusedTargetId, 0,
+        'missing focusedTargetId should default to 0, not undefined/NaN');
+      assert.strictEqual(messages.find((m) => m.type === 'rdr').focusedTargetId, 0,
+        'missing focusedTargetId should default to 0 on rdr too');
+      assert.strictEqual(messages.find((m) => m.type === 'hsd').focusedTargetId, 0,
+        'missing focusedTargetId should default to 0 on hsd too');
+    } finally {
+      global.window = realWindow;
+    }
+  }
+
+  // TGT's selected-target list is built from the contact scan's own (arbitrary) order — sort it to
+  // match lockedTargetIds (weaponManager.GetTargetList()'s order, TargetFocus.cs) so the table
+  // visibly walks in the same order Next/Previous steps focus through.
+  {
+    const messages = [];
+    const realWindow = global.window;
+    global.window = { parent: {} };
+    const src5 = new TelemetrySource({});
+    src5._postUp = (m) => messages.push(m);
+
+    try {
+      src5._emit({
+        world: { x: 0, y: 0, z: 0 },
+        lockedTargetIds: [3, 1, 2],
+        contacts: [
+          { id: 1, t: 'ONE', x: 10, z: 0, tg: true },
+          { id: 2, t: 'TWO', x: 20, z: 0, tg: true },
+          { id: 3, t: 'THREE', x: 30, z: 0, tg: true },
+        ],
+      });
+      const ids = messages.find((m) => m.type === 'targets').items.map((t) => t.id);
+      assert.deepStrictEqual(ids, [3, 1, 2],
+        'targets should be reordered to match lockedTargetIds, not the contact scan order');
+    } finally {
+      global.window = realWindow;
+    }
+  }
+
+  // Each row's own TTI: lockedTargetIds/lockedTargetTti are parallel arrays. A row gets t.tti only
+  // when its id has a non-negative entry; -1 must not show up as tti: -1.
+  {
+    const messages = [];
+    const realWindow = global.window;
+    global.window = { parent: {} };
+    const src6 = new TelemetrySource({});
+    src6._postUp = (m) => messages.push(m);
+
+    try {
+      src6._emit({
+        world: { x: 0, y: 0, z: 0 },
+        lockedTargetIds: [1, 2],
+        lockedTargetTti: [7.6, -1],
+        contacts: [
+          { id: 1, t: 'ONE', x: 10, z: 0, tg: true },
+          { id: 2, t: 'TWO', x: 20, z: 0, tg: true },
+        ],
+      });
+      const items = messages.find((m) => m.type === 'targets').items;
+      assert.strictEqual(items.find((t) => t.id === 1).tti, 7.6, 'a tracked lock should carry its tti');
+      assert.strictEqual(items.find((t) => t.id === 2).tti, undefined,
+        'an untracked lock (-1) should not carry a tti at all');
+    } finally {
+      global.window = realWindow;
+    }
+  }
+
   console.log('telemetry-source.test.js: OK');
 })();

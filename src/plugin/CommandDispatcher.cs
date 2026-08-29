@@ -132,7 +132,7 @@ namespace NOXMFD
                 { "soi.next",           e => TelemetryServer.SoiCycle(1) },
                 { "soi.prev",           e => TelemetryServer.SoiCycle(-1) },
                 { "soi.action",         e => TelemetryServer.SoiAction(e.wname ?? string.Empty) },
-                { "map.action",         e => TelemetryServer.MapAction(e.wname ?? string.Empty) },
+                { "map.action",         MapAction },
                 { "cursor.select",      e => TelemetryServer.CursorSelect() },
                 { "cursor.set",         CursorSet },
                 { "fire.set",           FireSet },
@@ -413,6 +413,17 @@ namespace NOXMFD
         private static void FireSet(CommandEnvelope env)
         {
             TelemetryServer.SetRemoteFireState(env.group ?? string.Empty, env.on);
+        }
+
+        // tgt-next/tgt-prev need both halves of the physical keybind path: the SOI-gated page action
+        // that lets TGT hand Select to the focused row, and the shared target-focus step that reaches
+        // every open TGT/FCR/HSD page.
+        private static void MapAction(CommandEnvelope env)
+        {
+            string act = env.wname ?? string.Empty;
+            TelemetryServer.MapAction(act);
+            if (act == "tgt-next") Keybinds.CycleTargetFocus(1);
+            else if (act == "tgt-prev") Keybinds.CycleTargetFocus(-1);
         }
 
         private static float ClampUnit(float value)

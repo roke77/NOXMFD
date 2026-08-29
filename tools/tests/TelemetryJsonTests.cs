@@ -295,5 +295,28 @@ namespace NOXMFD.Tests
             Assert.Equal(160000.0, mapReach["w"]);
             Assert.Equal(160000.0, mapReach["h"]);
         }
+
+        [Fact]
+        public void FocusedTargetId_is_a_top_level_field_and_survives_the_round_trip()
+        {
+            // Same "plain Append, not a numbered {N} slot" shape as mapReach above (issue #62) —
+            // covers the append actually landing as valid, correctly-typed JSON.
+            var s = default(TelemetrySnapshot);
+            s.FocusedTargetId = 4242u;
+
+            var root = Root(s);
+
+            Assert.Equal(4242.0, root["focusedTargetId"]);
+        }
+
+        [Fact]
+        public void FocusedTargetId_defaults_to_zero_when_nothing_is_focused()
+        {
+            var s = default(TelemetrySnapshot);
+
+            var root = Root(s);
+
+            Assert.Equal(0.0, root["focusedTargetId"]);
+        }
     }
 }

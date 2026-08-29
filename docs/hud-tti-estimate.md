@@ -1,0 +1,180 @@
+# Native HUD: time-to-impact estimate
+
+[Issue #67](https://github.com/roke77/NOXMFD/issues/67).
+
+## Status
+
+In-game testing found and fixed two real bugs the design didn't anticipate:
+
+1. **`TargetFocus.Reconcile` could get stuck unfocused.** Locking two or more targets before ever
+   pressing Next/Previous Target left focus at `0` indefinitely — the reconcile logic only knew how
+   to auto-pick a focus for exactly one lock, not "nothing focused yet, several already exist."
+   Fixed in `TargetFocus.cs`; see `docs/tgt-cycle-focus.md`.
+2. **`Altitude.radarAlt` is `TMP_Text`, not `UnityEngine.UI.Text`.** The decompile snapshot
+   (`_scratch/full/Altitude.cs`) predates the game's own Text→TextMeshPro migration that
+   `TgpNativeOverlay.cs` already had to work around for `TargetScreenUI`'s fields — the same
+   migration bit this readout too. `HudTtiCue.cs` now reflects/clones a `TMP_Text` instead.
+
+**Confirmed working in-game** after the fixes above: the label builds, and TTI counts down in real
+time as a locked, focused target's tracking weapon closes (logged 30.6s → 0.1s on one live shot).
+Three cosmetic issues surfaced on first sight and were fixed:
+
+- The clone first rendered far larger than every surrounding HUD readout — tried cloning
+  `radarAlt`'s auto-size config (`enableAutoSizing`/`fontSizeMin`/`fontSizeMax`), but auto-sizing
+  reacts to content length, and TTI's short strings ("TTI", "0:08") scaled up to fill the same box
+  `radarAlt`'s own longer text fills at a smaller size — worse, not better. Settled on a fixed size
+  instead: 50% larger than `HudWaypointCue`'s own in-game readout text (`fontSize` 13), by request,
+  auto-sizing off entirely.
+- The vertical offset used `radarAlt`'s own box height (`sizeDelta.y`), which is much taller than
+  its actual glyph line, leaving a visible gap (the native VVI ladder marks sat in it). Now offsets
+  by the fixed size above instead, so it sits snug directly under the rendered text.
+- The color read dim against the glowing native green text. Tried a brighter/more saturated amber
+  first, then settled on matching `HudWaypointCue`'s own `#FFAA00` exactly instead (one amber across
+  every mod-added HUD cue, confirmed no transparency — alpha 1), plus reusing `radarAlt`'s own
+  `fontSharedMaterial` so the clone gets the same glow treatment the native text has.
+
+## Goal
+
+Show a time-to-impact (TTI) estimate at the bottom right of the native in-game HUD, directly below
+the existing radar altitude readout. TTI describes the player's own in-flight guided weapon(s)
+currently tracking the locked, focused target ([issue #62](https://github.com/roke77/NOXMFD/issues/62)'s
+shared `TargetFocus`) — not a pre-release "if I fired now" estimate.
+
+## What the game already gives us
+
+**Radar altitude's native home**: `Altitude : HUDApp` (`_scratch/full/Altitude.cs`) holds two
+private fields, `radarAlt` (`"R[" + altitude + "]"`) and `absAlt` — the decompile shows them typed
+`Text`, but the live game build has them as `TMP_Text` (see "Status" above). Neither is public, and
+`Altitude` isn't a scene singleton — the same access shape `TgpManualTargetCamAccess.cs` already
+solves for `TargetCam`'s internals: cache one reflected `FieldInfo`, find the live instance
+(`FindFirstObjectByType`), rebuild if it goes Unity fake-null (the HUD is rebuilt per aircraft spawn,
+same as `CombatHUD.iconLayer` in `HudTgpCue.cs`).
+
+**No existing "outgoing weapon TTI" concept — but there is a mirror-image one already shipped**: the
+AI's own missile-evasion logic estimates how long an *incoming* missile has left
+(`AIPilotCombatModes.EvadeModeRadar`, `_scratch/full/AIPilotCombatModes.cs`):
+
+```csharp
+Vector3 vector = missileAlerts[0].transform.position - aircraft.transform.position;
+float magnitude = vector.magnitude;
+float num = Mathf.Max(Vector3.Dot(-vector.normalized, missileAlerts[0].rb.velocity - aircraft.rb.velocity), 1f);
+missileImpactTime = magnitude / num;
+```
+
+Straight-line range over closing speed, floored at 1 so a non-closing or barely-closing geometry
+can't produce a huge or negative time. The game already accepts this as good enough for a
+maneuvering, guided missile — it's not a real intercept simulation — which is exactly the bar this
+feature needs to clear, just applied with the roles reversed: our weapon, their target.
+
+**Every guided weapon already tracks its target with a public field**: `Missile.targetID`
+(`PersistentID`, `_scratch/full/Missile.cs`). Guided bombs are `Missile` instances too
+(`OpticalSeekerBomb` is one of several `MissileSeeker` components a `Missile` can carry), so this
+one field covers both weapon families. `Missile.ownerID` identifies who fired it.
+`TelemetryReader.BuildPitbull` already runs almost this exact query (`m.ownerID.Id == playerId`),
+narrowed further there to `seekerMode == activeLock && GetSeekerType() == "ARH"` for RDR's own
+Pitbull display — dropping that narrowing and matching `m.targetID.Id` against `TargetFocus.Id`
+instead answers "is this weapon of mine tracking my focused target," for any guided weapon type.
+
+**Enumerating live weapons needs no reflection**: `UnitRegistry.allUnits` (public) and
+`UnitRegistry.TryGetUnit(PersistentID?, out Unit)` (already used by `CommandDispatcher`) are both
+public API. Only `Altitude`'s label fields need the reflection treatment.
+
+**Unguided weapons (dumb bombs, guns) have no `targetID`** — nothing to compute an intercept from
+without a real ballistics simulation. Out of scope (see "Non-goals").
+
+## Design
+
+**`src/plugin/Hud/HudTtiMath.cs`** — pure math, no Unity/game types, same treatment
+`TgpManualAimMath`/`HudDirectionCueMath`/`HudWaypointCueMath` already get so `tools/tests` can pin
+it without a live game install:
+
+- `TimeToImpact(fromX/Y/Z, toX/Y/Z, relVelX/Y/Z)` — the range/closing-speed formula above, taking
+  plain floats (position and *weapon velocity minus target velocity*) rather than `Vector3`. Returns
+  `-1` when the two points coincide (nothing to divide by).
+- `FormatTti(seconds)` — renders `"M:SS"`.
+
+**`src/plugin/Hud/HudTtiCue.cs`** — the native MonoBehaviour, following `HudTgpCue.cs`'s shape
+(build once, refresh every `LateUpdate`, rebuild on a stale reference). Added alongside
+`HudWaypointCue`/`HudTgpCue` in `MissionLifecycle.StartReader`, so its lifetime matches theirs
+(spawned when a mission starts, torn down when it ends).
+
+- **Build**: find the live `Altitude`, reflect its `radarAlt` label (`TMP_Text`, confirmed in-game
+  — see "Status"), and instantiate a new sibling `TextMeshProUGUI` cloned from it (font/alignment/
+  overflow copied, not reinvented, plus `radarAlt`'s own `fontSharedMaterial` so it gets the same
+  glow treatment) anchored directly below via a fixed `anchoredPosition` offset. Color and size are
+  the two exceptions — amber (`HudWaypointCue`'s own `#FFAA00`, one amber across every mod-added HUD
+  cue, not `radarAlt`'s native green) at a fixed size (see "Status"), so the readout reads as
+  mod-added rather than blending into the stock HUD.
+- **Refresh**: no local aircraft, no focused target (`TargetFocus.Id == 0`), or the focused unit
+  gone/disabled → hide. Otherwise scan `UnitRegistry.allUnits` for the player's own live `Missile`s
+  whose `targetID` matches; none found → hide (no pre-release estimate — see "Non-goals"). Among any
+  found, show the smallest TTI — the one closest to hitting, per the ticket's own "first or closest
+  weapon release" wording (see "Open questions" below on that reading).
+- Text reads `"TTI " + HudTtiMath.FormatTti(tti)`.
+
+No telemetry/web changes for this pass — this lived entirely in the native HUD, unlike issue #62's
+work. (Later extended to the web TGT page too — see "TGT: a TTI per row" below.)
+
+## TGT: a TTI per row
+
+By request, the same reading also shows on the web TGT page, next to each locked target's name, not
+only the native HUD's focused-target cue above. `TargetTtiEstimator.ComputeTti(targetId, playerId)`
+provides the shared live weapon scan for both surfaces, so `HudTtiCue` stays responsible for drawing
+the native label while telemetry can compute one value per locked row.
+
+`TelemetryReader.RefreshContactSnapshotIfNeeded` (the same ~4 Hz scan that already reconciles
+`TargetFocus`) now also computes a TTI for every entry in its locked-ids list and caches it as a
+parallel `float[]` (`TelemetrySnapshot.LockedTargetTti`, `-1` = nothing tracking that lock — the same
+"no read" convention the HUD cue already uses). `TelemetryJson` serializes it as `lockedTargetTti`,
+same index/length as the existing `lockedTargetIds` (`docs/tgt-cycle-focus.md`'s "Display order
+matches cycle order"). `telemetry-source.js` zips the two arrays into a `Map` and sets `t.tti` on
+each row that has a non-negative entry — rows with nothing tracking them get no `tti` field at all,
+rather than a `-1` a page would have to remember to special-case.
+
+`tgt.js` renders it as `"TTI " + fmtTti(t.tti)` (a small JS mirror of `HudTtiMath.FormatTti`) inside
+the NAME cell, at its right edge — the cell became a flex row (`.tl-name-text` + `.tl-tti`, `tgt.css`)
+so a long name still ellipsizes correctly instead of the two fighting over the same nowrap span. Same
+amber as the HUD cue, kept independent of the row's own faction tint.
+
+## Non-goals for this pass
+
+- A pre-release "if I fired now" estimate for the currently selected weapon.
+- Unguided bombs or guns (no `targetID` to track).
+- True ballistic/intercept simulation — the same range/closing-speed approximation the game's own
+  AI already relies on for the mirror-image (incoming-missile) case.
+
+## Open questions
+
+- **"First or closest weapon release"** is read here as: among the player's own in-flight guided
+  weapons already tracking the focused target, show whichever is closest to impact (smallest TTI) —
+  not literally "whichever was released first" (which could be a slower weapon that would arrive
+  later than one fired afterward on a shorter path). Confirmed correct for a single tracking weapon;
+  the actual "pick the smallest among several" branch still has no live confirmation (see
+  "Verification").
+
+Resolved during in-game testing (see "Status"): placement offset (now `TtiFontSize + 2px` below
+`radarAlt`, not its box height) and display format (`"TTI M:SS"` kept as-is — no request to switch
+to `Altitude`'s own `R[...]` bracket convention once seen on screen).
+
+## Verification
+
+`dotnet build` (0 errors). `tools/tests/HudTtiMathTests.cs` covers `TimeToImpact`'s closing-speed
+projection (head-on, stationary-target, sideways-motion-ignored, non-closing-floors-at-minimum,
+coincident-points cases) and `FormatTti`'s rounding. `tools/tests/TargetFocusTests.cs` adds a
+regression test for the `Reconcile` bug this ticket's own in-game testing found (locking 2+ targets
+with nothing previously focused). `telemetry-source.test.js` covers `t.tti` only landing on a row
+with a non-negative `lockedTargetTti` entry. Full `tools/ci-check.ps1` green.
+
+**Confirmed in-game** (native HUD cue): label placement, size, and color all tested and adjusted
+live (see "Status" above); TTI counted down correctly against a real shot. Not yet tested: multiple
+simultaneous tracking weapons against the same focused target (the "smallest TTI wins" branch in
+`TargetTtiEstimator.ComputeTti` has no live confirmation yet, only the single-weapon path); TGT's own
+per-row TTI ("TGT: a TTI per row" above) has not been tested in-game at all yet.
+
+## Related documents
+
+- [TGT cycle focus](tgt-cycle-focus.md) — the shared `TargetFocus` this feature reads.
+- [HUD waypoint indicator](hud-waypoint-indicator.md) — the first additive native HUD change, and
+  the precedent for "not yet verified in-game" placement caveats.
+- [TGP high-quality mode](tgp-high-quality-mode.md) — `HudTgpCue.cs`'s own build/refresh shape,
+  which this follows.

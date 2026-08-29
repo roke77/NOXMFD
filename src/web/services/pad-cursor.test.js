@@ -151,7 +151,8 @@ let PadCursor;
   }
 
   // ── setHidden: invisible, but still exactly where it was ─────────────────────────────
-  // TGT's row-stepper hides the crosshair while it owns selection; un-hiding must resume the spot.
+  // TGT's Next/Previous hands Select to the focused lock and hides the crosshair meanwhile
+  // (docs/tgt-cycle-focus.md); un-hiding must resume the spot.
   {
     const { cur, el } = make();
     cur.setFocus(true, 100, 100);
