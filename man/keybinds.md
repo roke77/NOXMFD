@@ -20,6 +20,11 @@ stick it came from.
   weapon is from the other class, the first press only switches — bringing up the right reticle —
   and the next press fires. Current gun and missile/bomb choices show as outlines on
   [WPN](wpn.md).
+- **Single Target Weapon Release** — releases one missile/bomb at only the *focused* locked target
+  (see [Target list](#target-list) below), even with others also locked, instead of Weapon
+  Release's own staggered one-round-per-lock salvo. Same switch-then-fire behavior and HOLD-to-keep-
+  releasing as Weapon Release. The focused lock's own on-screen symbol also gets a small amber "+"
+  at its top-left ([RDR](rdr.md#in-game-hud-cue)) so you can tell which target this will hit.
 
 ## Gear
 

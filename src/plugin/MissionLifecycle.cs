@@ -46,6 +46,7 @@ namespace NOXMFD
             _readerObject.AddComponent<HudWaypointCue>();
             _readerObject.AddComponent<HudTgpCue>();
             _readerObject.AddComponent<HudTtiCue>();
+            _readerObject.AddComponent<HudFocusMark>();
             Plugin.Log?.LogInfo("Mission started -> telemetry reader ON.");
         }
 

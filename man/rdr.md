@@ -106,6 +106,10 @@ your own missiles or guided bombs is in flight and tracking the focused target; 
 nothing of yours is chasing that lock, and it doesn't estimate anything before you've actually
 fired.
 
+With more than one target locked, the focused one also gets a small amber **+** at the top-left of
+its own lock symbol out in the world — so you can tell which lock [Single Target Weapon
+Release](keybinds.md#weapons) will fire at just by looking through the canopy.
+
 ## Locking a target
 
 Click or tap directly on a contact to lock it; click again to unlock — on either page. The same

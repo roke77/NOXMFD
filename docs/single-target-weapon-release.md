@@ -9,6 +9,13 @@ Weapon Keybinds group. When pressed (held, same as Weapon Release), it releases 
 at only the currently *focused* locked target ([issue #62](https://github.com/roke77/NOXMFD/issues/62)'s
 shared `TargetFocus.Id`) — even when other targets are also locked.
 
+**Follow-up requirement**: an amber "+" mark over the top-left of the focused target's own native
+lock symbol, so a pilot can tell which locked target this releases at just by looking through the
+canopy, without checking a display first. See [HUD focus mark](hud-focus-mark.md) for that piece's
+own design/status — it's a separate native HUD addition, kept in its own doc since it reads the
+same shared focus but touches entirely different game systems (`CombatHUD`'s marker overlay, not
+`WeaponManager`).
+
 ## Why
 
 The stock Weapon Release trigger (`WeaponManager.Fire()`, `_scratch/full/WeaponManager.cs`)
@@ -84,3 +91,4 @@ unit tests (only `WeaponSelectorLogic`'s pure cycling/effective-selection math i
 - [TGT cycle focus](tgt-cycle-focus.md) — the shared `TargetFocus.Id` this feature releases at.
 - [HUD TTI estimate](hud-tti-estimate.md) — the other feature reading `TargetFocus.Id` per
   locked target, not just the single focused one.
+- [HUD focus mark](hud-focus-mark.md) — the follow-up requirement above, in its own doc.
