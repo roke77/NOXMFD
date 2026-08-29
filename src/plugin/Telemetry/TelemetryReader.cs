@@ -911,7 +911,6 @@ namespace NOXMFD
 
         private void RefreshContactSnapshotIfNeeded(Aircraft aircraft)
         {
-            if (aircraft is null) return;
             if (_contactTimer < ContactInterval && ReferenceEquals(_contactAircraft, aircraft))
                 return;
 
@@ -924,14 +923,13 @@ namespace NOXMFD
 
             // Keeps TargetFocus honest against locks changing here rather than via a Next/Prev press
             // (issue #62) — see TargetFocus.Reconcile for the actual rules.
-            List<Unit>? targets = aircraft?.weaponManager?.GetTargetList();
+            List<Unit>? targets = aircraft.weaponManager?.GetTargetList();
             _cachedLockedIds = TargetIds(targets).ToArray();
             TargetFocus.Reconcile(_cachedLockedIds);
 
             // A TTI reading per locked target, using this contact-scan cadence rather than adding
             // another UnitRegistry.allUnits scan timer for the TGT page.
-            PersistentID? playerPersistentId = aircraft!.persistentID;
-            uint playerId = playerPersistentId.HasValue ? playerPersistentId.Value.Id : 0;
+            uint playerId = aircraft.persistentID.Id;
             var lockedTti = new float[_cachedLockedIds.Length];
             for (int i = 0; i < _cachedLockedIds.Length; i++)
                 lockedTti[i] = TargetTtiEstimator.ComputeTti(_cachedLockedIds[i], playerId);

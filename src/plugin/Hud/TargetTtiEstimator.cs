@@ -9,10 +9,7 @@ namespace NOXMFD
     {
         internal static float ComputeTti(uint targetId, uint playerId)
         {
-            if (targetId == 0) return -1f;
-            if (!UnitRegistry.TryGetUnit(new PersistentID { Id = targetId }, out Unit target) ||
-                target == null || target.disabled)
-                return -1f;
+            if (!TargetUnitLookup.TryResolve(targetId, out Unit target)) return -1f;
 
             float best = -1f;
             foreach (Unit u in UnitRegistry.allUnits)

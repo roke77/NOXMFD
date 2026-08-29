@@ -88,8 +88,7 @@ namespace NOXMFD
                 if (!_loggedBadType) { _loggedBadType = true; Plugin.Log?.LogWarning("[NOXMFD] HUD focus mark: CombatHUD.markerLookup read null/wrong type — cue disabled."); }
                 return false;
             }
-            if (!UnitRegistry.TryGetUnit(new PersistentID { Id = targetId }, out Unit target) || target == null || target.disabled)
-                return false;
+            if (!TargetUnitLookup.TryResolve(targetId, out Unit target)) return false;
             if (!lookup.TryGetValue(target, out HUDUnitMarker marker) || marker == null) return false;
             if (!marker.selected || marker.image == null || !marker.image.enabled) return false;
             rect = marker.image.rectTransform;

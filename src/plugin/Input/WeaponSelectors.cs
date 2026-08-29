@@ -204,11 +204,7 @@ namespace NOXMFD
 
             // Reconcile (TargetFocus.cs) only ever leaves this 0 when nothing is locked at all, so
             // there's genuinely nothing to release at rather than an unpicked default to fall back to.
-            uint focusedId = TargetFocus.Id;
-            if (focusedId == 0) return;
-            if (!UnitRegistry.TryGetUnit(new PersistentID { Id = focusedId }, out Unit target) ||
-                target == null || target.disabled)
-                return;
+            if (!TargetUnitLookup.TryResolve(TargetFocus.Id, out Unit target)) return;
             if (!wm.GetTargetList().Contains(target)) return;   // focus stale relative to this station's own locks
 
             if (ws.WeaponInfo.fireInterval == 0f || ws.WeaponInfo.sling)

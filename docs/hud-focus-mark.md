@@ -39,12 +39,14 @@ part.
 `HudWaypointCue`/`HudTgpCue`/`HudTtiCue` in `MissionLifecycle.StartReader`:
 
 - **Refresh**: no focused target (`TargetFocus.Id == 0`) → hide. Otherwise reflect into
-  `CombatHUD.markerLookup`, resolve the focused id to a live `Unit`
-  (`UnitRegistry.TryGetUnit`), and look up its `HUDUnitMarker`. Only proceeds if that marker is
-  actually `selected` (a real lock, not just any visible unit) **and** its `Image` is currently
-  `enabled` — a locked target that's left view has `selected == true` but `image.enabled == false`
-  (`HUDUnitMarker.UpdatePosition`'s off-screen edge-arrow branch), and this mark has nothing sensible
-  to sit next to in that case, so it hides too rather than pinning to the arrow.
+  `CombatHUD.markerLookup`, resolve the focused id to a live `Unit` (`TargetUnitLookup.TryResolve` —
+  shared with `TargetTtiEstimator`/`WeaponSelectors.FireSingleAtFocused`, all three grew the same
+  `UnitRegistry.TryGetUnit`/null/disabled check independently before it was pulled out), and look up
+  its `HUDUnitMarker`. Only proceeds if that marker is actually `selected` (a real lock, not just any
+  visible unit) **and** its `Image` is currently `enabled` — a locked target that's left view has
+  `selected == true` but `image.enabled == false` (`HUDUnitMarker.UpdatePosition`'s off-screen
+  edge-arrow branch), and this mark has nothing sensible to sit next to in that case, so it hides too
+  rather than pinning to the arrow.
 - **Position**: rather than reprojecting the target's world position independently, the mark sits as
   a **sibling** of the marker's own `Image`, under the same `iconLayer`, copying
   `marker.image.rectTransform.position` plus a fixed screen-pixel offset toward the top-left every

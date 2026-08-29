@@ -290,8 +290,8 @@ export class TelemetrySource {
       // the contact scan above walks an unrelated order, so without this TGT's Next/Previous would
       // step focus in one order while the table displayed the locks in a different one.
       if (Array.isArray(d.lockedTargetIds) && d.lockedTargetIds.length > 1) {
-        const order = d.lockedTargetIds;
-        targets.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+        const orderById = new Map(d.lockedTargetIds.map((id, i) => [id, i]));
+        targets.sort((a, b) => orderById.get(a.id) - orderById.get(b.id));
       }
     } else {
       targets = [];

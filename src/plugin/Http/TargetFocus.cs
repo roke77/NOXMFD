@@ -52,10 +52,9 @@ namespace NOXMFD
         }
 
         // Next/Previous Target (docs/tgt-cycle-focus.md) — steps to the next/previous id in the
-        // game's own lock order, wrapping at both ends (matches TGT's navHighlight wrap,
-        // docs/tgt-keybind-nav.md). With 0 or 1 locks there's nothing to step between, but still
-        // resolves onto whatever single target remains rather than leaving a stale id from a lock
-        // that's since gone away.
+        // game's own lock order, wrapping at both ends. With 0 or 1 locks there's nothing to step
+        // between, but still resolves onto whatever single target remains rather than leaving a
+        // stale id from a lock that's since gone away.
         internal static void Cycle(int dir, IReadOnlyList<uint> lockedIds)
         {
             lock (_lock)
