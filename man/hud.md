@@ -7,8 +7,10 @@ mod's own HUD-hiding toggles.
 
 ## Declutter
 
-Toggles for the mod's own native-HUD hiding — the weapon panel, the corner minimap, and the boxed
-flight readouts. Independent of everything below; these aren't part of the game's own HUD OPTIONS.
+Toggles for the mod's own native-HUD hiding — the weapon panel, the corner minimap, the boxed
+flight readouts, and **FEED** (the native kill-feed ticker — the game's own version of what
+[AKF](akf.md)'s ALL feed replicates). Independent of everything below; these aren't part of the
+game's own HUD OPTIONS.
 
 ## Mode tabs
 
