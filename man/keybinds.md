@@ -83,6 +83,11 @@ the shared [PAD cursor](#pad-cursor) binds above, not a dedicated pan/tilt/zoom 
   unit lock. The game normally switches this automatically by time of day, distance, or the
   "always IR" setting; this overrides that with your own choice, which sticks until you flip it
   again.
+- **Full Screen Toggle** — show the TGP camera feed full screen: a cinematic, independently
+  rendered view, not a stretch of the small in-cockpit screen. Turns off on its own if the aircraft
+  is lost, the landing-gear camera takes over, or the pause menu/map opens.
+- **Full Screen HUD Toggle** — show or hide the readout overlay (range/altitude/heading/mode)
+  while full screen is active, for a clean, unobstructed view of the feed itself.
 
 ## Other settings
 

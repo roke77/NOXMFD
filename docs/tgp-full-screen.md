@@ -4,11 +4,18 @@
 
 ## Status
 
-Investigation only — not yet implemented. Design revised after two findings that changed the
-approach for the better: `TgpFeed.cs` already answers where the native picture comes from, and a
-side-by-side look at the community **MissileCamera** mod (`_scratch/mursisru-missile-camera/`,
-already in this repo from earlier research) shows a mature, working solution to the exact
-resolution/quality problem this ticket raises.
+First pass implemented (`TgpFullScreen.cs`), not yet tested in-game. Design revised after two
+findings that changed the approach for the better: `TgpFeed.cs` already answers where the native
+picture comes from, and a side-by-side look at the community **MissileCamera** mod
+(`_scratch/mursisru-missile-camera/`, already in this repo from earlier research) shows a mature,
+working solution to the exact resolution/quality problem this ticket raises.
+
+What shipped in the first pass: a dedicated `TgpMirrorCam` instance capped at 1080p (see "ponytail"
+note in the source for the upgrade path), a `ScreenSpaceOverlay` canvas with the feed `RawImage`
+and four corner readout labels (type/range/altitude/heading-or-elevation/mode) driven by a private
+`TgpOverlay`, and the two keybinds. Not yet done: per-target lock boxes on the full-screen view
+(the projection function is already wired for it, just unused), and the airframe `cullingMask`
+exclusion (still deferred pending an in-game look, per "The hide the airframe idea" below).
 
 ## Goal
 

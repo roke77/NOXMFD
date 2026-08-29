@@ -325,6 +325,15 @@ namespace NOXMFD
                 "the \"always IR\" setting; this bind overrides that with your own choice, which " +
                 "sticks until you flip it again.",
                 () => TgpManualControl.ToggleIR());
+            DefFree(config, "tgp-fullscreen-toggle", tgp, "TgpFullscreenToggle", "Full Screen Toggle", edge: true,
+                "Show the TGP camera feed full screen — a cinematic, independently rendered view, " +
+                "not a stretch of the small in-cockpit screen. Auto-exits on aircraft loss, a " +
+                "landing-gear/cam conflict, or opening the pause menu/map.",
+                () => TgpFullScreen.Toggle());
+            DefFree(config, "tgp-fullscreen-hud-toggle", tgp, "TgpFullscreenHudToggle", "Full Screen HUD Toggle", edge: true,
+                "Show or hide the readout overlay (range/altitude/heading/mode) while TGP full " +
+                "screen is active — off for a clean, unobstructed view of the feed itself.",
+                () => TgpFullScreen.ToggleHud());
 
             // Layout keybinds (issue #51 follow-up) — SAVE/LOAD LAYOUT. Unlike every bind above, the
             // action isn't a Unity/Rewired call at all: it's a browser popping its own SAVE/LOAD
