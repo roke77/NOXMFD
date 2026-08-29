@@ -177,6 +177,15 @@ namespace NOXMFD
             _weaponRelease = Def(config, "weapon-release", wpn, "WeaponRelease", "Weapon Release", edge: false,
                 "Release your missile/bomb; HOLD to keep releasing. With a gun selected, the first press only switches to it — press again to release.",
                 WeaponSelectors.FireRelease);
+            // Single Target Weapon Release (issue #68, docs/single-target-weapon-release.md): the
+            // stock trigger above fires one round per LOCKED target when 2+ are locked
+            // (WeaponManager.Fire()'s own staggered salvo) — this always fires exactly one round,
+            // and only ever at the focused lock (issue #62's TargetFocus.Id). Not a combined fire
+            // bind (no remote/PWA counterpart for this pass), so it drives through the ordinary
+            // per-frame Drive loop rather than IsCombinedFireBind's special-cased list below.
+            Def(config, "weapon-release-single", wpn, "WeaponReleaseSingle", "Single Target Weapon Release", edge: false,
+                "Release one missile/bomb at only the focused locked target, even with others also locked. HOLD to keep releasing at that same target. Same switch-then-fire arbitration as Weapon Release.",
+                WeaponSelectors.FireReleaseSingle);
 
             Def(config, "gear-up", gear, "GearUp", "Gear Up", edge: true,
                 "Raise the landing gear. No-op if the gear is already up, still moving, or while on the ground.",
