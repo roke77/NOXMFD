@@ -15,13 +15,13 @@ const { buildExtNavPlan } = require('./ext-nav.js');
 // One extension: appended after MAIN, plus its own MAIN-only back-link.
 {
   const plan = buildExtNavPlan([{ label: 'MAIN', action: 'main' }],
-    [{ id: 'rc-missile-camera', label: 'RC CAM' }]);
+    [{ id: 'example-camera', label: 'CAM' }]);
   assert.deepStrictEqual(plan.ext, [
     { label: 'MAIN', action: 'main' },
-    { label: 'RC CAM', action: 'rc-missile-camera' },
+    { label: 'CAM', action: 'example-camera' },
   ]);
   assert.deepStrictEqual(plan.perExtension, {
-    'rc-missile-camera': [{ label: 'MAIN', action: 'main' }],
+    'example-camera': [{ label: 'MAIN', action: 'main' }],
   });
 }
 

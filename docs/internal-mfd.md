@@ -2,9 +2,8 @@
 
 ## Status
 
-**Planning.** No branch, no code. Written after investigating how two other Nuclear Option mods
-(`9138noms/MFDCustomizer`, `9138noms/TargetCamControl`) manipulate the in-cockpit MFD, to confirm
-this is feasible before committing to it.
+**Planning.** No branch, no code. The game's cockpit UI and target-camera surfaces still need to be
+decompiled and verified before implementation.
 
 ## Goal
 
@@ -19,14 +18,11 @@ Unity re-render of the relevant page content, even though that duplicates logic 
 once in HTML/CSS/JS. That duplication is accepted going in — see [Why native, not
 screen-scraped](#why-native-not-screen-scraped).
 
-## Precedent — this is provably possible
+## Feasibility approach
 
-Two existing third-party mods informed this doc:
-
-**`MFDCustomizer`** (single-file plugin, `Plugin.cs`) replaces cockpit MFD content today, in
-shipping form. It never touches a camera. It reflects into the game's own UI hierarchy —
-`Cockpit.tacScreen.canvas` — grabs that `Canvas`, and inserts a new `GameObject` with a `RawImage`
-as its **last sibling** (top of paint order):
+The candidate insertion point is the game's own `Cockpit.tacScreen.canvas`. A proof-of-concept must
+resolve that `Canvas` and insert a `GameObject` with a `RawImage` as its **last sibling**, at the top
+of the paint order:
 
 ```csharp
 var tac = tacScreenField.GetValue(cockpit);
@@ -38,29 +34,21 @@ active.overlayGO.transform.SetAsLastSibling();
 active.rawImg = active.overlayGO.AddComponent<RawImage>();
 ```
 
-It feeds that `RawImage` a `RenderTexture`/`Texture2D` of its own choosing, and destroys the
-`GameObject` when done. Because UI canvas content always draws after all cameras in Unity's
-standard render order, this fully occludes/replaces whatever the native cameras rendered
-underneath — including the separate `UICam` overlay camera — with no camera-state interaction at
-all.
+The overlay owns its `RenderTexture` or `Texture2D` and destroys the inserted object when disabled.
+Canvas content draws after cameras, so this can cover the native camera and `UICam` output without
+mutating camera state.
 
-**`TargetCamControl`** (public source, `Plugin.cs` + `Runner.cs`) confirms the companion technique
-for *suppressing the game's own drive logic* without fighting its resets. It reflects
-`TargetCam.SetTargetCam()` and `TargetCam.CancelTarget()` directly, and uses Harmony **prefix**
-patches on the methods that normally drive the camera each frame (`AimCamera`, `Update`,
-`SwitchIRState`), guarded by a mode flag:
+If replacement also requires suppressing native drive logic, use guarded Harmony **prefix** patches
+on the relevant per-frame methods:
 
 ```csharp
 [HarmonyPrefix] static bool Prefix() => !Plugin.ManualMode;
 ```
 
-While the flag is set, the game's own per-frame logic never runs, so there's nothing to fight —
-no reset-on-`!enabled` race like the one documented in
-[`tgp-suppress-native-render.md`](tgp-suppress-native-render.md).
-
-Combined, these two mods demonstrate the two halves this feature needs: a confirmed insertion
-point for native content on top of the cockpit MFD (`Cockpit.tacScreen.canvas`), and a confirmed
-pattern for cleanly taking over from the game's own driving logic instead of racing it.
+While the flag is set, the game's own per-frame logic does not race the replacement. This preserves
+the reset behavior documented in [`tgp-suppress-native-render.md`](tgp-suppress-native-render.md).
+Both the canvas path and each native drive method still require verification against the current
+game assemblies.
 
 ## Why native, not screen-scraped
 
@@ -100,11 +88,10 @@ faithful in-cockpit reproduction of NOXMFD's full split-view/paging shell.
 This doc stops short of an implementation sketch because two things are still unknown and must be
 decompiled/checked first:
 
-1. **What `Cockpit.tacScreen.canvas` actually contains**, and whether it's one canvas per
-   aircraft type or a shared structure — `MFDCustomizer` only proves an overlay can be inserted,
-   not what native elements exist underneath per airframe (relevant: the T/A-30 renderer-scope
-   surprise already hit once in `tgp-suppress-native-render.md`, where a renderer boundary reached
-   further than expected).
+1. **What `Cockpit.tacScreen.canvas` actually contains**, whether the field still exists, and
+   whether it is one canvas per aircraft type or a shared structure. Native elements may differ by
+   airframe; `tgp-suppress-native-render.md` already shows that renderer boundaries can reach
+   further than expected.
 2. **What drives the *other* cockpit MFD content** (radar sweep, gauge needles, pylon icons) — the
    equivalent of `TargetCam.SetTargetCam()`/`AimCamera` for the TGP feed. Each of radar/gauges/
    pylons likely has its own driving method(s) that would need their own Harmony prefix guard,
@@ -132,9 +119,8 @@ holds itself to.
   does it just move cost from "duplicate camera render" to "duplicate UI redraw"? No profiling
   done yet.
 - Do the driving methods for radar/gauges/pylons need the same "invoke the game's own toggle
-  event" treatment `tgp-suppress-native-render.md` landed on (cosmetic-only, camera/renderer
-  untouched), or does full content replacement need the stronger Harmony-prefix suppression
-  `TargetCamControl` uses?
+  event" treatment `tgp-suppress-native-render.md` uses (cosmetic-only, camera/renderer untouched),
+  or does full content replacement need guarded Harmony-prefix suppression?
 
 ## Out of scope (for this doc)
 
@@ -149,7 +135,3 @@ holds itself to.
 - [`tgp-suppress-native-render.md`](tgp-suppress-native-render.md) — same cockpit-MFD problem
   space (native TGP camera), same `SetTargetCam()` reset hazard, currently-shipping cosmetic-only
   answer for that one feature.
-- `github.com/9138noms/MFDCustomizer` — proof of the `Cockpit.tacScreen.canvas` overlay insertion
-  point.
-- `github.com/9138noms/TargetCamControl` — proof of the Harmony-prefix suppression pattern for a
-  native driving method.

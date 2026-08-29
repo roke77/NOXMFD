@@ -145,14 +145,11 @@ namespace NOXMFD
                     continue;
 
                 // Skip degenerate "full-frame" parts: rect == the whole bg, centred (w/h ≈ 1, cx/cy ≈ 0.5).
-                // Some mods author a part as a full-canvas overlay sprite instead of a small positioned
-                // one; stacking those into the per-part mask produces a frame-filling blob or mirror-
-                // reversed labels over the silhouette, so they're dropped, leaving the clean bg outline
-                // plus any normally-placed parts. No stock aircraft has a part remotely this large (max
-                // ~0.26), and mods that place large overlay parts correctly sit off-centre, so the
-                // centred-AND-full-frame test doesn't catch a part that would render right. This is a
-                // heuristic on placement, not intent — a genuinely frame-sized, centred, meaningful part
-                // would be dropped too; revisit if one appears.
+                // A full-canvas overlay stacked into the per-part mask produces a frame-filling blob or
+                // mirror-reversed labels over the silhouette, so centred full-frame parts are dropped.
+                // No stock aircraft has a part remotely this large (max ~0.26), while valid large overlay
+                // parts sit off-centre. This is a placement heuristic; revisit it if a meaningful centred,
+                // frame-sized part appears.
                 if (w >= 0.98f && h >= 0.98f && Mathf.Abs(cx - 0.5f) < 0.02f && Mathf.Abs(cy - 0.5f) < 0.02f)
                     continue;
 

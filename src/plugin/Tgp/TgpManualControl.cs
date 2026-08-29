@@ -17,13 +17,9 @@ namespace NOXMFD
     // arranges by calling the same public TargetCam.SetTargetCam() TgpFeed itself calls on a
     // real lock. No coupling between the two beyond that shared camera.
     //
-    // See docs/tgp-manual-control.md's Precedent/Annex sections for the reference implementation
-    // (github.com/9138noms/TargetCamControl) this design is built against. One deliberate
-    // departure from it: Area Track (free aiming, no Point Track lock) stores its aim as an
-    // offset from the aircraft's OWN forward (aircraft-local, not world-space) so a centered camera
-    // turns with the airframe as it banks/turns, rather than staying pinned to a frozen world
-    // bearing — see _localPanDir. Point Track ignores that offset entirely; it drives the world-
-    // space _panDir directly from a locked world point instead.
+    // Area Track stores free aim as an offset from the aircraft's own forward so a centered camera
+    // turns with the airframe instead of staying pinned to a world bearing. Point Track instead
+    // drives the world-space _panDir directly from a locked world point.
     internal static class TgpManualControl
     {
         // Matches TargetCam.SetTargetCam()'s own targetFOV clamp range — the native camera never

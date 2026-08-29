@@ -6,14 +6,12 @@ namespace NOXMFD
     // MID and HIGH use this camera at different RenderTexture sizes. It stays enabled as a URP Base
     // camera because manual Camera.Render() loses tree/grass detail in this game.
     // A second camera, parented to TargetCam's active mount (docs/tgp-high-quality-mode.md), used
-    // only when TgpFeed.Resolution != Native. Never touches TargetCam.cam, its UICam, or anything
-    // CameraStateManager owns — see Mursisru/MissileCamera's Fullscreen/CAMERA_SAFETY.md, which
-    // documents a real incident from a *different* approach (reparenting/overlaying the vanilla
-    // camera) that this design avoids entirely by creating an independent camera instead.
+    // only when TgpFeed.Resolution != Native. It must not reparent or alter TargetCam.cam, UICam,
+    // CameraStateManager.mainCamera, or cameraPivot: those objects own the game's active camera
+    // state, and changing their hierarchy or pose can corrupt cockpit-camera restoration.
     //
-    // Renders correct tree/grass detail with no terrain shader-global sync or DetailRenderer.camera
-    // hijack (unlike that reference mod's MissileCameraRenderPrep.cs) — a plain enabled+Base camera
-    // is enough on its own.
+    // A continuously enabled URP Base camera renders the required tree and grass detail without
+    // terrain shader-global synchronization or replacing DetailRenderer.camera.
     internal sealed class TgpMirrorCam
     {
         private const float NearClip = 2f;

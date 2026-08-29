@@ -2,7 +2,6 @@
 
 ## Goal
 
-The PAD cursor (`docs/page-cursor.md`) already lets a HOTAS pilot aim a free crosshair at a target
 row and press Select to deselect it — but aiming a 2D crosshair at a specific row in a scrolling list
 is fussier than it needs to be. This doc originally added a discrete row-stepper (`highlightIndex`)
 walked by Next/Previous Target binds, plus two more keybinds that mirror the DATALINK/STALE buttons

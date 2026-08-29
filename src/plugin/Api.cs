@@ -7,8 +7,8 @@ namespace NOXMFD
         // Bump on breaking changes; extensions pin a minimum via BepInDependency MinimumVersion.
         public const int ApiVersion = 1;
 
-        // relPath "" is the page's own HTML (/ext/<id>); else an asset under that path.
-        // Return null for 404. Content-Type is inferred from relPath's extension.
+        // Called on an HTTP worker: relPath "" is the page's own HTML (/ext/<id>); otherwise it is
+        // an asset under that path. Return null for 404. Content-Type is inferred from its path suffix.
         public delegate byte[]? AssetResolver(string relPath);
 
         // Raw POST body from /ext/<id>/command, called on the Unity main thread. Exceptions caught and logged.
