@@ -107,6 +107,12 @@
       <HintPath>$(GameDir)\NuclearOption_Data\Managed\Unity.RenderPipelines.Universal.Runtime.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- UnityEngine.Rendering.Volume/VolumeProfile — the base SRP Volume system TgpMirrorCam's own
+         opt-in IR desaturation (docs/tgp-full-screen.md) attaches to its mirror camera. -->
+    <Reference Include="Unity.RenderPipelines.Core.Runtime">
+      <HintPath>$(GameDir)\NuclearOption_Data\Managed\Unity.RenderPipelines.Core.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <Target Name="DeployToGame" AfterTargets="Build">

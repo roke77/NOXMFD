@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 namespace NOXMFD
@@ -12,6 +13,9 @@ namespace NOXMFD
     //
     // A continuously enabled URP Base camera renders the required tree and grass detail without
     // terrain shader-global synchronization or replacing DetailRenderer.camera.
+    //
+    // Also used by TgpFullScreen (docs/tgp-full-screen.md), sized to the display instead of a
+    // small web-preview resolution — SetInfrared is that consumer's opt-in, see its own comment.
     internal sealed class TgpMirrorCam
     {
         private const float NearClip = 2f;
@@ -21,6 +25,9 @@ namespace NOXMFD
         private Camera?     _cam;
         private RenderTexture? _rt;
         private int _texW, _texH;
+        private Volume?     _irVolume;
+        private ColorAdjustments? _irColorAdjustments;
+        private bool        _irOn;
 
         internal Texture? Texture => _rt;
 
@@ -93,10 +100,54 @@ namespace NOXMFD
             if (_cam.clearFlags  != src.clearFlags)  _cam.clearFlags  = src.clearFlags;
         }
 
+        // Opt-in: TgpFeed's MID/HIGH web pipeline never calls this (its own IR handling is a CPU
+        // grayscale pass on the captured bytes instead — docs/tgp-high-quality-mode.md rejected a
+        // shared Volume/shader here as "risked leaking onto other cameras through URP's layer-based
+        // volume matching"). Safe for a live-displayed feed (TgpFullScreen) that has no readback
+        // step to grayscale instead: the Volume is local (isGlobal = false) with a small
+        // SphereCollider co-located with this camera, so it only ever affects a camera whose own
+        // volumeTrigger happens to sit within a few centimeters of this one — the mirror camera's
+        // own position, nothing else's. A basic desaturated look, not a simulated heat curve, same
+        // simplification the CPU path already settled on.
+        internal void SetInfrared(bool on)
+        {
+            if (_root == null || on == _irOn) return;
+            _irOn = on;
+            EnsureIrVolume();
+            if (_irVolume != null) _irVolume.enabled = on;
+        }
+
+        private void EnsureIrVolume()
+        {
+            if (_irVolume != null) return;
+
+            var collider = _root!.AddComponent<SphereCollider>();
+            collider.isTrigger = true;
+            collider.radius = 0.1f;
+
+            _irVolume = _root.AddComponent<Volume>();
+            _irVolume.isGlobal = false;
+            _irVolume.priority = 100f;
+            _irVolume.weight = 1f;
+            _irVolume.enabled = false;
+
+            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+            profile.hideFlags = HideFlags.HideAndDontSave;
+            _irColorAdjustments = profile.Add<ColorAdjustments>(true);
+            _irColorAdjustments.saturation.Override(-100f);
+            _irVolume.profile = profile;
+
+            _cam!.GetUniversalAdditionalCameraData().volumeTrigger = _cam.transform;
+        }
+
         internal void Disengage()
         {
             if (_rt != null) { _rt.Release(); Object.Destroy(_rt); _rt = null; }
+            if (_irVolume != null && _irVolume.profile != null) Object.Destroy(_irVolume.profile);
             if (_root != null) { Object.Destroy(_root); _root = null; _cam = null; }
+            _irVolume = null;
+            _irColorAdjustments = null;
+            _irOn = false;
             _texW = _texH = 0;
         }
     }

@@ -10,12 +10,28 @@ picture comes from, and a side-by-side look at the community **MissileCamera** m
 (`_scratch/mursisru-missile-camera/`, already in this repo from earlier research) shows a mature,
 working solution to the exact resolution/quality problem this ticket raises.
 
-What shipped in the first pass: a dedicated `TgpMirrorCam` instance capped at 1080p (see "ponytail"
-note in the source for the upgrade path), a `ScreenSpaceOverlay` canvas with the feed `RawImage`
-and four corner readout labels (type/range/altitude/heading-or-elevation/mode) driven by a private
-`TgpOverlay`, and the two keybinds. Not yet done: per-target lock boxes on the full-screen view
-(the projection function is already wired for it, just unused), and the airframe `cullingMask`
-exclusion (still deferred pending an in-game look, per "The hide the airframe idea" below).
+What shipped in the first pass: a dedicated `TgpMirrorCam` instance capped at 1080p, a
+`ScreenSpaceOverlay` canvas with the feed `RawImage` and four corner readout labels, and the two
+keybinds. In-game testing found two gaps and a request, addressed in a second pass:
+
+- **Resolution now matches the game's actual back buffer** (`Screen.width`/`Screen.height`, no
+  artificial cap) instead of a fixed 1080p ceiling — "cockpit resolution," as requested.
+- **COLOR/IR toggling now works in full screen.** It didn't before: `TgpMirrorCam` is a brand-new
+  camera with no connection to `TargetCam`'s own IR `Volume` (a child of the *native* camera,
+  toggled by `SwitchIRState`), so flipping IR natively had no visual effect on the mirror's feed.
+  Fixed by giving `TgpMirrorCam` its own opt-in `SetInfrared(bool)` — a local, narrowly-scoped
+  `Volume` co-located with the mirror camera (small `SphereCollider`, `isGlobal = false`), driven
+  from `TargetCam.UsingIR()` each tick. Opt-in and unused by `TgpFeed`'s existing MID/HIGH web
+  pipeline, which keeps its own already-working CPU-grayscale approach unchanged — see "IR in full
+  screen" below for why a shared Volume wasn't used originally, and why this one is scoped
+  differently.
+- **Full overlay field set, matching the manual TGP camera's own overlay** — type, pilot, range,
+  altitude, relative altitude, closure, heading/elevation, bearing, mag, mode, and grid, not just
+  the original four-field subset. Toggled by the same HUD keybind as before.
+
+Not yet done: per-target lock boxes on the full-screen view (the projection function is already
+wired for it, just unused), and the airframe `cullingMask` exclusion (still deferred pending
+another in-game look, per "The hide the airframe idea" below).
 
 ## Goal
 
@@ -59,6 +75,30 @@ full-screen `RawImage` — not `cam.targetTexture`. Bilinear filtering + MSAA (`
 sets `FilterMode.Bilinear`; MSAA sample count would need adding, mirroring
 `MissileCameraRig.ApplyConfig`'s `antiAliasing = msaa`) gets the rest of the way to "cinematic"
 instead of "instrument video."
+
+## IR in full screen
+
+`docs/tgp-high-quality-mode.md` already investigated exactly this problem for the web page's
+MID/HIGH mirror camera and deliberately avoided a shared Volume/shader: "`TargetCam`'s IR volume
+is scoped to its own camera and not straightforwardly shareable, and a custom shader/volume risked
+leaking onto other cameras through URP's layer-based volume matching." That's still true — but the
+mitigation that made it a real risk there (a Volume broad enough, or positioned wrongly, to affect
+the player's own main view or another camera sharing a layer) is avoidable for a *dedicated*
+full-screen mirror camera in a way it wasn't for the shared class's general-purpose case:
+
+- The Volume `TgpMirrorCam.SetInfrared` creates is **local** (`isGlobal = false`) and needs a
+  collider to define its influence region — a `SphereCollider` on the *same* GameObject as the
+  mirror camera, radius 0.1m, always co-located with it (it moves with the camera every tick since
+  they share a transform). URP only applies a local volume to a camera whose own `volumeTrigger`
+  point falls inside that collider.
+- The only way this could still leak is if some *other* camera's own `volumeTrigger` happens to sit
+  within 10cm of wherever the TGP mount currently is. For the player's own cockpit-view camera,
+  that would require the TGP pod to be mounted essentially at the pilot's eye position — implausible
+  for any real mount (nose/chin/wingtip pods sit meters from the cockpit).
+
+This is a narrower, camera-specific version of the same idea, not a reversal of the original
+decision — `TgpFeed`'s MID/HIGH web pipeline still uses its own CPU grayscale pass, unaffected,
+since `SetInfrared` is opt-in and nothing there calls it.
 
 ## The "hide the airframe" idea
 
@@ -138,7 +178,9 @@ the aircraft's actual renderers:
   new canvas is independent of `FlightHud`'s canvas.
 - **Airframe exclusion is deferred**, not dropped — see "The hide the airframe idea" above; add it
   only if an in-game look shows it's actually needed.
-- **GPU/perf cost of a second full-res camera** is a new consideration `TgpMirrorCam`'s existing
-  MID/HIGH sizes didn't have to worry about as much — a 4K mirror camera rendering every frame is
-  real cost. Worth capping the resolution (matching MissileCamera's own clamp, not necessarily its
-  exact 3840×2160 ceiling) rather than always matching the user's full desktop resolution.
+- **GPU/perf cost of a second full-res camera is real and currently uncapped.** Matching
+  `Screen.width`/`Screen.height` exactly (per the resolution request above) means a 4K display gets
+  a 4K mirror camera rendering every frame in addition to the normal scene — real cost, worth
+  measuring in-game once tried at high desktop resolutions. If it turns out to matter, the fix is a
+  cap matching MissileCamera's own approach (their fullscreen ceiling is 3840×2160, not literally
+  "whatever the desktop is"), not a redesign.

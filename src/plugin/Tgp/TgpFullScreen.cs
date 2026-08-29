@@ -16,12 +16,6 @@ namespace NOXMFD
     // whether any browser page is open — this is a native-only feature.
     internal static class TgpFullScreen
     {
-        // ponytail: a fixed cap, not the user's actual desktop resolution or a configurable
-        // setting — keeps the mirror camera's GPU cost predictable without a new settings surface.
-        // Upgrade path: promote to a RatesConfig-style hidden ConfigEntry if 1080p ever feels like
-        // the wrong ceiling in practice.
-        private const int MaxWidth  = 1920;
-        private const int MaxHeight = 1080;
         private const int OverlaySortingOrder = 40;
 
         internal static bool Active { get; private set; }
@@ -37,8 +31,13 @@ namespace NOXMFD
         private static TextMeshProUGUI? _typeText;
         private static TextMeshProUGUI? _rangeText;
         private static TextMeshProUGUI? _altText;
+        private static TextMeshProUGUI? _relAltText;
+        private static TextMeshProUGUI? _closureText;
         private static TextMeshProUGUI? _headingText;
+        private static TextMeshProUGUI? _bearingText;
+        private static TextMeshProUGUI? _magText;
         private static TextMeshProUGUI? _modeText;
+        private static TextMeshProUGUI? _gridText;
 
         internal static void Toggle()
         {
@@ -74,15 +73,20 @@ namespace NOXMFD
 
             if (TgpManualTargetCamAccess.IsLandingMode(tc)) { Exit(); return; }
 
-            int w = Mathf.Min(Screen.width, MaxWidth);
-            int h = Mathf.Min(Screen.height, MaxHeight);
-            Mirror.Engage(tc, w, h);
+            // Matches the game's own current back-buffer size — a real "cockpit resolution" feed,
+            // not a downscaled preview. Screen.width/height already reflect whatever display mode
+            // the player has chosen (windowed, borderless, exclusive fullscreen).
+            Mirror.Engage(tc, Screen.width, Screen.height);
             Mirror.SyncFromSource(cam);
+            Mirror.SetInfrared(tc.UsingIR());
             if (_feedImage != null) _feedImage.texture = Mirror.Texture;
 
             if (HudVisible) PopulateOverlay(tc, mount, ac);
         }
 
+        // Mirrors TgpNativeOverlay.Populate's own field set (the manual in-cockpit overlay) rather
+        // than inventing a smaller one — same labels, same source data (TgpOverlay), just a plain
+        // stacked column instead of that overlay's fixed corner-anchored layout.
         private static void PopulateOverlay(TargetCam tc, Transform mount, Aircraft ac)
         {
             List<Unit>? targets = ac.weaponManager != null ? ac.weaponManager.GetTargetList() : null;
@@ -104,16 +108,30 @@ namespace NOXMFD
                 _typeText.text = "NO TARGET";
                 _rangeText!.text = "RNG -";
                 _altText!.text = "ALT -";
-                _headingText!.text = "HDG -";
+                _relAltText!.text = "REL -";
+                _closureText!.text = "CLO -";
+                _headingText!.text = "";
+                _bearingText!.text = "";
+                _magText!.text = "";
                 _modeText!.text = "";
+                _gridText!.text = "GRID: -";
                 return;
             }
 
             _typeText.text = hasTargets ? Overlay.TargetType : (Overlay.PointTrackActive ? "POINT TRACK" : "MANUAL");
-            _rangeText!.text = "RNG " + UnitConverter.DistanceReading(Overlay.RangeM);
-            _altText!.text = "ALT " + UnitConverter.AltitudeReading(Overlay.AltitudeM);
-            _headingText!.text = hasTargets ? $"BRG {Overlay.BearingDeg:F0}°" : $"EL {Overlay.ElevationDeg:F0}°";
-            _modeText!.text = Overlay.IR ? "IR" : "COLOR";
+            if (!string.IsNullOrEmpty(Overlay.Pilot)) _typeText.text += " — " + Overlay.Pilot;
+
+            _rangeText!.text   = "RNG " + UnitConverter.DistanceReading(Overlay.RangeM);
+            _altText!.text     = "ALT " + UnitConverter.AltitudeReading(Overlay.AltitudeM);
+            _relAltText!.text  = "REL " + UnitConverter.AltitudeReading(Overlay.RelAltitudeM);
+            _closureText!.text = "CLO " + UnitConverter.SpeedReading(Overlay.RelSpeedMps);
+            // headingText slot is overloaded exactly like TgpNativeOverlay.Populate's own: a
+            // locked target's own compass heading, or (manual mode, no lock) camera elevation.
+            _headingText!.text = hasTargets ? $"HDG {Overlay.HeadingDeg:F0}°" : $"EL {Overlay.ElevationDeg:F0}°";
+            _bearingText!.text = $"{Overlay.BearingDeg:F0}°";
+            _magText!.text     = $"Mag x{Overlay.Mag:F1}";
+            _modeText!.text    = Overlay.IR ? "MODE: IR" : "MODE: COLOR";
+            _gridText!.text    = "GRID: " + Overlay.Grid;
         }
 
         private static void Enter()
@@ -168,37 +186,37 @@ namespace NOXMFD
             Stretch((RectTransform)_hudGroup.transform);
             _hudGroup.SetActive(HudVisible);
 
+            // One stacked column, top-left — plain and readable rather than the native overlay's
+            // fixed corner layout, which has no equivalent screen real estate to anchor to here.
             const float margin = 20f;
-            const float rowH = 32f;
-            _typeText    = CreateLabel(_hudGroup.transform, "Type", TextAlignmentOptions.TopLeft,
-                new Vector2(0f, 1f), new Vector2(margin, -margin));
-            _rangeText   = CreateLabel(_hudGroup.transform, "Range", TextAlignmentOptions.BottomLeft,
-                new Vector2(0f, 0f), new Vector2(margin, margin));
-            _altText     = CreateLabel(_hudGroup.transform, "Alt", TextAlignmentOptions.BottomLeft,
-                new Vector2(0f, 0f), new Vector2(margin, margin + rowH));
-            _headingText = CreateLabel(_hudGroup.transform, "Heading", TextAlignmentOptions.BottomRight,
-                new Vector2(1f, 0f), new Vector2(-margin, margin));
-            _modeText    = CreateLabel(_hudGroup.transform, "Mode", TextAlignmentOptions.TopRight,
-                new Vector2(1f, 1f), new Vector2(-margin, -margin));
+            const float rowH = 30f;
+            _typeText     = CreateRow(_hudGroup.transform, "Type",     margin, rowH * 0f);
+            _rangeText    = CreateRow(_hudGroup.transform, "Range",    margin, rowH * 1f);
+            _altText      = CreateRow(_hudGroup.transform, "Alt",      margin, rowH * 2f);
+            _relAltText   = CreateRow(_hudGroup.transform, "RelAlt",   margin, rowH * 3f);
+            _closureText  = CreateRow(_hudGroup.transform, "Closure",  margin, rowH * 4f);
+            _headingText  = CreateRow(_hudGroup.transform, "Heading",  margin, rowH * 5f);
+            _bearingText  = CreateRow(_hudGroup.transform, "Bearing",  margin, rowH * 6f);
+            _magText      = CreateRow(_hudGroup.transform, "Mag",      margin, rowH * 7f);
+            _modeText     = CreateRow(_hudGroup.transform, "Mode",     margin, rowH * 8f);
+            _gridText     = CreateRow(_hudGroup.transform, "Grid",     margin, rowH * 9f);
         }
 
-        // anchor = which screen corner (0/1 per axis); offsetFromCorner = pixel offset from that
-        // corner toward the screen's center (sign already baked in by the caller per corner).
-        private static TextMeshProUGUI CreateLabel(Transform parent, string name, TextAlignmentOptions alignment,
-            Vector2 anchor, Vector2 offsetFromCorner)
+        // One row of a top-left stacked column, `rowOffset` pixels below the top edge.
+        private static TextMeshProUGUI CreateRow(Transform parent, string name, float margin, float rowOffset)
         {
             var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
             var rt = (RectTransform)go.transform;
-            rt.anchorMin = rt.anchorMax = anchor;
-            rt.pivot = anchor;
-            rt.sizeDelta = new Vector2(400f, 32f);
-            rt.anchoredPosition = offsetFromCorner;
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.sizeDelta = new Vector2(500f, 28f);
+            rt.anchoredPosition = new Vector2(margin, -margin - rowOffset);
 
             var text = go.AddComponent<TextMeshProUGUI>();
-            text.alignment = alignment;
+            text.alignment = TextAlignmentOptions.TopLeft;
             text.color = new Color(1f, 0.6667f, 0f, 1f);
-            text.fontSize = 24f;
+            text.fontSize = 22f;
             return text;
         }
 
