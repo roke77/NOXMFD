@@ -28,6 +28,13 @@ keybinds. In-game testing found two gaps and a request, addressed in a second pa
 - **Full overlay field set, matching the manual TGP camera's own overlay** — type, pilot, range,
   altitude, relative altitude, closure, heading/elevation, bearing, mag, mode, and grid, not just
   the original four-field subset. Toggled by the same HUD keybind as before.
+- **Overlay styling and crosshair matched to the manual TGP camera feed's own look**: white text on
+  a translucent black pill per row (the web TGP page's `.tgp-ov-stat` chip style —
+  `rgba(0,0,0,0.6)` background), not this mod's usual amber HUD-cue color, since this is
+  reproducing that overlay's own look rather than adding a native HUD cue. Also added the boresight
+  crosshair + Point Track box (same bar layout as `TgpNativeOverlay.SyncCrosshair`'s in-cockpit
+  version, built independently since that class assumes one active consumer and full screen can be
+  active at the same time as the native manual overlay).
 
 Not yet done: per-target lock boxes on the full-screen view (the projection function is already
 wired for it, just unused), and the airframe `cullingMask` exclusion (still deferred pending

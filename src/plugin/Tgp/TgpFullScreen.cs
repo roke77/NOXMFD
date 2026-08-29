@@ -24,10 +24,17 @@ namespace NOXMFD
         private static readonly TgpMirrorCam Mirror = new TgpMirrorCam();
         private static readonly TgpOverlay Overlay = new TgpOverlay();
 
+        // Matches the web TGP page's own overlay chip look (tgp.css .tgp-ov-stat): white text on a
+        // rgba(0,0,0,0.6) translucent pill, not this mod's usual amber HUD-cue color — the manual
+        // TGP camera feed's own overlay is what's being matched here, not a native HUD cue.
+        private static readonly Color ChipBackground = new Color(0f, 0f, 0f, 0.6f);
+
         private static GameObject? _canvasGo;
         private static Canvas? _canvas;
         private static RawImage? _feedImage;
         private static GameObject? _hudGroup;
+        private static RectTransform? _crosshair;
+        private static GameObject? _pointTrackBox;
         private static TextMeshProUGUI? _typeText;
         private static TextMeshProUGUI? _rangeText;
         private static TextMeshProUGUI? _altText;
@@ -100,6 +107,12 @@ namespace NOXMFD
                 Overlay.PopulateManual(tc, mount, ac);
             else
                 Overlay.Clear();
+
+            // Boresight crosshair — same shape as the native in-cockpit manual overlay
+            // (TgpNativeOverlay.SyncCrosshair): only meaningful while manual mode owns the camera,
+            // not over a real lock (the lock box, not drawn here yet, is that case's own reference).
+            if (_crosshair != null) _crosshair.gameObject.SetActive(TgpManualControl.ManualMode);
+            if (_pointTrackBox != null) _pointTrackBox.SetActive(TgpManualControl.ManualMode && Overlay.PointTrackActive);
 
             if (_typeText == null) return;
 
@@ -186,10 +199,12 @@ namespace NOXMFD
             Stretch((RectTransform)_hudGroup.transform);
             _hudGroup.SetActive(HudVisible);
 
+            BuildCrosshair(_hudGroup.transform);
+
             // One stacked column, top-left — plain and readable rather than the native overlay's
             // fixed corner layout, which has no equivalent screen real estate to anchor to here.
             const float margin = 20f;
-            const float rowH = 30f;
+            const float rowH = 34f;
             _typeText     = CreateRow(_hudGroup.transform, "Type",     margin, rowH * 0f);
             _rangeText    = CreateRow(_hudGroup.transform, "Range",    margin, rowH * 1f);
             _altText      = CreateRow(_hudGroup.transform, "Alt",      margin, rowH * 2f);
@@ -202,22 +217,82 @@ namespace NOXMFD
             _gridText     = CreateRow(_hudGroup.transform, "Grid",     margin, rowH * 9f);
         }
 
-        // One row of a top-left stacked column, `rowOffset` pixels below the top edge.
+        // One row of a top-left stacked column — a translucent black pill hugging its own text,
+        // matching the web TGP page's .tgp-ov-stat chips (HorizontalLayoutGroup + ContentSizeFitter
+        // instead of CSS inline-block padding, the Unity UI equivalent of "size to content").
         private static TextMeshProUGUI CreateRow(Transform parent, string name, float margin, float rowOffset)
         {
-            var go = new GameObject(name, typeof(RectTransform));
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image),
+                typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
             go.transform.SetParent(parent, false);
             var rt = (RectTransform)go.transform;
             rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.sizeDelta = new Vector2(500f, 28f);
             rt.anchoredPosition = new Vector2(margin, -margin - rowOffset);
 
-            var text = go.AddComponent<TextMeshProUGUI>();
+            go.GetComponent<Image>().color = ChipBackground;
+
+            HorizontalLayoutGroup layout = go.GetComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(8, 8, 3, 3);
+            layout.childControlWidth = layout.childControlHeight = true;
+            layout.childForceExpandWidth = layout.childForceExpandHeight = false;
+
+            ContentSizeFitter fitter = go.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var textGo = new GameObject("Text", typeof(RectTransform));
+            textGo.transform.SetParent(go.transform, false);
+            var text = textGo.AddComponent<TextMeshProUGUI>();
             text.alignment = TextAlignmentOptions.TopLeft;
-            text.color = new Color(1f, 0.6667f, 0f, 1f);
+            text.color = Color.white;
             text.fontSize = 22f;
+            text.enableWordWrapping = false;
             return text;
+        }
+
+        // Boresight crosshair + Point Track box for manual mode — same bar layout/proportions as
+        // TgpNativeOverlay.SyncCrosshair's own in-cockpit version, built independently rather than
+        // shared: that class keeps a single static instance meant for one active consumer (the
+        // native screen) at a time, and full screen + manual mode can both be active together.
+        private static void BuildCrosshair(Transform parent)
+        {
+            const float gap = 0.028125f;
+            const float armLength = 4f * gap;
+            const float armEnd = 0.5f + gap + armLength;
+            const float thickness = 0.005f;
+            float half = thickness / 2f;
+
+            var root = new GameObject("Crosshair", typeof(RectTransform));
+            root.transform.SetParent(parent, false);
+            _crosshair = (RectTransform)root.transform;
+            Stretch(_crosshair);
+
+            CreateBar(_crosshair, "Top",    new Vector2(0.5f - half, 0.5f + gap),  new Vector2(0.5f + half, armEnd));
+            CreateBar(_crosshair, "Bottom", new Vector2(0.5f - half, 1f - armEnd), new Vector2(0.5f + half, 0.5f - gap));
+            CreateBar(_crosshair, "Left",   new Vector2(1f - armEnd, 0.5f - half), new Vector2(0.5f - gap, 0.5f + half));
+            CreateBar(_crosshair, "Right",  new Vector2(0.5f + gap, 0.5f - half),  new Vector2(armEnd, 0.5f + half));
+
+            _pointTrackBox = new GameObject("PointTrackBox", typeof(RectTransform));
+            _pointTrackBox.transform.SetParent(_crosshair, false);
+            var boxRt = (RectTransform)_pointTrackBox.transform;
+            Stretch(boxRt);
+            CreateBar(boxRt, "BoxTop",    new Vector2(0.5f - gap, 0.5f + gap - half), new Vector2(0.5f + gap, 0.5f + gap + half));
+            CreateBar(boxRt, "BoxBottom", new Vector2(0.5f - gap, 0.5f - gap - half), new Vector2(0.5f + gap, 0.5f - gap + half));
+            CreateBar(boxRt, "BoxLeft",   new Vector2(0.5f - gap - half, 0.5f - gap), new Vector2(0.5f - gap + half, 0.5f + gap));
+            CreateBar(boxRt, "BoxRight",  new Vector2(0.5f + gap - half, 0.5f - gap), new Vector2(0.5f + gap + half, 0.5f + gap));
+        }
+
+        private static void CreateBar(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            Image img = go.GetComponent<Image>();
+            img.color = Color.white;
+            RectTransform rt = img.rectTransform;
+            rt.anchorMin = anchorMin;
+            rt.anchorMax = anchorMax;
+            rt.offsetMin = rt.offsetMax = Vector2.zero;
         }
 
         private static void Stretch(RectTransform rt)
