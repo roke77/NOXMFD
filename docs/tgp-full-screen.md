@@ -35,6 +35,16 @@ keybinds. In-game testing found two gaps and a request, addressed in a second pa
   crosshair + Point Track box (same bar layout as `TgpNativeOverlay.SyncCrosshair`'s in-cockpit
   version, built independently since that class assumes one active consumer and full screen can be
   active at the same time as the native manual overlay).
+- **Layout rebuilt to match the web TGP page's own 4-corner grouping** (`tgp.js`'s
+  `applyOverlay`/`applyManualOverlay`, `tgp.css`'s `.tgp-ov-tl`/`-tr`/`-bl`/`-br`) exactly, after a
+  screenshot comparison showed the original single stacked column didn't match — a real lock's
+  screenshot was the reference, not just the manual-mode text list. Top-left: title (colored
+  blue/red for friendly/hostile, `[JAM]`/`[LASE]`/`[OLD]` tag) + pilot + RNG/ALT/SPD. Top-right:
+  HDG-or-EL, REL altitude, REL-or-CLO speed. Bottom-left: a rotating bearing needle (a square chip
+  standing in for the web page's circular compass ring — no circular sprite asset available at
+  runtime) + numeric bearing. Bottom-right: GRID, MODE, MAG. Built with Unity's
+  `VerticalLayoutGroup`/`HorizontalLayoutGroup` + `ContentSizeFitter` so each chip and stack sizes
+  itself to content, the same effect CSS's inline-block/flex layout gets for free.
 
 Not yet done: per-target lock boxes on the full-screen view (the projection function is already
 wired for it, just unused), and the airframe `cullingMask` exclusion (still deferred pending

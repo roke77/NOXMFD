@@ -12,11 +12,23 @@ namespace NOXMFD
     // already uses for the web /tgp page's HIGH quality setting — just at a bigger target size and
     // a dedicated instance, since the web pipeline's own mirror (if engaged) wants its own size.
     //
+    // Overlay layout/labels/colors mirror the web TGP page's own corner-group design (tgp.js's
+    // applyOverlay/applyManualOverlay, tgp.css's .tgp-ov-* classes) field for field, rather than a
+    // new arrangement — same reference the user asked to match visually.
+    //
     // Static class (like TgpManualControl), ticked every frame from TelemetryReader regardless of
     // whether any browser page is open — this is a native-only feature.
     internal static class TgpFullScreen
     {
         private const int OverlaySortingOrder = 40;
+
+        // Matches theme.css's --no-white/--no-red/--no-blue tokens (the web TGP page's own overlay
+        // colors) so the native version reads the same, not this mod's usual amber HUD-cue color.
+        private static readonly Color White  = new Color32(230, 235, 239, 255);
+        private static readonly Color Red    = new Color32(255, 64, 64, 255);
+        private static readonly Color Blue   = new Color32(77, 159, 255, 255);
+        private static readonly Color Amber  = new Color32(255, 170, 0, 255);
+        private static readonly Color ChipBackground = new Color(0f, 0f, 0f, 0.6f);
 
         internal static bool Active { get; private set; }
         internal static bool HudVisible { get; private set; } = true;
@@ -24,27 +36,35 @@ namespace NOXMFD
         private static readonly TgpMirrorCam Mirror = new TgpMirrorCam();
         private static readonly TgpOverlay Overlay = new TgpOverlay();
 
-        // Matches the web TGP page's own overlay chip look (tgp.css .tgp-ov-stat): white text on a
-        // rgba(0,0,0,0.6) translucent pill, not this mod's usual amber HUD-cue color — the manual
-        // TGP camera feed's own overlay is what's being matched here, not a native HUD cue.
-        private static readonly Color ChipBackground = new Color(0f, 0f, 0f, 0.6f);
-
         private static GameObject? _canvasGo;
         private static Canvas? _canvas;
         private static RawImage? _feedImage;
         private static GameObject? _hudGroup;
         private static RectTransform? _crosshair;
         private static GameObject? _pointTrackBox;
+
+        // Top-left: title (+ status tag), pilot, RNG/ALT/SPD.
         private static TextMeshProUGUI? _typeText;
-        private static TextMeshProUGUI? _rangeText;
+        private static TextMeshProUGUI? _tagText;
+        private static TextMeshProUGUI? _pilotText;
+        private static TextMeshProUGUI? _rngText;
         private static TextMeshProUGUI? _altText;
+        private static GameObject? _spdRow;
+        private static TextMeshProUGUI? _spdText;
+
+        // Top-right: HDG-or-EL, REL (altitude), REL-or-CLO (speed/closure).
+        private static TextMeshProUGUI? _hdgText;
         private static TextMeshProUGUI? _relAltText;
-        private static TextMeshProUGUI? _closureText;
-        private static TextMeshProUGUI? _headingText;
+        private static TextMeshProUGUI? _relSpdText;
+
+        // Bottom-left: compass needle + numeric bearing.
+        private static RectTransform? _needle;
         private static TextMeshProUGUI? _bearingText;
-        private static TextMeshProUGUI? _magText;
-        private static TextMeshProUGUI? _modeText;
+
+        // Bottom-right: GRID, MODE, MAG.
         private static TextMeshProUGUI? _gridText;
+        private static TextMeshProUGUI? _modeText;
+        private static TextMeshProUGUI? _magText;
 
         internal static void Toggle()
         {
@@ -91,19 +111,20 @@ namespace NOXMFD
             if (HudVisible) PopulateOverlay(tc, mount, ac);
         }
 
-        // Mirrors TgpNativeOverlay.Populate's own field set (the manual in-cockpit overlay) rather
-        // than inventing a smaller one — same labels, same source data (TgpOverlay), just a plain
-        // stacked column instead of that overlay's fixed corner-anchored layout.
+        // Mirrors tgp.js's applyOverlay/applyManualOverlay field-for-field — same labels, same
+        // corner grouping, same source data (TgpOverlay) — just rendered natively instead of into
+        // that page's DOM.
         private static void PopulateOverlay(TargetCam tc, Transform mount, Aircraft ac)
         {
             List<Unit>? targets = ac.weaponManager != null ? ac.weaponManager.GetTargetList() : null;
             bool hasTargets = targets != null && targets.Count > 0;
+            bool manual = !hasTargets && TgpManualControl.ManualMode;
 
             // Boxes (Overlay.Boxes) aren't drawn in this pass — WorldToViewport is still the correct
             // projection to feed Populate() with, for when per-target box rendering is added here.
             if (hasTargets)
                 Overlay.Populate(tc, targets, ac, Mirror.WorldToViewport);
-            else if (TgpManualControl.ManualMode)
+            else if (manual)
                 Overlay.PopulateManual(tc, mount, ac);
             else
                 Overlay.Clear();
@@ -111,40 +132,68 @@ namespace NOXMFD
             // Boresight crosshair — same shape as the native in-cockpit manual overlay
             // (TgpNativeOverlay.SyncCrosshair): only meaningful while manual mode owns the camera,
             // not over a real lock (the lock box, not drawn here yet, is that case's own reference).
-            if (_crosshair != null) _crosshair.gameObject.SetActive(TgpManualControl.ManualMode);
-            if (_pointTrackBox != null) _pointTrackBox.SetActive(TgpManualControl.ManualMode && Overlay.PointTrackActive);
+            if (_crosshair != null) _crosshair.gameObject.SetActive(manual);
+            if (_pointTrackBox != null) _pointTrackBox.SetActive(manual && Overlay.PointTrackActive);
 
             if (_typeText == null) return;
 
-            if (!hasTargets && !TgpManualControl.ManualMode)
+            if (!hasTargets && !manual)
             {
                 _typeText.text = "NO TARGET";
-                _rangeText!.text = "RNG -";
+                _typeText.color = White;
+                _tagText!.text = "";
+                _pilotText!.text = "";
+                _spdRow!.SetActive(false);
+                _rngText!.text = "RNG -";
                 _altText!.text = "ALT -";
+                _hdgText!.text = "HDG -";
                 _relAltText!.text = "REL -";
-                _closureText!.text = "CLO -";
-                _headingText!.text = "";
+                _relSpdText!.text = "REL -";
                 _bearingText!.text = "";
-                _magText!.text = "";
-                _modeText!.text = "";
+                _needle!.gameObject.SetActive(false);
                 _gridText!.text = "GRID: -";
+                _modeText!.text = "";
+                _magText!.text = "";
                 return;
             }
 
-            _typeText.text = hasTargets ? Overlay.TargetType : (Overlay.PointTrackActive ? "POINT TRACK" : "MANUAL");
-            if (!string.IsNullOrEmpty(Overlay.Pilot)) _typeText.text += " — " + Overlay.Pilot;
+            if (hasTargets)
+            {
+                _typeText.text = Overlay.TargetType;
+                _typeText.color = Overlay.Status == "friendly" ? Blue : Red;
+                _tagText!.text = Overlay.Status switch
+                {
+                    "jammed" => "[JAM]",
+                    "lased" => "[LASE]",
+                    "outdated" => "[OLD]",
+                    _ => "",
+                };
+                _pilotText!.text = Overlay.Pilot ?? "";
+                _spdRow!.SetActive(true);
+                _spdText!.text = "SPD " + UnitConverter.SpeedReading(Overlay.SpeedMps);
+                _hdgText!.text = $"HDG {Overlay.HeadingDeg:F0}°";
+            }
+            else
+            {
+                _typeText.text = Overlay.PointTrackActive ? "POINT TRACK" : "MANUAL";
+                _typeText.color = White;
+                _tagText!.text = "";
+                _pilotText!.text = "";
+                _spdRow!.SetActive(false);
+                _hdgText!.text = $"EL {Overlay.ElevationDeg:F0}°";
+            }
 
-            _rangeText!.text   = "RNG " + UnitConverter.DistanceReading(Overlay.RangeM);
+            _rngText!.text     = "RNG " + UnitConverter.DistanceReading(Overlay.RangeM);
             _altText!.text     = "ALT " + UnitConverter.AltitudeReading(Overlay.AltitudeM);
             _relAltText!.text  = "REL " + UnitConverter.AltitudeReading(Overlay.RelAltitudeM);
-            _closureText!.text = "CLO " + UnitConverter.SpeedReading(Overlay.RelSpeedMps);
-            // headingText slot is overloaded exactly like TgpNativeOverlay.Populate's own: a
-            // locked target's own compass heading, or (manual mode, no lock) camera elevation.
-            _headingText!.text = hasTargets ? $"HDG {Overlay.HeadingDeg:F0}°" : $"EL {Overlay.ElevationDeg:F0}°";
+            _relSpdText!.text  = (hasTargets ? "REL " : "CLO ") + UnitConverter.SpeedReading(Overlay.RelSpeedMps);
+
+            _needle!.gameObject.SetActive(true);
+            _needle.localRotation = Quaternion.Euler(0f, 0f, -(Overlay.BearingDeg + 180f));
             _bearingText!.text = $"{Overlay.BearingDeg:F0}°";
-            _magText!.text     = $"Mag x{Overlay.Mag:F1}";
-            _modeText!.text    = Overlay.IR ? "MODE: IR" : "MODE: COLOR";
             _gridText!.text    = "GRID: " + Overlay.Grid;
+            _modeText!.text    = Overlay.IR ? "MODE: IR" : "MODE: COLOR";
+            _magText!.text     = $"Mag x{Overlay.Mag:F1}";
         }
 
         private static void Enter()
@@ -200,36 +249,124 @@ namespace NOXMFD
             _hudGroup.SetActive(HudVisible);
 
             BuildCrosshair(_hudGroup.transform);
-
-            // One stacked column, top-left — plain and readable rather than the native overlay's
-            // fixed corner layout, which has no equivalent screen real estate to anchor to here.
-            const float margin = 20f;
-            const float rowH = 34f;
-            _typeText     = CreateRow(_hudGroup.transform, "Type",     margin, rowH * 0f);
-            _rangeText    = CreateRow(_hudGroup.transform, "Range",    margin, rowH * 1f);
-            _altText      = CreateRow(_hudGroup.transform, "Alt",      margin, rowH * 2f);
-            _relAltText   = CreateRow(_hudGroup.transform, "RelAlt",   margin, rowH * 3f);
-            _closureText  = CreateRow(_hudGroup.transform, "Closure",  margin, rowH * 4f);
-            _headingText  = CreateRow(_hudGroup.transform, "Heading",  margin, rowH * 5f);
-            _bearingText  = CreateRow(_hudGroup.transform, "Bearing",  margin, rowH * 6f);
-            _magText      = CreateRow(_hudGroup.transform, "Mag",      margin, rowH * 7f);
-            _modeText     = CreateRow(_hudGroup.transform, "Mode",     margin, rowH * 8f);
-            _gridText     = CreateRow(_hudGroup.transform, "Grid",     margin, rowH * 9f);
+            BuildTopLeft(_hudGroup.transform);
+            BuildTopRight(_hudGroup.transform);
+            BuildBottomLeft(_hudGroup.transform);
+            BuildBottomRight(_hudGroup.transform);
         }
 
-        // One row of a top-left stacked column — a translucent black pill hugging its own text,
-        // matching the web TGP page's .tgp-ov-stat chips (HorizontalLayoutGroup + ContentSizeFitter
-        // instead of CSS inline-block padding, the Unity UI equivalent of "size to content").
-        private static TextMeshProUGUI CreateRow(Transform parent, string name, float margin, float rowOffset)
+        // tgp.css .tgp-ov-tl: title (+ tag), pilot (dim, smaller), RNG, ALT, SPD.
+        private static void BuildTopLeft(Transform parent)
+        {
+            RectTransform stack = CreateStack(parent, "TopLeft", new Vector2(0f, 1f));
+
+            GameObject titleRow = new GameObject("Title", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+            titleRow.transform.SetParent(stack, false);
+            HorizontalLayoutGroup titleLayout = titleRow.GetComponent<HorizontalLayoutGroup>();
+            titleLayout.spacing = 5f;
+            titleLayout.childControlWidth = titleLayout.childControlHeight = true;
+            titleLayout.childForceExpandWidth = titleLayout.childForceExpandHeight = false;
+            ContentSizeFitter titleFitter = titleRow.GetComponent<ContentSizeFitter>();
+            titleFitter.horizontalFit = titleFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            _typeText = CreatePlainLabel(titleRow.transform, "Type", 20f, FontStyles.Bold);
+            _tagText  = CreatePlainLabel(titleRow.transform, "Tag", 20f, FontStyles.Bold);
+            _tagText.color = Amber;
+
+            _pilotText = CreatePlainLabel(stack, "Pilot", 15f, FontStyles.Normal);
+            _pilotText.color = new Color(0.7f, 0.75f, 0.78f, 1f);
+
+            _rngText = CreateChip(stack, "Rng");
+            _altText = CreateChip(stack, "Alt");
+            _spdText = CreateChip(stack, "Spd");
+            _spdRow  = _spdText.transform.parent.gameObject;
+        }
+
+        // tgp.css .tgp-ov-tr: HDG-or-EL, REL (altitude), REL-or-CLO (speed).
+        private static void BuildTopRight(Transform parent)
+        {
+            RectTransform stack = CreateStack(parent, "TopRight", new Vector2(1f, 1f));
+            _hdgText    = CreateChip(stack, "Hdg");
+            _relAltText = CreateChip(stack, "RelAlt");
+            _relSpdText = CreateChip(stack, "RelSpd");
+        }
+
+        // tgp.css .tgp-ov-bl: a compass ring (approximated as a square chip — no circular sprite
+        // asset available at runtime) with a rotating needle, plus a separate bearing-degrees chip.
+        private static void BuildBottomLeft(Transform parent)
+        {
+            var row = new GameObject("BottomLeft", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+            row.transform.SetParent(parent, false);
+            var rt = (RectTransform)row.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 0f);
+            rt.pivot = new Vector2(0f, 0f);
+            rt.anchoredPosition = new Vector2(8f, 8f);
+
+            HorizontalLayoutGroup layout = row.GetComponent<HorizontalLayoutGroup>();
+            layout.spacing = 8f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = layout.childControlHeight = true;
+            layout.childForceExpandWidth = layout.childForceExpandHeight = false;
+            ContentSizeFitter fitter = row.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var compassGo = new GameObject("Compass", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            compassGo.transform.SetParent(row.transform, false);
+            compassGo.GetComponent<Image>().color = ChipBackground;
+            LayoutElement compassLayout = compassGo.GetComponent<LayoutElement>();
+            compassLayout.minWidth = compassLayout.preferredWidth = 40f;
+            compassLayout.minHeight = compassLayout.preferredHeight = 40f;
+
+            var needleGo = new GameObject("Needle", typeof(RectTransform), typeof(Image));
+            needleGo.transform.SetParent(compassGo.transform, false);
+            needleGo.GetComponent<Image>().color = White;
+            _needle = (RectTransform)needleGo.transform;
+            _needle.anchorMin = _needle.anchorMax = new Vector2(0.5f, 0.5f);
+            _needle.pivot = new Vector2(0.5f, 0f);
+            _needle.sizeDelta = new Vector2(2f, 18f);
+            _needle.anchoredPosition = Vector2.zero;
+
+            _bearingText = CreateChip(row.transform, "Bearing");
+        }
+
+        // tgp.css .tgp-ov-br: GRID, MODE, MAG.
+        private static void BuildBottomRight(Transform parent)
+        {
+            RectTransform stack = CreateStack(parent, "BottomRight", new Vector2(1f, 0f));
+            _gridText = CreateChip(stack, "Grid");
+            _modeText = CreateChip(stack, "Mode");
+            _magText  = CreateChip(stack, "Mag");
+        }
+
+        // A corner-anchored vertical stack (tgp.css .tgp-ov-stack) — children lay themselves out
+        // top-to-bottom via VerticalLayoutGroup, sized to their own content via ContentSizeFitter,
+        // so callers never compute row offsets by hand.
+        private static RectTransform CreateStack(Transform parent, string name, Vector2 anchor)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            go.transform.SetParent(parent, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = rt.anchorMax = anchor;
+            rt.pivot = anchor;
+            rt.anchoredPosition = new Vector2((anchor.x - 0.5f) * -16f, (anchor.y - 0.5f) * -16f);
+
+            VerticalLayoutGroup layout = go.GetComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(8, 8, 8, 8);
+            layout.spacing = 3f;
+            layout.childAlignment = anchor.x > 0.5f ? TextAnchor.UpperRight : TextAnchor.UpperLeft;
+            layout.childControlWidth = layout.childControlHeight = true;
+            layout.childForceExpandWidth = layout.childForceExpandHeight = false;
+
+            ContentSizeFitter fitter = go.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            return rt;
+        }
+
+        // One translucent black pill (tgp.css .tgp-ov-stat) sized to its own text.
+        private static TextMeshProUGUI CreateChip(Transform parent, string name)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Image),
                 typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
             go.transform.SetParent(parent, false);
-            var rt = (RectTransform)go.transform;
-            rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
-            rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2(margin, -margin - rowOffset);
-
             go.GetComponent<Image>().color = ChipBackground;
 
             HorizontalLayoutGroup layout = go.GetComponent<HorizontalLayoutGroup>();
@@ -238,15 +375,22 @@ namespace NOXMFD
             layout.childForceExpandWidth = layout.childForceExpandHeight = false;
 
             ContentSizeFitter fitter = go.GetComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.horizontalFit = fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            var textGo = new GameObject("Text", typeof(RectTransform));
-            textGo.transform.SetParent(go.transform, false);
-            var text = textGo.AddComponent<TextMeshProUGUI>();
+            return CreatePlainLabel(go.transform, "Text", 20f, FontStyles.Normal);
+        }
+
+        // Bare TextMeshProUGUI, no background — used both standalone (title, pilot) and nested
+        // inside a chip's own background (CreateChip).
+        private static TextMeshProUGUI CreatePlainLabel(Transform parent, string name, float fontSize, FontStyles style)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var text = go.AddComponent<TextMeshProUGUI>();
             text.alignment = TextAlignmentOptions.TopLeft;
-            text.color = Color.white;
-            text.fontSize = 22f;
+            text.color = White;
+            text.fontSize = fontSize;
+            text.fontStyle = style;
             text.enableWordWrapping = false;
             return text;
         }
@@ -288,7 +432,7 @@ namespace NOXMFD
             var go = new GameObject(name, typeof(RectTransform), typeof(Image));
             go.transform.SetParent(parent, false);
             Image img = go.GetComponent<Image>();
-            img.color = Color.white;
+            img.color = White;
             RectTransform rt = img.rectTransform;
             rt.anchorMin = anchorMin;
             rt.anchorMax = anchorMax;
