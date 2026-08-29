@@ -49,6 +49,8 @@ namespace NOXMFD
         private RdrContact[] _cachedRdr = Array.Empty<RdrContact>();
         private HsdContact[] _cachedHsd = Array.Empty<HsdContact>();
         private PitbullContact[] _cachedPitbull = Array.Empty<PitbullContact>();
+        private uint[] _cachedLockedIds = Array.Empty<uint>();
+        private float[] _cachedLockedTti = Array.Empty<float>();
         private bool _cachedRadarPresent;
         private float _cachedRadarRange;
         private float _cachedRadarConeDeg;
@@ -823,6 +825,8 @@ namespace NOXMFD
                 PlayerJammed   = playerJammed,
                 PlayerJammedBy = playerJammedBy,
                 FocusedTargetId = TargetFocus.Id,
+                LockedTargetIds = _cachedLockedIds,
+                LockedTargetTti = _cachedLockedTti,
                 ColFriendly    = _colFriendly,
                 ColHostile     = _colHostile,
                 ColNeutral     = _colNeutral,
@@ -920,7 +924,17 @@ namespace NOXMFD
             // Keeps TargetFocus honest against locks changing here rather than via a Next/Prev press
             // (issue #62) — see TargetFocus.Reconcile for the actual rules.
             List<Unit>? targets = aircraft?.weaponManager?.GetTargetList();
-            TargetFocus.Reconcile(TargetIds(targets));
+            _cachedLockedIds = TargetIds(targets).ToArray();
+            TargetFocus.Reconcile(_cachedLockedIds);
+
+            // A TTI reading per locked target, not just the focused one HudTtiCue.cs shows on the
+            // native HUD (issue #67) — the TGT page shows one per row when it applies (docs/
+            // hud-tti-estimate.md). Same throttle as HudTtiCue's own RecomputeInterval (4 Hz);
+            // reusing this scan's cadence rather than adding a second timer.
+            var lockedTti = new float[_cachedLockedIds.Length];
+            for (int i = 0; i < _cachedLockedIds.Length; i++)
+                lockedTti[i] = HudTtiCue.ComputeTti(_cachedLockedIds[i], aircraft.persistentID.Id);
+            _cachedLockedTti = lockedTti;
         }
 
         // Shared with Keybinds.cs's CycleTargetFocus (issue #62) — both need the same

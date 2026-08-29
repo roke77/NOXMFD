@@ -22,10 +22,12 @@ let targetsKey = '';     // id-set signature; rebuild rows only when it changes
 // docs/tgt-cycle-focus.md) — every row here is already locked, so this is a plain id match, unlike
 // FCR/HSD which also carry unlocked contacts. 0 = none focused.
 let focusedTargetId = 0;
-// Next/Previous Target's row-stepper (docs/tgt-keybind-nav.md) — an index into `targets`, -1 when
-// nothing's highlighted. Mutually exclusive with the PAD cursor: entering this mode hides the free
-// crosshair, and moving the crosshair clears this back to -1 (see the 'cursor' message handler).
-let highlightIndex = -1;
+// Which control Cursor Select acts on right now (docs/tgt-cycle-focus.md's "Select arbitration"):
+// true = the free crosshair (hit-test whatever it's over); false = the focused lock (deselect it
+// directly, no aiming needed). Next/Previous Target switches to false and hides the crosshair;
+// moving the crosshair (an actual deflection) switches back to true and shows it again. Starts
+// true so a page that's never touched Next/Prev this session behaves like a plain PAD-cursor page.
+let crosshairActive = true;
 // Cache of the built row signatures (names) so we only rebuild DOM when the set of toggles changes,
 // not on every 10 Hz frame — the per-frame work is just flipping the .on class.
 const builtKey = { faction: '', category: '', vehicle: '' };
@@ -110,14 +112,18 @@ function fmtRng(r) {
   return (typeof r === 'number' && isFinite(r)) ? r.toFixed(1).replace('.', ',') + ' km' : '—';
 }
 
+// "M:SS" — mirrors HudTtiMath.FormatTti (src/plugin/Hud/HudTtiMath.cs) so the web readout matches
+// the native HUD cue's own format exactly.
+function fmtTti(seconds) {
+  const total = Math.round(seconds);
+  return Math.floor(total / 60) + ':' + String(total % 60).padStart(2, '0');
+}
+
 function renderTargets() {
   const list = targets;
   // Rebuild the rows only when the set of target ids changes; otherwise just refresh the text
   // (name/grid/range drift as targets move) so we don't thrash the DOM at 10 Hz.
   const key = list.map(function (t) { return t.id; }).join(',');
-  // A deselect elsewhere (crosshair, DATALINK/STALE, in-game) can drop the list out from under the
-  // highlight — reclamp rather than leave it pointing past the end or lingering at -1's "none".
-  if (highlightIndex >= list.length) highlightIndex = list.length - 1;
   if (key !== targetsKey) {
     targetsKey = key;
     listRows.innerHTML = '';
@@ -127,7 +133,12 @@ function renderTargets() {
       row.dataset.id = t.id;
       row.setAttribute('role', 'checkbox'); row.setAttribute('aria-checked', 'true');
       row.setAttribute('aria-label', 'deselect'); row.tabIndex = 0;
+      // NAME cell holds two children so a TTI reading can sit at its right edge without disturbing
+      // the SRC/RNG/GRID grid columns after it — see .tl-name's flex layout in tgt.css.
       const name = document.createElement('span'); name.className = 'tl-name';
+      const nameText = document.createElement('span'); nameText.className = 'tl-name-text';
+      const tti = document.createElement('span'); tti.className = 'tl-tti';
+      name.appendChild(nameText); name.appendChild(tti);
       const src  = document.createElement('span'); src.className = 'tl-src';
       const dist = document.createElement('span'); dist.className = 'tl-dist';
       const grid = document.createElement('span'); grid.className = 'tl-grid';
@@ -138,14 +149,20 @@ function renderTargets() {
   const rowEls = listRows.children;
   for (let i = 0; i < rowEls.length && i < list.length; i++) {
     const t = list[i], el = rowEls[i];
-    el.querySelector('.tl-name').textContent = t.n || '—';
+    el.querySelector('.tl-name-text').textContent = t.n || '—';
+    // TTI (docs/hud-tti-estimate.md): only when this lock actually has one of the player's own
+    // in-flight guided weapons tracking it (telemetry-source.js only sets t.tti in that case).
+    el.querySelector('.tl-tti').textContent = typeof t.tti === 'number' ? 'TTI ' + fmtTti(t.tti) : '';
     el.querySelector('.tl-grid').textContent = t.g != null ? String(t.g) : '—';
     el.querySelector('.tl-dist').textContent = fmtRng(t.r);
     el.classList.toggle('datalink', !!t.dl && !t.st);
     el.classList.toggle('stale', !!t.st);
     el.querySelector('.tl-src').textContent = t.st ? 'STALE' : t.dl ? 'DATALINK' : 'SENSOR';
-    el.classList.toggle('nav-highlight', i === highlightIndex);
-    el.classList.toggle('tgt-focused', focusedTargetId !== 0 && t.id === focusedTargetId);
+    const isFocused = focusedTargetId !== 0 && t.id === focusedTargetId;
+    // Amber while Select would act on this lock (crosshair inactive); grey once the crosshair has
+    // taken over Select, so it's clear at a glance that pressing Select now won't deselect it.
+    el.classList.toggle('tgt-focused', isFocused && !crosshairActive);
+    el.classList.toggle('tgt-focused-inactive', isFocused && crosshairActive);
   }
 }
 
@@ -225,37 +242,18 @@ function elAt(px, py) {
   return raw && raw.closest(CURSORABLE);
 }
 
-// Next/Previous Target (docs/tgt-keybind-nav.md): steps highlightIndex through `targets`, wrapping
-// at both ends, and hides the free crosshair for the duration — the two selection modes are mutually
-// exclusive, so entering this one puts the crosshair away rather than leaving both visible at once.
-function navHighlight(dir) {
-  if (!targets.length) return;
-  highlightIndex = highlightIndex < 0 ? 0 : (highlightIndex + dir + targets.length) % targets.length;
-  cursor.setHidden(true);
-  renderTargets();
-}
-
-// Moving the crosshair (Cursor Up/Down/Left/Right or its axis) hands Select back to it — called from
-// the 'cursor' message handler on an actual deflection, not the zero it reports on release.
-function clearNavHighlight() {
-  if (highlightIndex < 0) return;
-  highlightIndex = -1;
-  cursor.setHidden(false);
-  renderTargets();
-}
-
-// Cursor Select's outcome while a row is highlighted: deselect it, same as tapping the row itself.
-// highlightIndex is left as-is — the target drops from `targets` on the next telemetry frame and
-// renderTargets()'s reclamp above settles it onto whatever slid into that slot, same as a deselect
-// via any other path already does to the list itself.
-function deselectHighlighted() {
-  const t = targets[highlightIndex];
+// Cursor Select's outcome while the crosshair is inactive (docs/tgt-cycle-focus.md): deselect the
+// focused lock, same as tapping its row. TargetFocus.Id (focusedTargetId) is the only "which row is
+// current" state TGT keeps, so this reads straight off it rather than an index tgt.js would have to
+// keep in sync by hand.
+function deselectFocused() {
+  const t = targets.find(function (x) { return x.id === focusedTargetId; });
   if (t) send('target.deselect', { id: t.id });
 }
 
 // Select's TAP outcome (release before LONG_MS, or any control with no hold behaviour to mirror).
 function padCursorSelectAt(px, py) {
-  if (highlightIndex >= 0) { deselectHighlighted(); return; }
+  if (!crosshairActive && focusedTargetId !== 0) { deselectFocused(); return; }
   const el = elAt(px, py);
   if (!el) return;
   if (el.classList.contains('tgt-cell') || el.classList.contains('tgt-veh')) {
@@ -314,9 +312,14 @@ window.addEventListener('message', function (e) {
     focusedTargetId = m.focusedTargetId || 0;
     renderTargets();
   } else if (m.action === 'cursor-focus') {
+    // A fresh SOI grant always starts crosshair-active, regardless of whatever mode a previous
+    // grant left behind — there's no stale mode worth carrying across a focus loss.
+    if (m.on) { crosshairActive = true; cursor.setHidden(false); renderTargets(); }
     cursor.setFocus(!!m.on, panel.clientWidth / 2, panel.clientHeight / 2);
   } else if (m.action === 'cursor') {
-    if (m.x || m.y) clearNavHighlight();   // an actual deflection, not the (0,0) a key release reports
+    // An actual deflection (not the (0,0) a key release reports) hands Select back to the
+    // crosshair and shows it again.
+    if (m.x || m.y) { crosshairActive = true; cursor.setHidden(false); renderTargets(); }
     cursor.setVector(m.x, m.y);
   } else if (m.action === 'cursor-held') {
     cursor.setSelectHeld(!!m.held);
@@ -324,10 +327,14 @@ window.addEventListener('message', function (e) {
     listRows.scrollBy({ top: SCROLL_STEP });
   } else if (m.action === 'zoom-out') {
     listRows.scrollBy({ top: -SCROLL_STEP });
-  } else if (m.action === 'tgt-next') {
-    navHighlight(1);
-  } else if (m.action === 'tgt-prev') {
-    navHighlight(-1);
+  } else if (m.action === 'tgt-next' || m.action === 'tgt-prev') {
+    // Next/Previous Target (docs/tgt-cycle-focus.md) hands Select to the focused lock and hides
+    // the crosshair for as long as it's active — mutually exclusive with the PAD cursor above.
+    // The actual cycling happens server-side (TargetFocus.Cycle); this just switches which control
+    // Select acts on once the next 'tgt-targets' frame reflects the new focusedTargetId.
+    crosshairActive = false;
+    cursor.setHidden(true);
+    renderTargets();
   } else if (m.action === 'tgt-datalink') {
     send('tgt.clear-datalink');
   } else if (m.action === 'tgt-stale') {

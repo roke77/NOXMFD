@@ -112,7 +112,29 @@ it without a live game install:
   weapon release" wording (see "Open questions" below on that reading).
 - Text reads `"TTI " + HudTtiMath.FormatTti(tti)`.
 
-No telemetry/web changes — this lives entirely in the native HUD, unlike issue #62's work.
+No telemetry/web changes for this pass — this lived entirely in the native HUD, unlike issue #62's
+work. (Later extended to the web TGT page too — see "TGT: a TTI per row" below.)
+
+## TGT: a TTI per row
+
+By request, the same reading also shows on the web TGT page, next to each locked target's name, not
+only the native HUD's focused-target cue above. `HudTtiCue.ComputeTti` was generalized from taking
+only the implicit focused id to an explicit `(targetId, playerId)` pair, so it could be reused for
+every locked target, not just the one `TargetFocus.Id` currently points at.
+
+`TelemetryReader.RefreshContactSnapshotIfNeeded` (the same ~4 Hz scan that already reconciles
+`TargetFocus`) now also computes a TTI for every entry in its locked-ids list and caches it as a
+parallel `float[]` (`TelemetrySnapshot.LockedTargetTti`, `-1` = nothing tracking that lock — the same
+"no read" convention the HUD cue already uses). `TelemetryJson` serializes it as `lockedTargetTti`,
+same index/length as the existing `lockedTargetIds` (`docs/tgt-cycle-focus.md`'s "Display order
+matches cycle order"). `telemetry-source.js` zips the two arrays into a `Map` and sets `t.tti` on
+each row that has a non-negative entry — rows with nothing tracking them get no `tti` field at all,
+rather than a `-1` a page would have to remember to special-case.
+
+`tgt.js` renders it as `"TTI " + fmtTti(t.tti)` (a small JS mirror of `HudTtiMath.FormatTti`) inside
+the NAME cell, at its right edge — the cell became a flex row (`.tl-name-text` + `.tl-tti`, `tgt.css`)
+so a long name still ellipsizes correctly instead of the two fighting over the same nowrap span. Same
+amber as the HUD cue, kept independent of the row's own faction tint.
 
 ## Non-goals for this pass
 
@@ -140,12 +162,14 @@ to `Altitude`'s own `R[...]` bracket convention once seen on screen).
 projection (head-on, stationary-target, sideways-motion-ignored, non-closing-floors-at-minimum,
 coincident-points cases) and `FormatTti`'s rounding. `tools/tests/TargetFocusTests.cs` adds a
 regression test for the `Reconcile` bug this ticket's own in-game testing found (locking 2+ targets
-with nothing previously focused). Full `tools/ci-check.ps1` green.
+with nothing previously focused). `telemetry-source.test.js` covers `t.tti` only landing on a row
+with a non-negative `lockedTargetTti` entry. Full `tools/ci-check.ps1` green.
 
-**Confirmed in-game**: label placement, size, and color all tested and adjusted live (see "Status"
-above); TTI counted down correctly against a real shot. Not yet tested: multiple simultaneous
-tracking weapons against the same focused target (the "smallest TTI wins" branch in `ComputeTti`
-has no live confirmation yet, only the single-weapon path).
+**Confirmed in-game** (native HUD cue): label placement, size, and color all tested and adjusted
+live (see "Status" above); TTI counted down correctly against a real shot. Not yet tested: multiple
+simultaneous tracking weapons against the same focused target (the "smallest TTI wins" branch in
+`ComputeTti` has no live confirmation yet, only the single-weapon path); TGT's own per-row TTI
+("TGT: a TTI per row" above) has not been tested in-game at all yet.
 
 ## Related documents
 

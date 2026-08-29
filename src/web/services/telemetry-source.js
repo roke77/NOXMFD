@@ -286,8 +286,28 @@ export class TelemetrySource {
         const dz = u.z - d.world.z;
         targets.push({ id: u.id, n: u.t, g: gridLabel(u.x, u.z, this._meta), r: Math.hypot(dx, dz) / 1000, f: u.f, dl: !!u.dl, st: !!u.st });
       }
+      // Sort to match weaponManager.GetTargetList()'s own order (TargetFocus.cs, lockedTargetIds) —
+      // the contact scan above walks an unrelated order, so without this TGT's Next/Previous would
+      // step focus in one order while the table displayed the locks in a different one.
+      if (Array.isArray(d.lockedTargetIds) && d.lockedTargetIds.length > 1) {
+        const order = d.lockedTargetIds;
+        targets.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+      }
     } else {
       targets = [];
+    }
+    // Attach each row's own TTI (docs/hud-tti-estimate.md) — lockedTargetIds/lockedTargetTti are
+    // parallel arrays (HudTtiCue.ComputeTti per lock, TelemetryReader.cs), -1 meaning "nothing of
+    // the player's is tracking this one." Applied regardless of which branch built `targets` above,
+    // so a preview mock's own `d.targets` override still gets a tti if it supplies the parallel
+    // arrays too.
+    if (Array.isArray(d.lockedTargetIds) && Array.isArray(d.lockedTargetTti)) {
+      const ttiById = new Map();
+      for (let i = 0; i < d.lockedTargetIds.length; i++) ttiById.set(d.lockedTargetIds[i], d.lockedTargetTti[i]);
+      for (const t of targets) {
+        const v = ttiById.get(t.id);
+        if (typeof v === 'number' && v >= 0) t.tti = v;
+      }
     }
     this._postUp({ type: 'targets', items: targets, focusedTargetId: d.focusedTargetId || 0 });
 

@@ -56,7 +56,7 @@ namespace NOXMFD
             if (_recomputeTimer >= RecomputeInterval || _cachedTti < 0f)
             {
                 _recomputeTimer = 0f;
-                _cachedTti = ComputeTti(ac.persistentID.Id);
+                _cachedTti = ComputeTti(TargetFocus.Id, ac.persistentID.Id);
             }
 
             if (_cachedTti < 0f)
@@ -149,16 +149,17 @@ namespace NOXMFD
             return _radarAltField != null;
         }
 
-        // Smallest time-to-impact among the player's own in-flight guided weapons tracking the
-        // focused, locked target — the one closest to hitting, per the ticket's own "first or
-        // closest weapon release" wording. -1 when there's nothing to show: no target focused, the
-        // target's gone, or nothing of the player's own is currently tracking it (no pre-release
-        // estimate — see docs/hud-tti-estimate.md's non-goals).
-        private static float ComputeTti(uint playerId)
+        // Smallest time-to-impact among the player's own in-flight guided weapons tracking the given
+        // locked target — the one closest to hitting, per the ticket's own "first or closest weapon
+        // release" wording. -1 when there's nothing to show: no target id given, the target's gone,
+        // or nothing of the player's own is currently tracking it (no pre-release estimate — see
+        // docs/hud-tti-estimate.md's non-goals). Internal (not private) so TelemetryReader can reuse
+        // it for every locked target, not just the focused one it was originally written for — the
+        // TGT page shows a TTI per row when one applies (docs/hud-tti-estimate.md).
+        internal static float ComputeTti(uint targetId, uint playerId)
         {
-            uint focusedId = TargetFocus.Id;
-            if (focusedId == 0) return -1f;
-            if (!UnitRegistry.TryGetUnit(new PersistentID { Id = focusedId }, out Unit target) ||
+            if (targetId == 0) return -1f;
+            if (!UnitRegistry.TryGetUnit(new PersistentID { Id = targetId }, out Unit target) ||
                 target == null || target.disabled)
                 return -1f;
 
@@ -166,7 +167,7 @@ namespace NOXMFD
             foreach (Unit u in UnitRegistry.allUnits)
             {
                 if (u is not Missile m || m.disabled) continue;
-                if (m.ownerID.Id != playerId || m.targetID.Id != focusedId) continue;
+                if (m.ownerID.Id != playerId || m.targetID.Id != targetId) continue;
 
                 float t = EstimateImpactTime(m, target);
                 if (t >= 0f && (best < 0f || t < best)) best = t;
