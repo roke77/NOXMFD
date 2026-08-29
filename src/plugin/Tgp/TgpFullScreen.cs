@@ -22,6 +22,29 @@ namespace NOXMFD
     {
         private const int OverlaySortingOrder = 40;
 
+        // No CanvasScaler on this ScreenSpaceOverlay canvas — RectTransform sizes are real screen
+        // pixels, so this is a flat multiplier on every base size below (fonts, padding, spacing,
+        // compass/needle) rather than the web TGP page's own fixed 15-18px CSS values, which read
+        // as tiny on a large/high-resolution monitor. ponytail: a fixed 5x, not resolution-aware
+        // scaling (a CanvasScaler would need the crosshair's own Screen.width/height-based sizing
+        // reworked to match its reference-resolution space) — revisit if 5x is wrong for some other
+        // display size, not just the one this was tuned against.
+        private const float UiScale = 5f;
+        private const float TitleFontSize = 20f * UiScale;
+        private const float ChipFontSize  = 20f * UiScale;
+        private const float PilotFontSize = 15f * UiScale;
+        private const float ChipPaddingH  = 8f * UiScale;
+        private const float ChipPaddingV  = 3f * UiScale;
+        private const float StackPadding  = 8f * UiScale;
+        private const float StackSpacing  = 3f * UiScale;
+        private const float StackMargin   = 16f * UiScale;
+        private const float TitleSpacing  = 5f * UiScale;
+        private const float CompassSize   = 40f * UiScale;
+        private const float NeedleWidth   = 2f * UiScale;
+        private const float NeedleHeight  = 18f * UiScale;
+        private const float BottomLeftMargin  = 8f * UiScale;
+        private const float BottomLeftSpacing = 8f * UiScale;
+
         // Matches theme.css's --no-white/--no-red/--no-blue tokens (the web TGP page's own overlay
         // colors) so the native version reads the same, not this mod's usual amber HUD-cue color.
         private static readonly Color White  = new Color32(230, 235, 239, 255);
@@ -260,19 +283,26 @@ namespace NOXMFD
         {
             RectTransform stack = CreateStack(parent, "TopLeft", new Vector2(0f, 1f));
 
-            GameObject titleRow = new GameObject("Title", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+            // tgp.css gives .tgp-ov-title the same chip background as .tgp-ov-stat — title and tag
+            // share one background here too, not two separate chips.
+            GameObject titleRow = new GameObject("Title", typeof(RectTransform), typeof(Image),
+                typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
             titleRow.transform.SetParent(stack, false);
+            titleRow.GetComponent<Image>().color = ChipBackground;
             HorizontalLayoutGroup titleLayout = titleRow.GetComponent<HorizontalLayoutGroup>();
-            titleLayout.spacing = 5f;
+            titleLayout.padding = new RectOffset((int)ChipPaddingH, (int)ChipPaddingH, (int)ChipPaddingV, (int)ChipPaddingV);
+            titleLayout.spacing = TitleSpacing;
             titleLayout.childControlWidth = titleLayout.childControlHeight = true;
             titleLayout.childForceExpandWidth = titleLayout.childForceExpandHeight = false;
             ContentSizeFitter titleFitter = titleRow.GetComponent<ContentSizeFitter>();
             titleFitter.horizontalFit = titleFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            _typeText = CreatePlainLabel(titleRow.transform, "Type", 20f, FontStyles.Bold);
-            _tagText  = CreatePlainLabel(titleRow.transform, "Tag", 20f, FontStyles.Bold);
+            _typeText = CreatePlainLabel(titleRow.transform, "Type", TitleFontSize, FontStyles.Bold);
+            _tagText  = CreatePlainLabel(titleRow.transform, "Tag", TitleFontSize, FontStyles.Bold);
             _tagText.color = Amber;
 
-            _pilotText = CreatePlainLabel(stack, "Pilot", 15f, FontStyles.Normal);
+            // No chip background here — tgp.css's .tgp-ov-pilot is plain dim text under the title
+            // chip, not its own pill.
+            _pilotText = CreatePlainLabel(stack, "Pilot", PilotFontSize, FontStyles.Normal);
             _pilotText.color = new Color(0.7f, 0.75f, 0.78f, 1f);
 
             _rngText = CreateChip(stack, "Rng");
@@ -299,10 +329,10 @@ namespace NOXMFD
             var rt = (RectTransform)row.transform;
             rt.anchorMin = rt.anchorMax = new Vector2(0f, 0f);
             rt.pivot = new Vector2(0f, 0f);
-            rt.anchoredPosition = new Vector2(8f, 8f);
+            rt.anchoredPosition = new Vector2(BottomLeftMargin, BottomLeftMargin);
 
             HorizontalLayoutGroup layout = row.GetComponent<HorizontalLayoutGroup>();
-            layout.spacing = 8f;
+            layout.spacing = BottomLeftSpacing;
             layout.childAlignment = TextAnchor.MiddleLeft;
             layout.childControlWidth = layout.childControlHeight = true;
             layout.childForceExpandWidth = layout.childForceExpandHeight = false;
@@ -313,8 +343,8 @@ namespace NOXMFD
             compassGo.transform.SetParent(row.transform, false);
             compassGo.GetComponent<Image>().color = ChipBackground;
             LayoutElement compassLayout = compassGo.GetComponent<LayoutElement>();
-            compassLayout.minWidth = compassLayout.preferredWidth = 40f;
-            compassLayout.minHeight = compassLayout.preferredHeight = 40f;
+            compassLayout.minWidth = compassLayout.preferredWidth = CompassSize;
+            compassLayout.minHeight = compassLayout.preferredHeight = CompassSize;
 
             var needleGo = new GameObject("Needle", typeof(RectTransform), typeof(Image));
             needleGo.transform.SetParent(compassGo.transform, false);
@@ -322,7 +352,7 @@ namespace NOXMFD
             _needle = (RectTransform)needleGo.transform;
             _needle.anchorMin = _needle.anchorMax = new Vector2(0.5f, 0.5f);
             _needle.pivot = new Vector2(0.5f, 0f);
-            _needle.sizeDelta = new Vector2(2f, 18f);
+            _needle.sizeDelta = new Vector2(NeedleWidth, NeedleHeight);
             _needle.anchoredPosition = Vector2.zero;
 
             _bearingText = CreateChip(row.transform, "Bearing");
@@ -347,11 +377,11 @@ namespace NOXMFD
             var rt = (RectTransform)go.transform;
             rt.anchorMin = rt.anchorMax = anchor;
             rt.pivot = anchor;
-            rt.anchoredPosition = new Vector2((anchor.x - 0.5f) * -16f, (anchor.y - 0.5f) * -16f);
+            rt.anchoredPosition = new Vector2((anchor.x - 0.5f) * -StackMargin, (anchor.y - 0.5f) * -StackMargin);
 
             VerticalLayoutGroup layout = go.GetComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(8, 8, 8, 8);
-            layout.spacing = 3f;
+            layout.padding = new RectOffset((int)StackPadding, (int)StackPadding, (int)StackPadding, (int)StackPadding);
+            layout.spacing = StackSpacing;
             layout.childAlignment = anchor.x > 0.5f ? TextAnchor.UpperRight : TextAnchor.UpperLeft;
             layout.childControlWidth = layout.childControlHeight = true;
             layout.childForceExpandWidth = layout.childForceExpandHeight = false;
@@ -370,14 +400,14 @@ namespace NOXMFD
             go.GetComponent<Image>().color = ChipBackground;
 
             HorizontalLayoutGroup layout = go.GetComponent<HorizontalLayoutGroup>();
-            layout.padding = new RectOffset(8, 8, 3, 3);
+            layout.padding = new RectOffset((int)ChipPaddingH, (int)ChipPaddingH, (int)ChipPaddingV, (int)ChipPaddingV);
             layout.childControlWidth = layout.childControlHeight = true;
             layout.childForceExpandWidth = layout.childForceExpandHeight = false;
 
             ContentSizeFitter fitter = go.GetComponent<ContentSizeFitter>();
             fitter.horizontalFit = fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            return CreatePlainLabel(go.transform, "Text", 20f, FontStyles.Normal);
+            return CreatePlainLabel(go.transform, "Text", ChipFontSize, FontStyles.Normal);
         }
 
         // Bare TextMeshProUGUI, no background — used both standalone (title, pilot) and nested

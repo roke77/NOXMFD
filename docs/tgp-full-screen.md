@@ -45,6 +45,15 @@ keybinds. In-game testing found two gaps and a request, addressed in a second pa
   runtime) + numeric bearing. Bottom-right: GRID, MODE, MAG. Built with Unity's
   `VerticalLayoutGroup`/`HorizontalLayoutGroup` + `ContentSizeFitter` so each chip and stack sizes
   itself to content, the same effect CSS's inline-block/flex layout gets for free.
+- **Crosshair fixed and text scaled up**, both from a second in-game look: the crosshair's bars
+  were anchored as fractions of the full 16:9 screen rect, so horizontal bars came out visibly
+  longer/thicker than vertical ones — fixed by building it in a centered square frame instead
+  (`Mathf.Min(Screen.width, Screen.height)`-based), same fractional proportions, now equal in both
+  directions. Separately, the overlay text read as tiny on a large/high-resolution monitor — this
+  canvas has no `CanvasScaler` (RectTransform sizes are real screen pixels), so every base
+  font/padding/spacing size is now multiplied by a flat `UiScale` constant (5x) rather than the web
+  page's own small fixed CSS pixel values. The title chip was also missing its background — it was
+  built as a bare `HorizontalLayoutGroup` with no `Image`, unlike every other row's `CreateChip`.
 
 Not yet done: per-target lock boxes on the full-screen view (the projection function is already
 wired for it, just unused), and the airframe `cullingMask` exclusion (still deferred pending
