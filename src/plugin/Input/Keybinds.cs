@@ -207,20 +207,17 @@ namespace NOXMFD
                 "Manually step the focused MAP display's active route to the previous waypoint (W-).",
                 () => TelemetryServer.MapAction("waypoint-prev"));
 
-            // TGT binds — act on the focused TGT display, so DefFree like MAP above (docs/tgt-keybind-nav.md).
-            // Next/Previous step a highlighted row through the locked-target list, independent of (and
-            // mutually exclusive with) the PAD cursor's free crosshair: using either one hides the
-            // crosshair and hands Cursor Select to the highlighted row instead; moving the crosshair
-            // (Cursor Up/Down/Left/Right or its axis) clears the highlight and hands Select back to it.
-            // Next/Previous also drive a second, independent effect — see CycleTargetFocus below.
+            // TGT binds are DefFree like MAP above because they drive mod displays, not the aircraft.
+            // Next/Previous move the shared focused lock everywhere, and the SOI-focused TGT display
+            // also treats the press as a handoff from PAD-cursor hit-testing to direct row Select.
             const string tgt = "TGT Keybinds";
             DefFree(config, "tgt-next", tgt, "TgtNext", "Next Target", edge: true,
-                "Highlight the next locked target on the focused TGT display, and step which locked " +
-                "target is focused on TGT/FCR/HSD everywhere they're open.",
+                "Focus the next locked target across TGT/FCR/HSD; on the focused TGT display, " +
+                "Cursor Select deselects that focused row without aiming the crosshair.",
                 () => { TelemetryServer.MapAction("tgt-next"); CycleTargetFocus(1); });
             DefFree(config, "tgt-prev", tgt, "TgtPrev", "Previous Target", edge: true,
-                "Highlight the previous locked target on the focused TGT display, and step which " +
-                "locked target is focused on TGT/FCR/HSD everywhere they're open.",
+                "Focus the previous locked target across TGT/FCR/HSD; on the focused TGT display, " +
+                "Cursor Select deselects that focused row without aiming the crosshair.",
                 () => { TelemetryServer.MapAction("tgt-prev"); CycleTargetFocus(-1); });
             DefFree(config, "tgt-datalink", tgt, "TgtDatalink", "Clear Datalink", edge: true,
                 "Deselect the datalink-only locks on the focused TGT display — same as tapping its DATALINK button.",
@@ -505,9 +502,9 @@ namespace NOXMFD
                 "the bezel's FLW, R+/R- and W+/W- keys already do on the focused MAP display. Zoom " +
                 "In/Out moved to the shared Cursor Zoom In/Out (see Cursor Keybinds).",
             "TGT Keybinds" =>
-                "Next/Previous highlight a row instead of moving the crosshair — moving Cursor Up/Down/" +
-                "Left/Right (or its axis) clears the highlight and hands Cursor Select back to the " +
-                "crosshair. While a row is highlighted, Cursor Select deselects it. Datalink/Stale " +
+                "Next/Previous focus a locked target across TGT/FCR/HSD. On the focused TGT display, " +
+                "they hide the crosshair and hand Cursor Select to the focused row; moving Cursor " +
+                "Up/Down/Left/Right (or its axis) hands Select back to the crosshair. Datalink/Stale " +
                 "mirror the DATALINK/STALE buttons.",
             "SOI Keybinds" =>
                 "One display at a time is the sensor of interest — it rings itself in white, and these " +
@@ -836,11 +833,9 @@ namespace NOXMFD
             if (down && ac.gearState == LandingGear.GearState.LockedRetracted) ac.SetGear(true);    // lower if up
         }
 
-        // Next/Previous Target's OTHER effect (docs/tgt-cycle-focus.md): steps TargetFocus using the
-        // player's own weaponManager lock order, unlike the SOI-gated tgt-next/tgt-prev MapAction
-        // above — reaches every open TGT/FCR/HSD page regardless of SOI. No aircraft is simply a
-        // no-op. Internal, not private: CommandDispatcher's "map.action" calls this too, so a
-        // remote/WSO device gets the same effect a physical press does.
+        // Steps TargetFocus using the player's own weaponManager lock order, reaching every open
+        // TGT/FCR/HSD page regardless of SOI. Internal, not private, so remote/WSO map.action posts
+        // get the same shared-focus effect a physical press does.
         internal static void CycleTargetFocus(int dir)
         {
             GameManager.GetLocalAircraft(out Aircraft ac);

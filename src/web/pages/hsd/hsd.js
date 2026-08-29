@@ -3,10 +3,9 @@
 // (Depressed) pushes ownship down near the bottom edge so the same screen shows much more range
 // ahead of the nose, at the cost of most of the rearward picture — the outer ring is still the
 // full selected range, at 1/3 and 2/3 for the inner two. Real DCS geometry isn't published to the
-// pixel; ponytail: CEN_CY/OUTER and DEP_CY/OUTER below are a reasoned approximation (same 80px
-// header/footer clearance in both modes, DEP's ownship placed low enough that only a small sliver
-// of range shows behind) rather than a verified match — retune against real DCS reference
-// screenshots if pixel-accurate matching is ever needed.
+// pixel, so CEN_CY/OUTER and DEP_CY/OUTER below are a reasoned approximation: same 80px header/
+// footer clearance in both modes, with DEP's ownship low enough that only a small sliver of range
+// shows behind. Retune against real DCS reference screenshots if pixel-accurate matching is needed.
 var CX = 300;
 var CEN_CY = 300, CEN_OUTER = 220;
 var DEP_CY = 500, DEP_OUTER = 420;

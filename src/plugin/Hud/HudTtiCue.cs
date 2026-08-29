@@ -4,35 +4,28 @@ using UnityEngine;
 
 namespace NOXMFD
 {
-    // Time-to-impact estimate for the player's own in-flight guided weapon(s) tracking the locked,
-    // focused target (TargetFocus.cs, issue #62), shown directly below the native radar altitude
-    // readout (issue #67, docs/hud-tti-estimate.md). Follows HudTgpCue.cs's shape: build once
-    // against the live HUD, refresh every frame, rebuild if the HUD tears down and comes back
-    // (aircraft respawn) — Altitude's radarAlt label goes Unity fake-null the same way CombatHUD's
-    // iconLayer does there.
+    // Native HUD time-to-impact readout for the shared focused target. Follows HudTgpCue.cs's
+    // build/refresh/rebuild shape because the game rebuilds HUD objects across aircraft respawns,
+    // taking this added label with them.
     internal sealed class HudTtiCue : MonoBehaviour
     {
-        // Same amber as HudWaypointCue's own readout (#FFAA00, alpha 1 — fully opaque, confirmed no
-        // transparency), rather than a distinct shade — one amber across every mod-added HUD cue.
-        // Distinct from radarAlt's native green so a TTI countdown reads as "mod-added, watch this"
-        // rather than blending into the stock readout it sits under.
+        // Same amber as HudWaypointCue's own readout, rather than a distinct shade, so mod-added HUD
+        // cues share one visual accent while staying distinct from the stock green radar altitude.
         private static readonly Color Amber = new Color(1f, 0.6667f, 0f, 1f);
 
-        // 50% larger than HudWaypointCue's own in-game readout text (fontSize 13), by request —
-        // a fixed size rather than cloned from radarAlt, which auto-sizes to fill its box and so
-        // has no single "size" a short string like "TTI"/"0:08" can borrow (see Build()).
+        // Fixed rather than cloned from radarAlt, whose auto-sizing depends on text length and would
+        // scale short TTI strings differently from the surrounding readouts.
         private const float TtiFontSize = 13f * 1.5f;
 
         private static bool _reflectionTried;
         private static FieldInfo? _radarAltField;
 
-        // Recomputing TTI means walking UnitRegistry.allUnits (docs/performance.md's own standard
-        // for this shape of scan — TelemetryReader.ContactInterval throttles its own MAP/RDR/HSD
-        // contact scans the same way, for the same reason). A HUD countdown reads fine refreshed
-        // at this rate; visibility itself still reacts every frame via the cheap TargetFocus check
-        // below, so losing a lock hides the cue immediately rather than lagging a quarter-second.
+        // Recomputing TTI walks UnitRegistry.allUnits, so keep it on the same 4 Hz cadence as the
+        // contact snapshots. Visibility still reacts every frame through the cheap focus/aircraft
+        // gates above.
         private const float RecomputeInterval = 0.25f;
         private float _recomputeTimer;
+        private uint  _cachedTargetId;
         private float _cachedTti = -1f;
 
         private TMP_Text? _label;
@@ -40,7 +33,8 @@ namespace NOXMFD
 
         private void LateUpdate()
         {
-            if (!GameManager.GetLocalAircraft(out Aircraft ac) || ac == null || TargetFocus.Id == 0)
+            uint targetId = TargetFocus.Id;
+            if (!GameManager.GetLocalAircraft(out Aircraft ac) || ac == null || targetId == 0)
             {
                 Hide();
                 return;
@@ -53,10 +47,11 @@ namespace NOXMFD
             }
 
             _recomputeTimer += Time.deltaTime;
-            if (_recomputeTimer >= RecomputeInterval || _cachedTti < 0f)
+            if (targetId != _cachedTargetId || _recomputeTimer >= RecomputeInterval || _cachedTti < 0f)
             {
                 _recomputeTimer = 0f;
-                _cachedTti = ComputeTti(TargetFocus.Id, ac.persistentID.Id);
+                _cachedTargetId = targetId;
+                _cachedTti = TargetTtiEstimator.ComputeTti(targetId, ac.persistentID.Id);
             }
 
             if (_cachedTti < 0f)
@@ -68,10 +63,8 @@ namespace NOXMFD
             SetVisible(true);
         }
 
-        // Text.text dirties Unity UI layout on every set regardless of whether the content
-        // actually changed (docs/performance.md's "Game main thread → per-frame UI churn" —
-        // HudWaypointCue hit this same cost and fixed it the same way: skip the setter when the
-        // formatted string hasn't moved since last frame).
+        // Text.text dirties Unity UI layout even when the value is unchanged, so skip no-op writes
+        // during the frame loop.
         private void SetLabelText(string text)
         {
             if (_lastLabelText == text) return;
@@ -79,8 +72,7 @@ namespace NOXMFD
             _label!.text = text;
         }
 
-        // Logged once each (like EnsureReflection's own warning below) rather than left silent —
-        // both are real "the native HUD changed shape again" failure modes, not just this one bug.
+        // Log each build failure shape once; repeated frame-loop warnings would hide useful logs.
         private static bool _loggedNoAltitude;
         private static bool _loggedBadField;
 
@@ -96,9 +88,7 @@ namespace NOXMFD
                 if (!_loggedNoAltitude) { _loggedNoAltitude = true; Plugin.Log?.LogWarning("[NOXMFD] HUD TTI: FindFirstObjectByType<Altitude> found nothing — cue disabled."); }
                 return false;
             }
-            // TMP_Text, not UnityEngine.UI.Text: confirmed in-game (issue #67) that Altitude's
-            // radarAlt is TextMeshPro now, matching the same 0.34 Text->TMP migration
-            // TgpNativeOverlay.cs already worked around for TargetScreenUI's fields.
+            // The live radarAlt label is TextMeshPro, matching the current native HUD UI stack.
             if (_radarAltField!.GetValue(altitude) is not TMP_Text radarAlt || radarAlt == null)
             {
                 if (!_loggedBadField) { _loggedBadField = true; Plugin.Log?.LogWarning("[NOXMFD] HUD TTI: Altitude found, but radarAlt field read null/wrong type — cue disabled."); }
@@ -113,10 +103,8 @@ namespace NOXMFD
             rect.anchorMax = src.anchorMax;
             rect.pivot = src.pivot;
             rect.sizeDelta = src.sizeDelta;
-            // Directly below radarAlt, offset by TtiFontSize (its own rendered line height) plus a
-            // small gap — not sizeDelta.y (the box height, confirmed in-game to be much taller than
-            // the actual glyph line, which left a visible gap with the native VVI ladder marks
-            // between them).
+            // Directly below radarAlt, offset by rendered line height plus a small gap; the source
+            // rect is taller than the visible glyph line.
             rect.anchoredPosition = src.anchoredPosition + new Vector2(0f, -(TtiFontSize + 2f));
 
             _label = labelObject.GetComponent<TextMeshProUGUI>();
@@ -125,9 +113,8 @@ namespace NOXMFD
             // lives on the material, not the font asset, and Amber below still tints on top of it
             // (Graphic.color multiplies the material's own face color rather than replacing it).
             _label.fontSharedMaterial = radarAlt.fontSharedMaterial;
-            // Fixed, not cloned from radarAlt: radarAlt auto-sizes to fill its box, so copying that
-            // config (confirmed in-game) scaled TTI's short strings ("TTI", "0:08") up far past
-            // every surrounding readout — auto-size reacts to content length, not a stable size.
+            // Keep sizing fixed so short strings like "TTI 0:08" do not grow to fill radarAlt's
+            // larger source rect.
             _label.enableAutoSizing = false;
             _label.fontSize = TtiFontSize;
             _label.color = Amber;
@@ -149,54 +136,18 @@ namespace NOXMFD
             return _radarAltField != null;
         }
 
-        // Smallest time-to-impact among the player's own in-flight guided weapons tracking the given
-        // locked target — the one closest to hitting, per the ticket's own "first or closest weapon
-        // release" wording. -1 when there's nothing to show: no target id given, the target's gone,
-        // or nothing of the player's own is currently tracking it (no pre-release estimate — see
-        // docs/hud-tti-estimate.md's non-goals). Internal (not private) so TelemetryReader can reuse
-        // it for every locked target, not just the focused one it was originally written for — the
-        // TGT page shows a TTI per row when one applies (docs/hud-tti-estimate.md).
-        internal static float ComputeTti(uint targetId, uint playerId)
-        {
-            if (targetId == 0) return -1f;
-            if (!UnitRegistry.TryGetUnit(new PersistentID { Id = targetId }, out Unit target) ||
-                target == null || target.disabled)
-                return -1f;
-
-            float best = -1f;
-            foreach (Unit u in UnitRegistry.allUnits)
-            {
-                if (u is not Missile m || m.disabled) continue;
-                if (m.ownerID.Id != playerId || m.targetID.Id != targetId) continue;
-
-                float t = EstimateImpactTime(m, target);
-                if (t >= 0f && (best < 0f || t < best)) best = t;
-            }
-            return best;
-        }
-
-        // Feeds live positions/velocities into HudTtiMath (see its own header for the formula and
-        // its ponytail-labeled approximation limits).
-        private static float EstimateImpactTime(Missile missile, Unit target)
-        {
-            if (missile.rb == null || target.rb == null) return -1f;
-            GlobalPosition from = missile.GlobalPosition(), to = target.GlobalPosition();
-            Vector3 relVel = missile.rb.velocity - target.rb.velocity;
-            return HudTtiMath.TimeToImpact(from.x, from.y, from.z, to.x, to.y, to.z, relVel.x, relVel.y, relVel.z);
-        }
-
         private void SetVisible(bool visible)
         {
             if (_label != null && _label.gameObject.activeSelf != visible)
                 _label.gameObject.SetActive(visible);
         }
 
-        // Drops the cached TTI too, not just visibility — otherwise reappearing (a new lock, right
-        // after the throttle window froze mid-count) could briefly show a stale number left over
-        // from whatever was focused before, until the next scheduled recompute caught up.
+        // Drop the cached TTI with visibility so a new lock cannot briefly inherit the previous
+        // lock's countdown before the next scheduled recompute.
         private void Hide()
         {
             SetVisible(false);
+            _cachedTargetId = 0;
             _cachedTti = -1f;
             _recomputeTimer = 0f;
         }

@@ -27,10 +27,8 @@ namespace NOXMFD.Tests
             Assert.Equal(7u, TargetFocus.Id);
         }
 
-        // Regression test for the live bug found testing issue #67: locking two targets at once
-        // from the mod's MAP (never touching Next/Previous first) left focus stuck at "none"
-        // forever, since the old logic only auto-picked a focus for exactly one lock or cleared it
-        // for zero — nothing handled "already unfocused, multiple locks appear at once."
+        // Multiple locks can appear before the pilot ever presses Next/Previous; focus should still
+        // seed from the game's own first target so dependent readouts have a lock to describe.
         [Fact]
         public void Reconcile_with_multiple_locks_and_no_prior_focus_defaults_to_the_first()
         {

@@ -2,9 +2,8 @@ using System;
 
 namespace NOXMFD
 {
-    // Pure time-to-impact math for HudTtiCue (issue #67) — kept free of Unity/game types, same
-    // treatment TgpManualAimMath/HudDirectionCueMath already get, so tools/tests can pin the
-    // geometry and formatting without a live Nuclear Option install.
+    // Pure time-to-impact math kept free of Unity/game types, so tools/tests can pin the geometry
+    // and formatting without a live Nuclear Option install.
     //
     // Mirrors the game's own incoming-missile TTI approximation (AIPilotCombatModes.EvadeModeRadar,
     // _scratch/full/): straight-line range over closing speed, floored so a non-closing or
@@ -12,10 +11,8 @@ namespace NOXMFD
     // our own outgoing weapon against our own focused target instead of an incoming missile
     // against us.
     //
-    // ponytail: this is the game's own accepted approximation for a maneuvering, guided intercept,
-    // not a real prediction — no foresight of a hard turn by either side between frames. Upgrade
-    // path, if ever needed: sample position/velocity over a couple of frames and extrapolate a
-    // proper closing curve instead of this instant's straight-line rate.
+    // This is the game's own accepted approximation for a maneuvering, guided intercept, not a real
+    // prediction: it has no foresight of hard turns between frames.
     internal static class HudTtiMath
     {
         private const float MinClosingSpeedMps = 1f;

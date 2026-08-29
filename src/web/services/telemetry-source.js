@@ -296,11 +296,8 @@ export class TelemetrySource {
     } else {
       targets = [];
     }
-    // Attach each row's own TTI (docs/hud-tti-estimate.md) — lockedTargetIds/lockedTargetTti are
-    // parallel arrays (HudTtiCue.ComputeTti per lock, TelemetryReader.cs), -1 meaning "nothing of
-    // the player's is tracking this one." Applied regardless of which branch built `targets` above,
-    // so a preview mock's own `d.targets` override still gets a tti if it supplies the parallel
-    // arrays too.
+    // Attach each row's own TTI. The parallel arrays use -1 for "nothing of the player's is
+    // tracking this lock," and preview mocks can opt in by supplying the same fields.
     if (Array.isArray(d.lockedTargetIds) && Array.isArray(d.lockedTargetTti)) {
       const ttiById = new Map();
       for (let i = 0; i < d.lockedTargetIds.length; i++) ttiById.set(d.lockedTargetIds[i], d.lockedTargetTti[i]);

@@ -12,6 +12,7 @@ const rows = {
 };
 const modeEls = { laser: document.getElementById('mode-laser'), hud: document.getElementById('mode-hud') };
 const listRows = document.getElementById('tgt-list-rows');
+const listScroll = document.querySelector('.tgt-list-scroll');
 const datalinkBtn = document.getElementById('datalink-btn');
 const staleBtn = document.getElementById('stale-btn');
 
@@ -324,9 +325,9 @@ window.addEventListener('message', function (e) {
   } else if (m.action === 'cursor-held') {
     cursor.setSelectHeld(!!m.held);
   } else if (m.action === 'zoom-in') {
-    listRows.scrollBy({ top: SCROLL_STEP });
+    listScroll.scrollBy({ top: SCROLL_STEP });
   } else if (m.action === 'zoom-out') {
-    listRows.scrollBy({ top: -SCROLL_STEP });
+    listScroll.scrollBy({ top: -SCROLL_STEP });
   } else if (m.action === 'tgt-next' || m.action === 'tgt-prev') {
     // Next/Previous Target (docs/tgt-cycle-focus.md) hands Select to the focused lock and hides
     // the crosshair for as long as it's active — mutually exclusive with the PAD cursor above.

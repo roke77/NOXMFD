@@ -74,9 +74,8 @@ namespace NOXMFD
                     sb.Append(lockedIds[i]);
                 }
             sb.Append("],");
-            // Same index/length as lockedTargetIds above (HudTtiCue.ComputeTti per lock, issue #67) —
-            // -1 means nothing of the player's is tracking that lock, same "no read" convention the
-            // native HUD cue already uses.
+            // Same index/length as lockedTargetIds above; -1 means nothing of the player's is
+            // tracking that lock.
             sb.Append("\"lockedTargetTti\":[");
             float[] lockedTti = s.LockedTargetTti;
             if (lockedTti != null)

@@ -4,9 +4,10 @@
 
 ## Goal
 
-Next/Previous Target (`docs/tgt-keybind-nav.md`) drives TGT's own row-stepper, and — the effect this
-doc covers — also steps which locked target TGT/FCR/HSD treat as "focused" among however many are
-locked, reaching every open TGT/FCR/HSD page in every connected browser regardless of SOI.
+Next/Previous Target (`docs/tgt-keybind-nav.md`) steps which locked target TGT/FCR/HSD treat as
+"focused" among however many are locked, reaching every open TGT/FCR/HSD page in every connected
+browser regardless of SOI. On the SOI-focused TGT display, the same press also hands Cursor Select to
+that focused row until the pilot moves the PAD cursor again.
 
 This is the foundation `docs/rdr-fcr-hsd.md`'s "Focused lock vs. locked" section describes: FCR and
 HSD draw a distinction between "the lock the bottom readout describes" and "any other simultaneous
@@ -72,7 +73,7 @@ tracks which *target* is focused. The two are independent by design — a pilot 
 without touching SOI.
 
 - **`Cycle(dir, lockedIds)`** — steps to the next/previous id in `lockedIds`' own order, wrapping at
-  both ends (matches TGT's `navHighlight` wrap). Called from `Keybinds.cs`'s new
+  both ends. Called from `Keybinds.cs`'s new
   `CycleTargetFocus(dir)`, which reads `GameManager.GetLocalAircraft`'s
   `weaponManager.GetTargetList()` directly at press time — no SOI gate, and a DefFree bind, so it
   still runs with no aircraft at all (simply a no-op; nothing is locked yet either).

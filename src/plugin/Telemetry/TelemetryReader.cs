@@ -911,6 +911,7 @@ namespace NOXMFD
 
         private void RefreshContactSnapshotIfNeeded(Aircraft aircraft)
         {
+            if (aircraft is null) return;
             if (_contactTimer < ContactInterval && ReferenceEquals(_contactAircraft, aircraft))
                 return;
 
@@ -927,13 +928,13 @@ namespace NOXMFD
             _cachedLockedIds = TargetIds(targets).ToArray();
             TargetFocus.Reconcile(_cachedLockedIds);
 
-            // A TTI reading per locked target, not just the focused one HudTtiCue.cs shows on the
-            // native HUD (issue #67) — the TGT page shows one per row when it applies (docs/
-            // hud-tti-estimate.md). Same throttle as HudTtiCue's own RecomputeInterval (4 Hz);
-            // reusing this scan's cadence rather than adding a second timer.
+            // A TTI reading per locked target, using this contact-scan cadence rather than adding
+            // another UnitRegistry.allUnits scan timer for the TGT page.
+            PersistentID? playerPersistentId = aircraft!.persistentID;
+            uint playerId = playerPersistentId.HasValue ? playerPersistentId.Value.Id : 0;
             var lockedTti = new float[_cachedLockedIds.Length];
             for (int i = 0; i < _cachedLockedIds.Length; i++)
-                lockedTti[i] = HudTtiCue.ComputeTti(_cachedLockedIds[i], aircraft.persistentID.Id);
+                lockedTti[i] = TargetTtiEstimator.ComputeTti(_cachedLockedIds[i], playerId);
             _cachedLockedTti = lockedTti;
         }
 

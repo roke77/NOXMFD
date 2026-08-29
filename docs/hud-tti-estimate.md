@@ -118,9 +118,9 @@ work. (Later extended to the web TGT page too — see "TGT: a TTI per row" below
 ## TGT: a TTI per row
 
 By request, the same reading also shows on the web TGT page, next to each locked target's name, not
-only the native HUD's focused-target cue above. `HudTtiCue.ComputeTti` was generalized from taking
-only the implicit focused id to an explicit `(targetId, playerId)` pair, so it could be reused for
-every locked target, not just the one `TargetFocus.Id` currently points at.
+only the native HUD's focused-target cue above. `TargetTtiEstimator.ComputeTti(targetId, playerId)`
+provides the shared live weapon scan for both surfaces, so `HudTtiCue` stays responsible for drawing
+the native label while telemetry can compute one value per locked row.
 
 `TelemetryReader.RefreshContactSnapshotIfNeeded` (the same ~4 Hz scan that already reconciles
 `TargetFocus`) now also computes a TTI for every entry in its locked-ids list and caches it as a
@@ -168,8 +168,8 @@ with a non-negative `lockedTargetTti` entry. Full `tools/ci-check.ps1` green.
 **Confirmed in-game** (native HUD cue): label placement, size, and color all tested and adjusted
 live (see "Status" above); TTI counted down correctly against a real shot. Not yet tested: multiple
 simultaneous tracking weapons against the same focused target (the "smallest TTI wins" branch in
-`ComputeTti` has no live confirmation yet, only the single-weapon path); TGT's own per-row TTI
-("TGT: a TTI per row" above) has not been tested in-game at all yet.
+`TargetTtiEstimator.ComputeTti` has no live confirmation yet, only the single-weapon path); TGT's own
+per-row TTI ("TGT: a TTI per row" above) has not been tested in-game at all yet.
 
 ## Related documents
 

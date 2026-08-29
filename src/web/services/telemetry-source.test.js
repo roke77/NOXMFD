@@ -202,9 +202,8 @@ const assert = require('assert');
     }
   }
 
-  // Each row's own TTI (docs/hud-tti-estimate.md): lockedTargetIds/lockedTargetTti are parallel
-  // arrays (HudTtiCue.ComputeTti per lock) — a row gets t.tti only when its id has a non-negative
-  // entry; -1 ("nothing of the player's is tracking this one") must not show up as tti: -1.
+  // Each row's own TTI: lockedTargetIds/lockedTargetTti are parallel arrays. A row gets t.tti only
+  // when its id has a non-negative entry; -1 must not show up as tti: -1.
   {
     const messages = [];
     const realWindow = global.window;

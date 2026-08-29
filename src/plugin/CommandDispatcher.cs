@@ -415,10 +415,9 @@ namespace NOXMFD
             TelemetryServer.SetRemoteFireState(env.group ?? string.Empty, env.on);
         }
 
-        // tgt-next/tgt-prev carry a second effect Keybinds.cs's own binds also trigger (issue #62,
-        // docs/tgt-cycle-focus.md): stepping the shared, non-SOI-gated target focus, not just the
-        // SOI-gated TGT highlight TelemetryServer.MapAction alone covers. A remote/WSO device
-        // (docs/remote-keybinds.md) posting this command needs both, same as a real keypress.
+        // tgt-next/tgt-prev need both halves of the physical keybind path: the SOI-gated page action
+        // that lets TGT hand Select to the focused row, and the shared target-focus step that reaches
+        // every open TGT/FCR/HSD page.
         private static void MapAction(CommandEnvelope env)
         {
             string act = env.wname ?? string.Empty;
