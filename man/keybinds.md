@@ -165,17 +165,19 @@ for a tablet with no keyboard.
 
 ## Immersion Options
 
-Optional cold-start behavior and dedicated binds for radar, engine, and weapons safety,
+Optional cold-start behavior and dedicated binds for radar, engine, power, and weapons safety,
 configured in their own section at the bottom of this page.
 
-- **Enable Radar / Engine / Master Arm on start** — three toggles, all ON by default (matching
-  the game's own behavior). Turn any of them off for more immersion: that system starts off when
-  you spawn into a new aircraft, and you arm/start it yourself.
-- **Radar ON / Radar OFF**, **Engine ON / Engine OFF**, **Master Arm ON / Master Arm OFF** —
-  dedicated binds for each, on top of the on-start toggles, so you can flip them mid-flight.
-  Master Arm OFF blocks guns, missiles, and bombs until it's back on — [WPN](wpn.md) shows a
-  full-screen SAFE warning while it's off, and its ARM/SAFE controls mirror and drive the same
-  state.
+- **Enable Radar / Engine / Master Arm / Power on start** — four toggles, all ON by default
+  (matching the game's own behavior). Turn any of them off for more immersion: that system starts
+  off when you spawn into a new aircraft, and you arm/start/power it up yourself.
+- **Radar ON / Radar OFF**, **Engine ON / Engine OFF**, **Master Arm ON / Master Arm OFF**,
+  **Power ON / Power OFF** — dedicated binds for each, on top of the on-start toggles, so you can
+  flip them mid-flight. Master Arm OFF blocks guns, missiles, and bombs until it's back on —
+  [WPN](wpn.md) shows a full-screen SAFE warning while it's off, and its ARM/SAFE controls mirror
+  and drive the same state. Power OFF hides the entire in-cockpit HUD — every element, not a
+  subset — simulating no power to drive any display or symbology; the mod's own web pages keep
+  working, so a pilot can still fly off the tablet. Power ON restores it immediately.
 - **A/A mode / A/G mode** — restrict missile cycling to air-to-air or air-to-ground weapons; guns
   fire in either mode, bombs only cycle in A/G. Tap to set the mode; hold either bind to reset to
   ALL (unrestricted) — there's no dedicated ALL bind, since neither showing lit already means ALL.

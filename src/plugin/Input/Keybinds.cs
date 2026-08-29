@@ -353,17 +353,18 @@ namespace NOXMFD
             }
 
             // Immersion keybinds — docs/radar-master-arms.md (issue #32). Registered LAST (and its
-            // three start-state settings appended after this Bind() method, in the same order) so the
+            // four start-state settings appended after this Bind() method, in the same order) so the
             // KEY page's "Immersion options" section — binds + settings together — lands at the very
             // bottom of the page, below a separator, per the user's request: appended, not interleaved
-            // with the existing sections above. Master Arm/Radar/Engine are plain dedicated ON+OFF
-            // pairs (edge:true, always the same action) — the game already has its own single-toggle
-            // Radar/Engine bind for anyone who doesn't want a dedicated pair, so there's no tap/hold
-            // trick here. A/A and A/G are different: there's no stock "reset combat mode" control at
-            // all, so they keep a tap-vs-hold pair (tap sets that mode, hold resets to ALL) — see
-            // PollTapHold. Registered as no-op held binds (edge:false), exactly like the cursor
-            // direction binds above — Poll() drives them directly via PollTapHold instead of the
-            // generic per-frame dispatch, since tap and hold must each fire exactly once, not repeatedly.
+            // with the existing sections above. Master Arm/Power/Radar/Engine are plain dedicated
+            // ON+OFF pairs (edge:true, always the same action) — the game already has its own
+            // single-toggle Radar/Engine bind for anyone who doesn't want a dedicated pair, so
+            // there's no tap/hold trick here. A/A and A/G are different: there's no stock "reset
+            // combat mode" control at all, so they keep a tap-vs-hold pair (tap sets that mode,
+            // hold resets to ALL) — see PollTapHold. Registered as no-op held binds (edge:false),
+            // exactly like the cursor direction binds above — Poll() drives them directly via
+            // PollTapHold instead of the generic per-frame dispatch, since tap and hold must each
+            // fire exactly once, not repeatedly.
             const string immersion = "Immersion Keybinds";
             DefFree(config, "master-arms-on", immersion, "MasterArmsOn", "Master Arm ON", edge: true,
                 "Arm — guns/missiles/bombs free to fire.",
@@ -371,6 +372,12 @@ namespace NOXMFD
             DefFree(config, "master-arms-off", immersion, "MasterArmsOff", "Master Arm OFF", edge: true,
                 "Disarm — guns/missiles/bombs blocked.",
                 () => ImmersionState.MasterArmsOn = false);
+            DefFree(config, "power-on", immersion, "PowerOn", "Power ON", edge: true,
+                "Restore power — the in-cockpit HUD reappears.",
+                () => ImmersionState.PowerOn = true);
+            DefFree(config, "power-off", immersion, "PowerOff", "Power OFF", edge: true,
+                "Cut power — the entire in-cockpit HUD disappears (no display, no symbology).",
+                () => ImmersionState.PowerOn = false);
             Def(config, "radar-on", immersion, "RadarOn", "Radar ON", edge: true,
                 "Turn the radar on.",
                 ac => SetRadar(ac, on: true));

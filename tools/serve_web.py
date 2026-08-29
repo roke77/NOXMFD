@@ -647,6 +647,11 @@ KEYBINDS = [
      "description": "Arm — weapons/countermeasures free to fire.", "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "master-arms-off", "section": "IMMERSION OPTIONS", "label": "Master Arms OFF",
      "description": "Disarm — weapons/countermeasures blocked.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "power-on", "section": "IMMERSION OPTIONS", "label": "Power ON",
+     "description": "Restore power — the in-cockpit HUD reappears.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "power-off", "section": "IMMERSION OPTIONS", "label": "Power OFF",
+     "description": "Cut power — the entire in-cockpit HUD disappears (no display, no symbology).",
+     "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "radar-on", "section": "IMMERSION OPTIONS", "label": "Radar ON",
      "description": "Turn the radar on.", "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "radar-off", "section": "IMMERSION OPTIONS", "label": "Radar OFF",
@@ -664,7 +669,7 @@ KEYBINDS = [
 ]
 KB_STATE = {"capturing": None, "capturingKind": None, "armed_at": 0.0, "bgInput": False,
             "radarOnOnStart": True, "engineOnOnStart": True, "masterArmsOnOnStart": True,
-            "hudFiltersOnCombatMode": False}
+            "powerOnOnStart": True, "hudFiltersOnCombatMode": False}
 
 
 def _keybinds_config():
@@ -714,6 +719,7 @@ def _keybinds_config():
                        "radarOnOnStart": KB_STATE["radarOnOnStart"],
                        "engineOnOnStart": KB_STATE["engineOnOnStart"],
                        "masterArmsOnOnStart": KB_STATE["masterArmsOnOnStart"],
+                       "powerOnOnStart": KB_STATE["powerOnOnStart"],
                        "hudFiltersOnCombatMode": KB_STATE["hudFiltersOnCombatMode"]}).encode("utf-8")
 
 
@@ -750,6 +756,8 @@ def _keybinds_command(env):
         KB_STATE["engineOnOnStart"] = bool(env.get("on", False))
     elif cmd == "keybind.set-master-arms-on-start":
         KB_STATE["masterArmsOnOnStart"] = bool(env.get("on", False))
+    elif cmd == "keybind.set-power-on-start":
+        KB_STATE["powerOnOnStart"] = bool(env.get("on", False))
     elif cmd == "keybind.set-hud-filters-on-combat-mode":
         KB_STATE["hudFiltersOnCombatMode"] = bool(env.get("on", False))
     else:
