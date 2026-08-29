@@ -410,7 +410,15 @@ namespace NOXMFD
             var root = new GameObject("Crosshair", typeof(RectTransform));
             root.transform.SetParent(parent, false);
             _crosshair = (RectTransform)root.transform;
-            Stretch(_crosshair);
+            // A centered SQUARE frame, not the full (16:9) screen rect — the same fractional
+            // anchors below would otherwise stretch to the screen's own aspect ratio, making the
+            // horizontal bars visibly longer/thicker than the vertical ones. Sized to a fraction of
+            // the smaller screen dimension so it scales sensibly across resolutions.
+            float size = Mathf.Min(Screen.width, Screen.height) * 0.6f;
+            _crosshair.anchorMin = _crosshair.anchorMax = new Vector2(0.5f, 0.5f);
+            _crosshair.pivot = new Vector2(0.5f, 0.5f);
+            _crosshair.anchoredPosition = Vector2.zero;
+            _crosshair.sizeDelta = new Vector2(size, size);
 
             CreateBar(_crosshair, "Top",    new Vector2(0.5f - half, 0.5f + gap),  new Vector2(0.5f + half, armEnd));
             CreateBar(_crosshair, "Bottom", new Vector2(0.5f - half, 1f - armEnd), new Vector2(0.5f + half, 0.5f - gap));
