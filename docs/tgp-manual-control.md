@@ -14,8 +14,11 @@ Shipped beyond the original scope after live testing surfaced real needs: **Poin
 (lock the aim to a fixed world point instead of a free direction), a **calibrated Zoom Axis**
 (a physical slider whose moved position *is* the zoom level, not rate-based), a **boresight crosshair**
 on the TGP page, **Area Track following the airframe** (a centered/reset camera now turns
-with the aircraft instead of holding a frozen world bearing), and **manual COLOR/IR toggling**.
-All five were explicitly requested
+with the aircraft instead of holding a frozen world bearing), **manual COLOR/IR toggling**, and
+**Snap To Head Tracker** (`tgp-manual-snap-headtracker` — points the aim at wherever the pilot's own
+view currently looks, reading `CameraStateManager`'s `mainCamera.transform.forward` so TrackIR, VR
+head tracking, and plain mouse-look all work through the one path; releases Point Track like Reset
+does). All six were explicitly requested
 during testing, not scope creep — see [What actually shipped](#what-actually-shipped-v1-revised)
 and [Debugging findings](#debugging-findings-worth-keeping) below for what each one is and the
 real bugs found getting there.
@@ -187,7 +190,7 @@ expected — worth confirming in the verification pass, not assumed risk-free wi
 
 ## What actually shipped (v1, revised)
 
-Five pieces beyond the original scope, all added in response to real problems hit during live
+Six pieces beyond the original scope, all added in response to real problems hit during live
 testing, not spec'd up front:
 
 - **Point Track** (`tgp-point-track` bind) — an internal toggle, not a hold. Raycasts along the
@@ -228,6 +231,13 @@ testing, not spec'd up front:
   (`_localPanDir`, `Vector3.forward` = boresight) — the world-space direction actually sent to the
   mount is re-derived from the aircraft's *current* attitude every tick, not just when there's
   pan/tilt input.
+- **Snap To Head Tracker** (`tgp-manual-snap-headtracker` bind) — points Area Track's aim at
+  wherever the pilot's own view currently looks. Reads `SceneSingleton<CameraStateManager>.i
+  .mainCamera.transform.forward`, the same final rendered-camera direction `CameraCockpitState
+  .UpdateState` already applies TrackIR/VR head tracking/plain mouse-look to, so no separate
+  TrackIR-specific path is needed. Converted to aircraft-local the same way Point Track's baseline
+  capture is, so a subsequent bank/turn still carries the aim with the airframe instead of pinning
+  it to a world bearing. Releases Point Track like Reset does; leaves zoom untouched.
 
 Two related pieces stayed out of scope — see [Out of scope](#out-of-scope).
 
