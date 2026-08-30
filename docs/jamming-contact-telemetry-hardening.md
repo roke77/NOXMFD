@@ -168,6 +168,14 @@ its own. Build succeeds, all 166 tests pass. No live jamming needed to verify: g
 enemy, then break contact (radar off, turn away, terrain mask) for 4+ seconds and confirm the MAP/
 HSD/RDR icon's heading stops changing even if the real unit keeps turning.
 
+**MAP page follow-up, 2026-08-30**: `UnitInfo.Stale` (`st`) was already serialized but `map.js` never
+read it. Added a visual treatment — a stale contact's icon now draws at 20% opacity (`STALE_ALPHA`)
+with a solid white ring (`drawStaleRing`), distinct from `drawJamGlyph`'s dashed ring/lightning bolt
+so the two states can't be confused. Pure frontend change in `src/web/pages/map/map.js`; no backend
+field needed since `st` already existed. Requires a DLL rebuild to deploy (`src/web/*` is an embedded
+resource, not served from disk) — build succeeded, `node --check` passed; live visual confirmation
+still pending (needs an actual stale contact on screen).
+
 ### F3 — `target.select` does not enforce contact visibility — high
 
 The public command accepts a persistent id, resolves it with `UnitRegistry.TryGetUnit`, and passes
