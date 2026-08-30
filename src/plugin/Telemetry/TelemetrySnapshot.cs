@@ -96,6 +96,12 @@ namespace NOXMFD
         public bool PlayerJammed;
         public uint PlayerJammedBy;   // persistentID.Id of the jamming unit; 0 = jammed but source unknown/not tracked
 
+        // Native picture jamming (docs/jamming-contact-telemetry-hardening.md, F1): CombatHUD.
+        // jamAccumulation > 0, the same condition that drives the native map's icon jitter/fade.
+        // Separate from PlayerJammed (Radar.IsJammed(), a different accumulator/threshold) — this is
+        // what actually gates whether enemy contacts are omitted from Units/Hsd/Rdr below.
+        public bool PictureJammed;
+
         // The single locked target Next/Previous currently focuses, shared across TGT/FCR/HSD
         // (issue #62, docs/tgt-cycle-focus.md — see TargetFocus.cs). persistentID.Id, 0 = none.
         // Also TGT's only row-highlight source; keeping one tracker prevents page-local selection

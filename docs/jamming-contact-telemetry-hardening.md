@@ -1,6 +1,7 @@
 # Jamming and tactical-contact telemetry hardening
 
-**Status:** F2, F3, F5 fixed; F4 decided (kept as-is, no code change); F1/F6 still open  
+**Status:** F1, F2, F3, F5, F6 fixed; F4 decided (kept as-is, no code change). All six findings
+closed; F1 still needs a live jamming scenario to verify (not yet reproduced in this investigation).  
 **Investigation date:** 2026-08-29 (static); 2026-08-30 (F2/F3/F4/F5 — see each finding for detail)  
 **Repository baseline:** `main` at `39df2e6` (`0.34.0`)
 
@@ -110,7 +111,7 @@ leak. NO XMFD still has to match the native lifetime and avoid adding extra info
 
 ## Findings
 
-### F1 — clean enemy picture bypasses the native jamming effect — high
+### F1 — clean enemy picture bypasses the native jamming effect — high — fixed 2026-08-30
 
 NO XMFD computes `PlayerJammed` through `GetJamState(player)`, which only tests
 `player.radar is Radar && radar.IsJammed()`. The MAP client then adds a jam glyph and an optional
@@ -145,6 +146,34 @@ Affected surfaces:
 - FCR datalink-only contacts;
 - the TGT rows derived from MAP contacts; and
 - command-driven target selection from these surfaces.
+
+**Fixed.** `TelemetryReader` reads `SceneSingleton<CombatHUD>.i.jamAccumulation` once per
+`PushSnapshot`, cached as `_pictureJamActive`, before contacts are (re)built — a new
+`TelemetrySnapshot.PictureJammed` field carries it to the browser (`pjam` on the wire) so MAP/HSD/
+TGT can show a `JAMMED` state independent of `PlayerJammed`/`pjm` (which stays exactly what it was:
+`Radar.IsJammed()`, an unrelated accumulator).
+
+Two distinct disclosure rules, matching the affected-surfaces list above and the doc's own §2:
+
+- **MAP (`BuildUnits`) and HSD (`BuildHsd`)**: blanket omission — every enemy contact is dropped
+  while `_pictureJamActive`, no own-radar exception, matching `DynamicMap.UpdateIcons()`'s
+  undiscriminating icon distortion across the whole native picture.
+- **FCR/RDR (`BuildRdr`'s datalink-only pass) and `target.select`**: `TargetSelectionPolicy
+  .IsSelectable` now takes a third `pictureJamActive` parameter — an own-radar detection stays
+  eligible (`Radar.IsJammed()` is a separate mechanic), only a plain faction-known/datalink track is
+  dropped. `BuildRdr`'s own-radar pass (pass 1) is untouched — it was never fog-of-war-gated to begin
+  with.
+
+Friendlies, RWR, and missile-warning cues are never touched by either rule, matching "preserve the
+player's own position and friendly contacts" / "preserve RWR and missile-warning cues" in §2.
+
+MAP got a `JAMMED` chip (`#jam-bar`, red, next to CURSOR/GRID/ROUTE) toggled from `d.pjam` in
+`updateHUD` — the doc's own requirement that the browser "display an explicit JAMMED indication
+rather than silently looking empty." HSD/TGT don't have an equivalent chip yet; MAP was prioritized
+since it's what the original report and both F3 reproductions used. Build succeeds, all 169 tests
+pass (`TargetSelectionPolicyTests` extended to 7 cases covering the jammed/unjammed × own-radar ×
+faction-known matrix). Live verification still pending — needs an actual Medusa/Alkyon jamming the
+player, which hasn't been reproduced yet in this investigation.
 
 ### F2 — stale enemies retain a live heading — high — fixed 2026-08-30
 
@@ -268,12 +297,22 @@ format (with the following placeholder indices renumbered). Build succeeds, all 
 pass; no test or web page referenced either field. No live jamming or mission setup needed to
 verify — the fields simply no longer appear in `/stream`.
 
-### F6 — a hidden jammer's persistent id is serialized — low
+### F6 — a hidden jammer's persistent id is serialized — low — fixed 2026-08-30
 
 `PlayerJammedBy` records the `Unit` supplied by the jam event and serializes its persistent id even
 when the jammer is not a visible contact. The MAP only draws the line when it can resolve that id to
 a visible contact, but the raw payload still exposes the identifier. It gives no position by itself,
 yet it is unnecessary hidden-unit metadata and can be correlated with later frames.
+
+**Fixed.** `PushSnapshot` zeroes `playerJammedBy` unless `UnitIdDisclosed()` finds that id in the
+same frame's `_cachedUnits` — a plain linear scan, cheap at the contact counts this mod deals with.
+Since F1 now also omits enemy entries from `Units` while picture-jammed, this has a secondary
+effect: a jammer that's only briefly visible (own-radar-detected but not faction-known) drops out of
+`PlayerJammedBy` the moment the picture goes dark, even though `PlayerJammed` (`Radar.IsJammed()`)
+can stay true — consistent with F1's own rule that MAP/HSD disclosure and FCR/selection eligibility
+are allowed to diverge during jamming. Build succeeds, all 169 tests pass. No unit test added — the
+check is a one-line linear scan with no independently interesting branch to assert on, and it
+depends on `_cachedUnits`, which is Unity-populated state outside the BCL test project's reach.
 
 ## Negative findings and interpretation limits
 
@@ -391,19 +430,27 @@ the test project.
 
 ## Proposed implementation sequence
 
-1. Add the pure disclosure policy and table-driven C# tests. *(Still open for F1/F2; F3's own
-   narrower policy is done — see below.)*
-2. Read `CombatHUD.jamAccumulation` once per snapshot and apply the policy to MAP/HSD/FCR builders.
+1. ~~Add the pure disclosure policy and table-driven C# tests~~ — **done, 2026-08-30** (F1/F3):
+   extended `TargetSelectionPolicy.IsSelectable` with a `pictureJamActive` parameter rather than
+   adding a separate class, since MAP/HSD needed a simpler blanket rule with no shared shape to
+   extract (inlined directly in `BuildUnits`/`BuildHsd`).
+2. ~~Read `CombatHUD.jamAccumulation` once per snapshot and apply the policy to MAP/HSD/FCR
+   builders~~ — **done, 2026-08-30** (F1): `_pictureJamActive`, read once in `PushSnapshot`.
 3. ~~Gate external `target.select` with the same facts~~ — **done, 2026-08-30.** Closed the
    id-enumeration exploit (F3): `TargetSelectionPolicy.IsSelectable`, verified live against two
-   missions (a hidden carrier, three hidden SAM sites), zero regressions.
+   missions (a hidden carrier, three hidden SAM sites), zero regressions. Extended, 2026-08-30, to
+   also factor in `pictureJamActive` (F1).
 4. ~~Add the last-known-heading cache~~ — **done, 2026-08-30** (F2): `GetDisplayHeading`, reusing
-   the existing `Stale` boundary, not raw `Observed()`. Live verification (get a track, break
-   contact, confirm heading freezes) still pending — no Unity-testable pure function to unit-test.
-5. ~~Decide on RWR lifetimes~~ / ~~remove unused world totals~~ — **done, 2026-08-30** (F4 kept as-is,
-   F5 removed). Hidden jammer ids (F6) still open.
-6. Add the browser `JAMMED` state and preview mocks after the payload contract is settled.
-7. Run `tools\ci-check.ps1`, then perform the live-game matrix below.
+   the existing `Stale` boundary, not raw `Observed()`. Live verification of the heading freeze
+   itself (get a track, break contact, confirm it stops changing) is still pending; the `Stale`
+   visual treatment it feeds (MAP's fade) has been confirmed live.
+5. ~~Decide on RWR lifetimes~~ / ~~remove unused world totals~~ / ~~hidden jammer ids~~ — **done,
+   2026-08-30** (F4 kept as-is, F5 removed, F6 zeroes `PlayerJammedBy` when undisclosed).
+6. ~~Add the browser `JAMMED` state~~ — **done, 2026-08-30** (F1): MAP's `#jam-bar` chip, toggled
+   from `pjam`. HSD/TGT don't have an equivalent chip yet.
+7. Run `tools\ci-check.ps1`, then perform the live-game matrix below — **still pending**: F1 has
+   never been reproduced live (needs a Medusa/Alkyon jamming the player), so the matrix below is
+   unverified beyond the F3 reproductions already recorded above.
 
 Keep the implementation in focused commits so the containment policy, selection hardening, heading
 fix, and UI treatment can be reviewed independently.

@@ -99,6 +99,7 @@ namespace NOXMFD
               .Append(",\"playerId\":").Append(s.PlayerId)
               .Append(",\"pjm\":").Append(JsonBool(s.PlayerJammed))
               .Append(",\"pjb\":").Append(s.PlayerJammedBy)
+              .Append(",\"pjam\":").Append(JsonBool(s.PictureJammed))
               .Append(",\"parts\":").Append(PartsArray(s.Parts))
               .Append(",\"pylons\":").Append(PylonsArray(s.Pylons))
               .Append(",\"rwr\":").Append(RwrArray(s.Rwr))

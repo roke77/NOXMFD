@@ -113,6 +113,7 @@ const oc       = overlay.getContext('2d');
 const gridBar   = document.getElementById('grid-bar');
 const cursorBar = document.getElementById('cursor-bar');
 const routeBar  = document.getElementById('route-bar');
+const jamBar    = document.getElementById('jam-bar');
 const unitLabel = document.getElementById('unit-label');
 const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — see pad-cursor.js
 
@@ -787,6 +788,7 @@ function clearViewState() {
 
   document.getElementById('grid-bar').className = 'mfd-chip empty';
   cursorBar.className = 'mfd-chip empty';
+  jamBar.className = 'mfd-chip mfd-chip-jammed empty';
 }
 
 // ── HUD ──────────────────────────────────────────────────────────────────────────
@@ -800,6 +802,7 @@ function updateHUD(d) {
   const gridText = gridLabel(d.world.x, d.world.z, mapMeta);
   gridBar.textContent = 'GRID: ' + gridText;
   gridBar.className = 'mfd-chip';
+  jamBar.className = 'mfd-chip mfd-chip-jammed' + (d.pjam ? '' : ' empty');
 }
 
 // CURSOR chip (below GRID) — the grid square under whichever pointer is currently active: the

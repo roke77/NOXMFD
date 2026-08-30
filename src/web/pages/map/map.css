@@ -53,6 +53,13 @@ main { flex: 1; display: flex; overflow: hidden; }
 /* CURSOR, GRID, and ROUTE (issue #38) chips are plain .mfd-chip content — #map-status-bar above
    owns their layout, so none needs its own position/spacing rule. */
 
+/* JAMMED (docs/jamming-contact-telemetry-hardening.md, F1) — same chip shape, red instead of the
+   dim green default so it reads as a warning, not a routine readout. */
+.mfd-chip-jammed {
+  color: var(--no-red);
+  border-color: var(--no-red);
+}
+
 /* FOLLOW is shown by the MFD shell's own indicator (stacked alongside PINNED), not here —
    MAP just mirrors its follow state up via source.emitFollow(). */
 

@@ -260,7 +260,12 @@ namespace NOXMFD
             }
             bool factionKnown     = ac.NetworkHQ.TryGetKnownPosition(unit, out _);
             bool ownRadarDetected = ac.radar is Radar radar && radar.detectedTargets.Contains(unit);
-            if (!TargetSelectionPolicy.IsSelectable(factionKnown, ownRadarDetected))
+            // F1: while the native picture is jammed, a plain faction-known/datalink track is no
+            // more selectable than it is disclosed on MAP/HSD — only an active own-radar detection
+            // (a separate mechanic from picture jamming) keeps it eligible.
+            CombatHUD? hud = SceneSingleton<CombatHUD>.i;
+            bool pictureJamActive = hud != null && hud.jamAccumulation > 0f;
+            if (!TargetSelectionPolicy.IsSelectable(factionKnown, ownRadarDetected, pictureJamActive))
             {
                 Plugin.Log?.LogInfo($"[NOXMFD] target.select id={id}: not visible to player — ignored.");
                 return;

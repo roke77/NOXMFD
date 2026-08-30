@@ -194,6 +194,8 @@
     // another contact (a line to the SAM, id 205); id 204 shows jm with an unresolved jb (888 —
     // no such contact), exercising the icon-only fallback with no line.
     playerId: 999, pjm: true, pjb: 205,   // player jammed by the SAM too
+    pjam: true,   // native picture jamming (docs/jamming-contact-telemetry-hardening.md, F1) —
+                   // exercises the MAP page's JAMMED chip independent of pjm's own radar-jam glyph
     contacts: [
       { id: 201, t: 'Airbase', f: 1, x: -8000,  z: 12000,  h: 0,   o: false, s: 1 },
       { id: 202, t: 'F18',     f: 1, x: 3000,   z: 4000,   h: 60,  o: true,  s: 1 },

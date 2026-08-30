@@ -6,9 +6,14 @@ namespace NOXMFD
     // channel the player already has — faction-known (friendly, or a faction-tracked enemy) or
     // currently painted by the player's own radar, the same two gates BuildUnits/BuildRdr already
     // use for what the MAP/FCR pages disclose.
+    //
+    // Also shared with BuildRdr's datalink-only pass (F1): while the native picture is jammed,
+    // Radar.IsJammed() is a separate mechanic, so an own-radar detection stays eligible even though
+    // a plain faction-known (datalink-only) track is not — unlike BuildUnits/BuildHsd, which omit
+    // every enemy during picture jamming with no own-radar exception at all.
     internal static class TargetSelectionPolicy
     {
-        internal static bool IsSelectable(bool factionKnown, bool ownRadarDetected)
-            => factionKnown || ownRadarDetected;
+        internal static bool IsSelectable(bool factionKnown, bool ownRadarDetected, bool pictureJamActive)
+            => ownRadarDetected || (factionKnown && !pictureJamActive);
     }
 }
