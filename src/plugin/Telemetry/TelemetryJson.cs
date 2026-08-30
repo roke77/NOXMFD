@@ -25,13 +25,12 @@ namespace NOXMFD
                 "\"mission\":\"{2}\",\"mapName\":\"{3}\"," +
                 "\"world\":{{\"x\":{4:0.0},\"y\":{5:0.0},\"z\":{6:0.0}}}," +
                 "\"hdg\":{7:0.0},\"tas\":{8:0.0},\"agl\":{9:0.0},\"gear\":\"{10}\"," +
-                "\"units\":{11},\"aircraft\":{12}," +
-                "\"map\":{{\"valid\":{13},\"w\":{14:0.0},\"h\":{15:0.0},\"ox\":{16},\"oy\":{17}}}," +
-                "\"iconOrient\":{18},\"iconScale\":{19:0.000}," +
-                "\"flares\":{20},\"flaresMax\":{21},\"ewKJ\":{22:0.0},\"ewKJMax\":{23:0.0}," +
-                "\"selWeapon\":\"{24}\",\"cmCat\":{25},\"tgpActive\":{26}," +
-                "\"fuel\":{27:0.000},\"thr\":{28:0.000},\"hasAb\":{29},\"abStart\":{30:0.000}," +
-                "\"softGun\":\"{31}\",\"softRel\":\"{32}\",\"masterArmsOn\":{33},\"combatMode\":\"{34}\",",
+                "\"map\":{{\"valid\":{11},\"w\":{12:0.0},\"h\":{13:0.0},\"ox\":{14},\"oy\":{15}}}," +
+                "\"iconOrient\":{16},\"iconScale\":{17:0.000}," +
+                "\"flares\":{18},\"flaresMax\":{19},\"ewKJ\":{20:0.0},\"ewKJMax\":{21:0.0}," +
+                "\"selWeapon\":\"{22}\",\"cmCat\":{23},\"tgpActive\":{24}," +
+                "\"fuel\":{25:0.000},\"thr\":{26:0.000},\"hasAb\":{27},\"abStart\":{28:0.000}," +
+                "\"softGun\":\"{29}\",\"softRel\":\"{30}\",\"masterArmsOn\":{31},\"combatMode\":\"{32}\",",
                 s.Time,
                 JsonLite.EscapeJson(s.PlaneName ?? string.Empty),
                 JsonLite.EscapeJson(s.MissionName ?? string.Empty),
@@ -39,7 +38,6 @@ namespace NOXMFD
                 s.WorldX, s.WorldY, s.WorldZ,
                 s.Heading, s.TAS, s.AGL,
                 s.GearDown ? "down" : "up",
-                s.TotalUnits, s.TotalAircraft,
                 JsonBool(s.MapValid),
                 s.MapW, s.MapH,
                 s.GridOffsetX, s.GridOffsetY,

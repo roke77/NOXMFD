@@ -73,8 +73,6 @@ namespace NOXMFD
         // Aircraft map-icon hints (the icon PNG itself is served separately at /icon).
         public bool   IconOrient;   // whether the icon rotates with heading
         public float  IconScale;    // relative size multiplier (default 1)
-        public int    TotalUnits;
-        public int    TotalAircraft;
 
         // Map metadata — constant for a given map, lets the client place the plane
         // directly without calibration and reproduce the in-game grid label (e.g. "Hc87").

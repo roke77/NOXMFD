@@ -24,8 +24,6 @@ namespace NOXMFD
         private float _fastTimer;
         private float _slowTimer;
         private float _contactTimer = ContactInterval;
-        private int   _totalUnits;
-        private int   _totalAircraft;
 
         // Map metadata, resolved once LevelInfo is available.
         private LevelInfo? _level;
@@ -207,12 +205,10 @@ namespace NOXMFD
             Unit[] units = UnityEngine.Object.FindObjectsByType<Unit>(FindObjectsSortMode.None);
             _units = units;
 
-            int aircraft = 0;
             int iconBudget = AssetCapture.IconsPerScan;
             foreach (Unit u in units)
             {
                 if (u == null) continue;
-                if (u is Aircraft) aircraft++;
                 // Pre-extract each unit type's map icon (a few per scan so it doesn't hitch).
                 if (iconBudget > 0 && _assets.TryCaptureIcon(u.definition)) iconBudget--;
                 // Remember who last jammed this unit's radar (see _jammedBy declaration).
@@ -222,8 +218,6 @@ namespace NOXMFD
                     u.onJam += e => _jammedBy[jammed] = e.jammingUnit;
                 }
             }
-            _totalUnits    = units.Length;
-            _totalAircraft = aircraft;
 
             _assets.CaptureMissileWarningIcon();   // one-time: the real missile-warning sprite for the MAP page
             _assets.TryCaptureVehicleTypeIcons();  // one-time per type: the TGT page's vehicle-filter icons
@@ -812,8 +806,6 @@ namespace NOXMFD
                 SoftGun        = softGun,
                 SoftRel        = softRel,
                 CmCategory     = cmCategory,
-                TotalUnits     = _totalUnits,
-                TotalAircraft  = _totalAircraft,
                 MapValid       = _mapValid,
                 MapW           = _mapW,
                 MapH           = _mapH,

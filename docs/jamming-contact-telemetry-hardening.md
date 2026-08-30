@@ -1,7 +1,7 @@
 # Jamming and tactical-contact telemetry hardening
 
-**Status:** F3 fixed and verified live; F1/F2/F4/F5/F6 still open  
-**Investigation date:** 2026-08-29 (static); 2026-08-30 (live F3 reproduction + fix)  
+**Status:** F3 and F5 fixed and verified; F4 decided (kept as-is, no code change); F1/F2/F6 still open  
+**Investigation date:** 2026-08-29 (static); 2026-08-30 (live F3 repro + fix, F4 decision, F5 fix)  
 **Repository baseline:** `main` at `39df2e6` (`0.34.0`)
 
 ## Problem statement
@@ -226,15 +226,23 @@ publish and update the emitter's exact bearing after the native indication has e
 
 `b221cab`'s own message ("RWR: fade contacts 50% slower") shows this was a deliberate gameplay-feel
 change, not an oversight — a straight revert to native timings undoes a decision that was made on
-purpose. Treat this as a decision to make explicitly (keep the longer lifetimes and accept the
-parity gap as a known, minor leak, or shorten them and accept the feel change reverts) rather than
-an automatic fix to apply.
+purpose.
 
-### F5 — raw telemetry exposes unfiltered world counts — medium
+**Decided, 2026-08-30: keep the 1.5/3/6s lifetimes.** The gameplay-feel change stands; the extra
+0.5/1/2s of RWR retention is accepted as a known, minor, low-severity parity gap. No code change.
 
-`ScanWorld()` counts every discovered `Unit` and `Aircraft` before faction visibility filtering.
-`TelemetryJson` publishes those totals as top-level `units` and `aircraft` values. No current web
-consumer uses them, but an SSE client can use them to infer hidden spawns, losses, or force changes.
+### F5 — raw telemetry exposes unfiltered world counts — medium — fixed 2026-08-30
+
+`ScanWorld()` counted every discovered `Unit` and `Aircraft` before faction visibility filtering, and
+`TelemetryJson` published those totals as top-level `units` and `aircraft` values. No web consumer
+ever read them (confirmed by search), but an SSE client could use them to infer hidden spawns,
+losses, or force changes.
+
+Removed entirely: `TelemetrySnapshot.TotalUnits`/`TotalAircraft`, their computation in
+`TelemetryReader.ScanWorld()`, and the two `units`/`aircraft` fields from `TelemetryJson`'s wire
+format (with the following placeholder indices renumbered). Build succeeds, all 166 xunit tests
+pass; no test or web page referenced either field. No live jamming or mission setup needed to
+verify — the fields simply no longer appear in `/stream`.
 
 ### F6 — a hidden jammer's persistent id is serialized — low
 
@@ -336,13 +344,10 @@ already sets `Stale`, not a second, narrower one.
 
 ### 5. Remove or narrow secondary disclosures
 
-- Decide on RWR lifetimes rather than reflexively reverting: `b221cab` lengthened them on purpose
-  for gameplay feel, not by accident. Either keep 1.5/3/6s and accept the parity gap as a documented,
-  minor leak, or shorten to native 1/2/4s and accept the feel change reverts.
-- Remove the unused top-level world `units` and `aircraft` counts from the serialized frame. If a
-  diagnostic needs them later, keep it out of the normal player-facing telemetry endpoint.
+- ~~Decide on RWR lifetimes~~ — decided 2026-08-30: keep 1.5/3/6s, accept the parity gap (F4).
+- ~~Remove the unused top-level world `units` and `aircraft` counts~~ — done 2026-08-30 (F5).
 - Serialize `PlayerJammedBy` only when the jammer id is also present in the already-disclosed contact
-  set; otherwise send zero.
+  set; otherwise send zero. (F6, still open.)
 
 ### 6. Centralize the pure policy, not the Unity reads
 
@@ -362,14 +367,16 @@ the test project.
 
 ## Proposed implementation sequence
 
-1. Add the pure disclosure policy and table-driven C# tests.
+1. Add the pure disclosure policy and table-driven C# tests. *(Still open for F1/F2; F3's own
+   narrower policy is done — see below.)*
 2. Read `CombatHUD.jamAccumulation` once per snapshot and apply the policy to MAP/HSD/FCR builders.
-3. Gate external `target.select` with the same facts — closes the id-enumeration exploit (F3), which
-   is exploitable independently of F1 and equally urgent.
+3. ~~Gate external `target.select` with the same facts~~ — **done, 2026-08-30.** Closed the
+   id-enumeration exploit (F3): `TargetSelectionPolicy.IsSelectable`, verified live against two
+   missions (a hidden carrier, three hidden SAM sites), zero regressions.
 4. Add the last-known-heading cache (reusing the existing `Stale` boundary, not raw `Observed()`) and
    tests for observed-to-stale transitions.
-5. Decide on RWR lifetimes (keep the deliberate 1.5/3/6s and document the gap, or revert to native
-   1/2/4s) and remove unused world totals/hidden jammer ids.
+5. ~~Decide on RWR lifetimes~~ / ~~remove unused world totals~~ — **done, 2026-08-30** (F4 kept as-is,
+   F5 removed). Hidden jammer ids (F6) still open.
 6. Add the browser `JAMMED` state and preview mocks after the payload contract is settled.
 7. Run `tools\ci-check.ps1`, then perform the live-game matrix below.
 
