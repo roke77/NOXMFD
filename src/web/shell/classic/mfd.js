@@ -264,8 +264,8 @@ let lastStatusText = '● DISCONNECTED';
 const SPLIT_SLOTS = SplitSlots.SPLIT_SLOTS;
 
 // URL for each iframe-served page — this layout's half of layout-pages.js, which keeps it beside
-// the F-35's table so the two can't quietly diverge. Pages without an entry render 'about:blank'
-// on navigation (paneUrl), a no-op signal rather than a crash.
+// the F-35's table so the two can't quietly diverge. paneNavigate rejects pages that resolve to
+// 'about:blank', preserving the pane when a control or saved layout carries an unknown page id.
 const PAGE_URL = LayoutPages.CLASSIC_SPLIT;
 function paneUrl(page) { return PAGE_URL[page] || (ExtNav.isExtensionPage(page) ? '/ext/' + page + '?bare' : 'about:blank'); }
 
@@ -567,13 +567,18 @@ function paneMapSend(paneIdx, action) {
 }
 
 function paneNavigate(paneIdx, page) {
+  const url = paneUrl(page);
+  if (url === 'about:blank') {
+    console.warn('[mfd] Unknown split page "' + page + '"; keeping the current pane.');
+    return;
+  }
   panePages[paneIdx] = page;
   if (page === 'wpn') paneWpnPage[paneIdx] = Math.max(0, selWeaponPage());   // open on the selected weapon's page
   if (page === 'main') paneMainPage[paneIdx] = 0;   // fresh pane always opens on MAIN's first page
   if (page === 'map')  paneMapNavPage[paneIdx] = 0; // fresh pane always opens on MAP's first nav page
   if (page === 'avn')  paneAvnPage[paneIdx]  = 0;   // fresh pane always opens on the first 4 groups
   paneFollowOn[paneIdx] = false;   // iframe reloads; follow restarts off (re-reported on load)
-  paneIframes[paneIdx].src = paneUrl(page);
+  paneIframes[paneIdx].src = url;
   renderSplitLabels();
   refreshFollowIndicator();        // entering/leaving MAP changes whether the chip shows
   reportSoiPage();                 // this pane's content changed — tell the server if it's now
@@ -2121,13 +2126,13 @@ function mfdButton(el) {
   el.classList.add('lit');                                   // brief press feedback
   setTimeout(function() { el.classList.remove('lit'); }, 150);
 
-  // Split-mode line-select keys carry a data-pane tag (top/bot). The action on
-  // them names a destination page; clicking navigates ONLY that pane.
+  // Split-mode line-select keys carry a data-pane tag (top/bot). In-place actions target that
+  // pane or aircraft state below; remaining actions are treated as destination pages for it.
   if (splitMode && el.dataset.pane && el.dataset.action) {
     const paneIdx = el.dataset.pane === 'top' ? 0 : 1;
     const act = el.dataset.action;
     // WPN paging stays within the pane — bump its page index and re-send the slice + labels
-    // rather than navigating. Everything else is a destination page for that pane.
+    // rather than navigating.
     if (act === 'wpn-prev' || act === 'wpn-next') {
       paneWpnPage[paneIdx] += (act === 'wpn-next' ? 1 : -1);
       forwardWpnToPanes();

@@ -46,8 +46,8 @@
   };
 
   // Classic bezel, SPLIT panes — the same destinations served ?bare, plus MAIN and MAP, which do
-  // mount as ordinary pane iframes here. A page with no entry renders 'about:blank' on navigation
-  // (paneUrl), a no-op signal rather than a crash.
+  // mount as ordinary pane iframes here. paneUrl represents an unresolved page as 'about:blank';
+  // paneNavigate rejects that sentinel before it changes the current pane.
   const CLASSIC_SPLIT = {
     main: '/main?bare',
     map:  '/map-view?bare',
