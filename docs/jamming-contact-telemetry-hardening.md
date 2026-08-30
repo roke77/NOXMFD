@@ -1,7 +1,8 @@
 # Jamming and tactical-contact telemetry hardening
 
-**Status:** initial investigation complete; implementation not started  
-**Investigation date:** 2026-08-29  
+**Status:** initial investigation complete; F3 confirmed live in single-player; implementation not
+started  
+**Investigation date:** 2026-08-29 (static); 2026-08-30 (live F3 reproduction)  
 **Repository baseline:** `main` at `39df2e6` (`0.34.0`)
 
 ## Problem statement
@@ -179,6 +180,18 @@ the live id range without guessing anything. It can `target.select` every intege
 acquire every enemy on the map in one pass, jammed or not, regardless of any visibility rule this
 document proposes elsewhere. F3 should be treated as equal priority to F1, not a secondary hardening
 step — closing F1 alone still leaves the entire enemy roster selectable by id enumeration.
+
+**Confirmed live, 2026-08-30**, single-player, "Free Flight - Heartland": with `playerId=135`,
+POSTing `target.select` for every id from 1 to 150 (`curl` loop against `/command`, 100ms apart, no
+mission editor or jamming involved) added over 20 units the player's own `/stream` never disclosed
+straight onto the weapon target list — ids `70, 71, 72, 84, 90–93, 99–109, 120–129, 134`, spanning
+hangars, helipads, munitions bunkers, fuel trucks, a Shard Class Corvette, and a **Hyperion Class
+Carrier (id=122)** that appeared in no telemetry field at all, including the faction ship-count
+tables, and had `viaHud=False` — it wasn't even in the player's own faction tracking database. The
+only rejections were the no-faction check (ids `73, 81–83`), confirming that check is the sole
+working gate today; faction-known/detected is not checked at all. No jamming was active during this
+run, confirming F3 is exploitable independently of the jamming scenario that motivated this
+investigation.
 
 ### F4 — RWR bearing is native, but NO XMFD retains it 50% longer — medium
 
