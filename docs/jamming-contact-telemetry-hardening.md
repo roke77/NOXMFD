@@ -337,6 +337,110 @@ contact, `id`, `x`, `z`, `h`, `dl`, `st`, the RWR block, radar-detected membersh
 `jamAccumulation`/`Radar.IsJammed()` states. This distinguishes a contact update from an RWR spoke or
 an orientation-only leak.
 
+## Exact single-player local test plan
+
+A small custom mission with no friendly sensors provides the cleanest reproduction. With no friendly
+radars, aircraft, ships, or AWACS present, an updating enemy track cannot be explained by a friendly
+datalink source.
+
+### Mission setup
+
+Create a mission containing:
+
+- one radar-equipped player aircraft;
+- one hostile EW-25 Medusa for the first jamming run;
+- one hostile AB-4 Alkyon for a separate jamming run;
+- one hostile maneuvering aircraft to act as the tracked contact; and
+- no friendly units other than the player aircraft.
+
+Start all aircraft airborne, at a useful radar range, and with clear line of sight. Give the jammer an
+aggressive task and place it close enough to detect and track the player. The hostile side must first
+track the player before its jammer can affect the player's aircraft.
+
+Run the following configurations without otherwise changing the mission:
+
+| Run | Configuration | Purpose |
+|---|---|---|
+| Baseline | no active jammer and no friendly sensors | establish native-map/NO XMFD parity |
+| Medusa | hostile Medusa active and no friendly sensors | reproduce picture behavior under Medusa jamming |
+| Alkyon | hostile Alkyon active and no friendly sensors | reproduce picture behavior under Alkyon jamming |
+| Datalink control | one friendly radar asset added | show how a legitimate faction track differs from the isolated runs |
+
+### Test 1: global picture-jamming discrepancy
+
+Display the native tactical map and the NO XMFD MAP page at the same time. Before jamming, confirm
+that the hostile contact and its heading agree on both displays. Once jamming begins:
+
+1. Confirm that native tactical-map unit symbols jitter or fade. This is the primary indication that
+   `CombatHUD.jamAccumulation` is active.
+2. Observe whether NO XMFD continues to show precise, stable contact symbols and coordinates.
+3. Do not use the NO XMFD jammer glyph as the only activation check. Its current `pjm` value reflects
+   radar-specific jamming and can remain false while the native tactical picture is visibly disrupted.
+
+The finding is reproduced when the native map deliberately obscures a hostile contact while NO XMFD
+continues to publish and display its clean, changing coordinates.
+
+### Test 2: stale-contact heading disclosure
+
+Acquire the hostile maneuvering aircraft, then stop observing it by turning off the player radar,
+turning away, increasing separation, or placing terrain between the aircraft. Keep the hostile
+aircraft turning and wait at least five seconds.
+
+The native contact's position and orientation should both freeze. If the NO XMFD contact position
+freezes but its icon continues rotating, NO XMFD is reading the unit's live heading after the track
+became stale. With no friendly sensors in the mission, datalink cannot account for the update.
+
+### Test 3: RWR bearing lifetime
+
+Let the hostile radar illuminate the player briefly, then make the emitter turn away, disable its
+radar, or destroy it. Time the remaining bearing indication on both displays.
+
+A bearing line without an ordinary hostile contact can be legitimate RWR information. The native
+map retains search/track/lock indications for 1/2/4 seconds. The current NO XMFD behavior retains
+them for approximately 1.5/3/6 seconds. The test passes after hardening when the NO XMFD indications
+expire at the native durations.
+
+### Test 4: raw telemetry capture
+
+Capture the SSE stream during each run from a PowerShell terminal:
+
+```powershell
+curl.exe -N --max-time 30 http://127.0.0.1:5005/stream > "$env:TEMP\noxmfd-jam-stream.txt"
+```
+
+Record the native map and NO XMFD together for the same interval. Inspect these payload fields:
+
+- `contacts[].id`, `contacts[].x`, and `contacts[].z` for contact identity and position;
+- `contacts[].h` for heading;
+- `contacts[].dl` for datalink classification;
+- `contacts[].st` for stale state;
+- `pjm` for NO XMFD's radar-specific jamming indication; and
+- `rwr` for radar-warning bearings.
+
+Interpret the capture as follows:
+
+- changing `x/z` values during native picture distortion confirm that clean coordinates remain
+  available in raw telemetry;
+- `st = 1` with unchanged `x/z` and a changing `h` confirms stale-heading disclosure;
+- an `rwr` entry without an ordinary contact is an RWR indication rather than proof of a contact
+  leak; and
+- continued movement in the datalink-control run may be legitimate if the added friendly sensor is
+  still refreshing the faction track.
+
+### Test order and evidence to retain
+
+Run the baseline first, then Medusa, then Alkyon, and finally the friendly-datalink control. Retain:
+
+- the custom mission and its unit/task configuration;
+- one synchronized recording of the native tactical map and NO XMFD for each jammer;
+- the corresponding 30-second `/stream` captures; and
+- the approximate times when native distortion starts, the contact becomes stale, and each RWR
+  indication disappears.
+
+Repeat the Medusa and Alkyon runs after each containment implementation. The post-fix expectation is
+that suppressed enemy coordinates are absent from `/stream`, stale headings remain frozen, and RWR
+indications use the native lifetimes.
+
 ## Acceptance criteria
 
 - Raw `/stream` contains no clean enemy MAP/HSD/datalink coordinate that the chosen jamming policy
