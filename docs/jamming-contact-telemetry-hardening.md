@@ -1,8 +1,7 @@
 # Jamming and tactical-contact telemetry hardening
 
-**Status:** initial investigation complete; F3 confirmed live in single-player; implementation not
-started  
-**Investigation date:** 2026-08-29 (static); 2026-08-30 (live F3 reproduction)  
+**Status:** F3 fixed and verified live; F1/F2/F4/F5/F6 still open  
+**Investigation date:** 2026-08-29 (static); 2026-08-30 (live F3 reproduction + fix)  
 **Repository baseline:** `main` at `39df2e6` (`0.34.0`)
 
 ## Problem statement
@@ -201,6 +200,19 @@ that never appeared in any telemetry field, plus IFVs, APCs, recon trucks, a rad
 munitions trucks, an aircraft revetment, vehicle depots, and helipads. This mission's entire premise
 is flying undetected to avoid air defenses; a player able to designate live SAM sites they have never
 detected defeats that mechanic directly, independent of any jamming.
+
+**Fixed and verified live, 2026-08-30.** `TargetSelectionPolicy.IsSelectable` (new,
+`src/plugin/TargetSelectionPolicy.cs`) requires `factionKnown || ownRadarDetected` — the same two
+gates `BuildUnits`/`BuildRdr` already use for what MAP/FCR disclose. It's applied only in
+`CommandDispatcher.TargetSelect`, the external `/command` entry point, not in the shared
+`TrySelectTarget` — the manual TGP's internal call to `TrySelectTarget` after its own
+line-of-sight acquisition is intentionally left untouched, per the design note above. A 4-case
+xunit regression test (`tools/tests/TargetSelectionPolicyTests.cs`) locks in the truth table.
+
+Re-running the exact "08. Infiltration" sweep after restarting with the fix deployed: only the 6
+units already on the player's MAP page at mission start were selectable; all three Linebreaker SAM
+sites (`151, 152, 156`) and every other previously-hidden id were rejected with
+`not visible to player`. No regressions on the units that should remain selectable.
 
 ### F4 — RWR bearing is native, but NO XMFD retains it 50% longer — medium
 
