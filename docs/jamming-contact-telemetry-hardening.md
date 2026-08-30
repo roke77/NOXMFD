@@ -1,7 +1,7 @@
 # Jamming and tactical-contact telemetry hardening
 
-**Status:** F3 and F5 fixed and verified; F4 decided (kept as-is, no code change); F1/F2/F6 still open  
-**Investigation date:** 2026-08-29 (static); 2026-08-30 (live F3 repro + fix, F4 decision, F5 fix)  
+**Status:** F2, F3, F5 fixed; F4 decided (kept as-is, no code change); F1/F6 still open  
+**Investigation date:** 2026-08-29 (static); 2026-08-30 (F2/F3/F4/F5 — see each finding for detail)  
 **Repository baseline:** `main` at `39df2e6` (`0.34.0`)
 
 ## Problem statement
@@ -146,7 +146,7 @@ Affected surfaces:
 - the TGT rows derived from MAP contacts; and
 - command-driven target selection from these surfaces.
 
-### F2 — stale enemies retain a live heading — high
+### F2 — stale enemies retain a live heading — high — fixed 2026-08-30
 
 `BuildUnits`, the datalink pass in `BuildRdr`, and `BuildHsd` use the faction-known position but read
 heading directly from `unit.transform.eulerAngles.y` on every contact refresh.
@@ -155,6 +155,18 @@ The position freezes when `TrackingInfo.GetPosition()` becomes stale, but the ic
 rotate as the real enemy turns. This differs from `UnitMapIcon.UpdateIcon()`, which freezes rotation
 when `TrackingInfo.Observed()` becomes false. It can reveal maneuvers after the faction loses the
 track and may look like a position or bearing update in a recording.
+
+**Fixed.** Added `TelemetryReader._lastHeading` (an unpruned per-unit cache, same tradeoff as the
+existing `_jammedBy` field) and a `GetDisplayHeading(Unit, bool fresh)` helper: while fresh it
+records and returns the live heading, otherwise it returns the last one recorded. All three
+builders now call it with `fresh: !stale`, reusing the exact same `Stale` boundary each already
+serializes (`datalinkKnown && !IsTargetPositionAccurate(u, 20f)`) rather than a second, narrower
+`Observed()`-based one — closing the inconsistency flagged during independent verification below.
+`BuildRdr`'s own-radar pass (always actively painted) uses `fresh: true` unconditionally; its
+datalink-only pass needed the same staleness check added since it never had a `Stale` concept of
+its own. Build succeeds, all 166 tests pass. No live jamming needed to verify: get a track on any
+enemy, then break contact (radar off, turn away, terrain mask) for 4+ seconds and confirm the MAP/
+HSD/RDR icon's heading stops changing even if the real unit keeps turning.
 
 ### F3 — `target.select` does not enforce contact visibility — high
 
@@ -373,8 +385,9 @@ the test project.
 3. ~~Gate external `target.select` with the same facts~~ — **done, 2026-08-30.** Closed the
    id-enumeration exploit (F3): `TargetSelectionPolicy.IsSelectable`, verified live against two
    missions (a hidden carrier, three hidden SAM sites), zero regressions.
-4. Add the last-known-heading cache (reusing the existing `Stale` boundary, not raw `Observed()`) and
-   tests for observed-to-stale transitions.
+4. ~~Add the last-known-heading cache~~ — **done, 2026-08-30** (F2): `GetDisplayHeading`, reusing
+   the existing `Stale` boundary, not raw `Observed()`. Live verification (get a track, break
+   contact, confirm heading freezes) still pending — no Unity-testable pure function to unit-test.
 5. ~~Decide on RWR lifetimes~~ / ~~remove unused world totals~~ — **done, 2026-08-30** (F4 kept as-is,
    F5 removed). Hidden jammer ids (F6) still open.
 6. Add the browser `JAMMED` state and preview mocks after the payload contract is settled.

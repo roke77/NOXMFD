@@ -62,6 +62,24 @@ namespace NOXMFD
         private readonly HashSet<Unit> _jamHooked = new HashSet<Unit>();
         private readonly Dictionary<Unit, Unit> _jammedBy = new Dictionary<Unit, Unit>();
 
+        // Last-known heading for a stale contact (docs/jamming-contact-telemetry-hardening.md, F2):
+        // position already freezes once a datalink track goes stale (TrackingInfo.GetPosition()
+        // keeps returning lastKnownPosition), but heading was still read live every frame, which
+        // could reveal a maneuver the faction's tracking database no longer actually knows about.
+        // Same unpruned-cache tradeoff as _jammedBy above.
+        private readonly Dictionary<Unit, float> _lastHeading = new Dictionary<Unit, float>();
+
+        // fresh: true while the contact should track the unit's live heading (friendly, actively
+        // radar-detected, or a datalink track within its trust radius) — see each call site's own
+        // staleness check, which already matches what BuildUnits/BuildHsd serialize as UnitInfo/
+        // HsdContact.Stale. Otherwise returns the last heading recorded while fresh.
+        private float GetDisplayHeading(Unit u, bool fresh)
+        {
+            float live = u.transform.eulerAngles.y;
+            if (fresh) { _lastHeading[u] = live; return live; }
+            return _lastHeading.TryGetValue(u, out float cached) ? cached : live;
+        }
+
         // Slowly-changing context, refreshed in the 1 Hz scan.
         private string         _missionName = string.Empty;
         private string         _mapName     = string.Empty;
@@ -1187,7 +1205,7 @@ namespace NOXMFD
                         X        = gp.x,
                         Z        = gp.z,
                         Alt      = gp.y,
-                        Heading  = u.transform.eulerAngles.y,
+                        Heading  = GetDisplayHeading(u, fresh: true),  // actively painted right now
                         Targeted = targets != null && targets.Contains(u),
                         Radar    = true,
                         Datalink = dl,
@@ -1212,13 +1230,16 @@ namespace NOXMFD
                     if (hq == null || hq == playerHQ) continue;   // enemy-only, like BuildUnits' faction==2
                     if (!playerHQ.TryGetKnownPosition(u, out GlobalPosition gp)) continue;
 
+                    // Same 20m trust-radius check BuildUnits/BuildHsd use for their own Stale field.
+                    bool stale = !playerHQ.IsTargetPositionAccurate(u, 20f);
+
                     _rdrBuf.Add(new RdrContact
                     {
                         Id       = u.persistentID.Id,
                         X        = gp.x,
                         Z        = gp.z,
                         Alt      = gp.y,
-                        Heading  = u.transform.eulerAngles.y,
+                        Heading  = GetDisplayHeading(u, fresh: !stale),
                         Targeted = targets != null && targets.Contains(u),
                         Radar    = false,
                         Datalink = true,
@@ -1268,7 +1289,7 @@ namespace NOXMFD
                     X        = gp.x,
                     Z        = gp.z,
                     Alt      = gp.y,
-                    Heading  = u.transform.eulerAngles.y,
+                    Heading  = GetDisplayHeading(u, fresh: !stale),
                     Targeted = hasTargets && targets.Contains(u),
                     Radar    = radarDetected,
                     Datalink = datalinkKnown,
@@ -1428,7 +1449,7 @@ namespace NOXMFD
                     Type     = def.unitName,
                     X        = gp.x,
                     Z        = gp.z,
-                    Heading  = u.transform.eulerAngles.y,
+                    Heading  = GetDisplayHeading(u, fresh: !stale),
                     Faction  = faction,
                     Orient   = def.mapOrient,
                     Scale    = def.mapIconSize,
