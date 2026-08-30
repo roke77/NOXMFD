@@ -24,8 +24,6 @@ namespace NOXMFD
         private float _fastTimer;
         private float _slowTimer;
         private float _contactTimer = ContactInterval;
-        private int   _totalUnits;
-        private int   _totalAircraft;
 
         // Map metadata, resolved once LevelInfo is available.
         private LevelInfo? _level;
@@ -63,6 +61,31 @@ namespace NOXMFD
         // total units spawned in one mission, not worth pruning for a HOTAS MFD mod.
         private readonly HashSet<Unit> _jamHooked = new HashSet<Unit>();
         private readonly Dictionary<Unit, Unit> _jammedBy = new Dictionary<Unit, Unit>();
+
+        // Picture jamming (docs/jamming-contact-telemetry-hardening.md, F1): CombatHUD.jamAccumulation
+        // is a separate accumulator from Radar.IsJammed() above — it's what actually drives the native
+        // map's icon jitter/fade (DynamicMap.UpdateIcons()), and can be active even while the radar
+        // isn't itself jammed. Read once per PushSnapshot, before contacts are (re)built, so every
+        // builder sees the same value for this frame.
+        private bool _pictureJamActive;
+
+        // Last-known heading for a stale contact (docs/jamming-contact-telemetry-hardening.md, F2):
+        // position already freezes once a datalink track goes stale (TrackingInfo.GetPosition()
+        // keeps returning lastKnownPosition), but heading was still read live every frame, which
+        // could reveal a maneuver the faction's tracking database no longer actually knows about.
+        // Same unpruned-cache tradeoff as _jammedBy above.
+        private readonly Dictionary<Unit, float> _lastHeading = new Dictionary<Unit, float>();
+
+        // fresh: true while the contact should track the unit's live heading (friendly, actively
+        // radar-detected, or a datalink track within its trust radius) — see each call site's own
+        // staleness check, which already matches what BuildUnits/BuildHsd serialize as UnitInfo/
+        // HsdContact.Stale. Otherwise returns the last heading recorded while fresh.
+        private float GetDisplayHeading(Unit u, bool fresh)
+        {
+            float live = u.transform.eulerAngles.y;
+            if (fresh) { _lastHeading[u] = live; return live; }
+            return _lastHeading.TryGetValue(u, out float cached) ? cached : live;
+        }
 
         // Slowly-changing context, refreshed in the 1 Hz scan.
         private string         _missionName = string.Empty;
@@ -207,12 +230,10 @@ namespace NOXMFD
             Unit[] units = UnityEngine.Object.FindObjectsByType<Unit>(FindObjectsSortMode.None);
             _units = units;
 
-            int aircraft = 0;
             int iconBudget = AssetCapture.IconsPerScan;
             foreach (Unit u in units)
             {
                 if (u == null) continue;
-                if (u is Aircraft) aircraft++;
                 // Pre-extract each unit type's map icon (a few per scan so it doesn't hitch).
                 if (iconBudget > 0 && _assets.TryCaptureIcon(u.definition)) iconBudget--;
                 // Remember who last jammed this unit's radar (see _jammedBy declaration).
@@ -222,8 +243,6 @@ namespace NOXMFD
                     u.onJam += e => _jammedBy[jammed] = e.jammingUnit;
                 }
             }
-            _totalUnits    = units.Length;
-            _totalAircraft = aircraft;
 
             _assets.CaptureMissileWarningIcon();   // one-time: the real missile-warning sprite for the MAP page
             _assets.TryCaptureVehicleTypeIcons();  // one-time per type: the TGT page's vehicle-filter icons
@@ -760,8 +779,16 @@ namespace NOXMFD
 
             _assets.TryCaptureIcon(aircraft.definition);
 
+            CombatHUD? combatHud = SceneSingleton<CombatHUD>.i;
+            _pictureJamActive = combatHud != null && combatHud.jamAccumulation > 0f;
+
             RefreshContactSnapshotIfNeeded(aircraft);
             bool playerJammed = GetJamState(aircraft, out uint playerJammedBy);
+
+            // F6 (docs/jamming-contact-telemetry-hardening.md): don't leak a hidden jammer's identity
+            // — only report it if that same unit is already present in this frame's disclosed Units.
+            if (playerJammedBy != 0 && !TargetSelectionPolicy.IsDisclosed(_cachedUnits, playerJammedBy))
+                playerJammedBy = 0;
 
             bool rdrMetric = PlayerSettings.unitSystem == PlayerSettings.UnitSystem.Metric;
             float rdrLevelTime = Time.timeSinceLevelLoad;
@@ -812,8 +839,6 @@ namespace NOXMFD
                 SoftGun        = softGun,
                 SoftRel        = softRel,
                 CmCategory     = cmCategory,
-                TotalUnits     = _totalUnits,
-                TotalAircraft  = _totalAircraft,
                 MapValid       = _mapValid,
                 MapW           = _mapW,
                 MapH           = _mapH,
@@ -825,6 +850,7 @@ namespace NOXMFD
                 PlayerId       = aircraft.persistentID.Id,
                 PlayerJammed   = playerJammed,
                 PlayerJammedBy = playerJammedBy,
+                PictureJammed  = _pictureJamActive,
                 FocusedTargetId = TargetFocus.Id,
                 LockedTargetIds = _cachedLockedIds,
                 LockedTargetTti = _cachedLockedTti,
@@ -1195,7 +1221,7 @@ namespace NOXMFD
                         X        = gp.x,
                         Z        = gp.z,
                         Alt      = gp.y,
-                        Heading  = u.transform.eulerAngles.y,
+                        Heading  = GetDisplayHeading(u, fresh: true),  // actively painted right now
                         Targeted = targets != null && targets.Contains(u),
                         Radar    = true,
                         Datalink = dl,
@@ -1220,13 +1246,23 @@ namespace NOXMFD
                     if (hq == null || hq == playerHQ) continue;   // enemy-only, like BuildUnits' faction==2
                     if (!playerHQ.TryGetKnownPosition(u, out GlobalPosition gp)) continue;
 
+                    // F1 (docs/jamming-contact-telemetry-hardening.md): this contact is datalink-only
+                    // by construction (an own-radar detection would already have consumed it in pass
+                    // 1 above), so TargetSelectionPolicy reduces to "!pictureJamActive" here — a
+                    // jammed picture drops it, matching FCR's own-radar-only fallback while jammed.
+                    if (!TargetSelectionPolicy.IsSelectable(factionKnown: true, ownRadarDetected: false, _pictureJamActive))
+                        continue;
+
+                    // Same 20m trust-radius check BuildUnits/BuildHsd use for their own Stale field.
+                    bool stale = !playerHQ.IsTargetPositionAccurate(u, 20f);
+
                     _rdrBuf.Add(new RdrContact
                     {
                         Id       = u.persistentID.Id,
                         X        = gp.x,
                         Z        = gp.z,
                         Alt      = gp.y,
-                        Heading  = u.transform.eulerAngles.y,
+                        Heading  = GetDisplayHeading(u, fresh: !stale),
                         Targeted = targets != null && targets.Contains(u),
                         Radar    = false,
                         Datalink = true,
@@ -1260,6 +1296,12 @@ namespace NOXMFD
 
                 var hq = u.NetworkHQ;
                 if (hq == null || hq == playerHQ) continue;
+
+                // F1 (docs/jamming-contact-telemetry-hardening.md): every contact reaching this point
+                // is an enemy (friendlies are excluded above), so a jammed picture omits all of them —
+                // same blanket rule as BuildUnits, no own-radar exception (that belongs to FCR).
+                if (_pictureJamActive) continue;
+
                 bool radarDetected = hasRadarTargets && radarTargets.Contains(u);
                 bool datalinkKnown = playerHQ.TryGetKnownPosition(u, out GlobalPosition gp);
                 if (!datalinkKnown && !radarDetected) continue;
@@ -1276,7 +1318,7 @@ namespace NOXMFD
                     X        = gp.x,
                     Z        = gp.z,
                     Alt      = gp.y,
-                    Heading  = u.transform.eulerAngles.y,
+                    Heading  = GetDisplayHeading(u, fresh: !stale),
                     Targeted = hasTargets && targets.Contains(u),
                     Radar    = radarDetected,
                     Datalink = datalinkKnown,
@@ -1415,6 +1457,12 @@ namespace NOXMFD
                 var hq = u.NetworkHQ;
                 byte faction = hq == null ? (byte)0 : (hq == playerHQ ? (byte)1 : (byte)2);
 
+                // F1 (docs/jamming-contact-telemetry-hardening.md): while the native tactical picture
+                // is jammed, omit enemy contacts entirely — no own-radar exception here, matching
+                // DynamicMap.UpdateIcons()'s blanket icon distortion across the whole picture.
+                // Own-radar-only visibility belongs to FCR (BuildRdr), not this fog-of-war list.
+                if (faction == 2 && _pictureJamActive) continue;
+
                 bool jammed = GetJamState(u, out uint jammedBy);
 
                 // An enemy's position only ever reaches us via playerHQ.trackingDatabase (confirmed
@@ -1436,7 +1484,7 @@ namespace NOXMFD
                     Type     = def.unitName,
                     X        = gp.x,
                     Z        = gp.z,
-                    Heading  = u.transform.eulerAngles.y,
+                    Heading  = GetDisplayHeading(u, fresh: !stale),
                     Faction  = faction,
                     Orient   = def.mapOrient,
                     Scale    = def.mapIconSize,

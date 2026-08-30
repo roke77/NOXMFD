@@ -73,8 +73,6 @@ namespace NOXMFD
         // Aircraft map-icon hints (the icon PNG itself is served separately at /icon).
         public bool   IconOrient;   // whether the icon rotates with heading
         public float  IconScale;    // relative size multiplier (default 1)
-        public int    TotalUnits;
-        public int    TotalAircraft;
 
         // Map metadata — constant for a given map, lets the client place the plane
         // directly without calibration and reproduce the in-game grid label (e.g. "Hc87").
@@ -97,6 +95,12 @@ namespace NOXMFD
         public uint PlayerId;         // Unit.persistentID.Id — lets a UnitInfo.JammedBy reference resolve to "the player"
         public bool PlayerJammed;
         public uint PlayerJammedBy;   // persistentID.Id of the jamming unit; 0 = jammed but source unknown/not tracked
+
+        // Native picture jamming (docs/jamming-contact-telemetry-hardening.md, F1): CombatHUD.
+        // jamAccumulation > 0, the same condition that drives the native map's icon jitter/fade.
+        // Separate from PlayerJammed (Radar.IsJammed(), a different accumulator/threshold) — this is
+        // what actually gates whether enemy contacts are omitted from Units/Hsd/Rdr below.
+        public bool PictureJammed;
 
         // The single locked target Next/Previous currently focuses, shared across TGT/FCR/HSD
         // (issue #62, docs/tgt-cycle-focus.md — see TargetFocus.cs). persistentID.Id, 0 = none.

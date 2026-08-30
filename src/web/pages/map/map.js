@@ -93,6 +93,7 @@ function savePersistedView() {
 const PLAYER_COLOR = '#39ff14';                     // player stays HUD green — matches --no-green;
                                                      // canvas strokeStyle can't use CSS var()
 const TARGET_COLOR = '#ff8000';                     // orange ring on the player's targeted unit(s)
+const STALE_ALPHA  = 0.5;                           // faded icon opacity for a stale contact (F2)
 let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors —
                                                      // 1/2 default to --no-green/--no-red until then
 const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
@@ -112,6 +113,7 @@ const oc       = overlay.getContext('2d');
 const gridBar   = document.getElementById('grid-bar');
 const cursorBar = document.getElementById('cursor-bar');
 const routeBar  = document.getElementById('route-bar');
+const jamBar    = document.getElementById('jam-bar');
 const unitLabel = document.getElementById('unit-label');
 const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — see pad-cursor.js
 
@@ -582,7 +584,9 @@ function drawOverlay() {
       if (!onScreen(p, 48)) continue;
       ensureIconImage(u.t);
       const hex = factionColors[u.f] || factionColors[0];
+      if (u.st) oc.globalAlpha = STALE_ALPHA;
       const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, iconBase(), u.s);
+      if (u.st) oc.globalAlpha = 1;
       if (u.tg) { drawTargetBox(p.cx, p.cy, r + 4); pendingSel.delete(u.id); }   // telemetry confirms selection
       if (u.jm) drawJamGlyph(p.cx, p.cy, r);
       hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex, id: u.id, tg: !!u.tg });
@@ -784,6 +788,7 @@ function clearViewState() {
 
   document.getElementById('grid-bar').className = 'mfd-chip empty';
   cursorBar.className = 'mfd-chip empty';
+  jamBar.className = 'mfd-chip mfd-chip-jammed empty';
 }
 
 // ── HUD ──────────────────────────────────────────────────────────────────────────
@@ -797,6 +802,7 @@ function updateHUD(d) {
   const gridText = gridLabel(d.world.x, d.world.z, mapMeta);
   gridBar.textContent = 'GRID: ' + gridText;
   gridBar.className = 'mfd-chip';
+  jamBar.className = 'mfd-chip mfd-chip-jammed' + (d.pjam ? '' : ' empty');
 }
 
 // CURSOR chip (below GRID) — the grid square under whichever pointer is currently active: the

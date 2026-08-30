@@ -319,6 +319,11 @@ namespace NOXMFD
                 "to release; Pan/Tilt nudges the point and redesignates on release. Only acts while " +
                 "TGP manual control is on.",
                 () => TgpManualControl.TogglePointTrack());
+            DefFree(config, "tgp-manual-snap-headtracker", tgp, "TgpManualSnapHeadTracker", "Snap To Head Tracker", edge: true,
+                "Point the TGP manual camera wherever your own view currently looks — TrackIR, VR " +
+                "head tracking, or plain mouse-look. Releases Point Track if it was active. Only " +
+                "acts while TGP manual control is on.",
+                () => TgpManualControl.SnapToHeadTracker());
             DefFree(config, "tgp-manual-ir-toggle", tgp, "TgpManualIrToggle", "Toggle IR", edge: true,
                 "Switch the active TGP camera between COLOR and IR — the manual camera, or a real " +
                 "unit lock. The game normally switches this automatically by time of day/distance/" +

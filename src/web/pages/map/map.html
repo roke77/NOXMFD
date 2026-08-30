@@ -49,6 +49,10 @@
          updateCursorChip in map.js. GRID is the ownship's own square. ROUTE (issue #38) names the
          active waypoint route, shown only while one exists — updateRouteChip in map.js. -->
     <div id="map-status-bar">
+      <!-- Shown while the native tactical picture is jammed (docs/jamming-contact-telemetry-hardening.md,
+           F1) — the moment enemy contacts are omitted server-side, so it reads as "the picture is
+           jammed" rather than "the mod broke". Toggled in updateHUD, same pattern as GRID/CURSOR. -->
+      <div id="jam-bar" class="mfd-chip mfd-chip-jammed empty">JAMMED</div>
       <div id="cursor-bar" class="mfd-chip empty">CURSOR: &mdash;</div>
       <div id="grid-bar" class="mfd-chip empty">GRID: &mdash;</div>
       <div id="route-bar" class="mfd-chip empty">ROUTE: &mdash;</div>

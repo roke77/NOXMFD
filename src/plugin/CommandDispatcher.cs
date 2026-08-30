@@ -246,6 +246,31 @@ namespace NOXMFD
                 return;
             }
 
+            // This is the external entry point: the browser only ever sends ids it rendered from
+            // telemetry, but a direct POST can carry any id — persistentIDs are a plain sequential
+            // counter, so enumerating 1..N reaches every live unit regardless of fog of war
+            // (confirmed live, docs/jamming-contact-telemetry-hardening.md F3). Gate here rather
+            // than in TrySelectTarget, which the manual TGP also calls after its own line-of-sight
+            // acquisition — that path must stay unaffected.
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            if (ac == null || ac.NetworkHQ == null)
+            {
+                Plugin.Log?.LogInfo($"[NOXMFD] target.select id={id}: no local aircraft/HQ — ignored.");
+                return;
+            }
+            bool factionKnown     = ac.NetworkHQ.TryGetKnownPosition(unit, out _);
+            bool ownRadarDetected = ac.radar is Radar radar && radar.detectedTargets.Contains(unit);
+            // F1: while the native picture is jammed, a plain faction-known/datalink track is no
+            // more selectable than it is disclosed on MAP/HSD — only an active own-radar detection
+            // (a separate mechanic from picture jamming) keeps it eligible.
+            CombatHUD? hud = SceneSingleton<CombatHUD>.i;
+            bool pictureJamActive = hud != null && hud.jamAccumulation > 0f;
+            if (!TargetSelectionPolicy.IsSelectable(factionKnown, ownRadarDetected, pictureJamActive))
+            {
+                Plugin.Log?.LogInfo($"[NOXMFD] target.select id={id}: not visible to player — ignored.");
+                return;
+            }
+
             TrySelectTarget(unit, "target.select");
         }
 

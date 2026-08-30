@@ -209,6 +209,45 @@ namespace NOXMFD
             Plugin.Log?.LogInfo($"[NOXMFD] TGP manual control: reset to aircraft-forward (az={az:0.0}, el={el:0.0}), minimum zoom.");
         }
 
+        // Snaps Area Track's aim to wherever the pilot's own view currently points — TrackIR, VR
+        // head tracking, or plain mouse-look all end up baked into mainCamera.transform.forward the
+        // same way CameraCockpitState.UpdateState applies them, so reading it here needs no separate
+        // TrackIR-specific path. Converted to aircraft-local like Point Track's own baseline capture
+        // (see _localPanDir's field comment) so a centered camera still turns with the airframe
+        // afterward instead of pinning to a world bearing. Releases Point Track like Reset() does,
+        // since a locked point would otherwise immediately override this frame's snap. Leaves zoom
+        // alone — unlike Reset(), the pilot already knows where they're looking.
+        internal static void SnapToHeadTracker()
+        {
+            if (!ManualMode) return;
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            if (ac == null)
+            {
+                Plugin.Log?.LogInfo("[NOXMFD] TGP manual control: snap to head tracker ignored — no aircraft.");
+                return;
+            }
+            CameraStateManager? cameraState = SceneSingleton<CameraStateManager>.i;
+            Camera? camera = cameraState != null ? cameraState.mainCamera : null;
+            if (camera == null)
+            {
+                Plugin.Log?.LogInfo("[NOXMFD] TGP manual control: snap to head tracker ignored — no camera.");
+                return;
+            }
+
+            _localPanDir = ac.transform.InverseTransformDirection(camera.transform.forward).normalized;
+            _panDir = camera.transform.forward;   // immediate value for the log line below; Tick() re-derives this from _localPanDir every frame regardless
+            _pointTrackActive = false;
+
+            // Same reasoning as Reset(): a held pan/tilt key or a mis-centered axis would otherwise
+            // immediately nudge away from this frame's snap on the very next Tick().
+            if (_panInputX != 0f || _panInputY != 0f)
+                Plugin.Log?.LogWarning($"[NOXMFD] TGP manual control: snap to head tracker with non-zero pan input still active (x={_panInputX:0.00}, y={_panInputY:0.00}) — a held key or a mis-centered axis will immediately pan back off-center next tick.");
+            _panInputX = _panInputY = 0f;
+
+            (float az, float el) = ToAzimuthElevation(_panDir);
+            Plugin.Log?.LogInfo($"[NOXMFD] TGP manual control: snapped to head tracker (az={az:0.0}, el={el:0.0}).");
+        }
+
         // Point Track (see the field comment above): raycast along the current aim and lock onto
         // whatever it hits. No-op (logged) if nothing's in range, or if manual mode is off. An
         // internal toggle: press again while already tracking to release back to free Area Track
