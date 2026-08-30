@@ -52,21 +52,37 @@
     </div>
     <button class="kb-toggle" id="kb-bg-input-btn"></button>
   </div>
+  <!-- Also a plain on/off setting, not a bind — and unlike every other setting/toggle on this page,
+       it's purely client-side (localStorage, docs/remote-keybinds.md), not server config, so it
+       still works even while #kb-panel is .unavailable. Kept right after INPUT WHEN GAME
+       UNFOCUSED — the two most commonly-toggled settings — rather than down with IMMERSION
+       OPTIONS below, which it isn't one of. -->
+  <div class="kb-setting" id="kb-remote-keybinds">
+    <div class="kb-setting-text">
+      <div class="kb-name">LISTEN FOR KEYBINDS (REMOTE)</div>
+      <div class="kb-desc">Lets this browser send your configured keybinds to the game. Use this for
+        a second device or WSO station, and keep it enabled on only the browser you intend to use for
+        input.</div>
+      <div class="kb-warning" id="kb-remote-same-pc-warning">This browser appears to be on the game
+        PC. The game already listens for these keys there, so enabling this can double-fire inputs.</div>
+    </div>
+    <button class="kb-toggle" id="kb-remote-keybinds-btn"></button>
+  </div>
   <div class="kb-head">
     <span>FUNCTION</span><span>KEYBOARD</span><span>JOYSTICK / HOTAS</span>
   </div>
   <div class="kb-rows" id="kb-rows"><!-- built by keybinds.js from /keybinds-config, excluding the
     "IMMERSION OPTIONS" section — that one renders in its own block below, not this table --></div>
 
-  <!-- Immersion options (docs/radar-master-arms.md) — a true second section, not appended content:
-       its own EXTENDED-KEYBINDS-sized title, a description, the 3 start-state settings, THEN its
-       own table for the section's 8 binds (own header row, own rows container — doesn't share
-       #kb-head/#kb-rows above). -->
+  <!-- Immersion options (docs/radar-master-arms.md, docs/power-toggle.md) — a true second section,
+       not appended content: its own EXTENDED-KEYBINDS-sized title, a description, the 4 start-state
+       settings, THEN its own table for the section's 10 binds (own header row, own rows container —
+       doesn't share #kb-head/#kb-rows above). -->
   <div class="kb-immersion" id="kb-immersion">
     <div class="kb-title">IMMERSION OPTIONS</div>
-    <div class="kb-immersion-desc">Cold-start controls: whether radar, engine, and master arm start
-      on or off when you spawn in a new aircraft, and dedicated binds to change any of them — plus
-      combat mode — in flight. Also whether combat mode drives the HUD page's own filters.</div>
+    <div class="kb-immersion-desc">Cold-start controls: whether radar, engine, master arm, and power
+      start on or off when you spawn in a new aircraft, and dedicated binds to change any of them —
+      plus combat mode — in flight. Also whether combat mode drives the HUD page's own filters.</div>
 
     <div class="kb-setting" id="kb-radar-on-start">
       <div class="kb-setting-text">
@@ -91,6 +107,14 @@
           a new aircraft. Turn OFF for more immersion: guns/missiles/bombs are blocked until you arm.</div>
       </div>
       <button class="kb-toggle" id="kb-master-arms-on-start-btn"></button>
+    </div>
+    <div class="kb-setting" id="kb-power-on-start">
+      <div class="kb-setting-text">
+        <div class="kb-name">ENABLE POWER ON START</div>
+        <div class="kb-desc">Power starts ON (full HUD, today's behaviour) when spawning in a new
+          aircraft. Turn OFF for more immersion: no in-cockpit HUD until you power up.</div>
+      </div>
+      <button class="kb-toggle" id="kb-power-on-start-btn"></button>
     </div>
     <div class="kb-setting" id="kb-hud-filters-on-combat-mode">
       <div class="kb-setting-text">

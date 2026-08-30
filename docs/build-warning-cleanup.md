@@ -2,9 +2,10 @@
 
 ## Status
 
-In progress — item 1 (`CommandDispatcher.cs` pragma) and the `Keybinds.cs:87` investigation are
-done (111 → 96 warnings). The rest (`TelemetryReader.cs`/`AssetCapture.cs`/`WeaponSelectors.cs`
-nullable fixes, the small-file sweep) stays opportunistic, per the proposed order below.
+Complete for compiler warning cleanup. A fresh `dotnet build -c Release --no-incremental` on
+2026-08-27 emits no C# nullable or unassigned-field warnings. The only remaining build warning is
+the deliberately deferred `MSB3277` `System.IO.Compression` assembly-version conflict described
+below; the build succeeds and MSBuild resolves it consistently.
 
 ## Where this came from
 
@@ -12,7 +13,7 @@ An external code-review agent noted the build passes but emits ~111 warnings and
 chipping them down "until warnings become meaningful again." Re-measured directly rather than taking
 that count on faith — see below for what it's actually made of.
 
-## Survey (measured 2026-08-20, `dotnet build -c Release --no-incremental`)
+## Historical survey (measured 2026-08-20, `dotnet build -c Release --no-incremental`)
 
 MSBuild reports **111 Warning(s)** total. Deduplicating by (file, line, code) across `src/plugin/`
 gives **104 distinct nullable/unassigned-field warnings**, plus a separate, unrelated
@@ -69,33 +70,33 @@ deserialized via `JsonUtility` reflection, so there's no hidden writer to accoun
 analog-cursor path (`Poll()` → `ReadAxis(bind)` → used inline in the cursor-vector calculation)
 never touched this field to begin with. Removed the field and corrected the three comments.
 
-**The remaining ~89 (mostly CS8600/8618/8602/8603/8604) are real nullable-annotation gaps**,
-concentrated in `TelemetryReader.cs`, `WeaponSelectors.cs`, and `AssetCapture.cs` — the files doing
-the most live Unity-object reads, where a `GetComponent`/`FindObjectsByType`/game-field lookup can
-legitimately return null and the surrounding code doesn't yet declare that in its signatures. These
-are the genuine "warnings becoming noise" risk: a real null-reference bug introduced later has to
-compete with 89 pre-existing ones to be noticed.
+**Current result:** later nullability cleanup removed the remaining 54 C# warnings from
+`TelemetryReader.cs`, `WeaponSelectors.cs`, and `AssetCapture.cs`. The planned `WeaponSelectors.cs`
+loadout DTO / cycle-selection extraction has since landed in `WeaponSelectorLogic.cs`; the other
+pure-logic extractions remain separate tasks in `docs/csharp-unit-testing.md`. Compiler cleanup no
+longer depends on those refactors.
 
-## Proposed order
+## Execution record
 
-1. **`CommandDispatcher.cs`**: one scoped pragma with an explanatory comment. Removes 14 warnings
-   (~13% of the total) in one safe, well-understood move. Its 15th `CS0649` sibling
-   (`Keybinds.cs:87`) is explicitly excluded — see above, it needs investigation, not suppression.
-2. **`TelemetryReader.cs`** (29) and **`AssetCapture.cs`** (13): both already on the
-   `docs/csharp-unit-testing.md` radar as heavy-Unity-touchpoint files; annotate nullability
-   opportunistically while touching either file for other reasons, rather than a dedicated sweep that
-   risks introducing behavior changes in code with no test coverage yet.
-3. **`WeaponSelectors.cs`** (16): `docs/csharp-unit-testing.md` already flags this file as needing a
-   plain loadout-entry DTO before its cycle-selection logic separates cleanly — that same DTO
-   boundary is a natural place to also fix its null-handling, so sequence this warning cleanup as
-   part of that extraction rather than before it.
-4. **`Keybinds.cs`** (7), **`TelemetryServer.cs`** (7), **`AkfTracker.cs`** (2), **`TgpFeed.cs`** (2):
-   small enough to fix opportunistically, no dedicated pass needed.
+1. **`CommandDispatcher.cs`**: one scoped pragma with an explanatory comment removed 14 warnings
+   (~13% of the historical total). Its 15th `CS0649` sibling (`Keybinds.cs:87`) was excluded from
+   suppression and resolved as dead code, as recorded above.
+2. **`TelemetryReader.cs`** (29) and **`AssetCapture.cs`** (13): resolved by later nullable
+   annotations and guards. Their Unity-heavy behavior remains covered by build/live verification.
+3. **`WeaponSelectors.cs`** (16): nullable warnings resolved. Its loadout DTO and cycle-selection
+   testability extraction later landed in `WeaponSelectorLogic.cs`.
+4. **`Keybinds.cs`**, **`TelemetryServer.cs`**, **`CommandDispatcher.cs`**, **`AkfTracker.cs`**, and
+   **`TgpFeed.cs`**: done in the item-1 pass with nullable annotations/guards only, no behavior
+   refactor.
 5. **`MSB3277` (`System.IO.Compression` conflict)**: separate from the nullable debt above — an
    assembly-version conflict between `netstandard.library.ref`'s `System.IO.Compression.dll` and
    `Mirage`'s dependency graph, resolved in MSBuild's favor already (build succeeds), so this is
    cosmetic today. Worth a `<Compile>`/binding-redirect investigation only if it ever starts causing
    an actual runtime `MissingMethodException` — not before.
+6. **Follow-up no-incremental pass**: a later branch-local audit found warnings that an incremental
+   build could hide. The reopened nullable sites in `AssetCapture.cs`, `TelemetryReader.cs`, and
+   `TgpManualControl.cs` were resolved with null-aware signatures, local guards, and safe fallbacks.
+   Use `--no-incremental` for future warning audits.
 
 ## Scope
 
@@ -103,9 +104,12 @@ compete with 89 pre-existing ones to be noticed.
       explanatory comment
 - [x] Investigate `Keybinds.cs:87`'s `AxisValueNow` separately (not a suppression candidate) —
       confirm whether it's dead code or an unwired analog-cursor path (resolved: dead code, removed)
-- [ ] Fix nullable warnings in `TelemetryReader.cs`/`AssetCapture.cs` opportunistically (no dedicated
+- [x] Suppress test-project-only `CS0649` noise for linked DTO/support files in
+      `tools/tests/NOXMFD.Tests.csproj`
+- [x] Sweep nullable annotations/guards in the small files (`CommandDispatcher.cs`, `Keybinds.cs`,
+      `TelemetryServer.cs`, `AkfTracker.cs`, `TgpFeed.cs`)
+- [x] Fix nullable warnings in `TelemetryReader.cs`/`AssetCapture.cs` opportunistically (no dedicated
       sweep on untested code)
-- [ ] Fold `WeaponSelectors.cs`'s nullable fixes into its `docs/csharp-unit-testing.md` DTO extraction
-- [ ] Sweep the remaining small files (`Keybinds.cs`, `TelemetryServer.cs`, `AkfTracker.cs`,
-      `TgpFeed.cs`) opportunistically
-- [ ] Leave `MSB3277` alone unless it starts causing a real runtime failure
+- [x] Resolve `WeaponSelectors.cs`'s nullable warnings; its DTO/test extraction later landed in
+      `WeaponSelectorLogic.cs`
+- [x] Leave `MSB3277` alone unless it starts causing a real runtime failure

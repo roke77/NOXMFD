@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
 <link rel="stylesheet" href="/assets/shell/classic/mfd.css">
-<link rel="stylesheet" href="/assets/shell/layout-modal.css">
+<link rel="stylesheet" href="/assets/shell/shared/layout-modal.css">
 </head>
 <body>
 
@@ -60,6 +60,7 @@
                 <div class="ib-status mfd-status disconnected" id="ib-status">&#9679; DISCONNECTED</div>
               </div>
             </div>
+            <div class="ib-version" id="ib-version"></div>
           </div>
           <!-- WPN content (weapon rows + CM panel) now lives in the #page-frame iframe
                (src/web/pages/wpn/), not here. The overlay only carries WPN's nav labels. -->
@@ -91,9 +92,10 @@
 </div>
 
 <script src="/assets/services/send-command.js"></script>
-<script src="/assets/shell/nav-model.js"></script>
-<script src="/assets/shell/layout-pages.js"></script>
-<script src="/assets/shell/ext-nav.js"></script>
+<script src="/assets/shell/shared/nav-model.js"></script>
+<script src="/assets/shell/shared/layout-pages.js"></script>
+<script src="/assets/shell/shared/ext-nav.js"></script>
+<script src="/assets/shell/shared/tgp-marks.js"></script>
 <script src="/assets/shell/classic/split-keymap.js"></script>
 <script src="/assets/shell/classic/split-slots.js"></script>
 <script src="/assets/shell/classic/classic-paging.js"></script>
@@ -105,11 +107,13 @@
 <!-- SAVE/LOAD LAYOUT (issue #51) — shared with the F-35 shell. keybinds-keymap.js's KeyboardEvent
      -> Unity KeyCode naming is reused so a configured key matches what the KEY page stores. -->
 <script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
-<script src="/assets/shell/layout-store.js"></script>
-<script src="/assets/shell/layout-modal.js"></script>
-<script src="/assets/shell/layout-keybinds.js"></script>
-<script src="/assets/shell/layout-keydown.js"></script>
-<script src="/assets/shell/boot-reveal.js"></script>
+<script src="/assets/shell/shared/layout-store.js"></script>
+<script src="/assets/shell/shared/layout-modal.js"></script>
+<script src="/assets/shell/shared/layout-keybinds.js"></script>
+<script src="/assets/services/remote-keybinds.js"></script>
+<script src="/assets/shell/shared/layout-keydown.js"></script>
+<script src="/assets/shell/shared/boot-reveal.js"></script>
+<script src="/assets/shell/shared/wake-lock.js"></script>
 <script src="/assets/shell/classic/mfd.js"></script>
 </body>
 </html>

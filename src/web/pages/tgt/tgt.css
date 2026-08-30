@@ -183,7 +183,14 @@ html, body {
   font-size: clamp(11px, 1.9vmin, 18px);
   cursor: pointer;   /* the whole row deselects it */
 }
-.tl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* NAME cell: the name itself truncates/ellipsizes as before; a TTI reading (docs/hud-tti-estimate.md),
+   when this lock has one, sits at the cell's right edge without needing its own grid column. */
+.tl-name { display: flex; align-items: baseline; gap: clamp(4px, 1vw, 8px); min-width: 0; }
+.tl-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+/* Same amber HudTtiCue.cs uses on the native HUD (one accent for "TTI" everywhere it shows), kept
+   its own color rather than inheriting the row's faction tint — flex: 0 0 auto so a long name
+   truncates before this ever gets squeezed. Empty text (no tracking weapon) takes no visible space. */
+.tl-tti { flex: 0 0 auto; font-size: 0.8em; letter-spacing: 0.02em; white-space: nowrap; color: var(--no-amber); }
 .tl-grid, .tl-dist { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* Faction tint on the name (mirrors the map colours): friendly blue, neutral white, enemy red. */
 .tl-row.f-friendly .tl-name { color: var(--tgt-blue); }
@@ -197,10 +204,17 @@ html, body {
 .tl-row.datalink .tl-src { color: var(--no-purple); }
 .tl-row.stale    .tl-src { color: var(--no-label); }
 
-/* Next/Previous Target's row-stepper (docs/tgt-keybind-nav.md) — a persistent outline (unlike
-   .pad-hover's transient overlay) since it has to stay legible while the crosshair itself is hidden.
-   --no-amber matches its existing "selected/waiting state" meaning elsewhere in the theme. */
-.tl-row.nav-highlight { outline: 2px solid var(--no-amber); outline-offset: -2px; background: rgba(255,170,0,0.10); }
+/* The single locked target Next/Previous currently focuses, shared with FCR/HSD (issue #62,
+   docs/tgt-cycle-focus.md) — TGT's only row highlight (docs/tgt-cycle-focus.md's "Consolidated to
+   one highlight"): a persistent outline (unlike .pad-hover's transient overlay). --no-amber matches
+   its existing "selected/waiting state" meaning elsewhere in the theme, and marks that Cursor
+   Select would act on this row right now. */
+.tl-row.tgt-focused { outline: 2px solid var(--no-amber); outline-offset: -2px; background: rgba(255,170,0,0.10); }
+
+/* Same row, but the PAD cursor has taken Select back (docs/tgt-cycle-focus.md's "Select
+   arbitration") — grey rather than amber, so it reads as "still focused, but Select won't act on
+   it until Next/Previous is pressed again" instead of looking actionable. */
+.tl-row.tgt-focused-inactive { outline: 2px solid var(--no-gray); outline-offset: -2px; background: rgba(90,90,90,0.10); }
 
 .tgt-list-empty {
   flex: 1 1 auto;

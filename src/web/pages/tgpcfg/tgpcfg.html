@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — TGP CFG</title>
+<!--
+  TGP's own CFG page, served at /tgpcfg. Reached from TGP's own nav row (nav-model.js's NAV.tgp),
+  not MD/CFG's MAIN-rooted sibling groups — same reasoning as WPT/MAPCFG. Four settings:
+    TGP  — the targeting-pod camera feed capture rate (TgpFeed.cs's Interval).
+    RESOLUTION — native 360x240 or a separate 720x480/1080x720 mirror camera.
+    QUALITY — JPEG compression quality, independent of resolution.
+    COCKPIT FEED — optional hiding of the native in-cockpit TGP overlay.
+  The main telemetry-tick slider lives on MAP's own CFG page instead (/mapcfg) — each page only
+  carries the setting relevant to it.
+  Fetch-driven like /keybinds: reads /rates-config once on load to set the slider position, then
+  POSTs rates.set (send-command.js -> CommandDispatcher) on every slider move / quality pick, same
+  optimistic-update pattern keybinds.js uses for its toggles.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/tgpcfg/tgpcfg.css">
+</head>
+<body>
+
+<div class="tcfg-panel" id="tcfg-panel">
+  <!-- Way back to the display when opened standalone; hidden when embedded in a shell (classic
+       #page-frame or an F-35 portal) — same check keybinds.js uses (window.parent !== window). -->
+  <a class="tcfg-back" href="/tgp">&lt; TGP</a>
+  <div class="tcfg-title">TGP — CONFIG</div>
+  <div class="tcfg-warning">Higher rates cost more CPU / bandwidth; lower rates save it at the cost
+    of smoothness and latency. Changes apply immediately and persist across restarts.</div>
+  <button class="tcfg-reset" id="tcfg-reset">RESET TO DEFAULTS</button>
+
+  <div class="tcfg-setting" id="tcfg-tgp">
+    <div class="tcfg-setting-text">
+      <div class="tcfg-name">TGP — REFRESH RATE</div>
+      <div class="tcfg-desc">The targeting-pod pane's capture rate. Independent of MAP's own
+        telemetry rate (/mapcfg).</div>
+    </div>
+    <div class="tcfg-slider-row">
+      <div class="tcfg-slider-wrap">
+        <input type="range" id="tcfg-tgp-slider" min="5" max="60" step="5">
+        <div class="tcfg-ticks" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      </div>
+      <span class="tcfg-val" id="tcfg-tgp-val">15 Hz</span>
+    </div>
+    <div class="tcfg-hz-warning" id="tcfg-tgp-hz-warning">Above 15 Hz the GPU readback can't keep up
+      on modest hardware — measured up to ~45% of captures dropped at 30 Hz, with frame spikes over
+      50ms. Raise this only if you have GPU headroom to spend.</div>
+  </div>
+
+  <div class="tcfg-setting" id="tcfg-tgp-resolution">
+    <div class="tcfg-setting-text">
+      <div class="tcfg-name">TGP — FEED RESOLUTION</div>
+      <div class="tcfg-desc">LOW (default) uses the game's native 360×240 camera. MID uses a
+        720×480 mirror camera. HIGH uses a 1080×720 mirror camera. MID and HIGH render an additional
+        camera and increase readback and encoding work.</div>
+    </div>
+    <div class="tcfg-quality-row" id="tcfg-tgp-resolution-row">
+      <button class="tcfg-quality-btn" data-resolution="native">LOW</button>
+      <button class="tcfg-quality-btn" data-resolution="mid">MID</button>
+      <button class="tcfg-quality-btn" data-resolution="high">HIGH</button>
+    </div>
+    <div class="tcfg-hz-warning" id="tcfg-tgp-resolution-warning">MID and HIGH render a second
+      camera and may cost noticeable FPS. HIGH also reads back and encodes 2.25× as many pixels as
+      MID.</div>
+  </div>
+
+  <div class="tcfg-setting" id="tcfg-tgp-jpeg-quality">
+    <div class="tcfg-setting-text">
+      <div class="tcfg-name">TGP — FEED QUALITY</div>
+      <div class="tcfg-desc">Controls JPEG compression only: LOW uses 30, MID (default) uses 50,
+        and HIGH uses 90. Higher quality retains more fine detail and produces larger MJPEG frames;
+        it does not change the camera resolution.</div>
+    </div>
+    <div class="tcfg-quality-row" id="tcfg-tgp-jpeg-quality-row">
+      <button class="tcfg-quality-btn" data-jpeg-quality="low">LOW</button>
+      <button class="tcfg-quality-btn" data-jpeg-quality="mid">MID</button>
+      <button class="tcfg-quality-btn" data-jpeg-quality="high">HIGH</button>
+    </div>
+    <div class="tcfg-hz-warning" id="tcfg-tgp-jpeg-quality-warning">HIGH retains more detail but
+      increases MJPEG frame size, bandwidth, and encoder pressure.</div>
+    <div class="tcfg-hz-warning" id="tcfg-tgp-combined-warning">HIGH resolution with HIGH quality
+      is the maximum GPU, CPU, and bandwidth setting.</div>
+  </div>
+
+  <div class="tcfg-setting" id="tcfg-tgp-suppress">
+    <div class="tcfg-setting-text">
+      <div class="tcfg-name">TGP — HIDE COCKPIT FEED</div>
+      <div class="tcfg-desc">When ON, hide the in-cockpit TGP overlay so the cockpit display can show
+        its normal content and the external feed is the only TGP picture.</div>
+    </div>
+    <button class="tcfg-toggle" id="tcfg-tgp-suppress-btn">OFF</button>
+  </div>
+
+  <!-- shown while /rates-config is unreachable (plugin not running) -->
+  <div class="mfd-empty" id="tcfg-empty"><span class="mfd-empty-title">TGP CFG</span>&mdash; UNAVAILABLE &mdash;</div>
+</div>
+
+<script src="/assets/services/send-command.js"></script>
+<script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
+<script src="/assets/services/remote-keybinds.js"></script>
+<script src="/assets/pages/tgpcfg/tgpcfg.js"></script>
+</body>
+</html>

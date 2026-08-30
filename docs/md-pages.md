@@ -2,7 +2,7 @@
 
 ## Status
 
-**In-game verified, not yet merged** (branch `mission-objective`, ticket
+**Merged to `main` and in-game verified** (original branch `mission-objective`, ticket
 [#37](https://github.com/roke77/NOXMFD/issues/37)). Backend telemetry, JSON
 wire format, both bare pages, and the four-way MD switch (including its
 vertical-label treatment in split mode and F-35) are implemented, wired, and

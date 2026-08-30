@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Standalone test project (docs/csharp-unit-testing.md) — NOT a ProjectReference to
+  <!-- Standalone test project — NOT a ProjectReference to
        NOXMFD.csproj, which would drag in the $(GameDir)-relative Assembly-CSharp/
        UnityEngine.Modules/Mirage/Rewired references and require a real Nuclear Option install just
        to build tests. Instead compiles the specific pure .cs files directly (see the ItemGroup
@@ -11,6 +11,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CS0649</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,16 +26,29 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Both files are already 100% BCL — no Unity/BepInEx types — after the small storage/log/
-         escape seam described in docs/csharp-unit-testing.md (RouteStore.ConfigDir/LogWarning/
-         PersistToDisk fields, EscapeJson moved to JsonLite.cs). -->
+    <!-- Both files are already 100% BCL — no Unity/BepInEx types — through the small storage/log/
+         escape seam (RouteStore.ConfigDir/LogWarning/PersistToDisk fields, EscapeJson in
+         JsonLite.cs). -->
     <Compile Include="..\..\src\plugin\JsonLite.cs" Link="Source\JsonLite.cs" />
-    <Compile Include="..\..\src\plugin\RouteStore.cs" Link="Source\RouteStore.cs" />
+    <Compile Include="..\..\src\plugin\Stores\RouteStore.cs" Link="Source\RouteStore.cs" />
     <!-- TelemetrySnapshot.cs is the plain DTO the frame is built from; TelemetryJson.cs is the
-         pure serializer split out of TelemetryServer.cs (docs/refactor-scan.md step 10) — neither
-         has a Unity/BepInEx touchpoint. -->
-    <Compile Include="..\..\src\plugin\TelemetrySnapshot.cs" Link="Source\TelemetrySnapshot.cs" />
-    <Compile Include="..\..\src\plugin\TelemetryJson.cs" Link="Source\TelemetryJson.cs" />
+         pure serializer. Neither has a Unity/BepInEx touchpoint. -->
+    <Compile Include="..\..\src\plugin\Telemetry\TelemetrySnapshot.cs" Link="Source\TelemetrySnapshot.cs" />
+    <Compile Include="..\..\src\plugin\Telemetry\TelemetryJson.cs" Link="Source\TelemetryJson.cs" />
+    <!-- TargetFocus.cs (issue #62) has no Unity/BepInEx touchpoint either — same pure-state shape
+         as SoiFocus.cs, just never pulled in before since nothing there needed testing standalone. -->
+    <Compile Include="..\..\src\plugin\Http\TargetFocus.cs" Link="Source\TargetFocus.cs" />
+    <Compile Include="..\..\src\plugin\Http\CommandContentType.cs" Link="Source\CommandContentType.cs" />
+    <Compile Include="..\..\src\plugin\TargetSelectionPolicy.cs" Link="Source\TargetSelectionPolicy.cs" />
+    <Compile Include="..\..\src\plugin\Akf\AkfTrackerLogic.cs" Link="Source\AkfTrackerLogic.cs" />
+    <Compile Include="..\..\src\plugin\Input\KeybindTapHold.cs" Link="Source\KeybindTapHold.cs" />
+    <Compile Include="..\..\src\plugin\Input\WeaponSelectorLogic.cs" Link="Source\WeaponSelectorLogic.cs" />
+    <Compile Include="..\..\src\plugin\Tgp\TgpManualAimMath.cs" Link="Source\TgpManualAimMath.cs" />
+    <Compile Include="..\..\src\plugin\Tgp\TgpFeedSettings.cs" Link="Source\TgpFeedSettings.cs" />
+    <Compile Include="..\..\src\plugin\Tgp\TgpFullScreenMath.cs" Link="Source\TgpFullScreenMath.cs" />
+    <Compile Include="..\..\src\plugin\Hud\HudDirectionCueMath.cs" Link="Source\HudDirectionCueMath.cs" />
+    <Compile Include="..\..\src\plugin\Hud\HudWaypointCueMath.cs" Link="Source\HudWaypointCueMath.cs" />
+    <Compile Include="..\..\src\plugin\Hud\HudTtiMath.cs" Link="Source\HudTtiMath.cs" />
   </ItemGroup>
 
 </Project>

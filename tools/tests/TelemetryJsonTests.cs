@@ -3,8 +3,8 @@ using NOXMFD;
 
 namespace NOXMFD.Tests
 {
-    // Stable-snapshot fixtures for TelemetryJson.Serialize (docs/refactor-scan.md step 10). Asserts
-    // by parsing the output back through JsonLite rather than matching substrings, so a field
+    // Stable-snapshot fixtures for TelemetryJson.Serialize. Asserts by parsing the output back
+    // through JsonLite rather than matching substrings, so a field
     // reordering doesn't break these — only an actual value/shape change does.
     public class TelemetryJsonTests
     {
@@ -31,7 +31,9 @@ namespace NOXMFD.Tests
             Assert.False((bool)Obj(root["bdf"])["present"]!);
             Assert.False((bool)Obj(root["pal"])["present"]!);
             Assert.False((bool)Obj(root["rdr"])["present"]!);
+            Assert.False((bool)root["tgpManual"]!);
             Assert.Empty(Arr(Obj(root["rdr"])["pb"]));
+            Assert.Empty(Arr(Obj(root["hsd"])["items"]));
             Assert.Empty(Arr(root["contacts"]));
             Assert.Empty(Arr(root["loadout"]));
             Assert.Empty(Arr(root["parts"]));
@@ -45,6 +47,71 @@ namespace NOXMFD.Tests
             Assert.Empty(Arr(akf["all"]));
             Assert.Empty(Arr(akf["player"]));
             Assert.Equal(0.0, Obj(akf["kills"])["aircraft"]);
+        }
+
+        [Fact]
+        public void Tgp_manual_state_round_trips_as_top_level_flag()
+        {
+            var s = default(TelemetrySnapshot);
+            s.TgpActive = true;
+            s.TgpResolution = "high";
+            s.TgpQuality = "hq";
+            s.TgpManualActive = true;
+
+            var root = Root(s);
+
+            Assert.True((bool)root["tgpActive"]!);
+            Assert.Equal("high", root["tgpResolution"]);
+            Assert.Equal("hq", root["tgpQuality"]);
+            Assert.True((bool)root["tgpManual"]!);
+        }
+
+        [Fact]
+        public void Tgp_block_carries_manual_data_even_with_zero_target_count()
+        {
+            // Manual mode never has a real lock (TgpManualControl.Tick() auto-exits the instant one
+            // exists), so TgpTargetCount stays 0 the whole time it's on — the "cnt <= 0" shortcut
+            // that hides the LOCKED-target overlay must not also swallow manual-mode data.
+            var s = default(TelemetrySnapshot);
+            s.TgpTargetCount = 0;
+            s.TgpManualActive = true;
+            s.TgpManualPointTrack = true;
+            s.TgpMag = 4.5f;
+            s.TgpRangeM = 2400f;
+            s.TgpGrid = "Kf53";
+            s.TgpElevationDeg = -8f;
+            s.TgpBearingDeg = 135f;
+            s.TgpAltitudeM = 68f;
+            s.TgpRelAltitudeM = -934f;
+            s.TgpRelSpeedMps = -33f;
+            s.TgpClosureReading = "-119km/h";
+
+            var tgp = Obj(Root(s)["tgp"]);
+
+            Assert.Equal(0.0, tgp["cnt"]);
+            Assert.True((bool)tgp["manual"]!);
+            Assert.True((bool)tgp["pointTrack"]!);
+            Assert.Equal(-8.0, tgp["el"]);
+            Assert.Equal(4.5, tgp["mag"]);
+            Assert.Equal(2400.0, tgp["range"]);
+            Assert.Equal("Kf53", tgp["grid"]);
+            // Pre-formatted server-side (UnitConverter.SpeedReading) rather than a raw m/s number —
+            // closure is new to the web page, so it matches the in-cockpit overlay's units exactly
+            // instead of inheriting the page's pre-existing raw-units simplification for RNG/ALT/etc.
+            Assert.Equal("-119km/h", tgp["clo"]);
+        }
+
+        [Fact]
+        public void Tgp_block_hides_entirely_when_no_lock_and_not_manual()
+        {
+            var s = default(TelemetrySnapshot);
+            s.TgpTargetCount = 0;
+            s.TgpManualActive = false;
+
+            var tgp = Obj(Root(s)["tgp"]);
+
+            Assert.Equal(0.0, tgp["cnt"]);
+            Assert.False(tgp.ContainsKey("manual"));
         }
 
         [Fact]
@@ -177,6 +244,79 @@ namespace NOXMFD.Tests
             var rdr = Obj(Root(s)["rdr"]);
             Assert.False((bool)rdr["present"]!);
             Assert.Equal(5.0, Obj(Arr(rdr["pb"])[0])["id"]);
+        }
+
+        [Fact]
+        public void Hsd_carries_datalink_contacts_and_metric_flag()
+        {
+            var s = default(TelemetrySnapshot);
+            s.RdrMetric = true;
+            s.Hsd = new[]
+            {
+                new HsdContact { Id = 8, X = 100f, Z = -200f, Alt = 3000f, Heading = 45f, Targeted = true, Radar = true, Datalink = true, Stale = true, Name = "F-16" },
+            };
+
+            var hsd = Obj(Root(s)["hsd"]);
+            var item = Obj(Arr(hsd["items"])[0]);
+
+            Assert.True((bool)hsd["metric"]!);
+            Assert.Equal(8.0, item["id"]);
+            Assert.Equal(100.0, item["x"]);
+            Assert.Equal(-200.0, item["z"]);
+            Assert.Equal(3000.0, item["alt"]);
+            Assert.Equal(45.0, item["hdg"]);
+            Assert.Equal(1.0, item["tg"]);
+            Assert.Equal(1.0, item["rd"]);
+            Assert.Equal(1.0, item["dl"]);
+            Assert.Equal(1.0, item["st"]);
+            Assert.Equal("F-16", item["n"]);
+        }
+
+        [Fact]
+        public void MapReach_is_a_separate_block_alongside_map_and_survives_the_round_trip()
+        {
+            // Appended via plain StringBuilder.Append rather than a numbered {N} slot in
+            // AppendFrameHeader's format string (issue #65) — this is what would have caught a
+            // malformed append (bad braces/comma) producing invalid JSON or a silently wrong value.
+            var s = default(TelemetrySnapshot);
+            s.MapValid = true;
+            s.MapW = 81920f;
+            s.MapH = 81920f;
+            s.MapReachW = 160000f;
+            s.MapReachH = 160000f;
+
+            var root = Root(s);
+            var map = Obj(root["map"]);
+            var mapReach = Obj(root["mapReach"]);
+
+            Assert.True((bool)map["valid"]!);
+            Assert.Equal(81920.0, map["w"]);
+            Assert.Equal(81920.0, map["h"]);
+            Assert.Equal(160000.0, mapReach["w"]);
+            Assert.Equal(160000.0, mapReach["h"]);
+        }
+
+        [Fact]
+        public void FocusedTargetId_is_a_top_level_field_and_survives_the_round_trip()
+        {
+            // Same "plain Append, not a numbered {N} slot" shape as mapReach above (issue #62) —
+            // covers the append actually landing as valid, correctly-typed JSON.
+            var s = default(TelemetrySnapshot);
+            s.FocusedTargetId = 4242u;
+
+            var root = Root(s);
+
+            Assert.Equal(4242.0, root["focusedTargetId"]);
+        }
+
+        [Fact]
+        public void FocusedTargetId_defaults_to_zero_when_nothing_is_focused()
+        {
+            var s = default(TelemetrySnapshot);
+
+            var root = Root(s);
+
+            Assert.Equal(0.0, root["focusedTargetId"]);
         }
     }
 }

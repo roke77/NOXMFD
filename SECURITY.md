@@ -35,16 +35,24 @@ which virus-scans and manually reviews uploads.
   engine, and Master Arm on/off, combat-mode select). Each goes through the game's own APIs (the
   same calls the cockpit makes), so it behaves exactly like normal input and replicates over
   multiplayer the same way.
-- **Patches three game methods with Harmony, to enforce Master Arm and set radar/engine's spawn
-  state** — `WeaponManager.Fire` (guns/missiles/bombs) is blocked outright while Master Arm is off
+- **Patches eleven game methods with Harmony, in three groups.** Harmony is a well-established
+  patching library used across the BepInEx modding ecosystem (already a transitive dependency of
+  `BepInEx.Core` — no separate install). (1) **Master Arm + radar/engine spawn defaults** —
+  `WeaponManager.Fire` (guns/missiles/bombs) is blocked outright while Master Arm is off
   (including the stock keybind, not just this mod's own fire keys); `Aircraft.OnStartClient`/
   `OnStartServer` set the radar/engine's initial on/off state when you spawn into a new aircraft,
-  per the KEY page's on-start toggles. Harmony is a well-established patching library used across
-  the BepInEx modding ecosystem
-  (already a transitive dependency of `BepInEx.Core` — no separate install), and every patch checks
-  `GameManager.GetLocalAircraft` first, so none of them ever run against another player's or an
-  AI's aircraft. See [`HarmonyPatches.cs`](src/plugin/HarmonyPatches.cs) for the exact three.
-  Beyond these two categories, the mod only reads game state.
+  per the KEY page's on-start toggles — each of these three checks `GameManager.GetLocalAircraft`
+  first, so none of them ever run against another player's or an AI's aircraft. (2) **Kill-feed
+  weapon attribution** (four methods, feeding [AKF](man/akf.md)) — read-only: records which
+  weapon/aircraft dealt a kill so the kill feed can quote it, using data the game's own kill
+  message already carries; doesn't change any game behavior. (3) **Manual TGP camera control**
+  (four methods, `docs/tgp-manual-control.md`) — while the mod's manual targeting-pod pointing is
+  on, two patches stop the native camera from fighting the pilot's own pan/tilt/zoom input; a third
+  keeps the pilot's own COLOR/IR choice from being overwritten by the game's automatic day/night
+  switch on a real target lock; a fourth swaps the cockpit TGP screen's info panel to manual-mode
+  data instead of "NO LOCK" while manual mode is on — purely cockpit-display/local-camera behavior,
+  no network or weapon effect. See [`HarmonyPatches.cs`](src/plugin/HarmonyPatches.cs) for the
+  exact list. Beyond these three groups, the mod only reads game state.
 - **Optionally runs `netsh` once** — *only* if the LAN bind is denied, the game is running as
   Administrator, and `AutoSetupLanAccess` is left on. It adds a Windows URL reservation and an
   inbound firewall rule **for its own port only**, so a tablet can connect. It never runs
@@ -58,7 +66,7 @@ which virus-scans and manually reviews uploads.
   network syscall outside the web server is a UDP socket briefly opened toward `8.8.8.8` purely
   to ask Windows which local network interface would route outbound — **no data is ever sent**
   through it; it exists only to discover your LAN IP to show on the display. See `DetectLanIp` in
-  [`TelemetryServer.cs`](src/plugin/TelemetryServer.cs).)
+  [`TelemetryServer.cs`](src/plugin/Http/TelemetryServer.cs).)
 - **No file access beyond BepInEx.** It reads/writes only its own config file
   (`BepInEx/config/com.roque.NOXMFD.cfg`) and BepInEx's log. Captured game images are held in
   memory and served over HTTP — they are not written to disk. It reads no personal files.
@@ -80,9 +88,9 @@ What that command endpoint is able to do is entirely up to that extension's own 
 XMFD neither reviews nor limits. The security properties of your whole display depend on which
 extensions you've chosen to install, not on NO XMFD's own code alone.
 
-Both command endpoints reject non-POST requests and cap the request body at 16 KB — request
-hygiene, not a change to the trust model above; the port is still unauthenticated exactly as
-described.
+Both command endpoints reject non-POST and non-JSON requests and cap the request body at 16 KB —
+request hygiene, not a change to the trust model above; the port is still unauthenticated exactly
+as described.
 
 ## Antivirus false positives
 

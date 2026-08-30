@@ -2,9 +2,9 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>NO XMFD — RDR</title>
+<title>NO XMFD - FCR</title>
 <!--
-  Bare RDR page served at /rdr (docs/rdr-page.md). A pure reactive renderer fed by the shell over
+  Bare FCR page served at /rdr (docs/rdr-page.md). A pure reactive renderer fed by the shell over
   postMessage; single source of truth for BOTH layouts (full-screen iframe + split pane).
 
   An F-16 FCR B-scope: ownship implied at bottom-centre, bearing left-to-right, range bottom-to-top.
@@ -48,14 +48,14 @@
       <g id="rdr-pitbull"></g>
       <g id="rdr-cursor-g"></g>
 
-      <!-- Antenna-sweep caret: a small inverted-T sitting just above the frame's bottom edge (its
-           base raised clear of the 2px frame stroke, which would otherwise cover it at y=510),
+      <!-- Antenna-sweep caret: a small T sitting just above the frame's bottom edge (its
+           stem ends clear of the 2px frame stroke, which would otherwise cover it at y=510),
            drawn at centre; rdr.css's animation swings it left<->right through this drawn position
            (CSS translateX is in the SVG's own viewBox units, so ±186 reaches the frame's L/R
            insets). Shown only while the radar is actively emitting — see rdr.js render(). -->
       <g id="rdr-sweep">
-        <line x1="252" y1="504" x2="268" y2="504" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
-        <line x1="260" y1="504" x2="260" y2="494" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+        <line x1="252" y1="494" x2="268" y2="494" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+        <line x1="260" y1="494" x2="260" y2="504" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
       </g>
 
       <polygon points="260,510 246,534 260,526 274,534" fill="rgba(255,255,255,0.7)"/>
@@ -70,10 +70,12 @@
   </div>
 
   <div class="rdr-unavailable mfd-empty" id="rdr-unavailable">
-    <span class="mfd-empty-title">RDR</span>&mdash; NOT AVAILABLE &mdash;
+    <span class="mfd-empty-title">FCR</span>&mdash; NOT AVAILABLE &mdash;
   </div>
 
 <script src="/assets/services/send-command.js"></script>
+<script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
+<script src="/assets/services/remote-keybinds.js"></script>
 <script src="/assets/pages/rdr/rdr.js"></script>
 </body>
 </html>

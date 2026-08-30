@@ -297,11 +297,14 @@ html, body {
           mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
 }
 
-/* FULLSCREEN — the only thing in the strip you press; everything else in it is a readout. So it is
-   drawn as a button rather than a label: a border to say it has an edge to hit, square and
-   icon-only since there's nothing to read out. currentColor ties that border to the item's own
-   state, so it tracks the icon it rings — teal at rest, dark against the hover fill. */
-.master-strip .ms-fll {
+/* FULLSCREEN and WAKE (docs/screen-wake-lock.md) — the only things in the strip you press;
+   everything else in it is a readout. So both are drawn as the same button box: a border to say
+   it has an edge to hit, square and icon-only since there's nothing to read out. currentColor
+   ties that border to the item's own state, so it tracks the icon it rings — teal at rest, dark
+   against the hover fill. .nav-item.on already gives this shell's buttons the amber engaged
+   treatment WAKE needs, so neither button needs a rule of its own beyond this shared box. */
+.master-strip .ms-fll,
+.master-strip .ms-wake {
   border: 1px solid currentColor;
   border-radius: 3px;
   width: 34px;
@@ -311,15 +314,32 @@ html, body {
   align-items: center;
   justify-content: center;
 }
-/* The bezel's own fullscreen glyph (mfd.css .ic-fullscreen) — same mask, so both shells show the
-   identical icon. currentColor lets it recolour with the button, same as the flag icons above. */
-.ms-fll-icon {
+/* The bezel's own fullscreen/wake glyphs (mfd.css .ic-fullscreen/.ic-wake) — same masks, so both
+   shells show identical icons. currentColor lets each recolour with its button, same as the flag
+   icons above. */
+.ms-fll-icon,
+.ms-wake-icon {
   display: inline-block;
   width: 16px;
   height: 16px;
   background-color: currentColor;
+}
+.ms-fll-icon {
   -webkit-mask: var(--icon-fullscreen) center/contain no-repeat;
           mask: var(--icon-fullscreen) center/contain no-repeat;
+}
+.ms-wake-icon {
+  -webkit-mask: var(--icon-wake) center/contain no-repeat;
+          mask: var(--icon-wake) center/contain no-repeat;
+}
+/* WAKE LOCK FAILED — plain alert text, not a boxed chip like the buttons beside it, since it's a
+   transient message rather than a persistent control. --no-red matches the bezel shell's own
+   failure chip (mfd.css .mfd-indicator.error). */
+.ms-wake-error {
+  color: var(--no-red);
+  font-size: 11px;
+  letter-spacing: 1px;
+  white-space: nowrap;
 }
 
 /* The telemetry tap. Never seen: the MAP page owns the only EventSource('/stream') and posts the

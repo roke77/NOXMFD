@@ -24,12 +24,16 @@ var capturing = null;    // plugin-side joy/axis capture: bind id or null (serve
 var capturingKind = null; // 'joy' | 'axis' | null — which capture `capturing` refers to
 var kbCapture = null;    // browser-side keyboard capture: bind id or null (local state)
 var bgInput   = false;   // InputWhenGameUnfocused — a plain setting, not a bind (server state)
-// Immersion start-state settings (docs/radar-master-arms.md) — same shape as bgInput above: plain
-// settings, not binds, default true (today's behaviour) until the first /keybinds-config poll.
+var remoteKeybinds = false;  // per-browser remote-listening toggle (localStorage, not server state)
+var remoteKeybindsSamePc = false;
+// Immersion start-state settings (docs/radar-master-arms.md, docs/power-toggle.md) — same shape
+// as bgInput above: plain settings, not binds, default true (today's behaviour) until the first
+// /keybinds-config poll.
 var radarOnOnStart      = true;
 var engineOnOnStart     = true;
 var masterArmsOnOnStart = true;
-// HudCombatModeFilters' own on/off switch — default OFF, unlike the three above, so it starts
+var powerOnOnStart      = true;
+// HudCombatModeFilters' own on/off switch — default OFF, unlike the four above, so it starts
 // false rather than true until the first /keybinds-config poll.
 var hudFiltersOnCombatMode = false;
 var lastJson  = '';      // skip re-render when nothing changed
@@ -47,8 +51,37 @@ bgInputBtn.onclick = function () {
   renderBgToggle();
 };
 
-// ── Immersion start-state toggles (docs/radar-master-arms.md) ───────────────────────────────
-// Three settings, identical shape to the one above — a tiny factory instead of repeating it 3x.
+// ── Remote keybind listener toggle (docs/remote-keybinds.md) ────────────────────────────────
+var REMOTE_KEYBINDS_STORAGE = 'noxmfd.remoteKeybinds.enabled';
+var remoteKeybindsBtn = document.getElementById('kb-remote-keybinds-btn');
+var remoteWarning = document.getElementById('kb-remote-same-pc-warning');
+
+function readRemoteKeybinds() {
+  try { return localStorage.getItem(REMOTE_KEYBINDS_STORAGE) === '1'; }
+  catch (e) { return false; }
+}
+
+function writeRemoteKeybinds(on) {
+  try { localStorage.setItem(REMOTE_KEYBINDS_STORAGE, on ? '1' : '0'); } catch (e) {}
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'remote-keybinds-enabled', enabled: !!on }, '*');
+  }
+}
+
+function renderRemoteKeybindsToggle() {
+  remoteKeybindsBtn.textContent = remoteKeybinds ? 'ON' : 'OFF';
+  remoteKeybindsBtn.classList.toggle('on', remoteKeybinds);
+  remoteWarning.classList.toggle('shown', remoteKeybindsSamePc);
+}
+
+remoteKeybindsBtn.onclick = function () {
+  remoteKeybinds = !remoteKeybinds;
+  writeRemoteKeybinds(remoteKeybinds);
+  renderRemoteKeybindsToggle();
+};
+
+// ── Immersion start-state toggles (docs/radar-master-arms.md, docs/power-toggle.md) ─────────
+// Four settings, identical shape to the one above — a tiny factory instead of repeating it 4x.
 function makeSettingToggle(btnId, cmd, get, set) {
   var btn = document.getElementById(btnId);
   function render() {
@@ -69,6 +102,8 @@ var renderEngineOnStart = makeSettingToggle('kb-engine-on-start-btn', 'keybind.s
   function () { return engineOnOnStart; }, function (v) { engineOnOnStart = v; });
 var renderMasterArmsOnStart = makeSettingToggle('kb-master-arms-on-start-btn', 'keybind.set-master-arms-on-start',
   function () { return masterArmsOnOnStart; }, function (v) { masterArmsOnOnStart = v; });
+var renderPowerOnStart = makeSettingToggle('kb-power-on-start-btn', 'keybind.set-power-on-start',
+  function () { return powerOnOnStart; }, function (v) { powerOnOnStart = v; });
 var renderHudFiltersOnCombatMode = makeSettingToggle('kb-hud-filters-on-combat-mode-btn', 'keybind.set-hud-filters-on-combat-mode',
   function () { return hudFiltersOnCombatMode; }, function (v) { hudFiltersOnCombatMode = v; });
 
@@ -297,19 +332,26 @@ function refresh() {
     capturingKind = cfg.capturingKind || null;
     bgInput = !!cfg.bgInput;
     renderBgToggle();
+    remoteKeybinds = readRemoteKeybinds();
+    remoteKeybindsSamePc = !!cfg.remoteKeybindsSamePc;
+    renderRemoteKeybindsToggle();
     radarOnOnStart      = cfg.radarOnOnStart      !== false;
     engineOnOnStart     = cfg.engineOnOnStart     !== false;
     masterArmsOnOnStart = cfg.masterArmsOnOnStart !== false;
-    hudFiltersOnCombatMode = !!cfg.hudFiltersOnCombatMode;   // defaults OFF, not ON like the three above
+    powerOnOnStart      = cfg.powerOnOnStart      !== false;
+    hudFiltersOnCombatMode = !!cfg.hudFiltersOnCombatMode;   // defaults OFF, not ON like the four above
     renderRadarOnStart();
     renderEngineOnStart();
     renderMasterArmsOnStart();
+    renderPowerOnStart();
     renderHudFiltersOnCombatMode();
     render();
   }).catch(function () { panelEl.classList.add('unavailable'); });
 }
 
 renderBgToggle();   // OFF until the first fetch resolves, rather than a blank button
+remoteKeybinds = readRemoteKeybinds();
+renderRemoteKeybindsToggle();
 renderRadarOnStart();          // ON until the first fetch resolves — true is the actual default
 renderEngineOnStart();
 renderMasterArmsOnStart();

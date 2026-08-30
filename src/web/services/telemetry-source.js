@@ -1,6 +1,6 @@
 // TelemetrySource owns the ONE EventSource('/stream') connection, parses each frame, and is the
 // source of truth for telemetry in the whole MFD:
-//   • derives the slices (status/loadout/cm/tgp/targets/rwr/mw/avn/follow, and mapinfo) and posts
+//   • derives the slices (status/loadout/cm/tgp/targets/rwr/mw/rdr/hsd/avn/follow, and mapinfo) and posts
 //     them UP to the shell, which re-forwards them to the other pages. All but the last are
 //     per-page; mapinfo is for shell chrome that shows no map — see _emit; and
 //   • hands the raw parsed frame to the local map view via callbacks so it can render.
@@ -180,7 +180,7 @@ export class TelemetrySource {
   _onMessage(e) {
     this._lastMsgAt = performance.now();
     // Drop a malformed frame instead of dying on it. The server hand-rolls its JSON
-    // (TelemetryServer.cs), so a serializer bug lands here as a parse throw — an uncaught one
+    // (TelemetryJson.cs), so a serializer bug lands here as a parse throw — an uncaught one
     // would take down the whole tick's fan-out, freezing every page while the SSE connection stays
     // open and the watchdog below stays quiet. Skipping costs one frame; the next good one
     // (~100 ms) repaints everything. Logged rather than swallowed, since the console error is what
@@ -263,8 +263,11 @@ export class TelemetrySource {
       cmCat:     d.cmCat || 0,
     });
 
-    // TGP feed state (so the MFD's TGP page can swap to NO TARGET when the feed stops).
-    this._postUp({ type: 'tgp', active: !!d.tgpActive });
+    // Prefer the current resolution field and retain quality for older embedded pages.
+    const tgpResolution = d.tgpResolution || (d.tgpQuality === 'hq' ? 'mid' : 'native');
+    this._postUp({ type: 'tgp', active: !!d.tgpActive, resolution: tgpResolution,
+      quality: d.tgpQuality || (tgpResolution === 'native' ? 'native' : 'hq'),
+      data: d.tgp || null, manual: !!d.tgpManual });
 
     // The mission name, the ownship's grid, and the raw position/heading/map-meta a non-map page
     // needs to compute distance/bearing to a waypoint and its own grid labels — for chrome that
@@ -294,10 +297,27 @@ export class TelemetrySource {
         const dz = u.z - d.world.z;
         targets.push({ id: u.id, n: u.t, g: gridLabel(u.x, u.z, this._meta), r: Math.hypot(dx, dz) / 1000, f: u.f, dl: !!u.dl, st: !!u.st });
       }
+      // Sort to match weaponManager.GetTargetList()'s own order (TargetFocus.cs, lockedTargetIds) —
+      // the contact scan above walks an unrelated order, so without this TGT's Next/Previous would
+      // step focus in one order while the table displayed the locks in a different one.
+      if (Array.isArray(d.lockedTargetIds) && d.lockedTargetIds.length > 1) {
+        const orderById = new Map(d.lockedTargetIds.map((id, i) => [id, i]));
+        targets.sort((a, b) => orderById.get(a.id) - orderById.get(b.id));
+      }
     } else {
       targets = [];
     }
-    this._postUp({ type: 'targets', items: targets });
+    // Attach each row's own TTI. The parallel arrays use -1 for "nothing of the player's is
+    // tracking this lock," and preview mocks can opt in by supplying the same fields.
+    if (Array.isArray(d.lockedTargetIds) && Array.isArray(d.lockedTargetTti)) {
+      const ttiById = new Map();
+      for (let i = 0; i < d.lockedTargetIds.length; i++) ttiById.set(d.lockedTargetIds[i], d.lockedTargetTti[i]);
+      for (const t of targets) {
+        const v = ttiById.get(t.id);
+        if (typeof v === 'number' && v >= 0) t.tti = v;
+      }
+    }
+    this._postUp({ type: 'targets', items: targets, focusedTargetId: d.focusedTargetId || 0 });
 
     // Radar-warning emitters → nose-up plot (az = bearing relative to heading, dist = 1 - power).
     let rwr = [];
@@ -380,7 +400,17 @@ export class TelemetrySource {
       levelTime: rb ? (rb.lvlt || 0) : 0,
       hdg: d.hdg || 0,
       items: rdrItems,
-      pb: pbItems
+      pb: pbItems,
+      // The single locked target Next/Previous currently focuses (issue #62) — one id shared by
+      // TGT/FCR/HSD, not scoped into any one page's own block; 0 = none.
+      focusedTargetId: d.focusedTargetId || 0
+    });
+
+    this._postUp({
+      type: 'hsd',
+      metric: !!(d.hsd && d.hsd.metric),
+      items: d.hsd && Array.isArray(d.hsd.items) ? d.hsd.items : [],
+      focusedTargetId: d.focusedTargetId || 0
     });
 
     // Aircraft name + per-part HP (the AVN damage silhouette; assets fetched on demand by the page).
@@ -475,11 +505,12 @@ export class TelemetrySource {
   _emitEmpties() {
     this._postUp({ type: 'loadout', items: [], selWeapon: null, softGun: null, softRel: null, masterArmsOn: true, combatMode: 'all' });
     this._postUp({ type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 });
-    this._postUp({ type: 'tgp', active: false });
+    this._postUp({ type: 'tgp', active: false, resolution: 'native', quality: 'native', data: null, manual: false });
     this._postUp({ type: 'mapinfo', mission: null, grid: null, x: null, z: null, hdg: null, ox: null, oy: null });
     this._postUp({ type: 'targets', items: [] });
     this._postUp({ type: 'rwr', items: [] });
     this._postUp({ type: 'mw', items: [] });
+    this._postUp({ type: 'hsd', metric: false, items: [] });
     this._postUp({ type: 'avn', name: null, parts: null, failures: null, pylons: null, fuel: -1, throttle: -1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false });
     this._postUp({ type: 'tgt', present: false });
     this._postUp({ type: 'bdf', present: false });

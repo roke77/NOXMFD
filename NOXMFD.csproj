@@ -27,7 +27,7 @@
     <AssemblyName>NOXMFD</AssemblyName>
     <Product>NOXMFD</Product>
     <Description>NO XMFD: live Nuclear Option telemetry (HUD + MFD)</Description>
-    <Version>0.26.0-squadrons</Version>
+    <Version>0.35.2-squadrons</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>NOXMFD</RootNamespace>
@@ -55,7 +55,7 @@
 
   <ItemGroup>
     <!-- Embedded web frontend: real .html/.css/.js files under src/web/
-         baked into the DLL and served by TelemetryServer.ServeAsset under /assets/.
+         baked into the DLL and served by TelemetryAssets under /assets/.
          Resource names include ".src.web.<dotted path>", matched by ".web.<dotted path>"
          suffix so the public /assets/ paths stay unchanged.
          Excluded, because the glob would otherwise ship them to every user: *.test.js (Node
@@ -107,6 +107,18 @@
          reading their .text now needs this reference. -->
     <Reference Include="Unity.TextMeshPro">
       <HintPath>$(GameDir)\NuclearOption_Data\Managed\Unity.TextMeshPro.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- The game runs URP. TgpMirrorCam.cs needs UniversalAdditionalCameraData to configure the HQ
+         mirror camera (render type, post-processing) — docs/tgp-high-quality-mode.md. -->
+    <Reference Include="Unity.RenderPipelines.Universal.Runtime">
+      <HintPath>$(GameDir)\NuclearOption_Data\Managed\Unity.RenderPipelines.Universal.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- UnityEngine.Rendering.Volume/VolumeProfile — the base SRP Volume system TgpMirrorCam's own
+         opt-in IR desaturation (docs/tgp-full-screen.md) attaches to its mirror camera. -->
+    <Reference Include="Unity.RenderPipelines.Core.Runtime">
+      <HintPath>$(GameDir)\NuclearOption_Data\Managed\Unity.RenderPipelines.Core.Runtime.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

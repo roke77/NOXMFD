@@ -1,7 +1,9 @@
 using System;
 using System.Reflection;
 using HarmonyLib;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace NOXMFD
 {
@@ -62,9 +64,8 @@ namespace NOXMFD
         // OnStartServer only executes on the network SERVER. In single-player or a player-hosted
         // lobby the host process is both client and server, so this works correctly. Connecting as a
         // plain client to someone else's dedicated NuclearOptionServer.exe means this patch never
-        // fires for your own aircraft — that method runs on their machine, not yours, and a mod
-        // normally isn't installed server-side — so the setting silently has no effect in that
-        // topology.
+        // fires for your own aircraft: that method runs on the server, where NOXMFD is normally not
+        // installed, so the setting silently has no effect in that topology.
         [HarmonyPatch(typeof(Aircraft), "OnStartServer")]
         private static class Aircraft_OnStartServer_Patch
         {
@@ -161,6 +162,90 @@ namespace NOXMFD
             private static void Prefix(Missile __instance)
             {
                 AkfTracker.Active?.RecordWeaponHit(__instance.ownerID, __instance.persistentID);
+            }
+        }
+
+        // TGP manual camera control (docs/tgp-manual-control.md). While TgpManualControl.ManualMode
+        // is on, these two prefixes skip TargetCam's own auto-pointing so a pilot's pan/tilt/zoom
+        // input (applied directly by TgpManualControl.Tick, every frame) isn't fought: Update()
+        // would otherwise keep lerping fieldOfView toward its own targetFOV, switching currentMount
+        // between forward/rear based on angle-to-target (unstable with no real target locked), and
+        // counting camTimeout down toward auto-disable; AimCamera() would keep slerping the mount
+        // toward a stale/empty targetPosition. SwitchIRState is not patched; manual IR toggling
+        // calls that private method directly when requested.
+        [HarmonyPatch(typeof(TargetCam), "Update")]
+        private static class TargetCam_Update_ManualGate
+        {
+            // TgpManualControl.Tick() calls UpdateExposure directly while this skips the rest of
+            // Update()'s mount-switch/FOV-lerp/camTimeout behavior.
+            private static bool Prefix() => !TgpManualControl.ManualMode;
+        }
+
+        [HarmonyPatch(typeof(TargetCam), "AimCamera")]
+        private static class TargetCam_AimCamera_ManualGate
+        {
+            private static bool Prefix() => !TgpManualControl.ManualMode;
+        }
+
+        // Real (native) unit lock's own CLR/IR override (docs/tgp-manual-control.md's NAV
+        // additions). SetTargetCam's own auto color/IR switch (time-of-day, target distance, or the
+        // "always IR" PlayerSettings.tacScreenIR setting) runs unconditionally every frame a real
+        // target is locked — unlike ManualMode, nothing skips it. Re-assert the player's own CLR/IR
+        // choice right after, so this mod's control has the last word instead of getting overwritten
+        // next frame. No-ops until the player has used CLR/IR outside manual mode at least once
+        // (TgpManualControl.NativeIrOverride is what that sets), or while ManualMode owns IR
+        // directly (SetIR/ToggleIR flip it immediately there instead — this native lock is never
+        // the thing rendering during manual mode anyway).
+        [HarmonyPatch(typeof(TargetCam), "SetTargetCam")]
+        private static class TargetCam_SetTargetCam_IrOverride
+        {
+            private static void Postfix(TargetCam __instance)
+            {
+                if (TgpManualControl.ManualMode) return;
+                bool? ir = TgpManualControl.NativeIrOverride;
+                if (ir == null || __instance.UsingIR() == ir.Value || !TgpManualTargetCamAccess.Ensure()) return;
+                TgpManualTargetCamAccess.SwitchIR(__instance, ir.Value);
+            }
+        }
+
+        // In-cockpit TGP overlay for manual control (docs/tgp-manual-control.md's "In-cockpit
+        // overlay"). TargetScreenUI.UpdateTargetInfo already runs on its own 0.1s StartSlowUpdate
+        // timer regardless of manual mode, but early-returns to "NO LOCK" the instant
+        // targetList.Count == 0 — always true while ManualMode is on, since Tick() auto-exits the
+        // instant a real lock exists (no "which one wins" race with real lock data). Prefix skips
+        // the original entirely and drives the same Text/Image elements from TgpManualControl's own
+        // state instead, via Harmony's ___field injection — reaches TargetScreenUI's private
+        // serialized fields directly, no separate reflection cache needed.
+        [HarmonyPatch(typeof(TargetScreenUI), "UpdateTargetInfo")]
+        private static class TargetScreenUI_UpdateTargetInfo_ManualOverlay
+        {
+            // TextMeshProUGUI, not UnityEngine.UI.Text — see TgpNativeOverlay.Populate's
+            // own comment. Harmony may not fail loudly if a private UI field type is stale.
+            private static bool Prefix(TargetCam ___targetCam, Canvas ___displayCanvas,
+                TextMeshProUGUI ___typeText, TextMeshProUGUI ___pilotText, TextMeshProUGUI ___noLock,
+                TextMeshProUGUI ___distance, TextMeshProUGUI ___heading, TextMeshProUGUI ___altitude,
+                TextMeshProUGUI ___rel_altitude, TextMeshProUGUI ___speed, TextMeshProUGUI ___rel_speed,
+                TextMeshProUGUI ___magText, TextMeshProUGUI ___modeText, TextMeshProUGUI ___bearingText,
+                TextMeshProUGUI ___gridText, Image ___bearingImg)
+            {
+                // Always synced, regardless of ManualMode, so the crosshair is hidden the instant
+                // manual mode ends (the very next native-path tick) instead of staying stuck on.
+                // IsNativeTgpSoi, not the broader IsTgpSoi: the in-cockpit tag should only light up
+                // when the camera's own ring entry is literally focused, not whenever a real TGP pane
+                // is SOI — those are two independent ring members, and the web ring already shows the
+                // pane's own focus, so lighting up both at once would read as "wait, which one is
+                // actually SOI?" (docs/tgp-manual-control.md's PAD Cursor consolidation plan).
+                // Keybinds.cs's PAD Cursor input routing still uses IsTgpSoi (functional, not visual)
+                // so pointing control keeps working through either route.
+                TgpNativeOverlay.SyncCrosshair(___displayCanvas, TgpManualControl.ManualMode, TgpManualControl.PointTrackActive, TelemetryServer.IsNativeTgpSoi);
+
+                if (!TgpManualControl.ManualMode || ___targetCam == null) return true;
+                Transform mount = ___targetCam.GetCamMount();
+                if (mount == null) return true;
+                TgpNativeOverlay.Populate(___targetCam, mount, ___typeText, ___pilotText,
+                    ___noLock, ___distance, ___heading, ___altitude, ___rel_altitude, ___speed,
+                    ___rel_speed, ___magText, ___modeText, ___bearingText, ___gridText, ___bearingImg);
+                return false;
             }
         }
     }

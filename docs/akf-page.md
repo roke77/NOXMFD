@@ -2,7 +2,7 @@
 
 ## Status
 
-**Implemented and in-game verified** (branch `advanced-kill-feed`, ticket
+**Implemented on `main` and in-game verified** (original branch `advanced-kill-feed`, ticket
 [#34](https://github.com/roke77/NOXMFD/issues/34)). Confirmed across several
 live sessions: the kill-message and weapon-attribution Harmony patches fire
 correctly on real kills (including the AGM-48 salvo/gun-kill investigation
@@ -95,9 +95,9 @@ is gone by the time a kill fires.
 `DamageEffects.BlastFrag(blastYield, blastPosition, dealerID, missileID)`
 receives both IDs as parameters; `missileID` is accepted but unused in the
 method body. A Harmony prefix on `BlastFrag` resolves `missileID`'s
-`PersistentUnit.definition.unitName` and records it against `dealerID` in a
-short-TTL map on `AkfTracker`. The kill-event postfix looks this up by
-`killerID` to attach a weapon name to PLAYER-feed lines.
+`PersistentUnit.definition.unitName`; `AkfTracker` records it against
+`dealerID` in `AkfTrackerLogic`'s short-TTL map. The kill-event postfix looks
+this up by `killerID` to attach a weapon name to PLAYER-feed lines.
 
 **A `BlastFrag`-only hook isn't early enough.** In-game testing found the
 first kill of an AGM-48 salvo consistently missing its weapon name while
@@ -153,8 +153,8 @@ Polled, no Harmony: `TelemetryReader.ScanWorld` (1 Hz, the same cadence as
 `BuildBdf`/`BuildMis`) reads `FactionHQ.factionFunds` (`GameManager.
 GetLocalHQ`, so it follows the player's own faction rather than a fixed
 BOSCALI/PRIMEVA identity like BDF/PAL) each tick, diffs it against the
-previous tick, and accumulates the positive delta into GAINED and the
-negative delta into SPENT on `AkfTracker`.
+previous tick, and `AkfTrackerLogic` accumulates the positive delta into
+GAINED and the negative delta into SPENT.
 
 `ponytail:` `factionFunds` is the **whole faction's** balance, not a
 per-player figure — Nuclear Option has no such thing to read instead. In

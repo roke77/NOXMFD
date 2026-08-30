@@ -9,6 +9,7 @@
      height in split mode, and clamps scale with the iframe's own vh so the card
      shrinks along with the pane. */
   .info-box {
+    position: relative;
     min-width: 200px;
     padding: clamp(14px, 2vh, 26px) clamp(22px, 3vh, 44px);
     border: 1px solid var(--no-green);
@@ -19,3 +20,13 @@
   .ib-title  { font-size: clamp(20px, 2.6vh, 32px); font-weight: 900; margin-bottom: clamp(8px, 1.2vh, 14px); }
   .ib-url    { font-size: clamp(11px, 1.4vh, 18px); color: var(--no-green-dim); margin-bottom: clamp(8px, 1.2vh, 14px); }
   .ib-status { font-size: clamp(11px, 1.4vh, 18px); font-weight: bold; }
+  /* Mod version, tucked in the card's own bottom-right corner — quiet gray, empty until /config
+     answers. */
+  .ib-version {
+    position: absolute;
+    bottom: clamp(4px, 0.6vh, 8px);
+    right: clamp(6px, 1vh, 10px);
+    font-size: clamp(7px, 1vh, 10px);
+    color: var(--no-gray);
+    letter-spacing: 1px;
+  }

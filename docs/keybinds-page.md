@@ -108,11 +108,30 @@ Capture is split by source, because each side can only see its own input:
   off and on again while armed to bind it deliberately. Each bind pins its own joystick
   number (`0` = any), so a multi-device HOTAS can spread binds across sticks.
 
+## Remote keybind listener
+
+The page also owns the opt-in **LISTEN FOR KEYBINDS (REMOTE)** setting. Unlike the bind registry
+and immersion toggles, this is deliberately per browser: `keybinds.js` stores it in
+`localStorage` under `noxmfd.remoteKeybinds.enabled` and notifies the parent shell with
+`postMessage`, so only that browser begins listening.
+
+When enabled, `src/web/services/remote-keybinds.js` fetches `/keybinds-config`, builds keyboard
+maps from the same configured bind ids, and translates keydown/keyup into `/command` posts.
+Ordinary edge actions use fixed id -> command mappings. Cursor and fire actions use explicit
+held-state commands instead: `cursor.set` / `cursor.select` and `fire.set`, with short server-side
+expiry so a closed tab or lost keyup cannot leave an input stuck on.
+
+`/keybinds-config` also reports `remoteKeybindsSamePc`, computed from the request's remote address
+against loopback and local interface addresses. The KEY page shows a warning when true because the
+game PC already polls the physical keyboard/HOTAS locally; enabling the browser listener on that
+same machine can send the same keypress twice.
+
 ## Plumbing
 
 - `GET /keybinds-config` — the bind registry (id, section title, label, description,
-  current key + joy button/stick), the per-section `notes`, and which bind is armed for
-  capture. The page polls it at 600 ms; the poll is also how a capture result arrives.
+  current key + joy button/stick), the per-section `notes`, which bind is armed for capture, and
+  `remoteKeybindsSamePc` for the remote-listener warning. The page polls it at 600 ms; the poll is
+  also how a capture result arrives.
   Section display titles and notes come from `Keybinds.SectionTitle`/`SectionNote` — the
   `.cfg` section names underneath are persistence identity and never change.
 - `POST /command`: `keybind.set-key { bind, key }` (`""`/`"None"` clears),
@@ -129,9 +148,9 @@ Capture is split by source, because each side can only see its own input:
 
 # SOI (sensor of interest)
 
-**Status: working on the `soi` branch, classic layout.** All five binds, the focus ring and the
-cursor are in. Not done: focus is per display rather than per pane, pages whose controls live
-inside their iframe can be reached but not operated, and the F-35 has no cursor of its own.
+**Initial stage (historical): implemented on the classic layout.** All five binds, the focus ring,
+and the cursor landed here. The per-display limitations described in this section are resolved by
+the surface-level implementation below.
 
 Borrowed from DCS: one display at a time is the *sensor of interest*, and a fixed set of
 HOTAS keys drives whichever display that is. Here a "display" is one MFD instance — a
@@ -155,8 +174,8 @@ when `GetLocalAircraft` comes back empty, and these have to work at the main men
 
 Each frontend document opens exactly one `EventSource('/stream')` (`telemetry-source.js` owns
 the only one; the shell and every page read it second-hand), and each of those lands in its
-own `HandleSseAsync` task that lives as long as the browser stays on the page. One live task
-= one instance, so the server registers on entry and drops the entry in that method's existing
+own `SseHub.HandleAsync` task that lives as long as the browser stays on the page. One live task
+= one instance, so `SseHub` registers on entry and drops the entry in that method's existing
 `finally`. `GET /soi-instances` lists them (`conn`, `cid`, `remote`, `upSec`) — a diagnostic,
 and the way the registry was proven before anything was wired to it.
 
@@ -319,10 +338,10 @@ layout-agnostic and carries over unchanged.
   from the one it just left. A brief marker on every display when the target changes is cheap, if
   it turns out to be missed.
 
-## Planned: surface-level focus (Option B) — the F-35, and the split done right
+## Surface-level focus (Option B) — the F-35, and the split done right
 
-**Status: on the `soi-surfaces` branch — all three steps built.** Server, classic per-pane client,
-and F-35 portal client are done; SOI now works in both layouts, per surface.
+**Status: implemented and merged to `main`.** Server, classic per-pane client, and F-35 portal
+client are done; SOI works in both layouts, per surface.
 
 Today the unit of SOI focus is an *instance* (a `cid` = one document). That already strains the
 classic split — the whole screen rings and the cursor walks *both* panes as one flat list — and it
@@ -337,9 +356,9 @@ the cursor is scoped to that surface's nav.
 The server change is **backward-compatible**: a client that never reports its surface count stays
 at `PaneCount = 1` and behaves exactly as today (whole-instance focus). So it lands in three stages.
 
-### Step 1 — server (`TelemetryServer.cs`, `CommandDispatcher.cs`) — **built**
+### Step 1 — server (`SseHub.cs`, `TelemetryServer.cs`, `CommandDispatcher.cs`) — **built**
 
-- `MfdInstance` gains `int PaneCount = 1`.
+- `SseHub.MfdInstance` gains `int PaneCount = 1`.
 - Focus state gains `_soiTargetPane` (int, `-1` = none) beside `_soiTargetCid`, under the same
   `_soiLock` / `_soiVersion`. `SetSoiTarget(cid, pane)` replaces the string-only setter.
 - `SoiCycle(dir)` walks the flat ring built from `Instances()` × `0..PaneCount-1` (deduped by cid so

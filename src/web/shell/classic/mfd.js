@@ -1,4 +1,4 @@
-const COUNTS = { 'keys-left': 6, 'keys-right': 6, 'keys-top': 4, 'keys-bottom': 4 };
+const COUNTS = { 'keys-left': 6, 'keys-right': 6, 'keys-top': 5, 'keys-bottom': 5 };
 function addSep(c) { const s = document.createElement('div'); s.className = 'sep'; c.appendChild(s); }
 function addKey(c) { const b = document.createElement('button'); b.className = 'key'; b.type = 'button'; c.appendChild(b); }
 
@@ -27,16 +27,18 @@ const rightKeys = keyBanks.right;
 });
 // Both banks are wired once at startup and excluded from clearKeyActions, so they survive page switches.
 const layoutIcons = [
-  { cls: 'ic-square', title: 'Full view',            action: 'unsplit' },
-  { cls: 'ic-2x1',    title: 'Split top/bottom',     action: 'split'   },   // H_SPLIT
-  { cls: 'ic-1x2',    title: 'Split left/right',     action: 'vsplit'  },   // V_SPLIT (50/50)
-  { cls: 'ic-lr23',   title: 'Split left/right 2:1', action: 'vwsplit' },   // V_WIDE_SPLIT (2:1)
+  { cls: 'ic-square', title: 'Full view',                        action: 'unsplit'   },
+  { cls: 'ic-2x1',    title: 'Split top/bottom',                 action: 'split'     },   // H_SPLIT
+  { cls: 'ic-1x2',    title: 'Split left/right',                 action: 'vsplit'    },   // V_SPLIT (50/50)
+  { cls: 'ic-lr23',   title: 'Split left/right 2:1, wide left',  action: 'vwsplit'   },   // V_WIDE_SPLIT_L (2:1)
+  { cls: 'ic-rl23',   title: 'Split left/right 2:1, wide right', action: 'vwsplit-r' },   // V_WIDE_SPLIT_R (2:1)
 ];
 const functionIcons = [
-  { cls: 'ic-hide-shell', title: 'Hide shell', action: 'hide-shell' },
-  { cls: 'ic-fullscreen', title: 'Fullscreen', action: 'fll' },
-  { cls: 'ic-pin',        title: 'Pin',        action: 'pin' },
-  { cls: 'ic-swap',       title: 'Swap',       action: 'swap' },
+  { cls: 'ic-hide-shell', title: 'Hide shell',         action: 'hide-shell' },
+  { cls: 'ic-fullscreen', title: 'Fullscreen',         action: 'fll' },
+  { cls: 'ic-wake',       title: 'Keep screen awake',  action: 'wake' },
+  { cls: 'ic-pin',        title: 'Pin',                action: 'pin' },
+  { cls: 'ic-swap',       title: 'Swap',               action: 'swap' },
 ];
 function applyIconBank(bankName, icons) {
   icons.forEach(function(icon, i) {
@@ -205,8 +207,11 @@ let currentPage = 'map';
 // See docs/mfd-split-screen.md — Strategy A, implementation sequence steps 1-4.
 let splitMode = false;
 // Split orientation: 'h' = top/bottom (H_SPLIT), 'v' = left/right 50/50 (V_SPLIT),
-// 'vw' = left/right 2:1 (V_WIDE_SPLIT). Drives the .split-<variant> CSS class and the
-// bezel key mapping (SplitKeymap.paneKey). Meaningful only while splitMode is on.
+// 'vw' = left/right 2:1, wide left (V_WIDE_SPLIT_L), 'vwr' = left/right 2:1, wide right
+// (V_WIDE_SPLIT_R) — pane 0 (pane-top) is always the left pane; only its share of the width
+// flips between 'vw' and 'vwr' (mfd.css). Drives the .split-<variant> CSS class and the bezel
+// key mapping (SplitKeymap.paneKey), which treats every non-'h' variant identically — column
+// ownership doesn't depend on which side is wider. Meaningful only while splitMode is on.
 let splitVariant = 'h';
 // [topPage, botPage], seeded with MAIN on entry; per-pane navigation updates this from MAIN's
 // L0..L2 / R0..R2 keys.
@@ -272,8 +277,8 @@ let lastStatusText = '● DISCONNECTED';
 const SPLIT_SLOTS = SplitSlots.SPLIT_SLOTS;
 
 // URL for each iframe-served page — this layout's half of layout-pages.js, which keeps it beside
-// the F-35's table so the two can't quietly diverge. Pages without an entry render 'about:blank'
-// on navigation (paneUrl), a no-op signal rather than a crash.
+// the F-35's table so the two can't quietly diverge. paneNavigate rejects pages that resolve to
+// 'about:blank', preserving the pane when a control or saved layout carries an unknown page id.
 const PAGE_URL = LayoutPages.CLASSIC_SPLIT;
 function paneUrl(page) { return PAGE_URL[page] || (ExtNav.isExtensionPage(page) ? '/ext/' + page + '?bare' : 'about:blank'); }
 
@@ -285,7 +290,7 @@ function paneKey(paneIdx, side, slot) { return SplitKeymap.paneKey(splitVariant,
 // the orientation (h = top/bottom, v = left/right 50/50, vw = left/right 2:1).
 function applySplitClasses() {
   screenEl.classList.toggle('split', splitMode);
-  screenEl.classList.remove('split-h', 'split-v', 'split-vw');
+  screenEl.classList.remove('split-h', 'split-v', 'split-vw', 'split-vwr');
   if (splitMode) screenEl.classList.add('split-' + splitVariant);
 }
 
@@ -384,11 +389,12 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // (renderSplitLabels). TGT's RESET FILTER and BDF/PAL/MIS/OBJ's WARHEADS readout are that content —
 // on a narrow display the panel widens to the edge and a horizontal MAIN would sit over that
 // header. All are split-capable.
-// RDR is not in this list: it carries MAIN + R+ + R- and reads fine horizontal, not cramped enough
-// to need the narrow vertical treatment. KEY is not in this list either: the CFG group's nav labels
-// read fine horizontal — its table header sits far enough from the bezel edge. HUD is not in this
-// list either: hud.css instead reserves left/right padding sized to a horizontal label's own width,
-// so the panel clears it without needing the narrow vertical treatment.
+// RDR/HSD are not in this list: their MAIN + FCR/HSD + R+ + R- row reads fine horizontal, not
+// cramped enough to need the narrow vertical treatment. KEY is not in this list either: the CFG
+// group's nav labels read fine horizontal — its table header sits far enough from the bezel edge.
+// HUD is not in this list either: hud.css instead reserves left/right padding sized to a
+// horizontal label's own width, so the panel clears it without needing the narrow vertical
+// treatment.
 function isVmainPage(p) { return p === 'tgt' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
@@ -476,6 +482,28 @@ function renderSplitLabels() {
       continue;
     }
 
+    if (page === 'tgp') {
+      // TGP's split-pane twin of placeTgpNavLabels (full view) — TGT/MAN/CLR/IR are dynamic
+      // (tgpMarks()), so like full view they're hand-placed rather than read off NAV.tgp/
+      // SPLIT_SLOTS.tgp (which stay MAIN+CFG only, same "empty NAV, hand-rolled labels" shape as
+      // WPN's ARM/SAFE/A-A/A-G split rendering). A pane only has 3 slots per bank, so the pair
+      // MAIN/TGT/MAN fills the left bank and CLR/IR/CFG fills the right — keeps each decorator's
+      // pair adjacent on one bank, same requirement placeMapPaneDecorator/placeWpnPaneDecorator
+      // enforce for theirs.
+      const marks = tgpMarks();
+      placeSplitKey(paneKey(paneIdx, 'left', 0), NAV.tgp[0].label, NAV.tgp[0].action, paneTag);
+      placeSplitKey(paneKey(paneIdx, 'left', 1), 'TGT', 'tgp-manual-off', paneTag, marks.tgt);
+      placeSplitKey(paneKey(paneIdx, 'left', 2), 'MAN', 'tgp-manual-on',  paneTag, marks.man);
+      placeSplitKey(paneKey(paneIdx, 'right', 0), 'CLR', 'tgp-ir-off',    paneTag, marks.clr);
+      placeSplitKey(paneKey(paneIdx, 'right', 1), 'IR',  'tgp-ir-on',     paneTag, marks.ir);
+      placeSplitKey(paneKey(paneIdx, 'right', 2), NAV.tgp[1].label, NAV.tgp[1].action, paneTag);
+      const tgtKey = paneKey(paneIdx, 'left', 1);
+      const clrKey = paneKey(paneIdx, 'right', 0);
+      placeWpnDecorator(tgtKey.bank, tgtKey.index + 1, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
+      placeWpnDecorator(clrKey.bank, clrKey.index + 1, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
+      continue;
+    }
+
     const slots = SPLIT_SLOTS[page];
     if (!slots) continue;                            // not a split-capable page (e.g. LYT)
 
@@ -534,9 +562,8 @@ function renderSplitLabels() {
         // upright here, not just its MAIN back-item.
         if (el && isVmainPage(page)) el.classList.add('vlabel');
       });
-      // RANGE decorator between R+/R- — RDR's twin. R+ is NAV.rdr[1]/SPLIT_SLOTS.rdr[1]; paneKey
-      // resolves its physical key for this pane/orientation.
-      if (page === 'rdr') placeRdrDecorators(paneKey(paneIdx, slots[1].side, slots[1].slot));
+      // RANGE decorator between R+/R-. R+ is NAV[page][3]/SPLIT_SLOTS[page][3].
+      if (page === 'rdr' || page === 'hsd') placeRdrDecorators(paneKey(paneIdx, slots[3].side, slots[3].slot));
     }
   }
   renderPaneMainPageInd();   // main-prev/next (mfdButton) calls renderSplitLabels directly, not
@@ -555,15 +582,22 @@ function paneMapSend(paneIdx, action) {
 }
 
 function paneNavigate(paneIdx, page) {
+  const url = paneUrl(page);
+  if (url === 'about:blank') {
+    console.warn('[mfd] Unknown split page "' + page + '"; keeping the current pane.');
+    return;
+  }
   panePages[paneIdx] = page;
   if (page === 'wpn') paneWpnPage[paneIdx] = Math.max(0, selWeaponPage());   // open on the selected weapon's page
   if (page === 'main') paneMainPage[paneIdx] = 0;   // fresh pane always opens on MAIN's first page
   if (page === 'map')  paneMapNavPage[paneIdx] = 0; // fresh pane always opens on MAP's first nav page
   if (page === 'avn')  paneAvnPage[paneIdx]  = 0;   // fresh pane always opens on the first 4 groups
   paneFollowOn[paneIdx] = false;   // iframe reloads; follow restarts off (re-reported on load)
-  paneIframes[paneIdx].src = paneUrl(page);
+  paneIframes[paneIdx].src = url;
   renderSplitLabels();
   refreshFollowIndicator();        // entering/leaving MAP changes whether the chip shows
+  reportSoiPage();                 // this pane's content changed — tell the server if it's now
+                                    // (or no longer) TGP, for the manual camera's PAD Cursor input
 }
 
 // Forwarding from shell → pane iframes. The shell already mirrors all the data streams from the
@@ -708,7 +742,7 @@ function avnNavLabelText(group) {
   const upper = group.toUpperCase();
   return upper.length > 4 ? upper.replace(/[AEIOU]/g, '') : upper;
 }
-function tgpMsg() { return { mfd: true, type: 'tgp', active: tgpActive }; }
+function tgpMsg() { return { mfd: true, type: 'tgp', active: tgpActive, resolution: tgpResolution, quality: tgpQuality, data: tgpData, manual: tgpManual }; }
 function forwardTgpToPanes() { forwardToPanes('tgp', tgpMsg()); }
 // Full-view TGP: forward the lock flag to the #page-frame iframe (the page toggles its feed).
 // No geometry to forward — the feed is a single centred box, not key-band rows.
@@ -733,7 +767,15 @@ function rdrMsg() {
   return { mfd: true, type: 'rdr', present: rdrData.present, range: rdrData.range,
            cone: rdrData.cone, metric: rdrData.metric, radarOn: rdrData.radarOn,
            levelTime: rdrData.levelTime, hdg: rdrData.hdg, items: rdrData.items || [],
-           pb: rdrData.pb || [] };
+           pb: rdrData.pb || [], focusedTargetId: rdrData.focusedTargetId || 0 };
+}
+function forwardHsdToPanes() { forwardToPanes('hsd', hsdMsg()); }
+function forwardHsdToFrame() { forwardToFrame(hsdMsg()); }
+function hsdMsg() {
+  return { mfd: true, type: 'hsd', metric: hsdData.metric, hdg: mapInfoData.hdg || 0,
+           ownX: mapInfoData.x || 0, ownZ: mapInfoData.z || 0,
+           radarPresent: !!rdrData.present, radarRange: rdrData.range || 0, radarCone: rdrData.cone || 0,
+           items: hsdData.items || [], focusedTargetId: hsdData.focusedTargetId || 0 };
 }
 function mwMsg() { return { mfd: true, type: 'mw', items: mwData.items || [] }; }
 // MW shares RWR's pane/page (no separate NAV entry), hence the 'rwr' filter on the Panes side.
@@ -747,7 +789,10 @@ function forwardTgtToFrame() { forwardToFrame(tgtMsg()); }
 function forwardTgtToPanes() { forwardToPanes('tgt', tgtMsg()); }
 // The TGT page shows the selected-target list under its filters (mirrored in targetsData).
 // No pagination — the page scrolls — so forward the whole list, to the frame and any TGT pane.
-function tgtTargetsMsg() { return { mfd: true, type: 'tgt-targets', items: targetsData.targets || [] }; }
+function tgtTargetsMsg() {
+  return { mfd: true, type: 'tgt-targets', items: targetsData.targets || [],
+           focusedTargetId: targetsData.focusedTargetId || 0 };
+}
 function forwardTgtTargetsToFrame() { forwardToFrame(tgtTargetsMsg()); }
 function forwardTgtTargetsToPanes() { forwardToPanes('tgt', tgtTargetsMsg()); }
 // Full-view BDF: forward the whole faction-forces block to the #page-frame iframe (docs/bdf-page.md).
@@ -1005,6 +1050,25 @@ function placeWpnDecorators() {
   placeWpnDecorator('right', 2, 'MASTER', '6,0 12,8 0,8', '0,0 12,0 6,8');
   placeWpnDecorator('right', 4, 'MODE',   '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
+
+// TGP's full-view nav (docs/tgp-manual-control.md's NAV additions) — not the generic fullViewSlot
+// sweep every other single-MAIN page uses: TGT/MAN and CLR/IR light dynamically off tgpMarks(), so
+// like WPN's ARM/SAFE/A-A/A-G (NAV.wpn is empty by design) they're hand-placed here rather than
+// carrying a static `mark` in NAV.tgp. CFG keeps its bottom-of-column slot (left5) either way.
+// Called once on page entry (showPage) and again on every tgp telemetry tick so the highlight
+// tracks live state, the same re-render-in-place shape as placeWpnNavLabels above.
+function placeTgpNavLabels() {
+  overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
+  const marks = tgpMarks();
+  placeOverlayLabel('left', 0, NAV.tgp[0].label, NAV.tgp[0].action);
+  placeOverlayLabel('left', 1, 'TGT', 'tgp-manual-off', marks.tgt);
+  placeOverlayLabel('left', 2, 'MAN', 'tgp-manual-on',  marks.man);
+  placeOverlayLabel('left', 3, 'CLR', 'tgp-ir-off',     marks.clr);
+  placeOverlayLabel('left', 4, 'IR',  'tgp-ir-on',      marks.ir);
+  placeOverlayLabel('left', 5, NAV.tgp[1].label, NAV.tgp[1].action);
+  placeWpnDecorator('left', 2, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
+  placeWpnDecorator('left', 4, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
+}
 // Split-pane MASTER/MODE: unlike full view's fixed right2/right4, a split pane's ctrl pair can land
 // on any of its 4 item slots depending on pagination (buildWpnSplitPages) — found here by id rather
 // than a hardcoded position. buildWpnSplitPages pads so a pair never straddles a PAGE boundary, but
@@ -1100,6 +1164,7 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'tgp')  forwardTgpToPanes();
     else if (page === 'rwr')  { forwardRwrToPanes(); forwardMwToPanes(); }
     else if (page === 'rdr')  forwardRdrToPanes();
+    else if (page === 'hsd')  forwardHsdToPanes();
     else if (page === 'tgt')  { forwardTgtToPanes(); forwardTgtTargetsToPanes(); }
     else if (page === 'bdf')  forwardBdfToPanes();
     else if (page === 'pal')  forwardPalToPanes();
@@ -1131,6 +1196,7 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'afm') { forwardAfmLayoutToFrame(); forwardAfmToFrame(); }
   else if (currentPage === 'rwr') { forwardRwrToFrame(); forwardMwToFrame(); }
   else if (currentPage === 'rdr') { forwardRdrToFrame(); }
+  else if (currentPage === 'hsd') { forwardHsdToFrame(); }
   else if (currentPage === 'tgt') { forwardTgtToFrame(); forwardTgtTargetsToFrame(); }
   else if (currentPage === 'bdf') { forwardBdfToFrame(); }
   else if (currentPage === 'pal') { forwardPalToFrame(); }
@@ -1167,6 +1233,34 @@ let indicatorOrder = [];   // ['pinned'] — kept a list, since the stack is bui
 // press return there. Cleared whenever the pin itself changes (re-pin or unpin) since
 // the partner relationship is tied to the current pin.
 let swapPartner   = null;
+// WAKE LOCK FAILED text (docs/screen-wake-lock.md) — set by the wake controller's onError below,
+// cleared by its own 5s timer or by renderIndicators() the next time it's re-rendered false.
+let wakeLockError = '';
+let wakeLockErrorTimer = null;
+
+// Screen wake-lock toggle (docs/screen-wake-lock.md) — the WAKE top function key. onState lights
+// the key amber while the preference is on (regardless of whether a lock is actually held from
+// moment to moment — e.g. briefly released while the tab is hidden); onError surfaces the 5s
+// WAKE LOCK FAILED chip through the existing indicator stack above.
+const wakeKey = keyBanks.top[2];
+const wakeController = WakeLock.createBrowserController({
+  onState: function (state) {
+    if (!wakeKey) return;
+    wakeKey.classList.toggle('on', state.enabled);
+    wakeKey.title = state.enabled ? 'Allow screen sleep' : 'Keep screen awake';
+  },
+  onError: function (error) {
+    console.error('Wake lock failed:', error);
+    wakeLockError = 'WAKE LOCK FAILED';
+    renderIndicators();
+    if (wakeLockErrorTimer !== null) clearTimeout(wakeLockErrorTimer);
+    wakeLockErrorTimer = setTimeout(function () {
+      wakeLockError = '';
+      wakeLockErrorTimer = null;
+      renderIndicators();
+    }, 5000);
+  },
+});
 
 // Which pane sits in the screen's top-right corner — where PIN/SWAP act in split mode. H_SPLIT
 // stacks top/bottom so it's the top pane (0); the V splits sit left/right so it's the right pane (1).
@@ -1253,6 +1347,15 @@ function renderIndicators() {
     el.textContent = 'PINNED';
     indicatorsEl.appendChild(el);
   });
+  // WAKE LOCK FAILED (docs/screen-wake-lock.md): a transient failure message, not a named
+  // persistent state like PINNED, so it rides alongside indicatorOrder rather than joining it —
+  // wakeLockError clears itself on its own timer (see the wake controller's onError below).
+  if (wakeLockError) {
+    const el = document.createElement('div');
+    el.className = 'mfd-indicator error';
+    el.textContent = wakeLockError;
+    indicatorsEl.appendChild(el);
+  }
 }
 
 // Latest loadout snapshot mirrored from the map iframe (postMessage). Even when WPN isn't
@@ -1270,8 +1373,21 @@ function selWpnPageFull() {
 let cmData = { flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 };
 
 // Latest TGP feed state mirrored from the map iframe. False until the first frame is
-// produced, and back to false during the 3-second post-loss hold's expiry.
+// produced, and back to false during the 3-second post-loss hold's expiry. tgpQuality/tgpData
+// are the HQ-mode stat overlay (docs/tgp-high-quality-mode.md) — data is null whenever there's
+// no lock, regardless of quality.
 let tgpActive = false;
+let tgpResolution = 'native';
+let tgpQuality = 'native';
+let tgpData = null;
+let tgpManual = false;   // docs/tgp-manual-control.md — TgpManualControl.ManualMode, mirrored for the TGP page's status indicator
+
+// TGT/MAN/CLR/IR highlight state (docs/tgp-manual-control.md's NAV additions) — the actual rule
+// lives in tgp-marks.js (shared with f35.js's own equivalent, so the two can't drift). tgpData is
+// only ever {cnt:0} with no lock and no manual mode (TelemetryJson.cs's TgpBlock).
+function tgpMarks() {
+  return TgpMarks.tgpMarks(tgpData ? tgpData.cnt : 0, tgpManual, tgpData && tgpData.ir);
+}
 
 // Latest published slice per installed extension (docs/extensions-api.md), keyed by extension
 // id — mirrored from the map iframe the same way as every other slice above, just for a
@@ -1280,7 +1396,7 @@ const extData = {};
 
 // Latest selected-target list mirrored from the map iframe. The TGT page renders it under its
 // filters (forwardTgtTargetsToFrame) — the whole list, unpaginated, since that page scrolls.
-let targetsData = { targets: [] };
+let targetsData = { targets: [], focusedTargetId: 0 };
 
 // Latest avionics snapshot mirrored from the map iframe. name = aircraft display name (also
 // the key for /airframe + /airframe-layout); parts = the live HP list from the snapshot;
@@ -1297,7 +1413,8 @@ let mwData  = { items: [] };
 
 // Latest RDR B-scope block (docs/rdr-page.md), mirrored from the map iframe's SSE feed. present is
 // false when the aircraft has no radar; the page draws its own scale/contacts from range/cone/items.
-let rdrData = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, hdg: 0, items: [], pb: [] };
+let rdrData = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, hdg: 0, items: [], pb: [], focusedTargetId: 0 };
+let hsdData = { metric: false, items: [], focusedTargetId: 0 };
 
 // Latest TGT filter state, mirrored from the map iframe's SSE feed. The shell keeps only this
 // state and forwards it to the frame; the page renders the toggles + POSTs the tgt.* commands.
@@ -1410,13 +1527,15 @@ function showPage(name) {
     const hasRoutes = WaypointsStore.load().routes.length > 0;
     const hasActiveRoute = !!WaypointsStore.getActiveRoute();
     mapFullRight(hasRoutes, hasActiveRoute).forEach(function (item, i) { placeOverlayLabel('right', i, item.label, item.action); });
-    placeMapDecorators({ bank: 'left', index: 3 });                  // ZOOM between Z+/Z- (left3/left4)
+    placeMapDecorators({ bank: 'left', index: 4 });                  // ZOOM between Z+/Z- (left4/left5)
     if (hasRoutes) {
       placeMapRouteDecorator({ bank: 'right', index: 1 });           // ROUTE between R+/R- (right1/right2)
     }
     if (hasActiveRoute) {
       placeMapWptDecorator({ bank: 'right', index: 3 });             // WYPT between W+/W- (right3/right4)
     }
+  } else if (name === 'tgp') {
+    placeTgpNavLabels();
   } else {
     // Bezel full-view rendering of the navigation model: item i → left-column key i. `mark` lights
     // an item active (e.g. NAV.bdf/NAV.pal flagging whichever of BDF/PAL is the current page).
@@ -1432,9 +1551,8 @@ function showPage(name) {
     });
   }
 
-  // RDR's twin — RANGE decorator between R+/R-. R+ is NAV.rdr[1], so fullViewSlot(1) is its
-  // physical key in full view (left1).
-  if (name === 'rdr') placeRdrDecorators(fullViewSlot(1));
+  // RDR/HSD range rocker. R+ is the fourth sibling-nav item, so fullViewSlot(3) is its physical key.
+  if (name === 'rdr' || name === 'hsd') placeRdrDecorators(fullViewSlot(3));
 
   // WPN owns its own nav labels (PREV/MAIN + NEXT) because they depend on the page state; run
   // after the generic label sweep so they don't get clobbered. It renders in #page-frame: point
@@ -1471,11 +1589,16 @@ function showPage(name) {
     showFramePage('rwr');
     forwardRwrToFrame(); forwardMwToFrame();
   }
-  // RDR renders in #page-frame too (docs/rdr-page.md). Its only bezel key is the static MAIN label
-  // (NAV.rdr, placed by the generic sweep above); the PAD cursor + lock work inside the page.
+  // FCR renders at the historical /rdr route in #page-frame too (docs/rdr-page.md). The sibling
+  // NAV row (MAIN/FCR/HSD/R+/R-) is placed by the generic sweep above; the PAD cursor + lock work
+  // inside the FCR page.
   if (name === 'rdr') {
     showFramePage('rdr');
     forwardRdrToFrame();
+  }
+  if (name === 'hsd') {
+    showFramePage('hsd');
+    forwardHsdToFrame();
   }
   // TGT renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.tgt,
   // placed by the generic sweep above); everything else is clickable in the page. Forward state.
@@ -1519,9 +1642,11 @@ function showPage(name) {
   // KEY (extended keybinds) renders in #page-frame too. Like HUD it's self-driven — it polls
   // /keybinds-config and POSTs its own keybind.* commands — so the shell forwards it nothing.
   if (name === 'keys') showFramePage('keys');
-  // RTS renders in #page-frame too — same self-driven shape as KEY/HUD: it polls /rates-config
-  // and POSTs its own rates.set commands.
-  if (name === 'rates') showFramePage('rates');
+  // MAP's and TGP's own CFG pages render in #page-frame too — same self-driven shape as KEY/HUD:
+  // each polls /rates-config and POSTs its own rates.set commands, so the shell forwards them
+  // nothing.
+  if (name === 'mapcfg') showFramePage('mapcfg');
+  if (name === 'tgpcfg') showFramePage('tgpcfg');
   // EXT's static "no extensions installed" fallback (docs/extensions-api.md) — fully static,
   // no data to forward, unlike the ExtNav.isExtensionPage branch below for a real extension.
   if (name === 'ext') showFramePage('ext');
@@ -1548,6 +1673,8 @@ function showPage(name) {
   refreshFollowIndicator();
   renderSoiCursor();   // the labels were just rebuilt; re-mark the cursored one (and clamp it)
   syncCursorFocus();   // full view just navigated onto/off MAP — the focused surface may be it
+  reportSoiPage();     // full view just navigated onto/off TGP — tell the server, for the manual
+                        // camera's PAD Cursor input
 }
 
 // The map iframe broadcasts status + loadout + cm via postMessage; mirror onto the
@@ -1602,6 +1729,7 @@ window.addEventListener('message', function(e) {
     if (soiPane !== prevPane) setSoiCursor(-1);
     positionSoiRing();
     syncCursorFocus();   // the focused surface itself changed — re-evaluate who owns the map cursor
+    reportSoiPage();     // newly (or still) focused — tell the server what page this surface shows
   } else if (m.type === 'soi-act') {
     soiAct(m.act);
   } else if (m.type === 'cursor') {
@@ -1658,10 +1786,19 @@ window.addEventListener('message', function(e) {
     if (currentPage === 'wpn' && !splitMode) forwardCmToFrame();
     if (splitMode) forwardCmToPanes();
   } else if (m.type === 'tgp') {
-    tgpActive = !!m.active;
-    // Only matters while the TGP page is in view — outside it the frame/pane isn't shown.
-    if (currentPage === 'tgp' && !splitMode) forwardTgpToFrame();
-    if (splitMode) forwardTgpToPanes();
+    tgpActive  = !!m.active;
+    tgpResolution = m.resolution || (m.quality === 'hq' ? 'mid' : 'native');
+    tgpQuality = m.quality || 'native';
+    tgpData    = m.data || null;
+    tgpManual  = !!m.manual;
+    // Only matters while the TGP page is in view — outside it the frame/pane isn't shown. Full
+    // view also refreshes the TGT/MAN/CLR/IR highlight (placeTgpNavLabels); split only re-renders
+    // when a pane is actually showing TGP, same guard MAP's own tick-driven re-render uses below.
+    if (currentPage === 'tgp' && !splitMode) { forwardTgpToFrame(); placeTgpNavLabels(); }
+    if (splitMode) {
+      forwardTgpToPanes();
+      if (panePages.indexOf('tgp') !== -1) renderSplitLabels();
+    }
   } else if (m.type.indexOf('ext_') === 0) {
     // Extension telemetry (docs/extensions-api.md) — one generic branch for every installed
     // extension's slice, keyed by the 'ext_<id>' type telemetry-source.js posts up. `page` here
@@ -1721,7 +1858,7 @@ window.addEventListener('message', function(e) {
     refreshFollowIndicator();
   } else if (m.type === 'targets') {
     // Mirror the selected-target list; the TGT page renders it under its filters.
-    targetsData = { targets: Array.isArray(m.items) ? m.items : [] };
+    targetsData = { targets: Array.isArray(m.items) ? m.items : [], focusedTargetId: m.focusedTargetId || 0 };
     if (currentPage === 'tgt' && !splitMode) forwardTgtTargetsToFrame();
     if (splitMode) forwardTgtTargetsToPanes();
   } else if (m.type === 'rwr') {
@@ -1741,9 +1878,17 @@ window.addEventListener('message', function(e) {
     rdrData = { present: !!m.present, range: m.range || 0, cone: m.cone || 0, metric: !!m.metric,
                 radarOn: !!m.radarOn, levelTime: m.levelTime || 0, hdg: m.hdg || 0,
                 items: Array.isArray(m.items) ? m.items : [],
-                pb: Array.isArray(m.pb) ? m.pb : [] };
+                pb: Array.isArray(m.pb) ? m.pb : [],
+                focusedTargetId: m.focusedTargetId || 0 };
     if (currentPage === 'rdr' && !splitMode) forwardRdrToFrame();
+    if (currentPage === 'hsd' && !splitMode) forwardHsdToFrame();
     if (splitMode) forwardRdrToPanes();
+    if (splitMode) forwardHsdToPanes();
+  } else if (m.type === 'hsd') {
+    hsdData = { metric: !!m.metric, items: Array.isArray(m.items) ? m.items : [],
+                focusedTargetId: m.focusedTargetId || 0 };
+    if (currentPage === 'hsd' && !splitMode) forwardHsdToFrame();
+    if (splitMode) forwardHsdToPanes();
   } else if (RELAY_MESSAGES[m.type]) {
     // The 7 verbatim-store-and-forward types — see RELAY_MESSAGES above. Renders in the #page-frame
     // iframe (full) or a pane (split); forward on when it's the page in view.
@@ -1825,6 +1970,9 @@ function setInfoUrls(cfg) {
   // If /config arrives after the boot loader has revealed the rows, replay the typewriter
   // against the fresh URL nodes. During boot, runBootLoading() will call typewriterUrls().
   if (!infoBox.classList.contains('booting')) typewriterUrls();
+
+  const versionEl = document.getElementById('ib-version');
+  if (versionEl && cfg && cfg.version) versionEl.textContent = 'v' + cfg.version;
 }
 
 function loadConfigUrls() {
@@ -1860,7 +2008,7 @@ function loadConfigUrls() {
 // display, and the cursor no longer spans both panes.
 let soiCursor = -1;   // index into soiKeys(); -1 = no cursor
 let soiPane   = -1;   // focused surface index of this instance, from the tap; -1 = not the SOI
-let myCid     = '';   // this instance's cid, for soi.panes reports (from the tap's soi-cid)
+let myCid     = '';   // this instance's cid, for soi.panes/soi.page reports (from the tap's soi-cid)
 
 // Report how many focusable surfaces this display shows now — 1 in full view, 2 in a split — so the
 // server cycles surfaces, not whole documents. Needs the cid, which arrives from the tap; until then
@@ -1868,13 +2016,14 @@ let myCid     = '';   // this instance's cid, for soi.panes reports (from the ta
 function reportPanes() {
   if (!myCid) return;
   sendCommand('soi.panes', { cid: myCid, n: splitMode ? 2 : 1 }).catch(function() {});
+  reportSoiPage();   // myCid may have just arrived after focus was already established (reconnect)
 }
 
 // ── PAD cursor forwarding (docs/page-cursor.md, docs/map-cursor.md) ───────────────────
-// Pages that carry their own PAD cursor (pad-cursor.js) — MAP's canvas crosshair, and TGT/HUD/RDR/
-// WPT/SQD/AKF's DOM-hit-test cursor. AKF has its ALL/PLAYER resizer to click; BDF/PAL stay out:
-// read-only, nothing to click (docs/page-cursor.md).
-const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true };
+// Pages that carry their own PAD cursor (pad-cursor.js) — MAP's canvas crosshair, and TGT/HUD/
+// RDR/HSD/WPT/SQD/AKF's DOM-hit-test cursor. AKF has its ALL/PLAYER resizer to click; BDF/PAL stay
+// out: read-only, nothing to click (docs/page-cursor.md).
+const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true, hsd: true };
 
 // The focused surface is drivable as a PAD cursor only while it's actually SHOWING an eligible
 // page — the SOI ring/bezel-key cursor above frames "the recess," but the cursor needs the real
@@ -1906,6 +2055,16 @@ function syncCursorFocus() {
 // Position the SOI ring over the focused surface: the whole recess in full view (the map iframe
 // fills it), one pane's box in a split. Measured rather than CSS-placed so a flex-sized pane
 // (V_WIDE is 2:1) is framed exactly. Hidden when this display isn't the SOI.
+//
+// The manual TGP camera (docs/tgp-manual-control.md's PAD Cursor consolidation plan) is a native
+// target, not a browser surface — every display's own `soiFocused` compares against ITS OWN cid,
+// which the camera's synthetic one never matches (telemetry-source.js), so `soiPane` is already -1
+// everywhere while the camera holds focus and this naturally hides the ring on every display, with
+// no special case needed here. A real TGP pane is its own separate, independently focusable ring
+// member (SOI can be tabbed onto it directly, distinct from the camera), so the ring must never
+// light up a TGP-showing pane just because the camera — a different ring member — holds focus. The
+// in-cockpit "SOI" tag (TgpNativeOverlay.SyncCrosshair) is the tell when the camera itself — not a
+// pane — holds focus.
 function positionSoiRing() {
   if (soiPane < 0) { soiRingEl.style.display = 'none'; return; }
   const target = splitMode ? paneIframes[soiPane === 1 ? 1 : 0] : mapFrame;
@@ -1917,6 +2076,17 @@ function positionSoiRing() {
   soiRingEl.style.width  = t.width  + 'px';
   soiRingEl.style.height = t.height + 'px';
   soiRingEl.style.display = 'block';
+}
+
+// Report which page the SOI-focused surface is showing (docs/tgp-manual-control.md's PAD Cursor
+// consolidation plan) — the plugin can't know a pane's content on its own, but needs to know when
+// it's 'tgp' so the manual camera also receives PAD Cursor input while the pilot is looking at the
+// external TGP page directly, not just when they've Tab'd onto the camera's own ring entry. Skips
+// silently until myCid arrives (mirrors reportPanes()); harmless no-op if this isn't the SOI.
+function reportSoiPage() {
+  if (soiPane < 0 || !myCid) return;
+  const page = splitMode ? panePages[soiPane] : currentPage;
+  sendCommand('soi.page', { cid: myCid, n: soiPane, wname: page || '' }).catch(function () {});
 }
 
 // The focused surface's keys. In a split, only the focused pane's — each split key carries its
@@ -1990,13 +2160,13 @@ function mfdButton(el) {
   el.classList.add('lit');                                   // brief press feedback
   setTimeout(function() { el.classList.remove('lit'); }, 150);
 
-  // Split-mode line-select keys carry a data-pane tag (top/bot). The action on
-  // them names a destination page; clicking navigates ONLY that pane.
+  // Split-mode line-select keys carry a data-pane tag (top/bot). In-place actions target that
+  // pane or aircraft state below; remaining actions are treated as destination pages for it.
   if (splitMode && el.dataset.pane && el.dataset.action) {
     const paneIdx = el.dataset.pane === 'top' ? 0 : 1;
     const act = el.dataset.action;
     // WPN paging stays within the pane — bump its page index and re-send the slice + labels
-    // rather than navigating. Everything else is a destination page for that pane.
+    // rather than navigating.
     if (act === 'wpn-prev' || act === 'wpn-next') {
       paneWpnPage[paneIdx] += (act === 'wpn-next' ? 1 : -1);
       forwardWpnToPanes();
@@ -2036,6 +2206,9 @@ function mfdButton(el) {
       // the SAME 'zoom-in'/'zoom-out' action names MAP's zoom sends, which is also what SOI's Zoom
       // In/Out keybind sends when RDR is the focused surface (docs/page-cursor.md).
       paneMapSend(paneIdx, act === 'rng-in' ? 'zoom-in' : 'zoom-out');
+    } else if (act === 'hsd-mode') {
+      // HSD's CEN<->DEP toggle, same per-pane targeting as the range rocker above.
+      paneMapSend(paneIdx, 'hsd-mode');
     } else if (act === 'weapon.select') {
       // A weapon row: selection is aircraft-global, not a destination page — same case as the
       // full-view/shared switch below. It carries a data-pane tag only so the SOI cursor (soiKeys())
@@ -2052,6 +2225,13 @@ function mfdButton(el) {
       // An avionics toggle: mod/game state, not a destination page — same reasoning as
       // weapon.select above. Only carries a data-pane tag so the SOI cursor can scope to it.
       if (el.dataset.group) sendCommand('avn.toggle', { group: el.dataset.group }).catch(function() {});
+    } else if (act === 'tgp-manual-on' || act === 'tgp-manual-off') {
+      // TGT/MAN changes aircraft-global TGP state without navigating the pane. The pane tag only
+      // scopes the physical key to its split surface; treating the action as a page blanks it.
+      sendCommand('tgp.manual.set', { on: act === 'tgp-manual-on' }).catch(function() {});
+    } else if (act === 'tgp-ir-on' || act === 'tgp-ir-off') {
+      // CLR/IR has the same in-place behavior as TGT/MAN.
+      sendCommand('tgp.ir.set', { on: act === 'tgp-ir-on' }).catch(function() {});
     } else {
       paneNavigate(paneIdx, act);
     }
@@ -2076,6 +2256,12 @@ function mfdButton(el) {
     case 'combat-mode-aa':  sendCommand('combat-mode.set', { group: 'aa'  }).catch(function() {}); break;
     case 'combat-mode-ag':  sendCommand('combat-mode.set', { group: 'ag'  }).catch(function() {}); break;
     case 'tgp':  showPage('tgp');  break;
+    // TGT/MAN and CLR/IR (docs/tgp-manual-control.md's NAV additions) — explicit-state commands,
+    // same shape as master-arms.set/combat-mode.set above rather than a blind toggle.
+    case 'tgp-manual-on':  sendCommand('tgp.manual.set', { on: true  }).catch(function() {}); break;
+    case 'tgp-manual-off': sendCommand('tgp.manual.set', { on: false }).catch(function() {}); break;
+    case 'tgp-ir-on':      sendCommand('tgp.ir.set', { on: true  }).catch(function() {}); break;
+    case 'tgp-ir-off':     sendCommand('tgp.ir.set', { on: false }).catch(function() {}); break;
     // EXT (docs/extensions-api.md) always lands on the EXT hub itself — NAV.ext (ext-nav.js)
     // lists MAIN plus one entry per installed extension, rendered as ordinary full-view keys by
     // the generic NAV sweep in showPage. Picking one of THOSE is handled by the `default` case
@@ -2091,7 +2277,8 @@ function mfdButton(el) {
       break;
     case 'hud':  showPage('hud');  break;
     case 'keys':  showPage('keys');  break;
-    case 'rates': showPage('rates'); break;
+    case 'mapcfg': showPage('mapcfg'); break;
+    case 'tgpcfg': showPage('tgpcfg'); break;
     case 'lyt':   showPage('lyt');   break;
     // The LAYOUT page's two choices. CLASSIC is this document, so choosing it is just leaving the
     // menu — back to MAIN, where LYT was pressed, with a fresh status as MAIN's own key pulls.
@@ -2110,6 +2297,7 @@ function mfdButton(el) {
     case 'afm':  showPage('afm');  break;
     case 'rwr':  showPage('rwr');  break;
     case 'rdr':  showPage('rdr');  break;
+    case 'hsd':  showPage('hsd');  break;
     case 'tgt':  showPage('tgt');  break;
     case 'akf':  showPage('akf');  break;
     case 'sqd':  showPage('sqd');  break;
@@ -2131,18 +2319,24 @@ function mfdButton(el) {
     // docs/page-cursor.md) drives RDR range for free once RDR is SOI focus.
     case 'rng-in':  { const w = frameWin(); if (w) w.postMessage({ mfd: true, action: 'zoom-in'  }, '*'); } break;
     case 'rng-out': { const w = frameWin(); if (w) w.postMessage({ mfd: true, action: 'zoom-out' }, '*'); } break;
+    // HSD's own CEN<->DEP toggle (docs/rdr-fcr-hsd.md) — same frameWin() targeting as the range
+    // rocker above, since it's the same #page-frame page. FCR has no MODE key, so this action
+    // name only ever fires from HSD's nav row.
+    case 'hsd-mode': { const w = frameWin(); if (w) w.postMessage({ mfd: true, action: 'hsd-mode' }, '*'); } break;
     case 'hide-shell':
       // Collapse the whole shell (frame + strips + side keys) so the screen fills the
       // viewport — for fitting behind a physical MFD frame. Restore button brings it back.
       setShellHidden(true);
       break;
     case 'fll':  toggleFullscreen(); break;
+    case 'wake': wakeController.toggle(); break;
     // Layout presets. Each enters split (carrying the full-view page into the top/left pane,
     // MAIN into the other) or, if already split, switches orientation in place. The square
     // (unsplit) below collapses back to single.
     case 'split':   setSplit('h');  break;   // H_SPLIT — top/bottom
     case 'vsplit':  setSplit('v');  break;   // V_SPLIT — left/right 50/50
-    case 'vwsplit': setSplit('vw'); break;   // V_WIDE_SPLIT — left/right 2:1
+    case 'vwsplit':   setSplit('vw');  break;   // V_WIDE_SPLIT_L — left/right 2:1, wide left
+    case 'vwsplit-r': setSplit('vwr'); break;   // V_WIDE_SPLIT_R — left/right 2:1, wide right
     case 'unsplit':
       // One-way: collapse split back to single. No-op if already in single mode.
       // The full-screen pane adopts whatever the TOP pane was showing.
@@ -2348,7 +2542,8 @@ function captureLayoutState() {
 function applyLayoutState(state) {
   const pages = (state && state.pages && state.pages.length) ? state.pages : ['main'];
   if (state && state.splitMode) {
-    setSplit(state.splitVariant === 'v' || state.splitVariant === 'vw' ? state.splitVariant : 'h');
+    const validVariant = ['v', 'vw', 'vwr'].indexOf(state.splitVariant) !== -1;
+    setSplit(validVariant ? state.splitVariant : 'h');
     paneNavigate(0, pages[0] || 'main');
     paneNavigate(1, pages[1] || 'main');
   } else if (splitMode) {
@@ -2383,6 +2578,7 @@ wireLayoutKeydown(pageFrame);
 wireLayoutKeydown(paneIframes[0]);
 wireLayoutKeydown(paneIframes[1]);
 
+wakeController.start();
 loadConfigUrls();
 showPage('main');   // start on the MAIN page
 flickerScreen();    // CRT boot flicker on first load

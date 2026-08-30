@@ -169,6 +169,16 @@
   }
   .key.icon { width: 36px; height: 30px; }
   .key.sun  { color: #ffffff; }
+  /* WAKE key while the wake-lock preference is on (docs/screen-wake-lock.md) — no other top
+     function key persists an on/off state on the key itself today (PIN's is shown by the PINNED
+     corner chip instead), so this borrows the engaged-amber idiom .overlay-item.on already uses
+     for a persistent choice, applied here to the physical key rather than an overlay label, and
+     the same border+glow shape .key.cursor already uses for a different steady state. */
+  .key.icon.on {
+    border-color: var(--no-amber);
+    color: var(--no-amber);
+    box-shadow: inset 0 1px 0 #62666d, inset 0 -2px 3px rgba(0,0,0,0.4), 0 0 8px var(--no-amber);
+  }
 
   /* Plain square outline */
   .ic-square {
@@ -228,6 +238,15 @@
     -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='black' stroke-width='1.5' stroke-linecap='square' stroke-linejoin='round' d='M3 4H10 M8 2L10 4L8 6 M11 10H4 M6 8L4 10L6 12'/></svg>") center/contain no-repeat;
             mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='black' stroke-width='1.5' stroke-linecap='square' stroke-linejoin='round' d='M3 4H10 M8 2L10 4L8 6 M11 10H4 M6 8L4 10L6 12'/></svg>") center/contain no-repeat;
   }
+  /* Wake-lock icon: the shared sun token (theme.css --icon-wake), same mask idiom as .ic-fullscreen
+     so the F-35 master strip's button (f35.css .ms-wake-icon) shows the identical glyph. */
+  .ic-wake {
+    display: inline-block;
+    width: 14px; height: 14px;
+    background-color: currentColor;
+    -webkit-mask: var(--icon-wake) center/contain no-repeat;
+            mask: var(--icon-wake) center/contain no-repeat;
+  }
   /* Wide layout icon: box split into a wide left pane and a narrow right pane */
   .ic-split {
     position: relative;
@@ -243,21 +262,26 @@
     width: 1px;
     background: currentColor;
   }
-  /* Left/right 2/3 icon: square split into a wide left pane and a narrow right pane */
-  .ic-lr23 {
+  /* Left/right 2/3 icons: a square split into a wide pane and a narrow one. ic-lr23 (wide left,
+     V_WIDE_SPLIT_L) and ic-rl23 (wide right, V_WIDE_SPLIT_R) are the same box with the divider
+     mirrored — 66%/33% from the left, the same 2:1 split their split-vw/split-vwr CSS applies. */
+  .ic-lr23,
+  .ic-rl23 {
     position: relative;
     width: 14px; height: 14px;
     border: 1px solid currentColor;
     border-radius: 1px;
   }
-  .ic-lr23::before {
+  .ic-lr23::before,
+  .ic-rl23::before {
     content: '';
     position: absolute;
     top: 0; bottom: 0;
-    left: 66%;
     width: 1px;
     background: currentColor;
   }
+  .ic-lr23::before { left: 66%; }
+  .ic-rl23::before { left: 33%; }
   /* Hide-shell icon: a square (the screen) with a diagonal stroke bottom-left→top-right —
      the counterpart to the restore button's plain inset square. */
   .ic-hide-shell {
@@ -387,18 +411,25 @@
     width: 100%;
     background: #ffffff;
   }
-  /* Left/right variants (V_SPLIT 50/50, V_WIDE_SPLIT 2:1): lay the panes side by side and
+  /* Left/right variants (V_SPLIT 50/50, V_WIDE_SPLIT_L/_R 2:1): lay the panes side by side and
      stand the divider up vertically. The base rules above (column, full-width panes/divider)
      serve the top/bottom H_SPLIT unchanged. */
   .screen.split-v  > .split-container,
-  .screen.split-vw > .split-container { flex-direction: row; }
+  .screen.split-vw > .split-container,
+  .screen.split-vwr > .split-container { flex-direction: row; }
   .screen.split-v  .split-pane,
-  .screen.split-vw .split-pane { width: auto; height: 100%; }
+  .screen.split-vw .split-pane,
+  .screen.split-vwr .split-pane { width: auto; height: 100%; }
   .screen.split-v  .split-divider,
-  .screen.split-vw .split-divider { width: 2px; height: 100%; }
-  /* V_WIDE_SPLIT: left pane (pane-top, first child) twice the right pane — 2:1. */
+  .screen.split-vw .split-divider,
+  .screen.split-vwr .split-divider { width: 2px; height: 100%; }
+  /* V_WIDE_SPLIT_L: left pane (pane-top, first child) twice the right pane — 2:1. */
   .screen.split-vw #pane-top { flex: 2 1 0; }
   .screen.split-vw #pane-bot { flex: 1 1 0; }
+  /* V_WIDE_SPLIT_R: the mirror of _L — right pane (pane-bot, second child) twice the left. Pane
+     identity (top=left, bot=right) never changes between variants, only each one's flex share. */
+  .screen.split-vwr #pane-top { flex: 1 1 0; }
+  .screen.split-vwr #pane-bot { flex: 2 1 0; }
 
   /* Per-page line-select overlay inside the screen. Item labels are positioned by JS to
      line up with their assigned bezel keys. Transparent on the MAP page (overlays the map, which
@@ -435,6 +466,13 @@
     color: var(--no-amber);
     user-select: none;
   }
+  /* WAKE LOCK FAILED (docs/screen-wake-lock.md) — the one chip in this stack that reports a
+     failure rather than an engaged choice, so it borrows --no-red (the same "alert" token
+     .mfd-status.disconnected already uses) instead of the stack's usual amber. */
+  .mfd-indicator.error {
+    border-color: var(--no-red);
+    color: var(--no-red);
+  }
   /* Per-pane "PAGE x/y" chip for MAIN's own pagination (mfd.js renderPaneMainPageInd) — same
      bottom-right spot WPN's #page-ind sits in inside its own framed page, but drawn on the shared
      overlay instead: MAIN's split pagination is bezel/shell state (paneMainPage), not the /main
@@ -451,10 +489,16 @@
   .pane-mainpage.top { bottom: calc(50% + 8px); }
   .pane-mainpage.bot { bottom: 10px; }
   .pane-mainpage.show { display: block; }
-  .screen.split-v  .pane-mainpage.bot,
-  .screen.split-vw .pane-mainpage.bot { bottom: 10px; right: 12px; }
+  .screen.split-v   .pane-mainpage.bot,
+  .screen.split-vw  .pane-mainpage.bot,
+  .screen.split-vwr .pane-mainpage.bot { bottom: 10px; right: 12px; }
   .screen.split-v  .pane-mainpage.top { bottom: 10px; right: calc(50% + 12px); }
-  .screen.split-vw .pane-mainpage.top { bottom: 10px; right: calc(33.333% + 12px); }
+  /* pane-top's own right edge sits wherever the divider is — 33.333% from the container's right
+     edge when pane-top is the wide 2/3 (_L), 66.667% when it's the narrow 1/3 (_R). pane-bot's
+     rule above never needs a variant split: whichever width it has, its own right edge is always
+     flush with the container's, unlike pane-top's. */
+  .screen.split-vw  .pane-mainpage.top { bottom: 10px; right: calc(33.333% + 12px); }
+  .screen.split-vwr .pane-mainpage.top { bottom: 10px; right: calc(66.667% + 12px); }
   .overlay-item {
     position: absolute;
     color: var(--no-label);
@@ -543,6 +587,17 @@
     box-shadow: 0 0 12px rgba(var(--no-green-rgb), 0.25);
   }
   .info-box.show       { display: block; }
+
+  /* Mod version, tucked in the card's own bottom-right corner — quiet gray so it doesn't compete
+     with the green status readout above it. Empty (invisible) until /config answers. */
+  .ib-version {
+    position: absolute;
+    bottom: clamp(6px, 0.8vmax, 10px);
+    right: clamp(10px, 1.2vmax, 16px);
+    font-size: clamp(8px, 0.9vmax, 11px);
+    color: var(--no-gray);
+    letter-spacing: 1px;
+  }
 
   /* The LAYOUT page's current item (CLASSIC). The theme's "engaged" amber, boxed — the same mark
      the F-35's picker gives its own, so the two chooser screens agree. This is the only overlay

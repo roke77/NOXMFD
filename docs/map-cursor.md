@@ -1,6 +1,9 @@
 # MAP cursor — driving target selection from the HOTAS
 
-**Branch:** `map-cursor`. **Status:** planning.
+**Status:** implemented and merged to `main`. Cursor transport, keyboard and HOTAS-axis sources,
+contact selection, shared PAD-cursor behavior, hold handling, and MAP edge-panning are built and
+covered by the harness/self-checks. A real in-game pass is still needed for MAP's visual rAF glide,
+edge-panning, and physical HOTAS-axis input.
 
 ## Goal
 
@@ -226,7 +229,7 @@ No per-layout cursor code — just the same "is my focused surface a MAP? then f
    "moved" has to mean "moved from wherever it started," not "moved from zero." `ReadAxis` deadzones
    + inverts + folds straight into the cursor vector; a deflected axis overrides its two keys for
    that component (`Poll()`), so keys and axis coexist on the same two rows (**Cursor Horizontal** /
-   **Cursor Vertical**) without conflict. `TelemetryServer.ServeKeybindsConfig` and `CommandDispatcher`
+   **Cursor Vertical**) without conflict. `ConfigEndpoint.ServeKeybindsConfig` and `CommandDispatcher`
    (`keybind.arm-axis`/`cancel-axis`/`clear-axis`/`set-axis-invert`) extended to match; `keybinds.js`
    renders these two rows as one wide cell (arm/capture/invert/clear) instead of empty key/joy cells,
    guided by the JSON simply omitting `key` for an axis-only row. Verified end-to-end in the

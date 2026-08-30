@@ -309,9 +309,13 @@ pattern.** Read `src/web/pages/wpn/*` and the WPN-specific hooks in `src/web/she
 ```
 src/
   plugin/
-    TelemetryServer.cs # ServeAsset (/assets/ route) + ServeAssetRel(ctx,"pages/x/x.html");
-                       # per-page routes (e.g. /wpn) call ServeAssetRel. /assets suffix-matches
-                       # the embedded-resource manifest "<RootNamespace>.src.web.<dotted path>".
+    Http/
+      TelemetryServer.cs     # HTTP/SSE endpoint handlers + server lifecycle.
+      TelemetryHttpRouter.cs # per-page routes (e.g. /wpn) call TelemetryAssets.ServeAssetRel.
+      TelemetryAssets.cs     # /assets suffix-matches the embedded-resource manifest
+                             # "<RootNamespace>.src.web.<dotted path>".
+    Stores/
+      RouteStore.cs LayoutStore.cs HudPresetStore.cs
     TelemetryReader.cs
     TelemetrySnapshot.cs
   web/
@@ -333,7 +337,7 @@ NOXMFD.csproj          # <EmbeddedResource Include="src\web\**\*" />
 ### The per-page migration recipe (historical; reuse for future pages)
 1. **Move the bare page** `XxxPage.cs` → `src/web/pages/xxx/{xxx.html,xxx.css,xxx.js}`. Link
    `/assets/shared/font.css` + `theme.css` (kills that page's inline font copy). Point its
-   route in `TelemetryServer` at `ServeAssetRel(ctx,"pages/xxx/xxx.html")`; delete the `.cs`.
+   route in `TelemetryHttpRouter` at `ServeAssetRel(ctx,"pages/xxx/xxx.html")`; delete the `.cs`.
 2. **Add the `full` profile** to the same page files when the page has a distinct full layout,
    gated by a `layout:'full'` field in the page's layout message (adds `body.full`). Scope
    full-only CSS under `body.full` so the verified compact layout is untouched. Historically,

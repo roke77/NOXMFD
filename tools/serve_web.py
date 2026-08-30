@@ -21,6 +21,9 @@ which supplies the synthetic/captured /stream data that the shell forwards to pa
 The MAP page is the only EventSource('/stream') consumer, so the mock (which stubs /stream,
 /map, /icon, /weapon) is injected into it here. The shell loads /map-view?bare absolutely.
 
+/ and /f35 poll /__reload-token (max mtime across src/web/ + preview-mock.js) and reload the whole
+shell on change, so an edit shows up without an alt-tab-and-refresh — see docs/live-reload.md.
+
 Usage:
     python tools/serve_web.py            # serve on http://127.0.0.1:8782
     python tools/serve_web.py --port N
@@ -39,6 +42,7 @@ import json
 import os
 import pathlib
 import posixpath
+import re
 import socket
 import socketserver
 import sys
@@ -180,6 +184,57 @@ def _wpt_page():
     return html.replace("</head>", _wpt_seed_script() + "</head>", 1).encode("utf-8")
 
 
+def _reload_token():
+    """max(mtime) across every served web asset (see docs/live-reload.md) — a cheap comparable
+    value that changes whenever a saved edit would change what the browser sees. Includes MOCK
+    since the MAP page's mock injection is as much "what a browser sees" as src/web/ itself.
+    Also includes the CURRENT pointer file (so re-pointing which capture is live triggers a
+    reload) and the currently-active capture folder itself (so a fresh capture_assets.py run —
+    new/updated icons, map.jpg, screenshots — does too), rather than every capture in the library:
+    old captures aren't served, so their mtimes are noise a rebuild wouldn't touch anyway."""
+    newest = MOCK.stat().st_mtime
+    for fp in WEB.rglob("*"):
+        if fp.is_file():
+            newest = max(newest, fp.stat().st_mtime)
+    cur = CAPTURES / "CURRENT"
+    if cur.exists():
+        newest = max(newest, cur.stat().st_mtime)
+    manifest = _manifest_path()
+    if manifest.exists():
+        for fp in manifest.parent.rglob("*"):
+            if fp.is_file():
+                newest = max(newest, fp.stat().st_mtime)
+    return newest
+
+
+_RELOAD_WATCHER_SCRIPT = """
+<script>
+(function () {
+  var last = null;
+  function poll() {
+    fetch('/__reload-token', { cache: 'no-store' }).then(function (r) { return r.text(); })
+      .then(function (t) {
+        if (last !== null && t !== last) { window.location.reload(); return; }
+        last = t;
+      }).catch(function () { /* server restarting or unreachable — next poll retries */ });
+  }
+  poll();
+  setInterval(poll, 750);
+})();
+</script>
+"""
+
+
+def _shell_page(fp):
+    """A top-level shell page (mfd.html / f35.html) with the live-reload watcher spliced before
+    </head> — see docs/live-reload.md. Built fresh per request, same as _map_page()/_wpt_page(),
+    so edits to the shell itself show up on reload too. Only the two top-level shells get this:
+    a full-page reload there already re-fetches every iframe/pane beneath it, so injecting the
+    same watcher into every individual page would just mean duplicate reload triggers."""
+    html = fp.read_text(encoding="utf-8")
+    return html.replace("</head>", _RELOAD_WATCHER_SCRIPT + "</head>", 1).encode("utf-8")
+
+
 def _detect_lan_ip():
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
@@ -190,12 +245,20 @@ def _detect_lan_ip():
         return ""
 
 
+def _plugin_version():
+    """Read <Version> straight from NOXMFD.csproj so the harness mock never drifts from the real
+    plugin version the DLL would actually report."""
+    m = re.search(r"<Version>([^<]+)</Version>", (REPO / "NOXMFD.csproj").read_text(encoding="utf-8"))
+    return m.group(1) if m else "0.0.0"
+
+
 def _config(port):
     lan_ip = _detect_lan_ip()
     return json.dumps({
         "localhost": f"http://localhost:{port}",
         "lanUrl": f"http://{lan_ip}:{port}" if lan_ip else "",
         "port": port,
+        "version": _plugin_version(),
     }).encode("utf-8")
 
 
@@ -287,12 +350,37 @@ def _wpt_options():
     }).encode("utf-8")
 
 
-# Mock of the plugin's /rates-config (cfg-rates experiment, issue #39), so the /rates page's two
-# sliders have something to initialize from in the harness. The write side (rates.set) has no
-# mock — commands POST and are swallowed — so moving a slider here won't change this response;
-# that path is only testable in game.
+# Mock of the plugin's /rates-config, so MAP CFG/TGP CFG controls have something to initialize
+# from in the harness. The write
+# side (rates.set) has no mock — commands POST and are swallowed — so moving a slider/button here
+# won't change this response; that path is only testable in game.
 def _rates_config():
-    return json.dumps({"fastHz": 10, "tgpHz": 15}).encode("utf-8")
+    return json.dumps({
+        "fastHz": 10,
+        "contactHz": 4,
+        "tgpHz": 15,
+        "tgpResolution": "native",
+        "tgpJpegQuality": "mid",
+        "tgpQuality": "native",
+        "tgpSuppressNative": False
+    }).encode("utf-8")
+
+
+def _rates_config_merged():
+    val = _asset_json("rates-config")
+    if val is None:
+        return _rates_config()
+    merged = {
+        "fastHz": 10,
+        "contactHz": 4,
+        "tgpHz": 15,
+        "tgpResolution": "native",
+        "tgpJpegQuality": "mid",
+        "tgpQuality": "native",
+        "tgpSuppressNative": False
+    }
+    merged.update(val)
+    return json.dumps(merged).encode("utf-8")
 
 
 # Stateful mock of the plugin's /squad + /server-players + sqd.* commands
@@ -592,12 +680,6 @@ KEYBINDS = [
     {"id": "map-follow", "section": "MAP", "label": "Follow",
      "description": "Toggle FLW on the focused MAP display.",
      "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "map-zoom-in", "section": "MAP", "label": "Zoom In",
-     "description": "Zoom in on the focused MAP display.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "map-zoom-out", "section": "MAP", "label": "Zoom Out",
-     "description": "Zoom out on the focused MAP display.",
-     "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "map-route-next", "section": "MAP", "label": "Next Route",
      "description": "Switch the focused MAP display's active waypoint route to the next one (R+).",
      "key": "", "joyButton": -1, "joyNum": 0},
@@ -662,6 +744,46 @@ KEYBINDS = [
      "description": "Analog axis driving the cursor up/down — overrides Cursor Up/Down when "
                      "deflected. Only acts while a display with a cursor is focused.",
      "axis": -1, "axisNum": 0, "axisInvert": False},
+    # PAD Cursor zoom (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — one bind pair
+    # drives both the manual TGP camera's zoom (while it holds SOI) and every other display's
+    # MAP-style zoom.
+    {"id": "cursor-zoom-in", "section": "CURSOR", "label": "Cursor Zoom In",
+     "description": "Zoom in the manual TGP camera while it holds SOI. Otherwise, zooms in on the "
+                     "focused MAP display — on a scrollable page, scrolls it up instead.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cursor-zoom-out", "section": "CURSOR", "label": "Cursor Zoom Out",
+     "description": "Zoom out the manual TGP camera while it holds SOI. Otherwise, zooms out on "
+                     "the focused MAP display — on a scrollable page, scrolls it down instead.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "cursor-zoom-axis", "section": "CURSOR", "label": "Cursor Zoom Axis",
+     "description": "Calibrated analog axis (e.g. a HOTAS slider) — moving the axis jumps the "
+                     "manual TGP camera's zoom to that absolute position, min to max. Cursor Zoom "
+                     "In/Out still work while the axis is stationary. Only acts while the manual "
+                     "TGP camera holds SOI.",
+     "axis": -1, "axisNum": 0, "axisInvert": False},
+    # TGP manual control keybinds (docs/tgp-manual-control.md) — lifecycle only; pan/tilt/zoom live
+    # on the CURSOR block above instead (the PAD Cursor consolidation plan).
+    {"id": "tgp-manual-toggle", "section": "TGP", "label": "Manual Control Toggle",
+     "description": "Toggle manual TGP pointing on/off. Centers on the aircraft's nose at "
+                     "minimum zoom on entry. Auto-exits on a real target lock, aircraft loss, "
+                     "or a landing-gear/cam conflict.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgp-manual-reset", "section": "TGP", "label": "Manual Control Reset",
+     "description": "Recenter the TGP manual camera on the aircraft's forward direction at "
+                     "minimum zoom.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgp-point-track", "section": "TGP", "label": "Point Track",
+     "description": "Lock the TGP manual camera onto whatever it's currently pointed at — it "
+                     "holds that world point steady as the aircraft moves, instead of a fixed "
+                     "direction. Press again to release; Pan/Tilt nudges the point and "
+                     "redesignates on release. Only acts while TGP manual control is on.",
+     "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "tgp-manual-ir-toggle", "section": "TGP", "label": "Toggle IR",
+     "description": "Switch the active TGP camera between COLOR and IR — the manual camera, or a "
+                     "real unit lock. The game normally switches this automatically by time of "
+                     "day/distance/the \"always IR\" setting; this bind overrides that with your "
+                     "own choice, which sticks until you flip it again.",
+     "key": "", "joyButton": -1, "joyNum": 0},
     # Layout keybinds (issue #51 follow-up) — SAVE/LOAD LAYOUT. Key-only: no joyButton/joyNum
     # fields at all (mirrors the axis-only rows omitting key/joyButton) — browser-side only,
     # deliberately no joystick/HOTAS, so the page renders one wide key cell for these two.
@@ -683,6 +805,11 @@ KEYBINDS = [
      "description": "Arm — weapons/countermeasures free to fire.", "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "master-arms-off", "section": "IMMERSION OPTIONS", "label": "Master Arms OFF",
      "description": "Disarm — weapons/countermeasures blocked.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "power-on", "section": "IMMERSION OPTIONS", "label": "Power ON",
+     "description": "Restore power — the in-cockpit HUD reappears.", "key": "", "joyButton": -1, "joyNum": 0},
+    {"id": "power-off", "section": "IMMERSION OPTIONS", "label": "Power OFF",
+     "description": "Cut power — the entire in-cockpit HUD disappears (no display, no symbology).",
+     "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "radar-on", "section": "IMMERSION OPTIONS", "label": "Radar ON",
      "description": "Turn the radar on.", "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "radar-off", "section": "IMMERSION OPTIONS", "label": "Radar OFF",
@@ -700,7 +827,7 @@ KEYBINDS = [
 ]
 KB_STATE = {"capturing": None, "capturingKind": None, "armed_at": 0.0, "bgInput": False,
             "radarOnOnStart": True, "engineOnOnStart": True, "masterArmsOnOnStart": True,
-            "hudFiltersOnCombatMode": False}
+            "powerOnOnStart": True, "hudFiltersOnCombatMode": False}
 
 
 def _keybinds_config():
@@ -727,6 +854,14 @@ def _keybinds_config():
              "CURSOR": "Moves a cursor over whichever focused display has one (MAP, for now) and "
                        "selects what it's on. Cursor Horizontal/Vertical are the same movement as an "
                        "analog HOTAS axis — bind either or both; a deflected axis overrides its two keys.",
+             "TGP": "Manual pointing of the targeting-pod camera, independent of the "
+                       "game's own auto-lock. Pan/Tilt Axis are the same movement as an analog HOTAS "
+                       "axis — bind either or both; a deflected axis overrides its two keys. Zoom Axis "
+                       "is different: moving a calibrated slider jumps zoom to that absolute level, "
+                       "while Zoom In/Out still work between axis moves. Point Track locks the camera "
+                       "onto whatever it's aimed at; Pan/Tilt nudges and redesignates on release. Off by default; "
+                       "toggling on centers at minimum zoom, and auto-exits the moment a real target "
+                       "locks, the aircraft is lost, or gear/landing cam takes over.",
              "WEAPONS": "Cycle keys select the last soft-selected weapon of their type, or the first "
                         "in the list. Repeated presses cycle to the next one, skipping depleted "
                         "weapons. Cycling to a different type leaves the current one soft-selected.",
@@ -742,6 +877,7 @@ def _keybinds_config():
                        "radarOnOnStart": KB_STATE["radarOnOnStart"],
                        "engineOnOnStart": KB_STATE["engineOnOnStart"],
                        "masterArmsOnOnStart": KB_STATE["masterArmsOnOnStart"],
+                       "powerOnOnStart": KB_STATE["powerOnOnStart"],
                        "hudFiltersOnCombatMode": KB_STATE["hudFiltersOnCombatMode"]}).encode("utf-8")
 
 
@@ -778,6 +914,8 @@ def _keybinds_command(env):
         KB_STATE["engineOnOnStart"] = bool(env.get("on", False))
     elif cmd == "keybind.set-master-arms-on-start":
         KB_STATE["masterArmsOnOnStart"] = bool(env.get("on", False))
+    elif cmd == "keybind.set-power-on-start":
+        KB_STATE["powerOnOnStart"] = bool(env.get("on", False))
     elif cmd == "keybind.set-hud-filters-on-combat-mode":
         KB_STATE["hudFiltersOnCombatMode"] = bool(env.get("on", False))
     else:
@@ -822,9 +960,11 @@ class H(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split('?', 1)[0]
         if path in ('/', '/index.html'):
-            return self._file(WEB / 'shell' / 'classic' / 'mfd.html', 'text/html; charset=utf-8', cache=True)
+            return self._send(_shell_page(WEB / 'shell' / 'classic' / 'mfd.html'), 'text/html; charset=utf-8')
         if path == '/f35':
-            return self._file(WEB / 'shell' / 'f35' / 'f35.html', 'text/html; charset=utf-8', cache=True)
+            return self._send(_shell_page(WEB / 'shell' / 'f35' / 'f35.html'), 'text/html; charset=utf-8')
+        if path == '/__reload-token':
+            return self._send(str(_reload_token()).encode('utf-8'), 'text/plain; charset=utf-8')
         if path == '/thrl-demo':
             return self._file(REPO / 'tools' / 'thrl-demo.html', 'text/html; charset=utf-8')
         if path == '/config':
@@ -840,7 +980,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         if path == '/keybinds-config':
             return self._send(_keybinds_config(), 'application/json; charset=utf-8')
         if path == '/rates-config':
-            return self._send(_captured_or('rates-config', _rates_config), 'application/json; charset=utf-8')
+            return self._send(_rates_config_merged(), 'application/json; charset=utf-8')
         if path == '/squad':
             return self._send(_squad_state(), 'application/json; charset=utf-8')
         if path == '/server-players':

@@ -13,6 +13,10 @@ bottom.
 
 - **HIDE** — hide the bezel so the screen fills the viewport.
 - **FULL** — fullscreen toggle.
+- **WAKE** — keep the screen from sleeping while NO XMFD is open. Off by default; lights amber
+  while on. The preference is remembered by the browser and reapplies after a reload. If the
+  device can't be kept awake at all, the key turns itself back off and **WAKE LOCK FAILED**
+  briefly appears in the corner of the screen.
 - **PIN** — pin a page.
 - **SWAP** — jump to/from the pinned page.
 
@@ -21,11 +25,12 @@ bottom.
 - **F_VIEW** — single page, full screen.
 - **H_SPLIT** — top/bottom split.
 - **V_SPLIT** — left/right split.
-- **V_WIDE_SPLIT** — left/right split, 2:1.
+- **V_WIDE_SPLIT_L** — left/right split, 2:1, wide pane on the left.
+- **V_WIDE_SPLIT_R** — left/right split, 2:1, wide pane on the right.
 
 ![V_SPLIT (left) and H_SPLIT (right)](images/H_V_SPLIT.png)
 
-![V_WIDE_SPLIT](images/V_WIDE_SPLIT.png)
+![V_WIDE_SPLIT_L](images/V_WIDE_SPLIT.png)
 
 ## F-35
 
@@ -33,7 +38,8 @@ A borderless, touch-driven layout modelled on the real F-35's panoramic cockpit 
 are no bezel keys — the navigation labels are drawn on the glass and tapped directly, and the
 screen divides into side-by-side portals, each an independent MFD, that you merge and split with
 corner grips. A fixed strip across the top carries the aircraft-level readouts — connection,
-throttle and fuel, and the avionics flags.
+throttle and fuel, and the avionics flags — plus **WAKE** (keep the screen awake, same as
+CLASSIC's WAKE key above) and **FULLSCREEN**, beside each other at the strip's end.
 
 ![F-35 layout — MAIN](images/F-35%20MAIN.png)
 

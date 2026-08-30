@@ -1,6 +1,6 @@
-// RDR page — F-16 FCR B-scope. A pure reactive renderer driven by the shell over postMessage;
-// single source of truth for BOTH layouts. See rdr.html for the message contract, docs/rdr-page.md
-// for the design.
+// FCR page — F-16 fire-control-radar B-scope. A pure reactive renderer driven by the shell over
+// postMessage; single source of truth for BOTH layouts. See rdr.html for the message contract,
+// docs/rdr-page.md for the design.
 
 // Scope geometry in the 520x600 viewBox: ownship at bottom-centre, bearing across, range up.
 var L = 60, R = 460, TOP = 70, BOT = 510;      // scope rectangle
@@ -11,12 +11,15 @@ var DEF_CONE = 60;                             // fallback azimuth half-angle wh
 // scope's range unit; M_TO_FT is the plain metres->feet factor UnitConverter.AltitudeReading uses.
 var M_PER_NM = 1852, M_PER_KM = 1000, M_TO_FT = 3.28084;
 
-// Mirror theme.css's --no-green/--no-amber/--no-purple/--no-blue — SVG string-building here can't
-// use CSS var(), so these are plain literals kept in sync by hand.
-var GREEN = '#39ff14', AMBER = '#ffaa00', PURPLE = 'rgb(179, 136, 255)';
+// Mirror theme.css's --no-white/--no-red/--no-amber/--no-purple/--no-blue — SVG string-building
+// here can't use CSS var(), so these are plain literals kept in sync by hand.
+// CURSOR_WHITE is the PAD cursor gate's own color (drawCursor/bar below), matching HSD's own
+// cursor — unrelated to RED, the enemy-air own-radar contact color (not green, which stays free
+// to mean "friendly" if that symbology is ever added).
+var CURSOR_WHITE = '#e6ebef', RED = '#ff4040', AMBER = '#ffaa00', PURPLE = 'rgb(179, 136, 255)';
 var BLUE = '#4d9fff';   // pitbull missile triangle fill (issue #40) — the "this is MY missile" cue,
                          // distinct from RWR's inbound-threat red/yellow
-var state = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, items: [], pb: [] };
+var state = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, items: [], pb: [], focusedTargetId: 0 };
 
 // The caret's one-way sweep time (rdr.css's animation-duration must match). 2s one-way / 4s round
 // trip mirrors the game's own MFD radar sweep exactly (TacScreen.ScanRadar: needle angle =
@@ -146,7 +149,7 @@ function drawCursor(px, py) {
 function bar(x, y) {
   return '<line x1="' + x.toFixed(1) + '" y1="' + (y - CUR_H).toFixed(1) +
          '" x2="' + x.toFixed(1) + '" y2="' + (y + CUR_H).toFixed(1) +
-         '" stroke="' + GREEN + '" stroke-width="3"/>';
+         '" stroke="' + CURSOR_WHITE + '" stroke-width="3"/>';
 }
 
 // Move the gate and highlight the contact under the cursor (or clear both when it leaves/hides).
@@ -188,18 +191,24 @@ function short(n) {
 function renderContacts() {
   var g = document.getElementById('rdr-contacts');
   if (!g) return;
-  var out = '', first = null;
+  var out = '', focusedContact = null;
   plotted = [];
   (state.items || []).forEach(function (c) {
     var p = plot(c);
     if (!p) return;
     plotted.push({ id: c.id, x: p.x, y: p.y });
     var locked = !!c.tg;
-    // Source colour: radar (own radar detected it, regardless of datalink too) = green,
-    // datalink-only (not currently painted by the player's own radar) = purple (matching TGT's
-    // DATALINK button) — locked always wins, same as before (docs/rdr-page.md).
-    var col = locked ? AMBER : (c.radar ? GREEN : PURPLE);
-    if (locked && !first) first = c;
+    // The single locked contact Next/Previous currently focuses (issue #62, docs/tgt-cycle-focus.md)
+    // — shared across TGT/FCR/HSD via state.focusedTargetId, described by the readout below.
+    var focused = locked && c.id === state.focusedTargetId;
+    if (focused) focusedContact = c;
+    // Source colour: the FOCUSED lock (readout's own target) is amber — otherwise a contact's
+    // color is purely its source, whether locked or not: own-radar red (own radar detected this
+    // enemy; not green, which stays free to mean "friendly" if that's ever added), datalink-only
+    // (not currently painted by the player's own radar) = purple, matching TGT's DATALINK button.
+    // An unfocused lock therefore keeps its ordinary source color — its ring (drawn below) is what
+    // shows it's still locked, not its icon.
+    var col = focused ? AMBER : (c.radar ? RED : PURPLE);
     // Hover highlight: a soft ring under whatever the cursor is nearest (docs/rdr-page.md).
     if (c.id === hoveredId)
       out += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) +
@@ -218,7 +227,7 @@ function renderContacts() {
              '" r="17" fill="none" stroke="' + AMBER + '" stroke-width="2"/>';
   });
   g.innerHTML = out;
-  renderReadout(first);
+  renderReadout(focusedContact);
 }
 
 // Pitbull missiles (issue #40): the player's own AA missiles with a locked active-radar seeker.
@@ -255,17 +264,18 @@ function renderPitbull() {
   g.innerHTML = out;
 }
 
-// Bottom readout: always the FIRST locked contact (or blank), plus the total locked count.
-function renderReadout(first) {
+// Bottom readout: the FOCUSED locked contact (issue #62, or blank if none), plus the total locked
+// count.
+function renderReadout(focused) {
   var r1 = document.getElementById('rdr-r1'), r2 = document.getElementById('rdr-r2'),
       lk = document.getElementById('rdr-lk');
   var locked = (state.items || []).filter(function (c) { return c.tg; }).length;
-  if (first) {
+  if (focused) {
     r1.classList.add('big');
-    r1.textContent = short(first.n);
-    r2.textContent = 'RNG ' + rangeUnits(first.rng) +
-                     '   ALT ' + altUnits(first.alt) +
-                     '   HDG ' + pad3(Math.round(((first.rhdg + heading()) % 360 + 360) % 360));
+    r1.textContent = short(focused.n);
+    r2.textContent = 'RNG ' + rangeUnits(focused.rng) +
+                     '   ALT ' + altUnits(focused.alt) +
+                     '   HDG ' + pad3(Math.round(((focused.rhdg + heading()) % 360 + 360) % 360));
   } else {
     r1.classList.remove('big');
     r1.textContent = '';
@@ -329,32 +339,20 @@ if (typeof window !== 'undefined' && window.addEventListener) {
     var r = scopeRectPx();
     cursor.setFocus(on, r.dx + r.dw / 2, r.dy + r.dh / 2);
   }
-  import('/assets/services/pad-cursor.js').then(function (mod) {
-    cursor = mod.createPadCursor({
-      el: document.getElementById('rdr-cursor'),
-      clampRect: scopeRectPx,
-      onSelect: padSelect,
-      onMove: padMove,
-      onEdge: onCursorEdge
+  // Cursor overflow at the scope's top/bottom edge also steps range (RNG+/-) — shared with HSD's
+  // identical behavior (docs/rdr-fcr-hsd.md), see edge-range-step.js.
+  Promise.all([import('/assets/services/pad-cursor.js'), import('/assets/services/edge-range-step.js')])
+    .then(function (mods) {
+      cursor = mods[0].createPadCursor({
+        el: document.getElementById('rdr-cursor'),
+        clampRect: scopeRectPx,
+        onSelect: padSelect,
+        onMove: padMove,
+        onEdge: mods[1].createEdgeRangeStepper(function (dir) { setRangeIdx(rangeIdx + dir); })
+      });
+      if (pendingFocus) { centerFocus(pendingFocus.on); pendingFocus = null; }
+      if (pendingVec) { cursor.setVector(pendingVec.x, pendingVec.y); pendingVec = null; }
     });
-    if (pendingFocus) { centerFocus(pendingFocus.on); pendingFocus = null; }
-    if (pendingVec) { cursor.setVector(pendingVec.x, pendingVec.y); pendingVec = null; }
-  });
-
-  // Cursor overflow at the scope's top/bottom edge also steps range (RNG+/-): pushing past the top
-  // (further than max displayed range) widens back out; pushing past the bottom (toward/through
-  // ownship) narrows in. onEdge fires every animation frame while overshot (fine for MAP's
-  // continuous pan, map.js:onCursorEdge) — a discrete range step needs a cooldown instead, or one
-  // push would blow through every step in a single frame.
-  var EDGE_STEP_COOLDOWN_MS = 400;
-  var lastEdgeStepAt = 0;
-  function onCursorEdge(ex, ey) {
-    if (!ey) return;
-    var now = performance.now();
-    if (now - lastEdgeStepAt < EDGE_STEP_COOLDOWN_MS) return;
-    lastEdgeStepAt = now;
-    setRangeIdx(rangeIdx + (ey < 0 ? 1 : -1));
-  }
 
   // A mouse/touch tap selects the same way the PAD cursor's Select does — same hit-test, same
   // toggle-lock (target.select/deselect). The panel's own CSS cursor already matches the PAD gate's
@@ -376,7 +374,8 @@ if (typeof window !== 'undefined' && window.addEventListener) {
         radarOn: !!m.radarOn,
         levelTime: m.levelTime || 0,
         items: Array.isArray(m.items) ? m.items : [],
-        pb: Array.isArray(m.pb) ? m.pb : []
+        pb: Array.isArray(m.pb) ? m.pb : [],
+        focusedTargetId: m.focusedTargetId || 0
       };
       if (typeof m.hdg === 'number') _hdg = m.hdg;
       render();

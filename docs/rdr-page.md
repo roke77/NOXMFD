@@ -1,12 +1,18 @@
-# RDR page
+# RDR/FCR page
 
-A new NAV item, **RDR**, showing the live air contacts the player's *own onboard radar*
-is currently detecting. If the player's aircraft has no radar, the page shows a
-`— not available —` placeholder instead.
+This page is now the **FCR** member of the RDR hub group. It remains served at `/rdr` and still uses
+the `rdr` action so existing layout state and controls continue to work. The sibling HSD page is
+tracked in [RDR hub — FCR and HSD pages](rdr-fcr-hsd.md).
 
-Scope for this first pass: **air-only** contacts (aircraft/missiles that are `air`), sourced
-**only** from the local aircraft's radar — not the faction datalink, not RWR, not visual/IR
-sensors. This is deliberately narrower than TGT (which shows the whole shared target picture).
+The **FCR** sibling shows the live air contacts the player's *own onboard radar*
+is currently detecting, plus purple datalink-only air contacts that the shared faction picture knows
+about but the radar is not painting. If the player's aircraft has no radar, the page shows a
+`— not available —` placeholder for the FCR picture instead.
+
+Current scope: **air-only** contacts (aircraft/missiles that are `air`), colored by source — see the
+note under "Layout — locked" below for where the color scheme is documented now. It still ignores
+RWR and visual/IR-only detections. This is deliberately narrower than TGT (which shows the whole
+shared target picture).
 
 ## Feasibility — explored, confirmed viable
 
@@ -55,9 +61,11 @@ not per frame. (This matches how a real radar display sweeps, so it's a feature,
 
 ## Layout — locked (F-16 FCR B-scope)
 
-Imitates the F-16 Fire Control Radar B-scope, drawn in the page's native green-on-black
-(`--no-green` contacts, smoked-white grid, `--no-amber` for the locked target), same SVG-scope
-approach as RWR but **rectangular** instead of polar.
+Imitates the F-16 Fire Control Radar B-scope, same SVG-scope approach as RWR but **rectangular**
+instead of polar. The color specifics below (own-radar contact color, and what happens when more
+than one target is locked) predate the later HSD sibling work and are superseded by
+[RDR hub — FCR and HSD pages](rdr-fcr-hsd.md) and [man/rdr.md](../man/rdr.md) — kept here as the
+original design record rather than rewritten in place.
 
 - **Frame:** ownship implied at bottom-center (white caret). Horizontal axis = relative bearing
   off the nose; vertical axis = range, 0 at ownship → max at top.
@@ -88,12 +96,12 @@ approach as RWR but **rectangular** instead of polar.
   BuildUnits' faction-visibility check works (`playerHQ.TryGetKnownPosition`), not
   distance-limited server-side — the scope's own range/cone culling handles anything outside the
   displayed window.
-- **Locked/bugged target:** turns `--no-amber`, gains a surrounding **circle** (not a box), keeps
-  its velocity stub. **Multiple targets can be locked at once** — each locked contact gets the
-  amber brick + circle.
-- **Data readout (bottom):** always the **first** target in the locked list — its `NAME` (kept —
-  we have `definition.unitName`), plus `RNG`, `ALT`, `HDG`, and a `LOCK N` count of how many are
-  locked.
+- **Locked/bugged target:** gains a surrounding **circle** (not a box), keeps its velocity stub.
+  **Multiple targets can be locked at once** — every locked contact gets the circle, but only the
+  one Next/Previous Target currently *focuses* (issue #62, docs/tgt-cycle-focus.md) also turns its
+  brick `--no-amber`; any other simultaneous lock keeps its ordinary red/purple brick.
+- **Data readout (bottom):** the **focused** locked target's `NAME` (kept — we have
+  `definition.unitName`), plus `RNG`, `ALT`, `HDG`, and a `LOCK N` count of how many are locked.
 - **Antenna-sweep caret:** a small inverted-T on the frame's bottom edge, sweeping left↔right through
   centre while the radar is actively emitting (`Aircraft.HasRadarEmission()` — already a top-level
   telemetry field, forwarded into the `rdr` message as `radarOn`). Hidden whenever `radarOn` is false
@@ -123,10 +131,11 @@ RDR does **not** invent its own lock mechanism. "Locked contacts" **are** the ex
 selected-target set — the same list TGT shows and the same `target.select` / `target.deselect`
 commands drive it. Consequences:
 
-- Select on a contact = `target.select` for that unit; the amber brick+circle just reflects
-  membership in that shared set.
-- "First locked" = first entry in that existing selected-targets list (already mirrored to the
-  shell as `targetsData`), so the readout has a well-defined source with no new state.
+- Select on a contact = `target.select` for that unit; the lock circle just reflects membership in
+  that shared set.
+- Which lock is *focused* (the amber brick, the readout's own contact) is `TargetFocus.Id`
+  (issue #62, docs/tgt-cycle-focus.md) — a shared value TGT/FCR/HSD all read, stepped by the
+  Next/Previous Target keybind, not a per-page guess.
 - Locks made on RDR show up on TGT and vice-versa — one target picture, two views. This is why
   RDR is aircraft-only at the scope level but leans on TGT's machinery underneath.
 - **Corner block:** mode (`RWS`), range-scale number, page tag.
@@ -140,8 +149,8 @@ velocity stubs, one amber-locked contact).
 - **PAD cursor** drives the F-16-style acquisition cursor: **two vertical bars** slewed by
   Cursor Up/Down/Left/Right (reuse `createPadCursor`, same as MAP/TGT/HUD).
 - **PAD Cursor Select** locks the aircraft between the bars by adding it to TGT's selected-target
-  set (`target.select`). Select can lock several contacts; the readout tracks the first entry in
-  that set.
+  set (`target.select`). Select can lock several contacts; which one the readout describes is the
+  focused lock (see "Locking reuses TGT's target set" above), not necessarily the one just locked.
 
 ## Build steps
 

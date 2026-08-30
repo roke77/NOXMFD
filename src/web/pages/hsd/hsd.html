@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD - HSD</title>
+<!--
+  HSD page served at /hsd (docs/rdr-fcr-hsd.md). A 360-degree datalink air picture around
+  ownship, using the shell-provided ownship position/heading. Carries the same PAD acquisition
+  cursor as FCR (docs/page-cursor.md): Select over a contact toggles its lock, reusing FCR/TGT's
+  target set. When opened standalone on localhost for the preview server, hsd.js seeds a tiny demo
+  picture so the page is visible without the parent MFD shell.
+
+  Shell -> page messages (all {mfd:true, ...}):
+    'hsd': { ownX, ownZ, hdg, metric, radarPresent, radarRange, radarCone,
+             items:[{ id, x, z, alt, hdg, tg, rd, dl, st, n }] }
+           x/z are known world positions, hdg is ownship heading, metric selects km vs nm labels.
+           radarRange/radarCone describe the FCR coverage wedge to overlay on the HSD range rings.
+    action: 'zoom-in'/'zoom-out' step the selected HSD range.
+    action: 'hsd-mode' toggles CEN <-> DEP (docs/rdr-fcr-hsd.md) — ownship recenters and the grid
+            ring count/spacing changes; the selected range carries across the switch rather than
+            each mode remembering its own (CEN/DEP share one index into their own NM ladder).
+    action: 'cursor'/'cursor-held'/'cursor-focus' drive the shared PAD cursor (services/pad-cursor.js)
+            exactly like FCR/TGT/MAP — see hsd.js's cursor wiring.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/hsd/hsd.css">
+</head>
+<body>
+  <div class="hsd-panel">
+    <svg class="hsd-scope" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <text id="hsd-range" x="552" y="44" class="hsd-hdr" text-anchor="end"></text>
+
+      <g id="hsd-grid"></g>
+      <g id="hsd-radar"></g>
+      <g id="hsd-contacts"></g>
+      <!-- Filled by hsd.js's renderOwnship() — the symbol itself is fixed, but its centre (CY)
+           moves between CEN and DEP mode, so it has to be drawn in script rather than fixed markup. -->
+      <g id="hsd-ownship"></g>
+      <!-- PAD acquisition gate (docs/page-cursor.md), same two-bar look as FCR's #rdr-cursor-g —
+           pad-cursor.js moves the invisible #hsd-cursor div below in panel px; hsd.js converts
+           that to viewBox units and paints the visible gate here. -->
+      <g id="hsd-cursor-g"></g>
+
+      <text id="hsd-r1" x="48" y="544" class="hsd-read hsd-lock-read"></text>
+      <text id="hsd-r2" x="48" y="566" class="hsd-read hsd-lock-read"></text>
+      <text id="hsd-link" x="552" y="544" class="hsd-read" text-anchor="end"></text>
+      <text id="hsd-locks" x="552" y="566" class="hsd-read" text-anchor="end"></text>
+    </svg>
+    <div id="hsd-cursor" class="hsd-cursor"></div>
+  </div>
+
+<script src="/assets/services/send-command.js"></script>
+<script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
+<script src="/assets/services/remote-keybinds.js"></script>
+<script src="/assets/pages/hsd/hsd.js"></script>
+</body>
+</html>

@@ -2,17 +2,19 @@
 
 ## Status
 
-In progress. `tools/tests/` is stood up with `JsonLite.cs` + `RouteStore.cs` covered (step 1 below),
-and `TelemetryServer.cs`'s JSON-writer layer is extracted into `TelemetryJson.cs` and covered (step
-2). Steps 3-6 are not started — see the Scope checklist.
+Complete for the planned local C# unit-test extractions. `tools/tests/` covers the pure seams listed
+below, `tools/ci-check.ps1` runs `dotnet test tools/tests/NOXMFD.Tests.csproj`, and
+`tools/ci-check-selftest.ps1` validates that a deliberately failing xUnit test makes the local check
+fail. Hosted CI remains optional and blocked for the full plugin build on ordinary GitHub-hosted
+runners unless they can provide `GameDir` and the Nuclear Option managed DLLs.
 
 ## The problem
 
-No C# test harness exists anywhere in this repo. Every one of the 24 files in `src/plugin/` is
-verified today by `dotnet build` (compiles, 0 errors) plus a manual in-game checklist — the same
-norm this codebase already applies to any Harmony/game-object-dependent class. That's a reasonable
-default for code that genuinely can't run outside Unity, but a real share of the plugin isn't that
-kind of code — it just hasn't been separated from the kind that is.
+The standalone `tools/tests/` xUnit project covers the plugin's pure, Unity-free seams by compiling
+those source files directly. Most `src/plugin/` files still rely on `dotnet build` plus a manual
+in-game checklist because they reflect into live Unity/game objects. That's a reasonable default
+for code that genuinely can't run outside Unity, while the remaining checklist below identifies
+business logic that can still be separated and tested safely.
 
 ## Why a blanket refactor is the wrong shape
 
@@ -22,8 +24,7 @@ why that's not the plan: several files — `HarmonyPatches.cs`, `AssetCapture.cs
 *are* the Unity/game integration seam by design. There's no business rule hiding inside a Harmony
 prefix that just returns `ImmersionState.MasterArmsOn`, or inside a GPU capture pipeline
 (Blit → AsyncGPUReadback → JPEG). Refactoring those for testability would move code around for
-zero testing benefit, on a codebase with no existing test safety net to catch a mistake — real risk
-for no payoff.
+zero testing benefit and add risk without expanding meaningful coverage.
 
 The other files split differently: some already have zero Unity coupling and just need tests
 written against them today; others have real, extractable business logic sitting mixed in with a
@@ -41,15 +42,18 @@ Coupling measured as a rough signal: hits for `SceneSingleton<`, `GameManager.`,
 | `RouteStore.cs` | 364 | Route/waypoint mutators, name-dedup, proximity-advance — already ported from `wpt-route.js`'s pure functions, and those specific methods are genuinely pure. **Correction (2026-08-21): the file as a whole is not "zero touchpoints."** `Load()`/`Save()` reference `BepInEx.Paths.ConfigPath` (`:50`) and `Plugin.Log` (`:117`), and `BuildJson()` calls `TelemetryServer.EscapeJson` (`:124`) — none of those are Unity/game-object coupling (the survey's grep signal below doesn't catch them, which is why it missed this), but a standalone test project still can't compile against this file without either those three symbols available or a small extraction of the pure mutators into their own seam. Still the single biggest win here, just not a zero-touchpoint one — budget a small storage/log/escape seam alongside step 1 below, not a bigger effort than that. |
 | `JsonLite.cs` | 184 | The JSON parser. Already the obvious first target. |
 | `ExtensionRegistry.cs` | 188 | Registration table, bounded command queue, manifest sort — mostly state bookkeeping, some real logic. |
+| `HudDirectionCueMath.cs` | 108 | Pure screen-rectangle placement for the manual-TGP HUD cue; already linked into `tools/tests` with edge, rear, invalid-input, and stabilization coverage. |
+| `TgpManualAimMath.cs` | 76 | Pure azimuth/elevation/zoom-axis math for manual TGP pointing; linked into `tools/tests`. |
+| `TgpFeedSettings.cs` | ~140 | TGP resolution/JPEG-quality name normalization and dimension resolution, plus the aspect-preserving resize and IR auto-levels math extracted from `TgpFeed.cs`/`SpriteCapture.cs`; linked into `tools/tests`. |
 
 ### Real logic worth partially extracting
 
 | File | Lines | Touchpoints | The extractable core |
 |---|---|---|---|
 | `TelemetryServer.cs` | 2019 | 6 | The standout: only 6 real game touchpoints across 2000 lines. Nearly the whole file is JSON-string-building (`BdfBlock`, `MisBlock`, `ObjBlock`, `EscapeJson`, …) over already-extracted snapshot data, not live game state. Pulling that serialization layer into its own class is the highest-value single move here. |
-| `AkfTracker.cs` | 157 | 6 | Weapon-attribution TTL bookkeeping, funds delta, kill categorization. Needs `PersistentID` and `Time.unscaledTime` swapped for a plain id/float parameter to go fully pure. |
+| `AkfTracker.cs` | 157 | 6 | Weapon-attribution TTL bookkeeping, funds delta, kill categorization, now extracted into generic pure `AkfTrackerLogic<TId>` with plain ids/timestamps and unit coverage. |
 | `Keybinds.cs` | 936 | 11 | Low density for its size. The tap-vs-hold arbitration (`PollTapHold`) is clean, separable logic buried in a large bind-table file. |
-| `WeaponSelectors.cs` | 336 | 21 | Real cycle-selection algorithm (recall/advance/skip-depleted), tightly interleaved with live loadout reads — needs a plain loadout-entry DTO before it separates cleanly. |
+| `WeaponSelectors.cs` | 336 | 21 | Real cycle-selection algorithm (recall/advance/skip-depleted), now extracted through a plain loadout DTO into `WeaponSelectorLogic.cs` with unit coverage. |
 | `HudWaypointCue.cs` | 220 | 25 | Small pure geometry kernel (bearing → tape position, edge-clamp math) inside an otherwise Unity-heavy `MonoBehaviour`. |
 
 ### Pure Unity/game glue — not a testability-refactor target
@@ -105,12 +109,18 @@ Smallest safe step first, each one a self-contained PR:
    picks up from here — further splitting the rest of `TelemetryServer.cs` (asset serving, the
    command queue, SSE/MJPEG) once this piece is out, plus unrelated request-hygiene hardening on the
    command endpoints.
-3. **Extract `AkfTracker.cs`'s attribution/bookkeeping logic** — swap `PersistentID`/
-   `Time.unscaledTime` for plain parameters at the boundary.
-4. **Extract `Keybinds.cs`'s tap/hold arbitration** into a pure function.
-5. **Extract `HudWaypointCue.cs`'s geometry kernel**.
-6. **`WeaponSelectors.cs`** — lowest priority of the five; needs a loadout DTO layer first, more
-   design work than the others before it's separable.
+3. **Extract `AkfTracker.cs`'s attribution/bookkeeping logic**. — done in
+   `AkfTrackerLogic.cs`, covered by `AkfTrackerLogicTests.cs`. The live `AkfTracker.cs` file now
+   resolves game units/HQ/local-aircraft state and delegates feed, tally, TTL-attribution, funds,
+   and rank state to the pure helper.
+4. **Extract `Keybinds.cs`'s tap/hold arbitration** into a pure function. — done in
+   `KeybindTapHold.cs`, covered by `KeybindTapHoldTests.cs`.
+5. **Extract `HudWaypointCue.cs`'s geometry kernel**. — done in `HudWaypointCueMath.cs`,
+   covered by `HudWaypointCueMathTests.cs`.
+6. **Extract `WeaponSelectors.cs`'s cycle-selection algorithm**. — done in
+   `WeaponSelectorLogic.cs`, covered by `WeaponSelectorLogicTests.cs`. The live
+   `WeaponSelectors.cs` file now adapts game `WeaponStation`/`WeaponInfo` objects into a plain
+   loadout DTO list and delegates cycle/effective/first-available decisions to the pure helper.
 
 Each step should land with its own tests in the same PR — no extraction without the test that was
 the point of doing it.
@@ -121,9 +131,14 @@ the point of doing it.
 - [x] Stand up the xUnit project, wire `JsonLite.cs` + `RouteStore.cs` in as the first real tests
 - [x] Extract and test `TelemetryServer.cs`'s JSON-writer layer — `TelemetryJson.cs`,
       `TelemetryJsonTests.cs`
-- [ ] Extract and test `AkfTracker.cs`'s attribution/bookkeeping logic
-- [ ] Extract and test `Keybinds.cs`'s tap/hold arbitration
-- [ ] Extract and test `HudWaypointCue.cs`'s geometry kernel
-- [ ] Design a loadout DTO, then extract and test `WeaponSelectors.cs`'s cycle-selection algorithm
-- [ ] Confirm `dotnet test` runs clean in CI (if/when this repo gets CI — see
-      `docs/ci-smoke-check.md`) alongside the existing `dotnet build` + `node *.test.js` checks
+- [x] Extract and test `AkfTracker.cs`'s attribution/bookkeeping logic —
+      `AkfTrackerLogic.cs`, `AkfTrackerLogicTests.cs`
+- [x] Extract and test `Keybinds.cs`'s tap/hold arbitration — `KeybindTapHold.cs`,
+      `KeybindTapHoldTests.cs`
+- [x] Extract and test `HudWaypointCue.cs`'s geometry kernel — `HudWaypointCueMath.cs`,
+      `HudWaypointCueMathTests.cs`
+- [x] Design a loadout DTO, then extract and test `WeaponSelectors.cs`'s cycle-selection algorithm —
+      `WeaponSelectorLogic.cs`, `WeaponSelectorLogicTests.cs`
+- [ ] Confirm `dotnet test` runs clean in hosted CI if/when this repo gets CI. Local validation is
+      done via `tools/ci-check.ps1` and `tools/ci-check-selftest.ps1`; hosted CI remains optional
+      because the full build needs `GameDir`/Nuclear Option DLLs (see `docs/ci-smoke-check.md`).

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — MAP CFG</title>
+<!--
+  MAP's own CFG page, served at /mapcfg. Reached from MAP's own nav row (nav-model.js's NAV.map),
+  not MD/CFG's MAIN-rooted sibling groups — same reasoning as WPT. Two sliders:
+    TLM      — the main 10 Hz telemetry tick (own-ship, weapons, RWR/MW, TGT, BDF/PAL, and MAP
+               itself — everything else on TelemetrySnapshot rides this one tick,
+               TelemetryReader.cs's FastInterval).
+    CONTACTS — the 4 Hz MAP/RDR/HSD contact + pitbull refresh, split off TLM (docs/performance.md
+               item #4) since full contact lists don't need to rebuild as often as own-ship state.
+               TelemetryReader.cs's ContactInterval.
+  TGP's own feed-rate/quality settings live on their own CFG page instead (/tgpcfg) — each page
+  only carries the setting relevant to it.
+  Fetch-driven like /keybinds: reads /rates-config once on load to set the slider position, then
+  POSTs rates.set (send-command.js -> CommandDispatcher) on every slider move, same
+  optimistic-update pattern keybinds.js uses for its toggles.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/mapcfg/mapcfg.css">
+</head>
+<body>
+
+<div class="mcfg-panel" id="mcfg-panel">
+  <!-- Way back to the display when opened standalone; hidden when embedded in a shell (classic
+       #page-frame or an F-35 portal) — same check keybinds.js uses (window.parent !== window). -->
+  <a class="mcfg-back" href="/map-view">&lt; MAP</a>
+  <div class="mcfg-title">MAP — REFRESH RATE</div>
+  <div class="mcfg-warning">Higher rates cost more CPU / bandwidth; lower rates save it at the cost
+    of smoothness and latency. Changes apply immediately and persist across restarts.</div>
+  <button class="mcfg-reset" id="mcfg-reset">RESET TO DEFAULT</button>
+
+  <div class="mcfg-setting" id="mcfg-tlm">
+    <div class="mcfg-setting-text">
+      <div class="mcfg-name">TLM — TELEMETRY</div>
+      <div class="mcfg-desc">The main data tick: own-ship state, weapons, RWR/MW, TGT filters,
+        BDF/PAL faction stats. Everything on this mod's other pages rides this one rate, MAP
+        included.</div>
+    </div>
+    <div class="mcfg-slider-row">
+      <div class="mcfg-slider-wrap">
+        <input type="range" id="mcfg-tlm-slider" min="5" max="30" step="5">
+        <div class="mcfg-ticks" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      </div>
+      <span class="mcfg-val" id="mcfg-tlm-val">10 Hz</span>
+    </div>
+  </div>
+
+  <div class="mcfg-setting" id="mcfg-contact">
+    <div class="mcfg-setting-text">
+      <div class="mcfg-name">CONTACTS</div>
+      <div class="mcfg-desc">MAP/RDR/HSD contact and pitbull-missile refresh rate, split off TLM
+        since full contact lists cost more per tick than own-ship state.</div>
+    </div>
+    <div class="mcfg-slider-row">
+      <div class="mcfg-slider-wrap">
+        <input type="range" id="mcfg-contact-slider" min="1" max="10" step="1">
+        <div class="mcfg-ticks" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      </div>
+      <span class="mcfg-val" id="mcfg-contact-val">4 Hz</span>
+    </div>
+  </div>
+
+  <!-- shown while /rates-config is unreachable (plugin not running) -->
+  <div class="mfd-empty" id="mcfg-empty"><span class="mfd-empty-title">MAP CFG</span>&mdash; UNAVAILABLE &mdash;</div>
+</div>
+
+<script src="/assets/services/send-command.js"></script>
+<script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
+<script src="/assets/services/remote-keybinds.js"></script>
+<script src="/assets/pages/mapcfg/mapcfg.js"></script>
+</body>
+</html>

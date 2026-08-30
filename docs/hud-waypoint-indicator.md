@@ -2,8 +2,8 @@
 
 ## Status
 
-Design A is implemented on branch `hud-waypoint-indicator`, no ticket filed,
-with route storage fully owned by the plugin (Option 2, below — not the
+Design A is implemented and merged to `main`, with route storage fully owned by the plugin
+(Option 2, below — not the
 Option 1 mirror this doc originally shipped with). Design B (a cloned
 `ObjectiveOverlay`) is not built. The build is clean and the web self-checks
 pass; the cue's absolute placement on the tape is **not yet verified
@@ -210,11 +210,11 @@ need a browser to push anything, so there was nothing to keep them for.
 
 | File | Role |
 |---|---|
-| `src/plugin/RouteStore.cs` | The route library: storage, every mutation, disk persistence, `AdvanceIfNear` — now also squad-shared routes (accept/reject, dedup, progress-preserving updates, auto-reshare, unlock-on-squad-end; see `docs/squadron-transport.md`'s Implementation section) |
+| `src/plugin/Stores/RouteStore.cs` | The route library: storage, every mutation, disk persistence, `AdvanceIfNear` — now also squad-shared routes (accept/reject, dedup, progress-preserving updates, auto-reshare, unlock-on-squad-end; see `docs/squadron-transport.md`'s Implementation section) |
 | `src/plugin/JsonLite.cs` | Minimal JSON reader — the persisted file and pasted imports; `SelfCheck()` is its runnable check, called once from `Plugin.Awake` |
 | `src/plugin/Hud/HudWaypointCue.cs` | The renderer — chevron on the tape + two-line readout, reads `RouteStore` in-process |
 | `src/plugin/CommandDispatcher.cs` | 19 `wpt.*` commands (the original 14 route/waypoint CRUD + 5 squad-share: `share`/`receive-shared`/`accept-shared`/`reject-shared`/`remove-shared`); `text` added to the envelope |
-| `src/plugin/TelemetryServer.cs` | `GET /wpt-options` — the route library, mission-independent |
+| `src/plugin/Http/TelemetryServer.cs`, `src/plugin/Http/TelemetryHttpRouter.cs` | `GET /wpt-options` — the route library, mission-independent |
 | `src/web/pages/wpt/waypoints-store.js` | Fetch/poll (`/wpt-options`, top window only) + `POST /command` client |
 | `src/web/pages/wpt/wpt-route.js` | Trimmed to display-derivation only — mutation logic moved to `RouteStore.cs` |
 | `src/web/shell/classic/mfd.js`, `src/web/shell/f35/f35.js` | Relay `/wpt-options` data to embedded MAP/WPT pages — see the perf fix above |

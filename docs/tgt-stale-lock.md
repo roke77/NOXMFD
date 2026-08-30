@@ -11,12 +11,14 @@ just the stale locks.
 
 ## The game's own distinction (decompiled reference, `_scratch/full/`)
 
-- **`FactionHQ.IsTargetPositionAccurate(target, threshold)`** ([FactionHQ.cs](../_scratch/full/FactionHQ.cs))
+- **`FactionHQ.IsTargetPositionAccurate(target, threshold)`** (`_scratch/full/FactionHQ.cs`, local
+  decompilation reference; not committed)
   is stricter than the freshness check `Datalink` already uses (`TrackingInfo.Observed()`, < 4s since
   last sensed). It returns `true` immediately while fresh, but once stale it falls back to comparing
   the target's **actual current position** (server-authoritative) against the last-known relayed one:
   still within `threshold` metres → still trusted; drifted past it → not trusted.
-- **`TargetScreenUI`** ([TargetScreenUI.cs:207](../_scratch/full/TargetScreenUI.cs)) calls this with a
+- **`TargetScreenUI`** (`_scratch/full/TargetScreenUI.cs`, local decompilation reference; not
+  committed) calls this with a
   20m threshold to decide whether a locked target's TGP box gets the normal sprite or `outdatedSprite`
   (the "?"). NO XMFD reuses the same 20m so its STALE flag lines up with what the pilot would see in
   the real TGP.
@@ -25,10 +27,10 @@ just the stale locks.
 
 ## The plan (as built)
 
-1. **`UnitInfo.Stale`** ([TelemetrySnapshot.cs](../src/plugin/TelemetrySnapshot.cs)) — set in
-   `BuildUnits()` ([TelemetryReader.cs](../src/plugin/TelemetryReader.cs)) right after `Datalink`:
+1. **`UnitInfo.Stale`** ([TelemetrySnapshot.cs](../src/plugin/Telemetry/TelemetrySnapshot.cs)) — set in
+   `BuildUnits()` ([TelemetryReader.cs](../src/plugin/Telemetry/TelemetryReader.cs)) right after `Datalink`:
    `datalink && !playerHQ.IsTargetPositionAccurate(u, 20f)`.
-2. **Serialization** ([TelemetryServer.cs](../src/plugin/TelemetryServer.cs)) — one more terse key,
+2. **Serialization** ([TelemetryJson.cs](../src/plugin/Telemetry/TelemetryJson.cs)) — one more terse key,
    `"st"`, on `UnitsArray`'s per-contact JSON, next to `dl`.
 3. **Client derivation** ([telemetry-source.js](../src/web/services/telemetry-source.js)) — `st`
    rides along into each pushed target item the same way `dl` does.

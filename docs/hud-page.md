@@ -2,8 +2,8 @@
 
 ## Status
 
-**Feature-complete in the harness** on `feat/hud-declutter` (issue #20); the end
--to-end in-game test of the full page is the remaining check.
+**Merged to `main` and feature-complete in the harness** (issue #20); the end-to-end in-game test
+of the full page is the remaining check.
 
 - **Proven in game**: the plugin drives the in-cockpit HUD OPTIONS live — a
   toggle from the MFD re-renders the HUD immediately, no re-init.

@@ -31,9 +31,10 @@ export function createPadCursor({ el, clampRect, onSelect, onHold, onMove, onEdg
   let vec = { x: 0, y: 0 };   // last reported [-1,1] velocity, held between broadcasts
   let timer = null, lastT = 0;
   let holdTimer = null, holdFired = false;   // Select press/hold arbitration (see setSelectHeld)
-  // Externally forced invisible (docs/tgt-keybind-nav.md): a page can have its own selection mode
-  // (e.g. a row-stepper) that's mutually exclusive with the free crosshair. setHidden suppresses
-  // the crosshair without touching `on`/`pos`, so un-hiding resumes exactly where it was.
+  // Externally forced invisible (docs/tgt-cycle-focus.md): a page can have its own Next/Prev-driven
+  // selection mode that's mutually exclusive with the free crosshair (TGT: Select acts on the
+  // focused lock instead of a crosshair hit-test while this is set). setHidden suppresses the
+  // crosshair without touching `on`/`pos`, so un-hiding resumes exactly where it was.
   let hidden = false;
 
   function clamp() {
@@ -111,6 +112,11 @@ export function createPadCursor({ el, clampRect, onSelect, onHold, onMove, onEdg
     },
     // Re-clamp + repaint after the clamp rect changed (a resize) without moving the cursor itself.
     resize() { clamp(); paint(); },
+    // Current cursor position (clampRect's px space), or null when not shown — focused, placed,
+    // and not hidden. A page can use this as a zoom/action anchor when the cursor is standing in
+    // for the mouse (issue #64: bezel/keybind zoom should target the cursor, same as a mouse wheel
+    // targets the pointer).
+    getPos() { return (on && pos && !hidden) ? { x: pos.x, y: pos.y } : null; },
     // `pos`/`vec` stay untouched while hidden, so a still-deflected vector keeps driving
     // underneath (paint() just skips the visible repaint), and un-hiding shows the cursor exactly
     // where it was.

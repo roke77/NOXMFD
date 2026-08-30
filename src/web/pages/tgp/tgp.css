@@ -27,3 +27,217 @@
    so without this the player would see a frozen stale picture instead of NO LOCK. */
 .tgp-panel:not(.has-feed) .tgp-img { visibility: hidden; }
 .tgp-panel.has-feed .tgp-empty { display: none; }
+
+/* Boresight reticle (docs/tgp-manual-control.md) — shown only while manually pointing AND in HQ
+   quality. Native quality's captured video already bakes this in for free: Native captures the
+   game's own stacked-camera UICam output directly, and TgpNativeOverlay.SyncCrosshair draws its
+   own crosshair onto that exact canvas. Requiring .show-overlay too (not just .tgp-manual) is what
+   gates that — .show-overlay is only ever set for HQ quality (see tgp.js's applyOverlay) — so
+   Native doesn't get this CSS crosshair drawn a second time on top of the one already in the
+   pixels. Matches the in-cockpit crosshair's final proportions exactly
+   (TgpNativeOverlay.SyncCrosshair): long arms reaching nearly to the frame edges with a small gap
+   only around the center, not a small gapped cross sized for a corner-badge context — this IS the
+   primary aiming reference on this page, the same way it is on the in-cockpit screen.
+
+   Percentage-based (not fixed px), so it scales with the panel instead of looking right only at
+   one size — .tgp-panel is the containing block (position:absolute) these percentages resolve
+   against. A screen-centered anchor, not synced to tgp.js's letterbox-corrected overlay rect the
+   way the HQ stat overlay is: object-fit:contain always keeps the picture's own center at the
+   panel's center regardless of letterbox bars, so plain 50/50% positioning already lines up with
+   the image.
+
+   gap/armLength/thickness mirror TgpNativeOverlay.SyncCrosshair's own constants (box side = 2*gap,
+   arm length = 4*gap = 2x the box side) as fractions of the panel's HEIGHT — the master reference
+   axis, chosen because .tgp-panel's own aspect-ratio: 3/2 means width is always 1.5x height, so a
+   quantity meant to read as the same PHYSICAL size on both axes can't reuse one percentage number
+   for both: 0.5% of a 1.5x-wider width is a 1.5x-bigger length than 0.5% of height. Left/right arms
+   and the box's horizontal edges/span are the WIDTH-relative counterparts of the same physical
+   sizes, so each is the height-based number divided by 1.5 (multiplied by 2/3) — that's what makes
+   the vertical and horizontal arms the same girth, and the box an actual square instead of a
+   1.5x-wide rectangle whose four independent bars don't quite meet at the corners. If .tgp-panel's
+   aspect-ratio ever changes, these two families of numbers need re-deriving together, not just one. */
+.tgp-crosshair {
+  display: none;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.tgp-panel.tgp-manual.has-feed.show-overlay .tgp-crosshair { display: block; }
+.tgp-ch-arm {
+  position: absolute;
+  background: var(--no-white);
+  box-shadow: 0 0 2px #000;
+}
+/* Top/bottom: length runs along height (11.25%), thickness along width (0.5% / 1.5 = 0.3333%). */
+.tgp-ch-top    { left: 49.8333%; width: 0.3333%; top: 35.9375%; height: 11.25%; }
+.tgp-ch-bottom { left: 49.8333%; width: 0.3333%; top: 52.8125%; height: 11.25%; }
+/* Left/right: length runs along width (11.25% / 1.5 = 7.5%), thickness along height (0.5%). */
+.tgp-ch-left   { top: 49.75%; height: 0.5%; left: 40.625%; width: 7.5%; }
+.tgp-ch-right  { top: 49.75%; height: 0.5%; left: 51.875%; width: 7.5%; }
+
+/* Point Track marker — a small hollow square at center whose edges sit exactly at the crosshair
+   arms' inner tips (box side = 2*gap, matching TgpNativeOverlay's hand-built box exactly, not the
+   native game's own targetLockBox sprite — that one's border stayed visually thin no matter how
+   big the box was resized, so both surfaces build their own box from plain bars instead). Only
+   shown while Point Track is actually locked, via .tgp-point-track on the panel (tgp.js). Each edge
+   bar is centered exactly ON the box's conceptual edge line (half-thickness each side of it), the
+   same way a picture frame's corners are mitered — that's what keeps adjacent bars overlapping
+   cleanly into a single corner instead of reading as two independent lines that stop short of
+   each other. Width-relative numbers (left/right edges' span and top/bottom edges' thickness) are
+   the height-relative ones divided by 1.5, same reasoning as the crosshair arms above. */
+.tgp-ch-box { display: none; }
+.tgp-panel.tgp-point-track .tgp-ch-box { display: block; }
+.tgp-ch-box-edge {
+  position: absolute;
+  background: var(--no-white);
+  box-shadow: 0 0 2px #000;
+}
+.tgp-ch-box-top    { left: 48.125%;   width: 3.75%;   top: 46.9375%; height: 0.5%; }
+.tgp-ch-box-bottom { left: 48.125%;   width: 3.75%;   top: 52.5625%; height: 0.5%; }
+.tgp-ch-box-left   { top: 47.1875%;   height: 5.625%; left: 47.9583%; width: 0.3333%; }
+.tgp-ch-box-right  { top: 47.1875%;   height: 5.625%; left: 51.7083%; width: 0.3333%; }
+
+/* Stat overlay — two distinct sources feed the same corner-group layout (tgp.js's applyOverlay),
+   both shown only in HQ quality: Native's captured video already bakes this in for both cases (see
+   the crosshair comment above), so drawing it client-side there too would double it up. The locked-
+   target overlay (docs/tgp-high-quality-mode.md, drawn client-side because HQ's mirror camera has
+   no UICam counterpart to bake this into the video the way Native does) shows when quality:"hq" AND
+   a lock is active; the manual-mode overlay (docs/tgp-manual-control.md's "In-cockpit overlay" /
+   web parity) shows when quality:"hq" AND manual mode is on. Sizing/layout matches the in-cockpit
+   TargetScreenUI screen (stacked corner groups, dark pill-background stat lines, a bearing compass
+   bottom-left) rather than the field list's own declaration order.
+
+   inset:0 here is only the pre-JS fallback. object-fit:contain letterboxes the <img> whenever the
+   panel's own box (width:100% + aspect-ratio, clamped by max-height:100%) isn't an exact match for
+   the frame's real aspect, so a plain inset:0 (matching the *panel*, not the *picture*) drifts off
+   the actual image content by the letterbox bars — worse the more the container's own shape
+   diverges from 3:2. tgp.js's syncOverlayRect() sets explicit left/top/width/height inline to the
+   image's real letterbox-corrected content box, so this stays in lockstep with the picture at any
+   panel size.
+*/
+.tgp-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  pointer-events: none;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--no-white);
+}
+.tgp-panel.show-overlay .tgp-overlay { display: block; }
+
+.tgp-ov-stat, .tgp-ov-title {
+  display: inline-block;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 8px;
+  margin-bottom: 3px;
+  border-radius: 2px;
+}
+.tgp-ov-title { font-size: 18px; }
+.tgp-ov-title.friendly { color: var(--no-blue); }
+.tgp-ov-title.hostile  { color: var(--no-red); }
+.tgp-ov-tag   { color: var(--no-amber); margin-left: 5px; }
+.tgp-ov-pilot {
+  display: block;
+  color: var(--no-white-dim);
+  font-size: 12px;
+  font-weight: 400;
+  margin: -2px 0 4px 2px;
+}
+.tgp-ov-pilot:empty { display: none; }
+
+/* Manual mode hides SPD (own-aircraft speed duplicates the flight HUD — same call
+   TgpNativeOverlay's in-cockpit overlay made) rather than showing a dash for it; a generic
+   utility class, not name-tied to SPD, in case another stat line ever needs the same treatment. */
+.tgp-ov-hidden { display: none; }
+
+.tgp-ov-stack {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+}
+.tgp-ov-tl { top: 0; left: 0;  align-items: flex-start; }
+.tgp-ov-tr { top: 0; right: 0; align-items: flex-end; }
+.tgp-ov-br { bottom: 0; right: 0; align-items: flex-end; }
+
+.tgp-ov-bl {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tgp-ov-compass {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border: 2px dashed var(--no-white-dim);
+  border-radius: 50%;
+  /* Same translucent pill background as the stat lines (.tgp-ov-stat etc.) — the ring alone
+     read poorly over a bright/busy patch of the picture. */
+  background: rgba(0, 0, 0, 0.6);
+}
+.tgp-ov-needle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 18px;
+  background: var(--no-white);
+  transform-origin: 50% 0%;
+  margin-left: -1px;
+}
+.tgp-ov-brg {
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 8px;
+  border-radius: 2px;
+}
+
+/* Per-target lock box (tgp.js's renderBoxes) — positioned via left/top percentages set inline
+   from the server's WorldToViewportPoint output, so this only needs to define the box's own
+   look. Centered on its (x,y) point rather than corner-anchored, matching a crosshair-style lock
+   marker instead of a top-left-anchored rectangle. */
+.tgp-ov-box {
+  --tgp-box-size: 34px;
+  position: absolute;
+  width: var(--tgp-box-size);
+  height: var(--tgp-box-size);
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--no-red);
+  box-shadow: 0 0 2px #000;
+}
+.tgp-ov-box.friendly { border-color: var(--no-blue); }
+/* Same yellow the MAP page's JammedMarker line already uses (map.js's drawJamLines) — kept
+   consistent rather than reusing --no-amber, which lased/outdated also need to stay distinct. */
+.tgp-ov-box.jammed   { border-color: rgba(255, 221, 0, 0.85); }
+.tgp-ov-box.outdated { border-color: var(--no-white); border-style: dashed; }
+.tgp-ov-box.lased    { border-color: var(--no-amber); }
+
+/* Friendly gets an X through the box, matching TargetScreenUI's friendlyBoxSprite. Sized to the
+   box's own corner-to-corner diagonal (--tgp-box-size * sqrt(2)), not its edge length, so the
+   lines actually reach the corners once rotated 45°. */
+.tgp-ov-box.friendly::before, .tgp-ov-box.friendly::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: calc(var(--tgp-box-size) * 1.41421356);
+  height: 2px;
+  background: var(--no-blue);
+}
+.tgp-ov-box.friendly::before { transform: translate(-50%, -50%) rotate(45deg); }
+.tgp-ov-box.friendly::after  { transform: translate(-50%, -50%) rotate(-45deg); }
+
+/* Lased gets a small red target cross in the middle of the box, on top of whatever the box's own
+   border color is (amber) — the laser-designation state, not the box's faction/status color. */
+.tgp-ov-box.lased::before, .tgp-ov-box.lased::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  background: var(--no-red);
+}
+.tgp-ov-box.lased::before { width: 16px; height: 2px; transform: translate(-50%, -50%); }
+.tgp-ov-box.lased::after  { width: 2px; height: 16px; transform: translate(-50%, -50%); }

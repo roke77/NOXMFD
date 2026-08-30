@@ -1,5 +1,5 @@
 // Self-check that named SSE events the server emits from a squadmate's shared data
-// (TelemetryServer.cs's /stream handler) match the event name telemetry-source.js actually
+// (SseHub.cs's /stream handler) match the event name telemetry-source.js actually
 // listens for. Run: `node sse-event-coverage.test.js`.
 //
 // This is exactly the shape of bug that shipped once already: the server emitted
@@ -11,7 +11,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const serverPath = path.join(__dirname, '..', '..', 'plugin', 'TelemetryServer.cs');
+const serverPath = path.join(__dirname, '..', '..', 'plugin', 'Http', 'SseHub.cs');
 const serverSrc = fs.readFileSync(serverPath, 'utf8');
 const clientSrc = fs.readFileSync(path.join(__dirname, 'telemetry-source.js'), 'utf8');
 
@@ -19,7 +19,7 @@ const clientSrc = fs.readFileSync(path.join(__dirname, 'telemetry-source.js'), '
 // built as a plain string literal (unlike the dynamic `"event: ext-" + kv.Key` extension events,
 // which have no single fixed name to check against a listener).
 const serverMatch = serverSrc.match(/Squad\.DataSince[\s\S]*?"event: ([a-zA-Z-]+)\\n/);
-assert.ok(serverMatch, 'could not find the squad-data SSE event literal in TelemetryServer.cs — did that block move or get renamed?');
+assert.ok(serverMatch, 'could not find the squad-data SSE event literal in SseHub.cs — did that block move or get renamed?');
 const serverEvent = serverMatch[1];
 
 const clientHasListener = clientSrc.includes(`addEventListener('${serverEvent}',`);

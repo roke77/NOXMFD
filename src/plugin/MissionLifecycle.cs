@@ -52,7 +52,11 @@ namespace NOXMFD
             _readerObject  = new GameObject("NOXMFD_Runner");
             _readerObject.AddComponent<TelemetryReader>();
             _readerObject.AddComponent<HudDeclutter>();
+            _readerObject.AddComponent<HudPower>();
             _readerObject.AddComponent<HudWaypointCue>();
+            _readerObject.AddComponent<HudTgpCue>();
+            _readerObject.AddComponent<HudTtiCue>();
+            _readerObject.AddComponent<HudFocusMark>();
             Plugin.Log?.LogInfo("Mission started -> telemetry reader ON.");
         }
 

@@ -17,7 +17,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { CLASSIC_FULL } = require('../layout-pages.js');
+const { CLASSIC_FULL } = require('../shared/layout-pages.js');
 
 const mfdPath = path.join(__dirname, 'mfd.js');
 const mfdSrc = fs.readFileSync(mfdPath, 'utf8');

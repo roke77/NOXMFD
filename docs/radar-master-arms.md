@@ -1,11 +1,12 @@
 # Radar & Master Arm — [issue #32](https://github.com/roke77/NOXMFD/issues/32)
 
-**Branch:** `radar-master-arms`. **Status:** built and partly in-game tested. First real play-test
-caught the Radar spawn-default bug (see the Radar section below) — fixed. RDR was also found missing
-from the F-35 layout's MAIN list (a pre-existing gap unrelated to this feature, fixed in passing).
-4 of 5 A/A missile names are now confirmed against real session logs (see Decisions confirmed) —
-only `IRM-S1` remains provisional. Still remaining before merge: verify the Radar fix, Engine, all
-eight keybinds, Master Arm enforcement, and combat-mode filtering in-game.
+**Status:** merged to `main` and partly in-game tested. The first real play-test caught the Radar
+spawn-default bug (see the Radar section below) — fixed. RDR was also found missing from the F-35
+layout's MAIN list (a pre-existing gap unrelated to this feature, fixed in passing). Combat-mode
+HUD filtering was later tested in-game and one bug was fixed. Four of five A/A missile names are
+confirmed against real session logs (see Decisions confirmed); only `IRM-S1` remains provisional.
+The remaining live matrix is the Radar fix, Engine behavior, all eight keybinds, Master Arm
+enforcement, and weapon-selection combat-mode filtering.
 
 ## Goal
 
@@ -221,7 +222,7 @@ page already has. Existing sections/table are untouched.
 
 ### Keybind registration — eight ordinary binds, three ordinary settings
 
-- **File:** `src/plugin/Keybinds.cs`. **Built, and turned out to need genuinely new plumbing** — the
+- **File:** `src/plugin/Input/Keybinds.cs`. **Built, and turned out to need genuinely new plumbing** — the
   plan originally assumed `Jammer`'s `Drive(...)` was a working tap-vs-hold precedent to reuse, but on
   closer inspection it isn't one: Jammer just re-fires the *same* action every frame held, and only
   looks tap/hold-shaped because the underlying game method self-limits to ~0.1s per call. TGT's

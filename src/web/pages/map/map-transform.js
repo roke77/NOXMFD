@@ -64,18 +64,29 @@
     return { x: relX * geom.meta.w - geom.meta.w * 0.5, z: relY * geom.meta.h - geom.meta.h * 0.5 };
   }
 
-  // The pan that keeps the scaled map covering its zoom=1 footprint: pan can never expose blank
-  // background, and at zoom=1 this pins pan to 0 (framing unchanged from before zoom existed).
-  // Returns the clamped pair rather than mutating, so the caller owns its own view state.
+  // The pan that keeps the scaled map covering its zoom=1 footprint, plus an optional extra
+  // margin per axis (marginFracX/Y, each a fraction of the image's own dw/dh) past that footprint.
+  // At zoom=1 with margin 0 this pins pan to 0 (framing unchanged from before zoom existed); a
+  // nonzero margin allows that much overshoot at every zoom level, including 1. marginFracY
+  // defaults to marginFracX when omitted, for a caller with one uniform margin.
+  //
+  // The margin exists for issue #65: a mission's real terrain/spawns can sit past the square
+  // MapSettings.MapSize covers (confirmed in-game — an aircraft carrier and the mission's own
+  // GridSizeX/Y both sat well beyond it), so a zero margin can clamp the camera/cursor just short
+  // of real content. There's no map image data out there to reveal, only flat background — this
+  // buys reachability, not detail. Returns the clamped pair rather than mutating, so the caller
+  // owns its own view state.
   //
   // Assumes zoom >= 1, which is map.js's MIN_ZOOM (enforced there on every zoom step and when
   // restoring the persisted view). Below 1 the slack turns negative and the clamp inverts, forcing
   // pan to a limit instead of to zero — meaningless rather than merely unused, so if a zoomed-out
   // view is ever wanted this needs rewriting, not just a wider range.
-  function clampPan(geom, panX, panY) {
+  function clampPan(geom, panX, panY, marginFracX, marginFracY) {
     const r = imgRect(geom);
-    const maxX = r.dw * (geom.view.zoom - 1) / 2;
-    const maxY = r.dh * (geom.view.zoom - 1) / 2;
+    const fx = marginFracX || 0;
+    const fy = marginFracY != null ? marginFracY : fx;
+    const maxX = r.dw * ((geom.view.zoom - 1) / 2 + fx * geom.view.zoom);
+    const maxY = r.dh * ((geom.view.zoom - 1) / 2 + fy * geom.view.zoom);
     return { panX: Math.max(-maxX, Math.min(maxX, panX)),
              panY: Math.max(-maxY, Math.min(maxY, panY)) };
   }

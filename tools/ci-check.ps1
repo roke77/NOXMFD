@@ -30,7 +30,7 @@ foreach ($f in $testFiles) {
 }
 Write-Host "  $($testFiles.Count) test file(s) passed"
 
-# 3. dotnet test — the xUnit project covering pure logic extracted per docs/csharp-unit-testing.md.
+# 3. dotnet test — the xUnit project covering pure plugin logic.
 Write-Host "== dotnet test (tools/tests) ==" -ForegroundColor Cyan
 dotnet test tools/tests/NOXMFD.Tests.csproj
 if ($LASTEXITCODE -ne 0) { Fail "dotnet test failed (exit $LASTEXITCODE)" }
@@ -57,7 +57,7 @@ try {
 
     # Note: /map is the captured map IMAGE endpoint (404s with no preview/captures/ populated),
     # not the MAP page — use /map-view?bare, which is the actual page route (docs/ci-smoke-check.md).
-    $routes = @("/", "/afm", "/map-view?bare", "/hud")
+    $routes = @("/", "/afm", "/map-view?bare", "/hud", "/hsd")
     foreach ($r in $routes) {
         try {
             $resp = Invoke-WebRequest -Uri "$base$r" -UseBasicParsing -TimeoutSec 5

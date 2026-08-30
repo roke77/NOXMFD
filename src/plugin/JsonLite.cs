@@ -133,8 +133,8 @@ namespace NOXMFD
             i + token.Length <= s.Length && string.CompareOrdinal(s, i, token, 0, token.Length) == 0;
 
         // Lives next to the parser rather than in TelemetryServer.cs (which has real game
-        // touchpoints), so RouteStore.cs and any other pure caller can compile standalone
-        // (docs/csharp-unit-testing.md). TelemetryServer.EscapeJson forwards here.
+        // touchpoints), so RouteStore.cs and any other pure caller can compile standalone.
+        // TelemetryServer.EscapeJson forwards here.
         public static string EscapeJson(string s)
         {
             if (string.IsNullOrEmpty(s)) return s ?? string.Empty;

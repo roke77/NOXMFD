@@ -7,7 +7,9 @@ import { createPadCursor } from '/assets/services/pad-cursor.js';
 
 // ── State (declared first so callbacks never hit a temporal dead zone) ──────────
 let   lastData  = null;        // last rendered frame (the source hands it to renderFrame)
-let   mapMeta   = null;        // { w, h, ox, oy } — the view's copy, for worldToBase / gridLabel
+let   mapMeta   = null;        // { w, h, ox, oy, rw, rh } — the view's copy, for worldToBase /
+                                // gridLabel; rw/rh (issue #65) is the mission's real reachable
+                                // extent, w/h the smaller square the minimap image itself covers
 
 // Map-icon sizes switch with zoom: larger when zoomed in, smaller when zoomed out — so icons
 // stay legible up close without cluttering the full-extent view. Picked by iconBase() /
@@ -18,6 +20,15 @@ const HIT_PAD = 4;             // extra px around an icon that still counts as a
 let   hitTargets = [];         // [{cx, cy, r, label}] rebuilt every drawOverlay() for hover
 let   view = { zoom: 1, panX: 0, panY: 0 };   // map view: pan in screen px, zoom about canvas centre
 const MIN_ZOOM = 1, MAX_ZOOM = 8;
+// How far past the map image's own edge pan/cursor may reach, as a fraction of the image's dw/dh
+// (see MapTransform.clampPan) — issue #65: a mission's real reachable extent (mapMeta.rw/rh, the
+// server's MapReachW/H) can run past the square the minimap IMAGE covers (mapMeta.w/h), so a zero
+// margin clamps the camera/cursor short of real content. Derived per mission, not a flat guess:
+// zero whenever the server has no reach data beyond the image (rw/rh missing or no bigger than
+// w/h), so a mission without it keeps the old exact-image clamp.
+function edgeMarginFrac(w, reach) {
+  return (reach && w > 0 && reach > w) ? (reach - w) / (2 * w) : 0;
+}
 // Icons grow once the map is zoomed in to 4x or more (zoom range is MIN..MAX = 1..8): zoom
 // 1–3 uses the small OUT sizes, 4–8 the larger IN sizes.
 const ICON_ZOOM_THRESHOLD = 4;
@@ -82,6 +93,7 @@ function savePersistedView() {
 const PLAYER_COLOR = '#39ff14';                     // player stays HUD green — matches --no-green;
                                                      // canvas strokeStyle can't use CSS var()
 const TARGET_COLOR = '#ff8000';                     // orange ring on the player's targeted unit(s)
+const STALE_ALPHA  = 0.5;                           // faded icon opacity for a stale contact (F2)
 let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors —
                                                      // 1/2 default to --no-green/--no-red until then
 const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
@@ -101,6 +113,7 @@ const oc       = overlay.getContext('2d');
 const gridBar   = document.getElementById('grid-bar');
 const cursorBar = document.getElementById('cursor-bar');
 const routeBar  = document.getElementById('route-bar');
+const jamBar    = document.getElementById('jam-bar');
 const unitLabel = document.getElementById('unit-label');
 const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — see pad-cursor.js
 
@@ -162,9 +175,17 @@ function worldToBase(wx, wz) { return MapTransform.worldToBase(geom(), wx, wz); 
 function worldToOverlay(wx, wz) { return MapTransform.worldToOverlay(geom(), wx, wz); }
 function overlayToWorld(sx, sy) { return MapTransform.overlayToWorld(geom(), sx, sy); }
 
+function onScreen(p, pad) {
+  return p && p.cx != null && p.cy != null &&
+         p.cx >= -pad && p.cx <= overlay.width + pad &&
+         p.cy >= -pad && p.cy <= overlay.height + pad;
+}
+
 // The module returns the clamped pair rather than mutating; the live view state stays owned here.
 function clampPan() {
-  const c = MapTransform.clampPan(geom(), view.panX, view.panY);
+  const fx = mapMeta ? edgeMarginFrac(mapMeta.w, mapMeta.rw) : 0;
+  const fy = mapMeta ? edgeMarginFrac(mapMeta.h, mapMeta.rh) : 0;
+  const c = MapTransform.clampPan(geom(), view.panX, view.panY, fx, fy);
   view.panX = c.panX;
   view.panY = c.panY;
 }
@@ -260,10 +281,6 @@ function drawIcon(type, hex, cx, cy, hdg, orient, basePx, scale) {
 function drawTargetBox(cx, cy, half) {
   oc.save();
   oc.translate(cx, cy);
-  oc.strokeStyle = TARGET_COLOR;
-  oc.shadowColor = TARGET_COLOR;
-  oc.shadowBlur  = 8;
-  oc.lineWidth   = 1.5;
   oc.lineCap     = 'round';
   const s = half;
   const k = Math.max(3, s * 0.5);   // corner arm length
@@ -272,6 +289,14 @@ function drawTargetBox(cx, cy, half) {
   oc.moveTo( s - k, -s); oc.lineTo( s, -s); oc.lineTo( s, -s + k);   // top-right
   oc.moveTo( s,  s - k); oc.lineTo( s,  s); oc.lineTo( s - k,  s);   // bottom-right
   oc.moveTo(-s + k,  s); oc.lineTo(-s,  s); oc.lineTo(-s,  s - k);   // bottom-left
+  // Cheap glow: a wide translucent underlay plus the bright core. This keeps the lock brackets
+  // legible without paying canvas' live shadowBlur cost on every target redraw.
+  oc.strokeStyle = TARGET_COLOR;
+  oc.globalAlpha = 0.35;
+  oc.lineWidth   = 5;
+  oc.stroke();
+  oc.globalAlpha = 1;
+  oc.lineWidth   = 1.5;
   oc.stroke();
   oc.restore();
 }
@@ -322,7 +347,7 @@ function drawMissiles() {
   const base = zoomedIn() ? MISSILE_BASE_IN : MISSILE_BASE_OUT;
   for (const m of lastData.mw) {
     const mp = worldToOverlay(m.x, m.z);
-    if (!mp) continue;
+    if (!onScreen(mp, 48)) continue;
     ensureIconImage(MISSILE_ICON);
     // Orient to the missile's travel heading (like the game's map icon); 1.2× flash boost.
     const r = drawIcon(MISSILE_ICON, hex, mp.cx, mp.cy, m.h || 0, typeof m.h === 'number', base, 1.2);
@@ -408,8 +433,11 @@ const GRID_MAJOR_COLOR = 'rgba(57,255,20,0.30)';
 const GRID_LABEL_COLOR = 'rgba(196,255,176,0.75)';
 function drawGrid() {
   if (!gridOn || !mapMeta || mapMeta.w <= 0 || mapMeta.h <= 0) return;
-  const wMinX = -mapMeta.w / 2, wMaxX = mapMeta.w / 2;
-  const wMinZ = -mapMeta.h / 2, wMaxZ = mapMeta.h / 2;
+  // Drawn out to the mission's real reachable extent (rw/rh, issue #65), not just the smaller w/h
+  // square the minimap image covers — worldToOverlay projects correctly past the image either way.
+  const rw = mapMeta.rw || mapMeta.w, rh = mapMeta.rh || mapMeta.h;
+  const wMinX = -rw / 2, wMaxX = rw / 2;
+  const wMinZ = -rh / 2, wMaxZ = rh / 2;
   // Grid-space (vx,vz) bounds the map spans — gridLabel's vx = ox+wx, vz = oy-wz — clamped to 0
   // since gridLabel itself treats negative grid-space as "off the labelled grid".
   const vMinX = Math.max(0, mapMeta.ox + wMinX), vMaxX = mapMeta.ox + wMaxX;
@@ -487,18 +515,22 @@ function drawWaypoints() {
   }
   oc.setLineDash([]);
   pts.forEach((p, i) => {
-    if (p.cx == null) return;
+    if (!onScreen(p, 48)) return;
     const state = WptRoute.waypointMarkerState(i, waypointRoute.nextIndex);   // pure + tested, wpt-route.js
     const next = state === 'next';
     const color = next ? WPT_NEXT_COLOR : state === 'reached' ? WPT_REACHED_COLOR : WPT_LINE_COLOR;
-    oc.fillStyle = color;
+    const r = next ? 6 : 4;
     oc.strokeStyle = color;
-    oc.shadowColor = color;
-    oc.shadowBlur = next ? 10 : 4;
     oc.beginPath();
-    oc.arc(p.cx, p.cy, next ? 6 : 4, 0, Math.PI * 2);
+    oc.arc(p.cx, p.cy, r, 0, Math.PI * 2);
+    oc.globalAlpha = next ? 0.45 : 0.3;
+    oc.lineWidth = next ? 5 : 3;
+    oc.stroke();
+    oc.globalAlpha = 1;
+    oc.fillStyle = color;
+    oc.beginPath();
+    oc.arc(p.cx, p.cy, r, 0, Math.PI * 2);
     oc.fill();
-    oc.shadowBlur = 0;
     oc.font = '13px "Courier New", monospace';
     oc.textBaseline = 'bottom';
     oc.fillText(p.name ? (i + 1) + ' ' + p.name : String(i + 1), p.cx + 8, p.cy - 4);
@@ -549,10 +581,12 @@ function drawOverlay() {
   if (lastData.contacts) {
     for (const u of lastData.contacts) {
       const p = worldToOverlay(u.x, u.z);
-      if (!p) continue;
+      if (!onScreen(p, 48)) continue;
       ensureIconImage(u.t);
       const hex = factionColors[u.f] || factionColors[0];
+      if (u.st) oc.globalAlpha = STALE_ALPHA;
       const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, iconBase(), u.s);
+      if (u.st) oc.globalAlpha = 1;
       if (u.tg) { drawTargetBox(p.cx, p.cy, r + 4); pendingSel.delete(u.id); }   // telemetry confirms selection
       if (u.jm) drawJamGlyph(p.cx, p.cy, r);
       hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex, id: u.id, tg: !!u.tg });
@@ -560,11 +594,19 @@ function drawOverlay() {
   }
 
   // Player plane (kept green regardless of faction colors), drawn and hit-tested last = on top.
-  const pos = worldToOverlay(lastData.world.x, lastData.world.z);
-  if (!pos) return;
-  const pr = drawIcon(lastData.name, PLAYER_COLOR, pos.cx, pos.cy, lastData.hdg, lastData.iconOrient, iconBase(), lastData.iconScale);
-  if (lastData.pjm) drawJamGlyph(pos.cx, pos.cy, pr);
-  hitTargets.push({ cx: pos.cx, cy: pos.cy, r: pr + HIT_PAD, label: lastData.name, color: PLAYER_COLOR });
+  // Never culled (issue #65): pinned to the nearest canvas edge instead of vanishing when the
+  // aircraft/carrier sits past what EDGE_MARGIN_FRAC's pan/cursor slack can bring back on screen.
+  const rawPos = worldToOverlay(lastData.world.x, lastData.world.z);
+  if (rawPos) {
+    const edgePad = iconBase() / 2 + 4;
+    const pos = {
+      cx: Math.max(edgePad, Math.min(overlay.width  - edgePad, rawPos.cx)),
+      cy: Math.max(edgePad, Math.min(overlay.height - edgePad, rawPos.cy)),
+    };
+    const pr = drawIcon(lastData.name, PLAYER_COLOR, pos.cx, pos.cy, lastData.hdg, lastData.iconOrient, iconBase(), lastData.iconScale);
+    if (lastData.pjm) drawJamGlyph(pos.cx, pos.cy, pr);
+    hitTargets.push({ cx: pos.cx, cy: pos.cy, r: pr + HIT_PAD, label: lastData.name, color: PLAYER_COLOR });
+  }
 
   // Incoming-missile triangles last = on top of everything (most urgent cue).
   drawMissiles();
@@ -616,7 +658,7 @@ function drawOverlay() {
 
 // Drives the click-flash fade between telemetry frames (which only arrive ~10 Hz).
 let clickFlash = null;
-function pumpFlash() { if (!clickFlash) return; drawOverlay(); requestAnimationFrame(pumpFlash); }
+function pumpFlash() { if (!clickFlash) return; requestDraw(); requestAnimationFrame(pumpFlash); }
 function flashSelect(id) { clickFlash = { id: id, until: performance.now() + 450 }; requestAnimationFrame(pumpFlash); }
 
 // Missiles flash faster than the data rate, so while any are inbound we redraw on a ~20 fps
@@ -627,7 +669,7 @@ function ensureThreatAnimation() {
   const active = lastData && Array.isArray(lastData.mw) && lastData.mw.length;
   if (active && !threatTimer) {
     threatTimer = setInterval(function() {
-      if (lastData && Array.isArray(lastData.mw) && lastData.mw.length) drawOverlay();
+      if (lastData && Array.isArray(lastData.mw) && lastData.mw.length) requestDraw();
       else { clearInterval(threatTimer); threatTimer = null; }
     }, 50);
   } else if (!active && threatTimer) {
@@ -666,6 +708,15 @@ mapImg.onload = function() {
 
 // ── Frame rendering (driven by TelemetrySource) ──────────────────────────────────
 let mapWasValid = false;
+let drawPending = false;
+function requestDraw() {
+  if (drawPending) return;
+  drawPending = true;
+  requestAnimationFrame(function() {
+    drawPending = false;
+    drawOverlay();
+  });
+}
 
 // A real telemetry frame arrived — render the map + HUD. The provider slices were already derived
 // and posted up to the shell by the source; this is purely the local render.
@@ -675,7 +726,12 @@ function renderFrame(d) {
   if (d.colors) factionColors = { 0: d.colors.n, 1: d.colors.f, 2: d.colors.e };
 
   if (d.map && d.map.valid) {
-    mapMeta = { w: d.map.w, h: d.map.h, ox: d.map.ox, oy: d.map.oy };
+    // rw/rh (issue #65): the mission's real reachable extent, which can run past w/h, the smaller
+    // square the minimap IMAGE was captured at (see server-side MapReachW/H). Falls back to w/h
+    // when the server sends no mapReach block (older frame, dev harness mock).
+    const reach = d.mapReach || {};
+    mapMeta = { w: d.map.w, h: d.map.h, ox: d.map.ox, oy: d.map.oy,
+                rw: reach.w || d.map.w, rh: reach.h || d.map.h };
     // A valid frame means a real mission/map exists — clear NO SIGNAL now rather than waiting on
     // mapImg's own onload. That image is a slower, separate asset (captured async server-side,
     // see the retry loop below); gating the placeholder on it instead of on telemetry left NO
@@ -698,7 +754,7 @@ function renderFrame(d) {
   }
 
   updateHUD(d);
-  drawOverlay();
+  requestDraw();
   ensureThreatAnimation();   // start/keep the missile-flash loop while any missile is inbound
 }
 
@@ -732,6 +788,7 @@ function clearViewState() {
 
   document.getElementById('grid-bar').className = 'mfd-chip empty';
   cursorBar.className = 'mfd-chip empty';
+  jamBar.className = 'mfd-chip mfd-chip-jammed empty';
 }
 
 // ── HUD ──────────────────────────────────────────────────────────────────────────
@@ -745,6 +802,7 @@ function updateHUD(d) {
   const gridText = gridLabel(d.world.x, d.world.z, mapMeta);
   gridBar.textContent = 'GRID: ' + gridText;
   gridBar.className = 'mfd-chip';
+  jamBar.className = 'mfd-chip mfd-chip-jammed' + (d.pjam ? '' : ' empty');
 }
 
 // CURSOR chip (below GRID) — the grid square under whichever pointer is currently active: the
@@ -814,7 +872,7 @@ function armLongPress(pointerId, clientX, clientY) {
   }, WPT_LONG_MS);
 }
 let wptFlash = null;   // brief confirmation ring at a just-placed waypoint (screen px, not unit id)
-function pumpWptFlash() { if (!wptFlash) return; drawOverlay(); requestAnimationFrame(pumpWptFlash); }
+function pumpWptFlash() { if (!wptFlash) return; requestDraw(); requestAnimationFrame(pumpWptFlash); }
 function flashWaypoint(cx, cy) { wptFlash = { cx: cx, cy: cy, until: performance.now() + 450 }; requestAnimationFrame(pumpWptFlash); }
 function placeWaypointAt(sx, sy) {
   if (!mapMeta) return;
@@ -832,30 +890,38 @@ function pinchGeom() {
            mx: (p[0].x + p[1].x) / 2, my: (p[0].y + p[1].y) / 2 };
 }
 
-// Scroll to zoom toward the cursor: keep the world point under the pointer fixed while scaling.
-overlay.addEventListener('wheel', function(e) {
-  if (!mapMeta) return;
-  e.preventDefault();
-  const rect = overlay.getBoundingClientRect();
-  const sx = e.clientX - rect.left, sy = e.clientY - rect.top;   // cursor in canvas px
-  const ox = overlay.width / 2, oy = overlay.height / 2;
+// Zoom to z1 while holding the world point currently at screen (sx, sy) fixed — the shared math
+// behind wheel-zoom, pinch-zoom, and zoomStep (bezel/keybind zoom, issue #64). While following, the
+// player (not sx/sy) is what stays fixed — drawOverlay's own re-centring handles that every frame.
+function zoomAbout(z1, sx, sy) {
   const z0 = view.zoom;
-  const z1 = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z0 * Math.exp(-e.deltaY * 0.0015)));
   if (z1 === z0) return;
-  // While following, zoom about the player (drawOverlay re-centres) rather than the cursor.
   if (followPlayer) { view.zoom = z1; savePersistedView(); clampPan(); drawOverlay(); return; }
-  // pan1 = d - (z1/z0)(d - pan0), with d = cursor − centre — holds the cursor's point in place.
+  const ox = overlay.width / 2, oy = overlay.height / 2;
+  // pan1 = d - (z1/z0)(d - pan0), with d = anchor − centre — holds the anchor's world point in place.
   view.panX = (sx - ox) - (z1 / z0) * ((sx - ox) - view.panX);
   view.panY = (sy - oy) - (z1 / z0) * ((sy - oy) - view.panY);
   view.zoom = z1;
   savePersistedView();
   clampPan();
   drawOverlay();
+}
+
+// Scroll to zoom toward the mouse pointer.
+overlay.addEventListener('wheel', function(e) {
+  if (!mapMeta) return;
+  e.preventDefault();
+  const rect = overlay.getBoundingClientRect();
+  const sx = e.clientX - rect.left, sy = e.clientY - rect.top;   // cursor in canvas px
+  const z1 = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, view.zoom * Math.exp(-e.deltaY * 0.0015)));
+  zoomAbout(z1, sx, sy);
 }, { passive: false });
 
-// Pan (single pointer, once zoomed in) and pinch-zoom (two pointers). Follow mode stays
-// LOCKED: neither a pan-drag nor a pinch disengages it, matching the in-game followed map —
-// only the FLW button / 'f' key toggles it.
+// Pan (single pointer) and pinch-zoom (two pointers). Follow mode stays LOCKED: neither a
+// pan-drag nor a pinch disengages it, matching the in-game followed map — only the FLW button /
+// 'f' key toggles it. Arming pan no longer requires zoom > MIN_ZOOM (issue #65): EDGE_MARGIN_FRAC
+// gives clampPan slack even at zoom 1, and clampPan itself is what actually enforces the limit —
+// this only decides whether to listen for the drag at all.
 overlay.addEventListener('pointerdown', function(e) {
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   downX = e.clientX; downY = e.clientY; gestureMoved = false;
@@ -868,7 +934,7 @@ overlay.addEventListener('pointerdown', function(e) {
     return;
   }
   if (mapMeta) armLongPress(e.pointerId, e.clientX, e.clientY);
-  if (mapMeta && view.zoom > MIN_ZOOM && !followPlayer) {
+  if (mapMeta && !followPlayer) {
     panId = e.pointerId; lastX = e.clientX; lastY = e.clientY;
     overlay.setPointerCapture(e.pointerId);
   }
@@ -883,15 +949,9 @@ overlay.addEventListener('pointermove', function(e) {
     e.preventDefault();
     if (pinchStartDist <= 0) return;
     const g = pinchGeom();
-    const z0 = view.zoom;
     const z1 = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pinchStartZoom * (g.dist / pinchStartDist)));
-    if (z1 === z0) return;
-    if (followPlayer) { view.zoom = z1; savePersistedView(); clampPan(); drawOverlay(); return; }   // follow re-centres
     const rect = overlay.getBoundingClientRect();
-    const sx = g.mx - rect.left, sy = g.my - rect.top, ox = overlay.width / 2, oy = overlay.height / 2;
-    view.panX = (sx - ox) - (z1 / z0) * ((sx - ox) - view.panX);
-    view.panY = (sy - oy) - (z1 / z0) * ((sy - oy) - view.panY);
-    view.zoom = z1; savePersistedView(); clampPan(); drawOverlay();
+    zoomAbout(z1, g.mx - rect.left, g.my - rect.top);
     return;
   }
   if (e.pointerId === panId) {                            // single-finger / mouse pan
@@ -1014,14 +1074,17 @@ overlay.addEventListener('click', function(e) {
 // ── Remote control ────────────────────────────────────────────────────────────────
 // Lets an embedder (the MFD frame) drive the map without reaching into it directly, so
 // the map stays a self-contained component. Works same-origin and cross-origin (file://).
-function zoomStep(factor) {   // zoom about the canvas centre (the wheel zooms at the cursor)
+// Bezel Z+/Z- and zoom keybinds (issue #64): zoom about the PAD cursor when it's on screen, the
+// same way the mouse wheel zooms about the pointer — falling back to the canvas centre (i.e. the
+// CURRENT view's own centre point, not the map's absolute centre, since the anchor formula in
+// zoomAbout scales the existing pan proportionally rather than resetting it) when there's no
+// cursor to anchor on.
+function zoomStep(factor) {
   if (!mapMeta) return;
-  const z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, view.zoom * factor));
-  if (z === view.zoom) return;
-  view.zoom = z;
-  savePersistedView();
-  clampPan();
-  drawOverlay();
+  const z1 = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, view.zoom * factor));
+  const p = cursor.getPos();
+  const ox = overlay.width / 2, oy = overlay.height / 2;
+  zoomAbout(z1, p ? p.x : ox, p ? p.y : oy);
 }
 window.addEventListener('message', function(e) {
   const m = e.data;

@@ -1,15 +1,14 @@
 # TGT: telling datalink-only locks apart — [issue #29](https://github.com/roke77/NOXMFD/issues/29)
 
-**Branch:** `tgt-datalink-cancel`. **Status:** built, `serve_web`-harness verified. Not yet tested in-game.
+**Status:** implemented on `main` and `serve_web`-harness verified. Not yet tested in-game.
 
 ## Goal
 
-A user request, referencing [NO_Tactitools](https://github.com/clumzy/NO_Tactitools) (NOTT), which
-apparently has the same control already: a way to cancel a **datalink-only** lock on the TGT page —
-a target your own aircraft isn't actually sensing, just relayed to you by a friendly unit's radar via
-the faction's shared tracking database — without disturbing a target you're genuinely tracking
-yourself. Today the TGT page's selected-target list shows every locked target the same way; there's
-no way to tell which ones are stale/relayed vs. actively sensed.
+A user needs a way to cancel a **datalink-only** lock on the TGT page — a target the aircraft is not
+actually sensing, but which a friendly unit's radar relays through the faction's shared tracking
+database — without disturbing a target the aircraft is genuinely tracking. The TGT page's selected-
+target list otherwise shows every locked target the same way, with no indication of which entries are
+stale or relayed rather than actively sensed.
 
 - **Primary ask:** a dedicated control to cancel a datalink-only lock specifically.
 - **Fallback ask:** at minimum, show which entries are datalink-sourced so the pilot can tell them
@@ -51,11 +50,11 @@ always comes from `NetworkHQ == this`, not the tracking database.)
 
 ## The plan (as built)
 
-1. **`UnitInfo.Datalink`** ([TelemetrySnapshot.cs](../src/plugin/TelemetrySnapshot.cs)) — set in
-   `BuildUnits()` ([TelemetryReader.cs](../src/plugin/TelemetryReader.cs)) alongside the existing
+1. **`UnitInfo.Datalink`** ([TelemetrySnapshot.cs](../src/plugin/Telemetry/TelemetrySnapshot.cs)) — set in
+   `BuildUnits()` ([TelemetryReader.cs](../src/plugin/Telemetry/TelemetryReader.cs)) alongside the existing
    `Faction`/`Targeted` fields, using the lookup above. Enemy contacts only; friendly/neutral always
    false.
-2. **Serialization** ([TelemetryServer.cs](../src/plugin/TelemetryServer.cs)) — one more terse key,
+2. **Serialization** ([TelemetryJson.cs](../src/plugin/Telemetry/TelemetryJson.cs)) — one more terse key,
    `"dl"`, on `UnitsArray`'s per-contact JSON, next to the existing `tg`.
 3. **Client derivation** ([telemetry-source.js](../src/web/services/telemetry-source.js)) — the TGT
    page's target list is *already derived client-side from `contacts`*, filtered by `tg` (see the

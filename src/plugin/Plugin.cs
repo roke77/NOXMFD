@@ -37,10 +37,10 @@ namespace NOXMFD
             TryBind("HUD declutter", () => HudDeclutterConfig.Bind(Config));   // HUD-declutter toggles (persisted + shown in the in-game config menu)
             TryBind("Keybinds", () => Keybinds.Bind(Config));                  // gameplay keybinds (countermeasures + gear) — configured on the /keybinds page
             TryBind("Immersion options", () => ImmersionConfig.Bind(Config)); // docs/radar-master-arms.md — radar/engine/master-arms start-state settings
-            TryBind("Refresh rates", () => RatesConfig.Bind(Config));         // cfg-rates experiment (issue #39) — TLM/TGP sliders on the RTS page
+            TryBind("Refresh rates", () => RatesConfig.Bind(Config));         // TLM/TGP rate + quality settings — MAP CFG and TGP CFG pages
             TryBind("Harmony", HarmonyPatches.Init);                          // docs/radar-master-arms.md — spawn-default + Master Arm patches
             TryBind("JSON self-check", JsonLite.SelfCheck);                     // docs/hud-waypoint-indicator.md — pure parser, no C# test runner exists in this repo
-            RouteStore.ConfigDir = Paths.ConfigPath;                           // docs/csharp-unit-testing.md — injected so RouteStore.cs stays BepInEx-free
+            RouteStore.ConfigDir = Paths.ConfigPath;                           // injected so RouteStore.cs stays BepInEx-free
             RouteStore.LogWarning = msg => Log?.LogWarning(msg);
             RouteStore.SendSquadData = Squad.SendData;                        // docs/squadron-transport.md — same BepInEx-free seam, for the Squad.cs dependency
             TryBind("Waypoint routes", RouteStore.Load);                       // docs/hud-waypoint-indicator.md — route library persisted to disk

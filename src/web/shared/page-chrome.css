@@ -1,10 +1,10 @@
-/* Shared chrome for "full standalone page" documents — WPT/SQD/RTS/KB, reached outside the
-   bezel/MFD frame, not one of the compact in-panel pages theme.css's own `html, body` rule
-   targets (that one hides overflow; these scroll). Linked AFTER theme.css and BEFORE each page's
-   own stylesheet, so a page can still override a specific property (e.g. keybinds.css's wider
-   .kb-panel, taller .kb-title margin) just by re-declaring it — this file only centralizes what
-   was, until now, four hand-copies of the identical ruleset (confirmed byte-for-byte identical
-   except those two overrides).
+/* Shared chrome for "full standalone page" documents — WPT/SQD/KB, reached outside the bezel/MFD
+   frame, not one of the compact in-panel pages theme.css's own `html, body` rule targets (that one
+   hides overflow; these scroll). Linked AFTER theme.css and BEFORE each page's own stylesheet, so
+   a page can still override a specific property (e.g. keybinds.css's wider .kb-panel, taller
+   .kb-title margin) just by re-declaring it — this file only centralizes what was, until RTS split
+   into MAP CFG/TGP CFG (each with its own local, non-shared chrome copy instead), a hand-copied
+   ruleset across four pages.
 
    Each page keeps its OWN class names (.wpt-panel, .sqd-panel, ...) rather than switching to one
    shared name — no HTML changes needed to adopt this, and a page-specific class is still useful as
@@ -19,13 +19,13 @@ html::-webkit-scrollbar { width: 6px; height: 6px; }
 html::-webkit-scrollbar-track { background: transparent; }
 html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
 
-.wpt-panel, .sqd-panel, .rts-panel, .kb-panel {
+.wpt-panel, .sqd-panel, .kb-panel {
   max-width: 620px;
   margin: 0 auto;
   padding: 26px 18px 40px;
 }
 
-.wpt-back, .sqd-back, .rts-back, .kb-back {
+.wpt-back, .sqd-back, .kb-back {
   float: left;
   font-size: 12px;
   letter-spacing: 2px;
@@ -33,9 +33,9 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   text-decoration: none;
   padding: 6px 2px;
 }
-.wpt-back:hover, .sqd-back:hover, .rts-back:hover, .kb-back:hover { color: var(--no-green); }
+.wpt-back:hover, .sqd-back:hover, .kb-back:hover { color: var(--no-green); }
 
-.wpt-title, .sqd-title, .rts-title, .kb-title {
+.wpt-title, .sqd-title, .kb-title {
   font-size: 24px;
   letter-spacing: 4px;
   color: var(--no-green);

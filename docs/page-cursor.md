@@ -1,7 +1,8 @@
 # PAD cursor for TGT/HUD — reusing MAP's crosshair on DOM pages
 
-**Branch:** none — working directly on `main`. **Status:** built, `serve_web`-harness verified.
-Not yet tested in-game.
+**Status:** implemented on `main` and `serve_web`-harness verified. The later manual-TGP work
+exercises the shared PAD-cursor transport in game; MAP-specific visual glide/edge-panning and the
+TGT/HUD page behavior still need their dedicated in-game checks below.
 
 ## Goal
 
@@ -217,12 +218,15 @@ Three follow-up requests after the initial rollout above landed and was verified
    how far past `clampRect()` the pre-clamp position landed this tick (`ex`/`ey`, screen px,
    0 when within bounds) — the cursor is still clamped to the rect right after, so it stays visually
    pinned at the edge while `onEdge` reacts. `map.js`'s `onCursorEdge` pans `view.panX`/`panY` by
-   `EDGE_PAN_SPEED * dt` toward the overflow direction, re-clamped by the existing `clampPan()` (so
-   it naturally can't pan past the zoomed footprint — nothing extra needed to make this a no-op at
-   `zoom === MIN_ZOOM`, where `clampPan()` already pins pan to 0) and redraws. Explicitly gated on
-   `!followPlayer`, per the request — under FLW, `drawOverlay()` is already re-centring the view on
-   the player every frame, so edge-panning would just fight it. TGT/HUD don't pass `onEdge` (nothing
-   to reveal past their own panel edge), so it's a no-op there.
+   `EDGE_PAN_SPEED * dt` toward the overflow direction, re-clamped by the existing `clampPan()`, and
+   redraws. Explicitly gated on `!followPlayer`, per the request — under FLW, `drawOverlay()` is
+   already re-centring the view on the player every frame, so edge-panning would just fight it.
+   TGT/HUD still don't pass `onEdge` (nothing to reveal past their own panel edge). RDR does, for an
+   unrelated purpose — pushing past its scope's top/bottom edge steps its displayed range, not the
+   view (`rdr.js`'s own `onCursorEdge`); HSD carries the identical range-step behavior (issue #66),
+   ported from RDR's. `clampPan()` can be nonzero even at `zoom === MIN_ZOOM` when the current
+   mission's real reachable extent runs past the minimap image's own smaller extent (issue #65's
+   per-mission margin) — edge-panning still just calls `clampPan()`, whatever it currently allows.
 
 ### Verification
 

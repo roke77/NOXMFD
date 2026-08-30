@@ -76,6 +76,7 @@
     obj: ['obj'],             // active-objectives list (docs/md-pages.md)
     akf: ['akf'],             // kill-feed/session-stats block (docs/akf-page.md)
     rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
+    hsd: ['hsd', 'mapinfo', 'rdr'],  // 360-degree datalink picture + FCR cone (docs/rdr-fcr-hsd.md)
     wpt: ['mapinfo', 'wpt-routes'],   // waypoint readout + the route library itself
     map: ['wpt-routes'],              // the route library (docs/hud-waypoint-indicator.md perf fix) —
                                        // MAP mounts its own map.js/telemetry, so this is its only feed
@@ -95,7 +96,7 @@
   // Mirrors the bezel's own PAD_CURSOR_PAGES (mfd.js) exactly; kept as its own copy since this
   // layout has no shared module with the bezel to hang it on. AKF is included because its
   // ALL/PLAYER resizer is clickable and needs cursor support.
-  const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true };
+  const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true, hsd: true };
 
   const WPN_MAX_DISPLAY = ROWS - 1;   // row 1 is the nav + CM band; rows 2..6 carry the weapons
   const WPN_ICON_INSET  = 20;         // keeps the image off its band edges, as the bezel does
@@ -120,7 +121,7 @@
   const MAIN_EXTRAS = [
     { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now
     { label: 'MD', action: 'akf' },
-    { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md) — mirrors BEZEL_EXTRAS.main
+    { label: 'RDR', action: 'rdr' },   // → RDR hub, landing on FCR at /rdr (docs/rdr-fcr-hsd.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page — mirrors BEZEL_EXTRAS.main
     { label: 'SQD', action: 'sqd' },   // → SQD squad page (docs/squadron-transport.md) — mirrors BEZEL_EXTRAS.main
     // EXT is NOT here — it's a real, shared NAV.main entry now (docs/extensions-api.md), not this
@@ -141,13 +142,17 @@
   // MAP's own actions → the message the map view listens for. Also not pages: they drive the map
   // in place rather than navigating. Same protocol the bezel uses (mfd.js mapSend), but routed to
   // the portal's OWN map — with several maps on the glass, "the map" is no longer unambiguous.
-  // rng-in/rng-out (RDR's range rocker) reuse the same zoom-in/zoom-out action names MAP's zin/zout
-  // send — mapSend() here already targets frameWin() generically (unlike the classic shell's
-  // mapFrame-specific version), so RDR needs nothing beyond this mapping.
+  // rng-in/rng-out (RDR hub range rocker) reuse the same zoom-in/zoom-out action names MAP's
+  // zin/zout send — mapSend() here already targets frameWin() generically (unlike the classic
+  // shell's mapFrame-specific version), so FCR/HSD need nothing beyond this mapping.
   const MAP_ACTIONS = { flw: 'toggle-follow', zin: 'zoom-in', zout: 'zoom-out', grid: 'toggle-grid',
                          'rng-in': 'zoom-in', 'rng-out': 'zoom-out',
                          'rt-next': 'route-next', 'rt-prev': 'route-prev',
-                         'wpt-next': 'waypoint-next', 'wpt-prev': 'waypoint-prev' };
+                         'wpt-next': 'waypoint-next', 'wpt-prev': 'waypoint-prev',
+                         // HSD's CEN<->DEP toggle (docs/rdr-fcr-hsd.md) — self-mapped since it's
+                         // not a MAP relay action, just reusing this generic "post straight to
+                         // frameWin()" mechanism the same way rng-in/rng-out already do.
+                         'hsd-mode': 'hsd-mode' };
 
   // ARM/SAFE (docs/radar-master-arms.md) — WPN's own unconditional controls, same shape as
   // MAP_ACTIONS: an action name maps to what it sends, dispatched by command rather than page nav.
@@ -173,6 +178,22 @@
     { label: 'A/G', action: 'combat-mode-ag', cell: { row: 5, col: 2 } },
   ];
 
+  // TGT/MAN and CLR/IR (docs/tgp-manual-control.md's NAV additions) — the bezel's mfd.js twin
+  // (placeTgpNavLabels/tgpMarks), same shape as MASTER_ARMS_ACTIONS/COMBAT_MODE_ACTIONS above:
+  // an unconditional command pair, dispatched rather than paged to, with its own mark state
+  // (markTgpMode/markTgpImg) since NAV.tgp carries no dynamic `mark`. TGP's column 1 has only
+  // MAIN (row 1) and CFG (row ROWS, tgpNavItems) spoken for, so rows 2-5 are free.
+  const TGP_MODE_ACTIONS = { 'tgp-manual-on': true, 'tgp-manual-off': false };
+  const TGP_MODE_NAV = [
+    { label: 'TGT', action: 'tgp-manual-off', cell: { row: 2, col: 1 } },
+    { label: 'MAN', action: 'tgp-manual-on',  cell: { row: 3, col: 1 } },
+  ];
+  const TGP_IR_ACTIONS = { 'tgp-ir-on': true, 'tgp-ir-off': false };
+  const TGP_IR_NAV = [
+    { label: 'CLR', action: 'tgp-ir-off', cell: { row: 4, col: 1 } },
+    { label: 'IR',  action: 'tgp-ir-on',  cell: { row: 5, col: 1 } },
+  ];
+
   // MAP's own placement (mfd.js's own full view twin): a fixed 5-left/5-right split via explicit
   // cells, rather than cellOf's generic index-into-6-rows overflow — MAIN/GRID/FLW/Z+/Z- read as
   // "map view controls" in column 1, WPT/R+/R-/W+/W- as "waypoint controls" in column 2. The action
@@ -194,6 +215,16 @@
     }));
   }
 
+  // TGP's own placement (mfd.js's own full-view twin, its dedicated 'tgp' branch): CFG pinned to
+  // the bottom of the column (row ROWS) regardless of cellOf's generic index-into-6-rows overflow,
+  // matching the bezel's own left0/left5 split rather than landing at row 2 right under MAIN.
+  function tgpNavItems() {
+    return [
+      Object.assign({}, NAV.tgp[0], { cell: { row: 1, col: 1 } }),
+      Object.assign({}, NAV.tgp[1], { cell: { row: ROWS, col: 1 } }),
+    ];
+  }
+
   // Where a screen's NAV items sit. Default 'edge' = the bezel's left key bank, minus the bezel.
   // MAIN is 'center': its labels ARE the screen, so they own the middle of the glass instead of
   // hugging an edge that frames nothing. Both modes consume NAV in order — only placement differs,
@@ -213,7 +244,8 @@
   function feedsFor(page) { return PAGE_FEEDS[page] || (ExtNav.isExtensionPage(page) ? ['ext_' + page] : []); }
   function canDo(action) {
     return has(action) || (action in PAGER) || (action in MAP_ACTIONS) || (action in GLASS_ACTIONS) ||
-           (action in MASTER_ARMS_ACTIONS) || (action in COMBAT_MODE_ACTIONS);
+           (action in MASTER_ARMS_ACTIONS) || (action in COMBAT_MODE_ACTIONS) ||
+           (action in TGP_MODE_ACTIONS) || (action in TGP_IR_ACTIONS);
   }
 
   // 'edge' placement: an item's index → its cell. The left column, top-down, IS the bezel's left
@@ -308,6 +340,7 @@
     // ── Feeds ──────────────────────────────────────────────────────────────────────────
     function forwardSlice(type) {
       if (DERIVED[type]) return forwardWpn();
+      if (currentPage === 'hsd' && (type === 'hsd' || type === 'mapinfo' || type === 'rdr')) return forwardHsd();
       // AFM reuses the 'avn' feed but under its own message type (mirrors mfd.js
       // forwardAfmToFrame) — a per-page rename, unlike FEED_AS below which is global per type and
       // would also rename AVN's own 'avn' feed if used for this.
@@ -326,8 +359,21 @@
       if (!w || !m) return;
       w.postMessage({ mfd: true, type: 'afm', name: m.name, parts: m.parts, failures: m.failures, pylons: m.pylons }, '*');
     }
+    function forwardHsd() {
+      const w = frameWin(), hsd = slices.hsd || {}, mapinfo = slices.mapinfo || {}, rdr = slices.rdr || {};
+      if (!w) return;
+      w.postMessage({ mfd: true, type: 'hsd', metric: !!hsd.metric, hdg: mapinfo.hdg || 0,
+                      ownX: mapinfo.x || 0, ownZ: mapinfo.z || 0,
+                      radarPresent: !!rdr.present, radarRange: rdr.range || 0, radarCone: rdr.cone || 0,
+                      items: Array.isArray(hsd.items) ? hsd.items : [],
+                      focusedTargetId: hsd.focusedTargetId || 0 }, '*');
+    }
     function onSlice(type) {
       if (feedsFor(currentPage).indexOf(type) !== -1) forwardSlice(type);
+      // TGT/MAN/CLR/IR can change without the page changing (docs/tgp-manual-control.md's NAV
+      // additions) — same "re-apply on every tick" need as markMasterArms/markCombatMode, which
+      // get theirs via the 'loadout' feed's own forwardWpn() instead since WPN is a DERIVED feed.
+      if (type === 'tgp' && currentPage === 'tgp') { markTgpMode(); markTgpImg(); }
     }
     // Everything the current page needs — on its load, and whenever it changes.
     function forwardToPage() {
@@ -453,9 +499,12 @@
     //   wpn  — nothing from NAV (it's empty by design); its labels are pagination.
     //   map  — MAIN/GRID/FLW/Z+/Z- and WPT/R+/R-/W+/W- via explicit cells, not NAV.map's own order
     //          (mapNavItems — see its own comment).
+    //   tgp  — MAIN + CFG via explicit cells (tgpNavItems), CFG pinned to the bottom row rather
+    //          than landing right under MAIN via the generic index-into-6-rows overflow.
     function itemsFor(page) {
       if (page === 'wpn') return wpnState().nav.concat(MASTER_ARMS_NAV, COMBAT_MODE_NAV);
       if (page === 'map') return mapNavItems();
+      if (page === 'tgp') return tgpNavItems().concat(TGP_MODE_NAV, TGP_IR_NAV);
       const items = (NAV[page] || []).slice();
       if (page !== 'main') return items;
       return items.concat(MAIN_EXTRAS).sort(function (a, b) { return a.label.localeCompare(b.label); });
@@ -505,6 +554,30 @@
         const b = grid.querySelector('.nav-item[data-action="' + item.action + '"]');
         if (b) b.classList.toggle('on', COMBAT_MODE_ACTIONS[item.action] === mode);
       });
+    }
+
+    // TGT/MAN/CLR/IR (docs/tgp-manual-control.md's NAV additions) — read straight off the cached
+    // tgp slice rather than tracked local state (no click here can change it on its own, unlike
+    // followOn/gridOn). The actual rule lives in tgp-marks.js (shared with mfd.js's own equivalent,
+    // so the two can't drift). Called on every 'tgp' slice tick (onSlice) as well as on nav rebuild.
+    function tgpMarks() {
+      const s = slices.tgp;
+      const data = s && s.data;
+      return TgpMarks.tgpMarks(data ? data.cnt : 0, s && s.manual, data && data.ir);
+    }
+    function markTgpMode() {
+      const marks = tgpMarks();
+      const tgt = grid.querySelector('.nav-item[data-action="tgp-manual-off"]');
+      const man = grid.querySelector('.nav-item[data-action="tgp-manual-on"]');
+      if (tgt) tgt.classList.toggle('on', marks.tgt);
+      if (man) man.classList.toggle('on', marks.man);
+    }
+    function markTgpImg() {
+      const marks = tgpMarks();
+      const clr = grid.querySelector('.nav-item[data-action="tgp-ir-off"]');
+      const ir  = grid.querySelector('.nav-item[data-action="tgp-ir-on"]');
+      if (clr) clr.classList.toggle('on', marks.clr);
+      if (ir)  ir.classList.toggle('on', marks.ir);
     }
 
     // Decorative MASTER/MODE labels (docs/radar-master-arms.md) — the bezel's mfd.js equivalent,
@@ -564,6 +637,14 @@
         sendCommand('combat-mode.set', { group: COMBAT_MODE_ACTIONS[action] }).catch(function () {});
         return;
       }
+      if (action in TGP_MODE_ACTIONS) {
+        sendCommand('tgp.manual.set', { on: TGP_MODE_ACTIONS[action] }).catch(function () {});
+        return;
+      }
+      if (action in TGP_IR_ACTIONS) {
+        sendCommand('tgp.ir.set', { on: TGP_IR_ACTIONS[action] }).catch(function () {});
+        return;
+      }
       if (has(action)) showPage(action);
     }
 
@@ -617,12 +698,17 @@
         grid.appendChild(b);
       });
       if (currentPage === 'wpn') { addWeaponHits(); markMasterArms(); markCombatMode(); placeWpnDecorators(); }
+      if (currentPage === 'tgp') {
+        markTgpMode(); markTgpImg();
+        placeWpnDecorator('tgp-manual-off', 'tgp-manual-on', 'MODE');
+        placeWpnDecorator('tgp-ir-off', 'tgp-ir-on', 'IMG');
+      }
       // ZOOM between Z+/Z- and ROUTE between R+/R- — same decorator, MAP's twin of WPN's
       // MASTER/MODE. Found by data-action, so the 2-column overflow (cellOf) needs no
       // special-casing here — the decorator just measures wherever the two buttons actually landed.
       if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); placeWpnDecorator('wpt-next', 'wpt-prev', 'WYPT'); }
-      // RANGE between R+/R- — RDR's twin.
-      if (currentPage === 'rdr') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
+      // RANGE between R+/R- — RDR/HSD's twin.
+      if (currentPage === 'rdr' || currentPage === 'hsd') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
       markGrid();     // ...and the state to the new GRID
       // The grid was just rebuilt, so an SOI cursor mark on one of its items is gone — let the shell
@@ -675,7 +761,7 @@
       resized: function () {
         if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); placeWpnDecorators(); }
         if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); placeWpnDecorator('wpt-next', 'wpt-prev', 'WYPT'); }
-        if (currentPage === 'rdr') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
+        if (currentPage === 'rdr' || currentPage === 'hsd') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
       },
       destroy: function () { el.remove(); },
     };
@@ -767,16 +853,35 @@
   // Report the live surface count so the server cycles portals, not documents. Needs the cid, which
   // the tap supplies (soi-cid); until then this no-ops and the soi-cid handler re-invokes it.
   function reportPanes() {
-    if (myCid) sendCommand('soi.panes', { cid: myCid, n: portals.length }).catch(function () {});
+    if (!myCid) return;
+    sendCommand('soi.panes', { cid: myCid, n: portals.length }).catch(function () {});
+    reportSoiPage();   // myCid may have just arrived after focus was already established (reconnect)
   }
 
   function focusedPortal() { return (soiPane >= 0 && soiPane < portals.length) ? portals[soiPane] : null; }
 
   // Ring the focused portal (a class on its box; f35.css draws it). Out of range — a merge just
   // removed it, before the server's clamped target lands — rings nothing, which is the safe default.
+  //
+  // The manual TGP camera (docs/tgp-manual-control.md's PAD Cursor consolidation plan) is a native
+  // target, not a portal — soiPane never matches it, so focusedPortal() naturally returns null and
+  // this rings nothing while the camera itself holds focus, with no special case needed. A real
+  // TGP portal is its own separate, independently focusable ring member, so the ring must never
+  // light up a TGP-showing portal just because the camera — a different ring member — holds focus.
+  // The in-cockpit "SOI" tag (TgpNativeOverlay.SyncCrosshair) is the tell when the camera itself
+  // holds focus.
   function renderSoiRing() {
     const fp = focusedPortal();
     portals.forEach(function (p) { p.el.classList.toggle('soi', p === fp); });
+  }
+
+  // Report which page the SOI-focused portal is showing (docs/tgp-manual-control.md's PAD Cursor
+  // consolidation plan) — see mfd.js's twin for the full reasoning. Harmless no-op if this glass
+  // isn't the SOI.
+  function reportSoiPage() {
+    const fp = focusedPortal();
+    if (!fp || !myCid) return;
+    sendCommand('soi.page', { cid: myCid, n: soiPane, wname: fp.page() || '' }).catch(function () {});
   }
 
   // Paint the cursor on the focused portal's cursored nav item, clearing any elsewhere. Clamped, so
@@ -803,6 +908,7 @@
     renderSoiRing();
     renderSoiCursor();
     syncCursorFocus();
+    reportSoiPage();   // newly (or still) focused — tell the server what page this portal shows
   }
 
   // A SOI key press, applied to the focused portal. SELECT clicks the cursored label through its own
@@ -828,11 +934,14 @@
     else setSoiCursor(((soiCursor + dir) % items.length + items.length) % items.length);
   }
 
-  // A focused portal just rebuilt its nav grid (page change, WPN paging) — re-apply the cursor mark.
+  // A focused portal just rebuilt its nav grid (page change, WPN paging) — re-apply the cursor mark,
+  // and tell the server if this changed what page the SOI-focused portal shows (docs/tgp-manual-
+  // control.md's PAD Cursor consolidation plan).
   function onNavRendered(p) {
     if (p !== focusedPortal()) return;
     renderSoiCursor();
     syncCursorFocus();   // the focused portal may have paged onto/off MAP under it
+    reportSoiPage();
   }
 
   // ── PAD cursor forwarding (docs/page-cursor.md, docs/map-cursor.md) ───────────────────
@@ -1168,6 +1277,32 @@
       (d.exitFullscreen || d.webkitExitFullscreen || function () {}).call(d);
     }
   });
+
+  // ── Screen wake-lock (docs/screen-wake-lock.md) ───────────────────────────────────────────
+  // Same shared controller the bezel shell's WAKE key uses (shell/wake-lock.js) — this shell's
+  // .nav-item.on already gives a master-strip button the amber engaged treatment, so no new CSS
+  // state is needed here the way the bezel key needed one.
+  (function () {
+    const wakeButton = document.getElementById('ms-wake');
+    const wakeError = document.getElementById('ms-wake-error');
+    let wakeErrorTimer = null;
+    const wakeController = WakeLock.createBrowserController({
+      onState: function (state) {
+        wakeButton.classList.toggle('on', state.enabled);
+        wakeButton.setAttribute('aria-pressed', state.enabled ? 'true' : 'false');
+        wakeButton.title = state.enabled ? 'Allow screen sleep' : 'Keep screen awake';
+      },
+      onError: function (error) {
+        console.error('Wake lock failed:', error);
+        wakeError.textContent = 'WAKE LOCK FAILED';
+        wakeError.hidden = false;
+        if (wakeErrorTimer !== null) clearTimeout(wakeErrorTimer);
+        wakeErrorTimer = setTimeout(function () { wakeError.hidden = true; wakeErrorTimer = null; }, 5000);
+      },
+    });
+    wakeButton.addEventListener('click', function () { wakeController.toggle(); });
+    wakeController.start();
+  })();
 
   // ── SAVE/LOAD LAYOUT — browser-side keyboard shortcuts only, no joystick/HOTAS. ──
   // S saves the glass's current arrangement (F35Glass cells + each portal's page) under a name;

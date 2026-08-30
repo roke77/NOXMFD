@@ -1,9 +1,9 @@
 # `src/web/` — the MFD frontend
 
 The whole in-mod UI lives here as real `.html` / `.css` / `.js` files, baked into the DLL as
-embedded resources and served by `src/plugin/TelemetryServer.cs` (`ServeAssetRel`, suffix-matched
-against the resource manifest). No C# string blobs, no bundler, no framework — vanilla JS +
-`postMessage`.
+embedded resources and served by `src/plugin/Http/TelemetryAssets.cs` (`ServeAssetRel`,
+suffix-matched against the resource manifest). No C# string blobs, no bundler, no framework —
+vanilla JS + `postMessage`.
 
 Full design history and decisions: [`docs/src-architecture.md`](../../docs/src-architecture.md).
 
@@ -14,10 +14,16 @@ src/web/
   shared/   font.css  theme.css  share-tech-mono.woff2   # passive cross-page assets
   services/ telemetry-source.js  send-command.js          # active shared code (the providers)
             pad-cursor.js                                 # the shared PAD crosshair (docs/page-cursor.md)
-  shell/    nav-model.js                                  # NAV registry — the layout seam, BOTH shells load it
-            layout-pages.js                               # where each layout mounts each NAV destination
-            layout-keydown.js                             # shared SAVE/LOAD LAYOUT keyboard wiring
-            boot-reveal.js                                # shared boot loading-bar + typewriter mechanics
+            remote-keybinds.js                            # opt-in browser keybind listener
+  shell/    shared/        nav-model.js                   # NAV registry — the layout seam, BOTH shells load it
+                           layout-pages.js                # where each layout mounts each NAV destination
+                           layout-keydown.js               # shared SAVE/LOAD LAYOUT keyboard wiring
+                           layout-store.js  layout-modal.js/.css  # SAVE/LOAD LAYOUT storage + dialog
+                           layout-keybinds.js              # SAVE/LOAD LAYOUT keybind matching
+                           boot-reveal.js                 # shared boot loading-bar + typewriter mechanics
+                           wake-lock.js  wake-lock.test.js # screen wake-lock controller (docs/screen-wake-lock.md)
+                           ext-nav.js                     # EXT hub's runtime extension-nav plan builder
+                           tgp-marks.js                   # shared TGP mark-light derivation
             layout-sticky.test.js                         # the classic⇄f35 redirect handoff — belongs to neither
             layout-coverage.test.js                       # every NAV destination reachable in BOTH layouts
             classic/       mfd.html  mfd.css  mfd.js       # the classic bezel shell (host + router)
@@ -31,13 +37,14 @@ src/web/
     wpt/    wpt.html  wpt.css  wpt.js     # waypoint/route editor, thin client over the plugin's
             waypoints-store.js            # RouteStore (docs/hud-waypoint-indicator.md) — fetch/poll
             wpt-route.js  wpt-route.test.js  # /wpt-options + POST /command, no local persistence
-    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hud/  bdf/  mis/  obj/  akf/  rates/
+    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
                                                # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
-                                               # akf = kill feed/session stats docs/akf-page.md; rates = RTS live
-                                               # refresh-rate sliders, folded under CFG)
+                                               # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg =
+                                               # each page's own refresh-rate/quality settings, reached from that
+                                               # page's own nav row, not CFG — see nav-model.js's NAV.mapcfg/tgpcfg)
                                                # some carry a pure sibling module — see below
     ext/                                       # EXT hub — lists extensions discovered at runtime via
-                                               # /ext-manifest (shell/ext-nav.js), no fixed page content of
+                                               # /ext-manifest (shell/shared/ext-nav.js), no fixed page content of
                                                # its own; each extension serves its own page under /ext/<id>
                                                # (docs/extensions-api.md)
     keybinds/                                  # frame-hosted like the pages above, not a standalone document
@@ -45,10 +52,11 @@ src/web/
 ```
 
 Two shells render the same pages: the classic bezel (`shell/classic/mfd.js`) and the F-35 glass
-(`shell/f35/f35.js`), sharing the NAV model, the page-routing tables (`shell/layout-pages.js`),
-`sendCommand`, and the SAVE/LOAD LAYOUT keyboard wiring
-(`shell/layout-keydown.js`) and the boot loading-bar/typewriter mechanics
-(`shell/boot-reveal.js`) — see [`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
+(`shell/f35/f35.js`), sharing the NAV model, the page-routing tables (`shell/shared/layout-pages.js`),
+`sendCommand`, the opt-in remote keybind listener (`services/remote-keybinds.js`), and the
+SAVE/LOAD LAYOUT keyboard wiring
+(`shell/shared/layout-keydown.js`) and the boot loading-bar/typewriter mechanics
+(`shell/shared/boot-reveal.js`) — see [`docs/layouts.md`](../../docs/layouts.md). `*.test.js` files sitting next to their module (e.g.
 `nav-model.test.js`, `f35-glass.test.js`, `classic-paging.test.js`) are Node self-checks, run by hand
 (`node src/web/<path>/whatever.test.js` from anywhere), never fetched by a browser (excluded from the
 embedded-resource glob). The whole suite: `find src/web -name '*.test.js' -exec node {} \;`. Most are
@@ -58,7 +66,9 @@ Logic worth checking gets split into a **pure sibling module** the page loads an
 without a DOM — the page keeps the elements and live state and passes what the module needs in. The
 same move the shell makes with `nav-model.js` / `classic-paging.js`. Named for what it does:
 `map-transform.js` (world⇄pixel maths), `bdf-funds.js` (the magnitude-band money format),
-`keybinds-keymap.js` (KeyboardEvent.code ⇄ Unity KeyCode names), `wpt-route.js` (route/waypoint
+`keybinds-keymap.js` (KeyboardEvent.code ⇄ Unity KeyCode names), `remote-keybinds.js` (the
+per-browser KEY-page listener that maps configured keys into `/command` posts), `wpt-route.js`
+(route/waypoint
 display-derivation — bearing/distance math and a client-side pre-validator for pasted route JSON;
 the actual route data and its mutation live server-side in `RouteStore`, not here — see
 `waypoints-store.js`), and `<x>-*-policy.js` where the
@@ -127,12 +137,13 @@ same-origin across the base map iframe and any split-pane map — so it survives
 split-pane reloads, and the mission-exit reset, and follow is mirrored up to the shell's FOLLOW
 chip on (re)entry. First run seeds the defaults (follow **on**, a medium zoom). It's view-local —
 not part of the data path; `map.js` owns it (`loadPersistedView` / `savePersistedView`). RDR's
-selected range follows the same pattern under `noxmfd.rdr.view`.
+selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps its own
+360-degree range under `noxmfd.hsd.view`.
 
 ## Hosting model
 
 - **Full view (bezel):** the visible page renders in the shell's single `#page-frame` iframe
-  (`FRAME_PAGES = {wpn, tgp, avn, afm, rwr, rdr, tgt, hud, bdf, pal, mis, obj, keys}` — the key is
+  (`FRAME_PAGES = {wpn, tgp, avn, afm, rwr, rdr, hsd, tgt, hud, bdf, pal, mis, obj, keys}` — the key is
   the NAV action, the value the route, which is why `pal` maps to `/bdf?pal` and `keys` to
   `/keybinds`). MAP is the base iframe *under* it; MAIN's full view is the shell's own info-box
   chrome (not a hosted page).
@@ -142,7 +153,7 @@ selected range follows the same pattern under `noxmfd.rdr.view`.
   independent `/<page>?bare` iframe; corner grips merge/split them (`f35-glass.js`). WPN's own
   pagination is `f35-wpn-paging.js`.
 - **Every NAV destination resolves in both layouts**, so nothing renders dimmed. The two routing
-  tables sit together in `shell/layout-pages.js` for that reason, and `layout-coverage.test.js`
+  tables sit together in `shell/shared/layout-pages.js` for that reason, and `layout-coverage.test.js`
   fails by name if one layout gains a page the other lacks.
 - A page is the **single source of truth** across all of these — one file, with an optional
   `body.full` profile toggled by a `layout:'full'` field in its layout message.
@@ -156,12 +167,13 @@ selected range follows the same pattern under `noxmfd.rdr.view`.
   (`{act, pane}`, on a HOTAS keypress) up to whichever shell hosts it; the shell reports its own
   surface count back down via `soi.panes` (below). Most pages carry no SOI-specific code — the
   shell derives their bezel/NAV cursor from their own `data-action` / `.nav-item` elements.
-- **PAD cursor (the exception):** a page in `PAD_CURSOR_PAGES` (`map`, `tgt`, `hud`, `rdr`) draws a
+- **PAD cursor (the exception):** a page in `PAD_CURSOR_PAGES` (`map`, `tgt`, `hud`, `rdr`, `wpt`, `akf`, `hsd`) draws a
   real crosshair over its own content, so the shell forwards the raw `'cursor'` / `'cursor-held'` /
   `'cursor-select'` / `'map-act'` events down to whichever eligible page is focused
   (`focusedCursorWindow()`), and the page integrates them with `services/pad-cursor.js`. Each page
   decides what the events *mean*: MAP hit-tests contacts and pans at the edge, TGT walks its rows,
-  RDR steps its range — one HOTAS bind, per-page meaning (docs/page-cursor.md).
+  RDR/FCR and HSD both hit-test the same aerial target set (Select toggles a lock, reused by TGT
+  too) — one HOTAS bind, per-page meaning (docs/page-cursor.md).
 - **Write commands:** `src/web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
   — from pages (MAP tap → `target.select`; TGT → `tgt.*` + `target.deselect`; AVN → `avn.toggle`;
   HUD → `hud.*`/`declutter.set`/`preset.*` (issue #50 follow-up); KEYBINDS → the `keybind.*` family)
@@ -169,6 +181,10 @@ selected range follows the same pattern under `noxmfd.rdr.view`.
   `layout.save`/`.rename`/`.delete` (issue #51 — LOAD itself is a client-side `GET /layout-options`
   read, no command), and `avn.toggle` again from the F-35 master strip). Every handler is listed in
   [`src/plugin/README.md`](../plugin/README.md).
+- **Remote keybinds:** `src/web/services/remote-keybinds.js` is loaded by shells and standalone
+  pages. It stays idle unless the per-browser KEY toggle is on, then polls `/keybinds-config`,
+  translates configured keys into `/command` posts, and uses explicit held-state commands for
+  cursor/fire actions so browser keyup/blur can release them.
 
 ## Verifying without the game
 

@@ -49,6 +49,14 @@
 
 .kb-name  { font-size: 14px; letter-spacing: 1px; color: var(--no-green); }
 .kb-desc  { font-size: 10px; letter-spacing: 0.5px; color: var(--no-green-dim); margin-top: 3px; padding-right: 8px; }
+.kb-warning {
+  display: none;
+  margin-top: 7px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--no-amber);
+}
+.kb-warning.shown { display: block; }
 
 /* a bind cell: the clickable current-value box + its clear button */
 .kb-cell { display: flex; align-items: center; gap: 5px; }

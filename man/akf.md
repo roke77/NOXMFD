@@ -7,6 +7,9 @@ column (yours — weapon name included where resolvable, plus lines for when you
 your own ordnance is intercepted). Session kill tally, funds gained/spent, and current rank are
 shown below the feeds.
 
+The native kill-feed ticker this replicates can be hidden from the in-cockpit HUD with
+[HUD](hud.md#declutter)'s **FEED** toggle, without affecting this page.
+
 ![AKF page](images/AKF.png)
 
 ## ALL / PLAYER split

@@ -1,0 +1,134 @@
+/* MAP's own CFG page. Panel shape matches TGP CFG's (keybinds.css's
+   .kb-panel/.kb-title/.kb-setting lineage). */
+
+html, body { overflow: auto; }   /* the theme hides overflow for MFD panes; this is a full page */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
+}
+html::-webkit-scrollbar { width: 6px; height: 6px; }
+html::-webkit-scrollbar-track { background: transparent; }
+html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
+
+.mcfg-panel {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 26px 18px 40px;
+}
+
+.mcfg-back {
+  float: left;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--no-green-dim);
+  text-decoration: none;
+  padding: 6px 2px;
+}
+.mcfg-back:hover { color: var(--no-green); }
+
+.mcfg-title {
+  font-size: 24px;
+  letter-spacing: 4px;
+  color: var(--no-green);
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.mcfg-warning {
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: var(--no-amber);
+  text-align: center;
+  max-width: 520px;
+  margin: 0 auto 26px;
+}
+
+.mcfg-reset {
+  display: block;
+  margin: 0 auto 24px;
+  padding: 6px 14px;
+  border: 1px solid var(--no-green-dim);
+  background: none;
+  color: var(--no-green-dim);
+  font-family: var(--no-font);
+  font-size: 11px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.mcfg-reset:hover { border-color: var(--no-green); color: var(--no-green); }
+
+.mcfg-setting {
+  padding: 16px 10px 20px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--no-panel-border);
+}
+.mcfg-setting:last-of-type { border-bottom: none; }
+
+.mcfg-name { font-size: 14px; letter-spacing: 1px; color: var(--no-green); }
+.mcfg-desc { font-size: 10px; letter-spacing: 0.5px; color: var(--no-green-dim); margin-top: 3px; }
+
+.mcfg-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.mcfg-slider-wrap { position: relative; flex: 1; }
+
+/* Plain range input, styled to match the mod's toggle/border look rather than the browser default. */
+.mcfg-slider-wrap input[type="range"] {
+  width: 100%;
+  display: block;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 2px;
+  background: var(--no-green-dark);
+  outline: none;
+}
+.mcfg-slider-wrap input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--no-green);
+  background: var(--no-panel-bg);
+  cursor: pointer;
+}
+.mcfg-slider-wrap input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--no-green);
+  background: var(--no-panel-bg);
+  cursor: pointer;
+}
+
+/* One mark per 5 Hz step. ponytail: 8px inset eyeballs the WebKit thumb half-width; not pixel-exact for Firefox's thumb, revisit if step count changes. */
+.mcfg-ticks {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 100%;
+  margin-top: 5px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.mcfg-ticks span {
+  width: 1px;
+  height: 5px;
+  background: var(--no-green-dark);
+}
+
+.mcfg-val {
+  flex: none;
+  min-width: 56px;
+  text-align: right;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--no-amber);
+}
+
+#mcfg-empty { display: none; }
+.mcfg-panel.unavailable .mcfg-setting { display: none; }
+.mcfg-panel.unavailable #mcfg-empty { display: block; }

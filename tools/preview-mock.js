@@ -208,17 +208,21 @@
     // A couple flagged dl:true (docs/tgt-datalink-cancel.md) and one st:true (docs/tgt-stale-lock.md,
     // implies dl) so the harness exercises the SRC column + the DATALINK/STALE buttons'
     // filter/deselect without needing the game.
+    // Three carry a `tti` (seconds, docs/hud-tti-estimate.md) so the harness exercises TGT's own
+    // per-row TTI readout without needing a live shot — telemetry-source.js only ever sets this
+    // from lockedTargetTti, but the harness's own `d.targets` override path (see there) passes
+    // these objects straight through, so setting it here directly is enough for a screenshot.
     targets: [
-      { id: 101, n: 'HLT Flatbed',   g: 'Kg53', r: 8.4,  f: 2 },
+      { id: 101, n: 'HLT Flatbed',   g: 'Kg53', r: 8.4,  f: 2, tti: 7.6 },
       { id: 102, n: 'BMP-2',         g: 'Kh54', r: 9.1,  f: 2, dl: true },
       { id: 103, n: 'F-18',          g: 'Kh55', r: 9.6,  f: 1 },
       { id: 104, n: 'ZSU-23-4',      g: 'Lh55', r: 10.3, f: 2 },
       { id: 105, n: 'Vessel',        g: 'Lh56', r: 11.0, f: 0 },
       { id: 106, n: 'SA-15 Tor',     g: 'Lj57', r: 12.4, f: 2, dl: true, st: true },
       { id: 107, n: 'Airbase',       g: 'Lj58', r: 12.9, f: 1 },
-      { id: 108, n: 'Truck',         g: 'Mj58', r: 13.5, f: 0 },
+      { id: 108, n: 'Truck',         g: 'Mj58', r: 13.5, f: 0, tti: 62 },
       { id: 109, n: 'Su-25 (gnd)',   g: 'Mj59', r: 14.2, f: 2 },
-      { id: 110, n: 'Pantsir-S1',    g: 'Mk59', r: 15.0, f: 2 },
+      { id: 110, n: 'Pantsir-S1',    g: 'Mk59', r: 15.0, f: 2, tti: 125 },
       { id: 111, n: 'KamAZ Fuel',    g: 'Mk60', r: 16.1, f: 2 },
       { id: 112, n: 'Radar Mast',    g: 'Nk60', r: 17.3, f: 2 },
     ],
@@ -286,8 +290,8 @@
   // only fires when the frame has none — no capture loaded at all, or a capture taken at a moment
   // with nothing on radar/RWR — same "real data wins if present" rule `targets` above already
   // follows. Nothing to do here now; FRAME.rwr/.rdr are left exactly as the capture set them, and
-  // the `if (!FRAME.rdr)` / `if (!Array.isArray(FRAME.rwr) || !FRAME.rwr.length)` checks below
-  // decide from there.
+  // the `if (!FRAME.rdr || !FRAME.rdr.present || ...)` / `if (!Array.isArray(FRAME.rwr) ||
+  // !FRAME.rwr.length)` checks below decide from there.
 
   // Preview-only: pad the loadout to 6 weapons so the WPN page paginates in both layouts —
   // full view (5 per page → 5 + 1) and the split pane (WPN_SPLIT_MAX=4 → 4 + 2). These
@@ -311,7 +315,8 @@
   // so they land at the intended bearings/ranges whether the frame is the synthetic one above
   // or a real capture (which carries a different world/hdg). This also round-trips the real
   // wire shape: we emit x,z + tr/pw, and ClientPage converts it right back to az + radius.
-  // Always applied — see the `delete FRAME.rwr` above.
+  // Only applied when the capture didn't already supply a non-empty FRAME.rwr, per the "real
+  // data wins if present" rule above.
   const SYNTH_RWR = [
     { az: 28,  pw: 0.66, tr: 2, n: 'SA-10',  k: 1, period: 2.4 },   // lock,   close, ground-SAM
     { az: 104, pw: 0.40, tr: 1, n: 'SA-11',  k: 1, period: 1.6 },   // track,  mid
@@ -328,19 +333,29 @@
                tr: c.tr, pw: c.pw, fr: 1, n: c.n, k: c.k, _p: c.period };
     });
   }
+  // Top-level radar-emission flag (telemetry-source.js: radarOn: d.radar === true) drives FCR's
+  // antenna-sweep caret (rdr.js render(), rdr.css #rdr-sweep.on) — distinct from FRAME.rdr.present
+  // above (has-a-radar vs. actively-emitting-right-now). A boolean has no "empty" state to defer
+  // to the way an array does, so unlike SYNTH_RDR/SYNTH_RWR below there's nothing to gate this on:
+  // force it on so the sweep always animates in this harness, regardless of whether the loaded
+  // capture happened to record a moment with the radar off.
+  FRAME.radar = true;
   // Synthetic RDR block for the radar page (docs/rdr-page.md): air contacts the own radar
   // "detects", authored as nose-relative bearing (az), range fraction (rf), travel heading
   // relative to nose (rh, for the velocity stub) and lock flag (tg), converted to the plugin's
-  // wire shape (world x,z + world hdg + present/range/cone). Always applied — see the
-  // `delete FRAME.rdr` above.
+  // wire shape (world x,z + world hdg + present/range/cone). Only applied when the capture didn't
+  // already supply a present, non-empty FRAME.rdr, per the "real data wins if present" rule above
+  // — this also covers a capture whose `rdr` field exists but is empty (radar off/absent at the
+  // moment it was captured), which must fall back the same as no field at all, not shadow the
+  // curated scenario with nothing to show.
   const SYNTH_RDR = [
     { az: -20, rf: 0.35, rh: 190, tg: 1, rd: 1, dl: 1, n: 'FS-20 Vortex', alt: 5500 },   // locked, both
     { az:  25, rf: 0.52, rh: 205, tg: 1, rd: 1, dl: 0, n: 'KR-67 Ifrit',  alt: 7200 },   // locked, radar-only
-    { az: -46, rf: 0.70, rh:  15, tg: 0, rd: 1, dl: 0, n: 'SFB-81',       alt: 9100 },   // radar-only (green)
+    { az: -46, rf: 0.70, rh:  15, tg: 0, rd: 1, dl: 0, n: 'SFB-81',       alt: 9100 },   // radar-only (red)
     { az:  10, rf: 0.86, rh: 335, tg: 0, rd: 0, dl: 1, n: 'EW-25 Medusa', alt: 10500 },  // datalink-only (purple)
-    { az:  40, rf: 0.60, rh: 100, tg: 0, rd: 1, dl: 1, n: 'AB-4 Alkyon',  alt: 8200 },   // both, unlocked (green + purple centre)
+    { az:  40, rf: 0.60, rh: 100, tg: 0, rd: 1, dl: 1, n: 'AB-4 Alkyon',  alt: 8200 },   // both, unlocked (red + purple centre)
   ];
-  if (!FRAME.rdr) {
+  if (!FRAME.rdr || !FRAME.rdr.present || !Array.isArray(FRAME.rdr.items) || !FRAME.rdr.items.length) {
     const ow = FRAME.world || { x: 0, z: 0 }, hdg = FRAME.hdg || 0, range = 74000, cone = 60;
     // metric toggles the corner scale (KM/M) vs default (NM/FT) — flip via window.__PREVIEW_FRAME__
     // = { rdr: { metric: true } } or just window.__RDR_METRIC__ = true before load, for a quick check.
@@ -364,6 +379,30 @@
                   x: Math.round(ow.x + Math.sin(ab) * rng), z: Math.round(ow.z + Math.cos(ab) * rng),
                   alt: 5800, hdg: ((0 + hdg) % 360 + 360) % 360, tid: 9001 }];
       })()
+    };
+  }
+
+  // Same "real data wins if present, but an empty/missing list still falls back" rule as
+  // RWR/RDR above — no existing capture predates this field with a present-but-empty block yet
+  // (HSD is new), but the guard is array-emptiness-aware from the start so a future capture that
+  // does carry an empty FRAME.hsd can't silently blank the page.
+  if (!FRAME.hsd || !Array.isArray(FRAME.hsd.items) || !FRAME.hsd.items.length) {
+    const ow = FRAME.world || { x: 0, z: 0 }, hdg = FRAME.hdg || 0;
+    const contacts = [
+      { az: -150, rng: 26000, hdg: 20,  tg: 0, rd: 0, dl: 1, n: 'EW-25 Medusa', alt: 9700 },
+      { az:  -70, rng: 48000, hdg: 110, tg: 0, rd: 0, dl: 1, n: 'FS-12 Revoker', alt: 7600 },
+      { az:   35, rng: 32000, hdg: 260, tg: 1, rd: 0, dl: 1, n: 'KR-67 Ifrit', alt: 6500 },
+      { az:   18, rng: 41000, hdg: 205, tg: 0, rd: 1, dl: 0, n: 'SFB-81', alt: 8900 },
+      { az:  145, rng: 61000, hdg: 315, tg: 0, rd: 0, dl: 1, st: 1, n: 'AB-4 Alkyon', alt: 8300 },
+    ];
+    FRAME.hsd = {
+      metric: !!window.__RDR_METRIC__,
+      items: contacts.map((c, i) => {
+        const ab = (c.az + hdg) * Math.PI / 180;
+        return { id: 9201 + i,
+                 x: Math.round(ow.x + Math.sin(ab) * c.rng), z: Math.round(ow.z + Math.cos(ab) * c.rng),
+                 alt: c.alt, hdg: c.hdg, tg: c.tg, rd: c.rd, dl: c.dl, st: c.st, n: c.n };
+      })
     };
   }
 

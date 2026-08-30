@@ -14,8 +14,8 @@
 // be a hand-written copy that can drift from the code it claims to check. Destinations are the
 // recurring risk anyway — every new page is one.
 const assert = require('assert');
-const { NAV } = require('./nav-model.js');
-const { CLASSIC_FULL, CLASSIC_SPLIT, F35 } = require('./layout-pages.js');
+const { NAV } = require('./shared/nav-model.js');
+const { CLASSIC_FULL, CLASSIC_SPLIT, F35 } = require('./shared/layout-pages.js');
 
 // The bezel routes full view and split panes from separate tables, so the same page can be present
 // in one and missing from the other — it would work in a split pane and render blank in full view.
@@ -39,8 +39,10 @@ for (const [page, items] of Object.entries(NAV))
 // active waypoint route, same shape as flw/grid/zin/zout, not a destination.
 // 'wpt-next'/'wpt-prev' (issue #38): MAP's manual waypoint step — same shape as rt-next/rt-prev,
 // acting on the active route's progress instead of which route is active.
-const BEHAVIOURS = new Set(['flw', 'grid', 'zin', 'zout', 'rng-in', 'rng-out', 'lyt', 'rt-next', 'rt-prev',
-  'wpt-next', 'wpt-prev']);
+// 'hsd-mode' (docs/rdr-fcr-hsd.md): HSD's own CEN<->DEP toggle, same shape as rng-in/rng-out —
+// acts on the page in place, doesn't navigate.
+const BEHAVIOURS = new Set(['flw', 'grid', 'zin', 'zout', 'rng-in', 'rng-out', 'hsd-mode', 'lyt',
+  'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev']);
 
 const destinations = Object.keys(origin).filter(a => !BEHAVIOURS.has(a)).sort();
 assert.ok(destinations.length > 0, 'no destinations found — NAV or this filter is wrong');
