@@ -177,10 +177,10 @@ served from disk).
 Verified live via `tools/serve_web.py` against a real captured stale contact (a T/A-30 Compass) by
 sampling canvas pixels directly rather than eyeballing a screenshot. First pass used
 `STALE_ALPHA = 0.2` plus a white ring (`drawStaleRing`) — pixels confirmed both rendered
-(`rgb(255,255,255)` ring, icon colour ~20% of full red), but read as too dim in practice. Tuned to
-`STALE_ALPHA = 0.9` and removed the ring entirely (simpler signal, no risk of clashing with
-`drawJamGlyph`'s own dashed ring) — re-verified: zero white-ring pixels remain, icon colour now
-reads ~90% of full red as expected.
+(`rgb(255,255,255)` ring, icon colour ~20% of full red), but read as too subtle in a screenshot.
+Tried `STALE_ALPHA = 0.9` with the ring removed — verified (icon colour ~90% of full red, zero
+ring pixels), but in practice barely distinguishable from a fresh contact at a glance. Settled back
+on `STALE_ALPHA = 0.2`, no ring: noticeably faded is the point, not a subtle hint.
 
 ### F3 — `target.select` does not enforce contact visibility — high
 

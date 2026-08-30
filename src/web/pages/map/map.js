@@ -93,7 +93,7 @@ function savePersistedView() {
 const PLAYER_COLOR = '#39ff14';                     // player stays HUD green — matches --no-green;
                                                      // canvas strokeStyle can't use CSS var()
 const TARGET_COLOR = '#ff8000';                     // orange ring on the player's targeted unit(s)
-const STALE_ALPHA  = 0.9;                           // faded icon opacity for a stale contact (F2)
+const STALE_ALPHA  = 0.2;                           // 80% transparent icon for a stale contact (F2)
 let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors —
                                                      // 1/2 default to --no-green/--no-red until then
 const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
