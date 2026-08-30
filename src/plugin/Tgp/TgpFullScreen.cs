@@ -212,13 +212,9 @@ namespace NOXMFD
             _relSpdText!.text  = (hasTargets ? "REL " : "CLO ") + UnitConverter.SpeedReading(Overlay.RelSpeedMps);
 
             _needle!.gameObject.SetActive(true);
-            // No +180 here despite tgp.js's own needle using one: that correction exists because
-            // the web needle's CSS shape (top:50%;left:50%, no translate) hangs DOWN from the
-            // compass center by default, so it needs the extra half-turn to point up at bearing 0.
-            // This needle is built with a bottom pivot and grows UP from the compass center, already
-            // pointing the right way at bearing 0 — adding +180 here double-flips it (the inversion
-            // reported after the first pass).
-            _needle.localRotation = Quaternion.Euler(0f, 0f, -Overlay.BearingDeg);
+            // See TgpFullScreenMath.NeedleRotationDegrees for why this isn't tgp.js's own
+            // (bearing + 180) formula.
+            _needle.localRotation = Quaternion.Euler(0f, 0f, TgpFullScreenMath.NeedleRotationDegrees(Overlay.BearingDeg));
             _bearingText!.text = $"{Overlay.BearingDeg:F0}°";
             _gridText!.text    = "GRID: " + Overlay.Grid;
             _modeText!.text    = Overlay.IR ? "MODE: IR" : "MODE: COLOR";

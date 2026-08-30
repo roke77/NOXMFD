@@ -4,11 +4,12 @@
 
 ## Status
 
-First pass implemented (`TgpFullScreen.cs`), not yet tested in-game. Design revised after two
-findings that changed the approach for the better: `TgpFeed.cs` already answers where the native
-picture comes from, and a side-by-side look at the community **MissileCamera** mod
-(`_scratch/mursisru-missile-camera/`, already in this repo from earlier research) shows a mature,
-working solution to the exact resolution/quality problem this ticket raises.
+First pass implemented (`TgpFullScreen.cs`) and since tested in-game across two further rounds of
+fixes below. Design revised after two early findings that changed the approach for the better:
+`TgpFeed.cs` already answers where the native picture comes from, and a side-by-side look at the
+community **MissileCamera** mod (`_scratch/mursisru-missile-camera/`, already in this repo from
+earlier research) shows a mature, working solution to the exact resolution/quality problem this
+ticket raises.
 
 What shipped in the first pass: a dedicated `TgpMirrorCam` instance capped at 1080p, a
 `ScreenSpaceOverlay` canvas with the feed `RawImage` and four corner readout labels, and the two
@@ -54,6 +55,17 @@ keybinds. In-game testing found two gaps and a request, addressed in a second pa
   font/padding/spacing size is now multiplied by a flat `UiScale` constant (5x) rather than the web
   page's own small fixed CSS pixel values. The title chip was also missing its background — it was
   built as a bare `HorizontalLayoutGroup` with no `Image`, unlike every other row's `CreateChip`.
+
+- **Bearing needle pointed the wrong way — a mechanically-copied formula, not a new bug.** The
+  needle's rotation was ported directly from `tgp.js`'s own `(bearing + 180)` without accounting
+  for the two needles being built opposite ways: the web CSS needle hangs down from the compass
+  center by default (needs the +180 to point up at bearing 0), while this needle has a bottom pivot
+  and grows up from the center, already correct at bearing 0 — adding +180 here double-flipped it.
+  Fixed to a plain `-bearing`, and pulled out into
+  [`TgpFullScreenMath.NeedleRotationDegrees`](../src/plugin/Tgp/TgpFullScreenMath.cs) — the one
+  piece of pure logic in this feature, and the one place a bug has actually shipped — so a future
+  edit reaching for the web page's own formula out of habit gets caught by
+  `tools/tests/TgpFullScreenMathTests.cs` instead of another in-game report.
 
 Not yet done: per-target lock boxes on the full-screen view (the projection function is already
 wired for it, just unused), and the airframe `cullingMask` exclusion (still deferred pending
