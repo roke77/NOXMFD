@@ -194,17 +194,12 @@
     // another contact (a line to the SAM, id 205); id 204 shows jm with an unresolved jb (888 —
     // no such contact), exercising the icon-only fallback with no line.
     playerId: 999, pjm: true, pjb: 205,   // player jammed by the SAM too
-    pjam: true,   // native picture jamming (docs/jamming-contact-telemetry-hardening.md, F1) —
-                   // exercises the MAP page's JAMMED chip independent of pjm's own radar-jam glyph
     contacts: [
       { id: 201, t: 'Airbase', f: 1, x: -8000,  z: 12000,  h: 0,   o: false, s: 1 },
       { id: 202, t: 'F18',     f: 1, x: 3000,   z: 4000,   h: 60,  o: true,  s: 1 },
       { id: 203, t: 'Su57',    f: 2, x: 16000,  z: -9000,  h: 220, o: true,  s: 1, jm: true, jb: 205 },
-      // st:true (docs/jamming-contact-telemetry-hardening.md, F2) exercises the MAP page's stale
-      // treatment: 20% opacity + solid white ring. 204 pairs it with jm:true (jammed AND stale) to
-      // check the two overlays don't clash; 205 is stale-only for a clean look at just the ring/fade.
-      { id: 204, t: 'Su57',    f: 2, x: 19000,  z: -6000,  h: 205, o: true,  s: 1, jm: true, jb: 888, st: true },
-      { id: 205, t: 'SAM',     f: 2, x: -2000,  z: -15000, h: 0,   o: false, s: 1, st: true },
+      { id: 204, t: 'Su57',    f: 2, x: 19000,  z: -6000,  h: 205, o: true,  s: 1, jm: true, jb: 888 },
+      { id: 205, t: 'SAM',     f: 2, x: -2000,  z: -15000, h: 0,   o: false, s: 1 },
       { id: 206, t: 'Vessel',  f: 0, x: -14000, z: -4000,  h: 0,   o: false, s: 1 },
     ],
     // 12 mock target locks — the MFD's TGT page lists them under its filters (it scrolls, so
