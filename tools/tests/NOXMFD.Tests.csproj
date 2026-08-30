@@ -44,6 +44,7 @@
     <Compile Include="..\..\src\plugin\Input\WeaponSelectorLogic.cs" Link="Source\WeaponSelectorLogic.cs" />
     <Compile Include="..\..\src\plugin\Tgp\TgpManualAimMath.cs" Link="Source\TgpManualAimMath.cs" />
     <Compile Include="..\..\src\plugin\Tgp\TgpFeedSettings.cs" Link="Source\TgpFeedSettings.cs" />
+    <Compile Include="..\..\src\plugin\Tgp\TgpFullScreenMath.cs" Link="Source\TgpFullScreenMath.cs" />
     <Compile Include="..\..\src\plugin\Hud\HudDirectionCueMath.cs" Link="Source\HudDirectionCueMath.cs" />
     <Compile Include="..\..\src\plugin\Hud\HudWaypointCueMath.cs" Link="Source\HudWaypointCueMath.cs" />
     <Compile Include="..\..\src\plugin\Hud\HudTtiMath.cs" Link="Source\HudTtiMath.cs" />

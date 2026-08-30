@@ -199,6 +199,7 @@ namespace NOXMFD
 
             _tgp.Tick(dt);   // TGP feed cadence is owned by TgpFeed (captures at its own interval)
             TgpManualControl.Tick(dt);   // docs/tgp-manual-control.md — no-op while manual mode is off
+            TgpFullScreen.Tick(dt);      // docs/tgp-full-screen.md — no-op while inactive
         }
 
         private void ScanWorld()
