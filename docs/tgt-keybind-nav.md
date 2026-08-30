@@ -18,25 +18,26 @@ DefFree like MAP/SOI, since they drive the mod's own display rather than the aer
 
 - **Next Target** / **Previous Target** — see `docs/tgt-cycle-focus.md` (both the shared
   `TargetFocus.Id` they step, and TGT's own "Select arbitration" reaction to the press).
-- **Clear Datalink** / **Clear Stale** — fire `tgt.clear-datalink`/`tgt.clear-stale` directly, the
-  keybind equivalents of tapping those buttons.
+- **Clear Datalink** / **Clear Stale** — deselect those locks in the game directly, the keybind
+  equivalents of tapping those buttons.
 
-## Transport: reusing map-act, not building new plumbing
+## Transport: reusing map-act, plus a direct global call
 
-Zoom In/Out already prove out a generic channel for "an extra discrete action bound to whatever's
+Zoom In/Out prove out a generic channel for "an extra discrete action bound to whatever's
 SOI-focused; the page decides what it means" (`Keybinds.cs` → `TelemetryServer.MapAction("...")` →
 `mfd.js`'s `map-act` forwarding, gated on `focusedCursorWindow()`, → the focused page's `message`
-handler as `{mfd:true, action:'...'}`). All four binds above ride that exact channel with their own
-action strings (`'tgt-next'`, `'tgt-prev'`, `'tgt-datalink'`, `'tgt-stale'`) — no shell or server
-changes beyond the `MapAction(...)` calls. This also means they're automatically scoped to only reach
-TGT while it's the SOI-focused display (the same gate Zoom In/Out already have) — nothing extra
-needed for that. Next/Previous also fire `Keybinds.CycleTargetFocus(dir)` directly, no SOI gate,
-since `TargetFocus.Id` reaches every open TGT/FCR/HSD browser regardless of which one has SOI
-(`docs/tgt-cycle-focus.md`).
-
-`tgt-datalink`/`tgt-stale` need nothing plugin-side beyond the bind itself: `tgt.clear-datalink` and
-`tgt.clear-stale` already exist as commands (`CommandDispatcher.cs`); `tgt.js` just calls the same
-`send(...)` its own buttons call.
+handler as `{mfd:true, action:'...'}`). All four binds above still fire their own action string on
+that channel (`'tgt-next'`, `'tgt-prev'`, `'tgt-datalink'`, `'tgt-stale'`) for whichever page happens
+to be SOI-focused — Next/Previous need it there for TGT's own "Select arbitration" reaction. But none
+of the four are SOI-gated for their real effect: like Next/Previous firing `Keybinds.CycleTargetFocus(dir)`
+directly (`TargetFocus.Id` reaches every open TGT/FCR/HSD browser regardless of which has SOI,
+`docs/tgt-cycle-focus.md`), Clear Datalink/Clear Stale call `CommandDispatcher.ClearDatalinkTargets()`/
+`ClearStaleTargets()` directly — the same bulk-deselect `tgt.clear-datalink`/`tgt.clear-stale` already
+run, now reachable without a TGT display ever being open or focused. The remote/WSO path
+(`remote-keybinds.js` → `map.action` → `CommandDispatcher.MapAction`) gets the same direct call from
+that handler, since a remote press never goes through `Keybinds.cs`'s own poll loop. The lingering
+`map-act` broadcast to an SOI-focused TGT page re-sends the identical, already-applied command — a
+harmless no-op, not a second distinct effect.
 
 ## Superseded by TargetFocus (row-stepper removed)
 

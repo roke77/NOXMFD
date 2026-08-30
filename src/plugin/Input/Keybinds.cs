@@ -229,11 +229,13 @@ namespace NOXMFD
                 "Cursor Select deselects that focused row without aiming the crosshair.",
                 () => { TelemetryServer.MapAction("tgt-prev"); CycleTargetFocus(-1); });
             DefFree(config, "tgt-datalink", tgt, "TgtDatalink", "Clear Datalink", edge: true,
-                "Deselect the datalink-only locks on the focused TGT display — same as tapping its DATALINK button.",
-                () => TelemetryServer.MapAction("tgt-datalink"));
+                "Deselect every datalink-only lock, same as tapping DATALINK on a TGT display — works " +
+                "regardless of which display (if any) is focused.",
+                () => { TelemetryServer.MapAction("tgt-datalink"); CommandDispatcher.ClearDatalinkTargets(); });
             DefFree(config, "tgt-stale", tgt, "TgtStale", "Clear Stale", edge: true,
-                "Deselect the stale locks on the focused TGT display — same as tapping its STALE button.",
-                () => TelemetryServer.MapAction("tgt-stale"));
+                "Deselect every stale lock, same as tapping STALE on a TGT display — works regardless " +
+                "of which display (if any) is focused.",
+                () => { TelemetryServer.MapAction("tgt-stale"); CommandDispatcher.ClearStaleTargets(); });
 
             // SOI binds — they drive the mod's own displays rather than the aeroplane, so they are
             // DefFree (no aircraft needed) and work at the main menu. See docs/keybinds-page.md.
@@ -532,10 +534,11 @@ namespace NOXMFD
                 "the bezel's FLW, R+/R- and W+/W- keys already do on the focused MAP display. Zoom " +
                 "In/Out moved to the shared Cursor Zoom In/Out (see Cursor Keybinds).",
             "TGT Keybinds" =>
-                "Next/Previous focus a locked target across TGT/FCR/HSD. On the focused TGT display, " +
-                "they hide the crosshair and hand Cursor Select to the focused row; moving Cursor " +
-                "Up/Down/Left/Right (or its axis) hands Select back to the crosshair. Datalink/Stale " +
-                "mirror the DATALINK/STALE buttons.",
+                "All four act regardless of which display is focused (or whether one is). Next/Previous " +
+                "focus a locked target across TGT/FCR/HSD; on the focused TGT display, they also hide " +
+                "the crosshair and hand Cursor Select to the focused row — moving Cursor Up/Down/Left/" +
+                "Right (or its axis) hands Select back to the crosshair. Datalink/Stale deselect those " +
+                "locks everywhere, same as tapping the DATALINK/STALE buttons.",
             "SOI Keybinds" =>
                 "One display at a time is the sensor of interest — it rings itself in white, and these " +
                 "keys drive it. Nothing is focused until you press SOI Next or Prev; from there they " +

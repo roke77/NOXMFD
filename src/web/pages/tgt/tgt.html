@@ -50,9 +50,11 @@
   server-side id (TargetFocus.cs) reaching TGT/FCR/HSD in every open browser, not a page-local
   concept — and that's the only row-highlight state TGT keeps: the focused row draws an outline,
   amber or grey depending on which control currently owns Cursor Select (see "Select arbitration"
-  below). Datalink/Stale keybinds (docs/tgt-keybind-nav.md) are two more map-act actions, TGT-only:
-  'tgt-datalink'/'tgt-stale' just fire tgt.clear-datalink/tgt.clear-stale directly — the keybind
-  equivalents of tapping the DATALINK/STALE buttons.
+  below). Datalink/Stale keybinds (docs/tgt-keybind-nav.md) clear those locks in the game directly
+  (Keybinds.cs / CommandDispatcher.cs) — same as Next/Previous Target, this works regardless of
+  which display (if any) is focused, not just while this TGT is SOI-focused. The map-act broadcast
+  below still reaches this page too, when it happens to be focused, but only re-issues the same
+  already-applied clear — the keybind equivalents of tapping the DATALINK/STALE buttons.
 
   Select arbitration ('tgt-next'/'tgt-prev' actions, docs/tgt-cycle-focus.md): Next/Previous Target
   hides the free crosshair and hands Cursor Select to the focused lock instead (amber outline,

@@ -441,15 +441,18 @@ namespace NOXMFD
             TelemetryServer.SetRemoteFireState(env.group ?? string.Empty, env.on);
         }
 
-        // tgt-next/tgt-prev need both halves of the physical keybind path: the SOI-gated page action
-        // that lets TGT hand Select to the focused row, and the shared target-focus step that reaches
-        // every open TGT/FCR/HSD page.
+        // tgt-next/prev/datalink/stale each need both halves of the physical keybind path: the
+        // SOI-gated page action (tgt-next/prev hand Select to the focused row on the SOI-focused
+        // TGT display), and the actual global effect that acts regardless of SOI — cycling the
+        // shared target focus, or bulk-deselecting datalink-only/stale locks in the game itself.
         private static void MapAction(CommandEnvelope env)
         {
             string act = env.wname ?? string.Empty;
             TelemetryServer.MapAction(act);
             if (act == "tgt-next") Keybinds.CycleTargetFocus(1);
             else if (act == "tgt-prev") Keybinds.CycleTargetFocus(-1);
+            else if (act == "tgt-datalink") ClearDatalinkTargets();
+            else if (act == "tgt-stale") ClearStaleTargets();
         }
 
         private static float ClampUnit(float value)
@@ -579,8 +582,14 @@ namespace NOXMFD
             Plugin.Log?.LogInfo($"[NOXMFD] {op} — deselected {cleared} target(s).");
         }
 
-        private static void TgtClearDatalink(CommandEnvelope env) => TgtClearBy("tgt.clear-datalink", IsDatalinkOnly);
-        private static void TgtClearStale(CommandEnvelope env)    => TgtClearBy("tgt.clear-stale", IsStale);
+        private static void TgtClearDatalink(CommandEnvelope env) => ClearDatalinkTargets();
+        private static void TgtClearStale(CommandEnvelope env)    => ClearStaleTargets();
+
+        // Internal, not private — same reasoning as Keybinds.CycleTargetFocus: the DATALINK/STALE
+        // clear keybinds call these directly (Keybinds.cs) so they act regardless of SOI focus,
+        // rather than only reaching the SOI-focused TGT display via the map-act browser round trip.
+        internal static void ClearDatalinkTargets() => TgtClearBy("tgt.clear-datalink", IsDatalinkOnly);
+        internal static void ClearStaleTargets()    => TgtClearBy("tgt.clear-stale", IsStale);
 
         // LASER toggle — keep only lased targets when on.
         private static void TgtLaser(CommandEnvelope env)
