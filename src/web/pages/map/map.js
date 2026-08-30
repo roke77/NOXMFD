@@ -93,7 +93,7 @@ function savePersistedView() {
 const PLAYER_COLOR = '#39ff14';                     // player stays HUD green — matches --no-green;
                                                      // canvas strokeStyle can't use CSS var()
 const TARGET_COLOR = '#ff8000';                     // orange ring on the player's targeted unit(s)
-const STALE_ALPHA  = 0.2;                           // 80% transparent icon for a stale contact (F2)
+const STALE_ALPHA  = 0.9;                           // faded icon opacity for a stale contact (F2)
 let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors —
                                                      // 1/2 default to --no-green/--no-red until then
 const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
@@ -418,19 +418,6 @@ function drawJamGlyph(cx, cy, r) {
   oc.restore();
 }
 
-// Stale enemy contacts (docs/jamming-contact-telemetry-hardening.md, F2): a plain solid white ring
-// around the already-faded icon (see the STALE_ALPHA fade in the contacts loop below) — distinct
-// from drawJamGlyph's dashed ring/lightning bolt, so the two states never read as the same thing.
-function drawStaleRing(cx, cy, r) {
-  oc.save();
-  oc.strokeStyle = '#ffffff';
-  oc.lineWidth = 1.5;
-  oc.beginPath();
-  oc.arc(cx, cy, r + 3, 0, Math.PI * 2);
-  oc.stroke();
-  oc.restore();
-}
-
 // ── Coordinate grid overlay (issue #41) ─────────────────────────────────────────────
 // Redraws the game's own major/minor grid-square scheme — the same math gridLabel() uses to name
 // a point (e.g. "Li36"), run in reverse to find which lines cross the map: minor lines every 1 km,
@@ -598,7 +585,7 @@ function drawOverlay() {
       const hex = factionColors[u.f] || factionColors[0];
       if (u.st) oc.globalAlpha = STALE_ALPHA;
       const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, iconBase(), u.s);
-      if (u.st) { oc.globalAlpha = 1; drawStaleRing(p.cx, p.cy, r); }
+      if (u.st) oc.globalAlpha = 1;
       if (u.tg) { drawTargetBox(p.cx, p.cy, r + 4); pendingSel.delete(u.id); }   // telemetry confirms selection
       if (u.jm) drawJamGlyph(p.cx, p.cy, r);
       hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex, id: u.id, tg: !!u.tg });

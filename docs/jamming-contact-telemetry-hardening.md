@@ -169,12 +169,18 @@ enemy, then break contact (radar off, turn away, terrain mask) for 4+ seconds an
 HSD/RDR icon's heading stops changing even if the real unit keeps turning.
 
 **MAP page follow-up, 2026-08-30**: `UnitInfo.Stale` (`st`) was already serialized but `map.js` never
-read it. Added a visual treatment — a stale contact's icon now draws at 20% opacity (`STALE_ALPHA`)
-with a solid white ring (`drawStaleRing`), distinct from `drawJamGlyph`'s dashed ring/lightning bolt
-so the two states can't be confused. Pure frontend change in `src/web/pages/map/map.js`; no backend
-field needed since `st` already existed. Requires a DLL rebuild to deploy (`src/web/*` is an embedded
-resource, not served from disk) — build succeeded, `node --check` passed; live visual confirmation
-still pending (needs an actual stale contact on screen).
+read it. Added a visual treatment — a stale contact's icon now draws at reduced opacity
+(`STALE_ALPHA`). Pure frontend change in `src/web/pages/map/map.js`; no backend field needed since
+`st` already existed. Requires a DLL rebuild to deploy (`src/web/*` is an embedded resource, not
+served from disk).
+
+Verified live via `tools/serve_web.py` against a real captured stale contact (a T/A-30 Compass) by
+sampling canvas pixels directly rather than eyeballing a screenshot. First pass used
+`STALE_ALPHA = 0.2` plus a white ring (`drawStaleRing`) — pixels confirmed both rendered
+(`rgb(255,255,255)` ring, icon colour ~20% of full red), but read as too dim in practice. Tuned to
+`STALE_ALPHA = 0.9` and removed the ring entirely (simpler signal, no risk of clashing with
+`drawJamGlyph`'s own dashed ring) — re-verified: zero white-ring pixels remain, icon colour now
+reads ~90% of full red as expected.
 
 ### F3 — `target.select` does not enforce contact visibility — high
 
