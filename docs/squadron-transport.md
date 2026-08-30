@@ -25,6 +25,13 @@ route sharing wired end to end as the first payload. See "Implementation" below 
 exists in the code today; the sections above and below it are the design investigation that led
 there and are kept as the historical record of why it looks the way it does.
 
+**Confirmed live** across two real machines on separate Steam accounts (a PC host and a Steam Deck
+client): squad creation, invite, and a shared waypoint route all reached the other side over Steam's
+own P2P networking. The first `SendTo` call(s) in a fresh session commonly return
+`k_EResultConnectFailed` while the underlying Steam Networking Messages session is still
+negotiating — expected P2P connection-establishment delay, not a bug — and later sends succeed once
+it's up.
+
 ## What the platform already provides
 
 Findings from the shipped game binaries (`NuclearOption_Data/Managed`) and this mod's own sources.
