@@ -92,6 +92,7 @@ namespace NOXMFD
                   .Append(",\"radarOnOnStart\":").Append(ImmersionConfig.RadarOnOnStart ? "true" : "false")
                   .Append(",\"engineOnOnStart\":").Append(ImmersionConfig.EngineOnOnStart ? "true" : "false")
                   .Append(",\"masterArmsOnOnStart\":").Append(ImmersionConfig.MasterArmsOnOnStart ? "true" : "false")
+                  .Append(",\"powerOnOnStart\":").Append(ImmersionConfig.PowerOnOnStart ? "true" : "false")
                   .Append(",\"hudFiltersOnCombatMode\":").Append(ImmersionConfig.HudFiltersOnCombatMode ? "true" : "false")
                   .Append(",\"remoteKeybindsSamePc\":").Append(IsSameMachineRequest(ctx) ? "true" : "false")
                   .Append('}');

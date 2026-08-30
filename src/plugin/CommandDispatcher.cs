@@ -125,7 +125,8 @@ namespace NOXMFD
                 { "keybind.set-radar-on-start",       e => ImmersionConfig.SetRadarOnOnStart(e.on) },
                 { "keybind.set-engine-on-start",      e => ImmersionConfig.SetEngineOnOnStart(e.on) },
                 { "keybind.set-master-arms-on-start", e => ImmersionConfig.SetMasterArmsOnOnStart(e.on) },
-                // HudCombatModeFilters' own on/off switch — default OFF, unlike the three start-state
+                { "keybind.set-power-on-start",       e => ImmersionConfig.SetPowerOnOnStart(e.on) },
+                // HudCombatModeFilters' own on/off switch — default OFF, unlike the four start-state
                 // settings above.
                 { "keybind.set-hud-filters-on-combat-mode", e => ImmersionConfig.SetHudFiltersOnCombatMode(e.on) },
                 // SOI focus — driven from a browser with no controller and no aircraft.
