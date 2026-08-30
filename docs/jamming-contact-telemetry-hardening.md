@@ -304,15 +304,19 @@ when the jammer is not a visible contact. The MAP only draws the line when it ca
 a visible contact, but the raw payload still exposes the identifier. It gives no position by itself,
 yet it is unnecessary hidden-unit metadata and can be correlated with later frames.
 
-**Fixed.** `PushSnapshot` zeroes `playerJammedBy` unless `UnitIdDisclosed()` finds that id in the
-same frame's `_cachedUnits` — a plain linear scan, cheap at the contact counts this mod deals with.
-Since F1 now also omits enemy entries from `Units` while picture-jammed, this has a secondary
-effect: a jammer that's only briefly visible (own-radar-detected but not faction-known) drops out of
-`PlayerJammedBy` the moment the picture goes dark, even though `PlayerJammed` (`Radar.IsJammed()`)
-can stay true — consistent with F1's own rule that MAP/HSD disclosure and FCR/selection eligibility
-are allowed to diverge during jamming. Build succeeds, all 169 tests pass. No unit test added — the
-check is a one-line linear scan with no independently interesting branch to assert on, and it
-depends on `_cachedUnits`, which is Unity-populated state outside the BCL test project's reach.
+**Fixed.** `PushSnapshot` zeroes `playerJammedBy` unless `TargetSelectionPolicy.IsDisclosed()` finds
+that id in the same frame's `_cachedUnits` — a plain linear scan, cheap at the contact counts this
+mod deals with. Since F1 now also omits enemy entries from `Units` while picture-jammed, this has a
+secondary effect: a jammer that's only briefly visible (own-radar-detected but not faction-known)
+drops out of `PlayerJammedBy` the moment the picture goes dark, even though `PlayerJammed`
+(`Radar.IsJammed()`) can stay true — consistent with F1's own rule that MAP/HSD disclosure and
+FCR/selection eligibility are allowed to diverge during jamming.
+
+`IsDisclosed` was initially left untested on the assumption that it depended on Unity-populated
+state — wrong: `UnitInfo` is a plain struct with no Unity types, and was already linked into
+`tools/tests`. Extracted into `TargetSelectionPolicy` (alongside `IsSelectable`, the same
+"is this visible" family) so it's a pure `(UnitInfo[], uint) -> bool` function, with 3 tests
+covering found/not-found/empty. Build succeeds, all 172 tests pass.
 
 ## Negative findings and interpretation limits
 
@@ -602,7 +606,8 @@ indications use the native lifetimes.
   suppresses.
 - External `target.select` cannot acquire a unit that the current policy would not disclose.
 - A stale enemy's heading does not change after its native tracking record stops being observed.
-- RWR warning duration matches the native 1/2/4-second behavior.
+- ~~RWR warning duration matches the native 1/2/4-second behavior~~ — superseded by the F4 decision
+  (2026-08-30) to keep the deliberate 1.5/3/6s lifetimes; the parity gap is accepted, not fixed.
 - Completely unknown enemies never enter normal MAP/HSD/TGT telemetry.
 - MAP, HSD, FCR, TGT, and the command path make consistent visibility decisions.
 - The behavior is confirmed with both Medusa and Alkyon jamming in a live mission, including a

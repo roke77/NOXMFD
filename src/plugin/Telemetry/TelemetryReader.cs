@@ -787,7 +787,7 @@ namespace NOXMFD
 
             // F6 (docs/jamming-contact-telemetry-hardening.md): don't leak a hidden jammer's identity
             // — only report it if that same unit is already present in this frame's disclosed Units.
-            if (playerJammedBy != 0 && !UnitIdDisclosed(playerJammedBy))
+            if (playerJammedBy != 0 && !TargetSelectionPolicy.IsDisclosed(_cachedUnits, playerJammedBy))
                 playerJammedBy = 0;
 
             bool rdrMetric = PlayerSettings.unitSystem == PlayerSettings.UnitSystem.Metric;
@@ -1506,16 +1506,6 @@ namespace NOXMFD
             if (_jammedBy.TryGetValue(u, out Unit source) && source != null && !source.disabled)
                 jammedBy = source.persistentID.Id;
             return true;
-        }
-
-        // F6 (docs/jamming-contact-telemetry-hardening.md): is this id one of the units already
-        // disclosed to the player this frame? Used to avoid leaking a hidden jammer's identity.
-        private bool UnitIdDisclosed(uint id)
-        {
-            UnitInfo[] units = _cachedUnits;
-            for (int i = 0; i < units.Length; i++)
-                if (units[i].Id == id) return true;
-            return false;
         }
 
         private void OnDestroy()

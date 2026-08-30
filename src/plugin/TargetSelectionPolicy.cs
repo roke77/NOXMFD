@@ -15,5 +15,15 @@ namespace NOXMFD
     {
         internal static bool IsSelectable(bool factionKnown, bool ownRadarDetected, bool pictureJamActive)
             => ownRadarDetected || (factionKnown && !pictureJamActive);
+
+        // F6 (docs/jamming-contact-telemetry-hardening.md): is this id one of the units already
+        // disclosed to the player this frame? Used to avoid leaking a hidden jammer's identity via
+        // PlayerJammedBy. UnitInfo is a plain struct (no Unity types), so this stays pure.
+        internal static bool IsDisclosed(UnitInfo[] units, uint id)
+        {
+            for (int i = 0; i < units.Length; i++)
+                if (units[i].Id == id) return true;
+            return false;
+        }
     }
 }

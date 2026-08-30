@@ -25,5 +25,36 @@ namespace NOXMFD.Tests
         {
             Assert.Equal(expected, TargetSelectionPolicy.IsSelectable(factionKnown, ownRadarDetected, pictureJamActive));
         }
+
+        // Regression test for F6 (docs/jamming-contact-telemetry-hardening.md): PlayerJammedBy
+        // previously serialized a jammer's id even when that unit was never itself disclosed to the
+        // player, giving away hidden-unit metadata a client could correlate across frames.
+        [Fact]
+        public void IsDisclosed_finds_matching_id()
+        {
+            var units = new[]
+            {
+                new UnitInfo { Id = 10 },
+                new UnitInfo { Id = 42 },
+            };
+            Assert.True(TargetSelectionPolicy.IsDisclosed(units, 42));
+        }
+
+        [Fact]
+        public void IsDisclosed_false_for_undisclosed_id()
+        {
+            var units = new[]
+            {
+                new UnitInfo { Id = 10 },
+                new UnitInfo { Id = 42 },
+            };
+            Assert.False(TargetSelectionPolicy.IsDisclosed(units, 999));
+        }
+
+        [Fact]
+        public void IsDisclosed_false_for_empty_units()
+        {
+            Assert.False(TargetSelectionPolicy.IsDisclosed(System.Array.Empty<UnitInfo>(), 42));
+        }
     }
 }
