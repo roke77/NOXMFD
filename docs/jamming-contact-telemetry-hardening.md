@@ -175,12 +175,10 @@ read it. Added a visual treatment — a stale contact's icon now draws at reduce
 served from disk).
 
 Verified live via `tools/serve_web.py` against a real captured stale contact (a T/A-30 Compass) by
-sampling canvas pixels directly rather than eyeballing a screenshot. First pass used
-`STALE_ALPHA = 0.2` plus a white ring (`drawStaleRing`) — pixels confirmed both rendered
-(`rgb(255,255,255)` ring, icon colour ~20% of full red), but read as too subtle in a screenshot.
-Tried `STALE_ALPHA = 0.9` with the ring removed — verified (icon colour ~90% of full red, zero
-ring pixels), but in practice barely distinguishable from a fresh contact at a glance. Settled back
-on `STALE_ALPHA = 0.2`, no ring: noticeably faded is the point, not a subtle hint.
+sampling canvas pixels directly rather than eyeballing a screenshot. Tuning pass, each value
+pixel-confirmed rendering correctly at the time: `0.2` (icon colour ~20% of full red) plus a white
+ring, then `0.9` with the ring removed (icon colour ~90% of full red) — both technically correct but
+either too subtle or too strong in practice. Settled on `STALE_ALPHA = 0.5`, no ring.
 
 ### F3 — `target.select` does not enforce contact visibility — high
 
