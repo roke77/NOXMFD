@@ -193,6 +193,15 @@ working gate today; faction-known/detected is not checked at all. No jamming was
 run, confirming F3 is exploitable independently of the jamming scenario that motivated this
 investigation.
 
+**Confirmed live, 2026-08-30**, single-player, "08. Infiltration" (`playerId=141`, 171 total units):
+the same sweep (ids 1–200) against a mission with real combat units, not just static scenery. Only 8
+ids were on the player's own MAP page at the time; the sweep additionally selected 33 hidden units —
+`63, 128–138, 146–158, 164–171` — including three **Linebreaker SAM** launchers (ids 151, 152, 156)
+that never appeared in any telemetry field, plus IFVs, APCs, recon trucks, a radar truck, fuel and
+munitions trucks, an aircraft revetment, vehicle depots, and helipads. This mission's entire premise
+is flying undetected to avoid air defenses; a player able to designate live SAM sites they have never
+detected defeats that mechanic directly, independent of any jamming.
+
 ### F4 — RWR bearing is native, but NO XMFD retains it 50% longer — medium
 
 `BuildRwr()` reads the emitter's live `GlobalPosition()` without consulting the faction tracking
