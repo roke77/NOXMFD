@@ -2186,6 +2186,13 @@ function mfdButton(el) {
       // An avionics toggle: mod/game state, not a destination page — same reasoning as
       // weapon.select above. Only carries a data-pane tag so the SOI cursor can scope to it.
       if (el.dataset.group) sendCommand('avn.toggle', { group: el.dataset.group }).catch(function() {});
+    } else if (act === 'tgp-manual-on' || act === 'tgp-manual-off') {
+      // TGT/MAN changes aircraft-global TGP state without navigating the pane. The pane tag only
+      // scopes the physical key to its split surface; treating the action as a page blanks it.
+      sendCommand('tgp.manual.set', { on: act === 'tgp-manual-on' }).catch(function() {});
+    } else if (act === 'tgp-ir-on' || act === 'tgp-ir-off') {
+      // CLR/IR has the same in-place behavior as TGT/MAN.
+      sendCommand('tgp.ir.set', { on: act === 'tgp-ir-on' }).catch(function() {});
     } else {
       paneNavigate(paneIdx, act);
     }
