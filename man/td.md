@@ -22,12 +22,14 @@ assigning here never changes what's selected on TGT.
   A target can go to more than one slot; assigning again for an already-assigned target/slot pair
   un-assigns it. Assigning to your own button is just a personal marker — it's never actually sent
   anywhere.
-- **DESIGNATE** sends each member their current assigned set. Sending again to a member who already
-  has a pending designation replaces it entirely, rather than adding to it.
+- **DESIGNATE** sends each member their current assigned set, then returns you to TGT — where the
+  new **TD** column shows the same slot numbers you just assigned. Sending again to a member who
+  already has a pending designation replaces it entirely, rather than adding to it.
 - **REFRESH** pulls in the current TGT list and re-applies it to the table. The table only updates
   on its own when a target is actually selected or deselected in-game (not on every range/grid
   tick) — REFRESH is the manual way to bring grid/range up to date, or to pick up a target that
   changed without a fresh select/deselect.
+- **ALL** selects every row currently in the table, same as tapping each one individually.
 - **CLEAR** discards your own in-progress selection/assignment work without touching anything
   already sent.
 

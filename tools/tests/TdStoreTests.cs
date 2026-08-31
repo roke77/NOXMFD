@@ -80,6 +80,39 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
+        public void RenumberAfterMemberRemoved_shifts_higher_slots_down_and_drops_the_removed_one()
+        {
+            // issue #47 follow-up audit's gap #3: slot = member index + 2, so kicking/losing the
+            // member at slot 3 must drop slot 3 and shift every slot above it down by one.
+            TdStore.ToggleSelect(1);
+            TdStore.Assign(2);        // target 1 -> slot 2 (below the removed slot — untouched)
+            TdStore.ToggleSelect(2);
+            TdStore.Assign(3);        // target 2 -> slot 3 (the departing member — dropped)
+            TdStore.ToggleSelect(3);
+            TdStore.Assign(4);        // target 3 -> slot 4 (shifts down to 3)
+            TdStore.ToggleSelect(4);
+            TdStore.Assign(3);        // target 4 -> slot 3 (Assign clears the selection afterward...
+            TdStore.ToggleSelect(4);  // ...so target 4 needs re-selecting for the second assign)
+            TdStore.Assign(4);        // target 4 -> slots {3,4}; slot 4 shifts to 3, landing on the same slot twice
+
+            TdStore.RenumberAfterMemberRemoved(3);
+
+            Assert.Contains("\"1\":[2]", TdStore.StateJson);     // untouched, below the removed slot
+            Assert.DoesNotContain("\"2\":", TdStore.StateJson);  // was ONLY slot 3 — dropped entirely
+            Assert.Contains("\"3\":[3]", TdStore.StateJson);     // was slot 4 — shifted down to 3
+            Assert.Contains("\"4\":[3]", TdStore.StateJson);     // was {3,4} — slot 3 dropped, slot 4 shifted to 3, de-duplicated
+        }
+
+        [Fact]
+        public void RenumberAfterMemberRemoved_is_a_safe_no_op_with_nothing_to_renumber()
+        {
+            Assert.Equal("{\"selected\":[],\"assignments\":{},\"designated\":[]}", TdStore.StateJson);
+            TdStore.RenumberAfterMemberRemoved(0);    // invalid slot
+            TdStore.RenumberAfterMemberRemoved(3);    // no assignments at all yet
+            Assert.Equal("{\"selected\":[],\"assignments\":{},\"designated\":[]}", TdStore.StateJson);
+        }
+
+        [Fact]
         public void ClearOwn_wipes_selection_and_assignments()
         {
             TdStore.ToggleSelect(1);

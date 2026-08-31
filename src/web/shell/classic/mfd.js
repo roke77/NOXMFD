@@ -1154,6 +1154,21 @@ ExtNav.load(NAV);
 // entry in sync with live squad membership.
 TdNav.start(NAV);
 
+// Squad/TD lifecycle audit follow-up, finding B1: td.js has no polling of its own (by design — see
+// its own header comment), so an open TD page has no way to learn the squad it's showing just
+// ended except this nudge, piggybacked on td-nav.js's already-existing poll. Forwarded to whichever
+// pane/frame is actually showing 'td', same routing td-designated already uses; the page reacts by
+// re-running the exact fetches its own REFRESH button calls — a one-shot reactive catch-up, not a
+// new poll loop.
+window.addEventListener('td-squad-ended', function () {
+  const msg = { mfd: true, type: 'td-squad-ended' };
+  if (!splitMode && currentPage === 'td') forwardToFrame(msg);
+  else if (splitMode) {
+    if (panePages[0] === 'td') paneIframes[0].contentWindow.postMessage(msg, '*');
+    if (panePages[1] === 'td') paneIframes[1].contentWindow.postMessage(msg, '*');
+  }
+});
+
 // On pane iframe load, push the latest snapshot for whichever page that pane is
 // rendering — the page may have been mid-update at the moment its iframe started
 // loading — plus the current app orientation (every bare page can use it).
@@ -1718,8 +1733,9 @@ window.addEventListener('message', function(e) {
   // label for that state gets stuck unlit even though its own map persisted and drew it regardless.
   // 'wpt-routes-request' (a freshly-loaded MAP/WPT pane or the full-view frame catching up on the
   // route library, docs/hud-waypoint-indicator.md) comes from whichever iframe just loaded, not
-  // necessarily mapFrame, same reasoning as 'follow'/'grid'.
-  if (m.type !== 'follow' && m.type !== 'grid' && m.type !== 'wpt-routes-request' && e.source !== mapFrame.contentWindow) return;
+  // necessarily mapFrame, same reasoning as 'follow'/'grid'. 'td-designated' (issue #47 follow-up)
+  // comes from TD's own iframe (#page-frame or a pane), never mapFrame, for the same reason.
+  if (m.type !== 'follow' && m.type !== 'grid' && m.type !== 'wpt-routes-request' && m.type !== 'td-designated' && e.source !== mapFrame.contentWindow) return;
   if (m.type === 'status') {
     lastStatusCls  = m.cls;
     lastStatusText = m.text;
@@ -1868,6 +1884,15 @@ window.addEventListener('message', function(e) {
     else if (e.source === paneIframes[1].contentWindow) paneGridOn[1] = on;
     else return;
     refreshFollowIndicator();
+  } else if (m.type === 'td-designated') {
+    // TD's own DESIGNATE button just fired (issue #47 follow-up) — return that display to TGT.
+    // Routed by source, same reasoning as 'follow'/'grid' above: TD can be the full-view page or
+    // either split pane, and only the one that actually sent this should navigate.
+    if (!splitMode && currentPage === 'td' && e.source === pageFrame.contentWindow) showPage('tgt');
+    else if (splitMode) {
+      if (panePages[0] === 'td' && e.source === paneIframes[0].contentWindow) paneNavigate(0, 'tgt');
+      else if (panePages[1] === 'td' && e.source === paneIframes[1].contentWindow) paneNavigate(1, 'tgt');
+    }
   } else if (m.type === 'targets') {
     // Mirror the selected-target list; the TGT page renders it under its filters, and TD (issue
     // #47, docs/target-designator.md) mirrors the identical list on its leader view.

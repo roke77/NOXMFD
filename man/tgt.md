@@ -22,6 +22,10 @@ Every target you currently have selected, one row per target:
   your own missiles or guided bombs is currently in flight and tracking that lock — the same
   reading the in-game HUD's own [time-to-impact readout](rdr.md#in-game-hud-cue) shows for whichever
   target is focused, just available here for every locked target at once, not only the focused one.
+- **TD** — while you're leading a [squad](sqd.md), which member number(s) you've designated this
+  target to on the [Target Designator page](td.md) (blank if none). Only you see this column — it's
+  your own in-progress/sent designation work, not visible to anyone else, and it doesn't appear at
+  all unless you're currently the squad leader.
 - **SRC** — where the lock is coming from: **SENSOR** (your own live sensors), **DATALINK**
   (relayed by your faction, still trustworthy), or **STALE** (relayed, but the game no longer
   trusts the position — the same check behind the TGP page's own "?" marker).
@@ -70,4 +74,5 @@ both.
 ## Hand off to squad members
 
 While you're in a [squad](sqd.md), a **TD** nav item appears here — open the
-[Target Designator page](td.md) to assign your targets to specific members.
+[Target Designator page](td.md) to assign your targets to specific members. As the leader,
+pressing DESIGNATE there brings you straight back to this page.

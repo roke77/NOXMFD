@@ -80,6 +80,32 @@ namespace NOXMFD
             return true;
         }
 
+        // Slot numbers are POSITIONAL (slot = a member's index in Squad._members + 2, the same
+        // number td.js's own squadSlots() computes) — a kick or voluntary leave shrinks that list,
+        // so everyone after the departed member shifts down one slot on the very next read (a poll,
+        // a DESIGNATE). Without this, an assignment made before the departure would silently land on
+        // whoever now sits in that old slot instead (issue #47 follow-up audit's gap #3). Called from
+        // Squad.cs's Kick()/HandleLeave() with the departed member's own slot, before anything else
+        // reads _assignments against the already-shrunk roster.
+        internal static void RenumberAfterMemberRemoved(int removedSlot)
+        {
+            if (removedSlot <= 0 || _assignments.Count == 0) return;
+            bool changed = false;
+            var emptyIds = new List<uint>();
+            foreach (var kv in _assignments)
+            {
+                HashSet<int> slots = kv.Value;
+                if (slots.Remove(removedSlot)) changed = true;
+                var toShift = new List<int>();
+                foreach (int s in slots) if (s > removedSlot) toShift.Add(s);
+                foreach (int s in toShift) { slots.Remove(s); slots.Add(s - 1); changed = true; }
+                if (slots.Count == 0) emptyIds.Add(kv.Key);
+            }
+            // Same "an empty slot set removes the target entirely" convention Assign() already uses.
+            foreach (uint id in emptyIds) _assignments.Remove(id);
+            if (changed) RebuildState();
+        }
+
         // Leader's CLEAR — discards in-progress (unsent) selection/assignment work.
         internal static bool ClearOwn()
         {

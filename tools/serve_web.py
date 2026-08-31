@@ -497,8 +497,13 @@ def _squad_command(env):
         if _SQD["role"] == "member":
             return
         name = str(env.get("name") or "").strip()[:20]
-        if name:
+        try:
+            flight = int(env.get("index") or 0)
+        except (TypeError, ValueError):
+            flight = 0
+        if name and 1 <= flight <= 9:
             _SQD["callsign"] = name
+            _SQD["flight"] = flight
     elif cmd == "sqd.kick":
         if _SQD["role"] != "leader":
             return

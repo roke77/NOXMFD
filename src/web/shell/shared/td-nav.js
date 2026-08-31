@@ -22,12 +22,26 @@
   // polls don't concatenate a second TD entry.
   let tgtBase = null;
 
+  // issue #47 follow-up (squad/TD lifecycle audit, finding B1): td.js deliberately fetches
+  // /squad + /td-state only on load and from its own REFRESH button — no polling of its own, by
+  // design (a live-redrawing TD table is what caused the click-interruption bug this page was
+  // rebuilt to fix). That means an open TD page has no way to learn a squad ended out from under
+  // it except this ALREADY-existing 2s poll, which runs regardless of which page is showing. On
+  // the true->false edge only (never re-fired while it stays false), dispatch a plain window event;
+  // mfd.js/f35.js listen and forward it to whichever pane/frame is actually showing 'td', the same
+  // way they already forward 'td-designated'. This is a one-shot reactive nudge, not a new poll
+  // loop inside td.js — it triggers the exact same refreshSquad()/refreshTd() the REFRESH button
+  // itself calls.
+  let wasInSquad = null;   // null = not yet known (first poll establishes a baseline, no event)
+
   function poll(NAV) {
     if (!tgtBase) tgtBase = NAV.tgt.slice();
     return fetch('/squad').then(function (r) { return r.ok ? r.json() : null; })
       .then(function (s) {
         const inSquad = !!(s && s.ready && s.state && s.state.role !== 'none');
         NAV.tgt = buildTgtNavPlan(tgtBase, inSquad);
+        if (wasInSquad === true && !inSquad) window.dispatchEvent(new CustomEvent('td-squad-ended'));
+        wasInSquad = inSquad;
       })
       .catch(function () { /* /squad unreachable — same as "no squad" */ });
   }

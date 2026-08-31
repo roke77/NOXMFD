@@ -122,6 +122,9 @@
   padding: 5px 8px;
 }
 .sqd-callsign-edit select:focus { outline: 1px solid var(--no-green-dim); }
+/* Flight is a single digit — same fixed width as CREATE's own #sqd-create-flight, overriding the
+   generic flex:1 above so it doesn't split the row evenly with the (much longer) callsign select. */
+#sqd-callsign-flight { flex: 0 0 60px; }
 
 /* One per queued invite (sqd.js's renderInviteCards) — stacked, oldest first. */
 .sqd-invite-card {

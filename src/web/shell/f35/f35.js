@@ -741,6 +741,10 @@
       // For the SOI cursor: the page this portal shows (to tell a navigating SELECT from an
       // in-place one) and its enabled nav labels, in reading order, as the cursor's targets.
       page: function () { return currentPage; },
+      // This portal's frame window regardless of what page it's showing — unlike cursorWin() below,
+      // not gated to PAD_CURSOR_PAGES. Used to identify which portal a page-originated message
+      // (e.source) came from (issue #47 follow-up: TD's DESIGNATE-returns-to-TGT redirect).
+      frameWin: function () { return frameWin(); },
       navItems: function () { return [].slice.call(grid.querySelectorAll('.nav-item:not([disabled])')); },
       // docs/page-cursor.md — this portal's frame window, but only while it's showing a page with its
       // own PAD cursor (null otherwise), so the glass-level cursor forwarding can't target a page
@@ -985,6 +989,13 @@
     // reasoning as 'follow'/'grid' above.
     if (m.type === 'wpt-routes-request') {
       if (e.source) e.source.postMessage({ mfd: true, type: 'wpt-routes', data: WaypointsStore.load() }, '*');
+      return;
+    }
+
+    // 'td-designated' (issue #47 follow-up) — TD's own DESIGNATE button just fired; return that
+    // portal to TGT, same routes-by-source reasoning as 'follow'/'grid' above.
+    if (m.type === 'td-designated') {
+      livePortals().forEach(function (p) { if (p.page() === 'td' && p.frameWin() === e.source) p.showPage('tgt'); });
       return;
     }
 
@@ -1361,5 +1372,11 @@
   // TD nav discovery (issue #47, docs/target-designator.md) — polls /squad and keeps NAV.tgt's TD
   // entry in sync with live squad membership.
   TdNav.start(NAV);
+  // Squad/TD lifecycle audit follow-up, finding B1 — see mfd.js's own copy of this listener for the
+  // full reasoning. Forwarded to whichever portal is actually showing 'td', same routing
+  // 'td-designated' already uses.
+  window.addEventListener('td-squad-ended', function () {
+    livePortals().forEach(function (p) { if (p.page() === 'td') p.frameWin().postMessage({ mfd: true, type: 'td-squad-ended' }, '*'); });
+  });
   buildGlass();
 })();

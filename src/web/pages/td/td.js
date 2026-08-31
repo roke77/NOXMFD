@@ -254,6 +254,10 @@ designateBtn.addEventListener('click', function () {
     if (rows.length === 0) return;
     send('td.designate', { peer: m.id, text: JSON.stringify(rows) });
   });
+  // Return the leader to TGT (issue #47 follow-up) — DESIGNATE is the "I'm done here" action.
+  // Handled by the shell (mfd.js/f35.js), not this page directly: TD can be the full-view page or
+  // either split pane, and only the shell knows which one this iframe actually is.
+  if (window.parent !== window) window.parent.postMessage({ mfd: true, type: 'td-designated' }, '*');
 });
 leaderClearBtn.addEventListener('click', function () {
   selectedOverride = new Set();
@@ -295,9 +299,11 @@ refreshBtn.addEventListener('click', function () {
   applyLiveTargets();
 });
 
-// ── Fetches: ONLY on initial load (below) and from the REFRESH button above. No setInterval, no
-// background timer of any kind — TD does not poll. Opening the TD page (navigating to it from
-// TGT's nav row) re-runs this whole module fresh, which is the other time these ever fire.
+// ── Fetches: ONLY on initial load (below), from the REFRESH button above, and from the shell's
+// 'td-squad-ended' nudge below (squad/TD lifecycle audit finding B1) — never a timer of any kind.
+// The nudge itself still comes from an EXISTING poll (td-nav.js's own /squad check, needed anyway
+// for the TGT nav row), just reused to catch up a TD page that's already open when a squad ends;
+// td.js still never polls on its own.
 function refreshSquad() {
   return fetch('/squad').then(function (r) { return r.ok ? r.json() : null; })
     .then(function (s) { if (s) { squad = s; render('load/refresh:squad'); } }).catch(function () {});
@@ -331,6 +337,13 @@ window.addEventListener('message', function (e) {
       dlog('target set changed — applying');
       applyLiveTargets();
     }
+  } else if (m.type === 'td-squad-ended') {
+    // Squad/TD lifecycle audit follow-up, finding B1 — the squad this page is showing just ended
+    // out from under it. A one-shot reactive catch-up, the same fetches REFRESH itself calls; not
+    // a new poll (see this function's own header comment above).
+    dlog('squad ended — catching up');
+    refreshSquad();
+    refreshTd();
   }
 });
 

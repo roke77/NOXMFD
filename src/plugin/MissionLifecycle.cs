@@ -68,6 +68,15 @@ namespace NOXMFD
                 Destroy(_readerObject);
             _readerObject = null;
             TelemetryServer.Reset();
+            // issue #47 follow-up audit's gap #4: PlayerRoster.Refresh() only ever ran from the
+            // reader we just destroyed, so its aircraft-by-SteamID dictionaries otherwise freeze at
+            // their last in-mission values and SQD keeps showing everyone's last mission's aircraft
+            // indefinitely at the main menu. Refresh() already clears everything itself the moment
+            // GameManager.GetLocalHQ fails (its own header comment: "the main menu, or between
+            // missions") — calling it here, on the main thread, right as the mission ends, just
+            // makes that documented behavior actually happen instead of waiting for a reader that no
+            // longer exists.
+            PlayerRoster.Refresh();
             Plugin.Log?.LogInfo("Mission ended -> telemetry reader OFF.");
         }
     }

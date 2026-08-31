@@ -92,15 +92,20 @@
 
     <div class="tgt-vehicles" id="row-vehicle"></div>
 
-    <!-- Selected-target list: NAME / SRC / RNG / GRID per row. The whole row is clickable and
-         deselects that target — no checkbox, the row itself already reads as "this is selected".
-         .tgt-list-scroll scrolls both axes so a narrow panel (small-screen F-35) overflows instead
-         of squeezing columns unreadably thin; .tgt-list-head is sticky within it so the header stays
-         put vertically but still tracks the rows horizontally. -->
+    <!-- Selected-target list: NAME / [TD] / SRC / RNG / GRID per row. The whole row is clickable
+         and deselects that target — no checkbox, the row itself already reads as "this is
+         selected". .tgt-list-scroll scrolls both axes so a narrow panel (small-screen F-35)
+         overflows instead of squeezing columns unreadably thin; .tgt-list-head is sticky within it
+         so the header stays put vertically but still tracks the rows horizontally.
+         TD (issue #47 follow-up): a squad leader's own designations, one squad-slot number per
+         member this target is assigned to (blank if none). Leader-only — hidden entirely (both this
+         header cell and each row's .tl-td) via tgt.css's .has-td-col for anyone not currently
+         leading a squad, including someone who never joined one, so it never shows a column of
+         meaningless blanks. -->
     <div class="tgt-list" id="tgt-list">
       <div class="tgt-list-scroll">
         <div class="tgt-list-head">
-          <span>NAME</span><span>SRC</span><span>RNG</span><span>GRID</span>
+          <span>NAME</span><span class="tgt-td-head">TD</span><span>SRC</span><span>RNG</span><span>GRID</span>
         </div>
         <div class="tgt-list-rows" id="tgt-list-rows"></div>
         <div class="tgt-list-empty" id="tgt-list-empty">&mdash; NO TARGETS SELECTED &mdash;</div>

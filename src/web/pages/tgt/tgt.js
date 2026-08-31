@@ -19,6 +19,26 @@ const staleBtn = document.getElementById('stale-btn');
 let state = { present: false, laser: false, hud: false, faction: [], category: [], vehicle: [] };
 let targets = [];        // selected-target list (from 'tgt-targets'): [{ id, n, g, r, f, dl }]
 let targetsKey = '';     // id-set signature; rebuild rows only when it changes
+
+// TD column (issue #47 follow-up) — leader-only, so this page needs to know squad role, which
+// nothing else here tracks. Polled independently of the tgt-targets feed above, same 2s cadence
+// td-nav.js already uses for its own "is this pilot in a squad" check — that poll already exists
+// at the shell level, but duplicating a plain GET here is simpler than threading a new message
+// through mfd.js/f35.js for what's otherwise an ordinary page-owned fetch (SQD/TD's own pattern
+// before their static-table redesigns). assignments maps target id (string) -> [slot, ...].
+let squadRole = 'none';
+let tdAssignments = {};
+function refreshSquadTd() {
+  fetch('/squad').then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (s) {
+      squadRole = (s && s.state && s.state.role) || 'none';
+      panel.classList.toggle('has-td-col', squadRole === 'leader');
+    }).catch(function () {});
+  fetch('/td-state').then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (s) { tdAssignments = (s && s.state && s.state.assignments) || {}; }).catch(function () {});
+}
+refreshSquadTd();
+setInterval(refreshSquadTd, 2000);
 // The single locked target Next/Previous currently focuses, shared with FCR/HSD (issue #62,
 // docs/tgt-cycle-focus.md) — every row here is already locked, so this is a plain id match, unlike
 // FCR/HSD which also carry unlocked contacts. 0 = none focused.
@@ -140,10 +160,11 @@ function renderTargets() {
       const nameText = document.createElement('span'); nameText.className = 'tl-name-text';
       const tti = document.createElement('span'); tti.className = 'tl-tti';
       name.appendChild(nameText); name.appendChild(tti);
+      const td   = document.createElement('span'); td.className = 'tl-td';
       const src  = document.createElement('span'); src.className = 'tl-src';
       const dist = document.createElement('span'); dist.className = 'tl-dist';
       const grid = document.createElement('span'); grid.className = 'tl-grid';
-      row.appendChild(name); row.appendChild(src); row.appendChild(dist); row.appendChild(grid);
+      row.appendChild(name); row.appendChild(td); row.appendChild(src); row.appendChild(dist); row.appendChild(grid);
       listRows.appendChild(row);
     });
   }
@@ -156,6 +177,11 @@ function renderTargets() {
     el.querySelector('.tl-tti').textContent = typeof t.tti === 'number' ? 'TTI ' + fmtTti(t.tti) : '';
     el.querySelector('.tl-grid').textContent = t.g != null ? String(t.g) : '—';
     el.querySelector('.tl-dist').textContent = fmtRng(t.r);
+    // TD column (issue #47 follow-up) — blank when this target isn't currently assigned to anyone;
+    // the column itself is hidden entirely for a non-leader (see .has-td-col in tgt.css), so an
+    // empty cell here never shows for someone with no leader-side assignments to display anyway.
+    const assigned = tdAssignments[String(t.id)] || [];
+    el.querySelector('.tl-td').textContent = assigned.length ? assigned.join(' ') : '';
     el.classList.toggle('datalink', !!t.dl && !t.st);
     el.classList.toggle('stale', !!t.st);
     el.querySelector('.tl-src').textContent = t.st ? 'STALE' : t.dl ? 'DATALINK' : 'SENSOR';

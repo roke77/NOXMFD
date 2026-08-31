@@ -39,8 +39,9 @@ namespace NOXMFD
         public int    index;   // tgt.set / tgt.only : toggle index within the group
                                 // wpt.* : waypoint index, or a +-1 direction (cycle-route/step-waypoint)
                                 // preset.rename / preset.delete / preset.load : slot number 1-5
-                                // sqd.create : the squad's flight number 1-9 (Squadron Callsign
-                                // System, docs/squadron-transport.md) — fixed for the squad's life
+                                // sqd.create / sqd.set-callsign : the squad's flight number 1-9
+                                // (Squadron Callsign System, docs/squadron-transport.md) — editable
+                                // later via sqd.set-callsign too, not fixed for the squad's life
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
                                 // tgp.manual.set : desired ManualMode state
                                 // tgp.ir.set : desired IR state (true = IR, false = COLOR)
@@ -117,7 +118,7 @@ namespace NOXMFD
                 // validation already lives.
                 { "sqd.create",     e => Squad.CreateSquad(e.name ?? string.Empty, e.index) },
                 { "sqd.invite",     e => { if (TryPeer(e.peer, out ulong p)) Squad.Invite(p, e.name ?? string.Empty); } },
-                { "sqd.set-callsign", e => Squad.SetCallsign(e.name ?? string.Empty) },
+                { "sqd.set-callsign", e => Squad.SetCallsign(e.name ?? string.Empty, e.index) },
                 { "sqd.accept",     e => { if (TryPeer(e.peer, out ulong p)) Squad.AcceptInvite(p); } },
                 { "sqd.decline",    e => { if (TryPeer(e.peer, out ulong p)) Squad.DeclineInvite(p); } },
                 { "sqd.leave",      e => Squad.Leave() },

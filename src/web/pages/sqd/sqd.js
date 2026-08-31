@@ -31,6 +31,7 @@ const squadSection     = document.getElementById('sqd-squad-section');
 const squadHead        = document.getElementById('sqd-squad-head');
 const callsignEdit     = document.getElementById('sqd-callsign-edit');
 const callsignSelect   = document.getElementById('sqd-callsign-select');
+const callsignFlight   = document.getElementById('sqd-callsign-flight');
 const callsignSet      = document.getElementById('sqd-callsign-set');
 const callsignEditBtn  = document.getElementById('sqd-callsign-edit-btn');
 const squadRows        = document.getElementById('sqd-squad-rows');
@@ -48,7 +49,7 @@ function fillOptions(select, values) {
 }
 fillOptions(createCallsign, SQUAD_CALLSIGNS);
 fillOptions(callsignSelect, SQUAD_CALLSIGNS);
-for (let f = 1; f <= 9; f++) fillOptions(createFlight, [String(f)]);
+for (let f = 1; f <= 9; f++) { fillOptions(createFlight, [String(f)]); fillOptions(callsignFlight, [String(f)]); }
 
 let lastNoticeSeq = -1;
 let noticeTimer = null;
@@ -90,12 +91,16 @@ function invite(id, name) {
 
 callsignEditBtn.onclick = function () {
   editingCallsign = !editingCallsign;
-  if (editingCallsign) callsignSelect.value = (state && state.callsign) || '';
+  if (editingCallsign) {
+    callsignSelect.value = (state && state.callsign) || '';
+    callsignFlight.value = String((state && state.flight) || 1);
+  }
   render();
 };
 callsignSet.onclick = function () {
   const name = callsignSelect.value;
-  if (name) sendCommand('sqd.set-callsign', { name: name }).catch(function () {});
+  const flight = parseInt(callsignFlight.value, 10);
+  if (name) sendCommand('sqd.set-callsign', { name: name, index: flight }).catch(function () {});
   editingCallsign = false;
   render();
 };

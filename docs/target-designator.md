@@ -72,6 +72,25 @@ selected targets to several squad slots in a row without re-selecting between ea
 sends this as the existing `on` `CommandEnvelope` field so the plugin's own state agrees — otherwise
 a REFRESH mid-sequence would silently wipe the highlights the leader is deliberately keeping.
 
+## DESIGNATE returns to TGT, and TGT shows the result
+
+Two small pieces close the loop back to TGT (issue #47 follow-up):
+
+- **DESIGNATE returns the leader to TGT** once it fires. TD has no shell-navigation authority of
+  its own — it `postMessage`s a `td-designated` type up to whichever shell is hosting it, which
+  looks up which pane/frame actually sent it (TD can be the full-view page or either split pane) and
+  calls that display's own page-switch function. mfd.js keeps a canonical-source guard on its
+  message handler (only `mapFrame` may post most types) that had to be extended for this one, the
+  same way `follow`/`grid`/`wpt-routes-request` already are — TD's iframe is never `mapFrame`.
+- **TGT gains a leader-only TD column**, second from the left, showing the same slot number(s)
+  `td.js`'s own tags show. TGT has no reason to know about squad state otherwise, so `tgt.js` polls
+  `GET /squad` + `GET /td-state` on its own 2s cadence (matching `td-nav.js`'s existing "is this
+  pilot in a squad" poll) purely to drive this column — toggling `.has-td-col` on `.tgt-panel` for
+  visibility and feeding `assignments` into the id-keyed row-update loop TGT already runs at 10 Hz.
+  This intentionally reuses TGT's existing "rebuild rows only when the id-set changes, otherwise
+  just refresh text" architecture rather than introducing a new one — TGT was already engineered
+  this way from the start, unlike TD's first version.
+
 ## Delivery to the member
 
 `Squad.SendDataTo(memberId, type, payload)` is a single-recipient sibling of the existing
@@ -106,9 +125,43 @@ polls `GET /squad` every 2s and rewrites `NAV.tgt` in place. Like `ext-nav.js`'s
 limitation, a squad joined/left while already on TGT shows up the next time TGT's nav is read, not
 instantly.
 
+## Lifecycle cleanup (squad/TD audit follow-up)
+
+An audit of what actually gets cleared when a squad ends, or the pilot returns to the main menu and
+starts a new mission, found several gaps specific to TD:
+
+- **Slot renumbering on roster shrink.** `TdStore._assignments` is keyed by target id -> a set of
+  *positional* slot numbers (slot = a member's index in `Squad._members` + 2, the same number
+  `td.js`'s own `squadSlots()` computes). A kick or a voluntary leave shrinks `_members` without
+  touching those slot numbers, so every assignment above the departed member's own slot used to
+  silently point at the wrong pilot the next time anything read it (a poll, DESIGNATE). Fixed by
+  `TdStore.RenumberAfterMemberRemoved(removedSlot)`, called from `Squad.cs`'s `Kick()` and
+  `HandleLeave()` right after the member is actually removed: it drops the departed member's own
+  slot from every assignment (removing the target entirely if that was its only slot) and shifts
+  every slot above it down by one.
+- **Reacting to a disband while TD is already open.** TD deliberately has no polling of its own
+  (see "A static table, on purpose" above) — a squad ending while the page sits open had no way to
+  reach it. Rather than add a poll (which would reintroduce exactly the churn this page was rebuilt
+  to remove), `td-nav.js`'s *existing* 2s `/squad` poll (needed anyway for the TGT nav row above)
+  now also detects the true->false "was in a squad, now isn't" edge and dispatches a plain
+  `td-squad-ended` window event; `mfd.js`/`f35.js` forward it to whichever pane/frame is actually
+  showing `'td'`, and `td.js` reacts by re-running the exact `refreshSquad()`/`refreshTd()` calls its
+  own REFRESH button already uses — a one-shot reactive catch-up, not a new timer.
+- **Mission-boundary cleanup elsewhere** (not TD-specific, but found by the same audit): `Squad.cs`'s
+  `ResetToNone()` now also clears `RouteStore`'s shared-route locks (previously missing from
+  `RelinquishLeadership`/`Disband`/a leader leaving alone) and the leader's own `_notice` (so a
+  disband/kick notice can't re-toast on a later fresh page load, possibly in a different mission);
+  `HandleTransfer` clears the promoted successor's own old member-side state, the one squad-ending
+  path that doesn't go through `ResetToNone` at all; and `MissionLifecycle.StopReader()` now calls
+  `PlayerRoster.Refresh()` so SQD stops showing everyone's last mission's aircraft indefinitely at
+  the main menu. Squad membership itself deliberately still survives a mission boundary — menu-time
+  squad formation is an intentional, pre-existing feature, not an oversight.
+
 ## Verification
 
-`dotnet build` (0 errors), `dotnet test` (200/200, including `TdStoreTests`). Full `*.test.js`
-suite green, including `td-nav.test.js` and the updated `nav-model.test.js`/
+`dotnet build` (0 errors), `dotnet test` (204/204, including `TdStoreTests`' renumbering coverage).
+Full `*.test.js` suite green, including `td-nav.test.js` and the updated `nav-model.test.js`/
 `layout-coverage.test.js`/`server-route-coverage.test.js`/`classic-button-wiring.test.js`/
-`split-slots.test.js` coverage for the new `td` page.
+`split-slots.test.js` coverage for the new `td` page. The disband-while-open reaction was verified
+live in the harness: disbanding via a direct `/command` POST while TD sat open flipped it to
+"requires an active squad" within the poll window, with no manual refresh or navigation.

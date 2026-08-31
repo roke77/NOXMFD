@@ -192,6 +192,24 @@ html, body {
    truncates before this ever gets squeezed. Empty text (no tracking weapon) takes no visible space. */
 .tl-tti { flex: 0 0 auto; font-size: 0.8em; letter-spacing: 0.02em; white-space: nowrap; color: var(--no-amber); }
 .tl-grid, .tl-dist { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* TD column (issue #47 follow-up) — leader-only, hidden by default (both the header cell and every
+   row's .tl-td) so a pilot who isn't currently leading a squad never sees a column of meaningless
+   blanks. .has-td-col (toggled on .tgt-panel from squad state, tgt.js) switches both the 4-column
+   track above to this 5-column one AND un-hides the two elements — a `display:none` grid item is
+   excluded from track sizing entirely, so simply revealing it without the wider track here would
+   just squeeze the existing four columns instead of adding a fifth. */
+.tgt-td-head, .tl-td { display: none; }
+.tl-td { color: var(--no-squad); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tgt-panel.has-td-col .tgt-list-head,
+.tgt-panel.has-td-col .tl-row {
+  grid-template-columns: minmax(90px, 1fr) clamp(30px, 5vw, 48px) clamp(52px, 8vw, 86px) clamp(60px, 9vw, 96px) clamp(46px, 7vw, 76px);
+  /* Same floor-sum reasoning as the base rule above, with the TD column + its extra gap added
+     (90+30+52+60+46 + 4*6). */
+  min-width: 302px;
+}
+.tgt-panel.has-td-col .tgt-td-head,
+.tgt-panel.has-td-col .tl-td { display: block; }
 /* Faction tint on the name (mirrors the map colours): friendly blue, neutral white, enemy red. */
 .tl-row.f-friendly .tl-name { color: var(--tgt-blue); }
 .tl-row.f-neutral  .tl-name { color: var(--no-label); }

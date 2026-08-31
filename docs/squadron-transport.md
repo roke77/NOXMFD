@@ -292,11 +292,16 @@ with every member; members only ever talk to the leader, never each other):
   - **Delete tombstone.** Deleting a route that was ever shared (`Route.SharedWithSquad`) sends a
     `wpt.route-deleted` payload — just the route id — so members drop their pending or accepted
     copy instead of keeping a stale one forever with no way to learn it's gone.
-  - **Unlocks when the squad ends.** `RouteStore.OnSquadEnded()` — called from `Squad.cs`'s
-    `HandleDisband`, `Leave()`'s member branch, and `HandleLeaderChanged` alike (one rule, not one
-    per event: `SendData` is leader-only, so a former leader is cut off from ever pushing another
-    update the moment they stop being leader, whether the squad itself lives on or not) — clears
-    any still-pending shares and clears `SharedBy` on every accepted route, unlocking it for editing.
+  - **Unlocks when the squad ends.** `RouteStore.OnSquadEnded()` — called from inside `Squad.cs`'s
+    `ResetToNone()` (the one place every squad-ending path funnels through: `Leave`, `Disband`,
+    `RelinquishLeadership`, `HandleDisband`, `HandleKick` — centralized there after a squad/TD
+    lifecycle audit found it missing from several of these), plus separately from
+    `HandleLeaderChanged` and `HandleTransfer` (one rule, not one per event: `SendData` is
+    leader-only, so a former leader is cut off from ever pushing another update the moment they stop
+    being leader, whether the squad itself lives on or not — `HandleTransfer`'s successor is the one
+    member who doesn't go through `HandleLeaderChanged`, so it needs the same call on its own path)
+    — clears any still-pending shares and clears `SharedBy` on every accepted route, unlocking it
+    for editing.
 - Sent invites time out after 15s if nobody responds — there is no delivery acknowledgment at the
   Steam messaging level, so a target with no mod installed looks identical to one still deciding
   until the timeout fires and surfaces a notice.

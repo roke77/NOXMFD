@@ -23,10 +23,11 @@
   push-based instead).
 
   Callsign is a fixed picker (issue #42, callsigns.js — a real military callsign list), not free
-  text, and CREATE SQUAD also picks a flight number 1-9 (Squadron Callsign System). The flight
-  number is fixed for the squad's whole life; only the callsign itself can change later (EDIT,
-  sqd.set-callsign). Every member's row designation renders as "<CALLSIGN> <FLIGHT>-<MEMBER>"
-  (e.g. "TALON 1-2"), where MEMBER is the existing join-order number (1 = leader).
+  text, and CREATE SQUAD also picks a flight number 1-9 (Squadron Callsign System). Both are
+  editable later too (EDIT, sqd.set-callsign takes callsign + flight together). Every member's row
+  designation renders as "<CALLSIGN> <FLIGHT>-<MEMBER>" (e.g. "TALON 1-2"), where MEMBER is the
+  existing join-order number (1 = leader) — changing the flight re-numbers everyone's designation
+  immediately, since MEMBER never changes.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -75,12 +76,14 @@
 
   <!-- The squad itself, once one exists (as leader or member). The title doubles as the callsign
        editor: EDIT (leader only, sqd.set-callsign) swaps the <span> for an inline input + SET, in
-       place, rather than a separate section. -->
+       place, rather than a separate section. The flight number (Squadron Callsign System) is
+       editable here too now, not just at CREATE time — sqd.set-callsign takes both. -->
   <div class="sqd-section" id="sqd-squad-section" style="display:none;">
     <div class="sqd-section-head">
       <span id="sqd-squad-head">YOUR SQUAD</span>
       <div class="sqd-callsign-edit" id="sqd-callsign-edit" style="display:none;">
         <select id="sqd-callsign-select" aria-label="Callsign"></select>
+        <select id="sqd-callsign-flight" aria-label="Flight number"></select>
         <button class="sqd-btn pad-hoverable" id="sqd-callsign-set">SET</button>
       </div>
       <div class="sqd-section-actions">
