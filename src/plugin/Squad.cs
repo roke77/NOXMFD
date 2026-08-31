@@ -89,6 +89,12 @@ namespace NOXMFD
         // Role itself since every prior caller only ever needed a specific action guarded inline.
         internal static bool IsLeader => _role == Role.Leader;
 
+        // For SquadTargets.cs/HudSquadTargetMark.cs (issue #49) — the leader-vs-member query split in
+        // SquadTargetsStore needs to know which this instance is, the same reason IsLeader exists;
+        // Role itself isn't public, so this mirrors IsLeader's own reasoning for the "is a member at
+        // all" case (as opposed to not being in a squad).
+        internal static bool IsMember => _role == Role.Member;
+
         // Leader: who they lead. Member: the rest of the squad (not the leader, not self) — kept
         // current by the leader's sqd.roster broadcasts.
         private static readonly List<Member> _members = new List<Member>();
@@ -192,6 +198,8 @@ namespace NOXMFD
                 case "sqd.transfer":        HandleTransfer(from, payload); break;
                 case "sqd.leader-changed":  HandleLeaderChanged(from, payload); break;
                 case "sqd.data":            HandleData(from, payload); break;
+                case "sqd.locks":           HandleLocks(from, payload); break;              // issue #49
+                case "sqd.locks-aggregate": HandleLocksAggregate(from, payload); break;      // issue #49
                     // Unknown type: ignore rather than guess — a squadmate on a newer/older mod
                     // version may send a type this build doesn't understand yet.
             }
@@ -346,6 +354,7 @@ namespace NOXMFD
             // against the shrunk roster — fix TdStore's assignments to match before anything reads
             // them (a poll, a DESIGNATE) with the old numbering.
             TdStore.RenumberAfterMemberRemoved(idx + 2);
+            SquadTargetsStore.RemoveMember(memberId);   // issue #49 — drop their entry from the aggregate
             Squadron.SendTo(memberId, "sqd.kick", "{}");
             Squadron.CloseSession(memberId);
             BroadcastRoster();
@@ -479,6 +488,7 @@ namespace NOXMFD
             if (idx < 0) return;
             // Same renumbering as Kick() above — a voluntary leave shrinks the roster the same way.
             TdStore.RenumberAfterMemberRemoved(idx + 2);
+            SquadTargetsStore.RemoveMember(from);   // issue #49 — drop their entry from the aggregate
             Squadron.CloseSession(from);
             BroadcastRoster();
             RebuildState();
@@ -528,6 +538,7 @@ namespace NOXMFD
             // the one member who doesn't go through that path, so it has to happen here instead.
             RouteStore.OnSquadEnded();
             TdStore.OnSquadEnded();
+            SquadTargetsStore.OnSquadEnded();
             BroadcastRoster();
             RebuildState();
         }
@@ -544,7 +555,45 @@ namespace NOXMFD
             // push another update, permanently, whether or not the squad itself lives on.
             RouteStore.OnSquadEnded();
             TdStore.OnSquadEnded();
+            SquadTargetsStore.OnSquadEnded();
             RebuildState();
+        }
+
+        // Issue #49 — inbound half of the target-lock broadcast. A member's own lock set (leader
+        // only accepts it from a current member, same guard every other member-sourced handler here
+        // uses); relays the freshly-aggregated whole picture back out immediately on any real change,
+        // same "push on change, not on a timer" shape BroadcastRoster already follows.
+        private static void HandleLocks(ulong from, string payload)
+        {
+            if (_role != Role.Leader || !ContainsMember(from)) return;
+            var ids = new List<uint>();
+            if (JsonLite.Parse(payload) is List<object?> list)
+                foreach (object? item in list) if (item is double d) ids.Add(unchecked((uint)d));
+            if (SquadTargetsStore.SetMemberIds(from, ids))
+                Squadron.SendToAll(MemberIds(), "sqd.locks-aggregate", SquadTargetsStore.BuildAggregateJson());
+        }
+
+        // Issue #49 — outbound half, member side: SquadTargets.Tick() calls this whenever its own
+        // lock set changes. Kept here (not in SquadTargets.cs) so Squad.cs stays the one place that
+        // actually calls Squadron.SendTo/SendToAll, same split every other outbound path already uses.
+        internal static void SendLocks(string idsJson)
+        {
+            if (_role != Role.Member) return;
+            Squadron.SendTo(_leaderId, "sqd.locks", idsJson);
+        }
+
+        // Issue #49 — outbound half, leader side: SquadTargets.Tick() calls this when the LEADER's own
+        // lock set changes (a member-triggered relay already happens inside HandleLocks above).
+        internal static void RelayLocksAggregate()
+        {
+            if (_role != Role.Leader) return;
+            Squadron.SendToAll(MemberIds(), "sqd.locks-aggregate", SquadTargetsStore.BuildAggregateJson());
+        }
+
+        private static void HandleLocksAggregate(ulong from, string payload)
+        {
+            if (_role != Role.Member || from != _leaderId) return;
+            SquadTargetsStore.ApplyAggregate(payload, Squadron.SelfId());
         }
 
         private static void HandleData(ulong from, string payload)
@@ -607,6 +656,7 @@ namespace NOXMFD
             _notice = string.Empty;
             TdStore.OnSquadEnded();
             RouteStore.OnSquadEnded();
+            SquadTargetsStore.OnSquadEnded();
             RebuildState();
         }
 

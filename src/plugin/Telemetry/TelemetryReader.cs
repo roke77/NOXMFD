@@ -215,6 +215,10 @@ namespace NOXMFD
                 // SQD's roster picker (docs/squadron-transport.md) — who else is in this match, for
                 // the squad leader to invite. 1 Hz is ample; player join/leave isn't latency-sensitive.
                 PlayerRoster.Refresh();
+                // issue #49 — squad target-lock broadcast for the HUD marks (Hud/HudSquadTargetMark.cs).
+                // A lock only changes on select/deselect, so 1 Hz is ample, same reasoning as the
+                // roster refresh above.
+                SquadTargets.Tick();
             }
 
             if (_fastTimer >= FastInterval)
