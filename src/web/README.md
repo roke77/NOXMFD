@@ -37,11 +37,12 @@ src/web/
     wpt/    wpt.html  wpt.css  wpt.js     # waypoint/route editor, thin client over the plugin's
             waypoints-store.js            # RouteStore (docs/hud-waypoint-indicator.md) — fetch/poll
             wpt-route.js  wpt-route.test.js  # /wpt-options + POST /command, no local persistence
-    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
+    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/  td/
                                                # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
-                                               # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg =
-                                               # each page's own refresh-rate/quality settings, reached from that
-                                               # page's own nav row, not CFG — see nav-model.js's NAV.mapcfg/tgpcfg)
+                                               # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg/td =
+                                               # each reached from that page's own nav row rather than MAIN/CFG —
+                                               # see nav-model.js's NAV.mapcfg/tgpcfg/td; td = Target Designator,
+                                               # issue #47, docs/target-designator.md, visible only in a squad)
                                                # some carry a pure sibling module — see below
     ext/                                       # EXT hub — lists extensions discovered at runtime via
                                                # /ext-manifest (shell/shared/ext-nav.js), no fixed page content of
@@ -167,7 +168,7 @@ selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps i
   (`{act, pane}`, on a HOTAS keypress) up to whichever shell hosts it; the shell reports its own
   surface count back down via `soi.panes` (below). Most pages carry no SOI-specific code — the
   shell derives their bezel/NAV cursor from their own `data-action` / `.nav-item` elements.
-- **PAD cursor (the exception):** a page in `PAD_CURSOR_PAGES` (`map`, `tgt`, `hud`, `rdr`, `wpt`, `akf`, `hsd`) draws a
+- **PAD cursor (the exception):** a page in `PAD_CURSOR_PAGES` (`map`, `tgt`, `td`, `hud`, `rdr`, `wpt`, `akf`, `hsd`) draws a
   real crosshair over its own content, so the shell forwards the raw `'cursor'` / `'cursor-held'` /
   `'cursor-select'` / `'map-act'` events down to whichever eligible page is focused
   (`focusedCursorWindow()`), and the page integrates them with `services/pad-cursor.js`. Each page

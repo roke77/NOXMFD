@@ -36,6 +36,21 @@ function fmtRng(r) {
 
 function factionClass(f) { return f === 1 ? 'f-friendly' : f === 0 ? 'f-neutral' : 'f-enemy'; }
 
+// Shared by renderLeader/renderMember: both tables are the same NAME/GRID/RNG row shape, differing
+// only in whether a trailing tags cell is appended and what a click does (toggle-select vs.
+// immediate in-game select).
+function makeRow(t, onClick) {
+  const row = document.createElement('div');
+  row.className = 'td-row-item pad-hoverable ' + factionClass(t.f);
+  row.dataset.id = t.id;
+  const name = document.createElement('span'); name.className = 'td-name'; name.textContent = t.n || '—';
+  const grid = document.createElement('span'); grid.className = 'td-grid'; grid.textContent = t.g != null ? String(t.g) : '—';
+  const dist = document.createElement('span'); dist.className = 'td-dist'; dist.textContent = fmtRng(t.r);
+  row.appendChild(name); row.appendChild(grid); row.appendChild(dist);
+  row.addEventListener('click', onClick);
+  return row;
+}
+
 // Squad-slot numbering — 1 is the leader/self, member i (join order) is i+2. Same scheme sqd.js's
 // own addSquadRow uses (Squad.cs's _members list only ever appends, so index IS join order).
 function squadSlots(state) {
@@ -74,18 +89,12 @@ function renderLeader(state, tdState) {
 
   leaderRows.innerHTML = '';
   liveTargets.forEach(function (t) {
-    const row = document.createElement('div');
-    row.className = 'td-row-item pad-hoverable ' + factionClass(t.f);
-    row.dataset.id = t.id;
+    const row = makeRow(t, function () { send('td.select', { id: t.id }); });
     if (selected.has(t.id)) row.classList.add('selected');
-    const name = document.createElement('span'); name.className = 'td-name'; name.textContent = t.n || '—';
-    const grid = document.createElement('span'); grid.className = 'td-grid'; grid.textContent = t.g != null ? String(t.g) : '—';
-    const dist = document.createElement('span'); dist.className = 'td-dist'; dist.textContent = fmtRng(t.r);
     const tags = document.createElement('span'); tags.className = 'td-tags';
     const assigned = assignments[String(t.id)] || [];
     tags.textContent = assigned.length ? assigned.map(function (n) { return '→' + n; }).join(' ') : '';
-    row.appendChild(name); row.appendChild(grid); row.appendChild(dist); row.appendChild(tags);
-    row.addEventListener('click', function () { send('td.select', { id: t.id }); });
+    row.appendChild(tags);
     leaderRows.appendChild(row);
   });
   leaderEmpty.style.display = liveTargets.length ? 'none' : '';
@@ -114,15 +123,7 @@ function renderMember(tdState) {
   const rows = tdState.designated || [];
   memberRows.innerHTML = '';
   rows.forEach(function (t) {
-    const row = document.createElement('div');
-    row.className = 'td-row-item pad-hoverable ' + factionClass(t.f);
-    row.dataset.id = t.id;
-    const name = document.createElement('span'); name.className = 'td-name'; name.textContent = t.n || '—';
-    const grid = document.createElement('span'); grid.className = 'td-grid'; grid.textContent = t.g != null ? String(t.g) : '—';
-    const dist = document.createElement('span'); dist.className = 'td-dist'; dist.textContent = fmtRng(t.r);
-    row.appendChild(name); row.appendChild(grid); row.appendChild(dist);
-    row.addEventListener('click', function () { send('target.select', { id: t.id }); });
-    memberRows.appendChild(row);
+    memberRows.appendChild(makeRow(t, function () { send('target.select', { id: t.id }); }));
   });
   memberEmpty.style.display = rows.length ? 'none' : '';
 }

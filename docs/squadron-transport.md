@@ -21,9 +21,11 @@ would need so the first implementation does not foreclose them.
 
 **Shipped:** the transport (Option B, below) plus a full leader/member squad protocol on top of
 it — invites, single-squad-per-player enforcement, leader succession, and disband — with waypoint
-route sharing wired end to end as the first payload. See "Implementation" below for what actually
-exists in the code today; the sections above and below it are the design investigation that led
-there and are kept as the historical record of why it looks the way it does.
+route sharing and target designation wired end to end as its two payloads (the latter is issue #47,
+docs/target-designator.md — its own doc covers the TD-specific command/UI details, not repeated
+here). See "Implementation" below for what actually exists in the code today; the sections above
+and below it are the design investigation that led there and are kept as the historical record of
+why it looks the way it does.
 
 **Confirmed live** across two real machines on separate Steam accounts (a PC host and a Steam Deck
 client): squad creation, invite, and a shared waypoint route all reached the other side over Steam's
@@ -263,10 +265,12 @@ with every member; members only ever talk to the leader, never each other):
   `CreateSquad` above); carried through every roster/invite envelope and a leadership handoff
   (`sqd.transfer`'s own envelope) so it survives both. SQD's page title reads "`<CALLSIGN> SQUAD`"
   and doubles as the inline editor (EDIT swaps the title for a text input in place).
-- `sqd.data` — the generic "TBD payload" slot this doc's scope section describes; `wpt.route` is
-  the first (and so far only) concrete use, wired to WPT's per-route share button, which only shows
-  once you're the squad leader with at least one member. What actually shipped on top of the bare
-  transport (`RouteStore.cs`):
+- `sqd.data` — the generic "TBD payload" slot this doc's scope section describes; `wpt.route` was
+  the first concrete use, wired to WPT's per-route share button, which only shows once you're the
+  squad leader with at least one member. `Squad.SendDataTo` is the per-recipient sibling
+  `td.designate` (issue #47, docs/target-designator.md) needs, since different members get
+  different target sets rather than one broadcast payload. What `wpt.route` shipped on top of the
+  bare transport (`RouteStore.cs`):
   - **Accept/reject.** An incoming share lands as a `PendingSharedRoute` (id/name/waypoints from
     the leader, plus who sent it), never persisted to disk — it only makes sense within the live
     squad session. WPT shows it as its own row with ACCEPT/REJECT, nothing else; accepting adds a

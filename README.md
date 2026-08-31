@@ -103,6 +103,7 @@ pilot, with HOTAS-friendly keybinds to match.
 - **[TGP](man/tgp.md)** — targeting-pod camera.
   - **[CFG](man/tgpcfg.md)** — feed rate, resolution, and quality settings.
 - **[TGT](man/tgt.md)** — target-selection table.
+  - **[TD](man/td.md)** — hand off targets to squad members (requires a squad).
 - **[WPN](man/wpn.md)** — weapon loadout.
 
 ## Reporting & collaboration

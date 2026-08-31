@@ -66,3 +66,8 @@ Two buttons below the list clear targets by *why* they're selected, without touc
 Next/Previous Target, Clear Datalink, and Clear Stale all have dedicated keybinds, and this page
 is fully drivable from a HOTAS [PAD cursor](keybinds.md#pad-cursor) — see [KEY](keybinds.md) for
 both.
+
+## Hand off to squad members
+
+While you're in a [squad](sqd.md), a **TD** nav item appears here — open the
+[Target Designator page](td.md) to assign your targets to specific members.

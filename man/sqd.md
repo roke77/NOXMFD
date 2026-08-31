@@ -37,3 +37,8 @@ share button. Sharing pushes the route to every member as a read-only entry with
 later edits re-broadcast automatically. A member's own progress through a shared route carries
 over across updates. Shared routes unlock for editing the moment the squad ends or the sharer
 stops being leader.
+
+## Hand off targets
+
+While in a squad, a **TD** nav item appears on [TGT](tgt.md) — see [TD](td.md) for handing specific
+targets off to specific members.
