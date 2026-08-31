@@ -43,6 +43,7 @@ namespace NOXMFD
             internal string       LeaderName;
             internal List<Member> Members;
             internal string       Callsign;
+            internal int          Flight;
         }
 
         private static Role _role = Role.None;
@@ -55,6 +56,14 @@ namespace NOXMFD
         // handoff so it's never lost partway through a squad's life; cleared in ResetToNone like
         // everything else here, by the same no-persistence design the whole class already has.
         private static string _callsign = string.Empty;
+
+        // Squadron Callsign System (docs/squadron-transport.md's numbering section) — the flight
+        // number the leader picks at CreateSquad time, 1-9, fixed for the squad's whole life (unlike
+        // the callsign itself, which SetCallsign can still rename later). Every member's own
+        // designation renders as "<CALLSIGN> <FLIGHT>-<MEMBER>" (e.g. "TALON 1-2"), where MEMBER is
+        // the existing join-order number (1 = leader) — this field only supplies the FLIGHT half.
+        // Carried through every roster/invite/transfer envelope alongside the callsign.
+        private static int _flight = 1;
 
         // For RouteStore.cs to attribute an incoming shared route without the client having to pass
         // it through the payload itself — HandleData already only accepts data FROM the current
@@ -176,19 +185,22 @@ namespace NOXMFD
 
         // ── Outbound actions (called from CommandDispatcher, main thread) ─────────
 
-        // Explicitly starts a new squad with a chosen callsign — the SQD page's own CREATE SQUAD
-        // button. Requires the name up front rather than letting a squad exist unnamed the way an
-        // earlier design (invite-implicitly-creates-a-squad) did; INVITE only appears on the roster
-        // once this has made the pilot a leader.
-        internal static bool CreateSquad(string callsign)
+        // Explicitly starts a new squad with a chosen callsign and flight number — the SQD page's
+        // own CREATE SQUAD button. Requires both up front rather than letting a squad exist unnamed
+        // the way an earlier design (invite-implicitly-creates-a-squad) did; INVITE only appears on
+        // the roster once this has made the pilot a leader. Flight is fixed for the squad's whole
+        // life once set here — unlike the callsign, there is no later "change flight" action.
+        internal static bool CreateSquad(string callsign, int flight)
         {
             if (_role != Role.None) return false;
             if (_pendingReceived.Count > 0) return false;   // decide our own pending invite(s) first
             string name = (callsign ?? string.Empty).Trim();
             if (name.Length == 0 || name.Length > 20) return false;
+            if (flight < 1 || flight > 9) return false;
             _role = Role.Leader;
             _members.Clear();
             _callsign = name;
+            _flight = flight;
             RebuildState();
             return true;
         }
@@ -225,6 +237,7 @@ namespace NOXMFD
             _leaderId = inv.LeaderId;
             _leaderName = inv.LeaderName;
             _callsign = inv.Callsign;
+            _flight = inv.Flight;
             _members.Clear();
             _members.AddRange(inv.Members);
 
@@ -374,7 +387,8 @@ namespace NOXMFD
                 return;
             }
 
-            var invite = new PendingInvite { LeaderId = from, LeaderName = leaderName, Members = members, Callsign = callsign };
+            int flight = IntField(obj, "flight");
+            var invite = new PendingInvite { LeaderId = from, LeaderName = leaderName, Members = members, Callsign = callsign, Flight = flight };
             // A second invite from the SAME leader (a retry, or their roster changed before we
             // answered) refreshes our copy in place rather than queuing a duplicate; a different
             // leader's invite queues alongside whatever's already pending.
@@ -427,6 +441,7 @@ namespace NOXMFD
             var obj = JsonLite.Parse(payload) as Dictionary<string, object?>;
             _leaderName = Str(obj, "leaderName");
             _callsign = Str(obj, "callsign");
+            _flight = IntField(obj, "flight");
             _members.Clear();
             _members.AddRange(ParseMembers(obj != null && obj.TryGetValue("members", out object? mv) ? mv : null));
             RebuildState();
@@ -472,6 +487,7 @@ namespace NOXMFD
             _leaderId = 0;
             _leaderName = string.Empty;
             _callsign = Str(obj, "callsign");
+            _flight = IntField(obj, "flight");
             _members.Clear();
             _members.AddRange(members);
             _pendingSent.Clear();
@@ -537,6 +553,7 @@ namespace NOXMFD
             _leaderId = 0;
             _leaderName = string.Empty;
             _callsign = string.Empty;
+            _flight = 1;
             _members.Clear();
             _pendingSent.Clear();
             _pendingReceived.Clear();
@@ -627,22 +644,25 @@ namespace NOXMFD
             return sb.ToString();
         }
 
-        // Leadership handoff (sqd.transfer) — carries the callsign along too, so the new leader's
-        // squad keeps its name instead of reverting to unnamed.
+        // Leadership handoff (sqd.transfer) — carries the callsign and flight along too, so the new
+        // leader's squad keeps its identity instead of reverting to unnamed/flight 1.
         private static string TransferEnvelope(IEnumerable<Member> members) =>
-            "{\"members\":" + MembersJson(members) + ",\"callsign\":\"" + Esc(_callsign) + "\"}";
+            "{\"members\":" + MembersJson(members) + ",\"callsign\":\"" + Esc(_callsign) +
+            "\",\"flight\":" + _flight.ToString(CultureInfo.InvariantCulture) + "}";
 
         private static string RosterEnvelope() =>
             "{\"leaderId\":\"" + Squadron.SelfId().ToString(CultureInfo.InvariantCulture) +
             "\",\"leaderName\":\"" + Esc(SelfName()) +
             "\",\"callsign\":\"" + Esc(_callsign) +
-            "\",\"members\":" + MembersJson(_members) + "}";
+            "\",\"flight\":" + _flight.ToString(CultureInfo.InvariantCulture) +
+            ",\"members\":" + MembersJson(_members) + "}";
 
         private static string InviteEnvelope() =>
             "{\"leaderId\":\"" + Squadron.SelfId().ToString(CultureInfo.InvariantCulture) +
             "\",\"leaderName\":\"" + Esc(SelfName()) +
             "\",\"callsign\":\"" + Esc(_callsign) +
-            "\",\"members\":" + MembersJson(_members) + "}";
+            "\",\"flight\":" + _flight.ToString(CultureInfo.InvariantCulture) +
+            ",\"members\":" + MembersJson(_members) + "}";
 
         private static List<Member> ParseMembers(object? arr)
         {
@@ -663,6 +683,13 @@ namespace NOXMFD
 
         private static string Str(Dictionary<string, object?>? obj, string key) =>
             obj != null && obj.TryGetValue(key, out object? v) && v is string s ? s : string.Empty;
+
+        // JsonLite parses every number as a plain double (see its own header comment) — used for
+        // the flight number carried in invite/roster/transfer envelopes. Falls back to 1 (a valid
+        // flight) rather than 0 so a stale/older peer that never sends the field still parses to
+        // something CreateSquad itself would have accepted.
+        private static int IntField(Dictionary<string, object?>? obj, string key) =>
+            obj != null && obj.TryGetValue(key, out object? v) && v is double d ? (int)d : 1;
 
         private static ulong ULongOf(string s) =>
             ulong.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture, out ulong v) ? v : 0;
@@ -692,6 +719,7 @@ namespace NOXMFD
             sb.Append(",\"leaderAircraft\":\"")
               .Append(Esc(_role == Role.Member ? PlayerRoster.AircraftFor(_leaderId) : string.Empty)).Append('"');
             sb.Append(",\"callsign\":\"").Append(Esc(_callsign)).Append('"');
+            sb.Append(",\"flight\":").Append(_flight.ToString(CultureInfo.InvariantCulture));
             sb.Append(",\"members\":").Append(MembersJsonServed(_members));
             sb.Append(",\"pendingInvites\":[");
             bool firstInv = true;

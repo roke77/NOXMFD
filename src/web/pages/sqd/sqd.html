@@ -21,6 +21,12 @@
   and /server-players directly (ponytail: a 1s poll is simple and plenty for a UI that isn't
   latency-sensitive; an SSE 'sqd' event already exists server-side if this ever needs to be
   push-based instead).
+
+  Callsign is a fixed picker (issue #42, callsigns.js — a real military callsign list), not free
+  text, and CREATE SQUAD also picks a flight number 1-9 (Squadron Callsign System). The flight
+  number is fixed for the squad's whole life; only the callsign itself can change later (EDIT,
+  sqd.set-callsign). Every member's row designation renders as "<CALLSIGN> <FLIGHT>-<MEMBER>"
+  (e.g. "TALON 1-2"), where MEMBER is the existing join-order number (1 = leader).
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -50,17 +56,18 @@
        was outstanding forced declining it just to get back to a page you could otherwise still use. -->
 
   <!-- No squad yet (role "none") — starting one is explicit: a big centered CREATE SQUAD button,
-       which swaps in an inline callsign input + CREATE/CANCEL (same in-place-swap idiom as the
-       squad section's own EDIT below). Squad.cs's CreateSquad requires the name up front, so
-       there's no unnamed-squad state to render — INVITE only appears on the roster once this has
-       succeeded and role flips to "leader". Mutually exclusive with the squad section right below
-       it (role is never simultaneously "none" and "leader"/"member"). -->
+       which swaps in an inline callsign + flight-number picker plus CREATE/CANCEL (same in-place-
+       swap idiom as the squad section's own EDIT below). Squad.cs's CreateSquad requires both up
+       front, so there's no unnamed-squad state to render — INVITE only appears on the roster once
+       this has succeeded and role flips to "leader". Mutually exclusive with the squad section
+       right below it (role is never simultaneously "none" and "leader"/"member"). -->
   <div class="sqd-section" id="sqd-create-section" style="display:none;">
     <div class="sqd-create-prompt" id="sqd-create-prompt">
       <button class="sqd-btn sqd-create-btn pad-hoverable" id="sqd-create-open">CREATE SQUAD</button>
     </div>
     <div class="sqd-create-form" id="sqd-create-form" style="display:none;">
-      <input type="text" id="sqd-create-input" placeholder="Callsign" maxlength="20">
+      <select id="sqd-create-callsign" aria-label="Callsign"></select>
+      <select id="sqd-create-flight" aria-label="Flight number"></select>
       <button class="sqd-btn pad-hoverable" id="sqd-create-confirm">CREATE</button>
       <button class="sqd-btn sqd-btn-ghost pad-hoverable" id="sqd-create-cancel">CANCEL</button>
     </div>
@@ -73,7 +80,7 @@
     <div class="sqd-section-head">
       <span id="sqd-squad-head">YOUR SQUAD</span>
       <div class="sqd-callsign-edit" id="sqd-callsign-edit" style="display:none;">
-        <input type="text" id="sqd-callsign-input" placeholder="Callsign" maxlength="20">
+        <select id="sqd-callsign-select" aria-label="Callsign"></select>
         <button class="sqd-btn pad-hoverable" id="sqd-callsign-set">SET</button>
       </div>
       <div class="sqd-section-actions">

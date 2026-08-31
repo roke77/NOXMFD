@@ -39,6 +39,8 @@ namespace NOXMFD
         public int    index;   // tgt.set / tgt.only : toggle index within the group
                                 // wpt.* : waypoint index, or a +-1 direction (cycle-route/step-waypoint)
                                 // preset.rename / preset.delete / preset.load : slot number 1-5
+                                // sqd.create : the squad's flight number 1-9 (Squadron Callsign
+                                // System, docs/squadron-transport.md) — fixed for the squad's life
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
                                 // tgp.manual.set : desired ManualMode state
                                 // tgp.ir.set : desired IR state (true = IR, false = COLOR)
@@ -109,7 +111,7 @@ namespace NOXMFD
                 // the Squadron transport. Parsing the peer id here (not in Squad) keeps the
                 // wire-format tolerance at the trust boundary, where every other command's
                 // validation already lives.
-                { "sqd.create",     e => Squad.CreateSquad(e.name ?? string.Empty) },
+                { "sqd.create",     e => Squad.CreateSquad(e.name ?? string.Empty, e.index) },
                 { "sqd.invite",     e => { if (TryPeer(e.peer, out ulong p)) Squad.Invite(p, e.name ?? string.Empty); } },
                 { "sqd.set-callsign", e => Squad.SetCallsign(e.name ?? string.Empty) },
                 { "sqd.accept",     e => { if (TryPeer(e.peer, out ulong p)) Squad.AcceptInvite(p); } },

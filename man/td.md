@@ -10,12 +10,13 @@ The table mirrors your live TGT target list — the same rows, live-updating. It
 from TGT itself: selecting or assigning here never changes what's selected on TGT.
 
 - **Tap a row** to select it (highlighted amber). Multiple rows can be selected at once.
-- **Squad buttons** above the table, one per squad slot including yourself (`<CALLSIGN>1` is you,
-  `<CALLSIGN>2` the first member, and so on, same numbering as the [SQD](sqd.md) roster). With one
-  or more rows selected, tap a squad button to assign them to that slot — the row's highlight
-  clears and a small **→N** tag shows who has it. A target can go to more than one slot; tapping
-  the same button again for an already-assigned target un-assigns it. Assigning to your own button
-  is just a personal marker — it's never actually sent anywhere.
+- **Squad buttons** above the table, one per squad slot including yourself, labeled with each
+  pilot's callsign designation (e.g. `TALON 1-1` is you, `TALON 1-2` the first member, and so on —
+  same numbering as the [SQD](sqd.md) roster). With one or more rows selected, tap a squad button
+  to assign them to that slot — the row's highlight clears and a small **→N** tag shows who has it
+  (N is the plain slot number, not the full designation). A target can go to more than one slot;
+  tapping the same button again for an already-assigned target un-assigns it. Assigning to your own
+  button is just a personal marker — it's never actually sent anywhere.
 - **DESIGNATE** sends each member their current assigned set. Sending again to a member who already
   has a pending designation replaces it entirely, rather than adding to it.
 - **CLEAR** discards your own in-progress selection/assignment work without touching anything

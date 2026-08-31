@@ -59,6 +59,12 @@ function squadSlots(state) {
   return slots;
 }
 
+// Squadron Callsign System (issue #42) — "<CALLSIGN> <FLIGHT>-<MEMBER>", e.g. "TALON 1-2". Same
+// format sqd.js's own squadDesignation renders on the roster table.
+function squadDesignation(state, memberNumber) {
+  return (state.callsign || 'SQD') + ' ' + (state.flight || 1) + '-' + memberNumber;
+}
+
 function render() {
   if (!squad || !squad.ready || !td || !td.ready) { unavailableEl.style.display = ''; leaderSection.style.display = 'none'; memberSection.style.display = 'none'; return; }
   const state = squad.state;
@@ -77,7 +83,7 @@ function renderLeader(state, tdState) {
   slots.forEach(function (s) {
     const btn = document.createElement('button');
     btn.className = 'td-squad-btn pad-hoverable';
-    btn.textContent = (state.callsign || 'SQD') + s.num;
+    btn.textContent = squadDesignation(state, s.num);
     btn.title = s.name;
     btn.dataset.slot = s.num;
     btn.addEventListener('click', function () { send('td.assign', { index: s.num }); });

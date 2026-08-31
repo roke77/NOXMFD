@@ -4,6 +4,7 @@
 // squad enforcement, succession) lives plugin-side (Squad.cs); this page only renders state and
 // dispatches commands.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
+import { SQUAD_CALLSIGNS } from './callsigns.js';
 
 if (window.parent !== window) {
   const back = document.querySelector('.sqd-back');
@@ -16,7 +17,8 @@ const createSection    = document.getElementById('sqd-create-section');
 const createPrompt     = document.getElementById('sqd-create-prompt');
 const createOpenBtn    = document.getElementById('sqd-create-open');
 const createForm       = document.getElementById('sqd-create-form');
-const createInput      = document.getElementById('sqd-create-input');
+const createCallsign   = document.getElementById('sqd-create-callsign');
+const createFlight     = document.getElementById('sqd-create-flight');
 const createConfirmBtn = document.getElementById('sqd-create-confirm');
 const createCancelBtn  = document.getElementById('sqd-create-cancel');
 const inviteSection    = document.getElementById('sqd-invite-section');
@@ -28,12 +30,25 @@ const pendingRows      = document.getElementById('sqd-pending-rows');
 const squadSection     = document.getElementById('sqd-squad-section');
 const squadHead        = document.getElementById('sqd-squad-head');
 const callsignEdit     = document.getElementById('sqd-callsign-edit');
-const callsignInput    = document.getElementById('sqd-callsign-input');
+const callsignSelect   = document.getElementById('sqd-callsign-select');
 const callsignSet      = document.getElementById('sqd-callsign-set');
 const callsignEditBtn  = document.getElementById('sqd-callsign-edit-btn');
 const squadRows        = document.getElementById('sqd-squad-rows');
 const leaveBtn         = document.getElementById('sqd-leave');
 const disbandBtn       = document.getElementById('sqd-disband');
+
+// Callsign/flight pickers (issue #42) — populated once at load, not rebuilt per render: the option
+// list itself never changes, only which <select> shows which one (creatingSquad/editingCallsign).
+function fillOptions(select, values) {
+  values.forEach(function (v) {
+    const opt = document.createElement('option');
+    opt.value = v; opt.textContent = v;
+    select.appendChild(opt);
+  });
+}
+fillOptions(createCallsign, SQUAD_CALLSIGNS);
+fillOptions(callsignSelect, SQUAD_CALLSIGNS);
+for (let f = 1; f <= 9; f++) fillOptions(createFlight, [String(f)]);
 
 let lastNoticeSeq = -1;
 let noticeTimer = null;
@@ -49,16 +64,15 @@ createOpenBtn.onclick = function () {
   if (createOpenBtn.disabled) return;
   creatingSquad = true;
   render();
-  createInput.focus();
 };
 createCancelBtn.onclick = function () { creatingSquad = false; render(); };
 createConfirmBtn.onclick = function () {
-  const name = createInput.value.trim();
-  if (name) sendCommand('sqd.create', { name: name }).catch(function () {});
+  const name = createCallsign.value;
+  const flight = parseInt(createFlight.value, 10);
+  if (name) sendCommand('sqd.create', { name: name, index: flight }).catch(function () {});
   creatingSquad = false;
   render();
 };
-createInput.onkeydown = function (e) { if (e.key === 'Enter') createConfirmBtn.click(); else if (e.key === 'Escape') createCancelBtn.click(); };
 
 disbandBtn.onclick    = function () { sendCommand('sqd.disband', {}).catch(function () {}); };
 leaveBtn.onclick = function () {
@@ -76,12 +90,11 @@ function invite(id, name) {
 
 callsignEditBtn.onclick = function () {
   editingCallsign = !editingCallsign;
-  if (editingCallsign) callsignInput.value = (state && state.callsign) || '';
+  if (editingCallsign) callsignSelect.value = (state && state.callsign) || '';
   render();
-  if (editingCallsign) callsignInput.focus();
 };
 callsignSet.onclick = function () {
-  const name = callsignInput.value.trim();
+  const name = callsignSelect.value;
   if (name) sendCommand('sqd.set-callsign', { name: name }).catch(function () {});
   editingCallsign = false;
   render();
@@ -242,6 +255,14 @@ function renderRoster(showInvite) {
   });
 }
 
+// Squadron Callsign System (issue #42) — "<CALLSIGN> <FLIGHT>-<MEMBER>", e.g. "TALON 1-2". FLIGHT
+// is Squad.cs's own fixed-at-creation number; MEMBER is the join-order number this function's own
+// callers already compute (1 = leader). TD's own squad buttons render the identical format off the
+// same state fields — see td.js's squadSlots/renderLeader.
+function squadDesignation(memberNumber) {
+  return (state.callsign || 'SQD') + ' ' + (state.flight || 1) + '-' + memberNumber;
+}
+
 // One row of the roster table: [callsign+number] [player name] [LEADER badge, or for the leader
 // viewing a subordinate: a star to promote them (relinquishTo) and a x to kick them (sqd.kick,
 // docs/squadron-transport.md)]. Plain Unicode symbols, not emoji — same rule the rest of the app's
@@ -256,7 +277,7 @@ function addSquadRow(number, name, aircraft, isLeaderRow, isSelf, memberId) {
 
   const tag = document.createElement('span');
   tag.className = 'sqd-row-tag';
-  tag.textContent = (state.callsign || 'SQD') + ' ' + number;
+  tag.textContent = squadDesignation(number);
 
   const nameEl = document.createElement('span');
   nameEl.className = 'sqd-row-name';

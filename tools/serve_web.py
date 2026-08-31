@@ -392,9 +392,11 @@ def _rates_config_merged():
 # exercise both the "awaiting response" and "joined" UI states. sqd.send is accepted and dropped,
 # since there is no real peer here to receive it.
 #
-# Default state below is this pilot as the squad LEADER of a 4-player squad "TALON" (self + 3
-# members) — exercises the leader-only UI (callsign section, INVITE roster, DISBAND, MAKE LEADER
-# on every member row) without any interaction needed. NOTE this deliberately does NOT match
+# Default state below is this pilot as the squad LEADER of a 4-player squad "TALON" flight 1
+# (self + 3 members) — exercises the leader-only UI (callsign section, INVITE roster, DISBAND, MAKE
+# LEADER on every member row) without any interaction needed. sqd.create's `index` field carries
+# the flight number (issue #42, Squadron Callsign System) the same way the real plugin's
+# CommandDispatcher reads it. NOTE this deliberately does NOT match
 # _wpt_options()'s own default scenario, which is a squad MEMBER who accepted a route from leader
 # "Foxtrot" — a leader can't hold a pending/accepted share from themselves, so once one of these
 # two mocks needs to show the leader's own view, "SQD and WPT agree on one persona" can't hold for
@@ -414,7 +416,7 @@ _SQD_SELF_AIRCRAFT = "EW-25 Medusa"
 _SQD = {
     # leaderId/leaderName stay "" while role == leader — Squad.cs never sets them for its own
     # leader (BuildStateJson), only for a MEMBER's view of who leads them.
-    "role": "leader", "leaderId": "", "leaderName": "", "callsign": "TALON",
+    "role": "leader", "leaderId": "", "leaderName": "", "callsign": "TALON", "flight": 1,
     "members": [
         {"id": "76561198000000002",   "name": "Foxtrot", "aircraft": "KR-67 Ifrit"},
         {"id": "76561198000000003",   "name": "Ghost",   "aircraft": "FS-12 Revoker"},
@@ -449,6 +451,7 @@ def _squad_state():
         # incoming invite exists to accept), see the module comment above.
         "leaderAircraft": "",
         "callsign": _SQD["callsign"],
+        "flight": _SQD["flight"],
         "members": _SQD["members"],
         "pendingInvites": _SQD["pendingInvites"],
         "pendingSent": [
@@ -477,9 +480,14 @@ def _squad_command(env):
         if _SQD["role"] != "none" or _SQD["pendingInvites"]:
             return
         name = str(env.get("name") or "").strip()[:20]
-        if name:
+        try:
+            flight = int(env.get("index") or 0)
+        except (TypeError, ValueError):
+            flight = 0
+        if name and 1 <= flight <= 9:
             _SQD["role"] = "leader"
             _SQD["callsign"] = name
+            _SQD["flight"] = flight
     elif cmd == "sqd.invite":
         if _SQD["role"] != "leader":
             return
@@ -497,13 +505,13 @@ def _squad_command(env):
         _SQD["members"] = [m for m in _SQD["members"] if m["id"] != peer]
     elif cmd in ("sqd.leave", "sqd.disband"):
         _SQD["role"] = "none"; _SQD["leaderId"] = ""; _SQD["leaderName"] = ""; _SQD["callsign"] = ""
-        _SQD["members"] = []; _SQD["pendingSent"] = {}
+        _SQD["flight"] = 1; _SQD["members"] = []; _SQD["pendingSent"] = {}
     elif cmd == "sqd.relinquish":
         # From OUR client's point of view, handing off leadership (auto or to a chosen member) ends
         # the same way leaving does: we're no longer in the squad. There's no second real client
         # here to become the new leader.
         _SQD["role"] = "none"; _SQD["leaderId"] = ""; _SQD["leaderName"] = ""; _SQD["callsign"] = ""
-        _SQD["members"] = []; _SQD["pendingSent"] = {}
+        _SQD["flight"] = 1; _SQD["members"] = []; _SQD["pendingSent"] = {}
     elif cmd in ("sqd.accept", "sqd.decline"):
         # Removes just the acted-on invite by leaderId (peer) — mirrors Squad.cs's queue. Normally a
         # no-op here (this mock's role never flips to "member" on its own, see the module comment

@@ -65,8 +65,7 @@
   gap: 8px;
   padding: 10px 0;
 }
-.sqd-create-form input {
-  width: 220px;
+.sqd-create-form select {
   background: var(--no-panel-bg);
   border: 1px solid var(--no-panel-border);
   color: var(--no-green);
@@ -74,7 +73,11 @@
   font-size: 13px;
   padding: 8px 10px;
 }
-.sqd-create-form input:focus { outline: 1px solid var(--no-green-dim); }
+/* Callsign (issue #42's fixed picker, callsigns.js) is the wide one; flight number is a single
+   digit, so it only needs to be wide enough for "9" plus the dropdown arrow. */
+#sqd-create-callsign { width: 180px; }
+#sqd-create-flight { width: 60px; }
+.sqd-create-form select:focus { outline: 1px solid var(--no-green-dim); }
 
 .sqd-btn {
   padding: 5px 12px;
@@ -109,7 +112,7 @@
   gap: 8px;
   margin-right: 12px;
 }
-.sqd-callsign-edit input {
+.sqd-callsign-edit select {
   flex: 1;
   background: var(--no-panel-bg);
   border: 1px solid var(--no-panel-border);
@@ -118,7 +121,7 @@
   font-size: 12px;
   padding: 5px 8px;
 }
-.sqd-callsign-edit input:focus { outline: 1px solid var(--no-green-dim); }
+.sqd-callsign-edit select:focus { outline: 1px solid var(--no-green-dim); }
 
 /* One per queued invite (sqd.js's renderInviteCards) — stacked, oldest first. */
 .sqd-invite-card {

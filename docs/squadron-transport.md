@@ -241,10 +241,12 @@ leader).
 **Protocol (`Squad.cs`)** — the leader/member state machine, star-topology (leader holds a session
 with every member; members only ever talk to the leader, never each other):
 
-- A squad comes into being via `Squad.CreateSquad` (SQD page's CREATE SQUAD button) — leader-only
-  from that point on, requiring a callsign up front rather than leaving the squad unnamed; there is
-  no implicit creation via a first invite anymore. `Invite` (and therefore the roster's own INVITE
-  button) is only reachable once `CreateSquad` has already made this pilot a leader.
+- A squad comes into being via `Squad.CreateSquad(callsign, flight)` (SQD page's CREATE SQUAD
+  button) — leader-only from that point on, requiring both a callsign and a flight number (1-9) up
+  front rather than leaving the squad unnamed; there is no implicit creation via a first invite
+  anymore. `Invite` (and therefore the roster's own INVITE button) is only reachable once
+  `CreateSquad` has already made this pilot a leader. Callsign and flight are the Squadron Callsign
+  System (issue #42) — see "Squadron Callsign System" below.
 - `sqd.invite` / `sqd.accept` / `sqd.decline` — explicit accept required, no auto-join. Incoming
   invites queue (oldest first) rather than the newest replacing an undecided one — a pilot can have
   several outstanding at once, each independently accept/decline-able by its sender's SteamID;
@@ -264,7 +266,9 @@ with every member; members only ever talk to the leader, never each other):
 - `sqd.set-callsign` — leader-only, renames an existing squadron (the initial name comes from
   `CreateSquad` above); carried through every roster/invite envelope and a leadership handoff
   (`sqd.transfer`'s own envelope) so it survives both. SQD's page title reads "`<CALLSIGN> SQUAD`"
-  and doubles as the inline editor (EDIT swaps the title for a text input in place).
+  and doubles as the inline editor (EDIT swaps the title for a picker in place). The flight number
+  has no equivalent rename action — it is fixed for the squad's whole life, set once at
+  `CreateSquad` and carried through the same envelopes as the callsign.
 - `sqd.data` — the generic "TBD payload" slot this doc's scope section describes; `wpt.route` was
   the first concrete use, wired to WPT's per-route share button, which only shows once you're the
   squad leader with at least one member. `Squad.SendDataTo` is the per-recipient sibling
@@ -313,22 +317,42 @@ client in the faction, peer-to-peer relay was never needed for this specific pie
 
 **UI** — a new SQD page (`src/web/pages/sqd/`), reachable from MAIN in both layouts, replacing the
 squadron block that used to live on WPT. The roster renders as a table, not plain rows: first
-column is the squadron's callsign plus a join-order number (leader is always 1; `Squad.cs`'s own
-`_members` list only ever appends, so index order IS join order), second is the player's Steam
-display name, third is their current aircraft (icon reused from `/icon?type=`, the same endpoint
-MAP draws its blips from — blank, not a placeholder, whenever `AircraftFor` has nothing to report),
-and a trailing LEADER badge or, on a subordinate's row when viewing as leader, a star (promote,
-`sqd.relinquish`) and an × (kick, `sqd.kick`). The pilot's own row highlights in place of the old
-"highlight the leader" behaviour, so a member can find themselves in their own squad at a glance.
+column is each pilot's Squadron Callsign System designation (see below), second is the player's
+Steam display name, third is their current aircraft (icon reused from `/icon?type=`, the same
+endpoint MAP draws its blips from — blank, not a placeholder, whenever `AircraftFor` has nothing to
+report), and a trailing LEADER badge or, on a subordinate's row when viewing as leader, a star
+(promote, `sqd.relinquish`) and an × (kick, `sqd.kick`). The pilot's own row highlights in place of
+the old "highlight the leader" behaviour, so a member can find themselves in their own squad at a
+glance.
 
-While there's no squad yet, a centered CREATE SQUAD button (swapping in place for a callsign
-input + CREATE/CANCEL, same idiom as the roster's own EDIT) is what starts one — there's no
-unnamed-squad state to render, since `CreateSquad` requires the name up front. Every section on
-the page (current squad, incoming invites, the match roster) shows or hides independently off
+While there's no squad yet, a centered CREATE SQUAD button (swapping in place for the callsign and
+flight-number pickers + CREATE/CANCEL, same idiom as the roster's own EDIT) is what starts one —
+there's no unnamed-squad state to render, since `CreateSquad` requires both up front. Every section
+on the page (current squad, incoming invites, the match roster) shows or hides independently off
 current state rather than gating each other: an incoming invite no longer hides the roster below
 it, and the roster itself stays visible and browsable even while undecided — only its own INVITE
 button (and CREATE SQUAD) actually needs `role`/pending-invite state, so those are disabled with an
 explanatory tooltip rather than the whole section disappearing.
+
+## Squadron Callsign System (issue #42)
+
+Both the callsign and the per-member numbering follow a real military callsign convention instead
+of free text and a bare join-order count.
+
+- **Callsign** — CREATE SQUAD's callsign field is a fixed `<select>`
+  (`src/web/pages/sqd/callsigns.js`), not a text input: a deduped, alphabetized list flattened from
+  a real DCS World callsigns reference across every aircraft/role category (GitHub issue #42's own
+  comment) — this list only cares about the name itself, not which aircraft type it was originally
+  associated with. `sqd.set-callsign` (EDIT) uses the same picker later.
+- **Flight number** — a second `<select>`, 1-9, chosen only at CREATE SQUAD time and fixed for the
+  squad's whole life (`Squad.CreateSquad(callsign, flight)`; no rename action exists for it, unlike
+  the callsign).
+- **Per-member designation** — every roster row (SQD) and squad button (TD, docs/target-designator.md)
+  renders `"<CALLSIGN> <FLIGHT>-<MEMBER>"`, e.g. `TALON 1-2`: `FLIGHT` is the squad's fixed flight
+  number, `MEMBER` is the pre-existing join-order number (1 = leader, `Squad.cs`'s own `_members`
+  list only ever appends so index order IS join order — unchanged by this feature, just given a new
+  display format). Matches the standard "Flight Lead / Wingman / Element Lead / Element Wingman"
+  4-ship structure (`CALLSIGN FLIGHT-AIRCRAFT` format) a real squadron uses.
 
 ## Security and privacy consequences
 
