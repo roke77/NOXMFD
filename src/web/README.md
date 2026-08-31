@@ -23,6 +23,8 @@ src/web/
                            boot-reveal.js                 # shared boot loading-bar + typewriter mechanics
                            wake-lock.js  wake-lock.test.js # screen wake-lock controller (docs/screen-wake-lock.md)
                            ext-nav.js                     # EXT hub's runtime extension-nav plan builder
+                           td-nav.js                      # TD's runtime nav-visibility plan builder (issue #47) —
+                                                           # same shape as ext-nav.js, gated on live squad membership
                            tgp-marks.js                   # shared TGP mark-light derivation
             layout-sticky.test.js                         # the classic⇄f35 redirect handoff — belongs to neither
             layout-coverage.test.js                       # every NAV destination reachable in BOTH layouts
@@ -37,12 +39,16 @@ src/web/
     wpt/    wpt.html  wpt.css  wpt.js     # waypoint/route editor, thin client over the plugin's
             waypoints-store.js            # RouteStore (docs/hud-waypoint-indicator.md) — fetch/poll
             wpt-route.js  wpt-route.test.js  # /wpt-options + POST /command, no local persistence
-    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/  td/
+    sqd/    sqd.html  sqd.css  sqd.js     # squad membership over Steam P2P (docs/squadron-transport.md) —
+                                           # polls GET /squad + /server-players directly, no shell relay
+    td/     td.html  td.css  td.js        # Target Designator (issue #47, docs/target-designator.md) — role-
+                                           # branched leader/member view, polls GET /squad + /td-state, plus
+                                           # the shell's own 'tgt-targets' mirror for the leader's live rows
+    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
                                                # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
-                                               # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg/td =
-                                               # each reached from that page's own nav row rather than MAIN/CFG —
-                                               # see nav-model.js's NAV.mapcfg/tgpcfg/td; td = Target Designator,
-                                               # issue #47, docs/target-designator.md, visible only in a squad)
+                                               # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg =
+                                               # each page's own refresh-rate/quality settings, reached from that
+                                               # page's own nav row, not CFG — see nav-model.js's NAV.mapcfg/tgpcfg)
                                                # some carry a pure sibling module — see below
     ext/                                       # EXT hub — lists extensions discovered at runtime via
                                                # /ext-manifest (shell/shared/ext-nav.js), no fixed page content of
@@ -144,10 +150,10 @@ selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps i
 ## Hosting model
 
 - **Full view (bezel):** the visible page renders in the shell's single `#page-frame` iframe
-  (`FRAME_PAGES = {wpn, tgp, avn, afm, rwr, rdr, hsd, tgt, hud, bdf, pal, mis, obj, keys}` — the key is
-  the NAV action, the value the route, which is why `pal` maps to `/bdf?pal` and `keys` to
-  `/keybinds`). MAP is the base iframe *under* it; MAIN's full view is the shell's own info-box
-  chrome (not a hosted page).
+  (`FRAME_PAGES` — actually `layout-pages.js`'s `CLASSIC_FULL` table — the key is the NAV action,
+  the value the route, which is why `pal` maps to `/bdf?pal` and `keys` to `/keybinds`; `wpt`, `sqd`,
+  `mapcfg`, `tgpcfg`, `td`, and `ext` are frame pages the same way). MAP is the base iframe *under*
+  it; MAIN's full view is the shell's own info-box chrome (not a hosted page).
 - **Split view (bezel):** two stacked pane iframes (`/<page>?bare` each). The shell forwards data
   to both.
 - **F-35 (`shell/f35/`):** a third, N-way layout instead of full/split — up to 4 portals, each an
@@ -177,7 +183,9 @@ selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps i
   too) — one HOTAS bind, per-page meaning (docs/page-cursor.md).
 - **Write commands:** `src/web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
   — from pages (MAP tap → `target.select`; TGT → `tgt.*` + `target.deselect`; AVN → `avn.toggle`;
-  HUD → `hud.*`/`declutter.set`/`preset.*` (issue #50 follow-up); KEYBINDS → the `keybind.*` family)
+  HUD → `hud.*`/`declutter.set`/`preset.*` (issue #50 follow-up); KEYBINDS → the `keybind.*` family;
+  WPT → the `wpt.*` family, including its squad-share sub-group (docs/squadron-transport.md); SQD →
+  the `sqd.*` family; TD → the `td.*` family (issue #47, docs/target-designator.md))
   and from either shell (`soi.panes`, `weapon.select`, `master-arms.set`, `combat-mode.set`,
   `layout.save`/`.rename`/`.delete` (issue #51 — LOAD itself is a client-side `GET /layout-options`
   read, no command), and `avn.toggle` again from the F-35 master strip). Every handler is listed in
