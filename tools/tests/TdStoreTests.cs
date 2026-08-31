@@ -65,6 +65,21 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
+        public void Assign_retain_true_keeps_selection_for_a_second_assign()
+        {
+            // issue #47 follow-up: long-pressing a squad button while assigning lets a leader
+            // designate the same selection to multiple slots in a row without re-selecting.
+            TdStore.ToggleSelect(1);
+            TdStore.ToggleSelect(2);
+            Assert.True(TdStore.Assign(3, retain: true));
+            Assert.Contains("\"selected\":[1,2]", TdStore.StateJson);   // NOT cleared, unlike the default
+            TdStore.Assign(4);   // retain defaults false — this one clears
+            Assert.Contains("\"selected\":[]", TdStore.StateJson);
+            Assert.Contains("\"1\":[3,4]", TdStore.StateJson);
+            Assert.Contains("\"2\":[3,4]", TdStore.StateJson);
+        }
+
+        [Fact]
         public void ClearOwn_wipes_selection_and_assignments()
         {
             TdStore.ToggleSelect(1);

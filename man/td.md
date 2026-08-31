@@ -6,24 +6,30 @@ a member.
 
 ## As the leader
 
-The table mirrors your live TGT target list — the same rows, live-updating. It's a separate view
-from TGT itself: selecting or assigning here never changes what's selected on TGT.
+The table mirrors your TGT target list, but unlike TGT it's deliberately static rather than
+live-updating — see **REFRESH** below for why. It's a separate view from TGT itself: selecting or
+assigning here never changes what's selected on TGT.
 
 - **Tap a row** to select it (highlighted amber). Multiple rows can be selected at once.
 - **Squad buttons** above the table, one per squad slot including yourself, labeled with each
   pilot's callsign designation (e.g. `TALON 1-1` is you, `TALON 1-2` the first member, and so on —
-  same numbering as the [SQD](sqd.md) roster). With one or more rows selected, tap a squad button
-  to assign them to that slot — the row's highlight clears and a small **→N** tag shows who has it
-  (N is the plain slot number, not the full designation). A target can go to more than one slot;
-  tapping the same button again for an already-assigned target un-assigns it. Assigning to your own
-  button is just a personal marker — it's never actually sent anywhere.
+  same numbering as the [SQD](sqd.md) roster). With one or more rows selected:
+  - **Tap** a squad button to assign them to that slot — the row's highlight clears and a small
+    tag (the plain slot number, not the full designation) shows who has it.
+  - **Long-press** a squad button instead to assign without clearing the highlight, so you can
+    designate the same selection to several slots in a row without re-selecting each time.
+
+  A target can go to more than one slot; assigning again for an already-assigned target/slot pair
+  un-assigns it. Assigning to your own button is just a personal marker — it's never actually sent
+  anywhere.
 - **DESIGNATE** sends each member their current assigned set. Sending again to a member who already
   has a pending designation replaces it entirely, rather than adding to it.
+- **REFRESH** pulls in the current TGT list and re-applies it to the table. The table only updates
+  on its own when a target is actually selected or deselected in-game (not on every range/grid
+  tick) — REFRESH is the manual way to bring grid/range up to date, or to pick up a target that
+  changed without a fresh select/deselect.
 - **CLEAR** discards your own in-progress selection/assignment work without touching anything
   already sent.
-
-Rows only ever leave this table because they left TGT (deselected or filtered out) — DESIGNATE and
-CLEAR never remove a row themselves, only the highlight/tag state on top of it.
 
 ## As a member
 

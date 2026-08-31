@@ -519,6 +519,60 @@ def _squad_command(env):
         _SQD["pendingInvites"] = [i for i in _SQD["pendingInvites"] if i["leaderId"] != peer]
 
 
+# Stateful mock of the plugin's /td-state + td.* commands (issue #47, docs/target-designator.md).
+# _SQD's default role is "leader" with 3 members (see its own comment), so this mock only
+# meaningfully exercises the LEADER view — there's no second real client here to receive a
+# designation or act as a member, so td.designate/td.member-clear/td.acquire-all/
+# td.receive-designation are accepted and dropped, same as sqd.send has no real peer to reach.
+# Flip _SQD["role"] to "member" and seed _TD["designated"] by hand to eyeball the member view.
+_TD = {"selected": set(), "assignments": {}, "designated": []}
+
+
+def _td_state():
+    return json.dumps({"ready": True, "state": {
+        "selected": sorted(_TD["selected"]),
+        "assignments": _TD["assignments"],
+        "designated": _TD["designated"],
+    }}).encode("utf-8")
+
+
+def _td_command(env):
+    cmd = env.get("cmd") or ""
+    if not cmd.startswith("td."):
+        return
+    if cmd == "td.select":
+        try:
+            tid = int(env.get("id"))
+        except (TypeError, ValueError):
+            return
+        if tid in _TD["selected"]:
+            _TD["selected"].discard(tid)
+        else:
+            _TD["selected"].add(tid)
+    elif cmd == "td.assign":
+        try:
+            slot = int(env.get("index"))
+        except (TypeError, ValueError):
+            return
+        # Mirrors TdStore.Assign(): toggle slot membership for every currently-selected id, then
+        # clear the selection.
+        for tid in _TD["selected"]:
+            key = str(tid)
+            slots = _TD["assignments"].setdefault(key, [])
+            if slot in slots:
+                slots.remove(slot)
+                if not slots:
+                    del _TD["assignments"][key]
+            else:
+                slots.append(slot)
+        _TD["selected"].clear()
+    elif cmd == "td.clear":
+        _TD["selected"].clear()
+        _TD["assignments"] = {}
+    # td.designate / td.receive-designation / td.member-clear / td.acquire-all: no real peer to
+    # simulate here — accepted and dropped, same as sqd.send.
+
+
 # WPT showcase route (issue #38) — a real route drawn by hand in this harness (6 waypoints, a loop
 # roughly SE -> N -> W -> back), captured from localStorage so the preview always has something to
 # look at instead of an empty "long-press the map" state. Unlike hud/rates/keybinds above, WPT has
@@ -941,8 +995,15 @@ class H(http.server.SimpleHTTPRequestHandler):
                 env = json.loads(self.rfile.read(n) or b'{}')
             except (ValueError, OSError):
                 env = {}
+            # TEMP debug logging (requested while chasing the TD "needs several clicks" bug) —
+            # remove once confirmed fixed. Shows every command actually reaching the server, with
+            # a timestamp, so a click that never arrives here (vs. one that arrives but renders
+            # oddly) is visible in `preview_logs`/the console this was launched from.
+            if str(env.get("cmd", "")).startswith("td."):
+                print(f"[TD debug] {time.strftime('%H:%M:%S')} POST /command {env}", flush=True)
             _keybinds_command(env)
             _squad_command(env)
+            _td_command(env)
             _layout_command(env)
             _preset_command(env)
             self.send_response(204)
@@ -991,6 +1052,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(_rates_config_merged(), 'application/json; charset=utf-8')
         if path == '/squad':
             return self._send(_squad_state(), 'application/json; charset=utf-8')
+        if path == '/td-state':
+            return self._send(_td_state(), 'application/json; charset=utf-8')
         if path == '/server-players':
             return self._send(_server_players(), 'application/json; charset=utf-8')
         if path == '/map-view':

@@ -60,8 +60,12 @@ namespace NOXMFD
         }
 
         // Toggles slot membership for every currently-selected target, then clears the selection —
-        // same outcome whether it came from a squad-button click or one of the 9 keybinds.
-        internal static bool Assign(int slot)
+        // same outcome whether it came from a squad-button click or one of the 9 keybinds. `retain`
+        // (issue #47 follow-up: td.js's own tap-vs-long-press gesture on the squad button, mirroring
+        // TGT's tap/long-press cells) skips the clear, so a leader can long-press to designate the
+        // same selection to several slots in a row without re-selecting between each one. Defaults
+        // false so every pre-existing call site (including the test suite) is unchanged.
+        internal static bool Assign(int slot, bool retain = false)
         {
             if (slot <= 0 || _selected.Count == 0) return false;
             foreach (uint id in _selected)
@@ -71,7 +75,7 @@ namespace NOXMFD
                 if (!slots.Add(slot)) slots.Remove(slot);
                 if (slots.Count == 0) _assignments.Remove(id);
             }
-            _selected.Clear();
+            if (!retain) _selected.Clear();
             RebuildState();
             return true;
         }

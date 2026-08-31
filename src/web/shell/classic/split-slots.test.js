@@ -19,13 +19,19 @@ const { mainPageSizes, mainPaneSlice, listPaneLayout } = require('./classic-pagi
 // pane collapses the split instead.
 const NO_SPLIT_TABLE = new Set(['main', 'map']);
 
+// 'tgt' is a documented exception too: td-nav.js appends a live TD entry to NAV.tgt at runtime
+// once a squad exists, so the static NAV.tgt here (nav-model.js) undercounts its real length —
+// SPLIT_SLOTS.tgt must declare capacity for the runtime-grown case, not the static baseline.
+const DYNAMIC_GROWTH = { tgt: 2 };
+
 for (const [page, items] of Object.entries(NAV)) {
   if (NO_SPLIT_TABLE.has(page)) continue;
   const slots = SPLIT_SLOTS[page];
+  const expectedLen = DYNAMIC_GROWTH[page] || items.length;
   assert.ok(slots, `NAV.${page} (${items.length} item(s)) has no SPLIT_SLOTS entry at all — it would be unreachable in a split pane`);
-  assert.strictEqual(slots.length, items.length,
-    `NAV.${page} has ${items.length} item(s) but SPLIT_SLOTS.${page} has ${slots.length} slot(s) — ` +
-    `a split pane would silently drop ${items.length - slots.length > 0 ? 'the extra NAV item(s)' : 'nothing, but has unused slot(s)'}`);
+  assert.strictEqual(slots.length, expectedLen,
+    `NAV.${page} has ${items.length} item(s) (expected slot capacity ${expectedLen}) but SPLIT_SLOTS.${page} has ${slots.length} slot(s) — ` +
+    `a split pane would silently drop ${expectedLen - slots.length > 0 ? 'the extra NAV item(s)' : 'nothing, but has unused slot(s)'}`);
 }
 
 // The reverse direction: no orphaned SPLIT_SLOTS entry for a page NAV doesn't know about.

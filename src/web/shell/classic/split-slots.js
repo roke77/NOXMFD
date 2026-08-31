@@ -49,7 +49,6 @@
     // this list doesn't need to change if NAV.hsd's own item order does — only its length matters.
     rdr: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
     hsd: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
-    tgt: [ { side: 'left', slot: 0 } ],
     // AKF/BDF/PAL/MIS/OBJ get 6: MAIN, then the other four as a direct switch (NAV.akf/NAV.bdf/
     // NAV.pal/NAV.mis/NAV.obj), index-aligned with this list. Left holds MAIN+AKF+MIS; OBJ/BDF/PAL
     // spill onto the right column.
@@ -74,6 +73,12 @@
     // TD (issue #47, docs/target-designator.md) — same single-back-button shape, back to TGT
     // (NAV.td).
     td: [ { side: 'left', slot: 0 } ],
+    // TGT declares 2 slots even though its static NAV.tgt (nav-model.js) is MAIN alone: td-nav.js
+    // appends a live TD entry to NAV.tgt at runtime once a squad exists, something no other split
+    // page does — without slot 1 reserved here, that append had nowhere to land and silently
+    // dropped (mfd.js's own "has no SPLIT_SLOTS entry — not placed" warning, never surfaced because
+    // nothing was watching the console). split-slots.test.js special-cases 'tgt' for the same reason.
+    tgt: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 } ],
     // WPN is a valid split page but places no NAV labels: its MAIN/PREV + NEXT depend on the
     // pane's pagination state, so renderSplitLabels' list branch owns them (NAV.wpn is empty to
     // match).

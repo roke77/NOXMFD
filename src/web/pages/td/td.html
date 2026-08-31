@@ -8,17 +8,23 @@
   own nav row (nav-model.js's NAV.tgt, appended at runtime by td-nav.js only while in a squad — see
   its own header comment), not MAIN.
 
-  Leader view: the same live target list TGT itself shows (mirrored via the shell's 'tgt-targets'
+  Leader view: the same target list TGT itself shows (mirrored via the shell's 'tgt-targets'
   message), with an independent selection/assignment overlay on top — row click toggles selection,
   a squad button assigns every selected target to that slot (toggle, per slot, per target), and
-  DESIGNATE pushes each member their assigned set over the squad transport. Member view: a
-  read-only table of whatever the leader last DESIGNATEd, with AQUIRE selecting everything at once
-  in-game.
+  DESIGNATE pushes each member their assigned set over the squad transport. Unlike TGT, this table
+  is deliberately static: it only refreshes on a real select/deselect in-game, or when REFRESH is
+  pressed (td.js's applyLiveTargets) — a live-updating table fights with clicking it (see
+  target-designator.md). A squad button is itself a tap-vs-long-press control (issue #47 follow-up,
+  same LONG_MS pattern as TGT's own filter cells): a tap assigns and clears the selection as always;
+  a long-press assigns and keeps the selection lit, so the leader can designate the same selection
+  to several slots in a row without re-selecting between each one. Member view: a read-only table of
+  whatever the leader last DESIGNATEd, with AQUIRE selecting everything at once in-game.
 
   All state round-trips through the plugin: GET /squad (role/roster, same as SQD) and GET /td-state
   (selection/assignment overlay + the member's designated-target snapshot — TdStore.cs), POST
   /command (td.select / td.assign / td.clear / td.designate / td.acquire-all / td.member-clear).
-  Same 1s-poll convention SQD uses (docs/squadron-transport.md) — this isn't latency-sensitive.
+  Unlike SQD, TD has NO automatic polling at all (td.js's own header) — both GETs above fire only
+  once when this page loads, and again whenever REFRESH is pressed.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -29,6 +35,9 @@
 
 <div class="td-panel" id="td-panel">
   <a class="td-back" href="/tgt">&lt; TGT</a>
+  <!-- Squad-button tap/hold legend (issue #47 follow-up) — same top-right placement and wording
+       shape as TGT's own .tgt-hint (tgt.html), just describing TD's own assign gesture instead. -->
+  <span class="td-hint">tap&nbsp;=&nbsp;assign&nbsp;·&nbsp;hold&nbsp;=&nbsp;keep&nbsp;selection</span>
   <div class="td-title">TARGET DESIGNATOR</div>
 
   <!-- PAD cursor (docs/page-cursor.md) — same fixed-position crosshair SQD/WPT use. -->
@@ -52,6 +61,8 @@
 
     <div class="td-actions">
       <button class="td-btn td-designate-btn pad-hoverable" id="td-designate">DESIGNATE</button>
+      <button class="td-btn td-btn-ghost pad-hoverable" id="td-refresh">REFRESH</button>
+      <button class="td-btn td-btn-ghost pad-hoverable" id="td-select-all">ALL</button>
       <button class="td-btn td-btn-ghost pad-hoverable" id="td-leader-clear">CLEAR</button>
     </div>
   </div>

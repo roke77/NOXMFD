@@ -6,6 +6,18 @@
    rather than a fixed-size panel, so the crosshair needs position:fixed. */
 #pad-cursor { position: fixed; }
 
+/* .td-panel is exclusively this page's own root (shared/page-chrome.css's .td-title etc. are
+   batched rules across several *-panel classes, never combined on one element), so scoping
+   position:relative here is safe — it can't affect WPT/SQD/KEY. */
+.td-panel { position: relative; }
+.td-hint {
+  position: absolute;
+  top: 6px;
+  right: 0;
+  font-size: clamp(8px, 1.4vmin, 12px);
+  color: var(--no-green-dim);
+}
+
 .td-unavailable {
   max-width: 552px;
   margin: 0 auto;

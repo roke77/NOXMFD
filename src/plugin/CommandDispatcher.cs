@@ -44,6 +44,10 @@ namespace NOXMFD
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
                                 // tgp.manual.set : desired ManualMode state
                                 // tgp.ir.set : desired IR state (true = IR, false = COLOR)
+                                // td.assign : true when the squad button was long-pressed (issue #47
+                                // follow-up, td.js's own tap-vs-hold gesture) — skips clearing the
+                                // leader's TD selection after this assign, so the same selection can
+                                // be designated to several slots in a row
         public string? bind;   // keybind.* : BindDef id ("flares", "gear-up", ...)
                                 // wpt.* : route id ("" = clear active route)
         public string? key;    // keybind.set-key : Unity KeyCode name ("" or "None" clears)
@@ -129,7 +133,7 @@ namespace NOXMFD
                 // sqd.* group's own header comment gives for parsing peer ids at this layer rather
                 // than inside Squad/TdStore themselves.
                 { "td.select",              e => { if (Squad.IsLeader) TdStore.ToggleSelect(unchecked((uint)e.id)); } },
-                { "td.assign",              e => { if (Squad.IsLeader) TdStore.Assign(e.index); } },
+                { "td.assign",              e => { if (Squad.IsLeader) TdStore.Assign(e.index, e.on); } },
                 { "td.clear",               e => { if (Squad.IsLeader) TdStore.ClearOwn(); } },
                 { "td.designate",           e => { if (Squad.IsLeader && TryPeer(e.peer, out ulong p)) Squad.SendDataTo(p, "td.designate", e.text ?? "[]"); } },
                 { "td.receive-designation", e => TdStore.ReceiveDesignation(e.text) },

@@ -1,14 +1,21 @@
 // TD page (issue #47, docs/target-designator.md) — squad leader hand-assigns targets from their
-// own live TGT list to squad members; members get a read-only list of what was designated to them.
+// own TGT list to squad members; members get a read-only list of what was designated to them.
 // Squad/assignment state polls GET /squad and GET /td-state directly (same 1s-poll convention as
-// SQD, docs/squadron-transport.md); the live target ROWS come from the shell's own 'tgt-targets'
-// broadcast, same message TGT itself mirrors (mfd.js/f35.js forward it to this page too).
+// SQD, docs/squadron-transport.md). The target ROWS come from the shell's own 'tgt-targets'
+// broadcast (same message TGT itself mirrors, mfd.js/f35.js forward it to this page too), but
+// unlike TGT, this page deliberately does NOT redraw on every one of those messages — see
+// applyLiveTargets' own header comment for why the table is static except on a real select/
+// deselect or the REFRESH button.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 
 if (window.parent !== window) {
   const back = document.querySelector('.td-back');
   if (back) back.remove();
 }
+
+// Long-pressing a squad button (issue #47 follow-up) must not pop a context menu — same guard
+// tgt.js's own tap/long-press cells use.
+window.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
 const unavailableEl = document.getElementById('td-unavailable');
 const leaderSection  = document.getElementById('td-leader-section');
@@ -22,10 +29,28 @@ const memberRows     = document.getElementById('td-member-rows');
 const memberEmpty    = document.getElementById('td-member-empty');
 const acquireBtn     = document.getElementById('td-acquire');
 const memberClearBtn = document.getElementById('td-member-clear');
+const refreshBtn      = document.getElementById('td-refresh');
+const selectAllBtn    = document.getElementById('td-select-all');
 
 let squad = null;      // last-known GET /squad {ready, state}
 let td = null;          // last-known GET /td-state {ready, state}
 let liveTargets = [];   // last-known live target rows from the shell's 'tgt-targets' message
+
+// Optimistic overlay for the leader's selected/assignments, cleared on the next /td-state poll.
+// Without this, a click only becomes visible once that poll confirms it (up to 1s later). Set
+// synchronously in the click handler itself so the visual result is immediate, not waiting on the
+// round trip.
+let selectedOverride = null;      // Set<id> | null
+let assignmentsOverride = null;   // {id: [slots]} | null
+function effectiveSelected(tdState) { return selectedOverride || new Set(tdState.selected || []); }
+function effectiveAssignments(tdState) { return assignmentsOverride || (tdState.assignments || {}); }
+
+// TEMP debug logging (requested while chasing the "needs several clicks" bug) — remove once
+// confirmed fixed. Shows render() cadence/source and every click, so the preview-mock's 150ms
+// tgt-targets churn (tools/preview-mock.js's tick) is directly visible instead of inferred.
+const TD_DEBUG = true;
+let _renderN = 0;
+function dlog() { if (TD_DEBUG) console.log.apply(console, ['[TD debug]'].concat([].slice.call(arguments))); }
 
 function send(cmd, args) { sendCommand(cmd, args).catch(function () {}); }
 
@@ -36,7 +61,7 @@ function fmtRng(r) {
 
 function factionClass(f) { return f === 1 ? 'f-friendly' : f === 0 ? 'f-neutral' : 'f-enemy'; }
 
-// Shared by renderLeader/renderMember: both tables are the same NAME/GRID/RNG row shape, differing
+// Shared by applyLiveTargets/renderMember: both tables are the same NAME/GRID/RNG row shape, differing
 // only in whether a trailing tags cell is appended and what a click does (toggle-select vs.
 // immediate in-game select).
 function makeRow(t, onClick) {
@@ -65,20 +90,81 @@ function squadDesignation(state, memberNumber) {
   return (state.callsign || 'SQD') + ' ' + (state.flight || 1) + '-' + memberNumber;
 }
 
-function render() {
+// Structural render: which section is visible. Only ever called from the initial page-load fetch
+// or the REFRESH button (refreshSquad/refreshTd below) — TD has no automatic timer of any kind,
+// and never from the 'tgt-targets' feed, which has its own separate, also-not-automatic path.
+function render(source) {
+  _renderN++;
+  dlog('render #' + _renderN, 'via', source || '(direct)');
   if (!squad || !squad.ready || !td || !td.ready) { unavailableEl.style.display = ''; leaderSection.style.display = 'none'; memberSection.style.display = 'none'; return; }
   const state = squad.state;
   const role = state.role;
   unavailableEl.style.display = role === 'none' ? '' : 'none';
   leaderSection.style.display = role === 'leader' ? '' : 'none';
   memberSection.style.display = role === 'member' ? '' : 'none';
-  if (role === 'leader') renderLeader(state, td.state);
+  if (role === 'leader') {
+    renderSquadButtons(state);
+    // Seed the table once on first entry (nothing to show yet otherwise) — NOT an ongoing
+    // refresh; see applyLiveTargets' own header for the only three things that trigger it again.
+    if (leaderRowEls.size === 0 && liveTargets.length) applyLiveTargets();
+    applySelectionState();
+  }
   else if (role === 'member') renderMember(td.state);
 }
 
 // ── Leader view ──────────────────────────────────────────────────────────────────────
-function renderLeader(state, tdState) {
+// TD does NOT mirror the live telemetry feed the way TGT does. Earlier attempts kept trying to
+// make a constantly-refreshing table survive being clicked (stable DOM nodes, then splitting
+// live-text updates from selection updates, then freezing row position) — each round removed one
+// way the table could disturb an in-progress click, but the table was still updating on its own on
+// a timer no user asked for, which is the wrong shape for a screen whose whole point is "click
+// things precisely." The actual fix is to stop the background updates entirely: TD's table is
+// static between actual designation activity. It refreshes only in three cases, all deliberate,
+// all triggered by something the user (or the user's own game actions) actually did:
+//   1. A real select/deselect in-game — i.e. the SET of locked target ids changed, checked below
+//      via idsKey(). Range/grid drifting on an already-locked target does NOT trigger this.
+//   2. The REFRESH button — pulls in whatever the shell's last 'tgt-targets' message was, on
+//      demand, so grid/range can be brought current without needing to lock/unlock anything.
+//   3. Squad roster changes (renderSquadButtons, memoized by signature, unchanged) and the 1s
+//      /squad + /td-state polls (selection/assignment state — applySelectionState below), neither
+//      of which touches the target rows at all.
+// squadButtons stays memoized by roster signature. leaderRowEls persists row elements by id so an
+// existing row is only ever updated in place, never destroyed/recreated/repositioned even when
+// case 1 or 2 above does run — a real design's first version already got that part right; the
+// piece that was missing was updating so rarely at all.
+let lastSquadSig = null;
+const leaderRowEls = new Map();   // target id -> row element, persists across updates
+let lastAppliedIdsKey = null;     // idsKey() of whichever snapshot leaderRowEls currently reflects
+
+function idsKey(list) { return list.map(function (t) { return t.id; }).sort(function (a, b) { return a - b; }).join(','); }
+
+// Assign — tap vs. long-press (issue #47 follow-up), same LONG_MS/pointerdown-timer shape tgt.js's
+// own tap/long-press cells use, no keybind or PAD-cursor-hold plumbing needed: a tap clears the
+// selection afterward as always; a long-press keeps it lit, so the leader can designate the same
+// selection to several slots in a row without re-selecting between each one. `on` tells the plugin
+// to do the same server-side, so a REFRESH mid-sequence doesn't wipe the highlights being kept.
+const LONG_MS = 500;
+function doAssign(slot, retain) {
+  dlog('assign slot', slot, 'retain=' + retain);
+  const nextAssignments = Object.assign({}, effectiveAssignments(td.state));
+  effectiveSelected(td.state).forEach(function (id) {
+    const key = String(id);
+    const memberSlots = new Set(nextAssignments[key] || []);
+    if (memberSlots.has(slot)) memberSlots.delete(slot); else memberSlots.add(slot);
+    if (memberSlots.size) nextAssignments[key] = Array.from(memberSlots); else delete nextAssignments[key];
+  });
+  assignmentsOverride = nextAssignments;
+  if (!retain) selectedOverride = new Set();
+  applySelectionState();
+  send('td.assign', { index: slot, on: retain });
+}
+
+function renderSquadButtons(state) {
   const slots = squadSlots(state);
+  const sig = state.callsign + '|' + state.flight + '|' + slots.map(function (s) { return s.num + ':' + s.name; }).join(',');
+  if (sig === lastSquadSig) return;
+  lastSquadSig = sig;
+  dlog('squad buttons rebuilt (roster changed)');
   squadButtons.innerHTML = '';
   slots.forEach(function (s) {
     const btn = document.createElement('button');
@@ -86,24 +172,71 @@ function renderLeader(state, tdState) {
     btn.textContent = squadDesignation(state, s.num);
     btn.title = s.name;
     btn.dataset.slot = s.num;
-    btn.addEventListener('click', function () { send('td.assign', { index: s.num }); });
+    let longFired = false;
+    let timer = null;
+    btn.addEventListener('pointerdown', function () {
+      longFired = false;
+      timer = setTimeout(function () { longFired = true; doAssign(s.num, true); }, LONG_MS);
+    });
+    btn.addEventListener('pointerup', function () {
+      clearTimeout(timer);
+      if (!longFired) doAssign(s.num, false);
+    });
+    btn.addEventListener('pointerleave', function () { clearTimeout(timer); });
+    btn.addEventListener('pointercancel', function () { clearTimeout(timer); });
     squadButtons.appendChild(btn);
   });
+}
 
-  const selected = new Set(tdState.selected || []);
-  const assignments = tdState.assignments || {};
-
-  leaderRows.innerHTML = '';
+// Identity/text only — never touches .selected or tags. Called only from the three places listed
+// above (initial seed, a real select/deselect, or the REFRESH button) — never on a timer.
+function applyLiveTargets() {
+  if (!squad || squad.state.role !== 'leader') return;
+  lastAppliedIdsKey = idsKey(liveTargets);
+  const seen = new Set();
   liveTargets.forEach(function (t) {
-    const row = makeRow(t, function () { send('td.select', { id: t.id }); });
-    if (selected.has(t.id)) row.classList.add('selected');
-    const tags = document.createElement('span'); tags.className = 'td-tags';
-    const assigned = assignments[String(t.id)] || [];
-    tags.textContent = assigned.length ? assigned.map(function (n) { return '→' + n; }).join(' ') : '';
-    row.appendChild(tags);
-    leaderRows.appendChild(row);
+    seen.add(t.id);
+    let row = leaderRowEls.get(t.id);
+    if (!row) {
+      row = makeRow(t, function () {
+        dlog('click: select id', t.id);
+        const next = new Set(effectiveSelected(td.state));
+        if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
+        selectedOverride = next;
+        applySelectionState();
+        send('td.select', { id: t.id });
+      });
+      const tags = document.createElement('span'); tags.className = 'td-tags';
+      row.appendChild(tags);
+      leaderRowEls.set(t.id, row);
+    } else {
+      row.querySelector('.td-name').textContent = t.n || '—';
+      row.querySelector('.td-grid').textContent = t.g != null ? String(t.g) : '—';
+      row.querySelector('.td-dist').textContent = fmtRng(t.r);
+      row.classList.remove('f-friendly', 'f-neutral', 'f-enemy');
+      row.classList.add(factionClass(t.f));
+      return;   // EXISTING row: text updated above, but never reposition it — see below.
+    }
+    leaderRows.appendChild(row);   // brand-new row only: lands at the end.
+  });
+  leaderRowEls.forEach(function (row, id) {
+    if (!seen.has(id)) { row.remove(); leaderRowEls.delete(id); }
   });
   leaderEmpty.style.display = liveTargets.length ? 'none' : '';
+  // A newly-created row above has no selection/tags applied yet — catch up immediately.
+  applySelectionState();
+}
+
+// .selected + tags only, on whichever rows currently exist — never touches identity/text/order.
+function applySelectionState() {
+  if (!td) return;
+  const selected = effectiveSelected(td.state);
+  const assignments = effectiveAssignments(td.state);
+  leaderRowEls.forEach(function (row, id) {
+    row.classList.toggle('selected', selected.has(id));
+    const assigned = assignments[String(id)] || [];
+    row.querySelector('.td-tags').textContent = assigned.length ? assigned.join(' ') : '';
+  });
 }
 
 designateBtn.addEventListener('click', function () {
@@ -122,7 +255,23 @@ designateBtn.addEventListener('click', function () {
     send('td.designate', { peer: m.id, text: JSON.stringify(rows) });
   });
 });
-leaderClearBtn.addEventListener('click', function () { send('td.clear', {}); });
+leaderClearBtn.addEventListener('click', function () {
+  selectedOverride = new Set();
+  assignmentsOverride = {};
+  applySelectionState();
+  send('td.clear', {});
+});
+selectAllBtn.addEventListener('click', function () {
+  // Select every row currently in the table — applied locally first (see selectedOverride's own
+  // comment) for instant feedback, then one td.select per row not already selected so the
+  // server's own state agrees (ToggleSelect is a toggle, not a set-true, so an already-selected
+  // row must not be re-sent or it would flip back off).
+  const ids = Array.from(leaderRowEls.keys());
+  const already = effectiveSelected(td.state);
+  selectedOverride = new Set(ids);
+  applySelectionState();
+  ids.forEach(function (id) { if (!already.has(id)) send('td.select', { id: id }); });
+});
 
 // ── Member view ──────────────────────────────────────────────────────────────────────
 function renderMember(tdState) {
@@ -136,27 +285,52 @@ function renderMember(tdState) {
 
 acquireBtn.addEventListener('click', function () { send('td.acquire-all', {}); });
 memberClearBtn.addEventListener('click', function () { send('td.member-clear', {}); });
+refreshBtn.addEventListener('click', function () {
+  dlog('click: manual refresh');
+  // The one manual sync point: re-pull squad roster + assignment state from the server (in case
+  // anything drifted — a member leaving, etc.) AND re-apply whatever the shell's latest target
+  // snapshot is. No automatic timer does any of this — see the fetch functions' own header.
+  refreshSquad();
+  refreshTd();
+  applyLiveTargets();
+});
 
-// ── Polling (same 1s convention sqd.js uses) ────────────────────────────────────────
+// ── Fetches: ONLY on initial load (below) and from the REFRESH button above. No setInterval, no
+// background timer of any kind — TD does not poll. Opening the TD page (navigating to it from
+// TGT's nav row) re-runs this whole module fresh, which is the other time these ever fire.
 function refreshSquad() {
   return fetch('/squad').then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (s) { if (s) { squad = s; render(); } }).catch(function () {});
+    .then(function (s) { if (s) { squad = s; render('load/refresh:squad'); } }).catch(function () {});
 }
 function refreshTd() {
   return fetch('/td-state').then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (s) { if (s) { td = s; render(); } }).catch(function () {});
+    .then(function (s) {
+      if (s) {
+        td = s;
+        // Whatever set these overrides has had a full round trip to apply server-side by now —
+        // drop the overlay and trust the freshly-fetched truth instead.
+        selectedOverride = null;
+        assignmentsOverride = null;
+        render('load/refresh:td-state');
+      }
+    }).catch(function () {});
 }
 refreshSquad(); refreshTd();
-setInterval(refreshSquad, 1000);
-setInterval(refreshTd, 1000);
 
 // ── Shell -> page: the live target-row mirror (same message TGT itself listens for) ────
+// Always keep `liveTargets` current (cheap — just a variable, no DOM) so the REFRESH button always
+// has an up-to-date snapshot ready. Only actually touch the DOM (applyLiveTargets) when the SET of
+// ids changed — a real select/deselect — never for a pure value-only update (range/grid drifting
+// on a target that was already locked). See applyLiveTargets' own header for the full reasoning.
 window.addEventListener('message', function (e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
   if (m.type === 'tgt-targets') {
     liveTargets = Array.isArray(m.items) ? m.items : [];
-    render();
+    if (idsKey(liveTargets) !== lastAppliedIdsKey) {
+      dlog('target set changed — applying');
+      applyLiveTargets();
+    }
   }
 });
 

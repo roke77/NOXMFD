@@ -1612,8 +1612,9 @@ function showPage(name) {
     forwardTgtTargetsToFrame();
   }
   // TD (issue #47, docs/target-designator.md) renders in #page-frame too — reached from TGT's own
-  // nav row (NAV.tgt, td-nav.js), not MAIN. Self-driven for squad/assignment state (polls /squad
-  // and /td itself); only the live target-row mirror needs forwarding, same slice TGT gets.
+  // nav row (NAV.tgt, td-nav.js), not MAIN. Self-driven for squad/assignment state (fetches /squad
+  // and /td-state once on load, and again on its own REFRESH button — no automatic polling); only
+  // the live target-row mirror needs forwarding, same slice TGT gets.
   if (name === 'td') {
     showFramePage('td');
     forwardTgtTargetsToFrame();

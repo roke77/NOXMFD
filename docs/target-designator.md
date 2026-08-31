@@ -6,11 +6,12 @@ showing only what was designated to them, with a one-tap AQUIRE that selects eve
 
 ## Where the data lives
 
-TD's leader table is not a separate target list — it's the identical live `tgt-targets` stream
-TGT itself renders (`src/web/services/telemetry-source.js` decodes id/name/grid/range/faction/
+TD's leader table is not a separate target list — it's the identical `tgt-targets` stream TGT
+itself renders (`src/web/services/telemetry-source.js` decodes id/name/grid/range/faction/
 datalink from the raw telemetry frame; the shell mirrors it as `targetsData` and forwards it to
 whichever page is showing `'tgt'` *or* `'td'`, `mfd.js`/`f35.js`). TD adds nothing server-side to
-compute that list — it only owns an overlay on top of it:
+compute that list — it only owns an overlay on top of it. Unlike TGT, `td.js` deliberately does
+NOT redraw on every one of those messages — see "A static table, on purpose" below.
 
 - **`TdStore.cs`** (plugin, 100% BCL — no Squad/Unit/CommandDispatcher touchpoint, same
   testability seam `RouteStore.cs` keeps) holds the leader's in-progress selection
@@ -29,7 +30,7 @@ Every TD command reuses an existing `CommandEnvelope` field — no new ones were
 | Command | Fields reused | Effect |
 | --- | --- | --- |
 | `td.select` | `id` | Leader: toggle a row's selection. |
-| `td.assign` | `index` (slot) | Leader: toggle every selected target's membership in that slot, then clear selection. |
+| `td.assign` | `index` (slot), `on` (retain) | Leader: toggle every selected target's membership in that slot, then clear selection unless `on` (a long-press — see below). |
 | `td.clear` | — | Leader: wipe selection + assignments. |
 | `td.designate` | `peer`, `text` | Leader: `Squad.SendDataTo(peer, "td.designate", text)` — one call per member with 1+ assigned targets. |
 | `td.receive-designation` | `text` | Member: replace the designated-target table wholesale. |
@@ -40,6 +41,36 @@ DESIGNATE itself is composed **in the browser** (`td.js`), not the plugin: the l
 target rows are client-side data (see above), so `td.js` filters them down to each member's
 assigned ids and fires one `td.designate` POST per member. The plugin never needs the full roster
 to fan this out.
+
+## A static table, on purpose (issue #47 follow-up)
+
+The first version of this page redrew its whole target table on every `tgt-targets` message —
+the same cadence TGT's live telemetry stream updates at (well under a second). That table is also
+a set of click targets (row select, squad-button assign), and a click is a mousedown-then-mouseup
+gesture spanning tens of milliseconds; a redraw landing in that window could destroy the element
+under the cursor, reposition it, or simply repaint stale state over a click's own visual feedback.
+Several rounds of narrower fixes (stable DOM nodes, splitting live-text updates from selection
+updates, freezing row position) each removed one way this happened, but the table was still
+updating on a timer nothing asked for.
+
+The actual fix: `td.js` doesn't redraw on the feed at all. `liveTargets` is kept current from every
+`tgt-targets` message (a plain variable, no DOM write), but `applyLiveTargets()` — the only thing
+that touches the table's rows — runs in exactly three cases, all deliberate:
+1. **A real select/deselect in-game** — the *set* of locked target ids changed (compared via a
+   sorted-ids key), not a pure value-only update (range/grid drifting on an already-locked target).
+2. **The REFRESH button** — re-applies whatever the latest stored snapshot is, on demand.
+3. **Once, when the leader view first renders** (nothing to show otherwise).
+
+Squad/assignment state (`GET /squad`, `GET /td-state`) follows the same rule — fetched once on
+page load and again only from REFRESH, no `setInterval` anywhere in this page.
+
+**Assign: tap vs. long-press.** A squad button is a tap-vs-long-press control, same `LONG_MS`
+pointerdown-timer shape TGT's own filter cells already use (`tgt.js`) — no new keybind, no PAD-
+cursor-hold plumbing. A tap assigns and clears the selection, as before. A long-press assigns and
+keeps the selection lit (`TdStore.Assign(slot, retain: true)`), so a leader can designate the same
+selected targets to several squad slots in a row without re-selecting between each one. `td.assign`
+sends this as the existing `on` `CommandEnvelope` field so the plugin's own state agrees — otherwise
+a REFRESH mid-sequence would silently wipe the highlights the leader is deliberately keeping.
 
 ## Delivery to the member
 
