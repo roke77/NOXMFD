@@ -38,6 +38,7 @@
     sqd: '/sqd',
     mapcfg: '/mapcfg',
     tgpcfg: '/tgpcfg',
+    td: '/td',   // Target Designator (issue #47) — reached from TGT's own nav row, not MAIN
     // EXT hub (docs/extensions-api.md) — the EXT dispatch's landing page regardless of how many
     // extensions are installed. Its own content distinguishes "none installed" from "pick one
     // below"; the picking itself happens via NAV.ext's per-extension entries, each its own
@@ -71,6 +72,7 @@
     sqd: '/sqd?bare',
     mapcfg: '/mapcfg?bare',
     tgpcfg: '/tgpcfg?bare',
+    td: '/td?bare',
     ext: '/ext?bare',
   };
 
@@ -103,6 +105,7 @@
     sqd: '/sqd',
     mapcfg: '/mapcfg',
     tgpcfg: '/tgpcfg',
+    td: '/td',
     ext: '/ext',
   };
 

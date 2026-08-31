@@ -71,6 +71,9 @@
       { label: 'MODE', action: 'hsd-mode' },   // toggles CEN<->DEP (docs/rdr-fcr-hsd.md); current
                                                 // mode shows on HSD's own range readout, not here
     ],
+    // TD (issue #47, docs/target-designator.md) is appended here at runtime by td-nav.js only
+    // while in a squad, same "presence discovered at runtime" shape NAV.ext uses for extensions —
+    // the static baseline below is just MAIN, same as every other single-MAIN page here.
     tgt: [ { label: 'MAIN', action: 'main' } ],
     // AKF, BDF, PAL, MIS and OBJ fold under one MAIN destination rather than five separate items:
     // each carries the other four as a direct switch, plus the way back, with `mark` on whichever
@@ -153,6 +156,9 @@
     // way back is TGP, not MAIN, matching every other page reached from a single-purpose sibling
     // rather than MAIN itself.
     tgpcfg: [ { label: 'TGP', action: 'tgp' } ],
+    // TD (issue #47, docs/target-designator.md) — reached from TGT's own nav row (once td-nav.js
+    // has appended it there), so its way back is TGT, same reasoning as mapcfg/tgpcfg/wpt above.
+    td: [ { label: 'TGT', action: 'tgt' } ],
   };
 
   const api = { NAV };

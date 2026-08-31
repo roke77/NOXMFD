@@ -46,5 +46,24 @@ namespace NOXMFD
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
         }
+
+        // Target Designator state (issue #47, docs/target-designator.md) — same shape/threading
+        // contract as ServeSquad above, one HTTP handler next to another for the same feature
+        // family rather than a near-empty file of its own.
+        internal static void ServeTd(HttpListenerContext ctx)
+        {
+            try
+            {
+                string body = "{\"ready\":" + (Squadron.Ready ? "true" : "false") + ",\"state\":" + TdStore.StateJson + "}";
+                byte[] bytes = Encoding.UTF8.GetBytes(body);
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = bytes.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(bytes, 0, bytes.Length);
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
     }
 }

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — TD</title>
+<!--
+  Target Designator page (issue #47, docs/target-designator.md), served at /td. Reached from TGT's
+  own nav row (nav-model.js's NAV.tgt, appended at runtime by td-nav.js only while in a squad — see
+  its own header comment), not MAIN.
+
+  Leader view: the same live target list TGT itself shows (mirrored via the shell's 'tgt-targets'
+  message), with an independent selection/assignment overlay on top — row click toggles selection,
+  a squad button assigns every selected target to that slot (toggle, per slot, per target), and
+  DESIGNATE pushes each member their assigned set over the squad transport. Member view: a
+  read-only table of whatever the leader last DESIGNATEd, with AQUIRE selecting everything at once
+  in-game.
+
+  All state round-trips through the plugin: GET /squad (role/roster, same as SQD) and GET /td-state
+  (selection/assignment overlay + the member's designated-target snapshot — TdStore.cs), POST
+  /command (td.select / td.assign / td.clear / td.designate / td.acquire-all / td.member-clear).
+  Same 1s-poll convention SQD uses (docs/squadron-transport.md) — this isn't latency-sensitive.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/shared/page-chrome.css">
+<link rel="stylesheet" href="/assets/pages/td/td.css">
+</head>
+<body>
+
+<div class="td-panel" id="td-panel">
+  <a class="td-back" href="/tgt">&lt; TGT</a>
+  <div class="td-title">TARGET DESIGNATOR</div>
+
+  <!-- PAD cursor (docs/page-cursor.md) — same fixed-position crosshair SQD/WPT use. -->
+  <div id="pad-cursor" class="pad-cursor"></div>
+
+  <div class="td-unavailable" id="td-unavailable" style="display:none;">
+    Target Designator requires an active squad. Join or create one on the SQD page first.
+  </div>
+
+  <!-- Leader: own live TGT list + squad-slot assignment overlay. -->
+  <div class="td-section" id="td-leader-section" style="display:none;">
+    <div class="td-squad-buttons" id="td-squad-buttons"></div>
+
+    <div class="td-list">
+      <div class="td-list-head">
+        <span>NAME</span><span>GRID</span><span>RNG</span><span>TO</span>
+      </div>
+      <div id="td-leader-rows"></div>
+      <div class="td-empty" id="td-leader-empty">&mdash; NO TARGETS &mdash;</div>
+    </div>
+
+    <div class="td-actions">
+      <button class="td-btn td-designate-btn pad-hoverable" id="td-designate">DESIGNATE</button>
+      <button class="td-btn td-btn-ghost pad-hoverable" id="td-leader-clear">CLEAR</button>
+    </div>
+  </div>
+
+  <!-- Member: read-only, leader-designated targets only. -->
+  <div class="td-section" id="td-member-section" style="display:none;">
+    <div class="td-list">
+      <div class="td-list-head">
+        <span>NAME</span><span>GRID</span><span>RNG</span>
+      </div>
+      <div id="td-member-rows"></div>
+      <div class="td-empty" id="td-member-empty">&mdash; NOTHING DESIGNATED &mdash;</div>
+    </div>
+
+    <div class="td-actions">
+      <button class="td-btn td-designate-btn pad-hoverable" id="td-acquire">AQUIRE</button>
+      <button class="td-btn td-btn-ghost pad-hoverable" id="td-member-clear">CLEAR</button>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/services/send-command.js"></script>
+<script type="module" src="/assets/pages/td/td.js"></script>
+</body>
+</html>

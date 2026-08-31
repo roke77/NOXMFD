@@ -62,6 +62,10 @@ namespace NOXMFD
         // authoritatively server-side by the time a share arrives.
         internal static string LeaderName => _leaderName;
 
+        // For TdStore.cs (Squad.IsLeader-gated leader-only actions) — no existing accessor exposes
+        // Role itself since every prior caller only ever needed a specific action guarded inline.
+        internal static bool IsLeader => _role == Role.Leader;
+
         // Leader: who they lead. Member: the rest of the squad (not the leader, not self) — kept
         // current by the leader's sqd.roster broadcasts.
         private static readonly List<Member> _members = new List<Member>();
@@ -332,6 +336,18 @@ namespace NOXMFD
             return true;
         }
 
+        // Single-recipient sibling of SendData above (issue #47's Target Designator: different
+        // members get different target sets, so a broadcast doesn't fit) — same envelope shape,
+        // SendTo instead of SendToAll.
+        internal static bool SendDataTo(ulong memberId, string dataType, string dataPayload)
+        {
+            if (_role != Role.Leader || !ContainsMember(memberId)) return false;
+            string envelope = "{\"type\":\"" + Esc(dataType ?? string.Empty) +
+                               "\",\"payload\":\"" + Esc(dataPayload ?? string.Empty) + "\"}";
+            Squadron.SendTo(memberId, "sqd.data", envelope);
+            return true;
+        }
+
         // ── Inbound handlers ───────────────────────────────────────────────────────
 
         private static void HandleInvite(ulong from, string payload)
@@ -475,6 +491,7 @@ namespace NOXMFD
             // reasoning): SendData is leader-only, so the OLD leader just lost the ability to ever
             // push another update, permanently, whether or not the squad itself lives on.
             RouteStore.OnSquadEnded();
+            TdStore.OnSquadEnded();
             RebuildState();
         }
 
@@ -523,6 +540,7 @@ namespace NOXMFD
             _members.Clear();
             _pendingSent.Clear();
             _pendingReceived.Clear();
+            TdStore.OnSquadEnded();
             RebuildState();
         }
 

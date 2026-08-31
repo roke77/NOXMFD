@@ -91,6 +91,8 @@ assert.ok(!('rates' in NAV), 'NAV.rates must not exist — its two settings move
 assert.deepStrictEqual(NAV.wpt, [ { label: 'MAP', action: 'map' } ]);
 assert.deepStrictEqual(NAV.mapcfg, [ { label: 'MAP', action: 'map' } ]);
 assert.deepStrictEqual(NAV.tgpcfg, [ { label: 'TGP', action: 'tgp' } ]);
+// TD (issue #47) — reached from TGT's own nav row, way back is TGT, same shape as mapcfg/tgpcfg.
+assert.deepStrictEqual(NAV.td, [ { label: 'TGT', action: 'tgt' } ]);
 
 // AKF/BDF/PAL/MIS/OBJ are folded together (reached from MAIN via MD — mfd.js BEZEL_EXTRAS.main,
 // action still 'bdf'): each gets MAIN plus a direct switch to the other four, with `mark` on

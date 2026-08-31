@@ -1150,6 +1150,10 @@ applyShellOrientation();
 // clicked (the 'ext' case below) to pick up an extension that registered after this tab loaded.
 ExtNav.load(NAV);
 
+// TD nav discovery (issue #47, docs/target-designator.md) — polls /squad and keeps NAV.tgt's TD
+// entry in sync with live squad membership.
+TdNav.start(NAV);
+
 // On pane iframe load, push the latest snapshot for whichever page that pane is
 // rendering — the page may have been mid-update at the moment its iframe started
 // loading — plus the current app orientation (every bare page can use it).
@@ -1607,6 +1611,13 @@ function showPage(name) {
     forwardTgtToFrame();
     forwardTgtTargetsToFrame();
   }
+  // TD (issue #47, docs/target-designator.md) renders in #page-frame too — reached from TGT's own
+  // nav row (NAV.tgt, td-nav.js), not MAIN. Self-driven for squad/assignment state (polls /squad
+  // and /td itself); only the live target-row mirror needs forwarding, same slice TGT gets.
+  if (name === 'td') {
+    showFramePage('td');
+    forwardTgtTargetsToFrame();
+  }
   // AKF renders in #page-frame too — same MD family as BDF/PAL/MIS/OBJ (NAV.akf marks AKF instead).
   if (name === 'akf') {
     showFramePage('akf');
@@ -1857,10 +1868,11 @@ window.addEventListener('message', function(e) {
     else return;
     refreshFollowIndicator();
   } else if (m.type === 'targets') {
-    // Mirror the selected-target list; the TGT page renders it under its filters.
+    // Mirror the selected-target list; the TGT page renders it under its filters, and TD (issue
+    // #47, docs/target-designator.md) mirrors the identical list on its leader view.
     targetsData = { targets: Array.isArray(m.items) ? m.items : [], focusedTargetId: m.focusedTargetId || 0 };
-    if (currentPage === 'tgt' && !splitMode) forwardTgtTargetsToFrame();
-    if (splitMode) forwardTgtTargetsToPanes();
+    if ((currentPage === 'tgt' || currentPage === 'td') && !splitMode) forwardTgtTargetsToFrame();
+    if (splitMode) { forwardTgtTargetsToPanes(); forwardToPanes('td', tgtTargetsMsg()); }
   } else if (m.type === 'rwr') {
     // Mirror the radar-warning emitters (already nose-up plot data from ClientPage) for the RWR
     // scope, which renders in the #page-frame iframe (full) or a pane (split); forward it on.
@@ -2299,6 +2311,7 @@ function mfdButton(el) {
     case 'rdr':  showPage('rdr');  break;
     case 'hsd':  showPage('hsd');  break;
     case 'tgt':  showPage('tgt');  break;
+    case 'td':   showPage('td');   break;
     case 'akf':  showPage('akf');  break;
     case 'sqd':  showPage('sqd');  break;
     case 'bdf':  showPage('bdf');  break;
@@ -2517,6 +2530,11 @@ function applySquadronPayload(payloadType, payload) {
     // The leader deleted a route this pilot had pending or already accepted (RouteStore.cs's
     // BroadcastDeleteIfShared) — payload is the bare route id, nothing left to send but that.
     WaypointsStore.receiveDeleted(payload);
+  } else if (payloadType === 'td.designate') {
+    // Target Designator (issue #47, docs/target-designator.md) — the leader's DESIGNATE push for
+    // this pilot specifically. TdStore.cs replaces its designated-target table wholesale; the TD
+    // page (if open) picks up the fresh list on its next /td poll.
+    sendCommand('td.receive-designation', { text: payload }).catch(function () {});
   }
   // else: unknown type — ignore, don't guess (versioned wire)
 }

@@ -31,6 +31,9 @@
          JsonLite.cs). -->
     <Compile Include="..\..\src\plugin\JsonLite.cs" Link="Source\JsonLite.cs" />
     <Compile Include="..\..\src\plugin\Stores\RouteStore.cs" Link="Source\RouteStore.cs" />
+    <!-- TdStore.cs (issue #47) — same pure-BCL shape as RouteStore.cs above; no Squad/Unit/
+         CommandDispatcher touchpoint by design (see its own header comment). -->
+    <Compile Include="..\..\src\plugin\Stores\TdStore.cs" Link="Source\TdStore.cs" />
     <!-- TelemetrySnapshot.cs is the plain DTO the frame is built from; TelemetryJson.cs is the
          pure serializer. Neither has a Unity/BepInEx touchpoint. -->
     <Compile Include="..\..\src\plugin\Telemetry\TelemetrySnapshot.cs" Link="Source\TelemetrySnapshot.cs" />

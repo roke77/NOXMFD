@@ -19,13 +19,13 @@ html::-webkit-scrollbar { width: 6px; height: 6px; }
 html::-webkit-scrollbar-track { background: transparent; }
 html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
 
-.wpt-panel, .sqd-panel, .kb-panel {
+.wpt-panel, .sqd-panel, .kb-panel, .td-panel {
   max-width: 620px;
   margin: 0 auto;
   padding: 26px 18px 40px;
 }
 
-.wpt-back, .sqd-back, .kb-back {
+.wpt-back, .sqd-back, .kb-back, .td-back {
   float: left;
   font-size: 12px;
   letter-spacing: 2px;
@@ -33,9 +33,9 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   text-decoration: none;
   padding: 6px 2px;
 }
-.wpt-back:hover, .sqd-back:hover, .kb-back:hover { color: var(--no-green); }
+.wpt-back:hover, .sqd-back:hover, .kb-back:hover, .td-back:hover { color: var(--no-green); }
 
-.wpt-title, .sqd-title, .kb-title {
+.wpt-title, .sqd-title, .kb-title, .td-title {
   font-size: 24px;
   letter-spacing: 4px;
   color: var(--no-green);
@@ -45,7 +45,7 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 
 /* The list-row pattern (WPT/SQD only — keybinds' own .kb-row is an unrelated grid-table row, not
    this flex layout, and must not be included here). */
-.wpt-row, .sqd-row {
+.wpt-row, .sqd-row, .td-row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -53,7 +53,7 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   border-bottom: 1px solid var(--no-panel-border);
   font-size: 14px;
 }
-.wpt-row:last-child, .sqd-row:last-child { border-bottom: none; }
+.wpt-row:last-child, .sqd-row:last-child, .td-row:last-child { border-bottom: none; }
 
 /* Icon-only row action button (WPT/SQD only) — plain glyph, no border, brightens on hover. */
 .wpt-row-btn, .sqd-row-icon-btn {

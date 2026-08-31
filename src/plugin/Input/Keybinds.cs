@@ -237,6 +237,20 @@ namespace NOXMFD
                 "of which display (if any) is focused.",
                 () => { TelemetryServer.MapAction("tgt-stale"); CommandDispatcher.ClearStaleTargets(); });
 
+            // Target Designator binds (issue #47, docs/target-designator.md) — one per squad slot
+            // (1 = leader/self, 2..9 = members in join order), mirroring the TD page's own squad
+            // buttons: assigns whatever's currently selected on the leader's TD table to that slot.
+            // Same DefFree shape as tgt-datalink/tgt-stale above — a direct global call plus the
+            // map-act broadcast for whichever display currently holds SOI.
+            const string td = "TD Keybinds";
+            for (int slot = 1; slot <= 9; slot++)
+            {
+                int s = slot;   // local copy — the lambda below outlives this loop iteration
+                DefFree(config, "td-assign-" + s, td, "TdAssign" + s, "Assign " + s, edge: true,
+                    "Assign the leader's currently-selected TD targets to squad slot " + s + ".",
+                    () => { TelemetryServer.MapAction("td-assign-" + s); if (Squad.IsLeader) TdStore.Assign(s); });
+            }
+
             // SOI binds — they drive the mod's own displays rather than the aeroplane, so they are
             // DefFree (no aircraft needed) and work at the main menu. See docs/keybinds-page.md.
             const string soi = "SOI Keybinds";
@@ -516,6 +530,7 @@ namespace NOXMFD
             "Landing Gear Keybinds"   => "GEAR",
             "MAP Keybinds"            => "MAP",
             "TGT Keybinds"            => "TGT",
+            "TD Keybinds"             => "TD",
             "SOI Keybinds"            => "SOI",
             "Cursor Keybinds"         => "CURSOR",
             "TGP Keybinds"            => "TGP",
@@ -539,6 +554,10 @@ namespace NOXMFD
                 "the crosshair and hand Cursor Select to the focused row — moving Cursor Up/Down/Left/" +
                 "Right (or its axis) hands Select back to the crosshair. Datalink/Stale deselect those " +
                 "locks everywhere, same as tapping the DATALINK/STALE buttons.",
+            "TD Keybinds" =>
+                "Only meaningful on the leader's own TD display while it holds SOI — assigns whatever's " +
+                "currently selected on that table to squad slot 1-9 (1 is yourself), same as tapping the " +
+                "matching squad button.",
             "SOI Keybinds" =>
                 "One display at a time is the sensor of interest — it rings itself in white, and these " +
                 "keys drive it. Nothing is focused until you press SOI Next or Prev; from there they " +

@@ -68,6 +68,7 @@
     afm: ['avn'],   // AFM shares AVN's snapshot (name/parts/failures/pylons) — see forwardSlice's afm case
     rwr: ['rwr', 'mw'],       // scope contacts + incoming-missile warnings
     tgt: ['tgt', 'targets'],
+    td: ['targets'],   // Target Designator (issue #47) — mirrors TGT's own live target list
     tgp: ['tgp'],
     wpn: ['loadout', 'cm'],   // 'loadout' is derived, not forwarded as-is — see DERIVED
     bdf: ['bdf'],             // read-only faction-forces block (docs/bdf-page.md)
@@ -96,7 +97,7 @@
   // Mirrors the bezel's own PAD_CURSOR_PAGES (mfd.js) exactly; kept as its own copy since this
   // layout has no shared module with the bezel to hang it on. AKF is included because its
   // ALL/PLAYER resizer is clickable and needs cursor support.
-  const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true, hsd: true };
+  const PAD_CURSOR_PAGES = { map: true, tgt: true, td: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true, hsd: true };
 
   const WPN_MAX_DISPLAY = ROWS - 1;   // row 1 is the nav + CM band; rows 2..6 carry the weapons
   const WPN_ICON_INSET  = 20;         // keeps the image off its band edges, as the bezel does
@@ -1088,6 +1089,11 @@
       // The leader deleted a route this pilot had pending or already accepted (RouteStore.cs's
       // BroadcastDeleteIfShared) — payload is the bare route id, nothing left to send but that.
       WaypointsStore.receiveDeleted(payload);
+    } else if (payloadType === 'td.designate') {
+      // Target Designator (issue #47, docs/target-designator.md) — the leader's DESIGNATE push for
+      // this pilot specifically. TdStore.cs replaces its designated-target table wholesale; the TD
+      // page (if open) picks up the fresh list on its next /td poll.
+      sendCommand('td.receive-designation', { text: payload }).catch(function () {});
     }
     // else: unknown type — ignore, don't guess (versioned wire)
   }
@@ -1352,5 +1358,8 @@
   // extensions into NAV.ext / NAV[<id>]. Fire-and-forget at boot; also re-run every time EXT is
   // clicked (dispatch's 'ext' case) to pick up an extension that registered after this tab loaded.
   ExtNav.load(NAV);
+  // TD nav discovery (issue #47, docs/target-designator.md) — polls /squad and keeps NAV.tgt's TD
+  // entry in sync with live squad membership.
+  TdNav.start(NAV);
   buildGlass();
 })();

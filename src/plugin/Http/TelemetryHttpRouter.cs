@@ -55,6 +55,8 @@ namespace NOXMFD
                 SquadEndpoint.ServeSquad(ctx);
             else if (path == "/server-players")
                 SquadEndpoint.ServeServerPlayers(ctx);
+            else if (path == "/td-state")
+                SquadEndpoint.ServeTd(ctx);
             else if (path == "/ext-manifest")
                 ExtensionEndpoint.ServeManifest(ctx);
             else if (path.StartsWith("/ext/", StringComparison.Ordinal))
@@ -105,6 +107,8 @@ namespace NOXMFD
                 TelemetryAssets.ServeAssetRel(ctx, "pages/mapcfg/mapcfg.html");
             else if (path == "/tgpcfg")
                 TelemetryAssets.ServeAssetRel(ctx, "pages/tgpcfg/tgpcfg.html");
+            else if (path == "/td")
+                TelemetryAssets.ServeAssetRel(ctx, "pages/td/td.html");
             else if (path == "/command")
                 CommandEndpoint.HandleCommand(ctx);
             else if (path == "/mfd")

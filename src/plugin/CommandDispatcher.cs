@@ -119,6 +119,20 @@ namespace NOXMFD
                 { "sqd.disband",    e => Squad.Disband() },
                 { "sqd.kick",       e => { if (TryPeer(e.peer, out ulong p)) Squad.Kick(p); } },
                 { "sqd.send",       e => Squad.SendData(e.type, e.payload) },
+                // Target Designator (issue #47, docs/target-designator.md) — reuses existing
+                // envelope fields rather than adding new ones: `id` (target.select's own field) for
+                // a row toggle, `index` (preset.load's own "slot number" field) for a squad slot,
+                // `peer`+`text` (sqd.invite's peer, wpt.import's text) for one member's designation.
+                // Leader-only actions gated here (Squad.IsLeader), same trust-boundary reasoning the
+                // sqd.* group's own header comment gives for parsing peer ids at this layer rather
+                // than inside Squad/TdStore themselves.
+                { "td.select",              e => { if (Squad.IsLeader) TdStore.ToggleSelect(unchecked((uint)e.id)); } },
+                { "td.assign",              e => { if (Squad.IsLeader) TdStore.Assign(e.index); } },
+                { "td.clear",               e => { if (Squad.IsLeader) TdStore.ClearOwn(); } },
+                { "td.designate",           e => { if (Squad.IsLeader && TryPeer(e.peer, out ulong p)) Squad.SendDataTo(p, "td.designate", e.text ?? "[]"); } },
+                { "td.receive-designation", e => TdStore.ReceiveDesignation(e.text) },
+                { "td.member-clear",        e => TdStore.ClearDesignated() },
+                { "td.acquire-all",         e => TdAcquireAll() },
                 // TGP page's TGT/MAN and CLR/IR button pairs (docs/tgp-manual-control.md's NAV
                 // additions) — explicit-state twins of the tgp-manual-toggle/tgp-manual-ir-toggle
                 // keybinds, same "set" shape as master-arms.set above rather than a blind flip.
@@ -507,6 +521,12 @@ namespace NOXMFD
             else if (act == "tgt-prev") Keybinds.CycleTargetFocus(-1);
             else if (act == "tgt-datalink") ClearDatalinkTargets();
             else if (act == "tgt-stale") ClearStaleTargets();
+            // TD's 9 squad-slot binds (issue #47) reach the remote/WSO path the same way — real
+            // effect fires here too, same as tgt-datalink/tgt-stale above, since a remote press
+            // never runs through Keybinds.cs's own poll loop (docs/tgt-keybind-nav.md).
+            else if (act.StartsWith("td-assign-", StringComparison.Ordinal) &&
+                     int.TryParse(act.Substring("td-assign-".Length), out int slot) && Squad.IsLeader)
+                TdStore.Assign(slot);
         }
 
         private static float ClampUnit(float value)
@@ -644,6 +664,24 @@ namespace NOXMFD
         // rather than only reaching the SOI-focused TGT display via the map-act browser round trip.
         internal static void ClearDatalinkTargets() => TgtClearBy("tgt.clear-datalink", IsDatalinkOnly);
         internal static void ClearStaleTargets()    => TgtClearBy("tgt.clear-stale", IsStale);
+
+        // Target Designator's AQUIRE (issue #47) — selects every currently-designated target
+        // in-game, all at once. Reuses the same lookup/selection path target.select goes through
+        // (TrySelectTarget) so cockpit marker/beep/DynamicMap sync all come along for free; lives
+        // here rather than in TdStore.cs because it needs Unit/UnitRegistry, which that file
+        // deliberately has no dependency on (see its own header comment).
+        internal static void TdAcquireAll()
+        {
+            int acquired = 0;
+            foreach (TdStore.Row row in TdStore.Designated)
+            {
+                if (UnitRegistry.TryGetUnit(new PersistentID { Id = row.Id }, out Unit unit) && unit != null && !unit.disabled)
+                {
+                    if (TrySelectTarget(unit, "td.acquire-all")) acquired++;
+                }
+            }
+            Plugin.Log?.LogInfo($"[NOXMFD] td.acquire-all — selected {acquired} target(s).");
+        }
 
         // LASER toggle — keep only lased targets when on.
         private static void TgtLaser(CommandEnvelope env)

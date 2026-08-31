@@ -1,0 +1,100 @@
+/* TD (Target Designator, issue #47, docs/target-designator.md) page styles. Page chrome
+   (.td-panel/.td-back/.td-title, the scrollbar rules, the row pattern) lives in
+   shared/page-chrome.css — everything below is what's actually specific to this page. */
+
+/* PAD cursor (docs/page-cursor.md): same override SQD/WPT use — this page's own body scrolls
+   rather than a fixed-size panel, so the crosshair needs position:fixed. */
+#pad-cursor { position: fixed; }
+
+.td-unavailable {
+  max-width: 552px;
+  margin: 0 auto;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--no-gray);
+  text-align: center;
+}
+
+.td-section { margin-bottom: 20px; }
+
+/* Squad-slot buttons — 4 columns per issue #47's scope, including a dedicated leader/self button. */
+.td-squad-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.td-squad-btn {
+  padding: 8px 4px;
+  border: 1px solid var(--no-squad);
+  background: none;
+  color: var(--no-squad);
+  font-family: var(--no-font);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.td-squad-btn:hover { background: var(--no-squad); color: var(--no-ink); }
+
+.td-list-head, .td-row-item {
+  display: grid;
+  grid-template-columns: 1fr 70px 80px 60px;
+  gap: 8px;
+  align-items: center;
+}
+/* Member view has no TO column — 3 tracks instead of 4. */
+#td-member-rows, #td-member-section .td-list-head { grid-template-columns: 1fr 70px 80px; }
+.td-list-head {
+  padding: 0 7px 6px;
+  color: var(--no-green-dim);
+  font-size: 11px;
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--no-panel-border);
+}
+.td-row-item {
+  padding: 8px 7px;
+  border-bottom: 1px solid var(--no-panel-border);
+  font-size: 13px;
+  cursor: pointer;
+}
+.td-row-item:last-child { border-bottom: none; }
+.td-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-grid, .td-dist { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Faction tint on the name, same convention TGT uses. */
+.td-row-item.f-friendly .td-name { color: #4aa3ff; }
+.td-row-item.f-neutral  .td-name { color: var(--no-label); }
+.td-row-item.f-enemy    .td-name { color: var(--no-red); }
+
+/* Currently selected on the leader's own table (about to be assigned to a squad slot). */
+.td-row-item.selected { background: rgba(var(--no-amber-rgb),0.12); outline: 1px solid var(--no-amber); outline-offset: -1px; }
+
+/* Which squad slot(s) a row is currently assigned to. */
+.td-tags { color: var(--no-squad); font-size: 11px; letter-spacing: 0.5px; white-space: nowrap; }
+
+.td-empty {
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: var(--no-gray);
+  text-align: center;
+  padding: 14px 0;
+}
+#td-leader-rows:not(:empty) + .td-empty, #td-member-rows:not(:empty) + .td-empty { display: none; }
+
+.td-actions { display: flex; gap: 10px; margin-top: 14px; }
+.td-btn {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid var(--no-green);
+  background: none;
+  color: var(--no-green);
+  font-family: var(--no-font);
+  font-size: 12px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.td-btn:hover { background: var(--no-green); color: var(--no-ink); }
+.td-btn-ghost { border-color: var(--no-green-dim); color: var(--no-green-dim); }
+.td-btn-ghost:hover { background: var(--no-green-dim); color: var(--no-ink); }

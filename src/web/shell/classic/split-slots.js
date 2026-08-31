@@ -71,6 +71,9 @@
     // the page that reached them (NAV.mapcfg/NAV.tgpcfg).
     mapcfg: [ { side: 'left', slot: 0 } ],
     tgpcfg: [ { side: 'left', slot: 0 } ],
+    // TD (issue #47, docs/target-designator.md) — same single-back-button shape, back to TGT
+    // (NAV.td).
+    td: [ { side: 'left', slot: 0 } ],
     // WPN is a valid split page but places no NAV labels: its MAIN/PREV + NEXT depend on the
     // pane's pagination state, so renderSplitLabels' list branch owns them (NAV.wpn is empty to
     // match).
