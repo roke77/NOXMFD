@@ -230,7 +230,11 @@ function applySelectionState() {
 designateBtn.addEventListener('click', function () {
   if (!squad || !td) return;
   const state = squad.state;
-  const assignments = td.state.assignments || {};
+  // effectiveAssignments, not td.state.assignments directly — doAssign() only updates the override
+  // for instant UI feedback (no re-fetch; TD has no polling of its own), so the raw fetched state
+  // stays stale until the next REFRESH/nudge. Reading it directly here meant DESIGNATE could see
+  // stale (often empty) assignments right after a leader assigned and immediately hit DESIGNATE.
+  const assignments = effectiveAssignments(td.state);
   const byId = {};
   liveTargets.forEach(function (t) { byId[t.id] = t; });
   (state.members || []).forEach(function (m, i) {

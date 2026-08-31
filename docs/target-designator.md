@@ -165,6 +165,34 @@ starts a new mission, found several gaps specific to TD:
   the main menu. Squad membership itself deliberately still survives a mission boundary — menu-time
   squad formation is an intentional, pre-existing feature, not an oversight.
 
+## DESIGNATE silently sending nothing (in-game report)
+
+A live two-machine test reported "leader clicked DESIGNATE, member saw nothing" — no error, no
+partial result, just silence. Root cause was entirely in the browser: `designateBtn`'s handler
+(`td.js`) read `td.state.assignments` directly instead of `effectiveAssignments(td.state)`, the
+helper every other part of the page already goes through. `doAssign()` (the squad-button tap/hold
+gesture) only ever updates the `assignmentsOverride` layer for instant UI feedback — TD has no
+polling of its own, so the raw fetched `td.state` doesn't catch up until the next REFRESH/nudge.
+Assigning a target and clicking DESIGNATE right after — the natural order, with no REFRESH in
+between — meant DESIGNATE read stale (often empty) assignments and quietly sent nothing, even
+though the tag on the row visibly showed the assignment had worked.
+
+This looked, from the plugin's log, identical to a Squadron transport failure: `Presence.cs`
+already logs a `Squadron send to <id> failed: k_EResultConnectFailed` warning every 5 seconds for
+any faction-mate not currently reachable, and nothing at all logged for `td.designate` specifically
+— so a real send failure and "never even attempted" were indistinguishable from the log alone.
+Fixed on two fronts:
+
+- **The actual bug**: `designateBtn`'s handler now reads `effectiveAssignments(td.state)`.
+- **The diagnostic gap**: `CommandDispatcher.cs`'s `td.designate` handler (now a named `TdDesignate`
+  method, not an inline lambda) logs every outcome — not-leader, unparsed/non-member peer, or a
+  `sent`/`not sent` result from `Squad.SendDataTo` with the target count — so a future report can
+  tell from the leader's own log alone whether DESIGNATE was even attempted, and by whom it was
+  rejected. `TdStore.ReceiveDesignation` (member side) logs a receipt count through the same
+  BepInEx-free `Action<string>?` hook `RouteStore.LogWarning` already uses (wired in `Plugin.cs`),
+  so the member's own log independently confirms arrival — decoupled from whether that pilot's TD
+  page happened to be open to see it.
+
 ## Verification
 
 `dotnet build` (0 errors), `dotnet test` (204/204, including `TdStoreTests`' renumbering coverage).

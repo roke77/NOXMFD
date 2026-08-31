@@ -136,7 +136,7 @@ namespace NOXMFD
                 { "td.select",              e => { if (Squad.IsLeader) TdStore.ToggleSelect(unchecked((uint)e.id)); } },
                 { "td.assign",              e => { if (Squad.IsLeader) TdStore.Assign(e.index, e.on); } },
                 { "td.clear",               e => { if (Squad.IsLeader) TdStore.ClearOwn(); } },
-                { "td.designate",           e => { if (Squad.IsLeader && TryPeer(e.peer, out ulong p)) Squad.SendDataTo(p, "td.designate", e.text ?? "[]"); } },
+                { "td.designate",           TdDesignate },
                 { "td.receive-designation", e => TdStore.ReceiveDesignation(e.text) },
                 { "td.member-clear",        e => TdStore.ClearDesignated() },
                 { "td.acquire-all",         e => TdAcquireAll() },
@@ -688,6 +688,24 @@ namespace NOXMFD
                 }
             }
             Plugin.Log?.LogInfo($"[NOXMFD] td.acquire-all — selected {acquired} target(s).");
+        }
+
+        // Logs every outcome of a DESIGNATE push — a real report ("leader clicked DESIGNATE, member
+        // saw nothing") turned out to be a *browser*-side bug (td.js reading a stale local snapshot
+        // instead of its own pending-assignment overlay, so it silently sent nothing) that looked
+        // identical, in-game, to a Squadron transport failure. Nothing here logged at all before
+        // that investigation, so every candidate cause — no peer, not a member, send failure, or
+        // simply never attempted — was indistinguishable from the outside. One line per case closes
+        // that gap for next time.
+        private static void TdDesignate(CommandEnvelope e)
+        {
+            if (!Squad.IsLeader) { Plugin.Log?.LogInfo("[NOXMFD] td.designate: not the squad leader — ignored."); return; }
+            if (!TryPeer(e.peer, out ulong p)) { Plugin.Log?.LogInfo("[NOXMFD] td.designate: missing/unparsed peer — ignored."); return; }
+            int count = JsonLite.Parse(e.text ?? "[]") is List<object?> list ? list.Count : 0;
+            bool sent = Squad.SendDataTo(p, "td.designate", e.text ?? "[]");
+            Plugin.Log?.LogInfo(sent
+                ? $"[NOXMFD] td.designate → {p}: sent {count} target(s)."
+                : $"[NOXMFD] td.designate → {p}: not sent — peer is not a current squad member.");
         }
 
         // LASER toggle — keep only lased targets when on.

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -48,6 +49,11 @@ namespace NOXMFD
         // every mutator below runs on the Unity main thread only, and rebuilds this string
         // synchronously as its last step.
         internal static volatile string StateJson = BuildStateJson();
+
+        // Injected by Plugin.cs (RouteStore.LogWarning's own seam) so this file stays BepInEx-free.
+        // Logged on receipt so a member's own log confirms a DESIGNATE actually arrived, independent
+        // of whether the browser page happened to be open/refreshed to show it.
+        internal static Action<string>? LogInfo;
 
         // ── Leader actions ──────────────────────────────────────────────────────
 
@@ -138,6 +144,7 @@ namespace NOXMFD
             }
             _designated = rows;
             RebuildState();
+            LogInfo?.Invoke($"[NOXMFD] td.receive-designation: {rows.Count} target(s) received.");
             return true;
         }
 
