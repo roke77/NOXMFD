@@ -1000,12 +1000,6 @@ class H(http.server.SimpleHTTPRequestHandler):
                 env = json.loads(self.rfile.read(n) or b'{}')
             except (ValueError, OSError):
                 env = {}
-            # TEMP debug logging (requested while chasing the TD "needs several clicks" bug) —
-            # remove once confirmed fixed. Shows every command actually reaching the server, with
-            # a timestamp, so a click that never arrives here (vs. one that arrives but renders
-            # oddly) is visible in `preview_logs`/the console this was launched from.
-            if str(env.get("cmd", "")).startswith("td."):
-                print(f"[TD debug] {time.strftime('%H:%M:%S')} POST /command {env}", flush=True)
             _keybinds_command(env)
             _squad_command(env)
             _td_command(env)

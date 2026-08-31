@@ -45,13 +45,6 @@ let assignmentsOverride = null;   // {id: [slots]} | null
 function effectiveSelected(tdState) { return selectedOverride || new Set(tdState.selected || []); }
 function effectiveAssignments(tdState) { return assignmentsOverride || (tdState.assignments || {}); }
 
-// TEMP debug logging (requested while chasing the "needs several clicks" bug) — remove once
-// confirmed fixed. Shows render() cadence/source and every click, so the preview-mock's 150ms
-// tgt-targets churn (tools/preview-mock.js's tick) is directly visible instead of inferred.
-const TD_DEBUG = true;
-let _renderN = 0;
-function dlog() { if (TD_DEBUG) console.log.apply(console, ['[TD debug]'].concat([].slice.call(arguments))); }
-
 function send(cmd, args) { sendCommand(cmd, args).catch(function () {}); }
 
 // Range as "8,4 km" (European decimal comma) — matches tgt.js's own fmtRng.
@@ -93,9 +86,7 @@ function squadDesignation(state, memberNumber) {
 // Structural render: which section is visible. Only ever called from the initial page-load fetch
 // or the REFRESH button (refreshSquad/refreshTd below) — TD has no automatic timer of any kind,
 // and never from the 'tgt-targets' feed, which has its own separate, also-not-automatic path.
-function render(source) {
-  _renderN++;
-  dlog('render #' + _renderN, 'via', source || '(direct)');
+function render() {
   if (!squad || !squad.ready || !td || !td.ready) { unavailableEl.style.display = ''; leaderSection.style.display = 'none'; memberSection.style.display = 'none'; return; }
   const state = squad.state;
   const role = state.role;
@@ -145,7 +136,6 @@ function idsKey(list) { return list.map(function (t) { return t.id; }).sort(func
 // to do the same server-side, so a REFRESH mid-sequence doesn't wipe the highlights being kept.
 const LONG_MS = 500;
 function doAssign(slot, retain) {
-  dlog('assign slot', slot, 'retain=' + retain);
   const nextAssignments = Object.assign({}, effectiveAssignments(td.state));
   effectiveSelected(td.state).forEach(function (id) {
     const key = String(id);
@@ -164,7 +154,6 @@ function renderSquadButtons(state) {
   const sig = state.callsign + '|' + state.flight + '|' + slots.map(function (s) { return s.num + ':' + s.name; }).join(',');
   if (sig === lastSquadSig) return;
   lastSquadSig = sig;
-  dlog('squad buttons rebuilt (roster changed)');
   squadButtons.innerHTML = '';
   slots.forEach(function (s) {
     const btn = document.createElement('button');
@@ -199,7 +188,6 @@ function applyLiveTargets() {
     let row = leaderRowEls.get(t.id);
     if (!row) {
       row = makeRow(t, function () {
-        dlog('click: select id', t.id);
         const next = new Set(effectiveSelected(td.state));
         if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
         selectedOverride = next;
@@ -290,7 +278,6 @@ function renderMember(tdState) {
 acquireBtn.addEventListener('click', function () { send('td.acquire-all', {}); });
 memberClearBtn.addEventListener('click', function () { send('td.member-clear', {}); });
 refreshBtn.addEventListener('click', function () {
-  dlog('click: manual refresh');
   // The one manual sync point: re-pull squad roster + assignment state from the server (in case
   // anything drifted — a member leaving, etc.) AND re-apply whatever the shell's latest target
   // snapshot is. No automatic timer does any of this — see the fetch functions' own header.
@@ -306,7 +293,7 @@ refreshBtn.addEventListener('click', function () {
 // td.js still never polls on its own.
 function refreshSquad() {
   return fetch('/squad').then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (s) { if (s) { squad = s; render('load/refresh:squad'); } }).catch(function () {});
+    .then(function (s) { if (s) { squad = s; render(); } }).catch(function () {});
 }
 function refreshTd() {
   return fetch('/td-state').then(function (r) { return r.ok ? r.json() : null; })
@@ -317,7 +304,7 @@ function refreshTd() {
         // drop the overlay and trust the freshly-fetched truth instead.
         selectedOverride = null;
         assignmentsOverride = null;
-        render('load/refresh:td-state');
+        render();
       }
     }).catch(function () {});
 }
@@ -334,14 +321,12 @@ window.addEventListener('message', function (e) {
   if (m.type === 'tgt-targets') {
     liveTargets = Array.isArray(m.items) ? m.items : [];
     if (idsKey(liveTargets) !== lastAppliedIdsKey) {
-      dlog('target set changed — applying');
       applyLiveTargets();
     }
   } else if (m.type === 'td-squad-ended') {
     // Squad/TD lifecycle audit follow-up, finding B1 — the squad this page is showing just ended
     // out from under it. A one-shot reactive catch-up, the same fetches REFRESH itself calls; not
     // a new poll (see this function's own header comment above).
-    dlog('squad ended — catching up');
     refreshSquad();
     refreshTd();
   }
