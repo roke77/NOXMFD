@@ -329,6 +329,11 @@ window.addEventListener('message', function (e) {
     // a new poll (see this function's own header comment above).
     refreshSquad();
     refreshTd();
+  } else if (m.type === 'td-designation-received') {
+    // The leader just pushed a fresh designation to this pilot (TdStore.ReceiveDesignation already
+    // ran plugin-side) — re-pull /td-state so an already-open member view shows it without needing
+    // a manual REFRESH. Same one-shot reactive nudge shape as td-squad-ended above.
+    refreshTd();
   }
 });
 

@@ -1102,9 +1102,12 @@
       WaypointsStore.receiveDeleted(payload);
     } else if (payloadType === 'td.designate') {
       // Target Designator (issue #47, docs/target-designator.md) — the leader's DESIGNATE push for
-      // this pilot specifically. TdStore.cs replaces its designated-target table wholesale; the TD
-      // page (if open) picks up the fresh list on its next /td poll.
+      // this pilot specifically. TdStore.cs replaces its designated-target table wholesale; TD has
+      // no polling of its own (squad/TD lifecycle audit, finding B1's own reasoning applies here
+      // too), so an already-open TD page needs this same reactive nudge or it never learns the list
+      // changed.
       sendCommand('td.receive-designation', { text: payload }).catch(function () {});
+      nudgeTdPage('td-designation-received');
     }
     // else: unknown type — ignore, don't guess (versioned wire)
   }
@@ -1375,8 +1378,9 @@
   // Squad/TD lifecycle audit follow-up, finding B1 — see mfd.js's own copy of this listener for the
   // full reasoning. Forwarded to whichever portal is actually showing 'td', same routing
   // 'td-designated' already uses.
-  window.addEventListener('td-squad-ended', function () {
-    livePortals().forEach(function (p) { if (p.page() === 'td') p.frameWin().postMessage({ mfd: true, type: 'td-squad-ended' }, '*'); });
-  });
+  function nudgeTdPage(type) {
+    livePortals().forEach(function (p) { if (p.page() === 'td') p.frameWin().postMessage({ mfd: true, type: type }, '*'); });
+  }
+  window.addEventListener('td-squad-ended', function () { nudgeTdPage('td-squad-ended'); });
   buildGlass();
 })();

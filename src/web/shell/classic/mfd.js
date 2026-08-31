@@ -1155,19 +1155,20 @@ ExtNav.load(NAV);
 TdNav.start(NAV);
 
 // Squad/TD lifecycle audit follow-up, finding B1: td.js has no polling of its own (by design — see
-// its own header comment), so an open TD page has no way to learn the squad it's showing just
-// ended except this nudge, piggybacked on td-nav.js's already-existing poll. Forwarded to whichever
-// pane/frame is actually showing 'td', same routing td-designated already uses; the page reacts by
-// re-running the exact fetches its own REFRESH button calls — a one-shot reactive catch-up, not a
-// new poll loop.
-window.addEventListener('td-squad-ended', function () {
-  const msg = { mfd: true, type: 'td-squad-ended' };
+// its own header comment), so an open TD page has no way to learn of a plugin-side change except a
+// nudge like this one, forwarded to whichever pane/frame is actually showing 'td' (same routing
+// td-designated already uses). The page reacts by re-running the exact fetches its own REFRESH
+// button calls — a one-shot reactive catch-up, not a new poll loop.
+function nudgeTdPage(type) {
+  const msg = { mfd: true, type: type };
   if (!splitMode && currentPage === 'td') forwardToFrame(msg);
   else if (splitMode) {
     if (panePages[0] === 'td') paneIframes[0].contentWindow.postMessage(msg, '*');
     if (panePages[1] === 'td') paneIframes[1].contentWindow.postMessage(msg, '*');
   }
-});
+}
+// Piggybacked on td-nav.js's already-existing poll (the squad-ended edge it detects).
+window.addEventListener('td-squad-ended', function () { nudgeTdPage('td-squad-ended'); });
 
 // On pane iframe load, push the latest snapshot for whichever page that pane is
 // rendering — the page may have been mid-update at the moment its iframe started
@@ -2558,9 +2559,11 @@ function applySquadronPayload(payloadType, payload) {
     WaypointsStore.receiveDeleted(payload);
   } else if (payloadType === 'td.designate') {
     // Target Designator (issue #47, docs/target-designator.md) — the leader's DESIGNATE push for
-    // this pilot specifically. TdStore.cs replaces its designated-target table wholesale; the TD
-    // page (if open) picks up the fresh list on its next /td poll.
+    // this pilot specifically. TdStore.cs replaces its designated-target table wholesale; TD has no
+    // polling of its own (squad/TD lifecycle audit, finding B1's own reasoning applies here too), so
+    // an already-open TD page needs this same reactive nudge or it never learns the list changed.
     sendCommand('td.receive-designation', { text: payload }).catch(function () {});
+    nudgeTdPage('td-designation-received');
   }
   // else: unknown type — ignore, don't guess (versioned wire)
 }

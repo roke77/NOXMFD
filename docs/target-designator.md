@@ -147,6 +147,14 @@ starts a new mission, found several gaps specific to TD:
   `td-squad-ended` window event; `mfd.js`/`f35.js` forward it to whichever pane/frame is actually
   showing `'td'`, and `td.js` reacts by re-running the exact `refreshSquad()`/`refreshTd()` calls its
   own REFRESH button already uses — a one-shot reactive catch-up, not a new timer.
+- **Reacting to a fresh designation while TD is already open.** The same gap existed the other
+  direction: `applySquadronPayload`'s `td.designate` branch fires `td.receive-designation` so
+  `TdStore.cs` updates plugin-side, but with no polling of its own an already-open member view had
+  no way to learn the fetch it needs (`/td-state`) had anything new to show — nothing until a manual
+  REFRESH. Fixed the same way as the disband case: the shell posts a `td-designation-received`
+  message to whichever pane/frame shows `'td'` right after issuing `td.receive-designation`, and
+  `td.js` reacts with a one-shot `refreshTd()` — no poll, just an immediate nudge tied to the actual
+  event instead of an edge detected by someone else's timer.
 - **Mission-boundary cleanup elsewhere** (not TD-specific, but found by the same audit): `Squad.cs`'s
   `ResetToNone()` now also clears `RouteStore`'s shared-route locks (previously missing from
   `RelinquishLeadership`/`Disband`/a leader leaving alone) and the leader's own `_notice` (so a
