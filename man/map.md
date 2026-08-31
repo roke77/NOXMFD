@@ -1,7 +1,9 @@
 # MAP
 
 Full-screen tactical map showing friendly/hostile units and your own position. Click a unit to
-target it.
+target it. Your own plane always renders green; while you're in a [squad](sqd.md), every other
+squad member's plane renders in the squad's teal instead of its plain friendly/hostile color, so
+you can spot them at a glance.
 
 ![MAP page](images/MAP.png)
 

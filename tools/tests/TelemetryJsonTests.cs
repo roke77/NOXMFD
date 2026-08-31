@@ -139,7 +139,7 @@ namespace NOXMFD.Tests
                 {
                     Id = 42, Type = "F-14 \"Tomcat\"", X = 100.3f, Z = -50.5f, Heading = 90f,
                     Faction = 2, Orient = true, Scale = 1.5f, Targeted = true,
-                    Jammed = true, JammedBy = 7, Datalink = true, Stale = true,
+                    Jammed = true, JammedBy = 7, Datalink = true, Stale = true, SquadMember = true,
                 },
             };
             var contact = Obj(Arr(Root(s)["contacts"])[0]);
@@ -155,6 +155,16 @@ namespace NOXMFD.Tests
             Assert.Equal(7.0, contact["jb"]);
             Assert.Equal(1.0, contact["dl"]);
             Assert.Equal(1.0, contact["st"]);
+            Assert.Equal(1.0, contact["sq"]);
+        }
+
+        [Fact]
+        public void Unit_contact_squad_member_flag_defaults_false()
+        {
+            var s = default(TelemetrySnapshot);
+            s.Units = new[] { new UnitInfo { Id = 1, Type = "F-16C" } };
+            var contact = Obj(Arr(Root(s)["contacts"])[0]);
+            Assert.Equal(0.0, contact["sq"]);
         }
 
         [Fact]

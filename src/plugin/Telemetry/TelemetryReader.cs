@@ -1495,7 +1495,8 @@ namespace NOXMFD
                     Jammed   = jammed,
                     JammedBy = jammedBy,
                     Datalink = datalink,
-                    Stale    = stale
+                    Stale    = stale,
+                    SquadMember = PlayerRoster.IsSquadAircraft(u.persistentID.Id)
                 });
             }
             return _unitBuf.ToArray();

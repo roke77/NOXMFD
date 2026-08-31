@@ -315,6 +315,11 @@ all), nothing to do with whether its owner is running NOXMFD. This is what lets 
 squad member's current plane without any new P2P message: the game already replicates it to every
 client in the faction, peer-to-peer relay was never needed for this specific piece of data.
 
+The same scan also keys that lookup by the aircraft's `persistentID` instead of just its type name
+(issue #48, docs/map-squad-styling.md) — purely a local visual, not a transport payload: MAP tints
+a squadmate's icon teal instead of its plain faction color, using nothing this doc's P2P messaging
+carries.
+
 **UI** — a new SQD page (`src/web/pages/sqd/`), reachable from MAIN in both layouts, replacing the
 squadron block that used to live on WPT. The roster renders as a table, not plain rows: first
 column is each pilot's Squadron Callsign System designation (see below), second is the player's

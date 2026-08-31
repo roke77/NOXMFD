@@ -65,6 +65,19 @@ namespace NOXMFD
         // Carried through every roster/invite/transfer envelope alongside the callsign.
         private static int _flight = 1;
 
+        // For PlayerRoster.cs (issue #48, MAP squad-member tint) — every squadmate's SteamID,
+        // NEVER including this pilot's own (own-ship already renders green regardless of faction,
+        // MAP's own separate draw call, so it must never even be a candidate for the squad tint).
+        // _members already excludes both the leader and self by construction (see the field's own
+        // header comment above), so the only case needing a separate add is a MEMBER's own leader,
+        // who isn't in _members at all.
+        internal static IEnumerable<ulong> SquadmateSteamIds()
+        {
+            if (_role == Role.None) yield break;
+            foreach (var m in _members) yield return m.Id;
+            if (_role == Role.Member) yield return _leaderId;
+        }
+
         // For RouteStore.cs to attribute an incoming shared route without the client having to pass
         // it through the payload itself — HandleData already only accepts data FROM the current
         // leader (from != _leaderId is rejected), so the leader's identity is already known

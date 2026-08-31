@@ -474,7 +474,7 @@ namespace NOXMFD
                 UnitInfo u = units[i];
                 if (i > 0) sb.Append(',');
                 sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"id\":{8},\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7},\"jm\":{9},\"jb\":{10},\"dl\":{11},\"st\":{12}}}",
+                    "{{\"id\":{8},\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7},\"jm\":{9},\"jb\":{10},\"dl\":{11},\"st\":{12},\"sq\":{13}}}",
                     JsonLite.EscapeJson(u.Type ?? string.Empty),
                     u.X, u.Z, u.Heading, u.Faction,
                     u.Orient ? "true" : "false", u.Scale,
@@ -483,7 +483,8 @@ namespace NOXMFD
                     u.Jammed ? 1 : 0,
                     u.JammedBy,
                     u.Datalink ? 1 : 0,
-                    u.Stale ? 1 : 0);
+                    u.Stale ? 1 : 0,
+                    u.SquadMember ? 1 : 0);
             }
             return sb.Append(']').ToString();
         }

@@ -494,5 +494,11 @@ namespace NOXMFD
         // (FactionHQ.IsTargetPositionAccurate; docs/tgt-stale-lock.md). Implies Datalink; always false
         // for friendly/neutral or anything still fresh.
         public bool   Stale;
+
+        // True when this unit is a current squadmate's aircraft (issue #48, MAP squad styling) —
+        // PlayerRoster.IsSquadAircraft, leader + members, current faction only, never the viewer's
+        // own plane (which isn't in this array at all — MAP draws it via a separate own-ship path).
+        // MAP renders it in the squad's teal instead of its plain faction color.
+        public bool   SquadMember;
     }
 }

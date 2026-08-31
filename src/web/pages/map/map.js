@@ -94,6 +94,12 @@ const PLAYER_COLOR = '#39ff14';                     // player stays HUD green �
                                                      // canvas strokeStyle can't use CSS var()
 const TARGET_COLOR = '#ff8000';                     // orange ring on the player's targeted unit(s)
 const STALE_ALPHA  = 0.5;                           // faded icon opacity for a stale contact (F2)
+// A squadmate's aircraft (issue #48, docs/squadron-transport.md) — matches --no-squad-rgb
+// (78,201,201, theme.css); canvas strokeStyle can't use CSS var() so this is its own literal, same
+// reasoning as PLAYER_COLOR above. Takes priority over the plain faction color, but never applies
+// to the viewer's own plane — that's a separate draw call below that never reads factionColors at
+// all, so there's nothing here for it to override.
+const SQUAD_COLOR = '#4ec9c9';
 let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors —
                                                      // 1/2 default to --no-green/--no-red until then
 const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
@@ -583,7 +589,7 @@ function drawOverlay() {
       const p = worldToOverlay(u.x, u.z);
       if (!onScreen(p, 48)) continue;
       ensureIconImage(u.t);
-      const hex = factionColors[u.f] || factionColors[0];
+      const hex = u.sq ? SQUAD_COLOR : (factionColors[u.f] || factionColors[0]);
       if (u.st) oc.globalAlpha = STALE_ALPHA;
       const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, iconBase(), u.s);
       if (u.st) oc.globalAlpha = 1;
