@@ -316,6 +316,16 @@ namespace NOXMFD
             return true;
         }
 
+        // Shared by every path that shrinks the roster by one (Kick, HandleLeave, CheckLiveness):
+        // fixes up TdStore's positional slot assignments (slot = index + 2, td.js's own
+        // squadSlots() computes the same number) before anything reads them against the old
+        // numbering, and drops the departed member's entry from the squad-target-lock aggregate.
+        private static void CleanupRemovedMember(int idx, ulong id)
+        {
+            TdStore.RenumberAfterMemberRemoved(idx + 2);
+            SquadTargetsStore.RemoveMember(id);   // issue #49 — drop their entry from the aggregate
+        }
+
         // Removes one member while the squad itself lives on — distinct from Disband (everyone) or
         // a member's own Leave (voluntary): this is the leader ending it for THEM specifically.
         // Tells the target via its own message (sqd.kick) rather than folding it into the next
@@ -327,12 +337,7 @@ namespace NOXMFD
             if (_role != Role.Leader) return false;
             int idx = RemoveMember(memberId);
             if (idx < 0) return false;
-            // The kicked member's own slot (idx + 2) and every slot above it are now one position
-            // off from what td.js's squadSlots() computes against the shrunk roster — fix TdStore's
-            // assignments to match before anything reads them (a poll, a DESIGNATE) with the old
-            // numbering.
-            TdStore.RenumberAfterMemberRemoved(idx + 2);
-            SquadTargetsStore.RemoveMember(memberId);   // issue #49 — drop their entry from the aggregate
+            CleanupRemovedMember(idx, memberId);
             // No CloseSession here — same reasoning as Leave(): sqd.kick must arrive, and closing this
             // session immediately after queuing it risks Steam dropping it before it flushes. The
             // kicked member closes their own end once HandleKick actually receives it.
@@ -368,8 +373,7 @@ namespace NOXMFD
                 {
                     int idx = RemoveMember(m.Id);
                     if (idx < 0) continue;
-                    TdStore.RenumberAfterMemberRemoved(idx + 2);
-                    SquadTargetsStore.RemoveMember(m.Id);
+                    CleanupRemovedMember(idx, m.Id);
                 }
                 BroadcastRoster();
                 string names = string.Join(", ", gone.ConvertAll(m => m.Name));
@@ -502,9 +506,7 @@ namespace NOXMFD
             if (_role != Role.Leader) return;
             int idx = RemoveMember(from);
             if (idx < 0) return;
-            // Same renumbering as Kick() above — a voluntary leave shrinks the roster the same way.
-            TdStore.RenumberAfterMemberRemoved(idx + 2);
-            SquadTargetsStore.RemoveMember(from);   // issue #49 — drop their entry from the aggregate
+            CleanupRemovedMember(idx, from);
             Squadron.CloseSession(from);
             BroadcastRoster();
             RebuildState();

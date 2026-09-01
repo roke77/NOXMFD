@@ -262,7 +262,15 @@ with every member; members only ever talk to the leader, never each other):
   auto-picked oldest-joined member) / `sqd.disband` (leader only) / `sqd.kick` (leader removes one
   member while the squad lives on — distinct from disband; the target gets its own `sqd.kick`
   message rather than just falling out of the next roster broadcast, since by the time that goes
-  out they're no longer in `_members` to notice themselves missing).
+  out they're no longer in `_members` to notice themselves missing). None of these proactively close
+  the sender's own session with the recipient anymore — Steam can drop an already-queued reliable
+  message if the session closes before it flushes, so the goodbye itself could go missing right
+  when it matters most. Each receiving handler closes its own end once it actually gets the message.
+- `Squad.CheckLiveness()` — no protocol message at all, unlike everything above: a crash or
+  force-quit gives no chance to send one, so this instead reuses Presence's existing per-peer TTL
+  (the same 15s window `PlayerRoster`'s invite-candidate filter already trusts) to notice a
+  leader/member who's gone silent and clean them out locally. Runs once a second, alongside
+  `PlayerRoster.Refresh()`/`Presence.Tick()`.
 - `sqd.set-callsign` — leader-only, renames an existing squadron AND re-numbers its flight (issue
   #47 follow-up added the flight half; the initial values both come from `CreateSquad` above);
   carried through every roster/invite envelope and a leadership handoff (`sqd.transfer`'s own

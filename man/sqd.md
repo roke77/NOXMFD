@@ -35,6 +35,9 @@ oldest remaining member first, then exits. The star on any other member's row do
 hand-off-and-exit but lets you pick who takes over instead. **DISBAND** (leader only) ends the
 squad for every member at once, rather than just yourself.
 
+If a leader or member crashes or force-quits instead, the rest of the squad notices on its own
+within a few seconds and drops them, with a notice — no action needed on your end.
+
 ## Sharing waypoint routes
 
 Once you're a squad leader with at least one member, each route on the [WPT](wpt.md) page gets a

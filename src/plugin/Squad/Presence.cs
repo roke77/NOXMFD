@@ -13,8 +13,9 @@ namespace NOXMFD
     // advance who has the mod, so every instance just announces itself to the whole faction roster
     // on a timer, and every instance listens for the same announcement. A TTL on each received
     // announcement (rather than an explicit "goodbye") means someone who quits or force-closes
-    // ages out naturally within a couple of missed beats, the same reasoning Squad.cs's own
-    // leader-dropout gap accepts for the harder case.
+    // ages out naturally within a couple of missed beats — this same TTL is what Squad.CheckLiveness
+    // reuses to detect a leader/member who crashed or force-quit with no graceful sqd.leave/kick/
+    // disband to send.
     //
     // Rides Squadron.cs's transport (same channel, same trust model) with its own independent
     // drain cursor — Squadron.Since() is designed for exactly this: Squad.cs and this class each
