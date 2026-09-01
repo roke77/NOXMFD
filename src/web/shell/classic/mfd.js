@@ -1166,25 +1166,9 @@ applyShellOrientation();
 // clicked (the 'ext' case below) to pick up an extension that registered after this tab loaded.
 ExtNav.load(NAV);
 
-// TD nav discovery (issue #47, docs/target-designator.md) — polls /squad and keeps NAV.tgt's TD
-// entry in sync with live squad membership.
+// TD nav discovery (issue #47, docs/target-designator.md) — rides the relayed 'sqd-state' push and
+// keeps NAV.tgt's TD entry in sync with live squad membership.
 TdNav.start(NAV);
-
-// Squad/TD lifecycle audit follow-up, finding B1: td.js has no polling of its own (by design — see
-// its own header comment), so an open TD page has no way to learn of a plugin-side change except a
-// nudge like this one, forwarded to whichever pane/frame is actually showing 'td' (same routing
-// td-designated already uses). The page reacts by re-running the exact fetches its own REFRESH
-// button calls — a one-shot reactive catch-up, not a new poll loop.
-function nudgeTdPage(type) {
-  const msg = { mfd: true, type: type };
-  if (!splitMode && currentPage === 'td') forwardToFrame(msg);
-  else if (splitMode) {
-    if (panePages[0] === 'td') paneIframes[0].contentWindow.postMessage(msg, '*');
-    if (panePages[1] === 'td') paneIframes[1].contentWindow.postMessage(msg, '*');
-  }
-}
-// Piggybacked on td-nav.js's already-existing poll (the squad-ended edge it detects).
-window.addEventListener('td-squad-ended', function () { nudgeTdPage('td-squad-ended'); });
 
 // On pane iframe load, push the latest snapshot for whichever page that pane is
 // rendering — the page may have been mid-update at the moment its iframe started
@@ -1977,10 +1961,6 @@ window.addEventListener('message', function(e) {
     r.set(m);
     if (currentPage === r.page && !splitMode) r.toFrame();
     if (splitMode) r.toPanes();
-  } else if (m.type === 'squadron') {
-    // A payload from a squadmate (docs/squadron-transport.md). Applied to the store here rather
-    // than forwarded to a page — see applySquadronPayload.
-    applySquadronPayload(m.payloadType, m.payload);
   } else if (m.type === 'wpt-routes-request') {
     // A freshly-loaded MAP/WPT iframe catching up (docs/hud-waypoint-indicator.md perf fix) —
     // only this shell polls /wpt-options now, so a new iframe starts with an empty cache until
@@ -2570,10 +2550,10 @@ function forwardWptRoutesToMap() {
 // MAP's R+/R- visibility depends on whether any route is saved, W+/W-'s on whether one is active
 // (showPage's 'map' branch, mapSplitItems' split-pane twin). The plugin is the single source of
 // truth for routes now (docs/hud-waypoint-indicator.md) — this shell document loads its own copy
-// of waypoints-store.js (mfd.html), which polls /wpt-options and fires this event on any change,
-// from any page, any device (a squadmate's shared route, applied via applySquadronPayload below,
-// shows up as a pendingShared entry the same way once the next poll picks it up — WPT's own
-// ACCEPT/REJECT is what turns it into a real route, not this event).
+// of waypoints-store.js (mfd.html), which listens for the SSE-pushed 'wpt-options-push' and fires
+// this event on any change, from any page, any device (a squadmate's shared route is applied
+// directly plugin-side, Squad.HandleData, and shows up as a pendingShared entry the same way — WPT's
+// own ACCEPT/REJECT is what turns it into a real route, not this event).
 // Re-render live to pick that up while MAP is showing, full view or split, and push the new data
 // down to every embedded MAP/WPT iframe.
 window.addEventListener('wptroutes:changed', function() {
@@ -2583,32 +2563,6 @@ window.addEventListener('wptroutes:changed', function() {
   forwardWptRoutesToFrame();
   forwardWptRoutesToMap();
 });
-
-// Squadron payloads (docs/squadron-transport.md) are applied HERE, in the shell, rather than in the
-// page that owns the feature: a route shared while WPT is closed must still arrive, and the shell is
-// the one document that is always loaded. Importing runs the same wpt.import command WPT's own
-// import panel uses; RouteStore.ImportRoute makes it active plugin-side, and the 'wptroutes:changed'
-// listener above already forwards the fresh route list to every open pane/frame/map once the next
-// poll picks it up — no squadron-specific refresh plumbing needed beyond issuing the command.
-function applySquadronPayload(payloadType, payload) {
-  if (payloadType === 'wpt.route') {
-    // receiveShared, not importRoute — a squad share needs the ACCEPT/REJECT step (WPT page)
-    // before it becomes a real route; see RouteStore.cs's own header comment on this group.
-    WaypointsStore.receiveShared(payload);
-  } else if (payloadType === 'wpt.route-deleted') {
-    // The leader deleted a route this pilot had pending or already accepted (RouteStore.cs's
-    // BroadcastDeleteIfShared) — payload is the bare route id, nothing left to send but that.
-    WaypointsStore.receiveDeleted(payload);
-  } else if (payloadType === 'td.designate') {
-    // Target Designator (issue #47, docs/target-designator.md) — the leader's DESIGNATE push for
-    // this pilot specifically. TdStore.cs replaces its designated-target table wholesale; TD has no
-    // polling of its own (squad/TD lifecycle audit, finding B1's own reasoning applies here too), so
-    // an already-open TD page needs this same reactive nudge or it never learns the list changed.
-    sendCommand('td.receive-designation', { text: payload }).catch(function () {});
-    nudgeTdPage('td-designation-received');
-  }
-  // else: unknown type — ignore, don't guess (versioned wire)
-}
 
 // ── SAVE/LOAD LAYOUT — browser-side keyboard shortcuts only, no joystick/HOTAS. ────────────────
 // S saves the current arrangement (split mode + variant + per-pane pages, or the full-view page)

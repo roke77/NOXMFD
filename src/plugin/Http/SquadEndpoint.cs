@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text;
 
 namespace NOXMFD
 {
@@ -11,59 +10,21 @@ namespace NOXMFD
         // latest notice. `ready:false` is the honest answer on a non-Steam launch, and the SQD page
         // shows the feature as unavailable rather than silently failing to send. Squad.StateJson is
         // prebuilt on the main thread (Squad.Drain), so this stays a plain string read.
-        internal static void ServeSquad(HttpListenerContext ctx)
-        {
-            try
-            {
-                string body = "{\"ready\":" + (Squadron.Ready ? "true" : "false") + ",\"state\":" + Squad.StateJson + "}";
-                byte[] bytes = Encoding.UTF8.GetBytes(body);
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = bytes.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(bytes, 0, bytes.Length);
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
+        internal static void ServeSquad(HttpListenerContext ctx) =>
+            TelemetryServer.WriteJson(ctx, "{\"ready\":" + (Squadron.Ready ? "true" : "false") + ",\"state\":" + Squad.StateJson + "}");
 
         // Every other player in the LOCAL PLAYER'S OWN FACTION for the current match, for SQD's
         // "pick a squadmate" list (docs/squadron-transport.md) — PlayerRoster.Json is prebuilt on
         // the main thread (PlayerRoster.Refresh, TelemetryReader's 1 Hz slow scan), so this is a
         // plain string read. Empty (not missing) outside a mission, at the main menu, or before any
         // other player in the faction has been observed.
-        internal static void ServeServerPlayers(HttpListenerContext ctx)
-        {
-            try
-            {
-                byte[] bytes = Encoding.UTF8.GetBytes(PlayerRoster.Json);
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = bytes.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(bytes, 0, bytes.Length);
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
+        internal static void ServeServerPlayers(HttpListenerContext ctx) =>
+            TelemetryServer.WriteJson(ctx, PlayerRoster.Json);
 
         // Target Designator state (issue #47, docs/target-designator.md) — same shape/threading
         // contract as ServeSquad above, one HTTP handler next to another for the same feature
         // family rather than a near-empty file of its own.
-        internal static void ServeTd(HttpListenerContext ctx)
-        {
-            try
-            {
-                string body = "{\"ready\":" + (Squadron.Ready ? "true" : "false") + ",\"state\":" + TdStore.StateJson + "}";
-                byte[] bytes = Encoding.UTF8.GetBytes(body);
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = bytes.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(bytes, 0, bytes.Length);
-            }
-            catch { }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
+        internal static void ServeTd(HttpListenerContext ctx) =>
+            TelemetryServer.WriteJson(ctx, "{\"ready\":" + (Squadron.Ready ? "true" : "false") + ",\"state\":" + TdStore.StateJson + "}");
     }
 }

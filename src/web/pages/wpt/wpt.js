@@ -350,8 +350,8 @@ let gridMetaKey = mapinfo.ox + ',' + mapinfo.oy;
 function tick() {
   // Proximity-advance is no longer this page's job (docs/hud-waypoint-indicator.md, Option 2) —
   // the plugin ticks RouteStore.AdvanceIfNear itself every second regardless of what page is
-  // open anywhere, so the poll below (via WaypointsStore's own setInterval) is what surfaces an
-  // advance here, the same as any other change made from a different display.
+  // open anywhere, so the shell's relayed 'wpt-options-push' (docs/sse-push-refactor.md) is what
+  // surfaces an advance here, the same as any other change made from a different display.
   const key = mapinfo.ox + ',' + mapinfo.oy;
   if (key !== gridMetaKey) { gridMetaKey = key; render(); }
   renderReadout();

@@ -119,6 +119,21 @@ namespace NOXMFD
             return false;
         }
 
+        // Cheap up-front check for HudSquadTargetMark.cs — lets it skip walking every native HUD
+        // marker on a frame where nobody (leader or any other member) has anything locked at all,
+        // which is the common case: outside a squad entirely, or in one where nobody's targeting
+        // anything right now.
+        internal static bool HasAnyRemoteTargets(bool isLeader)
+        {
+            if (isLeader)
+            {
+                if (_selfIds.Count > 0) return true;
+                foreach (var kv in _memberIds) if (kv.Value.Count > 0) return true;
+                return false;
+            }
+            return _relayedLeaderIds.Count > 0 || _relayedOtherIds.Count > 0;
+        }
+
         // ── Squad lifecycle ──────────────────────────────────────────────────────────
 
         // Called from Squad.cs whenever this pilot's squad membership ends or changes leader

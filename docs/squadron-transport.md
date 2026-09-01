@@ -263,12 +263,13 @@ with every member; members only ever talk to the leader, never each other):
   member while the squad lives on — distinct from disband; the target gets its own `sqd.kick`
   message rather than just falling out of the next roster broadcast, since by the time that goes
   out they're no longer in `_members` to notice themselves missing).
-- `sqd.set-callsign` — leader-only, renames an existing squadron (the initial name comes from
-  `CreateSquad` above); carried through every roster/invite envelope and a leadership handoff
-  (`sqd.transfer`'s own envelope) so it survives both. SQD's page title reads "`<CALLSIGN> SQUAD`"
-  and doubles as the inline editor (EDIT swaps the title for a picker in place). The flight number
-  has no equivalent rename action — it is fixed for the squad's whole life, set once at
-  `CreateSquad` and carried through the same envelopes as the callsign.
+- `sqd.set-callsign` — leader-only, renames an existing squadron AND re-numbers its flight (issue
+  #47 follow-up added the flight half; the initial values both come from `CreateSquad` above);
+  carried through every roster/invite envelope and a leadership handoff (`sqd.transfer`'s own
+  envelope) so both survive. SQD's page title reads "`<CALLSIGN> SQUAD`" and doubles as the inline
+  editor (EDIT swaps the title for a callsign+flight picker in place). Re-numbering the flight
+  re-numbers every member's own `"<CALLSIGN> <FLIGHT>-<MEMBER>"` designation immediately, since
+  MEMBER (join order) never changes.
 - `sqd.data` — the generic "TBD payload" slot this doc's scope section describes; `wpt.route` was
   the first concrete use, wired to WPT's per-route share button, which only shows once you're the
   squad leader with at least one member. `Squad.SendDataTo` is the per-recipient sibling
@@ -354,11 +355,11 @@ of free text and a bare join-order count.
   a real DCS World callsigns reference across every aircraft/role category (GitHub issue #42's own
   comment) — this list only cares about the name itself, not which aircraft type it was originally
   associated with. `sqd.set-callsign` (EDIT) uses the same picker later.
-- **Flight number** — a second `<select>`, 1-9, chosen only at CREATE SQUAD time and fixed for the
-  squad's whole life (`Squad.CreateSquad(callsign, flight)`; no rename action exists for it, unlike
-  the callsign).
+- **Flight number** — a second `<select>`, 1-9, chosen at CREATE SQUAD time
+  (`Squad.CreateSquad(callsign, flight)`) and editable later via the same EDIT picker as the
+  callsign (`Squad.SetCallsign(name, flight)`, issue #47 follow-up).
 - **Per-member designation** — every roster row (SQD) and squad button (TD, docs/target-designator.md)
-  renders `"<CALLSIGN> <FLIGHT>-<MEMBER>"`, e.g. `TALON 1-2`: `FLIGHT` is the squad's fixed flight
+  renders `"<CALLSIGN> <FLIGHT>-<MEMBER>"`, e.g. `TALON 1-2`: `FLIGHT` is the squad's current flight
   number, `MEMBER` is the pre-existing join-order number (1 = leader, `Squad.cs`'s own `_members`
   list only ever appends so index order IS join order — unchanged by this feature, just given a new
   display format). Matches the standard "Flight Lead / Wingman / Element Lead / Element Wingman"

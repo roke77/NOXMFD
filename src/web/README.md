@@ -44,10 +44,10 @@ src/web/
                                            # squad state rides the shell's relayed SSE push (docs/sse-push-
                                            # refactor.md); GET /server-players (no SSE equivalent) still polls directly
     td/     td.html  td.css  td.js        # Target Designator (issue #47, docs/target-designator.md) — role-
-                                           # branched leader/member view, no polling of its own by design:
-                                           # fetches GET /squad + /td-state only on load/REFRESH/a shell
-                                           # nudge, plus the shell's own 'tgt-targets' mirror for the
-                                           # leader's live rows
+                                           # branched leader/member view, no polling of its own by design: one
+                                           # bootstrap fetch on load, then the shell's relayed 'sqd-state'/
+                                           # 'td-state-push' SSE pushes (docs/sse-push-refactor.md), plus the
+                                           # shell's own 'tgt-targets' mirror for the leader's live rows
     wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
                                                # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
                                                # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg =

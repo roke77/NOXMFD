@@ -115,25 +115,21 @@
   // for this route — later edits push to the squad on their own, no repeat click needed here.
   function shareRoute(id) { return sendCommand('wpt.share', { bind: id }).then(poll); }
 
-  // Called by the shell (mfd.js/f35.js's applySquadronPayload), not this page — a share must land
-  // even while WPT isn't open. Distinct command from wpt.import: this one preserves the sender's
-  // route id so RouteStore can recognise a repeat/duplicate send instead of piling up a fresh
-  // pending entry every time.
-  function receiveShared(text)   { return sendCommand('wpt.receive-shared', { text: text }).then(poll); }
+  // A leader's incoming share/delete (wpt.route / wpt.route-deleted) is applied directly plugin-side
+  // (Squad.HandleData) the instant it arrives over Steam, not routed through a browser command —
+  // this page (and every other open display) just sees the result via the SSE-pushed
+  // 'wpt-options-push'/'wptroutes:changed' path, same as any other plugin-side route change.
+  // ACCEPT/REJECT stay real browser actions: only the pilot's own decision on an already-pending
+  // share, never applied automatically.
   function acceptShared(id)      { return sendCommand('wpt.accept-shared', { bind: id }).then(poll); }
   function rejectShared(id)      { return sendCommand('wpt.reject-shared', { bind: id }).then(poll); }
-
-  // Called by the shell (mfd.js/f35.js's applySquadronPayload) on a 'wpt.route-deleted' payload —
-  // the leader deleted a route this pilot had pending or already accepted. `id` is the payload
-  // itself (a bare route id, not JSON — nothing else to send once the thing is gone).
-  function receiveDeleted(id)    { return sendCommand('wpt.remove-shared', { bind: id }).then(poll); }
 
   const api = {
     freshRouteName,
     load, poll, getActiveRoute, setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute, clearRoutes,
     addWaypointToActive, renameWaypoint, removeWaypoint, reorderWaypoint,
     resetWaypoint, resetRoute, stepWaypoint, exportRoute, importRoute,
-    pendingShared, shareRoute, receiveShared, acceptShared, rejectShared, receiveDeleted,
+    pendingShared, shareRoute, acceptShared, rejectShared,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WaypointsStore = api;

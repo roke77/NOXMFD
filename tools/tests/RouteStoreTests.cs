@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
 using NOXMFD;
 
 namespace NOXMFD.Tests
@@ -314,6 +317,83 @@ namespace NOXMFD.Tests
         public void RemoveSharedRoute_on_an_unknown_id_returns_false()
         {
             Assert.False(RouteStore.RemoveSharedRoute("does-not-exist"));
+        }
+
+        // ── correctness fixes from the pre-merge review ────────────────────────────────────────
+
+        [Fact]
+        public void Load_from_disk_does_not_restore_SharedBy_across_a_restart()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "noxmfd-test-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                RouteStore.ConfigDir = dir;
+                File.WriteAllText(Path.Combine(dir, "com.roque.NOXMFD.routes.json"),
+                    "{\"activeRouteId\":\"r_x\",\"routes\":[{\"id\":\"r_x\",\"name\":\"Shared\"," +
+                    "\"nextIndex\":0,\"sharedBy\":\"OldLeader\",\"waypoints\":[]}]}");
+
+                RouteStore.Load();
+
+                // The squad session that justified the lock is long gone by the time a save file is
+                // ever re-loaded (OnSquadEnded only runs while the plugin is live) — a route must
+                // come back editable, not stuck read-only forever.
+                Assert.Contains("\"sharedBy\":\"\"", RouteStore.RoutesJson);
+                Assert.True(RouteStore.RenameRoute("r_x", "Mine now"));
+            }
+            finally
+            {
+                RouteStore.ConfigDir = null;
+                Directory.Delete(dir, true);
+            }
+        }
+
+        [Fact]
+        public void ClearRoutes_broadcasts_tombstones_for_every_previously_shared_route()
+        {
+            Route a = RouteStore.CreateRoute("A");
+            Route b = RouteStore.CreateRoute("B");
+            var deletedIds = new List<string>();
+            RouteStore.SendSquadData = (type, payload) => { if (type == "wpt.route-deleted") deletedIds.Add(payload); return true; };
+            RouteStore.ShareRoute(a.Id);
+            RouteStore.ShareRoute(b.Id);
+
+            RouteStore.ClearRoutes();
+
+            Assert.Contains(a.Id, deletedIds);
+            Assert.Contains(b.Id, deletedIds);
+        }
+
+        [Fact]
+        public void OnSquadEnded_stops_auto_resharing_a_route_into_a_later_squad()
+        {
+            Route r = RouteStore.CreateRoute("R");
+            int sends = 0;
+            RouteStore.SendSquadData = (type, payload) => { sends++; return true; };
+            RouteStore.ShareRoute(r.Id);   // shared with the first squad
+            RouteStore.OnSquadEnded();     // that squad is gone
+
+            RouteStore.RenameRoute(r.Id, "R2");   // edited after (hypothetically) joining a new squad
+
+            Assert.Equal(1, sends);   // only the original share — no auto-reshare into an unrelated squad
+        }
+
+        [Fact]
+        public void ReceiveSharedRoute_does_not_overwrite_a_route_the_pilot_now_owns_locally()
+        {
+            RouteStore.ReceiveSharedRoute(
+                "{\"id\":\"r_x\",\"name\":\"Shared\",\"waypoints\":[{\"name\":\"W\",\"x\":1,\"z\":2}]}", "Leader");
+            RouteStore.AcceptShared("r_x");
+            RouteStore.OnSquadEnded();   // unlocks it — now this pilot's own content
+            RouteStore.RenameRoute("r_x", "My own edit");
+
+            // The same leader re-shares a route with the identical (never-changing) id — must not
+            // silently clobber the local edit made after this pilot stopped being locked to it.
+            bool ok = RouteStore.ReceiveSharedRoute(
+                "{\"id\":\"r_x\",\"name\":\"Reshared\",\"waypoints\":[{\"name\":\"WZ\",\"x\":9,\"z\":9}]}", "Leader");
+
+            Assert.False(ok);
+            Assert.Contains("\"name\":\"My own edit\"", RouteStore.RoutesJson);
         }
     }
 }

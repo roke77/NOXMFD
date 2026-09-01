@@ -50,11 +50,11 @@ namespace NOXMFD
         private static ulong  _leaderId;
         private static string _leaderName = string.Empty;
 
-        // The squadron's own name, chosen by whoever starts it (SetCallsign, "X SQUAD" on the SQD
-        // page). Empty until set — a squad can exist (via Invite's implicit creation) before its
-        // leader gets around to naming it. Carried through every roster broadcast and a leadership
-        // handoff so it's never lost partway through a squad's life; cleared in ResetToNone like
-        // everything else here, by the same no-persistence design the whole class already has.
+        // The squadron's own name, chosen up front (CreateSquad requires it) and renameable later
+        // (SetCallsign, the SQD page's EDIT button). Carried through every roster broadcast and a
+        // leadership handoff so it's never lost partway through a squad's life; cleared in
+        // ResetToNone like everything else here, by the same no-persistence design the whole class
+        // already has.
         private static string _callsign = string.Empty;
 
         // Squadron Callsign System (docs/squadron-transport.md's numbering section) — the flight
@@ -69,13 +69,15 @@ namespace NOXMFD
         // For PlayerRoster.cs (issue #48, MAP squad-member tint) — every squadmate's SteamID,
         // NEVER including this pilot's own (own-ship already renders green regardless of faction,
         // MAP's own separate draw call, so it must never even be a candidate for the squad tint).
-        // _members already excludes both the leader and self by construction (see the field's own
-        // header comment above), so the only case needing a separate add is a MEMBER's own leader,
-        // who isn't in _members at all.
+        // _members excludes both the leader and self by construction on the LEADER's own side (see
+        // the field's own header comment above), but a MEMBER's _members mirrors the leader's full
+        // roster broadcast verbatim (HandleRoster) — which includes the receiving member themselves
+        // — so self must be filtered explicitly here rather than assumed absent.
         internal static IEnumerable<ulong> SquadmateSteamIds()
         {
             if (_role == Role.None) yield break;
-            foreach (var m in _members) yield return m.Id;
+            ulong self = Squadron.SelfId();
+            foreach (var m in _members) if (m.Id != self) yield return m.Id;
             if (_role == Role.Member) yield return _leaderId;
         }
 
@@ -135,14 +137,6 @@ namespace NOXMFD
         // needed beyond "the latest one." Folded into StateJson rather than a separate inbox.
         private static long   _noticeSeq;
         private static string _notice = string.Empty;
-
-        // Leader-shared application payloads (docs/squadron-transport.md's "TBD data" — wpt.route is
-        // the first experiment). A member-facing inbox, same Since(afterSeq) shape Squadron.cs uses,
-        // kept separate from StateJson because these are discrete events, not state.
-        private static readonly object _dataLock = new object();
-        private static readonly List<(long Seq, string Type, string Payload)> _dataInbox = new List<(long, string, string)>();
-        private static long _dataSeq;
-        private const int DataInboxCapacity = 32;
 
         private static long _drainedSeq;   // our cursor into Squadron's raw inbox
 
@@ -309,7 +303,17 @@ namespace NOXMFD
             var remaining = new List<Member>();
             foreach (var m in _members) if (m.Id != newLeader) remaining.Add(m);
 
-            Squadron.SendTo(newLeader, "sqd.transfer", TransferEnvelope(remaining));
+            // The decisive message: if the successor never gets it, they never become leader, so
+            // this pilot must NOT abandon leadership either — that would leave the squad with nobody
+            // in charge (no ack/retry exists at the transport level, so failing loud here is the only
+            // way this doesn't silently strand everyone else). A remaining member missing the
+            // leader-changed notice is lower-stakes (they just keep following the old leader until
+            // the next roster/message reveals the change) so that loop stays best-effort.
+            if (!Squadron.SendTo(newLeader, "sqd.transfer", TransferEnvelope(remaining)))
+            {
+                SetNotice($"Couldn't hand off leadership to {successor.Name} — they may be offline. Try again.");
+                return false;
+            }
             string leaderChanged = "{\"leaderId\":\"" + newLeader.ToString(CultureInfo.InvariantCulture) +
                                     "\",\"leaderName\":\"" + Esc(successor.Name) + "\"}";
             foreach (var m in remaining) Squadron.SendTo(m.Id, "sqd.leader-changed", leaderChanged);
@@ -379,8 +383,7 @@ namespace NOXMFD
             if (_role != Role.Leader || _members.Count == 0) return false;
             string envelope = "{\"type\":\"" + Esc(dataType ?? string.Empty) +
                                "\",\"payload\":\"" + Esc(dataPayload ?? string.Empty) + "\"}";
-            Squadron.SendToAll(MemberIds(), "sqd.data", envelope);
-            return true;
+            return Squadron.SendToAll(MemberIds(), "sqd.data", envelope);
         }
 
         // Single-recipient sibling of SendData above (issue #47's Target Designator: different
@@ -391,8 +394,7 @@ namespace NOXMFD
             if (_role != Role.Leader || !ContainsMember(memberId)) return false;
             string envelope = "{\"type\":\"" + Esc(dataType ?? string.Empty) +
                                "\",\"payload\":\"" + Esc(dataPayload ?? string.Empty) + "\"}";
-            Squadron.SendTo(memberId, "sqd.data", envelope);
-            return true;
+            return Squadron.SendTo(memberId, "sqd.data", envelope);
         }
 
         // ── Inbound handlers ───────────────────────────────────────────────────────
@@ -515,10 +517,13 @@ namespace NOXMFD
 
         private static void HandleTransfer(ulong from, string payload)
         {
-            // Anyone can send this, but it's only meaningful right after being named a successor —
-            // there's no prior relationship to check it against, so accept it at face value. The
-            // worst a bad actor gets from forging this is making us open sessions with a bogus
-            // member list, which costs nothing (SendTo to a nonexistent/uninterested peer just fails).
+            // Same sender check every other leader-sourced handler here uses (HandleRoster,
+            // HandleDisband, HandleKick, HandleLeaderChanged): only OUR current leader can hand US
+            // leadership. Without this, any Steam peer could message a bare sqd.transfer and force
+            // the recipient to abandon their real squad, silently discard their route/TD/target-lock
+            // state (RouteStore/TdStore/SquadTargetsStore.OnSquadEnded below), and open sessions with
+            // a bogus member list — a real one-message griefing vector, not merely a wasted send.
+            if (_role != Role.Member || from != _leaderId) return;
             var obj = JsonLite.Parse(payload) as Dictionary<string, object?>;
             var members = ParseMembers(obj != null && obj.TryGetValue("members", out object? mv) ? mv : null);
             _role = Role.Leader;
@@ -596,31 +601,31 @@ namespace NOXMFD
             SquadTargetsStore.ApplyAggregate(payload, Squadron.SelfId());
         }
 
+        // Applies a leader-shared payload immediately, right here on the same main-thread Drain()
+        // call that received it — not queued for some browser tab to notice over SSE and echo a
+        // command back (the previous design). That round trip had two real bugs: a payload arriving
+        // while no browser was connected (or before any tab connected at all) was lost forever — a
+        // fresh SSE connection's cursor starts at "now", it never replays a backlog — and a payload
+        // arriving while SEVERAL tabs were open got applied once per tab. Applying here means it
+        // happens exactly once, unconditionally, whether or not anything is watching; every open
+        // display then learns the result through the ordinary td-state/wpt-options state-change SSE
+        // push, same as any other plugin-side mutation.
         private static void HandleData(ulong from, string payload)
         {
             if (_role != Role.Member || from != _leaderId) return;
             var obj = JsonLite.Parse(payload) as Dictionary<string, object?>;
             string dataType = Str(obj, "type");
             string dataPayload = Str(obj, "payload");
-            if (dataType.Length == 0) return;
-            lock (_dataLock)
+            switch (dataType)
             {
-                _dataSeq++;
-                _dataInbox.Add((_dataSeq, dataType, dataPayload));
-                if (_dataInbox.Count > DataInboxCapacity) _dataInbox.RemoveRange(0, _dataInbox.Count - DataInboxCapacity);
+                case "wpt.route":         RouteStore.ReceiveSharedRoute(dataPayload, _leaderName); break;
+                case "wpt.route-deleted": RouteStore.RemoveSharedRoute(dataPayload); break;
+                case "td.designate":      TdStore.ReceiveDesignation(dataPayload); break;
+                    // Unknown type — e.g. a squadmate on a newer mod version — has no handler to
+                    // apply it against; same "ignore what it cannot parse" versioned-wire reasoning
+                    // Squadron.cs's own TryParse already uses.
             }
         }
-
-        // ── Data inbox (for the HTTP/SSE layer) ───────────────────────────────────
-
-        internal static List<(long Seq, string Type, string Payload)> DataSince(long afterSeq)
-        {
-            var outp = new List<(long, string, string)>();
-            lock (_dataLock) { foreach (var m in _dataInbox) if (m.Seq > afterSeq) outp.Add(m); }
-            return outp;
-        }
-
-        internal static long LatestDataSeq() { lock (_dataLock) { return _dataSeq; } }
 
         // ── Helpers ────────────────────────────────────────────────────────────────
 

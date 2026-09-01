@@ -103,18 +103,16 @@ namespace NOXMFD
                 var lastExtEvents = new Dictionary<string, string>(StringComparer.Ordinal);
                 // Squad state (docs/squadron-transport.md): same latest-value-wins comparison as the
                 // cursor above — role/leader/members/pending/notice is a snapshot, not a queue, so a
-                // display only needs the newest one, not every intermediate value.
-                string lastSquad = string.Empty;
+                // display only needs the newest one, not every intermediate value. Compared against
+                // Squad.StateJson directly (the cheap, already-cached inner string) so the wrap-in-
+                // {ready,state}-and-encode work below only happens on an actual change, not on every
+                // tick regardless — this loop runs at CursorTickMs (~60 Hz) per connected display.
+                string lastSquadInner = string.Empty;
                 // TD state / waypoint route library: same latest-value-wins reasoning as lastSquad
                 // above — both are already volatile snapshot strings (TdStore.StateJson/RouteStore.
                 // RoutesJson), not queues.
-                string lastTd = string.Empty;
+                string lastTdInner = string.Empty;
                 string lastWpt = string.Empty;
-                // Leader-shared data payloads (wpt.route, ...) ARE a queue, not a snapshot: per-
-                // connection cursor into Squad's data inbox, starting at whatever has already
-                // arrived so a display that opens mid-session doesn't replay the backlog. Each
-                // payload then reaches each display exactly once.
-                long lastSquadDataSeq = Squad.LatestDataSeq();
                 int sinceFrame = FrameEveryMs;   // send a frame immediately on connect
                 while (!ct.IsCancellationRequested)
                 {
@@ -143,10 +141,15 @@ namespace NOXMFD
                     // ready (Squadron.Ready) doesn't change mid-session, but shipping the identical
                     // shape here means a client can point the exact same parsing code at either one
                     // (docs/sse-push-refactor.md), no special-casing the push vs. the initial fetch.
-                    string squadState = "{\"ready\":" + (Squadron.Ready ? "true" : "false") + ",\"state\":" + Squad.StateJson + "}";
-                    if (!string.Equals(squadState, lastSquad, StringComparison.Ordinal))
+                    // Compared against the cached inner StateJson (cheap reference/string compare, no
+                    // allocation) BEFORE building the wrapped/encoded form — this loop runs at
+                    // CursorTickMs (~60 Hz) per connected display, so the wrap+encode cost matters and
+                    // should only be paid on an actual change, not every tick regardless.
+                    string squadInner = Squad.StateJson;
+                    if (!string.Equals(squadInner, lastSquadInner, StringComparison.Ordinal))
                     {
-                        lastSquad = squadState;
+                        lastSquadInner = squadInner;
+                        string squadState = "{\"ready\":" + (Squadron.Ready ? "true" : "false") + ",\"state\":" + squadInner + "}";
                         byte[] qbytes = Encoding.UTF8.GetBytes("event: sqd\ndata: " + squadState + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(qbytes, 0, qbytes.Length, ct).ConfigureAwait(false);
                     }
@@ -156,10 +159,11 @@ namespace NOXMFD
                     // column, and SQD's own page all drop their independent /td-state polling in
                     // favor of this single push (docs/sse-push-refactor.md), same connection every
                     // page already keeps open.
-                    string tdState = "{\"ready\":" + (Squadron.Ready ? "true" : "false") + ",\"state\":" + TdStore.StateJson + "}";
-                    if (!string.Equals(tdState, lastTd, StringComparison.Ordinal))
+                    string tdInner = TdStore.StateJson;
+                    if (!string.Equals(tdInner, lastTdInner, StringComparison.Ordinal))
                     {
-                        lastTd = tdState;
+                        lastTdInner = tdInner;
+                        string tdState = "{\"ready\":" + (Squadron.Ready ? "true" : "false") + ",\"state\":" + tdInner + "}";
                         byte[] tbytes = Encoding.UTF8.GetBytes("event: td-state\ndata: " + tdState + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(tbytes, 0, tbytes.Length, ct).ConfigureAwait(false);
                     }
@@ -172,18 +176,6 @@ namespace NOXMFD
                         lastWpt = wptOptions;
                         byte[] wbytes = Encoding.UTF8.GetBytes("event: wpt-options\ndata: " + wptOptions + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(wbytes, 0, wbytes.Length, ct).ConfigureAwait(false);
-                    }
-
-                    // Leader-shared data payloads, one named event each.
-                    var dataInbound = Squad.DataSince(lastSquadDataSeq);
-                    foreach (var msg in dataInbound)
-                    {
-                        lastSquadDataSeq = msg.Seq;
-                        string json = string.Format(CultureInfo.InvariantCulture,
-                            "{{\"seq\":{0},\"type\":\"{1}\",\"payload\":\"{2}\"}}",
-                            msg.Seq, TelemetryServer.EscapeJson(msg.Type), TelemetryServer.EscapeJson(msg.Payload));
-                        byte[] dbytes = Encoding.UTF8.GetBytes("event: squadron\ndata: " + json + "\n\n");
-                        await ctx.Response.OutputStream.WriteAsync(dbytes, 0, dbytes.Length, ct).ConfigureAwait(false);
                     }
 
                     foreach (var kv in ExtensionRegistry.EventsSnapshot())

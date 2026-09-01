@@ -56,16 +56,22 @@ namespace NOXMFD
                 _marks.Clear();
             }
 
+            // Fast exit: outside a squad, or in one where nobody has anything locked right now, there
+            // is nothing this cue could ever show — skip walking every native HUD marker entirely
+            // rather than doing that work every frame just to find nothing to draw.
+            bool isLeader = Squad.IsLeader;
+            bool inSquad = isLeader || Squad.IsMember;
+            if (!inSquad || !SquadTargetsStore.HasAnyRemoteTargets(isLeader)) { HideAll(); return; }
+
             if (!CombatHudMarkerLookup.TryGet(hud, out var lookup)) { HideAll(); return; }
 
-            bool isLeader = Squad.IsLeader;
             _seenScratch.Clear();
 
             foreach (var kv in lookup)
             {
                 Unit unit = kv.Key;
                 HUDUnitMarker marker = kv.Value;
-                if (unit == null || marker == null || marker.image == null || !marker.image.enabled) continue;
+                if (unit == null || marker == null || marker.image == null) continue;   // truly gone
 
                 uint id = unit.persistentID.Id;
                 bool leaderTargeting = SquadTargetsStore.IsLeaderTargeting(id, isLeader);
@@ -74,6 +80,16 @@ namespace NOXMFD
 
                 _seenScratch.Add(id);
                 if (!_marks.TryGetValue(id, out MarkPair pair)) _marks[id] = pair = Build();
+
+                if (!marker.image.enabled)
+                {
+                    // Off-screen (edge-arrow-pinned lock) rather than gone — hide, don't destroy: a
+                    // lock sitting right at the edge of view would otherwise tear down and rebuild
+                    // this pair's GameObjects every time it crosses the boundary.
+                    SetMark(pair.Leader, false, default);
+                    SetMark(pair.Other, false, default);
+                    continue;
+                }
 
                 Vector3 basePos = marker.image.rectTransform.position;
                 SetMark(pair.Leader, leaderTargeting, basePos + new Vector3(OffsetX, LeaderOffsetY, 0f));

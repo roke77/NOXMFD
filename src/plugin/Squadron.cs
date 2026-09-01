@@ -188,12 +188,24 @@ namespace NOXMFD
         }
 
         // Convenience for the leader's broadcasts (roster, disband, shared data) — same send, looped.
-        internal static void SendToAll(IEnumerable<ulong> peers, string type, string payload)
+        // True only if EVERY peer's send succeeded — a caller that needs to know "did this actually
+        // reach anyone" (SendData, SendDataTo's own single-peer sibling) has an honest answer instead
+        // of the unconditional success this used to report regardless of Steam's own result.
+        internal static bool SendToAll(IEnumerable<ulong> peers, string type, string payload)
         {
-            foreach (ulong p in peers) SendTo(p, type, payload);
+            bool allOk = true;
+            foreach (ulong p in peers) if (!SendTo(p, type, payload)) allOk = false;
+            return allOk;
         }
 
         // ── Receive ──────────────────────────────────────────────────────────────
+
+        // Reused across every Poll() call — this method runs once per frame regardless of whether
+        // anything ever arrives, so a fresh array every frame is pure GC pressure for a buffer whose
+        // size never changes. Safe to share: Poll() only ever runs on the main thread (same caller,
+        // MissionLifecycle, every frame) and the array is fully consumed (Release()d) before Poll()
+        // returns, so there's no cross-call aliasing to worry about.
+        private static readonly IntPtr[] _pollBuffer = new IntPtr[MaxReceivePerPoll];
 
         // Drains this channel into the inbox. Called every frame from MissionLifecycle, the same
         // persistent host that polls keybinds and drains commands — so squad traffic flows at the
@@ -201,7 +213,7 @@ namespace NOXMFD
         internal static void Poll()
         {
             if (!Ready) return;
-            IntPtr[] msgs = new IntPtr[MaxReceivePerPoll];
+            IntPtr[] msgs = _pollBuffer;
             int n;
             try { n = SteamNetworkingMessages.ReceiveMessagesOnChannel(Channel, msgs, msgs.Length); }
             catch { return; }
@@ -244,16 +256,22 @@ namespace NOXMFD
             }
         }
 
-        // Everything newer than `afterSeq`, oldest first. Squad.Drain() (and, for debugging, the SSE
-        // loop) passes the last sequence it consumed, so each reader sees each message once.
+        // Shared, never mutated — the common-case return when nothing new has arrived, which is
+        // every frame that isn't carrying actual squad/presence traffic. Both callers (Squad.Drain,
+        // Presence.Drain) only ever read the result.
+        private static readonly List<Inbound> _emptySince = new List<Inbound>();
+
+        // Everything newer than `afterSeq`, oldest first. Squad.Drain() and Presence.Drain() each
+        // pass the last sequence they consumed, so each reader sees each message once.
         internal static List<Inbound> Since(long afterSeq)
         {
-            var outp = new List<Inbound>();
             lock (_lock)
             {
+                if (_seq <= afterSeq) return _emptySince;
+                var outp = new List<Inbound>();
                 foreach (var m in _inbox) if (m.Seq > afterSeq) outp.Add(m);
+                return outp;
             }
-            return outp;
         }
 
         internal static long LatestSeq() { lock (_lock) { return _seq; } }

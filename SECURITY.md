@@ -58,21 +58,44 @@ which virus-scans and manually reviews uploads.
   inbound firewall rule **for its own port only**, so a tablet can connect. It never runs
   otherwise, never elevates on its own (no UAC prompt), and touches nothing but its own port's
   rules. Full detail + the manual alternative: [NETWORKING.md](NETWORKING.md).
+- **Sends and receives data over the internet, through Steam, for the squad feature**
+  (`docs/squadron-transport.md`) — this is genuinely internet traffic, not LAN-only, and is the one
+  exception to "no internet connections" below. Two things happen automatically, without you
+  inviting or joining anyone:
+  - **A small presence beacon every 5 seconds** to every faction-mate in your current match
+    (`Presence.cs`), so the SQD page can tell who else has the mod installed. It carries no
+    payload beyond "I'm here" and stops the moment you leave the match.
+  - **Accepting an incoming Steam messaging session from anyone** (`Squadron.cs`'s trust model) —
+    an invite has to reach a stranger before they can decide whether to accept it, so the transport
+    layer itself doesn't pre-filter senders. What a message actually *does* is gated by type and
+    relationship one layer up (`Squad.cs`): an invite is accepted from anyone, but a roster,
+    leadership handoff, kick, or shared route/target-designation is only ever acted on if it comes
+    from your actual current leader or a current member.
+  - Once you're actually in a squad, this same channel carries the roster, shared waypoint routes,
+    and target designations/lock highlights described in `docs/squadron-transport.md`,
+    `docs/target-designator.md`, and `docs/hud-squad-target-marks.md` — sent only to your own
+    leader/members, never broadcast beyond the squad. Valve's relay (not this mod) handles the
+    actual internet routing, NAT traversal, and encryption; see `Squadron.cs`'s own header comment
+    for why this is a separate Steamworks interface from the game's own multiplayer connection.
 
 ## What NO XMFD does NOT do
 
-- **No internet connections.** All traffic is localhost/LAN. The mod makes no outbound HTTP
-  requests, has no analytics, telemetry, auto-update, or "phone-home" of any kind. (The one
-  network syscall outside the web server is a UDP socket briefly opened toward `8.8.8.8` purely
-  to ask Windows which local network interface would route outbound — **no data is ever sent**
-  through it; it exists only to discover your LAN IP to show on the display. See `DetectLanIp` in
+- **No internet connections beyond the Steam squad transport described above.** The web server
+  itself is localhost/LAN only. The mod makes no outbound HTTP requests, has no analytics,
+  telemetry, auto-update, or "phone-home" of any kind — the squad feature's Steam P2P traffic is
+  addressed to specific players (faction-mates for the presence beacon, your own squad for
+  everything else), not a general internet service, and only exists at all because you're playing
+  a multiplayer match to begin with. (The one plain network syscall outside the web server and the
+  squad transport is a UDP socket briefly opened toward `8.8.8.8` purely to ask Windows which local
+  network interface would route outbound — **no data is ever sent** through it; it exists only to
+  discover your LAN IP to show on the display. See `DetectLanIp` in
   [`TelemetryServer.cs`](src/plugin/Http/TelemetryServer.cs).)
 - **No file access beyond BepInEx.** It reads/writes only its own config file
   (`BepInEx/config/com.roque.NOXMFD.cfg`) and BepInEx's log. Captured game images are held in
   memory and served over HTTP — they are not written to disk. It reads no personal files.
 - **No credential, keystroke, or clipboard capture.** It reads game state, not your system.
 
-## The one real caveat: the LAN server is unauthenticated
+## The two real caveats: the LAN server, and the squad transport, are both unauthenticated
 
 The web server has **no password**. Anyone who can reach port 5005 on your machine can view your
 in-game telemetry and send the same tap-to-target / deselect commands the UI sends (they cannot
@@ -87,6 +110,13 @@ it can send commands to *any installed extension*, not just NO XMFD's own tap-to
 What that command endpoint is able to do is entirely up to that extension's own code, which NO
 XMFD neither reviews nor limits. The security properties of your whole display depend on which
 extensions you've chosen to install, not on NO XMFD's own code alone.
+
+The squad transport (Steam P2P, see above) has no password either — Steam identity is the only
+authentication it has. Concretely: anyone can send you an invite (accepting one is always your own
+choice); but only your actual current leader can hand you leadership, disband/kick you, or push a
+roster/route/target-designation update — every one of those checks the sender against who you
+already know your leader/members to be, so a stranger you've never interacted with cannot make
+you do anything beyond receiving an invite you're free to decline.
 
 Both command endpoints reject non-POST and non-JSON requests and cap the request body at 16 KB —
 request hygiene, not a change to the trust model above; the port is still unauthenticated exactly

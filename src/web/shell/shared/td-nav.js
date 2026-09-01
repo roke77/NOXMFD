@@ -18,30 +18,18 @@
   }
 
   // NAV.tgt's pristine static baseline, snapshotted the first time start() runs — BEFORE anything
-  // appends to it. Every poll rebuilds NAV.tgt from THIS, never from NAV.tgt itself, so repeated
-  // polls don't concatenate a second TD entry.
+  // appends to it. Every apply rebuilds NAV.tgt from THIS, never from NAV.tgt itself, so repeated
+  // applies don't concatenate a second TD entry.
   let tgtBase = null;
 
-  // issue #47 follow-up (squad/TD lifecycle audit, finding B1): td.js deliberately fetches
-  // /squad + /td-state only on load and from its own REFRESH button — no polling of its own, by
-  // design (a live-redrawing TD table is what caused the click-interruption bug this page was
-  // rebuilt to fix). That means an open TD page has no way to learn a squad ended out from under
-  // it except this ALREADY-existing 2s poll, which runs regardless of which page is showing. On
-  // the true->false edge only (never re-fired while it stays false), dispatch a plain window event;
-  // mfd.js/f35.js listen and forward it to whichever pane/frame is actually showing 'td', the same
-  // way they already forward 'td-designated'. This is a one-shot reactive nudge, not a new poll
-  // loop inside td.js — it triggers the exact same refreshSquad()/refreshTd() the REFRESH button
-  // itself calls.
-  let wasInSquad = null;   // null = not yet known (first apply establishes a baseline, no event)
-
   // `s` is /squad's own {ready, state} shape — identical whether it came from the one-time bootstrap
-  // fetch below or a later 'sqd-state' push (SseHub.cs wraps both the same way on purpose).
+  // fetch below or a later 'sqd-state' push (SseHub.cs wraps both the same way on purpose). td.js
+  // listens for that same push directly (docs/sse-push-refactor.md) to catch a squad-ended edge
+  // while it's open, so this only needs to keep NAV.tgt's TD entry in sync, nothing more.
   function apply(NAV, s) {
     if (!tgtBase) tgtBase = NAV.tgt.slice();
     const inSquad = !!(s && s.ready && s.state && s.state.role !== 'none');
     NAV.tgt = buildTgtNavPlan(tgtBase, inSquad);
-    if (wasInSquad === true && !inSquad) window.dispatchEvent(new CustomEvent('td-squad-ended'));
-    wasInSquad = inSquad;
   }
 
   function start(NAV) {

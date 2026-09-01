@@ -11,7 +11,7 @@ already computes and change-gates all three as `volatile` snapshot strings (`Squ
 payloads do.
 
 The fix: push all three over the SSE `/stream` connection every browser tab already keeps open for
-telemetry (`SseHub.cs`), the same way squad-shared payloads (`event: squadron`) already work.
+telemetry (`SseHub.cs`) — the same connection the cursor/telemetry-frame events already ride.
 Nothing here changes the underlying *feature* — same commands, same server state — only how a
 browser learns the state changed.
 
@@ -35,8 +35,7 @@ display only needs the newest value, not every intermediate one.
 
 `telemetry-source.js` (the one `EventSource('/stream')` connection, always alive in MAP's
 always-loaded tap iframe/mapFrame regardless of which page is visible) relays all three straight up
-via `postMessage`, same "this tap only relays, never interprets" reasoning `squadron` already
-follows:
+via `postMessage` — this tap only ever relays, never interprets:
 
 - `sqd` → `{type: 'sqd-state', data: {ready, state}}`
 - `td-state` → `{type: 'td-state-push', data: {ready, state}}`
@@ -85,10 +84,37 @@ runs a recurring `setInterval` for this data anymore:
   load, then a `'wpt-options-push'` listener. Every embedded (non-top) instance was already
   push-based via the pre-existing `wpt-routes-request`/`wpt-routes` handshake — untouched.
 
-`td.js` itself is deliberately **unchanged** — it already fetches only on load/REFRESH/an explicit
-nudge (`docs/target-designator.md`'s "A static table, on purpose"), which is a one-shot, event- or
-user-triggered GET, not a recurring poll. That was already the end state this refactor is aiming
-every other page toward, so there was nothing to convert.
+`td.js` was left unchanged in this original pass — it already fetched only on load/REFRESH/an
+explicit nudge (`docs/target-designator.md`'s "A static table, on purpose"), which is a one-shot,
+event- or user-triggered GET, not a recurring poll, and looked like the end state every other page
+here was converging toward. It turned out to still have a real gap — see "Follow-up" below.
+
+## Follow-up: `td.js` closes the loop, and the squadron round-trip is gone
+
+Two things found after this refactor first shipped:
+
+1. **A member with TD already open didn't see a fresh DESIGNATE land.** The reactive nudge
+   (`applySquadronPayload`'s `td.designate` branch → `sendCommand('td.receive-designation', ...)` →
+   a `'td-designation-received'` postMessage → `td.js` re-fetching `/td-state`) raced the plugin's
+   own command queue: the re-fetch could run before `CommandDispatcher.Drain()` had actually applied
+   the designation on the Unity main thread, so it came back stale. Fixed by having `td.js` listen
+   for the `'sqd-state'`/`'td-state-push'` messages directly — the same ones `tgt.js`'s TD column
+   already rode — instead of the fetch-after-nudge round trip. The `'td-squad-ended'` nudge
+   (`td-nav.js`'s edge detection, `mfd.js`/`f35.js`'s `nudgeTdPage`) became redundant the same way
+   once `td.js` was listening to `'sqd-state'` directly, and was removed.
+2. **The leader-shared-payload round trip itself was unsound**, not just racy for TD specifically.
+   `Squad.HandleData` only ever *queued* an incoming `wpt.route`/`wpt.route-deleted`/`td.designate`
+   payload (the `event: squadron` SSE push, since removed) for some browser tab to notice and POST
+   back as a command (`wpt.receive-shared`/`wpt.remove-shared`/`td.receive-designation`, also since
+   removed). That meant a payload arriving with no browser connected — or before any tab had ever
+   connected — was lost forever (a fresh SSE connection's cursor started at "now," never replaying a
+   backlog), and a payload arriving while several tabs were open got applied once per tab. Fixed by
+   having `Squad.HandleData` apply all three known payload types directly, synchronously, on the
+   same main-thread `Drain()` call that received them (`RouteStore.ReceiveSharedRoute`/
+   `RemoveSharedRoute`, `TdStore.ReceiveDesignation`) — every open display then learns the result
+   through the ordinary `td-state`/`wpt-options` state-change push this doc already describes, same
+   as any other plugin-side mutation. The `event: squadron` SSE event, its `telemetry-source.js`
+   listener, `applySquadronPayload` in both shells, and the three now-unreachable commands are gone.
 
 ## Harness (`tools/preview-mock.js`)
 

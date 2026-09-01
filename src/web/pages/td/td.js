@@ -292,11 +292,9 @@ refreshBtn.addEventListener('click', function () {
   applyLiveTargets();
 });
 
-// ── Fetches: ONLY on initial load (below), from the REFRESH button above, and from the shell's
-// 'td-squad-ended' nudge below (squad/TD lifecycle audit finding B1) — never a timer of any kind.
-// The nudge itself still comes from an EXISTING poll (td-nav.js's own /squad check, needed anyway
-// for the TGT nav row), just reused to catch up a TD page that's already open when a squad ends;
-// td.js still never polls on its own.
+// ── Fetches: ONLY on initial load (below) and from the REFRESH button above — never a timer of
+// any kind. Everything else (a squad-role change, a designation landing) reaches this page through
+// the SSE-pushed 'sqd-state'/'td-state-push' messages below instead.
 function applySquad(s) { squad = s; render(); }
 function applyTdState(s) {
   td = s;
@@ -335,21 +333,9 @@ window.addEventListener('message', function (e) {
     applySquad(m.data);
   } else if (m.type === 'td-state-push') {
     // SSE-pushed the instant TdStore.StateJson changes (SseHub.cs), including the leader's own
-    // DESIGNATE — a member with TD already open sees the new rows land on their own, no REFRESH or
-    // page-revisit needed. td-squad-ended/td-designation-received below still fire the same fetch
-    // as a fallback, but this is what actually closes the gap.
+    // DESIGNATE (applied directly plugin-side, Squad.HandleData) — a member with TD already open
+    // sees the new rows land on their own, no REFRESH or page-revisit needed.
     applyTdState(m.data);
-  } else if (m.type === 'td-squad-ended') {
-    // Squad/TD lifecycle audit follow-up, finding B1 — the squad this page is showing just ended
-    // out from under it. A one-shot reactive catch-up, the same fetches REFRESH itself calls; not
-    // a new poll (see this function's own header comment above).
-    refreshSquad();
-    refreshTd();
-  } else if (m.type === 'td-designation-received') {
-    // The leader just pushed a fresh designation to this pilot (TdStore.ReceiveDesignation already
-    // ran plugin-side) — re-pull /td-state so an already-open member view shows it without needing
-    // a manual REFRESH. Same one-shot reactive nudge shape as td-squad-ended above.
-    refreshTd();
   }
 });
 

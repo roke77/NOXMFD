@@ -103,23 +103,12 @@ export class TelemetrySource {
     es.addEventListener('cursor', (e) => {
       try { this._onCursor(JSON.parse(e.data)); } catch (err) { /* malformed — skip this one */ }
     });
-    // Squadron payloads from another player (docs/squadron-transport.md). Forwarded straight up to
-    // the shell, which routes them to whichever page handles that payload type — this tap only ever
-    // relays them, exactly as it does the cursor, and never interprets a payload itself. Unlike the
-    // cursor there is no focus gate: a shared route is addressed to this PLAYER, not to whichever
-    // display currently holds SOI, so it must arrive regardless of what is focused.
-    es.addEventListener('squadron', (e) => {
-      try {
-        const m = JSON.parse(e.data);
-        this._postUp({ type: 'squadron', seq: m.seq, from: m.from, payloadType: m.type, payload: m.payload });
-      } catch (err) { /* malformed — skip this one */ }
-    });
     // Squad roster/role state (docs/squadron-transport.md), Target Designator state (docs/target-
     // designator.md), and the waypoint route library (docs/hud-waypoint-indicator.md) — all three
     // are change-gated snapshots pushed by SseHub.cs instead of each page polling /squad, /td-state,
-    // or /wpt-options on its own (docs/sse-push-refactor.md). Forwarded straight up, same "this tap
-    // only relays, never interprets" reasoning as squadron above; the shell caches the latest of
-    // each and re-forwards to whichever page/pane actually needs it.
+    // or /wpt-options on its own (docs/sse-push-refactor.md). Forwarded straight up — this tap only
+    // ever relays, never interprets — and the shell caches the latest of each, re-forwarding to
+    // whichever page/pane actually needs it.
     es.addEventListener('sqd', (e) => {
       // {ready, state} — same shape GET /squad already returns (SseHub.cs wraps it identically),
       // so a consumer's parsing code doesn't need to special-case the push vs. an initial fetch.

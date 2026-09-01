@@ -1040,15 +1040,6 @@
       return;
     }
 
-    if (m.type === 'squadron') {
-      // A payload from a squadmate (docs/squadron-transport.md), applied to the store here rather
-      // than routed to a portal — a route shared while no WPT portal is open must still arrive, and
-      // this shell document is always loaded. The write then fires 'storage' in every portal, which
-      // is the same live-refresh path a local edit already takes.
-      applySquadronPayload(m.payloadType, m.payload);
-      return;
-    }
-
     slices[m.type] = m;   // cache every slice: the screen that wants it may not be up yet
     livePortals().forEach(function (p) { p.onSlice(m.type); });
 
@@ -1069,17 +1060,17 @@
   // MAP's R+/R- portal buttons show while any route is saved, W+/W- only while one is active
   // (issue #38 follow-up, deactivate follow-up, mfd.js's classic-shell twin). The plugin is the
   // single source of truth for routes now (docs/hud-waypoint-indicator.md) — this shell document
-  // loads its own copy of waypoints-store.js (f35.html), which polls /wpt-options and fires this
-  // event on any change, from any page, any device (a squadmate's shared route, applied via
-  // applySquadronPayload below, shows up as a pendingShared entry the same way once the next poll
-  // picks it up — WPT's own ACCEPT/REJECT is what turns it into a real route). refreshNav
+  // loads its own copy of waypoints-store.js (f35.html), which listens for the SSE-pushed
+  // 'wpt-options-push' and fires this event on any change, from any page, any device (a squadmate's
+  // shared route is applied directly plugin-side, Squad.HandleData, and shows up as a pendingShared
+  // entry the same way — WPT's own ACCEPT/REJECT is what turns it into a real route). refreshNav
   // (not showPage) so it can't reload — and so can't lose the pan/zoom of — a MAP portal that's
   // already showing.
   //
-  // Also pushes the route data into the same slices/onSlice relay every other feed uses — only
-  // this shell polls /wpt-options now; each portal picks it up through the normal PAGE_FEEDS
-  // mechanism (map/wpt both list 'wpt-routes' above), including automatic catch-up on a freshly
-  // loaded portal via forwardToPage(), the same as every other slice.
+  // Also pushes the route data into the same slices/onSlice relay every other feed uses — each
+  // portal picks it up through the normal PAGE_FEEDS mechanism (map/wpt both list 'wpt-routes'
+  // above), including automatic catch-up on a freshly loaded portal via forwardToPage(), the same
+  // as every other slice.
   window.addEventListener('wptroutes:changed', function () {
     slices['wpt-routes'] = { mfd: true, type: 'wpt-routes', data: WaypointsStore.load() };
     livePortals().forEach(function (p) {
@@ -1087,34 +1078,6 @@
       if (p.page() === 'map') p.refreshNav();
     });
   });
-
-  // Squadron payloads (docs/squadron-transport.md) are applied HERE, in the shell, rather than in
-  // the page that owns the feature: a route shared while WPT isn't open must still arrive, and the
-  // shell is the one document that is always loaded. Importing runs the same wpt.import command
-  // WPT's own import panel uses; RouteStore.ImportRoute makes it active plugin-side, and the
-  // 'wptroutes:changed' listener above already forwards the fresh route list to every live portal
-  // once the next poll picks it up — no squadron-specific refresh plumbing needed beyond issuing
-  // the command.
-  function applySquadronPayload(payloadType, payload) {
-    if (payloadType === 'wpt.route') {
-      // receiveShared, not importRoute — a squad share needs the ACCEPT/REJECT step (WPT page)
-      // before it becomes a real route; see RouteStore.cs's own header comment on this group.
-      WaypointsStore.receiveShared(payload);
-    } else if (payloadType === 'wpt.route-deleted') {
-      // The leader deleted a route this pilot had pending or already accepted (RouteStore.cs's
-      // BroadcastDeleteIfShared) — payload is the bare route id, nothing left to send but that.
-      WaypointsStore.receiveDeleted(payload);
-    } else if (payloadType === 'td.designate') {
-      // Target Designator (issue #47, docs/target-designator.md) — the leader's DESIGNATE push for
-      // this pilot specifically. TdStore.cs replaces its designated-target table wholesale; TD has
-      // no polling of its own (squad/TD lifecycle audit, finding B1's own reasoning applies here
-      // too), so an already-open TD page needs this same reactive nudge or it never learns the list
-      // changed.
-      sendCommand('td.receive-designation', { text: payload }).catch(function () {});
-      nudgeTdPage('td-designation-received');
-    }
-    // else: unknown type — ignore, don't guess (versioned wire)
-  }
 
   // ── Master strip ───────────────────────────────────────────────────────────────────────
   // Fixed chrome across the top (docs/layouts.md). It holds no page and no NAV, so it isn't a
@@ -1376,15 +1339,8 @@
   // extensions into NAV.ext / NAV[<id>]. Fire-and-forget at boot; also re-run every time EXT is
   // clicked (dispatch's 'ext' case) to pick up an extension that registered after this tab loaded.
   ExtNav.load(NAV);
-  // TD nav discovery (issue #47, docs/target-designator.md) — polls /squad and keeps NAV.tgt's TD
-  // entry in sync with live squad membership.
+  // TD nav discovery (issue #47, docs/target-designator.md) — rides the relayed 'sqd-state' push
+  // and keeps NAV.tgt's TD entry in sync with live squad membership.
   TdNav.start(NAV);
-  // Squad/TD lifecycle audit follow-up, finding B1 — see mfd.js's own copy of this listener for the
-  // full reasoning. Forwarded to whichever portal is actually showing 'td', same routing
-  // 'td-designated' already uses.
-  function nudgeTdPage(type) {
-    livePortals().forEach(function (p) { if (p.page() === 'td') p.frameWin().postMessage({ mfd: true, type: type }, '*'); });
-  }
-  window.addEventListener('td-squad-ended', function () { nudgeTdPage('td-squad-ended'); });
   buildGlass();
 })();

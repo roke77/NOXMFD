@@ -9,16 +9,16 @@ roster.
 
 **CREATE SQUAD** swaps in a callsign picker and a flight-number picker (1-9) — pick both and
 confirm to become the leader. Callsigns are a fixed list of real military callsigns, not free
-text. The flight number is set once here and can't be changed later; **EDIT** on an existing
-squad's title lets the leader change the callsign only.
+text. **EDIT** on an existing squad's title lets the leader change both the callsign and the
+flight number later — re-numbering the flight immediately updates every member's own designation.
 
 ## Roster
 
 Members render as a table: each pilot's callsign designation, their Steam display name, and their
 current aircraft (blank when not flying one). A designation reads `CALLSIGN FLIGHT-MEMBER` — e.g.
-`TALON 1-2` — where FLIGHT is the squad's fixed flight number and MEMBER is join order (the leader
-is always 1). The leader's row carries a LEADER badge; on every other row the leader sees a star
-(promote) and an × (kick). Your own row is highlighted.
+`TALON 1-2` — where FLIGHT is the squad's current flight number and MEMBER is join order (the
+leader is always 1). The leader's row carries a LEADER badge; on every other row the leader sees a
+star (promote) and an × (kick). Your own row is highlighted.
 
 **INVITE** picks from faction-mates in the current match who are also running NOXMFD.
 

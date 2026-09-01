@@ -112,6 +112,9 @@ callsignSet.onclick = function () {
 // the fresh image request was in flight, then collapse again the instant it failed) — a type is
 // now only ever probed once per page load; a known result renders synchronously, no flash.
 const iconStatus = {};   // type -> 'pending' | 'ok' | 'none'
+// Bumped whenever a type resolves — renderSquad's row-rebuild signature includes this, since an
+// icon resolving is a real reason to redraw even though nothing in `state`/`players` changed.
+let iconStatusVersion = 0;
 
 function getIconStatus(type) {
   if (!type) return null;
@@ -122,10 +125,11 @@ function getIconStatus(type) {
     // 1×1 = the server's "no icon" sentinel (real plugin only, not this static preview harness,
     // which 404s outright instead) — treat the same as a load failure: nothing worth drawing.
     iconStatus[type] = (img.naturalWidth <= 1 && img.naturalHeight <= 1) ? 'none' : 'ok';
+    iconStatusVersion++;
     render();   // now that the type is resolved, re-render so it shows without waiting for the
                  // next 1s poll (state hasn't changed, but iconStatus has)
   };
-  img.onerror = function () { iconStatus[type] = 'none'; render(); };
+  img.onerror = function () { iconStatus[type] = 'none'; iconStatusVersion++; render(); };
   img.src = '/icon?type=' + encodeURIComponent(type);
   return 'pending';
 }
@@ -238,10 +242,19 @@ function renderInviteCards(invites) {
 // prompt above instead. Never disabled the way the create button is: a leader can never have an
 // undecided incoming invite of their own (HandleInvite refuses one while already in a squad), so
 // there's no state where this button would be visible but blocked.
+// Memoized by content signature — refreshPlayers() calls render() every 2s regardless of whether
+// the roster actually changed (no SSE equivalent for /server-players), so without this every one of
+// those ticks would tear down and rebuild every row for nothing.
+let lastRosterSig = null;
 function renderRoster(showInvite) {
-  rosterRows.innerHTML = '';
   const invited = {};
   if (state.role === 'leader') state.pendingSent.forEach(function (p) { invited[p.id] = true; });
+  const sig = showInvite + '|' + players.map(function (p) {
+    return p.id + ':' + (p.name || '') + ':' + (invited[p.id] ? 1 : 0);
+  }).join(',');
+  if (sig === lastRosterSig) return;
+  lastRosterSig = sig;
+  rosterRows.innerHTML = '';
   players.forEach(function (p) {
     if (invited[p.id]) return;   // already invited — don't offer it twice
     const row = document.createElement('div');
@@ -328,8 +341,11 @@ function addSquadRow(number, name, aircraft, isLeaderRow, isSelf, memberId) {
   squadRows.appendChild(row);
 }
 
+// Memoized by content signature, same reasoning as lastRosterSig above — renderSquad() runs on
+// every render() call (including the 2s /server-players poll, which never touches squad state at
+// all), so without this the row table would tear down and rebuild for nothing on every one of them.
+let lastSquadRowsSig = null;
 function renderSquad() {
-  squadRows.innerHTML = '';
   const isLeader = state.role === 'leader';
 
   // The callsign itself in --no-squad (theme.css, the same token WPT's SQD label and this row
@@ -357,6 +373,12 @@ function renderSquad() {
   // members[0] becomes 2, members[1] becomes 3, and so on.
   const leaderName = isLeader ? (state.selfName || '—') : (state.leaderName || state.leaderId);
   const leaderAircraft = isLeader ? state.selfAircraft : state.leaderAircraft;
+  const rowsSig = isLeader + '|' + leaderName + '|' + leaderAircraft + '|' + state.self + '|' + iconStatusVersion + '|' +
+    state.members.map(function (m) { return m.id + ':' + (m.name || '') + ':' + (m.aircraft || ''); }).join(',');
+  if (rowsSig === lastSquadRowsSig) return;
+  lastSquadRowsSig = rowsSig;
+  squadRows.innerHTML = '';
+
   addSquadRow(1, leaderName, leaderAircraft, true, isLeader, null);
 
   state.members.forEach(function (m, i) {

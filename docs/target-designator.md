@@ -33,7 +33,6 @@ Every TD command reuses an existing `CommandEnvelope` field — no new ones were
 | `td.assign` | `index` (slot), `on` (retain) | Leader: toggle every selected target's membership in that slot, then clear selection unless `on` (a long-press — see below). |
 | `td.clear` | — | Leader: wipe selection + assignments. |
 | `td.designate` | `peer`, `text` | Leader: `Squad.SendDataTo(peer, "td.designate", text)` — one call per member with 1+ assigned targets. |
-| `td.receive-designation` | `text` | Member: replace the designated-target table wholesale. |
 | `td.member-clear` | — | Member: empty the designated-target table. |
 | `td.acquire-all` | — | Member: select every designated target in-game. |
 
@@ -95,10 +94,14 @@ Two small pieces close the loop back to TGT (issue #47 follow-up):
 
 `Squad.SendDataTo(memberId, type, payload)` is a single-recipient sibling of the existing
 `Squad.SendData` (which broadcasts to every member) — same envelope, `Squadron.SendTo` instead of
-`SendToAll`. On the receiving end, the payload arrives exactly like a `wpt.route` share: the
-shell's `squadron` SSE listener (`telemetry-source.js`) forwards it up, and `applySquadronPayload`
-(`mfd.js`/`f35.js`) POSTs `td.receive-designation` — the same pattern `wpt.receive-shared` already
-uses for waypoint routes.
+`SendToAll`. On the receiving end, `Squad.HandleData` applies a `td.designate` payload directly —
+`TdStore.ReceiveDesignation(payload)` — the instant the Steam message arrives, on the same
+main-thread `Drain()` call that received it; no browser round trip is involved. `TdStore.StateJson`
+changing is what the member actually sees: `SseHub.cs`'s per-connection loop change-gates on it and
+pushes an `event: td-state`, which every connected display picks up as `'td-state-push'`
+(`telemetry-source.js` → shell → `td.js`) and applies straight away. See
+docs/sse-push-refactor.md and the "silently sending nothing" section below for why applying this in
+the plugin (rather than deferring it to whichever browser tab happened to be open) matters.
 
 ## Squad-slot numbering
 
@@ -141,20 +144,17 @@ starts a new mission, found several gaps specific to TD:
   every slot above it down by one.
 - **Reacting to a disband while TD is already open.** TD deliberately has no polling of its own
   (see "A static table, on purpose" above) — a squad ending while the page sits open had no way to
-  reach it. Rather than add a poll (which would reintroduce exactly the churn this page was rebuilt
-  to remove), `td-nav.js`'s *existing* 2s `/squad` poll (needed anyway for the TGT nav row above)
-  now also detects the true->false "was in a squad, now isn't" edge and dispatches a plain
-  `td-squad-ended` window event; `mfd.js`/`f35.js` forward it to whichever pane/frame is actually
-  showing `'td'`, and `td.js` reacts by re-running the exact `refreshSquad()`/`refreshTd()` calls its
-  own REFRESH button already uses — a one-shot reactive catch-up, not a new timer.
+  reach it. First fixed with a one-shot `td-squad-ended` window event, piggybacked on `td-nav.js`'s
+  then-existing 2s `/squad` poll. **Superseded** by docs/sse-push-refactor.md: `td.js` now listens
+  for the SSE-pushed `'sqd-state'` message directly (same push every squad-aware page rides), so
+  this reaches an open TD page at least as fast and without a poll of any kind, and the
+  `td-squad-ended` event/nudge was removed as redundant.
 - **Reacting to a fresh designation while TD is already open.** The same gap existed the other
-  direction: `applySquadronPayload`'s `td.designate` branch fires `td.receive-designation` so
-  `TdStore.cs` updates plugin-side, but with no polling of its own an already-open member view had
-  no way to learn the fetch it needs (`/td-state`) had anything new to show — nothing until a manual
-  REFRESH. Fixed the same way as the disband case: the shell posts a `td-designation-received`
-  message to whichever pane/frame shows `'td'` right after issuing `td.receive-designation`, and
-  `td.js` reacts with a one-shot `refreshTd()` — no poll, just an immediate nudge tied to the actual
-  event instead of an edge detected by someone else's timer.
+  direction — nothing told an open member view that `/td-state` had anything new. First fixed with a
+  `td-designation-received` nudge posted right after the plugin applied the incoming payload.
+  **Superseded** by the same push: `td.js` listens for `'td-state-push'` directly, which also fixes
+  a deeper problem the nudge itself had — it could race the plugin's own command queue and land
+  before a designation was actually applied. See docs/sse-push-refactor.md.
 - **Mission-boundary cleanup elsewhere** (not TD-specific, but found by the same audit): `Squad.cs`'s
   `ResetToNone()` now also clears `RouteStore`'s shared-route locks (previously missing from
   `RelinquishLeadership`/`Disband`/a leader leaving alone) and the leader's own `_notice` (so a

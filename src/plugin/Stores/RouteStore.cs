@@ -129,7 +129,12 @@ namespace NOXMFD
                     Id        = d.TryGetValue("id", out object? id) ? (id as string ?? string.Empty) : string.Empty,
                     Name      = d.TryGetValue("name", out object? nm) ? (nm as string ?? string.Empty) : string.Empty,
                     NextIndex = d.TryGetValue("nextIndex", out object? ni) && ni is double nid ? (int)nid : 0,
-                    SharedBy  = d.TryGetValue("sharedBy", out object? sb) ? (sb as string ?? string.Empty) : string.Empty,
+                    // SharedBy is NOT restored from disk (see Route.SharedBy's own header comment —
+                    // session-only by design) even though older files may still carry the field: a
+                    // route that was locked read-only when the game last closed must come back
+                    // editable after a restart, since the squad session that justified the lock is
+                    // long gone by then and would otherwise never get the chance to clear it
+                    // (OnSquadEnded only runs while the plugin is actually live).
                 };
                 if (d.TryGetValue("waypoints", out object? wps) && wps is List<object?> wlist)
                 {
@@ -202,9 +207,14 @@ namespace NOXMFD
                 Route r = _routes[i];
                 sb.Append("{\"id\":\"").Append(JsonLite.EscapeJson(r.Id))
                   .Append("\",\"name\":\"").Append(JsonLite.EscapeJson(r.Name))
-                  .Append("\",\"nextIndex\":").Append(r.NextIndex)
-                  .Append(",\"sharedBy\":\"").Append(JsonLite.EscapeJson(r.SharedBy)).Append('"');
-                if (served) sb.Append(",\"sharedWithSquad\":").Append(r.SharedWithSquad ? "true" : "false");
+                  .Append("\",\"nextIndex\":").Append(r.NextIndex);
+                // sharedBy/sharedWithSquad: served-view only, never persisted — both are session-only
+                // by design (Route's own field comments), so a game restart must not restore either.
+                if (served)
+                {
+                    sb.Append(",\"sharedBy\":\"").Append(JsonLite.EscapeJson(r.SharedBy)).Append('"');
+                    sb.Append(",\"sharedWithSquad\":").Append(r.SharedWithSquad ? "true" : "false");
+                }
                 sb.Append(",\"waypoints\":[");
                 for (int j = 0; j < r.Waypoints.Count; j++)
                 {
@@ -289,6 +299,12 @@ namespace NOXMFD
 
         public static void ClearRoutes()
         {
+            // Tombstone every route this pilot had shared before wiping it — same reasoning
+            // DeleteRoute's own BroadcastDeleteIfShared already applies to one route at a time; a
+            // bulk clear must not skip that just because it drops the whole list in one call, or a
+            // member's accepted copy of any of them would sit stale forever with no way to learn it
+            // was removed.
+            foreach (Route r in _routes) BroadcastDeleteIfShared(r);
             _routes.Clear();
             _activeRouteId = null;
             Save();
@@ -370,6 +386,17 @@ namespace NOXMFD
             Route? accepted = _routes.Find(r => r.Id == id);
             if (accepted != null)
             {
+                // A route with this id that is no longer IsShared isn't a re-share of an accepted
+                // copy — it's this pilot's OWN content now (OnSquadEnded unlocked it after the squad
+                // that first shared it ended), possibly edited since. Matching on id alone would let
+                // rejoining that same leader silently overwrite those local edits the moment they
+                // re-share their own still-identical-id route. Drop it instead — the pilot already
+                // owns this content and didn't ask to replace it.
+                if (!accepted.IsShared)
+                {
+                    LogWarning?.Invoke($"[NOXMFD] squad share for route {id} ignored: already exists locally, unlocked.");
+                    return false;
+                }
                 UpdateSharedRoute(accepted, routeName, waypoints);
                 Save();
                 return true;
@@ -506,6 +533,12 @@ namespace NOXMFD
             foreach (Route r in _routes)
             {
                 if (r.SharedBy.Length > 0) { r.SharedBy = string.Empty; changed = true; }
+                // Same "this session's relationship is over" reasoning as SharedBy above, for the
+                // OUTGOING half: without clearing this, editing the route after joining a LATER,
+                // completely different squad would auto-broadcast it there (BroadcastIfShared) even
+                // though Share was never pressed for that squad — SharedWithSquad only ever means
+                // "the squad I first shared this with," not "always keep sharing this."
+                if (r.SharedWithSquad) { r.SharedWithSquad = false; changed = true; }
             }
             if (changed) Save();
         }

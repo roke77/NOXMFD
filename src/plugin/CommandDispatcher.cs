@@ -137,7 +137,6 @@ namespace NOXMFD
                 { "td.assign",              e => { if (Squad.IsLeader) TdStore.Assign(e.index, e.on); } },
                 { "td.clear",               e => { if (Squad.IsLeader) TdStore.ClearOwn(); } },
                 { "td.designate",           TdDesignate },
-                { "td.receive-designation", e => TdStore.ReceiveDesignation(e.text) },
                 { "td.member-clear",        e => TdStore.ClearDesignated() },
                 { "td.acquire-all",         e => TdAcquireAll() },
                 // TGP page's TGT/MAN and CLR/IR button pairs (docs/tgp-manual-control.md's NAV
@@ -211,12 +210,11 @@ namespace NOXMFD
                 // Squad share (docs/squadron-transport.md) — see RouteStore.cs's own header comment
                 // on this group for why it's a separate path from wpt.import. `e.bind` carries the
                 // shared route's id for accept/reject (same field wpt.set-active/wpt.delete use for
-                // an ordinary route id).
-                { "wpt.receive-shared",   e => LogWpt("receive-shared", RouteStore.ReceiveSharedRoute(e.text, Squad.LeaderName)) },
+                // an ordinary route id). Receiving/removing a shared route (Squad.HandleData applying
+                // an incoming wpt.route/wpt.route-deleted payload directly) is NOT a browser command
+                // — only the pilot's own ACCEPT/REJECT decision on an already-pending share is.
                 { "wpt.accept-shared",    e => LogWpt("accept-shared",  RouteStore.AcceptShared(e.bind)) },
                 { "wpt.reject-shared",    e => LogWpt("reject-shared",  RouteStore.RejectShared(e.bind)) },
-                // The leader deleted a route this pilot had pending or accepted (BroadcastDeleteIfShared).
-                { "wpt.remove-shared",    e => LogWpt("remove-shared",  RouteStore.RemoveSharedRoute(e.bind)) },
                 // WPT's share button. Marks the route auto-resharing (RouteStore's own mutators push
                 // a fresh copy after any future edit) and sends the first copy now.
                 { "wpt.share",            e => LogWpt("share",          RouteStore.ShareRoute(e.bind)) },
@@ -705,7 +703,7 @@ namespace NOXMFD
             bool sent = Squad.SendDataTo(p, "td.designate", e.text ?? "[]");
             Plugin.Log?.LogInfo(sent
                 ? $"[NOXMFD] td.designate → {p}: sent {count} target(s)."
-                : $"[NOXMFD] td.designate → {p}: not sent — peer is not a current squad member.");
+                : $"[NOXMFD] td.designate → {p}: not sent — not a current squad member, or the Steam send itself failed.");
         }
 
         // LASER toggle — keep only lased targets when on.
