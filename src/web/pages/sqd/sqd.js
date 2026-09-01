@@ -364,17 +364,19 @@ function renderSquad() {
   });
 }
 
+// `s` is /squad's own {ready, state} shape — identical whether it came from the one-time bootstrap
+// fetch below or a later shell-forwarded 'sqd-state' push (SseHub.cs wraps both the same way on
+// purpose, docs/sse-push-refactor.md).
+function applySquad(s) {
+  if (!s) return;
+  unavailableEl.style.display = s.ready ? 'none' : '';
+  if (!s.ready) return;
+  state = s.state;
+  render();
+}
+
 function refreshSquad() {
-  return fetch('/squad')
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (s) {
-      if (!s) return;
-      unavailableEl.style.display = s.ready ? 'none' : '';
-      if (!s.ready) return;
-      state = s.state;
-      render();
-    })
-    .catch(function () {});
+  return fetch('/squad').then(function (r) { return r.ok ? r.json() : null; }).then(applySquad).catch(function () {});
 }
 
 function refreshPlayers() {
@@ -388,9 +390,21 @@ function refreshPlayers() {
     .catch(function () {});
 }
 
+// One-time bootstrap fetch — covers the brief gap before the shell's first 'sqd-state' push arrives
+// (docs/sse-push-refactor.md), and standalone/preview contexts with no shell at all (this page is
+// polled directly there, same as before). Every update after this rides the push instead of a
+// recurring poll — no shell relay was needed before because a plain 1s poll was "simple and plenty
+// for a UI that isn't latency-sensitive" (sqd.html's own header comment), but the relay now exists
+// for TGT/TD/WPT's own squad-state needs, so reusing it here is no longer extra machinery, just an
+// extra listener.
 refreshSquad();
+window.addEventListener('message', function (e) {
+  const m = e.data;
+  if (!m || m.mfd !== true || m.type !== 'sqd-state') return;
+  applySquad(m.data);
+});
+// No SSE equivalent for /server-players (who's currently in the match) — a light 2s poll remains.
 refreshPlayers();
-setInterval(refreshSquad, 1000);
 setInterval(refreshPlayers, 2000);
 
 // ── PAD cursor (docs/page-cursor.md) ──────────────────────────────────────────────────

@@ -105,6 +105,11 @@ namespace NOXMFD
                 // cursor above — role/leader/members/pending/notice is a snapshot, not a queue, so a
                 // display only needs the newest one, not every intermediate value.
                 string lastSquad = string.Empty;
+                // TD state / waypoint route library: same latest-value-wins reasoning as lastSquad
+                // above — both are already volatile snapshot strings (TdStore.StateJson/RouteStore.
+                // RoutesJson), not queues.
+                string lastTd = string.Empty;
+                string lastWpt = string.Empty;
                 // Leader-shared data payloads (wpt.route, ...) ARE a queue, not a snapshot: per-
                 // connection cursor into Squad's data inbox, starting at whatever has already
                 // arrived so a display that opens mid-session doesn't replay the backlog. Each
@@ -133,13 +138,40 @@ namespace NOXMFD
 
                     // Squad state, sent on its own event rather than inside the telemetry frame so a
                     // role/roster/invite change arrives as soon as it lands instead of waiting for
-                    // the next 10 Hz tick — the same reasoning the cursor event uses.
-                    string squadState = Squad.StateJson;
+                    // the next 10 Hz tick — the same reasoning the cursor event uses. Wrapped in the
+                    // same {ready, state} shape SquadEndpoint.ServeSquad's GET /squad already uses —
+                    // ready (Squadron.Ready) doesn't change mid-session, but shipping the identical
+                    // shape here means a client can point the exact same parsing code at either one
+                    // (docs/sse-push-refactor.md), no special-casing the push vs. the initial fetch.
+                    string squadState = "{\"ready\":" + (Squadron.Ready ? "true" : "false") + ",\"state\":" + Squad.StateJson + "}";
                     if (!string.Equals(squadState, lastSquad, StringComparison.Ordinal))
                     {
                         lastSquad = squadState;
                         byte[] qbytes = Encoding.UTF8.GetBytes("event: sqd\ndata: " + squadState + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(qbytes, 0, qbytes.Length, ct).ConfigureAwait(false);
+                    }
+
+                    // Target Designator state (docs/target-designator.md) — same "own event, change-
+                    // gated, {ready,state}-wrapped" shape as squad state above. Lets TD, TGT's squad
+                    // column, and SQD's own page all drop their independent /td-state polling in
+                    // favor of this single push (docs/sse-push-refactor.md), same connection every
+                    // page already keeps open.
+                    string tdState = "{\"ready\":" + (Squadron.Ready ? "true" : "false") + ",\"state\":" + TdStore.StateJson + "}";
+                    if (!string.Equals(tdState, lastTd, StringComparison.Ordinal))
+                    {
+                        lastTd = tdState;
+                        byte[] tbytes = Encoding.UTF8.GetBytes("event: td-state\ndata: " + tdState + "\n\n");
+                        await ctx.Response.OutputStream.WriteAsync(tbytes, 0, tbytes.Length, ct).ConfigureAwait(false);
+                    }
+
+                    // Waypoint route library (docs/hud-waypoint-indicator.md) — same shape again.
+                    // Replaces WPT's own 1.2s /wpt-options poll (docs/sse-push-refactor.md).
+                    string wptOptions = RouteStore.RoutesJson;
+                    if (!string.Equals(wptOptions, lastWpt, StringComparison.Ordinal))
+                    {
+                        lastWpt = wptOptions;
+                        byte[] wbytes = Encoding.UTF8.GetBytes("event: wpt-options\ndata: " + wptOptions + "\n\n");
+                        await ctx.Response.OutputStream.WriteAsync(wbytes, 0, wbytes.Length, ct).ConfigureAwait(false);
                     }
 
                     // Leader-shared data payloads, one named event each.

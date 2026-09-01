@@ -1,0 +1,122 @@
+# Squad/TD/WPT: SSE push instead of per-page polling
+
+## Goal
+
+SQD, WPT, TGT's leader-only TD column, and `td-nav.js`'s own "is this pilot in a squad" check each
+independently polled `GET /squad` on their own timer (1-2s); TGT and `td-nav.js` also each polled
+`GET /td-state`; `waypoints-store.js`'s top-window instance polled `GET /wpt-options` every 1.2s.
+Four-plus independent HTTP round trips a second for data that changes rarely, when the plugin
+already computes and change-gates all three as `volatile` snapshot strings (`Squad.StateJson`,
+`TdStore.StateJson`, `RouteStore.RoutesJson`) the exact same way `Squadron`'s own shared-data
+payloads do.
+
+The fix: push all three over the SSE `/stream` connection every browser tab already keeps open for
+telemetry (`SseHub.cs`), the same way squad-shared payloads (`event: squadron`) already work.
+Nothing here changes the underlying *feature* — same commands, same server state — only how a
+browser learns the state changed.
+
+## Server: `SseHub.cs`
+
+Three new named events, each change-gated per connection exactly like the existing `event: sqd`
+squad-state push already was (added earlier, but never consumed):
+
+- `event: sqd` — `{"ready":<bool>,"state":<Squad.StateJson>}`, same wrapper shape `GET /squad`
+  already returns (`SquadEndpoint.ServeSquad`), so a client's parsing code doesn't need to
+  special-case the push vs. its own initial fetch.
+- `event: td-state` — same shape, wrapping `TdStore.StateJson`.
+- `event: wpt-options` — bare `RouteStore.RoutesJson`, unwrapped — matches `GET /wpt-options`
+  exactly (`ConfigEndpoint`'s handler serves that string as-is, no `{ready,state}` wrapper).
+
+Each has its own per-connection `lastX` cursor (`lastSquad`/`lastTd`/`lastWpt`), same
+latest-value-wins comparison the existing cursor/sqd events use — a snapshot, not a queue, so a
+display only needs the newest value, not every intermediate one.
+
+## Browser: `telemetry-source.js` → shell → page
+
+`telemetry-source.js` (the one `EventSource('/stream')` connection, always alive in MAP's
+always-loaded tap iframe/mapFrame regardless of which page is visible) relays all three straight up
+via `postMessage`, same "this tap only relays, never interprets" reasoning `squadron` already
+follows:
+
+- `sqd` → `{type: 'sqd-state', data: {ready, state}}`
+- `td-state` → `{type: 'td-state-push', data: {ready, state}}`
+- `wpt-options` → `{type: 'wpt-options-push', data: <routes>}`
+
+The shell then fans each out to whichever page/pane actually needs it:
+
+- **Classic shell (`mfd.js`)** — new `sqdStateData`/`tdStateData` caches (mirroring every other
+  `xData` cache already there), and `forwardSqdStateToFrame/Panes`/`forwardTdStateToFrame/Panes`
+  helpers. Unlike the existing `forward*ToPanes(page, payload)` helpers (single page), these fan out
+  to every page that needs it — `SQD_STATE_PAGES = ['sqd','wpt','tgt','td']`,
+  `TD_STATE_PAGES = ['tgt','td']` — since squad state has more than one consumer at once. Both the
+  pane-load and full-view-frame-load handlers push whatever's cached the moment a relevant page
+  loads, same "the page may have been mid-update when its iframe started loading" reasoning every
+  other page-load catch-up here already has.
+- **F-35 shell (`f35.js`)** — no new machinery needed at all: `sqd-state`/`td-state-push` aren't
+  specially handled anywhere in the message dispatcher, so they fall straight through to the
+  existing generic `slices[m.type] = m; livePortals().forEach(p => p.onSlice(m.type))` path (the
+  exact one `targets`/`rwr`/`tgp`/etc. already use). Adding `'sqd-state'`/`'td-state-push'` to the
+  relevant `PAGE_FEEDS[page]` entries is the entire change — the generic `forwardToPage()`/
+  `forwardSlice()` machinery already replays cached slices to a freshly-loaded portal for free.
+
+`wpt-options-push` needed no shell-side forwarding logic at all in either shell:
+`waypoints-store.js` is loaded directly into the shell's own top document (`mfd.html`/`f35.html`,
+not a page iframe), so it can listen for the message directly on `window` — no relay hop needed.
+Its existing `wptroutes:changed` → `forwardWptRoutesToPanes/Frame/Map` chain (built for WPT/MAP's
+own route-library sync) is completely unchanged; only what *feeds* it changed.
+
+## Consumers
+
+Every consumer keeps exactly one **bootstrap fetch** on load — covering the brief gap before the
+first push arrives, and standalone/preview contexts with no shell/telemetry-source at all (a direct
+`/wpt` or `/map-view` route in `serve_web.py`, which has no MAP tap running to relay anything) — then
+switches entirely to a `window.addEventListener('message', ...)` listener for updates. No consumer
+runs a recurring `setInterval` for this data anymore:
+
+- **`sqd.js`** — `applySquad(s)` extracted from the old `refreshSquad().then()`; one bootstrap
+  `fetch('/squad')`, then a `'sqd-state'` listener. `GET /server-players` (who's in the match right
+  now) has no SSE equivalent and keeps its own light 2s poll.
+- **`wpt.js`** — same `applySquad(s)` extraction for its pending-share-button gate.
+- **`tgt.js`** — `applySquad`/`applyTdState`, one bootstrap fetch each, for the leader-only TD
+  column.
+- **`td-nav.js`** — `apply(NAV, s)` extracted from the old `poll(NAV)`; runs in the shell's own top
+  document (like `waypoints-store.js`), so it listens directly with no relay hop.
+- **`waypoints-store.js`** — the top window's `setInterval(poll, 1200)` is gone; one `poll()` at
+  load, then a `'wpt-options-push'` listener. Every embedded (non-top) instance was already
+  push-based via the pre-existing `wpt-routes-request`/`wpt-routes` handshake — untouched.
+
+`td.js` itself is deliberately **unchanged** — it already fetches only on load/REFRESH/an explicit
+nudge (`docs/target-designator.md`'s "A static table, on purpose"), which is a one-shot, event- or
+user-triggered GET, not a recurring poll. That was already the end state this refactor is aiming
+every other page toward, so there was nothing to convert.
+
+## Harness (`tools/preview-mock.js`)
+
+The mock's `MockEventSource` had no `sqd`/`td-state`/`wpt-options` events at all — SQD/WPT/TGT/TD
+testing in `serve_web.py` worked only because those pages fetched their REST endpoints directly.
+Added a `pushTick()` that polls the mock's own `/squad`/`/td-state`/`/wpt-options` REST endpoints
+and fires the matching SSE event on a diff — invisible to the page code under test, which only ever
+listens for the fired events, same "harness fakes it, real plugin computes it" split every other
+synthetic bit here already keeps.
+
+**ponytail**: 1.5s cadence, not faster — `serve_web.py`'s plain `http.server` opens a fresh TCP
+connection per `fetch()` with no keep-alive, and each sits in Windows' TIME_WAIT for ~2 minutes
+afterward; a tighter interval across a long testing session exhausts the local ephemeral port range
+(`ERR_NO_BUFFER_SPACE`) even though the real plugin's persistent SSE connection has no such cost at
+all. Upgrade path if this still isn't gentle enough for a long session: switch `serve_web.py` to
+real HTTP keep-alive, or lengthen this further.
+
+## Verification
+
+`dotnet build` (0 errors), `dotnet test` (212/212, unchanged — this refactor has no plugin-side
+logic beyond the three new SSE emits, which are string-comparison based like the existing `sqd`
+event they extend). Full `*.test.js` suite green, including `sse-event-coverage.test.js` — extended
+from checking one hardcoded event name to scanning every `"event: <name>\n"` literal in `SseHub.cs`
+and asserting each has a matching `telemetry-source.js` listener, catching exactly the class of bug
+that shipped once already (server emits one name, client listens for another, and the data silently
+never arrives).
+
+Live-verified in the `serve_web.py` harness: with a `fetch` spy installed inside SQD's and TGT's
+iframes, issuing `sqd.create` via `POST /command` updated both pages' rendered state (full roster on
+SQD, `has-td-col` flipping true on TGT) with **zero** `/squad` or `/td-state` fetches recorded
+afterward — confirming the update came entirely from the relayed push, not a poll.

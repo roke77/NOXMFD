@@ -2,8 +2,8 @@
 // runtime based on live squad membership, the same shape ext-nav.js already uses for "a NAV entry
 // whose PRESENCE is discovered at runtime, not authored" (NAV.tgt's static baseline, nav-model.js,
 // is just the MAIN back-link). Unlike EXT, whose install set never changes after BepInEx boots, a
-// squad can be joined/left at any time, so this polls instead of scanning once — same 1s cadence
-// the rest of the squad UI already uses (SQD/TD pages). Like ext-nav.js's own documented limitation
+// squad can be joined/left at any time, so this reacts to the live squad-state push
+// (docs/sse-push-refactor.md) instead of scanning once. Like ext-nav.js's own documented limitation
 // (a newly-registered extension needs a later EXT click to appear), a freshly (dis)banded squad's
 // TD entry shows up the next time NAV.tgt is read (i.e. the next visit to TGT), not necessarily the
 // instant it changes.
@@ -32,23 +32,31 @@
   // way they already forward 'td-designated'. This is a one-shot reactive nudge, not a new poll
   // loop inside td.js — it triggers the exact same refreshSquad()/refreshTd() the REFRESH button
   // itself calls.
-  let wasInSquad = null;   // null = not yet known (first poll establishes a baseline, no event)
+  let wasInSquad = null;   // null = not yet known (first apply establishes a baseline, no event)
 
-  function poll(NAV) {
+  // `s` is /squad's own {ready, state} shape — identical whether it came from the one-time bootstrap
+  // fetch below or a later 'sqd-state' push (SseHub.cs wraps both the same way on purpose).
+  function apply(NAV, s) {
     if (!tgtBase) tgtBase = NAV.tgt.slice();
-    return fetch('/squad').then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (s) {
-        const inSquad = !!(s && s.ready && s.state && s.state.role !== 'none');
-        NAV.tgt = buildTgtNavPlan(tgtBase, inSquad);
-        if (wasInSquad === true && !inSquad) window.dispatchEvent(new CustomEvent('td-squad-ended'));
-        wasInSquad = inSquad;
-      })
-      .catch(function () { /* /squad unreachable — same as "no squad" */ });
+    const inSquad = !!(s && s.ready && s.state && s.state.role !== 'none');
+    NAV.tgt = buildTgtNavPlan(tgtBase, inSquad);
+    if (wasInSquad === true && !inSquad) window.dispatchEvent(new CustomEvent('td-squad-ended'));
+    wasInSquad = inSquad;
   }
 
-  function start(NAV, intervalMs) {
-    poll(NAV);
-    setInterval(function () { poll(NAV); }, intervalMs || 2000);
+  function start(NAV) {
+    if (!tgtBase) tgtBase = NAV.tgt.slice();
+    // One-time bootstrap fetch — covers the brief gap before the SSE-relayed 'sqd-state' push below
+    // arrives (docs/sse-push-refactor.md), and standalone/preview contexts with no shell/telemetry-
+    // source at all. Every update after this rides the push instead of a recurring poll.
+    fetch('/squad').then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (s) { apply(NAV, s); })
+      .catch(function () { /* /squad unreachable — same as "no squad" */ });
+    window.addEventListener('message', function (e) {
+      const m = e.data;
+      if (!m || m.mfd !== true || m.type !== 'sqd-state') return;
+      apply(NAV, m.data);
+    });
   }
 
   const api = { buildTgtNavPlan: buildTgtNavPlan, start: start };

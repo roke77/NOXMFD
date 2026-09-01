@@ -1,6 +1,6 @@
-// Run: `node td-nav.test.js`. Covers buildTgtNavPlan only — the pure core of td-nav.js. poll()'s
-// fetch + mutation glue is deliberately thin and untested here, same convention ext-nav.test.js
-// already uses for its own load()'s fetch glue.
+// Run: `node td-nav.test.js`. Covers buildTgtNavPlan only — the pure core of td-nav.js. apply()'s
+// fetch/message + mutation glue is deliberately thin and untested here, same convention
+// ext-nav.test.js already uses for its own load()'s fetch glue.
 const assert = require('assert');
 const { buildTgtNavPlan } = require('./td-nav.js');
 

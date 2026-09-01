@@ -424,19 +424,20 @@ window.addEventListener('wptroutes:changed', render);
 // ── Squad (docs/squadron-transport.md) ─────────────────────────────────────────────────
 // Squad membership/invites live on the dedicated SQD page — this page only needs to know whether
 // IT can share a route right now, i.e. whether we're the squad leader with at least one member.
-// A light 2s poll of /squad is enough for that (nothing here needs push latency), so this doesn't
-// need the shell-relay machinery WaypointsStore's route data uses for its much larger/hotter data.
+// Rides the shell's relayed 'sqd-state' push (docs/sse-push-refactor.md) — one bootstrap GET /squad
+// on load for the brief gap before the first push (and for standalone/preview contexts with no
+// shell), then just a message listener; no recurring poll of its own.
 const sqd = { role: 'none', members: [] };
 
+function applySquad(s) {
+  if (!s || !s.state) return;
+  sqd.role    = s.state.role || 'none';
+  sqd.members = Array.isArray(s.state.members) ? s.state.members : [];
+  render();   // the per-route share button appears/disappears with leadership + membership
+}
+
 function refreshSquad() {
-  return fetch('/squad')
-    .then(r => r.ok ? r.json() : null)
-    .then(function (s) {
-      if (!s || !s.state) return;
-      sqd.role    = s.state.role || 'none';
-      sqd.members = Array.isArray(s.state.members) ? s.state.members : [];
-      render();   // the per-route share button appears/disappears with leadership + membership
-    })
+  return fetch('/squad').then(r => r.ok ? r.json() : null).then(applySquad)
     .catch(function () { /* standalone/preview without the plugin — share stays hidden */ });
 }
 
@@ -458,5 +459,9 @@ function shareRoute(id, btn) {
 }
 
 refreshSquad();
-setInterval(refreshSquad, 2000);
+window.addEventListener('message', function (e) {
+  const m = e.data;
+  if (!m || m.mfd !== true || m.type !== 'sqd-state') return;
+  applySquad(m.data);
+});
 render();   // also paints the readout — see render()'s own comment

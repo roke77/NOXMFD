@@ -26,16 +26,34 @@
       if (changed && typeof window !== 'undefined') window.dispatchEvent(new Event('wptroutes:changed'));
     }).catch(function () { /* transient network error — next poll retries */ });
   }
-  // Only the TOP window runs the recurring poll — every document that loads this file (the shell,
-  // plus each open MAP/WPT iframe/pane) would otherwise run its own independent 1.2s loop,
+  // Only the TOP window talks to the plugin directly — every document that loads this file (the
+  // shell, plus each open MAP/WPT iframe/pane) would otherwise run its own independent poll,
   // multiplying requests and the redraws each one triggers by however many are open. An embedded
   // page instead asks its parent for the current cache once on load (the parent only pushes on real
   // changes, so a freshly loaded iframe needs to explicitly catch up) and then just listens —
   // poll() itself is still called directly by every mutator below for instant feedback on THIS
-  // document's own edits; only the recurring background loop is gated.
+  // document's own edits.
+  //
+  // The top window used to run its own recurring setInterval(poll, 1200) here for OTHER browsers'/
+  // devices' edits to show up; that's now the SSE-relayed 'wpt-options-push' message instead
+  // (docs/sse-push-refactor.md) — telemetry-source.js's one EventSource('/stream') connection
+  // (always alive in MAP's own always-loaded iframe) already carries this change-gated, so a second
+  // independent HTTP poll for the same data is pure waste. The one-time poll() below still runs so
+  // a document with no shell/telemetry-source at all (a standalone /wpt or /map-view preview) still
+  // shows something — it just won't see a later cross-device change without a reload, an accepted
+  // limitation of that dev-only path.
   const isTop = typeof window !== 'undefined' && window === window.top;
   if (isTop) {
-    poll(); setInterval(poll, 1200);   // same cadence as hud.js's /hud-options poll
+    poll();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('message', function (e) {
+        const m = e.data;
+        if (!m || m.mfd !== true || m.type !== 'wpt-options-push') return;
+        const changed = JSON.stringify(m.data) !== JSON.stringify(cache);
+        cache = m.data;
+        if (changed) window.dispatchEvent(new Event('wptroutes:changed'));
+      });
+    }
   } else if (typeof window !== 'undefined') {
     window.parent.postMessage({ mfd: true, type: 'wpt-routes-request' }, '*');
     window.addEventListener('message', function (e) {

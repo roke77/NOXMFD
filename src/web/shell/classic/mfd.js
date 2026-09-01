@@ -787,6 +787,22 @@ function forwardMwToPanes() { forwardToPanes('rwr', mwMsg()); }
 function tgtMsg() { return Object.assign({ mfd: true, type: 'tgt' }, tgtData); }
 function forwardTgtToFrame() { forwardToFrame(tgtMsg()); }
 function forwardTgtToPanes() { forwardToPanes('tgt', tgtMsg()); }
+
+// Squad state fans out to every page that needs it (docs/sse-push-refactor.md), unlike
+// forwardToPanes' single-page filter above — SQD (its own roster), WPT (per-route share button),
+// TGT (leader-only TD column), and TD (its own squad/td tables) all read it. `if (sqdStateData)`
+// guards every sender: skip forwarding a null cache rather than sending a page a bogus empty
+// snapshot before the first push has even arrived — that page's own bootstrap fetch covers the gap.
+const SQD_STATE_PAGES = ['sqd', 'wpt', 'tgt', 'td'];
+function sqdStateMsg() { return { mfd: true, type: 'sqd-state', data: sqdStateData }; }
+function forwardSqdStateToFrame() { if (sqdStateData) forwardToFrame(sqdStateMsg()); }
+function forwardSqdStateToPanes() { if (sqdStateData) SQD_STATE_PAGES.forEach(function (p) { forwardToPanes(p, sqdStateMsg()); }); }
+
+// Same shape, for TGT's leader-only TD column and TD's own tables.
+const TD_STATE_PAGES = ['tgt', 'td'];
+function tdStateMsg() { return { mfd: true, type: 'td-state-push', data: tdStateData }; }
+function forwardTdStateToFrame() { if (tdStateData) forwardToFrame(tdStateMsg()); }
+function forwardTdStateToPanes() { if (tdStateData) TD_STATE_PAGES.forEach(function (p) { forwardToPanes(p, tdStateMsg()); }); }
 // The TGT page shows the selected-target list under its filters (mirrored in targetsData).
 // No pagination — the page scrolls — so forward the whole list, to the frame and any TGT pane.
 function tgtTargetsMsg() {
@@ -1194,6 +1210,9 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'wpt')  forwardWptToPanes();
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
     else if (ExtNav.isExtensionPage(page)) forwardExtToPanes(page);
+    // Not mutually exclusive with the chain above — 'tgt' needs both its own catch-up AND these.
+    if (SQD_STATE_PAGES.indexOf(page) !== -1) forwardSqdStateToPanes();
+    if (TD_STATE_PAGES.indexOf(page) !== -1) forwardTdStateToPanes();
     // docs/page-cursor.md, docs/map-cursor.md: a fresh document means a fresh message listener, so
     // any earlier cursor-focus post (sent the moment this pane's src changed, before its script had
     // attached one) was silently dropped — a straight re-run of syncCursorFocus() wouldn't resend it
@@ -1225,6 +1244,9 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'akf') { forwardAkfToFrame(); }
   else if (currentPage === 'wpt') { forwardWptToFrame(); }
   else if (ExtNav.isExtensionPage(currentPage)) forwardExtToFrame(currentPage);
+  // Not mutually exclusive with the chain above — see the pane-load handler's own comment.
+  if (SQD_STATE_PAGES.indexOf(currentPage) !== -1) forwardSqdStateToFrame();
+  if (TD_STATE_PAGES.indexOf(currentPage) !== -1) forwardTdStateToFrame();
   // docs/page-cursor.md: full-view TGT/HUD render in the shared #page-frame, which reloads (fresh
   // document, fresh listener) on every navigation onto the page — same dropped-cursor-focus gap
   // the split-pane fix above closes, just for the full-view frame instead of a pane.
@@ -1439,6 +1461,14 @@ let hsdData = { metric: false, items: [], focusedTargetId: 0 };
 // Latest TGT filter state, mirrored from the map iframe's SSE feed. The shell keeps only this
 // state and forwards it to the frame; the page renders the toggles + POSTs the tgt.* commands.
 let tgtData = { present: false };
+
+// Squad roster/role state and Target Designator state (docs/sse-push-refactor.md), mirrored from
+// the map iframe's SSE feed — SQD/WPT/TGT/TD all used to poll /squad (and TGT/TD /td-state too)
+// independently; both now ride this single relayed push instead. null until the first push arrives
+// (the forwarders below skip a null cache rather than sending a page a bogus empty snapshot — a
+// freshly loaded page's own bootstrap fetch covers that brief gap instead, same as before).
+let sqdStateData = null;
+let tdStateData = null;
 
 // Latest BDF faction-forces state, mirrored from the map iframe's SSE feed (docs/bdf-page.md).
 // The shell keeps only this state and forwards it to the frame or the pane showing it.
@@ -1900,6 +1930,18 @@ window.addEventListener('message', function(e) {
     targetsData = { targets: Array.isArray(m.items) ? m.items : [], focusedTargetId: m.focusedTargetId || 0 };
     if ((currentPage === 'tgt' || currentPage === 'td') && !splitMode) forwardTgtTargetsToFrame();
     if (splitMode) { forwardTgtTargetsToPanes(); forwardToPanes('td', tgtTargetsMsg()); }
+  } else if (m.type === 'sqd-state') {
+    // Squad roster/role state (docs/sse-push-refactor.md) — replaces SQD/WPT/TGT/TD's own
+    // independent /squad polling with this one relayed push.
+    sqdStateData = m.data;
+    if (!splitMode && SQD_STATE_PAGES.indexOf(currentPage) !== -1) forwardSqdStateToFrame();
+    if (splitMode) forwardSqdStateToPanes();
+  } else if (m.type === 'td-state-push') {
+    // Target Designator state (docs/sse-push-refactor.md) — replaces TGT/TD's own independent
+    // /td-state polling with this one relayed push.
+    tdStateData = m.data;
+    if (!splitMode && TD_STATE_PAGES.indexOf(currentPage) !== -1) forwardTdStateToFrame();
+    if (splitMode) forwardTdStateToPanes();
   } else if (m.type === 'rwr') {
     // Mirror the radar-warning emitters (already nose-up plot data from ClientPage) for the RWR
     // scope, which renders in the #page-frame iframe (full) or a pane (split); forward it on.

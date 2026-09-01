@@ -1,6 +1,5 @@
-// Self-check that named SSE events the server emits from a squadmate's shared data
-// (SseHub.cs's /stream handler) match the event name telemetry-source.js actually
-// listens for. Run: `node sse-event-coverage.test.js`.
+// Self-check that every fixed-name SSE event the server emits (SseHub.cs's /stream handler) has a
+// matching es.addEventListener(...) in telemetry-source.js. Run: `node sse-event-coverage.test.js`.
 //
 // This is exactly the shape of bug that shipped once already: the server emitted
 // `event: sqd-data` while the client listened for `es.addEventListener('squadron', ...)` — an
@@ -15,16 +14,16 @@ const serverPath = path.join(__dirname, '..', '..', 'plugin', 'Http', 'SseHub.cs
 const serverSrc = fs.readFileSync(serverPath, 'utf8');
 const clientSrc = fs.readFileSync(path.join(__dirname, 'telemetry-source.js'), 'utf8');
 
-// The squad-data forward: `Squadron.SendData`'s payload arrives here as one SSE event per message,
-// built as a plain string literal (unlike the dynamic `"event: ext-" + kv.Key` extension events,
-// which have no single fixed name to check against a listener).
-const serverMatch = serverSrc.match(/Squad\.DataSince[\s\S]*?"event: ([a-zA-Z-]+)\\n/);
-assert.ok(serverMatch, 'could not find the squad-data SSE event literal in SseHub.cs — did that block move or get renamed?');
-const serverEvent = serverMatch[1];
+// Every `"event: <name>\n` FIXED string literal — excludes the one dynamic case
+// (`"event: ext-" + kv.Key`, a runtime-registered set of names with no single literal to check).
+const matches = [...serverSrc.matchAll(/"event: ([a-zA-Z-]+)\\n/g)];
+assert.ok(matches.length > 0, 'found no "event: <name>\\n" SSE literals in SseHub.cs — did the whole shape change?');
 
-const clientHasListener = clientSrc.includes(`addEventListener('${serverEvent}',`);
-assert.ok(clientHasListener,
-    `TelemetryServer.cs emits "event: ${serverEvent}" for squad-shared data, but telemetry-source.js ` +
-    `has no es.addEventListener('${serverEvent}', ...) — a shared route would silently never reach the shell`);
+const names = [...new Set(matches.map(m => m[1]))];
+const missing = names.filter(name => !clientSrc.includes(`addEventListener('${name}',`));
 
-console.log(`sse-event-coverage.test.js: OK (squad-data event "${serverEvent}" has a matching listener)`);
+assert.strictEqual(missing.length, 0,
+    `SseHub.cs emits ${missing.map(n => `"event: ${n}"`).join(', ')}, but telemetry-source.js has no ` +
+    `matching es.addEventListener(...) — that data would silently never reach the shell`);
+
+console.log(`sse-event-coverage.test.js: OK (${names.length} SSE events all have a matching listener: ${names.join(', ')})`);

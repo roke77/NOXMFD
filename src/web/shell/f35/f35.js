@@ -67,8 +67,9 @@
     avn: ['avn'],
     afm: ['avn'],   // AFM shares AVN's snapshot (name/parts/failures/pylons) — see forwardSlice's afm case
     rwr: ['rwr', 'mw'],       // scope contacts + incoming-missile warnings
-    tgt: ['tgt', 'targets'],
-    td: ['targets'],   // Target Designator (issue #47) — mirrors TGT's own live target list
+    tgt: ['tgt', 'targets', 'sqd-state', 'td-state-push'],   // sqd/td-state: leader-only TD column
+    td: ['targets', 'sqd-state', 'td-state-push'],   // Target Designator (issue #47) — mirrors TGT's
+                                                      // own live target list, plus its own squad/td tables
     tgp: ['tgp'],
     wpn: ['loadout', 'cm'],   // 'loadout' is derived, not forwarded as-is — see DERIVED
     bdf: ['bdf'],             // read-only faction-forces block (docs/bdf-page.md)
@@ -78,9 +79,12 @@
     akf: ['akf'],             // kill-feed/session-stats block (docs/akf-page.md)
     rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
     hsd: ['hsd', 'mapinfo', 'rdr'],  // 360-degree datalink picture + FCR cone (docs/rdr-fcr-hsd.md)
-    wpt: ['mapinfo', 'wpt-routes'],   // waypoint readout + the route library itself
+    wpt: ['mapinfo', 'wpt-routes', 'sqd-state'],   // waypoint readout + route library + share-button gate
     map: ['wpt-routes'],              // the route library (docs/hud-waypoint-indicator.md perf fix) —
                                        // MAP mounts its own map.js/telemetry, so this is its only feed
+    // SQD (docs/squadron-transport.md, docs/sse-push-refactor.md) — squad roster/role state now
+    // rides this relayed push instead of its own /squad poll.
+    sqd: ['sqd-state'],
   };
 
   // The tap calls it 'targets'; TGT listens for 'tgt-targets'. The bezel renames it in exactly the

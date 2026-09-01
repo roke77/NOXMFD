@@ -21,24 +21,27 @@ let targets = [];        // selected-target list (from 'tgt-targets'): [{ id, n,
 let targetsKey = '';     // id-set signature; rebuild rows only when it changes
 
 // TD column (issue #47 follow-up) — leader-only, so this page needs to know squad role, which
-// nothing else here tracks. Polled independently of the tgt-targets feed above, same 2s cadence
-// td-nav.js already uses for its own "is this pilot in a squad" check — that poll already exists
-// at the shell level, but duplicating a plain GET here is simpler than threading a new message
-// through mfd.js/f35.js for what's otherwise an ordinary page-owned fetch (SQD/TD's own pattern
-// before their static-table redesigns). assignments maps target id (string) -> [slot, ...].
+// nothing else here tracks. Rides the shell's relayed 'sqd-state'/'td-state-push' pushes
+// (docs/sse-push-refactor.md) instead of its own poll — one bootstrap GET each on load for the
+// brief gap before the first push (and for standalone/preview contexts with no shell), then just
+// message listeners. assignments maps target id (string) -> [slot, ...].
 let squadRole = 'none';
 let tdAssignments = {};
-function refreshSquadTd() {
-  fetch('/squad').then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (s) {
-      squadRole = (s && s.state && s.state.role) || 'none';
-      panel.classList.toggle('has-td-col', squadRole === 'leader');
-    }).catch(function () {});
-  fetch('/td-state').then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (s) { tdAssignments = (s && s.state && s.state.assignments) || {}; }).catch(function () {});
+function applySquad(s) {
+  squadRole = (s && s.state && s.state.role) || 'none';
+  panel.classList.toggle('has-td-col', squadRole === 'leader');
 }
-refreshSquadTd();
-setInterval(refreshSquadTd, 2000);
+function applyTdState(s) {
+  tdAssignments = (s && s.state && s.state.assignments) || {};
+}
+fetch('/squad').then(function (r) { return r.ok ? r.json() : null; }).then(applySquad).catch(function () {});
+fetch('/td-state').then(function (r) { return r.ok ? r.json() : null; }).then(applyTdState).catch(function () {});
+window.addEventListener('message', function (e) {
+  const m = e.data;
+  if (!m || m.mfd !== true) return;
+  if (m.type === 'sqd-state') applySquad(m.data);
+  else if (m.type === 'td-state-push') applyTdState(m.data);
+});
 // The single locked target Next/Previous currently focuses, shared with FCR/HSD (issue #62,
 // docs/tgt-cycle-focus.md) — every row here is already locked, so this is a plain id match, unlike
 // FCR/HSD which also carry unlocked contacts. 0 = none focused.

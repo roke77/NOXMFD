@@ -473,12 +473,38 @@
         lastCursor = c;
         this._fire('cursor', c);
       };
+      // Squad/TD/waypoint state (docs/sse-push-refactor.md) — the real plugin pushes these
+      // change-gated off its own in-memory state; this harness has no such hook into the Python
+      // mock's _SQD/_TD/routes dicts, so it fakes the same "own event, change-gated" push by
+      // polling their REST endpoints itself and firing on a diff. Invisible to the actual page
+      // code under test, which only ever listens for the fired events — same "harness fakes the
+      // push, real plugin computes it" split every other synthetic bit here already keeps.
+      // ponytail: 1.5s, not faster — serve_web.py's plain http.server opens a fresh TCP connection
+      // per fetch() with no keep-alive, and each one sits in TIME_WAIT for ~2 minutes afterward on
+      // Windows; a tighter interval across a long testing session exhausts the local ephemeral port
+      // range (ERR_NO_BUFFER_SPACE) even though the real plugin's persistent SSE connection has no
+      // such cost at all. Upgrade path if this still isn't gentle enough: switch serve_web.py to
+      // ThreadingHTTPServer, or add real keep-alive.
+      let lastSqd = '', lastTd = '', lastWpt = '';
+      const pushTick = () => {
+        fetch('/squad').then(r => r.ok ? r.text() : null).then(t => {
+          if (t != null && t !== lastSqd) { lastSqd = t; this._fire('sqd', t); }
+        }).catch(() => {});
+        fetch('/td-state').then(r => r.ok ? r.text() : null).then(t => {
+          if (t != null && t !== lastTd) { lastTd = t; this._fire('td-state', t); }
+        }).catch(() => {});
+        fetch('/wpt-options').then(r => r.ok ? r.text() : null).then(t => {
+          if (t != null && t !== lastWpt) { lastWpt = t; this._fire('wpt-options', t); }
+        }).catch(() => {});
+      };
       setTimeout(() => {
         this._fire('hello', JSON.stringify({ cid }));
         tick();
         cursorTick();
+        pushTick();
         this._timer = setInterval(tick, 150);
         this._cursorTimer = setInterval(cursorTick, 16);
+        this._pushTimer = setInterval(pushTick, 1500);
       }, 30);
     }
     addEventListener(type, fn) { (this._listeners[type] = this._listeners[type] || []).push(fn); }
@@ -489,7 +515,7 @@
     }
     _fire(type, data) { (this._listeners[type] || []).forEach(fn => fn({ data })); }
     _send(data) { if (this.onmessage) this.onmessage({ data }); }
-    close() { clearInterval(this._timer); clearInterval(this._cursorTimer); }
+    close() { clearInterval(this._timer); clearInterval(this._cursorTimer); clearInterval(this._pushTimer); }
   }
   window.EventSource = MockEventSource;
 
