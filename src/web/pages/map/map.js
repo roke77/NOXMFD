@@ -48,6 +48,8 @@ const WPT_NEXT_COLOR = '#ffaa00';       // the waypoint the WPT readout is curre
                                          // in-game HUD cue's amber, one color scheme across all three
 const WPT_REACHED_COLOR = '#a0a0a0';    // waypoints/segments already flown past — lighter than the
                                          // theme's --no-gray (#5a5a5a), which nearly vanished against dark terrain
+const STEER_POINT_COLOR = '#39ff14';    // a non-active steer point — theme's --no-green, distinct from
+                                         // WPT_LINE_COLOR's route-line teal since steer points aren't routes
 function refreshWaypointRoute() {
   const data = WaypointsStore.load();
   waypointRoute = WaypointsStore.getActiveRoute();
@@ -559,7 +561,7 @@ function drawSteerPoints() {
     const p = worldToOverlay(point.x, point.z);
     if (!p || !onScreen(p, 48)) return;
     const active = !waypointRoute && point.id === activeSteerPointId;
-    const color = active ? WPT_NEXT_COLOR : WPT_LINE_COLOR;
+    const color = active ? WPT_NEXT_COLOR : STEER_POINT_COLOR;
     const r = active ? 7 : 5;
     oc.strokeStyle = color;
     oc.lineWidth = active ? 3 : 2;

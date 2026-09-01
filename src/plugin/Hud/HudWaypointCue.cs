@@ -66,7 +66,7 @@ namespace NOXMFD
             SetVisible(true);
             PlaceBug(relative);
 
-            string label = isSteerPoint ? "STP" : "WPT " + (pointIndex + 1).ToString(CultureInfo.InvariantCulture);
+            string label = (isSteerPoint ? "STP" : "WPT ") + (pointIndex + 1).ToString(CultureInfo.InvariantCulture);
             string readoutText = string.Format(CultureInfo.InvariantCulture,
                 "{0}{1}\n{2:0.0} km · brg {3:000}",
                 label,

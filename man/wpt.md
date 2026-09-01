@@ -58,7 +58,8 @@ automatically, and accepted data unlocks for editing once the squad ends or the 
 
 The effective navigation target also shows on the **in-game HUD**: an amber bug rides the game's
 own heading tape, with distance and bearing beside it. Route guidance reads `WPT n · NAME`; steer-
-point guidance reads `STP · NAME`. Past ±45° of the nose, the bug becomes a sideways arrow pinned
+point guidance reads `STPn · NAME` (`n` is the point's position in the steer-point table). Past
+±45° of the nose, the bug becomes a sideways arrow pinned
 at the edge it left, pointing the way to turn.
 
 ![In-game HUD waypoint cue](images/WPT_HUD.png)

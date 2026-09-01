@@ -50,8 +50,10 @@ available for the WPT editor: `add-steerpoint`, `rename-steerpoint`, `delete-ste
 `set-active-steerpoint`, `cycle-steerpoint`, and `import-steerpoints`.
 
 MAP draws steer points as diamonds over the map image. The effective steer point uses amber; other
-points use cyan. Route waypoint/line rendering is unchanged. The native HUD uses `STP · NAME` for
-steer-point guidance and keeps `WPT n · NAME` for route guidance.
+points use green (`--no-green`), distinct from the route line's cyan. Route waypoint/line rendering
+is unchanged. The native HUD uses `STPn · NAME` for steer-point guidance and keeps `WPT n · NAME`
+for route guidance — `n` is the point's 1-based position in the steer-point table, same numbering
+MAP's `S1`/`S2` labels use.
 
 ## Import/export
 
