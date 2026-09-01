@@ -38,8 +38,21 @@ assigning here never changes what's selected on TGT.
 A read-only table of whatever the leader last designated to you — never your own TGT selections.
 
 - **Tap a row** to select that target in-game immediately.
-- **AQUIRE** selects everything currently listed, all at once.
+- **AQUIRE** selects everything currently listed, all at once, then returns you to TGT.
 - **CLEAR** empties your own table. This doesn't notify the leader.
+
+## HUD marks
+
+Whenever a unit is targeted by someone else in the squad, its native in-game HUD icon gets a small
+teal mark — visible in the cockpit HUD itself, without opening TD or TGT:
+
+- **`*`** — the squad leader currently has this unit targeted.
+- **`⌃`** — at least one member (not the leader) currently has it targeted. One mark regardless of
+  how many members.
+
+This is purely informational and works for every squad member, leader included — it shows what the
+rest of the squad is doing at a glance, separate from your own local target lock (the amber `+`).
+Marks update live and clear automatically once the squad ends.
 
 ## Keybinds
 
