@@ -1,5 +1,10 @@
 # WPT page — waypoints/route creator
 
+> Historical implementation record for issue #38. Route ownership later moved from browser
+> `localStorage` into the plugin as documented in `docs/hud-waypoint-indicator.md`; issue #73 adds
+> standalone steer points as documented in `docs/steer-points.md`. The sections below preserve the
+> original WPT-page design context and are not the current storage contract.
+
 A new NAV item, **WPT**, reached from MAP's own nav row (not MAIN — WPT is scoped to MAP, the same
 way RTS is scoped to CFG). Lets the pilot plot custom waypoints on MAP and chain them into an
 ordered route, with a distance/bearing readout to the next waypoint and edit/reorder/delete on the

@@ -53,6 +53,23 @@
     return routes.find(r => r.id === id) || null;
   }
 
+  function findSteerPoint(points, id) {
+    return (points || []).find(p => p.id === id) || null;
+  }
+
+  // One navigation target feeds both the WPT compass/readout and the native HUD cue. An active
+  // route owns the target even after completion; steer points are only the explicit no-route
+  // fallback, so completing a route cannot silently switch the aircraft to unrelated guidance.
+  function navigationTarget(data) {
+    const route = findRoute(data.routes || [], data.activeRouteId);
+    if (route) {
+      if (route.nextIndex >= route.waypoints.length) return null;
+      return { kind: 'waypoint', point: route.waypoints[route.nextIndex], index: route.nextIndex };
+    }
+    const point = findSteerPoint(data.steerPoints || [], data.activeSteerPointId);
+    return point ? { kind: 'steerpoint', point, index: (data.steerPoints || []).indexOf(point) } : null;
+  }
+
   // The portable export shape: name + ordered waypoint name/x/z only — no internal ids, no live
   // progress (nextIndex). Ids are storage bookkeeping, meaningless to whoever the route is shared
   // with; progress is "how far THIS pilot got," not part of the route's own definition, and
@@ -83,10 +100,27 @@
     return { name, waypoints };
   }
 
+  function serializeSteerPoints(points) {
+    return { steerPoints: (points || []).map(p => ({ name: p.name || '', x: p.x, z: p.z })) };
+  }
+
+  function parseSteerPointsJSON(text) {
+    let data;
+    try { data = JSON.parse(text); } catch (e) { return null; }
+    if (!data || typeof data !== 'object' || !Array.isArray(data.steerPoints) || data.steerPoints.length === 0) return null;
+    const steerPoints = [];
+    for (const p of data.steerPoints) {
+      if (!p || typeof p.x !== 'number' || typeof p.z !== 'number') return null;
+      steerPoints.push({ name: typeof p.name === 'string' ? p.name : '', x: p.x, z: p.z });
+    }
+    return { steerPoints };
+  }
+
   const api = {
     distanceBearing, relativeBearing,
     waypointMarkerState, segmentReached,
-    findRoute, serializeRoute, parseRouteJSON,
+    findRoute, findSteerPoint, navigationTarget,
+    serializeRoute, parseRouteJSON, serializeSteerPoints, parseSteerPointsJSON,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WptRoute = api;

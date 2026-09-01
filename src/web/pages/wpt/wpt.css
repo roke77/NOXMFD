@@ -130,7 +130,8 @@
   padding: 10px 0;
 }
 .wpt-routes:not(:empty) + .wpt-empty,
-.wpt-waypoints:not(:empty) + .wpt-empty { display: none; }
+.wpt-waypoints:not(:empty) + .wpt-empty,
+.wpt-steerpoints:not(:empty) + .wpt-empty { display: none; }
 
 /* A squad-shared route awaiting accept/reject (docs/squadron-transport.md) — amber, same "needs a
    decision" color the ACTIVE/NEXT marks already use, dashed rather than solid to read as pending,

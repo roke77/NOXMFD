@@ -178,9 +178,8 @@
      the MIL/AB split behind its THRL gauge. -->
 <script src="/assets/pages/avn/avn-status-policy.js"></script>
 <script src="/assets/pages/avn/avn-throttle-policy.js"></script>
-<!-- Same-origin localStorage read only (issue #38 follow-up) — MAP's R+/R-/W+/W- portal buttons
-     show only while a route is active, so the glass loads the existing storage wrapper directly
-     rather than re-deriving that check by hand (mirrors mfd.html's classic-shell twin). -->
+<!-- The shell reads the plugin-owned navigation cache to filter and relabel MAP's route/steer
+     controls, sharing the same wrapper as its embedded MAP/WPT pages. -->
 <script src="/assets/pages/wpt/wpt-route.js"></script>
 <script src="/assets/pages/wpt/waypoints-store.js"></script>
 <!-- SAVE/LOAD LAYOUT (issue #51) — shared with the CLASSIC shell. keybinds-keymap.js's KeyboardEvent

@@ -27,7 +27,7 @@ namespace NOXMFD
         public string? cmd;
         public long   id;      // target unit persistentID (target.select / target.deselect)
         public string? wname;  // weapon type name (weapon.select) — matches LoadoutEntry.Name
-                                // wpt.* : route/waypoint display name
+                                // wpt.* : route/waypoint/steer-point display name
                                 // preset.save / preset.rename : preset name
                                 // rates.set TGP resolution/quality groups: their stable wire names
                                 // rates.set (group "tgpSuppressNative") : "on" | anything else
@@ -50,7 +50,7 @@ namespace NOXMFD
                                 // leader's TD selection after this assign, so the same selection can
                                 // be designated to several slots in a row
         public string? bind;   // keybind.* : BindDef id ("flares", "gear-up", ...)
-                                // wpt.* : route id ("" = clear active route)
+                                // wpt.* : route or steer-point id ("" = clear selection)
         public string? key;    // keybind.set-key : Unity KeyCode name ("" or "None" clears)
         public string? cid;    // soi.panes / soi.page : which instance is reporting (a POST isn't tied to its /stream)
         public int    n;       // soi.panes : how many focusable surfaces that instance now shows
@@ -71,9 +71,9 @@ namespace NOXMFD
                                 // sqd.create / sqd.set-callsign : the squadron's chosen callsign
         public string type;    // sqd.send : payload type ("wpt.route", ...)
         public string payload; // sqd.send : the payload itself (small text only)
-        public float  wx;      // wpt.add-waypoint : world X (floating-origin corrected)
-        public float  wz;      // wpt.add-waypoint : world Z
-        public string? text;   // wpt.import : the pasted route-export JSON blob
+        public float  wx;      // wpt.add-waypoint / wpt.add-steerpoint : floating-origin-corrected X
+        public float  wz;      // wpt.add-waypoint / wpt.add-steerpoint : floating-origin-corrected Z
+        public string? text;   // wpt.import* and receive-shared portable JSON
     }
 #pragma warning restore CS0649
 
@@ -206,7 +206,15 @@ namespace NOXMFD
                 { "wpt.remove-waypoint",  e => LogWpt("remove-waypoint",  RouteStore.RemoveWaypoint(e.index)) },
                 { "wpt.cycle-route",      e => RouteStore.CycleActiveRoute(e.index) },
                 { "wpt.step-waypoint",    e => RouteStore.StepWaypoint(e.index) },
+                { "wpt.step-navigation",  e => RouteStore.StepNavigation(e.index) },
                 { "wpt.add-waypoint",     e => RouteStore.AddWaypoint(e.wx, e.wz, e.wname ?? string.Empty) },
+                { "wpt.add-navigation-point", e => RouteStore.AddNavigationPoint(e.wx, e.wz, e.wname ?? string.Empty) },
+                { "wpt.add-steerpoint",       e => RouteStore.AddSteerPoint(e.wx, e.wz, e.wname ?? string.Empty) },
+                { "wpt.rename-steerpoint",    e => LogWpt("rename-steerpoint", RouteStore.RenameSteerPoint(e.bind ?? string.Empty, e.wname ?? string.Empty)) },
+                { "wpt.delete-steerpoint",    e => LogWpt("delete-steerpoint", RouteStore.DeleteSteerPoint(e.bind ?? string.Empty)) },
+                { "wpt.set-active-steerpoint", e => RouteStore.SetActiveSteerPoint(e.bind ?? string.Empty) },
+                { "wpt.cycle-steerpoint",     e => RouteStore.CycleSteerPoint(e.index) },
+                { "wpt.import-steerpoints",   e => LogWpt("import-steerpoints", RouteStore.ImportSteerPoints(e.text ?? string.Empty)) },
                 // Squad share (docs/squadron-transport.md) — see RouteStore.cs's own header comment
                 // on this group for why it's a separate path from wpt.import. `e.bind` carries the
                 // shared route's id for accept/reject (same field wpt.set-active/wpt.delete use for
@@ -218,6 +226,12 @@ namespace NOXMFD
                 // WPT's share button. Marks the route auto-resharing (RouteStore's own mutators push
                 // a fresh copy after any future edit) and sends the first copy now.
                 { "wpt.share",            e => LogWpt("share",          RouteStore.ShareRoute(e.bind)) },
+                // Same split as wpt.accept-shared/wpt.reject-shared above, for steer points: receiving/
+                // removing a shared steer point (Squad.HandleData applying an incoming wpt.steerpoint/
+                // wpt.steerpoint-deleted payload directly) is NOT a browser command.
+                { "wpt.accept-shared-steerpoint",  e => LogWpt("accept-shared-steerpoint",  RouteStore.AcceptSharedSteerPoint(e.bind ?? string.Empty)) },
+                { "wpt.reject-shared-steerpoint",  e => LogWpt("reject-shared-steerpoint",  RouteStore.RejectSharedSteerPoint(e.bind ?? string.Empty)) },
+                { "wpt.share-steerpoint",          e => LogWpt("share-steerpoint",          RouteStore.ShareSteerPoint(e.bind ?? string.Empty)) },
                 // SAVE LAYOUT is a browser-side keyboard shortcut only; LOAD reads GET /layout-options
                 // and applies a picked layout entirely client-side, so there's no matching "load"
                 // command here.

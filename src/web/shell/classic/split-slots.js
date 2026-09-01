@@ -120,38 +120,37 @@
   // of mapcfg displacing it.
   const MAP_SPLIT_ORDER_V = ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev'];
 
-  // R+/R- and W+/W- are dead keys under different conditions: R+/R- cycle the active route and
-  // include a "none active" stop (wpt-route.js's cycleRoute), so they stay useful as long as any
-  // route is saved, active or not — only an empty route list leaves them with nothing to cycle
-  // to. W+/W- step the active route's next waypoint, so they need one actually active. Every MAP
-  // rendering (full view, split, F-35) drops each pair independently rather than showing a dead
-  // key; MAP_SPLIT_ORDER/mapSplitOrder and MAP_FULL_LEFT/RIGHT/mapFullRight below both filter
-  // through this same pair of sets.
+  // R+/R- stay useful while any saved route can be selected. The navigation pair is W+/W- while a
+  // route is active and S+/S- while steer points are in control; it only disappears when neither
+  // mode has anything to step. Every MAP rendering applies this policy through the helpers below.
   const MAP_ROUTE_ACTIONS    = new Set(['rt-next', 'rt-prev']);
   const MAP_WAYPOINT_ACTIONS = new Set(['wpt-next', 'wpt-prev']);
-  function filterMapRouteActions(list, hasRoutes, hasActiveRoute) {
+  function mapActionLabel(action, label, hasActiveRoute) {
+    return !hasActiveRoute && MAP_WAYPOINT_ACTIONS.has(action) ? label.replace('W', 'S') : label;
+  }
+  function filterMapRouteActions(list, hasRoutes, hasActiveRoute, hasSteerPoints) {
     return list.filter(function (a) {
       if (MAP_ROUTE_ACTIONS.has(a)) return hasRoutes;
-      if (MAP_WAYPOINT_ACTIONS.has(a)) return hasActiveRoute;
+      if (MAP_WAYPOINT_ACTIONS.has(a)) return hasActiveRoute || hasSteerPoints;
       return true;
     });
   }
-  function mapSplitOrder(variant, hasRoutes, hasActiveRoute) {
-    return filterMapRouteActions(variant === 'h' ? MAP_SPLIT_ORDER : MAP_SPLIT_ORDER_V, hasRoutes, hasActiveRoute);
+  function mapSplitOrder(variant, hasRoutes, hasActiveRoute, hasSteerPoints) {
+    return filterMapRouteActions(variant === 'h' ? MAP_SPLIT_ORDER : MAP_SPLIT_ORDER_V, hasRoutes, hasActiveRoute, hasSteerPoints);
   }
 
   // MAP's full-view left/right grouping — the single source both the classic bezel (mfd.js's
   // showPage 'map' branch) and the F-35 glass (f35.js's mapNavItems) build their own placement
   // from, so the two layouts can't silently drift out of sync on which actions land left vs.
-  // right, or which filter drops which pair. MAIN/GRID/FLW/Z+/Z- always show; WPT/R+/R-/W+/W- via
-  // mapFullRight(hasRoutes, hasActiveRoute), same independent R+/R- vs W+/W- filtering as above.
+  // right, or which filter drops which pair. The fixed actions always show; route and navigation
+  // actions are filtered from the live WPT store state.
   const MAP_FULL_LEFT  = ['main', 'grid', 'flw', 'mapcfg', 'zin', 'zout'];
   const MAP_FULL_RIGHT = ['wpt', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev'];
-  function mapFullRight(hasRoutes, hasActiveRoute) {
-    return filterMapRouteActions(MAP_FULL_RIGHT, hasRoutes, hasActiveRoute);
+  function mapFullRight(hasRoutes, hasActiveRoute, hasSteerPoints) {
+    return filterMapRouteActions(MAP_FULL_RIGHT, hasRoutes, hasActiveRoute, hasSteerPoints);
   }
 
-  const api = { SPLIT_SLOTS, MAP_SPLIT_ORDER, MAP_SPLIT_ORDER_V, MAP_ROUTE_ACTIONS, MAP_WAYPOINT_ACTIONS, mapSplitOrder, MAP_FULL_LEFT, MAP_FULL_RIGHT, mapFullRight };
+  const api = { SPLIT_SLOTS, MAP_SPLIT_ORDER, MAP_SPLIT_ORDER_V, MAP_ROUTE_ACTIONS, MAP_WAYPOINT_ACTIONS, mapActionLabel, mapSplitOrder, MAP_FULL_LEFT, MAP_FULL_RIGHT, mapFullRight };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SplitSlots = api;
 })(typeof self !== 'undefined' ? self : this);

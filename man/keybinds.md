@@ -32,13 +32,14 @@ stick it came from.
 
 ## Map & waypoints
 
-Direct binds for what [MAP](map.md)'s FLW/R+/R− keys and [WPT](wpt.md)'s W+/W− keys already do on
-the focused display:
+Direct binds for what [MAP](map.md)'s FLW/R+/R− and context-sensitive W+/W− or S+/S− controls do
+on the focused display:
 
 - **Follow**
 - **Next Route**, **Previous Route** — stay usable to switch INTO a route as long as one is saved,
   even with none currently active.
-- **Next Waypoint**, **Previous Waypoint**
+- **Next Waypoint / Steer Point**, **Previous Waypoint / Steer Point** — step route progress while
+  a route is active; otherwise cycle the selected steer point.
 
 Zoom In/Out aren't here — they're the shared **Cursor Zoom In/Out** pair under [Cursor](#cursor)
 below, which also drives [manual TGP camera](tgp.md#manual-camera-control) zoom.

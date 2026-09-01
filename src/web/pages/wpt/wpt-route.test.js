@@ -28,6 +28,24 @@ const route = (nextIndex, waypoints) => ({ id: 'r1', name: 'Route 1', nextIndex,
   assert.ok(Math.abs(r.brgDeg - 270) < 1e-9, `expected bearing 270, got ${r.brgDeg}`);
 }
 
+// ── navigationTarget: route priority with a static steer-point fallback ────────────────
+{
+  const steerPoints = [{ id: 's1', name: 'IP', x: 7, z: 8 }];
+  const activeRoute = route(0, [wp('w1', 'WP', 1, 2)]);
+  assert.deepStrictEqual(R.navigationTarget({
+    activeRouteId: 'r1', routes: [activeRoute], activeSteerPointId: 's1', steerPoints,
+  }), { kind: 'waypoint', point: activeRoute.waypoints[0], index: 0 });
+
+  assert.deepStrictEqual(R.navigationTarget({
+    activeRouteId: null, routes: [activeRoute], activeSteerPointId: 's1', steerPoints,
+  }), { kind: 'steerpoint', point: steerPoints[0], index: 0 });
+
+  const complete = route(1, [wp('w1', 'WP', 1, 2)]);
+  assert.strictEqual(R.navigationTarget({
+    activeRouteId: 'r1', routes: [complete], activeSteerPointId: 's1', steerPoints,
+  }), null, 'a complete but active route must not fall through to the selected steer point');
+}
+
 // ── relativeBearing: the compass needle's rotation, wraps to [0,360) ────────────────────
 {
   // Heading already matches the waypoint's bearing: needle points straight up.
@@ -102,6 +120,21 @@ const route = (nextIndex, waypoints) => ({ id: 'r1', name: 'Route 1', nextIndex,
   // that point, not this pure parser's job).
   assert.deepStrictEqual(R.parseRouteJSON('{"waypoints":[{"x":1,"z":2}]}'),
     { name: '', waypoints: [{ name: '', x: 1, z: 2 }] });
+}
+
+// ── serializeSteerPoints / parseSteerPointsJSON: portable collection, no identities/selection ──
+{
+  const points = [
+    { id: 's1', name: 'IP', x: 10, z: 20, sharedBy: '', sharedWithSquad: true },
+    { id: 's2', name: '', x: 30, z: 40 },
+  ];
+  const exported = R.serializeSteerPoints(points);
+  assert.deepStrictEqual(exported, {
+    steerPoints: [{ name: 'IP', x: 10, z: 20 }, { name: '', x: 30, z: 40 }],
+  });
+  assert.deepStrictEqual(R.parseSteerPointsJSON(JSON.stringify(exported)), exported);
+  assert.strictEqual(R.parseSteerPointsJSON('{"steerPoints":[]}'), null);
+  assert.strictEqual(R.parseSteerPointsJSON('{"steerPoints":[{"name":"bad"}]}'), null);
 }
 
 console.log('wpt-route.test.js: OK');

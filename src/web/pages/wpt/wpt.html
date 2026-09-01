@@ -4,13 +4,12 @@
 <meta charset="utf-8">
 <title>NO XMFD — WPT</title>
 <!--
-  WPT page (issue #38) — waypoints/route creator, served at /wpt. Sibling of /map under MAP's own
+  WPT page (issues #38/#73) — route and steer-point editor, served at /wpt. Sibling of /map under MAP's own
   nav row (nav-model.js's NAV.map/NAV.wpt), not the MAIN-rooted CFG/MD sibling groups.
 
-  Waypoints are placed on the MAP page itself (long-press — map.js) and persisted client-side in
-  localStorage (waypoints-store.js). This page is the editor: route list (create/rename/delete/
-  switch-active), the active route's waypoint list (rename/delete/reorder), and a distance/bearing
-  readout to the next waypoint that auto-advances as the player nears it.
+  Navigation points are placed on MAP by long-press and persisted by the plugin's RouteStore. An
+  active route receives a waypoint; otherwise the same gesture creates a standalone steer point.
+  This page edits both collections and shows the effective target's distance/bearing guidance.
 
   Shell -> page messages (all {mfd:true, ...}): 'mapinfo' : { mission, grid, x, z, hdg, ox, oy } —
   the same slice map.js's own HUD derives, forwarded here (mfd.js forwardWptToFrame/ToPanes) since
@@ -32,21 +31,21 @@
   <a class="wpt-back" href="/">&lt; MAP</a>
   <div class="wpt-title">WAYPOINTS</div>
 
-  <div class="wpt-help">Long-press anywhere on the map to drop a waypoint<br>Click a route to activate/deactivate it<br>&#9998; rename &middot; &#8634; reset &middot; &#8681; export &middot; &#8682; share &middot; &times; delete</div>
+  <div class="wpt-help">Long-press MAP to add a waypoint to the active route, or a steer point when no route is active<br>Click a route to activate/deactivate it &middot; Click a steer point to select it<br>&#9998; rename &middot; &#8634; reset &middot; &#8681; export &middot; &#8682; share &middot; &times; delete</div>
 
   <!-- PAD cursor (docs/page-cursor.md) — position:fixed override in wpt.css, since this is the one
        MFD page whose own body scrolls rather than a fixed-size panel (MAP/TGT/HUD), so a viewport-
        anchored crosshair needs position:fixed, not the shared .pad-cursor's default :absolute. -->
   <div id="pad-cursor" class="pad-cursor"></div>
 
-  <div class="wpt-readout mfd-chip" id="wpt-readout">NO ACTIVE ROUTE</div>
+  <div class="wpt-readout mfd-chip" id="wpt-readout">NO NAVIGATION POINT</div>
 
-  <!-- Relative-bearing compass to the next waypoint: the needle points where the aircraft's own
-       heading needs to turn to. Straight up = "on course" (heading already matches the waypoint's
+  <!-- Relative-bearing compass to the effective navigation target: the needle points where the
+       aircraft's own heading needs to turn. Straight up means its heading already matches the target
        bearing); the SVG group is rotated in wpt.js's updateCompass(), not CSS, since SVG's own
        rotate() takes a clean cx/cy pivot without a separate transform-origin dance. The RING always
        shows; only the amber NEEDLE hides (display:none, toggled in wpt.js) whenever there's nothing
-       to point at — no active route, route already complete, or no live heading yet. -->
+       to point at — no selected target, a completed active route, or no live heading yet. -->
   <div class="wpt-compass" id="wpt-compass">
     <svg viewBox="0 0 100 100" width="100" height="100">
       <circle cx="50" cy="50" r="46" fill="none" stroke="var(--no-green-dim)" stroke-width="1"/>
@@ -94,6 +93,18 @@
     <div class="wpt-section-head"><span>ACTIVE ROUTE WAYPOINTS</span></div>
     <div class="wpt-waypoints" id="wpt-waypoints"></div>
     <div class="wpt-empty" id="wpt-waypoints-empty">&mdash; LONG-PRESS THE MAP TO ADD A WAYPOINT &mdash;</div>
+  </div>
+
+  <div class="wpt-section">
+    <div class="wpt-section-head">
+      <span>STEER POINTS</span>
+      <div class="wpt-section-actions">
+        <button class="wpt-btn pad-hoverable" id="wpt-import-steerpoints">IMPORT</button>
+        <button class="wpt-btn pad-hoverable" id="wpt-export-steerpoints">EXPORT</button>
+      </div>
+    </div>
+    <div class="wpt-steerpoints" id="wpt-steerpoints"></div>
+    <div class="wpt-empty" id="wpt-steerpoints-empty">&mdash; DEACTIVATE THE ROUTE, THEN LONG-PRESS MAP TO ADD &mdash;</div>
   </div>
 </div>
 

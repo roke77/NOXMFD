@@ -209,11 +209,11 @@ namespace NOXMFD
             DefFree(config, "map-route-prev", map, "MapRoutePrev", "Previous Route", edge: true,
                 "Switch the focused MAP display's active waypoint route to the previous one (R-).",
                 () => TelemetryServer.MapAction("route-prev"));
-            DefFree(config, "map-waypoint-next", map, "MapWaypointNext", "Next Waypoint", edge: true,
-                "Manually step the focused MAP display's active route to the next waypoint (W+).",
+            DefFree(config, "map-waypoint-next", map, "MapWaypointNext", "Next Waypoint / Steer Point", edge: true,
+                "Step the active route to its next waypoint (W+), or select the next steer point (S+) when no route is active.",
                 () => TelemetryServer.MapAction("waypoint-next"));
-            DefFree(config, "map-waypoint-prev", map, "MapWaypointPrev", "Previous Waypoint", edge: true,
-                "Manually step the focused MAP display's active route to the previous waypoint (W-).",
+            DefFree(config, "map-waypoint-prev", map, "MapWaypointPrev", "Previous Waypoint / Steer Point", edge: true,
+                "Step the active route to its previous waypoint (W-), or select the previous steer point (S-) when no route is active.",
                 () => TelemetryServer.MapAction("waypoint-prev"));
 
             // TGT binds are DefFree like MAP above because they drive mod displays, not the aircraft.
@@ -545,8 +545,10 @@ namespace NOXMFD
         internal static string? SectionNote(string section) => section switch
         {
             "MAP Keybinds" =>
-                "Follow / Next & Previous Route / Next & Previous Waypoint are direct binds for what " +
-                "the bezel's FLW, R+/R- and W+/W- keys already do on the focused MAP display. Zoom " +
+                "Follow / Next & Previous Route / Next & Previous Waypoint or Steer Point are direct " +
+                "binds for what the bezel's FLW, R+/R-, and context-sensitive W+/W- or S+/S- keys do " +
+                "on the focused MAP display. The waypoint pair steps an active route; with no route " +
+                "active, the same pair cycles saved steer points. Zoom " +
                 "In/Out moved to the shared Cursor Zoom In/Out (see Cursor Keybinds).",
             "TGT Keybinds" =>
                 "All four act regardless of which display is focused (or whether one is). Next/Previous " +

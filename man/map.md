@@ -14,10 +14,14 @@ you can spot them at a glance.
 - **CFG** — open [MAP's own settings page](mapcfg.md) (the telemetry refresh rate).
 - **GRID** — toggle a coordinate grid overlay on the map. Off by default.
 - **Z+ / Z−** — zoom in / out.
-- **WPT** — open the [waypoint/route editor](wpt.md).
+- **WPT** — open the [route and steer-point editor](wpt.md).
 - **R+ / R−** — switch the active waypoint route to the next / previous one you've saved.
-- **W+ / W−** — manually step to the next / previous waypoint on the active route, without
-  waiting to fly to it.
+- **W+ / W−** — with a route active, manually step to its next / previous waypoint.
+- **S+ / S−** — the same controls relabel automatically when no route is active; they select the
+  next / previous saved steer point instead.
+
+Long-press the map to append a waypoint to the active route. With no route active, the same gesture
+creates a standalone steer point. Both kinds of navigation point are managed on [WPT](wpt.md).
 
 ## Status row
 

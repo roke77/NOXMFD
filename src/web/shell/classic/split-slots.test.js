@@ -8,7 +8,7 @@
 // the next one is caught here instead.
 const assert = require('assert');
 const { NAV } = require('../shared/nav-model.js');
-const { SPLIT_SLOTS, MAP_SPLIT_ORDER, MAP_SPLIT_ORDER_V, MAP_ROUTE_ACTIONS, MAP_WAYPOINT_ACTIONS, mapSplitOrder,
+const { SPLIT_SLOTS, MAP_SPLIT_ORDER, MAP_SPLIT_ORDER_V, MAP_ROUTE_ACTIONS, MAP_WAYPOINT_ACTIONS, mapActionLabel, mapSplitOrder,
         MAP_FULL_LEFT, MAP_FULL_RIGHT, mapFullRight } = require('./split-slots.js');
 const { mainPageSizes, mainPaneSlice, listPaneLayout } = require('./classic-paging.js');
 
@@ -57,11 +57,16 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
 // ROUTE decorator could never render at all until this reordering fixed it. An 'h' split additionally
 // splits page 2's items across a left/right BANK boundary (2 slots then 3), which a pair must not
 // straddle — 'v'/'vw' have no such boundary (one column), so WPT can lead there instead. The
-// checkOrder() helper below pins both orders down directly for every mapSplitOrder(variant,
-// hasRoutes, hasActiveRoute) case, so a future NAV.map or split-slots.js edit that breaks any of
+// checkOrder() pins both orders down for every route/steer state, so a future NAV.map or
+// split-slots.js edit that breaks any of
 // them fails here instead of shipping a decorator (or a whole pane's worth of dead keys) nobody
 // will ever see again.
 {
+  assert.strictEqual(mapActionLabel('wpt-next', 'W+', true), 'W+');
+  assert.strictEqual(mapActionLabel('wpt-next', 'W+', false), 'S+');
+  assert.strictEqual(mapActionLabel('wpt-prev', 'W-', false), 'S-');
+  assert.strictEqual(mapActionLabel('rt-next', 'R+', false), 'R+');
+
   assert.deepStrictEqual(MAP_SPLIT_ORDER.slice().sort(), NAV.map.map(i => i.action).sort(),
     'MAP_SPLIT_ORDER must contain exactly NAV.map\'s actions — a NAV.map item added/removed here has no matching update');
   assert.deepStrictEqual(MAP_SPLIT_ORDER_V.slice().sort(), NAV.map.map(i => i.action).sort(),
@@ -121,6 +126,17 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
     }
 
     return { assertSamePagePair, assertAdjacentPair };
+  }
+
+  // With no active route but saved steer points, the same action pair stays available for S+/S-.
+  // Labels are applied by each shell; this pure module owns only whether the pair is present.
+  {
+    const orderH = mapSplitOrder('h', true, false, true);
+    assert.deepStrictEqual(orderH,
+      ['main', 'grid', 'flw', 'zin', 'zout', 'rt-next', 'rt-prev', 'mapcfg', 'wpt', 'wpt-next', 'wpt-prev']);
+    const orderV = mapSplitOrder('v', false, false, true);
+    assert.deepStrictEqual(orderV,
+      ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'wpt-next', 'wpt-prev']);
   }
 
   // mapSplitOrder is variant-aware now (WPT-leads-in-v-split follow-up): 'h' gets MAP_SPLIT_ORDER
@@ -221,6 +237,10 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
     'mapFullRight(true, false) should keep WPT/R+/R- but drop W+/W- — a route is saved but none is active');
   assert.deepStrictEqual(mapFullRight(false, false), ['wpt'],
     'mapFullRight(false, false) should collapse to WPT alone — no routes saved at all means R+/R-/W+/W- are all dead keys');
+  assert.deepStrictEqual(mapFullRight(false, false, true), ['wpt', 'wpt-next', 'wpt-prev'],
+    'mapFullRight(false, false, true) should keep the navigation pair for steer-point cycling');
+  assert.deepStrictEqual(mapFullRight(true, false, true), MAP_FULL_RIGHT,
+    'mapFullRight(true, false, true) should keep route cycling and steer-point cycling together');
   for (const action of mapFullRight(false, false)) {
     assert.ok(!MAP_ROUTE_ACTIONS.has(action), `mapFullRight(false, false) should never include route action '${action}'`);
     assert.ok(!MAP_WAYPOINT_ACTIONS.has(action), `mapFullRight(false, false) should never include waypoint action '${action}'`);

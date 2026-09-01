@@ -1,10 +1,10 @@
-// The network half of the waypoints/routes feature (issue #38, docs/hud-waypoint-indicator.md) —
+// The network half of the route/steer-point feature (issues #38/#73, docs/steer-points.md) —
 // GET /wpt-options + POST /command, wrapping wpt-route.js's remaining pure display-derivation
 // helpers. Classic <script>, not a module, same as map-transform.js, so it's usable from both
 // map.js and wpt.js without a build step.
 //
 // The plugin, not this browser, is the single source of truth (Option 2): RouteStore.cs owns the
-// whole route library, persists it to disk, and ticks proximity-advance itself every second
+// whole navigation library, persists it to disk, and ticks route proximity-advance every second
 // regardless of what page any browser has open. There is no local push mechanism here — no
 // per-browser route state to disagree across devices, and no ambiguity over which browser's HUD
 // cue is authoritative.
@@ -13,9 +13,9 @@
 (function (root) {
   const R = (typeof module !== 'undefined' && module.exports) ? require('./wpt-route.js') : root.WptRoute;
 
-  // Last-known server state, refreshed by poll() — every sync read (load/getActiveRoute/
-  // exportRoute) reads this cache rather than fetching, same as hud.js's own `data` cache.
-  let cache = { activeRouteId: null, routes: [] };
+  // Last-known server state, refreshed by poll() — synchronous reads and exports use this cache
+  // rather than fetching, same as hud.js's own `data` cache.
+  let cache = { activeRouteId: null, activeSteerPointId: null, routes: [], steerPoints: [] };
 
   function poll() {
     if (typeof fetch !== 'function') return Promise.resolve();   // no fetch in this context (Node tests)
@@ -70,6 +70,12 @@
     return R.findRoute(cache.routes, cache.activeRouteId);
   }
 
+  function getActiveSteerPoint() {
+    return R.findSteerPoint(cache.steerPoints || [], cache.activeSteerPointId);
+  }
+
+  function getNavigationTarget() { return R.navigationTarget(cache); }
+
   // A short, human-typeable default DISPLAY name for a new route — the UI pre-fills its rename
   // field with this so the pilot can accept it as-is or type over it before confirming (wpt.js's
   // "+ NEW ROUTE" flow). Purely cosmetic; the plugin generates its own if this is sent empty.
@@ -93,9 +99,17 @@
   function removeWaypoint(index)           { return sendCommand('wpt.remove-waypoint', { index: index }).then(poll); }
   function cycleActiveRoute(dir)           { return sendCommand('wpt.cycle-route', { index: dir }).then(poll); }
   function stepWaypoint(dir)               { return sendCommand('wpt.step-waypoint', { index: dir }).then(poll); }
+  function stepNavigation(dir)             { return sendCommand('wpt.step-navigation', { index: dir }).then(poll); }
   // Placed waypoints get no default name — WPT shows one by its position number alone (the
   // "1. 2. 3." list index already identifies it); the pilot can name it later if they want to.
   function addWaypointToActive(x, z, name) { return sendCommand('wpt.add-waypoint', { wx: x, wz: z, wname: name || '' }).then(poll); }
+  function addNavigationPoint(x, z, name)  { return sendCommand('wpt.add-navigation-point', { wx: x, wz: z, wname: name || '' }).then(poll); }
+  function addSteerPoint(x, z, name)       { return sendCommand('wpt.add-steerpoint', { wx: x, wz: z, wname: name || '' }).then(poll); }
+  function renameSteerPoint(id, name)      { return sendCommand('wpt.rename-steerpoint', { bind: id, wname: name }).then(poll); }
+  function deleteSteerPoint(id)            { return sendCommand('wpt.delete-steerpoint', { bind: id }).then(poll); }
+  function setActiveSteerPoint(id)         { return sendCommand('wpt.set-active-steerpoint', { bind: id || '' }).then(poll); }
+  function cycleSteerPoint(dir)            { return sendCommand('wpt.cycle-steerpoint', { index: dir }).then(poll); }
+  function importSteerPoints(text)         { return sendCommand('wpt.import-steerpoints', { text: text }).then(poll); }
 
   // Pretty-printed JSON a pilot can paste to another WPT instance — null if the route doesn't
   // exist (deleted out from under an open export panel, say). Stays fully client-side: it's a
@@ -105,11 +119,15 @@
     return route ? JSON.stringify(R.serializeRoute(route), null, 2) : null;
   }
 
-  // ── squad-shared routes (docs/squadron-transport.md) ──────────────────────────────────
-  // pendingShared rides the same /wpt-options payload cache already carries whole — nothing extra
-  // to fetch. See RouteStore.cs's own header comment for why this is a separate path from
-  // exportRoute/importRoute above (identity has to survive a repeat share; a paste never keeps it).
+  function exportSteerPoints() {
+    return JSON.stringify(R.serializeSteerPoints(cache.steerPoints || []), null, 2);
+  }
+
+  // ── squad-shared navigation data (docs/squadron-transport.md) ─────────────────────────
+  // Pending shares ride the existing /wpt-options cache. They remain separate from pasted
+  // imports because squad updates and delete tombstones need stable sender-owned identities.
   function pendingShared() { return cache.pendingShared || []; }
+  function pendingSharedSteerPoints() { return cache.pendingSharedSteerPoints || []; }
 
   // The plugin builds the payload and sends it (RouteStore.ShareRoute), and flips on auto-reshare
   // for this route — later edits push to the squad on their own, no repeat click needed here.
@@ -124,12 +142,25 @@
   function acceptShared(id)      { return sendCommand('wpt.accept-shared', { bind: id }).then(poll); }
   function rejectShared(id)      { return sendCommand('wpt.reject-shared', { bind: id }).then(poll); }
 
+  // Steer points use the same share/accept/reject model as routes above — a leader's incoming
+  // share/delete is applied directly plugin-side (Squad.HandleData), never routed through a
+  // browser command; only the manual SHARE button and the pilot's own ACCEPT/REJECT are real
+  // browser actions.
+  function shareSteerPoint(id)        { return sendCommand('wpt.share-steerpoint', { bind: id }).then(poll); }
+  function acceptSharedSteerPoint(id) { return sendCommand('wpt.accept-shared-steerpoint', { bind: id }).then(poll); }
+  function rejectSharedSteerPoint(id) { return sendCommand('wpt.reject-shared-steerpoint', { bind: id }).then(poll); }
+
   const api = {
     freshRouteName,
-    load, poll, getActiveRoute, setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute, clearRoutes,
-    addWaypointToActive, renameWaypoint, removeWaypoint, reorderWaypoint,
-    resetWaypoint, resetRoute, stepWaypoint, exportRoute, importRoute,
-    pendingShared, shareRoute, acceptShared, rejectShared,
+    load, poll, getActiveRoute, getActiveSteerPoint, getNavigationTarget,
+    setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute, clearRoutes,
+    addWaypointToActive, addNavigationPoint, renameWaypoint, removeWaypoint, reorderWaypoint,
+    resetWaypoint, resetRoute, stepWaypoint, stepNavigation, exportRoute, importRoute,
+    addSteerPoint, renameSteerPoint, deleteSteerPoint, setActiveSteerPoint, cycleSteerPoint,
+    exportSteerPoints, importSteerPoints,
+    pendingShared, pendingSharedSteerPoints,
+    shareRoute, acceptShared, rejectShared,
+    shareSteerPoint, acceptSharedSteerPoint, rejectSharedSteerPoint,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WaypointsStore = api;

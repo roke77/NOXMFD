@@ -40,13 +40,21 @@ let   gridOn       = false;    // coordinate grid overlay (issue #41), default o
 
 // ── Waypoints/routes (issue #38) ──────────────────────────────────────────────────
 let   waypointRoute = null;    // WaypointsStore's active route, cached for drawWaypoints()
+let   steerPoints = [];
+let   activeSteerPointId = null;
 const WPT_LINE_COLOR = '#39d0ff';       // dashed route line + non-next markers
 const WPT_NEXT_COLOR = '#ffaa00';       // the waypoint the WPT readout is currently tracking — matches
                                          // theme.css's --no-amber (WPT's own compass needle) and the
                                          // in-game HUD cue's amber, one color scheme across all three
 const WPT_REACHED_COLOR = '#a0a0a0';    // waypoints/segments already flown past — lighter than the
                                          // theme's --no-gray (#5a5a5a), which nearly vanished against dark terrain
-function refreshWaypointRoute() { waypointRoute = WaypointsStore.getActiveRoute(); updateRouteChip(); }
+function refreshWaypointRoute() {
+  const data = WaypointsStore.load();
+  waypointRoute = WaypointsStore.getActiveRoute();
+  steerPoints = data.steerPoints || [];
+  activeSteerPointId = data.activeSteerPointId || null;
+  updateRouteChip();
+}
 // ROUTE chip (bottom-right status row) — the active route's name, same show/hide-when-empty
 // pattern as CURSOR (updateCursorChip). No active route: hidden, same as CURSOR with nothing hovered.
 function updateRouteChip() {
@@ -544,6 +552,32 @@ function drawWaypoints() {
   oc.restore();
 }
 
+function drawSteerPoints() {
+  if (!steerPoints.length) return;
+  oc.save();
+  steerPoints.forEach(function (point, i) {
+    const p = worldToOverlay(point.x, point.z);
+    if (!p || !onScreen(p, 48)) return;
+    const active = !waypointRoute && point.id === activeSteerPointId;
+    const color = active ? WPT_NEXT_COLOR : WPT_LINE_COLOR;
+    const r = active ? 7 : 5;
+    oc.strokeStyle = color;
+    oc.lineWidth = active ? 3 : 2;
+    oc.beginPath();
+    oc.moveTo(p.cx, p.cy - r);
+    oc.lineTo(p.cx + r, p.cy);
+    oc.lineTo(p.cx, p.cy + r);
+    oc.lineTo(p.cx - r, p.cy);
+    oc.closePath();
+    oc.stroke();
+    oc.fillStyle = color;
+    oc.font = '13px "Courier New", monospace';
+    oc.textBaseline = 'bottom';
+    oc.fillText(point.name ? 'S' + (i + 1) + ' ' + point.name : 'S' + (i + 1), p.cx + 10, p.cy - 4);
+  });
+  oc.restore();
+}
+
 // ── Drawing ──────────────────────────────────────────────────────────────────────
 function drawOverlay() {
   oc.clearRect(0, 0, overlay.width, overlay.height);
@@ -578,6 +612,7 @@ function drawOverlay() {
 
   // Pilot-placed waypoints/route (issue #38) — same layer as the grid.
   drawWaypoints();
+  drawSteerPoints();
 
   // Radar-warning spokes under the icons (icons stay readable on top).
   drawRwrLines();
@@ -874,19 +909,19 @@ function armLongPress(pointerId, clientX, clientY) {
     if (!longPress || longPress.pointerId !== pointerId || gestureMoved || pointers.size !== 1) { longPress = null; return; }
     longPress.fired = true;
     const rect = overlay.getBoundingClientRect();
-    placeWaypointAt(clientX - rect.left, clientY - rect.top);
+    placeNavigationPointAt(clientX - rect.left, clientY - rect.top);
   }, WPT_LONG_MS);
 }
 let wptFlash = null;   // brief confirmation ring at a just-placed waypoint (screen px, not unit id)
 function pumpWptFlash() { if (!wptFlash) return; requestDraw(); requestAnimationFrame(pumpWptFlash); }
 function flashWaypoint(cx, cy) { wptFlash = { cx: cx, cy: cy, until: performance.now() + 450 }; requestAnimationFrame(pumpWptFlash); }
-function placeWaypointAt(sx, sy) {
+function placeNavigationPointAt(sx, sy) {
   if (!mapMeta) return;
   const w = overlayToWorld(sx, sy);
   if (!w) return;
   flashWaypoint(sx, sy);   // immediate — purely cosmetic, no server round trip needed
   drawOverlay();
-  WaypointsStore.addWaypointToActive(w.x, w.z).then(function () { refreshWaypointRoute(); drawOverlay(); });
+  WaypointsStore.addNavigationPoint(w.x, w.z).then(function () { refreshWaypointRoute(); drawOverlay(); });
 }
 window.addEventListener('contextmenu', function(e) { e.preventDefault(); });   // long-press must not pop a menu
 
@@ -1105,9 +1140,10 @@ window.addEventListener('message', function(e) {
     // rendered line/markers switch immediately, same as a local long-press placement does.
     case 'route-next': WaypointsStore.cycleActiveRoute(1).then(function () { refreshWaypointRoute(); drawOverlay(); });  break;
     case 'route-prev': WaypointsStore.cycleActiveRoute(-1).then(function () { refreshWaypointRoute(); drawOverlay(); }); break;
-    // W+/W- (issue #38) — manually step the active route's "next" waypoint, same repaint as above.
-    case 'waypoint-next': WaypointsStore.stepWaypoint(1).then(function () { refreshWaypointRoute(); drawOverlay(); });  break;
-    case 'waypoint-prev': WaypointsStore.stepWaypoint(-1).then(function () { refreshWaypointRoute(); drawOverlay(); }); break;
+    // W+/W- step route progress; with no active route the same actions arrive under S+/S- labels
+    // and cycle the selected steer point. The plugin owns that context switch.
+    case 'waypoint-next': WaypointsStore.stepNavigation(1).then(function () { refreshWaypointRoute(); drawOverlay(); });  break;
+    case 'waypoint-prev': WaypointsStore.stepNavigation(-1).then(function () { refreshWaypointRoute(); drawOverlay(); }); break;
     // PAD cursor (docs/page-cursor.md, docs/map-cursor.md) — the shell only ever sends these while
     // THIS map is the SOI's focused surface, so no further gating is needed here.
     case 'cursor-focus':  cursor.setFocus(!!m.on, overlay.width / 2, overlay.height / 2); break;

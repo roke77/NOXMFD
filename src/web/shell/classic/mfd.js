@@ -171,25 +171,35 @@ const mapItemByAction = (function () {
 // NAV.map's own order for split pagination — deliberately NOT NAV.map's own full-view order (same
 // divergence MAIN_SPLIT_ITEMS has from full view's own MAIN placement). The order itself
 // (SplitSlots.MAP_SPLIT_ORDER/MAP_SPLIT_ORDER_V/mapSplitOrder) lives in split-slots.js, tested there
-// against NAV.map directly — see those constants' own comments for why 'h' vs 'v'/'vw' get different
-// orders, and why R+/R- filter out with no route saved at all while W+/W- filter out with no route
-// ACTIVE (mirroring MAP_FULL_RIGHT below). Read live rather than cached at load: routes, the active
-// route, and orientation can all change without a reload.
+// against NAV.map directly — see those constants' own comments for why split variants get different
+// orders. Read live rather than cached: routes, steer points, active route, and orientation can all
+// change without a reload, altering which controls and labels are meaningful.
 function mapSplitItems() {
   const c = WaypointsStore.load();
-  return SplitSlots.mapSplitOrder(splitVariant, c.routes.length > 0, !!WaypointsStore.getActiveRoute()).map(function (a) { return mapItemByAction[a]; });
+  const hasActiveRoute = !!WaypointsStore.getActiveRoute();
+  const hasSteerPoints = (c.steerPoints || []).length > 0;
+  return SplitSlots.mapSplitOrder(splitVariant, c.routes.length > 0, hasActiveRoute, hasSteerPoints)
+    .map(function (a) {
+      const item = mapItemByAction[a];
+      return !hasActiveRoute && SplitSlots.MAP_WAYPOINT_ACTIONS.has(a)
+        ? Object.assign({}, item, { label: SplitSlots.mapActionLabel(a, item.label, hasActiveRoute) })
+        : item;
+    });
 }
 
-// MAP's full-view placement: a fixed 5-left/5-right split instead of the generic 6-then-overflow
-// fullViewSlot sweep every other page uses — MAIN/GRID/FLW/Z+/Z- read as "map view controls" on the
-// left, WPT/R+/R-/W+/W- as "waypoint controls" on the right. The action lists (SplitSlots
+// MAP's full-view placement uses explicit left/right banks instead of the generic fullViewSlot
+// sweep. The action lists (SplitSlots
 // .MAP_FULL_LEFT/RIGHT) live in split-slots.js, shared with f35.js's own glass placement so the two
-// layouts can't drift apart. showPage's 'map' branch drops rt-next/rt-prev from the right list (via
-// SplitSlots.mapFullRight) when no route is saved at all, and wpt-next/wpt-prev when none is active
-// — WPT itself always stays, since it's how a pilot gets a route in the first place.
+// layouts can't drift apart. Route cycling and the context navigation pair are filtered
+// independently; the latter relabels to S+/S- when steer points are in control. WPT always stays.
 const MAP_FULL_LEFT = SplitSlots.MAP_FULL_LEFT.map(function (a) { return mapItemByAction[a]; });
-function mapFullRight(hasRoutes, hasActiveRoute) {
-  return SplitSlots.mapFullRight(hasRoutes, hasActiveRoute).map(function (a) { return mapItemByAction[a]; });
+function mapFullRight(hasRoutes, hasActiveRoute, hasSteerPoints) {
+  return SplitSlots.mapFullRight(hasRoutes, hasActiveRoute, hasSteerPoints).map(function (a) {
+    const item = mapItemByAction[a];
+    return !hasActiveRoute && SplitSlots.MAP_WAYPOINT_ACTIONS.has(a)
+      ? Object.assign({}, item, { label: SplitSlots.mapActionLabel(a, item.label, hasActiveRoute) })
+      : item;
+  });
 }
 
 // Which pages draw an OPAQUE full-view overlay. MAIN paints a panel over the still-running map, and
@@ -476,7 +486,7 @@ function renderSplitLabels() {
       // drawn wrong, same reasoning as WPN's MASTER/MODE split-pane decorators.
       placeMapPaneDecorator(positions, cells, 'zin', 'zout', 'ZOOM');
       placeMapPaneDecorator(positions, cells, 'rt-next', 'rt-prev', 'ROUTE');
-      placeMapPaneDecorator(positions, cells, 'wpt-next', 'wpt-prev', 'WYPT');
+      placeMapPaneDecorator(positions, cells, 'wpt-next', 'wpt-prev', WaypointsStore.getActiveRoute() ? 'WYPT' : 'STRP');
       continue;
     }
 
@@ -834,7 +844,7 @@ function forwardAkfToPanes() { forwardToPanes('akf', akfMsg()); }
 // Full-view WPT: forward the mapinfo slice (position/heading/grid meta) the readout needs for
 // its distance/bearing-to-next-waypoint calc. Split-pane twin sends the same payload to
 // any pane showing WPT. Not to be confused with forwardWptRoutes*/wptRoutesMsg below, which push
-// the route LIBRARY rather than this mapinfo slice.
+// the navigation library rather than this mapinfo slice.
 function wptMsg() { return Object.assign({ mfd: true, type: 'mapinfo' }, mapInfoData); }
 function forwardWptToFrame() { forwardToFrame(wptMsg()); }
 function forwardWptToPanes() { forwardToPanes('wpt', wptMsg()); }
@@ -1124,11 +1134,10 @@ function placeMapDecorators(zinKey) {
 function placeMapRouteDecorator(rPlusKey) {
   placeWpnDecorator(rPlusKey.bank, rPlusKey.index + 1, 'ROUTE', '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
-// MAP's WYPT decorator — W+/W- manually step the active waypoint, same word+triangle
-// treatment as ROUTE. Takes W+'s own physical key; full-view only (SPLIT_SLOTS doesn't apply to MAP —
-// see placeMapPaneDecorator for the split-pane twin).
-function placeMapWptDecorator(wPlusKey) {
-  placeWpnDecorator(wPlusKey.bank, wPlusKey.index + 1, 'WYPT', '6,0 12,8 0,8', '0,0 12,0 6,8');
+// MAP's context navigation decorator: WYPT between W+/W- for route progress, STRP between S+/S-
+// for steer-point selection. Takes the plus action's physical key; full-view only.
+function placeMapWptDecorator(wPlusKey, word) {
+  placeWpnDecorator(wPlusKey.bank, wPlusKey.index + 1, word, '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
 // RDR's twin — RANGE between R+/R-, same word+triangle treatment. Takes R+'s
 // own physical key, same reasoning as placeMapDecorators: SPLIT_SLOTS.rdr keeps R+/R- adjacent
@@ -1556,15 +1565,19 @@ function showPage(name) {
     // action and nothing reassigns a skipped one's — while at least one route is saved (they still
     // work with none ACTIVE, cycling into one). wpt-next/wpt-prev need a route actually active,
     // since they step ITS next waypoint. WPT (index 0) always shows regardless.
-    const hasRoutes = WaypointsStore.load().routes.length > 0;
+    const wptData = WaypointsStore.load();
+    const hasRoutes = wptData.routes.length > 0;
     const hasActiveRoute = !!WaypointsStore.getActiveRoute();
-    mapFullRight(hasRoutes, hasActiveRoute).forEach(function (item, i) { placeOverlayLabel('right', i, item.label, item.action); });
+    const hasSteerPoints = (wptData.steerPoints || []).length > 0;
+    const mapRightItems = mapFullRight(hasRoutes, hasActiveRoute, hasSteerPoints);
+    mapRightItems.forEach(function (item, i) { placeOverlayLabel('right', i, item.label, item.action); });
     placeMapDecorators({ bank: 'left', index: 4 });                  // ZOOM between Z+/Z- (left4/left5)
     if (hasRoutes) {
       placeMapRouteDecorator({ bank: 'right', index: 1 });           // ROUTE between R+/R- (right1/right2)
     }
-    if (hasActiveRoute) {
-      placeMapWptDecorator({ bank: 'right', index: 3 });             // WYPT between W+/W- (right3/right4)
+    if (hasActiveRoute || hasSteerPoints) {
+      const plusIndex = mapRightItems.findIndex(function (item) { return item.action === 'wpt-next'; });
+      placeMapWptDecorator({ bank: 'right', index: plusIndex }, hasActiveRoute ? 'WYPT' : 'STRP');
     }
   } else if (name === 'tgp') {
     placeTgpNavLabels();
@@ -1745,7 +1758,7 @@ window.addEventListener('message', function(e) {
   // route by e.source itself, so they must pass through from any map source, or a split pane's
   // label for that state gets stuck unlit even though its own map persisted and drew it regardless.
   // 'wpt-routes-request' (a freshly-loaded MAP/WPT pane or the full-view frame catching up on the
-  // route library, docs/hud-waypoint-indicator.md) comes from whichever iframe just loaded, not
+  // navigation library, docs/hud-waypoint-indicator.md) comes from whichever iframe just loaded, not
   // necessarily mapFrame, same reasoning as 'follow'/'grid'. 'td-designated' (issue #47 follow-up)
   // comes from TD's own iframe (#page-frame or a pane), never mapFrame, for the same reason.
   if (m.type !== 'follow' && m.type !== 'grid' && m.type !== 'wpt-routes-request' && m.type !== 'td-designated' && e.source !== mapFrame.contentWindow) return;
@@ -2371,7 +2384,7 @@ function mfdButton(el) {
     case 'grid': mapSend('toggle-grid'); break;
     case 'rt-next': mapSend('route-next'); break;   // switch the active waypoint route
     case 'rt-prev': mapSend('route-prev'); break;
-    case 'wpt-next': mapSend('waypoint-next'); break;   // manually step the active waypoint
+    case 'wpt-next': mapSend('waypoint-next'); break;   // route step or steer-point cycle
     case 'wpt-prev': mapSend('waypoint-prev'); break;
     // RDR's range rocker — mapSend() targets mapFrame specifically, wrong for RDR (a #page-frame
     // page), so this posts to frameWin() instead. Same 'zoom-in'/'zoom-out' action names as MAP's
@@ -2545,13 +2558,12 @@ function forwardWptRoutesToMap() {
     mapFrame.contentWindow.postMessage(wptRoutesMsg(), '*');
 }
 
-// MAP's R+/R- visibility depends on whether any route is saved, W+/W-'s on whether one is active
-// (showPage's 'map' branch, mapSplitItems' split-pane twin). The plugin is the single source of
-// truth for routes now (docs/hud-waypoint-indicator.md) — this shell document loads its own copy
-// of waypoints-store.js (mfd.html), which listens for the SSE-pushed 'wpt-options-push' and fires
-// this event on any change, from any page, any device (a squadmate's shared route is applied
-// directly plugin-side, Squad.HandleData, and shows up as a pendingShared entry the same way — WPT's
-// own ACCEPT/REJECT is what turns it into a real route, not this event).
+// MAP's route and context-navigation controls derive from the shared navigation library. The
+// plugin is the single source of truth (docs/steer-points.md) — this shell document loads its own
+// copy of waypoints-store.js (mfd.html), which listens for the SSE-pushed 'wpt-options-push' and
+// fires this event on any change, from any page, any device (a squadmate's shared route or steer
+// point is applied directly plugin-side, Squad.HandleData, and shows up as a pendingShared entry
+// the same way — WPT's own ACCEPT/REJECT is what turns it into a real item, not this event).
 // Re-render live to pick that up while MAP is showing, full view or split, and push the new data
 // down to every embedded MAP/WPT iframe.
 window.addEventListener('wptroutes:changed', function() {

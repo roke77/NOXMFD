@@ -14,6 +14,17 @@ namespace NOXMFD
         public float Z;
     }
 
+    internal sealed class SteerPoint
+    {
+        public string Id = string.Empty;
+        public string Name = string.Empty;
+        public float X;
+        public float Z;
+        public string SharedBy = string.Empty;
+        public bool IsShared => SharedBy.Length > 0;
+        public bool SharedWithSquad;
+    }
+
     internal sealed class Route
     {
         public string Id = string.Empty;
@@ -48,30 +59,40 @@ namespace NOXMFD
         public List<Waypoint> Waypoints = new List<Waypoint>();
     }
 
-    // Waypoint/route storage (docs/hud-waypoint-indicator.md, Option 2) — the plugin, not any
-    // browser, is the single source of truth for the whole route library. One process owns the
-    // data and ticks it every frame, so every browser sees the same route list regardless of
-    // which one created it, and proximity-advance runs independent of which page is visible.
+    internal sealed class PendingSharedSteerPoint
+    {
+        public string Id = string.Empty;
+        public string Name = string.Empty;
+        public string FromName = string.Empty;
+        public float X;
+        public float Z;
+    }
+
+    // Route and steer-point storage (docs/steer-points.md) — the plugin, not any browser, is the
+    // single source of truth for the whole navigation library. One process owns the data, so every
+    // browser sees the same selection regardless of which one created it; the route-specific
+    // proximity advance also runs independently of which page is visible.
     //
     // Static, plugin-lifetime (NOT mission-scoped) — routes must survive a mission restart AND a
     // full game restart, and must be browsable/editable at the main menu.
     internal static class RouteStore
     {
-        private const float AdvanceThresholdM = 1000f;   // must track wpt.js's WPT_ADVANCE_RADIUS_M;
-                                                            // the client has no proximity check of its
-                                                            // own, so this is the only threshold that
-                                                            // matters.
+        // The plugin is the only proximity authority; clients only render the resulting NextIndex.
+        private const float AdvanceThresholdM = 1000f;
 
         private static List<Route> _routes = new List<Route>();
+        private static List<SteerPoint> _steerPoints = new List<SteerPoint>();
         private static string? _activeRouteId;
+        private static string? _activeSteerPointId;
         private static readonly List<PendingSharedRoute> _pendingShared = new List<PendingSharedRoute>();
+        private static readonly List<PendingSharedSteerPoint> _pendingSharedSteerPoints = new List<PendingSharedSteerPoint>();
 
         // Server-thread-readable cache, mirrors TelemetryServer.HudOptionsJson's threading: every
         // mutator below runs on the Unity main thread only (CommandDispatcher.Drain, called from
         // MissionLifecycle.Update — unconditional, so this works at the main menu too), and rebuilds
         // this string synchronously as its last step. The HTTP server thread only ever reads the
-        // reference, never the underlying List<Route>, so no lock is needed.
-        internal static volatile string RoutesJson = "{\"activeRouteId\":null,\"routes\":[]}";
+        // reference, never the underlying route/steer-point lists, so no lock is needed.
+        internal static volatile string RoutesJson = "{\"activeRouteId\":null,\"activeSteerPointId\":null,\"routes\":[],\"steerPoints\":[]}";
 
         // Storage/log seam: keeps this file free of any BepInEx/Plugin reference so a standalone
         // test project can compile and exercise the mutators directly. Plugin.Awake sets both
@@ -83,8 +104,8 @@ namespace NOXMFD
         internal static bool PersistToDisk = true;
 
         // Same seam, for Squad.cs (Steam/BepInEx-dependent, also outside the test project):
-        // Plugin.Awake wires this to Squad.SendData; left null in tests, where ShareRoute/
-        // BroadcastIfShared's null-conditional invoke below just no-ops instead of throwing.
+        // Plugin.Awake wires this to Squad.SendData; left null in tests, where share/broadcast
+        // calls simply report that no transport accepted the payload.
         internal static Func<string, string, bool>? SendSquadData;
 
         private static string FilePath =>
@@ -105,14 +126,18 @@ namespace NOXMFD
                 if (JsonLite.Parse(text) is Dictionary<string, object?> root)
                 {
                     _activeRouteId = root.TryGetValue("activeRouteId", out object? a) ? a as string : null;
+                    _activeSteerPointId = root.TryGetValue("activeSteerPointId", out object? s) ? s as string : null;
                     _routes = ParseRoutes(root.TryGetValue("routes", out object? r) ? r : null);
+                    _steerPoints = ParseSteerPoints(root.TryGetValue("steerPoints", out object? sp) ? sp : null);
                 }
             }
             catch (Exception ex)
             {
                 LogWarning?.Invoke($"[NOXMFD] routes file unreadable, starting empty: {ex.Message}");
                 _routes = new List<Route>();
+                _steerPoints = new List<SteerPoint>();
                 _activeRouteId = null;
+                _activeSteerPointId = null;
             }
             RefreshServedJsonOnly();
         }
@@ -157,11 +182,30 @@ namespace NOXMFD
             return routes;
         }
 
-        // Two different JSON strings on purpose: the FILE (BuildFileJson) persists activeRouteId +
-        // routes only, same as always. The SERVED string (RoutesJson, what /wpt-options returns)
-        // also carries pendingShared and each route's own sharedWithSquad flag — deliberately never
-        // written to disk, same "no persistence" choice Squad.cs itself makes for squad membership:
-        // both only make sense within the live squad session that produced them.
+        private static List<SteerPoint> ParseSteerPoints(object? value)
+        {
+            var points = new List<SteerPoint>();
+            if (value is not List<object?> list) return points;
+            foreach (object? item in list)
+            {
+                if (item is not Dictionary<string, object?> d) continue;
+                if (!(d.TryGetValue("x", out object? xv) && xv is double x)) continue;
+                if (!(d.TryGetValue("z", out object? zv) && zv is double z)) continue;
+                string id = d.TryGetValue("id", out object? idv) ? (idv as string ?? string.Empty) : string.Empty;
+                if (id.Length == 0) continue;
+                points.Add(new SteerPoint
+                {
+                    Id = id,
+                    Name = d.TryGetValue("name", out object? nm) ? (nm as string ?? string.Empty) : string.Empty,
+                    X = (float)x,
+                    Z = (float)z,
+                });
+            }
+            return points;
+        }
+
+        // The served view adds live squad-sharing flags and pending entries to the persisted WPT
+        // library. Those fields only mean something within the current squad session.
         private static void Save()
         {
             RefreshServedJsonOnly();
@@ -191,15 +235,33 @@ namespace NOXMFD
             return sb.Append(']').ToString();
         }
 
+        private static string BuildPendingSteerPointsJson()
+        {
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < _pendingSharedSteerPoints.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                PendingSharedSteerPoint p = _pendingSharedSteerPoints[i];
+                sb.Append("{\"id\":\"").Append(JsonLite.EscapeJson(p.Id))
+                  .Append("\",\"name\":\"").Append(JsonLite.EscapeJson(p.Name))
+                  .Append("\",\"fromName\":\"").Append(JsonLite.EscapeJson(p.FromName))
+                  .Append("\",\"x\":").Append(p.X.ToString("0.0", CultureInfo.InvariantCulture))
+                  .Append(",\"z\":").Append(p.Z.ToString("0.0", CultureInfo.InvariantCulture))
+                  .Append('}');
+            }
+            return sb.Append(']').ToString();
+        }
+
         private static string BuildFileJson() => BuildRoutesJson(served: false);
 
-        // `served` gates the two fields that only make sense on the live /wpt-options response, not
-        // on disk: each route's own sharedWithSquad flag, and the top-level pendingShared list.
+        // `served` gates session-only squad flags and pending shares from the persisted library.
         private static string BuildRoutesJson(bool served)
         {
             var sb = new StringBuilder();
             sb.Append("{\"activeRouteId\":")
               .Append(_activeRouteId != null ? "\"" + JsonLite.EscapeJson(_activeRouteId) + "\"" : "null")
+              .Append(",\"activeSteerPointId\":")
+              .Append(_activeSteerPointId != null ? "\"" + JsonLite.EscapeJson(_activeSteerPointId) + "\"" : "null")
               .Append(",\"routes\":[");
             for (int i = 0; i < _routes.Count; i++)
             {
@@ -228,12 +290,29 @@ namespace NOXMFD
                 }
                 sb.Append("]}");
             }
+            sb.Append("],\"steerPoints\":[");
+            for (int i = 0; i < _steerPoints.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                SteerPoint p = _steerPoints[i];
+                sb.Append("{\"id\":\"").Append(JsonLite.EscapeJson(p.Id))
+                  .Append("\",\"name\":\"").Append(JsonLite.EscapeJson(p.Name))
+                  .Append("\",\"x\":").Append(p.X.ToString("0.0", CultureInfo.InvariantCulture))
+                  .Append(",\"z\":").Append(p.Z.ToString("0.0", CultureInfo.InvariantCulture))
+                  .Append(",\"sharedBy\":\"").Append(JsonLite.EscapeJson(p.SharedBy)).Append('"');
+                if (served) sb.Append(",\"sharedWithSquad\":").Append(p.SharedWithSquad ? "true" : "false");
+                sb.Append('}');
+            }
             sb.Append(']');
-            if (served) sb.Append(",\"pendingShared\":").Append(BuildPendingJson());
+            if (served)
+            {
+                sb.Append(",\"pendingShared\":").Append(BuildPendingJson())
+                  .Append(",\"pendingSharedSteerPoints\":").Append(BuildPendingSteerPointsJson());
+            }
             return sb.Append('}').ToString();
         }
 
-        // ── id / name generation, mirrors waypoints-store.js's freshId/freshRouteName/uniqueRouteName ──
+        // ── id and route-name generation ─────────────────────────────────────────────────────
 
         private static string FreshId(string prefix) => prefix + Guid.NewGuid().ToString("N");
 
@@ -254,7 +333,12 @@ namespace NOXMFD
 
         private static Route? ActiveRoute => FindRoute(_activeRouteId);
 
-        // ── mutations — 1:1 with wpt.js's action list; each ends by calling Save() ─────────────
+        private static SteerPoint? FindSteerPoint(string? id) =>
+            id == null ? null : _steerPoints.Find(p => p.Id == id);
+
+        private static SteerPoint? ActiveSteerPoint => FindSteerPoint(_activeSteerPointId);
+
+        // ── route mutations ───────────────────────────────────────────────────────────────────
 
         public static Route CreateRoute(string? name)
         {
@@ -348,7 +432,97 @@ namespace NOXMFD
             return true;
         }
 
-        // ── squad-shared routes (docs/squadron-transport.md) ──────────────────────────────────
+        // ── steer points ─────────────────────────────────────────────────────────────────────
+
+        public static SteerPoint AddSteerPoint(float x, float z, string? name)
+        {
+            var point = new SteerPoint { Id = FreshId("s_"), Name = name ?? string.Empty, X = x, Z = z };
+            _steerPoints.Add(point);
+            _activeSteerPointId = point.Id;
+            Save();
+            return point;
+        }
+
+        public static bool RenameSteerPoint(string id, string name)
+        {
+            SteerPoint? point = FindSteerPoint(id);
+            if (point == null || point.IsShared) return false;
+            point.Name = name;
+            Save();
+            BroadcastIfShared(point);
+            return true;
+        }
+
+        public static bool DeleteSteerPoint(string id)
+        {
+            int index = _steerPoints.FindIndex(p => p.Id == id);
+            if (index < 0) return false;
+            SteerPoint point = _steerPoints[index];
+            _steerPoints.RemoveAt(index);
+            if (_activeSteerPointId == id)
+            {
+                _activeSteerPointId = _steerPoints.Count == 0
+                    ? null
+                    : _steerPoints[Math.Min(index, _steerPoints.Count - 1)].Id;
+            }
+            Save();
+            BroadcastDeleteIfShared(point);
+            return true;
+        }
+
+        public static void SetActiveSteerPoint(string? id)
+        {
+            _activeSteerPointId = string.IsNullOrEmpty(id) || FindSteerPoint(id) == null ? null : id;
+            Save();
+        }
+
+        public static void CycleSteerPoint(int dir)
+        {
+            if (ActiveRoute != null || _steerPoints.Count == 0) return;
+            int index = _activeSteerPointId == null ? -1 : _steerPoints.FindIndex(p => p.Id == _activeSteerPointId);
+            int next = index < 0 && dir < 0
+                ? _steerPoints.Count - 1
+                : ((index + dir) % _steerPoints.Count + _steerPoints.Count) % _steerPoints.Count;
+            _activeSteerPointId = _steerPoints[next].Id;
+            Save();
+        }
+
+        public static void StepNavigation(int dir)
+        {
+            if (ActiveRoute != null) StepWaypoint(dir);
+            else CycleSteerPoint(dir);
+        }
+
+        public static void AddNavigationPoint(float x, float z, string? name)
+        {
+            if (ActiveRoute != null) AddWaypoint(x, z, name);
+            else AddSteerPoint(x, z, name);
+        }
+
+        public static bool ImportSteerPoints(string? text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            if (JsonLite.Parse(text) is not Dictionary<string, object?> data) return false;
+            if (!(data.TryGetValue("steerPoints", out object? raw) && raw is List<object?> list)) return false;
+
+            var imported = new List<SteerPoint>();
+            foreach (object? item in list)
+            {
+                if (item is not Dictionary<string, object?> p) return false;
+                if (!(p.TryGetValue("x", out object? xv) && xv is double x)) return false;
+                if (!(p.TryGetValue("z", out object? zv) && zv is double z)) return false;
+                string name = p.TryGetValue("name", out object? nm) && nm is string ns ? ns : string.Empty;
+                imported.Add(new SteerPoint { Id = FreshId("s_"), Name = name, X = (float)x, Z = (float)z });
+            }
+            if (imported.Count == 0) return false;
+
+            _steerPoints.AddRange(imported);
+            _activeSteerPointId = imported[0].Id;
+            Save();
+            return true;
+        }
+
+        // ── squad-shared navigation data (docs/squadron-transport.md) ─────────────────────────
         // Distinct from ImportRoute above: a pasted route is deliberately stripped of identity (any
         // paste always becomes a fresh, independent copy — see wpt-route.js's serializeRoute), but a
         // squad share needs to carry the LEADER's own route id through, unchanged, every time it's
@@ -520,18 +694,14 @@ namespace NOXMFD
             return true;
         }
 
-        // Called from Squad.cs when THIS pilot's squad membership ends (the leader disbands it, or
-        // this pilot leaves) — HandleDisband/Leave. Any share still awaiting accept/reject is
-        // dropped: same ephemeral, squad-session-scoped reasoning PendingSharedRoute's own header
-        // already gives for never persisting it — it stops meaning anything once the squad that
-        // sent it no longer exists. Every route already accepted from that squad is unlocked
-        // (SharedBy cleared) instead of staying read-only forever: the whole point of read-only was
-        // protecting the leader's ability to push further updates, and once the squad's gone nobody
-        // can ever do that again, so the lock would only get in this pilot's own way from here on.
+        // Once squad membership or leadership ends, pending navigation shares have no sender to
+        // accept and accepted entries no longer need protection from leader updates. Drop the
+        // former and unlock the latter in one lifecycle hook shared by routes and steer points.
         public static void OnSquadEnded()
         {
-            bool changed = _pendingShared.Count > 0;
+            bool changed = _pendingShared.Count > 0 || _pendingSharedSteerPoints.Count > 0;
             _pendingShared.Clear();
+            _pendingSharedSteerPoints.Clear();
             foreach (Route r in _routes)
             {
                 if (r.SharedBy.Length > 0) { r.SharedBy = string.Empty; changed = true; }
@@ -542,7 +712,13 @@ namespace NOXMFD
                 // "the squad I first shared this with," not "always keep sharing this."
                 if (r.SharedWithSquad) { r.SharedWithSquad = false; changed = true; }
             }
+            foreach (SteerPoint p in _steerPoints)
+            {
+                if (p.SharedBy.Length > 0) { p.SharedBy = string.Empty; changed = true; }
+                if (p.SharedWithSquad) { p.SharedWithSquad = false; changed = true; }
+            }
             if (changed) Save();
+            else RefreshServedJsonOnly();
         }
 
         // WPT's share button (wpt.share). Sends the route now AND flips SharedWithSquad on so every
@@ -593,6 +769,114 @@ namespace NOXMFD
             }
             return sb.Append("]}").ToString();
         }
+
+        // Steer points use the same one-item accept/reject and read-only ownership model as routes.
+        // Their stable id makes an edit a replacement of the accepted copy instead of a duplicate.
+        public static bool ReceiveSharedSteerPoint(string? text, string fromName)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            if (JsonLite.Parse(text) is not Dictionary<string, object?> data) return false;
+            string id = data.TryGetValue("id", out object? idv) && idv is string ids ? ids : string.Empty;
+            if (id.Length == 0) return false;
+            if (!(data.TryGetValue("x", out object? xv) && xv is double x)) return false;
+            if (!(data.TryGetValue("z", out object? zv) && zv is double z)) return false;
+            string name = data.TryGetValue("name", out object? nm) && nm is string ns ? ns : string.Empty;
+
+            SteerPoint? accepted = FindSteerPoint(id);
+            if (accepted != null)
+            {
+                if (!accepted.IsShared) return false;
+                accepted.Name = name;
+                accepted.X = (float)x;
+                accepted.Z = (float)z;
+                Save();
+                return true;
+            }
+
+            PendingSharedSteerPoint? pending = _pendingSharedSteerPoints.Find(p => p.Id == id);
+            if (pending != null)
+            {
+                pending.Name = name;
+                pending.X = (float)x;
+                pending.Z = (float)z;
+                RefreshServedJsonOnly();
+                return true;
+            }
+
+            _pendingSharedSteerPoints.Add(new PendingSharedSteerPoint
+            {
+                Id = id,
+                Name = name,
+                FromName = fromName,
+                X = (float)x,
+                Z = (float)z,
+            });
+            RefreshServedJsonOnly();
+            return true;
+        }
+
+        public static bool AcceptSharedSteerPoint(string id)
+        {
+            int index = _pendingSharedSteerPoints.FindIndex(p => p.Id == id);
+            if (index < 0 || FindSteerPoint(id) != null) return false;
+            PendingSharedSteerPoint pending = _pendingSharedSteerPoints[index];
+            _pendingSharedSteerPoints.RemoveAt(index);
+            _steerPoints.Add(new SteerPoint
+            {
+                Id = pending.Id,
+                Name = pending.Name,
+                X = pending.X,
+                Z = pending.Z,
+                SharedBy = pending.FromName,
+            });
+            Save();
+            return true;
+        }
+
+        public static bool RejectSharedSteerPoint(string id)
+        {
+            int removed = _pendingSharedSteerPoints.RemoveAll(p => p.Id == id);
+            if (removed == 0) return false;
+            RefreshServedJsonOnly();
+            return true;
+        }
+
+        public static bool RemoveSharedSteerPoint(string id)
+        {
+            bool removedPending = _pendingSharedSteerPoints.RemoveAll(p => p.Id == id) > 0;
+            SteerPoint? accepted = _steerPoints.Find(p => p.Id == id && p.IsShared);
+            if (accepted == null)
+            {
+                if (removedPending) RefreshServedJsonOnly();
+                return removedPending;
+            }
+            return DeleteSteerPoint(id);
+        }
+
+        public static bool ShareSteerPoint(string id)
+        {
+            SteerPoint? point = FindSteerPoint(id);
+            if (point == null || point.IsShared) return false;
+            point.SharedWithSquad = true;
+            RefreshServedJsonOnly();
+            return SendSquadData?.Invoke("wpt.steerpoint", BuildSharePayloadJson(point)) ?? false;
+        }
+
+        private static void BroadcastIfShared(SteerPoint point)
+        {
+            if (point.SharedWithSquad) SendSquadData?.Invoke("wpt.steerpoint", BuildSharePayloadJson(point));
+        }
+
+        private static void BroadcastDeleteIfShared(SteerPoint point)
+        {
+            if (point.SharedWithSquad) SendSquadData?.Invoke("wpt.steerpoint-deleted", point.Id);
+        }
+
+        private static string BuildSharePayloadJson(SteerPoint point) =>
+            "{\"id\":\"" + JsonLite.EscapeJson(point.Id) +
+            "\",\"name\":\"" + JsonLite.EscapeJson(point.Name) +
+            "\",\"x\":" + point.X.ToString("0.0", CultureInfo.InvariantCulture) +
+            ",\"z\":" + point.Z.ToString("0.0", CultureInfo.InvariantCulture) + "}";
 
         public static bool RenameWaypoint(int index, string name)
         {
@@ -710,16 +994,43 @@ namespace NOXMFD
             return true;
         }
 
+        // Route activation is the priority switch: an active route owns navigation even when it is
+        // complete. Only the explicit no-route state falls back to the selected static steer point.
+        public static bool TryGetActiveNavigationPoint(
+            out float x, out float z, out string name, out int index, out bool isSteerPoint)
+        {
+            if (ActiveRoute != null)
+            {
+                isSteerPoint = false;
+                return TryGetActiveWaypoint(out x, out z, out name, out index);
+            }
+
+            x = z = 0f;
+            name = string.Empty;
+            index = 0;
+            isSteerPoint = true;
+            SteerPoint? point = ActiveSteerPoint;
+            if (point == null) return false;
+            x = point.X;
+            z = point.Z;
+            name = point.Name;
+            index = _steerPoints.IndexOf(point);
+            return true;
+        }
+
         // Test-only: _routes/_activeRouteId are static (plugin-lifetime by design, see the class
         // comment), so NOXMFD.Tests' RouteStoreTests resets them between test methods to avoid one
         // test's routes leaking into the next. Never called from plugin code.
         internal static void ResetForTests()
         {
             _routes = new List<Route>();
+            _steerPoints = new List<SteerPoint>();
             _activeRouteId = null;
+            _activeSteerPointId = null;
             _pendingShared.Clear();
+            _pendingSharedSteerPoints.Clear();
             SendSquadData = null;
-            RoutesJson = "{\"activeRouteId\":null,\"routes\":[]}";
+            RoutesJson = "{\"activeRouteId\":null,\"activeSteerPointId\":null,\"routes\":[],\"steerPoints\":[]}";
         }
     }
 }

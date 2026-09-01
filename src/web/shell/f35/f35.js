@@ -79,8 +79,8 @@
     akf: ['akf'],             // kill-feed/session-stats block (docs/akf-page.md)
     rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
     hsd: ['hsd', 'mapinfo', 'rdr'],  // 360-degree datalink picture + FCR cone (docs/rdr-fcr-hsd.md)
-    wpt: ['mapinfo', 'wpt-routes', 'sqd-state'],   // waypoint readout + route library + share-button gate
-    map: ['wpt-routes'],              // the route library (docs/hud-waypoint-indicator.md perf fix) —
+    wpt: ['mapinfo', 'wpt-routes', 'sqd-state'],   // navigation readout + shared navigation library + share-button gate
+    map: ['wpt-routes'],              // navigation library (docs/hud-waypoint-indicator.md perf fix) —
                                        // MAP mounts its own map.js/telemetry, so this is its only feed
     // SQD (docs/squadron-transport.md, docs/sse-push-refactor.md) — squad roster/role state now
     // rides this relayed push instead of its own /squad poll.
@@ -197,24 +197,25 @@
     { label: 'IR',  action: 'tgp-ir-on',  cell: { row: 5, col: 1 } },
   ];
 
-  // MAP's own placement (mfd.js's own full view twin): a fixed 5-left/5-right split via explicit
-  // cells, rather than cellOf's generic index-into-6-rows overflow — MAIN/GRID/FLW/Z+/Z- read as
-  // "map view controls" in column 1, WPT/R+/R-/W+/W- as "waypoint controls" in column 2. The action
+  // MAP's placement mirrors mfd.js's explicit control banks rather than using generic overflow. The action
   // lists (SplitSlots.MAP_FULL_LEFT/RIGHT/mapFullRight) are shared with the classic bezel — see
-  // that module's own comment — so the two layouts can't drift out of sync. R+/R- show as long as
-  // any route is saved (still useful to cycle into one with none active); W+/W- need a route
-  // actually active, since they step ITS next waypoint. WPT itself always shows, since it's how a
-  // pilot gets a route in the first place.
+  // that module's own comment — so the two layouts can't drift out of sync. Route cycling and the
+  // context-sensitive W+/W- or S+/S- pair are filtered independently; WPT remains reachable.
   function mapNavItems() {
     const byAction = {};
     (NAV.map || []).forEach(function (item) { byAction[item.action] = item; });
-    const hasRoutes = WaypointsStore.load().routes.length > 0;
+    const wptData = WaypointsStore.load();
+    const hasRoutes = wptData.routes.length > 0;
     const hasActiveRoute = !!WaypointsStore.getActiveRoute();
+    const hasSteerPoints = (wptData.steerPoints || []).length > 0;
     const left = SplitSlots.MAP_FULL_LEFT.map(function (a, i) {
       return Object.assign({}, byAction[a], { cell: { row: i + 1, col: 1 } });
     });
-    return left.concat(SplitSlots.mapFullRight(hasRoutes, hasActiveRoute).map(function (a, i) {
-      return Object.assign({}, byAction[a], { cell: { row: i + 1, col: 2 } });
+    return left.concat(SplitSlots.mapFullRight(hasRoutes, hasActiveRoute, hasSteerPoints).map(function (a, i) {
+      const item = Object.assign({}, byAction[a]);
+      item.label = SplitSlots.mapActionLabel(a, item.label, hasActiveRoute);
+      item.cell = { row: i + 1, col: 2 };
+      return item;
     }));
   }
 
@@ -500,7 +501,7 @@
     //          than in NAV keeps ordering a rendering choice: it interleaves HUD/PAL/BDF among the
     //          NAV items, where the bezel just shows NAV's six in their given order.
     //   wpn  — nothing from NAV (it's empty by design); its labels are pagination.
-    //   map  — MAIN/GRID/FLW/Z+/Z- and WPT/R+/R-/W+/W- via explicit cells, not NAV.map's own order
+    //   map  — map controls plus WPT/route/context-navigation actions via explicit cells
     //          (mapNavItems — see its own comment).
     //   tgp  — MAIN + CFG via explicit cells (tgpNavItems), CFG pinned to the bottom row rather
     //          than landing right under MAIN via the generic index-into-6-rows overflow.
@@ -709,7 +710,7 @@
       // ZOOM between Z+/Z- and ROUTE between R+/R- — same decorator, MAP's twin of WPN's
       // MASTER/MODE. Found by data-action, so the 2-column overflow (cellOf) needs no
       // special-casing here — the decorator just measures wherever the two buttons actually landed.
-      if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); placeWpnDecorator('wpt-next', 'wpt-prev', 'WYPT'); }
+      if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); placeWpnDecorator('wpt-next', 'wpt-prev', WaypointsStore.getActiveRoute() ? 'WYPT' : 'STRP'); }
       // RANGE between R+/R- — RDR/HSD's twin.
       if (currentPage === 'rdr' || currentPage === 'hsd') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
@@ -767,7 +768,7 @@
       // away the zoom and pan the pilot set.
       resized: function () {
         if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); placeWpnDecorators(); }
-        if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); placeWpnDecorator('wpt-next', 'wpt-prev', 'WYPT'); }
+        if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); placeWpnDecorator('wpt-next', 'wpt-prev', WaypointsStore.getActiveRoute() ? 'WYPT' : 'STRP'); }
         if (currentPage === 'rdr' || currentPage === 'hsd') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
       },
       destroy: function () { el.remove(); },
@@ -986,7 +987,7 @@
       return;
     }
 
-    // 'wpt-routes-request' — a freshly-loaded portal catching up on the route library (docs/hud-
+    // 'wpt-routes-request' — a freshly-loaded portal catching up on the navigation library (docs/hud-
     // waypoint-indicator.md perf fix) — comes from the portal's own iframe, not the tap, same
     // reasoning as 'follow'/'grid' above.
     if (m.type === 'wpt-routes-request') {
@@ -1055,13 +1056,12 @@
   window.addEventListener('resize', relayoutAll);
   orientMq.addEventListener('change', relayoutAll);
 
-  // MAP's R+/R- portal buttons show while any route is saved, W+/W- only while one is active
-  // (issue #38 follow-up, deactivate follow-up, mfd.js's classic-shell twin). The plugin is the
-  // single source of truth for routes now (docs/hud-waypoint-indicator.md) — this shell document
-  // loads its own copy of waypoints-store.js (f35.html), which listens for the SSE-pushed
-  // 'wpt-options-push' and fires this event on any change, from any page, any device (a squadmate's
-  // shared route is applied directly plugin-side, Squad.HandleData, and shows up as a pendingShared
-  // entry the same way — WPT's own ACCEPT/REJECT is what turns it into a real route). refreshNav
+  // MAP's route and context-navigation controls derive from the shared navigation library. The
+  // plugin is the single source of truth (docs/steer-points.md) — this shell document loads its own
+  // copy of waypoints-store.js (f35.html), which listens for the SSE-pushed 'wpt-options-push' and
+  // fires this event on any change, from any page, any device (a squadmate's shared route or steer
+  // point is applied directly plugin-side, Squad.HandleData, and shows up as a pendingShared entry
+  // the same way — WPT's own ACCEPT/REJECT is what turns it into a real item). refreshNav
   // (not showPage) so it can't reload — and so can't lose the pan/zoom of — a MAP portal that's
   // already showing.
   //

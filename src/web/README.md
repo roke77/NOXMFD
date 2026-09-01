@@ -36,8 +36,8 @@ src/web/
   pages/
     map/    map.html  map.css  map.js     # the live map view (imports services/telemetry-source.js)
             map-transform.js              # its pure world⇄pixel maths (pan/zoom/letterbox)
-    wpt/    wpt.html  wpt.css  wpt.js     # waypoint/route editor, thin client over the plugin's
-            waypoints-store.js            # RouteStore (docs/hud-waypoint-indicator.md) — one bootstrap
+    wpt/    wpt.html  wpt.css  wpt.js     # route/steer-point editor, thin client over the plugin's
+            waypoints-store.js            # RouteStore (docs/steer-points.md) — one bootstrap
                                            # fetch, then the shell's relayed SSE push (docs/sse-push-refactor.md)
             wpt-route.js  wpt-route.test.js  # /wpt-options + POST /command, no local persistence
     sqd/    sqd.html  sqd.css  sqd.js     # squad membership over Steam P2P (docs/squadron-transport.md) —
@@ -79,9 +79,9 @@ same move the shell makes with `nav-model.js` / `classic-paging.js`. Named for w
 `map-transform.js` (world⇄pixel maths), `bdf-funds.js` (the magnitude-band money format),
 `keybinds-keymap.js` (KeyboardEvent.code ⇄ Unity KeyCode names), `remote-keybinds.js` (the
 per-browser KEY-page listener that maps configured keys into `/command` posts), `wpt-route.js`
-(route/waypoint
-display-derivation — bearing/distance math and a client-side pre-validator for pasted route JSON;
-the actual route data and its mutation live server-side in `RouteStore`, not here — see
+(navigation display derivation — bearing/distance math, effective route/steer target selection,
+and client-side pre-validation for pasted JSON; the actual navigation data and its mutation live
+server-side in `RouteStore`, not here — see
 `waypoints-store.js`), and `<x>-*-policy.js` where the
 logic really is a classification rule (`avn-status-policy.js`, `avn-throttle-policy.js`,
 `afm-bg-policy.js`, `afm-failure-policy.js`). Everything else on a page is DOM-coupled rendering and

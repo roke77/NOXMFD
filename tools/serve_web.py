@@ -301,11 +301,10 @@ def _hud_options():
 # (sharedBy), same as it would be for a real member.
 def _wpt_options():
     return json.dumps({
-        # NOT the shared (sharedBy) route below — the active route's waypoints render in the
-        # "ACTIVE ROUTE WAYPOINTS" section, and a shared route's own waypoint icons are correctly
-        # hidden (read-only content). Keeping the active one unshared means the harness shows the
-        # normal, fully-editable icon set by default.
-        "activeRouteId": "r_6422161b6ecd4e0e8bc0a99c627ef397",
+        # Routes remain available for R+/R- while the no-route stop makes steer-point guidance and
+        # the S+/S- relabeling visible by default.
+        "activeRouteId": None,
+        "activeSteerPointId": "s_preview_ip",
         "routes": [
             {
                 # This pilot's OWN route, made locally — not shared, no SQD label (see file header).
@@ -344,8 +343,17 @@ def _wpt_options():
                 ],
             },
         ],
+        "steerPoints": [
+            {"id": "s_preview_ip", "name": "INGRESS", "x": 7526.1, "z": 8584.3,
+             "sharedBy": "", "sharedWithSquad": False},
+            {"id": "s_preview_tanker", "name": "TANKER", "x": 13200.0, "z": 11800.0,
+             "sharedBy": "Foxtrot", "sharedWithSquad": False},
+        ],
         "pendingShared": [
             {"id": "r_sample_pending_share", "name": "RT-9B21C", "fromName": "Foxtrot", "waypointCount": 6},
+        ],
+        "pendingSharedSteerPoints": [
+            {"id": "s_sample_pending", "name": "HOLD NORTH", "fromName": "Foxtrot", "x": 20500.0, "z": 27800.0},
         ],
     }).encode("utf-8")
 

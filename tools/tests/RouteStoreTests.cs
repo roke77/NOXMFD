@@ -122,6 +122,107 @@ namespace NOXMFD.Tests
             Assert.False(RouteStore.ImportRoute(""));
         }
 
+        [Fact]
+        public void SteerPoint_is_the_navigation_target_only_without_an_active_route()
+        {
+            SteerPoint point = RouteStore.AddSteerPoint(30f, 40f, "IP");
+            Assert.True(RouteStore.TryGetActiveNavigationPoint(
+                out float x, out float z, out string name, out _, out bool isSteerPoint));
+            Assert.True(isSteerPoint);
+            Assert.Equal((30f, 40f, "IP"), (x, z, name));
+
+            Route route = RouteStore.CreateRoute("R");
+            RouteStore.AddWaypoint(10f, 20f, "W1");
+            Assert.True(RouteStore.TryGetActiveNavigationPoint(
+                out x, out z, out name, out _, out isSteerPoint));
+            Assert.False(isSteerPoint);
+            Assert.Equal((10f, 20f, "W1"), (x, z, name));
+
+            RouteStore.SetActiveRoute(null);
+            Assert.True(RouteStore.TryGetActiveNavigationPoint(
+                out _, out _, out name, out _, out isSteerPoint));
+            Assert.True(isSteerPoint);
+            Assert.Equal("IP", name);
+            Assert.Contains("\"activeSteerPointId\":\"" + point.Id + "\"", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void Completed_active_route_does_not_fall_back_to_a_steer_point()
+        {
+            RouteStore.AddSteerPoint(30f, 40f, "IP");
+            RouteStore.CreateRoute("R");
+            RouteStore.AddWaypoint(10f, 20f, "W1");
+            RouteStore.ResetWaypoint(1);
+
+            Assert.False(RouteStore.TryGetActiveNavigationPoint(
+                out _, out _, out _, out _, out bool isSteerPoint));
+            Assert.False(isSteerPoint);
+        }
+
+        [Fact]
+        public void StepNavigation_cycles_steer_points_with_wraparound_when_no_route_is_active()
+        {
+            SteerPoint first = RouteStore.AddSteerPoint(1f, 1f, "A");
+            RouteStore.AddSteerPoint(2f, 2f, "B");
+
+            RouteStore.StepNavigation(+1);
+            Assert.Contains("\"activeSteerPointId\":\"" + first.Id + "\"", RouteStore.RoutesJson);
+            RouteStore.StepNavigation(-1);
+            Assert.True(RouteStore.TryGetActiveNavigationPoint(
+                out _, out _, out string name, out _, out bool isSteerPoint));
+            Assert.True(isSteerPoint);
+            Assert.Equal("B", name);
+        }
+
+        [Fact]
+        public void AddNavigationPoint_uses_the_current_route_mode()
+        {
+            RouteStore.AddNavigationPoint(1f, 2f, "S1");
+            Assert.Contains("\"steerPoints\":[{", RouteStore.RoutesJson);
+            Assert.Contains("\"name\":\"S1\"", RouteStore.RoutesJson);
+
+            RouteStore.CreateRoute("R");
+            RouteStore.AddNavigationPoint(3f, 4f, "W1");
+            Assert.True(RouteStore.TryGetActiveWaypoint(
+                out float x, out float z, out string name, out int index));
+            Assert.Equal((3f, 4f, "W1", 0), (x, z, name, index));
+        }
+
+        [Fact]
+        public void AdvanceIfNear_never_changes_a_steer_point()
+        {
+            RouteStore.AddSteerPoint(0f, 0f, "Static");
+            RouteStore.AdvanceIfNear(0f, 0f);
+
+            Assert.True(RouteStore.TryGetActiveNavigationPoint(
+                out _, out _, out string name, out _, out bool isSteerPoint));
+            Assert.True(isSteerPoint);
+            Assert.Equal("Static", name);
+        }
+
+        [Fact]
+        public void ImportSteerPoints_appends_fresh_local_points_and_selects_the_first_import()
+        {
+            RouteStore.AddSteerPoint(1f, 2f, "Existing");
+            Assert.True(RouteStore.ImportSteerPoints(
+                "{\"steerPoints\":[{\"name\":\"A\",\"x\":10,\"z\":20},{\"name\":\"B\",\"x\":30,\"z\":40}]}"));
+
+            Assert.Contains("Existing", RouteStore.RoutesJson);
+            Assert.Contains("\"name\":\"A\"", RouteStore.RoutesJson);
+            Assert.Contains("\"name\":\"B\"", RouteStore.RoutesJson);
+            Assert.True(RouteStore.TryGetActiveNavigationPoint(
+                out _, out _, out string name, out _, out bool isSteerPoint));
+            Assert.True(isSteerPoint);
+            Assert.Equal("A", name);
+        }
+
+        [Fact]
+        public void ImportSteerPoints_rejects_empty_or_malformed_lists()
+        {
+            Assert.False(RouteStore.ImportSteerPoints("{\"steerPoints\":[]}"));
+            Assert.False(RouteStore.ImportSteerPoints("{\"steerPoints\":[{\"name\":\"Missing position\"}]}"));
+        }
+
         // ── squad-shared routes (docs/squadron-transport.md) ──────────────────────────────────
 
         [Fact]
@@ -394,6 +495,35 @@ namespace NOXMFD.Tests
 
             Assert.False(ok);
             Assert.Contains("\"name\":\"My own edit\"", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void SharedSteerPoint_uses_pending_accept_readonly_and_reshare_flow()
+        {
+            Assert.True(RouteStore.ReceiveSharedSteerPoint(
+                "{\"id\":\"s_shared\",\"name\":\"IP\",\"x\":1,\"z\":2}", "Leader"));
+            Assert.Contains("\"pendingSharedSteerPoints\":[{\"id\":\"s_shared\"", RouteStore.RoutesJson);
+            Assert.True(RouteStore.AcceptSharedSteerPoint("s_shared"));
+            Assert.Contains("\"sharedBy\":\"Leader\"", RouteStore.RoutesJson);
+            Assert.False(RouteStore.RenameSteerPoint("s_shared", "Mine"));
+
+            Assert.True(RouteStore.ReceiveSharedSteerPoint(
+                "{\"id\":\"s_shared\",\"name\":\"IP 2\",\"x\":3,\"z\":4}", "Leader"));
+            Assert.Contains("\"name\":\"IP 2\",\"x\":3.0,\"z\":4.0", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void SharedSteerPoint_edits_and_delete_rebroadcast_after_first_share()
+        {
+            SteerPoint point = RouteStore.AddSteerPoint(1f, 2f, "IP");
+            var types = new List<string>();
+            RouteStore.SendSquadData = (type, payload) => { types.Add(type); return true; };
+
+            Assert.True(RouteStore.ShareSteerPoint(point.Id));
+            Assert.True(RouteStore.RenameSteerPoint(point.Id, "IP 2"));
+            Assert.True(RouteStore.DeleteSteerPoint(point.Id));
+
+            Assert.Equal(new[] { "wpt.steerpoint", "wpt.steerpoint", "wpt.steerpoint-deleted" }, types);
         }
     }
 }

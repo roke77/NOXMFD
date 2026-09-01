@@ -5,9 +5,9 @@ using UnityEngine.UI;
 
 namespace NOXMFD
 {
-    // The in-game HUD waypoint cue: a bug riding the native heading tape plus a two-line readout at
-    // its top right. Data comes from RouteStore, the plugin's own authoritative route library —
-    // this class is only the drawing.
+    // The in-game HUD navigation cue: a bug riding the native heading tape plus a two-line readout
+    // at its top right. RouteStore resolves the effective route waypoint or steer point; this class
+    // only draws it.
     //
     // This is the mod's first ADDITIVE HUD change — HudDeclutter, the only other HUD toucher, just
     // finds existing components and disables them. Mission-scoped alongside it (created in
@@ -47,7 +47,8 @@ namespace NOXMFD
 
             // RouteStore is the plugin's own in-process route data — reading it needs no network
             // round trip.
-            if (!RouteStore.TryGetActiveWaypoint(out float wx, out float wz, out string wpName, out int wpIndex)
+            if (!RouteStore.TryGetActiveNavigationPoint(
+                    out float wx, out float wz, out string pointName, out int pointIndex, out bool isSteerPoint)
                 || !ResolveOwnship(out Vector3 world, out float hdg))
             {
                 SetVisible(false);
@@ -65,10 +66,11 @@ namespace NOXMFD
             SetVisible(true);
             PlaceBug(relative);
 
+            string label = isSteerPoint ? "STP" : "WPT " + (pointIndex + 1).ToString(CultureInfo.InvariantCulture);
             string readoutText = string.Format(CultureInfo.InvariantCulture,
-                "WPT {0}{1}\n{2:0.0} km · brg {3:000}",
-                wpIndex + 1,
-                wpName.Length > 0 ? " · " + wpName : string.Empty,
+                "{0}{1}\n{2:0.0} km · brg {3:000}",
+                label,
+                pointName.Length > 0 ? " · " + pointName : string.Empty,
                 distanceKm,
                 Mathf.RoundToInt(bearing) % 360);
             if (_lastReadoutText != readoutText)

@@ -617,9 +617,11 @@ namespace NOXMFD
             string dataPayload = Str(obj, "payload");
             switch (dataType)
             {
-                case "wpt.route":         RouteStore.ReceiveSharedRoute(dataPayload, _leaderName); break;
-                case "wpt.route-deleted": RouteStore.RemoveSharedRoute(dataPayload); break;
-                case "td.designate":      TdStore.ReceiveDesignation(dataPayload); break;
+                case "wpt.route":              RouteStore.ReceiveSharedRoute(dataPayload, _leaderName); break;
+                case "wpt.route-deleted":      RouteStore.RemoveSharedRoute(dataPayload); break;
+                case "wpt.steerpoint":         RouteStore.ReceiveSharedSteerPoint(dataPayload, _leaderName); break;
+                case "wpt.steerpoint-deleted": RouteStore.RemoveSharedSteerPoint(dataPayload); break;
+                case "td.designate":           TdStore.ReceiveDesignation(dataPayload); break;
                     // Unknown type — e.g. a squadmate on a newer mod version — has no handler to
                     // apply it against; same "ignore what it cannot parse" versioned-wire reasoning
                     // Squadron.cs's own TryParse already uses.

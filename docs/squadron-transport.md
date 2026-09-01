@@ -270,12 +270,12 @@ with every member; members only ever talk to the leader, never each other):
   editor (EDIT swaps the title for a callsign+flight picker in place). Re-numbering the flight
   re-numbers every member's own `"<CALLSIGN> <FLIGHT>-<MEMBER>"` designation immediately, since
   MEMBER (join order) never changes.
-- `sqd.data` — the generic "TBD payload" slot this doc's scope section describes; `wpt.route` was
-  the first concrete use, wired to WPT's per-route share button, which only shows once you're the
-  squad leader with at least one member. `Squad.SendDataTo` is the per-recipient sibling
+- `sqd.data` — the generic data slot this doc's scope section describes. WPT uses it for per-route
+  and per-steer-point sharing; share buttons only show for a squad leader with at least one member.
+  `Squad.SendDataTo` is the per-recipient sibling
   `td.designate` (issue #47, docs/target-designator.md) needs, since different members get
-  different target sets rather than one broadcast payload. What `wpt.route` shipped on top of the
-  bare transport (`RouteStore.cs`):
+  different target sets rather than one broadcast payload. The route flow (`wpt.route` and
+  `wpt.route-deleted`) adds the following on top of the bare transport (`RouteStore.cs`):
   - **Accept/reject.** An incoming share lands as a `PendingSharedRoute` (id/name/waypoints from
     the leader, plus who sent it), never persisted to disk — it only makes sense within the live
     squad session. WPT shows it as its own row with ACCEPT/REJECT, nothing else; accepting adds a
@@ -303,6 +303,11 @@ with every member; members only ever talk to the leader, never each other):
     member who doesn't go through `HandleLeaderChanged`, so it needs the same call on its own path)
     — clears any still-pending shares and clears `SharedBy` on every accepted route, unlocking it
     for editing.
+  Steer points mirror that lifecycle through `wpt.steerpoint` and `wpt.steerpoint-deleted`: each
+  point is shared independently, remains pending until accepted/rejected, is read-only after
+  acceptance, updates in place on repeat sends, auto-reshare after its first share, and is removed
+  by an id-only tombstone. Squad teardown clears pending points and unlocks accepted ones. See
+  `docs/steer-points.md` for navigation semantics and the portable collection format.
 - Sent invites time out after 15s if nobody responds — there is no delivery acknowledgment at the
   Steam messaging level, so a target with no mod installed looks identical to one still deciding
   until the timeout fires and surfaces a notice.
