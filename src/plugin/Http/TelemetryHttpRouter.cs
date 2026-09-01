@@ -7,12 +7,12 @@ namespace NOXMFD
 {
     internal static class TelemetryHttpRouter
     {
-        internal static void Route(HttpListenerContext ctx, string path, CancellationToken ct)
+        internal static Task RouteAsync(HttpListenerContext ctx, string path, CancellationToken ct)
         {
             if (path == "/stream")
-                _ = Task.Run(() => SseHub.HandleAsync(ctx, ct));
+                return SseHub.HandleAsync(ctx, ct);
             else if (path == "/tgp.mjpg")
-                _ = Task.Run(() => TgpMjpegHandler.HandleAsync(ctx, ct));
+                return TgpMjpegHandler.HandleAsync(ctx, ct);
             else if (path == "/map" || path == "/map.png" || path == "/map.jpg")
                 CapturedAssetEndpoint.ServeMap(ctx);
             else if (path == "/icon")
@@ -52,7 +52,7 @@ namespace NOXMFD
             else if (path == "/ext-manifest")
                 ExtensionEndpoint.ServeManifest(ctx);
             else if (path.StartsWith("/ext/", StringComparison.Ordinal))
-                ExtensionEndpoint.HandleRequest(ctx, path, ct);
+                return ExtensionEndpoint.HandleRequestAsync(ctx, path, ct);
             else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                 TelemetryAssets.ServeAsset(ctx, path);
             else if (path == "/map-view")
@@ -107,6 +107,8 @@ namespace NOXMFD
                 TelemetryAssets.ServeAssetRel(ctx, "shell/classic/mfd.html");
             else
                 TelemetryServer.Redirect(ctx, "/");
+
+            return Task.CompletedTask;
         }
     }
 }
