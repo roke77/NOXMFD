@@ -132,6 +132,11 @@ namespace NOXMFD
         // directly rather than through the generic Drive/DriveFree per-frame dispatch.
         private static BindDef? _combatModeAa, _combatModeAg;
 
+        // TD's 9 Assign binds (issue #47 follow-up) — same tap-vs-hold gesture as the TD page's own
+        // squad buttons (tap assigns and clears the selection, hold assigns and keeps it lit for the
+        // next slot), so a keybind and a click behave identically. Index 0 unused — slots are 1-9.
+        private static readonly BindDef?[] _tdAssign = new BindDef?[10];
+
         // "Keep reading the stick while the game is unfocused" (see the .cfg description). Applied
         // live by ApplyBackgroundInput; the _bg* fields remember what to put back if it's turned off.
         private static ConfigEntry<bool>? _bgInput;
@@ -240,15 +245,16 @@ namespace NOXMFD
             // Target Designator binds (issue #47, docs/target-designator.md) — one per squad slot
             // (1 = leader/self, 2..9 = members in join order), mirroring the TD page's own squad
             // buttons: assigns whatever's currently selected on the leader's TD table to that slot.
-            // Same DefFree shape as tgt-datalink/tgt-stale above — a direct global call plus the
-            // map-act broadcast for whichever display currently holds SOI.
+            // edge:false + PollTapHold (below), not a plain DefFree action, so a hold assigns without
+            // clearing the selection — same tap-vs-hold gesture the on-screen squad button itself uses.
             const string td = "TD Keybinds";
             for (int slot = 1; slot <= 9; slot++)
             {
                 int s = slot;   // local copy — the lambda below outlives this loop iteration
-                DefFree(config, "td-assign-" + s, td, "TdAssign" + s, "Assign " + s, edge: true,
-                    "Assign the leader's currently-selected TD targets to squad slot " + s + ".",
-                    () => { TelemetryServer.MapAction("td-assign-" + s); if (Squad.IsLeader) TdStore.Assign(s); });
+                _tdAssign[s] = DefFree(config, "td-assign-" + s, td, "TdAssign" + s, "Assign " + s, edge: false,
+                    "Assign the leader's currently-selected TD targets to squad slot " + s +
+                    ". Hold to assign without clearing your TD selection, same as the page's own squad button.",
+                    () => { });
             }
 
             // SOI binds — they drive the mod's own displays rather than the aeroplane, so they are
@@ -842,6 +848,17 @@ namespace NOXMFD
                                         onHold: () => SetCombatMode(CombatMode.All));
             PollTapHold(_combatModeAg!, onTap: () => SetCombatMode(CombatMode.AirToGround),
                                         onHold: () => SetCombatMode(CombatMode.All));
+
+            // TD's 9 Assign binds — same reasoning as the combat-mode pair above, one PollTapHold per
+            // slot. TdStore.Assign's own `retain` (issue #47 follow-up) is exactly the on-screen squad
+            // button's tap-vs-hold outcome, so this reuses it rather than re-deriving the behavior.
+            for (int slot = 1; slot <= 9; slot++)
+            {
+                int s = slot;
+                PollTapHold(_tdAssign[s]!,
+                    onTap:  () => { TelemetryServer.MapAction("td-assign-" + s); if (Squad.IsLeader) TdStore.Assign(s); },
+                    onHold: () => { TelemetryServer.MapAction("td-assign-" + s); if (Squad.IsLeader) TdStore.Assign(s, retain: true); });
+            }
 
             TelemetryServer.GetRemoteFireState(out bool remoteGun, out bool remoteRelease, out bool remoteJammerPod);
             bool anyRemoteFire = remoteGun || remoteRelease || remoteJammerPod;

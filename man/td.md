@@ -57,5 +57,6 @@ Marks update live and clear automatically once the squad ends.
 ## Keybinds
 
 Up to 9 keybinds (**Assign 1**-**Assign 9**, see [KEY](keybinds.md)) mirror the leader's squad
-buttons — pressing one with targets selected on your own TD table is the same as tapping the
-matching button. Only meaningful while your own TD display holds SOI.
+buttons exactly, tap and hold both: a tap assigns your current selection and clears it, a hold
+assigns without clearing so you can designate the same selection to several slots in a row. Only
+meaningful while your own TD display holds SOI.
