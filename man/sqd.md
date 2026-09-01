@@ -25,7 +25,8 @@ star (promote) and an × (kick). Your own row is highlighted.
 ## Invites
 
 Incoming invites queue oldest-first and show ACCEPT/REJECT; accepting one declines the rest, since
-squad membership is exclusive. An invite times out after 15s with no response.
+squad membership is exclusive. An invite never expires on its own — it stays pending until you
+accept or reject it, however long that takes.
 
 ## Leaving
 
@@ -33,6 +34,9 @@ squad membership is exclusive. An invite times out after 15s with no response.
 oldest remaining member first, then exits. The star on any other member's row does the same
 hand-off-and-exit but lets you pick who takes over instead. **DISBAND** (leader only) ends the
 squad for every member at once, rather than just yourself.
+
+If a leader or member crashes or force-quits instead, the rest of the squad notices on its own
+within a few seconds and drops them, with a notice — no action needed on your end.
 
 ## Sharing waypoint routes
 

@@ -995,8 +995,10 @@
       return;
     }
 
-    // 'td-designated' (issue #47 follow-up) — TD's own DESIGNATE button just fired; return that
-    // portal to TGT, same routes-by-source reasoning as 'follow'/'grid' above.
+    // 'td-designated' (issue #47 follow-up) — TD's own DESIGNATE (leader) or AQUIRE (member) button
+    // just fired; return that portal to TGT. Has to be the shell doing the navigating: TGT has no
+    // telemetry connection of its own, so a bare iframe location change would strand it with no
+    // data to render. Same routes-by-source reasoning as 'follow'/'grid' above.
     if (m.type === 'td-designated') {
       livePortals().forEach(function (p) { if (p.page() === 'td' && p.frameWin() === e.source) p.showPage('tgt'); });
       return;

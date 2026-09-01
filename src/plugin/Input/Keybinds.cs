@@ -132,6 +132,11 @@ namespace NOXMFD
         // directly rather than through the generic Drive/DriveFree per-frame dispatch.
         private static BindDef? _combatModeAa, _combatModeAg;
 
+        // TD's 9 Assign binds (issue #47 follow-up) — same tap-vs-hold gesture as the TD page's own
+        // squad buttons (tap assigns and clears the selection, hold assigns and keeps it lit for the
+        // next slot), so a keybind and a click behave identically. Index 0 unused — slots are 1-9.
+        private static readonly BindDef?[] _tdAssign = new BindDef?[10];
+
         // "Keep reading the stick while the game is unfocused" (see the .cfg description). Applied
         // live by ApplyBackgroundInput; the _bg* fields remember what to put back if it's turned off.
         private static ConfigEntry<bool>? _bgInput;
@@ -240,15 +245,16 @@ namespace NOXMFD
             // Target Designator binds (issue #47, docs/target-designator.md) — one per squad slot
             // (1 = leader/self, 2..9 = members in join order), mirroring the TD page's own squad
             // buttons: assigns whatever's currently selected on the leader's TD table to that slot.
-            // Same DefFree shape as tgt-datalink/tgt-stale above — a direct global call plus the
-            // map-act broadcast for whichever display currently holds SOI.
+            // edge:false + PollTapHold (below), not a plain DefFree action, so a hold assigns without
+            // clearing the selection — same tap-vs-hold gesture the on-screen squad button itself uses.
             const string td = "TD Keybinds";
             for (int slot = 1; slot <= 9; slot++)
             {
                 int s = slot;   // local copy — the lambda below outlives this loop iteration
-                DefFree(config, "td-assign-" + s, td, "TdAssign" + s, "Assign " + s, edge: true,
-                    "Assign the leader's currently-selected TD targets to squad slot " + s + ".",
-                    () => { TelemetryServer.MapAction("td-assign-" + s); if (Squad.IsLeader) TdStore.Assign(s); });
+                _tdAssign[s] = DefFree(config, "td-assign-" + s, td, "TdAssign" + s, "Assign " + s, edge: false,
+                    "Assign the leader's currently-selected TD targets to squad slot " + s +
+                    ". Hold to assign without clearing your TD selection, same as the page's own squad button.",
+                    () => { });
             }
 
             // SOI binds — they drive the mod's own displays rather than the aeroplane, so they are
@@ -447,6 +453,25 @@ namespace NOXMFD
                 else
                     Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': axis={b.AxisEntry!.Value} (stick {b.AxisJoyNumEntry!.Value}, invert={b.AxisInvertEntry!.Value}).");
             }
+
+            // A blank/corrupted com.roque.NOXMFD.cfg has already cost a player their whole HOTAS
+            // mapping once (a Mono runtime quirk wiping every keybind's converter registration —
+            // see the KeyboardShortcut.Empty comment above). _configFile lets every mutator below
+            // back up the file BEFORE it changes anything (see BackupNow) — config.SettingChanged
+            // fires only AFTER BepInEx has already saved the new value, too late to preserve the
+            // prior state.
+            _configFile = config;
+        }
+
+        private static ConfigFile? _configFile;
+
+        // Snapshots com.roque.NOXMFD.cfg's current (pre-change) content to its .bak. Called at the
+        // top of every mutator below, before touching a ConfigEntry.Value — BepInEx saves the whole
+        // file as soon as a value changes, so backing up has to happen first to catch the state
+        // that's about to be overwritten, not a copy of what just replaced it.
+        private static void BackupNow()
+        {
+            if (_configFile != null) ConfigBackup.BackupIfExists(_configFile.ConfigFilePath);
         }
 
         // Registers one functionality: binds its two config entries (keyboard + joystick, both hidden
@@ -469,7 +494,14 @@ namespace NOXMFD
             {
                 Id = id, Section = section, Label = label, Description = description, Edge = edge,
                 Drive = drive, DriveFree = driveFree,
-                KeyEntry = config.Bind(section, key, new KeyboardShortcut(),
+                // KeyboardShortcut.Empty — a bare parameterless construction of this struct compiles to
+                // an initobj, which Mono doesn't reliably run the type's static constructor for. That
+                // static constructor is what registers KeyboardShortcut's TOML converter with BepInEx's
+                // config system (BepInEx.Configuration.KeyboardShortcut.cs) — miss it here and every
+                // Bind<KeyboardShortcut> below throws "not supported by the config system" on this
+                // runtime. .Empty is a real static-field access, which the CLR spec guarantees runs the
+                // type initializer first. KeyboardShortcutRegressionTests.cs guards this pattern.
+                KeyEntry = config.Bind(section, key, KeyboardShortcut.Empty,
                     new ConfigDescription("Keyboard/mouse key: " + description, null, Hidden())),
             };
             // joystick:false (DefKeyOnly below) — no Rewired button entry at all, not merely unset,
@@ -599,7 +631,7 @@ namespace NOXMFD
         // the table rather than as a row. BackgroundInput is read once to build the page's initial
         // state; SetBackgroundInput is the write, applied live next Poll() by ApplyBackgroundInput.
         internal static bool BackgroundInput => _bgInput?.Value ?? false;
-        internal static void SetBackgroundInput(bool on) { if (_bgInput != null) _bgInput.Value = on; }
+        internal static void SetBackgroundInput(bool on) { if (_bgInput != null) { BackupNow(); _bgInput.Value = on; } }
 
         // ── Bind writes (driven by the /keybinds page via CommandDispatcher, main thread) ───────────
         // Set a bind's keyboard key from its Unity KeyCode name; "" / "None" clears. Rejects unknown
@@ -612,7 +644,8 @@ namespace NOXMFD
                 return false;
             BindDef? b = FindBind(id);
             if (b == null || b.KeyEntry == null) return false;
-            b.KeyEntry.Value = clear ? new KeyboardShortcut() : new KeyboardShortcut(key);
+            BackupNow();
+            b.KeyEntry.Value = clear ? KeyboardShortcut.Empty : new KeyboardShortcut(key);
             return true;
         }
 
@@ -655,6 +688,7 @@ namespace NOXMFD
         {
             BindDef? b = FindBind(id);
             if (b == null || b.JoyEntry == null) return false;
+            BackupNow();
             b.JoyEntry.Value = -1; b.JoyNumEntry!.Value = 0;
             if (_capturing == b) Disarm();
             return true;
@@ -689,6 +723,7 @@ namespace NOXMFD
         {
             BindDef? b = FindBind(id);
             if (b == null || b.AxisEntry == null) return false;
+            BackupNow();
             b.AxisEntry.Value = -1; b.AxisJoyNumEntry!.Value = 0; b.AxisInvertEntry!.Value = false;
             if (_capturingAxis == b) Disarm();
             return true;
@@ -698,6 +733,7 @@ namespace NOXMFD
         {
             BindDef? b = FindBind(id);
             if (b == null || b.AxisInvertEntry == null) return false;
+            BackupNow();
             b.AxisInvertEntry.Value = invert;
             return true;
         }
@@ -845,6 +881,17 @@ namespace NOXMFD
             PollTapHold(_combatModeAg!, onTap: () => SetCombatMode(CombatMode.AirToGround),
                                         onHold: () => SetCombatMode(CombatMode.All));
 
+            // TD's 9 Assign binds — same reasoning as the combat-mode pair above, one PollTapHold per
+            // slot. TdStore.Assign's own `retain` (issue #47 follow-up) is exactly the on-screen squad
+            // button's tap-vs-hold outcome, so this reuses it rather than re-deriving the behavior.
+            for (int slot = 1; slot <= 9; slot++)
+            {
+                int s = slot;
+                PollTapHold(_tdAssign[s]!,
+                    onTap:  () => { TelemetryServer.MapAction("td-assign-" + s); if (Squad.IsLeader) TdStore.Assign(s); },
+                    onHold: () => { TelemetryServer.MapAction("td-assign-" + s); if (Squad.IsLeader) TdStore.Assign(s, retain: true); });
+            }
+
             TelemetryServer.GetRemoteFireState(out bool remoteGun, out bool remoteRelease, out bool remoteJammerPod);
             bool anyRemoteFire = remoteGun || remoteRelease || remoteJammerPod;
 
@@ -986,6 +1033,7 @@ namespace NOXMFD
                 {
                     if (!joy.GetButton(b)) { _latched.Remove((i, b)); continue; }   // seen up → capturable again
                     if (_latched.Contains((i, b)) || !joy.GetButtonDown(b)) continue;
+                    BackupNow();
                     _capturing!.JoyEntry!.Value = b;
                     _capturing.JoyNumEntry!.Value = i + 1;   // pin to the device it came from
                     Plugin.Log?.LogInfo($"[NOXMFD] captured joy[{i}] '{joy.name}' button {b} for keybind '{_capturing.Id}'.");
@@ -1021,6 +1069,7 @@ namespace NOXMFD
                 {
                     float rest = _axisRest.TryGetValue((i, a), out float r) ? r : 0f;
                     if (Math.Abs(joy.GetAxis(a) - rest) < AxisCaptureThreshold) continue;
+                    BackupNow();
                     _capturingAxis!.AxisEntry!.Value = a;
                     _capturingAxis.AxisJoyNumEntry!.Value = i + 1;   // pin to the device it came from
                     Plugin.Log?.LogInfo($"[NOXMFD] captured joy[{i}] '{joy.name}' axis {a} for keybind '{_capturingAxis.Id}'.");

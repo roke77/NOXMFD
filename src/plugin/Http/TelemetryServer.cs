@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -27,6 +30,33 @@ namespace NOXMFD
         private static HttpListener?            _listener;
         private static Thread?                  _acceptThread;
         private static CancellationTokenSource? _cts;
+
+        private sealed class ActiveRequest
+        {
+            internal readonly long Id;
+            internal readonly HttpListenerContext Context;
+            internal readonly string Path;
+            internal readonly string Remote;
+            internal readonly DateTime StartedUtc = DateTime.UtcNow;
+            internal readonly TaskCompletionSource<bool> Completion =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            internal int AbortLogged;
+
+            internal ActiveRequest(long id, HttpListenerContext context, string path)
+            {
+                Id = id;
+                Context = context;
+                Path = path;
+                Remote = context.Request.RemoteEndPoint?.ToString() ?? "unknown";
+            }
+        }
+
+        private static readonly ConcurrentDictionary<long, ActiveRequest> _activeRequests =
+            new ConcurrentDictionary<long, ActiveRequest>();
+        private static long _nextRequestId;
+        private const int AcceptJoinTimeoutMs = 500;
+        private const int RequestStopTimeoutMs = 2500;
+        private const int PortReleaseTimeoutMs = 500;
 
         private static TelemetrySnapshot _latest;
         private static long              _snapVersion;   // bumped on every Push/Reset
@@ -321,6 +351,7 @@ namespace NOXMFD
             HttpListener? listener;
             Thread? acceptThread;
             CancellationTokenSource? cts;
+            var shutdownWatch = Stopwatch.StartNew();
 
             lock (_lifecycleLock)
             {
@@ -334,12 +365,25 @@ namespace NOXMFD
             }
 
             // Application.quitting and a replacement launcher may race to stop the same server.
-            // Only the first caller owns the captured resources; later calls are harmless no-ops.
-            if (listener == null && acceptThread == null && cts == null) return;
+            // Only the first caller owns the listener resources; another caller can still help
+            // abort a handler that has not finished unwinding.
+            if (listener == null && acceptThread == null && cts == null && _activeRequests.IsEmpty) return;
 
-            Plugin.Log?.LogInfo($"[NOXMFD] Stopping server on port {Port}...");
+            Plugin.Log?.LogInfo($"[NOXMFD] Stopping server on port {Port}: activeRequests={_activeRequests.Count}.");
             try { cts?.Cancel(); } catch (ObjectDisposedException) { }
+
+            // Cancellation lets cooperative loops leave normally. Aborting each response also
+            // breaks a WriteAsync that is blocked on a slow or disconnected remote client.
+            AbortActiveRequests();
+
+            try { listener?.Abort(); }
+            catch (ObjectDisposedException) { }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogWarning($"[NOXMFD] Listener abort on port {Port} failed: {ex.Message}");
+            }
             try { listener?.Close(); }
+            catch (ObjectDisposedException) { }
             catch (Exception ex)
             {
                 Plugin.Log?.LogWarning($"[NOXMFD] Listener close on port {Port} failed: {ex.Message}");
@@ -348,7 +392,7 @@ namespace NOXMFD
             bool acceptStopped = true;
             if (acceptThread != null && acceptThread != Thread.CurrentThread)
             {
-                try { acceptStopped = acceptThread.Join(1000); }
+                try { acceptStopped = acceptThread.Join(AcceptJoinTimeoutMs); }
                 catch (Exception ex)
                 {
                     acceptStopped = false;
@@ -356,10 +400,32 @@ namespace NOXMFD
                 }
             }
 
-            if (!acceptStopped)
-                Plugin.Log?.LogWarning($"[NOXMFD] Server listener closed on port {Port}, but the accept thread did not exit within 1000 ms.");
+            // The accept loop can receive one context immediately before cancellation. Joining it
+            // seals registration; this second pass catches that final request without duplicate logs.
+            AbortActiveRequests();
+            bool requestsStopped = WaitForActiveRequests(RequestStopTimeoutMs);
+            if (requestsStopped)
+                Plugin.Log?.LogInfo("[NOXMFD] All HTTP request handlers stopped.");
             else
-                Plugin.Log?.LogInfo($"[NOXMFD] Server stopped and listener released on port {Port}.");
+            {
+                Plugin.Log?.LogWarning($"[NOXMFD] HTTP request cleanup timed out after {RequestStopTimeoutMs} ms: remaining={_activeRequests.Count}.");
+                LogRemainingRequests();
+            }
+
+            // A synchronous short-response handler runs on the accept thread. It may finish only
+            // after its response is aborted above, so re-check after the handler wait before warning.
+            if (!acceptStopped && acceptThread != null && acceptThread != Thread.CurrentThread)
+            {
+                try { acceptStopped = acceptThread.Join(0); } catch { }
+            }
+            if (!acceptStopped)
+                Plugin.Log?.LogWarning("[NOXMFD] Accept thread is still running after HTTP request cleanup.");
+
+            bool portReleased = WaitForPortRelease(Port, PortReleaseTimeoutMs);
+            if (requestsStopped && acceptStopped && portReleased)
+                Plugin.Log?.LogInfo($"[NOXMFD] Port {Port} released after {shutdownWatch.ElapsedMilliseconds} ms.");
+            else if (!portReleased)
+                Plugin.Log?.LogWarning($"[NOXMFD] Port {Port} is still listening after {shutdownWatch.ElapsedMilliseconds} ms.");
         }
 
         // Called from Unity main thread — just stores the latest snapshot.
@@ -437,7 +503,11 @@ namespace NOXMFD
                     var ctx  = listener.GetContext();
                     var path = ctx.Request.Url?.AbsolutePath ?? "/";
 
-                    TelemetryHttpRouter.Route(ctx, path, ct);
+                    long requestId = Interlocked.Increment(ref _nextRequestId);
+                    // TrackRequestAsync observes every handler exception and exposes a separate
+                    // completion task through ActiveRequest, so shutdown can wait without relying
+                    // on this fire-and-continue accept loop retaining the returned Task.
+                    _ = TrackRequestAsync(requestId, ctx, path, ct);
                 }
                 catch (HttpListenerException) { break; }
                 catch (ObjectDisposedException) { break; }
@@ -447,6 +517,108 @@ namespace NOXMFD
                         Plugin.Log?.LogError($"[NOXMFD] Accept error: {ex.Message}");
                 }
             }
+        }
+
+        private static async Task TrackRequestAsync(
+            long id, HttpListenerContext context, string path, CancellationToken ct)
+        {
+            var request = new ActiveRequest(id, context, path);
+            _activeRequests[id] = request;
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                await TelemetryHttpRouter.RouteAsync(context, path, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                if (!ct.IsCancellationRequested)
+                    Plugin.Log?.LogWarning($"[NOXMFD] HTTP request {path} from {request.Remote} failed: {ex.Message}");
+            }
+            finally
+            {
+                try { context.Response.Close(); } catch { }
+                _activeRequests.TryRemove(id, out _);
+                request.Completion.TrySetResult(true);
+            }
+        }
+
+        private static void AbortActiveRequests()
+        {
+            foreach (ActiveRequest request in _activeRequests.Values)
+            {
+                if (Interlocked.Exchange(ref request.AbortLogged, 1) == 0)
+                {
+                    double age = (DateTime.UtcNow - request.StartedUtc).TotalSeconds;
+                    Plugin.Log?.LogInfo(
+                        $"[NOXMFD] Aborting request #{request.Id}: path={request.Path} " +
+                        $"remote={request.Remote} age={age.ToString("F1", CultureInfo.InvariantCulture)}s.");
+                }
+
+                try { request.Context.Response.Abort(); } catch { }
+            }
+        }
+
+        private static bool WaitForActiveRequests(int timeoutMs)
+        {
+            var requests = new List<ActiveRequest>(_activeRequests.Values);
+            if (requests.Count == 0) return true;
+
+            var completions = new Task[requests.Count];
+            for (int i = 0; i < requests.Count; i++)
+                completions[i] = requests[i].Completion.Task;
+
+            try { return Task.WaitAll(completions, timeoutMs) && _activeRequests.IsEmpty; }
+            catch (AggregateException) { return _activeRequests.IsEmpty; }
+        }
+
+        private static void LogRemainingRequests()
+        {
+            foreach (ActiveRequest request in _activeRequests.Values)
+            {
+                double age = (DateTime.UtcNow - request.StartedUtc).TotalSeconds;
+                Plugin.Log?.LogWarning(
+                    $"[NOXMFD] Request still active #{request.Id}: path={request.Path} " +
+                    $"remote={request.Remote} age={age.ToString("F1", CultureInfo.InvariantCulture)}s.");
+            }
+        }
+
+        private static bool WaitForPortRelease(int port, int timeoutMs)
+        {
+            var watch = Stopwatch.StartNew();
+            do
+            {
+                if (!IsLoopbackPortListening(port)) return true;
+                Thread.Sleep(25);
+            }
+            while (watch.ElapsedMilliseconds < timeoutMs);
+
+            return !IsLoopbackPortListening(port);
+        }
+
+        private static bool IsLoopbackPortListening(int port)
+        {
+            try
+            {
+                using (var client = new TcpClient(AddressFamily.InterNetwork))
+                {
+                    IAsyncResult connect = client.BeginConnect(IPAddress.Loopback, port, null, null);
+                    using (WaitHandle waitHandle = connect.AsyncWaitHandle)
+                    {
+                        try
+                        {
+                            if (!waitHandle.WaitOne(100)) return true;
+                            client.EndConnect(connect);
+                            return client.Connected;
+                        }
+                        catch (SocketException) { return false; }
+                    }
+                }
+            }
+            catch (SocketException) { return false; }
+            catch (ObjectDisposedException) { return false; }
+            catch { return true; } // An inconclusive probe must not be reported as a released port.
         }
 
         // ── Response helpers ────────────────────────────────────────────────────

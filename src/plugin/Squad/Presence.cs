@@ -6,15 +6,16 @@ namespace NOXMFD
     // ── NOXMFD presence ─────────────────────────────────────────────────────────
     // Detects which faction-mates in the current match are also running NOXMFD, so SQD's invite
     // roster (PlayerRoster.cs) can be limited to players who could actually receive an invite —
-    // inviting someone without the mod just times out silently 15s later (Squad.cs's
-    // InviteTimeoutSeconds), which reads as a bug rather than "they don't have it."
+    // inviting someone without the mod just sits there forever unanswered (Squad.cs's invites have
+    // no timeout), which reads as a bug rather than "they don't have it."
     //
     // Mechanism: a periodic broadcast, not a targeted ping-and-wait — there's no way to know in
     // advance who has the mod, so every instance just announces itself to the whole faction roster
     // on a timer, and every instance listens for the same announcement. A TTL on each received
     // announcement (rather than an explicit "goodbye") means someone who quits or force-closes
-    // ages out naturally within a couple of missed beats, the same reasoning Squad.cs's own
-    // leader-dropout gap accepts for the harder case.
+    // ages out naturally within a couple of missed beats — this same TTL is what Squad.CheckLiveness
+    // reuses to detect a leader/member who crashed or force-quit with no graceful sqd.leave/kick/
+    // disband to send.
     //
     // Rides Squadron.cs's transport (same channel, same trust model) with its own independent
     // drain cursor — Squadron.Since() is designed for exactly this: Squad.cs and this class each

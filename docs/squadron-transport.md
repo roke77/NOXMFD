@@ -262,7 +262,15 @@ with every member; members only ever talk to the leader, never each other):
   auto-picked oldest-joined member) / `sqd.disband` (leader only) / `sqd.kick` (leader removes one
   member while the squad lives on — distinct from disband; the target gets its own `sqd.kick`
   message rather than just falling out of the next roster broadcast, since by the time that goes
-  out they're no longer in `_members` to notice themselves missing).
+  out they're no longer in `_members` to notice themselves missing). None of these proactively close
+  the sender's own session with the recipient anymore — Steam can drop an already-queued reliable
+  message if the session closes before it flushes, so the goodbye itself could go missing right
+  when it matters most. Each receiving handler closes its own end once it actually gets the message.
+- `Squad.CheckLiveness()` — no protocol message at all, unlike everything above: a crash or
+  force-quit gives no chance to send one, so this instead reuses Presence's existing per-peer TTL
+  (the same 15s window `PlayerRoster`'s invite-candidate filter already trusts) to notice a
+  leader/member who's gone silent and clean them out locally. Runs once a second, alongside
+  `PlayerRoster.Refresh()`/`Presence.Tick()`.
 - `sqd.set-callsign` — leader-only, renames an existing squadron AND re-numbers its flight (issue
   #47 follow-up added the flight half; the initial values both come from `CreateSquad` above);
   carried through every roster/invite envelope and a leadership handoff (`sqd.transfer`'s own
@@ -308,9 +316,12 @@ with every member; members only ever talk to the leader, never each other):
   acceptance, updates in place on repeat sends, auto-reshare after its first share, and is removed
   by an id-only tombstone. Squad teardown clears pending points and unlocks accepted ones. See
   `docs/steer-points.md` for navigation semantics and the portable collection format.
-- Sent invites time out after 15s if nobody responds — there is no delivery acknowledgment at the
-  Steam messaging level, so a target with no mod installed looks identical to one still deciding
-  until the timeout fires and surfaces a notice.
+- Sent invites never expire — they live until the target accepts or declines, however long that
+  takes. There is no delivery acknowledgment at the Steam messaging level, so a target with no mod
+  installed looks identical to one still deciding, and a timeout couldn't tell the two apart
+  anyway. An accept against a `_pendingSent` entry the leader no longer has (they disbanded,
+  restarted, or already invited someone else into that slot) is a silent no-op on the leader's
+  side — `HandleAccept` only acts on a `from` it still recognizes; there's no error to surface.
 - No persistence, by design: squad state is in-memory only and resets on plugin restart.
 
 **Membership picker (`PlayerRoster.cs`)** — no pasted SteamIDs. The leader picks from everyone
@@ -434,6 +445,7 @@ is untouched by the game. Of the rest:
   faction roster every 5s over this same transport (its own message type, its own drain cursor into
   `Squadron`'s shared inbox) and tracks a per-peer last-seen time with a 15s TTL. `PlayerRoster.cs`
   filters `/server-players` to only peers currently within that TTL, so SQD's invite roster only
-  ever offers players who could actually receive and answer an invite — the 15s timeout above still
-  exists as a belt-and-braces fallback (a beat can be lost even for someone genuinely present), but
-  the common case (no mod installed at all) no longer produces a dead-end invite in the first place.
+  ever offers players who could actually receive and answer an invite — the common case (no mod
+  installed at all) no longer produces a dead-end invite in the first place. Invites themselves
+  have no timeout of their own (see above), so a genuinely-present target can take as long as they
+  want to decide.

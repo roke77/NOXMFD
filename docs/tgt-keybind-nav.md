@@ -74,9 +74,12 @@ but caught by the same testing pass.
 ## TD Keybinds (issue #47)
 
 The same map-act-plus-direct-call shape gained a third user: `TD Keybinds`'
-`td-assign-1`..`td-assign-9` (Target Designator, docs/target-designator.md) — a direct
-`TdStore.Assign(slot)` call plus the `MapAction("td-assign-N")` broadcast, exactly like Clear
-Datalink/Clear Stale above. See docs/target-designator.md for the full command/transport picture.
+`td-assign-1`..`td-assign-9` (Target Designator, docs/target-designator.md) — a `MapAction
+("td-assign-N")` broadcast either way, but the direct call needs a tap-vs-hold split Clear Datalink/
+Clear Stale don't: mirroring the on-screen squad button's own tap-assigns-and-clears/hold-assigns-
+and-keeps gesture means these are registered `edge:false` and driven by `Keybinds.PollTapHold`
+(the same `KeybindTapHold` state machine the combat-mode A/A/A/G binds use), not a plain edge
+trigger. See docs/target-designator.md for the full command/transport picture.
 
 ## Verification
 

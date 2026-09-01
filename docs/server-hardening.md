@@ -88,6 +88,10 @@ land it first.**
 The low-risk HTTP splits identified here are now done. The endpoint-specific config/options routes
 and captured game-asset endpoints also moved out after the original checklist, so
 `TelemetryServer.cs` now mostly keeps transport-owned state plus the shared SSE frame cache.
+Request ownership stays there too: the router returns a completion `Task` for every path, including
+SSE and both MJPEG surfaces, and the server tracks each accepted context until that task finishes.
+Shutdown can therefore cancel and abort active responses, report their path/remote/age when cleanup
+stalls, and verify that the configured loopback port stopped listening before claiming release.
 Historical split order:
 
 | Split | What moves | Risk |
@@ -131,5 +135,10 @@ split should be scoped from a fresh scan, not assumed from this checklist.
 - [x] Extract SSE/session hub (`SseHub.cs`; live multi-display SOI behavior still wants an in-game/browser spot-check before release)
 - [x] Extract the TGP MJPEG handler (`TgpMjpegHandler.cs`; `/tgp.mjpg` live viewing still wants an in-game/browser spot-check before release)
 - [x] Extract SOI focus + MAP cursor/action state (`SoiFocus.cs`; live multi-display SOI behavior still wants an in-game/browser spot-check before release, same as the SSE hub above)
+- [x] Track every accepted HTTP context through its handler task; abort and diagnose remaining
+      requests during bounded cooperative shutdown, then probe the configured loopback port
+- [ ] With `/stream` and `/tgp.mjpg` open from another LAN device, invoke process replacement and
+      confirm both handlers stop, the port-release diagnostic succeeds, and the replacement process
+      binds the configured LAN endpoint without falling back to localhost
 - [x] One-line SECURITY.md note once the method/size hardening ships (not a trust-model change, just
       documents that these two checks now exist)

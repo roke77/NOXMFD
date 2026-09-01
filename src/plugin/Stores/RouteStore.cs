@@ -211,7 +211,9 @@ namespace NOXMFD
             RefreshServedJsonOnly();
             if (!PersistToDisk) return;
             string fileJson = BuildFileJson();
-            try { File.WriteAllText(FilePath, fileJson); }
+            // Back up whatever was on disk BEFORE overwriting it — a backup taken after the write
+            // would just be a copy of the same content, no help if this write is the bad one.
+            try { ConfigBackup.BackupIfExists(FilePath); File.WriteAllText(FilePath, fileJson); }
             catch (Exception ex) { LogWarning?.Invoke($"[NOXMFD] failed to persist routes: {ex.Message}"); }
         }
 

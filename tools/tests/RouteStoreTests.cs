@@ -15,6 +15,40 @@ namespace NOXMFD.Tests
             RouteStore.ResetForTests();
         }
 
+        // Guards the fix to the ordering bug from the 0.36.1 keybinds incident: a backup taken
+        // AFTER writing the new file is just a copy of the new content, no help if that write is
+        // the bad one. Save() must back up whatever was on disk BEFORE overwriting it.
+        [Fact]
+        public void Save_backs_up_the_previous_content_before_overwriting()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "noxmfd-routestore-test-" + Guid.NewGuid());
+            Directory.CreateDirectory(dir);
+            string file = Path.Combine(dir, "com.roque.NOXMFD.routes.json");
+            string bak = file + ".bak";
+            try
+            {
+                RouteStore.ConfigDir = dir;
+                RouteStore.PersistToDisk = true;
+                RouteStore.ResetForTests();
+
+                RouteStore.CreateRoute("Alpha");   // first save: nothing on disk yet, so no .bak
+                Assert.False(File.Exists(bak));
+                string afterAlpha = File.ReadAllText(file);
+
+                RouteStore.CreateRoute("Bravo");   // second save: backs up the "Alpha" state first
+                Assert.True(File.Exists(bak));
+                Assert.Equal(afterAlpha, File.ReadAllText(bak));
+                Assert.NotEqual(File.ReadAllText(file), File.ReadAllText(bak));
+            }
+            finally
+            {
+                RouteStore.ConfigDir = null;
+                RouteStore.PersistToDisk = false;
+                RouteStore.ResetForTests();
+                Directory.Delete(dir, recursive: true);
+            }
+        }
+
         [Fact]
         public void CreateRoute_becomes_the_active_route()
         {

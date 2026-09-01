@@ -75,10 +75,14 @@ a REFRESH mid-sequence would silently wipe the highlights the leader is delibera
 
 Two small pieces close the loop back to TGT (issue #47 follow-up):
 
-- **DESIGNATE returns the leader to TGT** once it fires. TD has no shell-navigation authority of
-  its own — it `postMessage`s a `td-designated` type up to whichever shell is hosting it, which
-  looks up which pane/frame actually sent it (TD can be the full-view page or either split pane) and
-  calls that display's own page-switch function. mfd.js keeps a canonical-source guard on its
+- **DESIGNATE (leader) and AQUIRE (member) both return to TGT** once they fire — the whole point of
+  either is to hand off/lock targets, and TGT is where the pilot uses the result. TD has no
+  shell-navigation authority of its own — both `postMessage` the same `td-designated` type up to
+  whichever shell is hosting it, which looks up which pane/frame actually sent it (TD can be the
+  full-view page or either split pane) and calls that display's own page-switch function. This has
+  to go through the shell rather than a bare `location.href`: TGT has no telemetry connection of
+  its own (it only ever renders what the shell relays), so navigating the iframe directly would
+  strand it on a standalone page with nothing to show. mfd.js keeps a canonical-source guard on its
   message handler (only `mapFrame` may post most types) that had to be extended for this one, the
   same way `follow`/`grid`/`wpt-routes-request` already are — TD's iframe is never `mapFrame`.
 - **TGT gains a leader-only TD column**, second from the left, showing the same slot number(s)
@@ -111,11 +115,14 @@ Slot 1 assignments are tag-only, per the issue's own scope — DESIGNATE never s
 
 ## Keybinds
 
-`TD Keybinds` — `td-assign-1`..`td-assign-9`, `DriveFree`, edge-triggered, riding the `map-act`
-channel exactly the way `TGT Keybinds`' `tgt-datalink`/`tgt-stale` do
-(docs/tgt-keybind-nav.md): a direct `TdStore.Assign(slot)` call (gated on `Squad.IsLeader`) plus a
-`TelemetryServer.MapAction("td-assign-N")` broadcast for whichever display holds SOI. Only
-meaningful on the leader's own TD view while it holds SOI — a member's TD view has no squad
+`TD Keybinds` — `td-assign-1`..`td-assign-9`, registered `edge:false` (no-op held binds) and driven
+per-frame by `Keybinds.PollTapHold`, the same `KeybindTapHold` state machine the combat-mode A/A/A/G
+binds already use — a plain edge-triggered bind can't distinguish tap from hold, and the on-screen
+squad button's own tap-vs-hold gesture (tap assigns and clears the selection, hold assigns and
+keeps it) is exactly what these mirror: a tap calls `TdStore.Assign(slot)`, a hold calls
+`TdStore.Assign(slot, retain: true)` (both gated on `Squad.IsLeader`), plus a
+`TelemetryServer.MapAction("td-assign-N")` broadcast either way for whichever display holds SOI.
+Only meaningful on the leader's own TD view while it holds SOI — a member's TD view has no squad
 buttons to mirror, so the press is a no-op there, same scoping those existing TGT binds get for
 free.
 

@@ -31,6 +31,7 @@ const memberRows     = document.getElementById('td-member-rows');
 const memberEmpty    = document.getElementById('td-member-empty');
 const acquireBtn     = document.getElementById('td-acquire');
 const memberClearBtn = document.getElementById('td-member-clear');
+const memberRefreshBtn = document.getElementById('td-member-refresh');
 const refreshBtn      = document.getElementById('td-refresh');
 const selectAllBtn    = document.getElementById('td-select-all');
 
@@ -276,8 +277,17 @@ function renderMember(tdState) {
   memberEmpty.style.display = rows.length ? 'none' : '';
 }
 
-acquireBtn.addEventListener('click', function () { send('td.acquire-all', {}); });
+// Jumps to TGT right after acquiring — the whole point of AQUIRE is to lock those targets in the
+// cockpit, and TGT is where the pilot actually sees/uses the result. Same 'td-designated' signal
+// DESIGNATE sends below: TGT has no telemetry connection of its own (it only ever renders what the
+// shell relays), so navigating via a bare location.href would strand it on a standalone page with
+// no data — the shell (mfd.js/f35.js) has to be the one to actually switch this frame/pane to TGT.
+acquireBtn.addEventListener('click', function () {
+  send('td.acquire-all', {});
+  if (window.parent !== window) window.parent.postMessage({ mfd: true, type: 'td-designated' }, '*');
+});
 memberClearBtn.addEventListener('click', function () { send('td.member-clear', {}); });
+memberRefreshBtn.addEventListener('click', function () { refreshSquad(); refreshTd(); });
 refreshBtn.addEventListener('click', function () {
   // The one manual sync point: re-pull squad roster + assignment state from the server (in case
   // anything drifted — a member leaving, etc.) AND re-apply whatever the shell's latest target

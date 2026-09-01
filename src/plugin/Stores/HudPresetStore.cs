@@ -227,7 +227,8 @@ namespace NOXMFD
         private static void Persist()
         {
             RefreshSummary();
-            try { File.WriteAllText(FilePath, BuildDiskJson(_slots)); }
+            // Back up whatever was on disk BEFORE overwriting it — see RouteStore.Save's comment.
+            try { ConfigBackup.BackupIfExists(FilePath); File.WriteAllText(FilePath, BuildDiskJson(_slots)); }
             catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] failed to persist hud presets: {ex.Message}"); }
         }
 
