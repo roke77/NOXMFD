@@ -156,8 +156,8 @@ handler polls for a changed frame every 30 ms; the extension controls the actual
 
 ## Implementation map
 
-- `src/plugin/Api.cs` — public API contract.
-- `src/plugin/ExtensionRegistry.cs` — registrations, telemetry values, MJPEG state, and command
+- `src/plugin/Extensions/Api.cs` — public API contract.
+- `src/plugin/Extensions/ExtensionRegistry.cs` — registrations, telemetry values, MJPEG state, and command
   queue.
 - `src/plugin/Http/ExtensionEndpoint.cs` — manifest, extension assets, commands, and MJPEG routing.
 - `src/plugin/Http/CommandEndpoint.cs` — request validation and bounded command-body handling.
