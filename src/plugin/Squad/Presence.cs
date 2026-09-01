@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using BepInEx.Configuration;
 using UnityEngine;
 
 namespace NOXMFD
@@ -34,6 +35,40 @@ namespace NOXMFD
 
         private static readonly Dictionary<ulong, float> _lastSeen = new Dictionary<ulong, float>();
 
+        // ── LAN-roster investigation (temporary) ──────────────────────────────────────────────
+        // A LAN-joined Player's SteamID SyncVar may never replicate (it normally rides Steam's own
+        // lobby/matchmaking join, which raw UDP join skips), so PlayerRoster filters those players
+        // out before Presence ever sees them — a peer id typed here bypasses that filter entirely,
+        // to isolate whether Steam P2P itself still works over a LAN connection independent of
+        // identity discovery. Hidden, empty by default; remove this block once the investigation
+        // concludes either way.
+        private static ConfigEntry<string>? _debugPeerIds;
+
+        internal static void Bind(ConfigFile config)
+        {
+            var hidden = new ConfigurationManagerAttributes { Browsable = false };
+            _debugPeerIds = config.Bind("Squad Debug", "PeerSteamIds", "",
+                new ConfigDescription(
+                    "Comma-separated SteamID64s to presence-ping directly, bypassing the faction roster. " +
+                    "Temporary LAN-roster investigation aid — leave empty.", null, hidden));
+        }
+
+        private static IEnumerable<ulong> DebugPeers()
+        {
+            string raw = _debugPeerIds?.Value ?? "";
+            if (raw.Length == 0) yield break;
+            foreach (string part in raw.Split(','))
+            {
+                if (ulong.TryParse(part.Trim(), out ulong id) && id != 0) yield return id;
+            }
+        }
+
+        private static bool IsDebugPeer(ulong id)
+        {
+            foreach (ulong debugId in DebugPeers()) { if (debugId == id) return true; }
+            return false;
+        }
+
         // Called once per second from TelemetryReader's slow tick, alongside PlayerRoster.Refresh —
         // same cadence, same caller, so the roster and the presence table it filters against never
         // drift more than a tick apart. `peers` is the current faction roster (self already
@@ -46,6 +81,26 @@ namespace NOXMFD
             if (Time.unscaledTime < _nextBroadcast) return;
             _nextBroadcast = Time.unscaledTime + BroadcastIntervalSeconds;
             Squadron.SendToAll(peers, MessageType, string.Empty);
+            DebugPingConfiguredPeers();
+        }
+
+        // LAN-roster investigation only — sent and logged independently of the normal broadcast
+        // above, since a debug peer is by definition NOT in `peers` (PlayerRoster never resolved
+        // its SteamID from the faction roster in the first place; that's the gap being tested).
+        private static void DebugPingConfiguredPeers()
+        {
+            bool any = false;
+            foreach (ulong id in DebugPeers())
+            {
+                if (!any)
+                {
+                    any = true;
+                    Plugin.Log?.LogInfo($"[SQD-TEST] self={Squadron.SelfId()} ready={Squadron.Ready}");
+                }
+                bool ok = Squadron.SendTo(id, MessageType, string.Empty);
+                Plugin.Log?.LogInfo($"[SQD-TEST] presence send peer={id} result={(ok ? "OK" : "FAIL")}");
+                Plugin.Log?.LogInfo($"[SQD-TEST] peer={id} present={HasNoxmfd(id)}");
+            }
         }
 
         // Called once per frame from MissionLifecycle, right after Squadron.Poll() — same spot
@@ -56,7 +111,9 @@ namespace NOXMFD
             foreach (var m in inbound)
             {
                 _drainedSeq = m.Seq;
-                if (m.Type == MessageType) _lastSeen[m.From] = Time.unscaledTime;
+                if (m.Type != MessageType) continue;
+                _lastSeen[m.From] = Time.unscaledTime;
+                if (IsDebugPeer(m.From)) Plugin.Log?.LogInfo($"[SQD-TEST] presence received peer={m.From}");
             }
         }
 
