@@ -84,7 +84,8 @@ namespace NOXMFD
         private static void Save()
         {
             LayoutsJson = BuildJson();
-            try { File.WriteAllText(FilePath, LayoutsJson); }
+            // Back up whatever was on disk BEFORE overwriting it — see RouteStore.Save's comment.
+            try { ConfigBackup.BackupIfExists(FilePath); File.WriteAllText(FilePath, LayoutsJson); }
             catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] failed to persist layouts: {ex.Message}"); }
         }
 

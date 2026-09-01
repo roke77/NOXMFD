@@ -456,10 +456,22 @@ namespace NOXMFD
 
             // A blank/corrupted com.roque.NOXMFD.cfg has already cost a player their whole HOTAS
             // mapping once (a Mono runtime quirk wiping every keybind's converter registration —
-            // see the KeyboardShortcut.Empty comment above). SettingChanged covers every keybind
-            // write (key capture, joystick/axis capture, clears) plus every other setting in this
-            // same file — cheap and strictly more protective than filtering to just keybinds.
-            config.SettingChanged += (_, __) => ConfigBackup.BackupIfExists(config.ConfigFilePath);
+            // see the KeyboardShortcut.Empty comment above). _configFile lets every mutator below
+            // back up the file BEFORE it changes anything (see BackupNow) — config.SettingChanged
+            // fires only AFTER BepInEx has already saved the new value, too late to preserve the
+            // prior state.
+            _configFile = config;
+        }
+
+        private static ConfigFile? _configFile;
+
+        // Snapshots com.roque.NOXMFD.cfg's current (pre-change) content to its .bak. Called at the
+        // top of every mutator below, before touching a ConfigEntry.Value — BepInEx saves the whole
+        // file as soon as a value changes, so backing up has to happen first to catch the state
+        // that's about to be overwritten, not a copy of what just replaced it.
+        private static void BackupNow()
+        {
+            if (_configFile != null) ConfigBackup.BackupIfExists(_configFile.ConfigFilePath);
         }
 
         // Registers one functionality: binds its two config entries (keyboard + joystick, both hidden
@@ -617,7 +629,7 @@ namespace NOXMFD
         // the table rather than as a row. BackgroundInput is read once to build the page's initial
         // state; SetBackgroundInput is the write, applied live next Poll() by ApplyBackgroundInput.
         internal static bool BackgroundInput => _bgInput?.Value ?? false;
-        internal static void SetBackgroundInput(bool on) { if (_bgInput != null) _bgInput.Value = on; }
+        internal static void SetBackgroundInput(bool on) { if (_bgInput != null) { BackupNow(); _bgInput.Value = on; } }
 
         // ── Bind writes (driven by the /keybinds page via CommandDispatcher, main thread) ───────────
         // Set a bind's keyboard key from its Unity KeyCode name; "" / "None" clears. Rejects unknown
@@ -630,6 +642,7 @@ namespace NOXMFD
                 return false;
             BindDef? b = FindBind(id);
             if (b == null || b.KeyEntry == null) return false;
+            BackupNow();
             b.KeyEntry.Value = clear ? KeyboardShortcut.Empty : new KeyboardShortcut(key);
             return true;
         }
@@ -673,6 +686,7 @@ namespace NOXMFD
         {
             BindDef? b = FindBind(id);
             if (b == null || b.JoyEntry == null) return false;
+            BackupNow();
             b.JoyEntry.Value = -1; b.JoyNumEntry!.Value = 0;
             if (_capturing == b) Disarm();
             return true;
@@ -707,6 +721,7 @@ namespace NOXMFD
         {
             BindDef? b = FindBind(id);
             if (b == null || b.AxisEntry == null) return false;
+            BackupNow();
             b.AxisEntry.Value = -1; b.AxisJoyNumEntry!.Value = 0; b.AxisInvertEntry!.Value = false;
             if (_capturingAxis == b) Disarm();
             return true;
@@ -716,6 +731,7 @@ namespace NOXMFD
         {
             BindDef? b = FindBind(id);
             if (b == null || b.AxisInvertEntry == null) return false;
+            BackupNow();
             b.AxisInvertEntry.Value = invert;
             return true;
         }
@@ -1015,6 +1031,7 @@ namespace NOXMFD
                 {
                     if (!joy.GetButton(b)) { _latched.Remove((i, b)); continue; }   // seen up → capturable again
                     if (_latched.Contains((i, b)) || !joy.GetButtonDown(b)) continue;
+                    BackupNow();
                     _capturing!.JoyEntry!.Value = b;
                     _capturing.JoyNumEntry!.Value = i + 1;   // pin to the device it came from
                     Plugin.Log?.LogInfo($"[NOXMFD] captured joy[{i}] '{joy.name}' button {b} for keybind '{_capturing.Id}'.");
@@ -1050,6 +1067,7 @@ namespace NOXMFD
                 {
                     float rest = _axisRest.TryGetValue((i, a), out float r) ? r : 0f;
                     if (Math.Abs(joy.GetAxis(a) - rest) < AxisCaptureThreshold) continue;
+                    BackupNow();
                     _capturingAxis!.AxisEntry!.Value = a;
                     _capturingAxis.AxisJoyNumEntry!.Value = i + 1;   // pin to the device it came from
                     Plugin.Log?.LogInfo($"[NOXMFD] captured joy[{i}] '{joy.name}' axis {a} for keybind '{_capturingAxis.Id}'.");
