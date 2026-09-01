@@ -475,7 +475,14 @@ namespace NOXMFD
             {
                 Id = id, Section = section, Label = label, Description = description, Edge = edge,
                 Drive = drive, DriveFree = driveFree,
-                KeyEntry = config.Bind(section, key, new KeyboardShortcut(),
+                // KeyboardShortcut.Empty, not `new KeyboardShortcut()` — the latter compiles to a bare
+                // initobj on this struct, which Mono doesn't reliably run the type's static constructor
+                // for. That static constructor is what registers KeyboardShortcut's TOML converter with
+                // BepInEx's config system (BepInEx.Configuration.KeyboardShortcut.cs) — miss it here and
+                // every Bind<KeyboardShortcut> below throws "not supported by the config system" on this
+                // runtime. .Empty is a real static-field access, which the CLR spec guarantees runs the
+                // type initializer first.
+                KeyEntry = config.Bind(section, key, KeyboardShortcut.Empty,
                     new ConfigDescription("Keyboard/mouse key: " + description, null, Hidden())),
             };
             // joystick:false (DefKeyOnly below) — no Rewired button entry at all, not merely unset,
@@ -616,7 +623,7 @@ namespace NOXMFD
                 return false;
             BindDef? b = FindBind(id);
             if (b == null || b.KeyEntry == null) return false;
-            b.KeyEntry.Value = clear ? new KeyboardShortcut() : new KeyboardShortcut(key);
+            b.KeyEntry.Value = clear ? KeyboardShortcut.Empty : new KeyboardShortcut(key);
             return true;
         }
 
