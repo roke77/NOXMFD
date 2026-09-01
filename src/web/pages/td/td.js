@@ -278,8 +278,14 @@ function renderMember(tdState) {
 }
 
 // Jumps to TGT right after acquiring — the whole point of AQUIRE is to lock those targets in the
-// cockpit, and TGT is where the pilot actually sees/uses the result.
-acquireBtn.addEventListener('click', function () { send('td.acquire-all', {}); location.href = '/tgt'; });
+// cockpit, and TGT is where the pilot actually sees/uses the result. Same 'td-designated' signal
+// DESIGNATE sends below: TGT has no telemetry connection of its own (it only ever renders what the
+// shell relays), so navigating via a bare location.href would strand it on a standalone page with
+// no data — the shell (mfd.js/f35.js) has to be the one to actually switch this frame/pane to TGT.
+acquireBtn.addEventListener('click', function () {
+  send('td.acquire-all', {});
+  if (window.parent !== window) window.parent.postMessage({ mfd: true, type: 'td-designated' }, '*');
+});
 memberClearBtn.addEventListener('click', function () { send('td.member-clear', {}); });
 memberRefreshBtn.addEventListener('click', function () { refreshSquad(); refreshTd(); });
 refreshBtn.addEventListener('click', function () {

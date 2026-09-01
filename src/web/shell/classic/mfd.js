@@ -1898,9 +1898,11 @@ window.addEventListener('message', function(e) {
     else return;
     refreshFollowIndicator();
   } else if (m.type === 'td-designated') {
-    // TD's own DESIGNATE button just fired (issue #47 follow-up) — return that display to TGT.
-    // Routed by source, same reasoning as 'follow'/'grid' above: TD can be the full-view page or
-    // either split pane, and only the one that actually sent this should navigate.
+    // TD's own DESIGNATE (leader) or AQUIRE (member) button just fired (issue #47 follow-up) —
+    // return that display to TGT. Has to be the shell doing the navigating, not TD itself: TGT has
+    // no telemetry connection of its own, so a bare iframe location change would strand it with no
+    // data to render. Routed by source, same reasoning as 'follow'/'grid' above: TD can be the
+    // full-view page or either split pane, and only the one that actually sent this should navigate.
     if (!splitMode && currentPage === 'td' && e.source === pageFrame.contentWindow) showPage('tgt');
     else if (splitMode) {
       if (panePages[0] === 'td' && e.source === paneIframes[0].contentWindow) paneNavigate(0, 'tgt');
