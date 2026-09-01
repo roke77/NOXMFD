@@ -10,6 +10,8 @@ The table mirrors your TGT target list, but unlike TGT it's deliberately static 
 live-updating — see **REFRESH** below for why. It's a separate view from TGT itself: selecting or
 assigning here never changes what's selected on TGT.
 
+![TD leader view](images/TD_SQD_LEADER.png)
+
 - **Tap a row** to select it (highlighted amber). Multiple rows can be selected at once.
 - **Squad buttons** above the table, one per squad slot including yourself, labeled with each
   pilot's callsign designation (e.g. `TALON 1-1` is you, `TALON 1-2` the first member, and so on —
@@ -37,6 +39,8 @@ assigning here never changes what's selected on TGT.
 
 A read-only table of whatever the leader last designated to you — never your own TGT selections.
 
+![TD member view](images/TD_SQD_MEMBER.png)
+
 - **Tap a row** to select that target in-game immediately.
 - **AQUIRE** selects everything currently listed, all at once, then returns you to TGT.
 - **CLEAR** empties your own table. This doesn't notify the leader.
@@ -53,6 +57,8 @@ teal mark — visible in the cockpit HUD itself, without opening TD or TGT:
 This is purely informational and works for every squad member, leader included — it shows what the
 rest of the squad is doing at a glance, separate from your own local target lock (the amber `+`).
 Marks update live and clear automatically once the squad ends.
+
+![Squad target marks on the in-game HUD](images/TD_SQUAD_HUD_TARGET.png)
 
 ## Keybinds
 
