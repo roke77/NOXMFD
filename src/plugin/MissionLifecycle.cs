@@ -43,7 +43,7 @@ namespace NOXMFD
         private void OnDestroy()
         {
             StopReader();
-            // TelemetryServer is static and survives for the process lifetime; not stopped here.
+            // The process-wide server is stopped by Plugin's static Application.quitting handler.
         }
 
         private void StartReader()

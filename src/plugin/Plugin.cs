@@ -24,7 +24,8 @@ namespace NOXMFD
         // Plugin itself can be torn down — the static state and the MissionLifecycle GameObject survive.
 
         private static MissionLifecycle? _lifecycle;
-        private static bool    _sceneSubscribed;
+        private static bool _sceneSubscribed;
+        private static bool _quitSubscribed;
 
         private void Awake()
         {
@@ -58,6 +59,13 @@ namespace NOXMFD
                 "On first launch, if binding the LAN port is denied, automatically add the Windows URL reservation + firewall rule so a tablet can connect — ONLY works when the game is run as Administrator. Turn OFF to manage them yourself (see docs/networking.md). No effect once configured. Localhost always works regardless.");
             TelemetryServer.Configure(netPort.Value, autoLan.Value);
 
+            // The BepInEx-owned Plugin component is destroyed during boot, so its OnDestroy cannot
+            // own process cleanup. A static application handler survives with the static server.
+            if (!_quitSubscribed)
+            {
+                Application.quitting += OnApplicationQuitting;
+                _quitSubscribed = true;
+            }
             TelemetryServer.Start();
             if (!_sceneSubscribed)
             {
@@ -66,6 +74,8 @@ namespace NOXMFD
             }
             Log.LogInfo("NO XMFD loaded. Waiting for a mission to start...");
         }
+
+        private static void OnApplicationQuitting() => TelemetryServer.Stop();
 
         // Runs a config-binding step without letting its failure take the rest of Awake down.
         private static void TryBind(string what, Action bind)
