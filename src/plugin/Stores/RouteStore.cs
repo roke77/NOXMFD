@@ -356,13 +356,14 @@ namespace NOXMFD
         // a member edit a route that isn't theirs" possible at all. BuildSharePayloadJson below
         // builds this shape ({id, name, waypoints}) specifically for this path.
 
-        // Called from CommandDispatcher when a squadmate's share arrives (via the shell's SSE
-        // listener, docs/squadron-transport.md). A share whose id we've never seen becomes a new
-        // pending entry. A share whose id matches an already-PENDING one just refreshes that pending
-        // entry's content (the leader edited before this pilot got around to accept/reject). A share
-        // whose id matches an already-ACCEPTED route is a re-share after a leader edit — updates that
-        // route's content in place via UpdateSharedRoute rather than being dropped as a duplicate,
-        // which is what let leader edits silently fail to propagate before this existed.
+        // Called from Squad.HandleData the instant a squadmate's share arrives over Steam
+        // (docs/squadron-transport.md) — not routed through a browser command. A share whose id
+        // we've never seen becomes a new pending entry. A share whose id matches an already-PENDING
+        // one just refreshes that pending entry's content (the leader edited before this pilot got
+        // around to accept/reject). A share whose id matches an already-ACCEPTED route is a re-share
+        // after a leader edit — updates that route's content in place via UpdateSharedRoute, so a
+        // leader's edit always reaches an already-accepted member instead of being dropped as a
+        // duplicate of the original share.
         public static bool ReceiveSharedRoute(string? text, string fromName)
         {
             if (string.IsNullOrEmpty(text)) return false;
@@ -498,10 +499,11 @@ namespace NOXMFD
             return true;
         }
 
-        // Called from CommandDispatcher when a squadmate's delete-tombstone arrives (the leader
-        // deleted a route this pilot had pending or already accepted — BroadcastDeleteIfShared
-        // above). Removes either without an accept/reject step: unlike ReceiveSharedRoute this never
-        // creates anything, so there's no ambiguity to resolve, just something to take away.
+        // Called from Squad.HandleData the instant a squadmate's delete-tombstone arrives (the
+        // leader deleted a route this pilot had pending or already accepted — BroadcastDeleteIfShared
+        // above), not routed through a browser command. Removes either without an accept/reject step:
+        // unlike ReceiveSharedRoute this never creates anything, so there's no ambiguity to resolve,
+        // just something to take away.
         public static bool RemoveSharedRoute(string id)
         {
             bool removedPending = _pendingShared.RemoveAll(p => p.Id == id) > 0;

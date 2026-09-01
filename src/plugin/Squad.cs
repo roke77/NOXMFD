@@ -119,12 +119,12 @@ namespace NOXMFD
         // identical to one that's simply thinking it over until this fires.
         private const float InviteTimeoutSeconds = 15f;
 
-        // Us: invites we haven't answered yet, oldest first. A second (or third...) invite while
-        // one is already pending used to silently replace it (last invite wins) — now it queues
-        // instead, so a pilot never loses visibility of an earlier offer just because a later one
-        // arrived. Accepting one clears the rest automatically (AcceptInvite declines them on the
-        // pilot's behalf, since joining a squad is exclusive); each stays independently
-        // accept/decline-able by its own leaderId in the meantime.
+        // Us: invites we haven't answered yet, oldest first. A second (or third...) invite while one
+        // is already pending queues alongside it rather than replacing it, so a pilot never loses
+        // visibility of an earlier offer just because a later one arrived. Accepting one clears the
+        // rest automatically (AcceptInvite declines them on the pilot's behalf, since joining a squad
+        // is exclusive); each stays independently accept/decline-able by its own leaderId in the
+        // meantime.
         private static readonly List<PendingInvite> _pendingReceived = new List<PendingInvite>();
 
         // Server-thread-readable cache, same threading contract as RouteStore.RoutesJson: every
@@ -202,10 +202,9 @@ namespace NOXMFD
         // ── Outbound actions (called from CommandDispatcher, main thread) ─────────
 
         // Explicitly starts a new squad with a chosen callsign and flight number — the SQD page's
-        // own CREATE SQUAD button. Requires both up front rather than letting a squad exist unnamed
-        // the way an earlier design (invite-implicitly-creates-a-squad) did; INVITE only appears on
-        // the roster once this has made the pilot a leader. Flight is fixed for the squad's whole
-        // life once set here — unlike the callsign, there is no later "change flight" action.
+        // own CREATE SQUAD button. Requires both up front; INVITE only appears on the roster once
+        // this has made the pilot a leader. Both the callsign and the flight number can be changed
+        // later via SetCallsign (the roster's own EDIT button).
         internal static bool CreateSquad(string callsign, int flight)
         {
             if (_role != Role.None) return false;
@@ -326,9 +325,9 @@ namespace NOXMFD
 
         // Renames the squadron and/or re-numbers its flight. Leader-only — CreateSquad already
         // requires both up front, so the only remaining use for this is the SQD page's EDIT button
-        // on an existing squad. Flight is no longer fixed for the squad's whole life (issue #47
-        // follow-up) — re-numbering it re-numbers every member's own "<CALLSIGN> <FLIGHT>-<MEMBER>"
-        // designation immediately, since MEMBER (join order) never changes.
+        // on an existing squad. Re-numbering the flight re-numbers every member's own
+        // "<CALLSIGN> <FLIGHT>-<MEMBER>" designation immediately, since MEMBER (join order) never
+        // changes.
         internal static bool SetCallsign(string name, int flight)
         {
             if (_role != Role.Leader) return false;
@@ -353,10 +352,10 @@ namespace NOXMFD
             if (_role != Role.Leader) return false;
             int idx = RemoveMember(memberId);
             if (idx < 0) return false;
-            // issue #47 follow-up audit's gap #3: the kicked member's own slot (idx + 2) and every
-            // slot above it are now one position off from what td.js's squadSlots() will compute
-            // against the shrunk roster — fix TdStore's assignments to match before anything reads
-            // them (a poll, a DESIGNATE) with the old numbering.
+            // The kicked member's own slot (idx + 2) and every slot above it are now one position
+            // off from what td.js's squadSlots() computes against the shrunk roster — fix TdStore's
+            // assignments to match before anything reads them (a poll, a DESIGNATE) with the old
+            // numbering.
             TdStore.RenumberAfterMemberRemoved(idx + 2);
             SquadTargetsStore.RemoveMember(memberId);   // issue #49 — drop their entry from the aggregate
             Squadron.SendTo(memberId, "sqd.kick", "{}");
@@ -535,12 +534,12 @@ namespace NOXMFD
             _members.AddRange(members);
             _pendingSent.Clear();
             foreach (var m in _members) Squadron.OpenSession(m.Id);
-            // This pilot's own MEMBER-side state (issue #47 follow-up audit's gap #2) — a received
-            // designation snapshot, a route locked read-only from the old leader — is now stale: the
-            // old leader is gone and this pilot is about to start acting as leader instead. Same
-            // "the old relationship is over, whether or not the squad itself lives on" reasoning
-            // HandleLeaderChanged already applies for every OTHER remaining member; the successor is
-            // the one member who doesn't go through that path, so it has to happen here instead.
+            // This pilot's own MEMBER-side state — a received designation snapshot, a route locked
+            // read-only from the old leader — is now stale: the old leader is gone and this pilot is
+            // about to start acting as leader instead. Same "the old relationship is over, whether
+            // or not the squad itself lives on" reasoning HandleLeaderChanged already applies for
+            // every OTHER remaining member; the successor is the one member who doesn't go through
+            // that path, so it has to happen here instead.
             RouteStore.OnSquadEnded();
             TdStore.OnSquadEnded();
             SquadTargetsStore.OnSquadEnded();
@@ -638,12 +637,12 @@ namespace NOXMFD
         }
 
         // The one place squad membership actually ends (every path below funnels here) — so it's
-        // also the one place to reset every OTHER subsystem scoped to "this pilot is in a squad"
-        // (issue #47 follow-up audit). Before this, RouteStore.OnSquadEnded() was called ad hoc at
-        // some call sites and missing from others (RelinquishLeadership, Disband, a leader leaving
-        // with no members) — centralizing it here means every squad-ending path gets it for free,
-        // the same guarantee TdStore.OnSquadEnded() already had. _notice/_noticeSeq intentionally
-        // is NOT touched: SetNotice already gates display on `state.notice` being non-empty
+        // also the one place to reset every OTHER subsystem scoped to "this pilot is in a squad":
+        // centralizing RouteStore.OnSquadEnded()/TdStore.OnSquadEnded()/SquadTargetsStore.
+        // OnSquadEnded() here means every squad-ending path (RelinquishLeadership, Disband, a leader
+        // leaving with no members, ...) gets all three for free, rather than each call site having
+        // to remember them individually. _notice/_noticeSeq intentionally is NOT touched: SetNotice
+        // already gates display on `state.notice` being non-empty
         // (sqd.js), so clearing _notice here (not the monotonic _noticeSeq — resetting a sequence
         // counter risks a genuinely new future notice colliding with one the browser already saw)
         // stops a stale disband/kick notice from re-toasting on a page that loads fresh later,
@@ -681,9 +680,9 @@ namespace NOXMFD
         }
 
         // Returns the removed member's index (0-based, matching _members' own join order), or -1 if
-        // not found. Callers that also need to fix up TdStore's positional slot assignments (issue
-        // #47 follow-up audit's gap #3 — slot = index + 2, td.js's own squadSlots() computes the
-        // same number) need the index, not just a bool.
+        // not found. Callers that also need to fix up TdStore's positional slot assignments (slot =
+        // index + 2, td.js's own squadSlots() computes the same number) need the index, not just a
+        // bool.
         private static int RemoveMember(ulong id)
         {
             for (int i = 0; i < _members.Count; i++)

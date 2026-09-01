@@ -106,25 +106,20 @@ function render() {
 }
 
 // ── Leader view ──────────────────────────────────────────────────────────────────────
-// TD does NOT mirror the live telemetry feed the way TGT does. Earlier attempts kept trying to
-// make a constantly-refreshing table survive being clicked (stable DOM nodes, then splitting
-// live-text updates from selection updates, then freezing row position) — each round removed one
-// way the table could disturb an in-progress click, but the table was still updating on its own on
-// a timer no user asked for, which is the wrong shape for a screen whose whole point is "click
-// things precisely." The actual fix is to stop the background updates entirely: TD's table is
-// static between actual designation activity. It refreshes only in three cases, all deliberate,
-// all triggered by something the user (or the user's own game actions) actually did:
+// TD does NOT mirror the live telemetry feed the way TGT does: the table is static between actual
+// designation activity, so a click's mousedown-then-mouseup gesture is never disturbed by a
+// same-moment repaint. It refreshes only in three cases, all deliberate, all triggered by something
+// the user (or the user's own game actions) actually did:
 //   1. A real select/deselect in-game — i.e. the SET of locked target ids changed, checked below
 //      via idsKey(). Range/grid drifting on an already-locked target does NOT trigger this.
 //   2. The REFRESH button — pulls in whatever the shell's last 'tgt-targets' message was, on
 //      demand, so grid/range can be brought current without needing to lock/unlock anything.
-//   3. Squad roster changes (renderSquadButtons, memoized by signature, unchanged) and the 1s
-//      /squad + /td-state polls (selection/assignment state — applySelectionState below), neither
-//      of which touches the target rows at all.
+//   3. Squad roster changes (renderSquadButtons, memoized by signature) and a pushed 'sqd-state'/
+//      'td-state-push' (selection/assignment state — applySelectionState below), neither of which
+//      touches the target rows at all.
 // squadButtons stays memoized by roster signature. leaderRowEls persists row elements by id so an
 // existing row is only ever updated in place, never destroyed/recreated/repositioned even when
-// case 1 or 2 above does run — a real design's first version already got that part right; the
-// piece that was missing was updating so rarely at all.
+// case 1 or 2 above does run.
 let lastSquadSig = null;
 const leaderRowEls = new Map();   // target id -> row element, persists across updates
 let lastAppliedIdsKey = null;     // idsKey() of whichever snapshot leaderRowEls currently reflects

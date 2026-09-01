@@ -90,9 +90,9 @@ namespace NOXMFD
         // number td.js's own squadSlots() computes) — a kick or voluntary leave shrinks that list,
         // so everyone after the departed member shifts down one slot on the very next read (a poll,
         // a DESIGNATE). Without this, an assignment made before the departure would silently land on
-        // whoever now sits in that old slot instead (issue #47 follow-up audit's gap #3). Called from
-        // Squad.cs's Kick()/HandleLeave() with the departed member's own slot, before anything else
-        // reads _assignments against the already-shrunk roster.
+        // whoever now sits in that old slot instead. Called from Squad.cs's Kick()/HandleLeave() with
+        // the departed member's own slot, before anything else reads _assignments against the
+        // already-shrunk roster.
         internal static void RenumberAfterMemberRemoved(int removedSlot)
         {
             if (removedSlot <= 0 || _assignments.Count == 0) return;

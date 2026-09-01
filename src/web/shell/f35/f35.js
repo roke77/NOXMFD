@@ -129,10 +129,8 @@
     { label: 'RDR', action: 'rdr' },   // → RDR hub, landing on FCR at /rdr (docs/rdr-fcr-hsd.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page — mirrors BEZEL_EXTRAS.main
     { label: 'SQD', action: 'sqd' },   // → SQD squad page (docs/squadron-transport.md) — mirrors BEZEL_EXTRAS.main
-    // EXT is NOT here — it's a real, shared NAV.main entry now (docs/extensions-api.md), not this
-    // layout's own placeholder. This used to be a stub relying on F35_PAGES having no 'ext' entry
-    // to render it disabled; now that F35_PAGES.ext is real, keeping a second entry here would
-    // render a duplicate "EXT" item.
+    // EXT is NOT here — it's a real, shared NAV.main entry (docs/extensions-api.md), not this
+    // layout's own placeholder; a second entry here would render a duplicate "EXT" item.
   ];
 
   // Paging actions, and the direction each moves. Not pages, so they dispatch separately.

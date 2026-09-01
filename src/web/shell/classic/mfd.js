@@ -134,10 +134,8 @@ const BEZEL_EXTRAS = {
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
     { label: 'SQD', action: 'sqd' },   // → SQD squad page (docs/squadron-transport.md)
-    // EXT is NOT here — it's a real, shared NAV.main entry now (docs/extensions-api.md), not a
-    // layout-owned stub. This used to be a `pending: true` placeholder occupying the MAIN slot
-    // ahead of the real extension system; now that NAV.main carries EXT itself, keeping a second
-    // entry here would render a duplicate "EXT" label.
+    // EXT is NOT here — it's a real, shared NAV.main entry (docs/extensions-api.md), not a
+    // layout-owned stub; a second entry here would render a duplicate "EXT" label.
   ],
   // No MAIN back-item under lyt here — picking CLASSIC already navigates back to MAIN (this shell).
   // CFG is still needed: it goes back to HUD/KEY/RTS, which picking CLASSIC does not reach.
