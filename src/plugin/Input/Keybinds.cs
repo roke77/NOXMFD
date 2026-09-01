@@ -453,6 +453,13 @@ namespace NOXMFD
                 else
                     Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': axis={b.AxisEntry!.Value} (stick {b.AxisJoyNumEntry!.Value}, invert={b.AxisInvertEntry!.Value}).");
             }
+
+            // A blank/corrupted com.roque.NOXMFD.cfg has already cost a player their whole HOTAS
+            // mapping once (a Mono runtime quirk wiping every keybind's converter registration —
+            // see the KeyboardShortcut.Empty comment above). SettingChanged covers every keybind
+            // write (key capture, joystick/axis capture, clears) plus every other setting in this
+            // same file — cheap and strictly more protective than filtering to just keybinds.
+            config.SettingChanged += (_, __) => ConfigBackup.BackupIfExists(config.ConfigFilePath);
         }
 
         // Registers one functionality: binds its two config entries (keyboard + joystick, both hidden
@@ -475,13 +482,13 @@ namespace NOXMFD
             {
                 Id = id, Section = section, Label = label, Description = description, Edge = edge,
                 Drive = drive, DriveFree = driveFree,
-                // KeyboardShortcut.Empty, not `new KeyboardShortcut()` — the latter compiles to a bare
-                // initobj on this struct, which Mono doesn't reliably run the type's static constructor
-                // for. That static constructor is what registers KeyboardShortcut's TOML converter with
-                // BepInEx's config system (BepInEx.Configuration.KeyboardShortcut.cs) — miss it here and
-                // every Bind<KeyboardShortcut> below throws "not supported by the config system" on this
+                // KeyboardShortcut.Empty — a bare parameterless construction of this struct compiles to
+                // an initobj, which Mono doesn't reliably run the type's static constructor for. That
+                // static constructor is what registers KeyboardShortcut's TOML converter with BepInEx's
+                // config system (BepInEx.Configuration.KeyboardShortcut.cs) — miss it here and every
+                // Bind<KeyboardShortcut> below throws "not supported by the config system" on this
                 // runtime. .Empty is a real static-field access, which the CLR spec guarantees runs the
-                // type initializer first.
+                // type initializer first. KeyboardShortcutRegressionTests.cs guards this pattern.
                 KeyEntry = config.Bind(section, key, KeyboardShortcut.Empty,
                     new ConfigDescription("Keyboard/mouse key: " + description, null, Hidden())),
             };

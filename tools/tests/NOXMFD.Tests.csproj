@@ -48,6 +48,8 @@
     <Compile Include="..\..\src\plugin\TargetSelectionPolicy.cs" Link="Source\TargetSelectionPolicy.cs" />
     <Compile Include="..\..\src\plugin\Akf\AkfTrackerLogic.cs" Link="Source\AkfTrackerLogic.cs" />
     <Compile Include="..\..\src\plugin\Input\KeybindTapHold.cs" Link="Source\KeybindTapHold.cs" />
+    <!-- ConfigBackup.cs (post-0.36.1) — pure System.IO, no Unity/BepInEx touchpoint. -->
+    <Compile Include="..\..\src\plugin\ConfigBackup.cs" Link="Source\ConfigBackup.cs" />
     <Compile Include="..\..\src\plugin\Input\WeaponSelectorLogic.cs" Link="Source\WeaponSelectorLogic.cs" />
     <Compile Include="..\..\src\plugin\Tgp\TgpManualAimMath.cs" Link="Source\TgpManualAimMath.cs" />
     <Compile Include="..\..\src\plugin\Tgp\TgpFeedSettings.cs" Link="Source\TgpFeedSettings.cs" />
