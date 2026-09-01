@@ -31,7 +31,7 @@ namespace NOXMFD
         // POST "/ext/<id>/command" (its command endpoint) — one generic handler for every
         // registered extension rather than per-extension routing, the whole point of this surface
         // (see docs/extensions-api.md).
-        internal static void HandleRequest(HttpListenerContext ctx, string path, CancellationToken ct)
+        internal static async Task HandleRequestAsync(HttpListenerContext ctx, string path, CancellationToken ct)
         {
             string rest = path.Substring("/ext/".Length);
             int slash = rest.IndexOf('/');
@@ -59,7 +59,7 @@ namespace NOXMFD
 
             if (relPath == "feed.mjpg")
             {
-                _ = Task.Run(() => HandleMjpegAsync(ctx, id, ct));
+                await HandleMjpegAsync(ctx, id, ct).ConfigureAwait(false);
                 return;
             }
 
