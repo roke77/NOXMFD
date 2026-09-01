@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Reflection;
 using TMPro;
 using UnityEngine;
 
@@ -29,10 +28,6 @@ namespace NOXMFD
         private const float OtherOffsetY = 2f;   // stacked just below the leader slot when both show
         private const float MarkSize = 12f;
 
-        private static bool _reflectionTried;
-        private static FieldInfo? _markerLookupField;
-        private static bool _loggedNoField, _loggedBadType;
-
         private Transform? _iconLayer;
 
         private sealed class MarkPair
@@ -61,13 +56,7 @@ namespace NOXMFD
                 _marks.Clear();
             }
 
-            if (!EnsureReflection()) { HideAll(); return; }
-            if (_markerLookupField!.GetValue(hud) is not Dictionary<Unit, HUDUnitMarker> lookup)
-            {
-                if (!_loggedBadType) { _loggedBadType = true; Plugin.Log?.LogWarning("[NOXMFD] HUD squad target mark: CombatHUD.markerLookup read null/wrong type — cue disabled."); }
-                HideAll();
-                return;
-            }
+            if (!CombatHudMarkerLookup.TryGet(hud, out var lookup)) { HideAll(); return; }
 
             bool isLeader = Squad.IsLeader;
             _seenScratch.Clear();
@@ -146,19 +135,6 @@ namespace NOXMFD
         {
             if (pair.Leader != null) Destroy(pair.Leader.gameObject);
             if (pair.Other != null) Destroy(pair.Other.gameObject);
-        }
-
-        private static bool EnsureReflection()
-        {
-            if (_reflectionTried) return _markerLookupField != null;
-            _reflectionTried = true;
-            _markerLookupField = typeof(CombatHUD).GetField("markerLookup", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (_markerLookupField == null && !_loggedNoField)
-            {
-                _loggedNoField = true;
-                Plugin.Log?.LogWarning("[NOXMFD] HUD squad target mark: could not locate CombatHUD.markerLookup — cue disabled.");
-            }
-            return _markerLookupField != null;
         }
 
         private void OnDestroy()

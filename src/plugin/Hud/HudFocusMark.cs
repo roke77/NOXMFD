@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Reflection;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -13,11 +11,12 @@ namespace NOXMFD
     // focus for which lock it releases at.
     //
     // Rides CombatHUD's own marker instead of reprojecting world position independently: every
-    // locked target already gets a HUDUnitMarker (CombatHUD.markerLookup, reflected below — private)
-    // whose own Image already tracks screen position, distance scale, and the off-screen edge-arrow
-    // pin (HUDUnitMarker.UpdatePosition, _scratch/full/HUDUnitMarker.cs) — sitting as its sibling
-    // under the same CombatHUD.iconLayer (public, already used by HudTgpCue.cs) inherits all of that
-    // for free instead of re-deriving it.
+    // locked target already gets a HUDUnitMarker (CombatHUD.markerLookup, reflected via
+    // CombatHudMarkerLookup.cs — private, shared with HudSquadTargetMark.cs's own use of the same
+    // field) whose own Image already tracks screen position, distance scale, and the off-screen
+    // edge-arrow pin (HUDUnitMarker.UpdatePosition, _scratch/full/HUDUnitMarker.cs) — sitting as its
+    // sibling under the same CombatHUD.iconLayer (public, already used by HudTgpCue.cs) inherits all
+    // of that for free instead of re-deriving it.
     internal sealed class HudFocusMark : MonoBehaviour
     {
         // Same amber as every other mod-added HUD cue (HudWaypointCue/HudTtiCue's own #FFAA00).
@@ -30,10 +29,6 @@ namespace NOXMFD
         // transform.localScale instead of a flat constant.
         private const float OffsetX = -16f, OffsetY = 16f;
         private const float MarkSize = 14f;
-
-        private static bool _reflectionTried;
-        private static FieldInfo? _markerLookupField;
-        private static bool _loggedNoField, _loggedBadType;
 
         private TMP_Text? _mark;
         private Transform? _iconLayer;
@@ -82,12 +77,7 @@ namespace NOXMFD
         private static bool TryGetVisibleMarkerRect(CombatHUD hud, uint targetId, out RectTransform rect)
         {
             rect = null!;
-            if (!EnsureReflection()) return false;
-            if (_markerLookupField!.GetValue(hud) is not Dictionary<Unit, HUDUnitMarker> lookup)
-            {
-                if (!_loggedBadType) { _loggedBadType = true; Plugin.Log?.LogWarning("[NOXMFD] HUD focus mark: CombatHUD.markerLookup read null/wrong type — cue disabled."); }
-                return false;
-            }
+            if (!CombatHudMarkerLookup.TryGet(hud, out var lookup)) return false;
             if (!TargetUnitLookup.TryResolve(targetId, out Unit target)) return false;
             if (!lookup.TryGetValue(target, out HUDUnitMarker marker) || marker == null) return false;
             if (!marker.selected || marker.image == null || !marker.image.enabled) return false;
@@ -112,19 +102,6 @@ namespace NOXMFD
             _mark.raycastTarget = false;
             _mark.gameObject.SetActive(false);
             return true;
-        }
-
-        private static bool EnsureReflection()
-        {
-            if (_reflectionTried) return _markerLookupField != null;
-            _reflectionTried = true;
-            _markerLookupField = typeof(CombatHUD).GetField("markerLookup", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (_markerLookupField == null && !_loggedNoField)
-            {
-                _loggedNoField = true;
-                Plugin.Log?.LogWarning("[NOXMFD] HUD focus mark: could not locate CombatHUD.markerLookup — cue disabled.");
-            }
-            return _markerLookupField != null;
         }
 
         private void SetVisible(bool visible)

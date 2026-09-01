@@ -34,14 +34,13 @@
   // poll() itself is still called directly by every mutator below for instant feedback on THIS
   // document's own edits.
   //
-  // The top window used to run its own recurring setInterval(poll, 1200) here for OTHER browsers'/
-  // devices' edits to show up; that's now the SSE-relayed 'wpt-options-push' message instead
-  // (docs/sse-push-refactor.md) — telemetry-source.js's one EventSource('/stream') connection
-  // (always alive in MAP's own always-loaded iframe) already carries this change-gated, so a second
-  // independent HTTP poll for the same data is pure waste. The one-time poll() below still runs so
-  // a document with no shell/telemetry-source at all (a standalone /wpt or /map-view preview) still
-  // shows something — it just won't see a later cross-device change without a reload, an accepted
-  // limitation of that dev-only path.
+  // For OTHER browsers'/devices' edits to show up, the top window relies on the SSE-relayed
+  // 'wpt-options-push' message (docs/sse-push-refactor.md) — telemetry-source.js's one
+  // EventSource('/stream') connection (always alive in MAP's own always-loaded iframe) already
+  // carries this change-gated, so a recurring HTTP poll for the same data would be pure waste. The
+  // one-time poll() below still runs so a document with no shell/telemetry-source at all (a
+  // standalone /wpt or /map-view preview) still shows something — it just won't see a later
+  // cross-device change without a reload, an accepted limitation of that dev-only path.
   const isTop = typeof window !== 'undefined' && window === window.top;
   if (isTop) {
     poll();

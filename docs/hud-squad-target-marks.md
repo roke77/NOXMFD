@@ -78,10 +78,10 @@ reprojecting world position" approach as `HudFocusMark.cs`, scaled up: rather th
 mark for a single focused lock, this is a pool of mark pairs keyed by persistentID, since any number
 of units can be squad-targeted at once.
 
-- **Refresh**: every frame, walks `CombatHUD.markerLookup` (reflected private field, same
-  `BindingFlags.NonPublic` approach `HudFocusMark.cs` already uses — duplicated rather than shared,
-  matching this codebase's existing convention of each HUD cue keeping its own reflection cache
-  rather than a shared helper). For each visible marker (`image != null && image.enabled` — an
+- **Refresh**: every frame, walks `CombatHUD.markerLookup` via `CombatHudMarkerLookup.cs` — the
+  reflected-private-field lookup this cue and `HudFocusMark.cs` both need for the identical field,
+  pulled into one shared cache rather than each keeping its own, so a game update that renames the
+  field needs fixing in one place. For each visible marker (`image != null && image.enabled` — an
   off-screen edge-arrow-pinned lock has nothing sensible to sit next to, same reasoning
   `HudFocusMark.cs` uses), asks the store whether the leader and/or any other member is targeting
   that unit's id. Neither → skip. Either → build (if new) or reposition (if already built) that

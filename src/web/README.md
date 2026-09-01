@@ -37,13 +37,17 @@ src/web/
     map/    map.html  map.css  map.js     # the live map view (imports services/telemetry-source.js)
             map-transform.js              # its pure world⇄pixel maths (pan/zoom/letterbox)
     wpt/    wpt.html  wpt.css  wpt.js     # waypoint/route editor, thin client over the plugin's
-            waypoints-store.js            # RouteStore (docs/hud-waypoint-indicator.md) — fetch/poll
+            waypoints-store.js            # RouteStore (docs/hud-waypoint-indicator.md) — one bootstrap
+                                           # fetch, then the shell's relayed SSE push (docs/sse-push-refactor.md)
             wpt-route.js  wpt-route.test.js  # /wpt-options + POST /command, no local persistence
     sqd/    sqd.html  sqd.css  sqd.js     # squad membership over Steam P2P (docs/squadron-transport.md) —
-                                           # polls GET /squad + /server-players directly, no shell relay
+                                           # squad state rides the shell's relayed SSE push (docs/sse-push-
+                                           # refactor.md); GET /server-players (no SSE equivalent) still polls directly
     td/     td.html  td.css  td.js        # Target Designator (issue #47, docs/target-designator.md) — role-
-                                           # branched leader/member view, polls GET /squad + /td-state, plus
-                                           # the shell's own 'tgt-targets' mirror for the leader's live rows
+                                           # branched leader/member view, no polling of its own by design:
+                                           # fetches GET /squad + /td-state only on load/REFRESH/a shell
+                                           # nudge, plus the shell's own 'tgt-targets' mirror for the
+                                           # leader's live rows
     wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
                                                # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
                                                # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg =
@@ -104,7 +108,9 @@ reactive sink.
    │              │  the view needs the full frame every tick, so the parse stays in-process.
    │              │  Slices posted up: status·mapinfo·loadout·cm·tgp·targets·rwr·mw·rdr·avn·
    │              │  tgt·bdf·pal·mis·obj·follow·grid, plus the focus/input events
-   │              │  soi-cid·soi·soi-act·cursor·cursor-held·cursor-select·map-act
+   │              │  soi-cid·soi·soi-act·cursor·cursor-held·cursor-select·map-act, plus the
+   │              │  squad/TD/waypoint SSE-relayed pushes sqd-state·td-state-push·
+   │              │  wpt-options-push (docs/sse-push-refactor.md)
    └──────┬───────┘
           │  postMessage  ▲ UP   ({ mfd:true, type, … })
           ▼
@@ -120,8 +126,9 @@ reactive sink.
           │  postMessage  ▼ DOWN
           ▼
    WPN · TGT · TGP · AVN · AFM   pure reactive renderers — render to their own container,
-   RWR · RDR · HUD · BDF/PAL     never know full-vs-split, never touch /stream.
-   MIS · OBJ · KEYBINDS
+   RWR · RDR · HUD · BDF/PAL     never know full-vs-split, never touch /stream. SQD/WPT/TD
+   MIS · OBJ · KEYBINDS          also read the sqd-state/td-state-push/wpt-options-push slices
+                                 above instead of polling their own REST endpoints on a timer.
 ```
 
 **Why MAP carries two hats (and it's deliberate):** MAP needs the raw stream anyway (live map,

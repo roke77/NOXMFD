@@ -1463,10 +1463,10 @@ let hsdData = { metric: false, items: [], focusedTargetId: 0 };
 let tgtData = { present: false };
 
 // Squad roster/role state and Target Designator state (docs/sse-push-refactor.md), mirrored from
-// the map iframe's SSE feed — SQD/WPT/TGT/TD all used to poll /squad (and TGT/TD /td-state too)
-// independently; both now ride this single relayed push instead. null until the first push arrives
-// (the forwarders below skip a null cache rather than sending a page a bogus empty snapshot — a
-// freshly loaded page's own bootstrap fetch covers that brief gap instead, same as before).
+// the map iframe's SSE feed — the one relayed push SQD/WPT/TGT/TD all read instead of each polling
+// /squad (and TGT/TD /td-state too) independently. null until the first push arrives (the
+// forwarders below skip a null cache rather than sending a page a bogus empty snapshot — a freshly
+// loaded page's own bootstrap fetch covers that brief gap instead).
 let sqdStateData = null;
 let tdStateData = null;
 

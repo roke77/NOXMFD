@@ -392,11 +392,9 @@ function refreshPlayers() {
 
 // One-time bootstrap fetch — covers the brief gap before the shell's first 'sqd-state' push arrives
 // (docs/sse-push-refactor.md), and standalone/preview contexts with no shell at all (this page is
-// polled directly there, same as before). Every update after this rides the push instead of a
-// recurring poll — no shell relay was needed before because a plain 1s poll was "simple and plenty
-// for a UI that isn't latency-sensitive" (sqd.html's own header comment), but the relay now exists
-// for TGT/TD/WPT's own squad-state needs, so reusing it here is no longer extra machinery, just an
-// extra listener.
+// polled directly there instead). Every update after this rides the push instead of a recurring
+// poll — TGT/TD/WPT already need the same shell relay for their own squad-state reads, so this page
+// listening too costs nothing beyond one more message listener.
 refreshSquad();
 window.addEventListener('message', function (e) {
   const m = e.data;

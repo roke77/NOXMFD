@@ -116,10 +116,10 @@ export class TelemetrySource {
     });
     // Squad roster/role state (docs/squadron-transport.md), Target Designator state (docs/target-
     // designator.md), and the waypoint route library (docs/hud-waypoint-indicator.md) — all three
-    // are change-gated snapshots pushed by SseHub.cs, replacing what used to be independent per-page
-    // polling of /squad, /td-state, and /wpt-options (docs/sse-push-refactor.md). Forwarded straight
-    // up, same "this tap only relays, never interprets" reasoning as squadron above; the shell caches
-    // the latest of each and re-forwards to whichever page/pane actually needs it.
+    // are change-gated snapshots pushed by SseHub.cs instead of each page polling /squad, /td-state,
+    // or /wpt-options on its own (docs/sse-push-refactor.md). Forwarded straight up, same "this tap
+    // only relays, never interprets" reasoning as squadron above; the shell caches the latest of
+    // each and re-forwards to whichever page/pane actually needs it.
     es.addEventListener('sqd', (e) => {
       // {ready, state} — same shape GET /squad already returns (SseHub.cs wraps it identically),
       // so a consumer's parsing code doesn't need to special-case the push vs. an initial fetch.
