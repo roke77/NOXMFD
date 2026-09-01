@@ -771,6 +771,12 @@ KEYBINDS = [
     {"id": "tgt-stale", "section": "TGT", "label": "Clear Stale",
      "description": "Deselect the stale locks on the focused TGT display — same as tapping its STALE button.",
      "key": "", "joyButton": -1, "joyNum": 0},
+] + [
+    {"id": "td-assign-" + str(n), "section": "TD", "label": "Assign " + str(n),
+     "description": "Assign the leader's currently-selected TD targets to squad slot " + str(n) + ".",
+     "key": "", "joyButton": -1, "joyNum": 0}
+    for n in range(1, 10)
+] + [
     {"id": "soi-next", "section": "SOI", "label": "SOI Next",
      "description": "Move focus to the next display.", "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "soi-prev", "section": "SOI", "label": "SOI Prev",
