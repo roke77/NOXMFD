@@ -6,8 +6,8 @@ namespace NOXMFD
     // ── NOXMFD presence ─────────────────────────────────────────────────────────
     // Detects which faction-mates in the current match are also running NOXMFD, so SQD's invite
     // roster (PlayerRoster.cs) can be limited to players who could actually receive an invite —
-    // inviting someone without the mod just times out silently 15s later (Squad.cs's
-    // InviteTimeoutSeconds), which reads as a bug rather than "they don't have it."
+    // inviting someone without the mod just sits there forever unanswered (Squad.cs's invites have
+    // no timeout), which reads as a bug rather than "they don't have it."
     //
     // Mechanism: a periodic broadcast, not a targeted ping-and-wait — there's no way to know in
     // advance who has the mod, so every instance just announces itself to the whole faction roster

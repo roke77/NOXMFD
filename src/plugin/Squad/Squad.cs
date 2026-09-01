@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using Steamworks;
-using UnityEngine;
 
 namespace NOXMFD
 {
@@ -101,23 +100,15 @@ namespace NOXMFD
         // current by the leader's sqd.roster broadcasts.
         private static readonly List<Member> _members = new List<Member>();
 
-        private struct SentInvite
-        {
-            internal string Name;
-            internal float  SentAt;   // Time.unscaledTime — for the timeout in CheckInviteTimeouts
-        }
-
-        // Leader only: invites sent, awaiting sqd.accept/sqd.decline/sqd.conflict, or a timeout if
-        // the target never responds at all — e.g. they don't have the mod installed, so nothing in
-        // their game ever answers the Steam session request. Index 0 of _members is always the
-        // OLDEST accepted member (Add() only ever appends), which is what makes auto-succession by
-        // join order a non-issue — no separate timestamp needed there.
-        private static readonly Dictionary<ulong, SentInvite> _pendingSent = new Dictionary<ulong, SentInvite>();
-
-        // How long an invite waits for ANY response before the leader gives up on it. There is no
-        // delivery acknowledgment at the transport level, so a target with no mod installed looks
-        // identical to one that's simply thinking it over until this fires.
-        private const float InviteTimeoutSeconds = 15f;
+        // Leader only: invites sent, awaiting sqd.accept/sqd.decline/sqd.conflict — id -> the
+        // invitee's name, kept only so a later notice (HandleConflict) can name them. No expiry:
+        // an invite lives until the pilot actually answers it, however long that takes — there's no
+        // delivery acknowledgment at the transport level, so a target with no mod installed would
+        // otherwise look identical to one still thinking it over, and a timeout can't tell them
+        // apart anyway. Index 0 of _members is always the OLDEST accepted member (Add() only ever
+        // appends), which is what makes auto-succession by join order a non-issue — no separate
+        // timestamp needed there.
+        private static readonly Dictionary<ulong, string> _pendingSent = new Dictionary<ulong, string>();
 
         // Us: invites we haven't answered yet, oldest first. A second (or third...) invite while one
         // is already pending queues alongside it rather than replacing it, so a pilot never loses
@@ -151,28 +142,6 @@ namespace NOXMFD
                 _drainedSeq = m.Seq;
                 try { Handle(m.From, m.Type, m.Payload); }
                 catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] Squad handle '{m.Type}' from {m.From} threw: {ex.Message}"); }
-            }
-            CheckInviteTimeouts();
-        }
-
-        // Drops any sent invite nobody has answered within InviteTimeoutSeconds. Cheap no-op when
-        // there's nothing pending — only a leader with outstanding invites ever populates this dict.
-        private static void CheckInviteTimeouts()
-        {
-            if (_pendingSent.Count == 0) return;
-            float now = Time.unscaledTime;
-            List<ulong>? expired = null;
-            foreach (var kv in _pendingSent)
-            {
-                if (now - kv.Value.SentAt >= InviteTimeoutSeconds) (expired ??= new List<ulong>()).Add(kv.Key);
-            }
-            if (expired == null) return;
-            foreach (ulong id in expired)
-            {
-                string name = _pendingSent[id].Name;
-                _pendingSent.Remove(id);
-                Squadron.CloseSession(id);
-                SetNotice($"{name} didn't respond to the invite — they may not have the mod installed.");
             }
         }
 
@@ -228,7 +197,7 @@ namespace NOXMFD
             if (_role != Role.Leader) return false;
             if (ContainsMember(targetId) || _pendingSent.ContainsKey(targetId)) return true;   // idempotent
 
-            _pendingSent[targetId] = new SentInvite { Name = targetName ?? string.Empty, SentAt = Time.unscaledTime };
+            _pendingSent[targetId] = targetName ?? string.Empty;
             Squadron.OpenSession(targetId);
             Squadron.SendTo(targetId, "sqd.invite", InviteEnvelope());
             RebuildState();
@@ -244,7 +213,7 @@ namespace NOXMFD
 
             // Joining one squad means declining every other outstanding offer — a pilot can only
             // ever be in one, so leaving the rest queued would just strand their senders waiting
-            // out the full InviteTimeoutSeconds for no reason.
+            // on an invite that can now never be accepted.
             foreach (var other in _pendingReceived) Squadron.SendTo(other.LeaderId, "sqd.decline", "{}");
             _pendingReceived.Clear();
 
@@ -276,8 +245,11 @@ namespace NOXMFD
         {
             if (_role == Role.Member)
             {
+                // No CloseSession here: Steam can drop an already-queued reliable message if the
+                // session closes before it actually flushes, and sqd.leave is the one message that
+                // must arrive. HandleLeave closes its own end once it actually receives it; leaving
+                // this side's session open a little longer costs nothing.
                 Squadron.SendTo(_leaderId, "sqd.leave", "{}");
-                Squadron.CloseSession(_leaderId);
                 ResetToNone();
                 return true;
             }
@@ -317,8 +289,11 @@ namespace NOXMFD
                                     "\",\"leaderName\":\"" + Esc(successor.Name) + "\"}";
             foreach (var m in remaining) Squadron.SendTo(m.Id, "sqd.leader-changed", leaderChanged);
 
+            // No CloseSessions here — same reasoning as Leave(): sqd.transfer/sqd.leader-changed are
+            // the messages this whole handoff depends on, and closing these sessions immediately
+            // after queuing them risks Steam dropping whichever haven't flushed yet. Each recipient
+            // closes its own end once it actually processes the message.
             CancelAllPendingInvites();
-            Squadron.CloseSessions(MemberIds());
             ResetToNone();
             return true;
         }
@@ -358,19 +333,59 @@ namespace NOXMFD
             // numbering.
             TdStore.RenumberAfterMemberRemoved(idx + 2);
             SquadTargetsStore.RemoveMember(memberId);   // issue #49 — drop their entry from the aggregate
+            // No CloseSession here — same reasoning as Leave(): sqd.kick must arrive, and closing this
+            // session immediately after queuing it risks Steam dropping it before it flushes. The
+            // kicked member closes their own end once HandleKick actually receives it.
             Squadron.SendTo(memberId, "sqd.kick", "{}");
-            Squadron.CloseSession(memberId);
             BroadcastRoster();
             RebuildState();
             return true;
         }
 
+        // A crash or force-quit gives no chance to send sqd.leave/sqd.disband/sqd.kick — without
+        // this, the rest of the squad would keep showing that pilot as present forever (no
+        // persistence AND no notice is the worst of both). Reuses Presence's existing "who's still
+        // running NOXMFD" TTL (docs/squadron-transport.md) rather than a second liveness signal:
+        // PlayerRoster's own invite-candidate filter already requires Presence.HasNoxmfd before
+        // anyone can be invited in the first place, so by the time someone is a leader/member here,
+        // their presence has already been flowing for a while — there's no "just joined, no beat
+        // yet" false positive to guard against. Called once a second, right alongside
+        // PlayerRoster.Refresh()/Presence.Tick() (TelemetryReader's slow tick).
+        internal static void CheckLiveness()
+        {
+            if (_role == Role.Member)
+            {
+                if (Presence.HasNoxmfd(_leaderId)) return;
+                ResetToNone();
+                SetNotice("Lost contact with your squad leader — they may have crashed or disconnected.");
+            }
+            else if (_role == Role.Leader)
+            {
+                List<Member>? gone = null;
+                foreach (var m in _members) if (!Presence.HasNoxmfd(m.Id)) (gone ??= new List<Member>()).Add(m);
+                if (gone == null) return;
+                foreach (var m in gone)
+                {
+                    int idx = RemoveMember(m.Id);
+                    if (idx < 0) continue;
+                    TdStore.RenumberAfterMemberRemoved(idx + 2);
+                    SquadTargetsStore.RemoveMember(m.Id);
+                }
+                BroadcastRoster();
+                string names = string.Join(", ", gone.ConvertAll(m => m.Name));
+                SetNotice($"Lost contact with {names} — they may have crashed or disconnected.");
+            }
+        }
+
         internal static bool Disband()
         {
             if (_role != Role.Leader) return false;
+            // No CloseSessions here — sqd.disband must actually reach every member (this was the
+            // exact bug: closing a session right after queuing a reliable send can make Steam drop
+            // it before it flushes, silently stranding a member in a squad that no longer exists on
+            // the leader's side). Each member closes their own end once HandleDisband receives it.
             Squadron.SendToAll(MemberIds(), "sqd.disband", "{}");
             CancelAllPendingInvites();
-            Squadron.CloseSessions(MemberIds());
             ResetToNone();
             return true;
         }
@@ -452,12 +467,12 @@ namespace NOXMFD
 
         private static void HandleConflict(ulong from, string payload)
         {
-            if (_role != Role.Leader || !_pendingSent.TryGetValue(from, out SentInvite pending)) return;
+            if (_role != Role.Leader || !_pendingSent.TryGetValue(from, out string pendingName)) return;
             var obj = JsonLite.Parse(payload) as Dictionary<string, object?>;
             string currentLeader = Str(obj, "currentLeaderName");
             _pendingSent.Remove(from);
             Squadron.CloseSession(from);
-            SetNotice($"{pending.Name} is already in {currentLeader}'s squad — invitation rejected.");
+            SetNotice($"{pendingName} is already in {currentLeader}'s squad — invitation rejected.");
         }
 
         private static void HandlePoach(ulong from, string payload)
@@ -846,7 +861,7 @@ namespace NOXMFD
                 if (!first) sb.Append(',');
                 first = false;
                 sb.Append("{\"id\":\"").Append(kv.Key.ToString(CultureInfo.InvariantCulture))
-                  .Append("\",\"name\":\"").Append(Esc(kv.Value.Name)).Append("\"}");
+                  .Append("\",\"name\":\"").Append(Esc(kv.Value)).Append("\"}");
             }
             sb.Append(']');
             sb.Append(",\"noticeSeq\":").Append(_noticeSeq.ToString(CultureInfo.InvariantCulture));

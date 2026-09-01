@@ -15,9 +15,9 @@ namespace NOXMFD
     // resolves/caches the Steam persona name behind that call.
     //
     // Further filtered to faction-mates actually running NOXMFD right now (Presence.cs) — someone
-    // without the mod can't receive or answer an invite, so offering them just produces a silent
-    // 15s timeout (Squad.cs's InviteTimeoutSeconds) that reads as a bug rather than "they don't
-    // have it."
+    // without the mod can't receive or answer an invite, so offering them just produces a dead
+    // invite nobody will ever act on, sitting there forever (Squad.cs's invites have no timeout)
+    // reading as a bug rather than "they don't have it."
     internal static class PlayerRoster
     {
         // Server-thread-readable cache, same threading contract as RouteStore.RoutesJson: refreshed

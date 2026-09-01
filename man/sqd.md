@@ -25,7 +25,8 @@ star (promote) and an × (kick). Your own row is highlighted.
 ## Invites
 
 Incoming invites queue oldest-first and show ACCEPT/REJECT; accepting one declines the rest, since
-squad membership is exclusive. An invite times out after 15s with no response.
+squad membership is exclusive. An invite never expires on its own — it stays pending until you
+accept or reject it, however long that takes.
 
 ## Leaving
 
