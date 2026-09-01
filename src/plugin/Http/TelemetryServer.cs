@@ -23,9 +23,10 @@ namespace NOXMFD
             _autoSetupLan = autoSetupLan;
         }
 
-        private static HttpListener?           _listener;
-        private static Thread?                 _acceptThread;
-        private static CancellationTokenSource _cts = new CancellationTokenSource();
+        private static readonly object          _lifecycleLock = new object();
+        private static HttpListener?            _listener;
+        private static Thread?                  _acceptThread;
+        private static CancellationTokenSource? _cts;
 
         private static TelemetrySnapshot _latest;
         private static long              _snapVersion;   // bumped on every Push/Reset
@@ -157,48 +158,80 @@ namespace NOXMFD
 
         public static void Start()
         {
-            _cts = new CancellationTokenSource();
-
-            // Prefer binding all interfaces so a tablet on the LAN can reach us. Windows guards
-            // that with two gates (see docs/networking.md): HTTP.sys needs a URL reservation for
-            // the wildcard prefix, and the firewall needs an inbound allow for the port. If the
-            // bind is denied we try to add both ourselves (works only when the game is elevated;
-            // they persist, so it's one-time); otherwise we fall back to localhost-only and log
-            // the manual fix.
-            bool boundAll = TryBindWildcard();
-            if (!boundAll && _autoSetupLan && TryAutoSetupLanAccess())
-                boundAll = TryBindWildcard();
-
-            if (!boundAll)
+            lock (_lifecycleLock)
             {
-                _listener = new HttpListener();
-                _listener.Prefixes.Add($"http://localhost:{Port}/");
-                try { _listener.Start(); }
-                catch (Exception ex)
+                if (_listener?.IsListening == true)
                 {
-                    Plugin.Log?.LogError($"[NOXMFD] Failed to start on port {Port}: {ex.Message}");
+                    Plugin.Log?.LogDebug($"[NOXMFD] Server is already listening on port {Port}.");
                     return;
                 }
-            }
 
-            _acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "NOXMFD-Accept" };
-            _acceptThread.Start();
+                LanUrl = "";
 
-            Plugin.Log?.LogInfo($"[NOXMFD] Server listening on http://localhost:{Port}/");
-            if (boundAll)
-            {
-                string lanIp = DetectLanIp();
-                if (!string.IsNullOrEmpty(lanIp))
+                // Prefer binding all interfaces so a tablet on the LAN can reach us. Windows guards
+                // that with two gates (see docs/networking.md): HTTP.sys needs a URL reservation for
+                // the wildcard prefix, and the firewall needs an inbound allow for the port. If the
+                // bind is denied we try to add both ourselves (works only when the game is elevated;
+                // they persist, so it's one-time); otherwise we fall back to localhost-only and log
+                // the manual fix.
+                bool boundAll = TryBindWildcard();
+                if (!boundAll && _autoSetupLan && TryAutoSetupLanAccess())
+                    boundAll = TryBindWildcard();
+
+                if (!boundAll)
                 {
-                    LanUrl = $"http://{lanIp}:{Port}";
-                    Plugin.Log?.LogInfo($"[NOXMFD] LAN access:  {LanUrl}/");
+                    var listener = new HttpListener();
+                    listener.Prefixes.Add($"http://localhost:{Port}/");
+                    try
+                    {
+                        listener.Start();
+                        _listener = listener;
+                    }
+                    catch (Exception ex)
+                    {
+                        try { listener.Close(); } catch { }
+                        Plugin.Log?.LogError($"[NOXMFD] Failed to start on port {Port}: {ex.Message}");
+                        return;
+                    }
                 }
-            }
-            else
-            {
-                Plugin.Log?.LogWarning($"[NOXMFD] LAN access disabled (localhost only). To enable it, run the game as Administrator once (auto-setup), or run these once in an elevated shell — see docs/networking.md:");
-                Plugin.Log?.LogWarning($"[NOXMFD]   netsh http add urlacl url=http://+:{Port}/ user=Everyone");
-                Plugin.Log?.LogWarning($"[NOXMFD]   netsh advfirewall firewall add rule name=\"NOXMFD ({Port})\" dir=in action=allow protocol=TCP localport={Port}");
+
+                var activeListener = _listener!;
+                var cts = new CancellationTokenSource();
+                var acceptThread = new Thread(() => AcceptLoop(activeListener, cts.Token))
+                {
+                    IsBackground = true,
+                    Name = "NOXMFD-Accept",
+                };
+                _cts = cts;
+                _acceptThread = acceptThread;
+                try { acceptThread.Start(); }
+                catch (Exception ex)
+                {
+                    _cts = null;
+                    _acceptThread = null;
+                    _listener = null;
+                    cts.Cancel();
+                    try { activeListener.Close(); } catch { }
+                    Plugin.Log?.LogError($"[NOXMFD] Failed to start the server thread on port {Port}: {ex.Message}");
+                    return;
+                }
+
+                Plugin.Log?.LogInfo($"[NOXMFD] Server listening on http://localhost:{Port}/");
+                if (boundAll)
+                {
+                    string lanIp = DetectLanIp();
+                    if (!string.IsNullOrEmpty(lanIp))
+                    {
+                        LanUrl = $"http://{lanIp}:{Port}";
+                        Plugin.Log?.LogInfo($"[NOXMFD] LAN access:  {LanUrl}/");
+                    }
+                }
+                else
+                {
+                    Plugin.Log?.LogWarning($"[NOXMFD] LAN access disabled (localhost only). To enable it, run the game as Administrator once (auto-setup), or run these once in an elevated shell — see docs/networking.md:");
+                    Plugin.Log?.LogWarning($"[NOXMFD]   netsh http add urlacl url=http://+:{Port}/ user=Everyone");
+                    Plugin.Log?.LogWarning($"[NOXMFD]   netsh advfirewall firewall add rule name=\"NOXMFD ({Port})\" dir=in action=allow protocol=TCP localport={Port}");
+                }
             }
         }
 
@@ -210,9 +243,14 @@ namespace NOXMFD
             var listener = new HttpListener();
             listener.Prefixes.Add($"http://+:{Port}/");
             try { listener.Start(); _listener = listener; return true; }
-            catch (HttpListenerException) { return false; }
+            catch (HttpListenerException)
+            {
+                try { listener.Close(); } catch { }
+                return false;
+            }
             catch (Exception ex)
             {
+                try { listener.Close(); } catch { }
                 Plugin.Log?.LogWarning($"[NOXMFD] Wildcard bind on port {Port} failed: {ex.Message}");
                 return false;
             }
@@ -276,12 +314,52 @@ namespace NOXMFD
             catch { return ""; }
         }
 
+        // Public so a process-replacement plugin can request cooperative shutdown through
+        // reflection without taking a compile-time dependency on NOXMFD's internal server type.
         public static void Stop()
         {
-            _cts.Cancel();
-            try { _listener?.Stop(); } catch { }
-            _listener = null;
-            Plugin.Log?.LogInfo("[NOXMFD] Server stopped.");
+            HttpListener? listener;
+            Thread? acceptThread;
+            CancellationTokenSource? cts;
+
+            lock (_lifecycleLock)
+            {
+                listener = _listener;
+                acceptThread = _acceptThread;
+                cts = _cts;
+                _listener = null;
+                _acceptThread = null;
+                _cts = null;
+                LanUrl = "";
+            }
+
+            // Application.quitting and a replacement launcher may race to stop the same server.
+            // Only the first caller owns the captured resources; later calls are harmless no-ops.
+            if (listener == null && acceptThread == null && cts == null) return;
+
+            Plugin.Log?.LogInfo($"[NOXMFD] Stopping server on port {Port}...");
+            try { cts?.Cancel(); } catch (ObjectDisposedException) { }
+            try { listener?.Close(); }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogWarning($"[NOXMFD] Listener close on port {Port} failed: {ex.Message}");
+            }
+
+            bool acceptStopped = true;
+            if (acceptThread != null && acceptThread != Thread.CurrentThread)
+            {
+                try { acceptStopped = acceptThread.Join(1000); }
+                catch (Exception ex)
+                {
+                    acceptStopped = false;
+                    Plugin.Log?.LogWarning($"[NOXMFD] Accept-thread shutdown check failed: {ex.Message}");
+                }
+            }
+
+            if (!acceptStopped)
+                Plugin.Log?.LogWarning($"[NOXMFD] Server listener closed on port {Port}, but the accept thread did not exit within 1000 ms.");
+            else
+                Plugin.Log?.LogInfo($"[NOXMFD] Server stopped and listener released on port {Port}.");
         }
 
         // Called from Unity main thread — just stores the latest snapshot.
@@ -350,22 +428,22 @@ namespace NOXMFD
 
         // ── Accept loop ────────────────────────────────────────────────────────
 
-        private static void AcceptLoop()
+        private static void AcceptLoop(HttpListener listener, CancellationToken ct)
         {
-            while (!_cts.IsCancellationRequested)
+            while (!ct.IsCancellationRequested)
             {
                 try
                 {
-                    var ctx  = _listener!.GetContext();
+                    var ctx  = listener.GetContext();
                     var path = ctx.Request.Url?.AbsolutePath ?? "/";
 
-                    TelemetryHttpRouter.Route(ctx, path, _cts.Token);
+                    TelemetryHttpRouter.Route(ctx, path, ct);
                 }
                 catch (HttpListenerException) { break; }
                 catch (ObjectDisposedException) { break; }
                 catch (Exception ex)
                 {
-                    if (!_cts.IsCancellationRequested)
+                    if (!ct.IsCancellationRequested)
                         Plugin.Log?.LogError($"[NOXMFD] Accept error: {ex.Message}");
                 }
             }

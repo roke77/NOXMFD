@@ -82,3 +82,7 @@ netsh advfirewall firewall delete rule name="NOXMFD (5005)"
   `Port` in the config (and reopen the tablet URL with the new port).
 - **Changed a setting, nothing happened** → `Port` and `AutoSetupLanAccess` are read at startup;
   restart the game.
+- **Restarting or replacing the game process reports the old port still in use** → current NOXMFD
+  builds close their listener during normal Unity shutdown. A replacement tool that overlaps the old
+  and new processes should request NOXMFD's cooperative server shutdown before quitting the parent,
+  then use a short bounded port-availability check for older builds or forced-exit cases.
