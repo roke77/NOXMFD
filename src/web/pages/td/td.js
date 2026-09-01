@@ -31,6 +31,7 @@ const memberRows     = document.getElementById('td-member-rows');
 const memberEmpty    = document.getElementById('td-member-empty');
 const acquireBtn     = document.getElementById('td-acquire');
 const memberClearBtn = document.getElementById('td-member-clear');
+const memberRefreshBtn = document.getElementById('td-member-refresh');
 const refreshBtn      = document.getElementById('td-refresh');
 const selectAllBtn    = document.getElementById('td-select-all');
 
@@ -276,8 +277,11 @@ function renderMember(tdState) {
   memberEmpty.style.display = rows.length ? 'none' : '';
 }
 
-acquireBtn.addEventListener('click', function () { send('td.acquire-all', {}); });
+// Jumps to TGT right after acquiring — the whole point of AQUIRE is to lock those targets in the
+// cockpit, and TGT is where the pilot actually sees/uses the result.
+acquireBtn.addEventListener('click', function () { send('td.acquire-all', {}); location.href = '/tgt'; });
 memberClearBtn.addEventListener('click', function () { send('td.member-clear', {}); });
+memberRefreshBtn.addEventListener('click', function () { refreshSquad(); refreshTd(); });
 refreshBtn.addEventListener('click', function () {
   // The one manual sync point: re-pull squad roster + assignment state from the server (in case
   // anything drifted — a member leaving, etc.) AND re-apply whatever the shell's latest target

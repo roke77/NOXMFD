@@ -18,7 +18,10 @@
   same LONG_MS pattern as TGT's own filter cells): a tap assigns and clears the selection as always;
   a long-press assigns and keeps the selection lit, so the leader can designate the same selection
   to several slots in a row without re-selecting between each one. Member view: a read-only table of
-  whatever the leader last DESIGNATEd, with AQUIRE selecting everything at once in-game.
+  whatever the leader last DESIGNATEd, with AQUIRE selecting everything at once in-game and jumping
+  to TGT right after (that's where the pilot actually uses the locked targets); REFRESH here is a
+  manual fallback re-pull of /squad and /td-state — the table already updates on its own via the
+  SSE-pushed 'td-state-push'.
 
   All state round-trips through the plugin: GET /squad (role/roster, same as SQD) and GET /td-state
   (selection/assignment overlay + the member's designated-target snapshot — TdStore.cs), POST
@@ -79,6 +82,7 @@
 
     <div class="td-actions">
       <button class="td-btn td-designate-btn pad-hoverable" id="td-acquire">AQUIRE</button>
+      <button class="td-btn td-btn-ghost pad-hoverable" id="td-member-refresh">REFRESH</button>
       <button class="td-btn td-btn-ghost pad-hoverable" id="td-member-clear">CLEAR</button>
     </div>
   </div>
