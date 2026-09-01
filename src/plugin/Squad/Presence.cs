@@ -43,6 +43,9 @@ namespace NOXMFD
         // identity discovery. Hidden, empty by default; remove this block once the investigation
         // concludes either way.
         private static ConfigEntry<string>? _debugPeerIds;
+        private static ConfigEntry<bool>?   _logRosterDiagnostics;
+
+        internal static bool LogRosterDiagnostics => _logRosterDiagnostics?.Value ?? false;
 
         internal static void Bind(ConfigFile config)
         {
@@ -51,6 +54,11 @@ namespace NOXMFD
                 new ConfigDescription(
                     "Comma-separated SteamID64s to presence-ping directly, bypassing the faction roster. " +
                     "Temporary LAN-roster investigation aid — leave empty.", null, hidden));
+            _logRosterDiagnostics = config.Bind("Squad Debug", "LogRosterDiagnostics", false,
+                new ConfigDescription(
+                    "Logs every FactionHQ player PlayerRoster sees (name/SteamID/aircraft) and the real " +
+                    "Presence broadcast result on every refresh. Temporary LAN-roster investigation aid — " +
+                    "off by default, noisy when on.", null, hidden));
         }
 
         private static IEnumerable<ulong> DebugPeers()
@@ -80,7 +88,9 @@ namespace NOXMFD
             if (!Squadron.Ready) return;
             if (Time.unscaledTime < _nextBroadcast) return;
             _nextBroadcast = Time.unscaledTime + BroadcastIntervalSeconds;
-            Squadron.SendToAll(peers, MessageType, string.Empty);
+            bool sentOk = Squadron.SendToAll(peers, MessageType, string.Empty);
+            if (LogRosterDiagnostics)
+                Plugin.Log?.LogInfo($"[SQD-TEST] presence broadcast result={(sentOk ? "OK" : "FAIL")}");
             DebugPingConfiguredPeers();
         }
 

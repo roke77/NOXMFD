@@ -81,14 +81,23 @@ namespace NOXMFD
             // Ping the WHOLE faction, including anyone filtered out below — someone who just
             // (re)launched NOXMFD needs to start receiving beats before Presence.HasNoxmfd can ever
             // return true for them, and this is the one place that already has the faction's peer ids.
+            bool logDiag = Presence.LogRosterDiagnostics;
+            if (logDiag) Plugin.Log?.LogInfo($"[SQD-TEST] FactionHQ players={_scratch.Count} self={self}");
+
             var peerIds = new List<ulong>(_scratch.Count);
             var sb = new StringBuilder("[");
             bool first = true;
+            int candidates = 0, skippedZeroId = 0;
             foreach (Player p in _scratch)
             {
                 if (p == null) continue;
                 ulong id = p.SteamID;
-                if (id == 0) continue;   // no Steam id — nothing to key either dictionary on
+                if (logDiag)
+                {
+                    string diagName = p.GetDisplayName(PlayerNameContext.Other) ?? string.Empty;
+                    Plugin.Log?.LogInfo($"[SQD-TEST] player name=\"{diagName}\" steamId={id}");
+                }
+                if (id == 0) { skippedZeroId++; continue; }   // no Steam id — nothing to key either dictionary on
 
                 _aircraftBySteamId[id] = p.Aircraft != null && p.Aircraft.definition != null
                     ? (p.Aircraft.definition.unitName ?? string.Empty) : string.Empty;
@@ -97,6 +106,7 @@ namespace NOXMFD
                 if (id == self) continue;   // exclude self from the invite candidate list below
                 peerIds.Add(id);
                 if (!Presence.HasNoxmfd(id)) continue;   // only offer players actually running NOXMFD
+                candidates++;
                 if (!first) sb.Append(',');
                 first = false;
                 string name = p.GetDisplayName(PlayerNameContext.Other) ?? string.Empty;
@@ -105,6 +115,8 @@ namespace NOXMFD
             }
             sb.Append(']');
             Json = sb.ToString();
+
+            if (logDiag) Plugin.Log?.LogInfo($"[SQD-TEST] candidates={candidates} skippedZeroId={skippedZeroId}");
 
             Presence.Tick(peerIds);
 
