@@ -1,11 +1,13 @@
 // TD page (issue #47, docs/target-designator.md) — squad leader hand-assigns targets from their
 // own TGT list to squad members; members get a read-only list of what was designated to them.
-// Squad/assignment state polls GET /squad and GET /td-state directly (same 1s-poll convention as
-// SQD, docs/squadron-transport.md). The target ROWS come from the shell's own 'tgt-targets'
-// broadcast (same message TGT itself mirrors, mfd.js/f35.js forward it to this page too), but
-// unlike TGT, this page deliberately does NOT redraw on every one of those messages — see
-// applyLiveTargets' own header comment for why the table is static except on a real select/
-// deselect or the REFRESH button.
+// Squad/assignment state has no polling of its own: one bootstrap GET /squad + GET /td-state on
+// load (docs/sse-push-refactor.md), then the shell's SSE-relayed 'sqd-state'/'td-state-push'
+// messages keep it current — a leader's DESIGNATE reaches an already-open member page as soon as
+// the plugin's state changes. The target ROWS come from the shell's own 'tgt-targets' broadcast
+// (same message TGT itself mirrors, mfd.js/f35.js forward it to this page too), but unlike TGT,
+// this page deliberately does NOT redraw on every one of those messages — see applyLiveTargets'
+// own header comment for why the table is static except on a real select/deselect or the REFRESH
+// button.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 
 if (window.parent !== window) {
@@ -36,10 +38,10 @@ let squad = null;      // last-known GET /squad {ready, state}
 let td = null;          // last-known GET /td-state {ready, state}
 let liveTargets = [];   // last-known live target rows from the shell's 'tgt-targets' message
 
-// Optimistic overlay for the leader's selected/assignments, cleared on the next /td-state poll.
-// Without this, a click only becomes visible once that poll confirms it (up to 1s later). Set
-// synchronously in the click handler itself so the visual result is immediate, not waiting on the
-// round trip.
+// Optimistic overlay for the leader's selected/assignments, cleared as soon as a fresh td-state
+// lands (the SSE-pushed 'td-state-push' below, or a REFRESH/nudge fetch). Without this, a click
+// only becomes visible once that arrives. Set synchronously in the click handler itself so the
+// visual result is immediate, not waiting on the round trip.
 let selectedOverride = null;      // Set<id> | null
 let assignmentsOverride = null;   // {id: [slots]} | null
 function effectiveSelected(tdState) { return selectedOverride || new Set(tdState.selected || []); }
@@ -295,22 +297,22 @@ refreshBtn.addEventListener('click', function () {
 // The nudge itself still comes from an EXISTING poll (td-nav.js's own /squad check, needed anyway
 // for the TGT nav row), just reused to catch up a TD page that's already open when a squad ends;
 // td.js still never polls on its own.
+function applySquad(s) { squad = s; render(); }
+function applyTdState(s) {
+  td = s;
+  // Whatever set these overrides has had a full round trip to apply server-side by now — drop the
+  // overlay and trust the freshly-landed truth instead.
+  selectedOverride = null;
+  assignmentsOverride = null;
+  render();
+}
 function refreshSquad() {
   return fetch('/squad').then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (s) { if (s) { squad = s; render(); } }).catch(function () {});
+    .then(function (s) { if (s) applySquad(s); }).catch(function () {});
 }
 function refreshTd() {
   return fetch('/td-state').then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (s) {
-      if (s) {
-        td = s;
-        // Whatever set these overrides has had a full round trip to apply server-side by now —
-        // drop the overlay and trust the freshly-fetched truth instead.
-        selectedOverride = null;
-        assignmentsOverride = null;
-        render();
-      }
-    }).catch(function () {});
+    .then(function (s) { if (s) applyTdState(s); }).catch(function () {});
 }
 refreshSquad(); refreshTd();
 
@@ -327,6 +329,16 @@ window.addEventListener('message', function (e) {
     if (idsKey(liveTargets) !== lastAppliedIdsKey) {
       applyLiveTargets();
     }
+  } else if (m.type === 'sqd-state') {
+    // SSE-pushed (docs/sse-push-refactor.md) — same shell relay tgt.js's own TD column already
+    // rides. Squad/role changes land as soon as the plugin's state changes, not on a timer.
+    applySquad(m.data);
+  } else if (m.type === 'td-state-push') {
+    // SSE-pushed the instant TdStore.StateJson changes (SseHub.cs), including the leader's own
+    // DESIGNATE — a member with TD already open sees the new rows land on their own, no REFRESH or
+    // page-revisit needed. td-squad-ended/td-designation-received below still fire the same fetch
+    // as a fallback, but this is what actually closes the gap.
+    applyTdState(m.data);
   } else if (m.type === 'td-squad-ended') {
     // Squad/TD lifecycle audit follow-up, finding B1 — the squad this page is showing just ended
     // out from under it. A one-shot reactive catch-up, the same fetches REFRESH itself calls; not
