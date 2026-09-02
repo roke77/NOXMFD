@@ -501,17 +501,19 @@ function renderSplitLabels() {
       // (tgpMarks()), so like full view they're hand-placed rather than read off NAV.tgp/
       // SPLIT_SLOTS.tgp (which stay MAIN+CFG only, same "empty NAV, hand-rolled labels" shape as
       // WPN's ARM/SAFE/A-A/A-G split rendering). A pane only has 3 slots per bank (6 total), and
-      // TGP now has 8 destinations (MAIN/LCK/MAN/CLR/IR/CFG/Z+/Z-) — one more than fits. Rather
+      // TGP now has 9 destinations (MAIN/LCK/MAN/CLR/IR/CFG/Z+/Z-/STP) — three more than fits. Rather
       // than a generic list-pagination scheme (MAIN/MAP's own, built for an open-ended list), this
-      // just flips between two fixed sets (paneTgpPage), since TGP only ever needs exactly two:
-      // page 0 is byte-for-byte what full view and this pane already showed before Z+/Z- existed
-      // (nothing shifts for the common LCK/MAN/CLR/IR case), page 1 swaps in Z+/Z-/CFG behind a
-      // NEXT/PREV toggle at the one shared slot (right2) — same "pair stays adjacent on one bank"
-      // requirement placeMapPaneDecorator/placeWpnPaneDecorator enforce for their own decorators.
+      // just flips between two fixed sets (paneTgpPage), since TGP only ever needs exactly two.
+      // PREV takes over MAIN's own slot (left0) on the last page rather than sharing NEXT's slot —
+      // same "PREV anchors the first physical key" convention listPaneLayout/mainPaneSlice already
+      // use for MAIN/MAP's own paging, so a page's "go back" key is always in the same place whether
+      // it means back-to-MAIN or back-a-page.
       const marks = tgpMarks();
       const tgpPage = paneTgpPage[paneIdx] || 0;
-      placeSplitKey(paneKey(paneIdx, 'left', 0), NAV.tgp[0].label, NAV.tgp[0].action, paneTag);
       if (tgpPage === 0) {
+        // page 0 is byte-for-byte what full view and this pane already showed before Z+/Z- existed
+        // (nothing shifts for the common LCK/MAN/CLR/IR case).
+        placeSplitKey(paneKey(paneIdx, 'left', 0), NAV.tgp[0].label, NAV.tgp[0].action, paneTag);
         placeSplitKey(paneKey(paneIdx, 'left', 1), 'LCK', 'tgp-manual-off', paneTag, marks.tgt);
         placeSplitKey(paneKey(paneIdx, 'left', 2), 'MAN', 'tgp-manual-on',  paneTag, marks.man);
         placeSplitKey(paneKey(paneIdx, 'right', 0), 'CLR', 'tgp-ir-off',    paneTag, marks.clr);
@@ -522,13 +524,14 @@ function renderSplitLabels() {
         placeWpnDecorator(tgtKey.bank, tgtKey.index + 1, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
         placeWpnDecorator(clrKey.bank, clrKey.index + 1, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
       } else {
-        // CFG moves here (off its usual right2) rather than being dropped — right2 is spoken for
-        // by the PREV toggle on this page. Right1 is left empty rather than reshuffled further, the
-        // same "an unused slot is fine" shape HUD/KEYS's own 4-of-6 split placement already uses.
+        // CFG and STP move here (off their usual full-view slots) rather than being dropped.
+        // Right2 is left empty rather than reshuffled further, the same "an unused slot is fine"
+        // shape HUD/KEYS's own 4-of-6 split placement already uses — there's no NEXT past the last page.
+        placeSplitKey(paneKey(paneIdx, 'left', 0), 'PREV', 'tgp-nav-prev', paneTag);
         placeSplitKey(paneKey(paneIdx, 'left', 1), 'Z+', 'tgp-zoom-in',  paneTag);
         placeSplitKey(paneKey(paneIdx, 'left', 2), 'Z-', 'tgp-zoom-out', paneTag);
         placeSplitKey(paneKey(paneIdx, 'right', 0), NAV.tgp[1].label, NAV.tgp[1].action, paneTag);
-        placeSplitKey(paneKey(paneIdx, 'right', 2), 'PREV', 'tgp-nav-prev', paneTag);
+        placeSplitKey(paneKey(paneIdx, 'right', 1), 'STP', 'tgp-mark-steerpoint', paneTag);
         const zKey = paneKey(paneIdx, 'left', 1);
         placeWpnDecorator(zKey.bank, zKey.index + 1, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
       }
@@ -1117,12 +1120,14 @@ function placeTgpNavLabels() {
   placeWpnDecorator('left', 2, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
   placeWpnDecorator('left', 4, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
   // Z+/Z- (manual camera zoom, docs/tgp-manual-control.md's remote-ready SetZoom(dir, on)) —
-  // the right bank is otherwise empty for TGP, unlike the fully-used left bank above. No
-  // split-pane twin: split's tgp branch (renderSplitLabels) already fills all 6 of its slots
-  // with MAIN/LCK/MAN/CLR/IR/CFG, leaving no room for a second pair.
+  // the right bank is otherwise empty for TGP, unlike the fully-used left bank above.
   placeOverlayLabel('right', 0, 'Z+', 'tgp-zoom-in');
   placeOverlayLabel('right', 1, 'Z-', 'tgp-zoom-out');
   placeWpnDecorator('right', 1, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
+  // STP (docs/steer-points.md's MARK STEER POINT) — marks whatever TGP is currently showing as a
+  // new steer point. Its split-pane twin lives on TGP's own second page (renderSplitLabels'
+  // 'tgp' branch), the only place with a free slot left once Z+/Z- exist there too.
+  placeOverlayLabel('right', 2, 'STP', 'tgp-mark-steerpoint');
 }
 // Split-pane MASTER/MODE: unlike full view's fixed right2/right4, a split pane's ctrl pair can land
 // on any of its 4 item slots depending on pagination (buildWpnSplitPages) — found here by id rather
@@ -2349,6 +2354,9 @@ function mfdButton(el) {
     } else if (act === 'tgp-ir-on' || act === 'tgp-ir-off') {
       // CLR/IR has the same in-place behavior as LCK/MAN.
       sendCommand('tgp.ir.set', { on: act === 'tgp-ir-on' }).catch(function() {});
+    } else if (act === 'tgp-mark-steerpoint') {
+      // STP (docs/steer-points.md) — a one-shot action, not a destination page.
+      sendCommand('tgp.mark-steerpoint').catch(function() {});
     } else {
       paneNavigate(paneIdx, act);
     }
@@ -2379,6 +2387,7 @@ function mfdButton(el) {
     case 'tgp-manual-off': sendCommand('tgp.manual.set', { on: false }).catch(function() {}); break;
     case 'tgp-ir-on':      sendCommand('tgp.ir.set', { on: true  }).catch(function() {}); break;
     case 'tgp-ir-off':     sendCommand('tgp.ir.set', { on: false }).catch(function() {}); break;
+    case 'tgp-mark-steerpoint': sendCommand('tgp.mark-steerpoint').catch(function() {}); break;
     // EXT (docs/extensions-api.md) always lands on the EXT hub itself — NAV.ext (ext-nav.js)
     // lists MAIN plus one entry per installed extension, rendered as ordinary full-view keys by
     // the generic NAV sweep in showPage. Picking one of THOSE is handled by the `default` case

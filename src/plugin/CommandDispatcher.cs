@@ -147,6 +147,10 @@ namespace NOXMFD
                 // keybinds, same "set" shape as master-arms.set above rather than a blind flip.
                 { "tgp.manual.set", e => TgpManualControl.SetManual(e.on) },
                 { "tgp.ir.set",     e => TgpManualControl.SetIR(e.on) },
+                // TGP page's STP button and MARK STEER POINT keybind (docs/steer-points.md) — marks
+                // whatever TGP is currently showing (a real lock's position, or the manual camera's
+                // aim point) as a new steer point, straight into RouteStore. No wire fields at all.
+                { "tgp.mark-steerpoint", e => TgpManualControl.MarkSteerPoint() },
                 // TGP page's own Z+/Z- bezel buttons — discrete magnification LEVELS
                 // (TgpManualControl.StepZoom), one jump per command, not the physical Cursor Zoom
                 // In/Out keybind's own continuous held rate (tgp.zoom.set below is still that

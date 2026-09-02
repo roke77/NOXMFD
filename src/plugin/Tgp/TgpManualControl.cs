@@ -688,10 +688,15 @@ namespace NOXMFD
             public float RelAltitudeM { get; }
             public float ClosureMps { get; }
             public string Grid { get; }
+            // Floating-origin-corrected world X/Z (same space RouteStore's waypoints/steer points
+            // use) — only meaningful when HasHit. Not shown on any overlay; carried here purely so
+            // MarkSteerPoint() below can reuse this same computed hit point instead of re-raycasting.
+            public float PosX { get; }
+            public float PosZ { get; }
 
             public ManualOverlaySample(float azimuthDeg, float elevationDeg, float mag, bool ir,
                 bool pointTrackActive, bool hasHit, float rangeM, float altitudeM, float relAltitudeM,
-                float closureMps, string grid)
+                float closureMps, string grid, float posX, float posZ)
             {
                 AzimuthDeg = azimuthDeg;
                 ElevationDeg = elevationDeg;
@@ -704,6 +709,8 @@ namespace NOXMFD
                 RelAltitudeM = relAltitudeM;
                 ClosureMps = closureMps;
                 Grid = grid;
+                PosX = posX;
+                PosZ = posZ;
             }
         }
 
@@ -717,7 +724,7 @@ namespace NOXMFD
             Vector3 hitLocal = default;
             float rangeM = 0f;
             if (ac == null || !TryGetLookPoint(mount, out hitLocal, out rangeM))
-                return new ManualOverlaySample(az, el, mag, ir, _pointTrackActive, false, 0f, 0f, 0f, 0f, "");
+                return new ManualOverlaySample(az, el, mag, ir, _pointTrackActive, false, 0f, 0f, 0f, 0f, "", 0f, 0f);
 
             GlobalPosition hitGlobal = hitLocal.ToGlobalPosition();
             Vector3 rel = hitGlobal - ac.GlobalPosition();
@@ -727,7 +734,33 @@ namespace NOXMFD
             float closure = ac.rb != null ? Vector3.Dot(ac.rb.velocity, rel.normalized) : 0f;
             DynamicMap? map = SceneSingleton<DynamicMap>.i;
             string grid = map != null && map.gridLabels != null ? map.gridLabels.GetGridPosition(hitGlobal) : "";
-            return new ManualOverlaySample(az, el, mag, ir, _pointTrackActive, true, rangeM, hitGlobal.y, rel.y, closure, grid);
+            return new ManualOverlaySample(az, el, mag, ir, _pointTrackActive, true, rangeM, hitGlobal.y, rel.y, closure, grid, hitGlobal.x, hitGlobal.z);
+        }
+
+        // MARK STEER POINT (docs/steer-points.md's TGP STP button/keybind): captures whatever TGP
+        // is currently showing as a new steer point — a real lock's own position, or the manual
+        // camera's current aim point. Mirrors the exact hasTargets/ManualMode branch TgpFeed.
+        // CaptureFrame already uses to pick Populate vs PopulateManual, so this can't disagree with
+        // what the overlay is showing at the moment it's pressed. Named "" like a MAP long-press
+        // steer point — the pilot renames it on WPT if they want one.
+        internal static void MarkSteerPoint()
+        {
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            TargetCam? tc = ac != null ? ac.targetCam : null;
+            if (ac == null || tc == null) return;
+
+            List<Unit>? targets = ac.weaponManager != null ? ac.weaponManager.GetTargetList() : null;
+            if (targets != null && targets.Count > 0)
+            {
+                GlobalPosition gp = targets[0].GlobalPosition();
+                RouteStore.AddSteerPoint(gp.x, gp.z, string.Empty);
+                return;
+            }
+
+            if (!ManualMode) return;
+            ManualOverlaySample s = ComputeOverlaySample(tc, tc.GetCamMount(), ac);
+            if (!s.HasHit) return;
+            RouteStore.AddSteerPoint(s.PosX, s.PosZ, string.Empty);
         }
     }
 }

@@ -778,15 +778,18 @@ wrapping. A no-op while `ManualMode` is off (LCK mode): `TgpManualControl.Tick()
 - Classic bezel, full view (`placeTgpNavLabels`): `Z+`/`Z-` fill `right0`/`right1`, the
   otherwise-empty right bank.
 - Classic bezel, split pane (`renderSplitLabels`' `tgp` branch, `paneTgpPage`): a pane only has 3
-  slots per bank (6 total), and TGP now has 8 destinations (MAIN/LCK/MAN/CLR/IR/CFG/Z+/Z-) — one
-  more than fits. Rather than the generic list-pagination scheme MAIN/MAP use for an open-ended
-  list, this just flips between two fixed sets, since TGP only ever needs exactly two: page 0 is
-  byte-for-byte what this pane already showed before Z+/Z- existed (MAIN/LCK/MAN/CLR/IR, nothing
-  shifts for the common case), page 1 swaps in Z+/Z-/CFG behind a `NEXT`/`PREV` toggle sharing the
-  one freed slot (`right2`, CFG's old spot) — `right1` sits unused on page 1, the same "an unused
-  slot is fine" shape HUD/KEYS's own 4-of-6 split placement already uses. `tgp-nav-prev`/
-  `tgp-nav-next` just flip `paneTgpPage[paneIdx]` between 0 and 1 and re-render; reset to 0 whenever
-  a pane (re)enters TGP (`paneNavigate`), same as `paneWpnPage`/`paneMainPage`/etc.
+  slots per bank (6 total), and TGP now has 9 destinations (MAIN/LCK/MAN/CLR/IR/CFG/Z+/Z-/STP) —
+  three more than fits. Rather than the generic list-pagination scheme MAIN/MAP use for an
+  open-ended list, this just flips between two fixed sets, since TGP only ever needs exactly two:
+  page 0 is byte-for-byte what this pane already showed before Z+/Z- existed (MAIN/LCK/MAN/CLR/IR,
+  nothing shifts for the common case, `NEXT` fills the last slot), page 1 swaps in Z+/Z-/CFG/STP.
+  `PREV` takes over `left0` (MAIN's own slot) rather than sharing `NEXT`'s old slot (`right2`) —
+  same "PREV anchors the first physical key" convention `listPaneLayout`/`mainPaneSlice` already use
+  for MAIN/MAP's own paging, so a page's "go back" key sits in the same place whether it means
+  back-to-MAIN or back-a-page. `right2` sits unused on page 1, the same "an unused slot is fine"
+  shape HUD/KEYS's own 4-of-6 split placement already uses. `tgp-nav-prev`/`tgp-nav-next` just flip
+  `paneTgpPage[paneIdx]` between 0 and 1 and re-render; reset to 0 whenever a pane (re)enters TGP
+  (`paneNavigate`), same as `paneWpnPage`/`paneMainPage`/etc.
 - F-35 glass: `TGP_ZOOM_NAV` places `Z+`/`Z-` at column 2, rows 2-3 — column 2 is entirely free for
   TGP (only column 1 is spoken for, and a portal's grid has 2 columns × 6 rows = 12 cells total, so
   no split-pane-style capacity problem here at all — F-35 needed no pagination).
@@ -796,6 +799,27 @@ wrapping. A no-op while `ManualMode` is off (LCK mode): `TgpManualControl.Tick()
   `TGP_ZOOM_STEP_REPEAT_MS` = 150) until pointerup/pointercancel/pointerleave clears the timer.
   Classic shell tracks the held pointer by its `pointerId` (not by re-checking which key is under
   the pointer at release), so dragging off the key before lifting still stops the repeat.
+
+**STP (built) — mark whatever the TGP camera is currently showing as a new steer point**
+(`docs/steer-points.md`), a single one-shot bezel/glass button plus a matching `Mark Steer Point`
+keybind (`TGP Keybinds`, `TgpManualControl.MarkSteerPoint()`), both driving one command:
+`tgp.mark-steerpoint` (no wire fields — `CommandDispatcher.cs`). `MarkSteerPoint()` mirrors the
+exact `hasTargets`/`ManualMode` branch `TgpFeed.CaptureFrame` already uses to pick `Populate` vs
+`PopulateManual`, so it can't disagree with what the overlay is showing the moment it's pressed:
+- A real unit lock (LCK mode) → the primary target's own `GlobalPosition()`.
+- Manual control (MAN/Point Track) with a hit → `ComputeOverlaySample`'s already-computed hit
+  point, reusing the same raycast the overlay's RNG/ALT/GRID fields already paid for rather than
+  firing a second one. `ManualOverlaySample` grew `PosX`/`PosZ` (the same floating-origin-corrected
+  space `RouteStore`'s waypoints/steer points already use) purely to carry this out.
+- Neither (no lock, manual control off, or manual control on with no hit) → no-op.
+
+Straight into `RouteStore.AddSteerPoint(x, z, "")` — named `""`, same as a MAP long-press steer
+point; rename it on WPT if you want one.
+- Classic bezel, full view (`placeTgpNavLabels`): `STP` sits at `right2`, under `Z+`/`Z-`.
+- Classic bezel, split pane: page 1 (`MAIN/LCK/MAN/CLR/IR/NEXT`) has no free slot, so `STP` joins
+  `Z+`/`Z-`/`CFG` on page 2, at the now-unused `right1`.
+- F-35 glass: column 2, row 1 — column 2's row 1 was free (`Z+`/`Z-` only spoke for rows 2-3),
+  mirroring `MAIN`'s own row 1 in column 1.
 
 ## On-screen joystick (built)
 

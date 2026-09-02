@@ -149,6 +149,13 @@ no feed up at all.
 
 ![MAN and CLR lit during Point Track, locked onto a helicopter](images/TPG_MAN.png)
 
+## Mark steer point
+
+**STP**, another nav-row button, marks whatever the camera is currently showing — a real lock's
+position, or the manual camera's current aim point — as a new [steer point](wpt.md#steer-points).
+Does nothing with no lock and manual control off, or manual control on but not looking at
+anything. A **Mark Steer Point** keybind (see [KEY](keybinds.md#tgp)) does the same thing.
+
 ## Manual mode overlay
 
 The stat readout matches the locked-target [mirror-camera overlay](#mirror-camera-overlay)'s own

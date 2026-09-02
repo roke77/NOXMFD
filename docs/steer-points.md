@@ -7,6 +7,9 @@ a persistent, named map position with no route ordering or automatic state chang
 
 - Long-press MAP with an active route to append a waypoint, as before.
 - Long-press MAP with no active route to create and select a steer point.
+- The TGP page's `STP` button/keybind (`docs/tgp-manual-control.md`'s own STP section) marks
+  whatever the camera is currently showing — a real lock's position, or the manual camera's aim
+  point — as a new steer point the same way, via `TgpManualControl.MarkSteerPoint()`.
 - Selecting another steer point changes guidance immediately. Flying over one does not advance it.
 - An active route always owns navigation guidance. Deactivating it restores the prior steer-point
   selection; a completed-but-still-active route does not silently fall through to a steer point.
@@ -42,7 +45,9 @@ The browser uses context-level commands for actions whose meaning depends on rou
 Keeping that decision server-side prevents an out-of-date browser cache from sending the wrong
 mutation during a route activation change. Direct steer-point CRUD/select/import commands remain
 available for the WPT editor: `add-steerpoint`, `rename-steerpoint`, `delete-steerpoint`,
-`set-active-steerpoint`, `cycle-steerpoint`, and `import-steerpoints`.
+`set-active-steerpoint`, `cycle-steerpoint`, and `import-steerpoints`. The TGP page's `STP` button
+uses a separate `tgp.mark-steerpoint` command instead of `wpt.add-steerpoint` directly — it has no
+`x`/`z` of its own to send, since the plugin already knows what the camera is looking at.
 
 MAP draws steer points as diamonds over the map image. The effective steer point uses amber; other
 points use green (`--no-green`), distinct from the route line's cyan. Route waypoint/line rendering

@@ -30,6 +30,7 @@ const dynamicBehaviors = [
   'tgp-ir-on', 'tgp-ir-off',
   'tgp-nav-prev', 'tgp-nav-next',
   'tgp-zoom-in', 'tgp-zoom-out',
+  'tgp-mark-steerpoint',
 ];
 
 for (const action of [...staticBehaviors, ...dynamicBehaviors]) {

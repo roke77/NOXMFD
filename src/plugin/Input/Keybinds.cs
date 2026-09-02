@@ -359,6 +359,11 @@ namespace NOXMFD
                 "the \"always IR\" setting; this bind overrides that with your own choice, which " +
                 "sticks until you flip it again.",
                 () => TgpManualControl.ToggleIR());
+            DefFree(config, "tgp-mark-steerpoint", tgp, "TgpMarkSteerPoint", "Mark Steer Point", edge: true,
+                "Mark whatever the TGP camera is currently showing — a real unit lock's position, or " +
+                "the manual camera's current aim point — as a new steer point (see WPT). Does nothing " +
+                "with neither a lock nor manual control on.",
+                () => TgpManualControl.MarkSteerPoint());
             DefFree(config, "tgp-fullscreen-toggle", tgp, "TgpFullscreenToggle", "Full Screen Toggle", edge: true,
                 "Show the TGP camera feed full screen — a cinematic, independently rendered view, " +
                 "not a stretch of the small in-cockpit screen. Auto-exits on aircraft loss, a " +

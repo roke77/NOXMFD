@@ -214,6 +214,12 @@
     { label: 'Z+', action: 'tgp-zoom-in',  cell: { row: 2, col: 2 } },
     { label: 'Z-', action: 'tgp-zoom-out', cell: { row: 3, col: 2 } },
   ];
+  // STP (docs/steer-points.md's MARK STEER POINT) — a one-shot action, not an explicit-state pair
+  // like the others above, so it's dispatched directly rather than through an ACTIONS lookup.
+  // Column 2's row 1 is free (Z+/Z- only spoke for rows 2-3), mirroring MAIN's own row 1 in column 1.
+  const TGP_STP_NAV = [
+    { label: 'STP', action: 'tgp-mark-steerpoint', cell: { row: 1, col: 2 } },
+  ];
 
   // MAP's placement mirrors mfd.js's explicit control banks rather than using generic overflow. The action
   // lists (SplitSlots.MAP_FULL_LEFT/RIGHT/mapFullRight) are shared with the classic bezel — see
@@ -526,7 +532,7 @@
     function itemsFor(page) {
       if (page === 'wpn') return wpnState().nav.concat(MASTER_ARMS_NAV, COMBAT_MODE_NAV);
       if (page === 'map') return mapNavItems();
-      if (page === 'tgp') return tgpNavItems().concat(TGP_MODE_NAV, TGP_IR_NAV, TGP_ZOOM_NAV);
+      if (page === 'tgp') return tgpNavItems().concat(TGP_MODE_NAV, TGP_IR_NAV, TGP_ZOOM_NAV, TGP_STP_NAV);
       const items = (NAV[page] || []).slice();
       if (page !== 'main') return items;
       return items.concat(MAIN_EXTRAS).sort(function (a, b) { return a.label.localeCompare(b.label); });
@@ -665,6 +671,10 @@
       }
       if (action in TGP_IR_ACTIONS) {
         sendCommand('tgp.ir.set', { on: TGP_IR_ACTIONS[action] }).catch(function () {});
+        return;
+      }
+      if (action === 'tgp-mark-steerpoint') {
+        sendCommand('tgp.mark-steerpoint').catch(function () {});
         return;
       }
       if (has(action)) showPage(action);

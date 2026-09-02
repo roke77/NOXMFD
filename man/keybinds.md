@@ -86,6 +86,9 @@ the shared [PAD cursor](#pad-cursor) binds above, not a dedicated pan/tilt/zoom 
   unit lock. The game normally switches this automatically by time of day, distance, or the
   "always IR" setting; this overrides that with your own choice, which sticks until you flip it
   again.
+- **Mark Steer Point** — mark whatever the TGP camera is currently showing (a real unit lock's
+  position, or the manual camera's aim point) as a new [steer point](wpt.md#steer-points). Does
+  nothing with neither a lock nor manual control on.
 - **Full Screen Toggle** — show the TGP camera feed full screen: a cinematic, independently
   rendered view, not a stretch of the small in-cockpit screen. Turns off on its own if the aircraft
   is lost, the landing-gear camera takes over, or the pause menu/map opens.
