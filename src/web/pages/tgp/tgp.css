@@ -241,3 +241,50 @@
 }
 .tgp-ov-box.lased::before { width: 16px; height: 2px; transform: translate(-50%, -50%); }
 .tgp-ov-box.lased::after  { width: 2px; height: 16px; transform: translate(-50%, -50%); }
+
+/* On-screen joystick (tgp.js) — mouse/touch pan/tilt for the manual camera, bottom-right of the
+   panel. Fixed px size rather than the panel-percentage scaling the overlay above uses: a drag
+   target needs a stable minimum touch size regardless of how small the panel gets (a tiny
+   split-pane sliver), unlike text that can just shrink. Sits below/left of .tgp-ov-br's own
+   bottom-right stat stack (bottom: 90px clears its 3 lines at this font-size) rather than the
+   same corner, so the two never overlap when both show at once (HQ quality, manual mode). */
+.tgp-joystick {
+  position: absolute;
+  right: 16px;
+  bottom: 90px;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 2px solid var(--no-green-dark);
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0.35;
+  pointer-events: none;
+  touch-action: none;
+}
+/* Live only in manual mode — outside it SetPan is already a no-op server-side (TgpManualControl.
+   Tick() returns immediately whenever ManualMode is off), but a control that looks interactive
+   and silently does nothing would read as broken. */
+.tgp-panel.tgp-manual .tgp-joystick {
+  opacity: 0.85;
+  pointer-events: auto;
+}
+.tgp-joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 50%;
+  background: var(--no-green-dim);
+  border: 1px solid var(--no-green);
+  /* Only while NOT actively dragged — tgp.js sets the live offset as an inline transform during
+     a drag, and this transition would otherwise fight that frame-by-frame update, making the
+     knob visibly lag behind the pointer. */
+  transition: transform 0.15s;
+}
+.tgp-joystick.dragging .tgp-joystick-knob {
+  background: var(--no-amber);
+  border-color: var(--no-amber);
+  transition: none;
+}

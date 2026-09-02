@@ -99,6 +99,10 @@ Manual control reuses the same PAD Cursor every other display already uses (see
 - **Z+ / Z−** on this page's own nav row zoom the same way, without needing SOI at all — press
   and hold for a steady zoom, same rate as the keybind. No effect while a real unit is locked
   instead of the manual camera.
+- A **joystick** in the bottom-right corner of the picture, for a mouse or touch screen: press and
+  drag it, and the camera pans and tilts toward the direction you dragged, the further the faster.
+  Let go and it snaps back to center. Works without SOI too. Dimmed and inactive while a real unit
+  is locked instead of the manual camera.
 
 ## In-game HUD cue
 

@@ -118,6 +118,14 @@ needs, proven twice over:
   `RemoteInputState` behind `TelemetryServer.GetRemoteCursorState`/`SetRemoteCursorState`). A `tgp-pan`/`tgp-tilt`
   pair of roles and a `tgp-pan.set { x, y }` command, with its own TTL state alongside the existing
   cursor/fire TTL blocks in `RemoteInputState`, is the same pattern, not a new one.
+  **(Built, but not this way — see below.)** The TGP page's own on-screen joystick (`#tgp-joystick`,
+  `tgp.js`) sends `cursor.set { x, y }` directly — the *existing* command, not a new `tgp-pan.set` —
+  since `Keybinds.Poll()` already merges `GetRemoteCursorState` into the PAD cursor vector it feeds
+  `SetPan` whenever TGP holds SOI (the "PAD Cursor consolidation plan" above). No plugin change was
+  needed for this. What's still deferred is the *remote-keybinds.js role* wiring this bullet
+  describes — a separate physical/remote device mapping its own keys to `tgp-pan`/`tgp-tilt` roles
+  the way it already does for MAP's cursor — which is a distinct feature from a mouse/touch drag
+  control on this same page.
 - **Zoom in/out** is a continuous, held, single-direction input — the same shape as the remote fire
   actions (`fireRoleForBind`/`fireGroupsFromActive`/`fire.set`, `RemoteFireMinPressTicks` guaranteeing
   a fast tap survives at least one `Poll()` frame). `tgp-zoom-in`/`tgp-zoom-out` roles and a
@@ -770,6 +778,45 @@ into an actual zoom — no extra gating needed in the command handler.
 - Both shells wire a plain pointerdown/pointerup pair per button (no tap-vs-hold split — a quick
   tap is just a brief zoom nudge, which is fine), rather than routing through `dispatch()`/
   `mfdButton()`'s generic click switch the way LCK/MAN/CLR/IR do.
+
+## On-screen joystick (built)
+
+A mouse/touch-only pan/tilt control on the TGP page itself (`#tgp-joystick`, `tgp.js`), bottom-right
+of the panel — HOTAS pan/tilt and the KEY-page's own axis binds had no on-screen equivalent, so a
+mouse/touch pilot had no way to point the manual camera at all short of a bound keyboard key.
+
+- **No plugin change.** Sends `cursor.set { x, y }` — the same command `remote-keybinds.js` already
+  sends for a remote-mapped physical key — which `RemoteInputState.SetCursor` already TTLs (250ms)
+  and `Keybinds.Poll()` already merges into the PAD cursor vector it feeds `TgpManualControl.SetPan`
+  whenever TGP holds SOI (see [PAD Cursor consolidation](#pad-cursor-consolidation-built) above).
+  This is the "Pan/tilt" bullet under [Remote control](#fit-with-noxmfds-existing-architecture)
+  above, reusing the *existing* command a page-local drag control already qualifies for, rather than
+  the new `tgp-pan.set` that bullet originally proposed for a remote *keybind role*.
+- **Math**: knob offset from the pad's center, divided by the pad's radius, clamped to the unit
+  CIRCLE (`Math.hypot(dx, dy) > 1` rescales both axes) rather than a unit square — a real joystick's
+  travel is circular, and clamping per-axis independently would let a diagonal drag report a
+  deflection magnitude greater than a straight one. Right/down are positive on both axes, matching
+  the screen-space convention `Keybinds.cs`'s own Cursor Left/Right/Up/Down already use before
+  their Y gets negated for elevation — no sign-flip needed between this control and that one.
+- **Continuous while held**: a `setInterval` re-sends the last computed vector every 50ms while
+  dragging (comfortably under the 250ms TTL), the same keepalive cadence `remote-keybinds.js`
+  already uses for its own `cursor.set` sends — a `pointermove`-only send would let the camera stop
+  responding the moment the pointer stops moving while still held. Release sends an explicit
+  `{x:0,y:0}` immediately (`pointerup`/`pointercancel`) rather than waiting out the TTL, for a crisp
+  stop instead of up to 250ms of drift.
+- **Gating**: dimmed and `pointer-events: none` outside `.tgp-manual` (a real unit locked instead of
+  the manual camera) — functionally a no-op regardless, since `TgpManualControl.Tick()` returns
+  immediately whenever `ManualMode` is off, so the held vector this control sends is never read into
+  an actual pan — but a live-looking control that silently does nothing reads as broken.
+- **Layout**: fixed pixel size, not the panel-percentage scaling the stat overlay uses — a drag
+  target needs a stable minimum touch size regardless of how small the panel gets, unlike text that
+  can just shrink. Positioned clear of `.tgp-ov-br`'s own bottom-right stat stack rather than the
+  same corner, so the two don't overlap when both show at once (HQ quality, manual mode).
+- A CSS gotcha worth remembering: a `transition` declared on a lower-specificity rule for a property
+  a higher-specificity rule also sets can end up never resolving to the override's value at all, in
+  at least one tested environment — dropping the transition (an instant opacity snap on the
+  `.tgp-manual` gate above) sidesteps it entirely rather than chasing the exact conditions that
+  trigger it.
 
 ## Native-lock CLR/IR override (built)
 

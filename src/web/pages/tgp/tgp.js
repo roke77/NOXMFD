@@ -198,3 +198,63 @@ window.addEventListener('message', function(e) {
     document.body.classList.toggle('landscape', m.orientation !== 'portrait');
   }
 });
+
+// ── On-screen joystick: mouse/touch pan/tilt for the manual camera ──────────────────────────
+// Sends the exact same cursor.set { x, y } command remote-keybinds.js already sends for a
+// remote-mapped physical key (RemoteInputState.SetCursor, 250ms TTL) — Keybinds.Poll() merges it
+// into the PAD cursor vector every frame and feeds TgpManualControl.SetPan unchanged, so this
+// needed no plugin-side change at all. x/y follow the same screen-space convention Keybinds.cs's
+// own Cursor Left/Right/Up/Down already use before their Y gets negated for elevation (right/down
+// = positive) — dragging the knob right or down produces a positive x/y here, matching that
+// convention exactly, so no sign-flip is needed on this side either.
+const tgpJoystick = document.getElementById('tgp-joystick');
+const tgpJoystickKnob = document.getElementById('tgp-joystick-knob');
+const JOYSTICK_KEEPALIVE_MS = 50;   // comfortably under RemoteInputState's 250ms cursor TTL
+let joystickPointerId = null;
+let joystickKeepalive = null;
+let joystickX = 0, joystickY = 0;   // last computed [-1,1], resent on the keepalive tick
+
+function sendJoystickState() {
+  sendCommand('cursor.set', { x: joystickX, y: joystickY }).catch(function () {});
+}
+
+function updateJoystickFromEvent(e) {
+  const rect = tgpJoystick.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+  const radius = rect.width / 2;
+  let dx = (e.clientX - cx) / radius, dy = (e.clientY - cy) / radius;
+  const mag = Math.hypot(dx, dy);
+  if (mag > 1) { dx /= mag; dy /= mag; }   // clamp to the circular pad, not a square
+  joystickX = dx; joystickY = dy;
+  tgpJoystickKnob.style.transform = 'translate(' + (dx * radius) + 'px,' + (dy * radius) + 'px)';
+  sendJoystickState();
+}
+
+function resetJoystick() {
+  joystickX = joystickY = 0;
+  tgpJoystickKnob.style.transform = '';
+  sendJoystickState();   // explicit zero now — snappier stop than waiting out the 250ms TTL
+}
+
+tgpJoystick.addEventListener('pointerdown', function (e) {
+  if (joystickPointerId !== null) return;   // one drag at a time
+  joystickPointerId = e.pointerId;
+  tgpJoystick.setPointerCapture(e.pointerId);
+  tgpJoystick.classList.add('dragging');
+  updateJoystickFromEvent(e);
+  joystickKeepalive = setInterval(sendJoystickState, JOYSTICK_KEEPALIVE_MS);
+});
+tgpJoystick.addEventListener('pointermove', function (e) {
+  if (e.pointerId !== joystickPointerId) return;
+  updateJoystickFromEvent(e);
+});
+function endJoystickDrag(e) {
+  if (e.pointerId !== joystickPointerId) return;
+  joystickPointerId = null;
+  clearInterval(joystickKeepalive);
+  joystickKeepalive = null;
+  tgpJoystick.classList.remove('dragging');
+  resetJoystick();
+}
+tgpJoystick.addEventListener('pointerup', endJoystickDrag);
+tgpJoystick.addEventListener('pointercancel', endJoystickDrag);

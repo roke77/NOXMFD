@@ -33,6 +33,16 @@
     'orient' : app-wide orientation (kept for parity).
   The MJPEG <img> connects to /tgp.mjpg directly; the server only emits frames while a target
   is locked, so it stays hidden (NO LOCK shown) until 'tgp' active flips true.
+
+  On-screen joystick (#tgp-joystick, tgp.js's own pointerdown/move/up handlers, no shell message
+  involved): a mouse/touch-only pan/tilt control for the manual camera, since HOTAS pan/tilt has
+  no on-screen equivalent otherwise. Sends the SAME cursor.set { x, y } command
+  remote-keybinds.js already sends for a remote-mapped physical key — Keybinds.Poll() merges it
+  into the PAD cursor vector and feeds TgpManualControl.SetPan unchanged
+  (docs/tgp-manual-control.md), so no plugin-side change was needed for this. Dimmed and inert
+  via .tgp-manual (outside manual mode SetPan is a no-op anyway — TgpManualControl.Tick() returns
+  immediately whenever ManualMode is off — but a live-looking control that does nothing would be
+  confusing).
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -80,9 +90,13 @@
       </div>
       <div id="tgp-ov-boxes"></div>
     </div>
+    <div class="tgp-joystick" id="tgp-joystick">
+      <div class="tgp-joystick-knob" id="tgp-joystick-knob"></div>
+    </div>
   </div>
 <script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
 <script src="/assets/services/remote-keybinds.js"></script>
+<script src="/assets/services/send-command.js"></script>
 <script src="/assets/pages/tgp/tgp.js"></script>
 </body>
 </html>

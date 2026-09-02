@@ -28,13 +28,16 @@ class Element {
   addEventListener(type, cb) { this.listeners[type] = cb; }
   appendChild(child) { this.children.push(child); }
   replaceChildren(...children) { this.children = children; }
+  // Fixed rect for the joystick tests below: center (140,140), radius 40.
+  getBoundingClientRect() { return { left: 100, top: 100, width: 80, height: 80 }; }
+  setPointerCapture() {}
 }
 
 const ids = [
   'tgp-panel', 'tgp-img', 'tgp-overlay', 'tgp-ov-type', 'tgp-ov-pilot', 'tgp-ov-rng',
   'tgp-ov-alt', 'tgp-ov-spd', 'tgp-ov-hdg', 'tgp-ov-relalt', 'tgp-ov-relspd',
   'tgp-ov-needle', 'tgp-ov-bearing', 'tgp-ov-grid', 'tgp-ov-mode', 'tgp-ov-mag',
-  'tgp-ov-boxes',
+  'tgp-ov-boxes', 'tgp-joystick', 'tgp-joystick-knob',
 ];
 const elements = Object.fromEntries(ids.map((id) => [id, new Element(id)]));
 const listeners = {};
@@ -51,6 +54,14 @@ global.ResizeObserver = class {
   constructor(cb) { this.cb = cb; }
   observe() { this.cb(); }
 };
+
+// Fakes for the on-screen joystick's outbound command + keepalive timer, so the drag math below
+// runs without a real network call or a real timer left running past this script's exit.
+const commandLog = [];
+global.sendCommand = function (cmd, args) { commandLog.push({ cmd, args }); return { catch() {} }; };
+let activeIntervalFn = null;
+global.setInterval = function (fn) { activeIntervalFn = fn; return 1; };
+global.clearInterval = function () { activeIntervalFn = null; };
 
 require('./tgp.js');
 
@@ -128,5 +139,36 @@ assert.ok(!elements['tgp-panel'].classList.contains('tgp-point-track'), 'manual:
 listeners.message({ data: { mfd: true, type: 'orient', orientation: 'portrait' } });
 assert.ok(document.body.classList.contains('portrait'), 'portrait orientation should be reflected on body');
 assert.ok(!document.body.classList.contains('landscape'), 'portrait orientation should clear landscape');
+
+// On-screen joystick (manual camera pan/tilt) — exercised directly through the registered pointer
+// listeners, since this fake DOM has no real event dispatch. Element's fixed rect above puts the
+// pad's center at (140,140) with radius 40.
+const pad = elements['tgp-joystick'];
+
+pad.listeners.pointerdown({ pointerId: 1, clientX: 140, clientY: 140 });
+assert.strictEqual(commandLog.length, 1, 'pointerdown sends one cursor.set');
+assert.deepStrictEqual(commandLog[0], { cmd: 'cursor.set', args: { x: 0, y: 0 } }, 'dead center is (0,0)');
+assert.ok(activeIntervalFn, 'pointerdown starts the keepalive interval');
+
+pad.listeners.pointermove({ pointerId: 1, clientX: 160, clientY: 140 });
+assert.deepStrictEqual(commandLog[1], { cmd: 'cursor.set', args: { x: 0.5, y: 0 } },
+  'half-radius right-only drag is (0.5, 0), unclamped — right is positive, matching Keybinds.cs\'s own screen-space convention');
+
+// Diagonal overshoot clamps to the unit CIRCLE, not a unit square: dx=dy=1.5x the radius has
+// magnitude 1.5*sqrt(2) before clamping, so both components land at 1/sqrt(2), not 1.
+pad.listeners.pointermove({ pointerId: 1, clientX: 200, clientY: 200 });
+const overshoot = commandLog[2].args;
+assert.ok(Math.abs(overshoot.x - Math.SQRT1_2) < 1e-9 && Math.abs(overshoot.y - Math.SQRT1_2) < 1e-9,
+  'diagonal overshoot clamps each axis to 1/sqrt(2), not 1');
+assert.ok(Math.abs(Math.hypot(overshoot.x, overshoot.y) - 1) < 1e-9, 'clamped magnitude is exactly 1');
+
+// A second pointer id must not hijack an in-progress drag (one at a time).
+pad.listeners.pointerdown({ pointerId: 2, clientX: 100, clientY: 100 });
+pad.listeners.pointermove({ pointerId: 2, clientX: 100, clientY: 100 });
+assert.strictEqual(commandLog.length, 3, 'a second pointer id while dragging is ignored entirely');
+
+pad.listeners.pointerup({ pointerId: 1, clientX: 200, clientY: 200 });
+assert.deepStrictEqual(commandLog[3], { cmd: 'cursor.set', args: { x: 0, y: 0 } }, 'release resets to center');
+assert.strictEqual(activeIntervalFn, null, 'release clears the keepalive interval');
 
 console.log('tgp.test.js: OK');
