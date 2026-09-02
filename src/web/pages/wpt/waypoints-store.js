@@ -70,12 +70,6 @@
     return R.findRoute(cache.routes, cache.activeRouteId);
   }
 
-  function getActiveSteerPoint() {
-    return R.findSteerPoint(cache.steerPoints || [], cache.activeSteerPointId);
-  }
-
-  function getNavigationTarget() { return R.navigationTarget(cache); }
-
   // A short, human-typeable default DISPLAY name for a new route — the UI pre-fills its rename
   // field with this so the pilot can accept it as-is or type over it before confirming (wpt.js's
   // "+ NEW ROUTE" flow). Purely cosmetic; the plugin generates its own if this is sent empty.
@@ -152,7 +146,7 @@
 
   const api = {
     freshRouteName,
-    load, poll, getActiveRoute, getActiveSteerPoint, getNavigationTarget,
+    load, poll, getActiveRoute,
     setActiveRoute, cycleActiveRoute, createRoute, renameRoute, deleteRoute, clearRoutes,
     addWaypointToActive, addNavigationPoint, renameWaypoint, removeWaypoint, reorderWaypoint,
     resetWaypoint, resetRoute, stepWaypoint, stepNavigation, exportRoute, importRoute,

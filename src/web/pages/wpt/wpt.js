@@ -47,20 +47,19 @@ function render() {
   renderReadout();
 }
 
-function renderRoutes(c) {
-  routesEl.innerHTML = '';
-
-  // Shares awaiting THIS pilot's own accept/reject — rendered first (need attention), with only
-  // those two actions: not yet a real route, so nothing else (rename/reset/export/delete/activate)
-  // applies to it yet. See RouteStore.cs's own header comment on this group for why a duplicate
-  // share never produces a second one of these.
-  WaypointsStore.pendingShared().forEach(function (p) {
+// Shares awaiting THIS pilot's own accept/reject — rendered first (need attention), with only
+// ACCEPT/REJECT: not yet a real route or steer point, so nothing else (rename/reset/export/
+// delete/activate) applies to it yet. See RouteStore.cs's own header comment on this group for
+// why a duplicate share never produces a second one of these. Shared by renderRoutes and
+// renderSteerPoints below — only the label text and accept/reject calls differ.
+function renderPendingRow(container, items, labelText, onAccept, onReject) {
+  items.forEach(function (p) {
     const row = document.createElement('div');
     row.className = 'wpt-row wpt-row-pending';
 
     const name = document.createElement('span');
     name.className = 'wpt-row-name';
-    name.appendChild(document.createTextNode(p.name + ' (' + p.waypointCount + ') — from '));
+    name.appendChild(document.createTextNode(labelText(p) + ' — from '));
     const leaderName = document.createElement('span');
     leaderName.className = 'wpt-row-pending-leader';
     leaderName.textContent = p.fromName || 'squad leader';
@@ -68,15 +67,23 @@ function renderRoutes(c) {
 
     const accept = document.createElement('button');
     accept.className = 'wpt-btn'; accept.textContent = 'ACCEPT';
-    accept.onclick = function () { WaypointsStore.acceptShared(p.id).then(render); };
+    accept.onclick = function () { onAccept(p.id).then(render); };
 
     const reject = document.createElement('button');
     reject.className = 'wpt-btn wpt-btn-ghost'; reject.textContent = 'REJECT';
-    reject.onclick = function () { WaypointsStore.rejectShared(p.id).then(render); };
+    reject.onclick = function () { onReject(p.id).then(render); };
 
     row.appendChild(name); row.appendChild(accept); row.appendChild(reject);
-    routesEl.appendChild(row);
+    container.appendChild(row);
   });
+}
+
+function renderRoutes(c) {
+  routesEl.innerHTML = '';
+
+  renderPendingRow(routesEl, WaypointsStore.pendingShared(),
+    function (p) { return p.name + ' (' + p.waypointCount + ')'; },
+    WaypointsStore.acceptShared, WaypointsStore.rejectShared);
 
   c.routes.forEach(function (route) {
     const isActive = route.id === c.activeRouteId;
@@ -239,25 +246,9 @@ function renderWaypoints(route) {
 function renderSteerPoints(c) {
   steerPointsEl.innerHTML = '';
 
-  WaypointsStore.pendingSharedSteerPoints().forEach(function (p) {
-    const row = document.createElement('div');
-    row.className = 'wpt-row wpt-row-pending';
-    const name = document.createElement('span');
-    name.className = 'wpt-row-name';
-    name.appendChild(document.createTextNode((p.name || 'STEER POINT') + ' — from '));
-    const leader = document.createElement('span');
-    leader.className = 'wpt-row-pending-leader';
-    leader.textContent = p.fromName || 'squad leader';
-    name.appendChild(leader);
-    const accept = document.createElement('button');
-    accept.className = 'wpt-btn'; accept.textContent = 'ACCEPT';
-    accept.onclick = function () { WaypointsStore.acceptSharedSteerPoint(p.id).then(render); };
-    const reject = document.createElement('button');
-    reject.className = 'wpt-btn wpt-btn-ghost'; reject.textContent = 'REJECT';
-    reject.onclick = function () { WaypointsStore.rejectSharedSteerPoint(p.id).then(render); };
-    row.appendChild(name); row.appendChild(accept); row.appendChild(reject);
-    steerPointsEl.appendChild(row);
-  });
+  renderPendingRow(steerPointsEl, WaypointsStore.pendingSharedSteerPoints(),
+    function (p) { return p.name || 'STEER POINT'; },
+    WaypointsStore.acceptSharedSteerPoint, WaypointsStore.rejectSharedSteerPoint);
 
   (c.steerPoints || []).forEach(function (point, i) {
     const selected = point.id === c.activeSteerPointId;

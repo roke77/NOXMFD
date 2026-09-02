@@ -226,10 +226,10 @@ container is what aims it. The only borrowed resource is the font, taken off
 whichever `UnityEngine.UI.Text` the game already has on screen so the readout
 matches the native readouts rather than introducing a second typeface.
 
-Visibility follows the route and nothing else: the cue draws while a route is
-active and has a waypoint left to fly, and disappears when there is no active
-route or the route is complete. No toggle of its own — the browser already sends
-an explicit off payload for both of those states.
+Visibility follows `RouteStore.TryGetActiveNavigationPoint` and nothing else (docs/steer-points.md):
+the cue draws for an active route's next waypoint, or — with no route active — an active steer
+point instead, and disappears once both are exhausted (the route is complete and no steer point is
+selected). No toggle of its own — the browser already sends an explicit off payload for that state.
 
 ## Rendering: two designs
 

@@ -368,10 +368,19 @@ namespace NOXMFD
 
         public static bool DeleteRoute(string id)
         {
-            Route? route = FindRoute(id);
-            if (route == null) return false;
-            _routes.Remove(route);
-            if (_activeRouteId == id) _activeRouteId = _routes.Count > 0 ? _routes[0].Id : null;
+            int index = _routes.FindIndex(r => r.Id == id);
+            if (index < 0) return false;
+            Route route = _routes[index];
+            _routes.RemoveAt(index);
+            // Nearest-neighbor fallback, same policy as DeleteSteerPoint: land on whatever is now
+            // at this position (the next route down the list) rather than always jumping to the
+            // first route, which used to make deleting anything but the last route feel random.
+            if (_activeRouteId == id)
+            {
+                _activeRouteId = _routes.Count == 0
+                    ? null
+                    : _routes[Math.Min(index, _routes.Count - 1)].Id;
+            }
             Save();
             BroadcastDeleteIfShared(route);
             return true;

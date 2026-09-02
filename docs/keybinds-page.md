@@ -143,6 +143,14 @@ same machine can send the same keypress twice.
   JSON, and the polling all pick it up from the registry.
 - `tools/serve_web.py` carries a stateful mock of the endpoint and commands (including a
   simulated stick capture), so the whole page is drivable in the harness without the game.
+- Every `config.Bind(section, key, KeyboardShortcut.Empty, ...)` in `Keybinds.cs` uses
+  `KeyboardShortcut.Empty`, never a bare `new KeyboardShortcut()` — the latter compiles to an
+  `initobj`, which Mono doesn't reliably run the struct's static constructor for (the constructor
+  that registers its TOML converter with BepInEx's config system). Miss it and every keybind fails
+  to bind on that install, silently rendering every section of this page empty (0.36.1's fix; see
+  `KeyboardShortcutRegressionTests.cs`). `ConfigBackup.cs` backs up `com.roque.NOXMFD.cfg` (and the
+  route/layout/preset JSON files) right before every write, so a corrupted config — this bug, a bad
+  BepInEx reinstall, antivirus quarantine — is recoverable from the `.bak` alongside it.
 
 ---
 

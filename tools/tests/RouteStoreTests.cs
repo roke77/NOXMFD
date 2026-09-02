@@ -76,6 +76,21 @@ namespace NOXMFD.Tests
             Assert.DoesNotContain("\"id\":\"" + b.Id + "\"", RouteStore.RoutesJson);
         }
 
+        // With only 2 routes, deleting the active one always lands on "the other one" regardless
+        // of policy — this case needs 3 to actually distinguish nearest-neighbor (land on C, the
+        // one now at B's old position — same policy DeleteSteerPoint already uses) from "always
+        // jump to the first route" (would land on A instead).
+        [Fact]
+        public void DeleteRoute_lands_on_the_nearest_remaining_route_not_always_the_first()
+        {
+            RouteStore.CreateRoute("A");
+            Route b = RouteStore.CreateRoute("B");
+            Route c = RouteStore.CreateRoute("C");
+            RouteStore.SetActiveRoute(b.Id);
+            Assert.True(RouteStore.DeleteRoute(b.Id));
+            Assert.Contains("\"activeRouteId\":\"" + c.Id + "\"", RouteStore.RoutesJson);
+        }
+
         [Fact]
         public void DeleteRoute_on_unknown_id_returns_false()
         {
@@ -558,6 +573,81 @@ namespace NOXMFD.Tests
             Assert.True(RouteStore.DeleteSteerPoint(point.Id));
 
             Assert.Equal(new[] { "wpt.steerpoint", "wpt.steerpoint", "wpt.steerpoint-deleted" }, types);
+        }
+
+        [Fact]
+        public void RejectSharedSteerPoint_removes_the_pending_entry_without_creating_a_point()
+        {
+            RouteStore.ReceiveSharedSteerPoint("{\"id\":\"s_x\",\"name\":\"IP\",\"x\":1,\"z\":2}", "Leader");
+            Assert.True(RouteStore.RejectSharedSteerPoint("s_x"));
+            Assert.DoesNotContain("\"id\":\"s_x\"", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void RejectSharedSteerPoint_on_an_unknown_id_returns_false()
+        {
+            Assert.False(RouteStore.RejectSharedSteerPoint("does-not-exist"));
+        }
+
+        [Fact]
+        public void RemoveSharedSteerPoint_drops_a_pending_share()
+        {
+            RouteStore.ReceiveSharedSteerPoint("{\"id\":\"s_x\",\"name\":\"IP\",\"x\":1,\"z\":2}", "Leader");
+            Assert.True(RouteStore.RemoveSharedSteerPoint("s_x"));
+            Assert.DoesNotContain("\"id\":\"s_x\"", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void RemoveSharedSteerPoint_drops_an_already_accepted_point()
+        {
+            RouteStore.ReceiveSharedSteerPoint("{\"id\":\"s_x\",\"name\":\"IP\",\"x\":1,\"z\":2}", "Leader");
+            RouteStore.AcceptSharedSteerPoint("s_x");
+            Assert.True(RouteStore.RemoveSharedSteerPoint("s_x"));
+            Assert.DoesNotContain("\"id\":\"s_x\"", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void RemoveSharedSteerPoint_never_touches_a_point_the_pilot_made_themselves()
+        {
+            SteerPoint p = RouteStore.AddSteerPoint(1f, 2f, "Mine");   // SharedBy empty
+            Assert.False(RouteStore.RemoveSharedSteerPoint(p.Id));
+            Assert.Contains("\"id\":\"" + p.Id + "\"", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void SetActiveSteerPoint_rejects_an_unknown_id()
+        {
+            SteerPoint p = RouteStore.AddSteerPoint(1f, 2f, "A");   // active after creation
+            RouteStore.SetActiveSteerPoint("does-not-exist");
+            Assert.Contains("\"activeSteerPointId\":null", RouteStore.RoutesJson);
+            RouteStore.SetActiveSteerPoint(p.Id);
+            Assert.Contains("\"activeSteerPointId\":\"" + p.Id + "\"", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void CycleSteerPoint_is_a_noop_while_a_route_is_active()
+        {
+            RouteStore.AddSteerPoint(1f, 2f, "A");
+            SteerPoint b = RouteStore.AddSteerPoint(3f, 4f, "B");   // becomes the active steer point
+            RouteStore.CreateRoute("R");                            // becomes the active route
+            RouteStore.CycleSteerPoint(+1);
+            // Without the ActiveRoute guard, +1 from B (index 1 of 2) would wrap to A (index 0) —
+            // asserting it's still B proves the guard actually deferred to the active route.
+            Assert.Contains("\"activeSteerPointId\":\"" + b.Id + "\"", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void OnSquadEnded_clears_pending_steerpoint_shares_and_unlocks_accepted_ones()
+        {
+            RouteStore.ReceiveSharedSteerPoint("{\"id\":\"s_pending\",\"name\":\"P\",\"x\":1,\"z\":1}", "Leader");
+            RouteStore.ReceiveSharedSteerPoint("{\"id\":\"s_x\",\"name\":\"IP\",\"x\":1,\"z\":2}", "Leader");
+            RouteStore.AcceptSharedSteerPoint("s_x");
+
+            RouteStore.OnSquadEnded();
+
+            Assert.DoesNotContain("\"id\":\"s_pending\"", RouteStore.RoutesJson);   // pending share dropped
+            Assert.Contains("\"id\":\"s_x\"", RouteStore.RoutesJson);
+            Assert.True(RouteStore.RenameSteerPoint("s_x", "Now mine"));            // unlocked, editable again
         }
     }
 }

@@ -2,12 +2,13 @@ using System.IO;
 
 namespace NOXMFD
 {
-    // Keeps one rolling copy of a config/data file next to itself. Called after every save of
-    // com.roque.NOXMFD.cfg (Keybinds.cs, on config.SettingChanged) and the three JSON stores
-    // (RouteStore/LayoutStore/HudPresetStore.Save|Persist) — so a blank/corrupted file, from a bad
-    // BepInEx reinstall, antivirus quarantine, or a future regression like the KeyboardShortcut
-    // lazy-cctor bug, is recoverable by copying the .bak back over the live file, instead of
-    // hunting for a stray backup folder.
+    // Keeps one rolling copy of a config/data file next to itself. Callers are expected to back up
+    // BEFORE overwriting — Keybinds.cs's mutators call this right before each ConfigEntry.Value
+    // write, and RouteStore/LayoutStore/HudPresetStore.Save|Persist call it right before their
+    // File.WriteAllText — so .bak always holds the prior state, not a copy of what just replaced
+    // it. Recovers a blank/corrupted file (a bad BepInEx reinstall, antivirus quarantine, a future
+    // regression like the KeyboardShortcut lazy-cctor bug) by copying the .bak back over the live
+    // file, instead of hunting for a stray backup folder.
     // ponytail: single generation, no rotation — two corrupting saves in a row before anyone
     // notices still loses the last good state. Upgrade path: timestamped rotation, keep last N.
     internal static class ConfigBackup

@@ -1,10 +1,5 @@
 # WPT steer points
 
-## Status
-
-Implemented on `steer-points` for issue #73. The branch is based on `map-squad-styling`; it is not
-merged to `main` yet.
-
 ## Requirements
 
 The WPT page has a **STEER POINTS** table below the active route's waypoint table. A steer point is
