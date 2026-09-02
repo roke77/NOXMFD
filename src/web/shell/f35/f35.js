@@ -196,6 +196,17 @@
     { label: 'CLR', action: 'tgp-ir-off', cell: { row: 4, col: 1 } },
     { label: 'IR',  action: 'tgp-ir-on',  cell: { row: 5, col: 1 } },
   ];
+  // Z+/Z- (manual camera zoom) — column 2 is entirely free for TGP (only column 1 is spoken
+  // for above), unlike COMBAT_MODE_ACTIONS/TGP_MODE_ACTIONS/TGP_IR_ACTIONS this isn't an
+  // explicit-state "set" (no single boolean value to react to) — it's a continuous held input,
+  // wired with its own pointerdown/pointerup pair in renderNav() below rather than through
+  // dispatch(); the value here is the dir tgp.zoom.set's `index` field expects
+  // (TgpManualControl.SetZoom(dir, on), docs/tgp-manual-control.md).
+  const TGP_ZOOM_ACTIONS = { 'tgp-zoom-in': 1, 'tgp-zoom-out': -1 };
+  const TGP_ZOOM_NAV = [
+    { label: 'Z+', action: 'tgp-zoom-in',  cell: { row: 2, col: 2 } },
+    { label: 'Z-', action: 'tgp-zoom-out', cell: { row: 3, col: 2 } },
+  ];
 
   // MAP's placement mirrors mfd.js's explicit control banks rather than using generic overflow. The action
   // lists (SplitSlots.MAP_FULL_LEFT/RIGHT/mapFullRight) are shared with the classic bezel — see
@@ -249,7 +260,7 @@
   function canDo(action) {
     return has(action) || (action in PAGER) || (action in MAP_ACTIONS) || (action in GLASS_ACTIONS) ||
            (action in MASTER_ARMS_ACTIONS) || (action in COMBAT_MODE_ACTIONS) ||
-           (action in TGP_MODE_ACTIONS) || (action in TGP_IR_ACTIONS);
+           (action in TGP_MODE_ACTIONS) || (action in TGP_IR_ACTIONS) || (action in TGP_ZOOM_ACTIONS);
   }
 
   // 'edge' placement: an item's index → its cell. The left column, top-down, IS the bezel's left
@@ -508,7 +519,7 @@
     function itemsFor(page) {
       if (page === 'wpn') return wpnState().nav.concat(MASTER_ARMS_NAV, COMBAT_MODE_NAV);
       if (page === 'map') return mapNavItems();
-      if (page === 'tgp') return tgpNavItems().concat(TGP_MODE_NAV, TGP_IR_NAV);
+      if (page === 'tgp') return tgpNavItems().concat(TGP_MODE_NAV, TGP_IR_NAV, TGP_ZOOM_NAV);
       const items = (NAV[page] || []).slice();
       if (page !== 'main') return items;
       return items.concat(MAIN_EXTRAS).sort(function (a, b) { return a.label.localeCompare(b.label); });
@@ -712,6 +723,22 @@
           b.addEventListener('pointercancel', clearHold);
           b.addEventListener('pointerleave', clearHold);
           b.addEventListener('click', function () { if (!holdFired) dispatch(item.action); });
+        } else if (wired && item.action in TGP_ZOOM_ACTIONS) {
+          // Continuous zoom while held, same shape as the physical Cursor Zoom In/Out keybind's
+          // own tgpSoi branch (Keybinds.cs) — no tap-vs-hold split like the pairs above, just
+          // on-press/on-release (tgp.zoom.set { index, on }, TgpManualControl.SetZoom). A quick
+          // tap still works fine as a brief zoom nudge, so the plain dispatch() click fallback
+          // below is skipped entirely — dispatch('tgp-zoom-in') would be a harmless no-op anyway
+          // (not in any of its recognized dictionaries, and has('tgp-zoom-in') is false), but
+          // there is no reason to fire it on top of the pointerup command below.
+          const dir = TGP_ZOOM_ACTIONS[item.action];
+          b.addEventListener('pointerdown', function () {
+            sendCommand('tgp.zoom.set', { index: dir, on: true }).catch(function () {});
+          });
+          const stop = function () { sendCommand('tgp.zoom.set', { index: dir, on: false }).catch(function () {}); };
+          b.addEventListener('pointerup', stop);
+          b.addEventListener('pointercancel', stop);
+          b.addEventListener('pointerleave', stop);
         } else if (wired) {
           b.addEventListener('click', function () { dispatch(item.action); });
         } else {
@@ -724,6 +751,7 @@
         markTgpMode(); markTgpImg();
         placeWpnDecorator('tgp-manual-off', 'tgp-manual-on', 'MODE');
         placeWpnDecorator('tgp-ir-off', 'tgp-ir-on', 'IMG');
+        placeWpnDecorator('tgp-zoom-in', 'tgp-zoom-out', 'ZOOM');
       }
       // ZOOM between Z+/Z- and ROUTE between R+/R- — same decorator, MAP's twin of WPN's
       // MASTER/MODE. Found by data-action, so the 2-column overflow (cellOf) needs no

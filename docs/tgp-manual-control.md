@@ -753,6 +753,24 @@ is a no-op, matching `master-arms.set`/`combat-mode.set`'s own shape rather than
   off the cached `tgp` slice on every tick (`onSlice`) and on nav rebuild, mirroring
   `markMasterArms`/`markCombatMode`.
 
+**Z+/Z- (built) — the manual camera's own on-page zoom buttons**, distinct from the general
+remote-keybind role wiring still deferred above: two plain bezel buttons calling
+`TgpManualControl.SetZoom(dir, on)` directly through a new `tgp.zoom.set { index, on }` command
+(`CommandDispatcher.cs`), the exact same API the physical Cursor Zoom In/Out keybind's `tgpSoi`
+branch already drives (`Keybinds.cs`). Continuous while held, not a "set" pair like LCK/MAN
+above — `index` carries the dir CommandDispatcher forwards straight to `SetZoom`, `on` is true on
+press and false on release. A no-op while `ManualMode` is off (LCK mode): `TgpManualControl.Tick()`
+returns immediately whenever `!ManualMode`, so the held flags `SetZoom` sets are simply never read
+into an actual zoom — no extra gating needed in the command handler.
+- Classic bezel, full view only (`placeTgpNavLabels`): `Z+`/`Z-` fill `right0`/`right1`, the
+  otherwise-empty right bank — TGP's split-pane branch has no room (all 6 of its slots are already
+  MAIN/LCK/MAN/CLR/IR/CFG), so split-pane TGP has no zoom buttons.
+- F-35 glass: `TGP_ZOOM_NAV` places `Z+`/`Z-` at column 2, rows 2-3 — column 2 is entirely free for
+  TGP (only column 1 is spoken for), so there's no split-pane-style capacity problem here.
+- Both shells wire a plain pointerdown/pointerup pair per button (no tap-vs-hold split — a quick
+  tap is just a brief zoom nudge, which is fine), rather than routing through `dispatch()`/
+  `mfdButton()`'s generic click switch the way LCK/MAN/CLR/IR do.
+
 ## Native-lock CLR/IR override (built)
 
 A real (native) unit lock picks COLOR vs. IR on its own — `TargetCam.SetTargetCam`

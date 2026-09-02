@@ -1092,6 +1092,13 @@ function placeTgpNavLabels() {
   placeOverlayLabel('left', 5, NAV.tgp[1].label, NAV.tgp[1].action);
   placeWpnDecorator('left', 2, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
   placeWpnDecorator('left', 4, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
+  // Z+/Z- (manual camera zoom, docs/tgp-manual-control.md's remote-ready SetZoom(dir, on)) —
+  // the right bank is otherwise empty for TGP, unlike the fully-used left bank above. No
+  // split-pane twin: split's tgp branch (renderSplitLabels) already fills all 6 of its slots
+  // with MAIN/LCK/MAN/CLR/IR/CFG, leaving no room for a second pair.
+  placeOverlayLabel('right', 0, 'Z+', 'tgp-zoom-in');
+  placeOverlayLabel('right', 1, 'Z-', 'tgp-zoom-out');
+  placeWpnDecorator('right', 1, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
 // Split-pane MASTER/MODE: unlike full view's fixed right2/right4, a split pane's ctrl pair can land
 // on any of its 4 item slots depending on pagination (buildWpnSplitPages) — found here by id rather
@@ -2540,6 +2547,27 @@ document.querySelector('.mfd').addEventListener('pointerdown', function(e) {
 document.querySelector('.mfd').addEventListener('pointerup', clearWptPrevHold);
 document.querySelector('.mfd').addEventListener('pointercancel', clearWptPrevHold);
 document.querySelector('.mfd').addEventListener('pointerleave', clearWptPrevHold);
+
+// TGP page's Z+/Z- bezel keys: continuous zoom while held, same shape as the physical Cursor
+// Zoom In/Out keybind's own tgpSoi branch — no tap-vs-hold split like the pairs above, just
+// on-press/on-release (tgp.zoom.set { index: dir, on }, TgpManualControl.SetZoom). A quick tap
+// still works fine (a brief zoom nudge), so there's no separate click handler or hold-fired
+// suppression to wire — the click that follows pointerup for these two actions is already a
+// harmless no-op in mfdButton's default case.
+function isTgpZoomKey(el) { return !!el && (el.dataset.action === 'tgp-zoom-in' || el.dataset.action === 'tgp-zoom-out'); }
+document.querySelector('.mfd').addEventListener('pointerdown', function(e) {
+  const k = e.target.closest('.key');
+  if (!isTgpZoomKey(k)) return;
+  sendCommand('tgp.zoom.set', { index: k.dataset.action === 'tgp-zoom-in' ? 1 : -1, on: true }).catch(function() {});
+});
+function stopTgpZoom(e) {
+  const k = e.target.closest ? e.target.closest('.key') : null;
+  if (!isTgpZoomKey(k)) return;
+  sendCommand('tgp.zoom.set', { index: k.dataset.action === 'tgp-zoom-in' ? 1 : -1, on: false }).catch(function() {});
+}
+document.querySelector('.mfd').addEventListener('pointerup', stopTgpZoom);
+document.querySelector('.mfd').addEventListener('pointercancel', stopTgpZoom);
+document.querySelector('.mfd').addEventListener('pointerleave', stopTgpZoom);
 
 // Event delegation covers both generated keys and standalone controls.
 document.querySelector('.mfd').addEventListener('click', function(e) {

@@ -42,9 +42,11 @@ namespace NOXMFD
                                 // sqd.create / sqd.set-callsign : the squad's flight number 1-9
                                 // (Squadron Callsign System, docs/squadron-transport.md) — editable
                                 // later via sqd.set-callsign too, not fixed for the squad's life
+                                // tgp.zoom.set : +1 = zoom in, -1 = zoom out (TgpManualControl.SetZoom's dir)
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
                                 // tgp.manual.set : desired ManualMode state
                                 // tgp.ir.set : desired IR state (true = IR, false = COLOR)
+                                // tgp.zoom.set : held state — true on press, false on release
                                 // td.assign : true when the squad button was long-pressed (issue #47
                                 // follow-up, td.js's own tap-vs-hold gesture) — skips clearing the
                                 // leader's TD selection after this assign, so the same selection can
@@ -139,11 +141,17 @@ namespace NOXMFD
                 { "td.designate",           TdDesignate },
                 { "td.member-clear",        e => TdStore.ClearDesignated() },
                 { "td.acquire-all",         e => TdAcquireAll() },
-                // TGP page's TGT/MAN and CLR/IR button pairs (docs/tgp-manual-control.md's NAV
+                // TGP page's LCK/MAN and CLR/IR button pairs (docs/tgp-manual-control.md's NAV
                 // additions) — explicit-state twins of the tgp-manual-toggle/tgp-manual-ir-toggle
                 // keybinds, same "set" shape as master-arms.set above rather than a blind flip.
                 { "tgp.manual.set", e => TgpManualControl.SetManual(e.on) },
                 { "tgp.ir.set",     e => TgpManualControl.SetIR(e.on) },
+                // TGP page's own Z+/Z- bezel buttons — same continuous held shape as the physical
+                // Cursor Zoom In/Out keybind's own tgpSoi branch (Keybinds.cs), calling the exact
+                // same TgpManualControl.SetZoom(dir, on) API; a no-op while ManualMode is off
+                // (LCK mode), since TgpManualControl.Tick() itself never applies zoom outside
+                // manual control — no extra gating needed here.
+                { "tgp.zoom.set",   e => TgpManualControl.SetZoom(e.index, e.on) },
                 // Routes through Keybinds.SetCombatMode (not a bare assignment) so the WPN page's own
                 // A/A / A/G controls get the same weapon auto-switch as the physical keybind — one
                 // behavior, one source, not a second copy that could drift from it.

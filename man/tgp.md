@@ -96,6 +96,9 @@ Manual control reuses the same PAD Cursor every other display already uses (see
   focused display drives that display's own zoom/scroll instead.
 - Manual control keeps running even while SOI is elsewhere on another display — it doesn't stop
   pointing, it just stops listening for input until SOI comes back to it.
+- **Z+ / Z−** on this page's own nav row zoom the same way, without needing SOI at all — press
+  and hold for a steady zoom, same rate as the keybind. No effect while a real unit is locked
+  instead of the manual camera.
 
 ## In-game HUD cue
 
