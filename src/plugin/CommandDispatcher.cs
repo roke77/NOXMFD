@@ -151,6 +151,10 @@ namespace NOXMFD
                 // whatever TGP is currently showing (a real lock's position, or the manual camera's
                 // aim point) as a new steer point, straight into RouteStore. No wire fields at all.
                 { "tgp.mark-steerpoint", e => TgpManualControl.MarkSteerPoint() },
+                // TGP page's TRK/RST bezel buttons — same actions as the Point Track / Manual
+                // Control Reset keybinds, just reachable from the page directly.
+                { "tgp.point-track",  e => TgpManualControl.TogglePointTrack() },
+                { "tgp.manual-reset", e => TgpManualControl.Reset() },
                 // TGP page's own Z+/Z- bezel buttons — discrete magnification LEVELS
                 // (TgpManualControl.StepZoom), one jump per command, not the physical Cursor Zoom
                 // In/Out keybind's own continuous held rate (tgp.zoom.set below is still that

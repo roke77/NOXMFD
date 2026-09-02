@@ -778,18 +778,19 @@ wrapping. A no-op while `ManualMode` is off (LCK mode): `TgpManualControl.Tick()
 - Classic bezel, full view (`placeTgpNavLabels`): `Z+`/`Z-` fill `right0`/`right1`, the
   otherwise-empty right bank.
 - Classic bezel, split pane (`renderSplitLabels`' `tgp` branch, `paneTgpPage`): a pane only has 3
-  slots per bank (6 total), and TGP now has 9 destinations (MAIN/LCK/MAN/CLR/IR/CFG/Z+/Z-/STP) —
-  three more than fits. Rather than the generic list-pagination scheme MAIN/MAP use for an
-  open-ended list, this just flips between two fixed sets, since TGP only ever needs exactly two:
-  page 0 is byte-for-byte what this pane already showed before Z+/Z- existed (MAIN/LCK/MAN/CLR/IR,
-  nothing shifts for the common case, `NEXT` fills the last slot), page 1 swaps in Z+/Z-/CFG/STP.
-  `PREV` takes over `left0` (MAIN's own slot) rather than sharing `NEXT`'s old slot (`right2`) —
-  same "PREV anchors the first physical key" convention `listPaneLayout`/`mainPaneSlice` already use
-  for MAIN/MAP's own paging, so a page's "go back" key sits in the same place whether it means
-  back-to-MAIN or back-a-page. `right2` sits unused on page 1, the same "an unused slot is fine"
-  shape HUD/KEYS's own 4-of-6 split placement already uses. `tgp-nav-prev`/`tgp-nav-next` just flip
-  `paneTgpPage[paneIdx]` between 0 and 1 and re-render; reset to 0 whenever a pane (re)enters TGP
-  (`paneNavigate`), same as `paneWpnPage`/`paneMainPage`/etc.
+  slots per bank (6 total), and TGP now has 11 destinations
+  (MAIN/LCK/MAN/CLR/IR/CFG/Z+/Z-/STP/TRK/RST) — more than even two pages fit. Rather than the
+  generic list-pagination scheme MAIN/MAP use for an open-ended list, this steps through three
+  fixed sets, since TGP only ever needs exactly three: page 0 is byte-for-byte what this pane
+  already showed before Z+/Z- existed (MAIN/LCK/MAN/CLR/IR, nothing shifts for the common case,
+  `NEXT` fills the last slot), page 1 swaps in Z+/Z-/CFG/STP (`NEXT` still fills the last slot —
+  there's a page after it), page 2 (the last) holds TRK/RST, with three slots left unused.
+  `PREV` takes over `left0` (MAIN's own slot) on every page after the first, rather than sharing
+  `NEXT`'s slot — same "PREV anchors the first physical key" convention
+  `listPaneLayout`/`mainPaneSlice` already use for MAIN/MAP's own paging, so a page's "go back" key
+  sits in the same place whether it means back-to-MAIN or back-a-page. `tgp-nav-prev`/
+  `tgp-nav-next` bump `paneTgpPage[paneIdx]` by ±1, clamped to `[0, 2]`, and re-render; reset to 0
+  whenever a pane (re)enters TGP (`paneNavigate`), same as `paneWpnPage`/`paneMainPage`/etc.
 - F-35 glass: `TGP_ZOOM_NAV` places `Z+`/`Z-` at column 2, rows 2-3 — column 2 is entirely free for
   TGP (only column 1 is spoken for, and a portal's grid has 2 columns × 6 rows = 12 cells total, so
   no split-pane-style capacity problem here at all — F-35 needed no pagination).
@@ -820,6 +821,16 @@ point; rename it on WPT if you want one.
   `Z+`/`Z-`/`CFG` on page 2, at the now-unused `right1`.
 - F-35 glass: column 2, row 1 — column 2's row 1 was free (`Z+`/`Z-` only spoke for rows 2-3),
   mirroring `MAIN`'s own row 1 in column 1.
+
+**TRK/RST (built) — page-button twins of the Point Track / Manual Control Reset keybinds.** Same
+one-shot dispatch shape as STP: `TRK` → `tgp.point-track` → `TgpManualControl.TogglePointTrack()`,
+`RST` → `tgp.manual-reset` → `TgpManualControl.Reset()`. Both keybinds already no-op with the exact
+same guards (manual control off, no aircraft, nothing in raycast range for `TRK`) — the page button
+reaches the identical method, not a separate copy of the guard.
+- Classic bezel, full view: `right3`/`right4`, rounding out the right bank (`right5` stays spare).
+- Classic bezel, split pane: neither fits alongside STP on page 1, so they get their own page 2 —
+  `left1`/`left2`, alongside `PREV` at `left0`.
+- F-35 glass: column 2, rows 4-5 (rows 1-3 already spoken for by `STP`/`Z+`/`Z-`).
 
 ## On-screen joystick (built)
 

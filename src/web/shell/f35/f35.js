@@ -220,6 +220,15 @@
   const TGP_STP_NAV = [
     { label: 'STP', action: 'tgp-mark-steerpoint', cell: { row: 1, col: 2 } },
   ];
+  // TRK/RST — page-button twins of the Point Track / Manual Control Reset keybinds
+  // (docs/tgp-manual-control.md), same one-shot dispatch shape as STP above. Column 2's rows 4-5
+  // are free (STP/Z+/Z- only spoke for rows 1-3).
+  const TGP_TRK_NAV = [
+    { label: 'TRK', action: 'tgp-point-track', cell: { row: 4, col: 2 } },
+  ];
+  const TGP_RST_NAV = [
+    { label: 'RST', action: 'tgp-manual-reset', cell: { row: 5, col: 2 } },
+  ];
 
   // MAP's placement mirrors mfd.js's explicit control banks rather than using generic overflow. The action
   // lists (SplitSlots.MAP_FULL_LEFT/RIGHT/mapFullRight) are shared with the classic bezel — see
@@ -532,7 +541,7 @@
     function itemsFor(page) {
       if (page === 'wpn') return wpnState().nav.concat(MASTER_ARMS_NAV, COMBAT_MODE_NAV);
       if (page === 'map') return mapNavItems();
-      if (page === 'tgp') return tgpNavItems().concat(TGP_MODE_NAV, TGP_IR_NAV, TGP_ZOOM_NAV, TGP_STP_NAV);
+      if (page === 'tgp') return tgpNavItems().concat(TGP_MODE_NAV, TGP_IR_NAV, TGP_ZOOM_NAV, TGP_STP_NAV, TGP_TRK_NAV, TGP_RST_NAV);
       const items = (NAV[page] || []).slice();
       if (page !== 'main') return items;
       return items.concat(MAIN_EXTRAS).sort(function (a, b) { return a.label.localeCompare(b.label); });
@@ -675,6 +684,14 @@
       }
       if (action === 'tgp-mark-steerpoint') {
         sendCommand('tgp.mark-steerpoint').catch(function () {});
+        return;
+      }
+      if (action === 'tgp-point-track') {
+        sendCommand('tgp.point-track').catch(function () {});
+        return;
+      }
+      if (action === 'tgp-manual-reset') {
+        sendCommand('tgp.manual-reset').catch(function () {});
         return;
       }
       if (has(action)) showPage(action);

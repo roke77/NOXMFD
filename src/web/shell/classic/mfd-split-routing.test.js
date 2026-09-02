@@ -31,6 +31,7 @@ const dynamicBehaviors = [
   'tgp-nav-prev', 'tgp-nav-next',
   'tgp-zoom-in', 'tgp-zoom-out',
   'tgp-mark-steerpoint',
+  'tgp-point-track', 'tgp-manual-reset',
 ];
 
 for (const action of [...staticBehaviors, ...dynamicBehaviors]) {

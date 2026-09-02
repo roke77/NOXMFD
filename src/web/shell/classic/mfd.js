@@ -501,13 +501,13 @@ function renderSplitLabels() {
       // (tgpMarks()), so like full view they're hand-placed rather than read off NAV.tgp/
       // SPLIT_SLOTS.tgp (which stay MAIN+CFG only, same "empty NAV, hand-rolled labels" shape as
       // WPN's ARM/SAFE/A-A/A-G split rendering). A pane only has 3 slots per bank (6 total), and
-      // TGP now has 9 destinations (MAIN/LCK/MAN/CLR/IR/CFG/Z+/Z-/STP) — three more than fits. Rather
-      // than a generic list-pagination scheme (MAIN/MAP's own, built for an open-ended list), this
-      // just flips between two fixed sets (paneTgpPage), since TGP only ever needs exactly two.
-      // PREV takes over MAIN's own slot (left0) on the last page rather than sharing NEXT's slot —
-      // same "PREV anchors the first physical key" convention listPaneLayout/mainPaneSlice already
-      // use for MAIN/MAP's own paging, so a page's "go back" key is always in the same place whether
-      // it means back-to-MAIN or back-a-page.
+      // TGP now has 11 destinations (MAIN/LCK/MAN/CLR/IR/CFG/Z+/Z-/STP/TRK/RST) — more than even
+      // two pages fit. Rather than a generic list-pagination scheme (MAIN/MAP's own, built for an
+      // open-ended list), this just steps through three fixed sets (paneTgpPage), since TGP only
+      // ever needs exactly three. PREV takes over MAIN's own slot (left0) on every page after the
+      // first, rather than sharing NEXT's slot — same "PREV anchors the first physical key"
+      // convention listPaneLayout/mainPaneSlice already use for MAIN/MAP's own paging, so a page's
+      // "go back" key is always in the same place whether it means back-to-MAIN or back-a-page.
       const marks = tgpMarks();
       const tgpPage = paneTgpPage[paneIdx] || 0;
       if (tgpPage === 0) {
@@ -523,17 +523,24 @@ function renderSplitLabels() {
         const clrKey = paneKey(paneIdx, 'right', 0);
         placeWpnDecorator(tgtKey.bank, tgtKey.index + 1, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
         placeWpnDecorator(clrKey.bank, clrKey.index + 1, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
-      } else {
+      } else if (tgpPage === 1) {
         // CFG and STP move here (off their usual full-view slots) rather than being dropped.
-        // Right2 is left empty rather than reshuffled further, the same "an unused slot is fine"
-        // shape HUD/KEYS's own 4-of-6 split placement already uses — there's no NEXT past the last page.
         placeSplitKey(paneKey(paneIdx, 'left', 0), 'PREV', 'tgp-nav-prev', paneTag);
         placeSplitKey(paneKey(paneIdx, 'left', 1), 'Z+', 'tgp-zoom-in',  paneTag);
         placeSplitKey(paneKey(paneIdx, 'left', 2), 'Z-', 'tgp-zoom-out', paneTag);
         placeSplitKey(paneKey(paneIdx, 'right', 0), NAV.tgp[1].label, NAV.tgp[1].action, paneTag);
         placeSplitKey(paneKey(paneIdx, 'right', 1), 'STP', 'tgp-mark-steerpoint', paneTag);
+        placeSplitKey(paneKey(paneIdx, 'right', 2), 'NEXT', 'tgp-nav-next', paneTag);
         const zKey = paneKey(paneIdx, 'left', 1);
         placeWpnDecorator(zKey.bank, zKey.index + 1, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
+      } else {
+        // TRK/RST — page-button twins of the Point Track / Manual Control Reset keybinds
+        // (docs/tgp-manual-control.md). The last page, so no NEXT — right0/1/2 are left empty
+        // rather than reshuffled further, the same "an unused slot is fine" shape HUD/KEYS's own
+        // 4-of-6 split placement already uses.
+        placeSplitKey(paneKey(paneIdx, 'left', 0), 'PREV', 'tgp-nav-prev', paneTag);
+        placeSplitKey(paneKey(paneIdx, 'left', 1), 'TRK', 'tgp-point-track',  paneTag);
+        placeSplitKey(paneKey(paneIdx, 'left', 2), 'RST', 'tgp-manual-reset', paneTag);
       }
       continue;
     }
@@ -1128,6 +1135,11 @@ function placeTgpNavLabels() {
   // new steer point. Its split-pane twin lives on TGP's own second page (renderSplitLabels'
   // 'tgp' branch), the only place with a free slot left once Z+/Z- exist there too.
   placeOverlayLabel('right', 2, 'STP', 'tgp-mark-steerpoint');
+  // TRK/RST — page-button twins of the Point Track / Manual Control Reset keybinds
+  // (docs/tgp-manual-control.md), same "reach the keybind's action from the page too" shape as
+  // the other TGP nav additions. right3/right4 round out the right bank (right5 stays spare).
+  placeOverlayLabel('right', 3, 'TRK', 'tgp-point-track');
+  placeOverlayLabel('right', 4, 'RST', 'tgp-manual-reset');
 }
 // Split-pane MASTER/MODE: unlike full view's fixed right2/right4, a split pane's ctrl pair can land
 // on any of its 4 item slots depending on pagination (buildWpnSplitPages) — found here by id rather
@@ -2301,9 +2313,9 @@ function mfdButton(el) {
       paneMapNavPage[paneIdx] += (act === 'map-nav-next' ? 1 : -1);
       renderSplitLabels();
     } else if (act === 'tgp-nav-prev' || act === 'tgp-nav-next') {
-      // TGP's own 2-page toggle (renderSplitLabels' 'tgp' branch) — just flips 0/1, not a
-      // generic paged-list bump like the others above (TGP only ever has exactly two pages).
-      paneTgpPage[paneIdx] = paneTgpPage[paneIdx] ? 0 : 1;
+      // TGP's own 3-page step (renderSplitLabels' 'tgp' branch) — bumps and clamps to [0,2], not a
+      // generic paged-list bump like the others above (TGP only ever has exactly three fixed pages).
+      paneTgpPage[paneIdx] = Math.max(0, Math.min(2, paneTgpPage[paneIdx] + (act === 'tgp-nav-next' ? 1 : -1)));
       renderSplitLabels();
     } else if (act === 'tgp-zoom-in' || act === 'tgp-zoom-out') {
       // Handled entirely by the pointerdown/pointerup zoom-step wiring (isTgpZoomKey) further
@@ -2357,6 +2369,12 @@ function mfdButton(el) {
     } else if (act === 'tgp-mark-steerpoint') {
       // STP (docs/steer-points.md) — a one-shot action, not a destination page.
       sendCommand('tgp.mark-steerpoint').catch(function() {});
+    } else if (act === 'tgp-point-track') {
+      // TRK — same action as the Point Track keybind, not a destination page.
+      sendCommand('tgp.point-track').catch(function() {});
+    } else if (act === 'tgp-manual-reset') {
+      // RST — same action as the Manual Control Reset keybind, not a destination page.
+      sendCommand('tgp.manual-reset').catch(function() {});
     } else {
       paneNavigate(paneIdx, act);
     }
@@ -2388,6 +2406,8 @@ function mfdButton(el) {
     case 'tgp-ir-on':      sendCommand('tgp.ir.set', { on: true  }).catch(function() {}); break;
     case 'tgp-ir-off':     sendCommand('tgp.ir.set', { on: false }).catch(function() {}); break;
     case 'tgp-mark-steerpoint': sendCommand('tgp.mark-steerpoint').catch(function() {}); break;
+    case 'tgp-point-track':     sendCommand('tgp.point-track').catch(function() {}); break;
+    case 'tgp-manual-reset':    sendCommand('tgp.manual-reset').catch(function() {}); break;
     // EXT (docs/extensions-api.md) always lands on the EXT hub itself — NAV.ext (ext-nav.js)
     // lists MAIN plus one entry per installed extension, rendered as ordinary full-view keys by
     // the generic NAV sweep in showPage. Picking one of THOSE is handled by the `default` case

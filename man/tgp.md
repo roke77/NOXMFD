@@ -67,7 +67,8 @@ instead of only ever seeing whatever's currently locked, aim it wherever you're 
   it PAD Cursor focus so you can start pointing right away.
 - It turns back off on its own the moment a real target locks, your aircraft is lost, or the
   landing-gear camera takes over — it never fights the game's own automatic camera.
-- **Manual Control Reset** recenters the camera on the nose at minimum zoom without turning it off.
+- **Manual Control Reset** recenters the camera on the nose at minimum zoom without turning it off
+  — or the **RST** button on this page's own nav row, which does the same thing.
 
 ## Area Track and Point Track
 
@@ -77,10 +78,10 @@ Two ways the camera aims while in manual control:
   looking straight ahead from the cockpit does. Centering/resetting always points dead ahead of
   the nose.
 - **Point Track** — locks the aim onto a fixed point in the world instead, holding steady on that
-  spot as your aircraft moves around it. Press **Point Track** to lock onto whatever the camera is
-  currently pointed at; press it again to release back to Area Track. While locked, Pan/Tilt nudges
-  the locked point itself rather than a free direction, and re-locks onto the new point once you
-  stop nudging.
+  spot as your aircraft moves around it. Press **Point Track** (or the **TRK** button on this
+  page's own nav row) to lock onto whatever the camera is currently pointed at; press it again to
+  release back to Area Track. While locked, Pan/Tilt nudges the locked point itself rather than a
+  free direction, and re-locks onto the new point once you stop nudging.
 
 ## Pointing the camera
 
