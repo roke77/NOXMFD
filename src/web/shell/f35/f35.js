@@ -181,14 +181,14 @@
     { label: 'A/G', action: 'combat-mode-ag', cell: { row: 5, col: 2 } },
   ];
 
-  // TGT/MAN and CLR/IR (docs/tgp-manual-control.md's NAV additions) — the bezel's mfd.js twin
+  // LCK/MAN and CLR/IR (docs/tgp-manual-control.md's NAV additions) — the bezel's mfd.js twin
   // (placeTgpNavLabels/tgpMarks), same shape as MASTER_ARMS_ACTIONS/COMBAT_MODE_ACTIONS above:
   // an unconditional command pair, dispatched rather than paged to, with its own mark state
   // (markTgpMode/markTgpImg) since NAV.tgp carries no dynamic `mark`. TGP's column 1 has only
   // MAIN (row 1) and CFG (row ROWS, tgpNavItems) spoken for, so rows 2-5 are free.
   const TGP_MODE_ACTIONS = { 'tgp-manual-on': true, 'tgp-manual-off': false };
   const TGP_MODE_NAV = [
-    { label: 'TGT', action: 'tgp-manual-off', cell: { row: 2, col: 1 } },
+    { label: 'LCK', action: 'tgp-manual-off', cell: { row: 2, col: 1 } },
     { label: 'MAN', action: 'tgp-manual-on',  cell: { row: 3, col: 1 } },
   ];
   const TGP_IR_ACTIONS = { 'tgp-ir-on': true, 'tgp-ir-off': false };
@@ -374,7 +374,7 @@
     }
     function onSlice(type) {
       if (feedsFor(currentPage).indexOf(type) !== -1) forwardSlice(type);
-      // TGT/MAN/CLR/IR can change without the page changing (docs/tgp-manual-control.md's NAV
+      // LCK/MAN/CLR/IR can change without the page changing (docs/tgp-manual-control.md's NAV
       // additions) — same "re-apply on every tick" need as markMasterArms/markCombatMode, which
       // get theirs via the 'loadout' feed's own forwardWpn() instead since WPN is a DERIVED feed.
       if (type === 'tgp' && currentPage === 'tgp') { markTgpMode(); markTgpImg(); }
@@ -560,7 +560,7 @@
       });
     }
 
-    // TGT/MAN/CLR/IR (docs/tgp-manual-control.md's NAV additions) — read straight off the cached
+    // LCK/MAN/CLR/IR (docs/tgp-manual-control.md's NAV additions) — read straight off the cached
     // tgp slice rather than tracked local state (no click here can change it on its own, unlike
     // followOn/gridOn). The actual rule lives in tgp-marks.js (shared with mfd.js's own equivalent,
     // so the two can't drift). Called on every 'tgp' slice tick (onSlice) as well as on nav rebuild.

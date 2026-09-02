@@ -704,26 +704,29 @@ next to the real fields.
   synthetic SOI target — it already just calls `TryLockTrackedUnit()` unconditionally, self-gated
   on `ManualMode`; that method resolves the current look point for either Area or Point Track.
 
-## TGP page NAV additions — TGT/MAN, CLR/IR (built)
+## TGP page NAV additions — LCK/MAN, CLR/IR (built)
 
-The TGP page's bezel/glass nav gained four buttons alongside MAIN/CFG: `TGT`, `MAN`, `CLR`, `IR`.
-`TGT`/`MAN` is a mutually-exclusive pair choosing which camera feeds the page — a real (native)
-unit lock, or the manual camera — and `CLR`/`IR` is a second pair choosing that active feed's
-color mode. Each pair gets a small decorative label between its two buttons (`MODE` between
-TGT/MAN, `IMG` between CLR/IR), same word-plus-triangle treatment as WPN's MASTER/MODE
-(`docs/radar-master-arms.md`).
+The TGP page's bezel/glass nav gained four buttons alongside MAIN/CFG: `LCK`, `MAN`, `CLR`, `IR`
+(the button's own `data-action`/command name stayed `tgp-manual-off` — only the on-screen label
+changed, from `TGT` to `LCK`). `LCK`/`MAN` is a mutually-exclusive pair choosing which camera feeds
+the page — a real (native) unit lock, or the manual camera — and `CLR`/`IR` is a second pair
+choosing that active feed's color mode. Each pair gets a small decorative label between its two
+buttons (`MODE` between LCK/MAN, `IMG` between CLR/IR), same word-plus-triangle treatment as WPN's
+MASTER/MODE (`docs/radar-master-arms.md`).
 
 **Highlight state**, not a page selection: unlike every other NAV entry, all four buttons reflect
-live game state rather than "which page is this." `TGT` lights when a real unit is locked
+live game state rather than "which page is this." `LCK` lights when a real unit is locked
 (`!manual && data.cnt > 0`); `MAN` lights when `TgpManualControl.ManualMode` is on; `CLR`/`IR`
 mirror whichever feed is actually active's `data.ir` flag. All four go dark with no feed up at all
 (`data` is only ever `{cnt:0}` in that case — `TelemetryJson.cs`'s `TgpBlock`). The rule itself is
 one shared `tgpMarks(cnt, manual, ir)` (`src/web/shell/shared/tgp-marks.js`), called by both `mfd.js` and
-`f35.js` rather than each shell computing it independently, so the two can't drift. Because this
-needs live data no static table has, `TGT`/`MAN`/`CLR`/`IR` are **not** NAV.tgp entries — `NAV.tgp` stays
-exactly `[MAIN, CFG]`, and the four are hand-placed by each layout's own renderer, the same
-"NAV stays empty, the layout hand-rolls it" shape WPN's ARM/SAFE/A-A/A-G already use for the same
-reason (`combatMode`/`masterArmsOn` are live state too).
+`f35.js` rather than each shell computing it independently, so the two can't drift — its own
+`{tgt, man}` return shape kept the pre-rename property name since it's internal, read only by
+`markTgpMode`/`placeTgpNavLabels`, not shown anywhere. Because this needs live data no static
+table has, `LCK`/`MAN`/`CLR`/`IR` are **not** NAV.tgp entries — `NAV.tgp` stays exactly
+`[MAIN, CFG]`, and the four are hand-placed by each layout's own renderer, the same "NAV stays
+empty, the layout hand-rolls it" shape WPN's ARM/SAFE/A-A/A-G already use for the same reason
+(`combatMode`/`masterArmsOn` are live state too).
 
 **Commands.** Each pair is an explicit-state "set", not a toggle — pressing an already-lit button
 is a no-op, matching `master-arms.set`/`combat-mode.set`'s own shape rather than replaying
@@ -736,15 +739,15 @@ is a no-op, matching `master-arms.set`/`combat-mode.set`'s own shape rather than
   the automatic behavior it overrides, and why it needs its own Harmony patch to stick.
 
 **Layout placement:**
-- Classic bezel, full view (`mfd.js`'s `placeTgpNavLabels`): `MAIN, TGT, MAN, CLR, IR, CFG` fill
+- Classic bezel, full view (`mfd.js`'s `placeTgpNavLabels`): `MAIN, LCK, MAN, CLR, IR, CFG` fill
   the left column top to bottom (`left0`-`left5`) — `CFG` keeps its existing bottom-of-column slot.
   Recomputed on page entry and on every `tgp` telemetry tick, the same re-render-in-place shape
   `placeWpnNavLabels` uses for ARM/SAFE.
-- Classic bezel, split pane (`renderSplitLabels`' own `tgp` branch): `MAIN/TGT/MAN` fill the left
+- Classic bezel, split pane (`renderSplitLabels`' own `tgp` branch): `MAIN/LCK/MAN` fill the left
   bank (slots 0-2), `CLR/IR/CFG` fill the right bank (slots 0-2) — each decorator's pair stays
   adjacent on one bank, the same requirement `placeMapPaneDecorator`/`placeWpnPaneDecorator`
   enforce for theirs. Only re-renders when a pane is actually showing TGP.
-- F-35 glass (`f35.js`): `TGP_MODE_NAV`/`TGP_IR_NAV` place `TGT/MAN/CLR/IR` at column 1, rows 2-5
+- F-35 glass (`f35.js`): `TGP_MODE_NAV`/`TGP_IR_NAV` place `LCK/MAN/CLR/IR` at column 1, rows 2-5
   (`tgpNavItems`'s `MAIN`/`CFG` already own rows 1 and `ROWS`), same "unconditional command pair"
   shape as `MASTER_ARMS_NAV`/`COMBAT_MODE_NAV`. `markTgpMode`/`markTgpImg` re-apply the highlight
   off the cached `tgp` slice on every tick (`onSlice`) and on nav rebuild, mirroring

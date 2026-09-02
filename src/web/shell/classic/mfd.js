@@ -491,16 +491,16 @@ function renderSplitLabels() {
     }
 
     if (page === 'tgp') {
-      // TGP's split-pane twin of placeTgpNavLabels (full view) — TGT/MAN/CLR/IR are dynamic
+      // TGP's split-pane twin of placeTgpNavLabels (full view) — LCK/MAN/CLR/IR are dynamic
       // (tgpMarks()), so like full view they're hand-placed rather than read off NAV.tgp/
       // SPLIT_SLOTS.tgp (which stay MAIN+CFG only, same "empty NAV, hand-rolled labels" shape as
       // WPN's ARM/SAFE/A-A/A-G split rendering). A pane only has 3 slots per bank, so the pair
-      // MAIN/TGT/MAN fills the left bank and CLR/IR/CFG fills the right — keeps each decorator's
+      // MAIN/LCK/MAN fills the left bank and CLR/IR/CFG fills the right — keeps each decorator's
       // pair adjacent on one bank, same requirement placeMapPaneDecorator/placeWpnPaneDecorator
       // enforce for theirs.
       const marks = tgpMarks();
       placeSplitKey(paneKey(paneIdx, 'left', 0), NAV.tgp[0].label, NAV.tgp[0].action, paneTag);
-      placeSplitKey(paneKey(paneIdx, 'left', 1), 'TGT', 'tgp-manual-off', paneTag, marks.tgt);
+      placeSplitKey(paneKey(paneIdx, 'left', 1), 'LCK', 'tgp-manual-off', paneTag, marks.tgt);
       placeSplitKey(paneKey(paneIdx, 'left', 2), 'MAN', 'tgp-manual-on',  paneTag, marks.man);
       placeSplitKey(paneKey(paneIdx, 'right', 0), 'CLR', 'tgp-ir-off',    paneTag, marks.clr);
       placeSplitKey(paneKey(paneIdx, 'right', 1), 'IR',  'tgp-ir-on',     paneTag, marks.ir);
@@ -1076,7 +1076,7 @@ function placeWpnDecorators() {
 }
 
 // TGP's full-view nav (docs/tgp-manual-control.md's NAV additions) — not the generic fullViewSlot
-// sweep every other single-MAIN page uses: TGT/MAN and CLR/IR light dynamically off tgpMarks(), so
+// sweep every other single-MAIN page uses: LCK/MAN and CLR/IR light dynamically off tgpMarks(), so
 // like WPN's ARM/SAFE/A-A/A-G (NAV.wpn is empty by design) they're hand-placed here rather than
 // carrying a static `mark` in NAV.tgp. CFG keeps its bottom-of-column slot (left5) either way.
 // Called once on page entry (showPage) and again on every tgp telemetry tick so the highlight
@@ -1085,7 +1085,7 @@ function placeTgpNavLabels() {
   overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
   const marks = tgpMarks();
   placeOverlayLabel('left', 0, NAV.tgp[0].label, NAV.tgp[0].action);
-  placeOverlayLabel('left', 1, 'TGT', 'tgp-manual-off', marks.tgt);
+  placeOverlayLabel('left', 1, 'LCK', 'tgp-manual-off', marks.tgt);
   placeOverlayLabel('left', 2, 'MAN', 'tgp-manual-on',  marks.man);
   placeOverlayLabel('left', 3, 'CLR', 'tgp-ir-off',     marks.clr);
   placeOverlayLabel('left', 4, 'IR',  'tgp-ir-on',      marks.ir);
@@ -1415,7 +1415,7 @@ let tgpQuality = 'native';
 let tgpData = null;
 let tgpManual = false;   // docs/tgp-manual-control.md — TgpManualControl.ManualMode, mirrored for the TGP page's status indicator
 
-// TGT/MAN/CLR/IR highlight state (docs/tgp-manual-control.md's NAV additions) — the actual rule
+// LCK/MAN/CLR/IR highlight state (docs/tgp-manual-control.md's NAV additions) — the actual rule
 // lives in tgp-marks.js (shared with f35.js's own equivalent, so the two can't drift). tgpData is
 // only ever {cnt:0} with no lock and no manual mode (TelemetryJson.cs's TgpBlock).
 function tgpMarks() {
@@ -1846,7 +1846,7 @@ window.addEventListener('message', function(e) {
     tgpData    = m.data || null;
     tgpManual  = !!m.manual;
     // Only matters while the TGP page is in view — outside it the frame/pane isn't shown. Full
-    // view also refreshes the TGT/MAN/CLR/IR highlight (placeTgpNavLabels); split only re-renders
+    // view also refreshes the LCK/MAN/CLR/IR highlight (placeTgpNavLabels); split only re-renders
     // when a pane is actually showing TGP, same guard MAP's own tick-driven re-render uses below.
     if (currentPage === 'tgp' && !splitMode) { forwardTgpToFrame(); placeTgpNavLabels(); }
     if (splitMode) {
@@ -2300,11 +2300,11 @@ function mfdButton(el) {
       // weapon.select above. Only carries a data-pane tag so the SOI cursor can scope to it.
       if (el.dataset.group) sendCommand('avn.toggle', { group: el.dataset.group }).catch(function() {});
     } else if (act === 'tgp-manual-on' || act === 'tgp-manual-off') {
-      // TGT/MAN changes aircraft-global TGP state without navigating the pane. The pane tag only
+      // LCK/MAN changes aircraft-global TGP state without navigating the pane. The pane tag only
       // scopes the physical key to its split surface; treating the action as a page blanks it.
       sendCommand('tgp.manual.set', { on: act === 'tgp-manual-on' }).catch(function() {});
     } else if (act === 'tgp-ir-on' || act === 'tgp-ir-off') {
-      // CLR/IR has the same in-place behavior as TGT/MAN.
+      // CLR/IR has the same in-place behavior as LCK/MAN.
       sendCommand('tgp.ir.set', { on: act === 'tgp-ir-on' }).catch(function() {});
     } else {
       paneNavigate(paneIdx, act);
@@ -2330,7 +2330,7 @@ function mfdButton(el) {
     case 'combat-mode-aa':  sendCommand('combat-mode.set', { group: 'aa'  }).catch(function() {}); break;
     case 'combat-mode-ag':  sendCommand('combat-mode.set', { group: 'ag'  }).catch(function() {}); break;
     case 'tgp':  showPage('tgp');  break;
-    // TGT/MAN and CLR/IR (docs/tgp-manual-control.md's NAV additions) — explicit-state commands,
+    // LCK/MAN and CLR/IR (docs/tgp-manual-control.md's NAV additions) — explicit-state commands,
     // same shape as master-arms.set/combat-mode.set above rather than a blind toggle.
     case 'tgp-manual-on':  sendCommand('tgp.manual.set', { on: true  }).catch(function() {}); break;
     case 'tgp-manual-off': sendCommand('tgp.manual.set', { on: false }).catch(function() {}); break;

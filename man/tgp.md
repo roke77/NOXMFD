@@ -62,7 +62,7 @@ Point the targeting-pod camera yourself, independent of the game's own automatic
 instead of only ever seeing whatever's currently locked, aim it wherever you're looking.
 
 - Turn it on/off with the **Manual Control Toggle** keybind (see [KEY](keybinds.md#tgp)), or the
-  **MAN**/**TGT** buttons on this page's own nav row — see [TGT/MAN, CLR/IR](#tgtman-clrir) below.
+  **MAN**/**LCK** buttons on this page's own nav row — see [LCK/MAN, CLR/IR](#lckman-clrir) below.
 - Turning it on centers the camera on your aircraft's nose at minimum zoom, and immediately gives
   it PAD Cursor focus so you can start pointing right away.
 - It turns back off on its own the moment a real target locks, your aircraft is lost, or the
@@ -121,18 +121,18 @@ happens.
 
 ![Cursor Select just promoted the tracked unit to a real lock — the amber TGP marker is gone, replaced by the game's own target reticle](images/TGP_HUD_OVERLAY_TARGET.jpg)
 
-## TGT/MAN, CLR/IR
+## LCK/MAN, CLR/IR
 
 Four extra buttons on this page's own nav row, alongside MAIN/CFG:
 
-- **TGT / MAN** — which camera feeds the page: a real (native) unit lock, or the manual camera.
+- **LCK / MAN** — which camera feeds the page: a real (native) unit lock, or the manual camera.
   Picks one directly, rather than using the Manual Control Toggle keybind.
 - **CLR / IR** — the active camera's color mode. Works the same for either camera: switching it
   while a real unit is locked overrides the game's own automatic day/night IR switching with your
   own choice, which sticks until you change it again — the same thing the **Toggle IR** keybind
   does (see [KEY](keybinds.md#tgp)).
 
-All four reflect what's actually showing rather than acting like a page switch — TGT/MAN light up
+All four reflect what's actually showing rather than acting like a page switch — LCK/MAN light up
 to show which camera is live, CLR/IR show that camera's current color mode — and all go dark with
 no feed up at all.
 
