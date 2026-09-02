@@ -90,9 +90,18 @@
       </div>
       <div id="tgp-ov-boxes"></div>
     </div>
-    <div class="tgp-joystick" id="tgp-joystick">
-      <div class="tgp-joystick-knob" id="tgp-joystick-knob"></div>
-    </div>
+  </div>
+  <!-- A body-level sibling of .tgp-panel, not a child of it (docs/tgp-manual-control.md's
+       "On-screen joystick") — .tgp-panel is the letterboxed 3:2 picture box, which can end up
+       vertically centered with a lot of empty space above/below it on a screen much taller than
+       3:2 wide (e.g. a wide split pane). Anchoring the joystick to the panel's own bottom edge
+       then left it stranded mid-screen instead of near the true screen bottom pilots expect a
+       pan/tilt control to sit. As a body sibling instead, its own bottom/right offsets resolve
+       against the real screen (body fills the viewport, theme.css), independent of the picture's
+       own aspect-boxed size — .tgp-panel.<state> ~ .tgp-joystick sibling selectors (tgp.css) still
+       reach it for the same state-driven look/hide rules. -->
+  <div class="tgp-joystick" id="tgp-joystick">
+    <div class="tgp-joystick-knob" id="tgp-joystick-knob"></div>
   </div>
 <script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
 <script src="/assets/services/remote-keybinds.js"></script>

@@ -11,11 +11,15 @@
    them — busy/bright video under white bold text reads poorly. min(…, 20%) keeps the margin from
    ever eating the whole panel on a narrow split pane; at any normal full-view or split width it
    resolves to the full 80px, comfortably past the widest label (MAIN, ~53px wide at 22px in). */
+body {
+  /* Shared with .tgp-joystick below (a body-level sibling of .tgp-panel, not a descendant) so its
+     own right offset can track the panel's inset without duplicating the number. */
+  --tgp-side-margin: min(80px, 20%);
+}
 .tgp-panel {
   position: absolute;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  --tgp-side-margin: min(80px, 20%);
   width: calc(100% - 2 * var(--tgp-side-margin));
   aspect-ratio: 3 / 2;
   max-width: calc(100% - 2 * var(--tgp-side-margin));
@@ -251,14 +255,21 @@
 .tgp-ov-box.lased::after  { width: 2px; height: 16px; transform: translate(-50%, -50%); }
 
 /* On-screen joystick (tgp.js) — mouse/touch pan/tilt for the manual camera, bottom-right of the
-   panel. Fixed px size rather than the panel-percentage scaling the overlay above uses: a drag
-   target needs a stable minimum touch size regardless of how small the panel gets (a tiny
-   split-pane sliver), unlike text that can just shrink. Sits below/left of .tgp-ov-br's own
-   bottom-right stat stack (bottom: 90px clears its 3 lines at this font-size) rather than the
-   same corner, so the two never overlap when both show at once (HQ quality, manual mode). */
+   SCREEN, not the picture: a body-level sibling of .tgp-panel (tgp.html), not a descendant of it,
+   so its bottom/right offsets resolve against the real screen instead of the letterboxed 3:2
+   picture box — a screen much taller than 3:2 (a wide split pane) would otherwise leave the
+   picture vertically centered with a lot of empty space below it, stranding a panel-relative
+   joystick mid-screen instead of down where a pilot expects a pan/tilt control to sit.
+   `right` mirrors the panel's own --tgp-side-margin inset (tgp.css's .tgp-panel) so it still lines
+   up with the picture's own right edge; `bottom: 90px` clears .tgp-ov-br's bottom-right stat
+   stack (3 lines at this font-size) the same way it always has — full-bleed portrait's picture
+   already reaches close to the real screen bottom, so this number didn't need to change, only
+   what it's measured against. Fixed px size rather than the panel-percentage scaling the overlay
+   above uses: a drag target needs a stable minimum touch size regardless of how small the panel
+   gets, unlike text that can just shrink. */
 .tgp-joystick {
   position: absolute;
-  right: 16px;
+  right: calc(16px + var(--tgp-side-margin));
   bottom: 90px;
   width: 84px;
   height: 84px;
@@ -272,8 +283,10 @@
 }
 /* Live only in manual mode — outside it SetPan is already a no-op server-side (TgpManualControl.
    Tick() returns immediately whenever ManualMode is off), but a control that looks interactive
-   and silently does nothing would read as broken. */
-.tgp-panel.tgp-manual .tgp-joystick {
+   and silently does nothing would read as broken. General sibling combinator (~), not a descendant
+   selector: tgp.js still toggles this class on #tgp-panel, but the joystick is now a body-level
+   sibling of it rather than a child (see the comment on .tgp-joystick above). */
+.tgp-panel.tgp-manual ~ .tgp-joystick {
   opacity: 0.85;
   pointer-events: auto;
 }
@@ -283,7 +296,7 @@
    higher-specificity rule also sets can end up never resolving to the override's value at all, in
    at least one tested environment (see docs/tgp-manual-control.md's "On-screen joystick" section
    for the full story) — this rule just snaps instantly rather than risk that again. */
-.tgp-panel.tgp-manual.tgp-joystick-hidden .tgp-joystick {
+.tgp-panel.tgp-manual.tgp-joystick-hidden ~ .tgp-joystick {
   opacity: 0;
   pointer-events: none;
 }

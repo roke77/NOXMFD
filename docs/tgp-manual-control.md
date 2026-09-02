@@ -865,6 +865,15 @@ mouse/touch pilot had no way to point the manual camera at all short of a bound 
   target needs a stable minimum touch size regardless of how small the panel gets, unlike text that
   can just shrink. Positioned clear of `.tgp-ov-br`'s own bottom-right stat stack rather than the
   same corner, so the two don't overlap when both show at once (HQ quality, manual mode).
+- **Anchored to the screen, not the picture**: `#tgp-joystick` is a body-level sibling of
+  `.tgp-panel` in `tgp.html`, not a child of it, so its `bottom`/`right` offsets resolve against the
+  real screen instead of the letterboxed 3:2 picture box. A screen much taller than 3:2 (a wide
+  split pane) otherwise leaves the picture vertically centered with empty space below it, stranding
+  a panel-relative joystick mid-screen instead of down near the true bottom. `right` reads the
+  panel's own `--tgp-side-margin` custom property (moved up to `body`, shared by both) so it still
+  lines up with the picture's own right edge. The state-driven look/hide rules
+  (`.tgp-panel.tgp-manual`, `.tgp-panel.tgp-manual.tgp-joystick-hidden`) use the general sibling
+  combinator (`~`) instead of a descendant selector to still reach it.
 - A CSS gotcha worth remembering: a `transition` declared on a lower-specificity rule for a property
   a higher-specificity rule also sets can end up never resolving to the override's value at all, in
   at least one tested environment — dropping the transition (an instant opacity snap on the
