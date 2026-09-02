@@ -254,16 +254,16 @@
    picture box — a screen much taller than 3:2 (a wide split pane) would otherwise leave the
    picture vertically centered with a lot of empty space below it, stranding a panel-relative
    joystick mid-screen instead of down where a pilot expects a pan/tilt control to sit.
-   `right: 16px` matches the shell's own NAV item labels' edge inset (.overlay-item, mfd.css);
-   `bottom: 90px` clears .tgp-ov-br's bottom-right stat stack (3 lines at this font-size) the same
-   way it always has — full-bleed portrait's picture already reaches close to the real screen
-   bottom, so this number didn't need to change, only what it's measured against. Fixed px size
+   `bottom: 16px` puts it at the true screen bottom, same edge inset the shell's own NAV item
+   labels use on the sides (.overlay-item, mfd.css). `right: 100px` clears the right-column NAV
+   labels' own translucent pills (.tgp-scrim, up to ~53px wide starting 16px in) with a further gap
+   to spare, rather than sharing their 16px edge inset and overlapping Z+/ZOOM/Z-. Fixed px size
    rather than the panel-percentage scaling the overlay above uses: a drag target needs a stable
    minimum touch size regardless of how small the panel gets, unlike text that can just shrink. */
 .tgp-joystick {
   position: absolute;
-  right: 16px;
-  bottom: 90px;
+  right: 100px;
+  bottom: 16px;
   width: 84px;
   height: 84px;
   border-radius: 50%;
