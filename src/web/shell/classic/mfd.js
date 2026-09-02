@@ -501,46 +501,49 @@ function renderSplitLabels() {
       // (tgpMarks()), so like full view they're hand-placed rather than read off NAV.tgp/
       // SPLIT_SLOTS.tgp (which stay MAIN+CFG only, same "empty NAV, hand-rolled labels" shape as
       // WPN's ARM/SAFE/A-A/A-G split rendering). A pane only has 3 slots per bank (6 total), and
-      // TGP now has 11 destinations (MAIN/LCK/MAN/CLR/IR/CFG/Z+/Z-/STP/TRK/RST) — more than even
-      // two pages fit. Rather than a generic list-pagination scheme (MAIN/MAP's own, built for an
-      // open-ended list), this just steps through three fixed sets (paneTgpPage), since TGP only
-      // ever needs exactly three. PREV takes over MAIN's own slot (left0) on every page after the
-      // first, rather than sharing NEXT's slot — same "PREV anchors the first physical key"
-      // convention listPaneLayout/mainPaneSlice already use for MAIN/MAP's own paging, so a page's
-      // "go back" key is always in the same place whether it means back-to-MAIN or back-a-page.
+      // TGP now has 11 destinations — more than even two pages fit. Rather than a generic
+      // list-pagination scheme (MAIN/MAP's own, built for an open-ended list), this just steps
+      // through three fixed sets (paneTgpPage), since TGP only ever needs exactly three.
+      // Mirrors full view's own column split (placeTgpNavLabels): the left bank only ever holds
+      // MAIN/PREV plus the "go somewhere else" items (CFG, TRK, RST, STP, in that order), the
+      // right bank only ever holds the "change how the feed looks" items (LCK, MAN, CLR, IR, Z+,
+      // Z-, in that order) — a page's left/right slots never mix the two groups, even at the cost
+      // of an early page's left column running out before its right column does (page 2 here).
+      // PREV takes over MAIN's own slot (left0) on every page after the first rather than sharing
+      // NEXT's slot — same "PREV anchors the first physical key" convention
+      // listPaneLayout/mainPaneSlice already use for MAIN/MAP's own paging, so a page's "go back"
+      // key is always in the same place whether it means back-to-MAIN or back-a-page. NEXT anchors
+      // the right bank's own last slot (right2) on every page but the last, matching the right
+      // column's own "last slot" the same way.
       const marks = tgpMarks();
       const tgpPage = paneTgpPage[paneIdx] || 0;
       if (tgpPage === 0) {
-        // page 0 is byte-for-byte what full view and this pane already showed before Z+/Z- existed
-        // (nothing shifts for the common LCK/MAN/CLR/IR case).
         placeSplitKey(paneKey(paneIdx, 'left', 0), NAV.tgp[0].label, NAV.tgp[0].action, paneTag);
-        placeSplitKey(paneKey(paneIdx, 'left', 1), 'LCK', 'tgp-manual-off', paneTag, marks.tgt);
-        placeSplitKey(paneKey(paneIdx, 'left', 2), 'MAN', 'tgp-manual-on',  paneTag, marks.man);
-        placeSplitKey(paneKey(paneIdx, 'right', 0), 'CLR', 'tgp-ir-off',    paneTag, marks.clr);
-        placeSplitKey(paneKey(paneIdx, 'right', 1), 'IR',  'tgp-ir-on',     paneTag, marks.ir);
+        placeSplitKey(paneKey(paneIdx, 'left', 1), NAV.tgp[1].label, NAV.tgp[1].action, paneTag);
+        placeSplitKey(paneKey(paneIdx, 'left', 2), 'TRK', 'tgp-point-track', paneTag);
+        placeSplitKey(paneKey(paneIdx, 'right', 0), 'LCK', 'tgp-manual-off', paneTag, marks.tgt);
+        placeSplitKey(paneKey(paneIdx, 'right', 1), 'MAN', 'tgp-manual-on',  paneTag, marks.man);
         placeSplitKey(paneKey(paneIdx, 'right', 2), 'NEXT', 'tgp-nav-next', paneTag);
-        const tgtKey = paneKey(paneIdx, 'left', 1);
-        const clrKey = paneKey(paneIdx, 'right', 0);
-        placeWpnDecorator(tgtKey.bank, tgtKey.index + 1, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
-        placeWpnDecorator(clrKey.bank, clrKey.index + 1, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
+        const lckKey = paneKey(paneIdx, 'right', 0);
+        placeWpnDecorator(lckKey.bank, lckKey.index + 1, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
       } else if (tgpPage === 1) {
-        // CFG and STP move here (off their usual full-view slots) rather than being dropped.
         placeSplitKey(paneKey(paneIdx, 'left', 0), 'PREV', 'tgp-nav-prev', paneTag);
-        placeSplitKey(paneKey(paneIdx, 'left', 1), 'Z+', 'tgp-zoom-in',  paneTag);
-        placeSplitKey(paneKey(paneIdx, 'left', 2), 'Z-', 'tgp-zoom-out', paneTag);
-        placeSplitKey(paneKey(paneIdx, 'right', 0), NAV.tgp[1].label, NAV.tgp[1].action, paneTag);
-        placeSplitKey(paneKey(paneIdx, 'right', 1), 'STP', 'tgp-mark-steerpoint', paneTag);
+        placeSplitKey(paneKey(paneIdx, 'left', 1), 'RST', 'tgp-manual-reset',   paneTag);
+        placeSplitKey(paneKey(paneIdx, 'left', 2), 'STP', 'tgp-mark-steerpoint', paneTag);
+        placeSplitKey(paneKey(paneIdx, 'right', 0), 'CLR', 'tgp-ir-off', paneTag, marks.clr);
+        placeSplitKey(paneKey(paneIdx, 'right', 1), 'IR',  'tgp-ir-on',  paneTag, marks.ir);
         placeSplitKey(paneKey(paneIdx, 'right', 2), 'NEXT', 'tgp-nav-next', paneTag);
-        const zKey = paneKey(paneIdx, 'left', 1);
-        placeWpnDecorator(zKey.bank, zKey.index + 1, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
+        const clrKey = paneKey(paneIdx, 'right', 0);
+        placeWpnDecorator(clrKey.bank, clrKey.index + 1, 'IMG', '6,0 12,8 0,8', '0,0 12,0 6,8');
       } else {
-        // TRK/RST — page-button twins of the Point Track / Manual Control Reset keybinds
-        // (docs/tgp-manual-control.md). The last page, so no NEXT — right0/1/2 are left empty
-        // rather than reshuffled further, the same "an unused slot is fine" shape HUD/KEYS's own
-        // 4-of-6 split placement already uses.
+        // Last page: the left column ran out at RST/STP above, so left1/left2 are left empty
+        // rather than reshuffled to borrow from the right column — same "an unused slot is fine"
+        // shape HUD/KEYS's own 4-of-6 split placement already uses. right2 is spare too (no NEXT).
         placeSplitKey(paneKey(paneIdx, 'left', 0), 'PREV', 'tgp-nav-prev', paneTag);
-        placeSplitKey(paneKey(paneIdx, 'left', 1), 'TRK', 'tgp-point-track',  paneTag);
-        placeSplitKey(paneKey(paneIdx, 'left', 2), 'RST', 'tgp-manual-reset', paneTag);
+        placeSplitKey(paneKey(paneIdx, 'right', 0), 'Z+', 'tgp-zoom-in',  paneTag);
+        placeSplitKey(paneKey(paneIdx, 'right', 1), 'Z-', 'tgp-zoom-out', paneTag);
+        const zKey = paneKey(paneIdx, 'right', 0);
+        placeWpnDecorator(zKey.bank, zKey.index + 1, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
       }
       continue;
     }
@@ -1112,34 +1115,32 @@ function placeWpnDecorators() {
 // TGP's full-view nav (docs/tgp-manual-control.md's NAV additions) — not the generic fullViewSlot
 // sweep every other single-MAIN page uses: LCK/MAN and CLR/IR light dynamically off tgpMarks(), so
 // like WPN's ARM/SAFE/A-A/A-G (NAV.wpn is empty by design) they're hand-placed here rather than
-// carrying a static `mark` in NAV.tgp. CFG keeps its bottom-of-column slot (left5) either way.
+// carrying a static `mark` in NAV.tgp. Left bank is the "go somewhere else" column — MAIN, CFG,
+// and the three one-shot actions (TRK/RST/STP) that don't reflect live feed state; right bank is
+// the "change how the feed looks" column — LCK/MAN, CLR/IR, and Z+/Z-, in that reading order.
 // Called once on page entry (showPage) and again on every tgp telemetry tick so the highlight
 // tracks live state, the same re-render-in-place shape as placeWpnNavLabels above.
 function placeTgpNavLabels() {
   overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
   const marks = tgpMarks();
   placeOverlayLabel('left', 0, NAV.tgp[0].label, NAV.tgp[0].action);
-  placeOverlayLabel('left', 1, 'LCK', 'tgp-manual-off', marks.tgt);
-  placeOverlayLabel('left', 2, 'MAN', 'tgp-manual-on',  marks.man);
-  placeOverlayLabel('left', 3, 'CLR', 'tgp-ir-off',     marks.clr);
-  placeOverlayLabel('left', 4, 'IR',  'tgp-ir-on',      marks.ir);
-  placeOverlayLabel('left', 5, NAV.tgp[1].label, NAV.tgp[1].action);
-  placeWpnDecorator('left', 2, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
-  placeWpnDecorator('left', 4, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
-  // Z+/Z- (manual camera zoom, docs/tgp-manual-control.md's remote-ready SetZoom(dir, on)) —
-  // the right bank is otherwise empty for TGP, unlike the fully-used left bank above.
-  placeOverlayLabel('right', 0, 'Z+', 'tgp-zoom-in');
-  placeOverlayLabel('right', 1, 'Z-', 'tgp-zoom-out');
-  placeWpnDecorator('right', 1, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
-  // STP (docs/steer-points.md's MARK STEER POINT) — marks whatever TGP is currently showing as a
-  // new steer point. Its split-pane twin lives on TGP's own second page (renderSplitLabels'
-  // 'tgp' branch), the only place with a free slot left once Z+/Z- exist there too.
-  placeOverlayLabel('right', 2, 'STP', 'tgp-mark-steerpoint');
-  // TRK/RST — page-button twins of the Point Track / Manual Control Reset keybinds
-  // (docs/tgp-manual-control.md), same "reach the keybind's action from the page too" shape as
-  // the other TGP nav additions. right3/right4 round out the right bank (right5 stays spare).
-  placeOverlayLabel('right', 3, 'TRK', 'tgp-point-track');
-  placeOverlayLabel('right', 4, 'RST', 'tgp-manual-reset');
+  placeOverlayLabel('left', 1, NAV.tgp[1].label, NAV.tgp[1].action);
+  // TRK/RST/STP — page-button twins of the Point Track / Manual Control Reset keybinds
+  // (docs/tgp-manual-control.md) and the MARK STEER POINT command (docs/steer-points.md). left5
+  // stays spare.
+  placeOverlayLabel('left', 2, 'TRK', 'tgp-point-track');
+  placeOverlayLabel('left', 3, 'RST', 'tgp-manual-reset');
+  placeOverlayLabel('left', 4, 'STP', 'tgp-mark-steerpoint');
+  placeOverlayLabel('right', 0, 'LCK', 'tgp-manual-off', marks.tgt);
+  placeOverlayLabel('right', 1, 'MAN', 'tgp-manual-on',  marks.man);
+  placeOverlayLabel('right', 2, 'CLR', 'tgp-ir-off',     marks.clr);
+  placeOverlayLabel('right', 3, 'IR',  'tgp-ir-on',      marks.ir);
+  placeWpnDecorator('right', 1, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
+  placeWpnDecorator('right', 3, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
+  // Z+/Z- (manual camera zoom, docs/tgp-manual-control.md's remote-ready SetZoom(dir, on)).
+  placeOverlayLabel('right', 4, 'Z+', 'tgp-zoom-in');
+  placeOverlayLabel('right', 5, 'Z-', 'tgp-zoom-out');
+  placeWpnDecorator('right', 5, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
 // Split-pane MASTER/MODE: unlike full view's fixed right2/right4, a split pane's ctrl pair can land
 // on any of its 4 item slots depending on pagination (buildWpnSplitPages) — found here by id rather

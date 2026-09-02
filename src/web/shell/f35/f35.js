@@ -187,47 +187,48 @@
   // LCK/MAN and CLR/IR (docs/tgp-manual-control.md's NAV additions) — the bezel's mfd.js twin
   // (placeTgpNavLabels/tgpMarks), same shape as MASTER_ARMS_ACTIONS/COMBAT_MODE_ACTIONS above:
   // an unconditional command pair, dispatched rather than paged to, with its own mark state
-  // (markTgpMode/markTgpImg) since NAV.tgp carries no dynamic `mark`. TGP's column 1 has only
-  // MAIN (row 1) and CFG (row ROWS, tgpNavItems) spoken for, so rows 2-5 are free.
+  // (markTgpMode/markTgpImg) since NAV.tgp carries no dynamic `mark`. Column 1 is the "go
+  // somewhere else" column (MAIN/CFG plus the one-shot TRK/RST/STP below, tgpNavItems); column 2
+  // is the "change how the feed looks" column (LCK/MAN, CLR/IR, Z+/Z-), matching mfd.js's own
+  // placeTgpNavLabels left/right split.
   const TGP_MODE_ACTIONS = { 'tgp-manual-on': true, 'tgp-manual-off': false };
   const TGP_MODE_NAV = [
-    { label: 'LCK', action: 'tgp-manual-off', cell: { row: 2, col: 1 } },
-    { label: 'MAN', action: 'tgp-manual-on',  cell: { row: 3, col: 1 } },
+    { label: 'LCK', action: 'tgp-manual-off', cell: { row: 1, col: 2 } },
+    { label: 'MAN', action: 'tgp-manual-on',  cell: { row: 2, col: 2 } },
   ];
   const TGP_IR_ACTIONS = { 'tgp-ir-on': true, 'tgp-ir-off': false };
   const TGP_IR_NAV = [
-    { label: 'CLR', action: 'tgp-ir-off', cell: { row: 4, col: 1 } },
-    { label: 'IR',  action: 'tgp-ir-on',  cell: { row: 5, col: 1 } },
+    { label: 'CLR', action: 'tgp-ir-off', cell: { row: 3, col: 2 } },
+    { label: 'IR',  action: 'tgp-ir-on',  cell: { row: 4, col: 2 } },
   ];
-  // Z+/Z- (manual camera zoom) — column 2 is entirely free for TGP (only column 1 is spoken
-  // for above), unlike COMBAT_MODE_ACTIONS/TGP_MODE_ACTIONS/TGP_IR_ACTIONS this isn't an
-  // explicit-state "set" (no single boolean value to react to) — it jumps between discrete
-  // magnification LEVELS (tgp.zoom.step, TgpManualControl.StepZoom), wired with its own
-  // pointerdown/pointerup pair in renderNav() below rather than through dispatch(); the value
-  // here is the dir tgp.zoom.step's `index` field expects. Holding repeats the step at a fixed
-  // interval (typematic) rather than the physical Cursor Zoom In/Out keybind's own continuous
-  // rate — see the wiring below for why (docs/tgp-manual-control.md).
+  // Z+/Z- (manual camera zoom) — column 2's own rows 5-6, unlike COMBAT_MODE_ACTIONS/
+  // TGP_MODE_ACTIONS/TGP_IR_ACTIONS this isn't an explicit-state "set" (no single boolean value to
+  // react to) — it jumps between discrete magnification LEVELS (tgp.zoom.step,
+  // TgpManualControl.StepZoom), wired with its own pointerdown/pointerup pair in renderNav() below
+  // rather than through dispatch(); the value here is the dir tgp.zoom.step's `index` field
+  // expects. Holding repeats the step at a fixed interval (typematic) rather than the physical
+  // Cursor Zoom In/Out keybind's own continuous rate — see the wiring below for why
+  // (docs/tgp-manual-control.md).
   const TGP_ZOOM_ACTIONS = { 'tgp-zoom-in': 1, 'tgp-zoom-out': -1 };
   const TGP_ZOOM_STEP_INITIAL_DELAY_MS = 350;
   const TGP_ZOOM_STEP_REPEAT_MS = 150;
   const TGP_ZOOM_NAV = [
-    { label: 'Z+', action: 'tgp-zoom-in',  cell: { row: 2, col: 2 } },
-    { label: 'Z-', action: 'tgp-zoom-out', cell: { row: 3, col: 2 } },
+    { label: 'Z+', action: 'tgp-zoom-in',  cell: { row: 5, col: 2 } },
+    { label: 'Z-', action: 'tgp-zoom-out', cell: { row: 6, col: 2 } },
   ];
-  // STP (docs/steer-points.md's MARK STEER POINT) — a one-shot action, not an explicit-state pair
-  // like the others above, so it's dispatched directly rather than through an ACTIONS lookup.
-  // Column 2's row 1 is free (Z+/Z- only spoke for rows 2-3), mirroring MAIN's own row 1 in column 1.
-  const TGP_STP_NAV = [
-    { label: 'STP', action: 'tgp-mark-steerpoint', cell: { row: 1, col: 2 } },
-  ];
-  // TRK/RST — page-button twins of the Point Track / Manual Control Reset keybinds
-  // (docs/tgp-manual-control.md), same one-shot dispatch shape as STP above. Column 2's rows 4-5
-  // are free (STP/Z+/Z- only spoke for rows 1-3).
+  // TRK/RST/STP — page-button twins of the Point Track / Manual Control Reset keybinds
+  // (docs/tgp-manual-control.md) and the MARK STEER POINT command (docs/steer-points.md). One-shot
+  // actions, not explicit-state pairs like the others above, so each is dispatched directly rather
+  // than through an ACTIONS lookup. Column 1's rows 3-5 are free (MAIN/CFG only spoke for rows 1-2,
+  // tgpNavItems); row 6 stays spare.
   const TGP_TRK_NAV = [
-    { label: 'TRK', action: 'tgp-point-track', cell: { row: 4, col: 2 } },
+    { label: 'TRK', action: 'tgp-point-track', cell: { row: 3, col: 1 } },
   ];
   const TGP_RST_NAV = [
-    { label: 'RST', action: 'tgp-manual-reset', cell: { row: 5, col: 2 } },
+    { label: 'RST', action: 'tgp-manual-reset', cell: { row: 4, col: 1 } },
+  ];
+  const TGP_STP_NAV = [
+    { label: 'STP', action: 'tgp-mark-steerpoint', cell: { row: 5, col: 1 } },
   ];
 
   // MAP's placement mirrors mfd.js's explicit control banks rather than using generic overflow. The action
@@ -252,13 +253,13 @@
     }));
   }
 
-  // TGP's own placement (mfd.js's own full-view twin, its dedicated 'tgp' branch): CFG pinned to
-  // the bottom of the column (row ROWS) regardless of cellOf's generic index-into-6-rows overflow,
-  // matching the bezel's own left0/left5 split rather than landing at row 2 right under MAIN.
+  // TGP's own placement (mfd.js's own full-view twin, its dedicated 'tgp' branch): MAIN/CFG stack
+  // at the top of column 1, with TRK/RST/STP (TGP_TRK_NAV/TGP_RST_NAV/TGP_STP_NAV below) filling
+  // the rest of that column — matching the bezel's own left-bank order.
   function tgpNavItems() {
     return [
       Object.assign({}, NAV.tgp[0], { cell: { row: 1, col: 1 } }),
-      Object.assign({}, NAV.tgp[1], { cell: { row: ROWS, col: 1 } }),
+      Object.assign({}, NAV.tgp[1], { cell: { row: 2, col: 1 } }),
     ];
   }
 

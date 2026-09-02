@@ -746,20 +746,11 @@ is a no-op, matching `master-arms.set`/`combat-mode.set`'s own shape rather than
   [Native-lock CLR/IR override](#native-lock-clrir-override-built) below for the real-lock half —
   the automatic behavior it overrides, and why it needs its own Harmony patch to stick.
 
-**Layout placement:**
-- Classic bezel, full view (`mfd.js`'s `placeTgpNavLabels`): `MAIN, LCK, MAN, CLR, IR, CFG` fill
-  the left column top to bottom (`left0`-`left5`) — `CFG` keeps its existing bottom-of-column slot.
-  Recomputed on page entry and on every `tgp` telemetry tick, the same re-render-in-place shape
-  `placeWpnNavLabels` uses for ARM/SAFE.
-- Classic bezel, split pane (`renderSplitLabels`' own `tgp` branch): `MAIN/LCK/MAN` fill the left
-  bank (slots 0-2), `CLR/IR/CFG` fill the right bank (slots 0-2) — each decorator's pair stays
-  adjacent on one bank, the same requirement `placeMapPaneDecorator`/`placeWpnPaneDecorator`
-  enforce for theirs. Only re-renders when a pane is actually showing TGP.
-- F-35 glass (`f35.js`): `TGP_MODE_NAV`/`TGP_IR_NAV` place `LCK/MAN/CLR/IR` at column 1, rows 2-5
-  (`tgpNavItems`'s `MAIN`/`CFG` already own rows 1 and `ROWS`), same "unconditional command pair"
-  shape as `MASTER_ARMS_NAV`/`COMBAT_MODE_NAV`. `markTgpMode`/`markTgpImg` re-apply the highlight
-  off the cached `tgp` slice on every tick (`onSlice`) and on nav rebuild, mirroring
-  `markMasterArms`/`markCombatMode`.
+Recomputed on page entry and on every `tgp` telemetry tick, the same re-render-in-place shape
+`placeWpnNavLabels` uses for ARM/SAFE (`markTgpMode`/`markTgpImg` do the equivalent on F-35, off
+the cached `tgp` slice on every tick (`onSlice`) and on nav rebuild, mirroring
+`markMasterArms`/`markCombatMode`). See [Layout placement](#layout-placement-all-tgp-nav-buttons)
+below for where each button actually lands in each layout.
 
 **Z+/Z- (built) — the manual camera's own on-page zoom buttons**, distinct from the general
 remote-keybind role wiring still deferred above: two plain bezel buttons jumping between fixed
@@ -775,25 +766,6 @@ level, e.g. left over from the keybind's continuous zoom), clamping at the ends 
 wrapping. A no-op while `ManualMode` is off (LCK mode): `TgpManualControl.Tick()` never reads
 `_desiredFov` outside manual mode, so a step taken while off just sits there unseen until the next
 `Engage()` resets it to `MaxFov` anyway — no extra gating needed in the command handler.
-- Classic bezel, full view (`placeTgpNavLabels`): `Z+`/`Z-` fill `right0`/`right1`, the
-  otherwise-empty right bank.
-- Classic bezel, split pane (`renderSplitLabels`' `tgp` branch, `paneTgpPage`): a pane only has 3
-  slots per bank (6 total), and TGP now has 11 destinations
-  (MAIN/LCK/MAN/CLR/IR/CFG/Z+/Z-/STP/TRK/RST) — more than even two pages fit. Rather than the
-  generic list-pagination scheme MAIN/MAP use for an open-ended list, this steps through three
-  fixed sets, since TGP only ever needs exactly three: page 0 is byte-for-byte what this pane
-  already showed before Z+/Z- existed (MAIN/LCK/MAN/CLR/IR, nothing shifts for the common case,
-  `NEXT` fills the last slot), page 1 swaps in Z+/Z-/CFG/STP (`NEXT` still fills the last slot —
-  there's a page after it), page 2 (the last) holds TRK/RST, with three slots left unused.
-  `PREV` takes over `left0` (MAIN's own slot) on every page after the first, rather than sharing
-  `NEXT`'s slot — same "PREV anchors the first physical key" convention
-  `listPaneLayout`/`mainPaneSlice` already use for MAIN/MAP's own paging, so a page's "go back" key
-  sits in the same place whether it means back-to-MAIN or back-a-page. `tgp-nav-prev`/
-  `tgp-nav-next` bump `paneTgpPage[paneIdx]` by ±1, clamped to `[0, 2]`, and re-render; reset to 0
-  whenever a pane (re)enters TGP (`paneNavigate`), same as `paneWpnPage`/`paneMainPage`/etc.
-- F-35 glass: `TGP_ZOOM_NAV` places `Z+`/`Z-` at column 2, rows 2-3 — column 2 is entirely free for
-  TGP (only column 1 is spoken for, and a portal's grid has 2 columns × 6 rows = 12 cells total, so
-  no split-pane-style capacity problem here at all — F-35 needed no pagination).
 - Both shells wire a plain pointerdown/pointerup pair per button: pointerdown sends one step
   immediately, then repeats it at a fixed interval (typematic — press once, then repeat after an
   initial delay, same feel as a held keyboard key: `TGP_ZOOM_STEP_INITIAL_DELAY_MS` = 350,
@@ -816,21 +788,48 @@ exact `hasTargets`/`ManualMode` branch `TgpFeed.CaptureFrame` already uses to pi
 
 Straight into `RouteStore.AddSteerPoint(x, z, "")` — named `""`, same as a MAP long-press steer
 point; rename it on WPT if you want one.
-- Classic bezel, full view (`placeTgpNavLabels`): `STP` sits at `right2`, under `Z+`/`Z-`.
-- Classic bezel, split pane: page 1 (`MAIN/LCK/MAN/CLR/IR/NEXT`) has no free slot, so `STP` joins
-  `Z+`/`Z-`/`CFG` on page 2, at the now-unused `right1`.
-- F-35 glass: column 2, row 1 — column 2's row 1 was free (`Z+`/`Z-` only spoke for rows 2-3),
-  mirroring `MAIN`'s own row 1 in column 1.
 
 **TRK/RST (built) — page-button twins of the Point Track / Manual Control Reset keybinds.** Same
 one-shot dispatch shape as STP: `TRK` → `tgp.point-track` → `TgpManualControl.TogglePointTrack()`,
 `RST` → `tgp.manual-reset` → `TgpManualControl.Reset()`. Both keybinds already no-op with the exact
 same guards (manual control off, no aircraft, nothing in raycast range for `TRK`) — the page button
 reaches the identical method, not a separate copy of the guard.
-- Classic bezel, full view: `right3`/`right4`, rounding out the right bank (`right5` stays spare).
-- Classic bezel, split pane: neither fits alongside STP on page 1, so they get their own page 2 —
-  `left1`/`left2`, alongside `PREV` at `left0`.
-- F-35 glass: column 2, rows 4-5 (rows 1-3 already spoken for by `STP`/`Z+`/`Z-`).
+
+### Layout placement (all TGP nav buttons)
+
+All eleven buttons split into two groups, in each layout: **left/column 1** is "go somewhere else"
+(`MAIN`, `CFG`, `TRK`, `RST`, `STP`, in that order) — one-shot actions and page navigation, none of
+which reflect the feed's own live state; **right/column 2** is "change how the feed looks" (`LCK`,
+`MAN`, `CLR`, `IR`, `Z+`, `Z-`, in that order) — the two highlighted state pairs plus zoom. A page's
+left/right slots never mix the two groups, even at the cost of an early page's left column running
+out before its right column does (the classic split-pane's page 2, below).
+
+- **Classic bezel, full view** (`mfd.js`'s `placeTgpNavLabels`): left column top to bottom is
+  `MAIN, CFG, TRK, RST, STP` (`left0`-`left4`, `left5` spare); right column is
+  `LCK, MAN, CLR, IR, Z+, Z-` (`right0`-`right5`, filling the bank exactly), with `MODE` between
+  `LCK`/`MAN` and `IMG` between `CLR`/`IR` (same word-plus-triangle decorator WPN's MASTER/MODE
+  uses) and `ZOOM` between `Z+`/`Z-`.
+- **Classic bezel, split pane** (`renderSplitLabels`' own `tgp` branch, `paneTgpPage`): a pane only
+  has 3 slots per bank (6 total), and 11 destinations are more than even two pages fit — this steps
+  through three fixed sets rather than a generic list-pagination scheme (MAIN/MAP's own, built for
+  an open-ended list), since TGP only ever needs exactly three:
+  - Page 0: left = `MAIN, CFG, TRK`; right = `LCK, MAN`, `NEXT`.
+  - Page 1: left = `PREV, RST, STP`; right = `CLR, IR`, `NEXT`.
+  - Page 2 (last): left = `PREV` only (`left1`/`left2` empty — the left column ran out); right =
+    `Z+, Z-` (`right2` empty too — no `NEXT` on the last page).
+
+  `PREV` takes over `left0` (`MAIN`'s own slot) on every page after the first, rather than sharing
+  `NEXT`'s slot — same "PREV anchors the first physical key" convention `listPaneLayout`/
+  `mainPaneSlice` already use for MAIN/MAP's own paging, so a page's "go back" key sits in the same
+  place whether it means back-to-MAIN or back-a-page. `NEXT` anchors the right column's own last
+  slot (`right2`) on every page but the last. `tgp-nav-prev`/`tgp-nav-next` bump `paneTgpPage[paneIdx]`
+  by ±1, clamped to `[0, 2]`, and re-render; reset to 0 whenever a pane (re)enters TGP
+  (`paneNavigate`), same as `paneWpnPage`/`paneMainPage`/etc. Decorators (`MODE`/`IMG`/`ZOOM`) stay
+  on whichever page/slots their pair actually lands on.
+- **F-35 glass** (`f35.js`): column 1 top to bottom is `MAIN, CFG, TRK, RST, STP` (rows 1-5, row 6
+  spare); column 2 top to bottom is `LCK, MAN, CLR, IR, Z+, Z-` (rows 1-6, filling the column
+  exactly) — a portal's grid has 2 columns × 6 rows = 12 cells total, so no split-pane-style
+  capacity problem here at all, F-35 needed no pagination.
 
 ## On-screen joystick (built)
 
