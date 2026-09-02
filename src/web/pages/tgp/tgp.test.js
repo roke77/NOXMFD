@@ -171,4 +171,34 @@ pad.listeners.pointerup({ pointerId: 1, clientX: 200, clientY: 200 });
 assert.deepStrictEqual(commandLog[3], { cmd: 'cursor.set', args: { x: 0, y: 0 } }, 'release resets to center');
 assert.strictEqual(activeIntervalFn, null, 'release clears the keepalive interval');
 
+// Auto-hide on physical PAD Cursor input — mfd.js/f35.js forward this as {action:'cursor', x, y}
+// while TGP is the shell-focused page (docs/tgp-manual-control.md's "On-screen joystick").
+listeners.message({ data: { mfd: true, action: 'cursor', x: 0.01, y: 0.01 } });
+assert.ok(!elements['tgp-panel'].classList.contains('tgp-joystick-hidden'),
+  'a magnitude under the deadzone does not hide the joystick');
+
+listeners.message({ data: { mfd: true, action: 'cursor', x: 0.2, y: 0 } });
+assert.ok(elements['tgp-panel'].classList.contains('tgp-joystick-hidden'),
+  'nonzero physical cursor input past the deadzone hides the joystick');
+
+listeners.message({ data: { mfd: true, action: 'cursor', x: 0, y: 0 } });
+assert.ok(elements['tgp-panel'].classList.contains('tgp-joystick-hidden'),
+  'hidden is sticky — it does not come back just because physical input stopped');
+
+elements['tgp-img'].listeners.pointerdown({});
+assert.ok(!elements['tgp-panel'].classList.contains('tgp-joystick-hidden'),
+  'tapping the picture explicitly reveals it again');
+
+// While the player is actively dragging the joystick itself, its own remote-merged vector rides
+// back on the same 'cursor' broadcast — must never hide the control out from under them mid-drag.
+pad.listeners.pointerdown({ pointerId: 3, clientX: 160, clientY: 140 });
+listeners.message({ data: { mfd: true, action: 'cursor', x: 0.5, y: 0 } });
+assert.ok(!elements['tgp-panel'].classList.contains('tgp-joystick-hidden'),
+  'a cursor update while locally dragging must not hide the joystick mid-drag');
+pad.listeners.pointerup({ pointerId: 3, clientX: 160, clientY: 140 });
+
+listeners.message({ data: { mfd: true, action: 'cursor', x: 0.3, y: 0 } });
+assert.ok(elements['tgp-panel'].classList.contains('tgp-joystick-hidden'),
+  'physical input after releasing our own drag hides the joystick again');
+
 console.log('tgp.test.js: OK');

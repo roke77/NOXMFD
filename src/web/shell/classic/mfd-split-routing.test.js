@@ -28,6 +28,8 @@ const dynamicBehaviors = [
   'avn.toggle',
   'tgp-manual-on', 'tgp-manual-off',
   'tgp-ir-on', 'tgp-ir-off',
+  'tgp-nav-prev', 'tgp-nav-next',
+  'tgp-zoom-in', 'tgp-zoom-out',
 ];
 
 for (const action of [...staticBehaviors, ...dynamicBehaviors]) {

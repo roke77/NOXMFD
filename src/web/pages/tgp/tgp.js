@@ -196,6 +196,8 @@ window.addEventListener('message', function(e) {
     // orientation rules track the device, not the (wide+short) pane box.
     document.body.classList.toggle('portrait',  m.orientation === 'portrait');
     document.body.classList.toggle('landscape', m.orientation !== 'portrait');
+  } else if (m.action === 'cursor') {
+    onShellCursorUpdate(m.x || 0, m.y || 0);
   }
 });
 
@@ -258,3 +260,42 @@ function endJoystickDrag(e) {
 }
 tgpJoystick.addEventListener('pointerup', endJoystickDrag);
 tgpJoystick.addEventListener('pointercancel', endJoystickDrag);
+
+// ── Auto-hide when physical PAD Cursor input is active ───────────────────────────────────────
+// The joystick and the physical PAD Cursor keys/axes both ultimately drive the same
+// TgpManualControl.SetPan — leaving the joystick sitting on top reads as broken the moment a
+// HOTAS stick or bound key is what's actually moving the camera, so it gets out of the way the
+// instant something else is clearly doing that. Sticky, not a live toggle: once hidden, it stays
+// hidden until the player deliberately asks for it back (tapping the picture, or reopening the
+// page — this script re-runs fresh on every navigation onto TGP, mfd.js/f35.js's own iframe/portal
+// reload, so joystickHidden already starts false there) rather than flickering back the instant
+// physical input pauses for a single frame.
+//
+// ponytail: the incoming vector is "physical PAD Cursor input, scoped to whichever page is
+// currently shell-focused" (mfd.js/f35.js's PAD_CURSOR_PAGES forwarding), not literally "is the
+// physical input currently reaching TgpManualControl.SetPan server-side" (that also needs
+// TelemetryServer.IsTgpSoi, a separate native SOI concept this page has no visibility into). The
+// two agree in the overwhelmingly common case (viewing TGP while its camera holds native SOI,
+// which manual mode's own Engage() already arranges), and only disagree in an edge case — SOI
+// Next/Prev tabbed away from the camera while TGP is still the page on screen — where the worst
+// outcome is a slightly early/late hide of a control the player can always tap to bring straight
+// back. Upgrade path if that ever proves annoying in practice: have the server-side 'tgp' message
+// carry an explicit "physical input is currently steering this camera" flag instead of inferring
+// it client-side from page focus.
+const CURSOR_HIDE_DEADZONE = 0.05;
+let joystickHidden = false;
+
+function setJoystickHidden(hidden) {
+  joystickHidden = hidden;
+  tgpPanel.classList.toggle('tgp-joystick-hidden', hidden);
+}
+
+function onShellCursorUpdate(x, y) {
+  if (joystickPointerId !== null) return;   // our own drag — never hide out from under the player
+  if (joystickHidden) return;
+  if (Math.hypot(x, y) > CURSOR_HIDE_DEADZONE) setJoystickHidden(true);
+}
+
+// Tapping the picture itself (not the joystick, which is already interactive on its own) is the
+// explicit "give it back to me" gesture the auto-hide above promises.
+tgpImg.addEventListener('pointerdown', function () { setJoystickHidden(false); });

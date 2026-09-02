@@ -104,7 +104,9 @@ Manual control reuses the same PAD Cursor every other display already uses (see
   drag it, and the camera pans and tilts toward the direction you dragged, the further the faster.
   Let go and it snaps back to center. Works without SOI too. White and dim while idle, amber while
   you're actively dragging it; dimmed further and inactive while a real unit is locked instead of
-  the manual camera.
+  the manual camera. It also gets out of the way on its own the moment you use the physical PAD
+  Cursor keys or axis to point the camera instead — tap the picture to bring it back, or leave and
+  reopen the page.
 
 ## In-game HUD cue
 

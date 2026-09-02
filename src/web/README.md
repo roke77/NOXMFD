@@ -187,7 +187,9 @@ selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps i
   (`focusedCursorWindow()`), and the page integrates them with `services/pad-cursor.js`. Each page
   decides what the events *mean*: MAP hit-tests contacts and pans at the edge, TGT walks its rows,
   RDR/FCR and HSD both hit-test the same aerial target set (Select toggles a lock, reused by TGT
-  too) — one HOTAS bind, per-page meaning (docs/page-cursor.md).
+  too) — one HOTAS bind, per-page meaning (docs/page-cursor.md). `tgp` is also in the set despite
+  drawing no crosshair: its on-screen joystick uses the raw vector only to detect physical PAD
+  Cursor input and hide itself in favor of it (docs/tgp-manual-control.md).
 - **Write commands:** `src/web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
   — from pages (MAP tap → `target.select`; TGT → `tgt.*` + `target.deselect`; AVN → `avn.toggle`;
   HUD → `hud.*`/`declutter.set`/`preset.*` (issue #50 follow-up); KEYBINDS → the `keybind.*` family;

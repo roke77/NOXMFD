@@ -98,10 +98,13 @@
   const DERIVED = { loadout: true };
 
   // Pages carrying their own PAD cursor (pad-cursor.js) — docs/page-cursor.md, docs/tgt-keybind-nav.md.
-  // Mirrors the bezel's own PAD_CURSOR_PAGES (mfd.js) exactly; kept as its own copy since this
-  // layout has no shared module with the bezel to hang it on. AKF is included because its
-  // ALL/PLAYER resizer is clickable and needs cursor support.
-  const PAD_CURSOR_PAGES = { map: true, tgt: true, td: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true, hsd: true };
+  // Mirrors the bezel's own PAD_CURSOR_PAGES (mfd.js); kept as its own copy since this layout has
+  // no shared module with the bezel to hang it on. AKF is included because its ALL/PLAYER resizer
+  // is clickable and needs cursor support. TGP is the one exception to "draws a crosshair": it
+  // doesn't use pad-cursor.js, but still wants the raw vector while focused — its on-screen
+  // joystick uses it to detect physical PAD Cursor input and hide itself
+  // (docs/tgp-manual-control.md's "On-screen joystick").
+  const PAD_CURSOR_PAGES = { map: true, tgt: true, td: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true, hsd: true, tgp: true };
 
   const WPN_MAX_DISPLAY = ROWS - 1;   // row 1 is the nav + CM band; rows 2..6 carry the weapons
   const WPN_ICON_INSET  = 20;         // keeps the image off its band edges, as the bezel does

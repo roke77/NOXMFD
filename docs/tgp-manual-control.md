@@ -775,11 +775,21 @@ level, e.g. left over from the keybind's continuous zoom), clamping at the ends 
 wrapping. A no-op while `ManualMode` is off (LCK mode): `TgpManualControl.Tick()` never reads
 `_desiredFov` outside manual mode, so a step taken while off just sits there unseen until the next
 `Engage()` resets it to `MaxFov` anyway — no extra gating needed in the command handler.
-- Classic bezel, full view only (`placeTgpNavLabels`): `Z+`/`Z-` fill `right0`/`right1`, the
-  otherwise-empty right bank — TGP's split-pane branch has no room (all 6 of its slots are already
-  MAIN/LCK/MAN/CLR/IR/CFG), so split-pane TGP has no zoom buttons.
+- Classic bezel, full view (`placeTgpNavLabels`): `Z+`/`Z-` fill `right0`/`right1`, the
+  otherwise-empty right bank.
+- Classic bezel, split pane (`renderSplitLabels`' `tgp` branch, `paneTgpPage`): a pane only has 3
+  slots per bank (6 total), and TGP now has 8 destinations (MAIN/LCK/MAN/CLR/IR/CFG/Z+/Z-) — one
+  more than fits. Rather than the generic list-pagination scheme MAIN/MAP use for an open-ended
+  list, this just flips between two fixed sets, since TGP only ever needs exactly two: page 0 is
+  byte-for-byte what this pane already showed before Z+/Z- existed (MAIN/LCK/MAN/CLR/IR, nothing
+  shifts for the common case), page 1 swaps in Z+/Z-/CFG behind a `NEXT`/`PREV` toggle sharing the
+  one freed slot (`right2`, CFG's old spot) — `right1` sits unused on page 1, the same "an unused
+  slot is fine" shape HUD/KEYS's own 4-of-6 split placement already uses. `tgp-nav-prev`/
+  `tgp-nav-next` just flip `paneTgpPage[paneIdx]` between 0 and 1 and re-render; reset to 0 whenever
+  a pane (re)enters TGP (`paneNavigate`), same as `paneWpnPage`/`paneMainPage`/etc.
 - F-35 glass: `TGP_ZOOM_NAV` places `Z+`/`Z-` at column 2, rows 2-3 — column 2 is entirely free for
-  TGP (only column 1 is spoken for), so there's no split-pane-style capacity problem here.
+  TGP (only column 1 is spoken for, and a portal's grid has 2 columns × 6 rows = 12 cells total, so
+  no split-pane-style capacity problem here at all — F-35 needed no pagination).
 - Both shells wire a plain pointerdown/pointerup pair per button: pointerdown sends one step
   immediately, then repeats it at a fixed interval (typematic — press once, then repeat after an
   initial delay, same feel as a held keyboard key: `TGP_ZOOM_STEP_INITIAL_DELAY_MS` = 350,
@@ -831,6 +841,31 @@ mouse/touch pilot had no way to point the manual camera at all short of a bound 
   out as its own color scheme. The pad's own translucent fill (`rgba(0, 0, 0, 0.6)`) matches the stat
   overlay's own pill background (`.tgp-ov-stat`, `.tgp-ov-compass`) exactly, rather than an
   independently-chosen alpha.
+- **Auto-hide on physical PAD Cursor input**: the joystick and the physical PAD Cursor keys/axes
+  both ultimately drive the same `TgpManualControl.SetPan` — leaving the joystick sitting on top
+  reads as broken the moment a HOTAS stick or bound key is what's actually moving the camera, so it
+  hides (`.tgp-joystick-hidden`) the instant something else is clearly doing that. Sticky, not a
+  live toggle: once hidden it stays hidden until the player deliberately asks for it back — tapping
+  the picture (`#tgp-img`'s own `pointerdown`), or reopening the page (this script re-runs fresh on
+  every navigation onto TGP, mfd.js/f35.js's own iframe/portal reload, so the hidden flag already
+  starts false there) — rather than flickering back the instant physical input pauses for a frame.
+  Requires forwarding the shell's own `'cursor'` broadcast to TGP too: `tgp` joins
+  `PAD_CURSOR_PAGES` in both `mfd.js` and `f35.js` (`src/web/README.md`'s "PAD cursor" section) even
+  though it draws no crosshair and doesn't use `pad-cursor.js` — it just wants the raw vector for
+  this one purpose. `joystickPointerId !== null` (an active local drag) always wins over the
+  broadcast, so dragging the knob never hides itself out from under the player mid-drag; a small
+  deadzone (`CURSOR_HIDE_DEADZONE = 0.05`) ignores stick noise.
+  <br>ponytail: the incoming vector is "physical PAD Cursor input, scoped to whichever page is
+  currently shell-focused" (the `PAD_CURSOR_PAGES` forward above), not literally "is the physical
+  input currently reaching `SetPan` server-side" (that also needs `TelemetryServer.IsTgpSoi`, a
+  separate native SOI concept this page has no visibility into). The two agree in the
+  overwhelmingly common case — viewing TGP while its camera holds native SOI, which manual mode's
+  own `Engage()` already arranges via `ClaimNativeTgpSoi()` — and only disagree in an edge case (SOI
+  Next/Prev tabbed away from the camera while TGP is still the page on screen), where the worst
+  outcome is a slightly early/late hide of a control the player can always tap straight back.
+  Upgrade path if that ever proves annoying in practice: have the server-side `'tgp'` message carry
+  an explicit "physical input is currently steering this camera" flag instead of inferring it
+  client-side from page focus.
 
 ## Native-lock CLR/IR override (built)
 

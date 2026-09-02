@@ -267,6 +267,12 @@ const buildWpnSplitPages = ClassicPaging.buildWpnSplitPages;
 // Reset to 0 when a pane (re)enters MAIN (paneNavigate), same as paneWpnPage for WPN.
 let paneMainPage = [0, 0];
 
+// Per-pane TGP pagination index — a plain 2-page toggle (renderSplitLabels' own 'tgp' branch),
+// not a generic list-pagination scheme like MAIN/MAP/WPN above: TGP only ever has exactly 2 fixed
+// sets of keys (never an open-ended list), so a bare 0/1 flip is all it needs. Reset to 0 when a
+// pane (re)enters TGP, same as the others.
+let paneTgpPage = [0, 0];
+
 // Per-pane MAP pagination index — NAV.map paged across the pane's keys the same way MAIN's list
 // is (mapNavPaneSlice), since NAV.map's 10 items exceed a split pane's 6-key budget. Reset to 0
 // when a pane (re)enters MAP (paneNavigate).
@@ -494,21 +500,38 @@ function renderSplitLabels() {
       // TGP's split-pane twin of placeTgpNavLabels (full view) — LCK/MAN/CLR/IR are dynamic
       // (tgpMarks()), so like full view they're hand-placed rather than read off NAV.tgp/
       // SPLIT_SLOTS.tgp (which stay MAIN+CFG only, same "empty NAV, hand-rolled labels" shape as
-      // WPN's ARM/SAFE/A-A/A-G split rendering). A pane only has 3 slots per bank, so the pair
-      // MAIN/LCK/MAN fills the left bank and CLR/IR/CFG fills the right — keeps each decorator's
-      // pair adjacent on one bank, same requirement placeMapPaneDecorator/placeWpnPaneDecorator
-      // enforce for theirs.
+      // WPN's ARM/SAFE/A-A/A-G split rendering). A pane only has 3 slots per bank (6 total), and
+      // TGP now has 8 destinations (MAIN/LCK/MAN/CLR/IR/CFG/Z+/Z-) — one more than fits. Rather
+      // than a generic list-pagination scheme (MAIN/MAP's own, built for an open-ended list), this
+      // just flips between two fixed sets (paneTgpPage), since TGP only ever needs exactly two:
+      // page 0 is byte-for-byte what full view and this pane already showed before Z+/Z- existed
+      // (nothing shifts for the common LCK/MAN/CLR/IR case), page 1 swaps in Z+/Z-/CFG behind a
+      // NEXT/PREV toggle at the one shared slot (right2) — same "pair stays adjacent on one bank"
+      // requirement placeMapPaneDecorator/placeWpnPaneDecorator enforce for their own decorators.
       const marks = tgpMarks();
+      const tgpPage = paneTgpPage[paneIdx] || 0;
       placeSplitKey(paneKey(paneIdx, 'left', 0), NAV.tgp[0].label, NAV.tgp[0].action, paneTag);
-      placeSplitKey(paneKey(paneIdx, 'left', 1), 'LCK', 'tgp-manual-off', paneTag, marks.tgt);
-      placeSplitKey(paneKey(paneIdx, 'left', 2), 'MAN', 'tgp-manual-on',  paneTag, marks.man);
-      placeSplitKey(paneKey(paneIdx, 'right', 0), 'CLR', 'tgp-ir-off',    paneTag, marks.clr);
-      placeSplitKey(paneKey(paneIdx, 'right', 1), 'IR',  'tgp-ir-on',     paneTag, marks.ir);
-      placeSplitKey(paneKey(paneIdx, 'right', 2), NAV.tgp[1].label, NAV.tgp[1].action, paneTag);
-      const tgtKey = paneKey(paneIdx, 'left', 1);
-      const clrKey = paneKey(paneIdx, 'right', 0);
-      placeWpnDecorator(tgtKey.bank, tgtKey.index + 1, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
-      placeWpnDecorator(clrKey.bank, clrKey.index + 1, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
+      if (tgpPage === 0) {
+        placeSplitKey(paneKey(paneIdx, 'left', 1), 'LCK', 'tgp-manual-off', paneTag, marks.tgt);
+        placeSplitKey(paneKey(paneIdx, 'left', 2), 'MAN', 'tgp-manual-on',  paneTag, marks.man);
+        placeSplitKey(paneKey(paneIdx, 'right', 0), 'CLR', 'tgp-ir-off',    paneTag, marks.clr);
+        placeSplitKey(paneKey(paneIdx, 'right', 1), 'IR',  'tgp-ir-on',     paneTag, marks.ir);
+        placeSplitKey(paneKey(paneIdx, 'right', 2), 'NEXT', 'tgp-nav-next', paneTag);
+        const tgtKey = paneKey(paneIdx, 'left', 1);
+        const clrKey = paneKey(paneIdx, 'right', 0);
+        placeWpnDecorator(tgtKey.bank, tgtKey.index + 1, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
+        placeWpnDecorator(clrKey.bank, clrKey.index + 1, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
+      } else {
+        // CFG moves here (off its usual right2) rather than being dropped — right2 is spoken for
+        // by the PREV toggle on this page. Right1 is left empty rather than reshuffled further, the
+        // same "an unused slot is fine" shape HUD/KEYS's own 4-of-6 split placement already uses.
+        placeSplitKey(paneKey(paneIdx, 'left', 1), 'Z+', 'tgp-zoom-in',  paneTag);
+        placeSplitKey(paneKey(paneIdx, 'left', 2), 'Z-', 'tgp-zoom-out', paneTag);
+        placeSplitKey(paneKey(paneIdx, 'right', 0), NAV.tgp[1].label, NAV.tgp[1].action, paneTag);
+        placeSplitKey(paneKey(paneIdx, 'right', 2), 'PREV', 'tgp-nav-prev', paneTag);
+        const zKey = paneKey(paneIdx, 'left', 1);
+        placeWpnDecorator(zKey.bank, zKey.index + 1, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
+      }
       continue;
     }
 
@@ -600,6 +623,7 @@ function paneNavigate(paneIdx, page) {
   if (page === 'main') paneMainPage[paneIdx] = 0;   // fresh pane always opens on MAIN's first page
   if (page === 'map')  paneMapNavPage[paneIdx] = 0; // fresh pane always opens on MAP's first nav page
   if (page === 'avn')  paneAvnPage[paneIdx]  = 0;   // fresh pane always opens on the first 4 groups
+  if (page === 'tgp')  paneTgpPage[paneIdx]  = 0;   // fresh pane always opens on TGP's first page
   paneFollowOn[paneIdx] = false;   // iframe reloads; follow restarts off (re-reported on load)
   paneIframes[paneIdx].src = url;
   renderSplitLabels();
@@ -2103,8 +2127,11 @@ function reportPanes() {
 // ── PAD cursor forwarding (docs/page-cursor.md, docs/map-cursor.md) ───────────────────
 // Pages that carry their own PAD cursor (pad-cursor.js) — MAP's canvas crosshair, and TGT/HUD/
 // RDR/HSD/WPT/SQD/AKF's DOM-hit-test cursor. AKF has its ALL/PLAYER resizer to click; BDF/PAL stay
-// out: read-only, nothing to click (docs/page-cursor.md).
-const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true, hsd: true };
+// out: read-only, nothing to click (docs/page-cursor.md). TGP is the one exception to "draws a
+// crosshair": it doesn't use pad-cursor.js at all, but still wants the raw vector while it's the
+// focused page — its on-screen joystick uses it purely to detect physical PAD Cursor input and
+// hide itself in favor of prioritizing that (docs/tgp-manual-control.md's "On-screen joystick").
+const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true, hsd: true, tgp: true };
 
 // The focused surface is drivable as a PAD cursor only while it's actually SHOWING an eligible
 // page — the SOI ring/bezel-key cursor above frames "the recess," but the cursor needs the real
@@ -2268,6 +2295,15 @@ function mfdButton(el) {
       // own paging just above, bumping paneMapNavPage (mapNavPaneSlice).
       paneMapNavPage[paneIdx] += (act === 'map-nav-next' ? 1 : -1);
       renderSplitLabels();
+    } else if (act === 'tgp-nav-prev' || act === 'tgp-nav-next') {
+      // TGP's own 2-page toggle (renderSplitLabels' 'tgp' branch) — just flips 0/1, not a
+      // generic paged-list bump like the others above (TGP only ever has exactly two pages).
+      paneTgpPage[paneIdx] = paneTgpPage[paneIdx] ? 0 : 1;
+      renderSplitLabels();
+    } else if (act === 'tgp-zoom-in' || act === 'tgp-zoom-out') {
+      // Handled entirely by the pointerdown/pointerup zoom-step wiring (isTgpZoomKey) further
+      // down — this is just the click that follows pointerup, a no-op here so it doesn't fall
+      // through to paneNavigate and warn about an unknown split page.
     } else if (act === 'lyt') {
       // LYT is a whole-document layout switch, not per-pane content (no PAGE_URL entry) — leaving
       // split is the only sensible destination, same as the 'unsplit' case below but landing on LYT

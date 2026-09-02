@@ -269,6 +269,16 @@
   opacity: 0.85;
   pointer-events: auto;
 }
+/* Auto-hidden while physical PAD Cursor input is active (tgp.js) — same specificity as the
+   .tgp-manual rule above, placed after it in source order so it wins the tie. Deliberately no
+   transition on either rule: a `transition` on a lower-specificity rule for a property a
+   higher-specificity rule also sets can end up never resolving to the override's value at all, in
+   at least one tested environment (see docs/tgp-manual-control.md's "On-screen joystick" section
+   for the full story) — this rule just snaps instantly rather than risk that again. */
+.tgp-panel.tgp-manual.tgp-joystick-hidden .tgp-joystick {
+  opacity: 0;
+  pointer-events: none;
+}
 .tgp-joystick-knob {
   position: absolute;
   left: 50%;
