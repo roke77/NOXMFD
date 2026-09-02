@@ -2608,7 +2608,6 @@ document.querySelector('.mfd').addEventListener('pointerleave', clearCombatModeH
 // back one, mirroring the physical PC keybind's own tap/hold pair (Keybinds.cs's PollTapHold,
 // map-waypoint-prev). Same shape as the combat-mode hold above; waypoint-reset (map.js) is a
 // route-only reset that no-ops with no active route.
-const WPT_PREV_HOLD_MS = 500;   // matches COMBAT_MODE_HOLD_MS above
 let wptPrevHoldTimer = null;
 let wptPrevHoldFired = false;
 function isWptPrevKey(el) { return !!el && el.dataset.action === 'wpt-prev'; }
@@ -2626,7 +2625,7 @@ document.querySelector('.mfd').addEventListener('pointerdown', function(e) {
     // Split mode: the pane's own map iframe, same targeting mfdButton's wpt-prev tap uses.
     if (splitMode && k.dataset.pane) paneMapSend(k.dataset.pane === 'top' ? 0 : 1, 'waypoint-reset');
     else mapSend('waypoint-reset');
-  }, WPT_PREV_HOLD_MS);
+  }, COMBAT_MODE_HOLD_MS);
 });
 document.querySelector('.mfd').addEventListener('pointerup', clearWptPrevHold);
 document.querySelector('.mfd').addEventListener('pointercancel', clearWptPrevHold);

@@ -373,8 +373,8 @@ namespace NOXMFD
             Route route = _routes[index];
             _routes.RemoveAt(index);
             // Nearest-neighbor fallback, same policy as DeleteSteerPoint: land on whatever is now
-            // at this position (the next route down the list) rather than always jumping to the
-            // first route, which used to make deleting anything but the last route feel random.
+            // at this position (the next route down the list) rather than always jumping back to
+            // the first route, so deleting from the middle of a long list stays predictable.
             if (_activeRouteId == id)
             {
                 _activeRouteId = _routes.Count == 0

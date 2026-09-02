@@ -891,16 +891,17 @@ mouse/touch pilot had no way to point the manual camera at all short of a bound 
   an actual pan — but a live-looking control that silently does nothing reads as broken.
 - **Layout**: fixed pixel size, not the panel-percentage scaling the stat overlay uses — a drag
   target needs a stable minimum touch size regardless of how small the panel gets, unlike text that
-  can just shrink. Positioned clear of `.tgp-ov-br`'s own bottom-right stat stack rather than the
-  same corner, so the two don't overlap when both show at once (HQ quality, manual mode).
+  can just shrink.
 - **Anchored to the screen, not the picture**: `#tgp-joystick` is a body-level sibling of
   `.tgp-panel` in `tgp.html`, not a child of it, so its `bottom`/`right` offsets resolve against the
   real screen instead of the letterboxed 3:2 picture box. A screen much taller than 3:2 (a wide
   split pane) otherwise leaves the picture vertically centered with empty space below it, stranding
-  a panel-relative joystick mid-screen instead of down near the true bottom. `right: 16px` matches
-  the shell's own NAV item labels' edge inset (`.overlay-item`, `mfd.css`). The state-driven look/hide rules
-  (`.tgp-panel.tgp-manual`, `.tgp-panel.tgp-manual.tgp-joystick-hidden`) use the general sibling
-  combinator (`~`) instead of a descendant selector to still reach it.
+  a panel-relative joystick mid-screen instead of down near the true bottom. `bottom: 16px` puts it
+  at the true screen bottom, the same edge inset the shell's own NAV item labels use on the sides;
+  `right: 100px` clears those labels' own translucent pills (`.tgp-scrim`, up to ~53px wide starting
+  16px in) — sharing their 16px inset would overlap `Z+`/`ZOOM`/`Z-`. The state-driven look/hide
+  rules (`.tgp-panel.tgp-manual`, `.tgp-panel.tgp-manual.tgp-joystick-hidden`) use the general
+  sibling combinator (`~`) instead of a descendant selector to still reach it.
 - A CSS gotcha worth remembering: a `transition` declared on a lower-specificity rule for a property
   a higher-specificity rule also sets can end up never resolving to the override's value at all, in
   at least one tested environment — dropping the transition (an instant opacity snap on the
