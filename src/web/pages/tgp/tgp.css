@@ -255,8 +255,9 @@
   width: 84px;
   height: 84px;
   border-radius: 50%;
-  border: 2px solid var(--no-green-dark);
-  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid var(--no-white-dark);
+  /* Same translucent pill background as the stat overlay text (.tgp-ov-stat, .tgp-ov-compass). */
+  background: rgba(0, 0, 0, 0.6);
   opacity: 0.35;
   pointer-events: none;
   touch-action: none;
@@ -276,8 +277,8 @@
   height: 34px;
   margin: -17px 0 0 -17px;
   border-radius: 50%;
-  background: var(--no-green-dim);
-  border: 1px solid var(--no-green);
+  background: var(--no-white-dim);
+  border: 1px solid var(--no-white);
   /* Only while NOT actively dragged — tgp.js sets the live offset as an inline transform during
      a drag, and this transition would otherwise fight that frame-by-frame update, making the
      knob visibly lag behind the pointer. */
