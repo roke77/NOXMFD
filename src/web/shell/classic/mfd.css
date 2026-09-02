@@ -535,6 +535,17 @@
   .overlay-item.right.vlabel { right: 4px; }
   .overlay-item.top { transform: translate(-50%, 0); }
   .overlay-item.bottom { transform: translate(-50%, -100%); }
+  /* TGP's own labels sit directly on top of its live picture (docs/tgp-manual-control.md's
+     "Layout placement") rather than beside it — a small translucent pill, the same rgba(0,0,0,0.6)
+     the page's own stat overlay already uses (tgp.css's .tgp-ov-stat), keeps bold white text
+     readable over a busy/bright patch of video. Added by JS per label (placeTgpNavLabels' own
+     labels, renderSplitLabels' 'tgp' branch), not scoped by page name here in CSS, since a split
+     pane's OTHER pane can be showing a different page in that very same #overlay. */
+  .overlay-item.tgp-scrim {
+    background: rgba(0, 0, 0, 0.6);
+    padding: 2px 6px;
+    border-radius: 2px;
+  }
 
   /* WPN decorators (docs/radar-master-arms.md) — purely decorative, no click action: a word with a
      solid triangle above and below, centered in the gap between a control pair (ARM/SAFE, A/A/A-G).

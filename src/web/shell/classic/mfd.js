@@ -518,20 +518,30 @@ function renderSplitLabels() {
       // the last slot in use on every page but the last, the same way.
       const marks = tgpMarks();
       const tgpPage = paneTgpPage[paneIdx] || 0;
+      // Translucent pill behind every one of THIS pane's own labels (mfd.css's
+      // .overlay-item.tgp-scrim) — same reason as full view's own sweep (placeTgpNavLabels), but
+      // collected explicitly rather than swept from #overlay: the OTHER pane can be showing a
+      // different page in that same shared overlay, so only these labels' own elements (each
+      // placeSplitKey call returns the one it created) may be touched.
+      let labels;
       if (tgpPage === 0) {
-        placeSplitKey(paneKey(paneIdx, 'left', 0), NAV.tgp[0].label, NAV.tgp[0].action, paneTag);
-        placeSplitKey(paneKey(paneIdx, 'left', 1), NAV.tgp[1].label, NAV.tgp[1].action, paneTag);
-        placeSplitKey(paneKey(paneIdx, 'left', 2), 'TRK', 'tgp-point-track', paneTag);
-        placeSplitKey(paneKey(paneIdx, 'right', 0), 'RST', 'tgp-manual-reset',   paneTag);
-        placeSplitKey(paneKey(paneIdx, 'right', 1), 'STP', 'tgp-mark-steerpoint', paneTag);
-        placeSplitKey(paneKey(paneIdx, 'right', 2), 'NEXT', 'tgp-nav-next', paneTag);
+        labels = [
+          placeSplitKey(paneKey(paneIdx, 'left', 0), NAV.tgp[0].label, NAV.tgp[0].action, paneTag),
+          placeSplitKey(paneKey(paneIdx, 'left', 1), NAV.tgp[1].label, NAV.tgp[1].action, paneTag),
+          placeSplitKey(paneKey(paneIdx, 'left', 2), 'TRK', 'tgp-point-track', paneTag),
+          placeSplitKey(paneKey(paneIdx, 'right', 0), 'RST', 'tgp-manual-reset',   paneTag),
+          placeSplitKey(paneKey(paneIdx, 'right', 1), 'STP', 'tgp-mark-steerpoint', paneTag),
+          placeSplitKey(paneKey(paneIdx, 'right', 2), 'NEXT', 'tgp-nav-next', paneTag),
+        ];
       } else if (tgpPage === 1) {
-        placeSplitKey(paneKey(paneIdx, 'left', 0), 'PREV', 'tgp-nav-prev', paneTag);
-        placeSplitKey(paneKey(paneIdx, 'left', 1), 'LCK', 'tgp-manual-off', paneTag, marks.tgt);
-        placeSplitKey(paneKey(paneIdx, 'left', 2), 'MAN', 'tgp-manual-on',  paneTag, marks.man);
-        placeSplitKey(paneKey(paneIdx, 'right', 0), 'CLR', 'tgp-ir-off',    paneTag, marks.clr);
-        placeSplitKey(paneKey(paneIdx, 'right', 1), 'IR',  'tgp-ir-on',     paneTag, marks.ir);
-        placeSplitKey(paneKey(paneIdx, 'right', 2), 'NEXT', 'tgp-nav-next', paneTag);
+        labels = [
+          placeSplitKey(paneKey(paneIdx, 'left', 0), 'PREV', 'tgp-nav-prev', paneTag),
+          placeSplitKey(paneKey(paneIdx, 'left', 1), 'LCK', 'tgp-manual-off', paneTag, marks.tgt),
+          placeSplitKey(paneKey(paneIdx, 'left', 2), 'MAN', 'tgp-manual-on',  paneTag, marks.man),
+          placeSplitKey(paneKey(paneIdx, 'right', 0), 'CLR', 'tgp-ir-off',    paneTag, marks.clr),
+          placeSplitKey(paneKey(paneIdx, 'right', 1), 'IR',  'tgp-ir-on',     paneTag, marks.ir),
+          placeSplitKey(paneKey(paneIdx, 'right', 2), 'NEXT', 'tgp-nav-next', paneTag),
+        ];
         const lckKey = paneKey(paneIdx, 'left', 1);
         const clrKey = paneKey(paneIdx, 'right', 0);
         placeWpnDecorator(lckKey.bank, lckKey.index + 1, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
@@ -539,12 +549,15 @@ function renderSplitLabels() {
       } else {
         // Last page: only Z+/Z- remain, so right0-2 are left empty rather than reshuffled further
         // — same "an unused slot is fine" shape HUD/KEYS's own 4-of-6 split placement already uses.
-        placeSplitKey(paneKey(paneIdx, 'left', 0), 'PREV', 'tgp-nav-prev', paneTag);
-        placeSplitKey(paneKey(paneIdx, 'left', 1), 'Z+', 'tgp-zoom-in',  paneTag);
-        placeSplitKey(paneKey(paneIdx, 'left', 2), 'Z-', 'tgp-zoom-out', paneTag);
+        labels = [
+          placeSplitKey(paneKey(paneIdx, 'left', 0), 'PREV', 'tgp-nav-prev', paneTag),
+          placeSplitKey(paneKey(paneIdx, 'left', 1), 'Z+', 'tgp-zoom-in',  paneTag),
+          placeSplitKey(paneKey(paneIdx, 'left', 2), 'Z-', 'tgp-zoom-out', paneTag),
+        ];
         const zKey = paneKey(paneIdx, 'left', 1);
         placeWpnDecorator(zKey.bank, zKey.index + 1, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
       }
+      labels.forEach(function(el) { if (el) el.classList.add('tgp-scrim'); });
       continue;
     }
 
@@ -1141,6 +1154,11 @@ function placeTgpNavLabels() {
   placeOverlayLabel('right', 4, 'Z+', 'tgp-zoom-in');
   placeOverlayLabel('right', 5, 'Z-', 'tgp-zoom-out');
   placeWpnDecorator('right', 5, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
+  // Translucent pill behind every one of THIS page's own labels (mfd.css's .overlay-item.tgp-scrim)
+  // — the live picture behind them runs full-bleed (tgp.css), unlike every other page's plain
+  // background. Safe to sweep all .overlay-item here: this function just cleared and is the only
+  // thing populating #overlay while TGP full view is showing.
+  overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.classList.add('tgp-scrim'); });
 }
 // Split-pane MASTER/MODE: unlike full view's fixed right2/right4, a split pane's ctrl pair can land
 // on any of its 4 item slots depending on pagination (buildWpnSplitPages) — found here by id rather

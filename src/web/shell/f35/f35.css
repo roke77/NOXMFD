@@ -566,6 +566,18 @@ html, body {
   cursor: pointer;
 }
 
+/* TGP's own labels sit directly on top of its live picture (docs/tgp-manual-control.md's "Layout
+   placement") rather than beside it, unlike every other page's plain background — a small
+   translucent pill, the same rgba(0,0,0,0.6) the page's own stat overlay already uses (tgp.css's
+   .tgp-ov-stat), keeps the text readable over a busy/bright patch of video. Scoped by the grid's
+   own [data-page] (f35.js's renderNav), not a JS-added class per label like the bezel's own
+   .tgp-scrim needs — each portal here only ever shows one page at a time, so there's no
+   split-pane-style case of a second page's labels sharing this same grid. */
+.nav-grid[data-page="tgp"] .nav-item {
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 2px;
+}
+
 /* Edge: hug the outer edge, centred in the row's band — where the leftmost bezel key would sit. */
 .nav-grid.edge .nav-item {
   justify-self: start;

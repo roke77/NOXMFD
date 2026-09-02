@@ -5,24 +5,18 @@
 /* Centred 3:2 box sized to the source (TargetCam renders 360x240). Shrinking the panel drops
    the upscale ratio, which cuts the bilinear blur. The surrounding screen stays black.
 
-   Inset from the left/right screen edges (not top/bottom) by --tgp-side-margin: the shell's own
-   NAV item labels (.overlay-item, mfd.css) sit 16px from those same edges, at a fixed font-size
-   regardless of screen size, and this page's own live picture otherwise runs edge-to-edge behind
-   them — busy/bright video under white bold text reads poorly. min(…, 20%) keeps the margin from
-   ever eating the whole panel on a narrow split pane; at any normal full-view or split width it
-   resolves to the full 80px, comfortably past the widest label (MAIN, ~53px wide at 22px in). */
-body {
-  /* Shared with .tgp-joystick below (a body-level sibling of .tgp-panel, not a descendant) so its
-     own right offset can track the panel's inset without duplicating the number. */
-  --tgp-side-margin: min(80px, 20%);
-}
+   Full width/height, not inset from the shell's own NAV item labels (.overlay-item, mfd.css) —
+   those sit 16px from the same edges this picture runs to, so the labels land on top of the live
+   feed rather than beside it. An earlier attempt inset the panel instead; a translucent background
+   on the labels themselves (mfd.css's .tgp-scrim, f35.css's [data-page="tgp"] .nav-item) reads
+   better than shrinking the picture to make room, so that's the shape now. */
 .tgp-panel {
   position: absolute;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  width: calc(100% - 2 * var(--tgp-side-margin));
+  width: 100%;
   aspect-ratio: 3 / 2;
-  max-width: calc(100% - 2 * var(--tgp-side-margin));
+  max-width: 100%;
   max-height: 100%;
   background: var(--no-bg);
 }
@@ -260,16 +254,15 @@ body {
    picture box — a screen much taller than 3:2 (a wide split pane) would otherwise leave the
    picture vertically centered with a lot of empty space below it, stranding a panel-relative
    joystick mid-screen instead of down where a pilot expects a pan/tilt control to sit.
-   `right` mirrors the panel's own --tgp-side-margin inset (tgp.css's .tgp-panel) so it still lines
-   up with the picture's own right edge; `bottom: 90px` clears .tgp-ov-br's bottom-right stat
-   stack (3 lines at this font-size) the same way it always has — full-bleed portrait's picture
-   already reaches close to the real screen bottom, so this number didn't need to change, only
-   what it's measured against. Fixed px size rather than the panel-percentage scaling the overlay
-   above uses: a drag target needs a stable minimum touch size regardless of how small the panel
-   gets, unlike text that can just shrink. */
+   `right: 16px` matches the shell's own NAV item labels' edge inset (.overlay-item, mfd.css);
+   `bottom: 90px` clears .tgp-ov-br's bottom-right stat stack (3 lines at this font-size) the same
+   way it always has — full-bleed portrait's picture already reaches close to the real screen
+   bottom, so this number didn't need to change, only what it's measured against. Fixed px size
+   rather than the panel-percentage scaling the overlay above uses: a drag target needs a stable
+   minimum touch size regardless of how small the panel gets, unlike text that can just shrink. */
 .tgp-joystick {
   position: absolute;
-  right: calc(16px + var(--tgp-side-margin));
+  right: 16px;
   bottom: 90px;
   width: 84px;
   height: 84px;

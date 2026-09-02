@@ -833,6 +833,24 @@ the two highlighted state pairs plus zoom.
   exactly) — a portal's grid has 2 columns × 6 rows = 12 cells total, so no split-pane-style
   capacity problem here at all, F-35 needed no pagination.
 
+**Readability over the live picture.** These labels sit directly on top of TGP's own feed
+(`tgp.css`'s `.tgp-panel` runs full width/height, unlike every other page's plain background) —
+an earlier attempt instead inset the picture from the screen's left/right edges to leave the
+labels a clear strip of background, but that shrank the picture on every screen just to protect
+fixed-size text, and a wide split pane's picture was already vertically letterboxed so the inset
+often bought nothing there anyway. Simpler and more robust: give each label a small translucent
+pill instead — the same `rgba(0,0,0,0.6)` the page's own stat overlay already uses (`tgp.css`'s
+`.tgp-ov-stat`) — and accept the labels overlapping the feed.
+- Classic bezel (`mfd.css`'s `.overlay-item.tgp-scrim`): added by JS per label, not scoped by page
+  name in CSS alone. `placeTgpNavLabels` (full view) sweeps every `.overlay-item` it just placed —
+  safe, since that function is the only thing populating `#overlay` while TGP full view shows.
+  `renderSplitLabels`' `tgp` branch instead collects each `placeSplitKey` call's own returned
+  element and scrims only those, since a split pane's OTHER pane can be showing a different page in
+  that same shared `#overlay`.
+- F-35 glass (`f35.css`'s `.nav-grid[data-page="tgp"] .nav-item`): scoped by the grid's own
+  `[data-page]` attribute (`f35.js`'s `renderNav`) instead — no JS-added class needed, since each
+  portal only ever shows one page at a time, unlike the bezel's shared split-pane overlay.
+
 ## On-screen joystick (built)
 
 A mouse/touch-only pan/tilt control on the TGP page itself (`#tgp-joystick`, `tgp.js`), bottom-right
@@ -879,9 +897,8 @@ mouse/touch pilot had no way to point the manual camera at all short of a bound 
   `.tgp-panel` in `tgp.html`, not a child of it, so its `bottom`/`right` offsets resolve against the
   real screen instead of the letterboxed 3:2 picture box. A screen much taller than 3:2 (a wide
   split pane) otherwise leaves the picture vertically centered with empty space below it, stranding
-  a panel-relative joystick mid-screen instead of down near the true bottom. `right` reads the
-  panel's own `--tgp-side-margin` custom property (moved up to `body`, shared by both) so it still
-  lines up with the picture's own right edge. The state-driven look/hide rules
+  a panel-relative joystick mid-screen instead of down near the true bottom. `right: 16px` matches
+  the shell's own NAV item labels' edge inset (`.overlay-item`, `mfd.css`). The state-driven look/hide rules
   (`.tgp-panel.tgp-manual`, `.tgp-panel.tgp-manual.tgp-joystick-hidden`) use the general sibling
   combinator (`~`) instead of a descendant selector to still reach it.
 - A CSS gotcha worth remembering: a `transition` declared on a lower-specificity rule for a property
