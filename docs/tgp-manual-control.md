@@ -762,22 +762,30 @@ is a no-op, matching `master-arms.set`/`combat-mode.set`'s own shape rather than
   `markMasterArms`/`markCombatMode`.
 
 **Z+/Z- (built) — the manual camera's own on-page zoom buttons**, distinct from the general
-remote-keybind role wiring still deferred above: two plain bezel buttons calling
-`TgpManualControl.SetZoom(dir, on)` directly through a new `tgp.zoom.set { index, on }` command
-(`CommandDispatcher.cs`), the exact same API the physical Cursor Zoom In/Out keybind's `tgpSoi`
-branch already drives (`Keybinds.cs`). Continuous while held, not a "set" pair like LCK/MAN
-above — `index` carries the dir CommandDispatcher forwards straight to `SetZoom`, `on` is true on
-press and false on release. A no-op while `ManualMode` is off (LCK mode): `TgpManualControl.Tick()`
-returns immediately whenever `!ManualMode`, so the held flags `SetZoom` sets are simply never read
-into an actual zoom — no extra gating needed in the command handler.
+remote-keybind role wiring still deferred above: two plain bezel buttons jumping between fixed
+magnification LEVELS via `TgpManualControl.StepZoom(dir)`, through a `tgp.zoom.step { index }`
+command (`CommandDispatcher.cs`) — not the physical Cursor Zoom In/Out keybind's own continuous
+rate (`SetZoom`/`tgp.zoom.set`, unchanged and still used by the keybind). Dialing through every
+intermediate magnification decimal-by-decimal at the keybind's rate was slow to land on a specific
+number, so the bezel buttons instead jump straight to the next of a fixed list of magnifications
+(`TgpManualAimMath.ZoomLevelsMag`: 0.5, 1, 2, 4, 8, 16, 32, 40x — roughly doubling each step,
+covering the same 0.5x-40x range the continuous zoom already does). `NextZoomLevelMag(currentMag,
+dir)` picks the next level up/down from wherever the FOV currently sits (not necessarily itself a
+level, e.g. left over from the keybind's continuous zoom), clamping at the ends rather than
+wrapping. A no-op while `ManualMode` is off (LCK mode): `TgpManualControl.Tick()` never reads
+`_desiredFov` outside manual mode, so a step taken while off just sits there unseen until the next
+`Engage()` resets it to `MaxFov` anyway — no extra gating needed in the command handler.
 - Classic bezel, full view only (`placeTgpNavLabels`): `Z+`/`Z-` fill `right0`/`right1`, the
   otherwise-empty right bank — TGP's split-pane branch has no room (all 6 of its slots are already
   MAIN/LCK/MAN/CLR/IR/CFG), so split-pane TGP has no zoom buttons.
 - F-35 glass: `TGP_ZOOM_NAV` places `Z+`/`Z-` at column 2, rows 2-3 — column 2 is entirely free for
   TGP (only column 1 is spoken for), so there's no split-pane-style capacity problem here.
-- Both shells wire a plain pointerdown/pointerup pair per button (no tap-vs-hold split — a quick
-  tap is just a brief zoom nudge, which is fine), rather than routing through `dispatch()`/
-  `mfdButton()`'s generic click switch the way LCK/MAN/CLR/IR do.
+- Both shells wire a plain pointerdown/pointerup pair per button: pointerdown sends one step
+  immediately, then repeats it at a fixed interval (typematic — press once, then repeat after an
+  initial delay, same feel as a held keyboard key: `TGP_ZOOM_STEP_INITIAL_DELAY_MS` = 350,
+  `TGP_ZOOM_STEP_REPEAT_MS` = 150) until pointerup/pointercancel/pointerleave clears the timer.
+  Classic shell tracks the held pointer by its `pointerId` (not by re-checking which key is under
+  the pointer at release), so dragging off the key before lifting still stops the repeat.
 
 ## On-screen joystick (built)
 
@@ -817,6 +825,12 @@ mouse/touch pilot had no way to point the manual camera at all short of a bound 
   at least one tested environment — dropping the transition (an instant opacity snap on the
   `.tgp-manual` gate above) sidesteps it entirely rather than chasing the exact conditions that
   trigger it.
+- **Colors**: white ring/knob at rest (`--no-white-dark` border, `--no-white-dim` knob fill,
+  `--no-white` knob border), amber (`--no-amber`) while actively dragging (`.dragging` class) — same
+  family/shade mapping the rest of the page's white-on-black look uses, so the control doesn't stand
+  out as its own color scheme. The pad's own translucent fill (`rgba(0, 0, 0, 0.6)`) matches the stat
+  overlay's own pill background (`.tgp-ov-stat`, `.tgp-ov-compass`) exactly, rather than an
+  independently-chosen alpha.
 
 ## Native-lock CLR/IR override (built)
 

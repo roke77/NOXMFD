@@ -2548,22 +2548,35 @@ document.querySelector('.mfd').addEventListener('pointerup', clearWptPrevHold);
 document.querySelector('.mfd').addEventListener('pointercancel', clearWptPrevHold);
 document.querySelector('.mfd').addEventListener('pointerleave', clearWptPrevHold);
 
-// TGP page's Z+/Z- bezel keys: continuous zoom while held, same shape as the physical Cursor
-// Zoom In/Out keybind's own tgpSoi branch — no tap-vs-hold split like the pairs above, just
-// on-press/on-release (tgp.zoom.set { index: dir, on }, TgpManualControl.SetZoom). A quick tap
-// still works fine (a brief zoom nudge), so there's no separate click handler or hold-fired
-// suppression to wire — the click that follows pointerup for these two actions is already a
-// harmless no-op in mfdButton's default case.
+// TGP page's Z+/Z- bezel keys: discrete magnification LEVELS (tgp.zoom.step,
+// TgpManualControl.StepZoom) rather than the physical Cursor Zoom In/Out keybind's own
+// continuous rate — dialing through every intermediate magnification decimal-by-decimal was slow
+// to land on a specific number. One press jumps a level; holding repeats at a fixed interval
+// (typematic — press once immediately, then repeat after an initial delay) until released.
+// Tracked by pointerId rather than re-checking which key is under the pointer at release, so
+// dragging off the key before lifting still stops the repeat.
+const TGP_ZOOM_STEP_INITIAL_DELAY_MS = 350;
+const TGP_ZOOM_STEP_REPEAT_MS = 150;
 function isTgpZoomKey(el) { return !!el && (el.dataset.action === 'tgp-zoom-in' || el.dataset.action === 'tgp-zoom-out'); }
+let tgpZoomPointerId = null;
+let tgpZoomTimer = null;
+function stepTgpZoom(dir) { sendCommand('tgp.zoom.step', { index: dir }).catch(function() {}); }
 document.querySelector('.mfd').addEventListener('pointerdown', function(e) {
   const k = e.target.closest('.key');
-  if (!isTgpZoomKey(k)) return;
-  sendCommand('tgp.zoom.set', { index: k.dataset.action === 'tgp-zoom-in' ? 1 : -1, on: true }).catch(function() {});
+  if (!isTgpZoomKey(k) || tgpZoomPointerId !== null) return;
+  const dir = k.dataset.action === 'tgp-zoom-in' ? 1 : -1;
+  tgpZoomPointerId = e.pointerId;
+  stepTgpZoom(dir);
+  tgpZoomTimer = setTimeout(function repeat() {
+    stepTgpZoom(dir);
+    tgpZoomTimer = setTimeout(repeat, TGP_ZOOM_STEP_REPEAT_MS);
+  }, TGP_ZOOM_STEP_INITIAL_DELAY_MS);
 });
 function stopTgpZoom(e) {
-  const k = e.target.closest ? e.target.closest('.key') : null;
-  if (!isTgpZoomKey(k)) return;
-  sendCommand('tgp.zoom.set', { index: k.dataset.action === 'tgp-zoom-in' ? 1 : -1, on: false }).catch(function() {});
+  if (e.pointerId !== tgpZoomPointerId) return;
+  tgpZoomPointerId = null;
+  clearTimeout(tgpZoomTimer);
+  tgpZoomTimer = null;
 }
 document.querySelector('.mfd').addEventListener('pointerup', stopTgpZoom);
 document.querySelector('.mfd').addEventListener('pointercancel', stopTgpZoom);

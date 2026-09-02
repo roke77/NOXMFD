@@ -136,6 +136,24 @@ namespace NOXMFD
             else if (dir < 0) _zoomOutHeld = on;
         }
 
+        // dir: +1 = jump to the next magnification level up, -1 = the next one down
+        // (TgpManualAimMath.NextZoomLevelMag's fixed level list — mag = 10/FOV, same formula
+        // ComputeOverlaySample already reports as "Mag x_" on the overlay). Sweeping the full
+        // MinFov..MaxFov range at ZoomRateFovPerSec (the physical Cursor Zoom In/Out keybind's own
+        // continuous rate) reads as painfully slow when all you want is "roughly double the
+        // magnification" — a bezel tap should land on a specific, predictable number instead of
+        // however far a press-and-guess landed. Unlike SetZoom/SetPan's held-state fields (only
+        // ever applied through Tick()'s own gate), this writes _desiredFov directly — same "a UI
+        // action's own value IS the result, immediately" reasoning SetZoomAxis's direct assignment
+        // already uses, not a rate to integrate over time. Harmless to call while ManualMode is
+        // off: Tick() never reads _desiredFov outside manual mode, and Engage() resets it to
+        // MaxFov on the next entry regardless.
+        internal static void StepZoom(int dir)
+        {
+            float targetMag = TgpManualAimMath.NextZoomLevelMag(10f / _desiredFov, dir);
+            _desiredFov = Mathf.Clamp(10f / targetMag, MinFov, MaxFov);
+        }
+
         // A calibrated physical axis (e.g. a HOTAS slider), driving zoom as an absolute position
         // rather than a rate: -1 = fully zoomed out (MaxFov), +1 = fully zoomed in (MinFov). Pass
         // null when the axis isn't bound, so Tick() falls back to the in/out held buttons above.

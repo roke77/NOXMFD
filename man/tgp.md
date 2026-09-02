@@ -96,13 +96,15 @@ Manual control reuses the same PAD Cursor every other display already uses (see
   focused display drives that display's own zoom/scroll instead.
 - Manual control keeps running even while SOI is elsewhere on another display — it doesn't stop
   pointing, it just stops listening for input until SOI comes back to it.
-- **Z+ / Z−** on this page's own nav row zoom the same way, without needing SOI at all — press
-  and hold for a steady zoom, same rate as the keybind. No effect while a real unit is locked
+- **Z+ / Z−** on this page's own nav row jump the zoom to the next fixed magnification level
+  (roughly doubling each press: 0.5x, 1x, 2x, 4x, 8x, 16x, 32x, 40x) — no SOI needed. Press and
+  hold to keep stepping through levels until you let go. No effect while a real unit is locked
   instead of the manual camera.
 - A **joystick** in the bottom-right corner of the picture, for a mouse or touch screen: press and
   drag it, and the camera pans and tilts toward the direction you dragged, the further the faster.
-  Let go and it snaps back to center. Works without SOI too. Dimmed and inactive while a real unit
-  is locked instead of the manual camera.
+  Let go and it snaps back to center. Works without SOI too. White and dim while idle, amber while
+  you're actively dragging it; dimmed further and inactive while a real unit is locked instead of
+  the manual camera.
 
 ## In-game HUD cue
 

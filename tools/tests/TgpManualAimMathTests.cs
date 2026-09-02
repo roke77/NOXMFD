@@ -82,5 +82,22 @@ namespace NOXMFD.Tests
             Assert.True(Math.Abs(ratioHigh - ratioLow) < 0.01f,
                 $"expected equal mag ratios across axis halves, got low-half={ratioLow:0.###}x high-half={ratioHigh:0.###}x");
         }
+
+        [Fact]
+        public void Next_zoom_level_steps_through_the_fixed_list_in_each_direction()
+        {
+            Near(TgpManualAimMath.NextZoomLevelMag(1f, dir: 1), 2f);
+            Near(TgpManualAimMath.NextZoomLevelMag(1f, dir: -1), 0.5f);
+            // Sitting exactly on a level still advances past it, not stuck re-selecting it.
+            Near(TgpManualAimMath.NextZoomLevelMag(2f, dir: 1), 4f);
+            Near(TgpManualAimMath.NextZoomLevelMag(2f, dir: -1), 1f);
+        }
+
+        [Fact]
+        public void Next_zoom_level_clamps_at_the_ends_instead_of_wrapping()
+        {
+            Near(TgpManualAimMath.NextZoomLevelMag(40f, dir: 1), 40f);
+            Near(TgpManualAimMath.NextZoomLevelMag(0.5f, dir: -1), 0.5f);
+        }
     }
 }

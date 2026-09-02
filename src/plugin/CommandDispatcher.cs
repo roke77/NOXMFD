@@ -42,7 +42,8 @@ namespace NOXMFD
                                 // sqd.create / sqd.set-callsign : the squad's flight number 1-9
                                 // (Squadron Callsign System, docs/squadron-transport.md) — editable
                                 // later via sqd.set-callsign too, not fixed for the squad's life
-                                // tgp.zoom.set : +1 = zoom in, -1 = zoom out (TgpManualControl.SetZoom's dir)
+                                // tgp.zoom.set / tgp.zoom.step : +1 = zoom in, -1 = zoom out
+                                // (TgpManualControl.SetZoom/StepZoom's dir)
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
                                 // tgp.manual.set : desired ManualMode state
                                 // tgp.ir.set : desired IR state (true = IR, false = COLOR)
@@ -146,11 +147,16 @@ namespace NOXMFD
                 // keybinds, same "set" shape as master-arms.set above rather than a blind flip.
                 { "tgp.manual.set", e => TgpManualControl.SetManual(e.on) },
                 { "tgp.ir.set",     e => TgpManualControl.SetIR(e.on) },
-                // TGP page's own Z+/Z- bezel buttons — same continuous held shape as the physical
-                // Cursor Zoom In/Out keybind's own tgpSoi branch (Keybinds.cs), calling the exact
-                // same TgpManualControl.SetZoom(dir, on) API; a no-op while ManualMode is off
-                // (LCK mode), since TgpManualControl.Tick() itself never applies zoom outside
-                // manual control — no extra gating needed here.
+                // TGP page's own Z+/Z- bezel buttons — discrete magnification LEVELS
+                // (TgpManualControl.StepZoom), one jump per command, not the physical Cursor Zoom
+                // In/Out keybind's own continuous held rate (tgp.zoom.set below is still that
+                // rate, kept for the keybind). The page itself repeats this command at a fixed
+                // interval while the bezel button is held (tgp.js), rather than the plugin timing
+                // a "held" rate — a no-op while ManualMode is off (LCK mode), since
+                // TgpManualControl.Tick() never reads _desiredFov outside manual control.
+                { "tgp.zoom.step",  e => TgpManualControl.StepZoom(e.index) },
+                // Physical Cursor Zoom In/Out keybind's own continuous held rate — same API/shape
+                // as before; unaffected by the bezel buttons switching to discrete steps above.
                 { "tgp.zoom.set",   e => TgpManualControl.SetZoom(e.index, e.on) },
                 // Routes through Keybinds.SetCombatMode (not a bare assignment) so the WPN page's own
                 // A/A / A/G controls get the same weapon auto-switch as the physical keybind — one

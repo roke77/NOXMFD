@@ -198,11 +198,15 @@
   ];
   // Z+/Z- (manual camera zoom) — column 2 is entirely free for TGP (only column 1 is spoken
   // for above), unlike COMBAT_MODE_ACTIONS/TGP_MODE_ACTIONS/TGP_IR_ACTIONS this isn't an
-  // explicit-state "set" (no single boolean value to react to) — it's a continuous held input,
-  // wired with its own pointerdown/pointerup pair in renderNav() below rather than through
-  // dispatch(); the value here is the dir tgp.zoom.set's `index` field expects
-  // (TgpManualControl.SetZoom(dir, on), docs/tgp-manual-control.md).
+  // explicit-state "set" (no single boolean value to react to) — it jumps between discrete
+  // magnification LEVELS (tgp.zoom.step, TgpManualControl.StepZoom), wired with its own
+  // pointerdown/pointerup pair in renderNav() below rather than through dispatch(); the value
+  // here is the dir tgp.zoom.step's `index` field expects. Holding repeats the step at a fixed
+  // interval (typematic) rather than the physical Cursor Zoom In/Out keybind's own continuous
+  // rate — see the wiring below for why (docs/tgp-manual-control.md).
   const TGP_ZOOM_ACTIONS = { 'tgp-zoom-in': 1, 'tgp-zoom-out': -1 };
+  const TGP_ZOOM_STEP_INITIAL_DELAY_MS = 350;
+  const TGP_ZOOM_STEP_REPEAT_MS = 150;
   const TGP_ZOOM_NAV = [
     { label: 'Z+', action: 'tgp-zoom-in',  cell: { row: 2, col: 2 } },
     { label: 'Z-', action: 'tgp-zoom-out', cell: { row: 3, col: 2 } },
@@ -724,18 +728,24 @@
           b.addEventListener('pointerleave', clearHold);
           b.addEventListener('click', function () { if (!holdFired) dispatch(item.action); });
         } else if (wired && item.action in TGP_ZOOM_ACTIONS) {
-          // Continuous zoom while held, same shape as the physical Cursor Zoom In/Out keybind's
-          // own tgpSoi branch (Keybinds.cs) — no tap-vs-hold split like the pairs above, just
-          // on-press/on-release (tgp.zoom.set { index, on }, TgpManualControl.SetZoom). A quick
-          // tap still works fine as a brief zoom nudge, so the plain dispatch() click fallback
-          // below is skipped entirely — dispatch('tgp-zoom-in') would be a harmless no-op anyway
-          // (not in any of its recognized dictionaries, and has('tgp-zoom-in') is false), but
-          // there is no reason to fire it on top of the pointerup command below.
+          // Discrete magnification LEVELS (tgp.zoom.step, TgpManualControl.StepZoom) — one jump
+          // per press. Holding repeats the step at a fixed interval (typematic — once
+          // immediately, then repeat after an initial delay) until released, so the plain
+          // dispatch() click fallback below is skipped entirely — dispatch('tgp-zoom-in') would
+          // be a harmless no-op anyway (not in any of its recognized dictionaries, and
+          // has('tgp-zoom-in') is false), but there is no reason to fire it on top of the tap
+          // step pointerdown already sends.
           const dir = TGP_ZOOM_ACTIONS[item.action];
+          let repeatTimer = null;
+          const stepZoom = function () { sendCommand('tgp.zoom.step', { index: dir }).catch(function () {}); };
           b.addEventListener('pointerdown', function () {
-            sendCommand('tgp.zoom.set', { index: dir, on: true }).catch(function () {});
+            stepZoom();
+            repeatTimer = setTimeout(function repeat() {
+              stepZoom();
+              repeatTimer = setTimeout(repeat, TGP_ZOOM_STEP_REPEAT_MS);
+            }, TGP_ZOOM_STEP_INITIAL_DELAY_MS);
           });
-          const stop = function () { sendCommand('tgp.zoom.set', { index: dir, on: false }).catch(function () {}); };
+          const stop = function () { clearTimeout(repeatTimer); repeatTimer = null; };
           b.addEventListener('pointerup', stop);
           b.addEventListener('pointercancel', stop);
           b.addEventListener('pointerleave', stop);

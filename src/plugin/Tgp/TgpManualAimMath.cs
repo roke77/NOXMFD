@@ -58,6 +58,39 @@ namespace NOXMFD
             return (float)Math.Exp(logFov);
         }
 
+        // Fixed magnification steps the TGP page's own Z+/Z- bezel buttons jump between — roughly
+        // doubling each step, capped to the same 0.5x-40x range the continuous zoom already
+        // covers (mag = 10/FOV), with the last step short of a full double so the ceiling is
+        // reachable exactly rather than only approached.
+        internal static readonly float[] ZoomLevelsMag = { 0.5f, 1f, 2f, 4f, 8f, 16f, 32f, 40f };
+        // Guards against a level equal (within float noise) to the current mag being seen as
+        // "not yet past it" and re-selected instead of advancing to the next one.
+        private const float ZoomLevelEpsilon = 0.02f;
+
+        // dir: +1 = the next level up from currentMag, -1 = the next one down; 0 returns
+        // currentMag unchanged. Clamps to the lowest/highest level rather than wrapping, so
+        // repeated presses at either end just stop instead of cycling back around.
+        internal static float NextZoomLevelMag(float currentMag, int dir)
+        {
+            if (dir > 0)
+            {
+                for (int i = 0; i < ZoomLevelsMag.Length; i++)
+                {
+                    if (ZoomLevelsMag[i] > currentMag + ZoomLevelEpsilon) return ZoomLevelsMag[i];
+                }
+                return ZoomLevelsMag[ZoomLevelsMag.Length - 1];
+            }
+            if (dir < 0)
+            {
+                for (int i = ZoomLevelsMag.Length - 1; i >= 0; i--)
+                {
+                    if (ZoomLevelsMag[i] < currentMag - ZoomLevelEpsilon) return ZoomLevelsMag[i];
+                }
+                return ZoomLevelsMag[0];
+            }
+            return currentMag;
+        }
+
         internal static AimVector NudgeDirection(float x, float y, float z,
             float panInputX, float panInputY, float dt,
             float desiredFov, float maxFov,
