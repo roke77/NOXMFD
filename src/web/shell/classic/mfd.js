@@ -504,45 +504,45 @@ function renderSplitLabels() {
       // TGP now has 11 destinations — more than even two pages fit. Rather than a generic
       // list-pagination scheme (MAIN/MAP's own, built for an open-ended list), this just steps
       // through three fixed sets (paneTgpPage), since TGP only ever needs exactly three.
-      // Mirrors full view's own column split (placeTgpNavLabels): the left bank only ever holds
-      // MAIN/PREV plus the "go somewhere else" items (CFG, TRK, RST, STP, in that order), the
-      // right bank only ever holds the "change how the feed looks" items (LCK, MAN, CLR, IR, Z+,
-      // Z-, in that order) — a page's left/right slots never mix the two groups, even at the cost
-      // of an early page's left column running out before its right column does (page 2 here).
+      // Reading order matches full view's own left-then-right column order (placeTgpNavLabels):
+      // MAIN, CFG, TRK, RST, STP, LCK, MAN, CLR, IR, Z+, Z- — poured straight into left1, left2,
+      // right0, right1[, right2] per page (same slot-fill order mainPaneSlice/listPaneLayout use
+      // for MAIN/MAP), NOT constrained to keep left-bank slots holding only "left-column" items —
+      // a page's left/right split is a physical 3-vs-3 accident, not a semantic one, so the item
+      // sequence flows across the left/right boundary mid-page wherever it lands (LCK/MAN sit in
+      // the LEFT bank on page 1 here, for exactly that reason).
       // PREV takes over MAIN's own slot (left0) on every page after the first rather than sharing
       // NEXT's slot — same "PREV anchors the first physical key" convention
       // listPaneLayout/mainPaneSlice already use for MAIN/MAP's own paging, so a page's "go back"
       // key is always in the same place whether it means back-to-MAIN or back-a-page. NEXT anchors
-      // the right bank's own last slot (right2) on every page but the last, matching the right
-      // column's own "last slot" the same way.
+      // the last slot in use on every page but the last, the same way.
       const marks = tgpMarks();
       const tgpPage = paneTgpPage[paneIdx] || 0;
       if (tgpPage === 0) {
         placeSplitKey(paneKey(paneIdx, 'left', 0), NAV.tgp[0].label, NAV.tgp[0].action, paneTag);
         placeSplitKey(paneKey(paneIdx, 'left', 1), NAV.tgp[1].label, NAV.tgp[1].action, paneTag);
         placeSplitKey(paneKey(paneIdx, 'left', 2), 'TRK', 'tgp-point-track', paneTag);
-        placeSplitKey(paneKey(paneIdx, 'right', 0), 'LCK', 'tgp-manual-off', paneTag, marks.tgt);
-        placeSplitKey(paneKey(paneIdx, 'right', 1), 'MAN', 'tgp-manual-on',  paneTag, marks.man);
+        placeSplitKey(paneKey(paneIdx, 'right', 0), 'RST', 'tgp-manual-reset',   paneTag);
+        placeSplitKey(paneKey(paneIdx, 'right', 1), 'STP', 'tgp-mark-steerpoint', paneTag);
         placeSplitKey(paneKey(paneIdx, 'right', 2), 'NEXT', 'tgp-nav-next', paneTag);
-        const lckKey = paneKey(paneIdx, 'right', 0);
-        placeWpnDecorator(lckKey.bank, lckKey.index + 1, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
       } else if (tgpPage === 1) {
         placeSplitKey(paneKey(paneIdx, 'left', 0), 'PREV', 'tgp-nav-prev', paneTag);
-        placeSplitKey(paneKey(paneIdx, 'left', 1), 'RST', 'tgp-manual-reset',   paneTag);
-        placeSplitKey(paneKey(paneIdx, 'left', 2), 'STP', 'tgp-mark-steerpoint', paneTag);
-        placeSplitKey(paneKey(paneIdx, 'right', 0), 'CLR', 'tgp-ir-off', paneTag, marks.clr);
-        placeSplitKey(paneKey(paneIdx, 'right', 1), 'IR',  'tgp-ir-on',  paneTag, marks.ir);
+        placeSplitKey(paneKey(paneIdx, 'left', 1), 'LCK', 'tgp-manual-off', paneTag, marks.tgt);
+        placeSplitKey(paneKey(paneIdx, 'left', 2), 'MAN', 'tgp-manual-on',  paneTag, marks.man);
+        placeSplitKey(paneKey(paneIdx, 'right', 0), 'CLR', 'tgp-ir-off',    paneTag, marks.clr);
+        placeSplitKey(paneKey(paneIdx, 'right', 1), 'IR',  'tgp-ir-on',     paneTag, marks.ir);
         placeSplitKey(paneKey(paneIdx, 'right', 2), 'NEXT', 'tgp-nav-next', paneTag);
+        const lckKey = paneKey(paneIdx, 'left', 1);
         const clrKey = paneKey(paneIdx, 'right', 0);
-        placeWpnDecorator(clrKey.bank, clrKey.index + 1, 'IMG', '6,0 12,8 0,8', '0,0 12,0 6,8');
+        placeWpnDecorator(lckKey.bank, lckKey.index + 1, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
+        placeWpnDecorator(clrKey.bank, clrKey.index + 1, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
       } else {
-        // Last page: the left column ran out at RST/STP above, so left1/left2 are left empty
-        // rather than reshuffled to borrow from the right column — same "an unused slot is fine"
-        // shape HUD/KEYS's own 4-of-6 split placement already uses. right2 is spare too (no NEXT).
+        // Last page: only Z+/Z- remain, so right0-2 are left empty rather than reshuffled further
+        // — same "an unused slot is fine" shape HUD/KEYS's own 4-of-6 split placement already uses.
         placeSplitKey(paneKey(paneIdx, 'left', 0), 'PREV', 'tgp-nav-prev', paneTag);
-        placeSplitKey(paneKey(paneIdx, 'right', 0), 'Z+', 'tgp-zoom-in',  paneTag);
-        placeSplitKey(paneKey(paneIdx, 'right', 1), 'Z-', 'tgp-zoom-out', paneTag);
-        const zKey = paneKey(paneIdx, 'right', 0);
+        placeSplitKey(paneKey(paneIdx, 'left', 1), 'Z+', 'tgp-zoom-in',  paneTag);
+        placeSplitKey(paneKey(paneIdx, 'left', 2), 'Z-', 'tgp-zoom-out', paneTag);
+        const zKey = paneKey(paneIdx, 'left', 1);
         placeWpnDecorator(zKey.bank, zKey.index + 1, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
       }
       continue;

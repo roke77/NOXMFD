@@ -797,35 +797,37 @@ reaches the identical method, not a separate copy of the guard.
 
 ### Layout placement (all TGP nav buttons)
 
-All eleven buttons split into two groups, in each layout: **left/column 1** is "go somewhere else"
-(`MAIN`, `CFG`, `TRK`, `RST`, `STP`, in that order) — one-shot actions and page navigation, none of
-which reflect the feed's own live state; **right/column 2** is "change how the feed looks" (`LCK`,
-`MAN`, `CLR`, `IR`, `Z+`, `Z-`, in that order) — the two highlighted state pairs plus zoom. A page's
-left/right slots never mix the two groups, even at the cost of an early page's left column running
-out before its right column does (the classic split-pane's page 2, below).
+All eleven buttons read in one fixed order: `MAIN, CFG, TRK, RST, STP` — one-shot actions and page
+navigation, none of which reflect the feed's own live state — then `LCK, MAN, CLR, IR, Z+, Z-` —
+the two highlighted state pairs plus zoom.
 
-- **Classic bezel, full view** (`mfd.js`'s `placeTgpNavLabels`): left column top to bottom is
-  `MAIN, CFG, TRK, RST, STP` (`left0`-`left4`, `left5` spare); right column is
-  `LCK, MAN, CLR, IR, Z+, Z-` (`right0`-`right5`, filling the bank exactly), with `MODE` between
-  `LCK`/`MAN` and `IMG` between `CLR`/`IR` (same word-plus-triangle decorator WPN's MASTER/MODE
-  uses) and `ZOOM` between `Z+`/`Z-`.
+- **Classic bezel, full view** (`mfd.js`'s `placeTgpNavLabels`): the first group fills the left
+  column top to bottom (`MAIN, CFG, TRK, RST, STP` — `left0`-`left4`, `left5` spare), the second
+  fills the right column (`LCK, MAN, CLR, IR, Z+, Z-` — `right0`-`right5`, filling the bank
+  exactly), with `MODE` between `LCK`/`MAN` and `IMG` between `CLR`/`IR` (same word-plus-triangle
+  decorator WPN's MASTER/MODE uses) and `ZOOM` between `Z+`/`Z-`.
 - **Classic bezel, split pane** (`renderSplitLabels`' own `tgp` branch, `paneTgpPage`): a pane only
   has 3 slots per bank (6 total), and 11 destinations are more than even two pages fit — this steps
   through three fixed sets rather than a generic list-pagination scheme (MAIN/MAP's own, built for
-  an open-ended list), since TGP only ever needs exactly three:
-  - Page 0: left = `MAIN, CFG, TRK`; right = `LCK, MAN`, `NEXT`.
-  - Page 1: left = `PREV, RST, STP`; right = `CLR, IR`, `NEXT`.
-  - Page 2 (last): left = `PREV` only (`left1`/`left2` empty — the left column ran out); right =
-    `Z+, Z-` (`right2` empty too — no `NEXT` on the last page).
+  an open-ended list), since TGP only ever needs exactly three. The same fixed order above pours
+  straight into `left1, left2, right0, right1[, right2]` per page (the same slot-fill order
+  `mainPaneSlice`/`listPaneLayout` use for MAIN/MAP) — a page's left/right split is a physical
+  3-vs-3 accident, not a semantic one, so the sequence crosses the left/right boundary mid-page
+  wherever it lands (`LCK`/`MAN` sit in the *left* bank on page 1, simply because that's where the
+  count lands after `MAIN, CFG, TRK, RST, STP` fill page 0):
+  - Page 0: left = `MAIN, CFG, TRK`; right = `RST, STP`, `NEXT`.
+  - Page 1: left = `PREV, LCK, MAN`; right = `CLR, IR`, `NEXT`.
+  - Page 2 (last): left = `PREV, Z+, Z-`; right empty (only two items remained, and no `NEXT` is
+    needed on the last page).
 
   `PREV` takes over `left0` (`MAIN`'s own slot) on every page after the first, rather than sharing
   `NEXT`'s slot — same "PREV anchors the first physical key" convention `listPaneLayout`/
   `mainPaneSlice` already use for MAIN/MAP's own paging, so a page's "go back" key sits in the same
-  place whether it means back-to-MAIN or back-a-page. `NEXT` anchors the right column's own last
-  slot (`right2`) on every page but the last. `tgp-nav-prev`/`tgp-nav-next` bump `paneTgpPage[paneIdx]`
-  by ±1, clamped to `[0, 2]`, and re-render; reset to 0 whenever a pane (re)enters TGP
-  (`paneNavigate`), same as `paneWpnPage`/`paneMainPage`/etc. Decorators (`MODE`/`IMG`/`ZOOM`) stay
-  on whichever page/slots their pair actually lands on.
+  place whether it means back-to-MAIN or back-a-page. `NEXT` anchors the last slot in use on every
+  page but the last. `tgp-nav-prev`/`tgp-nav-next` bump `paneTgpPage[paneIdx]` by ±1, clamped to
+  `[0, 2]`, and re-render; reset to 0 whenever a pane (re)enters TGP (`paneNavigate`), same as
+  `paneWpnPage`/`paneMainPage`/etc. Decorators (`MODE`/`IMG`/`ZOOM`) stay on whichever page/slots
+  their pair actually lands on.
 - **F-35 glass** (`f35.js`): column 1 top to bottom is `MAIN, CFG, TRK, RST, STP` (rows 1-5, row 6
   spare); column 2 top to bottom is `LCK, MAN, CLR, IR, Z+, Z-` (rows 1-6, filling the column
   exactly) — a portal's grid has 2 columns × 6 rows = 12 cells total, so no split-pane-style
