@@ -852,6 +852,15 @@ mouse/touch pilot had no way to point the manual camera at all short of a bound 
   deflection magnitude greater than a straight one. Right/down are positive on both axes, matching
   the screen-space convention `Keybinds.cs`'s own Cursor Left/Right/Up/Down already use before
   their Y gets negated for elevation — no sign-flip needed between this control and that one.
+- **Sensitivity**: the clamped [-1,1] vector is scaled by `JOYSTICK_SENSITIVITY` (0.5) before it's
+  sent — full deflection sends 0.5, not 1.0 — because the raw 1:1 mapping turned the camera too
+  fast to aim precisely with a mouse/touch drag. Applied only to the SENT vector, not the knob's own
+  `translate()` (still the unscaled `dx * radius`), so the knob still tracks the pointer all the way
+  to the pad's edge — only the resulting turn rate is halved, not the control's own travel.
+  Client-side only, and specific to this control: `TgpManualControl`'s `PanSpeedDegPerSec`/
+  `TiltSpeedDegPerSec` (the actual deg/sec rate `_panInputX`/`_panInputY` drive) are shared with the
+  physical PAD Cursor keys/axis, already tuned separately — scaling those would have slowed those
+  down too.
 - **Continuous while held**: a `setInterval` re-sends the last computed vector every 50ms while
   dragging (comfortably under the 250ms TTL), the same keepalive cadence `remote-keybinds.js`
   already uses for its own `cursor.set` sends — a `pointermove`-only send would let the camera stop

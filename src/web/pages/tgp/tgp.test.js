@@ -151,16 +151,17 @@ assert.deepStrictEqual(commandLog[0], { cmd: 'cursor.set', args: { x: 0, y: 0 } 
 assert.ok(activeIntervalFn, 'pointerdown starts the keepalive interval');
 
 pad.listeners.pointermove({ pointerId: 1, clientX: 160, clientY: 140 });
-assert.deepStrictEqual(commandLog[1], { cmd: 'cursor.set', args: { x: 0.5, y: 0 } },
-  'half-radius right-only drag is (0.5, 0), unclamped — right is positive, matching Keybinds.cs\'s own screen-space convention');
+assert.deepStrictEqual(commandLog[1], { cmd: 'cursor.set', args: { x: 0.25, y: 0 } },
+  'half-radius right-only drag is (0.5, 0) pre-sensitivity, halved to (0.25, 0) by JOYSTICK_SENSITIVITY — right is positive, matching Keybinds.cs\'s own screen-space convention');
 
 // Diagonal overshoot clamps to the unit CIRCLE, not a unit square: dx=dy=1.5x the radius has
-// magnitude 1.5*sqrt(2) before clamping, so both components land at 1/sqrt(2), not 1.
+// magnitude 1.5*sqrt(2) before clamping, so both components land at 1/sqrt(2) pre-sensitivity, not 1;
+// JOYSTICK_SENSITIVITY (0.5) then halves that again.
 pad.listeners.pointermove({ pointerId: 1, clientX: 200, clientY: 200 });
 const overshoot = commandLog[2].args;
-assert.ok(Math.abs(overshoot.x - Math.SQRT1_2) < 1e-9 && Math.abs(overshoot.y - Math.SQRT1_2) < 1e-9,
-  'diagonal overshoot clamps each axis to 1/sqrt(2), not 1');
-assert.ok(Math.abs(Math.hypot(overshoot.x, overshoot.y) - 1) < 1e-9, 'clamped magnitude is exactly 1');
+assert.ok(Math.abs(overshoot.x - Math.SQRT1_2 / 2) < 1e-9 && Math.abs(overshoot.y - Math.SQRT1_2 / 2) < 1e-9,
+  'diagonal overshoot clamps each axis to 1/sqrt(2) pre-sensitivity, halved to 1/(2*sqrt(2))');
+assert.ok(Math.abs(Math.hypot(overshoot.x, overshoot.y) - 0.5) < 1e-9, 'clamped-and-scaled magnitude is exactly 0.5');
 
 // A second pointer id must not hijack an in-progress drag (one at a time).
 pad.listeners.pointerdown({ pointerId: 2, clientX: 100, clientY: 100 });

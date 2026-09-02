@@ -212,9 +212,15 @@ window.addEventListener('message', function(e) {
 const tgpJoystick = document.getElementById('tgp-joystick');
 const tgpJoystickKnob = document.getElementById('tgp-joystick-knob');
 const JOYSTICK_KEEPALIVE_MS = 50;   // comfortably under RemoteInputState's 250ms cursor TTL
+// Full deflection sends 0.5 instead of 1.0 — TgpManualControl's PanSpeedDegPerSec/TiltSpeedDegPerSec
+// are shared with the physical PAD Cursor keys/axis (docs/tgp-manual-control.md), which are already
+// tuned separately, so this scales only what THIS control sends rather than the server-side rate
+// everything else also uses. Applied to the sent vector only, not the knob's own transform below —
+// the knob still tracks the pointer 1:1 out to the pad's edge, only the resulting turn rate is halved.
+const JOYSTICK_SENSITIVITY = 0.5;
 let joystickPointerId = null;
 let joystickKeepalive = null;
-let joystickX = 0, joystickY = 0;   // last computed [-1,1], resent on the keepalive tick
+let joystickX = 0, joystickY = 0;   // last SENT [-1,1] (post-sensitivity), resent on the keepalive tick
 
 function sendJoystickState() {
   sendCommand('cursor.set', { x: joystickX, y: joystickY }).catch(function () {});
@@ -227,7 +233,7 @@ function updateJoystickFromEvent(e) {
   let dx = (e.clientX - cx) / radius, dy = (e.clientY - cy) / radius;
   const mag = Math.hypot(dx, dy);
   if (mag > 1) { dx /= mag; dy /= mag; }   // clamp to the circular pad, not a square
-  joystickX = dx; joystickY = dy;
+  joystickX = dx * JOYSTICK_SENSITIVITY; joystickY = dy * JOYSTICK_SENSITIVITY;
   tgpJoystickKnob.style.transform = 'translate(' + (dx * radius) + 'px,' + (dy * radius) + 'px)';
   sendJoystickState();
 }
