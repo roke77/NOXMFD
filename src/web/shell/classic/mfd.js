@@ -2513,13 +2513,42 @@ document.querySelector('.mfd').addEventListener('pointerup', clearCombatModeHold
 document.querySelector('.mfd').addEventListener('pointercancel', clearCombatModeHold);
 document.querySelector('.mfd').addEventListener('pointerleave', clearCombatModeHold);
 
+// W- bezel key: press-and-HOLD resets the active route to its first waypoint instead of stepping
+// back one, mirroring the physical PC keybind's own tap/hold pair (Keybinds.cs's PollTapHold,
+// map-waypoint-prev). Same shape as the combat-mode hold above; waypoint-reset (map.js) is a
+// route-only reset that no-ops with no active route.
+const WPT_PREV_HOLD_MS = 500;   // matches COMBAT_MODE_HOLD_MS above
+let wptPrevHoldTimer = null;
+let wptPrevHoldFired = false;
+function isWptPrevKey(el) { return !!el && el.dataset.action === 'wpt-prev'; }
+function clearWptPrevHold() {
+  if (wptPrevHoldTimer) { clearTimeout(wptPrevHoldTimer); wptPrevHoldTimer = null; }
+}
+document.querySelector('.mfd').addEventListener('pointerdown', function(e) {
+  const k = e.target.closest('.key');
+  if (!isWptPrevKey(k)) return;
+  wptPrevHoldFired = false;
+  wptPrevHoldTimer = setTimeout(function() {
+    wptPrevHoldFired = true;
+    k.classList.add('lit');   // same brief press feedback mfdButton gives every tap
+    setTimeout(function() { k.classList.remove('lit'); }, 150);
+    // Split mode: the pane's own map iframe, same targeting mfdButton's wpt-prev tap uses.
+    if (splitMode && k.dataset.pane) paneMapSend(k.dataset.pane === 'top' ? 0 : 1, 'waypoint-reset');
+    else mapSend('waypoint-reset');
+  }, WPT_PREV_HOLD_MS);
+});
+document.querySelector('.mfd').addEventListener('pointerup', clearWptPrevHold);
+document.querySelector('.mfd').addEventListener('pointercancel', clearWptPrevHold);
+document.querySelector('.mfd').addEventListener('pointerleave', clearWptPrevHold);
+
 // Event delegation covers both generated keys and standalone controls.
 document.querySelector('.mfd').addEventListener('click', function(e) {
   const k = e.target.closest('.key');
   if (!k) return;
-  // The hold above already reset to ALL — the click that follows pointerup must not also
-  // re-engage aa/ag (a browser fires click after pointerup regardless of press duration).
+  // The holds above already fired — the click that follows pointerup must not also re-engage the
+  // tap behavior (a browser fires click after pointerup regardless of press duration).
   if (isCombatModeKey(k) && combatModeHoldFired) { combatModeHoldFired = false; return; }
+  if (isWptPrevKey(k) && wptPrevHoldFired) { wptPrevHoldFired = false; return; }
   mfdButton(k);
 });
 

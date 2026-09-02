@@ -1146,6 +1146,10 @@ window.addEventListener('message', function(e) {
     // and cycle the selected steer point. The plugin owns that context switch.
     case 'waypoint-next': WaypointsStore.stepNavigation(1).then(function () { refreshWaypointRoute(); drawOverlay(); });  break;
     case 'waypoint-prev': WaypointsStore.stepNavigation(-1).then(function () { refreshWaypointRoute(); drawOverlay(); }); break;
+    // Holding W- (bezel or keybind) rewinds the active route to its first waypoint — a route-only
+    // reset, unlike tap's steer-point fallback above: resetWaypoint(0) no-ops with no active route,
+    // exactly the behavior we want, so no separate no-route branch is needed here.
+    case 'waypoint-reset': WaypointsStore.resetWaypoint(0).then(function () { refreshWaypointRoute(); drawOverlay(); }); break;
     // PAD cursor (docs/page-cursor.md, docs/map-cursor.md) — the shell only ever sends these while
     // THIS map is the SOI's focused surface, so no further gating is needed here.
     case 'cursor-focus':  cursor.setFocus(!!m.on, overlay.width / 2, overlay.height / 2); break;

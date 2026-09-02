@@ -16,9 +16,11 @@ you can spot them at a glance.
 - **Z+ / Z−** — zoom in / out.
 - **WPT** — open the [route and steer-point editor](wpt.md).
 - **R+ / R−** — switch the active waypoint route to the next / previous one you've saved.
-- **W+ / W−** — with a route active, manually step to its next / previous waypoint.
+- **W+ / W−** — with a route active, manually step to its next / previous waypoint. Hold W− to
+  jump straight back to the route's first waypoint.
 - **S+ / S−** — the same controls relabel automatically when no route is active; they select the
-  next / previous saved steer point instead.
+  next / previous saved steer point instead. Holding S− does nothing — the reset only applies to
+  an active route.
 
 Long-press the map to append a waypoint to the active route. With no route active, the same gesture
 creates a standalone steer point. Both kinds of navigation point are managed on [WPT](wpt.md).

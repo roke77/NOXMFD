@@ -137,6 +137,11 @@ namespace NOXMFD
         // next slot), so a keybind and a click behave identically. Index 0 unused — slots are 1-9.
         private static readonly BindDef?[] _tdAssign = new BindDef?[10];
 
+        // Previous Waypoint / Steer Point (W-) tap/hold, same reasoning as the pair above: tap steps
+        // back one waypoint (or steer point), hold jumps the active route straight back to its first
+        // waypoint — a no-op with no active route, same as every other route mutator.
+        private static BindDef? _mapWaypointPrev;
+
         // "Keep reading the stick while the game is unfocused" (see the .cfg description). Applied
         // live by ApplyBackgroundInput; the _bg* fields remember what to put back if it's turned off.
         private static ConfigEntry<bool>? _bgInput;
@@ -217,9 +222,11 @@ namespace NOXMFD
             DefFree(config, "map-waypoint-next", map, "MapWaypointNext", "Next Waypoint / Steer Point", edge: true,
                 "Step the active route to its next waypoint (W+), or select the next steer point (S+) when no route is active.",
                 () => TelemetryServer.MapAction("waypoint-next"));
-            DefFree(config, "map-waypoint-prev", map, "MapWaypointPrev", "Previous Waypoint / Steer Point", edge: true,
-                "Step the active route to its previous waypoint (W-), or select the previous steer point (S-) when no route is active.",
-                () => TelemetryServer.MapAction("waypoint-prev"));
+            // edge:false + PollTapHold (below), not a plain DefFree action — tap and hold do
+            // different things, same shape as the combat-mode/TD-assign binds above.
+            _mapWaypointPrev = DefFree(config, "map-waypoint-prev", map, "MapWaypointPrev", "Previous Waypoint / Steer Point", edge: false,
+                "Step the active route to its previous waypoint (W-), or select the previous steer point (S-) when no route is active. Hold to reset the active route back to its first waypoint — no-op with no active route.",
+                () => { });
 
             // TGT binds are DefFree like MAP above because they drive mod displays, not the aircraft.
             // Next/Previous move the shared focused lock everywhere, and the SOI-focused TGT display
@@ -880,6 +887,13 @@ namespace NOXMFD
                                         onHold: () => SetCombatMode(CombatMode.All));
             PollTapHold(_combatModeAg!, onTap: () => SetCombatMode(CombatMode.AirToGround),
                                         onHold: () => SetCombatMode(CombatMode.All));
+
+            // Previous Waypoint / Steer Point (W-) — same tap/hold shape as the combat-mode pair
+            // above. Both outcomes are broadcast-only, same as every other MAP bind: the actual
+            // mutation happens client-side (map.js), which the physical keybind never touches
+            // directly, whichever browser currently holds SOI reacts to the broadcast.
+            PollTapHold(_mapWaypointPrev!, onTap:  () => TelemetryServer.MapAction("waypoint-prev"),
+                                           onHold: () => TelemetryServer.MapAction("waypoint-reset"));
 
             // TD's 9 Assign binds — same reasoning as the combat-mode pair above, one PollTapHold per
             // slot. TdStore.Assign's own `retain` (issue #47 follow-up) is exactly the on-screen squad

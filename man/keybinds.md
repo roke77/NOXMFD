@@ -39,7 +39,9 @@ on the focused display:
 - **Next Route**, **Previous Route** — stay usable to switch INTO a route as long as one is saved,
   even with none currently active.
 - **Next Waypoint / Steer Point**, **Previous Waypoint / Steer Point** — step route progress while
-  a route is active; otherwise cycle the selected steer point.
+  a route is active; otherwise cycle the selected steer point. Hold **Previous Waypoint / Steer
+  Point** to jump the active route straight back to its first waypoint — no effect with no active
+  route.
 
 Zoom In/Out aren't here — they're the shared **Cursor Zoom In/Out** pair under [Cursor](#cursor)
 below, which also drives [manual TGP camera](tgp.md#manual-camera-control) zoom.

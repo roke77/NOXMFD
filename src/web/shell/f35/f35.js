@@ -694,6 +694,24 @@
           b.addEventListener('pointercancel', clearHold);
           b.addEventListener('pointerleave', clearHold);
           b.addEventListener('click', function () { if (!holdFired) dispatch(item.action); });
+        } else if (wired && item.action === 'wpt-prev') {
+          // Press-and-HOLD resets the active route to its first waypoint instead of stepping back
+          // one — same shape as the combat-mode hold above, mirroring Keybinds.cs's PollTapHold
+          // pair on the physical PC keybind (map-waypoint-prev). waypoint-reset (map.js) is a
+          // route-only reset that no-ops with no active route.
+          let holdTimer = null, holdFired = false;
+          const clearHold = function () { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } };
+          b.addEventListener('pointerdown', function () {
+            holdFired = false;
+            holdTimer = setTimeout(function () {
+              holdFired = true;
+              mapSend('waypoint-reset');
+            }, COMBAT_MODE_HOLD_MS);
+          });
+          b.addEventListener('pointerup', clearHold);
+          b.addEventListener('pointercancel', clearHold);
+          b.addEventListener('pointerleave', clearHold);
+          b.addEventListener('click', function () { if (!holdFired) dispatch(item.action); });
         } else if (wired) {
           b.addEventListener('click', function () { dispatch(item.action); });
         } else {

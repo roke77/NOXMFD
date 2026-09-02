@@ -761,11 +761,14 @@ KEYBINDS = [
     {"id": "map-route-prev", "section": "MAP", "label": "Previous Route",
      "description": "Switch the focused MAP display's active waypoint route to the previous one (R-).",
      "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "map-waypoint-next", "section": "MAP", "label": "Next Waypoint",
-     "description": "Manually step the focused MAP display's active route to the next waypoint (W+).",
+    {"id": "map-waypoint-next", "section": "MAP", "label": "Next Waypoint / Steer Point",
+     "description": "Step the active route to its next waypoint (W+), or select the next steer "
+                     "point (S+) when no route is active.",
      "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "map-waypoint-prev", "section": "MAP", "label": "Previous Waypoint",
-     "description": "Manually step the focused MAP display's active route to the previous waypoint (W-).",
+    {"id": "map-waypoint-prev", "section": "MAP", "label": "Previous Waypoint / Steer Point",
+     "description": "Step the active route to its previous waypoint (W-), or select the previous "
+                     "steer point (S-) when no route is active. Hold to reset the active route "
+                     "back to its first waypoint — no-op with no active route.",
      "key": "", "joyButton": -1, "joyNum": 0},
     {"id": "tgt-next", "section": "TGT", "label": "Next Target",
      "description": "Highlight the next locked target on the focused TGT display.",
