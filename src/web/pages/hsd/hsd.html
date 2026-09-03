@@ -12,9 +12,13 @@
 
   Shell -> page messages (all {mfd:true, ...}):
     'hsd': { ownX, ownZ, hdg, metric, radarPresent, radarRange, radarCone,
-             items:[{ id, x, z, alt, hdg, tg, rd, dl, st, n }] }
+             items:[{ id, x, z, alt, hdg, tg, rd, dl, st, n }],
+             threats:[{ id, x, z, r, n }] }
            x/z are known world positions, hdg is ownship heading, metric selects km vs nm labels.
            radarRange/radarCone describe the FCR coverage wedge to overlay on the HSD range rings.
+           threats (issue #74) are known enemy ground/naval AA units; r is that unit's effective
+           max weapon engagement range in meters, drawn as a yellow ring around its own position —
+           not the same thing as radarRange (own radar detection range).
     action: 'zoom-in'/'zoom-out' step the selected HSD range.
     action: 'hsd-mode' toggles CEN <-> DEP (docs/rdr-fcr-hsd.md) — ownship recenters and the grid
             ring count/spacing changes; the selected range carries across the switch rather than
@@ -33,6 +37,10 @@
 
       <g id="hsd-grid"></g>
       <g id="hsd-radar"></g>
+      <!-- AA threat rings (issue #74): yellow rings around known enemy ground/naval SAM sites,
+           radius = that unit's effective weapon engagement range. Background layer, drawn below
+           contact icons and not part of the PAD cursor hit-test. -->
+      <g id="hsd-threats"></g>
       <g id="hsd-contacts"></g>
       <!-- Filled by hsd.js's renderOwnship() — the symbol itself is fixed, but its centre (CY)
            moves between CEN and DEP mode, so it has to be drawn in script rather than fixed markup. -->

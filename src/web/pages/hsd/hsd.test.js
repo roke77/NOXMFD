@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { hsdXY, rangeLabelForTest, rangeUnitsForTest, altUnitsForTest, contactColor, radarConePath, demoContacts, geom,
+const { hsdXY, rangeLabelForTest, rangeUnitsForTest, altUnitsForTest, contactColor, radarConePath, demoContacts, demoThreats, geom,
         CEN_RANGE_NM, DEP_RANGE_NM, gridFractionsForTest, applyModeForTest } = require('./hsd.js');
 
 function near(a, b, label) {
@@ -69,5 +69,15 @@ assert.strictEqual(demo.length, 5, 'standalone preview seeds five contacts');
 assert.strictEqual(demo.filter(c => c.tg).length, 1, 'standalone preview includes one lock');
 assert.strictEqual(demo.filter(c => c.rd).length, 1, 'standalone preview includes one radar-only contact');
 assert.ok(demo.every(c => hsdXY(0, 0, 20, c.x, c.z, 40 * 1852)), 'default preview range shows every demo contact');
+
+// AA threat rings (issue #74): a ring's center can plot outside the selected range while the ring
+// itself still reaches onto the scope (a distant SAM site with a long-range missile) — hsdXY's
+// allowOffscreen flag is what makes renderThreats() draw it instead of culling it like a contact.
+assert.strictEqual(hsdXY(0, 0, 0, 0, 3000, 2000), null, 'a plain contact beyond range is still culled');
+assert.ok(hsdXY(0, 0, 0, 0, 3000, 2000, true), 'allowOffscreen keeps a threat ring center plottable beyond range');
+
+const threats = demoThreats(0, 0, 20);
+assert.strictEqual(threats.length, 2, 'standalone preview seeds two AA threats');
+assert.ok(threats.every(t => t.r > 0), 'every demo threat carries a positive engagement range');
 
 console.log('hsd.test.js: OK');

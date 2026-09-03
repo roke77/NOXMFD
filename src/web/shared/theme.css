@@ -44,6 +44,8 @@
   --no-purple:     rgb(var(--no-purple-rgb));
   --no-hsd-pink-rgb: 121, 21, 81;   /* #791551 — F-16 HSD-style dark pink/magenta symbology */
   --no-hsd-pink:     rgb(var(--no-hsd-pink-rgb));
+  --no-hsd-yellow-rgb: 224, 194, 0;   /* F-16 HSD-style yellow AA threat rings (docs/rdr-fcr-hsd.md) */
+  --no-hsd-yellow:     rgb(var(--no-hsd-yellow-rgb));
   --no-blue-rgb:   77, 159, 255;
   --no-blue:       rgb(var(--no-blue-rgb));  /* mod-only decorative accent (WPN's MODE label, docs/radar-master-arms.md) */
   --no-bg:         #000;

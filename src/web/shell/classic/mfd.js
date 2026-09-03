@@ -833,7 +833,8 @@ function hsdMsg() {
   return { mfd: true, type: 'hsd', metric: hsdData.metric, hdg: mapInfoData.hdg || 0,
            ownX: mapInfoData.x || 0, ownZ: mapInfoData.z || 0,
            radarPresent: !!rdrData.present, radarRange: rdrData.range || 0, radarCone: rdrData.cone || 0,
-           items: hsdData.items || [], focusedTargetId: hsdData.focusedTargetId || 0 };
+           items: hsdData.items || [], threats: hsdData.threats || [],
+           focusedTargetId: hsdData.focusedTargetId || 0 };
 }
 function mwMsg() { return { mfd: true, type: 'mw', items: mwData.items || [] }; }
 // MW shares RWR's pane/page (no separate NAV entry), hence the 'rwr' filter on the Panes side.
@@ -1514,7 +1515,7 @@ let mwData  = { items: [] };
 // Latest RDR B-scope block (docs/rdr-page.md), mirrored from the map iframe's SSE feed. present is
 // false when the aircraft has no radar; the page draws its own scale/contacts from range/cone/items.
 let rdrData = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, hdg: 0, items: [], pb: [], focusedTargetId: 0 };
-let hsdData = { metric: false, items: [], focusedTargetId: 0 };
+let hsdData = { metric: false, items: [], threats: [], focusedTargetId: 0 };
 
 // Latest TGT filter state, mirrored from the map iframe's SSE feed. The shell keeps only this
 // state and forwards it to the frame; the page renders the toggles + POSTs the tgt.* commands.
@@ -2031,6 +2032,7 @@ window.addEventListener('message', function(e) {
     if (splitMode) forwardHsdToPanes();
   } else if (m.type === 'hsd') {
     hsdData = { metric: !!m.metric, items: Array.isArray(m.items) ? m.items : [],
+                threats: Array.isArray(m.threats) ? m.threats : [],
                 focusedTargetId: m.focusedTargetId || 0 };
     if (currentPage === 'hsd' && !splitMode) forwardHsdToFrame();
     if (splitMode) forwardHsdToPanes();

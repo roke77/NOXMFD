@@ -15,8 +15,9 @@ var M_PER_NM = 1852, M_PER_KM = 1000;
 // green here leaves it free to mean "friendly" if that symbology is ever added, matching FCR.
 var HSD_PINK = 'var(--no-purple)', RED = 'var(--no-red)', AMBER = 'var(--no-amber)', STALE_WHITE = 'var(--no-white)';
 var HSD_PINK_RGB = 'var(--no-hsd-pink-rgb)', TEAL_RGB = 'var(--no-teal-rgb)';
+var YELLOW = 'var(--no-hsd-yellow)';   // AA threat rings (issue #74)
 var CURSOR_WHITE = 'rgba(255,255,255,0.85)';
-var state = { ownX: 0, ownZ: 0, hdg: 0, metric: false, radarPresent: false, radarRange: 0, radarCone: 0, items: [], focusedTargetId: 0 };
+var state = { ownX: 0, ownZ: 0, hdg: 0, metric: false, radarPresent: false, radarRange: 0, radarCone: 0, items: [], threats: [], focusedTargetId: 0 };
 
 // DCS's own DEP/CEN range ladders (NM) — same length, and DEP[i] is exactly 1.5x CEN[i] at every
 // step (matching real DCS's DEP-range-equals-1.5x-FCR-range relationship), so a single shared
@@ -86,10 +87,12 @@ function short(s) {
 }
 
 // World x/z -> ownship-relative, nose-up screen coordinate. x is east, z is north, heading is deg.
-function hsdXY(ownX, ownZ, hdg, x, z, rangeM) {
+// allowOffscreen skips the dist>rangeM cutoff — a threat ring (renderThreats) can still reach onto
+// the scope even when the SAM site itself, at the ring's center, plots outside the selected range.
+function hsdXY(ownX, ownZ, hdg, x, z, rangeM, allowOffscreen) {
   var dx = x - ownX, dz = z - ownZ;
   var dist = Math.hypot(dx, dz);
-  if (rangeM <= 0 || dist > rangeM) return null;
+  if (rangeM <= 0 || (!allowOffscreen && dist > rangeM)) return null;
   var bearing = Math.atan2(dx, dz) * 180 / Math.PI;
   var rel = (bearing - hdg) * Math.PI / 180;
   var r = OUTER * (dist / rangeM);
@@ -148,6 +151,24 @@ function renderRadarCone() {
   var path = state.radarPresent ? radarConePath(displayRangeM(), state.radarRange, state.radarCone) : '';
   g.innerHTML = path ? '<path d="' + path + '" fill="rgba(' + TEAL_RGB + ',0.07)" ' +
                       'stroke="rgba(' + TEAL_RGB + ',0.64)" stroke-width="2"/>' : '';
+}
+
+// AA threat rings (issue #74): a yellow ring per known enemy ground/naval SAM site, radius scaled
+// to that unit's own effective weapon range (t.r, meters) the same way contact distances are
+// scaled. Background layer, drawn under contact icons — not part of the PAD cursor hit-test.
+function renderThreats() {
+  var g = document.getElementById('hsd-threats');
+  if (!g) return;
+  var out = '', rangeM = displayRangeM();
+  (state.threats || []).forEach(function (t) {
+    if (!(t.r > 0)) return;
+    var p = hsdXY(state.ownX, state.ownZ, state.hdg, t.x || 0, t.z || 0, rangeM, true);
+    if (!p) return;
+    var r = OUTER * (t.r / rangeM);
+    out += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + r.toFixed(1) +
+           '" fill="none" stroke="' + YELLOW + '" stroke-width="1.5" stroke-opacity="0.75"/>';
+  });
+  g.innerHTML = out;
 }
 
 // PAD acquisition cursor (docs/page-cursor.md): plotted holds each on-scope contact's current
@@ -303,6 +324,7 @@ function render() {
   renderGrid();
   renderOwnship();
   renderRadarCone();
+  renderThreats();
   renderContacts();
 }
 
@@ -328,6 +350,18 @@ function demoContacts(ownX, ownZ, hdg) {
       st: c.st,
       n: c.n
     };
+  });
+}
+
+// AA threat rings (issue #74) demo data for the standalone preview.
+function demoThreats(ownX, ownZ, hdg) {
+  var threats = [
+    { az: -100, rng: 55000, r: 18000, n: 'SA-15 Site' },
+    { az:   60, rng: 70000, r: 30000, n: 'Corvette' }
+  ];
+  return threats.map(function (t, i) {
+    var ab = (t.az + hdg) * Math.PI / 180;
+    return { id: 9301 + i, x: Math.round(ownX + Math.sin(ab) * t.rng), z: Math.round(ownZ + Math.cos(ab) * t.rng), r: t.r, n: t.n };
   });
 }
 
@@ -386,6 +420,7 @@ if (typeof window !== 'undefined' && window.addEventListener) {
         radarRange: typeof m.radarRange === 'number' ? m.radarRange : 0,
         radarCone: typeof m.radarCone === 'number' ? m.radarCone : 0,
         items: Array.isArray(m.items) ? m.items : [],
+        threats: Array.isArray(m.threats) ? m.threats : [],
         focusedTargetId: m.focusedTargetId || 0
       };
       render();
@@ -406,7 +441,8 @@ if (typeof window !== 'undefined' && window.addEventListener) {
   if (shouldSeedStandalonePreview()) {
     rangeIdx = 3;
     state = { ownX: 0, ownZ: 0, hdg: 20, metric: false, radarPresent: true,
-              radarRange: 40 * M_PER_NM, radarCone: 60, items: demoContacts(0, 0, 20) };
+              radarRange: 40 * M_PER_NM, radarCone: 60, items: demoContacts(0, 0, 20),
+              threats: demoThreats(0, 0, 20) };
   }
   render();
 }
@@ -416,6 +452,7 @@ if (typeof module !== 'undefined' && module.exports)
                      rangeUnitsForTest: function (metric, meters) { state.metric = metric; return rangeUnits(meters); },
                      altUnitsForTest: function (metric, meters) { state.metric = metric; return altUnits(meters); },
                      contactColor: contactColor, radarConePath: radarConePath, demoContacts: demoContacts,
+                     demoThreats: demoThreats,
                      geom: { CX: CX, CY: CY, OUTER: OUTER },
                      // CEN/DEP mode (docs/rdr-fcr-hsd.md) — DOM-free, so testable directly rather
                      // than through toggleMode()/render(), which touch the page's real DOM.

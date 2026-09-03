@@ -46,6 +46,7 @@ namespace NOXMFD
         private UnitInfo[] _cachedUnits = Array.Empty<UnitInfo>();
         private RdrContact[] _cachedRdr = Array.Empty<RdrContact>();
         private HsdContact[] _cachedHsd = Array.Empty<HsdContact>();
+        private HsdThreat[] _cachedHsdThreats = Array.Empty<HsdThreat>();
         private PitbullContact[] _cachedPitbull = Array.Empty<PitbullContact>();
         private uint[] _cachedLockedIds = Array.Empty<uint>();
         private float[] _cachedLockedTti = Array.Empty<float>();
@@ -900,6 +901,7 @@ namespace NOXMFD
                 RadarConeDeg   = _cachedRadarConeDeg,
                 Rdr            = _cachedRdr,
                 Hsd            = _cachedHsd,
+                HsdThreats     = _cachedHsdThreats,
                 Pitbull        = _cachedPitbull,
                 RdrMetric      = rdrMetric,
                 RdrLevelTime   = rdrLevelTime,
@@ -957,6 +959,7 @@ namespace NOXMFD
             _cachedUnits = BuildUnits(aircraft);
             _cachedRdr = BuildRdr(aircraft, out _cachedRadarPresent, out _cachedRadarRange, out _cachedRadarConeDeg);
             _cachedHsd = BuildHsd(aircraft);
+            _cachedHsdThreats = BuildHsdThreats(aircraft);
             _cachedPitbull = BuildPitbull(aircraft);
 
             // Keeps TargetFocus honest against locks changing here rather than via a Next/Prev press
@@ -1186,6 +1189,7 @@ namespace NOXMFD
         private readonly List<RdrContact> _rdrBuf = new List<RdrContact>(32);
         private readonly HashSet<Unit> _rdrSeenScratch = new HashSet<Unit>();
         private readonly List<HsdContact> _hsdBuf = new List<HsdContact>(64);
+        private readonly List<HsdThreat> _hsdThreatBuf = new List<HsdThreat>(32);
 
         // Reflection handle for Radar's private cone half-angle (degrees). Cached once — it's a
         // SerializeField baked per radar prefab, so it never changes at runtime.
@@ -1343,6 +1347,70 @@ namespace NOXMFD
                 });
             }
             return _hsdBuf.Count == 0 ? Array.Empty<HsdContact>() : _hsdBuf.ToArray();
+        }
+
+        // A weapon station is a radar-guided-missile threat when its missile prefab's seeker
+        // reports "ARH" or "SARH" — the same two seeker-type strings NotchHeading (above) already
+        // treats as radar-guided for the RWR's beam-notch heading. GetSeekerType() is a pure
+        // virtual returning a constant per seeker subclass (ARHSeeker/SARHSeeker/IRSeeker/...), so
+        // it's safe to read straight off the prefab without instantiating it, the same way
+        // CombatAI.GetExclusionRadius already reads weaponPrefab.GetComponent<Missile>() for yield.
+        private static bool IsRadarGuidedMissile(WeaponInfo info)
+        {
+            if (info == null || info.weaponPrefab == null) return false;
+            MissileSeeker seeker = info.weaponPrefab.GetComponent<MissileSeeker>();
+            if (seeker == null) return false;
+            string type = seeker.GetSeekerType();
+            return type == "ARH" || type == "SARH";
+        }
+
+        // HSD AA threat rings (issue #74, docs/rdr-fcr-hsd.md): known enemy ground/naval units
+        // carrying at least one weapon station that fires a radar-guided missile, ringed at that
+        // station's effective max range (WeaponInfo.targetRequirements.maxRange — the same
+        // envelope CombatAI.AnalyzeTarget uses to gate whether a target is attackable). This is
+        // the weapon's engagement range, not radar detection range (RadarParameters.maxRange).
+        private HsdThreat[] BuildHsdThreats(Aircraft player)
+        {
+            var playerHQ = player.NetworkHQ;
+            if (playerHQ == null) return Array.Empty<HsdThreat>();
+
+            _hsdThreatBuf.Clear();
+            foreach (Unit u in _units)
+            {
+                if (u == null || u.disabled || ReferenceEquals(u, player)) continue;
+
+                UnitDefinition def = u.definition;
+                if (def == null || def.typeIdentity.air > 0.5f) continue; // ground/naval only
+
+                var hq = u.NetworkHQ;
+                if (hq == null || hq == playerHQ) continue; // enemy-only
+
+                // Same blanket jamming rule BuildHsd applies to its own enemy-only contacts.
+                if (_pictureJamActive) continue;
+
+                // No wallhack: an undetected SAM site gets no ring, same gating BuildHsd uses.
+                if (!playerHQ.TryGetKnownPosition(u, out GlobalPosition gp)) continue;
+
+                float range = 0f;
+                List<WeaponStation> stations = u.weaponStations;
+                for (int i = 0; i < stations.Count; i++)
+                {
+                    WeaponInfo info = stations[i].WeaponInfo;
+                    if (!IsRadarGuidedMissile(info)) continue;
+                    range = Mathf.Max(range, info.targetRequirements.maxRange);
+                }
+                if (range <= 0f) continue;
+
+                _hsdThreatBuf.Add(new HsdThreat
+                {
+                    Id    = u.persistentID.Id,
+                    X     = gp.x,
+                    Z     = gp.z,
+                    Range = range,
+                    Name  = RwrLabel(u)
+                });
+            }
+            return _hsdThreatBuf.Count == 0 ? Array.Empty<HsdThreat>() : _hsdThreatBuf.ToArray();
         }
 
         // Player's own AA missiles that have gone pitbull (RDR page, issue #40): active-radar (ARH)

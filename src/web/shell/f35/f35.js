@@ -404,6 +404,7 @@
                       ownX: mapinfo.x || 0, ownZ: mapinfo.z || 0,
                       radarPresent: !!rdr.present, radarRange: rdr.range || 0, radarCone: rdr.cone || 0,
                       items: Array.isArray(hsd.items) ? hsd.items : [],
+                      threats: Array.isArray(hsd.threats) ? hsd.threats : [],
                       focusedTargetId: hsd.focusedTargetId || 0 }, '*');
     }
     function onSlice(type) {

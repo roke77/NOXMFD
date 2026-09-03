@@ -12,6 +12,22 @@ become selectable...") — yes, reusing FCR/TGT's target set exactly as FCR's ow
 cursor, hit-test, and Select-toggles-lock behavior as `rdr.js`'s (see "Interaction" below, kept as
 originally written since the design it describes for FCR now applies to HSD unchanged too).
 
+**Update:** HSD gained AA threat rings ([issue #74](https://github.com/roke77/NOXMFD/issues/74)) —
+a yellow ring (`--no-hsd-yellow`) around every known enemy ground/naval unit carrying a
+radar-guided-missile weapon station, radius equal to that station's `WeaponInfo.targetRequirements.
+maxRange` (the game's own weapon engagement envelope, not radar detection range). "Radar-guided" is
+an exact check, not a heuristic: `TelemetryReader.IsRadarGuidedMissile` reads
+`weaponPrefab.GetComponent<MissileSeeker>().GetSeekerType()` straight off the (uninstantiated)
+missile prefab and keeps only "ARH"/"SARH" — the same two seeker-type strings `NotchHeading`
+already treats as radar-guided for the RWR's beam-notch heading — so IR/optical/laser-guided AAA
+and unguided guns are excluded regardless of altitude reach. Rings use the same faction-known-
+position gating as HSD's own aerial contacts (`TryGetKnownPosition`) — an undetected SAM site gets
+no ring. Server payload adds a `threats:[{id,x,z,r,n}]` array alongside `items` in the `hsd` block
+(`TelemetryJson.HsdBlock`/`HsdThreatArray`); `hsd.js`'s `renderThreats()` draws it as a background
+layer (`#hsd-threats`, below contact icons), reusing `hsdXY()` with a new `allowOffscreen` flag so a
+ring can still reach onto the scope even when the SAM site's own position, at the ring's center,
+plots outside the selected range.
+
 The current `RDR` page is a radar-style B-scope with own-radar contacts, datalink-only contacts,
 lock markers, pitbull missile markers, range stepping, and the PAD acquisition cursor. This ticket
 splits that surface into two sibling pages:

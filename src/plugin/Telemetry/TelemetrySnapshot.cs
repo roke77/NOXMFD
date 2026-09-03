@@ -212,6 +212,11 @@ namespace NOXMFD
         // Contacts come from the player's faction-known positions, not from the own-radar cone.
         public HsdContact[] Hsd;
 
+        // HSD AA threat rings (issue #74): known enemy ground/naval units with at least one
+        // anti-air-capable weapon station, and that station's effective max engagement range.
+        // Same faction-known-position gating as Hsd above — an undetected SAM site gets no ring.
+        public HsdThreat[] HsdThreats;
+
         // RDR page pitbull missiles (issue #40): the player's own AA missiles whose active-radar
         // seeker has gone lock — independent of RadarPresent, since it's the missile's own radar,
         // not the aircraft's. Empty when the player has none in flight.
@@ -404,6 +409,18 @@ namespace NOXMFD
                                  // HSD symbol) — same IsTargetPositionAccurate check as UnitInfo.Stale
                                  // (docs/tgt-stale-lock.md), independent of Targeted/focused-lock color
         public string Name;     // display label
+    }
+
+    // One ground/naval AA threat ring on the HSD plan view (issue #74). Serialized terse as
+    // {id,x,z,r,n}. Range comes straight from the game's own WeaponInfo.targetRequirements.maxRange
+    // (the same envelope CombatAI itself uses to decide if a target is attackable) — this is the
+    // unit's weapon engagement range, not its radar detection range (RadarParameters.maxRange).
+    internal struct HsdThreat
+    {
+        public uint   Id;    // Unit.persistentID.Id
+        public float  X, Z;  // known world position (GlobalPosition, same space as HsdContact)
+        public float  Range; // effective max engagement range, meters
+        public string Name;  // display label
     }
 
     // One incoming missile on the RWR. Serialized terse as {x,z,st,nb,h}.

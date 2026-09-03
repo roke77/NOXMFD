@@ -416,6 +416,9 @@ export class TelemetrySource {
       type: 'hsd',
       metric: !!(d.hsd && d.hsd.metric),
       items: d.hsd && Array.isArray(d.hsd.items) ? d.hsd.items : [],
+      // AA threat rings (issue #74) — known enemy ground/naval units with an anti-air-capable
+      // weapon station, ringed at that station's effective max engagement range.
+      threats: d.hsd && Array.isArray(d.hsd.threats) ? d.hsd.threats : [],
       focusedTargetId: d.focusedTargetId || 0
     });
 
@@ -516,7 +519,7 @@ export class TelemetrySource {
     this._postUp({ type: 'targets', items: [] });
     this._postUp({ type: 'rwr', items: [] });
     this._postUp({ type: 'mw', items: [] });
-    this._postUp({ type: 'hsd', metric: false, items: [] });
+    this._postUp({ type: 'hsd', metric: false, items: [], threats: [] });
     this._postUp({ type: 'avn', name: null, parts: null, failures: null, pylons: null, fuel: -1, throttle: -1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false });
     this._postUp({ type: 'tgt', present: false });
     this._postUp({ type: 'bdf', present: false });
