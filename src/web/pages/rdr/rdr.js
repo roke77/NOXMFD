@@ -117,63 +117,30 @@ function scopeRectPx() {
   var v = viewport();
   return { dx: v.ox + L * v.s, dy: v.oy + TOP * v.s, dw: (R - L) * v.s, dh: HGT * v.s };
 }
-// Cursor-anchored zoom (DCS-style "TDC depress" magnifier): holding Cursor Select (pad-cursor.js's
-// onHold, not a bezel button) toggles a fixed-factor zoom centered on wherever the cursor sits, so
-// an overlapping cluster of contacts can be pulled apart without changing the selected FCR range.
-// Holding again while zoomed returns to the normal view, from wherever the cursor is now.
-// Implemented as a plain SVG transform on the content groups only (grid/contacts/pitbull/sweep) —
-// the crosshair, frame, and corner labels live outside those groups and stay screen-fixed, like a
-// magnifying glass held over the picture rather than the panel. The static ownship caret at the
-// bottom of the scope is scope furniture (always the same fixed reference point), not part of the
-// picture, so it's deliberately left out of the zoomed groups.
-var ZOOM_SCALE = 3;   // tuned by feel
-var zoomed = false;
-var zoomAnchor = { x: MIDX, y: (TOP + BOT) / 2 };   // content-space viewBox units; meaningful only while zoomed
+// Cursor-anchored zoom (DCS-style "TDC depress" magnifier, docs/page-cursor.md): holding Cursor
+// Select (pad-cursor.js's onHold, not a bezel button) toggles a fixed-factor zoom centered on
+// wherever the cursor sits, so an overlapping cluster of contacts can be pulled apart without
+// changing the selected FCR range. Holding again while zoomed returns to the normal view.
+// The zoom/icon-shrink math lives in the shared services/cursor-zoom.js (hsd.js uses the identical
+// module) — `zoom` is set once its dynamic import resolves, in the bootstrap block below.
+// `iconTransform`/`toContentSpace` are thin wrappers so every caller above that import can safely
+// use them before it resolves (nothing can be zoomed yet at that point anyway, so "not loaded" and
+// "not zoomed" are the same observable behavior).
+// Applied to the content groups only (grid/contacts/pitbull/sweep) — the crosshair, frame, and
+// corner labels stay screen-fixed, like a magnifying glass held over the picture rather than the
+// panel. The static ownship caret at the bottom of the scope is scope furniture (always the same
+// fixed reference point), not part of the picture, so it's deliberately left out of the zoomed
+// groups. ICON_SHRINK 1.0 keeps icons at their normal size while zoomed — only the spacing between
+// them grows, which is what actually separates an overlapping cluster.
 var ZOOM_GROUP_IDS = ['rdr-grid', 'rdr-contacts', 'rdr-pitbull', 'rdr-sweep'];
-
-function applyZoomTransform() {
-  var t = zoomed
-    ? 'translate(' + zoomAnchor.x.toFixed(1) + ' ' + zoomAnchor.y.toFixed(1) + ') scale(' + ZOOM_SCALE +
-      ') translate(' + (-zoomAnchor.x).toFixed(1) + ' ' + (-zoomAnchor.y).toFixed(1) + ')'
-    : '';
-  ZOOM_GROUP_IDS.forEach(function (id) {
-    var g = document.getElementById(id);
-    if (g) g.setAttribute('transform', t);
-  });
-}
-
-// The inverse of the transform above — maps a raw screen/viewBox point into the CONTENT space
-// `plotted` is still stored in (renderContacts never changes what it computes), so hit-testing
-// keeps working unmodified regardless of whether the picture is currently magnified.
-function toContentSpace(vx, vy) {
-  if (!zoomed) return { x: vx, y: vy };
-  return { x: zoomAnchor.x + (vx - zoomAnchor.x) / ZOOM_SCALE, y: zoomAnchor.y + (vy - zoomAnchor.y) / ZOOM_SCALE };
-}
-
+var ZOOM_SCALE = 3, ICON_SHRINK = 1.0;   // tuned by feel
+var zoom = null;   // createCursorZoom() instance, set once its dynamic import resolves
+function toContentSpace(vx, vy) { return zoom ? zoom.toContentSpace(vx, vy) : { x: vx, y: vy }; }
+function iconTransform(px, py) { return zoom ? zoom.iconTransform(px, py) : ''; }
 function toggleZoom(px, py) {
-  if (zoomed) {
-    zoomed = false;
-  } else {
-    var v = viewport();
-    zoomAnchor = { x: (px - v.ox) / v.s, y: (py - v.oy) / v.s };
-    zoomed = true;
-  }
-  applyZoomTransform();
-}
-
-// Icon shrink while zoomed: the outer zoom transform above scales the SPACING between contacts —
-// the actual point of the magnifier, to pull overlapping icons apart — but it would blow up each
-// icon's own drawn size by the same factor, making them look oversized rather than just spread out.
-// Counter-scaling each icon's own <g> by ICON_SHRINK/ZOOM_SCALE nets out to exactly ICON_SHRINK x
-// its normal on-screen size once the outer transform is applied on top, centered on the icon's own
-// point (translate/scale/translate, same trick as applyZoomTransform) so it shrinks in place rather
-// than drifting toward the zoom anchor. Identity (empty string) when not zoomed.
-var ICON_SHRINK = 1.0;   // tuned by feel; 1.0 = icons keep their normal size, only spacing zooms
-function iconTransform(px, py) {
-  if (!zoomed) return '';
-  var s = ICON_SHRINK / ZOOM_SCALE;
-  return ' transform="translate(' + px.toFixed(1) + ' ' + py.toFixed(1) + ') scale(' + s.toFixed(4) +
-         ') translate(' + (-px).toFixed(1) + ' ' + (-py).toFixed(1) + ')"';
+  if (!zoom) return;
+  var v = viewport(), c = toContentSpace((px - v.ox) / v.s, (py - v.oy) / v.s);
+  zoom.toggle(c.x, c.y);
 }
 
 // Nearest plotted contact to a panel-px point, within HIT_PAD (viewBox units); null if none close.
@@ -190,18 +157,13 @@ function nearestContact(px, py) {
 // unselected contact in range to the target set, never removes one. Repeated presses over the same
 // area therefore advance through a cluster instead of toggling the first hit off again. Cursor
 // Deselect (a separate keybind, see the 'cursor-deselect' handler below) removes a lock instead.
-//
-// pendingSel optimistically marks a just-selected id (MAP's own pattern) until telemetry confirms
-// it via tg — contacts refresh at 4 Hz (TelemetryReader.ContactInterval), well slower than a HOTAS
-// button can repeat, so without this a rapid burst of presses would keep re-computing the SAME
-// nearest-unselected contact instead of advancing past it.
-var pendingSel = new Map();   // id -> expiry ts (performance.now())
-function isPending(id) {
-  var exp = pendingSel.get(id);
-  if (exp === undefined) return false;
-  if (performance.now() >= exp) { pendingSel.delete(id); return false; }
-  return true;
-}
+// pendingSel (services/pending-selection.js, same shape MAP's own map.js keeps)
+// optimistically marks a just-selected id until telemetry confirms it via tg — contacts refresh at
+// 4 Hz (TelemetryReader.ContactInterval), well slower than a HOTAS button can repeat, so without
+// this a rapid burst of presses would keep re-computing the SAME nearest-unselected contact instead
+// of advancing past it. `pendingSel` is set once its dynamic import resolves, same as `zoom` above.
+var pendingSel = null;
+function isPending(id) { return !!pendingSel && pendingSel.isPending(id); }
 // Nearest plotted contact currently locked (wantLocked=true) or not (false), within HIT_PAD.
 function nearestContactBy(px, py, wantLocked) {
   var v = viewport(), c = toContentSpace((px - v.ox) / v.s, (py - v.oy) / v.s);
@@ -219,9 +181,9 @@ function nearestContactBy(px, py, wantLocked) {
 function padSelect(px, py) {
   var pt = nearestContactBy(px, py, false);
   if (!pt) return;
-  pendingSel.set(pt.id, performance.now() + 1500);
+  if (pendingSel) pendingSel.mark(pt.id);
   if (typeof sendCommand === 'function')
-    sendCommand('target.select', { id: pt.id }).catch(function () { pendingSel.delete(pt.id); });
+    sendCommand('target.select', { id: pt.id }).catch(function () { if (pendingSel) pendingSel.clear(pt.id); });
 }
 // Cursor Deselect (a dedicated keybind, not part of the PAD cursor's own Select/Hold pair): removes
 // the nearest currently-locked contact in range instead of adding one.
@@ -415,7 +377,7 @@ function render() {
   renderGrid();
   renderContacts();
   renderPitbull();
-  applyZoomTransform();
+  if (zoom) zoom.apply();
 }
 
 // Browser-only bootstrap (skipped under Node so rdr.test.js can require the pure helpers).
@@ -443,8 +405,11 @@ if (typeof window !== 'undefined' && window.addEventListener) {
   }
   // Cursor overflow at the scope's top/bottom edge also steps range (RNG+/-) — shared with HSD's
   // identical behavior (docs/rdr-fcr-hsd.md), see edge-range-step.js.
-  Promise.all([import('/assets/services/pad-cursor.js'), import('/assets/services/edge-range-step.js')])
+  Promise.all([import('/assets/services/pad-cursor.js'), import('/assets/services/edge-range-step.js'),
+               import('/assets/services/cursor-zoom.js'), import('/assets/services/pending-selection.js')])
     .then(function (mods) {
+      zoom = mods[2].createCursorZoom({ groupIds: ZOOM_GROUP_IDS, zoomScale: ZOOM_SCALE, iconShrink: ICON_SHRINK });
+      pendingSel = mods[3].createPendingSelection();
       cursor = mods[0].createPadCursor({
         el: document.getElementById('rdr-cursor'),
         clampRect: scopeRectPx,
@@ -509,27 +474,7 @@ if (typeof window !== 'undefined' && window.addEventListener) {
 }
 
 if (typeof module !== 'undefined' && module.exports)
-  module.exports = { bscopeXY: bscopeXY, geom: { MIDX: MIDX, HALFW: HALFW, TOP: TOP, BOT: BOT, HGT: HGT },
-                     // Cursor-anchored zoom (overlapping-contacts magnifier) — DOM-free so tests can
-                     // drive `zoomed`/`zoomAnchor` directly without going through toggleZoom's own
-                     // viewport() (which needs a real .rdr-panel element).
-                     toContentSpaceForTest: function (anchorX, anchorY, px, py) {
-                       var saved = { zoomed: zoomed, zoomAnchor: zoomAnchor };
-                       zoomed = true; zoomAnchor = { x: anchorX, y: anchorY };
-                       var result = toContentSpace(px, py);
-                       zoomed = saved.zoomed; zoomAnchor = saved.zoomAnchor;
-                       return result;
-                     },
-                     ZOOM_SCALE: ZOOM_SCALE,
-                     // Cursor Select's optimistic pending-selection tracking (never-deselects
-                     // behavior) — pendingSel/isPending are pure Map+timestamp logic, DOM-free.
-                     pendingSel: pendingSel, isPending: isPending,
-                     // Icon shrink while zoomed — DOM-free so tests can toggle `zoomed` directly.
-                     iconTransformForTest: function (on, px, py) {
-                       var saved = zoomed;
-                       zoomed = on;
-                       var result = iconTransform(px, py);
-                       zoomed = saved;
-                       return result;
-                     },
-                     ICON_SHRINK: ICON_SHRINK };
+  // Cursor-anchored zoom/icon-shrink and pending-selection are shared with hsd.js via
+  // services/cursor-zoom.js and services/pending-selection.js — see their own test files for that
+  // coverage, not here.
+  module.exports = { bscopeXY: bscopeXY, geom: { MIDX: MIDX, HALFW: HALFW, TOP: TOP, BOT: BOT, HGT: HGT } };

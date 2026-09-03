@@ -61,6 +61,10 @@ long as someone else's does.
   amber with a ring (the focused lock), or their ordinary color with just a ring (any other lock).
   A datalink contact whose position has gone stale (your faction hasn't refreshed it recently)
   shows white instead — still a real, known contact, just not necessarily where it's drawn anymore.
+- **Active route** — if you have a route active on [WPT](wpt.md), its waypoints show as thin white
+  lines connecting small white circles, in order. Plain by design: no numbering, no highlight on
+  the next waypoint, nothing else overlaid — just the route's shape. A waypoint outside the current
+  range isn't drawn, and a line only draws between two waypoints that are both in range.
 
 ### CEN and DEP modes
 
@@ -114,11 +118,25 @@ Release](keybinds.md#weapons) will fire at just by looking through the canopy.
 
 ## Locking a target
 
-Click or tap directly on a contact to lock it; click again to unlock — on either page. The same
-works with a HOTAS [PAD cursor](keybinds.md#pad-cursor) aimed at the contact and Select pressed —
+Click or tap directly on a contact to lock it — on either page. A click never unlocks: tapping an
+already-locked contact in a crowded group just moves on to the next unlocked one nearby, so
+repeated taps work through a cluster instead of toggling the same contact on and off. The same
+works with a HOTAS [PAD cursor](keybinds.md#pad-cursor) aimed at a contact and Select pressed —
 that needs the PAD cursor's binds (Cursor Up/Down/Left/Right/Select, and the two axis binds) set
 up first on the [KEY](keybinds.md) page. FCR and HSD share the same lock — locking a contact from
 either page locks it everywhere, including [TGT](tgt.md).
+
+To unlock a contact from FCR or HSD, use the **Cursor Deselect** bind (also set up on
+[KEY](keybinds.md)) aimed at the locked contact — see [PAD cursor](keybinds.md#pad-cursor).
+[TGT](tgt.md)'s own target list also removes a lock with a plain tap on its row, on any page.
+
+## Zooming in on a crowded area
+
+Holding **Cursor Select** over FCR or HSD, instead of tapping it, zooms the picture in around
+wherever the cursor is sitting — useful when several contacts are close enough together that they
+overlap and can't be picked out individually. Hold Select again to zoom back out. This is separate
+from [changing range](#changing-range) below: it doesn't change the selected range number, just
+magnifies the current picture around the cursor.
 
 ## Changing range
 

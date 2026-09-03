@@ -2,8 +2,9 @@
 //   node src/web/pages/rdr/rdr.test.js
 // Not shipped (excluded from the DLL by NOXMFD.csproj's *.test.js filter), like nav-model.test.js.
 
-const { bscopeXY, geom, toContentSpaceForTest, ZOOM_SCALE, pendingSel, isPending,
-        iconTransformForTest, ICON_SHRINK } = require('./rdr.js');
+const { bscopeXY, geom } = require('./rdr.js');
+// Cursor-anchored zoom/icon-shrink and pending-selection are covered by their own test files,
+// services/cursor-zoom.test.js and services/pending-selection.test.js, shared with hsd.test.js.
 
 let fails = 0;
 function ok(cond, msg) { if (!cond) { fails++; console.error('FAIL: ' + msg); } }
@@ -29,33 +30,6 @@ near(bscopeXY(0, RANGE, RANGE, CH).y, geom.TOP, 'max range → top');
 ok(bscopeXY(CH + 1, RANGE / 2, RANGE, CH) === null, 'beyond +cone culled');
 ok(bscopeXY(-(CH + 1), RANGE / 2, RANGE, CH) === null, 'beyond -cone culled');
 ok(bscopeXY(0, RANGE * 1.1, RANGE, CH) === null, 'past max range culled');
-
-// Cursor-anchored zoom (overlapping-contacts magnifier): toContentSpace is the inverse of the
-// forward zoom transform (applyZoomTransform's translate/scale/translate), so a point offset from
-// the anchor by d screen units should map back to d/ZOOM_SCALE content units from that same anchor.
-near(toContentSpaceForTest(200, 300, 200, 300).x, 200, 'the anchor itself maps to itself');
-near(toContentSpaceForTest(200, 300, 200, 300).y, 300, 'the anchor itself maps to itself (y)');
-near(toContentSpaceForTest(200, 300, 200 + ZOOM_SCALE * 30, 300).x, 230, '30 content units right of anchor, scaled to screen, maps back to 30');
-near(toContentSpaceForTest(200, 300, 200, 300 - ZOOM_SCALE * 30).y, 270, '30 content units above anchor, scaled to screen, maps back to 30');
-
-// Cursor Select's optimistic pending-selection (never-deselects behavior): a just-selected id
-// reads as "locked" (isPending) until its entry expires, so a rapid burst of presses advances past
-// it instead of re-selecting the same nearest-unselected contact before telemetry's tg catches up.
-pendingSel.clear();
-ok(!isPending(99), 'an id with no pending entry is not pending');
-pendingSel.set(99, performance.now() + 50);
-ok(isPending(99), 'a fresh pending entry reads as pending');
-pendingSel.set(99, performance.now() - 1);   // already expired
-ok(!isPending(99), 'an expired pending entry reads as not pending');
-ok(!pendingSel.has(99), 'isPending self-cleans an expired entry once observed');
-
-// Icon shrink while zoomed: identity when not zoomed, and while zoomed the net effect (icon's own
-// counter-scale composed with the outer zoom transform) must be exactly ICON_SHRINK, regardless of
-// ZOOM_SCALE's actual value — otherwise a change to one constant would silently throw off the other.
-ok(iconTransformForTest(false, 100, 200) === '', 'no icon transform when not zoomed');
-const t = iconTransformForTest(true, 100, 200);
-ok(t.indexOf('scale(' + (ICON_SHRINK / ZOOM_SCALE).toFixed(4)) >= 0,
-   'icon transform scales by ICON_SHRINK/ZOOM_SCALE so the net on-screen size is ICON_SHRINK x normal');
 
 if (fails) { console.error('rdr.test.js: ' + fails + ' failure(s)'); process.exit(1); }
 console.log('rdr.test.js: OK');

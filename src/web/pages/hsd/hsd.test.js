@@ -1,8 +1,8 @@
 const assert = require('assert');
 const { hsdXY, rangeLabelForTest, rangeUnitsForTest, altUnitsForTest, contactColor, radarConePath, demoContacts, geom,
-        CEN_RANGE_NM, DEP_RANGE_NM, gridFractionsForTest, applyModeForTest,
-        toContentSpaceForTest, ZOOM_SCALE, pendingSel, isPending,
-        iconTransformForTest, ICON_SHRINK, routePoints } = require('./hsd.js');
+        CEN_RANGE_NM, DEP_RANGE_NM, gridFractionsForTest, applyModeForTest, routePoints } = require('./hsd.js');
+// Cursor-anchored zoom/icon-shrink and pending-selection are covered by their own test files,
+// services/cursor-zoom.test.js and services/pending-selection.test.js, shared with rdr.test.js.
 
 function near(a, b, label) {
   assert.ok(Math.abs(a - b) < 1e-6, `${label}: got ${a}, expected ${b}`);
@@ -71,33 +71,6 @@ assert.strictEqual(demo.length, 5, 'standalone preview seeds five contacts');
 assert.strictEqual(demo.filter(c => c.tg).length, 1, 'standalone preview includes one lock');
 assert.strictEqual(demo.filter(c => c.rd).length, 1, 'standalone preview includes one radar-only contact');
 assert.ok(demo.every(c => hsdXY(0, 0, 20, c.x, c.z, 40 * 1852)), 'default preview range shows every demo contact');
-
-// Cursor-anchored zoom (overlapping-contacts magnifier): toContentSpace is the inverse of the
-// forward zoom transform (applyZoomTransform's translate/scale/translate), so a point offset from
-// the anchor by d screen units should map back to d/ZOOM_SCALE content units from that same anchor.
-near(toContentSpaceForTest(300, 300, 300, 300).x, 300, 'the anchor itself maps to itself');
-near(toContentSpaceForTest(300, 300, 300, 300).y, 300, 'the anchor itself maps to itself (y)');
-near(toContentSpaceForTest(300, 300, 300 + ZOOM_SCALE * 40, 300).x, 340, '40 content units right of anchor, scaled to screen, maps back to 40');
-near(toContentSpaceForTest(300, 300, 300, 300 - ZOOM_SCALE * 40).y, 260, '40 content units above anchor, scaled to screen, maps back to 40');
-
-// Cursor Select's optimistic pending-selection (never-deselects behavior): a just-selected id
-// reads as "locked" (isPending) until its entry expires, so a rapid burst of presses advances past
-// it instead of re-selecting the same nearest-unselected contact before telemetry's tg catches up.
-pendingSel.clear();
-assert.ok(!isPending(99), 'an id with no pending entry is not pending');
-pendingSel.set(99, performance.now() + 50);
-assert.ok(isPending(99), 'a fresh pending entry reads as pending');
-pendingSel.set(99, performance.now() - 1);   // already expired
-assert.ok(!isPending(99), 'an expired pending entry reads as not pending');
-assert.ok(!pendingSel.has(99), 'isPending self-cleans an expired entry once observed');
-
-// Icon shrink while zoomed: identity when not zoomed, and while zoomed the net effect (icon's own
-// counter-scale composed with the outer zoom transform) must be exactly ICON_SHRINK, regardless of
-// ZOOM_SCALE's actual value — otherwise a change to one constant would silently throw off the other.
-assert.strictEqual(iconTransformForTest(false, 100, 200), '', 'no icon transform when not zoomed');
-const iconT = iconTransformForTest(true, 100, 200);
-assert.ok(iconT.indexOf('scale(' + (ICON_SHRINK / ZOOM_SCALE).toFixed(4)) >= 0,
-  'icon transform scales by ICON_SHRINK/ZOOM_SCALE so the net on-screen size is ICON_SHRINK x normal');
 
 // Active route (DCS F-16 HSD style, plain lines + circles): routePoints just reuses hsdXY per
 // waypoint, so an in-range one plots and an out-of-range one culls to null — renderRoute then only

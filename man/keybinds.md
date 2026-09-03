@@ -136,11 +136,17 @@ from the HOTAS, without touching the screen.
 - **Cursor Up/Down/Left/Right** (or a bound analog axis) slews it.
 - **Cursor Select** picks whatever it's over: a contact on MAP, a toggle on HUD, a filter or
   target row on TGT (holding it also mirrors that page's own long-press action, where it has one),
-  a contact on FCR or HSD (locking/unlocking it — the same target set TGT itself reads), a
-  waypoint row or button on WPT, or the density toggle on AKF (holding it over AKF's pane divider
-  drags the split instead, and a tap there while collapsed restores it). On TGT
-  specifically, after Next/Previous Target, Select instead deselects the focused row directly until
-  the cursor moves again — see [Target list](#target-list) above.
+  a waypoint row or button on WPT, or the density toggle on AKF (holding it over AKF's pane divider
+  drags the split instead, and a tap there while collapsed restores it). On TGT specifically, after
+  Next/Previous Target, Select instead deselects the focused row directly until the cursor moves
+  again — see [Target list](#target-list) above.
+- On **FCR** or **HSD**, Select locks whichever contact the cursor is nearest to — like MAP, it
+  only ever adds a lock, never removes one, so repeated presses over a crowded cluster lock one
+  contact after another instead of re-toggling the same one. **Holding** Select there instead of
+  tapping it toggles a fixed zoom centered on the cursor — useful for pulling an overlapping
+  cluster of contacts apart to pick them out individually; hold again to zoom back out.
+- **Cursor Deselect** — FCR/HSD only: removes whichever locked contact the cursor is nearest to. No
+  effect on any other page.
 - **Zoom In/Out** zoom the MAP view as usual, or scroll the page up/down on HUD/TGT.
 - On MAP, pushing the cursor against the edge with FLW off pans the view to reveal more terrain.
 

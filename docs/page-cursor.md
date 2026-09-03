@@ -286,7 +286,7 @@ asserting exact, un-zoomed coordinates. Instead:
 
 - A plain SVG `transform="translate(anchor) scale(3) translate(-anchor)"` is set directly on each
   page's existing content `<g>` groups (FCR: `rdr-grid`/`rdr-contacts`/`rdr-pitbull`/`rdr-sweep`;
-  HSD: `hsd-grid`/`hsd-radar`/`hsd-threats`/`hsd-contacts`/`hsd-ownship`) from a shared-per-page
+  HSD: `hsd-grid`/`hsd-radar`/`hsd-route`/`hsd-contacts`/`hsd-ownship`) from a shared-per-page
   `applyZoomTransform()`, called once at the end of `render()`. The crosshair (`*-cursor-g`), scope
   frame, and corner/readout `<text>` elements live outside those groups and stay screen-fixed —
   a magnifying glass held over the picture, not the whole panel. FCR's static ownship caret (fixed
@@ -358,3 +358,37 @@ Marking all three `tg:1` and calling `padDeselect` at the same point then correc
 `target.deselect` for the nearest one. Confirmed on both FCR and HSD. `rdr.test.js`/`hsd.test.js`
 cover `pendingSel`'s expiry semantics directly (DOM-free). Not provable in this harness: a real
 Cursor Select/Deselect keypress end-to-end (same live-HOTAS caveat as Round 3).
+
+## Round 5 — zoom/icon-shrink and pending-selection move to shared services
+
+Rounds 3 and 4 above describe `applyZoomTransform`/`toContentSpace`/`iconTransform` and
+`pendingSel`/`isPending` as functions/state living directly in `rdr.js` and `hsd.js` — a
+pre-release DRY pass found that near-verbatim duplicate sitting in both files and pulled it into
+two small shared modules instead. The Round 3/4 descriptions above still apply exactly as written;
+only where the code physically lives has changed:
+
+- **`services/cursor-zoom.js`**'s `createCursorZoom({ groupIds, zoomScale, iconShrink })` returns
+  `{ isZoomed, toggle, apply, toContentSpace, iconTransform }` — the same zoom-anchor and
+  icon-shrink math Round 3 describes, parametrized instead of hardcoded per page. Each page's
+  bootstrap block (the same `Promise.all([import(...)])` that already loads `pad-cursor.js`/
+  `edge-range-step.js`) now also imports this and constructs one instance with its own `groupIds`
+  (FCR: `rdr-grid`/`rdr-contacts`/`rdr-pitbull`/`rdr-sweep`; HSD: `hsd-grid`/`hsd-radar`/
+  `hsd-route`/`hsd-contacts`/`hsd-ownship`) into a module-level `zoom` variable.
+- **`services/pending-selection.js`**'s `createPendingSelection(holdMs)` returns
+  `{ mark, clear, isPending }` — the same optimistic-lock Map Round 4 describes. Each page
+  constructs its own instance into a module-level `pendingSel` variable in the same bootstrap block.
+- Both page files keep thin wrapper functions (`toContentSpace`, `iconTransform`, `isPending`) that
+  delegate to the shared instance once it exists, or return the identity/not-pending answer before
+  it does — the dynamic import can't resolve before the page's own first synchronous `render()`
+  call, and nothing can be zoomed or pending that early anyway, so the two states are
+  observably the same.
+- Test coverage for the extracted logic moved with it: `services/cursor-zoom.test.js` and
+  `services/pending-selection.test.js` cover the math directly; `rdr.test.js`/`hsd.test.js` no
+  longer duplicate it (their `toContentSpaceForTest`/`iconTransformForTest`/`pendingSel` exports are
+  gone — `routePoints` and the page-specific pure functions are still exported/tested as before).
+
+Verified: `dotnet build` unaffected (pure web-asset change); the full JS suite
+(`services/cursor-zoom.test.js`, `services/pending-selection.test.js`, `rdr.test.js`,
+`hsd.test.js`, and every other `*.test.js`) green; `tools/serve_web.py` re-confirmed the same
+zoom-toggle/icon-shrink and Select-advances/Deselect-removes behavior end to end through the new
+module boundary (both `zoom`/`pendingSel` resolve and populate correctly after page load).
