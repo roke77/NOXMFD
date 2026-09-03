@@ -21,6 +21,13 @@
             each mode remembering its own (CEN/DEP share one index into their own NM ladder).
     action: 'cursor'/'cursor-held'/'cursor-focus' drive the shared PAD cursor (services/pad-cursor.js)
             exactly like FCR/TGT/MAP — see hsd.js's cursor wiring.
+
+  Active route (#hsd-route) is NOT part of the 'hsd' message above — it comes from
+  waypoints-store.js's own WaypointsStore.getActiveRoute(), the same shared navigation library
+  MAP/WPT read. That module handles its own live-update plumbing (a one-time 'wpt-routes-request'
+  on load, then either the classic shell's unconditional wpt-routes push or F-35's PAGE_FEEDS
+  'wpt-routes' feed) and fires a 'wptroutes:changed' window event on any change; hsd.js just
+  listens for that and re-renders.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -33,6 +40,11 @@
 
       <g id="hsd-grid"></g>
       <g id="hsd-radar"></g>
+      <!-- Active route (docs/rdr-fcr-hsd.md): DCS F-16 HSD style — thin solid white lines through
+           the waypoints in order, small hollow circles at each one. No numbering, no current-
+           waypoint highlight, no reached/pending distinction. Driven by waypoints-store.js's own
+           WaypointsStore.getActiveRoute(), not the 'hsd' postMessage shape. -->
+      <g id="hsd-route"></g>
       <g id="hsd-contacts"></g>
       <!-- Filled by hsd.js's renderOwnship() — the symbol itself is fixed, but its centre (CY)
            moves between CEN and DEP mode, so it has to be drawn in script rather than fixed markup. -->
@@ -53,6 +65,8 @@
 <script src="/assets/services/send-command.js"></script>
 <script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
 <script src="/assets/services/remote-keybinds.js"></script>
+<script src="/assets/pages/wpt/wpt-route.js"></script>
+<script src="/assets/pages/wpt/waypoints-store.js"></script>
 <script src="/assets/pages/hsd/hsd.js"></script>
 </body>
 </html>

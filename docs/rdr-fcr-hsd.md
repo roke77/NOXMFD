@@ -12,6 +12,24 @@ become selectable...") — yes, reusing FCR/TGT's target set exactly as FCR's ow
 cursor, hit-test, and Select-toggles-lock behavior as `rdr.js`'s (see "Interaction" below, kept as
 originally written since the design it describes for FCR now applies to HSD unchanged too).
 
+**Update:** HSD shows the active route — DCS F-16 HSD style: thin solid white lines through the
+waypoints in order, a small hollow white circle at each one. Deliberately austere by request: no
+numbering, no current-waypoint highlight, no reached/pending coloring (MAP already has that
+full-featured version; this is the plain nav-picture read). Sourced from the same shared navigation
+library MAP/WPT read (`waypoints-store.js`'s `WaypointsStore.getActiveRoute()`), not the `hsd`
+postMessage shape — `hsd.html` now loads `wpt-route.js`/`waypoints-store.js` alongside its own
+script, and `hsd.js` re-renders on the library's own `wptroutes:changed` window event, exactly the
+trigger MAP already relies on. Both shells already push route-library updates to every open surface
+regardless of page (classic's `forwardWptRoutesToPanes`/`Frame`/`Map` are all unconditional); F-35's
+per-portal `PAGE_FEEDS` needed one addition (`hsd: [..., 'wpt-routes']`) since it feeds by page type.
+A waypoint outside the selected HSD range is simply not plotted (the same cull `hsdXY` already
+applies to aerial contacts, factored out as the pure `routePoints` helper); a segment only draws
+when BOTH its ends are in range, so the route doesn't jump straight across the display to an
+off-scope point. Waypoint circles get the same `iconTransform` counter-scale as contact icons
+(currently `ICON_SHRINK = 1.0`, so they keep their normal size while zoomed); the connecting lines
+don't, since — like the pitbull dart's line to its target — their two ends are independently-zoomed
+points, not one icon's local geometry.
+
 The current `RDR` page is a radar-style B-scope with own-radar contacts, datalink-only contacts,
 lock markers, pitbull missile markers, range stepping, and the PAD acquisition cursor. This ticket
 splits that surface into two sibling pages:

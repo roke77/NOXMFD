@@ -78,7 +78,8 @@
     obj: ['obj'],             // active-objectives list (docs/md-pages.md)
     akf: ['akf'],             // kill-feed/session-stats block (docs/akf-page.md)
     rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
-    hsd: ['hsd', 'mapinfo', 'rdr'],  // 360-degree datalink picture + FCR cone (docs/rdr-fcr-hsd.md)
+    hsd: ['hsd', 'mapinfo', 'rdr', 'wpt-routes'],  // 360-degree datalink picture + FCR cone
+                                                    // (docs/rdr-fcr-hsd.md) + active route overlay
     wpt: ['mapinfo', 'wpt-routes', 'sqd-state'],   // navigation readout + shared navigation library + share-button gate
     map: ['wpt-routes'],              // navigation library (docs/hud-waypoint-indicator.md perf fix) —
                                        // MAP mounts its own map.js/telemetry, so this is its only feed

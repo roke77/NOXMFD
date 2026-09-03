@@ -150,6 +150,43 @@ function renderRadarCone() {
                       'stroke="rgba(' + TEAL_RGB + ',0.64)" stroke-width="2"/>' : '';
 }
 
+// Active route (docs/rdr-fcr-hsd.md): DCS F-16 HSD style — thin solid white lines through the
+// waypoints in order, small hollow circles at each one. Deliberately austere by request: no
+// numbering, no current-waypoint highlight, no reached/pending distinction (MAP already has the
+// full-featured version of this). A waypoint outside the selected range is simply not plotted
+// (the same cull hsdXY already applies to aerial contacts); a segment only draws when BOTH its
+// ends are in range, so the route doesn't jump straight across the display to an off-scope point.
+var ROUTE_WHITE = 'rgba(255,255,255,0.85)';
+
+// Pure — plots each waypoint (or null if out of range), same convention as hsdXY itself. Kept free
+// of module state and the DOM so it's unit-checkable (hsd.test.js) independent of WaypointsStore.
+function routePoints(ownX, ownZ, hdg, waypoints, rangeM) {
+  return (waypoints || []).map(function (w) { return hsdXY(ownX, ownZ, hdg, w.x, w.z, rangeM); });
+}
+
+function renderRoute() {
+  var g = document.getElementById('hsd-route');
+  if (!g) return;
+  var route = (typeof WaypointsStore !== 'undefined') ? WaypointsStore.getActiveRoute() : null;
+  var wps = route && Array.isArray(route.waypoints) ? route.waypoints : [];
+  var pts = routePoints(state.ownX, state.ownZ, state.hdg, wps, displayRangeM());
+  var out = '';
+  for (var i = 0; i < pts.length - 1; i++) {
+    if (!pts[i] || !pts[i + 1]) continue;
+    out += '<line x1="' + pts[i].x.toFixed(1) + '" y1="' + pts[i].y.toFixed(1) + '" x2="' +
+           pts[i + 1].x.toFixed(1) + '" y2="' + pts[i + 1].y.toFixed(1) +
+           '" stroke="' + ROUTE_WHITE + '" stroke-width="1"/>';
+  }
+  pts.forEach(function (p) {
+    if (!p) return;
+    out += '<g' + iconTransform(p.x, p.y) + '>';
+    out += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) +
+           '" r="4" fill="none" stroke="' + ROUTE_WHITE + '" stroke-width="1.5"/>';
+    out += '</g>';
+  });
+  g.innerHTML = out;
+}
+
 // PAD acquisition cursor (docs/page-cursor.md): plotted holds each on-scope contact's current
 // viewBox position so nearestContact() (below) can hit-test against it, same split FCR's own
 // plotted/hoveredId pair uses — renderContacts() must run before a hit-test is meaningful.
@@ -231,7 +268,7 @@ function scopeRectPx() {
 var ZOOM_SCALE = 3;   // tuned by feel
 var zoomed = false;
 var zoomAnchor = { x: CX, y: CY };   // content-space viewBox units; meaningful only while zoomed
-var ZOOM_GROUP_IDS = ['hsd-grid', 'hsd-radar', 'hsd-threats', 'hsd-contacts', 'hsd-ownship'];
+var ZOOM_GROUP_IDS = ['hsd-grid', 'hsd-radar', 'hsd-route', 'hsd-contacts', 'hsd-ownship'];
 
 function applyZoomTransform() {
   var t = zoomed
@@ -399,6 +436,7 @@ function render() {
   renderGrid();
   renderOwnship();
   renderRadarCone();
+  renderRoute();
   renderContacts();
   applyZoomTransform();
 }
@@ -439,6 +477,12 @@ function shouldSeedStandalonePreview() {
 
 if (typeof window !== 'undefined' && window.addEventListener) {
   loadRange();
+
+  // Active route (docs/rdr-fcr-hsd.md): waypoints-store.js fires this on any change to the shared
+  // navigation library — a new/renamed/reordered waypoint, a different active route, a squadmate's
+  // shared route being accepted — from any page, any device. Re-render to pick it up immediately
+  // rather than waiting for the next telemetry-driven 'hsd' frame.
+  window.addEventListener('wptroutes:changed', render);
 
   // The PAD acquisition cursor (two vertical bars) reuses the shared pad-cursor integrator, same
   // as FCR. Loaded via dynamic import so this file stays a classic script the Node self-check can
@@ -555,4 +599,4 @@ if (typeof module !== 'undefined' && module.exports)
                        zoomed = saved;
                        return result;
                      },
-                     ICON_SHRINK: ICON_SHRINK };
+                     ICON_SHRINK: ICON_SHRINK, routePoints: routePoints };

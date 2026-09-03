@@ -2,7 +2,7 @@ const assert = require('assert');
 const { hsdXY, rangeLabelForTest, rangeUnitsForTest, altUnitsForTest, contactColor, radarConePath, demoContacts, geom,
         CEN_RANGE_NM, DEP_RANGE_NM, gridFractionsForTest, applyModeForTest,
         toContentSpaceForTest, ZOOM_SCALE, pendingSel, isPending,
-        iconTransformForTest, ICON_SHRINK } = require('./hsd.js');
+        iconTransformForTest, ICON_SHRINK, routePoints } = require('./hsd.js');
 
 function near(a, b, label) {
   assert.ok(Math.abs(a - b) < 1e-6, `${label}: got ${a}, expected ${b}`);
@@ -98,5 +98,20 @@ assert.strictEqual(iconTransformForTest(false, 100, 200), '', 'no icon transform
 const iconT = iconTransformForTest(true, 100, 200);
 assert.ok(iconT.indexOf('scale(' + (ICON_SHRINK / ZOOM_SCALE).toFixed(4)) >= 0,
   'icon transform scales by ICON_SHRINK/ZOOM_SCALE so the net on-screen size is ICON_SHRINK x normal');
+
+// Active route (DCS F-16 HSD style, plain lines + circles): routePoints just reuses hsdXY per
+// waypoint, so an in-range one plots and an out-of-range one culls to null — renderRoute then only
+// draws a segment when BOTH ends are non-null, so the route doesn't jump straight across the scope
+// to an off-scope point.
+const rangeM40 = 40 * 1852;
+const routePts = routePoints(0, 0, 0, [
+  { x: 0, z: 10000 },        // in range
+  { x: 0, z: 20000 },        // in range
+  { x: 0, z: rangeM40 * 2 }, // well past the selected range
+], rangeM40);
+assert.strictEqual(routePts.length, 3, 'one plotted entry per waypoint, in order');
+assert.ok(routePts[0] && routePts[1], 'in-range waypoints plot');
+assert.strictEqual(routePts[2], null, 'a waypoint past the selected range culls to null');
+assert.deepStrictEqual(routePoints(0, 0, 0, [], rangeM40), [], 'no active route/waypoints yields no points');
 
 console.log('hsd.test.js: OK');
