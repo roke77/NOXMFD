@@ -25,9 +25,16 @@ namespace NOXMFD
         private float _slowTimer;
         private float _contactTimer = ContactInterval;
 
-        // Rate-limit timestamps (Time.time) for the RadarRange non-finite-value warnings below —
-        // once a mod corrupts a radar's own RadarParameters.maxRange it typically stays corrupted
-        // for as long as that radar exists, so without this the log would get one line per tick.
+        // Diagnostic (GOTH-mod compatibility investigation, docs/... N/A — a third-party mod bug, not
+        // ours): well past any plausible vanilla radar range, so a healthy session never logs anything
+        // extra here — only a corrupted RadarParameters.maxRange climbing toward Infinity crosses it,
+        // and once it does we sample the RAW value every couple seconds (below) instead of only
+        // logging the final clamp, so a growth curve survives in the log for evidence/bug-reporting.
+        private const float SuspiciousRadarRangeM = 500_000f; // 500km
+        // Rate-limit timestamps (Time.time) for the RadarRange sample/warning logs below — once a mod
+        // corrupts a radar's own RadarParameters.maxRange it typically stays corrupted (and keeps
+        // climbing) for as long as that radar exists, so without this the log would get one line per
+        // tick.
         private float _lastRwrRangeClampLogAt = -100f;
         private float _lastRdrRangeClampLogAt = -100f;
 
@@ -1137,17 +1144,20 @@ namespace NOXMFD
             // fix upstream, but this trust boundary (an arbitrary mod's own game-object mutation) is
             // exactly the kind of input worth guarding regardless of which mod eventually does this.
             float range = e.radar != null ? e.radar.RadarParameters.maxRange : 0f;
-            if (!float.IsFinite(range))
+            if (!float.IsFinite(range) || range > SuspiciousRadarRangeM)
             {
-                range = 0f;
                 // Rate-limited (not every RWR ping): once this starts happening it typically repeats
                 // every tick for as long as the offending radar exists, and this is a diagnostic, not
-                // a gate — it should never itself be the thing spamming the log.
-                if (Time.time - _lastRwrRangeClampLogAt > 5f)
+                // a gate — it should never itself be the thing spamming the log. Logs the RAW value
+                // (before clamping below) so a growth curve toward Infinity survives in the log,
+                // instead of every sample just reading "clamped to 0".
+                if (Time.time - _lastRwrRangeClampLogAt > 2f)
                 {
                     _lastRwrRangeClampLogAt = Time.time;
-                    Plugin.Log?.LogWarning($"[NOXMFD] RWR emitter '{emitter.gameObject.name}' reported a non-finite radar range (clamped to 0) — its RadarParameters.maxRange is corrupted, likely by another mod's own patch.");
+                    Plugin.Log?.LogWarning($"[NOXMFD] RWR emitter '{emitter.gameObject.name}' radar range is {range} at t={Time.time:0.0}s " +
+                        $"— past {SuspiciousRadarRangeM:0}m isn't a real vanilla value; its RadarParameters.maxRange is corrupted, likely by another mod's own patch.");
                 }
+                if (!float.IsFinite(range)) range = 0f;
             }
             if (_rwrEmitters.TryGetValue(emitter, out RwrEmitter em))
             {
@@ -1236,14 +1246,17 @@ namespace NOXMFD
             // RadarParameters.maxRange into a non-finite value would otherwise reach
             // TelemetryJson's formatter as a raw Infinity/NaN token, which isn't valid JSON.
             range = radar.RadarParameters.maxRange;
-            if (!float.IsFinite(range))
+            if (!float.IsFinite(range) || range > SuspiciousRadarRangeM)
             {
-                range = 0f;
-                if (Time.time - _lastRdrRangeClampLogAt > 5f)
+                // Logs the RAW value (before clamping below) so a growth curve toward Infinity
+                // survives in the log — see the matching comment in OnRadarWarning above.
+                if (Time.time - _lastRdrRangeClampLogAt > 2f)
                 {
                     _lastRdrRangeClampLogAt = Time.time;
-                    Plugin.Log?.LogWarning($"[NOXMFD] RDR (own aircraft) reported a non-finite radar range (clamped to 0) — RadarParameters.maxRange is corrupted, likely by another mod's own patch.");
+                    Plugin.Log?.LogWarning($"[NOXMFD] RDR (own aircraft) radar range is {range} at t={Time.time:0.0}s " +
+                        $"— past {SuspiciousRadarRangeM:0}m isn't a real vanilla value; RadarParameters.maxRange is corrupted, likely by another mod's own patch.");
                 }
+                if (!float.IsFinite(range)) range = 0f;
             }
             coneDeg = ReadRadarCone(radar);
 
