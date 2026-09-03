@@ -456,6 +456,16 @@ namespace NOXMFD
                 return;
             }
 
+            // Deselecting the currently-focused lock (TGT's Cursor Select while cycling, docs/
+            // tgt-cycle-focus.md) used to leave the pilot's attention nowhere: TargetFocus.Reconcile
+            // drops focus to none when it loses the focused id, but the very next contact-scan tick
+            // sees "nothing focused, 2+ still locked" and re-bootstraps onto lockedIds[0] — always the
+            // FIRST remaining target, not the next one after whatever was just removed. Stepping focus
+            // here, before removal, while the doomed id is still in the list Cycle steps through,
+            // lands it on the next survivor in lock order instead (same wraparound Next/Previous uses).
+            if (TargetFocus.Id == id)
+                TargetFocus.Cycle(1, TelemetryReader.TargetIds(wm.GetTargetList()));
+
             CombatHUD hud = SceneSingleton<CombatHUD>.i;
             bool viaHud = hud != null && ReferenceEquals(hud.aircraft, ac) && hud.MarkerExists(unit);
             if (hud != null && viaHud) hud.DeSelectUnit(unit);

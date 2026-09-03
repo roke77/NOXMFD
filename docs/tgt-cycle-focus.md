@@ -90,6 +90,18 @@ without touching SOI.
   - losing the focused lock specifically (but others remain) drops focus to none, rather than
     silently jumping the pilot's attention to some other target they didn't choose.
 
+**Update:** that "drops to none" rule turned out to be unstable across ticks, not a bug in
+`Reconcile` itself but in how its callers used it. The very next contact scan calls `Reconcile`
+again with the *same* `lockedIds`, and now sees "nothing focused, 2+ still locked" — the exact
+bootstrap case above — so it re-seeds focus onto `lockedIds[0]`, always the *first* remaining
+target rather than the *next* one after whatever was just removed. In-game this showed up as: TGT's
+Cursor Select on the focused lock (deselecting it) always jumped the highlight back to the top of
+the list. Fixed at the actual removal site, not in `Reconcile`: `CommandDispatcher.TargetDeselect`
+now checks `TargetFocus.Id == id` before removing, and if so calls `Cycle(1, oldLockedIds)` — the
+list still including the doomed id — so focus steps onto the next survivor in lock order (wrapping)
+before the id disappears. By the time the next `Reconcile` tick runs, the stepped-to id is already
+locked, so it's a no-op — `Reconcile`'s own bootstrap rule never gets a chance to fire.
+
 Both use the game's own `weaponManager.GetTargetList()` order — the same list `tgt.set`,
 `target.select`/`target.deselect`, and the native TGP camera all already share
 (`CommandDispatcher.cs`, `TelemetryReader.cs`'s `BuildRdr`/`BuildHsd`) — so cycling order matches

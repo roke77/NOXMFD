@@ -86,6 +86,37 @@ namespace NOXMFD.Tests
             Assert.Equal(3u, TargetFocus.Id);
         }
 
+        // CommandDispatcher.TargetDeselect's fix (issue: Cursor Select on the focused TGT lock used
+        // to jump focus to lockedIds[0] instead of the next target): when the id being removed is
+        // currently focused, it calls Cycle(1, oldIds) — the list still including the doomed id —
+        // BEFORE removing it, then the next contact scan's Reconcile(newIds) sees the stepped-to id
+        // is still locked and leaves it alone. These two tests pin that sequence down at the
+        // TargetFocus level, independent of CommandDispatcher's Unity-only surroundings.
+        [Fact]
+        public void Deselecting_the_focused_lock_advances_to_the_next_one_instead_of_the_first()
+        {
+            var before = new List<uint> { 10, 20, 30 };
+            TargetFocus.Cycle(1, before);   // focuses 10
+            TargetFocus.Cycle(1, before);   // 10 -> 20 (the one about to be deselected)
+            Assert.Equal(20u, TargetFocus.Id);
+
+            TargetFocus.Cycle(1, before);            // step off 20 while it's still in the list
+            TargetFocus.Reconcile(new List<uint> { 10, 30 });   // 20 now actually removed
+            Assert.Equal(30u, TargetFocus.Id);        // next after 20, not lockedIds[0] (10)
+        }
+
+        [Fact]
+        public void Deselecting_the_last_focused_lock_wraps_to_the_first()
+        {
+            var before = new List<uint> { 10, 20, 30 };
+            TargetFocus.Cycle(-1, before);   // focuses 30 (last, wrapping backward from none)
+            Assert.Equal(30u, TargetFocus.Id);
+
+            TargetFocus.Cycle(1, before);            // step off 30 -> wraps to 10
+            TargetFocus.Reconcile(new List<uint> { 10, 20 });   // 30 now actually removed
+            Assert.Equal(10u, TargetFocus.Id);
+        }
+
         [Fact]
         public void Cycle_steps_forward_and_backward_through_the_middle()
         {
