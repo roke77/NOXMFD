@@ -356,7 +356,8 @@ namespace NOXMFD
 
         private static string HsdBlock(TelemetrySnapshot s)
         {
-            return "{\"metric\":" + (s.RdrMetric ? "true" : "false") + ",\"items\":" + HsdArray(s.Hsd) + "}";
+            return "{\"metric\":" + (s.RdrMetric ? "true" : "false") + ",\"items\":" + HsdArray(s.Hsd) +
+                   ",\"threats\":" + HsdThreatArray(s.HsdThreats) + "}";
         }
 
         // Pitbull missiles (issue #40): the player's own AA missiles with an active-radar seeker
@@ -405,6 +406,23 @@ namespace NOXMFD
                     items[i].Id, items[i].X, items[i].Z, items[i].Alt, items[i].Heading,
                     items[i].Targeted ? 1 : 0, items[i].Radar ? 1 : 0, items[i].Datalink ? 1 : 0,
                     items[i].Stale ? 1 : 0, JsonLite.EscapeJson(items[i].Name ?? string.Empty));
+            }
+            return sb.Append(']').ToString();
+        }
+
+        // HSD AA threat rings (issue #74). "r" is the effective max engagement range in meters —
+        // the client renders it in the player's current unit system same as everything else on HSD.
+        private static string HsdThreatArray(HsdThreat[]? items)
+        {
+            if (items == null || items.Length == 0) return "[]";
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.AppendFormat(CultureInfo.InvariantCulture,
+                    "{{\"id\":{0},\"x\":{1:0.0},\"z\":{2:0.0},\"r\":{3:0.0},\"n\":\"{4}\"}}",
+                    items[i].Id, items[i].X, items[i].Z, items[i].Range,
+                    JsonLite.EscapeJson(items[i].Name ?? string.Empty));
             }
             return sb.Append(']').ToString();
         }

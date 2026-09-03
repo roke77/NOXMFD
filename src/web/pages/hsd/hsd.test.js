@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { hsdXY, rangeLabelForTest, rangeUnitsForTest, altUnitsForTest, contactColor, radarConePath, demoContacts, geom,
+const { hsdXY, rangeLabelForTest, rangeUnitsForTest, altUnitsForTest, contactColor, radarConePath, demoContacts, demoThreats, geom,
         CEN_RANGE_NM, DEP_RANGE_NM, gridFractionsForTest, applyModeForTest, routePoints } = require('./hsd.js');
 // Cursor-anchored zoom/icon-shrink and pending-selection are covered by their own test files,
 // services/cursor-zoom.test.js and services/pending-selection.test.js, shared with rdr.test.js.
@@ -86,5 +86,15 @@ assert.strictEqual(routePts.length, 3, 'one plotted entry per waypoint, in order
 assert.ok(routePts[0] && routePts[1], 'in-range waypoints plot');
 assert.strictEqual(routePts[2], null, 'a waypoint past the selected range culls to null');
 assert.deepStrictEqual(routePoints(0, 0, 0, [], rangeM40), [], 'no active route/waypoints yields no points');
+
+// AA threat rings (issue #74): a ring's center can plot outside the selected range while the ring
+// itself still reaches onto the scope (a distant SAM site with a long-range missile) — hsdXY's
+// allowOffscreen flag is what makes renderThreats() draw it instead of culling it like a contact.
+assert.strictEqual(hsdXY(0, 0, 0, 0, 3000, 2000), null, 'a plain contact beyond range is still culled');
+assert.ok(hsdXY(0, 0, 0, 0, 3000, 2000, true), 'allowOffscreen keeps a threat ring center plottable beyond range');
+
+const threats = demoThreats(0, 0, 20);
+assert.strictEqual(threats.length, 2, 'standalone preview seeds two AA threats');
+assert.ok(threats.every(t => t.r > 0), 'every demo threat carries a positive engagement range');
 
 console.log('hsd.test.js: OK');

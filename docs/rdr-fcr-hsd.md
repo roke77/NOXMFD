@@ -30,6 +30,25 @@ off-scope point. Waypoint circles get the same `iconTransform` counter-scale as 
 don't, since — like the pitbull dart's line to its target — their two ends are independently-zoomed
 points, not one icon's local geometry.
 
+**Update:** HSD gained AA threat rings ([issue #74](https://github.com/roke77/NOXMFD/issues/74)) —
+a yellow ring (`--no-hsd-yellow`) around every known enemy ground/naval unit carrying a
+radar-guided-missile weapon station, radius equal to that station's `WeaponInfo.targetRequirements.
+maxRange` (the game's own weapon engagement envelope, not radar detection range). "Radar-guided" is
+an exact check, not a heuristic: `TelemetryReader.IsRadarGuidedMissile` reads
+`weaponPrefab.GetComponent<MissileSeeker>().GetSeekerType()` straight off the (uninstantiated)
+missile prefab and keeps only "ARH"/"SARH" — the same two seeker-type strings `NotchHeading`
+already treats as radar-guided for the RWR's beam-notch heading — so IR/optical/laser-guided AAA
+and unguided guns are excluded regardless of altitude reach. Rings use the same faction-known-
+position gating as HSD's own aerial contacts (`TryGetKnownPosition`) — an undetected SAM site gets
+no ring. Server payload adds a `threats:[{id,x,z,r,n}]` array alongside `items` in the `hsd` block
+(`TelemetryJson.HsdBlock`/`HsdThreatArray`); `hsd.js`'s `renderThreats()` draws it as a background
+layer (`#hsd-threats`, below contact icons), reusing `hsdXY()` with a new `allowOffscreen` flag so a
+ring can still reach onto the scope even when the SAM site's own position, at the ring's center,
+plots outside the selected range. `hsd-threats` is included in HSD's cursor-zoom group
+(`ZOOM_GROUP_IDS`), same as every other content layer, so rings pan/scale consistently with the
+rest of the picture; unlike contact icons and route waypoint circles, rings do NOT get the
+`iconTransform` counter-scale — a ring represents a real engagement-range distance, so it should
+grow with the zoom exactly like the range grid does, not stay a fixed symbol size.
 The current `RDR` page is a radar-style B-scope with own-radar contacts, datalink-only contacts,
 lock markers, pitbull missile markers, range stepping, and the PAD acquisition cursor. This ticket
 splits that surface into two sibling pages:
