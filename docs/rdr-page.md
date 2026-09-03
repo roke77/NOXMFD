@@ -71,7 +71,12 @@ original design record rather than rewritten in place.
   off the nose; vertical axis = range, 0 at ownship → max at top.
 - **Range scale:** selectable (issue #40 follow-up) — `RANGE_STEPS = [0.25, 0.5, 1]`, a fraction of
   the radar's own max range (`RadarParameters.maxRange`) rather than fixed absolute km/nm rings,
-  since the true max varies per airframe. R+/R- (bezel nav items, also reachable via SOI's Zoom
+  since the true max varies per airframe. `RadarParameters.maxRange` is a live field on the game's
+  own `Radar` component, so another installed mod's own patch on it is free to leave it non-finite
+  (a reported third-party radar-buff mod compounded it into `Infinity`) — `TelemetryReader`'s
+  `ClampFiniteRange` clamps any non-finite reading to 0 before it reaches `TelemetryJson`, whose
+  hand-rolled formatter would otherwise emit an invalid bare `Infinity`/`NaN` token and break every
+  client's `JSON.parse` on that frame. R+/R- (bezel nav items, also reachable via SOI's Zoom
   In/Out keybind — the same one MAP's zoom sends, TGT repurposes to scroll its list) step it,
   persisted in sessionStorage. Displayed in the player's own Imperial/Metric unit preference
   (`PlayerSettings.unitSystem`, mirrored into the snapshot as `RdrMetric`), matching the game's own

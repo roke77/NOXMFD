@@ -1108,6 +1108,11 @@ namespace NOXMFD
             }
         }
 
+        // Another mod's own radar patch can corrupt RadarParameters.maxRange into NaN/Infinity;
+        // TelemetryJson's hand-rolled formatter has no guard against that, so an unclamped value
+        // would emit an invalid bare token and break every client's JSON.parse from that frame on.
+        private static float ClampFiniteRange(float range) => float.IsFinite(range) ? range : 0f;
+
         // One radar sweep painted us: record/refresh the emitter with its current threat tier.
         // A later ping can raise or lower the tier (search → track → lock and back).
         private void OnRadarWarning(Aircraft.OnRadarWarning e)
@@ -1115,11 +1120,7 @@ namespace NOXMFD
             Unit emitter = e.emitter;
             if (emitter == null) return;
             byte tier = e.isTarget ? (byte)2 : (e.detected ? (byte)1 : (byte)0);
-            // Another mod's own radar patch can corrupt RadarParameters.maxRange into NaN/Infinity;
-            // TelemetryJson's hand-rolled formatter has no guard against that, so it would otherwise
-            // emit an invalid bare token and break every client's JSON.parse from that frame on.
-            float range = e.radar != null ? e.radar.RadarParameters.maxRange : 0f;
-            if (!float.IsFinite(range)) range = 0f;
+            float range = e.radar != null ? ClampFiniteRange(e.radar.RadarParameters.maxRange) : 0f;
             if (_rwrEmitters.TryGetValue(emitter, out RwrEmitter em))
             {
                 em.Tier = tier;
@@ -1203,9 +1204,7 @@ namespace NOXMFD
             if (radar == null) return Array.Empty<RdrContact>();
 
             present = true;
-            // See the same guard's comment in OnRadarWarning above.
-            range = radar.RadarParameters.maxRange;
-            if (!float.IsFinite(range)) range = 0f;
+            range = ClampFiniteRange(radar.RadarParameters.maxRange);
             coneDeg = ReadRadarCone(radar);
 
             // Same target-set reference the TGT page / target.select drive — an RDR "lock" IS
