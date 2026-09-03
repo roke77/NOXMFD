@@ -480,6 +480,19 @@ namespace NOXMFD
                 }
                 _frameBytes   = Encoding.UTF8.GetBytes("data: " + payload + "\n\n");
                 _frameVersion = v;
+
+                // Diagnostic (same issue as above): separate from the timing check — a frame can grow
+                // huge (e.g. a corrupted radar range making far more units register as "in range" than
+                // any normal session would) while StringBuilder still builds it quickly, so size needs
+                // its own gate. A normal frame is a handful of KB; this is a generous multiple of that.
+                // Sent 10x/second, an oversized frame is also a bandwidth/buffering question a slow one
+                // isn't, so this is worth knowing about even when serialize time alone looks fine.
+                if (_frameBytes.Length > 20_000)
+                {
+                    Plugin.Log?.LogWarning($"[NOXMFD] Telemetry frame is {_frameBytes.Length} bytes " +
+                        $"(units={snap.Units?.Length ?? 0} rwr={snap.Rwr?.Length ?? 0} rdr={snap.Rdr?.Length ?? 0} mw={snap.Mw?.Length ?? 0}) " +
+                        "— a normal frame is a handful of KB.");
+                }
                 return _frameBytes;
             }
         }
