@@ -14,6 +14,8 @@ src/web/
   shared/   font.css  theme.css  share-tech-mono.woff2   # passive cross-page assets
   services/ telemetry-source.js  send-command.js          # active shared code (the providers)
             pad-cursor.js                                 # the shared PAD crosshair (docs/page-cursor.md)
+            cursor-zoom.js                                # FCR/HSD's cursor-anchored zoom + icon-shrink (docs/page-cursor.md)
+            pending-selection.js                          # FCR/HSD's optimistic Select tracking, MAP's own shape (docs/page-cursor.md)
             remote-keybinds.js                            # opt-in browser keybind listener
   shell/    shared/        nav-model.js                   # NAV registry — the layout seam, BOTH shells load it
                            layout-pages.js                # where each layout mounts each NAV destination
