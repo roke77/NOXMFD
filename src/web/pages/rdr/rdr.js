@@ -171,12 +171,48 @@ function nearestContact(px, py) {
   });
   return best;
 }
-// Select over a contact toggles its lock — reusing TGT's target set (target.select/deselect by id).
+// Select mirrors MAP's own cursor select exactly (docs/page-cursor.md): it always ADDS the nearest
+// unselected contact in range to the target set, never removes one. Repeated presses over the same
+// area therefore advance through a cluster instead of toggling the first hit off again. Cursor
+// Deselect (a separate keybind, see the 'cursor-deselect' handler below) removes a lock instead.
+//
+// pendingSel optimistically marks a just-selected id (MAP's own pattern) until telemetry confirms
+// it via tg — contacts refresh at 4 Hz (TelemetryReader.ContactInterval), well slower than a HOTAS
+// button can repeat, so without this a rapid burst of presses would keep re-computing the SAME
+// nearest-unselected contact instead of advancing past it.
+var pendingSel = new Map();   // id -> expiry ts (performance.now())
+function isPending(id) {
+  var exp = pendingSel.get(id);
+  if (exp === undefined) return false;
+  if (performance.now() >= exp) { pendingSel.delete(id); return false; }
+  return true;
+}
+// Nearest plotted contact currently locked (wantLocked=true) or not (false), within HIT_PAD.
+function nearestContactBy(px, py, wantLocked) {
+  var v = viewport(), c = toContentSpace((px - v.ox) / v.s, (py - v.oy) / v.s);
+  var best = null, bestD = HIT_PAD;
+  plotted.forEach(function (pt) {
+    var item = itemById(pt.id);
+    if (!item) return;
+    var locked = !!item.tg || isPending(pt.id);
+    if (locked !== wantLocked) return;
+    var d = Math.hypot(pt.x - c.x, pt.y - c.y);
+    if (d <= bestD) { bestD = d; best = pt; }
+  });
+  return best;
+}
 function padSelect(px, py) {
-  var pt = nearestContact(px, py);
+  var pt = nearestContactBy(px, py, false);
   if (!pt) return;
-  var c = itemById(pt.id);
-  send(c && c.tg ? 'target.deselect' : 'target.select', { id: pt.id });
+  pendingSel.set(pt.id, performance.now() + 1500);
+  if (typeof sendCommand === 'function')
+    sendCommand('target.select', { id: pt.id }).catch(function () { pendingSel.delete(pt.id); });
+}
+// Cursor Deselect (a dedicated keybind, not part of the PAD cursor's own Select/Hold pair): removes
+// the nearest currently-locked contact in range instead of adding one.
+function padDeselect(px, py) {
+  var pt = nearestContactBy(px, py, true);
+  if (pt) send('target.deselect', { id: pt.id });
 }
 // Draw the F-16 two-bar acquisition gate at the cursor, in viewBox units so it scales with the
 // contact bricks (a 16-unit brick sits inside the ~28-unit gap). CUR_GAP = each bar's offset from
@@ -433,6 +469,11 @@ if (typeof window !== 'undefined' && window.addEventListener) {
       if (cursor) cursor.setVector(m.x, m.y); else pendingVec = { x: m.x, y: m.y };
     } else if (m.action === 'cursor-held') {
       if (cursor) cursor.setSelectHeld(!!m.held);
+    } else if (m.action === 'cursor-deselect') {
+      // A dedicated keybind (Keybinds.cs), not part of the PAD cursor's own Select/Hold pair —
+      // hit-tests at the cursor's current position, same as a Select tap would.
+      var p = cursor ? cursor.getPos() : null;
+      if (p) padDeselect(p.x, p.y);
     } else if (m.action === 'zoom-in') {
       // The same Zoom In/Out physical keybind MAP uses (map-act, docs/page-cursor.md) — routed here
       // instead of to MAP whenever RDR is the SOI-focused surface, exactly the way TGT repurposes it
@@ -458,4 +499,7 @@ if (typeof module !== 'undefined' && module.exports)
                        zoomed = saved.zoomed; zoomAnchor = saved.zoomAnchor;
                        return result;
                      },
-                     ZOOM_SCALE: ZOOM_SCALE };
+                     ZOOM_SCALE: ZOOM_SCALE,
+                     // Cursor Select's optimistic pending-selection tracking (never-deselects
+                     // behavior) — pendingSel/isPending are pure Map+timestamp logic, DOM-free.
+                     pendingSel: pendingSel, isPending: isPending };

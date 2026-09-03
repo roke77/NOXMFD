@@ -1,7 +1,7 @@
 const assert = require('assert');
 const { hsdXY, rangeLabelForTest, rangeUnitsForTest, altUnitsForTest, contactColor, radarConePath, demoContacts, geom,
         CEN_RANGE_NM, DEP_RANGE_NM, gridFractionsForTest, applyModeForTest,
-        toContentSpaceForTest, ZOOM_SCALE } = require('./hsd.js');
+        toContentSpaceForTest, ZOOM_SCALE, pendingSel, isPending } = require('./hsd.js');
 
 function near(a, b, label) {
   assert.ok(Math.abs(a - b) < 1e-6, `${label}: got ${a}, expected ${b}`);
@@ -78,5 +78,16 @@ near(toContentSpaceForTest(300, 300, 300, 300).x, 300, 'the anchor itself maps t
 near(toContentSpaceForTest(300, 300, 300, 300).y, 300, 'the anchor itself maps to itself (y)');
 near(toContentSpaceForTest(300, 300, 300 + ZOOM_SCALE * 40, 300).x, 340, '40 content units right of anchor, scaled to screen, maps back to 40');
 near(toContentSpaceForTest(300, 300, 300, 300 - ZOOM_SCALE * 40).y, 260, '40 content units above anchor, scaled to screen, maps back to 40');
+
+// Cursor Select's optimistic pending-selection (never-deselects behavior): a just-selected id
+// reads as "locked" (isPending) until its entry expires, so a rapid burst of presses advances past
+// it instead of re-selecting the same nearest-unselected contact before telemetry's tg catches up.
+pendingSel.clear();
+assert.ok(!isPending(99), 'an id with no pending entry is not pending');
+pendingSel.set(99, performance.now() + 50);
+assert.ok(isPending(99), 'a fresh pending entry reads as pending');
+pendingSel.set(99, performance.now() - 1);   // already expired
+assert.ok(!isPending(99), 'an expired pending entry reads as not pending');
+assert.ok(!pendingSel.has(99), 'isPending self-cleans an expired entry once observed');
 
 console.log('hsd.test.js: OK');

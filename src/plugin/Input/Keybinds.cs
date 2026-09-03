@@ -104,7 +104,7 @@ namespace NOXMFD
 
         // The four MAP cursor direction binds, kept by reference so Poll() can read their ActiveNow
         // directly and fold them into one cursor vector (see the MAP Keybinds comment in Bind()).
-        private static BindDef? _cursorUp, _cursorDown, _cursorLeft, _cursorRight, _cursorSelect;
+        private static BindDef? _cursorUp, _cursorDown, _cursorLeft, _cursorRight, _cursorSelect, _cursorDeselect;
         // The two MAP cursor axis binds (docs/map-cursor.md) — analog alternative to the four keys
         // above; a deflected axis overrides its keys for that component (Poll()).
         private static BindDef? _cursorAxisH, _cursorAxisV;
@@ -310,6 +310,16 @@ namespace NOXMFD
                     TelemetryServer.CursorSelect();
                     TgpManualControl.TryLockTrackedUnit();
                 });
+            // FCR/HSD's own Cursor Select never deselects (mirrors MAP's cursor select, which has
+            // always been add-only) — this is the dedicated removal path for those two pages. A
+            // plain one-shot MapAction, same shape as tgt-datalink/zoom-in: no native/server-side
+            // effect of its own, just a named trigger the focused page's own JS decides what to do
+            // with (rdr.js/hsd.js's padDeselect, hit-testing against the PAD cursor's own current
+            // position). No effect on MAP (no deselect concept) or TGT (already has its own dedicated
+            // deselect path via row tap / focused-lock Select, docs/tgt-cycle-focus.md).
+            _cursorDeselect = DefFree(config, "cursor-deselect", cursor, "CursorDeselect", "Cursor Deselect", edge: true,
+                "On FCR/HSD, deselects whatever the cursor is on (Cursor Select there only ever adds a lock, never removes one). No effect elsewhere.",
+                () => TelemetryServer.MapAction("cursor-deselect"));
             // Analog alternative to the four direction keys above — a HOTAS mini-stick/hat gives full
             // diagonal control the keys can't (only one axis can be held "active" at a time on a
             // digital pad). Axis-only: no keyboard/button source makes sense for a continuous value,

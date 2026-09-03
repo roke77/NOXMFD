@@ -308,3 +308,41 @@ screen position afterward. `rdr.test.js`/`hsd.test.js` cover `toContentSpace`'s 
 math directly (DOM-free, via a `toContentSpaceForTest` export). Not provable in this harness (same
 caveat as Round 2's hold-timer/hover checks): a real held Cursor Select press end-to-end, since the
 harness has no live HOTAS/keybind driving `cursor-held`.
+
+## Round 4 — FCR/HSD Select never deselects; a new Cursor Deselect keybind
+
+FCR/HSD's Cursor Select used to toggle a contact's lock (select if untargeted, deselect if already
+targeted) — the same tap that drove Round 3's zoom hold. By request, both pages now mirror MAP's own
+cursor select exactly: a tap always ADDS the nearest *unselected* contact in range to the target
+set and never removes one, so repeated presses over a crowded area advance through the cluster
+instead of re-toggling the first hit on and off. Deselecting is now a separate, dedicated action.
+
+- **`Keybinds.cs`**: a new `cursor-deselect` bind in the existing "Cursor Keybinds" group, right
+  after `cursor-select`. A plain one-shot `TelemetryServer.MapAction("cursor-deselect")` — same
+  shape as `tgt-datalink`/`zoom-in`, no native/server-side effect of its own. No effect on MAP (no
+  deselect concept there either) or TGT (already has its own dedicated deselect path via row tap /
+  focused-lock Select, docs/tgt-cycle-focus.md) — the action reaches whichever page holds SOI, and
+  only `rdr.js`/`hsd.js` listen for it.
+- **`rdr.js`/`hsd.js`**: `padSelect` now calls a new `nearestContactBy(px, py, wantLocked)` — the
+  same hit-test loop as `nearestContact`, but filtered to only-unlocked (Select) or only-locked
+  (the new `padDeselect`) candidates, mirroring MAP's own `selectAt`'s "skip already-selected"
+  filter. `padDeselect` is wired to the `'cursor-deselect'` message, reading the cursor's current
+  position via `cursor.getPos()` (there's no separate transported x/y for this action, unlike the
+  continuous cursor vector) and hit-testing exactly where a Select tap would.
+- **`pendingSel`** (ported from MAP's own identically-named mechanism): a just-selected id is
+  optimistically marked locked immediately, before the `target.select` request even resolves,
+  expiring after 1.5s. Contacts refresh at 4 Hz (`TelemetryReader.ContactInterval`) — well slower
+  than a HOTAS button can repeat — so without this, a rapid burst of Select presses would keep
+  re-computing the SAME nearest-unselected contact (server confirms are still in flight) instead of
+  advancing past it on each press, same bug MAP already solved.
+- `nearestContact` itself (used by `padMove`'s hover highlight and `drawCursor`) is untouched —
+  hover still highlights the nearest contact regardless of lock state.
+
+Verified in `tools/serve_web.py`: with three contacts plotted inside one `HIT_PAD` cluster, calling
+`padSelect` at that point four times in a row (mocking `sendCommand` to capture calls) produced
+exactly three `target.select` calls, one per contact, in nearest-first order, then correctly
+no-op'd on the fourth press with nothing left unselected — never once calling `target.deselect`.
+Marking all three `tg:1` and calling `padDeselect` at the same point then correctly called
+`target.deselect` for the nearest one. Confirmed on both FCR and HSD. `rdr.test.js`/`hsd.test.js`
+cover `pendingSel`'s expiry semantics directly (DOM-free). Not provable in this harness: a real
+Cursor Select/Deselect keypress end-to-end (same live-HOTAS caveat as Round 3).
