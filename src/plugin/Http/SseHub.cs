@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Text;
@@ -117,14 +116,6 @@ namespace NOXMFD
                 int sinceFrame = FrameEveryMs;   // send a frame immediately on connect
                 while (!ct.IsCancellationRequested)
                 {
-                    // Diagnostic (issue: TGP-camera-mod compatibility report): this loop's own work
-                    // per tick is normally near-zero (a few string comparisons, occasionally a small
-                    // write), so an iteration taking anywhere near this long means the OS didn't
-                    // schedule this background thread promptly (CPU starvation elsewhere in the
-                    // process) or a WriteAsync call itself blocked (the client's socket not draining) —
-                    // either would explain a display going silent with no clean disconnect logged.
-                    // Excludes the deliberate Task.Delay below, so this only times actual work.
-                    var iterationSw = Stopwatch.StartNew();
                     if (sinceFrame >= FrameEveryMs)
                     {
                         // Shared frame: serialized at most once per snapshot version, regardless of
@@ -195,13 +186,6 @@ namespace NOXMFD
                         await ctx.Response.OutputStream.WriteAsync(ebytes, 0, ebytes.Length, ct).ConfigureAwait(false);
                     }
                     ctx.Response.OutputStream.Flush();
-
-                    iterationSw.Stop();
-                    if (iterationSw.ElapsedMilliseconds > 250)
-                    {
-                        Plugin.Log?.LogWarning($"[NOXMFD] SSE send loop stalled: {iterationSw.ElapsedMilliseconds}ms " +
-                            $"for instance {conn} ({ctx.Request.RemoteEndPoint}) — expected near-instant, ticks every {CursorTickMs}ms.");
-                    }
 
                     await Task.Delay(CursorTickMs, ct).ConfigureAwait(false);
                     sinceFrame += CursorTickMs;

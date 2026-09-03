@@ -458,41 +458,14 @@ namespace NOXMFD
                 _frameSoiVersion = sv;
                 _frameMissionRunning = mr;
 
-                // Diagnostic (issue: TGP-camera-mod compatibility report): a mod that inflates how many
-                // units are radar/visually detected at once (e.g. a global visual-range buff) makes
-                // this serialization the thing most directly sensitive to that — every extra detected
-                // contact is an extra row in Rwr/Rdr/Units. Logged only past a threshold that's already
-                // a meaningful bite out of the 100ms/10Hz frame budget, so a healthy session stays
-                // silent; not gated behind a config flag since the cost of one Stopwatch per frame is
-                // negligible next to the serialization work it's timing.
-                var serializeSw = Stopwatch.StartNew();
                 string payload = snap.Valid
                     ? TelemetryJson.Serialize(snap, SoiFocus.SoiJson(), ImmersionState.MasterArmsOn,
                         ImmersionState.CombatMode switch { CombatMode.AirToAir => "aa", CombatMode.AirToGround => "ag", _ => "all" },
                         ExtensionRegistry.SlicesJson())
                     : "{\"ping\":true,\"missionRunning\":" + (mr ? "true" : "false") + "," + SoiFocus.SoiJson() + "}";
-                serializeSw.Stop();
-                if (serializeSw.ElapsedMilliseconds > 20)
-                {
-                    Plugin.Log?.LogWarning($"[NOXMFD] Telemetry serialize took {serializeSw.ElapsedMilliseconds}ms " +
-                        $"(units={snap.Units?.Length ?? 0} rwr={snap.Rwr?.Length ?? 0} rdr={snap.Rdr?.Length ?? 0} mw={snap.Mw?.Length ?? 0}) " +
-                        "— budget is 100ms/10Hz.");
-                }
                 _frameBytes   = Encoding.UTF8.GetBytes("data: " + payload + "\n\n");
                 _frameVersion = v;
 
-                // Diagnostic (same issue as above): separate from the timing check — a frame can grow
-                // huge (e.g. a corrupted radar range making far more units register as "in range" than
-                // any normal session would) while StringBuilder still builds it quickly, so size needs
-                // its own gate. A normal frame is a handful of KB; this is a generous multiple of that.
-                // Sent 10x/second, an oversized frame is also a bandwidth/buffering question a slow one
-                // isn't, so this is worth knowing about even when serialize time alone looks fine.
-                if (_frameBytes.Length > 20_000)
-                {
-                    Plugin.Log?.LogWarning($"[NOXMFD] Telemetry frame is {_frameBytes.Length} bytes " +
-                        $"(units={snap.Units?.Length ?? 0} rwr={snap.Rwr?.Length ?? 0} rdr={snap.Rdr?.Length ?? 0} mw={snap.Mw?.Length ?? 0}) " +
-                        "— a normal frame is a handful of KB.");
-                }
                 return _frameBytes;
             }
         }

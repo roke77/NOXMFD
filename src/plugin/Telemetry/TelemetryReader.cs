@@ -25,19 +25,6 @@ namespace NOXMFD
         private float _slowTimer;
         private float _contactTimer = ContactInterval;
 
-        // Diagnostic (GOTH-mod compatibility investigation, docs/... N/A — a third-party mod bug, not
-        // ours): well past any plausible vanilla radar range, so a healthy session never logs anything
-        // extra here — only a corrupted RadarParameters.maxRange climbing toward Infinity crosses it,
-        // and once it does we sample the RAW value every couple seconds (below) instead of only
-        // logging the final clamp, so a growth curve survives in the log for evidence/bug-reporting.
-        private const float SuspiciousRadarRangeM = 500_000f; // 500km
-        // Rate-limit timestamps (Time.time) for the RadarRange sample/warning logs below — once a mod
-        // corrupts a radar's own RadarParameters.maxRange it typically stays corrupted (and keeps
-        // climbing) for as long as that radar exists, so without this the log would get one line per
-        // tick.
-        private float _lastRwrRangeClampLogAt = -100f;
-        private float _lastRdrRangeClampLogAt = -100f;
-
         // Map metadata, resolved once LevelInfo is available.
         private LevelInfo? _level;
         private bool  _mapValid;
@@ -198,14 +185,6 @@ namespace NOXMFD
         private void Update()
         {
             float dt = Time.deltaTime;
-
-            // Diagnostic (issue: TGP-camera-mod compatibility report): a mod that makes every frame's
-            // own game logic (e.g. a radar-detection patch run across far more mutually-visible units)
-            // more expensive would show up here first, as a single slow frame, before it could show up
-            // anywhere in NOXMFD's own HTTP/SSE code (see TelemetryServer.GetFrameBytes/SseHub.cs's own
-            // watchdogs) — this isolates "the game itself hitched" from "NOXMFD's server fell behind".
-            if (dt > 0.25f)
-                Plugin.Log?.LogWarning($"[NOXMFD] Frame hitch: {dt * 1000f:0}ms since last Update (t={Time.time:0.0}s).");
 
             // Inbound web-client commands are drained by MissionLifecycle.Update (the persistent host),
             // so the /keybinds page works at the main menu too — not here.
@@ -1136,29 +1115,11 @@ namespace NOXMFD
             Unit emitter = e.emitter;
             if (emitter == null) return;
             byte tier = e.isTarget ? (byte)2 : (e.detected ? (byte)1 : (byte)0);
-            // A radar-tuning mod that corrupts RadarParameters.maxRange (compounds it unboundedly
-            // instead of resetting from a fixed baseline each check) can drive this past float's
-            // range into an actual Infinity — TelemetryJson's hand-rolled formatter has no NaN/
-            // Infinity guard of its own, so a raw Infinity here becomes an invalid bare token in the
-            // JSON output, breaking every client's JSON.parse from that frame on. Not NOXMFD's bug to
-            // fix upstream, but this trust boundary (an arbitrary mod's own game-object mutation) is
-            // exactly the kind of input worth guarding regardless of which mod eventually does this.
+            // Another mod's own radar patch can corrupt RadarParameters.maxRange into NaN/Infinity;
+            // TelemetryJson's hand-rolled formatter has no guard against that, so it would otherwise
+            // emit an invalid bare token and break every client's JSON.parse from that frame on.
             float range = e.radar != null ? e.radar.RadarParameters.maxRange : 0f;
-            if (!float.IsFinite(range) || range > SuspiciousRadarRangeM)
-            {
-                // Rate-limited (not every RWR ping): once this starts happening it typically repeats
-                // every tick for as long as the offending radar exists, and this is a diagnostic, not
-                // a gate — it should never itself be the thing spamming the log. Logs the RAW value
-                // (before clamping below) so a growth curve toward Infinity survives in the log,
-                // instead of every sample just reading "clamped to 0".
-                if (Time.time - _lastRwrRangeClampLogAt > 2f)
-                {
-                    _lastRwrRangeClampLogAt = Time.time;
-                    Plugin.Log?.LogWarning($"[NOXMFD] RWR emitter '{emitter.gameObject.name}' radar range is {range} at t={Time.time:0.0}s " +
-                        $"— past {SuspiciousRadarRangeM:0}m isn't a real vanilla value; its RadarParameters.maxRange is corrupted, likely by another mod's own patch.");
-                }
-                if (!float.IsFinite(range)) range = 0f;
-            }
+            if (!float.IsFinite(range)) range = 0f;
             if (_rwrEmitters.TryGetValue(emitter, out RwrEmitter em))
             {
                 em.Tier = tier;
@@ -1242,22 +1203,9 @@ namespace NOXMFD
             if (radar == null) return Array.Empty<RdrContact>();
 
             present = true;
-            // See the same guard's comment in OnRadarWarning above — a mod that corrupts
-            // RadarParameters.maxRange into a non-finite value would otherwise reach
-            // TelemetryJson's formatter as a raw Infinity/NaN token, which isn't valid JSON.
+            // See the same guard's comment in OnRadarWarning above.
             range = radar.RadarParameters.maxRange;
-            if (!float.IsFinite(range) || range > SuspiciousRadarRangeM)
-            {
-                // Logs the RAW value (before clamping below) so a growth curve toward Infinity
-                // survives in the log — see the matching comment in OnRadarWarning above.
-                if (Time.time - _lastRdrRangeClampLogAt > 2f)
-                {
-                    _lastRdrRangeClampLogAt = Time.time;
-                    Plugin.Log?.LogWarning($"[NOXMFD] RDR (own aircraft) radar range is {range} at t={Time.time:0.0}s " +
-                        $"— past {SuspiciousRadarRangeM:0}m isn't a real vanilla value; RadarParameters.maxRange is corrupted, likely by another mod's own patch.");
-                }
-                if (!float.IsFinite(range)) range = 0f;
-            }
+            if (!float.IsFinite(range)) range = 0f;
             coneDeg = ReadRadarCone(radar);
 
             // Same target-set reference the TGT page / target.select drive — an RDR "lock" IS
