@@ -1,7 +1,8 @@
 const assert = require('assert');
 const { hsdXY, rangeLabelForTest, rangeUnitsForTest, altUnitsForTest, contactColor, radarConePath, demoContacts, geom,
         CEN_RANGE_NM, DEP_RANGE_NM, gridFractionsForTest, applyModeForTest,
-        toContentSpaceForTest, ZOOM_SCALE, pendingSel, isPending } = require('./hsd.js');
+        toContentSpaceForTest, ZOOM_SCALE, pendingSel, isPending,
+        iconTransformForTest, ICON_SHRINK } = require('./hsd.js');
 
 function near(a, b, label) {
   assert.ok(Math.abs(a - b) < 1e-6, `${label}: got ${a}, expected ${b}`);
@@ -89,5 +90,13 @@ assert.ok(isPending(99), 'a fresh pending entry reads as pending');
 pendingSel.set(99, performance.now() - 1);   // already expired
 assert.ok(!isPending(99), 'an expired pending entry reads as not pending');
 assert.ok(!pendingSel.has(99), 'isPending self-cleans an expired entry once observed');
+
+// Icon shrink while zoomed: identity when not zoomed, and while zoomed the net effect (icon's own
+// counter-scale composed with the outer zoom transform) must be exactly ICON_SHRINK, regardless of
+// ZOOM_SCALE's actual value — otherwise a change to one constant would silently throw off the other.
+assert.strictEqual(iconTransformForTest(false, 100, 200), '', 'no icon transform when not zoomed');
+const iconT = iconTransformForTest(true, 100, 200);
+assert.ok(iconT.indexOf('scale(' + (ICON_SHRINK / ZOOM_SCALE).toFixed(4)) >= 0,
+  'icon transform scales by ICON_SHRINK/ZOOM_SCALE so the net on-screen size is ICON_SHRINK x normal');
 
 console.log('hsd.test.js: OK');

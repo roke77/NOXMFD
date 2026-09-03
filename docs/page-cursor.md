@@ -300,6 +300,17 @@ asserting exact, un-zoomed coordinates. Instead:
 - Zoom state (`zoomed`/`zoomAnchor`) persists across SOI focus changes and range/mode switches;
   nothing resets it automatically. Not asked for, and DCS's own TDC-depress zoom has no such
   auto-reset either.
+- **Update:** the outer zoom transform scales the SPACING between contacts, which is the actual
+  point of the magnifier, but it also blew up each icon's own drawn size by the same factor — a
+  contact that overlapped another at scale 1 just became a bigger overlapping icon at scale 3. Each
+  contact's markup (and FCR's pitbull dart) is now wrapped in its own nested `<g>` with a counter-
+  scale, `iconTransform(px, py)`: `translate(px, py) scale(ICON_SHRINK/ZOOM_SCALE) translate(-px,
+  -py)`, centered on the icon's own point so it shrinks in place instead of drifting toward the zoom
+  anchor. Composed with the outer transform, the net on-screen size while zoomed is exactly
+  `ICON_SHRINK` (0.5) x normal, independent of whatever `ZOOM_SCALE` happens to be. Identity (empty
+  string) when not zoomed. The pitbull dart's line to its target is deliberately left OUTSIDE this
+  wrapper — its two endpoints are two independently-zoomed points, not one icon's local geometry, so
+  shrinking it around the dart's own center would wrongly pull the target end toward the dart.
 
 Verified in `tools/serve_web.py`: toggling zoom via the console (`zoomed`/`zoomAnchor` + `render()`,
 standing in for a real held Select press) visibly separated two previously-overlapping bricks/icons

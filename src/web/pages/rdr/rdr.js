@@ -161,6 +161,21 @@ function toggleZoom(px, py) {
   applyZoomTransform();
 }
 
+// Icon shrink while zoomed: the outer zoom transform above scales the SPACING between contacts —
+// the actual point of the magnifier, to pull overlapping icons apart — but it would blow up each
+// icon's own drawn size by the same factor, making them look oversized rather than just spread out.
+// Counter-scaling each icon's own <g> by ICON_SHRINK/ZOOM_SCALE nets out to exactly ICON_SHRINK x
+// its normal on-screen size once the outer transform is applied on top, centered on the icon's own
+// point (translate/scale/translate, same trick as applyZoomTransform) so it shrinks in place rather
+// than drifting toward the zoom anchor. Identity (empty string) when not zoomed.
+var ICON_SHRINK = 0.5;
+function iconTransform(px, py) {
+  if (!zoomed) return '';
+  var s = ICON_SHRINK / ZOOM_SCALE;
+  return ' transform="translate(' + px.toFixed(1) + ' ' + py.toFixed(1) + ') scale(' + s.toFixed(4) +
+         ') translate(' + (-px).toFixed(1) + ' ' + (-py).toFixed(1) + ')"';
+}
+
 // Nearest plotted contact to a panel-px point, within HIT_PAD (viewBox units); null if none close.
 function nearestContact(px, py) {
   var v = viewport(), c = toContentSpace((px - v.ox) / v.s, (py - v.oy) / v.s);
@@ -289,6 +304,7 @@ function renderContacts() {
     // An unfocused lock therefore keeps its ordinary source color — its ring (drawn below) is what
     // shows it's still locked, not its icon.
     var col = focused ? AMBER : (c.radar ? RED : PURPLE);
+    out += '<g' + iconTransform(p.x, p.y) + '>';
     // Hover highlight: a soft ring under whatever the cursor is nearest (docs/rdr-page.md).
     if (c.id === hoveredId)
       out += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) +
@@ -305,6 +321,7 @@ function renderContacts() {
     if (locked)
       out += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) +
              '" r="17" fill="none" stroke="' + AMBER + '" stroke-width="2"/>';
+    out += '</g>';
   });
   g.innerHTML = out;
   renderReadout(focusedContact);
@@ -332,11 +349,15 @@ function renderPitbull() {
       ? (Math.atan2(target.x - p.x, -(target.y - p.y)) * 180 / Math.PI).toFixed(1)
       : (m.rhdg || 0).toFixed(1);
     // Slender dart (RWR's HL/HB/HW proportions, scaled to RDR's ~16px contact size): a long tip and
-    // a narrow base.
+    // a narrow base. Only the dart shape itself gets the icon-shrink treatment — the line to its
+    // target spans two independently-zoomed points, so shrinking it around the dart's own center
+    // would wrongly pull the target end toward the dart instead of leaving it at its real position.
+    out += '<g' + iconTransform(p.x, p.y) + '>';
     out += '<polygon points="' + p.x.toFixed(1) + ',' + (p.y - 13).toFixed(1) + ' ' +
            (p.x - 4).toFixed(1) + ',' + (p.y + 3).toFixed(1) + ' ' +
            (p.x + 4).toFixed(1) + ',' + (p.y + 3).toFixed(1) +
            '" fill="' + BLUE + '" transform="rotate(' + rot + ' ' + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ')"/>';
+    out += '</g>';
     if (target)
       out += '<line x1="' + p.x.toFixed(1) + '" y1="' + p.y.toFixed(1) + '" x2="' + target.x.toFixed(1) +
              '" y2="' + target.y.toFixed(1) + '" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>';
@@ -502,4 +523,13 @@ if (typeof module !== 'undefined' && module.exports)
                      ZOOM_SCALE: ZOOM_SCALE,
                      // Cursor Select's optimistic pending-selection tracking (never-deselects
                      // behavior) — pendingSel/isPending are pure Map+timestamp logic, DOM-free.
-                     pendingSel: pendingSel, isPending: isPending };
+                     pendingSel: pendingSel, isPending: isPending,
+                     // Icon shrink while zoomed — DOM-free so tests can toggle `zoomed` directly.
+                     iconTransformForTest: function (on, px, py) {
+                       var saved = zoomed;
+                       zoomed = on;
+                       var result = iconTransform(px, py);
+                       zoomed = saved;
+                       return result;
+                     },
+                     ICON_SHRINK: ICON_SHRINK };

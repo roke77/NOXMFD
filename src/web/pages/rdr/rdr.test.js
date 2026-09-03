@@ -2,7 +2,8 @@
 //   node src/web/pages/rdr/rdr.test.js
 // Not shipped (excluded from the DLL by NOXMFD.csproj's *.test.js filter), like nav-model.test.js.
 
-const { bscopeXY, geom, toContentSpaceForTest, ZOOM_SCALE, pendingSel, isPending } = require('./rdr.js');
+const { bscopeXY, geom, toContentSpaceForTest, ZOOM_SCALE, pendingSel, isPending,
+        iconTransformForTest, ICON_SHRINK } = require('./rdr.js');
 
 let fails = 0;
 function ok(cond, msg) { if (!cond) { fails++; console.error('FAIL: ' + msg); } }
@@ -47,6 +48,14 @@ ok(isPending(99), 'a fresh pending entry reads as pending');
 pendingSel.set(99, performance.now() - 1);   // already expired
 ok(!isPending(99), 'an expired pending entry reads as not pending');
 ok(!pendingSel.has(99), 'isPending self-cleans an expired entry once observed');
+
+// Icon shrink while zoomed: identity when not zoomed, and while zoomed the net effect (icon's own
+// counter-scale composed with the outer zoom transform) must be exactly ICON_SHRINK, regardless of
+// ZOOM_SCALE's actual value — otherwise a change to one constant would silently throw off the other.
+ok(iconTransformForTest(false, 100, 200) === '', 'no icon transform when not zoomed');
+const t = iconTransformForTest(true, 100, 200);
+ok(t.indexOf('scale(' + (ICON_SHRINK / ZOOM_SCALE).toFixed(4)) >= 0,
+   'icon transform scales by ICON_SHRINK/ZOOM_SCALE so the net on-screen size is ICON_SHRINK x normal');
 
 if (fails) { console.error('rdr.test.js: ' + fails + ' failure(s)'); process.exit(1); }
 console.log('rdr.test.js: OK');
