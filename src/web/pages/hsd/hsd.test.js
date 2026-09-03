@@ -1,6 +1,7 @@
 const assert = require('assert');
 const { hsdXY, rangeLabelForTest, rangeUnitsForTest, altUnitsForTest, contactColor, radarConePath, demoContacts, geom,
-        CEN_RANGE_NM, DEP_RANGE_NM, gridFractionsForTest, applyModeForTest } = require('./hsd.js');
+        CEN_RANGE_NM, DEP_RANGE_NM, gridFractionsForTest, applyModeForTest,
+        toContentSpaceForTest, ZOOM_SCALE } = require('./hsd.js');
 
 function near(a, b, label) {
   assert.ok(Math.abs(a - b) < 1e-6, `${label}: got ${a}, expected ${b}`);
@@ -69,5 +70,13 @@ assert.strictEqual(demo.length, 5, 'standalone preview seeds five contacts');
 assert.strictEqual(demo.filter(c => c.tg).length, 1, 'standalone preview includes one lock');
 assert.strictEqual(demo.filter(c => c.rd).length, 1, 'standalone preview includes one radar-only contact');
 assert.ok(demo.every(c => hsdXY(0, 0, 20, c.x, c.z, 40 * 1852)), 'default preview range shows every demo contact');
+
+// Cursor-anchored zoom (overlapping-contacts magnifier): toContentSpace is the inverse of the
+// forward zoom transform (applyZoomTransform's translate/scale/translate), so a point offset from
+// the anchor by d screen units should map back to d/ZOOM_SCALE content units from that same anchor.
+near(toContentSpaceForTest(300, 300, 300, 300).x, 300, 'the anchor itself maps to itself');
+near(toContentSpaceForTest(300, 300, 300, 300).y, 300, 'the anchor itself maps to itself (y)');
+near(toContentSpaceForTest(300, 300, 300 + ZOOM_SCALE * 40, 300).x, 340, '40 content units right of anchor, scaled to screen, maps back to 40');
+near(toContentSpaceForTest(300, 300, 300, 300 - ZOOM_SCALE * 40).y, 260, '40 content units above anchor, scaled to screen, maps back to 40');
 
 console.log('hsd.test.js: OK');

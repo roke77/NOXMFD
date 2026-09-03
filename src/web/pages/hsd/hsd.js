@@ -219,12 +219,54 @@ function scopeRectPx() {
   var v = viewport();
   return { dx: v.ox, dy: v.oy, dw: 600 * v.s, dh: 600 * v.s };
 }
+// Cursor-anchored zoom (DCS-style "TDC depress" magnifier): holding Cursor Select (pad-cursor.js's
+// onHold, not a bezel button) toggles a fixed-factor zoom centered on wherever the cursor sits, so
+// an overlapping cluster of contacts can be pulled apart without changing the selected HSD range.
+// Holding again while zoomed returns to the normal view, from wherever the cursor is now.
+// Implemented as a plain SVG transform on the content groups only (grid/radar cone/threats/
+// contacts/ownship) — the crosshair, range/mode readouts, and LINK/LOCK footer live outside those
+// groups and stay screen-fixed, like a magnifying glass held over the picture rather than the panel.
+var ZOOM_SCALE = 3;   // tuned by feel
+var zoomed = false;
+var zoomAnchor = { x: CX, y: CY };   // content-space viewBox units; meaningful only while zoomed
+var ZOOM_GROUP_IDS = ['hsd-grid', 'hsd-radar', 'hsd-threats', 'hsd-contacts', 'hsd-ownship'];
+
+function applyZoomTransform() {
+  var t = zoomed
+    ? 'translate(' + zoomAnchor.x.toFixed(1) + ' ' + zoomAnchor.y.toFixed(1) + ') scale(' + ZOOM_SCALE +
+      ') translate(' + (-zoomAnchor.x).toFixed(1) + ' ' + (-zoomAnchor.y).toFixed(1) + ')'
+    : '';
+  ZOOM_GROUP_IDS.forEach(function (id) {
+    var g = document.getElementById(id);
+    if (g) g.setAttribute('transform', t);
+  });
+}
+
+// The inverse of the transform above — maps a raw screen/viewBox point into the CONTENT space
+// `plotted` is still stored in (renderContacts never changes what it computes), so hit-testing
+// keeps working unmodified regardless of whether the picture is currently magnified.
+function toContentSpace(vx, vy) {
+  if (!zoomed) return { x: vx, y: vy };
+  return { x: zoomAnchor.x + (vx - zoomAnchor.x) / ZOOM_SCALE, y: zoomAnchor.y + (vy - zoomAnchor.y) / ZOOM_SCALE };
+}
+
+function toggleZoom(px, py) {
+  if (zoomed) {
+    zoomed = false;
+  } else {
+    var v = viewport();
+    zoomAnchor = { x: (px - v.ox) / v.s, y: (py - v.oy) / v.s };
+    zoomed = true;
+  }
+  applyZoomTransform();
+}
+
 // Nearest plotted contact to a panel-px point, within HIT_PAD (viewBox units); null if none close.
 function nearestContact(px, py) {
-  var v = viewport(), vx = (px - v.ox) / v.s, vy = (py - v.oy) / v.s;
+  var v = viewport(), c = toContentSpace((px - v.ox) / v.s, (py - v.oy) / v.s);
   var best = null, bestD = HIT_PAD;
   plotted.forEach(function (pt) {
-    var d = Math.hypot(pt.x - vx, pt.y - vy);
+    var d = Math.hypot(pt.x - c.x, pt.y - c.y);
     if (d <= bestD) { bestD = d; best = pt; }
   });
   return best;
@@ -304,6 +346,7 @@ function render() {
   renderOwnship();
   renderRadarCone();
   renderContacts();
+  applyZoomTransform();
 }
 
 function demoContacts(ownX, ownZ, hdg) {
@@ -359,6 +402,9 @@ if (typeof window !== 'undefined' && window.addEventListener) {
         el: document.getElementById('hsd-cursor'),
         clampRect: scopeRectPx,
         onSelect: padSelect,
+        // Cursor Select HELD (not a bezel button) toggles the zoom, anchored wherever the cursor
+        // currently sits — see toggleZoom above.
+        onHold: toggleZoom,
         onMove: padMove,
         onEdge: mods[1].createEdgeRangeStepper(function (dir) { setRangeIdx(rangeIdx + dir); })
       });
@@ -427,4 +473,15 @@ if (typeof module !== 'undefined' && module.exports)
                        var result = { RANGE_NM: RANGE_NM, CY: CY, OUTER: OUTER, rangeIdx: rangeIdx };
                        mode = saveMode; rangeIdx = saveIdx; applyMode();
                        return result;
-                     } };
+                     },
+                     // Cursor-anchored zoom (overlapping-contacts magnifier) — DOM-free so tests can
+                     // drive `zoomed`/`zoomAnchor` directly without going through toggleZoom's own
+                     // viewport() (which needs a real .hsd-panel element).
+                     toContentSpaceForTest: function (anchorX, anchorY, px, py) {
+                       var saved = { zoomed: zoomed, zoomAnchor: zoomAnchor };
+                       zoomed = true; zoomAnchor = { x: anchorX, y: anchorY };
+                       var result = toContentSpace(px, py);
+                       zoomed = saved.zoomed; zoomAnchor = saved.zoomAnchor;
+                       return result;
+                     },
+                     ZOOM_SCALE: ZOOM_SCALE };

@@ -263,3 +263,48 @@ After this shipped, two small consistency passes landed on top:
   wording matches which bind does which, without naming TGT/HUD specifically (the binds' meaning is
   page-decided, per the "shell forwards, page decides" pattern above, so the description shouldn't
   hard-code which pages currently opt in).
+
+## Round 3 — FCR/HSD cursor-anchored zoom
+
+A DCS-style "TDC depress" magnifier for FCR (`rdr.js`) and HSD (`hsd.js`): holding Cursor Select —
+no new bezel button — toggles a fixed 3x zoom centered on wherever the cursor currently sits, so an
+overlapping cluster of contacts can be pulled apart without changing the selected range. Holding
+again while zoomed returns to the normal view, from wherever the cursor is now (a plain toggle, not
+a re-anchor-then-hold-to-restore gesture).
+
+Both pages register a real `onHold` (`pad-cursor.js`) for the first time — previously neither passed
+one, so `setSelectHeld`'s own fallback (`if (!onHold) { if (held) this.select(); return; }`) fired
+Select's outcome on the PRESS edge. Registering `onHold` switches both pages onto the same
+tap-vs-hold arbitration TGT/MAP already use: Select's target-lock outcome now fires on RELEASE
+(before `holdMs`), and a press held past it fires the zoom toggle instead. This is an intentional,
+unavoidable side effect of adding a hold gesture through the shared cursor primitive, not a
+regression — it brings FCR/HSD's Select timing in line with the rest of the mod's PAD cursor pages.
+
+**Implementation** — deliberately NOT baked into the pages' pure, already-tested geometry functions
+(`bscopeXY`, `hsdXY`, `radarConePath`); those stay untouched so their existing unit tests keep
+asserting exact, un-zoomed coordinates. Instead:
+
+- A plain SVG `transform="translate(anchor) scale(3) translate(-anchor)"` is set directly on each
+  page's existing content `<g>` groups (FCR: `rdr-grid`/`rdr-contacts`/`rdr-pitbull`/`rdr-sweep`;
+  HSD: `hsd-grid`/`hsd-radar`/`hsd-threats`/`hsd-contacts`/`hsd-ownship`) from a shared-per-page
+  `applyZoomTransform()`, called once at the end of `render()`. The crosshair (`*-cursor-g`), scope
+  frame, and corner/readout `<text>` elements live outside those groups and stay screen-fixed —
+  a magnifying glass held over the picture, not the whole panel. FCR's static ownship caret (fixed
+  scope furniture, not a positioned entity) is deliberately left out of the zoomed groups too; HSD's
+  `hsd-ownship` IS included, since it represents the aircraft's actual position on a spatial plan
+  view where zooming away from ownship should be able to push it off-screen, same as any contact.
+- `toContentSpace(vx, vy)` is the transform's exact inverse. `nearestContact` runs the cursor's raw
+  screen/viewBox position through it before comparing against `plotted` — which itself is never
+  touched, still holding exactly what `hsdXY`/`bscopeXY` computed — so hit-testing, hover, and
+  Select all keep working unmodified regardless of zoom state.
+- Zoom state (`zoomed`/`zoomAnchor`) persists across SOI focus changes and range/mode switches;
+  nothing resets it automatically. Not asked for, and DCS's own TDC-depress zoom has no such
+  auto-reset either.
+
+Verified in `tools/serve_web.py`: toggling zoom via the console (`zoomed`/`zoomAnchor` + `render()`,
+standing in for a real held Select press) visibly separated two previously-overlapping bricks/icons
+on both pages, and `nearestContact` correctly resolved the right contact id at its new, magnified
+screen position afterward. `rdr.test.js`/`hsd.test.js` cover `toContentSpace`'s inverse-transform
+math directly (DOM-free, via a `toContentSpaceForTest` export). Not provable in this harness (same
+caveat as Round 2's hold-timer/hover checks): a real held Cursor Select press end-to-end, since the
+harness has no live HOTAS/keybind driving `cursor-held`.
