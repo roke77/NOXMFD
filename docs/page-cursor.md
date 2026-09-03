@@ -307,7 +307,8 @@ asserting exact, un-zoomed coordinates. Instead:
   scale, `iconTransform(px, py)`: `translate(px, py) scale(ICON_SHRINK/ZOOM_SCALE) translate(-px,
   -py)`, centered on the icon's own point so it shrinks in place instead of drifting toward the zoom
   anchor. Composed with the outer transform, the net on-screen size while zoomed is exactly
-  `ICON_SHRINK` (0.5) x normal, independent of whatever `ZOOM_SCALE` happens to be. Identity (empty
+  `ICON_SHRINK` (1.0 — icons keep their normal size, only spacing zooms; tried 0.5 first, but that
+  read as too aggressive a shrink) x normal, independent of whatever `ZOOM_SCALE` happens to be. Identity (empty
   string) when not zoomed. The pitbull dart's line to its target is deliberately left OUTSIDE this
   wrapper — its two endpoints are two independently-zoomed points, not one icon's local geometry, so
   shrinking it around the dart's own center would wrongly pull the target end toward the dart.

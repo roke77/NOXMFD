@@ -270,7 +270,7 @@ function toggleZoom(px, py) {
 // its normal on-screen size once the outer transform is applied on top, centered on the icon's own
 // point (translate/scale/translate, same trick as applyZoomTransform) so it shrinks in place rather
 // than drifting toward the zoom anchor. Identity (empty string) when not zoomed.
-var ICON_SHRINK = 0.5;
+var ICON_SHRINK = 1.0;   // tuned by feel; 1.0 = icons keep their normal size, only spacing zooms
 function iconTransform(px, py) {
   if (!zoomed) return '';
   var s = ICON_SHRINK / ZOOM_SCALE;
