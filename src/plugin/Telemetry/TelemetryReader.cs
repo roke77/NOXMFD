@@ -186,6 +186,14 @@ namespace NOXMFD
         {
             float dt = Time.deltaTime;
 
+            // Diagnostic (issue: TGP-camera-mod compatibility report): a mod that makes every frame's
+            // own game logic (e.g. a radar-detection patch run across far more mutually-visible units)
+            // more expensive would show up here first, as a single slow frame, before it could show up
+            // anywhere in NOXMFD's own HTTP/SSE code (see TelemetryServer.GetFrameBytes/SseHub.cs's own
+            // watchdogs) — this isolates "the game itself hitched" from "NOXMFD's server fell behind".
+            if (dt > 0.25f)
+                Plugin.Log?.LogWarning($"[NOXMFD] Frame hitch: {dt * 1000f:0}ms since last Update (t={Time.time:0.0}s).");
+
             // Inbound web-client commands are drained by MissionLifecycle.Update (the persistent host),
             // so the /keybinds page works at the main menu too — not here.
 
