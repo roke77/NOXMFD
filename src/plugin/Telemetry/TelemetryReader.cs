@@ -1123,7 +1123,15 @@ namespace NOXMFD
             Unit emitter = e.emitter;
             if (emitter == null) return;
             byte tier = e.isTarget ? (byte)2 : (e.detected ? (byte)1 : (byte)0);
+            // A radar-tuning mod that corrupts RadarParameters.maxRange (compounds it unboundedly
+            // instead of resetting from a fixed baseline each check) can drive this past float's
+            // range into an actual Infinity — TelemetryJson's hand-rolled formatter has no NaN/
+            // Infinity guard of its own, so a raw Infinity here becomes an invalid bare token in the
+            // JSON output, breaking every client's JSON.parse from that frame on. Not NOXMFD's bug to
+            // fix upstream, but this trust boundary (an arbitrary mod's own game-object mutation) is
+            // exactly the kind of input worth guarding regardless of which mod eventually does this.
             float range = e.radar != null ? e.radar.RadarParameters.maxRange : 0f;
+            if (!float.IsFinite(range)) range = 0f;
             if (_rwrEmitters.TryGetValue(emitter, out RwrEmitter em))
             {
                 em.Tier = tier;
@@ -1207,7 +1215,11 @@ namespace NOXMFD
             if (radar == null) return Array.Empty<RdrContact>();
 
             present = true;
+            // See the same guard's comment in OnRadarWarning above — a mod that corrupts
+            // RadarParameters.maxRange into a non-finite value would otherwise reach
+            // TelemetryJson's formatter as a raw Infinity/NaN token, which isn't valid JSON.
             range = radar.RadarParameters.maxRange;
+            if (!float.IsFinite(range)) range = 0f;
             coneDeg = ReadRadarCone(radar);
 
             // Same target-set reference the TGT page / target.select drive — an RDR "lock" IS
