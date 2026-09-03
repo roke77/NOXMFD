@@ -61,6 +61,10 @@ long as someone else's does.
   amber with a ring (the focused lock), or their ordinary color with just a ring (any other lock).
   A datalink contact whose position has gone stale (your faction hasn't refreshed it recently)
   shows white instead — still a real, known contact, just not necessarily where it's drawn anymore.
+- **AA threat rings** — a yellow ring around any known enemy ground or naval unit carrying a
+  radar-guided missile, sized to that weapon's actual engagement range rather than its radar
+  detection range. Only shows for units your faction has actually detected — an undetected SAM
+  site draws no ring, so this never reveals a threat you couldn't otherwise know about.
 - **Active route** — if you have a route active on [WPT](wpt.md), its waypoints show as thin white
   lines connecting small white circles, in order. Plain by design: no numbering, no highlight on
   the next waypoint, nothing else overlaid — just the route's shape. A waypoint outside the current
