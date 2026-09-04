@@ -1074,13 +1074,24 @@ function forwardWpnLayoutToFrame() {
 // from the current wpnData.masterArmsOn/combatMode here IS the live update — no separate
 // re-apply-in-place step is needed the way FLW's markFollowLabels needs one (FLW's labels persist
 // across ticks; WPN's don't).
-function placeWpnNavLabels() {
-  overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
-  delete keyBanks.left[0].dataset.action;
-  delete keyBanks.right[0].dataset.action;
+// Rebuilding this tears down and recreates every label (see the comment on renderSoiCursor() below),
+// so it's worth skipping when nothing that actually affects the output moved — it otherwise reruns
+// on every single loadout tick (docs/web-efficiency-audit.md finding 03). `force` is for the two
+// page-entry call sites: navigating onto WPN must always render even if the key happens to match
+// whatever was last drawn before the pilot left the page (the labels themselves are long gone by
+// then, replaced by whatever page was shown in between).
+let wpnNavLabelsKey = null;
+function placeWpnNavLabels(force) {
   const total = (wpnData.items || []).length;
   const maxPage = Math.max(0, Math.ceil(total / WPN_MAX_DISPLAY) - 1);
   const cur = Math.min(Math.max(wpnPage, 0), maxPage);
+  const key = cur + '|' + maxPage + '|' + wpnData.masterArmsOn + '|' + wpnData.combatMode;
+  if (!force && key === wpnNavLabelsKey) return;
+  wpnNavLabelsKey = key;
+
+  overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
+  delete keyBanks.left[0].dataset.action;
+  delete keyBanks.right[0].dataset.action;
   placeOverlayLabel('left', 0, cur > 0 ? 'PREV' : 'MAIN', cur > 0 ? 'wpn-prev' : 'main');
   if (cur < maxPage) placeOverlayLabel('right', 0, 'NEXT', 'wpn-next');
   placeOverlayLabel('right', 1, 'ARM',  'master-arms-on',  wpnData.masterArmsOn === true);
@@ -1090,8 +1101,9 @@ function placeWpnNavLabels() {
   placeOverlayLabel('right', 3, 'A/A', 'combat-mode-aa', wpnData.combatMode === 'aa');
   placeOverlayLabel('right', 4, 'A/G', 'combat-mode-ag', wpnData.combatMode === 'ag');
   placeWpnDecorators();
-  // This runs on every loadout tick, not only on a page change, so the SOI cursor's mark has to be
-  // re-applied here too — it lives on a label this function just threw away.
+  // The rebuild above just threw away every label, including whichever one carried the SOI cursor's
+  // mark — re-apply it. Unreachable on the early-return fast path above, where nothing was thrown
+  // away in the first place.
   renderSoiCursor();
 }
 
@@ -1138,11 +1150,18 @@ function placeWpnDecorators() {
 // carrying a static `mark` in NAV.tgp. Left bank is the "go somewhere else" column — MAIN, CFG,
 // and the three one-shot actions (TRK/RST/STP) that don't reflect live feed state; right bank is
 // the "change how the feed looks" column — LCK/MAN, CLR/IR, and Z+/Z-, in that reading order.
-// Called once on page entry (showPage) and again on every tgp telemetry tick so the highlight
-// tracks live state, the same re-render-in-place shape as placeWpnNavLabels above.
-function placeTgpNavLabels() {
-  overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
+// Called once on page entry (showPage, force=true) and again on every tgp telemetry tick so the
+// highlight tracks live state — same rebuild-guard shape as placeWpnNavLabels above
+// (docs/web-efficiency-audit.md finding 03): only LCK/MAN/CLR/IR actually change between calls, so
+// the tick-driven calls skip the full teardown/rebuild when none of them have.
+let tgpNavLabelsKey = null;
+function placeTgpNavLabels(force) {
   const marks = tgpMarks();
+  const key = marks.tgt + '|' + marks.man + '|' + marks.clr + '|' + marks.ir;
+  if (!force && key === tgpNavLabelsKey) return;
+  tgpNavLabelsKey = key;
+
+  overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
   placeOverlayLabel('left', 0, NAV.tgp[0].label, NAV.tgp[0].action);
   placeOverlayLabel('left', 1, NAV.tgp[1].label, NAV.tgp[1].action);
   // TRK/RST/STP — page-button twins of the Point Track / Manual Control Reset keybinds
@@ -1660,7 +1679,7 @@ function showPage(name) {
       placeMapWptDecorator({ bank: 'right', index: plusIndex }, hasActiveRoute ? 'WYPT' : 'STRP');
     }
   } else if (name === 'tgp') {
-    placeTgpNavLabels();
+    placeTgpNavLabels(true);
   } else {
     // Bezel full-view rendering of the navigation model: item i → left-column key i. `mark` lights
     // an item active (e.g. NAV.bdf/NAV.pal flagging whichever of BDF/PAL is the current page).
@@ -1684,7 +1703,7 @@ function showPage(name) {
   // the frame at the page (switching src as needed) then forward layout + data.
   if (name === 'wpn') {
     showFramePage('wpn');
-    placeWpnNavLabels();                                          // MAIN/PREV/NEXT (shell-owned)
+    placeWpnNavLabels(true);                                      // MAIN/PREV/NEXT (shell-owned)
     forwardWpnLayoutToFrame(); forwardWpnToFrame(); forwardCmToFrame();
   }
   // TGP renders in #page-frame too. Its only key is the static MAIN label (NAV.tgp,
@@ -1907,7 +1926,9 @@ window.addEventListener('message', function(e) {
       // Split-pane twin of the above: jump each visible WPN pane to the selection's page.
       if (selChanged) autoPageToSelection();
       forwardWpnToPanes();
-      renderSplitLabels();
+      // Same guard the tgp branch below already uses — skip the label rebuild when no pane is even
+      // showing WPN (docs/web-efficiency-audit.md finding 02).
+      if (panePages.indexOf('wpn') !== -1) renderSplitLabels();
     }
   } else if (m.type === 'cm') {
     cmData = {
