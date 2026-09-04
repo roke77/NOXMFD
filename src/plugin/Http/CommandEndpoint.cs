@@ -40,10 +40,12 @@ namespace NOXMFD
 
                 if (env == null || string.IsNullOrEmpty(env.cmd))
                 {
+                    Plugin.Log?.LogInfo($"[NOXMFD] /command: malformed or missing cmd — body: {Truncate(body, 200)}");
                     ctx.Response.StatusCode = 400;
                 }
                 else if (!CommandDispatcher.IsKnown(env.cmd))
                 {
+                    Plugin.Log?.LogInfo($"[NOXMFD] /command: unknown cmd '{env.cmd}' — 422.");
                     ctx.Response.StatusCode = 422;
                 }
                 else
@@ -102,16 +104,20 @@ namespace NOXMFD
             if (CommandContentType.IsJson(ctx.Request.ContentType))
                 return true;
 
+            Plugin.Log?.LogInfo($"[NOXMFD] /command: rejected Content-Type '{ctx.Request.ContentType}' — 415.");
             ctx.Response.StatusCode = 415;
             ctx.Response.Close();
             return false;
         }
+
+        private static string Truncate(string s, int max) => s.Length <= max ? s : s.Substring(0, max) + "…";
 
         private static bool TryReadBoundedBody(HttpListenerContext ctx, out string body)
         {
             body = string.Empty;
             if (ctx.Request.ContentLength64 > MaxCommandBodyBytes)
             {
+                Plugin.Log?.LogInfo($"[NOXMFD] /command: body too large (Content-Length {ctx.Request.ContentLength64}) — 413.");
                 ctx.Response.StatusCode = 413;
                 ctx.Response.Close();
                 return false;
@@ -125,6 +131,7 @@ namespace NOXMFD
             {
                 if (ms.Length + read > MaxCommandBodyBytes)
                 {
+                    Plugin.Log?.LogInfo("[NOXMFD] /command: body exceeded size cap while streaming — 413.");
                     ctx.Response.StatusCode = 413;
                     ctx.Response.Close();
                     return false;

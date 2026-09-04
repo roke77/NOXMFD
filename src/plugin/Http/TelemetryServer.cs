@@ -168,14 +168,24 @@ namespace NOXMFD
         // runs from Keybinds.cs (which already touches Aircraft for its other binds) rather than here.
         internal static uint FocusedTargetId => TargetFocus.Id;
 
-        internal static void SetRemoteCursorState(float x, float y, bool selectHeld) =>
-            RemoteInputState.SetCursor(x, y, selectHeld);
+        internal static void SetRemoteCursorState(float x, float y, bool selectHeld)
+        {
+            if (RemoteInputState.SetCursor(x, y, selectHeld))
+                Plugin.Log?.LogInfo($"[NOXMFD] remote cursor select {(selectHeld ? "ON" : "OFF")}.");
+        }
 
         internal static void GetRemoteCursorState(out float x, out float y, out bool selectHeld) =>
             RemoteInputState.GetCursor(out x, out y, out selectHeld);
 
-        internal static void SetRemoteFireState(string group, bool held) =>
-            RemoteInputState.SetFire(group, held);
+        internal static void SetRemoteFireState(string group, bool held)
+        {
+            // The rising edge is reported by SetFire itself (it alone knows the prior state); every
+            // release is logged here regardless, since the browser only ever sends held:false once
+            // per keyup — not as a 50ms keepalive like held:true — so it's already low-frequency.
+            bool risingEdge = RemoteInputState.SetFire(group, held);
+            if (risingEdge) Plugin.Log?.LogInfo($"[NOXMFD] remote fire '{group}' ON.");
+            else if (!held) Plugin.Log?.LogInfo($"[NOXMFD] remote fire '{group}' OFF.");
+        }
 
         internal static bool GetRemoteFireState(string group) => RemoteInputState.GetFire(group);
 

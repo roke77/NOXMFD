@@ -14,14 +14,20 @@ namespace NOXMFD
         private static bool _remoteCursorSelectHeld;
         private static long _remoteCursorUntilUtcTicks;
 
-        internal static void SetCursor(float x, float y, bool selectHeld)
+        // Returns true when selectHeld just changed — the caller (TelemetryServer, which has the
+        // logger) logs on that edge only. Kept as a plain return value rather than calling out to a
+        // logger directly: this file has no BepInEx/Unity reference and is linked straight into
+        // tools/tests for that reason (docs/remote-keybinds.md).
+        internal static bool SetCursor(float x, float y, bool selectHeld)
         {
             lock (_remoteCursorLock)
             {
+                bool changed = selectHeld != _remoteCursorSelectHeld;
                 _remoteCursorX = x;
                 _remoteCursorY = y;
                 _remoteCursorSelectHeld = selectHeld;
                 _remoteCursorUntilUtcTicks = DateTime.UtcNow.Ticks + RemoteCursorTtlTicks;
+                return changed;
             }
         }
 
@@ -53,12 +59,17 @@ namespace NOXMFD
         private static readonly Dictionary<string, (bool active, long untilUtcTicks, long minUntilUtcTicks)> _remoteFire =
             new Dictionary<string, (bool, long, long)>();
 
-        internal static void SetFire(string group, bool held)
+        // Returns true only on the rising edge (this call transitioned the group from not-held to
+        // held) — the caller logs on that, plus unconditionally on every `held:false` (already
+        // low-frequency: the browser sends that once on keyup, not as a keepalive). Kept as a plain
+        // return value rather than calling out to a logger directly — see SetCursor's own comment.
+        internal static bool SetFire(string group, bool held)
         {
             long now = DateTime.UtcNow.Ticks;
             lock (_remoteFireLock)
             {
                 _remoteFire.TryGetValue(group, out var f);
+                bool risingEdge = held && !f.active;
                 if (held)
                 {
                     f.active = true;
@@ -73,6 +84,7 @@ namespace NOXMFD
                     f.untilUtcTicks = 0L;
                 }
                 _remoteFire[group] = f;
+                return risingEdge;
             }
         }
 

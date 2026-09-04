@@ -6,6 +6,7 @@
     ? require('../pages/keybinds/keybinds-keymap.js') : root.KeybindsKeymap;
 
   const STORAGE_KEY = 'noxmfd.remoteKeybinds.enabled';
+  const DEBUG_KEY = 'noxmfd.remoteKeybinds.debug';
   const REPEAT_MS = 120;
   const CURSOR_KEEPALIVE_MS = 50;
   const FIRE_KEEPALIVE_MS = 50;
@@ -23,12 +24,33 @@
   let cursorTimer = null;
   let fireTimer = null;
 
+  // Diagnostic logging for "remote presses aren't reaching the game" reports — off by default (this
+  // fires on every keypress/edge, every browser/iframe document that loads this module), enabled per
+  // origin (shared via localStorage, same as STORAGE_KEY above) by running in devtools:
+  //   localStorage.setItem('noxmfd.remoteKeybinds.debug', '1')
+  // on the remote device's browser, then reloading. Only edge transitions and one-shot triggers are
+  // logged, not the 50ms cursor/fire keepalive resends, to stay readable while a key is held.
+  function debugOn() {
+    try { return root.localStorage && root.localStorage.getItem(DEBUG_KEY) === '1'; }
+    catch (e) { return false; }
+  }
+  function dlog() {
+    if (!debugOn()) return;
+    try { console.log.apply(console, ['[remote-keybinds]'].concat([].slice.call(arguments))); } catch (e) {}
+  }
+
   function post(cmd, args) {
     if (typeof fetch !== 'function') return Promise.resolve();
     return fetch('/command', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(Object.assign({ cmd: cmd }, args || {}))
+    }).then(function (r) {
+      if (!r.ok) console.warn('[remote-keybinds] /command rejected:', cmd, args || {}, '→', r.status);
+      return r;
+    }, function (err) {
+      console.warn('[remote-keybinds] /command failed:', cmd, args || {}, '→', err && err.message);
+      throw err;
     });
   }
 
@@ -202,6 +224,9 @@
     bindsByKey = buildKeyMap(cfg.binds || []);
     cursorByKey = buildCursorKeyMap(cfg.binds || []);
     fireByKey = buildFireKeyMap(cfg.binds || []);
+    dlog('config applied in', root === root.top ? 'top window' : 'iframe (' + (root.location && root.location.pathname) + ')',
+      '— binds:', Object.keys(bindsByKey).length, 'cursor:', Object.keys(cursorByKey).length,
+      'fire:', Object.keys(fireByKey).length, 'samePc:', samePc);
     notify();
   }
 
@@ -242,6 +267,7 @@
   function setEnabled(on) {
     enabled = !!on;
     writeEnabled(enabled);
+    dlog('enabled ->', enabled);
     if (!enabled) {
       clearActive();
     }
@@ -261,6 +287,7 @@
   }
 
   function trigger(item) {
+    dlog('trigger', item.spec.cmd, item.spec.args || {});
     post(item.spec.cmd, item.spec.args).catch(function () {});
   }
 
@@ -284,6 +311,7 @@
   }
 
   function setCursorRole(role, on) {
+    dlog('cursor role', role, on ? 'ON' : 'OFF');
     cursorActive[role] = !!on;
     if (cursorIsActive()) ensureCursorTimer();
     else stopCursorTimer();
@@ -314,6 +342,7 @@
   }
 
   function setFireRole(role, on) {
+    dlog('fire role', role, on ? 'ON' : 'OFF');
     fireActive[role] = !!on;
     if (fireIsActive()) ensureFireTimer();
     else stopFireTimer();
@@ -323,11 +352,22 @@
   function keydown(e) {
     if (!enabled || editableTarget(e.target)) return;
     const key = Keymap && Keymap.codeToKey ? Keymap.codeToKey(e.code) : null;
-    if (!key) return;
+    if (!key) {
+      // e.code is unmapped (empty string, or a physical key codeToKey doesn't recognize — e.g. a
+      // non-US layout or browser quirk producing something unexpected). Distinct from "no remote
+      // mapping" below: that case has a valid Unity key name that just isn't bound to anything;
+      // this one never got that far, which the "no remote mapping" log alone can't distinguish.
+      dlog('keydown e.code=', JSON.stringify(e.code), '→ no KeybindsKeymap entry, ignored');
+      return;
+    }
     const cursorRole = cursorByKey[key];
     const fireRole = fireByKey[key];
     const item = bindsByKey[key];
-    if (!cursorRole && !fireRole && !item) return;
+    if (!cursorRole && !fireRole && !item) {
+      dlog('key', key, 'has no remote mapping (', Object.keys(bindsByKey).length +
+        Object.keys(cursorByKey).length + Object.keys(fireByKey).length, 'binds loaded)');
+      return;
+    }
     e.preventDefault();
     if (cursorRole && !cursorActive[cursorRole]) {
       if (cursorRole === 'select') post('cursor.select').catch(function () {});
@@ -408,9 +448,14 @@
       // Shells already have a telemetry tap that immediately supplies the initial SSE snapshot.
       // Standalone pages fetch once; a shell only falls back if its stream never answers.
       const hasTelemetryTap = !!document.querySelector('iframe[title="map"], #map-tap');
-      if (hasTelemetryTap) root.setTimeout(function () { if (!latestConfig) fetchConfig(); }, 1500);
-      else fetchConfig();
+      dlog('install: top window, hasTelemetryTap=', hasTelemetryTap, 'enabled=', enabled);
+      if (hasTelemetryTap) {
+        root.setTimeout(function () {
+          if (!latestConfig) { dlog('SSE config never arrived within 1500ms — falling back to fetch'); fetchConfig(); }
+        }, 1500);
+      } else fetchConfig();
     } else {
+      dlog('install: iframe (', root.location && root.location.pathname, '), requesting config from parent, enabled=', enabled);
       root.parent.postMessage({ mfd: true, type: 'keybinds-config-request' }, '*');
     }
   }

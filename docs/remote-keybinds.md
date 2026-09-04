@@ -33,6 +33,32 @@ adds the bind to `IsCombinedFireBind` so the generic Drive loop doesn't also fir
 `remote-keybinds.js`'s `fireRoleForBind`/`fireGroupsFromActive` map `weapon-release-single` to that
 group the same way the other three are mapped.
 
+**Update: diagnostics for "remote presses aren't working" reports.** Nothing here changes behavior —
+it's visibility for the next time this is reported. The chain from a keypress to an in-game effect
+crosses three boundaries where it can silently go quiet, and each now has a log:
+
+- **Browser-side, opt-in verbose logging** (`remote-keybinds.js`): off by default, since it would
+  otherwise log on every keypress/edge in every one of the 21 pages that load this module. Enable it
+  per browser origin from devtools on the device having trouble:
+  `localStorage.setItem('noxmfd.remoteKeybinds.debug', '1')`, then reload. It logs which bootstrap
+  path ran (SSE relay vs. the 1500ms fallback fetch — see `docs/sse-push-refactor.md`), how many
+  binds/cursor-roles/fire-roles the loaded config actually mapped (0 of each means the config never
+  arrived — the most likely "nothing happens" cause), every one-shot trigger and fire/cursor role
+  edge, and a line when a pressed key has no remote mapping at all.
+- **Every `/command` POST failure is now visible unconditionally** (not gated behind the flag above):
+  a non-2xx response or a network failure both hit `console.warn`, where before they were silently
+  swallowed by an empty `.catch()` at every call site.
+- **Server-side** (`CommandEndpoint.cs`): a rejected request (malformed JSON, unknown `cmd`, wrong
+  Content-Type, oversized body) now logs the reason via `Plugin.Log`, where before only the queue-full
+  case did.
+- **`RemoteInputState`'s held-fire/cursor-select transitions** now log their rising/falling edge
+  through `TelemetryServer`'s wrapper methods rather than inside `RemoteInputState.cs` itself, which
+  has no BepInEx/Unity reference and is linked directly into `tools/tests`'s plain xUnit project — a
+  `Plugin.Log` call there wouldn't compile in that context. `SetFire`/`SetCursor` instead return
+  whether the call was an actual transition, and the caller decides whether to log. Gated on the real
+  state change, not the browser's 50ms keepalive resend, so holding a fire key logs one "ON" line and
+  one "OFF" line, not one every keepalive tick.
+
 ## Goal
 
 Let a browser optionally listen for keydown/keyup events and translate them into the same
