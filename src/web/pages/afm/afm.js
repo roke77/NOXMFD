@@ -84,7 +84,7 @@ function renderAfm() {
   fitAfmPartsToBg();
   fitAfmFrontToImg();
   paintAfmDamage();
-  paintAfmFailures();   // rebuilds + sizes the failure labels
+  paintAfmFailures(true);   // rebuilds + sizes the failure labels; forced -- see its own comment
   paintAfmPylons();
 }
 
@@ -345,12 +345,23 @@ function paintAfmDamage() {
   }
 }
 
-function paintAfmFailures() {
+// For as long as a failure lasts, the incremental update path (afm message handler below) called
+// this every single 'afm' tick, tearing down and recreating its label element(s) the whole time
+// instead of just once when the failure set actually changed (docs/web-efficiency-audit.md
+// finding 05). `force` is for renderAfm's full-render path (aircraft change / no aircraft), which
+// must always rebuild even if the new aircraft's failure set happens to match the old one — the
+// existing elements are positioned for the OLD airframe's layout.
+let afmFailuresKey = null;
+function paintAfmFailures(force) {
+  const active = Array.isArray(afmData.failures) ? afmData.failures : null;
+  const key = JSON.stringify(active || []);
+  if (!force && key === afmFailuresKey) return;
+  afmFailuresKey = key;
+
   // Failures are arbitrary per-aircraft strings, so render whatever is active rather than
   // matching a fixed table. Rebuild the labels each paint: side-column + stacked row per column.
   for (const el of afmFailureEls) el.remove();
   afmFailureEls = [];
-  const active = Array.isArray(afmData.failures) ? afmData.failures : null;
   if (!active || !active.length) return;
   const rowInCol = { L: 0, R: 0, C: 0 };
   for (const name of active) {
