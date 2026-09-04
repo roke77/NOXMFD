@@ -45,6 +45,11 @@
          as SoiFocus.cs, just never pulled in before since nothing there needed testing standalone. -->
     <Compile Include="..\..\src\plugin\Http\TargetFocus.cs" Link="Source\TargetFocus.cs" />
     <Compile Include="..\..\src\plugin\Http\CommandContentType.cs" Link="Source\CommandContentType.cs" />
+    <!-- TelemetryAssets.cs (docs/plugin-efficiency-audit.md findings 13/14) — only its two pure
+         decision helpers (AcceptsGzip, IsCompressibleContentType) get exercised here; the file's
+         HttpListenerContext-facing half needs a real HTTP round trip, which only the in-game server
+         can give it. HttpListenerContext itself is plain BCL, so the whole file still compiles. -->
+    <Compile Include="..\..\src\plugin\Http\TelemetryAssets.cs" Link="Source\TelemetryAssets.cs" />
     <Compile Include="..\..\src\plugin\TargetSelectionPolicy.cs" Link="Source\TargetSelectionPolicy.cs" />
     <Compile Include="..\..\src\plugin\Akf\AkfTrackerLogic.cs" Link="Source\AkfTrackerLogic.cs" />
     <Compile Include="..\..\src\plugin\Input\KeybindTapHold.cs" Link="Source\KeybindTapHold.cs" />
