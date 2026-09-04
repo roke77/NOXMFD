@@ -50,6 +50,12 @@ function loadRange() {
       rangeIdx = Math.max(0, Math.min(CEN_RANGE_NM.length - 1, saved.rangeIdx));
   }
   applyMode();
+  // Not inside applyMode() itself: applyModeForTest (below) calls applyMode() from the Node
+  // self-check, which has no `document` — these two draw fully-static SVG groups that depend only
+  // on CX/CY/gridFractions(), never on live telemetry, so they only need redrawing here and in
+  // toggleMode() below, not on every ~10 Hz render() tick (docs/web-efficiency-audit.md finding 01).
+  renderGrid();
+  renderOwnship();
 }
 function saveRange() {
   try { sessionStorage.setItem(RANGE_STORE_KEY, JSON.stringify({ mode: mode, rangeIdx: rangeIdx })); }
@@ -67,6 +73,8 @@ function setRangeIdx(i) {
 function toggleMode() {
   mode = mode === 'dep' ? 'cen' : 'dep';
   applyMode();
+  renderGrid();
+  renderOwnship();
   saveRange();
   render();
 }
@@ -416,8 +424,6 @@ function renderOwnship() {
 
 function render() {
   renderScale();
-  renderGrid();
-  renderOwnship();
   renderRadarCone();
   renderRoute();
   renderThreats();
