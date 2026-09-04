@@ -1213,7 +1213,8 @@
     return { el: document.getElementById(id),
              fill: document.getElementById(id + '-fill'),
              num: document.getElementById(id + '-num'),
-             kind: kind };
+             kind: kind,
+             sig: null };   // last-written {na,fill,text,state} signature — see setGauge below
   }
 
   // FUEL's warning levels, as AVN calls them (avn.js paintAvnBars: cautionAt 0.25, criticalAt
@@ -1226,7 +1227,16 @@
   // is last. maybeRevealUrls checks both flags so the order of the two async events doesn't matter.
   let bootDone = false, urlsLoaded = false;
 
+  // The 8 tiles rewrite className every 'avn' message regardless of whether gear/radar/guns/
+  // ignition actually flipped since the last one — the common case, since these are discrete states
+  // that typically hold for many seconds (docs/web-efficiency-audit.md finding 03). stripFlags is a
+  // fixed array queried once at module load and never rebuilt, so unlike the classic shell's WPN/TGP
+  // nav labels there's no page-entry/teardown case to force past this guard.
+  let stripFlagsKey = null;
   function updateStripFlags(m) {
+    const key = stripFlags.map(function (el) { return !!m[el.dataset.field]; }).join('|');
+    if (key === stripFlagsKey) return;
+    stripFlagsKey = key;
     stripFlags.forEach(function (el) {
       el.classList.remove('on', 'off', 'gear-down');
       el.classList.add(AvnStatusPolicy.tileClass(el.dataset.kind, !!m[el.dataset.field]));
@@ -1249,9 +1259,9 @@
     const t = AvnThrottlePolicy.throttleReadout(m.throttle, m.hasAb, m.abStart);
     // Where the fill turns from green to red. The CSS pins the boundary to a fraction of the tube
     // (see .ms-gauge.ab-capable), so it stays put while the fill grows past it — as on AVN.
-    if (t.boundary !== null) stripThr.el.style.setProperty('--ab-start', t.boundary);
     setGauge(stripThr, t.na, t.fill, t.text,
-             (t.boundary !== null ? ' ab-capable' : '') + (t.zone === 'ab' ? ' ab-active' : ''));
+             (t.boundary !== null ? ' ab-capable' : '') + (t.zone === 'ab' ? ' ab-active' : ''),
+             t.boundary);
 
     const na = typeof m.fuel !== 'number' || m.fuel < 0;
     const v  = na ? 0 : Math.max(0, Math.min(1, m.fuel));
@@ -1261,7 +1271,15 @@
 
   // `kind` is 'thr' or 'fuel' and is written back every time: the tube's styling keys off it (only
   // FUEL is segmented), and this assigns className wholesale rather than toggling each state off.
-  function setGauge(g, na, fill, text, state) {
+  // Skips all three writes (plus the AB-boundary custom property, thr only) when nothing in the
+  // signature moved since the last call — thr/fuel are continuously-varying analog values, but the
+  // actual writes are already quantized (a rounded % width, whole-percent text), so most 10 Hz ticks
+  // land on an unchanged rendered value regardless (docs/web-efficiency-audit.md finding 03).
+  function setGauge(g, na, fill, text, state, boundary) {
+    const sig = na + '|' + fill + '|' + text + '|' + state + '|' + boundary;
+    if (sig === g.sig) return;
+    g.sig = sig;
+    if (boundary !== undefined && boundary !== null) g.el.style.setProperty('--ab-start', boundary);
     g.el.className = 'ms-gauge ' + g.kind + (na ? ' na' : state);
     g.fill.style.width = (fill * 100).toFixed(1) + '%';
     g.num.textContent = na ? '--' : text;
