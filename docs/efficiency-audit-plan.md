@@ -37,8 +37,8 @@ PAD cursor. Flagging here; decide at the start of Stage 1 rather than guessing n
 
 ## Stage 1 — correctness fixes
 
-Branch: `audit-correctness-fixes` (off `main`, since these are unrelated bugs bundled as one
-reviewable unit rather than the usual single-fix-direct-to-`main` pattern).
+**Done.** Branch: `audit-correctness-fixes` (off `main`, since these are unrelated bugs bundled as
+one reviewable unit rather than the usual single-fix-direct-to-`main` pattern).
 
 - Fix SQD aircraft-column staleness: `Squad.RebuildState()` called from the 1 Hz slow tick beside
   `Squad.CheckLiveness()`, per the audit's proposed fix. SSE layer already change-gates by string
@@ -54,7 +54,8 @@ side where one already exists for the touched file, a `.test.js` for the web sid
 
 ## Stage 2 — plugin per-frame allocation fixes (net-negative or near-zero diff, verified findings)
 
-Branch: TBD, decided when Stage 1 ships.
+**Done.** Branch: `audit-plugin-frame-allocs` (off `audit-correctness-fixes`'s tip, since finding
+03 touches the same file — `HudTtiCue.cs` — as Stage 1's retry-backoff fix).
 
 - **01+02**: rewrite the TD-assign `PollTapHold` loop to stop allocating 9 display classes/frame;
   read `Time.unscaledTime` once. Net shorter than what it replaces, no behavior change.
@@ -66,7 +67,7 @@ and none require a measurement harness to trust — the diff itself is the evide
 
 ## Stage 3 — plugin asset serving (measurable, user-facing)
 
-Branch: TBD.
+Branch: TBD, off `audit-plugin-frame-allocs`'s tip until the earlier stages are merged to `main`.
 
 - **13**: cache decompressed embedded assets in a `ConcurrentDictionary<string, byte[]>`, and stop
   linear-scanning 109 manifest names per request.
