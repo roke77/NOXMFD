@@ -219,11 +219,17 @@ function padMove(px, py) {
   renderContacts();
 }
 
+// coneHalf() changes far less often than render() runs (~10 Hz), so skip the 4-line innerHTML
+// rebuild on ticks where it hasn't moved (docs/web-efficiency-audit.md finding 07). Module-load
+// value (null) never equals a real coneHalf() result, so the first real call always renders.
+var lastGridConeHalf = null;
 function renderGrid() {
   var g = document.getElementById('rdr-grid');
   if (!g) return;
   // Scan-limit lines converging on ownship at the cone half-angle, + a mid-range reference line.
   var ch = coneHalf();
+  if (ch === lastGridConeHalf) return;
+  lastGridConeHalf = ch;
   var topHalf = Math.tan(ch * Math.PI / 180) * HGT;   // horizontal spread of the cone at scope top
   var lx = Math.max(L, MIDX - topHalf), rx = Math.min(R, MIDX + topHalf);
   var out = '';
