@@ -115,6 +115,7 @@ namespace NOXMFD
                     else RatesConfig.SetFastHz(e.hz);
                 } },
                 { "master-arms.set", e => ImmersionState.MasterArmsOn = e.on },
+                { "power.set",       e => ImmersionState.PowerOn = e.on },
                 // Squad protocol (docs/squadron-transport.md) — leader/member squad state built on
                 // the Squadron transport. Parsing the peer id here (not in Squad) keeps the
                 // wire-format tolerance at the trust boundary, where every other command's
@@ -147,6 +148,18 @@ namespace NOXMFD
                 // keybinds, same "set" shape as master-arms.set above rather than a blind flip.
                 { "tgp.manual.set", e => TgpManualControl.SetManual(e.on) },
                 { "tgp.ir.set",     e => TgpManualControl.SetIR(e.on) },
+                // Remote-keybind twins of the Manual Control Toggle / Toggle IR keybinds (issue #77
+                // audit) — a blind flip, unlike the explicit-state .set commands above, since a
+                // remote browser has no reliable read of the current state to send the opposite of.
+                { "tgp.manual-toggle", e => TgpManualControl.Toggle() },
+                { "tgp.ir-toggle",     e => TgpManualControl.ToggleIR() },
+                // Remote-keybind twin of the Snap To Head Tracker keybind.
+                { "tgp.snap-headtracker", e => TgpManualControl.SnapToHeadTracker() },
+                // Remote-keybind twins of the Full Screen Toggle / Full Screen HUD Toggle keybinds —
+                // no page/bezel equivalent exists for these two, unlike Point Track/Manual Reset/
+                // Mark Steer Point above.
+                { "tgp.fullscreen-toggle",     e => TgpFullScreen.Toggle() },
+                { "tgp.fullscreen-hud-toggle", e => TgpFullScreen.ToggleHud() },
                 // TGP page's STP button and MARK STEER POINT keybind (docs/steer-points.md) — marks
                 // whatever TGP is currently showing (a real lock's position, or the manual camera's
                 // aim point) as a new steer point, straight into RouteStore. No wire fields at all.

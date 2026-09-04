@@ -177,8 +177,7 @@ namespace NOXMFD
         internal static void SetRemoteFireState(string group, bool held) =>
             RemoteInputState.SetFire(group, held);
 
-        internal static void GetRemoteFireState(out bool gun, out bool release, out bool jammerPod) =>
-            RemoteInputState.GetFire(out gun, out release, out jammerPod);
+        internal static bool GetRemoteFireState(string group) => RemoteInputState.GetFire(group);
 
         // ── Lifecycle ──────────────────────────────────────────────────────────
 

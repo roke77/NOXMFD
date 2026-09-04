@@ -43,10 +43,9 @@
       case 'gear-up':        return { cmd: 'gear.set', args: { group: 'up' } };
       case 'gear-down':      return { cmd: 'gear.set', args: { group: 'down' } };
       case 'map-follow':        return { cmd: 'map.action', args: { wname: 'toggle-follow' } };
-      // Zoom In/Out (Cursor Zoom In/Out, docs/tgp-manual-control.md's PAD Cursor consolidation
-      // plan) has no entry here: it's held-style like Cursor Up/Down/Left/Right, needing the same
-      // cursorByKey/cursor.set-style live plumbing those use, not this fire-and-forget command
-      // map. Remote-keybind support for it needs that same press/release transport built first.
+      // Cursor Zoom In/Out has no entry here: held-style like Cursor Up/Down/Left/Right, so it's
+      // handled by fireRoleForBind's 'zoom-in'/'zoom-out' groups (fire.set transport) instead of
+      // this fire-and-forget command map.
       case 'map-route-next':    return { cmd: 'map.action', args: { wname: 'route-next' } };
       case 'map-route-prev':    return { cmd: 'map.action', args: { wname: 'route-prev' } };
       case 'map-waypoint-next': return { cmd: 'map.action', args: { wname: 'waypoint-next' } };
@@ -62,6 +61,9 @@
       case 'soi-select':   return { cmd: 'soi.action', args: { wname: 'select' } };
       case 'master-arms-on':  return { cmd: 'master-arms.set', args: { on: true } };
       case 'master-arms-off': return { cmd: 'master-arms.set', args: { on: false } };
+      case 'power-on':  return { cmd: 'power.set', args: { on: true } };
+      case 'power-off': return { cmd: 'power.set', args: { on: false } };
+      case 'cursor-deselect': return { cmd: 'map.action', args: { wname: 'cursor-deselect' } };
       case 'radar-on':  return { cmd: 'avn.set', args: { group: 'radar', on: true } };
       case 'radar-off': return { cmd: 'avn.set', args: { group: 'radar', on: false } };
       case 'engine-on':  return { cmd: 'avn.set', args: { group: 'eng', on: true } };
@@ -73,6 +75,36 @@
       case 'hud-preset-3': return { cmd: 'preset.load', args: { index: 3 } };
       case 'hud-preset-4': return { cmd: 'preset.load', args: { index: 4 } };
       case 'hud-preset-5': return { cmd: 'preset.load', args: { index: 5 } };
+      // TD's 9 Assign binds (issue #47, squad-leader-only): the physical keybind is tap-vs-hold
+      // (tap assigns and clears the leader's selection, hold assigns and retains it for chaining
+      // onto another slot — TdStore.Assign's `retain` param, confusingly carried over `/command`'s
+      // `on` field). A remote keydown has no hold-vs-tap distinction here (same limitation as
+      // Combat Mode A/A · A/G below only remoting their tap outcome), so this always sends the tap
+      // (non-retaining) behavior. A no-op server-side unless the sender is the squad leader.
+      case 'td-assign-1': return { cmd: 'td.assign', args: { index: 1, on: false } };
+      case 'td-assign-2': return { cmd: 'td.assign', args: { index: 2, on: false } };
+      case 'td-assign-3': return { cmd: 'td.assign', args: { index: 3, on: false } };
+      case 'td-assign-4': return { cmd: 'td.assign', args: { index: 4, on: false } };
+      case 'td-assign-5': return { cmd: 'td.assign', args: { index: 5, on: false } };
+      case 'td-assign-6': return { cmd: 'td.assign', args: { index: 6, on: false } };
+      case 'td-assign-7': return { cmd: 'td.assign', args: { index: 7, on: false } };
+      case 'td-assign-8': return { cmd: 'td.assign', args: { index: 8, on: false } };
+      case 'td-assign-9': return { cmd: 'td.assign', args: { index: 9, on: false } };
+      // TGP Keybinds (docs/tgp-manual-control.md) — one-shot toggles/actions on the manual TGP
+      // camera and full-screen view, same shape as the Immersion Options row above. Point Track,
+      // Manual Control Reset, and Mark Steer Point reuse the exact `/command` names the TGP page's
+      // own TRK/RST/STP bezel buttons already send (CommandDispatcher.cs); the rest are new
+      // dispatcher entries added alongside this. Pan/Tilt (the PAD Cursor binds) and Zoom Axis are
+      // excluded here on purpose: continuous/held controls covered by cursorRoleForBind and the
+      // 'zoom-in'/'zoom-out' fire groups instead, not a one-shot command.
+      case 'tgp-manual-toggle':           return { cmd: 'tgp.manual-toggle' };
+      case 'tgp-manual-reset':            return { cmd: 'tgp.manual-reset' };
+      case 'tgp-point-track':             return { cmd: 'tgp.point-track' };
+      case 'tgp-manual-snap-headtracker': return { cmd: 'tgp.snap-headtracker' };
+      case 'tgp-manual-ir-toggle':        return { cmd: 'tgp.ir-toggle' };
+      case 'tgp-mark-steerpoint':         return { cmd: 'tgp.mark-steerpoint' };
+      case 'tgp-fullscreen-toggle':       return { cmd: 'tgp.fullscreen-toggle' };
+      case 'tgp-fullscreen-hud-toggle':   return { cmd: 'tgp.fullscreen-hud-toggle' };
       default: return null;
     }
   }
@@ -92,7 +124,15 @@
     switch (id) {
       case 'gun-trigger': return 'gun';
       case 'weapon-release': return 'release';
+      case 'weapon-release-single': return 'release-single';
       case 'jammer-pod': return 'jammer-pod';
+      // Cursor Zoom In/Out (docs/tgp-manual-control.md's PAD Cursor consolidation plan): held
+      // state, not a one-shot command, since Keybinds.Poll() drives the manual TGP camera's zoom
+      // rate at whatever cadence the key stays down — same held-group transport as the fire binds
+      // above, just a different named group on the server side (RemoteInputState.SetFire/GetFire
+      // don't care what a group is "for", so this reuses the exact same fire.set plumbing).
+      case 'cursor-zoom-in': return 'zoom-in';
+      case 'cursor-zoom-out': return 'zoom-out';
       default: return null;
     }
   }
@@ -140,7 +180,10 @@
     return {
       gun: !!held.gun,
       release: !!held.release,
-      'jammer-pod': !!held['jammer-pod']
+      'release-single': !!held['release-single'],
+      'jammer-pod': !!held['jammer-pod'],
+      'zoom-in': !!held['zoom-in'],
+      'zoom-out': !!held['zoom-out']
     };
   }
 
@@ -245,7 +288,8 @@
   }
 
   function fireIsActive() {
-    return !!(fireActive.gun || fireActive.release || fireActive['jammer-pod']);
+    return !!(fireActive.gun || fireActive.release || fireActive['release-single'] ||
+              fireActive['jammer-pod'] || fireActive['zoom-in'] || fireActive['zoom-out']);
   }
 
   function ensureFireTimer() {

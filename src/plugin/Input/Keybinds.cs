@@ -108,7 +108,7 @@ namespace NOXMFD
         // The two MAP cursor axis binds (docs/map-cursor.md) — analog alternative to the four keys
         // above; a deflected axis overrides its keys for that component (Poll()).
         private static BindDef? _cursorAxisH, _cursorAxisV;
-        private static BindDef? _gunTrigger, _weaponRelease, _jammerPod;
+        private static BindDef? _gunTrigger, _weaponRelease, _weaponReleaseSingle, _jammerPod;
 
         // PAD Cursor zoom (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — one bind
         // pair covers both the manual TGP camera's zoom and every other display's MAP-style zoom,
@@ -190,10 +190,12 @@ namespace NOXMFD
             // Single Target Weapon Release (issue #68, docs/single-target-weapon-release.md): the
             // stock trigger above fires one round per LOCKED target when 2+ are locked
             // (WeaponManager.Fire()'s own staggered salvo) — this always fires exactly one round,
-            // and only ever at the focused lock (issue #62's TargetFocus.Id). Not a combined fire
-            // bind (no remote/PWA counterpart for this pass), so it drives through the ordinary
-            // per-frame Drive loop rather than IsCombinedFireBind's special-cased list below.
-            Def(config, "weapon-release-single", wpn, "WeaponReleaseSingle", "Single Target Weapon Release", edge: false,
+            // and only ever at the focused lock (issue #62's TargetFocus.Id). A combined fire bind
+            // like Weapon Release/Gun Trigger/Jamming Pod (issue #77): driven through the
+            // remote-or-local OR below and excluded from the generic per-frame Drive loop by
+            // IsCombinedFireBind, so a remote press fires it exactly like a local one instead of
+            // being silently swallowed.
+            _weaponReleaseSingle = Def(config, "weapon-release-single", wpn, "WeaponReleaseSingle", "Single Target Weapon Release", edge: false,
                 "Release one missile/bomb at only the focused locked target, even with others also locked. HOLD to keep releasing at that same target. Same switch-then-fire arbitration as Weapon Release.",
                 WeaponSelectors.FireReleaseSingle);
 
@@ -872,8 +874,11 @@ namespace NOXMFD
             // SetPan's Y is elevation-positive-up.
             bool tgpSoi = TelemetryServer.IsTgpSoi;
             TgpManualControl.SetPan(tgpSoi ? cx : 0f, tgpSoi ? -cy : 0f);
-            bool zoomInNow  = _cursorZoomIn!.ActiveNow;
-            bool zoomOutNow = _cursorZoomOut!.ActiveNow;
+            // Merged with a remote press the same way Cursor Select is above — held state, not a
+            // one-shot /command, since both the camera zoom rate and the tgpSoi-less MapAction edge
+            // below need to see it stay true for as long as the remote browser holds the key.
+            bool zoomInNow  = _cursorZoomIn!.ActiveNow  || TelemetryServer.GetRemoteFireState("zoom-in");
+            bool zoomOutNow = _cursorZoomOut!.ActiveNow || TelemetryServer.GetRemoteFireState("zoom-out");
             TgpManualControl.SetZoom(1, tgpSoi && zoomInNow);
             TgpManualControl.SetZoom(-1, tgpSoi && zoomOutNow);
             // AxisEntry.Value >= 0 is "bound at all", distinct from ReadAxis's 0 return (which
@@ -921,8 +926,11 @@ namespace NOXMFD
                     onHold: () => { TelemetryServer.MapAction("td-assign-" + s); if (Squad.IsLeader) TdStore.Assign(s, retain: true); });
             }
 
-            TelemetryServer.GetRemoteFireState(out bool remoteGun, out bool remoteRelease, out bool remoteJammerPod);
-            bool anyRemoteFire = remoteGun || remoteRelease || remoteJammerPod;
+            bool remoteGun = TelemetryServer.GetRemoteFireState("gun");
+            bool remoteRelease = TelemetryServer.GetRemoteFireState("release");
+            bool remoteReleaseSingle = TelemetryServer.GetRemoteFireState("release-single");
+            bool remoteJammerPod = TelemetryServer.GetRemoteFireState("jammer-pod");
+            bool anyRemoteFire = remoteGun || remoteRelease || remoteReleaseSingle || remoteJammerPod;
 
             if (!any && !anyRemoteFire) return;   // common case — nothing this frame
 
@@ -936,6 +944,7 @@ namespace NOXMFD
 
             if ((_gunTrigger?.ActiveNow ?? false) || remoteGun) WeaponSelectors.FireGun(ac);
             if ((_weaponRelease?.ActiveNow ?? false) || remoteRelease) WeaponSelectors.FireRelease(ac);
+            if ((_weaponReleaseSingle?.ActiveNow ?? false) || remoteReleaseSingle) WeaponSelectors.FireReleaseSingle(ac);
             if ((_jammerPod?.ActiveNow ?? false) || remoteJammerPod) WeaponSelectors.FireJammerPod(ac);
 
             foreach (var b in _binds)
@@ -943,7 +952,8 @@ namespace NOXMFD
         }
 
         private static bool IsCombinedFireBind(BindDef b) =>
-            ReferenceEquals(b, _gunTrigger) || ReferenceEquals(b, _weaponRelease) || ReferenceEquals(b, _jammerPod);
+            ReferenceEquals(b, _gunTrigger) || ReferenceEquals(b, _weaponRelease) ||
+            ReferenceEquals(b, _weaponReleaseSingle) || ReferenceEquals(b, _jammerPod);
 
         private static float ClampUnit(float value)
         {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace NOXMFD
 {
@@ -40,81 +41,53 @@ namespace NOXMFD
             }
         }
 
+        // Named held-state flags (gun/release/release-single/jammer-pod fire, zoom-in/zoom-out) —
+        // one arbitrary-string-keyed table rather than a field quad per group, so Keybinds.cs adding
+        // a new remoteable held bind never needs a matching edit here. A fast browser tap can send
+        // down/up between Unity frames, so a min-press window keeps the press visible long enough
+        // for Poll() to observe at least one held frame; the TTL is the safety valve if a browser tab
+        // closes or drops a keyup.
         private const long RemoteFireTtlTicks = TimeSpan.TicksPerMillisecond * 250;
-        // A fast browser tap can send down/up between Unity frames; keep the press visible long
-        // enough for Keybinds.Poll() to observe at least one held frame.
         private const long RemoteFireMinPressTicks = TimeSpan.TicksPerMillisecond * 90;
         private static readonly object _remoteFireLock = new object();
-        private static bool _remoteFireGun, _remoteFireRelease, _remoteFireJammerPod;
-        private static long _remoteFireGunUntilUtcTicks, _remoteFireReleaseUntilUtcTicks, _remoteFireJammerPodUntilUtcTicks;
-        private static long _remoteFireGunMinUntilUtcTicks, _remoteFireReleaseMinUntilUtcTicks, _remoteFireJammerPodMinUntilUtcTicks;
+        private static readonly Dictionary<string, (bool active, long untilUtcTicks, long minUntilUtcTicks)> _remoteFire =
+            new Dictionary<string, (bool, long, long)>();
 
         internal static void SetFire(string group, bool held)
         {
             long now = DateTime.UtcNow.Ticks;
-            long until = held ? now + RemoteFireTtlTicks : 0L;
-            long minUntil = held ? now + RemoteFireMinPressTicks : 0L;
             lock (_remoteFireLock)
             {
-                switch (group)
+                _remoteFire.TryGetValue(group, out var f);
+                if (held)
                 {
-                    case "gun":
-                        if (held)
-                        {
-                            _remoteFireGun = true;
-                            _remoteFireGunUntilUtcTicks = until;
-                            _remoteFireGunMinUntilUtcTicks = minUntil;
-                        }
-                        else
-                        {
-                            _remoteFireGunUntilUtcTicks = 0L;
-                        }
-                        break;
-                    case "release":
-                        if (held)
-                        {
-                            _remoteFireRelease = true;
-                            _remoteFireReleaseUntilUtcTicks = until;
-                            _remoteFireReleaseMinUntilUtcTicks = minUntil;
-                        }
-                        else
-                        {
-                            _remoteFireReleaseUntilUtcTicks = 0L;
-                        }
-                        break;
-                    case "jammer-pod":
-                        if (held)
-                        {
-                            _remoteFireJammerPod = true;
-                            _remoteFireJammerPodUntilUtcTicks = until;
-                            _remoteFireJammerPodMinUntilUtcTicks = minUntil;
-                        }
-                        else
-                        {
-                            _remoteFireJammerPodUntilUtcTicks = 0L;
-                        }
-                        break;
-                    default:
-                        Plugin.Log?.LogInfo($"[NOXMFD] fire.set: unknown group '{group}' — ignored.");
-                        break;
+                    f.active = true;
+                    f.untilUtcTicks = now + RemoteFireTtlTicks;
+                    f.minUntilUtcTicks = now + RemoteFireMinPressTicks;
                 }
+                else
+                {
+                    // Only the TTL clears on release — minUntilUtcTicks (set by the last press) is
+                    // left alone so GetFire still honors the remaining min-press window instead of
+                    // dropping a lightning-fast tap that released before the next frame polled it.
+                    f.untilUtcTicks = 0L;
+                }
+                _remoteFire[group] = f;
             }
         }
 
-        internal static void GetFire(out bool gun, out bool release, out bool jammerPod)
+        internal static bool GetFire(string group)
         {
             long now = DateTime.UtcNow.Ticks;
             lock (_remoteFireLock)
             {
-                if (_remoteFireGun && now > _remoteFireGunUntilUtcTicks && now > _remoteFireGunMinUntilUtcTicks)
-                    _remoteFireGun = false;
-                if (_remoteFireRelease && now > _remoteFireReleaseUntilUtcTicks && now > _remoteFireReleaseMinUntilUtcTicks)
-                    _remoteFireRelease = false;
-                if (_remoteFireJammerPod && now > _remoteFireJammerPodUntilUtcTicks && now > _remoteFireJammerPodMinUntilUtcTicks)
-                    _remoteFireJammerPod = false;
-                gun = _remoteFireGun;
-                release = _remoteFireRelease;
-                jammerPod = _remoteFireJammerPod;
+                if (!_remoteFire.TryGetValue(group, out var f)) return false;
+                if (f.active && now > f.untilUtcTicks && now > f.minUntilUtcTicks)
+                {
+                    f.active = false;
+                    _remoteFire[group] = f;
+                }
+                return f.active;
             }
         }
     }

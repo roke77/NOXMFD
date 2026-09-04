@@ -12,11 +12,26 @@ a second device (a tablet next to the keyboard, a phone, a second PC) without to
 PC's own input is another, equally in scope. Nothing about the design below is WSO-specific — it's
 written for "a browser, opted in" throughout, with WSO used only where an example is useful.
 
-The branch now covers V1 plus the held-state actions: weapon cycling, countermeasure deploy,
-dedicated gear up/down, MAP/TGT/SOI one-shot actions, master arm, radar/engine set, combat-mode
-tap actions, HUD preset loads, remote MAP/TGT cursor movement/select, and remote
-gun/release/jammer-pod fire. Cursor and fire were intentionally built outside the simple
-`keydown -> /command` map because they need live held-state semantics.
+**Every bind on the KEY page now has a remote path**, except the handful noted at the very end of
+this doc as not making sense to relay at all (axis-only binds with no keyboard equivalent, and the
+two client-side-modal Layout binds). V1 covered weapon cycling, countermeasure deploy, dedicated
+gear up/down, MAP/TGT/SOI one-shot actions, master arm, radar/engine set, combat-mode tap actions,
+HUD preset loads, and remote MAP/TGT cursor movement/select/fire. Cursor and fire were intentionally
+built outside the simple `keydown -> /command` map because they need live held-state semantics; two
+later passes (issue #77 and its full-parity follow-up, both logged inline below) closed every gap
+that surfaced afterward — Single Target Weapon Release, Power ON/OFF, Cursor Deselect, TD's 9
+Assign binds, Cursor Zoom In/Out, and the rest of the TGP Keybinds group.
+
+**Update (issue #77):** Single Target Weapon Release (issue #68) shipped after this doc's fire
+held-state design and was left out of it on purpose ("no remote/PWA counterpart for this pass" —
+see `Keybinds.cs`'s original comment on that bind). That made it the one combined-fire bind not
+actually driven by `Keybinds.Poll()`'s remote-or-local check, so a remote press of its configured
+key silently did nothing while every other fire bind worked. It's now a fourth `fire.set` group
+(`"release-single"`), following gun/release/jammer-pod exactly: `RemoteInputState` tracks it with
+its own TTL/min-press fields, `Keybinds.Poll()` ORs it into `WeaponSelectors.FireReleaseSingle` and
+adds the bind to `IsCombinedFireBind` so the generic Drive loop doesn't also fire it, and
+`remote-keybinds.js`'s `fireRoleForBind`/`fireGroupsFromActive` map `weapon-release-single` to that
+group the same way the other three are mapped.
 
 ## Goal
 
@@ -84,7 +99,7 @@ it.
 | MAP/TGT highlight nav (`tgt-next`/`tgt-prev`/etc.) | No | one entry → existing `TelemetryServer.MapAction`, plus `Keybinds.CycleTargetFocus` for `tgt-next`/`tgt-prev` specifically (issue #62, docs/tgt-cycle-focus.md) |
 | SOI nav up/down/select (one-shot) | No | one entry → existing `TelemetryServer.SoiAction` |
 | Cursor move / cursor select | Yes (`cursor.set` / `cursor.select`) | built as remote held-state merged into the existing cursor stream |
-| Gun Trigger / Weapon Release / Jammer Pod fire | Yes (`fire.set`) | built as remote held-state merged into `Keybinds.Poll()` |
+| Gun Trigger / Weapon Release / Single Target Weapon Release / Jammer Pod fire | Yes (`fire.set`) | built as remote held-state merged into `Keybinds.Poll()` |
 
 Nothing in this table requires new Harmony patches or previously-untouched game systems — every
 row bottoms out in a method NOXMFD's own keybind path already calls. Two rows, though, aren't
@@ -108,15 +123,52 @@ calling `TelemetryServer.SetCursorVector(...)` and `SetCursorSelectHeld(...)`. T
 existing SSE cursor transport authoritative while avoiding a stuck cursor if the browser tab closes
 or drops a keyup.
 
-### Fire actions (Gun Trigger / Weapon Release / Jammer Pod)
+### Fire actions (Gun Trigger / Weapon Release / Single Target Weapon Release / Jammer Pod)
 
-`WeaponSelectors.FireGun/FireRelease/FireJammerPod` are driven every frame from `Keybinds.Poll()`
-and use frame-gap tracking (`_gunFrame`/`_relFrame`) to tell a held key from a fresh press. A
-single `/command` POST is an edge, not a level, so the implementation uses explicit held state:
-the remote browser sends `fire.set` true on keydown, false on keyup, plus a short keepalive while
-held. The server stores independent short-lived flags for gun, release, and jammer-pod, and
-`Keybinds.Poll()` merges those flags with the local binds before calling each `WeaponSelectors`
-fire method at most once per frame.
+`WeaponSelectors.FireGun/FireRelease/FireReleaseSingle/FireJammerPod` are driven every frame from
+`Keybinds.Poll()` and use frame-gap tracking to tell a held key from a fresh press. A single
+`/command` POST is an edge, not a level, so the implementation uses explicit held state: the
+remote browser sends `fire.set` true on keydown, false on keyup, plus a short keepalive while
+held. The server stores independent short-lived flags for gun, release, release-single, and
+jammer-pod, and `Keybinds.Poll()` merges those flags with the local binds before calling each
+`WeaponSelectors` fire method at most once per frame.
+
+**Update (issue #77 audit):** Power ON/OFF and Cursor Deselect were added to NOXMFD after this
+doc's original coverage pass and were missing from `remote-keybinds.js` the same way Single Target
+Weapon Release was — not held-state, just plain one-shot mappings nobody had added yet. Power
+ON/OFF needed one new `CommandDispatcher` entry (`power.set`, mirroring `master-arms.set` exactly);
+Cursor Deselect needed none — it was already a `TelemetryServer.MapAction` broadcast, the same
+shape `tgt-datalink`/`tgt-stale` already relay, so it only needed the `commandForBind` case.
+
+**Update (full-parity pass):** every remaining bind on the KEY page now has a remote path, closing
+the two gaps this doc used to list here:
+- **TD's 9 Assign binds** (`td-assign-1`..`9`, squad-leader-only, issue #47) send `td.assign` with
+  `{index, on: false}` — always the tap outcome (assign-and-clear-selection), never the hold
+  outcome (assign-and-retain-for-chaining, `TdStore.Assign(slot, retain: true)`). A remote keydown
+  has no hold detection to offer a second outcome, same accepted limitation as Combat Mode A/A ·
+  A/G below only remoting their tap behavior.
+- **Cursor Zoom In/Out** joined `fire.set` as two more held groups (`zoom-in`/`zoom-out`) —
+  `RemoteInputState`'s fire tracking was generalized from a fixed field quad per group into one
+  `Dictionary<string, ...>` table precisely so this (and any future held bind) didn't need new
+  fields, just a new group name.
+- **The rest of the TGP Keybinds group** (Manual Control Toggle, Manual Control Reset, Point
+  Track, Snap To Head Tracker, Toggle IR, Mark Steer Point, both Full Screen toggles) are all
+  one-shot `commandForBind` entries now. Point Track/Manual Reset/Mark Steer Point reuse the exact
+  `/command` names the TGP page's own TRK/RST/STP bezel buttons already sent; the other five needed
+  one new `CommandDispatcher` entry each (`tgp.manual-toggle`, `tgp.ir-toggle`,
+  `tgp.snap-headtracker`, `tgp.fullscreen-toggle`, `tgp.fullscreen-hud-toggle`) — Toggle IR/Manual
+  Toggle are blind flips rather than reusing the existing `tgp.ir.set`/`tgp.manual.set` explicit-
+  state commands, since a remote browser has no reliable read of current state to send the
+  opposite of.
+
+**Binds that stay unrelayed, on purpose:** Cursor Horizontal/Vertical and Cursor Zoom Axis are
+axis-only — no `key` field exists for a browser keydown to match in the first place, since they
+represent a continuous HOTAS axis a keyboard tap can't produce (Cursor Left/Right/Up/Down/the
+zoom-in/out pair above are the discrete keyboard-shaped equivalents, and those are relayed). SAVE
+LOAD LAYOUT's two binds pop a client-side modal in whatever browser is looking at the KEY page —
+there's no server-side action to relay at all, and triggering a text-entry modal on a *different*
+browser than the one physically being typed into wouldn't make sense as "remote" in the first
+place.
 
 That preserves the existing two-stage switch-then-fire behavior and avoids relying on HTTP repeat
 cadence to mimic Unity frame continuity. The server-side expiry is the safety valve: if a browser

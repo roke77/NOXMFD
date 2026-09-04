@@ -35,6 +35,22 @@ assert.deepStrictEqual(commandForBind('hud-preset-5'), {
   cmd: 'preset.load',
   args: { index: 5 }
 });
+assert.deepStrictEqual(commandForBind('power-on'), { cmd: 'power.set', args: { on: true } });
+assert.deepStrictEqual(commandForBind('power-off'), { cmd: 'power.set', args: { on: false } });
+assert.deepStrictEqual(commandForBind('cursor-deselect'), {
+  cmd: 'map.action',
+  args: { wname: 'cursor-deselect' }
+});
+assert.deepStrictEqual(commandForBind('td-assign-7'), { cmd: 'td.assign', args: { index: 7, on: false } });
+assert.strictEqual(commandForBind('cursor-zoom-in'), null, 'held zoom state uses fire.set, not one-shot mapping');
+assert.deepStrictEqual(commandForBind('tgp-manual-toggle'), { cmd: 'tgp.manual-toggle' });
+assert.deepStrictEqual(commandForBind('tgp-manual-reset'), { cmd: 'tgp.manual-reset' });
+assert.deepStrictEqual(commandForBind('tgp-point-track'), { cmd: 'tgp.point-track' });
+assert.deepStrictEqual(commandForBind('tgp-manual-snap-headtracker'), { cmd: 'tgp.snap-headtracker' });
+assert.deepStrictEqual(commandForBind('tgp-manual-ir-toggle'), { cmd: 'tgp.ir-toggle' });
+assert.deepStrictEqual(commandForBind('tgp-mark-steerpoint'), { cmd: 'tgp.mark-steerpoint' });
+assert.deepStrictEqual(commandForBind('tgp-fullscreen-toggle'), { cmd: 'tgp.fullscreen-toggle' });
+assert.deepStrictEqual(commandForBind('tgp-fullscreen-hud-toggle'), { cmd: 'tgp.fullscreen-hud-toggle' });
 assert.strictEqual(commandForBind('gun-trigger'), null, 'held fire state uses fire.set, not one-shot mapping');
 assert.strictEqual(commandForBind('cursor-up'), null, 'held cursor state uses cursor.set, not one-shot mapping');
 assert.strictEqual(commandForBind('layout-save'), null, 'layout modal shortcuts stay browser-local');
@@ -58,7 +74,10 @@ assert.strictEqual(cursorRoleForBind('cursor-select'), 'select');
 assert.strictEqual(cursorRoleForBind('cycle-guns'), null);
 assert.strictEqual(fireRoleForBind('gun-trigger'), 'gun');
 assert.strictEqual(fireRoleForBind('weapon-release'), 'release');
+assert.strictEqual(fireRoleForBind('weapon-release-single'), 'release-single');
 assert.strictEqual(fireRoleForBind('jammer-pod'), 'jammer-pod');
+assert.strictEqual(fireRoleForBind('cursor-zoom-in'), 'zoom-in');
+assert.strictEqual(fireRoleForBind('cursor-zoom-out'), 'zoom-out');
 assert.strictEqual(fireRoleForBind('flares'), null);
 
 const cursorMap = buildCursorKeyMap([
@@ -78,18 +97,23 @@ assert.deepStrictEqual(cursorStateFromActive({ left: true, right: true, select: 
 const fireMap = buildFireKeyMap([
   { id: 'gun-trigger', key: 'Space' },
   { id: 'weapon-release', key: 'Enter' },
+  { id: 'weapon-release-single', key: 'Shift+Enter' },
   { id: 'jammer-pod', key: 'J' },
   { id: 'jammer', key: 'K' },
 ]);
 assert.strictEqual(fireMap.Space, 'gun');
 assert.strictEqual(fireMap.Enter, 'release');
+assert.strictEqual(fireMap['Shift+Enter'], 'release-single');
 assert.strictEqual(fireMap.J, 'jammer-pod');
 assert.strictEqual(fireMap.K, undefined);
 
 assert.deepStrictEqual(fireGroupsFromActive({ gun: true, 'jammer-pod': true }), {
   gun: true,
   release: false,
-  'jammer-pod': true
+  'release-single': false,
+  'jammer-pod': true,
+  'zoom-in': false,
+  'zoom-out': false
 });
 
 console.log('remote-keybinds.test.js: OK');
