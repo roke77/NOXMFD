@@ -660,3 +660,91 @@ Grouped so each step is independently shippable and testable in the `serve_web.p
 Items needing a decision before implementation: whether TD should support the PAD cursor at all
 (correctness section), and whether `remote-keybinds.js`'s `sendCommand` duplication (finding 41)
 is worth the `.html` script-order audit its fix requires.
+
+## Review annex — implementation safeguards and plan refinements
+
+Reviewed against `main` at `d26e48c` (version 0.40.0). The findings remain useful candidates, but
+the implementation plan needs the corrections and acceptance criteria below before work begins.
+
+### Corrections to proposed implementations
+
+- **Finding 10's proposed AKF signature can suppress real updates.** Once the capped ALL feed has
+  50 entries, its length no longer changes. A kill by another player can replace an entry without
+  changing the local player's value or funds totals, so `all.length + value + fundsGained +
+  fundsSpent` is not a valid identity. Coordinate with plugin finding 26 and publish an explicit
+  feed version, incremented at the single `RecordKill` mutation point. Use that version to gate
+  transport and feed DOM work; keep the continuously changing rank/fund cards independently
+  updateable.
+- **Finding 21's `queueMicrotask` does not reliably coalesce `postMessage` events.** Each message
+  normally arrives as its own browser task, and the microtask queue drains after each task, so the
+  scheduled HSD forward can still run once per message. Use an animation-frame gate, a deliberate
+  macrotask boundary, or one canonical slice as the flush trigger. Verify that the final combined
+  payload contains the newest HSD, radar, map, and route slices.
+- **Finding 19 should be measurement-gated and lower priority.** Mutating the caller-owned object
+  in `_postUp` changes the helper's ownership contract to save one small allocation. Keep the
+  current copy unless profiling makes this visible; if it is changed, document that callers must
+  pass a fresh, unshared object and cover that invariant with a focused test.
+- **Finding 27 should avoid a shared mutable slot-array hazard.** If the repeated slot definitions
+  are consolidated, freeze the shared structure or return a fresh array from a small factory.
+  Referencing one mutable array from six page definitions makes a later page-specific edit affect
+  every page silently.
+- **Finding 16 does not require a new shared abstraction initially.** Add the small rAF gate locally
+  to RDR and HSD unless implementation proves that MAP, RDR, and HSD genuinely share more than the
+  scheduling idiom. This keeps page policy beside each page and follows the repository's
+  incremental-extraction rule.
+- **Finding 40 is not automatically a worthwhile extraction.** The repeated message guard is
+  short, explicit, and independently loaded by each page. A shared `onMfdMessage` helper adds
+  module/loading coupling and should be adopted only if it also centralizes a real protocol rule
+  or prevents demonstrated drift.
+
+### Render-guard requirements
+
+Every new comparison guard must define when its cache is invalidated. At minimum, consider page
+entry/navigation, iframe reconstruction, SSE reconnect, mission reset, HSD mode/range changes,
+AKF density changes, and any DOM rebuild that replaces the cached nodes. Tests must demonstrate
+both halves of the contract: identical input performs no expensive write, and a changed input is
+visible on the next eligible render.
+
+The Tier 1 findings should not ship as one cross-frontend pass. Group them into small responsibility
+sets, for example:
+
+1. HSD/RDR render guards and rAF scheduling (**01, 07, 08, 13, 16**).
+2. Classic/F-35 shell navigation and strip guards (**02, 03**), separately from decorator geometry.
+3. AKF transport and page rendering (**04, 10**) together with the plugin's explicit feed version.
+4. AFM and AVN guards (**05, 06**) with page-specific tests.
+5. MIS/MAIN scalar write guards (**09**) as a small independent cleanup.
+
+Treat the correctness findings as higher priority than deduplication: decide whether TD supports
+the PAD cursor and then either restore its missing action branches or remove the dead adapter; fix
+KEY rejection feedback so it resolves the row in the main or Immersion table correctly. Record
+the decision in the relevant feature document rather than only in this audit.
+
+### Measurement and acceptance matrix
+
+Add a status to every finding: `ready`, `needs measurement`, `needs browser test`, `blocked on
+decision`, or `implemented`. Record the affected surface, expected benefit, validation test, and
+cache invalidation trigger. Browser profiling should distinguish scripting time, style/layout,
+paint, DOM-node churn, and message/structured-clone traffic instead of treating all skipped writes
+as equivalent.
+
+Use representative sessions for before/after comparisons:
+
+- classic full view and every classic split arrangement touched by the change;
+- all four F-35 portals active, including repeated merge/split and navigation;
+- HSD/RDR with a continuously held PAD cursor and bursty telemetry messages;
+- AKF with both feeds at the 50-entry cap and kills from local and other players;
+- window resize/orientation changes at multiple viewport sizes;
+- SSE disconnect/reconnect and mission-present to mission-empty transitions.
+
+Decorator-placement changes (**11, 12**) require visual verification across all pages that use
+overlay labels, not only a unit check. rAF/coalescing changes must prove that the last update and
+the final cursor position are never dropped.
+
+### Cross-audit dependencies
+
+- Plugin **26** and frontend **04/10** should share one AKF feed-version contract; implementing
+  only a client-side approximate signature risks stale data.
+- Plugin **13/14** change frontend cold-load behavior and need browser validation for compression,
+  conditional requests, and extension assets.
+- Plugin **15** changes request scheduling and must be tested with the frontend's concurrent asset,
+  SSE, MJPEG, and command traffic before either audit calls the HTTP work complete.

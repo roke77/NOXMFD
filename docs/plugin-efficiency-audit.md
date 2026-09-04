@@ -812,3 +812,85 @@ Items needing an in-game answer before implementation: **04** (registry membersh
 **17** (is 1 s indicator lag acceptable), **23** (is the cockpit-suppression re-assert
 load-bearing), **25** (can a rearm mutate stations in place), **41** (does anything native
 re-enable the minimap ornaments), and the `BlastFrag` question under correctness.
+
+## Review annex — implementation safeguards and plan refinements
+
+Reviewed against `main` at `d26e48c` (version 0.40.0). The intervening remote-keybind diagnostic
+work touches `RemoteInputState` and `TelemetryServer`, but does not implement the efficiency
+findings above. The findings therefore remain candidates, subject to the corrections and added
+acceptance criteria in this annex.
+
+### Corrections to proposed implementations
+
+- **Finding 16 needs explicit buffer ownership, not a simple cyclic ring.** Three buffers are
+  sufficient only when a slot is not reused until the GPU readback, pending queue, or encoder has
+  released it. A naive `index = (index + 1) % 3` can wrap onto the buffer still owned by a slow
+  encoder after newer captures replace the pending frame. Use a small free-buffer pool or explicit
+  slot states, and return the encoder's slot in a `finally` block. Test a deliberately stalled
+  encoder at HIGH resolution before considering this safe.
+- **Finding 15 must bound request concurrency.** Moving synchronous handlers off the accept thread
+  is sound, but unrestricted `Task.Run` permits a burst of requests to create unbounded thread-pool
+  work. Preserve synchronous active-request registration, add a bounded concurrency gate or other
+  backpressure, and keep shutdown able to abort and await every admitted request. Exercise the
+  active SSE/MJPEG shutdown case as well as a burst of short asset and command requests.
+- **Findings 13 and 14 need complete HTTP representation semantics.** A gzip implementation must
+  send `Vary: Accept-Encoding`, use the compressed length, and keep ETag/304 behavior correct for
+  both compressed and uncompressed clients. Verify cold and warm loads, clients without gzip,
+  extension assets, and multiple LAN browsers. Retain raw bytes for PNG and woff2 resources.
+- **Finding 17 should not move every reflected indicator to 1 Hz as one group without a UX check.**
+  Prefer invalidation/versioning at the command or keypress that changes discrete mod-owned state.
+  For game-owned state that still requires observation, choose cadence per field and measure the
+  visible delay rather than accepting a blanket one-second lag.
+- **Finding 05's one-way `_writes` counter has limited lifetime value.** It removes work only until
+  the first remote input in the process, after which every getter takes the original path forever.
+  Use separate cursor/fire activity state, or document that this deliberately optimizes only
+  sessions that never use remote input. Any resettable idle fast path must preserve the TTL and
+  minimum-press guarantees under concurrent reads and writes.
+- **Finding 04's parity check is broader than collection membership.** Compare spawning,
+  despawning, disabled, network-replicated, and temporarily incomplete units between
+  `FindObjectsByType<Unit>` and `UnitRegistry.allUnits`. Preserve a stable iteration snapshot if the
+  registry can mutate during the scan.
+
+### Priority and scope refinements
+
+Correctness work should be triaged ahead of micro-allocation cleanup. In particular, track the SQD
+aircraft-column refresh, `EnsureAfterburnerCache` retry behavior, failed `HudTtiCue.Build()` retry
+rate, atomic store writes, and the `BlastFrag` attribution question as explicit work items rather
+than leaving them buried in an efficiency document. The `BlastFrag` change remains blocked on an
+assembly check proving which kill-capable ordnance paths do or do not derive from `Missile`.
+
+Do not implement findings 28–41 as one deletion pass. They span routing, persistence, HUD,
+input, squad transport, image processing, and TGP behavior. Finding 31 in particular changes the
+durability contract and needs focused persistence tests; it is not cleanup-only. Group commits by
+one responsibility and run the relevant standalone tests after each group.
+
+A safer initial order is:
+
+1. Resolve or ticket the correctness findings and required game/assembly decisions.
+2. Apply **01 + 02**, then **03**, as separate low-risk per-frame changes.
+3. Apply **13 + 14** together with HTTP cache/encoding tests.
+4. Measure **05**, **08–12**, and **27** under representative client counts before choosing their
+   final designs.
+5. Attempt **15** and **16** only with bounded-concurrency and buffer-ownership stress checks.
+6. Handle deletion/refactor findings in small subsystem groups, not one repository-wide pass.
+
+### Measurement and acceptance matrix
+
+Add a status to every finding: `ready`, `needs measurement`, `needs browser test`, `needs
+live-game test`, `blocked on decision`, or `implemented`. Each implemented item should record its
+validation command/scenario and whether it targets CPU, allocation rate, frame spikes, response
+latency, or transfer size.
+
+Use at least these workloads for before/after evidence where relevant:
+
+- no browser clients, one local client, and several simultaneous LAN clients;
+- a busy mission with approximately 200 reported units/contacts;
+- TGP at its default 15 Hz and maximum 60 Hz, including HIGH resolution and a slowed encoder;
+- active `/stream`, `/tgp.mjpg`, and extension requests during `TelemetryServer.Stop()`;
+- route/store mutation followed by forced interruption and recovery from the persisted file.
+
+Do not claim a frame-time improvement from inspection alone. Restore the existing performance
+instrumentation for plugin hot paths, and retain output under `_scratch/perf-sessions/` as required
+by the repository workflow. Correct the historical wording in `docs/performance.md` at the same
+time finding 08 is implemented: serialization is shared between clients, but `AppendFormat`
+boxing inside the one serialization remains.
