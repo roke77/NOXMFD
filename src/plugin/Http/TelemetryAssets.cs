@@ -15,6 +15,12 @@ namespace NOXMFD
         // /assets/. MSBuild names a resource like "<RootNamespace>.src.web.<dotted path>" (and may
         // mangle odd characters), so match by the stable ".web.<dotted path>" suffix against the
         // manifest rather than reconstructing the whole name.
+        // BepInEx-free logging seam (same shape as RouteStore.LogWarning/TdStore.LogInfo) — injected
+        // by Plugin.cs so this file stays plain BCL and the test project can keep compiling it
+        // directly for AcceptsGzip/IsCompressibleContentType without pulling in BepInEx. Null (a
+        // silent no-op) whenever nothing has wired it, including in the test project.
+        internal static Action<string>? LogDebug;
+
         private static readonly Assembly _asm = typeof(TelemetryAssets).Assembly;
         private static string[]? _resourceNames;
         private static string[] ResourceNames => _resourceNames ??= _asm.GetManifestResourceNames();
@@ -125,7 +131,7 @@ namespace NOXMFD
                 ctx.Response.ContentLength64 = body.Length;
                 ctx.Response.OutputStream.Write(body, 0, body.Length);
             }
-            catch (Exception ex) { Plugin.Log?.LogDebug($"[NOXMFD] /assets/{rel} error: {ex.Message}"); }
+            catch (Exception ex) { LogDebug?.Invoke($"[NOXMFD] /assets/{rel} error: {ex.Message}"); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
@@ -160,22 +166,38 @@ namespace NOXMFD
         // Full token parse rather than a substring search — a plain Contains would treat "gzip;q=0"
         // (explicitly refused) as accepted, and would also match an unrelated coding that merely
         // contains the word "gzip" (e.g. a hypothetical "x-gzip-experimental").
+        //
+        // "*" (RFC 7231 §5.3.4) matches any coding not explicitly listed, so "identity;q=0, *;q=1"
+        // accepts gzip even though "gzip" itself never appears. An explicit "gzip" token always wins
+        // over "*" when both are present — "gzip;q=0, *;q=1" must still refuse gzip — so both tokens
+        // are looked up across the whole header before deciding, rather than returning on first match.
         internal static bool AcceptsGzip(string? acceptEncodingHeader)
         {
             if (string.IsNullOrEmpty(acceptEncodingHeader)) return false;
+            bool? gzipAccepted = null;
+            bool? starAccepted = null;
             foreach (string rawToken in acceptEncodingHeader.Split(','))
             {
                 string token = rawToken.Trim();
+                if (token.Length == 0) continue;
                 int semi = token.IndexOf(';');
                 string coding = (semi < 0 ? token : token.Substring(0, semi)).Trim();
-                if (!string.Equals(coding, "gzip", StringComparison.OrdinalIgnoreCase)) continue;
-                if (semi < 0) return true;   // "gzip" with no qvalue
-                string param = token.Substring(semi + 1).Trim();
-                if (param.StartsWith("q=", StringComparison.OrdinalIgnoreCase) &&
-                    double.TryParse(param.Substring(2), NumberStyles.Float, CultureInfo.InvariantCulture, out double q))
-                    return q > 0;
-                return true;   // a parameter other than q= doesn't refuse it
+                bool isGzip = string.Equals(coding, "gzip", StringComparison.OrdinalIgnoreCase);
+                bool isStar = coding == "*";
+                if (!isGzip && !isStar) continue;
+
+                bool accepted = true;   // no q param, or a param other than q=, means accepted
+                if (semi >= 0)
+                {
+                    string param = token.Substring(semi + 1).Trim();
+                    if (param.StartsWith("q=", StringComparison.OrdinalIgnoreCase) &&
+                        double.TryParse(param.Substring(2), NumberStyles.Float, CultureInfo.InvariantCulture, out double q))
+                        accepted = q > 0;
+                }
+                if (isGzip) gzipAccepted = accepted; else starAccepted = accepted;
             }
+            if (gzipAccepted.HasValue) return gzipAccepted.Value;
+            if (starAccepted.HasValue) return starAccepted.Value;
             return false;
         }
 

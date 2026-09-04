@@ -20,6 +20,14 @@ namespace NOXMFD.Tests
         [InlineData("GZIP;Q=0", false)]               // casing on both the token and the parameter
         [InlineData("x-gzip-experimental", false)]    // a coding that merely contains "gzip"
         [InlineData("gzip-experimental, deflate", false)]
+        // Wildcard (RFC 7231 §5.3.4): "*" matches any coding not explicitly listed.
+        [InlineData("*", true)]
+        [InlineData("*;q=0", false)]                         // wildcard explicitly refused
+        [InlineData("identity;q=0, *;q=1", true)]             // gzip never named, wildcard allows it
+        [InlineData("identity", false)]                        // no gzip, no wildcard
+        [InlineData("gzip;q=0, *;q=1", false)]                 // explicit "gzip" refusal wins over "*"
+        [InlineData("gzip;q=1, *;q=0", true)]                  // explicit "gzip" acceptance wins over "*"
+        [InlineData("*, gzip;q=0", false)]                     // order doesn't matter — gzip still wins
         public void AcceptsGzip_parses_tokens_and_respects_qvalue_zero(string? acceptEncoding, bool expected)
         {
             Assert.Equal(expected, TelemetryAssets.AcceptsGzip(acceptEncoding));

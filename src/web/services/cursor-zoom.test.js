@@ -43,5 +43,30 @@ const assert = require('assert');
     assert.ok(t.indexOf('scale(' + (1 / 4).toFixed(4)) >= 0, 'default iconShrink is 1');
   }
 
+  // ── apply(): DOM-write guard (docs/web-efficiency-audit.md finding 08) — the caller's render()
+  // calls apply() every tick regardless of whether anything moved; an unchanged transform must
+  // skip the setAttribute rewrite, and a real toggle must still write on the very next call. This
+  // is the one path the tests above never touch, since they all pass an empty groupIds. ──
+  {
+    let calls = 0;
+    const fakeGroup = { setAttribute() { calls++; } };
+    global.document = { getElementById: (id) => (id === 'g1' ? fakeGroup : null) };
+
+    const z = createCursorZoom({ groupIds: ['g1'], zoomScale: 3 });
+    z.apply();
+    assert.strictEqual(calls, 1, 'first apply() call always writes (module-load lastT is null)');
+
+    z.apply();
+    assert.strictEqual(calls, 1, 'repeating the same (unzoomed) transform does not rewrite the DOM');
+
+    z.toggle(10, 20);   // zoom on — the transform actually changes
+    assert.strictEqual(calls, 2, 'a real transform change still writes');
+
+    z.toggle(10, 20);   // zoom off — changes back
+    assert.strictEqual(calls, 3, 'toggling back off writes again');
+
+    delete global.document;
+  }
+
   console.log('cursor-zoom.test.js: OK');
 })();

@@ -101,13 +101,32 @@ Excludes:
 Each guard needs its invalidation triggers named explicitly (page entry, SSE reconnect, mode
 change, etc. — per finding) and proof of both halves: unchanged input skips the write, changed
 input still renders on the next tick. These guards are DOM-coupled (`document`/`window`), so — per
-this codebase's existing convention for that class of change (no jsdom or DOM shim anywhere in
-`tools/tests`) — that proof is a live check in the `serve_web.py` browser harness, not a committed
-`.test.js`: confirmed per-finding for 01 (HSD tick-skip + mode-toggle redraw), 02 (split-mode guard
-only fires when a pane shows WPN), 03 (WPN/TGP page-entry force-render even with an unchanged key),
-04 (AKF resend-skips / change-rebuilds / density-toggle-forces), and 09 (MIS's clock still ticks
-while stable fields don't rewrite) — reasoned through, not separately re-run in the browser, for
-05/06/07/08 given they follow the identical pattern already proven live for 01/04.
+this codebase's existing convention for that class of change (no jsdom or DOM-shim *library*
+anywhere in the repo — a hand-rolled stub of just the handful of DOM calls a file actually makes,
+same shape as `tgp.test.js`/`avn-status-policy.test.js`, is a different thing) — that proof is
+either a live check in the `serve_web.py` browser harness or a `.test.js` built on that same
+hand-rolled-stub pattern: confirmed per-finding for 01 (HSD tick-skip + mode-toggle redraw), 02
+(split-mode guard only fires when a pane shows WPN), 03 (WPN/TGP page-entry force-render even with
+an unchanged key), 04 (AKF resend-skips / change-rebuilds / density-toggle-forces), and 09 (MIS's
+clock still ticks while stable fields don't rewrite).
+
+05/06/07/08 were initially only reasoned through, not separately re-run, on the assumption they
+follow the identical pattern already proven live for 01/04 — flagged in review as a real gap (an
+omitted signature field is exactly the kind of bug reasoning alone won't catch) and since closed:
+- **05** (AFM failure labels) — `afm.test.js` (new): sends the same failure list twice and asserts
+  zero label rebuilds, then a real failure-set change and asserts every current label rebuilds.
+- **06** (AVN status tiles) — `avn.test.js` (new): same shape, against `paintAvnStatus`'s 8-flag key.
+- **07** (RDR grid cone lines) — no committed test; `renderGrid`'s guard lives behind rdr.js's own
+  `typeof window !== 'undefined'` browser-only bootstrap gate (deliberate, so `rdr.test.js` can
+  `require()` just the pure B-scope math under Node — see that gate's own comment), and the render
+  path beyond it depends on dynamically-imported service modules a Node harness can't resolve.
+  Verified live instead (`serve_web.py`, 2026-09-04): instrumented `#rdr-grid`'s `innerHTML` setter,
+  sent a synthetic `'rdr'` message at cone 60 (renders), repeated it (zero additional writes),
+  then sent cone 45 (one additional write) — both halves hold.
+- **08** (cursor-zoom `apply()`) — extended the existing `cursor-zoom.test.js`, which had exercised
+  every pure helper but never `apply()`'s `setAttribute` path (it only ever constructed the zoom
+  with an empty `groupIds`). Now asserts a repeated call with no state change performs zero
+  `setAttribute` calls, and a real toggle still writes.
 
 ## Parked (not scheduled)
 
