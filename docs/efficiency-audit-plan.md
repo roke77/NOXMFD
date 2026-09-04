@@ -67,7 +67,8 @@ and none require a measurement harness to trust — the diff itself is the evide
 
 ## Stage 3 — plugin asset serving (measurable, user-facing)
 
-Branch: TBD, off `audit-plugin-frame-allocs`'s tip until the earlier stages are merged to `main`.
+**Done.** Branch: `audit-plugin-asset-serving` (off `audit-plugin-frame-allocs`'s tip, same reason
+as Stage 2 — the earlier stages aren't merged to `main` yet).
 
 - **13**: cache decompressed embedded assets in a `ConcurrentDictionary<string, byte[]>`, and stop
   linear-scanning 109 manifest names per request.
