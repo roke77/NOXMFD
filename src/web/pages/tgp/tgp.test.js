@@ -151,14 +151,27 @@ assert.deepStrictEqual(commandLog[0], { cmd: 'cursor.set', args: { x: 0, y: 0 } 
 assert.ok(activeIntervalFn, 'pointerdown starts the keepalive interval');
 
 pad.listeners.pointermove({ pointerId: 1, clientX: 160, clientY: 140 });
-assert.deepStrictEqual(commandLog[1], { cmd: 'cursor.set', args: { x: 0.25, y: 0 } },
-  'half-radius right-only drag is (0.5, 0) pre-sensitivity, halved to (0.25, 0) by JOYSTICK_SENSITIVITY — right is positive, matching Keybinds.cs\'s own screen-space convention');
+// Raw magnitude 0.5 is floored/reshaped to 0.15 + 0.85*0.5 = 0.575 (JOYSTICK_MIN_OUTPUT's curve)
+// before JOYSTICK_SENSITIVITY halves it to 0.2875 — right is positive, matching Keybinds.cs's own
+// screen-space convention.
+assert.strictEqual(commandLog[1].cmd, 'cursor.set');
+assert.ok(Math.abs(commandLog[1].args.x - 0.2875) < 1e-9 && commandLog[1].args.y === 0,
+  'half-radius right-only drag is shaped to (0.575, 0) pre-sensitivity, halved to (0.2875, 0)');
+
+// A tiny nudge near center must still produce a visibly nonzero, near-floor pan rate rather than
+// reading as dead — the whole point of JOYSTICK_MIN_OUTPUT.
+pad.listeners.pointermove({ pointerId: 1, clientX: 141, clientY: 140 });   // dx = 1/40 = 0.025
+const tinyNudge = commandLog[commandLog.length - 1].args;
+assert.ok(tinyNudge.x > 0, 'a tiny nudge off-center must send a nonzero value, not a dead zero');
+const expectedFloor = (0.15 + 0.85 * 0.025) * 0.5;
+assert.ok(Math.abs(tinyNudge.x - expectedFloor) < 1e-9,
+  'a tiny nudge is floored close to JOYSTICK_MIN_OUTPUT * JOYSTICK_SENSITIVITY, not scaled all the way down to ~0');
 
 // Diagonal overshoot clamps to the unit CIRCLE, not a unit square: dx=dy=1.5x the radius has
 // magnitude 1.5*sqrt(2) before clamping, so both components land at 1/sqrt(2) pre-sensitivity, not 1;
 // JOYSTICK_SENSITIVITY (0.5) then halves that again.
 pad.listeners.pointermove({ pointerId: 1, clientX: 200, clientY: 200 });
-const overshoot = commandLog[2].args;
+const overshoot = commandLog[3].args;
 assert.ok(Math.abs(overshoot.x - Math.SQRT1_2 / 2) < 1e-9 && Math.abs(overshoot.y - Math.SQRT1_2 / 2) < 1e-9,
   'diagonal overshoot clamps each axis to 1/sqrt(2) pre-sensitivity, halved to 1/(2*sqrt(2))');
 assert.ok(Math.abs(Math.hypot(overshoot.x, overshoot.y) - 0.5) < 1e-9, 'clamped-and-scaled magnitude is exactly 0.5');
@@ -166,10 +179,10 @@ assert.ok(Math.abs(Math.hypot(overshoot.x, overshoot.y) - 0.5) < 1e-9, 'clamped-
 // A second pointer id must not hijack an in-progress drag (one at a time).
 pad.listeners.pointerdown({ pointerId: 2, clientX: 100, clientY: 100 });
 pad.listeners.pointermove({ pointerId: 2, clientX: 100, clientY: 100 });
-assert.strictEqual(commandLog.length, 3, 'a second pointer id while dragging is ignored entirely');
+assert.strictEqual(commandLog.length, 4, 'a second pointer id while dragging is ignored entirely');
 
 pad.listeners.pointerup({ pointerId: 1, clientX: 200, clientY: 200 });
-assert.deepStrictEqual(commandLog[3], { cmd: 'cursor.set', args: { x: 0, y: 0 } }, 'release resets to center');
+assert.deepStrictEqual(commandLog[4], { cmd: 'cursor.set', args: { x: 0, y: 0 } }, 'release resets to center');
 assert.strictEqual(activeIntervalFn, null, 'release clears the keepalive interval');
 
 // Auto-hide on physical PAD Cursor input — mfd.js/f35.js forward this as {action:'cursor', x, y}

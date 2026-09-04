@@ -218,6 +218,18 @@ const JOYSTICK_KEEPALIVE_MS = 50;   // comfortably under RemoteInputState's 250m
 // everything else also uses. Applied to the sent vector only, not the knob's own transform below —
 // the knob still tracks the pointer 1:1 out to the pad's edge, only the resulting turn rate is halved.
 const JOYSTICK_SENSITIVITY = 0.5;
+// Response curve on the sent vector's magnitude, mirroring why Keybinds.cs's ReadAxis shapes the
+// physical stick axis instead of sending it raw — except here there's no deadzone to rescale past,
+// only a floor. A raw linear pad maps a small real-world nudge (a few px near center) to an
+// equally small fraction of JOYSTICK_SENSITIVITY, which pans too slowly to see: indistinguishable
+// from a dead zone even though the value sent was never literally zero. Any nonzero deflection is
+// floored to at least this fraction of full rate so the smallest detectable nudge still visibly
+// pans; full deflection is untouched (curve(1) === 1) so JOYSTICK_SENSITIVITY's top-end rate is
+// unchanged. ponytail: flat constant tuned by feel — raise it if small nudges still feel sluggish.
+const JOYSTICK_MIN_OUTPUT = 0.15;
+function shapeJoystickMagnitude(mag) {
+  return mag === 0 ? 0 : JOYSTICK_MIN_OUTPUT + (1 - JOYSTICK_MIN_OUTPUT) * mag;
+}
 let joystickPointerId = null;
 let joystickKeepalive = null;
 let joystickX = 0, joystickY = 0;   // last SENT [-1,1] (post-sensitivity), resent on the keepalive tick
@@ -233,7 +245,11 @@ function updateJoystickFromEvent(e) {
   let dx = (e.clientX - cx) / radius, dy = (e.clientY - cy) / radius;
   const mag = Math.hypot(dx, dy);
   if (mag > 1) { dx /= mag; dy /= mag; }   // clamp to the circular pad, not a square
-  joystickX = dx * JOYSTICK_SENSITIVITY; joystickY = dy * JOYSTICK_SENSITIVITY;
+  // Direction stays exactly dx/dy — only the radial magnitude is reshaped, then reapplied via a
+  // scale factor so the sent vector still points exactly where the knob is.
+  const clampedMag = Math.min(mag, 1);
+  const scale = clampedMag === 0 ? 0 : shapeJoystickMagnitude(clampedMag) / clampedMag;
+  joystickX = dx * scale * JOYSTICK_SENSITIVITY; joystickY = dy * scale * JOYSTICK_SENSITIVITY;
   tgpJoystickKnob.style.transform = 'translate(' + (dx * radius) + 'px,' + (dy * radius) + 'px)';
   sendJoystickState();
 }
