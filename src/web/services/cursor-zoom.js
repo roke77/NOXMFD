@@ -9,12 +9,19 @@
 export function createCursorZoom({ groupIds, zoomScale = 3, iconShrink = 1 }) {
   let zoomed = false;
   let anchor = { x: 0, y: 0 };   // content-space viewBox units; meaningful only while zoomed
+  // The caller's render() calls apply() every tick (~10 Hz) regardless of whether the zoom state
+  // moved since the last one — the common case (docs/web-efficiency-audit.md finding 08). toggle()
+  // below already changes `zoomed`/`anchor` before calling apply(), so the resulting `t` naturally
+  // differs on a real toggle without this needing its own force path.
+  let lastT = null;
 
   function apply() {
     const t = zoomed
       ? 'translate(' + anchor.x.toFixed(1) + ' ' + anchor.y.toFixed(1) + ') scale(' + zoomScale +
         ') translate(' + (-anchor.x).toFixed(1) + ' ' + (-anchor.y).toFixed(1) + ')'
       : '';
+    if (t === lastT) return;
+    lastT = t;
     groupIds.forEach(function (id) {
       const g = document.getElementById(id);
       if (g) g.setAttribute('transform', t);
