@@ -208,6 +208,7 @@ function axisCell(bind) {
 function buildRow(b) {
   var row = document.createElement('div');
   row.className = 'kb-row';
+  row.dataset.bindId = b.id;   // lets flashRejected find this row without assuming which table
   var fn = document.createElement('div');
   var name = document.createElement('div');
   name.className = 'kb-name';
@@ -294,14 +295,15 @@ document.addEventListener('keydown', function (e) {
   render();
 });
 
-// brief red flash on the keyboard cell of a bind whose captured key can't be mapped
+// brief red flash on the keyboard cell of a bind whose captured key can't be mapped. Looks the row
+// up by id (row.dataset.bindId, set in buildRow) rather than a positional index into `binds` — an
+// index counts every bind including the Immersion section's, which renders into its own table
+// (immersionRowsEl), so a positional lookup into rowsEl's rows was wrong for any Immersion bind.
 function flashRejected(id) {
   render();
-  var rows = rowsEl.querySelectorAll('.kb-row');
-  var i = -1;
-  binds.forEach(function (b, n) { if (b.id === id) i = n; });
-  if (i < 0 || !rows[i]) return;
-  var val = rows[i].querySelectorAll('.kb-val')[0];
+  var row = document.querySelector('.kb-row[data-bind-id="' + id + '"]');
+  if (!row) return;
+  var val = row.querySelectorAll('.kb-val')[0];
   val.classList.add('rejected');
   val.textContent = 'UNSUPPORTED';
   setTimeout(render, 900);
