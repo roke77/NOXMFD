@@ -922,28 +922,36 @@ namespace NOXMFD
 
             // Combat-mode tap/hold binds (docs/radar-master-arms.md) — run every frame, same reasoning
             // as the cursor vector above: a release on an otherwise-idle frame must still reset
-            // PressStartTime, or the next tap on that bind would misread as an instant hold.
-            PollTapHold(_combatModeAa!, onTap: () => SetCombatMode(CombatMode.AirToAir),
-                                        onHold: () => SetCombatMode(CombatMode.All));
-            PollTapHold(_combatModeAg!, onTap: () => SetCombatMode(CombatMode.AirToGround),
-                                        onHold: () => SetCombatMode(CombatMode.All));
+            // PressStartTime, or the next tap on that bind would misread as an instant hold. Read once
+            // and pass through rather than each PollTapHold call reading Time.unscaledTime itself —
+            // it cannot change within a frame (docs/plugin-efficiency-audit.md finding 02).
+            float now = Time.unscaledTime;
+            PollTapHold(_combatModeAa!, now, onTap: () => SetCombatMode(CombatMode.AirToAir),
+                                              onHold: () => SetCombatMode(CombatMode.All));
+            PollTapHold(_combatModeAg!, now, onTap: () => SetCombatMode(CombatMode.AirToGround),
+                                              onHold: () => SetCombatMode(CombatMode.All));
 
             // Previous Waypoint / Steer Point (W-) — same tap/hold shape as the combat-mode pair
             // above. Both outcomes are broadcast-only, same as every other MAP bind: the actual
             // mutation happens client-side (map.js), which the physical keybind never touches
             // directly, whichever browser currently holds SOI reacts to the broadcast.
-            PollTapHold(_mapWaypointPrev!, onTap:  () => TelemetryServer.MapAction("waypoint-prev"),
-                                           onHold: () => TelemetryServer.MapAction("waypoint-reset"));
+            PollTapHold(_mapWaypointPrev!, now, onTap:  () => TelemetryServer.MapAction("waypoint-prev"),
+                                                 onHold: () => TelemetryServer.MapAction("waypoint-reset"));
 
-            // TD's 9 Assign binds — same reasoning as the combat-mode pair above, one PollTapHold per
-            // slot. TdStore.Assign's own `retain` (issue #47 follow-up) is exactly the on-screen squad
-            // button's tap-vs-hold outcome, so this reuses it rather than re-deriving the behavior.
+            // TD's 9 Assign binds — same tap/hold reasoning as the combat-mode pair above, but called
+            // directly through KeybindTapHold.Poll rather than PollTapHold: capturing the loop-local
+            // `slot` in a pair of onTap/onHold closures allocated a display class plus two delegates on
+            // every one of the 9 iterations, every single frame, even with every TD bind unbound —
+            // ~1,600 objects/sec at 60 fps (docs/plugin-efficiency-audit.md finding 01). The two
+            // outcomes differ only in TdStore.Assign's own `retain` flag (issue #47 follow-up), so
+            // there's nothing left for two separate closures to do.
             for (int slot = 1; slot <= 9; slot++)
             {
-                int s = slot;
-                PollTapHold(_tdAssign[s]!,
-                    onTap:  () => { TelemetryServer.MapAction("td-assign-" + s); if (Squad.IsLeader) TdStore.Assign(s); },
-                    onHold: () => { TelemetryServer.MapAction("td-assign-" + s); if (Squad.IsLeader) TdStore.Assign(s, retain: true); });
+                BindDef b = _tdAssign[slot]!;
+                var ev = KeybindTapHold.Poll(b.ActiveNow, now, ref b.PressStartTime, ref b.HoldFired);
+                if (ev == KeybindTapHold.Event.None) continue;
+                TelemetryServer.MapAction("td-assign-" + slot);
+                if (Squad.IsLeader) TdStore.Assign(slot, retain: ev == KeybindTapHold.Event.Hold);
             }
 
             bool remoteGun = TelemetryServer.GetRemoteFireState("gun");
@@ -1058,9 +1066,9 @@ namespace NOXMFD
         // Must be called every frame for every tap/hold bind regardless of ActiveNow — see the call
         // site in Poll(), before the "nothing active" early return — so a release on an otherwise-idle
         // frame still resets PressStartTime.
-        private static void PollTapHold(BindDef b, Action onTap, Action onHold)
+        private static void PollTapHold(BindDef b, float now, Action onTap, Action onHold)
         {
-            var ev = KeybindTapHold.Poll(b.ActiveNow, Time.unscaledTime, ref b.PressStartTime, ref b.HoldFired);
+            var ev = KeybindTapHold.Poll(b.ActiveNow, now, ref b.PressStartTime, ref b.HoldFired);
             if (ev == KeybindTapHold.Event.Tap) onTap();
             else if (ev == KeybindTapHold.Event.Hold) onHold();
         }
