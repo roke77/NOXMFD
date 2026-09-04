@@ -230,6 +230,30 @@ guesses — most exist because a past session violated them.
   isolated fixes bump patch. Flag once if the user names a version that doesn't match
   this pattern, then follow their explicit choice without re-raising it.
 
+### Pre-release quality pass
+
+Before any version bump, build, tag, or `gh release create` step, run this checklist over
+everything changed since the last release tag (`git log <last-tag>..HEAD`):
+
+1. Look for refactoring or extraction opportunities in the changed files.
+2. Apply SRP and DRY where the diff introduced duplication or a file doing more than one job.
+3. Check comment quality (why not what, present tense, no history/process narration — see
+   Docs & comments).
+4. Add unit tests where possible for new pure-logic code (`tools/tests/`, xUnit, no
+   game/Unity references needed).
+5. Update any planning doc (`docs/`) the changed feature touches.
+6. Update any user-facing manual (`man/`) the changed feature touches.
+7. Update any source-level README (`src/plugin/README.md`, `src/web/README.md`, this file)
+   the changed files touch.
+8. Look for folder organization opportunities in the changed files, per Folder architecture
+   below — e.g. a new file that belongs in an existing internal grouping, or two+ related
+   files ready to move into a new one. Don't reshuffle for its own sake — only move at least
+   two related files or a real new module, and update `NOXMFD.csproj`/embedded-resource paths
+   in the same commit as any move.
+
+Only after this pass is done (or confirmed to have nothing to change) should the actual
+release proceed.
+
 ## Folder architecture
 
 Current split: `src/plugin/` (C# runtime; `Hud/`, `Http/`, `Stores/`, `Telemetry/`, `Input/`,
