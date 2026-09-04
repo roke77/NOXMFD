@@ -1274,14 +1274,18 @@
   // Skips all three writes (plus the AB-boundary custom property, thr only) when nothing in the
   // signature moved since the last call — thr/fuel are continuously-varying analog values, but the
   // actual writes are already quantized (a rounded % width, whole-percent text), so most 10 Hz ticks
-  // land on an unchanged rendered value regardless (docs/web-efficiency-audit.md finding 03).
+  // land on an unchanged rendered value regardless (docs/web-efficiency-audit.md finding 03). The
+  // signature is built from that same rounded width string, not the raw `fill` float — two raw
+  // values that round to an identical width would otherwise still produce different signatures and
+  // defeat the guard on exactly the ticks it exists to catch.
   function setGauge(g, na, fill, text, state, boundary) {
-    const sig = na + '|' + fill + '|' + text + '|' + state + '|' + boundary;
+    const widthPct = (fill * 100).toFixed(1) + '%';
+    const sig = na + '|' + widthPct + '|' + text + '|' + state + '|' + boundary;
     if (sig === g.sig) return;
     g.sig = sig;
     if (boundary !== undefined && boundary !== null) g.el.style.setProperty('--ab-start', boundary);
     g.el.className = 'ms-gauge ' + g.kind + (na ? ' na' : state);
-    g.fill.style.width = (fill * 100).toFixed(1) + '%';
+    g.fill.style.width = widthPct;
     g.num.textContent = na ? '--' : text;
   }
   function updateStripStatus(m) {
