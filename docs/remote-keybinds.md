@@ -14,7 +14,8 @@ written for "a browser, opted in" throughout, with WSO used only where an exampl
 
 **Every bind on the KEY page now has a remote path**, except the handful noted at the very end of
 this doc as not making sense to relay at all (axis-only binds with no keyboard equivalent, and the
-two client-side-modal Layout binds). V1 covered weapon cycling, countermeasure deploy, dedicated
+two client-side-modal Layout binds) — see "Invariants" below for the two rules that keep this true
+going forward, and the tests that enforce them. V1 covered weapon cycling, countermeasure deploy, dedicated
 gear up/down, MAP/TGT/SOI one-shot actions, master arm, radar/engine set, combat-mode tap actions,
 HUD preset loads, and remote MAP/TGT cursor movement/select/fire. Cursor and fire were intentionally
 built outside the simple `keydown -> /command` map because they need live held-state semantics; two
@@ -73,6 +74,33 @@ was never there. Fixed by adding the same three script tags (`keybinds-keymap.js
 (new) now scans every page HTML file under `src/web/pages/` and both shells and fails if any of them
 ever drops the include again — nothing caught this the first time because a missing `<script>` tag
 produces no error, just silence exactly where a real device happens to have focus.
+
+## Invariants
+
+Two rules this feature must keep holding, each enforced by an automated test rather than left to
+memory — both gaps above shipped silently precisely because nothing checked them:
+
+1. **Every keybind on the KEY page must work when REMOTE is ON** — existing binds, and any bind
+   added later. A registry entry with no remote path (`commandForBind`/`cursorRoleForBind`/
+   `fireRoleForBind` in `remote-keybinds.js`) isn't a partial feature, it's a silent one: nothing
+   fails, nothing logs, the keypress just does nothing. The two documented exceptions (axis-only
+   binds, SAVE/LOAD LAYOUT) are the only bind ids allowed to have no remote path — see "Binds that
+   stay unrelayed, on purpose" below.
+   Enforced by `src/web/services/remote-keybinds-bind-coverage.test.js`: scans every bind id
+   `Keybinds.cs` registers and fails if any one of them (outside that two-id whitelist) has no
+   matching case in any of the three lookup functions.
+2. **When REMOTE is ON, keypresses must work from any page** — not just the ones a tester happens
+   to click through. Keyboard events don't bubble across iframe boundaries, so a page missing
+   `remote-keybinds.js` doesn't degrade the feature, it silently kills every remote keypress the
+   instant that page (or an F-35 portal showing it) has focus, indistinguishable from the underlying
+   command itself being broken. This is exactly what shipped for `keybinds.html`/`sqd.html`/
+   `td.html` above.
+   Enforced by `src/web/services/remote-keybinds-coverage.test.js`: scans every page HTML file
+   under `src/web/pages/` and both shells and fails if any of them doesn't load
+   `/assets/services/remote-keybinds.js`.
+
+Adding a new KEY-page bind or a new page and skipping the matching test failure means shipping this
+exact bug again — run the full `*.test.js` suite before merging either kind of change.
 
 ## Goal
 
