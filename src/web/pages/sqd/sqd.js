@@ -374,6 +374,7 @@ function renderSquad() {
   const leaderName = isLeader ? (state.selfName || '—') : (state.leaderName || state.leaderId);
   const leaderAircraft = isLeader ? state.selfAircraft : state.leaderAircraft;
   const rowsSig = isLeader + '|' + leaderName + '|' + leaderAircraft + '|' + state.self + '|' + iconStatusVersion + '|' +
+    state.callsign + '|' + state.flight + '|' +
     state.members.map(function (m) { return m.id + ':' + (m.name || '') + ':' + (m.aircraft || ''); }).join(',');
   if (rowsSig === lastSquadRowsSig) return;
   lastSquadRowsSig = rowsSig;
