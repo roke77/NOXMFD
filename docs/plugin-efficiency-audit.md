@@ -2,11 +2,12 @@
 
 ## Status
 
-**Investigation only — nothing implemented.** 41 findings, none of them applied. This is a
-planning document: it records where the plugin still wastes work, what the fix for each looks
-like, and which ones are not worth doing. It complements `docs/performance.md`, which holds the
-*measured* history and the shipped items; this file holds the unshipped candidates found by a
-full read of the C# source.
+An investigation record, not a live status board: it records where the plugin still wastes work,
+what the fix for each looks like, and which ones are not worth doing. It complements
+`docs/performance.md`, which holds the *measured* history and the shipped items. **For which of
+the 41 findings below have actually shipped, see `docs/efficiency-audit-plan.md`** — the findings
+themselves are left as originally recorded from a full read of the C# source, not edited in place
+as work lands.
 
 Audit run against `main` at `92c8783` (version 0.39.1).
 

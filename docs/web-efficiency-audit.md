@@ -2,10 +2,11 @@
 
 ## Status
 
-**Investigation only — nothing implemented.** 42 findings, none of them applied. This is a
-planning document, the frontend counterpart to `docs/plugin-efficiency-audit.md`: it records
-where the web frontend still wastes work, what the fix for each looks like, and which ones are
-not worth doing.
+An investigation record, not a live status board — the frontend counterpart to
+`docs/plugin-efficiency-audit.md`: it records where the web frontend still wastes work, what the
+fix for each looks like, and which ones are not worth doing. **For which of the 42 findings below
+have actually shipped, see `docs/efficiency-audit-plan.md`** — the findings themselves are left as
+originally recorded, not edited in place as work lands.
 
 Audit run against `main` at `92c8783` (version 0.39.1), before the `docs/plugin-efficiency-audit.md`
 commit landed.

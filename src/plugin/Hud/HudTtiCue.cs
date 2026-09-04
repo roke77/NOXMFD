@@ -31,12 +31,12 @@ namespace NOXMFD
         private TMP_Text? _label;
         private string?   _lastLabelText;
 
-        // A failed Build() (no Altitude in the scene yet, or its radarAlt field unreadable) used to
-        // retry on every single frame for the rest of the mission, since nothing here ever set
-        // _label — a full FindFirstObjectByType<Altitude> scene scan at 60 Hz+ whenever a target is
-        // locked (docs/plugin-efficiency-audit.md correctness section). Back off instead: a failure
-        // is remembered for BuildRetryInterval before the next attempt, cheap enough that a genuine
-        // recovery (e.g. the HUD rebuilding on respawn) is still picked up quickly.
+        // Nothing else here ever sets _label on a failed Build() (no Altitude in the scene yet, or
+        // its radarAlt field unreadable), so a bare retry-every-frame guard would repeat a full
+        // FindFirstObjectByType<Altitude> scene scan at 60 Hz+ for the rest of the mission whenever a
+        // target is locked. A failure is remembered for BuildRetryInterval before the next attempt
+        // instead — cheap enough that a genuine recovery (e.g. the HUD rebuilding on respawn) is
+        // still picked up quickly.
         private const float BuildRetryInterval = 5f;
         private float _nextBuildAttempt;
 
@@ -70,12 +70,11 @@ namespace NOXMFD
 
             if (_cachedTti < 0f)
             {
-                // Not Hide(): that reset _cachedTti to -1, which used to defeat the 4 Hz throttle
-                // above by re-triggering `_cachedTti < 0f` as a recompute condition on every single
-                // frame whenever a lock had nothing airborne to show a TTI for -- the normal state
-                // (docs/plugin-efficiency-audit.md finding 03). Just stay hidden; the cached "no TTI"
-                // result survives to the next frame, and a new lock still forces a recompute via the
-                // targetId check above.
+                // Not Hide(): that resets _cachedTti to -1, which the recompute condition above no
+                // longer treats as its own trigger — adding it back would defeat the 4 Hz throttle on
+                // every frame a lock has nothing airborne to show a TTI for, the normal state. Just
+                // stay hidden; the cached "no TTI" result survives to the next frame, and a new lock
+                // still forces a recompute via the targetId check above.
                 SetVisible(false);
                 return;
             }
