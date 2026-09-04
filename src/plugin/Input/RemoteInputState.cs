@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace NOXMFD
 {
@@ -26,13 +27,27 @@ namespace NOXMFD
                 _remoteCursorX = x;
                 _remoteCursorY = y;
                 _remoteCursorSelectHeld = selectHeld;
-                _remoteCursorUntilUtcTicks = DateTime.UtcNow.Ticks + RemoteCursorTtlTicks;
+                // Volatile, not a plain assignment: GetCursor reads this field unlocked as a fast-path
+                // check below, so it needs the release-fence guarantee Volatile.Write gives, not just
+                // whatever a lock's own exit fence happens to provide to an unsynchronized reader.
+                Volatile.Write(ref _remoteCursorUntilUtcTicks, DateTime.UtcNow.Ticks + RemoteCursorTtlTicks);
                 return changed;
             }
         }
 
         internal static void GetCursor(out float x, out float y, out bool selectHeld)
         {
+            // Unsynchronized fast path: _remoteCursorUntilUtcTicks only ever moves forward (SetCursor
+            // raises it under the lock; nothing here ever lowers it), so a stale unlocked read can
+            // only be wrong toward "still active", never falsely "expired" -- skipping the lock
+            // whenever it reads as expired is always correct. This is the steady state for any
+            // keyboard/HOTAS-only player, and for anyone else between uses of the remote cursor
+            // (docs/plugin-efficiency-audit.md finding 05).
+            if (DateTime.UtcNow.Ticks > Volatile.Read(ref _remoteCursorUntilUtcTicks))
+            {
+                x = 0f; y = 0f; selectHeld = false;
+                return;
+            }
             lock (_remoteCursorLock)
             {
                 if (DateTime.UtcNow.Ticks > _remoteCursorUntilUtcTicks)
@@ -58,6 +73,11 @@ namespace NOXMFD
         private static readonly object _remoteFireLock = new object();
         private static readonly Dictionary<string, (bool active, long untilUtcTicks, long minUntilUtcTicks)> _remoteFire =
             new Dictionary<string, (bool, long, long)>();
+        // Max of every group's own (untilUtcTicks, minUntilUtcTicks) ever written by SetFire -- an
+        // aggregate "is anything live in any group" fast-path check for GetFire, below. Only ever
+        // raised, never lowered, so an unsynchronized read is safe the same way
+        // _remoteCursorUntilUtcTicks's is (see GetCursor's comment).
+        private static long _remoteFireActiveUntilUtcTicks;
 
         // Returns true only on the rising edge (this call transitioned the group from not-held to
         // held) — the caller logs on that, plus unconditionally on every `held:false` (already
@@ -84,13 +104,22 @@ namespace NOXMFD
                     f.untilUtcTicks = 0L;
                 }
                 _remoteFire[group] = f;
+                long groupUntil = Math.Max(f.untilUtcTicks, f.minUntilUtcTicks);
+                if (groupUntil > _remoteFireActiveUntilUtcTicks) Volatile.Write(ref _remoteFireActiveUntilUtcTicks, groupUntil);
                 return risingEdge;
             }
         }
 
         internal static bool GetFire(string group)
         {
+            // Unsynchronized fast path, same reasoning as GetCursor's: _remoteFireActiveUntilUtcTicks
+            // only grows, so reading it here without the lock can only be stale toward "something's
+            // still active" -- never falsely "everything's idle" -- so returning false straight away
+            // whenever it reads as expired is always correct, for every group at once
+            // (docs/plugin-efficiency-audit.md finding 05). A live group falls through to the locked
+            // per-group lookup below, same as before.
             long now = DateTime.UtcNow.Ticks;
+            if (now > Volatile.Read(ref _remoteFireActiveUntilUtcTicks)) return false;
             lock (_remoteFireLock)
             {
                 if (!_remoteFire.TryGetValue(group, out var f)) return false;

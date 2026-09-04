@@ -68,5 +68,41 @@ namespace NOXMFD.Tests
             Assert.False(RemoteInputState.SetCursor(0.6f, 0.1f, true)); // keepalive, still held: unchanged
             Assert.True(RemoteInputState.SetCursor(0f, 0f, false));     // select released: changed
         }
+
+        [Fact]
+        public void GetFire_fast_path_rearms_after_an_earlier_groups_ttl_expires()
+        {
+            // GetFire's unsynchronized fast path (docs/plugin-efficiency-audit.md finding 05) must
+            // re-arm once everything actually goes idle -- not latch "hot" forever after the first
+            // remote press in the process, which the review annex flagged as the failure mode a
+            // naive one-way "has anything ever fired" flag would have.
+            string first = "test-first-" + System.Guid.NewGuid();
+            RemoteInputState.SetFire(first, true);
+            RemoteInputState.SetFire(first, false);
+            Thread.Sleep(150);
+            Assert.False(RemoteInputState.GetFire(first));   // fully idle again
+
+            string second = "test-second-" + System.Guid.NewGuid();
+            Assert.False(RemoteInputState.GetFire(second));  // fast path: nothing pressed for this group
+            RemoteInputState.SetFire(second, true);
+            Assert.True(RemoteInputState.GetFire(second));   // a new press is still observed correctly
+        }
+
+        [Fact]
+        public void GetCursor_fast_path_rearms_after_expiry()
+        {
+            RemoteInputState.SetCursor(1f, 1f, false);
+            Thread.Sleep(300);   // past RemoteCursorTtlTicks (250ms)
+            RemoteInputState.GetCursor(out float x0, out float y0, out bool sel0);
+            Assert.Equal(0f, x0);
+            Assert.Equal(0f, y0);
+            Assert.False(sel0);
+
+            RemoteInputState.SetCursor(0.5f, -0.5f, true);
+            RemoteInputState.GetCursor(out float x1, out float y1, out bool sel1);
+            Assert.Equal(0.5f, x1);
+            Assert.Equal(-0.5f, y1);
+            Assert.True(sel1);
+        }
     }
 }
