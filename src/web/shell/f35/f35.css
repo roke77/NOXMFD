@@ -577,6 +577,14 @@ html, body {
   background: rgba(0, 0, 0, 0.6);
   border-radius: 2px;
 }
+/* Without this, the generic .nav-item:hover rule below loses the specificity fight to the
+   translucent-black pill above (both are two-class-ish selectors, but this one adds the
+   [data-page] attribute) — hover would then only apply :hover's ink text colour, on top of the
+   pill's own near-black background, reading as the label vanishing instead of highlighting. Same
+   teal the rest of the layout hovers to, so TGP doesn't look like a different control scheme. */
+@media (hover: hover) {
+  .nav-grid[data-page="tgp"] .nav-item:hover { background: var(--no-teal); color: var(--no-ink); }
+}
 
 /* Edge: hug the outer edge, centred in the row's band — where the leftmost bezel key would sit. */
 .nav-grid.edge .nav-item {
@@ -622,15 +630,16 @@ html, body {
    .overlay.vmain .overlay-item.left in mfd.css — including pulling in to the edge, since 16px of
    margin would still leave the label overlapping. BDF/PAL/MIS/OBJ are one family (MD —
    docs/md-pages.md) reachable from each other, and AKF matches the bezel's isVmainPage() list, so
-   all need the same treatment here. HUD stays horizontal (per user preference) — its own CSS pads
-   around the label's width instead of standing it up (hud.css). */
+   all need the same treatment here. HUD and RDR (FCR/HSD) stay horizontal (per user preference) —
+   RDR's MAIN label does overlap the B-scope's own top-left RWS text as a result, accepted as-is
+   rather than fixed. HUD's own CSS pads around the label's width instead of standing it up
+   (hud.css). */
 .nav-grid.edge[data-page="tgt"] .nav-item,
 .nav-grid.edge[data-page="akf"] .nav-item,
 .nav-grid.edge[data-page="bdf"] .nav-item,
 .nav-grid.edge[data-page="pal"] .nav-item,
 .nav-grid.edge[data-page="mis"] .nav-item,
-.nav-grid.edge[data-page="obj"] .nav-item,
-.nav-grid.edge[data-page="rdr"] .nav-item {
+.nav-grid.edge[data-page="obj"] .nav-item {
   writing-mode: vertical-rl;
   text-orientation: upright;
   letter-spacing: 0;

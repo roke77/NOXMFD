@@ -217,6 +217,10 @@
     { label: 'Z+', action: 'tgp-zoom-in',  cell: { row: 5, col: 2 } },
     { label: 'Z-', action: 'tgp-zoom-out', cell: { row: 6, col: 2 } },
   ];
+  // TRK/RST/STP's three actions, dispatched directly (below) rather than through an ACTIONS lookup
+  // like TGP_MODE_ACTIONS/TGP_IR_ACTIONS/TGP_ZOOM_ACTIONS above — canDo() needs its own explicit
+  // list for these since it has no ACTIONS object to check `in`.
+  const TGP_ONESHOT_ACTIONS = ['tgp-point-track', 'tgp-manual-reset', 'tgp-mark-steerpoint'];
   // TRK/RST/STP — page-button twins of the Point Track / Manual Control Reset keybinds
   // (docs/tgp-manual-control.md) and the MARK STEER POINT command (docs/steer-points.md). One-shot
   // actions, not explicit-state pairs like the others above, so each is dispatched directly rather
@@ -284,7 +288,8 @@
   function canDo(action) {
     return has(action) || (action in PAGER) || (action in MAP_ACTIONS) || (action in GLASS_ACTIONS) ||
            (action in MASTER_ARMS_ACTIONS) || (action in COMBAT_MODE_ACTIONS) ||
-           (action in TGP_MODE_ACTIONS) || (action in TGP_IR_ACTIONS) || (action in TGP_ZOOM_ACTIONS);
+           (action in TGP_MODE_ACTIONS) || (action in TGP_IR_ACTIONS) || (action in TGP_ZOOM_ACTIONS) ||
+           TGP_ONESHOT_ACTIONS.indexOf(action) !== -1;
   }
 
   // 'edge' placement: an item's index → its cell. The left column, top-down, IS the bezel's left
