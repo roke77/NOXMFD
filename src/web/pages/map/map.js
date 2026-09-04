@@ -146,8 +146,7 @@ const cursor = createPadCursor({
   clampRect: imgRect,
   onSelect: (x, y) => selectAt(x, y, CURSOR_HIT_PAD),
   // Cursor Select held past holdMs = waypoint placement, or removal if held over an existing one
-  // (issue #38). placeNavigationPointAt is declared further down (temporal dead zone doesn't
-  // apply — this only runs later, on an actual hold).
+  // (issue #38).
   onHold: (x, y) => placeNavigationPointAt(x, y, CURSOR_HIT_PAD),
   onEdge: onCursorEdge,
   onMove: updateCursorChip,   // CURSOR chip tracks the PAD cursor too, not just the mouse

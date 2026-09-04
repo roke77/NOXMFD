@@ -7,6 +7,8 @@ a persistent, named map position with no route ordering or automatic state chang
 
 - Long-press MAP with an active route to append a waypoint, as before.
 - Long-press MAP with no active route to create and select a steer point.
+- Long-press MAP directly on an already-placed waypoint or steer point removes it instead — the
+  same gesture doubles as undo, so overshooting a placement doesn't need a separate delete control.
 - The TGP page's `STP` button/keybind (`docs/tgp-manual-control.md`'s own STP section) marks
   whatever the camera is currently showing — a real lock's position, or the manual camera's aim
   point — as a new steer point the same way, via `TgpManualControl.MarkSteerPoint()`.

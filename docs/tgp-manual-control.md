@@ -898,6 +898,11 @@ mouse/touch pilot had no way to point the manual camera at all short of a bound 
   `TiltSpeedDegPerSec` (the actual deg/sec rate `_panInputX`/`_panInputY` drive) are shared with the
   physical PAD Cursor keys/axis, already tuned separately — scaling those would have slowed those
   down too.
+- **Response floor**: the clamped magnitude is reshaped by `JOYSTICK_MIN_OUTPUT` (0.15) before the
+  sensitivity scale above — direction is untouched, only the radial magnitude — so a small real
+  drag near the pad's center (worse mouse/finger precision there than a physical stick's travel)
+  doesn't scale down to an imperceptibly slow pan. Full deflection is unaffected (the curve is the
+  identity at magnitude 1), so the top-end rate `JOYSTICK_SENSITIVITY` sets stays exactly as tuned.
 - **Continuous while held**: a `setInterval` re-sends the last computed vector every 50ms while
   dragging (comfortably under the 250ms TTL), the same keepalive cadence `remote-keybinds.js`
   already uses for its own `cursor.set` sends — a `pointermove`-only send would let the camera stop

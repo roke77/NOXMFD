@@ -23,7 +23,9 @@ you can spot them at a glance.
   an active route.
 
 Long-press the map to append a waypoint to the active route. With no route active, the same gesture
-creates a standalone steer point. Both kinds of navigation point are managed on [WPT](wpt.md).
+creates a standalone steer point. Long-pressing directly on an existing waypoint or steer point
+removes it instead — useful for undoing a placement without opening [WPT](wpt.md). Both kinds of
+navigation point are otherwise managed there.
 
 ## Status row
 
