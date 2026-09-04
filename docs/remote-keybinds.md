@@ -38,7 +38,8 @@ it's visibility for the next time this is reported. The chain from a keypress to
 crosses three boundaries where it can silently go quiet, and each now has a log:
 
 - **Browser-side, opt-in verbose logging** (`remote-keybinds.js`): off by default, since it would
-  otherwise log on every keypress/edge in every one of the 21 pages that load this module. Enable it
+  otherwise log on every keypress/edge in every page that loads this module (24 of them — see the
+  "root cause found" update below). Enable it
   per browser origin from devtools on the device having trouble:
   `localStorage.setItem('noxmfd.remoteKeybinds.debug', '1')`, then reload. It logs which bootstrap
   path ran (SSE relay vs. the 1500ms fallback fetch — see `docs/sse-push-refactor.md`), how many
@@ -58,6 +59,20 @@ crosses three boundaries where it can silently go quiet, and each now has a log:
   whether the call was an actual transition, and the caller decides whether to log. Gated on the real
   state change, not the browser's 50ms keepalive resend, so holding a fire key logs one "ON" line and
   one "OFF" line, not one every keepalive tick.
+
+**Update: root cause found — three pages never loaded this script at all.** The diagnostics above
+found it: a player reported Gun Trigger relaying fine from MAIN but not while looking at the KEY
+page specifically. Keyboard events don't bubble across iframe boundaries — whichever document
+currently has focus is the *only* one that ever sees a keydown — and `keybinds.html` (plus, it turned
+out, `sqd.html` and `td.html`) never included `<script src="/assets/services/remote-keybinds.js">`
+at all, unlike the other 21 pages. The instant the browser's keyboard focus moved into one of those
+three iframes (simply by clicking into the page), every keypress went to that iframe's own document
+and nothing there was listening — with no error, since there was nothing to fail, just a script that
+was never there. Fixed by adding the same three script tags (`keybinds-keymap.js` then
+`remote-keybinds.js`, matching every other page) to all three. `remote-keybinds-coverage.test.js`
+(new) now scans every page HTML file under `src/web/pages/` and both shells and fails if any of them
+ever drops the include again — nothing caught this the first time because a missing `<script>` tag
+produces no error, just silence exactly where a real device happens to have focus.
 
 ## Goal
 
