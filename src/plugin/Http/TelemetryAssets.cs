@@ -125,7 +125,7 @@ namespace NOXMFD
                 ctx.Response.ContentLength64 = body.Length;
                 ctx.Response.OutputStream.Write(body, 0, body.Length);
             }
-            catch { }
+            catch (Exception ex) { Plugin.Log?.LogDebug($"[NOXMFD] /assets/{rel} error: {ex.Message}"); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 

@@ -225,7 +225,7 @@ const JOYSTICK_SENSITIVITY = 0.5;
 // from a dead zone even though the value sent was never literally zero. Any nonzero deflection is
 // floored to at least this fraction of full rate so the smallest detectable nudge still visibly
 // pans; full deflection is untouched (curve(1) === 1) so JOYSTICK_SENSITIVITY's top-end rate is
-// unchanged. ponytail: flat constant tuned by feel — raise it if small nudges still feel sluggish.
+// unchanged. Flat constant tuned by feel — raise it if small nudges still feel sluggish.
 const JOYSTICK_MIN_OUTPUT = 0.15;
 function shapeJoystickMagnitude(mag) {
   return mag === 0 ? 0 : JOYSTICK_MIN_OUTPUT + (1 - JOYSTICK_MIN_OUTPUT) * mag;

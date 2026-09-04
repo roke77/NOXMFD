@@ -370,7 +370,7 @@ function padCursorMoveAt(x, y) {
 
 // Zoom In/Out (map-act's zoom-in/zoom-out) repurposed to scroll the page, same as SQD/WPT/TGT/HUD —
 // nothing on this page to zoom, and the binds already exist end-to-end (docs/page-cursor.md).
-const SCROLL_STEP = 60;   // ponytail: flat constant tuned by feel, like pad-cursor.js's own SPEED
+const SCROLL_STEP = 60;   // Flat constant tuned by feel, like pad-cursor.js's own SPEED.
 
 // The shell only forwards these once this page is in PAD_CURSOR_PAGES (mfd.js/f35.js) — without
 // this listener the crosshair above is built but never shown or moved (docs/web-efficiency-audit.md
