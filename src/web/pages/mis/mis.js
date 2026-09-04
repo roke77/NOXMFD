@@ -21,16 +21,28 @@ function fmtHms(hours) {
   return pad(hh) + ':' + pad(mm) + ':' + pad(ss);
 }
 
+// Every field is written every 'mis' message with no guard, even though tod/duration/score are
+// formatted (fmtHms rounds to whole seconds; score to one decimal) so most 10 Hz ticks land on an
+// unchanged displayed string despite the underlying value having moved slightly — comparing the
+// formatted text, not the raw number, still catches those (docs/web-efficiency-audit.md finding 09).
+let lastName = null, lastTime = null, lastScore = null, lastDesc = null;
 function paint() {
   document.body.classList.toggle('unavailable', !state.present);
   if (!state.present) return;
 
-  nameEl.textContent = state.name || '—';
-  timeEl.textContent = 'Time ' + fmtHms(state.tod) + '  --  Duration ' + fmtHms(state.duration / 3600);
+  const name = state.name || '—';
+  if (name !== lastName) { lastName = name; nameEl.textContent = name; }
+
+  const time = 'Time ' + fmtHms(state.tod) + '  --  Duration ' + fmtHms(state.duration / 3600);
+  if (time !== lastTime) { lastTime = time; timeEl.textContent = time; }
+
   const level = LEVEL_LABEL[state.level] || LEVEL_LABEL[0];
-  scoreEl.textContent = 'Score ' + (typeof state.score === 'number' ? state.score : 0).toFixed(1)
-                       + '  --  ' + level + ' level';
-  descEl.textContent = state.description || '';
+  const score = 'Score ' + (typeof state.score === 'number' ? state.score : 0).toFixed(1)
+              + '  --  ' + level + ' level';
+  if (score !== lastScore) { lastScore = score; scoreEl.textContent = score; }
+
+  const desc = state.description || '';
+  if (desc !== lastDesc) { lastDesc = desc; descEl.textContent = desc; }
 }
 
 window.addEventListener('message', function (e) {

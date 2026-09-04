@@ -30,12 +30,19 @@ loadConfigUrls();
 // Status arrives via postMessage from the shell, which already mirrors it from the
 // map iframe's SSE stream — this page never opens its own SSE connection.
 const ibStatus = document.getElementById('ib-status');
+// The connection status string/class is essentially constant for a whole flight, but 'status' is
+// posted unconditionally on every real SSE frame -- skip the two writes when neither moved
+// (docs/web-efficiency-audit.md finding 09).
+let lastStatusCls = null, lastStatusText = null;
 window.addEventListener('message', function(e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
   if (m.type === 'status') {
-    ibStatus.className = 'ib-status mfd-status ' + m.cls;
-    ibStatus.textContent = m.text;
+    if (m.cls !== lastStatusCls || m.text !== lastStatusText) {
+      lastStatusCls = m.cls; lastStatusText = m.text;
+      ibStatus.className = 'ib-status mfd-status ' + m.cls;
+      ibStatus.textContent = m.text;
+    }
   } else if (m.type === 'orient') {
     // Forwarded by the shell: this pane's own box is wide+short regardless of app
     // orientation, so it can't detect portrait/landscape itself.
