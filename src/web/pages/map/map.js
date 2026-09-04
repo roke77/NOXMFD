@@ -18,6 +18,11 @@ const ICON_BASE_IN  = 20, ICON_BASE_OUT  = 15;   // player + unit base size (px)
 const FALLBACK_IN   = 10, FALLBACK_OUT   = 7;    // icon-less square size (px)
 const HIT_PAD = 4;             // extra px around an icon that still counts as a hover hit
 let   hitTargets = [];         // [{cx, cy, r, label}] rebuilt every drawOverlay() for hover
+// Placed waypoints/steer points a long-press can land on to delete instead of add (issue #38's
+// "press-and-hold again to remove" extension) — separate from hitTargets above since nav points
+// aren't hover-labeled or tap-selected, only long-press-hit. Rebuilt every drawOverlay() alongside
+// hitTargets, by drawWaypoints()/drawSteerPoints().
+let   navHitTargets = [];       // [{cx, cy, r, kind: 'waypoint'|'steerpoint', index|id}]
 let   view = { zoom: 1, panX: 0, panY: 0 };   // map view: pan in screen px, zoom about canvas centre
 const MIN_ZOOM = 1, MAX_ZOOM = 8;
 // How far past the map image's own edge pan/cursor may reach, as a fraction of the image's dw/dh
@@ -140,7 +145,10 @@ const cursor = createPadCursor({
   el: cursorEl,
   clampRect: imgRect,
   onSelect: (x, y) => selectAt(x, y, CURSOR_HIT_PAD),
-  onHold: (x, y) => placeWaypointAt(x, y),   // Cursor Select held past holdMs = waypoint placement (issue #38)
+  // Cursor Select held past holdMs = waypoint placement, or removal if held over an existing one
+  // (issue #38). placeNavigationPointAt is declared further down (temporal dead zone doesn't
+  // apply — this only runs later, on an actual hold).
+  onHold: (x, y) => placeNavigationPointAt(x, y, CURSOR_HIT_PAD),
   onEdge: onCursorEdge,
   onMove: updateCursorChip,   // CURSOR chip tracks the PAD cursor too, not just the mouse
 });
@@ -550,6 +558,7 @@ function drawWaypoints() {
     oc.font = '13px "Courier New", monospace';
     oc.textBaseline = 'bottom';
     oc.fillText(p.name ? (i + 1) + ' ' + p.name : String(i + 1), p.cx + 8, p.cy - 4);
+    navHitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, kind: 'waypoint', index: i });
   });
   oc.restore();
 }
@@ -576,6 +585,7 @@ function drawSteerPoints() {
     oc.font = '13px "Courier New", monospace';
     oc.textBaseline = 'bottom';
     oc.fillText(point.name ? 'S' + (i + 1) + ' ' + point.name : 'S' + (i + 1), p.cx + 10, p.cy - 4);
+    navHitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, kind: 'steerpoint', id: point.id });
   });
   oc.restore();
 }
@@ -584,6 +594,7 @@ function drawSteerPoints() {
 function drawOverlay() {
   oc.clearRect(0, 0, overlay.width, overlay.height);
   hitTargets.length = 0;
+  navHitTargets.length = 0;
   if (!lastData || !mapMeta) return;
 
   // Follow mode: re-derive pan each frame so the player icon stays centred. clampPan then keeps
@@ -911,17 +922,47 @@ function armLongPress(pointerId, clientX, clientY) {
     if (!longPress || longPress.pointerId !== pointerId || gestureMoved || pointers.size !== 1) { longPress = null; return; }
     longPress.fired = true;
     const rect = overlay.getBoundingClientRect();
-    placeNavigationPointAt(clientX - rect.left, clientY - rect.top);
+    const reach = lastPointerType === 'touch' ? TOUCH_HIT_PAD : 0;
+    placeNavigationPointAt(clientX - rect.left, clientY - rect.top, reach);
   }, WPT_LONG_MS);
 }
-let wptFlash = null;   // brief confirmation ring at a just-placed waypoint (screen px, not unit id)
+let wptFlash = null;   // brief confirmation ring at a just-placed/removed waypoint (screen px)
 function pumpWptFlash() { if (!wptFlash) return; requestDraw(); requestAnimationFrame(pumpWptFlash); }
 function flashWaypoint(cx, cy) { wptFlash = { cx: cx, cy: cy, until: performance.now() + 450 }; requestAnimationFrame(pumpWptFlash); }
-function placeNavigationPointAt(sx, sy) {
+
+// Nearest placed waypoint/steer point within reach of (px,py), or null — same "nearest in reach"
+// shape as selectAt below, against navHitTargets (drawWaypoints/drawSteerPoints) instead of
+// hitTargets.
+function pickNavPointAt(px, py, pad) {
+  let hit = null, bestD2 = Infinity;
+  for (let i = 0; i < navHitTargets.length; i++) {
+    const t = navHitTargets[i];
+    const dx = px - t.cx, dy = py - t.cy, d2 = dx * dx + dy * dy;
+    const reach = t.r + pad;
+    if (d2 <= reach * reach && d2 < bestD2) { bestD2 = d2; hit = t; }
+  }
+  return hit;
+}
+
+// A long-press over empty map adds a waypoint (into the active route) or steer point (no active
+// route — WaypointsStore.addNavigationPoint's own choice), same as before. A long-press landing ON
+// an already-placed point instead REMOVES it — same gesture, so a pilot who overshoots a spot can
+// immediately hold again to undo it rather than hunting for a separate delete control.
+function placeNavigationPointAt(sx, sy, pad) {
   if (!mapMeta) return;
+  const hit = pickNavPointAt(sx, sy, pad || 0);
+  if (hit) {
+    flashWaypoint(hit.cx, hit.cy);   // immediate — purely cosmetic, no server round trip needed
+    drawOverlay();
+    const removed = hit.kind === 'waypoint'
+      ? WaypointsStore.removeWaypoint(hit.index)
+      : WaypointsStore.deleteSteerPoint(hit.id);
+    removed.then(function () { refreshWaypointRoute(); drawOverlay(); });
+    return;
+  }
   const w = overlayToWorld(sx, sy);
   if (!w) return;
-  flashWaypoint(sx, sy);   // immediate — purely cosmetic, no server round trip needed
+  flashWaypoint(sx, sy);
   drawOverlay();
   WaypointsStore.addNavigationPoint(w.x, w.z).then(function () { refreshWaypointRoute(); drawOverlay(); });
 }
