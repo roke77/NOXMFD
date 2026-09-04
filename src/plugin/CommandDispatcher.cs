@@ -148,9 +148,10 @@ namespace NOXMFD
                 // keybinds, same "set" shape as master-arms.set above rather than a blind flip.
                 { "tgp.manual.set", e => TgpManualControl.SetManual(e.on) },
                 { "tgp.ir.set",     e => TgpManualControl.SetIR(e.on) },
-                // Remote-keybind twins of the Manual Control Toggle / Toggle IR keybinds (issue #77
-                // audit) — a blind flip, unlike the explicit-state .set commands above, since a
-                // remote browser has no reliable read of the current state to send the opposite of.
+                // Remote-keybind twins of the Manual Control Toggle / Toggle IR keybinds
+                // (docs/remote-keybinds.md) — a blind flip, unlike the explicit-state .set commands
+                // above, since a remote browser has no reliable read of the current state to send
+                // the opposite of.
                 { "tgp.manual-toggle", e => TgpManualControl.Toggle() },
                 { "tgp.ir-toggle",     e => TgpManualControl.ToggleIR() },
                 // Remote-keybind twin of the Snap To Head Tracker keybind.

@@ -191,8 +191,9 @@ namespace NOXMFD
             // stock trigger above fires one round per LOCKED target when 2+ are locked
             // (WeaponManager.Fire()'s own staggered salvo) — this always fires exactly one round,
             // and only ever at the focused lock (issue #62's TargetFocus.Id). A combined fire bind
-            // like Weapon Release/Gun Trigger/Jamming Pod (issue #77): driven through the
-            // remote-or-local OR below and excluded from the generic per-frame Drive loop by
+            // like Weapon Release/Gun Trigger/Jamming Pod (issue #77, docs/remote-keybinds.md):
+            // driven through the remote-or-local OR below and excluded from the generic per-frame
+            // Drive loop by
             // IsCombinedFireBind, so a remote press fires it exactly like a local one instead of
             // being silently swallowed.
             _weaponReleaseSingle = Def(config, "weapon-release-single", wpn, "WeaponReleaseSingle", "Single Target Weapon Release", edge: false,

@@ -851,6 +851,25 @@ pill instead — the same `rgba(0,0,0,0.6)` the page's own stat overlay already 
   `[data-page]` attribute (`f35.js`'s `renderNav`) instead — no JS-added class needed, since each
   portal only ever shows one page at a time, unlike the bezel's shared split-pane overlay.
 
+**Update (issue #76):** F-35 glass's `resized()` handler (called on every portal merge/split) had
+branches repositioning `wpn`/`map`/`rdr`/`hsd`'s own decorators, but never `tgp`'s — enlarging a
+TGP portal left `MODE`/`IMG`/`ZOOM` stuck at their pre-merge position instead of following the
+widened grid. Fixed by adding the missing branch; `placeWpnDecorator` itself also now clears any
+previous element for the same word before creating a new one, since every caller outside
+`placeWpnDecorators()`'s own wrapper (`map`/`rdr`/`hsd`/`tgp`, via `resized()`) called it directly
+without a grid rebuild in between, so repeated resizes were quietly piling up stale decorator
+elements. Separately, the translucent-pill background above beat the shell's generic
+`.nav-item:hover` rule on specificity, so hovering a TGP label only applied `:hover`'s ink text
+colour on top of the same near-black pill — reading as the label vanishing rather than
+highlighting. A `.nav-grid[data-page="tgp"] .nav-item:hover` override now wins that fight with the
+same teal every other page hovers to.
+
+**Update (issue #76 follow-up):** `TRK`/`RST`/`STP` dispatch `tgp-point-track`/`tgp-manual-reset`/
+`tgp-mark-steerpoint` correctly, but `canDo()` never recognized those three action names (it only
+checked `has()` and a handful of `*_ACTIONS` lookup objects, none of which these one-shot actions
+belong to) — so the buttons rendered permanently `disabled` despite working fine once clickable.
+Fixed with an explicit `TGP_ONESHOT_ACTIONS` list `canDo()` also checks.
+
 ## On-screen joystick (built)
 
 A mouse/touch-only pan/tilt control on the TGP page itself (`#tgp-joystick`, `tgp.js`), bottom-right
