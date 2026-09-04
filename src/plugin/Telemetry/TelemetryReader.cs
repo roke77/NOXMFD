@@ -220,6 +220,11 @@ namespace NOXMFD
                 // disband/kick (Squad.cs's own header comment) — same 1 Hz cadence as the roster
                 // refresh above, since it depends on Presence's data that refresh just fed.
                 Squad.CheckLiveness();
+                // Refreshes StateJson's game-derived fields (own/leader aircraft) so the SQD roster's
+                // aircraft column doesn't freeze between protocol mutations (docs/plugin-efficiency-
+                // audit.md correctness section). Same 1 Hz cadence, and the SSE layer already
+                // change-gates by string comparison so a no-op tick is free.
+                Squad.RebuildState();
                 // issue #49 — squad target-lock broadcast for the HUD marks (Hud/HudSquadTargetMark.cs).
                 // A lock only changes on select/deselect, so 1 Hz is ample, same reasoning as the
                 // roster refresh above.

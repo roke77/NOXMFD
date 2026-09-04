@@ -820,7 +820,14 @@ namespace NOXMFD
         private static ulong ULongOf(string s) =>
             ulong.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture, out ulong v) ? v : 0;
 
-        private static void RebuildState() { StateJson = BuildStateJson(); }
+        // Also called once a second from TelemetryReader's slow tick (docs/plugin-efficiency-audit.md
+        // correctness section) — every other call site here fires only on a *protocol* mutation
+        // (invite/accept/leave/...), so game-derived fields baked into StateJson (SelfAircraftUnitName,
+        // PlayerRoster.AircraftFor for the leader) otherwise freeze at whatever was true when the last
+        // squad message arrived, not the aircraft the pilot is actually in right now. The SSE layer
+        // already change-gates the push by string comparison, so a no-op tick costs nothing extra on
+        // the wire.
+        internal static void RebuildState() { StateJson = BuildStateJson(); }
 
         private static string BuildStateJson()
         {
