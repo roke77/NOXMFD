@@ -631,6 +631,11 @@
       const a = grid.querySelector('.nav-item[data-action="' + actionA + '"]');
       const b = grid.querySelector('.nav-item[data-action="' + actionB + '"]');
       if (!a || !b) return;
+      // A caller outside placeWpnDecorators() (map/rdr/hsd/tgp, via resized() on every merge/split
+      // or window resize) never clears the grid first, so without this the previous call's element
+      // for this same word would linger underneath the freshly-repositioned one instead of moving.
+      const existing = grid.querySelector('.wpn-decor[data-word="' + word + '"]');
+      if (existing) existing.remove();
       const gRect = grid.getBoundingClientRect();
       const aRect = a.getBoundingClientRect();
       const bRect = b.getBoundingClientRect();
@@ -638,6 +643,7 @@
       const centerY = (aRect.bottom + bRect.top) / 2;
       const el = document.createElement('div');
       el.className = 'wpn-decor';
+      el.dataset.word = word;
       el.innerHTML =
         '<svg width="12" height="8" viewBox="0 0 12 8"><polygon points="6,0 12,8 0,8" fill="currentColor"/></svg>' +
         '<div class="wpn-decor-word">' + word + '</div>' +
@@ -859,6 +865,11 @@
         if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); placeWpnDecorators(); }
         if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); placeWpnDecorator('wpt-next', 'wpt-prev', WaypointsStore.getActiveRoute() ? 'WYPT' : 'STRP'); }
         if (currentPage === 'rdr' || currentPage === 'hsd') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
+        if (currentPage === 'tgp') {
+          placeWpnDecorator('tgp-manual-off', 'tgp-manual-on', 'MODE');
+          placeWpnDecorator('tgp-ir-off', 'tgp-ir-on', 'IMG');
+          placeWpnDecorator('tgp-zoom-in', 'tgp-zoom-out', 'ZOOM');
+        }
       },
       destroy: function () { el.remove(); },
     };
