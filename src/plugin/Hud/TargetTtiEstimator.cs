@@ -15,12 +15,26 @@ namespace NOXMFD
             foreach (Unit u in UnitRegistry.allUnits)
             {
                 if (u is not Missile m || m.disabled) continue;
-                if (m.ownerID.Id != playerId || m.targetID.Id != targetId) continue;
+                if (m.ownerID.Id != playerId || !IsAssignedTo(m, targetId)) continue;
 
                 float t = EstimateImpactTime(m, target);
                 if (t >= 0f && (best < 0f || t < best)) best = t;
             }
             return best;
+        }
+
+        // Missile.targetID alone under-reports badly (see MissileSeekerAccess.cs): it only reflects
+        // a live, currently-confirmed seeker track, cleared on every routine dropout and unset for a
+        // radar missile's entire midcourse phase. The seeker's own persistent targetUnit survives
+        // those gaps, so match on either -- an active lock (targetID) is always also a targetUnit
+        // match (every SetTarget call passes targetUnit itself), so this only ever widens matches,
+        // never narrows them; the targetID check stays as a cheap fast path and a fallback for the
+        // rare case GetComponent<MissileSeeker> comes back empty.
+        private static bool IsAssignedTo(Missile m, uint targetId)
+        {
+            if (m.targetID.Id == targetId) return true;
+            MissileSeeker? seeker = m.GetComponent<MissileSeeker>();
+            return seeker != null && MissileSeekerAccess.GetTargetUnit(seeker) is Unit tu && tu.persistentID.Id == targetId;
         }
 
         private static float EstimateImpactTime(Missile missile, Unit target)

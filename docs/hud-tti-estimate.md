@@ -14,6 +14,25 @@ In-game testing found and fixed two real bugs the design didn't anticipate:
    (`_scratch/full/Altitude.cs`) predates the game's own Text→TextMeshPro migration that
    `TgpNativeOverlay.cs` already had to work around for `TargetScreenUI`'s fields — the same
    migration bit this readout too. `HudTtiCue.cs` now reflects/clones a `TMP_Text` instead.
+3. **`Missile.targetID` almost never showed a TTI at all**, reported after further play: bombs and
+   missiles alike came back with no reading for nearly every shot. Root cause, found by reading every
+   seeker's decompiled source (`_scratch/full/{ARHSeeker,SARHSeeker,IRSeeker,LaserSeeker,
+   OpticalSeeker,OpticalSeekerBomb}.cs`) — `targetID` (the field every seeker's `SetTarget` call
+   writes) reflects "does this weapon's own seeker have a live, currently-confirmed track *right
+   now*," not "what is this weapon ultimately going for." Every seeker clears it on any routine
+   dropout: `OpticalSeekerBomb` clears it the instant its 0.25s visual recheck fails (LOS/range),
+   and radar missiles (`ARHSeeker`) never set it at all through their entire midcourse/datalink
+   phase — only once `TerminalMode` goes active near the end, and even then a single signal dropout
+   below `minSignal` clears it again. So a TTI was only ever visible during a brief, easily-missed
+   window, not the whole flight a player watching for it would expect.
+   Fixed by widening the match: `MissileSeeker` (the common base class every seeker type inherits
+   from, never redeclaring its own copy) carries a `protected Unit targetUnit` set once in
+   `Initialize()` and left alone for the whole flight — only cleared when the seeker genuinely gives
+   up on the target entirely, not on a routine dropout. `MissileSeekerAccess.cs` (new, same cached-
+   `FieldInfo` shape as `TgpManualTargetCamAccess.cs`) reflects that one field; `TargetTtiEstimator.
+   ComputeTti` now matches a weapon to a target via either `targetID` (kept as a cheap fast path/
+   fallback) or the seeker's `targetUnit`, since every `SetTarget` call always passes `targetUnit`
+   itself — the widened match can only add cases `targetID` alone missed, never drop a real one.
 
 **Confirmed working in-game** after the fixes above: the label builds, and TTI counts down in real
 time as a locked, focused target's tracking weapon closes (logged 30.6s → 0.1s on one live shot).
@@ -107,13 +126,22 @@ it without a live game install:
   mod-added rather than blending into the stock HUD.
 - **Refresh**: no local aircraft, no focused target (`TargetFocus.Id == 0`), or the focused unit
   gone/disabled → hide. Otherwise scan `UnitRegistry.allUnits` for the player's own live `Missile`s
-  whose `targetID` matches; none found → hide (no pre-release estimate — see "Non-goals"). Among any
-  found, show the smallest TTI — the one closest to hitting, per the ticket's own "first or closest
-  weapon release" wording (see "Open questions" below on that reading).
+  assigned to it (see `TargetTtiEstimator.IsAssignedTo` below — `targetID` or the wider seeker-owned
+  signal); none found → hide (no pre-release estimate — see "Non-goals"). Among any found, show the
+  smallest TTI — the one closest to hitting, per the ticket's own "first or closest weapon release"
+  wording (see "Open questions" below on that reading).
 - Text reads `"TTI " + HudTtiMath.FormatTti(tti)`.
 
 No telemetry/web changes for this pass — this lived entirely in the native HUD, unlike issue #62's
 work. (Later extended to the web TGT page too — see "TGT: a TTI per row" below.)
+
+**`src/plugin/Hud/MissileSeekerAccess.cs`** (added after in-game testing found "Status" item 3
+above) — cached reflection onto `MissileSeeker.targetUnit`, the field set once in every seeker's own
+`Initialize()` and left alone until the seeker genuinely abandons the target, unlike `Missile.
+targetID` which every seeker clears on any routine dropout. `TargetTtiEstimator.IsAssignedTo`
+matches a weapon to a target via either field — an active `targetID` lock is always also a
+`targetUnit` match (every `SetTarget` call passes `targetUnit` itself), so this only ever widens
+which weapons count, never narrows it.
 
 ## TGT: a TTI per row
 
@@ -170,6 +198,14 @@ live (see "Status" above); TTI counted down correctly against a real shot. Not y
 simultaneous tracking weapons against the same focused target (the "smallest TTI wins" branch in
 `TargetTtiEstimator.ComputeTti` has no live confirmation yet, only the single-weapon path); TGT's own
 per-row TTI ("TGT: a TTI per row" above) has not been tested in-game at all yet.
+
+**Status item 3's widened match (`MissileSeekerAccess`) is not yet confirmed in-game.** The
+reflection compiles clean against the real game assemblies and `IsAssignedTo`'s logic (widen, never
+narrow) is straightforward, but `MissileSeeker.targetUnit`'s actual field name/type and its "only
+cleared on genuine abandonment, not routine dropout" behavior are read from the decompiled snapshot
+(`_scratch/full/*.cs`), not observed live — needs a real bomb drop and a real BVR missile shot
+against a maneuvering target to confirm TTI now holds through midcourse/brief dropouts instead of
+flickering on and off as it did before.
 
 ## Related documents
 
