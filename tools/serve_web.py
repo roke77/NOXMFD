@@ -272,6 +272,7 @@ def _preview_push(query):
         "wpt-options": _captured_or("wpt-options", _wpt_options),
         "keybinds-config": _keybinds_config(),
         "hud-options": _captured_or("hud-options", _hud_options),
+        "server-players": _server_players(),
     }
     hashes = {}
     events = {}

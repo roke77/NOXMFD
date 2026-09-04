@@ -84,9 +84,10 @@
     wpt: ['mapinfo', 'wpt-routes', 'sqd-state'],   // navigation readout + shared navigation library + share-button gate
     map: ['wpt-routes'],              // navigation library (docs/hud-waypoint-indicator.md perf fix) —
                                        // MAP mounts its own map.js/telemetry, so this is its only feed
-    // SQD (docs/squadron-transport.md, docs/sse-push-refactor.md) — squad roster/role state now
-    // rides this relayed push instead of its own /squad poll.
-    sqd: ['sqd-state'],
+    // SQD (docs/squadron-transport.md, docs/sse-push-refactor.md) — squad roster/role state and the
+    // match-roster invite list now ride these relayed pushes instead of their own /squad and
+    // /server-players polls.
+    sqd: ['sqd-state', 'server-players-push'],
   };
 
   // The tap calls it 'targets'; TGT listens for 'tgt-targets'. The bezel renames it in exactly the

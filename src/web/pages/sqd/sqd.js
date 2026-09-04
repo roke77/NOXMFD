@@ -1,8 +1,8 @@
-// SQD page (docs/squadron-transport.md) — squad membership over Steam P2P. Polls GET /squad and
-// GET /server-players directly (no shell relay — see sqd.html's header comment) and drives every
-// action through POST /command's sqd.* handlers. All protocol logic (who can invite whom, single-
-// squad enforcement, succession) lives plugin-side (Squad.cs); this page only renders state and
-// dispatches commands.
+// SQD page (docs/squadron-transport.md) — squad membership over Steam P2P. Bootstraps from GET
+// /squad and GET /server-players, then receives later changes through the shell's SSE relay
+// (docs/sse-push-refactor.md), and drives every action through POST /command's sqd.* handlers. All
+// protocol logic (who can invite whom, single-squad enforcement, succession) lives plugin-side
+// (Squad.cs); this page only renders state and dispatches commands.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 import { SQUAD_CALLSIGNS } from './callsigns.js';
 
@@ -242,9 +242,9 @@ function renderInviteCards(invites) {
 // prompt above instead. Never disabled the way the create button is: a leader can never have an
 // undecided incoming invite of their own (HandleInvite refuses one while already in a squad), so
 // there's no state where this button would be visible but blocked.
-// Memoized by content signature — refreshPlayers() calls render() every 2s regardless of whether
-// the roster actually changed (no SSE equivalent for /server-players), so without this every one of
-// those ticks would tear down and rebuild every row for nothing.
+// Memoized by content signature — render() calls this on every squad-state push too, not just a
+// roster change, so without this a state-only update (e.g. a member's aircraft changing) would
+// still tear down and rebuild the invite-roster rows for nothing.
 let lastRosterSig = null;
 function renderRoster(showInvite) {
   const invited = {};
@@ -342,8 +342,8 @@ function addSquadRow(number, name, aircraft, isLeaderRow, isSelf, memberId) {
 }
 
 // Memoized by content signature, same reasoning as lastRosterSig above — renderSquad() runs on
-// every render() call (including the 2s /server-players poll, which never touches squad state at
-// all), so without this the row table would tear down and rebuild for nothing on every one of them.
+// every render() call (including a roster-only push, which never touches squad state at all), so
+// without this the row table would tear down and rebuild for nothing on every one of them.
 let lastSquadRowsSig = null;
 function renderSquad() {
   const isLeader = state.role === 'leader';
@@ -401,31 +401,30 @@ function refreshSquad() {
   return fetch('/squad').then(function (r) { return r.ok ? r.json() : null; }).then(applySquad).catch(function () {});
 }
 
-function refreshPlayers() {
-  return fetch('/server-players')
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (list) {
-      if (!Array.isArray(list)) return;
-      players = list;
-      if (state) render();
-    })
-    .catch(function () {});
+function applyPlayers(list) {
+  if (!Array.isArray(list)) return;
+  players = list;
+  if (state) render();
 }
 
-// One-time bootstrap fetch — covers the brief gap before the shell's first 'sqd-state' push arrives
-// (docs/sse-push-refactor.md), and standalone/preview contexts with no shell at all (this page is
-// polled directly there instead). Every update after this rides the push instead of a recurring
-// poll — TGT/TD/WPT already need the same shell relay for their own squad-state reads, so this page
-// listening too costs nothing beyond one more message listener.
+function refreshPlayers() {
+  return fetch('/server-players').then(function (r) { return r.ok ? r.json() : null; })
+    .then(applyPlayers).catch(function () {});
+}
+
+// One-time bootstrap fetch — covers the brief gap before the shell's first 'sqd-state'/'server-
+// players-push' arrives (docs/sse-push-refactor.md), and standalone/preview contexts with no shell
+// at all (this page is polled directly there instead). Every update after this rides the push
+// instead of a recurring poll — TGT/TD/WPT already need the same shell relay for their own squad-
+// state reads, so this page listening too costs nothing beyond one more message listener.
 refreshSquad();
+refreshPlayers();
 window.addEventListener('message', function (e) {
   const m = e.data;
-  if (!m || m.mfd !== true || m.type !== 'sqd-state') return;
-  applySquad(m.data);
+  if (!m || m.mfd !== true) return;
+  if (m.type === 'sqd-state') applySquad(m.data);
+  else if (m.type === 'server-players-push') applyPlayers(m.data);
 });
-// No SSE equivalent for /server-players (who's currently in the match) — a light 2s poll remains.
-refreshPlayers();
-setInterval(refreshPlayers, 2000);
 
 // ── PAD cursor (docs/page-cursor.md) ──────────────────────────────────────────────────
 // Same crosshair/transport WPT uses (pad-cursor.js), driven here only while SQD is the SOI's

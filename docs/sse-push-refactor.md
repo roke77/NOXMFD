@@ -72,9 +72,10 @@ first push arrives, and standalone/preview contexts with no shell/telemetry-sour
 switches entirely to a `window.addEventListener('message', ...)` listener for updates. No consumer
 runs a recurring `setInterval` for this data anymore:
 
-- **`sqd.js`** — `applySquad(s)` extracted from the old `refreshSquad().then()`; one bootstrap
-  `fetch('/squad')`, then a `'sqd-state'` listener. `GET /server-players` (who's in the match right
-  now) has no SSE equivalent and keeps its own light 2s poll.
+- **`sqd.js`** — `applySquad(s)`/`applyPlayers(list)` extracted from the old `refreshSquad().then()`/
+  `refreshPlayers().then()`; one bootstrap fetch each, then `'sqd-state'`/`'server-players-push'`
+  listeners (see "Follow-up: match roster" below — `GET /server-players` originally kept its own
+  2s poll).
 - **`wpt.js`** — same `applySquad(s)` extraction for its pending-share-button gate.
 - **`tgt.js`** — `applySquad`/`applyTdState`, one bootstrap fetch each, for the leader-only TD
   column.
@@ -147,6 +148,21 @@ The same transport now carries two additional rare-change snapshots:
 The preview's synthetic EventSource uses one `/__preview-push` request containing hashes and only
 changed payloads. That keeps the harness faithful without recreating five independent endpoint
 polls in browser diagnostics; the recurring request remains preview-only.
+
+## Follow-up: match roster and idle-tick `Flush()`
+
+Two more items from the original polling audit:
+
+- `server-players` (SQD's invite-candidate list, `PlayerRoster.Json`) now rides the same
+  change-gated transport as `sqd`/`td-state`/`wpt-options` — bare JSON, no `{ready,state}` wrapper,
+  same latest-value-wins string comparison. `sqd.js` keeps one bootstrap `GET /server-players` and
+  drops its 2s poll in favor of a `'server-players-push'` listener; both shells relay it only to a
+  page/pane actually showing SQD, the same single-page shape `hud-options-push` uses.
+- `SseHub.cs`'s per-connection loop ticks at `CursorTickMs` (~60 Hz) and previously called
+  `ctx.Response.OutputStream.Flush()` unconditionally every tick, even when nothing above it had
+  written anything (the common case between the 10 Hz telemetry-frame beat). Each write site now
+  sets a per-tick `wrote` flag, and `Flush()` only runs when `wrote` is true — cutting idle-tick
+  flush calls by roughly 5/6 per connected display without changing what gets sent or when.
 
 ## Verification
 

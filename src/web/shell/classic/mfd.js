@@ -864,6 +864,10 @@ function forwardTdStateToFrame() { if (tdStateData) forwardToFrame(tdStateMsg())
 function forwardTdStateToPanes() { if (tdStateData) TD_STATE_PAGES.forEach(function (p) { forwardToPanes(p, tdStateMsg()); }); }
 function forwardHudOptionsToFrame() { if (hudOptionsData) forwardToFrame(hudOptionsData); }
 function forwardHudOptionsToPanes() { if (hudOptionsData) forwardToPanes('hud', hudOptionsData); }
+// SQD's match-roster invite list (docs/squadron-transport.md) — same change-gated push as HUD
+// options above, replacing SQD's own 2s /server-players poll.
+function forwardServerPlayersToFrame() { if (serverPlayersData) forwardToFrame(serverPlayersData); }
+function forwardServerPlayersToPanes() { if (serverPlayersData) forwardToPanes('sqd', serverPlayersData); }
 // The TGT page shows the selected-target list under its filters (mirrored in targetsData).
 // No pagination — the page scrolls — so forward the whole list, to the frame and any TGT pane.
 function tgtTargetsMsg() {
@@ -1271,6 +1275,7 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'akf')  forwardAkfToPanes();
     else if (page === 'wpt')  forwardWptToPanes();
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
+    else if (page === 'sqd')  forwardServerPlayersToPanes();
     else if (ExtNav.isExtensionPage(page)) forwardExtToPanes(page);
     // Not mutually exclusive with the chain above — 'tgt' needs both its own catch-up AND these.
     if (SQD_STATE_PAGES.indexOf(page) !== -1) forwardSqdStateToPanes();
@@ -1306,6 +1311,7 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'obj') { forwardObjToFrame(); }
   else if (currentPage === 'akf') { forwardAkfToFrame(); }
   else if (currentPage === 'wpt') { forwardWptToFrame(); }
+  else if (currentPage === 'sqd') { forwardServerPlayersToFrame(); }
   else if (ExtNav.isExtensionPage(currentPage)) forwardExtToFrame(currentPage);
   // Not mutually exclusive with the chain above — see the pane-load handler's own comment.
   if (SQD_STATE_PAGES.indexOf(currentPage) !== -1) forwardSqdStateToFrame();
@@ -1533,6 +1539,7 @@ let tgtData = { present: false };
 let sqdStateData = null;
 let tdStateData = null;
 let hudOptionsData = null;
+let serverPlayersData = null;
 
 // Latest BDF faction-forces state, mirrored from the map iframe's SSE feed (docs/bdf-page.md).
 // The shell keeps only this state and forwards it to the frame or the pane showing it.
@@ -1779,8 +1786,9 @@ function showPage(name) {
     showFramePage('wpt');
     forwardWptToFrame();
   }
-  // SQD (docs/squadron-transport.md) renders in #page-frame too — self-driven like HUD/KEY/RTS: it
-  // polls /squad and /server-players itself, so the shell forwards it nothing.
+  // SQD (docs/squadron-transport.md) renders in #page-frame too — like WPT/TGT/TD it reads the
+  // squad-state push (SQD_STATE_PAGES below), and now also the server-players push (RELAY_MESSAGES
+  // below) instead of its own 2s /server-players poll.
   if (name === 'sqd') showFramePage('sqd');
   // Extension pages (docs/extensions-api.md) render in #page-frame too. Same shape as TGP —
   // static MAIN label, no extra nav wiring, just forward the extension's last published slice.
@@ -1816,6 +1824,7 @@ const RELAY_MESSAGES = Object.assign(Object.create(null), {
   obj:     { page: 'obj', set: function (m) { objData     = m; }, toFrame: forwardObjToFrame, toPanes: forwardObjToPanes },
   akf:     { page: 'akf', set: function (m) { akfData     = m; }, toFrame: forwardAkfToFrame, toPanes: forwardAkfToPanes },
   'hud-options-push': { page: 'hud', set: function (m) { hudOptionsData = m; }, toFrame: forwardHudOptionsToFrame, toPanes: forwardHudOptionsToPanes },
+  'server-players-push': { page: 'sqd', set: function (m) { serverPlayersData = m; }, toFrame: forwardServerPlayersToFrame, toPanes: forwardServerPlayersToPanes },
   mapinfo: { page: 'wpt', set: function (m) { mapInfoData = m; }, toFrame: forwardWptToFrame, toPanes: forwardWptToPanes },
 });
 

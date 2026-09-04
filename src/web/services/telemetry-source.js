@@ -122,6 +122,9 @@ export class TelemetrySource {
     es.addEventListener('hud-options', (e) => {
       try { this._postUp({ type: 'hud-options-push', data: JSON.parse(e.data) }); } catch (err) { /* malformed — skip this one */ }
     });
+    es.addEventListener('server-players', (e) => {
+      try { this._postUp({ type: 'server-players-push', data: JSON.parse(e.data) }); } catch (err) { /* malformed — skip this one */ }
+    });
     es.onmessage = (e) => this._onMessage(e);
     es.onerror = () => {};   // EventSource auto-reconnects; the watchdog decides when to flag DISCONNECTED
     // Watchdog — tolerate transient SSE blips, only flag disconnect after a real gap.

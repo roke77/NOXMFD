@@ -116,9 +116,19 @@ namespace NOXMFD
                 string lastHudOptions = string.Empty;
                 long lastKeybindVersion = -1;
                 long lastImmersionVersion = -1;
+                // Match roster for SQD's invite picker (docs/squadron-transport.md) — same latest-
+                // value-wins comparison as squad/TD/waypoint state above. Replaces SQD's own 2s
+                // /server-players poll.
+                string lastServerPlayers = string.Empty;
                 int sinceFrame = FrameEveryMs;   // send a frame immediately on connect
                 while (!ct.IsCancellationRequested)
                 {
+                    // Tracks whether this tick actually wrote anything, so the unconditional Flush()
+                    // at the bottom of the loop (previously called every CursorTickMs regardless) only
+                    // does real work when there was real work — this loop runs at ~60 Hz per connected
+                    // display, and most ticks between the 10 Hz frame beat write nothing at all.
+                    bool wrote = false;
+
                     if (sinceFrame >= FrameEveryMs)
                     {
                         // Shared frame: serialized at most once per snapshot version, regardless of
@@ -127,6 +137,7 @@ namespace NOXMFD
                         byte[] bytes = TelemetryServer.GetFrameBytes(out _);
                         await ctx.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct).ConfigureAwait(false);
                         sinceFrame = 0;
+                        wrote = true;
                     }
 
                     string cursor = TelemetryServer.CursorJson();
@@ -135,6 +146,7 @@ namespace NOXMFD
                         lastCursor = cursor;
                         byte[] cbytes = Encoding.UTF8.GetBytes("event: cursor\ndata: " + cursor + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(cbytes, 0, cbytes.Length, ct).ConfigureAwait(false);
+                        wrote = true;
                     }
 
                     // Squad state, sent on its own event rather than inside the telemetry frame so a
@@ -155,6 +167,7 @@ namespace NOXMFD
                         string squadState = "{\"ready\":" + (Squadron.Ready ? "true" : "false") + ",\"state\":" + squadInner + "}";
                         byte[] qbytes = Encoding.UTF8.GetBytes("event: sqd\ndata: " + squadState + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(qbytes, 0, qbytes.Length, ct).ConfigureAwait(false);
+                        wrote = true;
                     }
 
                     // Target Designator state (docs/target-designator.md) — same "own event, change-
@@ -169,6 +182,7 @@ namespace NOXMFD
                         string tdState = "{\"ready\":" + (Squadron.Ready ? "true" : "false") + ",\"state\":" + tdInner + "}";
                         byte[] tbytes = Encoding.UTF8.GetBytes("event: td-state\ndata: " + tdState + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(tbytes, 0, tbytes.Length, ct).ConfigureAwait(false);
+                        wrote = true;
                     }
 
                     // Waypoint route library (docs/hud-waypoint-indicator.md) — same shape again.
@@ -179,6 +193,7 @@ namespace NOXMFD
                         lastWpt = wptOptions;
                         byte[] wbytes = Encoding.UTF8.GetBytes("event: wpt-options\ndata: " + wptOptions + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(wbytes, 0, wbytes.Length, ct).ConfigureAwait(false);
+                        wrote = true;
                     }
 
                     // Configuration changes are rare but must reach every already-open shell. The
@@ -193,6 +208,7 @@ namespace NOXMFD
                         string config = ConfigEndpoint.BuildKeybindsConfig(ctx);
                         byte[] kbytes = Encoding.UTF8.GetBytes("event: keybinds-config\ndata: " + config + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(kbytes, 0, kbytes.Length, ct).ConfigureAwait(false);
+                        wrote = true;
                     }
 
                     // TelemetryServer already caches this one-second game snapshot. Relaying it only
@@ -204,6 +220,19 @@ namespace NOXMFD
                         lastHudOptions = hudOptions;
                         byte[] hbytes = Encoding.UTF8.GetBytes("event: hud-options\ndata: " + hudOptions + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(hbytes, 0, hbytes.Length, ct).ConfigureAwait(false);
+                        wrote = true;
+                    }
+
+                    // Match roster for SQD's invite picker (docs/squadron-transport.md) — same shape
+                    // as wpt-options above (bare JSON, PlayerRoster.Json already cached at 1 Hz).
+                    // Replaces SQD's own 2s /server-players poll.
+                    string serverPlayers = PlayerRoster.Json;
+                    if (!string.Equals(serverPlayers, lastServerPlayers, StringComparison.Ordinal))
+                    {
+                        lastServerPlayers = serverPlayers;
+                        byte[] pbytes = Encoding.UTF8.GetBytes("event: server-players\ndata: " + serverPlayers + "\n\n");
+                        await ctx.Response.OutputStream.WriteAsync(pbytes, 0, pbytes.Length, ct).ConfigureAwait(false);
+                        wrote = true;
                     }
 
                     foreach (var kv in ExtensionRegistry.EventsSnapshot())
@@ -212,8 +241,9 @@ namespace NOXMFD
                         lastExtEvents[kv.Key] = kv.Value;
                         byte[] ebytes = Encoding.UTF8.GetBytes("event: ext-" + kv.Key + "\ndata: " + kv.Value + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(ebytes, 0, ebytes.Length, ct).ConfigureAwait(false);
+                        wrote = true;
                     }
-                    ctx.Response.OutputStream.Flush();
+                    if (wrote) ctx.Response.OutputStream.Flush();
 
                     await Task.Delay(CursorTickMs, ct).ConfigureAwait(false);
                     sinceFrame += CursorTickMs;

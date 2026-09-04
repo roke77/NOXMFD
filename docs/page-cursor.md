@@ -122,9 +122,8 @@ region today, so they're simply inert there, same as Follow already is on a non-
    `PAD_CURSOR_PAGES` set — `{map, tgt, hud}` originally, `rdr` joined later (issue #40) when RDR
    got its own PAD cursor, `wpt` joined after that (issue #38 follow-up) so its own crosshair and
    the R+/R-/W+/W- `map-act` binds reach WPT the same way they reach MAP, and `sqd` joined after
-   that (docs/squadron-transport.md) the same way `rdr`/`wpt` did — no data-forwarding branch of
-   its own, since SQD polls `/squad`/`/server-players` directly rather than riding the shell's
-   relay; branches on full-view MAP using its dedicated `mapFrame` vs. TGT/HUD/WPT/SQD using the
+   that (docs/squadron-transport.md) the same way `rdr`/`wpt` did; branches on full-view MAP using
+   its dedicated `mapFrame` vs. TGT/HUD/WPT/SQD using the
    shared `#page-frame`. The `cursor`/`cursor-select`/`map-act` message handlers, and both
    reload-resend fixups (the split-pane one that already existed, plus a new one for full-view
    `#page-frame`, which reloads on every TGT/HUD/WPT/SQD navigation the way a split pane already

@@ -17,11 +17,10 @@
 
   All state and actions round-trip through the plugin: GET /squad for the current role/leader/
   members/pending state, POST /command (sqd.create / sqd.invite / sqd.set-callsign / sqd.accept /
-  sqd.decline / sqd.leave / sqd.relinquish / sqd.disband). Squad state itself now rides the shell's
-  relayed 'sqd-state' push (docs/sse-push-refactor.md) instead of a recurring poll — one bootstrap
-  GET /squad on load for the brief gap before the first push, then just a message listener.
-  GET /server-players (who's currently in the match) has no SSE equivalent, so it keeps its own
-  light 2s poll (ponytail: latency doesn't matter for an invite-candidate list).
+  sqd.decline / sqd.leave / sqd.relinquish / sqd.disband). Both squad state and the match roster now
+  ride the shell's relayed 'sqd-state'/'server-players-push' pushes (docs/sse-push-refactor.md)
+  instead of a recurring poll — one bootstrap GET each on load for the brief gap before the first
+  push, then just a message listener.
 
   Callsign is a fixed picker (issue #42, callsigns.js — a real military callsign list), not free
   text, and CREATE SQUAD also picks a flight number 1-9 (Squadron Callsign System). Both are

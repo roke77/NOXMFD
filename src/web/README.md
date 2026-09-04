@@ -43,8 +43,8 @@ src/web/
                                            # fetch, then the shell's relayed SSE push (docs/sse-push-refactor.md)
             wpt-route.js  wpt-route.test.js  # /wpt-options + POST /command, no local persistence
     sqd/    sqd.html  sqd.css  sqd.js     # squad membership over Steam P2P (docs/squadron-transport.md) —
-                                           # squad state rides the shell's relayed SSE push (docs/sse-push-
-                                           # refactor.md); GET /server-players (no SSE equivalent) still polls directly
+                                           # squad state and the match roster both ride the shell's relayed
+                                           # SSE pushes (docs/sse-push-refactor.md), no polling of its own
     td/     td.html  td.css  td.js        # Target Designator (issue #47, docs/target-designator.md) — role-
                                            # branched leader/member view, no polling of its own by design: one
                                            # bootstrap fetch on load, then the shell's relayed 'sqd-state'/
@@ -112,7 +112,8 @@ reactive sink.
    │              │  tgt·bdf·pal·mis·obj·follow·grid, plus the focus/input events
    │              │  soi-cid·soi·soi-act·cursor·cursor-held·cursor-select·map-act, plus the
    │              │  change-gated SSE relays sqd-state·td-state-push·wpt-options-push·
-   │              │  keybinds-config-push·hud-options-push (docs/sse-push-refactor.md)
+   │              │  keybinds-config-push·hud-options-push·server-players-push (docs/sse-push-
+   │              │  refactor.md)
    └──────┬───────┘
           │  postMessage  ▲ UP   ({ mfd:true, type, … })
           ▼
