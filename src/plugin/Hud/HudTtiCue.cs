@@ -61,7 +61,7 @@ namespace NOXMFD
             }
 
             _recomputeTimer += Time.deltaTime;
-            if (targetId != _cachedTargetId || _recomputeTimer >= RecomputeInterval || _cachedTti < 0f)
+            if (targetId != _cachedTargetId || _recomputeTimer >= RecomputeInterval)
             {
                 _recomputeTimer = 0f;
                 _cachedTargetId = targetId;
@@ -70,7 +70,13 @@ namespace NOXMFD
 
             if (_cachedTti < 0f)
             {
-                Hide();
+                // Not Hide(): that reset _cachedTti to -1, which used to defeat the 4 Hz throttle
+                // above by re-triggering `_cachedTti < 0f` as a recompute condition on every single
+                // frame whenever a lock had nothing airborne to show a TTI for -- the normal state
+                // (docs/plugin-efficiency-audit.md finding 03). Just stay hidden; the cached "no TTI"
+                // result survives to the next frame, and a new lock still forces a recompute via the
+                // targetId check above.
+                SetVisible(false);
                 return;
             }
             SetLabelText("TTI " + HudTtiMath.FormatTti(_cachedTti));
