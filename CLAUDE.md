@@ -232,8 +232,9 @@ guesses — most exist because a past session violated them.
 
 ### Pre-release quality pass
 
-Before any version bump, build, tag, or `gh release create` step, run this checklist over
-everything changed since the last release tag (`git log <last-tag>..HEAD`):
+Before a release version bump, release build, tag, or `gh release create` step, run this checklist
+over everything changed since the last release tag (`git log <last-tag>..HEAD`). This does not gate
+an ordinary development build made while working — only the build that becomes the release artifact:
 
 1. Look for refactoring or extraction opportunities in the changed files.
 2. Apply SRP and DRY where the diff introduced duplication or a file doing more than one job.

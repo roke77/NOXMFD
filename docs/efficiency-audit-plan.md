@@ -46,7 +46,11 @@ one reviewable unit rather than the usual single-fix-direct-to-`main` pattern).
 - Fix `HudTtiCue.Build()`'s unthrottled retry: a `float _nextBuildAttempt` back-off.
 - Fix `keybinds.js`'s `flashRejected` table mismatch: resolve the row in whichever table
   (main vs. Immersion) actually contains the rejected bind's id.
-- Decide and implement the TD PAD-cursor question (delete or restore).
+- Decide and implement the TD PAD-cursor question (delete or restore). **Decided: restore** —
+  `td.js` was missing the `cursor-focus`/`cursor`/`cursor-select` message branches `wpt.js`/`sqd.js`
+  already have, and the classic shell's `PAD_CURSOR_PAGES` was missing `td` entirely (the F-35
+  shell already had it there, unused until this). Commit `09d37aa`; verified live in the browser
+  (crosshair show/hide, hover highlight, click-through select, and both shells' forwarding).
 
 Each fix gets the smallest test the existing conventions support — an xUnit test for the plugin
 side where one already exists for the touched file, a `.test.js` for the web side following the
@@ -95,8 +99,15 @@ Excludes:
   contract to save one small allocation, not worth it without profiling showing it matters.
 
 Each guard needs its invalidation triggers named explicitly (page entry, SSE reconnect, mode
-change, etc. — per finding) and a test proving both halves: unchanged input skips the write,
-changed input still renders on the next tick.
+change, etc. — per finding) and proof of both halves: unchanged input skips the write, changed
+input still renders on the next tick. These guards are DOM-coupled (`document`/`window`), so — per
+this codebase's existing convention for that class of change (no jsdom or DOM shim anywhere in
+`tools/tests`) — that proof is a live check in the `serve_web.py` browser harness, not a committed
+`.test.js`: confirmed per-finding for 01 (HSD tick-skip + mode-toggle redraw), 02 (split-mode guard
+only fires when a pane shows WPN), 03 (WPN/TGP page-entry force-render even with an unchanged key),
+04 (AKF resend-skips / change-rebuilds / density-toggle-forces), and 09 (MIS's clock still ticks
+while stable fields don't rewrite) — reasoned through, not separately re-run in the browser, for
+05/06/07/08 given they follow the identical pattern already proven live for 01/04.
 
 ## Parked (not scheduled)
 
