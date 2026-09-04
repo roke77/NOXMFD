@@ -367,3 +367,20 @@ function padCursorMoveAt(x, y) {
   hoveredEl = el;
   if (hoveredEl) hoveredEl.classList.add('pad-hover');
 }
+
+// Zoom In/Out (map-act's zoom-in/zoom-out) repurposed to scroll the page, same as SQD/WPT/TGT/HUD —
+// nothing on this page to zoom, and the binds already exist end-to-end (docs/page-cursor.md).
+const SCROLL_STEP = 60;   // ponytail: flat constant tuned by feel, like pad-cursor.js's own SPEED
+
+// The shell only forwards these once this page is in PAD_CURSOR_PAGES (mfd.js/f35.js) — without
+// this listener the crosshair above is built but never shown or moved (docs/web-efficiency-audit.md
+// correctness section: "TD's entire PAD-cursor block is dead code").
+window.addEventListener('message', function (e) {
+  const m = e.data;
+  if (!m || m.mfd !== true) return;
+  if (m.action === 'cursor-focus') cursor.setFocus(!!m.on, window.innerWidth / 2, window.innerHeight / 2);
+  else if (m.action === 'cursor') cursor.setVector(m.x, m.y);
+  else if (m.action === 'cursor-select') cursor.select();
+  else if (m.action === 'zoom-in') window.scrollBy({ top: SCROLL_STEP });
+  else if (m.action === 'zoom-out') window.scrollBy({ top: -SCROLL_STEP });
+});

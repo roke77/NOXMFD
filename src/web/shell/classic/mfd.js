@@ -2181,7 +2181,7 @@ function reportPanes() {
 // crosshair": it doesn't use pad-cursor.js at all, but still wants the raw vector while it's the
 // focused page — its on-screen joystick uses it purely to detect physical PAD Cursor input and
 // hide itself in favor of prioritizing that (docs/tgp-manual-control.md's "On-screen joystick").
-const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true, hsd: true, tgp: true };
+const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true, hsd: true, tgp: true, td: true };
 
 // The focused surface is drivable as a PAD cursor only while it's actually SHOWING an eligible
 // page — the SOI ring/bezel-key cursor above frames "the recess," but the cursor needs the real
