@@ -10,7 +10,17 @@ namespace NOXMFD.Tests
         [InlineData("deflate, br", false)]
         [InlineData("", false)]
         [InlineData(null, false)]
-        public void AcceptsGzip_matches_the_gzip_token(string? acceptEncoding, bool expected)
+        // Full-token semantics, not a substring search:
+        [InlineData("gzip;q=1", true)]
+        [InlineData("gzip;q=1.0", true)]
+        [InlineData("gzip;q=0", false)]              // explicitly refused
+        [InlineData("gzip;q=0.0", false)]
+        [InlineData("gzip; q=0", false)]              // whitespace before the parameter
+        [InlineData("br, gzip;q=0.5", true)]
+        [InlineData("GZIP;Q=0", false)]               // casing on both the token and the parameter
+        [InlineData("x-gzip-experimental", false)]    // a coding that merely contains "gzip"
+        [InlineData("gzip-experimental, deflate", false)]
+        public void AcceptsGzip_parses_tokens_and_respects_qvalue_zero(string? acceptEncoding, bool expected)
         {
             Assert.Equal(expected, TelemetryAssets.AcceptsGzip(acceptEncoding));
         }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Net;
@@ -156,14 +157,27 @@ namespace NOXMFD
             contentType.StartsWith("application/json", StringComparison.Ordinal) ||
             contentType == "image/svg+xml";
 
-        // A plain substring check, not full Accept-Encoding qvalue parsing (e.g. "gzip;q=0" technically
-        // means "don't"): every real client on this LAN mod's audience sends a plain "gzip, deflate,
-        // br" with no qvalues, and this file has no HTTP semantics library to reach for otherwise.
-        // ponytail: if a client ever legitimately needs to refuse gzip via qvalue=0, this will wrongly
-        // still compress for it — revisit with a real Accept-Encoding parser if that's ever reported.
-        internal static bool AcceptsGzip(string? acceptEncodingHeader) =>
-            acceptEncodingHeader != null &&
-            acceptEncodingHeader.IndexOf("gzip", StringComparison.OrdinalIgnoreCase) >= 0;
+        // Full token parse rather than a substring search — a plain Contains would treat "gzip;q=0"
+        // (explicitly refused) as accepted, and would also match an unrelated coding that merely
+        // contains the word "gzip" (e.g. a hypothetical "x-gzip-experimental").
+        internal static bool AcceptsGzip(string? acceptEncodingHeader)
+        {
+            if (string.IsNullOrEmpty(acceptEncodingHeader)) return false;
+            foreach (string rawToken in acceptEncodingHeader.Split(','))
+            {
+                string token = rawToken.Trim();
+                int semi = token.IndexOf(';');
+                string coding = (semi < 0 ? token : token.Substring(0, semi)).Trim();
+                if (!string.Equals(coding, "gzip", StringComparison.OrdinalIgnoreCase)) continue;
+                if (semi < 0) return true;   // "gzip" with no qvalue
+                string param = token.Substring(semi + 1).Trim();
+                if (param.StartsWith("q=", StringComparison.OrdinalIgnoreCase) &&
+                    double.TryParse(param.Substring(2), NumberStyles.Float, CultureInfo.InvariantCulture, out double q))
+                    return q > 0;
+                return true;   // a parameter other than q= doesn't refuse it
+            }
+            return false;
+        }
 
         private static byte[] Gzip(byte[] raw)
         {
