@@ -66,7 +66,16 @@ function setAvnTile(el, kind, active) {
   el.classList.remove('on', 'off', 'gear-down');
   el.classList.add(AvnStatusPolicy.tileClass(kind, active));
 }
+// 8 discrete booleans that typically hold for many seconds at a time, rewritten every 'avn' message
+// regardless (docs/web-efficiency-audit.md finding 06) — unlike paintAvnGauges' continuously-varying
+// analog readouts, which redraw every tick correctly. The tile elements are queried once at module
+// load and never rebuilt, so there's no page-entry/teardown case a guard here needs to invalidate on.
+let avnStatusKey = null;
 function paintAvnStatus() {
+  const key = [avnData.gearDown, avnData.radar, avnData.guns, avnData.ignition,
+               avnData.assist, avnData.nvg, avnData.navLights, avnData.turret].join('|');
+  if (key === avnStatusKey) return;
+  avnStatusKey = key;
   setAvnTile(avnTileGear,   'gear',   avnData.gearDown);
   setAvnTile(avnTileRadar,  'radar',  avnData.radar);
   setAvnTile(avnTileGuns,   'guns',   avnData.guns);
