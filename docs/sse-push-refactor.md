@@ -1,4 +1,4 @@
-# Squad/TD/WPT: SSE push instead of per-page polling
+# Change-gated SSE state instead of per-page polling
 
 ## Goal
 
@@ -118,19 +118,35 @@ Two things found after this refactor first shipped:
 
 ## Harness (`tools/preview-mock.js`)
 
-The mock's `MockEventSource` had no `sqd`/`td-state`/`wpt-options` events at all — SQD/WPT/TGT/TD
-testing in `serve_web.py` worked only because those pages fetched their REST endpoints directly.
-Added a `pushTick()` that polls the mock's own `/squad`/`/td-state`/`/wpt-options` REST endpoints
-and fires the matching SSE event on a diff — invisible to the page code under test, which only ever
-listens for the fired events, same "harness fakes it, real plugin computes it" split every other
-synthetic bit here already keeps.
+The mock's `MockEventSource` originally had no state events at all. It now calls the preview-only
+`/__preview-push` endpoint, which hashes SQD/TD/WPT/keybind/HUD snapshots and returns only changed
+payloads, then fires the corresponding synthetic SSE events. This is invisible to the page code
+under test, which only listens for the events, and avoids recreating one timer per REST endpoint.
 
-**ponytail**: 1.5s cadence, not faster — `serve_web.py`'s plain `http.server` opens a fresh TCP
+**ponytail**: 1.5s cadence, not faster — `serve_web.py` opens a fresh TCP
 connection per `fetch()` with no keep-alive, and each sits in Windows' TIME_WAIT for ~2 minutes
 afterward; a tighter interval across a long testing session exhausts the local ephemeral port range
 (`ERR_NO_BUFFER_SPACE`) even though the real plugin's persistent SSE connection has no such cost at
-all. Upgrade path if this still isn't gentle enough for a long session: switch `serve_web.py` to
-real HTTP keep-alive, or lengthen this further.
+all. Upgrade path if this still isn't gentle enough for a long session: add real HTTP keep-alive,
+or lengthen this further.
+
+## Follow-up: keybind configuration and HUD options
+
+The same transport now carries two additional rare-change snapshots:
+
+- `keybinds-config` is guarded by monotonic versions in `Keybinds` and `ImmersionConfig`. The
+  roughly 16 KB registry is built per connection only on connect or after a real bind, capture, or
+  setting mutation. `remote-keybinds.js` fans the shell's initial SSE snapshot into its child
+  documents (and performs a one-shot GET only for standalone or stream-timeout fallback contexts);
+  `layout-keybinds.js` reads the same push.
+  The KEY page retains a 600 ms poll only while hardware capture is armed, as a standalone fallback.
+- `hud-options` compares the cached JSON already produced by `TelemetryServer`'s 1 Hz game scan and
+  emits only on a changed string. Both shells cache/replay it to HUD frames and portals; `hud.js`
+  also change-gates rendering, preventing a full category/icon/list rebuild for identical data.
+
+The preview's synthetic EventSource uses one `/__preview-push` request containing hashes and only
+changed payloads. That keeps the harness faithful without recreating five independent endpoint
+polls in browser diagnostics; the recurring request remains preview-only.
 
 ## Verification
 

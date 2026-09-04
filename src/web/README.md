@@ -111,8 +111,8 @@ reactive sink.
    │              │  Slices posted up: status·mapinfo·loadout·cm·tgp·targets·rwr·mw·rdr·avn·
    │              │  tgt·bdf·pal·mis·obj·follow·grid, plus the focus/input events
    │              │  soi-cid·soi·soi-act·cursor·cursor-held·cursor-select·map-act, plus the
-   │              │  squad/TD/waypoint SSE-relayed pushes sqd-state·td-state-push·
-   │              │  wpt-options-push (docs/sse-push-refactor.md)
+   │              │  change-gated SSE relays sqd-state·td-state-push·wpt-options-push·
+   │              │  keybinds-config-push·hud-options-push (docs/sse-push-refactor.md)
    └──────┬───────┘
           │  postMessage  ▲ UP   ({ mfd:true, type, … })
           ▼
@@ -129,8 +129,8 @@ reactive sink.
           ▼
    WPN · TGT · TGP · AVN · AFM   pure reactive renderers — render to their own container,
    RWR · RDR · HUD · BDF/PAL     never know full-vs-split, never touch /stream. SQD/WPT/TD
-   MIS · OBJ · KEYBINDS          also read the sqd-state/td-state-push/wpt-options-push slices
-                                 above instead of polling their own REST endpoints on a timer.
+   MIS · OBJ · KEYBINDS          also read the state/config pushes above instead of polling their
+                                 own REST endpoints on a timer.
 ```
 
 **Why MAP carries two hats (and it's deliberate):** MAP needs the raw stream anyway (live map,
@@ -202,9 +202,11 @@ selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps i
   read, no command), and `avn.toggle` again from the F-35 master strip). Every handler is listed in
   [`src/plugin/README.md`](../plugin/README.md).
 - **Remote keybinds:** `src/web/services/remote-keybinds.js` is loaded by shells and standalone
-  pages. It stays idle unless the per-browser KEY toggle is on, then polls `/keybinds-config`,
-  translates configured keys into `/command` posts, and uses explicit held-state commands for
-  cursor/fire actions so browser keyup/blur can release them.
+  pages. A shell consumes the initial SSE snapshot (with a one-shot timeout fallback); a standalone
+  page makes one `/keybinds-config` bootstrap request. The top-level copy distributes that snapshot
+  and later SSE changes to every iframe. When the per-browser KEY toggle is on, each
+  focused document translates configured keys into `/command` posts and uses explicit held-state
+  commands for cursor/fire actions so browser keyup/blur can release them.
 
 ## Verifying without the game
 

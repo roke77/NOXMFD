@@ -113,6 +113,9 @@ namespace NOXMFD
                 // RoutesJson), not queues.
                 string lastTdInner = string.Empty;
                 string lastWpt = string.Empty;
+                string lastHudOptions = string.Empty;
+                long lastKeybindVersion = -1;
+                long lastImmersionVersion = -1;
                 int sinceFrame = FrameEveryMs;   // send a frame immediately on connect
                 while (!ct.IsCancellationRequested)
                 {
@@ -176,6 +179,31 @@ namespace NOXMFD
                         lastWpt = wptOptions;
                         byte[] wbytes = Encoding.UTF8.GetBytes("event: wpt-options\ndata: " + wptOptions + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(wbytes, 0, wbytes.Length, ct).ConfigureAwait(false);
+                    }
+
+                    // Configuration changes are rare but must reach every already-open shell. The
+                    // version check avoids rebuilding and retransmitting the ~16 KB registry at a
+                    // polling cadence; each connection still gets one initial request-specific copy.
+                    long keybindVersion = Keybinds.ConfigVersion;
+                    long immersionVersion = ImmersionConfig.ConfigVersion;
+                    if (keybindVersion != lastKeybindVersion || immersionVersion != lastImmersionVersion)
+                    {
+                        lastKeybindVersion = keybindVersion;
+                        lastImmersionVersion = immersionVersion;
+                        string config = ConfigEndpoint.BuildKeybindsConfig(ctx);
+                        byte[] kbytes = Encoding.UTF8.GetBytes("event: keybinds-config\ndata: " + config + "\n\n");
+                        await ctx.Response.OutputStream.WriteAsync(kbytes, 0, kbytes.Length, ct).ConfigureAwait(false);
+                    }
+
+                    // TelemetryServer already caches this one-second game snapshot. Relaying it only
+                    // when the cached string changes prevents HUD pages from rebuilding their DOM on
+                    // every 1.2-second client poll.
+                    string hudOptions = TelemetryServer.HudOptionsJson ?? "{}";
+                    if (!string.Equals(hudOptions, lastHudOptions, StringComparison.Ordinal))
+                    {
+                        lastHudOptions = hudOptions;
+                        byte[] hbytes = Encoding.UTF8.GetBytes("event: hud-options\ndata: " + hudOptions + "\n\n");
+                        await ctx.Response.OutputStream.WriteAsync(hbytes, 0, hbytes.Length, ct).ConfigureAwait(false);
                     }
 
                     foreach (var kv in ExtensionRegistry.EventsSnapshot())

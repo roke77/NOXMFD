@@ -5,7 +5,14 @@
 // fire an action nobody configured), and save/load must stay mutually exclusive even if the same
 // key were somehow assigned to both.
 const assert = require('assert');
-const { matchKey } = require('./layout-keybinds.js');
+const { applyConfig, match, matchKey } = require('./layout-keybinds.js');
+
+applyConfig({ binds: [
+  { id: 'layout-save', key: 'S' },
+  { id: 'layout-load', key: 'L' },
+] });
+assert.strictEqual(match({ code: 'KeyS' }), 'save', 'pushed configuration should update save');
+assert.strictEqual(match({ code: 'KeyL' }), 'load', 'pushed configuration should update load');
 
 // ── basic matches ─────────────────────────────────────────────────────────────────────────
 assert.strictEqual(matchKey('S', 'L', 'KeyS'), 'save', 'configured save key should match');

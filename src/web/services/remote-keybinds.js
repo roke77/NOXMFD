@@ -7,7 +7,6 @@
 
   const STORAGE_KEY = 'noxmfd.remoteKeybinds.enabled';
   const REPEAT_MS = 120;
-  const BIND_POLL_MS = 3000;
   const CURSOR_KEEPALIVE_MS = 50;
   const FIRE_KEEPALIVE_MS = 50;
 
@@ -20,7 +19,7 @@
   let cursorActive = Object.create(null);
   let fireActive = Object.create(null);
   let listeners = [];
-  let pollTimer = null;
+  let latestConfig = null;
   let cursorTimer = null;
   let fireTimer = null;
 
@@ -187,16 +186,32 @@
     };
   }
 
-  function refresh() {
+  function fetchConfig() {
     if (typeof fetch !== 'function') return Promise.resolve();
     return fetch('/keybinds-config', { cache: 'no-store' }).then(function (r) { return r.json(); })
       .then(function (cfg) {
-        samePc = !!cfg.remoteKeybindsSamePc;
-        bindsByKey = buildKeyMap(cfg.binds || []);
-        cursorByKey = buildCursorKeyMap(cfg.binds || []);
-        fireByKey = buildFireKeyMap(cfg.binds || []);
-        notify();
+        // Send through the same path as a later SSE update so sibling modules and child frames see
+        // the bootstrap without each issuing their own request.
+        root.postMessage({ mfd: true, type: 'keybinds-config-push', data: cfg }, '*');
       }).catch(function () {});
+  }
+
+  function applyConfig(cfg) {
+    latestConfig = cfg;
+    samePc = !!cfg.remoteKeybindsSamePc;
+    bindsByKey = buildKeyMap(cfg.binds || []);
+    cursorByKey = buildCursorKeyMap(cfg.binds || []);
+    fireByKey = buildFireKeyMap(cfg.binds || []);
+    notify();
+  }
+
+  function sendConfig(target) {
+    if (latestConfig && target) target.postMessage({ mfd: true, type: 'keybinds-config-push', data: latestConfig }, '*');
+  }
+
+  function broadcastConfig() {
+    if (typeof document === 'undefined') return;
+    [].slice.call(document.querySelectorAll('iframe')).forEach(function (frame) { sendConfig(frame.contentWindow); });
   }
 
   function readEnabled() {
@@ -227,13 +242,8 @@
   function setEnabled(on) {
     enabled = !!on;
     writeEnabled(enabled);
-    if (enabled) startPolling();
-    else {
+    if (!enabled) {
       clearActive();
-      bindsByKey = Object.create(null);
-      cursorByKey = Object.create(null);
-      fireByKey = Object.create(null);
-      stopPolling();
     }
     notify();
   }
@@ -373,16 +383,6 @@
     }
   }
 
-  function startPolling() {
-    refresh();
-    if (pollTimer == null) pollTimer = root.setInterval(refresh, BIND_POLL_MS);
-  }
-
-  function stopPolling() {
-    if (pollTimer != null) root.clearInterval(pollTimer);
-    pollTimer = null;
-  }
-
   function install() {
     if (typeof document === 'undefined') return;
     enabled = readEnabled();
@@ -393,10 +393,26 @@
       if (e.key === STORAGE_KEY) setEnabled(e.newValue === '1');
     });
     root.addEventListener('message', function (e) {
-      if (!e.data || e.data.type !== 'remote-keybinds-enabled') return;
-      setEnabled(!!e.data.enabled);
+      const m = e.data;
+      if (!m) return;
+      if (m.type === 'remote-keybinds-enabled') {
+        setEnabled(!!m.enabled);
+      } else if (m.mfd === true && m.type === 'keybinds-config-push') {
+        applyConfig(m.data || {});
+        if (root.parent === root) broadcastConfig();
+      } else if (m.mfd === true && m.type === 'keybinds-config-request' && root.parent === root) {
+        sendConfig(e.source);
+      }
     });
-    if (enabled) startPolling();
+    if (root.parent === root) {
+      // Shells already have a telemetry tap that immediately supplies the initial SSE snapshot.
+      // Standalone pages fetch once; a shell only falls back if its stream never answers.
+      const hasTelemetryTap = !!document.querySelector('iframe[title="map"], #map-tap');
+      if (hasTelemetryTap) root.setTimeout(function () { if (!latestConfig) fetchConfig(); }, 1500);
+      else fetchConfig();
+    } else {
+      root.parent.postMessage({ mfd: true, type: 'keybinds-config-request' }, '*');
+    }
   }
 
   const api = {
@@ -409,7 +425,8 @@
     buildFireKeyMap: buildFireKeyMap,
     cursorStateFromActive: cursorStateFromActive,
     fireGroupsFromActive: fireGroupsFromActive,
-    refresh: refresh,
+    applyConfig: applyConfig,
+    refresh: fetchConfig,
     isEnabled: function () { return enabled; },
     setEnabled: setEnabled,
     onChange: onChange,

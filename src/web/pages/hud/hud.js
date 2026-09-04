@@ -1,5 +1,5 @@
-// HUD page — a clickable replica of the game's HUD OPTIONS screen (HUDOptions). Fetch-driven, not
-// telemetry-pushed: it GETs the current state from /hud-options and POSTs hud.* commands back.
+// HUD page — a clickable replica of the game's HUD OPTIONS screen (HUDOptions). It bootstraps from
+// /hud-options, receives later changes through the shell's SSE relay, and POSTs hud.* commands back.
 // See hud.html for the control contract and docs/hud-page.md for the model.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 
@@ -58,20 +58,37 @@ const presetSaveBtn = document.getElementById('hud-preset-save');
 const presetLoadBtn = document.getElementById('hud-preset-load');
 
 let data = null;          // last /hud-options snapshot
+let lastOptionsJson = '';
+let commandResyncTimer = null;
 
 // The game builds toggle names from the Encyclopedia with underscores (IR_SAM); the in-game screen
 // shows them spaced.
 function pretty(name) { return String(name).replace(/_/g, ' '); }
 
 function load() {
-  fetch('/hud-options', { cache: 'no-store' })
-    .then(function (r) { return r.ok ? r.json() : {}; })
-    .then(render)
-    .catch(function () { render({}); });
+  return fetch('/hud-options', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.text() : '{}'; })
+    .then(function (text) {
+      if (text !== lastOptionsJson) applyOptions(JSON.parse(text));
+    })
+    .catch(function () { applyOptions({}); });
+}
+
+function applyOptions(next) {
+  const json = JSON.stringify(next || {});
+  if (json === lastOptionsJson) return;
+  lastOptionsJson = json;
+  render(next || {});
 }
 
 function send(cmd, body) {
-  sendCommand(cmd, body).catch(function () {});
+  // Optimistic edits deliberately invalidate the comparison key. A delayed one-shot read then
+  // restores server truth even when a command is rejected and therefore produces no changed SSE
+  // snapshot; rapid clicks collapse into one reconciliation request.
+  lastOptionsJson = '';
+  clearTimeout(commandResyncTimer);
+  commandResyncTimer = setTimeout(load, 1200);
+  return sendCommand(cmd, body).catch(function () {});
 }
 
 function render(d) {
@@ -92,7 +109,7 @@ function render(d) {
   renderCats();
 }
 
-// The "PRESET N: name" label rides this page's existing /hud-options poll (a `preset` field,
+// The "PRESET N: name" label rides the page's existing HUD-options snapshot (a `preset` field,
 // TelemetryServer.RefreshHudOptions) rather than a second endpoint; SAVE/LOAD fetch /hud-presets
 // on demand, only while their modal is open.
 function renderPreset() {
@@ -305,7 +322,9 @@ const SCROLL_STEP = 60;   // flat constant tuned by feel, like pad-cursor.js's o
 window.addEventListener('message', function (e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
-  if (m.action === 'cursor-focus') {
+  if (m.type === 'hud-options-push') {
+    applyOptions(m.data || {});
+  } else if (m.action === 'cursor-focus') {
     const r = hudPanel.getBoundingClientRect();
     cursor.setFocus(!!m.on, r.left + r.width / 2, r.top + r.height / 2);
   } else if (m.action === 'cursor') {
@@ -319,11 +338,6 @@ window.addEventListener('message', function (e) {
   }
 });
 
-// Unlike the telemetry-pushed pages (which get a live stream and just react to it), HUD OPTIONS
-// has no push channel — the plugin refreshes /hud-options on its own 1 Hz tick (TelemetryServer.
-// RefreshHudOptions), so this page polls at the same cadence. One poll loop covers three cases at
-// once: a toggle pressed in game rather than here, this page's own optimistic writes settling to
-// the real state, and a mission starting/ending (render() already treats an empty payload as
-// "unavailable", so the next poll after a new mission loads just repaints with the fresh state).
+// A one-shot GET makes the page useful standalone and fills the short gap before a shell has an SSE
+// snapshot to replay. The push path carries subsequent game-side changes without periodic DOM work.
 load();
-setInterval(load, 1200);

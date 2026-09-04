@@ -1,4 +1,5 @@
 using BepInEx.Configuration;
+using System.Threading;
 
 namespace NOXMFD
 {
@@ -17,6 +18,9 @@ namespace NOXMFD
         private static ConfigEntry<bool>? _masterArmsOnOnStart;
         private static ConfigEntry<bool>? _powerOnOnStart;
         private static ConfigEntry<bool>? _hudFiltersOnCombatMode;
+        private static long _configVersion;
+
+        internal static long ConfigVersion => Interlocked.Read(ref _configVersion);
 
         public static bool RadarOnOnStart       => _radarOnOnStart?.Value ?? true;
         public static bool EngineOnOnStart      => _engineOnOnStart?.Value ?? true;
@@ -25,12 +29,19 @@ namespace NOXMFD
         // Defaults OFF, unlike the others: an opt-in behavior, not a preserved default.
         public static bool HudFiltersOnCombatMode => _hudFiltersOnCombatMode?.Value ?? false;
 
-        // Writing .Value persists immediately to the .cfg.
-        public static void SetRadarOnOnStart(bool v)      { if (_radarOnOnStart      != null) _radarOnOnStart.Value      = v; }
-        public static void SetEngineOnOnStart(bool v)     { if (_engineOnOnStart     != null) _engineOnOnStart.Value     = v; }
-        public static void SetMasterArmsOnOnStart(bool v) { if (_masterArmsOnOnStart != null) _masterArmsOnOnStart.Value = v; }
-        public static void SetPowerOnOnStart(bool v)      { if (_powerOnOnStart      != null) _powerOnOnStart.Value      = v; }
-        public static void SetHudFiltersOnCombatMode(bool v) { if (_hudFiltersOnCombatMode != null) _hudFiltersOnCombatMode.Value = v; }
+        // Writing .Value persists immediately to the .cfg; the version wakes connected KEY clients.
+        private static void Set(ConfigEntry<bool>? entry, bool value)
+        {
+            if (entry == null || entry.Value == value) return;
+            entry.Value = value;
+            Interlocked.Increment(ref _configVersion);
+        }
+
+        public static void SetRadarOnOnStart(bool v)         => Set(_radarOnOnStart, v);
+        public static void SetEngineOnOnStart(bool v)        => Set(_engineOnOnStart, v);
+        public static void SetMasterArmsOnOnStart(bool v)    => Set(_masterArmsOnOnStart, v);
+        public static void SetPowerOnOnStart(bool v)         => Set(_powerOnOnStart, v);
+        public static void SetHudFiltersOnCombatMode(bool v) => Set(_hudFiltersOnCombatMode, v);
 
         public static void Bind(ConfigFile config)
         {

@@ -10,6 +10,14 @@ const {
   cursorStateFromActive,
   fireGroupsFromActive
 } = require('./remote-keybinds.js');
+const remote = require('./remote-keybinds.js');
+
+remote.applyConfig({ remoteKeybindsSamePc: true, binds: [
+  { id: 'cycle-guns', key: 'G' },
+  { id: 'cursor-up', key: 'ArrowUp' },
+] });
+assert.strictEqual(remote.state().samePc, true, 'pushed config should update same-PC state');
+assert.strictEqual(remote.state().remoteCapableCount, 2, 'pushed config should rebuild remote maps');
 
 assert.deepStrictEqual(commandForBind('cycle-guns'), {
   cmd: 'weapon.cycle',

@@ -862,6 +862,8 @@ const TD_STATE_PAGES = ['tgt', 'td'];
 function tdStateMsg() { return { mfd: true, type: 'td-state-push', data: tdStateData }; }
 function forwardTdStateToFrame() { if (tdStateData) forwardToFrame(tdStateMsg()); }
 function forwardTdStateToPanes() { if (tdStateData) TD_STATE_PAGES.forEach(function (p) { forwardToPanes(p, tdStateMsg()); }); }
+function forwardHudOptionsToFrame() { if (hudOptionsData) forwardToFrame(hudOptionsData); }
+function forwardHudOptionsToPanes() { if (hudOptionsData) forwardToPanes('hud', hudOptionsData); }
 // The TGT page shows the selected-target list under its filters (mirrored in targetsData).
 // No pagination — the page scrolls — so forward the whole list, to the frame and any TGT pane.
 function tgtTargetsMsg() {
@@ -1260,6 +1262,7 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'rwr')  { forwardRwrToPanes(); forwardMwToPanes(); }
     else if (page === 'rdr')  forwardRdrToPanes();
     else if (page === 'hsd')  forwardHsdToPanes();
+    else if (page === 'hud')  forwardHudOptionsToPanes();
     else if (page === 'tgt')  { forwardTgtToPanes(); forwardTgtTargetsToPanes(); }
     else if (page === 'bdf')  forwardBdfToPanes();
     else if (page === 'pal')  forwardPalToPanes();
@@ -1295,6 +1298,7 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'rwr') { forwardRwrToFrame(); forwardMwToFrame(); }
   else if (currentPage === 'rdr') { forwardRdrToFrame(); }
   else if (currentPage === 'hsd') { forwardHsdToFrame(); }
+  else if (currentPage === 'hud') { forwardHudOptionsToFrame(); }
   else if (currentPage === 'tgt') { forwardTgtToFrame(); forwardTgtTargetsToFrame(); }
   else if (currentPage === 'bdf') { forwardBdfToFrame(); }
   else if (currentPage === 'pal') { forwardPalToFrame(); }
@@ -1528,6 +1532,7 @@ let tgtData = { present: false };
 // loaded page's own bootstrap fetch covers that brief gap instead).
 let sqdStateData = null;
 let tdStateData = null;
+let hudOptionsData = null;
 
 // Latest BDF faction-forces state, mirrored from the map iframe's SSE feed (docs/bdf-page.md).
 // The shell keeps only this state and forwards it to the frame or the pane showing it.
@@ -1756,12 +1761,9 @@ function showPage(name) {
     showFramePage('obj');
     forwardObjToFrame();
   }
-  // HUD renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.hud, placed by
-  // the generic sweep above); the page is otherwise self-driven — it fetches /hud-options and POSTs
-  // its own hud.* commands, so the shell forwards it nothing.
-  if (name === 'hud') showFramePage('hud');
-  // KEY (extended keybinds) renders in #page-frame too. Like HUD it's self-driven — it polls
-  // /keybinds-config and POSTs its own keybind.* commands — so the shell forwards it nothing.
+  // HUD bootstraps itself, then receives change-gated option snapshots from the shell.
+  if (name === 'hud') { showFramePage('hud'); forwardHudOptionsToFrame(); }
+  // KEY bootstraps itself, then receives the same configuration push shared shell services use.
   if (name === 'keys') showFramePage('keys');
   // MAP's and TGP's own CFG pages render in #page-frame too — same self-driven shape as KEY/HUD:
   // each polls /rates-config and POSTs its own rates.set commands, so the shell forwards them
@@ -1813,6 +1815,7 @@ const RELAY_MESSAGES = Object.assign(Object.create(null), {
   mis:     { page: 'mis', set: function (m) { misData     = m; }, toFrame: forwardMisToFrame, toPanes: forwardMisToPanes },
   obj:     { page: 'obj', set: function (m) { objData     = m; }, toFrame: forwardObjToFrame, toPanes: forwardObjToPanes },
   akf:     { page: 'akf', set: function (m) { akfData     = m; }, toFrame: forwardAkfToFrame, toPanes: forwardAkfToPanes },
+  'hud-options-push': { page: 'hud', set: function (m) { hudOptionsData = m; }, toFrame: forwardHudOptionsToFrame, toPanes: forwardHudOptionsToPanes },
   mapinfo: { page: 'wpt', set: function (m) { mapInfoData = m; }, toFrame: forwardWptToFrame, toPanes: forwardWptToPanes },
 });
 
@@ -2037,7 +2040,7 @@ window.addEventListener('message', function(e) {
     if (currentPage === 'hsd' && !splitMode) forwardHsdToFrame();
     if (splitMode) forwardHsdToPanes();
   } else if (RELAY_MESSAGES[m.type]) {
-    // The 7 verbatim-store-and-forward types — see RELAY_MESSAGES above. Renders in the #page-frame
+    // Verbatim store-and-forward types — see RELAY_MESSAGES above. Renders in the #page-frame
     // iframe (full) or a pane (split); forward on when it's the page in view.
     const r = RELAY_MESSAGES[m.type];
     r.set(m);

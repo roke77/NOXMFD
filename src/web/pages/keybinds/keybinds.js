@@ -1,7 +1,7 @@
 // Extended-keybinds page. Renders the plugin's bind registry (/keybinds-config) as a table and
 // writes changes back over keybind.* commands. Keyboard capture happens here in the browser
 // (KeyboardEvent.code → Unity KeyCode name); joystick capture is armed plugin-side and the result
-// arrives via the poll. See keybinds.html header + docs/keybinds-page.md.
+// arrives via the shell's relayed SSE snapshot. See keybinds.html header + docs/keybinds-page.md.
 
 var rowsEl  = document.getElementById('kb-rows');
 // Immersion options (docs/radar-master-arms.md) is a true second section, not a continuation of
@@ -28,15 +28,26 @@ var remoteKeybinds = false;  // per-browser remote-listening toggle (localStorag
 var remoteKeybindsSamePc = false;
 // Immersion start-state settings (docs/radar-master-arms.md, docs/power-toggle.md) — same shape
 // as bgInput above: plain settings, not binds, default true (today's behaviour) until the first
-// /keybinds-config poll.
+// /keybinds-config bootstrap.
 var radarOnOnStart      = true;
 var engineOnOnStart     = true;
 var masterArmsOnOnStart = true;
 var powerOnOnStart      = true;
 // HudCombatModeFilters' own on/off switch — default OFF, unlike the four above, so it starts
-// false rather than true until the first /keybinds-config poll.
+// false rather than true until the first /keybinds-config snapshot.
 var hudFiltersOnCombatMode = false;
 var lastJson  = '';      // skip re-render when nothing changed
+var capturePollTimer = null;
+var commandResyncTimer = null;
+
+// A push follows every accepted server mutation. The delayed one-shot GET also repairs optimistic
+// UI if a command is rejected or this page is standalone; rapid edits share one timer.
+function sendConfigCommand(cmd, args) {
+  var request = sendCommand(cmd, args);
+  clearTimeout(commandResyncTimer);
+  commandResyncTimer = setTimeout(refresh, 1200);
+  return request;
+}
 
 // ── Input-when-unfocused toggle ──────────────────────────────────────────────────────────────
 var bgInputBtn = document.getElementById('kb-bg-input-btn');
@@ -46,8 +57,8 @@ function renderBgToggle() {
 }
 bgInputBtn.onclick = function () {
   var next = !bgInput;
-  sendCommand('keybind.set-bg-input', { on: next }).catch(function () {});
-  bgInput = next;   // optimistic: show it now, the poll confirms
+  sendConfigCommand('keybind.set-bg-input', { on: next }).catch(function () {});
+  bgInput = next;   // optimistic: the follow-up snapshot reconciles server truth
   renderBgToggle();
 };
 
@@ -90,8 +101,8 @@ function makeSettingToggle(btnId, cmd, get, set) {
   }
   btn.onclick = function () {
     var next = !get();
-    sendCommand(cmd, { on: next }).catch(function () {});
-    set(next);   // optimistic: show it now, the poll confirms
+    sendConfigCommand(cmd, { on: next }).catch(function () {});
+    set(next);   // optimistic: the follow-up snapshot reconciles server truth
     render();
   };
   return render;
@@ -139,8 +150,8 @@ function cell(bind, kind) {
     if (kbCapture === bind.id) kbCapture = null;
     var cmd  = kind === 'key' ? 'keybind.set-key' : 'keybind.clear-joy';
     var args = kind === 'key' ? { bind: bind.id, key: '' } : { bind: bind.id };
-    sendCommand(cmd, args).then(refresh).catch(function () {});
-    // optimistic: show the cleared state now, the poll confirms
+    sendConfigCommand(cmd, args).catch(function () {});
+    // Optimistic: the follow-up snapshot reconciles server truth.
     if (kind === 'key') bind.key = ''; else bind.joyButton = -1;
     render();
   };
@@ -173,8 +184,8 @@ function axisCell(bind) {
   invert.onclick = function (e) {
     e.stopPropagation();
     var next = !bind.axisInvert;
-    sendCommand('keybind.set-axis-invert', { bind: bind.id, on: next }).then(refresh).catch(function () {});
-    bind.axisInvert = next;   // optimistic: show it now, the poll confirms
+    sendConfigCommand('keybind.set-axis-invert', { bind: bind.id, on: next }).catch(function () {});
+    bind.axisInvert = next;   // optimistic: the follow-up snapshot reconciles server truth
     render();
   };
 
@@ -184,7 +195,7 @@ function axisCell(bind) {
   clear.title = 'clear';
   clear.onclick = function (e) {
     e.stopPropagation();
-    sendCommand('keybind.clear-axis', { bind: bind.id }).then(refresh).catch(function () {});
+    sendConfigCommand('keybind.clear-axis', { bind: bind.id }).catch(function () {});
     bind.axis = -1; bind.axisNum = 0; bind.axisInvert = false;   // optimistic
     render();
   };
@@ -264,7 +275,7 @@ function renderImmersionRows() {
 
 // ── Keyboard capture (browser-side) ──────────────────────────────────────────────────────────
 function keyCellClick(id) {
-  if (capturing) sendCommand('keybind.cancel-joy', {}).catch(function () {});
+  if (capturing) sendConfigCommand('keybind.cancel-joy', {}).catch(function () {});
   kbCapture = kbCapture === id ? null : id;
   render();
 }
@@ -277,8 +288,8 @@ document.addEventListener('keydown', function (e) {
   if (e.code === 'Escape') { render(); return; }
   var key = codeToKey(e.code);
   if (!key) { flashRejected(id); return; }   // unmappable (media keys, ...)
-  sendCommand('keybind.set-key', { bind: id, key: key }).then(refresh).catch(function () {});
-  // optimistic: show it now, the poll confirms
+  sendConfigCommand('keybind.set-key', { bind: id, key: key }).catch(function () {});
+  // Optimistic: the follow-up snapshot reconciles server truth.
   binds.forEach(function (b) { if (b.id === id) b.key = key; });
   render();
 });
@@ -300,25 +311,26 @@ function flashRejected(id) {
 function joyCellClick(id) {
   kbCapture = null;
   var already = capturing === id && capturingKind === 'joy';
-  sendCommand(already ? 'keybind.cancel-joy' : 'keybind.arm-joy', { bind: id }).catch(function () {});
+  sendConfigCommand(already ? 'keybind.cancel-joy' : 'keybind.arm-joy', { bind: id }).catch(function () {});
   capturing = already ? null : id;             // optimistic; the poll is the truth
   capturingKind = already ? null : 'joy';
   render();
+  updateCaptureFallback();
 }
 
 // ── Axis capture (plugin-side, docs/map-cursor.md) ───────────────────────────────────────────
 function axisCellClick(id) {
   kbCapture = null;
   var already = capturing === id && capturingKind === 'axis';
-  sendCommand(already ? 'keybind.cancel-axis' : 'keybind.arm-axis', { bind: id }).catch(function () {});
+  sendConfigCommand(already ? 'keybind.cancel-axis' : 'keybind.arm-axis', { bind: id }).catch(function () {});
   capturing = already ? null : id;
   capturingKind = already ? null : 'axis';
   render();
+  updateCaptureFallback();
 }
 
-// ── Poll ─────────────────────────────────────────────────────────────────────────────────────
-function refresh() {
-  fetch('/keybinds-config').then(function (r) { return r.json(); }).then(function (cfg) {
+// ── Server state ─────────────────────────────────────────────────────────────────────────────
+function applyConfig(cfg) {
     panelEl.classList.remove('unavailable');
     // never clobber an in-progress keyboard capture cell with a re-render; deliberately do NOT
     // record lastJson here, so the first poll after capture ends re-renders whatever changed
@@ -346,8 +358,28 @@ function refresh() {
     renderPowerOnStart();
     renderHudFiltersOnCombatMode();
     render();
-  }).catch(function () { panelEl.classList.add('unavailable'); });
+    updateCaptureFallback();
 }
+
+function refresh() {
+  return fetch('/keybinds-config', { cache: 'no-store' }).then(function (r) { return r.json(); })
+    .then(applyConfig).catch(function () { panelEl.classList.add('unavailable'); });
+}
+
+// Embedded pages normally receive capture completion over SSE. A short-lived poll exists only
+// while joystick/axis capture is armed so standalone KEY previews retain the same feedback path.
+function updateCaptureFallback() {
+  if (capturing && capturePollTimer == null) capturePollTimer = setInterval(refresh, 600);
+  else if (!capturing && capturePollTimer != null) {
+    clearInterval(capturePollTimer);
+    capturePollTimer = null;
+  }
+}
+
+window.addEventListener('message', function (e) {
+  var m = e.data;
+  if (m && m.mfd === true && m.type === 'keybinds-config-push') applyConfig(m.data || {});
+});
 
 renderBgToggle();   // OFF until the first fetch resolves, rather than a blank button
 remoteKeybinds = readRemoteKeybinds();
@@ -355,6 +387,6 @@ renderRemoteKeybindsToggle();
 renderRadarOnStart();          // ON until the first fetch resolves — true is the actual default
 renderEngineOnStart();
 renderMasterArmsOnStart();
-renderHudFiltersOnCombatMode();   // OFF until the first fetch resolves — false is the actual default
-refresh();
-setInterval(refresh, 600);
+renderHudFiltersOnCombatMode();   // OFF until the first snapshot resolves — false is the actual default
+if (window.parent === window) refresh();
+else window.parent.postMessage({ mfd: true, type: 'keybinds-config-request' }, '*');

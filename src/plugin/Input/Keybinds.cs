@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using UnityEngine;
 
 namespace NOXMFD
@@ -52,6 +53,10 @@ namespace NOXMFD
     // binds across physical sticks.
     internal static class Keybinds
     {
+        private static long _configVersion;
+        internal static long ConfigVersion => Interlocked.Read(ref _configVersion);
+        private static void ConfigChanged() => Interlocked.Increment(ref _configVersion);
+
         private const byte Flare  = 1;   // same category mapping as TelemetryReader.GetSelectedCmCategory
         private const byte Jammer = 2;
 
@@ -656,7 +661,13 @@ namespace NOXMFD
         // the table rather than as a row. BackgroundInput is read once to build the page's initial
         // state; SetBackgroundInput is the write, applied live next Poll() by ApplyBackgroundInput.
         internal static bool BackgroundInput => _bgInput?.Value ?? false;
-        internal static void SetBackgroundInput(bool on) { if (_bgInput != null) { BackupNow(); _bgInput.Value = on; } }
+        internal static void SetBackgroundInput(bool on)
+        {
+            if (_bgInput == null || _bgInput.Value == on) return;
+            BackupNow();
+            _bgInput.Value = on;
+            ConfigChanged();
+        }
 
         // ── Bind writes (driven by the /keybinds page via CommandDispatcher, main thread) ───────────
         // Set a bind's keyboard key from its Unity KeyCode name; "" / "None" clears. Rejects unknown
@@ -671,6 +682,7 @@ namespace NOXMFD
             if (b == null || b.KeyEntry == null) return false;
             BackupNow();
             b.KeyEntry.Value = clear ? KeyboardShortcut.Empty : new KeyboardShortcut(key);
+            ConfigChanged();
             return true;
         }
 
@@ -704,6 +716,7 @@ namespace NOXMFD
             _captureSettle = SettleFrames;
             _latched.Clear();
             LogJoysticks();
+            ConfigChanged();
             return true;
         }
 
@@ -716,6 +729,7 @@ namespace NOXMFD
             BackupNow();
             b.JoyEntry.Value = -1; b.JoyNumEntry!.Value = 0;
             if (_capturing == b) Disarm();
+            else ConfigChanged();
             return true;
         }
 
@@ -739,6 +753,7 @@ namespace NOXMFD
             _axisSettle = AxisSettleFrames;
             _axisRest.Clear();
             LogJoysticks();
+            ConfigChanged();
             return true;
         }
 
@@ -751,6 +766,7 @@ namespace NOXMFD
             BackupNow();
             b.AxisEntry.Value = -1; b.AxisJoyNumEntry!.Value = 0; b.AxisInvertEntry!.Value = false;
             if (_capturingAxis == b) Disarm();
+            else ConfigChanged();
             return true;
         }
 
@@ -758,8 +774,10 @@ namespace NOXMFD
         {
             BindDef? b = FindBind(id);
             if (b == null || b.AxisInvertEntry == null) return false;
+            if (b.AxisInvertEntry.Value == invert) return true;
             BackupNow();
             b.AxisInvertEntry.Value = invert;
+            ConfigChanged();
             return true;
         }
 
@@ -806,6 +824,7 @@ namespace NOXMFD
             if (_capturing == null && _capturingAxis == null) return;
             _capturing = null;
             _capturingAxis = null;
+            ConfigChanged();
             Application.runInBackground = _prevRunInBackground;
             if (ReInput.isReady)
                 ReInput.configuration.ignoreInputWhenAppNotInFocus = _prevIgnoreUnfocused;

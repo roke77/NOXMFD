@@ -1,6 +1,6 @@
 // Configured keys for SAVE/LOAD LAYOUT. These are browser-side actions — no joystick/HOTAS, no
 // Unity/Rewired dispatch — but the key each browser listens for is set once on the /keybinds page
-// and shared by every connected browser via /keybinds-config, the same registry gameplay binds
+// and shared by every connected browser via the keybind configuration push, the same registry gameplay binds
 // use (Keybinds.cs's "layout-save"/"layout-load" rows, DefKeyOnly — no joystick entry, nothing in
 // Poll() ever dispatches from them). This module tracks those two current key names and matches a
 // browser KeyboardEvent against them; each shell's own keydown listener (mfd.js, f35.js) calls it
@@ -15,20 +15,18 @@
 
   let saveKey = null, loadKey = null;   // Unity KeyCode names, or null = unbound
 
-  function refresh() {
-    if (typeof fetch !== 'function') return Promise.resolve();   // no fetch in this context (Node tests)
-    return fetch('/keybinds-config', { cache: 'no-store' }).then(function (r) { return r.json(); })
-      .then(function (data) {
-        (data.binds || []).forEach(function (b) {
-          if (b.id === 'layout-save') saveKey = b.key || null;
-          if (b.id === 'layout-load') loadKey = b.key || null;
-        });
-      }).catch(function () { /* transient network error — next poll retries */ });
+  function applyConfig(data) {
+    (data.binds || []).forEach(function (b) {
+      if (b.id === 'layout-save') saveKey = b.key || null;
+      if (b.id === 'layout-load') loadKey = b.key || null;
+    });
   }
-  // A rebind is rare (set once on the KEY page, not a per-session thing), so a slow poll is enough
-  // to keep every already-open browser in sync without adding a fast-cadence request just for this.
-  // Only the top-level shell runs it — guarded so it doesn't fire under Node.
-  if (typeof window !== 'undefined') { refresh(); setInterval(refresh, 3000); }
+  // remote-keybinds.js owns the shell's one bootstrap fetch; subsequent changes arrive over the
+  // existing MAP SSE connection, so this two-value consumer never downloads the full registry.
+  if (typeof window !== 'undefined') window.addEventListener('message', function (e) {
+    const m = e.data;
+    if (m && m.mfd === true && m.type === 'keybinds-config-push') applyConfig(m.data || {});
+  });
 
   // Pure: given the two configured Unity KeyCode names and a raw KeyboardEvent.code, decide which
   // action (if any) it triggers. Separated from match() so it's checkable without a live
@@ -44,7 +42,7 @@
   // e: a KeyboardEvent. Returns 'save' | 'load' | null.
   function match(e) { return matchKey(saveKey, loadKey, e.code); }
 
-  const api = { match: match, matchKey: matchKey };
+  const api = { applyConfig: applyConfig, match: match, matchKey: matchKey };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LayoutKeybinds = api;
 })(typeof self !== 'undefined' ? self : this);

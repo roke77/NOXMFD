@@ -4,9 +4,9 @@ An MFD page for binding the mod's *extended keybinds*: cockpit functions the gam
 keybind for. It is the only keybind UI — the F1 (ConfigurationManager) menu shows none of these
 entries, though the values still persist in the plugin `.cfg`.
 
-Reached from **KEY** on MAIN in both layouts. It is a frame-hosted page exactly like HUD — self
--driven (it polls `/keybinds-config` and POSTs its own `keybind.*` commands, so the shell forwards
-it nothing), and reached the same way: `FRAME_PAGES`/`PAGE_URL`/`SPLIT_SLOTS` in the bezel,
+Reached from **KEY** on MAIN in both layouts. It is a frame-hosted page exactly like HUD — it
+requests the shell's cached configuration, receives later changes through the shell's SSE relay, and
+POSTs its own `keybind.*` commands. It is reached through `FRAME_PAGES`/`PAGE_URL`/`SPLIT_SLOTS` in the bezel,
 `F35_PAGES` in the F-35, with a MAIN back-key from `NAV.keys` in both. So it renders in the classic
 `#page-frame` (and as a split pane), and in an F-35 portal, without leaving the shell. `KEY` lives
 in `BEZEL_EXTRAS.main` / the F-35's `MAIN_EXTRAS` since `NAV`'s six items don't cover it.
@@ -115,8 +115,10 @@ and immersion toggles, this is deliberately per browser: `keybinds.js` stores it
 `localStorage` under `noxmfd.remoteKeybinds.enabled` and notifies the parent shell with
 `postMessage`, so only that browser begins listening.
 
-When enabled, `src/web/services/remote-keybinds.js` fetches `/keybinds-config`, builds keyboard
-maps from the same configured bind ids, and translates keydown/keyup into `/command` posts.
+`src/web/services/remote-keybinds.js` owns one top-level bootstrap fetch, builds keyboard maps from
+the same configured bind ids, and distributes the snapshot to every loaded document. Later changes
+arrive once over SSE and follow the same distribution path. When enabled, each focused document
+translates keydown/keyup into `/command` posts.
 Ordinary edge actions use fixed id -> command mappings. Cursor and fire actions use explicit
 held-state commands instead: `cursor.set` / `cursor.select` and `fire.set`, with short server-side
 expiry so a closed tab or lost keyup cannot leave an input stuck on.
@@ -130,8 +132,11 @@ same machine can send the same keypress twice.
 
 - `GET /keybinds-config` — the bind registry (id, section title, label, description,
   current key + joy button/stick), the per-section `notes`, which bind is armed for capture, and
-  `remoteKeybindsSamePc` for the remote-listener warning. The page polls it at 600 ms; the poll is
-  also how a capture result arrives.
+  `remoteKeybindsSamePc` for the remote-listener warning. A standalone page makes one bootstrap
+  request; an embedded page asks its shell for the SSE cache. `SseHub` emits a version-gated
+  `keybinds-config` event after any bind,
+  capture-state, or immersion-setting change. While joystick/axis capture is armed, the KEY page
+  also runs a temporary 600 ms fallback so a standalone page can observe the result.
   Section display titles and notes come from `Keybinds.SectionTitle`/`SectionNote` — the
   `.cfg` section names underneath are persistence identity and never change.
 - `POST /command`: `keybind.set-key { bind, key }` (`""`/`"None"` clears),
@@ -140,7 +145,7 @@ same machine can send the same keypress twice.
   at the main menu too.
 - The registry lives in `Keybinds.cs`: one `BindDef` row per function (config entries,
   edge/held mode, drive action). Adding a keybind is one `Def()` call — the page, the
-  JSON, and the polling all pick it up from the registry.
+  JSON and the change notification all pick it up from the registry.
 - `tools/serve_web.py` carries a stateful mock of the endpoint and commands (including a
   simulated stick capture), so the whole page is drivable in the harness without the game.
 - Every `config.Bind(section, key, KeyboardShortcut.Empty, ...)` in `Keybinds.cs` uses

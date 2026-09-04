@@ -71,6 +71,7 @@
     td: ['targets', 'sqd-state', 'td-state-push'],   // Target Designator (issue #47) — mirrors TGT's
                                                       // own live target list, plus its own squad/td tables
     tgp: ['tgp'],
+    hud: ['hud-options-push'],
     wpn: ['loadout', 'cm'],   // 'loadout' is derived, not forwarded as-is — see DERIVED
     bdf: ['bdf'],             // read-only faction-forces block (docs/bdf-page.md)
     pal: ['pal'],             // same, for PRIMEVA

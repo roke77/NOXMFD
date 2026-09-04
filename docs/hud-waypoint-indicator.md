@@ -135,9 +135,9 @@ the active one), persists them to
 `AdvanceIfNear` itself once a second from `TelemetryReader`'s existing slow
 block — regardless of what page any browser has open, which is what actually
 fixes bug (1) above. A `GET /wpt-options` endpoint (mission-independent, like
-`/hud-options`) serves the current library to every connected browser; every
-browser polls it every 1.2s, the same cadence `hud.js` already uses. Editing
-is 14 new `wpt.*` commands (`CommandDispatcher.cs`) — one per action the WPT
+`/hud-options`) serves bootstrap reads; subsequent changes ride the existing
+change-gated SSE connection (see [sse-push-refactor.md](sse-push-refactor.md)). Editing
+is 14 `wpt.*` commands (`CommandDispatcher.cs`) — one per action the WPT
 page performs, reusing existing `CommandEnvelope` scalar fields wherever the
 type fits (`bind` for a route id, `wname` for a display name, `index` for a
 waypoint index or a ±1 direction) plus one genuinely new field, `text`, for a
@@ -156,7 +156,7 @@ pre-existing browser-local routes was done (explicit decision) — the storage
 model changed, and anything only ever saved to the old `localStorage` key is
 simply not carried forward.
 
-**Perf fix, 2026-08-18: one poller per device, not one per document.** Shipping
+**Historical perf fix, 2026-08-18: one poller per device, not one per document.** Shipping
 Option 2 as originally built had every document that loaded
 `waypoints-store.js` — the shell, plus each open MAP/WPT pane or portal —
 running its own independent 1.2s poll loop against `/wpt-options`. A
@@ -165,8 +165,8 @@ since removed) measured roughly 3.2x the request rate one poller alone should
 produce, matching a reported MAP-page stutter. `RouteStore.Save` itself was
 never the cause (0ms on every call, disk write included).
 
-Fixed by gating: only the top window (`window === window.top`) runs the
-recurring poll now. An embedded MAP/WPT page instead posts a
+That intermediate implementation gated the recurring poll to the top window
+(`window === window.top`). It was later superseded by the change-gated SSE path above. An embedded MAP/WPT page posts a
 `wpt-routes-request` message to its parent once on load and just listens —
 the shell replies immediately (a freshly loaded iframe needs to explicitly
 catch up, since the shell only pushes on a real change) and broadcasts every
@@ -184,13 +184,9 @@ telemetry slice already uses in both shells:
   `forwardToPage()` mechanism every other feed already relies on, no bespoke
   catch-up path needed.
 
-Each mutator's own `.then(poll)` is untouched — `poll()` itself still runs a
-real fetch, called directly by whichever document made the edit, so that
-document's own change still shows up in well under a second. Only the
-*recurring background* loop is gated; a sibling pane on the *same* device
-picks up an edit via the shell's push (near-instant once the shell's own next
-change-triggered broadcast fires), while a genuinely different *device* still
-learns about it on the shell's own 1.2s poll cycle, same as before.
+Each mutator's own `.then(poll)` is untouched — `poll()` still performs an
+event-triggered fetch for immediate local feedback. Sibling panes and other devices learn the
+authoritative result from the server's `wpt-options` SSE event; no recurring route poll remains.
 
 ### Option 1 — POST the active waypoint back over the command channel (shipped first, then superseded)
 

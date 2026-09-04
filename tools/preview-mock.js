@@ -473,29 +473,25 @@
         lastCursor = c;
         this._fire('cursor', c);
       };
-      // Squad/TD/waypoint state (docs/sse-push-refactor.md) — the real plugin pushes these
-      // change-gated off its own in-memory state; this harness has no such hook into the Python
-      // mock's _SQD/_TD/routes dicts, so it fakes the same "own event, change-gated" push by
-      // polling their REST endpoints itself and firing on a diff. Invisible to the actual page
-      // code under test, which only ever listens for the fired events — same "harness fakes the
-      // push, real plugin computes it" split every other synthetic bit here already keeps.
-      // ponytail: 1.5s, not faster — serve_web.py's plain http.server opens a fresh TCP connection
+      // Server-owned state (docs/sse-push-refactor.md) is change-gated in the real plugin. The
+      // preview server exposes hashes plus only changed payloads so this synthetic stream can do
+      // the same with one small request instead of polling every REST endpoint independently.
+      // ponytail: 1.5s, not faster — serve_web.py opens a fresh TCP connection
       // per fetch() with no keep-alive, and each one sits in TIME_WAIT for ~2 minutes afterward on
       // Windows; a tighter interval across a long testing session exhausts the local ephemeral port
       // range (ERR_NO_BUFFER_SPACE) even though the real plugin's persistent SSE connection has no
-      // such cost at all. Upgrade path if this still isn't gentle enough: switch serve_web.py to
-      // ThreadingHTTPServer, or add real keep-alive.
-      let lastSqd = '', lastTd = '', lastWpt = '';
+      // such cost at all. Upgrade path if this still isn't gentle enough: add real keep-alive.
+      let pushHashes = {};
       const pushTick = () => {
-        fetch('/squad').then(r => r.ok ? r.text() : null).then(t => {
-          if (t != null && t !== lastSqd) { lastSqd = t; this._fire('sqd', t); }
-        }).catch(() => {});
-        fetch('/td-state').then(r => r.ok ? r.text() : null).then(t => {
-          if (t != null && t !== lastTd) { lastTd = t; this._fire('td-state', t); }
-        }).catch(() => {});
-        fetch('/wpt-options').then(r => r.ok ? r.text() : null).then(t => {
-          if (t != null && t !== lastWpt) { lastWpt = t; this._fire('wpt-options', t); }
-        }).catch(() => {});
+        const query = new URLSearchParams(pushHashes).toString();
+        fetch('/__preview-push' + (query ? '?' + query : ''), { cache: 'no-store' })
+          .then(r => r.ok ? r.json() : null).then(result => {
+            if (!result) return;
+            pushHashes = result.hashes || pushHashes;
+            Object.keys(result.events || {}).forEach(name => {
+              this._fire(name, JSON.stringify(result.events[name]));
+            });
+          }).catch(() => {});
       };
       setTimeout(() => {
         this._fire('hello', JSON.stringify({ cid }));

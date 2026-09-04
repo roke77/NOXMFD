@@ -25,82 +25,86 @@ namespace NOXMFD
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
-        // The keybind registry as JSON for the /keybinds page: every bind's identity + current values,
-        // plus which bind (if any) is armed for joystick capture — the page polls this while open, and
-        // it's also how a capture result comes back. Safe off the main thread: the registry list is
-        // built once at Awake and never mutated, and ConfigEntry/CapturingId reads are plain field reads
-        // (worst case one poll stale).
+        // The keybind registry as JSON for the KEY page and the change-gated SSE snapshot. Safe off
+        // the main thread: the registry list is built once at Awake and never mutated, and the values
+        // are plain ConfigEntry/capture-state reads (worst case one snapshot stale).
         internal static void ServeKeybindsConfig(HttpListenerContext ctx)
         {
             try
             {
-                var sb = new StringBuilder(512);
-                sb.Append("{\"binds\":[");
-                bool first = true;
-                foreach (var b in Keybinds.Binds)
-                {
-                    if (!first) sb.Append(',');
-                    first = false;
-                    sb.Append("{\"id\":\"").Append(TelemetryServer.EscapeJson(b.Id))
-                      .Append("\",\"section\":\"").Append(TelemetryServer.EscapeJson(Keybinds.SectionTitle(b.Section)))
-                      .Append("\",\"label\":\"").Append(TelemetryServer.EscapeJson(b.Label))
-                      .Append("\",\"description\":\"").Append(TelemetryServer.EscapeJson(b.Description)).Append('"');
-                    // Digital source — absent for an axis-only bind (docs/map-cursor.md); the page
-                    // renders no key/joy cell for a row that has no key/joyButton field. The two are
-                    // independently optional: a key-only bind (issue #51's SAVE/LOAD LAYOUT — browser-
-                    // side only, no joystick/HOTAS) has KeyEntry but no JoyEntry, so joyButton/joyNum
-                    // are omitted too — the page renders one wide key cell for that row instead of an
-                    // always-empty joystick cell next to it.
-                    if (b.KeyEntry != null)
-                    {
-                        KeyCode key = b.KeyEntry.Value.MainKey;
-                        sb.Append(",\"key\":\"").Append(key == KeyCode.None ? string.Empty : TelemetryServer.EscapeJson(key.ToString())).Append('"');
-                        if (b.JoyEntry != null)
-                            sb.Append(",\"joyButton\":").Append(b.JoyEntry.Value.ToString(CultureInfo.InvariantCulture))
-                              .Append(",\"joyNum\":").Append(b.JoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture));
-                    }
-                    // Analog source — present only for the MAP cursor's axis-capable rows.
-                    if (b.AxisEntry != null)
-                    {
-                        sb.Append(",\"axis\":").Append(b.AxisEntry.Value.ToString(CultureInfo.InvariantCulture))
-                          .Append(",\"axisNum\":").Append(b.AxisJoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture))
-                          .Append(",\"axisInvert\":").Append(b.AxisInvertEntry!.Value ? "true" : "false");
-                    }
-                    sb.Append('}');
-                }
-                // Per-section notes (shared behaviour text under a section header), keyed by the
-                // display title the binds carry in "section".
-                sb.Append("],\"notes\":{");
-                bool firstNote = true;
-                var seen = new List<string>(4);
-                foreach (var b in Keybinds.Binds)
-                {
-                    if (seen.Contains(b.Section)) continue;
-                    seen.Add(b.Section);
-                    string? note = Keybinds.SectionNote(b.Section);
-                    if (note == null) continue;
-                    if (!firstNote) sb.Append(',');
-                    firstNote = false;
-                    sb.Append('"').Append(TelemetryServer.EscapeJson(Keybinds.SectionTitle(b.Section)))
-                      .Append("\":\"").Append(TelemetryServer.EscapeJson(note)).Append('"');
-                }
-                string? cap = Keybinds.CapturingId;
-                string? capKind = Keybinds.CapturingKind;
-                sb.Append("},\"capturing\":").Append(cap == null ? "null" : "\"" + TelemetryServer.EscapeJson(cap) + "\"")
-                  .Append(",\"capturingKind\":").Append(capKind == null ? "null" : "\"" + TelemetryServer.EscapeJson(capKind) + "\"")
-                  .Append(",\"bgInput\":").Append(Keybinds.BackgroundInput ? "true" : "false")
-                  .Append(",\"radarOnOnStart\":").Append(ImmersionConfig.RadarOnOnStart ? "true" : "false")
-                  .Append(",\"engineOnOnStart\":").Append(ImmersionConfig.EngineOnOnStart ? "true" : "false")
-                  .Append(",\"masterArmsOnOnStart\":").Append(ImmersionConfig.MasterArmsOnOnStart ? "true" : "false")
-                  .Append(",\"powerOnOnStart\":").Append(ImmersionConfig.PowerOnOnStart ? "true" : "false")
-                  .Append(",\"hudFiltersOnCombatMode\":").Append(ImmersionConfig.HudFiltersOnCombatMode ? "true" : "false")
-                  .Append(",\"remoteKeybindsSamePc\":").Append(IsSameMachineRequest(ctx) ? "true" : "false")
-                  .Append('}');
-
-                TelemetryServer.WriteJson(ctx, sb.ToString());
+                TelemetryServer.WriteJson(ctx, BuildKeybindsConfig(ctx));
             }
             catch { }
             finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // remoteKeybindsSamePc is request-specific, so the SSE connection and REST fallback both
+        // build through this method instead of sharing one process-wide JSON cache.
+        internal static string BuildKeybindsConfig(HttpListenerContext ctx)
+        {
+            var sb = new StringBuilder(16384);
+            sb.Append("{\"binds\":[");
+            bool first = true;
+            foreach (var b in Keybinds.Binds)
+            {
+                if (!first) sb.Append(',');
+                first = false;
+                sb.Append("{\"id\":\"").Append(TelemetryServer.EscapeJson(b.Id))
+                  .Append("\",\"section\":\"").Append(TelemetryServer.EscapeJson(Keybinds.SectionTitle(b.Section)))
+                  .Append("\",\"label\":\"").Append(TelemetryServer.EscapeJson(b.Label))
+                  .Append("\",\"description\":\"").Append(TelemetryServer.EscapeJson(b.Description)).Append('"');
+                // Digital source — absent for an axis-only bind (docs/map-cursor.md); the page
+                // renders no key/joy cell for a row that has no key/joyButton field. The two are
+                // independently optional: a key-only bind (issue #51's SAVE/LOAD LAYOUT — browser-
+                // side only, no joystick/HOTAS) has KeyEntry but no JoyEntry, so joyButton/joyNum
+                // are omitted too — the page renders one wide key cell for that row instead of an
+                // always-empty joystick cell next to it.
+                if (b.KeyEntry != null)
+                {
+                    KeyCode key = b.KeyEntry.Value.MainKey;
+                    sb.Append(",\"key\":\"").Append(key == KeyCode.None ? string.Empty : TelemetryServer.EscapeJson(key.ToString())).Append('"');
+                    if (b.JoyEntry != null)
+                        sb.Append(",\"joyButton\":").Append(b.JoyEntry.Value.ToString(CultureInfo.InvariantCulture))
+                          .Append(",\"joyNum\":").Append(b.JoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture));
+                }
+                // Analog source — present only for the MAP cursor's axis-capable rows.
+                if (b.AxisEntry != null)
+                {
+                    sb.Append(",\"axis\":").Append(b.AxisEntry.Value.ToString(CultureInfo.InvariantCulture))
+                      .Append(",\"axisNum\":").Append(b.AxisJoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture))
+                      .Append(",\"axisInvert\":").Append(b.AxisInvertEntry!.Value ? "true" : "false");
+                }
+                sb.Append('}');
+            }
+            // Per-section notes (shared behaviour text under a section header), keyed by the
+            // display title the binds carry in "section".
+            sb.Append("],\"notes\":{");
+            bool firstNote = true;
+            var seen = new List<string>(4);
+            foreach (var b in Keybinds.Binds)
+            {
+                if (seen.Contains(b.Section)) continue;
+                seen.Add(b.Section);
+                string? note = Keybinds.SectionNote(b.Section);
+                if (note == null) continue;
+                if (!firstNote) sb.Append(',');
+                firstNote = false;
+                sb.Append('"').Append(TelemetryServer.EscapeJson(Keybinds.SectionTitle(b.Section)))
+                  .Append("\":\"").Append(TelemetryServer.EscapeJson(note)).Append('"');
+            }
+            string? cap = Keybinds.CapturingId;
+            string? capKind = Keybinds.CapturingKind;
+            sb.Append("},\"capturing\":").Append(cap == null ? "null" : "\"" + TelemetryServer.EscapeJson(cap) + "\"")
+              .Append(",\"capturingKind\":").Append(capKind == null ? "null" : "\"" + TelemetryServer.EscapeJson(capKind) + "\"")
+              .Append(",\"bgInput\":").Append(Keybinds.BackgroundInput ? "true" : "false")
+              .Append(",\"radarOnOnStart\":").Append(ImmersionConfig.RadarOnOnStart ? "true" : "false")
+              .Append(",\"engineOnOnStart\":").Append(ImmersionConfig.EngineOnOnStart ? "true" : "false")
+              .Append(",\"masterArmsOnOnStart\":").Append(ImmersionConfig.MasterArmsOnOnStart ? "true" : "false")
+              .Append(",\"powerOnOnStart\":").Append(ImmersionConfig.PowerOnOnStart ? "true" : "false")
+              .Append(",\"hudFiltersOnCombatMode\":").Append(ImmersionConfig.HudFiltersOnCombatMode ? "true" : "false")
+              .Append(",\"remoteKeybindsSamePc\":").Append(IsSameMachineRequest(ctx) ? "true" : "false")
+              .Append('}');
+            return sb.ToString();
         }
 
         private static HashSet<string>? _localAddressCache;

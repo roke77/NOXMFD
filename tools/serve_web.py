@@ -37,6 +37,7 @@ the older single-slot preview/assets/manifest.json if neither CURRENT nor its ta
 Ctrl+C to stop.
 """
 import argparse
+import hashlib
 import http.server
 import json
 import os
@@ -260,6 +261,26 @@ def _config(port):
         "port": port,
         "version": _plugin_version(),
     }).encode("utf-8")
+
+
+def _preview_push(query):
+    """Change-gated snapshots for preview-mock.js's synthetic SSE connection."""
+    previous = urllib.parse.parse_qs(query)
+    snapshots = {
+        "sqd": _squad_state(),
+        "td-state": _td_state(),
+        "wpt-options": _captured_or("wpt-options", _wpt_options),
+        "keybinds-config": _keybinds_config(),
+        "hud-options": _captured_or("hud-options", _hud_options),
+    }
+    hashes = {}
+    events = {}
+    for name, payload in snapshots.items():
+        digest = hashlib.sha1(payload).hexdigest()[:12]
+        hashes[name] = digest
+        if previous.get(name, [""])[0] != digest:
+            events[name] = json.loads(payload)
+    return json.dumps({"hashes": hashes, "events": events}).encode("utf-8")
 
 
 # Mock of the plugin's /hud-options (TelemetryServer.RefreshHudOptions). A real in-game snapshot,
@@ -1043,13 +1064,16 @@ class H(http.server.SimpleHTTPRequestHandler):
         return self.send_error(404, not_found)
 
     def do_GET(self):
-        path = self.path.split('?', 1)[0]
+        parsed = urllib.parse.urlsplit(self.path)
+        path = parsed.path
         if path in ('/', '/index.html'):
             return self._send(_shell_page(WEB / 'shell' / 'classic' / 'mfd.html'), 'text/html; charset=utf-8')
         if path == '/f35':
             return self._send(_shell_page(WEB / 'shell' / 'f35' / 'f35.html'), 'text/html; charset=utf-8')
         if path == '/__reload-token':
             return self._send(str(_reload_token()).encode('utf-8'), 'text/plain; charset=utf-8')
+        if path == '/__preview-push':
+            return self._send(_preview_push(parsed.query), 'application/json; charset=utf-8')
         if path == '/thrl-demo':
             return self._file(REPO / 'tools' / 'thrl-demo.html', 'text/html; charset=utf-8')
         if path == '/config':

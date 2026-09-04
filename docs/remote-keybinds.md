@@ -294,9 +294,9 @@ arbitrates.
 2. **Same-PC detection field** on `/keybinds-config` — compute once per
    request from `ctx.Request.RemoteEndPoint`, compare against loopback + enumerated local
    interface addresses.
-3. **New client module**, `src/web/services/remote-keybinds.js`, following
-   `layout-keybinds.js`'s shape almost exactly: fetch `/keybinds-config` (already polled by the KEY
-   page), build a `key -> id` map from `binds`, listen for `keydown`/`keyup`, translate matched
+3. **New client module**, `src/web/services/remote-keybinds.js`: the top-level copy bootstraps
+   `/keybinds-config` once, consumes later SSE updates, and distributes the current snapshot to
+   child documents; every copy builds a `key -> id` map from `binds`, listens for `keydown`/`keyup`, and translates matched
    events into `sendCommand(...)` calls using each bind's `id` — reusing whatever mapping
    `CommandDispatcher` already expects for that action (some binds map 1:1 to a `cmd` name, others
    need a small id→command lookup table since `bind.id` and `cmd` aren't always the same string).

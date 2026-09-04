@@ -104,13 +104,10 @@ mislabelled.
    Compiles against the real `HUDOptions` API.
 3. **The page** ✅ done — `pages/hud/`, a full replica: mode tabs, category
    toggles, vehicle + building sub-types. Renders from `/hud-options`; each
-   control POSTs an `hud.*` command. Unlike the telemetry-pushed pages, HUD
-   OPTIONS has no push channel, so the page polls `/hud-options` every 1.2 s
-   (matching the plugin's own 1 Hz snapshot) instead of re-fetching only after
-   its own writes — one loop catches a toggle pressed in game, a mode press
-   rewriting many toggles at once, and a mission starting/ending. Clicks flip
-   optimistically for instant feedback. Split-capable, like TGT/BDF/PAL — the page is self-driven
-   (it polls `/hud-options` itself), so a split pane needs no shell forwarding.
+   control POSTs an `hud.*` command. The page makes one bootstrap GET, then the existing MAP SSE
+   connection relays only changed HUD snapshots through the shell. This catches in-game changes,
+   mode rewrites, and mission transitions without recurring fetches or unchanged DOM rebuilds.
+   Clicks still flip optimistically for instant feedback. Split-capable, like TGT/BDF/PAL.
 4. **Both layouts** ✅ done — the F-35's `hud` action opens `/hud` (PoC stub
    removed); the bezel has an HUD key on MAIN (`BEZEL_EXTRAS`, right bank) opening
    the same `#page-frame` page. The MAIN back button comes from a new
@@ -138,8 +135,8 @@ page to the same flags carried no new game-integration risk:
   `ConfigEntry.Value` (which persists to the .cfg); `HudDeclutter` applies it on
   its next tick — nothing to apply in the handler.
 - **Read** — `/hud-options` gained a `declutter: {weapon, minimap, boxes}` object
-  (each `true` = currently hidden), so the same 1.2 s poll that syncs the rest of
-  the page also reflects a flag edited directly in the .cfg.
+  (each `true` = currently hidden), so the same change-gated snapshot that syncs the rest of
+  the page also reflects a flag edited through the mod.
 - **Page** — the strip inverts the reported hide flag to a lit/gray "shown on
   HUD" state, matching the rest of the page (lit green = visible). A click flips
   optimistically and POSTs `declutter.set` with the inverse (`on` = hide).
@@ -174,8 +171,7 @@ clean sprite to capture. Left off rather than faked; an inline-SVG approximation
 
 - **Modes vs. manual toggles.** Resolved — the page just resyncs (no per-toggle
   diff shown). Selecting a mode applies a preset that overwrites the category/
-  type toggles; the continuous 1.2 s poll picks up the resulting state on its
-  own, same as any other externally-driven change.
+  type toggles; the next change-gated SSE snapshot carries the resulting state.
 - **Persistence.** `HUDOptions.SaveSettings()` writes the current mode's preset
   to JSON. The page does not need to call it — toggles apply live and the game
   owns persistence. The "save this as a named default" nicety this note used to
@@ -184,17 +180,14 @@ clean sprite to capture. Left off rather than faked; an inline-SVG approximation
 - **Category label drift.** See "Why category names are the page's". If it ever
   bites, the fix is to derive names plugin-side (faction flag for the first two,
   unit-definition type for the rest) and emit them like vehicles/buildings.
-- **Reflecting in-game toggles.** Resolved — the page polls `/hud-options` every
-  1.2 s (stage 3), so a change made from the in-cockpit screen shows on the MFD
-  within ~1 s (the plugin's 1 Hz refresh tick), not only after the page's own
-  writes.
+- **Reflecting in-game toggles.** Resolved — the plugin refreshes its HUD snapshot at 1 Hz and
+  `SseHub` sends it only when changed, so an in-cockpit change appears within roughly one second.
 - **A second driver of the mode tabs.** [issue #50](https://github.com/roke77/NOXMFD/issues/50)
   (docs/radar-master-arms.md) has weapons/combat mode force-apply the A2A/A2G mode preset
   automatically, and restore the player's own last-edited values on returning to idle — opt-in, off
   by default (KEY page toggle). That snapshot lives outside `HUDOptions` entirely
-  (`HudCombatModeFilters.cs`) — this page and its 1.2 s poll are unaware of it and need no changes;
-  from the page's point of view it's just another externally-driven change showing up on the next
-  poll, same as an in-cockpit toggle.
+  (`HudCombatModeFilters.cs`) — from the page's point of view it is just another externally-driven
+  change arriving in the next HUD-options snapshot.
 - **HUD presets** ([docs/hud-presets.md](hud-presets.md)) — a separate feature, the page's own 5
   named save/load slots (bottom bar, `preset` field on `/hud-options`, `/hud-presets` for the LOAD
   list). Independent of the mode tabs and of the combat-mode automation above; the only touchpoint
