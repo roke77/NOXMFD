@@ -82,7 +82,8 @@ Worth doing before restoring `PerfLog.cs` for that reason.
 
 ## Stage 4 — web Tier 1 render guards (batched)
 
-Branch: TBD.
+**Done.** Branch: `audit-web-render-guards` (off `audit-plugin-asset-serving`'s tip, same reason as
+the earlier stages).
 
 Findings 01-09 from the web audit, batched as one pass per the audit's own suggested sequencing —
 every one is the same "add a comparison before the write" shape, so uniform risk, done together.
