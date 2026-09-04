@@ -31,6 +31,15 @@ namespace NOXMFD
         private TMP_Text? _label;
         private string?   _lastLabelText;
 
+        // A failed Build() (no Altitude in the scene yet, or its radarAlt field unreadable) used to
+        // retry on every single frame for the rest of the mission, since nothing here ever set
+        // _label — a full FindFirstObjectByType<Altitude> scene scan at 60 Hz+ whenever a target is
+        // locked (docs/plugin-efficiency-audit.md correctness section). Back off instead: a failure
+        // is remembered for BuildRetryInterval before the next attempt, cheap enough that a genuine
+        // recovery (e.g. the HUD rebuilding on respawn) is still picked up quickly.
+        private const float BuildRetryInterval = 5f;
+        private float _nextBuildAttempt;
+
         private void LateUpdate()
         {
             uint targetId = TargetFocus.Id;
@@ -40,10 +49,15 @@ namespace NOXMFD
                 return;
             }
 
-            if (_label == null && !Build())
+            if (_label == null)
             {
-                Hide();
-                return;
+                if (Time.unscaledTime < _nextBuildAttempt) { Hide(); return; }
+                if (!Build())
+                {
+                    _nextBuildAttempt = Time.unscaledTime + BuildRetryInterval;
+                    Hide();
+                    return;
+                }
             }
 
             _recomputeTimer += Time.deltaTime;
