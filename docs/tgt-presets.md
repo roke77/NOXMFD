@@ -66,6 +66,10 @@ scalar bools for laser/HUD mode.
   no-op guard) — both identical reasoning to `HudPresetStore`.
 - **Reused `LayoutModal`**, exactly as HUD presets did — `tgt.html` just also loads
   `layout-modal.css`/`.js`.
+- **The SAVE/LOAD/`fetchPresetItems` wiring itself moved into a shared `preset-bar.js`**
+  (`src/web/shell/shared/`) rather than being copy-pasted into `tgt.js` a second time — `hud.js`'s
+  own inline version became the first user of the extraction, taking a `getPreset`/`setPreset` pair
+  so each page keeps owning its own state shape (`data.preset` vs `state.preset`).
 
 ## What is built
 
@@ -77,7 +81,8 @@ scalar bools for laser/HUD mode.
 | [`src/plugin/Http/ConfigEndpoint.cs`](../src/plugin/Http/ConfigEndpoint.cs), [`TelemetryHttpRouter.cs`](../src/plugin/Http/TelemetryHttpRouter.cs) | `GET /tgt-presets` serves the full 5-slot summary for the LOAD picker. |
 | [`src/plugin/Input/Keybinds.cs`](../src/plugin/Input/Keybinds.cs) | 5 `DefFree` binds (**TGT Preset 1**-**5**), section `TGT Preset Keybinds` → displayed as **TGT PRESETS**. |
 | [`src/plugin/Plugin.cs`](../src/plugin/Plugin.cs) | `TgtPresetStore.Load`/`.SelfCheck` wired into startup, next to `HudPresetStore`'s own. |
-| [`src/web/pages/tgt/tgt.html`](../src/web/pages/tgt/tgt.html), [`tgt.js`](../src/web/pages/tgt/tgt.js), [`tgt.css`](../src/web/pages/tgt/tgt.css) | The bottom bar, SAVE/LOAD wiring, `fetchPresetItems` (on-demand `/tgt-presets` fetch for the LOAD list only — the bottom label rides the existing `tgt` telemetry block). PAD-cursor `CURSORABLE` extended to include the two new buttons. |
+| [`src/web/pages/tgt/tgt.html`](../src/web/pages/tgt/tgt.html), [`tgt.js`](../src/web/pages/tgt/tgt.js), [`tgt.css`](../src/web/pages/tgt/tgt.css) | The bar markup/styling and the page-specific glue (`getPreset`/`setPreset` reading/writing `state.preset`). PAD-cursor `CURSORABLE` extended to include the two new buttons. |
+| [`src/web/shell/shared/preset-bar.js`](../src/web/shell/shared/preset-bar.js) | The actual SAVE/LOAD/`LayoutModal`/`fetchPresetItems` wiring — shared with [HUD presets](hud-presets.md), extracted here since TGT presets made it a second identical copy rather than a one-off. |
 | [`tools/serve_web.py`](../tools/serve_web.py) | Stateful mock (`TGT_PRESETS`/`TGT_PRESET_STATE`), same shape as `PRESETS`/`PRESET_STATE` — the name/list/rename/delete/current-slot machinery is fully exercised; the bottom label itself stays static in the harness (see below). |
 | [`tools/preview-mock.js`](../tools/preview-mock.js) | Static `preset: {index:1, name:''}` added to the `tgt` mock block, for a sensible standalone render. |
 | [`man/tgt.md`](../man/tgt.md), [`man/keybinds.md`](../man/keybinds.md) | Document the bottom bar and the new **TGT PRESETS** keybind section. |

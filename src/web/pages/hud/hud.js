@@ -2,6 +2,7 @@
 // /hud-options, receives later changes through the shell's SSE relay, and POSTs hud.* commands back.
 // See hud.html for the control contract and docs/hud-page.md for the model.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
+import { createPresetBar } from '/assets/shell/shared/preset-bar.js';
 
 // The game exposes no per-category display name; this order is fixed in its inspector (docs/hud-page.md).
 // The count from /hud-options is checked against this so a game-side reorder surfaces rather than mislabels.
@@ -111,51 +112,19 @@ function render(d) {
 
 // The "PRESET N: name" label rides the page's existing HUD-options snapshot (a `preset` field,
 // TelemetryServer.RefreshHudOptions) rather than a second endpoint; SAVE/LOAD fetch /hud-presets
-// on demand, only while their modal is open.
-function renderPreset() {
-  const p = data.preset || { index: 1, name: '' };
-  presetLabelEl.textContent = 'PRESET ' + p.index + ': ' + (p.name || '');
-}
-
-// LOAD's picker needs the full 5-slot list; the PRESET label alone doesn't need it, so this is
-// fetched only when the LOAD modal opens, not on the page's regular poll.
-function fetchPresetItems() {
-  return fetch('/hud-presets', { cache: 'no-store' })
-    .then(function (r) { return r.ok ? r.json() : { presets: [] }; })
-    .then(function (d) {
-      return (d.presets || []).map(function (p) {
-        return {
-          index: p.index,
-          name: p.name || '',
-          hasData: !!p.hasData,
-          display: 'PRESET ' + p.index + (p.name ? ': ' + p.name : ''),
-        };
-      });
-    })
-    .catch(function () { return []; });
-}
-
-presetSaveBtn.addEventListener('click', function () {
-  LayoutModal.prompt('SAVE PRESET', function (name) {
-    send('preset.save', { wname: name });
-    // Optimistic: we know exactly which slot (whatever's current) and name this just set.
-    if (data.preset) data.preset.name = name;
-    renderPreset();
-    LayoutModal.close();
-  });
+// on demand, only while their modal is open. Shared with TGT's identically-shaped preset bar —
+// see preset-bar.js.
+const presetBar = createPresetBar({
+  endpoint: '/hud-presets',
+  cmdPrefix: 'preset',
+  labelEl: presetLabelEl,
+  saveBtn: presetSaveBtn,
+  loadBtn: presetLoadBtn,
+  send: send,
+  getPreset: function () { return data.preset; },
+  setPreset: function (p) { data.preset = p; },
 });
-
-presetLoadBtn.addEventListener('click', function () {
-  LayoutModal.pickList('LOAD PRESET', fetchPresetItems, {
-    onPick: function (item) {
-      send('preset.load', { index: item.index });
-      data.preset = { index: item.index, name: item.name };   // optimistic; resync settles it
-      renderPreset();
-    },
-    onRename: function (item, name) { return sendCommand('preset.rename', { index: item.index, wname: name }); },
-    onDelete: function (item) { return sendCommand('preset.delete', { index: item.index }); },
-  });
-});
+function renderPreset() { presetBar.render(); }
 
 // The declutter strip: one toggle per native widget. Lit = the widget is SHOWN on the HUD (flag off);
 // gray = hidden/decluttered. Inverts the reported HIDE flag so it reads like the rest of the page

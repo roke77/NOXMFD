@@ -3,6 +3,7 @@
 // command and the next 'tgt' frame (~100 ms) reflects the game's real toggle state, so the buttons
 // never lie even if a tap is dropped. See tgt.html for the message contract + docs/tgt-page.md.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
+import { createPresetBar } from '/assets/shell/shared/preset-bar.js';
 
 const panel = document.getElementById('tgt-panel');
 const rows = {
@@ -137,49 +138,19 @@ function paint() {
 // ── TGT filter presets (issue #78) ────────────────────────────────────────────────────
 // The "PRESET N: name" label rides this page's existing 'tgt' telemetry block (a `preset` field,
 // TelemetryJson.TgtBlock) rather than a second endpoint; SAVE/LOAD fetch /tgt-presets on demand,
-// only while their modal is open. Same shape as hud.js's own renderPreset/fetchPresetItems.
-function renderPreset() {
-  const p = state.preset || { index: 1, name: '' };
-  presetLabelEl.textContent = 'PRESET ' + p.index + ': ' + (p.name || '');
-}
-
-function fetchPresetItems() {
-  return fetch('/tgt-presets', { cache: 'no-store' })
-    .then(function (r) { return r.ok ? r.json() : { presets: [] }; })
-    .then(function (d) {
-      return (d.presets || []).map(function (p) {
-        return {
-          index: p.index,
-          name: p.name || '',
-          hasData: !!p.hasData,
-          display: 'PRESET ' + p.index + (p.name ? ': ' + p.name : ''),
-        };
-      });
-    })
-    .catch(function () { return []; });
-}
-
-presetSaveBtn.addEventListener('click', function () {
-  LayoutModal.prompt('SAVE PRESET', function (name) {
-    send('tgt-preset.save', { wname: name });
-    // Optimistic: we know exactly which slot (whatever's current) and name this just set.
-    state.preset = Object.assign({}, state.preset, { name: name });
-    renderPreset();
-    LayoutModal.close();
-  });
+// only while their modal is open. Shared with HUD's identically-shaped preset bar — see
+// shell/shared/preset-bar.js.
+const presetBar = createPresetBar({
+  endpoint: '/tgt-presets',
+  cmdPrefix: 'tgt-preset',
+  labelEl: presetLabelEl,
+  saveBtn: presetSaveBtn,
+  loadBtn: presetLoadBtn,
+  send: send,
+  getPreset: function () { return state.preset; },
+  setPreset: function (p) { state.preset = p; },
 });
-
-presetLoadBtn.addEventListener('click', function () {
-  LayoutModal.pickList('LOAD PRESET', fetchPresetItems, {
-    onPick: function (item) {
-      send('tgt-preset.load', { index: item.index });
-      state.preset = { index: item.index, name: item.name };   // optimistic; the next frame settles it
-      renderPreset();
-    },
-    onRename: function (item, name) { return sendCommand('tgt-preset.rename', { index: item.index, wname: name }); },
-    onDelete: function (item) { return sendCommand('tgt-preset.delete', { index: item.index }); },
-  });
-});
+function renderPreset() { presetBar.render(); }
 
 // ── Selected-target list ──────────────────────────────────────────────────────────────
 // Range as "8,4 km" (European decimal comma); non-numbers pass through.

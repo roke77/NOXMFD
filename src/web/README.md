@@ -28,6 +28,7 @@ src/web/
                            td-nav.js                      # TD's runtime nav-visibility plan builder (issue #47) —
                                                            # same shape as ext-nav.js, gated on live squad membership
                            tgp-marks.js                   # shared TGP mark-light derivation
+                           preset-bar.js                  # HUD/TGT's shared "PRESET N: name" + SAVE/LOAD bar
             layout-sticky.test.js                         # the classic⇄f35 redirect handoff — belongs to neither
             layout-coverage.test.js                       # every NAV destination reachable in BOTH layouts
             classic/       mfd.html  mfd.css  mfd.js       # the classic bezel shell (host + router)
