@@ -197,25 +197,73 @@ namespace NOXMFD
         // A display drops. If it was the focused one, focus clears — it does NOT move to another
         // display on its own. SOI is opt-in: the ring only ever appears once the pilot presses a SOI
         // key (Cycle from empty), so it must never re-appear on a display they didn't pick. A
-        // mouse/touch user who never touches the keys therefore never sees it. Nothing to do unless
-        // the dropped display held focus.
+        // mouse/touch user who never touches the keys therefore never sees it.
         internal static void ReleaseOnDisconnect(string cid)
         {
             lock (_lock)
             {
-                if (!string.Equals(_targetCid, cid, StringComparison.Ordinal)) return;
                 var all = SseHub.Instances();   // the disconnecting one is already out of the registry
                 // A duplicated tab copies its cid, so a twin may still be holding that display open —
-                // keep focus if so, otherwise clear it (the next SOI keypress re-picks a display).
-                if (all.Exists(x => string.Equals(x.Cid, cid, StringComparison.Ordinal))) return;
+                // keep both its focus and its exclusions if so, otherwise this cid is gone for good:
+                // drop any per-pane exclusions it set (issue #58) so they can't outlive the display
+                // they described, then clear focus if it was the one that held it.
+                bool hasTwin = all.Exists(x => string.Equals(x.Cid, cid, StringComparison.Ordinal));
+                if (!hasTwin) _excluded.RemoveWhere(k => string.Equals(k.cid, cid, StringComparison.Ordinal));
+                if (!string.Equals(_targetCid, cid, StringComparison.Ordinal)) return;
+                if (hasTwin) return;
                 SetTargetLocked(string.Empty, -1);
+            }
+        }
+
+        // Per-surface opt-out from the SOI ring (issue #58) — a (cid, pane) a pilot has excluded via
+        // the LOAD LAYOUT checkboxes stays out of RingLocked()/Cycle() entirely. Only exclusions are
+        // stored: SOI's ring is otherwise opt-in for the RING (nothing focuses until a key is
+        // pressed) but opt-OUT per surface, so "not in the set" already means included — the default
+        // every surface had before this feature existed.
+        private static readonly HashSet<(string cid, int pane)> _excluded = new HashSet<(string, int)>();
+
+        internal static bool IsIncluded(string cid, int pane)
+        {
+            lock (_lock) return !_excluded.Contains((cid, pane));
+        }
+
+        // Called from a browser's LOAD LAYOUT checkbox (soi.include). Excluding the surface that
+        // currently holds focus moves focus off it immediately, the same way a shrinking
+        // SetPaneCount clamps away from a pane that no longer exists — a pilot unchecking "include"
+        // shouldn't need a spare SOI press before the ring actually reflects it.
+        internal static void SetIncluded(string cid, int pane, bool included)
+        {
+            lock (_lock)
+            {
+                var key = (cid, pane);
+                bool changed = included ? _excluded.Remove(key) : _excluded.Add(key);
+                if (!changed) return;
+                if (included || !string.Equals(_targetCid, cid, StringComparison.Ordinal) || _targetPane != pane)
+                    return;
+                var ring = RingLocked();
+                SetTargetLocked(ring.Count == 0 ? string.Empty : ring[0].cid, ring.Count == 0 ? -1 : ring[0].pane);
+            }
+        }
+
+        // Which of this cid's own surfaces are currently excluded, as a JSON array of pane indices —
+        // read once by the LOAD LAYOUT modal (issue #58) when it opens, so its checkboxes reflect
+        // real server state instead of always defaulting to checked.
+        internal static string ExcludedJson(string cid)
+        {
+            lock (_lock)
+            {
+                var panes = new List<int>();
+                foreach (var k in _excluded)
+                    if (string.Equals(k.cid, cid, StringComparison.Ordinal)) panes.Add(k.pane);
+                return "[" + string.Join(",", panes) + "]";
             }
         }
 
         // The flat ring SOI cycles through: every instance's every surface, instance-major and
         // surface-minor, oldest connection first. Deduped by cid so a twin (same cid, second
-        // connection) doesn't put the same document in the ring twice. Built under _lock by the
-        // callers that need it.
+        // connection) doesn't put the same document in the ring twice. Excludes any surface a pilot
+        // has opted out (issue #58) — it simply never appears, same as a surface that doesn't exist.
+        // Built under _lock by the callers that need it.
         private static List<(string cid, int pane)> RingLocked()
         {
             var ring = new List<(string, int)>();
@@ -223,7 +271,8 @@ namespace NOXMFD
             foreach (var inst in SseHub.Instances())
             {
                 if (!seen.Add(inst.Cid)) continue;
-                for (int p = 0; p < inst.PaneCount; p++) ring.Add((inst.Cid, p));
+                for (int p = 0; p < inst.PaneCount; p++)
+                    if (!_excluded.Contains((inst.Cid, p))) ring.Add((inst.Cid, p));
             }
             // The manual TGP camera joins the same ring, but only while it's actually engaged
             // (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — appended last so an
@@ -263,6 +312,11 @@ namespace NOXMFD
             {
                 foreach (var inst in SseHub.Instances())
                     if (string.Equals(inst.Cid, cid, StringComparison.Ordinal)) inst.PaneCount = n;
+
+                // A merge just removed pane indices n..: drop any exclusion on them (issue #58) so a
+                // later split that recreates that same index starts back at the default (included) —
+                // no dangling per-index state survives past the pane it described.
+                _excluded.RemoveWhere(k => string.Equals(k.cid, cid, StringComparison.Ordinal) && k.pane >= n);
 
                 if (string.Equals(_targetCid, cid, StringComparison.Ordinal) && _targetPane >= n)
                     SetTargetLocked(cid, n - 1);

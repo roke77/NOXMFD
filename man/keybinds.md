@@ -122,6 +122,9 @@ is selected until you press a SOI key.
 - **Nav Up / Nav Down** — move the cursor over the selected screen's buttons.
 - **Nav Select** — press the button under the cursor.
 
+A display, pane, or F-35 portal can be excluded from SOI Next/Prev entirely — see
+[LOAD LAYOUT](layouts.md#saveload-layout)'s checkboxes.
+
 ![SOI-selected screen](images/SOI1.png)
 
 ![SOI-selected screen](images/SOI2.png)

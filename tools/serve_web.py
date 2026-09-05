@@ -785,6 +785,31 @@ def _tgt_preset_command(env):
     return False
 
 
+# Stateful mock of SoiFocus's per-surface include/exclude set (issue #58) — cid -> set of excluded
+# pane indices. There's no ring/cycle simulation in this harness (SOI focus itself is unmocked,
+# same pre-existing gap /soi-instances has here), but the LOAD LAYOUT checkboxes' own fetch/set
+# round-trip — what this feature actually adds on the wire — is fully exercisable without one.
+SOI_EXCLUDED = {}
+
+
+def _soi_excluded_json(cid):
+    return json.dumps({"excluded": sorted(SOI_EXCLUDED.get(cid, set()))}).encode("utf-8")
+
+
+def _soi_command(env):
+    if env.get("cmd") != "soi.include":
+        return False
+    cid = env.get("cid") or ""
+    if not cid:
+        return False
+    panes = SOI_EXCLUDED.setdefault(cid, set())
+    if env.get("on"):
+        panes.discard(env.get("n", 0))
+    else:
+        panes.add(env.get("n", 0))
+    return True
+
+
 # Stateful mock of the plugin's /keybinds-config + keybind.* commands, so the /keybinds page's
 # whole flow (render, keyboard set, joystick arm-capture) is drivable in the harness. Arming a
 # joystick capture "captures" a fake button ~1.5s later (simulated on the next poll after the
@@ -1090,6 +1115,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             _layout_command(env)
             _preset_command(env)
             _tgt_preset_command(env)
+            _soi_command(env)
             self.send_response(204)
             self.end_headers()
             return
@@ -1135,6 +1161,9 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(_hud_presets_options(), 'application/json; charset=utf-8')
         if path == '/tgt-presets':
             return self._send(_tgt_presets_options(), 'application/json; charset=utf-8')
+        if path == '/soi-excluded':
+            cid = urllib.parse.parse_qs(parsed.query).get('cid', [''])[0]
+            return self._send(_soi_excluded_json(cid), 'application/json; charset=utf-8')
         if path == '/keybinds-config':
             return self._send(_keybinds_config(), 'application/json; charset=utf-8')
         if path == '/rates-config':

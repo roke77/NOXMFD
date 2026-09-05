@@ -52,12 +52,14 @@ namespace NOXMFD
                                 // follow-up, td.js's own tap-vs-hold gesture) — skips clearing the
                                 // leader's TD selection after this assign, so the same selection can
                                 // be designated to several slots in a row
+                                // soi.include : desired included state (true = back in the SOI ring)
         public string? bind;   // keybind.* : BindDef id ("flares", "gear-up", ...)
                                 // wpt.* : route or steer-point id ("" = clear selection)
         public string? key;    // keybind.set-key : Unity KeyCode name ("" or "None" clears)
-        public string? cid;    // soi.panes / soi.page : which instance is reporting (a POST isn't tied to its /stream)
+        public string? cid;    // soi.panes / soi.page / soi.include : which instance is reporting
+                                // (a POST isn't tied to its /stream)
         public int    n;       // soi.panes : how many focusable surfaces that instance now shows
-                                // soi.page : which of that instance's surfaces (pane index)
+                                // soi.page / soi.include : which of that instance's surfaces (pane index)
                                 // wpt.reorder-waypoint : the "to" index
         public float  hz;      // rates.set : desired rate in Hz (group picks which — "fast" | "contact" | "tgp")
         public float  x;       // cursor.set : live cursor velocity X [-1,1]
@@ -228,6 +230,9 @@ namespace NOXMFD
                 // looking at the external TGP page directly (docs/tgp-manual-control.md's PAD
                 // Cursor consolidation plan, TelemetryServer.IsTgpSoi).
                 { "soi.page",           e => TelemetryServer.ReportSoiPage(e.cid ?? string.Empty, e.n, e.wname ?? string.Empty) },
+                // A browser's LOAD LAYOUT checkbox (issue #58) opting one of its own surfaces in/out
+                // of the SOI ring — n : pane index, on : desired included state.
+                { "soi.include",        e => TelemetryServer.SetSoiIncluded(e.cid ?? string.Empty, e.n, e.on) },
                 // Waypoint/route editing — RouteStore is the plugin's own authoritative route library.
                 { "wpt.create",           e => LogWpt("create",           RouteStore.CreateRoute(e.wname ?? string.Empty) != null) },
                 { "wpt.rename",           e => LogWpt("rename",           RouteStore.RenameRoute(e.bind ?? string.Empty, e.wname ?? string.Empty)) },

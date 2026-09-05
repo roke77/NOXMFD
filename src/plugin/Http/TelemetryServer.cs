@@ -162,6 +162,7 @@ namespace NOXMFD
         internal static void SoiReleaseOnDisconnect(string cid) => SoiFocus.ReleaseOnDisconnect(cid);
         internal static void SoiCycle(int dir) => SoiFocus.Cycle(dir);
         internal static void SetPaneCount(string cid, int n) => SoiFocus.SetPaneCount(cid, n);
+        internal static void SetSoiIncluded(string cid, int pane, bool included) => SoiFocus.SetIncluded(cid, pane, included);
 
         // Which locked target Next/Previous currently focuses (issue #62) — see TargetFocus.cs.
         // Read-only facade: the cycling itself needs the live player aircraft's target list, so it

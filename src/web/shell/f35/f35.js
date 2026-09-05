@@ -1339,8 +1339,15 @@
   // applyLayoutState definitions further down, which are hoisted function declarations so the
   // reference is fine) because the picker wiring just below needs openSaveLayoutModal/
   // openLoadLayoutModal as values, not just calls deferred to click time.
+  // SOI include/exclude checkboxes (issue #58) — one per live portal, left to right (portals[0]
+  // is the leftmost, same order soi.panes already reports). Declared here for the same hoisting
+  // reason as captureLayoutState/applyLayoutState above.
+  function soiSurfaces() {
+    return { cid: myCid, labels: portals.map(function (_, i) { return 'Include portal ' + (i + 1) + ' in SOI'; }) };
+  }
+
   const { openSaveLayoutModal, openLoadLayoutModal, handleLayoutKeydown, wireLayoutKeydown } =
-    LayoutKeydown.makeLayoutKeydownHandlers('f35', captureLayoutState, applyLayoutState);
+    LayoutKeydown.makeLayoutKeydownHandlers('f35', captureLayoutState, applyLayoutState, soiSurfaces);
 
   // ── Layout picker ──────────────────────────────────────────────────────────────────────
   // LYT (a portal's MAIN, GLASS_ACTIONS) swaps the portals for a two-item chooser — the same place

@@ -90,14 +90,35 @@
   //                                 swap (mirrors WPT's own editRow — wpt.js), Enter/✓ to commit.
   //   opts.onDelete(item)        — optional. Adds a "×" button per row, no confirm step (mirrors
   //                                 WPT's own route/waypoint delete — low-stakes, easy to redo).
+  //   opts.checkboxes            — optional array of {label, checked, onChange(checked)}, rendered
+  //                                 above the list (issue #58's SOI include/exclude controls — a
+  //                                 generic slot, not SOI-specific, same reasoning as item.display).
   // Both mutation callbacks return a promise; the list redraws (fetchItems again) once it resolves.
   function pickList(titleText, fetchItems, opts) {
     const body = document.createElement('div');
     body.className = 'layout-modal-body';
+    if (opts.checkboxes && opts.checkboxes.length) body.appendChild(buildCheckboxes(opts.checkboxes));
     const listEl = document.createElement('div');
     listEl.className = 'layout-modal-list';
     body.appendChild(listEl);
     body.appendChild(makeActions([{ label: 'Cancel', onClick: close }]));
+
+    function buildCheckboxes(specs) {
+      const box = document.createElement('div');
+      box.className = 'layout-modal-checkboxes';
+      specs.forEach(function (spec) {
+        const row = document.createElement('label');
+        row.className = 'layout-modal-checkbox';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = !!spec.checked;
+        input.addEventListener('change', function () { spec.onChange(input.checked); });
+        row.appendChild(input);
+        row.appendChild(document.createTextNode(spec.label));
+        box.appendChild(row);
+      });
+      return box;
+    }
 
     function refresh() { fetchItems().then(draw); }
 

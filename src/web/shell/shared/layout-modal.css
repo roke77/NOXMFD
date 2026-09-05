@@ -61,6 +61,26 @@
   text-align: center;
   padding: 8px 0;
 }
+/* SOI include/exclude checkboxes (issue #58), shown above the saved-layout list. */
+.layout-modal-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--no-green-dark);
+}
+.layout-modal-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: var(--no-green-dim);
+  cursor: pointer;
+}
+.layout-modal-checkbox input {
+  accent-color: var(--no-green);
+}
 .layout-modal-list {
   display: flex;
   flex-direction: column;

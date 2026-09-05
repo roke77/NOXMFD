@@ -198,6 +198,22 @@ namespace NOXMFD
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
+        // Which of one browser's own surfaces (panes/portals) are currently excluded from the SOI
+        // ring (issue #58), as {"excluded":[pane,...]} — fetched on demand when that browser's LOAD
+        // LAYOUT modal opens, so its checkboxes reflect real server state. cid is never echoed back
+        // (the response carries only pane indices), so it needs no sanitizing beyond the empty case
+        // SoiFocus.ExcludedJson already handles (no matches).
+        internal static void ServeSoiExcluded(HttpListenerContext ctx)
+        {
+            try
+            {
+                string cid = ctx.Request.QueryString["cid"] ?? string.Empty;
+                TelemetryServer.WriteJson(ctx, "{\"excluded\":" + SoiFocus.ExcludedJson(cid) + "}");
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
         internal static void ServeRatesConfig(HttpListenerContext ctx)
         {
             try

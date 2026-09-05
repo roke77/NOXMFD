@@ -53,6 +53,8 @@ namespace NOXMFD
                 ConfigEndpoint.ServeKeybindsConfig(ctx);
             else if (path == "/soi-instances")
                 TelemetryServer.ServeSoiInstances(ctx);
+            else if (path == "/soi-excluded")
+                ConfigEndpoint.ServeSoiExcluded(ctx);
             else if (path == "/squad")
                 SquadEndpoint.ServeSquad(ctx);
             else if (path == "/server-players")

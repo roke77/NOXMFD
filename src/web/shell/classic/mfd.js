@@ -2811,10 +2811,23 @@ function applyLayoutState(state) {
   }
 }
 
+// SOI include/exclude checkboxes (issue #58), shown above LOAD LAYOUT's list — describes this
+// browser's own live surfaces so LayoutKeydown can fetch/set their SOI-ring membership without
+// knowing CLASSIC's split model itself. Pane 0 is always TOP (H_SPLIT) or LEFT (any V_SPLIT
+// variant); pane 1 is BOTTOM or RIGHT — same convention soiKeys()'s paneTag already uses.
+function soiSurfaces() {
+  const labels = !splitMode
+    ? ['Include panel in SOI']
+    : splitVariant === 'h'
+      ? ['Include TOP panel in SOI', 'Include BOTTOM panel in SOI']
+      : ['Include LEFT panel in SOI', 'Include RIGHT panel in SOI'];
+  return { cid: myCid, labels: labels };
+}
+
 // SAVE/LOAD LAYOUT keyboard wiring is shared with f35.js via src/web/shell/layout-keydown.js —
 // only captureLayoutState/applyLayoutState (this shell's own state shape) stay here.
 const { openSaveLayoutModal, openLoadLayoutModal, handleLayoutKeydown, wireLayoutKeydown } =
-  LayoutKeydown.makeLayoutKeydownHandlers('classic', captureLayoutState, applyLayoutState);
+  LayoutKeydown.makeLayoutKeydownHandlers('classic', captureLayoutState, applyLayoutState, soiSurfaces);
 window.addEventListener('keydown', handleLayoutKeydown);
 wireLayoutKeydown(mapFrame);
 wireLayoutKeydown(pageFrame);

@@ -63,6 +63,11 @@ keyboard. **CFG** (top of the same menu) goes back to [KEY](keybinds.md) and the
 On CLASSIC, saving while on this LYT menu remembers LYT itself as the current page — but if you
 had a page pinned, that's remembered too, so one SWAP after loading takes you straight back to it.
 
+Above the saved-layout list, **Load Layout** also shows a checkbox for each of this display's own
+panes (or F-35 portals) — "Include TOP/BOTTOM panel in SOI", "Include LEFT/RIGHT panel in SOI", or
+"Include portal N in SOI" — checked by default. Uncheck one to remove that pane or portal from
+[SOI Next/Prev](keybinds.md#sensor-of-interest-soi)'s cycle entirely, on this display only.
+
 ![SAVE LAYOUT](images/SAVE.png)
 
 ![LOAD LAYOUT](images/LOAD.png)

@@ -7,7 +7,12 @@
 (function (root) {
   // shellName: 'classic' | 'f35', used both as LayoutStore's shell tag and the list filter.
   // captureLayoutState()/applyLayoutState(state): the shell's own state get/set functions.
-  function makeLayoutKeydownHandlers(shellName, captureLayoutState, applyLayoutState) {
+  // getSoiSurfaces() (optional, issue #58): returns { cid, labels } describing THIS browser's own
+  // live surfaces right now — one label per pane/portal, in SOI's own pane-index order. The shell
+  // is the only thing that knows whether it's a full view, an H/V split, or an F-35 portal count,
+  // so it owns the exact wording ("Include TOP panel in SOI", "Include portal 2 in SOI", ...);
+  // this module only knows how to fetch/set the server's included/excluded state generically.
+  function makeLayoutKeydownHandlers(shellName, captureLayoutState, applyLayoutState, getSoiSurfaces) {
     function shellLayouts() {
       return LayoutStore.list().then(function (data) {
         return (data.layouts || []).filter(function (l) { return l.shell === shellName; });
@@ -21,13 +26,38 @@
       });
     }
 
+    // Fetched fresh every time LOAD opens (server-side state, not part of a saved layout) so a
+    // change made from another tab sharing the same cid is never shown stale.
+    function soiCheckboxes() {
+      const s = getSoiSurfaces && getSoiSurfaces();
+      if (!s || !s.cid || !s.labels.length) return Promise.resolve([]);
+      return fetch('/soi-excluded?cid=' + encodeURIComponent(s.cid), { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : { excluded: [] }; })
+        .then(function (d) {
+          const excluded = d.excluded || [];
+          return s.labels.map(function (label, pane) {
+            return {
+              label: label,
+              checked: excluded.indexOf(pane) === -1,
+              onChange: function (checked) {
+                sendCommand('soi.include', { cid: s.cid, n: pane, on: checked }).catch(function () {});
+              },
+            };
+          });
+        })
+        .catch(function () { return []; });
+    }
+
     function openLoadLayoutModal() {
-      LayoutModal.pickList('LOAD LAYOUT', shellLayouts, {
-        onPick: function (item) {
-          try { applyLayoutState(JSON.parse(item.data)); } catch (e) {}
-        },
-        onRename: function (item, name) { return LayoutStore.rename(item.id, name); },
-        onDelete: function (item) { return LayoutStore.remove(item.id); },
+      soiCheckboxes().then(function (checkboxes) {
+        LayoutModal.pickList('LOAD LAYOUT', shellLayouts, {
+          checkboxes: checkboxes,
+          onPick: function (item) {
+            try { applyLayoutState(JSON.parse(item.data)); } catch (e) {}
+          },
+          onRename: function (item, name) { return LayoutStore.rename(item.id, name); },
+          onDelete: function (item) { return LayoutStore.remove(item.id); },
+        });
       });
     }
 
