@@ -16,10 +16,10 @@ name/data start empty and can be cleared back to empty.
 This is the same feature as [HUD presets](hud-presets.md), applied to TGT's filter set instead of
 HUD's — same slot model, same UI pattern, same wire shape, swapping HUD's filter fields for TGT's.
 
-- A bottom bar on [TGT](../man/tgt.md#presets) reads **PRESET N: name** (whichever slot is
-  current) plus **SAVE**/**LOAD** buttons, in a dashed `--no-blue` mod-only accent (TGT's own
-  convention for a control that isn't part of the real in-cockpit `TargetListSelector` panel — the
-  same treatment its DATALINK/STALE buttons already use).
+- A bar on [TGT](../man/tgt.md#presets), between the header separator and the filter group (same
+  placement as HUD's own), reads **PRESET N: name** (whichever slot is current, in `--no-label`
+  white) plus solid `--no-green` **SAVE**/**LOAD** buttons — styled identically to HUD's own preset
+  bar (`hud.css`), not TGT's dashed DATALINK/STALE mod-only accent.
 - **SAVE** opens a name prompt; submitting captures the page's current live filters into the
   current slot under that name.
 - **LOAD** opens a list of all 5; picking one applies it and makes it current, a pencil renames a

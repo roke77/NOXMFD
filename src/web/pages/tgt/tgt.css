@@ -297,20 +297,18 @@ html, body {
 }
 
 /* ── TGT filter presets (issue #78) ─────────────────────────────────────────────────────
-   Mod-only, not a real TargetListSelector control — same dashed-border treatment as DATALINK/
-   STALE above, in --no-blue (the mod-only decorative accent WPN's MODE label also uses) so it
-   reads as a NOXMFD addition rather than another native filter. */
+   Same treatment as HUD's own preset bar (hud.css) — solid --no-green buttons, --no-label
+   (white) text for the label. No separator of its own: .tgt-panel's flex gap already spaces it
+   from the header's border-bottom above and the filter group below. */
 .tgt-preset-bar {
   flex: 0 0 auto;
   display: flex; align-items: center;
   gap: clamp(6px, 1.4vw, 12px);
-  padding-top: clamp(3px, 0.8vh, 7px);
-  border-top: 1px dashed var(--no-blue);
 }
 .tgt-preset-label {
   flex: 1 1 auto;
   min-width: 0;
-  color: var(--no-blue);
+  color: var(--no-label);
   font-weight: 900;
   letter-spacing: 0.04em;
   font-size: clamp(9px, 1.7vmin, 14px);
@@ -320,9 +318,9 @@ html, body {
 }
 .tgt-preset-btn {
   font-family: var(--no-font);
-  background: var(--no-panel-bg);
-  color: var(--no-blue);
-  border: 1.5px dashed var(--no-blue);
+  background: none;
+  color: var(--no-green);
+  border: 1px solid var(--no-green);
   border-radius: 3px;
   padding: clamp(5px, 1.2vh, 10px) clamp(8px, 1.6vw, 14px);
   font-size: clamp(9px, 1.7vmin, 14px);
@@ -331,9 +329,8 @@ html, body {
   cursor: pointer;
   white-space: nowrap;
   flex: 0 0 auto;
-  transition: background .08s;
 }
-.tgt-preset-btn:active { background: rgba(var(--no-blue-rgb), 0.20); }
+.tgt-preset-btn:active { opacity: 0.7; }
 
 /* Unavailable state (TargetListSelector not up / no mission). display:block (not flex) so the
    shared .mfd-empty-title stacks above the text like the other pages' empty states. */

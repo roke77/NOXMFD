@@ -70,7 +70,7 @@
     SAVE → opens LayoutModal.prompt for a name, then tgt-preset.save {wname} (always the CURRENT slot)
     LOAD → opens LayoutModal.pickList over GET /tgt-presets; picking an item applies it and makes it
            current, the row's pencil/× send tgt-preset.rename/tgt-preset.delete {index, ...}
-  The bottom label's current index/name rides this page's existing 'tgt' telemetry block (a `preset`
+  The label's current index/name rides this page's existing 'tgt' telemetry block (a `preset`
   field), not a separate endpoint.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
@@ -83,6 +83,16 @@
     <div class="tgt-head">
       <span class="tgt-title">TARGET SELECTION</span>
       <span class="tgt-hint">tap&nbsp;=&nbsp;toggle&nbsp;·&nbsp;hold&nbsp;=&nbsp;only</span>
+    </div>
+
+    <!-- TGT filter presets (issue #78): current slot label + SAVE/LOAD, built by tgt.js. Same
+         5-fixed-slot model as HUD's own presets (docs/hud-presets.md), applied to this page's
+         faction/category/vehicle/laser/HUD filters instead — see docs/tgt-presets.md. Placed here
+         (below the header separator, above the filter group), same as HUD's own preset bar. -->
+    <div class="tgt-preset-bar" id="tgt-preset-bar">
+      <span class="tgt-preset-label" id="tgt-preset-label"></span>
+      <button type="button" class="tgt-preset-btn pad-hoverable" id="tgt-preset-save">SAVE</button>
+      <button type="button" class="tgt-preset-btn pad-hoverable" id="tgt-preset-load">LOAD</button>
     </div>
 
     <div class="tgt-top">
@@ -128,15 +138,6 @@
       <span class="tgt-datalink-desc">Deselect datalink-only</span>
       <button class="tgt-stale-btn pad-hoverable" id="stale-btn">STALE</button>
       <span class="tgt-stale-desc">Deselect stale locks</span>
-    </div>
-
-    <!-- TGT filter presets (issue #78): current slot label + SAVE/LOAD, built by tgt.js. Same
-         5-fixed-slot model as HUD's own presets (docs/hud-presets.md), applied to this page's
-         faction/category/vehicle/laser/HUD filters instead — see docs/tgt-presets.md. -->
-    <div class="tgt-preset-bar" id="tgt-preset-bar">
-      <span class="tgt-preset-label" id="tgt-preset-label"></span>
-      <button type="button" class="tgt-preset-btn pad-hoverable" id="tgt-preset-save">SAVE</button>
-      <button type="button" class="tgt-preset-btn pad-hoverable" id="tgt-preset-load">LOAD</button>
     </div>
 
     <!-- PAD cursor (docs/page-cursor.md) — same crosshair/transport MAP uses, driven here only
