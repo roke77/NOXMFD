@@ -33,6 +33,16 @@ In-game testing found and fixed two real bugs the design didn't anticipate:
    ComputeTti` now matches a weapon to a target via either `targetID` (kept as a cheap fast path/
    fallback) or the seeker's `targetUnit`, since every `SetTarget` call always passes `targetUnit`
    itself — the widened match can only add cases `targetID` alone missed, never drop a real one.
+4. **Bombs still showed no TTI at all after fix 3**, reported after further play. A temporary
+   diagnostic log (`TargetTtiEstimator.LogDiagnosticOnce`, since removed) proved the *matching* logic
+   from fix 3 was already working correctly — `targetID`/`targetUnit` both resolved to the right unit
+   for every bomb — which meant the bug was downstream, in `EstimateImpactTime` itself:
+   `if (missile.rb == null || target.rb == null) return -1f;` bailed out whenever the target had no
+   `Rigidbody`. `Building` (`_scratch/full/Building.cs`) never touches its own `rb`, so it stays
+   unset — meaning every bomb dropped on a building (the ordinary case for a guided bomb, as opposed
+   to an air-to-air missile) silently produced no TTI at all, regardless of how correct the
+   matching was. Fixed by treating a `Rigidbody`-less target as stationary (zero velocity) instead of
+   bailing out: only `missile.rb == null` still short-circuits now.
 
 **Confirmed working in-game** after the fixes above: the label builds, and TTI counts down in real
 time as a locked, focused target's tracking weapon closes (logged 30.6s → 0.1s on one live shot).
@@ -199,13 +209,18 @@ simultaneous tracking weapons against the same focused target (the "smallest TTI
 `TargetTtiEstimator.ComputeTti` has no live confirmation yet, only the single-weapon path); TGT's own
 per-row TTI ("TGT: a TTI per row" above) has not been tested in-game at all yet.
 
-**Status item 3's widened match (`MissileSeekerAccess`) is not yet confirmed in-game.** The
-reflection compiles clean against the real game assemblies and `IsAssignedTo`'s logic (widen, never
-narrow) is straightforward, but `MissileSeeker.targetUnit`'s actual field name/type and its "only
-cleared on genuine abandonment, not routine dropout" behavior are read from the decompiled snapshot
-(`_scratch/full/*.cs`), not observed live — needs a real bomb drop and a real BVR missile shot
-against a maneuvering target to confirm TTI now holds through midcourse/brief dropouts instead of
-flickering on and off as it did before.
+**Status item 3's widened match (`MissileSeekerAccess`) is confirmed working in-game** (2026-09-05):
+a diagnostic log against a real bomb-drop session showed `Missile.targetID` and the reflected
+`MissileSeeker.targetUnit` both resolving correctly to the dropped-on building for every bomb —
+proving the reflection and the matching logic are both sound. What was NOT yet confirmed — a real
+BVR missile shot against a maneuvering target, to see TTI hold through midcourse the way it now
+holds for bombs — remains open.
+
+**Status item 4's `EstimateImpactTime` fix is confirmed working in-game** (2026-09-05), found via
+that same diagnostic log: the matching was never the problem, `target.rb == null` on a `Building`
+target was. The fix (treat a `Rigidbody`-less target as stationary) is a one-line, low-risk change;
+not yet separately re-verified live after removing the diagnostic, but the diagnostic itself already
+proved every precondition for the fix to work (a valid match, a real missile `rb`) was already true.
 
 ## Related documents
 
