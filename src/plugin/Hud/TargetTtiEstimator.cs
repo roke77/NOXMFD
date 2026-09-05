@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace NOXMFD
@@ -7,6 +8,16 @@ namespace NOXMFD
     // range/closing-speed estimate for the requested locked target.
     internal static class TargetTtiEstimator
     {
+        // TEMPORARY diagnostic (issue #67 follow-up: TTI still not showing for bomb drops after
+        // widening the match to MissileSeeker.targetUnit). Logs once per missile instance — keyed
+        // by its persistentID, so a long session doesn't repeat the same line every 4 Hz poll —
+        // reporting exactly what this estimator sees for each of the player's own in-flight guided
+        // weapons: seeker type, Missile.targetID, and the reflected targetUnit. Remove once the
+        // real failure point (never gets a target at all vs. gets one but ID mismatch vs. something
+        // else) is confirmed from a real bomb-drop log. LogInfo, not LogDebug — visible without
+        // raising the BepInEx log level.
+        private static readonly HashSet<uint> _loggedMissileIds = new HashSet<uint>();
+
         internal static float ComputeTti(uint targetId, uint playerId)
         {
             if (!TargetUnitLookup.TryResolve(targetId, out Unit target)) return -1f;
@@ -15,12 +26,33 @@ namespace NOXMFD
             foreach (Unit u in UnitRegistry.allUnits)
             {
                 if (u is not Missile m || m.disabled) continue;
-                if (m.ownerID.Id != playerId || !IsAssignedTo(m, targetId)) continue;
+                if (m.ownerID.Id != playerId) continue;
+                LogDiagnosticOnce(m);
+                if (!IsAssignedTo(m, targetId)) continue;
 
                 float t = EstimateImpactTime(m, target);
                 if (t >= 0f && (best < 0f || t < best)) best = t;
             }
             return best;
+        }
+
+        private static void LogDiagnosticOnce(Missile m)
+        {
+            uint id = m.persistentID.Id;
+            if (!_loggedMissileIds.Add(id)) return;
+
+            string seekerType = "none";
+            string targetUnitDesc = "n/a (no seeker component)";
+            MissileSeeker? seeker = m.GetComponent<MissileSeeker>();
+            if (seeker != null)
+            {
+                seekerType = seeker.GetSeekerType();
+                Unit? tu = MissileSeekerAccess.GetTargetUnit(seeker);
+                targetUnitDesc = tu == null ? "null" : $"{tu.persistentID.Id} ({tu.GetType().Name})";
+            }
+            Plugin.Log?.LogInfo(
+                $"[NOXMFD] TTI diag: missile {id} seeker='{seekerType}' targetID={m.targetID.Id} " +
+                $"(valid={m.targetID.IsValid}) targetUnit={targetUnitDesc}");
         }
 
         // Missile.targetID alone under-reports badly (see MissileSeekerAccess.cs): it only reflects
