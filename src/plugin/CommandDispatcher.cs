@@ -287,6 +287,14 @@ namespace NOXMFD
                 { "preset.rename", e => LogPreset("rename", HudPresetStore.Rename(e.index, e.wname ?? string.Empty)) },
                 { "preset.delete", e => LogPreset("delete", HudPresetStore.Delete(e.index)) },
                 { "preset.load",   e => LogPreset("load",   HudPresetStore.LoadPreset(e.index)) },
+                // TGT filter presets (issue #78) — same fixed-5-slot shape as preset.* above, applied
+                // to TargetListSelector instead of HUDOptions. A distinct "tgt-preset." namespace
+                // rather than reusing "preset." disambiguates which store a save/load/rename/delete
+                // targets — the two features are otherwise unrelated.
+                { "tgt-preset.save",   e => LogTgtPreset("save",   TgtPresetStore.Save(e.wname ?? string.Empty)) },
+                { "tgt-preset.rename", e => LogTgtPreset("rename", TgtPresetStore.Rename(e.index, e.wname ?? string.Empty)) },
+                { "tgt-preset.delete", e => LogTgtPreset("delete", TgtPresetStore.Delete(e.index)) },
+                { "tgt-preset.load",   e => LogTgtPreset("load",   TgtPresetStore.LoadPreset(e.index)) },
             };
 
         // Keybind writes just delegate to the Keybinds registry; log rejections (unknown id / bad key).
@@ -328,6 +336,12 @@ namespace NOXMFD
         private static void LogPreset(string op, bool ok)
         {
             if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] preset.{op}: rejected.");
+        }
+
+        // Same shape again, for the tgt-preset.* family (issue #78).
+        private static void LogTgtPreset(string op, bool ok)
+        {
+            if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] tgt-preset.{op}: rejected.");
         }
 
         // True for a cmd we have a handler for — lets the server reject unknown commands at the

@@ -418,6 +418,17 @@ namespace NOXMFD
                     () => HudPresetStore.LoadPreset(presetIndex));
             }
 
+            // TGT filter preset keybinds (issue #78) — same direct-recall shape as HUD's above,
+            // applied to TgtPresetStore/TargetListSelector instead.
+            const string tgtPresets = "TGT Preset Keybinds";
+            for (int p = 1; p <= TgtPresetStore.SlotCount; p++)
+            {
+                int presetIndex = p;   // capture per-iteration, not the loop variable
+                DefFree(config, "tgt-preset-" + p, tgtPresets, "TgtPreset" + p, "TGT Preset " + p, edge: true,
+                    "Load TGT preset " + p + "'s saved filters onto the TGT page.",
+                    () => TgtPresetStore.LoadPreset(presetIndex));
+            }
+
             // Immersion keybinds — docs/radar-master-arms.md (issue #32). Registered LAST (and its
             // four start-state settings appended after this Bind() method, in the same order) so the
             // KEY page's "Immersion options" section — binds + settings together — lands at the very
@@ -598,6 +609,7 @@ namespace NOXMFD
             "TGP Keybinds"            => "TGP",
             "Layout Keybinds"         => "LAYOUT",
             "HUD Preset Keybinds"     => "HUD PRESETS",
+            "TGT Preset Keybinds"     => "TGT PRESETS",
             "Immersion Keybinds"      => "IMMERSION OPTIONS",
             _ => section,
         };

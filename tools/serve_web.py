@@ -744,6 +744,47 @@ def _preset_command(env):
     return False
 
 
+# Stateful mock of TgtPresetStore (issue #78) — same shape as PRESETS/PRESET_STATE above, applied to
+# TargetListSelector's filters instead of HUDOptions'. The bottom "PRESET N: name" label on the TGT
+# page rides the static `tgt` block in preview-mock.js (a client-side mock, unlike /hud-options),
+# which this harness has no way to update from a server-side command — so, like every other tgt.*
+# write command here, SAVE/LOAD/rename/delete round-trip against this state and are verifiable via
+# the LOAD list they drive, but won't visibly move the page's own bottom label; that path is only
+# testable in game.
+TGT_PRESETS = [{"index": i, "name": "", "hasData": False} for i in range(1, 6)]
+TGT_PRESET_STATE = {"current": 1}
+
+
+def _tgt_presets_options():
+    return json.dumps({"current": TGT_PRESET_STATE["current"], "presets": TGT_PRESETS}).encode("utf-8")
+
+
+def _tgt_preset_command(env):
+    cmd = env.get("cmd", "")
+    if cmd == "tgt-preset.save":
+        name = (env.get("wname") or "").strip()
+        if not name:
+            return False
+        slot = TGT_PRESETS[TGT_PRESET_STATE["current"] - 1]
+        slot["name"], slot["hasData"] = name, True
+        return True
+    index = env.get("index", 0)
+    slot = TGT_PRESETS[index - 1] if 1 <= index <= 5 else None
+    if cmd == "tgt-preset.rename" and slot is not None:
+        name = (env.get("wname") or "").strip()
+        if not name:
+            return False
+        slot["name"] = name
+        return True
+    if cmd == "tgt-preset.delete" and slot is not None:
+        slot["name"], slot["hasData"] = "", False
+        return True
+    if cmd == "tgt-preset.load" and slot is not None:
+        TGT_PRESET_STATE["current"] = index
+        return True
+    return False
+
+
 # Stateful mock of the plugin's /keybinds-config + keybind.* commands, so the /keybinds page's
 # whole flow (render, keyboard set, joystick arm-capture) is drivable in the harness. Arming a
 # joystick capture "captures" a fake button ~1.5s later (simulated on the next poll after the
@@ -904,6 +945,10 @@ KEYBINDS = [
     *[{"id": f"hud-preset-{n}", "section": "HUD PRESETS", "label": f"HUD Preset {n}",
        "description": f"Load HUD preset {n}'s saved filters onto the HUD page.",
        "key": "", "joyButton": -1, "joyNum": 0} for n in range(1, 6)],
+    # TGT filter preset keybinds (issue #78) — same shape as HUD's own above.
+    *[{"id": f"tgt-preset-{n}", "section": "TGT PRESETS", "label": f"TGT Preset {n}",
+       "description": f"Load TGT preset {n}'s saved filters onto the TGT page.",
+       "key": "", "joyButton": -1, "joyNum": 0} for n in range(1, 6)],
     # Immersion keybinds (docs/radar-master-arms.md, issue #32) — deliberately last, so the
     # "Immersion options" block (this section + the three settings below) reads as one group at
     # the bottom of the page.
@@ -1044,6 +1089,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             _td_command(env)
             _layout_command(env)
             _preset_command(env)
+            _tgt_preset_command(env)
             self.send_response(204)
             self.end_headers()
             return
@@ -1087,6 +1133,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(_captured_or('layout-options', _layout_options), 'application/json; charset=utf-8')
         if path == '/hud-presets':
             return self._send(_hud_presets_options(), 'application/json; charset=utf-8')
+        if path == '/tgt-presets':
+            return self._send(_tgt_presets_options(), 'application/json; charset=utf-8')
         if path == '/keybinds-config':
             return self._send(_keybinds_config(), 'application/json; charset=utf-8')
         if path == '/rates-config':

@@ -246,6 +246,11 @@ namespace NOXMFD
         public TgtToggleInfo[] TgtFaction;   // FRIENDLY, ENEMY
         public TgtToggleInfo[] TgtCategory;  // AIR, MSL, GND, BLD, SHP
         public TgtToggleInfo[] TgtVehicle;   // TRUCK … RDR (dynamic; names double as /icon keys)
+        // Current TGT filter preset (issue #78) — just the slot the bottom label names, captured
+        // here (not read live from TgtPresetStore during JSON build) for the same reason every other
+        // Tgt* field is a snapshot value: TelemetryJson can run off the main thread.
+        public int    TgtPresetIndex;
+        public string TgtPresetName;
 
         // BDF faction-forces panel (docs/bdf-page.md), mirroring the game's InfoPanel_Faction
         // (Forces display only) — always BOSCALI, a fixed identity, not "whichever faction the

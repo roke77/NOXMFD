@@ -65,6 +65,20 @@ Two buttons below the list clear targets by *why* they're selected, without touc
 - **DATALINK** — deselects every datalink-only lock.
 - **STALE** — deselects every stale lock.
 
+## Presets
+
+Up to 5 named presets of your own filters, saved server-side so any connected browser can save or
+load one. A label at the bottom of the page reads **PRESET N: name** — whichever of the 5 is
+current — followed by **SAVE** and **LOAD**.
+
+- **SAVE** — opens a name prompt; submitting it captures the page's current filters (faction,
+  category, vehicle type, plus LASER and HUD mode) into the current preset under that name.
+- **LOAD** — opens a list of all 5 presets. Clicking one applies its saved filters and makes it
+  the current preset; a pencil icon renames it in place, and a **×** clears it back to empty
+  (name and data both) — the slot itself stays, only its contents are gone.
+- The 5 numbered keybinds on [KEY](keybinds.md#tgt-presets) recall a preset directly without
+  opening LOAD, and also become the current preset.
+
 ## Keybinds and PAD cursor
 
 Next/Previous Target, Clear Datalink, and Clear Stale all have dedicated keybinds, and this page

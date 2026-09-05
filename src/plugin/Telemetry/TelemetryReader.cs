@@ -916,6 +916,8 @@ namespace NOXMFD
                 TgtFaction     = tgtOk && tgtSel != null ? ReadToggles(tgtSel.toggleFactionItems)      : Array.Empty<TgtToggleInfo>(),
                 TgtCategory    = tgtOk && tgtSel != null ? ReadToggles(tgtSel.toggleUnitTypesItems)    : Array.Empty<TgtToggleInfo>(),
                 TgtVehicle     = tgtOk && tgtSel != null ? ReadToggles(tgtSel.toggleVehicleTypesItems) : Array.Empty<TgtToggleInfo>(),
+                TgtPresetIndex = TgtPresetStore.CurrentIndex,
+                TgtPresetName  = TgtPresetStore.CurrentName,
                 BdfPresent     = _bdf.Present,
                 BdfFaction     = _bdf.Faction,
                 BdfFunds       = _bdf.Funds,

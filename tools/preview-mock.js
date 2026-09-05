@@ -238,6 +238,10 @@
                  { n: 'AFV', on: true }, { n: 'MBT', on: true }, { n: 'ART', on: false },
                  { n: 'AAA', on: true }, { n: 'IR_SAM', on: true }, { n: 'R_SAM', on: true },
                  { n: 'RDR', on: true }],
+      // TGT filter presets (issue #78) — static, like every other field above: the write side
+      // (tgt-preset.* commands) has no client-side mock, so this label won't move in the harness;
+      // see serve_web.py's TGT_PRESETS comment.
+      preset: { index: 1, name: '' },
     },
     // BDF faction-forces panel (docs/bdf-page.md) — mirrors the numbers from the reference
     // screenshot (BOSCALI) so the preview matches it 1:1. Ship-type icons come from /bdf-icon

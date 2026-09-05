@@ -15,8 +15,11 @@ const listRows = document.getElementById('tgt-list-rows');
 const listScroll = document.querySelector('.tgt-list-scroll');
 const datalinkBtn = document.getElementById('datalink-btn');
 const staleBtn = document.getElementById('stale-btn');
+const presetLabelEl = document.getElementById('tgt-preset-label');
+const presetSaveBtn = document.getElementById('tgt-preset-save');
+const presetLoadBtn = document.getElementById('tgt-preset-load');
 
-let state = { present: false, laser: false, hud: false, faction: [], category: [], vehicle: [] };
+let state = { present: false, laser: false, hud: false, faction: [], category: [], vehicle: [], preset: { index: 1, name: '' } };
 let targets = [];        // selected-target list (from 'tgt-targets'): [{ id, n, g, r, f, dl }]
 let targetsKey = '';     // id-set signature; rebuild rows only when it changes
 
@@ -128,7 +131,55 @@ function paint() {
   });
   modeEls.laser.classList.toggle('on', !!state.laser);
   modeEls.hud.classList.toggle('on', !!state.hud);
+  renderPreset();
 }
+
+// ── TGT filter presets (issue #78) ────────────────────────────────────────────────────
+// The "PRESET N: name" label rides this page's existing 'tgt' telemetry block (a `preset` field,
+// TelemetryJson.TgtBlock) rather than a second endpoint; SAVE/LOAD fetch /tgt-presets on demand,
+// only while their modal is open. Same shape as hud.js's own renderPreset/fetchPresetItems.
+function renderPreset() {
+  const p = state.preset || { index: 1, name: '' };
+  presetLabelEl.textContent = 'PRESET ' + p.index + ': ' + (p.name || '');
+}
+
+function fetchPresetItems() {
+  return fetch('/tgt-presets', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : { presets: [] }; })
+    .then(function (d) {
+      return (d.presets || []).map(function (p) {
+        return {
+          index: p.index,
+          name: p.name || '',
+          hasData: !!p.hasData,
+          display: 'PRESET ' + p.index + (p.name ? ': ' + p.name : ''),
+        };
+      });
+    })
+    .catch(function () { return []; });
+}
+
+presetSaveBtn.addEventListener('click', function () {
+  LayoutModal.prompt('SAVE PRESET', function (name) {
+    send('tgt-preset.save', { wname: name });
+    // Optimistic: we know exactly which slot (whatever's current) and name this just set.
+    state.preset = Object.assign({}, state.preset, { name: name });
+    renderPreset();
+    LayoutModal.close();
+  });
+});
+
+presetLoadBtn.addEventListener('click', function () {
+  LayoutModal.pickList('LOAD PRESET', fetchPresetItems, {
+    onPick: function (item) {
+      send('tgt-preset.load', { index: item.index });
+      state.preset = { index: item.index, name: item.name };   // optimistic; the next frame settles it
+      renderPreset();
+    },
+    onRename: function (item, name) { return sendCommand('tgt-preset.rename', { index: item.index, wname: name }); },
+    onDelete: function (item) { return sendCommand('tgt-preset.delete', { index: item.index }); },
+  });
+});
 
 // ── Selected-target list ──────────────────────────────────────────────────────────────
 // Range as "8,4 km" (European decimal comma); non-numbers pass through.
@@ -255,7 +306,7 @@ staleBtn.addEventListener('click', function () { send('tgt.clear-stale'); });
 // Same crosshair/transport MAP uses (pad-cursor.js), driven here only while this TGT is the SOI's
 // focused surface. Clamped to the panel's own box (panel-local px, matching the crosshair's
 // positioned ancestor — see tgt.css's .tgt-panel { position: relative }).
-const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-row, .tgt-action, .tgt-mode, .tgt-datalink-btn, .tgt-stale-btn';
+const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-row, .tgt-action, .tgt-mode, .tgt-datalink-btn, .tgt-stale-btn, .tgt-preset-btn';
 const padCursorEl = document.getElementById('pad-cursor');
 const cursor = createPadCursor({
   el: padCursorEl,
@@ -335,6 +386,7 @@ window.addEventListener('message', function (e) {
       faction:  Array.isArray(m.faction)  ? m.faction  : [],
       category: Array.isArray(m.category) ? m.category : [],
       vehicle:  Array.isArray(m.vehicle)  ? m.vehicle  : [],
+      preset:   m.preset || { index: 1, name: '' },
     };
     paint();
   } else if (m.type === 'tgt-targets') {

@@ -63,9 +63,19 @@
   deflection, not the (0,0) a key release reports) hands Select back to it and un-hides it (grey
   outline on the focused row meanwhile — still focused, but Select won't act on it until
   Next/Previous is pressed again). Gaining SOI focus always starts crosshair-active.
+
+  TGT filter presets (issue #78) — 5 fixed numbered slots (TgtPresetStore), server-side so any
+  browser or the KEY page's own 5 recall keybinds can save/load one, same model as HUD's own
+  presets (docs/hud-presets.md, docs/tgt-presets.md):
+    SAVE → opens LayoutModal.prompt for a name, then tgt-preset.save {wname} (always the CURRENT slot)
+    LOAD → opens LayoutModal.pickList over GET /tgt-presets; picking an item applies it and makes it
+           current, the row's pencil/× send tgt-preset.rename/tgt-preset.delete {index, ...}
+  The bottom label's current index/name rides this page's existing 'tgt' telemetry block (a `preset`
+  field), not a separate endpoint.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/shell/shared/layout-modal.css">
 <link rel="stylesheet" href="/assets/pages/tgt/tgt.css">
 </head>
 <body>
@@ -120,6 +130,15 @@
       <span class="tgt-stale-desc">Deselect stale locks</span>
     </div>
 
+    <!-- TGT filter presets (issue #78): current slot label + SAVE/LOAD, built by tgt.js. Same
+         5-fixed-slot model as HUD's own presets (docs/hud-presets.md), applied to this page's
+         faction/category/vehicle/laser/HUD filters instead — see docs/tgt-presets.md. -->
+    <div class="tgt-preset-bar" id="tgt-preset-bar">
+      <span class="tgt-preset-label" id="tgt-preset-label"></span>
+      <button type="button" class="tgt-preset-btn pad-hoverable" id="tgt-preset-save">SAVE</button>
+      <button type="button" class="tgt-preset-btn pad-hoverable" id="tgt-preset-load">LOAD</button>
+    </div>
+
     <!-- PAD cursor (docs/page-cursor.md) — same crosshair/transport MAP uses, driven here only
          while this TGT is the SOI's focused surface. See tgt.js. -->
     <div id="pad-cursor" class="pad-cursor"></div>
@@ -132,6 +151,7 @@
 <script src="/assets/services/send-command.js"></script>
 <script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
 <script src="/assets/services/remote-keybinds.js"></script>
+<script src="/assets/shell/shared/layout-modal.js"></script>
 <script type="module" src="/assets/pages/tgt/tgt.js"></script>
 </body>
 </html>

@@ -45,6 +45,8 @@ namespace NOXMFD
                 ConfigEndpoint.ServeLayoutOptions(ctx);
             else if (path == "/hud-presets")
                 ConfigEndpoint.ServeHudPresets(ctx);
+            else if (path == "/tgt-presets")
+                ConfigEndpoint.ServeTgtPresets(ctx);
             else if (path == "/rates-config")
                 ConfigEndpoint.ServeRatesConfig(ctx);
             else if (path == "/keybinds-config")

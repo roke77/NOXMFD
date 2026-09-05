@@ -180,6 +180,11 @@ for a tablet with no keyboard.
   numbered preset's saved filters onto [HUD](hud.md#presets) and makes it the current one shown at
   the bottom of that page — the same thing clicking it in HUD's own LOAD list does.
 
+## TGT Presets
+
+- **TGT Preset 1** through **TGT Preset 5** — same shape as HUD Presets above, applied to
+  [TGT](tgt.md#presets)'s own faction/category/vehicle/LASER/HUD filters instead.
+
 ## Immersion Options
 
 Optional cold-start behavior and dedicated binds for radar, engine, power, and weapons safety,

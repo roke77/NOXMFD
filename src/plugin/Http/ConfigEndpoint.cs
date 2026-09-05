@@ -188,6 +188,16 @@ namespace NOXMFD
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
+        internal static void ServeTgtPresets(HttpListenerContext ctx)
+        {
+            try
+            {
+                TelemetryServer.WriteJson(ctx, TgtPresetStore.PresetsJson ?? "{\"current\":1,\"presets\":[]}");
+            }
+            catch { }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
         internal static void ServeRatesConfig(HttpListenerContext ctx)
         {
             try
