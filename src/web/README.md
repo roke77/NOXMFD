@@ -24,6 +24,7 @@ src/web/
                            layout-keybinds.js              # SAVE/LOAD LAYOUT keybind matching
                            boot-reveal.js                 # shared boot loading-bar + typewriter mechanics
                            wake-lock.js  wake-lock.test.js # screen wake-lock controller (docs/screen-wake-lock.md)
+                           conn-lost-banner.js  .test.js   # disconnect-banner dismiss/re-arm state machine (issue #79)
                            ext-nav.js                     # EXT hub's runtime extension-nav plan builder
                            td-nav.js                      # TD's runtime nav-visibility plan builder (issue #47) —
                                                            # same shape as ext-nav.js, gated on live squad membership

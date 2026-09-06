@@ -139,6 +139,20 @@
     </button>
   </div>
 
+  <!-- Connection-lost banner (issue #79): a sibling of .master-strip/.portals rather than a child of
+       either — .master-strip clips overflow (would hide a child positioned outside its own box) and
+       f35.js's buildGlass() clears #portals wholesale on every split/merge. Positioned by CSS at
+       exactly the strip's own height (both measure off .pcd, the shared flex container), so it hangs
+       right under the strip without measuring anything at runtime. Full width, above every portal
+       regardless of the page each one shows — ms-status in the strip above is always-on but easy to
+       miss; this is the attention-grabbing, dismissable version of the same signal. f35.js toggles
+       the [hidden] attribute off the same 'status' slice ms-status already renders from. -->
+  <div class="conn-lost-banner" id="conn-lost-banner" hidden>
+    <span class="conn-lost-dot"></span>
+    <span class="conn-lost-msg">CONNECTION LOST — retrying…</span>
+    <button type="button" class="conn-lost-dismiss" id="conn-lost-dismiss" aria-label="Dismiss">&#10005;</button>
+  </div>
+
   <!-- Portals are built by f35.js, not declared here: full view is one portal and a split is
        several, so the count is state. Each holds a page iframe with a label grid over it. -->
   <div class="portals" id="portals"></div>
@@ -192,6 +206,7 @@
 <script src="/assets/shell/shared/layout-keydown.js"></script>
 <script src="/assets/shell/shared/boot-reveal.js"></script>
 <script src="/assets/shell/shared/wake-lock.js"></script>
+<script src="/assets/shell/shared/conn-lost-banner.js"></script>
 <script src="/assets/shell/f35/f35.js"></script>
 </body>
 </html>

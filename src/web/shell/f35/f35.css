@@ -53,6 +53,44 @@ html, body {
   overflow: hidden;
 }
 
+/* Connection-lost banner (issue #79) — see f35.html for why this is a sibling of .master-strip
+   rather than a child of it or of #portals. .pcd is this element's containing block (the nearest
+   position:absolute ancestor), so `top` here resolves against .pcd's own height — the same height
+   .master-strip's `flex: 0 0 calc(100% / 9)` measures its basis against — landing the banner flush
+   under the strip without reading its rendered height at runtime. */
+.conn-lost-banner {
+  position: absolute;
+  top: calc(100% / 9); left: 0; right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--no-panel-bg);
+  border-bottom: 1px solid rgba(var(--no-red-rgb), 0.45);
+  color: var(--no-red);
+  font-family: var(--no-font);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  z-index: 10;   /* above the portals' own label-grid/frame layers (up to 3) */
+}
+.conn-lost-banner[hidden] { display: none; }
+.conn-lost-banner .conn-lost-msg { flex: 1; }
+.conn-lost-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex: none;
+  background: var(--no-red);
+  box-shadow: 0 0 6px rgba(var(--no-red-rgb), 0.9);
+  animation: conn-lost-pulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .conn-lost-dot { animation: none; } }
+@keyframes conn-lost-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.conn-lost-dismiss {
+  appearance: none; border: none; background: transparent; cursor: pointer;
+  color: inherit; opacity: 0.65; flex: none;
+  font-family: var(--no-font); font-size: 13px; line-height: 1; padding: 2px 3px;
+}
+.conn-lost-dismiss:hover { opacity: 1; }
+.conn-lost-dismiss:focus-visible { outline: 1px solid var(--no-red); outline-offset: 2px; }
+
 /* The wordmark. Styled text rather than an image — there is no served logo asset — in the display's
    primary green so it reads as the aircraft's own marking. */
 .ms-logo {

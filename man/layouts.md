@@ -39,7 +39,9 @@ are no bezel keys — the navigation labels are drawn on the glass and tapped di
 screen divides into side-by-side portals, each an independent MFD, that you merge and split with
 corner grips. A fixed strip across the top carries the aircraft-level readouts — connection,
 throttle and fuel, and the avionics flags — plus **WAKE** (keep the screen awake, same as
-CLASSIC's WAKE key above) and **FULLSCREEN**, beside each other at the strip's end.
+CLASSIC's WAKE key above) and **FULLSCREEN**, beside each other at the strip's end. A dismissable
+red banner drops down from the strip on a connection loss, above every portal regardless of page —
+see [MAIN's Connection status](main.md#connection-status).
 
 ![F-35 layout — MAIN](images/F-35%20MAIN.png)
 

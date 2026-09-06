@@ -1198,6 +1198,15 @@
   const stripThr  = gauge('ms-thr', 'thr');
   const stripFuel = gauge('ms-fuel', 'fuel');
 
+  // Disconnect banner (issue #79) — dismiss/re-arm state machine lives in shell/shared/conn-lost-
+  // banner.js (shared with mfd.js); this shell only supplies the [hidden] toggle.
+  const connLostBanner = document.getElementById('conn-lost-banner');
+  const connLostBannerCtrl = ConnLostBanner.createController({
+    onShow: function () { connLostBanner.hidden = false; },
+    onHide: function () { connLostBanner.hidden = true; },
+  });
+  document.getElementById('conn-lost-dismiss').addEventListener('click', connLostBannerCtrl.dismiss);
+
   // Click-to-toggle — data-kind already names the avn.toggle group 1:1 (gear, radar,
   // guns, eng, assist, nvg, lights, turret), so the click handler needs no mapping table. Fire-and-
   // forget: the next 'avn' telemetry frame repaints the tile via updateStripFlags below, same as
@@ -1291,6 +1300,7 @@
   function updateStripStatus(m) {
     stripStatus.className = 'ms-status ' + m.cls;
     stripStatus.textContent = m.text;
+    connLostBannerCtrl.update(m.cls);
   }
 
   function setStripUrls(cfg) {

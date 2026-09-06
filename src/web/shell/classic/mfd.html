@@ -45,6 +45,14 @@
              the map can never flash through during the window before mfd.js finishes loading
              and calls showPage('main'). JS keeps toggling this normally after that. -->
         <div class="overlay opaque" id="overlay">
+          <!-- Connection-lost banner (issue #79): shown by mfd.js off the same 'status' broadcast
+               ib-status already renders from. Lives in .overlay so it's visible above whichever
+               page/pane is on screen, not just MAIN. -->
+          <div class="conn-lost-banner" id="conn-lost-banner">
+            <span class="conn-lost-dot"></span>
+            <span class="conn-lost-msg">CONNECTION LOST — retrying…</span>
+            <button type="button" class="conn-lost-dismiss" id="conn-lost-dismiss" aria-label="Dismiss">&#10005;</button>
+          </div>
           <div class="mfd-indicators" id="mfd-indicators"></div>
           <div class="pane-mainpage top" id="mainpage-top"></div>
           <div class="pane-mainpage bot" id="mainpage-bot"></div>
@@ -114,6 +122,7 @@
 <script src="/assets/shell/shared/layout-keydown.js"></script>
 <script src="/assets/shell/shared/boot-reveal.js"></script>
 <script src="/assets/shell/shared/wake-lock.js"></script>
+<script src="/assets/shell/shared/conn-lost-banner.js"></script>
 <script src="/assets/shell/classic/mfd.js"></script>
 </body>
 </html>

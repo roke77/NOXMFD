@@ -24,3 +24,8 @@ Up to two addresses are shown, whichever open the display:
 - **● DISCONNECTED** / **● DISCONNECTED — retrying…** — red. No telemetry has arrived in the last
   ~2.5 seconds — the game isn't running, the plugin hasn't started yet, or the connection dropped.
   The display keeps retrying on its own; nothing to do but wait or check the game/plugin is up.
+
+A drop also shows a red banner across the top of whichever page you're on, so you don't have to be
+looking at MAIN to notice — same on the F-35 layout's glass. Dismiss it with **✕**; it reappears on
+the next drop, so dismissing one outage never hides a later one. It clears itself as soon as the
+connection comes back, whether or not you dismissed it.

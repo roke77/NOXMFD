@@ -79,6 +79,7 @@ function frameUrlFor(name) {
 }
 const infoBox   = document.getElementById('info-box');
 const ibStatus  = document.getElementById('ib-status');
+const connLostBanner = document.getElementById('conn-lost-banner');
 // (TGP's panel/img + has-feed handling live in src/web/pages/tgp/, hosted in #page-frame.)
 const sepEls      = document.querySelectorAll('#keys-left .sep');    // 0 = above key[0], i+1 = below key[i]
 const sepElsRight = document.querySelectorAll('#keys-right .sep');   // same structure for the right column
@@ -283,6 +284,14 @@ let paneMapNavPage = [0, 0];
 // shell has already received and forwarded the last status broadcast).
 let lastStatusCls  = 'disconnected';
 let lastStatusText = '● DISCONNECTED';
+
+// Disconnect banner (issue #79) — dismiss/re-arm state machine lives in shell/shared/conn-lost-
+// banner.js (shared with f35.js); this shell only supplies the class toggle.
+const connLostBannerCtrl = ConnLostBanner.createController({
+  onShow: function () { connLostBanner.classList.add('show'); },
+  onHide: function () { connLostBanner.classList.remove('show'); },
+});
+document.getElementById('conn-lost-dismiss').addEventListener('click', connLostBannerCtrl.dismiss);
 
 // ── Bezel layout renderer: split placement ───────────────────────────────────────────
 // The pane-local { side, slot } table for each split-capable page — index-aligned with NAV[page].
@@ -1866,6 +1875,7 @@ window.addEventListener('message', function(e) {
     lastStatusText = m.text;
     ibStatus.className = 'ib-status mfd-status ' + m.cls;
     ibStatus.textContent = m.text;
+    connLostBannerCtrl.update(m.cls);
     if (splitMode) forwardStatusToPanes();
   } else if (m.type === 'soi-cid') {
     // The tap learned this instance's cid — remember it and report the surface count under it (this
