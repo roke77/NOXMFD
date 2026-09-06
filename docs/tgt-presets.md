@@ -130,12 +130,18 @@ scalar bools for laser/HUD mode.
   (`tgt.set`/`.only`/`.reset` don't visibly move the filter toggles either) — real application onto
   a live `TargetListSelector` is only testable in game regardless.
 
-## In-game verification recipe (persist-by-name)
+## In-game verification (persist-by-name)
 
 `ApplyToggles`'s by-name reconciliation touches the live `TargetListSelector` singleton, so it can't
 be unit tested directly (`TgtPresetStore.SelfCheck` only covers the JSON round-trip of the name
-arrays — see "Persist by name" above). A real `Encyclopedia.vehicleTypes` reorder isn't reproducible
-on demand, but the same effect can be simulated without a game update:
+arrays — see "Persist by name" above). **Confirmed in-game** (2026-09-06, via a temporary `LogInfo`
+diagnostic in `ApplyToggles`, since removed): saving and loading a preset under normal conditions
+took the by-name path for all three groups (faction/category/vehicle) with zero unmatched toggles,
+and older presets saved before this feature existed correctly fell back to positional application.
+
+Not separately re-confirmed: the actual "a game update reordered `Encyclopedia.vehicleTypes`"
+scenario, which isn't reproducible on demand. The same effect can still be simulated by hand if this
+ever needs re-checking:
 
 1. Save a TGT preset in-game (any name).
 2. Quit to the main menu (so the file isn't rewritten mid-edit) and open
@@ -144,15 +150,9 @@ on demand, but the same effect can be simulated without a game update:
    parallel `"vehicleNames"` array. This reproduces exactly what a game update reordering
    `Encyclopedia.vehicleTypes` would do to an old save: the name at index *i* no longer matches the
    value that was originally captured for that name.
-4. Reload the mission, open TGT, LOAD that preset.
-5. Check the BepInEx log for the temporary `TGT preset apply (vehicle): by-name reconciliation, N
-   saved names, 0 unmatched` line (`TgtPresetStore.ApplyToggles`), and confirm in the UI that the
-   correct vehicle toggles — by label, not position — ended up in the states you originally saved,
-   not the scrambled positional order from the edited file. A `positional fallback` line instead
-   means the names array didn't parse (check the edit didn't break the JSON), not that reconciliation
-   itself failed.
-
-Remove `ApplyToggles`'s two temporary `LogInfo` calls once this is confirmed.
+4. Reload the mission, open TGT, LOAD that preset, and confirm in the UI that the correct vehicle
+   toggles — by label, not position — ended up in the states originally saved, not the scrambled
+   positional order from the edited file.
 
 ## Open questions
 

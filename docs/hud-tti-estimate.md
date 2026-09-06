@@ -197,19 +197,15 @@ what used to be a second full scan a few milliseconds later into a dictionary lo
 (e.g. before the first contact scan tick) falls back to the original direct scan, so correctness
 never depends on the cache being warm.
 
-**Not yet re-verified in-game after this refactor** — the matching/aggregation logic is unchanged
-(same `targetID`-then-seeker matching, same "smallest TTI wins" per target), but this touches the
-hot path for every locked-target TTI reading and the focused-target HUD cue, so it needs the same
-live confirmation the original feature got: TTI still counts down correctly for a single tracking
-weapon, and multiple locked targets each show their own correct (non-cross-contaminated) reading.
-
-`ComputeAll` has a TEMPORARY diagnostic (`TargetTtiEstimator.LogMatchCountChanges`, `LogInfo`-level
-— visible at default BepInEx log settings) that logs `[NOXMFD] TTI diag: target <id> tracked by <N>
-missile(s) (was <prev>), tti=<value>` whenever a target's assigned-missile count changes. Use it to
-confirm: multiple simultaneously-locked targets each get their own line and never share a count;
-two missiles on one target show the count go 1→2 with `tti` staying the smaller of the two; and a
-sustained BVR shot doesn't log an unwanted 1→0 during the midcourse/seeker-track transition. Remove
-the diagnostic once confirmed.
+**Confirmed in-game after this refactor** (2026-09-06, via a temporary `LogInfo` diagnostic in
+`ComputeAll`, since removed): multiple simultaneously-locked targets each produced their own
+independent, non-cross-contaminated TTI; a real two-missile-on-one-target shot showed the assigned
+count go `1→2`, `tti` correctly staying the smaller of the two, then `2→1→0` as the missiles
+resolved. Not separately re-confirmed: a single BVR shot held all the way through a long
+midcourse-to-terminal transition without a spurious drop to 0 — the play session that produced the
+above ended with fresh long-range shots still in flight rather than resolved. The matching logic
+itself is unchanged from the original feature (same `targetID`-then-seeker matching), so this is a
+low-risk gap, not a known regression.
 
 ## Non-goals for this pass
 

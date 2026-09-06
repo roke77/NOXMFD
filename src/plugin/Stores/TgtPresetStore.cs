@@ -195,9 +195,9 @@ namespace NOXMFD
             // vehicle arrays below if applied afterward, so HUD-follow must be set FIRST and the saved
             // filters re-applied on top of whatever it just did.
             if (sel.toggleFollowHUD != null && sel.toggleFollowHUD.status != slot.Hud) sel.toggleFollowHUD.Set(slot.Hud);
-            ApplyToggles(sel.toggleFactionItems, slot.Faction, slot.FactionNames, "faction");
-            ApplyToggles(sel.toggleUnitTypesItems, slot.Category, slot.CategoryNames, "category");
-            ApplyToggles(sel.toggleVehicleTypesItems, slot.Vehicle, slot.VehicleNames, "vehicle");
+            ApplyToggles(sel.toggleFactionItems, slot.Faction, slot.FactionNames);
+            ApplyToggles(sel.toggleUnitTypesItems, slot.Category, slot.CategoryNames);
+            ApplyToggles(sel.toggleVehicleTypesItems, slot.Vehicle, slot.VehicleNames);
             // Set() fires the game's own NeedUpdateIcons -> prune + recolour (CommandDispatcher.TgtSet's
             // own comment) — same early-return-if-unchanged guard, so restoring an already-matching
             // toggle doesn't pay for a needless prune pass.
@@ -230,17 +230,11 @@ namespace NOXMFD
         // A live toggle whose name isn't in the saved set (added since this preset was saved) is left
         // exactly as it already is — that current state IS the default for a toggle this preset never
         // knew about.
-        //
-        // The two LogInfo calls below are a TEMPORARY in-game verification diagnostic
-        // (docs/tgt-presets.md's persist-by-name section needs a live confirmation that this path
-        // actually runs, and that a simulated reorder — see that doc's manual JSON-edit recipe —
-        // still resolves every toggle by its own label). Remove both once confirmed.
-        private static void ApplyToggles(List<TargetListSelector_ToggleButton> list, bool[] values, string[] savedNames, string groupName)
+        private static void ApplyToggles(List<TargetListSelector_ToggleButton> list, bool[] values, string[] savedNames)
         {
             if (list == null) return;
             if (savedNames.Length == 0 || savedNames.Length != values.Length)
             {
-                Plugin.Log?.LogInfo($"[NOXMFD] TGT preset apply ({groupName}): positional fallback ({savedNames.Length} names vs {values.Length} values)");
                 int n = Math.Min(list.Count, values.Length);
                 for (int i = 0; i < n; i++)
                     if (list[i] != null && list[i].status != values[i]) list[i].Set(values[i]);
@@ -249,19 +243,13 @@ namespace NOXMFD
             var byName = new Dictionary<string, bool>(savedNames.Length, StringComparer.Ordinal);
             for (int i = 0; i < savedNames.Length; i++)
                 if (savedNames[i].Length > 0) byName[savedNames[i]] = values[i];   // last write wins on a dup label
-            int unmatched = 0;
             for (int i = 0; i < list.Count; i++)
             {
                 TargetListSelector_ToggleButton b = list[i];
                 if (b == null) continue;
                 string name = ToggleLabel(b);
-                if (name.Length > 0 && byName.TryGetValue(name, out bool want))
-                {
-                    if (b.status != want) b.Set(want);
-                }
-                else unmatched++;
+                if (name.Length > 0 && byName.TryGetValue(name, out bool want) && b.status != want) b.Set(want);
             }
-            Plugin.Log?.LogInfo($"[NOXMFD] TGT preset apply ({groupName}): by-name reconciliation, {byName.Count} saved names, {unmatched} live toggle(s) unmatched");
         }
 
         // Verifies this store's own JSON round-trip. Save/LoadPreset/Apply all touch the live

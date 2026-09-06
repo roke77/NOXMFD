@@ -73,14 +73,6 @@ namespace NOXMFD
         private static readonly ConcurrentDictionary<string, CachedAsset> _cache =
             new ConcurrentDictionary<string, CachedAsset>(StringComparer.Ordinal);
 
-        // TEMPORARY in-game verification diagnostic for the gzip/ETag path (relevant given the
-        // System.IO.Compression assembly-version conflict MSBuild reports at build time — this
-        // confirms the runtime behavior is actually correct despite that warning). Logs once per
-        // distinct (path, gzip decision, revalidated) combination rather than on every request, so a
-        // page's repeat asset fetches don't flood the log. Remove once confirmed.
-        private static readonly ConcurrentDictionary<string, bool> _loggedAssetDecisions =
-            new ConcurrentDictionary<string, bool>(StringComparer.Ordinal);
-
         internal static void ServeAsset(HttpListenerContext ctx, string path)
             => ServeAssetRel(ctx, path.Substring("/assets/".Length).Trim('/'));
 
@@ -123,19 +115,9 @@ namespace NOXMFD
 
                 bool useGzip = asset.Gzip != null && AcceptsGzip(ctx.Request.Headers["Accept-Encoding"]);
                 string etag = useGzip ? AssetETagGzip : AssetETag;
-                bool revalidated = ctx.Request.Headers["If-None-Match"] == etag;
                 ctx.Response.Headers["ETag"] = etag;
                 ctx.Response.Headers["Cache-Control"] = "no-cache";
-
-                string decisionKey = rel + "|" + useGzip + "|" + revalidated;
-                if (_loggedAssetDecisions.TryAdd(decisionKey, true))
-                {
-                    LogDebug?.Invoke($"[NOXMFD] /assets/{rel}: accept-encoding='{ctx.Request.Headers["Accept-Encoding"]}' " +
-                        $"gzip={useGzip} rawBytes={asset.Raw.Length} gzipBytes={(asset.Gzip?.Length.ToString() ?? "n/a")} " +
-                        $"etag={etag} 304={revalidated}");
-                }
-
-                if (revalidated)
+                if (ctx.Request.Headers["If-None-Match"] == etag)
                 {
                     ctx.Response.StatusCode = 304;
                     ctx.Response.ContentLength64 = 0;
