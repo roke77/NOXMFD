@@ -319,7 +319,24 @@ namespace NOXMFD
                 _excluded.RemoveWhere(k => string.Equals(k.cid, cid, StringComparison.Ordinal) && k.pane >= n);
 
                 if (string.Equals(_targetCid, cid, StringComparison.Ordinal) && _targetPane >= n)
-                    SetTargetLocked(cid, n - 1);
+                {
+                    // Clamping to n-1 outright could land on a pane the pilot excluded (issue #58) —
+                    // walk down for the nearest surviving INCLUDED pane on this same display first,
+                    // so a merge never re-focuses a surface the pilot deliberately opted out of.
+                    int replacement = -1;
+                    for (int p = n - 1; p >= 0; p--)
+                        if (!_excluded.Contains((cid, p))) { replacement = p; break; }
+                    if (replacement >= 0)
+                    {
+                        SetTargetLocked(cid, replacement);
+                    }
+                    else
+                    {
+                        var ring = RingLocked();
+                        SetTargetLocked(ring.Count == 0 ? string.Empty : ring[0].cid,
+                                        ring.Count == 0 ? -1 : ring[0].pane);
+                    }
+                }
             }
         }
 

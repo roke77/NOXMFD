@@ -71,7 +71,14 @@ function makeServer() {
         if (!k.startsWith(cid + ':')) continue;
         if (Number(k.slice(cid.length + 1)) >= n) excluded.delete(k);
       }
-      if (target.cid === cid && target.pane >= n) set(cid, n - 1);
+      if (target.cid === cid && target.pane >= n) {
+        // Don't clamp straight onto an excluded pane — walk down for the nearest included one on
+        // this same display first, same as SoiFocus.cs's SetPaneCount.
+        let replacement = -1;
+        for (let p = n - 1; p >= 0; p--) if (!excluded.has(key(cid, p))) { replacement = p; break; }
+        if (replacement >= 0) set(cid, replacement);
+        else { const r = ring(); set(r.length ? r[0].cid : '', r.length ? r[0].pane : -1); }
+      }
     },
 
     // soi.include: a browser's LOAD LAYOUT checkbox opting one of its own surfaces in/out.
@@ -239,6 +246,29 @@ function makeServer() {
   s.setIncluded('twin', 0, false);
   s.disconnect(first);
   assert.ok(!s.isIncluded('twin', 0), 'a surviving twin keeps the exclusion');
+}
+{
+  // A shrinking merge must not clamp focus onto a pane that's excluded — it should walk down to
+  // the nearest included survivor on the same display instead.
+  const s = makeServer();
+  s.connect('glass', 4);
+  s.setIncluded('glass', 1, false);       // portal 2 excluded — ring is now [0, 2, 3]
+  for (let i = 0; i < 3; i++) s.cycle(1); // NONE→0→2→3, landing on the last portal
+  assert.deepStrictEqual(s.target, at('glass', 3), 'cycle already skips the excluded portal 2');
+  s.setPanes('glass', 2);                 // merged down to two portals: 0 and 1 survive
+  assert.deepStrictEqual(s.target, at('glass', 0),
+    'clamp skips excluded surviving pane 1 and lands on the next included one, not on it');
+}
+{
+  // Same shrink, but every surviving pane on that display is excluded — focus must fall through
+  // to another display's included surface rather than land on an excluded one.
+  const s = makeServer();
+  s.connect('glass', 4); s.connect('other', 1);
+  s.cycle(1); s.cycle(1); s.cycle(1); s.cycle(1); // land on glass:3
+  assert.deepStrictEqual(s.target, at('glass', 3));
+  s.setIncluded('glass', 0, false);
+  s.setPanes('glass', 1);                 // only pane 0 survives, and it's excluded
+  assert.deepStrictEqual(s.target, at('other', 0), 'falls through to the ring\'s next included surface');
 }
 
 console.log('soi-focus: ok');
