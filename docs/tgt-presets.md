@@ -130,6 +130,30 @@ scalar bools for laser/HUD mode.
   (`tgt.set`/`.only`/`.reset` don't visibly move the filter toggles either) — real application onto
   a live `TargetListSelector` is only testable in game regardless.
 
+## In-game verification recipe (persist-by-name)
+
+`ApplyToggles`'s by-name reconciliation touches the live `TargetListSelector` singleton, so it can't
+be unit tested directly (`TgtPresetStore.SelfCheck` only covers the JSON round-trip of the name
+arrays — see "Persist by name" above). A real `Encyclopedia.vehicleTypes` reorder isn't reproducible
+on demand, but the same effect can be simulated without a game update:
+
+1. Save a TGT preset in-game (any name).
+2. Quit to the main menu (so the file isn't rewritten mid-edit) and open
+   `com.roque.NOXMFD.tgt-presets.json` in `BepInEx/config/`.
+3. In that preset's `"vehicle"` array, swap two boolean values' positions — **without** touching the
+   parallel `"vehicleNames"` array. This reproduces exactly what a game update reordering
+   `Encyclopedia.vehicleTypes` would do to an old save: the name at index *i* no longer matches the
+   value that was originally captured for that name.
+4. Reload the mission, open TGT, LOAD that preset.
+5. Check the BepInEx log for the temporary `TGT preset apply (vehicle): by-name reconciliation, N
+   saved names, 0 unmatched` line (`TgtPresetStore.ApplyToggles`), and confirm in the UI that the
+   correct vehicle toggles — by label, not position — ended up in the states you originally saved,
+   not the scrambled positional order from the edited file. A `positional fallback` line instead
+   means the names array didn't parse (check the edit didn't break the JSON), not that reconciliation
+   itself failed.
+
+Remove `ApplyToggles`'s two temporary `LogInfo` calls once this is confirmed.
+
 ## Open questions
 
 - None outstanding — same "no open questions" position as HUD presets, for the same reason: the

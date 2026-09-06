@@ -203,6 +203,14 @@ hot path for every locked-target TTI reading and the focused-target HUD cue, so 
 live confirmation the original feature got: TTI still counts down correctly for a single tracking
 weapon, and multiple locked targets each show their own correct (non-cross-contaminated) reading.
 
+`ComputeAll` has a TEMPORARY diagnostic (`TargetTtiEstimator.LogMatchCountChanges`, `LogInfo`-level
+— visible at default BepInEx log settings) that logs `[NOXMFD] TTI diag: target <id> tracked by <N>
+missile(s) (was <prev>), tti=<value>` whenever a target's assigned-missile count changes. Use it to
+confirm: multiple simultaneously-locked targets each get their own line and never share a count;
+two missiles on one target show the count go 1→2 with `tti` staying the smaller of the two; and a
+sustained BVR shot doesn't log an unwanted 1→0 during the midcourse/seeker-track transition. Remove
+the diagnostic once confirmed.
+
 ## Non-goals for this pass
 
 - A pre-release "if I fired now" estimate for the currently selected weapon.

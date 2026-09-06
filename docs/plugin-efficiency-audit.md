@@ -358,6 +358,16 @@ asset per process. `System.IO.Compression.GZipStream` is BCL, no dependency.
 
 `Content-Length` must be the compressed length. Do not gzip the PNGs or woff2.
 
+**Renewed in-game verification (review follow-up):** a `System.IO.Compression` assembly-version
+conflict (`MSB3277`) shows up at build time (netstandard2.1's own reference vs. the version `Mirage`/
+`Assembly-CSharp` were built against) — harmless so far, but worth re-confirming this path still
+behaves correctly at runtime rather than trusting the build warning is truly inert. `ServeAssetRel`
+has a TEMPORARY diagnostic (`TelemetryAssets._loggedAssetDecisions`, `LogDebug`-level — enable Debug
+logging in BepInEx's own config to see it) that logs each distinct `(path, gzip?, revalidated?)`
+combination once: load a page fresh and confirm `gzip=True` with a sane `gzipBytes` < `rawBytes` for
+a `.js`/`.css` asset, then reload and confirm `304=True` on the second request. Remove the
+diagnostic once confirmed.
+
 ### 15 — Every non-SSE request, body write included, runs inline on the single accept thread [verified]
 
 `Http/TelemetryServer.cs:503-510` (accept loop), `:522-545` (`TrackRequestAsync`);

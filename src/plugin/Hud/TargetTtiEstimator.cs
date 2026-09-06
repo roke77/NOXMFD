@@ -33,6 +33,7 @@ namespace NOXMFD
             var result = new float[targetIds.Length];
             for (int i = 0; i < result.Length; i++) result[i] = -1f;
 
+            var matchCount = new int[targetIds.Length];   // diagnostic only, see LogMatchCountChanges
             if (targetIds.Length > 0)
             {
                 var targets = new Dictionary<uint, (Unit unit, int index)>(targetIds.Length);
@@ -45,16 +46,48 @@ namespace NOXMFD
                     if (m.ownerID.Id != playerId) continue;
                     if (!TryResolveAssignedTarget(m, targets, out (Unit unit, int index) assigned)) continue;
 
+                    matchCount[assigned.index]++;
                     float t = EstimateImpactTime(m, assigned.unit);
                     if (t >= 0f && (result[assigned.index] < 0f || t < result[assigned.index])) result[assigned.index] = t;
                 }
             }
+
+            LogMatchCountChanges(targetIds, result, matchCount);
 
             var fresh = new Dictionary<uint, float>(targetIds.Length);
             for (int i = 0; i < targetIds.Length; i++) fresh[targetIds[i]] = result[i];
             _lastBatch = fresh;
             _lastBatchPlayerId = playerId;
             return result;
+        }
+
+        // TEMPORARY in-game verification diagnostic (docs/hud-tti-estimate.md's "Batch scan" needs
+        // live confirmation of: multiple simultaneously-locked targets staying independent, two
+        // missiles on one target aggregating to the smaller TTI, and a BVR shot holding its match
+        // through the midcourse/seeker-track transition instead of dropping to 0 and back). Logs
+        // only on a CHANGE in how many of the player's own missiles are assigned to a given target,
+        // not every ~4 Hz tick, so a normal mission produces a handful of lines, not a flood. Remove
+        // once a play session has confirmed the counts/TTI values behave as expected.
+        private static readonly Dictionary<uint, int> _lastMatchCount = new Dictionary<uint, int>();
+
+        private static void LogMatchCountChanges(uint[] targetIds, float[] tti, int[] matchCount)
+        {
+            for (int i = 0; i < targetIds.Length; i++)
+            {
+                int prev = _lastMatchCount.TryGetValue(targetIds[i], out int p) ? p : 0;
+                if (matchCount[i] != prev)
+                    Plugin.Log?.LogInfo($"[NOXMFD] TTI diag: target {targetIds[i]} tracked by {matchCount[i]} missile(s) (was {prev}), tti={tti[i]:0.0}");
+                _lastMatchCount[targetIds[i]] = matchCount[i];
+            }
+            // A target that's no longer locked stops appearing in targetIds — drop it here too so
+            // this dictionary doesn't grow across a long mission full of lock/unlock cycles.
+            if (_lastMatchCount.Count > targetIds.Length)
+            {
+                var idSet = new HashSet<uint>(targetIds);
+                var stale = new List<uint>();
+                foreach (uint k in _lastMatchCount.Keys) if (!idSet.Contains(k)) stale.Add(k);
+                foreach (uint k in stale) _lastMatchCount.Remove(k);
+            }
         }
 
         private static float ComputeSingle(Unit target, uint targetId, uint playerId)
