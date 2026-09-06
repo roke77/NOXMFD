@@ -44,8 +44,8 @@ export function createPresetBar({ endpoint, cmdPrefix, labelEl, saveBtn, loadBtn
         setPreset({ index: item.index, name: item.name });   // optimistic; the next snapshot settles it
         render();
       },
-      onRename: function (item, name) { return sendCommand(cmdPrefix + '.rename', { index: item.index, wname: name }); },
-      onDelete: function (item) { return sendCommand(cmdPrefix + '.delete', { index: item.index }); },
+      onRename: function (item, name) { return send(cmdPrefix + '.rename', { index: item.index, wname: name }); },
+      onDelete: function (item) { return send(cmdPrefix + '.delete', { index: item.index }); },
     });
   });
 

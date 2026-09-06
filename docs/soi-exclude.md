@@ -1,10 +1,10 @@
 # SOI include/exclude — [issue #58](https://github.com/roke77/NOXMFD/issues/58)
 
-**Status:** built, not yet in-game tested. `dotnet build -c Release` (0 errors), the full
-`*.test.js`/`dotnet test` suite, and the `tools/serve_web.py` harness all exercise the full
-checkbox/wire round-trip; moving real SOI focus off an excluded surface is only exercisable
-against the harness's own pure-JS model (`tools/soi-focus.test.js`), since the harness has no
-stateful SOI ring the way the real plugin does — the actual ring skip is only testable in game.
+**Status:** shipped in 0.43.0, confirmed working in-game (checkboxes, exclude/include, and real SOI
+focus skipping an excluded pane). An external review of 0.43.0 then found a real gap the harness's
+JS model didn't cover — see "Shrink-plus-exclusion fix" below — since fixed, covered by real xUnit
+tests against the production logic (not just a hand-copied JS mirror), and rebuilt/redeployed; not
+yet re-confirmed live after that fix.
 
 ## What it is
 
@@ -75,11 +75,30 @@ checkbox fires `soi.include` immediately — there's no separate save step.
   labels. Same split as `captureLayoutState`/`applyLayoutState` (state shape) already living in
   each shell while the keyboard/modal plumbing around them is shared.
 
+### Shrink-plus-exclusion fix (review follow-up)
+
+`SetPaneCount`'s shrink clamp originally jumped straight to `n - 1` without checking whether that
+surviving pane was excluded — an external review of 0.43.0 found the exact scenario: a 4-portal
+F-35 layout, portal 2 excluded, focus on portal 4, merged down to 2 portals landed focus right back
+on the excluded portal 2. Fixed by preferring the nearest still-included pane on the same display
+first (walking down from `n - 1`), falling through to the full ring's first member only if every
+surviving pane on that display is excluded too.
+
+The ring-selection rules this touches (`RingLocked`'s build, `Cycle`'s step, and this shrink clamp)
+moved into a new pure, BCL-only `SoiRing.cs`, linked directly into `NOXMFD.Tests.csproj` — the
+review separately observed that `tools/soi-focus.test.js` only exercises a hand-copied JS model of
+these rules, never the actual production code, which is exactly how the shrink-plus-exclusion case
+went untested in the first place. `SoiFocus.cs` still owns all the locking and live state
+(`SseHub.Instances()`, `TgpManualControl.ManualMode`); `SoiRing`'s functions only compute over
+plain data, so `SoiRingTests.cs` can call the real logic directly instead of a second, independently
+maintained copy of it.
+
 ## What is built
 
 | File | What |
 |---|---|
-| [`src/plugin/Http/SoiFocus.cs`](../src/plugin/Http/SoiFocus.cs) | `_excluded` set; `IsIncluded`/`SetIncluded`/`ExcludedJson`; `RingLocked` filters it; `SetPaneCount`/`ReleaseOnDisconnect` purge stale entries. |
+| [`src/plugin/Http/SoiFocus.cs`](../src/plugin/Http/SoiFocus.cs) | `_excluded` set; `IsIncluded`/`SetIncluded`/`ExcludedJson`; `RingLocked`/`Cycle`/`SetPaneCount`'s clamp delegate to `SoiRing` below; `SetPaneCount`/`ReleaseOnDisconnect` purge stale entries. |
+| [`src/plugin/Http/SoiRing.cs`](../src/plugin/Http/SoiRing.cs), [`tools/tests/SoiRingTests.cs`](../tools/tests/SoiRingTests.cs) | Pure ring-build/cycle-step/shrink-clamp rules, no game touchpoint — linked directly into `NOXMFD.Tests.csproj` so the shrink-plus-exclusion case (and the rest of the ring rules) run against the real production logic. |
 | [`src/plugin/Http/TelemetryServer.cs`](../src/plugin/Http/TelemetryServer.cs) | `SetSoiIncluded` — thin delegate to `SoiFocus.SetIncluded`, same shape as its other SOI wrappers. |
 | [`src/plugin/Http/ConfigEndpoint.cs`](../src/plugin/Http/ConfigEndpoint.cs), [`TelemetryHttpRouter.cs`](../src/plugin/Http/TelemetryHttpRouter.cs) | `GET /soi-excluded?cid=...` → `{"excluded":[pane,...]}`. |
 | [`src/plugin/CommandDispatcher.cs`](../src/plugin/CommandDispatcher.cs) | `soi.include` — `cid`/`n`/`on`, all pre-existing envelope fields. |
@@ -91,9 +110,10 @@ checkbox fires `soi.include` immediately — there's no separate save step.
 
 ## Verification performed
 
+Original feature:
+
 - `dotnet build -c Release` — 0 errors, same warning baseline.
-- Full `tools/ci-check.ps1` — build, all 44 `*.test.js` files (including the extended
-  `soi-focus.test.js`), 291 `dotnet test` cases, route smoke, all green.
+- Full `tools/ci-check.ps1` — build, every `*.test.js` file, `dotnet test`, route smoke, all green.
 - `tools/serve_web.py` harness, live browser check: CLASSIC full view, H_SPLIT, and V_SPLIT each
   show the correct checkbox set/labels in LOAD LAYOUT, opened via the real keyboard-shortcut path
   (`handleLayoutKeydown`) while the split was actually live — confirmed via `soiSurfaces()`
@@ -103,15 +123,27 @@ checkbox fires `soi.include` immediately — there's no separate save step.
   set `GET /soi-excluded` to `{"excluded":[1]}`; re-checking cleared it; a value set out-of-band
   (simulating another browser tab) was correctly picked up on the next LOAD LAYOUT open rather
   than shown stale.
-- Not verified: the LYT page's own SAVE/LOAD nav items always force full view before opening the
-  modal (`applySplitMode()` behind the `lyt` nav action) — a pre-existing limitation of that path,
-  unrelated to this feature, and irrelevant to the checkbox labels since real usage reaches LOAD
-  LAYOUT via the configured keyboard shortcut while still looking at the live split/portal
-  arrangement.
-- Not verified: real SOI focus actually skipping an excluded pane/portal in game (the harness has
-  no live SOI ring to drive) — covered instead by `tools/soi-focus.test.js`'s pure model, which
-  mirrors `SoiFocus.cs`'s exact rules (same technique the pre-existing focus/cycle/disconnect
-  tests there already use).
+- Not verified in the harness: the LYT page's own SAVE/LOAD nav items always force full view before
+  opening the modal (`applySplitMode()` behind the `lyt` nav action) — a pre-existing limitation of
+  that path, unrelated to this feature, and irrelevant to the checkbox labels since real usage
+  reaches LOAD LAYOUT via the configured keyboard shortcut while still looking at the live
+  split/portal arrangement.
+- **Confirmed working in-game**: checkboxes, exclude/include round-trip, and real SOI focus
+  skipping an excluded pane/portal.
+
+Shrink-plus-exclusion fix (review follow-up):
+
+- `dotnet build -c Release` — 0 errors, same warning baseline.
+- `SoiRingTests.cs` — 12 new xUnit cases against the actual production ring-build/step/clamp logic,
+  including the exact review-flagged scenario (4 portals, one excluded, shrink to 2) and its
+  "every surviving pane also excluded" variant. `tools/soi-focus.test.js`'s JS mirror model also
+  extended with the same two cases, kept for the browser-facing checkbox/command wiring it alone
+  covers.
+- Full `tools/ci-check.ps1` — every `*.test.js` file, 303 `dotnet test` cases, route smoke, all
+  green.
+- Not yet re-confirmed live: the fix itself, and that `RingLocked`/`Cycle` still behave identically
+  post-extraction (the xUnit/JS tests above cover the logic in isolation, but not an actual layout
+  merge on real connected displays).
 
 ## Open questions
 

@@ -302,7 +302,7 @@ def _hud_options():
         # here so the off state is visible in the harness. The write side (declutter.set) has no mock.
         "declutter": {"weapon": False, "minimap": True, "boxes": False},
         # Current HUD preset (issue #50 follow-up) — index/name only, stateful via PRESET_STATE/
-        # PRESETS below so the bottom label follows a save/rename/load in the harness.
+        # PRESETS below so the preset label follows a save/rename/load in the harness.
         "preset": {"index": current["index"], "name": current["name"]},
     }).encode("utf-8")
 
@@ -749,7 +749,7 @@ def _preset_command(env):
 # page rides the static `tgt` block in preview-mock.js (a client-side mock, unlike /hud-options),
 # which this harness has no way to update from a server-side command — so, like every other tgt.*
 # write command here, SAVE/LOAD/rename/delete round-trip against this state and are verifiable via
-# the LOAD list they drive, but won't visibly move the page's own bottom label; that path is only
+# the LOAD list they drive, but won't visibly move the page's own preset label; that path is only
 # testable in game.
 TGT_PRESETS = [{"index": i, "name": "", "hasData": False} for i in range(1, 6)]
 TGT_PRESET_STATE = {"current": 1}

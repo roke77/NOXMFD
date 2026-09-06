@@ -246,7 +246,7 @@ namespace NOXMFD
         public TgtToggleInfo[] TgtFaction;   // FRIENDLY, ENEMY
         public TgtToggleInfo[] TgtCategory;  // AIR, MSL, GND, BLD, SHP
         public TgtToggleInfo[] TgtVehicle;   // TRUCK … RDR (dynamic; names double as /icon keys)
-        // Current TGT filter preset (issue #78) — just the slot the bottom label names, captured
+        // Current TGT filter preset (issue #78) — just the slot the preset label names, captured
         // here (not read live from TgtPresetStore during JSON build) for the same reason every other
         // Tgt* field is a snapshot value: TelemetryJson can run off the main thread.
         public int    TgtPresetIndex;

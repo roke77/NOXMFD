@@ -174,6 +174,33 @@ the NAME cell, at its right edge — the cell became a flex row (`.tl-name-text`
 so a long name still ellipsizes correctly instead of the two fighting over the same nowrap span. Same
 amber as the HUD cue, kept independent of the row's own faction tint.
 
+## Batch scan (review follow-up)
+
+An external review of 0.43.0 flagged that `RefreshContactSnapshotIfNeeded` called `ComputeTti` once
+per locked target, each call independently rescanning all of `UnitRegistry.allUnits` — with `L`
+locked targets and `U` units, roughly `L x U` work every ~4 Hz tick, on top of `HudTtiCue`'s own
+separate ~4 Hz scan for just the focused target.
+
+`TargetTtiEstimator.ComputeAll(targetIds, playerId)` now does one `UnitRegistry.allUnits` pass for
+every locked target together: it resolves each target id to a `Unit` once, then for every player-
+owned missile resolves its assigned target (via `targetID` or the seeker's `targetUnit`, same
+matching `IsAssignedTo` always used) at most once and folds it into a running per-target minimum.
+`RefreshContactSnapshotIfNeeded` calls this once instead of looping `ComputeTti` per target.
+
+`ComputeAll` also caches its result (by target id, keyed to the player id it ran for). The single-
+target `ComputeTti(targetId, playerId)` — still used by `HudTtiCue`, which polls independently at
+its own ~4 Hz cadence for just the focused target — checks that cache first. Since `TargetFocus`'s
+own invariant guarantees the focused id is always one of the ids the last batch covered, this turns
+what used to be a second full scan a few milliseconds later into a dictionary lookup; a cache miss
+(e.g. before the first contact scan tick) falls back to the original direct scan, so correctness
+never depends on the cache being warm.
+
+**Not yet re-verified in-game after this refactor** — the matching/aggregation logic is unchanged
+(same `targetID`-then-seeker matching, same "smallest TTI wins" per target), but this touches the
+hot path for every locked-target TTI reading and the focused-target HUD cue, so it needs the same
+live confirmation the original feature got: TTI still counts down correctly for a single tracking
+weapon, and multiple locked targets each show their own correct (non-cross-contaminated) reading.
+
 ## Non-goals for this pass
 
 - A pre-release "if I fired now" estimate for the currently selected weapon.

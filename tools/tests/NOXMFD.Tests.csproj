@@ -44,6 +44,11 @@
     <!-- TargetFocus.cs (issue #62) has no Unity/BepInEx touchpoint either — same pure-state shape
          as SoiFocus.cs, just never pulled in before since nothing there needed testing standalone. -->
     <Compile Include="..\..\src\plugin\Http\TargetFocus.cs" Link="Source\TargetFocus.cs" />
+    <!-- SoiRing.cs (issue #58 review follow-up) — the ring-build/cycle-step/shrink-clamp rules
+         SoiFocus.cs's RingLocked/Cycle/SetPaneCount delegate to, factored out specifically so this
+         project can exercise the ACTUAL production logic instead of only tools/soi-focus.test.js's
+         hand-written JS mirror model. Pure BCL — no SseHub/TgpManualControl touchpoint. -->
+    <Compile Include="..\..\src\plugin\Http\SoiRing.cs" Link="Source\SoiRing.cs" />
     <Compile Include="..\..\src\plugin\Http\CommandContentType.cs" Link="Source\CommandContentType.cs" />
     <!-- TelemetryAssets.cs (docs/plugin-efficiency-audit.md findings 13/14) — only its two pure
          decision helpers (AcceptsGzip, IsCompressibleContentType) get exercised here; the file's

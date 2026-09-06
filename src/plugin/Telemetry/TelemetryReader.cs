@@ -976,12 +976,11 @@ namespace NOXMFD
             TargetFocus.Reconcile(_cachedLockedIds);
 
             // A TTI reading per locked target, using this contact-scan cadence rather than adding
-            // another UnitRegistry.allUnits scan timer for the TGT page.
+            // another UnitRegistry.allUnits scan timer for the TGT page. One batch pass covers every
+            // locked target together (TargetTtiEstimator.ComputeAll) rather than rescanning
+            // UnitRegistry.allUnits once per target.
             uint playerId = aircraft.persistentID.Id;
-            var lockedTti = new float[_cachedLockedIds.Length];
-            for (int i = 0; i < _cachedLockedIds.Length; i++)
-                lockedTti[i] = TargetTtiEstimator.ComputeTti(_cachedLockedIds[i], playerId);
-            _cachedLockedTti = lockedTti;
+            _cachedLockedTti = TargetTtiEstimator.ComputeAll(_cachedLockedIds, playerId);
         }
 
         // Shared with Keybinds.cs's CycleTargetFocus (issue #62) — both need the same

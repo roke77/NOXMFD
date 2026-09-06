@@ -189,6 +189,6 @@ clean sprite to capture. Left off rather than faked; an inline-SVG approximation
   (`HudCombatModeFilters.cs`) — from the page's point of view it is just another externally-driven
   change arriving in the next HUD-options snapshot.
 - **HUD presets** ([docs/hud-presets.md](hud-presets.md)) — a separate feature, the page's own 5
-  named save/load slots (bottom bar, `preset` field on `/hud-options`, `/hud-presets` for the LOAD
+  named save/load slots (preset bar, `preset` field on `/hud-options`, `/hud-presets` for the LOAD
   list). Independent of the mode tabs and of the combat-mode automation above; the only touchpoint
   is that loading a preset counts as a player edit for that automation's own idle baseline.

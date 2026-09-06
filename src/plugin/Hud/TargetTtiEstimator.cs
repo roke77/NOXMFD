@@ -1,16 +1,66 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace NOXMFD
 {
     // Live target-lock TTI estimator shared by the native HUD cue and the TGT telemetry rows.
     // It scans the player's own in-flight guided weapons and returns the shortest current
-    // range/closing-speed estimate for the requested locked target.
+    // range/closing-speed estimate for the requested locked target(s).
     internal static class TargetTtiEstimator
     {
+        // The most recent ComputeAll batch (TelemetryReader's ~4 Hz contact scan) — ComputeTti below
+        // checks this first. HudTtiCue polls at its own, independent ~4 Hz cadence for just the
+        // focused target, which TargetFocus's own invariant guarantees is always one of the ids that
+        // batch just covered — so this turns what used to be a second full UnitRegistry.allUnits
+        // scan a few milliseconds later into a dictionary lookup. Falls back to a direct scan
+        // (ComputeSingle) on a miss, so correctness never depends on the cache being warm.
+        private static Dictionary<uint, float> _lastBatch = new Dictionary<uint, float>();
+        private static uint _lastBatchPlayerId;
+
         internal static float ComputeTti(uint targetId, uint playerId)
         {
+            if (playerId == _lastBatchPlayerId && _lastBatch.TryGetValue(targetId, out float cached)) return cached;
             if (!TargetUnitLookup.TryResolve(targetId, out Unit target)) return -1f;
+            return ComputeSingle(target, targetId, playerId);
+        }
 
+        // One UnitRegistry.allUnits pass for every locked target together, rather than the old
+        // one-full-scan-per-target loop (O(locked count x unit count) every contact-scan tick).
+        // Resolves each missile's assigned target at most once, instead of re-checking it against
+        // every locked id in turn.
+        internal static float[] ComputeAll(uint[] targetIds, uint playerId)
+        {
+            var result = new float[targetIds.Length];
+            for (int i = 0; i < result.Length; i++) result[i] = -1f;
+
+            if (targetIds.Length > 0)
+            {
+                var targets = new Dictionary<uint, Unit>(targetIds.Length);
+                var indexOf = new Dictionary<uint, int>(targetIds.Length);
+                for (int i = 0; i < targetIds.Length; i++)
+                    if (TargetUnitLookup.TryResolve(targetIds[i], out Unit u)) { targets[targetIds[i]] = u; indexOf[targetIds[i]] = i; }
+
+                foreach (Unit u in UnitRegistry.allUnits)
+                {
+                    if (u is not Missile m || m.disabled) continue;
+                    if (m.ownerID.Id != playerId) continue;
+                    if (!TryResolveAssignedTarget(m, targets, out uint assignedId)) continue;
+
+                    int idx = indexOf[assignedId];
+                    float t = EstimateImpactTime(m, targets[assignedId]);
+                    if (t >= 0f && (result[idx] < 0f || t < result[idx])) result[idx] = t;
+                }
+            }
+
+            var fresh = new Dictionary<uint, float>(targetIds.Length);
+            for (int i = 0; i < targetIds.Length; i++) fresh[targetIds[i]] = result[i];
+            _lastBatch = fresh;
+            _lastBatchPlayerId = playerId;
+            return result;
+        }
+
+        private static float ComputeSingle(Unit target, uint targetId, uint playerId)
+        {
             float best = -1f;
             foreach (Unit u in UnitRegistry.allUnits)
             {
@@ -35,6 +85,23 @@ namespace NOXMFD
             if (m.targetID.Id == targetId) return true;
             MissileSeeker? seeker = m.GetComponent<MissileSeeker>();
             return seeker != null && MissileSeekerAccess.GetTargetUnit(seeker) is Unit tu && tu.persistentID.Id == targetId;
+        }
+
+        // Batch twin of IsAssignedTo: same targetID-then-seeker matching, but against the whole set
+        // of locked ids at once so each missile is only resolved once per scan. targetID.Id == 0
+        // (unassigned) never matches — 0 is never a key in `targets` (TargetUnitLookup.TryResolve
+        // reads id 0 as "no target", same convention TargetFocus/TelemetrySnapshot use).
+        private static bool TryResolveAssignedTarget(Missile m, Dictionary<uint, Unit> targets, out uint assignedId)
+        {
+            if (targets.ContainsKey(m.targetID.Id)) { assignedId = m.targetID.Id; return true; }
+            MissileSeeker? seeker = m.GetComponent<MissileSeeker>();
+            if (seeker != null && MissileSeekerAccess.GetTargetUnit(seeker) is Unit tu && targets.ContainsKey(tu.persistentID.Id))
+            {
+                assignedId = tu.persistentID.Id;
+                return true;
+            }
+            assignedId = 0;
+            return false;
         }
 
         // target.rb is null for a static Unit — confirmed via a live diagnostic log (2026-09-05):

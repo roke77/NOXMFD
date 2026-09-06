@@ -12,7 +12,7 @@ own state, unlike a plain client-side save. Fixed numbered slots (**PRESET 1** t
 5**), not an arbitrary create/delete list like [SAVE/LOAD LAYOUT](layout-save-load.md): a slot
 always exists, only its name/data start empty and can be cleared back to empty.
 
-- A bottom bar on [HUD](../man/hud.md) reads **PRESET N: name** (whichever slot is current) plus
+- A preset bar on [HUD](../man/hud.md) reads **PRESET N: name** (whichever slot is current) plus
   **SAVE**/**LOAD** buttons.
 - **SAVE** opens a name prompt; submitting captures the page's current live filters into the
   current slot under that name.
@@ -63,6 +63,16 @@ noted below.
   field on a `pickList` row (falls back to `item.name` — every existing caller is unaffected), so
   the LOAD list can show "PRESET N: name" without that prefix leaking into the rename input, which
   edits the raw `item.name`.
+- **Fixed-slot/summary-JSON/persistence plumbing shared with `TgtPresetStore` via a small
+  `PresetSlots` helper** (`src/plugin/Stores/PresetSlots.cs`) — see [TGT presets](tgt-presets.md)
+  for the rest of the reasoning; only the game-specific capture/apply logic stayed in each store.
+- **`Save`/`Rename` reject a whitespace-only name.** They used to check `string.IsNullOrEmpty(name)`
+  before trimming, so a name of all spaces passed validation and was stored empty; both now check
+  the *trimmed* result's length instead.
+- **`preset-bar.js`'s rename/delete now go through the injected `send` callback**, not the global
+  `sendCommand` directly — matching what SAVE/LOAD already did. HUD's own `send` also resets its
+  command-resync timer, so a rejected rename/delete now gets corrected by that resync the same way
+  a rejected save/load already was.
 
 ## What is built
 
@@ -72,20 +82,22 @@ noted below.
 | [`src/plugin/CommandDispatcher.cs`](../src/plugin/CommandDispatcher.cs) | `preset.save` / `.rename` / `.delete` / `.load` — `wname` for a name, `index` for a slot number 1-5. |
 | [`src/plugin/Http/TelemetryServer.cs`](../src/plugin/Http/TelemetryServer.cs), [`ConfigEndpoint.cs`](../src/plugin/Http/ConfigEndpoint.cs) | `RefreshHudOptions` gained a `preset:{index,name}` field; `GET /hud-presets` serves the full 5-slot summary for the LOAD picker. |
 | [`src/plugin/Input/Keybinds.cs`](../src/plugin/Input/Keybinds.cs) | 5 `DefFree` binds (**HUD Preset 1**-**5**), section `HUD Preset Keybinds` → displayed as **HUD PRESETS**. |
-| [`src/web/pages/hud/hud.html`](../src/web/pages/hud/hud.html), [`hud.js`](../src/web/pages/hud/hud.js), [`hud.css`](../src/web/pages/hud/hud.css) | The bottom bar markup/styling and the page-specific glue (`getPreset`/`setPreset` reading/writing `data.preset`, the `/hud-options`-driven bottom label). The SAVE/LOAD/`fetchPresetItems`/`LayoutModal` wiring itself now lives in the shared [`preset-bar.js`](../src/web/shell/shared/preset-bar.js) (extracted once [TGT presets](tgt-presets.md) made it a second copy). |
+| [`src/web/pages/hud/hud.html`](../src/web/pages/hud/hud.html), [`hud.js`](../src/web/pages/hud/hud.js), [`hud.css`](../src/web/pages/hud/hud.css) | The preset bar markup/styling and the page-specific glue (`getPreset`/`setPreset` reading/writing `data.preset`, the `/hud-options`-driven preset label). The SAVE/LOAD/`fetchPresetItems`/`LayoutModal` wiring itself now lives in the shared [`preset-bar.js`](../src/web/shell/shared/preset-bar.js) (extracted once [TGT presets](tgt-presets.md) made it a second copy). |
 | [`src/web/shell/shared/layout-modal.js`](../src/web/shell/shared/layout-modal.js) | `item.display` addition (backward compatible). |
+| [`src/web/shell/shared/preset-bar.js`](../src/web/shell/shared/preset-bar.js), [`preset-bar.test.js`](../src/web/shell/shared/preset-bar.test.js) | Shared SAVE/LOAD/rename/delete wiring; the test covers all four going through the injected `send` callback. |
+| [`src/plugin/Stores/PresetSlots.cs`](../src/plugin/Stores/PresetSlots.cs) | Shared BCL-only plumbing (slot creation, summary JSON, name validation, rename/delete, disk persistence) used by both `HudPresetStore` and `TgtPresetStore`. |
 | [`tools/serve_web.py`](../tools/serve_web.py) | Stateful mock (`PRESETS`/`PRESET_STATE`), same shape as `LAYOUTS` — the name/list/rename/delete/current-slot machinery is fully exercised in the harness; the actual filter values behind a slot are not (there's no stateful `HUDOptions` mock, same pre-existing gap `hud.set`/`hud.mode` already have there). |
 
 ## Verification performed
 
 - `dotnet build -c Release --no-incremental` — 0 errors.
 - Full harness round-trip (`serve_web.py`): SAVE opens the prompt, submitting stores the name
-  server-side and updates the bottom label; LOAD lists all 5, rename and delete both work in place
+  server-side and updates the preset label; LOAD lists all 5, rename and delete both work in place
   without closing the modal, and picking a slot updates the current index + label.
 - KEY page renders all 5 new binds under a **HUD PRESETS** section with full key/joystick capture
   UI, same as any other ordinary bind.
-- Full `*.test.js` suite passes (no new JS test — the new client code is DOM/fetch glue, same
-  category as the rest of `hud.js`, which carries none either).
+- Full `*.test.js` suite passes, including `preset-bar.test.js` (covers SAVE/LOAD/rename/delete all
+  going through the injected `send` callback).
 
 ## Open questions
 

@@ -5,10 +5,10 @@ using System.Text;
 
 namespace NOXMFD
 {
-    internal sealed class HudPreset
+    internal sealed class HudPreset : IPresetSlot
     {
-        public string Name = string.Empty;
-        public bool HasData;
+        public string Name { get; set; } = string.Empty;
+        public bool HasData { get; set; }
         public bool[] Categories = Array.Empty<bool>();
         public bool[] Vehicles = Array.Empty<bool>();
         public bool[] Buildings = Array.Empty<bool>();
@@ -34,8 +34,8 @@ namespace NOXMFD
     {
         public const int SlotCount = 5;
 
-        private static readonly HudPreset[] _slots = BuildEmptySlots();
-        // Which slot SAVE targets and the bottom label names — plain in-memory, not persisted: it's
+        private static readonly HudPreset[] _slots = PresetSlots.Empty<HudPreset>(SlotCount);
+        // Which slot SAVE targets and the preset label names — plain in-memory, not persisted: it's
         // a UI selection, not saved data, so it resets to 1 on a fresh session.
         private static int _current = 1;
 
@@ -46,13 +46,6 @@ namespace NOXMFD
 
         private static string FilePath =>
             Path.Combine(BepInEx.Paths.ConfigPath, "com.roque.NOXMFD.hud-presets.json");
-
-        private static HudPreset[] BuildEmptySlots()
-        {
-            var slots = new HudPreset[SlotCount];
-            for (int i = 0; i < SlotCount; i++) slots[i] = new HudPreset();
-            return slots;
-        }
 
         // ── lifecycle ────────────────────────────────────────────────────────────────────────
 
@@ -82,44 +75,16 @@ namespace NOXMFD
             {
                 if (list[i] is not Dictionary<string, object?> d) continue;
                 HudPreset s = slots[i];
-                s.Name = d.TryGetValue("name", out object? nm) ? (nm as string ?? string.Empty) : string.Empty;
-                s.HasData = d.TryGetValue("hasData", out object? hd) && hd is bool hb && hb;
-                s.Categories = ParseBoolArray(d, "categories");
-                s.Vehicles = ParseBoolArray(d, "vehicles");
-                s.Buildings = ParseBoolArray(d, "buildings");
+                PresetSlots.ReadNameAndHasData(d, s);
+                s.Categories = PresetSlots.ParseBoolArray(d, "categories");
+                s.Vehicles = PresetSlots.ParseBoolArray(d, "vehicles");
+                s.Buildings = PresetSlots.ParseBoolArray(d, "buildings");
             }
         }
 
-        private static bool[] ParseBoolArray(Dictionary<string, object?> d, string key)
-        {
-            if (!(d.TryGetValue(key, out object? v) && v is List<object?> list)) return Array.Empty<bool>();
-            var arr = new bool[list.Count];
-            for (int i = 0; i < list.Count; i++) arr[i] = list[i] is bool b && b;
-            return arr;
-        }
+        // ── reads (the preset label + the LOAD picker) ──────────────────────────────────────
 
-        // ── reads (the bottom label + the LOAD picker) ──────────────────────────────────────
-
-        private static void RefreshSummary() { PresetsJson = BuildSummaryJson(_current, _slots); }
-
-        // Parameterized (not closed over _current/_slots) so SelfCheck below can exercise it against
-        // a throwaway array without touching the real state the plugin is actually using.
-        private static string BuildSummaryJson(int current, HudPreset[] slots)
-        {
-            var sb = new StringBuilder(256);
-            sb.Append("{\"current\":").Append(current).Append(",\"presets\":[");
-            for (int i = 0; i < slots.Length; i++)
-            {
-                if (i > 0) sb.Append(',');
-                HudPreset s = slots[i];
-                sb.Append("{\"index\":").Append(i + 1)
-                  .Append(",\"name\":\"").Append(TelemetryServer.EscapeJson(s.Name))
-                  .Append("\",\"hasData\":").Append(s.HasData ? "true" : "false")
-                  .Append('}');
-            }
-            sb.Append("]}");
-            return sb.ToString();
-        }
+        private static void RefreshSummary() { PresetsJson = PresetSlots.SummaryJson(_current, _slots); }
 
         // Same reasoning: parameterized, not closed over _slots.
         private static string BuildDiskJson(HudPreset[] slots)
@@ -132,30 +97,17 @@ namespace NOXMFD
                 HudPreset s = slots[i];
                 sb.Append("{\"name\":\"").Append(TelemetryServer.EscapeJson(s.Name))
                   .Append("\",\"hasData\":").Append(s.HasData ? "true" : "false")
-                  .Append(",\"categories\":").Append(BoolArrayJson(s.Categories))
-                  .Append(",\"vehicles\":").Append(BoolArrayJson(s.Vehicles))
-                  .Append(",\"buildings\":").Append(BoolArrayJson(s.Buildings))
+                  .Append(",\"categories\":").Append(PresetSlots.BoolArrayJson(s.Categories))
+                  .Append(",\"vehicles\":").Append(PresetSlots.BoolArrayJson(s.Vehicles))
+                  .Append(",\"buildings\":").Append(PresetSlots.BoolArrayJson(s.Buildings))
                   .Append('}');
             }
             sb.Append("]}");
             return sb.ToString();
         }
 
-        private static string BoolArrayJson(bool[] arr)
-        {
-            var sb = new StringBuilder(arr.Length * 6);
-            sb.Append('[');
-            for (int i = 0; i < arr.Length; i++)
-            {
-                if (i > 0) sb.Append(',');
-                sb.Append(arr[i] ? "true" : "false");
-            }
-            sb.Append(']');
-            return sb.ToString();
-        }
-
         // Current preset's index/name, folded into TelemetryServer.RefreshHudOptions' own payload —
-        // the bottom label rides the HUD page's existing 1.2s poll rather than a second endpoint.
+        // the preset label rides the HUD page's existing 1.2s poll rather than a second endpoint.
         public static int CurrentIndex => _current;
         public static string CurrentName => _slots[_current - 1].Name;
 
@@ -167,12 +119,13 @@ namespace NOXMFD
         // blank/stale slot.
         public static bool Save(string? name)
         {
-            if (string.IsNullOrEmpty(name)) return false;
+            string cleanName = PresetSlots.CleanName(name);
+            if (cleanName.Length == 0) return false;
             HUDOptions opt = SceneSingleton<HUDOptions>.i;
             if (opt == null) return false;
 
             HudPreset slot = _slots[_current - 1];
-            slot.Name = name!.Trim();
+            slot.Name = cleanName;
             slot.Categories = SnapshotCategories(opt);
             slot.Vehicles = SnapshotVehicles(opt);
             slot.Buildings = SnapshotBuildings(opt);
@@ -181,26 +134,14 @@ namespace NOXMFD
             return true;
         }
 
-        public static bool Rename(int index, string? name)
-        {
-            if (index < 1 || index > SlotCount || string.IsNullOrEmpty(name)) return false;
-            _slots[index - 1].Name = name!.Trim();
-            Persist();
-            return true;
-        }
+        public static bool Rename(int index, string? name) => PresetSlots.Rename(_slots, index, name, Persist);
 
         // Clears the slot back to empty (name + data) — the slot itself always exists (1-5 are fixed),
         // so "delete" can't remove it, only blank it.
-        public static bool Delete(int index)
-        {
-            if (index < 1 || index > SlotCount) return false;
-            _slots[index - 1] = new HudPreset();
-            Persist();
-            return true;
-        }
+        public static bool Delete(int index) => PresetSlots.Delete(_slots, index, Persist);
 
         // Applies a preset's saved filters onto the live HUD and makes it the current slot (so the
-        // bottom label follows it and the next SAVE overwrites it) — the direct-recall behaviour the
+        // preset label follows it and the next SAVE overwrites it) — the direct-recall behaviour the
         // 5 KEY-page keybinds and the LOAD picker's onPick both drive through this one entry point.
         // An empty slot (never saved) still becomes current — nothing to apply, but selectable, so a
         // player can press "preset 3" then SAVE into it without ever having loaded data there first.
@@ -227,9 +168,7 @@ namespace NOXMFD
         private static void Persist()
         {
             RefreshSummary();
-            // Back up whatever was on disk BEFORE overwriting it — see RouteStore.Save's comment.
-            try { ConfigBackup.BackupIfExists(FilePath); File.WriteAllText(FilePath, BuildDiskJson(_slots)); }
-            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] failed to persist hud presets: {ex.Message}"); }
+            PresetSlots.WriteToDisk(FilePath, BuildDiskJson(_slots), "hud presets");
         }
 
         private static bool[] SnapshotCategories(HUDOptions opt)
@@ -277,7 +216,7 @@ namespace NOXMFD
                 if (!cond) throw new Exception($"HudPresetStore.SelfCheck failed: {what}");
             }
 
-            HudPreset[] slots = BuildEmptySlots();
+            HudPreset[] slots = PresetSlots.Empty<HudPreset>(SlotCount);
             slots[0].Name = "Dogfight";
             slots[0].HasData = true;
             slots[0].Categories = new[] { true, false, true };   // a false in the middle, not all-same
@@ -286,7 +225,7 @@ namespace NOXMFD
 
             string disk = BuildDiskJson(slots);
             Check(JsonLite.Parse(disk) is Dictionary<string, object?>, "disk JSON parses back to an object");
-            HudPreset[] roundTripped = BuildEmptySlots();
+            HudPreset[] roundTripped = PresetSlots.Empty<HudPreset>(SlotCount);
             ParseFrom((Dictionary<string, object?>)JsonLite.Parse(disk)!, roundTripped);
 
             Check(roundTripped[0].Name == "Dogfight", "name round-trips through disk JSON");
@@ -298,7 +237,7 @@ namespace NOXMFD
             Check(roundTripped[0].Vehicles.Length == 1 && !roundTripped[0].Vehicles[0], "single-element array round-trips");
             Check(roundTripped[0].Buildings.Length == 0, "empty array round-trips as empty, not null/missing");
 
-            string summary = BuildSummaryJson(3, slots);
+            string summary = PresetSlots.SummaryJson(3, slots);
             Check(summary.Contains("\"current\":3"), "summary carries whatever current index it's given");
             Check(summary.Contains("\"index\":1") && summary.Contains("Dogfight"), "summary names the saved slot");
             Check(!summary.Contains("categories") && !summary.Contains("vehicles") && !summary.Contains("buildings"),

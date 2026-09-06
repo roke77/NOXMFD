@@ -733,7 +733,7 @@ namespace NOXMFD
               .Append(",\"feed\":").Append(HudDeclutterConfig.HideKillFeed ? "true" : "false")
               .Append('}');
 
-            // Current HUD preset (issue #50 follow-up) — just the slot the bottom label names;
+            // Current HUD preset (issue #50 follow-up) — just the slot the preset label names;
             // the full 5-slot list for the LOAD picker is a separate on-demand fetch (/hud-presets),
             // not part of this 1.2s poll payload.
             sb.Append(",\"preset\":{\"index\":").Append(HudPresetStore.CurrentIndex)

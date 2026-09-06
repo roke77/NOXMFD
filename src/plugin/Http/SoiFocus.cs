@@ -61,9 +61,8 @@ namespace NOXMFD
             lock (_lock)
             {
                 if (!string.Equals(_targetCid, NativeTgpCid, StringComparison.Ordinal)) return;
-                var ring = RingLocked();
-                if (ring.Count == 0) { SetTargetLocked(string.Empty, -1); return; }
-                SetTargetLocked(ring[0].cid, ring[0].pane);
+                var next = SoiRing.FirstOrNone(RingLocked());
+                SetTargetLocked(next.cid, next.pane);
             }
         }
 
@@ -240,8 +239,8 @@ namespace NOXMFD
                 if (!changed) return;
                 if (included || !string.Equals(_targetCid, cid, StringComparison.Ordinal) || _targetPane != pane)
                     return;
-                var ring = RingLocked();
-                SetTargetLocked(ring.Count == 0 ? string.Empty : ring[0].cid, ring.Count == 0 ? -1 : ring[0].pane);
+                var next = SoiRing.FirstOrNone(RingLocked());
+                SetTargetLocked(next.cid, next.pane);
             }
         }
 
@@ -266,19 +265,14 @@ namespace NOXMFD
         // Built under _lock by the callers that need it.
         private static List<(string cid, int pane)> RingLocked()
         {
-            var ring = new List<(string, int)>();
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var inst in SseHub.Instances())
-            {
-                if (!seen.Add(inst.Cid)) continue;
-                for (int p = 0; p < inst.PaneCount; p++)
-                    if (!_excluded.Contains((inst.Cid, p))) ring.Add((inst.Cid, p));
-            }
+            var instances = SseHub.Instances();
+            var flat = new List<(string cid, int paneCount)>(instances.Count);
+            foreach (var inst in instances) flat.Add((inst.Cid, inst.PaneCount));
             // The manual TGP camera joins the same ring, but only while it's actually engaged
             // (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — appended last so an
             // existing pane layout's cycle order doesn't shift under a pilot who never touches it.
-            if (TgpManualControl.ManualMode) ring.Add((NativeTgpCid, 0));
-            return ring;
+            (string cid, int pane)? camera = TgpManualControl.ManualMode ? (NativeTgpCid, 0) : null;
+            return SoiRing.Build(flat, _excluded, camera);
         }
 
         // Move focus one step along that ring. From no focus, NEXT takes the first surface and PREV
@@ -287,15 +281,8 @@ namespace NOXMFD
         {
             lock (_lock)
             {
-                var ring = RingLocked();
-                if (ring.Count == 0) { SetTargetLocked(string.Empty, -1); return; }
-
-                int i = ring.FindIndex(s => string.Equals(s.cid, _targetCid, StringComparison.Ordinal)
-                                            && s.pane == _targetPane);
-                int next = i < 0
-                    ? (dir >= 0 ? 0 : ring.Count - 1)
-                    : ((i + dir) % ring.Count + ring.Count) % ring.Count;
-                SetTargetLocked(ring[next].cid, ring[next].pane);
+                var next = SoiRing.Step(RingLocked(), _targetCid, _targetPane, dir);
+                SetTargetLocked(next.cid, next.pane);
             }
         }
 
@@ -321,21 +308,13 @@ namespace NOXMFD
                 if (string.Equals(_targetCid, cid, StringComparison.Ordinal) && _targetPane >= n)
                 {
                     // Clamping to n-1 outright could land on a pane the pilot excluded (issue #58) —
-                    // walk down for the nearest surviving INCLUDED pane on this same display first,
-                    // so a merge never re-focuses a surface the pilot deliberately opted out of.
-                    int replacement = -1;
-                    for (int p = n - 1; p >= 0; p--)
-                        if (!_excluded.Contains((cid, p))) { replacement = p; break; }
-                    if (replacement >= 0)
-                    {
-                        SetTargetLocked(cid, replacement);
-                    }
-                    else
-                    {
-                        var ring = RingLocked();
-                        SetTargetLocked(ring.Count == 0 ? string.Empty : ring[0].cid,
-                                        ring.Count == 0 ? -1 : ring[0].pane);
-                    }
+                    // prefer the nearest surviving INCLUDED pane on this same display first (cheap,
+                    // no ring build needed), so a merge never re-focuses a surface the pilot
+                    // deliberately opted out of; only fall through to the full ring if every
+                    // surviving pane here is excluded too.
+                    var local = SoiRing.TryClampToIncludedPane(cid, n, _excluded);
+                    var next = local ?? SoiRing.FirstOrNone(RingLocked());
+                    SetTargetLocked(next.cid, next.pane);
                 }
             }
         }

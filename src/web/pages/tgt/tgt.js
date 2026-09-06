@@ -63,7 +63,8 @@ const builtKey = { faction: '', category: '', vehicle: '' };
 function label(n) { return (n || '').replace(/_/g, ' '); }
 
 function send(cmd, args) {
-  if (typeof sendCommand === 'function') sendCommand(cmd, args).catch(function () {});
+  if (typeof sendCommand !== 'function') return Promise.resolve();
+  return sendCommand(cmd, args).catch(function () {});
 }
 
 function isOn(group, index) {

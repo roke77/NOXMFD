@@ -54,7 +54,7 @@ scalar bools for laser/HUD mode.
 - **A distinct `tgt-preset.*` command namespace, not a reused `preset.*`.** `CommandDispatcher`
   needs to route to the right store; `tgt-preset.save`/`.rename`/`.delete`/`.load` disambiguate from
   `HudPresetStore`'s identically-shaped `preset.*` commands.
-- **The bottom label rides the existing `tgt` telemetry block, not a poll.** Unlike HUD (a
+- **The preset label rides the existing `tgt` telemetry block, not a poll.** Unlike HUD (a
   `/hud-options` fetch every 1.2s), TGT's filter state already streams through
   `TelemetryJson.TgtBlock` at the normal telemetry rate — folding `preset:{index,name}` in there
   keeps the label live without adding a second poll loop. `TelemetrySnapshot` carries
@@ -70,12 +70,34 @@ scalar bools for laser/HUD mode.
   (`src/web/shell/shared/`) rather than being copy-pasted into `tgt.js` a second time — `hud.js`'s
   own inline version became the first user of the extraction, taking a `getPreset`/`setPreset` pair
   so each page keeps owning its own state shape (`data.preset` vs `state.preset`).
+- **Fixed-slot/summary-JSON/persistence plumbing shared with `HudPresetStore` via a small
+  `PresetSlots` helper** (`src/plugin/Stores/PresetSlots.cs`) — the two stores' game-specific
+  capture/apply logic stayed separate; only the identical bookkeeping around it (empty-slot
+  creation, the `{current,presets:[...]}` summary JSON, name trimming/validation, rename/delete,
+  disk persistence) moved into one place.
+- **`Apply()` sets HUD-follow BEFORE the faction/category/vehicle arrays, not after.** The game's
+  `toggleFollowHUD.Set()` fires `OnToggleFollowHUD`, which itself calls `SetFilters()` (turning on)
+  or `ResetFilters()` (turning off) — either would silently clobber the just-restored filter arrays
+  if applied afterward. Found by an external review of 0.43.0; needs an in-game regression check
+  covering both HUD-follow transitions (off→on, on→off) before it can be marked verified.
+- **Faction/category/vehicle toggles are also captured by their own current label**, alongside the
+  existing positional bool array, so `Apply()` can reconcile by name instead of index. The vehicle
+  list in particular is built at runtime from `Encyclopedia.i.vehicleTypes` — a game update that
+  inserts or reorders a vehicle type would otherwise apply a saved value to the wrong toggle. A
+  preset saved before this existed has no name array on disk, so `ApplyToggles` falls back to the
+  original positional behavior for it; a toggle whose label isn't found in a newer preset's saved
+  names (added since that preset was saved) is left at its own current value rather than forced to
+  an unrelated saved one.
+- **Both stores now reject a whitespace-only name.** `Save`/`Rename` used to check
+  `string.IsNullOrEmpty(name)` before trimming, so a name of all spaces passed validation and was
+  stored empty; both now check the *trimmed* result's length.
 
 ## What is built
 
 | File | What |
 |---|---|
 | [`src/plugin/Stores/TgtPresetStore.cs`](../src/plugin/Stores/TgtPresetStore.cs) | The 5-slot library: `Save`/`Rename`/`Delete`/`LoadPreset`, persisted to `com.roque.NOXMFD.tgt-presets.json`. `SelfCheck()` round-trips the disk JSON. |
+| [`src/plugin/Stores/PresetSlots.cs`](../src/plugin/Stores/PresetSlots.cs) | Shared BCL-only plumbing (slot creation, summary JSON, name validation, rename/delete, disk persistence) used by both `TgtPresetStore` and `HudPresetStore`. |
 | [`src/plugin/CommandDispatcher.cs`](../src/plugin/CommandDispatcher.cs) | `tgt-preset.save` / `.rename` / `.delete` / `.load` — `wname` for a name, `index` for a slot number 1-5. |
 | [`src/plugin/Telemetry/TelemetrySnapshot.cs`](../src/plugin/Telemetry/TelemetrySnapshot.cs), [`TelemetryReader.cs`](../src/plugin/Telemetry/TelemetryReader.cs), [`TelemetryJson.cs`](../src/plugin/Telemetry/TelemetryJson.cs) | `TgtPresetIndex`/`TgtPresetName` captured per frame; `TgtBlock` gained a `preset:{index,name}` field. |
 | [`src/plugin/Http/ConfigEndpoint.cs`](../src/plugin/Http/ConfigEndpoint.cs), [`TelemetryHttpRouter.cs`](../src/plugin/Http/TelemetryHttpRouter.cs) | `GET /tgt-presets` serves the full 5-slot summary for the LOAD picker. |
@@ -83,14 +105,14 @@ scalar bools for laser/HUD mode.
 | [`src/plugin/Plugin.cs`](../src/plugin/Plugin.cs) | `TgtPresetStore.Load`/`.SelfCheck` wired into startup, next to `HudPresetStore`'s own. |
 | [`src/web/pages/tgt/tgt.html`](../src/web/pages/tgt/tgt.html), [`tgt.js`](../src/web/pages/tgt/tgt.js), [`tgt.css`](../src/web/pages/tgt/tgt.css) | The bar markup/styling and the page-specific glue (`getPreset`/`setPreset` reading/writing `state.preset`). PAD-cursor `CURSORABLE` extended to include the two new buttons. |
 | [`src/web/shell/shared/preset-bar.js`](../src/web/shell/shared/preset-bar.js) | The actual SAVE/LOAD/`LayoutModal`/`fetchPresetItems` wiring — shared with [HUD presets](hud-presets.md), extracted here since TGT presets made it a second identical copy rather than a one-off. |
-| [`tools/serve_web.py`](../tools/serve_web.py) | Stateful mock (`TGT_PRESETS`/`TGT_PRESET_STATE`), same shape as `PRESETS`/`PRESET_STATE` — the name/list/rename/delete/current-slot machinery is fully exercised; the bottom label itself stays static in the harness (see below). |
+| [`tools/serve_web.py`](../tools/serve_web.py) | Stateful mock (`TGT_PRESETS`/`TGT_PRESET_STATE`), same shape as `PRESETS`/`PRESET_STATE` — the name/list/rename/delete/current-slot machinery is fully exercised; the preset label itself stays static in the harness (see below). |
 | [`tools/preview-mock.js`](../tools/preview-mock.js) | Static `preset: {index:1, name:''}` added to the `tgt` mock block, for a sensible standalone render. |
-| [`man/tgt.md`](../man/tgt.md), [`man/keybinds.md`](../man/keybinds.md) | Document the bottom bar and the new **TGT PRESETS** keybind section. |
+| [`man/tgt.md`](../man/tgt.md), [`man/keybinds.md`](../man/keybinds.md) | Document the preset bar and the new **TGT PRESETS** keybind section. |
 
 ## Verification performed
 
 - `dotnet build -c Release` — 0 errors (same 18-warning baseline as before).
-- Full `tools/ci-check.ps1` — build, all 46 `*.test.js` files, 291 `dotnet test` cases, route smoke,
+- Full `tools/ci-check.ps1` — build, every `*.test.js` file, 291 `dotnet test` cases, route smoke,
   all green.
 - Full harness round-trip (`serve_web.py`, live browser check): opened `/tgt` standalone, injected a
   synthetic `'tgt'` message to populate the panel, then SAVE opened the prompt and `tgt-preset.save`
@@ -99,7 +121,7 @@ scalar bools for laser/HUD mode.
   a slot both sent `tgt-preset.load` and moved the mock's own `current` index server-side.
 - KEY page renders all 5 new binds under a **TGT PRESETS** section, right after **HUD PRESETS**,
   with full key/joystick capture UI, same as any other ordinary bind — confirmed via `get_page_text`.
-- Unlike HUD presets, the bottom label itself does **not** move in the harness in response to a
+- Unlike HUD presets, the preset label itself does **not** move in the harness in response to a
   command: TGT's filter state (`tgt` block) is a *static* client-side mock in `preview-mock.js`
   (there being no stateful `TargetListSelector` mock the way `_hud_options()` has one), not a
   server-polled endpoint the way `/hud-options` is — so `tgt-preset.load`/`.save` update the Python
