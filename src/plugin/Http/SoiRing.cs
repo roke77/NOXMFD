@@ -48,9 +48,9 @@ namespace NOXMFD
 
         // A shrinking SetPaneCount's clamp, SAME-DISPLAY half only (cheap — no ring build needed):
         // the nearest still-included pane at or below the new count, walking down from n-1, so a
-        // merge never re-focuses a surface the pilot excluded (issue #58's review-flagged bug). Null
-        // when every surviving pane on this display is excluded — the caller falls through to the
-        // full ring's first member (FirstOrNone below) in that case.
+        // merge never re-focuses a surface the pilot excluded (issue #58). Null when every
+        // surviving pane on this display is excluded — the caller falls through to the full ring's
+        // first member (FirstOrNone below) in that case.
         internal static (string cid, int pane)? TryClampToIncludedPane(
             string cid, int n, HashSet<(string cid, int pane)> excluded)
         {

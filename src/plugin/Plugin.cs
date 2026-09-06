@@ -45,6 +45,7 @@ namespace NOXMFD
             RouteStore.LogWarning = msg => Log?.LogWarning(msg);
             TelemetryAssets.LogDebug = msg => Log?.LogDebug(msg);                  // same BepInEx-free seam, for /assets error logging
             TdStore.LogInfo = msg => Log?.LogInfo(msg);                          // same BepInEx-free seam, for TdStore.cs's DESIGNATE-receipt log
+            PresetSlots.LogWarning = msg => Log?.LogWarning(msg);                 // same BepInEx-free seam, shared by HudPresetStore/TgtPresetStore
             RouteStore.SendSquadData = Squad.SendData;                        // docs/squadron-transport.md — same BepInEx-free seam, for the Squad.cs dependency
             TryBind("Waypoint routes", RouteStore.Load);                       // docs/hud-waypoint-indicator.md — route library persisted to disk
             TryBind("Saved layouts", LayoutStore.Load);                        // issue #51 — SAVE/LOAD LAYOUT library persisted to disk

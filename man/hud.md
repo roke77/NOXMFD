@@ -36,8 +36,8 @@ HGR, DEF for buildings) toggle independently of their parent category.
 ## Presets
 
 Up to 5 named presets of your own, saved server-side so any connected browser can save or load
-one. A label at the bottom of the page reads **PRESET N: name** — whichever of the 5 is current —
-followed by **SAVE** and **LOAD**.
+one. A bar above the category/vehicle/building toggles reads **PRESET N: name** — whichever of
+the 5 is current — followed by **SAVE** and **LOAD**.
 
 - **SAVE** — opens a name prompt; submitting it captures the page's current filters (every
   category, vehicle, and building toggle above) into the current preset under that name.

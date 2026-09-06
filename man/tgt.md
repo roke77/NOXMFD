@@ -68,8 +68,8 @@ Two buttons below the list clear targets by *why* they're selected, without touc
 ## Presets
 
 Up to 5 named presets of your own filters, saved server-side so any connected browser can save or
-load one. A label at the bottom of the page reads **PRESET N: name** — whichever of the 5 is
-current — followed by **SAVE** and **LOAD**.
+load one. A bar between the header and the filter group reads **PRESET N: name** — whichever of
+the 5 is current — followed by **SAVE** and **LOAD**.
 
 - **SAVE** — opens a name prompt; submitting it captures the page's current filters (faction,
   category, vehicle type, plus LASER and HUD mode) into the current preset under that name.

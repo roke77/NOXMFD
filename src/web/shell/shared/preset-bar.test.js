@@ -1,8 +1,8 @@
 // Run: `node preset-bar.test.js`. Covers createPresetBar's SAVE/LOAD/rename/delete wiring — in
 // particular that all four operations go through the INJECTED `send` callback, not the global
-// `sendCommand` (a prior version called `sendCommand` directly for rename/delete, which skipped
-// whatever page-specific bookkeeping a page's own `send` does around a command — e.g. hud.js's
-// `send` also resets its resync timer so a stale label gets corrected if the command is rejected).
+// `sendCommand` directly, so a page's own `send` bookkeeping around a command (e.g. hud.js's own
+// `send` resetting its resync timer, so a stale label gets corrected if the command is rejected)
+// always runs for every one of the four, not just save/load.
 const assert = require('assert');
 const { createPresetBar } = require('./preset-bar.js');
 
@@ -42,8 +42,8 @@ function makeBar(overrides) {
   return { bar: bar, sent: sent, saveBtn: saveBtn, loadBtn: loadBtn, getPreset: function () { return preset; } };
 }
 
-// SAVE: already used the injected `send` before this fix — confirm it still does, with the
-// {wname} shape the plugin's tgt-preset.save/preset.save commands expect.
+// SAVE goes through the injected `send`, with the {wname} shape the plugin's
+// tgt-preset.save/preset.save commands expect.
 {
   const pickListCalls = installFakeLayoutModal('BVR');
   const { bar, sent, saveBtn, getPreset } = makeBar();
@@ -54,8 +54,8 @@ function makeBar(overrides) {
   assert.strictEqual(pickListCalls.length, 0);
 }
 
-// Drive LOAD's onPick/onRename/onDelete directly — this is the part the review flagged: before
-// the fix, onRename/onDelete called the global `sendCommand`, bypassing `send` entirely.
+// Drive LOAD's onPick/onRename/onDelete directly — onRename/onDelete in particular must return
+// the injected `send`'s own promise, not just fire a bare `sendCommand` on the side.
 {
   const pickListCalls = installFakeLayoutModal('unused');
   const { bar, sent, loadBtn, getPreset } = makeBar();

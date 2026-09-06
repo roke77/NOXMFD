@@ -19,6 +19,11 @@ namespace NOXMFD
     // disk JSON shape (the filter fields differ) — only the plumbing around those is shared here.
     internal static class PresetSlots
     {
+        // Log seam: keeps this file free of any BepInEx/Plugin reference, same reasoning/shape as
+        // RouteStore.cs's own ConfigDir/LogWarning seam — so tools/tests can link it directly.
+        // Plugin.Awake sets this; a test project leaves it null and WriteToDisk's catch just no-ops.
+        internal static Action<string>? LogWarning;
+
         internal static T[] Empty<T>(int count) where T : new()
         {
             var slots = new T[count];
@@ -125,7 +130,7 @@ namespace NOXMFD
         internal static void WriteToDisk(string filePath, string json, string logTag)
         {
             try { ConfigBackup.BackupIfExists(filePath); System.IO.File.WriteAllText(filePath, json); }
-            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] failed to persist {logTag}: {ex.Message}"); }
+            catch (Exception ex) { LogWarning?.Invoke($"[NOXMFD] failed to persist {logTag}: {ex.Message}"); }
         }
     }
 }

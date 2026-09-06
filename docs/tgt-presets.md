@@ -97,7 +97,7 @@ scalar bools for laser/HUD mode.
 | File | What |
 |---|---|
 | [`src/plugin/Stores/TgtPresetStore.cs`](../src/plugin/Stores/TgtPresetStore.cs) | The 5-slot library: `Save`/`Rename`/`Delete`/`LoadPreset`, persisted to `com.roque.NOXMFD.tgt-presets.json`. `SelfCheck()` round-trips the disk JSON. |
-| [`src/plugin/Stores/PresetSlots.cs`](../src/plugin/Stores/PresetSlots.cs) | Shared BCL-only plumbing (slot creation, summary JSON, name validation, rename/delete, disk persistence) used by both `TgtPresetStore` and `HudPresetStore`. |
+| [`src/plugin/Stores/PresetSlots.cs`](../src/plugin/Stores/PresetSlots.cs), [`tools/tests/PresetSlotsTests.cs`](../tools/tests/PresetSlotsTests.cs) | Shared BCL-only plumbing (slot creation, summary JSON, name validation, rename/delete, disk persistence) used by both `TgtPresetStore` and `HudPresetStore` — linked directly into `NOXMFD.Tests.csproj` via the same `LogWarning` seam `RouteStore.cs` uses. |
 | [`src/plugin/CommandDispatcher.cs`](../src/plugin/CommandDispatcher.cs) | `tgt-preset.save` / `.rename` / `.delete` / `.load` — `wname` for a name, `index` for a slot number 1-5. |
 | [`src/plugin/Telemetry/TelemetrySnapshot.cs`](../src/plugin/Telemetry/TelemetrySnapshot.cs), [`TelemetryReader.cs`](../src/plugin/Telemetry/TelemetryReader.cs), [`TelemetryJson.cs`](../src/plugin/Telemetry/TelemetryJson.cs) | `TgtPresetIndex`/`TgtPresetName` captured per frame; `TgtBlock` gained a `preset:{index,name}` field. |
 | [`src/plugin/Http/ConfigEndpoint.cs`](../src/plugin/Http/ConfigEndpoint.cs), [`TelemetryHttpRouter.cs`](../src/plugin/Http/TelemetryHttpRouter.cs) | `GET /tgt-presets` serves the full 5-slot summary for the LOAD picker. |

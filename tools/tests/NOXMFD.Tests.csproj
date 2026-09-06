@@ -49,6 +49,9 @@
          project can exercise the ACTUAL production logic instead of only tools/soi-focus.test.js's
          hand-written JS mirror model. Pure BCL — no SseHub/TgpManualControl touchpoint. -->
     <Compile Include="..\..\src\plugin\Http\SoiRing.cs" Link="Source\SoiRing.cs" />
+    <!-- PresetSlots.cs (shared by HudPresetStore.cs/TgtPresetStore.cs) — BCL-only through the same
+         LogWarning seam RouteStore.cs uses above; ConfigBackup.cs/JsonLite.cs are already linked. -->
+    <Compile Include="..\..\src\plugin\Stores\PresetSlots.cs" Link="Source\PresetSlots.cs" />
     <Compile Include="..\..\src\plugin\Http\CommandContentType.cs" Link="Source\CommandContentType.cs" />
     <!-- TelemetryAssets.cs (docs/plugin-efficiency-audit.md findings 13/14) — only its two pure
          decision helpers (AcceptsGzip, IsCompressibleContentType) get exercised here; the file's
