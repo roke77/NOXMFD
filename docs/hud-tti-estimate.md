@@ -182,10 +182,12 @@ locked targets and `U` units, roughly `L x U` work every ~4 Hz tick, on top of `
 separate ~4 Hz scan for just the focused target.
 
 `TargetTtiEstimator.ComputeAll(targetIds, playerId)` now does one `UnitRegistry.allUnits` pass for
-every locked target together: it resolves each target id to a `Unit` once, then for every player-
-owned missile resolves its assigned target (via `targetID` or the seeker's `targetUnit`, same
-matching `IsAssignedTo` always used) at most once and folds it into a running per-target minimum.
-`RefreshContactSnapshotIfNeeded` calls this once instead of looping `ComputeTti` per target.
+every locked target together: it resolves each target id once into a single `Dictionary<uint,
+(Unit unit, int index)>` (the target and its slot in the result array, one lookup structure rather
+than two parallel ones), then for every player-owned missile resolves its assigned target (via
+`targetID` or the seeker's `targetUnit`, same matching `IsAssignedTo` always used) at most once and
+folds it into a running per-target minimum. `RefreshContactSnapshotIfNeeded` calls this once
+instead of looping `ComputeTti` per target.
 
 `ComputeAll` also caches its result (by target id, keyed to the player id it ran for). The single-
 target `ComputeTti(targetId, playerId)` — still used by `HudTtiCue`, which polls independently at

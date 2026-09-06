@@ -35,20 +35,18 @@ namespace NOXMFD
 
             if (targetIds.Length > 0)
             {
-                var targets = new Dictionary<uint, Unit>(targetIds.Length);
-                var indexOf = new Dictionary<uint, int>(targetIds.Length);
+                var targets = new Dictionary<uint, (Unit unit, int index)>(targetIds.Length);
                 for (int i = 0; i < targetIds.Length; i++)
-                    if (TargetUnitLookup.TryResolve(targetIds[i], out Unit u)) { targets[targetIds[i]] = u; indexOf[targetIds[i]] = i; }
+                    if (TargetUnitLookup.TryResolve(targetIds[i], out Unit u)) targets[targetIds[i]] = (u, i);
 
                 foreach (Unit u in UnitRegistry.allUnits)
                 {
                     if (u is not Missile m || m.disabled) continue;
                     if (m.ownerID.Id != playerId) continue;
-                    if (!TryResolveAssignedTarget(m, targets, out uint assignedId)) continue;
+                    if (!TryResolveAssignedTarget(m, targets, out (Unit unit, int index) assigned)) continue;
 
-                    int idx = indexOf[assignedId];
-                    float t = EstimateImpactTime(m, targets[assignedId]);
-                    if (t >= 0f && (result[idx] < 0f || t < result[idx])) result[idx] = t;
+                    float t = EstimateImpactTime(m, assigned.unit);
+                    if (t >= 0f && (result[assigned.index] < 0f || t < result[assigned.index])) result[assigned.index] = t;
                 }
             }
 
@@ -88,19 +86,17 @@ namespace NOXMFD
         }
 
         // Batch twin of IsAssignedTo: same targetID-then-seeker matching, but against the whole set
-        // of locked ids at once so each missile is only resolved once per scan. targetID.Id == 0
+        // of locked ids at once (one dictionary, keyed by id, valued by both the resolved Unit and
+        // its result-array slot) so each missile is only resolved once per scan. targetID.Id == 0
         // (unassigned) never matches — 0 is never a key in `targets` (TargetUnitLookup.TryResolve
         // reads id 0 as "no target", same convention TargetFocus/TelemetrySnapshot use).
-        private static bool TryResolveAssignedTarget(Missile m, Dictionary<uint, Unit> targets, out uint assignedId)
+        private static bool TryResolveAssignedTarget(Missile m, Dictionary<uint, (Unit unit, int index)> targets, out (Unit unit, int index) assigned)
         {
-            if (targets.ContainsKey(m.targetID.Id)) { assignedId = m.targetID.Id; return true; }
+            if (targets.TryGetValue(m.targetID.Id, out assigned)) return true;
             MissileSeeker? seeker = m.GetComponent<MissileSeeker>();
-            if (seeker != null && MissileSeekerAccess.GetTargetUnit(seeker) is Unit tu && targets.ContainsKey(tu.persistentID.Id))
-            {
-                assignedId = tu.persistentID.Id;
+            if (seeker != null && MissileSeekerAccess.GetTargetUnit(seeker) is Unit tu && targets.TryGetValue(tu.persistentID.Id, out assigned))
                 return true;
-            }
-            assignedId = 0;
+            assigned = default;
             return false;
         }
 
