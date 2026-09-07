@@ -180,11 +180,25 @@ namespace NOXMFD
             int matches = 0;
             foreach (var renderer in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
-                if (renderer.sharedMaterial == null || renderer.sharedMaterial.mainTexture != rt) continue;
+                Material? mat = renderer.sharedMaterial;
+                if (mat == null) continue;
+
+                // Not just .mainTexture (the shader's default/albedo slot) — TacScreen.Update() sets
+                // _EmissionColor on this material, so an emissive screen shader most likely binds the
+                // RT to an emission texture slot instead, which .mainTexture alone would miss (the
+                // first pass of this diagnostic found ZERO matches, including for tacScreenRender
+                // itself — the one renderer we already know must be using it).
+                string? matchedSlot = null;
+                foreach (string slot in mat.GetTexturePropertyNames())
+                {
+                    if (mat.GetTexture(slot) == rt) { matchedSlot = slot; break; }
+                }
+                if (matchedSlot == null) continue;
+
                 matches++;
                 string path = renderer.gameObject.name;
                 for (var t = renderer.transform.parent; t != null; t = t.parent) path = t.name + "/" + path;
-                Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: renderer '{path}' (layer {renderer.gameObject.layer}) uses TacScreen.renderTexture.");
+                Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: renderer '{path}' (layer {renderer.gameObject.layer}) uses TacScreen.renderTexture via '{matchedSlot}'.");
             }
             Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: {matches} renderer(s) total reference TacScreen.renderTexture.");
         }
