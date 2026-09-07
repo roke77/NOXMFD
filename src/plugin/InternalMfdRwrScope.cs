@@ -44,10 +44,16 @@ namespace NOXMFD
         private const float MissileInnerFrac = 60f / 460f;
         private const float MissileAnchorFrac = (60f + 35f) / 460f; // the outer end's position when rng=0
 
-        // rwr.js's dart polygon proportions (HL=36 apex length, HW=10 half-width) as fractions of
-        // the outer radius — reused here as a simple size, not a hand-tuned pick.
-        private const float DartLengthFrac = 36f / 460f;
+        // rwr.js's dart polygon proportions (HL=36 apex length + HB=8 back offset, HW*2=20 full
+        // width) as fractions of the outer radius.
+        private const float DartLengthFrac = (36f + 8f) / 460f;
         private const float DartWidthFrac = 20f / 460f;
+
+        // rwr.html/rwr.js use stroke-width="3" (out of a 1000 viewBox) for both the cardinal ticks
+        // and the missile line — as a fraction of the outer radius (460), not a fixed pixel count
+        // that stays the same regardless of how big the scope itself ends up (BuildOverlay/
+        // InternalMfdPoc size it differently per aircraft/layout).
+        private const float StrokeWidthFrac = 3f / 460f;
 
         // rwr.html's own rgba(255,255,255,*) values — this page's whole scope is the same white
         // family AVN's gauge dials use (theme.css: "Neutral instrument white... AVN's gauge
@@ -74,6 +80,7 @@ namespace NOXMFD
         private readonly Font? _font;
         private readonly float _diameter;
         private readonly float _radius;
+        private float _lastMissileDiagLog = float.NegativeInfinity;
 
         // Grow-on-demand pools, not a fixed cap — TelemetryReader's own _rwrEmitters dictionary and
         // rwr.js's renderer have no size limit at all, so an artificial "MaxContacts"/"MaxMissiles"
@@ -86,6 +93,7 @@ namespace NOXMFD
         private readonly List<RectTransform> _missileMarkers = new List<RectTransform>();
         private readonly List<Image> _missileImages = new List<Image>();
         private readonly List<Image> _missileDarts = new List<Image>();
+        private readonly List<Image> _notchLines = new List<Image>();
 
         internal InternalMfdRwrScope(RectTransform parent, Font? font)
         {
@@ -179,11 +187,30 @@ namespace NOXMFD
                 dartRt.anchorMin = dartRt.anchorMax = new Vector2(0.5f, 0.5f);
                 dartRt.sizeDelta = new Vector2(DartWidthFrac * _radius, DartLengthFrac * _radius);
                 var dartImg = dartGo.GetComponent<Image>();
-                dartImg.sprite = ResolveTriangleSprite(); // same shape as the heading marker, reused
+                // Its own sprite, not ResolveTriangleSprite() — that one is proportioned for the
+                // heading marker (80x64, wider than tall); the dart is narrow and tall (~20:44), and
+                // stretching a mismatched-aspect sprite into that box distorted the shape rather than
+                // just shrinking it.
+                dartImg.sprite = ResolveDartSprite();
                 dartImg.color = MissileRed;
                 dartImg.raycastTarget = false;
                 dartGo.SetActive(false);
                 _missileDarts.Add(dartImg);
+
+                // Radar-seeker beam-notch axis (rwr.js: a dashed yellow line spanning the FULL
+                // diameter through the player, static for as long as Notch stays valid — not tied
+                // to the missile's own closing range like the line/dart above). Pivot at centre
+                // (not the bottom like the range line) since it extends both ways from the player.
+                var notchGo = NewUi($"Notch{_notchLines.Count}", _center, _layer, typeof(Image));
+                var notchRt = notchGo.GetComponent<RectTransform>();
+                notchRt.anchorMin = notchRt.anchorMax = new Vector2(0.5f, 0.5f);
+                notchRt.sizeDelta = new Vector2(StrokeWidthFrac * _radius, _diameter);
+                var notchImg = notchGo.GetComponent<Image>();
+                notchImg.sprite = ResolveDashedLineSprite();
+                notchImg.color = MissileAmber;
+                notchImg.raycastTarget = false;
+                notchGo.SetActive(false);
+                _notchLines.Add(notchImg);
             }
         }
 
@@ -225,7 +252,11 @@ namespace NOXMFD
                 bool active = i < missiles.Length;
                 _missileMarkers[i].gameObject.SetActive(active);
                 _missileDarts[i].gameObject.SetActive(active);
-                if (!active) continue;
+                if (!active)
+                {
+                    _notchLines[i].gameObject.SetActive(false);
+                    continue;
+                }
 
                 MwContact m = missiles[i];
                 float az = Azimuth(snap, m.X, m.Z);
@@ -243,7 +274,7 @@ namespace NOXMFD
 
                 Vector2 innerPos = PolarToLocal(az, MissileInnerFrac);
                 _missileMarkers[i].anchoredPosition = innerPos;
-                _missileMarkers[i].sizeDelta = new Vector2(3f, (outerFrac - MissileInnerFrac) * _radius);
+                _missileMarkers[i].sizeDelta = new Vector2(StrokeWidthFrac * _radius, (outerFrac - MissileInnerFrac) * _radius);
                 _missileMarkers[i].localRotation = Quaternion.Euler(0f, 0f, -az);
                 _missileImages[i].color = flickerColor;
 
@@ -253,6 +284,27 @@ namespace NOXMFD
                 _missileDarts[i].rectTransform.anchoredPosition = PolarToLocal(az, outerFrac);
                 _missileDarts[i].rectTransform.localRotation = Quaternion.Euler(0f, 0f, -az + 180f);
                 _missileDarts[i].color = flickerColor;
+
+                // Radar-seeker beam-notch axis — rwr.js only draws this when Notch is a valid
+                // heading (>=0; -1 means no seeker/no notch to show). Same relative-to-heading
+                // conversion telemetry-source.js applies to it, not just to az.
+                bool hasNotch = m.Notch >= 0f;
+                _notchLines[i].gameObject.SetActive(hasNotch);
+                if (hasNotch)
+                {
+                    float notchAz = m.Notch - snap.Heading;
+                    _notchLines[i].rectTransform.localRotation = Quaternion.Euler(0f, 0f, -notchAz);
+                }
+
+                if (Time.time - _lastMissileDiagLog > 2f)
+                {
+                    _lastMissileDiagLog = Time.time;
+                    Plugin.Log?.LogInfo(
+                        $"[NOXMFD] Internal MFD POC RWR missile[{i}]: az={az:F1} rngKm={rngKm:F2} " +
+                        $"outerFrac={outerFrac:F3} dartPos={_missileDarts[i].rectTransform.anchoredPosition} " +
+                        $"dartSize={_missileDarts[i].rectTransform.sizeDelta} dartActive={_missileDarts[i].gameObject.activeSelf} " +
+                        $"notch={m.Notch:F1} notchActive={hasNotch}.");
+                }
             }
         }
 
@@ -349,6 +401,36 @@ namespace NOXMFD
             img.raycastTarget = false;
         }
 
+        private static Sprite? _dashedLineSprite;
+
+        // A vertical dashed stripe (alpha alternates along Y, solid across X) — the notch beam
+        // axis. A different technique from the ring's angular dashing (that alternates by angle
+        // around a circle; this is a straight bar, so it alternates along its own length instead).
+        private static Sprite ResolveDashedLineSprite()
+        {
+            if (_dashedLineSprite != null) return _dashedLineSprite;
+
+            const int w = 8, h = 256;
+            const int dashCount = 10; // visual dash count, not rwr.html's exact "14 12" spacing
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false)
+            {
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+            };
+            var pixels = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+            {
+                float dashPhase = ((float)y / h * dashCount) % 1f;
+                byte alpha = dashPhase < 0.55f ? (byte)255 : (byte)0; // ~55% on, 45% gap
+                for (int x = 0; x < w; x++) pixels[y * w + x] = new Color32(255, 255, 255, alpha);
+            }
+            tex.SetPixels32(pixels);
+            tex.Apply();
+
+            _dashedLineSprite = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f));
+            return _dashedLineSprite;
+        }
+
         private static GameObject NewUi(string name, Transform parent, int layer, Type extraComponent)
         {
             var go = new GameObject(name, typeof(RectTransform), extraComponent);
@@ -410,18 +492,38 @@ namespace NOXMFD
         private static Sprite? _triangleSprite;
 
         // Filled downward-pointing triangle (edge-function inside/outside test, ~1px antialiased
-        // edges) — the heading reference mark.
+        // edges) — the heading reference mark. 80x64 (wider than tall), matching rwr.html's own
+        // heading-triangle proportions (40 wide x 32 tall).
         private static Sprite ResolveTriangleSprite()
         {
             if (_triangleSprite != null) return _triangleSprite;
+            _triangleSprite = BuildFilledTriangleSprite(80, 64);
+            return _triangleSprite;
+        }
 
+        private static Sprite? _dartSprite;
+
+        // The missile dart — same apex-at-local-(-Y) shape as the heading triangle, but its own
+        // sprite rather than a reuse: the dart is narrow and TALL (~20:44, matching rwr.js's own
+        // HW*2 width / HL+HB length), the heading marker is wide and short. Stretching the wrong-
+        // aspect sprite into this box distorted the shape instead of just scaling it.
+        private static Sprite ResolveDartSprite()
+        {
+            if (_dartSprite != null) return _dartSprite;
+            _dartSprite = BuildFilledTriangleSprite(40, 88);
+            return _dartSprite;
+        }
+
+        // Filled isoceles triangle, apex at local -Y (i.e. the LOW end of the y-axis once rendered —
+        // see the row-order note below), base at local +Y — shared rasterizer for both the heading
+        // marker and the missile dart, which differ only in aspect ratio.
+        private static Sprite BuildFilledTriangleSprite(int w, int h)
+        {
             // Texture2D.SetPixels32 stores row 0 as the BOTTOM of the resulting texture (Unity's
-            // standard bottom-up convention) — so the base (meant to render furthest from the ring,
-            // i.e. visually at the TOP of the sprite) needs the HIGH y fraction, and the apex
-            // (pointing down, toward the ring) the LOW one. Getting this backwards is exactly what
-            // shipped first: the ownship caret below hit the identical bug (arrow pointing down
-            // instead of up) for the same reason.
-            const int w = 80, h = 64;
+            // standard bottom-up convention) — so the base (meant to render at local +Y) needs the
+            // HIGH y fraction, and the apex (local -Y) the LOW one. Getting this backwards is
+            // exactly what shipped first: both this and the ownship caret rendered upside down for
+            // the same reason before it was caught.
             var p0 = new Vector2(0.05f * w, 0.95f * h);
             var p1 = new Vector2(0.95f * w, 0.95f * h);
             var p2 = new Vector2(0.50f * w, 0.05f * h);
@@ -448,8 +550,7 @@ namespace NOXMFD
             tex.SetPixels32(pixels);
             tex.Apply();
 
-            _triangleSprite = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f));
-            return _triangleSprite;
+            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f));
         }
 
         // Signed distance (pixels) of point p from the left side of directed edge a->b: positive
