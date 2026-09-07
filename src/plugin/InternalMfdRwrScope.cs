@@ -36,6 +36,19 @@ namespace NOXMFD
         // fraction of the outer radius, the inner end sits at 1 - 38/460.
         private const float TickInnerFrac = 1f - 38f / 460f;
 
+        // rwr.js's renderThreats(): RMAX=6 (km mapped to the rim), RIN=60 (fixed inner radius the
+        // line never crosses), a further +35 offset before the line's outer/dart end starts moving.
+        // rng isn't a wire field — rwr.js computes it client-side as
+        // Math.hypot(dx,dz)/1000 from world positions, same as here.
+        private const float MissileRangeMaxKm = 6f;
+        private const float MissileInnerFrac = 60f / 460f;
+        private const float MissileAnchorFrac = (60f + 35f) / 460f; // the outer end's position when rng=0
+
+        // rwr.js's dart polygon proportions (HL=36 apex length, HW=10 half-width) as fractions of
+        // the outer radius — reused here as a simple size, not a hand-tuned pick.
+        private const float DartLengthFrac = 36f / 460f;
+        private const float DartWidthFrac = 20f / 460f;
+
         // rwr.html's own rgba(255,255,255,*) values — this page's whole scope is the same white
         // family AVN's gauge dials use (theme.css: "Neutral instrument white... AVN's gauge
         // dials"), not this mod's HUD green.
@@ -72,6 +85,7 @@ namespace NOXMFD
         private readonly List<Text> _contactLabels = new List<Text>();
         private readonly List<RectTransform> _missileMarkers = new List<RectTransform>();
         private readonly List<Image> _missileImages = new List<Image>();
+        private readonly List<Image> _missileDarts = new List<Image>();
 
         internal InternalMfdRwrScope(RectTransform parent, Font? font)
         {
@@ -138,10 +152,13 @@ namespace NOXMFD
             }
         }
 
-        // Grows the missile pool to at least `count` entries. Pivoted and anchored at the TRUE
-        // centre (not an angle-0 offset like the fixed cardinal ticks) — a missile's angle changes
-        // every Refresh, so its pivot has to stay at centre for the live rotation to sweep
-        // correctly instead of orbiting around wherever it was first created pointing.
+        // Grows the missile pool to at least `count` entries — a line (fixed inner end at
+        // MissileInnerFrac, outer end/length recomputed live from range each Refresh) plus a dart
+        // marker at the outer end (rwr.js draws both; the line alone, with no dart and a length
+        // that never changes, was the reported bug). Both pivoted/anchored at the TRUE centre, not
+        // an angle-0 offset like the fixed cardinal ticks — a missile's angle, and now its length
+        // and position too, change every Refresh, so anchoredPosition has to be recomputed live
+        // rather than baked in once at construction.
         private void EnsureMissilePool(int count)
         {
             while (_missileMarkers.Count < count)
@@ -150,13 +167,23 @@ namespace NOXMFD
                 var rt = go.GetComponent<RectTransform>();
                 rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.pivot = new Vector2(0.5f, 0f);
-                rt.sizeDelta = new Vector2(4f, 0.85f * _radius);
                 var img = go.GetComponent<Image>();
                 img.color = MissileRed;
                 img.raycastTarget = false;
                 go.SetActive(false);
                 _missileMarkers.Add(rt);
                 _missileImages.Add(img);
+
+                var dartGo = NewUi($"MissileDart{_missileDarts.Count}", _center, _layer, typeof(Image));
+                var dartRt = dartGo.GetComponent<RectTransform>();
+                dartRt.anchorMin = dartRt.anchorMax = new Vector2(0.5f, 0.5f);
+                dartRt.sizeDelta = new Vector2(DartWidthFrac * _radius, DartLengthFrac * _radius);
+                var dartImg = dartGo.GetComponent<Image>();
+                dartImg.sprite = ResolveTriangleSprite(); // same shape as the heading marker, reused
+                dartImg.color = MissileRed;
+                dartImg.raycastTarget = false;
+                dartGo.SetActive(false);
+                _missileDarts.Add(dartImg);
             }
         }
 
@@ -197,12 +224,35 @@ namespace NOXMFD
             {
                 bool active = i < missiles.Length;
                 _missileMarkers[i].gameObject.SetActive(active);
+                _missileDarts[i].gameObject.SetActive(active);
                 if (!active) continue;
 
                 MwContact m = missiles[i];
                 float az = Azimuth(snap, m.X, m.Z);
+
+                // rng isn't a wire field — computed the same way telemetry-source.js does, straight
+                // from world positions already in the shared frame (snap.WorldX/Z).
+                float dx = m.X - snap.WorldX, dz = m.Z - snap.WorldZ;
+                float rngKm = Mathf.Sqrt(dx * dx + dz * dz) / 1000f;
+                float frac = Mathf.Clamp01(rngKm / MissileRangeMaxKm);
+                // The outer end (and the dart riding it) moves from MissileAnchorFrac (missile right
+                // on top of the player) out to the rim (frac=1) — THIS moving, not a fixed-length
+                // line, is what reads as "closing in" (the reported bug: a static line that never
+                // shortened as the missile approached).
+                float outerFrac = Mathf.Lerp(MissileAnchorFrac, 1f, frac);
+
+                Vector2 innerPos = PolarToLocal(az, MissileInnerFrac);
+                _missileMarkers[i].anchoredPosition = innerPos;
+                _missileMarkers[i].sizeDelta = new Vector2(3f, (outerFrac - MissileInnerFrac) * _radius);
                 _missileMarkers[i].localRotation = Quaternion.Euler(0f, 0f, -az);
                 _missileImages[i].color = flickerColor;
+
+                // The dart's own apex points local -Y unrotated (see ResolveTriangleSprite); +180
+                // on top of the line's own -az turns that into "points further outward", continuing
+                // past the line's outer end rather than back in toward centre.
+                _missileDarts[i].rectTransform.anchoredPosition = PolarToLocal(az, outerFrac);
+                _missileDarts[i].rectTransform.localRotation = Quaternion.Euler(0f, 0f, -az + 180f);
+                _missileDarts[i].color = flickerColor;
             }
         }
 
