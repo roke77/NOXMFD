@@ -20,10 +20,13 @@ namespace NOXMFD
         private static FieldInfo? _canvasField;
         private static FieldInfo? _camField;
         private static FieldInfo? _renderTextureField;
+        private static FieldInfo? _tacScreenRenderField;
 
         private Canvas?     _tacCanvas;   // fake-null once its aircraft despawns
         private Aircraft?   _tacAircraft; // which aircraft _tacCanvas belongs to, so a switch is caught
                                            // even if the old Canvas hasn't gone fake-null yet
+        private Vector2      _uvMin = Vector2.zero, _uvMax = Vector2.one; // this screen's slice of a
+                                                                           // shared strip texture, if any
         private GameObject? _overlay;
 
         internal static void Toggle()
@@ -49,11 +52,11 @@ namespace NOXMFD
             if (_tacCanvas == null || !ReferenceEquals(aircraft, _tacAircraft))
             {
                 Teardown();
-                if (!ResolveCanvas(aircraft, out _tacCanvas)) return;
+                if (!ResolveCanvas(aircraft, out _tacCanvas, out _uvMin, out _uvMax)) return;
                 _tacAircraft = aircraft;
             }
 
-            if (_overlay == null) BuildOverlay(aircraft, _tacCanvas!);
+            if (_overlay == null) BuildOverlay(aircraft, _tacCanvas!, _uvMin, _uvMax);
         }
 
         private void Teardown()
@@ -79,9 +82,11 @@ namespace NOXMFD
         // entirely — however it's parented, this is how the game itself associates the two.
         private static FieldInfo? _cockpitAircraftField;
 
-        private static bool ResolveCanvas(Aircraft aircraft, out Canvas? canvas)
+        private static bool ResolveCanvas(Aircraft aircraft, out Canvas? canvas, out Vector2 uvMin, out Vector2 uvMax)
         {
             canvas = null;
+            uvMin = Vector2.zero;
+            uvMax = Vector2.one;
 
             if (_cockpitAircraftField == null)
                 _cockpitAircraftField = typeof(Cockpit).GetField("aircraft", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -104,6 +109,30 @@ namespace NOXMFD
                 _canvasField = typeof(TacScreen).GetField("canvas", BindingFlags.Instance | BindingFlags.NonPublic);
             if (_canvasField?.GetValue(tacScreen) is not Canvas c || c == null)
             { LogFailure("TacScreen.canvas field missing/null"); return false; }
+
+            // The renderTexture logged below (1024x512, a wide strip) plus a screenshot showing the
+            // overlay bleed onto BOTH side sub-displays, not just the center, points at one shared
+            // strip texture split across three physical screens by UV sub-rect per mesh, rather than
+            // three cameras with an overlapping culling mask. tacScreenRender is Cockpit's own field
+            // for specifically the CENTER screen's mesh — its material's texture scale/offset is
+            // that mesh's own slice of the shared texture, in canvas-anchor terms directly (Unity's
+            // Rect anchors and a material's UV rect are both normalized 0..1 origin-bottom-left).
+            // Falls back to the full 0..1 canvas (today's actual behavior) if the mesh isn't found or
+            // its material reports the trivial full-texture scale/offset — the strip-texture guess
+            // may simply be wrong, in which case this is a no-op and the log line says so either way.
+            if (_tacScreenRenderField == null)
+                _tacScreenRenderField = typeof(Cockpit).GetField("tacScreenRender", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (_tacScreenRenderField?.GetValue(cockpit) is Renderer screenRender && screenRender.sharedMaterial != null)
+            {
+                Vector2 scale = screenRender.sharedMaterial.mainTextureScale;
+                Vector2 offset = screenRender.sharedMaterial.mainTextureOffset;
+                if (scale != Vector2.one || offset != Vector2.zero)
+                {
+                    uvMin = offset;
+                    uvMax = offset + scale;
+                }
+                Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: tacScreenRender UV scale={scale}, offset={offset}.");
+            }
 
             canvas = c;
             _lastFailure = null;
@@ -144,7 +173,7 @@ namespace NOXMFD
                 $"renderTexture={(rt != null ? $"{rt.width}x{rt.height}" : "null")}.");
         }
 
-        private void BuildOverlay(Aircraft aircraft, Canvas canvas)
+        private void BuildOverlay(Aircraft aircraft, Canvas canvas, Vector2 uvMin, Vector2 uvMax)
         {
             // Build into a local first: on an exception partway through, the field stays null and
             // the next frame's LateUpdate retries cleanly, instead of caching a half-built overlay.
@@ -154,8 +183,11 @@ namespace NOXMFD
             var rt = overlay.GetComponent<RectTransform>();
             rt.SetParent(canvas.transform, false);
             rt.SetAsLastSibling(); // top of paint order — the exact claim under test
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
+            // Anchored to the center screen's own slice of the canvas (see ResolveCanvas), not
+            // always the full 0..1 canvas — the canvas turned out to be a shared strip covering all
+            // three cockpit screens, so filling it fully bled onto the side sub-displays too.
+            rt.anchorMin = uvMin;
+            rt.anchorMax = uvMax;
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
 
