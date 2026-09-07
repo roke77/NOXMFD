@@ -11,13 +11,12 @@ namespace NOXMFD
     // the reference is set, the picture updates on its own every frame in lockstep with the native
     // screen, no per-tick work needed here at all.
     //
-    // An earlier version stood up a second, independent TgpMirrorCam and copied the native
-    // camera's FOV into it each Refresh — but Refresh only runs at the controller's 10Hz
-    // page-refresh rate, while the native camera's own zoom animates smoothly every frame. Sampling
-    // that animation 10 times a second and holding it steady in between is exactly what read as
-    // laggy, stuttering zoom next to the native screen's always-live picture — on top of rendering
-    // the same scene a second time for no benefit. Reading the native RT directly has neither
-    // problem: no second render, no sync to fall behind.
+    // Deliberately not a second, independent mirror camera with its FOV copied from the native one
+    // each Refresh: Refresh only runs at the controller's 10Hz page-refresh rate, while the native
+    // camera's own zoom animates smoothly every frame — sampling that animation 10 times a second
+    // and holding it steady in between reads as laggy, stuttering zoom next to the native screen's
+    // always-live picture, on top of rendering the same scene a second time for no benefit. Reading
+    // the native RT directly has neither problem: no second render, no sync to fall behind.
     //
     // Real lock and TgpManualControl's manual pan/tilt/zoom both drive this exact same
     // TargetCam.cam, so nothing here needs to branch between the two.

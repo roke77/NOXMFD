@@ -242,7 +242,7 @@ namespace NOXMFD
                     _threatRings[i].gameObject.SetActive(false);
                     continue;
                 }
-                Vector2 pos = PolarToLocal(Azimuth(snap, t.X, t.Z), dist / rangeM, outerRadiusPx, origin);
+                Vector2 pos = InternalMfdUi.PolarToLocal(InternalMfdUi.Azimuth(snap, t.X, t.Z), dist / rangeM, outerRadiusPx, origin);
                 float ringDiameter = 2f * outerRadiusPx * (t.Range / rangeM);
                 _threatRings[i].rectTransform.anchoredPosition = pos;
                 _threatRings[i].rectTransform.sizeDelta = new Vector2(ringDiameter, ringDiameter);
@@ -287,7 +287,7 @@ namespace NOXMFD
                     : c.Radar ? ContactRed
                     : ContactPurple;
 
-                Vector2 pos = PolarToLocal(Azimuth(snap, c.X, c.Z), dist / rangeM, outerRadiusPx, origin);
+                Vector2 pos = InternalMfdUi.PolarToLocal(InternalMfdUi.Azimuth(snap, c.X, c.Z), dist / rangeM, outerRadiusPx, origin);
                 float rot = ((c.Heading - snap.Heading) % 360f + 360f) % 360f;
 
                 _contactIcons[i].rectTransform.anchoredPosition = pos;
@@ -311,7 +311,7 @@ namespace NOXMFD
                 _focusedNameText.text = ShortName(c.Name);
                 _focusedDetailText.text = "RNG " + UnitConverter.DistanceReading(focusedDist) +
                                            "   ALT " + UnitConverter.AltitudeReading(c.Alt) +
-                                           "   HDG " + Pad3(c.Heading);
+                                           "   HDG " + InternalMfdScopeMath.Pad3Heading(c.Heading);
             }
             else
             {
@@ -340,31 +340,11 @@ namespace NOXMFD
             }
         }
 
-        // Degrees clockwise from the nose — same convention/helper as InternalMfdRwrPage's own
-        // Azimuth (see that file's comment); duplicated rather than shared since each page ties it
-        // to its own PolarToLocal.
-        private static float Azimuth(TelemetrySnapshot snap, float x, float z)
-            => HudWaypointCueMath.BearingDeg(snap.WorldX, snap.WorldZ, x, z) - snap.Heading;
-
-        private static Vector2 PolarToLocal(float azDeg, float distFrac, float outerRadiusPx, Vector2 origin)
-        {
-            float rad = azDeg * Mathf.Deg2Rad;
-            float r = distFrac * outerRadiusPx;
-            return origin + new Vector2(Mathf.Sin(rad) * r, Mathf.Cos(rad) * r);
-        }
-
         // hsd.js's short(): upper-cased, capped at 18 chars (BOGEY fallback for an empty name).
         private static string ShortName(string? n)
         {
             string s = (string.IsNullOrEmpty(n) ? "BOGEY" : n!).ToUpperInvariant();
             return s.Length > 18 ? s.Substring(0, 18) : s;
-        }
-
-        // hsd.js's pad3(): zero-padded 3-digit heading, wrapped into 0..359.
-        private static string Pad3(float headingDeg)
-        {
-            int h = ((Mathf.RoundToInt(headingDeg) % 360) + 360) % 360;
-            return h.ToString("000");
         }
 
         // hsd.js's renderOwnship(): the same notched-arrow icon contacts use, filled white, plus a
@@ -423,10 +403,11 @@ namespace NOXMFD
         // hsd.js's shared notched-arrow polygon ('M0 -9 L-6 7 L0 4 L6 7 Z', SVG-space, origin at the
         // icon's own centre) — used FILLED here for both ownship and every contact (unlike RWR's
         // ownship caret, which is stroke-only). Split into two triangles (apex/back-left/notch,
-        // apex/notch/back-right) and tested with a winding-independent point-in-triangle check
-        // (rather than InternalMfdRwrPage's edge-function-plus-known-sign approach) specifically to
-        // avoid re-deriving a sign convention by hand a second time — RWR's own triangle sprite
-        // shipped inverted the first time that was tried. 2x2 sub-pixel supersampling gives cheap
+        // apex/notch/back-right) and tested with a winding-independent point-in-triangle check,
+        // deliberately not InternalMfdRwrPage's edge-function-plus-known-sign approach — that one
+        // needs the triangle's winding hand-verified to get the inside/outside sign right (easy to
+        // get backwards, see BuildFilledTriangleSprite's own comment there), which a
+        // winding-independent test sidesteps entirely. 2x2 sub-pixel supersampling gives cheap
         // antialiasing without needing a signed distance at all.
         private static Sprite ResolveIconSprite()
         {

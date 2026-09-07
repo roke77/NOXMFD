@@ -88,11 +88,12 @@ namespace NOXMFD
             return sprite;
         }
 
-        // Signed distance (texture px) of point p from directed edge a->b — shared by any page that
+        // Signed distance (texture px) of point p from directed edge a->b — used by any page that
         // rasterizes a filled polygon via an edge-function inside/outside test (InternalMfdRwrPage's
-        // heading triangle/missile dart, InternalMfdHsdPage's notched contact/ownship icon). Which
-        // sign means "inside" depends on the winding of whatever polygon calls this — see each
-        // caller's own comment.
+        // heading triangle/missile dart). Which sign means "inside" depends on the winding of
+        // whatever polygon calls this — see the caller's own comment. InternalMfdHsdPage's own
+        // filled icon deliberately uses a winding-independent point-in-triangle test instead (see
+        // its ResolveIconSprite comment for why), not this.
         internal static float EdgeSigned(Vector2 a, Vector2 b, Vector2 p)
         {
             Vector2 ab = b - a;
@@ -110,6 +111,27 @@ namespace NOXMFD
             float t = len2 > 0f ? Mathf.Clamp01(Vector2.Dot(p - a, ab) / len2) : 0f;
             Vector2 closest = a + ab * t;
             return Vector2.Distance(p, closest);
+        }
+
+        // Degrees clockwise from the nose, in the ownship-relative "nose-up" frame every scope-style
+        // page (RWR, HSD) plots contacts in — matches telemetry-source.js's own
+        // `Math.atan2(dx, dz) * 180/PI - hdg`. Own-ship position/heading and the target position
+        // both come from the SAME TelemetrySnapshot so the bearing math can't mix floating-origin
+        // frames.
+        internal static float Azimuth(TelemetrySnapshot snap, float x, float z)
+            => HudWaypointCueMath.BearingDeg(snap.WorldX, snap.WorldZ, x, z) - snap.Heading;
+
+        // Converts an azimuth (Azimuth's own clockwise-from-nose convention) + a 0..1 distance
+        // fraction into a local anchoredPosition, radiusPx out from origin — shared by any
+        // scope-style page's contact/marker placement. origin lets a page recenter its own scope
+        // (InternalMfdHsdPage's DEP mode, which pushes ownship toward the bottom); a page whose
+        // scope is always centered on itself (InternalMfdRwrPage) just passes Vector2.zero. The
+        // actual sin/cos placement math lives in InternalMfdScopeMath.PolarOffset (BCL-only, unit
+        // tested) — this just wraps its tuple into a Vector2 for Unity-facing callers.
+        internal static Vector2 PolarToLocal(float azDeg, float distFrac, float radiusPx, Vector2 origin)
+        {
+            (float x, float y) = InternalMfdScopeMath.PolarOffset(azDeg, distFrac, radiusPx);
+            return origin + new Vector2(x, y);
         }
     }
 }

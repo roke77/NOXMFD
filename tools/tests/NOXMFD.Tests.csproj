@@ -71,6 +71,9 @@
     <Compile Include="..\..\src\plugin\Tgp\TgpManualAimMath.cs" Link="Source\TgpManualAimMath.cs" />
     <Compile Include="..\..\src\plugin\Tgp\TgpFeedSettings.cs" Link="Source\TgpFeedSettings.cs" />
     <Compile Include="..\..\src\plugin\Tgp\TgpFullScreenMath.cs" Link="Source\TgpFullScreenMath.cs" />
+    <!-- InternalMfdScopeMath.cs (internal MFD, issue #43) — same BCL-only split as
+         TgpFullScreenMath.cs above, for the RWR/HSD scope pages' own contact-placement math. -->
+    <Compile Include="..\..\src\plugin\InternalMFD\InternalMfdScopeMath.cs" Link="Source\InternalMfdScopeMath.cs" />
     <Compile Include="..\..\src\plugin\Hud\HudDirectionCueMath.cs" Link="Source\HudDirectionCueMath.cs" />
     <Compile Include="..\..\src\plugin\Hud\HudWaypointCueMath.cs" Link="Source\HudWaypointCueMath.cs" />
     <Compile Include="..\..\src\plugin\Hud\HudTtiMath.cs" Link="Source\HudTtiMath.cs" />

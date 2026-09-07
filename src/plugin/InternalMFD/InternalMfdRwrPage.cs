@@ -165,11 +165,10 @@ namespace NOXMFD
 
         // Grows the missile pool to at least `count` entries — a line (fixed inner end at
         // MissileInnerFrac, outer end/length recomputed live from range each Refresh) plus a dart
-        // marker at the outer end (rwr.js draws both; the line alone, with no dart and a length
-        // that never changes, was the reported bug). Both pivoted/anchored at the TRUE centre, not
-        // an angle-0 offset like the fixed cardinal ticks — a missile's angle, and now its length
-        // and position too, change every Refresh, so anchoredPosition has to be recomputed live
-        // rather than baked in once at construction.
+        // marker at the outer end (rwr.js draws both, not the line alone). Both pivoted/anchored at
+        // the TRUE centre, not an angle-0 offset like the fixed cardinal ticks — a missile's angle,
+        // and its length and position too, change every Refresh, so anchoredPosition has to be
+        // recomputed live rather than baked in once at construction.
         private void EnsureMissilePool(int count)
         {
             while (_missileMarkers.Count < count)
@@ -229,7 +228,7 @@ namespace NOXMFD
                 if (!active) continue;
 
                 RwrContact c = contacts[i];
-                float az = Azimuth(snap, c.X, c.Z);
+                float az = InternalMfdUi.Azimuth(snap, c.X, c.Z);
                 // Same mapping telemetry-source.js uses: distance fraction is 1-power (closest
                 // contact reads as CLOSEST to the ownship marker, not furthest), floored so nothing
                 // ever renders exactly on top of it.
@@ -262,7 +261,7 @@ namespace NOXMFD
                 }
 
                 MwContact m = missiles[i];
-                float az = Azimuth(snap, m.X, m.Z);
+                float az = InternalMfdUi.Azimuth(snap, m.X, m.Z);
 
                 // rng isn't a wire field — computed the same way telemetry-source.js does, straight
                 // from world positions already in the shared frame (snap.WorldX/Z).
@@ -270,9 +269,8 @@ namespace NOXMFD
                 float rngKm = Mathf.Sqrt(dx * dx + dz * dz) / 1000f;
                 float frac = Mathf.Clamp01(rngKm / MissileRangeMaxKm);
                 // The outer end (and the dart riding it) moves from MissileAnchorFrac (missile right
-                // on top of the player) out to the rim (frac=1) — THIS moving, not a fixed-length
-                // line, is what reads as "closing in" (the reported bug: a static line that never
-                // shortened as the missile approached).
+                // on top of the player) out to the rim (frac=1) — this moving, not a fixed-length
+                // line, is what reads as "closing in" as the missile's actual range shrinks.
                 float outerFrac = Mathf.Lerp(MissileAnchorFrac, 1f, frac);
 
                 Vector2 innerPos = PolarToLocal(az, MissileInnerFrac);
@@ -315,19 +313,10 @@ namespace NOXMFD
             }
         }
 
-        // Degrees clockwise from the nose — matches telemetry-source.js's own
-        // `Math.atan2(dx, dz) * 180/PI - hdg` exactly (dx/dz = contact minus ownship). Not
-        // normalized to 0..360 here: Sin/Cos in PolarToLocal don't need it, only a "BRG NNN"
-        // text readout would.
-        private static float Azimuth(TelemetrySnapshot snap, float x, float z)
-            => HudWaypointCueMath.BearingDeg(snap.WorldX, snap.WorldZ, x, z) - snap.Heading;
-
-        private Vector2 PolarToLocal(float azDeg, float distFrac)
-        {
-            float rad = azDeg * Mathf.Deg2Rad;
-            float r = distFrac * _radius;
-            return new Vector2(Mathf.Sin(rad) * r, Mathf.Cos(rad) * r);
-        }
+        // InternalMfdUi.PolarToLocal always with Vector2.zero: RWR's scope is always centered on
+        // itself (unlike InternalMfdHsdPage's DEP mode, which recenters).
+        private Vector2 PolarToLocal(float azDeg, float distFrac) =>
+            InternalMfdUi.PolarToLocal(azDeg, distFrac, _radius, Vector2.zero);
 
         // Mirrors rwr.js's own rwrShort(): first word, upper-cased, capped at 7 chars.
         private static string ShortName(string? n)
@@ -473,9 +462,9 @@ namespace NOXMFD
         {
             // Texture2D.SetPixels32 stores row 0 as the BOTTOM of the resulting texture (Unity's
             // standard bottom-up convention) — so the base (meant to render at local +Y) needs the
-            // HIGH y fraction, and the apex (local -Y) the LOW one. Getting this backwards is
-            // exactly what shipped first: both this and the ownship caret rendered upside down for
-            // the same reason before it was caught.
+            // HIGH y fraction, and the apex (local -Y) the LOW one. Getting this backwards renders
+            // the shape upside down (the same convention ResolveOwnshipCaretSprite below has to
+            // account for too).
             var p0 = new Vector2(0.05f * w, 0.95f * h);
             var p1 = new Vector2(0.95f * w, 0.95f * h);
             var p2 = new Vector2(0.50f * w, 0.05f * h);
@@ -524,9 +513,9 @@ namespace NOXMFD
             // Polygon points normalized into a padded [0.1, 0.9] box, same shape rwr.html draws.
             // Y already flipped (1 - svgY) here: Texture2D.SetPixels32 stores row 0 as the BOTTOM of
             // the resulting texture, so the apex (meant to render at the TOP, pointing toward the
-            // nose) needs the HIGH y fraction, not the low one a naive SVG-Y copy would give it —
-            // the un-flipped version is exactly what shipped first and rendered the caret pointing
-            // down instead of up.
+            // nose) needs the HIGH y fraction, not the low one a naive SVG-Y copy would give it — a
+            // naive copy renders the caret pointing down instead of up (same convention
+            // BuildFilledTriangleSprite above has to account for too).
             Vector2[] pts =
             {
                 new Vector2(0.5f, 0.9f),

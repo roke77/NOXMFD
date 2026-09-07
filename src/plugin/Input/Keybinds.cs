@@ -478,13 +478,13 @@ namespace NOXMFD
                 "first gun (guns already selected are left alone). Hold to reset to ALL (unrestricted).",
                 () => { });
 
-            // issue #43 proof-of-concept only (docs/internal-mfd.md) — toggles an unmissable
-            // placeholder panel on the cockpit TacScreen canvas, to confirm the insertion point
-            // actually paints on top before any real page gets a native reimplementation.
+            // issue #43 proof-of-concept only (docs/internal-mfd.md) — toggles native NOXMFD page
+            // content (HSD/RWR/TGP, InternalMfdController) drawn directly onto the T/A-30 Compass's
+            // own cockpit TacScreen canvas.
             const string mfd = "Internal MFD Keybinds";
             DefFree(config, "internal-mfd-poc-toggle", mfd, "InternalMfdPocToggle", "Internal MFD POC Toggle", edge: true,
-                "POC only: show/hide a placeholder panel on the cockpit's tactical screen, to prove " +
-                "native content can paint there.",
+                "POC only: show/hide native HSD/RWR/TGP content on the cockpit's tactical screen, " +
+                "instead of only serving pages to an external browser.",
                 () => InternalMfdController.Toggle());
 
             // Hidden like the binds above — the /keybinds page owns this one too now (rendered as a

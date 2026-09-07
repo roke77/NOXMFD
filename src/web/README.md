@@ -157,7 +157,9 @@ split-pane reloads, and the mission-exit reset, and follow is mirrored up to the
 chip on (re)entry. First run seeds the defaults (follow **on**, a medium zoom). It's view-local —
 not part of the data path; `map.js` owns it (`loadPersistedView` / `savePersistedView`). RDR's
 selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps its own
-360-degree range under `noxmfd.hsd.view`.
+360-degree range under `noxmfd.hsd.view` and additionally reports it server-side (`hsd.js`'s
+`saveRange()` sends `hsd.set-view`) so the internal cockpit MFD's own HSD pane
+(`InternalMfdHsdPage.cs`, docs/internal-mfd.md) can track the same CEN/DEP mode and range.
 
 ## Hosting model
 

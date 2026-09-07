@@ -87,10 +87,14 @@ still per-tab `sessionStorage`) because that's the sync this was asked for — t
   type takes whatever constructor parameters it needs, which the controller already knows at the
   call site.
 - **`InternalMfdUi.cs`** — small UI-construction primitives (`NewUi`, `ResolveFont`, `Stretch`) and
-  procedural-sprite/geometry helpers (`ResolveRingSprite`, `EdgeSigned`, `DistancePointSegment`)
-  shared by every page, instead of duplicated per page (`ResolveRingSprite` and the two math
-  helpers moved here from `InternalMfdRwrPage.cs` once `InternalMfdHsdPage.cs` needed the same
-  ring-drawing and polygon-rasterizing code a second time).
+  procedural-sprite/geometry helpers (`ResolveRingSprite`, `EdgeSigned`, `DistancePointSegment`,
+  `Azimuth`, `PolarToLocal`) shared by every page, instead of duplicated per page (all five moved
+  here from `InternalMfdRwrPage.cs` once `InternalMfdHsdPage.cs` needed the same ring-drawing,
+  polygon-rasterizing, and contact-placement code a second time).
+- **`InternalMfdScopeMath.cs`** — the pure sin/cos placement math `InternalMfdUi.PolarToLocal` wraps
+  (`PolarOffset`) plus a zero-padded heading formatter (`Pad3Heading`), BCL-only so it can be linked
+  into `tools/tests` without dragging in UnityEngine — the same split `Tgp/TgpFullScreenMath.cs`/
+  `TgpManualAimMath.cs` use for their own geometry.
 - **`InternalMfdHsdPage.cs`**, **`InternalMfdRwrPage.cs`**, **`InternalMfdTgpPage.cs`** — one file
   per page, each implementing `IInternalMfdPage`. A new page is a new `InternalMfd<Name>Page.cs`,
   not a growing switch statement in the controller.

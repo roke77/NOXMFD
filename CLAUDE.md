@@ -291,7 +291,8 @@ canvas for a given aircraft — a distinct concern from what gets drawn on it on
 `IInternalMfdPage.cs` (the interface every page's content implements — `Refresh
 (TelemetrySnapshot)` only; construction stays page-type-specific, not part of the
 interface), `InternalMfdUi.cs` (small UI-construction/procedural-sprite primitives every page
-shares), and one file per page (`InternalMfdHsdPage.cs`, `InternalMfdRwrPage.cs`,
+shares), `InternalMfdScopeMath.cs` (BCL-only scope-placement math, linked into `tools/tests`),
+and one file per page (`InternalMfdHsdPage.cs`, `InternalMfdRwrPage.cs`,
 `InternalMfdTgpPage.cs`, ...). Add a new page as a
 new `InternalMfd<Name>Page.cs` implementing `IInternalMfdPage`, not by growing an existing
 page's file or the controller.
