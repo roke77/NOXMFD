@@ -33,6 +33,7 @@ namespace NOXMFD
         private static FieldInfo? _tacScreenField;
         private static FieldInfo? _canvasField;
         private static FieldInfo? _camField;
+        private static FieldInfo? _renderTextureField;
 
         private Canvas?     _tacCanvas;   // fake-null once its aircraft despawns
         private Camera?     _tacCam;      // screenCam — its cullingMask is widened while attached
@@ -134,7 +135,7 @@ namespace NOXMFD
 
             canvas = c;
             _lastFailure = null;
-            LogAttachDiagnostics(aircraft, c, cam);
+            LogAttachDiagnostics(aircraft, tacScreen, c, cam);
             return true;
         }
 
@@ -153,7 +154,7 @@ namespace NOXMFD
         // One-shot, on successful attach only — this is the evidence a manual test needs to tell
         // "nothing rendered because the canvas wasn't found" apart from "found it, but the camera/
         // layer/render setup doesn't show it", without spamming a per-frame log.
-        private static void LogAttachDiagnostics(Aircraft aircraft, Canvas canvas, Camera? cam)
+        private static void LogAttachDiagnostics(Aircraft aircraft, TacScreen tacScreen, Canvas canvas, Camera? cam)
         {
             string unitName = aircraft.definition != null ? aircraft.definition.unitName : "?";
 
@@ -161,6 +162,31 @@ namespace NOXMFD
                 $"[NOXMFD] Internal MFD POC attached: aircraft={unitName}, canvas.renderMode={canvas.renderMode}, " +
                 $"canvas.layer={canvas.gameObject.layer} ({LayerMask.LayerToName(canvas.gameObject.layer)}), " +
                 $"cam={(cam != null ? cam.name : "null")}, cam.cullingMask={(cam != null ? cam.cullingMask : 0)}.");
+
+            // Both attempted fixes (widen only screenCam's mask; crop to the center mesh's own UV)
+            // failed to stop the bleed onto the two side screens — the remaining untested theory is
+            // that those screens' materials reference this EXACT RenderTexture object too (a literal
+            // shared "repeater" texture, not a shared layer or a cropped sub-region), in which case
+            // no camera/layer trick can help: whatever screenCam draws into it shows everywhere that
+            // texture is used. Enumerate every Renderer in the scene and report which ones share it.
+            if (_renderTextureField == null)
+                _renderTextureField = typeof(TacScreen).GetField("renderTexture", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (_renderTextureField?.GetValue(tacScreen) is not RenderTexture rt || rt == null)
+            {
+                Plugin.Log?.LogInfo("[NOXMFD] Internal MFD POC: TacScreen.renderTexture is null, can't check for sharing.");
+                return;
+            }
+
+            int matches = 0;
+            foreach (var renderer in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (renderer.sharedMaterial == null || renderer.sharedMaterial.mainTexture != rt) continue;
+                matches++;
+                string path = renderer.gameObject.name;
+                for (var t = renderer.transform.parent; t != null; t = t.parent) path = t.name + "/" + path;
+                Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: renderer '{path}' (layer {renderer.gameObject.layer}) uses TacScreen.renderTexture.");
+            }
+            Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: {matches} renderer(s) total reference TacScreen.renderTexture.");
         }
 
         private void BuildOverlay(Aircraft aircraft, Canvas canvas)
