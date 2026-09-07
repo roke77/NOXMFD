@@ -542,7 +542,13 @@ namespace NOXMFD
                     float e0 = EdgeSigned(p0, p1, p);
                     float e1 = EdgeSigned(p1, p2, p);
                     float e2 = EdgeSigned(p2, p0, p);
-                    float inside = Mathf.Min(e0, Mathf.Min(e1, e2));
+                    // p0/p1/p2's winding makes points truly inside the triangle NEGATIVE on all
+                    // three edges, not positive (checked by hand: a pixel confirmed geometrically
+                    // inside via linear interpolation came out negative on e0/e1/e2 alike) - Max
+                    // + negate flips that consistently, instead of Min silently clamping the whole
+                    // interior to fully transparent while only a thin ~1px band near the boundary
+                    // (where the least-negative edge value crosses zero) ever got any alpha at all.
+                    float inside = -Mathf.Max(e0, Mathf.Max(e1, e2));
                     byte alpha = (byte)(Mathf.Clamp01(inside + 0.5f) * 255f);
                     pixels[y * w + x] = new Color32(255, 255, 255, alpha);
                 }
@@ -553,8 +559,10 @@ namespace NOXMFD
             return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f));
         }
 
-        // Signed distance (pixels) of point p from the left side of directed edge a->b: positive
-        // = inside (for a consistently-wound triangle), used as one term of a 3-edge inside test.
+        // Signed distance (pixels) of point p from directed edge a->b — consistently the same sign
+        // for every point on one side of the line, opposite sign on the other. Which sign means
+        // "inside" depends on the winding of whatever triangle calls this three times (BuildFilled
+        // TriangleSprite negates the result — see its own comment for why).
         private static float EdgeSigned(Vector2 a, Vector2 b, Vector2 p)
         {
             Vector2 ab = b - a;
