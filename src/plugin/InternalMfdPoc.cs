@@ -243,11 +243,11 @@ namespace NOXMFD
             rt.offsetMax = Vector2.zero;
 
             // No sprite — an Image with none draws a flat tinted quad, same trick HudWaypointCue
-            // uses, so this ships no art and can't fail on a missing asset. Near-opaque dark panel,
-            // matching the cockpit's own dark-screen-with-bright-text look rather than a raw color
-            // test swatch (that was the previous, now-settled, paint-order question).
+            // uses, so this ships no art and can't fail on a missing asset. Fully opaque (alpha 1) —
+            // anything less lets the native content underneath show through, which is what "solid
+            // background" reports were seeing.
             var bg = overlay.AddComponent<Image>();
-            bg.color = new Color(0.03f, 0.05f, 0.03f, 0.96f);
+            bg.color = new Color(0.03f, 0.05f, 0.03f, 1f);
             bg.raycastTarget = false;
 
             Font? font = ResolveFont();
