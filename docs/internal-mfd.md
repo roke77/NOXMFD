@@ -106,8 +106,11 @@ shows today:
 | Pylon/loadout display | `WPN` page | Icon-per-station grid, already fairly static-shaped |
 
 Scope for a first pass: **one** page at a time replacing the cockpit MFD content, with some way
-to cycle which one is shown (see [Toggle / page selection](#toggle--page-selection)) — not a
-faithful in-cockpit reproduction of NOXMFD's full split-view/paging shell.
+to cycle which one is shown (see [Toggle / page selection](#toggle--page-selection)). Standing
+requirement as of this aircraft's cross-check (see [Split-screen layout](#split-screen-layout)):
+wide screens split into two independently-addressable halves; this is not full split-view/paging
+shell parity with the external MFD (page cycling, N-way splits, drag-to-resize), just a two-region
+layout on the physical screens shaped for it.
 
 ## Investigation needed before implementation
 
@@ -134,6 +137,32 @@ for licensing/attribution before reusing either):
 - A hand-measured lookup table, if another mod has already measured the target aircraft.
 - A runtime tool that computes UV islands directly from the mesh's own vertex data (GPU readback +
   union-find clustering on shared UV edges) — no hand-measurement needed, works on any aircraft.
+
+## Split-screen layout
+
+**Standing requirement, established after the T/A-30 POC:** a wide physical screen splits into two
+independently-addressable halves with a vertical separator; a square-ish screen stays one full-view
+region. Per-aircraft, following the same reasoning as
+[Per-aircraft screen geometry](#per-aircraft-screen-geometry-open) — the physical screen's own
+proportions decide this, not a global setting.
+
+The T/A-30's own center screen (the only screen measured so far) is a data point for this rule: its
+UV band is roughly 1024×364 px within the shared texture (see
+[Feasibility approach](#feasibility-approach)), a ≈2.8:1 aspect ratio — wide, a split candidate under
+this rule, not yet implemented as one.
+
+Open, not yet decided:
+
+- Exact threshold (or per-aircraft judgment call) for "wide" vs. "square-ish" — no numeric aspect
+  ratio picked yet.
+- What each half shows once split — two different pages, a fixed pairing, or player-selectable
+  per half independently.
+- How the separator itself is drawn (a thin native `Image` divider vs. just the gap between two
+  independently-anchored regions).
+- Whether "split" reuses any of the external shell's existing split-view concepts
+  (`split-slots.js`, `mfd-split-routing.test.js`) or is a from-scratch native layout — the external
+  shell's split-view is DOM/CSS-driven and doesn't carry over mechanically, but the *page selection
+  per pane* concept might.
 
 ## Toggle / page selection
 
