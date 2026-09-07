@@ -5,23 +5,45 @@
 **Proof-of-concept live-verified on one aircraft (T/A-30 Compass)**, `feature/internal-mfd-poc`.
 Code lives in `src/plugin/InternalMFD/` — see [Code organization](#code-organization) for the
 per-file split. The T/A-30's center screen splits into two panes (see
-[Split-screen layout](#split-screen-layout)): a live, source-matched **RWR** scope
-(`InternalMfdRwrPage.cs` — concentric range rings, contact blips, inbound-missile bearing
-indicators, all confirmed live against the real page's own SVG/JS values) on one side, and a
-a live **TGP** camera feed (`InternalMfdTgpPage.cs` — a `RawImage` pointed straight at
-`TargetCam.cam.targetTexture`, the exact `RenderTexture` the physical in-cockpit TGP screen
-already displays every frame, real lock or `TgpManualControl`'s manual pan/tilt/zoom; no JPEG
-round-trip, and no second camera — an earlier version mirrored the camera into its own RT and only
-resynced its FOV at the controller's 10Hz page-refresh rate, which read as laggy/stuttering next to
-the native screen's smooth zoom) on the other. AVN (speed/altitude/fuel) was implemented, live-verified, and then removed — real visual
-parity with the web AVN page (icon tiles, tick-ring dial gauges) was judged too large a job to
-chase incrementally; RWR was picked instead as a smaller, single-page target to prove native
-content can match a real page closely (see [Live findings](#live-findings)).
+[Split-screen layout](#split-screen-layout)): the right pane is a live, source-matched **RWR**
+scope (`InternalMfdRwrPage.cs` — concentric range rings, contact blips, inbound-missile bearing
+indicators, all confirmed live against the real page's own SVG/JS values); the left pane switches
+between two pages rather than holding one fixed page (see
+[Left-pane TGP override](#left-pane-tgp-override) below).
 
-Not yet done: TGP's text/status overlay (RNG/ALT/MODE/... — the feed itself is live, the data chips
-`TgpFullScreen.cs` draws for the cinematic full-screen view are not yet ported here), and live
-verification of the restore-cleanly paths (toggle-off is exercised every test session;
-aircraft-change and mission-exit are coded but not explicitly confirmed live).
+Live-verified: the TGP camera feed's overlay (RNG/ALT/MODE/...) shows up automatically —
+`cam.targetTexture` (what `InternalMfdTgpPage.cs`'s `RawImage` reads) turned out to already carry
+the native overlay baked in, not just the raw picture, so no separate overlay port was needed.
+
+AVN (speed/altitude/fuel) was implemented, live-verified, and then removed — real visual parity
+with the web AVN page (icon tiles, tick-ring dial gauges) was judged too large a job to chase
+incrementally; RWR was picked instead as a smaller, single-page target to prove native content can
+match a real page closely (see [Live findings](#live-findings)).
+
+Not yet done: live verification of the restore-cleanly paths (toggle-off is exercised every test
+session; aircraft-change and mission-exit are coded but not explicitly confirmed live).
+
+## Left-pane TGP override
+
+The left pane isn't a single fixed page. **HSD** (`InternalMfdHsdPage.cs`) mounts there by
+default; **TGP** (`InternalMfdTgpPage.cs`) takes over the instant the player has a real weapon lock
+or `TgpManualControl.ManualMode` is on (`InternalMfdController.IsTgpActive()` — the same
+hasTargets/ManualMode check `TgpFeed.CaptureFrame`/`TgpFullScreen.Tick` already use, so this can't
+disagree with whether the TGP feed itself is actually live), and HSD remounts the moment neither is
+true. Both pages are built once at overlay-construction time and kept alive behind their own
+wrapper `GameObject`; the swap is a `SetActive` toggle on whichever wrapper, checked at the
+controller's normal 10Hz page-refresh cadence — not a rebuild, so neither page loses its pooled UI
+state (contact markers, etc.) across a swap.
+
+HSD itself (`InternalMfdHsdPage.cs`) is a deliberately simplified read of the real page
+(`src/web/pages/hsd/hsd.js`): the grid rings (theme.css `--no-hsd-pink-rgb`), the notched
+contact/ownship icon (`hsd.js`'s own `'M0 -9 L-6 7 L0 4 L6 7 Z'` polygon, filled here rather than
+RWR's stroke-only caret), contact colors (`--no-purple` datalink / `--no-red` own-radar /
+`--no-white` stale / `--no-amber` focused-lock), and the AA threat rings (`--no-hsd-yellow`) are
+matched to source. Fixed CEN mode at a fixed 40nm range, no radar-cone overlay, no active-route
+line, and no PAD acquisition cursor (contacts can't be selected from this pane) — each of those
+needs a cursor/bezel input this pane doesn't have wired up yet; see the file's own header comment
+for the upgrade path on each.
 
 ## Code organization
 
@@ -37,12 +59,14 @@ aircraft-change and mission-exit are coded but not explicitly confirmed live).
   (TelemetrySnapshot)` only. Construction is deliberately not part of the interface — each page
   type takes whatever constructor parameters it needs, which the controller already knows at the
   call site.
-- **`InternalMfdUi.cs`** — small UI-construction primitives (`NewUi`, `ResolveFont`) shared by every
-  page, instead of duplicated per page (which is exactly what started happening once a second page
-  existed).
-- **`InternalMfdRwrPage.cs`**, **`InternalMfdTgpPage.cs`** — one file per page, each implementing
-  `IInternalMfdPage`. A new page is a new `InternalMfd<Name>Page.cs`, not a growing switch statement
-  in the controller.
+- **`InternalMfdUi.cs`** — small UI-construction primitives (`NewUi`, `ResolveFont`, `Stretch`) and
+  procedural-sprite/geometry helpers (`ResolveRingSprite`, `EdgeSigned`, `DistancePointSegment`)
+  shared by every page, instead of duplicated per page (`ResolveRingSprite` and the two math
+  helpers moved here from `InternalMfdRwrPage.cs` once `InternalMfdHsdPage.cs` needed the same
+  ring-drawing and polygon-rasterizing code a second time).
+- **`InternalMfdHsdPage.cs`**, **`InternalMfdRwrPage.cs`**, **`InternalMfdTgpPage.cs`** — one file
+  per page, each implementing `IInternalMfdPage`. A new page is a new `InternalMfd<Name>Page.cs`,
+  not a growing switch statement in the controller.
 
 ## Goal
 
@@ -186,16 +210,17 @@ The T/A-30's own center screen (the only screen measured so far) is a data point
 UV band is roughly 1024×364 px within the shared texture (see
 [Feasibility approach](#feasibility-approach)), a ≈2.8:1 aspect ratio — wide, and implemented as a
 split: `InternalMfdController.cs` builds a left and right `RectTransform` half with a vertical separator
-between them, and mounts one `IInternalMfdPage` per half (currently `InternalMfdTgpPage` on the
-left, `InternalMfdRwrPage` on the right — see [Status](#status) and
-[Code organization](#code-organization)).
+between them, and mounts `IInternalMfdPage`s into each half — the right half holds
+`InternalMfdRwrPage` (fixed); the left half holds both `InternalMfdHsdPage` and `InternalMfdTgpPage`
+and switches between them (see [Left-pane TGP override](#left-pane-tgp-override) and
+[Status](#status)).
 
 Open, not yet decided:
 
 - Exact threshold (or per-aircraft judgment call) for "wide" vs. "square-ish" — no numeric aspect
   ratio picked yet.
-- Whether the current left/right pairing (TGP/RWR) is fixed or should become player-selectable per
-  half independently.
+- Whether the right half's fixed RWR should also become player-selectable, matching the left half's
+  now-dynamic content.
 - How the separator itself is drawn (a thin native `Image` divider vs. just the gap between two
   independently-anchored regions).
 - Whether "split" reuses any of the external shell's existing split-view concepts

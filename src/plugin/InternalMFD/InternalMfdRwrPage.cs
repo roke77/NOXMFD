@@ -118,8 +118,8 @@ namespace NOXMFD
             _center.anchorMin = _center.anchorMax = new Vector2(0.5f, 0.5f);
             _center.sizeDelta = new Vector2(_diameter, _diameter);
 
-            Sprite solidRing = ResolveRingSprite(dashed: false);
-            Sprite dashedRing = ResolveRingSprite(dashed: true);
+            Sprite solidRing = InternalMfdUi.ResolveRingSprite(dashed: false);
+            Sprite dashedRing = InternalMfdUi.ResolveRingSprite(dashed: true);
             BuildRing(_center, layer, solidRing, _diameter); // outer — solid
             BuildRing(_center, layer, dashedRing, _diameter * MidRingFrac); // dashed
             BuildRing(_center, layer, dashedRing, _diameter * InnerRingFrac); // dashed
@@ -441,56 +441,6 @@ namespace NOXMFD
             return _dashedLineSprite;
         }
 
-        private static Sprite? _solidRingSprite;
-        private static Sprite? _dashedRingSprite;
-
-        // Procedural antialiased ring (annulus): alpha=1 only in a thin band near the edge. The
-        // dashed variant additionally zeroes alpha in angular gaps (rwr.html's two inner rings use
-        // stroke-dasharray; the outer ring is solid) — a runtime-generated texture, so range rings
-        // need no shipped art either.
-        private static Sprite ResolveRingSprite(bool dashed)
-        {
-            if (dashed && _dashedRingSprite != null) return _dashedRingSprite;
-            if (!dashed && _solidRingSprite != null) return _solidRingSprite;
-
-            const int size = 128;
-            const float r = size / 2f;
-            const float band = 3f; // stroke thickness in texture pixels
-            const int dashCount = 14; // visual dash count, not rwr.html's exact "12 16"/"10 16" spacing
-            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false)
-            {
-                wrapMode = TextureWrapMode.Clamp,
-                filterMode = FilterMode.Bilinear,
-            };
-            var pixels = new Color32[size * size];
-            var center = new Vector2(r, r);
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    Vector2 p = new Vector2(x + 0.5f, y + 0.5f);
-                    float d = Vector2.Distance(p, center);
-                    float distFromRing = Mathf.Abs(d - (r - band));
-                    float alpha01 = Mathf.Clamp01(1f - distFromRing / (band * 0.5f));
-
-                    if (dashed && alpha01 > 0f)
-                    {
-                        float angle01 = (Mathf.Atan2(p.x - center.x, p.y - center.y) + Mathf.PI) / (2f * Mathf.PI);
-                        float dashPhase = (angle01 * dashCount) % 1f;
-                        if (dashPhase > 0.55f) alpha01 = 0f; // ~55% on, 45% gap
-                    }
-
-                    pixels[y * size + x] = new Color32(255, 255, 255, (byte)(alpha01 * 255f));
-                }
-            }
-            tex.SetPixels32(pixels);
-            tex.Apply();
-
-            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
-            if (dashed) _dashedRingSprite = sprite; else _solidRingSprite = sprite;
-            return sprite;
-        }
-
         private static Sprite? _triangleSprite;
 
         // Filled downward-pointing triangle (edge-function inside/outside test, ~1px antialiased
@@ -541,9 +491,9 @@ namespace NOXMFD
                 for (int x = 0; x < w; x++)
                 {
                     Vector2 p = new Vector2(x + 0.5f, y + 0.5f);
-                    float e0 = EdgeSigned(p0, p1, p);
-                    float e1 = EdgeSigned(p1, p2, p);
-                    float e2 = EdgeSigned(p2, p0, p);
+                    float e0 = InternalMfdUi.EdgeSigned(p0, p1, p);
+                    float e1 = InternalMfdUi.EdgeSigned(p1, p2, p);
+                    float e2 = InternalMfdUi.EdgeSigned(p2, p0, p);
                     // p0/p1/p2's winding makes points truly inside the triangle NEGATIVE on all
                     // three edges, not positive (checked by hand: a pixel confirmed geometrically
                     // inside via linear interpolation came out negative on e0/e1/e2 alike) - Max
@@ -559,17 +509,6 @@ namespace NOXMFD
             tex.Apply();
 
             return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f));
-        }
-
-        // Signed distance (pixels) of point p from directed edge a->b — consistently the same sign
-        // for every point on one side of the line, opposite sign on the other. Which sign means
-        // "inside" depends on the winding of whatever triangle calls this three times (BuildFilled
-        // TriangleSprite negates the result — see its own comment for why).
-        private static float EdgeSigned(Vector2 a, Vector2 b, Vector2 p)
-        {
-            Vector2 ab = b - a;
-            float cross = ab.x * (p.y - a.y) - ab.y * (p.x - a.x);
-            return cross / ab.magnitude;
         }
 
         private static Sprite? _ownshipCaretSprite;
@@ -612,7 +551,7 @@ namespace NOXMFD
                     float minDist = float.MaxValue;
                     for (int i = 0; i < pts.Length; i++)
                     {
-                        float d = DistancePointSegment(p, pts[i], pts[(i + 1) % pts.Length]);
+                        float d = InternalMfdUi.DistancePointSegment(p, pts[i], pts[(i + 1) % pts.Length]);
                         if (d < minDist) minDist = d;
                     }
                     byte alpha = (byte)(Mathf.Clamp01(strokePx * 0.5f - minDist + 0.5f) * 255f);
@@ -626,13 +565,5 @@ namespace NOXMFD
             return _ownshipCaretSprite;
         }
 
-        private static float DistancePointSegment(Vector2 p, Vector2 a, Vector2 b)
-        {
-            Vector2 ab = b - a;
-            float len2 = ab.sqrMagnitude;
-            float t = len2 > 0f ? Mathf.Clamp01(Vector2.Dot(p - a, ab) / len2) : 0f;
-            Vector2 closest = a + ab * t;
-            return Vector2.Distance(p, closest);
-        }
     }
 }

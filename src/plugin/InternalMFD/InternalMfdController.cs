@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,9 +9,17 @@ namespace NOXMFD
     // wide aspect ratio (docs/internal-mfd.md's "Split-screen layout" requirement). This file only
     // owns the overlay's own lifecycle (toggle, canvas resolution, split-vs-single layout, dispatching
     // Refresh once per pane) — what's actually drawn in a pane is an IInternalMfdPage, built and
-    // owned by the page's own class (InternalMfdRwrPage, InternalMfdTgpPage, ...), not this one.
-    // InternalMfdScreenResolver owns finding the cockpit canvas itself; this class doesn't reach
-    // into Cockpit/TacScreen directly any more.
+    // owned by the page's own class (InternalMfdHsdPage, InternalMfdRwrPage, InternalMfdTgpPage,
+    // ...), not this one. InternalMfdScreenResolver owns finding the cockpit canvas itself; this
+    // class doesn't reach into Cockpit/TacScreen directly any more.
+    //
+    // The left pane isn't a single fixed page: HSD mounts there by default, but InternalMfdTgpPage
+    // takes over the instant the TGP has a real weapon lock or TgpManualControl's manual mode is
+    // engaged, then HSD remounts the moment neither is true any more — the same "TGP owns the
+    // screen while it's actually showing something" behavior the real cockpit's own small TGP
+    // display already has, just extended to this whole pane. Both pages are built once and kept
+    // alive behind their own wrapper GameObject; switching is a SetActive toggle, not a rebuild, so
+    // neither page loses state across a swap.
     //
     // Mission-scoped (added in MissionLifecycle.StartReader, same as the Hud* cues), because the
     // Cockpit/TacScreen chain only exists for a live local-player aircraft.
@@ -22,7 +31,10 @@ namespace NOXMFD
         private Aircraft?   _tacAircraft; // which aircraft _tacCanvas belongs to, so a switch is caught
                                            // even if the old Canvas hasn't gone fake-null yet
         private GameObject? _overlay;
-        private IInternalMfdPage? _leftPage;
+        private GameObject? _leftHsdRoot;
+        private GameObject? _leftTgpRoot;
+        private IInternalMfdPage? _leftHsdPage;
+        private IInternalMfdPage? _leftTgpPage;
         private IInternalMfdPage? _rightPage;
         private float       _lastRefresh;
 
@@ -61,7 +73,10 @@ namespace NOXMFD
         {
             if (_overlay != null) Destroy(_overlay);
             _overlay = null;
-            _leftPage = null;
+            _leftHsdRoot = null;
+            _leftTgpRoot = null;
+            _leftHsdPage = null;
+            _leftTgpPage = null;
             _rightPage = null;
             _tacCanvas = null;
             _tacAircraft = null;
@@ -76,13 +91,36 @@ namespace NOXMFD
         // a frame apart.
         private void RefreshPages()
         {
-            if (_leftPage == null && _rightPage == null) return;
+            if (_leftHsdPage == null && _leftTgpPage == null && _rightPage == null) return;
             if (Time.time - _lastRefresh < 0.1f) return;
             _lastRefresh = Time.time;
 
+            if (_leftHsdRoot != null && _leftTgpRoot != null)
+            {
+                bool tgpActive = IsTgpActive();
+                _leftHsdRoot.SetActive(!tgpActive);
+                _leftTgpRoot.SetActive(tgpActive);
+            }
+
             if (!TelemetryServer.TryGetLatestSnapshot(out TelemetrySnapshot snap)) return;
-            _leftPage?.Refresh(snap);
+            // Only the currently-mounted left page gets refreshed — the hidden one has nothing on
+            // screen to update, and skipping it (rather than refreshing both every tick regardless
+            // of visibility) is free since SetActive above already decided which one that is.
+            if (_leftHsdRoot != null && _leftHsdRoot.activeSelf) _leftHsdPage?.Refresh(snap);
+            if (_leftTgpRoot != null && _leftTgpRoot.activeSelf) _leftTgpPage?.Refresh(snap);
             _rightPage?.Refresh(snap);
+        }
+
+        // "TGP locks a target OR manual mode is engaged" — the exact same hasTargets/ManualMode
+        // check TgpFeed.CaptureFrame and TgpFullScreen.Tick already use to decide whether the TGP
+        // camera actually has something to show, so this pane's swap can't disagree with whether
+        // the TGP feed itself is live.
+        private static bool IsTgpActive()
+        {
+            if (!GameManager.GetLocalAircraft(out Aircraft aircraft) || aircraft == null) return false;
+            if (TgpManualControl.ManualMode) return true;
+            List<Unit>? targets = aircraft.weaponManager != null ? aircraft.weaponManager.GetTargetList() : null;
+            return targets != null && targets.Count > 0;
         }
 
         private void BuildOverlay(Aircraft aircraft, Canvas canvas)
@@ -130,11 +168,31 @@ namespace NOXMFD
                 RectTransform rightHalf = BuildHalf(rt, "Right", right: true);
                 BuildSeparator(rt);
 
-                _leftPage = new InternalMfdTgpPage(left, font);
+                // Both left-pane pages are built up front and kept alive behind their own wrapper —
+                // RefreshPages() toggles which wrapper is active each tick rather than tearing one
+                // down and rebuilding the other, so neither page loses its pooled UI state (contact
+                // markers, etc.) across a swap.
+                RectTransform leftHsd = BuildFullChild(left, "Hsd");
+                RectTransform leftTgp = BuildFullChild(left, "Tgp");
+                _leftHsdPage = new InternalMfdHsdPage(leftHsd, font);
+                _leftTgpPage = new InternalMfdTgpPage(leftTgp, font);
+                _leftHsdRoot = leftHsd.gameObject;
+                _leftTgpRoot = leftTgp.gameObject;
+
                 _rightPage = new InternalMfdRwrPage(rightHalf, font);
             }
 
             _overlay = overlay;
+        }
+
+        // A full-stretch child of parent, its own GameObject so InternalMfdController can
+        // SetActive it independently of any sibling built the same way.
+        private static RectTransform BuildFullChild(RectTransform parent, string name)
+        {
+            var go = InternalMfdUi.NewUi(name, parent, parent.gameObject.layer, typeof(RectTransform));
+            var rt = go.GetComponent<RectTransform>();
+            InternalMfdUi.Stretch(rt);
+            return rt;
         }
 
         // Left or right 50% of parent, full height.

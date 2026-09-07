@@ -290,8 +290,9 @@ whichever pages are mounted), `InternalMfdScreenResolver.cs` (finding the cockpi
 canvas for a given aircraft — a distinct concern from what gets drawn on it once found),
 `IInternalMfdPage.cs` (the interface every page's content implements — `Refresh
 (TelemetrySnapshot)` only; construction stays page-type-specific, not part of the
-interface), `InternalMfdUi.cs` (small UI-construction primitives every page shares), and one
-file per page (`InternalMfdRwrPage.cs`, `InternalMfdTgpPage.cs`, ...). Add a new page as a
+interface), `InternalMfdUi.cs` (small UI-construction/procedural-sprite primitives every page
+shares), and one file per page (`InternalMfdHsdPage.cs`, `InternalMfdRwrPage.cs`,
+`InternalMfdTgpPage.cs`, ...). Add a new page as a
 new `InternalMfd<Name>Page.cs` implementing `IInternalMfdPage`, not by growing an existing
 page's file or the controller.
 If/when it grows enough to need more internal structure, this is the target shape:
