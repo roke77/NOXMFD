@@ -8,10 +8,12 @@ per-file split. The T/A-30's center screen splits into two panes (see
 [Split-screen layout](#split-screen-layout)): a live, source-matched **RWR** scope
 (`InternalMfdRwrPage.cs` — concentric range rings, contact blips, inbound-missile bearing
 indicators, all confirmed live against the real page's own SVG/JS values) on one side, and a
-a live **TGP** camera feed (`InternalMfdTgpPage.cs` — the same `TargetCam.cam` the game itself
-drives, real lock or `TgpManualControl`'s manual pan/tilt/zoom, rendered straight into a `RawImage`
-via a dedicated `TgpMirrorCam`, no JPEG round-trip since both live in the same process) on the
-other. AVN (speed/altitude/fuel) was implemented, live-verified, and then removed — real visual
+a live **TGP** camera feed (`InternalMfdTgpPage.cs` — a `RawImage` pointed straight at
+`TargetCam.cam.targetTexture`, the exact `RenderTexture` the physical in-cockpit TGP screen
+already displays every frame, real lock or `TgpManualControl`'s manual pan/tilt/zoom; no JPEG
+round-trip, and no second camera — an earlier version mirrored the camera into its own RT and only
+resynced its FOV at the controller's 10Hz page-refresh rate, which read as laggy/stuttering next to
+the native screen's smooth zoom) on the other. AVN (speed/altitude/fuel) was implemented, live-verified, and then removed — real visual
 parity with the web AVN page (icon tiles, tick-ring dial gauges) was judged too large a job to
 chase incrementally; RWR was picked instead as a smaller, single-page target to prove native
 content can match a real page closely (see [Live findings](#live-findings)).

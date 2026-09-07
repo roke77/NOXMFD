@@ -3,28 +3,28 @@ using UnityEngine.UI;
 
 namespace NOXMFD
 {
-    // TGP camera feed for the internal MFD's left pane. Reads the same TargetCam.cam the game
-    // itself drives — a real weapon lock and TgpManualControl's manual pan/tilt/zoom both end up
-    // writing to that one field, so this needs no branching between the two: whichever owns the
-    // camera right now is simply what's on screen, exactly like TgpFullScreen.cs's own Tick()
-    // already does for the cinematic full-screen view. Unlike TgpFeed.cs's web pipeline, there's
-    // no JPEG round-trip here — a RawImage can point straight at the mirror camera's own
-    // RenderTexture, since both live in the same process.
+    // TGP camera feed for the internal MFD's left pane. Points the RawImage straight at
+    // TargetCam.cam's own targetTexture — the exact RenderTexture the physical in-cockpit TGP
+    // screen already displays every frame (TgpFeed.cs's own "Native" capture path reads this same
+    // field first, for the same reason: it's the native camera the game itself renders, smoothly
+    // zooms, and already bakes its IR look into). A RenderTexture is a live GPU resource — once
+    // the reference is set, the picture updates on its own every frame in lockstep with the native
+    // screen, no per-tick work needed here at all.
     //
-    // Owns a dedicated TgpMirrorCam instance: TgpFeed's (web /tgp page) and TgpFullScreen's own
-    // are each sized and engaged for their own consumer, and three consumers fighting over one
-    // camera/RT's size each tick would thrash it.
+    // An earlier version stood up a second, independent TgpMirrorCam and copied the native
+    // camera's FOV into it each Refresh — but Refresh only runs at the controller's 10Hz
+    // page-refresh rate, while the native camera's own zoom animates smoothly every frame. Sampling
+    // that animation 10 times a second and holding it steady in between is exactly what read as
+    // laggy, stuttering zoom next to the native screen's always-live picture — on top of rendering
+    // the same scene a second time for no benefit. Reading the native RT directly has neither
+    // problem: no second render, no sync to fall behind.
+    //
+    // Real lock and TgpManualControl's manual pan/tilt/zoom both drive this exact same
+    // TargetCam.cam, so nothing here needs to branch between the two.
     internal sealed class InternalMfdTgpPage : IInternalMfdPage
     {
-        // Small on purpose — this pane is already a fraction of the T/A-30's center screen (itself
-        // cropped from a shared 1024x512 cockpit texture, docs/internal-mfd.md), so anything past
-        // "looks sharp at that final size" is wasted GPU/readback-free but still real render cost.
-        private const int FeedWidth = 512;
-        private const int FeedHeight = 384;
-
         private static readonly Color NoFeedColor = new Color(1f, 1f, 1f, 0.5f);
 
-        private readonly TgpMirrorCam _mirror = new TgpMirrorCam();
         private readonly RawImage _feedImage;
         private readonly Text _statusText;
 
@@ -70,18 +70,13 @@ namespace NOXMFD
             }
 
             Camera? cam = TgpManualTargetCamAccess.GetCamera(tc);
-            Transform? mount = TgpManualTargetCamAccess.GetMount(tc);
-            if (cam == null || !cam.enabled || mount == null)
+            if (cam == null || !cam.enabled || cam.targetTexture == null)
             {
                 ShowNoFeed();
                 return;
             }
 
-            _mirror.Engage(tc, FeedWidth, FeedHeight);
-            _mirror.SyncFromSource(cam);
-            _mirror.SetInfrared(tc.UsingIR());
-
-            _feedImage.texture = _mirror.Texture;
+            _feedImage.texture = cam.targetTexture;
             _feedImage.enabled = true;
             _statusText.enabled = false;
         }
@@ -90,14 +85,6 @@ namespace NOXMFD
         {
             _feedImage.enabled = false;
             _statusText.enabled = true;
-        }
-
-        // The mirror camera's rig is parented to the TargetCam mount, outside this page's own UI
-        // subtree — Destroy(_overlay) alone would leak it, so the controller calls this before
-        // dropping its reference to the page.
-        public void Teardown()
-        {
-            _mirror.Disengage();
         }
     }
 }

@@ -9,11 +9,5 @@ namespace NOXMFD
     internal interface IInternalMfdPage
     {
         void Refresh(TelemetrySnapshot snap);
-
-        // Called once, right before the controller drops its reference to this page (aircraft
-        // change, toggle-off, mission end) — the only place a page gets to release anything it
-        // owns outside its own UI subtree (a camera rig parented to a TargetCam mount, say),
-        // which Destroy(_overlay) alone won't reach. A no-op for a page with nothing but UI.
-        void Teardown();
     }
 }

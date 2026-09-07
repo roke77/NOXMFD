@@ -59,8 +59,6 @@ namespace NOXMFD
 
         private void Teardown()
         {
-            _leftPage?.Teardown();
-            _rightPage?.Teardown();
             if (_overlay != null) Destroy(_overlay);
             _overlay = null;
             _leftPage = null;
