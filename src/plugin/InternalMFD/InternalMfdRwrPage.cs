@@ -217,6 +217,11 @@ namespace NOXMFD
             }
         }
 
+        // Nothing owned outside this page's own UI subtree — Destroy(_overlay) already reclaims it.
+        public void Teardown()
+        {
+        }
+
         public void Refresh(TelemetrySnapshot snap)
         {
             RwrContact[] contacts = snap.Rwr ?? Array.Empty<RwrContact>();

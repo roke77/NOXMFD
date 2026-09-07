@@ -8,15 +8,18 @@ per-file split. The T/A-30's center screen splits into two panes (see
 [Split-screen layout](#split-screen-layout)): a live, source-matched **RWR** scope
 (`InternalMfdRwrPage.cs` — concentric range rings, contact blips, inbound-missile bearing
 indicators, all confirmed live against the real page's own SVG/JS values) on one side, and a
-**TGP** placeholder (`InternalMfdTgpPage.cs` — a labeled panel only, no live content yet) on the
+a live **TGP** camera feed (`InternalMfdTgpPage.cs` — the same `TargetCam.cam` the game itself
+drives, real lock or `TgpManualControl`'s manual pan/tilt/zoom, rendered straight into a `RawImage`
+via a dedicated `TgpMirrorCam`, no JPEG round-trip since both live in the same process) on the
 other. AVN (speed/altitude/fuel) was implemented, live-verified, and then removed — real visual
 parity with the web AVN page (icon tiles, tick-ring dial gauges) was judged too large a job to
 chase incrementally; RWR was picked instead as a smaller, single-page target to prove native
 content can match a real page closely (see [Live findings](#live-findings)).
 
-Not yet done: TGP's actual content, and live verification of the restore-cleanly paths (toggle-off
-is exercised every test session; aircraft-change and mission-exit are coded but not explicitly
-confirmed live).
+Not yet done: TGP's text/status overlay (RNG/ALT/MODE/... — the feed itself is live, the data chips
+`TgpFullScreen.cs` draws for the cinematic full-screen view are not yet ported here), and live
+verification of the restore-cleanly paths (toggle-off is exercised every test session;
+aircraft-change and mission-exit are coded but not explicitly confirmed live).
 
 ## Code organization
 
@@ -128,7 +131,7 @@ shows today:
 | Native cockpit shows (today) | NOXMFD equivalent | Notes |
 |---|---|---|
 | Radar picture | `RDR` page | Sweep/contact rendering — RWR (a related but simpler radar-warning page, not the main `RDR` radar picture) is the current live page — see [Status](#status) |
-| Targeting pod feed | `TGP` page | Camera feed + manual-control readout — currently a labeled placeholder only, see [Status](#status) |
+| Targeting pod feed | `TGP` page | Camera feed — live, see [Status](#status); text/status overlay not yet ported |
 | Pylon/loadout display | `WPN` page | Icon-per-station grid, already fairly static-shaped |
 
 AVN (aircraft gauges: speed/altitude/fuel) was implemented and live-verified, then removed —

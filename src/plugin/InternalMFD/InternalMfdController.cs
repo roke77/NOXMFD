@@ -59,6 +59,8 @@ namespace NOXMFD
 
         private void Teardown()
         {
+            _leftPage?.Teardown();
+            _rightPage?.Teardown();
             if (_overlay != null) Destroy(_overlay);
             _overlay = null;
             _leftPage = null;
@@ -174,7 +176,7 @@ namespace NOXMFD
             // down the whole reader object) — reset the static toggle here too, or a POC left ON
             // reappears unasked on the next mission without the key being pressed again.
             _enabled = false;
-            if (_overlay != null) Destroy(_overlay);
+            Teardown();
         }
     }
 }
