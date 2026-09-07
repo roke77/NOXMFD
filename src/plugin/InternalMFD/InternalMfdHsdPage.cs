@@ -44,14 +44,18 @@ namespace NOXMFD
 
         // hsd.js's own CX=CEN_CY=300/CEN_OUTER=220/DEP_CY=500/DEP_OUTER=420 (in a 600 viewBox)
         // leave real margin above/below CEN's ring for header/footer text this pane doesn't draw
-        // inside the scope the same way — asked to close most of that gap instead of matching the
-        // source ratio exactly, so CenOuterFrac is bumped well past 220/300 (kept as a comment for
-        // reference), leaving just enough margin for the corner readouts. DepOuterFrac keeps the
-        // source's own 420/300 — that one wasn't the problem; the ring was being clipped by a
-        // narrower-than-necessary container (see _center's own construction comment), not by an
-        // undersized radius.
+        // inside the scope the same way — asked to close that gap entirely instead of matching the
+        // source ratio, so CenOuterFrac is 1 (touches the pane edges exactly, same fill
+        // InternalMfdRwrPage's own FillFrac=1 uses) rather than 220/300 (kept as a comment for
+        // reference). Safe against the corner readouts: a circle touching all four edges of a
+        // square still leaves its own corners clear (the corner is R*sqrt(2) from center, the ring
+        // only R), so the text anchored right at the pane's corners never overlaps it. DepOuterFrac
+        // keeps the source's own 420/300 — that one wasn't under-filling; the ring was being
+        // clipped by a narrower-than-necessary container (see _center's own construction comment),
+        // not by an undersized radius, and 420/300 already uses close to the pane's full width now
+        // that the container fix landed.
         private const float CenCyOffsetFrac = 0f;
-        private const float CenOuterFrac = 0.92f; // hsd.js: 220/300 = 0.733
+        private const float CenOuterFrac = 1f; // hsd.js: 220/300 = 0.733
         private const float DepCyOffsetFrac = 200f / 300f;
         private const float DepOuterFrac = 420f / 300f;
 
@@ -213,7 +217,14 @@ namespace NOXMFD
 
             UpdateGrid(gridFractions, outerRadiusPx, origin);
             _ownship.anchoredPosition = origin;
-            _rangeText.text = (dep ? "DEP " : "CEN ") + Mathf.RoundToInt(rangeM / 1852f) + "nm";
+            // hsd.js's own rangeLabel(): metric shows km, otherwise nm — snap.RdrMetric is the same
+            // player-wide PlayerSettings.unitSystem flag despite its RDR-page-coined name (nothing
+            // about it is actually RDR-specific), the same one UnitConverter's own readings below
+            // already implicitly follow.
+            string rangeLabel = snap.RdrMetric
+                ? Mathf.RoundToInt(rangeM / 1000f) + "km"
+                : Mathf.RoundToInt(rangeM / 1852f) + "nm";
+            _rangeText.text = (dep ? "DEP " : "CEN ") + rangeLabel;
 
             HsdThreat[] threats = snap.HsdThreats ?? Array.Empty<HsdThreat>();
             EnsureThreatPool(threats.Length);
