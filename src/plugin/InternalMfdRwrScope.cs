@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -21,8 +22,6 @@ namespace NOXMFD
     // floating-origin frames.
     internal sealed class InternalMfdRwrScope
     {
-        private const int MaxContacts = 8;
-        private const int MaxMissiles = 4;
         private const float Diameter = 280f;
         private const float Radius = Diameter / 2f;
         private const float MinDistFrac = 0.06f; // matches telemetry-source.js's own floor
@@ -55,14 +54,25 @@ namespace NOXMFD
         private static readonly Color MissileAmber = new Color32(0xff, 0xd2, 0x1e, 0xff);
 
         private readonly RectTransform _center;
-        private readonly Image[] _contactMarkers = new Image[MaxContacts];
-        private readonly Text[] _contactLabels = new Text[MaxContacts];
-        private readonly RectTransform[] _missileMarkers = new RectTransform[MaxMissiles];
-        private readonly Image[] _missileImages = new Image[MaxMissiles];
+        private readonly int _layer;
+        private readonly Font? _font;
+
+        // Grow-on-demand pools, not a fixed cap — TelemetryReader's own _rwrEmitters dictionary and
+        // rwr.js's renderer have no size limit at all, so an artificial "MaxContacts"/"MaxMissiles"
+        // ceiling here would silently drop real contacts/missiles past whatever number was picked,
+        // a genuine behavior difference from the real page, not just a rendering-style one. Never
+        // shrinks once grown (a dense furball leaves the pool at its peak size rather than
+        // reallocating up and down every refresh) — inactive entries just sit deactivated.
+        private readonly List<Image> _contactMarkers = new List<Image>();
+        private readonly List<Text> _contactLabels = new List<Text>();
+        private readonly List<RectTransform> _missileMarkers = new List<RectTransform>();
+        private readonly List<Image> _missileImages = new List<Image>();
 
         internal InternalMfdRwrScope(RectTransform parent, Font? font)
         {
             int layer = parent.gameObject.layer;
+            _layer = layer;
+            _font = font;
 
             // No title text — the real page has none; the scope fills the whole panel. Centered
             // in the full half, not offset to leave room for a header.
@@ -82,10 +92,17 @@ namespace NOXMFD
 
             BuildHeadingTriangle(_center, layer);
             BuildOwnshipCaret(_center, layer);
+            // Contact/missile markers are created on demand in Refresh (EnsureContactPool/
+            // EnsureMissilePool below), not pre-built here — there's no fixed count to build.
+        }
 
-            for (int i = 0; i < MaxContacts; i++)
+        // Grows the contact pool to at least `count` entries, creating new marker+label pairs only
+        // when the pool isn't already big enough (never shrinks or reallocates existing entries).
+        private void EnsureContactPool(int count)
+        {
+            while (_contactMarkers.Count < count)
             {
-                var go = NewUi($"Contact{i}", _center, layer, typeof(Image));
+                var go = NewUi($"Contact{_contactMarkers.Count}", _center, _layer, typeof(Image));
                 var rt = go.GetComponent<RectTransform>();
                 rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.sizeDelta = new Vector2(10f, 10f);
@@ -93,28 +110,31 @@ namespace NOXMFD
                 var img = go.GetComponent<Image>();
                 img.raycastTarget = false;
                 go.SetActive(false);
-                _contactMarkers[i] = img;
+                _contactMarkers.Add(img);
 
-                var labelGo = NewUi($"Contact{i}Label", _center, layer, typeof(Text));
+                var labelGo = NewUi($"Contact{_contactLabels.Count}Label", _center, _layer, typeof(Text));
                 var labelRt = labelGo.GetComponent<RectTransform>();
                 labelRt.anchorMin = labelRt.anchorMax = new Vector2(0.5f, 0.5f);
                 labelRt.sizeDelta = new Vector2(90f, 16f);
                 var label = labelGo.GetComponent<Text>();
-                label.font = font;
+                label.font = _font;
                 label.fontSize = 11;
                 label.alignment = TextAnchor.MiddleCenter;
                 label.raycastTarget = false;
                 labelGo.SetActive(false);
-                _contactLabels[i] = label;
+                _contactLabels.Add(label);
             }
+        }
 
-            for (int i = 0; i < MaxMissiles; i++)
+        // Grows the missile pool to at least `count` entries. Pivoted and anchored at the TRUE
+        // centre (not an angle-0 offset like the fixed cardinal ticks) — a missile's angle changes
+        // every Refresh, so its pivot has to stay at centre for the live rotation to sweep
+        // correctly instead of orbiting around wherever it was first created pointing.
+        private void EnsureMissilePool(int count)
+        {
+            while (_missileMarkers.Count < count)
             {
-                // Pivoted and anchored at the TRUE centre (not an angle-0 offset like the fixed
-                // cardinal ticks above) — this one's angle changes every Refresh, so its pivot has
-                // to stay at centre for the live rotation to sweep correctly instead of orbiting
-                // around wherever the construction-time angle happened to place it.
-                var go = NewUi($"Missile{i}", _center, layer, typeof(Image));
+                var go = NewUi($"Missile{_missileMarkers.Count}", _center, _layer, typeof(Image));
                 var rt = go.GetComponent<RectTransform>();
                 rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.pivot = new Vector2(0.5f, 0f);
@@ -123,18 +143,18 @@ namespace NOXMFD
                 img.color = MissileRed;
                 img.raycastTarget = false;
                 go.SetActive(false);
-                _missileMarkers[i] = rt;
-                _missileImages[i] = img;
+                _missileMarkers.Add(rt);
+                _missileImages.Add(img);
             }
         }
 
         internal void Refresh(TelemetrySnapshot snap)
         {
             RwrContact[] contacts = snap.Rwr ?? Array.Empty<RwrContact>();
-            int shown = Mathf.Min(contacts.Length, MaxContacts);
-            for (int i = 0; i < MaxContacts; i++)
+            EnsureContactPool(contacts.Length);
+            for (int i = 0; i < _contactMarkers.Count; i++)
             {
-                bool active = i < shown;
+                bool active = i < contacts.Length;
                 _contactMarkers[i].gameObject.SetActive(active);
                 _contactLabels[i].gameObject.SetActive(active);
                 if (!active) continue;
@@ -156,14 +176,14 @@ namespace NOXMFD
             }
 
             MwContact[] missiles = snap.Mw ?? Array.Empty<MwContact>();
-            int shownM = Mathf.Min(missiles.Length, MaxMissiles);
+            EnsureMissilePool(missiles.Length);
             // rwr.js flickers the missile layer red<->yellow on its own ~3.8Hz timer, independent
             // of the data rate — a discrete color swap, not an alpha fade.
             bool flip = Mathf.FloorToInt(Time.time * 3.8f) % 2 == 0;
             Color flickerColor = flip ? MissileRed : MissileAmber;
-            for (int i = 0; i < MaxMissiles; i++)
+            for (int i = 0; i < _missileMarkers.Count; i++)
             {
-                bool active = i < shownM;
+                bool active = i < missiles.Length;
                 _missileMarkers[i].gameObject.SetActive(active);
                 if (!active) continue;
 
