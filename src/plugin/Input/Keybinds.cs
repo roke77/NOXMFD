@@ -485,7 +485,7 @@ namespace NOXMFD
             DefFree(config, "internal-mfd-poc-toggle", mfd, "InternalMfdPocToggle", "Internal MFD POC Toggle", edge: true,
                 "POC only: show/hide a placeholder panel on the cockpit's tactical screen, to prove " +
                 "native content can paint there.",
-                () => InternalMfdPoc.Toggle());
+                () => InternalMfdController.Toggle());
 
             // Hidden like the binds above — the /keybinds page owns this one too now (rendered as a
             // toggle, not a bind row: it has no key/joy/axis source of its own).

@@ -462,7 +462,7 @@ namespace NOXMFD
             lock (_lock) { _latest = snap; _snapVersion++; }
         }
 
-        // In-process readers (e.g. InternalMfdPoc) that want the same already-aggregated data the
+        // In-process readers (e.g. InternalMfdController) that want the same already-aggregated data the
         // HTTP/SSE path serializes, without re-deriving it (RWR contacts, own-ship world position,
         // etc. all come from one TelemetryReader.Update() pass already). Same-assembly only —
         // TelemetrySnapshot is internal by design, not a public API surface.

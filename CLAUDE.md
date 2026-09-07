@@ -284,7 +284,7 @@ responsibility-group per commit — large reshuffles are hard to review and wrec
 are ready to move together.
 
 `src/plugin/InternalMFD/` (issue #43, docs/internal-mfd.md) splits by responsibility, not
-just "everything about this feature in one folder": `InternalMfdPoc.cs` (the `MonoBehaviour`
+just "everything about this feature in one folder": `InternalMfdController.cs` (the `MonoBehaviour`
 — toggle, canvas resolution dispatch, split-vs-single layout, per-frame Refresh dispatch to
 whichever pages are mounted), `InternalMfdScreenResolver.cs` (finding the cockpit TacScreen
 canvas for a given aircraft — a distinct concern from what gets drawn on it once found),

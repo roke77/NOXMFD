@@ -22,7 +22,7 @@ confirmed live).
 
 `src/plugin/InternalMFD/`, split by responsibility rather than kept as one growing file:
 
-- **`InternalMfdPoc.cs`** — the `MonoBehaviour`: toggle, canvas-resolution dispatch, split-vs-single
+- **`InternalMfdController.cs`** — the `MonoBehaviour`: toggle, canvas-resolution dispatch, split-vs-single
   layout construction, per-frame `Refresh` dispatch to whichever pages are mounted. Doesn't know
   what a page actually draws.
 - **`InternalMfdScreenResolver.cs`** — finds the local player's `Cockpit`/`TacScreen`/`Canvas` for a
@@ -180,7 +180,7 @@ proportions decide this, not a global setting.
 The T/A-30's own center screen (the only screen measured so far) is a data point for this rule: its
 UV band is roughly 1024×364 px within the shared texture (see
 [Feasibility approach](#feasibility-approach)), a ≈2.8:1 aspect ratio — wide, and implemented as a
-split: `InternalMfdPoc.cs` builds a left and right `RectTransform` half with a vertical separator
+split: `InternalMfdController.cs` builds a left and right `RectTransform` half with a vertical separator
 between them, and mounts one `IInternalMfdPage` per half (currently `InternalMfdTgpPage` on the
 left, `InternalMfdRwrPage` on the right — see [Status](#status) and
 [Code organization](#code-organization)).

@@ -4,7 +4,7 @@ using UnityEngine;
 namespace NOXMFD
 {
     // Finds the local player's cockpit TacScreen canvas (docs/internal-mfd.md) — the insertion
-    // point every internal-MFD page ultimately renders into. Separated from InternalMfdPoc's own
+    // point every internal-MFD page ultimately renders into. Separated from InternalMfdController's own
     // toggle/lifecycle/layout concerns: this only knows how to locate the canvas for a given
     // aircraft (and log why it couldn't), not what gets built on it or how a pane splits.
     internal static class InternalMfdScreenResolver

@@ -58,7 +58,7 @@ namespace NOXMFD
             _readerObject.AddComponent<HudTtiCue>();
             _readerObject.AddComponent<HudFocusMark>();
             _readerObject.AddComponent<HudSquadTargetMark>();   // issue #49
-            _readerObject.AddComponent<InternalMfdPoc>();       // issue #43 POC
+            _readerObject.AddComponent<InternalMfdController>(); // issue #43 POC
             Plugin.Log?.LogInfo("Mission started -> telemetry reader ON.");
         }
 

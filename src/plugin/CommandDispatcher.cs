@@ -164,7 +164,7 @@ namespace NOXMFD
                 { "tgp.fullscreen-toggle",     e => TgpFullScreen.Toggle() },
                 { "tgp.fullscreen-hud-toggle", e => TgpFullScreen.ToggleHud() },
                 // Remote-keybind twin of the Internal MFD POC Toggle keybind (issue #43 POC).
-                { "internal-mfd.poc-toggle", e => InternalMfdPoc.Toggle() },
+                { "internal-mfd.poc-toggle", e => InternalMfdController.Toggle() },
                 // TGP page's STP button and MARK STEER POINT keybind (docs/steer-points.md) — marks
                 // whatever TGP is currently showing (a real lock's position, or the manual camera's
                 // aim point) as a new steer point, straight into RouteStore. No wire fields at all.

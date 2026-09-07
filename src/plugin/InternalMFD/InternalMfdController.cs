@@ -14,7 +14,7 @@ namespace NOXMFD
     //
     // Mission-scoped (added in MissionLifecycle.StartReader, same as the Hud* cues), because the
     // Cockpit/TacScreen chain only exists for a live local-player aircraft.
-    internal class InternalMfdPoc : MonoBehaviour
+    internal class InternalMfdController : MonoBehaviour
     {
         private static bool _enabled;
 
@@ -89,7 +89,7 @@ namespace NOXMFD
         {
             // Build into a local first: on an exception partway through, the field stays null and
             // the next frame's LateUpdate retries cleanly, instead of caching a half-built overlay.
-            var overlay = new GameObject("NOXMFD_InternalMfdPoc", typeof(RectTransform));
+            var overlay = new GameObject("NOXMFD_InternalMfdController", typeof(RectTransform));
             overlay.layer = canvas.gameObject.layer; // SetParent does NOT inherit the parent's layer
 
             string unitName = aircraft.definition != null ? aircraft.definition.unitName : "?";

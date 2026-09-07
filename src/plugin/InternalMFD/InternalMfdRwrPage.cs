@@ -19,7 +19,7 @@ namespace NOXMFD
     // not the SVG itself (see docs/internal-mfd.md's "Why native, not screen-scraped" for why that
     // gap can't fully close). Own-ship position/heading and every contact/missile position come from
     // ONE TelemetrySnapshot (TelemetryServer.TryGetLatestSnapshot, passed into Refresh by
-    // InternalMfdPoc) so the bearing math can't mix floating-origin frames.
+    // InternalMfdController) so the bearing math can't mix floating-origin frames.
     internal sealed class InternalMfdRwrPage : IInternalMfdPage
     {
         private const float MinDistFrac = 0.06f; // matches telemetry-source.js's own floor
@@ -54,7 +54,7 @@ namespace NOXMFD
 
         // rwr.html/rwr.js use stroke-width="3" (out of a 1000 viewBox) for both the cardinal ticks
         // and the missile line — as a fraction of the outer radius (460), not a fixed pixel count
-        // that stays the same regardless of how big the scope itself ends up (InternalMfdPoc sizes
+        // that stays the same regardless of how big the scope itself ends up (InternalMfdController sizes
         // it differently per aircraft/layout).
         private const float StrokeWidthFrac = 3f / 460f;
 
