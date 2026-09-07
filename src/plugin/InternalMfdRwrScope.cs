@@ -41,7 +41,10 @@ namespace NOXMFD
         // rng isn't a wire field — rwr.js computes it client-side as
         // Math.hypot(dx,dz)/1000 from world positions, same as here.
         private const float MissileRangeMaxKm = 6f;
-        private const float MissileInnerFrac = 60f / 460f;
+        // 0, not rwr.html's own RIN=60/460 (~13%) — asked to close that gap so the line visually
+        // touches the ownship caret instead of stopping short of it, a deliberate deviation from
+        // the source's own small gap there.
+        private const float MissileInnerFrac = 0f;
         private const float MissileAnchorFrac = (60f + 35f) / 460f; // the outer end's position when rng=0
 
         // rwr.js's dart polygon proportions (HL=36 apex length + HB=8 back offset, HW*2=20 full
@@ -278,11 +281,16 @@ namespace NOXMFD
                 _missileMarkers[i].localRotation = Quaternion.Euler(0f, 0f, -az);
                 _missileImages[i].color = flickerColor;
 
-                // The dart's own apex points local -Y unrotated (see ResolveTriangleSprite); +180
-                // on top of the line's own -az turns that into "points further outward", continuing
-                // past the line's outer end rather than back in toward centre.
+                // Traced through rwr.js's own vector math rather than assumed: its dart uses
+                // (ux,uy)=(-sn,cs), the exact NEGATIVE of (sn,-cs) — the same outward-at-this-
+                // azimuth vector (mx,my) itself is placed with. So the apex sits INWARD from the
+                // line's outer end, toward the player, not continuing further out as guessed the
+                // first time (that guess is what "pointing backwards" was live-testing against).
+                // Same rotation as the line itself, no extra 180 - the dart's own apex already
+                // points local -Y unrotated (see ResolveTriangleSprite), i.e. already inward once
+                // rotated by -az the same way the line is.
                 _missileDarts[i].rectTransform.anchoredPosition = PolarToLocal(az, outerFrac);
-                _missileDarts[i].rectTransform.localRotation = Quaternion.Euler(0f, 0f, -az + 180f);
+                _missileDarts[i].rectTransform.localRotation = Quaternion.Euler(0f, 0f, -az);
                 _missileDarts[i].color = flickerColor;
 
                 // Radar-seeker beam-notch axis — rwr.js only draws this when Notch is a valid
