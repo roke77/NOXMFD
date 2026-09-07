@@ -127,10 +127,10 @@ namespace NOXMFD
 
             _ownship = BuildOwnship();
 
-            _rangeText = BuildCornerText("RangeText", new Vector2(1f, 1f), TextAnchor.UpperRight, 16);
-            _linkText = BuildCornerText("LinkText", new Vector2(1f, 0f), TextAnchor.LowerRight, 14);
-            _lockText = BuildCornerText("LockText", new Vector2(1f, 0f), TextAnchor.LowerRight, 14);
-            _lockText.rectTransform.anchoredPosition += new Vector2(0f, 18f); // stacked above LinkText
+            _rangeText = BuildCornerText("RangeText", new Vector2(1f, 1f), TextAnchor.UpperRight, 32);
+            _linkText = BuildCornerText("LinkText", new Vector2(1f, 0f), TextAnchor.LowerRight, 28);
+            _lockText = BuildCornerText("LockText", new Vector2(1f, 0f), TextAnchor.LowerRight, 28);
+            _lockText.rectTransform.anchoredPosition += new Vector2(0f, 34f); // stacked above LinkText
             _focusedNameText = BuildCornerText("FocusedName", new Vector2(0f, 0f), TextAnchor.LowerLeft, 15);
             _focusedNameText.rectTransform.anchoredPosition += new Vector2(0f, 18f);
             _focusedDetailText = BuildCornerText("FocusedDetail", new Vector2(0f, 0f), TextAnchor.LowerLeft, 13);
@@ -401,7 +401,10 @@ namespace NOXMFD
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = corner;
             rt.pivot = corner;
-            rt.sizeDelta = new Vector2(0.4f * _diameter, 20f);
+            // Box scales with fontSize (not a fixed 20px tall) so a bigger size doesn't get
+            // wrapped/truncated against its own rect — _center carries a RectMask2D (DEP's ring
+            // clipping), so anything past its own box would otherwise be cropped there too.
+            rt.sizeDelta = new Vector2(0.5f * _diameter, fontSize * 1.4f);
             const float pad = 10f;
             rt.anchoredPosition = new Vector2((corner.x - 0.5f) * -2f * pad, (corner.y - 0.5f) * -2f * pad);
             var text = go.GetComponent<Text>();
@@ -409,6 +412,8 @@ namespace NOXMFD
             text.fontSize = fontSize;
             text.alignment = align;
             text.color = new Color(1f, 1f, 1f, 0.85f);
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
             text.raycastTarget = false;
             return text;
         }
